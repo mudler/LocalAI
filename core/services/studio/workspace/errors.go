@@ -19,6 +19,10 @@ var (
 	// ErrInvalid means the operation is not possible, for example moving a
 	// folder into itself.
 	ErrInvalid = errors.New("workspace: invalid operation")
+	// ErrSharedMove means the folder, or a folder in it, is shared, and the
+	// move would take the share into another home or into a folder that
+	// LocalAI manages (see workfiles.GrantsMayMove). Nothing was moved.
+	ErrSharedMove = errors.New("workspace: this folder or a folder in it is shared; stop sharing it before you move it there")
 	// ErrNotAdmin means the call needs the admin principal.
 	ErrNotAdmin = errors.New("workspace: admin principal required")
 	// ErrCommitted means the write is durable but the call could not read the

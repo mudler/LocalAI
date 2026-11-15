@@ -22,6 +22,8 @@ var _ = Describe("Subject rules", func() {
 		Entry("finetune progress", "finetune.job1.progress"),
 		Entry("chat events", "chats.events.abc"),
 		Entry("chat control", "chats.control.abc"),
+		Entry("chat event replay", "chats.replay.abc"),
+		Entry("chat jobs", "chats.jobs.abc"),
 		Entry("chat start", messaging.SubjectChatStart),
 	)
 

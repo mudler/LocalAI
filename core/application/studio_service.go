@@ -17,13 +17,18 @@ import (
 	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	endpointsaddons "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/resources"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
@@ -32,6 +37,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/signals"
 )
 
 // legacyAPIKeyUserID is the synthetic user the auth middleware gives a request
@@ -42,6 +49,23 @@ const legacyAPIKeyUserID = "legacy-api-key"
 // when it could not be built.
 func (a *Application) StudioService() *studio.Service {
 	return a.studioService
+}
+
+// StudioSelectionGuard is the check of the conversation selection of the
+// add-on routes: a chat of a saved agent selects only a resource on the list
+// of the agent. It is nil when the chats are off.
+func (a *Application) StudioSelectionGuard() endpointsaddons.SelectionGuard {
+	if a.studioService == nil {
+		return nil
+	}
+	hasAccounts := a.authDB != nil
+	return func(ctx context.Context, actor contract.Actor, conv, addonID, resourceID string) (bool, error) {
+		user := addonWorkspacePrincipal(hasAccounts)(actor)
+		if user == "" {
+			return false, nil
+		}
+		return a.studioService.ResourceSelectable(ctx, user, conv, addonID, resourceID)
+	}
 }
 
 // StudioBuiltins is the registry of the built-in chat tools an add-on may
@@ -75,9 +99,19 @@ func (a *Application) initStudioService() {
 	}
 	var bus studio.Bus
 	var fan notify.Fanout
+	var replay studio.ReplayCarrier
+	var jobs bgjob.Carrier
+	instance := ""
 	if d := a.Distributed(); d != nil && d.Nats != nil {
 		bus = studio.NewBroadcastBus(d.Nats, nil)
 		fan = notify.NewBroadcastFanout(d.Nats, nil)
+		// A client whose event stream reconnects to another frontend gets the
+		// events it missed from the process that runs the turn.
+		replay = studio.NewReplayCarrier(d.Nats, nil)
+		// A turn that runs on another node reads, writes to and kills a
+		// background job on the node that runs it.
+		jobs = studio.NewJobCarrier(d.Nats, nil)
+		instance = a.applicationConfig.Distributed.InstanceID
 	}
 	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
 	a.studioInbox = inbox
@@ -99,41 +133,59 @@ func (a *Application) initStudioService() {
 	a.initStudioMCPConnectors()
 	a.studioWeb = newStudioWeb(a.applicationConfig, a.serverSelf())
 	deps := studio.Deps{
-		Bus:      bus,
-		Store:    a.studioStore,
-		Provider: a.studioProvider,
-		Users:    a.studioUsers(),
-		Allowed:  a.studioFeatureAllowed,
+		AutoResume:   a.applicationConfig.ChatsAutoResume,
+		CloseTimeout: studioCloseTimeout,
+		Bus:          bus,
+		Replay:       replay,
+		JobCarrier:   jobs,
+		Instance:     instance,
+		Store:        a.studioStore,
+		Provider:     a.studioProvider,
+		Users:        a.studioUsers(),
+		Allowed:      a.studioFeatureAllowed,
 		// Read at each turn, so the runtime setting applies at once.
 		SuggestionsDefault: func() bool { return !a.applicationConfig.DisableChatSuggestions },
 		StateDir:           stateDir,
 		MCP:                a.studioMCP,
 		MCPServers:         a.studioModelMCPServers,
 		Agents:             a.studioAgents,
-		Notify:             inbox,
-		Push:               pusher,
-		AddonTools:         lateStudioAddons{a},
-		Assistant:          studioAssistant{a},
-		Collections:        studioCollections{a},
-		ContextTokens:      a.studioContextTokens,
-		RemoteModel:        a.studioRemoteModel,
-		PageConsents:       a.studioPageConsents(),
-		SharedFolderAudit:  a.studioSharedFolderAudit(),
-		Proposals:          a.studioProposalStore(),
-		UserSetting:        a.studioUserSetting,
-		SetUserSetting:     a.studioSetUserSetting,
-		EgressSettings:     a.studioEgressSettings,
-		EgressAudit:        a.studioEgressAudit(),
-		EgressAuditDays:    func() int { return a.applicationConfig.EffectiveChatsEgressAuditDays() },
-		FindUser:           a.studioFindUser(),
-		SharedPagesOn:      func() bool { return !a.applicationConfig.DisableSharedPages },
-		Modalities:         a.studioModalities,
-		MCPContent:         studioMCPContent{a: a},
-		AgentOptions:       a.studioAgentOptions,
-		Persistent:         a.studioStoreKind != "memory",
-		Files:              a.StudioFiles(),
-		Media:              media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel),
-		Web:                a.studioWeb,
+		// Saved agents are shared through the policy of the add-on owner.
+		// The owner process holds it; a frontend reaches it through the
+		// add-on carrier (addonSharingForward). Without either no agent is
+		// shared through this process, which fails closed.
+		AgentShares:       studio.PolicyAgentShares{Policy: a.AddonPolicy, Forward: a.addonSharingForward},
+		ReferenceShares:   a.studioReferenceShares,
+		Notify:            inbox,
+		Push:              pusher,
+		AddonTools:        lateStudioAddons{a},
+		SandboxJobs:       studio.NewSandboxJobs(lateStudioAddons{a}, sandboxJobAudit(a.studioHostExecAudit)),
+		Assistant:         studioAssistant{a},
+		ClientTools:       studioAssistant{a},
+		Collections:       studioCollections{a},
+		ContextTokens:     a.studioContextTokens,
+		RemoteModel:       a.studioRemoteModel,
+		PageConsents:      a.studioPageConsents(),
+		PageErrors:        a.studioPageErrors(),
+		SharedFolderAudit: a.studioSharedFolderAudit(),
+		Proposals:         a.studioProposalStore(),
+		UserSetting:       a.studioUserSetting,
+		SetUserSetting:    a.studioSetUserSetting,
+		EgressSettings:    a.studioEgressSettings,
+		SandboxPolicy:     a.studioSandboxPolicy,
+		EgressAudit:       a.studioEgressAudit(),
+		EgressAuditDays:   func() int { return a.applicationConfig.EffectiveChatsEgressAuditDays() },
+		FindUser:          a.studioFindUser(),
+		FolderDirectory:   a.studioFolderDirectory(),
+		SharedPagesOn:     func() bool { return !a.applicationConfig.DisableSharedPages },
+		PageAreaOn:        func() bool { return !a.applicationConfig.DisablePageArea },
+		Modalities:        a.studioModalities,
+		MCPContent:        studioMCPContent{a: a},
+		AgentOptions:      a.studioAgentOptions,
+		PreserveThinking:  a.studioPreserveThinking,
+		Persistent:        a.studioStoreKind != "memory",
+		Files:             a.StudioFiles(),
+		Media:             media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel).WithClient(a.studioMediaClient),
+		Web:               a.studioWeb,
 	}
 	if a.studioMCPConns != nil {
 		deps.MCPConnectors = a.studioMCPConns
@@ -152,7 +204,7 @@ func (a *Application) initStudioService() {
 		// resolved access, so they are the turn's: a chat whose agent works in
 		// one folder gets a fenced actor, which the runner refuses.
 		a.studioHostExec = hostexec.New(hostexec.Options{
-			Store: f.Store(), StateDir: hxDir, Audit: a.studioHostExecAudit(), Geteuid: os.Geteuid,
+			Store: f.Store(), StateDir: hxDir, Audit: a.studioHostExecAudit(), Geteuid: os.Geteuid, Instance: instance,
 			Actor: func(ctx context.Context, user, chat string) (workspace.Actor, error) {
 				svc := svcRef.Load()
 				if svc == nil {
@@ -167,6 +219,13 @@ func (a *Application) initStudioService() {
 				}
 				return svc.CommandView(ctx, act)
 			},
+			WorkDir: func(ctx context.Context, act workspace.Actor, create bool) string {
+				svc := svcRef.Load()
+				if svc == nil {
+					return ""
+				}
+				return svc.CommandWorkDir(ctx, act, create)
+			},
 		})
 		if r := a.studioHostExec.Unavailable(); r != "" {
 			xlog.Info("Chats: the built-in bash cannot run commands on this machine", "reason", r)
@@ -175,6 +234,16 @@ func (a *Application) initStudioService() {
 	}
 	deps.HostExecMode = a.studioHostExecMode
 	deps.SavedAgentsOn = func() bool { return !a.applicationConfig.DisableChatsSavedAgents }
+	deps.LocalAIClientOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIClient }
+	deps.LocalAIAdminOn = func() bool { return !a.applicationConfig.DisableChatsLocalAIAdmin }
+	deps.ToolSearchMode = a.applicationConfig.EffectiveChatsToolSearch
+	deps.ExtractLimits = func() files.ExtractLimits {
+		c := a.applicationConfig
+		return files.ExtractLimits{
+			MaxBytes: c.EffectiveChatsExtractMaxBytes(), MaxEntries: c.EffectiveChatsExtractMaxEntries(),
+			MaxFileBytes: studioMaxFileSize, SevenZipRar: c.ChatsExtractSevenZipRar,
+		}
+	}
 	deps.WorkFolderOn = func() bool { return !a.applicationConfig.DisableChatsWorkFolder }
 	deps.GoalLimits = func() (int, int) {
 		return a.applicationConfig.EffectiveChatsGoalMaxTurns(), a.applicationConfig.EffectiveChatsGoalMaxSteps()
@@ -195,6 +264,11 @@ func (a *Application) initStudioService() {
 	}
 	a.studioService = svc
 	svcRef.Store(svc)
+	// The kind "agent" registers with the policy when the add-on owner opens
+	// it, or at once when it is already open.
+	if err := a.RegisterShareKinds(svc); err != nil {
+		xlog.Warn("Chats: saved agents cannot be shared", "error", err)
+	}
 	a.startStudioReaper(svc)
 	a.startStudioEgressPrune(svc)
 	if a.applicationConfig.Distributed.ChatWorker {
@@ -225,6 +299,14 @@ func (a *Application) ownsAddonsOnly() bool {
 // service is up. No chat turn runs then, so it is not expected.
 var errStudioStarting = errors.New("chats: the service is starting")
 
+// studioCloseTimeout bounds studio.Service.Close in this process. The
+// termination hooks, Close among them, are cut off after
+// signals.DefaultHookTimeout, so a bound of the service's own default (25
+// seconds) would never fire here: the process would exit first and leave its
+// turns claimed until the reaper finds them. Marking them interrupted needs a
+// few seconds of the budget as well.
+const studioCloseTimeout = signals.DefaultHookTimeout - 5*time.Second
+
 // A turn beats every 15 seconds; one that has not beaten for this long belongs
 // to a frontend that died.
 const (
@@ -248,16 +330,37 @@ func (a *Application) startStudioReaper(svc *studio.Service) {
 			xlog.Info("Chats: ended turns whose frontend stopped", "turns", n)
 		}
 	}
+	// The same tick resumes the interrupted turns that are due (see
+	// studio.Service.SweepResumes). The store's claim keeps two sweeps from
+	// starting one turn twice, and the lock keeps the work on one frontend.
+	sweep := func() {
+		n, err := svc.SweepResumes(ctx)
+		if err != nil {
+			xlog.Warn("Chats: could not resume interrupted turns", "error", err)
+		} else if n > 0 {
+			xlog.Info("Chats: resumed interrupted turns", "turns", n)
+		}
+	}
 	if a.authDB == nil {
-		// The JSON store settles its own claims when it loads.
+		// The JSON store settles its own claims when it loads, so nothing is
+		// left to reap; the turns it interrupted may still resume.
+		if a.applicationConfig.ChatsAutoResume {
+			a.everyStudioTick(ctx, sweep)
+		}
 		return
 	}
+	step := func() { reap(); sweep() }
 	if a.Distributed() != nil {
-		go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, reap)
+		go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, step)
 		return
 	}
 	// The conditional update of a reap is safe to race with another process.
-	reap()
+	step()
+	a.everyStudioTick(ctx, step)
+}
+
+// everyStudioTick runs f every studioReapEvery until ctx ends.
+func (a *Application) everyStudioTick(ctx context.Context, f func()) {
 	go func() {
 		tick := time.NewTicker(studioReapEvery)
 		defer tick.Stop()
@@ -266,7 +369,7 @@ func (a *Application) startStudioReaper(svc *studio.Service) {
 			case <-ctx.Done():
 				return
 			case <-tick.C:
-				reap()
+				f()
 			}
 		}
 	}()
@@ -274,7 +377,7 @@ func (a *Application) startStudioReaper(svc *studio.Service) {
 
 // studioUsers returns the user lookup, or nil when auth is off.
 func (a *Application) studioUsers() studio.UserLookup {
-	if a.authDB == nil && len(a.applicationConfig.ApiKeys) == 0 {
+	if !a.AuthActive() {
 		return nil
 	}
 	return a.loadStudioUser
@@ -337,6 +440,26 @@ func (a *Application) studioContextTokens(model string) int {
 		return 0
 	}
 	return corebackend.EffectiveRequestContextSize(cfg)
+}
+
+// studioPreserveThinking says whether a chat asks the model's chat template
+// to keep the reasoning of earlier turns. It does unless the model config sets
+// chat_template_kwargs.preserve_thinking to false. A model served by a remote
+// proxy is not asked: its upstream may refuse a field it does not know.
+func (a *Application) studioPreserveThinking(model string) bool {
+	cfg, ok := a.studioModelConfig(model)
+	if !ok || cfg.IsRemoteProxy() {
+		return false
+	}
+	if v, set := cfg.ChatTemplateKwargs["preserve_thinking"]; set {
+		switch t := v.(type) {
+		case bool:
+			return t
+		case string:
+			return t != "false" && t != "0"
+		}
+	}
+	return true
 }
 
 // studioModalities says which inputs a chat model takes natively, from its
@@ -459,9 +582,42 @@ func (a *Application) studioHostExecMode() string {
 	return hostexec.ModeAsk
 }
 
+// sandboxJobAuditKinds maps the kinds of a Sandbox job line to the kinds of
+// the audit store. The Sandbox kinds are their own, so the audit never says
+// that a Sandbox job ran on this machine.
+var sandboxJobAuditKinds = map[string]string{
+	"job_start": hostexec.KindSandboxJobStart,
+	"job_input": hostexec.KindSandboxJobInput,
+	"job_kill":  hostexec.KindSandboxJobKill,
+}
+
+// sandboxJobAudit returns the audit hook of the Sandbox jobs: one line per
+// start, input and kill in the store, the text capped by the caller at 4 KiB,
+// and a log line without the text (a command or an input can hold secrets).
+// The output of a job is never audited.
+func sandboxJobAudit(store func() hostexec.AuditStore) func(context.Context, studio.SandboxJobEvent) {
+	return func(ctx context.Context, ev studio.SandboxJobEvent) {
+		xlog.Info("[sandbox] job", "kind", ev.Kind, "user", ev.User, "chat", ev.Chat, "addon", ev.Addon, "job", ev.Job, "bytes", len(ev.Text))
+		kind, ok := sandboxJobAuditKinds[ev.Kind]
+		if !ok {
+			return
+		}
+		line := hostexec.Event{Kind: kind, User: ev.User, Chat: ev.Chat, Job: ev.Job, Command: ev.Text, Exit: -1, At: ev.At}
+		if err := store().Add(context.WithoutCancel(ctx), line); err != nil {
+			xlog.Error("[sandbox] the audit line of a job was not saved", "error", err)
+		}
+	}
+}
+
 // studioHostExecAudit opens the audit of the commands run on this machine,
-// beside the audit of the shared folders.
+// beside the audit of the shared folders. The Sandbox job lines go to the same
+// store, under kinds of their own; it is opened once.
 func (a *Application) studioHostExecAudit() hostexec.AuditStore {
+	a.studioAuditOnce.Do(func() { a.studioAudit = a.openStudioHostExecAudit() })
+	return a.studioAudit
+}
+
+func (a *Application) openStudioHostExecAudit() hostexec.AuditStore {
 	var (
 		st  hostexec.AuditStore
 		err error
@@ -647,6 +803,56 @@ func (a *Application) studioFindUser() func(ctx context.Context, ref string) (*a
 	}
 }
 
+// studioFolderDirectory is the account directory people pick from when they
+// share a folder of their own home: the user picker of the sharing routes,
+// with its rules and its own rate per person. The picker is this frontend's
+// own, so the rate is counted per frontend, not for the whole cluster.
+// Without an account database there is none and folders are not shared by
+// their owners.
+func (a *Application) studioFolderDirectory() sharedfolders.Directory {
+	if a.authDB == nil {
+		return nil
+	}
+	u := auth.NewAddonUsers(a.authDB)
+	return folderDirectory{u: u, picker: resources.NewAccountPicker(func() resources.AccountFinder { return u.Accounts }, 0, 0, nil)}
+}
+
+type folderDirectory struct {
+	u      *auth.AddonUsers
+	picker *resources.AccountPicker
+}
+
+func (d folderDirectory) Accounts(ctx context.Context, caller, query string, limit int) ([]sharedfolders.User, error) {
+	list, err := d.picker.Search(ctx, caller, "", query, limit, nil)
+	switch {
+	case errors.Is(err, gateway.ErrSearchLimited):
+		return nil, sharedfolders.ErrSearchLimited
+	case errors.Is(err, gateway.ErrInvalidRequest):
+		return nil, sharedfolders.ErrBadQuery
+	case err != nil:
+		return nil, err
+	}
+	out := make([]sharedfolders.User, 0, len(list.Users))
+	for _, r := range list.Users {
+		out = append(out, sharedfolders.User{ID: r.ID, Name: r.DisplayName})
+	}
+	return out, nil
+}
+
+func (d folderDirectory) Active(ctx context.Context, id string) (sharedfolders.User, error) {
+	if err := d.u.Active(ctx, id); err != nil {
+		if errors.Is(err, gateway.ErrForbidden) {
+			return sharedfolders.User{}, sharedfolders.ErrUnknownUser
+		}
+		return sharedfolders.User{}, err
+	}
+	names, err := d.u.Lookup(ctx, []string{id})
+	if err != nil {
+		return sharedfolders.User{}, err
+	}
+	return sharedfolders.User{ID: id, Name: names[id]}, nil
+}
+
 // studioPageConsents opens the store of the consents to shared pages, beside
 // the triggers: the auth database (shared by the frontends of a cluster), a
 // file under the data path, or memory.
@@ -666,6 +872,29 @@ func (a *Application) studioPageConsents() pages.ConsentStore {
 	if err != nil {
 		xlog.Warn("Chats: the consents to shared pages are kept in memory", "error", err)
 		st, _ = pages.NewJSONConsents("")
+	}
+	return st
+}
+
+// studioPageErrors opens the store of the runtime errors of the pages, like the
+// consents: the auth database (shared by the frontends of a cluster), a file
+// under the data path, or memory.
+func (a *Application) studioPageErrors() pages.ErrorStore {
+	var (
+		st  pages.ErrorStore
+		err error
+	)
+	switch {
+	case a.authDB != nil:
+		st, err = pages.NewGORMErrors(a.authDB)
+	case a.applicationConfig.DataPath != "":
+		st, err = pages.NewJSONErrors(filepath.Join(a.applicationConfig.DataPath, "chats", "pages"))
+	default:
+		st, err = pages.NewJSONErrors("")
+	}
+	if err != nil {
+		xlog.Warn("Chats: the errors of the pages are kept in memory", "error", err)
+		st, _ = pages.NewJSONErrors("")
 	}
 	return st
 }

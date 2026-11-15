@@ -85,6 +85,35 @@ var _ = Describe("Gallery API tests", func() {
 			Expect(uri.ResolveURL()).To(Equal("https://example.com/some/file.gguf"))
 		})
 	})
+
+	Context("HuggingFace revision suffix", func() {
+		// The branch suffix is the last "@" on the reference, so it must be
+		// taken off the file path rather than looked up in the part that
+		// follows the second "/". Resolving the old way returned a URL that
+		// still carried "@<branch>", and panicked outright for the common
+		// single-file form below.
+		DescribeTable("moves the trailing @branch into the resolve segment",
+			func(uri, want string) {
+				Expect(URI(uri).ResolveURL()).To(Equal(want))
+			},
+			Entry("huggingface:// with a single-segment file",
+				"huggingface://TheBloke/Llama-2-7B-GGUF/llama-2-7b.Q4_K_M.gguf@dev",
+				"https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/dev/llama-2-7b.Q4_K_M.gguf"),
+			Entry("hf:// with a nested file path",
+				"hf://owner/repo/sub/dir/model.gguf@v2",
+				"https://huggingface.co/owner/repo/resolve/v2/sub/dir/model.gguf"),
+			Entry("without a suffix the branch stays main",
+				"hf://owner/repo/model.gguf",
+				"https://huggingface.co/owner/repo/resolve/main/model.gguf"),
+		)
+
+		It("keeps a repository name that contains an at-sign intact", func() {
+			// Only a file path can carry the revision, so an "@" that lands
+			// in the repository half must not be read as one.
+			Expect(URI("hf://owner/repo@v2/file.gguf").ResolveURL()).To(
+				Equal("https://huggingface.co/owner/repo@v2/resolve/main/file.gguf"))
+		})
+	})
 })
 
 var _ = Describe("OCIReference", func() {

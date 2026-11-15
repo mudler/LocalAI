@@ -17,7 +17,9 @@ export const SLASH_ACTIONS = [
   { id: 'stop', cmd: '/stop', icon: 'stop', group: 'models', needs: 'loaded' },
   { id: 'agents', cmd: '/agents', icon: 'robot', group: 'go', needs: 'chats' },
   { id: 'mcp', cmd: '/mcp', icon: 'plug', group: 'go', needs: 'chats' },
-  { id: 'memory', cmd: '/memory', icon: 'database', group: 'go', needs: 'collections' },
+  // The id stays 'memory' (stored links and tests use it); the name is /knowledge and
+  // /memory still works as an alias.
+  { id: 'memory', cmd: '/knowledge', aliases: ['/memory'], icon: 'database', group: 'go', needs: 'collections' },
   { id: 'apps', cmd: '/apps', icon: 'puzzle', group: 'go', needs: 'addons' },
   { id: 'settings', cmd: '/settings', icon: 'settings', group: 'go', needs: 'admin' },
   { id: 'docs', cmd: '/docs', icon: 'book', group: 'go' },
@@ -38,12 +40,15 @@ export function availableActions(ctx) {
   })
 }
 
+// Every name a command answers to, without the slash: its own, then its aliases.
+export const commandNames = (a) => [a.cmd, ...(a.aliases || [])].map(n => n.slice(1).toLowerCase())
+
 // `query` is what follows the slash, lowercase. A command matches when its name
 // starts with the query or its label contains it. Order stays grouped.
 export function filterActions(actions, query, labelOf, groups = SLASH_GROUPS) {
   const q = query.trim()
   const matched = q
-    ? actions.filter(a => a.cmd.slice(1).startsWith(q) || labelOf(a).toLowerCase().includes(q))
+    ? actions.filter(a => commandNames(a).some(n => n.startsWith(q)) || labelOf(a).toLowerCase().includes(q))
     : actions
   return groups.flatMap(g => matched.filter(a => a.group === g))
 }

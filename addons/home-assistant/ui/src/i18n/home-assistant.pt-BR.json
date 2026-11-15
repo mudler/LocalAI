@@ -17,7 +17,6 @@
   "agent": "Agente",
   "agentNone": "Escolha um agente",
   "agentCredentialsOnly": "Sem agente (só credenciais)",
-  "agentOptionalHint": "Opcional. Sem um agente, esta conexão só guarda o token, o endereço e o modo de escrita dos seus chats. Ela não responde a mensagens e não escuta nada.",
   "credentialsOnly": "Só credenciais",
   "agentNoModel": "{{name}} (precisa de um modelo)",
   "test": "Testar",
@@ -60,7 +59,7 @@
     "hint": "Só os serviços da lista de permitidos abaixo, em entidades que não estejam excluídas.",
     "off": "Somente leitura",
     "propose": "Pergunta antes",
-    "auto": "Age sem perguntar",
+    "auto": "Age na hora",
     "line": {
       "off": "Ele não pode ligar nem desligar nada.",
       "propose": "Cada alteração espera o seu OK.",
@@ -74,7 +73,7 @@
     "row": {
       "off": "Somente leitura",
       "propose": "Pergunta antes",
-      "auto": "Age sem perguntar"
+      "auto": "Age na hora"
     }
   },
   "policy": {

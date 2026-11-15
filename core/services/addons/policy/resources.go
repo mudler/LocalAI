@@ -73,7 +73,7 @@ func (p *Policy) Accessible(ctx context.Context, actor contract.Actor, addonID s
 	defer p.store.mu.Unlock()
 	var out []ResourceKey
 	for id, r := range p.store.doc.Resources {
-		if r.State != stateActive || r.AddonID != addonID {
+		if r.State != stateActive || r.Kind != addonKind(addonID) {
 			continue
 		}
 		if p.role(actor, *r).rank() >= ActionRead.required().rank() {
@@ -288,7 +288,7 @@ func (p *Policy) Pending() ([]string, error) { return p.store.pending(), nil }
 func (p *Policy) activateReservation(key ResourceKey, userID string) error {
 	return p.store.mutate(func(d *document) error {
 		r := d.Resources[key.ResourceID]
-		if r == nil || r.State != statePend || r.AddonID != key.AddonID || r.Owner != p.store.Mode().ownerOf(contract.Actor{UserID: userID}) {
+		if r == nil || r.State != statePend || r.Kind != addonKind(key.AddonID) || r.Owner != p.store.Mode().ownerOf(contract.Actor{UserID: userID}) {
 			return nil
 		}
 		r.State = stateActive
@@ -299,7 +299,7 @@ func (p *Policy) activateReservation(key ResourceKey, userID string) error {
 // dropReservation removes a pending reservation that nothing created.
 func (p *Policy) dropReservation(key ResourceKey) error {
 	return p.store.mutate(func(d *document) error {
-		if r := d.Resources[key.ResourceID]; r != nil && r.State == statePend && r.AddonID == key.AddonID {
+		if r := d.Resources[key.ResourceID]; r != nil && r.State == statePend && r.Kind == addonKind(key.AddonID) {
 			delete(d.Resources, key.ResourceID)
 		}
 		return nil
@@ -309,7 +309,7 @@ func (p *Policy) dropReservation(key ResourceKey) error {
 // reservationPending reports whether the reservation is still pending.
 func (p *Policy) reservationPending(key ResourceKey) bool {
 	r, ok := p.store.get(key.ResourceID)
-	return ok && r.State == statePend && r.AddonID == key.AddonID
+	return ok && r.State == statePend && r.Kind == addonKind(key.AddonID)
 }
 
 // admitCreate serializes the use of one reservation and runs only while the

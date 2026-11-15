@@ -324,6 +324,52 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
+// createDownloadDir makes the per-download working directory inside
+// stagingDir, or in the OS temp directory when stagingDir is empty.
+//
+// The default staging directory hangs off the base path, which is "/" in
+// most container images: there it resolves to a root-owned /downloading
+// that a non-root process cannot create, or to a read-only root
+// filesystem. Failing every backend install over that would be a
+// regression from the OS temp behaviour that preceded the staging
+// directory, so a staging directory that cannot be written for those
+// reasons falls back to the OS temp directory with a warning instead.
+func createDownloadDir(stagingDir string) (string, error) {
+	if stagingDir != "" {
+		dir, err := createDownloadDirIn(stagingDir)
+		if err == nil {
+			return dir, nil
+		}
+		if !isUnwritableDirError(err) {
+			return "", err
+		}
+		xlog.Warn("Download staging directory is not writable, staging in the OS temp directory instead; set LOCALAI_DOWNLOAD_STAGING_PATH to a writable directory on a large enough filesystem",
+			"path", stagingDir, "error", err)
+	}
+	dir, err := os.MkdirTemp("", "localai-oci-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create download directory: %w", err)
+	}
+	return dir, nil
+}
+
+func createDownloadDirIn(stagingDir string) (string, error) {
+	if err := os.MkdirAll(stagingDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create staging directory: %w", err)
+	}
+	dir, err := os.MkdirTemp(stagingDir, "localai-oci-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create download directory: %w", err)
+	}
+	return dir, nil
+}
+
+// isUnwritableDirError reports whether err means the directory exists or
+// could exist but this process may not write to it.
+func isUnwritableDirError(err error) bool {
+	return errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.EROFS)
+}
+
 // ExtractOCIImage will extract a given targetImage into a given
 // targetDestination. A non-empty stagingDir holds the in-flight image
 // tar and layers (the caller picks a directory whose filesystem can
@@ -333,18 +379,9 @@ func ExtractOCIImage(ctx context.Context, img v1.Image, imageRef string, targetD
 	// Every download works in its own directory: the image tar and the
 	// layer staging below both live there, nothing is shared between
 	// concurrent downloads, and one removal cleans a download up.
-	var downloadDir string
-	var err error
-	if stagingDir != "" {
-		if err := os.MkdirAll(stagingDir, 0755); err != nil {
-			return fmt.Errorf("failed to create staging directory: %v", err)
-		}
-		downloadDir, err = os.MkdirTemp(stagingDir, "localai-oci-*")
-	} else {
-		downloadDir, err = os.MkdirTemp("", "localai-oci-*")
-	}
+	downloadDir, err := createDownloadDir(stagingDir)
 	if err != nil {
-		return fmt.Errorf("failed to create download directory: %v", err)
+		return err
 	}
 	defer func() {
 		if err := os.RemoveAll(downloadDir); err != nil {

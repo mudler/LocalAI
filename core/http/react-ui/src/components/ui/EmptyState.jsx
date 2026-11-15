@@ -1,4 +1,5 @@
 import Icon from '../Icon'
+import Mascot from './Mascot'
 
 // What a region shows when it loaded and has nothing in it. One pattern for
 // every page: left-aligned, a title, a body of up to 56 characters a line,
@@ -13,19 +14,22 @@ import Icon from '../Icon'
 //   facts     2-3 short facts: [{ text, ok }] (ok=false draws a cross)
 //   steps     numbered steps, only where order matters (Memory, Triggers)
 //   icon      a kit icon id drawn in a small tile before the title
+//   mascot    a pose name of the llama, drawn before the text (instead of the
+//             icon tile) in the main first-run states only
 //   level     the heading level of the title (default 2)
 //
 // When a page is empty, the empty state carries the primary action and the
 // page header hides its own copy of it.
 export default function EmptyState({
-  variant = 'first-run', title, body, actions, facts, steps, icon, level = 2,
+  variant = 'first-run', title, body, actions, facts, steps, icon, mascot, level = 2,
   className = '', testId, children,
 }) {
   const Heading = `h${Math.min(6, Math.max(2, level))}`
   return (
     <section className={`ui-empty ui-empty--${variant} ${className}`.trim()} data-testid={testId}>
       <div className="ui-empty__main">
-        {icon && <span className="ui-empty__icon" aria-hidden="true"><Icon name={icon} /></span>}
+        {mascot && <Mascot pose={mascot} className="ui-empty__mascot" />}
+        {icon && !mascot && <span className="ui-empty__icon" aria-hidden="true"><Icon name={icon} /></span>}
         <div className="ui-empty__text">
           {title && <Heading className="ui-empty__title">{title}</Heading>}
           {body && <p className="ui-empty__body">{body}</p>}

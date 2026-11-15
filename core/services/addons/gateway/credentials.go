@@ -17,7 +17,7 @@ const (
 	CodeResourceNotAllowed = "resource_not_allowed"
 	// CodeNoCredential means the person has no binding that holds a
 	// credential for the add-on.
-	CodeNoCredential = "no_credential"
+	CodeNoCredential = "no_credential" // #nosec G101 -- an error code, not a credential
 	// CodeWriteNotAllowed means the binding that holds the credential has its
 	// write mode off, so a write tool does not run.
 	CodeWriteNotAllowed = "write_not_allowed"
@@ -25,7 +25,25 @@ const (
 	// this call uses: the chat and its agent name none, and the person has
 	// several or none. The host picks no connection for them.
 	CodeSelectConnection = "select_connection"
+	// CodeReconnectNeeded means the person's connection to the service has
+	// expired or was revoked and the host cannot renew it. Nothing was sent.
+	// The person must connect again.
+	CodeReconnectNeeded = "reconnect_needed"
+	// CodeOwnerReconnectNeeded means the connection was shared with the person
+	// and its owner's login to the service has ended or was never made. Only
+	// the owner can connect it again. Nothing was sent.
+	CodeOwnerReconnectNeeded = "owner_reconnect_needed"
 )
+
+// refusalCode reports whether t is the code of a CredentialRefusal, as it
+// travels on the wire between the owner and a forwarding frontend.
+func refusalCode(t string) bool {
+	switch t {
+	case CodeResourceNotAllowed, CodeNoCredential, CodeWriteNotAllowed, CodeSelectConnection, CodeReconnectNeeded, CodeOwnerReconnectNeeded:
+		return true
+	}
+	return false
+}
 
 type connectionKey struct{}
 
@@ -60,6 +78,10 @@ type CredentialGrant struct {
 	// ResourceKey and ResourceID are the entry of the list that matched. Both
 	// are empty for a call that names no resource.
 	ResourceKey, ResourceID string
+	// GrantedScopes are the OAuth scopes the binding holds. They go in
+	// Request.GrantedScopes; they are not secret and are empty for a binding
+	// that is not an OAuth login.
+	GrantedScopes []string
 	// WriteMode is the write mode of the binding the credential comes from:
 	// WriteOff, WritePropose or WriteAuto. Empty means WriteOff. It decides
 	// whether a write tool runs and whether a person must confirm it.
@@ -67,16 +89,117 @@ type CredentialGrant struct {
 	// BindingID and BindingName say which connection the credential comes
 	// from. The proposal, the result of the call and the audit line carry them.
 	BindingID, BindingName string
+	// Version is the version of the OAuth login the credential comes from,
+	// for CredentialRenewer. Zero means a credential that cannot be renewed,
+	// such as a token the person gave. It never reaches the add-on.
+	Version int64
+	// Hold, when set, runs the call that uses the credential as admitted work
+	// of its source: the binding is another person's, shared with the caller,
+	// and a lowering or a revocation of that share cancels the context it gives
+	// run and waits for it. It returns without calling run when the caller no
+	// longer holds the share. Nil for the caller's own binding. It never
+	// leaves the process.
+	Hold func(ctx context.Context, run func(context.Context) error) error `json:"-"`
+}
+
+// Use runs run inside the hold of the grant, or directly when it has none.
+func (g CredentialGrant) Use(ctx context.Context, run func(context.Context) error) error {
+	if g.Hold == nil {
+		return run(ctx)
+	}
+	return g.Hold(ctx, run)
+}
+
+// SetOn puts the credential, the resource key and the granted scopes of g on
+// r. The resource ID is left to the caller: it decides the resource of the
+// call, which the caller checks or sets once.
+func (g CredentialGrant) SetOn(r *contract.Request) {
+	r.Credential, r.ResourceKey, r.GrantedScopes = g.Credential, g.ResourceKey, g.GrantedScopes
 }
 
 // CredentialSource finds the credential and the allowed resource for a call.
-// It is the owner's: the sealed secrets are not on a frontend. An error it
-// returns that is not a *CredentialRefusal is an outage.
+// It is wired on the owner, where the add-on runs: a frontend forwards the
+// call and never adds a credential itself. An error it returns that is not a
+// *CredentialRefusal or a *contract.ErrRateLimited is an outage.
 type CredentialSource interface {
 	// Credential returns the grant for actor and add-on. A non-empty key must
 	// be on the list of a binding of the person (compared without regard to
 	// case). The host calls it before the add-on is called.
 	Credential(ctx context.Context, actor contract.Actor, addonID, key string) (CredentialGrant, error)
+}
+
+// CredentialRenewer is a CredentialSource that can renew a credential the
+// add-on rejected (contract.ErrCredentialRejected). It is the owner's, like the
+// source: the retry runs where the add-on runs, so only its final answer
+// crosses the carrier.
+type CredentialRenewer interface {
+	// RenewCredential renews the rejected grant, or returns the newer one
+	// when the login changed since the call began. With final the add-on
+	// rejected a renewed grant too: the source ends the login and returns the
+	// reconnect_needed refusal.
+	RenewCredential(ctx context.Context, actor contract.Actor, addonID string, rejected CredentialGrant, final bool) (CredentialGrant, error)
+}
+
+// WithRenewal runs call with grant. When the add-on rejects the credential and
+// src can renew it, the host renews it once and runs call once more with the
+// new grant. A second rejection ends the login, and the answer is the
+// reconnect_needed refusal. A grant of version zero is never renewed: the
+// rejection is returned as it is.
+func WithRenewal(ctx context.Context, src CredentialSource, a contract.Actor, addonID string, grant CredentialGrant, call func(CredentialGrant) error) error {
+	err := call(grant)
+	rn, ok := src.(CredentialRenewer)
+	if !errors.Is(err, contract.ErrCredentialRejected) || !ok || grant.Version == 0 {
+		return err
+	}
+	next, rerr := rn.RenewCredential(ctx, a, addonID, grant, false)
+	if rerr != nil {
+		return credentialError(rerr)
+	}
+	if err = call(next); !errors.Is(err, contract.ErrCredentialRejected) {
+		return err
+	}
+	_, rerr = rn.RenewCredential(ctx, a, addonID, next, true)
+	if rerr == nil {
+		return ErrUnavailable
+	}
+	return credentialError(rerr)
+}
+
+// credentialError keeps the typed answers of a credential source, a refusal
+// or the service's request to wait, and makes anything else a check result.
+func credentialError(err error) error {
+	var refusal *CredentialRefusal
+	if errors.As(err, &refusal) {
+		return refusal
+	}
+	var limited *contract.ErrRateLimited
+	if errors.As(err, &limited) {
+		return limited
+	}
+	return ClassifyCheck(err)
+}
+
+// DefaultCredentialSource is a CredentialSource that can also serve a call
+// that leaves out an optional resource argument (see
+// contract.CredentialSlot.ResourceOptional): it uses the one resource that the
+// binding lists. A binding that lists several is a *CredentialRefusal with
+// CodeResourceNotAllowed, which names them. A source that does not implement it
+// refuses such a call as invalid.
+type DefaultCredentialSource interface {
+	DefaultCredential(ctx context.Context, actor contract.Actor, addonID string) (CredentialGrant, error)
+}
+
+// CredentialFor asks src for the grant of a call. omitted says that the call
+// left out an optional resource argument, and key is then empty.
+func CredentialFor(ctx context.Context, src CredentialSource, actor contract.Actor, addonID, key string, omitted bool) (CredentialGrant, error) {
+	if !omitted {
+		return src.Credential(ctx, actor, addonID, key)
+	}
+	d, ok := src.(DefaultCredentialSource)
+	if !ok {
+		return CredentialGrant{}, fmt.Errorf("%w: %w", ErrInvalidRequest, contract.ErrRefused)
+	}
+	return d.DefaultCredential(ctx, actor, addonID)
 }
 
 // CredentialRefusal is the host's refusal of a call before the add-on was
@@ -99,40 +222,44 @@ func (r *CredentialRefusal) Unwrap() error { return ErrForbidden }
 // scrub drops the fields of a request that only the host sets. A client can
 // send any JSON in a request, so every door that takes one calls it first.
 func scrub(r *contract.Request) {
-	r.Credential, r.ResourceKey = "", ""
+	r.Credential, r.ResourceKey, r.GrantedScopes = "", "", nil
 }
 
 // credentialize adds the credential and the allowlisted resource to r when
 // the add-on declares credentials. A tool of such an add-on never runs without
 // them: a gateway with no source refuses it as unavailable. Anything else
 // leaves r as it is.
-func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contract.Request) error {
+//
+// The grant it returns carries the hold of a shared binding: the caller runs
+// the add-on call inside grant.Use.
+func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contract.Request) (CredentialGrant, error) {
 	src, ok := g.toolSource().(CapabilitySource)
 	if !ok {
-		return nil
+		return CredentialGrant{}, nil
 	}
 	caps, err := src.DeclaredCapabilities(ctx, r.AddonID, r.Generation)
 	if err != nil {
 		// Not knowing whether the add-on declares credentials is not a reason
 		// to run its tool without the check. A stale generation is a denial,
 		// not an outage of the owner.
-		return toolSourceError(err)
+		return CredentialGrant{}, toolSourceError(err)
 	}
 	if len(caps.Credentials) == 0 {
-		return nil
+		return CredentialGrant{}, nil
 	}
 	if r.ResourceID != "" {
-		return ErrForbidden
+		return CredentialGrant{}, ErrForbidden
 	}
 	if g.Credentials == nil {
-		return ErrUnavailable
+		return CredentialGrant{}, ErrUnavailable
 	}
 	tool, named := NamedTool(r.Arguments)
 	if !named {
-		return ErrForbidden
+		return CredentialGrant{}, ErrForbidden
 	}
 	slot := caps.Credentials[0]
 	key := ""
+	omitted := false
 	for _, d := range caps.ToolDefinitions {
 		if d.Name != tool {
 			continue
@@ -142,25 +269,29 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 			// answers for the add-on, not for a service account of the person.
 			// It gets no credential, so the page works with no connection or
 			// with several.
-			return nil
+			return CredentialGrant{}, nil
 		}
 		k, _, err := slot.CredentialResource(d, r.Arguments)
-		if err != nil {
-			return fmt.Errorf("%w: %w", ErrInvalidRequest, contract.ErrRefused)
+		switch {
+		case errors.Is(err, contract.ErrResourceOmitted):
+			omitted = true
+		case err != nil:
+			return CredentialGrant{}, fmt.Errorf("%w: %w", ErrInvalidRequest, contract.ErrRefused)
 		}
 		key = k
-	}
-	grant, err := g.Credentials.Credential(ctx, a, r.AddonID, key)
-	if err != nil {
-		var refusal *CredentialRefusal
-		if errors.As(err, &refusal) {
-			return refusal
+		if d.Enumerates {
+			// It names no resource: the whole reach of the credential is the
+			// resource, and only a binding that lists * covers it.
+			key, omitted = contract.AnyResource, false
 		}
-		return ClassifyCheck(err)
 	}
-	r.Credential, r.ResourceKey = grant.Credential, grant.ResourceKey
+	grant, err := CredentialFor(ctx, g.Credentials, a, r.AddonID, key, omitted)
+	if err != nil {
+		return CredentialGrant{}, credentialError(err)
+	}
+	grant.SetOn(r)
 	if grant.ResourceID != "" {
 		r.ResourceID = grant.ResourceID
 	}
-	return nil
+	return grant, nil
 }

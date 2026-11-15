@@ -39,6 +39,7 @@ type jobRow struct {
 	TaskID        string `gorm:"index;size:64"`
 	Parameters    string
 	TriggeredBy   string `gorm:"size:32"`
+	ClientID      string `gorm:"size:64;index"`
 	Attachments   int
 	Created       time.Time `gorm:"index:idx_studio_jobs_owner,priority:2"`
 	Ended         time.Time
@@ -76,7 +77,7 @@ func (r taskRow) task() (Task, error) {
 }
 
 func (r jobRow) job() (Job, error) {
-	j := Job{ID: r.ID, Owner: r.Owner, TaskID: r.TaskID, TriggeredBy: r.TriggeredBy, Attachments: r.Attachments, Created: r.Created.UTC(), Ended: r.Ended.UTC(), Error: r.Error,
+	j := Job{ID: r.ID, Owner: r.Owner, TaskID: r.TaskID, TriggeredBy: r.TriggeredBy, ClientID: r.ClientID, Attachments: r.Attachments, Created: r.Created.UTC(), Ended: r.Ended.UTC(), Error: r.Error,
 		WebhooksDone: r.WebhooksDone, WebhookSent: r.WebhookSent, WebhookSentAt: r.WebhookSentAt.UTC(), WebhookError: r.WebhookError}
 	if r.Parameters != "" {
 		if err := json.Unmarshal([]byte(r.Parameters), &j.Parameters); err != nil {
@@ -181,7 +182,7 @@ func (s *gormStore) PutJob(ctx context.Context, j Job) error {
 		if exists && old.Owner != j.Owner {
 			return ErrNotFound
 		}
-		row := jobRow{ID: j.ID, Owner: j.Owner, TaskID: j.TaskID, Parameters: string(params), TriggeredBy: j.TriggeredBy,
+		row := jobRow{ID: j.ID, Owner: j.Owner, TaskID: j.TaskID, Parameters: string(params), TriggeredBy: j.TriggeredBy, ClientID: j.ClientID,
 			Attachments: j.Attachments, Created: j.Created, Ended: j.Ended, Error: j.Error, WebhooksDone: j.WebhooksDone, WebhookSent: j.WebhookSent,
 			WebhookSentAt: j.WebhookSentAt, WebhookError: j.WebhookError}
 		if exists {
@@ -203,8 +204,12 @@ func (s *gormStore) GetJob(ctx context.Context, owner, id string) (Job, error) {
 	return r.job()
 }
 
-func (s *gormStore) listJobs(q *gorm.DB, limit int) ([]Job, error) {
-	q = q.Order("created desc, id desc")
+func (s *gormStore) listJobs(q *gorm.DB, limit int, oldestFirst bool) ([]Job, error) {
+	if oldestFirst {
+		q = q.Order("created asc, id asc")
+	} else {
+		q = q.Order("created desc, id desc")
+	}
 	if limit > 0 {
 		q = q.Limit(limit)
 	}
@@ -223,16 +228,39 @@ func (s *gormStore) listJobs(q *gorm.DB, limit int) ([]Job, error) {
 	return out, nil
 }
 
-func (s *gormStore) ListJobs(ctx context.Context, owner string, f Filter) ([]Job, error) {
-	q := s.db.WithContext(ctx).Where("owner = ?", owner)
+// jobsQuery applies the filter to the jobs of one owner. An end that was never
+// recorded is the zero time, which is earlier than any real end.
+func (s *gormStore) jobsQuery(ctx context.Context, owner string, f Filter) *gorm.DB {
+	q := s.db.WithContext(ctx).Model(&jobRow{}).Where("owner = ?", owner)
 	if f.TaskID != "" {
 		q = q.Where("task_id = ?", f.TaskID)
 	}
-	return s.listJobs(q, f.Limit)
+	if f.ClientID != "" {
+		q = q.Where("client_id = ?", f.ClientID)
+	}
+	if f.Active {
+		q = q.Where("ended < ?", time.Unix(0, 0).UTC())
+	}
+	if f.Finished {
+		q = q.Where("ended >= ?", time.Unix(0, 0).UTC())
+	}
+	return q
+}
+
+func (s *gormStore) ListJobs(ctx context.Context, owner string, f Filter) ([]Job, error) {
+	return s.listJobs(s.jobsQuery(ctx, owner, f), f.Limit, f.OldestFirst)
+}
+
+func (s *gormStore) CountJobs(ctx context.Context, owner string, f Filter) (int, error) {
+	var n int64
+	if err := s.jobsQuery(ctx, owner, f).Count(&n).Error; err != nil {
+		return 0, err
+	}
+	return int(n), nil
 }
 
 func (s *gormStore) AllJobs(ctx context.Context) ([]Job, error) {
-	return s.listJobs(s.db.WithContext(ctx), 0)
+	return s.listJobs(s.db.WithContext(ctx), 0, false)
 }
 
 func (s *gormStore) DeleteJob(ctx context.Context, owner, id string) error {

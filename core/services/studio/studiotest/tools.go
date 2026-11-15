@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // ToolStep is one action of a scripted turn. Set one field.
@@ -40,16 +42,17 @@ type ToolHarness struct {
 	// the state {"compacted":true}. Nil: the sessions cannot compact.
 	Compact func(chat string) (before, after int, err error)
 
-	mu      sync.Mutex
-	results []ToolResult
-	sent    map[string][]string
-	raw     map[string][]string
-	tools   map[string][]string
-	schemas map[string]map[string]string
-	descs   map[string]string
-	prompts map[string]string
-	systems map[string]string
-	resumes map[string][]byte
+	mu        sync.Mutex
+	results   []ToolResult
+	sent      map[string][]string
+	raw       map[string][]string
+	tools     map[string][]string
+	schemas   map[string]map[string]string
+	descs     map[string]string
+	chatDescs map[string]map[string]string
+	prompts   map[string]string
+	systems   map[string]string
+	resumes   map[string][]byte
 }
 
 // SystemPrompt returns the system prompt the chat's session was last started
@@ -87,14 +90,16 @@ func (h *ToolHarness) ResultsFor(tool string) []ToolResult {
 }
 
 // Sent returns the messages a chat's turns were given, without the sentence
-// about the tools held back from the sender (see SentRaw).
+// about the tools held back from the sender and the one that names the chat's
+// work folder (see SentRaw).
 func (h *ToolHarness) Sent(chat string) []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return append([]string(nil), h.sent[chat]...)
 }
 
-// SentRaw is Sent with the sentence about the tools held back from the sender.
+// SentRaw is Sent with the sentences about the tools held back from the
+// sender and about the work folder.
 func (h *ToolHarness) SentRaw(chat string) []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -124,6 +129,14 @@ func (h *ToolHarness) ToolSchema(chat, tool string) string {
 	return h.schemas[chat][tool]
 }
 
+// ToolDescription returns the description a tool had when the chat's session
+// last started, or "".
+func (h *ToolHarness) ToolDescription(chat, tool string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.chatDescs[chat][tool]
+}
+
 // LastToolDescription returns the description a tool had when a session last
 // started with it, in any chat, or "".
 func (h *ToolHarness) LastToolDescription(tool string) string {
@@ -150,9 +163,14 @@ func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.
 	if h.descs == nil {
 		h.descs = map[string]string{}
 	}
+	if h.chatDescs == nil {
+		h.chatDescs = map[string]map[string]string{}
+	}
+	h.chatDescs[env.Actor.ChatID] = map[string]string{}
 	for _, t := range env.Tools {
 		h.schemas[env.Actor.ChatID][t.Name] = string(t.Schema)
 		h.descs[t.Name] = t.Description
+		h.chatDescs[env.Actor.ChatID][t.Name] = t.Description
 	}
 	if h.prompts == nil {
 		h.prompts = map[string]string{}
@@ -165,7 +183,8 @@ func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.
 	h.resumes[env.Actor.ChatID] = append([]byte(nil), env.Resume...)
 	h.mu.Unlock()
 	if h.Compact != nil {
-		return &compactingToolSession{toolSession: &toolSession{h: h, env: env}}, nil
+		// A session started from a compacted state is compacted too.
+		return &compactingToolSession{toolSession: &toolSession{h: h, env: env}, compacted: strings.Contains(string(env.Resume), `"compacted":true`)}, nil
 	}
 	return &toolSession{h: h, env: env}, nil
 }
@@ -207,13 +226,13 @@ func (s *toolSession) Send(ctx context.Context, text string) error {
 	defer cancel()
 	chat := s.env.Actor.ChatID
 	s.h.mu.Lock()
-	s.h.sent[chat] = append(s.h.sent[chat], withoutDeniedNote(text))
+	s.h.sent[chat] = append(s.h.sent[chat], withoutHostNotes(text))
 	if s.h.raw == nil {
 		s.h.raw = map[string][]string{}
 	}
 	s.h.raw[chat] = append(s.h.raw[chat], text)
 	s.h.mu.Unlock()
-	for _, step := range s.h.Script(s.env.Actor, withoutDeniedNote(text)) {
+	for _, step := range s.h.Script(s.env.Actor, withoutHostNotes(text)) {
 		switch {
 		case step.Say != "":
 			s.env.Emit(session.Event{Kind: session.KindText, Text: step.Say})
@@ -278,6 +297,68 @@ const (
 	DeniedNoteStart = "Held back from this sender: "
 	DeniedNoteEnd   = "never say it does not exist."
 )
+
+// workFolderNote matches the sentence of a turn's note that names the chat's
+// work folder (workfiles.Note). Sent and the script leave it out, so a spec
+// keys on the words of the person whether the chat can save files or not.
+// The folder of a chat made before the slug names comes from its title and may
+// hold a quote, so the match ends at the work folder's own name. The rest of
+// the sentence is workfiles.ShellHint.
+var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"; file tools take that path\.(?: ` + regexp.QuoteMeta(workfiles.ShellHint) + `)? ?`)
+
+// withoutHostNotes removes the sentences of the note that the host adds on
+// its own (withoutDeniedNote, withoutWorkFolderNote).
+func withoutHostNotes(text string) string {
+	return withoutWorkFolderNote(withoutDeniedNote(withoutAbsentNote(withoutFilesBlock(text))))
+}
+
+// withoutFilesBlock removes the list of the chat's files that a message
+// carries when the list changed (session.FilesOpen).
+func withoutFilesBlock(text string) string {
+	a := strings.Index(text, session.FilesOpen)
+	if a < 0 {
+		return text
+	}
+	b := strings.Index(text[a:], session.FilesClose)
+	if b < 0 {
+		return text
+	}
+	return text[:a] + strings.TrimPrefix(text[a+b+len(session.FilesClose):], "\n\n")
+}
+
+// AbsentNoteStart and AbsentNoteEnd bound the sentence that tells the model a
+// turn has no reminder tool. Sent leaves it out, as it does the denied note.
+const (
+	AbsentNoteStart = "No reminder or schedule tool this turn: "
+	AbsentNoteEnd   = "cannot be done here."
+)
+
+// withoutAbsentNote removes that sentence, and the empty note around it.
+func withoutAbsentNote(text string) string {
+	a := strings.Index(text, AbsentNoteStart)
+	if a < 0 {
+		return text
+	}
+	b := strings.Index(text[a:], AbsentNoteEnd)
+	if b < 0 {
+		return text
+	}
+	text = text[:a] + text[a+b+len(AbsentNoteEnd):]
+	text = strings.Replace(text, "(System note: )\n\n", "", 1)
+	text = strings.Replace(text, "(System note:  )\n\n", "", 1)
+	return strings.Replace(text, " )\n\n", ")\n\n", 1)
+}
+
+// withoutWorkFolderNote removes the sentence that names the work folder, and
+// the empty note around it.
+func withoutWorkFolderNote(text string) string {
+	if !workFolderNote.MatchString(text) {
+		return text
+	}
+	text = workFolderNote.ReplaceAllString(text, "")
+	text = strings.Replace(text, "(System note: )\n\n", "", 1)
+	return strings.Replace(text, " )\n\n", ")\n\n", 1)
+}
 
 // withoutDeniedNote removes that sentence, and the empty note around it.
 func withoutDeniedNote(text string) string {

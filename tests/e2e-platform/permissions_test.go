@@ -164,6 +164,9 @@ var _ = Describe("Permissions and the registry of the new routes", Label("platfo
 			if strings.HasSuffix(r.Pattern, "/events") {
 				continue // server-sent streams stay open; the 401 and 403 cases above cover them
 			}
+			if strings.HasPrefix(r.Pattern, "/api/chats/files/shares") {
+				continue // folder sharing answers 403 to anything but the owner's own browser session
+			}
 			r.Pattern = strings.Replace(r.Pattern, ":id/", chat+"/", 1)
 			if code := statusOf(admin, r); code == http.StatusUnauthorized || code == http.StatusForbidden {
 				bad = append(bad, fmt.Sprintf("%s %s -> %d", r.Method, r.Pattern, code))

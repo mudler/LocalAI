@@ -21,6 +21,7 @@
     "min": 1,
     "max": 1
   },
+  "featureLevel": 5,
   "capabilities": {
     "tools": [
       "get-config",
@@ -46,13 +47,11 @@
             "instance": {
               "type": "string",
               "maxLength": 300,
-              "description": "The address of the Home Assistant instance, exactly as it is listed on the connection (for example https://home.example.org:8123). The host refuses any other address and names the listed one."
+              "description": "Leave this out: the connection already holds the address and the access token, and the host uses them. Give it only when the connection lists several addresses, written exactly as listed (for example https://home.example.org:8123). The host refuses any other address and names the listed ones."
             }
           },
           "additionalProperties": false,
-          "required": [
-            "instance"
-          ]
+          "required": []
         }
       },
       {
@@ -65,13 +64,11 @@
             "instance": {
               "type": "string",
               "maxLength": 300,
-              "description": "The address of the Home Assistant instance, exactly as it is listed on the connection (for example https://home.example.org:8123). The host refuses any other address and names the listed one."
+              "description": "Leave this out: the connection already holds the address and the access token, and the host uses them. Give it only when the connection lists several addresses, written exactly as listed (for example https://home.example.org:8123). The host refuses any other address and names the listed ones."
             }
           },
           "additionalProperties": false,
-          "required": [
-            "instance"
-          ]
+          "required": []
         }
       },
       {
@@ -84,7 +81,7 @@
             "instance": {
               "type": "string",
               "maxLength": 300,
-              "description": "The address of the Home Assistant instance, exactly as it is listed on the connection (for example https://home.example.org:8123). The host refuses any other address and names the listed one."
+              "description": "Leave this out: the connection already holds the address and the access token, and the host uses them. Give it only when the connection lists several addresses, written exactly as listed (for example https://home.example.org:8123). The host refuses any other address and names the listed ones."
             },
             "query": {
               "type": "string",
@@ -114,9 +111,7 @@
             }
           },
           "additionalProperties": false,
-          "required": [
-            "instance"
-          ]
+          "required": []
         }
       },
       {
@@ -129,7 +124,7 @@
             "instance": {
               "type": "string",
               "maxLength": 300,
-              "description": "The address of the Home Assistant instance, exactly as it is listed on the connection (for example https://home.example.org:8123). The host refuses any other address and names the listed one."
+              "description": "Leave this out: the connection already holds the address and the access token, and the host uses them. Give it only when the connection lists several addresses, written exactly as listed (for example https://home.example.org:8123). The host refuses any other address and names the listed ones."
             },
             "entityId": {
               "type": "string",
@@ -148,7 +143,6 @@
           },
           "additionalProperties": false,
           "required": [
-            "instance",
             "entityId"
           ]
         }
@@ -163,7 +157,7 @@
             "instance": {
               "type": "string",
               "maxLength": 300,
-              "description": "The address of the Home Assistant instance, exactly as it is listed on the connection (for example https://home.example.org:8123). The host refuses any other address and names the listed one."
+              "description": "Leave this out: the connection already holds the address and the access token, and the host uses them. Give it only when the connection lists several addresses, written exactly as listed (for example https://home.example.org:8123). The host refuses any other address and names the listed ones."
             },
             "entityId": {
               "type": "string",
@@ -184,7 +178,6 @@
           },
           "additionalProperties": false,
           "required": [
-            "instance",
             "entityId"
           ]
         }
@@ -199,7 +192,7 @@
             "instance": {
               "type": "string",
               "maxLength": 300,
-              "description": "The address of the Home Assistant instance, exactly as it is listed on the connection (for example https://home.example.org:8123). The host refuses any other address and names the listed one."
+              "description": "Leave this out: the connection already holds the address and the access token, and the host uses them. Give it only when the connection lists several addresses, written exactly as listed (for example https://home.example.org:8123). The host refuses any other address and names the listed ones."
             },
             "entityId": {
               "type": "string",
@@ -220,7 +213,6 @@
           },
           "additionalProperties": false,
           "required": [
-            "instance",
             "entityId"
           ]
         }
@@ -235,7 +227,7 @@
             "instance": {
               "type": "string",
               "maxLength": 300,
-              "description": "The address of the Home Assistant instance, exactly as it is listed on the connection (for example https://home.example.org:8123). The host refuses any other address and names the listed one."
+              "description": "Leave this out: the connection already holds the address and the access token, and the host uses them. Give it only when the connection lists several addresses, written exactly as listed (for example https://home.example.org:8123). The host refuses any other address and names the listed ones."
             },
             "domain": {
               "type": "string",
@@ -244,9 +236,7 @@
             }
           },
           "additionalProperties": false,
-          "required": [
-            "instance"
-          ]
+          "required": []
         }
       },
       {
@@ -259,7 +249,7 @@
             "instance": {
               "type": "string",
               "maxLength": 300,
-              "description": "The address of the Home Assistant instance, exactly as it is listed on the connection (for example https://home.example.org:8123). The host refuses any other address and names the listed one."
+              "description": "Leave this out: the connection already holds the address and the access token, and the host uses them. Give it only when the connection lists several addresses, written exactly as listed (for example https://home.example.org:8123). The host refuses any other address and names the listed ones."
             },
             "domain": {
               "type": "string",
@@ -289,7 +279,6 @@
           },
           "additionalProperties": false,
           "required": [
-            "instance",
             "domain",
             "service",
             "entityIds"
@@ -306,7 +295,7 @@
             "instance": {
               "type": "string",
               "maxLength": 300,
-              "description": "The address of the Home Assistant instance, exactly as it is listed on the connection (for example https://home.example.org:8123). The host refuses any other address and names the listed one."
+              "description": "Leave this out: the connection already holds the address and the access token, and the host uses them. Give it only when the connection lists several addresses, written exactly as listed (for example https://home.example.org:8123). The host refuses any other address and names the listed ones."
             },
             "domain": {
               "type": "string",
@@ -336,7 +325,6 @@
           },
           "additionalProperties": false,
           "required": [
-            "instance",
             "domain",
             "service",
             "entityIds"
@@ -430,7 +418,8 @@
         "title": "Home Assistant long-lived access token",
         "kind": "token",
         "resourceArgument": "instance",
-        "resourceLabel": "address"
+        "resourceLabel": "address",
+        "resourceOptional": true
       }
     ],
     "connector": {
@@ -440,7 +429,7 @@
           "title": "Home Assistant",
           "description": "Let your chats and agents read your smart home, and switch things if you allow it, with a long-lived access token.",
           "delivery": "pull",
-          "agentOptional": true,
+          "toolOnly": true,
           "page": "apps"
         }
       ]

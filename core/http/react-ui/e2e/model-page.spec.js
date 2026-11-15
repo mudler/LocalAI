@@ -271,21 +271,21 @@ test.describe('Model page - an Explore model', () => {
   })
 
   test('the answer strip gives fit, what it does and what installing leaves', async ({ page }) => {
-    await openFromExplore(page, 'qwen3-32b-instruct')
+    await openFromExplore(page, 'qwen3-4b-instruct')
     await expect(page.getByTestId('answer-fit')).toContainText('Fits in GPU')
-    await expect(page.getByTestId('answer-fit')).toContainText('at 8K context')
-    await expect(page.getByTestId('answer-does')).toContainText('chat')
+    await expect(page.getByTestId('answer-fit')).toContainText('at 32K context')
+    await expect(page.getByTestId('answer-does')).toContainText(/chat/i)
     await expect(page.getByTestId('answer-state')).toContainText('Leaves')
   })
 
   test('the overview lists backend, licence, max context, tags and links, and a memory bar', async ({ page }) => {
-    await openFromExplore(page, 'qwen3-32b-instruct')
+    await openFromExplore(page, 'qwen3-14b-instruct')
     const about = page.locator('.modelpage-about')
     await expect(about).toContainText('llama-cpp')
     await expect(about).toContainText('apache-2.0')
     await expect(about).toContainText('Max context')
     await expect(about).toContainText('128K tokens')
-    await expect(about.getByRole('link', { name: /huggingface\.co\/example\/qwen3-32b-instruct/ })).toHaveAttribute('target', '_blank')
+    await expect(about.getByRole('link', { name: /huggingface\.co\/example\/qwen3-14b-instruct/ })).toHaveAttribute('target', '_blank')
     await expect(page.getByTestId('glance-bar')).toBeVisible()
     await expect(page.getByTestId('model-page-glance')).toContainText('free after')
   })
@@ -316,13 +316,13 @@ test.describe('Model page - an Explore model', () => {
   })
 
   test('Fit and memory says it in words, moves with the context size and draws the memory by context', async ({ page }) => {
-    await openFromExplore(page, 'qwen3-32b-instruct')
+    await openFromExplore(page, 'qwen3-14b-instruct')
     await page.keyboard.press('2')
     const banner = page.getByTestId('fit-banner')
     await expect(banner).toContainText('Fits in GPU')
     await expect(page.getByTestId('fit-bar')).toBeVisible()
     await expect(page.getByTestId('vram-chart')).toBeVisible()
-    await expect(page.getByTestId('vram-bar-8192')).toHaveAttribute('data-selected', 'true')
+    await expect(page.getByTestId('vram-bar-32768')).toHaveAttribute('data-selected', 'true')
     await page.getByTestId('fit-context-262144').click()
     await expect(banner).not.toContainText('Fits in GPU')
     await expect(banner).toContainText('256K')

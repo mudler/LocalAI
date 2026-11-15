@@ -1,0 +1,67 @@
+---
+# Checks the links from the documentation to other sites once a week and keeps
+# the report as a build artifact. It never fails the build: other sites go down
+# and rate-limit, and that must not block a pull request.
+name: 'docs external links'
+
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  external-links:
+    runs-on: ubuntu-latest
+    env:
+      HUGO_VERSION: "0.166.0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: ${{ env.HUGO_VERSION }}
+          extended: true
+
+      - name: Generate gallery
+        run: go run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/static/gallery.html
+
+      - name: Build documentation site
+        working-directory: docs
+        run: |
+          mkdir -p layouts/_default
+          hugo --minify --baseURL "https://localai.io/docs/"
+
+      - name: Check external links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --scheme https
+            --max-concurrency 8
+            --accept 200,204,206,429
+            --exclude '^https://localai\.io/'
+            --exclude '^https?://localhost'
+            --exclude '^https?://127\.0\.0\.1'
+            --exclude-path 'docs/public/.*print\.html'
+            'docs/public/**/*.html'
+          output: lychee-report.md
+          fail: false
+
+      - name: Keep the report
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-external-link-report
+          path: lychee-report.md

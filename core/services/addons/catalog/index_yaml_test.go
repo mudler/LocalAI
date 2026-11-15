@@ -45,6 +45,21 @@ var _ = Describe("library index document (YAML)", func() {
 		Expect(got.Digest).To(Equal(yamlDigest))
 		Expect(got.UI.MainPage).To(Equal("tables"))
 	})
+	It("reads the feature level an entry requires, and an entry without it needs none", func() {
+		_, e, s := refreshBody(yamlEntry + "  requires:\n    featureLevel: 2\n")
+		Expect(e).NotTo(HaveOccurred())
+		got, e := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Resolve(ctx, "lib", "tables", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(got.Requires.FeatureLevel).To(Equal(uint64(2)))
+		_, e, s = refreshBody(yamlEntry)
+		Expect(e).NotTo(HaveOccurred())
+		got, e = (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Resolve(ctx, "lib", "tables", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(got.Requires.FeatureLevel).To(BeZero())
+		// The field is bounded like the other ranges.
+		_, e, _ = refreshBody(yamlEntry + "  requires:\n    featureLevel: 100000\n")
+		Expect(e).To(HaveOccurred())
+	})
 	It("accepts an empty library written as an empty list", func() {
 		r, e, _ := refreshBody("[]\n")
 		Expect(e).NotTo(HaveOccurred())

@@ -8,7 +8,9 @@ import { canShare } from './lib/layout.js'
 export function createDatabase(ctx, ui, api, hooks, parts) {
   const { sdk, h, R, Fragment, t } = ctx
   const { Banner, Problem, RoleBadge, Loading, Link, Button, EmptyState } = ui
-  const { databases, tableView, schema, sharing } = parts
+  const { databases, tableView, schema } = parts
+  // The host's Share dialog. A host without it gets no Share button.
+  const ShareDialog = sdk.ui.ShareDialog
 
   function readTable(search) {
     const m = /(?:^|&)table=([^&]*)/.exec(search || '')
@@ -21,6 +23,8 @@ export function createDatabase(ctx, ui, api, hooks, parts) {
     const [tableName, setTableName] = R.useState(() => readTable(sdk.navigation.current().search))
     const [lost, setLost] = R.useState(null)
     const [notice, setNotice] = R.useState('')
+    const [sharingOpen, setSharingOpen] = R.useState(false)
+    const shareClient = R.useMemo(() => sdk.resources.shareClient(id), [id])
     const revision = R.useRef(null)
     const view = hooks.useLoader(async () => {
       const [listing, schemaOut] = await Promise.all([api.list(), api.inspect(id)])
@@ -111,10 +115,8 @@ export function createDatabase(ctx, ui, api, hooks, parts) {
           {isOwner ? (
             <div className="tbl-toolbar__group">
               {/* Without named accounts there is nobody to share with, so no button. */}
-              {canShare(data.listing) ? (
-                <Button size="sm" icon="users" onClick={() => open(t('share.title', { name }), ({ close }) => (
-                  <sharing.Sharing resource={{ id, name }} sharing={data.listing.sharing} onChanged={view.refresh} onLost={onLost} close={close} />
-                ))}>{t('db.share')}</Button>
+              {ShareDialog && canShare(data.listing) ? (
+                <Button size="sm" icon="users" onClick={() => setSharingOpen(true)}>{t('db.share')}</Button>
               ) : null}
               <Button size="sm" icon="edit" onClick={() => open(t('rename.title'), ({ close }) => (
                 <databases.NameDialog initial={name} label={t('rename.submit')} close={close} onDone={() => view.refresh()}
@@ -127,6 +129,21 @@ export function createDatabase(ctx, ui, api, hooks, parts) {
             </div>
           ) : null}
         </header>
+        {sharingOpen && ShareDialog ? (
+          <ShareDialog
+            client={shareClient}
+            resource={{ id, name }}
+            sharing={canShare(data.listing)}
+            intro={t('share.intro')}
+            roles={[
+              { id: 'viewer', label: t('role.viewer'), help: t('share.viewerHelp') },
+              { id: 'editor', label: t('role.editor'), help: t('share.editorHelp') },
+            ]}
+            onChanged={view.refresh}
+            onLost={(e) => { setSharingOpen(false); onLost(e) }}
+            close={() => setSharingOpen(false)}
+          />
+        ) : null}
         {!canWrite ? <Banner tone="info" testid="tbl-readonly">{t('db.readOnlyNote')}</Banner> : null}
         {view.state === 'error' ? <Problem error={view.error} onRetry={view.reload} /> : null}
         {notice ? <Banner tone="success" testid="tbl-notice">{notice}</Banner> : null}

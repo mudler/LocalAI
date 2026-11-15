@@ -1,0 +1,90 @@
+{
+  "title": "Google Drive",
+  "intro": "Izinkan agen Anda membaca file di folder Drive yang Anda daftarkan. Jika Anda mengizinkan, agen juga dapat membuat dan mengubah file teks di sana.",
+  "limits": "Pilih Hubungkan dengan Google untuk menambahkan koneksi dan masuk ke akun Google Anda. Halaman ini mengatur folder dan mode tulis setiap koneksi. Agen bekerja di Drive hanya saat Anda memintanya dalam obrolan.",
+  "edit": "Ubah koneksi Google Drive",
+  "name": "Nama",
+  "folders": "Folder yang boleh dipakai agen",
+  "foldersHelp": "Satu ID atau alamat folder per baris. {{count}} terdaftar. Folder mencakup semua isinya. File lain ditolak.",
+  "foldersShape": "\"{{entry}}\" bukan ID folder. Salin dari alamat folder di browser Anda, setelah /folders/.",
+  "foldersMany": "Paling banyak 50 folder.",
+  "allFolders": {
+    "label": "Semua folder (Drive Saya dan drive bersama)",
+    "hint": "Agen dapat membaca setiap berkas yang terlihat oleh login Google Anda, di Drive Saya dan di drive bersama. Jika dimatikan, agen hanya memakai folder dalam daftar.",
+    "warning": "Ini membuat agen dapat membaca setiap berkas yang dijangkau login Google Anda, tidak hanya berkas dalam satu folder. Mode tulis di bawah tetap berlaku dan setiap perubahan tetap menunggu persetujuan Anda.",
+    "confirm": "Saya mengerti: izinkan semua folder",
+    "row": "Semua folder (Drive Saya dan drive bersama)"
+  },
+  "agent": "Agen",
+  "agentNone": "Pilih agen",
+  "agentCredentialsOnly": "Tanpa agen (hanya kredensial)",
+  "agentOptionalHint": "Opsional. Tanpa agen, koneksi ini hanya menyimpan login, daftar folder, dan mode tulis untuk obrolan Anda. Koneksi ini tidak menjawab pesan dan tidak mendengarkan apa pun.",
+  "credentialsOnly": "Hanya kredensial",
+  "agentNoModel": "{{name}} (perlu model)",
+  "test": "Uji",
+  "testOk": "Terhubung sebagai {{bot}}.",
+  "checkFailed": "Tersimpan. Pemeriksaan gagal: {{reason}}",
+  "save": "Simpan",
+  "cancel": "Batal",
+  "editButton": "Ubah",
+  "delete": "Hapus",
+  "empty": "Belum ada koneksi Google Drive. Pilih Hubungkan dengan Google untuk menambahkan satu.",
+  "connect": "Hubungkan dengan Google",
+  "defaultName": "Google Drive",
+  "noFolders": "Tidak ada folder terdaftar: agen tidak dapat membaca apa pun.",
+  "foldersOf": "{{count}} folder: {{list}}",
+  "agentOf": "Agen: {{name}}",
+  "inactive": "Tidak berjalan: {{reason}}.",
+  "confirmDelete": {
+    "title": "Hapus {{name}}?",
+    "message": "Agen tidak dapat lagi menjangkau folder ini. LocalAI meminta Google mencabut login, lalu melupakannya.",
+    "confirm": "Hapus"
+  },
+  "setup": {
+    "title": "Cara memilih folder",
+    "step1": "Buka folder di Google Drive lewat browser Anda. Alamatnya berakhir dengan /folders/ dan ID folder.",
+    "step2": "Salin seluruh alamat, atau hanya ID-nya, lalu tempel ke daftar. Tulis root untuk bagian teratas Drive Saya.",
+    "step3": "Mode tulis di bawah juga memerlukan akses opsional yang Anda izinkan saat menghubungkan. Tanpa itu, agen hanya dapat membaca."
+  },
+  "writeMode": {
+    "label": "Yang boleh diubah agen di Drive",
+    "hint": "Membuat file teks, mengganti teks file, mengganti nama atau memindahkan file, dan memindahkan file ke sampah. Agen tidak pernah membagikan file atau menghapusnya secara permanen.",
+    "off": "Hanya baca",
+    "propose": "Tanya Anda dulu",
+    "auto": "Izinkan semua",
+    "line": {
+      "off": "Agen tidak dapat mengubah apa pun di Drive.",
+      "propose": "Setiap perubahan menunggu persetujuan Anda.",
+      "auto": "Chat Anda langsung membuat perubahan."
+    },
+    "note": {
+      "off": "Akses tulis mati: koneksi ini hanya membaca.",
+      "propose": "Setiap perubahan menunggu di persetujuan Anda sampai Anda mengonfirmasinya. Ini juga memerlukan akses tulis opsional yang Anda izinkan saat menghubungkan.",
+      "auto": "Chat Anda langsung membuat setiap perubahan, tanpa bertanya, dan LocalAI tidak dapat membatalkannya. Jalan tanpa kehadiran Anda tetap menunggu konfirmasi Anda."
+    },
+    "row": {
+      "off": "Hanya baca",
+      "propose": "Tanya Anda dulu",
+      "auto": "Izinkan semua"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-file": "Buat file",
+      "update-file": "Ubah file",
+      "move-file": "Pindahkan file",
+      "trash-file": "Pindahkan file ke sampah"
+    },
+    "file": "File",
+    "name": "Nama",
+    "newName": "Nama baru",
+    "in": "Di folder",
+    "allowedFolder": "Folder yang Anda izinkan",
+    "moveTo": "Pindahkan ke",
+    "type": "Jenis",
+    "text": "Teks yang akan disimpan ({{bytes}} byte)",
+    "cut": "Teks yang ditampilkan di sini dipotong. Teks lengkap sebesar {{bytes}} byte disimpan.",
+    "trashNote": "File masuk ke sampah. Anda dapat memulihkannya dari sana.",
+    "replaceNote": "Teks baru menggantikan seluruh teks file."
+  }
+}

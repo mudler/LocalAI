@@ -192,3 +192,12 @@ var _ = Describe("A tool that shadows a built-in chat tool", func() {
 		Expect(Replaceable("bash")).To(BeTrue())
 	})
 })
+
+var _ = Describe("HardApproval", func() {
+	DescribeTable("says which tools wait for a person in every write mode",
+		func(d ToolDefinition, want bool) { Expect(d.HardApproval()).To(Equal(want)) },
+		Entry("a tool without approval", ToolDefinition{Kind: ToolKindWrite}, false),
+		Entry("approval always", ToolDefinition{Kind: ToolKindWrite, Approval: ApprovalAlways}, true),
+		Entry("approval always that the person may relax", ToolDefinition{Kind: ToolKindWrite, Approval: ApprovalAlways, ApprovalOverridable: true}, false),
+	)
+})

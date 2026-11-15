@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -89,6 +90,9 @@ const (
 	// protocol or data format this host no longer runs. It cannot be turned
 	// on; an upgrade to a compatible release can.
 	CauseInstalledIncompatible = "installed_incompatible"
+	// CauseNeedsNewerHost: the add-on needs a higher feature level than this
+	// host has (see contract.HostFeatureLevel).
+	CauseNeedsNewerHost = "needs_newer_host"
 )
 
 // FailureCause is the typed cause of a failed operation. Its text is fixed and
@@ -169,6 +173,8 @@ type Manager struct {
 	autoFailures map[string]string
 	// heldUpgrades holds, per add-on, an upgrade that waits for approval.
 	heldUpgrades map[string]heldUpgrade
+	// previews keeps the verified answer of the host access preview per release.
+	previews previewCache
 	// skillSync keeps the chats' skill layer in step with the installed
 	// packages. Nil until the chats' files exist (see SetSkillSync).
 	skillSync SkillSync
@@ -664,6 +670,10 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if stageErr != nil {
 				if errors.Is(stageErr, uploads.ErrNotFound) {
 					return fail(stageErr, &FailureCause{Code: CauseFileMissing, detail: stageErr})
+				}
+				var level *contract.FeatureLevelRefusal
+				if errors.As(stageErr, &level) {
+					return fail(stageErr, &FailureCause{Code: CauseNeedsNewerHost, detail: stageErr})
 				}
 				return fail(stageErr, &FailureCause{Code: CausePackageFetch, detail: stageErr})
 			}
@@ -1264,6 +1274,9 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 // ConnectorKind is a kind of connector binding that a running add-on serves.
 type ConnectorKind struct {
 	AddonID string
+	// AuthKind is contract.CredentialKindOAuth2 when the add-on's credential
+	// slot is an OAuth login, and empty otherwise.
+	AuthKind string
 	contract.ConnectorKind
 	// Translations is the manifest's i18n text of this kind, by language tag.
 	// It is display text only and is never part of the kind that the add-on
@@ -1298,8 +1311,14 @@ func (m *Manager) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error) {
 				manifest = receipt.Manifest
 			}
 		}
+		auth := ""
+		for _, slot := range r.Capabilities.Credentials {
+			if slot.Kind == contract.CredentialKindOAuth2 {
+				auth = contract.CredentialKindOAuth2
+			}
+		}
 		for _, k := range r.Capabilities.Connector.Kinds {
-			out = append(out, ConnectorKind{AddonID: r.AddonID, ConnectorKind: k, Translations: manifest.KindTranslations(k.ID)})
+			out = append(out, ConnectorKind{AddonID: r.AddonID, AuthKind: auth, ConnectorKind: k, Translations: manifest.KindTranslations(k.ID)})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].AddonID+"/"+out[i].ID < out[j].AddonID+"/"+out[j].ID })
@@ -1319,6 +1338,49 @@ func (m *Manager) Connector(ctx context.Context, addonID string, req contract.Co
 	return cr.Connector(ctx, req)
 }
 
+// clientRuntime returns the running add-on as one that serves client routes.
+// An add-on that is not running, or declared none, is not one.
+func (m *Manager) clientRuntime(ctx context.Context, addonID string) (contract.ClientCaller, contract.ClientRouteSource, error) {
+	instance, e := m.Runtime(ctx, addonID)
+	if e != nil {
+		return nil, nil, e
+	}
+	cc, ok := instance.Client.(contract.ClientCaller)
+	src, ok2 := instance.Client.(contract.ClientRouteSource)
+	if !ok || !ok2 {
+		return nil, nil, addonruntime.ErrRuntime
+	}
+	return cc, src, nil
+}
+
+// ClientRoutes lists the client routes of a running add-on.
+func (m *Manager) ClientRoutes(ctx context.Context, addonID string) ([]contract.ClientRoute, error) {
+	_, src, e := m.clientRuntime(ctx, addonID)
+	if e != nil {
+		return nil, e
+	}
+	return src.ClientRoutes(), nil
+}
+
+// Client calls a client route of a running add-on that does not stream, on
+// behalf of the actor of a client (see contract.ClientCaller).
+func (m *Manager) ClientCall(ctx context.Context, addonID string, actor contract.Actor, req contract.ClientRequest) (contract.ClientResponse, error) {
+	cc, _, e := m.clientRuntime(ctx, addonID)
+	if e != nil {
+		return contract.ClientResponse{}, e
+	}
+	return cc.ClientCallAs(ctx, actor, req)
+}
+
+// ClientStream opens a client route of a running add-on that streams.
+func (m *Manager) ClientStream(ctx context.Context, addonID string, actor contract.Actor, req contract.ClientRequest) (io.ReadCloser, error) {
+	cc, _, e := m.clientRuntime(ctx, addonID)
+	if e != nil {
+		return nil, e
+	}
+	return cc.ClientStreamAs(ctx, actor, req)
+}
+
 // OperationStatus only observes lifecycle intent. It never resumes a command or
 // infers runtime completion from a completed journal publication.
 func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id string) (OperationStatus, error) {
@@ -1333,7 +1395,7 @@ func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id 
 		if m.admin == nil || m.admin(ctx, actor) != nil {
 			return OperationStatus{}, ErrForbidden
 		}
-		if view.Actor != actor {
+		if !sameOperationOwner(view.Actor, actor) {
 			return OperationStatus{}, ErrOperationNotFound
 		}
 		if err := ctx.Err(); err != nil {
@@ -1359,7 +1421,7 @@ func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id 
 		return OperationStatus{}, ErrForbidden
 	}
 	op, ok := m.journal.Operations[id]
-	if !ok || op.Actor.UserID == "" || op.Actor.CredentialID == "" || (op.Actor.Mode != "named-user" && op.Actor.Mode != "local-owner") || op.Actor != actor {
+	if !ok || op.Actor.UserID == "" || op.Actor.CredentialID == "" || (op.Actor.Mode != "named-user" && op.Actor.Mode != "local-owner") || !sameOperationOwner(op.Actor, actor) {
 		return OperationStatus{}, ErrOperationNotFound
 	}
 	result := OperationStatus{OperationID: id, AddonID: op.Status.AddonID, Phase: op.Status.Phase, Generation: op.Status.Generation, RuntimeState: "not-observed", HostOperations: copyRequestSummary(op.Status.HostOperations)}
@@ -1370,6 +1432,14 @@ func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id 
 }
 
 var ErrOperationNotFound = errors.New("addon lifecycle operation not found")
+
+// sameOperationOwner says whether a reader owns an operation. The owner is the
+// user, not the credential: a browser session id changes at every login, so
+// comparing it would hide the operation of an earlier session from the same
+// administrator. Another user still gets the answer for a missing operation.
+func sameOperationOwner(owner, reader contract.Actor) bool {
+	return owner.Mode == reader.Mode && owner.UserID == reader.UserID
+}
 
 // Apps returns the apps the actor may see. The owner decides who is an
 // administrator from its own check, never from the request; a check that
@@ -1564,11 +1634,17 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 		return contract.Capabilities{}, ErrForbidden
 	}
 	c := receipt.Manifest.Capabilities
-	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...), Actions: c.Actions, Undo: c.Undo}
+	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...), Actions: c.Actions, OwnerData: c.OwnerData, Undo: c.Undo}
 	out.ToolDefinitions = append([]contract.ToolDefinition(nil), c.ToolDefinitions...)
 	out.SkillDefinitions = append([]contract.SkillDefinition(nil), c.SkillDefinitions...)
 	out.ContextFiles = append([]contract.ContextFile(nil), c.ContextFiles...)
 	out.Credentials = slices.Clone(c.Credentials)
+	out.Provides = slices.Clone(c.Provides)
+	if c.ModelSearch != nil {
+		ms := *c.ModelSearch
+		ms.Sorts, ms.Filters = slices.Clone(ms.Sorts), slices.Clone(ms.Filters)
+		out.ModelSearch = &ms
+	}
 	for _, us := range c.UserSettings {
 		us.Values = slices.Clone(us.Values)
 		out.UserSettings = append(out.UserSettings, us)
@@ -1576,6 +1652,10 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	if c.ExecutionProvider != nil {
 		p := *c.ExecutionProvider
 		p.Tools = slices.Clone(p.Tools)
+		if p.Jobs != nil {
+			j := *p.Jobs
+			p.Jobs = &j
+		}
 		out.ExecutionProvider = &p
 	}
 	if c.HostOperations != nil {

@@ -2,6 +2,7 @@ package loops
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -27,6 +28,8 @@ type loopRow struct {
 	Created    time.Time
 	Updated    time.Time
 	LastRun    time.Time
+	// WatchJSON is the state of a wait (Loop.Watch); empty for a loop.
+	WatchJSON string `gorm:"type:text"`
 	// Rev is bumped by Update; the bump takes the row lock, so a second
 	// frontend's change waits for the first and then reads what it wrote.
 	Rev int64
@@ -41,6 +44,8 @@ type ownerRow struct {
 	Rev     int64
 	Day     string `gorm:"size:16"`
 	DayRuns int
+	// DayChecks counts the checks of waits on a script taken on Day.
+	DayChecks int
 }
 
 func (ownerRow) TableName() string { return "studio_chat_loop_owners" }
@@ -74,6 +79,16 @@ func utc(t time.Time) time.Time {
 }
 
 func toRow(l Loop) loopRow {
+	r := toRowBase(l)
+	if l.Watch != nil {
+		if raw, err := json.Marshal(l.Watch); err == nil {
+			r.WatchJSON = string(raw)
+		}
+	}
+	return r
+}
+
+func toRowBase(l Loop) loopRow {
 	return loopRow{ID: l.ID, Owner: l.Owner, ChatID: l.ChatID, Prompt: l.Prompt, IntervalNs: int64(l.Interval),
 		State: string(l.State), Reason: l.Reason, Runs: l.Runs, Failures: l.Failures, Next: utc(l.Next),
 		Running: l.Running, Scheduled: l.Scheduled, Wait: l.Wait, Created: utc(l.Created), Updated: utc(l.Updated),
@@ -81,6 +96,17 @@ func toRow(l Loop) loopRow {
 }
 
 func (r loopRow) loop() Loop {
+	l := r.loopBase()
+	if r.WatchJSON != "" {
+		var w Watch
+		if json.Unmarshal([]byte(r.WatchJSON), &w) == nil {
+			l.Watch = &w
+		}
+	}
+	return l
+}
+
+func (r loopRow) loopBase() Loop {
 	return Loop{ID: r.ID, Owner: r.Owner, ChatID: r.ChatID, Prompt: r.Prompt, Interval: time.Duration(r.IntervalNs),
 		State: State(r.State), Reason: r.Reason, Runs: r.Runs, Failures: r.Failures, Next: utc(r.Next),
 		Running: r.Running, Scheduled: r.Scheduled, Wait: r.Wait, Created: utc(r.Created), Updated: utc(r.Updated),
@@ -226,14 +252,34 @@ func (s *gormStore) TakeRun(ctx context.Context, owner, day string, budget int) 
 			return err
 		}
 		if r.Day != day {
-			r.Day, r.DayRuns = day, 0
+			r.Day, r.DayRuns, r.DayChecks = day, 0, 0
 		}
 		if budget > 0 && r.DayRuns >= budget {
 			return nil
 		}
 		took = true
 		return tx.Model(&ownerRow{}).Where("owner = ?", owner).
-			Updates(map[string]any{"day": r.Day, "day_runs": r.DayRuns + 1}).Error
+			Updates(map[string]any{"day": r.Day, "day_runs": r.DayRuns + 1, "day_checks": r.DayChecks}).Error
+	})
+	return took, err
+}
+
+func (s *gormStore) TakeCheck(ctx context.Context, owner, day string, budget int) (bool, error) {
+	took := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		r, err := lockOwner(tx, owner)
+		if err != nil {
+			return err
+		}
+		if r.Day != day {
+			r.Day, r.DayRuns, r.DayChecks = day, 0, 0
+		}
+		if budget > 0 && r.DayChecks >= budget {
+			return nil
+		}
+		took = true
+		return tx.Model(&ownerRow{}).Where("owner = ?", owner).
+			Updates(map[string]any{"day": r.Day, "day_runs": r.DayRuns, "day_checks": r.DayChecks + 1}).Error
 	})
 	return took, err
 }

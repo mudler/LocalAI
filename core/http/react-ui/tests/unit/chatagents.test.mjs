@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addEntry, agentFolderMarks, agentPayload, emptyAgent, effectiveModes, folderName, folderPickable, folderRows, folderState, foldersPayload, foldersUnchosen, MAX_FOLDERS, grantSummary, isFolderMissingError, removeEntry, missingConnectorGrants, setGrant, CONNECTOR_GRANTS } from '../../src/utils/chatAgents.js'
+import { addEntry, agentFolderMarks, agentPayload, emptyAgent, effectiveModes, folderName, folderPickable, folderRows, folderState, foldersPayload, foldersUnchosen, MAX_FOLDERS, grantSummary, isFolderMissingError, removeEntry, missingConnectorGrants, setGrant, CONNECTOR_GRANTS, filesChoiceOf, filesOff, withFilesChoice } from '../../src/utils/chatAgents.js'
 
 test('chat agents: an entry is trimmed and added once', () => {
   assert.deepEqual(addEntry([], ' office '), ['office'])
@@ -131,4 +131,43 @@ test('chat agents: a grant is switched on once and off again', () => {
   assert.deepEqual(setGrant(['memory.write'], 'memory.write', true), ['memory.write'])
   assert.deepEqual(setGrant(['memory.write', 'files.upload'], 'memory.write', false), ['files.upload'])
   assert.deepEqual(agentPayload({ ...emptyAgent(), name: 'a', builtins: ['memory.write', ' memory.write'] }).builtins, ['memory.write'])
+})
+
+test('files choice: saved agents map as they always behaved', () => {
+  assert.equal(filesChoiceOf({ builtins_off: [], folders: [] }), 'all')
+  assert.equal(filesChoiceOf({}), 'all')
+  assert.equal(filesChoiceOf({ builtins_off: ['web'] }), 'all')
+  assert.equal(filesChoiceOf({ builtins_off: ['files'] }), 'none')
+  assert.equal(filesChoiceOf({ folders: [{ path: '/Work', mode: 'read' }] }), 'folders')
+  assert.equal(filesChoiceOf({ folder: { path: '/Work', mode: 'read' } }), 'folders')
+  assert.equal(filesChoiceOf({ folders: [], folder: { path: '/Work' } }), 'all', 'a form whose rows were cleared')
+  // the switch wins: the server ignores folders of an agent with Files off
+  assert.equal(filesChoiceOf({ builtins_off: ['files'], folders: [{ path: '/Work' }] }), 'none')
+  assert.equal(filesOff({ builtins_off: ['files'] }), true)
+})
+
+test('files choice: each choice sets the switch and the rows together', () => {
+  const rows = [{ path: '/Work', mode: 'write' }]
+  const form = { builtins_off: ['web'], folders: rows }
+  const none = withFilesChoice(form, 'none', [])
+  assert.deepEqual(none.builtins_off, ['web', 'files'])
+  assert.deepEqual(none.folders, [])
+  assert.deepEqual(withFilesChoice(none, 'none', []).builtins_off, ['web', 'files'], 'idempotent')
+  const all = withFilesChoice(none, 'all', rows)
+  assert.deepEqual(all.builtins_off, ['web'])
+  assert.deepEqual(all.folders, [])
+  assert.deepEqual(withFilesChoice(all, 'folders', rows).folders, rows, 'brings the saved rows back')
+  assert.deepEqual(withFilesChoice(all, 'folders', []).folders, [{ mode: 'read' }], 'a blank row to fill in')
+  assert.deepEqual(withFilesChoice({ ...form }, 'folders', []).folders, rows, 'keeps the rows it has')
+  assert.equal(filesChoiceOf(withFilesChoice(none, 'folders', rows)), 'folders')
+})
+
+test('files choice: No files on a saved agent sends the switch and clears the folders', () => {
+  const saved = [{ path: '/Work', mode: 'read' }]
+  const form = withFilesChoice({ ...emptyAgent(), name: 'a', folders: saved }, 'none', saved)
+  const body = agentPayload(form, { initialFolders: saved })
+  assert.deepEqual(body.builtins_off, ['files'])
+  assert.deepEqual(body.folders, [])
+  // an untouched agent sends no folders
+  assert.equal(agentPayload({ ...emptyAgent(), name: 'a', folders: saved }, { initialFolders: saved }).folders, undefined)
 })

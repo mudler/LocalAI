@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,17 +30,30 @@ const DefaultDrainTimeout = 10 * time.Second
 type Options struct {
 	// Revalidate checks the current account and credential. It is the host's
 	// authentication check and runs on every admission, not only at login.
+	// It is the check of the add-on resources: it includes the add-ons
+	// feature.
 	Revalidate func(context.Context, contract.Actor) error
+	// Account checks the current account and credential for a kind that is
+	// not an add-on, and the feature the kind names when it names one
+	// (KindSpec.Feature, empty for none). It never asks for the add-ons
+	// feature on its own. Without it every kind that is not an add-on denies.
+	Account func(ctx context.Context, actor contract.Actor, feature string) error
 	// CreateAuthority says whether the actor may create a resource for the addon.
 	// Without it no resource can be created.
 	CreateAuthority func(ctx context.Context, actor contract.Actor, addonID string) error
 	Proposals       ProposalInvalidator
 	DrainTimeout    time.Duration
-	// MaxPendingPerUser, MaxResourcesPerUser and MaxResources bound the store.
-	// Zero selects the finite defaults; a limit can never be disabled.
+	// MaxPendingPerUser, MaxResourcesPerUser and MaxResources bound the
+	// add-on resources of the store. MaxSharesPerUser and MaxShares bound the
+	// records of the kinds that are not add-ons (a shared agent, binding or
+	// collection) apart from them, so share records never take the room of
+	// add-on resources. Zero selects the finite defaults; a limit can never be
+	// disabled.
 	MaxPendingPerUser   int
 	MaxResourcesPerUser int
 	MaxResources        int
+	MaxSharesPerUser    int
+	MaxShares           int
 }
 
 // Default limits for registrations, per owner and in total.
@@ -47,6 +61,13 @@ const (
 	DefaultMaxPendingPerUser   = 8
 	DefaultMaxResourcesPerUser = 256
 	DefaultMaxResources        = 4096
+	// DefaultMaxSharesPerUser and DefaultMaxShares bound the share records.
+	// An owner gets as many as add-on resources. The total is 32 owners at
+	// their cap, so a few accounts that fill their own room leave room for
+	// everyone else; a record is made only on the first share and dropped
+	// when its resource is deleted.
+	DefaultMaxSharesPerUser = 256
+	DefaultMaxShares        = 8192
 )
 
 // Policy decides and serializes access. It keeps no per-user state besides
@@ -65,6 +86,8 @@ type Policy struct {
 	// held counts the operations that hold an add-on's data still: a backup,
 	// an upgrade, a restore or a purge. See HoldAddon.
 	held map[string]int
+	// kinds are the registered kinds that are not add-ons, see RegisterKind.
+	kinds map[string]KindSpec
 	// afterAuthorize is a test seam of change.
 	afterAuthorize func()
 }
@@ -83,12 +106,21 @@ func New(store *Store, opts Options) *Policy {
 	if opts.MaxResources <= 0 {
 		opts.MaxResources = DefaultMaxResources
 	}
+	if opts.MaxSharesPerUser <= 0 {
+		opts.MaxSharesPerUser = DefaultMaxSharesPerUser
+	}
+	if opts.MaxShares <= 0 {
+		opts.MaxShares = DefaultMaxShares
+	}
 	return &Policy{store: store, opts: opts, gates: map[string]*gate{}, inflight: map[string]struct{}{}}
 }
 
 type admitted struct {
 	user     string
 	mutation bool
+	// action is what the work was admitted for. A lowering that another
+	// grant still covers for this action leaves the work running.
+	action Action
 	// epoch is the resource's authority epoch when the work was admitted.
 	epoch  uint64
 	cancel context.CancelFunc
@@ -128,14 +160,37 @@ func (p *Policy) role(a contract.Actor, r record) Role {
 
 // check is the pure store decision, with no identity or account step.
 func (p *Policy) check(a contract.Actor, key ResourceKey, action Action) error {
-	r, ok := p.store.get(key.ResourceID)
-	if !ok || r.State != stateActive || r.AddonID != key.AddonID || key.AddonID == "" {
+	return p.checkRef(a, refOf(key), action)
+}
+
+// checkRef is check for any kind. A kind that is not registered, a record of
+// another kind and a record that is not there are the same denial.
+func (p *Policy) checkRef(a contract.Actor, ref Ref, action Action) error {
+	spec, known := p.spec(ref.Kind)
+	r, ok := p.store.get(ref.ResourceID)
+	if !known || !ok || r.State != stateActive || r.Kind != ref.Kind {
 		return ErrForbidden
 	}
-	if p.role(a, r).rank() < action.required().rank() {
+	if !p.may(spec, a, r, action) {
 		return ErrForbidden
 	}
 	return nil
+}
+
+// may is the role decision: the owner, the actor's own grant or, on a kind
+// that allows it, the grant to everyone. The grants add up, so the higher of
+// the two wins. A role the table of the kind does not list denies.
+func (p *Policy) may(spec KindSpec, a contract.Actor, r record, action Action) bool {
+	if spec.allows(p.role(a, r), action) {
+		return true
+	}
+	return p.everyone(spec, r, action)
+}
+
+// everyone says whether the grant to everyone on the record allows the
+// action. Only a named-user store with a kind that allows it has one.
+func (p *Policy) everyone(spec KindSpec, r record, action Action) bool {
+	return spec.Everyone && p.store.Mode() == ModeNamedUser && spec.allows(r.Grants[Everyone], action)
 }
 
 func (p *Policy) current(ctx context.Context, a contract.Actor) error {
@@ -146,6 +201,31 @@ func (p *Policy) current(ctx context.Context, a contract.Actor) error {
 		return err
 	}
 	if err := p.opts.Revalidate(ctx, a); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return p.classify(err)
+	}
+	return nil
+}
+
+// currentKind is current for a resource of the kind. An add-on kind keeps the
+// add-on check, the add-ons feature included. Any other kind is checked with
+// the account check and the feature it names; a kind nobody registered is
+// checked like one that names none, and is then denied like a resource that
+// is not there.
+func (p *Policy) currentKind(ctx context.Context, a contract.Actor, kind string) error {
+	if _, addon := addonOf(kind); addon {
+		return p.current(ctx, a)
+	}
+	if p.opts.Account == nil {
+		return ErrForbidden
+	}
+	if err := p.store.Mode().identity(a); err != nil {
+		return err
+	}
+	spec, _ := p.spec(kind)
+	if err := p.opts.Account(ctx, a, spec.Feature); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -166,13 +246,18 @@ func (p *Policy) classify(err error) error {
 // Authorize answers whether the actor may run the action now. It does not
 // serialize with other work; use Admit around the work itself.
 func (p *Policy) Authorize(ctx context.Context, actor contract.Actor, resource ResourceKey, action Action) error {
-	if err := p.current(ctx, actor); err != nil {
+	return p.AuthorizeRef(ctx, actor, refOf(resource), action)
+}
+
+// AuthorizeRef is Authorize for a resource of any kind.
+func (p *Policy) AuthorizeRef(ctx context.Context, actor contract.Actor, ref Ref, action Action) error {
+	if err := p.currentKind(ctx, actor, ref.Kind); err != nil {
 		return err
 	}
-	if p.isHeld(resource.AddonID) {
+	if p.heldKind(ref.Kind) {
 		return errHeld
 	}
-	return p.check(actor, resource, action)
+	return p.checkRef(actor, ref, action)
 }
 
 // Admit runs run while the actor is authorized. The decision and the
@@ -180,24 +265,29 @@ func (p *Policy) Authorize(ctx context.Context, actor contract.Actor, resource R
 // resource; a revocation cancels the context given to run and waits for it.
 // Writes are admitted one at a time per resource.
 func (p *Policy) Admit(ctx context.Context, actor contract.Actor, resource ResourceKey, action Action, run func(context.Context) error) error {
+	return p.AdmitRef(ctx, actor, refOf(resource), action, run)
+}
+
+// AdmitRef is Admit for a resource of any kind.
+func (p *Policy) AdmitRef(ctx context.Context, actor contract.Actor, resource Ref, action Action, run func(context.Context) error) error {
 	if run == nil {
 		return ErrForbidden
 	}
-	if err := p.Authorize(ctx, actor, resource, action); err != nil {
+	if err := p.AuthorizeRef(ctx, actor, resource, action); err != nil {
 		return err
 	}
 	g := p.gate(resource.ResourceID)
 	runCtx, cancel := context.WithCancel(ctx)
-	adm := &admitted{user: actor.UserID, mutation: action.Mutation(), cancel: cancel, done: make(chan struct{})}
+	adm := &admitted{user: actor.UserID, mutation: action.Mutation(), action: action, cancel: cancel, done: make(chan struct{})}
 	g.mu.Lock()
 	// The hold is read under the gate that HoldAddon cancels work under, so
 	// an admission is either listed there or refused here.
-	if p.isHeld(resource.AddonID) {
+	if p.heldKind(resource.Kind) {
 		g.mu.Unlock()
 		cancel()
 		return errHeld
 	}
-	if err := p.check(actor, resource, action); err != nil {
+	if err := p.checkRef(actor, resource, action); err != nil {
 		g.mu.Unlock()
 		cancel()
 		return err
@@ -227,20 +317,20 @@ func (p *Policy) Admit(ctx context.Context, actor contract.Actor, resource Resou
 		}
 		// Authority can change while this admission waited for the writer slot.
 		g.mu.Lock()
-		err := p.check(actor, resource, action)
+		err := p.checkRef(actor, resource, action)
 		g.mu.Unlock()
 		if err != nil {
 			return err
 		}
 	}
-	if err := p.current(runCtx, actor); err != nil {
+	if err := p.currentKind(runCtx, actor, resource.Kind); err != nil {
 		return err
 	}
 	// The host check may ignore cancellation. A revocation cancels admitted work
 	// while it holds the gate, so under the gate a live context means the
 	// revocation, if any, comes after this point and will wait for run.
 	g.mu.Lock()
-	err := p.check(actor, resource, action)
+	err := p.checkRef(actor, resource, action)
 	if err == nil && runCtx.Err() != nil {
 		err = ErrForbidden
 		if ctx.Err() != nil {
@@ -259,24 +349,90 @@ func (p *Policy) Admit(ctx context.Context, actor contract.Actor, resource Resou
 // Lowering a role invalidates the user's pending proposals and stops their
 // admitted mutations before it returns.
 func (p *Policy) SetGrant(ctx context.Context, actor contract.Actor, resource ResourceKey, userID string, role Role) error {
-	if role != RoleViewer && role != RoleEditor {
+	return p.SetGrantRef(ctx, actor, refOf(resource), userID, role)
+}
+
+// SetGrantRef is SetGrant for a resource of any kind. The role must be one the
+// kind grants. userID is an account the kind's Eligible rule accepts, or
+// Everyone on a kind that allows it.
+func (p *Policy) SetGrantRef(ctx context.Context, actor contract.Actor, resource Ref, userID string, role Role) error {
+	spec, ok := p.spec(resource.Kind)
+	if !ok || !spec.grantable(role) {
 		return ErrForbidden
 	}
+	_, addon := addonOf(resource.Kind)
+	switch {
+	case userID == Everyone:
+		if !spec.Everyone {
+			return ErrForbidden
+		}
+	case !addon:
+		// The rule is asked only for the owner role, so nobody else learns
+		// who may receive a grant.
+		if err := p.AuthorizeRef(ctx, actor, resource, ActionShare); err != nil {
+			return err
+		}
+		if err := p.eligible(ctx, actor, spec, userID); err != nil {
+			return err
+		}
+	}
 	return p.change(ctx, actor, resource, userID, role, false)
+}
+
+// eligible asks the kind whether the user may receive a grant from the actor.
+func (p *Policy) eligible(ctx context.Context, actor contract.Actor, spec KindSpec, userID string) error {
+	if spec.Eligible == nil || !validUserID(userID) {
+		return ErrForbidden
+	}
+	ok, err := spec.Eligible(ctx, actor, userID)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return p.classify(err)
+	}
+	if !ok {
+		return ErrForbidden
+	}
+	return nil
+}
+
+// EligibleRef says whether the kind of the resource lets the actor grant it to
+// the user. It decides nothing about the actor's own role. The user picker
+// uses it to leave out the people a grant would refuse.
+func (p *Policy) EligibleRef(ctx context.Context, actor contract.Actor, resource Ref, userID string) (bool, error) {
+	spec, ok := p.spec(resource.Kind)
+	if !ok {
+		return false, ErrForbidden
+	}
+	if err := p.eligible(ctx, actor, spec, userID); err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // Revoke removes userID's grant. It returns only after the user's pending
 // proposals are invalidated and their admitted work has stopped, or reports
 // ErrDrainPending when that did not happen in the bound.
 func (p *Policy) Revoke(ctx context.Context, actor contract.Actor, resource ResourceKey, userID string) error {
+	return p.RevokeRef(ctx, actor, refOf(resource), userID)
+}
+
+// RevokeRef is Revoke for a resource of any kind.
+func (p *Policy) RevokeRef(ctx context.Context, actor contract.Actor, resource Ref, userID string) error {
 	return p.change(ctx, actor, resource, userID, "", true)
 }
 
-func (p *Policy) change(ctx context.Context, actor contract.Actor, resource ResourceKey, userID string, role Role, remove bool) error {
-	if p.store.Mode() != ModeNamedUser || !validUserID(userID) {
+func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Ref, userID string, role Role, remove bool) error {
+	// Everyone is a principal, never an account. A removal of it is accepted
+	// on every kind, as it was before it was a principal: it takes nothing.
+	if p.store.Mode() != ModeNamedUser || (!validUserID(userID) && userID != Everyone) {
 		return ErrForbidden
 	}
-	if err := p.Authorize(ctx, actor, resource, ActionShare); err != nil {
+	if err := p.AuthorizeRef(ctx, actor, resource, ActionShare); err != nil {
 		return err
 	}
 	if p.afterAuthorize != nil {
@@ -287,11 +443,11 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 	// The hold is read under the gate, as Admit does: a backup, a restore or
 	// a purge that began after the check above has read or will read the
 	// grants of the add-on, and a change must not land in between.
-	if p.isHeld(resource.AddonID) {
+	if p.heldKind(resource.Kind) {
 		g.mu.Unlock()
 		return errHeld
 	}
-	if err := p.check(actor, resource, ActionShare); err != nil {
+	if err := p.checkRef(actor, resource, ActionShare); err != nil {
 		g.mu.Unlock()
 		return err
 	}
@@ -300,19 +456,22 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 		g.mu.Unlock()
 		return ErrForbidden
 	}
+	spec, _ := p.spec(resource.Kind)
 	prev := r.Grants[userID]
 	owed, isOwed := r.Drain[userID]
-	// Only a change that takes authority away starts a new epoch. A retry of
+	// Only a change that takes authority away starts a new epoch: one that
+	// leaves the grantee without an action the old role allowed. A retry of
 	// that change, or a regrant while its drain is still owed, keeps the mark
 	// as it is: the cutoff must stay at the lowering that created it, or the
 	// retry would stop work admitted under the later grant.
-	lowering := (prev != "" && (remove || role.rank() < prev.rank())) || (remove && !isOwed)
+	lost, lostRead := spec.loses(prev, role)
+	lowering := (prev != "" && (remove || lost)) || (remove && !isOwed)
 	// A removal after a downgrade keeps the older read cutoff, which the copy
 	// of the owed mark carries; a newer lowering only ever raises a cutoff.
 	mark := owed
 	if lowering {
 		mark.Writes = r.Epoch + 1
-		if remove {
+		if remove || lostRead {
 			mark.Reads = r.Epoch + 1
 		}
 	}
@@ -332,7 +491,7 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 			if remove {
 				ceiling = ""
 			}
-			d.addRevocation(revocation{AddonID: rec.AddonID, ResourceID: resource.ResourceID, UserID: userID, Ceiling: ceiling, At: time.Now().UTC()})
+			d.addRevocation(revocation{Kind: rec.Kind, ResourceID: resource.ResourceID, UserID: userID, Ceiling: ceiling, At: time.Now().UTC()})
 			rec.Epoch++
 			if rec.Drain == nil {
 				rec.Drain = map[string]drainMark{}
@@ -357,15 +516,31 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 	}
 	var victims []*admitted
 	if lowered {
+		// The role the principal holds after this change. A lowering stops
+		// only the work whose action that role no longer allows: lowering an
+		// agent from viewer to use takes the reads away and leaves the turn
+		// that use still runs.
+		after := role
+		if remove {
+			after = ""
+		}
 		for a := range g.active {
-			if a.user != userID {
+			if !p.drains(spec, r, userID, a) {
 				continue
 			}
+			// A drain owed by an earlier call keeps its cutoff for every
+			// action: that call took the action away, and its answer waits
+			// for the work it admitted before.
+			owedCut := owed.Reads
 			cutoff := mark.Reads
 			if a.mutation {
-				cutoff = mark.Writes
+				owedCut, cutoff = owed.Writes, mark.Writes
 			}
-			if a.epoch < cutoff {
+			stop := isOwed && a.epoch < owedCut
+			if !stop && lowering && a.epoch < cutoff {
+				stop = !spec.allows(after, a.action)
+			}
+			if stop {
 				a.cancel()
 				victims = append(victims, a)
 			}
@@ -375,8 +550,9 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 	if !lowered {
 		return mutErr
 	}
-	if p.opts.Proposals != nil {
-		if err := p.opts.Proposals.InvalidateProposals(ctx, resource, userID); err != nil {
+	// Proposals are made through add-on tools, so only an add-on kind has any.
+	if key, addon := resource.keyOf(); addon && p.opts.Proposals != nil {
+		if err := p.opts.Proposals.InvalidateProposals(ctx, key, userID); err != nil {
 			return ErrDrainPending
 		}
 	}
@@ -402,6 +578,23 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 		}
 		return nil
 	})
+}
+
+// drains says whether a lowering of the principal's grant reaches the admitted
+// work. A lowering of a user reaches that user's work; a lowering of the grant
+// to everyone reaches the work of every user but the owner. Work the other
+// grant still allows for its action keeps running: revoking one of the two
+// grants never revokes the other. r is the record as it was before the change;
+// the change does not touch the other grant.
+func (p *Policy) drains(spec KindSpec, r record, principal string, a *admitted) bool {
+	if principal != Everyone {
+		return a.user == principal && !p.everyone(spec, r, a.action)
+	}
+	// A kind that does not allow it has no grant to everyone to lower.
+	if !spec.Everyone || a.user == r.Owner {
+		return false
+	}
+	return !spec.allows(r.Grants[a.user], a.action)
 }
 
 // Register records a new resource as pending, owned by the creating actor. A
@@ -436,37 +629,120 @@ func (p *Policy) reserve(ctx context.Context, actor contract.Actor, addonID stri
 		}
 		return ResourceKey{}, noop, p.classify(err)
 	}
-	raw := make([]byte, 16)
-	if _, err := rand.Read(raw); err != nil {
-		return ResourceKey{}, noop, ErrUnavailable
+	id, release, err := p.newPending(actor, addonKind(addonID), addonID)
+	if err != nil {
+		return ResourceKey{}, noop, err
 	}
-	// The envelope contract requires a lowercase letter first, so a bare hex
-	// value would be refused by the runtime whenever it starts with a digit.
-	// The first character is fixed; the other 124 bits stay random.
-	id := "r" + hex.EncodeToString(raw)[1:]
+	return ResourceKey{AddonID: addonID, ResourceID: id}, release, nil
+}
+
+// newPending stores a pending resource of the kind, owned by the actor, under
+// a fresh random ID. The ID space is shared by all kinds, so an ID names one
+// resource whatever its kind. addonID is set for an add-on kind only. The
+// caller has done every authority check; the reservation is marked in flight
+// until it calls release.
+func (p *Policy) newPending(actor contract.Actor, kind, addonID string) (string, func(), error) {
+	id, err := randomResourceID()
+	if err != nil {
+		return "", nil, err
+	}
 	release := p.track(id)
 	owner := p.store.Mode().ownerOf(actor)
-	err := p.store.mutate(func(d *document) error {
-		var pending, owned int
-		for _, r := range d.Resources {
-			if r.Owner == owner {
-				owned++
-				if r.State == statePend {
-					pending++
-				}
-			}
+	err = p.store.mutate(func(d *document) error {
+		if err := p.room(d, owner, kind); err != nil {
+			return err
 		}
-		if pending >= p.opts.MaxPendingPerUser || owned >= p.opts.MaxResourcesPerUser || len(d.Resources) >= p.opts.MaxResources {
-			return ErrQuota
-		}
-		d.Resources[id] = &record{AddonID: addonID, Owner: owner, State: statePend, Grants: map[string]Role{}}
+		d.Resources[id] = &record{Kind: kind, AddonID: addonID, Owner: owner, State: statePend, Grants: map[string]Role{}}
 		return nil
 	})
 	if err != nil {
 		release()
-		return ResourceKey{}, noop, err
+		return "", nil, err
 	}
-	return ResourceKey{AddonID: addonID, ResourceID: id}, release, nil
+	return id, release, nil
+}
+
+// shareKind says whether records of the kind are share records: the records
+// of a kind that is not an add-on. They have their own limits.
+func shareKind(kind string) bool { return !strings.HasPrefix(kind, addonKindPrefix) }
+
+// room says whether the owner may add one more record of the kind. The
+// add-on resources and the share records are counted apart, each against its
+// own limits per owner and in total, so neither class can fill the room of
+// the other. d is the document under the store lock.
+func (p *Policy) room(d *document, owner, kind string) error {
+	share := shareKind(kind)
+	perOwner, total := p.opts.MaxResourcesPerUser, p.opts.MaxResources
+	if share {
+		perOwner, total = p.opts.MaxSharesPerUser, p.opts.MaxShares
+	}
+	var pending, owned, all int
+	for _, r := range d.Resources {
+		if shareKind(r.Kind) != share {
+			continue
+		}
+		all++
+		if r.Owner != owner {
+			continue
+		}
+		owned++
+		// A record of a kind nobody registers now cannot be settled and
+		// stays pending, so it does not take the user's quota.
+		if _, known := p.spec(r.Kind); r.State == statePend && known {
+			pending++
+		}
+	}
+	if pending >= p.opts.MaxPendingPerUser || owned >= perOwner || all >= total {
+		return ErrQuota
+	}
+	return nil
+}
+
+// randomResourceID is a fresh resource ID. The ID space is shared by all
+// kinds.
+func randomResourceID() (string, error) {
+	raw := make([]byte, 16)
+	if _, err := rand.Read(raw); err != nil {
+		return "", ErrUnavailable
+	}
+	// The envelope contract requires a lowercase letter first, so a bare hex
+	// value would be refused by the runtime whenever it starts with a digit.
+	// The first character is fixed; the other 124 bits stay random.
+	return "r" + hex.EncodeToString(raw)[1:], nil
+}
+
+// CreateRef creates a resource of a kind that is not an add-on and makes it
+// usable. The actor owns it. The kind must be registered with a
+// CreateAuthority that allows the actor.
+func (p *Policy) CreateRef(ctx context.Context, actor contract.Actor, kind string) (Ref, error) {
+	spec, ok := p.spec(kind)
+	if _, addon := addonOf(kind); !ok || addon || spec.CreateAuthority == nil {
+		return Ref{}, ErrForbidden
+	}
+	if err := p.currentKind(ctx, actor, kind); err != nil {
+		return Ref{}, err
+	}
+	if err := spec.CreateAuthority(ctx, actor); err != nil {
+		if ctx.Err() != nil {
+			return Ref{}, ctx.Err()
+		}
+		return Ref{}, p.classify(err)
+	}
+	id, release, err := p.newPending(actor, kind, "")
+	if err != nil {
+		return Ref{}, err
+	}
+	defer release()
+	err = p.store.mutate(func(d *document) error {
+		if r := d.Resources[id]; r != nil && r.State == statePend {
+			r.State = stateActive
+		}
+		return nil
+	})
+	if err != nil {
+		return Ref{}, err
+	}
+	return Ref{Kind: kind, ResourceID: id}, nil
 }
 
 // track marks a reservation as being worked on and returns the release.
@@ -492,7 +768,7 @@ func (p *Policy) pendingOwner(ctx context.Context, actor contract.Actor, key Res
 		return err
 	}
 	r, ok := p.store.get(key.ResourceID)
-	if !ok || r.State != statePend || r.AddonID != key.AddonID || r.Owner != p.store.Mode().ownerOf(actor) {
+	if !ok || r.State != statePend || r.Kind != addonKind(key.AddonID) || r.Owner != p.store.Mode().ownerOf(actor) {
 		return ErrForbidden
 	}
 	return nil
@@ -567,7 +843,16 @@ func (p *Policy) ReconcileReport(ctx context.Context, exists func(context.Contex
 			rep.Kept++
 			continue
 		}
-		found, err := exists(ctx, ResourceKey{AddonID: r.AddonID, ResourceID: id})
+		var found bool
+		var err error
+		if _, addon := addonOf(r.Kind); addon {
+			found, err = exists(ctx, ResourceKey{AddonID: r.AddonID, ResourceID: id})
+		} else if spec, ok := p.spec(r.Kind); ok && spec.Backing != nil {
+			found, err = spec.Backing(ctx, Ref{Kind: r.Kind, ResourceID: id})
+		} else {
+			// Nothing can confirm the backing of this kind, so the record stays.
+			err = ErrUnavailable
+		}
 		if err != nil {
 			rep.Kept++
 			continue
@@ -696,7 +981,7 @@ func (l *ReconcileLoop) Close() {
 // and the caller must be able to read the resource.
 func (p *Policy) Resolve(ctx context.Context, actor contract.Actor, request contract.Request) (ResourceKey, error) {
 	r, ok := p.store.get(request.ResourceID)
-	if !ok || request.ResourceID == "" || r.AddonID != request.AddonID {
+	if !ok || request.ResourceID == "" || r.Kind != addonKind(request.AddonID) {
 		return ResourceKey{}, ErrForbidden
 	}
 	key := ResourceKey{AddonID: r.AddonID, ResourceID: request.ResourceID}

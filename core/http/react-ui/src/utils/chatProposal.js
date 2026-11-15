@@ -43,6 +43,7 @@ export function proposalEdit(p, { name, when }) {
     enabled: false,
     daily_cap: p.daily_cap || 0,
   }
+  if (p.run_limit) body.run_limit = p.run_limit
   if (p.kind === 'file') {
     body.folder = when.trim()
     if (p.quiet_seconds) body.quiet_seconds = p.quiet_seconds
@@ -97,8 +98,11 @@ export function changeValue(field, t) {
     case 'writes': return t.plan?.writes || ''
     case 'widget': return t.plan?.widget || ''
     case 'estimated_tokens': return t.cost?.estimated_tokens ? String(t.cost.estimated_tokens) : ''
+    case 'acts': return (t.acts || []).join(', ')
+    case 'delivery': return t.delivery ? [t.delivery.target, t.delivery.channel_label].filter(Boolean).join(' ') : ''
     case 'agent': return t.agent_id || ''
     case 'daily_cap': return t.daily_cap ? String(t.daily_cap) : ''
+    case 'run_limit': return t.run_limit || ''
     default: return t[field] == null ? '' : String(t[field])
   }
 }

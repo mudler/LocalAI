@@ -52,11 +52,23 @@ var ErrRefused = fmt.Errorf("addon refused the request: %w", contract.ErrRefused
 // neither an outage nor an unknown outcome. It is not an ErrRuntime.
 var ErrDenied = fmt.Errorf("addon denied the request: %w", contract.ErrDenied)
 
+// ErrCredentialRejected is the add-on's own 401 "credential_rejected": the
+// service behind it refused the access token and nothing changed. The host
+// may refresh the token and call again, or ask the person to reconnect. It is
+// neither an outage nor an unknown outcome, and not an ErrRuntime. A 401 with
+// another reason keeps its old meaning.
+var ErrCredentialRejected = fmt.Errorf("addon reported the credential as rejected: %w", contract.ErrCredentialRejected)
+
 // Refusal is the typed form of ErrRefused. Reason is a short printable class
 // taken from the add-on's answer and bounded, so it is safe to log.
 type Refusal struct {
 	Status int
 	Reason string
+	// Upstream is the status that the service behind the add-on answered, when
+	// the add-on says its refusal comes from there (0 when it does not). Hint
+	// is the one sentence the add-on wrote for the person about it.
+	Upstream int
+	Hint     string
 }
 
 func (r *Refusal) Error() string {
@@ -292,7 +304,7 @@ func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, gen
 func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (*process, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.config.ReadyTimeout)
 	defer cancel()
-	host := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
+	host := contract.HostCompatibility{Host: contract.HostVersion, API: contract.HostAPIVersion, Protocol: contract.HostProtocolVersion, SDK: contract.HostSDKVersion, DataFormat: contract.HostDataFormatVersion, FeatureLevel: contract.HostFeatureLevel, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
 	if contract.ValidateManifest(pkg.Manifest, host) != nil || !filepath.IsAbs(pkg.Directory) {
 		return nil, ErrRuntime
 	}
@@ -361,7 +373,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		_ = parent.Close()
 		return nil, ErrRuntime
 	}
-	r := Registration{AddonID: pkg.Manifest.ID, Generation: generation, Incarnation: hex.EncodeToString(inc), Protocol: 1, Endpoint: "http://" + listener.Addr().String(), Capabilities: pkg.Manifest.Capabilities}
+	r := Registration{AddonID: pkg.Manifest.ID, Generation: generation, Incarnation: hex.EncodeToString(inc), Protocol: int(contract.HostProtocolVersion), Endpoint: "http://" + listener.Addr().String(), Capabilities: pkg.Manifest.Capabilities}
 	dataDir := ""
 	if s.config.DataRoot != "" {
 		if !filepath.IsAbs(s.config.DataRoot) || !relativeSafe(pkg.Manifest.ID) {

@@ -33,3 +33,6 @@ func CapText(s string, n int) string {
 	}
 	return s[:n]
 }
+
+// CapPartial cuts the saved text of a message being written to MaxPartialBytes.
+func CapPartial(s string) string { return CapText(s, MaxPartialBytes) }

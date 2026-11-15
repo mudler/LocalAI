@@ -46,15 +46,38 @@ func (s *Service) awaitTurn(owner, chatID string, events <-chan session.Event, l
 	timer := time.NewTimer(limit)
 	defer timer.Stop()
 	var poll <-chan time.Time
+	var tick *time.Ticker
+	startPoll := func() {
+		if tick == nil {
+			tick = time.NewTicker(time.Second)
+			poll = tick.C
+		}
+	}
+	defer func() {
+		if tick != nil {
+			tick.Stop()
+		}
+	}()
 	started, errText, tokens := false, "", 0
+	// ended says the turn is over. A turn that the server will resume by itself
+	// (store.TurnInfo.WillResume) is not the end of the watch: the resumed turn
+	// is, and the limit counts all of them.
+	ended := func(info store.TurnInfo) (TurnEnd, bool) {
+		if info.WillResume {
+			started = false
+			// The resume starts after a wait, on any frontend: look at the store
+			// as well as at the events.
+			startPoll()
+			return TurnEnd{}, false
+		}
+		return TurnEnd{How: TurnEnded, Info: info, ErrText: errText, Tokens: tokens}, true
+	}
 	for {
 		select {
 		case ev, ok := <-events:
 			if !ok { // the subscriber fell behind: watch the store instead
 				events = nil
-				p := time.NewTicker(time.Second)
-				defer p.Stop()
-				poll = p.C
+				startPoll()
 				continue
 			}
 			switch ev.Kind {
@@ -68,12 +91,16 @@ func (s *Service) awaitTurn(owner, chatID string, events <-chan session.Event, l
 				}
 			case session.KindTurnEnd:
 				if started {
-					return TurnEnd{How: TurnEnded, Info: s.settledTurn(owner, chatID), ErrText: errText, Tokens: tokens}
+					if end, done := ended(s.settledTurn(owner, chatID)); done {
+						return end
+					}
 				}
 			}
 		case <-poll:
 			if info, err := s.Turn(context.Background(), owner, chatID); err == nil && !info.Running && info.Last != "" {
-				return TurnEnd{How: TurnEnded, Info: info, ErrText: errText, Tokens: tokens}
+				if end, done := ended(info); done {
+					return end
+				}
 			}
 		case <-timer.C:
 			return TurnEnd{How: TurnTimedOut, ErrText: errText, Tokens: tokens}

@@ -2,10 +2,14 @@ package session
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/mudler/LocalAI/core/config/harnessctx"
 )
 
 // Codes of a failed turn. The chat page picks its plain-words text by code, so
@@ -54,6 +58,32 @@ type Failure struct {
 	// Detail is the error text for the technical view: one line, with
 	// addresses, paths and secrets removed, and cut to a limit.
 	Detail string
+}
+
+// failureNote is the form of a Failure in the Note of a RoleFailure entry.
+type failureNote struct {
+	Code   string `json:"code"`
+	Model  string `json:"model,omitempty"`
+	Retry  int    `json:"retry,omitempty"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// FailureEntry is the transcript line that keeps why a turn ended: a reload
+// of the chat shows the same reason as the live stream did.
+func FailureEntry(turn int, f Failure) Entry {
+	note, _ := json.Marshal(failureNote{Code: f.Code, Model: f.Model, Retry: f.RetryAfter, Detail: f.Detail})
+	return Entry{Turn: turn, Role: RoleFailure, Text: f.Reason, Note: string(note)}
+}
+
+// ParseFailure reads the cause back from a RoleFailure entry. An entry whose
+// note cannot be read still gives its text, with the generic code.
+func ParseFailure(e Entry) Failure {
+	f := Failure{Code: CodeAgent, Reason: e.Text}
+	var n failureNote
+	if json.Unmarshal([]byte(e.Note), &n) == nil && n.Code != "" {
+		f.Code, f.Model, f.RetryAfter, f.Detail = n.Code, n.Model, n.Retry, n.Detail
+	}
+	return f
 }
 
 var (
@@ -110,6 +140,12 @@ func Classify(err error) Failure {
 	case windowFullRe.MatchString(msg):
 		m := windowFullRe.FindStringSubmatch(msg)
 		f.Code = CodeContext
+		if w, err := strconv.Atoi(m[2]); err == nil && w < harnessctx.MinContext {
+			// The window is smaller than what the chat itself sends before the
+			// user types, so a new chat would fail the same way.
+			f.Reason = smallWindowReason(w)
+			break
+		}
 		f.Reason = reasonContextPrefix + " for this conversation: it takes about " + m[1] + " tokens of a " + m[2] + "-token window. Start a new chat, or use a model with a larger context window."
 	case strings.Contains(lower, "tool schema") && (strings.Contains(lower, "invalid") || strings.Contains(lower, "rejected") || strings.Contains(lower, "unsupported")):
 		f.Code = CodeToolSchema
@@ -128,6 +164,14 @@ func Classify(err error) Failure {
 		}
 	}
 	return f
+}
+
+// smallWindowReason is the answer to a window below the chat minimum. It does
+// not say "start a new chat": the fixed part of every request already fills
+// most of such a window, so every turn would fail again.
+func smallWindowReason(window int) string {
+	return fmt.Sprintf("%s for the chat: this model has a window of %d tokens and the chat needs at least %d (%d is better). Pick a model with a larger window, or ask an administrator to raise the context size of this model.",
+		reasonContextPrefix, window, harnessctx.MinContext, harnessctx.RecommendedContext)
 }
 
 func isLoadFailure(lower string) bool {

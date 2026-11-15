@@ -64,8 +64,10 @@ func (c *Connectors) AuthorizeConnector(ctx context.Context, s ConnectorCallScop
 				return deny()
 			}
 		}
+		// A new binding is not stored yet, so its agent is checked here. A
+		// credentials-only binding has none, and the token check still ran above.
 		if s.BindingID == "" {
-			if err := c.checkAgent(ctx, s.Principal, s.AgentID); err != nil {
+			if err := c.checkAgentIfAny(ctx, s.Principal, s.AgentID); err != nil {
 				return deny()
 			}
 		}
@@ -76,7 +78,7 @@ func (c *Connectors) AuthorizeConnector(ctx context.Context, s ConnectorCallScop
 		if !b.Enabled {
 			return deny()
 		}
-	case contract.ConnectorOpMe, contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft, contract.ConnectorOpMedia, contract.ConnectorOpSendFile, contract.ConnectorOpHistory:
+	case contract.ConnectorOpMe, contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft, contract.ConnectorOpMedia, contract.ConnectorOpSendFile, contract.ConnectorOpHistory, contract.ConnectorOpDelete:
 		// History reads the thread named by the request with the stored token,
 		// as a send writes to it: the binding is the whole authority, and a
 		// disabled binding keeps it, like for a send.

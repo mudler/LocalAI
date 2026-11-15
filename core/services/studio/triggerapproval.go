@@ -63,16 +63,18 @@ func ParseClock(text string) (hour, minute int, err error) {
 }
 
 // timerSchedule turns "in 10 minutes" (in) or "at 18:00" (at) into a one-off
-// schedule text and the zone it is read in. A delay needs no zone (UTC is used
-// when none is given); a time of day needs one, since the host does not know
-// where the person is. A time of day that is less than a minute away, or past,
-// means the next day.
+// schedule text and the zone it is read in. at is a time of day, the next time
+// it is that time, or a date and a time ("2026-11-15 09:00"), which names the
+// day. A delay needs no zone (UTC is used when none is given); a time needs
+// one, since the host does not know where the person is. A time of day that is
+// less than a minute away, or past, means the next day; a date and time that
+// is past or less than a minute away is refused, not moved.
 func timerSchedule(now time.Time, in, at, tz string) (schedule, zone string, err error) {
 	if (in == "") == (at == "") {
-		return "", "", errors.New(`when needs exactly one of "in" (a delay such as "10 minutes") or "at" (a time of day such as "18:00")`)
+		return "", "", errors.New(`when needs exactly one of "in" (a delay such as "10 minutes") or "at" (a time of day such as "18:00", or a date and time such as "2026-11-15 09:00")`)
 	}
 	if at != "" && tz == "" {
-		return "", "", errors.New(`"at" needs time_zone: ask the person where they are, or use "in" with a delay`)
+		return "", "", errors.New(`"at" needs a time zone: pass time_zone (as an argument, or inside when next to "at"), ask the person where they are, or use "in" with a delay`)
 	}
 	if tz == "" {
 		tz = "UTC"
@@ -97,6 +99,11 @@ func timerSchedule(now time.Time, in, at, tz string) (schedule, zone string, err
 		if rounded := target.Truncate(time.Minute); rounded.Before(target) {
 			target = rounded.Add(time.Minute)
 		}
+	} else if dt, ok := parseDateTime(at, loc); ok {
+		target = dt
+		if target.Sub(now) < MinOneOff {
+			return "", "", fmt.Errorf("%s in %s is past or less than a minute away; it is now %s", at, tz, now.In(loc).Format("2006-01-02 15:04"))
+		}
 	} else {
 		h, m, cerr := ParseClock(at)
 		if cerr != nil {
@@ -109,6 +116,17 @@ func timerSchedule(now time.Time, in, at, tz string) (schedule, zone string, err
 		}
 	}
 	return "once " + target.In(loc).Format("2006-01-02 15:04"), tz, nil
+}
+
+// parseDateTime reads "2026-11-15 09:00" (or with a T) in loc.
+func parseDateTime(text string, loc *time.Location) (time.Time, bool) {
+	text = strings.TrimSpace(text)
+	for _, layout := range []string{"2006-01-02 15:04", "2006-01-02T15:04"} {
+		if t, err := time.ParseInLocation(layout, text, loc); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
 
 // ---- Approval ----
@@ -203,7 +221,7 @@ func (h *Triggers) autoVerdict(ctx context.Context, v hostmsg.Voice, a workspace
 	for _, l := range live {
 		used += h.runsPerDay(l, now)
 	}
-	if need := h.runsPerDay(capped(t, lim), now); used+need > lim.MaxRunsPerDay {
+	if need := h.runsPerDay(capped(t, lim, now), now); used+need > lim.MaxRunsPerDay {
 		return v.T("verdict.runs", "n", used+need, "max", lim.MaxRunsPerDay)
 	}
 	return ""
@@ -267,8 +285,8 @@ func (h *Triggers) canAskActs(ctx context.Context, t triggers.Trigger) bool {
 }
 
 // capped is t with the daily limit of the owner applied.
-func capped(t triggers.Trigger, lim connectors.Limits) triggers.Trigger {
-	if !t.OneOff() && t.CapOrDefault() > lim.MaxRunsPerDay {
+func capped(t triggers.Trigger, lim connectors.Limits, now time.Time) triggers.Trigger {
+	if !t.OneOff() && t.EffectiveCap(now) > lim.MaxRunsPerDay {
 		t.DailyCap = lim.MaxRunsPerDay
 	}
 	return t
@@ -281,7 +299,12 @@ func (h *Triggers) autoCreate(ctx context.Context, ap connectors.Approval, p tri
 	lim := ap.Limits()
 	now := h.o.Clock().UTC()
 	t, err := h.confirm(ctx, p.Owner, p.ID, "", func(t *triggers.Trigger) {
-		*t = capped(*t, lim)
+		*t = capped(*t, lim, now)
+		// The owner's approval has no time limit of its own, so only the
+		// administrator's ceiling applies to a run limit.
+		if ceiling := h.RunLimit(); t.RunLimit > ceiling {
+			t.RunLimit = ceiling
+		}
 		t.Route.Auto = true
 		if !t.OneOff() {
 			t.Route.Until = now.Add(time.Duration(lim.MaxLifetimeDays) * 24 * time.Hour)
@@ -291,7 +314,7 @@ func (h *Triggers) autoCreate(ctx context.Context, ap connectors.Approval, p tri
 		return triggers.Trigger{}, false, err
 	}
 	h.audit(ctx, proposals.ActionConfirm, t, "automatic, mode "+ap.ModeOrDefault())
-	return t, h.say(ctx, t, h.autoText(h.voiceOf(ctx, t), t, dr)), nil
+	return t, h.say(ctx, t, h.autoText(h.voiceOf(ctx, t), t, h.channelLabel(ctx, t), dr)), nil
 }
 
 // say writes text in the chat and thread where a trigger was proposed.
@@ -318,7 +341,7 @@ func (h *Triggers) costText(v hostmsg.Voice, t triggers.Trigger) string {
 
 // autoText is what the host writes in the chat when it made a trigger without
 // asking.
-func (h *Triggers) autoText(v hostmsg.Voice, t triggers.Trigger, dr DroppedActs) string {
+func (h *Triggers) autoText(v hostmsg.Voice, t triggers.Trigger, where string, dr DroppedActs) string {
 	end := ""
 	if !t.Route.Until.IsZero() {
 		end = v.T("trigger.auto_stops", "date", t.Route.Until.UTC().Format("2006-01-02"))
@@ -329,7 +352,7 @@ func (h *Triggers) autoText(v hostmsg.Voice, t triggers.Trigger, dr DroppedActs)
 	if acts := effectiveActs(t); len(acts) > 0 {
 		end += " " + actsText(v, t, false)
 	}
-	return v.T("trigger.auto", "name", strconv.Quote(t.Name), "when", lowerFirst(h.whenTextIn(v, t)), "cost", h.costText(v, t), "where", resultsGo(v, t), "end", end, "code", t.Route.Code)
+	return v.T("trigger.auto", "name", strconv.Quote(t.Name), "when", lowerFirst(h.whenTextIn(v, t)), "cost", h.costText(v, t), "where", resultsGo(v, t, where), "end", end, "code", t.Route.Code)
 }
 
 // whenText is summary with the day of a one-off trigger spelled out.

@@ -38,6 +38,13 @@ var _ = Describe("the widget block of a page", func() {
 		Entry("null", `{"widget":null}`, nil),
 		Entry("a string", `{"widget":"small"}`, nil),
 		Entry("a broken file", `{"widget":{"size":"small"`, nil),
+		Entry("compact true", `{"widget":{"size":"small","compact":true}}`, &pages.Widget{Size: "small", Compact: &pages.Compact{Width: 120}}),
+		Entry("compact with a width", `{"widget":{"compact":{"width":160}}}`, &pages.Widget{Size: "medium", Compact: &pages.Compact{Width: 160}}),
+		Entry("a compact width too small is clamped", `{"widget":{"compact":{"width":4}}}`, &pages.Widget{Size: "medium", Compact: &pages.Compact{Width: 72}}),
+		Entry("a compact width too large is clamped", `{"widget":{"compact":{"width":9000}}}`, &pages.Widget{Size: "medium", Compact: &pages.Compact{Width: 220}}),
+		Entry("a compact width that is not a number", `{"widget":{"compact":{"width":"wide"}}}`, &pages.Widget{Size: "medium", Compact: &pages.Compact{Width: 120}}),
+		Entry("compact false", `{"widget":{"compact":false}}`, &pages.Widget{Size: "medium"}),
+		Entry("compact as a string", `{"widget":{"compact":"yes"}}`, &pages.Widget{Size: "medium"}),
 		Entry("a long title is cut", `{"widget":{"title":"`+longTitle+`"}}`, &pages.Widget{Size: "medium", Title: longTitle[:60]}),
 	)
 

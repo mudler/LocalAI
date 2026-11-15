@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -151,6 +152,10 @@ type BuiltinGroup struct {
 	Provider string
 	// Providers says who serves each tool of the group, by tool name.
 	Providers map[string]string
+	// Deferred says that the chat loads the tools of the group on demand,
+	// behind tool_search, tool_describe and tool_call, instead of sending
+	// every schema each turn (see shouldDefer).
+	Deferred bool
 	// Title, Description and WhenOff are what a person reads next to the
 	// switch (see builtins.GroupInfo).
 	Title, Description, WhenOff string
@@ -179,6 +184,8 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		Admin: s.isAdmin(ctx, rec.Principal), GroupsOff: offList, GroupsOn: onList, Grants: s.chatGrants(ctx, rec), GoalActive: goalActive(rec)}
 	var out []BuiltinGroup
 	byGroup := map[string]int{}
+	// replaceable marks a group that has a tool an add-on may replace.
+	replaceable := map[string]bool{}
 	for _, t := range s.builtins.Tools() {
 		if t.Group == "" || (!t.On() && !t.Covers) {
 			continue
@@ -199,11 +206,19 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		}
 		g := &out[i]
 		g.Providers[t.ID] = provider
-		switch {
-		case g.Provider == "":
-			g.Provider = provider
-		case g.Provider != provider:
-			g.Provider = MixedProvider
+		// Only a tool an add-on may replace says who serves the group: a tool
+		// that only LocalAI serves (sandbox_profile next to bash) does
+		// not make the group mixed.
+		if t.Replaceable || !replaceable[t.Group] {
+			switch {
+			case g.Provider == "" || (t.Replaceable && !replaceable[t.Group]):
+				g.Provider = provider
+			case g.Provider != provider:
+				g.Provider = MixedProvider
+			}
+			if t.Replaceable {
+				replaceable[t.Group] = true
+			}
 		}
 		// The tool is built to learn whether it can serve this chat: it may
 		// depend on the user (saved agents and triggers need their feature)
@@ -214,6 +229,8 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		switch {
 		case t.Covers && provider != BuiltinProvider:
 			usable = true
+		case t.ID == jobTool:
+			// job follows bash: it says nothing of whether the group can serve.
 		case !t.On():
 			reason = builtins.ReasonOff
 		default:
@@ -226,7 +243,27 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		}
 	}
 	byAgent := set(s.agentOff(ctx, rec))
+	// The groups the chat loads on demand: what the next turn would decide.
+	var deferredGroups []string
+	for _, g := range out {
+		if g.Group == builtins.GroupLocalAIClient || g.Group == builtins.GroupLocalAIAdmin {
+			_, _, deferredGroups, _, _ = s.localaiTurn(ctx, a, session.Access{}, rec, nil)
+			break
+		}
+	}
 	for i := range out {
+		out[i].Deferred = slices.Contains(deferredGroups, out[i].Group)
+		if out[i].Group == builtins.GroupLocalAIClient || out[i].Group == builtins.GroupLocalAIAdmin {
+			// The group is one entry of the registry; the menu lists the
+			// tools the model would get.
+			if names := s.localaiNames(ctx, out[i].Group, rec.Principal); len(names) > 0 {
+				out[i].Tools = names
+				out[i].Providers = map[string]string{}
+				for _, n := range names {
+					out[i].Providers[n] = BuiltinProvider
+				}
+			}
+		}
 		if byAgent[out[i].Group] {
 			// The agent's ceiling: the chat cannot switch the group on.
 			out[i].Usable, out[i].Reason = false, ReasonOffForAgent

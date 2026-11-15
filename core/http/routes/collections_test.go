@@ -59,6 +59,7 @@ var _ = Describe("collections routes", func() {
 		Entry("search", http.MethodPost, "/docs/search"),
 		Entry("reset", http.MethodPost, "/docs/reset"),
 		Entry("sources", http.MethodGet, "/docs/sources"),
+		Entry("share", http.MethodPost, "/docs/share"),
 	)
 
 	It("marks the old path as deprecated and not the new one", func() {

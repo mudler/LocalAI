@@ -568,6 +568,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		r.Selection = ""
 		r.SourceID = src.ID
 		r.SourceURL = src.URL
+		r.Official = IsOfficialSource(src.ID, src.URL)
 		r.AllowLoopbackHTTP = src.AllowLoopbackHTTP
 		r.Policy = src.Policy
 		key := releaseKey(*r)
@@ -644,6 +645,9 @@ func validTranslations(m map[string]string, max int) bool {
 
 // validRequirements accepts a zero range (no claim) or a well formed one.
 func validRequirements(q Requirements) bool {
+	if q.FeatureLevel > contract.MaxFeatureLevel {
+		return false
+	}
 	for _, r := range []contract.VersionRange{q.Host, q.API, q.Protocol, q.DataFormat, q.SDK} {
 		if r != (contract.VersionRange{}) && (r.Min == 0 || r.Max < r.Min) {
 			return false

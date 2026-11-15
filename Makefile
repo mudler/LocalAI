@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin backends/strata
 .NOTPARALLEL: backends/whisper-medusa
 .NOTPARALLEL: backends/funasr
 
@@ -25,7 +25,17 @@ export BUILD_TYPE?=
 export CUDA_MAJOR_VERSION?=13
 export CUDA_MINOR_VERSION?=0
 
+## Build tags. `nosqlite` and `purego_utp` are required whenever cgo is on: the
+## BitTorrent client in pkg/downloader would otherwise link a second copy of the
+## SQLite C library beside mattn/go-sqlite3 (a link-time "multiple definition"
+## failure) and the libutp C++ library. With them the client is pure Go, so the
+## cgo footprint of the binary does not change (pkg/downloader/nosqlite_guard.go
+## says so at compile time). They are added to GO_TAGS even when the caller sets
+## GO_TAGS, and exported through GOFLAGS so every `go` command a recipe runs,
+## ginkgo and its test builds included, gets them.
 GO_TAGS?=
+override GO_TAGS += nosqlite purego_utp
+export GOFLAGS := $(strip $(GOFLAGS) -tags=nosqlite,purego_utp)
 BUILD_ID?=
 NATIVE?=false
 
@@ -90,16 +100,20 @@ else
 endif
 
 ## ./addons/... holds the Go tests of every add-on (sandbox, office, tables,
-## fine-tuning, quantization and the shared packages). The Sandbox add-on is
-## Linux only and does not compile elsewhere, so the add-on tests run on Linux
-## only. tests/addons/actione2e is the one
-## tests/addons suite that builds everything it needs itself; the other
+## fine-tuning, quantization and the shared packages). The Sandbox add-on
+## compiles for macOS on Apple silicon too (CGO_ENABLED=0 GOOS=darwin
+## GOARCH=arm64, its VM backend), but its tests need Linux tools and the
+## darwin ones need a signed binary and a guest image, so the add-on tests
+## run on Linux only; sandbox-tests.yml vets the darwin build.
+## tests/addons/actione2e and tests/addons/clientflow are the
+## tests/addons suites that build everything they need themselves (clientflow
+## needs the auth build tag, which the coverage run sets); the other
 ## tests/addons suites need the fixtures and executables that
 ## scripts/addons/verify.sh prepares, so the addons-tests workflow runs them
 ## through verify.sh.
 ifeq ($(OS),Linux)
-ADDON_TEST_PATHS:=./addons/... ./tests/addons/actione2e/...
-ADDON_COVERAGE_ROOTS:=./addons ./tests/addons/actione2e
+ADDON_TEST_PATHS:=./addons/... ./tests/addons/actione2e/... ./tests/addons/clientflow/...
+ADDON_COVERAGE_ROOTS:=./addons ./tests/addons/actione2e ./tests/addons/clientflow
 else
 ADDON_TEST_PATHS:=
 ADDON_COVERAGE_ROOTS:=
@@ -122,6 +136,7 @@ COVERAGE_ROOTS?=./pkg ./core $(ADDON_COVERAGE_ROOTS)
 ## auth implementation and its ~150 `//go:build auth` tests (otherwise they're
 ## invisible and the gate scores auth against a stub). `debug` matches `test`.
 COVERAGE_TAGS?=debug auth
+override COVERAGE_TAGS += nosqlite purego_utp
 ## Coverage is attributed to these packages via --coverpkg, so the in-process
 ## integration suites (COVERAGE_E2E_ROOTS) credit the core/http handlers they
 ## drive over HTTP — not just their own test package.
@@ -427,7 +442,7 @@ run-e2e-image:
 # it set LOCALAI_E2E_RUNSC_DIR or the Sandbox package is skipped.
 .PHONY: test-addons-shipped
 test-addons-shipped:
-	$(GOCMD) test -tags auth -count=1 -timeout 40m -v ./tests/addons/shipped/
+	$(GOCMD) test -tags "auth nosqlite purego_utp" -count=1 -timeout 40m -v ./tests/addons/shipped/
 
 test-e2e: build-mock-backend build-cloud-proxy-backend build-localai-proxy-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
@@ -702,6 +717,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/go/gemxcpp
 	$(MAKE) -C backend/go/valkey-store
 	$(MAKE) -C backend/go/qdrant-store
+	$(MAKE) -C backend/go/strata
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -743,6 +759,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/gemxcpp test
 	$(MAKE) -C backend/go/valkey-store test
 	$(MAKE) -C backend/go/qdrant-store test
+	$(MAKE) -C backend/go/strata test
 
 ##
 ## End-to-end gRPC tests that exercise a built backend container image.
@@ -780,8 +797,10 @@ BACKEND_TEST_TIMEOUT?=30m
 ## Generic target — runs the suite against whatever BACKEND_IMAGE points at.
 ## Depends on protogen-go so pkg/grpc/proto is generated before `go test`.
 test-extra-backend: protogen-go
-	@test -n "$$BACKEND_IMAGE" || { echo "BACKEND_IMAGE must be set" >&2; exit 1; }
+	@test -n "$$BACKEND_IMAGE" || test -n "$$BACKEND_BINARY" || { echo "BACKEND_IMAGE or BACKEND_BINARY must be set" >&2; exit 1; }
 	BACKEND_IMAGE="$$BACKEND_IMAGE" \
+	BACKEND_BINARY="$$BACKEND_BINARY" \
+	BACKEND_TEST_CTX_SIZE="$$BACKEND_TEST_CTX_SIZE" \
 	BACKEND_TEST_MODEL_URL="$${BACKEND_TEST_MODEL_URL:-$(BACKEND_TEST_MODEL_URL)}" \
 	BACKEND_TEST_MODEL_FILE="$$BACKEND_TEST_MODEL_FILE" \
 	BACKEND_TEST_MODEL_NAME="$$BACKEND_TEST_MODEL_NAME" \
@@ -807,6 +826,22 @@ test-extra-backend: protogen-go
 	go test -v -timeout $(BACKEND_TEST_TIMEOUT) ./tests/e2e-backends/...
 
 ## Convenience wrappers: build the image, then exercise it.
+## strata runs against a STUB engine, not the real one. `package-stub` builds
+## the real backend binary and run.sh, and a stand-in engine (a Python script)
+## and a synthetic tokenizer pack replace the engine package and the model. So
+## this checks the gRPC surface, the tokenizer helper, the chat template, the
+## tool-call and reasoning parsers and the context checks, and says nothing
+## about the real engine or its output. Needs Python 3 with regex and jinja2.
+## The context is 4096 tokens because the pack has one token per byte, so the
+## long_prefill prompt is about 2750 tokens.
+test-extra-backend-strata:
+	$(MAKE) -C backend/go/strata package-stub
+	BACKEND_BINARY=$(abspath backend/go/strata/package-stub/run.sh) \
+	BACKEND_TEST_MODEL_FILE=$(abspath backend/go/strata/package-stub/pack) \
+	BACKEND_TEST_CTX_SIZE=4096 \
+	BACKEND_TEST_CAPS=health,load,predict,stream,tools,logprobs,logit_bias,tokenize,long_prefill,context_overflow \
+	$(MAKE) test-extra-backend
+
 test-extra-backend-llama-cpp: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
 	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias,context_overflow \
@@ -1426,6 +1461,7 @@ BACKEND_PIPER = piper|golang|.|false|true
 BACKEND_LOCAL_STORE = local-store|golang|.|false|true
 BACKEND_VALKEY_STORE = valkey-store|golang|.|false|true
 BACKEND_QDRANT_STORE = qdrant-store|golang|.|false|true
+BACKEND_STRATA = strata|golang|.|false|true
 BACKEND_CLOUD_PROXY = cloud-proxy|golang|.|false|true
 BACKEND_LOCALAI_PROXY = localai-proxy|golang|.|false|true
 BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
@@ -1535,6 +1571,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_PIPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCAL_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VALKEY_STORE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QDRANT_STORE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_STRATA)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CLOUD_PROXY)))
 $(eval $(call generate-docker-build-target,$(BACKEND_LOCALAI_PROXY)))
 $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
@@ -1620,7 +1657,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SUPERTONIC)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-localai-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-qdrant-store docker-build-audio-cpp docker-build-timestral-cpp
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-localai-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-qdrant-store docker-build-audio-cpp docker-build-timestral-cpp docker-build-strata
 docker-build-backends: docker-build-whisper-medusa
 docker-build-backends: docker-build-funasr
 
@@ -1651,7 +1688,7 @@ clean-localai-proxy-backend:
 ########################################################
 
 build-ui-test-server: build-mock-backend react-ui protogen-go
-	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	$(GOCMD) build -tags "auth nosqlite purego_utp" -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 
 test-ui-e2e: build-ui-test-server
 	cd core/http/react-ui && npm install && npx playwright install --with-deps chromium && npx playwright test
@@ -1671,7 +1708,7 @@ PLAYWRIGHT_WORKERS_FLAG = $(if $(UI_TEST_WORKERS),--workers=$(UI_TEST_WORKERS),)
 ## downloading it as `test-ui-e2e` does.
 test-ui: build-mock-backend protogen-go
 	cd core/http/react-ui && bun install && bun run build
-	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	$(GOCMD) build -tags "auth nosqlite purego_utp" -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG)
 
 ## The specs tagged @production-chunks need the production code-split bundle
@@ -1681,7 +1718,7 @@ test-ui: build-mock-backend protogen-go
 ## this target is the only run that tests the bundle that ships.
 test-ui-stale-chunk: build-mock-backend protogen-go
 	cd core/http/react-ui && bun install && bun run build
-	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	$(GOCMD) build -tags "auth nosqlite purego_utp" -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test --grep @production-chunks --workers=1
 
 ## React UI code coverage from the Playwright e2e suite. Builds a
@@ -1696,7 +1733,7 @@ test-ui-stale-chunk: build-mock-backend protogen-go
 test-ui-coverage: build-mock-backend protogen-go
 	trap 'rm -rf "$(CURDIR)/core/http/react-ui/dist"' EXIT; \
 	( cd core/http/react-ui && bun install && bun run build:coverage-v8 ) && \
-	$(GOCMD) build -tags auth -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
+	$(GOCMD) build -tags "auth nosqlite purego_utp" -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
 	( cd core/http/react-ui && rm -rf .nyc_output coverage && \
 	    sh $(CURDIR)/scripts/ensure-playwright-browser.sh && \
 	    PW_V8_COVERAGE=1 bunx playwright test --grep-invert @production-chunks $(PLAYWRIGHT_WORKERS_FLAG) && bun run coverage:report )
@@ -1711,12 +1748,14 @@ test-ui-coverage-check: test-ui-coverage
 	sh $(CURDIR)/scripts/ui-coverage-check.sh core/http/react-ui/coverage/coverage-summary.json core/http/react-ui/coverage-baseline.txt
 
 ## Node-only UI checks that need no server and no browser: eslint (errors
-## only, warnings are tracked by the editor), the inline-style ratchet, the
-## host UI unit tests, the UI unit tests of every add-on and the locale
-## completeness ratchet. Run `npm ci` in core/http/react-ui first.
+## only, warnings are tracked by the editor), the inline-style ratchet, the UI
+## kit ratchet, the colour ratchet, the host UI unit tests, the UI unit tests of every add-on and
+## the locale completeness ratchet. Run `npm ci` in core/http/react-ui first.
 test-ui-unit: test-i18n
 	cd core/http/react-ui && npm run lint -- --quiet
 	cd core/http/react-ui && npm run lint:inline-styles
+	cd core/http/react-ui && npm run lint:ui-kit
+	cd core/http/react-ui && npm run lint:colours
 	cd core/http/react-ui && npm run test:unit
 	@set -e; for dir in addons/*/ui; do \
 		[ -f "$$dir/test/run.mjs" ] || continue; \
@@ -1742,13 +1781,13 @@ test-i18n:
 ## because -ginkgo.focus is an error for a test binary that has no Ginkgo.
 POSTGRES_STORE_PKGS = ./core/services/studio/agents ./core/services/studio/connectors \
 	./core/services/studio/notify ./core/services/studio/store ./core/services/studio/triggers \
-	./core/services/studio/workspace/gormstore
+	./core/services/studio/workspace/gormstore ./core/services/studio/jobs ./core/http/auth
 test-postgres:
 	@test -n "$$LOCALAI_TEST_POSTGRES_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL is not set; point it at a database the tests may wipe' >&2; exit 1; }
 	@out=$$($(GOCMD) test -count=1 -v -tags "$(COVERAGE_TAGS)" $(POSTGRES_STORE_PKGS) -ginkgo.focus 'PostgreSQL' -ginkgo.v -ginkgo.no-color 2>&1) || { printf '%s\n' "$$out"; exit 1; }; \
 	printf '%s\n' "$$out" | grep -E '^(Ran [0-9]+ of|ok |FAIL|\s*\[SKIPPED\])' ; \
 	if printf '%s\n' "$$out" | grep -q -- '\[SKIPPED\]'; then echo 'a PostgreSQL test skipped' >&2; exit 1; fi; \
-	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -ge 6 || { echo 'fewer PostgreSQL stores ran than expected' >&2; exit 1; }
+	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -ge 8 || { echo 'fewer PostgreSQL stores ran than expected' >&2; exit 1; }
 
 ## The multi-frontend paths run against the in-process bus (testutil.FakeBus)
 ## under the race detector: two frontends, a worker and the cluster state, with
@@ -1756,8 +1795,11 @@ test-postgres:
 ## galleryop and nodes packages are left out: some of their specs start
 ## containers, and galleryop has a data race in a test (cancellable_phase_test.go
 ## reassigns the gate channel the worker reads).
+## The studio package runs about 2300 specs. Under the race detector on a small
+## runner it takes longer than the default 10 minutes of go test, so the limit
+## is set here: it only has to tell a hang from a slow run.
 test-distributed-fakebus:
-	$(GOCMD) test -race -count=1 -tags "$(COVERAGE_TAGS)" \
+	$(GOCMD) test -race -count=1 -timeout 25m -tags "$(COVERAGE_TAGS)" \
 		./core/services/testutil/... ./core/services/messaging/... ./core/services/studio/... \
 		./core/services/collections/... ./core/services/syncstate/... \
 		./core/services/modeladmin/... ./core/services/failover/...
@@ -1777,24 +1819,38 @@ test-addons-suites:
 ## `local-ai addons install <file>`). Each zip holds the files of the OCI package
 ## of one add-on and platform: it is made from the package that package.sh builds.
 ##   make addons-zip                         every add-on, this host's platform
-##   make addons-zip ADDON=memory            one add-on
+##   make addons-zip ADDON=web            one add-on
 ##   make addons-zip PLATFORMS=linux/amd64,darwin/arm64 ADDON_EXECUTABLES=<dir>
 ## A platform other than this host needs the native executables at
 ## <dir>/<os>-<arch>/<executable name>. ADDON_VERSION overrides the manifest
 ## version, ADDON_LOCAL_CHECK=1 builds a platform the matrix has not enabled.
-## The files and their .sha256 files go to ADDONS_ZIP_DIR (dist/addons).
+## The files and their .sha256 files go to ADDONS_ZIP_DIR (dist/addons, or
+## <ADDON_ROOT>/dist/addons with ADDON_ROOT).
 ADDON?=
 PLATFORMS?=
 ADDON_VERSION?=
 ADDON_EXECUTABLES?=
 ADDON_LOCAL_CHECK?=
-ADDONS_ZIP_DIR?=dist/addons
+## ADDON_ROOT builds the zip of an add-on in another repository: the directory
+## that holds package/platforms.yaml and cmd/<executable>. Relative paths are
+## relative to the directory where make starts. ADDON_EXECUTABLE is a
+## built binary to pack instead of building one (one platform only).
+ADDON_ROOT?=
+ADDON_EXECUTABLE?=
+ADDONS_ZIP_DIR?=
 .PHONY: addons-zip
 addons-zip:
-	sh scripts/addons/zip.sh --out "$(ADDONS_ZIP_DIR)" \
+	sh scripts/addons/zip.sh $(if $(ADDONS_ZIP_DIR),--out "$(ADDONS_ZIP_DIR)") \
+		$(if $(ADDON_ROOT),--root "$(ADDON_ROOT)") $(if $(ADDON_EXECUTABLE),--executable "$(ADDON_EXECUTABLE)") \
 		$(if $(ADDON),--addon "$(ADDON)") $(if $(PLATFORMS),--platforms "$(PLATFORMS)") \
 		$(if $(ADDON_VERSION),--version "$(ADDON_VERSION)") $(if $(ADDON_EXECUTABLES),--executables "$(ADDON_EXECUTABLES)") \
 		$(if $(ADDON_LOCAL_CHECK),--local-check)
+
+## Builds examples/addon-hello outside this checkout, packs it with --root and
+## checks the zip (see scripts/addons/outoftree_test.sh).
+.PHONY: addons-outoftree-check
+addons-outoftree-check:
+	sh scripts/addons/outoftree_test.sh
 
 test-ui-e2e-docker:
 	docker build -t localai-ui-e2e -f tests/e2e-ui/Dockerfile .
@@ -1811,7 +1867,7 @@ clean-ui-test-server:
 swagger:
 	swag init -g core/http/app.go --output swagger
 
-# DEPRECATED: gen-assets is for the legacy Alpine.js UI. Remove when legacy UI is removed.
+# DEPRECATED: gen-assets is for the Explorer page (Alpine.js). Remove when the Explorer page moves to the React UI.
 .PHONY: gen-assets
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets

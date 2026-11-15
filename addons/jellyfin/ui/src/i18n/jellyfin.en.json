@@ -25,7 +25,6 @@
   "agent": "Agent",
   "agentNone": "Choose an agent",
   "agentCredentialsOnly": "No agent (credentials only)",
-  "agentOptionalHint": "Optional. Without an agent this connection only holds the key, the server and the write mode for your chats. It answers no messages and listens for nothing.",
   "credentialsOnly": "Credentials only",
   "agentNoModel": "{{name}} (needs a model)",
   "test": "Test",
@@ -68,8 +67,8 @@
     "label": "What the agent may change on Jellyfin",
     "hint": "Remote control of players, watched marks, favourites and adding to playlists. It never deletes, scans or edits the library.",
     "off": "Read only",
-    "propose": "Asks you first",
-    "auto": "Acts without asking",
+    "propose": "Asks first",
+    "auto": "Runs at once",
     "line": {
       "off": "It cannot change anything.",
       "propose": "Each change waits for your OK.",
@@ -82,8 +81,8 @@
     },
     "row": {
       "off": "Read only",
-      "propose": "Asks you first",
-      "auto": "Acts without asking"
+      "propose": "Asks first",
+      "auto": "Runs at once"
     }
   },
   "approval": {

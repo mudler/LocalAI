@@ -4,9 +4,9 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { load, draw, here, hostUi, React, renderToString } from './load.mjs'
 import { createApi } from '../src/api.js'
-import en from '../src/i18n/en.js'
 
 const read = (p) => readFileSync(p, 'utf8')
+const en = JSON.parse(read(join(here, '../src/i18n/fine-tuning.en.json')))
 const src = join(here, '../src')
 const toolsUi = join(here, '../../../internal/tools-ui/src')
 const files = (dir) => readdirSync(dir, { recursive: true }).filter(f => /\.(jsx?|mjs)$/.test(f)).map(f => join(dir, f))
@@ -208,7 +208,7 @@ test('plural: the job count picks the singular and the plural key', async () => 
   assert.equal(ctx.plural('jobs.count', 3), '3 kept on this server')
 })
 
-test('i18n: every literal key the add-on and the shared views read is in en.js', () => {
+test('i18n: every literal key the add-on and the shared views read is in the English bundle', () => {
   const keys = new Set()
   for (const text of [ownText, sharedText]) for (const m of text.matchAll(/\bt\(\s*'([A-Za-z0-9_.]+)'/g)) keys.add(m[1])
   assert.ok(keys.size > 100, `found only ${keys.size} literal keys`)
@@ -216,7 +216,7 @@ test('i18n: every literal key the add-on and the shared views read is in en.js',
   assert.deepEqual(missing, [])
 })
 
-test('i18n: en.js repeats the host strings and adds only the keys the add-on owns', () => {
+test('i18n: the English bundle repeats the host strings and adds only the keys the add-on owns', () => {
   const tools = Object.fromEntries(flatten(JSON.parse(read(join(hostUi, 'public/locales/en/tools.json')))))
   const own = []
   for (const [k, v] of Object.entries(en)) {

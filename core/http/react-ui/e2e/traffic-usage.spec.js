@@ -103,10 +103,17 @@ test.describe('Usage', () => {
   })
 
   test('shows a loading state, then the rows', async ({ page }) => {
-    await mockTraffic(page, { delayMs: 700 })
+    // The answers wait for the test, so the loading state stays up for as long
+    // as the assertion needs, however slow the machine is.
+    let release
+    const hold = new Promise(resolve => { release = resolve })
+    await mockTraffic(page, { hold })
     await page.goto('/app/usage')
     await expect(page.getByTestId('usage-loading')).toBeVisible()
+    await expect(page.getByTestId('usage-table')).toHaveCount(0)
+    release()
     await expect(page.getByTestId('usage-table')).toBeVisible()
+    await expect(page.getByTestId('usage-loading')).toHaveCount(0)
   })
 })
 

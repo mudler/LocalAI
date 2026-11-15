@@ -21,7 +21,6 @@ var (
 
 type hfSizeCacheEntry struct {
 	totalBytes uint64
-	err        error
 	generation uint64
 }
 
@@ -66,22 +65,28 @@ func ExtractHFRepoID(s string) (string, bool) {
 }
 
 // hfRepoWeightSize returns the total weight file size for a HuggingFace repo.
-// Results are cached and invalidated when the gallery generation changes.
+// Successful results are cached and invalidated when the gallery generation changes.
 func hfRepoWeightSize(ctx context.Context, repoID string) (uint64, error) {
+	return hfRepoWeightSizeWithFetcher(ctx, repoID, hfRepoWeightSizeUncached)
+}
+
+func hfRepoWeightSizeWithFetcher(ctx context.Context, repoID string, fetch func(context.Context, string) (uint64, error)) (uint64, error) {
 	gen := currentGeneration()
 	hfSizeCacheMu.Lock()
 	if entry, ok := hfSizeCacheData[repoID]; ok && entry.generation == gen {
 		hfSizeCacheMu.Unlock()
-		return entry.totalBytes, entry.err
+		return entry.totalBytes, nil
 	}
 	hfSizeCacheMu.Unlock()
 
-	totalBytes, err := hfRepoWeightSizeUncached(ctx, repoID)
+	totalBytes, err := fetch(ctx, repoID)
+	if err != nil {
+		return totalBytes, err
+	}
 
 	hfSizeCacheMu.Lock()
 	hfSizeCacheData[repoID] = hfSizeCacheEntry{
 		totalBytes: totalBytes,
-		err:        err,
 		generation: gen,
 	}
 	hfSizeCacheMu.Unlock()

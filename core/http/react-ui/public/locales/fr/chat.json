@@ -35,7 +35,16 @@
     "agent": "Agent",
     "agentHelp": "Ce chat utilise l'agent {{name}} : ses instructions et seulement les outils qu'il accorde.",
     "editAgent": "Modifier l'agent",
-    "deleteHelp": "Supprimer définitivement ce chat et ses messages."
+    "deleteHelp": "Supprimer définitivement ce chat et ses messages.",
+    "sliderOf": "Curseur {{name}}",
+    "reset": "Utiliser la valeur du modèle pour {{name}}",
+    "hint": {
+      "temperature": "Des valeurs plus hautes donnent des réponses plus variées. De 0 à 2.",
+      "topP": "Choisit parmi les mots les plus probables dont la somme atteint cette part. Supérieur à 0, jusqu'à 1.",
+      "topK": "Choisit parmi ce nombre de mots les plus probables. Un entier, 0 ou plus.",
+      "contextSize": "De 512 à 4194304 jetons.",
+      "effort": "S'applique tout de suite, dès le prochain tour."
+    }
   },
   "empty": {
     "manageTitle": "Gérez LocalAI par la conversation",
@@ -81,7 +90,8 @@
     "copied": "Copié dans le presse-papiers",
     "copyFailed": "Impossible de copier dans le presse-papiers",
     "chatCopied": "Conversation copiée dans le presse-papiers",
-    "newChatForModel": "Un chat garde son modèle. Nouveau chat lancé avec {{model}}."
+    "newChatForModel": "Un chat garde son modèle. Nouveau chat lancé avec {{model}}.",
+    "windowSet": "La fenêtre de contexte de {{model}} est maintenant de {{window}} jetons."
   },
   "menu": {
     "trigger": "Conversations",
@@ -202,7 +212,8 @@
       "personal": "Personnelle",
       "shared": "Partagée",
       "folder": "Espace de travail",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "de {{name}}"
     },
     "replacedBy": "Remplacée par {{name}}",
     "fallback_one": "{{skills}} intégrée utilisée : la compétence du module {{name}} est désactivée ou ne tourne pas ici.",
@@ -233,7 +244,8 @@
     "group": {
       "context": "Contexte",
       "skills": "Skills et agents",
-      "help": "Aide"
+      "help": "Aide",
+      "yours": "Les vôtres"
     },
     "models": {
       "label": "Modèles",
@@ -286,7 +298,9 @@
       "builtin": "intégrée",
       "addon": "module",
       "shared": "partagée",
-      "yours": "la vôtre"
+      "yours": "la vôtre",
+      "prompt": "prompt",
+      "tool": "outil"
     },
     "collides": "seulement avec /skill",
     "errors": {
@@ -308,7 +322,13 @@
       "desc": "Fixer un objectif sur lequel le chat continue de travailler tout seul",
       "clearDesc": "Retirer l'objectif",
       "resumeDesc": "Continuer vers l'objectif"
-    }
+    },
+    "effort": {
+      "label": "Effort de raisonnement",
+      "desc": "Choisir à quel point le modèle réfléchit"
+    },
+    "userTool": "Utilise l'outil {{tool}}.",
+    "unavailable": "outil indisponible"
   },
   "shortcuts": {
     "onMessage": "Sur un message : copier, modifier, régénérer",
@@ -316,8 +336,8 @@
   },
   "files": {
     "title": "Fichiers de cette conversation",
-    "chip": "Fichiers",
-    "chipTitle": "Fichiers de cette conversation : ce que vous avez joint et ce que l'assistant a créé ou modifié",
+    "button": "Fichiers",
+    "buttonTitle": "Fichiers de cette conversation : ce que vous avez joint et ce que l'assistant a créé ou modifié",
     "close": "Fermer les fichiers",
     "emptyTitle": "Aucun fichier dans cette conversation",
     "emptyBody": "Déposez des fichiers ici pour les joindre à votre prochain message. Les fichiers que l'assistant crée ou modifie apparaissent aussi ici.",
@@ -333,6 +353,9 @@
     "changedTag": "Modifié",
     "changedTitle": "L'assistant a modifié ce fichier",
     "download": "Télécharger {{name}}",
+    "downloadAll": "Tout télécharger en ZIP",
+    "zipName": "fichiers-du-chat.zip",
+    "zipError": "Les fichiers n'ont pas pu être téléchargés en ZIP.",
     "error": "Impossible de lire les fichiers de cette conversation.",
     "workingNote": "Scripts, données et journaux créés en cours de route par l'assistant. Ils sont rangés dans le dossier de travail de cette discussion."
   },
@@ -416,7 +439,8 @@
       "upstream_unreachable": "L'adresse de l'upstream est injoignable.",
       "upstream": "Le fournisseur derrière le modèle a renvoyé une erreur.",
       "timeout": "Le modèle a mis trop de temps à répondre.",
-      "cancelled": "Le tour a été annulé avant la réponse du modèle."
+      "cancelled": "Le tour a été annulé avant la réponse du modèle.",
+      "interrupted": "Le serveur a redémarré pendant qu'il répondait."
     },
     "hint": {
       "model_backend_missing": "Choisissez un autre modèle ou demandez à un administrateur d'installer le backend.",
@@ -431,7 +455,15 @@
       "timeout": "Réessayez, ou utilisez un modèle plus petit ou plus rapide.",
       "cancelled": "Réessayez quand vous voulez."
     },
-    "openBackends": "Ouvrir Backends"
+    "openBackends": "Ouvrir Backends",
+    "titleInterrupted": "La réponse a été interrompue",
+    "resume": {
+      "waiting": "Reprise dans {{seconds}} secondes (essai {{attempt}} sur {{max}}).",
+      "resuming": "Reprise là où elle s'était arrêtée.",
+      "server": "Le serveur reprend là où elle s'était arrêtée.",
+      "exhausted": "La reprise a échoué après {{max}} essais. Réessayez.",
+      "stop": "Arrêter les essais"
+    }
   },
   "allChats": {
     "title": "Toutes les conversations",
@@ -695,6 +727,191 @@
       "job": "une tâche",
       "page": "une page",
       "other": "autre chose"
+    }
+  },
+  "connector": {
+    "header": "Conversation de messagerie",
+    "unknownSender": "Expéditeur inconnu",
+    "people": "Personnes dans cette conversation",
+    "inThread": "Fil",
+    "openThread": "Ouvrir dans l'application de messagerie",
+    "where": {
+      "direct": "Message direct",
+      "channel": "Canal {{name}}",
+      "group": "Canal ou groupe"
+    },
+    "standing": {
+      "owner": "Propriétaire",
+      "verified": "A un rôle",
+      "listed": "Personne de la liste",
+      "channel": "Membre du canal",
+      "anyone": "N'importe qui"
+    },
+    "standingHelp": {
+      "owner": "Personne vérifiée : le propriétaire contrôle ce compte.",
+      "verified": "A un rôle auquel le propriétaire a donné des droits.",
+      "listed": "Sur la liste de cette connexion.",
+      "channel": "Admis parce que le canal ou le groupe est sur la liste.",
+      "anyone": "Admis parce que la connexion accepte tout le monde."
+    },
+    "threadEarlier": "Plus tôt dans le fil ({{count}} messages)",
+    "threadCut": "Les messages plus anciens du fil ne sont pas affichés.",
+    "note": {
+      "paired": "Vérifié avec ce bot",
+      "unsupported": "Message non lu",
+      "too_long": "Message trop long",
+      "no_upload": "Fichiers non acceptés",
+      "rate": "Trop de messages",
+      "held_back": "Certains outils n'ont pas été proposés à cet expéditeur",
+      "new_chat": "Nouveau chat démarré",
+      "refused": "Message refusé",
+      "hold_waiting": "En attente de la confirmation d’une personne vérifiée",
+      "hold_confirmed": "Confirmée dans le chat",
+      "hold_cancelled": "Annulée dans le chat",
+      "hold_expired": "Non confirmée à temps",
+      "hold_failed": "N'a pas pu être effectuée",
+      "other": "Note",
+      "why": "Pourquoi"
+    }
+  },
+  "connection": {
+    "lost": "Connexion perdue. Reconnexion en cours."
+  },
+  "reasoning": {
+    "chip": "Effort",
+    "title": "Effort de raisonnement de ce chat",
+    "note": "S'applique dès le prochain tour. Aucun demande au modèle de ne pas réfléchir."
+  },
+  "setup": {
+    "chip": "Profil",
+    "title": "Démarrer les nouveaux chats depuis un profil enregistré",
+    "edited": "modifié",
+    "menuTitle": "Profils",
+    "empty": "Aucun profil pour l’instant. Enregistrez le modèle, les outils et l’effort que vous utilisez comme profil.",
+    "active": "Actif",
+    "noneOff": "Outils par défaut",
+    "toolsOff_one": "{{count}} désactivé",
+    "toolsOff_many": "{{count}} désactivés",
+    "toolsOff_other": "{{count}} désactivés",
+    "effort": "Effort {{level}}",
+    "saveAs": "Enregistrer le profil actuel sous…",
+    "manage": "Gérer les profils",
+    "agentReason": "Un agent enregistré choisit le modèle et les outils de ce chat.",
+    "modelMissing": "Le modèle « {{model}} » de ce profil n’est pas installé. Le modèle actuel est conservé.",
+    "line": {
+      "noTools": "Aucun outil",
+      "toolCount_one": "{{count}} outil",
+      "toolCount_many": "{{count}} d’outils",
+      "toolCount_other": "{{count}} outils"
+    },
+    "update": "Mettre à jour « {{name}} »",
+    "saveNew": "Enregistrer comme nouveau…",
+    "reset": "Réinitialiser",
+    "nameLabel": "Nom du profil",
+    "namePlaceholder": "Nommez ce profil",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "limit": "Vous pouvez avoir jusqu’à 50 profils.",
+    "defaultName": "Mon défaut",
+    "savedToast": "Profil de ce chat enregistré sous « {{name}} ». Les nouveaux chats démarrent avec lui.",
+    "rename": "Renommer",
+    "manageTitle": "Gérer les profils",
+    "manageNote": "Le profil par défaut est celui des nouveaux chats. Il suit le profil avec lequel vous avez envoyé votre dernier message.",
+    "manageEmpty": "Aucun profil pour l’instant.",
+    "done": "Terminé",
+    "default": "Par défaut",
+    "makeDefault": "Définir par défaut",
+    "moveUp": "Monter {{name}}",
+    "moveDown": "Descendre {{name}}",
+    "renameLabel": "Nom du profil",
+    "remove": "Supprimer",
+    "removeConfirm": "Supprimer « {{name}} » ?",
+    "removeYes": "Supprimer",
+    "noModel": "Aucun modèle"
+  },
+  "live": {
+    "button": "Live",
+    "title": "Parlez à ce chat sans les mains",
+    "mode": "Standard",
+    "waiting": "En attente de la réponse",
+    "reason": {
+      "insecure": {
+        "short": "Nécessite HTTPS ou localhost",
+        "detail": "Votre navigateur n'autorise l'accès au microphone que via HTTPS, localhost ou 127.0.0.1. Ouvrez cette page depuis l'une de ces adresses pour utiliser Live."
+      },
+      "no-mic": {
+        "short": "Aucun microphone disponible",
+        "detail": "Ce navigateur ne propose pas de microphone à cette page. Essayez un autre navigateur pour utiliser Live."
+      }
+    },
+    "state": {
+      "off": "Désactivé",
+      "starting": "En attente de l'autorisation du navigateur",
+      "listening": "À l'écoute",
+      "hearing": "Vous entend",
+      "transcribing": "Transcription",
+      "thinking": "Réflexion",
+      "speaking": "Parle",
+      "blocked": "La voix vous attend",
+      "paused": "En pause",
+      "error": "Live a besoin de votre attention"
+    },
+    "mute": "Couper le micro",
+    "unmute": "Réactiver le micro",
+    "stop": "Arrêter",
+    "typeInstead": "Écrire plutôt",
+    "end": "Terminer Live",
+    "retry": "Réessayer",
+    "play": "Lire",
+    "blocked": "Votre navigateur a bloqué la voix. Appuyez sur Lire pour entendre la réponse.",
+    "hidden": "Live est en pause tant que cet onglet reste en arrière-plan. Il reprend à votre retour.",
+    "error": {
+      "denied": "L'accès au microphone a été bloqué. Autorisez le microphone pour ce site dans votre navigateur, puis appuyez sur Réessayer. Vous pouvez aussi écrire plutôt.",
+      "unavailable": "Impossible d'ouvrir le microphone. Vérifiez qu'il est branché et qu'aucune autre application ne l'utilise, puis appuyez sur Réessayer.",
+      "transcribe": "Votre voix n'a pas pu être convertie en texte. Vérifiez le modèle de transcription, puis appuyez sur Réessayer.",
+      "send": "Votre message n'a pas pu être envoyé au chat. Appuyez sur Réessayer pour écouter à nouveau.",
+      "turn": "La réponse du chat n'a pas pu être lue, elle n'a donc pas été prononcée. Appuyez sur Réessayer pour écouter à nouveau.",
+      "speech": "La voix de la réponse n'a pas pu être lue. Vérifiez le modèle vocal, puis appuyez sur Réessayer.",
+      "generic": "Live n'a pas pu continuer."
+    },
+    "setup": {
+      "title": "Configurer Live",
+      "description": "Live a besoin d'un modèle qui transforme votre voix en texte et d'un autre qui parle. Les deux s'exécutent sur cette instance LocalAI.",
+      "part": {
+        "stt": "Voix vers texte",
+        "tts": "Voix"
+      },
+      "hint": {
+        "stt": "Transforme ce que vous dites en texte.",
+        "tts": "Lit la réponse à voix haute."
+      },
+      "install": "Installer",
+      "installing": "Installation",
+      "installLabel": "Installer {{model}}",
+      "retryLabel": "Relancer l'installation de {{model}}",
+      "installed": "Installé",
+      "progress": "Progression de l'installation de {{model}}",
+      "failed": "L'installation de {{model}} a échoué.",
+      "failedGeneric": "L'installation n'a pas pu démarrer.",
+      "adminTitle": "Un administrateur doit installer ces modèles.",
+      "adminNote": "Demandez à un administrateur de cette instance d'installer les modèles ci-dessus. Live fonctionne dès que les deux sont installés.",
+      "working": "Installation de {{models}}",
+      "ready": "Les deux modèles sont installés. Live est prêt.",
+      "start": "Démarrer Live",
+      "close": "Fermer",
+      "notShown": "Installé, mais le modèle n'est pas apparu. Réessayez ou rechargez la page."
+    }
+  },
+  "readAloud": {
+    "read": "Lire à voix haute",
+    "stop": "Arrêter la lecture",
+    "ask": "Votre modèle de synthèse vocale par défaut est réglé sur « demander à chaque fois ». Choisissez un modèle dans Valeurs par défaut pour lire à voix haute.",
+    "none": "Aucun modèle de synthèse vocale n'est installé.",
+    "missing": "Votre modèle de synthèse vocale par défaut n'est pas installé. Choisissez-en un autre dans Valeurs par défaut.",
+    "failed": "Cela n'a pas pu être lu à voix haute.",
+    "omitted": {
+      "code": "Bloc de code omis.",
+      "table": "Tableau omis."
     }
   }
 }

@@ -53,13 +53,15 @@ type Handlers struct {
 	trust  *pages.Trust
 	// previews keeps the recent file previews of this frontend.
 	previews *previewCache
+	// oauth wires the OAuth routes of the connections to the add-on owner.
+	oauth OAuthConfig
 }
 
 // New returns the handlers. A nil models skips the model check.
 func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 	h := &Handlers{svc: svc, models: models, previews: newPreviewCache()}
 	if svc != nil {
-		h.pages = pages.New(svc.Files())
+		h.pages = pages.New(svc.Files(), pages.WithErrorStore(svc.PageErrors()))
 		store := svc.PageConsents()
 		if store == nil {
 			store, _ = pages.NewJSONConsents("")
@@ -113,6 +115,7 @@ var chatRules = []errRule{
 	fixed(http.StatusConflict, typeConflict, "the message was already delivered to the model", store.ErrDelivered),
 	fixed(http.StatusNotFound, typeNotFound, "agent template not found", studiosvc.ErrNoTemplate),
 	fixed(http.StatusConflict, typeConflict, "a turn is running; stop it first", studiosvc.ErrChatBusy),
+	fixed(http.StatusTooManyRequests, "rate_limit_error", "too many open event streams on this chat; close one first", studiosvc.ErrTooManyStreams),
 	fixed(http.StatusConflict, "agent_folder_limit", "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again.", studiosvc.ErrAgentFolderLimit),
 	fixed(http.StatusConflict, "agent_folder_missing", "The folder of this agent is missing. Choose a folder in the agent's settings.", studiosvc.ErrAgentFolderMissing),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToRegenerate, studiosvc.ErrNotUserMessage,
@@ -126,6 +129,10 @@ var chatRules = []errRule{
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrCommandBusy),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToCompact, studiosvc.ErrNothingToClear, studiosvc.ErrCannotCompact),
 	fixed(http.StatusNotFound, typeNotFound, "agent not found", agents.ErrNotFound),
+	fixed(http.StatusForbidden, typeAuthz, "only the owner of this agent can do this", studiosvc.ErrAgentNotOwner),
+	fixed(http.StatusConflict, "agent_not_shared", "this agent is no longer shared with you", studiosvc.ErrAgentNotShared),
+	fixed(http.StatusConflict, "sharing_disabled", "agents cannot be shared on this server", studiosvc.ErrAgentSharingOff),
+	fixed(http.StatusNotFound, typeNotFound, "this add-on has no resources to give to an agent", studiosvc.ErrNotScoped),
 	fixed(http.StatusConflict, typeConflict, "you already have an agent with this name", agents.ErrNameTaken),
 	verbatim(http.StatusBadRequest, typeInvalid, agents.ErrInvalid.Error()+": ", agents.ErrInvalid),
 	sentinelText(http.StatusBadRequest, typeInvalid, studiosvc.ErrAgentFolder),
@@ -150,6 +157,8 @@ var chatRules = []errRule{
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrGoalNotAllowed, studiosvc.ErrGoalReached),
 	verbatim(http.StatusNotFound, typeNotFound, "", studiosvc.ErrNoGoal),
 	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrGoalText),
+	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", session.ErrInvalidDock),
+	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrDockNotAllowed),
 }
 
 // failFor maps a service error to a response.
@@ -182,8 +191,16 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 		ID: rec.ID, Title: rec.Title, Model: rec.Model, Kind: rec.Kind, ParentID: rec.ParentID,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
+		WillResume: info.WillResume, ResumeAttempts: info.ResumeAttempts,
 		Settings: settingsJSON(rec.Settings),
+		Dock:     dockJSON(rec.Dock),
 	}
+}
+
+// harnessJSON is the window check of a chat as the API reports it.
+func harnessJSON(v studiosvc.Harness) *schema.ChatsHarness {
+	return &schema.ChatsHarness{OK: v.OK, Window: v.Window, Minimum: v.Minimum, Recommended: v.Recommended,
+		CanFix: v.CanFix, Admin: v.Admin, Source: v.Source}
 }
 
 func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord) (schema.ChatsConversation, error) {
@@ -193,6 +210,13 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 	}
 	conv := conversation(rec, info)
 	conv.Goal = h.goalJSON(rec.Goal)
+	if rec.Origin == session.OriginConnector {
+		if conns := h.svc.Connectors(); conns != nil {
+			if p, ok := conns.InfoOf(c.Request().Context(), rec.OriginID, rec.ID); ok {
+				conv.Place = &schema.ChatsPlace{Direct: p.Direct, Thread: p.Thread, Name: p.Name, Link: p.Link}
+			}
+		}
+	}
 	return conv, nil
 }
 
@@ -200,7 +224,7 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 // @Summary Start a chat.
 // @Tags chats
 // @Description With switches, the chat starts with those tools, add-ons and skills switched off (and those opt-in tools on), as GET /api/chats/draft/tools and GET /api/chats/skills list them for a chat that does not exist yet. A bad switch refuses the request and no chat is created.
-// @Param request body schema.ChatsCreateRequest true "model and optional title, agent and switches"
+// @Param request body schema.ChatsCreateRequest true "model and optional title, agent (one of yours or one shared with you) and switches"
 // @Success 201 {object} schema.ChatsConversation "The new conversation"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 403 {object} schema.ErrorResponse "Refused"
@@ -223,7 +247,9 @@ func (h *Handlers) Create(c echo.Context) error {
 	}
 	model := req.Model
 	if req.AgentID != "" && !req.Assistant {
-		ag, err := h.svc.Agent(c.Request().Context(), userID(c), req.AgentID)
+		// The agent is the caller's own or one shared with them, as the
+		// service resolves it when it makes the chat.
+		ag, _, err := h.svc.SharedAgent(c.Request().Context(), userID(c), req.AgentID)
 		if err != nil {
 			return failFor(c, err)
 		}
@@ -257,6 +283,7 @@ func (h *Handlers) Create(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	out.Harness = harnessJSON(h.svc.Harness(c.Request().Context(), user, rec))
 	return c.JSON(http.StatusCreated, out)
 }
 
@@ -315,6 +342,7 @@ func (h *Handlers) Get(c echo.Context) error {
 	}
 	conv := conversation(rec, info)
 	conv.Goal = h.goalJSON(rec.Goal)
+	conv.Harness = harnessJSON(h.svc.Harness(c.Request().Context(), user, rec))
 	pend, err := h.svc.Pending(c.Request().Context(), user, id)
 	if err != nil {
 		return failFor(c, err)
@@ -328,7 +356,7 @@ func (h *Handlers) Get(c echo.Context) error {
 	// The card waits only while the turn that asked holds the chat; a card a
 	// dead frontend left, also under a later turn, is not shown.
 	if hc := h.svc.HostConsent(c.Request().Context(), user, rec, info); hc != nil {
-		out.HostConsent = &schema.ChatsHostConsent{ID: hc.ID, Command: hc.Command}
+		out.HostConsent = &schema.ChatsHostConsent{ID: hc.ID, Command: hc.Command, Job: hc.Job}
 	}
 	out.Loops = []schema.ChatsLoop{}
 	if host := h.svc.Loops(); host != nil {
@@ -338,6 +366,7 @@ func (h *Handlers) Get(c echo.Context) error {
 		}
 		out.Loops = loopsJSON(list)
 	}
+	out.Jobs = h.jobsOf(c, user, id)
 	return c.JSON(http.StatusOK, out)
 }
 
@@ -435,6 +464,20 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 		if e.Role == session.RoleGoal {
 			m.GoalEvent, m.GoalTurn = e.Note, e.Rev
 		}
+		if e.Sender != nil && e.Role == session.RoleUser {
+			m.Sender = &schema.ChatsSender{ID: e.Sender.ID, Name: e.Sender.Name, Username: e.Sender.Username, Standing: e.Sender.Standing}
+		}
+		if e.Role == session.RoleThread {
+			m.Text = ""
+			m.Thread = &schema.ChatsThread{Lines: append([]string{}, session.ThreadLines(e.Text)...), Cut: e.Note == session.ThreadCut}
+		}
+		if e.Role == session.RoleHostNote {
+			m.HostNote = &schema.ChatsHostNote{Code: e.Note}
+		}
+		if e.Role == session.RoleFailure {
+			f := session.ParseFailure(e)
+			m.Failure = &schema.ChatsFailure{Code: f.Code, Model: f.Model, RetryAfter: f.RetryAfter, Detail: f.Detail}
+		}
 		out.Messages = append(out.Messages, m)
 	}
 	return out
@@ -452,7 +495,7 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 // @Success 200 {object} schema.ChatsSendResponse "Whether a turn started, or the id of the waiting message"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
-// @Failure 409 {object} schema.ErrorResponse "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)"
+// @Failure 409 {object} schema.ErrorResponse "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit), or the saved agent of another person is no longer shared with you (agent_not_shared)"
 // @Router /api/chats/{id}/messages [post]
 func (h *Handlers) Send(c echo.Context) error {
 	var (
@@ -584,21 +627,32 @@ func (h *Handlers) Stop(c echo.Context) error {
 
 // Events streams the conversation's live events.
 // @Summary Stream a chat's events.
-// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). Events are live only; read the transcript for what came before.
+// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). The events of a running turn carry an id ("<run>.<n>"). Send the last id back as the Last-Event-ID header or the after query parameter to get the events you missed, then the live ones. A "resync" event means the server cannot give them (the id is of another run, is too old, or the server that runs the turn is gone or does not answer): read the transcript, and go on from the id of the resync event. Without an id the stream starts from now; read the transcript for what came before.
 // @Tags chats
 // @Param id path string true "conversation id"
+// @Param after query string false "resume after this event id"
+// @Param Last-Event-ID header string false "resume after this event id (sent by a browser when it reconnects)"
 // @Produce text/event-stream
 // @Success 200 {object} schema.ChatsEvent "An event stream"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
+// @Failure 429 {object} schema.ErrorResponse "The user has 8 event streams open on this chat on this server"
 // @Router /api/chats/{id}/events [get]
 func (h *Handlers) Events(c echo.Context) error {
-	events, cancel, err := h.svc.Events(c.Request().Context(), userID(c), c.Param("id"))
+	// The header is what a browser sends when it reconnects by itself; the
+	// query is for a client that opens a new stream, as the interface does.
+	after := c.Request().Header.Get("Last-Event-ID")
+	if after == "" {
+		after = c.QueryParam("after")
+	}
+	events, cancel, err := h.svc.EventsAfter(c.Request().Context(), userID(c), c.Param("id"), after)
 	if err != nil {
 		return failFor(c, err)
 	}
 	defer cancel()
 
-	return streamSSE(c, events, func(ev session.Event) (string, any) { return string(ev.Kind), eventJSON(ev) })
+	return streamSSEWithIDs(c, events, heartbeat, func(ev session.Event) (string, string, any) {
+		return ev.ID, string(ev.Kind), eventJSON(ev)
+	})
 }
 
 func eventJSON(ev session.Event) schema.ChatsEvent {

@@ -22,7 +22,7 @@ var _ = Describe("live API traces", func() {
 		app, err := application.New(
 			config.EnableTracing,
 			config.WithDataPath(root),
-			config.WithDisableLocalAIAssistant(true),
+
 			config.WithDisableStats(true),
 			config.WithSystemState(&system.SystemState{
 				Model:   system.Model{ModelsPath: root},

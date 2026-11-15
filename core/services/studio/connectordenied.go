@@ -24,6 +24,12 @@ const (
 // tool". It is empty for a chat that no connector started, and when nothing was
 // held back for a missing right.
 func deniedToolsNote(rec session.ChatRecord, built []builtins.Built) string {
+	return deniedToolsNoteReserve(rec, built, 0)
+}
+
+// deniedToolsNoteReserve is deniedToolsNote that leaves reserve characters of
+// the 400 for a line that goes before it in the note of the turn.
+func deniedToolsNoteReserve(rec session.ChatRecord, built []builtins.Built, reserve int) string {
 	if rec.Origin != session.OriginConnector {
 		return ""
 	}
@@ -44,10 +50,15 @@ func deniedToolsNote(rec session.ChatRecord, built []builtins.Built) string {
 		}
 	}
 	slices.Sort(reasons)
+	// A tool of an add-on the agent was given is what the person asks for by
+	// name, so its reason stays when the budget cuts the rest.
+	slices.SortStableFunc(reasons, func(a, b string) int {
+		return boolRank(strings.Contains(a, heldMark)) - boolRank(strings.Contains(b, heldMark))
+	})
 	var kept []string
 	used := 0
 	for _, why := range reasons {
-		if used+len(why)+1 > deniedNoteBudget {
+		if used+len(why)+1 > deniedNoteBudget-reserve {
 			break
 		}
 		kept = append(kept, why)
@@ -57,6 +68,16 @@ func deniedToolsNote(rec session.ChatRecord, built []builtins.Built) string {
 		return ""
 	}
 	return deniedNoteStart + strings.Join(kept, " ") + deniedNoteEnd
+}
+
+// heldMark is in the reason of an add-on tool that was held back (see heldTools).
+const heldMark = "(held back, "
+
+func boolRank(held bool) int {
+	if held {
+		return 0
+	}
+	return 1
 }
 
 // sentence makes a reason a whole sentence: it starts with a capital and ends

@@ -24,7 +24,7 @@ var _ = Describe("the Bot API client", func() {
  {"update_id":11,"message":{"chat":{"id":55,"type":"private"},"from":{"id":55,"first_name":"Ada"},"photo":[{"file_id":"x"}]}},
  {"update_id":12,"edited_message":{"chat":{"id":55,"type":"private"},"from":{"id":55},"text":"edit"}},
  {"update_id":13,"channel_post":{"chat":{"id":-100,"type":"channel"},"text":"post"}},
- {"update_id":14,"message":{"chat":{"id":-200,"type":"group"},"from":{"id":7,"first_name":"Bo"},"text":"in a group"}}]}`
+ {"update_id":14,"message":{"chat":{"id":-200,"type":"group","title":"Ops room"},"from":{"id":7,"first_name":"Bo"},"text":"in a group"}}]}`
 		}
 		ups, err := f.client().Updates(ctx, secretToken, 10, 25)
 		Expect(err).NotTo(HaveOccurred())
@@ -39,6 +39,8 @@ var _ = Describe("the Bot API client", func() {
 		Expect(ups[2].Skip).To(BeTrue())
 		Expect(ups[3].Skip).To(BeTrue())
 		Expect(ups[4].Direct).To(BeFalse(), "a group is not a direct chat")
+		Expect(ups[4].ChatName).To(Equal("Ops room"), "a group names itself")
+		Expect(u.ChatName).To(BeEmpty(), "a private chat has no name to show")
 		c := f.called("getUpdates")[0]
 		Expect(c.Body).To(And(HaveKeyWithValue("offset", float64(10)), HaveKeyWithValue("timeout", float64(25))))
 		Expect(c.Path).To(ContainSubstring("/bot" + secretToken + "/"))

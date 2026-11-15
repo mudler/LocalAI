@@ -25,7 +25,6 @@
   "agent": "Agente",
   "agentNone": "Escolha um agente",
   "agentCredentialsOnly": "Sem agente (só credenciais)",
-  "agentOptionalHint": "Opcional. Sem um agente, esta conexão só guarda a chave, o servidor e o modo de escrita dos seus chats. Ela não responde a mensagens e não escuta nada.",
   "credentialsOnly": "Só credenciais",
   "agentNoModel": "{{name}} (precisa de um modelo)",
   "test": "Testar",
@@ -69,7 +68,7 @@
     "hint": "Controle remoto de players, marcas de assistido, favoritos e adição a playlists. Ele nunca exclui, escaneia nem edita a biblioteca.",
     "off": "Somente leitura",
     "propose": "Pergunta antes",
-    "auto": "Age sem perguntar",
+    "auto": "Age na hora",
     "line": {
       "off": "Ele não pode alterar nada.",
       "propose": "Cada alteração espera o seu OK.",
@@ -83,7 +82,7 @@
     "row": {
       "off": "Somente leitura",
       "propose": "Pergunta antes",
-      "auto": "Age sem perguntar"
+      "auto": "Age na hora"
     }
   },
   "approval": {

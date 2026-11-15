@@ -490,9 +490,15 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 		numFrames = 16
 	}
 
+	// MiniMax-H3 runs at 24 fps with guidance 1 (the engine overrides the fps);
+	// the partition is only known for H3 files, so other models keep 16 and 5.
+	isH3 := sd.videoPartition != ""
 	fps := int(opts.Fps)
 	if fps <= 0 {
 		fps = 16
+		if isH3 {
+			fps = 24
+		}
 	}
 
 	steps := int(opts.Step)
@@ -506,6 +512,9 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 	}
 	if cfg == 0 {
 		cfg = 5.0
+		if isH3 {
+			cfg = 1.0
+		}
 	}
 
 	extra, err := parseVideoRequestParams(opts.Params)

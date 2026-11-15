@@ -25,7 +25,7 @@ var _ = Describe("studio service at startup", func() {
 		state, err := system.GetSystemState(system.WithModelPath(GinkgoT().TempDir()), system.WithBackendPath(GinkgoT().TempDir()))
 		Expect(err).NotTo(HaveOccurred())
 		base := []config.AppOption{config.WithContext(ctx), config.WithSystemState(state), config.DisableMetricsEndpoint,
-			config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true), config.WithDataPath(GinkgoT().TempDir())}
+			config.WithDisableStats(true), config.WithDataPath(GinkgoT().TempDir())}
 		app, err := New(append(base, opts...)...)
 		if app != nil {
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
@@ -185,7 +185,7 @@ var _ = Describe("studio service at startup", func() {
 		It("bounds a job and a trigger run past their own limits, and nothing else", func() {
 			app := newApp(config.WithMCPCIJobTimeout(3 * time.Minute))
 			Expect(app.studioWorkerRunLimit(session.OriginJob)).To(Equal(3*time.Minute + chatWorkerGrace))
-			Expect(app.studioWorkerRunLimit(session.OriginTrigger)).To(Equal(studio.DefaultRunLimit + chatWorkerGrace))
+			Expect(app.studioWorkerRunLimit(session.OriginTrigger)).To(Equal(config.DefaultChatsTriggerRunLimit + chatWorkerGrace))
 			Expect(app.studioWorkerRunLimit(session.OriginConnector)).To(BeZero())
 			Expect(app.studioWorkerRunLimit("")).To(BeZero())
 		})

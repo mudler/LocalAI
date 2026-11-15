@@ -53,6 +53,10 @@ type Consent struct {
 	Hash      string
 	Kind      string // ConsentAlways or ConsentOnce
 	Token     string // ConsentOnce only
+	// Embed is a lasting consent that also lets the version run on Home and
+	// in the slots of the app, where it starts without a click. It is kept
+	// against the hash like the consent itself, so a change asks again.
+	Embed bool `json:",omitempty"`
 	// The size of index.html and page.json and the lines of index.html of the
 	// version allowed, so a later sheet can say what changed.
 	Size, MetaSize int64
@@ -110,6 +114,7 @@ type consentRow struct {
 	Folder    string `gorm:"size:1024"`
 	Name      string `gorm:"size:64"`
 	Hash      string `gorm:"size:64"`
+	Embed     bool   `gorm:"not null;default:false"`
 	Size      int64
 	MetaSize  int64
 	Lines     int
@@ -146,12 +151,12 @@ func NewGORMConsents(db *gorm.DB) (ConsentStore, error) {
 }
 
 func (r consentRow) consent() Consent {
-	return Consent{Principal: r.Principal, PageID: r.PageID, Folder: r.Folder, Name: r.Name, Hash: r.Hash, Kind: r.Kind, Token: r.Token,
+	return Consent{Principal: r.Principal, PageID: r.PageID, Folder: r.Folder, Name: r.Name, Hash: r.Hash, Kind: r.Kind, Token: r.Token, Embed: r.Embed,
 		Size: r.Size, MetaSize: r.MetaSize, Lines: r.Lines, At: r.At.UTC(), Expires: r.Expires.UTC()}
 }
 
 func rowOf(c Consent) consentRow {
-	return consentRow{Principal: c.Principal, PageID: c.PageID, Kind: c.Kind, Token: c.Token, Folder: c.Folder, Name: c.Name, Hash: c.Hash,
+	return consentRow{Principal: c.Principal, PageID: c.PageID, Kind: c.Kind, Token: c.Token, Folder: c.Folder, Name: c.Name, Hash: c.Hash, Embed: c.Embed,
 		Size: c.Size, MetaSize: c.MetaSize, Lines: c.Lines, At: c.At.UTC(), Expires: c.Expires.UTC()}
 }
 

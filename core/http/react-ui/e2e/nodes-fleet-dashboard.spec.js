@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { mockReadModel } from './operate-fixtures.js'
 
 // The Swarm Nodes page: a sortable table of the cluster, a map of the same
 // nodes, and the models running across them. Every call is stubbed, so the
@@ -39,7 +40,8 @@ const baseModels = [
   { id: 'r4', node_id: 'missing', model_name: 'Whisper large v3', replica_index: 0, address: '10.0.0.9:50101', state: 'loaded', in_flight: 0, backend_type: 'whisper', last_used: '2026-09-14T09:00:00Z' },
 ]
 
-const rows = page => page.locator('tbody tr[data-row]')
+const rows = page => page.locator('[data-row]')
+const rowOf = (page, name) => page.locator(`[data-row][data-entity="${name}"]`)
 
 test.describe('Swarm nodes: navigation', () => {
   test('uses the standard Operate navigation at a desktop viewport', async ({ page }) => {
@@ -91,21 +93,25 @@ test.describe('Swarm nodes: navigation', () => {
   })
 })
 
-test.describe('Swarm nodes: the table', () => {
+test.describe('Swarm nodes: the roster', () => {
   test('lists every node with its state in words and opens a node from its row', async ({ page }) => {
     await mockNodes(page)
     await page.goto('/app/nodes')
 
-    const table = page.getByRole('table', { name: /Nodes with their state/ })
-    await expect(table).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('nodes-table')).toBeVisible({ timeout: 15_000 })
     await expect(rows(page)).toHaveCount(3)
-    await expect(page.getByRole('row', { name: /atlas/ })).toContainText('Healthy')
-    await expect(page.getByRole('row', { name: /borealis/ })).toContainText('Waiting for approval')
-    await expect(page.getByRole('row', { name: /legacy/ })).toContainText('Offline')
-    await expect(page.getByRole('row', { name: /atlas/ })).toContainText('v3.9.0')
-    await expect(page.getByRole('link', { name: 'atlas' })).toHaveAttribute('href', '/app/nodes/n1')
+    await expect(rowOf(page, 'atlas')).toContainText('Healthy')
+    await expect(rowOf(page, 'borealis')).toContainText('Waiting for approval')
+    await expect(rowOf(page, 'legacy')).toContainText('Offline')
 
-    await page.getByRole('row', { name: /atlas/ }).locator('td').nth(2).click()
+    // A row opens the inspector; the full page is one link from there.
+    await rowOf(page, 'borealis').getByRole('button', { name: /^borealis/ }).click()
+    const inspector = page.getByTestId('node-inspector')
+    await expect(inspector).toContainText('borealis')
+    await rowOf(page, 'atlas').getByRole('button', { name: /^atlas/ }).click()
+    await expect(inspector).toContainText('v3.9.0')
+    await expect(rowOf(page, 'atlas')).toHaveAttribute('data-active', 'true')
+    await inspector.getByRole('link', { name: 'Open full page' }).click()
     await expect(page).toHaveURL(/\/app\/nodes\/n1$/)
   })
 
@@ -118,16 +124,16 @@ test.describe('Swarm nodes: the table', () => {
 
     await needs.click()
     await expect(needs).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('row', { name: /borealis/ })).toBeVisible()
-    await expect(page.getByRole('row', { name: /legacy/ })).toBeVisible()
-    await expect(page.getByRole('row', { name: /atlas/ })).toHaveCount(0)
+    await expect(rowOf(page, 'borealis')).toBeVisible()
+    await expect(rowOf(page, 'legacy')).toBeVisible()
+    await expect(rowOf(page, 'atlas')).toHaveCount(0)
 
     // Only the reasons that apply are offered.
     await expect(page.getByRole('button', { name: /^Low models disk/ })).toBeVisible()
     await expect(page.getByRole('button', { name: /^Not answering/ })).toBeVisible()
     await page.getByRole('button', { name: /^Not answering/ }).click()
-    await expect(page.getByRole('row', { name: /legacy/ })).toBeVisible()
-    await expect(page.getByRole('row', { name: /borealis/ })).toHaveCount(0)
+    await expect(rowOf(page, 'legacy')).toBeVisible()
+    await expect(rowOf(page, 'borealis')).toHaveCount(0)
 
     await page.getByRole('button', { name: /^All/ }).click()
     await expect(rows(page)).toHaveCount(3)
@@ -136,9 +142,9 @@ test.describe('Swarm nodes: the table', () => {
   test('says a low reading in the row and never flags a node that does not report', async ({ page }) => {
     await mockNodes(page)
     await page.goto('/app/nodes')
-    await expect(page.getByRole('row', { name: /borealis/ })).toContainText('Low GPU memory', { timeout: 15_000 })
-    await expect(page.getByRole('row', { name: /atlas/ })).not.toContainText('Low')
-    await expect(page.getByRole('row', { name: /legacy/ })).not.toContainText('Low')
+    await expect(rowOf(page, 'borealis')).toContainText('Low GPU memory', { timeout: 15_000 })
+    await expect(rowOf(page, 'atlas')).not.toContainText('Low')
+    await expect(rowOf(page, 'legacy')).not.toContainText('Low')
   })
 
   test('searches, filters by state and type, sorts and groups', async ({ page }) => {
@@ -148,41 +154,27 @@ test.describe('Swarm nodes: the table', () => {
 
     await page.getByRole('searchbox', { name: 'Search nodes' }).fill('legacy')
     await expect(rows(page)).toHaveCount(1)
-    await expect(page.getByRole('row', { name: /legacy/ })).toBeVisible()
+    await expect(rowOf(page, 'legacy')).toBeVisible()
     await page.getByRole('searchbox', { name: 'Search nodes' }).fill('')
 
     await page.getByLabel('Filter state').selectOption('pending')
     await expect(rows(page)).toHaveCount(1)
-    await expect(page.getByRole('row', { name: /borealis/ })).toBeVisible()
+    await expect(rowOf(page, 'borealis')).toBeVisible()
     await page.getByLabel('Filter state').selectOption('')
     await page.getByLabel('Filter type').selectOption('agent')
     await expect(rows(page)).toHaveCount(1)
     await page.getByLabel('Filter type').selectOption('')
 
-    const nodeHeader = page.getByRole('columnheader', { name: 'Node', exact: true })
-    await expect(nodeHeader).toHaveAttribute('aria-sort', 'ascending')
-    await nodeHeader.getByRole('button').click()
-    await expect(nodeHeader).toHaveAttribute('aria-sort', 'descending')
-    await expect(rows(page).first()).toContainText('legacy')
-    await page.getByRole('columnheader', { name: 'State' }).getByRole('button').click()
-    await expect(page.getByRole('columnheader', { name: 'State' })).toHaveAttribute('aria-sort', 'ascending')
-    await expect(nodeHeader).not.toHaveAttribute('aria-sort', /./)
+    const names = () => rows(page).evaluateAll(list => list.map(item => item.getAttribute('data-entity')))
+    expect(await names()).toEqual(['atlas', 'borealis', 'legacy'])
+    await page.getByRole('button', { name: 'Reverse the sort order' }).click()
+    await expect.poll(names).toEqual(['legacy', 'borealis', 'atlas'])
+    await page.getByLabel('Sort nodes').selectOption('status')
+    await expect(page.getByLabel('Sort nodes')).toHaveValue('status')
 
     await page.getByLabel('Group nodes').selectOption('label:zone')
     await expect(page.getByText('Unlabelled', { exact: true })).toBeVisible()
-    await expect(page.getByText('east', { exact: true })).toBeVisible()
-  })
-
-  test('switches between comfortable and compact rows and remembers the choice', async ({ page }) => {
-    await mockNodes(page)
-    await page.goto('/app/nodes')
-    const table = page.getByRole('table', { name: /Nodes with their state/ })
-    await expect(table).not.toHaveClass(/dk-table--compact/, { timeout: 15_000 })
-    await page.getByRole('radio', { name: 'Compact' }).click()
-    await expect(table).toHaveClass(/dk-table--compact/)
-    await expect(page.getByRole('radio', { name: 'Compact' })).toHaveAttribute('aria-checked', 'true')
-    await page.reload()
-    await expect(page.getByRole('table', { name: /Nodes with their state/ })).toHaveClass(/dk-table--compact/, { timeout: 15_000 })
+    await expect(page.getByRole('heading', { name: 'east' })).toBeVisible()
   })
 
   test('mounts only 50 rows and clamps pagination for a 1,000-node fleet', async ({ page }) => {
@@ -203,7 +195,7 @@ test.describe('Swarm nodes: the table', () => {
       total_vram: 100, total_ram: 200, total_disk: 300,
     }])
     await page.goto('/app/nodes')
-    const row = page.getByRole('row', { name: /incomplete-capacity/ })
+    const row = rowOf(page, 'incomplete-capacity')
     await expect(row.getByText('No reading')).toHaveCount(1, { timeout: 15_000 })
     await expect(row).not.toContainText('Low')
   })
@@ -230,10 +222,61 @@ test.describe('Swarm nodes: the table', () => {
     await checkbox.press('Space')
     await expect(checkbox).toBeChecked()
     await expect(page).toHaveURL(/\/app\/nodes$/)
-    await expect(page.getByRole('row', { name: /atlas/ })).toHaveAttribute('data-selected', 'true')
+    await expect(rowOf(page, 'atlas')).toHaveAttribute('data-selected', 'true')
 
     const selectPage = page.getByRole('checkbox', { name: 'Select page' })
     await expect.poll(() => selectPage.evaluate(input => input.indeterminate)).toBe(true)
+  })
+})
+
+test.describe('Swarm nodes: load history and the inspector', () => {
+  const withHistory = [
+    { ...baseNodes[0], load_history: [20, 35, 50, 62, 58] },
+    { ...baseNodes[0], id: 'one', name: 'one-sample', load_history: [40] },
+    { ...baseNodes[0], id: 'none', name: 'no-history' },
+  ]
+
+  test('draws a line only for a node with at least two readings', async ({ page }) => {
+    await mockNodes(page, withHistory)
+    await page.goto('/app/nodes')
+    await expect(rows(page)).toHaveCount(3, { timeout: 15_000 })
+    await expect(rowOf(page, 'atlas').getByRole('img', { name: /Load over the last 5 readings, now 58 percent/ })).toBeVisible()
+    await expect(rowOf(page, 'one-sample').locator('.sw-spark')).toHaveCount(0)
+    await expect(rowOf(page, 'no-history').locator('.sw-spark')).toHaveCount(0)
+  })
+
+  test('shows the node in the inspector and drains it after a confirmation', async ({ page }) => {
+    await mockNodes(page, [baseNodes[0]])
+    const drains = []
+    await page.route('**/api/nodes/n1/drain', route => {
+      drains.push(route.request().method())
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/app/nodes')
+    const inspector = page.getByTestId('node-inspector')
+    await expect(inspector).toContainText('atlas', { timeout: 15_000 })
+    await expect(inspector).toContainText('60%')
+    await inspector.getByRole('button', { name: /^Drain/ }).click()
+    await page.getByRole('button', { name: 'Drain node' }).click()
+    await expect.poll(() => drains).toEqual(['POST'])
+    await expect(page.getByText('Node set to draining')).toBeVisible()
+  })
+
+  test('removes a node from the inspector only after a confirmation', async ({ page }) => {
+    await mockNodes(page, [baseNodes[0]])
+    const deletes = []
+    await page.route('**/api/nodes/n1', route => {
+      if (route.request().method() !== 'DELETE') return route.fallback()
+      deletes.push('DELETE')
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/app/nodes')
+    await page.getByTestId('node-inspector').getByRole('button', { name: /^Remove/ }).click()
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    expect(deletes).toEqual([])
+    await page.getByTestId('node-inspector').getByRole('button', { name: /^Remove/ }).click()
+    await page.getByRole('button', { name: 'Remove node' }).click()
+    await expect.poll(() => deletes).toEqual(['DELETE'])
   })
 })
 
@@ -303,7 +346,8 @@ test.describe('Swarm nodes: bulk actions', () => {
     await expect(page.getByText(/1 succeeded, 0 failed, 0 skipped/)).toBeVisible()
   })
 
-  test('updates a backend on the nodes that drifted, or on the selected ones', async ({ page }) => {
+  test('updates a backend on the nodes that drifted, or on the selected ones, after a confirmation', async ({ page }) => {
+    test.setTimeout(90_000)
     const nodes = [
       { ...baseNodes[0], id: 'a', name: 'alpha' },
       { ...baseNodes[0], id: 'b', name: 'beta' },
@@ -311,11 +355,8 @@ test.describe('Swarm nodes: bulk actions', () => {
       { ...baseNodes[2], id: 'd', name: 'agent' },
     ]
     await mockNodes(page, nodes)
-    await page.route('**/api/backends/upgrades', route => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ 'llama-cpp': { backend_name: 'llama-cpp', installed_version: '0.9.4', available_version: '0.9.7', node_drift: [{ node_id: 'a' }, { node_id: 'b' }, { node_id: 'c' }] } }),
-    }))
+    const upgrades = { 'llama-cpp': { backend_name: 'llama-cpp', installed_version: '0.9.4', available_version: '0.9.7', node_drift: [{ node_id: 'a' }, { node_id: 'b' }, { node_id: 'c' }] } }
+    await mockReadModel(page, upgrades)
     const posts = []
     await page.route('**/api/nodes/*/backends/upgrade', route => {
       posts.push({ id: route.request().url().split('/').at(-3), body: route.request().postDataJSON() })
@@ -330,11 +371,19 @@ test.describe('Swarm nodes: bulk actions', () => {
     await expect(page.getByRole('button', { name: 'Update llama-cpp on 1 node' })).toBeVisible()
     await page.getByRole('button', { name: 'Clear selection' }).click()
 
+    // The button asks first: nothing is sent until the dialog is confirmed.
     await button.click()
-    await expect.poll(() => posts.length).toBe(2)
+    const dialog = page.getByTestId('node-update-dialog')
+    await expect(dialog.getByRole('heading', { name: 'Update llama-cpp on 2 nodes?' })).toBeVisible()
+    await expect(dialog.getByTestId('node-update-item')).toHaveCount(2)
+    expect(posts).toEqual([])
+    await dialog.getByTestId('node-update-confirm').click()
+    // The nodes update one after another: the second is asked after the first ended.
+    await expect.poll(() => posts.length, { timeout: 30_000 }).toBe(2)
     expect(posts.map(post => post.id).sort()).toEqual(['a', 'b'])
     expect(posts.every(post => post.body.backend === 'llama-cpp')).toBe(true)
-    await expect(page.getByText('Updating backends on 2 nodes')).toBeVisible()
+    // The stub never moves a node to the new version, so no result is "updated".
+    await expect(dialog.getByTestId('node-update-summary')).toContainText('0 updated, 2 failed', { timeout: 30_000 })
   })
 })
 
@@ -348,7 +397,9 @@ test.describe('Swarm nodes: the map', () => {
     })
     await page.goto('/app/nodes')
     await expect(rows(page)).toHaveCount(3, { timeout: 15_000 })
-    expect(modelRequests).toBe(0)
+    // The roster names each node's models, so it reads the replicas once.
+    await expect.poll(() => modelRequests).toBe(1)
+    await expect(rowOf(page, 'atlas')).toContainText('Llama 3.2')
 
     await page.getByRole('radio', { name: /Map/ }).click()
     const map = page.getByTestId('nodes-map')
@@ -403,17 +454,22 @@ test.describe('Swarm nodes: first run, errors and a phone', () => {
     await expect(rows(page)).toHaveCount(3)
   })
 
-  test('lays nodes out as cards on a phone without sideways scrolling', async ({ page }) => {
+  test('keeps every row inside the screen on a phone', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await mockNodes(page)
     await page.goto('/app/nodes')
     await expect(rows(page)).toHaveCount(3, { timeout: 15_000 })
-    await expect(page.locator('.sw-table--nodes thead')).toBeHidden()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+    const list = page.getByTestId('nodes-table')
+    expect(await list.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
     const approve = page.getByRole('button', { name: 'Approve borealis' })
     const box = await approve.boundingBox()
     expect(box.x + box.width).toBeLessThanOrEqual(390)
     await expect(page.getByRole('link', { name: 'Add a node' })).toBeVisible()
+    // The inspector is a sheet here, opened by a row.
+    await expect(page.getByTestId('node-inspector')).toHaveCount(0)
+    await rowOf(page, 'atlas').getByRole('button', { name: /^atlas/ }).click()
+    await expect(page.getByTestId('node-sheet').getByTestId('node-inspector')).toContainText('atlas')
   })
 })
 
@@ -433,7 +489,8 @@ test.describe('Swarm nodes: running models', () => {
     })
     await page.goto('/app/nodes')
     await expect(rows(page)).toHaveCount(3, { timeout: 15_000 })
-    expect(modelRequests).toBe(0)
+    // The roster reads the replicas once to name each node's models.
+    await expect.poll(() => modelRequests).toBe(1)
     expect(backendRequests).toBe(0)
 
     await page.getByRole('radio', { name: /Running models/ }).click()

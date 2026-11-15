@@ -18,7 +18,8 @@ import (
 // off, so the anonymous principal) may read, and /shared/board that the user
 // may write. Its pages:
 //
-//	standup   a page that reads, writes and lists its folder through the bridge
+//	standup   a page that reads, writes and lists its folder through the bridge;
+//	          it has a compact widget block, so it can run in a slot
 //	releases  a page the user allowed in an earlier version (a consent to an
 //	          older hash), so it opens with the "has changed" sheet
 //	board     a page in the writable folder, so its writes go through
@@ -80,7 +81,7 @@ func seedSharedPages(ctx context.Context, app *application.Application) error {
 	}
 	for p, body := range map[string]string{
 		sharedTeam + "/pages/standup/index.html":  sharedProbe,
-		sharedTeam + "/pages/standup/page.json":   `{"title":"Team standup","icon":"users","description":"What each of us does today."}`,
+		sharedTeam + "/pages/standup/page.json":   `{"title":"Team standup","icon":"users","description":"What each of us does today.","widget":{"size":"medium","compact":{"width":150}}}`,
 		sharedTeam + "/pages/standup/data.json":   `{"n":1}`,
 		sharedTeam + "/pages/releases/index.html": "<!doctype html><h1>Release calendar</h1>\n<p>v3.9 code freeze, Monday</p>\n<p>v3.9 release, Thursday</p>\n",
 		sharedTeam + "/pages/releases/page.json":  `{"title":"Release calendar","icon":"calendar"}`,

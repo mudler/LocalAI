@@ -121,16 +121,6 @@ var _ = Describe("Chats reasoning, compaction, switches and inbox", Ordered, fun
 
 			code, raw = c.do(http.MethodPost, "/api/chats", map[string]any{"model": "fake", "assistant": true, "agent_id": "x"})
 			Expect(code).To(Equal(http.StatusBadRequest), string(raw))
-
-			code, raw = c.do(http.MethodPost, "/api/settings", map[string]any{"localai_assistant_enabled": false})
-			Expect(code).To(Equal(http.StatusOK), string(raw))
-			code, raw = c.do(http.MethodPost, "/api/chats", map[string]any{"model": "fake", "assistant": true})
-			Expect(code).To(Equal(http.StatusServiceUnavailable), string(raw))
-			Expect(errType(raw)).To(Equal("assistant_off"))
-			code, _ = c.do(http.MethodPost, "/api/chats", map[string]any{"model": "fake"})
-			Expect(code).To(Equal(http.StatusCreated), "plain chats are not affected")
-			code, _ = c.do(http.MethodPost, "/api/settings", map[string]any{"localai_assistant_enabled": true})
-			Expect(code).To(Equal(http.StatusOK))
 		})
 
 		It("gives only the assistant chat the assistant tools", func() {

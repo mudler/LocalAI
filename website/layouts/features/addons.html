@@ -1,0 +1,27 @@
+{{ define "main" }}
+<main id="main">
+<header class="pagehead"><div class="shell duo duo--wide">
+  <div>
+    <p class="crumb"><a href="{{ "features/" | relURL }}">Features</a> / Add-ons</p>
+    <h1>Add-ons give LocalAI new <span class="hl">powers</span>.</h1>
+    <p class="lede">An add-on is software you install. It adds chat apps, tools and pages. An admin installs it from the add-on library.</p>
+    {{ if .Params.dev }}<p class="need need--dev">In development builds, coming in the next release.</p>{{ end }}
+    <div class="acts"><a class="btn" href="{{ .Params.docs }}">Read the add-ons guide</a></div>
+  </div>
+  {{ partial "demo-slot.html" (dict "kind" .Params.illus "demo" .Params.demo "alt" "Add-ons: a short demo") }}
+</div></header>
+<section><div class="shell">
+  <div class="note"><b>Good to know</b><ul>
+    {{ range .Params.notes }}<li>{{ . | markdownify }}</li>{{ end }}
+  </ul></div>
+  {{ range hugo.Data.addons.groups }}
+  <h2 class="sec-h sec-h--mt">{{ .title }}</h2>
+  <div class="grid">
+    {{ range .items }}
+    <div class="card rv"><h3>{{ .name }}</h3><p>{{ .what }}</p>{{ with .needs }}<p class="fine">{{ . }}</p>{{ end }}</div>
+    {{ end }}
+  </div>
+  {{ end }}
+</div></section>
+</main>
+{{ end }}

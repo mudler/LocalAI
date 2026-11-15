@@ -21,6 +21,11 @@ const (
 	// ControlToolProviders is the Settings > Tools rows of the built-in tools
 	// an add-on replaces, on the add-on's Settings tab.
 	ControlToolProviders = "tool-providers"
+	// ControlSandboxProfiles is the administrator's policy for the sandbox
+	// profiles of an add-on that declares them: the default profile, who may
+	// use each one, the memory and disk quota and the pins to the previous
+	// image. It is bound to the owner host setting sandbox_profiles.
+	ControlSandboxProfiles = "sandbox-profiles"
 )
 
 // AnyShadow in HostControl.Shadows means a tool that shadows any built-in.
@@ -47,11 +52,18 @@ type HostControl struct {
 // CapabilityNetwork is Capabilities.Network.
 const CapabilityNetwork = "network"
 
+// CapabilityProfiles is a commands tool with execution profiles (see
+// ExecutionDescriptor.Profiles).
+const CapabilityProfiles = "profiles"
+
 // declares reports whether the capabilities carry the named block.
 func declares(c Capabilities, name string) bool {
 	switch name {
 	case CapabilityNetwork:
 		return c.Network != nil
+	case CapabilityProfiles:
+		d, ok := CommandsTool(c.ToolDefinitions)
+		return ok && d.Execution != nil && len(d.Execution.Profiles) > 0
 	}
 	return false
 }
@@ -60,6 +72,7 @@ func declares(c Capabilities, name string) bool {
 var HostControls = []HostControl{
 	{ID: ControlNetworkPolicy, Grant: "egress.check", Capability: CapabilityNetwork},
 	{ID: ControlToolProviders, Shadows: AnyShadow},
+	{ID: ControlSandboxProfiles, Capability: CapabilityProfiles},
 }
 
 // MaxControls bounds ui.controls.

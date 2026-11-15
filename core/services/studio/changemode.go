@@ -25,8 +25,15 @@ import (
 //
 // Strictness runs auto < ask < always < never. The level that applies to a
 // write is the strictest among the person's setting, the saved agent's own
-// rule (always or never, never auto), the messaging row (connector chats) and
-// the rules of the chat. effectiveSaveLevel is that one function.
+// rule (always or never), the messaging row (connector chats) and the rules of
+// the chat. effectiveSaveLevel is that one function.
+//
+// One explicit choice goes the other way: a saved agent whose rule is auto
+// saves its notes at once even when the person's level is ask. It loosens the
+// person's ask and auto for that agent, and the messaging row ask and
+// paired_private (not never). It does not loosen the person's always or never,
+// a sub-agent, an unattended run, or a sender that is not paired in a
+// one-to-one chat; the limits of an automatic write (autoFits) still hold.
 //
 // The setting only ever narrows or keeps the confirmation for anything that is
 // not the person's own chat. The rules, in one place:
@@ -44,8 +51,10 @@ import (
 //     when the person said ask.
 //   - never applies to every origin: it is the person's choice, and refusing is
 //     the narrow side.
-//   - Only the memory kind reads the setting. Profile, skill, page and
-//     dashboard changes always ask.
+//   - Only the memory kind reads the setting to decide how it is saved.
+//     Profile, skill, page, dashboard and knowledge changes always ask.
+//     Never also takes the knowledge kind away; Always confirm changes
+//     nothing for it, since it always asks.
 //
 // The setting belongs to an add-on, not to the host: an add-on declares a user
 // setting with the role contract.UserSettingRoleMemorySave in its manifest,
@@ -94,9 +103,10 @@ type SaveInputs struct {
 	// User is the person's own level (ask, auto, always or never). An unknown
 	// value counts as ask.
 	User string
-	// Agent is the saved agent's rule: agents.MemorySaveAlways, agents.MemorySaveNever
-	// or empty for the person's setting. An unknown value counts as always,
-	// because it can only be a rule that was meant to be strict.
+	// Agent is the saved agent's rule: agents.MemorySaveAlways,
+	// agents.MemorySaveAuto, agents.MemorySaveNever or empty for the person's
+	// setting. An unknown value counts as always, because it can only be a rule
+	// that was meant to be strict.
 	Agent string
 	// Messaging is the messaging row. It matters only for a connector chat. An
 	// unknown value counts as ask.
@@ -113,7 +123,8 @@ type SaveInputs struct {
 // strictest of every rule that has a say, and the only place that combines
 // them:
 //
-//   - the person's level, and the agent's rule (always or never);
+//   - the person's level, and the agent's rule (always or never; an explicit
+//     auto loosens ask and auto, see above);
 //   - a sub-agent and an unattended run are not the person: at least ask;
 //   - a connector chat is at least ask, because the sender is not necessarily
 //     the person, except when the messaging row is paired_private and the
@@ -122,8 +133,11 @@ type SaveInputs struct {
 func effectiveSaveLevel(in SaveInputs) string {
 	level := levelRank(normalSaveMode(in.User))
 	agent := 0
+	agentAuto := false
 	switch in.Agent {
 	case "":
+	case agents.MemorySaveAuto:
+		agentAuto = true
 	case agents.MemorySaveNever:
 		agent = levelRank(SaveNever)
 	default:
@@ -131,6 +145,9 @@ func effectiveSaveLevel(in SaveInputs) string {
 	}
 	switch {
 	case in.Origin == "":
+		if agentAuto && level < levelRank(SaveAlways) {
+			level = levelRank(SaveAuto)
+		}
 		if in.SubAgent {
 			level = max(level, levelRank(SaveAsk))
 		}
@@ -142,7 +159,11 @@ func effectiveSaveLevel(in SaveInputs) string {
 			floor = level
 		}
 		row := levelRank(SaveAsk)
-		switch in.Messaging {
+		messaging := in.Messaging
+		if agentAuto && messaging != MessagingNever {
+			messaging = MessagingPairedPrivate
+		}
+		switch messaging {
 		case MessagingNever:
 			row = levelRank(SaveNever)
 		case MessagingPairedPrivate:
@@ -382,9 +403,14 @@ func memoryKindOf(kind string) bool { return kind == string(contract.ChangeMemor
 
 // withoutMemory removes the memory kind from a list.
 func withoutMemory(kinds []contract.ChangeKind) []contract.ChangeKind {
+	return withoutKind(kinds, contract.ChangeMemory)
+}
+
+// withoutKind returns the kinds without one.
+func withoutKind(kinds []contract.ChangeKind, drop contract.ChangeKind) []contract.ChangeKind {
 	out := make([]contract.ChangeKind, 0, len(kinds))
 	for _, k := range kinds {
-		if k != contract.ChangeMemory {
+		if k != drop {
 			out = append(out, k)
 		}
 	}

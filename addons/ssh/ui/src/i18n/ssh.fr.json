@@ -1,0 +1,123 @@
+{
+  "name": "Nom",
+  "agent": "Agent",
+  "agentNone": "Choisir un agent",
+  "agentCredentialsOnly": "Aucun agent (identifiants uniquement)",
+  "credentialsOnly": "Identifiants uniquement",
+  "agentNoModel": "{{name}} (a besoin d’un modèle)",
+  "test": "Tester",
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "editButton": "Modifier",
+  "delete": "Supprimer",
+  "agentOf": "Agent : {{name}}",
+  "inactive": "À l’arrêt : {{reason}}.",
+  "title": "SSH",
+  "intro": "Laissez vos conversations et vos agents exécuter des commandes sur une machine distante par SSH. Par défaut, vous confirmez chaque commande et voyez d'abord l'hôte et le texte exact.",
+  "limits": "Une commande peut modifier ou supprimer tout ce que l'utilisateur de connexion peut toucher. Utilisez un utilisateur dédié, avec seulement les droits utiles. Dans le mode \"S'exécute aussitôt\", personne ne confirme une commande avant son exécution. L'add-on lance une commande à la fois, sans terminal et sans entrée.",
+  "new": "Nouvelle connexion SSH",
+  "edit": "Modifier la connexion SSH",
+  "host": "Hôte",
+  "hostHelp": "Le nom ou l'adresse de la machine, avec le port s'il n'est pas 22 : server.example.com ou 10.0.0.5:2222. Une connexion est un hôte. Tout autre hôte est refusé.",
+  "hostShape": "Ce n'est pas un hôte. Écrivez un nom ou une adresse, avec un port facultatif.",
+  "user": "Nom d'utilisateur sur l'hôte",
+  "userHelp": "L'utilisateur sous lequel les commandes s'exécutent. Un utilisateur dédié permet de retirer son accès plus tard sans toucher au vôtre.",
+  "userShape": "Un nom d'utilisateur ne contient que des lettres, des chiffres et . _ -",
+  "login": {
+    "label": "Se connecter avec",
+    "hint": "Le secret est conservé chiffré et n'est plus jamais affiché.",
+    "password": "Mot de passe",
+    "key": "Clé privée"
+  },
+  "passwd": "Mot de passe",
+  "passwdHelp": "Le mot de passe de cet utilisateur. Il est enregistré avec le nom d'utilisateur sous la forme user:password.",
+  "key": "Clé privée",
+  "keyHelp": "Collez une clé créée uniquement pour LocalAI, au format PEM ou OpenSSH, sans phrase secrète. Ajoutez sa partie publique à authorized_keys sur l'hôte.",
+  "credSaved": "Enregistré. Saisissez pour remplacer.",
+  "secretAgain": "Vous avez changé l'utilisateur ou l'hôte. Saisissez à nouveau le secret.",
+  "userMissing": "Saisissez d'abord le nom d'utilisateur.",
+  "keyShape": "Ce n'est pas une clé privée. Elle commence par -----BEGIN.",
+  "keyPassphrase": "Une clé avec phrase secrète n'est pas prise en charge. Utilisez-en une sans.",
+  "credControl": "Le mot de passe ne contient aucun caractère de contrôle.",
+  "credLong": "Le secret est trop long.",
+  "hostKey": {
+    "label": "Clé de l'hôte",
+    "hint": "La première fois, l'add-on lit la clé que présente l'hôte. Comparez son empreinte avec celle que la machine affiche, puis faites-lui confiance. Ensuite, une clé différente est refusée.",
+    "check": "Vérifier la clé de l'hôte",
+    "checking": "Vérification...",
+    "trust": "J'ai comparé cette empreinte et je fais confiance à cet hôte.",
+    "needed": "Vérifiez la clé de l'hôte avant d'enregistrer.",
+    "unreachable": "L'hôte est injoignable.",
+    "failed": "La clé de l'hôte n'a pas pu être lue."
+  },
+  "testOk": "La connexion est enregistrée.",
+  "checkFailed": "Enregistré. La vérification de la connexion a échoué : {{reason}}",
+  "checkSeveral": "La vérification s'exécute quand vous avez une seule connexion SSH, car depuis cette page on ne peut pas savoir laquelle vous voulez. Dans une conversation, activez les connexions dans le menu Outils.",
+  "empty": "Aucune connexion SSH pour l'instant.",
+  "noHost": "Aucun hôte : cette connexion n'atteint rien.",
+  "hostOf": "Hôte : {{host}}",
+  "confirmDelete": {
+    "title": "Supprimer {{name}} ?",
+    "message": "Vos conversations ne peuvent plus atteindre cet hôte et le secret enregistré est supprimé. Pour le configurer à nouveau, il faudra le saisir encore.",
+    "confirm": "Supprimer"
+  },
+  "check": {
+    "title": "Vérification de {{name}}",
+    "running": "Vérification de l'hôte...",
+    "at": "Vérifié à {{time}}",
+    "ok": "Connecté en tant que {{user}}. {{system}}.",
+    "refused": "L'hôte a refusé la connexion. Vérifiez l'utilisateur, le mot de passe ou la clé.",
+    "changed": "La clé de l'hôte a changé. Rien n'a été envoyé. Modifiez la connexion pour vérifier la nouvelle clé et lui faire confiance.",
+    "nopin": "Aucune clé d'hôte épinglée. Modifiez la connexion et vérifiez la clé de l'hôte.",
+    "unreachable": "L'hôte est injoignable. Vérifiez l'hôte et le port.",
+    "busy": "Une autre commande tourne encore sur cette connexion.",
+    "failed": "La vérification ne s'est pas terminée. Réessayez dans un instant."
+  },
+  "setup": {
+    "title": "Comment la configurer",
+    "step1": "Créez sur l'hôte un utilisateur réservé à LocalAI, avec seulement les droits utiles.",
+    "step2": "Créez-lui une paire de clés, ou choisissez un mot de passe. Ajoutez la clé publique aux authorized_keys de cet utilisateur.",
+    "step3": "Saisissez ici l'hôte et l'utilisateur, appuyez sur Vérifier la clé de l'hôte et comparez l'empreinte.",
+    "step4": "Laissez le mode sur Demande d'abord jusqu'à avoir lu les limites de cette page.",
+    "fingerprint": "L'empreinte de l'hôte s'affiche avec : ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
+  },
+  "writeMode": {
+    "label": "Ce que l'agent peut faire sur cet hôte",
+    "hint": "Vérifier la connexion est toujours permis. Exécuter une commande demande un mode autre que Désactivé.",
+    "off": "Désactivé",
+    "propose": "Demande d'abord",
+    "auto": "S'exécute aussitôt",
+    "line": {
+      "off": "Aucune commande ne s'exécute.",
+      "propose": "Chaque commande attend votre accord.",
+      "auto": "Les commandes s'exécutent sans accord."
+    },
+    "note": {
+      "off": "Les commandes sont désactivées : cette connexion vérifie seulement la connexion.",
+      "propose": "Chaque commande attend dans vos approbations, avec l'hôte et le texte exact, jusqu'à votre confirmation.",
+      "auto": "Les commandes s'exécutent aussitôt sans confirmation. Ne choisissez ceci que pour un hôte et un utilisateur où une mauvaise commande ne fait aucun dégât."
+    },
+    "row": {
+      "off": "Désactivé",
+      "propose": "Demande d'abord",
+      "auto": "S'exécute aussitôt"
+    }
+  },
+  "approval": {
+    "title": "Exécuter une commande sur {{host}}",
+    "physical": "Ceci s'exécute sur une vraie machine dès que vous confirmez.",
+    "host": "Hôte",
+    "user": "Utilisateur",
+    "command": "Commande",
+    "lines": "{{count}} ligne(s)",
+    "timeout": "Limite de temps",
+    "seconds": "{{count}} secondes",
+    "hostKey": "Clé de l'hôte",
+    "as": "En tant que",
+    "asOne": "La connexion {{name}}",
+    "asFirst": "La première connexion qui liste cet hôte",
+    "asUnknown": "Une connexion SSH pour cet hôte",
+    "what": "Ce qui se passe",
+    "effect": "La commande exacte ci-dessus s'exécute une fois, sans terminal et sans entrée. Sa sortie revient dans la conversation."
+  }
+}

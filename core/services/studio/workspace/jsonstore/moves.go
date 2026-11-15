@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // moveNode moves src to the path to. It checks write access on the target
@@ -30,6 +31,26 @@ func (w *writer) moveNode(src nodeRow, to []string) (nodeRow, error) {
 	ns := src.state
 	ns.Parent, ns.Name = parent.ID, name
 	return w.apply(src.ID, src.Kind, workspace.OpMove, ns)
+}
+
+// checkGrantsMove refuses to move or rename a folder that holds a grant, on
+// itself or on a folder below it, when workfiles.GrantsMayMove refuses the
+// move: a grant moves with its node, so it would reach another home or a
+// folder that LocalAI manages. apply calls it, so a move, an undo and an
+// upper layer all meet it. The administrator moves anything.
+func (w *writer) checkGrantsMove(id int64, kind workspace.Kind, cur, ns state, from string) error {
+	if kind != workspace.KindDir || cur.Deleted || ns.Deleted || (ns.Parent == cur.Parent && ns.Name == cur.Name) || w.s.isAdmin(w.actor) {
+		return nil
+	}
+	if workfiles.GrantsMayMove(from, workspace.JoinChild(w.d.pathOf(ns.Parent), ns.Name)) {
+		return nil
+	}
+	for k := range w.d.grants {
+		if n, ok := w.d.nodes[k.Node]; ok && !n.Deleted && slices.Contains(w.d.ancestors(k.Node), id) {
+			return workspace.ErrSharedMove
+		}
+	}
+	return nil
 }
 
 // checkParentWrite requires write access on the parent of n: changing a

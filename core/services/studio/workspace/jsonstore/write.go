@@ -112,6 +112,9 @@ func (w *writer) apply(id int64, kind workspace.Kind, op workspace.OpKind, ns st
 			return nodeRow{}, workspace.ErrReadOnly
 		}
 		before, beforePath = cur.state, d.pathOf(id)
+		if err := w.checkGrantsMove(id, kind, cur.state, ns, beforePath); err != nil {
+			return nodeRow{}, err
+		}
 		n = cur
 		n.Version++
 	} else {

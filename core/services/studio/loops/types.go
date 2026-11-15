@@ -1,6 +1,7 @@
 package loops
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -71,6 +72,14 @@ const (
 	DefaultDailyRuns = 200
 	// MaxDailyRuns bounds the daily budget an operator can set.
 	MaxDailyRuns = 100000
+	// DefaultDailyScriptChecks is the number of checks of waits on a script
+	// that one owner may spend in one day (UTC), over all their waits. It is
+	// separate from DefaultDailyRuns: a check starts a process and calls no
+	// model. One wait that checks every minute for a whole day takes 1440, so
+	// the default leaves room for about one such wait and some short ones.
+	DefaultDailyScriptChecks = 1500
+	// MaxDailyScriptChecks bounds the daily budget of script checks.
+	MaxDailyScriptChecks = 100000
 	// MaxFailures is the number of failed runs in a row that pauses a loop.
 	MaxFailures = 3
 	// MaxPromptBytes bounds the prompt of a loop.
@@ -111,6 +120,196 @@ type Loop struct {
 	Created   time.Time `json:"created"`
 	Updated   time.Time `json:"updated"`
 	LastRun   time.Time `json:"last_run"`
+	// Watch is set on a wait: a loop whose check is code, not a model call.
+	// The host polls the source at the loop's Interval and runs the model once,
+	// when the condition holds, the source fails or the deadline passes.
+	// Treat it as immutable: change it by copying (Watch.Clone).
+	Watch *Watch `json:"watch,omitempty"`
+}
+
+// Kinds of condition a Watch waits for.
+const (
+	// UntilChange waits for the output to differ from the first check.
+	UntilChange = "change"
+	// UntilMatch waits for the output to match Pattern.
+	UntilMatch = "match"
+	// UntilJSONEquals waits for the JSON field Field of the output to equal Equals.
+	UntilJSONEquals = "json_equals"
+	// UntilExitZero waits for the script to exit with status 0. It needs a
+	// script.
+	UntilExitZero = "exit_zero"
+	// UntilExit waits for a background job to end, with any status. It needs
+	// a job.
+	UntilExit = "exit"
+	// UntilStall waits for a background job that still runs to write no
+	// output for Idle. It needs a job.
+	UntilStall = "stall"
+)
+
+// What the last check of a wait found.
+const (
+	OutcomeUnchanged = "unchanged"
+	OutcomeChanged   = "changed"
+	OutcomeError     = "error"
+)
+
+// How a wait ended.
+const (
+	// EndMet means the condition held.
+	EndMet = "condition_met"
+	// EndSourceFailing means the source failed MaxErrors checks in a row.
+	EndSourceFailing = "source_failing"
+	// EndTimedOut means the deadline or the most checks came first.
+	EndTimedOut = "timed_out"
+	// EndStopped is how a wait that ended without any of these reads.
+	EndStopped = "stopped"
+)
+
+// Bounds of a wait.
+const (
+	// DefaultWaitTimeout is how long a wait lasts when the model names none.
+	DefaultWaitTimeout = time.Hour
+	// MaxWaitTimeout is the longest a wait may last.
+	MaxWaitTimeout = 24 * time.Hour
+	// MaxWatchChecks ends a wait after that many checks, as a timeout.
+	MaxWatchChecks = 2000
+	// MaxWatchOutput bounds the output kept as the baseline of a wait.
+	MaxWatchOutput = 8000
+	// MaxScriptBytes bounds the command of a wait on a script.
+	MaxScriptBytes = 8000
+)
+
+// Watch is the state of a wait: what it checks, the condition, and what the
+// checks found so far. It is kept in the store so that the next leader of a
+// cluster goes on from the baseline of the last one.
+type Watch struct {
+	// Tool and Args name a read-only tool of the chat that is polled; URL is
+	// fetched with web_fetch.
+	Tool string          `json:"tool,omitempty"`
+	Args json.RawMessage `json:"args,omitempty"`
+	URL  string          `json:"url,omitempty"`
+	// Script is a shell command that is run for each check, with no model
+	// call; it is the third source. It is kept here, which only the owner
+	// reads, and never in a label or in a list that is shown: Describe and
+	// the API name a script, not its text. Exactly one of Tool, URL and
+	// Script is set.
+	Script string `json:"script,omitempty"`
+	// Job is the id of a background job of the chat that is watched; it is the
+	// fourth source. JobLabel is the name the person sees. Node is where the
+	// job runs (the instance, or "addon:<id>@<incarnation>"): it is copied
+	// from the job when the wait is armed and never resolved again, so a
+	// loop leader on another node asks the same one. No field here holds the
+	// command of the job. Exactly one of Tool, URL, Script and Job is set.
+	Job      string `json:"job,omitempty"`
+	JobLabel string `json:"job_label,omitempty"`
+	Node     string `json:"node,omitempty"`
+	// Idle is the silence that ends an UntilStall wait.
+	Idle time.Duration `json:"idle,omitempty"`
+	// JobOffset is the absolute output offset where the next check of an
+	// UntilMatch wait reads on, so each byte is matched once.
+	JobOffset int64 `json:"job_offset,omitempty"`
+	// What the last check saw of the job, for the wake-up: its exit status
+	// (-1 when not known), how it ended, how long it ran, and the two ways a
+	// job wait ends without its condition: the job is gone with its node, or
+	// it exited and its output never matched.
+	JobExit    int           `json:"job_exit,omitempty"`
+	JobEnd     string        `json:"job_end,omitempty"`
+	JobRan     time.Duration `json:"job_ran,omitempty"`
+	JobGone    bool          `json:"job_gone,omitempty"`
+	JobNoMatch bool          `json:"job_no_match,omitempty"`
+	// Agent says that Job is the id of a background sub-agent of the chat, not
+	// a job: the wait reads the sub-agent's transcript from the store, so it
+	// has no Node. AgentSeq is the last transcript row seen and SeenAt when a
+	// new one was first seen; the idle time is measured from SeenAt.
+	Agent    bool      `json:"agent,omitempty"`
+	AgentSeq int64     `json:"agent_seq,omitempty"`
+	SeenAt   time.Time `json:"seen_at,omitzero"`
+	// Mode is UntilChange, UntilMatch or UntilJSONEquals; Pattern, Field and
+	// Equals are its arguments.
+	Mode    string `json:"mode"`
+	Pattern string `json:"pattern,omitempty"`
+	Field   string `json:"field,omitempty"`
+	Equals  string `json:"equals,omitempty"`
+	// Deadline ends the wait; MaxErrors failed checks in a row end it too.
+	Deadline  time.Time `json:"deadline"`
+	MaxErrors int       `json:"max_errors"`
+	// Then is what the model is asked to do when the wait ends; Note is the
+	// reason the model gave, which the person sees.
+	Then string `json:"then,omitempty"`
+	Note string `json:"note,omitempty"`
+	// Checks counts the checks made; Errors the failed ones in a row.
+	Checks  int    `json:"checks"`
+	Errors  int    `json:"errors"`
+	LastErr string `json:"last_err,omitempty"`
+	// LastExit is the exit status of the last check of a script. A non-zero
+	// status is a value of the check, not a failure of it.
+	LastExit int `json:"last_exit,omitempty"`
+	// FieldSeen is set once a json_equals check has read Field, whatever its
+	// value. An older stored wait without it reads as "not seen".
+	FieldSeen bool `json:"field_seen,omitempty"`
+	// LastCheck is when the last check ended; Outcome is what it found (one of
+	// the Outcome constants). Both are empty before the first check.
+	LastCheck time.Time `json:"last_check,omitzero"`
+	Outcome   string    `json:"outcome,omitempty"`
+	// End is how the wait ended (one of the End constants); empty while it goes
+	// on, and for a wait that ended some other way (the person's stop).
+	End string `json:"end,omitempty"`
+	// BaseHash and BaseOut are the first successful check, or the last one
+	// that differed (the hash is stored before the model is woken).
+	BaseHash string `json:"base_hash,omitempty"`
+	BaseOut  string `json:"base_out,omitempty"`
+	// Wake is the text of the run that the end of the wait asks for; Why is
+	// the short reason shown to the person. Both are set when the wait ends.
+	Wake string `json:"wake,omitempty"`
+	Why  string `json:"why,omitempty"`
+}
+
+// Clone returns a copy that is safe to change.
+func (w *Watch) Clone() *Watch {
+	if w == nil {
+		return nil
+	}
+	c := *w
+	c.Args = append(json.RawMessage(nil), w.Args...)
+	return &c
+}
+
+// Describe is one short line about what the wait waits for.
+//
+// A script is never named by its text: the line goes to lists that other
+// people read.
+func (w *Watch) Describe() string {
+	switch {
+	case w.Agent:
+		if w.Mode == UntilStall {
+			return fmt.Sprintf("sub-agent %s to go quiet for %s", w.Job, ShortDuration(w.Idle))
+		}
+		return fmt.Sprintf("sub-agent %s to finish", w.Job)
+	case w.Job != "":
+		switch w.Mode {
+		case UntilStall:
+			return fmt.Sprintf("job %s to go quiet for %s", w.Job, ShortDuration(w.Idle))
+		case UntilMatch:
+			return fmt.Sprintf("job %s to print a match of %q", w.Job, w.Pattern)
+		}
+		return fmt.Sprintf("job %s to exit", w.Job)
+	}
+	src := "the URL " + w.URL
+	switch {
+	case w.Script != "":
+		src = "the script"
+	case w.Tool != "":
+		src = "the tool " + w.Tool
+	}
+	switch w.Mode {
+	case UntilExitZero:
+		return "the script to exit with status 0"
+	case UntilMatch:
+		return fmt.Sprintf("%s to match %q", src, w.Pattern)
+	case UntilJSONEquals:
+		return fmt.Sprintf("the field %s of %s to equal %q", w.Field, src, w.Equals)
+	}
+	return "the output of " + src + " to change"
 }
 
 // SelfPaced reports whether the model decides when the loop runs again.

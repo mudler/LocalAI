@@ -239,22 +239,36 @@ var _ = Describe("ResponseStore", func() {
 			})
 
 			// Find item from first response
-			item, foundResponseID, err := store.FindItem(itemID1)
+			item, foundResponseID, err := store.FindItem(itemID1, "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(item).ToNot(BeNil())
 			Expect(item.ID).To(Equal(itemID1))
 			Expect(foundResponseID).To(Equal(responseID1))
 
 			// Find item from second response
-			item, foundResponseID, err = store.FindItem(itemID2)
+			item, foundResponseID, err = store.FindItem(itemID2, "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(item).ToNot(BeNil())
 			Expect(item.ID).To(Equal(itemID2))
 			Expect(foundResponseID).To(Equal(responseID2))
 		})
 
+		It("finds an item only in the caller's own responses", func() {
+			store.StoreOwned("resp_owned", &schema.OpenResponsesRequest{Model: "test"}, &schema.ORResponseResource{
+				ID: "resp_owned", Object: "response",
+				Output: []schema.ORItemField{{Type: "message", ID: "msg_owned", Status: "completed"}},
+			}, "alice")
+			_, _, err := store.FindItem("msg_owned", "bob")
+			Expect(err).To(HaveOccurred())
+			_, _, err = store.FindItem("msg_owned", "")
+			Expect(err).To(HaveOccurred(), "a caller with no identity reads no owned response")
+			_, id, err := store.FindItem("msg_owned", "alice")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(id).To(Equal("resp_owned"))
+		})
+
 		It("should return error when item not found in any response", func() {
-			_, _, err := store.FindItem("nonexistent_item")
+			_, _, err := store.FindItem("nonexistent_item", "")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("item not found in any stored response"))
 		})
@@ -556,6 +570,55 @@ var _ = Describe("ResponseStore", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// Status should remain completed (not changed to cancelled)
 			Expect(cancelledResponse.Status).To(Equal(schema.ORStatusCompleted))
+		})
+
+		It("keeps a response cancelled while it is queued when the background goroutine writes late", func() {
+			responseID := "resp_cancel_queued"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{ID: responseID, Object: "response", Status: schema.ORStatusQueued}
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			store.StoreBackground(responseID, request, response, cancel, false)
+
+			_, err := store.Cancel(responseID)
+			Expect(err).ToNot(HaveOccurred())
+
+			// The goroutine had not started yet and now marks the response in progress.
+			Expect(store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)).To(Succeed())
+			stored, err := store.Get(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Response.Status).To(Equal(schema.ORStatusCancelled))
+			Expect(stored.Response.CompletedAt).ToNot(BeNil())
+		})
+
+		It("keeps a response cancelled while it runs when failure or the final response arrive late", func() {
+			responseID := "resp_cancel_running"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{ID: responseID, Object: "response", Status: schema.ORStatusQueued}
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			store.StoreBackground(responseID, request, response, cancel, false)
+			Expect(store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)).To(Succeed())
+
+			_, err := store.Cancel(responseID)
+			Expect(err).ToNot(HaveOccurred())
+
+			now := time.Now().Unix()
+			Expect(store.UpdateStatus(responseID, schema.ORStatusFailed, &now)).To(Succeed())
+			stored, err := store.Get(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Response.Status).To(Equal(schema.ORStatusCancelled))
+
+			final := &schema.ORResponseResource{ID: responseID, Object: "response", Status: schema.ORStatusCompleted, CompletedAt: &now}
+			Expect(store.UpdateResponse(responseID, final)).To(Succeed())
+			stored, err = store.Get(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Response.Status).To(Equal(schema.ORStatusCancelled))
+
+			// Cancelling again stays idempotent.
+			again, err := store.Cancel(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(again.Status).To(Equal(schema.ORStatusCancelled))
 		})
 
 		It("should check if streaming is enabled", func() {

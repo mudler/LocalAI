@@ -23,8 +23,9 @@ const loop = (extra = {}) => ({
 })
 
 // The server, in memory: the loops of chat c1 and the calls the page made.
-async function serve(page, { loops = [loop()] } = {}) {
+async function serve(page, { loops = [loop()], agents = [] } = {}) {
   const s = { loops: loops.map(l => ({ ...l })), calls: [], started: [] }
+  await page.route(/\/api\/chats\/c1\/agents(\?.*)?$/, route => route.fulfill({ json: { sub_agents: agents, running: agents.filter(a => a.running).length, background_limit: 4 } }))
   await mockChat(page)
   const detail = () => ({
     id: 'c1', title: 'Build watch', model: 'qwen3-8b', kind: 'chat', created: AT, updated: AT, running: false, last_turn: 'done',
@@ -237,3 +238,206 @@ test.describe('the /loop command', () => {
     expect(s.calls).toContain('DELETE l1')
   })
 })
+
+// Waits: a loop whose check is code. The server sends kind "wait" and a watch
+// object; the line says what it waits for, how the checks go and how it ends.
+// Times are relative to now, so "last 20 s ago" and "next check in 40 s" hold.
+const secs = n => new Date(Date.now() + n * 1000).toISOString()
+const wait = (watch = {}, extra = {}) => loop({
+  id: 'w1', prompt: 'Wait for the model download to finish', interval: '1m', interval_seconds: 60, runs: 0, kind: 'wait',
+  next: secs(40),
+  watch: {
+    phase: 'waiting', reason: 'The model download has to finish before the benchmark can start.', source_kind: 'tool', source: 'list_downloads',
+    mode: 'change', condition: 'the output changes', checks: 4, last_check: secs(-20), outcome: 'unchanged',
+    next_check: secs(40), deadline: secs(3540), errors: 0, max_errors: 3, ...watch,
+  },
+  ...extra,
+})
+const ended = (end, watch = {}) => wait({ phase: 'ended', end, next_check: undefined, ...watch }, { state: 'ended', next: undefined })
+
+const WAIT_CASES = [
+  ['waiting', wait(), 'Waiting for', /Checked 4 times, last .+ ago · no change/],
+  ['waking', wait({ phase: 'waking', end: 'condition_met', outcome: 'changed', next_check: undefined }), 'The condition was met. Asking the model what to do.', /· changed/],
+  ['error-streak', wait({ errors: 2, outcome: 'error', last_error: 'status.example.com/api/job: 503 Service Unavailable' }), 'Waiting for', /· failed/],
+  ['timed-out', ended('timed_out', { checks: 60 }), 'Timed out, the condition was not met', /Checked 60 times/],
+  ['condition-met', ended('condition_met', { checks: 7, outcome: 'changed' }), 'Done: the condition was met', /Checked 7 times/],
+  ['source-failed', ended('source_failing', { errors: 3, outcome: 'error', last_error: 'status.example.com/api/job: connection refused' }), 'Stopped: the source failed 3 times in a row', /· failed/],
+  ['paused', wait({ phase: 'paused', next_check: undefined }, { state: 'paused', next: undefined }), 'Wait paused', /no change/],
+]
+
+for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
+  test.describe(`waits, ${name}`, () => {
+    test.use({ viewport: size })
+
+    for (const [slug, w, title, checked] of WAIT_CASES) {
+      test(`a wait shows as ${slug}`, async ({ page }) => {
+        await open(page, { loops: [w] })
+        const chip = page.getByTestId('wait-chip')
+        await expect(chip).toHaveCount(1)
+        await expect(page.getByTestId('loop-chip')).toHaveCount(0)
+        await expect(chip.getByTestId('wait-title')).toContainText(title)
+        await expect(chip.getByTestId('wait-checked')).toHaveText(checked)
+        await expect(chip.getByTestId('wait-source')).toHaveText('Watching tool list_downloads')
+        await expect(chip.getByTestId('wait-until')).toHaveText('Until the output changes')
+        await shot(page, `${name}-wait-${slug}`)
+      })
+    }
+
+    test('a wait that waits shows the reason, the next check and the deadline, and Stop removes it', async ({ page }) => {
+      const s = await open(page, { loops: [wait()] })
+      const chip = page.getByTestId('wait-chip')
+      await expect(chip.getByTestId('wait-reason')).toHaveText('The model download has to finish before the benchmark can start.')
+      await expect(chip.getByTestId('wait-next')).toHaveText(/^Next check in \d+ s$/)
+      await expect(chip.getByTestId('wait-deadline')).toHaveText(/^Gives up at .+ \(in (58|59) min\)$/)
+      await chip.getByTestId('wait-stop').click()
+      await expect(page.getByTestId('loop-bar')).toHaveCount(0)
+      expect(s.calls).toContain('DELETE w1')
+    })
+
+    test('a failing source is not shown as a plain wait: the error and the count are in words', async ({ page }) => {
+      await open(page, { loops: [wait({ errors: 2, outcome: 'error', last_error: 'status.example.com/api/job: 503' })] })
+      await expect(page.getByTestId('wait-error')).toHaveText('Last check failed (2 of 3 in a row): status.example.com/api/job: 503')
+    })
+
+    test('an ended wait says how it ended, and Dismiss removes it', async ({ page }) => {
+      const s = await open(page, { loops: [ended('timed_out')] })
+      const chip = page.getByTestId('wait-chip')
+      await expect(chip).toHaveAttribute('data-end', 'timed_out')
+      await expect(chip.getByTestId('wait-next')).toHaveCount(0)
+      await expect(chip.getByTestId('wait-stop')).toHaveCount(0)
+      await chip.getByTestId('wait-dismiss').click()
+      await expect(page.getByTestId('loop-bar')).toHaveCount(0)
+      expect(s.calls).toContain('DELETE w1')
+    })
+
+    test('a paused wait can be resumed', async ({ page }) => {
+      const s = await open(page, { loops: [WAIT_CASES.find(c => c[0] === 'paused')[1]] })
+      await page.getByTestId('wait-resume').click()
+      await expect(page.getByTestId('wait-chip')).toHaveAttribute('data-state', 'active')
+      expect(s.calls).toContain('PUT w1')
+    })
+
+    test('a wait and a loop sit side by side; /loop list names the wait', async ({ page }) => {
+      await open(page, { loops: [loop(), wait()] })
+      await expect(page.getByTestId('loop-chip')).toHaveCount(1)
+      await expect(page.getByTestId('wait-chip')).toHaveCount(1)
+      await page.getByTestId('chat-input').fill('/loop list')
+      await page.getByTestId('chat-input').press('Enter')
+      await expect(page.getByTestId('loop-list-row').nth(1)).toContainText('Wait · waiting · Next check in')
+      await shot(page, `${name}-wait-list`)
+    })
+
+    test('a chat with nothing armed shows no loop bar', async ({ page }) => {
+      await open(page, { loops: [] })
+      await expect(page.getByTestId('loop-bar')).toHaveCount(0)
+      await expect(page.getByTestId('wait-chip')).toHaveCount(0)
+    })
+
+    test('a looping sub-agent shows as running with its wait line', async ({ page }) => {
+      await open(page, { loops: [], agents: [
+        { id: 's1', title: 'Download watcher', created: AT, updated: AT, running: true, last_turn: 'done', loop: wait() },
+        { id: 's2', title: 'Release notes', created: AT, updated: AT, running: false, last_turn: 'done' },
+      ] })
+      await page.getByTestId('chat-subagents-button').click()
+      const rows = page.getByTestId('chat-subagent')
+      await expect(rows).toHaveCount(2)
+      await expect(rows.nth(0)).toContainText('Running')
+      await expect(rows.nth(0).getByTestId('chat-subagent-loop')).toHaveText(/^Waiting for: The model download has to finish before the benchmark can start\. · Next check in \d+ s$/)
+      await expect(rows.nth(1).getByTestId('chat-subagent-loop')).toHaveCount(0)
+      await page.waitForTimeout(500) // the menu opens with a short fade
+      await shot(page, `${name}-wait-subagent`)
+    })
+
+    test('a looping sub-agent without a wait shows its loop', async ({ page }) => {
+      await open(page, { loops: [], agents: [
+        { id: 's1', title: 'Queue watcher', created: AT, updated: AT, running: true, last_turn: 'done', loop: loop({ interval: '', interval_seconds: 0, runs: 3 }) },
+      ] })
+      await page.getByTestId('chat-subagents-button').click()
+      await expect(page.getByTestId('chat-subagent-loop')).toHaveText('Looping · self-paced · run 3')
+    })
+  })
+}
+
+// Many waits: from three that still wait, one chip says how many and opens to
+// the cards. The ones that woke the model or ended keep their own card.
+const waitsN = n => Array.from({ length: n }, (_, i) => wait({ source: `list_downloads_${i + 1}`, reason: `Download ${i + 1} has to finish first.`, deadline: secs(3540 + i * 600) }, { id: `m${i}` }))
+
+for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
+  test.describe(`many waits, ${name}`, () => {
+    test.use({ viewport: size })
+
+    for (const n of [1, 2]) {
+      test(`${n} wait${n > 1 ? 's' : ''} keep their own card${n > 1 ? 's' : ''}`, async ({ page }) => {
+        await open(page, { loops: waitsN(n) })
+        await expect(page.getByTestId('wait-group')).toHaveCount(0)
+        await expect(page.getByTestId('wait-chip')).toHaveCount(n)
+        await shot(page, `${name}-waits-${n}`)
+      })
+    }
+
+    test('6 waits fold into one chip that opens to the cards; Stop works from the list', async ({ page }) => {
+      const s = await open(page, { loops: waitsN(6) })
+      const group = page.getByTestId('wait-group')
+      await expect(group).toHaveCount(1)
+      await expect(page.getByTestId('wait-chip')).toHaveCount(0)
+      await expect(group.getByTestId('wait-group-title')).toHaveText('6 waiting')
+      await expect(group.getByTestId('wait-group-deadline')).toHaveText(/^Nearest deadline .+ \(in (58|59) min\)$/)
+      await expect(group.getByTestId('wait-group-toggle')).toHaveAttribute('aria-expanded', 'false')
+      await shot(page, `${name}-waits-6-collapsed`)
+      await group.getByTestId('wait-group-toggle').click()
+      await expect(group.getByTestId('wait-group-toggle')).toHaveAttribute('aria-expanded', 'true')
+      await expect(group.getByTestId('wait-chip')).toHaveCount(6)
+      await shot(page, `${name}-waits-6-expanded`)
+      await group.getByTestId('wait-chip').nth(1).getByTestId('wait-stop').click()
+      await expect(group.getByTestId('wait-chip')).toHaveCount(5)
+      expect(s.calls).toContain('DELETE m1')
+    })
+
+    test('Stop all ends the waits of the group and leaves a loop and a woken wait alone', async ({ page }) => {
+      const s = await open(page, { loops: [loop(), wait({ phase: 'waking', end: 'condition_met', outcome: 'changed', next_check: undefined }, { id: 'woke' }), ...waitsN(3)] })
+      await expect(page.getByTestId('wait-group')).toHaveCount(1)
+      await expect(page.getByTestId('wait-chip')).toHaveCount(1) // the woken one, outside the group
+      await expect(page.getByTestId('wait-chip')).toHaveAttribute('data-phase', 'waking')
+      await shot(page, `${name}-waits-mixed`)
+      await page.getByTestId('wait-group-stop-all').click()
+      await expect(page.getByTestId('wait-group')).toHaveCount(0)
+      await expect(page.getByTestId('loop-chip')).toHaveCount(1)
+      await expect(page.getByTestId('wait-chip')).toHaveCount(1)
+      expect(s.calls.filter(c => c.startsWith('DELETE')).sort()).toEqual(['DELETE m0', 'DELETE m1', 'DELETE m2'])
+    })
+  })
+}
+
+for (const theme of ['light', 'dark']) {
+  test.describe(`many waits, ${theme}`, () => {
+    test.use({ viewport: { width: 1440, height: 900 }, colorScheme: theme })
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript((t) => { try { localStorage.setItem('localai-theme', t) } catch { /* private mode */ } }, theme)
+    })
+    test('the group reads in this theme, closed and open', async ({ page }) => {
+      await open(page, { loops: waitsN(6) })
+      await shot(page, `desktop-waits-6-collapsed-${theme}`)
+      await page.getByTestId('wait-group-toggle').click()
+      await expect(page.getByTestId('wait-chip')).toHaveCount(6)
+      await shot(page, `desktop-waits-6-expanded-${theme}`)
+    })
+  })
+}
+
+for (const theme of ['light', 'dark']) {
+  test.describe(`waits, ${theme}`, () => {
+    test.use({ viewport: { width: 1440, height: 900 }, colorScheme: theme })
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript((t) => { try { localStorage.setItem('localai-theme', t) } catch { /* private mode */ } }, theme)
+    })
+
+    test('every state reads in this theme', async ({ page }) => {
+      await open(page, { loops: [
+        wait({ errors: 2, outcome: 'error', last_error: 'status.example.com/api/job: 503 Service Unavailable' }, { id: 'a' }),
+        ended('condition_met', { checks: 7 }), ended('source_failing', { errors: 3, outcome: 'error', last_error: 'status.example.com/api/job: connection refused' }), ended('timed_out'),
+      ].map((l, i) => ({ ...l, id: `w${i}` })) })
+      await expect(page.getByTestId('wait-chip')).toHaveCount(4)
+      await shot(page, `desktop-wait-${theme}`)
+    })
+  })
+}

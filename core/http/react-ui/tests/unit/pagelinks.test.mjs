@@ -105,3 +105,21 @@ test('frame: a click on a link asks the host, an anchor stays in the page, windo
   assert.deepEqual(opened, ['https://example.com/a', 'https://example.com/b', 'https://example.com/c'])
   assert.ok(logs.some((m) => /other\.html opens nothing/.test(m)))
 })
+
+test('page host: chat.send limits a burst, and the budget comes back with time', async () => {
+  const clock = { t: 0 }
+  const asked = []
+  const sent = []
+  const h = createPageHost({ post: (m) => sent.push(m), files: {}, chat: { send: async (text) => { asked.push(text); return { sent: false } } }, now: () => clock.t })
+  for (let i = 0; i < 6; i++) await h.receive({ id: 1 + i, method: 'chat.send', params: { text: `hi ${i}` } })
+  assert.deepEqual(asked, ['hi 0', 'hi 1', 'hi 2'], 'three at once, then the page waits')
+  assert.match(sent.at(-1).error.message, /too many messages/)
+  assert.equal(sent.at(-1).error.code, 'busy')
+  clock.t += 20000
+  await h.receive({ id: 20, method: 'chat.send', params: { text: 'later' } })
+  assert.equal(asked.at(-1), 'later')
+  await h.receive({ id: 21, method: 'chat.send', params: { text: 'again' } })
+  assert.equal(asked.at(-1), 'later', 'one more every 20 seconds')
+  await h.receive({ id: 22, method: 'chat.send', params: { text: '   ' } })
+  assert.match(sent.at(-1).error.message, /empty/, 'an empty text costs nothing and is refused as before')
+})

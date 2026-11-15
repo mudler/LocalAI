@@ -74,6 +74,8 @@ func blockText(host string, port int, v Verdict) string {
 		return "Blocked by LocalAI: " + target + " is blocked by the server's setting for the Sandbox network, not by a missing approval. Asking the user to approve it will not help and retrying will fail the same way. Tell the user an administrator can change it on the Settings tab of the Sandbox add-on, on the Add-ons page."
 	case "idle":
 		return "Blocked by LocalAI: no command of this chat is running, so the network is closed."
+	case "unattended":
+		return "Blocked by LocalAI: " + target + " needs the user's approval, and nobody can be asked while no turn of this chat runs (a background job). Ask the user to allow it in the chat, then start the job again."
 	case "card", "asked":
 		return "Blocked by LocalAI: " + target + " is not allowed for this chat (" + v.Reason + "). The user was asked."
 	}
@@ -88,22 +90,25 @@ func writeStatus(w io.Writer, code int, text string) {
 
 func (p *Proxy) serve(ctx context.Context, key string, conn net.Conn) {
 	defer func() { _ = conn.Close() }()
-	b := p.box(key)
-	op, callCtx, done := b.call()
+	bx := p.box(key)
+	m, done := bx.meterOf()
 	defer done()
-	if op == "" {
-		// No call runs: a background process of an earlier call. Nothing
-		// is asked; the line goes out with the next call.
-		b.record(Event{Verdict: "block", Reason: "idle", At: p.o.Now()}, true)
+	if m == nil {
+		// Neither a call nor a background job runs: a process an earlier
+		// call left behind. Nothing is asked; the line goes out with the
+		// next call.
+		bx.recordIdle(Event{Verdict: "block", Reason: "idle", At: p.o.Now()})
 		writeStatus(conn, http.StatusForbidden, blockText("", 0, Verdict{Reason: "idle"}))
 		return
 	}
-	if !p.admit(b) {
+	b := &use{box: bx, m: m}
+	op, callCtx := m.op, m.ctx
+	if !p.admit(bx) {
 		b.record(Event{Verdict: "block", Reason: "limit", At: p.o.Now()}, false)
 		writeStatus(conn, http.StatusServiceUnavailable, "Blocked by LocalAI: too many connections from this command; slow down.")
 		return
 	}
-	defer p.release(b)
+	defer p.release(bx)
 	// The tunnels end with the call, or with the add-on.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -189,7 +194,7 @@ func splitPort(hostport, def string) (string, int, error) {
 	return host, port, err
 }
 
-func (p *Proxy) connect(ctx context.Context, b *box, op string, conn net.Conn, br *bufio.Reader, req *http.Request) {
+func (p *Proxy) connect(ctx context.Context, b *use, op string, conn net.Conn, br *bufio.Reader, req *http.Request) {
 	start := p.o.Now()
 	host, port, err := splitPort(req.Host, "")
 	if err != nil {
@@ -259,32 +264,32 @@ func (p *Proxy) connect(ctx context.Context, b *box, op string, conn net.Conn, b
 		DurationMS: p.o.Now().Sub(start).Milliseconds(), At: start}, false)
 }
 
-// room is how many bytes a direction may still move in the call.
-func (b *box) room(up bool, capUp, capDown int64) int64 {
+// room is how many bytes a direction may still move in the call or the job.
+func (b *use) room(up bool, capUp, capDown int64) int64 {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if up {
-		return capUp - b.up
+		return capUp - b.m.up
 	}
-	return capDown - b.down
+	return capDown - b.m.down
 }
 
-// take counts n bytes of a direction against the call's cap.
-func (b *box) take(up bool, n int64, capUp, capDown int64) bool {
+// take counts n bytes of a direction against the cap of the call or the job.
+func (b *use) take(up bool, n int64, capUp, capDown int64) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if up {
-		b.up += n
-		return b.up <= capUp
+		b.m.up += n
+		return b.m.up <= capUp
 	}
-	b.down += n
-	return b.down <= capDown
+	b.m.down += n
+	return b.m.down <= capDown
 }
 
 // pipe copies both ways until either side closes, the tunnel is idle, the
 // call's byte cap is reached or ctx ends. first is written upstream before the
 // guest's bytes. It returns the bytes moved each way.
-func (p *Proxy) pipe(ctx context.Context, b *box, guest net.Conn, guestR io.Reader, up net.Conn, first []byte) (int64, int64) {
+func (p *Proxy) pipe(ctx context.Context, b *use, guest net.Conn, guestR io.Reader, up net.Conn, first []byte) (int64, int64) {
 	var upN, downN atomic.Int64
 	var lastIO atomic.Int64
 	lastIO.Store(p.o.Now().UnixNano())
@@ -376,7 +381,7 @@ func dropHop(h http.Header) {
 // countReader counts the bytes of a body against the call's cap.
 type countReader struct {
 	r    io.Reader
-	b    *box
+	b    *use
 	up   bool
 	l    Limits
 	n    int64
@@ -413,7 +418,7 @@ func (c *countReader) Close() error {
 // forward serves one absolute-form plain HTTP request. Each request of a
 // kept-alive guest connection is decided on its own. It says whether the
 // connection may serve another request.
-func (p *Proxy) forward(ctx context.Context, b *box, op string, conn net.Conn, req *http.Request) bool {
+func (p *Proxy) forward(ctx context.Context, b *use, op string, conn net.Conn, req *http.Request) bool {
 	start := p.o.Now()
 	if req.URL.User != nil {
 		writeStatus(conn, http.StatusBadRequest, "LocalAI proxy: URLs with a user name or password are not forwarded.")

@@ -76,6 +76,16 @@ func chooseVisionModel(setting, chatModel string, all []config.ModelConfig) (mod
 
 // studioVisionModel is describe_image's chooser, read when the tool runs, so
 // a change of the setting or of a model applies at once.
+// studioMediaClient gives describe_image and transcribe_audio the in-process
+// client of the assistant. It is looked up at each call: the client is built
+// after the chats service.
+func (a *Application) studioMediaClient() media.Client {
+	if a.assistantClient == nil {
+		return nil
+	}
+	return a.assistantClient
+}
+
 func (a *Application) studioVisionModel(chatModel string) (string, bool) {
 	return chooseVisionModel(a.applicationConfig.ChatsVisionModel, chatModel, a.ModelConfigLoader().GetAllModelsConfigs())
 }

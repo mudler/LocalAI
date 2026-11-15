@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -34,6 +35,15 @@ type fakeLLM struct {
 	reqs []map[string]any
 	// hold, when set, makes a request wait until it is closed or sent a token.
 	hold chan struct{}
+	// failing, when set, answers every request with a 502, as a provider
+	// behind a proxy does when it is down.
+	failing bool
+}
+
+func (f *fakeLLM) setFailing(v bool) {
+	f.mu.Lock()
+	f.failing = v
+	f.mu.Unlock()
 }
 
 func (f *fakeLLM) requests() []map[string]any {
@@ -48,7 +58,24 @@ func (f *fakeLLM) last() map[string]any {
 	return reqs[len(reqs)-1]
 }
 
-// userTexts returns the text of each user message of a request.
+// workFolderNote matches the sentence of a turn's note that names the chat's
+// work folder (workfiles.Note), with the shell hint after it; the folder name
+// may hold a quote, so the match ends at the folder's own name.
+var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"; file tools take that path\.(?: ` + regexp.QuoteMeta(workfiles.ShellHint) + `)? ?`)
+
+// withoutWorkFolderNote removes that sentence, and the empty note around it,
+// so a spec keys on the words of the person.
+func withoutWorkFolderNote(text string) string {
+	if !workFolderNote.MatchString(text) {
+		return text
+	}
+	text = workFolderNote.ReplaceAllString(text, "")
+	text = strings.Replace(text, "(System note: )\n\n", "", 1)
+	return strings.Replace(text, " )\n\n", ")\n\n", 1)
+}
+
+// userTexts returns the text of each user message of a request, without the
+// host's work-folder note.
 func userTexts(req map[string]any) []string {
 	var out []string
 	for _, m := range req["messages"].([]any) {
@@ -58,11 +85,11 @@ func userTexts(req map[string]any) []string {
 		}
 		switch c := msg["content"].(type) {
 		case string:
-			out = append(out, c)
+			out = append(out, withoutWorkFolderNote(c))
 		case []any:
 			for _, part := range c {
 				if p := part.(map[string]any); p["type"] == "text" {
-					out = append(out, p["text"].(string))
+					out = append(out, withoutWorkFolderNote(p["text"].(string)))
 				}
 			}
 		}
@@ -79,8 +106,12 @@ func (f *fakeLLM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	f.mu.Lock()
 	f.reqs = append(f.reqs, req)
-	hold := f.hold
+	hold, failing := f.hold, f.failing
 	f.mu.Unlock()
+	if failing {
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
 	if hold != nil {
 		select {
 		case <-hold:
@@ -182,7 +213,7 @@ var _ = Describe("Chats per-chat settings", func() {
 	It("stores the settings on the chat and applies them to the next turn", func() {
 		id := s.create("alice")
 		rec := s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"settings": map[string]any{
-			"system_prompt": "ALWAYS-ANSWER-IN-HAIKU", "temperature": 0.25, "top_p": 0.5, "top_k": 7, "reasoning_effort": "low", "context_size": 8192,
+			"system_prompt": "ALWAYS-ANSWER-IN-HAIKU", "temperature": 0.25, "top_p": 0.5, "top_k": 7, "reasoning_effort": "low", "context_size": 16384,
 		}})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(rec)["settings"]).To(HaveKeyWithValue("top_k", BeNumerically("==", 7)))
@@ -335,6 +366,41 @@ var _ = Describe("Chats transcript edits", func() {
 		Expect(roleTexts(msgs, "assistant")).To(Equal([]string{"Echo: first question", "Echo: second question"}))
 		// The model got the first exchange once, then the second question once.
 		Expect(userTexts(llm.last())).To(Equal([]string{"first question", "second question"}))
+	})
+
+	It("retries a failed turn from the transcript, with nothing removed", func() {
+		llm.setFailing(true)
+		Expect(s.do("alice", http.MethodPost, "/api/chats/"+id+"/messages", map[string]any{"text": "third question"}).Code).To(Equal(http.StatusOK))
+		s.waitIdle("alice", id)
+		Expect(s.detail("alice", id)["last_turn"]).To(Equal("failed"))
+		failed := s.transcript("alice", id)
+		Expect(roleTexts(failed, "user")).To(Equal([]string{"first question", "second question", "third question"}))
+		var failure map[string]any
+		for _, m := range failed {
+			if m["role"] == "failure" {
+				failure = m["failure"].(map[string]any)
+			}
+		}
+		Expect(failure).To(HaveKeyWithValue("code", "upstream"), "the reason is kept with the chat for a reload")
+
+		llm.setFailing(false)
+		rec := s.do("alice", http.MethodPost, "/api/chats/"+id+"/resume", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("started", true))
+		s.waitIdle("alice", id)
+		Expect(s.detail("alice", id)["last_turn"]).To(Equal("done"))
+
+		msgs := s.transcript("alice", id)
+		Expect(roleTexts(msgs, "user")).To(Equal([]string{"first question", "second question", "third question"}), "the question is not asked twice")
+		Expect(roleTexts(msgs, "assistant")).To(HaveLen(3))
+		// The model saw the three questions once each, and the note to go on.
+		Expect(userTexts(llm.last())).To(ContainElement(ContainSubstring("Go on from where you stopped")))
+		Expect(userTexts(llm.last())).To(ContainElements("first question", "second question", "third question"))
+		// A second click does nothing.
+		again := s.do("alice", http.MethodPost, "/api/chats/"+id+"/resume", nil)
+		Expect(again.Code).To(Equal(http.StatusOK))
+		Expect(decodeJSON(again)).To(HaveKeyWithValue("started", false))
+		Expect(s.do("bob", http.MethodPost, "/api/chats/"+id+"/resume", nil).Code).To(Equal(http.StatusNotFound))
 	})
 
 	It("edits a sent message and runs the chat again from there", func() {

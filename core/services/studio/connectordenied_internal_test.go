@@ -39,4 +39,18 @@ var _ = Describe("the note about tools held back from a sender", func() {
 		}
 		Expect(len(deniedToolsNote(conn, built))).To(BeNumerically("<=", 400))
 	})
+	It("keeps the reason of an add-on tool when the budget cuts the rest, and names its tools", func() {
+		var held heldTools
+		for _, n := range []string{"create-issue", "comment-issue", "edit-issue", "add-labels", "review-comment-pr"} {
+			held.add(AddonTool{AddonID: "tracker", Tool: n}, "The owner has not allowed this bot to change things in other services with add-on tools")
+		}
+		built := held.built()
+		for name := range capabilityWords {
+			built = append(built, builtins.Built{ID: name, Reason: "not permitted: " + name + " needs a sender that the owner paired with this bot"})
+		}
+		note := deniedToolsNote(conn, built)
+		Expect(len(note)).To(BeNumerically("<=", 400))
+		Expect(note).To(ContainSubstring("tracker add-on: create-issue, comment-issue, edit-issue, and 2 more"))
+		Expect(note).To(ContainSubstring("change things in other services"))
+	})
 })

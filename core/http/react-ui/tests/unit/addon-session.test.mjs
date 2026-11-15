@@ -80,7 +80,7 @@ for (const switchUser of [false, true]) test(`installed records reject late admi
   const h = hookHarness('../../src/components/addons/AppsView.jsx', 'AppsView', {
     ...Object.fromEntries([...names, ...defaults].filter(n => !n.startsWith('use')).map(n => [n, () => null])),
     useAuth: () => auth, useContext: () => null, useTranslation: () => ({ t: k => k, i18n: {} }),
-    useAddonActions: () => ({}), useAddonUpgrade: () => ({ checks: {}, records: [] }), useBulkUpgrade: () => ({}),
+    useAddonConnections: () => ({ byAddon: {}, addonIds: new Set(), agents: [], kinds: [] }), useAddonActions: () => ({}), useAddonUpgrade: () => ({ checks: {}, records: [] }), useBulkUpgrade: () => ({}),
     useOutletContext: () => ({}), useNavigation: () => ({ pins: [] }), useHubAuth: () => ({ features: {} }),
     useSearchParams: () => [new URLSearchParams(), () => {}],
     buildTiles: () => [], resolvePins: () => [], filterTiles: () => [], filterByState: () => [], sortByAttention: () => [],
@@ -182,7 +182,8 @@ async function providerAuthority() {
   const logoutReply = deferred()
   const h = hookHarness('../../src/context/AuthContext.jsx', 'AuthProvider', {
     apiUrl: x => x, addonUpgrades: (await import('../../src/utils/addonUpgrades.js')).createUpgradeStore(),
-    fetch: url => url.endsWith('/logout') ? logoutReply.promise : Promise.resolve({ json: async () => status }),
+    ...(await import('../../src/utils/authSession.js')), ...(await import('../../src/utils/sessionEvents.js')),
+    fetch: url => url.endsWith('/logout') ? logoutReply.promise : Promise.resolve({ ok: true, json: async () => status }),
     document: { cookie: '' }, window: { location: {} },
   }, source => ts.transpileModule(source.replace(/return \(\s*<AuthContext.Provider[\s\S]*?\n  \)/, 'return value'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },

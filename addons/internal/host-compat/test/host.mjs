@@ -34,7 +34,7 @@ export async function makeSdk({ addonId, pages, overrides = {} }) {
   const controller = new AbortController()
   let location = { page: pages[0], path: '', search: '' }
   const components = Object.fromEntries([
-    'Button', 'Spinner', 'EmptyState', 'Badge', 'Stack', 'Text', 'PageHeader', 'ConfirmDialog', 'ErrorWithTraceLink', 'ModelSelector',
+    'Button', 'Spinner', 'EmptyState', 'Badge', 'Stack', 'Text', 'PageHeader', 'ConfirmDialog', 'SideSheet', 'SidePane', 'PaneLayout', 'ActionMenu', 'ErrorWithTraceLink', 'ModelSelector',
     'MediaInput', 'WaveformPlayer', 'DistributionBars', 'EmbeddingInspector', 'TabSwitch', 'LoadingSpinner', 'Modal', 'Lightbox', 'HomeModelPicker',
   ].map((n) => [n, tag(n)]))
   const hooks = {

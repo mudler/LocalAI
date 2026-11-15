@@ -385,6 +385,7 @@ button.ws-crumb:focus-visible { outline: 2px solid var(--focus-ring-color); outl
   overflow: hidden;
 }
 .ws-glyph--folder { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.ws-glyph--managed { color: var(--color-text-muted); }
 .ws-glyph--image, .ws-glyph--video { color: var(--color-data-3, var(--color-text-secondary)); }
 .ws-glyph--pdf, .ws-glyph--slides { color: var(--dk-error-text); }
 .ws-glyph--sheet { color: var(--dk-ok-text); }

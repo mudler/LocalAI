@@ -193,16 +193,16 @@ var _ = Describe("triggertools", func() {
 })
 
 var _ = Describe("triggertools: cadence and plan", func() {
-	It("a schedule proposed in a chat runs at most once an hour", func() {
-		r := newTrigRig(proposeScript(`{"name":"Every quarter","prompt":"p","when":"*/15 * * * *"}`))
+	It("a schedule proposed in a chat runs at most once every 5 minutes", func() {
+		r := newTrigRig(proposeScript(`{"name":"Every two","prompt":"p","when":"*/2 * * * *"}`))
 		id := create(r.svc, alice)
 		sent(r.svc, alice, id, "propose")
 		idle(r.svc, alice, id)
 		res := r.h.ResultsFor("propose_trigger")
 		Expect(res).To(HaveLen(1), "result = %+v", res)
 		Expect(res[0].Err).NotTo(BeNil(), "result = %+v", res)
-		Expect(res[0].Err.Error()).To(ContainSubstring("runs at most once an hour"), "result = %+v", res)
-		Expect(res[0].Err.Error()).To(ContainSubstring("every 15 minutes"), "result = %+v", res)
+		Expect(res[0].Err.Error()).To(ContainSubstring("runs at most once every 5 minutes"), "result = %+v", res)
+		Expect(res[0].Err.Error()).To(ContainSubstring("every 2 minutes"), "result = %+v", res)
 		props, _ := r.host.Proposals(context.Background(), alice)
 		Expect(props).To(BeEmpty(), "stored %+v", props)
 	})
@@ -224,9 +224,9 @@ var _ = Describe("triggertools: cadence and plan", func() {
 		Expect(p.EstTokens).To(Equal(1500))
 		Expect(r.host.MaxRunsPerDay(p)).To(Equal(24))
 
-		// An edit of the proposal keeps the plan and the hourly floor.
-		_, err = r.host.EditProposal(ctx, alice, p.ID, studio.TriggerInput{Name: "Inbox", Prompt: p.Prompt, Kind: triggers.KindSchedule, Schedule: "*/30 * * * *", Model: p.Model})
-		Expect(err).To(MatchError(ContainSubstring("runs at most once an hour")))
+		// An edit of the proposal keeps the plan and the floor.
+		_, err = r.host.EditProposal(ctx, alice, p.ID, studio.TriggerInput{Name: "Inbox", Prompt: p.Prompt, Kind: triggers.KindSchedule, Schedule: "*/2 * * * *", Model: p.Model})
+		Expect(err).To(MatchError(ContainSubstring("runs at most once every 5 minutes")))
 		got, err := r.host.EditProposal(ctx, alice, p.ID, studio.TriggerInput{Name: "Inbox daily", Prompt: p.Prompt, Kind: triggers.KindSchedule, Schedule: "daily 08:00", Model: p.Model})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Writes).To(Equal("data/inbox.json"), "an edit dropped the plan: %+v", got)
@@ -398,5 +398,53 @@ var _ = Describe("triggertools: the Triggers switch group", func() {
 		for _, t := range list {
 			Expect(four).NotTo(ContainElement(t.ID))
 		}
+	})
+})
+
+var _ = Describe("triggertools: files a run cannot reach", func() {
+	It("tells the model in the tool descriptions where the files of a trigger must live", func() {
+		r := newTrigRig(proposeScript(goodProposal))
+		src := create(r.svc, alice)
+		sent(r.svc, alice, src, "list")
+		idle(r.svc, alice, src)
+		for _, tool := range []string{"propose_trigger", "update_trigger"} {
+			d := r.h.LastToolDescription(tool)
+			Expect(d).To(ContainSubstring("/workspace/home"), tool)
+			Expect(d).To(ContainSubstring("never under /workspace/chat"), tool)
+		}
+	})
+
+	It("warns in the result of a proposal whose prompt names a path in the chat folder", func() {
+		args := `{"name":"Report","prompt":"Run python3 /workspace/chat/work/report.py and say the result.","when":"daily 08:00","time_zone":"UTC"}`
+		r := newTrigRig(proposeScript(args))
+		src := create(r.svc, alice)
+		sent(r.svc, alice, src, "propose")
+		idle(r.svc, alice, src)
+		res := r.h.ResultsFor("propose_trigger")
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Err).To(BeNil(), "%+v", res[0])
+		Expect(res[0].Out).To(ContainSubstring("Warning"))
+		Expect(res[0].Out).To(ContainSubstring("/workspace/home"))
+	})
+
+	It("does not warn for a path under the home", func() {
+		args := `{"name":"Report","prompt":"Run python3 /workspace/home/jobs/report.py.","when":"daily 08:00","time_zone":"UTC"}`
+		r := newTrigRig(proposeScript(args))
+		src := create(r.svc, alice)
+		sent(r.svc, alice, src, "propose")
+		idle(r.svc, alice, src)
+		res := r.h.ResultsFor("propose_trigger")
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Out).NotTo(ContainSubstring("Warning"))
+	})
+
+	It("warns in the result of a change that names such a path in the plan", func() {
+		c := &callScript{}
+		r := newTrigRig(c.script)
+		tr := r.schedule(studio.TriggerInput{Name: "Nightly", Prompt: "p"})
+		chat := create(r.svc, alice)
+		res := c.call(r, chat, "update_trigger", `{"ref":"`+studio.TriggerRef(tr.ID)+`","writes":"state.json","prompt":"Read /workspace/chat/work/state.json."}`)
+		Expect(res.Err).To(BeNil(), "%+v", res)
+		Expect(res.Out).To(ContainSubstring("Warning"))
 	})
 })

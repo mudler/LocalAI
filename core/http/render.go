@@ -9,14 +9,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Masterminds/sprig/v3"
 	"github.com/labstack/echo/v4"
-	"github.com/microcosm-cc/bluemonday"
-	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/russross/blackfriday"
 )
 
+// The only server-rendered page left is the one of the standalone Explorer
+// server (`local-ai explorer`). The main server has no HTML templates: its UI
+// is the React app.
+//
 //go:embed views/*
 var viewsfs embed.FS
 
@@ -30,29 +30,16 @@ func (t *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
+// notFoundHandler answers a missing route with a JSON error.
 func notFoundHandler(c echo.Context) error {
-	// Check if the request accepts JSON
-	contentType := c.Request().Header.Get("Content-Type")
-	accept := c.Request().Header.Get("Accept")
-	if strings.Contains(contentType, "application/json") || !strings.Contains(accept, "text/html") {
-		// The client expects a JSON response
-		return c.JSON(http.StatusNotFound, schema.ErrorResponse{
-			Error: &schema.APIError{Message: "Resource not found", Code: http.StatusNotFound},
-		})
-	} else {
-		// The client expects an HTML response
-		return c.Render(http.StatusNotFound, "views/404", map[string]any{
-			"BaseURL": middleware.BaseURL(c),
-		})
-	}
+	return c.JSON(http.StatusNotFound, schema.ErrorResponse{
+		Error: &schema.APIError{Message: "Resource not found", Code: http.StatusNotFound},
+	})
 }
 
 func renderEngine() *TemplateRenderer {
 	// Parse all templates from embedded filesystem
-	tmpl := template.New("").Funcs(sprig.FuncMap())
-	tmpl = tmpl.Funcs(template.FuncMap{
-		"MDToHTML": markDowner,
-	})
+	tmpl := template.New("")
 
 	// Recursively walk through embedded filesystem and parse all HTML templates
 	err := fs.WalkDir(viewsfs, "views", func(path string, d fs.DirEntry, err error) error {
@@ -62,7 +49,7 @@ func renderEngine() *TemplateRenderer {
 		if !d.IsDir() && strings.HasSuffix(path, ".html") {
 			data, err := viewsfs.ReadFile(path)
 			if err == nil {
-				// Remove .html extension to get template name (e.g., "views/index.html" -> "views/index")
+				// Remove .html extension to get template name (e.g., "views/explorer.html" -> "views/explorer")
 				templateName := strings.TrimSuffix(path, ".html")
 				_, err := tmpl.New(templateName).Parse(string(data))
 				if err != nil {
@@ -81,9 +68,4 @@ func renderEngine() *TemplateRenderer {
 	return &TemplateRenderer{
 		templates: tmpl,
 	}
-}
-
-func markDowner(args ...any) template.HTML {
-	s := blackfriday.MarkdownCommon([]byte(fmt.Sprintf("%s", args...)))
-	return template.HTML(bluemonday.UGCPolicy().Sanitize(string(s)))
 }

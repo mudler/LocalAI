@@ -107,6 +107,8 @@ func (c *call) parseWrite(tool string, raw map[string]json.RawMessage) (write, e
 	if err := c.instance(a.Instance); err != nil {
 		return w, err
 	}
+	// The person sees the address of the connection, whatever the call named.
+	w.Instance = c.key
 	if !nameShape.MatchString(a.Domain) || !nameShape.MatchString(a.Service) {
 		return w, bad("domain and service are words like light and turn_on")
 	}
@@ -280,7 +282,7 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 // Receipt answers from the journal. An operation that was started and not
 // finished is unknown: the add-on cannot tell whether Home Assistant got it.
 func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().receipt(op); ok {
+	if rc, ok := r.journal().Receipt(op); ok {
 		return rc, nil
 	}
 	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
@@ -295,10 +297,10 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()
 	j := r.journal()
-	if rc, ok := j.receipt(op); ok {
+	if rc, ok := j.Receipt(op); ok {
 		return rc, nil
 	}
-	if _, started := j.started(op); started {
+	if _, started := j.Started(op); started {
 		return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown, Revision: rev}, nil
 	}
 	w, c, err := r.prepare(ctx, env)
@@ -312,9 +314,9 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if now != rev.Data {
 		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
 			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The entities or the policy changed after the preview. Nothing was sent."})}}
-		return rc, j.commit(rc)
+		return rc, j.Commit(rc)
 	}
-	if err := j.begin(op, r.now()); err != nil {
+	if err := j.Begin(op, r.now()); err != nil {
 		return contract.Receipt{}, err
 	}
 	out, err := c.send(w)
@@ -323,7 +325,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	case errors.Is(err, haapi.ErrUnreadable):
 		out = map[string]any{"note": "sent; the answer of Home Assistant was not readable"}
 	case definite(err):
-		j.forget(op)
+		j.Forget(op)
 		return contract.Receipt{}, translateWrite(err)
 	default:
 		// The request may or may not have arrived. The host asks for the
@@ -331,7 +333,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		return contract.Receipt{}, err
 	}
 	rc := contract.Receipt{OperationID: op, State: contract.ReceiptCommitted, Revision: rev, Result: contract.Result{Payload: smallResult(out)}}
-	return rc, j.commit(rc)
+	return rc, j.Commit(rc)
 }
 
 func smallResult(data map[string]any) json.RawMessage {

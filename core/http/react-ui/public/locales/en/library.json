@@ -110,5 +110,11 @@
     "reads": "This agent reads the collection named {{name}}.",
     "exists": "This agent reads the collection named {{name}}. You can fill and search it in Knowledge.",
     "created": "This agent reads the collection named {{name}}. It is created when you save."
+  },
+  "rail": {
+    "compact": "Compact rows",
+    "clear": "Clear filters",
+    "more": "Show {{count}} more",
+    "loading": "Loading"
   }
 }

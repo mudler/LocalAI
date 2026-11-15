@@ -1,5 +1,5 @@
 // Fixtures for the Settings page: one settings object in the shape of
-// GET /api/settings (with the Go duration form, "15m0s"), and one function that
+// GET /api/settings (with the Go duration form, "15m"), and one function that
 // answers the calls the page makes and records what it is sent.
 //
 // Pure of Playwright imports so a script that is not a test can use it too.
@@ -7,7 +7,7 @@
 export function settingsFixture(overrides = {}) {
   return {
     watchdog_enabled: true, watchdog_idle_enabled: true, watchdog_busy_enabled: false,
-    watchdog_idle_timeout: '15m0s', watchdog_busy_timeout: '5m0s', watchdog_interval: '500ms',
+    watchdog_idle_timeout: '15m', watchdog_busy_timeout: '5m0s', watchdog_interval: '500ms',
     max_active_backends: 0, max_concurrent_backend_operations: 1, official_libraries: true, auto_upgrade_backends: false, auto_upgrade_addons: false, prefer_development_backends: false,
     memory_reclaimer_enabled: true, memory_reclaimer_threshold: 0.9,
     force_eviction_when_busy: false, size_aware_eviction: false,
@@ -24,13 +24,13 @@ export function settingsFixture(overrides = {}) {
     collections_embedding_model: 'bge-m3', collections_max_chunking_size: 400, collections_chunk_overlap: 0,
     collections_db_path: '', collections_vector_engine: 'chromem',
     collections_database_url: '', chats_vision_model: '', chats_transcription_model: '',
-    distributed_disk_headroom_check: true, localai_assistant_enabled: true, shared_pages_enabled: true, mcp_connectors_allow_private: false,
+    distributed_disk_headroom_check: true, shared_pages_enabled: true, mcp_connectors_allow_private: false,
     instance_name: 'Lab AI', instance_tagline: '',
     ...overrides,
   }
 }
 
-export const RESOURCES = { gpus: [{ used: 18.4e9, total: 24e9 }], ram: { used: 20e9, total: 64e9 } }
+export const RESOURCES = { gpus: [{ used_vram: 18.4e9, total_vram: 24e9 }], ram: { used: 20e9, total: 64e9 } }
 
 // Answers GET and POST /api/settings and /api/resources. `posts` collects the
 // request bodies, in order. `failNext` makes the next POST answer 400.

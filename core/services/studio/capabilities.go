@@ -288,9 +288,7 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 	defer closeScope()
 	a := s.chatActorFor(ctx, rec)
 	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
-		s.mu.Lock()
-		tools := s.allowed[key(p, conv)]
-		s.mu.Unlock()
+		tools := s.childAllowed(ctx, rec, nil)
 		return s.commandsOf(ctx, p, tools, rec.AddonsOff, nil), nil
 	}
 	sc := s.scopeOf(ctx, rec)
@@ -327,9 +325,9 @@ func commandsWhere(fileTools bool, place session.Place) string {
 		if place.PrimaryWritable() {
 			kept = "/workspace/home or /workspace/chat"
 		}
-		return "It starts in /workspace/home, the agent's folder" + same + "; the chat's own folder is /workspace/chat, and shared folders are read only. Only what it saves under " + kept + " is kept."
+		return "It starts in $WORK, the chat's work folder /workspace/chat/work (/workspace/home, the agent's folder" + same + ", when the chat has none yet); the chat's own folder is /workspace/chat, and shared folders are read only. Only what it saves under " + kept + " is kept."
 	}
-	return "It starts in /workspace/home, the user's home" + same + "; only what it saves under /workspace/home or a writable shared folder is kept."
+	return "It starts in $WORK, the chat's work folder in the user's home (the chat has none yet: /workspace/home" + same + "); only what it saves under /workspace/home or a writable shared folder is kept."
 }
 
 // skillsNotInProvider is the sentence that keeps a model from looking for a
@@ -369,7 +367,7 @@ func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool, place sessi
 		}
 		switch {
 		case c.Provider == BuiltinProvider:
-			b := "Commands: " + c.Tool + " runs commands directly on this machine, with no isolation. It starts in the user's home inside a scratch folder (" + home + "; a shared folder is ../shared-<name>), so use relative paths there. " +
+			b := "Commands: " + c.Tool + " runs commands directly on this machine, with no isolation. It starts in $WORK, the chat's work folder, inside a scratch folder (" + home + "; a shared folder is ../shared-<name>), so use $WORK or relative paths there. " +
 				"It can read what the server can read and reach the internet, the local network and the LocalAI API. " +
 				"Be careful: never delete or change anything outside the task, and never send the user's data anywhere, unless they asked."
 			if c.Consent == "ask" {
@@ -550,9 +548,7 @@ func (s *Service) addonCommandDescriptorForActor(ctx context.Context, a workspac
 	// Only ad-hoc children inherit a pruned tool set. Saved-agent children
 	// resolve current grants through their scope, just like their turn tools.
 	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
-		s.mu.Lock()
-		tools = slices.Clone(s.allowed[key(p, rec.ID)])
-		s.mu.Unlock()
+		tools = slices.Clone(s.childAllowed(ctx, rec, nil))
 	} else {
 		var err error
 		tools, _, err = s.addonTools(ctx, a, rec, sc)

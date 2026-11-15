@@ -8,7 +8,7 @@
 //
 // What the device returns is data. Every result says so. The write tools have
 // physical effects: all of them wait for a person's confirmation on every
-// call, and the typing and hard power actions are off until an administrator
+// call (the owner can relax that for power-action and send-key, in the host), and the typing and hard power actions are off until an administrator
 // switches them on for the device (package settings).
 package tools
 
@@ -20,11 +20,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/idle"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/addons/internal/journal"
 	"github.com/mudler/LocalAI/addons/pikvm/internal/kvmd"
 	"github.com/mudler/LocalAI/addons/pikvm/internal/settings"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/idle"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The tools of the manifest.
@@ -48,7 +49,8 @@ const (
 // ReadTools lists the tools any chat may call to read.
 func ReadTools() []string { return []string{ToolGetInfo, ToolPowerState, ToolKeyboard} }
 
-// WriteTools lists the write tools. Every one needs a confirmation each time.
+// WriteTools lists the write tools. Each one needs a confirmation each time,
+// unless the owner relaxed it for a tool the manifest marks overridable.
 func WriteTools() []string { return []string{ToolPowerAction, ToolTypeText, ToolSendKey} }
 
 // PageTools lists the tools only the add-on's page calls.
@@ -81,7 +83,7 @@ type Runtime struct {
 
 	applyMu sync.Mutex
 	jmu     sync.Mutex
-	jrnl    *journal
+	jrnl    *journal.Journal
 	dir     string
 }
 
@@ -91,11 +93,11 @@ func New(api *kvmd.Client, st *settings.Store) *Runtime { return &Runtime{API: a
 // WithDataDir keeps the journal of changes in dir.
 func (r *Runtime) WithDataDir(dir string) *Runtime { r.dir = dir; return r }
 
-func (r *Runtime) journal() *journal {
+func (r *Runtime) journal() *journal.Journal {
 	r.jmu.Lock()
 	defer r.jmu.Unlock()
 	if r.jrnl == nil {
-		r.jrnl = openJournal(r.dir)
+		r.jrnl = journal.Open(r.dir)
 	}
 	return r.jrnl
 }

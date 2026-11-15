@@ -98,6 +98,20 @@ var RouteFeatureRegistry = []RouteFeature{
 }
 ```
 
+A route may have a second row with a **client feature** (`client_self`,
+`client_addons`, `client_inference`). A user passes the row of its user feature, and
+the key of a paired client passes the row of a feature in its list; a route with no
+client row is refused to every client key. The rows of `client_inference` are a
+frozen list (spec "freezes the routes of client_inference" in
+`core/http/auth/features_client_test.go`): do not add a route to it unless a client
+should reach it, and add it to the spec in the same change. A client route needs a
+model name in the request. The check that decides is `auth.CheckClientModel`, which
+`setModelAndConfig` (and the realtime handshake) calls with the name the handler
+resolved, so a route that resolves its model in another place must call it there;
+`RequireClientModels` is only the cheap early check and the installer of the gate. A
+route without the gate refuses a client key. Test a client route with the real
+binder, not with a stub handler (`core/http/middleware/client_models_test.go`).
+
 ## Adding a new feature
 
 When you need a new toggleable feature (not just a new endpoint under an existing feature):
@@ -356,9 +370,9 @@ React pages that want to filter the ModelSelector by capability import this symb
 
 ### 4. `docs/content/` (user-facing documentation)
 
-A new capability deserves its own page under `docs/content/features/`, plus cross-links from related features. See the pattern used by `face-recognition.md` / `object-detection.md`.
+A new capability deserves its own page under `docs/content/models/capabilities/` (text, audio or vision), plus cross-links from related features. See the pattern used by `face-recognition.md` / `object-detection.md`.
 
-Announcing it is the release's job, not this page's: the capability gets covered in the release blog post under `website/content/blog/`. See [preparing-a-release.md](preparing-a-release.md). `docs/content/whats-new.md` is only a pointer at the blog and GitHub Releases, so there is nothing to add there.
+Announcing it is the release's job, not this page's: the capability gets covered in the release blog post under `website/content/blog/`. See [preparing-a-release.md](preparing-a-release.md). `docs/content/start/whats-new.md` is only a pointer at the blog and GitHub Releases, so there is nothing to add there.
 
 ## Path protection rules
 
@@ -388,7 +402,7 @@ When adding a new endpoint:
 - [ ] Swagger block on the handler: `@Summary`, `@Tags`, `@Param`, `@Success`, `@Router`
 - [ ] If new capability area (new swagger tag): entry in `instructionDefs` in `core/http/endpoints/localai/api_instructions.go` + test count bumped in `api_instructions_test.go`
 - [ ] If new `FLAG_*` usecase flag: matching `CAP_*` symbol exported from `core/http/react-ui/src/utils/capabilities.js`
-- [ ] `docs/content/features/<feature>.md` created; cross-links from related feature pages; capability covered in the release blog post (see [preparing-a-release.md](preparing-a-release.md))
+- [ ] `docs/content/models/capabilities/<group>/<feature>.md` created; cross-links from related feature pages; capability covered in the release blog post (see [preparing-a-release.md](preparing-a-release.md))
 
 **Quality**
 - [ ] Error responses use `schema.ErrorResponse` format (or `echo.NewHTTPError` with a mapped gRPC status — see the `mapBackendError` helper in `core/http/endpoints/localai/images.go`)
@@ -396,15 +410,20 @@ When adding a new endpoint:
 - [ ] Swagger regenerated (`make swagger`) if you changed any `@Router`/`@Tags`/`@Param` annotation
 - [ ] Stateful feature: distributed mode chosen and documented (see [distributed-state.md](distributed-state.md))
 
+**LocalAI client (inference routes and API changes an agent could use)**
+- [ ] New inference route, or a changed or removed parameter or response: the client in `core/services/localaitools/` follows in the same change (`LocalAIClient` method, `inproc` and `httpapi` implementations, tool schema and DTOs, row in `ClientTools`)
+- [ ] The built-in `localai` skill (`core/services/studio/builtinskills/tree/localai/SKILL.md`) and the docs describe the change
+- [ ] Not a client tool: entry with a reason in `clientToolExemptions` (`core/services/localaitools/clientcoverage_test.go`); `go test ./core/services/localaitools/...` shows what is missing
+
 ## Companion: MCP admin tool surface
 
-**Required for admin endpoints.** Every new admin endpoint MUST be considered for the MCP admin tool surface — the REST API and the MCP tool catalog can drift silently otherwise, and both the LocalAI Assistant chat modality and the standalone `local-ai mcp-server` rely on `pkg/mcp/localaitools/` to mirror REST.
+**Required for admin endpoints.** Every new admin endpoint MUST be considered for the MCP admin tool surface — the REST API and the MCP tool catalog can drift silently otherwise, and both the LocalAI Assistant chat modality and the standalone `local-ai mcp-server` rely on `core/services/localaitools/` to mirror REST.
 
 Two outcomes are acceptable; one is not:
 
-- **Tool added.** The new endpoint is something an admin would manage conversationally (install, list, edit, toggle, upgrade). Follow the full checklist in [.agents/localai-assistant-mcp.md](localai-assistant-mcp.md): add a `LocalAIClient` interface method, implement it in both `inproc` and `httpapi`, register the tool with a `Tool*` constant, update the skill prompts, **and add the route to `toolToHTTPRoute` in `pkg/mcp/localaitools/coverage_test.go`**.
+- **Tool added.** The new endpoint is something an admin would manage conversationally (install, list, edit, toggle, upgrade). Follow the full checklist in [.agents/localai-assistant-mcp.md](localai-assistant-mcp.md): add a `LocalAIClient` interface method, implement it in both `inproc` and `httpapi`, register the tool with a `Tool*` constant, update the skill prompts, **and add the route to `toolToHTTPRoute` in `core/services/localaitools/coverage_test.go`**.
 - **Tool deliberately skipped.** The endpoint is internal/diagnostic and adding a chat path would be misleading. Document the decision in the PR description; no code action.
-- **Forgot.** This breaks the contract. The `TestToolHTTPRouteMappingComplete` test in `pkg/mcp/localaitools` is a partial guard (it checks every `Tool*` has a route mapping), but it does NOT detect new REST endpoints without a tool — that's still a process check on the PR author.
+- **Forgot.** This breaks the contract. The `TestToolHTTPRouteMappingComplete` test in `core/services/localaitools` is a partial guard (it checks every `Tool*` has a route mapping), but it does NOT detect new REST endpoints without a tool — that's still a process check on the PR author.
 
 **Add to the bottom of the checklist below**:
 - [ ] If admin: decided whether MCP coverage is needed; if yes, tool registered + map updated; if no, skip-reason in PR description.

@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import Button from '../ui/Button'
 import { pushLayer } from '../../utils/modalLayers'
-import { EntryAdds, UnknownNotice } from './AddonBits'
-import { shortDigest, skillShadowNotes } from './addonState'
+import { EntryAdds, UnknownNotice, UntrustedNotice } from './AddonBits'
+import { shortDigest, skillShadowNotes, untrustedSource } from './addonState'
 import { skillInstallNoticeKey } from '../../utils/chatSkills'
 import { describeOutcome } from './errors'
 import Callout from '../ui/Callout'
@@ -136,6 +136,7 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                 </Callout>
               )}
               {!local && <EntryAdds entry={entry} />}
+              {!local && untrustedSource(entry, host.preview) && <UntrustedNotice library={entry.sourceId} />}
               {shadowConflicts(entry, installed).map(c => (
                 <Callout key={c.tool} tone="warn" testId="install-shadow-warning" data-tool={c.tool}>
                   {t('flow.shadowWarning', { tool: c.tool, name: c.name })}
@@ -146,7 +147,7 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                   {t(skillInstallNoticeKey(c), { skill: c.skill, name: c.name })}
                 </Callout>
               ))}
-              {host.status === 'loading' && <p className="ad-quiet" role="status" data-testid="hostaccess-loading">{t('hostAccess.loading')}</p>}
+              {host.status === 'loading' && <p className="ad-quiet" role="status" data-testid="hostaccess-loading">{t(host.slow ? 'hostAccess.loadingSlow' : 'hostAccess.loading')}</p>}
               {host.status === 'error' && (
                 <Callout tone="warn" testId="hostaccess-error" actions={<Button size="sm" icon="refresh" onClick={host.retry}>{t('catalog.retry')}</Button>}>
                   {t('hostAccess.previewFailed')}
@@ -156,9 +157,6 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                 <section className="ad-hostaccess" aria-labelledby="install-host-title" data-testid="install-host-access">
                   <h3 id="install-host-title" className="ad-hostaccess__title">{t('hostAccess.stepTitle')}</h3>
                   <p>{t('hostAccess.stepIntro', { name: entry.title })}</p>
-                  {!local && host.preview.official === false && (
-                    <p className="ad-quiet" data-testid="hostaccess-not-official">{t('hostAccess.notOfficial', { library: entry.sourceId })}</p>
-                  )}
                   <HostAccessList ops={host.preview.ops} ticked={host.ticked} onTick={host.setTick} locked={host.preview.locked} />
                   {host.preview.locked && <Callout tone="info" testId="hostaccess-locked">{t(host.preview.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>}
                   {block && (

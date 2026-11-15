@@ -5,7 +5,7 @@ async function mockCluster(page, nodes) {
 }
 
 test.describe('Nodes fleet roster', () => {
-  test('uses the fleet response without prefetching models or backends', async ({ page }) => {
+  test('reads the roster and the replicas once, never per-node backends', async ({ page }) => {
     const requests = []
     page.on('request', request => requests.push(request.url()))
     await mockCluster(page, [
@@ -13,12 +13,13 @@ test.describe('Nodes fleet roster', () => {
       { id: 'a1', name: 'agent-1', node_type: 'agent', address: '10.0.0.9:50051', status: 'draining', model_count: 0 },
     ])
     await page.goto('/app/nodes')
-    await expect(page.getByRole('table', { name: /Nodes with their state/ })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('nodes-table')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByRole('radio', { name: /List/ })).toHaveAttribute('aria-checked', 'true')
-    await expect(page.getByRole('row', { name: /alpha/ })).toContainText('3')
-    // An agent worker runs jobs, not models, so its Models cell stays empty.
-    await expect(page.getByRole('row', { name: /agent-1/ })).toContainText('—')
-    expect(requests.some(url => url.includes('/api/nodes/models'))).toBe(false)
+    await expect(page.locator('[data-row][data-entity="alpha"]')).toContainText('alpha')
+    // An agent worker runs jobs, not models, so its row names none.
+    await expect(page.locator('[data-row][data-entity="agent-1"]')).toContainText('Agent worker')
+    await expect(page.locator('[data-row][data-entity="agent-1"]')).not.toContainText('No models loaded')
+    await expect(page.getByTestId('fleet-hero')).toContainText('1 of 2')
     expect(requests.some(url => /\/api\/nodes\/[^/]+\/backends/.test(url))).toBe(false)
   })
 

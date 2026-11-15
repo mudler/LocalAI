@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
@@ -39,6 +40,24 @@ type Store interface {
 	// Entries returns up to limit entries with Seq greater than after, in order.
 	Entries(ctx context.Context, chatID string, after int64, limit int) ([]Entry, error)
 }
+
+// PartialStore is implemented by a Store that keeps the text of the assistant
+// message that is being written, so that a process that dies in the middle of
+// a long answer does not lose it. A Store without it loses that text, as it
+// always has. The text is cleared when the message is stored as a line.
+type PartialStore interface {
+	// SavePartial replaces the saved text of the chat. Empty text clears it. turn
+	// is the turn that writes it.
+	SavePartial(ctx context.Context, chatID string, turn int, text string) error
+	// TakePartial returns the saved text and its turn and clears them in one
+	// step, so two callers never both get it. It returns empty text when there
+	// is none.
+	TakePartial(ctx context.Context, chatID string) (turn int, text string, err error)
+}
+
+// MaxPartialBytes bounds the saved text of one message. Longer text is cut at
+// the end; the part that was saved is still a valid start of the answer.
+const MaxPartialBytes = 128 << 10
 
 // ChatRecord is the stored state of one chat.
 type ChatRecord struct {
@@ -99,6 +118,12 @@ type ChatRecord struct {
 	// it alone, like the switches, so a stale copy of the record cannot clear
 	// it. Chats stored before the field read as false.
 	ScopedAgent bool
+	// AllowedTools holds the names of the tools the parent gave a sub-agent
+	// that is not a saved agent. It is set by CreateChat and does not change.
+	// The tools are rebuilt from the names at each turn, limited to what the
+	// parent may use then, so the list survives a restart and works on
+	// every frontend. It is empty for any other chat.
+	AllowedTools []string
 	// Settings are the per-chat model settings. SetChatMeta sets them;
 	// UpdateChat leaves them alone, like the switches above.
 	Settings ChatSettings
@@ -115,6 +140,33 @@ type ChatRecord struct {
 	// Goal is the chat's persistent objective, or nil. The store's UpdateGoal
 	// changes it; UpdateChat leaves it alone, like the switches.
 	Goal *Goal
+	// Dock is the side panel of pages the chat shows in the interface, or
+	// nil. The store's UpdateDock changes it; UpdateChat leaves it alone,
+	// like the switches.
+	Dock *Dock
+	// Jobs is the index of the chat's background jobs: where each runs and
+	// how it stands. The process that runs a job writes its stub at the start
+	// and at the end (the store's UpdateJobs); UpdateChat leaves it alone,
+	// like the switches. The command never goes in it.
+	Jobs []JobStub
+}
+
+// JobStub is the line of the shared index of the background jobs of a chat.
+// It tells the list, the interface and the routing which jobs a chat has and
+// which node runs each; the output and the process are on that node only.
+type JobStub struct {
+	ID string `json:"id"`
+	// Instance is the node that runs the job, or "addon:<id>@<incarnation>"
+	// for a job of the Sandbox add-on.
+	Instance string `json:"instance"`
+	// Provider is "builtin" or the id of the add-on.
+	Provider string          `json:"provider"`
+	Label    string          `json:"label,omitempty"`
+	State    bgjob.State     `json:"state"`
+	End      bgjob.EndReason `json:"end,omitempty"`
+	Exit     int             `json:"exit,omitempty"`
+	Started  time.Time       `json:"started"`
+	Ended    time.Time       `json:"ended,omitzero"`
 }
 
 // HostConsent is a consent card that waits for an answer: ID is what the
@@ -122,6 +174,9 @@ type ChatRecord struct {
 type HostConsent struct {
 	ID      string `json:"id"`
 	Command string `json:"command"`
+	// Job is set when the command starts a background job: the yes also
+	// covers the input the model writes to the job later.
+	Job bool `json:"job,omitempty"`
 	// Turn is the turn that asked and AskedAt when. The card waits only while
 	// that turn holds the chat; one left by a frontend that died is expired.
 	Turn    string    `json:"turn,omitempty"`
@@ -214,8 +269,42 @@ type Entry struct {
 	// the person asked for with a slash command. The interface shows it as a
 	// chip; the instructions it gave the model are not stored.
 	Invoked *Invocation `json:",omitempty"`
-	At      time.Time
+	// Sender says who wrote a user message that a messaging connection
+	// delivered. It is nil for every other line and for lines stored before
+	// it existed. It is for display: the model never reads it.
+	Sender *Sender `json:",omitempty"`
+	At     time.Time
 }
+
+// Sender is the person behind a user message that came from a messaging
+// connection, as the connection told it. It holds what the connector sender
+// log holds already: the platform id, the names the platform gave and how the
+// host classified the sender when the message came in. A token is never part
+// of it.
+type Sender struct {
+	ID       string `json:"id,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Username string `json:"username,omitempty"`
+	// Standing is one of the Standing* constants.
+	Standing string `json:"standing,omitempty"`
+}
+
+// How the host saw the sender of a connector message. The values are stable:
+// the interface labels them.
+const (
+	// StandingOwner: the sender proved with a pairing code that the owner
+	// controls the account.
+	StandingOwner = "owner"
+	// StandingVerified: not paired, but holds a role the owner granted
+	// something to.
+	StandingVerified = "verified"
+	// StandingListed: the sender itself is on the allowlist.
+	StandingListed = "listed"
+	// StandingChannel: let in because its channel or group is on the allowlist.
+	StandingChannel = "channel"
+	// StandingAnyone: let in because the connection accepts anyone.
+	StandingAnyone = "anyone"
+)
 
 // LoopMark names the loop run that sent a user message.
 type LoopMark struct {
@@ -261,6 +350,54 @@ const (
 	// the turn of the goal for a GoalLineContinue line. It is for display:
 	// the model got only the text of a GoalLineContinue line, with its turn.
 	RoleGoal = "goal"
+	// RoleFailure marks where a turn ended on an error. Text is the plain
+	// reason and Note the cause (see Failure.Encode). It is for display: the
+	// model never sees it, and a retry that goes on from the transcript keeps
+	// it.
+	RoleFailure = "failure"
+	// RoleThread holds, for a chat that a messaging thread started, the
+	// earlier messages of that thread exactly as the model's first turn got
+	// them (Text, size-capped by the connector). Rev is the number
+	// of lines and Note is ThreadCut when older messages were left out. It is
+	// for display: the model never gets it as a message, and a compaction
+	// leaves it out, so nothing counts twice.
+	RoleThread = "thread"
+	// RoleHostNote marks something the host did on its own about a message of
+	// a messaging connection: a refusal, a message held back. Note is the
+	// code (HostNote*) and Text is the plain sentence the sender was told, if
+	// any. It is for display: the model never sees it.
+	RoleHostNote = "hostnote"
+	// RoleToolIntent marks that a tool that may change something was about to
+	// run: Text is the tool's name and Note the start of its arguments. The
+	// result line of the call comes after it. A turn that dies in between leaves
+	// the intent without a result, and the turn that resumes it tells the model
+	// that the outcome of that call is not known (see UnresolvedIntents). It is
+	// internal: the interface never gets it, and the model never reads it as a
+	// message.
+	RoleToolIntent = "tool_intent"
+)
+
+// ThreadCut is the Note of a RoleThread entry whose block left out older
+// messages of the thread.
+const ThreadCut = "cut"
+
+// Codes of a RoleHostNote entry.
+const (
+	HostNotePairing     = "paired"
+	HostNoteUnsupported = "unsupported"
+	HostNoteTooLong     = "too_long"
+	HostNoteNoUpload    = "no_upload"
+	HostNoteRate        = "rate"
+	HostNoteHeldBack    = "held_back"
+	HostNoteNewChat     = "new_chat"
+	HostNoteRefused     = "refused"
+	// The life of a write of an add-on that waits for a paired sender to
+	// confirm it in the chat.
+	HostNoteHoldWaiting   = "hold_waiting"
+	HostNoteHoldConfirmed = "hold_confirmed"
+	HostNoteHoldCancelled = "hold_cancelled"
+	HostNoteHoldExpired   = "hold_expired"
+	HostNoteHoldFailed    = "hold_failed"
 )
 
 // MaxReasoningBytes is the size limit of a stored reasoning entry, including

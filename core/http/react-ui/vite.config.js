@@ -66,6 +66,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    // Vite inlines assets under 4 KiB as data: URLs. An AudioWorklet module
+    // loads under script-src, which does not allow data:, so the microphone
+    // worklet must stay a real file.
+    assetsInlineLimit: (file) => (file.endsWith('.worklet.js') ? false : undefined),
     // Source maps are needed only to map V8 coverage back to original sources.
     sourcemap: coverageV8,
     rollupOptions: {

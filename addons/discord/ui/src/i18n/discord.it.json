@@ -12,23 +12,18 @@
   "agent": "Agente",
   "agentNone": "Scegli un agente",
   "agentNoModel": "{{name}} (serve un modello)",
-  "who": "Chi può usarlo",
-  "onlyListed": "Solo le persone e i canali che elenco",
-  "anyone": "Chiunque possa scrivere al bot, o menzionarlo in un canale che può leggere",
   "anyoneWarning": "Pensato per canali pubblici e per agenti che si limitano a leggere. Chiunque raggiunga il bot può parlare con questo agente: con un messaggio diretto se condivide un server con il bot, e in ogni canale dove il bot può leggere e lo menziona. Chi non è in un elenco non ha alcun permesso proprio: l'agente non può salvare in memoria, proporre trigger né ricevere i suoi file, e le azioni sensibili restano chiuse. Gli altri strumenti dell'agente funzionano comunque per tutti. Ciò che le persone scrivono in un canale pubblico è testo non attendibile e può cercare di manovrare l'agente (prompt injection). Dai all'agente per questa connessione solo strumenti di sola lettura, e nessuno che invii messaggi, spenda denaro o modifichi file. Ogni persona ha una chat a sé, e il numero di messaggi che una persona può inviare in un minuto è limitato.",
   "anyoneConfirm": "Ho capito che chiunque può usare questo agente e che i suoi strumenti dovrebbero essere di sola lettura",
-  "allowIds": "Persone e canali consentiti",
   "allowIdsHint": "Un ID utente o un ID canale (numeri)",
   "rules": "Le persone in elenco possono scrivere in un messaggio diretto e menzionare il bot in qualsiasi canale. Un canale in elenco permette a tutti i suoi membri di menzionare il bot lì, ma non dà loro alcun permesso proprio. In un server il bot risponde solo quando viene menzionato o gli si risponde, o dentro un thread in cui è stato menzionato. Non risponde mai a bot o webhook, e i suoi messaggi non avvisano mai nessuno. Usa gli ID dei canali: l'ID di un server (guild) non corrisponde a nulla. Solo ID, niente nomi: in Discord attiva la Modalità sviluppatore (Impostazioni, Avanzate), poi fai clic destro su una persona o un canale e scegli Copia ID.",
   "badIds": "Questi non sono ID Discord: {{list}}. Usa il numero di Copia ID (da 17 a 20 cifre). I nomi non sono accettati.",
-  "notifyChat": "Invia le mie notifiche a questo canale o persona",
   "notifyHelp": "Facoltativo. Un ID di canale, oppure user: seguito dal tuo ID utente per riceverle come messaggi diretti.",
   "test": "Prova",
   "testOk": "Connesso a {{bot}}.",
   "checkFailed": "Salvato. La verifica del token non è riuscita: {{reason}}",
   "senders": "Mittenti",
   "noSenders": "Nessuno ha ancora scritto a questo bot.",
-  "allowButton": "Consenti",
+  "allowButton": "Metti in elenco questa persona",
   "ignored": "Ignorato",
   "accepted": "Accettato",
   "save": "Salva",
@@ -76,7 +71,6 @@
     },
     "never": "Non dare mai al bot Administrator, Manage Messages o Mention Everyone. Non gli serve nessuno dei tre."
   },
-  "back": "Torna ai connettori",
   "answer": {
     "reply": {
       "off": "Solo la risposta (qui Discord non ha l'indicatore «sta scrivendo»)"

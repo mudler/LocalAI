@@ -1,7 +1,11 @@
 package studio
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -37,7 +41,109 @@ func loopJSON(l loops.Loop) schema.ChatsLoop {
 	if l.Interval > 0 {
 		out.Interval = loops.ShortDuration(l.Interval)
 	}
+	if l.Watch != nil {
+		out.Kind = "wait"
+		out.Watch = waitJSON(l)
+	}
 	return out
+}
+
+// waitJSON is the state of a wait as the API gives it.
+func waitJSON(l loops.Loop) *schema.ChatsWait {
+	w := l.Watch
+	out := &schema.ChatsWait{Reason: w.Note, Mode: w.Mode, Condition: waitCondition(w), Checks: w.Checks,
+		LastCheck: utcPtr(w.LastCheck), Outcome: w.Outcome, LastError: redactURLs(w.LastErr),
+		Deadline: w.Deadline.UTC(), Errors: w.Errors, MaxErrors: w.MaxErrors}
+	switch {
+	case w.Script != "":
+		// The command is not shown: this list reaches people who may not
+		// read it. It stays in the store of its owner.
+		out.SourceKind, out.Source = "script", "a script"
+	case w.Agent:
+		// A wait on a background sub-agent: Job holds its id, not a job's.
+		out.SourceKind, out.Source = "agent", w.Job
+	case w.Job != "":
+		// The id and the label the model gave; the command is never here.
+		out.SourceKind, out.Source = "job", w.Job
+		if w.JobLabel != "" {
+			out.Source = fmt.Sprintf("%s %q", w.Job, w.JobLabel)
+		}
+	case w.Tool != "":
+		out.SourceKind, out.Source = "tool", w.Tool
+	default:
+		out.SourceKind, out.Source = "url", urlLabel(w.URL)
+	}
+	switch {
+	case l.State == loops.StatePending:
+		out.Phase = "pending"
+	case l.State == loops.StatePaused:
+		out.Phase = "paused"
+	case l.State == loops.StateEnded:
+		out.Phase = "ended"
+		out.End = w.End
+		if out.End == "" {
+			out.End = loops.EndStopped
+		}
+	case w.Wake != "":
+		// The wait is settled and says how; the model has still to be asked.
+		out.Phase, out.End = "waking", w.End
+	default:
+		out.Phase = "waiting"
+		out.NextCheck = utcPtr(l.Next)
+	}
+	return out
+}
+
+// waitCondition says what a wait waits for, in words. The pattern and the
+// value are cut so a long one does not fill the line.
+func waitCondition(w *loops.Watch) string {
+	short := func(s string) string {
+		if r := []rune(s); len(r) > 80 {
+			return string(r[:79]) + "…"
+		}
+		return s
+	}
+	if w.Agent {
+		if w.Mode == loops.UntilStall {
+			return fmt.Sprintf("the sub-agent makes no progress for %s", loops.ShortDuration(w.Idle))
+		}
+		return "the sub-agent finishes"
+	}
+	switch w.Mode {
+	case loops.UntilExitZero:
+		return "the script exits with status 0"
+	case loops.UntilExit:
+		return "the job exits"
+	case loops.UntilStall:
+		return fmt.Sprintf("the job writes no output for %s", loops.ShortDuration(w.Idle))
+	case loops.UntilMatch:
+		return fmt.Sprintf("the output matches %q", short(w.Pattern))
+	case loops.UntilJSONEquals:
+		return fmt.Sprintf("the field %s equals %q", short(w.Field), short(w.Equals))
+	}
+	return "the output changes"
+}
+
+// urlLabel is the host and path of a URL: no scheme, user, query or fragment,
+// which can carry a secret.
+func urlLabel(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return "a URL"
+	}
+	return u.Hostname() + strings.TrimRight(u.EscapedPath(), "/")
+}
+
+var urlInText = regexp.MustCompile(`https?://[^\s"'<>)]+`)
+
+// redactURLs cuts every URL in a message to host and path, and the message to
+// a short line.
+func redactURLs(s string) string {
+	s = urlInText.ReplaceAllStringFunc(s, urlLabel)
+	if r := []rune(s); len(r) > 160 {
+		s = string(r[:159]) + "…"
+	}
+	return s
 }
 
 func loopsJSON(list []loops.Loop) []schema.ChatsLoop {
@@ -65,7 +171,7 @@ func (h *Handlers) ListLoops(c echo.Context) error {
 	if err != nil {
 		return failLoop(c, err)
 	}
-	return c.JSON(http.StatusOK, schema.ChatsLoopList{Loops: loopsJSON(list)})
+	return c.JSON(http.StatusOK, schema.ChatsLoopList{Loops: loopsJSON(list), Jobs: h.jobsOf(c, userID(c), c.Param("id"))})
 }
 
 // StartLoop starts a loop in a chat.
@@ -159,4 +265,55 @@ func (h *Handlers) StopLoops(c echo.Context) error {
 		return failLoop(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]int{"stopped": n})
+}
+
+// jobJSON is a job as the API gives it: no command, no output, no node.
+func jobJSON(j studiosvc.JobView) schema.ChatsJob {
+	out := schema.ChatsJob{ID: j.ID, Label: j.Label, Chat: j.Chat, Provider: j.Provider, State: string(j.State), End: string(j.End),
+		Exit: j.Exit, Started: j.Started.UTC(), Ended: utcPtr(j.Ended), LastOutput: utcPtr(j.LastOutput), Bytes: j.Total}
+	if out.Provider == "" {
+		out.Provider = studiosvc.BuiltinProvider
+	}
+	return out
+}
+
+// jobsOf lists the jobs of a chat for the list and the chat detail. A failure
+// to read them is an empty list: the jobs are a view, not the chat.
+func (h *Handlers) jobsOf(c echo.Context, user, chat string) []schema.ChatsJob {
+	out := []schema.ChatsJob{}
+	list, err := h.svc.BgJobs(c.Request().Context(), user, chat)
+	if err != nil {
+		return out
+	}
+	for _, j := range list {
+		job := jobJSON(j)
+		job.Agent = j.Chat != chat
+		out = append(out, job)
+	}
+	return out
+}
+
+// StopJob stops a background job of a chat.
+// @Summary Stop a background job.
+// @Description Stops a job that the model started with the job tool (a build, a server): the process gets term, and kill after 10 seconds. The job ends with the reason "stopped". Only the owner of the chat may stop it. The job may belong to a sub-agent of the chat.
+// @Tags chats
+// @Param id path string true "conversation id"
+// @Param job path string true "job id"
+// @Success 200 {object} schema.ChatsJob "The job after the signal"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation or job"
+// @Failure 409 {object} schema.ErrorResponse "The job has ended already"
+// @Router /api/chats/{id}/jobs/{job}/kill [post]
+func (h *Handlers) StopJob(c echo.Context) error {
+	v, err := h.svc.StopJob(c.Request().Context(), userID(c), c.Param("id"), c.Param("job"))
+	if err != nil {
+		return mapErr(c, err, jobRules, failFor)
+	}
+	job := jobJSON(v)
+	job.Agent = v.Chat != c.Param("id")
+	return c.JSON(http.StatusOK, job)
+}
+
+var jobRules = []errRule{
+	fixed(http.StatusNotFound, typeNotFound, "job not found", studiosvc.ErrBgJobNotFound),
+	fixed(http.StatusConflict, typeConflict, "the job has ended already", studiosvc.ErrBgJobEnded),
 }

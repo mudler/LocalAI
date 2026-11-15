@@ -141,6 +141,16 @@ func ListResourceGrants(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Ha
 // @Failure 503 {object} AddonErrorResponse "Unavailable, or type outcome_unknown (with operationId)"
 // @Router /api/addons/resources/{resourceId}/grants/{userId} [put]
 func SetResourceGrant(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	return grantChange(g, db, opts, func(r gateway.SetGrantRequest) bool { return r.Role != "" },
+		func(c echo.Context, g *gateway.Gateway, a contract.Actor, r gateway.SetGrantRequest) (any, error) {
+			return g.SetResourceGrant(c.Request().Context(), a, r.OperationID, c.Param("resourceId"), c.Param("userId"), r.Role)
+		})
+}
+
+// grantChange is the shared shape of a grant change: the owner's own browser
+// session, a strict body, then the call. The add-on and the generic sharing
+// routes differ only in the body and the call.
+func grantChange[T any](g *gateway.Gateway, db *gorm.DB, opts []Option, valid func(T) bool, call func(echo.Context, *gateway.Gateway, contract.Actor, T) (any, error)) echo.HandlerFunc {
 	s := resolve(opts)
 	return func(c echo.Context) error {
 		a, e := actor(c, db, s)
@@ -150,14 +160,14 @@ func SetResourceGrant(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Hand
 		if !humanSurface(c, s, a, c.Param("resourceId")) {
 			return failure(c, 403, "Sharing requires the owner's own browser session")
 		}
-		var r gateway.SetGrantRequest
-		if decode(c, &r) != nil || r.Role == "" {
+		var r T
+		if decode(c, &r) != nil || !valid(r) {
 			return failure(c, 400, "Invalid grant")
 		}
 		if g == nil {
 			return failure(c, 503, "Addons unavailable")
 		}
-		out, e := g.SetResourceGrant(c.Request().Context(), a, r.OperationID, c.Param("resourceId"), c.Param("userId"), r.Role)
+		out, e := call(c, g, a, r)
 		if e != nil {
 			return resultError(c, e)
 		}
@@ -414,7 +424,7 @@ func GetConversationSelection(g *gateway.Gateway, db *gorm.DB, opts ...Option) e
 
 // PutConversationSelection selects a resource for a conversation.
 // @Summary Select the resource a conversation works on
-// @Description Stores which resource the authenticated user chose for the conversation and add-on, so that chat tool calls that name no resource use it. The caller must hold at least the viewer role on the resource now; the stored reference is never a bearer and is authorized again at the owner on every use. It is not process-global, not shared between users or conversations, and not part of the chat history. The store is bounded per user and expires unused entries. No MCP tool maps to this route.
+// @Description Stores which resource the authenticated user chose for the conversation and add-on, so that chat tool calls that name no resource use it. The caller must hold at least the viewer role on the resource now; the stored reference is never a bearer and is authorized again at the owner on every use. It is not process-global, not shared between users or conversations, and not part of the chat history. The store is bounded per user and expires unused entries. For an add-on whose manifest scopes its resources per agent, a chat of a saved agent can select only a resource on the agent's list. No MCP tool maps to this route.
 // @Tags Addons
 // @Accept json
 // @Produce json
@@ -424,7 +434,7 @@ func GetConversationSelection(g *gateway.Gateway, db *gorm.DB, opts ...Option) e
 // @Success 200 {object} gateway.Selection "The selection"
 // @Failure 400 {object} AddonErrorResponse "Malformed IDs or body"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
-// @Failure 403 {object} AddonErrorResponse "Feature denied, or the resource is unknown or not readable by the caller"
+// @Failure 403 {object} AddonErrorResponse "Feature denied, the resource is unknown or not readable by the caller, or (type resource_not_in_agent_list) the chat's saved agent does not list it"
 // @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"
 // @Router /api/addons/conversations/{conversationId}/selection/{addonId} [put]
 func PutConversationSelection(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
@@ -440,6 +450,15 @@ func PutConversationSelection(g *gateway.Gateway, db *gorm.DB, opts ...Option) e
 		}
 		if g == nil {
 			return failure(c, 503, "Addons unavailable")
+		}
+		if s.guard != nil {
+			ok, e := s.guard(c.Request().Context(), a, c.Param("conversationId"), c.Param("addonId"), r.ResourceID)
+			switch {
+			case e != nil:
+				return failure(c, 503, "The chats are unavailable")
+			case !ok:
+				return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: "resource_not_in_agent_list", Code: 403, Message: "The agent of this chat may not use that resource. Add it to the agent first"}})
+			}
 		}
 		out, e := g.SelectResource(c.Request().Context(), a, c.Param("conversationId"), c.Param("addonId"), r.ResourceID)
 		if e != nil {

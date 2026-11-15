@@ -3,7 +3,6 @@ package studio
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -416,12 +415,15 @@ var _ = Describe("context files in the prompt of a chat", func() {
 		})
 
 		It("reads back what propose_change writes, with the files the Memory add-on ships", func() {
-			raw, err := os.ReadFile("../../../addons/memory/manifest.json")
-			Expect(err).NotTo(HaveOccurred())
-			m, err := contract.ParseManifest(raw)
-			Expect(err).NotTo(HaveOccurred())
-			br.set(AddonContextSet{AddonID: m.ID, Running: true, Files: m.Capabilities.ContextFiles})
-			ag, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Bot", Model: "m", Addons: []string{m.ID}, Builtins: []string{"memory.write"}}, nil)
+			// The files a Memory add-on declares: one index for each scope.
+			const id = "memory"
+			files := []contract.ContextFile{
+				{Scope: contract.ScopeUser, Path: "Memory/index.md"},
+				{Scope: contract.ScopeAgent, Path: "Memory/agents/{agent}/index.md"},
+				{Scope: contract.ScopeChannel, Path: "Memory/channels/{channel}/index.md"},
+			}
+			br.set(AddonContextSet{AddonID: id, Running: true, Files: files})
+			ag, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Bot", Model: "m", Addons: []string{id}, Builtins: []string{"memory.write"}}, nil)
 			Expect(err).NotTo(HaveOccurred())
 			rec, err := svc.CreateAs(ctx, "alice", CreateInput{Model: "m", AgentID: ag.ID}, Origin{Kind: session.OriginConnector, ID: "b-tg"})
 			Expect(err).NotTo(HaveOccurred())
@@ -434,6 +436,8 @@ var _ = Describe("context files in the prompt of a chat", func() {
 				_, err = svc.Changes().Confirm(ctx, "alice", p.ID)
 				Expect(err).NotTo(HaveOccurred(), scope)
 			}
+			// The owner's notes are read only for a paired sender.
+			svc.access.set(rec.ID, turnGrant{Binding: "b-tg", Kind: "telegram", Senders: []string{"owner"}, Direct: true, Paired: true})
 			x, err := svc.ChatAccess(ctx, "alice", rec.ID)
 			Expect(err).NotTo(HaveOccurred())
 			tt, err := svc.chatTools(ctx, x)

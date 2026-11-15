@@ -54,6 +54,9 @@ var _ = Describe("Trigger types", func() {
 			{"long prompt", func(t *Trigger) { t.Prompt = strings.Repeat("p", 8001) }, "prompt can have at most 8000 bytes"},
 			{"negative cap", func(t *Trigger) { t.DailyCap = -1 }, "daily limit must be 0 to 1000"},
 			{"big cap", func(t *Trigger) { t.DailyCap = 1001 }, "daily limit must be 0 to 1000"},
+			{"short time limit", func(t *Trigger) { t.RunLimit = 30 * time.Second }, "time limit must be empty or 1m to 24h"},
+			{"negative time limit", func(t *Trigger) { t.RunLimit = -time.Minute }, "time limit must be empty or"},
+			{"long time limit", func(t *Trigger) { t.RunLimit = 25 * time.Hour }, "time limit must be empty or"},
 			{"bad kind", func(t *Trigger) { t.Kind = "webhook" }, "kind must be"},
 			{"bad schedule", func(t *Trigger) { t.Schedule = "daily 25:00" }, "hour must be 0 to 23"},
 			{"bad zone", func(t *Trigger) { t.TZ = "Mars/Base" }, `time zone "Mars/Base" is not known`},
@@ -145,6 +148,18 @@ var _ = Describe("Trigger types", func() {
 		tr.Quiet, tr.DailyCap = time.Minute, 3
 		Expect(tr.QuietOrDefault()).To(Equal(time.Minute), "explicit values were replaced")
 		Expect(tr.CapOrDefault()).To(Equal(3), "explicit values were replaced")
+	})
+
+	It("gives the effective run limit as the least of the trigger and the ceiling", func() {
+		ceiling := 15 * time.Minute
+		var tr Trigger
+		Expect(tr.EffectiveRunLimit(ceiling)).To(Equal(ceiling), "zero takes the ceiling")
+		tr.RunLimit = 5 * time.Minute
+		Expect(tr.EffectiveRunLimit(ceiling)).To(Equal(5 * time.Minute))
+		tr.RunLimit = time.Hour
+		Expect(tr.EffectiveRunLimit(ceiling)).To(Equal(ceiling), "a lowered ceiling applies at once")
+		Expect(tr.EffectiveRunLimit(0)).To(Equal(time.Hour), "no ceiling leaves the value")
+		Expect(tr.EffectiveRunLimit(2 * time.Hour)).To(Equal(time.Hour))
 	})
 
 	It("arms a trigger", func() {
@@ -246,5 +261,28 @@ var _ = Describe("a one-off trigger", func() {
 		Expect(p.Expired(now)).To(BeFalse())
 		Expect(p.Expired(now.Add(30 * time.Minute))).To(BeTrue())
 		Expect(p.Expired(now.Add(31 * time.Minute))).To(BeTrue())
+	})
+})
+
+var _ = Describe("the daily limit that grows with the cadence", func() {
+	It("gives one run per firing in a day, from 24 up to the maximum", func() {
+		Expect(DefaultCapFor(0)).To(Equal(24), "a schedule that runs once")
+		Expect(DefaultCapFor(24 * time.Hour)).To(Equal(24))
+		Expect(DefaultCapFor(time.Hour)).To(Equal(24))
+		Expect(DefaultCapFor(30 * time.Minute)).To(Equal(48))
+		Expect(DefaultCapFor(15 * time.Minute)).To(Equal(96))
+		Expect(DefaultCapFor(5 * time.Minute)).To(Equal(288))
+		Expect(DefaultCapFor(time.Minute)).To(Equal(MaxDailyCap), "never above the maximum")
+	})
+
+	It("follows the schedule of a trigger and keeps a limit that is set", func() {
+		now := time.Date(2026, 10, 22, 7, 0, 0, 0, time.UTC)
+		tr := Trigger{Kind: KindSchedule, Schedule: "*/5 * * * *", TZ: "UTC"}
+		Expect(tr.EffectiveCap(now)).To(Equal(288))
+		tr.Schedule = "daily 08:00"
+		Expect(tr.EffectiveCap(now)).To(Equal(24))
+		tr.Schedule, tr.DailyCap = "*/5 * * * *", 10
+		Expect(tr.EffectiveCap(now)).To(Equal(10), "a limit that is set stays")
+		Expect(Trigger{Kind: KindFile}.EffectiveCap(now)).To(Equal(24), "a file trigger has no cadence")
 	})
 })

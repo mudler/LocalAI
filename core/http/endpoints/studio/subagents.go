@@ -26,8 +26,13 @@ func (h *Handlers) SubAgents(c echo.Context) error {
 		if r.Turn.Running {
 			out.Running++
 		}
-		out.SubAgents = append(out.SubAgents, schema.ChatsSubAgent{ID: r.Chat.ID, Title: r.Chat.Title, Created: r.Chat.Created,
-			Updated: r.Chat.Updated, Running: r.Turn.Running, LastTurn: string(r.Turn.Last)})
+		agent := schema.ChatsSubAgent{ID: r.Chat.ID, Title: r.Chat.Title, Created: r.Chat.Created,
+			Updated: r.Chat.Updated, Running: r.Turn.Running, LastTurn: string(r.Turn.Last)}
+		if r.Loop != nil {
+			j := loopJSON(*r.Loop)
+			agent.Loop = &j
+		}
+		out.SubAgents = append(out.SubAgents, agent)
 	}
 	return c.JSON(http.StatusOK, out)
 }

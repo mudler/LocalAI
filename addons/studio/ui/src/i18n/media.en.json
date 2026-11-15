@@ -650,7 +650,7 @@
       },
       "details": {
         "title": "Identity and transcript",
-        "body": "Give admins a recognizable name and transcribe the clip exactly, including fillers and punctuation."
+        "body": "Give the voice a recognizable name and transcribe the clip exactly, including fillers and punctuation."
       },
       "consent": {
         "title": "Authorization",

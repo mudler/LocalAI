@@ -25,7 +25,6 @@
   "agent": "Agent",
   "agentNone": "Choisir un agent",
   "agentCredentialsOnly": "Aucun agent (identifiants uniquement)",
-  "agentOptionalHint": "Facultatif. Sans agent, cette connexion ne garde que la clé, le serveur et le mode d’écriture pour vos chats. Elle ne répond à aucun message et n’écoute rien.",
   "credentialsOnly": "Identifiants uniquement",
   "agentNoModel": "{{name}} (a besoin d’un modèle)",
   "test": "Tester",
@@ -68,8 +67,8 @@
     "label": "Ce que l’agent peut modifier sur Jellyfin",
     "hint": "Contrôle à distance des lecteurs, marques « vu », favoris et ajout à des listes de lecture. Il ne supprime, n’analyse et ne modifie jamais la bibliothèque.",
     "off": "Lecture seule",
-    "propose": "Vous demande d’abord",
-    "auto": "Agit sans demander",
+    "propose": "Demande d’abord",
+    "auto": "S’exécute tout de suite",
     "line": {
       "off": "Il ne peut rien modifier.",
       "propose": "Chaque modification attend votre accord.",
@@ -82,8 +81,8 @@
     },
     "row": {
       "off": "Lecture seule",
-      "propose": "Vous demande d’abord",
-      "auto": "Agit sans demander"
+      "propose": "Demande d’abord",
+      "auto": "S’exécute tout de suite"
     }
   },
   "approval": {

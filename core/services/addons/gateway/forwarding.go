@@ -2,6 +2,7 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -73,8 +74,12 @@ type ForwardVerifier struct {
 	OwnerID    string
 	Keys       map[string]ed25519.PublicKey
 	Revalidate func(context.Context, contract.Actor) error
-	mu         sync.Mutex
-	seen       map[string]time.Time
+	// Account is the account check of a forwarded sharing call of a kind
+	// that is not an add-on. Without it such a call is checked with
+	// Revalidate, the add-ons feature included.
+	Account func(context.Context, contract.Actor) error
+	mu      sync.Mutex
+	seen    map[string]time.Time
 }
 
 func (v *ForwardVerifier) Verify(ctx context.Context, peer PeerIdentity, message ForwardedRequest) (contract.Actor, error) {
@@ -91,7 +96,13 @@ func (v *ForwardVerifier) Verify(ctx context.Context, peer PeerIdentity, message
 	if a.UserID == "" || a.CredentialID == "" || len(a.UserID) > 256 || len(a.CredentialID) > 256 || (a.Mode != "named-user" && a.Mode != "local-owner") || v.Revalidate == nil {
 		return denied()
 	}
-	if err := ClassifyCheck(v.Revalidate(ctx, a)); err != nil {
+	// The signature above covers the body, so the call it names is the one
+	// the frontend sent.
+	check := v.Revalidate
+	if v.Account != nil && forwardedSharing(message.Body) {
+		check = v.Account
+	}
+	if err := ClassifyCheck(check(ctx, a)); err != nil {
 		return contract.Actor{}, err
 	}
 	v.mu.Lock()
@@ -115,10 +126,24 @@ func (v *ForwardVerifier) Verify(ctx context.Context, peer PeerIdentity, message
 	return a, nil
 }
 
+// forwardedSharing says whether a forwarded body is a sharing call of a kind
+// that is not an add-on and nothing else. The owner serves exactly that call
+// from it, so the lighter account check covers nothing more.
+func forwardedSharing(body []byte) bool {
+	var w wireRequest
+	if decode(bytes.NewReader(body), &w) != nil || w.Resource == nil || !w.exclusive() {
+		return false
+	}
+	return w.Resource.sharing() && w.Request.Action == w.Resource.wireAction()
+}
+
 // VerifierConfig is copied at bootstrap; request callers cannot choose an audience.
 type VerifierConfig struct {
 	Keys       map[string]ed25519.PublicKey
 	Revalidate func(context.Context, contract.Actor) error
+	// Account is the account check of the sharing calls, see
+	// ForwardVerifier.Account.
+	Account func(context.Context, contract.Actor) error
 }
 
 func NewForwardVerifier(c VerifierConfig) (*ForwardVerifier, error) {
@@ -129,7 +154,7 @@ func NewForwardVerifier(c VerifierConfig) (*ForwardVerifier, error) {
 	if _, err := rand.Read(seed[:]); err != nil {
 		return nil, err
 	}
-	v := &ForwardVerifier{OwnerID: hex.EncodeToString(seed[:]), Keys: make(map[string]ed25519.PublicKey), Revalidate: c.Revalidate}
+	v := &ForwardVerifier{OwnerID: hex.EncodeToString(seed[:]), Keys: make(map[string]ed25519.PublicKey), Revalidate: c.Revalidate, Account: c.Account}
 	for id, key := range c.Keys {
 		if id == "" || len(key) != ed25519.PublicKeySize {
 			return nil, ErrForbidden

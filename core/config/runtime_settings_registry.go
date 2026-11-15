@@ -491,6 +491,31 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsWebFetch },
 		func(o *ApplicationConfig) bool { return !o.DisableChatsWebFetch },
 		func(o *ApplicationConfig, v bool) { o.DisableChatsWebFetch = !v }),
+	// The two built-in groups of LocalAI tools of the chats: read at each
+	// turn, so no restart. Stored as the negation, so both are on by default.
+	field("chats_localai_client",
+		func(s *RuntimeSettings) **bool { return &s.ChatsLocalAIClient },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsLocalAIClient },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsLocalAIClient = !v }),
+	field("chats_localai_admin",
+		func(s *RuntimeSettings) **bool { return &s.ChatsLocalAIAdmin },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsLocalAIAdmin },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsLocalAIAdmin = !v }),
+	// Load the large LocalAI tool groups on demand: read at each turn, so no
+	// restart. Empty is auto.
+	withApply(field("chats_tool_search",
+		func(s *RuntimeSettings) **string { return &s.ChatsToolSearch },
+		func(o *ApplicationConfig) string { return o.EffectiveChatsToolSearch() },
+		func(o *ApplicationConfig, v string) { o.ChatsToolSearch = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.ToLower(strings.TrimSpace(*s.ChatsToolSearch))
+			if !ValidToolSearch(v) {
+				xlog.Warn("invalid chats_tool_search in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsToolSearch = v
+			return true
+		}),
 	// The saved agents as sub-agents of a chat: read at each turn, so no
 	// restart. Stored as the negation, so it is on by default.
 	field("chats_saved_agents",
@@ -522,6 +547,34 @@ var runtimeSettingsFields = []fieldSpec{
 			o.ChatsIndexMaxTextBytes = *s.ChatsIndexMaxTextBytes
 			return true
 		}),
+	withApply(field("chats_extract_max_bytes",
+		func(s *RuntimeSettings) **int64 { return &s.ChatsExtractMaxBytes },
+		func(o *ApplicationConfig) int64 { return o.EffectiveChatsExtractMaxBytes() },
+		func(o *ApplicationConfig, v int64) { o.ChatsExtractMaxBytes = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsExtractMaxBytes; v < MinChatsExtractMaxBytes || v > MaxChatsExtractMaxBytes {
+				xlog.Warn("invalid chats_extract_max_bytes in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsExtractMaxBytes = *s.ChatsExtractMaxBytes
+			return true
+		}),
+	withApply(field("chats_extract_max_entries",
+		func(s *RuntimeSettings) **int { return &s.ChatsExtractMaxEntries },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsExtractMaxEntries() },
+		func(o *ApplicationConfig, v int) { o.ChatsExtractMaxEntries = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsExtractMaxEntries; v < MinChatsExtractMaxEntries || v > MaxChatsExtractMaxEntries {
+				xlog.Warn("invalid chats_extract_max_entries in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsExtractMaxEntries = *s.ChatsExtractMaxEntries
+			return true
+		}),
+	field("chats_extract_7z_rar",
+		func(s *RuntimeSettings) **bool { return &s.ChatsExtractSevenZipRar },
+		func(o *ApplicationConfig) bool { return o.ChatsExtractSevenZipRar },
+		func(o *ApplicationConfig, v bool) { o.ChatsExtractSevenZipRar = v }),
 	field("chats_web_searxng_url",
 		func(s *RuntimeSettings) **string { return &s.ChatsWebSearXNGURL },
 		func(o *ApplicationConfig) string { return o.ChatsWebSearXNGURL },
@@ -590,6 +643,10 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsEgressAllowPrivate },
 		func(o *ApplicationConfig) bool { return o.ChatsEgressAllowPrivate },
 		func(o *ApplicationConfig, v bool) { o.ChatsEgressAllowPrivate = v }),
+	field("client_jobs_allow_all_tools",
+		func(s *RuntimeSettings) **bool { return &s.ClientJobsAllowAllTools },
+		func(o *ApplicationConfig) bool { return o.ClientJobsAllowAllTools },
+		func(o *ApplicationConfig, v bool) { o.ClientJobsAllowAllTools = v }),
 	withApply(field("chats_egress_ports",
 		func(s *RuntimeSettings) **string { return &s.ChatsEgressPorts },
 		func(o *ApplicationConfig) string { return o.ChatsEgressPorts },
@@ -745,6 +802,46 @@ var runtimeSettingsFields = []fieldSpec{
 			o.chatsLimitsMu.Unlock()
 		}),
 
+	// The triggers of the chats: read at each use, so no restart.
+	withApply(fieldEq("chats_trigger_run_limit",
+		func(s *RuntimeSettings) **string { return &s.ChatsTriggerRunLimit },
+		func(o *ApplicationConfig) string { return o.EffectiveChatsTriggerRunLimit().String() },
+		func(o *ApplicationConfig, v string) {
+			if d, err := time.ParseDuration(v); err == nil {
+				o.chatsLimitsMu.Lock()
+				o.ChatsTriggerRunLimit = d
+				o.chatsLimitsMu.Unlock()
+			}
+		},
+		func(a, b string) bool { return a == b }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsTriggerRunLimit))
+			if err != nil || d < MinChatsTriggerRunLimit || d > MaxChatsTriggerRunLimit {
+				xlog.Warn("invalid chats_trigger_run_limit in runtime settings", "value", *s.ChatsTriggerRunLimit)
+				return false
+			}
+			o.chatsLimitsMu.Lock()
+			o.ChatsTriggerRunLimit = d
+			o.chatsLimitsMu.Unlock()
+			return true
+		}),
+	loopIntField("chats_trigger_max_per_user", MaxChatsTriggerMaxPerUser,
+		func(s *RuntimeSettings) **int { return &s.ChatsTriggerMaxPerUser },
+		(*ApplicationConfig).EffectiveChatsTriggerMaxPerUser,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsTriggerMaxPerUser = v
+			o.chatsLimitsMu.Unlock()
+		}),
+	loopIntField("chats_trigger_max_daily_cap", MaxChatsTriggerMaxDailyCap,
+		func(s *RuntimeSettings) **int { return &s.ChatsTriggerMaxDailyCap },
+		(*ApplicationConfig).EffectiveChatsTriggerMaxDailyCap,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsTriggerMaxDailyCap = v
+			o.chatsLimitsMu.Unlock()
+		}),
+
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.
 	field("chats_suggestions",
@@ -752,17 +849,17 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) bool { return !o.DisableChatSuggestions },
 		func(o *ApplicationConfig, v bool) { o.DisableChatSuggestions = !v }),
 
-	// LocalAI Assistant: stored as the negation for UI clarity.
-	field("localai_assistant_enabled",
-		func(s *RuntimeSettings) **bool { return &s.LocalAIAssistantEnabled },
-		func(o *ApplicationConfig) bool { return !o.DisableLocalAIAssistant },
-		func(o *ApplicationConfig, v bool) { o.DisableLocalAIAssistant = !v }),
-
 	// Pages of shared folders: stored as the negation, like the assistant.
 	field("shared_pages_enabled",
 		func(s *RuntimeSettings) **bool { return &s.SharedPagesEnabled },
 		func(o *ApplicationConfig) bool { return !o.DisableSharedPages },
 		func(o *ApplicationConfig, v bool) { o.DisableSharedPages = !v }),
+
+	// The page area of Home: stored as the negation, like shared pages.
+	field("home_page_area_enabled",
+		func(s *RuntimeSettings) **bool { return &s.HomePageAreaEnabled },
+		func(o *ApplicationConfig) bool { return !o.DisablePageArea },
+		func(o *ApplicationConfig, v bool) { o.DisablePageArea = !v }),
 
 	// Built-in chat tools: the host-commands mode and the add-on pins.
 	field("chats_host_exec",

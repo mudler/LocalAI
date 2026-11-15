@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -179,7 +180,20 @@ func (sc *scope) grantsSkill(sk skills.Skill) bool {
 	case sk.Layer == skills.LayerBuiltin && sk.Name == writingSkillsName && sc.builtins[contract.CapSkillsWrite]:
 		return true
 	}
-	return sc.skills[sk.Name]
+	return sc.skills[sk.Name] || sc.hostGrants(sk)
+}
+
+// hostGrants reports whether the host itself grants sk: a skill of the active
+// memory provider, in the layer the provider ships it in. A copy of the same
+// name in a layer the person owns is not covered.
+func (sc *scope) hostGrants(sk skills.Skill) bool {
+	if sk.Layer == skills.LayerBuiltin && sc.groupSkills[sk.Name] {
+		return true
+	}
+	if !sc.hostSkills[sk.Name] {
+		return false
+	}
+	return sk.Layer == skills.LayerBuiltin || (sk.Layer == skills.LayerAddon && sk.Addon == sc.hostSkillAddon)
 }
 
 // chatSkillSet resolves the skills of one chat: the user's layers, the skills
@@ -192,7 +206,7 @@ func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []s
 	if err != nil {
 		return nil, nil, "", err
 	}
-	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
+	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
 		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.grantsSkill(sk)) },
 		Logger: s.log,
 	}))
@@ -221,7 +235,7 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 			return nil, nil, err
 		}
 		sc = s.scopeOf(ctx, rec)
-		off, addonsOff = s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff
+		off, addonsOff = s.skillsOffOf(ctx, rec, sc), rec.AddonsOff
 	}
 	command, err := s.addonCommandDescriptor(ctx, p, rec, sc)
 	if err != nil {
@@ -231,7 +245,7 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 	if err != nil {
 		return nil, nil, err
 	}
-	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
+	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
 		Off:    skillOff(off),
 		Logger: s.log,
 	}))
@@ -239,6 +253,19 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		return nil, nil, err
 	}
 	ad.markFallbacks(list)
+	if s.assistantAllowed(ctx, p) != nil {
+		// A user who cannot have the admin tools never sees the recipes.
+		list = slices.DeleteFunc(list, func(sk skills.Skill) bool {
+			return sk.Layer == skills.LayerBuiltin && slices.Contains(adminSkillNames, sk.Name)
+		})
+	}
+	names, addon := s.memoryProviderSkills(ctx, p)
+	for i := range list {
+		sk := &list[i]
+		if slices.Contains(names, sk.Name) && (sk.Layer == skills.LayerBuiltin && addon == "" || sk.Layer == skills.LayerAddon && sk.Addon == addon && addon != "") {
+			sk.Provider, sk.Locked = MemorySlot, true
+		}
+	}
 	return list, ad.withNotes(notes), nil
 }
 
@@ -263,7 +290,7 @@ func (s *Service) AgentSkills(ctx context.Context, user string) ([]skills.Skill,
 		if !files.ValidAgentID(ag.ID) {
 			continue
 		}
-		list, _, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p),
+		list, _, err := s.d.Files.ResolveSkills(ctx, p,
 			[]skills.Root{files.AgentSkillsRoot(p, ag.ID, ag.Name)}, skills.Options{Logger: s.log})
 		if err != nil {
 			return nil, err

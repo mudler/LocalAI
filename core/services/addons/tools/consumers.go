@@ -17,7 +17,7 @@ const (
 // product, and what it does with add-on tools. The list is executable: the
 // consumer matrix test scans the sources for the markers of tool discovery and
 // execution and fails for a file no entry names, so a new consumer cannot ship
-// without a decision. The same table is in docs/content/features/tables.md.
+// without a decision. The same table is in docs/content/addons/catalogue/work/tables.md.
 type Consumer struct {
 	// ID is the stable name used in the documentation table.
 	ID string
@@ -68,7 +68,7 @@ var Consumers = []Consumer{
 		ID:          "localai-assistant",
 		Surface:     "the in-process admin MCP server of the LocalAI Assistant chat modality",
 		Files:       []string{"core/http/endpoints/mcp/localai_assistant.go", "core/application/application.go"},
-		Evidence:    []string{"pkg/mcp/localaitools/tools.go"},
+		Evidence:    []string{"core/services/localaitools/tools.go"},
 		Decision:    Reject,
 		Reason:      "one process-wide server answers every admin chat and holds no per-call principal; the admin catalog is a REST mirror, and add-on lifecycle and data tools are not part of it",
 		Enforcement: "the catalog has no add-on tool and no route of /api/addons; the consumer matrix test scans both",
@@ -76,7 +76,7 @@ var Consumers = []Consumer{
 	{
 		ID:          "model-mcp-sessions",
 		Surface:     "MCP sessions built from a model's MCP configuration, cached by model name and shared by every user of the model",
-		Files:       []string{"core/http/endpoints/mcp/tools.go", "core/http/endpoints/mcp/executor.go"},
+		Files:       []string{"core/http/endpoints/mcp/tools.go", "core/http/endpoints/mcp/toolcache.go", "core/http/endpoints/mcp/executor.go"},
 		Decision:    Reject,
 		Reason:      "a shared session has no current-user state, so it cannot carry an actor",
 		Enforcement: "DiscoverMCPTools drops a tool in the add-on namespace; ExecuteMCPToolCall and ExecuteMCPToolCallRemote refuse it with ErrAddonToolsUnsupported",
@@ -157,11 +157,20 @@ var Consumers = []Consumer{
 	{
 		ID:          "studio-chats-assistant",
 		Surface:     "the LocalAI Assistant tools of an assistant chat on the server-side chat loop, offered to an administrator while the assistant setting is on",
-		Files:       []string{"core/application/studio_assistant.go"},
+		Files:       []string{"core/application/studio_assistant.go", "core/services/studio/localaigroups.go"},
 		Evidence:    []string{"core/services/studio/assistant.go"},
 		Decision:    Reject,
 		Reason:      "they are the instance management tools of the in-process assistant server, not add-on tools; the add-on namespace is not part of that server",
 		Enforcement: "a turn gets the assistant tools only when the chat is flagged, the user is an administrator and the setting is on, checked again on every turn; sub-agents never get them; add-on tools of the chat still come through studio-chats-addons",
+	},
+	{
+		ID:          "studio-chats-client-tools",
+		Surface:     "the LocalAI client tools that the host runs for a chat's user outside a model turn: the confirmation of a voice profile proposal, which creates the profile and checks its recording",
+		Files:       []string{"core/services/studio/voiceprofilechange.go"},
+		Evidence:    []string{"core/services/localaitools/clienttools.go"},
+		Decision:    Reject,
+		Reason:      "they are the inference and instance tools of the LocalAI client, not add-on tools; the add-on namespace is not part of that catalog",
+		Enforcement: "the executor is built from the client tool catalog, which has no add-on tool and no route of /api/addons (the consumer matrix test scans it), and runs as the owner of the proposal; add-on tools of a chat still come through studio-chats-addons",
 	},
 	{
 		ID:          "studio-chats-addons",

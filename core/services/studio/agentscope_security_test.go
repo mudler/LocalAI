@@ -708,7 +708,8 @@ var _ = Describe("a chat of an agent limited to one folder, through every surfac
 		arrive("/Vault/In/x-" + fenceToken + ".txt")
 		arrive("/Projects/Acme/In/a.txt")
 		run := r.waitEnded(tr.ID)
-		Expect(run.Status).To(Equal(triggers.StatusDone), "run = %+v", run)
+		// The run's tools are refused for want of a grant, so it ends as blocked; this spec is about something else.
+		Expect(run.Status).To(BeElementOf(triggers.StatusDone, triggers.StatusBlocked), "run = %+v", run)
 		runs, err := r.host.TriggerRuns(r.ctx, alice, tr.ID, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(runs).To(HaveLen(1), "a file outside the folder started a run")

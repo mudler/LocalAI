@@ -3,6 +3,7 @@ import Modal from './Modal'
 import SearchableSelect from './SearchableSelect'
 import { nodesApi, backendsApi } from '../utils/api'
 import Icon from './Icon'
+import { summarizeInstall } from '../utils/nodeInstallSummary'
 
 // NodeInstallPicker is the single multi-node install surface used both from
 // the Backends gallery split-button and from the "Install on more nodes" `+`
@@ -313,10 +314,18 @@ export default function NodeInstallPicker({
     }
     setPerNode(prev => ({ ...prev, ...dispatchPatch }))
 
+    // Outcomes of this run, kept in a local so the summary below never has
+    // to read React state back (see utils/nodeInstallSummary.js).
+    const outcomes = {}
+    for (const [id, v] of Object.entries(dispatchPatch)) {
+      if (v.status === 'error') outcomes[id] = { status: 'error' }
+    }
+
     // Phase 2: poll each job. Promise.all resolves when the last job settles;
     // intermediate updates flip per-row state via the setPerNode inside pollJob.
     await Promise.all(jobs.map(async ({ nodeID, jobID }) => {
       const result = await pollJob(jobID)
+      outcomes[nodeID] = { status: result.error ? 'error' : 'done' }
       setPerNode(prev => {
         const next = { ...prev }
         if (result.error) {
@@ -328,36 +337,21 @@ export default function NodeInstallPicker({
       })
     }))
 
-    // Phase 3: summary toast + onComplete. Read latest state via functional setter.
-    let successCount = 0
-    let failCount = 0
-    setPerNode(prev => {
-      for (const v of Object.values(prev)) {
-        if (v.status === 'done') successCount++
-        else if (v.status === 'error') failCount++
-      }
-      return prev
-    })
+    // Phase 3: summary toast + onComplete, from the outcomes collected above.
+    const { success, toast, autoClose } = summarizeInstall(outcomes)
 
     setSubmitting(false)
 
-    if (successCount > 0 && onComplete) onComplete()
-
-    if (failCount === 0 && successCount > 0) {
-      addToast?.(`Installed on ${successCount} node${successCount === 1 ? '' : 's'}`, 'success')
-      setTimeout(() => onClose?.(), 800)
-    } else if (successCount === 0 && failCount > 0) {
-      addToast?.(`Install failed on all ${failCount} node${failCount === 1 ? '' : 's'}`, 'error')
-    } else if (successCount > 0 && failCount > 0) {
-      addToast?.(`Installed on ${successCount}, failed on ${failCount}`, 'warning')
-    }
+    if (success > 0 && onComplete) onComplete()
+    if (toast) addToast?.(toast.message, toast.type)
+    if (autoClose) setTimeout(() => onClose?.(), 800)
   }
 
   const retryFailed = async () => {
     const failedIds = Object.entries(perNode)
       .filter(([, v]) => v.status === 'error')
       .map(([id]) => id)
-    if (failedIds.length === 0) return
+    if (failedIds.length === 0 || submitting) return
     setSelected(new Set(failedIds))
     setPerNode(prev => {
       const next = { ...prev }
@@ -388,8 +382,14 @@ export default function NodeInstallPicker({
     }
     setPerNode(prev => ({ ...prev, ...dispatchPatch }))
 
+    const outcomes = {}
+    for (const [id, v] of Object.entries(dispatchPatch)) {
+      if (v.status === 'error') outcomes[id] = { status: 'error' }
+    }
+
     await Promise.all(jobs.map(async ({ nodeID, jobID }) => {
       const result = await pollJob(jobID)
+      outcomes[nodeID] = { status: result.error ? 'error' : 'done' }
       setPerNode(prev => {
         const next = { ...prev }
         if (result.error) next[nodeID] = { status: 'error', error: result.error, jobID }
@@ -400,20 +400,10 @@ export default function NodeInstallPicker({
 
     setSubmitting(false)
 
-    let successCount = 0, failCount = 0
-    setPerNode(prev => {
-      for (const id of failedIds) {
-        const v = prev[id]
-        if (v?.status === 'done') successCount++
-        else if (v?.status === 'error') failCount++
-      }
-      return prev
-    })
-    if (successCount > 0 && onComplete) onComplete()
-    if (failCount === 0 && successCount > 0) {
-      addToast?.(`Installed on ${successCount} node${successCount === 1 ? '' : 's'}`, 'success')
-      setTimeout(() => onClose?.(), 800)
-    }
+    const { success, toast, autoClose } = summarizeInstall(outcomes)
+    if (success > 0 && onComplete) onComplete()
+    if (toast) addToast?.(toast.message, toast.type)
+    if (autoClose) setTimeout(() => onClose?.(), 800)
   }
 
   const doneCount = Object.values(perNode).filter(v => v.status === 'done').length

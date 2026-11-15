@@ -88,6 +88,20 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(settings).ToNot(BeEmpty())
 	})
 
+	It("does not return the removed localai_assistant_enabled and maps a posted one to the admin group", func() {
+		req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(rec.Body.String()).ToNot(ContainSubstring("localai_assistant_enabled"))
+
+		cfg := app.ApplicationConfig()
+		rec = post(`{"localai_assistant_enabled":false}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeTrue())
+		Expect(cfg.DisableChatsLocalAIClient).To(BeFalse())
+	})
+
 	It("rejects malformed JSON", func() {
 		rec := post("{not json")
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
@@ -126,6 +140,47 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(cfg.ChatsWebSearchProviders).To(Equal("searxng,brave_html"))
 	})
 
+	It("switches the two LocalAI tool groups of the chats, each on its own, and keeps them on by default", func() {
+		cfg := app.ApplicationConfig()
+		get := func() map[string]any {
+			req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var settings map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &settings)).To(Succeed())
+			return settings
+		}
+		Expect(cfg.DisableChatsLocalAIClient || cfg.DisableChatsLocalAIAdmin).To(BeFalse())
+		Expect(get()).To(HaveKeyWithValue("chats_localai_client", true))
+		Expect(get()).To(HaveKeyWithValue("chats_localai_admin", true))
+
+		rec := post(`{"chats_localai_admin":false}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeTrue())
+		Expect(cfg.DisableChatsLocalAIClient).To(BeFalse())
+		Expect(get()).To(HaveKeyWithValue("chats_localai_admin", false))
+		Expect(get()).To(HaveKeyWithValue("chats_localai_client", true))
+
+		rec = post(`{"chats_localai_client":false,"chats_localai_admin":true}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.DisableChatsLocalAIClient).To(BeTrue())
+		Expect(cfg.DisableChatsLocalAIAdmin).To(BeFalse())
+	})
+
+	It("takes auto, on and off for the tool search of the chats and rejects another value", func() {
+		cfg := app.ApplicationConfig()
+		rec := post(`{"chats_tool_search":"on"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsToolSearch()).To(Equal("on"))
+		rec = post(`{"chats_tool_search":"sometimes"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(cfg.EffectiveChatsToolSearch()).To(Equal("on"), "the bad value changed nothing")
+		rec = post(`{"chats_tool_search":"auto"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsToolSearch()).To(Equal("auto"))
+	})
+
 	It("rejects a host-commands mode and pins the chats do not understand", func() {
 		rec := post(`{"chats_host_exec":"always"}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
@@ -160,7 +215,7 @@ var _ = Describe("Settings endpoints", func() {
 			`{"chats_egress_ports":"443,25"}`:                                          "Invalid chats_egress_ports",
 			`{"chats_egress_extra_registries":"*.example.com"}`:                        "Invalid chats_egress_extra_registries",
 			`{"chats_egress_extra_registries":"0x7f.1"}`:                               "Invalid chats_egress_extra_registries",
-			`{"chats_egress_allowed_hosts":"api.*.example.com"}`:                           "Invalid chats_egress_allowed_hosts",
+			`{"chats_egress_allowed_hosts":"api.*.example.com"}`:                       "Invalid chats_egress_allowed_hosts",
 			`{"chats_egress_allowed_hosts":"https://example.com"}`:                     "Invalid chats_egress_allowed_hosts",
 			`{"chats_egress_allowed_hosts":"example.com:22"}`:                          "Invalid chats_egress_allowed_hosts",
 			`{"chats_egress_allowed_hosts":"10.0.0.5"}`:                                "Invalid chats_egress_allowed_hosts",
@@ -168,6 +223,9 @@ var _ = Describe("Settings endpoints", func() {
 			`{"chats_egress_audit_days":366}`:                                          "Invalid chats_egress_audit_days",
 			`{"chats_index_max_text_bytes":1024}`:                                      "Invalid chats_index_max_text_bytes",
 			`{"chats_index_max_text_bytes":33554432}`:                                  "Invalid chats_index_max_text_bytes",
+			`{"chats_extract_max_bytes":1024}`:                                         "Invalid chats_extract_max_bytes",
+			`{"chats_extract_max_entries":0}`:                                          "Invalid chats_extract_max_entries",
+			`{"chats_extract_max_entries":2000000}`:                                    "Invalid chats_extract_max_entries",
 			`{"chats_egress_allow_private":true}`:                                      "chats_egress_private_confirm",
 			`{"chats_egress_allow_private":true,"chats_egress_private_confirm":"yes"}`: "chats_egress_private_confirm",
 		} {
@@ -254,6 +312,27 @@ var _ = Describe("Settings endpoints", func() {
 		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(raw)).To(ContainSubstring(`"chats_loop_min_interval": "2m`))
+	})
+
+	It("checks and saves the limits of the triggers of the chats", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.EffectiveChatsTriggerRunLimit()).To(Equal(config.DefaultChatsTriggerRunLimit), "unset: the default")
+		Expect(cfg.EffectiveChatsTriggerMaxPerUser()).To(Equal(config.DefaultChatsTriggerMaxPerUser))
+		Expect(cfg.EffectiveChatsTriggerMaxDailyCap()).To(Equal(config.DefaultChatsTriggerMaxDailyCap))
+		for _, body := range []string{`{"chats_trigger_run_limit":"30s"}`, `{"chats_trigger_run_limit":"25h"}`, `{"chats_trigger_run_limit":"soon"}`,
+			`{"chats_trigger_max_per_user":0}`, `{"chats_trigger_max_per_user":1001}`, `{"chats_trigger_max_daily_cap":0}`, `{"chats_trigger_max_daily_cap":1001}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_trigger_"), body)
+		}
+		rec := post(`{"chats_trigger_run_limit":"30m","chats_trigger_max_per_user":5,"chats_trigger_max_daily_cap":100}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsTriggerRunLimit()).To(Equal(30 * time.Minute))
+		Expect(cfg.EffectiveChatsTriggerMaxPerUser()).To(Equal(5))
+		Expect(cfg.EffectiveChatsTriggerMaxDailyCap()).To(Equal(100))
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_trigger_run_limit": "30m`))
 	})
 
 	It("errors when DynamicConfigsDir is unset", func() {

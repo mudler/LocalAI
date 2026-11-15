@@ -1,36 +1,4 @@
 {
-  "activity": {
-    "hide": "Hide",
-    "moveToHistory": "Move to history",
-    "moreCount": "{{count}} more",
-    "waitingForInstaller": "waiting for the installer",
-    "progressLabel": "Progress for {{name}}",
-    "toNode": "to {{node}}",
-    "nodesDone": "{{done}} of {{total}} nodes done",
-    "kind": {
-      "model": "model",
-      "backend": "backend"
-    },
-    "verb": {
-      "installing": "Installing {{kind}}",
-      "installed": "Installed {{kind}}",
-      "removed": "Removed {{kind}}",
-      "staged": "Staged model",
-      "failed": "Couldn't install {{kind}}",
-      "queued": "Queued",
-      "staging": "Staging model",
-      "removing": "Removing {{kind}}",
-      "failedRemoval": "Couldn't remove {{kind}}",
-      "failedStaging": "Couldn't stage model"
-    },
-    "phase": {
-      "resolving": "Resolving files",
-      "downloading": "Downloading",
-      "verifying": "Verifying",
-      "committing": "Finalizing",
-      "persisting": "Saving configuration"
-    }
-  },
   "manage": {
     "title": "System",
     "subtitle": "Manage installed models and backends"
@@ -41,7 +9,7 @@
     "saved": "Settings saved successfully",
     "saveFailed": "Save failed: {{message}}",
     "loadFailed": "Failed to load settings: {{message}}",
-    "autoUpgradeAddons": "Upgrade add-ons automatically",
+    "autoUpgradeAddons": "Update add-ons automatically",
     "sections": {
       "branding": "Branding",
       "watchdog": "Watchdog",
@@ -124,6 +92,15 @@
     "network": {
       "title": "Network of commands",
       "where": "{{name}} keeps the network settings of the commands it runs on its own page."
+    },
+    "addonUpdates": {
+      "label": "Add-on updates",
+      "note": "The add-on owner applies this setting. New generations can run executable code.",
+      "unavailable": "Owner settings unavailable or changed: {{message}}",
+      "reload": "Reload and rebase edits",
+      "retry": "Retry same operation",
+      "policy": "Owner policy · revision {{revision}}",
+      "apply": "Apply update setting"
     }
   },
   "traces": {
@@ -188,13 +165,17 @@
       "bash": "Commands (bash)",
       "web_search": "Web search",
       "web_fetch": "Read web pages",
-      "list_agents": "Saved agents"
+      "list_agents": "Saved agents",
+      "localai_client": "LocalAI client tools",
+      "localai_admin": "LocalAI admin tools"
     },
     "descriptions": {
       "bash": "Runs commands and code for the chats directly on this machine when no add-on serves bash. An add-on that runs commands in isolation replaces it.",
       "web_search": "Searches the web for the chats without a key (DuckDuckGo, then Brave Search, then Bing), or with your SearXNG instance when one is set.",
       "web_fetch": "Reads a public web page or file by its address for the chats. Addresses inside your network are refused unless you allow them.",
-      "list_agents": "Lets a chat list the user's saved agents and start one as a sub-agent. Each chat switches it on in its Tools menu."
+      "list_agents": "Lets a chat list the user's saved agents and start one as a sub-agent. Each chat switches it on in its Tools menu.",
+      "localai_client": "Lets the chats run the models installed here for images, speech, sound, video, embeddings and detection, within each user's permissions.",
+      "localai_admin": "Lets the chats of administrators manage this server: models, backends, settings and the state. Each chat, or saved agent, switches it on."
     },
     "bash": {
       "switch": "Let chats run commands on this machine",

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/recovery"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -104,10 +105,24 @@ var _ = Describe("owner-managed upgrade operations", func() {
 		changed.OperationID = "another"
 		_, e = m.SubmitUpgrade(read, actor, changed)
 		Expect(e).To(MatchError(ErrConflict))
+		// The real administrator check is by user; so is this one.
+		m.admin = func(_ context.Context, a contract.Actor) error {
+			if a.UserID != actor.UserID && a.UserID != "other" {
+				return ErrForbidden
+			}
+			return nil
+		}
+		// A later session of the same user reads the operation of an earlier one.
+		later := actor
+		later.CredentialID = "session:later"
+		status, e = m.OperationStatus(read, later, cmd.OperationID)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(status.Stage).To(Equal("backing-up"))
+		// Another administrator does not see it either.
 		other := actor
-		other.CredentialID = "expired"
+		other.UserID = "other"
 		_, e = m.OperationStatus(read, other, cmd.OperationID)
-		Expect(e).To(HaveOccurred())
+		Expect(e).To(MatchError(ErrOperationNotFound))
 		close(release)
 		Eventually(func() string {
 			st, e := m.OperationStatus(ctx, actor, cmd.OperationID)

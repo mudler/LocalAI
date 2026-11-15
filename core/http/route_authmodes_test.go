@@ -147,6 +147,26 @@ var adminOnlyAddonRoutes = []string{
 	"POST /api/addons/:id/recovery/delete-backup",
 }
 
+// chatsRoutesNeedingAddons are the chats routes that also need the add-ons
+// feature: the OAuth calls of a connection are add-on calls, which the add-on
+// owner checks against that feature. alice has the chats features but not the
+// add-ons one, so she is refused there with a session and a key alike. The
+// start of a login is not listed: this server has no base URL, so it answers
+// 409 before it asks the owner.
+var chatsRoutesNeedingAddons = map[string]bool{
+	"POST /api/chats/connectors/:id/oauth/disconnect": true,
+}
+
+// humanOnlyChatsRoutes accept only the person's own browser session with the
+// confirmation header (see the sharing routes), so the matrix's session, which
+// carries no confirmation, is refused like a key.
+var humanOnlyChatsRoutes = map[string]bool{
+	"GET /api/chats/files/shares/:id/grants":               true,
+	"PUT /api/chats/files/shares/:id/grants/:principal":    true,
+	"DELETE /api/chats/files/shares/:id/grants/:principal": true,
+	"GET /api/chats/files/shares/:id/users":                true,
+}
+
 // A route's answer in each mode. The expectations below do not depend on what
 // the handler answers once it is reached (400, 404 and 409 all mean "reached");
 // they pin who is let in.
@@ -277,8 +297,27 @@ var _ = Describe("Route auth modes", func() {
 				count++
 				name := r.Method + " " + r.Path
 				users := []string{"alice", "root"}
+				if humanOnlyChatsRoutes[name] {
+					// Sharing a folder of one's home is never a key, a tool or
+					// an agent: without the browser session and its
+					// confirmation header every credential is refused.
+					for _, cred := range []string{"alice", "alice-key", "root", "root-key"} {
+						if code := server.status(r, cred); code != http.StatusForbidden {
+							problems = append(problems, fmt.Sprintf("%s: %s got %d, not 403", name, cred, code))
+						}
+					}
+					continue
+				}
 				if strings.HasPrefix(r.Path, "/api/chats/admin/") {
 					// The administrator routes are closed to a user who is not one.
+					for _, cred := range []string{"alice", "alice-key"} {
+						if code := server.status(r, cred); code != http.StatusForbidden {
+							problems = append(problems, fmt.Sprintf("%s: %s got %d, not 403", name, cred, code))
+						}
+					}
+					users = []string{"root"}
+				}
+				if chatsRoutesNeedingAddons[name] {
 					for _, cred := range []string{"alice", "alice-key"} {
 						if code := server.status(r, cred); code != http.StatusForbidden {
 							problems = append(problems, fmt.Sprintf("%s: %s got %d, not 403", name, cred, code))

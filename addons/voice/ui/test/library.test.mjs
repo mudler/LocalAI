@@ -48,14 +48,14 @@ function queuedEffects() {
 const profileCalls = (calls) => calls.filter(([url]) => /^\/api\/(voice-profiles|models|operations)/.test(url))
 
 for (const [page, path] of [['library', 'library'], ['create', 'library/new']]) {
-  test(`${page}: a viewer who is not an administrator sees the off notice and the page makes no call`, async () => {
+  test(`${page}: a viewer without the speech feature sees the off notice and the page makes no call`, async () => {
     const q = queuedEffects()
-    const { mod, sdk, calls } = await load({ React: q.React, viewer: { isAdmin: () => false, hasFeature: () => true } })
+    const { mod, sdk, calls } = await load({ React: q.React, viewer: { isAdmin: () => false, hasFeature: (f) => f !== 'audio_speech' } })
     const addon = await mod.createAddon(sdk)
     const html = renderToString(React.createElement(addon.Component, { page: 'voice', path }))
     q.run()
     await new Promise(r => setTimeout(r, 20))
-    assert.match(html, /data-testid="voice-admin-only"/)
+    assert.match(html, /data-testid="voice-no-speech"/)
     assert.doesNotMatch(html, /data-testid="voice-library-new"|data-testid="voice-library"|data-testid="voice-profile-create"/)
     assert.deepEqual(profileCalls(calls), [])
   })
@@ -68,7 +68,19 @@ test('library: an administrator gets the library and the profile list is request
   const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))
   q.run()
   await new Promise(r => setTimeout(r, 20))
-  assert.doesNotMatch(html, /voice-admin-only/)
+  assert.doesNotMatch(html, /voice-no-speech/)
+  assert.ok(calls.some(([url]) => url === '/api/voice-profiles'), 'the list call was not made')
+})
+
+test('library: a user who is not an administrator but may use speech gets the library, the Library tab and the profile list', async () => {
+  const q = queuedEffects()
+  const { mod, sdk, calls } = await load({ React: q.React, viewer: { isAdmin: () => false, hasFeature: () => true } })
+  const addon = await mod.createAddon(sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))
+  q.run()
+  await new Promise(r => setTimeout(r, 20))
+  assert.doesNotMatch(html, /voice-no-speech/)
+  assert.match(html, /Library/)
   assert.ok(calls.some(([url]) => url === '/api/voice-profiles'), 'the list call was not made')
 })
 

@@ -32,8 +32,10 @@ test('about you: the assistant and the user cards save their files, fill in from
   await page.goto('/app/account?tab=about')
   const persona = page.getByTestId('wk-card-persona')
   await expect(persona.getByTestId('wk-field-persona-name')).toHaveValue('Ada')
-  // The card speaks of the setting, not of the file behind it.
-  await expect(persona).not.toContainText('LocalAI/persona.json')
+  // The card speaks of the setting; the file behind it is named once, in the
+  // line under the form, beside Source and Revert.
+  await expect(persona.locator('.wk-card__head')).not.toContainText('LocalAI/persona.json')
+  await expect(persona.getByTestId('wk-stored-persona')).toContainText('LocalAI/persona.json')
 
   await persona.getByTestId('wk-field-persona-system_prompt').fill('Keep answers short.')
   await persona.getByTestId('wk-save-persona').click()

@@ -14,21 +14,68 @@ import (
 // over its stylesheet. The library's own assets are still what load — this is a
 // skin, not a fork, so a swagger-ui upgrade cannot silently break the page.
 //
-// Values are copied from react-ui/src/theme.css rather than referenced: this
-// page is served by Go and never sees the app's CSS. Keep them in step; the
-// commit that changes one should change the other.
+// The page follows the app theme: the choice stored by the app (localai-theme)
+// if there is one, else the system setting. Light is the default.
+//
+// Values are copied from react-ui/src/theme/theme-localai.json rather than
+// referenced: this page is served by Go and never sees the app's CSS.
+// swagger_theme_test.go fails when a value drifts from that file.
 const swaggerThemeCSS = `
 :root {
-  --lai-bg: #0d1117;
-  --lai-surface: #131a23;
-  --lai-sunken: #080b0f;
-  --lai-line: #29384a;
-  --lai-ink: #edf4fc;
-  --lai-muted: #9aabc0;
-  --lai-blue: #4f8cff;
-  --lai-mint: #56d6a4;
-  --lai-amber: #f1b95d;
-  --lai-red: #c96f78;
+  color-scheme: light;
+  --lai-bg: #fff4dc;
+  --lai-surface: #fffdf7;
+  --lai-sunken: #f9e6bd;
+  --lai-line: #e6d9bd;
+  --lai-ink: #232a52;
+  --lai-muted: #4d5478;
+  --lai-accent: #4a5aa0;
+  --lai-accent-text: #3d4c93;
+  --lai-on-accent: #ffffff;
+  --lai-ok: #1f7a4c;
+  --lai-ok-text: #1d6e46;
+  --lai-warn: #8c5400;
+  --lai-warn-text: #7a4a00;
+  --lai-error: #b3261e;
+  --lai-error-text: #a51d16;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --lai-bg: #0c1211;
+    --lai-surface: #141c1b;
+    --lai-sunken: #080d0c;
+    --lai-line: #27332f;
+    --lai-ink: #fff4dc;
+    --lai-muted: #b9bfd0;
+    --lai-accent: #7f8fd0;
+    --lai-accent-text: #9aa8e0;
+    --lai-on-accent: #0c1211;
+    --lai-ok: #7fd39b;
+    --lai-ok-text: #8fdcaa;
+    --lai-warn: #ffc93c;
+    --lai-warn-text: #ffd466;
+    --lai-error: #ff9d92;
+    --lai-error-text: #ffaea5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --lai-bg: #0c1211;
+  --lai-surface: #141c1b;
+  --lai-sunken: #080d0c;
+  --lai-line: #27332f;
+  --lai-ink: #fff4dc;
+  --lai-muted: #b9bfd0;
+  --lai-accent: #7f8fd0;
+  --lai-accent-text: #9aa8e0;
+  --lai-on-accent: #0c1211;
+  --lai-ok: #7fd39b;
+  --lai-ok-text: #8fdcaa;
+  --lai-warn: #ffc93c;
+  --lai-warn-text: #ffd466;
+  --lai-error: #ff9d92;
+  --lai-error-text: #ffaea5;
 }
 
 body { background: var(--lai-bg); color: var(--lai-ink); }
@@ -54,6 +101,9 @@ body { background: var(--lai-bg); color: var(--lai-ink); }
 /* The topbar is the library's branding; the reference is ours. */
 .swagger-ui .topbar { background: var(--lai-surface); border-bottom: 1px solid var(--lai-line); }
 .swagger-ui .topbar .download-url-wrapper { display: none; }
+/* The library's logo gives way to the product mark. */
+.swagger-ui .topbar-wrapper a.link { width: 32px; height: 32px; background: url(../static/logo.png) center / contain no-repeat; }
+.swagger-ui .topbar-wrapper a.link img, .swagger-ui .topbar-wrapper a.link svg, .swagger-ui .topbar-wrapper a.link span { display: none; }
 
 /* Operations as hairline rows rather than tinted, shadowed cards, matching the
    lane idiom the rest of the app uses. Method colour carries the meaning. */
@@ -82,11 +132,11 @@ body { background: var(--lai-bg); color: var(--lai-ink); }
   border-color: var(--lai-line);
 }
 
-.swagger-ui .opblock.opblock-get { border-left: 3px solid var(--lai-blue); }
-.swagger-ui .opblock.opblock-post { border-left: 3px solid var(--lai-mint); }
+.swagger-ui .opblock.opblock-get { border-left: 3px solid var(--lai-accent); }
+.swagger-ui .opblock.opblock-post { border-left: 3px solid var(--lai-ok); }
 .swagger-ui .opblock.opblock-put,
-.swagger-ui .opblock.opblock-patch { border-left: 3px solid var(--lai-amber); }
-.swagger-ui .opblock.opblock-delete { border-left: 3px solid var(--lai-red); }
+.swagger-ui .opblock.opblock-patch { border-left: 3px solid var(--lai-warn); }
+.swagger-ui .opblock.opblock-delete { border-left: 3px solid var(--lai-error); }
 
 /* An outlined chip, not a filled one. White on pale green was the least
    readable thing on the page. */
@@ -106,11 +156,11 @@ body { background: var(--lai-bg); color: var(--lai-ink); }
   min-width: 68px;
 }
 
-.swagger-ui .opblock.opblock-get .opblock-summary-method { color: var(--lai-blue); }
-.swagger-ui .opblock.opblock-post .opblock-summary-method { color: var(--lai-mint); }
+.swagger-ui .opblock.opblock-get .opblock-summary-method { color: var(--lai-accent-text); }
+.swagger-ui .opblock.opblock-post .opblock-summary-method { color: var(--lai-ok-text); }
 .swagger-ui .opblock.opblock-put .opblock-summary-method,
-.swagger-ui .opblock.opblock-patch .opblock-summary-method { color: var(--lai-amber); }
-.swagger-ui .opblock.opblock-delete .opblock-summary-method { color: var(--lai-red); }
+.swagger-ui .opblock.opblock-patch .opblock-summary-method { color: var(--lai-warn-text); }
+.swagger-ui .opblock.opblock-delete .opblock-summary-method { color: var(--lai-error-text); }
 
 .swagger-ui .opblock-tag { border-bottom: 1px solid var(--lai-line); }
 .swagger-ui section.models, .swagger-ui section.models .model-container {
@@ -133,9 +183,9 @@ body { background: var(--lai-bg); color: var(--lai-ink); }
   box-shadow: none;
 }
 
-.swagger-ui .btn.execute { background: var(--lai-blue); border-color: var(--lai-blue); color: var(--lai-bg); }
-.swagger-ui .btn.authorize { color: var(--lai-mint); border-color: var(--lai-mint); }
-.swagger-ui .btn.authorize svg { fill: var(--lai-mint); }
+.swagger-ui .btn.execute { background: var(--lai-accent); border-color: var(--lai-accent); color: var(--lai-on-accent); }
+.swagger-ui .btn.authorize { color: var(--lai-ok-text); border-color: var(--lai-ok); }
+.swagger-ui .btn.authorize svg { fill: var(--lai-ok-text); }
 
 .swagger-ui .highlight-code, .swagger-ui .microlight,
 .swagger-ui .responses-inner pre, .swagger-ui .body-param pre {
@@ -148,7 +198,10 @@ body { background: var(--lai-bg); color: var(--lai-ink); }
 .swagger-ui .dialog-ux .modal-ux { background: var(--lai-surface); border: 1px solid var(--lai-line); }
 .swagger-ui .dialog-ux .modal-ux-header { border-bottom: 1px solid var(--lai-line); }
 .swagger-ui svg.arrow { fill: var(--lai-muted); }
-.swagger-ui a { color: var(--lai-blue); }
+.swagger-ui a, .swagger-ui .info a, .swagger-ui .info a.link { color: var(--lai-accent-text); }
+.swagger-ui .info .base-url, .swagger-ui .schemes-title, .swagger-ui .servers-title,
+.swagger-ui .scheme-container .schemes > label, .swagger-ui .opblock-section-header label { color: var(--lai-muted); }
+.swagger-ui .topbar-wrapper { justify-content: flex-start; }
 
 @media (prefers-reduced-motion: reduce) {
   .swagger-ui * { transition: none !important; animation: none !important; }
@@ -163,6 +216,10 @@ const swaggerIndexHTML = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LocalAI API reference</title>
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<script>
+try { var t = localStorage.getItem('localai-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t) } catch (e) {}
+</script>
 <link rel="stylesheet" href="./swagger-ui.css">
 <style>` + swaggerThemeCSS + `</style>
 </head>

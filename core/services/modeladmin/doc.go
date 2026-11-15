@@ -7,7 +7,7 @@
 //
 //   - HTTP handlers in core/http/endpoints/localai/* — the existing REST
 //     surface (PUT/PATCH/POST under /models/...).
-//   - In-process MCP clients (pkg/mcp/localaitools/inproc) — the LocalAI
+//   - In-process MCP clients (core/services/localaitools/inproc) — the LocalAI
 //     Assistant chat modality calls these helpers directly so the
 //     in-process tool surface and the REST surface stay in sync.
 //

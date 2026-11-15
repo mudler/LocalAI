@@ -1,5 +1,3 @@
-//go:build linux
-
 // SPDX-License-Identifier: MIT
 package runtime
 
@@ -165,6 +163,59 @@ var _ = Describe("Invalid-request refusals of the add-on", func() {
 	})
 })
 
+var _ = Describe("Refusals that come from the service behind the add-on", func() {
+	answering := func(status int, headers map[string]string) *Client {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for k, v := range headers {
+				w.Header().Set(k, v)
+			}
+			http.Error(w, "the token has no permission for this", status)
+		}))
+		DeferCleanup(srv.Close)
+		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		return c
+	}
+	refusal := func(c *Client) *Refusal {
+		_, e := c.Read(context.Background(), envelope("read"))
+		var r *Refusal
+		Expect(errors.As(e, &r)).To(BeTrue(), "%v", e)
+		Expect(errors.Is(e, contract.ErrRefused)).To(BeTrue())
+		return r
+	}
+	It("carries the status of the service and the sentence of the add-on", func() {
+		r := refusal(answering(http.StatusBadRequest, map[string]string{
+			contract.HeaderUpstreamStatus: "403",
+			contract.HeaderUpstreamHint:   "The token cannot create issues in this repository (403). Give it Issues: write.",
+		}))
+		Expect(r.Upstream).To(Equal(403))
+		Expect(r.Hint).To(Equal("The token cannot create issues in this repository (403). Give it Issues: write."))
+		Expect(r.Reason).To(Equal("the token has no permission for this"))
+	})
+	DescribeTable("ignores a status that is not one a service answers",
+		func(status string) {
+			r := refusal(answering(http.StatusBadRequest, map[string]string{contract.HeaderUpstreamStatus: status, contract.HeaderUpstreamHint: "x"}))
+			Expect(r.Upstream).To(BeZero())
+			Expect(r.Hint).To(BeEmpty(), "a hint with no status is not kept")
+		},
+		Entry("success", "200"), Entry("below 400", "399"), Entry("above 599", "600"), Entry("not a number", "forbidden"), Entry("empty", ""),
+	)
+	It("keeps a refusal with no header as it was", func() {
+		r := refusal(answering(http.StatusUnprocessableEntity, nil))
+		Expect(r.Upstream).To(BeZero())
+		Expect(r.Status).To(Equal(http.StatusUnprocessableEntity))
+	})
+	It("bounds the hint to printable ASCII", func() {
+		r := refusal(answering(http.StatusBadRequest, map[string]string{
+			contract.HeaderUpstreamStatus: "404",
+			contract.HeaderUpstreamHint:   strings.Repeat("ab  c ", 200),
+		}))
+		Expect(len(r.Hint)).To(BeNumerically("<=", contract.MaxUpstreamHint))
+		Expect(r.Hint).NotTo(ContainSubstring("  "))
+	})
+})
+
 var _ = Describe("Denials of the add-on", func() {
 	denying := func(body string) *Client {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -196,6 +247,50 @@ var _ = Describe("Denials of the add-on", func() {
 		_, e := denying("invalid authority").Read(context.Background(), envelope("read"))
 		Expect(e).To(MatchError(ErrRuntime))
 		Expect(errors.Is(e, ErrDenied)).To(BeFalse())
+	})
+})
+
+var _ = Describe("Rejected credentials", func() {
+	answering := func(status int, body string) *Client {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, body, status)
+		}))
+		DeferCleanup(srv.Close)
+		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		return c
+	}
+	It("types a 401 credential_rejected answer, never as an outage", func() {
+		c := answering(http.StatusUnauthorized, "credential_rejected")
+		for name, call := range map[string]func() error{
+			"read":    func() error { _, e := c.Read(context.Background(), envelope("read")); return e },
+			"preview": func() error { _, e := c.Preview(context.Background(), envelope("preview")); return e },
+			"apply": func() error {
+				_, e := c.Apply(context.Background(), envelope("apply"), contract.Revision{Schema: 1})
+				return e
+			},
+			"output": func() error { _, e := c.OpenOutput(context.Background(), envelope("output"), "h"); return e },
+		} {
+			e := call()
+			Expect(errors.Is(e, ErrCredentialRejected)).To(BeTrue(), name)
+			Expect(errors.Is(e, contract.ErrCredentialRejected)).To(BeTrue(), name)
+			Expect(errors.Is(e, ErrRuntime)).To(BeFalse(), name)
+			Expect(errors.Is(e, ErrDenied)).To(BeFalse(), name)
+		}
+	})
+	It("keeps a 401 with another reason, or none, an outage", func() {
+		for _, body := range []string{"unauthorized", "invalid bearer", "", "credential_rejected_by_proxy"} {
+			_, e := answering(http.StatusUnauthorized, body).Read(context.Background(), envelope("read"))
+			Expect(e).To(MatchError(ErrRuntime), body)
+			Expect(errors.Is(e, ErrCredentialRejected)).To(BeFalse(), body)
+		}
+	})
+	It("does not read the reason on another status as a rejection", func() {
+		for _, status := range []int{http.StatusForbidden, http.StatusBadRequest, http.StatusInternalServerError} {
+			_, e := answering(status, "credential_rejected").Read(context.Background(), envelope("read"))
+			Expect(errors.Is(e, ErrCredentialRejected)).To(BeFalse(), http.StatusText(status))
+		}
 	})
 })
 

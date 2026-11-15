@@ -94,8 +94,10 @@ Use [WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install) with an Ubunt
    | Variable | Description | Example |
    |---|---|---|
    | `BUILD_TYPE` | GPU/accelerator type (`cublas`, `hipblas`, `intel`, ``) | `BUILD_TYPE=cublas make build` |
-   | `GO_TAGS` | Additional Go build tags | `GO_TAGS=debug make build` |
+   | `GO_TAGS` | Additional Go build tags (`nosqlite` and `purego_utp` are always added) | `GO_TAGS=debug make build` |
    | `CUDA_MAJOR_VERSION` | CUDA major version (default: `13`) | `CUDA_MAJOR_VERSION=12` |
+
+   **Build tags.** With cgo on, every Go build and test of LocalAI needs the tags `nosqlite` and `purego_utp`. The BitTorrent client used for magnet and Pirate Face downloads has two optional C dependencies, a SQLite library that cannot link next to `mattn/go-sqlite3` ("multiple definition of `sqlite3_*`" errors) and the libutp C++ library. The tags switch both off and use the client's pure-Go code, so the client adds no cgo to LocalAI. `make`, the Dockerfile, `golangci-lint` (`.golangci.yml`) and the VS Code and dev container settings set them for you. If you call `go` yourself, pass them: `go build -tags nosqlite,purego_utp ./...`, `go test -tags nosqlite,purego_utp ./pkg/...`, or `export GOFLAGS=-tags=nosqlite,purego_utp`. Without them, `pkg/downloader` stops with the message "LocalAI must be built with the build tags nosqlite and purego_utp". If you add your own tags, keep both in the list (`-tags "auth nosqlite purego_utp"`), because `-tags` replaces `GOFLAGS`. A build with `CGO_ENABLED=0` does not need them. Packagers who build LocalAI from source must pass them too.
 
 3. **Run LocalAI:**
 

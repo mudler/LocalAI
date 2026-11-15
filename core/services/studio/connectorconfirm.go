@@ -21,6 +21,12 @@ func (c *Connectors) answerPhrase(ctx context.Context, b connectors.Binding, m c
 	if !ok {
 		return false
 	}
+	// A write of an add-on that waits in this chat is answered first, since a
+	// bare word with one waiting must not be taken by anything else.
+	if reply, handled := c.answerHolds(ctx, b, m, verb, code, v); handled {
+		say(reply)
+		return true
+	}
 	// Change proposals (a note, a profile, a skill, a page, the dashboard) are
 	// looked at first, since a bare word with a change waiting must not be
 	// taken by a trigger alone. They return handled false when nothing waits
@@ -31,12 +37,25 @@ func (c *Connectors) answerPhrase(ctx context.Context, b connectors.Binding, m c
 	}
 	h := c.svc.triggers
 	if h == nil {
+		if code == "" {
+			if reply, ok := c.lapsedHoldReply(ctx, b, m, v); ok {
+				say(reply)
+				return true
+			}
+		}
 		return false
 	}
 	reply, handled := h.AnswerByPhrase(ctx, PhraseFrom{Binding: b.ID, Owner: b.Owner, Agent: b.AgentID,
-		Chat: m.Chat, Thread: m.Thread, Sender: m.SenderID, Username: m.SenderUsername, Roles: m.Roles, Voice: v}, verb, code)
+		Chat: m.Chat, Direct: m.Direct, Thread: m.Thread, Sender: m.SenderID, Username: m.SenderUsername, Roles: m.Roles, Voice: v}, verb, code)
 	if handled {
 		say(reply)
+		return true
 	}
-	return handled
+	if code == "" {
+		if reply, ok := c.lapsedHoldReply(ctx, b, m, v); ok {
+			say(reply)
+			return true
+		}
+	}
+	return false
 }

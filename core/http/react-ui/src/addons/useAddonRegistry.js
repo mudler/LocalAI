@@ -147,3 +147,15 @@ export function useAddonHomeCommands() {
   useEffect(() => (allowed ? acquire() : undefined), [acquire, allowed])
   return registry
 }
+
+// The listed add-ons, read when this is first mounted; empty while the list is
+// not read or the person has no add-ons. A page that needs a fact of the apps
+// list about an add-on it got from another API (the scopes of a login) reads
+// it here.
+export function useListedAddons() {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed : false
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+  return allowed && registry ? registry.apps : EMPTY_LIST
+}

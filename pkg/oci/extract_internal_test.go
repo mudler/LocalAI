@@ -141,6 +141,52 @@ var _ = Describe("OCI download staging", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(entries).To(BeEmpty())
 	})
+
+	It("falls back to the OS temp directory when the staging directory cannot be created", func() {
+		if os.Geteuid() == 0 {
+			Skip("permission bits do not restrict root")
+		}
+		root := GinkgoT().TempDir()
+		// A read-only parent stands in for a container's root-owned "/",
+		// where the default staging directory resolves to /downloading.
+		readOnlyParent := filepath.Join(root, "read-only")
+		Expect(os.Mkdir(readOnlyParent, 0555)).To(Succeed())
+		DeferCleanup(os.Chmod, readOnlyParent, os.FileMode(0755))
+		staging := filepath.Join(readOnlyParent, "downloading")
+		temp := filepath.Join(root, "temp")
+		Expect(os.Mkdir(temp, 0755)).To(Succeed())
+		GinkgoT().Setenv("TMPDIR", temp)
+		GinkgoT().Setenv("TMP", temp)
+		GinkgoT().Setenv("TEMP", temp)
+		destination := filepath.Join(root, "destination")
+		Expect(os.Mkdir(destination, 0755)).To(Succeed())
+		layer := buildLayer(tar.Header{
+			Name: "payload", Mode: 0644,
+			PAXRecords: map[string]string{"content": "downloaded bytes"},
+		})
+		image, err := mutate.AppendLayers(empty.Image, layer)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(ExtractOCIImage(context.Background(), image, "test/image", destination, staging, nil)).To(Succeed())
+		content, err := os.ReadFile(filepath.Join(destination, "payload"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(Equal("downloaded bytes"))
+		Expect(staging).NotTo(BeAnExistingFile())
+		leftovers, err := filepath.Glob(filepath.Join(temp, "localai-oci-*"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(leftovers).To(BeEmpty())
+	})
+
+	It("does not hide staging errors other than missing write access", func() {
+		root := GinkgoT().TempDir()
+		// A regular file where the staging directory should be is a
+		// misconfiguration, not a permissions problem: report it.
+		staging := filepath.Join(root, "downloading")
+		Expect(os.WriteFile(staging, nil, 0644)).To(Succeed())
+
+		_, err := createDownloadDir(staging)
+		Expect(err).To(MatchError(ContainSubstring("failed to create staging directory")))
+	})
 })
 
 var _ = Describe("Tar extraction fallback for link-less filesystems", func() {

@@ -72,7 +72,16 @@
     "save": "Save settings",
     "saving": "Saving...",
     "saved": "Saved. The next turn uses these settings.",
-    "saveFailed": "The settings could not be saved."
+    "saveFailed": "The settings could not be saved.",
+    "sliderOf": "{{name}} slider",
+    "reset": "Use the model default for {{name}}",
+    "hint": {
+      "temperature": "Higher values give more varied answers. From 0 to 2.",
+      "topP": "Picks from the most likely words that add up to this share. Above 0, up to 1.",
+      "topK": "Picks from this many of the most likely words. A whole number, 0 or more.",
+      "contextSize": "From 512 to 4194304 tokens.",
+      "effort": "Applies at once, from the next turn."
+    }
   },
   "empty": {
     "manageTitle": "Manage LocalAI by chatting",
@@ -138,7 +147,8 @@
     "notAChat": "This file is not a chat export.",
     "imported": "Imported \"{{title}}\".",
     "importFailed": "The chat could not be imported: {{message}}",
-    "modelChanged": "The next turn uses {{model}}."
+    "modelChanged": "The next turn uses {{model}}.",
+    "windowSet": "The context window of {{model}} is now {{window}} tokens."
   },
   "menu": {
     "trigger": "Chats",
@@ -256,7 +266,8 @@
       "upstream_unreachable": "The upstream address could not be reached.",
       "upstream": "The provider behind the model returned an error.",
       "timeout": "The model took too long to answer.",
-      "cancelled": "The turn was cancelled before the model answered."
+      "cancelled": "The turn was cancelled before the model answered.",
+      "interrupted": "The server restarted while it was answering."
     },
     "hint": {
       "model_backend_missing": "Pick another model, or ask an administrator to install the backend.",
@@ -271,7 +282,15 @@
       "timeout": "Retry, or use a smaller or faster model.",
       "cancelled": "Retry when you are ready."
     },
-    "openBackends": "Open Backends"
+    "openBackends": "Open Backends",
+    "titleInterrupted": "The reply was interrupted",
+    "resume": {
+      "waiting": "Going on in {{seconds}} seconds (try {{attempt}} of {{max}}).",
+      "resuming": "Going on from where it stopped.",
+      "server": "The server is going on from where it stopped.",
+      "exhausted": "It could not go on after {{max}} tries. Retry to try again.",
+      "stop": "Stop trying"
+    }
   },
   "slash": {
     "group": {
@@ -279,7 +298,8 @@
       "view": "View",
       "context": "Context",
       "skills": "Skills and agents",
-      "help": "Help"
+      "help": "Help",
+      "yours": "Yours"
     },
     "model": {
       "label": "Switch model",
@@ -364,7 +384,9 @@
       "builtin": "built-in",
       "addon": "add-on",
       "shared": "shared",
-      "yours": "yours"
+      "yours": "yours",
+      "prompt": "prompt",
+      "tool": "tool"
     },
     "collides": "only with /skill",
     "errors": {
@@ -386,7 +408,13 @@
       "desc": "Set a goal the chat keeps working on by itself",
       "clearDesc": "Remove the goal",
       "resumeDesc": "Go on with the goal"
-    }
+    },
+    "effort": {
+      "label": "Reasoning effort",
+      "desc": "Choose how hard the model thinks"
+    },
+    "userTool": "Use the {{tool}} tool.",
+    "unavailable": "tool not available"
   },
   "shortcuts": {
     "title": "Keyboard shortcuts",
@@ -473,7 +501,8 @@
       "personal": "Personal",
       "shared": "Shared",
       "folder": "Workspace",
-      "addon": "{{name}}"
+      "addon": "{{name}}",
+      "addonFrom": "from {{name}}"
     },
     "replacedBy": "Replaced by {{name}}",
     "fallback_one": "Built-in {{skills}} in use: the {{name}} add-on's own skill is off or not running here.",
@@ -508,8 +537,8 @@
   },
   "files": {
     "title": "Files in this chat",
-    "chip": "Files",
-    "chipTitle": "Files in this chat: what you attached and what the assistant created or changed",
+    "button": "Files",
+    "buttonTitle": "Files in this chat: what you attached and what the assistant created or changed",
     "close": "Close files",
     "emptyTitle": "No files in this chat yet",
     "emptyBody": "Drop files here to attach them to your next message. Files the assistant creates or changes show up here too.",
@@ -525,6 +554,9 @@
     "changedTag": "Edited",
     "changedTitle": "The assistant changed this file",
     "download": "Download {{name}}",
+    "downloadAll": "Download all files as ZIP",
+    "zipName": "chat-files.zip",
+    "zipError": "The files could not be downloaded as a ZIP.",
     "error": "The files of this chat could not be read.",
     "workingNote": "Scripts, data and logs the assistant made on the way. They are kept in this chat's work folder."
   },
@@ -842,6 +874,189 @@
       "job": "a job",
       "page": "a page",
       "other": "something else"
+    }
+  },
+  "connector": {
+    "header": "Messaging conversation",
+    "unknownSender": "Unknown sender",
+    "people": "People in this conversation",
+    "inThread": "Thread",
+    "openThread": "Open in the messaging app",
+    "where": {
+      "direct": "Direct message",
+      "channel": "Channel {{name}}",
+      "group": "Channel or group"
+    },
+    "standing": {
+      "owner": "Owner",
+      "verified": "Has a role",
+      "listed": "Listed person",
+      "channel": "Channel member",
+      "anyone": "Anyone"
+    },
+    "standingHelp": {
+      "owner": "Verified person: the owner controls this account.",
+      "verified": "Holds a role the owner gave rights to.",
+      "listed": "On the list of this connection.",
+      "channel": "Let in because the channel or group is on the list.",
+      "anyone": "Let in because the connection accepts anyone."
+    },
+    "threadEarlier": "Earlier in the thread ({{count}} messages)",
+    "threadCut": "Older messages of the thread are not shown.",
+    "note": {
+      "paired": "Verified with this bot",
+      "unsupported": "Message not read",
+      "too_long": "Message too long",
+      "no_upload": "Files not accepted",
+      "rate": "Too many messages",
+      "held_back": "Some tools were not offered to this sender",
+      "new_chat": "New chat started",
+      "refused": "Message refused",
+      "hold_waiting": "Waiting for a verified person to confirm",
+      "hold_confirmed": "Confirmed in the chat",
+      "hold_cancelled": "Cancelled in the chat",
+      "hold_expired": "Not confirmed in time",
+      "hold_failed": "Could not be done",
+      "other": "Note",
+      "why": "Why"
+    }
+  },
+  "connection": {
+    "lost": "Connection lost. Reconnecting."
+  },
+  "reasoning": {
+    "chip": "Effort",
+    "title": "Reasoning effort for this chat",
+    "note": "Applies from the next turn. None asks the model not to think."
+  },
+  "setup": {
+    "chip": "Setup",
+    "title": "Start new chats from a saved setup",
+    "edited": "edited",
+    "menuTitle": "Setups",
+    "empty": "No setups yet. Save the model, tools and effort you use as a setup.",
+    "active": "In use",
+    "noneOff": "Default tools",
+    "toolsOff_one": "{{count}} switch off",
+    "toolsOff_other": "{{count}} switches off",
+    "effort": "Effort {{level}}",
+    "saveAs": "Save current setup as…",
+    "manage": "Manage setups",
+    "agentReason": "A saved agent decides the model and tools of this chat.",
+    "modelMissing": "The model “{{model}}” of this setup is not installed. The current model stays.",
+    "line": {
+      "noTools": "No tools",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools"
+    },
+    "update": "Update “{{name}}”",
+    "saveNew": "Save as new…",
+    "reset": "Reset",
+    "nameLabel": "Setup name",
+    "namePlaceholder": "Name this setup",
+    "save": "Save",
+    "cancel": "Cancel",
+    "limit": "You can have up to 50 setups.",
+    "defaultName": "My default",
+    "savedToast": "Saved this chat setup as “{{name}}”. New chats start from it.",
+    "rename": "Rename",
+    "manageTitle": "Manage setups",
+    "manageNote": "The default setup is the one new chats start from. It follows the setup you sent your last message with.",
+    "manageEmpty": "No setups yet.",
+    "done": "Done",
+    "default": "Default",
+    "makeDefault": "Make default",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "renameLabel": "Name of the setup",
+    "remove": "Delete",
+    "removeConfirm": "Delete “{{name}}”?",
+    "removeYes": "Delete",
+    "noModel": "No model"
+  },
+  "live": {
+    "button": "Live",
+    "title": "Talk to this chat hands-free",
+    "mode": "Standard",
+    "waiting": "Waiting for the reply",
+    "reason": {
+      "insecure": {
+        "short": "Needs HTTPS or localhost",
+        "detail": "Your browser only gives microphone access over HTTPS, localhost or 127.0.0.1. Open this page from one of those addresses to use Live."
+      },
+      "no-mic": {
+        "short": "No microphone available",
+        "detail": "This browser does not offer a microphone to this page. Try another browser to use Live."
+      }
+    },
+    "state": {
+      "off": "Off",
+      "starting": "Waiting for browser permission",
+      "listening": "Listening",
+      "hearing": "Hearing you",
+      "transcribing": "Transcribing",
+      "thinking": "Thinking",
+      "speaking": "Speaking",
+      "blocked": "Voice is waiting for you",
+      "paused": "Paused",
+      "error": "Live needs attention"
+    },
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "stop": "Stop",
+    "typeInstead": "Type instead",
+    "end": "End Live",
+    "retry": "Retry",
+    "play": "Play",
+    "blocked": "Your browser blocked the voice. Press Play to hear the reply.",
+    "hidden": "Live is paused while this tab is in the background. It continues when you come back.",
+    "error": {
+      "denied": "Microphone access was blocked. Allow the microphone for this site in your browser, then press Retry. You can also type instead.",
+      "unavailable": "The microphone could not be opened. Check that it is connected and not in use by another app, then press Retry.",
+      "transcribe": "Your speech could not be turned into text. Check the transcription model, then press Retry.",
+      "send": "Your message could not be sent to the chat. Press Retry to listen again.",
+      "turn": "The chat's reply could not be read, so it was not spoken. Press Retry to listen again.",
+      "speech": "The reply voice could not be played. Check the speech model, then press Retry.",
+      "generic": "Live could not continue."
+    },
+    "setup": {
+      "title": "Set up Live",
+      "description": "Live needs one model to turn your speech into text and one model to speak. Both run on this LocalAI instance.",
+      "part": {
+        "stt": "Speech to text",
+        "tts": "Voice"
+      },
+      "hint": {
+        "stt": "Turns what you say into text.",
+        "tts": "Reads the reply aloud."
+      },
+      "install": "Install",
+      "installing": "Installing",
+      "installLabel": "Install {{model}}",
+      "retryLabel": "Retry the install of {{model}}",
+      "installed": "Installed",
+      "progress": "Install progress of {{model}}",
+      "failed": "The install of {{model}} failed.",
+      "failedGeneric": "The install could not start.",
+      "adminTitle": "An administrator must install these models.",
+      "adminNote": "Ask an administrator of this instance to install the models above. Live works when both are installed.",
+      "working": "Installing {{models}}",
+      "ready": "Both models are installed. Live is ready.",
+      "start": "Start Live",
+      "close": "Close",
+      "notShown": "Installed, but the model did not show up. Retry or reload."
+    }
+  },
+  "readAloud": {
+    "read": "Read aloud",
+    "stop": "Stop reading",
+    "ask": "Your default text-to-speech model is set to ask each time. Pick a model in Defaults to read aloud.",
+    "none": "No text-to-speech model is installed.",
+    "missing": "Your default text-to-speech model is not installed. Pick another in Defaults.",
+    "failed": "This could not be read aloud.",
+    "omitted": {
+      "code": "Code block omitted.",
+      "table": "Table omitted."
     }
   }
 }

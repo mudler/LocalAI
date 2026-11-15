@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -29,6 +30,54 @@ type fakeAddons struct {
 	// userSettings are the per-person settings the add-ons declare.
 	userSettings []studio.AddonUserSettingSet
 	settingsErr  error
+	// held, when set, makes a call of the tool it names leave a write waiting,
+	// as the broker does for a connection that asks first. The fields below
+	// stand for the owner's proposal store.
+	held      *addontools.HeldProposal
+	heldTool  string
+	heldState map[string]string
+	heldErr   *studio.AddonHoldFailure
+	confirmed []string
+	cancelled []string
+}
+
+// HeldState, ConfirmHeld and CancelHeld make the fake a studio.AddonHolds.
+func (f *fakeAddons) HeldState(_ context.Context, _, id string) (studio.AddonHeld, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	st, ok := f.heldState[id]
+	if !ok {
+		st = "pending"
+	}
+	return studio.AddonHeld{State: st, Digest: f.held.Digest}, nil
+}
+
+func (f *fakeAddons) ConfirmHeld(_ context.Context, _, id, digest string) (studio.AddonHeldResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if digest != f.held.Digest {
+		return studio.AddonHeldResult{}, &studio.AddonHoldFailure{Reason: "forbidden"}
+	}
+	if f.heldErr != nil {
+		return studio.AddonHeldResult{}, f.heldErr
+	}
+	if f.heldState == nil {
+		f.heldState = map[string]string{}
+	}
+	f.heldState[id] = "applied"
+	f.confirmed = append(f.confirmed, id)
+	return studio.AddonHeldResult{Applied: true, Link: "https://example.test/issues/7", ID: "#7"}, nil
+}
+
+func (f *fakeAddons) CancelHeld(_ context.Context, _, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.heldState == nil {
+		f.heldState = map[string]string{}
+	}
+	f.heldState[id] = "cancelled"
+	f.cancelled = append(f.cancelled, id)
+	return nil
 }
 
 // AddonUserSettings makes the fake a studio.AddonUserSettingsLister.
@@ -49,6 +98,10 @@ func (f *fakeAddons) Call(ctx context.Context, user, conv, name string, args jso
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, fmt.Sprintf("%s|%s|%s|%s", user, conv, name, args))
 	f.bindings = append(f.bindings, gateway.ConnectionOverride(ctx))
+	if f.held != nil && name == f.heldTool {
+		addontools.OutcomeFrom(ctx).Held(*f.held)
+		return "The add-on proposed a change. Nothing has been changed.", nil
+	}
 	return "result of " + name, nil
 }
 

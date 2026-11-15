@@ -17,9 +17,9 @@
 .tbl-link:hover { text-decoration: underline; }
 .tbl-link:focus-visible, .tbl-tab:focus-visible, .tbl-sort:focus-visible, .tbl-input:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
 .tbl-loading { display: inline-flex; align-items: center; gap: var(--dk-space-2, 8px); color: var(--dk-muted); padding: var(--dk-space-3, 12px) 0; }
-
+/* Lists of databases and columns */
 /* Lists of databases and people */
-.tbl-dblist, .tbl-grants, .tbl-columns, .tbl-tabs { list-style: none; margin: 0; padding: 0; }
+.tbl-dblist, .tbl-columns, .tbl-tabs { list-style: none; margin: 0; padding: 0; }
 .tbl-dblist { display: flex; flex-direction: column; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1, 4px); }
 .tbl-db { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dk-space-3, 12px); padding: var(--dk-space-3, 12px) var(--dk-space-4, 16px); }
 .tbl-db + .tbl-db { border-top: 1px solid var(--dk-edge); }
@@ -105,7 +105,7 @@ a.tbl-db__name:hover { text-decoration: underline; }
 .tbl-banner--warn { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .tbl-banner--error { background: var(--dk-error-wash); color: var(--dk-error-text); }
 
-/* Schema and sharing */
+/* Schema */
 .tbl-schema { display: flex; flex-direction: column; gap: var(--dk-space-3, 12px); padding-top: var(--dk-space-3, 12px); border-top: 1px solid var(--dk-edge); }
 .tbl-schema__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dk-space-2, 8px); }
 .tbl-columns { display: flex; flex-direction: column; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1, 4px); }
@@ -113,10 +113,6 @@ a.tbl-db__name:hover { text-decoration: underline; }
 .tbl-column + .tbl-column { border-top: 1px solid var(--dk-edge); }
 .tbl-column__name { font-weight: var(--dk-weight-semibold, 600); overflow-wrap: anywhere; }
 .tbl-column .tbl-toolbar__group { margin-left: auto; }
-.tbl-grants { display: flex; flex-direction: column; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1, 4px); }
-.tbl-grant { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2, 8px); padding: var(--dk-space-2, 8px) var(--dk-space-3, 12px); }
-.tbl-grant + .tbl-grant { border-top: 1px solid var(--dk-edge); }
-.tbl-grant__name { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
 .tbl-revision { font-size: var(--dk-text-12, 12px); }
 
 @media (max-width: 520px) {

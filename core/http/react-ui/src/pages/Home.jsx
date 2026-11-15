@@ -10,6 +10,8 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import HomeConnect from '../components/HomeConnect'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
+import { useChatEgress } from '../hooks/useChatEgress'
+import { useChatSandboxProfile } from '../hooks/useChatSandboxProfile'
 // eslint-disable-next-line no-unused-vars
 import { SlashHelpCard } from '../components/chat/CommandCards'
 import { parseInvocation } from '../utils/slashCommands'
@@ -17,7 +19,22 @@ import { parseInvocation } from '../utils/slashCommands'
 import { ReadyLine } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
+// eslint-disable-next-line no-unused-vars
+import ReasoningChips from '../components/chat/ReasoningChips'
+import { settingsWithEffort } from '../utils/chatSettings'
+import { useSetups } from '../hooks/useSetups'
+import { captureSetup, cleanName, isEdited } from '../utils/setups'
+import { toolsOnLabels } from '../utils/setupSummary'
+// eslint-disable-next-line no-unused-vars
+import SetupChip from '../components/chat/SetupChip'
+// eslint-disable-next-line no-unused-vars
+import SetupStatusLine, { SetupReason } from '../components/chat/SetupStatusLine'
+// eslint-disable-next-line no-unused-vars
+import ManageSetups from '../components/chat/ManageSetups'
 import { useChatComposer } from '../hooks/useChatComposer'
+import { liveBlockedReason } from '../hooks/useLive'
+// eslint-disable-next-line no-unused-vars
+import LiveButton from '../components/chat/LiveButton'
 import { useComposerDeparture } from '../hooks/useComposerTransition'
 // eslint-disable-next-line no-unused-vars
 import HomeMemoryStrip from '../components/home/HomeMemoryStrip'
@@ -26,9 +43,17 @@ import HomeResume from '../components/home/HomeResume'
 // eslint-disable-next-line no-unused-vars
 import HomeFirstRun from '../components/home/HomeFirstRun'
 // eslint-disable-next-line no-unused-vars
+import StarterModels from '../components/StarterModels'
+// eslint-disable-next-line no-unused-vars
 import HomeWidgets from '../components/wellknown/HomeWidgets'
 // eslint-disable-next-line no-unused-vars
+import PageAreaHost from '../components/wellknown/PageAreaHost'
+// eslint-disable-next-line no-unused-vars
 import HomeExamples, { useExamplesGone } from '../components/wellknown/HomeExamples'
+// eslint-disable-next-line no-unused-vars
+import BackgroundLayer from '../components/wellknown/BackgroundLayer'
+// eslint-disable-next-line no-unused-vars
+import { AssistantAvatar, useIdentity, useUiString } from '../components/wellknown/Identity'
 import { useWellKnown } from '../hooks/useWellKnown'
 import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
@@ -72,6 +97,10 @@ export default function Home() {
   const { t: tw } = useTranslation('workspace')
   const { t: tc } = useTranslation('chats')
   const { t: tch } = useTranslation('chat')
+  // How the assistant shows itself (persona.json, the headline of home.json)
+  // and the text overrides of ui.json.
+  const identity = useIdentity()
+  const uiString = useUiString()
   // The command list that /help drew under the composer, or null.
   const [help, setHelp] = useState(null)
   const { isAdmin, hasFeature, user } = useAuth()
@@ -82,7 +111,10 @@ export default function Home() {
   const [modelsFailed, setModelsFailed] = useState(false)
   const configuredModelsRef = useRef(configuredModels)
   configuredModelsRef.current = configuredModels
-  const [loadedModels, setLoadedModels] = useState([])
+  // The models in memory, or null while the server has not said: GET /system
+  // is for administrators, and nobody else may read it.
+  const [loadedModels, setLoadedModels] = useState(null)
+  const loadedList = useMemo(() => loadedModels || [], [loadedModels])
   // An old chat address names a model (/app/chats?model=…, /app/chat/<model>)
   // and lands here: the picker starts on it.
   const [searchParams] = useSearchParams()
@@ -95,8 +127,158 @@ export default function Home() {
     draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files, canAgents: hasFeature('agents'),
     initialModel: searchParams.get('model') || '',
   })
+  // The sandbox profile and the network of the new chat: picked here, saved
+  // with the chat when it is created (createChat).
+  const sandboxProfile = useChatSandboxProfile(null, 0)
+  const egress = useChatEgress(null, 0, { model: composer.draftModel, agentId: composer.agentId, profilesApply: Boolean(sandboxProfile.applies) })
+  const { saveDraft: saveProfileDraft } = sandboxProfile
+  const { saveDraft: saveNetworkDraft } = egress
   const { drafts, effectiveModel: selectedModel, draftModel, agentId, switches } = composer
   const { text: message, setText: setMessage, files } = drafts
+  // The reasoning effort picked before the chat exists; the new chat gets it
+  // as a setting before the first message goes.
+  const [draftEffort, setDraftEffort] = useState('')
+
+  // Setups (LocalAI/setups.json): a named model, tool switches and effort that
+  // a new chat starts from. The default one is applied once when the list is
+  // read; the one the last message was sent with becomes the default. A saved
+  // agent decides the chat, so then no setup is applied and the chip is off.
+  const setupsOn = hasFeature('chats')
+  const setups = useSetups({ enabled: setupsOn })
+  const [activeSetupId, setActiveSetupId] = useState('')
+  const [missingModel, setMissingModel] = useState(null)
+  const [naming, setNaming] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
+  const [settling, setSettling] = useState(false)
+  // The switches as the composer showed them once the setup was loaded. A tool
+  // the setup names but this server does not list is not in them, so comparing
+  // with this (not with the setup's lists) keeps such a setup from being "edited".
+  const [baseTools, setBaseTools] = useState(null)
+  const setupsRef = useRef(setups)
+  setupsRef.current = setups
+  const agentPicked = !!composer.pickedAgent
+  const activeSetup = !agentPicked ? setups.list.find((s) => s.id === activeSetupId) : undefined
+
+  const applySetup = useCallback((s) => {
+    const installed = composer.models.some((m) => m.id === s.model)
+    if (installed) {
+      composer.setDraftModel(s.model)
+      setMissingModel(null)
+    } else {
+      setMissingModel(s.model ? { model: s.model, kept: selectedModel } : null)
+    }
+    setDraftEffort(s.effort || '')
+    // The lists of the switches are read again after this; until they are, the
+    // composer still shows the old ones and must not be called edited.
+    setBaseTools(null)
+    if (switches.draft) setSettling(true)
+    switches.applyDraftTools(s.tools || null)
+    setActiveSetupId(s.id)
+  }, [composer, selectedModel, switches])
+
+  // The lists answer the load of a setup (switches.listsReady, errors count);
+  // the switches they show then are the base of "edited".
+  useEffect(() => {
+    if (!settling || !switches.listsReady) return
+    // A switch changed by hand while the lists were being read is in the
+    // choices already: the base is then the setup's own tools, so that change
+    // shows as an edit instead of being taken as part of the setup.
+    setBaseTools(switches.editsSinceApply() > 0 ? null : { tools: switches.draftSwitches() })
+    setSettling(false)
+  }, [settling, switches])
+
+  // The model in use when the setup's own is missing may still be chosen (the
+  // picker picks one once the list is read): it is the one that stays.
+  useEffect(() => {
+    if (missingModel && !missingModel.kept && selectedModel) setMissingModel({ ...missingModel, kept: selectedModel })
+  }, [missingModel, selectedModel])
+
+  const setupsApplied = useRef(false)
+  useEffect(() => {
+    if (setupsApplied.current || !setups.available || composer.modelsLoading || composer.models.length === 0) return
+    setupsApplied.current = true
+    if (searchParams.get('model') || agentPicked) return
+    const s = setups.list.find((x) => x.id === setups.defaultId)
+    if (s) applySetup(s)
+  }, [setups.available, setups.list, setups.defaultId, composer.modelsLoading, composer.models.length, searchParams, agentPicked, applySetup])
+
+  // A kept model that is missing from the installed ones stands for the setup's
+  // own while it is still the one in use, so the line is not called edited.
+  const keptMissing = !!missingModel && selectedModel === missingModel.kept
+  const setupModel = keptMissing ? missingModel.model : selectedModel
+  const setupEdited = !!activeSetup && !settling
+    && isEdited({ ...activeSetup, tools: baseTools ? baseTools.tools : activeSetup.tools }, { model: setupModel, tools: switches.draftSwitches(), effort: draftEffort })
+  // A saved agent decides the tools and the effort of its chat: the switches
+  // and the effort a setup put in the draft must not go with it. Edits the
+  // person made themselves stay. When the agent is dropped the setup comes back.
+  const wasEdited = useRef(false)
+  if (!agentPicked) wasEdited.current = setupEdited
+  const agentReset = useRef(false)
+  const agentBefore = useRef(false)
+  useEffect(() => {
+    const before = agentBefore.current
+    agentBefore.current = agentPicked
+    if (agentPicked === before) return
+    const own = setups.list.find((x) => x.id === activeSetupId)
+    if (agentPicked) {
+      // wasEdited is the last value from before the agent: the render of the
+      // agent pick does not touch it.
+      agentReset.current = !!own && !wasEdited.current
+      if (agentReset.current) {
+        switches.applyDraftTools(null)
+        setDraftEffort('')
+      }
+    } else if (agentReset.current && own) {
+      agentReset.current = false
+      applySetup(own)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only a pick or a drop of the agent runs it
+  }, [agentPicked])
+
+  const captureNow = (name) => captureSetup({ name, model: setupModel, tools: switches.draftSwitches(), effort: draftEffort })
+  // What the Tools badge counts: built-ins, add-ons, servers and connectors
+  // that are on and usable, named as the Tools menu names them.
+  const toolLabels = toolsOnLabels(switches, (b) => tc(`tools.builtin.${b.group}`, { defaultValue: b.title || b.group }))
+
+  useEffect(() => {
+    if (!setups.error) return
+    addToast(setups.error === 'limit' ? tch('setup.limit') : setups.error, 'error')
+  }, [setups.error, addToast, tch])
+
+  const updateSetup = async () => {
+    if (!activeSetup) return
+    const tools = switches.draftSwitches()
+    if (await setups.update(activeSetup.id, captureNow(activeSetup.name))) setBaseTools({ tools })
+  }
+  const saveSetupAs = async (name) => {
+    const saved = await setups.add(captureNow(name))
+    if (!saved) return false
+    setNaming(false)
+    setMissingModel(null)
+    setBaseTools({ tools: switches.draftSwitches() })
+    setActiveSetupId(saved.id)
+    return true
+  }
+  // After a message went: the first one saves the composer as "My default";
+  // later ones make the setup in use the default.
+  const rememberRef = useRef(null)
+  const rememberSetup = async () => {
+    const s = setupsRef.current
+    if (!s.available || agentPicked) return
+    if (!s.exists) {
+      // Only while there is no file: a person who deleted every setup, or an
+      // invalid file, is left as it is. The check is made again on the file the
+      // write goes on, so a second tab does not add a second one.
+      const saved = await s.addFirst(captureNow(tch('setup.defaultName')))
+      if (!saved) return
+      addToast(tch('setup.savedToast', { name: saved.name }), 'success', undefined, {
+        action: { label: tch('setup.rename'), onClick: () => navigate('/app', { state: { manageSetups: true } }) },
+      })
+    } else if (activeSetup && activeSetup.id !== s.defaultId) {
+      await s.setDefault(activeSetup.id)
+    }
+  }
+  rememberRef.current = rememberSetup
   const [sending, setSending] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
@@ -112,6 +294,13 @@ export default function Home() {
   const pickerRef = useRef(null)
   const stripRef = useRef(null)
   const location = useLocation()
+  // The Rename action of the toast lands on Home with the sheet open.
+  useEffect(() => {
+    if (location.state?.manageSetups && setups.available) {
+      setManageOpen(true)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location, navigate, setups.available])
   // An add-on address opened while add-ons are off on the server lands here
   // (see AddonsShell). The notice
   // says why, and how to get the add-on.
@@ -195,7 +384,7 @@ export default function Home() {
   const fetchSystemInfo = useCallback(async () => {
     try {
       const [sysInfo, v1Models] = await Promise.all([
-        systemApi.info().catch(() => null),
+        isAdmin ? systemApi.info().catch(() => null) : null,
         modelsApi.listV1().catch(() => null),
       ])
       if (sysInfo?.loaded_models) {
@@ -213,7 +402,7 @@ export default function Home() {
     } catch {
       if (configuredModelsRef.current === null) setModelsFailed(true)
     }
-  }, [])
+  }, [isAdmin])
 
   usePolling(fetchSystemInfo, 5000)
 
@@ -237,6 +426,25 @@ export default function Home() {
       run()
     }
   }, [])
+  // The new chat of Send and of Live: the chosen model, agent and drafted
+  // switches, then the reasoning effort in its settings.
+  const createChat = useCallback(async () => {
+    const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+    const profileError = await saveProfileDraft(chat.id)
+    if (profileError) addToast(tc(`sandboxProfile.${profileError}`), 'error')
+    const networkError = await saveNetworkDraft(chat.id)
+    if (networkError) addToast(networkError, 'error')
+    if (draftEffort) {
+      const settings = settingsWithEffort(null, draftEffort)
+      try {
+        await chatsApi.update(chat.id, { settings })
+        chat.settings = settings
+      } catch (e) {
+        addToast(e.message || tch('settings.saveFailed'), 'error')
+      }
+    }
+    return chat
+  }, [draftModel, agentId, draftEffort, switches, addToast, tch, tc, saveProfileDraft, saveNetworkDraft])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
     let text = (own ? message : override).trim()
@@ -264,9 +472,10 @@ export default function Home() {
     setSending(true)
     let id = ''
     try {
-      const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+      const chat = await createChat()
       id = chat.id
       const res = await chatsApi.send(id, text, attached, command)
+      rememberRef.current?.().catch(() => {})
       // The chat page draws the message from what is known here, so it opens
       // with the message in it. The draft goes when Home closes: emptied
       // earlier, the box would show its placeholder for a frame on the way.
@@ -281,7 +490,38 @@ export default function Home() {
       addToast(err.message || tc('errors.send'), 'error')
       setSending(false)
     }
-  }, [message, files, sending, selectedModel, draftModel, agentId, switches, composer.agents, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff])
+  }, [message, files, sending, selectedModel, composer.agents, switches, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff, createChat])
+
+  // Live: the chat is created as Send creates it, without a message, and opens
+  // with state.live; the chat page starts Live there (Chat.jsx). The text
+  // and files typed on Home stay in their draft on purpose (nothing was sent,
+  // so nothing is lost); only the drafted switches reset, as they went with
+  // the new chat. The click is the gesture the browser
+  // needs for the microphone and the voice; the in-app navigation keeps it.
+  const goLive = useCallback(async () => {
+    if (sending) return
+    if (!selectedModel) {
+      addToast(t('input.selectModelToast'), 'warning')
+      return
+    }
+    if (!beginSend()) return
+    setSending(true)
+    try {
+      const chat = await createChat()
+      rememberRef.current?.().catch(() => {})
+      sentRef.current = () => switches.resetDraft()
+      navigate(`/app/chats/${encodeURIComponent(chat.id)}`, { state: { live: true } })
+    } catch (err) {
+      failSend()
+      addToast(err.message || tc('errors.send'), 'error')
+      setSending(false)
+    }
+  }, [sending, selectedModel, switches, addToast, navigate, t, tc, beginSend, failSend, createChat])
+  const liveReason = liveBlockedReason()
+  const liveHome = useMemo(
+    () => ({ available: liveReason === '', unavailableReason: liveReason, start: goLive }),
+    [liveReason, goLive],
+  )
 
   // An empty new chat on the chosen model. The state marks it as a hand-off:
   // /app/chats opened as a bare address comes back here.
@@ -326,13 +566,13 @@ export default function Home() {
   const handleStopAll = async () => {
     setConfirmDialog({
       title: t('stopDialog.stopAllTitle'),
-      message: t('stopDialog.stopAllMessage', { count: loadedModels.length }),
+      message: t('stopDialog.stopAllMessage', { count: loadedList.length }),
       confirmLabel: t('stopDialog.stopAllConfirm'),
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
         try {
-          await Promise.all(loadedModels.map(m => backendControlApi.shutdown({ model: m.id })))
+          await Promise.all(loadedList.map(m => backendControlApi.shutdown({ model: m.id })))
           addToast(t('stopDialog.allStoppedToast'), 'success')
           setTimeout(fetchSystemInfo, 1000)
         } catch (err) {
@@ -397,10 +637,11 @@ export default function Home() {
   const modelsLoading = configuredModels === null && !modelsFailed
   const hasModels = configuredModels === null || configuredModels.length > 0
   const firstRun = configuredModels !== null && configuredModels.length === 0
+  const setupsShown = setupsOn && !firstRun && setups.available
   const examplesOn = chatsOn && configuredModels !== null && !firstRun
   const examplesGone = useExamplesGone(examplesOn)
-  const loadedCount = loadedModels.length
-  const loadedIds = useMemo(() => new Set(loadedModels.map(m => m.id)), [loadedModels])
+  const loadedCount = loadedList.length
+  const loadedIds = useMemo(() => new Set(loadedList.map(m => m.id)), [loadedList])
 
   // Staging a model onto a worker is the one load this page can see: the
   // operations list reports it. An OOM on a single host surfaces in the chat.
@@ -485,6 +726,15 @@ export default function Home() {
 
   // ----- Non-admin, nothing installed -------------------------------------
 
+  // The hint of the empty box: the override of ui.json strings, else the
+  // assistant's name when there is one, else the composer's own.
+  const ownName = !agentPicked && identity.name
+  const homePlaceholder = firstRun
+    ? t('input.placeholderFirstRun')
+    : selectedModel
+      ? uiString('composer.placeholder', ownName ? tw('identity.messageName', { name: identity.name }) : undefined, { model: selectedModel })
+      : undefined
+
   if (firstRun && !isAdmin) {
     return (
       <div className="home-page">
@@ -494,6 +744,7 @@ export default function Home() {
             <h1>{t('wizard.noModelsTitle')}</h1>
             <p>{t('wizard.noModelsBody')}</p>
           </div>
+          <StarterModels />
           <div className="home-wizard-actions">
             <a className="home-secondary" href={DOCS_URL} target="_blank" rel="noopener noreferrer">
               <Icon name="book" /> {t('quickLinks.documentation')}
@@ -507,9 +758,13 @@ export default function Home() {
 
   return (
     <div className="home-page" data-depart={depart || undefined}>
+      {chatsOn && <BackgroundLayer bgKey="homeBackground" testId="home-bg" />}
       <div className="home-col">
         <header className="home-header">
-          <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
+          {!agentPicked && (identity.avatar || identity.name) && (
+            <AssistantAvatar avatar={identity.avatar} name={identity.name} size="md" testId="home-assistant-avatar" />
+          )}
+          <h1 className="home-greeting" data-testid="home-headline">{identity.headline || t(`greeting.${greetingKey()}`)}</h1>
           <span className="home-date">{dateLabel}</span>
         </header>
 
@@ -525,19 +780,35 @@ export default function Home() {
           {!chatServer.files && <p className="cx-notice" role="note">{chatServer.filesReason || tc('attach.off')}</p>}
           <ChatComposer
             composer={composer}
+            sandboxProfile={sandboxProfile}
+            egress={egress}
             filesOn={chatServer.files}
             loadedIds={loadedIds}
             imageModel={chatServer.imageModel}
             pickerRef={pickerRef}
+            lead={setupsShown && (
+              <SetupChip
+                list={setups.list}
+                activeId={activeSetup?.id || ''}
+                edited={setupEdited}
+                inactiveReason={agentPicked ? tch('setup.agentReason') : ''}
+                reasonId="setup-chip-reason"
+                onPick={(s) => { setNaming(false); applySetup(s) }}
+                onSaveAs={() => setNaming(true)}
+                onManage={() => setManageOpen(true)}
+              />
+            )}
+            chips={<ReasoningChips effort={draftEffort} onEffort={setDraftEffort} />}
             pickerDisabled={firstRun}
             pickerPlaceholder={firstRun ? t('picker.noneSelected') : undefined}
             onDictateError={(m) => addToast(m, 'error')}
+            live={<LiveButton live={liveHome} />}
             onSubmit={doSubmit}
             canSend={canSend}
             sending={sending}
             sendTitle={sendTitle}
             textareaRef={textareaRef}
-            placeholder={firstRun ? t('input.placeholderFirstRun') : undefined}
+            placeholder={homePlaceholder}
             slashSurface="home"
             slashContext={slashContext}
             onRunAction={runAction}
@@ -553,7 +824,45 @@ export default function Home() {
           )}
           {addonUnavailable && <Callout tone="info" role="status">{t('notice.appUnavailable')}</Callout>}
           {help && <SlashHelpCard entries={help.entries} skills={help.skills} onClose={() => setHelp(null)} />}
-          {!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />}
+          {setupsShown && !agentPicked && (activeSetup || naming) ? (
+            <SetupStatusLine
+              active={activeSetup || null}
+              edited={setupEdited}
+              model={selectedModel}
+              toolLabels={toolLabels}
+              effort={draftEffort}
+              warm={loadedIds.has(selectedModel)}
+              warning={keptMissing ? tch('setup.modelMissing', { model: missingModel.model }) : ''}
+              naming={naming}
+              onUpdate={updateSetup}
+              onStartNaming={() => setNaming(true)}
+              onCancelNaming={() => setNaming(false)}
+              onSaveAs={(name) => saveSetupAs(cleanName(name))}
+              onReset={() => activeSetup && applySetup(activeSetup)}
+            />
+          ) : (!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />)}
+          {setupsShown && agentPicked && (
+            <SetupReason
+              id="setup-chip-reason"
+              text={tch('setup.agentReason')}
+              onManage={setups.list.length > 0 ? () => setManageOpen(true) : undefined}
+            />
+          )}
+          {manageOpen && setupsShown && (
+            <ManageSetups
+              list={setups.list}
+              defaultId={setups.defaultId}
+              onClose={() => setManageOpen(false)}
+              onRename={setups.rename}
+              onRemove={async (id) => {
+                const res = await setups.remove(id)
+                if (res && id === activeSetupId) setActiveSetupId('')
+                return res
+              }}
+              onMove={setups.move}
+              onSetDefault={setups.setDefault}
+            />
+          )}
           {examplePicked && (
             <p className="wk-ex__hint" data-testid="home-example-hint">
               <Icon name="info" /> {tw('discovery.ex.inComposer')}
@@ -561,6 +870,14 @@ export default function Home() {
           )}
           <span className="sr-only" aria-live="polite">{liveNote}</span>
         </div>
+
+        {/* The page area of home.json: a page below the composer, under a strip
+            the shell draws. A failure of the page replaces only this area. */}
+        {chatsOn && !firstRun && (
+          <Suspense fallback={null}>
+            <PageAreaHost wk={homeFile} />
+          </Suspense>
+        )}
 
         {/* The examples and the widgets read the pages strings, which load
             when they first show. Their own boundary keeps that wait to them:

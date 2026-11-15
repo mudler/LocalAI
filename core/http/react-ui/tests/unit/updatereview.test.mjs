@@ -3,6 +3,9 @@ import assert from 'node:assert/strict'
 import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
 import { createUpgradeStore } from '../../src/utils/addonUpgrades.js'
 import { AddonsError } from '../../src/utils/addonsApi.js'
+import { classifyResponse } from '../../src/components/catalog/catalogState.js'
+import { updateErrorKey } from '../../src/components/addons/updateState.js'
+import { describeError } from '../../src/components/addons/errors.js'
 
 // The add-on upgrade store: upgrades started from the add-ons page run here, so
 // they go on when the page is left and show in Activity. The selection of what
@@ -17,6 +20,19 @@ test('add-ons: the words of a failed upgrade follow the key the store reports', 
   assert.equal(upgradeFailureWords('canceled', tr), 'updates.class.canceled')
   assert.equal(upgradeFailureWords('upgrade_failed', tr), 'updates.errors.upgrade_failed')
   assert.equal(upgradeFailureWords('', tr), 'updates.errors.unavailable')
+})
+
+test('an operation the owner does not know is its own kind and never the administrator-only text', () => {
+  const unknown = classifyResponse(404, { error: { type: 'operation_not_found', message: 'x' } })
+  assert.equal(unknown.kind, 'operation_not_found')
+  assert.equal(updateErrorKey(unknown), 'operationNotFound')
+  assert.equal(upgradeFailureWords('operationNotFound', tr), 'updates.errors.operationNotFound')
+  assert.equal(describeError(unknown, tr), 'errors.operationNotFound')
+  // A real refusal of the role keeps the denied words.
+  const refused = classifyResponse(403, { error: { type: 'addon_error', message: '' } })
+  assert.equal(updateErrorKey(refused), 'denied')
+  assert.equal(describeError(refused, tr), 'errors.denied')
+  assert.equal(classifyResponse(404, { error: { type: 'other' } }).kind, 'unavailable')
 })
 
 // A fake owner: upgrade() decides each add-on's fate; installed() reports the
@@ -218,6 +234,34 @@ test('upgrade observers resume the same ID after reload and isolate account chan
  assert.equal(values.has('addon-upgrades:alice'), false)
 })
 
+
+test('a saved upgrade whose operation the owner no longer knows is cleared, with its own words', async () => {
+  const values = new Map()
+  const storage = { getItem: k => values.get(k), setItem: (k, v) => values.set(k, v), removeItem: k => values.delete(k) }
+  const gone = async () => { throw new AddonsError({ kind: 'operation_not_found', status: 404, type: 'operation_not_found' }) }
+  const api = { updates: { upgrade: async () => ({ phase: 'accepted' }) }, operationStatus: async () => ({ phase: 'running', stage: 'backing-up' }), installed: async () => [] }
+  const first = store()
+  first.bind(api, 'alice', storage)
+  await first.start(api, pendingAddon('notes'))
+  assert.equal(JSON.parse(values.get('addon-upgrades:alice')).length, 1)
+  // After a new login the saved operation is read and is not found.
+  let reads = 0
+  const later = { ...api, operationStatus: async (...args) => { reads += 1; return gone(...args) } }
+  const reloaded = store()
+  reloaded.bind(later, 'alice', storage)
+  await new Promise(r => setImmediate(r))
+  assert.equal(reads, 1, 'the unknown operation is read once, not polled')
+  assert.equal(reloaded.getSnapshot().live.length, 0)
+  assert.deepEqual(JSON.parse(values.get('addon-upgrades:alice')), [])
+  // A started upgrade that turns unknown reports the neutral words, and the add-on can be upgraded again.
+  const fresh = store()
+  fresh.bind({ ...api, operationStatus: gone }, 'alice', storage)
+  const out = await fresh.start({ ...api, operationStatus: gone }, pendingAddon('notes'))
+  assert.equal(out.ok, false)
+  assert.equal(out.outcome, 'operation_not_found')
+  assert.equal(out.message, 'operationNotFound')
+  assert.equal(fresh.getSnapshot().live.length, 0)
+})
 
 test('account change gives Bob a fresh action identity and restores Alice unknown identity on return', async () => {
   const values = new Map()

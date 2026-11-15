@@ -58,6 +58,66 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(got.Created.Equal(l.Created)).To(BeTrue(), "created = %v", got.Created)
 	})
 
+	It("keeps the state of a wait through Add, Get and Update", func() {
+		l := sample("w1", "u1", "c1", 0)
+		l.Watch = &loops.Watch{Tool: "list_downloads", Args: []byte(`{"a":1}`), Mode: loops.UntilMatch, Pattern: "done",
+			Deadline: base.Add(time.Hour), MaxErrors: 3, Then: "move it", Checks: 2, BaseHash: "h", BaseOut: "out"}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "w1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Watch).NotTo(BeNil())
+		Expect(got.Watch.Tool).To(Equal("list_downloads"))
+		Expect(string(got.Watch.Args)).To(Equal(`{"a":1}`))
+		Expect(got.Watch.Pattern).To(Equal("done"))
+		Expect(got.Watch.Checks).To(Equal(2))
+		Expect(got.Watch.Deadline.Equal(base.Add(time.Hour))).To(BeTrue())
+		got, err = s.Update(ctx, "w1", func(c *loops.Loop) error {
+			w := c.Watch.Clone()
+			w.Checks, w.Wake = 3, "wake"
+			c.Watch = w
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Watch.Checks).To(Equal(3))
+		again, _ := s.Get(ctx, "w1")
+		Expect(again.Watch.Wake).To(Equal("wake"))
+		plain := sample("p1", "u1", "c1", 1)
+		Expect(s.Add(ctx, plain, loops.Limits{})).To(Succeed())
+		got, _ = s.Get(ctx, "p1")
+		Expect(got.Watch).To(BeNil())
+	})
+
+	It("keeps the job fields of a wait through Add, Update and Get", func() {
+		l := sample("j1", "u1", "c1", 0)
+		l.Watch = &loops.Watch{Job: "job-ab12cd", JobLabel: "build", Node: "addon:sandbox@3", Mode: loops.UntilStall, Idle: 10 * time.Minute,
+			JobOffset: 4096, Deadline: base.Add(time.Hour), MaxErrors: 3, Then: "look at it"}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "j1")
+		Expect(err).NotTo(HaveOccurred())
+		w := got.Watch
+		Expect(w.Job).To(Equal("job-ab12cd"))
+		Expect(w.JobLabel).To(Equal("build"))
+		Expect(w.Node).To(Equal("addon:sandbox@3"))
+		Expect(w.Mode).To(Equal(loops.UntilStall))
+		Expect(w.Idle).To(Equal(10 * time.Minute))
+		Expect(w.JobOffset).To(Equal(int64(4096)))
+		_, err = s.Update(ctx, "j1", func(c *loops.Loop) error {
+			n := c.Watch.Clone()
+			n.JobOffset, n.JobExit, n.JobEnd, n.JobRan, n.JobGone, n.JobNoMatch = 9000, 2, "exit", 3*time.Minute, true, true
+			c.Watch = n
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		again, _ := s.Get(ctx, "j1")
+		Expect(again.Watch.JobOffset).To(Equal(int64(9000)))
+		Expect(again.Watch.JobExit).To(Equal(2))
+		Expect(again.Watch.JobEnd).To(Equal("exit"))
+		Expect(again.Watch.JobRan).To(Equal(3 * time.Minute))
+		Expect(again.Watch.JobGone).To(BeTrue())
+		Expect(again.Watch.JobNoMatch).To(BeTrue())
+		Expect(again.Watch.Node).To(Equal("addon:sandbox@3"))
+	})
+
 	It("returns ErrNotFound for an unknown loop", func() {
 		_, err := s.Get(ctx, "nope")
 		Expect(err).To(MatchError(loops.ErrNotFound))
@@ -209,6 +269,40 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(ok).To(BeTrue(), "a new day has a new budget")
 		ok, _ = s.TakeRun(ctx, "u1", "2026-11-01", 0)
 		Expect(ok).To(BeTrue(), "no budget is no limit")
+	})
+
+	It("keeps a budget of checks of waits on a script apart from the budget of runs", func() {
+		for range 2 {
+			ok, err := s.TakeCheck(ctx, "u1", "2026-10-31", 2)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		}
+		ok, _ := s.TakeCheck(ctx, "u1", "2026-10-31", 2)
+		Expect(ok).To(BeFalse())
+		ok, _ = s.TakeRun(ctx, "u1", "2026-10-31", 1)
+		Expect(ok).To(BeTrue(), "the checks did not use a run")
+		ok, _ = s.TakeCheck(ctx, "u1", "2026-10-31", 2)
+		Expect(ok).To(BeFalse(), "a run did not give a check back")
+		ok, _ = s.TakeCheck(ctx, "u2", "2026-10-31", 2)
+		Expect(ok).To(BeTrue(), "another owner has a budget of their own")
+		ok, _ = s.TakeCheck(ctx, "u1", "2026-11-01", 2)
+		Expect(ok).To(BeTrue(), "a new day has a new budget")
+		ok, _ = s.TakeCheck(ctx, "u1", "2026-11-01", 0)
+		Expect(ok).To(BeTrue(), "no budget is no limit")
+	})
+
+	It("never takes the last check of the day twice", func() {
+		var wg sync.WaitGroup
+		var ok atomic.Int32
+		for range 8 {
+			wg.Go(func() {
+				if took, err := s.TakeCheck(ctx, "u1", "2026-10-31", 3); err == nil && took {
+					ok.Add(1)
+				}
+			})
+		}
+		wg.Wait()
+		Expect(ok.Load()).To(Equal(int32(3)))
 	})
 
 	It("never takes the last run of the day twice", func() {

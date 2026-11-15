@@ -12,14 +12,16 @@ import (
 
 	"github.com/mudler/xlog"
 
-	"github.com/mudler/LocalAI/addons/internal/hostclient"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/egress"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/remote"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/ociimage"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/hostclient"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // hostEgress asks the host about the connections of the sandboxes, over the
@@ -57,12 +59,47 @@ func main() {
 		// Without a host channel nothing can decide, so no port is offered.
 		var ports func(user, conv string) map[int]sandbox.PortHandler
 		var begin func(ctx context.Context, user, conv, op string) func()
+		var opts []tools.Option
 		if client != nil {
 			proxy := egress.New(egress.Options{Host: hostEgress{client}})
 			ports, begin = proxy.Ports, proxy.Begin
+			// A background job reaches the network under its own operation,
+			// which the host keeps live for it (the job lease).
+			opts = append(opts, tools.WithJobEgress(proxy))
 		}
 		store := remote.New(client, s.DataDir)
-		m, err := runner.New(runner.Options{
+		imgs, err := releaseImages()
+		if err != nil {
+			xlog.Error("sandbox: the profile images of this build are not valid", "error", err)
+			return tools.New(unavailable{}, nil, hostAdmin{client})
+		}
+		var m *runner.Manager
+		deliv, err := profiles.New(profiles.Options{
+			DataDir:  s.DataDir,
+			Declared: profiles.Declared(),
+			Images:   imgs,
+			Cache:    sel.ImageCache,
+			// Each backend keeps its own copy of an image; a backend that
+			// was used before may still hold one.
+			ForgetOld: func(ctx context.Context, ref string) {
+				for _, dir := range []string{"kvm", "gvisor", "vz"} {
+					if err := ociimage.Forget(ctx, filepath.Join(s.DataDir, "images", dir), ref); err != nil {
+						xlog.Warn("sandbox: cannot delete an old image", "image", ref, "backend", dir, "error", err)
+					}
+				}
+			},
+			InUse: func() map[string]bool {
+				if m == nil {
+					return nil
+				}
+				return m.ImagesInUse()
+			},
+		})
+		if err != nil {
+			xlog.Error("sandbox: cannot read the image record", "error", err)
+			return tools.New(unavailable{}, nil, hostAdmin{client})
+		}
+		m, err = runner.New(runner.Options{
 			Ports:   ports,
 			Begin:   begin,
 			Backend: sel.Backend,
@@ -79,6 +116,11 @@ func main() {
 			StateDir:     filepath.Join(s.DataDir, "run"),
 			KeepStateDir: true,
 			Tools:        tools.Runs,
+			MissingTool:  func(profile string) string { return sandbox.MissingToolNote(profile, profiles.Declared()) },
+			Profile: func(ctx context.Context, r runner.Request) (runner.Choice, error) {
+				c, err := deliv.Resolve(ctx, r.Call.Profile, r.Call.Pin, profiles.Caps{MemoryMiB: r.Call.MemoryMiB, DiskMiB: r.Call.DiskMiB})
+				return runner.Choice{ID: c.ID, Image: c.Image, CPUs: c.CPUs, Memory: c.Memory, Disk: c.Disk, Notice: c.Notice}, err
+			},
 			Prepare: func(ctx context.Context, r runner.Request) context.Context {
 				return remote.WithOperation(ctx, r.Operation)
 			},
@@ -91,7 +133,12 @@ func main() {
 		// Start the backend now: it removes the sandboxes that a process before
 		// this one left running. Waiting for the first call would leave them
 		// until somebody uses the add-on.
-		go sel.Warm()
-		return tools.New(m, settingsAdapter{Selector: sel, m: m}, hostAdmin{client})
+		go func() {
+			sel.Warm()
+			// After an upgrade, the images that changed are pulled before
+			// anybody waits for them.
+			deliv.Prepull(context.Background())
+		}()
+		return tools.New(m, settingsAdapter{Selector: sel, m: m, d: deliv}, hostAdmin{client}, opts...)
 	}))
 }

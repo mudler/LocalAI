@@ -17,8 +17,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/github/internal/ghapi"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The write tools of the manifest. All of them are write tools: the host
@@ -396,7 +396,7 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 	}
 	t, rev, err := c.inspect(w)
 	if err != nil {
-		return contract.Preview{}, translate(err)
+		return contract.Preview{}, translateFor(w.tool, err)
 	}
 	summary := plainJSON(map[string]any{"count": 1, "sample": sample(w, t)})
 	if len(summary) > 3<<10 {
@@ -416,7 +416,7 @@ func (r *Runtime) now() time.Time {
 // Receipt answers from the journal. An operation that was started and not
 // finished is unknown: the add-on cannot tell whether GitHub got it.
 func (r *Runtime) Receipt(_ context.Context, op string) (contract.Receipt, error) {
-	if rc, ok := r.journal().receipt(op); ok {
+	if rc, ok := r.journal().Receipt(op); ok {
 		return rc, nil
 	}
 	return contract.Receipt{OperationID: op, State: contract.ReceiptUnknown}, nil
@@ -430,7 +430,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	r.applyMu.Lock()
 	defer r.applyMu.Unlock()
 	j := r.journal()
-	if rc, ok := j.receipt(op); ok {
+	if rc, ok := j.Receipt(op); ok {
 		return rc, nil
 	}
 	w, c, err := r.prepare(ctx, env)
@@ -440,22 +440,22 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	_, now, err := c.inspect(w)
 	if err != nil {
 		// Nothing was sent yet, so a limit is a refusal here, not an unknown.
-		return contract.Receipt{}, translateWrite(err)
+		return contract.Receipt{}, translateWrite(w.tool, err)
 	}
 	if now != rev.Data {
 		rc := contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Revision: rev,
 			Result: contract.Result{Payload: smallResult(map[string]any{"stale": true, "note": "The target changed after the preview. Nothing was sent."})}}
-		return rc, j.commit(rc)
+		return rc, j.Commit(rc)
 	}
-	if at, started := j.started(op); started {
+	if at, started := j.Started(op); started {
 		// An earlier attempt may have reached GitHub. Look for its marker
 		// before sending anything again.
 		if found, ok := c.find(w, op, at); ok {
 			rc := committed(op, rev, found)
-			return rc, j.commit(rc)
+			return rc, j.Commit(rc)
 		}
 	}
-	if err := j.begin(op, r.now()); err != nil {
+	if err := j.Begin(op, r.now()); err != nil {
 		return contract.Receipt{}, err
 	}
 	out, err := c.send(w, op)
@@ -465,15 +465,15 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		// GitHub took the change; only its answer is lost.
 		out = map[string]any{"note": "sent; GitHub's answer was not readable"}
 	case definite(err):
-		j.forget(op)
-		return contract.Receipt{}, translateWrite(err)
+		j.Forget(op)
+		return contract.Receipt{}, translateWrite(w.tool, err)
 	default:
 		// The request may or may not have arrived. The host will ask for the
 		// receipt, get "unknown", and leave the decision to the person.
 		return contract.Receipt{}, err
 	}
 	rc := committed(op, rev, out)
-	return rc, j.commit(rc)
+	return rc, j.Commit(rc)
 }
 
 func committed(op string, rev contract.Revision, out map[string]any) contract.Receipt {
@@ -495,12 +495,12 @@ func definite(err error) bool {
 
 // translateWrite is translate for a definite failure of a write: a limit
 // becomes a refusal that says when to try again, since nothing was changed.
-func translateWrite(err error) error {
+func translateWrite(tool string, err error) error {
 	var limited *contract.ErrRateLimited
 	if errors.As(err, &limited) {
 		return bad("github is limiting calls; nothing was sent. Propose it again in %d seconds", limited.Seconds())
 	}
-	return translate(err)
+	return translateFor(tool, err)
 }
 
 // marker is the note that ties text on GitHub to one operation.

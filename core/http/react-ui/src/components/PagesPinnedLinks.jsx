@@ -11,7 +11,7 @@ import { useArrivals } from '../hooks/useArrivals'
 // screen opens into its slot with an accent wash (sidebar.css).
 export default function PagesPinnedLinks({ pages, onClose }) {
   const { t } = useTranslation('nav')
-  const { pins, loaded } = usePinnedPages(true)
+  const { pins, start, loaded } = usePinnedPages(true)
   const links = pinnedPages(pages, pins)
   const fresh = useArrivals(links.map(p => p.name), { ready: loaded && Array.isArray(pages) })
   if (links.length === 0) return null
@@ -28,6 +28,7 @@ export default function PagesPinnedLinks({ pages, onClose }) {
         >
           <Icon name={p.icon || 'file-code'} className="nav-icon" aria-hidden="true" />
           <span className="nav-label">{p.title}</span>
+          {p.name === start && <span className="nav-start" data-testid="pages-start-badge">{t('startPage')}</span>}
         </NavLink>
         </div>
       ))}

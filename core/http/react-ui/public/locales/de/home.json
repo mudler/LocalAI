@@ -32,9 +32,9 @@
   },
   "input": {
     "placeholder": "Nachricht...",
-    "attachImage": "Bild anhängen",
-    "attachAudio": "Audio anhängen",
     "attachFile": "Datei anhängen",
+    "dropFiles": "Dateien zum Anhängen ablegen",
+    "dropFilesNote": "Dateien loslassen, um sie an die Nachricht anzuhängen.",
     "enterToSend": "Enter zum Senden",
     "selectModelFirst": "Bitte zuerst ein Modell auswählen",
     "sendMessage": "Nachricht senden",
@@ -82,13 +82,19 @@
       "step2Title": "Modell installieren",
       "step2Body": "Klicken Sie auf Installieren, um es automatisch herunterzuladen und zu konfigurieren.",
       "step3Title": "Chat starten",
-      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API."
+      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API.",
+      "step4Title": "Agents einrichten",
+      "step4Body": "Erstelle einen API-Schlüssel und verbinde dann einen Coding-Agent: {{agents}}. Die Anleitung trägt Adresse und Schlüssel für dich ein.",
+      "step5Title": "LocalAI mit einem Add-on erweitern",
+      "step5Body": "Add-ons bringen neue Fähigkeiten. Installiere sie aus der Bibliothek."
     },
     "browseGallery": "Modellgalerie durchsuchen",
     "importModel": "Modell importieren",
     "docs": "Dokumentation",
     "noModelsTitle": "Keine Modelle verfügbar",
-    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können."
+    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können.",
+    "connectAgents": "Coding-Agent verbinden",
+    "browseAddons": "Add-ons durchsuchen"
   },
   "connect": {
     "title": "Ein Endpunkt, jede API",
@@ -100,7 +106,8 @@
     "copied": "Kopiert",
     "browse": "Browse the API",
     "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "agentsLink": "Coding-Agent verbinden: API-Schlüssel erstellen und Konfiguration kopieren"
   },
   "jump": {
     "heading": "Jump back in",
@@ -147,9 +154,49 @@
     "disabled": "deaktiviert",
     "pinned": "angeheftet",
     "useTyped": "\"{{name}}\" verwenden",
+    "chooseModel": "Wähle ein Modell",
+    "defaultMissing": "Dein Standardmodell {{model}} ist nicht installiert. Wähle ein Modell.",
     "empty": "Keine Modelle verfügbar",
     "add": "Modell hinzufügen",
     "remove": "{{name}} entfernen",
     "clear": "Leeren"
+  },
+  "starters": {
+    "title": "Empfohlen für deinen Rechner",
+    "tier": {
+      "cpu": "Nur CPU",
+      "gpu-small": "Kleine GPU",
+      "gpu-mid": "Mittlere GPU",
+      "gpu-large": "Große GPU"
+    },
+    "undetected": "Wir konnten deine Hardware nicht erkennen, deshalb sind das die Modelle für einen Rechner ohne GPU.",
+    "cluster": "Ausgelegt auf den besten Rechner deines Clusters.",
+    "nothingFits": "Keines der empfohlenen Modelle passt auf diesen Rechner. Dies ist das kleinste; es läuft eventuell langsam oder lässt sich nicht laden.",
+    "facts": {
+      "size": "{{size}} Download",
+      "window": "{{window}} Kontext",
+      "memory": "ca. {{memory}} Speicher"
+    },
+    "fit": {
+      "tight": "Knapp",
+      "does_not_fit": "Passt nicht"
+    },
+    "reasons": {
+      "little_headroom": "Es passt, lässt aber wenig Speicher frei.",
+      "below_chat_minimum": "Das Kontextfenster wäre für den Chat zu klein.",
+      "exceeds_memory": "Es braucht mehr Speicher, als dieser Rechner hat.",
+      "estimate_unavailable": "Der Speicherbedarf ließ sich nicht schätzen.",
+      "hardware_unknown": "Deine Hardware ließ sich nicht auslesen, daher wird die Passung nicht geprüft."
+    },
+    "more": "Weitere Modelle",
+    "fewer": "Weniger Modelle",
+    "askAdmin": "Nur ein Administrator kann Modelle installieren. Bitte ihn, eines davon zu installieren.",
+    "installModel": "{{model}} installieren",
+    "cpuNote": "Keine GPU erkannt. Diese Modelle bleiben auf einem Prozessor flott.",
+    "gpuNote": "Ausgewählt, damit sie auf deine Grafikkarte passen und Platz für einen vollen Chat bleibt.",
+    "install": "Installieren",
+    "installing": "Wird installiert",
+    "installStarted": "{{model}} wird installiert…",
+    "installFailed": "Installation fehlgeschlagen: {{message}}"
   }
 }

@@ -30,13 +30,8 @@
     "clear": "Nothing needs you",
     "summary_one": "{{count}} item to deal with",
     "summary_other": "{{count}} items to deal with",
-    "backendUpdate": "{{name}} {{from}} has an update ({{to}})",
-    "backendUpdateDetail": "Update available: {{from}} → {{to}}. Models that use it restart.",
     "operationFailed": "{{name}} did not finish",
     "nodeUnhealthy": "{{name}} is not answering",
-    "update": "Update",
-    "updateStarted": "Updating {{name}}...",
-    "updateFailed": "Could not update {{name}}: {{message}}",
     "openNodes": "Open nodes"
   },
   "capacity": {
@@ -230,8 +225,8 @@
       "removing": "Removing {{kind}}",
       "failedRemoval": "Couldn't remove {{kind}}",
       "failedStaging": "Couldn't stage model",
-      "upgrading": "Upgrading {{kind}}",
-      "failedUpgrade": "Couldn't upgrade {{kind}}"
+      "upgrading": "Updating {{kind}}",
+      "failedUpgrade": "Couldn't update {{kind}}"
     },
     "phase": {
       "resolving": "Resolving files",
@@ -277,14 +272,14 @@
     "emptyFiltered": "No operations match this filter.",
     "showAll": "Show all",
     "upgradeVersions": "{{from}} to {{to}}",
-    "rowUpgraded": "Upgraded in {{duration}}",
-    "rowUpgradedPlain": "Upgraded",
+    "rowUpgraded": "Updated in {{duration}}",
+    "rowUpgradedPlain": "Updated",
     "viewInAddons": "View in Add-ons",
     "upgradeWaiting": "Waiting for the add-on service to start. Next check in {{seconds}} s.",
     "addonStage": {
-      "submitting": "Submitting upgrade",
+      "submitting": "Submitting update",
       "accepted": "Accepted by owner",
-      "running": "Running upgrade",
+      "running": "Running update",
       "preparing-package": "Preparing package",
       "committing-package": "Committing package",
       "backing-up": "Creating and verifying backup",
@@ -293,13 +288,13 @@
       "migrating": "Starting candidate and checking migration",
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
-      "completed": "Upgrade completed",
-      "failed": "Upgrade failed"
+      "completed": "Update completed",
+      "failed": "Update failed"
     },
     "addonFailure": {
-      "upgrade_failed": "Upgrade failed. Check the owner logs for details.",
-      "interrupted": "Upgrade interrupted by owner shutdown or restart. It was not replayed.",
-      "recovery_required": "Upgrade interrupted. Data recovery is required before this add-on can run."
+      "upgrade_failed": "Update failed. Check the owner logs for details.",
+      "interrupted": "Update interrupted by owner shutdown or restart. It was not replayed.",
+      "recovery_required": "Update interrupted. Data recovery is required before this add-on can run."
     }
   },
   "backends": {
@@ -329,16 +324,6 @@
     "update": "Update",
     "updating": "Updating...",
     "updateLabel": "Update {{name}}",
-    "updateStarted": "Updating {{name}}...",
-    "updateFailed": "Failed to update: {{message}}",
-    "updateAllFailed": "Update failed for {{name}}: {{message}}",
-    "updateAllStarted_one": "Update started for {{count}} backend",
-    "updateAllStarted_other": "Update started for {{count}} backends",
-    "check": "Check for updates",
-    "checkFound_one": "{{count}} backend has an update",
-    "checkFound_other": "{{count}} backends have updates",
-    "checkNone": "Every installed backend is current",
-    "checkFailed": "Could not check for updates: {{message}}",
     "manualTitle": "Install a backend from a URL",
     "manualUri": "OCI image, URL or path",
     "manualName": "Name (required for an OCI image)",
@@ -470,9 +455,6 @@
       "updated": "{{name}} updated from its library.",
       "updateFailed": "The update failed. {{message}}"
     },
-    "updateAllTitle": "Update all backends",
-    "updateAllIntro": "Choose which backends to update. Each one is updated on its own, one after another. A failure does not stop the others.",
-    "updateSelected": "Update selected",
     "loadFailedTitle": "Could not load the backend catalog.",
     "filtersButton": "Filters",
     "filtersDone": "Done",
@@ -493,7 +475,6 @@
     "countOf": "{{shown}} of {{total}} backends",
     "activeFilters": "Active filters",
     "removeFilter": "Remove filter: {{name}}",
-    "checking": "Checking for updates…",
     "updatesAvailable_one": "{{count}} update available",
     "updatesAvailable_other": "{{count}} updates available",
     "reviewUpdates": "Review",

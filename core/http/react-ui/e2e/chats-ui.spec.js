@@ -287,6 +287,33 @@ test.describe('Chats page with a stubbed API', () => {
       await expect(page.getByTestId('attachment')).toContainText('notes.txt')
     })
 
+    // Files dragged over the chat page are staged like the picker's, also
+    // while a turn runs. Text drags are ignored.
+    test('files dropped on the chat are staged, images and audio too', async ({ page }) => {
+      const api = newChatsApi(page, { running: true })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await expect(page.getByRole('button', { name: 'Attach file' })).toBeEnabled()
+      const drag = async (type, files, text) => {
+        const dt = await page.evaluateHandle(({ files, text }) => {
+          const d = new DataTransfer()
+          for (const f of files) d.items.add(new File([f.body], f.name, { type: f.mime }))
+          if (text) d.setData('text/plain', text)
+          return d
+        }, { files, text })
+        await page.dispatchEvent('body', type, { dataTransfer: dt })
+      }
+      const files = [{ name: 'photo.png', mime: 'image/png', body: 'png' }, { name: 'voice.mp3', mime: 'audio/mpeg', body: 'mp3' }]
+      await drag('dragenter', [], 'just text')
+      await expect(page.getByTestId('composer-drop')).toHaveCount(0)
+      await drag('dragenter', files)
+      await expect(page.getByTestId('composer-drop')).toBeVisible()
+      await drag('drop', files)
+      await expect(page.getByTestId('composer-drop')).toHaveCount(0)
+      await expect(page.getByTestId('chat-composer').getByTestId('attachment')).toHaveCount(2)
+      await expect(page.getByTestId('chat-composer').getByText('voice.mp3')).toBeVisible()
+    })
+
     test('with files off there is no attach control, and the reason is shown', async ({ page }) => {
       const api = newChatsApi(page, { running: false, pending: [], files: false, filesReason: 'There is no data path, so files are off.' })
       await api.install()
@@ -304,7 +331,8 @@ test.describe('Chats page with a stubbed API', () => {
       await composer(page).press('Enter')
       await expect(page.getByRole('alert')).toBeVisible()
       await expect(composer(page)).toHaveValue('keep me')
-      await expect(page.getByTestId('attachment')).toContainText('notes.txt')
+      // The unsent message fades out of the thread; the file is in the box.
+      await expect(page.getByTestId('chat-composer').getByTestId('attachment')).toContainText('notes.txt')
     })
   })
 
@@ -539,7 +567,14 @@ test.describe('Chat tools menu: add-ons', () => {
       execution_status: { readiness: 'unavailable', isolation: 'unknown', explanation: 'Provider is starting' },
     } }))
     const reads = []
-    await page.route('**/api/addons/dispatch', route => { reads.push(route.request().url()); return route.abort() })
+    // The shell's update provider reads the installed add-ons and the owner's
+    // settings on every page; the chat itself must not discover anything.
+    await page.route('**/api/addons/dispatch', route => {
+      const action = (route.request().postDataJSON() || {}).action
+      if (action === 'addons-installed' || action === 'host-settings-read') return route.abort()
+      reads.push(route.request().url())
+      return route.abort()
+    })
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     await expect(page.getByTestId('chat-commands-notice')).toContainText('Provider is starting')
@@ -692,6 +727,31 @@ test.describe('Chat tools menu: built-in groups', () => {
     await expect(page.getByRole('switch', { name: 'Saved agents' })).toBeChecked()
     await page.getByRole('switch', { name: 'Saved agents' }).uncheck()
     await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: [] })
+  })
+
+  test('lists the LocalAI client group on and the LocalAI admin group opt-in, and switches them like the others', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    const calls = []
+    const groups = (body) => [
+      { group: 'localai_client', tools: ['generate_image', 'speak'], off: (body?.off || []).includes('localai_client'), usable: true, provider: 'builtin', providers: {} },
+      { group: 'localai_admin', tools: ['install_model'], off: !(body?.on || []).includes('localai_admin'), opt_in: true, usable: true, provider: 'builtin', providers: {} },
+    ]
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: groups() } }))
+    await page.route('**/api/chats/c1/builtins', route => {
+      const body = route.request().postDataJSON()
+      calls.push(body)
+      return route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: groups(body) } })
+    })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByRole('switch', { name: 'LocalAI client' })).toBeChecked()
+    await expect(page.getByRole('switch', { name: 'LocalAI admin' })).not.toBeChecked()
+    await page.getByRole('switch', { name: 'LocalAI admin' }).check()
+    await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: ['localai_admin'] })
+    await page.getByRole('switch', { name: 'LocalAI client' }).uncheck()
+    await expect.poll(() => calls.at(-1)).toEqual({ off: ['localai_client'], on: ['localai_admin'] })
   })
 
   test('shows why the saved agents cannot be used', async ({ page }) => {

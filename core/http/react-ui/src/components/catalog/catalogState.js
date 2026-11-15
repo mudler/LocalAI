@@ -99,6 +99,9 @@ export function classifyResponse(status, body) {
   if (status === 409 && type === 'stale') return { kind: 'stale', status, message, type }
   if (status === 409 && type === 'sharing_disabled') return { kind: 'sharing_disabled', status, message, type }
   if (status === 404 && type === 'not_selected') return { kind: 'not_selected', status, message, type }
+  // The owner does not know the operation: it is gone, or it was never this
+  // user's. This is not a refusal of the role.
+  if (status === 404 && type === 'operation_not_found') return { kind: 'operation_not_found', status, message, type }
   if (status === 503 && type === 'outcome_unknown') {
     return { kind: 'unknown_outcome', status, message, operationId: typeof err.operationId === 'string' ? err.operationId : '' }
   }

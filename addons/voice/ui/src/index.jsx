@@ -12,17 +12,16 @@ export function createAddon(sdk, options = {}) {
   const ctx = createContext(sdk)
   const { h } = ctx
   const api = createApi(ctx)
-  // The library and the profile form are for administrators (the server
-  // refuses everyone else). A viewer who is not one gets this notice and the
-  // page below is never rendered, so it makes no call and shows no profile data.
-  // The library and the profile form are for administrators (the server
-  // refuses everyone else). A viewer who is not one gets this notice and the
-  // page below is never rendered, so it makes no call and shows no profile data.
-  const adminOnly = (Page) => function AdminPage(props) {
-    if (!ctx.viewer.isAdmin()) {
+  // The library and the profile form are for everyone who may use speech:
+  // each user keeps their own saved voices and an administrator manages all
+  // (the server decides what each person sees). A viewer without the speech
+  // feature gets this notice and the page below is never rendered, so it makes
+  // no call and shows no profile data.
+  const needsSpeech = (Page) => function SpeechPage(props) {
+    if (!ctx.viewer.isAdmin() && !ctx.viewer.hasFeature('audio_speech')) {
       return (
-        <main className="page vc-off" data-testid="voice-admin-only">
-          <ctx.ui.PageHeader title={ctx.t('voice.adminOnly.title')} supporting={ctx.t('voice.adminOnly.text')} />
+        <main className="page vc-off" data-testid="voice-no-speech">
+          <ctx.ui.PageHeader title={ctx.t('voice.noSpeech.title')} supporting={ctx.t('voice.noSpeech.text')} />
           {props.tabs}
         </main>
       )
@@ -31,8 +30,8 @@ export function createAddon(sdk, options = {}) {
   }
   const sections = {
     recognition: createVoiceRecognition(ctx, api, identity).VoiceRecognition,
-    library: adminOnly(createVoiceLibrary(ctx, api).VoiceLibrary),
-    create: adminOnly(createVoiceProfileCreate(ctx, api).VoiceProfileCreate),
+    library: needsSpeech(createVoiceLibrary(ctx, api).VoiceLibrary),
+    create: needsSpeech(createVoiceProfileCreate(ctx, api).VoiceProfileCreate),
     speech: createSpeech(ctx).Speech,
     ...options.pages,
   }

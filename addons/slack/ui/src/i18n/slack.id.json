@@ -15,23 +15,16 @@
   "agent": "Agen",
   "agentNone": "Pilih agen",
   "agentNoModel": "{{name}} (perlu model)",
-  "who": "Siapa yang boleh memakai",
-  "onlyListed": "Hanya orang dan kanal yang saya daftarkan",
-  "anyone": "Siapa saja di workspace yang dapat mengirim pesan ke aplikasi",
   "anyoneWarning": "Siapa saja yang dapat mengirim pesan ke aplikasi ini atau menyebutnya dapat memakai alat agen ini, sebagai Anda. Setiap orang, dan setiap thread, mendapat percakapan tersendiri.",
   "anyoneConfirm": "Saya mengerti",
-  "allowUsers": "Orang yang diizinkan",
-  "allowUsersHint": "ID pengguna (U...) atau @nama",
-  "allowChannels": "Kanal yang diizinkan",
-  "allowChannelsHint": "ID kanal (C...): semua orang di dalamnya boleh menyebut aplikasi",
-  "notifyChat": "Kirim notifikasi saya ke ID pengguna atau kanal ini",
+  "allowUsersHint": "ID pengguna (U...) atau @username",
   "notifyHelp": "Opsional. ID pengguna Anda (U...) mengirimnya sebagai pesan langsung dari aplikasi.",
   "test": "Uji",
   "testOk": "Terhubung ke {{bot}}.",
   "checkFailed": "Tersimpan. Pemeriksaan token gagal: {{reason}}",
   "senders": "Pengirim",
   "noSenders": "Belum ada yang menulis ke aplikasi ini.",
-  "allowButton": "Izinkan",
+  "allowButton": "Daftarkan orang ini",
   "ignored": "Diabaikan",
   "accepted": "Diterima",
   "save": "Simpan",
@@ -65,5 +58,5 @@
     "copied": "Tersalin",
     "manifest": "Manifest aplikasi Slack"
   },
-  "back": "Kembali ke konektor"
+  "allowUsersHelp": "@username cocok dengan nama pengguna Slack (handle), bukan nama tampilan, dan memerlukan scope users:read. ID pengguna (U...) selalu cocok. Saat seseorang ditolak, log akses menyebut ID penggunanya."
 }

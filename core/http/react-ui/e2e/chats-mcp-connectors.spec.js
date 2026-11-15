@@ -82,7 +82,8 @@ test.describe('Chat MCP connectors', () => {
   test('the empty page teaches what a connector is and carries the add action; the old link opens it', async ({ page }) => {
     await api(page).install()
     await page.goto('/app/mcp-connectors')
-    await expect(page.getByRole('heading', { name: 'MCP connectors', level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Connections', level: 1 })).toBeVisible()
+    await expect(page.getByTestId('connections-tab-mcp')).toHaveAttribute('aria-current', 'page')
     const empty = page.getByTestId('mcp-empty')
     await expect(empty.getByRole('heading', { name: 'No connectors yet' })).toBeVisible()
     await expect(empty).toContainText('Tokens and headers stored encrypted')
@@ -100,7 +101,7 @@ test.describe('Chat MCP connectors', () => {
     await page.goto('/app/mcp-connectors')
     await page.getByTestId('mcp-add').click()
     const sheet = page.getByTestId('mcp-sheet')
-    await expect(sheet.getByRole('heading', { name: 'Add connector' })).toBeVisible()
+    await expect(sheet.getByRole('heading', { name: 'New connector' })).toBeVisible()
     await expect(sheet).toContainText('stored encrypted on the server')
     await sheet.getByLabel('Name', { exact: true }).fill('Docs')
     await sheet.getByLabel('Address').fill('https://mcp.example/mcp')

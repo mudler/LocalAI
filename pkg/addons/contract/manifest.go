@@ -35,7 +35,9 @@ func (e *SDKRefusal) Error() string {
 const (
 	MaxTitleChars       = 80
 	MaxDescriptionChars = 280
-	MaxLanguages        = 16
+	// MaxSetupChars bounds the setup text of an add-on or of a connector kind.
+	MaxSetupChars = 120
+	MaxLanguages  = 16
 	// MaxIconBytes bounds a packaged icon. Package validation enforces it
 	// against the real file.
 	MaxIconBytes = 256 << 10
@@ -62,9 +64,124 @@ func (r VersionRange) accepts(v uint64) bool {
 // one: a manifest declares the range {"min": 2, "max": 2}.
 const HostAPIVersion uint64 = 2
 
+// HostVersion, HostProtocolVersion and HostDataFormatVersion are the other
+// version numbers a host reports in HostCompatibility. The host protocol
+// is the process protocol of pkg/addons/sdk/protocol. The data format is the
+// layout of the files an add-on keeps in its data directory.
+const (
+	HostVersion           uint64 = 1
+	HostProtocolVersion   uint64 = 1
+	HostDataFormatVersion uint64 = 1
+)
+
 // isHostAPI reports whether the range is exactly the manifest API of the host.
 func (r VersionRange) isHostAPI() bool {
 	return r.Min == HostAPIVersion && r.Max == HostAPIVersion
+}
+
+// HostFeatureLevel is the feature level of this host. The level counts the
+// additive manifest features a host understands, apart from the integer
+// versions above, so a new optional field does not make every published
+// add-on incompatible. A manifest without a featureLevel needs level 1. A host
+// older than the first level-2 field reads the field as unknown and refuses
+// the manifest, as it refuses any unknown field.
+//
+// Level 2: capabilities.resources.agentScoped.
+// Level 3: capabilities.ownerData.
+// Level 4: the setup text (the top-level setup and connector kind setup).
+// Level 5: capabilities.connector.kinds[].toolOnly.
+// Level 6: capabilities.executionProvider.jobs.
+// Level 7: capabilities.client (routes that a paired client may call).
+// Level 8: a wildcard tail ({name...}) as the last segment of a client route.
+// Level 9: capabilities.modelSearch (a source of the model-search slot).
+const HostFeatureLevel uint64 = 9
+
+// BaseFeatureLevel is the level of a manifest that sets no featureLevel.
+const BaseFeatureLevel uint64 = 1
+
+// MaxFeatureLevel bounds the featureLevel of a manifest.
+const MaxFeatureLevel uint64 = 1000
+
+// FeatureLevelRefusal is the refusal of an add-on that needs a newer feature
+// level than the host has. Its text is meant for people.
+type FeatureLevelRefusal struct{ Need, Host uint64 }
+
+func (e *FeatureLevelRefusal) Error() string { return "needs a newer LocalAI" }
+
+// EffectiveFeatureLevel is the level a host tuple stands for: an unset level
+// is the base level.
+func (h HostCompatibility) EffectiveFeatureLevel() uint64 {
+	if h.FeatureLevel == 0 {
+		return BaseFeatureLevel
+	}
+	return h.FeatureLevel
+}
+
+// RequiredFeatureLevel is the level the manifest declares, 1 when it sets none.
+func (m Manifest) RequiredFeatureLevel() uint64 {
+	if m.FeatureLevel == 0 {
+		return BaseFeatureLevel
+	}
+	return m.FeatureLevel
+}
+
+// usedFeatureLevel is the lowest level that holds every optional field the
+// manifest uses.
+func (m Manifest) usedFeatureLevel() uint64 {
+	if m.Capabilities.ModelSearch != nil {
+		return 9
+	}
+	if m.usesClientTail() {
+		return 8
+	}
+	if m.Capabilities.Client != nil {
+		return 7
+	}
+	if p := m.Capabilities.ExecutionProvider; p != nil && p.Jobs != nil {
+		return 6
+	}
+	if m.usesToolOnly() {
+		return 5
+	}
+	if m.usesSetup() {
+		return 4
+	}
+	if m.Capabilities.OwnerData {
+		return 3
+	}
+	if r := m.Capabilities.Resources; r != nil && (r.AgentScoped || r.NounPlural != "") {
+		return 2
+	}
+	for _, t := range m.I18n {
+		if t.Resources != nil {
+			return 2
+		}
+	}
+	return BaseFeatureLevel
+}
+
+// usesClientTail reports whether a client route ends in a wildcard tail.
+func (m Manifest) usesClientTail() bool {
+	if c := m.Capabilities.Client; c != nil {
+		for _, r := range c.Routes {
+			if strings.HasSuffix(r.Path, "...}") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// usesToolOnly reports whether a connector kind declares toolOnly.
+func (m Manifest) usesToolOnly() bool {
+	if c := m.Capabilities.Connector; c != nil {
+		for _, k := range c.Kinds {
+			if k.ToolOnly {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type HostCompatibility struct {
@@ -73,8 +190,10 @@ type HostCompatibility struct {
 	Protocol   uint64 `json:"protocol"`
 	SDK        uint64 `json:"sdk"`
 	DataFormat uint64 `json:"dataFormat"`
-	OS         string `json:"os"`
-	Arch       string `json:"arch"`
+	// FeatureLevel is the feature level of the host; 0 means the base level.
+	FeatureLevel uint64 `json:"featureLevel,omitempty"`
+	OS           string `json:"os"`
+	Arch         string `json:"arch"`
 }
 type Manifest struct {
 	SchemaVersion int          `json:"schemaVersion"`
@@ -87,10 +206,22 @@ type Manifest struct {
 	API           VersionRange `json:"api"`
 	Protocol      VersionRange `json:"protocol"`
 	DataFormat    VersionRange `json:"dataFormat"`
+	// FeatureLevel is the feature level the manifest needs from the host. It is
+	// optional and defaults to 1. A manifest that uses a field of a higher
+	// level must say so; a host with a lower level refuses it with a plain
+	// reason. A host that predates the field refuses the manifest as it
+	// refuses any unknown field.
+	FeatureLevel uint64 `json:"featureLevel,omitempty"`
 	// LaunchMode is absent or "always": the owner starts the addon while it is
 	// enabled. "on-demand" is reserved and rejected until it is implemented.
 	LaunchMode   string       `json:"launchMode,omitempty"`
 	Capabilities Capabilities `json:"capabilities"`
+	// Setup says in one short phrase what the person needs before the add-on
+	// works, such as "a bot token from @BotFather". It is plain text, one
+	// string or a map of language tag to string, at most MaxSetupChars
+	// characters (feature level 4). A connector kind has its own setup in
+	// ConnectorKind.Setup; this one is for an add-on that has no kind.
+	Setup *Localized `json:"setup,omitempty"`
 	// I18n translates the text that the host shows for the manifest, by
 	// language tag (see i18n.go). It is optional under api 2. A host that
 	// does not know the field refuses the manifest as it refuses any unknown
@@ -110,6 +241,12 @@ type Capabilities struct {
 	// no manifest that declares one without it, so reading the capabilities is
 	// enough to know that an add-on can change things without a confirmation.
 	Actions bool `json:"actions,omitempty"`
+	// OwnerData says that the tools keep the owner's own data in the add-on
+	// (a calendar, say) without a credential or a resource list. A tool of
+	// another kind than read then changes the owner's data on the word of
+	// whoever is talking, so a messaging chat holds it to the tools.write
+	// permission (see ToolPermission). Level 3.
+	OwnerData bool `json:"ownerData,omitempty"`
 	// AdminTools are tools that only the host's own UI-only resource
 	// management endpoints may run. They are never in Tools, never have a
 	// tool definition and never reach a model, a proposal, a typed dispatch
@@ -140,11 +277,22 @@ type Capabilities struct {
 	// UserSettings declare the choices that each person makes for the add-on
 	// (see usersettings.go). The host keeps the answers and validates them.
 	UserSettings []UserSetting `json:"userSettings,omitempty"`
+	// Provides says which provider slots of the host the add-on can serve (see
+	// providerslots.go). The person picks one provider per slot; the add-on's
+	// context files and skills count only while it is the one picked.
+	Provides []ProviderDeclaration `json:"provides,omitempty"`
+	// ModelSearch describes the source of an add-on that provides the
+	// model-search slot (see modelsearch.go). Feature level 9.
+	ModelSearch *ModelSearch `json:"modelSearch,omitempty"`
 
 	// Credentials declare the secret that the host keeps for the person and
 	// hands to each call (see credentials.go). It needs a connector
 	// kind that holds the binding.
 	Credentials []CredentialSlot `json:"credentials,omitempty"`
+
+	// Client declares the routes that a paired client may call (see
+	// client.go). It needs the service capability and feature level 7.
+	Client *ClientCapability `json:"client,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -153,6 +301,16 @@ type Capabilities struct {
 type ResourceTools struct {
 	// Noun is the singular word for one resource in the UI, such as database.
 	Noun string `json:"noun,omitempty"`
+	// NounPlural is the plural of Noun, such as databases. It is optional and
+	// needs feature level 2; without it the UI uses the noun alone. A
+	// translation of both words is under i18n.<language>.resources.
+	NounPlural string `json:"nounPlural,omitempty"`
+	// AgentScoped opts the add-on in to per-agent resource lists: a saved
+	// agent then names the resources it may use and the mode of each, and the
+	// host enforces the list on every tool call that takes a resource. It
+	// needs feature level 2 and a List mapping, because the host builds the
+	// choices from the list tool.
+	AgentScoped bool `json:"agentScoped,omitempty"`
 	// Create is a tool of Tools whose definition has the kind create.
 	Create string `json:"create,omitempty"`
 	// Rename is a tool of Tools whose definition has the kind schema and takes
@@ -208,6 +366,12 @@ func validateResourceTools(c Capabilities) error {
 	}
 	if r.Noun != "" && !plainText(r.Noun, 40) {
 		return fmt.Errorf("invalid resource noun")
+	}
+	if r.NounPlural != "" && (r.Noun == "" || !plainText(r.NounPlural, 40)) {
+		return fmt.Errorf("invalid resource plural noun")
+	}
+	if r.AgentScoped && r.List == nil {
+		return fmt.Errorf("agentScoped resources need a list mapping")
 	}
 	for _, want := range []struct{ name, kind, label string }{
 		{r.Create, ToolKindCreate, "create"}, {r.Rename, ToolKindSchema, "rename"}, {r.Inspect, ToolKindRead, "inspect"},
@@ -359,7 +523,7 @@ func ParseManifest(data []byte) (Manifest, error) {
 		m.Capabilities.ToolDefinitions[i].InputSchema = c
 	}
 	// Parsing validates intrinsic constraints without imposing this machine's platform.
-	h := HostCompatibility{Host: m.Host.Min, API: m.API.Min, Protocol: m.Protocol.Min, DataFormat: m.DataFormat.Min, OS: m.OS, Arch: m.Arch}
+	h := HostCompatibility{Host: m.Host.Min, API: m.API.Min, Protocol: m.Protocol.Min, DataFormat: m.DataFormat.Min, FeatureLevel: m.RequiredFeatureLevel(), OS: m.OS, Arch: m.Arch}
 	if m.Capabilities.UI != nil {
 		h.SDK = m.Capabilities.UI.SDK.Min
 	}
@@ -386,6 +550,15 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if !m.Host.accepts(h.Host) || !m.API.accepts(h.API) || !m.Protocol.accepts(h.Protocol) || !m.DataFormat.accepts(h.DataFormat) {
 		return fmt.Errorf("incompatible host, API, protocol or data format")
 	}
+	if m.FeatureLevel > MaxFeatureLevel {
+		return fmt.Errorf("invalid featureLevel")
+	}
+	if used := m.usedFeatureLevel(); m.RequiredFeatureLevel() < used {
+		return fmt.Errorf("the manifest uses a field of feature level %d and must declare featureLevel %d", used, used)
+	}
+	if need := m.RequiredFeatureLevel(); need > h.EffectiveFeatureLevel() {
+		return &FeatureLevelRefusal{Need: need, Host: h.EffectiveFeatureLevel()}
+	}
 	c := m.Capabilities
 	if (!c.Service && len(c.Tools) == 0 && c.UI == nil && c.Connector == nil) || !uniqueIDs(c.Tools) {
 		return fmt.Errorf("invalid capabilities")
@@ -395,7 +568,11 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 			return fmt.Errorf("tool %s is an action tool but the add-on does not declare actions", d.Name)
 		}
 	}
-	if e := validateToolDefinitionsFor(c.ToolDefinitions, c.Tools, len(c.Credentials) > 0); e != nil {
+	jobsTool := ""
+	if p := c.ExecutionProvider; p != nil && p.Jobs != nil {
+		jobsTool = p.Jobs.Tool
+	}
+	if e := validateToolDefinitionsFor(c.ToolDefinitions, c.Tools, len(c.Credentials) > 0, jobsTool); e != nil {
 		return e
 	}
 	if e := validateExtensions(c); e != nil {
@@ -410,6 +587,15 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if e := validateUserSettings(c.UserSettings); e != nil {
 		return e
 	}
+	if e := validateApprovalSettings(c.ToolDefinitions, c.UserSettings, len(c.Credentials) > 0); e != nil {
+		return e
+	}
+	if e := validateProvides(c); e != nil {
+		return e
+	}
+	if e := validateModelSearch(m); e != nil {
+		return e
+	}
 	if e := validateResourceTools(c); e != nil {
 		return e
 	}
@@ -422,8 +608,14 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if e := validateConnector(c.Connector, c.UI); e != nil {
 		return e
 	}
+	if e := validateClient(c.Client, c.Service); e != nil {
+		return e
+	}
 	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
 		return e
+	}
+	if m.Setup != nil && !m.Setup.valid(MaxSetupChars) {
+		return fmt.Errorf("invalid setup text")
 	}
 	if e := validateI18n(m); e != nil {
 		return e

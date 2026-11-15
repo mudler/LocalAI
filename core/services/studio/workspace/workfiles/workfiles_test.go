@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
@@ -21,6 +22,35 @@ var _ = Describe("working files", func() {
 		Expect(workfiles.ChatsDir).To(Equal(session.ChatsDir))
 		Expect(workfiles.SettingsDir).To(Equal(session.SettingsDir))
 		Expect(workfiles.PagesDir).To(Equal(pages.Dir))
+		Expect(workfiles.UsersRoot).To(Equal(session.UsersRoot))
+		Expect(workfiles.SkillsDir).To(Equal(skills.SkillsDir))
+	})
+
+	It("names the folders of a home that nobody else may get a grant on", func() {
+		for p, want := range map[string]bool{
+			"/LocalAI": true, "/LocalAI/agents/a": true, "/Chats/x": true, "/Memory": true, "/memory/notes": true,
+			"/pages": true, "/pages/home": true, "/.skills": true, "/Work/.skills/report": true, "/Work/.SKILLS": true,
+			"/": false, "/Projects": false, "/Projects/pages": false, "/Projects/Memory": false, "/Work/skills": false,
+		} {
+			Expect(workfiles.Managed(p)).To(Equal(want), p)
+		}
+	})
+
+	It("lets a grant move inside one home only, and never into a managed folder", func() {
+		for _, c := range []struct {
+			from, to string
+			want     bool
+		}{
+			{"/users/a/X", "/users/a/Archive/X", true},
+			{"/shared/x/A", "/shared/y/A", true},
+			{"/users/a/X", "/users/b/X", false},
+			{"/users/a/X", "/shared/X", false},
+			{"/shared/X", "/users/a/X", false},
+			{"/users/a/X", "/users/a/LocalAI/X", false},
+			{"/users/a/X", "/users/a/Projects/.skills", false},
+		} {
+			Expect(workfiles.GrantsMayMove(c.from, c.to)).To(Equal(c.want), c.from+" -> "+c.to)
+		}
 	})
 
 	DescribeTable("tells a working file from a deliverable by its path",
@@ -85,20 +115,33 @@ var _ = Describe("working files", func() {
 		Expect(workfiles.GuestFolder("")).To(BeEmpty())
 	})
 
-	It("steers the model with the path of the folder", func() {
-		p := workfiles.Prompt("/workspace/home/Chats/2026-10-31 Report/work/")
+	It("steers the model to the folder with a prompt that names no chat's folder", func() {
+		p := workfiles.Prompt
 		for _, want := range []string{
-			"/workspace/home/Chats/2026-10-31 Report/work/", "scripts", "intermediate data", "logs", "drafts",
-			"deliverable", "Never create new top-level folders", "python3 -c", "heredoc", "mkdir -p",
+			"scripts", "intermediate data", "logs", "drafts", "note",
+			"deliverable", "Never create new top-level folders", "python3 -c", "heredoc", "$WORK",
 			"/workspace/home/pages/", "/workspace/home/LocalAI/",
 		} {
 			Expect(p).To(ContainSubstring(want))
+		}
+		Expect(p).NotTo(ContainSubstring("/workspace/home/Chats"), "a chat's folder in the prompt breaks the prompt cache")
+		guest := workfiles.GuestFolder("2026-10-31 Report")
+		Expect(workfiles.Note(guest)).To(ContainSubstring(`"/workspace/home/Chats/2026-10-31 Report/work/"`))
+		Expect(workfiles.Note(guest)).To(ContainSubstring("work folder"))
+		Expect(workfiles.Note(guest)).To(HavePrefix(workfiles.NoteFolder(guest)))
+		Expect(workfiles.Note(guest)).To(ContainSubstring(workfiles.ShellHint))
+		Expect(workfiles.NoteFolder(guest)).NotTo(ContainSubstring("$WORK"), "the short note leaves room for the notes after it")
+		// The literal path stays for the file tools; the shell is told to use $WORK.
+		for _, want := range []string{"The shell starts in $WORK", "Use $WORK or relative paths", "Quote every path with double quotes",
+			"Never type out a name with spaces or non-ASCII characters", "ls or a glob", "file tools take that path"} {
+			Expect(workfiles.Note(guest)).To(ContainSubstring(want))
 		}
 		n := workfiles.Nudge("/workspace/home/Chats/x/work/", "/workspace/home/build.py")
 		Expect(n).To(ContainSubstring("/workspace/home/Chats/x/work/"))
 		Expect(n).To(ContainSubstring("/workspace/home/build.py"))
 		Expect(n).To(ContainSubstring("Consider moving it"))
 		Expect(workfiles.ToolHint).To(ContainSubstring("work folder"))
+		Expect(workfiles.ToolHint).To(ContainSubstring("note"))
 	})
 
 	DescribeTable("treats /workspace/chat/work as the work folder",
@@ -117,10 +160,38 @@ var _ = Describe("working files", func() {
 		Entry("a folder named chat in the home is no chat folder", "/workspace/home/chat/work/a.docx", workfiles.Deliverable, false),
 	)
 
+	It("never moves a file out of a hidden folder", func() {
+		Expect(workfiles.Stray("/workspace/home/.state/run.sh")).To(BeFalse())
+		Expect(workfiles.Stray("/workspace/home/jobs/.cache/run.py")).To(BeFalse())
+		Expect(workfiles.Stray("/workspace/home/run.py")).To(BeTrue())
+	})
+
+	It("tells a scoped chat that a file a trigger uses must stay in the home", func() {
+		n := workfiles.Nudge(workfiles.ChatGuestFolder, "/workspace/home/run.py")
+		Expect(n).To(ContainSubstring("Consider moving it"))
+		Expect(n).To(ContainSubstring("/workspace/home"))
+		Expect(n).To(ContainSubstring("trigger"))
+		Expect(n).To(ContainSubstring("never under /workspace/chat"))
+		// An unscoped chat's work folder is inside the home: nothing to warn about.
+		Expect(workfiles.Nudge("/workspace/home/Chats/x/work/", "/workspace/home/run.py")).NotTo(ContainSubstring("trigger"))
+	})
+
+	It("tells a shell tool where it starts and how to quote", func() {
+		Expect(workfiles.ShellHint).To(Equal("The shell starts in $WORK, this chat's work folder. Use $WORK or relative paths instead of typing absolute paths. " +
+			"Quote every path with double quotes. Never type out a name with spaces or non-ASCII characters; take it from ls or a glob."))
+	})
+
+	It("keeps the short shell hint to the same four points", func() {
+		for _, want := range []string{"$WORK", "relative paths", "Double-quote every path", "spaces or non-ASCII", "ls or a glob"} {
+			Expect(workfiles.ShellHintShort).To(ContainSubstring(want))
+		}
+		Expect(len(workfiles.ShellHintShort)).To(BeNumerically("<", len(workfiles.ShellHint)))
+	})
+
 	It("steers a scoped chat to its own work folder", func() {
 		Expect(workfiles.ChatGuestFolder).To(Equal("/workspace/chat/work/"))
 		p := workfiles.ScopedPrompt(true)
-		for _, want := range []string{"/workspace/chat/work/", "mkdir -p", "deliverable", "/workspace/home/", "python3 -c"} {
+		for _, want := range []string{"/workspace/chat/work/", "$WORK", "deliverable", "/workspace/home/", "python3 -c"} {
 			Expect(p).To(ContainSubstring(want))
 		}
 		for _, leak := range []string{"pages", "LocalAI", "Chats"} {

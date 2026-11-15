@@ -91,6 +91,22 @@ var _ = Describe("the connector route", func() {
 		Expect(pollUntil(r, out.NextOffset, 1).Updates[0].Thread).To(Equal("500.5"))
 	})
 
+	It("gives a link to the thread from the workspace address, and none when Slack tells no address", func() {
+		f := slacktest.New()
+		DeferCleanup(f.Close)
+		f.AddApp(slacktest.App{Bot: botToken, AppToken: appToken, UserID: "UBOT", User: "helper", Team: "Acme", URL: "https://acme.example.test/"})
+		r := runtimeOf(f)
+		call(r, contract.ConnectorRequest{Op: "poll", Offset: 1})
+		Eventually(func() bool { return f.Connected(appToken) }, 5*time.Second).Should(BeTrue())
+		f.Push(appToken, slacktest.Mention("C1", "U1", "UBOT", "in a thread", "500.5"))
+		m := pollUntil(r, 1, 1).Updates[0]
+		Expect(m.Link).To(Equal("https://acme.example.test/archives/C1/p5005?thread_ts=500.5&cid=C1"))
+
+		Expect(transport.Permalink("", "C1", "1.2", "")).To(BeEmpty(), "no workspace address, no link")
+		Expect(transport.Permalink("http://acme.example.test/", "C1", "1.2", "")).To(BeEmpty(), "only https")
+		Expect(transport.Permalink("https://acme.example.test/", "C1", "1700000000.000200", "")).To(Equal("https://acme.example.test/archives/C1/p1700000000000200"))
+	})
+
 	It("marks only a direct message as direct: a group message, a channel mention and a thread are not", func() {
 		f := fake()
 		r := runtimeOf(f)
@@ -215,6 +231,7 @@ var _ = Describe("the connector route", func() {
 		out := call(r, contract.ConnectorRequest{Op: "me"})
 		Expect(out.Error).To(BeNil())
 		Expect([]string{out.BotID, out.BotUsername}).To(Equal([]string{"UBOT", "helper (Acme)"}))
+		Expect(out.AccountID).To(Equal("T1/UBOT"), "the workspace and the bot user name the app, whatever the token pair")
 		for _, bad := range []string{botToken, appToken, botToken + " xapp-SECRET-other"} {
 			out = call(r, contract.ConnectorRequest{Op: "me", Token: bad})
 			Expect(out.Error).NotTo(BeNil(), bad)

@@ -11,11 +11,13 @@
     "resetCollection": "Remove every entry, keep the collection",
     "deleteCollection": "Delete collection",
     "newCollection": "New collection",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "save": "Save"
   },
   "sections": {
     "yourCollections": "Your collections",
-    "otherUsersCollections": "Other users' collections"
+    "otherUsersCollections": "Other users' collections",
+    "sharedWithYou": "Shared with you"
   },
   "empty": {
     "title": "Knowledge holds documents an agent can search",
@@ -63,14 +65,19 @@
     "none": "No collection matches."
   },
   "list": {
-    "label": "Collections"
+    "label": "Collections",
+    "countAll_one": "{{count}} collection",
+    "countAll_other": "{{count}} collections",
+    "countOf": "{{shown}} of {{total}} collections",
+    "menu": "Actions for {{name}}"
   },
   "pane": {
     "back": "All collections",
     "pick": "Pick a collection to search it, add to it, or see who uses it.",
     "counts": "{{files}} files, {{sources}} web sources",
     "failed": "{{count}} failed",
-    "addSource": "Add source"
+    "addSource": "Add source",
+    "addFile": "Add file"
   },
   "add": {
     "file": "A file",
@@ -100,7 +107,8 @@
     "never": "not fetched yet",
     "remove": "Remove {{url}}",
     "removeTitle": "Remove source",
-    "loadFailed": "Could not load the web sources."
+    "loadFailed": "Could not load the web sources.",
+    "noneShared": "No web sources."
   },
   "entries": {
     "title": "Files",
@@ -118,7 +126,12 @@
     "empty": "(empty)",
     "noContent": "No content available.",
     "adding": "Adding files",
-    "loadFailed": "Could not load the files."
+    "loadFailed": "Could not load the files.",
+    "filter": "Filter files",
+    "countAll_one": "{{count}} file",
+    "countAll_other": "{{count}} files",
+    "countOf": "{{shown}} of {{total}} files",
+    "noMatch": "No file matches."
   },
   "removeSource": {
     "title": "Remove Source",
@@ -146,5 +159,40 @@
     "noneSet": "No embedding model is set for collections (collections_embedding_model), so adding files and searching fail.",
     "install": "Find it in Models",
     "askAdmin": "Ask an administrator to install it."
+  },
+  "searchMode": {
+    "label": "Search: {{mode}}",
+    "semantic": "semantic",
+    "hybrid": "hybrid",
+    "semanticHint": "It finds passages by meaning, not by exact words or codes.",
+    "hybridHint": "It finds passages by meaning and by exact words."
+  },
+  "share": {
+    "label": "Share",
+    "button": "Share {{name}}",
+    "intro": "People you add find this collection in their list and their agents can search it by name.",
+    "failed": "Could not share the collection: {{message}}",
+    "roles": {
+      "viewer": "Can view",
+      "viewerHelp": "Can search it and read its files.",
+      "editor": "Can edit",
+      "editorHelp": "Can also add and remove files."
+    },
+    "noteViewer": "You can search it and read its files.",
+    "noteEditor": "You can search it and add or remove files."
+  },
+  "create": {
+    "title": "New collection",
+    "hint": "Give it a name you will recognise. You add files and web pages once it exists."
+  },
+  "sort": {
+    "label": "Sort collections",
+    "name": "Name, A to Z",
+    "name-desc": "Name, Z to A",
+    "used": "Most used",
+    "unused": "Not used first"
+  },
+  "menu": {
+    "try": "Try a question"
   }
 }

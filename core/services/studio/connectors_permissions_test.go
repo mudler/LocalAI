@@ -96,7 +96,7 @@ var _ = Describe("capabilities and sender pairing of a connector", func() {
 			Expect(pc.Code).To(MatchRegexp(`^LA-[A-Z0-9]{8}$`))
 			Expect(pc.Expires.Sub(sh.clock.Now())).To(Equal(10 * time.Minute))
 			say("11", pc.Code)
-			Eventually(lastAnswer, "10s").Should(HavePrefix("Paired"))
+			Eventually(lastAnswer, "10s").Should(HavePrefix("Verified"))
 			got := reload()
 			Expect(got.IsPaired("11", sh.clock.Now())).To(BeTrue())
 			Expect(got.IsPaired("12", sh.clock.Now())).To(BeFalse())
@@ -108,7 +108,7 @@ var _ = Describe("capabilities and sender pairing of a connector", func() {
 		It("accepts the code once only", func() {
 			pc, _ := r.conns.StartPairing(ctx, alice, b.ID)
 			say("11", pc.Code)
-			Eventually(lastAnswer, "10s").Should(HavePrefix("Paired"))
+			Eventually(lastAnswer, "10s").Should(HavePrefix("Verified"))
 			say("12", pc.Code)
 			Eventually(lastAnswer, "10s").Should(HavePrefix("That code is not valid"))
 			Expect(reload().IsPaired("12", sh.clock.Now())).To(BeFalse())
@@ -130,11 +130,11 @@ var _ = Describe("capabilities and sender pairing of a connector", func() {
 			g := dm("11", pc.Code)
 			g.Direct, g.Mention = false, true
 			Expect(r.conns.Ingest(ctx, "telegram", g)).To(Succeed())
-			Eventually(lastAnswer, "10s").Should(HavePrefix("Pairing works in a direct message"))
+			Eventually(lastAnswer, "10s").Should(HavePrefix("Verification works in a direct message"))
 			Expect(reload().Paired).To(BeEmpty())
 			// The code still works in a direct message: a group attempt did not spend it.
 			say("11", pc.Code)
-			Eventually(lastAnswer, "10s").Should(HavePrefix("Paired"))
+			Eventually(lastAnswer, "10s").Should(HavePrefix("Verified"))
 		})
 
 		It("locks a sender out after five wrong codes", func() {
@@ -151,7 +151,7 @@ var _ = Describe("capabilities and sender pairing of a connector", func() {
 			sh.clock.Advance(61 * time.Minute)
 			pc, _ = r.conns.StartPairing(ctx, alice, b.ID)
 			say("11", pc.Code)
-			Eventually(lastAnswer, "10s").Should(HavePrefix("Paired"))
+			Eventually(lastAnswer, "10s").Should(HavePrefix("Verified"))
 		})
 
 		It("holds three paired senders, and a pairing ends after 90 days", func() {

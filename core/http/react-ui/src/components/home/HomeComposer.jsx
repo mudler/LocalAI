@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { useTranslation, Trans } from 'react-i18next'
-import { availableActions, SLASH_GROUPS } from './homeActions'
-import { filterCommands, slashQuery } from '../../utils/slashCommands'
+import { availableActions, commandNames, SLASH_GROUPS } from './homeActions'
+import { expandTypedUserCommand, filterCommands, slashQuery } from '../../utils/slashCommands'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import Button from '../ui/Button'
@@ -11,6 +11,7 @@ import './composer.css'
 import DictateButton from './DictateButton'
 // eslint-disable-next-line no-unused-vars
 import { StagedAttachment } from '../chat/Attachments'
+import { useFileDrop } from '../../hooks/useFileDrop'
 
 // The Enter glyph is not in the kit sprite. A return arrow in a darker cell
 // teaches the shortcut next to the label.
@@ -35,7 +36,8 @@ function Marked({ text, upto }) {
 //
 // Home uses it as is. Chat uses the same bar and adds what a conversation
 // needs, all optional:
-//   chips        more chips after the MCP chip (the agent picker and the files chip)
+//   lead         a chip drawn before the model picker (Home's Setup chip)
+//   chips        more chips after the MCP chip (the agent picker)
 //   slash        { actions, groups, label, desc, groupLabel, ctx, argsLabel,
 //                argLabel, badgeLabel, noteLabel } for a menu of registry
 //                commands (utils/slashCommands.js); ctx goes to the argument
@@ -43,31 +45,38 @@ function Marked({ text, upto }) {
 //   onClearFiles empties the staged files ("/attach clear")
 //   streaming    swaps Send for a Stop button that calls onStop; with
 //                queueWhileStreaming, Send stays once there is text to queue
-//   onPaste, onKeyDownExtra (return true to take the key), fileAccept, rows,
-//   anyFile      one attach button for files of any type, in place of the
-//                image, audio and file buttons; its dialog has no type
+//   onPaste, onKeyDownExtra (return true to take the key), rows,
+//   onAttach     (kind, files) stages files. One attach button takes files
+//                of any type (images and audio too); its dialog has no type
 //                filter, because some file dialogs read accept="*/*" as a
-//                filter and grey out archives such as .zip
+//                filter and grey out archives such as .zip. Files dropped on
+//                the page and the "/attach" command go the same way. Without
+//                onAttach, or with attachDisabled, there is no button and
+//                a drop stages nothing.
 //   onDictateError (message for a failed dictation, e.g. a toast),
 //   onDictate (takes the dictated text instead of the box; the callback of
 //                the render where the recording started gets it),
 //   testIds and class names for the pieces tests and the thread reach for
 //   extras       a node drawn after the attach buttons (the add-on slot)
+//   live         a node drawn after the dictate button (the Live button). It is
+//                hidden while dictation records or transcribes.
+//   dock         a node that takes the place of the message box (the Live
+//                dock); dictation is hidden while it shows. message and
+//                onSubmit stay as they are.
 export default function HomeComposer({
   message, onMessage, onSubmit, canSend, sending, sendTitle, textareaRef,
-  picker, mcp, chips, files = [], onRemoveFile, onAttach,
+  lead, picker, mcp, chips, files = [], onRemoveFile, onAttach,
   placeholder, slashContext, onRunAction, slash,
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
-  fileAccept = '.txt,.md,.pdf', rows = 3, strictEnter = false, testId = 'home-composer',
-  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras,
-  attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false, onDictate, anyFile = false, onClearFiles,
+  rows = 3, strictEnter = false, testId = 'home-composer',
+  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras, live, dock,
+  attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false, onDictate, onClearFiles,
 }) {
   const { t } = useTranslation('home')
-  const imageRef = useRef(null)
-  const audioRef = useRef(null)
   const fileRef = useRef(null)
   const [active, setActive] = useState(null)
   const [dismissed, setDismissed] = useState(false)
+  const [dictation, setDictation] = useState('idle')
 
   // The menu: the commands of the registry (utils/slashCommands.js) that the
   // page passes in slash, or Home's own list when it passes none. "/cmd " of
@@ -98,10 +107,10 @@ export default function HomeComposer({
     return args.id === argCmd.id && args.query === argQuery ? args.items : []
   }, [sq, actions, labelOf, groupList, args, argCmd, argQuery])
   const query = sq?.mode === 'commands' ? sq.query : null
-  const open = sq !== null && items.length > 0 && !dismissed
+  const open = sq !== null && items.length > 0 && !dismissed && !dock
   // The row that starts selected: the first command whose name starts with
   // what was typed, before those that only match by their label.
-  const preferred = query ? Math.max(0, items.findIndex((a) => a.cmd?.slice(1).toLowerCase().startsWith(query))) : 0
+  const preferred = query ? Math.max(0, items.findIndex((a) => a.cmd && commandNames(a).some((n) => n.startsWith(query)))) : 0
   const safeActive = Math.min(active === null ? preferred : active, Math.max(0, items.length - 1))
 
   useEffect(() => { setActive(null); setDismissed(false) }, [message])
@@ -112,14 +121,18 @@ export default function HomeComposer({
   }, [open, safeActive])
 
   // Copy the list before clearing the input, which empties the live FileList.
-  const attach = (kind, input) => {
+  const attach = (input) => {
     const list = Array.from(input.files || [])
     input.value = ''
-    if (list.length) onAttach(kind, list)
+    if (list.length) onAttach('file', list)
   }
 
+  // Files dropped anywhere on the page are staged like the picker's.
+  const canAttach = !!onAttach && !attachDisabled
+  const { dragging } = useFileDrop({ enabled: canAttach, onFiles: (list) => onAttach('file', list) })
+
   // A command the composer runs itself: the attach dialog and its "clear".
-  const openFiles = () => (anyFile ? fileRef : imageRef).current?.click()
+  const openFiles = () => fileRef.current?.click()
   const runLocal = (id, item) => {
     if (id === 'attach' && !item) { openFiles(); return true }
     if (item?.action === 'clearFiles') { onClearFiles?.(); return true }
@@ -170,6 +183,10 @@ export default function HomeComposer({
   const submit = () => {
     const exact = actions.find(c => c.addonId && c.cmd === message.trim())
     if (exact) { onMessage(''); onRunAction(exact.id, exact); return }
+    // A command of the user is never sent as typed: its prompt goes in the box
+    // first, and the person sends it by hand.
+    const own = expandTypedUserCommand(message, actions, slash?.ctx)
+    if (own !== null) { onMessage(own); return }
     onSubmit()
   }
 
@@ -195,8 +212,20 @@ export default function HomeComposer({
       // The toast stack stays above this bar on a chat page (components/Toast).
       // A page can mark a larger box around it instead; the outer mark wins.
       data-toast-anchor=""
+      data-dragging={dragging ? 'true' : undefined}
     >
+      {/* The drop state: a frame and a label over the card while files are
+          dragged over the page. The live note tells screen readers; the
+          attach button is the way for the keyboard. */}
+      {dragging && (
+        <div className="home-drop" data-testid="composer-drop" aria-hidden="true">
+          <Icon name="file" className="dk-icon" />
+          <span>{t('input.dropFiles')}</span>
+        </div>
+      )}
+      <span className="sr-only" role="status">{dragging ? t('input.dropFilesNote') : ''}</span>
       <div className="home-cmd__top">
+        {lead}
         {picker}
         {mcp}
         {chips}
@@ -214,7 +243,8 @@ export default function HomeComposer({
       )}
 
       <div className="home-well">
-        <textarea
+        {dock}
+        {!dock && <textarea
           ref={textareaRef}
           className={`home-textarea${textareaClass ? ` ${textareaClass}` : ''}`}
           data-testid={textareaTestId}
@@ -231,7 +261,7 @@ export default function HomeComposer({
           aria-controls="home-slash"
           aria-autocomplete="list"
           aria-activedescendant={activeId}
-        />
+        />}
         {open && (
           <div className="dk-cmdlist home-slash" id="home-slash" role="listbox" aria-label={t('slash.label')}>
             <div className="home-slash__scroll">
@@ -282,23 +312,20 @@ export default function HomeComposer({
 
       <div className="home-cmd__foot">
         <div className="home-attach-buttons">
-          {onAttach && anyFile && (
-            <Button variant="ghost" size="sm" icon="file" className="home-attach-btn" disabled={attachDisabled} onClick={() => fileRef.current?.click()} title={attachTitle || t('input.attachFile')} aria-label={t('input.attachFile')} />
+          {onAttach && (
+            <Button variant="ghost" size="sm" icon="file" className="home-attach-btn" disabled={attachDisabled} onClick={openFiles} title={attachTitle || t('input.attachFile')} aria-label={t('input.attachFile')} />
           )}
-          {onAttach && !anyFile && (
-            <>
-              <Button variant="ghost" size="sm" icon="image" className="home-attach-btn" disabled={attachDisabled} onClick={() => imageRef.current?.click()} title={attachTitle || t('input.attachImage')} aria-label={t('input.attachImage')} />
-              <Button variant="ghost" size="sm" icon="music" className="home-attach-btn" disabled={attachDisabled} onClick={() => audioRef.current?.click()} title={attachTitle || t('input.attachAudio')} aria-label={t('input.attachAudio')} />
-              <Button variant="ghost" size="sm" icon="file" className="home-attach-btn" disabled={attachDisabled} onClick={() => fileRef.current?.click()} title={attachTitle || t('input.attachFile')} aria-label={t('input.attachFile')} />
-            </>
+          {!dock && (
+            <DictateButton
+              onText={onDictate || ((text) => onMessage(message.trim() ? `${message.trimEnd()} ${text}` : text))}
+              onError={onDictateError}
+              onStateChange={setDictation}
+            />
           )}
-          <DictateButton
-            onText={onDictate || ((text) => onMessage(message.trim() ? `${message.trimEnd()} ${text}` : text))}
-            onError={onDictateError}
-          />
+          {dictation === 'idle' ? live : null}
           {extras}
         </div>
-        <span className="home-input-hint">{hint || t('input.enterHint')}</span>
+        <span className="home-input-hint">{dock ? '' : hint || t('input.enterHint')}</span>
         {streaming && (
           <button
             type="button"
@@ -323,7 +350,7 @@ export default function HomeComposer({
             data-testid={sendTestId}
             data-empty={message.trim() || files.length > 0 ? undefined : 'true'}
             data-loading={sending ? 'true' : undefined}
-            disabled={!canSend}
+            disabled={!canSend || !!dock}
             title={sendTitle}
           >
             <span className="home-send-btn__label">{t('input.send')}</span>
@@ -331,9 +358,7 @@ export default function HomeComposer({
           </button>
         )}
       </div>
-      {!anyFile && <input ref={imageRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => { attach('image', e.target) }} />}
-      {!anyFile && <input ref={audioRef} type="file" multiple accept="audio/*" className="hidden" onChange={(e) => { attach('audio', e.target) }} />}
-      <input ref={fileRef} type="file" multiple accept={anyFile ? undefined : fileAccept} className="hidden" data-testid={fileTestId} onChange={(e) => { attach('file', e.target) }} />
+      <input ref={fileRef} type="file" multiple className="hidden" data-testid={fileTestId} onChange={(e) => attach(e.target)} />
     </form>
   )
 }

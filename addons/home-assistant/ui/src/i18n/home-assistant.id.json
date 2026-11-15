@@ -17,7 +17,6 @@
   "agent": "Agen",
   "agentNone": "Pilih agen",
   "agentCredentialsOnly": "Tanpa agen (hanya kredensial)",
-  "agentOptionalHint": "Opsional. Tanpa agen, koneksi ini hanya menyimpan token, alamat, dan mode tulis untuk chat Anda. Koneksi tidak menjawab pesan dan tidak mendengarkan apa pun.",
   "credentialsOnly": "Hanya kredensial",
   "agentNoModel": "{{name}} (perlu model)",
   "test": "Uji",
@@ -59,8 +58,8 @@
     "label": "Apa yang boleh diubah agen di rumah Anda",
     "hint": "Hanya layanan di daftar yang diizinkan di bawah, pada entitas yang tidak dikecualikan.",
     "off": "Hanya baca",
-    "propose": "Tanya Anda dulu",
-    "auto": "Bertindak tanpa bertanya",
+    "propose": "Tanya dulu",
+    "auto": "Langsung dijalankan",
     "line": {
       "off": "Agen tidak dapat menyalakan atau mematikan apa pun.",
       "propose": "Setiap perubahan menunggu persetujuan Anda.",
@@ -73,8 +72,8 @@
     },
     "row": {
       "off": "Hanya baca",
-      "propose": "Tanya Anda dulu",
-      "auto": "Bertindak tanpa bertanya"
+      "propose": "Tanya dulu",
+      "auto": "Langsung dijalankan"
     }
   },
   "policy": {

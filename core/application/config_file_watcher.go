@@ -194,6 +194,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		if err := json.Unmarshal(fileContent, &settings); err != nil {
 			return err
 		}
+		config.MapRemovedRuntimeSettings(fileContent, &settings)
 		// Same merge semantics as boot: env/CLI-claimed fields win, the
 		// file supplies the rest. This replaces the old inverted guard
 		// (apply only when live != startup snapshot) which skipped genuine

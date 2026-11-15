@@ -27,7 +27,7 @@ var _ = Describe("Diagnostics documentation", func() {
 			{"--pprof-block-profile-rate", "LOCALAI_PPROF_BLOCK_PROFILE_RATE", fmt.Sprint(defaults.BlockProfileRate)},
 			{"--request-phase-timing", "LOCALAI_REQUEST_PHASE_TIMING", fmt.Sprint(defaults.RequestPhaseTiming)},
 		}
-		for _, path := range []string{"features/diagnostics.md", "reference/cli-reference.md"} {
+		for _, path := range []string{"administration/diagnostics.md", "reference/cli-reference.md"} {
 			doc := readDoc(path)
 			for _, row := range rows {
 				Expect(doc).To(MatchRegexp(`(?m)^\| `+regexp.QuoteMeta("`"+row.flag+"`")+` \| `+regexp.QuoteMeta("`"+row.value+"`")+` \|[^\n]*`+regexp.QuoteMeta("`$"+row.env+"`")+` \|$`), path)
@@ -35,7 +35,7 @@ var _ = Describe("Diagnostics documentation", func() {
 		}
 	})
 	It("documents every phase wire constant in the boundary table", func() {
-		doc := readDoc("features/diagnostics.md")
+		doc := readDoc("administration/diagnostics.md")
 		phases := []Phase{PhaseExtraction, PhaseBearerLookup, PhaseDefaultListing, PhaseBodyLookup,
 			PhaseConfigLoadDefaults, PhaseAliasResolution, PhaseConfigLockWait, PhaseConfigLockHold,
 			PhaseConfigFilter, PhaseFSEnumeration, PhaseLooseFilter, PhaseExistenceFallback, PhaseModelInit,
@@ -54,13 +54,13 @@ var _ = Describe("Diagnostics documentation", func() {
 		}
 	})
 	It("links both entry points to the feature page", func() {
-		readDoc("features/diagnostics.md")
-		for _, path := range []string{"reference/cli-reference.md", "getting-started/troubleshooting.md"} {
-			Expect(readDoc(path)).To(ContainSubstring(`{{% relref "features/diagnostics" %}}`))
+		readDoc("administration/diagnostics.md")
+		for _, path := range []string{"reference/cli-reference.md", "administration/troubleshooting.md"} {
+			Expect(readDoc(path)).To(ContainSubstring(`{{% relref "/administration/diagnostics" %}}`))
 		}
 	})
 	It("retains sensitive access warnings and direct bounded capture examples", func() {
-		doc := readDoc("features/diagnostics.md")
+		doc := readDoc("administration/diagnostics.md")
 		for _, text := range []string{"`/debug/pprof/cmdline` is unavailable", "same network namespace", "unauthenticated", "sensitive", "umask 077",
 			"kubectl -n <namespace> port-forward pod/<selected-frontend-pod> 6060:6060",
 			"curl --fail --output cpu.pprof 'http://127.0.0.1:6060/debug/pprof/profile?seconds=10'", "go tool pprof cpu.pprof",

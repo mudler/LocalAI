@@ -36,8 +36,8 @@ test('the files pane lists what was attached and what the model wrote, live, and
   expect(attached.path).toMatch(/^\/Chats\//)
   expect(attached.guest_path).toBe(`/workspace/home${attached.path}`)
 
-  // The chip counts the files and opens the pane from the keyboard.
-  const chip = page.getByTestId('chat-files-chip')
+  // The Files button counts the files and opens the pane from the keyboard.
+  const chip = page.getByTestId('chat-files-toggle')
   await expect(page.getByTestId('chat-files-count')).toHaveText(String(first.length))
   await chip.focus()
   await page.keyboard.press('Enter')
@@ -84,9 +84,9 @@ test('the files pane lists what was attached and what the model wrote, live, and
   // A rename moves the chat folder: the pane and the API give the new path.
   const r = await page.request.patch(`/api/chats/${id}`, { data: { title: `Renamed ${stamp}` } })
   expect(r.ok()).toBe(true)
-  await expect(pane.locator('.cx-files__folder')).toContainText(`Renamed ${stamp}`, { timeout: 20_000 })
+  await expect(pane.locator('.cx-files__folder')).toContainText(`-renamed-${stamp}`, { timeout: 20_000 })
   const third = await api(page.request, `/api/chats/${id}/files`)
-  expect(byName(third.files, note).path).toContain(`Renamed ${stamp}/${note}`)
+  expect(byName(third.files, note).path).toContain(`-renamed-${stamp}/${note}`)
   expect(third.stale).toHaveLength(1)
   const download = await page.request.get(`/api/chats/files/content?path=${encodeURIComponent(byName(third.files, note).path)}`)
   expect(await download.text()).toBe('my notes for the files pane')
@@ -103,7 +103,7 @@ test('a chat with no files teaches where files come from', async ({ page }) => {
   const id = await startChat(page, 'just talk')
   await settled(page, id)
   expect(await files(page, id)).toEqual([])
-  await page.getByTestId('chat-files-chip').click()
+  await page.getByTestId('chat-files-toggle').click()
   const empty = page.getByTestId('chat-files-empty')
   await expect(empty).toBeVisible()
   await expect(empty).toContainText('No files in this chat yet')

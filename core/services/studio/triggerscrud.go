@@ -23,7 +23,8 @@ var (
 	// ErrBadTrigger wraps the reason a trigger is refused, written for a person.
 	ErrBadTrigger = errors.New("studio: invalid trigger")
 	// ErrTooManyTriggers means the user has the most triggers they may have.
-	ErrTooManyTriggers = fmt.Errorf("studio: a user can have at most %d triggers", maxTriggersPerUser)
+	// The host returns it with the limit that applied, in its text.
+	ErrTooManyTriggers = errors.New("studio: too many triggers")
 	// ErrProposalAnswered means the proposal is not waiting: it was accepted,
 	// declined or undone already, maybe from another tab.
 	ErrProposalAnswered = errors.New("studio: this proposal was already answered")
@@ -45,6 +46,9 @@ type TriggerInput struct {
 	Folder   string
 	Quiet    time.Duration
 	DailyCap int
+	// RunLimit is the longest a run may take; zero means the administrator's
+	// run limit. A value above it is kept and runs clamped to it.
+	RunLimit time.Duration
 	// AgentID is optional. Model is needed unless the agent or the source chat
 	// names one. SourceChatID is the chat the trigger was made from.
 	AgentID, Model, SourceChatID string
@@ -92,10 +96,12 @@ func keepPlan(old triggers.Trigger, in TriggerInput) TriggerInput {
 	return in
 }
 
-// MinChatCadence is the shortest time between two runs of a schedule that a
-// model proposes in a chat. A person can choose a shorter one on the Triggers
-// page; a model cannot, so a chat cannot quietly set up a costly loop.
-const MinChatCadence = time.Hour
+// MinCadence is the shortest time between two runs of a schedule trigger, however
+// it is made: proposed by a model, or saved through the API or the Triggers
+// page. A schedule is read to the minute, but a run is a whole model turn, so
+// a shorter gap is refused. A trigger saved before this floor with a shorter
+// gap keeps running; only a new save is checked (see checkCadence).
+const MinCadence = 5 * time.Minute
 
 func bad(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrBadTrigger, fmt.Sprintf(format, args...))
@@ -157,7 +163,7 @@ func countLive(ts []triggers.Trigger) int {
 // be checked now. It does not set Since.
 func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (triggers.Trigger, error) {
 	t := triggers.Trigger{Owner: owner, Name: strings.TrimSpace(in.Name), Prompt: in.Prompt, Enabled: in.Enabled, Kind: in.Kind,
-		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
+		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, RunLimit: in.RunLimit, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
 		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route}
 	acts, err := cleanActs(in.Acts)
 	if err != nil {
@@ -175,7 +181,7 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 	// The agent comes first: a scoped agent's folder bounds a file trigger.
 	var scope *folderScope
 	if t.AgentID != "" {
-		ag, err := h.svc.Agent(ctx, owner, t.AgentID)
+		ag, err := h.svc.ownAgent(ctx, owner, t.AgentID)
 		if err != nil {
 			return t, err
 		}
@@ -219,6 +225,9 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 	if err := t.Validate(); err != nil {
 		return t, bad("%v", err)
 	}
+	if max := h.Limits().MaxDailyCap; t.DailyCap > max {
+		return t, bad("daily limit must be 0 to %d", max)
+	}
 	return t, nil
 }
 
@@ -261,14 +270,17 @@ func (h *Triggers) CreateTrigger(ctx context.Context, user string, in TriggerInp
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
+	if err := h.checkCadence(t); err != nil {
+		return triggers.Trigger{}, err
+	}
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
 	mine, err := h.o.Store.ListTriggers(ctx, owner)
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
-	if countLive(mine) >= maxTriggersPerUser {
-		return triggers.Trigger{}, ErrTooManyTriggers
+	if countLive(mine) >= h.Limits().MaxPerUser {
+		return triggers.Trigger{}, h.errTooMany()
 	}
 	t.ID = newID()
 	t = triggers.Arm(nil, t, h.o.Clock())
@@ -288,9 +300,21 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
-	t, err := h.build(ctx, old.Owner, keepPlan(old, in))
+	in = keepPlan(old, in)
+	// A form that sends back the default it was shown has not chosen it.
+	if old.DailyCap == 0 && in.DailyCap == old.EffectiveCap(h.o.Clock()) {
+		in.DailyCap = 0
+	}
+	t, err := h.build(ctx, old.Owner, in)
 	if err != nil {
 		return triggers.Trigger{}, err
+	}
+	// Only a schedule that changes is checked: a trigger saved before the
+	// floor can still be renamed or edited without touching its schedule.
+	if t.Kind != old.Kind || t.Schedule != old.Schedule {
+		if err := h.checkCadence(t); err != nil {
+			return triggers.Trigger{}, err
+		}
 	}
 	t.ID, t.Route = old.ID, old.Route
 	// The answer to the proposal stays, and the edit is the reason the card
@@ -419,8 +443,8 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 	switch {
 	case pending >= maxProposals:
 		return triggers.Trigger{}, false, ErrTooManyProposals
-	case countLive(mine) >= maxTriggersPerUser:
-		return triggers.Trigger{}, false, ErrTooManyTriggers
+	case countLive(mine) >= h.Limits().MaxPerUser:
+		return triggers.Trigger{}, false, h.errTooMany()
 	}
 	if t.Route.FromConnector() {
 		if proposalsInHour(mine, t.Route.Binding, now) >= MaxProposalsPerHour {
@@ -439,9 +463,9 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 	return t, true, nil
 }
 
-// checkCadence refuses a schedule that runs more often than MinChatCadence.
-// The zone does not change the gap enough to matter, so UTC is used when the
-// proposal names none.
+// checkCadence refuses a schedule that runs more often than MinCadence. The
+// zone does not change the gap enough to matter, so UTC is used when the
+// trigger names none.
 func (h *Triggers) checkCadence(t triggers.Trigger) error {
 	if t.Kind != triggers.KindSchedule {
 		return nil
@@ -454,9 +478,9 @@ func (h *Triggers) checkCadence(t triggers.Trigger) error {
 	if err != nil {
 		return bad("%v", err)
 	}
-	if gap := sch.MinGap(h.o.Clock(), loc); gap > 0 && gap < MinChatCadence {
-		return bad("a trigger proposed in a chat runs at most once an hour, and %q runs every %s. "+
-			"Propose an hourly or slower schedule; the person can choose a shorter one on the Triggers page",
+	if gap := sch.MinGap(h.o.Clock(), loc); gap > 0 && gap < MinCadence {
+		return bad("a schedule trigger runs at most once every 5 minutes, and %q runs every %s. "+
+			"Choose a schedule of 5 minutes or slower",
 			t.Schedule, gapText(gap))
 	}
 	return nil
@@ -735,7 +759,7 @@ func (h *Triggers) NextRun(t triggers.Trigger) (time.Time, bool) {
 // fewer for a schedule that runs less often. A run started by hand is not
 // counted.
 func (h *Triggers) MaxRunsPerDay(t triggers.Trigger) int {
-	limit := t.CapOrDefault()
+	limit := t.EffectiveCap(h.o.Clock())
 	if t.Kind != triggers.KindSchedule {
 		return limit
 	}
@@ -756,6 +780,10 @@ func (h *Triggers) MaxRunsPerDay(t triggers.Trigger) int {
 	}
 	return limit
 }
+
+// DailyCapOf is the daily limit of t as it applies now, before the
+// administrator's ceiling: the stored limit, or the default for its cadence.
+func (h *Triggers) DailyCapOf(t triggers.Trigger) int { return t.EffectiveCap(h.o.Clock()) }
 
 // RemoteModel says whether the model of a trigger runs on a remote service.
 func (h *Triggers) RemoteModel(model string) bool { return h.svc.RemoteModel(model) }

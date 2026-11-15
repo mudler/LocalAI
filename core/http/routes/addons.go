@@ -14,7 +14,7 @@ import (
 // RegisterAddonRoutes registers the routes over the gateway of a. The caller
 // passes the instance gate (middleware.RequireAddonsFeature(a)); app.go does.
 func RegisterAddonRoutes(e *echo.Echo, a *application.Application, gate ...echo.MiddlewareFunc) {
-	RegisterAddonRoutesFor(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), gate...)
+	registerAddonRoutes(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), a.StudioSelectionGuard(), gate...)
 }
 
 // RegisterAddonRoutesFor registers the addon routes over one gateway. A
@@ -23,8 +23,16 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application, gate ...echo.
 // (middleware.RequireAddonsFeature) runs first and the per-user permission
 // after it.
 func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, gate ...echo.MiddlewareFunc) {
+	registerAddonRoutes(e, gw, db, ownership, nil, gate...)
+}
+
+func registerAddonRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, guard endpoints.SelectionGuard, gate ...echo.MiddlewareFunc) {
 	group := e.Group("/api/addons", append(gate, auth.RequireFeature(db, auth.FeatureAddons), auth.CSRFMiddleware(), endpoints.BrowserProtection())...)
 	mode := endpoints.WithOwnership(ownership)
+	var selection []endpoints.Option
+	if guard != nil {
+		selection = append(selection, endpoints.WithSelectionGuard(guard))
+	}
 	group.POST("/dispatch", endpoints.Dispatch(gw, db, mode))
 	group.POST("/relay", endpoints.Relay(gw, db, mode))
 	// Proposals. Confirm is the only route that applies a stored mutation, and
@@ -64,7 +72,7 @@ func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 	// The resource a conversation works on. The stored reference is never a
 	// credential: the owner authorizes it again on every use.
 	group.GET("/conversations/:conversationId/selection/:addonId", endpoints.GetConversationSelection(gw, db, mode))
-	group.PUT("/conversations/:conversationId/selection/:addonId", endpoints.PutConversationSelection(gw, db, mode))
+	group.PUT("/conversations/:conversationId/selection/:addonId", endpoints.PutConversationSelection(gw, db, append([]endpoints.Option{mode}, selection...)...))
 	group.DELETE("/conversations/:conversationId/selection/:addonId", endpoints.DeleteConversationSelection(gw, db, mode))
 	// Private file results. Both routes are reads by the requesting principal
 	// only; the bytes are relayed from the owner that holds them. No MCP tool
@@ -119,6 +127,23 @@ func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 	// read for every caller with the feature; the owner serves only declared
 	// files of the current package. No MCP tool maps to it.
 	group.GET("/:id/assets/:digest/*", endpoints.GetAsset(gw, db, mode))
+	registerShareRoutes(e, gw, db, mode, gate...)
+}
+
+// registerShareRoutes registers the sharing of the resource kinds that are not
+// add-ons. The grants live in the add-on owner's policy store, so the routes
+// sit behind the instance gate of the add-on routes. They do not need the
+// add-ons feature: every call is revalidated as an account, and the policy
+// checks the feature the kind names. They are never tools and no MCP tool
+// maps to them; everything but the listing accepts only the owner's own
+// browser session.
+func registerShareRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, mode endpoints.Option, gate ...echo.MiddlewareFunc) {
+	group := e.Group("/api/shares", append(gate, auth.CSRFMiddleware(), endpoints.BrowserProtection())...)
+	group.GET("/:kind", endpoints.ListShares(gw, db, mode))
+	group.GET("/:kind/:resourceId/grants", endpoints.ListShareGrants(gw, db, mode))
+	group.PUT("/:kind/:resourceId/grants/:principal", endpoints.SetShareGrant(gw, db, mode))
+	group.DELETE("/:kind/:resourceId/grants/:principal", endpoints.RevokeShareGrant(gw, db, mode))
+	group.GET("/:kind/:resourceId/users", endpoints.SearchShareUsers(gw, db, mode))
 }
 
 // RegisterAddonsUnavailable answers every method on a prefix and below it with

@@ -179,7 +179,7 @@ var _ = Describe("the files of a chat", func() {
 		Expect(after.Files).To(HaveLen(1), "after the rename: %+v", after)
 		f := after.Files[0]
 		Expect(f.GuestPath).NotTo(Equal(oldPath), "path after the rename = %q (was %q)", f.GuestPath, oldPath)
-		Expect(f.GuestPath).To(ContainSubstring("Budget review/a.txt"), "path after the rename = %q (was %q)", f.GuestPath, oldPath)
+		Expect(f.GuestPath).To(ContainSubstring("budget-review/a.txt"), "path after the rename = %q (was %q)", f.GuestPath, oldPath)
 		Expect(f.Origin).To(Equal(session.FileFromUser), "the upload lost its origin or turn: %+v", f)
 		Expect(f.Turn).To(Equal(1), "the upload lost its origin or turn: %+v", f)
 		_, err = r.ws.Stat(ctx, workspace.Actor{Principal: "alice"}, f.Path)

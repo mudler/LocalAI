@@ -104,6 +104,12 @@ type Requirements struct {
 	Protocol   contract.VersionRange `json:"protocol,omitzero"`
 	DataFormat contract.VersionRange `json:"dataFormat,omitzero"`
 	SDK        contract.VersionRange `json:"sdk,omitzero"`
+	// FeatureLevel is the feature level the package needs (see
+	// contract.HostFeatureLevel). Zero means no claim, the base level. A host
+	// older than this field refuses an index that carries it, because the
+	// index reader is strict; the generator writes it only for a package that
+	// needs more than the base level.
+	FeatureLevel uint64 `json:"featureLevel,omitempty"`
 }
 
 type Release struct {
@@ -117,6 +123,12 @@ type Release struct {
 	Selection string `json:"selection,omitempty"`
 	SourceID  string `json:"sourceId,omitempty"`
 	SourceURL string `json:"sourceUrl,omitempty"`
+	// Official is stamped with the source, never trusted from remote metadata:
+	// true only when the entry comes from the official library at one of the
+	// addresses LocalAI ships. A library an administrator named "official" at
+	// another address does not qualify. It is the library half of the test; the
+	// receipt of an installed package adds the signature.
+	Official bool `json:"official"`
 	// ID is the identifier of the entry for every kind, the same field the
 	// shared envelope uses. For a backend it is the backend name, which is also
 	// its directory name.

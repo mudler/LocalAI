@@ -3,6 +3,7 @@ package studio_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -129,7 +130,72 @@ var _ = Describe("the confirmation levels of a memory note", func() {
 			Expect(r.h.ResultsFor("propose_change")[0].Err).To(MatchError(ContainSubstring("no tool named")))
 		})
 
-		It("is kept by a write that leaves it out, cleared by use_mine, and refuses auto", func() {
+		Describe("Save it and tell me (auto)", func() {
+			runWith := func(script func(workspace.Actor, string) []studiotest.ToolStep, user, rule string) *trigRig {
+				st := &saveSetting{}
+				if user != "" {
+					st.putHost(studio.MemorySaveKey, user)
+				}
+				r := hostShared(st).rig(script, studio.TriggerOptions{})
+				ag, err := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Helper", Model: "m", Memory: agents.MemoryOwn, MemorySave: rule, Builtins: []string{"memory.write"}})
+				Expect(err).NotTo(HaveOccurred())
+				rec, err := r.svc.Create(ctx, alice, studio.CreateInput{AgentID: ag.ID})
+				Expect(err).NotTo(HaveOccurred())
+				sent(r.svc, alice, rec.ID, "remember")
+				idle(r.svc, alice, rec.ID)
+				return r
+			}
+
+			DescribeTable("loosens only the choices of the person that are not Always confirm or Never",
+				func(user, rule string, want contract.ProposalStatus, auto bool) {
+					r := runWith(changeScript("agent", "- rule\n"), user, rule)
+					p := onlyProposal(r)
+					Expect(p.Status).To(Equal(want))
+					Expect(p.Auto).To(Equal(auto))
+				},
+				Entry("the person said ask: the agent saves at once", studio.SaveAsk, agents.MemorySaveAuto, contract.ProposalApplied, true),
+				Entry("the person never chose: the agent saves at once", "", agents.MemorySaveAuto, contract.ProposalApplied, true),
+				Entry("the person said auto: the same", studio.SaveAuto, agents.MemorySaveAuto, contract.ProposalApplied, true),
+				Entry("the person said Always confirm: it still waits", studio.SaveAlways, agents.MemorySaveAuto, contract.ProposalPending, false),
+				Entry("no agent rule and ask: it waits, as before", studio.SaveAsk, "", contract.ProposalPending, false),
+			)
+
+			It("has no tool to save when the person said never", func() {
+				r := runWith(changeScript("agent", "- rule\n"), studio.SaveNever, agents.MemorySaveAuto)
+				list, _ := r.svc.Changes().List(ctx, alice)
+				Expect(list).To(BeEmpty())
+				Expect(r.h.ResultsFor("propose_change")[0].Err).To(MatchError(ContainSubstring("no tool named")))
+			})
+
+			It("still waits for a note that looks like a secret", func() {
+				r := runWith(changeScript("agent", "- password: hunter2hunter2\n"), studio.SaveAsk, agents.MemorySaveAuto)
+				Expect(onlyProposal(r).Status).To(Equal(contract.ProposalPending))
+			})
+
+			It("still waits for a note over the size limit", func() {
+				r := runWith(changeScript("agent", strings.Repeat("a note ", 700)), studio.SaveAsk, agents.MemorySaveAuto)
+				Expect(len(strings.Repeat("a note ", 700))).To(BeNumerically(">", studio.MaxAutoWriteBytes))
+				Expect(onlyProposal(r).Status).To(Equal(contract.ProposalPending))
+			})
+
+			It("can be undone by the person, and the note is one change set", func() {
+				r := runWith(changeScript("agent", "- rule\n"), studio.SaveAsk, agents.MemorySaveAuto)
+				p := onlyProposal(r)
+				Expect(p.Rev).To(BeNumerically(">", 0))
+			})
+
+			It("never saves a knowledge change at once, whatever the agent says", func() {
+				r := runWith(changeScript("agent", "- rule\n"), studio.SaveAsk, agents.MemorySaveAuto)
+				list, err := r.svc.Changes().List(ctx, alice)
+				Expect(err).NotTo(HaveOccurred())
+				agentID := list[0].Agent
+				_, err = r.svc.Changes().Propose(ctx, studio.ProposeInput{User: alice, Agent: agentID, Kind: "knowledge", Scope: "user",
+					Target: "wiki", Content: "t", Summary: "s", Auto: true})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		It("is kept by a write that leaves it out, cleared by use_mine, accepts auto and refuses ask", func() {
 			r := hostShared(&saveSetting{}).rig(changeScript("agent", "- x\n"), studio.TriggerOptions{})
 			ag, err := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Helper", Model: "m", MemorySave: agents.MemorySaveNever})
 			Expect(err).NotTo(HaveOccurred())
@@ -138,8 +204,11 @@ var _ = Describe("the confirmation levels of a memory note", func() {
 			ag, err = r.svc.SaveAgent(ctx, alice, agents.Agent{ID: ag.ID, Name: "Helper", Model: "m", Instructions: "x"})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ag.MemorySave).To(Equal("never"), "an older client cannot loosen the agent")
-			_, err = r.svc.SaveAgent(ctx, alice, agents.Agent{ID: ag.ID, Name: "Helper", Model: "m", MemorySave: "auto"})
+			_, err = r.svc.SaveAgent(ctx, alice, agents.Agent{ID: ag.ID, Name: "Helper", Model: "m", MemorySave: "ask"})
 			Expect(err).To(MatchError(agents.ErrInvalid))
+			ag, err = r.svc.SaveAgent(ctx, alice, agents.Agent{ID: ag.ID, Name: "Helper", Model: "m", MemorySave: agents.MemorySaveAuto})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ag.MemorySave).To(Equal("auto"))
 			ag, err = r.svc.SaveAgent(ctx, alice, agents.Agent{ID: ag.ID, Name: "Helper", Model: "m", MemorySave: agents.MemorySaveUseMine})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ag.MemorySave).To(BeEmpty())
@@ -303,6 +372,79 @@ var _ = Describe("the confirmation levels of a memory note", func() {
 			setup(studio.SaveAuto, studio.MessagingPairedPrivate, agents.Agent{Memory: agents.MemoryMineAndOwn, MemorySave: agents.MemorySaveAlways})
 			say(true, paired, "remember", 2)
 			Expect(list()[0].Status).To(Equal(contract.ProposalPending))
+		})
+
+		Describe("with the agent rule Save it and tell me", func() {
+			auto := agents.Agent{Memory: agents.MemoryOwn, MemorySave: agents.MemorySaveAuto}
+			DescribeTable("lifts the messaging row only for a paired sender in a one-to-one chat",
+				func(user, row string, direct bool, sender string, want contract.ProposalStatus) {
+					setup(user, row, auto)
+					say(direct, sender, "remember", map[bool]int{true: 1, false: 2}[want == contract.ProposalApplied])
+					p := list()[0]
+					Expect(p.Status).To(Equal(want))
+					Expect(p.Auto).To(Equal(want == contract.ProposalApplied))
+				},
+				Entry("row ask, person ask, paired private chat", studio.SaveAsk, studio.MessagingAsk, true, paired, contract.ProposalApplied),
+				Entry("row unset, paired private chat", studio.SaveAsk, "", true, paired, contract.ProposalApplied),
+				Entry("an allowlisted sender who is not paired", studio.SaveAsk, studio.MessagingAsk, true, listed, contract.ProposalPending),
+				Entry("a paired sender in a group", studio.SaveAsk, studio.MessagingAsk, false, paired, contract.ProposalPending),
+				Entry("an allowlisted sender in a group", studio.SaveAsk, studio.MessagingAsk, false, listed, contract.ProposalPending),
+				Entry("Always confirm of the person holds", studio.SaveAlways, studio.MessagingAsk, true, paired, contract.ProposalPending),
+			)
+
+			It("shows in the access view that a paired sender's notes are saved at once and the others wait", func() {
+				setup(studio.SaveAsk, studio.MessagingAsk, auto)
+				v, err := r.conns.Access(ctx, alice, b.ID)
+				Expect(err).NotTo(HaveOccurred())
+				got := map[string]string{}
+				for _, sub := range v.Subjects {
+					got[sub.ID] = sub.NoteSave
+				}
+				Expect(got).To(HaveKeyWithValue("paired", "now"))
+				Expect(got).To(HaveKeyWithValue("listed", "ask"))
+				Expect(got).To(HaveKeyWithValue("anyone", "ask"))
+			})
+
+			It("shows nothing for an agent that has no such rule", func() {
+				setup(studio.SaveAsk, studio.MessagingAsk, agents.Agent{Memory: agents.MemoryOwn})
+				v, err := r.conns.Access(ctx, alice, b.ID)
+				Expect(err).NotTo(HaveOccurred())
+				for _, sub := range v.Subjects {
+					Expect(sub.NoteSave).To(BeEmpty(), sub.ID)
+				}
+			})
+
+			It("keeps the secret check, with the Undo for what is saved", func() {
+				setup(studio.SaveAsk, studio.MessagingAsk, auto)
+				say(true, paired, "remember secret", 2)
+				Expect(list()[0].Status).To(Equal(contract.ProposalPending))
+			})
+
+			It("keeps the limit of five notes a reply", func() {
+				setup(studio.SaveAsk, studio.MessagingAsk, auto)
+				say(true, paired, "remember many", 1)
+				applied := 0
+				for _, p := range list() {
+					if p.Status == contract.ProposalApplied {
+						applied++
+					}
+				}
+				Expect(applied).To(Equal(studio.MaxAutoWritesPerTurn))
+			})
+
+			It("saves to the conversation and can be undone", func() {
+				setup(studio.SaveAsk, studio.MessagingAsk, auto)
+				say(true, paired, "remember", 1)
+				Expect(list()[0].Rev).To(BeNumerically(">", 0))
+				say(true, paired, "forget", 1)
+				Expect(list()[0].Status).To(Equal(contract.ProposalReverted))
+			})
+
+			It("does not reach the notes of the person or of the agent without a confirmation", func() {
+				setup(studio.SaveAsk, studio.MessagingAsk, agents.Agent{Memory: agents.MemoryMine, MemorySave: agents.MemorySaveAuto})
+				say(true, paired, "remember user", 2)
+				Expect(list()[0].Status).To(Equal(contract.ProposalPending))
+			})
 		})
 
 		DescribeTable("offers no way to save when the rule is never",

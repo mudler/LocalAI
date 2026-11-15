@@ -153,11 +153,17 @@ test.describe('Chat MCP apps', () => {
       const call = { jsonrpc: '2.0', id: 99, method: 'tools/call', params: { name: 'refresh', arguments: {} } }
       // From the page itself, and from a second sandboxed frame.
       window.postMessage(call, '*')
+      // Out of the flow and without a size: a 150px frame appended to the body
+      // makes the window scroll, the thread follows with a smooth scroll, and a
+      // click on the app's button lands on the place it has just left.
       const other = document.createElement('iframe')
       other.setAttribute('sandbox', 'allow-scripts')
+      other.setAttribute('style', 'position:fixed;width:0;height:0;border:0')
       other.srcdoc = `<script>parent.postMessage(${JSON.stringify(call)}, '*')<\/script>`
       document.body.appendChild(other)
+      return new Promise(resolve => other.addEventListener('load', resolve, { once: true }))
     })
+    // Nothing happens when a message is ignored, so the test can only wait a while.
     await page.waitForTimeout(500)
     expect(calls).toEqual([])
     // The frame's own messages still work.
@@ -302,7 +308,8 @@ test.describe('Chat MCP apps', () => {
       // The connection breaks. The transcript now holds the call (the turn is still running).
       seen.ended = true
       const reads = seen.transcripts
-      await page.evaluate(() => { const s = window.__sources.filter((x) => !x.closed).pop(); s.onerror() })
+      // The chat's own stream: the shell's inbox keeps a stream of its own, which may open later.
+      await page.evaluate(() => { const s = window.__sources.filter((x) => x.url.includes('/api/chats/c1/events') && !x.closed).pop(); s.onerror() })
       await expect.poll(() => seen.transcripts).toBeGreaterThan(reads)
       await expect.poll(() => page.evaluate(() => window.__sources.length)).toBeGreaterThan(1)
       await expect(page.getByTestId('chat-app')).toHaveCount(1)

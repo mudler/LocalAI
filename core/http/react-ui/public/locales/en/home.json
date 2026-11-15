@@ -33,9 +33,9 @@
   },
   "input": {
     "placeholder": "Message...",
-    "attachImage": "Attach image",
-    "attachAudio": "Attach audio",
     "attachFile": "Attach file",
+    "dropFiles": "Drop files to attach",
+    "dropFilesNote": "Drop the files to attach them to the message.",
     "enterToSend": "Enter to send",
     "selectModelFirst": "Select a model first",
     "sendMessage": "Send message",
@@ -91,29 +91,58 @@
       "step2Title": "Install a Model",
       "step2Body": "Click install to download and configure it automatically.",
       "step3Title": "Start Chatting",
-      "step3Body": "Chat with your model right from the browser or use the API."
+      "step3Body": "Chat with your model right from the browser or use the API.",
+      "step4Title": "Onboard your agents",
+      "step4Body": "Create an API key, then connect a coding agent: {{agents}}. The guide fills in the address and the key for you.",
+      "step5Title": "Extend LocalAI with an add-on",
+      "step5Body": "Add-ons bring new abilities to LocalAI. Install them from the library."
     },
     "browseGallery": "Browse Model Gallery",
     "importModel": "Import Model",
     "docs": "Docs",
     "noModelsTitle": "No Models Available",
     "noModelsBody": "There are no models installed yet. Ask your administrator to set up models so you can start chatting.",
-    "guideLabel": "Getting started"
+    "guideLabel": "Getting started",
+    "connectAgents": "Connect a coding agent",
+    "browseAddons": "Browse add-ons"
   },
   "starters": {
-    "title": "Recommended for your hardware",
+    "title": "Recommended for your machine",
     "tier": {
-      "cpu": "CPU-only",
-      "gpu-small": "GPU",
-      "gpu-mid": "GPU",
-      "gpu-large": "GPU"
+      "cpu": "CPU only",
+      "gpu-small": "Small GPU",
+      "gpu-mid": "Mid-range GPU",
+      "gpu-large": "Large GPU"
     },
-    "cpuNote": "No GPU detected — these small models stay responsive on CPU.",
-    "gpuNote": "Picked to fit your available VRAM with room for context.",
+    "cpuNote": "No GPU detected. These models stay responsive on a processor.",
+    "gpuNote": "Picked to fit your graphics card with room for a full chat.",
     "install": "Install",
     "installing": "Installing",
     "installStarted": "Installing {{model}}…",
-    "installFailed": "Install failed: {{message}}"
+    "installFailed": "Install failed: {{message}}",
+    "undetected": "We could not detect your hardware, so these are the models for a computer without a GPU.",
+    "cluster": "Sized for the best machine in your cluster.",
+    "nothingFits": "None of the recommended models fits this machine. This is the smallest one; it may run slowly or fail to load.",
+    "facts": {
+      "size": "{{size}} download",
+      "window": "{{window}} context",
+      "memory": "about {{memory}} in use"
+    },
+    "fit": {
+      "tight": "Tight fit",
+      "does_not_fit": "Does not fit"
+    },
+    "reasons": {
+      "little_headroom": "It fits, but leaves little memory free.",
+      "below_chat_minimum": "The context window would be too small for chat.",
+      "exceeds_memory": "It needs more memory than this machine has.",
+      "estimate_unavailable": "Its memory use could not be estimated.",
+      "hardware_unknown": "Your hardware could not be read, so the fit is not checked."
+    },
+    "more": "More models",
+    "fewer": "Fewer models",
+    "askAdmin": "Only an administrator can install models. Ask yours to install one of these.",
+    "installModel": "Install {{model}}"
   },
   "connect": {
     "title": "One endpoint, every API",
@@ -126,7 +155,8 @@
     "browse": "Browse the API",
     "hide": "Hide endpoints",
     "dismiss": "Dismiss",
-    "hideSection": "Hide this section"
+    "hideSection": "Hide this section",
+    "agentsLink": "Connect a coding agent: create an API key and copy its config"
   },
   "jump": {
     "heading": "Jump back in",
@@ -158,6 +188,8 @@
     "loading": "Loading models",
     "none": "No chat model",
     "noneSelected": "No model selected",
+    "chooseModel": "Choose a model",
+    "defaultMissing": "Your default {{model}} is not installed. Choose a model.",
     "title": "Choose the model for this message",
     "filter": "Filter models",
     "label": "Model",

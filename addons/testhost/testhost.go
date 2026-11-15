@@ -7,9 +7,9 @@ package testhost
 
 import (
 	"github.com/mudler/LocalAI/addons/internal/connector"
-	"github.com/mudler/LocalAI/addons/internal/hostclient"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/hostclient"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // Host is the host operation channel as a connector add-on takes it.

@@ -33,11 +33,21 @@ var (
 	alice = workspace.Actor{Principal: "alice", ChatID: "chat-1"}
 )
 
-func newToolEnv() *toolEnv {
+func newToolEnv() *toolEnv { return newToolEnvWith(runner.BashOptions{MaxTimeout: time.Minute}, false) }
+
+// workFolder is the work folder of a chat whose name has a space and a
+// character outside ASCII, as a guest path; newToolEnvWith makes it.
+const workFolder = "/workspace/home/Chats/2026-10-18 Café · Q1/work"
+
+func newToolEnvWith(opts runner.BashOptions, withWork bool) *toolEnv {
 	ctx := context.Background()
 	st := sbtest.OpenStore()
 	_, err := st.Put(ctx, admin, "/users/alice/notes.txt", strings.NewReader("one\ntwo\nthree\nfour\n"), workspace.PutOptions{})
 	Expect(err).NotTo(HaveOccurred())
+	if withWork {
+		_, err = st.Put(ctx, admin, "/users/alice/Chats/2026-10-18 Café · Q1/work/keep.txt", strings.NewReader("k"), workspace.PutOptions{})
+		Expect(err).NotTo(HaveOccurred())
+	}
 	Expect(st.Grant(ctx, admin, "alice", "/users/alice", workspace.ModeWrite)).To(Succeed())
 	v, err := st.View(ctx, alice, []workspace.MountRequest{{Path: "/users/alice", At: "home", Mode: workspace.ModeWrite}})
 	Expect(err).NotTo(HaveOccurred())
@@ -50,7 +60,7 @@ func newToolEnv() *toolEnv {
 	tl := runner.Bash(func(context.Context) (sandbox.Sandbox, func(), error) {
 		e.gets++
 		return sb, func() { e.done++ }, nil
-	}, runner.BashOptions{MaxTimeout: time.Minute})
+	}, opts)
 	e.tools[tl.Name] = tl
 	return e
 }
@@ -134,9 +144,57 @@ var _ = Describe("bash", func() {
 	It("tells the model where it starts and what is kept", func() {
 		e := newToolEnv()
 		d := e.tools["bash"].Description
-		Expect(d).To(ContainSubstring("It starts in " + runner.GuestHome))
+		Expect(d).To(ContainSubstring("The shell starts in $WORK"))
 		Expect(runner.GuestHome).To(Equal("/workspace/home"))
 		Expect(d).To(ContainSubstring("is lost"))
+	})
+
+	It("tells the model to use $WORK and to quote paths", func() {
+		e := newToolEnv()
+		d := e.tools["bash"].Description
+		for _, want := range []string{"Use $WORK or relative paths instead of typing absolute paths", "Quote every path with double quotes",
+			"Never type out a name with spaces or non-ASCII characters; take it from ls or a glob"} {
+			Expect(d).To(ContainSubstring(want))
+		}
+	})
+
+	Context("the work folder", func() {
+		const script = `printf '%s\n' "$WORK"; basename "$PWD"; cd "$WORK" && pwd -P; pwd -P; ls "$WORK"`
+
+		It("starts the shell in the work folder and exports $WORK", func() {
+			e := newToolEnvWith(runner.BashOptions{MaxTimeout: time.Minute, WorkDir: func(context.Context) string { return workFolder }}, true)
+			lines := strings.Split(strings.TrimSpace(e.must("bash", m("command", script))), "\n")
+			Expect(lines).To(HaveLen(5), "%q", lines)
+			// A backend that runs on the host maps the guest path to a folder
+			// below its root, so compare what the shell sees: it starts where
+			// $WORK points, and the folder holds the file made with it.
+			Expect(lines[0]).To(HaveSuffix("Chats/2026-10-18 Café · Q1/work"))
+			Expect(lines[1]).To(Equal("work"))
+			Expect(lines[2]).To(Equal(lines[3]), "the shell does not start in $WORK")
+			Expect(lines[4]).To(Equal("keep.txt"))
+		})
+
+		It("reads the work folder of the call's request by default", func() {
+			e := newToolEnvWith(runner.BashOptions{MaxTimeout: time.Minute}, true)
+			// The request of the call carries what the host decided.
+			raw, _ := json.Marshal(m("command", `basename "$PWD"; echo "${WORK:+set}"`))
+			ctx := runner.WithRequest(context.Background(), runner.Request{Call: sandbox.CallOptions{WorkDir: workFolder}})
+			out, err := e.tools["bash"].Run(ctx, raw)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).To(Equal("work\nset\n"))
+		})
+
+		It("starts in the home with no $WORK when the chat has no folder yet", func() {
+			for name, f := range map[string]func(context.Context) string{
+				"empty":       func(context.Context) string { return "" },
+				"outside":     func(context.Context) string { return "/tmp" },
+				"not a guest": func(context.Context) string { return "/workspace" },
+			} {
+				e := newToolEnvWith(runner.BashOptions{MaxTimeout: time.Minute, WorkDir: f}, true)
+				out := e.must("bash", m("command", `basename "$PWD"; echo "[${WORK-unset}]"`))
+				Expect(out).To(Equal("home\n[unset]\n"), name)
+			}
+		})
 	})
 
 	It("gives a fixed result when there is no sandbox", func() {

@@ -22,3 +22,13 @@ export function eventPayload(ev) {
     return null
   }
 }
+
+// The address to open again after a connection broke. A new EventSource does
+// not send the Last-Event-ID header (the browser sends it only when it
+// reconnects the same object), so the last event id of this chat goes in the
+// query: the server then gives back what was missed. `last` is {chat, id} as
+// the page kept it; an id of another chat is not used.
+export function resumeUrl(url, last, chat) {
+  if (!last || last.chat !== chat || !last.id) return url
+  return `${url}${url.includes('?') ? '&' : '?'}after=${encodeURIComponent(last.id)}`
+}

@@ -5,8 +5,11 @@ import { getSdk } from '../../../internal/host-compat/src/runtime.js'
 import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import Icon from '../../../internal/host-compat/src/components/Icon'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
+import ApprovalsView from '../../../internal/connector-ui/src/ApprovalsView'
+import { answerT } from '../../../internal/connector-ui/src/AnswerFields'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
-import { Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
+import { Field, Notice, TextInput } from '../../../internal/connector-ui/src/controls'
+import { WriteModeField } from '../../../internal/connector-ui/src/addonparts'
 import { pageLocale } from '../../../internal/connector-ui/src/connector'
 import en from './i18n/pikvm.en.json'
 import it from './i18n/pikvm.it.json'
@@ -18,6 +21,8 @@ import id from './i18n/pikvm.id.json'
 import ko from './i18n/pikvm.ko.json'
 import pt from './i18n/pikvm.pt-BR.json'
 import SettingsEditor from './SettingsEditor'
+import ApprovalSettings from './ApprovalSettings'
+import { approvalRevision, onApprovalsChanged } from './approval'
 import ProposalCard from './ProposalCard'
 import { addressProblem, checkFailure, checkItem, credentialProblem, extraBody, extraForm, extraValid, followName, needsPinHint, pikvmSecret, WRITE_MODES, writeModeOf } from './pikvm'
 import { finishTest, resultOf, startTest, subscribe } from './results'
@@ -62,26 +67,8 @@ function PikvmFields({ form, setForm, t }) {
         )}
       </Field>
       {!problem && needsPinHint(form.address_text) && <Notice tone="info" role="note" testId="pikvm-pin-hint">{t('pinHint')}</Notice>}
-      <WriteMode form={form} setForm={setForm} t={t} />
+      <WriteModeField ns="pikvm" form={form} setForm={setForm} t={t} modes={WRITE_MODES} modeOf={writeModeOf} />
     </>
-  )
-}
-
-function WriteMode({ form, setForm, t }) {
-  const mode = writeModeOf(form.write_mode)
-  return (
-    <div data-testid="pikvm-write-mode" className="pk-mode-block">
-      <Field label={t('writeMode.label')} hint={t('writeMode.hint')}>
-        {() => (
-          <RadioCards name="write-mode" legend={t('writeMode.label')} value={mode} onChange={(m) => setForm({ ...form, write_mode: m })}
-            options={WRITE_MODES.map((m) => ({
-              value: m,
-              label: (<span className="pk-modecard"><span className="pk-modecard__title">{t(`writeMode.${m}`)}</span><span className="pk-modecard__line">{t(`writeMode.line.${m}`)}</span></span>),
-            }))} />
-        )}
-      </Field>
-      <Notice tone={mode === 'off' ? 'info' : 'warn'} role="note" testId="pikvm-write-note" className="pk-note">{t(`writeMode.note.${mode}`)}</Notice>
-    </div>
   )
 }
 
@@ -136,7 +123,22 @@ function Checks({ c, t }) {
   )
 }
 
+// The effective view of a connection: which of its tools run without asking.
+// The host reports it; the choice is made in the settings below.
+function useApprovals(id, version) {
+  const [approvals, setApprovals] = useState([])
+  const [seen, setSeen] = useState(approvalRevision())
+  useEffect(() => onApprovalsChanged(() => setSeen(approvalRevision())), [])
+  useEffect(() => {
+    let live = true
+    connectorsApi.access(id).then((v) => { if (live) setApprovals(v?.approvals || []) }).catch(() => { if (live) setApprovals([]) })
+    return () => { live = false }
+  }, [id, version, seen])
+  return approvals
+}
+
 function RowInfo({ c, t }) {
+  const approvals = useApprovals(c.id, c.write_mode)
   const address = (c.resources || [])[0]
   const shown = Boolean(resultOf(c.id)) && Boolean(address)
   const mode = writeModeOf(c.write_mode)
@@ -144,6 +146,7 @@ function RowInfo({ c, t }) {
     <>
       {!shown && <span className="cn-muted" data-testid="pikvm-row-address">{address ? t('addressOf', { address: address.split('#')[0] }) : t('noAddress')}</span>}
       <span><span className={`pk-chip pk-chip--${mode}`} data-testid="pikvm-row-write">{t(`writeMode.row.${mode}`)}</span></span>
+      <ApprovalsView approvals={approvals} s={answerT(t)} testId="pikvm-row-approvals" />
       <Checks c={c} t={t} />
     </>
   )
@@ -181,6 +184,7 @@ export function createPikvm() {
         <ConnectorPage kind="pikvm" ns="pikvm" testId="pikvm-page" TokenFields={PikvmCredential} tokenOf={pikvmSecret} messaging={false}
           ExtraFields={PikvmFields} extraBody={extraBody} extraForm={extraForm} extraValid={extraValid} testExtra={testExtra}
           Help={Help} RowInfo={RowInfo} />
+        <ApprovalSettings />
         <SettingsEditor />
       </RouteProvider>
     )

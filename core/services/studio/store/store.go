@@ -26,7 +26,38 @@ var (
 	ErrTurnRunning = errors.New("studio store: a turn is already running")
 	// ErrNotClaimed means the run ID does not hold the chat.
 	ErrNotClaimed = errors.New("studio store: the run does not hold the chat")
+	// ErrNotResumable means the chat is not at an interrupted turn that may
+	// still resume by itself: it ran a turn since, its tries are used, or its
+	// window passed.
+	ErrNotResumable = errors.New("studio store: the chat has no turn to resume")
 )
+
+// The limits of an automatic resume. A turn that a restart interrupted may
+// resume at most MaxResumeAttempts times, and only for ResumeWindow after the
+// interruption: later, a person decides.
+const (
+	MaxResumeAttempts = 3
+	ResumeWindow      = 30 * time.Minute
+)
+
+// resumeBackoff is the wait before automatic resume number n+1 (index n).
+var resumeBackoff = [MaxResumeAttempts]time.Duration{15 * time.Second, time.Minute, 5 * time.Minute}
+
+// ResumeBackoff is how long a turn that was interrupted after attempts
+// automatic resumes waits before the next one.
+func ResumeBackoff(attempts int) time.Duration {
+	return resumeBackoff[min(max(attempts, 0), len(resumeBackoff)-1)]
+}
+
+// resumeOpen reports whether a chat with these resume fields may resume by
+// itself at now: it has a resume scheduled, tries left, and is inside the
+// window. due says that the wait is over as well.
+func resumeOpen(attempts int, interruptedAt, notBefore, now time.Time) (open, due bool) {
+	if notBefore.IsZero() || attempts >= MaxResumeAttempts || now.Sub(interruptedAt) > ResumeWindow {
+		return false, false
+	}
+	return true, !notBefore.After(now)
+}
 
 // Pending is a message the user sent while a turn ran.
 type Pending struct {
@@ -39,6 +70,9 @@ type Pending struct {
 	// a message back.
 	Unconfirmed bool
 	At          time.Time
+	// Sender says who wrote the message when a messaging connection delivered
+	// it, so the line the turn records can name them (session.Entry.Sender).
+	Sender *session.Sender
 }
 
 // TurnStatus is how a turn ended.
@@ -73,14 +107,47 @@ type TurnInfo struct {
 	Since   time.Time  // when the running turn was claimed
 	Beat    time.Time  // the last sign of life of the running turn
 	Last    TurnStatus // outcome of the last finished turn; empty before the first
+
+	// ResumeAttempts counts the automatic resumes of the current interrupted
+	// turn. A new turn starts the count again.
+	ResumeAttempts int
+	// InterruptedAt is when the last turn was interrupted; zero otherwise.
+	InterruptedAt time.Time
+	// ResumeNotBefore is the earliest time of the next automatic resume; zero
+	// when none is scheduled.
+	ResumeNotBefore time.Time
+	// WillResume is true when the chat is idle at an interrupted turn and the
+	// server will resume it by itself: a resume is scheduled, tries are left
+	// and the window has not passed. It is read on the clock of the store.
+	WillResume bool
+	// Owner is the instance of the process that runs, or last ran, a turn of
+	// the chat, as SetTurnOwner recorded it. It stays after the turn ends, so
+	// another frontend can still ask that process for the last events, and
+	// until the next turn records its own. A claim does not clear it: a claim
+	// that runs no turn (a command, a check) leaves it to the last turn, and
+	// a process asked about a run it does not hold answers with a resync.
+	// Empty when unknown.
+	Owner string
+}
+
+// ResumableTurn is a chat whose interrupted turn is due to resume.
+type ResumableTurn struct {
+	Principal, ChatID string
+	Attempts          int
+	InterruptedAt     time.Time
 }
 
 // Store is the studio loop's storage.
 type Store interface {
 	session.Store
+	// PartialStore keeps the text of the answer being written.
+	session.PartialStore
 
 	// AddPending queues text as the next message, after the pending ones.
 	AddPending(ctx context.Context, principal, chatID, text string) (Pending, error)
+	// AddPendingFrom is AddPending for a message with a known sender (nil:
+	// the same as AddPending).
+	AddPendingFrom(ctx context.Context, principal, chatID, text string, sender *session.Sender) (Pending, error)
 	// Pending returns the messages not yet delivered, in send order.
 	Pending(ctx context.Context, principal, chatID string) ([]Pending, error)
 	// EditPending changes the text of an undelivered message.
@@ -139,6 +206,13 @@ type Store interface {
 	// each other's change.
 	UpdateHostConsent(ctx context.Context, principal, chatID string, change func(cur *session.HostConsent) (*session.HostConsent, error)) error
 
+	// UpdateJobs changes the index of the chat's background jobs in one atomic
+	// step: change gets a copy of the stubs and returns the list to keep; an
+	// error from change leaves the chat as it was and is returned. Two nodes
+	// that write the stubs of one chat at once do not lose either change.
+	// UpdateChat leaves the list alone.
+	UpdateJobs(ctx context.Context, principal, chatID string, change func(cur []session.JobStub) ([]session.JobStub, error)) error
+
 	// UpdateEgress changes the network state of a chat (preset, rules, cards,
 	// grants) in one atomic step: change gets the current state and edits it;
 	// an error from change leaves the chat as it was and is returned. Two
@@ -152,6 +226,13 @@ type Store interface {
 	// was and is returned. Two frontends that change the same goal at once do
 	// not lose either change. UpdateChat leaves the goal alone.
 	UpdateGoal(ctx context.Context, principal, chatID string, change func(cur *session.Goal) (*session.Goal, error)) error
+
+	// UpdateDock changes the dock of a chat in one atomic step, as UpdateGoal
+	// does the goal: change gets a copy of the current dock (nil when the
+	// chat has none) and returns the dock to keep (nil clears it). The
+	// assistant and the person can dock a page at once without losing either.
+	// UpdateChat leaves the dock alone.
+	UpdateDock(ctx context.Context, principal, chatID string, change func(cur *session.Dock) (*session.Dock, error)) error
 
 	// ListChildren returns the sub-agent chats of a parent chat, oldest first.
 	ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error)
@@ -169,17 +250,42 @@ type Store interface {
 
 	// ClaimTurn gives runID the right to run a turn on the chat.
 	ClaimTurn(ctx context.Context, principal, chatID, runID string) error
-	// ReleaseTurn ends the claim and records how the turn ended.
+	// ReleaseTurn ends the claim and records how the turn ended. An interrupted
+	// turn is recorded as MarkInterrupted does with the default wait; any other
+	// outcome cancels a resume that was scheduled.
 	ReleaseTurn(ctx context.Context, principal, chatID, runID string, status TurnStatus) error
 	// TouchTurn records that the run holding the chat is still alive. The
 	// frontend that runs a turn calls it on a timer.
 	TouchTurn(ctx context.Context, principal, chatID, runID string) error
+	// SetTurnOwner records the instance of the process that runs the turn
+	// runID, so another frontend can ask it for the events a client missed.
+	// It changes nothing (and returns ErrNotClaimed) when runID no longer
+	// holds the chat.
+	SetTurnOwner(ctx context.Context, principal, chatID, runID, instance string) error
 	// ReapTurns ends every running turn that has not beaten for idle, measured
 	// on the clock of the store, so that frontends with different clocks agree:
-	// the chat is free again, its last outcome is interrupted, and
+	// the chat is free again, its last outcome is interrupted, a resume
+	// is scheduled after ResumeBackoff of the attempts so far, and
 	// the messages a request took but nobody confirmed are undelivered again. A
 	// frontend that died leaves such turns behind. It returns the turns it ended.
 	ReapTurns(ctx context.Context, idle time.Duration) ([]ReapedTurn, error)
+	// MarkInterrupted ends the claim of runID as interrupted and schedules an
+	// automatic resume after delay, on the clock of the store, in the same
+	// step. A negative delay schedules none: the turn is interrupted and waits
+	// for a person. The number of resumes already made is kept. It returns
+	// ErrNotClaimed when runID does not hold the chat.
+	MarkInterrupted(ctx context.Context, principal, chatID, runID string, delay time.Duration) error
+	// ClaimResume gives runID the right to run the resume of an interrupted
+	// turn and counts it as one attempt. It is ClaimTurn for the sweeper: it
+	// returns ErrTurnRunning when a turn holds the chat and ErrNotResumable
+	// when no resume is due. Of several callers one wins.
+	ClaimResume(ctx context.Context, principal, chatID, runID string) error
+	// ListResumable returns the chats whose interrupted turn is due to resume:
+	// the wait is over, tries are left and the window has not passed.
+	ListResumable(ctx context.Context) ([]ResumableTurn, error)
+	// CancelResume drops the scheduled resume of an interrupted turn, which then
+	// waits for a person. It does nothing when none is scheduled.
+	CancelResume(ctx context.Context, principal, chatID string) error
 	// Turn returns the turn state of the chat.
 	Turn(ctx context.Context, principal, chatID string) (TurnInfo, error)
 }

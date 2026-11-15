@@ -32,9 +32,9 @@
   },
   "input": {
     "placeholder": "消息...",
-    "attachImage": "附加图片",
-    "attachAudio": "附加音频",
     "attachFile": "附加文件",
+    "dropFiles": "松开以附加文件",
+    "dropFilesNote": "松开鼠标，将文件附加到消息。",
     "enterToSend": "按回车发送",
     "selectModelFirst": "请先选择一个模型",
     "sendMessage": "发送消息",
@@ -82,13 +82,19 @@
       "step2Title": "安装模型",
       "step2Body": "点击安装即可自动下载并配置。",
       "step3Title": "开始聊天",
-      "step3Body": "直接在浏览器中与模型聊天，或使用 API。"
+      "step3Body": "直接在浏览器中与模型聊天，或使用 API。",
+      "step4Title": "接入你的智能体",
+      "step4Body": "创建 API 密钥，然后连接编码智能体：{{agents}}。指南会为你填好地址和密钥。",
+      "step5Title": "用附加组件扩展 LocalAI",
+      "step5Body": "附加组件带来新能力。从库中安装即可。"
     },
     "browseGallery": "浏览模型库",
     "importModel": "导入模型",
     "docs": "文档",
     "noModelsTitle": "暂无可用模型",
-    "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。"
+    "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。",
+    "connectAgents": "连接编码智能体",
+    "browseAddons": "浏览附加组件"
   },
   "connect": {
     "title": "一个端点，所有 API",
@@ -100,7 +106,8 @@
     "copied": "已复制",
     "browse": "Browse the API",
     "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "agentsLink": "连接编码智能体：创建 API 密钥并复制其配置"
   },
   "jump": {
     "heading": "Jump back in",
@@ -147,9 +154,49 @@
     "disabled": "已停用",
     "pinned": "已固定",
     "useTyped": "使用 \"{{name}}\"",
+    "chooseModel": "请选择模型",
+    "defaultMissing": "您的默认模型 {{model}} 未安装。请选择模型。",
     "empty": "没有可用模型",
     "add": "添加模型",
     "remove": "移除 {{name}}",
     "clear": "清除"
+  },
+  "starters": {
+    "title": "为你的机器推荐",
+    "tier": {
+      "cpu": "仅 CPU",
+      "gpu-small": "小显存 GPU",
+      "gpu-mid": "中等 GPU",
+      "gpu-large": "大显存 GPU"
+    },
+    "undetected": "无法检测到你的硬件，因此显示的是适用于无 GPU 电脑的模型。",
+    "cluster": "按集群中最好的机器配置。",
+    "nothingFits": "推荐的模型都无法在这台机器上运行。这是最小的一个，可能运行缓慢或无法加载。",
+    "facts": {
+      "size": "下载 {{size}}",
+      "window": "{{window}} 上下文",
+      "memory": "约占用 {{memory}} 内存"
+    },
+    "fit": {
+      "tight": "勉强",
+      "does_not_fit": "放不下"
+    },
+    "reasons": {
+      "little_headroom": "可以放下，但剩余内存很少。",
+      "below_chat_minimum": "上下文窗口太小，无法用于聊天。",
+      "exceeds_memory": "所需内存超过这台机器的内存。",
+      "estimate_unavailable": "无法估算其内存占用。",
+      "hardware_unknown": "无法读取你的硬件，因此未检查是否适配。"
+    },
+    "more": "更多模型",
+    "fewer": "收起模型",
+    "askAdmin": "只有管理员可以安装模型。请让管理员安装其中一个。",
+    "installModel": "安装 {{model}}",
+    "cpuNote": "未检测到 GPU。这些模型在处理器上也能保持流畅。",
+    "gpuNote": "按你的显卡挑选，并为完整聊天留出空间。",
+    "install": "安装",
+    "installing": "安装中",
+    "installStarted": "正在安装 {{model}}…",
+    "installFailed": "安装失败：{{message}}"
   }
 }

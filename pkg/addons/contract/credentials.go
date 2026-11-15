@@ -3,13 +3,19 @@ package contract
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
 
-// Kinds of a credential slot. Only the token exists in this version; a kind
-// the host does not know is refused at install.
+// Kinds of a credential slot: a token the person gives the host, or an OAuth
+// 2.0 login the host runs (see CredentialKindOAuth2). A kind the host does not
+// know is refused at install.
 const CredentialKindToken = "token"
 
 // Bounds of the credentials of a manifest and of a request.
@@ -38,8 +44,11 @@ type CredentialSlot struct {
 	ID string `json:"id"`
 	// Title is the name the person sees, such as "Access token".
 	Title string `json:"title"`
-	// Kind is CredentialKindToken.
+	// Kind is CredentialKindToken or CredentialKindOAuth2.
 	Kind string `json:"kind"`
+	// OAuth says how the host logs the person in. It is required for kind
+	// oauth2 and refused for any other kind.
+	OAuth *OAuthDescriptor `json:"oauth,omitempty"`
 	// ResourceArgument is the name of the string argument that holds the
 	// external resource key. A tool whose schema declares it must require it,
 	// and a call is refused when the key is not on the list. A tool without it
@@ -49,6 +58,12 @@ type CredentialSlot struct {
 	// connection acted, such as "repository" in "as Work, repository
 	// acme/widgets". Without it the host says "resource".
 	ResourceLabel string `json:"resourceLabel,omitempty"`
+	// ResourceOptional lets a call leave the resource argument out. The host
+	// then uses the one resource that the person's binding lists, and a
+	// binding that lists several refuses the call and names them. A call that
+	// names a resource is held to the list as before. The tools declare the
+	// argument without requiring it.
+	ResourceOptional bool `json:"resourceOptional,omitempty"`
 }
 
 // validateCredentials checks the credentials of the manifest. The binding that
@@ -70,8 +85,16 @@ func validateCredentials(c Capabilities) error {
 	}
 	seen := map[string]bool{}
 	for _, s := range c.Credentials {
-		if !namespace.MatchString(s.ID) || seen[s.ID] || s.Kind != CredentialKindToken || !plainText(s.Title, 80) {
+		if !namespace.MatchString(s.ID) || seen[s.ID] || (s.Kind != CredentialKindToken && s.Kind != CredentialKindOAuth2) || !plainText(s.Title, 80) {
 			return fmt.Errorf("invalid credential slot")
+		}
+		if (s.Kind == CredentialKindOAuth2) != (s.OAuth != nil) {
+			return fmt.Errorf("invalid credential slot: oauth belongs to kind %s and to it alone", CredentialKindOAuth2)
+		}
+		if s.OAuth != nil {
+			if err := s.OAuth.Validate(); err != nil {
+				return err
+			}
 		}
 		seen[s.ID] = true
 		if s.ResourceArgument != "" && !toolPropertyName.MatchString(s.ResourceArgument) {
@@ -80,11 +103,24 @@ func validateCredentials(c Capabilities) error {
 		if s.ResourceLabel != "" && !plainText(s.ResourceLabel, MaxResourceLabelChars) {
 			return fmt.Errorf("invalid credential resource label")
 		}
+		if s.ResourceOptional && s.ResourceArgument == "" {
+			return fmt.Errorf("resourceOptional needs a resource argument")
+		}
 	}
 	slot := c.Credentials[0]
 	for _, d := range c.ToolDefinitions {
 		if d.Kind != ToolKindRead && d.Kind != ToolKindWrite {
 			return fmt.Errorf("tool %s: an add-on with credentials declares read and write tools only", d.Name)
+		}
+		if d.Enumerates {
+			if d.Kind != ToolKindRead || d.UIOnly || !c.wildcardKind() {
+				return fmt.Errorf("tool %s: enumerates needs a read tool and a connector kind with wildcardResources", d.Name)
+			}
+			if slot.ResourceArgument != "" {
+				if _, has := toolProperties(d)[slot.ResourceArgument]; has {
+					return fmt.Errorf("tool %s: an enumerating tool names no resource", d.Name)
+				}
+			}
 		}
 		if _, has := toolProperties(d)[ResourceArgument]; has {
 			return fmt.Errorf("tool %s: an add-on with credentials names its resources with %s, not %s", d.Name, slot.ResourceArgument, ResourceArgument)
@@ -105,11 +141,35 @@ func validateCredentials(c Capabilities) error {
 		var p struct {
 			Type string `json:"type"`
 		}
-		if json.Unmarshal(prop, &p) != nil || p.Type != "string" || !requiredProperty(d, slot.ResourceArgument) {
+		if json.Unmarshal(prop, &p) != nil || p.Type != "string" {
+			return fmt.Errorf("tool %s: %s must be a string", d.Name, slot.ResourceArgument)
+		}
+		if requiredProperty(d, slot.ResourceArgument) == slot.ResourceOptional {
+			if slot.ResourceOptional {
+				return fmt.Errorf("tool %s: %s must not be required when the slot makes it optional", d.Name, slot.ResourceArgument)
+			}
 			return fmt.Errorf("tool %s: %s must be a required string", d.Name, slot.ResourceArgument)
 		}
 	}
 	return nil
+}
+
+// AnyResource is the resource key that stands for everything the credential
+// reaches: the entry a binding lists to allow it, and the key the host asks
+// for on behalf of an enumerating tool (see ToolDefinition.Enumerates).
+const AnyResource = "*"
+
+// wildcardKind reports a connector kind that lets bindings list a wildcard.
+func (c Capabilities) wildcardKind() bool {
+	if c.Connector == nil {
+		return false
+	}
+	for _, k := range c.Connector.Kinds {
+		if k.WildcardResources {
+			return true
+		}
+	}
+	return false
 }
 
 func toolProperties(d ToolDefinition) map[string]json.RawMessage {
@@ -133,6 +193,11 @@ func requiredProperty(d ToolDefinition, name string) bool {
 	return false
 }
 
+// ErrResourceOmitted is what CredentialResource returns for a call that leaves
+// out an optional resource argument. The host then asks for the one resource
+// of the binding.
+var ErrResourceOmitted = errors.New("the call names no resource")
+
 // CredentialResource returns the external resource key a call of the tool
 // carries, per the slot: the empty string for a tool that does not declare the
 // slot's resource argument. found tells whether the tool declares it.
@@ -146,6 +211,9 @@ func (s CredentialSlot) CredentialResource(d ToolDefinition, arguments json.RawM
 	var args map[string]json.RawMessage
 	if json.Unmarshal(arguments, &args) != nil {
 		return "", true, fmt.Errorf("invalid arguments")
+	}
+	if _, named := args[s.ResourceArgument]; !named && s.ResourceOptional {
+		return "", true, ErrResourceOmitted
 	}
 	if json.Unmarshal(args[s.ResourceArgument], &key) != nil || key == "" {
 		return "", true, fmt.Errorf("the %s argument is required", s.ResourceArgument)
@@ -183,4 +251,26 @@ func (e *ErrRateLimited) Error() string {
 }
 
 // Seconds is the wait, kept between 1 and MaxRetryAfter.
-func (e *ErrRateLimited) Seconds() int { return min(max(e.RetryAfter, 1), MaxRetryAfter) }
+func (e *ErrRateLimited) Seconds() int { return clampRetryAfter(e.RetryAfter) }
+
+// RateLimitedAfter is an ErrRateLimited for a wait of n seconds, kept between
+// 1 and MaxRetryAfter.
+func RateLimitedAfter(n int) *ErrRateLimited {
+	return &ErrRateLimited{RetryAfter: clampRetryAfter(n)}
+}
+
+// ParseRetryAfter reads the value of a Retry-After header, which is a number
+// of seconds or an HTTP date, and keeps it between 1 and MaxRetryAfter. A
+// missing or unreadable value gives def.
+func ParseRetryAfter(value string, def int) int {
+	value = strings.TrimSpace(value)
+	if n, err := strconv.Atoi(value); err == nil {
+		return clampRetryAfter(n)
+	}
+	if t, err := http.ParseTime(value); err == nil {
+		return clampRetryAfter(int(time.Until(t).Seconds()) + 1)
+	}
+	return def
+}
+
+func clampRetryAfter(n int) int { return min(max(n, 1), MaxRetryAfter) }

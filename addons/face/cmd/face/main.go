@@ -7,7 +7,7 @@ package main
 import (
 	"os"
 
-	"github.com/mudler/LocalAI/addons/internal/idle"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/idle"
 )
 
 func main() {

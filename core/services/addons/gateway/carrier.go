@@ -153,6 +153,9 @@ type wireRequest struct {
 	// HostGrants marks a host access call (grants, deny rules, blanket
 	// approval). Such a call is never a typed dispatch.
 	HostGrants *HostGrantsCall `json:"hostGrants,omitempty"`
+	// OAuth marks an OAuth login or client call. Such a call is never a
+	// typed dispatch.
+	OAuth *OAuthCall `json:"oauth,omitempty"`
 }
 
 // exclusive reports whether exactly one routing payload is set. Each branch of
@@ -161,7 +164,7 @@ type wireRequest struct {
 // claims.
 func (w wireRequest) exclusive() bool {
 	set := 0
-	for _, present := range []bool{w.ExecutionBinding != nil, w.Observation != nil, w.Relay != nil, w.Proposal != nil, w.Artifact != nil, w.Apps != nil, w.Resource != nil, w.Library != nil, w.HostGrants != nil} {
+	for _, present := range []bool{w.ExecutionBinding != nil, w.Observation != nil, w.Relay != nil, w.Proposal != nil, w.Artifact != nil, w.Apps != nil, w.Resource != nil, w.Library != nil, w.HostGrants != nil, w.OAuth != nil} {
 		if present {
 			set++
 		}
@@ -188,7 +191,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 	if c.config.InstanceID != c.config.OwnerID || g == nil {
 		return nil, ErrForbidden
 	}
-	v, e := NewForwardVerifier(VerifierConfig{Keys: c.config.VerificationKeys, Revalidate: g.Revalidate})
+	v, e := NewForwardVerifier(VerifierConfig{Keys: c.config.VerificationKeys, Revalidate: g.Revalidate, Account: g.revalidateAccount})
 	if e != nil {
 		return nil, e
 	}
@@ -348,6 +351,16 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				hctx = WithHumanSurface(hctx)
 			}
 			g.hostGrantsLocalReply(hctx, w, actor, call)
+			return
+		}
+		if wire.OAuth != nil {
+			call := *wire.OAuth
+			// The owner classifies by the call, not by the action the peer wrote.
+			if !wire.exclusive() || !call.valid() || wire.Request.Action != call.wireAction() {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			g.oauthLocalReply(r.Context(), w, actor, call)
 			return
 		}
 		if wire.Library != nil {
@@ -557,7 +570,7 @@ func typedError(w http.ResponseWriter, e error) {
 		// decodes the body back to the same typed error.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid})
+		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid, refusalWire: refusalWireOf(e)})
 		return
 	}
 	var limited *contract.ErrRateLimited
@@ -593,6 +606,16 @@ func typedError(w http.ResponseWriter, e error) {
 		_ = json.NewEncoder(w).Encode(sdkWire{Type: wireSDK, Min: refusal.Min, Max: refusal.Max, Host: refusal.Host})
 		return
 	}
+	if errors.Is(e, addons.ErrOperationNotFound) && !errors.Is(e, ErrUnavailable) {
+		// A missing operation, or one that belongs to another user, is not a
+		// refusal of the caller's role. It has its own type so a page can drop
+		// the stale operation instead of telling an administrator to sign in
+		// as one.
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: wireOperationNotFound})
+		return
+	}
 	if t := denialType(e); t != "" {
 		// Typed apart from a plain denial, so a forwarding frontend tells the
 		// model "no permission" or "no such resource" like the owner does.
@@ -610,6 +633,8 @@ const (
 	wireNotPermitted = "not_permitted"
 	wireUnreachable  = "resource_unreachable"
 	wireRateLimited  = "rate_limited"
+	// wireOperationNotFound is the 404 type of an unknown lifecycle operation.
+	wireOperationNotFound = "operation_not_found"
 )
 
 // denialType is the wire type of a denial that callers tell apart, or "".
@@ -645,7 +670,7 @@ func operationCause(e error) string {
 func IsOperationCause(code string) bool {
 	switch code {
 	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
-		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
+		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible, addons.CauseNeedsNewerHost:
 		return true
 	}
 	return false
@@ -852,13 +877,14 @@ func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireReques
 				case wirePackage:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, packages.ErrPackage)
 				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
-					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
+					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible, addons.CauseNeedsNewerHost:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, &addons.FailureCause{Code: b.Type})
 				case wireNotPermitted:
 					return nil, ErrNotPermitted
 				case wireUnreachable:
 					return nil, ErrResourceUnreachable
-				case CodeResourceNotAllowed, CodeNoCredential, CodeWriteNotAllowed, CodeSelectConnection:
+				}
+				if refusalCode(b.Type) {
 					return nil, &CredentialRefusal{Code: b.Type, Allowed: b.Allowed}
 				}
 			}
@@ -878,12 +904,18 @@ func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireReques
 				return nil, &contract.ErrRateLimited{RetryAfter: b.RetryAfter}
 			}
 		}
+		if resp.StatusCode == http.StatusNotFound {
+			var b sdkWire
+			if decode(io.LimitReader(resp.Body, 32768), &b) == nil && b.Type == wireOperationNotFound {
+				return nil, addons.ErrOperationNotFound
+			}
+		}
 		if resp.StatusCode == http.StatusBadRequest {
 			// The owner's typed refusal is a decision, not an outage: nothing
 			// was applied and the same call is refused again.
 			var b resourceWire
 			if decode(io.LimitReader(resp.Body, 32768), &b) == nil && b.Type == wireInvalid {
-				return nil, ErrInvalidRequest
+				return nil, b.refusalWire.err()
 			}
 		}
 		// Any other status, including a typed 503, leaves a mutation uncertain:
@@ -954,21 +986,20 @@ func mutationOutcome(r contract.Request, e error) error {
 	return &OutcomeUnknown{OperationID: r.OperationID}
 }
 
-// readManagement are the management reads of the typed dispatch. They change
-// nothing, so a lost answer is plainly unavailable.
-var readManagement = map[string]bool{"catalog-search": true, "catalog-details": true, "catalog-sources": true, "addons-installed": true, ActionRecoveryStatus: true,
-	// The update reads change no state: the check fetches a library and applies nothing.
-	ActionUpdateStatus: true, ActionUpdateCheck: true}
-
-// resourceRead are the resource management calls that have no operation with
-// an outcome to report: the reads and the two idempotent selection calls.
-var resourceRead = map[string]bool{"resource-list": true, "resource-grants": true, "resource-users": true, "resource-status": true, "resource-selection-get": true, "resource-selection-resolve": true, "resource-selection-put": true, "resource-selection-clear": true}
-
-// mutation fails closed: only the known read actions are exempt, so an action
-// added later is reported as an unknown outcome until it is classified.
-func mutation(action string) bool {
-	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action] && !hostGrantsRead[action]
+func init() {
+	// The management reads of the typed dispatch change nothing, so a lost
+	// answer is plainly unavailable. The update reads fetch a library and
+	// apply nothing.
+	markRead("catalog-search", "catalog-details", "catalog-sources", "addons-installed", ActionRecoveryStatus, ActionUpdateStatus, ActionUpdateCheck)
+	// The resource management calls that have no operation with an outcome to
+	// report: the reads and the two idempotent selection calls.
+	markRead("resource-list", "resource-grants", "resource-users", "resource-status", "resource-selection-get", "resource-selection-resolve", "resource-selection-put", "resource-selection-clear",
+		"resource-share-list", "resource-share-grants", "resource-share-users", "resource-share-views", "resource-share-watch", "resource-share-release")
 }
+
+// mutation fails closed: only the actions marked as reads are exempt, so an
+// action added later is reported as an unknown outcome until it is classified.
+func mutation(action string) bool { return !readActions[action] }
 
 // Act forwards an action call to the owner and waits for its answer, up to the
 // act timeout. A lost answer is an unknown outcome: the tool may have run.

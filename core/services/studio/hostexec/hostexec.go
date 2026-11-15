@@ -25,8 +25,10 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/host"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
@@ -55,11 +57,12 @@ func ValidMode(m string) bool { return m == "" || m == ModeOff || m == ModeAsk |
 
 // Description is what the model is told about the built-in bash.
 const Description = "Run a shell script with bash directly on this machine, with no isolation. " +
-	"It starts in the user's home, inside a scratch folder: the same files as /workspace/home of the file tools, so a relative path such as report.docx is /workspace/home/report.docx for them; " +
-	"a shared folder is ../shared-<name> (/workspace/shared-<name> of the file tools). The /workspace paths do not exist here: use relative paths. " +
+	"The shell starts in $WORK, this chat's work folder (the user's home when the chat has none yet), inside a scratch folder: the same files as /workspace/home of the file tools; " +
+	"a shared folder is ../shared-<name> (/workspace/shared-<name> of the file tools). The /workspace paths do not exist here: use $WORK or relative paths. " + runner.QuoteRule + " " +
 	"What it changes in the home and the writable shared folders is saved to the user's files; anything else is lost. " +
 	"It can read what the server can read and reach the internet and the local network. " +
-	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800). " + workfiles.ToolHint
+	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800). " +
+	"For a command that runs for minutes or does not end (a server, a watcher), use job start. " + workfiles.ToolHint
 
 // Options configures a Runner.
 type Options struct {
@@ -85,8 +88,20 @@ type Options struct {
 	// PerUser and Total bound the scratch folders (default 4 and 16), so at
 	// most PerUser commands of one user run at once.
 	PerUser, Total int
+	// WorkDir returns the guest path of the chat's work folder for a command
+	// of a (see studio.Service.CommandWorkDir): the shell starts there and gets
+	// it as $WORK. With create the folder is made first. "" means the chat has
+	// no folder yet, and the shell starts in the home with no $WORK. Nil: the
+	// same, for every chat.
+	WorkDir func(ctx context.Context, a workspace.Actor, create bool) string
 	// Geteuid is os.Geteuid; tests set it.
 	Geteuid func() int
+	// Instance is the node that runs the background jobs: it is recorded in
+	// each job and in its stub, and the carrier reaches the job there.
+	Instance string
+	// JobOptions tunes the registry of the background jobs. The hooks
+	// (Check, Changed, Audit) are set by Runner itself and by OnJob.
+	JobOptions bgjob.Options
 }
 
 // Runner runs the built-in bash of the chats.
@@ -94,6 +109,11 @@ type Runner struct {
 	o      Options
 	m      *runner.Manager
 	reason string
+	jobs   *bgjob.Registry
+
+	hookMu  sync.RWMutex
+	check   func(context.Context, bgjob.Info) bgjob.EndReason
+	changed func(bgjob.Info)
 }
 
 // New returns a Runner. It never fails: a host that cannot run commands (LocalAI
@@ -151,6 +171,13 @@ func New(o Options) *Runner {
 	}
 	m.Start(context.Background())
 	r.m = m
+	jo := o.JobOptions
+	jo.Instance, jo.Provider = o.Instance, "builtin"
+	jo.Check = r.jobCheck
+	jo.Changed = r.jobChanged
+	jo.Audit = r.jobAudit
+	r.jobs = bgjob.New(jo)
+	r.jobs.Start(context.Background())
 	return r
 }
 
@@ -181,6 +208,18 @@ const ScopedText = "Not run: this agent works in one folder, and a command on th
 
 // Run runs one call of bash for a in its chat's scratch folder.
 func (r *Runner) Run(ctx context.Context, a workspace.Actor, args json.RawMessage) (string, error) {
+	return r.run(ctx, a, args, false)
+}
+
+// RunReadOnly runs one call of bash that must not change the user's files: it
+// runs in a scratch folder of its own whose folders are read-only, so what the
+// command writes is refused and no change set is made. A wait uses it for its
+// checks.
+func (r *Runner) RunReadOnly(ctx context.Context, a workspace.Actor, args json.RawMessage) (string, error) {
+	return r.run(ctx, a, args, true)
+}
+
+func (r *Runner) run(ctx context.Context, a workspace.Actor, args json.RawMessage, readOnly bool) (string, error) {
 	if r.Unavailable() != "" {
 		return "This server cannot run commands: " + r.Unavailable() + ".", nil
 	}
@@ -189,7 +228,9 @@ func (r *Runner) Run(ctx context.Context, a workspace.Actor, args json.RawMessag
 	}
 	op := make([]byte, 8)
 	_, _ = rand.Read(op)
-	out, err := r.m.Run(ctx, runner.Request{User: a.Principal, Conversation: a.ChatID, Operation: "hx" + hex.EncodeToString(op), Tool: "bash", Args: args})
+	// A check that must change no file starts in the folder only if it exists.
+	out, err := r.m.Run(ctx, runner.Request{User: a.Principal, Conversation: a.ChatID, Operation: "hx" + hex.EncodeToString(op), Tool: "bash", Args: args,
+		Call: sandbox.CallOptions{ReadOnly: readOnly, WorkDir: r.workDir(ctx, a, !readOnly)}})
 	if errors.Is(err, ErrScoped) {
 		return ScopedText, nil
 	}
@@ -201,6 +242,9 @@ func (r *Runner) Close(ctx context.Context) error {
 	if r == nil || r.m == nil {
 		return nil
 	}
+	// The jobs end first: each saves what it wrote while its sandbox still
+	// exists.
+	r.jobs.Close(ctx)
 	return r.m.Close(ctx)
 }
 
@@ -217,14 +261,18 @@ func (r *Runner) actor(ctx context.Context, user, chat string) (workspace.Actor,
 	return a, nil
 }
 
+// workDir is the work folder of the chat of a, or "".
+func (r *Runner) workDir(ctx context.Context, a workspace.Actor, create bool) string {
+	if r.o.WorkDir == nil {
+		return ""
+	}
+	return r.o.WorkDir(ctx, a, create)
+}
+
 // audit records one call.
 func (r *Runner) audit(ctx context.Context, res runner.BashResult) {
 	req, _ := runner.RequestFrom(ctx)
-	cmd := res.Command
-	if len(cmd) > maxAuditCommand {
-		cmd = strings.ToValidUTF8(cmd[:maxAuditCommand], "") + "..."
-	}
-	ev := Event{User: req.User, Chat: req.Conversation, Command: cmd, Exit: res.Exit, DurationMS: res.Duration.Milliseconds(),
+	ev := Event{Kind: KindRun, User: req.User, Chat: req.Conversation, Command: capAudit(res.Command), Exit: res.Exit, DurationMS: res.Duration.Milliseconds(),
 		TimedOut: res.TimedOut, At: time.Now().UTC()}
 	r.o.Log.Warn("[host-exec] done", "user", ev.User, "chat", ev.Chat, "exit", ev.Exit, "ms", ev.DurationMS, "timed_out", ev.TimedOut)
 	if err := r.o.Audit.Add(context.WithoutCancel(ctx), ev); err != nil {
@@ -240,4 +288,12 @@ func (r *Runner) Events(ctx context.Context, limit int) ([]Event, error) {
 // Prune removes the audit lines older than before.
 func (r *Runner) Prune(ctx context.Context, before time.Time) (int64, error) {
 	return r.o.Audit.Prune(ctx, before)
+}
+
+// capAudit cuts a command or an input to what an audit line keeps.
+func capAudit(s string) string {
+	if len(s) > maxAuditCommand {
+		return strings.ToValidUTF8(s[:maxAuditCommand], "") + "..."
+	}
+	return s
 }

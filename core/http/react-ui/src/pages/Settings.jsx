@@ -97,8 +97,8 @@ function MemoryNow({ resources, settings, onRefresh }) {
   let total = 0
   let label = 'Memory'
   if (resources?.gpus?.length > 0) {
-    used = resources.gpus.reduce((n, g) => n + (g.used || 0), 0)
-    total = resources.gpus.reduce((n, g) => n + (g.total || 0), 0)
+    used = resources.gpus.reduce((n, g) => n + (g.used_vram || 0), 0)
+    total = resources.gpus.reduce((n, g) => n + (g.total_vram || 0), 0)
     label = resources.gpus.length > 1 ? `GPU memory (${resources.gpus.length} GPUs)` : 'GPU memory'
   } else if (resources?.ram) {
     used = resources.ram.used || 0

@@ -65,6 +65,35 @@ var _ = Describe("the chats' web tool settings", func() {
 		Expect(o.ToRuntimeSettings().ChatsSavedAgents).To(HaveValue(BeFalse()))
 	})
 
+	It("keeps the two LocalAI tool groups of the chats on until an administrator switches one off", func() {
+		o := &config.ApplicationConfig{}
+		Expect(o.ToRuntimeSettings().ChatsLocalAIClient).To(HaveValue(BeTrue()))
+		Expect(o.ToRuntimeSettings().ChatsLocalAIAdmin).To(HaveValue(BeTrue()))
+		off := false
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsLocalAIAdmin: &off})
+		Expect(o.DisableChatsLocalAIAdmin).To(BeTrue())
+		Expect(o.DisableChatsLocalAIClient).To(BeFalse())
+		Expect(o.ToRuntimeSettings().ChatsLocalAIAdmin).To(HaveValue(BeFalse()))
+	})
+
+	It("defers the large LocalAI tool groups of the chats in auto mode until an administrator says on or off", func() {
+		o := &config.ApplicationConfig{}
+		Expect(o.ToRuntimeSettings().ChatsToolSearch).To(HaveValue(Equal("auto")))
+		on := "on"
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolSearch: &on})
+		Expect(o.EffectiveChatsToolSearch()).To(Equal("on"))
+		Expect(o.ToRuntimeSettings().ChatsToolSearch).To(HaveValue(Equal("on")))
+		bad := "sometimes"
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolSearch: &bad})
+		Expect(o.EffectiveChatsToolSearch()).To(Equal("on"), "a value that is not a mode is refused")
+		off := " OFF "
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolSearch: &off})
+		Expect(o.EffectiveChatsToolSearch()).To(Equal("off"))
+		empty := ""
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolSearch: &empty})
+		Expect(o.EffectiveChatsToolSearch()).To(Equal("auto"))
+	})
+
 	It("keeps the work folder of the chats on until an administrator turns it off", func() {
 		o := &config.ApplicationConfig{}
 		Expect(o.ToRuntimeSettings().ChatsWorkFolder).To(HaveValue(BeTrue()))
@@ -86,5 +115,22 @@ var _ = Describe("the chats' web tool settings", func() {
 		tiny := 10
 		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsIndexMaxTextBytes: &tiny})
 		Expect(o.ChatsIndexMaxTextBytes).To(Equal(1<<20), "a cap out of range is not taken")
+	})
+
+	It("limits Extract to 1 GiB and 20000 entries, with 7z and RAR off, until an administrator changes them", func() {
+		o := &config.ApplicationConfig{}
+		rs := o.ToRuntimeSettings()
+		Expect(rs.ChatsExtractMaxBytes).To(HaveValue(Equal(int64(1 << 30))))
+		Expect(rs.ChatsExtractMaxEntries).To(HaveValue(Equal(20000)))
+		Expect(rs.ChatsExtractSevenZipRar).To(HaveValue(BeFalse()))
+		bytes, entries, on := int64(8<<20), 50, true
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsExtractMaxBytes: &bytes, ChatsExtractMaxEntries: &entries, ChatsExtractSevenZipRar: &on})
+		Expect(o.EffectiveChatsExtractMaxBytes()).To(Equal(int64(8 << 20)))
+		Expect(o.EffectiveChatsExtractMaxEntries()).To(Equal(50))
+		Expect(o.ChatsExtractSevenZipRar).To(BeTrue())
+		tiny, huge := int64(10), 5000000
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsExtractMaxBytes: &tiny, ChatsExtractMaxEntries: &huge})
+		Expect(o.EffectiveChatsExtractMaxBytes()).To(Equal(int64(8<<20)), "a value out of range is not taken")
+		Expect(o.EffectiveChatsExtractMaxEntries()).To(Equal(50))
 	})
 })

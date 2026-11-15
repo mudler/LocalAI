@@ -1,0 +1,536 @@
+package localaitools
+
+import (
+	"context"
+	"errors"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
+	"sync"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
+	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/pkg/vram"
+)
+
+// fakeClient is a recording, configurable LocalAIClient for unit tests.
+// Each method records the args it was called with and returns whatever the
+// matching field on the struct is configured to return. Methods are guarded
+// by a mutex so tests can run with -race.
+type fakeClient struct {
+	mu sync.Mutex
+
+	// Recorded calls (in order).
+	calls []fakeCall
+
+	// Per-method overrides. Tests set these.
+	gallerySearch         func(GallerySearchQuery) ([]gallery.Metadata, error)
+	searchModels          func(ModelSearchRequest) (*ModelSearchResponse, error)
+	inspectRemoteModel    func(RemoteModelRequest) (*RemoteModelInfo, error)
+	listInstalledModels   func(Capability) ([]InstalledModel, error)
+	listGalleries         func() ([]config.Gallery, error)
+	getJobStatus          func(string) (*JobStatus, error)
+	getModelConfig        func(string) (*ModelConfigView, error)
+	installModel          func(InstallModelRequest) (string, error)
+	importModelURI        func(ImportModelURIRequest) (*ImportModelURIResponse, error)
+	deleteModel           func(string) error
+	editModelConfig       func(string, map[string]any) error
+	setAlias              func(string, string) error
+	listAliases           func() ([]AliasInfo, error)
+	reloadModels          func() error
+	loadModel             func(string) ([]string, error)
+	listBackends          func() ([]Backend, error)
+	listKnownBackends     func() ([]schema.KnownBackend, error)
+	installBackend        func(InstallBackendRequest) (string, error)
+	installLibraryBackend func(InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error)
+	upgradeBackend        func(string) (string, error)
+	systemInfo            func() (*SystemInfo, error)
+	listNodes             func() ([]Node, error)
+	listScheduling        func() ([]ModelSchedulingConfig, error)
+	getScheduling         func(string) (*ModelSchedulingConfig, error)
+	setScheduling         func(SetSchedulingRequest) (*ModelSchedulingConfig, error)
+	deleteScheduling      func(string) error
+	setNodeVRAMBudget     func(string, string) error
+	vramEstimate          func(VRAMEstimateRequest) (*vram.EstimateResult, error)
+	toggleModelState      func(string, modeladmin.Action) error
+	toggleModelPinned     func(string, modeladmin.Action) error
+	getBranding           func() (*Branding, error)
+	setBranding           func(SetBrandingRequest) (*Branding, error)
+	listVoiceProfiles     func() ([]VoiceProfile, error)
+	createVoiceProfile    func(CreateVoiceProfileRequest) (*VoiceProfile, error)
+	deleteVoiceProfile    func(string) error
+	getUsageStats         func(UsageStatsQuery) (*UsageStats, error)
+	getPIIEvents          func(PIIEventsQuery) ([]PIIEvent, error)
+	getMiddlewareStatus   func() (*MiddlewareStatus, error)
+	getRouterDecisions    func(RouterDecisionsQuery) ([]RouterDecision, error)
+	listFailoverChains    func() ([]FailoverChainInfo, error)
+	pinFailoverTarget     func(string, string) error
+	unpinFailoverTarget   func(string) error
+}
+
+type fakeCall struct {
+	method string
+	args   any
+}
+
+func (f *fakeClient) CancelModelLoad(_ context.Context, model, jobID string) (LoadCancelResult, error) {
+	f.record("CancelModelLoad", []string{model, jobID})
+	return LoadCancelResult{Model: model, JobID: jobID, State: "stopping"}, nil
+}
+
+func (f *fakeClient) record(method string, args any) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, fakeCall{method: method, args: args})
+}
+
+func (f *fakeClient) recorded() []fakeCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]fakeCall, len(f.calls))
+	copy(out, f.calls)
+	return out
+}
+
+var errNotConfigured = errors.New("fakeClient method not configured")
+
+func (f *fakeClient) SearchModels(_ context.Context, req ModelSearchRequest) (*ModelSearchResponse, error) {
+	f.record("SearchModels", req)
+	if f.searchModels != nil {
+		return f.searchModels(req)
+	}
+	return &ModelSearchResponse{}, nil
+}
+
+func (f *fakeClient) InspectRemoteModel(_ context.Context, req RemoteModelRequest) (*RemoteModelInfo, error) {
+	f.record("InspectRemoteModel", req)
+	if f.inspectRemoteModel != nil {
+		return f.inspectRemoteModel(req)
+	}
+	return &RemoteModelInfo{RepoFiles: &modelsearch.RepoFiles{}}, nil
+}
+
+func (f *fakeClient) GallerySearch(_ context.Context, q GallerySearchQuery) ([]gallery.Metadata, error) {
+	f.record("GallerySearch", q)
+	if f.gallerySearch != nil {
+		return f.gallerySearch(q)
+	}
+	return nil, nil
+}
+
+func (f *fakeClient) ListInstalledModels(_ context.Context, capability Capability) ([]InstalledModel, error) {
+	f.record("ListInstalledModels", capability)
+	if f.listInstalledModels != nil {
+		return f.listInstalledModels(capability)
+	}
+	return nil, nil
+}
+
+func (f *fakeClient) ListGalleries(_ context.Context) ([]config.Gallery, error) {
+	f.record("ListGalleries", nil)
+	if f.listGalleries != nil {
+		return f.listGalleries()
+	}
+	return nil, nil
+}
+
+func (f *fakeClient) GetJobStatus(_ context.Context, jobID string) (*JobStatus, error) {
+	f.record("GetJobStatus", jobID)
+	if f.getJobStatus != nil {
+		return f.getJobStatus(jobID)
+	}
+	return nil, errNotConfigured
+}
+
+func (f *fakeClient) GetModelConfig(_ context.Context, name string) (*ModelConfigView, error) {
+	f.record("GetModelConfig", name)
+	if f.getModelConfig != nil {
+		return f.getModelConfig(name)
+	}
+	return nil, errNotConfigured
+}
+
+func (f *fakeClient) InstallModel(_ context.Context, req InstallModelRequest) (string, error) {
+	f.record("InstallModel", req)
+	if f.installModel != nil {
+		return f.installModel(req)
+	}
+	return "", errNotConfigured
+}
+
+func (f *fakeClient) DeleteModel(_ context.Context, name string) error {
+	f.record("DeleteModel", name)
+	if f.deleteModel != nil {
+		return f.deleteModel(name)
+	}
+	return nil
+}
+
+func (f *fakeClient) ImportModelURI(_ context.Context, req ImportModelURIRequest) (*ImportModelURIResponse, error) {
+	f.record("ImportModelURI", req)
+	if f.importModelURI != nil {
+		return f.importModelURI(req)
+	}
+	return &ImportModelURIResponse{JobID: "fake-import-job"}, nil
+}
+
+func (f *fakeClient) EditModelConfig(_ context.Context, name string, patch map[string]any) error {
+	f.record("EditModelConfig", []any{name, patch})
+	if f.editModelConfig != nil {
+		return f.editModelConfig(name, patch)
+	}
+	return nil
+}
+
+func (f *fakeClient) SetAlias(_ context.Context, name, target string) error {
+	f.record("SetAlias", []any{name, target})
+	if f.setAlias != nil {
+		return f.setAlias(name, target)
+	}
+	return nil
+}
+
+func (f *fakeClient) ListAliases(_ context.Context) ([]AliasInfo, error) {
+	f.record("ListAliases", nil)
+	if f.listAliases != nil {
+		return f.listAliases()
+	}
+	return []AliasInfo{}, nil
+}
+
+func (f *fakeClient) ReloadModels(_ context.Context) error {
+	f.record("ReloadModels", nil)
+	if f.reloadModels != nil {
+		return f.reloadModels()
+	}
+	return nil
+}
+
+func (f *fakeClient) LoadModel(_ context.Context, model string) ([]string, error) {
+	f.record("LoadModel", model)
+	if f.loadModel != nil {
+		return f.loadModel(model)
+	}
+	return []string{model}, nil
+}
+
+func (f *fakeClient) ListBackends(_ context.Context) ([]Backend, error) {
+	f.record("ListBackends", nil)
+	if f.listBackends != nil {
+		return f.listBackends()
+	}
+	return nil, nil
+}
+
+func (f *fakeClient) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, error) {
+	f.record("ListKnownBackends", nil)
+	if f.listKnownBackends != nil {
+		return f.listKnownBackends()
+	}
+	return nil, nil
+}
+
+func (f *fakeClient) InstallBackend(_ context.Context, req InstallBackendRequest) (string, error) {
+	f.record("InstallBackend", req)
+	if f.installBackend != nil {
+		return f.installBackend(req)
+	}
+	return "", errNotConfigured
+}
+
+func (f *fakeClient) ListBackendLibraryUpdates(_ context.Context) ([]BackendLibraryUpdate, error) {
+	f.record("ListBackendLibraryUpdates", nil)
+	return []BackendLibraryUpdate{}, nil
+}
+
+func (f *fakeClient) BackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	f.record("BackendUpdates", nil)
+	return &backendupdates.Snapshot{Items: []backendupdates.Item{}}, nil
+}
+
+func (f *fakeClient) CheckBackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	f.record("CheckBackendUpdates", nil)
+	return &backendupdates.Snapshot{Items: []backendupdates.Item{}}, nil
+}
+
+func (f *fakeClient) InstallLibraryBackend(_ context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error) {
+	f.record("InstallLibraryBackend", req)
+	if f.installLibraryBackend != nil {
+		return f.installLibraryBackend(req)
+	}
+	return nil, errNotConfigured
+}
+
+func (f *fakeClient) UpgradeBackend(_ context.Context, name string) (string, error) {
+	f.record("UpgradeBackend", name)
+	if f.upgradeBackend != nil {
+		return f.upgradeBackend(name)
+	}
+	return "", errNotConfigured
+}
+
+func (f *fakeClient) SystemInfo(_ context.Context) (*SystemInfo, error) {
+	f.record("SystemInfo", nil)
+	if f.systemInfo != nil {
+		return f.systemInfo()
+	}
+	return &SystemInfo{Version: "test"}, nil
+}
+
+func (f *fakeClient) ListNodes(_ context.Context) ([]Node, error) {
+	f.record("ListNodes", nil)
+	if f.listNodes != nil {
+		return f.listNodes()
+	}
+	return nil, nil
+}
+
+func (f *fakeClient) ListScheduling(_ context.Context) ([]ModelSchedulingConfig, error) {
+	f.record("ListScheduling", nil)
+	if f.listScheduling != nil {
+		return f.listScheduling()
+	}
+	return []ModelSchedulingConfig{}, nil
+}
+
+func (f *fakeClient) GetScheduling(_ context.Context, modelName string) (*ModelSchedulingConfig, error) {
+	f.record("GetScheduling", modelName)
+	if f.getScheduling != nil {
+		return f.getScheduling(modelName)
+	}
+	return &ModelSchedulingConfig{ModelName: modelName}, nil
+}
+
+func (f *fakeClient) SetScheduling(_ context.Context, req SetSchedulingRequest) (*ModelSchedulingConfig, error) {
+	f.record("SetScheduling", req)
+	if f.setScheduling != nil {
+		return f.setScheduling(req)
+	}
+	return &ModelSchedulingConfig{ModelName: req.ModelName, MinReplicas: req.MinReplicas, MaxReplicas: req.MaxReplicas, SpreadAll: req.SpreadAll}, nil
+}
+
+func (f *fakeClient) DeleteScheduling(_ context.Context, modelName string) error {
+	f.record("DeleteScheduling", modelName)
+	if f.deleteScheduling != nil {
+		return f.deleteScheduling(modelName)
+	}
+	return nil
+}
+
+func (f *fakeClient) SetNodeVRAMBudget(_ context.Context, nodeID, budget string) error {
+	f.record("SetNodeVRAMBudget", []any{nodeID, budget})
+	if f.setNodeVRAMBudget != nil {
+		return f.setNodeVRAMBudget(nodeID, budget)
+	}
+	return nil
+}
+
+func (f *fakeClient) VRAMEstimate(_ context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error) {
+	f.record("VRAMEstimate", req)
+	if f.vramEstimate != nil {
+		return f.vramEstimate(req)
+	}
+	return nil, errNotConfigured
+}
+
+func (f *fakeClient) ToggleModelState(_ context.Context, name string, action modeladmin.Action) error {
+	f.record("ToggleModelState", []any{name, action})
+	if f.toggleModelState != nil {
+		return f.toggleModelState(name, action)
+	}
+	return nil
+}
+
+func (f *fakeClient) ToggleModelPinned(_ context.Context, name string, action modeladmin.Action) error {
+	f.record("ToggleModelPinned", []any{name, action})
+	if f.toggleModelPinned != nil {
+		return f.toggleModelPinned(name, action)
+	}
+	return nil
+}
+
+func (f *fakeClient) GetBranding(_ context.Context) (*Branding, error) {
+	f.record("GetBranding", nil)
+	if f.getBranding != nil {
+		return f.getBranding()
+	}
+	return &Branding{InstanceName: "LocalAI"}, nil
+}
+
+func (f *fakeClient) SetBranding(_ context.Context, req SetBrandingRequest) (*Branding, error) {
+	f.record("SetBranding", req)
+	if f.setBranding != nil {
+		return f.setBranding(req)
+	}
+	return &Branding{InstanceName: "LocalAI"}, nil
+}
+
+func (f *fakeClient) ListVoiceProfiles(_ context.Context) ([]VoiceProfile, error) {
+	f.record("ListVoiceProfiles", nil)
+	if f.listVoiceProfiles != nil {
+		return f.listVoiceProfiles()
+	}
+	return []VoiceProfile{}, nil
+}
+
+func (f *fakeClient) CreateVoiceProfile(_ context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error) {
+	f.record("CreateVoiceProfile", req)
+	if f.createVoiceProfile != nil {
+		return f.createVoiceProfile(req)
+	}
+	return &VoiceProfile{ID: "00000000-0000-0000-0000-000000000001", Name: req.Name}, nil
+}
+
+func (f *fakeClient) DeleteVoiceProfile(_ context.Context, id string) error {
+	f.record("DeleteVoiceProfile", id)
+	if f.deleteVoiceProfile != nil {
+		return f.deleteVoiceProfile(id)
+	}
+	return nil
+}
+
+func (f *fakeClient) GetUsageStats(_ context.Context, q UsageStatsQuery) (*UsageStats, error) {
+	f.record("GetUsageStats", q)
+	if f.getUsageStats != nil {
+		return f.getUsageStats(q)
+	}
+	return &UsageStats{
+		Viewer: UsageViewer{ID: "fake-user", Name: "fake", Role: "user"},
+		Period: "month",
+	}, nil
+}
+
+func (f *fakeClient) GetPIIEvents(_ context.Context, q PIIEventsQuery) ([]PIIEvent, error) {
+	f.record("GetPIIEvents", q)
+	if f.getPIIEvents != nil {
+		return f.getPIIEvents(q)
+	}
+	return []PIIEvent{}, nil
+}
+
+func (f *fakeClient) GetRouterDecisions(_ context.Context, q RouterDecisionsQuery) ([]RouterDecision, error) {
+	f.record("GetRouterDecisions", q)
+	if f.getRouterDecisions != nil {
+		return f.getRouterDecisions(q)
+	}
+	return []RouterDecision{}, nil
+}
+
+func (f *fakeClient) GetMiddlewareStatus(_ context.Context) (*MiddlewareStatus, error) {
+	f.record("GetMiddlewareStatus", nil)
+	if f.getMiddlewareStatus != nil {
+		return f.getMiddlewareStatus()
+	}
+	return &MiddlewareStatus{
+		PII: MiddlewarePIIStatus{
+			EnabledGlobally: true,
+			Models:          []MiddlewarePIIModel{},
+		},
+		Router: MiddlewareRouterStatus{Configured: false, Models: []string{}},
+	}, nil
+}
+
+func (f *fakeClient) GetRouterCorpusStats(_ context.Context, routerModel string) (*RouterCorpusStats, error) {
+	f.record("GetRouterCorpusStats", routerModel)
+	return &RouterCorpusStats{Router: routerModel, LabelCounts: map[string]int{}}, nil
+}
+
+func (f *fakeClient) SeedRouterCorpus(_ context.Context, req RouterCorpusSeedRequest) (*RouterCorpusSeedResult, error) {
+	f.record("SeedRouterCorpus", req)
+	return &RouterCorpusSeedResult{Router: req.Router, Added: len(req.Entries), LabelCounts: map[string]int{}}, nil
+}
+
+func (f *fakeClient) ClearRouterCorpus(_ context.Context, routerModel string) (*RouterCorpusClearResult, error) {
+	f.record("ClearRouterCorpus", routerModel)
+	return &RouterCorpusClearResult{Router: routerModel}, nil
+}
+
+func (f *fakeClient) ListFailoverChains(_ context.Context) ([]FailoverChainInfo, error) {
+	f.record("ListFailoverChains", nil)
+	if f.listFailoverChains != nil {
+		return f.listFailoverChains()
+	}
+	return []FailoverChainInfo{}, nil
+}
+
+func (f *fakeClient) PinFailoverTarget(_ context.Context, chain, target string) error {
+	f.record("PinFailoverTarget", []any{chain, target})
+	if f.pinFailoverTarget != nil {
+		return f.pinFailoverTarget(chain, target)
+	}
+	return nil
+}
+
+func (f *fakeClient) UnpinFailoverTarget(_ context.Context, chain string) error {
+	f.record("UnpinFailoverTarget", chain)
+	if f.unpinFailoverTarget != nil {
+		return f.unpinFailoverTarget(chain)
+	}
+	return nil
+}
+
+func (f *fakeClient) ListSharedFolders(_ context.Context) ([]SharedFolder, error) {
+	f.record("ListSharedFolders", nil)
+	return []SharedFolder{}, nil
+}
+
+func (f *fakeClient) CreateSharedFolder(_ context.Context, name string) (*SharedFolder, error) {
+	f.record("CreateSharedFolder", name)
+	return &SharedFolder{ID: 1, Name: name, Path: "/shared/" + name}, nil
+}
+
+func (f *fakeClient) RenameSharedFolder(_ context.Context, id int64, name string) (*SharedFolder, error) {
+	f.record("RenameSharedFolder", []any{id, name})
+	return &SharedFolder{ID: id, Name: name, Path: "/shared/" + name}, nil
+}
+
+func (f *fakeClient) DeleteSharedFolder(_ context.Context, id int64) (*SharedFolderRemoved, error) {
+	f.record("DeleteSharedFolder", id)
+	return &SharedFolderRemoved{Folder: SharedFolder{ID: id}, UndoRev: 9}, nil
+}
+
+func (f *fakeClient) RestoreSharedFolder(_ context.Context, rev int64) (*SharedFolder, error) {
+	f.record("RestoreSharedFolder", rev)
+	return &SharedFolder{ID: 1}, nil
+}
+
+func (f *fakeClient) SetSharedFolderMember(_ context.Context, id int64, member, mode string) (*SharedFolder, error) {
+	f.record("SetSharedFolderMember", []any{id, member, mode})
+	return &SharedFolder{ID: id}, nil
+}
+
+func (f *fakeClient) RemoveSharedFolderMember(_ context.Context, id int64, member string) (*SharedFolder, error) {
+	f.record("RemoveSharedFolderMember", []any{id, member})
+	return &SharedFolder{ID: id}, nil
+}
+
+func (f *fakeClient) ListSharedFolderEvents(_ context.Context, limit int) ([]SharedFolderEvent, error) {
+	f.record("ListSharedFolderEvents", limit)
+	return []SharedFolderEvent{}, nil
+}
+
+func (f *fakeClient) ListChatTools(_ context.Context) (ChatBuiltinToolList, error) {
+	f.record("ListChatTools", nil)
+	return ChatBuiltinToolList{Tools: []ChatBuiltinTool{}, Skills: []schema.ChatsBuiltinSkill{}}, nil
+}
+
+func (f *fakeClient) ListHostExecEvents(_ context.Context, limit int) ([]HostExecEvent, error) {
+	f.record("ListHostExecEvents", limit)
+	return []HostExecEvent{}, nil
+}
+
+func (f *fakeClient) GetChatEgress(_ context.Context) (*ChatEgress, error) {
+	f.record("GetChatEgress", nil)
+	return &ChatEgress{Ceiling: "off"}, nil
+}
+
+func (f *fakeClient) ListEgressEvents(_ context.Context, q EgressEventsQuery) ([]EgressEvent, error) {
+	f.record("ListEgressEvents", q)
+	return []EgressEvent{}, nil
+}
+
+func (f *fakeClient) SetChatEgressCeiling(_ context.Context, ceiling string) (*ChatEgress, error) {
+	f.record("SetChatEgressCeiling", ceiling)
+	return &ChatEgress{Ceiling: ceiling}, nil
+}

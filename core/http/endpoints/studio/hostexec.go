@@ -34,7 +34,7 @@ func (h *Handlers) HostExecConsent(c echo.Context) error {
 
 // AdminHostExecEvents returns the audit of the commands the built-in bash ran.
 // @Summary Read the audit of the commands run on this machine (administrators).
-// @Description Every command the chats' built-in bash ran directly on this machine: who, in which chat, the command (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.
+// @Description Every command the chats' built-in bash ran directly on this machine: who, in which chat, the kind of line (run, or job_start, job_input, job_kill and job_end for a background job, with its job id), the command or the input (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.
 // @Tags chats
 // @Param limit query int false "How many lines, newest first (default 100, at most 500)"
 // @Success 200 {object} schema.ChatsHostExecEventList "The newest commands first"
@@ -48,14 +48,14 @@ func (h *Handlers) AdminHostExecEvents(c echo.Context) error {
 	out := schema.ChatsHostExecEventList{Events: make([]schema.ChatsHostExecEvent, 0, len(evs))}
 	for _, e := range evs {
 		out.Events = append(out.Events, schema.ChatsHostExecEvent{User: e.User, UserName: h.svc.UserName(ctx, e.User), Chat: e.Chat, Command: e.Command,
-			Exit: e.Exit, DurationMS: e.DurationMS, TimedOut: e.TimedOut, At: e.At})
+			Exit: e.Exit, DurationMS: e.DurationMS, TimedOut: e.TimedOut, At: e.At, Kind: e.Kind, Job: e.Job})
 	}
 	return c.JSON(http.StatusOK, out)
 }
 
 // AdminBuiltinTools lists the built-in chat tools for Settings > Tools.
 // @Summary List the built-in chat tools (administrators).
-// @Description The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the oldest running install) and the one pinned with chats_tool_providers, the titles of the candidates, the candidates that are installed but stopped (stopped), a note "not running" when an installed add-on replaces the tool but none serves, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.
+// @Description The built-in tools of the chats (bash, web_search, web_fetch, list_agents and the two LocalAI groups localai_client and localai_admin, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the oldest running install) and the one pinned with chats_tool_providers, the titles of the candidates, the candidates that are installed but stopped (stopped), a note "not running" when an installed add-on replaces the tool but none serves, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.
 // @Tags chats
 // @Success 200 {object} schema.ChatsBuiltinToolList "The built-in tools, by ID"
 // @Router /api/chats/admin/tools [get]

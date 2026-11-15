@@ -9,13 +9,17 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
+	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // ProposalCardKind is the Kind of the tool card that points at a trigger
@@ -37,21 +41,42 @@ const proposeTriggerDescription = "Propose a trigger: a task that runs by itself
 	"It must not ask the run to print JSON or any other output: LocalAI already tells the run to finish with one short plain sentence, which the user reads. " +
 	"when is a schedule text (\"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields) " +
 	"or {\"file_arrives_in\": folder} with a folder inside the user's files, such as /Contracts. " +
-	"A schedule runs at most once an hour; a shorter one is refused. " +
+	"A schedule runs at most once every 5 minutes; a shorter one is refused. " +
 	"time_zone is an IANA name such as Europe/Rome; when absent, the person's own zone is used when they confirm. " +
 	"Fill reads, writes, widget and estimated_tokens so the person sees what a run does and costs before they confirm: " +
 	"writes is the data file a run rewrites and widget the id of the Home widget in home.json that shows it. " +
 	"A run with nobody present only reads unless acts lists what it may also do; ask for the least it needs, and only for what the user's request needs. " +
-	"The proposal shows the acts to the user before they confirm."
+	"The proposal shows the acts to the user before they confirm. " + triggerFilesNote
+
+// triggerFilesNote ends the descriptions of propose_trigger and update_trigger.
+// It keeps a model from putting a script or a state file of a trigger in a
+// place that a run cannot see.
+const triggerFilesNote = "Files: " + workfiles.TriggerFileRule + " Name such a path in the prompt as it is under /workspace/home."
+
+// chatPathWarning is the warning for the model when the prompt or the plan of a
+// trigger names a path under /workspace/chat. A run starts a new chat, so the
+// path is empty there. It returns "" when no text names such a path.
+func chatPathWarning(texts ...string) string {
+	for _, t := range texts {
+		if strings.Contains(t, "/workspace/chat") {
+			return " Warning: the prompt or the plan names a path under /workspace/chat. Every run of a trigger starts a new chat with an empty /workspace/chat, " +
+				"so a file there is not found. Move the script and its state under /workspace/home and change the trigger to name those paths."
+		}
+	}
+	return ""
+}
 
 const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"name":{"type":"string","minLength":1,"maxLength":80,"description":"A short name for the trigger."},` +
 	`"prompt":{"type":"string","minLength":1,"description":"What the agent must do at each run."},` +
-	`"when":{"description":"A schedule text, or an object with the folder to watch.","oneOf":[` +
+	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"}, {\"at\": \"18:00\"} or {\"at\": \"2026-11-15 09:00\"}.","oneOf":[` +
 	`{"type":"string"},` +
-	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]}]},` +
-	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, the person's own zone is used when they confirm."},` +
+	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]},` +
+	`{"type":"object","properties":{"in":{"type":"string","description":"A delay from now, at least one minute: 10 minutes, 1h30m, 2 days."}},"required":["in"]},` +
+	`{"type":"object","properties":{"at":{"type":"string","description":"A time of day, the next time it is that time (18:00 or 6pm), or a date and a time that names the day (2026-11-15 09:00). When the person names a day, give the date."}},"required":["at"]}]},` +
+	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, the person's own zone is used."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
+	`"run_limit":{"type":"string","description":"The longest one run may take, as a duration such as 30m or 2h, from 1m to 24h. Leave it out for the default. The administrator sets a ceiling: a longer limit is cut to it."},` +
 	`"reads":{"type":"string","maxLength":200,"description":"What a run reads, in a few words: Mail from the last 24 hours."},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites, such as data/inbox.json."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$","description":"The id of the Home widget in home.json that shows the file."},` +
@@ -64,22 +89,23 @@ const proposeTriggerSchema = `{"type":"object","properties":{` +
 const proposeTriggerConnectorSchema = `{"type":"object","properties":{` +
 	`"name":{"type":"string","minLength":1,"maxLength":80,"description":"A short name for the trigger."},` +
 	`"prompt":{"type":"string","minLength":1,"description":"What the agent must do at each run."},` +
-	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"} or {\"at\": \"18:00\"}.","oneOf":[` +
+	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"}, {\"at\": \"18:00\"} or {\"at\": \"2026-11-15 09:00\"}.","oneOf":[` +
 	`{"type":"string"},` +
 	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]},` +
 	`{"type":"object","properties":{"in":{"type":"string","description":"A delay from now, at least one minute: 10 minutes, 1h30m, 2 days."}},"required":["in"]},` +
-	`{"type":"object","properties":{"at":{"type":"string","description":"A time of day, the next time it is that time: 18:00 or 6pm. Needs time_zone."}},"required":["at"]}]},` +
+	`{"type":"object","properties":{"at":{"type":"string","description":"A time of day, the next time it is that time (18:00 or 6pm), or a date and a time that names the day (2026-11-15 09:00). Needs time_zone."}},"required":["at"]}]},` +
 	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, UTC is used. Needed for a time of day."},` +
 	`"access":{"type":"string","enum":["read_only","read_write"],"description":"read_only only when the runs just read and report: they write no file, run no command and message nobody else. Otherwise read_write (the default)."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
+	`"run_limit":{"type":"string","description":"The longest one run may take, as a duration such as 30m or 2h, from 1m to 24h. Leave it out for the default. The administrator sets a ceiling: a longer limit is cut to it."},` +
 	`"reads":{"type":"string","maxLength":200,"description":"What a run reads, in a few words."},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$","description":"The id of the Home widget that shows the file."},` +
 	`"acts":{"type":"array","maxItems":8,"items":{"type":"string","enum":["act.files","act.addons","act.send","act.spend"]},"description":"What a run may do when nobody is present: act.files writes files in the agent's folders, act.addons uses the actions of its add-ons, act.send sends messages beyond the delivery target, act.spend uses paid or external tools and the network. Leave it out for a run that only reads and reports. Only what your agent holds; the person sees the list on the proposal before they confirm, and nothing can widen it afterwards."},` +
 	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000,"description":"About how many tokens one run uses."},` +
 	`"delivery":{"type":"object","description":"Where the answer of each run goes. Default: the owner's Inbox.","properties":{` +
-	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in this chat and thread, inbox in the owner's Inbox, channel in a channel the owner listed and approved (name it in channel)."},` +
-	`"channel":{"type":"string","description":"With target channel: the ID of the channel."},` +
+	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in this chat and thread, inbox in the owner's Inbox, channel in the channel itself, at the top and not in a thread, for a channel the owner approved (name it in channel)."},` +
+	`"channel":{"type":"string","description":"With target channel: the name or the ID of one of the approved channels."},` +
 	`"mode":{"type":"string","enum":["always","on_change","on_problem"],"description":"always: every run. on_change: only when the answer differs from the run before. on_problem: only when a run fails."}}}},` +
 	`"required":["name","prompt","when"]}`
 
@@ -89,13 +115,18 @@ const connectorProposeNote = " This chat is in a messaging app. The host writes 
 	"and the person answers there in plain words, so do not repeat the proposal or any code. Depending on the owner's settings the host may also set the trigger up at once and tell the person; " +
 	"the result of this tool says which happened, so never say more than it says. " +
 	"For \"do it in 10 minutes\" or \"at 18:00\" use a one-off timer: when {\"in\": \"10 minutes\"} or {\"at\": \"18:00\"} with time_zone; it runs once, at least a minute from now, and is then removed. " +
-	"Every run is one model run, so propose a recurring trigger only when the person asks for one; a recurring one runs at most once an hour. " +
+	"Every run is one model run, so propose a recurring trigger only when the person asks for one; a recurring one runs at most once every 5 minutes, and each run costs tokens, so pick the slowest schedule that does the job. " +
 	"Use delivery.target origin when the person wants the result in this chat, and a mode that fits (on_change for a watch, on_problem for a check). " +
 	"Set access read_only only when the runs just read and report. " +
 	"A run only reads unless acts says more, and only the acts named below can be asked for here; anything else is dropped and the person is told. " +
 	"A proposal lapses after 24 hours, and at most 3 can be made in an hour."
 
-const listTriggersDescription = "List the triggers of the user: a ref, the name, when it runs or which folder it watches, whether it is on or off, and how its last run ended. " +
+// connectorChangeNote is added to the descriptions of update_trigger and
+// delete_trigger in a chat of a messaging app. There is no card there.
+const connectorChangeNote = " This chat is in a messaging app, so there is no card. Depending on the owner's settings the host either writes the request in the chat with a code for the person to confirm, " +
+	"or does it at once and tells the person; the result of this tool says which happened, so never say more than it says. You see and change only the triggers of this agent."
+
+const listTriggersDescription = "List the triggers of the user and the proposals that still wait: a ref, the name, when it runs or which folder it watches, its state (active, paused or proposed), whether it is on, and how its last run ended. " +
 	"It lists at most 50 and shows no prompts. Use the ref to name a trigger in update_trigger and delete_trigger. " +
 	"To read the prompt and the other settings of ONE trigger before you change it, pass its ref and include_prompt: true."
 
@@ -107,25 +138,35 @@ const updateTriggerDescription = "Change a trigger of the user, named by its ref
 	"enabled false pauses the trigger and enabled true resumes it. " +
 	"A change that only pauses or resumes applies at once, and the user can undo it on the card in the chat: then say that it is paused or resumed. " +
 	"Any other change does nothing by itself: a card shows the user the fields before and after, and nothing changes until they press Apply, so never say that the change is made until they do. " +
-	"The same rules as propose_trigger apply: the prompt must stand alone and must not ask the run to print JSON; when is a schedule text or {\"file_arrives_in\": folder}; a schedule runs at most once an hour, and writes is a path inside the user's files."
+	"This holds for acts and delivery too: a change that widens acts, or moves the answers to another place, is applied only when the user presses Apply on the card. " +
+	"acts is the whole list that the trigger should have, within what the agent holds; delivery is only for a trigger that was proposed in a messaging app. " +
+	"The same rules as propose_trigger apply: the prompt must stand alone and must not ask the run to print JSON; when is a schedule text or {\"file_arrives_in\": folder}; a schedule runs at most once every 5 minutes, and writes is a path inside the user's files. " + triggerFilesNote
 
 const updateTriggerSchema = `{"type":"object","properties":{` +
 	`"ref":{"type":"string","minLength":1,"description":"The ref of the trigger, from list_triggers."},` +
 	`"name":{"type":"string","minLength":1,"maxLength":80},` +
 	`"prompt":{"type":"string","minLength":1,"description":"What the agent must do at each run."},` +
-	`"when":{"description":"A schedule text, or an object with the folder to watch.","oneOf":[` +
+	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"}, {\"at\": \"18:00\"} or {\"at\": \"2026-11-15 09:00\"}.","oneOf":[` +
 	`{"type":"string"},` +
-	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]}]},` +
+	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]},` +
+	`{"type":"object","properties":{"in":{"type":"string","description":"A delay from now, at least one minute: 10 minutes, 1h30m, 2 days."}},"required":["in"]},` +
+	`{"type":"object","properties":{"at":{"type":"string","description":"A time of day, the next time it is that time (18:00 or 6pm), or a date and a time that names the day (2026-11-15 09:00). When the person names a day, give the date."}},"required":["at"]}]},` +
 	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
+	`"run_limit":{"type":"string","description":"The longest one run may take, as a duration such as 30m or 2h, from 1m to 24h. Leave it out for the default. The administrator sets a ceiling: a longer limit is cut to it."},` +
 	`"enabled":{"type":"boolean","description":"false pauses the trigger, true resumes it."},` +
 	`"reads":{"type":"string","maxLength":200},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$"},` +
+	`"acts":{"type":"array","maxItems":8,"items":{"type":"string","enum":["act.files","act.addons","act.send","act.spend"]},"description":"The full list of what a run may do when nobody is present; it replaces the list the trigger has, and [] takes every act away. Only what the agent holds, and for a trigger from a messaging app only what the owner allows for that connection. The change waits for the person on the card."},` +
+	`"delivery":{"type":"object","description":"Where the answer of each run goes. Only for a trigger that was proposed in a messaging app.","properties":{` +
+	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in the chat and thread where the trigger was proposed, inbox in the owner's Inbox, channel in an approved channel itself, at the top and not in a thread."},` +
+	`"channel":{"type":"string","description":"With target channel: the name or the ID of one of the approved channels."},` +
+	`"mode":{"type":"string","enum":["always","on_change","on_problem"],"description":"always: every run. on_change: only when the answer differs from the run before. on_problem: only when a run fails."}}},` +
 	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000}},` +
 	`"required":["ref"]}`
 
-const deleteTriggerDescription = "Ask to delete a trigger of the user, named by its ref from list_triggers. " +
+const deleteTriggerDescription = "Ask to delete a trigger of the user, named by its ref from list_triggers. A proposal that still waits (state proposed) is withdrawn at once with its ref. " +
 	"It does nothing by itself: a card shows the user the trigger, and it is deleted only when they press Delete; they can undo a delete for a day. " +
 	"Never say that the trigger is deleted until they do."
 
@@ -159,13 +200,13 @@ func (s *Service) registerTriggerTools() error {
 		{updateTriggerName, "Change a trigger", updateTriggerDescription, updateTriggerSchema, false,
 			func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
 				return func(ctx context.Context, raw json.RawMessage) (string, error) {
-					return h.updateTool(ctx, a, c.AgentID, raw)
+					return h.updateTool(ctx, a, c, raw)
 				}
 			}},
 		{deleteTriggerName, "Delete a trigger", deleteTriggerDescription, deleteTriggerSchema, false,
 			func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
 				return func(ctx context.Context, raw json.RawMessage) (string, error) {
-					return h.deleteTool(ctx, a, c.AgentID, raw)
+					return h.deleteTool(ctx, a, c, raw)
 				}
 			}},
 	}
@@ -192,24 +233,43 @@ func (s *Service) registerTriggerTools() error {
 				desc, schema := d.desc, d.schema
 				if connector {
 					// A chat of a messaging app proposes and lists. A change or a
-					// delete needs a card that only Studio shows, so it stays there.
+					// delete follows the approval of the connection (see
+					// triggerchangeconn.go) and needs its own capability.
+					change := d.id == updateTriggerName || d.id == deleteTriggerName
 					switch {
-					case d.id == updateTriggerName || d.id == deleteTriggerName:
-						return session.Tool{}, false, "change or delete a trigger in Studio"
 					case c.AgentID == "":
 						return session.Tool{}, false, "a trigger from a messaging app needs the agent of the connection"
-					case !s.allowCap(ctx, CapabilityRequest{Capability: CapTriggersPropose, Binding: c.OriginID, Owner: c.Actor.Principal, Agent: c.AgentID}):
+					case change && !s.allowCap(ctx, CapabilityRequest{Capability: CapTriggersChange, Binding: c.OriginID, Owner: c.Actor.Principal, Agent: c.AgentID}):
+						// Off for the connection is the default, so it is traced but not
+						// told to the model at each turn (it would not start with
+						// "not permitted", which the note about held back tools reads).
+						return session.Tool{}, false, "changing or deleting triggers is off for this connection"
+					case !change && !s.allowCap(ctx, CapabilityRequest{Capability: CapTriggersPropose, Binding: c.OriginID, Owner: c.Actor.Principal, Agent: c.AgentID}):
 						return session.Tool{}, false, builtins.ReasonNotPermitted + ": " + BlockSay(CodeConnectionPermissionOff, CapTriggersPropose)
 					}
 					// The binding allows it; the sender of this turn must hold it too.
-					if held, why := c.Holds(CapTriggersPropose); !held {
+					need := CapTriggersPropose
+					if change {
+						need = CapTriggersChange
+					}
+					if held, why := c.Holds(need); !held {
 						return session.Tool{}, false, builtins.ReasonNotPermitted + ": " + why
 					}
-					if d.id == proposeTriggerName {
-						desc, schema = desc+connectorProposeNote+h.actsNote(ctx, c), proposeTriggerConnectorSchema
+					switch d.id {
+					case proposeTriggerName:
+						desc, schema = desc+connectorProposeNote+h.actsNote(ctx, c)+h.channelsNote(ctx, c), proposeTriggerConnectorSchema
+					case updateTriggerName, deleteTriggerName:
+						desc += connectorChangeNote
+					}
+				} else {
+					if d.id == updateTriggerName {
+						desc += h.updateChannelsNote(ctx, c)
+					}
+					if d.id == proposeTriggerName || d.id == updateTriggerName {
+						desc += h.todayNote(ctx, c.Actor.Principal)
 					}
 				}
-				return session.Tool{Description: desc, Schema: json.RawMessage(schema), Run: d.run(h, c.Actor, c)}, true, ""
+				return session.Tool{Description: desc, Schema: json.RawMessage(schema), Run: s.tracedTriggerRun(d.id, c, d.run(h, c.Actor, c))}, true, ""
 			},
 		})
 		if err != nil {
@@ -304,6 +364,83 @@ func (h *Triggers) toolTriggers(ctx context.Context, a workspace.Actor, agentID 
 	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return t.AgentID != agentID }), nil
 }
 
+// userZone is the time zone the person set in user.json, or "" when there is
+// none or it is not a known zone.
+func (h *Triggers) userZone(ctx context.Context, principal string) string {
+	wk := h.svc.WellKnown()
+	if wk == nil || !wk.Available() {
+		return ""
+	}
+	doc, err := wk.Read(ctx, principal, wellknown.User, "")
+	if err != nil {
+		return ""
+	}
+	name, _ := doc.Data["timezone"].(string)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	if _, err := time.LoadLocation(name); err != nil {
+		return ""
+	}
+	return name
+}
+
+// timerFrom reads the zone of a timer: the argument, the zone given next to
+// "at" inside when, and, in a Studio chat, the zone of the person.
+func (h *Triggers) timerFrom(ctx context.Context, a workspace.Actor, connector bool, in, at, arg, inner string) (schedule, zone string, err error) {
+	tz := strings.TrimSpace(arg)
+	if tz == "" {
+		tz = strings.TrimSpace(inner)
+	}
+	if tz == "" && !connector {
+		tz = h.userZone(ctx, a.Principal)
+	}
+	return timerSchedule(h.o.Clock(), in, at, tz)
+}
+
+// todayNote is the end of the description of propose_trigger and update_trigger
+// in a Studio chat: the date and the zone of the person, so that the model does
+// not work out a day or an offset. It changes once a day, not at each turn, so
+// the tool list stays the same for a prompt cache. The result of each call
+// carries the exact time.
+func (h *Triggers) todayNote(ctx context.Context, principal string) string {
+	now := h.o.Clock()
+	if tz := h.userZone(ctx, principal); tz != "" {
+		loc, _ := time.LoadLocation(tz)
+		return fmt.Sprintf(" Today is %s in the user's time zone %s. A timer {\"at\": ...} without time_zone uses that zone. For a named day (\"this Sunday\") give the date: {\"at\": \"YYYY-MM-DD HH:MM\"}; a bare time is the next time it is that time.",
+			now.In(loc).Format("Monday 2006-01-02"), tz)
+	}
+	return fmt.Sprintf(" Today is %s in UTC. The user's time zone is not known: ask them before {\"at\": ...}, or use {\"in\": a delay}. For a named day give the date: {\"at\": \"YYYY-MM-DD HH:MM\"} with time_zone.", now.UTC().Format("Monday 2006-01-02"))
+}
+
+// toolTriggersAndProposals is toolTriggers plus the proposals that wait, so the
+// model can reconcile what it proposed with what is stored.
+func (h *Triggers) toolTriggersAndProposals(ctx context.Context, a workspace.Actor, agentID string, sc *folderScope) ([]triggers.Trigger, error) {
+	all, err := h.toolTriggers(ctx, a, agentID, sc)
+	if err != nil {
+		return nil, err
+	}
+	props, err := h.Proposals(ctx, a.Principal)
+	if err != nil {
+		return nil, err
+	}
+	if sc != nil {
+		props = slices.DeleteFunc(props, func(t triggers.Trigger) bool { return t.AgentID != agentID })
+	}
+	return append(all, props...), nil
+}
+
+// toolTriggerOrProposal finds a trigger or a waiting proposal that a model
+// names.
+func (h *Triggers) toolTriggerOrProposal(ctx context.Context, a workspace.Actor, agentID string, sc *folderScope, ref string) (triggers.Trigger, error) {
+	all, err := h.toolTriggersAndProposals(ctx, a, agentID, sc)
+	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	return resolveTriggerIn(all, ref)
+}
+
 func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtins.Chat, raw json.RawMessage) (string, error) {
 	agentID, model := c.AgentID, c.Model
 	var args struct {
@@ -312,6 +449,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		When     json.RawMessage `json:"when"`
 		TimeZone string          `json:"time_zone"`
 		DailyCap int             `json:"daily_cap"`
+		RunLimit string          `json:"run_limit"`
 		Reads    string          `json:"reads"`
 		Writes   string          `json:"writes"`
 		Widget   string          `json:"widget"`
@@ -327,7 +465,11 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
-	in := TriggerInput{Name: args.Name, Prompt: args.Prompt, DailyCap: args.DailyCap, TZ: args.TimeZone,
+	runLimit, rlErr := ParseRunLimit(args.RunLimit)
+	if rlErr != nil {
+		return "", rlErr
+	}
+	in := TriggerInput{Name: args.Name, Prompt: args.Prompt, DailyCap: args.DailyCap, RunLimit: runLimit, TZ: args.TimeZone,
 		SourceChatID: a.ChatID, AgentID: agentID, Model: model,
 		Reads: args.Reads, Writes: args.Writes, Widget: args.Widget, EstTokens: args.Tokens}
 	var text string
@@ -335,6 +477,8 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		FileArrivesIn string `json:"file_arrives_in"`
 		In            string `json:"in"`
 		At            string `json:"at"`
+		// A model sometimes puts the zone next to "at" instead of beside when.
+		TimeZone string `json:"time_zone"`
 	}
 	switch {
 	case json.Unmarshal(args.When, &text) == nil && text != "":
@@ -342,7 +486,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	case json.Unmarshal(args.When, &obj) == nil && obj.FileArrivesIn != "":
 		in.Kind, in.Folder, in.TZ = triggers.KindFile, obj.FileArrivesIn, ""
 	case json.Unmarshal(args.When, &obj) == nil && (obj.In != "" || obj.At != ""):
-		sched, zone, terr := timerSchedule(h.o.Clock(), obj.In, obj.At, args.TimeZone)
+		sched, zone, terr := h.timerFrom(ctx, a, c.Origin == session.OriginConnector, obj.In, obj.At, args.TimeZone, obj.TimeZone)
 		if terr != nil {
 			return "", terr
 		}
@@ -359,10 +503,11 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		if d := args.Delivery; d != nil {
 			in.Route.Target, in.Route.Mode = d.Target, d.Mode
 			if d.Target == triggers.TargetChannel {
-				if err := h.checkChannelTarget(ctx, c, d.Channel); err != nil {
+				id, err := h.checkChannelTarget(ctx, c, d.Channel)
+				if err != nil {
 					return "", err
 				}
-				in.Route.Channel = d.Channel
+				in.Route.Channel = id
 			}
 		}
 		switch args.Access {
@@ -411,14 +556,23 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	if err != nil {
 		return "", errors.New(strings.TrimPrefix(err.Error(), ErrBadTrigger.Error()+": "))
 	}
+	warn := chatPathWarning(in.Prompt, in.Reads, in.Writes)
+	// The same proposal asked again is the one that waits: say so, so the model
+	// does not report a second one.
+	again := ""
+	if !fresh {
+		again = "This is the proposal that already waits (same name, prompt and schedule); nothing new was made. "
+	}
 	if connector {
-		return h.afterPropose(ctx, a, t, fresh, in.Route, dropped, may)
+		out, err := h.afterPropose(ctx, a, t, fresh, in.Route, dropped, may)
+		return again + out + warn + h.proofOf(ctx, t.ID), err
 	}
 	// The card lets the interface show Create, Edit and Dismiss on this tool
 	// line, also after a reload; the event tells a client that is watching.
 	session.SetToolCard(ctx, session.ToolCard{Kind: ProposalCardKind, ID: t.ID})
 	h.svc.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindTriggerProposed, IDs: []string{t.ID}, Text: t.Name})
-	return fmt.Sprintf("Proposed %q (%s). It is not active: the user must confirm it in the chat or on the Triggers page. Do not say it will run until they do.", t.Name, h.summary(t)), nil
+	return fmt.Sprintf("%sProposed %q (%s). It is not active: the user must confirm it in the chat or on the Triggers page. Do not say it will run until they do.%s%s",
+		again, t.Name, h.summary(t), warn, h.proofOf(ctx, t.ID)), nil
 }
 
 func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID string, onlyAgent bool, raw json.RawMessage) (string, error) {
@@ -437,6 +591,7 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 		TimeZone  string `json:"time_zone,omitempty"`
 		Folder    string `json:"folder,omitempty"`
 		DailyCap  int    `json:"daily_cap"`
+		RunLimit  string `json:"run_limit,omitempty"`
 		Reads     string `json:"reads,omitempty"`
 		Writes    string `json:"writes,omitempty"`
 		Widget    string `json:"widget,omitempty"`
@@ -445,10 +600,14 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 		Acts []string `json:"acts,omitempty"`
 	}
 	type row struct {
-		Ref     string  `json:"ref"`
-		Name    string  `json:"name"`
-		When    string  `json:"when"`
-		On      bool    `json:"on"`
+		Ref  string `json:"ref"`
+		Name string `json:"name"`
+		When string `json:"when"`
+		On   bool   `json:"on"`
+		// State is active, paused or proposed: a proposal that waits is listed
+		// too, and is not on.
+		State   string  `json:"state"`
+		Expires string  `json:"expires,omitempty"`
 		LastRun string  `json:"last_run,omitempty"`
 		Detail  *detail `json:"detail,omitempty"`
 	}
@@ -459,7 +618,7 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 	var all []triggers.Trigger
 	switch {
 	case args.Ref != "":
-		t, err := h.toolTrigger(ctx, a, agentID, sc, args.Ref)
+		t, err := h.toolTriggerOrProposal(ctx, a, agentID, sc, args.Ref)
 		if err != nil {
 			return "", errors.New(strings.TrimPrefix(err.Error(), "studio: "))
 		}
@@ -470,7 +629,7 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 	case args.IncludePrompt:
 		return "", errors.New("include_prompt needs the ref of one trigger")
 	default:
-		if all, err = h.toolTriggers(ctx, a, agentID, sc); err != nil {
+		if all, err = h.toolTriggersAndProposals(ctx, a, agentID, sc); err != nil {
 			return "", err
 		}
 	}
@@ -485,15 +644,16 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 	}
 	rows := make([]row, 0, len(all))
 	for _, t := range all {
-		r := row{Ref: TriggerRef(t.ID), Name: t.Name, When: h.summary(t), On: t.Enabled}
-		if runs, err := h.o.Store.ListRuns(ctx, t.ID, 1); err == nil && len(runs) == 1 {
+		pf := h.proofFor(t, h.o.Clock())
+		r := row{Ref: pf.Ref, Name: t.Name, When: h.summary(t), On: t.Enabled, State: pf.State, Expires: pf.Expires}
+		if runs, err := h.o.Store.ListRuns(ctx, t.ID, 1); !t.Proposed && err == nil && len(runs) == 1 {
 			r.LastRun = string(runs[0].Status)
 			if runs[0].Reason != "" {
 				r.LastRun += ": " + runs[0].Reason
 			}
 		}
 		if args.IncludePrompt {
-			r.Detail = &detail{Prompt: t.Prompt, Schedule: t.Schedule, TimeZone: t.TZ, Folder: h.RelFolder(t), DailyCap: t.DailyCap,
+			r.Detail = &detail{Prompt: t.Prompt, Schedule: t.Schedule, TimeZone: t.TZ, Folder: h.RelFolder(t), DailyCap: t.DailyCap, RunLimit: runLimitText(t.RunLimit),
 				Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts}
 		}
 		rows = append(rows, r)
@@ -511,7 +671,8 @@ func toolErr(err error) error {
 	return errors.New(msg)
 }
 
-func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID string, raw json.RawMessage) (string, error) {
+func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins.Chat, raw json.RawMessage) (string, error) {
+	agentID := c.AgentID
 	var args struct {
 		Ref      string          `json:"ref"`
 		Name     *string         `json:"name"`
@@ -519,11 +680,18 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID st
 		When     json.RawMessage `json:"when"`
 		TimeZone *string         `json:"time_zone"`
 		DailyCap *int            `json:"daily_cap"`
+		RunLimit *string         `json:"run_limit"`
 		Enabled  *bool           `json:"enabled"`
 		Reads    *string         `json:"reads"`
 		Writes   *string         `json:"writes"`
 		Widget   *string         `json:"widget"`
 		Tokens   *int            `json:"estimated_tokens"`
+		Acts     *[]string       `json:"acts"`
+		Delivery *struct {
+			Target  string `json:"target"`
+			Mode    string `json:"mode"`
+			Channel string `json:"channel"`
+		} `json:"delivery"`
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
@@ -534,10 +702,33 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID st
 	}
 	target, err := h.toolTrigger(ctx, a, agentID, sc, args.Ref)
 	if err != nil {
+		if p, perr := h.toolTriggerOrProposal(ctx, a, agentID, sc, args.Ref); perr == nil && p.Proposed {
+			return "", errors.New("that is a proposal that still waits, not a trigger: withdraw it with delete_trigger and propose it again with the change")
+		}
 		return "", toolErr(err)
 	}
-	p := TriggerPatch{Name: args.Name, Prompt: args.Prompt, TZ: args.TimeZone, DailyCap: args.DailyCap, Enabled: args.Enabled,
+	var runLimit *time.Duration
+	if args.RunLimit != nil {
+		d, err := ParseRunLimit(*args.RunLimit)
+		if err != nil {
+			return "", err
+		}
+		runLimit = &d
+	}
+	p := TriggerPatch{Name: args.Name, Prompt: args.Prompt, TZ: args.TimeZone, DailyCap: args.DailyCap, RunLimit: runLimit, Enabled: args.Enabled,
 		Reads: args.Reads, Writes: args.Writes, Widget: args.Widget, EstTokens: args.Tokens}
+	if args.Acts != nil {
+		acts, err := h.checkChangedActs(ctx, target, *args.Acts)
+		if err != nil {
+			return "", toolErr(err)
+		}
+		p.Acts = &acts
+	}
+	if d := args.Delivery; d != nil {
+		if p.Delivery, err = h.checkChangedDelivery(ctx, c, target, d.Target, d.Mode, d.Channel); err != nil {
+			return "", toolErr(err)
+		}
+	}
 	if len(args.When) > 0 && string(args.When) != "null" {
 		var text string
 		var obj struct {
@@ -556,6 +747,9 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID st
 			return "", errors.New("when must be a schedule text or {\"file_arrives_in\": folder}")
 		}
 	}
+	if c.Origin == session.OriginConnector {
+		return h.connectorUpdate(ctx, a, c, target, p)
+	}
 	rec, applied, err := h.ProposeChange(ctx, a.Principal, a.ChatID, target, p)
 	if err != nil {
 		return "", toolErr(err)
@@ -566,13 +760,14 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID st
 		if rec.Change.Op == triggers.ChangeResume {
 			state = "resumed: it runs again"
 		}
-		return fmt.Sprintf("%q is %s. The user can undo this on the card in the chat.", target.Name, state), nil
+		return fmt.Sprintf("%q is %s. The user can undo this on the card in the chat.%s", target.Name, state, h.proofOf(ctx, target.ID)), nil
 	}
-	return fmt.Sprintf("Asked to change %q (%s). Nothing is changed yet: the user must press Apply on the card in the chat. Do not say it changed until they do.",
-		target.Name, strings.Join(changedFields(target, asTrigger(rec)), ", ")), nil
+	return fmt.Sprintf("Asked to change %q (%s). Nothing is changed yet: the user must press Apply on the card in the chat. Do not say it changed until they do.%s%s",
+		target.Name, strings.Join(changedFields(target, asTrigger(rec)), ", "), chatPathWarning(rec.Prompt, rec.Reads, rec.Writes), h.proofOf(ctx, rec.ID)), nil
 }
 
-func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, agentID string, raw json.RawMessage) (string, error) {
+func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, c builtins.Chat, raw json.RawMessage) (string, error) {
+	agentID := c.AgentID
 	var args struct {
 		Ref string `json:"ref"`
 	}
@@ -583,17 +778,28 @@ func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, agentID st
 	if err != nil {
 		return "", toolErr(err)
 	}
-	target, err := h.toolTrigger(ctx, a, agentID, sc, args.Ref)
+	target, err := h.toolTriggerOrProposal(ctx, a, agentID, sc, args.Ref)
 	if err != nil {
 		return "", toolErr(err)
+	}
+	if c.Origin == session.OriginConnector {
+		return h.connectorDelete(ctx, a, c, target)
+	}
+	if target.Proposed {
+		// A proposal that the model made and that still waits is withdrawn at
+		// once: nothing runs, so there is nothing for the person to protect.
+		if err := h.DismissProposal(ctx, a.Principal, target.ID); err != nil {
+			return "", toolErr(err)
+		}
+		return fmt.Sprintf("Withdrew the proposal %q. It is not active and never ran.%s", target.Name, h.proofOf(ctx, target.ID)), nil
 	}
 	rec, err := h.ProposeDelete(ctx, a.Principal, a.ChatID, target)
 	if err != nil {
 		return "", toolErr(err)
 	}
 	h.changeCard(ctx, a, rec)
-	return fmt.Sprintf("Asked to delete %q (%s). It is not deleted: the user must press Delete on the card in the chat. Do not say it is deleted until they do.",
-		target.Name, h.summary(target)), nil
+	return fmt.Sprintf("Asked to delete %q (%s). It is not deleted: the user must press Delete on the card in the chat. Do not say it is deleted until they do.%s",
+		target.Name, h.summary(target), h.proofOf(ctx, rec.ID)), nil
 }
 
 // changeCard puts the card of a change record on the tool line, so the
@@ -667,6 +873,26 @@ func (h *Triggers) connectorRoute(ctx context.Context, c builtins.Chat) (trigger
 	return triggers.Route{Binding: c.OriginID, Chat: chat, Thread: thread}, nil
 }
 
+// channelsNote names the channels that delivery.channel accepts here, and says
+// where each target writes.
+func (h *Triggers) channelsNote(ctx context.Context, c builtins.Chat) string {
+	conns := h.svc.connectors
+	if conns == nil {
+		return ""
+	}
+	b, err := conns.o.Store.GetBinding(ctx, c.OriginID)
+	if err != nil {
+		return ""
+	}
+	holds, _ := c.Holds(contract.CapTalkbackChannels)
+	note := channelsNote(b, holds, "delivery.target channel posts in the channel itself, at the top and not in a thread; origin posts in this thread. "+
+		"Name the channel in delivery.channel by its name or its ID, and use channel only when the person asks for the results there.")
+	if holds {
+		note += notApprovedText(b)
+	}
+	return note
+}
+
 // actsNote tells the model which acts it may ask for from this connection, and
 // when to ask the person. It is added to the description of propose_trigger.
 func (h *Triggers) actsNote(ctx context.Context, c builtins.Chat) string {
@@ -715,4 +941,28 @@ func actsResultNote(t triggers.Trigger, dr DroppedActs, may []string) string {
 		note += " This chat allows no acts: leave acts out."
 	}
 	return note
+}
+
+// ParseRunLimit reads the run_limit of a trigger: a duration text such as 30m.
+// Empty and 0 mean the default and give zero. The bounds are checked when the
+// trigger is validated.
+func ParseRunLimit(text string) (time.Duration, error) {
+	text = strings.TrimSpace(text)
+	if text == "" || text == "0" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(text)
+	if err != nil {
+		return 0, fmt.Errorf("run_limit must be a duration such as 30m or 2h, or empty for the default")
+	}
+	return d, nil
+}
+
+// runLimitText is a run limit as the text a person or a model reads back; zero
+// gives the empty text.
+func runLimitText(d time.Duration) string {
+	if d <= 0 {
+		return ""
+	}
+	return limitText(d)
 }

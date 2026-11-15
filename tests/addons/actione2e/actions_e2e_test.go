@@ -349,6 +349,32 @@ var _ = Describe("Add-on actions end to end", func() {
 		}
 	})
 
+	It("runs a background job whose files reach the user's files after the call returned, through the job lease", func() {
+		w := start()
+		w.put("alice", "/seed.txt", "x")
+		w.read("confirm-host", "root", map[string]any{"phrase": hostPhrase})
+		w.read("set-backend", "root", map[string]any{"backend": "host"})
+		got := w.actIn("job", "alice", "convjob1", map[string]any{"verb": "start", "label": "late", "command": "sleep 1; echo from the job > job.txt; echo done"})
+		Expect(got["ok"]).To(Equal(true), "start = %v", got)
+		id := got["job"].(map[string]any)["id"].(string)
+		// The call is over; only the lease keeps the start's operation live.
+		var job map[string]any
+		Eventually(func() string {
+			r := w.actIn("job", "alice", "convjob1", map[string]any{"verb": "read", "id": id, "observe": true})
+			job, _ = r["job"].(map[string]any)
+			s, _ := job["state"].(string)
+			return s
+		}).WithTimeout(60 * time.Second).WithPolling(200 * time.Millisecond).Should(Equal("exited"))
+		Expect(job["exit"]).To(BeEquivalentTo(0))
+		text, ok := w.text("alice", "/job.txt")
+		Expect(ok).To(BeTrue(), "the final checkpoint of the job did not reach the user's files")
+		Expect(text).To(Equal("from the job\n"))
+		// Another user does not see the job.
+		other := w.actIn("job", "bob", "convjob1", map[string]any{"verb": "read", "id": id})
+		Expect(other["ok"]).To(Equal(false))
+		Expect(other["code"]).To(Equal("unknown"))
+	})
+
 	It("lets the Office add-on create, read and edit a document in the user's files", func() {
 		w := startAddon("office")
 		w.put("alice", "/seed.txt", "x")

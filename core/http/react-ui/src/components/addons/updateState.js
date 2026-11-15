@@ -33,7 +33,7 @@ const TONES = {
   unknown: 'idle',
 }
 
-const REASONS = new Set(['platform', 'host-version', 'api-version', 'protocol-version', 'sdk-version', 'data-format', 'digest-changed'])
+const REASONS = new Set(['platform', 'host-version', 'api-version', 'protocol-version', 'sdk-version', 'data-format', 'feature-level', 'digest-changed'])
 const CLASSES = new Set(['source-unavailable', 'refresh-failed', 'credential-unavailable', 'not-listed', 'ambiguous-release', 'canceled', 'internal'])
 
 // The view of the `update` object of an installed add-on. Anything the page
@@ -100,6 +100,7 @@ export function updateErrorKey(error) {
   if (!error) return 'unavailable'
   if (error.type && UPDATE_TYPES.has(error.type)) return error.type
   if (error.kind === 'unknown_outcome') return 'unknownOutcome'
+  if (error.kind === 'operation_not_found') return 'operationNotFound'
   if (error.kind === 'denied') return 'denied'
   if (error.kind === 'auth') return 'auth'
   if (error.kind === 'network') return 'network'

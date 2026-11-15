@@ -160,7 +160,7 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			o.RatePerMinute = 100
 		})
 		r.svc.SetCapabilityGate(gate)
-		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}})
+		b = r.bind(studio.ConnectorInput{Kind: "chatty", Token: "tok", Allow: []string{"11"}, ReplyLanguage: englishReplies()})
 		args = proposal("Digest", origin)
 		seq = 0
 	}
@@ -248,7 +248,7 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			texts := fake.texts(chatID, thread)
 			Expect(texts[0]).To(ContainSubstring("Proposal " + p.Route.Code))
 			Expect(texts[0]).To(ContainSubstring(`confirm ` + p.Route.Code))
-			Expect(texts[0]).To(ContainSubstring("this chat"))
+			Expect(texts[0]).To(ContainSubstring("this thread"))
 			Expect(texts[0]).To(ContainSubstring("RUN do the thing"), "the person reads what the run will do")
 			res := r.h.ResultsFor("propose_trigger")
 			Expect(res).To(HaveLen(1))
@@ -336,7 +336,10 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			Expect(list[0].Route.Target).To(Equal(triggers.TargetOrigin))
 			asked := gate.asked(studio.CapProposalsConfirm)
 			Expect(asked).NotTo(BeEmpty())
-			Expect(asked[0]).To(Equal(studio.CapabilityRequest{Capability: studio.CapProposalsConfirm, Binding: b.ID, Owner: alice, Agent: r.agent.ID, Sender: "11", Kind: "trigger"}))
+			want := studio.CapabilityRequest{Capability: studio.CapProposalsConfirm, Binding: b.ID, Owner: alice, Agent: r.agent.ID, Sender: "11", Kind: "trigger"}
+			Expect(asked[0].Chat).NotTo(BeEmpty(), "the gate is told where the phrase was written")
+			want.Chat, want.Direct = asked[0].Chat, asked[0].Direct
+			Expect(asked[0]).To(Equal(want))
 			// Single use: the code is spent.
 			n = len(fake.texts(chatID, thread))
 			say("confirm " + p.Route.Code)
@@ -569,7 +572,7 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			Expect(ran).To(BeNumerically("<=", 1), "runs = %+v", runs)
 		})
 
-		It("alerts once after three failures in a row and not again within six hours", func() {
+		It("alerts once after three failures in a row and is then switched off", func() {
 			setup()
 			gate.set(studio.CapTriggersPropose, true)
 			gate.set(studio.CapTriggersRun, true)
@@ -605,11 +608,16 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			Expect(alerts()).To(Equal(0))
 			failRun(60*time.Minute, 3)
 			waitFor("the alert", func() bool { return alerts() == 1 })
-			failRun(60*time.Minute, 4)
+			// The third failure also switches the trigger off, so nothing runs
+			// again and there is no second alert.
+			waitFor("the trigger to be switched off", func() bool {
+				got, _ := r.host.GetTrigger(ctx, alice, t.ID)
+				return !got.Enabled
+			})
+			r.sh.clock.Advance(6 * time.Hour)
+			r.pass()
 			time.Sleep(150 * time.Millisecond)
-			Expect(alerts()).To(Equal(1), "throttled")
-			failRun(6*time.Hour, 5)
-			waitFor("the second alert", func() bool { return alerts() == 2 })
+			Expect(alerts()).To(Equal(1), "a trigger that is off does not alert again")
 		})
 	})
 

@@ -1,0 +1,115 @@
+/* Parts of the agent editor: capability levels, starting points, connections,
+   model capabilities. Every class starts with aed-. Grid children carry
+   min-width: 0 so a long name wraps and never widens the page. */
+
+.aed-preset { display: grid; gap: var(--sp-2); min-width: 0; margin-bottom: var(--sp-4); }
+.aed-preset__label { margin: 0; font-size: var(--fs-small); font-weight: 600; color: var(--dk-text); }
+.aed-preset__cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); min-width: 0; }
+.aed-preset__card {
+  display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; padding: var(--sp-3);
+  border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--dk-edge); cursor: pointer;
+}
+.aed-preset__card[data-on] { background: var(--dk-accent-wash); box-shadow: inset 0 0 0 1px var(--dk-accent); }
+.aed-preset__card input { margin-top: 3px; flex: none; accent-color: var(--dk-accent); }
+.aed-preset__card:focus-within { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
+.aed-preset__text { display: grid; gap: 2px; min-width: 0; }
+.aed-preset__title { font-weight: 600; color: var(--dk-text); }
+.aed-preset__body { font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.aed-preset__state { margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }
+
+.aed-tpl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--sp-2); min-width: 0; }
+.aed-tpl__card {
+  display: grid; align-content: start; gap: 4px; min-width: 0; padding: var(--sp-3); text-align: left;
+  border: 0; border-radius: var(--r-md); background: transparent; color: inherit; font: inherit;
+  box-shadow: inset 0 0 0 1px var(--dk-edge); cursor: pointer;
+}
+.aed-tpl__card:hover { background: var(--dk-hover); }
+.aed-tpl__card[aria-pressed="true"] { background: var(--dk-accent-wash); box-shadow: inset 0 0 0 1px var(--dk-accent); }
+.aed-tpl__card:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
+.aed-tpl__name { font-weight: 600; color: var(--dk-text); overflow-wrap: anywhere; }
+.aed-tpl__body { font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.aed-tpl__tools { font-size: var(--fs-meta); color: var(--dk-accent-text); }
+
+.aed-conn { display: grid; gap: var(--sp-5); min-width: 0; }
+.aed-conn__block { display: grid; gap: var(--sp-2); min-width: 0; }
+.aed-conn__h { margin: 0; font-size: var(--fs-small); font-weight: 600; color: var(--dk-text); }
+.aed-conn__list { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; min-width: 0; }
+.aed-conn__item {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); min-width: 0;
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.aed-conn__item--col { display: grid; align-items: start; }
+.aed-conn__top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+.aed-conn__name { min-width: 0; font-weight: 500; color: var(--dk-text); overflow-wrap: anywhere; }
+.aed-conn__meta { font-size: var(--fs-small); color: var(--dk-muted); }
+.aed-conn__tag { padding: 0 6px; border-radius: var(--r-sm); background: var(--dk-hover); color: var(--dk-muted); font-size: var(--fs-meta); }
+.aed-conn__link { margin-left: auto; font-size: var(--fs-small); color: var(--dk-accent-text); }
+.aed-conn__checks { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); min-width: 0; }
+.aed-conn__check { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; overflow-wrap: anywhere; }
+
+.aed-caps { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: var(--sp-2) 0 0; padding: 0; list-style: none; }
+.aed-caps__chip { padding: 0 8px; border-radius: var(--r-sm); background: var(--dk-hover); color: var(--dk-muted); font-size: var(--fs-meta); }
+.aed-caps__lead { margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--dk-muted); }
+
+.aed-tools .ui-callout { margin-bottom: var(--sp-3); }
+
+/* A card whose heading collapses it. */
+.aed-card__toggle {
+  display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; padding: 0; border: 0;
+  background: none; color: inherit; font: inherit; cursor: pointer; text-align: left;
+}
+.aed-card__toggle:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; border-radius: var(--r-sm); }
+.aed-card__chev { flex: none; transition: transform 120ms; }
+.aed-card__toggle[aria-expanded="false"] .aed-card__chev { transform: rotate(-90deg); }
+.aed-card__body { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
+.aed-card__body[hidden] { display: none; }
+
+@media (max-width: 640px) {
+  .aed-preset__cards { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .aed-card__chev { transition: none; } }
+
+/* The memory choices sit two by two when there is room, so the section is half as tall. */
+.aed-card .am__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.aed-card .am__card { padding: var(--sp-2) var(--sp-3); }
+/* The three memory levels are one row of three. */
+.aed-card .am__cards--levels { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 640px) {
+  .aed-card .am__cards, .aed-card .am__cards--levels { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The Effective view: one row per thing the agent can or cannot do. */
+.aed-eff { display: grid; gap: var(--sp-3); min-width: 0; }
+.aed-eff__sum { margin: 0; font-weight: 600; color: var(--dk-text); }
+.aed-eff__sum[data-blocked] { color: var(--dk-warn-text); }
+.aed-eff__list { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; min-width: 0; }
+.aed-eff__row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-1) var(--sp-3); align-items: start; min-width: 0;
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.aed-eff__row[data-state="blocked"] { background: var(--dk-warn-wash, var(--dk-hover)); box-shadow: inset 0 0 0 1px var(--dk-warn-text); }
+.aed-eff__icon { margin-top: 3px; color: var(--dk-muted); }
+.aed-eff__row[data-state="allowed"] .aed-eff__icon { color: var(--dk-ok-text); }
+.aed-eff__row[data-state="blocked"] .aed-eff__icon { color: var(--dk-warn-text); }
+.aed-eff__text { min-width: 0; overflow-wrap: anywhere; color: var(--dk-text); }
+.aed-eff__state { font-size: var(--fs-meta); font-weight: 600; text-transform: none; color: var(--dk-muted); }
+.aed-eff__row[data-state="blocked"] .aed-eff__state { color: var(--dk-warn-text); }
+.aed-eff__more { color: var(--dk-muted); }
+.aed-eff__code { margin-left: var(--sp-2); padding: 0 6px; border-radius: var(--r-sm); background: var(--dk-hover); color: var(--dk-muted); font-family: var(--font-mono); font-size: var(--fs-meta); }
+.aed-eff__acts { grid-column: 2; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); min-width: 0; }
+.aed-eff__link { padding: 0; border: 0; background: none; font: inherit; font-size: var(--fs-small); color: var(--dk-accent-text); cursor: pointer; text-decoration: none; text-align: left; }
+.aed-eff__link:hover { text-decoration: underline; }
+.aed-eff__link:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; border-radius: var(--r-sm); }
+.aed-eff__link--quiet { color: var(--dk-muted); }
+
+/* The Try it sheet. */
+.aed-try { display: grid; gap: var(--sp-3); min-width: 0; }
+.aed-try__log { display: grid; gap: var(--sp-2); margin: 0; padding: var(--sp-3); list-style: none; min-width: 0; max-height: 40vh; overflow-y: auto; border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.aed-try__line { display: grid; gap: 2px; min-width: 0; }
+.aed-try__who { font-size: var(--fs-meta); font-weight: 600; color: var(--dk-muted); }
+.aed-try__text { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dk-text); }
+.aed-try__line[data-role="tool"] .aed-try__text { color: var(--dk-muted); font-size: var(--fs-small); }
+.aed-try__empty { color: var(--dk-muted); font-size: var(--fs-small); }
+.aed-try__form { display: grid; gap: var(--sp-2); min-width: 0; }
+.aed-try__form .textarea { width: 100%; max-width: 100%; box-sizing: border-box; }
+.aed-try__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }

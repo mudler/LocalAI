@@ -111,7 +111,9 @@ test.describe('Backend install progress', () => {
 })
 
 test.describe('Backend updates', () => {
-  test('Update on the row opens the dialog with that update only, and starts it on confirm', async ({ page }) => {
+  // The list shows that an update exists; the Updates page starts it. Nothing
+  // on this page starts an update.
+  test('Review on a row opens the Updates page and starts nothing', async ({ page }) => {
     await mockOperate(page, {
       upgrades: {
         ...UPGRADE_LLAMA,
@@ -121,51 +123,42 @@ test.describe('Backend updates', () => {
     const calls = []
     await page.route('**/api/backends/upgrade/*', route => { calls.push(new URL(route.request().url()).pathname.split('/').pop()); return jsonOk(route) })
     await page.goto('/app/backends?view=installed')
-    await row(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' }).click()
-    // The row button opens the dialog; nothing starts until it is confirmed.
-    const dialog = page.getByTestId('bulk-upgrade-dialog')
-    await expect(dialog.locator('[data-item="llama-cpp"]').getByRole('checkbox')).toBeChecked()
-    await expect(dialog.locator('[data-item="whisper"]').getByRole('checkbox')).not.toBeChecked()
+    await row(page, 'llama-cpp').getByRole('link', { name: 'Review the update of llama-cpp' }).click()
+    await expect(page).toHaveURL(/\/app\/updates\?filter=ready/)
+    await expect(page.getByTestId('updates-page')).toBeVisible()
     expect(calls).toEqual([])
-    await dialog.getByTestId('bulk-upgrade-start').click()
-    await expect.poll(() => calls).toEqual(['llama-cpp'])
   })
 
-  test('Update all starts every update and counts them', async ({ page }) => {
+  test('the line above the list counts the updates and links to the Updates page', async ({ page }) => {
     await mockOperate(page, {
       upgrades: {
         ...UPGRADE_LLAMA,
         whisper: { backend_name: 'whisper', installed_version: '1.7.2', available_version: '1.8.0' },
       },
     })
-    const calls = []
-    await page.route('**/api/backends/upgrade/*', route => { calls.push(new URL(route.request().url()).pathname.split('/').pop()); return jsonOk(route) })
     await page.goto('/app/backends?view=installed')
     await expect(page.getByTestId('backends-updates')).toContainText('2 updates available')
-    await page.getByTestId('backends-updates').getByRole('button', { name: 'Review' }).click()
-    await page.getByTestId('bulk-upgrade-start').click()
-    await expect.poll(() => calls.sort()).toEqual(['llama-cpp', 'whisper'])
+    await page.getByTestId('backends-review-updates').click()
+    await expect(page).toHaveURL(/\/app\/updates\?filter=ready/)
   })
 
-  test('Check for updates asks the server to check and says what it found', async ({ page }) => {
+  test('a backend that nodes report links to its page of the Updates section', async ({ page }) => {
+    const drift = { 'llama-cpp': { ...UPGRADE_LLAMA['llama-cpp'], node_drift: [{ node_id: 'node-a' }] } }
+    await mockOperate(page, { upgrades: drift })
+    await page.goto('/app/backends?view=installed')
+    await expect(row(page, 'llama-cpp').getByRole('link', { name: 'Review the update of llama-cpp' })).toHaveAttribute('href', '/app/updates/backend/llama-cpp')
+  })
+
+  test('More > Updates opens the Updates page, which holds the real check', async ({ page }) => {
     await mockOperate(page)
     let checks = 0
-    await page.route('**/api/backends/upgrades/check', route => { checks += 1; return route.fulfill({ json: UPGRADE_LLAMA }) })
+    await page.route('**/api/backends/updates/check', route => { checks += 1; return route.fulfill({ json: {} }) })
     await page.goto('/app/backends?view=installed')
     await openMore(page)
-    await page.getByRole('menuitem', { name: 'Check for updates' }).click()
-    await expect.poll(() => checks).toBe(1)
-    await expect(page.getByTestId('backends-updates')).toContainText('1 update available')
-    await expect(page.getByTestId('backends-updates').getByRole('button', { name: 'Review' })).toBeVisible()
-  })
-
-  test('says when every backend is current', async ({ page }) => {
-    await mockOperate(page)
-    await page.route('**/api/backends/upgrades/check', route => route.fulfill({ json: {} }))
-    await page.goto('/app/backends?view=installed')
-    await openMore(page)
-    await page.getByRole('menuitem', { name: 'Check for updates' }).click()
-    await expect(page.getByText('Every installed backend is current')).toBeVisible()
+    await page.getByRole('menuitem', { name: 'Updates' }).click()
+    await expect(page).toHaveURL(/\/app\/updates$/)
+    // Opening the page checks nothing; "Check now" does.
+    expect(checks).toBe(0)
   })
 })
 

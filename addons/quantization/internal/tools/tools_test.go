@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/hostclient"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/hostclient"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -380,7 +380,7 @@ var _ = Describe("quantization tools", func() {
 			Expect(m.Capabilities.UI.MainPage).To(Equal("jobs"))
 			Expect(m.Capabilities.UI.Pages).To(Equal([]string{"jobs"}))
 			Expect(m.Capabilities.UI.Title).NotTo(BeNil())
-			Expect(m.Capabilities.UI.Title.Text).To(Equal("Quantization"))
+			Expect(m.Capabilities.UI.Title.Default()).To(Equal("Quantization"))
 			Expect(m.Capabilities.UI.SDK.Min).To(BeEquivalentTo(2))
 			Expect(m.Capabilities.UI.SDK.Max).To(BeEquivalentTo(2))
 			Expect(m.Capabilities.Tools).To(Equal(Tools))

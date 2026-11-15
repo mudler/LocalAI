@@ -636,6 +636,8 @@ func userError(err error) error {
 		return errors.New("the file is too large")
 	case errors.Is(err, workspace.ErrInvalid):
 		return errors.New("that cannot be done to this path")
+	case errors.Is(err, workspace.ErrSharedMove):
+		return errors.New("this folder or a folder in it is shared, so it cannot move there; the user must stop sharing it first")
 	}
 	return err
 }

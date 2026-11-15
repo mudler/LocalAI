@@ -25,3 +25,9 @@ test('memory state: only the level above the chat has a link', () => {
   assert.equal(memoryFix({ kind: 'chat' }), null)
   assert.equal(memoryFix(null), null)
 })
+
+test('memory state: a provider that cannot serve is its own level and links to the settings', () => {
+  const off = memoryOff({ on: false, code: 'memory_provider_unavailable', blocked_by: 'provider' }, undefined)
+  assert.deepEqual(off, { kind: 'provider', by: 'provider' })
+  assert.deepEqual(memoryFix(off), { to: '/app/account?tab=memory', key: 'fixUser' })
+})

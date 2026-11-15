@@ -9,9 +9,47 @@ type CollectionList struct {
 	// adding files and searching then fail until it is installed.
 	EmbeddingModel          string `json:"embedding_model"`
 	EmbeddingModelInstalled bool   `json:"embedding_model_installed"`
+	// SearchMode is how a search finds passages: "semantic" (by meaning only)
+	// or "hybrid" (by meaning and by keyword).
+	SearchMode string `json:"search_mode"`
+	// MaxChunkSize and ChunkOverlap are the chunking of a text, in characters.
+	// A text is cut into passages of at most MaxChunkSize characters, and each
+	// passage is embedded once.
+	MaxChunkSize int `json:"max_chunk_size"`
+	ChunkOverlap int `json:"chunk_overlap"`
 	// UserGroups holds the collections of the other users. Only an administrator
 	// who asks for all users gets it.
 	UserGroups map[string]CollectionGroup `json:"user_groups,omitempty"`
+	// Shared are the collections of other people shared with the caller.
+	Shared []SharedCollection `json:"shared"`
+	// Shares are the shares of the caller's own collections, by name, for
+	// those that were made shareable.
+	Shares map[string]CollectionShare `json:"shares"`
+	// Sharing is false when this server cannot share collections.
+	Sharing bool `json:"sharing"`
+}
+
+// SharedCollection is a collection of another person shared with the caller.
+type SharedCollection struct {
+	// Name is the name to use in the other calls: the collection's own name,
+	// or shared:<id> when that name is taken.
+	Name string `json:"name"`
+	// Title is the collection's own name.
+	Title string `json:"title"`
+	// Owner is the display name of the person who shared it.
+	Owner string `json:"owner"`
+	// Role is viewer (search and read) or editor (also add and remove entries).
+	Role string `json:"role"`
+	// Everyone says that the role comes from the grant to every account.
+	Everyone bool `json:"everyone,omitempty"`
+}
+
+// CollectionShare is the share of one of the caller's own collections.
+type CollectionShare struct {
+	// ResourceID names the collection in /api/shares/collection.
+	ResourceID string `json:"resource_id"`
+	// SharedWith counts the grants, the one to everyone included.
+	SharedWith int `json:"shared_with"`
 }
 
 // CollectionGroup is the collections of one user.

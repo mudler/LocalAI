@@ -19,7 +19,6 @@ async function mockAuth(page, user, authEnabled = true) {
 }
 
 async function quietOperate(page) {
-  await page.route('**/api/backends/upgrades', route => route.fulfill({ json: {} }))
   await page.route('**/api/operations', route => route.fulfill({ json: [] }))
   await page.route('**/api/nodes', route => route.fulfill({ json: [{ id: 'n1', name: 'atlas', status: 'healthy', healthy: true }] }))
 }

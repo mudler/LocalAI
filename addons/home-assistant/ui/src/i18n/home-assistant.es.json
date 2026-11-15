@@ -17,7 +17,6 @@
   "agent": "Agente",
   "agentNone": "Elige un agente",
   "agentCredentialsOnly": "Sin agente (solo credenciales)",
-  "agentOptionalHint": "Opcional. Sin agente, esta conexión solo guarda el token, la dirección y el modo de escritura para tus chats. No responde a ningún mensaje y no escucha nada.",
   "credentialsOnly": "Solo credenciales",
   "agentNoModel": "{{name}} (necesita un modelo)",
   "test": "Probar",
@@ -59,8 +58,8 @@
     "label": "Qué puede cambiar el agente en tu casa",
     "hint": "Solo los servicios de la lista de permitidos de abajo, sobre entidades que no estén excluidas.",
     "off": "Solo lectura",
-    "propose": "Te pregunta antes",
-    "auto": "Actúa sin preguntar",
+    "propose": "Pregunta antes",
+    "auto": "Se ejecuta al instante",
     "line": {
       "off": "No puede accionar nada.",
       "propose": "Cada cambio espera tu visto bueno.",
@@ -73,8 +72,8 @@
     },
     "row": {
       "off": "Solo lectura",
-      "propose": "Te pregunta antes",
-      "auto": "Actúa sin preguntar"
+      "propose": "Pregunta antes",
+      "auto": "Se ejecuta al instante"
     }
   },
   "policy": {

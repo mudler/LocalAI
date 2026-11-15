@@ -8,9 +8,13 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 )
@@ -201,10 +205,24 @@ func (r *run) drop(ctx context.Context, key, kind, user, name, reason string) {
 // run.
 func (r *run) refused(ctx context.Context, key, kind, user, name string, err error) {
 	if errors.Is(err, ErrInvalid) {
-		r.drop(ctx, key, kind, user, name, strings.TrimPrefix(err.Error(), ErrInvalid.Error()+": "))
+		r.drop(ctx, key, kind, user, name, userReason(strings.TrimPrefix(err.Error(), ErrInvalid.Error()+": ")))
 		return
 	}
-	r.add(kind, user, name, StatusFailed, err.Error())
+	r.add(kind, user, name, StatusFailed, userReason(err.Error()))
+}
+
+// userReason drops the "studio: " that the services put before an error: it names
+// a package of the server, and means nothing to the person who reads the report.
+func userReason(s string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(s, "studio: "), "connectors: invalid binding: ")
+}
+
+// renamed is the start of the reason of an item that got a new name, or "".
+func renamed(name, final string) string {
+	if final == name {
+		return ""
+	}
+	return "renamed to " + final + ". "
 }
 
 // zoneReason says in which zone a converted schedule runs.
@@ -473,21 +491,51 @@ func instructions(cfg map[string]any) string {
 
 // saveAgent saves an agent, adding a number to the name when it is taken.
 func (r *run) saveAgent(ctx context.Context, owner string, in AgentIn) (id, name string, err error) {
-	base := in.Name
+	name, err = freeName(in.Name, 0, func(n string) error {
+		in.Name = n
+		var e error
+		id, e = r.tg.SaveAgent(ctx, owner, in)
+		return e
+	})
+	return id, name, err
+}
+
+// maxTriggerName is the longest name the triggers take, in characters.
+const maxTriggerName = 80
+
+// freeName calls try with base, then with "base (2)", "base (3)" and so on while
+// try says the name is taken, and returns the name that was accepted. With
+// limit above zero a numbered name is cut to fit it, so the suffix never makes a
+// name too long; base itself is tried as it is, so a name that is too long on its
+// own is refused by the target.
+func freeName(base string, limit int, try func(name string) error) (string, error) {
+	var err error
 	for n := 1; n <= 9; n++ {
-		in.Name = base
+		name := base
 		if n > 1 {
-			in.Name = fmt.Sprintf("%s (%d)", base, n)
+			suffix := fmt.Sprintf(" (%d)", n)
+			if limit > 0 {
+				name = truncateRunes(base, limit-utf8.RuneCountInString(suffix))
+			}
+			name += suffix
 		}
-		id, err = r.tg.SaveAgent(ctx, owner, in)
-		if err == nil {
-			return id, in.Name, nil
+		if err = try(name); err == nil {
+			return name, nil
 		}
 		if !errors.Is(err, ErrNameTaken) {
-			return "", "", err
+			return "", err
 		}
 	}
-	return "", "", err
+	return "", err
+}
+
+// createTrigger makes a trigger, adding a number to the name when it is taken.
+// It returns the name it got.
+func (r *run) createTrigger(ctx context.Context, owner string, in TriggerIn) (string, error) {
+	return freeName(in.Name, maxTriggerName, func(n string) error {
+		in.Name = n
+		return r.tg.CreateTrigger(ctx, owner, in)
+	})
 }
 
 func (r *run) periodicTrigger(ctx context.Context, owner string, a oldAgent) {
@@ -520,17 +568,20 @@ func (r *run) periodicTrigger(ctx context.Context, owner string, a oldAgent) {
 	if prompt == "" {
 		prompt = "Do your periodic work."
 	}
-	if err := r.tg.CreateTrigger(ctx, owner, TriggerIn{Name: name, Prompt: prompt, Model: ref.model, Schedule: sched, AgentID: ref.id, TZ: r.src.Zone}); err != nil {
+	final, err := r.createTrigger(ctx, owner, TriggerIn{Name: name, Prompt: prompt, Model: ref.model, Schedule: sched, AgentID: ref.id, TZ: r.src.Zone})
+	if err != nil {
 		r.refused(ctx, key, KindTrigger, a.user, name, err)
 		return
 	}
 	r.mark(ctx, key, "trigger")
-	r.add(KindTrigger, a.user, name, StatusConverted, "switched off; every "+interval+r.zoneReason())
+	r.add(KindTrigger, a.user, name, StatusConverted, renamed(name, final)+"switched off; every "+interval+r.zoneReason())
 }
 
-// connectors reports every connector of an old agent as dropped. A connector of
-// a messaging platform is made again on the Connectors page, where the add-on
-// that serves the platform asks for the token.
+// connectors converts the connectors of an old agent. A Telegram connector
+// becomes a switched-off binding for the converted agent, with the old admins as
+// its allowlist and its token sealed by the target. Every other type is dropped:
+// its bot is added again in the Connectors page, where the add-on that serves the
+// platform asks for the token. A deleted agent never reaches this point.
 func (r *run) connectors(ctx context.Context, owner string, a oldAgent) {
 	list, _ := a.cfg["connectors"].([]any)
 	for i, c := range list {
@@ -541,6 +592,108 @@ func (r *run) connectors(ctx context.Context, owner string, a oldAgent) {
 		if r.handled(ctx, key, KindConnector, a.user, name) {
 			continue
 		}
+		if typ == "telegram" {
+			r.telegram(ctx, key, owner, name, a, connectorConfig(cm))
+			continue
+		}
 		r.drop(ctx, key, KindConnector, a.user, name, "the "+typ+" connector is not rebuilt: add the bot again in the Connectors page")
 	}
+}
+
+// connectorConfig reads the settings of an old connector: a JSON text, or an
+// object.
+func connectorConfig(cm map[string]any) map[string]any {
+	switch c := cm["config"].(type) {
+	case map[string]any:
+		return c
+	case string:
+		var out map[string]any
+		if json.Unmarshal([]byte(c), &out) == nil {
+			return out
+		}
+	}
+	return nil
+}
+
+// telegram makes the switched-off binding of an old Telegram connector. The
+// agent is already converted and marked, so a failure that may pass leaves the
+// agent as it is and the binding is tried again at the next start.
+func (r *run) telegram(ctx context.Context, key, owner, name string, a oldAgent, cfg map[string]any) {
+	tok := str(cfg, "token")
+	if tok == "" {
+		r.drop(ctx, key, KindConnector, a.user, name, "the Telegram connector has no token: add the bot again in the Connectors page")
+		return
+	}
+	ref, ok := r.agents[a.user+"|"+a.name]
+	if !ok {
+		r.drop(ctx, key, KindConnector, a.user, name, "the agent was not converted, so the Telegram connector has no agent: add the bot again in the Connectors page")
+		return
+	}
+	allow, skipped := telegramAllow(str(cfg, "admins"))
+	id, err := r.tg.CreateConnector(ctx, owner, ConnectorIn{Name: truncateRunes(name, 80), Kind: "telegram", Token: tok, AgentID: ref.id, Allow: allow})
+	if err != nil {
+		// A reason is shown to the user: it never holds the token.
+		reason := strings.ReplaceAll(err.Error(), tok, "[token]")
+		if errors.Is(err, ErrInvalid) {
+			r.drop(ctx, key, KindConnector, a.user, name, userReason(strings.TrimPrefix(reason, ErrInvalid.Error()+": ")))
+			return
+		}
+		r.add(KindConnector, a.user, name, StatusFailed, userReason(strings.TrimPrefix(reason, ErrConnectorsUnavailable.Error()+": ")))
+		return
+	}
+	r.mark(ctx, key, id)
+	reason := "switched off; check it and turn it on in Connectors"
+	if len(allow) > 0 {
+		reason += fmt.Sprintf("; the allowlist has %d old admins", len(allow))
+	} else {
+		reason += "; the allowlist is empty, so add who may talk to the bot"
+	}
+	if skipped > 0 {
+		reason += fmt.Sprintf("; admin entries left out because they are not valid: %d", skipped)
+	}
+	if d := otherKeys(cfg, "token", "admins"); len(d) > 0 {
+		reason += "; dropped: " + strings.Join(d, ", ")
+	}
+	r.add(KindConnector, a.user, name, StatusConverted, reason)
+}
+
+var (
+	telegramID   = regexp.MustCompile(`^-?[0-9]{1,20}$`)
+	telegramName = regexp.MustCompile(`^[A-Za-z0-9_.-]{3,63}$`)
+)
+
+// telegramAllow turns the old admins (a comma or space separated text of user
+// names, with or without @, or numeric IDs) into allowlist entries. skipped counts
+// the ones that have no valid form.
+func telegramAllow(admins string) (allow []string, skipped int) {
+	seen := map[string]bool{}
+	for _, f := range strings.FieldsFunc(admins, func(c rune) bool { return c == ',' || c == ';' || unicode.IsSpace(c) }) {
+		e := strings.TrimPrefix(f, "@")
+		switch {
+		case telegramID.MatchString(f):
+			e = f
+		case telegramName.MatchString(e):
+			e = "@" + e
+		default:
+			skipped++
+			continue
+		}
+		if !seen[strings.ToLower(e)] {
+			seen[strings.ToLower(e)] = true
+			allow = append(allow, e)
+		}
+	}
+	return allow, skipped
+}
+
+// otherKeys lists the keys of cfg that are not in skip, sorted: names only.
+func otherKeys(cfg map[string]any, skip ...string) []string {
+	var out []string
+	for k := range cfg {
+		if !slices.Contains(skip, k) {
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
 }

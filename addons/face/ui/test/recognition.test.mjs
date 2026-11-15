@@ -69,7 +69,7 @@ test('recognition: the bundle has the face canvas, the face strings and no host 
 
 test('recognition: every translation key the sources read is in the Face bundle', async () => {
   const { readFileSync, readdirSync, statSync } = await import('node:fs')
-  const { default: en } = await import('../src/i18n/en.js')
+  const en = JSON.parse(readFileSync(join(here, '../src/i18n/face.en.json'), 'utf8'))
   const roots = [join(here, '../src'), join(here, '../../../internal/identity-ui/src')]
   const files = []
   const walk = (d) => { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else if (/\.jsx?$/.test(p) && !p.includes('i18n')) files.push(p) } }

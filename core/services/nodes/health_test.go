@@ -62,6 +62,62 @@ var _ = Describe("HealthMonitor", func() {
 			Expect(fetched.Status).To(Equal(StatusOffline))
 		})
 
+		It("leaves a stale pending node pending", func() {
+			ctx := context.Background()
+			node := makeNode("pending-worker", "10.0.0.20:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, false)).To(Succeed())
+			Expect(node.Status).To(Equal(StatusPending))
+
+			Expect(db.Model(&BackendNode{}).Where("id = ?", node.ID).
+				Update("last_heartbeat", time.Now().Add(-2*time.Minute)).Error).To(Succeed())
+
+			hm.doCheckAll(ctx)
+
+			fetched, err := registry.Get(ctx, node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusPending))
+		})
+
+		It("keeps a never-approved node pending when it re-registers after a monitor pass", func() {
+			ctx := context.Background()
+			node := makeNode("pending-rereg", "10.0.0.21:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, false)).To(Succeed())
+
+			Expect(db.Model(&BackendNode{}).Where("id = ?", node.ID).
+				Update("last_heartbeat", time.Now().Add(-2*time.Minute)).Error).To(Succeed())
+			hm.doCheckAll(ctx)
+
+			again := makeNode("pending-rereg", "10.0.0.21:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, again, false)).To(Succeed())
+			Expect(again.Status).To(Equal(StatusPending))
+
+			hm.doCheckAll(ctx)
+			fetched, err := registry.Get(ctx, node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusPending))
+		})
+
+		It("still takes an approved node offline and recovers it", func() {
+			ctx := context.Background()
+			node := makeNode("approved-worker", "10.0.0.22:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, false)).To(Succeed())
+			Expect(registry.ApproveNode(ctx, node.ID)).To(Succeed())
+
+			Expect(db.Model(&BackendNode{}).Where("id = ?", node.ID).
+				Update("last_heartbeat", time.Now().Add(-2*time.Minute)).Error).To(Succeed())
+			hm.doCheckAll(ctx)
+			fetched, err := registry.Get(ctx, node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusOffline))
+
+			Expect(db.Model(&BackendNode{}).Where("id = ?", node.ID).
+				Update("last_heartbeat", time.Now()).Error).To(Succeed())
+			hm.doCheckAll(ctx)
+			fetched, err = registry.Get(ctx, node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusHealthy))
+		})
+
 		It("skips draining nodes", func() {
 			node := makeNode("draining-worker", "10.0.0.2:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())

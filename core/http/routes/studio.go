@@ -32,6 +32,18 @@ func NewStudioModelChecker(app *application.Application) studioendpoint.ModelChe
 	})
 }
 
+// NewStudioOAuth wires the OAuth routes of the connections to the add-on
+// gateway of app: the owner serves them, in this process or through the
+// carrier. Without a gateway they answer 503.
+func NewStudioOAuth(app *application.Application) studioendpoint.HandlerOption {
+	return studioendpoint.WithOAuth(studioendpoint.OAuthConfig{Mode: app.AddonOwnershipMode(), Dispatcher: func() studioendpoint.OAuthDispatcher {
+		if g := app.AddonGateway(); g != nil {
+			return g
+		}
+		return nil
+	}})
+}
+
 // checkStudioModelResolves rejects a model with no config and an alias that
 // points nowhere, so a broken alias is refused when it is saved and not when
 // the first message fails.
@@ -51,7 +63,7 @@ func checkStudioModelResolves(cl *config.ModelConfigLoader, model string) error 
 // /api/agent path answers 404 with the reason, so a client sees "off" and not a missing route. Authentication and
 // the feature gates come from the global middleware and the route-feature
 // registry, so no route carries its own; the administrator routes take adminMw.
-func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker, adminMw echo.MiddlewareFunc) {
+func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker, adminMw echo.MiddlewareFunc, opts ...studioendpoint.HandlerOption) {
 	if svc == nil {
 		off := func(c echo.Context) error {
 			return c.JSON(http.StatusNotFound, schema.ErrorResponse{Error: &schema.APIError{
@@ -64,7 +76,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 		e.Any("/api/agent/*", off)
 		return
 	}
-	h := studioendpoint.New(svc, models)
+	h := studioendpoint.New(svc, models).Apply(opts...)
 	const base = "/api/chats"
 	// The files routes come before the "/:id" ones; "files" is not a chat id.
 	// The administrator's view of every user's agents, triggers and connectors.
@@ -79,6 +91,9 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/admin/web/test", h.AdminTestWebSearch, adminMw)
 	e.POST(base+"/admin/connectors/:id/disable", h.AdminDisableConnector, adminMw)
 	e.DELETE(base+"/admin/connectors/:id", h.AdminDeleteConnector, adminMw)
+	// The OAuth client of an add-on; saving it approves the add-on's login.
+	e.GET(base+"/admin/oauth-clients/:addonId", h.GetOAuthClient, adminMw)
+	e.PUT(base+"/admin/oauth-clients/:addonId", h.PutOAuthClient, adminMw)
 	// The shared folders and who may use them. "restore" and "events" are not
 	// folder ids; the static segments win over "/:id".
 	e.GET(base+"/admin/shared-folders", h.AdminListSharedFolders, adminMw)
@@ -92,6 +107,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	// The network of the Sandbox commands, and its audit.
 	e.GET(base+"/admin/egress", h.AdminEgress, adminMw)
 	e.GET(base+"/admin/egress/events", h.AdminEgressEvents, adminMw)
+	// The sandbox profiles and their images, for the policy page.
+	e.GET(base+"/admin/sandbox-profiles", h.AdminSandboxProfiles, adminMw)
 	e.GET(base+"/admin/shared-folders/:id", h.AdminGetSharedFolder, adminMw)
 	e.PATCH(base+"/admin/shared-folders/:id", h.AdminRenameSharedFolder, adminMw)
 	e.DELETE(base+"/admin/shared-folders/:id", h.AdminDeleteSharedFolder, adminMw)
@@ -122,8 +139,16 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/files/trash", h.Trash)
 	e.DELETE(base+"/files/trash", h.EmptyTrash)
 	e.DELETE(base+"/files/trash/:rev", h.PurgeTrashEntry)
+	e.POST(base+"/files/extract", h.ExtractFile)
 	e.POST(base+"/files/undo", h.UndoFiles)
 	e.GET(base+"/files/history", h.FileHistory)
+	// A person shares the folders of their own home (never a tool).
+	e.GET(base+"/files/shares", h.ListFolderShares)
+	e.POST(base+"/files/shares", h.FindFolderShare)
+	e.GET(base+"/files/shares/:id/grants", h.ListFolderGrants)
+	e.PUT(base+"/files/shares/:id/grants/:principal", h.SetFolderGrant)
+	e.DELETE(base+"/files/shares/:id/grants/:principal", h.RevokeFolderGrant)
+	e.GET(base+"/files/shares/:id/users", h.SearchFolderShareUsers)
 	e.GET(base+"/wellknown/:name", h.GetWellKnown)
 	e.PUT(base+"/wellknown/:name", h.PutWellKnown)
 	e.POST(base+"/wellknown/:name/revert", h.RevertWellKnown)
@@ -131,17 +156,23 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/wellknown/:name/versions", h.WellKnownVersions)
 	e.GET(base+"/skills", h.ListSkills)
 	e.POST(base+"/skills", h.CreateSkill)
+	e.POST(base+"/skills/import", h.ImportSkills)
+	e.GET(base+"/skills/personal/:name/export", h.ExportSkill)
 	e.GET(base+"/skills/:layer/:name", h.GetSkill)
 	e.PUT(base+"/skills/:layer/:name", h.UpdateSkill)
 	e.DELETE(base+"/skills/:layer/:name", h.DeleteSkill)
 	// What a chat that does not exist yet could switch; "draft" is not a chat id.
 	e.GET(base+"/draft/tools", h.DraftTools)
 	e.GET(base+"/draft/addons", h.DraftAddons)
+	e.GET(base+"/draft/egress", h.DraftEgress)
 	e.PUT(base+"/:id/skills", h.SetChatSkills)
 	e.GET(base+"/:id/addons", h.ListChatAddons)
 	e.PUT(base+"/:id/addons", h.SetChatAddons)
 	e.PUT(base+"/:id/connections", h.SetChatConnection)
 	e.POST(base+"/:id/host-exec/consent", h.HostExecConsent)
+	e.GET(base+"/sandbox-profiles", h.SandboxProfileChoices)
+	e.GET(base+"/:id/sandbox-profile", h.GetSandboxProfile)
+	e.PUT(base+"/:id/sandbox-profile", h.PutSandboxProfile)
 	e.GET(base+"/:id/egress", h.GetEgress)
 	e.PUT(base+"/:id/egress", h.PutEgress)
 	e.DELETE(base+"/:id/egress/rules/:host/:port", h.DeleteEgressRule)
@@ -155,9 +186,10 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/pages/:name/file", h.ReadPageFile)
 	e.PUT(base+"/pages/:name/file", h.WritePageFile)
 	e.POST(base+"/pages/:name/chat", h.SendFromPage)
+	e.POST(base+"/pages/:name/errors", h.ReportPageError)
 	// The pages of the caller's shared folders, by folder id and name, and the
 	// caller's consent to the version that runs.
-	// The folders an administrator shared with the caller.
+	// The folders an administrator, or another person, shared with the caller.
 	e.GET(base+"/shared-folders", h.ListMySharedFolders)
 	e.GET(base+"/shared-folders/:id", h.GetMySharedFolder)
 	e.GET(base+"/shared-pages", h.ListSharedPages)
@@ -184,6 +216,10 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/memory", h.GetMemory)
 	e.PUT(base+"/memory", h.PutMemory)
 	e.GET(base+"/memory/export", h.ExportMemory)
+	e.DELETE(base+"/memory", h.ForgetMemory)
+	e.GET(base+"/providers", h.ListProviders)
+	e.GET(base+"/providers/:slot", h.GetProvider)
+	e.PUT(base+"/providers/:slot", h.PutProvider)
 	e.GET(base+"/changes", h.ListChanges)
 	e.GET(base+"/changes/audit", h.ChangeAudit)
 	e.GET(base+"/changes/:id", h.GetChange)
@@ -220,6 +256,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/connectors/:id", h.GetConnector)
 	e.PUT(base+"/connectors/:id", h.UpdateConnector)
 	e.DELETE(base+"/connectors/:id", h.DeleteConnector)
+	e.POST(base+"/connectors/:id/share", h.ShareConnector)
 	e.POST(base+"/connectors/:id/enable", h.EnableConnector)
 	e.POST(base+"/connectors/:id/disable", h.DisableConnector)
 	e.POST(base+"/connectors/:id/test", h.TestConnector)
@@ -229,6 +266,12 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/connectors/:id/access/preview", h.ConnectorAccessPreview)
 	e.POST(base+"/connectors/:id/pairing", h.StartConnectorPairing)
 	e.DELETE(base+"/connectors/:id/paired/:sender", h.RemoveConnectorPaired)
+	// The OAuth logins of the connections. "oauth" is not a binding id: the
+	// static segment wins over "/:id", so the one callback of every add-on
+	// never reaches a binding route.
+	e.POST(base+"/connectors/:id/oauth/start", h.StartConnectorOAuth)
+	e.POST(base+"/connectors/:id/oauth/disconnect", h.DisconnectConnectorOAuth)
+	e.GET(base+"/connectors/oauth/callback", h.ConnectorOAuthCallback)
 	e.GET(base+"/mcp-connectors", h.ListMCPConnectors)
 	e.POST(base+"/mcp-connectors", h.CreateMCPConnector)
 	e.GET(base+"/mcp-connectors/:id", h.GetMCPConnector)
@@ -248,10 +291,14 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/:id/mcp-apps/call", h.CallMCPAppTool)
 	e.GET(base+"/agents/templates", h.AgentTemplates)
 	e.GET(base+"/agents/builtin-grants", h.BuiltinGrants)
+	e.GET(base+"/agents/addons/:addon/resources", h.ListAgentResourceChoices)
 	e.POST(base+"/agents/templates/:id/create", h.CreateAgentFromTemplate)
 	e.POST(base+"/agents/import", h.ImportAgent)
 	e.GET(base+"/agents/:id/export", h.ExportAgent)
 	e.GET(base+"/agents/:id/runs", h.AgentRuns)
+	e.POST(base+"/agents/:id/share", h.ShareAgent)
+	e.GET(base+"/agents/:id/references", h.AgentReferences)
+	e.GET(base+"/agents/:id/needs", h.AgentNeeds)
 	e.GET(base+"/agents", h.ListAgents)
 	e.POST(base+"/agents", h.CreateAgent)
 	e.GET(base+"/agents/:id", h.GetAgent)
@@ -264,6 +311,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/:id", h.Get)
 	e.PATCH(base+"/:id", h.Update)
 	e.POST(base+"/:id/regenerate", h.Regenerate)
+	e.POST(base+"/:id/resume", h.Resume)
 	e.POST(base+"/:id/messages/:seq/edit", h.EditMessage)
 	e.POST(base+"/:id/fork", h.Fork)
 	e.GET(base+"/:id/export", h.Export)
@@ -281,12 +329,15 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/:id/goal", h.GetGoal)
 	e.PUT(base+"/:id/goal", h.PutGoal)
 	e.DELETE(base+"/:id/goal", h.DeleteGoal)
+	e.GET(base+"/:id/dock", h.GetDock)
+	e.PUT(base+"/:id/dock", h.PutDock)
 	e.POST(base+"/:id/goal/resume", h.ResumeGoal)
 	e.GET(base+"/:id/loops", h.ListLoops)
 	e.POST(base+"/:id/loops", h.StartLoop)
 	e.DELETE(base+"/:id/loops", h.StopLoops)
 	e.PUT(base+"/:id/loops/:loopId", h.SetLoopState)
 	e.DELETE(base+"/:id/loops/:loopId", h.StopLoop)
+	e.POST(base+"/:id/jobs/:job/kill", h.StopJob)
 	e.POST(base+"/:id/compact", h.Compact)
 	e.POST(base+"/:id/clear", h.Clear)
 	e.GET(base+"/:id/events", h.Events)

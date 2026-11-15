@@ -87,8 +87,14 @@ func (s *Service) addonContextSourcesOf(ctx context.Context, user string, sets [
 	}
 	var out []contextfiles.Source
 	gate, _ := s.d.AddonTools.(AddonGate)
+	providers := s.providerGateFor(ctx, user, nil)
 	for _, set := range sets {
 		if set.AddonID == MemoryAddonID {
+			continue
+		}
+		// An add-on that provides a slot brings its files only while it is the
+		// provider the person picked.
+		if !providers.contributes(set.AddonID) {
 			continue
 		}
 		if !set.Running || slices.Contains(addonsOff, set.AddonID) || (sc != nil && !sc.addons[set.AddonID]) {

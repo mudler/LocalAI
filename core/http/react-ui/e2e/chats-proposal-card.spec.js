@@ -104,6 +104,39 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
       await page.screenshot({ path: `test-results/proposal-${name}-pending.png` })
     })
 
+    test('the card says where the results go: the Inbox by default, a thread, or a channel by its label', async ({ page }) => {
+      await open(page)
+      const row = card(page).locator('[data-row="delivery"]')
+      await expect(row).toContainText('Results go to')
+      await expect(row).toContainText('Your Inbox')
+    })
+
+    for (const [label, delivery, text] of [
+      ['a thread', { target: 'origin', in_thread: true }, 'This thread'],
+      ['a channel', { target: 'channel', channel_label: 'KairosInternal' }, 'KairosInternal, at the top of the channel'],
+    ]) {
+      test(`the card names ${label} as the place of the results`, async ({ page }) => {
+        await open(page, { extra: { delivery } })
+        await expect(card(page).locator('[data-row="delivery"]')).toContainText(text)
+        await page.screenshot({ path: `test-results/proposal-${name}-delivery-${delivery.target}.png` })
+      })
+    }
+
+    test('the card shows the time limit, and what applies when the administrator limit is lower', async ({ page }) => {
+      await open(page, { extra: { run_limit: '10m', effective_run_limit: '10m0s' } })
+      await expect(card(page).locator('[data-row="limit"]')).toContainText('Time limit')
+      await expect(card(page).locator('[data-row="limit"]')).toContainText('10m')
+      await page.screenshot({ path: `test-results/proposal-${name}-limit.png` })
+      await open(page, { extra: { run_limit: '2h', effective_run_limit: '15m' } })
+      await expect(card(page).locator('[data-row="limit"]')).toContainText('2h, cut to 15m by the administrator')
+      await page.screenshot({ path: `test-results/proposal-${name}-limit-cut.png` })
+    })
+
+    test('the card has no time limit row when the proposal sets none', async ({ page }) => {
+      await open(page)
+      await expect(card(page).locator('[data-row="limit"]')).toHaveCount(0)
+    })
+
     test('the card says a run only reads when the trigger holds no act, and why', async ({ page }) => {
       await open(page, { extra: { acts: [], acts_held: [], read_only: true, read_only_why: 'no_acts' } })
       const sum = card(page).getByTestId('trigger-acts-summary')

@@ -1,86 +1,4 @@
 {
-  "activity": {
-    "title": "Activity",
-    "supporting": "Installs, downloads and removals on this instance.",
-    "hide": "Hide",
-    "moveToHistory": "Move to history",
-    "moreCount": "{{count}} more",
-    "waitingForInstaller": "waiting for the installer",
-    "progressLabel": "Progress for {{name}}",
-    "toNode": "to {{node}}",
-    "nodesDone": "{{done}} of {{total}} nodes done",
-    "timeLeft": "{{value}} left",
-    "cancel": "Cancel",
-    "cancelLabel": "Cancel {{name}}",
-    "pause": "Pause",
-    "pauseLabel": "Pause {{name}} and keep downloaded data",
-    "retry": "Retry",
-    "retryLabel": "Retry {{name}}",
-    "nodeCount": "{{count}} nodes",
-    "showNodes": "Show {{count}} nodes",
-    "hideNodes": "Hide per-node detail",
-    "node": {
-      "done": "Done",
-      "failed": "Failed",
-      "queued": "Queued",
-      "workerBusy": "Worker busy",
-      "downloading": "Downloading"
-    },
-    "kind": {
-      "model": "model",
-      "backend": "backend"
-    },
-    "verb": {
-      "installing": "Installing {{kind}}",
-      "installed": "Installed {{kind}}",
-      "removed": "Removed {{kind}}",
-      "staged": "Staged model",
-      "failed": "Couldn't install {{kind}}",
-      "queued": "Queued",
-      "staging": "Staging model",
-      "removing": "Removing {{kind}}",
-      "failedRemoval": "Couldn't remove {{kind}}",
-      "failedStaging": "Couldn't stage model"
-    },
-    "phase": {
-      "resolving": "Resolving files",
-      "downloading": "Downloading",
-      "verifying": "Verifying",
-      "committing": "Finalizing",
-      "persisting": "Saving configuration"
-    },
-    "clearHistory": "Clear history",
-    "inProgress": "In progress",
-    "needsAttention": "Needs attention",
-    "record": "Record",
-    "historyNote": "Keeps the last 50 operations. History is in memory and resets when LocalAI restarts.",
-    "emptyTitle": "No operations since startup",
-    "emptyBody": "Model and backend installs appear here while they run and stay as a record afterwards. History is kept in memory, so it resets when LocalAI restarts.",
-    "browseModels": "Browse models",
-    "viewInModels": "View in Models",
-    "viewInBackends": "View in Backends",
-    "rowInstalled": "installed in {{duration}}",
-    "rowFailed": "failed: {{error}}",
-    "rowCancelled": "cancelled",
-    "rowRemoved": "removed",
-    "retryFailed": "Retry failed: {{message}}",
-    "filter": {
-      "all": "All",
-      "models": "Models",
-      "backends": "Backends",
-      "cluster": "Cluster"
-    },
-    "summaryRunning_one": "{{count}} operation running.",
-    "summaryRunning_other": "{{count}} operations running.",
-    "summaryFailed_one": "{{count}} operation needs attention.",
-    "summaryFailed_other": "{{count}} operations need attention.",
-    "summaryQuiet_one": "Nothing running. {{count}} operation since startup.",
-    "summaryQuiet_other": "Nothing running. {{count}} operations since startup.",
-    "summaryIdle": "Nothing running.",
-    "emptyFiltered": "No operations match this filter.",
-    "showAll": "Show all",
-    "rowInstalledPlain": "installed"
-  },
   "manage": {
     "title": "系统",
     "subtitle": "管理已安装的模型和后端"
@@ -173,6 +91,16 @@
     "network": {
       "title": "命令的网络",
       "where": "{{name}} 在自己的页面上保存其所运行命令的网络设置。"
+    },
+    "autoUpgradeAddons": "自动更新插件",
+    "addonUpdates": {
+      "label": "插件更新",
+      "note": "插件所有者应用此设置。新一代插件可以运行可执行代码。",
+      "unavailable": "所有者设置不可用或已更改:{{message}}",
+      "reload": "重新加载并重新应用编辑",
+      "retry": "重试同一操作",
+      "policy": "所有者策略 · 修订 {{revision}}",
+      "apply": "应用更新设置"
     }
   },
   "backends": {
@@ -338,13 +266,17 @@
       "bash": "命令（bash）",
       "web_search": "网页搜索",
       "web_fetch": "读取网页",
-      "list_agents": "已保存的智能体"
+      "list_agents": "已保存的智能体",
+      "localai_client": "LocalAI 客户端工具",
+      "localai_admin": "LocalAI 管理工具"
     },
     "descriptions": {
       "bash": "当没有插件提供 bash 时，直接在这台机器上为聊天运行命令和代码。可隔离运行命令的插件会将其替换。",
       "web_search": "无需密钥为聊天搜索网页（依次使用 DuckDuckGo、Brave Search、Bing），设置了 SearXNG 实例时则使用该实例。",
       "web_fetch": "按地址为聊天读取公开的网页或文件。除非您允许，否则内部网络地址会被拒绝。",
-      "list_agents": "允许聊天列出用户已保存的智能体，并将其中一个作为子智能体启动。每个聊天需在其工具菜单中开启。"
+      "list_agents": "允许聊天列出用户已保存的智能体，并将其中一个作为子智能体启动。每个聊天需在其工具菜单中开启。",
+      "localai_client": "允许聊天使用此处安装的模型生成图像、语音、声音、视频、嵌入并进行检测，且受每位用户的权限限制。",
+      "localai_admin": "允许管理员的聊天管理此服务器：模型、后端、设置和状态。每个聊天或已保存的智能体需自行开启。"
     },
     "bash": {
       "switch": "允许聊天在这台机器上运行命令",

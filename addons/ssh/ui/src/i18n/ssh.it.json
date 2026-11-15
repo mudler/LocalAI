@@ -1,0 +1,123 @@
+{
+  "name": "Nome",
+  "agent": "Agente",
+  "agentNone": "Scegli un agente",
+  "agentCredentialsOnly": "Nessun agente (solo credenziali)",
+  "credentialsOnly": "Solo credenziali",
+  "agentNoModel": "{{name}} (serve un modello)",
+  "test": "Prova",
+  "save": "Salva",
+  "cancel": "Annulla",
+  "editButton": "Modifica",
+  "delete": "Elimina",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "Non in esecuzione: {{reason}}.",
+  "title": "SSH",
+  "intro": "Lascia che le tue chat e i tuoi agenti eseguano comandi su una macchina remota via SSH. Per impostazione predefinita confermi ogni comando e vedi prima l'host e il testo esatto.",
+  "limits": "Un comando può modificare o cancellare tutto ciò che l'utente di accesso può toccare. Usa un utente dedicato con solo i permessi che servono. Nella modalità \"Esegue subito\" nessuno conferma un comando prima che parta. L'add-on esegue un comando alla volta, senza terminale e senza input.",
+  "new": "Nuova connessione SSH",
+  "edit": "Modifica connessione SSH",
+  "host": "Host",
+  "hostHelp": "Il nome o l'indirizzo della macchina, con la porta se non è la 22: server.example.com o 10.0.0.5:2222. Una connessione è un host. Ogni altro host viene rifiutato.",
+  "hostShape": "Questo non è un host. Scrivi un nome o un indirizzo, con una porta facoltativa.",
+  "user": "Nome utente sull'host",
+  "userHelp": "L'utente con cui girano i comandi. Un utente dedicato permette di togliere l'accesso in seguito senza toccare il tuo.",
+  "userShape": "Un nome utente ha solo lettere, cifre e . _ -",
+  "login": {
+    "label": "Accedi con",
+    "hint": "Il segreto è conservato cifrato e non viene più mostrato.",
+    "password": "Password",
+    "key": "Chiave privata"
+  },
+  "passwd": "Password",
+  "passwdHelp": "La password di quell'utente. Viene salvata insieme al nome utente come user:password.",
+  "key": "Chiave privata",
+  "keyHelp": "Incolla una chiave creata solo per LocalAI, in formato PEM o OpenSSH, senza passphrase. Aggiungi la sua parte pubblica ad authorized_keys sull'host.",
+  "credSaved": "Salvato. Scrivi per sostituire.",
+  "secretAgain": "Hai cambiato utente o host. Scrivi di nuovo il segreto.",
+  "userMissing": "Scrivi prima il nome utente.",
+  "keyShape": "Questa non è una chiave privata. Inizia con -----BEGIN.",
+  "keyPassphrase": "Una chiave con passphrase non è supportata. Usa una chiave senza.",
+  "credControl": "La password non ha caratteri di controllo.",
+  "credLong": "Il segreto è troppo lungo.",
+  "hostKey": {
+    "label": "Chiave dell'host",
+    "hint": "La prima volta l'add-on legge la chiave che l'host presenta. Confronta la sua impronta con quella mostrata dalla macchina, poi fidati. In seguito una chiave diversa viene rifiutata.",
+    "check": "Controlla la chiave dell'host",
+    "checking": "Controllo...",
+    "trust": "Ho confrontato questa impronta e mi fido di questo host.",
+    "needed": "Controlla la chiave dell'host prima di salvare.",
+    "unreachable": "Impossibile raggiungere l'host.",
+    "failed": "Impossibile leggere la chiave dell'host."
+  },
+  "testOk": "L'accesso è salvato.",
+  "checkFailed": "Salvato. Il controllo dell'accesso è fallito: {{reason}}",
+  "checkSeveral": "Il controllo parte quando hai una sola connessione SSH, perché da questa pagina non si capisce quale intendi. In una chat abilita le connessioni nel menu Strumenti.",
+  "empty": "Nessuna connessione SSH.",
+  "noHost": "Nessun host: questa connessione non raggiunge nulla.",
+  "hostOf": "Host: {{host}}",
+  "confirmDelete": {
+    "title": "Eliminare {{name}}?",
+    "message": "Le tue chat non possono più raggiungere questo host e il segreto salvato viene eliminato. Per configurarlo di nuovo devi inserirlo ancora.",
+    "confirm": "Elimina"
+  },
+  "check": {
+    "title": "Controllo di {{name}}",
+    "running": "Controllo dell'host...",
+    "at": "Controllato alle {{time}}",
+    "ok": "Connesso come {{user}}. {{system}}.",
+    "refused": "L'host ha rifiutato l'accesso. Controlla utente, password o chiave.",
+    "changed": "La chiave dell'host è cambiata. Non è stato inviato nulla. Modifica la connessione per controllare e fidarti della nuova chiave.",
+    "nopin": "Nessuna chiave dell'host fissata. Modifica la connessione e controlla la chiave.",
+    "unreachable": "Impossibile raggiungere l'host. Controlla host e porta.",
+    "busy": "Un altro comando è ancora in esecuzione su questa connessione.",
+    "failed": "Il controllo non è terminato. Riprova tra un momento."
+  },
+  "setup": {
+    "title": "Come configurarlo",
+    "step1": "Crea sull'host un utente solo per LocalAI, con i soli permessi che servono.",
+    "step2": "Crea una coppia di chiavi per lui, oppure scegli una password. Aggiungi la chiave pubblica ad authorized_keys di quell'utente.",
+    "step3": "Scrivi qui host e utente, premi Controlla la chiave dell'host e confronta l'impronta.",
+    "step4": "Lascia la modalità su Chiede prima finché non hai letto i limiti di questa pagina.",
+    "fingerprint": "L'impronta dell'host si vede con: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
+  },
+  "writeMode": {
+    "label": "Cosa può fare l'agente su questo host",
+    "hint": "Controllare la connessione è sempre permesso. Eseguire un comando richiede una modalità diversa da Spento.",
+    "off": "Spento",
+    "propose": "Chiede prima",
+    "auto": "Esegue subito",
+    "line": {
+      "off": "Nessun comando parte.",
+      "propose": "Ogni comando aspetta il tuo OK.",
+      "auto": "I comandi partono senza OK."
+    },
+    "note": {
+      "off": "I comandi sono spenti: questa connessione controlla solo l'accesso.",
+      "propose": "Ogni comando aspetta tra le tue approvazioni, con host e testo esatto, finché non lo confermi.",
+      "auto": "I comandi partono subito senza conferma. Scegli questa modalità solo per un host e un utente dove un comando sbagliato non fa danni."
+    },
+    "row": {
+      "off": "Spento",
+      "propose": "Chiede prima",
+      "auto": "Esegue subito"
+    }
+  },
+  "approval": {
+    "title": "Esegui un comando su {{host}}",
+    "physical": "Questo gira su una macchina reale appena confermi.",
+    "host": "Host",
+    "user": "Utente",
+    "command": "Comando",
+    "lines": "{{count}} riga/righe",
+    "timeout": "Limite di tempo",
+    "seconds": "{{count}} secondi",
+    "hostKey": "Chiave dell'host",
+    "as": "Come",
+    "asOne": "La connessione {{name}}",
+    "asFirst": "La prima connessione che elenca questo host",
+    "asUnknown": "Una connessione SSH per questo host",
+    "what": "Cosa succede",
+    "effect": "Il comando esatto qui sopra viene eseguito una volta, senza terminale e senza input. Il suo output torna alla chat."
+  }
+}

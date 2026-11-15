@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -26,10 +27,14 @@ const (
 	stateDeleting = "deleting"
 )
 
-// record is the host's binding of an opaque resource ID to the trusted addon
-// identity and the immutable owner. Grants never include the owner.
+// record is the host's binding of an opaque resource ID to a resource kind and
+// the immutable owner. Grants never include the owner. For an add-on kind the
+// trusted add-on identity is also kept in AddonID; other kinds leave it empty.
 type record struct {
-	AddonID string          `json:"addonId"`
+	// Kind names what the resource is. It selects the role table, see
+	// RegisterKind. An add-on resource has the kind "addon:<addonID>".
+	Kind    string          `json:"kind"`
+	AddonID string          `json:"addonId,omitempty"`
 	Owner   string          `json:"owner"`
 	State   string          `json:"state"`
 	Grants  map[string]Role `json:"grants,omitempty"`
@@ -43,6 +48,11 @@ type record struct {
 	// CreateRef binds a resource made by the UI creation path to the request
 	// that made it, so a repeated operation ID with another request is refused.
 	CreateRef string `json:"createRef,omitempty"`
+	// Local is the service's own name of a resource of a kind that is not an
+	// add-on, such as the ID of a connector binding or the name of a
+	// collection. One owner has at most one active record of a kind under a
+	// name. See EnsureRef.
+	Local string `json:"local,omitempty"`
 	// Drain names users whose grant was lowered or removed and whose admitted
 	// work and pending proposals are not yet known to be stopped. The mark is
 	// durable with the change itself and cleared only after the drain
@@ -97,7 +107,8 @@ func (r *record) copy() *record {
 // its owner to learn that a deletion that was reported as unknown did happen.
 // It names no data and grants nothing. The newest MaxTombstones are kept.
 type tombstone struct {
-	AddonID string    `json:"addonId"`
+	Kind    string    `json:"kind"`
+	AddonID string    `json:"addonId,omitempty"`
 	Owner   string    `json:"owner"`
 	Op      string    `json:"op"`
 	At      time.Time `json:"at"`
@@ -111,15 +122,21 @@ const MaxTombstones = 1024
 // from a backup older than the lowering applies it again, so restoring never
 // gives back access that was taken away.
 type revocation struct {
-	AddonID    string    `json:"addonId"`
+	Kind string `json:"kind"`
+	// AddonID is read only from a log written before kinds existed. Load moves
+	// it into Kind and clears it.
+	AddonID    string    `json:"addonId,omitempty"`
 	ResourceID string    `json:"resourceId"`
 	UserID     string    `json:"userId"`
 	Ceiling    Role      `json:"ceiling,omitempty"`
 	At         time.Time `json:"at"`
 }
 
-// MaxRevocations is a safety bound on the lowerings the store keeps. The log
-// is compacted as it grows: a lowering that a later and stricter or equal one
+// MaxRevocations is a safety bound on the lowerings each log of the store
+// keeps. There are two logs: one of the add-on resources, which a restore of
+// an add-on reads, and one of the other kinds, so that churn on shared agents,
+// bindings or collections can never push an add-on lowering out or move the
+// floor of the add-on log. Each log is compacted as it grows: a lowering that a later and stricter or equal one
 // of the same person on the same resource covers is dropped, so a person has
 // at most three entries and the bound is reached only by many distinct
 // people and resources. When it is reached, the oldest entries go and the
@@ -131,36 +148,61 @@ const MaxRevocations = 4096
 // revocationCap is MaxRevocations; a test lowers it.
 var revocationCap = MaxRevocations
 
-func (r revocation) rank() int {
-	switch r.Ceiling {
-	case RoleViewer:
-		return 1
-	case RoleEditor:
-		return 2
-	}
-	return 0
+// covers says whether the lowering r is at least as strict as o: a removal,
+// the same ceiling, or viewer after editor. The roles of other kinds are not
+// ordered, so only the same ceiling or a removal covers one of them.
+func (r revocation) covers(o revocation) bool {
+	return r.Ceiling == "" || r.Ceiling == o.Ceiling || (r.Ceiling == RoleViewer && o.Ceiling == RoleEditor)
 }
 
 // addRevocation records a lowering. It keeps the log exact for every restore
 // time: a dropped entry is always covered by a later entry that is at least as
 // strict, so any restore that would have applied the first applies the second.
 func (d *document) addRevocation(v revocation) {
-	kept := d.Revoked[:0:0]
-	for _, o := range d.Revoked {
-		if o.AddonID == v.AddonID && o.ResourceID == v.ResourceID && o.UserID == v.UserID && !o.At.After(v.At) && v.rank() <= o.rank() {
+	if shareKind(v.Kind) {
+		d.RevokedKinds, d.RevokedKindsFloor = appendRevocation(d.RevokedKinds, d.RevokedKindsFloor, v)
+		return
+	}
+	d.Revoked, d.RevokedFloor = appendRevocation(d.Revoked, d.RevokedFloor, v)
+}
+
+// appendRevocation adds v to one log and returns the log and its floor.
+func appendRevocation(log []revocation, floor time.Time, v revocation) ([]revocation, time.Time) {
+	kept := log[:0:0]
+	for _, o := range log {
+		if o.Kind == v.Kind && o.ResourceID == v.ResourceID && o.UserID == v.UserID && !o.At.After(v.At) && v.covers(o) {
 			continue
 		}
 		kept = append(kept, o)
 	}
-	d.Revoked = append(kept, v)
-	if over := len(d.Revoked) - revocationCap; over > 0 {
-		for _, o := range d.Revoked[:over] {
-			if o.At.After(d.RevokedFloor) {
-				d.RevokedFloor = o.At
+	log = append(kept, v)
+	if over := len(log) - revocationCap; over > 0 {
+		for _, o := range log[:over] {
+			if o.At.After(floor) {
+				floor = o.At
 			}
 		}
-		d.Revoked = append([]revocation(nil), d.Revoked[over:]...)
+		log = append([]revocation(nil), log[over:]...)
 	}
+	return log, floor
+}
+
+// splitRevocations moves the lowerings of the kinds that are not add-ons
+// out of the add-on log, where a store written before the two logs kept
+// them. The floor of the old log stays on the add-on log: it may have been
+// raised by any kind, and keeping it there can only make a restore stricter.
+func (d *document) splitRevocations() {
+	kept := d.Revoked[:0:0]
+	for _, v := range d.Revoked {
+		if shareKind(v.Kind) {
+			d.RevokedKinds = append(d.RevokedKinds, v)
+			d.migrated = true
+			continue
+		}
+		kept = append(kept, v)
+	}
+	d.Revoked = kept
+	sort.SliceStable(d.RevokedKinds, func(i, j int) bool { return d.RevokedKinds[i].At.Before(d.RevokedKinds[j].At) })
 }
 
 type document struct {
@@ -168,11 +210,19 @@ type document struct {
 	Mode      Mode                  `json:"mode"`
 	Resources map[string]*record    `json:"resources"`
 	Deleted   map[string]*tombstone `json:"deleted,omitempty"`
-	Revoked   []revocation          `json:"revoked,omitempty"`
+	// Revoked is the log of the lowerings of add-on resources.
+	Revoked []revocation `json:"revoked,omitempty"`
 	// RevokedFloor is the time up to which lowerings may have been dropped
 	// from Revoked for lack of room. A restore from a backup made before it
 	// cannot tell what was lowered since.
 	RevokedFloor time.Time `json:"revokedFloor,omitempty"`
+	// RevokedKinds and RevokedKindsFloor are the same for the kinds that are
+	// not add-ons. No lowering of those kinds can move RevokedFloor.
+	RevokedKinds      []revocation `json:"revokedKinds,omitempty"`
+	RevokedKindsFloor time.Time    `json:"revokedKindsFloor,omitempty"`
+	// migrated is set by load when it filled in kinds a store written before
+	// kinds existed did not have, so OpenStore writes the new form back.
+	migrated bool
 }
 
 func (d *document) clone() *document {
@@ -189,6 +239,9 @@ func (d *document) clone() *document {
 	}
 	c.Revoked = append([]revocation(nil), d.Revoked...)
 	c.RevokedFloor = d.RevokedFloor
+	c.RevokedKinds = append([]revocation(nil), d.RevokedKinds...)
+	c.RevokedKindsFloor = d.RevokedKindsFloor
+	c.migrated = d.migrated
 	return c
 }
 
@@ -255,11 +308,23 @@ func load(dir string) (*document, error) {
 	if len(d.Deleted) > MaxTombstones {
 		return nil, errors.New("addon policy store is corrupt")
 	}
-	if len(d.Revoked) > MaxRevocations {
+	if len(d.Revoked) > MaxRevocations || len(d.RevokedKinds) > MaxRevocations {
 		return nil, errors.New("addon policy store is corrupt")
 	}
-	for _, v := range d.Revoked {
-		if v.AddonID == "" || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && v.Ceiling != RoleViewer && v.Ceiling != RoleEditor) {
+	if !d.migrateKinds() {
+		return nil, errors.New("addon policy store is corrupt")
+	}
+	for _, log := range [][]revocation{d.Revoked, d.RevokedKinds} {
+		for _, v := range log {
+			if v.Kind == "" || !wellFormedKind(v.Kind) || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && !grantRole(v.Ceiling)) {
+				return nil, errors.New("addon policy store is corrupt")
+			}
+		}
+	}
+	// The log of the other kinds is written by this version only, which
+	// never puts an add-on lowering there.
+	for _, v := range d.RevokedKinds {
+		if !shareKind(v.Kind) || v.AddonID != "" {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 	}
@@ -272,17 +337,21 @@ func load(dir string) (*document, error) {
 			}
 		}
 	}
+	d.splitRevocations()
+	if len(d.RevokedKinds) > MaxRevocations {
+		return nil, errors.New("addon policy store is corrupt")
+	}
 	for id, t := range d.Deleted {
-		if id == "" || t == nil || t.AddonID == "" || t.Owner == "" || t.Op == "" {
+		if id == "" || t == nil || t.Kind == "" || !kindMatchesAddon(t.Kind, t.AddonID) || t.Owner == "" || t.Op == "" {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 	}
 	for _, r := range d.Resources {
-		if r == nil || r.AddonID == "" || r.Owner == "" || (r.State != stateActive && r.State != statePend && r.State != stateDeleting) || (r.State == stateDeleting) != (r.Delete != nil) {
+		if r == nil || r.Kind == "" || r.Owner == "" || !kindMatchesAddon(r.Kind, r.AddonID) || (r.Local != "" && (r.AddonID != "" || !validLocal(r.Local))) || (r.State != stateActive && r.State != statePend && r.State != stateDeleting) || (r.State == stateDeleting) != (r.Delete != nil) {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 		for u, role := range r.Grants {
-			if u == "" || u == r.Owner || (role != RoleViewer && role != RoleEditor) {
+			if u == "" || u == r.Owner || !storedRole(r.Kind, role) {
 				return nil, errors.New("addon policy store is corrupt")
 			}
 		}
@@ -293,6 +362,65 @@ func load(dir string) (*document, error) {
 		}
 	}
 	return d, nil
+}
+
+// migrateKinds gives what a store written before kinds existed the kind of an
+// add-on resource. Every such entry names its add-on, and the add-on kind is
+// derived from it, so nothing a person was granted or lost changes. An entry
+// that has neither is left as it is and fails the check in load. It reports
+// false when a revocation names an add-on that its kind does not: that entry
+// is corrupt, and clearing the field would hide it.
+func (d *document) migrateKinds() bool {
+	for _, r := range d.Resources {
+		if r != nil && r.Kind == "" && r.AddonID != "" {
+			r.Kind = addonKind(r.AddonID)
+			d.migrated = true
+		}
+	}
+	for _, t := range d.Deleted {
+		if t != nil && t.Kind == "" && t.AddonID != "" {
+			t.Kind = addonKind(t.AddonID)
+			d.migrated = true
+		}
+	}
+	for i := range d.Revoked {
+		v := &d.Revoked[i]
+		if v.Kind == "" && v.AddonID != "" {
+			v.Kind = addonKind(v.AddonID)
+			d.migrated = true
+		}
+		// The kind is the identity; keeping the old field too would give the
+		// entry two sources of truth.
+		if v.AddonID != "" {
+			if v.Kind != addonKind(v.AddonID) {
+				return false
+			}
+			v.AddonID = ""
+			d.migrated = true
+		}
+	}
+	return true
+}
+
+// storedRole says whether a grant of the role can be on a record of the kind.
+// An add-on grants viewer and editor only. Whether another kind grants the role
+// is known only once it registers, so the store accepts every grant role and
+// the check denies a role the kind does not grant.
+func storedRole(kind string, role Role) bool {
+	if _, addon := addonOf(kind); addon {
+		return role == RoleViewer || role == RoleEditor
+	}
+	return grantRole(role)
+}
+
+// wellFormedKind says whether a stored kind is usable: the add-on family needs
+// an add-on ID after the prefix.
+func wellFormedKind(kind string) bool {
+	if strings.HasPrefix(kind, addonKindPrefix) {
+		_, ok := addonOf(kind)
+		return ok
+	}
+	return kind != ""
 }
 
 // save reports renamed when the new file is already in place, so a failure
@@ -332,8 +460,12 @@ func OpenStore(dir string, mode Mode) (*Store, error) {
 			err = ErrMigrationRequired
 		} else {
 			d.Mode = mode
-			_, err = save(dir, d)
+			d.migrated = true
 		}
+	}
+	if err == nil && d.migrated {
+		_, err = save(dir, d)
+		d.migrated = false
 	}
 	if err != nil {
 		_ = lock.Close()

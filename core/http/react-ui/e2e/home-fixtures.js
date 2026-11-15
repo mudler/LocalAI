@@ -47,6 +47,20 @@ export async function mockHome(page, {
   if (nodes) await page.route('**/api/nodes', route => route.fulfill({ json: nodes }))
 }
 
+// Answer for each named settings file of the user (home, commands, ...) as
+// the server does when the user has none. The specs that write these files
+// share the test user with every other worker: a home.json with a chats widget
+// replaces the resume list of Home, a commands.json adds its commands to the
+// slash menu. A spec that asserts what Home shows by default must not read the
+// real files.
+export async function noWellKnown(page, ...names) {
+  for (const name of names) {
+    await page.route(`**/api/chats/wellknown/${name}`, route => route.fulfill({
+      json: { name, path: `/LocalAI/${name}.json`, exists: false, version: 0, rev: 0, data: {}, valid: true },
+    }))
+  }
+}
+
 // Conversations: today twice, yesterday twice, three days ago once.
 export function sampleChats(now = Date.now()) {
   const at = (daysAgo, hour, minute) => {

@@ -17,6 +17,20 @@ const signedIn = (page) =>
     })
   )
 
+// The sidebar order is the user's nav.json, which other specs write on the
+// shared test server. Each test answers its own: built-in entries and a link
+// to an address, which is a button rather than a link and must sit on the same
+// column.
+const navFile = (page) =>
+  page.route('**/api/chats/wellknown/nav', (route) =>
+    route.fulfill({
+      json: {
+        name: 'nav', path: '/LocalAI/nav.json', exists: true, version: 1, rev: 1, valid: true,
+        data: { items: [{ id: 'home' }, { type: 'url', url: 'https://localai.io/docs', label: 'Docs' }, { id: 'files' }, { id: 'agents' }, { id: 'models' }] },
+      },
+    })
+  )
+
 // Centre x of every icon in the sidebar, keyed by what it is.
 const centres = (page) =>
   page.evaluate(() => {
@@ -35,6 +49,7 @@ const centres = (page) =>
       language: one('.language-switcher-trigger svg'),
       theme: one('.theme-toggle__icon'),
       collapse: one('.sidebar-collapse-btn svg'),
+      link: one('.sidebar-nav [data-kind="url"] .nav-icon'),
     }
   })
 
@@ -43,6 +58,7 @@ for (const theme of ['light', 'dark']) {
     test.beforeEach(async ({ page }) => {
       await page.addInitScript((t) => localStorage.setItem('localai-theme', t), theme)
       await signedIn(page)
+      await navFile(page)
     })
 
     test('collapsed: nav icons, mark, avatar, language, theme and collapse share one centre', async ({ page }) => {
@@ -50,6 +66,7 @@ for (const theme of ['light', 'dark']) {
       await page.goto('/app')
       await expect(page.locator('.sidebar.collapsed')).toBeVisible({ timeout: 15_000 })
       await expect(page.locator('.sidebar-user-avatar, .sidebar-user-avatar-icon')).toBeVisible()
+      await expect(page.locator('.sidebar-nav [data-kind="url"]')).toBeVisible()
       // Let the width transition and the icon fonts settle before measuring.
       await page.waitForTimeout(600)
       const c = await centres(page)
@@ -67,9 +84,10 @@ for (const theme of ['light', 'dark']) {
       await page.goto('/app')
       await expect(page.locator('.sidebar-user-avatar, .sidebar-user-avatar-icon')).toBeVisible({ timeout: 15_000 })
       await page.waitForTimeout(600)
+      await expect(page.locator('.sidebar-nav [data-kind="url"]')).toBeVisible()
       const c = await centres(page)
       const column = c.nav[0]
-      for (const key of ['avatar', 'language', 'theme']) {
+      for (const key of ['link', 'avatar', 'language', 'theme']) {
         expect(Math.abs(c[key] - column), `${key} centre ${c[key]} vs column ${column}`).toBeLessThanOrEqual(1)
       }
     })

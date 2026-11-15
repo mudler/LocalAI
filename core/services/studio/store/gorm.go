@@ -54,13 +54,38 @@ type chatRow struct {
 	// chats made before as not scoped, so AutoMigrate is its migration.
 	ScopedAgent bool   `gorm:"not null;default:false"`
 	Settings    string `gorm:"type:text"` // JSON of session.ChatSettings
-	HostConsent string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
-	Egress      string `gorm:"type:text"` // JSON of egress.ChatState
-	EgressRev   int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
+	// AllowedTools came after the table existed: it is a nullable text
+	// column, so AutoMigrate adds it and older rows read as no list.
+	AllowedTools string `gorm:"type:text"` // JSON list of the tool names of a sub-agent
+	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
+	Egress       string `gorm:"type:text"` // JSON of egress.ChatState
+	// Jobs and JobsRev came after the table existed: the defaults fill the
+	// rows of chats made before, so AutoMigrate is their migration.
+	Jobs      string `gorm:"type:text;not null;default:''"` // JSON list of session.JobStub
+	JobsRev   int64  `gorm:"not null;default:0"`            // bumped by UpdateJobs; its row lock
+	EgressRev int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
 	// Goal and GoalRev came after the table existed: the defaults fill the
 	// rows of chats made before, so AutoMigrate is their migration.
 	Goal    string `gorm:"type:text;not null;default:''"` // JSON of session.Goal; empty: no goal
 	GoalRev int64  `gorm:"not null;default:0"`            // bumped by UpdateGoal; its row lock
+	// Dock and DockRev came after the table existed: the defaults fill the
+	// rows of chats made before, so AutoMigrate is their migration.
+	Dock    string `gorm:"type:text;not null;default:''"` // JSON of session.Dock; empty: no dock
+	DockRev int64  `gorm:"not null;default:0"`            // bumped by UpdateDock; its row lock
+	// The resume fields came after the table existed: the defaults read the
+	// rows of chats made before as having no resume, so AutoMigrate is their
+	// migration. ResumeNotBefore is the zero time while no resume is scheduled.
+	ResumeAttempts  int       `gorm:"not null;default:0"`
+	ResumeNotBefore time.Time `gorm:"index"`
+	InterruptedAt   time.Time
+	// PartialText is the assistant text being written (session.PartialStore),
+	// and PartialTurn its turn. Empty while no message is streaming.
+	PartialText string `gorm:"type:text"`
+	PartialTurn int
+	// OwnerInstance came after the table existed: a nullable column, so
+	// AutoMigrate adds it and older rows read as an unknown owner. It names
+	// the process that ran the last turn (SetTurnOwner).
+	OwnerInstance string `gorm:"size:128"`
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -83,7 +108,11 @@ type entryRow struct {
 	Loop string `gorm:"type:text"`
 	// Invoked is the JSON of the command of a user message; empty otherwise.
 	Invoked string `gorm:"type:text"`
-	At      time.Time
+	// Sender is the JSON of the sender of a user message that a messaging
+	// connection delivered; empty otherwise. The column came after the table
+	// existed, so AutoMigrate adds it and older rows read as empty.
+	Sender string `gorm:"type:text"`
+	At     time.Time
 }
 
 func (entryRow) TableName() string { return "studio_entries" }
@@ -120,6 +149,13 @@ func toEntryRow(id string, seq int64, e session.Entry) (entryRow, error) {
 		}
 		r.Invoked = string(raw)
 	}
+	if e.Sender != nil {
+		raw, err := json.Marshal(e.Sender)
+		if err != nil {
+			return entryRow{}, err
+		}
+		r.Sender = string(raw)
+	}
 	return r, nil
 }
 
@@ -132,6 +168,8 @@ type pendingRow struct {
 	// Unconfirmed: taken by a model request, not yet recorded (see Pending).
 	Unconfirmed bool
 	At          time.Time
+	// Sender is the JSON of the sender of a connector message; empty otherwise.
+	Sender string `gorm:"type:text"`
 }
 
 func (pendingRow) TableName() string { return "studio_pending" }
@@ -253,6 +291,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 	}
+	if r.AllowedTools != "" {
+		if err := json.Unmarshal([]byte(r.AllowedTools), &rec.AllowedTools); err != nil {
+			return rec, err
+		}
+	}
 	if r.Settings != "" {
 		if err := json.Unmarshal([]byte(r.Settings), &rec.Settings); err != nil {
 			return rec, err
@@ -269,6 +312,18 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 		rec.Goal = &g
+	}
+	if r.Dock != "" {
+		var d session.Dock
+		if err := json.Unmarshal([]byte(r.Dock), &d); err != nil {
+			return rec, err
+		}
+		rec.Dock = &d
+	}
+	if r.Jobs != "" {
+		if err := json.Unmarshal([]byte(r.Jobs), &rec.Jobs); err != nil {
+			return rec, err
+		}
 	}
 	if r.HostConsent != "" {
 		var c session.HostConsent
@@ -322,6 +377,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 		}
 		*l.to = string(raw)
 	}
+	if len(rec.AllowedTools) > 0 {
+		raw, err := json.Marshal(rec.AllowedTools)
+		if err != nil {
+			return err
+		}
+		row.AllowedTools = string(raw)
+	}
 	if len(rec.Connections) > 0 {
 		raw, err := json.Marshal(rec.Connections)
 		if err != nil {
@@ -349,6 +411,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 			return err
 		}
 		row.Goal = string(raw)
+	}
+	if rec.Dock != nil {
+		raw, err := json.Marshal(rec.Dock)
+		if err != nil {
+			return err
+		}
+		row.Dock = string(raw)
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		var n int64
@@ -650,21 +719,20 @@ func (s *gormStore) UpdateEgress(ctx context.Context, principal, id string, chan
 	})
 }
 
-func (s *gormStore) UpdateGoal(ctx context.Context, principal, id string, change func(*session.Goal) (*session.Goal, error)) error {
+func (s *gormStore) UpdateJobs(ctx context.Context, principal, id string, change func([]session.JobStub) ([]session.JobStub, error)) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// As in UpdateEgress: the bump takes the row lock, so a second
-		// frontend's change waits and then reads what this one wrote.
-		if _, err := lock(tx, principal, id, "goal_rev"); err != nil {
+		// As in UpdateGoal: the bump takes the row lock, so a second node's
+		// change waits and then reads what this one wrote.
+		if _, err := lock(tx, principal, id, "jobs_rev"); err != nil {
 			return err
 		}
 		var raw string
-		if err := tx.Model(&chatRow{}).Where("id = ?", id).Select("goal").Row().Scan(&raw); err != nil {
+		if err := tx.Model(&chatRow{}).Where("id = ?", id).Select("jobs").Row().Scan(&raw); err != nil {
 			return err
 		}
-		var cur *session.Goal
+		var cur []session.JobStub
 		if raw != "" {
-			cur = &session.Goal{}
-			if err := json.Unmarshal([]byte(raw), cur); err != nil {
+			if err := json.Unmarshal([]byte(raw), &cur); err != nil {
 				return err
 			}
 		}
@@ -673,20 +741,117 @@ func (s *gormStore) UpdateGoal(ctx context.Context, principal, id string, change
 			return err
 		}
 		out := ""
-		if next != nil {
+		if len(next) > 0 {
 			b, err := json.Marshal(next)
 			if err != nil {
 				return err
 			}
 			out = string(b)
 		}
-		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("goal", out).Error
+		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("jobs", out).Error
 	})
+}
+
+func (s *gormStore) UpdateGoal(ctx context.Context, principal, id string, change func(*session.Goal) (*session.Goal, error)) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// As in UpdateEgress: the bump takes the row lock, so a second
+		// frontend's change waits and then reads what this one wrote.
+		if _, err := lock(tx, principal, id, "goal_rev"); err != nil {
+			return err
+		}
+		return updateJSONColumn(tx, id, "goal", change)
+	})
+}
+
+func (s *gormStore) UpdateDock(ctx context.Context, principal, id string, change func(*session.Dock) (*session.Dock, error)) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// As in UpdateGoal: the bump takes the row lock.
+		if _, err := lock(tx, principal, id, "dock_rev"); err != nil {
+			return err
+		}
+		return updateJSONColumn(tx, id, "dock", change)
+	})
+}
+
+// updateJSONColumn runs change on the value that column of chat id holds as
+// JSON, in tx, and writes back what it returns. An empty column reads as nil
+// and a nil result empties it. The caller holds the row lock.
+func updateJSONColumn[T any](tx *gorm.DB, id, column string, change func(*T) (*T, error)) error {
+	var raw string
+	if err := tx.Model(&chatRow{}).Where("id = ?", id).Select(column).Row().Scan(&raw); err != nil {
+		return err
+	}
+	var cur *T
+	if raw != "" {
+		cur = new(T)
+		if err := json.Unmarshal([]byte(raw), cur); err != nil {
+			return err
+		}
+	}
+	next, err := change(cur)
+	if err != nil {
+		return err
+	}
+	out := ""
+	if next != nil {
+		b, err := json.Marshal(next)
+		if err != nil {
+			return err
+		}
+		out = string(b)
+	}
+	return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn(column, out).Error
+}
+
+func (s *gormStore) SavePartial(ctx context.Context, id string, turn int, text string) error {
+	text = session.CapPartial(text)
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ?", id).
+		Updates(map[string]any{"partial_text": text, "partial_turn": turn})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+func (s *gormStore) TakePartial(ctx context.Context, id string) (int, string, error) {
+	var turn int
+	var text string
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row chatRow
+		if err := tx.Select("partial_text", "partial_turn").Where("id = ?", id).Take(&row).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return session.ErrNotFound
+			}
+			return err
+		}
+		if row.PartialText == "" {
+			return nil
+		}
+		// Conditional on the text read, so a second caller that read the same
+		// text finds it gone and gets none.
+		res := tx.Model(&chatRow{}).Where("id = ? AND partial_text = ?", id, row.PartialText).
+			Updates(map[string]any{"partial_text": "", "partial_turn": 0})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 1 {
+			turn, text = row.PartialTurn, row.PartialText
+		}
+		return nil
+	})
+	return turn, text, err
 }
 
 func (s *gormStore) TruncateEntries(ctx context.Context, principal, id string, keep int64) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if _, err := lock(tx, principal, id, "next_entry"); err != nil {
+			return err
+		}
+		// The text of an answer that was cut belongs to the lines that are gone.
+		if err := tx.Model(&chatRow{}).Where("id = ?", id).Updates(map[string]any{"partial_text": "", "partial_turn": 0}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("chat_id = ? AND seq > ?", id, keep).Delete(&entryRow{}).Error; err != nil {
@@ -853,16 +1018,34 @@ func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit i
 			}
 			e.Invoked = &inv
 		}
+		if r.Sender != "" {
+			var sd session.Sender
+			if err := json.Unmarshal([]byte(r.Sender), &sd); err != nil {
+				return nil, err
+			}
+			e.Sender = &sd
+		}
 		out = append(out, e)
 	}
 	return out, nil
 }
 
 func toPending(r pendingRow) Pending {
-	return Pending{ID: r.ID, Text: r.Text, Seq: r.Seq, Delivered: r.Delivered, Unconfirmed: r.Unconfirmed, At: r.At}
+	p := Pending{ID: r.ID, Text: r.Text, Seq: r.Seq, Delivered: r.Delivered, Unconfirmed: r.Unconfirmed, At: r.At}
+	if r.Sender != "" {
+		var sd session.Sender
+		if json.Unmarshal([]byte(r.Sender), &sd) == nil {
+			p.Sender = &sd
+		}
+	}
+	return p
 }
 
 func (s *gormStore) AddPending(ctx context.Context, principal, id, text string) (Pending, error) {
+	return s.AddPendingFrom(ctx, principal, id, text, nil)
+}
+
+func (s *gormStore) AddPendingFrom(ctx context.Context, principal, id, text string, sender *session.Sender) (Pending, error) {
 	var out Pending
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		seq, err := lock(tx, principal, id, "next_pending")
@@ -870,6 +1053,13 @@ func (s *gormStore) AddPending(ctx context.Context, principal, id, text string) 
 			return err
 		}
 		row := pendingRow{ChatID: id, ID: fmt.Sprintf("p%d", seq), Seq: seq, Text: text, At: time.Now().UTC()}
+		if sender != nil {
+			raw, err := json.Marshal(sender)
+			if err != nil {
+				return err
+			}
+			row.Sender = string(raw)
+		}
 		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}
@@ -1025,7 +1215,9 @@ func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) 
 	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL)", id, principal, "").
-		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now})
+		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now,
+			// A new turn starts the count of resumes again.
+			"resume_attempts": 0, "resume_not_before": time.Time{}, "interrupted_at": time.Time{}})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -1038,10 +1230,113 @@ func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) 
 	return ErrTurnRunning
 }
 
-func (s *gormStore) ReleaseTurn(ctx context.Context, principal, id, runID string, status TurnStatus) error {
+func (s *gormStore) ClaimResume(ctx context.Context, principal, id, runID string) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
+	db := s.db.WithContext(ctx)
+	// The conditions and the count are one statement, so two sweepers cannot
+	// both win and a lost race does not spend an attempt.
+	res := db.Model(&chatRow{}).
+		Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL) AND last_turn = ? AND resume_attempts < ? AND resume_not_before > ? AND resume_not_before <= ? AND interrupted_at >= ?",
+			id, principal, "", string(TurnInterrupted), MaxResumeAttempts, time.Time{}, now, now.Add(-ResumeWindow)).
+		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now,
+			"resume_attempts": gorm.Expr("resume_attempts + 1"), "resume_not_before": time.Time{}})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	var row chatRow
+	if err := db.Select("run_id").Where("id = ?", id).Take(&row).Error; err == nil && row.RunID != "" {
+		return ErrTurnRunning
+	}
+	return ErrNotResumable
+}
+
+func (s *gormStore) ListResumable(ctx context.Context) ([]ResumableTurn, error) {
+	now, err := s.now(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []chatRow
+	err = s.db.WithContext(ctx).
+		Select("id", "principal", "resume_attempts", "interrupted_at", "resume_not_before").
+		Where("(run_id = ? OR run_id IS NULL) AND last_turn = ? AND resume_attempts < ? AND resume_not_before > ? AND resume_not_before <= ? AND interrupted_at >= ?",
+			"", string(TurnInterrupted), MaxResumeAttempts, time.Time{}, now, now.Add(-ResumeWindow)).
+		Order("resume_not_before").Limit(200).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ResumableTurn, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, ResumableTurn{Principal: r.Principal, ChatID: r.ID, Attempts: r.ResumeAttempts, InterruptedAt: zeroTime(r.InterruptedAt)})
+	}
+	return out, nil
+}
+
+func (s *gormStore) CancelResume(ctx context.Context, principal, id string) error {
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).
+		Update("resume_not_before", time.Time{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	return s.owns(db, principal, id)
+}
+
+func (s *gormStore) MarkInterrupted(ctx context.Context, principal, id, runID string, delay time.Duration) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
-		Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(status)})
+		Updates(interruptedFields(now, delay))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	return ErrNotClaimed
+}
+
+// interruptedFields is the update that ends a claim as interrupted at now and
+// schedules the resume after delay (none when delay is negative).
+func interruptedFields(now time.Time, delay time.Duration) map[string]any {
+	notBefore := time.Time{}
+	if delay >= 0 {
+		notBefore = now.Add(delay)
+	}
+	return map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{},
+		"last_turn": string(TurnInterrupted), "interrupted_at": now, "resume_not_before": notBefore}
+}
+
+func (s *gormStore) ReleaseTurn(ctx context.Context, principal, id, runID string, status TurnStatus) error {
+	if status == TurnInterrupted {
+		attempts := 0
+		var row chatRow
+		if err := s.db.WithContext(ctx).Select("resume_attempts").Where("id = ? AND principal = ?", id, principal).Take(&row).Error; err == nil {
+			attempts = row.ResumeAttempts
+		}
+		return s.MarkInterrupted(ctx, principal, id, runID, ResumeBackoff(attempts))
+	}
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
+		Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(status),
+			"resume_not_before": time.Time{}, "interrupted_at": time.Time{}})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -1063,7 +1358,43 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 	if err != nil {
 		return TurnInfo{}, err
 	}
-	return TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: row.RunSince, Beat: row.RunBeat, Last: TurnStatus(row.LastTurn)}, nil
+	info := TurnInfo{Running: row.RunID != "", RunID: row.RunID, Since: zeroTime(row.RunSince), Beat: zeroTime(row.RunBeat), Last: TurnStatus(row.LastTurn),
+		ResumeAttempts: row.ResumeAttempts, InterruptedAt: zeroTime(row.InterruptedAt), ResumeNotBefore: zeroTime(row.ResumeNotBefore),
+		Owner: row.OwnerInstance}
+	if !info.Running && info.Last == TurnInterrupted {
+		now, err := s.now(ctx)
+		if err != nil {
+			return TurnInfo{}, err
+		}
+		info.WillResume, _ = resumeOpen(info.ResumeAttempts, info.InterruptedAt, info.ResumeNotBefore, now)
+	}
+	return info, nil
+}
+
+// zeroTime gives the zero time.Time for a zero instant. PostgreSQL reads the
+// zero time back in UTC, which IsZero accepts but is not the zero value the
+// JSON store gives, so the two stores would answer differently.
+func zeroTime(t time.Time) time.Time {
+	if t.IsZero() {
+		return time.Time{}
+	}
+	return t
+}
+
+func (s *gormStore) SetTurnOwner(ctx context.Context, principal, id, runID, instance string) error {
+	db := s.db.WithContext(ctx)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
+		Update("owner_instance", instance)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 1 {
+		return nil
+	}
+	if err := s.owns(db, principal, id); err != nil {
+		return err
+	}
+	return ErrNotClaimed
 }
 
 func (s *gormStore) TouchTurn(ctx context.Context, principal, id, runID string) error {
@@ -1109,7 +1440,7 @@ func (s *gormStore) ReapTurns(ctx context.Context, idle time.Duration) ([]Reaped
 		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			res := tx.Model(&chatRow{}).
 				Where("id = ? AND run_id = ? AND run_beat < ?", r.ID, r.RunID, olderThan).
-				Updates(map[string]any{"run_id": "", "run_since": time.Time{}, "run_beat": time.Time{}, "last_turn": string(TurnInterrupted)})
+				Updates(interruptedFields(now, ResumeBackoff(r.ResumeAttempts)))
 			if res.Error != nil {
 				return res.Error
 			}

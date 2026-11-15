@@ -28,7 +28,7 @@ Scores are not guaranteed probabilities or calibrated measures of correctness. T
 
 ## Get started
 
-In **Models → Explore**, find and install `laya-vllm-cpp`. Wait for installation to finish. The [Decisions API guide](/docs/features/decisions/) lists the other gallery IDs, memory requirements, request limits, and model-specific differences.
+In **Models → Explore**, find and install `laya-vllm-cpp`. Wait for installation to finish. The [Decisions API guide](/docs/api/decisions/) lists the other gallery IDs, memory requirements, request limits, and model-specific differences.
 
 With authentication enabled, set `LOCALAI_API_KEY` to a valid key for a user with the `decisions` feature enabled. Otherwise, omit the Authorization header. Send only text you are authorized to process.
 

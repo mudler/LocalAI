@@ -27,3 +27,4 @@
   .ms-switch { grid-template-columns: minmax(0, 1fr); }
   .ms-switch__ctl { justify-self: start; }
 }
+.ms-forget { display: grid; gap: var(--sp-2); justify-items: start; padding-top: var(--sp-3); border-top: 1px solid var(--dk-edge); }

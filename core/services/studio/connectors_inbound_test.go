@@ -152,8 +152,30 @@ var _ = Describe("a connector add-on pushing a message", func() {
 		Expect(byID["99"].Allowed).To(BeFalse())
 		Expect(byID["99"].Name).To(Equal("S99"))
 		Expect(byID["11"].Allowed).To(BeFalse(), "a group message is never accepted")
+		// An ignored message keeps where it came from and a reason code.
+		Expect(byID["99"].Chat).To(Equal("99"))
+		Expect(byID["99"].Reason).To(Equal(connectors.ReasonNotListed))
+		Expect(byID["11"].Reason).To(Equal(connectors.ReasonNotAddressed), "a group message that does not name the bot")
 		Expect(chatsOf(alice)).To(BeZero())
 		Expect(r.bot.answers()).To(BeEmpty())
+	})
+
+	It("never reads a file whose kind the add-on does not name when the binding accepts only some kinds", func() {
+		cur, err := st.GetBinding(ctx, b.ID)
+		Expect(err).NotTo(HaveOccurred())
+		cur.InboundMedia = []string{contract.ConnectorMediaVoice}
+		Expect(st.PutBinding(ctx, cur)).To(Succeed())
+		r.bot.media["p1"] = botMedia{Path: "photos/file_1.png", Data: pngBytes}
+		m := msg("11", "the caption")
+		m.Media = []string{"photo:p1"} // no MediaKinds: the kind is unknown
+		code, body := push(incarnation, inbound(m))
+		Expect(code).To(Equal(http.StatusOK), body)
+		Eventually(func() int { return len(r.bot.answers()) }, "10s").Should(Equal(2))
+		Expect(r.bot.answers()[0]).To(Equal("This bot does not accept other files."))
+		chats, _ := r.svc.List(ctx, alice, 20)
+		Expect(chats).To(HaveLen(1))
+		Expect(r.h.Sent(chats[0].ID)).To(Equal([]string{"the caption"}))
+		Expect(chatFiles(r.svc, alice, chats[0].ID)).To(BeEmpty())
 	})
 
 	It("refuses a message with no sender or no chat", func() {

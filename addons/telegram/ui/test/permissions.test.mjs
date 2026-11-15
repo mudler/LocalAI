@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  MAX_CHANNELS, canSave, channelsProblem, connectorForm, connectorPayload, emptyConnector, grantableFor, hasNoCaps, roleHas, setCap, setGrant, usualCaps,
-  AGENT_GRANT_CAPS, unpairedSensitive, channelOnly, DEFAULT_CONNECTOR_GRANTS, agentHas, agentHeld, copyFromAgent, presetBlock, usualFor, withAddedCaps, withCopiedCaps,
+  MAX_CHANNELS, canSave, channelsProblem, connectorForm, connectorPayload, emptyConnector, grantableFor, roleHas, setCap, setGrant, usualCaps,
+  AGENT_GRANT_CAPS, channelOnly, DEFAULT_CONNECTOR_GRANTS, agentHas, agentHeld, usualFor, withUsualCaps,
 } from '../../../internal/connector-ui/src/connector.js'
 
 const CAPS = [
@@ -16,9 +16,15 @@ const KIND = { roles: [{ id: 'admin', title: 'Admin' }], permissions: [{ name: '
 test('permissions: a new binding has no caps, grants or channels', () => {
   const c = emptyConnector()
   assert.deepEqual([c.caps, c.grants, c.channels], [[], [], []])
-  assert.equal(hasNoCaps(c), true)
-  assert.equal(hasNoCaps({ caps: ['memory.write'] }), false)
-  assert.equal(hasNoCaps({}), true, 'a binding from an older host has no caps field')
+})
+
+test('permissions: a new binding opened with the host list starts with the usual set the agent holds', () => {
+  assert.deepEqual(emptyConnector(CAPS).caps, ['memory.write', 'talkback.channels'], 'no agent yet: every usual cap, no sensitive one')
+  assert.deepEqual(emptyConnector(CAPS, ['memory.write']).caps, ['memory.write'], 'only what the agent holds')
+  assert.deepEqual(emptyConnector(CAPS, []).caps, [])
+  const c = emptyConnector(CAPS)
+  assert.deepEqual([c.accept_any, c.approval.mode, c.grants], [false, emptyConnector().approval.mode, []], 'restrictions stay off')
+  assert.deepEqual(emptyConnector([]).caps, [], 'a host list with no usual cap starts with none')
 })
 
 test('permissions: the usual preset is the non-sensitive caps the host marks, and never a sensitive one', () => {
@@ -100,43 +106,19 @@ test('presets: the grants of an agent are read from its list, an empty list mean
   assert.equal(AGENT_GRANT_CAPS.includes('proposals.confirm') || AGENT_GRANT_CAPS.includes('tools.write'), false)
 })
 
-test('presets: the buttons are blocked with a reason when there is no agent, no readable permissions or nothing to use', () => {
-  assert.equal(presetBlock('', ['memory.write'], ALL), 'noAgent')
-  assert.equal(presetBlock('a1', null, ALL), 'unreadable')
-  assert.equal(presetBlock('a1', ['unknown.grant'], ALL), 'nothing')
-  assert.equal(presetBlock('a1', ['memory.write'], ALL), '')
-})
-
 test('presets: the usual set is limited to what the agent has, and never holds a sensitive cap', () => {
   const r = usualFor(ALL, ['memory.write', 'talkback.new_channel', 'profile.write'])
   assert.deepEqual(r.caps, ['proposals.confirm', 'memory.write'])
   assert.deepEqual(r.skipped, ['files.upload', 'talkback.channels'])
   assert.deepEqual(usualFor(ALL, null).skipped, [], 'an agent that cannot be read skips nothing')
-  assert.deepEqual(withAddedCaps({ caps: ['tools.write', 'memory.write'] }, r.caps).caps, ['tools.write', 'memory.write', 'proposals.confirm'])
 })
 
-test('presets: copying the agent takes every cap it holds, names the sensitive ones, and keeps the caps that are not grants', () => {
-  const c = copyFromAgent(ALL, ['memory.write', 'talkback.new_channel', 'profile.write', 'act.send', 'saved_agents'])
-  assert.deepEqual(c.caps, ['memory.write', 'talkback.new_channel', 'profile.write'])
-  assert.deepEqual(c.sensitive, ['talkback.new_channel', 'profile.write'])
-  assert.deepEqual(copyFromAgent(ALL, ['memory.write']).sensitive, [])
-  const form = { caps: ['proposals.confirm', 'files.upload', 'tools.write'], grants: [{ role: 'admin', caps: ['files.upload', 'tools.write'] }] }
-  const next = withCopiedCaps(form, ['memory.write'])
-  assert.deepEqual(next.caps, ['proposals.confirm', 'tools.write', 'memory.write'], 'files.upload is replaced, the others stay')
-  assert.deepEqual(next.grants, [{ role: 'admin', caps: ['tools.write'] }], 'a role never keeps a cap the ceiling lost')
-  assert.deepEqual(form.caps, ['proposals.confirm', 'files.upload', 'tools.write'], 'the form is not changed')
-})
-
-test('pairing notice: only a ticked sensitive cap needs a pairing, and only while nobody has a live one', () => {
-  const now = Date.parse('2026-11-04T10:00:00Z')
-  const live = [{ sender_id: 'U1', expires_at: '2026-12-01T00:00:00Z' }]
-  const ended = [{ sender_id: 'U1', expires_at: '2026-11-01T00:00:00Z' }]
-  const form = { caps: ['memory.write', 'triggers.propose', 'profile.write', 'talkback.new_channel'] }
-  assert.deepEqual(unpairedSensitive(form, [], CAPS, now), ['profile.write'], 'a non-sensitive cap needs no pairing')
-  assert.deepEqual(unpairedSensitive(form, live, CAPS, now), [])
-  assert.deepEqual(unpairedSensitive(form, ended, CAPS, now), ['profile.write'], 'an ended pairing counts for nothing')
-  assert.deepEqual(unpairedSensitive({ caps: ['memory.write'] }, undefined, CAPS, now), [])
-  assert.deepEqual(unpairedSensitive({ caps: [] }, [], CAPS, now), [])
+test('presets: resetting to the usual set replaces the caps and takes a lost cap from every role', () => {
+  const form = { caps: ['tools.write', 'memory.write', 'talkback.new_channel'], grants: [{ role: 'admin', caps: ['memory.write', 'tools.write'] }, { role: 'x', caps: ['tools.write'] }] }
+  const next = withUsualCaps(form, ALL, ['memory.write'])
+  assert.deepEqual(next.caps, ['proposals.confirm', 'memory.write'], 'the usual set for what the agent holds, nothing else')
+  assert.deepEqual(next.grants, [{ role: 'admin', caps: ['memory.write'] }], 'a role never keeps a cap the ceiling lost')
+  assert.deepEqual(form.caps, ['tools.write', 'memory.write', 'talkback.new_channel'], 'the form is not changed')
 })
 
 test('channel-only allowlist: shown when the page has a people list and every entry is a channel', () => {
@@ -146,4 +128,26 @@ test('channel-only allowlist: shown when the page has a people list and every en
   assert.equal(channelOnly({ allow: [] }, lists), false)
   assert.equal(channelOnly({ allow: ['C1'], accept_any: true }, lists), false)
   assert.equal(channelOnly({ allow: ['C1'] }, [{}]), false, 'one list: nothing to tell apart')
+})
+
+test('channel trust: an entry that is added starts as act, one stored before the setting stays answer only', async () => {
+  const { trustOf, trustAfter, channelEntries } = await import('../../../internal/connector-ui/src/connector.js')
+  const isChannel = (x) => x.startsWith('C')
+  const stored = { allow: ['U1', 'C1'], allow_trust: {} }
+  assert.equal(trustOf(stored, 'C1'), 'answer', 'no level is answer only')
+  assert.deepEqual(channelEntries(stored, isChannel), ['C1'])
+  const added = trustAfter(stored, ['U1', 'C1', 'C2'], isChannel)
+  assert.deepEqual(added, { C2: 'act' }, 'only the new channel is act, the stored one is not widened')
+  assert.deepEqual(trustAfter({ allow: ['C2'], allow_trust: { C2: 'answer' } }, ['C2', 'U9'], isChannel), { C2: 'answer' }, 'a choice is kept, a person gets none')
+  assert.deepEqual(trustAfter({ allow: ['C2'], allow_trust: { C2: 'act' } }, [], isChannel), {}, 'the level of a removed entry goes')
+})
+
+test('channel trust: the request carries the levels of the entries on the list only, and a channel set to act is not channel-only', async () => {
+  const f = { ...emptyConnector(), allow: ['U1', 'C1'], allow_trust: { C1: 'act', C9: 'act' } }
+  assert.deepEqual(connectorPayload(f, 'slack', '').allow_trust, { C1: 'act' })
+  assert.deepEqual(connectorPayload({ ...f, accept_any: true }, 'slack', '').allow_trust, {})
+  assert.deepEqual(connectorForm({ allow: ['C1'], allow_trust: { C1: 'act' } }).allow_trust, { C1: 'act' })
+  const lists = [{ match: (x) => !x.startsWith('C') }, { match: (x) => x.startsWith('C') }]
+  assert.equal(channelOnly({ allow: ['C1'], allow_trust: { C1: 'answer' } }, lists), true)
+  assert.equal(channelOnly({ allow: ['C1'], allow_trust: { C1: 'act' } }, lists), false)
 })

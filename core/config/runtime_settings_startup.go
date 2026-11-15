@@ -70,6 +70,7 @@ func (o *ApplicationConfig) ApplyRuntimeSettingsAtStartup(settings *RuntimeSetti
 	if settings == nil {
 		return
 	}
+	defer o.keepAdminOffByOperator()
 	baseline := DefaultRuntimeBaseline()
 	for _, f := range runtimeSettingsFields {
 		if f.snapshotOnly || !f.isSet(settings) {

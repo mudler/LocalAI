@@ -1,86 +1,4 @@
 {
-  "activity": {
-    "title": "Atividade",
-    "supporting": "Instalações, downloads e remoções nesta instância.",
-    "hide": "Ocultar",
-    "moveToHistory": "Mover para o histórico",
-    "moreCount": "mais {{count}}",
-    "waitingForInstaller": "aguardando o instalador",
-    "progressLabel": "Progresso de {{name}}",
-    "toNode": "para {{node}}",
-    "nodesDone": "{{done}} de {{total}} nós concluídos",
-    "timeLeft": "restam {{value}}",
-    "cancel": "Cancelar",
-    "cancelLabel": "Cancelar {{name}}",
-    "pause": "Pausar",
-    "pauseLabel": "Pausar {{name}} e manter os dados baixados",
-    "retry": "Tentar novamente",
-    "retryLabel": "Tentar novamente {{name}}",
-    "nodeCount": "{{count}} nós",
-    "showNodes": "Mostrar {{count}} nós",
-    "hideNodes": "Ocultar detalhes por nó",
-    "node": {
-      "done": "Concluído",
-      "failed": "Falhou",
-      "queued": "Na fila",
-      "workerBusy": "Worker ocupado",
-      "downloading": "Baixando"
-    },
-    "kind": {
-      "model": "modelo",
-      "backend": "backend"
-    },
-    "verb": {
-      "installing": "Instalando {{kind}}",
-      "installed": "{{kind}} instalado",
-      "removed": "{{kind}} removido",
-      "staged": "Modelo preparado",
-      "failed": "Não foi possível instalar {{kind}}",
-      "queued": "Na fila",
-      "staging": "Preparando modelo",
-      "removing": "Removendo {{kind}}",
-      "failedRemoval": "Não foi possível remover {{kind}}",
-      "failedStaging": "Não foi possível preparar o modelo"
-    },
-    "phase": {
-      "resolving": "Resolvendo arquivos",
-      "downloading": "Baixando",
-      "verifying": "Verificando",
-      "committing": "Finalizando",
-      "persisting": "Salvando configuração"
-    },
-    "clearHistory": "Limpar histórico",
-    "inProgress": "Em andamento",
-    "needsAttention": "Requer atenção",
-    "record": "Registro",
-    "historyNote": "Mantém as últimas 50 operações. O histórico fica na memória e é reiniciado quando o LocalAI reinicia.",
-    "emptyTitle": "Nenhuma operação desde a inicialização",
-    "emptyBody": "Instalações de modelos e backends aparecem aqui enquanto são executadas e permanecem como registro após a conclusão. O histórico fica na memória, portanto é reiniciado quando o LocalAI reinicia.",
-    "browseModels": "Procurar modelos",
-    "viewInModels": "Ver em Modelos",
-    "viewInBackends": "Ver em Backends",
-    "rowInstalled": "instalado em {{duration}}",
-    "rowFailed": "falhou: {{error}}",
-    "rowCancelled": "cancelado",
-    "rowRemoved": "removido",
-    "retryFailed": "Falha ao tentar novamente: {{message}}",
-    "filter": {
-      "all": "Todas",
-      "models": "Modelos",
-      "backends": "Backends",
-      "cluster": "Cluster"
-    },
-    "summaryRunning_one": "{{count}} operação em andamento.",
-    "summaryRunning_other": "{{count}} operações em andamento.",
-    "summaryFailed_one": "{{count}} operação requer atenção.",
-    "summaryFailed_other": "{{count}} operações requerem atenção.",
-    "summaryQuiet_one": "Nada em execução. {{count}} operação desde a inicialização.",
-    "summaryQuiet_other": "Nada em execução. {{count}} operações desde a inicialização.",
-    "summaryIdle": "Nada em execução.",
-    "emptyFiltered": "Nenhuma operação corresponde a este filtro.",
-    "showAll": "Mostrar tudo",
-    "rowInstalledPlain": "instalado"
-  },
   "manage": {
     "title": "Sistema",
     "subtitle": "Gerenciar modelos e backends instalados"
@@ -173,6 +91,16 @@
     "network": {
       "title": "Rede dos comandos",
       "where": "{{name}} mantém na própria página as configurações de rede dos comandos que executa."
+    },
+    "autoUpgradeAddons": "Atualizar add-ons automaticamente",
+    "addonUpdates": {
+      "label": "Atualizações de add-ons",
+      "note": "O proprietário dos add-ons aplica esta configuração. Novas gerações podem executar código.",
+      "unavailable": "Configurações do proprietário indisponíveis ou alteradas: {{message}}",
+      "reload": "Recarregar e refazer as edições",
+      "retry": "Tentar a mesma operação de novo",
+      "policy": "Política do proprietário · revisão {{revision}}",
+      "apply": "Aplicar a configuração de atualização"
     }
   },
   "backends": {
@@ -361,13 +289,17 @@
       "bash": "Comandos (bash)",
       "web_search": "Pesquisa na web",
       "web_fetch": "Ler páginas da web",
-      "list_agents": "Agentes salvos"
+      "list_agents": "Agentes salvos",
+      "localai_client": "Ferramentas de cliente do LocalAI",
+      "localai_admin": "Ferramentas de administração do LocalAI"
     },
     "descriptions": {
       "bash": "Roda comandos e código para os chats diretamente nesta máquina quando nenhum complemento fornece o bash. Um complemento que roda comandos isolados o substitui.",
       "web_search": "Pesquisa na web para os chats sem chave (DuckDuckGo, depois Brave Search, depois Bing), ou com sua instância SearXNG quando houver uma definida.",
       "web_fetch": "Lê para os chats uma página ou arquivo público da web pelo endereço. Endereços dentro da sua rede são recusados, a menos que você os permita.",
-      "list_agents": "Permite que um chat liste os agentes salvos do usuário e inicie um como subagente. Cada chat o ativa no menu Ferramentas."
+      "list_agents": "Permite que um chat liste os agentes salvos do usuário e inicie um como subagente. Cada chat o ativa no menu Ferramentas.",
+      "localai_client": "Permite que os chats executem os modelos instalados aqui para imagens, voz, som, vídeo, embeddings e detecção, dentro das permissões de cada usuário.",
+      "localai_admin": "Permite que os chats dos administradores gerenciem este servidor: modelos, backends, configurações e o estado. Cada chat, ou agente salvo, a ativa."
     },
     "bash": {
       "switch": "Deixar os chats rodarem comandos nesta máquina",

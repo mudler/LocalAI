@@ -18,13 +18,39 @@ import (
 type ResourceKey = gateway.ResourceKey
 
 // Role is a grant on a whole resource. There are no per-table or per-row grants.
+//
+// What a role may do is decided by the kind of the resource, see KindSpec:
+// a role is a set of actions in the table of its kind, not a rank. Add-on
+// resources grant viewer and editor. Other kinds grant use and manage, or
+// whichever of the grantable roles they declare. The owner is implicit: it is
+// the immutable owner of the record, may run every action and is never a
+// grant.
 type Role string
 
 const (
 	RoleViewer Role = "viewer"
 	RoleEditor Role = "editor"
 	RoleOwner  Role = "owner"
+	// RoleUse and RoleManage are the roles of kinds that are not add-ons.
+	// Their table says what each one may do.
+	RoleUse    Role = "use"
+	RoleManage Role = "manage"
 )
+
+// Everyone is the principal of a grant to every active named account,
+// accounts created after the grant included. It is stored as a grant under
+// this key and is never an account: no account can act as it. Only a kind
+// that allows it may grant it.
+const Everyone = "@everyone"
+
+// grantRole says whether a role can be stored as a grant on some kind.
+func grantRole(r Role) bool {
+	switch r {
+	case RoleViewer, RoleEditor, RoleUse, RoleManage:
+		return true
+	}
+	return false
+}
 
 func (r Role) rank() int {
 	switch r {

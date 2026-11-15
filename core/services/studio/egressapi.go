@@ -117,6 +117,13 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 		v.Preset = egress.PresetOff
 	}
 	cmds, err := s.CommandRunner(ctx, p, conv)
+	s.fillEgressApplies(ctx, p, cmds, err, &v)
+	return v, nil
+}
+
+// fillEgressApplies sets whether the network settings apply to the commands
+// of a chat, and which add-on draws the network row, from the commands state.
+func (s *Service) fillEgressApplies(ctx context.Context, p string, cmds Commands, err error, v *EgressView) {
 	switch {
 	case err != nil:
 		v.AppliesReason = EgressAppliesNone
@@ -138,6 +145,44 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 	default:
 		v.AppliesReason = EgressAppliesNone
 	}
+}
+
+// DraftEgress returns the network a chat that does not exist yet would start
+// with: the instance default under the administrator's ceiling, and whether
+// the settings would apply to its commands. It is what Egress returns for the
+// new chat, without rules or cards, so the composer can offer the presets
+// before the first message. The model and the agent decide which add-on would
+// run the commands, as in DraftAddons.
+func (s *Service) DraftEgress(ctx context.Context, user, model, agentID string) (EgressView, error) {
+	p := principal(user)
+	rec, err := s.draftRecord(ctx, user, model, agentID)
+	if err != nil {
+		return EgressView{}, err
+	}
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return EgressView{}, err
+	}
+	// The same start as Create: the instance default, or the network of the
+	// saved agent under the ceiling (the default for an agent of another person).
+	preset := set.DefaultPreset()
+	if agentID != "" {
+		if n := s.agentNetwork(ctx, rec); n != egress.PresetOff {
+			shared := false
+			if ag, aerr := s.chatAgent(ctx, p, agentID); aerr == nil {
+				shared = ag.Principal != p
+			}
+			preset = egress.Min(n, startLimit(set, shared))
+		}
+	}
+	v := EgressView{
+		Preset: preset, Ceiling: egress.Min(set.Ceiling, egress.PresetAll), Effective: egress.Min(preset, set.Ceiling),
+		Registries: registriesView(set), AllowedHosts: set.AllowedHostList(), Rules: []EgressRuleView{}, Cards: []egress.Card{},
+	}
+	ctx, closeScope := s.executionScope(ctx, p, rec.ID)
+	defer closeScope()
+	cmds, cerr := s.commandsFor(ctx, p, rec)
+	s.fillEgressApplies(ctx, p, cmds, cerr, &v)
 	return v, nil
 }
 

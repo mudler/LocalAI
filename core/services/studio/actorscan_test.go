@@ -38,10 +38,6 @@ var actorAllowlist = map[string]string{
 	// Host reads of the user's settings and choices, not the model's reads.
 	"agentfolder.go:folderResolver.NodeOf":                              "resolves the folder a person chooses for an agent",
 	"agentfolder.go:folderResolver.pathsOf":                             "finds where an agent's folder is now, for the person and for chatAccess",
-	"chatcommands.go:Service.chatSkills":                                "lists the skills a person may run as commands",
-	"skillsvc.go:Service.Skills":                                        "lists the user's skills for the skills page",
-	"skillsvc.go:Service.AgentSkills":                                   "lists the agent-layer skills of the user's own agents for the skills page; a person's view, never the model's",
-	"skillsvc.go:Service.chatSkillSet":                                  "reads the index of the skills the chat may use",
 	"loadskill.go:Service.loadSkill":                                    "reads only skills the agent grants, by name",
 	"chatfiles.go:Service.ResolveAttachments":                           "the attachments a person sees in the transcript are a user surface",
 	"contextlist.go:Service.countLines":                                 "the owner's own Memory page lists the notes of their home; a person's action, never the model's",
@@ -51,6 +47,9 @@ var actorAllowlist = map[string]string{
 	"contextturn.go:homeReader.ReadFile":                                "the host reads the user's notes at paths the loader builds from the chat record, never from the model; the chat's fence is not widened",
 	"service.go:New":                                                    "the administrator of the change feed and the trigger watcher",
 	"../../application/studio_files.go:Application.initStudioTextIndex": "the administrator of the text index",
+	// Folder operations of a paired client: the grant of its key bounds them, not a chat.
+	"../addons/hostops/engine_client_folders.go:ClientFolderHost.fence":        "looks up the one granted folder, then returns the owner's actor fenced to that folder node; the path was checked against the key's grant first",
+	"../addons/hostops/engine_client_folders.go:ClientFolderHost.ensureFolder": "makes the write folder that the key's grant names, as the owner; no chat is involved and the model never chooses the path",
 }
 
 // actorBuilds returns the places in src that build an actor, as
@@ -104,6 +103,10 @@ var viewAllowlist = map[string]string{
 	// web interface) works on the whole home, as the Files page does. A
 	// chat's add-on call takes chatAccess.
 	"addonaccess.go:Service.AddonAccess": "the access of an add-on call that no chat made",
+	// A check, not an access: it asks the store which mode the running turn's
+	// own actor still has on each mount of the turn's view, to stop a turn
+	// that lost a folder. Nothing it builds is handed to a turn.
+	"folderaccess.go:Service.narrowed": "re-checks the mounts of a running turn after an owner revoked a folder",
 	// Not converted yet: each is the work of a later lane of the agent folder
 	// plan, and must take the chat's access there.
 }

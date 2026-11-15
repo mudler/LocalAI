@@ -37,7 +37,7 @@ const (
 // blob's hash and the type), so a file read again after a check of the
 // caller's access costs nothing, and a new version of a file is a new key.
 // Every frontend of a cluster keeps its own: an entry never goes stale, so
-// there is nothing to share (see docs/content/features/chats.md).
+// there is nothing to share (see docs/content/features/chats-and-agents/chats.md).
 type previewCache struct {
 	mu    sync.Mutex
 	order *list.List

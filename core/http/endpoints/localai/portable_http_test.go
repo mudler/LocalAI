@@ -320,7 +320,7 @@ func TestPortableProfileModelAccess(t *testing.T) {
 
 func TestPortableProfilesNeverPersistInAPITraces(t *testing.T) {
 	root := t.TempDir()
-	app, err := application.New(config.EnableTracing, config.WithDataPath(root), config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
+	app, err := application.New(config.EnableTracing, config.WithDataPath(root), config.WithDisableStats(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
 	if err != nil {
 		t.Fatal(err)
 	}

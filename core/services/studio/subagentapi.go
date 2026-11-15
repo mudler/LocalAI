@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 
+	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
@@ -11,6 +12,8 @@ import (
 type SubAgent struct {
 	Chat session.ChatRecord
 	Turn store.TurnInfo
+	// Loop is the loop or wait that keeps the run going, nil when none does.
+	Loop *loops.Loop
 }
 
 // SubAgentLimit is how many sub-agents one conversation may run in the
@@ -34,7 +37,12 @@ func (s *Service) SubAgents(ctx context.Context, user, parent string) ([]SubAgen
 		if err != nil {
 			continue // deleted meanwhile
 		}
-		out = append(out, SubAgent{Chat: k, Turn: info})
+		// A sub-agent that waits for its loop is not finished.
+		holder := s.holdingLoop(ctx, p, k.ID)
+		if !info.Running && holder != nil {
+			info.Running = true
+		}
+		out = append(out, SubAgent{Chat: k, Turn: info, Loop: holder})
 	}
 	return out, nil
 }
@@ -57,7 +65,7 @@ func (s *Service) SubAgentMessages(ctx context.Context, user, parent, child stri
 	if _, err := s.subAgent(ctx, p, parent, child); err != nil {
 		return nil, err
 	}
-	return s.d.Store.Entries(ctx, child, after, limit)
+	return s.visibleEntries(ctx, child, after, limit)
 }
 
 // StopSubAgent ends the running turn of a sub-agent run. The parent goes on;

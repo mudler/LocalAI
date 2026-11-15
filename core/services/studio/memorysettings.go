@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // ErrMemorySettings means the memory settings cannot be stored.
@@ -33,7 +34,8 @@ type MemorySettings struct {
 	// SaveModeSet is true once the person chose in this setting. Before that
 	// the value they gave on the page of the Memory add-on, if any, applies.
 	SaveModeSet bool `json:"save_mode_set"`
-	// Provider says what serves memory: "builtin".
+	// Provider says what serves memory: "builtin", the ID of an add-on, or
+	// "off" (see GET /api/chats/providers for the list to pick from).
 	Provider string `json:"provider"`
 	// Available is false when the server has no files: notes are files.
 	Available bool `json:"available"`
@@ -50,8 +52,10 @@ type MemoryUpdate struct {
 // MemorySettings reads the memory settings of a person.
 func (s *Service) MemorySettings(ctx context.Context, user string) (MemorySettings, error) {
 	legacy := legacyMemoryOf(s.addonContextSets(ctx, user))
-	out := MemorySettings{Provider: s.memory.ID(), Available: s.d.Files.Available(), SaveMode: SaveAsk, MessagingSave: MessagingAsk}
-	out.Enabled = s.memoryUserOn(ctx, user, legacy)
+	res := s.memoryResolution(ctx, user, legacy)
+	out := MemorySettings{Provider: res.Active, Available: s.d.Files.Available(), SaveMode: SaveAsk, MessagingSave: MessagingAsk}
+	out.Enabled = !res.Off
+	out.EnabledSet = res.Stored
 	if s.d.UserSetting != nil {
 		if v, ok, err := s.d.UserSetting(ctx, principal(user), HostSettingsID, MemoryEnabledKey); err == nil && ok && (v == MemoryOn || v == MemoryOff) {
 			out.EnabledSet = true
@@ -85,6 +89,25 @@ func (s *Service) SetMemory(ctx context.Context, user string, in MemoryUpdate) (
 		if err := s.d.SetUserSetting(ctx, principal(user), HostSettingsID, MemoryEnabledKey, v); err != nil {
 			return MemorySettings{}, fmt.Errorf("%w: %v", ErrMemorySettings, err)
 		}
+		// The switch and the provider choice are one answer. Off picks Off. On
+		// takes Off back to the built-in provider and keeps an add-on that was
+		// picked.
+		choice, chosen, err := s.storedProvider(ctx, user, MemorySlot)
+		if err != nil {
+			return MemorySettings{}, fmt.Errorf("%w: %v", ErrMemorySettings, err)
+		}
+		next := ""
+		switch {
+		case !*in.Enabled:
+			next = contract.ProviderOff
+		case chosen && choice == contract.ProviderOff:
+			next = contract.ProviderBuiltin
+		}
+		if next != "" {
+			if err := s.d.SetUserSetting(ctx, principal(user), HostSettingsID, providerKey(MemorySlot), next); err != nil {
+				return MemorySettings{}, fmt.Errorf("%w: %v", ErrMemorySettings, err)
+			}
+		}
 	}
 	if in.SaveMode != nil {
 		if err := s.d.SetUserSetting(ctx, principal(user), HostSettingsID, MemorySaveKey, *in.SaveMode); err != nil {
@@ -108,6 +131,10 @@ var ErrNoNotes = errors.New("studio: there are no notes to export")
 // agent ID; channel and the folder name); empty exports all. It works while
 // memory is off: the notes belong to the person.
 func (s *Service) ExportMemory(ctx context.Context, user string, w io.Writer, scope, key string) (int, error) {
+	// A provider that serves the notes keeps them: its export is the export.
+	if res := s.memoryResolution(ctx, user, legacyMemoryOf(s.addonContextSets(ctx, user))); res.Addon() != "" {
+		return s.exportFromProvider(ctx, user, res, w)
+	}
 	list, err := s.ListContextFiles(ctx, user)
 	if err != nil {
 		return 0, err

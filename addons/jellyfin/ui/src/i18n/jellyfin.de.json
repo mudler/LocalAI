@@ -25,7 +25,6 @@
   "agent": "Agent",
   "agentNone": "Agent wählen",
   "agentCredentialsOnly": "Kein Agent (nur Zugangsdaten)",
-  "agentOptionalHint": "Optional. Ohne Agent hält diese Verbindung nur den Schlüssel, den Server und den Schreibmodus für deine Chats. Sie beantwortet keine Nachrichten und hört auf nichts.",
   "credentialsOnly": "Nur Zugangsdaten",
   "agentNoModel": "{{name}} (braucht ein Modell)",
   "test": "Test",
@@ -68,8 +67,8 @@
     "label": "Was der Agent auf Jellyfin ändern darf",
     "hint": "Fernsteuerung von Playern, Gesehen-Markierungen, Favoriten und das Hinzufügen zu Playlists. Er löscht, scannt oder bearbeitet die Mediathek nie.",
     "off": "Nur lesen",
-    "propose": "Fragt dich zuerst",
-    "auto": "Handelt ohne Rückfrage",
+    "propose": "Fragt zuerst",
+    "auto": "Läuft sofort",
     "line": {
       "off": "Er kann nichts ändern.",
       "propose": "Jede Änderung wartet auf dein OK.",
@@ -82,8 +81,8 @@
     },
     "row": {
       "off": "Nur lesen",
-      "propose": "Fragt dich zuerst",
-      "auto": "Handelt ohne Rückfrage"
+      "propose": "Fragt zuerst",
+      "auto": "Läuft sofort"
     }
   },
   "approval": {

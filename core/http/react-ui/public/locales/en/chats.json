@@ -252,7 +252,8 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
-    }
+    },
+    "runLimit": "Time limit of a run"
   },
   "inbox": {
     "unread": "{{count}} unread",
@@ -308,10 +309,77 @@
     "arrivedMany_other": "{{count}} new notifications",
     "proposalsWaiting_one": "{{count}} change waits for you",
     "proposalsWaiting_other": "{{count}} changes wait for you",
-    "proposalsBody": "A model proposed a change. Nothing is saved until you answer."
+    "proposalsBody": "A model proposed a change. Nothing is saved until you answer.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} backend update available",
+        "title_other": "{{count}} backend updates available",
+        "more": "{{items}} and {{count}} more"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Add-ons"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} updated automatically",
+        "updated_other": "{{count}} updated automatically",
+        "failed_one": "{{count}} failed",
+        "failed_other": "{{count}} failed",
+        "held_one": "{{count}} waiting for approval",
+        "held_other": "{{count}} waiting for approval",
+        "bodyUpdated": "Updated: {{items}}.",
+        "bodyFailed": "Failed: {{items}}.",
+        "bodyHeld": "Waiting for your approval: {{items}}.",
+        "more": "{{items}} and {{count}} more"
+      },
+      "checkFailed": {
+        "title": "The update check failed",
+        "body": "Could not check: {{sources}}. The last two automatic checks failed, so updates may be missing from the list.",
+        "source": {
+          "gallery": "backend gallery",
+          "library": "backend library",
+          "addons": "add-ons"
+        }
+      }
+    },
+    "tabs": {
+      "label": "Notifications and activity",
+      "notifications": "Notifications",
+      "activity": "Activity"
+    },
+    "ops": {
+      "needsAttention": "Needs attention",
+      "inProgress": "In progress",
+      "seeAll": "See all activity",
+      "waiting": "Waiting",
+      "node": "Node {{current}} of {{total}}",
+      "emptyTitle": "Nothing running",
+      "emptyBody": "Installs, updates and removals appear here while they run, and for a day after.",
+      "title": {
+        "installing": "Installing {{name}}",
+        "upgrading": "Updating {{name}}",
+        "removing": "Removing {{name}}",
+        "staging": "Staging {{name}}"
+      },
+      "failedTitle": {
+        "installing": "Couldn't install {{name}}",
+        "upgrading": "Couldn't update {{name}}",
+        "removing": "Couldn't remove {{name}}",
+        "staging": "Couldn't stage {{name}}"
+      },
+      "recent": {
+        "title": "Recent",
+        "installed": "Installed {{name}}",
+        "upgraded": "Updated {{name}}",
+        "removed": "Removed {{name}}",
+        "staged": "Staged {{name}}"
+      }
+    }
   },
   "connectorsPage": {
-    "title": "Connectors",
+    "title": "Connections",
     "empty": "No connectors yet.",
     "agentOf": "Agent: {{name}}",
     "accepts": "Accepts: {{who}}",
@@ -332,7 +400,108 @@
     "bindingsOf": "Bindings of {{name}}",
     "loadFailed": "Could not load your connectors.",
     "waitingTitle": "Waiting for their add-on",
-    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on."
+    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on.",
+    "oauth": {
+      "connected": "Connected",
+      "connectedAs": "Connected as {{account}}",
+      "access": "Access: {{scopes}}",
+      "expires": "Expires {{time}}",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting…",
+      "disconnectTitle": "Disconnect {{name}}?",
+      "disconnectText": "LocalAI asks the service to revoke this login and then forgets it. Tools that use this connection stop working until you connect again.",
+      "disconnected": "{{name}} is disconnected. The service revoked the login.",
+      "disconnectedNotTold": "{{name}} is disconnected here, but the service did not confirm that it revoked the login. Remove the access in your account at the service too.",
+      "notConnected": "Not connected yet.",
+      "connect": "Connect",
+      "alsoAllow": "Also allow:",
+      "reconnectTitle": "Connect again.",
+      "reconnect": "Reconnect",
+      "reason": {
+        "revoked": "The service ended the login, or the access was revoked.",
+        "client_rejected": "The service no longer accepts the client of this server. An administrator may need to update it.",
+        "refused": "The service refused to renew the login.",
+        "needs_approval": "The login of this add-on changed and must be approved again.",
+        "credential_rejected": "The service refused the access, even after a renewal.",
+        "expired": "The login expired and cannot be renewed.",
+        "write_failed": "The renewed login could not be saved.",
+        "unreadable": "The saved login could not be read.",
+        "unknown": "The login no longer works.",
+        "scopes_missing": "The service no longer grants all the access this add-on needs. Connect again and allow it.",
+        "endpoint_changed": "The add-on now sends logins to another address of the service, so this login cannot move with it. Connect again.",
+        "token_too_large": "The service renewed the login with an access token larger than LocalAI can use (4096 bytes)."
+      },
+      "approvalUser": "An administrator must approve this add-on first.",
+      "approvalUserChanged": "The login of this add-on changed. An administrator must approve it again.",
+      "approvalAdmin": "Nobody can connect until you approve the login of this add-on.",
+      "approvalAdminChanged": "The login of this add-on changed since it was approved. Review it and approve it again.",
+      "review": "Review and approve",
+      "returned": {
+        "ok": "Connected. The connection works now.",
+        "denied": "You declined at the service. Nothing changed.",
+        "error": {
+          "invalid_state": "The login could not be finished: it expired, or another login started in this browser. Connect again.",
+          "provider_error": "The service reported an error. Try again later.",
+          "exchange_failed": "The service did not complete the login. Connect again.",
+          "scopes_missing": "The service did not grant all the access this add-on needs. Connect again and allow it.",
+          "unavailable": "The add-on could not be reached. Try again later.",
+          "unknown": "The login could not be finished. Connect again.",
+          "token_too_large": "The service issued an access token larger than LocalAI can use (4096 bytes), so the login was not saved. An administrator may need to change how the service issues tokens for this client."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "This server does not know its public address, so it cannot send you to the service. Ask an administrator to set the external base URL of the server.",
+        "needsApproval": "An administrator must approve this add-on first.",
+        "approvalStale": "The login of this add-on changed. Reload the page.",
+        "unavailable": "The add-on could not be reached. Try again later.",
+        "tooManyLogins": "Too many logins were started. Finish the one in the other tab, or wait a few minutes and try again."
+      },
+      "add": {
+        "open": "New connection",
+        "title": "New {{name}} connection",
+        "name": "Name",
+        "hint": "A name you recognize, such as Work or Personal. After you add the connection, select Connect to log in to your account.",
+        "cancel": "Cancel",
+        "submit": "Add",
+        "failed": "The connection could not be added. Try again.",
+        "added": "{{name}} is added. Select Connect to log in to your account.",
+        "empty": "No connections yet. Add one, then connect your account.",
+        "manage": "Edit connections"
+      },
+      "login": {
+        "hint": "A name you recognize, such as Work or Personal. You go to the service to log in next."
+      }
+    },
+    "duplicate": {
+      "text": "This bot is also connected as {{name}}. Both connections will answer the same message.",
+      "turnOff": "Turn this one off",
+      "open": "Open {{name}}"
+    },
+    "new": "New connection",
+    "newMenu": "Choose the platform of the new connection",
+    "state": {
+      "running": "Running",
+      "off": "Off",
+      "attention": "Needs attention"
+    },
+    "share": {
+      "label": "Share",
+      "button": "Share {{name}}",
+      "intro": "People you add can use this connection in their own chats and agents. They see its name and state, never its token or its settings. Messages to the bot still reach your agent.",
+      "roleUse": "Can use",
+      "roleUseHelp": "Can use it in their chats and agents. Cannot see the token, change it or share it."
+    },
+    "shared": {
+      "title": "Shared with you",
+      "text": "Other people let you use these connections in your chats and agents. Only their owner can change them.",
+      "on": "Listening",
+      "off": "Off"
+    },
+    "introAccounts": "Accounts you connect once so your chats and agents can use them as tools. Each account comes from an add-on.",
+    "noAddonAccounts": "No account add-on is installed.",
+    "noAddonAccountsHint": "An account add-on connects a service to your chats and agents. Install one from the add-on gallery to add a connection.",
+    "noAddonMessaging": "No messaging add-on is installed.",
+    "noAddonMessagingHint": "A messaging add-on carries the messages of a chat platform. Install one from the add-on gallery to add a binding."
   },
   "conversionPage": {
     "title": "Converted from the old chat",
@@ -378,9 +547,12 @@
       "subagents": "Sub-agents",
       "changes": "Suggested changes",
       "memory": "Memory",
-      "history": "Past chats"
+      "history": "Past chats",
+      "localai_client": "LocalAI client",
+      "localai_admin": "LocalAI admin"
     },
     "builtinBy": "{{tools}} · built-in",
+    "onDemand": "Loaded on demand",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
     "servedBy": "Served by add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
@@ -431,6 +603,7 @@
       "deny": "Don't run",
       "alwaysHint": "Always on this instance lets every user's chats run commands here without asking (Settings > Tools).",
       "askAdmin": "Only an administrator can allow commands on this machine. Ask one, or run the command yourself.",
+      "job": "This starts a background job. It keeps running after this call, and allowing it also allows the input the model writes to it later, without asking again.",
       "expired": "Not answered: the turn that asked has ended, so the command did not run."
     },
     "provider": {
@@ -456,7 +629,9 @@
       "triggers": "Lets the model propose, list, change and delete triggers. You confirm each new trigger or change.",
       "changes": "Lets the model propose edits to your notes, its rules, skills, pages and dashboard. You confirm each one.",
       "memory": "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected.",
-      "history": "Lets the model search and read your earlier chats."
+      "history": "Lets the model search and read your earlier chats.",
+      "localai_client": "Lets the model make images, speech, sound and video, and transcribe, embed, rerank and detect, with the models installed here.",
+      "localai_admin": "Lets the model manage this server: models, backends, settings and the state. For administrators; it asks you before it changes anything."
     },
     "whenOff": {
       "shell": "The model can write files but cannot run anything.",
@@ -469,7 +644,9 @@
       "triggers": "The model cannot propose or manage triggers.",
       "changes": "The model cannot propose edits to your notes, its rules, skills, pages or dashboard.",
       "memory": "This is a private chat. The model neither reads nor saves your notes.",
-      "history": "The model cannot see your earlier chats."
+      "history": "The model cannot see your earlier chats.",
+      "localai_client": "The model cannot run these models itself.",
+      "localai_admin": "The model cannot manage this server."
     },
     "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
     "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",
@@ -483,11 +660,14 @@
       "sole": "This is your only connection, so it is used.",
       "choose": "Choose at least one connection to use these tools",
       "none": "No connection yet",
-      "create": "Add a connection",
+      "create": "New connection",
       "byAgent": "The agent of this chat sets the connections. Change them on the agent.",
       "agentLabel": "Connections for chats of this agent",
       "agentHelp": "Chats of this agent may use only these connections and cannot change them.",
-      "perChatHelp": "None chosen: each chat chooses its own."
+      "perChatHelp": "None chosen: each chat chooses its own.",
+      "reconnectNeeded": "Connect again: {{names}}",
+      "ownerReconnectNeeded": "The owner must connect again: {{names}}",
+      "reconnect": "Reconnect"
     },
     "optionNeeds": "Turn on “{{name}}” to use this.",
     "connectionMissing": "{{name}} does not allow this yet.",
@@ -522,6 +702,10 @@
       "dashboard_write": {
         "title": "Change the dashboard",
         "description": "Lets the model propose a new layout for your Home dashboard. You confirm each change."
+      },
+      "knowledge_write": {
+        "title": "Add to knowledge",
+        "description": "Lets the model propose a text for a collection of your Knowledge. You confirm each one; it is never added at once."
       },
       "triggers_propose": {
         "title": "Also propose from messaging apps",
@@ -568,10 +752,9 @@
   "mcpPage": {
     "title": "MCP connectors",
     "supporting": "Connect MCP servers to give your chats and agents more tools, such as search or your own APIs.",
-    "family": "Bots for Telegram or Slack are <go>messaging connectors</go>.",
     "related": "Related",
     "chats": "Chats",
-    "add": "Add connector",
+    "add": "New connector",
     "learn": "How MCP works",
     "loading": "Loading your connectors",
     "loadFailed": "Could not load your connectors.",
@@ -669,7 +852,7 @@
       "encrypted": "Stored encrypted on the server. Never shown again."
     },
     "sheet": {
-      "addTitle": "Add connector",
+      "addTitle": "New connector",
       "editTitle": "Edit {{name}}",
       "addDesc": "Connect an MCP server. You test it before chats use it.",
       "editDesc": "Saved secrets stay unless you replace or remove them.",
@@ -810,6 +993,11 @@
       "readsLabel": "Reads",
       "writesLabel": "Writes",
       "costLabel": "Cost",
+      "deliveryLabel": "Results go to",
+      "deliveryInbox": "Your Inbox",
+      "deliveryChat": "This chat",
+      "deliveryThread": "This thread",
+      "deliveryChannel": "{{channel}}, at the top of the channel",
       "stopLabel": "To stop it",
       "when": "{{schedule}}, {{zone}}. First run {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -826,7 +1014,9 @@
       "remoteNote": "{{model}} is a remote service: what a run reads leaves this server.",
       "stopWidget": "Pause it from the widget, or delete it in Triggers",
       "stop": "Switch it off or delete it in Triggers",
-      "actsLabel": "Permissions"
+      "actsLabel": "Permissions",
+      "limitLabel": "Time limit",
+      "limitClamped": "{{limit}}, cut to {{ceiling}} by the administrator"
     }
   },
   "subAgents": {
@@ -841,7 +1031,9 @@
     "loading": "Reading...",
     "empty": "Nothing yet.",
     "task": "Task",
-    "answer": "Answer"
+    "answer": "Answer",
+    "waiting": "Waiting for: {{what}}",
+    "looping": "Looping"
   },
   "vision": {
     "describedBy": "This model can't look at images. Pick another model, or the image will be described by {{model}}.",
@@ -906,6 +1098,7 @@
     "allowedHostsOff": "They apply when the network is on.",
     "allowedHostsNote": "{{count}} hosts are always allowed by your administrator.",
     "limitNote": "This chat’s network. The administrator sets the most a chat can reach.",
+    "draftNote": "The chat starts with this setting. The administrator sets the most a chat can reach, and that limit applies.",
     "asksAbove": "This chat asks for {{choice}}; the administrator limit is {{limit}}.",
     "unverified": "Network-policy enforcement is not verified for the actual provider. These settings do not currently apply to its commands.",
     "configuredPolicy": "Configured network policy: {{preset}} (not enforced)."
@@ -947,8 +1140,11 @@
       "writes": "Writes",
       "widget": "Home widget",
       "estimated_tokens": "Tokens a run",
+      "acts": "What a run may do",
+      "delivery": "Where answers go",
       "agent": "Agent",
-      "model": "Model"
+      "model": "Model",
+      "run_limit": "Time limit"
     },
     "receipt": {
       "update": "Changed:",
@@ -1036,6 +1232,119 @@
       "noChat": "Send a first message, then start a loop in this chat.",
       "stopped_one": "Stopped {{count}} loop.",
       "stopped_other": "Stopped {{count}} loops."
+    },
+    "wait": {
+      "name": "Waiting for",
+      "kind": "Wait",
+      "pending": "Waiting for your yes",
+      "paused": "Wait paused",
+      "stop": "Stop wait",
+      "details": "Details of the wait",
+      "watching": "Watching {{source}}",
+      "until": "Until {{condition}}",
+      "notChecked": "Not checked yet",
+      "checked_one": "Checked {{count}} time",
+      "checked_other": "Checked {{count}} times",
+      "checkedAgo_one": "Checked {{count}} time, last {{ago}}",
+      "checkedAgo_other": "Checked {{count}} times, last {{ago}}",
+      "outcome": {
+        "unchanged": "no change",
+        "changed": "changed",
+        "error": "failed"
+      },
+      "ago": "{{span}} ago",
+      "justNow": "just now",
+      "in": "in {{span}}",
+      "now": "now",
+      "next": "Next check {{when}}",
+      "deadline": "Gives up at {{time}} ({{when}})",
+      "errorStreak": "Last check failed ({{count}} of {{max}} in a row)",
+      "errorStreakMsg": "Last check failed ({{count}} of {{max}} in a row): {{message}}",
+      "lastError": "Last error: {{message}}",
+      "sources": {
+        "tool": "tool {{name}}",
+        "url": "{{name}}",
+        "script": "a script",
+        "job": "{{name}}",
+        "agent": "sub-agent {{name}}"
+      },
+      "end": {
+        "met": "Done: the condition was met",
+        "failing_one": "Stopped: the source failed {{count}} time in a row",
+        "failing_other": "Stopped: the source failed {{count}} times in a row",
+        "timedOut": "Timed out, the condition was not met",
+        "stopped": "Wait stopped",
+        "jobGone": "Stopped: the job is gone with its node"
+      },
+      "waking": {
+        "met": "The condition was met. Asking the model what to do.",
+        "failing": "The source failed. Asking the model what to do.",
+        "timedOut": "Timed out, the condition was not met. Asking the model what to do."
+      },
+      "phase": {
+        "waiting": "waiting",
+        "waking": "waking the model",
+        "paused": "paused",
+        "ended": "ended",
+        "pending": "waits for your yes"
+      },
+      "endShort": {
+        "condition_met": "condition met",
+        "source_failing": "source failed",
+        "timed_out": "timed out",
+        "stopped": "stopped"
+      },
+      "group": {
+        "collapse": "Hide the waits",
+        "deadline": "Nearest deadline {{time}} ({{when}})",
+        "expand": "Show the waits",
+        "lastCheck": "Last check {{ago}}",
+        "paused_one": "{{count}} paused",
+        "paused_other": "{{count}} paused",
+        "stopAll": "Stop all",
+        "title_one": "{{count}} waiting",
+        "title_other": "{{count}} waiting"
+      }
+    },
+    "job": {
+      "stop": "Stop",
+      "details": "Job details",
+      "done_one": "{{count}} finished job",
+      "done_other": "{{count}} finished jobs",
+      "runTime": "running {{span}}",
+      "ranFor": "ran for {{span}}",
+      "lastOutput": "last output {{ago}} ago",
+      "endedAgo": "ended {{ago}} ago",
+      "byAgent": "started by a sub-agent",
+      "where": {
+        "machine": "on this machine",
+        "sandbox": "in isolation"
+      },
+      "status": {
+        "starting": "Starting",
+        "running": "Running",
+        "ending": "Stopping",
+        "stalled": "Running, no output for {{span}}",
+        "lost": "Lost: its node is gone",
+        "notStarted": "Could not start",
+        "killed": "Killed",
+        "stopped": "Stopped by you",
+        "ended": "Ended",
+        "exitedOk": "Exited, status 0",
+        "exitedCode": "Exited with status {{code}}",
+        "exitedUnknown": "Exited, status unknown"
+      },
+      "end": {
+        "lifetime": "Ended: reached its time limit",
+        "chat_deleted": "Ended: the chat was deleted",
+        "shell_off": "Ended: commands were switched off",
+        "group_off": "Ended: the command tools were switched off for this chat",
+        "fenced": "Ended: this chat may not run commands now",
+        "sandbox_remade": "Ended: its environment was rebuilt",
+        "agent_ended": "Ended: its sub-agent finished",
+        "shutdown": "Ended: the server stopped",
+        "start_failed": "Could not start"
+      }
     }
   },
   "changes": {
@@ -1047,7 +1356,9 @@
       "profile": "Profile",
       "skill": "Skill",
       "page": "Page",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "knowledge": "Knowledge",
+      "voice_profile": "Voice profile"
     },
     "scope": {
       "user": "All your chats",
@@ -1060,7 +1371,8 @@
       "kind": "Kind",
       "target": "File",
       "source": "From",
-      "expires": "Expires in"
+      "expires": "Expires in",
+      "collection": "Collection"
     },
     "source": {
       "chat": "A chat",
@@ -1109,6 +1421,32 @@
       "dismissed": "Change dismissed.",
       "undone": "Change undone.",
       "asked": "Asked the assistant to propose it again."
+    },
+    "knowledge": {
+      "label": "Text to add to {{collection}}",
+      "size": "{{size}} of at most {{max}}",
+      "note": "Nothing is added until you confirm. The text is then split into passages and indexed, and every chat that searches this collection can use it.",
+      "editLabel": "Text to add to {{target}}",
+      "embed_one": "1 passage will be embedded with {{model}}.",
+      "embed_other": "About {{count}} passages will be embedded with {{model}}.",
+      "serverModel": "the server's embedding model"
+    },
+    "warning": {
+      "title": "Check this text before you confirm.",
+      "secret": "It looks like it holds a secret, such as a key, a token or a password. Once it is added, every chat that searches this collection can read it. A messaging chat cannot confirm it; only you can, here.",
+      "other": "The server flagged this text as risky. A messaging chat cannot confirm it; only you can, here."
+    },
+    "voice": {
+      "label": "Voice to clone",
+      "name": "Name",
+      "file": "Recording",
+      "clip": "Pinned clip",
+      "language": "Language",
+      "transcript": "Transcript",
+      "consentTitle": "Confirm only if the speaker agreed.",
+      "consent": "The recording is saved as a voice profile that your chats can speak with. You can delete it in the Voice library.",
+      "consentAdmin": "You are an administrator, so this voice becomes available to all users of this server.",
+      "confirm": "The speaker agreed: save the voice"
     }
   },
   "proposalsPage": {
@@ -1163,6 +1501,7 @@
       "mine": "Mine",
       "deleted": "Deleted agents",
       "channels": "Conversations",
+      "channelsNote": "Notes saved from chats in messaging apps. Open a note to read it, or delete it. A note from a sender who is not verified with you always waits for your OK.",
       "export": "Export these notes",
       "clearAgent": "Delete the notes of this agent",
       "clearDeleted": "Delete these notes"
@@ -1230,8 +1569,8 @@
         "body": "The bot asks in the chat: \"Reply yes to save it.\" A listed sender can answer there. Others wait for you in the app."
       },
       "paired_private": {
-        "title": "Save it for a paired sender in a private chat",
-        "body": "Saved at once only when the sender is paired and the chat is one-to-one. The note goes to that conversation, with an Undo. A note that looks like a secret still waits."
+        "title": "Save it for a verified person in a private chat",
+        "body": "Saved at once only when the sender is a verified person and the chat is one-to-one. The note goes to that conversation, with an Undo. A note that looks like a secret still waits."
       },
       "never": {
         "title": "Never",
@@ -1253,7 +1592,8 @@
       "chat": "This is a private chat: nothing is read or saved. Your notes are untouched. Turn it on in the Tools menu.",
       "user": "No chat or agent reads or saves notes, and your notes are untouched.",
       "agent": "The agent of this chat has memory switched off.",
-      "files": "Notes are files, and files are off on this server."
+      "files": "Notes are files, and files are off on this server.",
+      "provider": "The add-on that serves memory is not available, so nothing is read or saved. Pick a provider in Settings, Memory."
     },
     "chip": "Memory off",
     "chipPrivate": "Private chat",
@@ -1287,15 +1627,20 @@
       "title": "As before",
       "body": "This agent was saved before this choice existed. It reads your notes when its add-ons list names Memory, and the model picks where a note is saved. Pick one of the choices below to change that."
     },
-    "saveGrant": "Let it save notes",
-    "saveGrantHelp": "Turns on the permission Remember things. Without it the agent reads notes but cannot save any.",
     "copyNote": "Exporting an agent, or importing it as a new one, keeps this choice and never copies its notes.",
     "summary": {
       "mine_and_own": "Mine and its own",
       "own": "Its own only",
       "mine": "Mine",
       "none": "None",
-      "asBefore": "As before"
+      "asBefore": "As before",
+      "withAuto": "{{choice}}, saves at once",
+      "level": {
+        "off": "Off",
+        "reads": "Reads notes",
+        "saves": "Reads and saves notes"
+      },
+      "combined": "{{level}}, {{choice}}"
     },
     "delete": {
       "title": "Delete {{name}}?",
@@ -1320,7 +1665,11 @@
       "title": "When it wants to save a note",
       "use_mine": {
         "title": "Use my setting",
-        "body": "Currently: {{level}}."
+        "body": "Your setting is <b>{{level}}</b>. <settings>Change it in Settings > Memory.</settings>"
+      },
+      "auto": {
+        "title": "Save it and tell me",
+        "body": "Saves each note at once and tells you in the chat, with an Undo, even when your setting is Ask me first. A long note, or one that looks like a secret, still waits."
       },
       "always": {
         "title": "Always confirm",
@@ -1330,7 +1679,145 @@
         "title": "Never",
         "body": "It reads, never saves."
       },
-      "hint": "An agent can ask more than your setting, never less. \"Save it and tell me\" is not offered here. In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a paired sender."
+      "hint": "In a messaging chat a note goes to that conversation first, and reaches this agent's own notes only from a verified person. Saving at once in a messaging chat applies only to a verified person in a one-to-one chat.",
+      "offReason": "The save level does not apply while memory is off.",
+      "readsReason": "The save level does not apply: this agent reads notes but cannot save any."
+    },
+    "level": {
+      "title": "How much it does with notes",
+      "off": {
+        "title": "Off",
+        "body": "Reads and saves no notes."
+      },
+      "reads": {
+        "title": "Reads notes",
+        "body": "Uses your notes to answer. Never saves any."
+      },
+      "saves": {
+        "title": "Reads and saves notes",
+        "body": "Uses notes and saves new ones, as your save level allows."
+      }
+    },
+    "whose": "Whose notes",
+    "whoseOff": "Memory is off for this agent, so there are no notes to choose from."
+  },
+  "providerPicker": {
+    "title": "Provider",
+    "lede": "One provider serves at a time. Your existing data stays where it is when you switch.",
+    "off": "Off",
+    "unavailable": "Not available",
+    "loadError": "The providers could not be loaded",
+    "saveFailed": "The provider could not be changed",
+    "failedTitle": "{{name}} is not available",
+    "failedReason": "This stays off until you pick a provider. Nothing moved to the built-in provider, so nothing is saved where you did not choose.",
+    "useBuiltin": "Use the built-in provider",
+    "facts": {
+      "local": "Local",
+      "remote": "Remote",
+      "undoHost": "Undo here",
+      "undoProvider": "Undo by the service",
+      "undoNone": "Cannot be undone"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Built-in",
+        "builtinBody": "Plain files in your Memory folder. Nothing leaves this machine.",
+        "offBody": "Nothing is read, offered, saved or sent. Existing notes are kept."
+      }
+    },
+    "healthTitle": "The provider is paused",
+    "forget": {
+      "lede": "Ask {{name}} to forget the notes it keeps for you. Your files in the Memory folder are not touched.",
+      "action": "Forget everything from this provider",
+      "confirmTitle": "Forget everything from {{name}}?",
+      "confirmBody": "{{name}} will be asked to forget every note it keeps for you. It may hold the change until you confirm it on the Add-ons page.",
+      "confirmBodyFinal": "{{name}} will be asked to forget every note it keeps for you. This cannot be undone.",
+      "confirm": "Forget everything",
+      "pending": "Forgetting...",
+      "done": "{{name}} forgot its notes",
+      "waiting": "The change waits for your confirmation on the Add-ons page",
+      "failed": "The provider could not forget: {{message}}"
+    }
+  },
+  "connectionsTabs": {
+    "label": "Connections sections",
+    "accounts": "Accounts",
+    "messaging": "Messaging",
+    "mcp": "MCP servers"
+  },
+  "sandboxProfile": {
+    "label": "Sandbox profile",
+    "tools": "Programs: {{tools}}",
+    "notAllowed": "Your administrator has not given you this profile",
+    "absent": "This release has no image for it",
+    "unavailable": "{{title}} is not available: {{reason}}.",
+    "draft": "The new chat starts in {{title}}. Pick a profile here, or change it later in the chat.",
+    "source": {
+      "chat": "This chat runs in {{title}}, your choice.",
+      "agent": "This chat runs in {{title}}, set by its agent.",
+      "default": "This chat runs in {{title}}, the default."
+    },
+    "switchWarning": "Switching restarts the sandbox. Your files stay. Running processes and installed packages are lost.",
+    "switchTo": "Switch to {{title}}",
+    "cancel": "Cancel",
+    "preparing": "Preparing the {{title}} image, {{percent}}%",
+    "failed": "The {{title}} image could not be prepared: {{error}}",
+    "fallback": "{{title}} could not be used, so commands run in {{base}}.",
+    "newerImage": "A newer image is available. It applies when the sandbox restarts.",
+    "notAllowedError": "You may not use this profile.",
+    "unknownError": "This profile does not exist.",
+    "saveError": "The profile could not be changed.",
+    "admin": {
+      "title": "Sandbox profiles",
+      "intro": "A profile is an environment with its own programs. Everyone may use every profile until you limit one.",
+      "default": "Default profile",
+      "defaultBase": "Base",
+      "profiles": "Profiles",
+      "limits": "{{cpus}} CPUs, {{memory}} MiB of memory, {{disk}} MiB of disk",
+      "baseAlways": "Every user may use Base. It is the profile that runs when another one cannot.",
+      "who": "Who may use it",
+      "everyone": "Everyone",
+      "restricted": "Only the roles and users below",
+      "role": {
+        "admin": "Administrators",
+        "user": "Regular users"
+      },
+      "users": "Named users",
+      "usersPlaceholder": "Names separated by commas",
+      "pin": "Pin to the previous image",
+      "noPrevious": "There is no previous image yet",
+      "memory": "Memory cap of a sandbox, in MiB",
+      "disk": "Disk cap of a sandbox, in MiB",
+      "noLimit": "No limit",
+      "quotaHelp": "A cap lowers the limit of a profile and never raises it. Leave a field empty for no cap.",
+      "badQuota": "Use a whole number of MiB, or leave the field empty.",
+      "reload": "Reload",
+      "ownerError": "Owner settings are unavailable or changed: {{message}}",
+      "save": "Save",
+      "loadError": "The sandbox profiles could not be read."
+    }
+  },
+  "harness": {
+    "title": "The context window of this model is too small for the chat",
+    "admin": {
+      "reason": "It is {{window}} tokens and the chat needs at least {{minimum}}; {{recommended}} is better.",
+      "checking": "Checking whether {{target}} tokens fit in this machine's memory…",
+      "fits": "{{target}} tokens fit in this machine's memory (about {{need}}).",
+      "fitsLess": "{{recommended}} tokens do not fit in this machine's memory. {{target}} do (about {{need}}).",
+      "unknown": "The memory this needs could not be estimated.",
+      "none": "Not even {{minimum}} tokens fit in this machine's memory. Pick a smaller model.",
+      "fix": "Set the window to {{target}}"
+    },
+    "user": {
+      "reason": "It is {{window}} tokens and the chat needs at least {{minimum}}.",
+      "switch": "Switch this chat to an installed model with a larger window.",
+      "askAdmin": "No installed model you can use has a large enough window. Ask an administrator to raise it or to install another model.",
+      "use": "Use {{model}} ({{window}} tokens)"
+    },
+    "chat": {
+      "title": "The context size of this chat is too small",
+      "reason": "The setting of this chat is {{window}} tokens and the chat needs at least {{minimum}}.",
+      "fix": "Use the window of the model"
     }
   }
 }

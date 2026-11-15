@@ -25,7 +25,6 @@
   "agent": "Agente",
   "agentNone": "Elige un agente",
   "agentCredentialsOnly": "Sin agente (solo credenciales)",
-  "agentOptionalHint": "Opcional. Sin agente, esta conexión solo guarda la clave, el servidor y el modo de escritura para tus chats. No responde a ningún mensaje y no escucha nada.",
   "credentialsOnly": "Solo credenciales",
   "agentNoModel": "{{name}} (necesita un modelo)",
   "test": "Probar",
@@ -68,8 +67,8 @@
     "label": "Qué puede cambiar el agente en Jellyfin",
     "hint": "Control remoto de reproductores, marcas de visto, favoritos y añadir a listas de reproducción. Nunca elimina, escanea ni edita la biblioteca.",
     "off": "Solo lectura",
-    "propose": "Te pregunta antes",
-    "auto": "Actúa sin preguntar",
+    "propose": "Pregunta antes",
+    "auto": "Se ejecuta al instante",
     "line": {
       "off": "No puede cambiar nada.",
       "propose": "Cada cambio espera tu visto bueno.",
@@ -82,8 +81,8 @@
     },
     "row": {
       "off": "Solo lectura",
-      "propose": "Te pregunta antes",
-      "auto": "Actúa sin preguntar"
+      "propose": "Pregunta antes",
+      "auto": "Se ejecuta al instante"
     }
   },
   "approval": {

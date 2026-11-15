@@ -94,3 +94,11 @@ test('render: each tab draws exactly one h1, the one Voice title (the add form k
   assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library' }))), ['Voices'])
   assert.deepEqual(h1s(renderToString(React.createElement(addon.Component, { page: 'voice', path: 'library/new' }))), ['Add a speech voice'])
 })
+
+test('render: the page reads in the language of the web UI, with English for a key it lacks', async () => {
+  const it = await load({ language: () => 'it' })
+  const addon = await it.mod.createAddon(it.sdk)
+  const html = renderToString(React.createElement(addon.Component, { page: 'voice', path: 'recognition' }))
+  assert.match(html, /Riconoscimento/)
+  assert.doesNotMatch(html, />Recognition</)
+})

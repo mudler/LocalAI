@@ -50,12 +50,12 @@ class NativePaths(unittest.TestCase):
             'backend/index.yaml': ['test.yml'],
             'coverage-baseline.txt': ['test.yml'],
             'Entitlements.plist': ['build-test.yaml'],
-            'docs/content/features/image-generation.md': ['test.yml'],
-            'docs/content/features/addons.md': ['test.yml', 'addons-tests.yml', 'addons-package.yml'],
-            'docs/content/features/tables.md': ['test.yml', 'addons-tests.yml'],
-            'docs/content/features/diagnostics.md': ['test.yml'],
+            'docs/content/models/capabilities/vision/image-generation.md': ['test.yml'],
+            'docs/content/addons/contract-reference.md': ['test.yml', 'addons-tests.yml', 'addons-package.yml'],
+            'docs/content/addons/catalogue/work/tables.md': ['test.yml', 'addons-tests.yml'],
+            'docs/content/administration/diagnostics.md': ['test.yml'],
             'docs/content/reference/cli-reference.md': ['test.yml'],
-            'docs/content/getting-started/troubleshooting.md': ['test.yml'],
+            'docs/content/administration/troubleshooting.md': ['test.yml'],
         }
         for path, names in cases.items():
             for name in names:

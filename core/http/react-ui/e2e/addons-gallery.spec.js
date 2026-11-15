@@ -23,8 +23,10 @@ async function shoot(page, name) {
 }
 
 const tab = (page, name) => page.getByRole('tab', { name })
-// The start, stop and tool controls of an add-on live in the detail sheet of the drawer.
-const detail = (page, id) => page.getByTestId('addon-detail').locator(`[data-app="${id}"]`)
+// The start, stop and tool controls of an add-on live in its detail pane, the state
+// chip in the header of the pane. Both the title and the body of the pane carry
+// data-app, so the pane is found by the add-on it shows, not by that attribute.
+const detail = (page, id) => page.getByTestId('addon-detail').filter({ has: page.locator(`[data-app="${id}"]`) })
 
 test.describe('Add-ons: apps', () => {
   test('apps: lists enabled apps with state chips, the icon route and Open only for a main page', async ({ page }) => {
@@ -533,14 +535,14 @@ test.describe('Add-ons: installed', () => {
     await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('update-chip')).toHaveText('Update 1.3.0')
     await expect(page.locator('[data-testid="addon-tile"][data-app="plain"]').getByTestId('update-chip')).toHaveCount(0)
     await page.goto('/app/addons?manage=notes')
-    await page.getByTestId('addon-manage').getByRole('button', { name: 'Upgrade' }).click()
+    await page.getByTestId('addon-manage').getByTestId('update-upgrade').click()
     // The confirmation names the version and digest the owner resolved and
     // nothing is sent until it is confirmed.
     const dialog = page.getByTestId('upgrade-confirm')
     await expect(dialog).toContainText('1.3.0')
     await expect(dialog).toContainText('sha256:bbbbbbbbbbbb')
     expect(state.log.upgrade).toHaveLength(0)
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Update' }).click()
     await expect.poll(() => state.log.upgrade.length).toBe(1)
     const sent = state.log.upgrade[0]
     expect(sent.id).toBe('notes')
@@ -549,11 +551,11 @@ test.describe('Add-ons: installed', () => {
     expect(sent.operationId).toMatch(UUID)
     expect(sent.confirm).toBe(sent.operationId)
     expect(state.log.dispatch.filter(d => d.action === 'upgrade')).toHaveLength(0)
-    // An add-on without the field says the status is unknown and has no Upgrade.
+    // An add-on without the field says the status is unknown and has no Update button.
     await page.goto('/app/addons?manage=plain')
     const sheet = page.getByTestId('addon-manage')
     await expect(sheet.getByText('The update status is not known')).toBeVisible()
-    await expect(sheet.getByRole('button', { name: 'Upgrade' })).toHaveCount(0)
+    await expect(sheet.getByTestId('update-upgrade')).toHaveCount(0)
   })
 
   test('installed: removing warns that data is kept before anything is submitted', async ({ page }) => {
@@ -737,7 +739,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await page.addInitScript(() => localStorage.setItem('localai-theme', 'light'))
     await page.goto('/app/addons')
     await page.goto('/app/addons?detail=notes')
-    const read = () => page.locator('.ad-pane').first().evaluate(el => {
+    const read = () => page.getByTestId('addon-detail').evaluate(el => {
       const css = getComputedStyle(el)
       const chip = getComputedStyle(el.querySelector('.ad-state .ui-chip'))
       return { card: css.backgroundColor, chip: chip.color, chipBg: chip.backgroundColor }

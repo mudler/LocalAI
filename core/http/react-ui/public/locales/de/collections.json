@@ -10,11 +10,13 @@
     "viewDetails": "Details anzeigen",
     "resetCollection": "Sammlung zurücksetzen",
     "deleteCollection": "Sammlung löschen",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "save": "Speichern"
   },
   "sections": {
     "yourCollections": "Ihre Sammlungen",
-    "otherUsersCollections": "Sammlungen anderer Benutzer"
+    "otherUsersCollections": "Sammlungen anderer Benutzer",
+    "sharedWithYou": "Mit dir geteilt"
   },
   "empty": {
     "title": "Noch keine Sammlungen",
@@ -42,10 +44,16 @@
   },
   "loadFailed": "Ihre Sammlungen konnten nicht geladen werden.",
   "sources": {
-    "loadFailed": "Die Webquellen konnten nicht geladen werden."
+    "loadFailed": "Die Webquellen konnten nicht geladen werden.",
+    "noneShared": "Keine Webquellen."
   },
   "entries": {
-    "loadFailed": "Die Dateien konnten nicht geladen werden."
+    "loadFailed": "Die Dateien konnten nicht geladen werden.",
+    "filter": "Dateien filtern",
+    "countAll_one": "{{count}} Datei",
+    "countAll_other": "{{count}} Dateien",
+    "countOf": "{{shown}} von {{total}} Dateien",
+    "noMatch": "Keine Datei passt."
   },
   "starting": {
     "title": "Wissen startet.",
@@ -57,5 +65,49 @@
     "noneSet": "Für Sammlungen ist kein Embedding-Modell festgelegt (collections_embedding_model), daher schlagen das Hinzufügen von Dateien und die Suche fehl.",
     "install": "In Modelle suchen",
     "askAdmin": "Bitte eine Administratorin oder einen Administrator, es zu installieren."
+  },
+  "searchMode": {
+    "label": "Suche: {{mode}}",
+    "semantic": "semantisch",
+    "hybrid": "hybrid",
+    "semanticHint": "Sie findet Textstellen nach Bedeutung, nicht nach genauen Wörtern oder Codes.",
+    "hybridHint": "Sie findet Textstellen nach Bedeutung und nach genauen Wörtern."
+  },
+  "pane": {
+    "addFile": "Datei hinzufügen"
+  },
+  "share": {
+    "label": "Teilen",
+    "button": "{{name}} teilen",
+    "intro": "Personen, die du hinzufügst, finden diese Sammlung in ihrer Liste, und ihre Agenten können sie über den Namen durchsuchen.",
+    "failed": "Die Sammlung konnte nicht geteilt werden: {{message}}",
+    "roles": {
+      "viewer": "Darf ansehen",
+      "viewerHelp": "Darf sie durchsuchen und ihre Dateien lesen.",
+      "editor": "Darf bearbeiten",
+      "editorHelp": "Darf außerdem Dateien hinzufügen und entfernen."
+    },
+    "noteViewer": "Du kannst sie durchsuchen und ihre Dateien lesen.",
+    "noteEditor": "Du kannst sie durchsuchen und Dateien hinzufügen oder entfernen."
+  },
+  "create": {
+    "title": "Neue Sammlung",
+    "hint": "Gib ihr einen Namen, den du wiedererkennst. Dateien und Webseiten fügst du hinzu, sobald sie existiert."
+  },
+  "sort": {
+    "label": "Sammlungen sortieren",
+    "name": "Name, A bis Z",
+    "name-desc": "Name, Z bis A",
+    "used": "Am meisten genutzt",
+    "unused": "Ungenutzte zuerst"
+  },
+  "list": {
+    "countAll_one": "{{count}} Sammlung",
+    "countAll_other": "{{count}} Sammlungen",
+    "countOf": "{{shown}} von {{total}} Sammlungen",
+    "menu": "Aktionen für {{name}}"
+  },
+  "menu": {
+    "try": "Eine Frage ausprobieren"
   }
 }

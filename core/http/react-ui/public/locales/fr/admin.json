@@ -1,36 +1,4 @@
 {
-  "activity": {
-    "hide": "Masquer",
-    "moveToHistory": "Déplacer vers l'historique",
-    "moreCount": "{{count}} de plus",
-    "waitingForInstaller": "en attente de l'installateur",
-    "progressLabel": "Progression pour {{name}}",
-    "toNode": "vers {{node}}",
-    "nodesDone": "{{done}} nœuds sur {{total}} terminés",
-    "kind": {
-      "model": "modèle",
-      "backend": "backend"
-    },
-    "verb": {
-      "installing": "Installation du {{kind}}",
-      "installed": "{{kind}} installé",
-      "removed": "{{kind}} supprimé",
-      "staged": "Modèle préparé",
-      "failed": "Impossible d'installer le {{kind}}",
-      "queued": "En file",
-      "staging": "Préparation du modèle",
-      "removing": "Suppression du {{kind}}",
-      "failedRemoval": "Impossible de supprimer le {{kind}}",
-      "failedStaging": "Impossible de préparer le modèle"
-    },
-    "phase": {
-      "resolving": "Résolution des fichiers",
-      "downloading": "Téléchargement",
-      "verifying": "Vérification",
-      "committing": "Finalisation",
-      "persisting": "Enregistrement de la configuration"
-    }
-  },
   "manage": {
     "title": "Système",
     "subtitle": "Gérer les modèles et backends installés"
@@ -123,6 +91,16 @@
     "network": {
       "title": "Réseau des commandes",
       "where": "{{name}} garde sur sa propre page les paramètres réseau des commandes qu’il exécute."
+    },
+    "autoUpgradeAddons": "Mettre à jour les add-ons automatiquement",
+    "addonUpdates": {
+      "label": "Mises à jour des add-ons",
+      "note": "Le propriétaire des add-ons applique ce réglage. Les nouvelles générations peuvent exécuter du code.",
+      "unavailable": "Réglages du propriétaire indisponibles ou modifiés : {{message}}",
+      "reload": "Recharger et rebaser les modifications",
+      "retry": "Réessayer la même opération",
+      "policy": "Politique du propriétaire · révision {{revision}}",
+      "apply": "Appliquer le réglage de mise à jour"
     }
   },
   "traces": {
@@ -182,13 +160,17 @@
       "bash": "Commandes (bash)",
       "web_search": "Recherche web",
       "web_fetch": "Lire des pages web",
-      "list_agents": "Agents enregistrés"
+      "list_agents": "Agents enregistrés",
+      "localai_client": "Outils client LocalAI",
+      "localai_admin": "Outils d'administration LocalAI"
     },
     "descriptions": {
       "bash": "Exécute des commandes et du code pour les chats directement sur cette machine quand aucun module ne fournit bash. Un module qui exécute des commandes isolées le remplace.",
       "web_search": "Recherche sur le web pour les chats sans clé (DuckDuckGo, puis Brave Search, puis Bing), ou avec votre instance SearXNG si elle est définie.",
       "web_fetch": "Lit pour les chats une page ou un fichier web public par son adresse. Les adresses de votre réseau sont refusées sauf si vous les autorisez.",
-      "list_agents": "Permet à un chat de lister les agents enregistrés de l'utilisateur et d'en lancer un comme sous-agent. Chaque chat l'active dans son menu Outils."
+      "list_agents": "Permet à un chat de lister les agents enregistrés de l'utilisateur et d'en lancer un comme sous-agent. Chaque chat l'active dans son menu Outils.",
+      "localai_client": "Permet aux chats d'exécuter les modèles installés ici pour les images, la voix, le son, la vidéo, les embeddings et la détection, dans les droits de chaque utilisateur.",
+      "localai_admin": "Permet aux chats des administrateurs de gérer ce serveur : modèles, backends, réglages et état. Chaque chat, ou agent enregistré, l'active."
     },
     "bash": {
       "switch": "Laisser les chats exécuter des commandes sur cette machine",

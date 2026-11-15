@@ -21,6 +21,11 @@ type ControlMsg struct {
 	// Egress is the answer of a card that asks whether a Sandbox command may
 	// reach a host. The check that waits may run on any frontend.
 	Egress *EgressDecision `json:"egress,omitempty"`
+	// FolderAccess names a principal (an account ID, or @everyone for every
+	// account) that an owner took folder access from. It goes to every
+	// process on folderAccessKey, and each stops its turns that still hold a
+	// folder they lost.
+	FolderAccess string `json:"folder_access,omitempty"`
 }
 
 // Bus carries a chat's live events, and control messages to the frontend that

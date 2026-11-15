@@ -84,4 +84,12 @@ var _ = Describe("Host controls", func() {
 		web.Capabilities.ToolDefinitions[0].Shadows = ""
 		Expect(EntitledControls(web, []string{"egress."})).To(BeEmpty())
 	})
+
+	It("draws the sandbox profiles only for an add-on whose commands tool declares profiles", func() {
+		m := runner("sandbox", ControlSandboxProfiles)
+		Expect(EntitledControls(m, nil)).To(BeEmpty(), "a bash tool without profiles does not attach the control")
+		m.Capabilities.ToolDefinitions[0].Execution = &ExecutionDescriptor{Class: ExecutionClassCommands, Profiles: []ExecutionProfile{
+			{ID: "base", Title: "Base", Description: "The usual tools.", Tools: []ProfileTool{{Name: "jq"}}}}}
+		Expect(EntitledControls(m, nil)).To(Equal([]string{ControlSandboxProfiles}), "it needs no host grant: the policy is the host's own")
+	})
 })

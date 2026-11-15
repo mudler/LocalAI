@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,13 +45,42 @@ type Message struct {
 	// Invoked is the command the person used, kept with the message in the
 	// transcript (Entry.Invoked).
 	Invoked *Invocation
+	// Sender is who wrote the message, for a message a messaging connection
+	// delivered. The transcript keeps it with the line (Entry.Sender).
+	Sender *Sender
+	// Thread is the block of earlier thread messages that Directive carries,
+	// for display. A turn that starts with it stores it as a RoleThread line
+	// before the message; ThreadLines is how many lines it holds and ThreadCut
+	// whether older ones were left out. The model gets Directive and nothing
+	// else of it.
+	Thread      string
+	ThreadLines int
+	ThreadCut   bool
 	// Goal marks a message the server sends by itself to go on with the
 	// chat's goal. The transcript keeps it as a RoleGoal line of kind
 	// GoalLineContinue whose Rev is GoalTurn, so it never reads as typed by
 	// the person; the model gets Text as a user message.
 	Goal     bool
 	GoalTurn int
+	// Resume makes the turn go on from where the last one failed. The
+	// transcript and the model's own state are not touched: the model gets
+	// ResumePrompt as a message of the host, which the transcript does not
+	// keep. Any waiting text of Text goes first, as a message of the person.
+	Resume bool
+	// HostNote is a note of the host that only the model gets, after any
+	// words of Text. The transcript does not keep it. A message with only a
+	// HostNote starts a turn that answers the note, as Resume does.
+	HostNote string
 }
+
+// ResumePrompt is what the model gets when a failed turn goes on. The model
+// has the transcript of the failed turn, with the failure noted at its end.
+const ResumePrompt = resumeHead +
+	"If the last step did not finish, do that step again, then finish the request.)"
+
+// resumeHead starts every note that makes a failed or interrupted turn go on.
+const resumeHead = "(System note: your last request stopped on an error before it finished. " +
+	"Go on from where you stopped. Keep what you already did and do not repeat a tool call that has a result. "
 
 // withDirective puts the directive of a message before the text the model gets.
 func withDirective(directive, text string) string {
@@ -117,6 +147,11 @@ type Chat struct {
 	injectMu sync.RWMutex
 	turn     int
 	text     strings.Builder // assistant text of the turn, not yet stored
+	// The text is saved while it streams (see partial.go): when it was last
+	// saved, how long it was then, and whether the store holds a copy now.
+	partialAt    time.Time
+	partialLen   int
+	partialSaved bool
 	// The reasoning of the current step, not yet stored. It stops growing at
 	// MaxReasoningBytes (reasonCut). reasonFirst is the time of its first
 	// delta.
@@ -130,6 +165,16 @@ type Chat struct {
 	// turn can emit turn_start.
 	endMu sync.Mutex
 
+	// turnBlock is the TurnTools.Context of the turn that runs. hostMu guards it.
+	turnBlock string
+	// releasedState is the hash of the harness state the chat held when it
+	// released it. mu guards it.
+	releasedState [sha256.Size]byte
+	// filesSeen is the TurnTools.Files the model read last, in front of a
+	// message. It is empty when the model's context holds no list: a new
+	// harness that started without its saved history, a compaction or a
+	// clear. hostMu guards it.
+	filesSeen string
 	// hostMu guards host, the host-side tools of the chat (see applyChatTools).
 	hostMu sync.Mutex
 	host   hostTools
@@ -184,6 +229,14 @@ func (c *Chat) access() (actor, user workspace.Actor, view workspace.View) {
 	c.accMu.RLock()
 	defer c.accMu.RUnlock()
 	return c.acc.Actor(), c.acc.Owner(), c.acc.View()
+}
+
+// TurnView is the view the chat holds now: the folders its turn and its
+// tools were given. The host compares it with the grants after an owner took
+// access away, to stop a turn that still holds a folder it lost.
+func (c *Chat) TurnView() workspace.View {
+	_, _, v := c.access()
+	return v
 }
 
 // place is the place of the chat's access: how its tools name its files.
@@ -309,8 +362,18 @@ func (c *Chat) isRunning() bool {
 // harness cannot read, or a missing state in a chat that has a transcript,
 // starts a fresh session with the transcript in the system prompt.
 func (c *Chat) startHarness(ctx context.Context) error {
-	if err := c.primeChatTools(ctx); err != nil {
-		return err
+	return c.startHarnessWith(ctx, true)
+}
+
+// startHarnessWith is startHarness. With prime false the harness starts with
+// the host tools the chat already holds, and the ChatTools hook is not asked:
+// the turn asks it anyway (applyChatTools) and restarts the harness only when
+// the tools changed.
+func (c *Chat) startHarnessWith(ctx context.Context, prime bool) error {
+	if prime {
+		if err := c.primeChatTools(ctx); err != nil {
+			return err
+		}
 	}
 	c.mu.Lock()
 	rec := c.rec
@@ -355,6 +418,8 @@ func (c *Chat) startHarness(ctx context.Context) error {
 		}
 	}
 	if hs == nil {
+		// The new session has no history that names the files.
+		c.forgetFiles()
 		if sum := c.summary(ctx); sum != "" {
 			env.SystemPrompt += "\n\nThe conversation so far, from the transcript:\n" + sum
 		}
@@ -410,10 +475,23 @@ func (c *Chat) reopen(ctx context.Context) error {
 		}
 		// The whole record: another frontend may have run turns since.
 		c.mu.Lock()
+		// Another writer replaced the history (an edit, a clear, a turn on
+		// another frontend): it may not hold the list of files the model read.
+		replaced := sha256.Sum256(rec.HarnessState) != c.releasedState
 		c.rec, c.released, c.turn = rec, false, rec.Turns
 		c.mu.Unlock()
+		if replaced {
+			c.forgetFiles()
+		}
 	}
-	if err := c.startHarness(ctx); err != nil {
+	// A chat that ran a turn holds the host tools of that turn. Its next turn
+	// asks the hook again before the model runs, so the open does not wait on
+	// the hook a second time: the hook lists the tools of every MCP server and
+	// add-on, and the request that opens the chat would wait for all of them.
+	c.hostMu.Lock()
+	primed := c.host.fp != ""
+	c.hostMu.Unlock()
+	if err := c.startHarnessWith(ctx, !primed); err != nil {
 		return err
 	}
 	c.evMu.Lock()
@@ -446,7 +524,11 @@ func (c *Chat) onHarnessEvent(e Event) {
 		c.flushReasoning(ctx, turn)
 		c.mu.Lock()
 		c.text.WriteString(e.Text)
+		save, partial := c.partialDueLocked(time.Now())
 		c.mu.Unlock()
+		if save {
+			c.savePartial(ctx, turn, partial)
+		}
 	case KindToolStart:
 		e.Tool = capTool(e.Tool)
 		c.flushReasoning(ctx, turn)
@@ -473,6 +555,8 @@ func (c *Chat) onHarnessEvent(e Event) {
 	case KindCompacted:
 		// Only the token counts travel; the transcript keeps every message.
 		e.Text, e.Tool = "", nil
+		// The summary may have dropped the list of files.
+		c.forgetFiles()
 	case KindPaused:
 		// Only the step limit travels.
 		e.Text, e.Tool, e.Before, e.After = "", nil, 0, 0
@@ -632,6 +716,7 @@ func (c *Chat) flushText(ctx context.Context, turn int) {
 	if strings.TrimSpace(t) != "" {
 		c.appendEntry(ctx, Entry{Turn: turn, Role: RoleAssistant, Text: t})
 	}
+	c.clearPartial(ctx)
 }
 
 // History returns the whole transcript.
@@ -659,10 +744,15 @@ func (c *Chat) Send(ctx context.Context, msg Message) error { return c.send(ctx,
 // send is Send. logged is true when the message is in the transcript already.
 func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	text := strings.TrimSpace(msg.Text)
-	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 && msg.Directive == "" {
+	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 && msg.Directive == "" && !msg.Resume && msg.HostNote == "" {
 		return fmt.Errorf("%w: empty message", ErrInvalid)
 	}
-	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments, Loop: msg.Loop, Invoked: msg.Invoked}
+	if (msg.Resume || msg.HostNote != "") && !logged && text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 {
+		// Nothing of the person's goes in the transcript: the turn goes on
+		// from it as it is.
+		logged = true
+	}
+	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments, Loop: msg.Loop, Invoked: msg.Invoked, Sender: msg.Sender}
 	if msg.Goal {
 		entry = Entry{Role: RoleGoal, Text: text, Note: GoalLineContinue, Rev: int64(msg.GoalTurn)}
 	}
@@ -684,6 +774,10 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		}
 	}
 	if c.running {
+		if msg.Resume || msg.HostNote != "" {
+			c.mu.Unlock()
+			return fmt.Errorf("%w: a turn is running", ErrTurnRunning)
+		}
 		if c.stopped {
 			// Stop was called and the turn has not ended: a message would be
 			// queued and then dropped.
@@ -753,9 +847,34 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	// The transcript keeps the words and the files apart; the model gets
 	// them together, as it always has.
 	entry.Attachments = append(slices.Clip(entry.Attachments), saved...)
-	full := strings.Join(append(carried, withDirective(msg.Directive, c.modelText(entry))), "\n\n")
+	// The text that a death cut off goes into the transcript first, before the
+	// message of this turn (or, for a resume, before the model goes on).
+	cut, history := c.settleCut(ctx, msg.Resume)
+	parts := append(carried, withDirective(msg.Directive, c.modelText(entry)))
+	if msg.Resume {
+		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {
+			parts = carried // no words of the person; only the note below
+		}
+		parts = append(parts, resumeText(UnresolvedIntents(history), cut))
+	}
+	if msg.HostNote != "" {
+		if text == "" && msg.Note == "" && len(msg.Attachments) == 0 && len(saved) == 0 {
+			parts = carried
+		}
+		parts = append(parts, msg.HostNote)
+	}
+	full := strings.Join(parts, "\n\n")
 	if !logged {
 		entry.Turn = c.turnNow() + 1
+		if msg.Thread != "" {
+			// Before the message, so the transcript reads in the order the
+			// model did: the thread, then the words that addressed the bot.
+			th := Entry{Turn: entry.Turn, Role: RoleThread, Text: msg.Thread, Rev: int64(msg.ThreadLines)}
+			if msg.ThreadCut {
+				th.Note = ThreadCut
+			}
+			c.appendEntry(ctx, th)
+		}
 		c.appendEntry(ctx, entry)
 	}
 	c.m.wg.Add(1)
@@ -855,6 +974,9 @@ func (c *Chat) loop(text string, refresh bool, media []Media, done chan struct{}
 		}
 		c.endMu.Lock()
 		c.mu.Unlock()
+		if f := c.m.beforeTurnEnd; f != nil {
+			f()
+		}
 		c.emit(Event{Kind: KindTurnEnd, Turn: n})
 		c.endMu.Unlock()
 		c.touch()
@@ -901,9 +1023,11 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 	c.endMu.Unlock()
 	note := ""
 	var turnErr error
+	// failure is why the turn ended, when an error ended it.
+	var failure *Failure
 	if !skip {
 		var hookRefresh bool
-		note, hookRefresh, turnErr = c.applyChatTools(ctx)
+		note, hookRefresh, turnErr = c.applyChatTools(ctx, text)
 		c.mu.Lock()
 		hs = c.hs // a changed set of tools restarted the harness
 		c.mu.Unlock()
@@ -923,6 +1047,14 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 			// The note is for the model only: the transcript keeps the user's words.
 			toModel = "(System note: " + note + ")\n\n" + text
 		}
+		c.hostMu.Lock()
+		block := c.turnBlock
+		c.hostMu.Unlock()
+		if block != "" {
+			// Text the product fetched for this turn only. The user's words
+			// stay in the transcript; the block is not stored.
+			toModel = block + "\n\n" + toModel
+		}
 		err := turnErr
 		if err == nil {
 			err = safeSend(ctx, hs, toModel, media, c.m.log)
@@ -933,11 +1065,17 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 		if err != nil && !(stopped && (errors.Is(err, context.Canceled) || ctx.Err() != nil)) {
 			c.m.log.Error("session: the harness failed", "chat", c.id, "turn", n, "error", err)
 			f := Classify(err)
+			failure = &f
 			c.emit(Event{Kind: KindError, Turn: n, Text: f.Reason, Code: f.Code, Model: f.Model, Retry: f.RetryAfter, Detail: f.Detail, Fatal: true})
 		}
 	}
 	c.flushReasoning(context.Background(), n)
 	c.flushText(context.Background(), n)
+	if failure != nil {
+		// After the words and the steps of the turn: a reload reads the same
+		// transcript, with the reason at its end.
+		c.appendEntry(context.Background(), FailureEntry(n, *failure))
+	}
 
 	ch := c.checkpoint(n, text)
 	c.appendEntry(context.Background(), Entry{Turn: n, Role: RoleCheckpoint, Rev: ch.Rev, Text: strings.Join(ch.Paths, "\n")})
@@ -973,7 +1111,11 @@ func (c *Chat) checkpoint(n int, text string) ChangeEvent {
 	if c.vm.sb == nil {
 		return ChangeEvent{}
 	}
-	title := fmt.Sprintf("Turn %d: %s", n, CapText(strings.SplitN(text, "\n", 2)[0], 60))
+	first := strings.SplitN(text, "\n", 2)[0]
+	if strings.HasPrefix(text, resumeHead) {
+		first = "go on after an error"
+	}
+	title := fmt.Sprintf("Turn %d: %s", n, CapText(first, 60))
 	ctx, cancel := context.WithTimeout(context.Background(), checkpointLimit)
 	defer cancel()
 	sweepTemp(ctx, c.vm.sb)
@@ -1049,6 +1191,12 @@ func (c *Chat) close(ctx context.Context) error {
 	if hs != nil {
 		err = hs.Close()
 	}
+	// A turn leaves the running state, which ends the wait in Stop, before it
+	// announces its end. Wait for the announcement: the bus drops what is
+	// pushed after it is closed, and a consumer that never sees the end of
+	// the turn leaves it claimed.
+	c.endMu.Lock()
+	c.endMu.Unlock() //nolint:staticcheck // an empty critical section is the wait
 	c.evMu.RLock()
 	b := c.bus
 	c.evMu.RUnlock()
@@ -1111,7 +1259,7 @@ func (c *Chat) ensureFolder(ctx context.Context) (string, error) {
 }
 
 // reserveFolder gives the chat the name of its folder, without making the
-// folder, and returns it: the work folder that the prompt names lives in it,
+// folder, and returns it: the work folder that the note of a turn names lives in it,
 // and is made when something is saved there. A name that a folder or another
 // recent chat of the user has is taken.
 func (c *Chat) reserveFolder(ctx context.Context) (string, error) {
@@ -1127,7 +1275,7 @@ func (c *Chat) reserveFolder(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	name, err := uniqueName(FolderName(rec.Created, rec.Title), taken)
+	name, err := uniqueName(FolderName(rec.Created, rec.Title), "-", taken)
 	if err != nil {
 		return "", err
 	}
@@ -1206,38 +1354,41 @@ func EnsureWorkFolder(ctx context.Context, ws workspace.Store, a workspace.Actor
 	return mkdirOnce(ctx, ws, a, HomePath(principal)+workfiles.Folder(chatFolder))
 }
 
-// workFolderBlock names the work folder of the chat for the prompt. It is ""
-// when the chat has no files, or its folder cannot be named this turn, or it
-// has no folder name and reserve is false.
-func (c *Chat) workFolderBlock(ctx context.Context, reserve bool) string {
+// workFolderBlock is the prompt block about the work folder of the chat, and
+// the line of the turn's note that names the folder. Both are "" when the chat
+// has no files, or its folder cannot be named this turn, or it has no folder
+// name and reserve is false.
+func (c *Chat) workFolderBlock(ctx context.Context, reserve bool) (block, note string) {
 	if c.m.o.Workspace == nil {
-		return ""
+		return "", ""
 	}
 	if !reserve {
 		c.mu.Lock()
 		name := c.rec.Folder
 		c.mu.Unlock()
 		if name == "" {
-			return ""
+			return "", ""
 		}
 		return c.workPrompt(name)
 	}
 	name, err := c.reserveFolder(ctx)
 	if err != nil {
 		c.m.log.Warn("session: no work folder this turn", "chat", c.id, "error", err)
-		return ""
+		return "", ""
 	}
 	return c.workPrompt(name)
 }
 
 // workPrompt names the work folder by the chat's view: in a scoped chat the
-// chat folder is its own mount, at /workspace/chat.
-func (c *Chat) workPrompt(name string) string {
+// chat folder is its own mount, at /workspace/chat, and the block names it.
+// Otherwise the folder carries the chat's title, so the note names it and the
+// block stays the same for every chat.
+func (c *Chat) workPrompt(name string) (block, note string) {
 	_, _, view := c.access()
 	if p := NewPlace(view); p.Scoped() {
-		return workfiles.ScopedPrompt(p.PrimaryWritable())
+		return workfiles.ScopedPrompt(p.PrimaryWritable()), ""
 	}
-	return workfiles.Prompt(workfiles.GuestFolder(name))
+	return workfiles.Prompt, workfiles.Note(workfiles.GuestFolder(name))
 }
 
 // SetTitle renames the chat and, when the chat folder exists, the folder. It
@@ -1270,7 +1421,10 @@ func (c *Chat) SetTitle(ctx context.Context, title string) error {
 	c.mu.Lock()
 	old, created := c.rec.Folder, c.rec.Created
 	c.mu.Unlock()
-	if base := FolderName(created, title); old != "" && !strings.EqualFold(base, old) {
+	// A folder made before the ASCII form keeps its name: renaming it would
+	// move files that a chat, a trigger or the user may name by path. Only a
+	// folder in the new form follows the title.
+	if base := FolderName(created, title); old != "" && isSlugFolder(old) && !strings.EqualFold(base, old) {
 		if err := c.renameFolder(ctx, old, base); err != nil {
 			return err
 		}
@@ -1306,7 +1460,7 @@ func (c *Chat) renameFolder(ctx context.Context, old, base string) error {
 	taken, err := c.folderTaken(ctx, old)
 	var name string
 	if err == nil {
-		name, err = uniqueName(base, taken)
+		name, err = uniqueName(base, "-", taken)
 	}
 	if err == nil && name != old {
 		_, err = c.m.o.Workspace.Move(ctx, user, chats+"/"+old, chats+"/"+name)
@@ -1374,7 +1528,7 @@ func (c *Chat) guardTools(tools []Tool) []Tool {
 	out := make([]Tool, len(tools))
 	for i, tool := range tools {
 		run := tool.Run
-		name := tool.Name
+		name, readOnly := tool.Name, tool.ReadOnly || ReadOnlyTool(tool.Name)
 		tool.Run = func(ctx context.Context, args json.RawMessage) (res string, err error) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -1397,6 +1551,11 @@ func (c *Chat) guardTools(tools []Tool) []Tool {
 			rctx, cancel := context.WithCancel(turnValues{Context: ctx, turn: tctx})
 			defer cancel()
 			defer context.AfterFunc(tctx, cancel)()
+			if !readOnly {
+				// Before the call: a restart that cuts it leaves this line without a
+				// result, and the resume says the outcome is not known.
+				c.noteIntent(rctx, name, args)
+			}
 			return run(rctx, args)
 		}
 		out[i] = tool
@@ -1416,6 +1575,7 @@ func (c *Chat) releaseMemory(ctx context.Context) {
 		return
 	}
 	c.mu.Lock()
+	c.releasedState = sha256.Sum256(c.rec.HarnessState)
 	c.rec.HarnessState, c.released = nil, true
 	c.mu.Unlock()
 	c.evMu.Lock()

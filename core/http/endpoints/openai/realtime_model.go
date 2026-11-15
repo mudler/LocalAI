@@ -664,7 +664,20 @@ func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language stri
 	})
 }
 
-func resolveRealtimeVoice(ctx context.Context, configuredVoice string, ttsConfig *config.ModelConfig, profiles *voiceprofile.Store) (string, map[string]string, func(), error) {
+// resolveClientRealtimeVoice resolves a voice that a client chose in
+// session.update. The TTS backends that clone from a reference clip take a
+// voice value as a file name, so a user who is not an administrator may not
+// pass a path. A voice of the model configuration is the operator's choice and
+// goes through resolveRealtimeVoice directly. Administrators and servers
+// without accounts are unchanged.
+func resolveClientRealtimeVoice(ctx context.Context, voice string, ttsConfig *config.ModelConfig, profiles *voiceprofile.Store, viewer voiceprofile.Viewer) (string, map[string]string, func(), error) {
+	if !voiceprofile.IsReference(voice) && !viewer.Admin && voiceprofile.UnsafeVoice(voice) {
+		return "", nil, nil, fmt.Errorf("voice must be a voice profile or a voice of the model, not a path")
+	}
+	return resolveRealtimeVoice(ctx, voice, ttsConfig, profiles, viewer)
+}
+
+func resolveRealtimeVoice(ctx context.Context, configuredVoice string, ttsConfig *config.ModelConfig, profiles *voiceprofile.Store, viewer voiceprofile.Viewer) (string, map[string]string, func(), error) {
 	if !voiceprofile.IsReference(configuredVoice) {
 		return configuredVoice, nil, func() {}, nil
 	}
@@ -678,7 +691,7 @@ func resolveRealtimeVoice(ctx context.Context, configuredVoice string, ttsConfig
 	if profiles == nil {
 		return "", nil, nil, fmt.Errorf("voice profile store is unavailable")
 	}
-	profile, referencePath, release, err := profiles.LeaseAudio(ctx, profileID)
+	profile, referencePath, release, err := profiles.LeaseAudioFor(ctx, viewer, profileID)
 	if err != nil {
 		if errors.Is(err, voiceprofile.ErrNotFound) {
 			return "", nil, nil, fmt.Errorf("voice profile not found: %w", err)

@@ -24,6 +24,7 @@ const (
 	GrantSkillsWrite      = contract.CapSkillsWrite
 	GrantPagesWrite       = contract.CapPagesWrite
 	GrantDashboardWrite   = contract.CapDashboardWrite
+	GrantKnowledgeWrite   = contract.CapKnowledgeWrite
 	GrantTriggersPropose  = contract.CapTriggersPropose
 	GrantTriggersRun      = contract.CapTriggersRun
 	GrantTalkbackChannels = contract.CapTalkbackChannels
@@ -60,6 +61,7 @@ var grants = []Grant{
 	{GrantSkillsWrite, "Write skills", "The agent can propose a new or changed skill for itself or for you. You confirm each one, and a skill you locked stays as it is.", true},
 	{GrantPagesWrite, "Create pages", "The agent can propose a page: a small app that opens in a sandboxed frame. You see its files and confirm.", true},
 	{GrantDashboardWrite, "Change the dashboard", "The agent can propose a new layout of your Home dashboard. You confirm each change.", true},
+	{GrantKnowledgeWrite, "Add to knowledge", "The agent can propose a text for one of its collections. The host indexes it only after you confirm, and never at once.", true},
 	{GrantTriggersPropose, "Propose triggers", "The agent can propose a task that runs by itself, from a messaging app too. You confirm it.", false},
 	{GrantTriggersRun, "Run triggers", "The triggers of this agent may start from a messaging app.", false},
 	{GrantTalkbackChannels, "Reply on known channels", "The agent can send a message to a channel it already talks in.", false},
