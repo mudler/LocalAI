@@ -209,19 +209,22 @@ stop it. Type `/loop` in the message box, or use the API.
 
 ```bash
 # Start a loop (no interval: self-paced). The first loop of a chat is pending.
-curl -X POST .../api/chats/3f1c.../loops -d '{"interval": "5m", "prompt": "Check the build."}'
+curl -X POST .../api/chats/3f1c.../loops -H 'Content-Type: application/json' -d '{"interval": "5m", "prompt": "Check the build."}'
 # {"id":"9b2e...","prompt":"Check the build.","interval":"5m","interval_seconds":300,
 #  "state":"pending","runs":0,"running":false,"created":"..."}
 
 # Confirm it (state active), pause it, or resume it.
-curl -X PUT .../api/chats/3f1c.../loops/9b2e... -d '{"state": "active"}'
-curl -X PUT .../api/chats/3f1c.../loops/9b2e... -d '{"state": "paused"}'
+curl -X PUT .../api/chats/3f1c.../loops/9b2e... -H 'Content-Type: application/json' -d '{"state": "active"}'
+curl -X PUT .../api/chats/3f1c.../loops/9b2e... -H 'Content-Type: application/json' -d '{"state": "paused"}'
 
 # List, stop one, stop all.
 curl .../api/chats/3f1c.../loops
 curl -X DELETE .../api/chats/3f1c.../loops/9b2e...
 curl -X DELETE .../api/chats/3f1c.../loops
 ```
+
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
 
 A loop's `state` is `pending` (waits for your yes), `active`, `paused` or
 `ended`; `reason` says why it paused, ended or waits, `next` when it runs

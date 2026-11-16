@@ -353,8 +353,11 @@ the platform hands over. A list takes only those kinds:
 | `document` | Any file sent as a file: a PDF, an uncompressed picture, a text file |
 
 ```
-curl -X PUT .../api/chats/connectors/<id> -d '{"name": "Support bot", "agent_id": "<id>", "enabled": true, "allow": ["12345678"], "caps": ["files.upload"], "inbound_media": ["voice"]}'
+curl -X PUT .../api/chats/connectors/<id> -H 'Content-Type: application/json' -d '{"name": "Support bot", "agent_id": "<id>", "enabled": true, "allow": ["12345678"], "caps": ["files.upload"], "inbound_media": ["voice"]}'
 ```
+
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
 
 - The check is made by the server, before the file is read: a file of a kind that
   the binding does not take is never downloaded, never stored and never reaches the

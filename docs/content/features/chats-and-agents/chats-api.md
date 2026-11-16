@@ -163,7 +163,7 @@ next request. A waiting message shows the files you attached to it as the same
 chips a sent message has. Until it is delivered you can change or remove it:
 
 ```bash
-curl -X PATCH  .../api/chats/3f1c.../pending/p2 -d '{"text": "Use euros."}'
+curl -X PATCH  .../api/chats/3f1c.../pending/p2 -H 'Content-Type: application/json' -d '{"text": "Use euros."}'
 curl -X DELETE .../api/chats/3f1c.../pending/p2
 ```
 
@@ -329,14 +329,14 @@ left, and the details open in a sheet.
 curl -X POST .../api/chats/3f1c.../regenerate
 # Replace one of your messages and run the chat again from it. The messages
 # after it are removed. seq is the line number in the transcript.
-curl -X POST .../api/chats/3f1c.../messages/12/edit -d '{"text":"A better question"}'
+curl -X POST .../api/chats/3f1c.../messages/12/edit -H 'Content-Type: application/json' -d '{"text":"A better question"}'
 # Copy the chat up to and including line 14 into a new chat.
-curl -X POST .../api/chats/3f1c.../fork -d '{"from_seq":14,"title":"Other idea"}'
+curl -X POST .../api/chats/3f1c.../fork -H 'Content-Type: application/json' -d '{"from_seq":14,"title":"Other idea"}'
 # Find chats by title or by what was said, in all your chats.
 curl '.../api/chats/search?q=invoice'
 # Take a chat out as Markdown (default) or JSON, and bring a JSON file back in.
 curl '.../api/chats/3f1c.../export?format=json' > chat.json
-curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
+curl -X POST .../api/chats/import -H 'Content-Type: application/json' -d "{\"chat\": $(cat chat.json)}"
 ```
 
 - Regenerate and edit remove the lines after the cut point from the
@@ -395,8 +395,7 @@ the model:
   (one tab-separated line per row), and a presentation its slides, each with
   its title, text and speaker notes. A PDF with no text layer is reported as
   a probable scan; an Office file with no text is reported as empty.
-- **Audio.** A voice note is transcribed when a transcription model is set,
-  as before.
+- **Audio.** A voice note is transcribed when a transcription model is set.
 
 The files are always kept in the chat's folder too. Images over 20 MB, videos
 over 100 MB and more than 128 MB of media in one message stay files only.

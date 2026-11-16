@@ -90,6 +90,9 @@ curl -X POST .../api/chats/3f1c.../clear
 # {"cleared":true}
 ```
 
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
+
 - Compact keeps the last messages as they are and puts a summary in place of
   the ones before. It answers 400 when the conversation is too short to
   compact. The transcript gets a line with `role` `compacted` and the sizes in

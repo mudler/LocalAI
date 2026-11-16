@@ -33,13 +33,16 @@ connectors. You can add any of them to a message as context for that turn:
 curl .../api/chats/3f1c.../mcp/prompts      # {"prompts":[{"server":"connector:ab12","name":"review","arguments":[...]}]}
 curl .../api/chats/3f1c.../mcp/resources    # {"resources":[{"server":"wiki","uri":"wiki://home"}]}
 # Preview one:
-curl -X POST .../api/chats/3f1c.../mcp/prompts -d '{"server":"connector:ab12","name":"review","arguments":{"lang":"Go"}}'
-curl -X POST .../api/chats/3f1c.../mcp/resources/read -d '{"server":"wiki","uri":"wiki://home"}'
+curl -X POST .../api/chats/3f1c.../mcp/prompts -H 'Content-Type: application/json' -d '{"server":"connector:ab12","name":"review","arguments":{"lang":"Go"}}'
+curl -X POST .../api/chats/3f1c.../mcp/resources/read -H 'Content-Type: application/json' -d '{"server":"wiki","uri":"wiki://home"}'
 # Send them with a message. The server expands them as you and puts the text before yours.
-curl -X POST .../api/chats/3f1c.../messages -d '{"text":"Go ahead","context":[
+curl -X POST .../api/chats/3f1c.../messages -H 'Content-Type: application/json' -d '{"text":"Go ahead","context":[
   {"server":"connector:ab12","name":"review","arguments":{"lang":"Go"}},
   {"server":"wiki","uri":"wiki://home"}]}'
 ```
+
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
 
 A server the chat cannot use is `403 mcp_refused`, and the message is not sent.
 A server that does not answer is `502 mcp_error`. Binary parts of a resource are
@@ -75,13 +78,13 @@ opens as a sheet at the bottom of the screen.
 curl -s localhost:8080/api/chats/$ID/tools
 # {"addons":[...],"servers":[{"name":"crm","off":false,"usable":true}],
 #  "connectors":[{"id":"c1","name":"Docs","off":false,"usable":true}],"off":[]}
-curl -s -X PUT localhost:8080/api/chats/$ID/mcp -d '{"off":["crm","connector:c1"]}'
+curl -s -X PUT localhost:8080/api/chats/$ID/mcp -H 'Content-Type: application/json' -d '{"off":["crm","connector:c1"]}'
 ```
 
 `off` holds the name of a server of the model, or `connector:<id>`. At most 200 switches.
 
 The built-in tools switch by group. Every group is on until the chat switches
-it off, so a chat that never touches the menu works as before:
+it off, so a chat that never touches the menu has every group:
 
 | Row | Group | Tools |
 |-----|-------|-------|
@@ -100,7 +103,7 @@ it off, so a chat that never touches the menu works as before:
 | **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals]({{% relref "/addons/contract-reference/connectors-and-chats#change-proposals-from-chats" %}})); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory]({{% relref "/features/chats-and-agents/short-memory" %}}#choose-how-a-note-is-saved)) |
 
 ```bash
-curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'
+curl -s -X PUT localhost:8080/api/chats/$ID/builtins -H 'Content-Type: application/json' -d '{"off":["web","files"]}'
 ```
 
 The two LocalAI groups are large, so on a small context window a chat may not send
@@ -191,7 +194,7 @@ curl -s "localhost:8080/api/chats/$ID/mcp-apps/resource?server=connector:c1&uri=
 
 # A tool call from the page.
 curl -s -X POST localhost:8080/api/chats/$ID/mcp-apps/call \
-  -d '{"server":"connector:c1","tool":"refresh","arguments":{"zone":"UTC"}}'
+  -H 'Content-Type: application/json' -d '{"server":"connector:c1","tool":"refresh","arguments":{"zone":"UTC"}}'
 # {"result":{"content":[{"type":"text","text":"..."}],"structuredContent":{...}}}
 ```
 
@@ -260,5 +263,5 @@ A chat can use the tools of the add-ons you may use. The **Tools** menu of the c
 ```bash
 curl -s localhost:8080/api/chats/$ID/addons
 # {"addons":[{"id":"office","tools":4,"off":false}]}
-curl -s -X PUT localhost:8080/api/chats/$ID/addons -d '{"off":["office"]}'
+curl -s -X PUT localhost:8080/api/chats/$ID/addons -H 'Content-Type: application/json' -d '{"off":["office"]}'
 ```

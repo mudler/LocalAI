@@ -74,11 +74,14 @@ with the task (the chat must have **Saved agents** switched on). A regenerate
 runs the skill again.
 
 ```bash
-curl -X POST .../api/chats/3f1c.../messages -d '{"text":"check the diff","skill":"review"}'
-curl -X POST .../api/chats/3f1c.../messages -d '{"text":"check the draft","agent":"rev1"}'
+curl -X POST .../api/chats/3f1c.../messages -H 'Content-Type: application/json' -d '{"text":"check the diff","skill":"review"}'
+curl -X POST .../api/chats/3f1c.../messages -H 'Content-Type: application/json' -d '{"text":"check the draft","agent":"rev1"}'
 # An unknown skill: 400 with the names of the skills of the chat. An unknown
 # agent, another user's, or saved agents off for this chat: 400.
 ```
+
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
 
 Such a message starts a turn. While a turn runs it does not wait like other
 messages: it answers 409, and you send it again when the model has answered.
@@ -124,9 +127,9 @@ In the **Skills** menu over the message box each skill says where it comes from:
 The format is the same as the skills LocalAI already used, so an existing skill carries over by copying its folder into one of the places above. Skills in the public [Agent Skills](https://agentskills.io/specification) format can also be imported from a zip file and exported as one (see [Import and export skills](#import-and-export-skills)). Git sources are not part of chats.
 
 ```bash
-curl -X POST .../api/chats/skills -d '{"layer": "personal", "name": "review", "description": "Check a change before it ships", "body": "Read the diff.\nSay what you find."}'
+curl -X POST .../api/chats/skills -H 'Content-Type: application/json' -d '{"layer": "personal", "name": "review", "description": "Check a change before it ships", "body": "Read the diff.\nSay what you find."}'
 curl .../api/chats/skills?chat=3f1c...            # what the chat has, with its switches
-curl -X PUT .../api/chats/3f1c.../skills -d '{"off": ["review"]}'   # switch one off for this chat
+curl -X PUT .../api/chats/3f1c.../skills -H 'Content-Type: application/json' -d '{"off": ["review"]}'   # switch one off for this chat
 ```
 
 A chat keeps its own switches. Turning a skill off takes it out of the index at the next turn. A switch with the plain name turns off the skill that wins, so a skill of the same name further away shows through, as the list says. A switch with the id `layer:name` (the `id` in the skill list, for example `personal:review`) turns off the skill of that layer only. A deleted skill goes to the Trash like any file. Only an administrator writes shared skills, and everyone reads them. Your personal skills are as private as your files.

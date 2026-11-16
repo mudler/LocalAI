@@ -99,10 +99,13 @@ chat page opens empty with the agent chosen.
 ### API
 
 ```
-curl -X POST .../api/chats/agents -d '{"name": "Reviewer", "instructions": "Answer in French.", "addons": ["office"], "skills": ["review"]}'
+curl -X POST .../api/chats/agents -H 'Content-Type: application/json' -d '{"name": "Reviewer", "instructions": "Answer in French.", "addons": ["office"], "skills": ["review"]}'
 curl .../api/chats/agents
-curl -X POST .../api/chats -d '{"agent_id": "<id>", "model": "my-model"}'
+curl -X POST .../api/chats -H 'Content-Type: application/json' -d '{"agent_id": "<id>", "model": "my-model"}'
 ```
+
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
 
 `GET`, `PUT` and `DELETE /api/chats/agents/{id}` read, replace and delete one.
 A `PUT` replaces every field except `folders` (see below), the tool switches `builtins_off` and `builtins_on` and the [connections](#connections-of-an-agent), which it keeps when the body does not name them (an empty list or object clears them). Chats that already run with the agent use the new
@@ -137,8 +140,8 @@ tool levels on top:
   that change data are marked).
 - **MCP servers**: a picker over your defined MCP connectors and the MCP servers
   of the agent's model, one switch each, with a search field when there are
-  many. They write the same `mcp_servers` list as before; they no longer sit
-  under **Advanced**, and there is no free text.
+  many. They write the `mcp_servers` list. They aren't under **Advanced**, and there
+  is no free text.
 
 A level (Look only, Assistant, Full) sets the built-in tools and permissions only.
 It does not touch add-ons, accounts, MCP servers or skills.
@@ -239,7 +242,7 @@ level 2; see [the manifest]({{% relref "/addons/contract-reference/manifest#feat
 agent's chats can read it) or `write` (they can read and change it). `folder`, one `{path, mode}`, is read as a list with one entry. Responses carry `folders` in the order you gave them, and `folder`, the first of them:
 
 ```
-curl -X POST .../api/chats/agents -d '{"name": "Acme", "folders": [
+curl -X POST .../api/chats/agents -H 'Content-Type: application/json' -d '{"name": "Acme", "folders": [
   {"path": "/Projects/Acme", "mode": "write"}, {"path": "/Reference", "mode": "read"}]}'
 # {"id":"...","name":"Acme",...,
 #  "folder":{"path":"/Projects/Acme","name":"Acme","mode":"write","effective":"write","state":"ok"},
@@ -437,7 +440,7 @@ connection, the agent holds the grant, and the chat did not switch the tool off.
 Four grants work this way: `triggers.propose`, `triggers.run`, `talkback.channels`
 and `files.upload` (a sender's files going to the agent; it does not let the agent send files out), plus the sensitive
 `talkback.new_channel`. An agent that has no `builtins` list at all keeps the
-non-sensitive ones, as before. A sensitive grant is never implied: it needs to be
+non-sensitive ones. A sensitive grant is never implied: it needs to be
 on the list. The moment you grant any built-in, the list is the whole answer, so
 add the connector grants you want to keep (granting only `memory.write` to an agent
 that proposed triggers from a messaging app turns those off; nothing is deleted
@@ -449,7 +452,7 @@ the ceiling of the action policy of unattended runs (see
 
 ```
 curl .../api/chats/agents/<id>/export > reviewer.json
-curl -X POST .../api/chats/agents/import -d @reviewer.json
+curl -X POST .../api/chats/agents/import -H 'Content-Type: application/json' -d @reviewer.json
 curl -X POST .../api/chats/agents/import -F file=@reviewer.json
 ```
 
@@ -472,7 +475,7 @@ versions 4 and 5.
 
 The `builtins` list, `memory` and `memory_save` are extra fields of any
 version. A server that does not know them ignores them, so the agent arrives
-without the grants, as before, and without its own save rule (it then follows
+without the grants and without its own save rule (it then follows
 the setting of the person). A server that knows `memory_save` but only `always`
 and `never` refuses a file with `auto` (400).
 
@@ -940,7 +943,7 @@ exact name when only one trigger has that name.
   other than `enabled` does nothing by itself: a card shows each changed field
   before and after, with **Apply** and **Dismiss**. A change that only pauses
   (`enabled: false`) or resumes (`enabled: true`) the trigger applies at once,
-  because you can take it back, and its card is a receipt with **Undo**.
+  because you can undo it, and its card is a receipt with **Undo**.
 - `delete_trigger {ref}` deletes nothing by itself: a card shows the trigger's
   name, when it runs, whether it is on and its last run, with **Delete** and
   **Keep**.
@@ -1010,7 +1013,7 @@ its time and a file trigger within 5 seconds of the end of its quiet time.
 ### API
 
 ```
-curl -X POST .../api/chats/triggers -d '{"name": "Morning digest", "prompt": "Summarise yesterday.", "kind": "schedule", "schedule": "weekdays 09:00", "time_zone": "Europe/Rome", "enabled": true, "model": "my-model"}'
+curl -X POST .../api/chats/triggers -H 'Content-Type: application/json' -d '{"name": "Morning digest", "prompt": "Summarise yesterday.", "kind": "schedule", "schedule": "weekdays 09:00", "time_zone": "Europe/Rome", "enabled": true, "model": "my-model"}'
 curl .../api/chats/triggers
 curl -X POST .../api/chats/triggers/<id>/run      # start a run now
 curl .../api/chats/triggers/<id>/runs
@@ -1078,10 +1081,10 @@ Some items have a `code` and `params` in the API (`updates.digest`, `updates.res
 ```
 curl ".../api/chats/notifications?unread=1"          # the unread ones, and the unread count
 curl .../api/chats/notifications/count
-curl -X POST .../api/chats/notifications/read -d '{"all": true}'
-curl -X DELETE .../api/chats/notifications -d '{"ids": [12, 13]}'
-curl -X DELETE .../api/chats/notifications -d '{"all": true}'                    # empty the inbox
-curl -X DELETE .../api/chats/notifications -d '{"all": true, "read_only": true}' # remove only the read ones
+curl -X POST .../api/chats/notifications/read -H 'Content-Type: application/json' -d '{"all": true}'
+curl -X DELETE .../api/chats/notifications -H 'Content-Type: application/json' -d '{"ids": [12, 13]}'
+curl -X DELETE .../api/chats/notifications -H 'Content-Type: application/json' -d '{"all": true}'                    # empty the inbox
+curl -X DELETE .../api/chats/notifications -H 'Content-Type: application/json' -d '{"all": true, "read_only": true}' # remove only the read ones
 curl -N .../api/chats/notifications/events            # new ones as server-sent events
 ```
 
@@ -1112,8 +1115,8 @@ else, also when no LocalAI tab is open. Clicking it opens the chat.
 
 ```
 curl .../api/chats/push/key                       # the server's VAPID public key
-curl -X POST .../api/chats/push/subscribe -d '{"endpoint": "https://...", "keys": {"p256dh": "...", "auth": "..."}}'
-curl -X DELETE .../api/chats/push/subscribe -d '{"endpoint": "https://..."}'
+curl -X POST .../api/chats/push/subscribe -H 'Content-Type: application/json' -d '{"endpoint": "https://...", "keys": {"p256dh": "...", "auth": "..."}}'
+curl -X DELETE .../api/chats/push/subscribe -H 'Content-Type: application/json' -d '{"endpoint": "https://..."}'
 ```
 
 - The server makes its VAPID key pair the first time it is needed and keeps it

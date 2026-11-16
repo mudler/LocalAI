@@ -187,10 +187,10 @@ The chat page (`/app/chats/<id>`) shows one chat.
   box; **Edit shortcuts** changes the list. See [Make LocalAI
   yours]({{% relref "/features/chats-and-agents/make-localai-yours" %}}).
 - **Find** (`Ctrl+Shift+F`), focus mode, copying the chat as Markdown and
-  the keyboard shortcuts work as before.
+  the keyboard shortcuts are all available.
 
 Administrators find every user's agents, triggers and connectors under
-**Operate > Settings > Chats of all users**. The [agent tasks and
+**Admin → Settings → Chats of all users**. The [agent tasks and
 jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) have a page of their own, **Agents > Tasks**
 (`/app/agent-tasks`).
 

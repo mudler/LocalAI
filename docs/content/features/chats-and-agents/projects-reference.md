@@ -39,8 +39,8 @@ between answers `409`). A per-process lock only narrows the window.
 filter by state and **New project**. A project page has the tabs Overview,
 Files, Chats, Memory and Tools: Overview has **Start chat in this project**,
 Memory edits the index and the topic files, and Tools sets the defaults.
-The defaults apply to every new chat in the project: skills, add-ons and MCP
-servers as before, and now also connectors (only the listed ones are on) and
+The defaults apply to every new chat in the project: skills, add-ons, MCP
+servers, connectors (only the listed ones are on) and
 collections (the chat can use only the listed knowledge collections). An empty
 list means no override. When a chat is restricted to collections, its chat
 settings show them in a read-only **Collections** section.
@@ -377,7 +377,7 @@ period is dropped, and starts no run until you save it again. This rule decides
 only what starts a run. A run that a trigger starts reads the files as they are
 then, including a file that another person has written, so it does not protect
 the content that a run reads. A trigger that watches a folder outside your
-projects starts for every author, as before.
+projects starts for every author.
 
 ### Connections, triggers and loops of a project
 

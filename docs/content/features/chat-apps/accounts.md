@@ -46,7 +46,7 @@ A classic token (`ghp_`) has scopes for the whole account, not for the repositor
 - In the page, tick **Allow a classic token** and then the box that says you understand it is wider than the list.
 - Over the API, set the option `classicToken` to `allow` in `options`, and send `confirm_wider_token` set to `accept wider token` in the request that turns it on.
 
-The repository list and the write mode apply as before, and LocalAI still enforces them before the add-on runs. But GitHub would let a leaked classic token do more than the list, so prefer a fine-grained token. Switching the option off stops the stored classic token from being used at once; the token is not deleted. Fine-grained tokens work as they did and need none of this. This is the manifest key `tokenGuards` of the connector kind, which holds back any token that starts with a prefix until the connection chooses an option.
+The repository list and the write mode still apply, and LocalAI still enforces them before the add-on runs. But GitHub would let a leaked classic token do more than the list, so prefer a fine-grained token. Switching the option off stops the stored classic token from being used at once; the token is not deleted. Fine-grained tokens work as they did and need none of this. This is the manifest key `tokenGuards` of the connector kind, which holds back any token that starts with a prefix until the connection chooses an option.
 
 What GitHub returns (issue text, comments, file content) is written by other people. Every result is marked as untrusted data for the model. Long files are cut at 96 KiB and long patches at 64 KiB; the result says what was cut and how to ask for the rest. When GitHub limits the rate of calls, the agent is told how long to wait.
 
@@ -365,8 +365,8 @@ token binding for such a kind, and an `oauth2` binding for a kind whose add-on
 takes a token, with a `400` that says which one the add-on needs:
 
 ```bash
-curl -X POST .../api/chats/connectors -d '{"kind": "<kind>", "name": "Work", "auth_kind": "oauth2"}'
-curl -X POST .../api/chats/connectors/<id>/oauth/start -d '{"return_to": "/app/chats/connectors"}'
+curl -X POST .../api/chats/connectors -H 'Content-Type: application/json' -d '{"kind": "<kind>", "name": "Work", "auth_kind": "oauth2"}'
+curl -X POST .../api/chats/connectors/<id>/oauth/start -H 'Content-Type: application/json' -d '{"return_to": "/app/chats/connectors"}'
 # {"authorize_url": "https://auth.example.test/authorize?...", "expires": "..."}
 ```
 

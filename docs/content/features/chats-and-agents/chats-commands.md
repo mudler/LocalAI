@@ -377,8 +377,11 @@ the chat shows the card as not answered: the command did not run. The answer
 is sent with:
 
 ```bash
-curl -X POST .../api/chats/3f1c.../host-exec/consent -d '{"id":"<id of the host_exec_consent event>","decision":"once"}'
+curl -X POST .../api/chats/3f1c.../host-exec/consent -H 'Content-Type: application/json' -d '{"id":"<id of the host_exec_consent event>","decision":"once"}'
 ```
+
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
 
 Only an administrator may send `once`; anyone who owns the chat may send
 `deny`. An answer without the card `id`, or with any other decision, is

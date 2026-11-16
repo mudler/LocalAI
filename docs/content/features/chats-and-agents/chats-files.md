@@ -65,6 +65,9 @@ curl .../api/chats/3f1c.../files
 #  "folder":"/workspace/home/Chats/2026-10-29-budget/","folder_path":"/Chats/2026-10-29-budget"}
 ```
 
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
+
 `origin` is `user` (you attached it, or put it in the chat folder), `model`
 (a command of the model wrote it) or `tool` (a tool of the chat wrote it,
 such as `write_file`). `changed` marks a file the chat changed but did not
@@ -128,7 +131,7 @@ chat's attachments. It is a normal, visible folder.
   folder, and `$WORK` holds its path: the `bash` of the Sandbox, the `bash` on
   this machine and the [background jobs]({{% relref "/features/chats-and-agents/chats-commands#background-jobs" %}}) of both. The
   folder is made before the shell starts. A chat with no work folder yet (or
-  with the steering off) starts in `/workspace/home`, as before, and has no
+  with the steering off) starts in `/workspace/home` and has no
   `$WORK`. The model can still write anywhere in your files: nothing
   restricts where a command writes. On this machine `$WORK` is a path of the
   scratch folder, not of `/workspace`.
@@ -184,8 +187,7 @@ In the chat:
   side with the dock, so opening one hides the other. It lists what the chat
   made for you first. The working
   files are in a group of their own under it, **Working files · N**, folded
-  and quieter; open it to see and preview them. The files you attached are
-  listed as before. **Download all files as ZIP**, at the top of the pane,
+  and quieter; open it to see and preview them. **Download all files as ZIP**, at the top of the pane,
   saves every file of the list, working files included, in one ZIP with the
   folder layout kept. It is off when the list is empty.
 - **The preview** that opens by itself after a turn shows the newest file

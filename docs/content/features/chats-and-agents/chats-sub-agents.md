@@ -45,6 +45,9 @@ curl .../api/chats/3f1c.../agents/9ab2.../messages     # one run's transcript
 curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
 ```
 
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
+
 ### Jobs and stall waits of sub-agents
 
 - **Waiting for a quiet sub-agent.** `wait_for` takes the id of a background
@@ -105,7 +108,7 @@ starts. Without the `agents` feature the switch is shown greyed out with the
 reason.
 
 ```bash
-curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":[],"on":["saved_agents"]}'
+curl -s -X PUT localhost:8080/api/chats/$ID/builtins -H 'Content-Type: application/json' -d '{"off":[],"on":["saved_agents"]}'
 ```
 
 `on` lists the opt-in groups that are on and replaces the earlier list; omit it

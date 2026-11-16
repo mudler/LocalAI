@@ -31,6 +31,9 @@ curl -X POST http://localhost:8080/api/chats \
   -d '{"model": "my-chat-model", "title": "LocalAI Assistant", "assistant": true}'
 ```
 
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
+
 The server answers `403` to a user who is not an admin, `503` when the admin tools are switched off for the instance (`chats_localai_admin`), and `400` when the request also names a saved agent.
 
 Once the chat is open, try:

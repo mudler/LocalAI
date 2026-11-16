@@ -37,7 +37,7 @@ Each chat has the usual switches (`PUT /api/chats/{id}/builtins`). A saved agent
 
 ### Tool search
 
-Every tool the model is offered is sent to it again on every turn, and the two groups are large: together about 9,000 tokens. On a model with a small context window that leaves little room for the conversation. So a chat can send three small tools in place of the two groups, and the model finds and runs the group tools through them:
+Every tool the model is offered is sent to it again on every turn, and the two groups are large. On a model with a small context window that leaves little room for the conversation. So a chat can send three small tools in place of the two groups, and the model finds and runs the group tools through them:
 
 | Tool | What it does |
 |---|---|
@@ -45,13 +45,13 @@ Every tool the model is offered is sent to it again on every turn, and the two g
 | `tool_describe` | Takes a tool name and returns its full description and parameters. |
 | `tool_call` | Takes a tool name and its `arguments` and runs the tool. |
 
-The three together are under 400 tokens. The setting `chats_tool_search` decides when a chat uses them:
+The three tools are small. The setting `chats_tool_search` decides when a chat uses them:
 
 - `auto` (default): when the schemas of the tools of both groups that the chat would send reach a tenth of the context window of the chat's model. The window is the chat's own context size setting, or else the context size of the model. If the window is not known, the groups are sent in full.
 - `on`: always, when the chat has at least one tool in the groups. The tools of the user's MCP connectors (the Connectors page) go behind the three tools too.
 - `off`: never. Every tool is sent in full.
 
-The tools of MCP connectors load on demand only with `on`. With `auto` and `off` they are sent in full, as before. With `on`, a chat with many connectors sends the three tools instead of every connector schema on every turn: `tool_call` runs the connector tool the chat would have offered, so the switches of the chat, the grants of a saved agent and the `act.spend` rule apply in the same way. The MCP servers of the model's own configuration are not affected.
+The tools of MCP connectors load on demand only with `on`. With `auto` and `off` they are sent in full. With `on`, a chat with many connectors sends the three tools instead of every connector schema on every turn: `tool_call` runs the connector tool the chat would have offered, so the switches of the chat, the grants of a saved agent and the `act.spend` rule apply in the same way. The MCP servers of the model's own configuration are not affected.
 
 The decision uses only the tools the chat would send and the window, so a chat gets the same answer on every turn. It changes only when you change the switches of the chat or the model.
 

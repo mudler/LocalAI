@@ -137,7 +137,7 @@ every entry. A person shows as **Verified** or **Listed**, with **Verify** (whic
 pairing code) and **Remove**. A channel has a level, **Answer only** or **Let everyone here ask for
 actions**, and **Remove**. Under the box, the people who wrote to the bot recently and are not
 listed show as buttons that add them. None of this adds a field: the page saves `accept_any`,
-`allow`, `allow_trust` and the pairings as before.
+`allow`, `allow_trust` and the pairings.
 
 A channel that you add on the settings page starts as `act`: allowing a channel is
 what you expect to let its people use the bot, and the page shows one sentence under the table: people in a channel act only inside that channel, never in a direct message. The level counts only for messages
@@ -371,7 +371,7 @@ The `channels` list (capability `talkback.channels`) is a table of **Place the b
 name, an ID and one choice that maps to `approved`. **When any allowed person asks** is
 `approved: true`, and **Only when a verified person asks** is `approved: false`. The table
 shows only while the permission **Post to other channels** is on; otherwise the page says so and
-links to the switch. At most 10 places are kept, as before. Listening and posting stay two settings,
+links to the switch. At most 10 places are kept. Listening and posting stay two settings,
 but the page shows them together. **Add a place** offers the channels of the listening list that
 are not a place yet, and **Other: type an ID**. Each channel of the listening list says whether the
 bot may post there, with **Let the bot post here too** to make it a place set to **Only when a
@@ -381,7 +381,7 @@ verify at run time. A place the bot does not listen in is allowed, and the page 
 only post there. **Send my reminders and run results to**
 (`notify_chat`) is a choice among the people and channels the page already knows (the allowed
 people, the people and chats of the sender log, the places above), with a saved ID that the page
-does not know shown as it is and **Another ID...** for a new one. It saves the same ID as before.
+does not know shown as it is and **Another ID...** for a new one. It saves the ID unchanged.
 
 ### Preview before saving
 

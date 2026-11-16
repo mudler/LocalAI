@@ -30,7 +30,7 @@ question.
 - **The answer.** A short word as the whole message, with the same words and languages as
   for triggers: `yes`, `ok`, `confirm` to save, `no`, `cancel` to drop. LocalAI reads it
   before any model turn and the model never sees it. The reply says what happened, for
-  example `Saved: Standup time. Reply "undo" within 30 minutes to take it back.`
+  example `Saved: Standup time. Reply "undo" within 30 minutes to undo it.`
 - **Undo.** The word `undo` (or the phrase of the language, see
   [Reply language]({{% relref "/features/chat-apps/answers#reply-language-reply_language" %}})), alone, within 30 minutes of a save
   that was made from the chat, restores the earlier text (`Removed: ...`). Any other

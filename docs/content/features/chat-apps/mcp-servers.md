@@ -44,11 +44,14 @@ A side sheet opens:
 Escape, Cancel and the close button ask before they drop typed changes.
 
 ```
-curl -X POST .../api/chats/mcp-connectors -d '{"name": "Docs", "transport": "http", "url": "https://mcp.example/mcp", "token": "...", "headers": {"X-Team": "blue"}, "enabled": false}'
+curl -X POST .../api/chats/mcp-connectors -H 'Content-Type: application/json' -d '{"name": "Docs", "transport": "http", "url": "https://mcp.example/mcp", "token": "...", "headers": {"X-Team": "blue"}, "enabled": false}'
 curl -X POST .../api/chats/mcp-connectors/<id>/test
 # {"ok": true, "tools": ["search", "fetch"], "tool_details": [{"name": "search", "description": "Search the docs."}, {"name": "fetch"}]}
 curl -X POST .../api/chats/mcp-connectors/<id>/enable
 ```
+
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
 
 ### The list and the details
 

@@ -112,7 +112,7 @@ pages/
 
 A page that throws an error in its script, or leaves a promise unhandled, shows
 nothing about it: the assistant cannot run JavaScript, so it could not see the
-error. LocalAI now keeps the error for it.
+error. LocalAI keeps the error, so the assistant can read it.
 
 - The frame of the page catches `window.onerror` and unhandled rejections and
   hands them to LocalAI over the bridge. Nothing shows in the page, no badge or
@@ -143,7 +143,7 @@ An error message can quote data of your page. The server never writes it to a
 log. The assistant reads it only when it calls `page_errors`, and the tool
 result says that the text is data and not instructions.
 
-The sandbox is as before: the frame has no network and no new right. A page
+The frame has no network and no new right. A page
 cannot read the errors back, and it cannot stop the capture.
 
 ## Shared pages

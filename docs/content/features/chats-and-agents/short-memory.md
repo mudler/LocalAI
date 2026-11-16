@@ -249,7 +249,7 @@ How it works:
   in your settings" and the chat says which level is off.
 - **Sub-agents** get no notes and cannot save. **Triggers and other runs that start by
   themselves** read per the choice and cannot save.
-- **A chat without an agent** reads your notes and saves to them, as before.
+- **A chat without an agent** reads your notes and saves to them.
 - **Existing agents** are not changed: they show **As before** in the form, with a way to
   pick one of the clearer choices. An agent that never had the field keeps reading and
   saving exactly as it did. A `PUT` that does not send `memory` keeps the stored choice.
