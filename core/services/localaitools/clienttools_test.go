@@ -63,7 +63,7 @@ var _ = Describe("Client tool table", func() {
 		}
 	})
 
-	It("carries the projects routes as rows of the projects tool, on the chats feature, with no model", func() {
+	It("carries the projects routes as rows of the projects tool, on the chats feature (the lists of agents, connections and triggers on their own), with no model", func() {
 		// Decision (see .agents/localai-assistant-mcp.md): the client group may
 		// carry per-user routes that are not inference, as voice_profile does.
 		// The projects routes are of the chats feature, which clientCoveredFeatures
@@ -79,12 +79,22 @@ var _ = Describe("Client tool table", func() {
 			ActionAgents:      "GET /api/chats/projects/:id/agents",
 			ActionConnections: "GET /api/chats/projects/:id/connections", ActionTriggers: "GET /api/chats/projects/:id/triggers",
 			ActionLoops: "GET /api/chats/projects/:id/loops", ActionShared: "GET /api/chats/projects/shared",
+			ActionSharedGet: "GET /api/chats/projects/shared/:ref", actionSharedMemory: "GET /api/chats/projects/shared/:ref/memory",
+			ActionMemory: "GET /api/chats/projects/:id/memory", ActionWriteMemory: "PUT /api/chats/projects/:id/memory/:file",
+			ActionChats: "GET /api/chats/projects/:id/chats",
 		}
+		// The three lists show objects of another feature: the registry gates
+		// them by that feature, and the row says the same.
+		feature := map[string]string{ActionAgents: auth.FeatureAgents, ActionConnections: auth.FeatureConnectors, ActionTriggers: auth.FeatureTriggers}
 		for action, route := range want {
 			s := clientSpecAction(ToolProjects, action)
 			Expect(s.Tool).To(Equal(ToolProjects), action)
 			Expect(s.Method+" "+s.Route).To(Equal(route), action)
-			Expect(s.Feature).To(Equal(auth.FeatureChats), action)
+			if f, ok := feature[action]; ok {
+				Expect(s.Feature).To(Equal(f), action)
+			} else {
+				Expect(s.Feature).To(Equal(auth.FeatureChats), action)
+			}
 			Expect(s.Flag).To(BeZero(), action)
 		}
 		Expect(ToolGroupOf(ToolProjects)).To(Equal(GroupClient))

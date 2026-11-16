@@ -65,12 +65,20 @@ func capList(list, ceiling []string) []string {
 	return out
 }
 
-// runtimeAgent is the agent a run reads its lists from. A plain agent is
-// returned as it is. A project agent is capped by the manifest of its project
-// as it is now (read on every call, so an edit narrows at once); when the
-// project cannot be resolved the error is returned and nothing runs with the
-// uncapped lists.
-func (s *Service) runtimeAgent(ctx context.Context, ag agents.Agent) (agents.Agent, error) {
+// runtimeAgent is the agent a run reads its lists from, for the actor of the
+// run. A plain agent is returned as it is. A project agent is capped by the
+// manifest of its project as it is now (read on every call, so an edit narrows
+// at once), and gets the attached tools of the project when the actor owns it;
+// when the project cannot be resolved the error is returned and nothing runs
+// with the uncapped lists.
+func (s *Service) runtimeAgent(ctx context.Context, actor string, ag agents.Agent) (agents.Agent, error) {
+	return s.runtimeAgentVia(ctx, actor, ag, false)
+}
+
+// runtimeAgentVia is runtimeAgent for a run that may start from a messaging
+// connection: with viaConnector set the project attaches no connector, add-on
+// or MCP server to the agent (see agentUnderProject).
+func (s *Service) runtimeAgentVia(ctx context.Context, actor string, ag agents.Agent, viaConnector bool) (agents.Agent, error) {
 	if ag.ProjectID == "" {
 		return ag, nil
 	}
@@ -78,7 +86,7 @@ func (s *Service) runtimeAgent(ctx context.Context, ag agents.Agent) (agents.Age
 	if err != nil {
 		return agents.Agent{}, err
 	}
-	return capAgent(ag, r.Manifest.Defaults), nil
+	return agentUnderProject(ag, r.Manifest, r.Owner, actor, viaConnector), nil
 }
 
 // cappedForChat is the agent as the chat rec may use it, ag being the stored
@@ -89,7 +97,8 @@ func (s *Service) runtimeAgent(ctx context.Context, ag agents.Agent) (agents.Age
 // than the project allows. A chat with no project pays nothing. A project that
 // cannot be resolved is an error: nothing runs with the uncapped lists.
 func (s *Service) cappedForChat(ctx context.Context, rec session.ChatRecord, ag agents.Agent) (agents.Agent, error) {
-	ag, err := s.runtimeAgent(ctx, ag)
+	viaConnector := s.viaConnector(ctx, rec)
+	ag, err := s.runtimeAgentVia(ctx, rec.Principal, ag, viaConnector)
 	if err != nil || ag.ProjectID != "" || rec.Kind != session.KindSubAgent {
 		return ag, err
 	}
@@ -105,7 +114,7 @@ func (s *Service) cappedForChat(ctx context.Context, rec session.ChatRecord, ag 
 	if err != nil {
 		return agents.Agent{}, err
 	}
-	return capAgent(ag, r.Manifest.Defaults), nil
+	return agentUnderProject(ag, r.Manifest, r.Owner, rec.Principal, viaConnector), nil
 }
 
 // CappedAgentForChat is cappedForChat for callers outside this package that

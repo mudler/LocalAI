@@ -19,9 +19,44 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
+
+// claimingTurn is a store whose chat reads as claimed for a moment after each
+// of its turns has ended, as it does while the goroutine that looks for a
+// waiting message, a goal or a promise holds the claim and finds nothing.
+type claimingTurn struct {
+	store.Store
+	// hold is how long the claim stays; 300ms when zero.
+	hold  time.Duration
+	mu    sync.Mutex
+	until map[string]time.Time
+}
+
+func (c *claimingTurn) Turn(ctx context.Context, principal, conv string) (store.TurnInfo, error) {
+	info, err := c.Store.Turn(ctx, principal, conv)
+	if err != nil || info.Running || info.Last == "" {
+		return info, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.until == nil {
+		c.until = map[string]time.Time{}
+	}
+	end, ok := c.until[conv]
+	if !ok {
+		hold := c.hold
+		if hold == 0 {
+			hold = 300 * time.Millisecond
+		}
+		end = time.Now().Add(hold)
+		c.until[conv] = end
+	}
+	info.Running = time.Now().Before(end)
+	return info, nil
+}
 
 // subRig is a chat service whose sub-agents run commands on a fake machine
 // with a real job registry.
@@ -34,7 +69,7 @@ type subRig struct {
 	gate    chan struct{}
 }
 
-func newSubRig(mode string) *subRig {
+func newSubRig(mode string, tweak ...func(*studio.Deps)) *subRig {
 	g := &subRig{host: newFakeJobHost(""), release: make(chan struct{}), gate: make(chan struct{})}
 	m := mode
 	g.mode = &m
@@ -94,6 +129,9 @@ func newSubRig(mode string) *subRig {
 		d.HostExec = g.host
 		d.HostExecMode = func() string { return *g.mode }
 		d.IsAdmin = func(_ context.Context, user string) bool { return user == alice }
+		for _, f := range tweak {
+			f(d)
+		}
 	})
 	DeferCleanup(func() {
 		select {
@@ -266,6 +304,20 @@ var _ = Describe("background jobs of sub-agents", func() {
 			})
 			rec, _ := g.r.svc.Get(ctx, alice, g.childID())
 			Expect(rec.Jobs[0].End).To(Equal(bgjob.EndAgentEnded))
+		})
+
+		It("ends the job when a claim of the chat for waiting messages is still held as the turn ends", func() {
+			g := newSubRig("on", func(d *studio.Deps) { d.Store = &claimingTurn{Store: d.Store} })
+			g.spawn("build it")
+			until("the job", func() bool { return len(g.infos()) == 1 })
+			finished(g, g.infos()[0].ID, bgjob.EndAgentEnded)
+		})
+
+		It("ends the job when the claim outlasts any fixed grace, as it does on a loaded host", func() {
+			g := newSubRig("on", func(d *studio.Deps) { d.Store = &claimingTurn{Store: d.Store, hold: 4 * time.Second} })
+			g.spawn("build it")
+			until("the job", func() bool { return len(g.infos()) == 1 })
+			finished(g, g.infos()[0].ID, bgjob.EndAgentEnded)
 		})
 
 		It("ends the jobs when the parent stops the sub-agent", func() {

@@ -149,6 +149,11 @@
       "testedAt": "测试于{{when}}。",
       "errorTitle": "上次测试无法连接。",
       "authTitle": "服务器拒绝了登录。",
+      "output": "命令的最后输出",
+      "outputCopy": "复制",
+      "outputCopied": "已复制",
+      "outputMore": "显示全部 {{count}} 行",
+      "outputLess": "收起",
       "tools": "工具",
       "toolsUnknown": "测试连接后可查看工具。",
       "toolsNone": "服务器没有提供工具。",
@@ -586,7 +591,9 @@
         "title": "读取你以前的对话",
         "description": "允许模型搜索并读取你以前的对话。在某个文件夹中工作的智能体只能读取自己的对话。"
       }
-    }
+    },
+    "fromProject": "来自项目",
+    "fromProjectTitle": "此工具由项目附加，因此在这里始终开启。要关闭，请在项目中取消附加。"
   },
   "vision": {
     "describedBy": "此模型无法查看图片。请选择其他模型，否则图片将由 {{model}} 描述。",

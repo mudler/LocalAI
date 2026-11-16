@@ -363,6 +363,7 @@ jobs:
           # package.sh stamps it into the executable.
           SANDBOX_GUEST_IMAGE: ${{ matrix.addon == 'sandbox' && needs.sandbox-image.outputs.image || '' }}
           SANDBOX_GUEST_IMAGE_MEDIA: ${{ matrix.addon == 'sandbox' && needs.sandbox-image.outputs.image_media || '' }}
+          SANDBOX_GUEST_IMAGE_OFFICE: ${{ matrix.addon == 'sandbox' && needs.sandbox-image.outputs.image_office || '' }}
         run: |
           set -- --config "addons/$ADDON/package/platforms.yaml" --layout "layout" --version "$VERSION" --platform "$PLATFORM" --revision "$SHA"
           if [ "$ADDON" = sandbox ] && [ "$PUBLISH" = true ]; then

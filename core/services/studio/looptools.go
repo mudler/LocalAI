@@ -172,7 +172,7 @@ const systemRunMaxRuns = 5
 
 // maxRunsFor is the number of runs a loop of the chat may make.
 func (h *Loops) maxRunsFor(ctx context.Context, owner, chatID string, lim LoopLimits) int {
-	rec, err := h.svc.d.Store.GetChat(ctx, owner, chatID)
+	rec, err := h.svc.getChatEffective(ctx, owner, chatID)
 	if err != nil || rec.Origin == "" {
 		return lim.MaxRuns
 	}

@@ -694,6 +694,15 @@ func swaggerPaths() map[string]bool {
 // featureOfChatsRoute is the feature that gates a path under /api/chats: the
 // automation parts have their own, off by default; the rest is chats.
 func featureOfChatsRoute(path string) string {
+	// The three lists of a project show objects of another feature, so the
+	// route needs that feature too (the handler checks chats as well).
+	for tail, feature := range map[string]string{
+		"/agents": auth.FeatureAgents, "/connections": auth.FeatureConnectors, "/triggers": auth.FeatureTriggers,
+	} {
+		if strings.HasPrefix(path, "/api/chats/projects/:id") && strings.HasSuffix(path, tail) {
+			return feature
+		}
+	}
 	for prefix, feature := range map[string]string{
 		"/api/chats/agents":     auth.FeatureAgents,
 		"/api/chats/triggers":   auth.FeatureTriggers,

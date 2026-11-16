@@ -326,6 +326,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/agents", h.ListAgents)
 	e.POST(base+"/agents", h.CreateAgent)
 	e.GET(base+"/agents/:id", h.GetAgent)
+	e.PUT(base+"/agents/:id/project", h.MoveAgentProject)
 	e.PUT(base+"/agents/:id", h.UpdateAgent)
 	e.DELETE(base+"/agents/:id", h.DeleteAgent)
 	e.POST(base, h.Create)

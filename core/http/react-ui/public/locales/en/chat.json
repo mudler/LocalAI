@@ -483,7 +483,8 @@
     "unavailable": "Not available in this chat",
     "toolCount_one": "{{count}} tool",
     "toolCount_other": "{{count}} tools",
-    "optionsOf": "Options of {{name}}"
+    "optionsOf": "Options of {{name}}",
+    "projectCollections": "Collections from the project: {{names}}."
   },
   "skills": {
     "label": "Skills",
@@ -509,7 +510,8 @@
     },
     "replacedBy": "Replaced by {{name}}",
     "fallback_one": "Built-in {{skills}} in use: the {{name}} add-on's own skill is off or not running here.",
-    "fallback_other": "Built-in {{skills}} in use: the {{name}} add-on's own skills are off or not running here."
+    "fallback_other": "Built-in {{skills}} in use: the {{name}} add-on's own skills are off or not running here.",
+    "fromProject": "From project"
   },
   "agent": {
     "label": "Agent",

@@ -117,7 +117,7 @@ type ToolsPanel struct {
 
 // Tools lists what a chat can use, with its switches.
 func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, error) {
-	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
 	if err != nil {
 		return ToolsPanel{}, err
 	}

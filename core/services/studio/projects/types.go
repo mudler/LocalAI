@@ -35,6 +35,10 @@ type Manifest struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description,omitempty"`
 	Defaults    Defaults `json:"defaults"`
+	// Attached are the tools the project holds, same shape as Defaults. Every
+	// chat and agent of the project gets them on each turn. Defaults remain the
+	// limit. A manifest from before this field reads as nothing attached.
+	Attached Defaults `json:"attached,omitzero"`
 	// SharedWith is reserved. A manifest that has it still parses, but the
 	// list is dropped on read and never written: sharing is a workspace grant.
 	SharedWith []string `json:"sharedWith,omitempty"`

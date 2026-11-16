@@ -128,6 +128,36 @@ var _ = Describe("projects API", func() {
 		Expect(w.Body.String()).To(ContainSubstring("project not found"))
 	})
 
+	It("refuses an attached entry outside a limit with a 400 naming the tool and the limit", func() {
+		r := newRig(true)
+		p := create(r, alice, "Acme")
+		w := do(r, alice, http.MethodPatch, "/api/chats/projects/"+p.ID, `{"defaults":{"addons":["a"]},"attached":{"addons":["z"]}}`)
+		Expect(w.Code).To(Equal(http.StatusBadRequest), w.Body.String())
+		Expect(w.Body.String()).To(ContainSubstring(`attached addons \"z\" is outside the limit defaults.addons`))
+		w = do(r, alice, http.MethodGet, "/api/chats/projects/"+p.ID, "")
+		var got schema.ChatsProject
+		Expect(json.Unmarshal(w.Body.Bytes(), &got)).To(Succeed())
+		Expect(got.Defaults.Addons).To(BeEmpty(), "a refused write changes nothing")
+	})
+
+	It("stores attached lists and returns them on read and list", func() {
+		r := newRig(true)
+		p := create(r, alice, "Acme")
+		w := do(r, alice, http.MethodPatch, "/api/chats/projects/"+p.ID, `{"defaults":{"addons":["a","b"]},"attached":{"addons":["a"],"collections":["k"],"mcp_servers":["m"],"connectors":["c"],"skills":["s"]}}`)
+		Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+		for _, path := range []string{"/api/chats/projects/" + p.ID, "/api/chats/projects"} {
+			w = do(r, alice, http.MethodGet, path, "")
+			Expect(w.Code).To(Equal(http.StatusOK))
+			Expect(w.Body.String()).To(ContainSubstring(`"attached":{`), path)
+		}
+		var got schema.ChatsProject
+		w = do(r, alice, http.MethodGet, "/api/chats/projects/"+p.ID, "")
+		Expect(json.Unmarshal(w.Body.Bytes(), &got)).To(Succeed())
+		Expect(got.Attached).To(Equal(schema.ChatsProjectDefaults{Skills: []string{"s"}, Addons: []string{"a"}, Connectors: []string{"c"}, MCPServers: []string{"m"}, Collections: []string{"k"}}))
+		Expect(got.Defaults.Addons).To(Equal([]string{"a", "b"}))
+		Expect(do(r, bob, http.MethodPatch, "/api/chats/projects/"+p.ID, `{"attached":{"addons":["a"]}}`).Code).To(Equal(http.StatusNotFound))
+	})
+
 	It("refuses an invalid body and a taken name", func() {
 		r := newRig(true)
 		Expect(do(r, alice, http.MethodPost, "/api/chats/projects", `{"name":""}`).Code).To(Equal(http.StatusBadRequest))

@@ -9,7 +9,7 @@ import ProjectSheet from '../components/projects/ProjectSheet'
 import SharedProjects from '../components/projects/SharedProjects'
 import { usePolling } from '../hooks/usePolling'
 import { deleteProjectWithUndo, usePendingProjectDeletes } from '../components/projects/projectUndo'
-import { filterProjects, isProjectsOff, projectCounts, projectFolderLink, whenAgo } from '../utils/projects'
+import { filterProjects, isProjectsOff, projectCounts, projectFolderLink, sortProjects, whenAgo } from '../utils/projects'
 import './projects.css'
 
 export const projectPath = (id) => `/app/projects/${encodeURIComponent(id)}`
@@ -71,8 +71,8 @@ export default function Projects() {
 
   const rows = useMemo(() => projects.filter(p => !deleting.has(p.id)), [projects, deleting])
   const counts = useMemo(() => projectCounts(rows), [rows])
-  const shown = useMemo(() => filterProjects(rows, { status, query }), [rows, status, query])
-  const sharedShown = useMemo(() => filterProjects(shared, { query }), [shared, query])
+  const shown = useMemo(() => sortProjects(filterProjects(rows, { status, query })), [rows, status, query])
+  const sharedShown = useMemo(() => sortProjects(filterProjects(shared, { query })), [shared, query])
   // The empty state is for a person with no project of their own and none
   // shared with them.
   const empty = loaded && !error && rows.length === 0 && shared.length === 0

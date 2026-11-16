@@ -15,6 +15,17 @@ export const PROJECTS = [
   { id: 'p4', name: 'Kitchen renovation', description: 'Quotes and measurements.', slug: 'kitchen-renovation', status: 'broken', error: 'The project folder is missing its manifest. Restore Projects/kitchen-renovation/project.json or remove the project.', defaults: {}, updated: ago(240 * H), chat_count: 2 },
 ]
 
+// What is installed, for the tool-default pickers.
+export const SKILLS = [
+  { name: 'brand-voice', description: 'Keeps the tone plain.', layer: 'personal', enabled: true },
+  { name: 'summarize', description: 'Short summaries of long text.', layer: 'builtin', enabled: true },
+]
+export const ADDONS = [{ id: 'mail-addon', title: 'Mail', tools: 3 }]
+export const CONNECTORS = [
+  { id: 'mail', name: 'Work mail', usable: true },
+  { id: 'old', name: 'Old archive', usable: false, reason: 'Switched off on the MCP connectors page.' },
+]
+
 export const CHATS = [
   { id: 'c1', title: 'Pricing page copy', model: 'qwen3-8b', kind: 'chat', project_id: 'p1', updated: ago(2 * H) },
   { id: 'c2', title: 'Hero image options', model: 'qwen3-8b', kind: 'chat', project_id: 'p1', updated: ago(26 * H) },
@@ -37,11 +48,21 @@ export async function mockProjects(page, { projects = PROJECTS, chats = CHATS, m
   const s = {
     projects: structuredClone(projects), chats: structuredClone(chats), memory: structuredClone(memory), topics: { ...topics },
     calls: [], failList: false, off: false, created: [], busy: false, listChats: false,
+    // What the tool-default pickers read. `failSources` names the sources that answer 500.
+    skills: SKILLS, addons: ADDONS, connectors: CONNECTORS, collections: ['papers', 'faq', 'notes'], failSources: [], triggers: [],
   }
   const rec = (req, body) => s.calls.push({ method: req.method(), path: new URL(req.url()).pathname, body: body ?? null })
   const body = (req) => { try { return req.postDataJSON() } catch { return null } }
 
   await mockChat(page)
+  const sourceRoute = (kind, fn) => (r) => (s.failSources.includes(kind) ? err(r, 500, 'unavailable') : fn(r))
+  await page.route(/\/api\/chats\/skills(\?.*)?$/, sourceRoute('skills', r => json(r, { skills: s.skills })))
+  await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, sourceRoute('tools', r => json(r, { builtins: [], addons: s.addons, servers: [], connectors: s.connectors, off: [] })))
+  await page.route(/\/api\/collections(\?.*)?$/, sourceRoute('collections', r => json(r, { collections: s.collections })))
+  await page.route('**/v1/mcp/servers/*', sourceRoute('servers', (r) => {
+    const model = decodeURIComponent(new URL(r.request().url()).pathname.split('/').at(-1))
+    return json(r, { servers: model === 'qwen3-8b' ? [{ name: 'docs' }, { name: 'search' }] : [] })
+  }))
   await page.route('**/api/chats/notifications*', r => json(r, { notifications: [], unread: 0 }))
   await page.route('**/api/chats/agents*', r => json(r, { agents: [] }))
   await page.route('**/api/chats/connectors*', r => json(r, { connectors: [] }))
@@ -97,7 +118,7 @@ export async function mockProjects(page, { projects = PROJECTS, chats = CHATS, m
       const b = body(req)
       rec(req, b)
       const slug = b.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-      const p = { id: `p${s.projects.length + 1}`, name: b.name, description: b.description || '', slug, status: 'active', defaults: b.defaults || {}, updated: new Date().toISOString(), chat_count: 0 }
+      const p = { id: `p${s.projects.length + 1}`, name: b.name, description: b.description || '', slug, status: 'active', defaults: b.defaults || {}, attached: b.attached || {}, updated: new Date().toISOString(), chat_count: 0 }
       s.projects.push(p)
       return json(r, p, 201)
     }
@@ -121,6 +142,7 @@ export async function mockProjects(page, { projects = PROJECTS, chats = CHATS, m
     if (rest[0] === 'archive') { p.status = 'archived'; return json(r, p) }
     if (rest[0] === 'restore') { p.status = 'active'; return json(r, p) }
     if (rest[0] === 'chats') return json(r, { conversations: s.chats.filter(c => c.project_id === id) })
+    if (rest[0] === 'triggers') return json(r, { triggers: s.triggers })
     if (rest[0] === 'memory' && rest.length === 1) return json(r, s.memory)
     if (rest[0] === 'memory' && req.method() === 'PUT') {
       const file = decodeURIComponent(rest[1])

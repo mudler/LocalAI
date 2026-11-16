@@ -1424,8 +1424,8 @@ it is right after a restart and the same on every frontend of a cluster.
 
 ### Sandbox profile
 
-A Sandbox add-on that declares profiles (the Sandbox does: `base` and
-`media`, see [Sandbox profiles]({{%relref "/addons/contract-reference#sandbox-profiles" %}}))
+A Sandbox add-on that declares profiles (the Sandbox does: `base`, `media` and
+`office`, see [Sandbox profiles]({{%relref "/addons/contract-reference#sandbox-profiles" %}}))
 gives the Tools menu a **Profile** row next to the Network row. It shows the
 profile the next command runs and lets you pick another one. A new chat gets the
 default of the administrator (`media` when the administrator sets none), or the
@@ -2068,16 +2068,19 @@ sandbox: media
 
 When the folder of a skill holds other files, such as references and scripts, the answer starts with `Base directory for this skill:` and the folder, and names up to 20 of the files, relative to it, so the model reads them with `read_file`. A sub-agent that has no `read_file` gets the instructions only. A skill with `requires: [exec]` in a chat that cannot run commands answers that it cannot be used there. Every chat with at least one skill has `load_skill`, and a sub-agent gets it with its parent's other tools. It has no switch and Settings > Tools does not list it; the Skills menu chooses what it offers. The Sandbox does not see the skill folders (the built-in `bash` does, see [Commands on this machine](#commands-on-this-machine)). When the model reads a `SKILL.md` with `read_file` at a wrong path, the error names the right path and `load_skill`. A `SKILL.md` over 64 KiB is refused.
 
-Skills come from six places, nearest first, and the nearest wins when two have the same name:
+Skills come from seven places, nearest first, and the nearest wins when two have the same name:
 
 | Layer | Where | Who writes it |
 |---|---|---|
-| Folder | any `.skills` folder in your files | you |
+| Folder | any `.skills` folder in your files, except under `Projects/` | you |
+| Project | `Projects/<project>/skills` in your home folder | you |
 | Agent | `LocalAI/agents/<agent>/skills` in your home folder | the agent proposes, you confirm |
 | Personal | `.skills` in your home folder | you |
 | Shared | for every user | an administrator |
 | Add-on | ships with an installed add-on | the add-on owner |
 | Built-in | ships with the server | the server |
+
+The project layer holds the skills of one project: `Projects/<project>/skills/<name>/SKILL.md`. Every chat and every agent of the project gets them, with no grant and no switch to set first, and a skill you add reaches a chat that already exists on its next turn. They win over your personal and agent skills of the same name; only a skill in a `.skills` folder next to the files you work in is nearer. The project's skills limit (the skills list of its defaults) does not apply to them. Other chats never see them: a `.skills` folder below `Projects/` is not loaded as a folder skill any more, and the skills of an older `Projects/<project>/.skills` folder are copied to `skills/` once when the server starts (the old folder is kept). Only you write them: through the project page, or the skills endpoints with `layer=project` and `project=<project id>` (`GET /api/chats/skills?layer=project&project=<id>` lists them, `POST` with `"layer": "project", "project": "<id>"`, and `GET`, `PUT` and `DELETE /api/chats/skills/project/<name>?project=<id>`). The folder is a place LocalAI manages, so it cannot be shared alone. When you share the project folder with **Can edit**, the project's skills are off, because another person could write them: the calls answer 409, and `GET /api/chats/projects/<id>` says `skills_blocked: true`. A switch for a project skill has the id `project:<name>`.
 
 The agent layer holds the skills of one saved agent. Only a chat that runs that agent sees them, and it needs no grant in the agent's skill list. They win over your personal skill of the same name, for that agent only. An agent writes one by a change proposal of kind `skill` with scope `agent` (see [Agents]({{%relref "/features/chats-and-agents/chats-agents" %}})); nothing is written until you confirm, and the write can be undone. An agent skill cannot take the name of a built-in skill or of a document skill such as `xlsx`, and a skill that you locked in your personal layer stays locked against it. The grant `skills.write` shows the built-in `writing-skills` to the agent, led by the line "Do not write files. Call propose_change with kind skill." The **Skills** page lists agent skills with the agent's name and a **Remove** button; a removed skill goes to the Trash. `GET /api/chats/skills?agents=true` adds them to the list with `layer: "agent"`, `agent` and `agent_name` (a chat's own list has the layer of its agent already), and `GET` or `DELETE /api/chats/skills/agent/<name>?agent=<id>` reads or removes one.
 
@@ -2166,7 +2169,14 @@ Other skill preferences remain unchanged.
 
 Sandbox installs PDF helpers inside its guest:
 `/usr/local/lib/localai/document-skills/pdf/content_qa.py` and
-`/usr/local/lib/localai/document-skills/pdf/verify_pdf.py`.
+`/usr/local/lib/localai/document-skills/pdf/verify_pdf.py`. For the other formats it also installs
+`/usr/local/lib/localai/document-skills/pptx/pptx_guard.py` (checks that no shape collapsed to nothing,
+sticks out of the slide or holds text that does not fit), a `render.sh` for each of `pptx`, `docx` and
+`xlsx` (renders each slide or page to a PNG) and `xlsx/recalc.sh` (recalculates a workbook).
+Rendering and recalculation need LibreOffice, which only the `office` profile has: the `pptx`, `docx`
+and `xlsx` skills tell the model to switch to it before it builds a file, and to look at every image,
+or check the recalculated values, before it reports the file done. The render is LibreOffice's, not
+Microsoft Office's.
 Run them with `python3` through Sandbox commands, not through paths in host skill folders.
 Upgrades remove stale built-in document trees, but preserve user-written skills.
 Use `load_skill` by name; historical physical paths are not a compatibility interface.
@@ -2436,7 +2446,7 @@ same Share dialog as for agents and the other things you can share (see
 
 - **What you can share.** A folder inside your home: not the home itself, and
   not a folder that LocalAI keeps or reads as your own words: `LocalAI/`,
-  `Chats/`, `Memory/`, `pages/`, a `.skills` folder anywhere, or a folder
+  `Chats/`, `Memory/`, `pages/`, a `.skills` folder anywhere, the `skills` folder of a project (`Projects/<project>/skills`), or a folder
   inside one of them. You cannot share a folder that someone shared with you or
   an administrator's shared folder. A person shares at most 100 folders, each
   with at most 200 grants.
@@ -2444,7 +2454,7 @@ same Share dialog as for agents and the other things you can share (see
   profiles and your persona, and **Pages** runs your pages, with your own
   rights. LocalAI leaves out anything in a folder on which another person, or
   **Everyone**, can edit: a `.skills` folder inside a folder you share with
-  **Can edit** gives your chats no skill, and a page or a note there is not
+  **Can edit** gives your chats no skill, a project you share with **Can edit** loses its own skills while the share lasts, and a page or a note there is not
   yours. What you share with **Can read** stays in use. The others still see and
   change those files as files.
 - **Who.** An active account that the search finds, or **Everyone** (every

@@ -11,7 +11,7 @@ const at = (mins) => new Date(T0 - mins * 60_000).toISOString()
 
 function seed() {
   return [
-    { path: '/Projects', name: 'Projects', kind: 'dir', size: 0, version: 1, rev: 1, modified: at(600) },
+    { path: '/Projects', name: 'Projects', kind: 'dir', size: 0, version: 1, rev: 1, modified: at(600), managed: 'projects' },
     { path: '/archive', name: 'archive', kind: 'dir', size: 0, version: 1, rev: 2, modified: at(30) },
     { path: '/b-report.pdf', name: 'b-report.pdf', kind: 'file', size: 300_000, version: 1, rev: 3, modified: at(5) },
     { path: '/a-notes.md', name: 'a-notes.md', kind: 'file', size: 10, version: 1, rev: 4, modified: at(60 * 48) },
@@ -99,17 +99,17 @@ test.describe('Files: browsing, selection and actions', () => {
     await stubFs(page)
     await page.goto('/app/files')
     await expect(page.getByTestId('ws-row')).toHaveCount(7)
-    expect(await names(page)).toEqual(['archive', 'Projects', 'a-notes.md', 'b-report.pdf', 'c-budget.xlsx', 'Note 2.txt', 'Note 10.txt'])
+    expect(await names(page)).toEqual(['archive', 'a-notes.md', 'b-report.pdf', 'c-budget.xlsx', 'Note 2.txt', 'Note 10.txt', 'Projects'])
     await expect(page.getByRole('columnheader', { name: 'Name' })).toHaveAttribute('aria-sort', 'ascending')
 
     await page.getByTestId('ws-sort-size').click()
     await expect(page.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'descending')
-    expect(await names(page)).toEqual(['archive', 'Projects', 'b-report.pdf', 'c-budget.xlsx', 'Note 2.txt', 'Note 10.txt', 'a-notes.md'])
+    expect(await names(page)).toEqual(['archive', 'b-report.pdf', 'c-budget.xlsx', 'Note 2.txt', 'Note 10.txt', 'a-notes.md', 'Projects'])
     await page.getByTestId('ws-sort-size').click()
     await expect(page.getByRole('columnheader', { name: 'Size' })).toHaveAttribute('aria-sort', 'ascending')
 
     await page.getByTestId('ws-sort-modified').click()
-    expect(await names(page)).toEqual(['archive', 'Projects', 'c-budget.xlsx', 'Note 10.txt', 'Note 2.txt', 'b-report.pdf', 'a-notes.md'])
+    expect(await names(page)).toEqual(['archive', 'c-budget.xlsx', 'Note 10.txt', 'Note 2.txt', 'b-report.pdf', 'a-notes.md', 'Projects'])
     const modified = row(page, 'b-report.pdf').locator('.ws-cell--modified')
     await expect(modified).toHaveText('5 minutes ago')
     await expect(modified).toHaveAttribute('title', /2026/)
@@ -213,7 +213,7 @@ test.describe('Files: browsing, selection and actions', () => {
     await page.goto('/app/files')
     await row(page, 'archive').focus()
     await page.keyboard.press('ArrowDown')
-    await expect(row(page, 'Projects')).toBeFocused()
+    await expect(row(page, 'a-notes.md')).toBeFocused()
     await page.keyboard.press('Shift+ArrowDown')
     await expect(page.getByTestId('ws-selection-bar')).toContainText('2 selected')
     await page.keyboard.press('Escape')

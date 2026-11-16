@@ -30,7 +30,7 @@ export default function ProjectChats({ chats }) {
     <section className="pj-section" data-testid="project-chats">
       <h2 className="pj-h2">{t('chats.title')}</h2>
       {chats.length === 0
-        ? <EmptyState variant="no-results" title={t('chats.empty')} />
+        ? <EmptyState variant="no-results" icon="chat" title={t('chats.empty')} />
         : <ChatRows chats={chats} />}
     </section>
   )

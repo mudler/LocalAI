@@ -44,6 +44,7 @@ export default function ProjectConnections({ project, archived }) {
     return () => { live = false }
   }, [])
 
+  if (error?.status === 403 && !data) return <div data-testid="project-connections-denied"><EmptyState variant="unavailable" title={t('access.connections')} body={t('access.connectionsBody')} /></div>
   if (error && !data) return <LoadError title={t('load.connections')} error={error} onRetry={load} />
   if (!data) return <SkeletonRows count={3} />
 
@@ -107,11 +108,11 @@ export default function ProjectConnections({ project, archived }) {
       )}
       {noAgent ? (
         <div data-testid="project-connections-noagent">
-          <EmptyState title={t('connections.noAgentTitle')} body={t('connections.noAgentBody')} icon="robot" actions={newAgent} />
+          <EmptyState variant="no-results" icon="robot" title={t('connections.noAgentTitle')} body={t('connections.noAgentBody')} actions={newAgent} />
         </div>
       ) : connections.length === 0 ? (
         <div data-testid="project-connections-empty">
-          <EmptyState variant="no-results" title={t('connections.noneTitle')} body={t('connections.noneBody')} />
+          <EmptyState variant="no-results" icon="plug" title={t('connections.noneTitle')} body={t('connections.noneBody')} />
         </div>
       ) : (
         <ul className="pj-list" data-testid="project-connection-list">

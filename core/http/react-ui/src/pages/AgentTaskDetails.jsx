@@ -2,7 +2,13 @@ import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { chatAgentsApi, chatTriggersApi, filesApi } from '../utils/api'
+import { chatProjectsApi, chatTriggersApi, filesApi } from '../utils/api'
+import { useAgentProjects } from '../hooks/useAgentProjects'
+// eslint-disable-next-line no-unused-vars
+import { ProjectChip } from '../components/projects/ProjectChip'
+import {
+  agentLabel, allowedFolders, baseOf, defaultFolder, firstProjectAgent, folderProblem, joinFolder, projectOfAgent, subOf,
+} from '../utils/triggerProjects'
 // eslint-disable-next-line no-unused-vars
 import ModelPicker from '../components/ModelPicker'
 // eslint-disable-next-line no-unused-vars
@@ -55,7 +61,7 @@ function TaskView({ id }) {
   const { addToast } = useOutletContext()
   const [task, setTask] = useState(null)
   const [jobs, setJobs] = useState([])
-  const [agents, setAgents] = useState([])
+  const { agents, projects } = useAgentProjects()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [missing, setMissing] = useState(false)
@@ -80,7 +86,6 @@ function TaskView({ id }) {
 
   useEffect(() => {
     load()
-    chatAgentsApi.list().then(r => setAgents(r.agents || [])).catch(() => {})
     const interval = setInterval(load, 5000)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -148,6 +153,7 @@ function TaskView({ id }) {
 
   const off = !task.enabled
   const agent = agents.find(a => a.id === task.agent_id)
+  const project = projectOfAgent(agent, projects)
 
   return (
     <Page className="ag-page aj-page" data-testid="task-page">
@@ -174,6 +180,12 @@ function TaskView({ id }) {
         <dl className="ag-facts" data-testid="task-facts">
           <dt>{t('jobs.task.agent')}</dt>
           <dd>{agent ? <Link className="ag-link" to={`/app/agents/${encodeURIComponent(agent.id)}`}>{agent.name}</Link> : <span className="ag-muted">{t('jobs.tasks.noAgent')}</span>}</dd>
+          {project && (
+            <>
+              <dt>{t('jobs.task.project')}</dt>
+              <dd data-testid="task-project"><ProjectChip project={project} testId="task-project-chip" /></dd>
+            </>
+          )}
           <dt>{t('jobs.task.model')}</dt>
           <dd className="ag-facts__model">{task.model || agent?.model || <span className="ag-muted">{t('jobs.tasks.noModel')}</span>}</dd>
           <dt>{t('jobs.task.schedule')}</dt>
@@ -256,7 +268,7 @@ const SECTIONS = [
 
 // The fields of the schedule: the preset chosen, then what that preset needs.
 // eslint-disable-next-line no-unused-vars
-function ScheduleFields({ form, setForm, folders, noFiles, t }) {
+function ScheduleFields({ form, setForm, folders, noFiles, allowed, problem, t }) {
   const s = form.schedule
   const set = (patch) => setForm({ ...form, schedule: { ...s, ...patch } })
   const hasTime = ['daily', 'weekdays', 'weekly', 'monthly', 'once'].includes(s.preset)
@@ -354,12 +366,18 @@ function ScheduleFields({ form, setForm, folders, noFiles, t }) {
       {s.preset === 'file' && noFiles && <p className="dk-hint" role="note" data-testid="aj-folder-nofiles">{t('jobs.edit.watchNoFiles')}</p>}
       {s.preset === 'file' && (
         <div className="aj-row2">
-          <div className="dk-field">
-            <label className="dk-label" htmlFor="aj-folder">{t('chats:triggersPage.folder')}</label>
-            <input id="aj-folder" className="dk-input" list={folderList} value={form.folder} required placeholder="/Contracts"
-              onChange={(e) => setForm({ ...form, folder: e.target.value })} />
-            <datalist id={folderList}>{folders.map((f) => <option key={f} value={f} />)}</datalist>
-          </div>
+          {allowed ? (
+            <FenceFolder form={form} setForm={setForm} allowed={allowed} problem={problem} t={t} />
+          ) : (
+            <div className="dk-field">
+              <label className="dk-label" htmlFor="aj-folder">{t('chats:triggersPage.folder')}</label>
+              <input id="aj-folder" className="dk-input" list={folderList} value={form.folder} required placeholder="/Contracts"
+                aria-invalid={problem ? true : undefined} aria-describedby={problem ? 'aj-folder-err' : undefined}
+                onChange={(e) => setForm({ ...form, folder: e.target.value })} />
+              <datalist id={folderList}>{folders.map((f) => <option key={f} value={f} />)}</datalist>
+              {problem && <p className="dk-field-error" id="aj-folder-err" role="alert" data-testid="aj-folder-problem">{t(`jobs.edit.folder.${problem}`)}</p>}
+            </div>
+          )}
           <div className="dk-field aj-time">
             <label className="dk-label" htmlFor="aj-quiet">{t('chats:triggersPage.quiet')}</label>
             <input id="aj-quiet" className="dk-input" type="number" min={0} max={86400} value={form.quiet} placeholder="30"
@@ -368,6 +386,41 @@ function ScheduleFields({ form, setForm, folders, noFiles, t }) {
         </div>
       )}
     </>
+  )
+}
+
+// The folder of a file trigger of an agent that works inside a fence: one of the
+// agent's own folders, and an optional subfolder inside it. The server refuses
+// any other folder, so none is offered; a stored folder that is now outside
+// shows as a problem and asks for a new choice.
+// eslint-disable-next-line no-unused-vars
+function FenceFolder({ form, setForm, allowed, problem, t }) {
+  const base = baseOf(form.folder, allowed)
+  const sub = base ? subOf(form.folder, base) : ''
+  const pick = (nextBase, nextSub) => setForm({ ...form, folder: nextBase ? joinFolder(nextBase, nextSub) : '' })
+  if (allowed.length === 0) {
+    return <p className="dk-field-error" role="alert" data-testid="aj-folder-problem">{t('jobs.edit.folder.noFolders')}</p>
+  }
+  return (
+    <div className="dk-field aj-fence">
+      <label className="dk-label" htmlFor="aj-folder">{t('chats:triggersPage.folder')}</label>
+      <div className="aj-fence__row">
+        <span className="dk-select-wrap aj-fence__base">
+          <select id="aj-folder" className="dk-select" value={base} data-testid="aj-folder-base"
+            aria-invalid={problem ? true : undefined} aria-describedby={problem ? 'aj-folder-err' : 'aj-folder-hint'}
+            onChange={(e) => pick(e.target.value, sub)}>
+            {!base && <option value="">{t('jobs.edit.folder.choose')}</option>}
+            {allowed.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </span>
+        <input className="dk-input aj-fence__sub" value={sub} placeholder={t('jobs.edit.folder.subPlaceholder')} disabled={!base}
+          aria-label={t('jobs.edit.folder.sub')} data-testid="aj-folder-sub" spellCheck={false}
+          onChange={(e) => pick(base, e.target.value)} />
+      </div>
+      {problem
+        ? <p className="dk-field-error" id="aj-folder-err" role="alert" data-testid="aj-folder-problem">{t(`jobs.edit.folder.${problem}`, { folders: allowed.join(', ') })}</p>
+        : <p className="dk-hint" id="aj-folder-hint">{t('jobs.edit.folder.hint')}</p>}
+    </div>
   )
 }
 
@@ -385,14 +438,14 @@ function TaskForm({ id, isNew }) {
   const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(() => new Set(isNew ? ['basics', 'prompt', 'schedule'] : ['prompt', 'schedule']))
   const [preview, setPreview] = useState(null)
-  const [agents, setAgents] = useState([])
+  const { agents, projects, ready } = useAgentProjects()
   const [folders, setFolders] = useState([])
+  const location = useLocation()
   const [next, setNext] = useState({ text: '', error: '' })
   const initial = useRef(isNew ? triggerPayload(emptyTrigger()) : null)
 
   useEffect(() => {
     // Suggestions are best effort.
-    chatAgentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {})
     filesApi.list('/').then((r) => setFolders((r.entries || []).filter((n) => n.kind === 'dir').map((n) => n.path))).catch(() => {})
   }, [])
 
@@ -420,6 +473,27 @@ function TaskForm({ id, isNew }) {
   }, [id, isNew, addToast, t, attempt])
 
   const set = (field, value) => setTask(prev => ({ ...prev, [field]: value }))
+
+  // A new trigger opened from a project, or with an agent named in the address,
+  // starts with that agent and the folder the agent works in. The prefilled
+  // form is the base of the changes list, so it shows only what the person adds.
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (!isNew || !ready || prefilled.current) return
+    prefilled.current = true
+    const params = new URLSearchParams(location.search)
+    const apply = (agentId) => {
+      const agent = agents.find(a => a.id === agentId)
+      if (!agent) return
+      const start = { ...emptyTrigger(), agentId: agent.id, folder: defaultFolder(agent) }
+      initial.current = triggerPayload(start)
+      setTask(prev => ({ ...prev, agentId: start.agentId, folder: prev.folder || start.folder }))
+    }
+    if (params.get('agent')) apply(params.get('agent'))
+    else if (params.get('project')) {
+      chatProjectsApi.agents(params.get('project')).then(r => { const a = firstProjectAgent(r.agents); if (a) apply(a.id) }).catch(() => {})
+    }
+  }, [isNew, ready, agents, location.search])
 
   // The next times of the schedule being written, so a mistake shows before saving.
   const previewText = task.schedule.preset !== 'file' ? scheduleText(task.schedule) : ''
@@ -449,6 +523,24 @@ function TaskForm({ id, isNew }) {
   })
 
   const picked = agents.find(a => a.id === task.agentId)
+  const pickedProject = projectOfAgent(picked, projects)
+  // An agent that works inside a fence may watch only the folders it has.
+  const allowed = useMemo(() => allowedFolders(picked), [picked])
+  const fileKind = task.schedule.preset === 'file'
+  const [tried, setTried] = useState(false)
+  const rawProblem = fileKind ? folderProblem(task.folder, allowed) : ''
+  // An empty folder is told after a try to save; a folder outside the fence at once.
+  const folderIssue = rawProblem === 'empty' && !tried ? '' : rawProblem
+  // The folder of the agent starts a new file trigger, and replaces a folder of
+  // another agent that the chosen one does not hold. A saved trigger is never
+  // changed behind the person's back: its folder shows as a problem.
+  useEffect(() => {
+    if (!fileKind || !allowed || allowed.length === 0) return
+    if (task.folder.trim() === '' || (isNew && rawProblem === 'outside')) {
+      const d = defaultFolder(picked)
+      if (d && d !== task.folder) setTask(prev => ({ ...prev, folder: d }))
+    }
+  }, [fileKind, picked, allowed, task.folder, rawProblem, isNew])
   // The grants of the chosen agent cap what the trigger can hold; with no agent only the list does.
   const agentGrants = picked ? (picked.builtins || []) : null
   const status = actsStatus({ acts: task.acts, agentGrants, writes: task.writes, lock: task.lock })
@@ -461,7 +553,10 @@ function TaskForm({ id, isNew }) {
     if (sid === 'prompt') return task.prompt.trim() ? { state: 'ready', text: firstLine(task.prompt, 70) } : { state: 'needs', text: t('jobs.edit.summary.promptEmpty') }
     if (sid === 'schedule') {
       if (next.error) return { state: 'needs', text: next.error }
-      if (task.schedule.preset === 'file') return { state: task.folder.trim() ? 'ready' : 'needs', text: task.folder.trim() ? t('jobs.task.watches', { folder: task.folder }) : t('jobs.edit.summary.folderEmpty') }
+      if (task.schedule.preset === 'file') {
+        if (rawProblem && rawProblem !== 'empty') return { state: 'needs', text: t(`jobs.edit.folder.${rawProblem}`, { folders: (allowed || []).join(', ') }) }
+        return { state: task.folder.trim() ? 'ready' : 'needs', text: task.folder.trim() ? t('jobs.task.watches', { folder: task.folder }) : t('jobs.edit.summary.folderEmpty') }
+      }
       return { state: 'ready', text: scheduleText(task.schedule) }
     }
     if (sid === 'acts') {
@@ -477,6 +572,13 @@ function TaskForm({ id, isNew }) {
     e?.preventDefault?.()
     if (!task.name?.trim()) { addToast(t('jobs.edit.nameRequired'), 'warning'); setOpen(prev => new Set([...prev, 'basics'])); return }
     if (!task.prompt.trim()) { addToast(t('jobs.edit.promptRequired'), 'warning'); setOpen(prev => new Set([...prev, 'prompt'])); return }
+    // The server refuses a folder outside the agent's folders; say so before the request, in the section.
+    if (rawProblem) {
+      setTried(true)
+      addToast(t(`jobs.edit.folder.${rawProblem}`, { folders: (allowed || []).join(', ') }), 'warning')
+      setOpen(prev => new Set([...prev, 'schedule']))
+      return
+    }
     setSaving(true)
     try {
       if (isNew) {
@@ -524,10 +626,15 @@ function TaskForm({ id, isNew }) {
             <span className="dk-select-wrap">
               <select id="aj-agent" className="dk-select" value={task.agentId} onChange={(e) => set('agentId', e.target.value)}>
                 <option value="">{t('jobs.edit.noAgent')}</option>
-                {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {agents.map((a) => <option key={a.id} value={a.id}>{agentLabel(a, projects, (name, project) => t('jobs.edit.agentInProject', { name, project }))}</option>)}
               </select>
             </span>
             {!task.agentId && <p className="dk-hint">{t('chats:triggersPage.noAgentNote')}</p>}
+            {pickedProject && (
+              <p className="dk-hint aj-agent-project" data-testid="aj-agent-project">
+                <ProjectChip project={pickedProject} testId="aj-agent-project-chip" /> {t('jobs.edit.projectAgentHint')}
+              </p>
+            )}
           </div>
           {!picked?.model && (
             <div className="dk-field">
@@ -576,7 +683,7 @@ function TaskForm({ id, isNew }) {
     if (sid === 'schedule') {
       return (
         <div className="aj-form">
-          <ScheduleFields form={task} setForm={setTask} folders={folders} noFiles={!!picked && filesOff(picked)} t={t} />
+          <ScheduleFields form={task} setForm={setTask} folders={folders} noFiles={!!picked && filesOff(picked)} allowed={allowed} problem={folderIssue} t={t} />
           {next.text && <p className="aj-words" data-testid="trigger-preview">{next.text}</p>}
           {next.error && <p className="dk-field-error" role="alert">{next.error}</p>}
         </div>

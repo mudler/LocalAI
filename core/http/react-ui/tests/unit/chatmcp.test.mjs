@@ -141,6 +141,12 @@ test('chat MCP: a test result becomes a state, and a 401 asks for sign-in', () =
   assert.deepEqual(checkRecord(c, { ok: true, tools: ['b'] }).tools, [{ name: 'b', description: '' }])
   assert.equal(connectorState(c, checkRecord(c, { ok: false, error: 'the server answered 503' })), 'error')
   assert.equal(connectorState(c, checkRecord(c, { ok: false, error: 'the server answered 401 Unauthorized' })), 'auth')
+  // The output of a command that failed stays apart from the error, and a good test has none.
+  const failed = checkRecord(c, { ok: false, error: 'startup failed: EOF', output: 'fatal: no key' })
+  assert.equal(failed.error, 'startup failed: EOF')
+  assert.equal(failed.output, 'fatal: no key')
+  assert.equal(checkRecord(c, { ok: false, error: 'x' }).output, '')
+  assert.equal(ok.output, '')
   assert.equal(isAuthError('invalid_token'), true)
   assert.equal(isAuthError('connection refused'), false)
   assert.equal(sentence('the server answered 503'), 'The server answered 503.')

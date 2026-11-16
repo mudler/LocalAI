@@ -74,7 +74,21 @@ import (
 // tool (about 65 bytes: three names in the enum and in the argument text), the
 // three reads of what is bound to the agents of a project; the group measures
 // 10,647 bytes.
-const clientBudgetBytes = 10700
+//
+// 10,700 to 11,000: the actions memory, write_memory, chats and shared_get of
+// the projects tool (about 285 bytes: four names in the enum, the argument
+// text and the two arguments file and content). They close the gap between
+// the project routes and the tool: read and write the memory of a project,
+// list its chats, and read a shared project with its memory. They share the
+// one domain of the tool, so they are actions and not tools; the group
+// measures 10,986 bytes.
+//
+// 11,000 to 11,250: the attached argument of the projects tool (about 215
+// bytes: the name and a map of lists). It is what a project owns, in the shape
+// of its defaults, so the model can read and set the tools that its chats and
+// agents get; it shares the one domain of the tool; the group measures 11,202
+// bytes.
+const clientBudgetBytes = 11250
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {
@@ -118,12 +132,12 @@ var _ = Describe("Client tool surface", func() {
 			case ToolVoiceProfile:
 				Expect(action["enum"]).To(ConsistOf("create", "list", "delete"))
 			case ToolProjects:
-				Expect(action["enum"]).To(ConsistOf("list", "get", "create", "update", "archive", "restore", "delete", "set_chat_project", "pull", "unpull", "agents", "connections", "triggers", "loops", "shared"))
+				Expect(action["enum"]).To(ConsistOf("list", "get", "create", "update", "archive", "restore", "delete", "set_chat_project", "pull", "unpull", "agents", "connections", "triggers", "loops", "shared", "shared_get", "memory", "write_memory", "chats"))
 				// Sharing is never a tool: only the human session of the folder
 				// share API grants or revokes access.
 				for _, a := range action["enum"].([]any) {
 					Expect(a).NotTo(MatchRegexp(`^(share|unshare|grant|revoke|set_share|edit_share|share_project)$`), "no action may share a project")
-					Expect(a).To(BeElementOf("list", "get", "create", "update", "archive", "restore", "delete", "set_chat_project", "pull", "unpull", "agents", "connections", "triggers", "loops", "shared"))
+					Expect(a).To(BeElementOf("list", "get", "create", "update", "archive", "restore", "delete", "set_chat_project", "pull", "unpull", "agents", "connections", "triggers", "loops", "shared", "shared_get", "memory", "write_memory", "chats"))
 				}
 			default:
 				Expect(action["enum"]).To(ConsistOf("verify", "identify"))
@@ -268,7 +282,7 @@ var _ = Describe("Client tool surface", func() {
 		Entry("projects create without a name", ToolProjects, map[string]any{"action": "create"}, "", `projects: action "create" needs name`),
 		Entry("projects update", ToolProjects, map[string]any{"action": "update", "project": "p1", "name": "New"}, "Projects", ""),
 		Entry("projects update that clears the description", ToolProjects, map[string]any{"action": "update", "project": "p1", "description": ""}, "Projects", ""),
-		Entry("projects update with nothing to change", ToolProjects, map[string]any{"action": "update", "project": "p1"}, "", `projects: action "update" needs name or description`),
+		Entry("projects update with nothing to change", ToolProjects, map[string]any{"action": "update", "project": "p1"}, "", `projects: action "update" needs name, description or attached`),
 		Entry("projects archive", ToolProjects, map[string]any{"action": "archive", "project": "p1"}, "Projects", ""),
 		Entry("projects restore", ToolProjects, map[string]any{"action": "restore", "project": "p1"}, "Projects", ""),
 		Entry("projects delete", ToolProjects, map[string]any{"action": "delete", "project": "p1"}, "Projects", ""),

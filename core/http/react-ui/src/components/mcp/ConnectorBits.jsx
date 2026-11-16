@@ -111,3 +111,41 @@ export function ToolList({ tools, testId = 'mcp-tools' }) {
     </ul>
   )
 }
+
+// How many lines of command output show before the rest is folded.
+const OUTPUT_FOLD = 8
+
+// What a local command wrote to its error stream before it failed: a labelled
+// monospace block, folded after OUTPUT_FOLD lines, with a copy button. The text
+// comes redacted from the server.
+export function CommandOutput({ text, testId = 'mcp-output' }) {
+  const { t } = useTranslation('chats')
+  const id = useId()
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const lines = text.split('\n').length
+  const long = lines > OUTPUT_FOLD
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch { /* clipboard blocked: the text is selectable anyway */ }
+  }
+  return (
+    <div className="mcp-output" data-testid={testId}>
+      <div className="mcp-output__head">
+        <span className="mcp-output__label" id={`${id}-label`}>{t('mcpPage.details.output')}</span>
+        <Button size="sm" variant="ghost" icon={copied ? 'check' : 'clipboard'} onClick={copy} data-testid={`${testId}-copy`}>
+          {copied ? t('mcpPage.details.outputCopied') : t('mcpPage.details.outputCopy')}
+        </Button>
+      </div>
+      <pre className={`mcp-output__text${long && !open ? ' mcp-output__text--folded' : ''}`} aria-labelledby={`${id}-label`} tabIndex={0} data-testid={`${testId}-text`}>{text}</pre>
+      {long && (
+        <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(v => !v)} data-testid={`${testId}-toggle`}>
+          {open ? t('mcpPage.details.outputLess') : t('mcpPage.details.outputMore', { count: lines })}
+        </Button>
+      )}
+    </div>
+  )
+}

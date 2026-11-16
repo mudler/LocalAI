@@ -44,6 +44,7 @@
     "@lezer/highlight": "^1.2.1",
     "@modelcontextprotocol/ext-apps": "^1.2.2",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "chart.js": "^4.4.1",
     "docx-preview": "^0.4.1",
     "dompurify": "^3.4.13",
     "highlight.js": "^11.11.1",

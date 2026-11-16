@@ -55,7 +55,8 @@
     "builtin": "Built-in",
     "folder": "Workspace",
     "addon": "애드온",
-    "agent": "에이전트"
+    "agent": "에이전트",
+    "project": "프로젝트"
   },
   "pane": {
     "loading": "Loading...",

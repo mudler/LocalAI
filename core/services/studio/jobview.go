@@ -40,7 +40,7 @@ type JobView struct {
 // ones first, then the newest finished.
 func (s *Service) BgJobs(ctx context.Context, user, chat string) ([]JobView, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, chat)
+	rec, err := s.getChatEffective(ctx, p, chat)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (s *Service) liveAddonJobs(ctx context.Context, owner string, jobs []JobVie
 // reaches it.
 func (s *Service) StopJob(ctx context.Context, user, chat, id string) (JobView, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, chat)
+	rec, err := s.getChatEffective(ctx, p, chat)
 	if err != nil {
 		return JobView{}, err
 	}

@@ -13,6 +13,13 @@ export function memoryFileError(name) {
   return MEMORY_FILE.test(name) ? '' : 'invalid'
 }
 
+// The server refuses a name longer than this many characters.
+export const NAME_MAX = 120
+// The counter under the name shows from this length on.
+export const NAME_COUNTER_FROM = 100
+// Chats get the first this many characters of the description as context.
+export const DESCRIPTION_CONTEXT_CHARS = 200
+
 export const PROJECT_STATUSES = Object.freeze(['all', 'active', 'archived', 'broken'])
 
 export function projectCounts(projects) {
@@ -30,6 +37,23 @@ export function filterProjects(projects, { status = 'all', query = '' } = {}) {
     if (!q) return true
     return (p.name || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)
   })
+}
+
+// The rows in the order a person reads them: by name, ignoring case and
+// accents, then by slug so two projects with one name keep a stable order.
+// The list is copied; the argument is not changed.
+export function sortProjects(projects) {
+  const cmp = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
+  return [...(projects || [])].sort((a, b) => cmp.compare(a.name || '', b.name || '') || cmp.compare(a.slug || '', b.slug || ''))
+}
+
+// The memory topics of a project as the Overview counts them: the topic files
+// and the index, but the index only when it says something. An index that holds
+// only headings is the empty template.
+export function memoryTopicCount(memory) {
+  const files = (memory?.files || []).filter(f => f.name !== MEMORY_INDEX).length
+  const text = (memory?.index || '').split('\n').some(l => l.trim() && !l.trim().startsWith('#'))
+  return files + (text ? 1 : 0)
 }
 
 // The server answers 409 projects_off when the feature is switched off.
@@ -71,6 +95,37 @@ export function cleanDefaults(defaults) {
 
 export function defaultsCount(defaults) {
   return DEFAULT_LISTS.reduce((n, key) => n + (defaults?.[key]?.length || 0), 0)
+}
+
+// The state of one entry of a default list against what is installed:
+//   'ok'       the source lists it and it can run
+//   'off'      the source lists it but it cannot run now (for example a
+//              connector that is switched off)
+//   'missing'  the source loaded and does not list it
+//   'unknown'  the source did not load, so nothing is claimed
+// options are { value, usable }; ready says whether the source loaded.
+export function entryState(options, ready, value) {
+  if (!ready) return 'unknown'
+  const hit = (options || []).find(o => o.value === value)
+  if (!hit) return 'missing'
+  return hit.usable === false ? 'off' : 'ok'
+}
+
+// How many entries of a list are not available (missing or off).
+export function unavailableCount(options, ready, list) {
+  return (list || []).filter(v => ['missing', 'off'].includes(entryState(options, ready, v))).length
+}
+
+// The options a picker offers for a typed text: those not chosen yet whose
+// label or value contains the text (ignoring case), and whether the text is
+// itself a new freeform entry (not empty, not chosen, no option has that value).
+export function pickerChoices(options, chosen, text) {
+  const q = (text || '').trim().toLowerCase()
+  const taken = new Set(chosen || [])
+  const list = (options || []).filter(o => !taken.has(o.value) && (!q || `${o.label} ${o.value}`.toLowerCase().includes(q)))
+  const raw = (text || '').trim()
+  const freeform = Boolean(raw) && !taken.has(raw) && !(options || []).some(o => o.value === raw)
+  return { list, freeform: freeform ? raw : '' }
 }
 
 export function addChip(list, text) {
@@ -198,3 +253,26 @@ export function wrapKey(key, index, count) {
   if (key === 'End') return count - 1
   return -1
 }
+
+// The attached lists have the shape of the defaults, so one clean step serves both.
+export const cleanAttached = (attached) => cleanDefaults(attached)
+export const attachedCount = (attached) => defaultsCount(attached)
+
+// The attached entries that a non-empty limit leaves out. The server refuses
+// such a project (HTTP 400), so the form says it before Save. Returns
+// [{ key, name }] in list order; an empty limit list limits nothing.
+export function outsideLimit(attached, limit) {
+  const out = []
+  for (const key of DEFAULT_LISTS) {
+    const cap = limit?.[key] || []
+    if (cap.length === 0) continue
+    for (const name of attached?.[key] || []) if (!cap.includes(name)) out.push({ key, name })
+  }
+  return out
+}
+
+// The path of the skill editor for one skill of the project layer, or for a
+// new one. The editor reads the layer and the project from the URL.
+export const projectSkillPath = (project, name) => (name
+  ? `/app/skills/edit/project/${encodeURIComponent(name)}?project=${encodeURIComponent(project.id)}`
+  : `/app/skills/new?layer=project&project=${encodeURIComponent(project.id)}`)

@@ -1,0 +1,21 @@
+#!/bin/sh
+# Build-time check of the office profile: soffice (Writer) must convert a small
+# .docx to a PDF that has the text of the document. A private profile directory
+# is used, as the render helpers do, so a writable home is not needed.
+set -eu
+dir=$(mktemp -d)
+trap 'rm -rf "$dir"' EXIT
+python3 - "$dir/check.docx" <<'PY'
+import sys
+from docx import Document
+doc = Document()
+doc.add_paragraph("office docx check")
+doc.save(sys.argv[1])
+PY
+timeout 120 soffice --headless --norestore "-env:UserInstallation=file://$dir/profile" \
+  --convert-to pdf --outdir "$dir" "$dir/check.docx" >/dev/null 2>&1
+[ -s "$dir/check.pdf" ] || { echo "check-office-docx: soffice made no PDF" >&2; exit 1; }
+pdftotext "$dir/check.pdf" - | grep -q "office docx check" || {
+  echo "check-office-docx: the PDF does not have the document text" >&2
+  exit 1
+}

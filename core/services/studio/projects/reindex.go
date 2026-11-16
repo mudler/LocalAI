@@ -39,6 +39,7 @@ type placement struct {
 // another owner holds, belongs to a copy: the copy gets a new ID, written back
 // into its manifest.
 func (s *Service) Reindex(ctx context.Context, owner string) error {
+	defer s.gen.Add(1)
 	if err := s.permit(ctx, owner); err != nil {
 		return err
 	}

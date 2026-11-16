@@ -106,7 +106,7 @@ func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult
 // answer the same failure twice.
 func (s *Service) Resume(ctx context.Context, user, conv string) (SendResult, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return SendResult{}, err
 	}
@@ -170,7 +170,7 @@ func (s *Service) EditAndRerun(ctx context.Context, user, conv string, seq int64
 // turn, all under one turn claim so that nothing starts between the cut and
 // the turn.
 func (s *Service) rerun(ctx context.Context, p, conv string, pick func([]session.Entry) (keep int64, msg session.Message, err error)) (SendResult, error) {
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return SendResult{}, err
 	}
@@ -243,7 +243,7 @@ func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.E
 			kept = append(kept, e)
 		}
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return session.Message{}, err
 	}
@@ -260,7 +260,9 @@ func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.E
 // pending messages; the next message starts it.
 func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title string) (session.ChatRecord, error) {
 	p := principal(user)
-	src, err := s.d.Store.GetChat(ctx, p, conv)
+	// The stored record: the fork copies what the chat chose, never the tools
+	// its project attaches (the fork reads those from the project itself).
+	src, err := s.getChatRaw(ctx, p, conv)
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
@@ -349,5 +351,5 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
 		return fail(err)
 	}
-	return s.d.Store.GetChat(ctx, p, rec.ID)
+	return s.getChatEffective(ctx, p, rec.ID)
 }

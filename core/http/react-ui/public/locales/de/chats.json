@@ -149,6 +149,11 @@
       "testedAt": "Getestet {{when}}.",
       "errorTitle": "Der letzte Test konnte keine Verbindung herstellen.",
       "authTitle": "Der Server hat die Anmeldung abgelehnt.",
+      "output": "Letzte Ausgabe des Befehls",
+      "outputCopy": "Kopieren",
+      "outputCopied": "Kopiert",
+      "outputMore": "Alle {{count}} Zeilen anzeigen",
+      "outputLess": "Weniger anzeigen",
       "tools": "Werkzeuge",
       "toolsUnknown": "Testen Sie die Verbindung, um die Werkzeuge zu sehen.",
       "toolsNone": "Der Server bietet keine Werkzeuge.",
@@ -586,7 +591,9 @@
         "title": "Frühere Chats lesen",
         "description": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen. Ein Agent, der in einem Ordner arbeitet, liest nur die Chats seines eigenen Agenten."
       }
-    }
+    },
+    "fromProject": "Vom Projekt",
+    "fromProjectTitle": "Das Projekt hängt dieses Werkzeug an, daher ist es hier immer aktiv. Zum Abschalten löse es im Projekt."
   },
   "vision": {
     "describedBy": "Dieses Modell kann keine Bilder ansehen. Wähle ein anderes Modell, sonst beschreibt {{model}} das Bild.",

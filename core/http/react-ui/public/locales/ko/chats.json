@@ -149,6 +149,11 @@
       "testedAt": "{{when}} 테스트함.",
       "errorTitle": "마지막 테스트에서 연결하지 못했습니다.",
       "authTitle": "서버가 로그인을 거부했습니다.",
+      "output": "명령의 마지막 출력",
+      "outputCopy": "복사",
+      "outputCopied": "복사됨",
+      "outputMore": "{{count}}줄 모두 보기",
+      "outputLess": "간단히 보기",
       "tools": "도구",
       "toolsUnknown": "연결을 테스트하면 도구를 볼 수 있습니다.",
       "toolsNone": "서버가 도구를 제공하지 않습니다.",
@@ -586,7 +591,9 @@
         "title": "이전 대화 읽기",
         "description": "모델이 이전 대화를 검색하고 읽을 수 있게 합니다. 폴더에서 작업하는 에이전트는 자신의 대화만 읽습니다."
       }
-    }
+    },
+    "fromProject": "프로젝트에서",
+    "fromProjectTitle": "프로젝트에 연결된 도구라 여기서는 항상 켜져 있습니다. 끄려면 프로젝트에서 연결을 해제하세요."
   },
   "vision": {
     "describedBy": "이 모델은 이미지를 볼 수 없습니다. 다른 모델을 선택하지 않으면 {{model}}이(가) 이미지를 설명합니다.",

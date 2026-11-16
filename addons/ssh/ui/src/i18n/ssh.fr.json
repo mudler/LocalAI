@@ -46,9 +46,17 @@
     "check": "Vérifier la clé de l'hôte",
     "checking": "Vérification...",
     "trust": "J'ai comparé cette empreinte et je fais confiance à cet hôte.",
-    "needed": "Vérifiez la clé de l'hôte avant d'enregistrer.",
+    "needed": "La clé de l'hôte est lue quand vous cliquez sur Enregistrer, et on vous demande de lui faire confiance.",
     "unreachable": "L'hôte est injoignable.",
     "failed": "La clé de l'hôte n'a pas pu être lue."
+  },
+  "hostKeyStep": {
+    "title": "Faire confiance à cet hôte ?",
+    "reading": "Lecture de la clé de l'hôte...",
+    "compare": "Comparez cette empreinte avec celle que l'hôte affiche. Ne faites confiance que si elles sont identiques.",
+    "confirm": "Faire confiance et enregistrer",
+    "cancel": "Annuler",
+    "retry": "Réessayer"
   },
   "testOk": "La connexion est enregistrée.",
   "checkFailed": "Enregistré. La vérification de la connexion a échoué : {{reason}}",
@@ -77,7 +85,7 @@
     "title": "Comment la configurer",
     "step1": "Créez sur l'hôte un utilisateur réservé à LocalAI, avec seulement les droits utiles.",
     "step2": "Créez-lui une paire de clés, ou choisissez un mot de passe. Ajoutez la clé publique aux authorized_keys de cet utilisateur.",
-    "step3": "Saisissez ici l'hôte et l'utilisateur, appuyez sur Vérifier la clé de l'hôte et comparez l'empreinte.",
+    "step3": "Saisissez ici l'hôte et l'utilisateur. Quand vous cliquez sur Enregistrer, la clé de l'hôte est lue et vous comparez son empreinte.",
     "step4": "Laissez le mode sur Demande d'abord jusqu'à avoir lu les limites de cette page.",
     "fingerprint": "L'empreinte de l'hôte s'affiche avec : ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
   },

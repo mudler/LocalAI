@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { splitEntries, isSettingsFolder, guardOf, pageOf } from '../../src/utils/managedFiles.js'
+import { splitEntries, isSettingsFolder, guardOf, pageOf, projectMarks } from '../../src/utils/managedFiles.js'
 
 const dir = (name, managed) => ({ path: `/${name}`, name, kind: 'dir', ...(managed ? { managed } : {}) })
 const file = (path, managed) => ({ path, name: path.split('/').pop(), kind: 'file', ...(managed ? { managed } : {}) })
@@ -60,4 +60,31 @@ test('managed files: the folders with a page of their own say which, and the oth
   assert.equal(pageOf(dir('Zed', 'future')), null)
   assert.equal(pageOf(file('/Memory/index.md', 'memory')), null, 'a file')
   assert.equal(pageOf(dir('Memory')), null, 'unmarked')
+})
+
+test('managed files: Projects/ sits after Chats/ in the managed group, and has its own page', () => {
+  const entries = [dir('Memory', 'memory'), dir('Projects', 'projects'), dir('LocalAI', 'localai'), dir('Chats', 'chats'), dir('Notes')]
+  const { own, managed } = splitEntries(entries, '/')
+  assert.deepEqual(own.map(e => e.name), ['Notes'])
+  assert.deepEqual(managed.map(e => e.name), ['LocalAI', 'Chats', 'Projects', 'Memory'])
+  assert.deepEqual(pageOf(dir('Projects', 'projects')), { to: '/app/projects', features: ['chats'] })
+})
+
+test('managed files: deleting or renaming the Projects root asks first, a project folder inside it does not', () => {
+  assert.deepEqual(guardOf(dir('Projects', 'projects')), { what: 'projects', name: 'Projects' })
+  assert.equal(guardOf({ path: '/Projects/alpha', name: 'alpha', kind: 'dir' }), null, 'a project folder carries no marker')
+  assert.equal(guardOf(dir('Projects')), null, 'a folder is never guarded by its name')
+})
+
+test('managed files: a project folder maps to its name and page, a project without a slug or name to nothing', () => {
+  const marks = projectMarks([
+    { id: 'p1', slug: 'client-site', name: 'Client site' },
+    { id: 'p 2', slug: 'home-lab', name: 'Home lab' },
+    { id: 'p3', slug: '', name: 'No slug' },
+    { id: 'p4', slug: 'no-name' },
+  ])
+  assert.deepEqual([...marks.keys()], ['/Projects/client-site', '/Projects/home-lab'])
+  assert.deepEqual(marks.get('/Projects/client-site'), { name: 'Client site', to: '/app/projects/p1' })
+  assert.equal(marks.get('/Projects/home-lab').to, '/app/projects/p%202')
+  assert.equal(projectMarks(undefined).size, 0)
 })

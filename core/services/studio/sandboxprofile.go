@@ -134,7 +134,7 @@ func (s *Service) profileRole(ctx context.Context, user string) string {
 // chat that started it.
 func (s *Service) chatForProfile(ctx context.Context, rec session.ChatRecord) session.ChatRecord {
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
-		if parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID); err == nil {
+		if parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID); err == nil {
 			return parent
 		}
 	}
@@ -233,7 +233,7 @@ func (s *Service) withWorkDir(a workspace.Actor, t session.Tool) session.Tool {
 
 // callOptions decides the options of one call of the commands tool of a chat.
 func (s *Service) callOptions(ctx context.Context, user, chat string, d AddonTool) contract.ExecutionCall {
-	rec, err := s.d.Store.GetChat(ctx, user, chat)
+	rec, err := s.getChatEffective(ctx, user, chat)
 	pol, perr := s.sandboxPolicy(ctx)
 	if err != nil || perr != nil {
 		return contract.ExecutionCall{Profile: contract.FallbackProfile}
@@ -304,7 +304,7 @@ func infoOf(cat profileCatalog, pol sandboxpolicy.Policy, user, role string, st 
 // of another user is session.ErrNotFound.
 func (s *Service) SandboxProfiles(ctx context.Context, user, conv string) (SandboxProfileView, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return SandboxProfileView{}, err
 	}
@@ -344,7 +344,7 @@ func (s *Service) SandboxProfiles(ctx context.Context, user, conv string) (Sandb
 // files stay, running processes and installed packages are lost.
 func (s *Service) SetSandboxProfile(ctx context.Context, user, conv, profile string) error {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return err
 	}
@@ -417,7 +417,7 @@ func (s *Service) sandboxHint(a workspace.Actor) func(context.Context, skills.Sk
 		if sk.Sandbox == "" {
 			return ""
 		}
-		rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+		rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 		if err != nil {
 			return ""
 		}

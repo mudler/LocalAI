@@ -87,7 +87,8 @@
     "shared": "Shared",
     "builtin": "Built-in",
     "folder": "Workspace",
-    "addon": "Add-on"
+    "addon": "Add-on",
+    "project": "Project"
   },
   "edit": {
     "back": "Back to skills",

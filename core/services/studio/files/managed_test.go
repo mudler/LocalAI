@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 var _ = Describe("Managed", func() {
@@ -15,6 +16,18 @@ var _ = Describe("Managed", func() {
 		Expect(files.Managed("/Memory")).To(Equal(files.ManagedMemory))
 		Expect(files.Managed("/pages")).To(Equal(files.ManagedPages))
 		Expect(files.Managed("/.skills")).To(Equal(files.ManagedSkills))
+		Expect(files.Managed("/Projects")).To(Equal(files.ManagedProjects))
+	})
+
+	It("marks the Projects folder only by its exact path, and never as managed for sharing", func() {
+		Expect(files.Managed("/Projects/alpha")).To(BeEmpty())
+		Expect(files.Managed("/Projects/alpha/files")).To(BeEmpty())
+		for _, p := range []string{"/projects", "/Notes/Projects"} {
+			Expect(files.Managed(p)).To(BeEmpty(), p)
+		}
+		// The label does not change which paths sharing and moves refuse.
+		Expect(workfiles.Managed("/Projects")).To(BeFalse())
+		Expect(workfiles.Managed("/Projects/alpha")).To(BeFalse())
 	})
 
 	It("marks the folder itself and not what is inside it, apart from the settings", func() {

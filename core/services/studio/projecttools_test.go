@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -86,6 +87,42 @@ var _ = Describe("the list_projects chat tool", func() {
 		other := call(r, bob)
 		Expect(other.Out).To(ContainSubstring(theirs.ID))
 		Expect(other.Out).NotTo(ContainSubstring(mine.ID))
+	})
+
+	It("shows a chat that works inside a fence its own project only", func() {
+		f := newFiles()
+		ps, err := projects.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		proj := projects.NewService(projects.Options{Store: ps, Files: f})
+		ag, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		svc, h := newToolService(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return []studiotest.ToolStep{{Tool: "list_projects", Args: `{}`}, {Say: "ok"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, func(d *studio.Deps) { d.Files, d.Projects, d.Agents = f, proj, ag })
+		own, err := proj.Create(ctx, alice, projects.CreateInput{Name: "Kitchen", Description: "own text"})
+		Expect(err).NotTo(HaveOccurred())
+		other, err := proj.Create(ctx, alice, projects.CreateInput{Name: "Taxes", Description: "private text"})
+		Expect(err).NotTo(HaveOccurred())
+		a, err := svc.SaveAgent(ctx, alice, agents.Agent{Name: "Helper", Model: "m", ProjectID: own.ID})
+		Expect(err).NotTo(HaveOccurred())
+
+		fenced, err := svc.Create(ctx, alice, studio.CreateInput{Model: "m", AgentID: a.ID})
+		Expect(err).NotTo(HaveOccurred())
+		sent(svc, alice, fenced.ID, "go")
+		idle(svc, alice, fenced.ID)
+		res := h.ResultsFor("list_projects")
+		Expect(res).NotTo(BeEmpty())
+		Expect(res[len(res)-1].Out).To(And(ContainSubstring(own.ID), Not(ContainSubstring(other.ID)), Not(ContainSubstring("Taxes")), Not(ContainSubstring("private text"))))
+
+		// A chat of the same person with no agent sees both.
+		open := create(svc, alice)
+		sent(svc, alice, open, "go")
+		idle(svc, alice, open)
+		res = h.ResultsFor("list_projects")
+		Expect(res[len(res)-1].Out).To(And(ContainSubstring(own.ID), ContainSubstring(other.ID)))
 	})
 
 	It("says there are no projects, instead of failing", func() {
@@ -193,6 +230,44 @@ var _ = Describe("the projects client tool in an interactive chat", func() {
 		Entry("set_chat_project", `{"action":"set_chat_project","chat_id":"c1","project":"p1"}`),
 		Entry("delete", `{"action":"delete","project":"p1"}`),
 	)
+
+	DescribeTable("refuses to attach a connector, an add-on or an MCP server and calls no route",
+		func(args string) {
+			res, calls := call(args)
+			Expect(res.Err).To(MatchError(ContainSubstring("credentials")), args)
+			Expect(res.Err).To(MatchError(ContainSubstring("Ask the person")), args)
+			Expect(calls).To(BeZero())
+		},
+		Entry("connector on update", `{"action":"update","project":"p1","attached":{"connectors":["mail"]}}`),
+		Entry("add-on on update", `{"action":"update","project":"p1","attached":{"skills":["s"],"addons":["a"]}}`),
+		Entry("MCP server on create", `{"action":"create","name":"x","attached":{"mcp_servers":["srv"]}}`),
+	)
+
+	It("lets the model attach collections on create", func() {
+		res, calls := call(`{"action":"create","name":"x","attached":{"collections":["docs"]}}`)
+		Expect(res.Err).NotTo(HaveOccurred())
+		Expect(calls).To(Equal(1))
+	})
+
+	// The tool replaces the block; from a chat the lists are added to it, so a
+	// model that names one skill detaches nothing the person attached.
+	It("adds the skills of an update to what the project attaches and removes nothing", func() {
+		var sent []string
+		r := newLocalAIRig(func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Tool: localaitools.ToolProjects, Args: `{"action":"update","project":"p1","attached":{"skills":["s"]}}`}, {Say: "done"}}
+		})
+		r.turnNames("root", create(r.svc, "root"))
+		res := r.h.ResultsFor(localaitools.ToolProjects)
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Err).NotTo(HaveOccurred())
+		sent = r.client.projectCalls()
+		Expect(sent).To(HaveLen(2), "a read of the project, then the update")
+		var upd localaitools.ProjectsToolInput
+		Expect(json.Unmarshal([]byte(sent[1]), &upd)).To(Succeed())
+		Expect(upd.Action).To(Equal(localaitools.ActionUpdate))
+		Expect(upd.Attached["skills"]).To(Equal([]string{"old", "s"}))
+		Expect(upd.Attached["connectors"]).To(Equal([]string{"mail"}), "the connector the person attached stays")
+	})
 
 	DescribeTable("refuses arguments it cannot read instead of passing them on",
 		func(args string) {

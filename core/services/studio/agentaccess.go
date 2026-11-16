@@ -92,7 +92,7 @@ func userChatActor(p, conv string) workspace.Actor {
 // package (command runners, add-on host operations). The chat of another user
 // is session.ErrNotFound.
 func (s *Service) ChatAccess(ctx context.Context, user, conv string) (session.Access, error) {
-	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
 	if err != nil {
 		return session.Access{}, err
 	}
@@ -174,7 +174,7 @@ func (s *Service) chatActorFor(ctx context.Context, rec session.ChatRecord) work
 		return base.Fenced()
 	}
 	var chatNode int64
-	if hrec, herr := s.d.Store.GetChat(ctx, rec.Principal, holder); herr == nil && hrec.Folder != "" {
+	if hrec, herr := s.getChatEffective(ctx, rec.Principal, holder); herr == nil && hrec.Folder != "" {
 		owner := base
 		owner.ChatID = ""
 		if n, serr := s.d.Files.Store().Stat(ctx, owner, session.ChatsPath(rec.Principal)+"/"+hrec.Folder); serr == nil {
@@ -353,7 +353,7 @@ func (s *Service) chatScopes(ctx context.Context, rec session.ChatRecord, record
 	var scopes []*folderScope
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
 		holder = rec.ParentID
-		parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+		parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
 		switch {
 		case errors.Is(err, session.ErrNotFound):
 			// The parent is gone: nothing is known of its folder.
@@ -431,6 +431,11 @@ func (s *Service) agentFolderScope(ctx context.Context, rec session.ChatRecord, 
 	case err != nil:
 		// Without the agent nothing says whether it has a folder.
 		return nil, fmt.Errorf("studio: read the chat's agent: %w", err)
+	}
+	// A chat that was started before its agent moved to another project keeps
+	// its record but takes no new turn: its history belongs to the old fence.
+	if movedChat(rec, ag) {
+		return nil, ErrAgentMoved
 	}
 	// An agent saved with No files (the files group off) is scoped to its
 	// chat's own folder, whatever folders it still holds: they are ignored,

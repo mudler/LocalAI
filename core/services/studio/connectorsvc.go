@@ -262,7 +262,24 @@ func (c *Connectors) withState(ctx context.Context, i ConnectorInfo) ConnectorIn
 // tool-only may still hold them; the stored row is left alone and every reader
 // goes through here, so no migration is needed.
 func toolOnlyView(b connectors.Binding) connectors.Binding {
-	b.AgentID, b.Enabled, b.AcceptAny = "", false, false
+	b.Enabled, b.AcceptAny = false, false
+	return toolOnlyClean(b)
+}
+
+// toolOnlyClean clears what only makes sense when an agent answers: the agent,
+// the permissions, the allowlist, the notification chat, the talk-back
+// channels, the pairings and the trigger approval. A tool-only binding holds a
+// credential and its resource list; agents use it through their own
+// connection sets. The connector page of such a kind has no control for these
+// settings, so a request may still carry the defaults it seeds, and a row
+// saved before the kind was tool-only may hold them. Both are cleaned, so the
+// binding passes ValidateKind without an agent.
+func toolOnlyClean(b connectors.Binding) connectors.Binding {
+	b.AgentID = ""
+	b.Caps, b.Grants, b.WriteTickRemoved = nil, nil, false
+	b.Allow, b.AllowTrust = nil, nil
+	b.NotifyChat, b.Channels, b.Paired = "", nil, nil
+	b.Approval = connectors.Approval{}
 	return b
 }
 
@@ -542,7 +559,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 			return ConnectorInfo{}, err
 		}
 		// Agents choose the connection through their own sets: the binding has none.
-		b.AgentID, in.AgentID = "", ""
+		b, in.AgentID = toolOnlyClean(b), ""
 	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
@@ -672,7 +689,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		if err := connectors.ValidateToolOnly(b); err != nil {
 			return ConnectorInfo{}, err
 		}
-		b.AgentID, in.AgentID = "", ""
+		b, in.AgentID = toolOnlyClean(b), ""
 	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err

@@ -22,6 +22,10 @@ const (
 	Base = contract.FallbackProfile
 	// Media is Base with the tools to cut and convert audio, video and images.
 	Media = "media"
+	// Office is Base plus LibreOffice Impress, Writer and Calc and fonts, to
+	// render a presentation or a document to PDF and to images and look at it,
+	// and to recalculate a workbook.
+	Office = "office"
 )
 
 func tool(name, detail string, check ...string) contract.ProfileTool {
@@ -56,6 +60,19 @@ func mediaTools() []contract.ProfileTool {
 	)
 }
 
+// officeTools is baseTools plus the programs that render a presentation or a
+// document and recalculate a workbook. The checks convert a small file of each
+// kind for real: a version string alone does not prove that the profile
+// directory, the fonts and the filters work.
+func officeTools() []contract.ProfileTool {
+	return append(baseTools(),
+		tool("LibreOffice Impress", "soffice, renders .pptx to PDF", "soffice --version", "check-office-convert"),
+		tool("LibreOffice Writer", "soffice, renders .docx to PDF", "check-office-docx"),
+		tool("LibreOffice Calc", "soffice, recalculates .xlsx and renders it to PDF", "check-office-xlsx"),
+		tool("fonts", "DejaVu, Liberation, Carlito (as Calibri), Caladea (as Cambria)", "check-office-fonts"),
+	)
+}
+
 // Declared returns the profiles of this release, in the order the pickers
 // show them. The first is the fallback.
 func Declared() []contract.ExecutionProfile {
@@ -64,6 +81,8 @@ func Declared() []contract.ExecutionProfile {
 			CPUs: 2, MemoryMiB: 2048, DiskMiB: 10240, Tools: baseTools()},
 		{ID: Media, Title: "Media", Description: "Base plus ffmpeg, sox and ImageMagick to cut and convert audio, video and images.",
 			CPUs: 2, MemoryMiB: 4096, DiskMiB: 20480, Tools: mediaTools()},
+		{ID: Office, Title: "Office", Description: "Base plus LibreOffice Impress, Writer and Calc and fonts to render presentations and documents to images and to recalculate workbooks.",
+			CPUs: 2, MemoryMiB: 4096, DiskMiB: 20480, Tools: officeTools()},
 	}
 }
 

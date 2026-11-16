@@ -747,7 +747,9 @@
         "title": "Read your earlier chats",
         "description": "Lets the model search and read your earlier chats. An agent that works in a folder reads only the chats of its own."
       }
-    }
+    },
+    "fromProject": "From project",
+    "fromProjectTitle": "The project attaches this tool, so it is always on here. To turn it off, detach it in the project."
   },
   "mcpPage": {
     "title": "MCP connectors",
@@ -831,6 +833,11 @@
       "testedAt": "Tested {{when}}.",
       "errorTitle": "The last test could not connect.",
       "authTitle": "The server refused the sign-in.",
+      "output": "Last output from the command",
+      "outputCopy": "Copy",
+      "outputCopied": "Copied",
+      "outputMore": "Show all {{count}} lines",
+      "outputLess": "Show less",
       "tools": "Tools",
       "toolsUnknown": "Test the connection to see the tools.",
       "toolsNone": "The server offers no tools.",

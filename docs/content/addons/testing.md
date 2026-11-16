@@ -573,6 +573,9 @@ sh scripts/addons/sandbox_smoke.sh --layout "$SANDBOX_DOCUMENT_LAYOUT" --require
 This smoke runs the generated PDF fixture checker through the real Sandbox command route.
 It requires gVisor or KVM; an unavailable runtime is a failure, not evidence of helper execution.
 The checker lives at `/usr/local/lib/localai/document-skills/check-document-skills.py` in the guest.
+It also runs the `pptx` guard on a good and a collapsed deck and checks that the render and recalc helpers are installed.
+The image sources have their own tests, which need no image: `python3 addons/sandbox/images/guest/pptx_guard_test.py` and `sh addons/sandbox/images/guest/render_test.sh` (the render and recalc helpers with a stand-in LibreOffice).
+The build of the `office` image converts a real deck, a real document and a workbook with a formula and no cached value with `soffice` (`check-office-convert`, `check-office-docx`, `check-office-xlsx`) and looks for the fonts (`check-office-fonts`).
 A stand-in image reference from `--local-check` cannot establish guest execution.
 
 Run the focused UI checks with Node 22 and a dedicated server built from the current tree:

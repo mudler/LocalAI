@@ -121,9 +121,12 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/projects/:id/memory", FeatureChats},
 	{"PUT", "/api/chats/projects/:id/memory/:file", FeatureChats},
 	{"GET", "/api/chats/projects/:id/chats", FeatureChats},
-	{"GET", "/api/chats/projects/:id/agents", FeatureChats},
-	{"GET", "/api/chats/projects/:id/connections", FeatureChats},
-	{"GET", "/api/chats/projects/:id/triggers", FeatureChats},
+	// The three lists show objects of another feature, so they need that
+	// feature; the handlers also check the chats feature, which the project
+	// page itself needs.
+	{"GET", "/api/chats/projects/:id/agents", FeatureAgents},
+	{"GET", "/api/chats/projects/:id/connections", FeatureConnectors},
+	{"GET", "/api/chats/projects/:id/triggers", FeatureTriggers},
 	{"GET", "/api/chats/projects/:id/loops", FeatureChats},
 	{"PUT", "/api/chats/:id/project", FeatureChats},
 	{"PUT", "/api/chats/:id/projects", FeatureChats},
@@ -256,6 +259,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/agents/:id/references", FeatureAgents},
 	{"GET", "/api/chats/agents/:id/needs", FeatureAgents},
 	{"GET", "/api/chats/agents/:id", FeatureAgents},
+	{"PUT", "/api/chats/agents/:id/project", FeatureAgents},
 	{"PUT", "/api/chats/agents/:id", FeatureAgents},
 	{"DELETE", "/api/chats/agents/:id", FeatureAgents},
 	{"POST", "/api/agent/tasks", FeatureMCPJobs},
@@ -503,7 +507,7 @@ func AgentFeatureMetas() []FeatureMeta {
 		{FeatureLocalAIAssistant, "LocalAI Assistant", false},
 		{FeatureAgents, "Saved agents", false},
 		{FeatureTriggers, "Scheduled triggers", false},
-		{FeatureConnectors, "Chat connectors (Telegram bots)", false},
+		{FeatureConnectors, "Chat connectors", false},
 		{FeatureMCPJobs, "Agent tasks and jobs", false},
 		{FeaturePages, "Pages (HTML pages in the workspace)", false},
 	}

@@ -798,6 +798,7 @@
     "about": {
       "localai": "Pengaturan yang dibaca LocalAI: persona, profil, pintasan, Beranda, tema.",
       "chats": "Satu folder per obrolan, berisi file obrolan itu.",
+      "projects": "Proyek Anda. Setiap folder adalah satu proyek.",
       "memory": "Catatan yang disimpan asisten tentang Anda.",
       "pages": "Halaman di ruang kerja Anda.",
       "skills": "Skill yang dipakai agen.",
@@ -806,7 +807,8 @@
     "open": {
       "memory": "Buka Memori",
       "pages": "Buka Halaman",
-      "skills": "Buka Skill"
+      "skills": "Buka Skill",
+      "projects": "Buka Proyek"
     },
     "confirm": {
       "deleteTitle": "Pindahkan {{name}} ke Tempat Sampah?",
@@ -819,6 +821,7 @@
     "loses": {
       "settings": "LocalAI melupakan persona, profil, pintasan, tata letak Beranda, dan tema Anda.",
       "chats": "Setiap obrolan kehilangan filenya: yang Anda lampirkan dan yang ditulis asisten di sana.",
+      "projects": "Setiap proyek kehilangan file dan memorinya, dan chat dalam proyek kehilangan apa yang mereka pakai darinya.",
       "persona": "Asisten kehilangan nama dan instruksinya.",
       "user": "Asisten melupakan apa yang Anda ceritakan tentang diri Anda, dan jawaban Anda atas tawarannya.",
       "shortcuts": "Kotak pesan kembali menampilkan pintasan bawaan.",
@@ -1267,5 +1270,8 @@
       },
       "remote": "{{model}} bukan model lokal. Teks setiap balasan yang Anda bacakan dikirim ke server lain."
     }
+  },
+  "projectMark": {
+    "open": "Buka proyek {{name}}"
   }
 }

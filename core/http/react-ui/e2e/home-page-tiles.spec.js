@@ -190,6 +190,8 @@ test('the tiles in the dark theme and on a phone', async ({ page }) => {
   await home(page, 'dark')
   await tile(page, 'news').scrollIntoViewIfNeeded()
   await expect(tileFrame(page, 'news').locator('li')).toHaveCount(4)
+  // A tile builds its frame only when it is in view, so bring the clock tile into view first.
+  await tile(page, 'clock').scrollIntoViewIfNeeded()
   await expect(tileFrame(page, 'clock').locator('html')).toHaveAttribute('data-theme', 'dark')
   if (shots) {
     await tile(page, 'clock').scrollIntoViewIfNeeded()

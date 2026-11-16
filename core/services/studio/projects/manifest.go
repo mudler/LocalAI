@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -30,7 +31,7 @@ var idPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 // knownKeys are the top-level keys of Manifest, lower case. encoding/json
 // matches a key to a field without regard to case, so a differently cased copy
 // of one of these is the field, not an unknown key.
-var knownKeys = map[string]bool{"version": true, "id": true, "name": true, "description": true, "defaults": true, "sharedwith": true, "archived": true}
+var knownKeys = map[string]bool{"version": true, "id": true, "name": true, "description": true, "defaults": true, "attached": true, "sharedwith": true, "archived": true}
 
 // ParseManifest reads a manifest and checks the rules of version 1. Unknown
 // top-level fields do not fail the parse so that older builds can read newer
@@ -85,7 +86,105 @@ func ParseManifest(b []byte) (Manifest, error) {
 			return Manifest{}, fmt.Errorf("%w: defaults.%s has more than %d entries", ErrInvalid, l.field, maxListEntries)
 		}
 	}
+	for _, l := range m.Attached.lists() {
+		if len(l.entries) > maxListEntries {
+			return Manifest{}, fmt.Errorf("%w: attached.%s has more than %d entries", ErrInvalid, l.field, maxListEntries)
+		}
+	}
 	return m, nil
+}
+
+type namedList struct {
+	field   string
+	entries []string
+}
+
+// lists returns the five lists with the names the manifest uses for them.
+func (d Defaults) lists() []namedList {
+	return []namedList{
+		{"skills", d.Skills},
+		{"addons", d.Addons},
+		{"connectors", d.Connectors},
+		{"mcpServers", d.MCPServers},
+		{"collections", d.Collections},
+	}
+}
+
+// maxEntryLen is the longest entry of an attached list.
+const maxEntryLen = 256
+
+// connectorPrefix marks a connector in the MCP list of a chat or an agent.
+// An attached MCP server never starts with it: connectors have their own list,
+// and their own limit.
+const connectorPrefix = "connector:"
+
+// entryError says what is wrong with one entry of an attached list, or "" when
+// the entry is fine. An entry is a name or an id: not empty, no white space at
+// the ends, no control character, at most maxEntryLen bytes. The MCP list
+// takes no "connector:<id>" entry (see connectorPrefix).
+func entryError(field, e string) string {
+	switch {
+	case e == "":
+		return "is empty"
+	case len(e) > maxEntryLen:
+		return fmt.Sprintf("is longer than %d bytes", maxEntryLen)
+	case strings.TrimSpace(e) != e:
+		return "has white space at its ends"
+	case strings.ContainsFunc(e, unicode.IsControl):
+		return "has a control character"
+	case field == "mcpServers" && strings.HasPrefix(e, connectorPrefix):
+		return "is a connector: list it under connectors"
+	}
+	return ""
+}
+
+// CheckAttached refuses an attached entry that is malformed (see entryError)
+// or outside a non-empty limit of the same kind. It runs on write. On read the
+// manifest is not refused: EffectiveAttached drops the same entries, so a
+// manifest that a person edited by hand into this state still loads and the
+// bad entries do nothing. The message names the tool and the limit.
+func CheckAttached(limit, attached Defaults) error {
+	lims := limit.lists()
+	for i, l := range attached.lists() {
+		lim := lims[i].entries
+		for _, e := range l.entries {
+			if msg := entryError(l.field, e); msg != "" {
+				return fmt.Errorf("%w: attached %s entry %q %s", ErrInvalid, l.field, e, msg)
+			}
+			if len(lim) > 0 && !slices.Contains(lim, e) {
+				return fmt.Errorf("%w: attached %s %q is outside the limit defaults.%s", ErrInvalid, l.field, e, l.field)
+			}
+		}
+	}
+	return nil
+}
+
+// EffectiveAttached is attached as a run may apply it: without the entries
+// that CheckAttached would refuse. It is what the host reads from a manifest,
+// so a hand-edited file cannot attach a tool outside the limit.
+func EffectiveAttached(limit, attached Defaults) Defaults {
+	lims := limit.lists()
+	var out Defaults
+	dst := []*[]string{&out.Skills, &out.Addons, &out.Connectors, &out.MCPServers, &out.Collections}
+	for i, l := range attached.lists() {
+		for _, e := range l.entries {
+			if entryError(l.field, e) != "" || (len(lims[i].entries) > 0 && !slices.Contains(lims[i].entries, e)) {
+				continue
+			}
+			*dst[i] = append(*dst[i], e)
+		}
+	}
+	return out
+}
+
+// Empty reports whether no list has an entry.
+func (d Defaults) Empty() bool {
+	for _, l := range d.lists() {
+		if len(l.entries) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // Marshal returns the manifest as indented JSON with a trailing newline. The

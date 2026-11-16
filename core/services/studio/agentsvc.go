@@ -121,6 +121,8 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		} else if a.ProjectID != old.ProjectID {
 			return agents.Agent{}, fmt.Errorf("%w: the project of an agent cannot be changed", agents.ErrInvalid)
 		}
+		// Only a move changes the time of the last move.
+		a.MovedAt = old.MovedAt
 		if folders == nil {
 			a.Folders, a.FolderID, a.FolderMode = old.Folders, old.FolderID, old.FolderMode
 		}

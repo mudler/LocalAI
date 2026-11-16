@@ -32,7 +32,8 @@
     "openMemory": "Open",
     "openInFiles": "Open in Files",
     "openInFilesNamed": "Open the folder of {{name}} in Files",
-    "share": "Share"
+    "share": "Share",
+    "editArchived": "Restore the project to edit it"
   },
   "row": {
     "chats_one": "{{count}} chat",
@@ -85,10 +86,11 @@
     "files": "Files",
     "chats": "Chats",
     "memory": "Memory",
-    "tools": "Tools",
+    "tools": "Tool defaults",
     "agents": "Agents",
     "connections": "Connections",
-    "automations": "Automations"
+    "automations": "Automations",
+    "skills": "Skills"
   },
   "updated": "Updated {{when}}",
   "overview": {
@@ -98,7 +100,7 @@
     "noChats": "No chats in this project yet.",
     "stats": "In this project",
     "statChats": "Chats",
-    "statMemory": "Memory files",
+    "statMemory": "Memory",
     "statTools": "Tool defaults",
     "memory": "Project memory",
     "memoryEmpty": "Nothing in the memory yet.",
@@ -109,9 +111,19 @@
   },
   "files": {
     "title": "Files of this project",
-    "body": "The working files of this project are in this folder. Chats in the project see them.",
+    "body": "Files you add here are what this project's chats and agents can use.",
     "path": "Folder",
-    "open": "Open in Files"
+    "open": "Open in Files",
+    "dropTitle": "Drop files here",
+    "upload": "Upload files",
+    "newFile": "New file",
+    "empty": "No files yet. Drop files here or upload them.",
+    "openFile": "Open {{name}}",
+    "dropOver": "Drop to add to this project",
+    "loadFailed": "Could not load the files of this project.",
+    "loading": "Loading files",
+    "archivedNote": "This project is archived. Restore it to add or create files. The files stay readable.",
+    "emptyArchived": "No files in this project."
   },
   "chats": {
     "title": "Chats in this project",
@@ -144,19 +156,55 @@
   },
   "tools": {
     "title": "Tool defaults",
-    "note": "Empty = no override; a non-empty list switches on only those.",
-    "none": "No override",
+    "none": "No limit",
     "skills": "Skills",
     "addons": "Add-ons",
-    "mcp_servers": "MCP servers",
-    "connectors": "Connectors",
+    "mcp_servers": "MCP servers of a model",
+    "connectors": "MCP connectors",
     "collections": "Collections",
-    "connectorsHint": "Only these connectors are on in new chats",
-    "collectionsHint": "Only these knowledge collections are available in new chats",
+    "connectorsHint": "Only these MCP connectors (the ones you add on the MCP connectors page) are on. Messaging apps are separate: see the Connections tab.",
+    "collectionsHint": "Only these knowledge collections are available in new chats and to project agents.",
     "addLabel": "Add to {{list}}",
-    "addPlaceholder": "Name",
+    "addPlaceholder": "Find or type a name",
     "add": "Add",
-    "removeChip": "Remove {{name}}"
+    "removeChip": "Remove {{name}}",
+    "lead": "Empty means no limit. When you fill in a list, new chats in this project start with only those entries on, and every agent of this project can use only those entries.",
+    "skillsHint": "Only these skills are on in new chats and open to project agents. Use the name shown on the Skills page.",
+    "addonsHint": "Only these add-ons are on in new chats and open to project agents.",
+    "mcp_serversHint": "Only these MCP servers are on. Use the server name from a model's configuration.",
+    "state": {
+      "missing": "Not available",
+      "off": "Off now",
+      "missingTitle": "Nothing named “{{name}}” is installed here. This entry does nothing until it exists.",
+      "offTitle": "“{{name}}” is switched off. This entry does nothing until it is on.",
+      "outside": "Outside the limit",
+      "outsideTitle": "{{name}} is not in the limit, so the server refuses this project."
+    },
+    "countMissing": "{{n}} not available",
+    "pickerLoading": "Reading what is installed…",
+    "pickerNone": "Nothing installed to pick from. Type a name instead.",
+    "pickerLead": "Installed, click to add:",
+    "pickerLabel": "Installed: {{list}}",
+    "addNotInstalled": "Add “{{name}}” (not installed here)",
+    "addTyped": "Add “{{name}}”",
+    "save": "Save",
+    "discard": "Discard changes",
+    "archivedNote": "This project is archived. Restore it to change its tool defaults.",
+    "attachedTitle": "Attached",
+    "attachedKind": "Always on for this project's chats and agents",
+    "limitKind": "Limit: only these can be used",
+    "attachedLead": "Every chat and agent of this project gets these on, with no step of its own, also in chats that already exist. A chat cannot switch them off. When the limit below has entries, an attached entry must be in it.",
+    "noneAttached": "Nothing attached",
+    "attachLabel": "Attach to {{list}}",
+    "outsideLimit": "Outside the limit: {{names}}. Add them to the limit below or detach them. The server refuses a project like this.",
+    "attachedBlocked": "Attached tools are off while this folder has other writers: what the project attaches is ignored until nobody else can write the folder.",
+    "attachedHints": {
+      "skills": "These skills are on in every chat and agent of this project. Use the name shown on the Skills page.",
+      "addons": "These add-ons are on in every chat and agent of this project. An add-on that holds a credential runs only for you, not for people the project is shared with.",
+      "mcp_servers": "These MCP servers are on in every chat and agent of this project. A server that holds a credential runs only for you.",
+      "connectors": "These MCP connectors are on in every chat and agent of this project. A connector runs only for you, never for people the project is shared with.",
+      "collections": "These knowledge collections can be searched in every chat and agent of this project."
+    }
   },
   "sheet": {
     "newTitle": "New project",
@@ -164,17 +212,16 @@
     "newBody": "Name it and say what it is for. You can add files and memory afterwards.",
     "editBody": "Change the name, the description or the tool defaults.",
     "name": "Name",
-    "nameHint": "Shown in lists. The folder is Projects/{{slug}}.",
+    "nameHint": "Shown in lists. Folder: Projects/{{slug}} (it does not change if you rename the project)",
     "nameHintNew": "Shown in lists. The folder is made from the name.",
     "nameRequired": "Enter a name.",
     "description": "Description",
-    "descriptionHint": "One or two sentences. Chats see it as context.",
-    "defaults": "Tool defaults",
-    "defaultsHint": "Optional. Empty = no override.",
+    "descriptionHint": "One or two sentences. The first {{limit}} characters are given to chats as context.",
     "count_one": "{{count}} set",
     "count_other": "{{count}} set",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "nameCounter": "{{length}} of {{max}} characters"
   },
   "composer": {
     "label": "Project",
@@ -252,7 +299,7 @@
     "archivedHint": "This project is archived. Restore it to add agents or chat with them.",
     "new": "New agent",
     "empty": "No agents in this project yet",
-    "emptyBody": "Make an agent that works only in this project's files and memory. Shared folders and skills stay readable.",
+    "emptyBody": "Create an agent that chats here and can run on its own.",
     "ready": "Ready",
     "unavailable": "Unavailable",
     "filesRead": "Read only",
@@ -313,7 +360,14 @@
     "nextNone": "Next run: none",
     "nextFile": "Next run: on a new file",
     "pausedWhy": "Paused while the project is archived",
-    "openChat": "Open chat"
+    "openChat": "Open chat",
+    "newTrigger": "New trigger",
+    "newArchived": "Restore the project to add a trigger.",
+    "newUnavailable": "No agent of this project can work now, so a new trigger has nothing to run. Open Agents to see why.",
+    "triggersDenied": "Triggers are not available to your account",
+    "triggersDeniedBody": "An administrator can turn them on for you.",
+    "triggersNoneNoAgents": "A trigger runs a project agent, and this project has none yet.",
+    "goAgents": "Go to Agents"
   },
   "share": {
     "dialogIntro": "Anyone you share with sees the whole project: files, memory and settings. People with edit access can change its files, memory and settings.",
@@ -356,5 +410,35 @@
     "backToProjects": "Back to projects",
     "loadError": "Could not load this project.",
     "off": "Projects are off on this server."
+  },
+  "delete": {
+    "title": "Delete “{{name}}”?",
+    "body": "Its folder, with its files and memory, goes to the Trash. You can undo for a few seconds, or restore the folder later from the Trash in Files.",
+    "agents": "Agents that stop working: {{n}}",
+    "triggers": "Triggers of those agents that stop: {{n}}",
+    "chats": "Chats that keep their record but lose the project: {{n}}",
+    "nothing": "No agents, triggers or chats depend on this project."
+  },
+  "access": {
+    "agents": "Agents are not available to your account",
+    "agentsBody": "An administrator can turn them on for you.",
+    "connections": "Connections are not available to your account",
+    "connectionsBody": "This tab needs the connectors and the agents features. An administrator can turn them on for you."
+  },
+  "projectSkills": {
+    "title": "Project skills",
+    "new": "New skill",
+    "body": "Skills kept in this project's folder. They are on in every chat and agent of this project and in no other chat.",
+    "blocked": "Project skills are off while this folder has other writers.",
+    "loadFailed": "The project skills did not load.",
+    "empty": "This project has no skills yet.",
+    "removed": "Skill {{name}} deleted.",
+    "removeFailed": "The skill was not deleted: {{message}}",
+    "edit": "Edit {{name}}",
+    "editLabel": "Edit",
+    "delete": "Delete {{name}}",
+    "deleteLabel": "Delete",
+    "deleteTitle": "Delete the skill {{name}}?",
+    "deleteBody": "The skill is removed from this project's folder. Chats and agents of the project stop using it."
   }
 }

@@ -56,7 +56,7 @@ func (s *Service) workFolderOf(ctx context.Context, a workspace.Actor) (folder s
 	if !s.workFolderOn() || !s.d.Files.Available() || a.ChatID == "" {
 		return "", 0
 	}
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return "", 0
 	}
@@ -74,7 +74,7 @@ func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord, x se
 	if !s.workFolderOn() || !s.d.Files.Available() || rec.ParentID == "" {
 		return "", ""
 	}
-	parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+	parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
 	if err != nil || parent.Folder == "" {
 		return "", ""
 	}
@@ -110,11 +110,11 @@ func (s *Service) parentFolder(ctx context.Context, a workspace.Actor) string {
 	if !s.workFolderOn() || !s.d.Files.Available() || a.ChatID == "" {
 		return ""
 	}
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil || rec.ParentID == "" {
 		return ""
 	}
-	parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+	parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
 	if err != nil {
 		return ""
 	}

@@ -798,6 +798,7 @@
     "about": {
       "localai": "Configurações que o LocalAI lê: persona, perfil, atalhos, Início, tema.",
       "chats": "Uma pasta por chat, com os arquivos do chat.",
+      "projects": "Seus projetos. Cada pasta é um projeto.",
       "memory": "As notas que o assistente guarda sobre você.",
       "pages": "As páginas do seu espaço de trabalho.",
       "skills": "As skills que os agentes usam.",
@@ -806,7 +807,8 @@
     "open": {
       "memory": "Abrir Memória",
       "pages": "Abrir Páginas",
-      "skills": "Abrir Skills"
+      "skills": "Abrir Skills",
+      "projects": "Abrir Projetos"
     },
     "confirm": {
       "deleteTitle": "Mover {{name}} para a Lixeira?",
@@ -819,6 +821,7 @@
     "loses": {
       "settings": "O LocalAI esquece sua persona, seu perfil, seus atalhos, o layout do Início e seu tema.",
       "chats": "Cada chat perde seus arquivos: o que você anexou e o que o assistente escreveu lá.",
+      "projects": "Cada projeto perde seus arquivos e sua memória, e os chats de um projeto perdem o que usavam deles.",
       "persona": "O assistente perde seu nome e suas instruções.",
       "user": "O assistente esquece o que você contou sobre você e suas respostas às ofertas dele.",
       "shortcuts": "A caixa de mensagem volta a mostrar os atalhos padrão.",
@@ -1267,5 +1270,8 @@
       },
       "remote": "{{model}} não é um modelo local. O texto de cada resposta que você manda ler em voz alta é enviado a outro servidor."
     }
+  },
+  "projectMark": {
+    "open": "Abrir o projeto {{name}}"
   }
 }

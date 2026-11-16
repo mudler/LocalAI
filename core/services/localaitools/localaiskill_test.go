@@ -83,7 +83,9 @@ var _ = Describe("the localai skill", func() {
 	})
 
 	It("uses only names that exist anywhere else in backticks", func() {
-		known := map[string]bool{"ref": true, "model_note": true, "load_skill": false}
+		known := map[string]bool{"ref": true, "model_note": true, "load_skill": false,
+			// The five lists of the attached block of a project.
+			"skills": true, "addons": true, "connectors": true, "mcp_servers": true, "collections": true}
 		for tool, ps := range props {
 			known[tool] = true
 			for p := range ps {
@@ -100,7 +102,7 @@ var _ = Describe("the localai skill", func() {
 
 	It("describes the actions of the action tools", func() {
 		for _, a := range []string{ActionVerify, ActionIdentify, ActionCreate, ActionList, ActionDelete,
-			ActionGet, ActionUpdate, ActionArchive, ActionRestore, ActionSetChatProject, ActionPull, ActionUnpull, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionShared} {
+			ActionGet, ActionUpdate, ActionArchive, ActionRestore, ActionSetChatProject, ActionPull, ActionUnpull, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionShared, ActionSharedGet, ActionMemory, ActionWriteMemory, ActionChats} {
 			Expect(text).To(ContainSubstring("`"+a+"`"), a)
 		}
 		Expect(slices.Collect(func(yield func(string) bool) {
@@ -110,7 +112,7 @@ var _ = Describe("the localai skill", func() {
 				}
 			}
 		})).To(ConsistOf(ActionVerify, ActionIdentify, ActionCreate, ActionList, ActionDelete,
-			ActionGet, ActionUpdate, ActionArchive, ActionRestore, ActionSetChatProject, ActionPull, ActionUnpull, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionShared))
+			ActionGet, ActionUpdate, ActionArchive, ActionRestore, ActionSetChatProject, ActionPull, ActionUnpull, ActionAgents, ActionConnections, ActionTriggers, ActionLoops, ActionShared, ActionSharedGet, ActionMemory, ActionWriteMemory, ActionChats))
 	})
 
 	It("stays compact and in plain English", func() {
@@ -128,7 +130,13 @@ var _ = Describe("the localai skill", func() {
 		// 7,700 to 7,800: connections, triggers and loops in the projects line (about 90 bytes).
 		// 7,800 to 8,000: the shared action of the projects line (about 135 bytes): it
 		// lists what others shared and says sharing is not a tool.
-		Expect(len(text)).To(BeNumerically("<=", 8000), "about 1,500 tokens; the skill loads on demand and lists the arguments the API takes")
+		// 8,000 to 8,350: memory, write_memory, chats and shared_get in the
+		// projects line (about 330 bytes): they read and write the memory of a
+		// project, list its chats and read a shared project with its memory.
+		// 8,350 to 8,800: the attached block of the projects line (about 430
+		// bytes): what a project owns, that update replaces it, and that a chat
+		// attaches skills and collections only.
+		Expect(len(text)).To(BeNumerically("<=", 8800), "about 1,500 tokens; the skill loads on demand and lists the arguments the API takes")
 		Expect(strings.Count(text, "—")).To(BeZero(), "no em dashes")
 	})
 })

@@ -55,7 +55,8 @@
     "builtin": "Built-in",
     "folder": "Workspace",
     "addon": "插件",
-    "agent": "智能体"
+    "agent": "智能体",
+    "project": "项目"
   },
   "pane": {
     "loading": "Loading...",

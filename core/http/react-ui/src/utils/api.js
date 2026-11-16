@@ -460,11 +460,12 @@ function draftQuery(model, agentId, switches) {
   return s ? `?${s}` : ''
 }
 
-const refQuery = (ref) => (ref.addon ? `?addon=${enc2(ref.addon)}` : ref.agent ? `?agent=${enc2(ref.agent)}` : '')
+const refQuery = (ref) => (ref.addon ? `?addon=${enc2(ref.addon)}` : ref.agent ? `?agent=${enc2(ref.agent)}` : ref.project ? `?project=${enc2(ref.project)}` : '')
 export const chatSkillsApi = {
   // agents: also list the skills of your saved agents (the Skills page); a
   // chat's own list has the layer of its agent already.
-  list: (chat, { agents = false } = {}) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : agents ? '?agents=true' : ''}`),
+  // project: the skills of that project's own layer (layer=project&project=<id>).
+  list: (chat, { agents = false, project = '' } = {}) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : agents ? '?agents=true' : project ? `?layer=project&project=${enc2(project)}` : ''}`),
   // ref names the owner of a skill of the addon layer ({ addon }) or of the
   // agent layer ({ agent }): see skillRef in utils/chatSkills.js.
   get: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`),
@@ -477,7 +478,7 @@ export const chatSkillsApi = {
   },
   // The skill as a zip file in the Agent Skills layout, as a Blob.
   exportZip: async (name) => (await handleResponse(await fetch(apiUrl(`/api/chats/skills/personal/${enc2(name)}/export`)))).blob(),
-  update: (layer, name, body) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  update: (layer, name, body, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`, { method: 'PUT', body: JSON.stringify(body) }),
   remove: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`, { method: 'DELETE' }),
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/skills`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }
@@ -605,6 +606,10 @@ export const chatAgentsApi = {
   update: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   // memory says what to do with the agent's own notes: keep (the default) or delete.
   remove: (id, memory) => fetchJSON(`/api/chats/agents/${enc2(id)}${q({ memory })}`, { method: 'DELETE' }),
+  // Moves the agent to another project, or out of its project (project_id ''):
+  // the only way to change the project of a saved agent. With dry_run true the
+  // answer is the report of what the move touches and nothing is written.
+  moveProject: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}/project`, { method: 'PUT', body: JSON.stringify(body) }),
   // The agent file of the server (kind localai-agent). Import takes it, the
   // body of a create, or an export of the old agents; it always makes a new
   // agent and says in `warnings` what it changed.

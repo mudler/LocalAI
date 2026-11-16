@@ -1333,8 +1333,12 @@ var _ = Describe("the add-on package workflow", func() {
 
 		It("loops the plan over the same list", func() {
 			plan := readWorkflow()
-			Expect(plan).To(ContainSubstring("for id in "+strings.Join(firstPartyAddons, " ")+"; do"),
-				"plan does not loop over exactly %v", firstPartyAddons)
+			// The list is assigned once; every loop iterates that variable.
+			Expect(strings.Count(plan, "all_ids=\"")).To(Equal(1), "the plan must assign all_ids exactly once")
+			Expect(plan).To(ContainSubstring("all_ids=\""+strings.Join(firstPartyAddons, " ")+"\"\n"),
+				"plan does not hold exactly %v in all_ids", firstPartyAddons)
+			Expect(plan).To(ContainSubstring("for id in $all_ids; do"), "plan does not loop over all_ids")
+			Expect(plan).ToNot(MatchRegexp(`for id in [a-z]`), "a loop names add-ons directly instead of using all_ids")
 		})
 
 		for _, id := range firstPartyAddons {
