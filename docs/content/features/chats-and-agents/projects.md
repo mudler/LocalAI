@@ -37,9 +37,9 @@ A project is a lens for chats, not a security boundary. A chat that is not restr
 
 ## More
 
-The reference has the details:
+The [Projects reference]({{% relref "/features/chats-and-agents/projects-reference" %}}) has the details:
 
-- [In the UI]({{% relref "/features/chat-apps#in-the-ui" %}}): the pages, chips and settings.
-- [Project memory]({{% relref "/features/chat-apps#project-memory" %}}) and [Tool defaults]({{% relref "/features/chat-apps#tool-defaults" %}}).
-- [Sharing a project]({{% relref "/features/chat-apps#sharing-a-project" %}}).
-- [The API]({{% relref "/features/chat-apps#the-api" %}}): the routes under `/api/chats/projects`.
+- [In the UI]({{% relref "/features/chats-and-agents/projects-reference#in-the-ui" %}}): the pages, chips and settings.
+- [Project memory]({{% relref "/features/chats-and-agents/projects-reference#project-memory" %}}) and [Tool defaults]({{% relref "/features/chats-and-agents/projects-reference#tool-defaults" %}}).
+- [Sharing a project]({{% relref "/features/chats-and-agents/projects-reference#sharing-a-project" %}}).
+- [The API]({{% relref "/features/chats-and-agents/projects-reference#the-api" %}}): the routes under `/api/chats/projects`.

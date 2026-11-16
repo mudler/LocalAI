@@ -203,7 +203,7 @@ the resource ID from the page of the resource, or from the route in the table.
 
 | Kind | What it is | Roles | `@everyone` | Feature | Resource ID from |
 |------|------------|-------|-------------|---------|------------------|
-| `connection` | A [connector binding]({{%relref "/features/chat-apps#sharing-a-connection" %}}) | `use` | No | `connectors` | `POST /api/chats/connectors/{id}/share` |
+| `connection` | A [connector binding]({{% relref "/features/chat-apps/sharing#sharing-a-connection" %}}) | `use` | No | `connectors` | `POST /api/chats/connectors/{id}/share` |
 | `collection` | A [collection]({{%relref "/features/files-and-documents/collections#sharing-a-collection" %}}) | `viewer`, `editor` | Yes | `collections` | `POST /api/collections/{name}/share` |
 | `agent` | A [saved agent]({{%relref "/features/chats-and-agents/chats-agents#share-an-agent" %}}) | `use`, `viewer` | Yes | `agents` | `POST /api/chats/agents/{id}/share` |
 

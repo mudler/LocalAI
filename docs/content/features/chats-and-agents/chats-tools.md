@@ -17,7 +17,7 @@ chats, as it does for `/v1/chat/completions`. A user needs the
 A tool cannot take the name of a built-in tool such as `spawn_agent`.
 
 You can also add MCP servers of your own, stored on the server: see
-[MCP servers]({{% relref "/features/chat-apps" %}}#mcp-servers). Your enabled connectors
+[MCP servers]({{% relref "/features/chat-apps/mcp-servers#mcp-servers" %}}). Your enabled connectors
 are offered to your chats next to the model's servers; the model's own
 configuration is not changed.
 
@@ -165,7 +165,7 @@ A tool of an MCP server can declare an interactive HTML page in
 `_meta.ui.resourceUri`, as the [MCP Apps extension](https://modelcontextprotocol.io/extensions/apps/overview)
 defines. When the model calls such a tool, the chat shows the page under the tool
 line, with the arguments and the result of the call. This works for your
-[connectors]({{% relref "/features/chat-apps" %}}#mcp-apps) and for the MCP servers of the
+[connectors]({{% relref "/features/chat-apps/mcp-servers#mcp-apps" %}}) and for the MCP servers of the
 chat's model. The page appears as soon as the tool call ends, while the turn
 goes on, and it stays when the turn ends or the chat is opened again.
 

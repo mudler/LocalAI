@@ -87,7 +87,7 @@ test.describe('Chat MCP connectors', () => {
     const empty = page.getByTestId('mcp-empty')
     await expect(empty.getByRole('heading', { name: 'No connectors yet' })).toBeVisible()
     await expect(empty).toContainText('Tokens and headers stored encrypted')
-    await expect(empty.getByRole('link', { name: 'How MCP works' })).toHaveAttribute('href', /features\/chats-connectors\/#mcp-servers/)
+    await expect(empty.getByRole('link', { name: 'How MCP works' })).toHaveAttribute('href', /features\/chats-connectors\/mcp-servers\//)
     // The empty state carries the primary action, so the header does not.
     await expect(page.getByTestId('mcp-add')).toHaveCount(1)
     await expect(page.getByRole('tablist')).toHaveCount(0)

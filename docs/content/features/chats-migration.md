@@ -18,7 +18,7 @@ changes or deletes the old data.
 | An agent of the pool | A [saved agent](/features/chats-agents/): instructions, model, the collection named like the agent, selected skills |
 | An agent that ran by itself (periodic) | A [trigger](/features/chats-agents/) on the agent, **switched off** |
 | A scheduled task with a cron text | A trigger, **switched off**; `{{.name}}` parts of the prompt are filled from the task's parameters |
-| An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector](/features/chats-connectors/#mcp-servers) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
+| An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector]({{% relref "/features/chat-apps/mcp-servers#mcp-servers" %}}) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
 | A local MCP command of an agent (`mcp_stdio_servers`) | The same, only when the owner is an administrator; otherwise it is dropped, with the reason |
 | A Telegram connector of an agent | A [connector binding](/features/chats-connectors/) for the converted agent, **switched off**, with the bot token sealed on the server; the old `admins` become the allowlist |
 | A skill folder (shared or personal) | A shared or personal skill |

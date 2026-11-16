@@ -655,7 +655,7 @@ mcp:
 > The chats no longer connect to MCP servers from the browser. This section
 > describes the browser-side connection that the add-on host still offers to
 > add-ons. For the chats, define the server as a connector (it is stored per user
-> and connects from the server): see [Chats connectors]({{% relref "/features/chat-apps" %}}#mcp-servers).
+> and connects from the server): see [Chats connectors]({{% relref "/features/chat-apps/mcp-servers#mcp-servers" %}}).
 > A server on your own computer or a private network is refused unless an
 > administrator allows private addresses.
 

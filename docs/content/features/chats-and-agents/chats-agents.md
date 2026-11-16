@@ -21,7 +21,7 @@ An agent has:
 | `description` | A short note for you. |
 | `instructions` | Text added to the system prompt of every turn. At most 32 KiB. |
 | `model` | Optional. The chat uses this model. Chat-capable model aliases can also be selected; the agent saves the alias name, not its target name. Without it, the chat is created with the model you choose. |
-| `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors]({{% relref "/features/chat-apps" %}}#mcp-servers) as `connector:<id>`. The form lists both as a picker; it does not take free text. A save that adds a `connector:<id>` you have not defined, or, for an agent with a fixed model, a name that is not one of that model's MCP servers, is a `400` ("... is not one of your MCP connectors"). A name the agent already holds is kept, so an older agent still loads and saves; the form shows it as **Not defined** with a remove button, the Effective view says it is ignored, and the agent's chats skip it. |
+| `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors]({{% relref "/features/chat-apps/mcp-servers#mcp-servers" %}}) as `connector:<id>`. The form lists both as a picker; it does not take free text. A save that adds a `connector:<id>` you have not defined, or, for an agent with a fixed model, a name that is not one of that model's MCP servers, is a `400` ("... is not one of your MCP connectors"). A name the agent already holds is kept, so an older agent still loads and saves; the form shows it as **Not defined** with a remove button, the Effective view says it is ignored, and the agent's chats skip it. |
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
@@ -163,7 +163,7 @@ the **Memory** section shows them once, without switches.
 ### Connections of an agent
 
 An add-on whose tools run with the token of one of your
-[connections]({{% relref "/features/chat-apps" %}}#github) lets the agent name which
+[connections]({{% relref "/features/chat-apps/accounts#github" %}}) lets the agent name which
 accounts its chats may use. In the agent form, the add-on's row in **What it can
 use** has an **Account it uses** list with a checkbox for each connection. A chat
 of the agent uses that set, shows it read only, and cannot change it. With two or
@@ -335,7 +335,7 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folders": [
   keep their paths in your home there.
 - Triggers and connectors that use the agent keep to its folder too. See
   [Triggers of an agent with a folder](#triggers-of-an-agent-with-a-folder) and
-  the [connectors page]({{% relref "/features/chat-apps" %}}#what-a-message-gets).
+  the [connectors page]({{% relref "/features/chat-apps/answers#what-a-message-gets" %}}).
 
 In the web interface, the **Files** section of the agent form is one choice in
 three words:
@@ -498,7 +498,7 @@ of your own projects with the query parameter `project_id`, or create one with
 `create_project=true`; until you do, the answer is `409` with the error type
 `project_required` and the project name in `project_name`. The request
 parameters are the only mapping: see
-[Agents created from a project]({{% relref "/features/chat-apps#agents-created-from-a-project" %}}).
+[Agents created from a project]({{% relref "/features/chats-and-agents/projects-reference#agents-created-from-a-project" %}}).
 
 ### Run history
 
@@ -623,7 +623,7 @@ turn of a shared agent stops. With add-ons off, no agent is shared.
 
 ## Connectors
 
-A [connector]({{% relref "/features/chat-apps" %}}) binds a Telegram bot or a Slack app to an agent, so a person can talk to it from Telegram or Slack. An [MCP connector]({{% relref "/features/chat-apps" %}}#mcp-servers) is a tool server that an agent can name in its `mcp_servers` list.
+A [connector]({{% relref "/features/chat-apps" %}}) binds a Telegram bot or a Slack app to an agent, so a person can talk to it from Telegram or Slack. An [MCP connector]({{% relref "/features/chat-apps/mcp-servers#mcp-servers" %}}) is a tool server that an agent can name in its `mcp_servers` list.
 
 ## Triggers
 
@@ -748,7 +748,7 @@ What a run holds:
   agent holds; no tool changes the `acts` of a trigger afterwards. The proposal
   card lists them, and confirming it grants exactly those. A proposal from a
   chat of a messaging app carries only the acts that the binding allows
-  (`approval.acts`, see [Runs may act]({{% relref "/features/chat-apps" %}}#runs-may-act)) and the
+  (`approval.acts`, see [Runs may act]({{% relref "/features/chat-apps/actions#runs-may-act" %}})) and the
   agent holds; the rest is dropped and named in the proposal. A connection starts
   such a trigger without asking only in the `auto` mode, when every act is allowed
   for the binding and the sender is paired; otherwise it is left for a yes. A trigger whose plan names a file it writes (`plan.writes`) also holds
@@ -760,7 +760,7 @@ What a run holds:
 - **Read only runs.** A trigger whose proposal said its runs only read
   (`access: read_only`), or that a connection made without asking while its
   approval mode is `auto_readonly` (see
-  [Approval modes]({{% relref "/features/chat-apps" %}}#approval-modes)), holds nothing: every
+  [Approval modes]({{% relref "/features/chat-apps/actions#approval-modes" %}})), holds nothing: every
   tool that is not a read is refused, whatever `acts` and the agent say. A
   connection that cannot be read is treated as `auto_readonly`.
 - **Sub-agents.** A sub-agent of an unattended run has the same limits as its
@@ -987,7 +987,7 @@ the grant "Also propose from messaging apps". It gets `update_trigger` and
 sensitive: only a paired sender can use it) and the sender of the message holds it;
 the approval mode of the connection then decides whether the owner confirms each
 change in the chat or it applies at once (see
-[Triggers from a connector chat]({{%relref "/features/chat-apps#triggers-from-a-connector-chat" %}})).
+[Triggers from a connector chat]({{% relref "/features/chat-apps/actions#triggers-from-a-connector-chat" %}})).
 
 ### Clusters
 

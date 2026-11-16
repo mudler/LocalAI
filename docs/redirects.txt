@@ -63,6 +63,12 @@
 /features/chats-agents/
 /features/chats-and-agents/
 /features/chats-connectors/
+/features/chats-connectors/accounts/
+/features/chats-connectors/mcp-servers/
+/features/chats-connectors/answers/
+/features/chats-connectors/access/
+/features/chats-connectors/actions/
+/features/chats-connectors/sharing/
 /features/chats-migration/
 /features/chats/
 /features/chats-api/
@@ -90,6 +96,7 @@
 /features/face-recognition/
 /features/files-and-documents/
 /features/files/
+/features/projects-reference/
 /features/files-reference/
 /features/fine-tuning/
 /features/forecast/

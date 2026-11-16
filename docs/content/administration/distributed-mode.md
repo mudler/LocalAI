@@ -1658,3 +1658,81 @@ No automatic migration occurs: existing filesystem paths stay put and configured
 S3 workspaces remain on S3. Switching populated metadata requires a separately
 planned copy and verification, with all consumers switching together. Mixed
 S3/local/shared backends can yield missing content.
+
+## Chat apps, MCP servers and Projects in a cluster
+
+Chat apps, MCP servers and Projects keep state in a cluster as the sections below say. The user pages are [Chat apps and connections]({{% relref "/features/chat-apps" %}}), [MCP servers]({{% relref "/features/chat-apps/mcp-servers" %}}) and [Projects]({{% relref "/features/chats-and-agents/projects-reference" %}}).
+
+### Multiple frontends and readiness
+
+In a multi-frontend deployment, connector discovery and calls go to the frontend
+that owns the add-on runtime over the private, peer-authenticated add-on carrier.
+You can create and test bindings from another frontend; it does not need its own
+Slack or Telegram runtime. Poll leadership is unchanged: the polling frontend
+and notification sender can reach the runtime owner without owning it themselves.
+Connector access still requires **Connectors**, not the separate **Add-ons**
+permission. Existing agent permissions and sender allowlists still apply.
+
+A healthy owner with no running connector kinds returns an empty list. An
+unreachable, unready or fenced owner returns an error instead: an empty list is
+not an outage signal. Check that the connector add-on is running and that the
+frontends can reach the configured private carrier before trying discovery again.
+
+If discovery fails or the platform explicitly refuses a token, creating a binding
+fails without saving it. Once discovery succeeds, a temporary outage during token
+verification retains the existing permissive save behavior; use **Test** when the
+platform is available again. An authorization denial or explicit token refusal
+during replacement leaves the stored binding unchanged. Binding calls use the
+owner's stored token. LocalAI does not replay a forwarded send automatically after
+a transport failure, since the platform may already have received it.
+
+Telegram's legacy binding resolution remains compatible with existing bindings.
+It is not a fallback for discovering other connector kinds or for owner outages.
+
+
+### Connections: storage and clusters
+
+Bindings, the read position in Telegram's updates, the sender log and the chat of
+each sender are stored with your chats: in the database, in JSON files under the
+data path, or in memory when there is no data path (then nothing survives a
+restart). The JSON store is for one process.
+
+| State | Mode | How |
+|---|---|---|
+| Bindings, offsets, sender log, sender chats, the key | Shared | Rows in the database. |
+| Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. Add-ons run on the process that owns the add-ons, and the loops run only where the add-on answers. |
+| The upstream account of a binding, and which of two twin bindings answers | Shared | The account is stored with the binding. The oldest enabled binding of the same account answers; every frontend derives that from the stored bindings, so no claim is needed. A frontend remembers in memory only when it last asked an add-on for an account that the add-on did not tell, to ask again after 10 minutes. |
+| Where the next message is read from | Shared | The offset is stored with the binding. Core passes it to the add-on's poll call and stores the offset that the answer names. |
+| The reply being sent for a turn | Per instance | The frontend that took the message sends the answer, edits its working message or sends its draft, and sends its files. If it dies, the answer is lost; the message is not repeated. |
+| The preview budget of a binding | Per instance | The time of the next edit or draft is kept in memory by the frontend that sends the replies. Replies of one binding run on the leader, so one budget covers them. |
+| Draft IDs | Per instance | A counter in the process that sends the replies gives each turn a new draft ID. Two frontends could give the same ID, but a draft only lives in one chat for one turn. |
+| The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
+| Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
+| The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses English. The interface language of the owner is stored with the binding, so it is the same on every frontend. A fixed language is stored with the binding and works everywhere. |
+| Shares of a binding | Single runner | The grants are records in the policy store of the add-on owner, the one process that writes them, keyed by the binding ID; the binding itself is not copied. A call through a shared binding is admitted on the owner, which is also the only process that opens the sealed tokens, so a revocation cancels it there. Other frontends ask the owner for the listing, the record of a binding and its removal. |
+| Files marked by `attach_file` | Per instance | The marks live in the process that runs the turn and are sent by the process that sends the replies. A turn that ends on another frontend than the one that sends the answer loses its marks; the agent then sees no error, and the person asks again. |
+
+
+### MCP servers: storage and clusters
+
+| State | Mode | How |
+|---|---|---|
+| The connectors and their sealed secrets | Shared | Rows in the database (JSON files under the data path for one process). |
+| The sealing key | Shared | The key of the Telegram connectors. |
+| Open MCP sessions | Per instance | Each frontend opens its own sessions, lazily, for its own users' calls, and closes them after 10 idle minutes and when a connector is edited, switched off or deleted. A frontend notices an edit made on another by the record's update time at the next use. A session is never shared between users. |
+| Local commands (`stdio`) | Refused | They would run on whichever frontend served the request. |
+
+Remote connectors connect from the frontend that runs the turn, not from an
+agent worker, so a server must be reachable from every frontend.
+
+
+### Projects: storage and clusters
+
+| State | Mode | How |
+|---|---|---|
+| The folder, manifest, files and memory of a project | Shared | Ordinary files in your home, in the same store as your other files. |
+| The index of your projects (id, slug, status) | Shared, rebuilt | A table of rows in the database, or a JSON file for one process. It is a cache of the folders: it is rebuilt from the manifests at each list, and a row that disagrees with its folder is corrected. |
+| Anything else | None | A frontend keeps nothing in memory. Each request reads the index and the folders, so every frontend of a cluster gives the same answer. |
+
+In distributed mode the projects are stateless per request. If you lose the
+index, nothing is lost: the next list rebuilds it from the folders.

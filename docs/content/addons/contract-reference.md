@@ -612,7 +612,7 @@ a call may reach. The model never sees or sets either.
   it. An add-on whose service needs more than a token (servers, a login and a
   password) can seal a small versioned JSON record as the secret and keep only
   the resource name in the list, as the Mail add-on does (see
-  [Mail]({{% relref "/features/chat-apps" %}}#mail-imap-and-smtp)). The host cannot show a
+  [Mail]({{% relref "/features/chat-apps/accounts#mail-imap-and-smtp" %}})). The host cannot show a
   sealed record back, so the add-on's page asks for all of it again when a person
   changes any part. A service that is not HTTP and is not reached through the
   sandbox network check must apply the address guard of `pkg/web/safehttp` itself.
@@ -3358,7 +3358,7 @@ is never sent a handle.
 The SDK of the first-party add-ons (`addons/internal/connector`) has `Put` and `Get`;
 a platform implements `StreamReader` and `StreamSender` and keeps only its own HTTP
 calls. The limits come from the platforms' own documents: see the table in
-[File limits]({{% relref "/features/chat-apps" %}}#file-limits).
+[File limits]({{% relref "/features/chat-apps/answers#file-limits" %}}).
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
@@ -3381,7 +3381,7 @@ A message is answered when it is `direct` (a private chat) or a `mention` (it
 addresses the bot in a group, such as a Slack mention or a reply in a thread the bot
 follows); any other message is logged and ignored. Which chat a message belongs to
 depends on the conversation mode of the binding (see
-[How the bot answers]({{% relref "/features/chat-apps" %}}#how-the-bot-answers)); by default a
+[How the bot answers]({{% relref "/features/chat-apps/answers#how-the-bot-answers" %}})); by default a
 message with a `thread` belongs to a chat of that thread, shared by the people who
 write in it, and any other message belongs to a chat of its sender. When a message has `media` (at most 8
 references), the host reads each file with the op `media` before it makes the chat,
