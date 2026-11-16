@@ -48,7 +48,7 @@ local-ai
 # open http://localhost:8080 and install a model from there
 ```
 
-The script installs the `local-ai` program and does not start it. The command `local-ai` starts the server. It starts with no model. Open `http://localhost:8080`: on a fresh install, the first-run guide recommends a model for your hardware and installs it when you agree. To run a model directly, name it. For example, this small Google Gemma 4 model runs on a CPU: `local-ai run gemma-4-e2b-it-qat-q4_0`. The download is about 4.3 GB: 3.35 GB for the model and 0.99 GB for its image projector.
+The script installs the `local-ai` program and does not start it. The command `local-ai` starts the server. It starts with no model. Open `http://localhost:8080`: on a fresh install, the first-run guide recommends a model for your hardware and installs it when you agree. To run a model directly, name it. For example, this small Google Gemma 4 model runs on a CPU: `local-ai run gemma-4-e2b-it-qat-q4_0`. It is 4.3 GB to download: 3.35 GB for the model and 0.99 GB for the image projector. The first-run guide shows 3.1 GB, because it counts the model file only, in binary units.
 
 You can set these environment variables before the command:
 

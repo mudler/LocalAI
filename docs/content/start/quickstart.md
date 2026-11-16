@@ -33,7 +33,7 @@ docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 
 The [desktop app]({{% relref "/start/install/desktop" %}}) for macOS and Linux comes with the next release. It installs and starts the server for you. Test builds are on the dev-master pre-release. For all install methods, see the [install guide]({{% relref "/start/install" %}}).
 
-You should see the log line `LocalAI is started and running` with the address `:8080`. The script installs the `local-ai` program and does not start it. The command `local-ai` starts the server, with no model. Open `http://localhost:8080`: on a fresh install the first-run guide recommends a model for your hardware and downloads it when you agree. To run a model directly, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small Google Gemma 4 model that runs on a CPU (a download of about 4.3 GB). The first run of a model takes longer, because it downloads the model.
+You should see the log line `LocalAI is started and running` with the address `:8080`. The script installs the `local-ai` program and does not start it. The command `local-ai` starts the server, with no model. Open `http://localhost:8080`: on a fresh install the first-run guide recommends a model for your hardware and downloads it when you agree. To run a model directly, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small Google Gemma 4 model that runs on a CPU (4.3 GB to download: 3.35 GB for the model and 0.99 GB for the image projector). The first run of a model takes longer, because it downloads the model.
 
 For GPU acceleration in a container, use the image that matches your hardware:
 
