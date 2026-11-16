@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/addons/skilltree"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -56,7 +57,7 @@ var _ = Describe("packaged Tables skill in a chat", func() {
 		load := svc.loadSkillRun(userChatActor("alice", rec.ID), loadOpts{})
 		args := json.RawMessage(`{"name":"tables-readonly"}`)
 		index := func(off, addonsOff []string, sc *scope) string {
-			prompt, _, _, _, err := svc.skillTurn(ctx, "alice", off, addonsOff, sc, Commands{}, nil)
+			prompt, _, _, _, err := svc.skillTurn(ctx, "alice", session.ChatRecord{}, off, addonsOff, sc, Commands{}, nil)
 			Expect(err).NotTo(HaveOccurred())
 			return prompt
 		}

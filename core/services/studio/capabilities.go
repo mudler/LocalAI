@@ -274,7 +274,7 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 	ctx, closeScope := s.executionScope(ctx, principal(user), conv)
 	defer closeScope()
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return Commands{}, err
 	}

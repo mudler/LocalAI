@@ -58,7 +58,7 @@ func (c *egressChats) put(k, id string) {
 func (s *Service) chatForResource(ctx context.Context, p, rid string) (session.ChatRecord, error) {
 	k := p + "\x00" + rid
 	if id, ok := s.egressChats.get(k); ok {
-		rec, err := s.d.Store.GetChat(ctx, p, id)
+		rec, err := s.getChatEffective(ctx, p, id)
 		if err == nil {
 			return rec, nil
 		}
@@ -101,7 +101,7 @@ func (s *Service) egressPolicyOf(ctx context.Context, rec session.ChatRecord, op
 	attended := rec.Origin == "" && rec.Kind != session.KindSubAgent
 	preset := rec.Egress.Preset
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
-		parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+		parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
 		if err != nil {
 			return egressPolicy{}, err
 		}

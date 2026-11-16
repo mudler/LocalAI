@@ -42,7 +42,7 @@ var _ = Describe("the agent skills layer", func() {
 	}
 	resolveFor := func(rec session.ChatRecord) map[string]skills.Skill {
 		sc := svc.scopeOf(ctx, rec)
-		list, _, _, err := svc.chatSkillSet(ctx, "alice", rec.SkillsOff, rec.AddonsOff, sc, Commands{})
+		list, _, _, err := svc.chatSkillSet(ctx, "alice", session.ChatRecord{}, rec.SkillsOff, rec.AddonsOff, sc, Commands{})
 		Expect(err).NotTo(HaveOccurred())
 		out := map[string]skills.Skill{}
 		for _, sk := range list {

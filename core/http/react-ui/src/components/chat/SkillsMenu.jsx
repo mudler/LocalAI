@@ -126,18 +126,19 @@ function SkillRow({ skill, onSet, testId, fromLabel }) {
   const { t } = useTranslation('chat')
   const desc = (skill.description || '').trim()
   const src = skillSource(skill)
+  const fromProject = Boolean(skill.fromProject)
   const source = src.kind === 'addon' ? t(fromLabel ? 'skills.source.addonFrom' : 'skills.source.addon', { name: src.name }) : src.kind ? t(`skills.source.${src.kind}`, { defaultValue: '' }) : ''
   return (
     <SwitchRow
       name={skill.name}
       desc={skill.unavailable || (desc ? skill.description : '')}
-      meta={skill.locked && skill.sourceLabel ? skill.sourceLabel : source}
+      meta={fromProject ? t('skills.fromProject') : skill.locked && skill.sourceLabel ? skill.sourceLabel : source}
       metaTestId={`${testId}-source`}
       metaKind={skill.locked ? 'provider' : src.kind}
       checked={skill.enabled}
       disabled={Boolean(skill.locked)}
       stacked={Boolean(skill.locked)}
-      data={skill.locked ? { locked: 'true' } : undefined}
+      data={skill.locked ? { locked: 'true', ...(fromProject ? { fromproject: 'true' } : {}) } : undefined}
       onChange={(next) => onSet(new Set([skillKey(skill)]), next)}
       testId={`${testId}-item`}
     />

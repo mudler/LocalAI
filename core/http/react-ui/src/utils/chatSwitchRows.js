@@ -23,14 +23,14 @@ export const switchRows = (groups) => groups.filter((g) => g.onSet).flatMap((g) 
 // The ids of the rows that "Select all" (on) or "Disable all" (off) changes.
 export function bulkIds(rows, on) {
   return rows
-    .filter((r) => r.usable !== false && (!on || !r.optIn) && rowOn(r) !== on)
+    .filter((r) => r.usable !== false && !r.readOnly && (!on || !r.optIn) && rowOn(r) !== on)
     .map((r) => r.id)
 }
 
 // The rows a bulk change can ever touch, whatever their state: a group shows
 // its actions only when there are two or more.
 export function bulkable(rows) {
-  return rows.filter((r) => r.usable !== false).length
+  return rows.filter((r) => r.usable !== false && !r.readOnly).length
 }
 
 // The items of a list with the ones whose key is in ids switched on or off.

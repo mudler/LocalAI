@@ -118,7 +118,7 @@ func (s *Service) promiseGuard(ctx context.Context, p, conv, final string) (bool
 	if !ok {
 		return false, nil
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil || rec.Kind == session.KindSubAgent {
 		return false, err
 	}

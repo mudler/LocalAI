@@ -48,7 +48,7 @@ func (a *Application) resolveExecutionBindingWithTools(ctx context.Context, acto
 	if err != nil {
 		return empty, err
 	}
-	rec, err := a.studioStore.GetChat(ctx, principal, claim.ConversationID)
+	rec, err := a.effectiveChat(ctx, principal, claim.ConversationID)
 	if err != nil || rec.Principal != principal || rec.ID != claim.ConversationID {
 		return empty, gateway.ErrForbidden
 	}

@@ -177,7 +177,7 @@ func resourcesSwitch(s *Service) CapabilitySwitch {
 		}
 		ag, err := s.d.Agents.Get(ctx, principal(b.Owner), b.AgentID)
 		if err == nil {
-			ag, err = s.runtimeAgent(ctx, ag)
+			ag, err = s.runtimeAgentVia(ctx, principal(b.Owner), ag, true)
 		}
 		if errors.Is(err, agents.ErrNotFound) {
 			return Block{} // the grants switch reports an agent it cannot read

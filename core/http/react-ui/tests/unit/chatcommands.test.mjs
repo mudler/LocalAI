@@ -187,7 +187,7 @@ test('typed safety: builtin and all fallback notices have no Sandbox advice for 
 
 test('typed safety: actual switches reject late actor replies and hide old status before effects', async () => {
   const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
-  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches']
+  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches', 'projectAttached']
   const imports = Object.assign({}, ...await Promise.all(names.map(name => import(`../../src/utils/${name}.js`))))
   const requests = []
   const list = () => new Promise(resolve => requests.push(resolve))
@@ -233,7 +233,7 @@ test('typed safety: actual auth epoch reaches composer and changes on same-user 
       useAuth: () => currentAuth,
       useChatDrafts: () => ({ setFiles() {} }),
       useModels: () => ({ models: [] }), CAP_CHAT: 'chat',
-      useChatSwitches: (...args) => { seen.push(args); return {} },
+      useChatSwitches: (...args) => { seen.push(args); return {} }, useProjectAttached: () => null,
     })
     composer.render({ chatId: 'same-chat', userId: 'A' })
     const initial = seen.at(-1)[3]
@@ -260,7 +260,7 @@ test('typed safety: actual auth epoch reaches composer and changes on same-user 
 
 for (const provider of ['copper-runner', 'violet-executor']) test(`typed safety: production Composer uses current ${provider} DTO, never discovery isolation`, async () => {
   const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
-  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches']
+  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches', 'projectAttached']
   const imports = Object.assign({}, ...await Promise.all(names.map(name => import(`../../src/utils/${name}.js`))))
   const requests = []
   const switchesHook = hookHarness('../../src/hooks/useChatSwitches.js', 'useChatSwitches', {
@@ -343,7 +343,7 @@ test('the hide button hides a notice whose state has no binding identity yet', a
 
 test('a draft chat keeps its commands state when a tool is switched on and off', async () => {
   const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
-  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches']
+  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches', 'projectAttached']
   const imports = Object.assign({}, ...await Promise.all(names.map(name => import(`../../src/utils/${name}.js`))))
   const draftReply = { commands: 'available', commands_provider: 'sandbox', addons: [{ id: 'sandbox', tools: 1 }], execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'draft' } }
   let draftCalls = 0

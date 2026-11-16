@@ -432,7 +432,7 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 		}
 		// The run acts with the connection that the chat which proposed it
 		// had selected, as it does for the other switches.
-		if src, gerr := h.svc.d.Store.GetChat(ctx, owner, t.SourceChatID); gerr == nil && len(src.Connections) > 0 {
+		if src, gerr := h.svc.getChatRaw(ctx, owner, t.SourceChatID); gerr == nil && len(src.Connections) > 0 {
 			if err := h.svc.d.Store.SetConnections(ctx, owner, rec.ID, src.Connections); err != nil {
 				return "", err
 			}
@@ -521,10 +521,13 @@ func (h *Triggers) checkFolder(ctx context.Context, t triggers.Trigger, scope *f
 
 // runSettings returns the model of a run and, for a trigger with no agent, the
 // switches (skills, add-ons, MCP) of the chat that proposed it, as they are now.
+// The switches are the stored ones: the run is a chat of no project, so the
+// tools that the project of the source chat attaches are not on there, and an
+// entry the user switched off must stay off.
 func (h *Triggers) runSettings(ctx context.Context, t triggers.Trigger) (model string, skillsOff, addonsOff, mcpOff []string, err error) {
 	model = t.Model
 	if t.AgentID == "" && t.SourceChatID != "" {
-		if src, gerr := h.svc.d.Store.GetChat(ctx, t.Owner, t.SourceChatID); gerr == nil {
+		if src, gerr := h.svc.getChatRaw(ctx, t.Owner, t.SourceChatID); gerr == nil {
 			skillsOff, addonsOff, mcpOff = src.SkillsOff, src.AddonsOff, src.McpOff
 			if model == "" {
 				model = src.Model

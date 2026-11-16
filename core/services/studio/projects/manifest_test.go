@@ -127,6 +127,40 @@ var _ = Describe("Manifest", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("reads and writes the attached lists, and reads a manifest without them as empty", func() {
+			m, err := projects.ParseManifest([]byte(`{"version": 1, "name": "x", "attached": {"skills": ["s"], "mcpServers": ["m"], "connectors": ["c"]}}`))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(m.Attached.Skills).To(Equal([]string{"s"}))
+			Expect(m.Attached.MCPServers).To(Equal([]string{"m"}))
+			Expect(m.Attached.Connectors).To(Equal([]string{"c"}))
+			again, err := projects.ParseManifest(m.Marshal())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(again).To(Equal(m))
+			Expect(m.Extra).To(BeEmpty(), "attached is a known key")
+			old, err := projects.ParseManifest([]byte(`{"version": 1, "name": "x"}`))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(old.Attached).To(Equal(projects.Defaults{}))
+			Expect(string(old.Marshal())).NotTo(ContainSubstring("attached"), "a project with nothing attached writes no key")
+		})
+
+		It("accepts exactly 64 attached entries and rejects 65 in each list", func() {
+			for _, field := range []string{"skills", "addons", "connectors", "mcpServers", "collections"} {
+				mk := func(n int) []byte {
+					list := make([]string, n)
+					for i := range list {
+						list[i] = "e"
+					}
+					b, _ := json.Marshal(map[string]any{"version": 1, "name": "x", "attached": map[string]any{field: list}})
+					return b
+				}
+				_, err := projects.ParseManifest(mk(64))
+				Expect(err).ToNot(HaveOccurred(), field)
+				_, err = projects.ParseManifest(mk(65))
+				Expect(err).To(MatchError(projects.ErrInvalid), field)
+				Expect(err.Error()).To(ContainSubstring("attached." + field))
+			}
+		})
+
 		DescribeTable("rejects invalid manifests with ErrInvalid",
 			func(raw string) {
 				_, err := projects.ParseManifest([]byte(raw))
@@ -308,3 +342,28 @@ func manifestWithSkills(n int) []byte {
 	})
 	return b
 }
+
+var _ = Describe("the attached lists of a manifest", func() {
+	It("refuses an entry of a bad shape and a connector listed as an MCP server", func() {
+		for name, in := range map[string]projects.Defaults{
+			"empty":         {Addons: []string{""}},
+			"padded":        {Skills: []string{" a"}},
+			"control":       {Collections: []string{"a\nb"}},
+			"too long":      {Addons: []string{strings.Repeat("x", 257)}},
+			"connector tag": {MCPServers: []string{"connector:c1"}},
+		} {
+			err := projects.CheckAttached(projects.Defaults{}, in)
+			Expect(err).To(MatchError(projects.ErrInvalid), name)
+		}
+		Expect(projects.CheckAttached(projects.Defaults{}, projects.Defaults{Connectors: []string{"c1"}, MCPServers: []string{"srv"}})).To(Succeed())
+	})
+
+	It("keeps only the entries a write would accept when it reads them", func() {
+		limit := projects.Defaults{Addons: []string{"a"}}
+		got := projects.EffectiveAttached(limit, projects.Defaults{
+			Addons: []string{"a", "b", ""}, MCPServers: []string{"connector:c", "s"}, Skills: []string{"k"}})
+		Expect(got).To(Equal(projects.Defaults{Addons: []string{"a"}, MCPServers: []string{"s"}, Skills: []string{"k"}}))
+		Expect(got.Empty()).To(BeFalse())
+		Expect(projects.Defaults{}.Empty()).To(BeTrue())
+	})
+})

@@ -196,7 +196,8 @@
     "unavailable": "此对话中不可用",
     "toolCount_one": "{{count}} 个工具",
     "toolCount_other": "{{count}} 个工具",
-    "optionsOf": "{{name}}的选项"
+    "optionsOf": "{{name}}的选项",
+    "projectCollections": "来自项目的集合：{{names}}。"
   },
   "skills": {
     "label": "技能",
@@ -222,7 +223,8 @@
     },
     "replacedBy": "已被 {{name}} 替换",
     "fallback_one": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
-    "fallback_other": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。"
+    "fallback_other": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
+    "fromProject": "来自项目"
   },
   "agent": {
     "label": "智能体",

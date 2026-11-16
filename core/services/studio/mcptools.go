@@ -30,7 +30,7 @@ func (s *Service) hostTools(ctx context.Context, a workspace.Actor) ([]session.T
 // apart (conns, already gated), so that a turn can put them behind the tool
 // search, and with the grants that could not be used and the add-ons held back.
 func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) (tools, conns []session.Tool, missing []string, held []builtins.Built, err error) {
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

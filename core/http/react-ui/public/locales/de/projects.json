@@ -89,7 +89,8 @@
     "tools": "Werkzeug-Vorgaben",
     "agents": "Agenten",
     "connections": "Verbindungen",
-    "automations": "Automationen"
+    "automations": "Automationen",
+    "skills": "Skills"
   },
   "updated": "Aktualisiert {{when}}",
   "overview": {
@@ -175,7 +176,9 @@
       "missing": "Nicht verfügbar",
       "off": "Gerade aus",
       "missingTitle": "Nichts mit dem Namen „{{name}}“ ist hier installiert. Dieser Eintrag bewirkt nichts, bis es es gibt.",
-      "offTitle": "„{{name}}“ ist ausgeschaltet. Dieser Eintrag bewirkt nichts, bis es an ist."
+      "offTitle": "„{{name}}“ ist ausgeschaltet. Dieser Eintrag bewirkt nichts, bis es an ist.",
+      "outside": "Außerhalb der Begrenzung",
+      "outsideTitle": "{{name}} steht nicht in der Begrenzung, daher lehnt der Server dieses Projekt ab."
     },
     "countMissing": "{{n}} nicht verfügbar",
     "pickerLoading": "Installiertes wird gelesen …",
@@ -186,7 +189,22 @@
     "addTyped": "„{{name}}“ hinzufügen",
     "save": "Speichern",
     "discard": "Änderungen verwerfen",
-    "archivedNote": "Dieses Projekt ist archiviert. Stelle es wieder her, um die Werkzeug-Vorgaben zu ändern."
+    "archivedNote": "Dieses Projekt ist archiviert. Stelle es wieder her, um die Werkzeug-Vorgaben zu ändern.",
+    "attachedTitle": "Angehängt",
+    "attachedKind": "Immer aktiv in den Chats und Agenten dieses Projekts",
+    "limitKind": "Begrenzung: nur diese können genutzt werden",
+    "attachedLead": "Jeder Chat und jeder Agent dieses Projekts hat diese aktiv, ohne eigenen Schritt, auch in bestehenden Chats. Ein Chat kann sie nicht abschalten. Hat die Begrenzung unten Einträge, muss ein angehängter Eintrag darin stehen.",
+    "noneAttached": "Nichts angehängt",
+    "attachLabel": "An {{list}} anhängen",
+    "outsideLimit": "Außerhalb der Begrenzung: {{names}}. Füge sie der Begrenzung unten hinzu oder löse sie. Der Server lehnt ein solches Projekt ab.",
+    "attachedBlocked": "Angehängte Werkzeuge sind aus, solange andere in diesen Ordner schreiben dürfen: Was das Projekt anhängt, wird ignoriert, bis niemand sonst in den Ordner schreiben kann.",
+    "attachedHints": {
+      "skills": "Diese Skills sind in jedem Chat und Agenten dieses Projekts aktiv. Verwende den Namen von der Skills-Seite.",
+      "addons": "Diese Add-ons sind in jedem Chat und Agenten dieses Projekts aktiv. Ein Add-on mit Zugangsdaten läuft nur für dich, nicht für Personen, mit denen das Projekt geteilt ist.",
+      "mcp_servers": "Diese MCP-Server sind in jedem Chat und Agenten dieses Projekts aktiv. Ein Server mit Zugangsdaten läuft nur für dich.",
+      "connectors": "Diese MCP-Konnektoren sind in jedem Chat und Agenten dieses Projekts aktiv. Ein Konnektor läuft nur für dich, nie für Personen, mit denen das Projekt geteilt ist.",
+      "collections": "Diese Wissenssammlungen können in jedem Chat und Agenten dieses Projekts durchsucht werden."
+    }
   },
   "sheet": {
     "newTitle": "Neues Projekt",
@@ -406,5 +424,21 @@
     "agentsBody": "Ein Administrator kann sie für dich aktivieren.",
     "connections": "Verbindungen sind für dein Konto nicht verfügbar",
     "connectionsBody": "Dieser Tab braucht die Funktionen Konnektoren und Agenten. Ein Administrator kann sie für dich aktivieren."
+  },
+  "projectSkills": {
+    "title": "Projekt-Skills",
+    "new": "Neue Skill",
+    "body": "Skills im Ordner dieses Projekts. Sie sind in jedem Chat und Agenten dieses Projekts aktiv und in keinem anderen Chat.",
+    "blocked": "Projekt-Skills sind aus, solange andere in diesen Ordner schreiben dürfen.",
+    "loadFailed": "Die Projekt-Skills wurden nicht geladen.",
+    "empty": "Dieses Projekt hat noch keine Skills.",
+    "removed": "Skill {{name}} gelöscht.",
+    "removeFailed": "Die Skill wurde nicht gelöscht: {{message}}",
+    "edit": "{{name}} bearbeiten",
+    "editLabel": "Bearbeiten",
+    "delete": "{{name}} löschen",
+    "deleteLabel": "Löschen",
+    "deleteTitle": "Die Skill {{name}} löschen?",
+    "deleteBody": "Die Skill wird aus dem Ordner des Projekts entfernt. Chats und Agenten des Projekts nutzen sie nicht mehr."
   }
 }

@@ -89,7 +89,8 @@
     "tools": "Ferramentas padrão",
     "agents": "Agentes",
     "connections": "Conexões",
-    "automations": "Automações"
+    "automations": "Automações",
+    "skills": "Skills"
   },
   "updated": "Atualizado {{when}}",
   "overview": {
@@ -175,7 +176,9 @@
       "missing": "Indisponível",
       "off": "Desligado agora",
       "missingTitle": "Nada chamado “{{name}}” está instalado aqui. Esta entrada não faz nada até existir.",
-      "offTitle": "“{{name}}” está desligado. Esta entrada não faz nada até ser ligado."
+      "offTitle": "“{{name}}” está desligado. Esta entrada não faz nada até ser ligado.",
+      "outside": "Fora do limite",
+      "outsideTitle": "{{name}} não está no limite, então o servidor recusa este projeto."
     },
     "countMissing": "{{n}} indisponíveis",
     "pickerLoading": "Lendo o que está instalado…",
@@ -186,7 +189,22 @@
     "addTyped": "Adicionar “{{name}}”",
     "save": "Salvar",
     "discard": "Descartar alterações",
-    "archivedNote": "Este projeto está arquivado. Restaure-o para mudar suas ferramentas padrão."
+    "archivedNote": "Este projeto está arquivado. Restaure-o para mudar suas ferramentas padrão.",
+    "attachedTitle": "Anexadas",
+    "attachedKind": "Sempre ativas nos chats e agentes deste projeto",
+    "limitKind": "Limite: só estas podem ser usadas",
+    "attachedLead": "Cada chat e cada agente deste projeto as tem ativas, sem etapa própria, também nos chats que já existem. Um chat não pode desativá-las. Se o limite abaixo tiver entradas, uma entrada anexada deve estar nele.",
+    "noneAttached": "Nada anexado",
+    "attachLabel": "Anexar a {{list}}",
+    "outsideLimit": "Fora do limite: {{names}}. Adicione-as ao limite abaixo ou desanexe-as. O servidor recusa um projeto assim.",
+    "attachedBlocked": "As ferramentas anexadas ficam desativadas enquanto esta pasta tiver outras pessoas com escrita: o que o projeto anexa é ignorado até que ninguém mais possa escrever na pasta.",
+    "attachedHints": {
+      "skills": "Estas skills estão ativas em cada chat e agente deste projeto. Use o nome mostrado na página Skills.",
+      "addons": "Estes add-ons estão ativos em cada chat e agente deste projeto. Um add-on que usa uma credencial só roda para você, não para as pessoas com quem o projeto é compartilhado.",
+      "mcp_servers": "Estes servidores MCP estão ativos em cada chat e agente deste projeto. Um servidor que usa uma credencial só roda para você.",
+      "connectors": "Estes conectores MCP estão ativos em cada chat e agente deste projeto. Um conector só roda para você, nunca para as pessoas com quem o projeto é compartilhado.",
+      "collections": "Estas coleções de conhecimento podem ser pesquisadas em cada chat e agente deste projeto."
+    }
   },
   "sheet": {
     "newTitle": "Novo projeto",
@@ -406,5 +424,21 @@
     "agentsBody": "Um administrador pode ativá-los para você.",
     "connections": "As conexões não estão disponíveis para sua conta",
     "connectionsBody": "Esta aba precisa dos recursos de conectores e de agentes. Um administrador pode ativá-los para você."
+  },
+  "projectSkills": {
+    "title": "Skills do projeto",
+    "new": "Nova skill",
+    "body": "Skills guardadas na pasta deste projeto. Estão ativas em cada chat e agente deste projeto e em nenhum outro chat.",
+    "blocked": "As skills do projeto ficam desativadas enquanto esta pasta tiver outras pessoas com escrita.",
+    "loadFailed": "As skills do projeto não carregaram.",
+    "empty": "Este projeto ainda não tem skills.",
+    "removed": "Skill {{name}} excluída.",
+    "removeFailed": "A skill não foi excluída: {{message}}",
+    "edit": "Editar {{name}}",
+    "editLabel": "Editar",
+    "delete": "Excluir {{name}}",
+    "deleteLabel": "Excluir",
+    "deleteTitle": "Excluir a skill {{name}}?",
+    "deleteBody": "A skill é removida da pasta do projeto. Os chats e agentes do projeto deixam de usá-la."
   }
 }

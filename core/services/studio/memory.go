@@ -488,7 +488,7 @@ func (s *Service) memoryProviderSkills(ctx context.Context, user string) ([]stri
 // the Memory add-on) still proposes, as before: the grant decides that.
 func (s *Service) memoryWritable(ctx context.Context, c builtins.Chat) bool {
 	rec := session.ChatRecord{Principal: c.Actor.Principal, ID: c.Actor.ChatID}
-	if got, err := s.d.Store.GetChat(ctx, c.Actor.Principal, c.Actor.ChatID); err == nil {
+	if got, err := s.getChatEffective(ctx, c.Actor.Principal, c.Actor.ChatID); err == nil {
 		rec = got
 	}
 	legacy := legacyMemoryOf(s.addonContextSets(ctx, c.Actor.Principal))

@@ -89,7 +89,8 @@
     "tools": "Outils par défaut",
     "agents": "Agents",
     "connections": "Connexions",
-    "automations": "Automatisations"
+    "automations": "Automatisations",
+    "skills": "Skills"
   },
   "updated": "Mis à jour {{when}}",
   "overview": {
@@ -175,7 +176,9 @@
       "missing": "Indisponible",
       "off": "Désactivé",
       "missingTitle": "Rien nommé « {{name}} » n'est installé ici. Cette entrée ne fait rien tant qu'il n'existe pas.",
-      "offTitle": "« {{name}} » est désactivé. Cette entrée ne fait rien tant qu'il n'est pas activé."
+      "offTitle": "« {{name}} » est désactivé. Cette entrée ne fait rien tant qu'il n'est pas activé.",
+      "outside": "Hors limite",
+      "outsideTitle": "{{name}} n’est pas dans la limite, donc le serveur refuse ce projet."
     },
     "countMissing": "{{n}} indisponible(s)",
     "pickerLoading": "Lecture de ce qui est installé…",
@@ -186,7 +189,22 @@
     "addTyped": "Ajouter « {{name}} »",
     "save": "Enregistrer",
     "discard": "Annuler les changements",
-    "archivedNote": "Ce projet est archivé. Restaurez-le pour changer ses outils par défaut."
+    "archivedNote": "Ce projet est archivé. Restaurez-le pour changer ses outils par défaut.",
+    "attachedTitle": "Associés",
+    "attachedKind": "Toujours actifs dans les conversations et les agents de ce projet",
+    "limitKind": "Limite : seuls ceux-ci peuvent être utilisés",
+    "attachedLead": "Chaque conversation et chaque agent de ce projet les a activés, sans étape propre, y compris dans les conversations existantes. Une conversation ne peut pas les désactiver. Si la limite ci-dessous a des entrées, une entrée associée doit y figurer.",
+    "noneAttached": "Rien d’associé",
+    "attachLabel": "Associer à {{list}}",
+    "outsideLimit": "Hors limite : {{names}}. Ajoutez-les à la limite ci-dessous ou dissociez-les. Le serveur refuse un tel projet.",
+    "attachedBlocked": "Les outils attachés sont désactivés tant que ce dossier a d'autres personnes en écriture : ce que le projet attache est ignoré tant que personne d'autre ne peut écrire dans le dossier.",
+    "attachedHints": {
+      "skills": "Ces skills sont actives dans chaque conversation et chaque agent de ce projet. Utilisez le nom affiché sur la page Skills.",
+      "addons": "Ces add-ons sont actifs dans chaque conversation et chaque agent de ce projet. Un add-on qui détient un identifiant ne s’exécute que pour vous, pas pour les personnes avec qui le projet est partagé.",
+      "mcp_servers": "Ces serveurs MCP sont actifs dans chaque conversation et chaque agent de ce projet. Un serveur qui détient un identifiant ne s’exécute que pour vous.",
+      "connectors": "Ces connecteurs MCP sont actifs dans chaque conversation et chaque agent de ce projet. Un connecteur ne s’exécute que pour vous, jamais pour les personnes avec qui le projet est partagé.",
+      "collections": "Ces collections de connaissances peuvent être consultées dans chaque conversation et chaque agent de ce projet."
+    }
   },
   "sheet": {
     "newTitle": "Nouveau projet",
@@ -406,5 +424,21 @@
     "agentsBody": "Un administrateur peut les activer pour vous.",
     "connections": "Les connexions ne sont pas disponibles pour votre compte",
     "connectionsBody": "Cet onglet demande les fonctions Connecteurs et Agents. Un administrateur peut les activer pour vous."
+  },
+  "projectSkills": {
+    "title": "Skills du projet",
+    "new": "Nouvelle skill",
+    "body": "Skills conservées dans le dossier de ce projet. Elles sont actives dans chaque conversation et chaque agent de ce projet, et dans aucune autre.",
+    "blocked": "Les skills du projet sont désactivées tant que ce dossier a d’autres personnes en écriture.",
+    "loadFailed": "Les skills du projet ne se sont pas chargées.",
+    "empty": "Ce projet n’a pas encore de skills.",
+    "removed": "Skill {{name}} supprimée.",
+    "removeFailed": "La skill n’a pas été supprimée : {{message}}",
+    "edit": "Modifier {{name}}",
+    "editLabel": "Modifier",
+    "delete": "Supprimer {{name}}",
+    "deleteLabel": "Supprimer",
+    "deleteTitle": "Supprimer la skill {{name}} ?",
+    "deleteBody": "La skill est supprimée du dossier du projet. Les conversations et agents du projet cessent de l’utiliser."
   }
 }

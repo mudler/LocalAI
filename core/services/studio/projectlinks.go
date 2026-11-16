@@ -144,7 +144,7 @@ func (s *Service) ProjectLoops(ctx context.Context, user, projectID string) ([]L
 		}
 		ok, seen := chats[l.ChatID]
 		if !seen {
-			rec, err := s.d.Store.GetChat(ctx, principal(user), l.ChatID)
+			rec, err := s.getChatEffective(ctx, principal(user), l.ChatID)
 			switch {
 			case err == nil:
 				_, mine := names[rec.AgentID]

@@ -196,7 +196,8 @@
     "unavailable": "In diesem Chat nicht verfügbar",
     "toolCount_one": "{{count}} Werkzeug",
     "toolCount_other": "{{count}} Werkzeuge",
-    "optionsOf": "Optionen von {{name}}"
+    "optionsOf": "Optionen von {{name}}",
+    "projectCollections": "Sammlungen des Projekts: {{names}}."
   },
   "skills": {
     "label": "Skills",
@@ -222,7 +223,8 @@
     },
     "replacedBy": "Ersetzt durch {{name}}",
     "fallback_one": "Integriertes {{skills}} aktiv: der eigene Skill des Add-ons {{name}} ist hier aus oder läuft nicht.",
-    "fallback_other": "Integrierte {{skills}} aktiv: die eigenen Skills des Add-ons {{name}} sind hier aus oder laufen nicht."
+    "fallback_other": "Integrierte {{skills}} aktiv: die eigenen Skills des Add-ons {{name}} sind hier aus oder laufen nicht.",
+    "fromProject": "Vom Projekt"
   },
   "agent": {
     "label": "Agent",

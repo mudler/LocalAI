@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/loops"
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
@@ -82,6 +83,24 @@ type DroppedTools struct {
 	Skills, Addons, MCPServers, Collections []string
 }
 
+// AttachedTools lists tools a project attaches, by kind: the five lists of
+// projects.Defaults. A list is never nil in a report.
+type AttachedTools = projects.Defaults
+
+func attachedOf(d projects.Defaults) AttachedTools {
+	nn := func(l []string) []string { return append([]string{}, l...) }
+	return AttachedTools{Skills: nn(d.Skills), Addons: nn(d.Addons), Connectors: nn(d.Connectors),
+		MCPServers: nn(d.MCPServers), Collections: nn(d.Collections)}
+}
+
+// attachedMinus returns the entries of d that are not in other.
+func attachedMinus(d, other projects.Defaults) AttachedTools {
+	f := func(a, b []string) []string { return dropped(a, b) }
+	return AttachedTools{Skills: f(d.Skills, other.Skills), Addons: f(d.Addons, other.Addons),
+		Connectors: f(d.Connectors, other.Connectors), MCPServers: f(d.MCPServers, other.MCPServers),
+		Collections: f(d.Collections, other.Collections)}
+}
+
 // AgentMoveReport is what a move does, or what it would do (DryRun).
 type AgentMoveReport struct {
 	DryRun bool
@@ -101,6 +120,16 @@ type AgentMoveReport struct {
 	Proposals int
 	// DroppedTools is what the new project's limits take away.
 	DroppedTools DroppedTools
+	// AttachedNew is what the new project attaches: the agent gets these on
+	// every run once it is moved.
+	AttachedNew AttachedTools
+	// AttachedOld is what the old project attached and the new one does not:
+	// these stop applying to the agent.
+	AttachedOld AttachedTools
+	// ProjectSkillsSwitch says the agent's project skills change: the skills
+	// of the old project stop and those of the new project start. It is false
+	// when neither project has a skill in its own layer.
+	ProjectSkillsSwitch bool
 	// MemoryGrantDropped says the grant to write the project's memory is
 	// removed; the person grants it again in the agent's settings.
 	MemoryGrantDropped bool
@@ -286,19 +315,43 @@ func (s *Service) moveEffects(ctx context.Context, user string, ag, next agents.
 			}
 		}
 	}
+	// What the old and the new project attach. The old project may be gone,
+	// archived or broken: then it attached nothing that can be read.
+	var oldAtt, newAtt projects.Defaults
+	if ag.ProjectID != "" && s.d.Projects != nil {
+		if r, err := s.d.Projects.Get(ctx, user, ag.ProjectID); err == nil {
+			oldAtt = r.Manifest.Attached
+		}
+	}
+	// The project skills change only when one of the two projects has some.
+	rep.ProjectSkillsSwitch = s.hasProjectSkills(ctx, user, ag.ProjectID) || s.hasProjectSkills(ctx, user, next.ProjectID)
 	// What the limits of the new project take away.
 	if next.ProjectID != "" {
 		r, err := s.fenceOfProject(ctx, p, next.ProjectID)
 		if err != nil {
 			return projectUnavailableErr(err)
 		}
+		newAtt = r.project.Manifest.Attached
 		capped := capAgent(ag, r.project.Manifest.Defaults)
 		rep.DroppedTools = DroppedTools{
 			Skills: dropped(ag.Skills, capped.Skills), Addons: dropped(ag.Addons, capped.Addons),
 			MCPServers: dropped(ag.MCPServers, capped.MCPServers), Collections: dropped(ag.Collections, capped.Collections),
 		}
 	}
+	rep.AttachedNew = attachedOf(newAtt)
+	rep.AttachedOld = attachedMinus(oldAtt, newAtt)
 	return nil
+}
+
+// hasProjectSkills reports whether the project id of user has skills in its
+// own layer. No project, a project that cannot be read and a skills folder that
+// another person may write all answer no.
+func (s *Service) hasProjectSkills(ctx context.Context, user, id string) bool {
+	if id == "" {
+		return false
+	}
+	list, blocked, err := s.ProjectSkills(ctx, user, id)
+	return err == nil && !blocked && len(list) > 0
 }
 
 // dropped returns the entries of before that are not in after, never nil.

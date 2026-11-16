@@ -5,6 +5,7 @@ import { pickerSkills } from '../utils/chatSkills'
 import { useBuiltinGrants } from './useBuiltinGrants'
 import { grantedSkills, switchableSkills } from '../utils/agentUses'
 import { limitedTools } from '../utils/projectAgents'
+import { attachedOf, markAddons, markConnectors, markSkills } from '../utils/projectAttached'
 import { addonsAfter, agentAddons, agentGrants, grantsAfter, agentBuiltins, agentConnectors, agentSkills, builtinsAfter, connectionsAfter, connectorsAfter, savedAgentsGrantAfter, skillsAfter } from '../utils/agentTools'
 
 // The Tools list of the agent form. It reads what a new chat on the agent's
@@ -82,7 +83,11 @@ export function useAgentTools(form, update, project = null) {
   // agent: they are listed apart, once.
   const allSkills = useMemo(() => switchableSkills(agentSkills(skillList, form)), [skillList, form])
   const limited = useMemo(() => limitedTools(project, { addons: allAddons, connectors: allConnectors, skills: allSkills }), [project, allAddons, allConnectors, allSkills])
-  const { addons, connectors, skills } = limited
+  // What the project attaches is on for the agent and cannot be switched off here.
+  const attached = useMemo(() => (project ? attachedOf(project) : null), [project])
+  const addons = useMemo(() => markAddons(limited.addons, attached), [limited.addons, attached])
+  const connectors = useMemo(() => markConnectors(limited.connectors, attached), [limited.connectors, attached])
+  const skills = useMemo(() => markSkills(limited.skills, attached), [limited.skills, attached])
   const grantedSkillRows = useMemo(() => grantedSkills(skillList), [skillList])
   const catalog = useBuiltinGrants()
   const grantList = useMemo(() => agentGrants(catalog, form.builtins), [catalog, form.builtins])

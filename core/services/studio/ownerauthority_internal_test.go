@@ -59,7 +59,7 @@ var _ = Describe("content another person may write is not the owner's", func() {
 	}
 	chatSkill := func(name string) (skills.Skill, bool) {
 		GinkgoHelper()
-		list, _, _, err := svc.chatSkillSet(ctx, "alice", nil, nil, nil, Commands{})
+		list, _, _, err := svc.chatSkillSet(ctx, "alice", session.ChatRecord{}, nil, nil, nil, Commands{})
 		Expect(err).NotTo(HaveOccurred())
 		for _, sk := range list {
 			if sk.Name == name && sk.Shadowed == "" && sk.Invalid == "" && !sk.Off {
@@ -125,7 +125,7 @@ var _ = Describe("content another person may write is not the owner's", func() {
 		Expect(p).NotTo(ContainSubstring("planted by Bob"))
 		Expect(p).NotTo(ContainSubstring("another planted skill"))
 
-		list, _, _, err := svc.chatSkillSet(ctx, "alice", nil, nil, nil, Commands{})
+		list, _, _, err := svc.chatSkillSet(ctx, "alice", session.ChatRecord{}, nil, nil, nil, Commands{})
 		Expect(err).NotTo(HaveOccurred())
 		out, err := svc.loadSkill(ctx, "alice", list, "report", loadOpts{exec: true})
 		Expect(err).NotTo(HaveOccurred())

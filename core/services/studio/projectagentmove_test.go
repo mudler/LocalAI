@@ -190,6 +190,61 @@ var _ = Describe("moving a saved agent to another project", func() {
 		Expect(rep.DroppedTools.Addons).To(BeEmpty())
 	})
 
+	skill := "---\nname: plan\ndescription: A plan.\n---\nBody.\n"
+
+	It("lists what the new project attaches and what the old one attached", func() {
+		r.put("/Projects/"+beta.Slug+"/skills/plan/SKILL.md", skill)
+		_, err := r.proj.Update(r.ctx, alice, acme.ID, projects.UpdateInput{Attached: &projects.Defaults{
+			Connectors: []string{"mail"}, Addons: []string{"shared-addon", "old-addon"}}})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = r.proj.Update(r.ctx, alice, beta.ID, projects.UpdateInput{Attached: &projects.Defaults{
+			Skills: []string{"s1"}, Addons: []string{"shared-addon"}, MCPServers: []string{"srv"}}})
+		Expect(err).NotTo(HaveOccurred())
+		a := r.agentOf(acme, "Helper")
+		check := func(rep studio.AgentMoveReport) {
+			Expect(rep.AttachedNew.Skills).To(Equal([]string{"s1"}))
+			Expect(rep.AttachedNew.Addons).To(Equal([]string{"shared-addon"}))
+			Expect(rep.AttachedNew.MCPServers).To(Equal([]string{"srv"}))
+			Expect(rep.AttachedNew.Connectors).To(BeEmpty())
+			// A tool both projects attach keeps applying: it is not listed as stopped.
+			Expect(rep.AttachedOld.Addons).To(Equal([]string{"old-addon"}))
+			Expect(rep.AttachedOld.Connectors).To(Equal([]string{"mail"}))
+			Expect(rep.AttachedOld.Skills).To(BeEmpty())
+			Expect(rep.ProjectSkillsSwitch).To(BeTrue())
+		}
+		dry, err := move(a.ID, studio.AgentMove{ProjectID: beta.ID, DryRun: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dry.Moved).To(BeFalse())
+		check(dry)
+		Expect(stored(a.ID).ProjectID).To(Equal(acme.ID))
+		rep, err := move(a.ID, studio.AgentMove{ProjectID: beta.ID})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rep.Moved).To(BeTrue())
+		check(rep)
+	})
+
+	It("reports no attached tools for a move that has none, and the skill switch out of a project", func() {
+		a := r.agentOf(acme, "Helper")
+		rep, err := move(a.ID, studio.AgentMove{ProjectID: "", WholeHome: true, DryRun: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rep.AttachedNew.Skills).NotTo(BeNil())
+		Expect(rep.AttachedNew.Skills).To(BeEmpty())
+		Expect(rep.AttachedOld.Connectors).To(BeEmpty())
+		Expect(rep.ProjectSkillsSwitch).To(BeFalse(), "neither project has a skill of its own")
+		r.put("/Projects/"+acme.Slug+"/skills/plan/SKILL.md", skill)
+		rep, err = move(a.ID, studio.AgentMove{ProjectID: "", WholeHome: true, DryRun: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rep.ProjectSkillsSwitch).To(BeTrue(), "the old project's skills stop")
+		p := plain("Plain")
+		rep, err = move(p.ID, studio.AgentMove{ProjectID: beta.ID, DryRun: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rep.ProjectSkillsSwitch).To(BeFalse())
+		r.put("/Projects/"+beta.Slug+"/skills/plan/SKILL.md", skill)
+		rep, err = move(p.ID, studio.AgentMove{ProjectID: beta.ID, DryRun: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rep.ProjectSkillsSwitch).To(BeTrue(), "the new project's skills start")
+	})
+
 	It("starts the agent's own notes empty and keeps the old ones in the home", func() {
 		a := plain("Helper")
 		r.put("/Memory/agents/"+a.ID+"/index.md", "old facts")

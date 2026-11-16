@@ -89,7 +89,8 @@
     "tools": "Herramientas por defecto",
     "agents": "Agentes",
     "connections": "Conexiones",
-    "automations": "Automatizaciones"
+    "automations": "Automatizaciones",
+    "skills": "Skills"
   },
   "updated": "Actualizado {{when}}",
   "overview": {
@@ -175,7 +176,9 @@
       "missing": "No disponible",
       "off": "Apagado ahora",
       "missingTitle": "Aquí no hay instalado nada llamado «{{name}}». Esta entrada no hace nada hasta que exista.",
-      "offTitle": "«{{name}}» está apagado. Esta entrada no hace nada hasta que se encienda."
+      "offTitle": "«{{name}}» está apagado. Esta entrada no hace nada hasta que se encienda.",
+      "outside": "Fuera del límite",
+      "outsideTitle": "{{name}} no está en el límite, así que el servidor rechaza este proyecto."
     },
     "countMissing": "{{n}} no disponible(s)",
     "pickerLoading": "Leyendo lo instalado…",
@@ -186,7 +189,22 @@
     "addTyped": "Añadir «{{name}}»",
     "save": "Guardar",
     "discard": "Descartar cambios",
-    "archivedNote": "Este proyecto está archivado. Restáuralo para cambiar sus herramientas por defecto."
+    "archivedNote": "Este proyecto está archivado. Restáuralo para cambiar sus herramientas por defecto.",
+    "attachedTitle": "Adjuntas",
+    "attachedKind": "Siempre activas en los chats y agentes de este proyecto",
+    "limitKind": "Límite: solo se pueden usar estas",
+    "attachedLead": "Cada chat y cada agente de este proyecto las tiene activas, sin pasos propios, también en los chats que ya existen. Un chat no puede desactivarlas. Si el límite de abajo tiene entradas, una entrada adjunta debe estar en él.",
+    "noneAttached": "Nada adjunto",
+    "attachLabel": "Adjuntar a {{list}}",
+    "outsideLimit": "Fuera del límite: {{names}}. Añádelas al límite de abajo o quítalas. El servidor rechaza un proyecto así.",
+    "attachedBlocked": "Las herramientas adjuntas están desactivadas mientras esta carpeta tenga otras personas con escritura: lo que el proyecto adjunta se ignora hasta que nadie más pueda escribir en la carpeta.",
+    "attachedHints": {
+      "skills": "Estas skills están activas en cada chat y agente de este proyecto. Usa el nombre que aparece en la página Skills.",
+      "addons": "Estos add-ons están activos en cada chat y agente de este proyecto. Un add-on que usa una credencial solo funciona para ti, no para las personas con quienes se comparte el proyecto.",
+      "mcp_servers": "Estos servidores MCP están activos en cada chat y agente de este proyecto. Un servidor que usa una credencial solo funciona para ti.",
+      "connectors": "Estos conectores MCP están activos en cada chat y agente de este proyecto. Un conector solo funciona para ti, nunca para las personas con quienes se comparte el proyecto.",
+      "collections": "Estas colecciones de conocimiento se pueden consultar en cada chat y agente de este proyecto."
+    }
   },
   "sheet": {
     "newTitle": "Nuevo proyecto",
@@ -406,5 +424,21 @@
     "agentsBody": "Un administrador puede activarlos para ti.",
     "connections": "Las conexiones no están disponibles para tu cuenta",
     "connectionsBody": "Esta pestaña necesita las funciones de conectores y de agentes. Un administrador puede activarlas para ti."
+  },
+  "projectSkills": {
+    "title": "Skills del proyecto",
+    "new": "Nueva skill",
+    "body": "Skills guardadas en la carpeta de este proyecto. Están activas en cada chat y agente de este proyecto y en ningún otro chat.",
+    "blocked": "Las skills del proyecto están desactivadas mientras esta carpeta tenga otros con permiso de escritura.",
+    "loadFailed": "Las skills del proyecto no se cargaron.",
+    "empty": "Este proyecto aún no tiene skills.",
+    "removed": "Skill {{name}} eliminada.",
+    "removeFailed": "La skill no se eliminó: {{message}}",
+    "edit": "Editar {{name}}",
+    "editLabel": "Editar",
+    "delete": "Eliminar {{name}}",
+    "deleteLabel": "Eliminar",
+    "deleteTitle": "¿Eliminar la skill {{name}}?",
+    "deleteBody": "La skill se elimina de la carpeta del proyecto. Los chats y agentes del proyecto dejan de usarla."
   }
 }

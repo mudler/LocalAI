@@ -586,7 +586,9 @@
         "title": "Leer tus chats anteriores",
         "description": "Permite que el modelo busque y lea tus chats anteriores. Un agente que trabaja en una carpeta solo lee los chats de su propio agente."
       }
-    }
+    },
+    "fromProject": "Del proyecto",
+    "fromProjectTitle": "El proyecto adjunta esta herramienta, así que aquí siempre está activa. Para desactivarla, quítala en el proyecto."
   },
   "vision": {
     "describedBy": "Este modelo no puede ver imágenes. Elige otro modelo o la imagen la describirá {{model}}.",

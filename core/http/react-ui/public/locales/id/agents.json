@@ -1106,7 +1106,12 @@
       "grant": "Izin menulis ke memori proyek dicabut. Anda dapat memberikannya lagi di pengaturan agen.",
       "notes": "Catatan milik agen dimulai kosong. Catatan lama tetap ada di berkas Anda, di Memory pada Moved agent notes.",
       "foldersInto": "Agen hanya bekerja di folder berkas dan memori {{name}}.",
-      "foldersOut": "Agen tidak lagi termasuk dalam proyek."
+      "foldersOut": "Agen tidak lagi termasuk dalam proyek.",
+      "attachedLost_one": "Proyek lama melampirkan {{count}} alat yang tidak berlaku lagi: {{names}}.",
+      "attachedLost_other": "Proyek lama melampirkan {{count}} alat yang tidak berlaku lagi: {{names}}.",
+      "attachedGained_one": "Proyek baru melampirkan {{count}} alat yang diterima agen: {{names}}.",
+      "attachedGained_other": "Proyek baru melampirkan {{count}} alat yang diterima agen: {{names}}.",
+      "projectSkills": "Skill proyek lama tidak berlaku lagi, dan skill proyek baru mulai berlaku."
     },
     "blocked": {
       "busy": "Sebuah obrolan agen ini sedang menjalankan giliran. Hentikan, lalu pindahkan agen."

@@ -152,6 +152,68 @@ var _ = Describe("the project service", func() {
 		Expect(err).To(MatchError(projects.ErrInvalid))
 	})
 
+	Describe("attached tools", func() {
+		all := projects.Defaults{Skills: []string{"s"}, Addons: []string{"a"}, Connectors: []string{"c"}, MCPServers: []string{"m"}, Collections: []string{"k"}}
+
+		It("creates and updates a project with attached lists, and keeps them over a rewrite", func() {
+			p, err := svc.Create(ctx, "alice", projects.CreateInput{Name: "Acme", Attached: all})
+			Expect(err).NotTo(HaveOccurred())
+			m, err := readManifest("alice", "acme")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.Attached).To(Equal(all))
+			name := "Acme Two"
+			_, err = svc.Update(ctx, "alice", p.ID, projects.UpdateInput{Name: &name})
+			Expect(err).NotTo(HaveOccurred())
+			m, _ = readManifest("alice", "acme")
+			Expect(m.Attached).To(Equal(all), "a field left out keeps its value")
+			none := projects.Defaults{}
+			_, err = svc.Update(ctx, "alice", p.ID, projects.UpdateInput{Attached: &none})
+			Expect(err).NotTo(HaveOccurred())
+			m, _ = readManifest("alice", "acme")
+			Expect(m.Attached).To(Equal(none))
+		})
+
+		DescribeTable("refuses an entry outside a non-empty limit of its kind, naming tool and limit",
+			func(limit, attached projects.Defaults, tool string) {
+				_, err := svc.Create(ctx, "alice", projects.CreateInput{Name: "Bad", Defaults: limit, Attached: attached})
+				Expect(err).To(MatchError(projects.ErrInvalid))
+				Expect(err.Error()).To(ContainSubstring(tool))
+				Expect(err.Error()).To(ContainSubstring("limit"))
+			},
+			Entry("skill", projects.Defaults{Skills: []string{"x"}}, projects.Defaults{Skills: []string{"y"}}, `"y"`),
+			Entry("add-on", projects.Defaults{Addons: []string{"x"}}, projects.Defaults{Addons: []string{"y"}}, `"y"`),
+			Entry("connector", projects.Defaults{Connectors: []string{"x"}}, projects.Defaults{Connectors: []string{"y"}}, `"y"`),
+			Entry("MCP server", projects.Defaults{MCPServers: []string{"x"}}, projects.Defaults{MCPServers: []string{"y"}}, `"y"`),
+			Entry("collection", projects.Defaults{Collections: []string{"x"}}, projects.Defaults{Collections: []string{"y"}}, `"y"`),
+		)
+
+		It("accepts an entry inside the limit and any entry when the limit is empty", func() {
+			_, err := svc.Create(ctx, "alice", projects.CreateInput{Name: "Ok", Defaults: projects.Defaults{Addons: []string{"a", "b"}}, Attached: projects.Defaults{Addons: []string{"b"}, Skills: []string{"free"}}})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("refuses an update that attaches outside the limit, or narrows the limit under an attached tool", func() {
+			p, err := svc.Create(ctx, "alice", projects.CreateInput{Name: "Acme", Defaults: projects.Defaults{Addons: []string{"a", "b"}}, Attached: projects.Defaults{Addons: []string{"a"}}})
+			Expect(err).NotTo(HaveOccurred())
+			out := projects.Defaults{Addons: []string{"a", "z"}}
+			_, err = svc.Update(ctx, "alice", p.ID, projects.UpdateInput{Attached: &out})
+			Expect(err).To(MatchError(projects.ErrInvalid))
+			narrow := projects.Defaults{Addons: []string{"b"}}
+			_, err = svc.Update(ctx, "alice", p.ID, projects.UpdateInput{Defaults: &narrow})
+			Expect(err).To(MatchError(projects.ErrInvalid))
+			m, _ := readManifest("alice", "acme")
+			Expect(m.Defaults.Addons).To(Equal([]string{"a", "b"}), "nothing was written")
+			Expect(m.Attached.Addons).To(Equal([]string{"a"}))
+		})
+
+		It("still archives a project that a hand edit left with an attached tool outside the limit", func() {
+			p, _ := svc.Create(ctx, "alice", projects.CreateInput{Name: "Acme"})
+			write("alice", "/Projects/acme/project.json", `{"version":1,"id":"`+p.ID+`","name":"Acme","defaults":{"addons":["a"]},"attached":{"addons":["z"]}}`)
+			_, err := svc.Archive(ctx, "alice", p.ID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
 	It("archives and restores, surviving a reindex", func() {
 		p, _ := svc.Create(ctx, "alice", projects.CreateInput{Name: "Acme"})
 		got, err := svc.Archive(ctx, "alice", p.ID)

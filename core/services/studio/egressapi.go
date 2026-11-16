@@ -80,7 +80,7 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 	ctx, closeScope := s.executionScope(ctx, principal(user), conv)
 	defer closeScope()
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return EgressView{}, err
 	}
@@ -193,7 +193,7 @@ func (s *Service) SetEgressPreset(ctx context.Context, user, conv string, preset
 	if !preset.Valid() {
 		return ErrEgressPreset
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return err
 	}

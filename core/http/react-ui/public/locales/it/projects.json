@@ -89,7 +89,8 @@
     "tools": "Strumenti predefiniti",
     "agents": "Agenti",
     "connections": "Connessioni",
-    "automations": "Automazioni"
+    "automations": "Automazioni",
+    "skills": "Skill"
   },
   "updated": "Aggiornato {{when}}",
   "overview": {
@@ -175,7 +176,9 @@
       "missing": "Non disponibile",
       "off": "Spento ora",
       "missingTitle": "Qui non è installato nulla con il nome «{{name}}». Questa voce non fa nulla finché non esiste.",
-      "offTitle": "«{{name}}» è spento. Questa voce non fa nulla finché non è acceso."
+      "offTitle": "«{{name}}» è spento. Questa voce non fa nulla finché non è acceso.",
+      "outside": "Fuori dal limite",
+      "outsideTitle": "{{name}} non è nel limite, quindi il server rifiuta questo progetto."
     },
     "countMissing": "{{n}} non disponibili",
     "pickerLoading": "Lettura di ciò che è installato…",
@@ -186,7 +189,22 @@
     "addTyped": "Aggiungi «{{name}}»",
     "save": "Salva",
     "discard": "Annulla le modifiche",
-    "archivedNote": "Questo progetto è archiviato. Ripristinalo per cambiare i suoi strumenti predefiniti."
+    "archivedNote": "Questo progetto è archiviato. Ripristinalo per cambiare i suoi strumenti predefiniti.",
+    "attachedTitle": "Collegati",
+    "attachedKind": "Sempre attivi nelle chat e negli agenti di questo progetto",
+    "limitKind": "Limite: si possono usare solo questi",
+    "attachedLead": "Ogni chat e ogni agente di questo progetto li ha attivi, senza passaggi propri, anche nelle chat già esistenti. Una chat non può disattivarli. Se il limite qui sotto ha voci, una voce collegata deve essere nel limite.",
+    "noneAttached": "Nessun collegamento",
+    "attachLabel": "Collega a {{list}}",
+    "outsideLimit": "Fuori dal limite: {{names}}. Aggiungili al limite qui sotto o scollegali. Il server rifiuta un progetto così.",
+    "attachedBlocked": "Gli strumenti collegati sono disattivati finché questa cartella ha altri autori di scrittura: ciò che il progetto collega viene ignorato finché nessun altro può scrivere nella cartella.",
+    "attachedHints": {
+      "skills": "Queste skill sono attive in ogni chat e agente di questo progetto. Usa il nome mostrato nella pagina Skill.",
+      "addons": "Questi add-on sono attivi in ogni chat e agente di questo progetto. Un add-on che usa una credenziale funziona solo per te, non per le persone con cui il progetto è condiviso.",
+      "mcp_servers": "Questi server MCP sono attivi in ogni chat e agente di questo progetto. Un server che usa una credenziale funziona solo per te.",
+      "connectors": "Questi connettori MCP sono attivi in ogni chat e agente di questo progetto. Un connettore funziona solo per te, mai per le persone con cui il progetto è condiviso.",
+      "collections": "In ogni chat e agente di questo progetto si possono cercare queste raccolte di conoscenza."
+    }
   },
   "sheet": {
     "newTitle": "Nuovo progetto",
@@ -406,5 +424,21 @@
     "agentsBody": "Un amministratore può attivarli per te.",
     "connections": "Le connessioni non sono disponibili per il tuo account",
     "connectionsBody": "Questa scheda richiede le funzioni connettori e agenti. Un amministratore può attivarle per te."
+  },
+  "projectSkills": {
+    "title": "Skill del progetto",
+    "new": "Nuova skill",
+    "body": "Skill conservate nella cartella di questo progetto. Sono attive in ogni chat e agente di questo progetto e in nessun’altra chat.",
+    "blocked": "Le skill del progetto sono disattivate finché questa cartella ha altri autori di scrittura.",
+    "loadFailed": "Le skill del progetto non si sono caricate.",
+    "empty": "Questo progetto non ha ancora skill.",
+    "removed": "Skill {{name}} eliminata.",
+    "removeFailed": "La skill non è stata eliminata: {{message}}",
+    "edit": "Modifica {{name}}",
+    "editLabel": "Modifica",
+    "delete": "Elimina {{name}}",
+    "deleteLabel": "Elimina",
+    "deleteTitle": "Eliminare la skill {{name}}?",
+    "deleteBody": "La skill viene rimossa dalla cartella del progetto. Le chat e gli agenti del progetto smettono di usarla."
   }
 }

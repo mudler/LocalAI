@@ -201,6 +201,9 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     }
   }
 
+  // A tool the chat's project attaches is on and cannot be switched off here.
+  const projectMark = (x) => (x.fromProject ? { readOnly: true, chip: tc('tools.fromProject'), title: tc('tools.fromProjectTitle') } : {})
+
   const groups = [
     {
       // The tools LocalAI serves itself, such as web search: one switch per group.
@@ -215,6 +218,7 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
         description: a.gone ? '' : (a.description || tc('tools.addonDescribe', { count: a.tools || 0 })),
         note: a.gone ? tc('tools.gone') : '',
         meta: a.gone ? undefined : t('tools.toolCount', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on),
+        ...projectMark(a),
         ...connectionOf(a),
       })),
     },
@@ -222,14 +226,14 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
       key: 'servers', title: tc('tools.servers'), icon: 'server', onSet: switches.setMCPOn,
       rows: switches.servers.map((s) => ({
         key: `s-${s.name}`, id: s.name, label: s.name, description: tc('tools.serverDescribe'),
-        on: !s.off, usable: s.usable, reason: s.reason, onToggle: (on) => switches.toggleMCP(s.name, on),
+        on: !s.off, usable: s.usable, reason: s.reason, onToggle: (on) => switches.toggleMCP(s.name, on), ...projectMark(s),
       })),
     },
     {
       key: 'connectors', title: tc('tools.connectors'), icon: 'plug', onSet: switches.setMCPOn,
       rows: switches.connectors.map((c) => ({
         key: `c-${c.id}`, id: connectorRef(c.id), label: c.name, description: tc('tools.connectorDescribe'),
-        note: c.gone ? tc('tools.gone') : (c.hint || ''), on: !c.off, usable: c.usable, reason: c.reason, onToggle: (on) => switches.toggleMCP(connectorRef(c.id), on),
+        note: c.gone ? tc('tools.gone') : (c.hint || ''), on: !c.off, usable: c.usable, reason: c.reason, onToggle: (on) => switches.toggleMCP(connectorRef(c.id), on), ...projectMark(c),
       })),
     },
     ...grantGroups,

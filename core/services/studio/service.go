@@ -416,6 +416,10 @@ type Service struct {
 	scopeChecks func()
 	d           Deps
 	mgr         *session.Manager
+	// attached keeps the attached tools of the projects read for a chat for a
+	// few seconds (see projectattached.go). Per instance by design: it is a
+	// cache, and the manifest is the record.
+	attached attachedCache
 	// builtins holds the built-in chat tools an add-on may replace.
 	builtins *builtins.Registry
 	// access holds the grants of the running connector turns and the recent
@@ -965,7 +969,12 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 			return session.ChatRecord{}, err
 		}
 		avail := s.available(ctx, user, model, proj.Manifest.Defaults)
+		requestedSkills := len(sw.SkillsOff) > 0
 		sw = projectSwitches(proj.Manifest.Defaults, sw, avail)
+		if !requestedSkills {
+			// The skills limit does not reach the project's own skills.
+			sw.SkillsOff = s.withoutProjectSkills(ctx, user, proj, sw.SkillsOff)
+		}
 		collections = projectCollections(proj.Manifest.Defaults, collections, avail)
 	}
 	if err := s.checkConnections(ctx, user, sw.Connections); err != nil {
@@ -1032,7 +1041,7 @@ func grantedOn(ag agents.Agent, shared bool) []string {
 
 // Get returns a conversation the user owns.
 func (s *Service) Get(ctx context.Context, user, conv string) (session.ChatRecord, error) {
-	return s.d.Store.GetChat(ctx, principal(user), conv)
+	return s.getChatEffective(ctx, principal(user), conv)
 }
 
 // Messages returns transcript entries after seq.
@@ -1081,7 +1090,7 @@ func (s *Service) Turn(ctx context.Context, user, conv string) (store.TurnInfo, 
 	if err != nil || !info.WillResume {
 		return info, err
 	}
-	if rec, gerr := s.d.Store.GetChat(ctx, p, conv); gerr != nil || !s.resumeEligible(rec) {
+	if rec, gerr := s.getChatEffective(ctx, p, conv); gerr != nil || !s.resumeEligible(rec) {
 		info.WillResume = false
 	}
 	return info, nil
@@ -1170,7 +1179,7 @@ func (s *Service) CancelPending(ctx context.Context, user, conv, id string) erro
 // Events subscribes to the live events of a conversation. Call cancel when done.
 func (s *Service) Events(ctx context.Context, user, conv string) (<-chan session.Event, func(), error) {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
 		return nil, nil, err
 	}
 	ch, cancel := s.bus.Subscribe(key(p, conv))
@@ -1195,7 +1204,7 @@ func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up
 // sendWithFiles is SendWithFiles with the directive and the invocation of a
 // slash command (see SendCommand).
 func (s *Service) sendWithFiles(ctx context.Context, user, conv, text string, up []session.Upload, directive string, inv *session.Invocation) (SendResult, error) {
-	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
 	if err != nil {
 		return SendResult{}, err
 	}
@@ -1269,7 +1278,7 @@ func joinPending(taken []store.Pending, msg session.Message) session.Message {
 // starts sub-agent conversations through it.
 func (s *Service) send(ctx context.Context, user, conv string, msg session.Message) (SendResult, error) {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
 		return SendResult{}, err
 	}
 	unlock := s.lock(key(p, conv))
@@ -1396,7 +1405,7 @@ func (s *Service) attachWhileRunning(ctx context.Context, p, conv string, up []s
 // first message. The caller holds the claim of the turn and the chat is not
 // open, so nothing writes the old title back. A failure only leaves the default.
 func (s *Service) nameAfter(ctx context.Context, p, conv, text string) {
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil || rec.Title != session.DefaultTitle || rec.Turns > 0 {
 		return
 	}
@@ -1414,7 +1423,7 @@ func (s *Service) nameAfter(ctx context.Context, p, conv, text string) {
 // after a Stop or a failure; nothing else starts them then.
 func (s *Service) SendNow(ctx context.Context, user, conv string) error {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
 		return err
 	}
 	unlock := s.lock(key(p, conv))
@@ -1427,7 +1436,7 @@ func (s *Service) SendNow(ctx context.Context, user, conv string) error {
 // frontend, which then hears the request over the bus.
 func (s *Service) Stop(ctx context.Context, user, conv string) error {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return err
 	}
@@ -1442,7 +1451,7 @@ func (s *Service) Stop(ctx context.Context, user, conv string) error {
 // stopTurn is Stop without the end of the loops of a sub-agent chat.
 func (s *Service) stopTurn(ctx context.Context, user, conv string) error {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
 		return err
 	}
 	// The sub-agents of the chat stop with it, also when its own turn has
@@ -1647,7 +1656,7 @@ func (s *Service) chat(ctx context.Context, p, conv string) (*session.Chat, erro
 	}
 	// The access is resolved at every open, which every turn does: an edit
 	// of the chat's agent applies from the next turn.
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return nil, err
 	}
@@ -1880,7 +1889,7 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 		// The loop counts a turn in the record only when it ends, so the turn
 		// that runs now is the next one.
 		turn := 0
-		if rec, gerr := s.d.Store.GetChat(ctx, a.Principal, a.ChatID); gerr == nil {
+		if rec, gerr := s.getChatEffective(ctx, a.Principal, a.ChatID); gerr == nil {
 			turn = rec.Turns + 1
 		}
 		return texts, func(err error) {
@@ -1915,7 +1924,7 @@ func (s *Service) confirm(p, conv string, ids []string) {
 // llmFor gives the harness of a chat its model client, acting as the chat's owner.
 func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 	ctx := context.Background()
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nibharness.Model{}, err
 	}
@@ -1963,7 +1972,7 @@ func (s *Service) reportUsage(a workspace.Actor, u provider.Usage, model string,
 // session.ErrNotFound.
 func (s *Service) Delete(ctx context.Context, user, conv string) error {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return err
 	}

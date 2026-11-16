@@ -553,7 +553,7 @@ func (h *Loops) fire(ctx context.Context, l loops.Loop, now time.Time, lim LoopL
 // ready says whether the chat and the owner of a due loop can have a run or a
 // check now. It drops or pauses the loop when they never can.
 func (h *Loops) ready(ctx context.Context, l loops.Loop) bool {
-	if _, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID); err != nil {
+	if _, err := h.svc.getChatEffective(ctx, l.Owner, l.ChatID); err != nil {
 		if errors.Is(err, session.ErrNotFound) {
 			h.drop(ctx, l, "the chat was deleted")
 		}
@@ -571,7 +571,7 @@ func (h *Loops) ready(ctx context.Context, l loops.Loop) bool {
 
 // start sends the prompt of a claimed run to the chat and watches the turn.
 func (h *Loops) start(ctx context.Context, l loops.Loop, now time.Time) {
-	rec, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID)
+	rec, err := h.svc.getChatEffective(ctx, l.Owner, l.ChatID)
 	if err != nil {
 		h.unclaim(ctx, l, func(c *loops.Loop) { c.Next = now.Add(h.o.Tick) })
 		return
@@ -656,7 +656,7 @@ func (h *Loops) busy(ctx context.Context, l loops.Loop) bool {
 // chatMoved says whether the chat of a loop is stale for its agent, which
 // moved to another project (ErrAgentMoved).
 func (h *Loops) chatMoved(ctx context.Context, l loops.Loop) bool {
-	rec, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID)
+	rec, err := h.svc.getChatEffective(ctx, l.Owner, l.ChatID)
 	if err != nil {
 		return false
 	}
@@ -670,7 +670,7 @@ func (h *Loops) chatMoved(ctx context.Context, l loops.Loop) bool {
 // asked before the claim and before the owner's daily budget is taken, so a
 // loop in that state costs nothing and keeps its counters.
 func (h *Loops) projectGone(ctx context.Context, l loops.Loop) bool {
-	rec, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID)
+	rec, err := h.svc.getChatEffective(ctx, l.Owner, l.ChatID)
 	if err != nil {
 		return false
 	}

@@ -460,11 +460,12 @@ function draftQuery(model, agentId, switches) {
   return s ? `?${s}` : ''
 }
 
-const refQuery = (ref) => (ref.addon ? `?addon=${enc2(ref.addon)}` : ref.agent ? `?agent=${enc2(ref.agent)}` : '')
+const refQuery = (ref) => (ref.addon ? `?addon=${enc2(ref.addon)}` : ref.agent ? `?agent=${enc2(ref.agent)}` : ref.project ? `?project=${enc2(ref.project)}` : '')
 export const chatSkillsApi = {
   // agents: also list the skills of your saved agents (the Skills page); a
   // chat's own list has the layer of its agent already.
-  list: (chat, { agents = false } = {}) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : agents ? '?agents=true' : ''}`),
+  // project: the skills of that project's own layer (layer=project&project=<id>).
+  list: (chat, { agents = false, project = '' } = {}) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : agents ? '?agents=true' : project ? `?layer=project&project=${enc2(project)}` : ''}`),
   // ref names the owner of a skill of the addon layer ({ addon }) or of the
   // agent layer ({ agent }): see skillRef in utils/chatSkills.js.
   get: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`),
@@ -477,7 +478,7 @@ export const chatSkillsApi = {
   },
   // The skill as a zip file in the Agent Skills layout, as a Blob.
   exportZip: async (name) => (await handleResponse(await fetch(apiUrl(`/api/chats/skills/personal/${enc2(name)}/export`)))).blob(),
-  update: (layer, name, body) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  update: (layer, name, body, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`, { method: 'PUT', body: JSON.stringify(body) }),
   remove: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`, { method: 'DELETE' }),
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/skills`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }

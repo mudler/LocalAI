@@ -64,6 +64,10 @@ const (
 	ManagedPages    = "pages"    // pages/, one folder per page
 	ManagedSkills   = "skills"   // .skills/, one folder per personal skill
 	ManagedProjects = "projects" // Projects/, one folder per project
+
+	// ManagedProjectSkills is the skills folder of one project,
+	// Projects/<project>/skills.
+	ManagedProjectSkills = "project-skills"
 )
 
 // projectsDir is the folder of the home that holds one folder per project.
@@ -102,6 +106,8 @@ func Managed(rel string) string {
 		return ManagedPages
 	case rel == "/"+workfiles.SkillsDir:
 		return ManagedSkills
+	case isProjectSkillsDir(rel):
+		return ManagedProjectSkills
 	}
 	return ""
 }
@@ -253,4 +259,10 @@ func topLevel(paths []string) []string {
 		out = append(out, p)
 	}
 	return out
+}
+
+// isProjectSkillsDir says whether rel is exactly Projects/<project>/skills.
+func isProjectSkillsDir(rel string) bool {
+	segs := strings.Split(strings.Trim(rel, "/"), "/")
+	return len(segs) == 3 && strings.EqualFold(segs[0], workfiles.ProjectsDir) && strings.EqualFold(segs[2], workfiles.ProjectSkillsDir)
 }

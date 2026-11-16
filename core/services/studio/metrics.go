@@ -76,7 +76,7 @@ func outcomeOf(stopped, failed bool) string {
 // origin; a failed read still counts the turn, with empty labels.
 func (s *Service) observeTurn(ctx context.Context, p, conv string, started time.Time, outcome string) {
 	var agent, origin string
-	if rec, err := s.d.Store.GetChat(ctx, p, conv); err == nil {
+	if rec, err := s.getChatEffective(ctx, p, conv); err == nil {
 		origin = rec.Origin
 		if rec.AgentID != "" && s.d.Agents != nil {
 			if ag, err := s.chatAgent(ctx, p, rec.AgentID); err == nil {

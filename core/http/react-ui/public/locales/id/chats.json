@@ -586,7 +586,9 @@
         "title": "Baca chat Anda sebelumnya",
         "description": "Memungkinkan model mencari dan membaca chat Anda sebelumnya. Agen yang bekerja di satu folder hanya membaca chat agennya sendiri."
       }
-    }
+    },
+    "fromProject": "Dari proyek",
+    "fromProjectTitle": "Proyek melampirkan alat ini, jadi selalu aktif di sini. Untuk mematikannya, lepaskan di proyek."
   },
   "vision": {
     "describedBy": "Model ini tidak dapat melihat gambar. Pilih model lain, atau gambar akan dijelaskan oleh {{model}}.",

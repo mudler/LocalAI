@@ -146,7 +146,7 @@ var errEgressCardsFull = errors.New("studio: the chat has as many network cards 
 // (or refused), the request is decided again with the stored state, which now
 // holds the rule or the grant; done is false while the card waits.
 func (s *Service) cardVerdict(ctx context.Context, owner session.ChatRecord, id, op string, r egress.Request) (egress.Verdict, bool, error) {
-	rec, err := s.d.Store.GetChat(ctx, owner.Principal, owner.ID)
+	rec, err := s.getChatEffective(ctx, owner.Principal, owner.ID)
 	if err != nil {
 		return egress.Verdict{}, false, nil
 	}
@@ -290,7 +290,7 @@ func answerState(decision string) string {
 }
 
 func (s *Service) egressCard(ctx context.Context, p, conv, id string) (egress.Card, bool) {
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return egress.Card{}, false
 	}
@@ -303,7 +303,7 @@ func (s *Service) egressCard(ctx context.Context, p, conv, id string) (egress.Ca
 // that asked, the first tool line that ended after it was asked, so a reload
 // draws it under that line.
 func (s *Service) settleEgressCards(ctx context.Context, p, conv string, since time.Time) {
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil || len(rec.Egress.Cards) == 0 {
 		return
 	}

@@ -5687,7 +5687,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/project": {
             "put": {
-                "description": "The one way to change the project of an agent: a normal save (PUT /api/chats/agents/{id}) refuses a changed project. project_id is an active project of yours, or empty to leave the project. Into a project the agent gets the project's files folder (files_mode read or write, write by default) and the memory folder at read; the grant to write the project's memory is removed, and its waiting project notes are voided. Out of a project, folders (or whole_home true) are required, so the agent never gets all your files by accident. The agent's own notes start empty: the old ones are moved to Memory/Moved agent notes in your files, not deleted. Chats the agent already has keep their history but take no new turn (the answer is 409 agent_moved: start a new chat), and their loops end. The move is refused with 409 agent_move_blocked while a chat of the agent runs a turn, while the agent is shared and enters a project (revoke_shares true removes the grants), or while an enabled file trigger watches a folder outside the new folders (disable_triggers true switches it off). With dry_run true nothing is written and the answer lists what the move touches, including the blockers.",
+                "description": "The one way to change the project of an agent: a normal save (PUT /api/chats/agents/{id}) refuses a changed project. project_id is an active project of yours, or empty to leave the project. Into a project the agent gets the project's files folder (files_mode read or write, write by default) and the memory folder at read; the grant to write the project's memory is removed, and its waiting project notes are voided. Out of a project, folders (or whole_home true) are required, so the agent never gets all your files by accident. The agent's own notes start empty: the old ones are moved to Memory/Moved agent notes in your files, not deleted. Chats the agent already has keep their history but take no new turn (the answer is 409 agent_moved: start a new chat), and their loops end. The move is refused with 409 agent_move_blocked while a chat of the agent runs a turn, while the agent is shared and enters a project (revoke_shares true removes the grants), or while an enabled file trigger watches a folder outside the new folders (disable_triggers true switches it off). The answer also lists what the new project attaches (attached_new), what the old project attached and the new one does not (attached_old, these stop applying), and project_skills_switch, true when the skills of the old project stop and those of the new one start. With dry_run true nothing is written and the answer lists what the move touches, including the blockers.",
                 "tags": [
                     "chats"
                 ],
@@ -8767,6 +8767,7 @@ const docTemplate = `{
         },
         "/api/chats/projects/{id}": {
             "get": {
+                "description": "skills_blocked is true when the project's own skills (the skills folder of the project) are off because another person may write the project folder. attached_blocked is true for the same reason when the project file holds an attached block: the block is ignored and attached comes back empty.",
                 "tags": [
                     "chats"
                 ],
@@ -8823,7 +8824,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "A field that is left out keeps its value. The folder keeps its name. The defaults are five lists: skills, add-ons, connectors, MCP servers and collections. For each list, a non-empty value means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only; the agents of the project are also limited by them.",
+                "description": "A field that is left out keeps its value. The folder keeps its name. The defaults are five lists: skills, add-ons, connectors, MCP servers and collections. For each list, a non-empty value means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only; the agents of the project are also limited by them. Attached is five lists of the same shape: the tools the project holds. Every chat of the project, new or old, and every agent of it has them on at each turn, with no per-chat step. A chat cannot switch an attached tool off; detach it from the project. The tools are the owner's own, so a person the project is shared with never gets them, and a chat that starts from a messaging connection gets only the attached skills and collections. The attached block is ignored while another person may write the project folder (attached_blocked on a read). A non-empty defaults list is a limit, and an attached entry outside it, an empty or malformed entry, or a connector in the MCP list is refused with a 400 that names the tool and the limit.",
                 "tags": [
                     "chats"
                 ],
@@ -9906,7 +9907,7 @@ const docTemplate = `{
         },
         "/api/chats/skills": {
             "get": {
-                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied. A skill of the active memory provider says provider \"memory\" and locked: the host grants it to a chat that reads the notes, so an agent does not list it.",
+                "description": "Skills from every layer: .skills folders of your files, the skills of the chat's project (project), your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied. A skill of the active memory provider says provider \"memory\" and locked: the host grants it to a chat that reads the notes, so an agent does not list it.",
                 "tags": [
                     "chats"
                 ],
@@ -9923,6 +9924,18 @@ const docTemplate = `{
                         "description": "true: add the skills of your saved agents (layer agent), for the Skills page; ignored with chat",
                         "name": "agents",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "project: list only the skills of the project given in project",
+                        "name": "layer",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "a project's id, with layer=project",
+                        "name": "project",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9935,7 +9948,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "A skill is a folder with a SKILL.md: a name, a one-line description and the procedure the model reads when a task matches. The personal layer is yours; the shared layer needs an administrator.",
+                "description": "A skill is a folder with a SKILL.md: a name, a one-line description and the procedure the model reads when a task matches. The personal layer is yours; the shared layer needs an administrator. The project layer (layer project, with project set to the project's id) holds the skills of one project of yours: its chats and agents get them, and only you write them. It is off while another person may write the project folder, and a write is then refused with 409.",
                 "tags": [
                     "chats"
                 ],
@@ -10058,7 +10071,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "personal, shared, agent, addon or builtin",
+                        "description": "personal, shared, project, agent, addon or builtin",
                         "name": "layer",
                         "in": "path",
                         "required": true
@@ -10069,6 +10082,12 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the project's ID, for the project layer",
+                        "name": "project",
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -10106,7 +10125,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "personal or shared",
+                        "description": "personal, shared or project",
                         "name": "layer",
                         "in": "path",
                         "required": true
@@ -10117,6 +10136,12 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the project's ID, for the project layer",
+                        "name": "project",
+                        "in": "query"
                     },
                     {
                         "description": "the new description and body",
@@ -10144,7 +10169,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "The skill's folder goes to the Trash of your files, where it can be restored. Shared skills need an administrator. A skill of the agent layer is deleted with the agent query parameter.",
+                "description": "The skill's folder goes to the Trash of your files, where it can be restored. Shared skills need an administrator. A skill of the agent layer is deleted with the agent query parameter, one of the project layer with the project query parameter.",
                 "tags": [
                     "chats"
                 ],
@@ -10152,10 +10177,16 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "personal, shared or agent",
+                        "description": "personal, shared, project or agent",
                         "name": "layer",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the project's ID, for the project layer",
+                        "name": "project",
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -25905,9 +25936,60 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsAgentMoveAttached": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "collections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "connectors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsAgentMoveReport": {
             "type": "object",
             "properties": {
+                "attached_new": {
+                    "description": "AttachedNew is what the new project attaches: the agent gets it on every\nrun after the move.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentMoveAttached"
+                        }
+                    ]
+                },
+                "attached_old": {
+                    "description": "AttachedOld is what the old project attached and the new one does not.\nIt stops applying to the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentMoveAttached"
+                        }
+                    ]
+                },
                 "blockers": {
                     "description": "Blockers lists why the move cannot be done as asked: busy, shared or\ntriggers_outside.",
                     "type": "array",
@@ -25936,6 +26018,10 @@ const docTemplate = `{
                 },
                 "moved": {
                     "description": "Moved is true when the agent was moved.",
+                    "type": "boolean"
+                },
+                "project_skills_switch": {
+                    "description": "ProjectSkillsSwitch is true when the agent's project skills change: the\nskills of the old project stop and those of the new project start. It is\nfalse when neither project has a skill in its own layer.",
                     "type": "boolean"
                 },
                 "proposals": {
@@ -30737,6 +30823,18 @@ const docTemplate = `{
                     "description": "AgentCount is the number of saved agents that belong to the project.",
                     "type": "integer"
                 },
+                "attached": {
+                    "description": "Attached lists the tools the project holds. Every chat and agent of the\nproject has them on, with no per-chat step, on each turn, and a chat\ncannot switch them off. Defaults stay the limit: an attached entry\noutside a non-empty limit is refused on write. The list is empty while\nAttachedBlocked is true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsProjectDefaults"
+                        }
+                    ]
+                },
+                "attached_blocked": {
+                    "description": "AttachedBlocked is true when the project file holds an attached block\nthat is ignored because another person may write the project folder (a\nshare with write access). The skills of the project have the same rule\n(SkillsBlocked).",
+                    "type": "boolean"
+                },
                 "chat_count": {
                     "description": "ChatCount is the number of chats in the project, counted up to 500.",
                     "type": "integer"
@@ -30755,6 +30853,10 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "skills_blocked": {
+                    "description": "SkillsBlocked is true when the project's own skills are off because\nanother person may write the project folder (a share with write access).\nIt is set on a read of one project; the list leaves it out.",
+                    "type": "boolean"
                 },
                 "slug": {
                     "description": "Slug is the name of the project's folder under Projects/ in the caller's files.",
@@ -31007,6 +31109,9 @@ const docTemplate = `{
         "schema.ChatsProjectWrite": {
             "type": "object",
             "properties": {
+                "attached": {
+                    "$ref": "#/definitions/schema.ChatsProjectDefaults"
+                },
                 "defaults": {
                     "$ref": "#/definitions/schema.ChatsProjectDefaults"
                 },
@@ -31669,7 +31774,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "layer": {
-                    "description": "Layer is where it comes from: folder (a .skills folder of your files),\nagent (a saved agent proposed it), personal, shared, addon (an installed\nadd-on ships it) or builtin.",
+                    "description": "Layer is where it comes from: folder (a .skills folder of your files),\nproject (the skills folder of a project), agent (a saved agent proposed\nit), personal, shared, addon (an installed\nadd-on ships it) or builtin.",
                     "type": "string"
                 },
                 "locked": {
@@ -31684,6 +31789,10 @@ const docTemplate = `{
                 },
                 "path": {
                     "description": "Path is the path of its SKILL.md as the model sees it.",
+                    "type": "string"
+                },
+                "project": {
+                    "description": "Project is the folder name of the project that owns a skill of the\nproject layer.",
                     "type": "string"
                 },
                 "provider": {
@@ -31775,6 +31884,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsSkill"
                     }
+                },
+                "skills_blocked": {
+                    "description": "SkillsBlocked is true when the list is for a project (layer=project) and\nits skills are off because another person may write the project folder.",
+                    "type": "boolean"
                 }
             }
         },
@@ -31810,10 +31923,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "layer": {
-                    "description": "personal or shared",
+                    "description": "personal, shared or project",
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "project": {
+                    "description": "Project is the project's ID, for the project layer.",
                     "type": "string"
                 }
             }

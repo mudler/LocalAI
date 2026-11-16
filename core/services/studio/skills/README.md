@@ -55,6 +55,7 @@ for the error.
 | `LayerAddon` | the folder of one add-on | skills an add-on ships; one root per add-on, with `Addon` and `AddonTitle` set |
 | `LayerShared` | the layer folder | skills an administrator gives to everyone |
 | `LayerPersonal` | the layer folder | the skills of one user |
+| `LayerProject` | the layer folder of one project | the skills of one project; one root per project, with `Project` set to its folder name |
 | `LayerFolder` | a folder to walk | every `.skills` folder below it |
 
 Each layer folder holds one subfolder per skill. For `LayerFolder`, `Resolve`
@@ -71,7 +72,7 @@ no skill and no error. It returns an error only when the store fails.
 
 ## Precedence
 
-The nearest layer wins: folder, personal, shared, built-in. Between two folder
+The nearest layer wins: folder, project, agent, personal, shared, add-on, built-in. Between two folder
 skills the deeper folder wins; at equal depth the path that sorts first wins.
 A skill that loses to one with the same name has `Shadowed` set to the layer
 of the winner and is not in the index. `Options.Off` runs before this rule, so

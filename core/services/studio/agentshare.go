@@ -190,7 +190,7 @@ func (s *Service) chatAgent(ctx context.Context, p, id string) (agents.Agent, er
 	if err != nil {
 		return ag, err
 	}
-	return s.runtimeAgent(ctx, ag)
+	return s.runtimeAgent(ctx, p, ag)
 }
 
 // storedChatAgent is chatAgent without the project ceiling: the lists are the
@@ -392,7 +392,7 @@ func (s *Service) admitAgentTurn(ctx context.Context, p, conv string) (release, 
 
 func (s *Service) admitShared(ctx context.Context, p, conv string) (func(), func(), error) {
 	noop := func() {}
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil || rec.AgentID == "" || s.d.Agents == nil {
 		return noop, noop, nil
 	}

@@ -231,6 +231,44 @@ var _ = Describe("the projects client tool in an interactive chat", func() {
 		Entry("delete", `{"action":"delete","project":"p1"}`),
 	)
 
+	DescribeTable("refuses to attach a connector, an add-on or an MCP server and calls no route",
+		func(args string) {
+			res, calls := call(args)
+			Expect(res.Err).To(MatchError(ContainSubstring("credentials")), args)
+			Expect(res.Err).To(MatchError(ContainSubstring("Ask the person")), args)
+			Expect(calls).To(BeZero())
+		},
+		Entry("connector on update", `{"action":"update","project":"p1","attached":{"connectors":["mail"]}}`),
+		Entry("add-on on update", `{"action":"update","project":"p1","attached":{"skills":["s"],"addons":["a"]}}`),
+		Entry("MCP server on create", `{"action":"create","name":"x","attached":{"mcp_servers":["srv"]}}`),
+	)
+
+	It("lets the model attach collections on create", func() {
+		res, calls := call(`{"action":"create","name":"x","attached":{"collections":["docs"]}}`)
+		Expect(res.Err).NotTo(HaveOccurred())
+		Expect(calls).To(Equal(1))
+	})
+
+	// The tool replaces the block; from a chat the lists are added to it, so a
+	// model that names one skill detaches nothing the person attached.
+	It("adds the skills of an update to what the project attaches and removes nothing", func() {
+		var sent []string
+		r := newLocalAIRig(func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Tool: localaitools.ToolProjects, Args: `{"action":"update","project":"p1","attached":{"skills":["s"]}}`}, {Say: "done"}}
+		})
+		r.turnNames("root", create(r.svc, "root"))
+		res := r.h.ResultsFor(localaitools.ToolProjects)
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Err).NotTo(HaveOccurred())
+		sent = r.client.projectCalls()
+		Expect(sent).To(HaveLen(2), "a read of the project, then the update")
+		var upd localaitools.ProjectsToolInput
+		Expect(json.Unmarshal([]byte(sent[1]), &upd)).To(Succeed())
+		Expect(upd.Action).To(Equal(localaitools.ActionUpdate))
+		Expect(upd.Attached["skills"]).To(Equal([]string{"old", "s"}))
+		Expect(upd.Attached["connectors"]).To(Equal([]string{"mail"}), "the connector the person attached stays")
+	})
+
 	DescribeTable("refuses arguments it cannot read instead of passing them on",
 		func(args string) {
 			res, calls := call(args)

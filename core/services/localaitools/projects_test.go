@@ -58,7 +58,8 @@ func newProjectsStandIn() *projectsStandIn {
 			return
 		}
 		proj := map[string]any{"id": "p1", "name": "Acme", "slug": "acme", "description": "d", "status": "active", "chat_count": 2,
-			"defaults": map[string]any{"skills": []string{"secret-detail"}}}
+			"defaults": map[string]any{"skills": []string{"secret-detail"}},
+			"attached": map[string]any{"skills": []string{"s1"}, "connectors": []string{"mail"}}}
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/chats/projects/p1/agents":
 			_ = json.NewEncoder(w).Encode(map[string]any{"agents": []any{
@@ -207,9 +208,44 @@ var _ = Describe("the projects tool over the REST client", func() {
 		res, err := cl.Projects(ctx, localaitools.ProjectsRequest{Action: "list"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Projects).To(HaveLen(1))
-		Expect(res.Projects[0]).To(Equal(localaitools.ProjectInfo{ID: "p1", Name: "Acme", Slug: "acme", Description: "d", Status: "active", ChatCount: 2}))
+		Expect(res.Projects[0]).To(Equal(localaitools.ProjectInfo{ID: "p1", Name: "Acme", Slug: "acme", Description: "d", Status: "active", ChatCount: 2,
+			Attached: localaitools.ProjectAttached{Skills: []string{"s1"}, Connectors: []string{"mail"}}}))
 		raw, _ := json.Marshal(res)
 		Expect(string(raw)).NotTo(ContainSubstring("secret-detail"))
+	})
+
+	It("shows what a project attaches on get", func() {
+		res, err := cl.Projects(ctx, localaitools.ProjectsRequest{Action: "get", Project: "p1"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Project.Attached).To(Equal(localaitools.ProjectAttached{Skills: []string{"s1"}, Connectors: []string{"mail"}}))
+	})
+
+	It("rejects an attached list it does not know", func() {
+		_, err := localaitools.ProjectAttachedFromMap(map[string][]string{"skils": {"x"}})
+		Expect(err).To(MatchError(ContainSubstring(`"skils"`)))
+		a, err := localaitools.ProjectAttachedFromMap(map[string][]string{"mcp_servers": {"srv"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(a.MCPServers).To(Equal([]string{"srv"}))
+		Expect(a.HoldsCredentials()).To(BeTrue())
+	})
+
+	It("sends attached as the whole block on update and create", func() {
+		att := &localaitools.ProjectAttached{Skills: []string{"s2"}, MCPServers: []string{"srv"}}
+		_, err := cl.Projects(ctx, localaitools.ProjectsRequest{Action: "update", Project: "p1", Attached: att})
+		Expect(err).NotTo(HaveOccurred())
+		call, body := srv.last()
+		Expect(call).To(Equal("PATCH /api/chats/projects/p1"))
+		Expect(body["attached"]).To(Equal(map[string]any{"skills": []any{"s2"}, "mcp_servers": []any{"srv"}}))
+		_, err = cl.Projects(ctx, localaitools.ProjectsRequest{Action: "create", Name: "N", Attached: att})
+		Expect(err).NotTo(HaveOccurred())
+		call, body = srv.last()
+		Expect(call).To(Equal("POST /api/chats/projects"))
+		Expect(body).To(HaveKey("attached"))
+		// Without attached the body has no such key: update leaves it alone.
+		_, err = cl.Projects(ctx, localaitools.ProjectsRequest{Action: "update", Project: "p1", Name: "x"})
+		Expect(err).NotTo(HaveOccurred())
+		_, body = srv.last()
+		Expect(body).NotTo(HaveKey("attached"))
 	})
 
 	It("lists the projects shared with the person as brief rows with the reference, mode, status and owner name", func() {

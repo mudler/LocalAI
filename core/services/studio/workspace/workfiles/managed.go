@@ -16,14 +16,22 @@ const (
 	// MemoryDir holds the notes of the built-in memory, which the host puts
 	// into the prompt of the owner's chats.
 	MemoryDir = "Memory"
+	// ProjectsDir holds one folder per project. The skills folder of a project
+	// (Projects/<project>/skills) is managed: the host loads it for the chats
+	// and agents of the project.
+	ProjectsDir = "Projects"
+	// ProjectSkillsDir is the name of the folder of project skills inside a
+	// project folder.
+	ProjectSkillsDir = "skills"
 )
 
 // Managed reports whether rel, a path inside a home ("/a/b" or "a/b"; "/" is
 // the home), is or is inside a folder that the host reads with the owner's
 // authority or keeps for itself: LocalAI/ (settings, agent profiles and agent
-// skills), Chats/, Memory/, pages/, or a .skills folder at any depth. Nobody
-// else may get a grant there: a person cannot share such a folder, and a
-// folder that holds a grant cannot be moved there. Names are compared without
+// skills), Chats/, Memory/, pages/, a .skills folder at any depth, or the
+// skills folder of a project (Projects/<project>/skills). Nobody else may get
+// a grant there: a person cannot share such a folder, and a folder that holds
+// a grant cannot be moved there. Names are compared without
 // case, as the workspace compares them for uniqueness.
 func Managed(rel string) bool {
 	segs := strings.Split(strings.Trim(rel, "/"), "/")
@@ -40,7 +48,7 @@ func Managed(rel string) bool {
 			return true
 		}
 	}
-	return false
+	return len(segs) >= 3 && strings.EqualFold(segs[0], ProjectsDir) && strings.EqualFold(segs[2], ProjectSkillsDir)
 }
 
 // HomeOf splits a workspace path into the principal whose home holds it and

@@ -73,7 +73,7 @@ func (s *Service) listProjectsTool(ctx context.Context, c builtins.Chat) (string
 	// descriptions of the others stay out, as for the projects tool.
 	fenced, own := false, ""
 	if s.d.Store != nil {
-		if rec, err := s.d.Store.GetChat(ctx, owner, c.Actor.ChatID); err != nil || s.chatFenced(ctx, rec) {
+		if rec, err := s.getChatEffective(ctx, owner, c.Actor.ChatID); err != nil || s.chatFenced(ctx, rec) {
 			// An unreadable chat cannot be shown to be outside a fence.
 			fenced = true
 			if err == nil {
@@ -131,6 +131,22 @@ var errProjectsMemoryPropose = errors.New("the model does not write the project 
 var projectsOwnOnlyReads = []string{localaitools.ActionGet, localaitools.ActionAgents, localaitools.ActionConnections,
 	localaitools.ActionTriggers, localaitools.ActionLoops, localaitools.ActionChats, localaitools.ActionMemory}
 
+// errProjectsAttachCredentials is the refusal of an attach of a connector, an
+// add-on or an MCP server in a chat. Such a tool can hold the owner's
+// credentials, and the studio has no step in a chat for the person to confirm
+// it, so the person attaches it on the project page.
+var errProjectsAttachCredentials = errors.New("the model may not attach a connector, an add-on or an MCP server to a project: they can hold credentials. Ask the person to attach them on the project page. Skills and collections can be attached here")
+
+// attachedHoldsCredentials reads the attached argument as the tool does. An
+// argument that does not read is treated as holding credentials: the gate
+// fails closed.
+func attachedHoldsCredentials(m map[string][]string) bool {
+	a, err := localaitools.ProjectAttachedFromMap(m)
+	return err != nil || a.HoldsCredentials()
+}
+
+var errProjectsAttachRead = errors.New("could not read what the project attaches, so the attached lists were not changed")
+
 var errProjectsPerson = errors.New("the model may not pull, unpull, move a chat to a project or delete a project: ask the person to do it on the Projects page")
 
 // guardProjects limits the projects client tool by the kind of chat. It
@@ -187,6 +203,16 @@ func guardProjects(tools []session.Tool, chat builtins.Chat, fenced bool, own fu
 				if in.Action == localaitools.ActionWriteMemory {
 					return "", errProjectsMemoryPropose
 				}
+				if (in.Action == localaitools.ActionCreate || in.Action == localaitools.ActionUpdate) && attachedHoldsCredentials(in.Attached) {
+					return "", errProjectsAttachCredentials
+				}
+				if in.Action == localaitools.ActionUpdate && in.Attached != nil {
+					merged, err := mergeAttachedArgs(ctx, inner, in)
+					if err != nil {
+						return "", err
+					}
+					args = merged
+				}
 			}
 			out, err := inner(ctx, args)
 			if cut && err == nil {
@@ -200,6 +226,34 @@ func guardProjects(tools []session.Tool, chat builtins.Chat, fenced bool, own fu
 		}
 	}
 	return tools
+}
+
+// mergeAttachedArgs is the arguments of an update from a chat with the attached
+// block merged into the block the project has: the entries the model sends are
+// added and nothing is removed. The tool says it replaces the block, and a
+// model that lists only a skill would detach the connectors, add-ons and
+// servers that the person attached; the person detaches on the project page.
+// The project is read first; a read that fails refuses the update.
+func mergeAttachedArgs(ctx context.Context, inner func(context.Context, json.RawMessage) (string, error), in localaitools.ProjectsToolInput) (json.RawMessage, error) {
+	get, _ := json.Marshal(localaitools.ProjectsToolInput{Action: localaitools.ActionGet, Project: in.Project})
+	out, err := inner(ctx, get)
+	if err != nil {
+		return nil, err
+	}
+	var res localaitools.ProjectsResult
+	if err := json.Unmarshal([]byte(out), &res); err != nil || res.Project == nil {
+		return nil, errProjectsAttachRead
+	}
+	cur := res.Project.Attached
+	merged := map[string][]string{
+		"skills": cur.Skills, "addons": cur.Addons, "connectors": cur.Connectors,
+		"mcp_servers": cur.MCPServers, "collections": cur.Collections,
+	}
+	for k, v := range in.Attached {
+		merged[k] = mergeNames(merged[k], v)
+	}
+	in.Attached = merged
+	return json.Marshal(in)
 }
 
 // ownOnlyList keeps only the own project in the answer of list. With no own

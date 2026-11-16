@@ -25,7 +25,22 @@ type ChatsProject struct {
 	Status   string               `json:"status"`
 	Error    string               `json:"error,omitempty"`
 	Defaults ChatsProjectDefaults `json:"defaults"`
-	Updated  time.Time            `json:"updated"`
+	// Attached lists the tools the project holds. Every chat and agent of the
+	// project has them on, with no per-chat step, on each turn, and a chat
+	// cannot switch them off. Defaults stay the limit: an attached entry
+	// outside a non-empty limit is refused on write. The list is empty while
+	// AttachedBlocked is true.
+	Attached ChatsProjectDefaults `json:"attached"`
+	// AttachedBlocked is true when the project file holds an attached block
+	// that is ignored because another person may write the project folder (a
+	// share with write access). The skills of the project have the same rule
+	// (SkillsBlocked).
+	AttachedBlocked bool `json:"attached_blocked,omitempty"`
+	// SkillsBlocked is true when the project's own skills are off because
+	// another person may write the project folder (a share with write access).
+	// It is set on a read of one project; the list leaves it out.
+	SkillsBlocked bool      `json:"skills_blocked,omitempty"`
+	Updated       time.Time `json:"updated"`
 	// ChatCount is the number of chats in the project, counted up to 500.
 	ChatCount int `json:"chat_count"`
 	// AgentCount is the number of saved agents that belong to the project.
@@ -112,6 +127,7 @@ type ChatsProjectWrite struct {
 	Name        *string               `json:"name,omitempty"`
 	Description *string               `json:"description,omitempty"`
 	Defaults    *ChatsProjectDefaults `json:"defaults,omitempty"`
+	Attached    *ChatsProjectDefaults `json:"attached,omitempty"`
 }
 
 // ChatsProjectList is the response of the project list endpoint.
@@ -219,6 +235,15 @@ type ChatsAgentMoveTools struct {
 	Collections []string `json:"collections"`
 }
 
+// ChatsAgentMoveAttached lists tools a project attaches, by kind.
+type ChatsAgentMoveAttached struct {
+	Skills      []string `json:"skills"`
+	Addons      []string `json:"addons"`
+	Connectors  []string `json:"connectors"`
+	MCPServers  []string `json:"mcp_servers"`
+	Collections []string `json:"collections"`
+}
+
 // ChatsAgentMoveReport is what a move of an agent does, or would do.
 type ChatsAgentMoveReport struct {
 	DryRun bool `json:"dry_run"`
@@ -240,6 +265,16 @@ type ChatsAgentMoveReport struct {
 	Proposals          int                 `json:"proposals"`
 	DroppedTools       ChatsAgentMoveTools `json:"dropped_tools"`
 	MemoryGrantDropped bool                `json:"memory_grant_dropped"`
+	// AttachedNew is what the new project attaches: the agent gets it on every
+	// run after the move.
+	AttachedNew ChatsAgentMoveAttached `json:"attached_new"`
+	// AttachedOld is what the old project attached and the new one does not.
+	// It stops applying to the agent.
+	AttachedOld ChatsAgentMoveAttached `json:"attached_old"`
+	// ProjectSkillsSwitch is true when the agent's project skills change: the
+	// skills of the old project stop and those of the new project start. It is
+	// false when neither project has a skill in its own layer.
+	ProjectSkillsSwitch bool `json:"project_skills_switch"`
 	// Blockers lists why the move cannot be done as asked: busy, shared or
 	// triggers_outside.
 	Blockers []string `json:"blockers"`

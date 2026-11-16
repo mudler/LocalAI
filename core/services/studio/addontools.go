@@ -211,7 +211,7 @@ func cleanAddonSwitches(off []string) ([]string, error) {
 // Addons lists the add-ons whose tools the user may use, with the chat's
 // switch for each. Without the add-on host it lists none.
 func (s *Service) Addons(ctx context.Context, user, conv string) ([]AddonInfo, error) {
-	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
 	if err != nil {
 		return nil, err
 	}
@@ -652,7 +652,7 @@ func (s *Service) enabledConnections(ctx context.Context, user string, rec sessi
 func (s *Service) connectionRun(a workspace.Actor, addonID string, offered ConnectionSet, run func(context.Context, json.RawMessage) (string, error)) func(context.Context, json.RawMessage) (string, error) {
 	return func(ctx context.Context, args json.RawMessage) (string, error) {
 		set := offered
-		rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+		rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 		switch {
 		case err == nil:
 			set = s.enabledConnections(ctx, a.Principal, rec, addonID)
@@ -721,7 +721,7 @@ func (s *Service) agentResourceLayers(ctx context.Context, user, chatID string) 
 	var layers []addontools.ResourceLimit
 	id := chatID
 	for range maxAgentChain {
-		rec, err := s.d.Store.GetChat(ctx, user, id)
+		rec, err := s.getChatEffective(ctx, user, id)
 		if errors.Is(err, session.ErrNotFound) {
 			break
 		}
