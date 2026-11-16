@@ -17,9 +17,9 @@
 <a href="https://localai.io/blog/">Blog</a>
 </p>
 
-**LocalAI** is your own AI, on your own hardware. LocalAI is one open-source server: an OpenAI-compatible API for text, images, video, music and speech, and a workspace for your team, on hardware you own. It serves text, vision, images, video, music, speech, embeddings and reranking, and it runs on a laptop, a server, in a container or on Kubernetes (with a distributed mode for clusters). The engine runs on a CPU, so it does not need a GPU. The workspace has chats and agents that use your files, Projects, Office documents and team sharing.
+**LocalAI** runs open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top. It runs on a laptop, a server, in a container or on Kubernetes, and a distributed mode spreads models over several machines. No GPU needed, though a GPU makes it faster.
 
-- **Agents, projects, documents and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, collections and skills. [Projects](https://localai.io/docs/features/projects/) group chats, files, notes and agents around one piece of work. Users, roles, quotas and shared folders for a team (development builds).
+- **Chats, agents, Projects and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, Knowledge collections and skills. [Projects](https://localai.io/docs/features/projects/) group chats, files, notes and agents around one piece of work. Users, roles, quotas and shared folders for a team (development builds).
 - **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps, mail, calendar and more (development builds).
 - **Every kind of model, one API**: text, vision, speech to text, text to speech, images, video, music and sound, embeddings and reranking, in the OpenAI and Anthropic formats (with ElevenLabs-compatible text to speech and sound generation), with more than 80 backends. Each backend is its own image, pulled only when a model needs it.
 - **Your hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, NVIDIA Jetson or CPU only. The server, the models and your files stay on your own machines.
@@ -48,7 +48,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 
 **Desktop app**: it installs, updates, starts and stops the server for you and shows the web interface in its own window, on macOS and Linux. It comes with the next release. Test builds are on the [dev-master pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master). See the [desktop app guide](https://localai.io/docs/start/install/desktop/).
 
-The script, the app and the latest container image give version 4.12.1. Projects, the new desktop app, the add-ons, Office, Sandbox and team features described below need a development build or a newer release.
+The install script and the `latest` image give 4.12.1 today. Projects, the new desktop app, the add-ons, Office, Sandbox and team features described below need a development build or a newer release.
 
 Then open `http://localhost:8080`. To restart an existing container, use `docker start -i local-ai`. More ways to install: [Install LocalAI](https://localai.io/docs/start/install/).
 
@@ -122,7 +122,7 @@ LocalAI has more than 80 backends. Hardware acceleration covers NVIDIA (CUDA 12 
 
 ## Backends we build
 
-Most backends wrap a best-in-class upstream engine. A handful of them are native C/C++/GGML engines (no Python at inference) developed and maintained by the LocalAI project itself:
+Most backends wrap an upstream engine such as llama.cpp or vLLM. We wrote 18 of them ourselves: native C, C++ and GGML engines with no Python at inference.
 
 | Backend | What it does |
 |---------|-------------|
@@ -144,20 +144,19 @@ Most backends wrap a best-in-class upstream engine. A handful of them are native
 | [kimodo.cpp](https://github.com/localai-org/kimodo.cpp) | C++/GGML text-to-motion on CPU and Vulkan, exported as animated skeleton GLB |
 | [privacy-filter.cpp](https://github.com/localai-org/privacy-filter.cpp) | Standalone GGML PII/NER token-classification engine powering LocalAI's PII redaction tier |
 | [LocalVQE](https://github.com/localai-org/LocalVQE) | Joint acoustic echo cancellation, noise suppression, and dereverberation |
-| [local-store](https://github.com/mudler/LocalAI) | Local-first vector database for embeddings (shipped in-tree) |
 
-We also maintain [apex-quant](https://github.com/localai-org/apex-quant), a per-tensor, per-layer quantization recipe for Mixture-of-Experts models that exploits their structural sparsity to produce GGUFs matching or beating Q8_0 quality - and they run out of the box on stock llama.cpp.
+The team also ships a vector store, `local-store`, in the main tree, and maintains [apex-quant](https://github.com/localai-org/apex-quant), a per-tensor, per-layer quantization recipe for Mixture-of-Experts models that exploits their structural sparsity to produce GGUFs matching or beating Q8_0 quality. They run out of the box on stock llama.cpp.
 
 ## Latest news
 
 <!-- Next release: add its entry here, newest first, when the release post is published: month, one line, and a link to the post. Do not add a date or a link before the post exists. -->
 
-- **October 2026**: **LocalAI 4.12.1** — A security fix for the policy on URLs that users give. Redirect targets are now checked on every hop. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.12.1)
-- **October 2026**: **LocalAI 4.12.0** — A redesigned web UI, streaming voice answers, decision routing with the `/v1/decisions` API, image upscaling in Studio and Qdrant stores. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.12.0)
+- **October 2026**: **LocalAI 4.12.1**: A security fix for the policy on URLs that users give. Redirect targets are now checked on every hop. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.12.1)
+- **October 2026**: **LocalAI 4.12.0**: A redesigned web UI, streaming voice answers, decision routing with the `/v1/decisions` API, image upscaling in Studio and Qdrant stores. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.12.0)
 
-- **October 2026**: **LocalAI 4.11.0** — Audio scenes with transcription, speaker labels, and sound detection. Also the Decisions API (`/v1/systemone`), model failover chains, signed OCI galleries, and Kimodo text-to-animation. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.11.0)
-- **September 2026**: **LocalAI 4.10.0** — A fleet operations dashboard, one credentials file for private model sources, and `local-ai benchmark` for measuring model latency and throughput. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.10.0)
-- **August 2026**: **LocalAI 4.9.0** — Deny-by-default authentication, opt-in chat context compression, unified model and backend management, and MiniMax-H3 video generation with audio. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.9.0)
+- **October 2026**: **LocalAI 4.11.0**: Audio scenes with transcription, speaker labels, and sound detection. Also the Decisions API (`/v1/systemone`), model failover chains, signed OCI galleries, and Kimodo text-to-animation. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.11.0)
+- **September 2026**: **LocalAI 4.10.0**: A fleet operations dashboard, one credentials file for private model sources, and `local-ai benchmark` for measuring model latency and throughput. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.10.0)
+- **August 2026**: **LocalAI 4.9.0**: Deny-by-default authentication, opt-in chat context compression, unified model and backend management, and MiniMax-H3 video generation with audio. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.9.0)
 
 Older news and the full release notes: [GitHub Releases](https://github.com/mudler/LocalAI/releases) and the [blog](https://localai.io/blog/).
 
@@ -173,8 +172,8 @@ Older news and the full release notes: [GitHub Releases](https://github.com/mudl
 
 LocalAI is maintained by a small team of humans, together with the wider community of contributors.
 
-- **[Ettore Di Giacinto](https://github.com/mudler)** — original author and project lead
-- **[Richard Palethorpe](https://github.com/richiejp)** — maintainer
+- **[Ettore Di Giacinto](https://github.com/mudler)**: original author and project lead
+- **[Richard Palethorpe](https://github.com/richiejp)**: maintainer
 
 A huge thank you to everyone who contributes code, reviews PRs, files issues, and helps users in [Discord](https://discord.gg/uJAeKSAGDy). See the full [contributors list](https://github.com/mudler/LocalAI/graphs/contributors).
 
