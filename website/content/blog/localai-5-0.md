@@ -12,12 +12,12 @@ placeholders: ["release date", "release tag and release notes link", "PR, commit
 
 <!-- TODO owner: this post is a draft (draft: true keeps Hugo from publishing it). Publish it with the 5.0 tag: set the final date, remove `draft: true` and `placeholders`, and resolve every TODO comment below. Nothing in the post claims a number we have not counted. -->
 
-Hand it over, and take it back. That is the idea of LocalAI 5.0. You give a chore to your own AI, on your own hardware, and the result comes back as a file that you own. Ask for a one-page summary of the notes in a folder, and the chat reads the notes and saves a Word file in your Files.
+Hand it over, and take it back. That's the idea behind LocalAI 5.0: you give a chore to your own AI, on your own hardware, and it comes back as a file you own. Ask for a one-page summary of the notes in a folder, for example, and the chat reads them and saves a Word file in your Files.
 
-LocalAI is more than a chat app. It is one open-source server: an OpenAI-compatible API for text, images, video, music and speech, and a workspace for your team, on hardware you own. It runs on a laptop, a server, in a container or on Kubernetes. The engine runs on a CPU, so it does not need a GPU. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing on top.
+LocalAI is more than a chat app. It's one open-source server: an OpenAI-compatible API for text, images, video, music and speech, plus a workspace for your team, all on hardware you own. It runs on a laptop, a server, in a container or on Kubernetes, and the engine doesn't need a GPU. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing on top.
 
 <!-- TODO owner: release date and tag are not decided. The link below assumes the tag is v5.0.0. Check it before publishing. -->
-The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list every change. This post covers what you can do with 5.0 that you could not do with 4.x.
+The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list every change. This post covers what you can do with 5.0 that you couldn't do with 4.x.
 
 <!-- TODO owner: headline numbers (days, merged PRs, commits, authors) are left out on purpose. Count them at the tag and add one sentence here if you want them. Also decide the wording of any "three years" or "since 2023" line; we did not write one. -->
 
@@ -25,10 +25,10 @@ The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list eve
 
 <figure>
 <video src="/media/hand-it-over.mp4" poster="/media/hand-it-over.jpg" controls playsinline preload="none" aria-label="Hand it over: a llama director and a coworker in a dinosaur costume get a premiere ready by five o'clock"></video>
-<figcaption>"Hand it over", the 5.0 launch film, 42 seconds with sound. Made with LocalAI: the video, the voices and the music.</figcaption>
+<figcaption>"Hand it over", the 5.0 launch film. 42 seconds, with sound.</figcaption>
 </figure>
 
-A coworker in a dinosaur costume has until five o'clock to get a premiere ready, and a llama in sunglasses is in the director's chair. That is the whole plot. We made the film with LocalAI, and the rest of this post is about the parts of 5.0 that the film jokes about.
+The film is a joke about handing work over. Every job in it is something 5.0 really does: the press article, the budget, the slides, the poster, and carrying on with the internet down. The rest of this post goes through them. We made the film with LocalAI too, so the video, the voices and the music all came from the same server.
 
 ## One API for every kind of model
 
