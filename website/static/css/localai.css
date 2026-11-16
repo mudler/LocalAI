@@ -313,3 +313,18 @@ html.rv-on .rv { transition: opacity .3s ease, transform .3s ease; }
 .api .term .p { display: inline-block; width: 1.4em; opacity: .7; }
 .api .links { display: flex; flex-wrap: wrap; gap: 1.2rem; }
 .api .fine { margin-top: .8rem; }
+
+/* hero film: poster with a play button, then the video with sound */
+.heroFilm { justify-self: center; width: 100%; }
+.film-hero { position: relative; margin: 0; border-radius: 20px; overflow: hidden; background: #0c1211; box-shadow: var(--shadow); border: 1px solid var(--dk-edge); }
+.film-hero video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.film-play { display: none; }
+.film-hero--ready .film-play { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .7rem; width: 100%; border: 0; padding: 0 0 2.2rem; cursor: pointer; background: linear-gradient(180deg, #0c121122, #0c121188); color: #fff; font: 700 1.1rem/1 var(--f-body); }
+.film-play__i { display: grid; place-items: center; width: 4.2rem; height: 4.2rem; border-radius: 50%; background: var(--dk-accent); color: var(--dk-on-accent); box-shadow: 0 6px 24px #0006; transition: transform .15s; }
+.film-play__i svg { width: 1.8rem; height: 1.8rem; fill: currentColor; margin-left: .2rem; }
+.film-play > span:last-child { padding: .5rem 1.1rem; border-radius: 999px; background: #0c1211cc; font-size: 1rem; }
+.film-play:hover .film-play__i { transform: scale(1.06); }
+.film-play:focus-visible { outline: 3px solid var(--dk-accent-text); outline-offset: -6px; }
+.film-hero--on .film-play { display: none; }
+.film-note { margin: .7rem 0 0; }
+@media (prefers-reduced-motion: reduce) { .film-play__i { transition: none; } }

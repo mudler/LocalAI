@@ -81,6 +81,22 @@
     vids.forEach(function (v) { vio.observe(v); });
   }
 
+  // Hero film: a play button over the poster. The video never starts on its own.
+  // The button starts it with sound and the browser controls take over.
+  [].slice.call(document.querySelectorAll('[data-film]')).forEach(function (f) {
+    var v = f.querySelector('video'), b = f.querySelector('[data-film-play]');
+    if (!v || !b) return;
+    v.removeAttribute('controls');
+    f.classList.add('film-hero--ready');
+    b.addEventListener('click', function () {
+      v.setAttribute('controls', '');
+      f.classList.add('film-hero--on');
+      var p = v.play(); if (p && p.catch) p.catch(function () {});
+      v.focus();
+    });
+    v.addEventListener('ended', function () { f.classList.remove('film-hero--on'); v.removeAttribute('controls'); v.load(); });
+  });
+
   // Engines page filter.
   var chips = [].slice.call(document.querySelectorAll('.engf__c'));
   if (chips.length) {

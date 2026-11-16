@@ -17,7 +17,15 @@
       <div class="cmd"><span class="p" aria-hidden="true">$</span><code>curl -sSL https://localai.io/install.sh | sh</code><button class="cpy" type="button" data-copy="curl -sSL https://localai.io/install.sh | sh" aria-label="Copy the install command">copy</button></div>
       <p class="alts">Or a <a href="{{ .Site.Params.docsURL }}start/install/containers/">container</a>, the <a href="{{ .Site.Params.docsURL }}start/install/desktop/">desktop app</a> or <a href="{{ .Site.Params.docsURL }}start/install/kubernetes/">Kubernetes</a>. Then open <code>http://localhost:8080</code>.</p>
     </div>
-    <figure class="scene"><img src="{{ "img/scenes/scene-s9-close.jpg" | relURL }}" width="1024" height="576" alt="The LocalAI llama, a blue wool llama in teal sunglasses with a badge on a lanyard, standing in warm sunlight."></figure>
+    <div class="heroFilm">
+      <figure class="film-hero" data-film>
+        <video controls playsinline preload="none" poster="{{ "media/hand-it-over.jpg" | relURL }}" aria-label="Hand it over, the LocalAI film: a llama director and a coworker in a dinosaur costume get a premiere ready by five o'clock. It has sound.">
+          <source src="{{ "media/hand-it-over.mp4" | relURL }}" type="video/mp4">
+        </video>
+        <button class="film-play" type="button" data-film-play aria-label="Watch the film, with sound"><span class="film-play__i" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span>Watch the film</span></button>
+      </figure>
+      <p class="fine film-note">40 seconds. Made with LocalAI: the video, the voices and the music.</p>
+    </div>
   </div>
 </section>
 
