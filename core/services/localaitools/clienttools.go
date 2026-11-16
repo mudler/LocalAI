@@ -96,11 +96,16 @@ var ClientTools = []ClientToolSpec{
 	{ToolProjects, ActionArchive, "POST", "/api/chats/projects/:id/archive", auth.FeatureChats, config.FLAG_ANY, "projects"},
 	{ToolProjects, ActionRestore, "POST", "/api/chats/projects/:id/restore", auth.FeatureChats, config.FLAG_ANY, "projects"},
 	{ToolProjects, ActionDelete, "DELETE", "/api/chats/projects/:id", auth.FeatureChats, config.FLAG_ANY, "projects"},
-	{ToolProjects, ActionAgents, "GET", "/api/chats/projects/:id/agents", auth.FeatureChats, config.FLAG_ANY, "projects"},
-	{ToolProjects, ActionConnections, "GET", "/api/chats/projects/:id/connections", auth.FeatureChats, config.FLAG_ANY, "projects"},
-	{ToolProjects, ActionTriggers, "GET", "/api/chats/projects/:id/triggers", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionAgents, "GET", "/api/chats/projects/:id/agents", auth.FeatureAgents, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionConnections, "GET", "/api/chats/projects/:id/connections", auth.FeatureConnectors, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionTriggers, "GET", "/api/chats/projects/:id/triggers", auth.FeatureTriggers, config.FLAG_ANY, "projects"},
 	{ToolProjects, ActionLoops, "GET", "/api/chats/projects/:id/loops", auth.FeatureChats, config.FLAG_ANY, "projects"},
 	{ToolProjects, ActionShared, "GET", "/api/chats/projects/shared", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionSharedGet, "GET", "/api/chats/projects/shared/:ref", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, actionSharedMemory, "GET", "/api/chats/projects/shared/:ref/memory", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionMemory, "GET", "/api/chats/projects/:id/memory", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionWriteMemory, "PUT", "/api/chats/projects/:id/memory/:file", auth.FeatureChats, config.FLAG_ANY, "projects"},
+	{ToolProjects, ActionChats, "GET", "/api/chats/projects/:id/chats", auth.FeatureChats, config.FLAG_ANY, "projects"},
 	{ToolProjects, ActionSetChatProject, "PUT", "/api/chats/:id/project", auth.FeatureChats, config.FLAG_ANY, "projects"},
 	{ToolProjects, ActionPull, "PUT", "/api/chats/:id/projects", auth.FeatureChats, config.FLAG_ANY, "projects"},
 	{ToolProjects, ActionUnpull, "PUT", "/api/chats/:id/projects", auth.FeatureChats, config.FLAG_ANY, "projects"},
@@ -109,6 +114,10 @@ var ClientTools = []ClientToolSpec{
 	// route shows them (their own allow-list applies).
 	{ToolListModels, "", "GET", "/v1/models/capabilities", NoFeature, config.FLAG_ANY, "models"},
 }
+
+// actionSharedMemory is the Action of the projects row that reads the memory
+// of a shared project. The model sees it as part of shared_get.
+const actionSharedMemory = "shared_memory"
 
 // actionChat is the Action of the projects row that reads one chat.
 const actionChat = "chat"

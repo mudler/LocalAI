@@ -150,3 +150,30 @@ func (s *Service) DeleteHome(ctx context.Context, principal, rel string) error {
 	}
 	return nil
 }
+
+// MoveHome moves a file or folder of the home of principal to another place
+// in the same home, as the user, and makes the folders above the new place.
+// It is one change set, so one undo brings it back. A path that is not there
+// is reported as false and is not an error.
+func (s *Service) MoveHome(ctx context.Context, principal, fromRel, toRel string) (moved bool, err error) {
+	if !s.Available() {
+		return false, ErrUnavailable
+	}
+	from, err := s.Abs(principal, fromRel)
+	if err != nil {
+		return false, err
+	}
+	to, err := s.Abs(principal, toRel)
+	if err != nil {
+		return false, err
+	}
+	n, err := s.ws.Move(ctx, s.Actor(principal), from, to)
+	switch {
+	case errors.Is(err, workspace.ErrNotFound):
+		return false, nil
+	case err != nil && !errors.Is(err, workspace.ErrCommitted):
+		return false, err
+	}
+	s.Written(ctx, n, principal)
+	return true, nil
+}

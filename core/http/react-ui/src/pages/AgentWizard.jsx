@@ -2,12 +2,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { chatAgentsApi } from '../utils/api'
+import { chatAgentsApi, chatProjectsApi } from '../utils/api'
 import { useAgentTools } from '../hooks/useAgentTools'
 import { useAgentAbilities } from '../hooks/useAgentAbilities'
 import { useModels } from '../hooks/useModels'
 import { useToolGroups } from '../hooks/useToolGroups'
 import { useWhereItems } from '../hooks/useWhereItems'
+import { useActiveProjects } from '../hooks/useActiveProjects'
+import { projectFolderRows } from '../utils/projectAgents'
 import { AGENT_TEMPLATES } from '../utils/agentConfigTools'
 import { filesChoiceOf, foldersUnchosen } from '../utils/chatAgents'
 import { wizardForm, wizardPayload, purposeReady, stepReachable, chosenItems, WIZARD_STEPS } from '../utils/agentWizard'
@@ -41,6 +43,11 @@ export default function AgentWizard() {
   const [furthest, setFurthest] = useState(0)
   const [wanted, setWanted] = useState([])
   const [saving, setSaving] = useState(false)
+  // The project of the new agent: '' for none. The agent then works in the
+  // two folders of the project, so the Files choice is the files mode.
+  const projectsList = useActiveProjects()
+  const [projectId, setProjectId] = useState('')
+  const [project, setProject] = useState(null)
   const headingRef = useRef(null)
   const moved = useRef(false)
 
@@ -52,8 +59,17 @@ export default function AgentWizard() {
   const where = useWhereItems(tools.addons)
 
   const index = WIZARD_STEPS.indexOf(step)
-  const folderUnchosen = filesChoiceOf(form) !== 'none' && foldersUnchosen([], form.folders)
-  const payload = useMemo(() => wizardPayload(form), [form])
+  const folderUnchosen = !projectId && filesChoiceOf(form) !== 'none' && foldersUnchosen([], form.folders)
+  // A project agent sends the project and, for a files mode of read, the two
+  // folders; the server fills them at write when the list is left out.
+  const payload = useMemo(() => {
+    const body = wizardPayload(form)
+    if (!projectId) return body
+    delete body.folders
+    body.project_id = projectId
+    if (form.project_files_mode === 'read' && project) body.folders = projectFolderRows(project, 'read')
+    return body
+  }, [form, projectId, project])
   const dirty = JSON.stringify(payload) !== JSON.stringify(wizardPayload(initial.current)) || wanted.length > 0
   const chosen = chosenItems(where.groups, wanted)
 
@@ -73,6 +89,14 @@ export default function AgentWizard() {
   const onTemplate = (tpl) => {
     setPicked(tpl.id)
     setForm((prev) => ({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions }))
+  }
+  const pickProject = (pid, picked) => {
+    setProjectId(pid)
+    updateField('project_files_mode', 'write')
+    setProject(pid ? (picked || null) : null)
+    // The folders of the project need its slug; the list has it, and a project
+    // made on the spot comes with it.
+    if (pid && !picked?.slug) chatProjectsApi.get(pid).then(setProject).catch(() => {})
   }
   const toggleApp = (item, on) => setWanted((prev) => (on ? [...new Set([...prev, item.key])] : prev.filter((k) => k !== item.key)))
 
@@ -105,7 +129,7 @@ export default function AgentWizard() {
   const pristine = ['builtins_off', 'builtins_on', 'builtins'].every((k) => JSON.stringify(form[k]) === JSON.stringify(initial.current[k]))
   const levelName = ab.level ? t(`create.preset.${ab.level}.title`) : t('wizard.defaultTools')
   const filesChoice = ab.filesChoice
-  const filesText = filesChoice === 'none' ? t('folder.none') : filesChoice === 'all' ? t('folder.all') : t('wizard.rail.folders', { count: (form.folders || []).filter((f) => f.path).length })
+  const filesText = projectId ? t(form.project_files_mode === 'read' ? 'project.readOnly' : 'project.canEdit') : filesChoice === 'none' ? t('folder.none') : filesChoice === 'all' ? t('folder.all') : t('wizard.rail.folders', { count: (form.folders || []).filter((f) => f.path).length })
   const templateLevel = AGENT_TEMPLATES.find((x) => x.id === picked)?.preset || ''
   const canNext = step !== 'purpose' || purposeReady(form)
 
@@ -142,10 +166,10 @@ export default function AgentWizard() {
           <section className="aw-main" aria-labelledby="aw-step-h" data-testid={`wizard-pane-${step}`}>
             <h2 className="ag-h2" id="aw-step-h" tabIndex={-1} ref={headingRef}>{t(`wizard.${step}.title`)}</h2>
             <p className="ag-note">{t(`wizard.${step}.lead`)}</p>
-            {step === 'purpose' && <PurposeStep form={form} updateField={updateField} picked={picked} onTemplate={onTemplate} models={models} modelsLoading={modelsLoading} />}
-            {step === 'abilities' && <AbilitiesStep form={form} updateField={updateField} tools={tools} toolGroups={toolGroups} ab={ab} pristine={pristine} templateLevel={templateLevel} />}
+            {step === 'purpose' && <PurposeStep form={form} updateField={updateField} picked={picked} onTemplate={onTemplate} models={models} modelsLoading={modelsLoading} projects={projectsList} projectId={projectId} onProject={pickProject} />}
+            {step === 'abilities' && <AbilitiesStep form={form} updateField={updateField} tools={tools} toolGroups={toolGroups} ab={ab} pristine={pristine} templateLevel={templateLevel} project={projectId ? (project || { id: projectId }) : null} />}
             {step === 'where' && <WhereStep groups={where.groups} icons={where.icons} ready={where.ready} wanted={wanted} onToggle={toggleApp} />}
-            {step === 'review' && <ReviewStep form={form} filesChoice={filesChoice} levelName={levelName} chosen={chosen} onLimit={limitFolders} modelName={form.model} />}
+            {step === 'review' && <ReviewStep form={form} filesChoice={projectId ? 'project' : filesChoice} projectName={project?.name || ''} levelName={levelName} chosen={chosen} onLimit={limitFolders} modelName={form.model} />}
 
             <div className="aw-foot">
               <Button variant="ghost" onClick={index === 0 ? () => navigate('/app/agents') : back} data-testid="wizard-back">{index === 0 ? t('create.discard') : t('wizard.back')}</Button>
@@ -162,6 +186,7 @@ export default function AgentWizard() {
             <dl className="aw-rail__list">
               <div><dt>{t('wizard.rail.abilities')}</dt><dd data-testid="wizard-rail-level">{levelName}</dd></div>
               <div><dt>{t('create.model')}</dt><dd>{form.model || t('wizard.rail.modelEach')}</dd></div>
+              {projectId && <div><dt>{t('projectField.label')}</dt><dd data-testid="wizard-rail-project">{project?.name || ''}</dd></div>}
               <div><dt>{t('wizard.rail.files')}</dt><dd data-testid="wizard-rail-files">{filesText}</dd></div>
               <div>
                 <dt>{t('wizard.rail.works')}</dt>

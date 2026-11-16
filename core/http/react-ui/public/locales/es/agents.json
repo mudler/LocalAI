@@ -49,7 +49,8 @@
   "facts": {
     "addons": "Add-ons",
     "connector": "MCP connector",
-    "folder": "Carpeta"
+    "folder": "Carpeta",
+    "toolsNone": "Ningún add-on ni servidor MCP"
   },
   "agent": {
     "triggers": "Triggers",
@@ -539,7 +540,8 @@
       "runMeta": "took {{time}}",
       "prompt": "What to do",
       "acts": "Permisos",
-      "runLimit": "Time limit"
+      "runLimit": "Time limit",
+      "project": "Proyecto"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -588,9 +590,27 @@
       "changed_other": "{{count}} changes",
       "watchNoFiles": "Este agente tiene «Sin archivos»: una ejecución de este disparador sabe que llegó un archivo, pero no puede abrirlo. Dale acceso a archivos en su editor o elige otro agente.",
       "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
-      "runLimitPlaceholder": "default"
+      "runLimitPlaceholder": "default",
+      "agentInProject": "{{name}} (proyecto {{project}})",
+      "projectAgentHint": "Este agente pertenece al proyecto. Un disparador de archivos vigila por defecto los archivos del proyecto.",
+      "folder": {
+        "choose": "Elige una carpeta",
+        "sub": "Carpeta dentro",
+        "subPlaceholder": "Opcional: una carpeta dentro",
+        "hint": "Una de las carpetas de este agente y, si quieres, una carpeta dentro de ella.",
+        "empty": "Elige la carpeta que vigilar.",
+        "dots": "El nombre de una carpeta no puede contener \"..\".",
+        "outside": "Este agente solo puede vigilar carpetas dentro de las suyas: {{folders}}.",
+        "noFolders": "Este agente no tiene ninguna carpeta utilizable. Elige una carpeta en los ajustes del agente."
+      }
     },
-    "subtitle": "Inicia un agente según un horario o cuando llega un archivo. Cada ejecución es un chat que puedes abrir."
+    "subtitle": "Inicia un agente según un horario o cuando llega un archivo. Cada ejecución es un chat que puedes abrir.",
+    "projectFilter": {
+      "label": "Proyecto",
+      "all": "Todos los proyectos",
+      "none": "Sin proyecto",
+      "empty": "No hay disparadores para esta elección."
+    }
   },
   "views": {
     "label": "Área de agentes",
@@ -906,7 +926,9 @@
       "filesTitle": "Puede ver todos tus archivos.",
       "filesBody": "Todo lo que puedes abrir en Archivos, este agente lo puede leer. Puedes limitarlo a carpetas.",
       "limit": "Limitar a carpetas",
-      "setupNext": "Al crear el agente, su página lista los pasos de configuración de las apps que elegiste."
+      "setupNext": "Al crear el agente, su página lista los pasos de configuración de las apps que elegiste.",
+      "project": "Trabaja en el proyecto {{name}}.",
+      "projectUnnamed": "Trabaja en el proyecto que elegiste."
     },
     "rail": {
       "title": "Tu agente",
@@ -1004,7 +1026,8 @@
     "fix": {
       "archived": "Abre el proyecto y restáuralo. Después el agente vuelve a funcionar.",
       "deleted": "El proyecto ya no existe. Restáuralo desde la Papelera en Archivos y el agente volverá a funcionar.",
-      "changed": "Se reemplazó, renombró o movió una carpeta del proyecto. Reconecta el agente para vincularlo de nuevo a las carpetas del proyecto."
+      "changed": "Se reemplazó, renombró o movió una carpeta del proyecto. Reconecta el agente para vincularlo de nuevo a las carpetas del proyecto.",
+      "deletedDetach": "El proyecto ya no existe. Desvincula el agente para volver a usarlo, o restaura el proyecto desde la Papelera en Archivos."
     },
     "openProject": "Abrir proyecto",
     "reconnect": "Reconectar",
@@ -1034,5 +1057,65 @@
     "needsChoice": "Elige un proyecto, o crea uno, para importar este agente.",
     "cancel": "Cancelar",
     "import": "Importar"
+  },
+  "projectField": {
+    "title": "Proyecto",
+    "leadNew": "Pon el agente en un proyecto, o déjalo por su cuenta.",
+    "leadEdit": "El proyecto en el que trabaja el agente. Moverlo cambia lo que puede alcanzar.",
+    "label": "Proyecto",
+    "none": "Sin proyecto",
+    "choose": "Elige un proyecto",
+    "archivedName": "{{name}} (archivado)",
+    "create": "Crear un proyecto nuevo...",
+    "help": "Un agente de proyecto trabaja solo en los archivos y la memoria de su proyecto. Solo se listan tus proyectos activos.",
+    "helpEdit": "Elige otro proyecto, o Sin proyecto, y pulsa Mover.",
+    "saveFirst": "Guarda o descarta tus cambios antes de mover el agente."
+  },
+  "move": {
+    "open": "Mover...",
+    "title": "Mover a {{name}}",
+    "leaveTitle": "Sacar el agente de su proyecto",
+    "detachTitle": "Desvincular del proyecto",
+    "text": "{{agent}} trabajará solo en los archivos y la memoria de {{name}}. Revisa qué cambia antes de confirmar.",
+    "leaveText": "{{agent}} sale de {{name}}. Elige los archivos que conserva y revisa qué cambia.",
+    "detachText": "El proyecto de este agente se eliminó. Elige los archivos que conserva el agente y desvincúlalo.",
+    "cancel": "Cancelar",
+    "confirm": "Mover agente",
+    "detach": "Desvincular del proyecto",
+    "keepLabel": "Archivos que conserva el agente",
+    "keepOne": "Solo esta carpeta",
+    "keepAll": "Todos mis archivos",
+    "keepAllHelp": "El agente trabaja con todos tus archivos, como un agente sin carpeta.",
+    "keepNone": "No se ha elegido ninguna carpeta.",
+    "effectsTitle": "Qué cambia",
+    "pickFolder": "Elige una carpeta para ver qué cambia.",
+    "checking": "Comprobando...",
+    "effect": {
+      "chats_one": "{{count}} chat de este agente sigue siendo legible pero no admite mensajes nuevos. Empieza un chat nuevo para continuar.",
+      "chats_other": "{{count}} chats de este agente siguen siendo legibles pero no admiten mensajes nuevos. Empieza un chat nuevo para continuar.",
+      "loops_one": "{{count}} bucle de esos chats termina.",
+      "loops_other": "{{count}} bucles de esos chats terminan.",
+      "triggers_one": "{{count}} disparador de archivos vigila una carpeta fuera de las carpetas nuevas: {{names}}.",
+      "triggers_other": "{{count}} disparadores de archivos vigilan una carpeta fuera de las carpetas nuevas: {{names}}.",
+      "shares_one": "El agente está compartido con {{count}} persona.",
+      "shares_other": "El agente está compartido con {{count}} personas.",
+      "proposals_one": "Se descarta {{count}} nota pendiente para la memoria del proyecto.",
+      "proposals_other": "Se descartan {{count}} notas pendientes para la memoria del proyecto.",
+      "dropped_one": "Los límites del proyecto nuevo quitan {{count}} herramienta: {{names}}.",
+      "dropped_other": "Los límites del proyecto nuevo quitan {{count}} herramientas: {{names}}.",
+      "grant": "Se quita el permiso para escribir en la memoria del proyecto. Puedes concederlo de nuevo en los ajustes del agente.",
+      "notes": "Las notas propias del agente empiezan vacías. Las notas antiguas siguen en tus archivos, en Memory, dentro de Moved agent notes.",
+      "foldersInto": "El agente trabaja solo en las carpetas de archivos y de memoria de {{name}}.",
+      "foldersOut": "El agente ya no pertenece a un proyecto."
+    },
+    "blocked": {
+      "busy": "Un chat de este agente está ejecutando un turno. Deténlo y luego mueve el agente."
+    },
+    "revoke_one": "Dejar de compartir: este agente está compartido con {{count}} persona y un agente de proyecto no se puede compartir.",
+    "revoke_other": "Dejar de compartir: este agente está compartido con {{count}} personas y un agente de proyecto no se puede compartir.",
+    "disable_one": "Desactivar {{count}} disparador de archivos que vigila una carpeta fuera de las carpetas nuevas ({{names}}).",
+    "disable_other": "Desactivar {{count}} disparadores de archivos que vigilan una carpeta fuera de las carpetas nuevas ({{names}}).",
+    "done": "{{name}} se movió a su nuevo proyecto.",
+    "doneOut": "{{name}} ya no pertenece a un proyecto."
   }
 }

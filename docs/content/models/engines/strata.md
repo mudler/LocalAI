@@ -173,13 +173,23 @@ Not in the gallery:
 You can still run these by building the pack with Strata and writing a model config by hand
 (see the backend README).
 
+## Vision
+
+For vision chat requests with `template.use_tokenizer_template: true`, send images as
+`image_url` content parts on their conversation messages. LocalAI adds one placeholder
+per decoded image to that message before Strata applies the model's chat template,
+including images in earlier turns. There is no need to insert `media_marker` into the
+text or change the model's chat template. The backend's optional `media_marker` setting
+changes the placeholder used between LocalAI and Strata.
+
 ## Limits
 
 The backend has no embeddings, no grammar and no video or audio input, and it serves one request at a time. DeepSeek models take no images and no logprobs. Qwen entries support images, logprobs, tool calls and reasoning. The backend README has the full list.
 
 ## Versions
 
-The Strata release and the SHA-256 of every engine package, DeepSeek packages included, are pinned in
-`backend/go/strata/Makefile` in the LocalAI repository. A nightly job (`bump-strata` in `.github/workflows/bump_deps.yaml`)
-opens a pull request when Strata publishes a release. The backend speaks an unversioned
-line protocol, so review each bump against the backend README.
+Upstream versions each platform on its own, and a release doesn't always hold every package. One release can have the NVIDIA engine at one version and another platform's engine at an older one. Mixed versions are normal.
+
+`backend/go/strata/Makefile` pins every package, DeepSeek packages included, on its own: the release tag it comes from, its version and its SHA-256 (`STRATA_ENGINE_TAG_<package>`, `STRATA_ENGINE_VERSION_<package>` and `STRATA_ENGINE_SHA256_<package>`, and the same with `STRATA_DSV41_` for DeepSeek). The download URL is built from the package's own tag. `STRATA_VERSION` and `STRATA_COMMIT` name the newest release, and the backend's Python modules are fetched at that commit.
+
+A nightly job (`bump-strata` in `.github/workflows/bump_deps.yaml`, script `.github/bump_strata.sh`) takes each package from the newest release that has it and opens one pull request when any pin changes. If a package is missing from the newest release, the job takes it from an older one and logs a notice. If a package is in no release, it keeps its pin and prints a warning. The job fails when a SHA-256 in the release's `SHA256SUMS.txt` differs from the digest GitHub computed for the uploaded file. The pull request lists each package that changed, with its old and new tag and version. The backend speaks an unversioned line protocol, so review each bump against the backend README.

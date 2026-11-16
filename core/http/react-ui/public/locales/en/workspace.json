@@ -837,6 +837,7 @@
     "about": {
       "localai": "Settings LocalAI reads: persona, profile, shortcuts, Home, theme.",
       "chats": "One folder per chat, with the files of the chat.",
+      "projects": "Your projects. Each folder is one project.",
       "memory": "The notes the assistant keeps about you.",
       "pages": "The pages in your workspace.",
       "skills": "The skills the agents use.",
@@ -845,7 +846,8 @@
     "open": {
       "memory": "Open Memory",
       "pages": "Open Pages",
-      "skills": "Open Skills"
+      "skills": "Open Skills",
+      "projects": "Open Projects"
     },
     "confirm": {
       "deleteTitle": "Move {{name}} to the Trash?",
@@ -858,6 +860,7 @@
     "loses": {
       "settings": "LocalAI forgets your persona, your profile, your shortcuts, your Home layout and your theme.",
       "chats": "Every chat loses its files: what you attached and what the assistant wrote there.",
+      "projects": "Every project loses its files and memory, and the chats in a project lose what they used from them.",
       "persona": "The assistant loses its name and its instructions.",
       "user": "The assistant forgets what you told it about you, and your answers to its offers.",
       "shortcuts": "The message box shows the default shortcuts again.",
@@ -1288,5 +1291,8 @@
       },
       "remote": "{{model}} is not a local model. The text of each reply you have read aloud is sent to another server."
     }
+  },
+  "projectMark": {
+    "open": "Open project {{name}}"
   }
 }

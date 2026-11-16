@@ -25,7 +25,7 @@
 /* In the header the chips stay on one line: a long name is cut with an
    ellipsis (its full name is in the chip's title and the chat settings). */
 .pjc-chips--head { flex-wrap: nowrap; flex: 0 1 auto; overflow: hidden; margin-inline-start: var(--sp-2); }
-.pjc-chips--head .pjc-chip { flex: 0 1 auto; min-width: 0; max-width: 11em; }
+.pjc-chips--head .pjc-chip { flex: 0 1 auto; min-width: 0; max-width: 16em; }
 .pjc-chip--more { cursor: pointer; flex: none; }
 .pjc-chip {
   display: inline-flex;

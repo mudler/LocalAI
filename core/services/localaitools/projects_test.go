@@ -27,6 +27,17 @@ type projectsStandIn struct {
 	// status makes every route answer with it when not zero.
 	status int
 	detail string
+	// shared is the status of the shared project; empty means active.
+	shared string
+}
+
+func (s *projectsStandIn) sharedStatus() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.shared == "" {
+		return "active"
+	}
+	return s.shared
 }
 
 func newProjectsStandIn() *projectsStandIn {
@@ -66,6 +77,20 @@ func newProjectsStandIn() *projectsStandIn {
 			_ = json.NewEncoder(w).Encode(map[string]any{"loops": []any{
 				map[string]any{"id": "l1", "chat_id": "c1", "chat_title": "Chat", "prompt": "check", "state": "active"},
 			}})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/chats/projects/p1/memory":
+			_ = json.NewEncoder(w).Encode(map[string]any{"index": "# Acme", "files": []any{
+				map[string]any{"name": "food.md", "size": 12, "modified": "2026-11-01T10:00:00Z"},
+			}})
+		case r.Method == http.MethodPut && r.URL.Path == "/api/chats/projects/p1/memory/food.md":
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/chats/projects/p1/chats":
+			_ = json.NewEncoder(w).Encode(map[string]any{"conversations": []any{
+				map[string]any{"id": "c1", "title": "Plan", "model": "m", "agent_id": "a1", "updated": "2026-11-02T10:00:00Z", "pulled_projects": []string{"x"}},
+			}})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/chats/projects/shared/s:12":
+			_ = json.NewEncoder(w).Encode(map[string]any{"ref": "s:12", "name": "Acme", "description": "d", "status": s.sharedStatus(), "mode": "read", "owner_name": "Alice Rossi"})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/chats/projects/shared/s:12/memory":
+			_ = json.NewEncoder(w).Encode(map[string]any{"index": "# Shared", "files": []string{"rules.md"}})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/chats/projects/shared":
 			_ = json.NewEncoder(w).Encode(map[string]any{"projects": []any{
 				map[string]any{"ref": "s:12", "name": "Acme", "description": "d", "status": "active", "mode": "read", "owner_name": "Alice Rossi", "error": ""},
@@ -192,6 +217,43 @@ var _ = Describe("the projects tool over the REST client", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Shared).To(Equal([]localaitools.SharedProjectInfo{{Ref: "s:12", Name: "Acme", Mode: "read", Status: "active", OwnerName: "Alice Rossi"}}))
 		Expect(res.Projects).To(BeEmpty())
+	})
+
+	It("reads the memory of a project as the index and the names of the topic files", func() {
+		res, err := cl.Projects(ctx, localaitools.ProjectsRequest{Action: "memory", Project: "p1"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Memory).To(Equal(&localaitools.ProjectMemoryInfo{Index: "# Acme", Files: []string{"food.md"}}))
+	})
+
+	It("writes one memory file as the content given, and leaves an empty content to the caller", func() {
+		res, err := cl.Projects(ctx, localaitools.ProjectsRequest{Action: "write_memory", Project: "p1", File: "food.md", Content: ptr("# Food")})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Written).To(Equal("food.md"))
+		call, body := srv.last()
+		Expect(call).To(Equal("PUT /api/chats/projects/p1/memory/food.md"))
+		Expect(body).To(Equal(map[string]any{"content": "# Food"}))
+		_, err = cl.Projects(ctx, localaitools.ProjectsRequest{Action: "write_memory", Project: "p1", File: "food.md", Content: ptr("")})
+		Expect(err).NotTo(HaveOccurred())
+		_, body = srv.last()
+		Expect(body).To(Equal(map[string]any{"content": ""}))
+	})
+
+	It("lists the chats of a project as brief rows, with no message and no model", func() {
+		res, err := cl.Projects(ctx, localaitools.ProjectsRequest{Action: "chats", Project: "p1"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Chats).To(Equal([]localaitools.ProjectChatInfo{{ID: "c1", Title: "Plan", AgentID: "a1", Updated: "2026-11-02T10:00:00Z"}}))
+	})
+
+	It("reads a shared project with its memory, and without one when the project is not active", func() {
+		res, err := cl.Projects(ctx, localaitools.ProjectsRequest{Action: "shared_get", Project: "s:12"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.SharedOne).To(Equal(&localaitools.SharedProjectInfo{Ref: "s:12", Name: "Acme", Mode: "read", Status: "active", OwnerName: "Alice Rossi"}))
+		Expect(res.Memory).To(Equal(&localaitools.ProjectMemoryInfo{Index: "# Shared", Files: []string{"rules.md"}}))
+		srv.shared = "archived"
+		res, err = cl.Projects(ctx, localaitools.ProjectsRequest{Action: "shared_get", Project: "s:12"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.SharedOne.Status).To(Equal("archived"))
+		Expect(res.Memory).To(BeNil())
 	})
 
 	It("lists the agents of a project as brief rows", func() {

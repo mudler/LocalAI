@@ -2,9 +2,10 @@ package schema
 
 import "time"
 
-// ChatsProjectDefaults are the resources a new chat in a project starts with.
-// An empty list and a missing list both mean no override; a non-empty list
-// means only those that are available are on.
+// ChatsProjectDefaults are the resources a new chat in a project starts with:
+// skills, add-ons, connectors, MCP servers and collections. An empty
+// list and a missing list both mean no override; a non-empty list means only
+// those that are available are on.
 type ChatsProjectDefaults struct {
 	Skills      []string `json:"skills,omitempty"`
 	Addons      []string `json:"addons,omitempty"`
@@ -177,4 +178,71 @@ type ChatsSharedProjectList struct {
 type ChatsSharedProjectMemory struct {
 	Index string   `json:"index"`
 	Files []string `json:"files"`
+}
+
+// ChatsAgentMove is the body of the move of an agent to another project, or
+// out of one.
+type ChatsAgentMove struct {
+	// ProjectID is an active project of yours, or empty to take the agent out
+	// of its project.
+	ProjectID string `json:"project_id"`
+	// DryRun reports what the move would do and writes nothing.
+	DryRun bool `json:"dry_run,omitempty"`
+	// FilesMode is read or write (the default): how the agent uses the files
+	// folder of the new project.
+	FilesMode string `json:"files_mode,omitempty"`
+	// Folders are the folders the agent keeps when it leaves a project. They
+	// are required then, unless WholeHome is true.
+	Folders []ChatsAgentFolderWrite `json:"folders,omitempty"`
+	// WholeHome lets an agent that leaves a project work on all your files.
+	WholeHome bool `json:"whole_home,omitempty"`
+	// RevokeShares removes the grants of a shared agent so that it can enter a
+	// project.
+	RevokeShares bool `json:"revoke_shares,omitempty"`
+	// DisableTriggers switches off the file triggers whose folder is outside
+	// the new folders, in place of refusing the move.
+	DisableTriggers bool `json:"disable_triggers,omitempty"`
+}
+
+// ChatsAgentMoveTrigger is a trigger the move of an agent touches.
+type ChatsAgentMoveTrigger struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// ChatsAgentMoveTools lists what the limits of the new project take away from
+// the agent.
+type ChatsAgentMoveTools struct {
+	Skills      []string `json:"skills"`
+	Addons      []string `json:"addons"`
+	MCPServers  []string `json:"mcp_servers"`
+	Collections []string `json:"collections"`
+}
+
+// ChatsAgentMoveReport is what a move of an agent does, or would do.
+type ChatsAgentMoveReport struct {
+	DryRun bool `json:"dry_run"`
+	// Moved is true when the agent was moved.
+	Moved bool   `json:"moved"`
+	From  string `json:"from,omitempty"`
+	To    string `json:"to,omitempty"`
+	// Chats is the number of chats of the agent that stop taking turns, and
+	// Loops the number of their loops that end.
+	Chats int `json:"chats"`
+	Loops int `json:"loops"`
+	// TriggersOutside are the file triggers that watch a folder outside the
+	// new folders.
+	TriggersOutside []ChatsAgentMoveTrigger `json:"triggers_outside"`
+	// Shares is the number of people the agent is shared with.
+	Shares int `json:"shares"`
+	// Proposals is the number of waiting project notes of the agent that are
+	// voided.
+	Proposals          int                 `json:"proposals"`
+	DroppedTools       ChatsAgentMoveTools `json:"dropped_tools"`
+	MemoryGrantDropped bool                `json:"memory_grant_dropped"`
+	// Blockers lists why the move cannot be done as asked: busy, shared or
+	// triggers_outside.
+	Blockers []string `json:"blockers"`
+	// Warnings lists steps after the move that did not finish.
+	Warnings []string `json:"warnings,omitempty"`
 }

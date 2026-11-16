@@ -120,6 +120,8 @@ var chatRules = []errRule{
 	fixed(http.StatusConflict, "agent_folder_limit", "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again.", studiosvc.ErrAgentFolderLimit),
 	fixed(http.StatusConflict, "agent_folder_missing", "The folder of this agent is missing. Choose a folder in the agent's settings.", studiosvc.ErrAgentFolderMissing),
 	fixed(http.StatusConflict, "project_folders_changed", studiosvc.ProjectFoldersChangedText, studiosvc.ErrProjectFoldersChanged),
+	fixed(http.StatusConflict, "agent_moved", studiosvc.AgentMovedText, studiosvc.ErrAgentMoved),
+	verbatim(http.StatusConflict, "agent_move_blocked", "studio: ", studiosvc.ErrMoveBlocked),
 	fixed(http.StatusConflict, "project_unavailable", studiosvc.ProjectUnavailableText, studiosvc.ErrProjectUnavailable),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToRegenerate, studiosvc.ErrNotUserMessage,
 		studiosvc.ErrInvalidSettings, studiosvc.ErrBadImport, session.ErrInvalid),

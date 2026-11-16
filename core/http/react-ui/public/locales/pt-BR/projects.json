@@ -32,7 +32,8 @@
     "openMemory": "Abrir",
     "openInFiles": "Abrir em Arquivos",
     "openInFilesNamed": "Abrir a pasta de {{name}} em Arquivos",
-    "share": "Compartilhar"
+    "share": "Compartilhar",
+    "editArchived": "Restaure o projeto para editá-lo"
   },
   "row": {
     "chats_one": "{{count}} chat",
@@ -85,7 +86,7 @@
     "files": "Arquivos",
     "chats": "Chats",
     "memory": "Memória",
-    "tools": "Ferramentas",
+    "tools": "Ferramentas padrão",
     "agents": "Agentes",
     "connections": "Conexões",
     "automations": "Automações"
@@ -98,7 +99,7 @@
     "noChats": "Ainda não há chats neste projeto.",
     "stats": "Neste projeto",
     "statChats": "Chats",
-    "statMemory": "Arquivos de memória",
+    "statMemory": "Memória",
     "statTools": "Ferramentas padrão",
     "memory": "Memória do projeto",
     "memoryEmpty": "Ainda não há nada na memória.",
@@ -109,9 +110,19 @@
   },
   "files": {
     "title": "Arquivos deste projeto",
-    "body": "Os arquivos de trabalho deste projeto estão nesta pasta. Os chats do projeto os enxergam.",
+    "body": "Os arquivos que você adiciona aqui são os que os chats e os agentes deste projeto podem usar.",
     "path": "Pasta",
-    "open": "Abrir em Arquivos"
+    "open": "Abrir em Arquivos",
+    "dropTitle": "Solte os arquivos aqui",
+    "upload": "Enviar arquivos",
+    "newFile": "Novo arquivo",
+    "empty": "Ainda não há arquivos. Solte arquivos aqui ou envie-os.",
+    "openFile": "Abrir {{name}}",
+    "dropOver": "Solte para adicionar a este projeto",
+    "loadFailed": "Não foi possível carregar os arquivos deste projeto.",
+    "loading": "Carregando arquivos",
+    "archivedNote": "Este projeto está arquivado. Restaure-o para adicionar ou criar arquivos. Os arquivos continuam legíveis.",
+    "emptyArchived": "Nenhum arquivo neste projeto."
   },
   "chats": {
     "title": "Chats neste projeto",
@@ -144,19 +155,38 @@
   },
   "tools": {
     "title": "Ferramentas padrão",
-    "note": "Vazio = sem substituição; uma lista não vazia liga só esses itens.",
-    "none": "Sem substituição",
+    "none": "Sem limite",
     "skills": "Skills",
     "addons": "Add-ons",
-    "mcp_servers": "Servidores MCP",
-    "connectors": "Conectores",
+    "mcp_servers": "Servidores MCP de um modelo",
+    "connectors": "Conectores MCP",
     "collections": "Coleções",
-    "connectorsHint": "Somente estes conectores ficam ativos em novos chats",
-    "collectionsHint": "Somente estas coleções de conhecimento ficam disponíveis em novos chats",
+    "connectorsHint": "Só estes conectores MCP (os que você adiciona na página Conectores MCP) ficam ativos. Apps de mensagem são outra coisa: veja a aba Conexões.",
+    "collectionsHint": "Só estas coleções de conhecimento ficam disponíveis nos novos chats e para os agentes do projeto.",
     "addLabel": "Adicionar a {{list}}",
-    "addPlaceholder": "Nome",
+    "addPlaceholder": "Procure ou digite um nome",
     "add": "Adicionar",
-    "removeChip": "Remover {{name}}"
+    "removeChip": "Remover {{name}}",
+    "lead": "Vazio significa sem limite. Se você preencher uma lista, os novos chats do projeto começam só com essas entradas ativas, e cada agente do projeto só pode usar essas entradas.",
+    "skillsHint": "Só estas skills ficam ativas nos novos chats e abertas aos agentes do projeto. Use o nome mostrado na página Skills.",
+    "addonsHint": "Só estes add-ons ficam ativos nos novos chats e abertos aos agentes do projeto.",
+    "mcp_serversHint": "Só estes servidores MCP ficam ativos. Use o nome do servidor na configuração de um modelo.",
+    "state": {
+      "missing": "Indisponível",
+      "off": "Desligado agora",
+      "missingTitle": "Nada chamado “{{name}}” está instalado aqui. Esta entrada não faz nada até existir.",
+      "offTitle": "“{{name}}” está desligado. Esta entrada não faz nada até ser ligado."
+    },
+    "countMissing": "{{n}} indisponíveis",
+    "pickerLoading": "Lendo o que está instalado…",
+    "pickerNone": "Nada instalado para escolher. Digite um nome.",
+    "pickerLead": "Instalados, clique para adicionar:",
+    "pickerLabel": "Instalados: {{list}}",
+    "addNotInstalled": "Adicionar “{{name}}” (não instalado aqui)",
+    "addTyped": "Adicionar “{{name}}”",
+    "save": "Salvar",
+    "discard": "Descartar alterações",
+    "archivedNote": "Este projeto está arquivado. Restaure-o para mudar suas ferramentas padrão."
   },
   "sheet": {
     "newTitle": "Novo projeto",
@@ -164,17 +194,16 @@
     "newBody": "Dê um nome e diga para que serve. Você pode adicionar arquivos e memória depois.",
     "editBody": "Mude o nome, a descrição ou as ferramentas padrão.",
     "name": "Nome",
-    "nameHint": "Aparece nas listas. A pasta é Projects/{{slug}}.",
+    "nameHint": "Aparece nas listas. Pasta: Projects/{{slug}} (ela não muda se você renomear o projeto)",
     "nameHintNew": "Aparece nas listas. A pasta é criada a partir do nome.",
     "nameRequired": "Digite um nome.",
     "description": "Descrição",
-    "descriptionHint": "Uma ou duas frases. Os chats a veem como contexto.",
-    "defaults": "Ferramentas padrão",
-    "defaultsHint": "Opcional. Vazio = sem substituição.",
+    "descriptionHint": "Uma ou duas frases. Os primeiros {{limit}} caracteres são dados aos chats como contexto.",
     "count_one": "{{count}} definido",
     "count_other": "{{count}} definidos",
     "save": "Salvar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "nameCounter": "{{length}} de {{max}} caracteres"
   },
   "composer": {
     "label": "Projeto",
@@ -252,7 +281,7 @@
     "archivedHint": "Este projeto está arquivado. Restaure-o para adicionar agentes ou conversar com eles.",
     "new": "Novo agente",
     "empty": "Ainda não há agentes neste projeto",
-    "emptyBody": "Crie um agente que trabalhe apenas nos arquivos e na memória deste projeto. As pastas compartilhadas e as skills continuam legíveis.",
+    "emptyBody": "Crie um agente que conversa aqui e pode rodar sozinho.",
     "ready": "Pronto",
     "unavailable": "Indisponível",
     "filesRead": "Somente leitura",
@@ -313,7 +342,14 @@
     "nextNone": "Próxima execução: nenhuma",
     "nextFile": "Próxima execução: com um novo arquivo",
     "pausedWhy": "Pausado enquanto o projeto está arquivado",
-    "openChat": "Abrir chat"
+    "openChat": "Abrir chat",
+    "newTrigger": "Novo gatilho",
+    "newArchived": "Restaure o projeto para adicionar um gatilho.",
+    "newUnavailable": "Nenhum agente deste projeto pode trabalhar agora, então um novo gatilho não teria o que executar. Abra Agentes para ver o motivo.",
+    "triggersDenied": "Os gatilhos não estão disponíveis para sua conta",
+    "triggersDeniedBody": "Um administrador pode ativá-los para você.",
+    "triggersNoneNoAgents": "Um gatilho executa um agente do projeto, e este projeto ainda não tem nenhum.",
+    "goAgents": "Ir para Agentes"
   },
   "share": {
     "dialogIntro": "Quem receber o acesso vê o projeto inteiro: arquivos, memória e configurações. Quem pode editar pode alterar os arquivos, a memória e as configurações.",
@@ -356,5 +392,19 @@
     "backToProjects": "Voltar aos projetos",
     "loadError": "Não foi possível carregar este projeto.",
     "off": "Os projetos estão desativados neste servidor."
+  },
+  "delete": {
+    "title": "Excluir “{{name}}”?",
+    "body": "A pasta dele, com arquivos e memória, vai para a lixeira. Você pode desfazer por alguns segundos ou restaurar a pasta depois pela lixeira em Arquivos.",
+    "agents": "Agentes que param de funcionar: {{n}}",
+    "triggers": "Gatilhos desses agentes que param: {{n}}",
+    "chats": "Chats que mantêm o histórico mas perdem o projeto: {{n}}",
+    "nothing": "Nenhum agente, gatilho ou chat depende deste projeto."
+  },
+  "access": {
+    "agents": "Os agentes não estão disponíveis para sua conta",
+    "agentsBody": "Um administrador pode ativá-los para você.",
+    "connections": "As conexões não estão disponíveis para sua conta",
+    "connectionsBody": "Esta aba precisa dos recursos de conectores e de agentes. Um administrador pode ativá-los para você."
   }
 }

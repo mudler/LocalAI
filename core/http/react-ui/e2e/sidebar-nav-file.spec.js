@@ -151,7 +151,17 @@ test('nav.json: the editor reorders, renames, hides, groups and links, and it su
 
   // Move Skills up, to just under Home, with its button, rename it, hide Agents.
   const row = (id) => page.locator(`[data-key="id:${id}"]`)
-  for (let i = 0; i < 5; i++) await row('skills').getByTestId('nav-row-up').click()
+  // Click until Skills sits right under Home. The number of items above it
+  // changes whenever a page is added to the sidebar, so the loop is bounded
+  // by the row count, not by a fixed number of clicks.
+  const order = async () => rows.evaluateAll(els => els.map(e => e.getAttribute('data-key')))
+  const start = (await order()).indexOf('id:skills')
+  expect(start).toBeGreaterThan(0)
+  for (let i = 0; i < start; i++) {
+    if ((await order()).indexOf('id:skills') <= 1) break
+    await row('skills').getByTestId('nav-row-up').click()
+  }
+  expect((await order()).indexOf('id:skills')).toBe(1)
   await row('skills').getByTestId('nav-row-name').fill('Recipes')
   await row('agents').getByTestId('nav-row-hide').click()
   // Home cannot be hidden: it has no eye.

@@ -798,6 +798,7 @@
     "about": {
       "localai": "Einstellungen, die LocalAI liest: Persona, Profil, Kurzbefehle, Home, Design.",
       "chats": "Ein Ordner pro Chat, mit den Dateien des Chats.",
+      "projects": "Deine Projekte. Jeder Ordner ist ein Projekt.",
       "memory": "Die Notizen, die der Assistent über dich führt.",
       "pages": "Die Seiten in deinem Arbeitsbereich.",
       "skills": "Die Skills, die die Agenten nutzen.",
@@ -806,7 +807,8 @@
     "open": {
       "memory": "Memory öffnen",
       "pages": "Seiten öffnen",
-      "skills": "Skills öffnen"
+      "skills": "Skills öffnen",
+      "projects": "Projekte öffnen"
     },
     "confirm": {
       "deleteTitle": "{{name}} in den Papierkorb verschieben?",
@@ -819,6 +821,7 @@
     "loses": {
       "settings": "LocalAI vergisst deine Persona, dein Profil, deine Kurzbefehle, dein Home-Layout und dein Design.",
       "chats": "Jeder Chat verliert seine Dateien: was du angehängt hast und was der Assistent dort geschrieben hat.",
+      "projects": "Jedes Projekt verliert seine Dateien und sein Gedächtnis, und die Chats eines Projekts verlieren, was sie davon nutzten.",
       "persona": "Der Assistent verliert seinen Namen und seine Anweisungen.",
       "user": "Der Assistent vergisst, was du ihm über dich gesagt hast, und deine Antworten auf seine Angebote.",
       "shortcuts": "Das Nachrichtenfeld zeigt wieder die Standard-Kurzbefehle.",
@@ -1267,5 +1270,8 @@
       },
       "remote": "{{model}} ist kein lokales Modell. Der Text jeder Antwort, die du vorlesen lässt, wird an einen anderen Server gesendet."
     }
+  },
+  "projectMark": {
+    "open": "Projekt {{name}} öffnen"
   }
 }

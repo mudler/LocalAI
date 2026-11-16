@@ -57,6 +57,11 @@ import { SwitchRow } from '../components/chat/SwitchList'
 // eslint-disable-next-line no-unused-vars
 import AgentWizard from './AgentWizard'
 import { useAgentAbilities } from '../hooks/useAgentAbilities'
+import { useActiveProjects } from '../hooks/useActiveProjects'
+// eslint-disable-next-line no-unused-vars
+import AgentProjectField from '../components/agents/AgentProjectField'
+// eslint-disable-next-line no-unused-vars
+import AgentMoveDialog from '../components/agents/AgentMoveDialog'
 // eslint-disable-next-line no-unused-vars
 import AgentMemorySkills, { memorySkillFrom } from '../components/agents/AgentMemorySkills'
 // eslint-disable-next-line no-unused-vars
@@ -127,6 +132,12 @@ function AgentEditor() {
   const [foldersChanged, setFoldersChanged] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
   const projectAgent = Boolean(projectId)
+  // The Project field: the list of projects, and the move dialog of a saved
+  // agent. moveTo is the project the person picked ('' for none) while it
+  // differs from the agent's own; null when nothing is picked.
+  const projectsList = useActiveProjects()
+  const [moveTo, setMoveTo] = useState(null)
+  const [moving, setMoving] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -204,6 +215,17 @@ function AgentEditor() {
   }, [id, isEdit, imported, attempt, search])
 
   const updateField = useCallback((name, value) => setForm(prev => ({ ...prev, [name]: value })), [])
+
+  // A new agent takes the project of the field: the project is read for the
+  // folders and the limits, and the files mode starts at write.
+  const pickNewProject = useCallback((pid, picked) => {
+    setProjectId(pid)
+    setProjectGone(false)
+    updateField('project_files_mode', 'write')
+    if (!pid) { setProject(null); return }
+    setProject(picked || null)
+    chatProjectsApi.get(pid).then(setProject).catch(() => {})
+  }, [updateField])
 
   // The Tools and Skills lists are the ones the Tools menu of a chat draws
   // (SwitchPanel), with the agent's grants and switches applied to them.
@@ -731,11 +753,40 @@ function AgentEditor() {
                 title={t('project.paused', { reason: t(`project.reason.${pausedReason}`) })}
                 actions={pausedReason === 'changed'
                   ? <Button size="sm" icon="refresh" busy={reconnecting} onClick={reconnect} data-testid="agent-reconnect">{t('project.reconnect')}</Button>
-                  : <Button size="sm" iconEnd="arrow-right" to={project ? `/app/projects/${encodeURIComponent(projectId)}` : '/app/projects'} data-testid="agent-open-project">{t('project.openProject')}</Button>}
+                  : pausedReason === 'deleted' && !project
+                    ? <Button size="sm" icon="close-circle" onClick={() => setMoving(true)} data-testid="agent-detach">{t('move.detach')}</Button>
+                    : <Button size="sm" iconEnd="arrow-right" to={project ? `/app/projects/${encodeURIComponent(projectId)}` : '/app/projects'} data-testid="agent-open-project">{t('project.openProject')}</Button>}
               >
-                {t(`project.fix.${pausedReason}`)}
+                {t(pausedReason === 'deleted' && !project ? 'project.fix.deletedDetach' : `project.fix.${pausedReason}`)}
               </Callout>
             )}
+            <section className="aed-card" aria-labelledby="aed-project-h" data-testid="agent-project-card">
+              <div className="aed-card__head">
+                <h2 id="aed-project-h" className="aed-card__title">{t('projectField.title')}</h2>
+                <p className="aed-card__lead">{t(isEdit ? 'projectField.leadEdit' : 'projectField.leadNew')}</p>
+              </div>
+              <div className="aed-card__body ag-projcard">
+                {isEdit ? (
+                  <>
+                    <div className="ag-projcard__row">
+                      <AgentProjectField
+                        list={projectsList} value={moveTo ?? projectId} id="ag-project"
+                        disabled={projectGone && !projectsList.ready}
+                        onChange={(pid) => setMoveTo(pid === projectId ? null : pid)}
+                        help={t('projectField.helpEdit')}
+                      />
+                      <Button
+                        icon="arrow-right" disabled={moveTo === null || dirty} onClick={() => setMoving(true)}
+                        data-testid="agent-project-move"
+                      >{t('move.open')}</Button>
+                    </div>
+                    {moveTo !== null && dirty && <p className="ag-note" data-testid="agent-project-dirty">{t('projectField.saveFirst')}</p>}
+                  </>
+                ) : (
+                  <AgentProjectField list={projectsList} value={projectId} id="ag-project" onChange={pickNewProject} />
+                )}
+              </div>
+            </section>
             {imported && (
               <div className="ag-import-note" role="note" data-testid="agent-import-note">
                 <p>{imported.legacy ? t('create.importLegacy') : t('create.importNew')}</p>
@@ -789,6 +840,21 @@ function AgentEditor() {
           </div>
         </div>
       </form>
+
+      {moving && (
+        <AgentMoveDialog
+          agent={{ id, name: savedConfig?.name || form.name }}
+          target={moveTo ? projectsList.all.find(p => p.id === moveTo) || { id: moveTo, name: '' } : null}
+          from={project}
+          detach={moveTo === null && pausedReason === 'deleted'}
+          onCancel={() => setMoving(false)}
+          onDone={(r) => {
+            addToast(t(r.to ? 'move.done' : 'move.doneOut', { name: savedConfig?.name || form.name }), 'success')
+            setMoving(false); setMoveTo(null); setProject(null); setProjectGone(false); setProjectId('')
+            setLoading(true); setAttempt(n => n + 1)
+          }}
+        />
+      )}
 
       {tryOpen && <AgentTryIt form={form} tools={tools} models={chatModels} onClose={() => setTryOpen(false)} />}
 

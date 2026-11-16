@@ -32,7 +32,8 @@
     "openMemory": "Buka",
     "openInFiles": "Buka di Berkas",
     "openInFilesNamed": "Buka folder {{name}} di Berkas",
-    "share": "Bagikan"
+    "share": "Bagikan",
+    "editArchived": "Pulihkan proyek untuk mengeditnya"
   },
   "row": {
     "chats_one": "{{count}} obrolan",
@@ -85,7 +86,7 @@
     "files": "File",
     "chats": "Obrolan",
     "memory": "Memori",
-    "tools": "Alat",
+    "tools": "Alat bawaan",
     "agents": "Agen",
     "connections": "Koneksi",
     "automations": "Otomatisasi"
@@ -98,7 +99,7 @@
     "noChats": "Belum ada obrolan di proyek ini.",
     "stats": "Di proyek ini",
     "statChats": "Obrolan",
-    "statMemory": "File memori",
+    "statMemory": "Memori",
     "statTools": "Alat bawaan",
     "memory": "Memori proyek",
     "memoryEmpty": "Belum ada isi di memori.",
@@ -109,9 +110,19 @@
   },
   "files": {
     "title": "File proyek ini",
-    "body": "File kerja proyek ini ada di folder ini. Obrolan di proyek dapat melihatnya.",
+    "body": "File yang Anda tambahkan di sini adalah yang dapat dipakai oleh chat dan agen proyek ini.",
     "path": "Folder",
-    "open": "Buka di File"
+    "open": "Buka di File",
+    "dropTitle": "Letakkan file di sini",
+    "upload": "Unggah file",
+    "newFile": "File baru",
+    "empty": "Belum ada file. Letakkan file di sini atau unggah.",
+    "openFile": "Buka {{name}}",
+    "dropOver": "Lepaskan untuk menambahkan ke proyek ini",
+    "loadFailed": "Tidak dapat memuat file proyek ini.",
+    "loading": "Memuat file",
+    "archivedNote": "Proyek ini diarsipkan. Pulihkan untuk menambah atau membuat file. File tetap dapat dibaca.",
+    "emptyArchived": "Tidak ada file di proyek ini."
   },
   "chats": {
     "title": "Obrolan di proyek ini",
@@ -144,19 +155,38 @@
   },
   "tools": {
     "title": "Alat bawaan",
-    "note": "Kosong = tanpa penggantian; daftar yang tidak kosong hanya mengaktifkan item di dalamnya.",
-    "none": "Tanpa penggantian",
+    "none": "Tanpa batas",
     "skills": "Skill",
     "addons": "Add-on",
-    "mcp_servers": "Server MCP",
-    "connectors": "Konektor",
+    "mcp_servers": "Server MCP milik model",
+    "connectors": "Konektor MCP",
     "collections": "Koleksi",
-    "connectorsHint": "Hanya konektor ini yang aktif di obrolan baru",
-    "collectionsHint": "Hanya koleksi pengetahuan ini yang tersedia di obrolan baru",
+    "connectorsHint": "Hanya konektor MCP ini (yang Anda tambah di halaman Konektor MCP) yang aktif. Aplikasi pesan terpisah: lihat tab Koneksi.",
+    "collectionsHint": "Hanya koleksi pengetahuan ini yang tersedia di chat baru dan untuk agen proyek.",
     "addLabel": "Tambahkan ke {{list}}",
-    "addPlaceholder": "Nama",
+    "addPlaceholder": "Cari atau ketik nama",
     "add": "Tambah",
-    "removeChip": "Hapus {{name}}"
+    "removeChip": "Hapus {{name}}",
+    "lead": "Kosong berarti tanpa batas. Jika Anda mengisi daftar, chat baru di proyek ini dimulai hanya dengan entri itu, dan setiap agen proyek hanya boleh memakai entri itu.",
+    "skillsHint": "Hanya skill ini yang aktif di chat baru dan terbuka untuk agen proyek. Pakai nama yang tampil di halaman Skill.",
+    "addonsHint": "Hanya add-on ini yang aktif di chat baru dan terbuka untuk agen proyek.",
+    "mcp_serversHint": "Hanya server MCP ini yang aktif. Pakai nama server dari konfigurasi model.",
+    "state": {
+      "missing": "Tidak tersedia",
+      "off": "Mati saat ini",
+      "missingTitle": "Tidak ada yang bernama “{{name}}” terpasang di sini. Entri ini tidak berbuat apa-apa sampai ada.",
+      "offTitle": "“{{name}}” dimatikan. Entri ini tidak berbuat apa-apa sampai dinyalakan."
+    },
+    "countMissing": "{{n}} tidak tersedia",
+    "pickerLoading": "Membaca yang terpasang…",
+    "pickerNone": "Tidak ada yang terpasang untuk dipilih. Ketik sebuah nama.",
+    "pickerLead": "Terpasang, klik untuk menambah:",
+    "pickerLabel": "Terpasang: {{list}}",
+    "addNotInstalled": "Tambah “{{name}}” (tidak terpasang di sini)",
+    "addTyped": "Tambah “{{name}}”",
+    "save": "Simpan",
+    "discard": "Buang perubahan",
+    "archivedNote": "Proyek ini diarsipkan. Pulihkan untuk mengubah bawaan alatnya."
   },
   "sheet": {
     "newTitle": "Proyek baru",
@@ -164,17 +194,16 @@
     "newBody": "Beri nama dan jelaskan kegunaannya. File dan memori bisa ditambahkan nanti.",
     "editBody": "Ubah nama, deskripsi, atau alat bawaan.",
     "name": "Nama",
-    "nameHint": "Tampil di daftar. Foldernya adalah Projects/{{slug}}.",
+    "nameHint": "Tampil di daftar. Folder: Projects/{{slug}} (tidak berubah jika proyek diganti nama)",
     "nameHintNew": "Tampil di daftar. Folder dibuat dari nama.",
     "nameRequired": "Masukkan nama.",
     "description": "Deskripsi",
-    "descriptionHint": "Satu atau dua kalimat. Obrolan melihatnya sebagai konteks.",
-    "defaults": "Alat bawaan",
-    "defaultsHint": "Opsional. Kosong = tanpa penggantian.",
+    "descriptionHint": "Satu atau dua kalimat. {{limit}} karakter pertama diberikan ke chat sebagai konteks.",
     "count_one": "{{count}} diatur",
     "count_other": "{{count}} diatur",
     "save": "Simpan",
-    "cancel": "Batal"
+    "cancel": "Batal",
+    "nameCounter": "{{length}} dari {{max}} karakter"
   },
   "composer": {
     "label": "Proyek",
@@ -252,7 +281,7 @@
     "archivedHint": "Proyek ini diarsipkan. Pulihkan untuk menambah agen atau mengobrol dengan mereka.",
     "new": "Agen baru",
     "empty": "Belum ada agen di proyek ini",
-    "emptyBody": "Buat agen yang hanya bekerja di file dan memori proyek ini. Folder bersama dan skill tetap bisa dibaca.",
+    "emptyBody": "Buat agen yang mengobrol di sini dan bisa berjalan sendiri.",
     "ready": "Siap",
     "unavailable": "Tidak tersedia",
     "filesRead": "Hanya baca",
@@ -313,7 +342,14 @@
     "nextNone": "Jalan berikutnya: tidak ada",
     "nextFile": "Jalan berikutnya: saat ada file baru",
     "pausedWhy": "Dijeda selama proyek diarsipkan",
-    "openChat": "Buka chat"
+    "openChat": "Buka chat",
+    "newTrigger": "Pemicu baru",
+    "newArchived": "Pulihkan proyek untuk menambah pemicu.",
+    "newUnavailable": "Tidak ada agen proyek ini yang dapat bekerja sekarang, jadi pemicu baru tidak punya apa pun untuk dijalankan. Buka Agen untuk melihat alasannya.",
+    "triggersDenied": "Pemicu tidak tersedia untuk akun Anda",
+    "triggersDeniedBody": "Administrator dapat mengaktifkannya untuk Anda.",
+    "triggersNoneNoAgents": "Pemicu menjalankan agen proyek, dan proyek ini belum punya.",
+    "goAgents": "Buka Agen"
   },
   "share": {
     "dialogIntro": "Siapa pun yang Anda beri akses melihat seluruh proyek: berkas, memori, dan pengaturan. Orang dengan akses ubah dapat mengubah berkas, memori, dan pengaturannya.",
@@ -356,5 +392,19 @@
     "backToProjects": "Kembali ke proyek",
     "loadError": "Tidak dapat memuat proyek ini.",
     "off": "Proyek dinonaktifkan di server ini."
+  },
+  "delete": {
+    "title": "Hapus “{{name}}”?",
+    "body": "Foldernya, beserta file dan memori, masuk ke Sampah. Anda bisa membatalkan selama beberapa detik, atau memulihkan folder nanti dari Sampah di File.",
+    "agents": "Agen yang berhenti bekerja: {{n}}",
+    "triggers": "Pemicu agen itu yang berhenti: {{n}}",
+    "chats": "Chat yang tetap punya riwayat tetapi kehilangan proyek: {{n}}",
+    "nothing": "Tidak ada agen, pemicu, atau chat yang bergantung pada proyek ini."
+  },
+  "access": {
+    "agents": "Agen tidak tersedia untuk akun Anda",
+    "agentsBody": "Administrator dapat mengaktifkannya untuk Anda.",
+    "connections": "Koneksi tidak tersedia untuk akun Anda",
+    "connectionsBody": "Tab ini memerlukan fitur konektor dan agen. Administrator dapat mengaktifkannya untuk Anda."
   }
 }

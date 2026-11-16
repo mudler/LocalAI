@@ -48,7 +48,7 @@ var clientCoveredFeatures = []string{
 // backlog: a tool is wanted but does not exist. Any other reason is a
 // decision. A route listed here must not be wrapped by a tool too.
 var clientToolExemptions = map[string]string{
-	"POST /api/chats/files/extract": "a person's action on the Files page for large archives; the model unpacks small ones in its sandbox, and a tool would cost tokens on every turn",
+	"POST /api/chats/files/extract":       "a person's action on the Files page for large archives; the model unpacks small ones in its sandbox, and a tool would cost tokens on every turn",
 	"POST /chat/completions":              "chat is the chat itself: the agent already runs on it, a tool would only recurse",
 	"POST /v1/completions":                "chat is the chat itself: the agent already runs on it, a tool would only recurse",
 	"POST /completions":                   "chat is the chat itself: the agent already runs on it, a tool would only recurse",
@@ -166,6 +166,109 @@ func clientCoverageProblems(
 	}
 	sort.Strings(problems)
 	return problems
+}
+
+// isProjectRoute says whether a registry route belongs to the projects: the
+// routes under /api/chats/projects, and the two routes that put a chat in a
+// project or pull projects into it. The feature of such a route can be the
+// chats feature or the feature of the objects it lists (agents, connectors,
+// triggers), so the check goes by the pattern, not by the feature.
+func isProjectRoute(pattern string) bool {
+	return pattern == "/api/chats/projects" || strings.HasPrefix(pattern, "/api/chats/projects/") ||
+		pattern == "/api/chats/:id/project" || pattern == "/api/chats/:id/projects"
+}
+
+// projectToolExemptions lists the project routes that deliberately have no
+// action of the projects tool, as "METHOD /pattern" -> reason. Sharing is a
+// person's act on the folder share and is not a project route.
+var projectToolExemptions = map[string]string{}
+
+// projectCoverageProblems returns one message per project route of the
+// registry that no action of the projects tool wraps and that has no reason
+// to stay without one. It takes its inputs as arguments so a test can feed it
+// fake registries.
+func projectCoverageProblems(registry []auth.RouteFeature, tools []ClientToolSpec, exemptions map[string]string) []string {
+	var problems []string
+	seen := map[string]bool{}
+	for _, r := range registry {
+		key := r.Method + " " + r.Pattern
+		if !isProjectRoute(r.Pattern) || seen[key] {
+			continue
+		}
+		seen[key] = true
+		wrapped := false
+		for _, t := range tools {
+			if t.Tool == ToolProjects && t.Method == r.Method && t.Route == r.Pattern {
+				wrapped = true
+			}
+		}
+		_, exempt := exemptions[key]
+		if !wrapped && !exempt {
+			problems = append(problems, fmt.Sprintf(
+				"%s (feature %q) is a project route with no action of the projects tool and no exemption. Add an action "+
+					"(a row in ClientTools, the case in projects.go, the schema, the localai skill and the docs), or add %q "+
+					"to projectToolExemptions in clientcoverage_test.go with the reason.", key, r.Feature, key))
+		}
+	}
+	for key, why := range exemptions {
+		if !seen[key] {
+			problems = append(problems, fmt.Sprintf("project exemption %q is stale: no such project route in auth.RouteFeatureRegistry. Remove it.", key))
+		}
+		if strings.TrimSpace(why) == "" {
+			problems = append(problems, fmt.Sprintf("project exemption %q has no reason.", key))
+		}
+	}
+	sort.Strings(problems)
+	return problems
+}
+
+var _ = Describe("Client tool coverage of the project routes", func() {
+	It("gives every project route an action of the projects tool or an exemption", func() {
+		Expect(clientCoverageProjectsRoutesExist()).To(BeTrue(), "the registry lists project routes")
+		Expect(projectCoverageProblems(auth.RouteFeatureRegistry, ClientTools, projectToolExemptions)).To(BeEmpty())
+	})
+
+	Describe("the checker", func() {
+		registry := []auth.RouteFeature{
+			{Method: "GET", Pattern: "/api/chats/projects/:id", Feature: auth.FeatureChats},
+			{Method: "GET", Pattern: "/api/chats/projects/:id/agents", Feature: auth.FeatureAgents},
+			{Method: "GET", Pattern: "/api/chats/projects/:id/export", Feature: auth.FeatureChats},
+			{Method: "PUT", Pattern: "/api/chats/:id/projects", Feature: auth.FeatureChats},
+			{Method: "GET", Pattern: "/api/chats/:id", Feature: auth.FeatureChats},
+		}
+		tools := []ClientToolSpec{
+			{Tool: ToolProjects, Method: "GET", Route: "/api/chats/projects/:id"},
+			{Tool: ToolProjects, Method: "GET", Route: "/api/chats/projects/:id/agents"},
+			{Tool: ToolProjects, Method: "PUT", Route: "/api/chats/:id/projects"},
+		}
+		It("names a project route with no action, whatever its feature", func() {
+			p := projectCoverageProblems(registry, tools, nil)
+			Expect(p).To(HaveLen(1))
+			Expect(p[0]).To(And(ContainSubstring("GET /api/chats/projects/:id/export"), ContainSubstring("projectToolExemptions")))
+		})
+		It("accepts an exemption with a reason", func() {
+			Expect(projectCoverageProblems(registry, tools, map[string]string{"GET /api/chats/projects/:id/export": "a file download"})).To(BeEmpty())
+		})
+		It("does not count a row of another tool", func() {
+			other := []ClientToolSpec{{Tool: "other", Method: "GET", Route: "/api/chats/projects/:id/export"}}
+			p := projectCoverageProblems(registry[2:3], other, nil)
+			Expect(p).To(HaveLen(1))
+		})
+		It("flags a stale exemption and one without a reason", func() {
+			p := projectCoverageProblems(registry, append(tools, ClientToolSpec{Tool: ToolProjects, Method: "GET", Route: "/api/chats/projects/:id/export"}),
+				map[string]string{"GET /api/chats/projects/gone": "x", "GET /api/chats/projects/:id": " "})
+			Expect(p).To(HaveLen(2))
+		})
+	})
+})
+
+func clientCoverageProjectsRoutesExist() bool {
+	for _, r := range auth.RouteFeatureRegistry {
+		if isProjectRoute(r.Pattern) {
+			return true
+		}
+	}
+	return false
 }
 
 var _ = Describe("Client tool coverage of the inference routes", func() {

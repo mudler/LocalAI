@@ -605,6 +605,10 @@ export const chatAgentsApi = {
   update: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   // memory says what to do with the agent's own notes: keep (the default) or delete.
   remove: (id, memory) => fetchJSON(`/api/chats/agents/${enc2(id)}${q({ memory })}`, { method: 'DELETE' }),
+  // Moves the agent to another project, or out of its project (project_id ''):
+  // the only way to change the project of a saved agent. With dry_run true the
+  // answer is the report of what the move touches and nothing is written.
+  moveProject: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}/project`, { method: 'PUT', body: JSON.stringify(body) }),
   // The agent file of the server (kind localai-agent). Import takes it, the
   // body of a create, or an export of the old agents; it always makes a new
   // agent and says in `warnings` what it changed.

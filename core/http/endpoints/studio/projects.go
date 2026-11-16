@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -48,6 +49,18 @@ func (h *Handlers) projectsHost(c echo.Context) (*projects.Service, bool) {
 	return feature(c, h.svc.Projects(), func(c echo.Context) error {
 		return fail(c, http.StatusConflict, "projects_off", "projects are not available")
 	})
+}
+
+// chatsAllowed checks the chats feature for a project list whose route is
+// gated by the feature of the objects it lists (agents, connectors, triggers).
+// The project page is part of the chats, so a person needs both. On failure it
+// has written the response and returns false.
+func chatsAllowed(c echo.Context) bool {
+	if auth.FeatureAllowed(c, auth.FeatureChats) {
+		return true
+	}
+	_ = fail(c, http.StatusForbidden, typeAuthz, "feature not enabled for your account: "+auth.FeatureChats)
+	return false
 }
 
 var projectRules = []errRule{
@@ -171,7 +184,7 @@ func (h *Handlers) GetProject(c echo.Context) error {
 
 // UpdateProject changes a project.
 // @Summary Change a project.
-// @Description A field that is left out keeps its value. The folder keeps its name. For each of skills, add-ons and MCP servers, a non-empty default list means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only.
+// @Description A field that is left out keeps its value. The folder keeps its name. The defaults are five lists: skills, add-ons, connectors, MCP servers and collections. For each list, a non-empty value means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only; the agents of the project are also limited by them.
 // @Tags chats
 // @Param id path string true "the project's id"
 // @Param request body schema.ChatsProjectWrite true "the fields to change"
@@ -447,6 +460,9 @@ func (h *Handlers) SetChatPulledProjects(c echo.Context) error {
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
 // @Router /api/chats/projects/{id}/agents [get]
 func (h *Handlers) ListProjectAgents(c echo.Context) error {
+	if !chatsAllowed(c) {
+		return nil
+	}
 	host, ok := h.projectsHost(c)
 	if !ok {
 		return nil
@@ -483,6 +499,9 @@ func (h *Handlers) ListProjectAgents(c echo.Context) error {
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
 // @Router /api/chats/projects/{id}/connections [get]
 func (h *Handlers) ListProjectConnections(c echo.Context) error {
+	if !chatsAllowed(c) {
+		return nil
+	}
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}
@@ -507,6 +526,9 @@ func (h *Handlers) ListProjectConnections(c echo.Context) error {
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
 // @Router /api/chats/projects/{id}/triggers [get]
 func (h *Handlers) ListProjectTriggers(c echo.Context) error {
+	if !chatsAllowed(c) {
+		return nil
+	}
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}

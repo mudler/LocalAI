@@ -20,6 +20,8 @@ import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows 
 // eslint-disable-next-line no-unused-vars
 import AgentSetupCard from '../components/agents/AgentSetupCard'
 import { useAgentDelete } from '../components/agents/useAgentDelete'
+// eslint-disable-next-line no-unused-vars
+import AgentMoveDialog from '../components/agents/AgentMoveDialog'
 import { firstLine } from '../utils/agentRuns'
 import { agentPayload, filesOff, folderState } from '../utils/chatAgents'
 import { agentShareEntry, canShareAgent, isSharedWithMe } from '../utils/agentShare'
@@ -61,6 +63,8 @@ export default function AgentPage() {
   const [projectGone, setProjectGone] = useState(false)
   const [foldersChanged, setFoldersChanged] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
+  // The dialog that takes the agent out of a project that was deleted.
+  const [detaching, setDetaching] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -215,15 +219,17 @@ export default function AgentPage() {
             title={t('project.paused', { reason: t(`project.reason.${pausedReason}`) })}
             actions={pausedReason === 'changed'
               ? <Button size="sm" icon="refresh" busy={reconnecting} onClick={reconnect} data-testid="agent-reconnect">{t('project.reconnect')}</Button>
-              : <Button size="sm" iconEnd="arrow-right" to={project ? `/app/projects/${encodeURIComponent(project.id)}` : '/app/projects'} data-testid="agent-open-project">{t('project.openProject')}</Button>}
+              : pausedReason === 'deleted' && !project
+                ? <Button size="sm" icon="close-circle" onClick={() => setDetaching(true)} data-testid="agent-detach">{t('move.detach')}</Button>
+                : <Button size="sm" iconEnd="arrow-right" to={project ? `/app/projects/${encodeURIComponent(project.id)}` : '/app/projects'} data-testid="agent-open-project">{t('project.openProject')}</Button>}
           >
-            {t(`project.fix.${pausedReason}`)}
+            {t(pausedReason === 'deleted' && !project ? 'project.fix.deletedDetach' : `project.fix.${pausedReason}`)}
           </Callout>
         )}
         {agent.project_id && !guest && <p className="ag-note" data-testid="agent-no-share">{t('project.noShare')}</p>}
         <AgentSetupCard agent={agent} kinds={connectorData.kinds} bindings={connectorData.items} />
         {error && <LoadError title={t('load.agentStale')} error={error} onRetry={load} />}
-        {!guest && !filesOff(agent) && (folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
+        {!guest && !agent.project_id && !filesOff(agent) && (folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
           <Callout
             tone="warn" testId="agent-folder-warning"
             actions={<Button size="sm" icon="folder" to={agentPath(agent.id, '/edit')}>{t('folder.chooseOther')}</Button>}
@@ -234,7 +240,7 @@ export default function AgentPage() {
 
         <dl className="ag-facts" data-testid="agent-facts">
           <dt>{t('facts.model')}</dt>
-          <dd className="ag-facts__model">{info.model || <span className="ag-muted">{t('facts.noModel')}</span>}</dd>
+          <dd className="ag-facts__model">{info.model || <span className="ag-muted">{t('meta.anyModel')}</span>}</dd>
           {agent.project_id && !guest && (
             <>
               <dt>{t('project.fact')}</dt>
@@ -263,7 +269,7 @@ export default function AgentPage() {
                 {info.mcp.map(x => <Chip key={`mcp-${x}`} mono>{`mcp: ${x}`}</Chip>)}
                 {info.connectors.map(x => <Chip key={`conn-${x}`} to="/app/mcp-connectors" icon="plug">{t('facts.connector')}</Chip>)}
               </>
-              : <span className="ag-muted">{t('chips.none')}</span>}
+              : <span className="ag-muted">{t('facts.toolsNone')}</span>}
           </dd>
           <dt>{t('facts.memory')}</dt>
           <dd><LibraryChips info={info} kind="memory" /></dd>
@@ -373,6 +379,18 @@ export default function AgentPage() {
       </div>
 
       {agentDelete.dialog}
+      {detaching && (
+        <AgentMoveDialog
+          agent={agent} target={null} from={project} detach
+          onCancel={() => setDetaching(false)}
+          onDone={() => {
+            addToast(t('move.doneOut', { name: agent.name }), 'success')
+            setDetaching(false)
+            setProject(null); setProjectGone(false)
+            load()
+          }}
+        />
+      )}
       {sharing && <AgentShareDialog agent={agent} close={() => setSharing(false)} onChanged={load} addToast={addToast} />}
     </Page>
   )

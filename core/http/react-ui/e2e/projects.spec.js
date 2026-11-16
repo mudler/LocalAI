@@ -7,6 +7,29 @@ import { CHATS, mockProjects, writes } from './projects-fixtures.js'
 
 const row = (page, name) => page.getByTestId('project-row').filter({ hasText: name })
 
+// The files API for the folder of the first project: a list that uploads and
+// new files change, and a record of the writes.
+async function stubProjectFiles(page, entries = [
+  { path: '/Projects/client-site-redesign/files/brief.md', name: 'brief.md', kind: 'file', size: 120, version: 1, rev: 1, modified: new Date(Date.now() - 3600_000).toISOString() },
+  { path: '/Projects/client-site-redesign/files/assets', name: 'assets', kind: 'dir', size: 0, version: 1, rev: 2, modified: new Date(Date.now() - 7200_000).toISOString() },
+]) {
+  const fs = { entries: [...entries], puts: [] }
+  await page.route(/\/api\/chats\/files\/trash(\?.*)?$/, route => route.fulfill({ json: { entries: [] } }))
+  await page.route(/\/api\/chats\/files\/content(\?.*)?$/, (route) => {
+    const req = route.request()
+    const path = new URL(req.url()).searchParams.get('path')
+    if (req.method() === 'PUT') {
+      const e = { path, name: path.split('/').pop(), kind: 'file', size: (req.postDataBuffer() || []).length, version: 1, rev: 10 + fs.puts.length, modified: new Date().toISOString() }
+      fs.puts.push(path)
+      fs.entries.push(e)
+      return route.fulfill({ json: e })
+    }
+    return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/markdown' }, body: '# Brief\n' })
+  })
+  await page.route(/\/api\/chats\/files(\?.*)?$/, route => route.fulfill({ json: { path: new URL(route.request().url()).searchParams.get('path'), entries: fs.entries } }))
+  return fs
+}
+
 test.describe('Projects', () => {
   test('the list renders its header, rows, counts and the New project action', async ({ page }) => {
     await mockProjects(page)
@@ -106,22 +129,23 @@ test.describe('Projects', () => {
     await page.goto('/app/projects/p1')
     await expect(page.getByRole('heading', { name: 'Client site redesign', level: 1 })).toBeVisible()
     await expect(page.getByTestId('project-overview')).toBeVisible()
-    await expect(page.getByRole('tab')).toHaveText(['Overview', 'Files', 'Chats', 'Agents', 'Connections', 'Automations', 'Memory', 'Tools'])
+    await expect(page.getByRole('tab')).toHaveText(['Overview', 'Files', 'Chats', 'Agents', 'Connections', 'Automations', 'Memory', 'Tool defaults'])
     await expect(page.getByTestId('project-stat-chats')).toContainText('2')
     await expect(page.getByTestId('project-chat-row')).toHaveCount(2)
+    await stubProjectFiles(page)
     await page.getByTestId('project-tab-files').click()
     await expect(page.getByTestId('project-files-path')).toHaveText('Projects/client-site-redesign/files')
     await expect(page.getByTestId('project-files-open')).toHaveAttribute('href', '/app/files?path=%2FProjects%2Fclient-site-redesign%2Ffiles')
     await page.getByTestId('project-tab-chats').click()
     await expect(page.getByTestId('project-chat-row').first().getByRole('link', { name: 'Pricing page copy' })).toHaveAttribute('href', '/app/chats/c1')
     await page.getByTestId('project-tab-tools').click()
-    await expect(page.getByTestId('project-tools-skills')).toContainText('brand-voice')
-    await expect(page.getByTestId('project-tools-mcp_servers')).toContainText('docs')
-    await expect(page.getByTestId('project-tools')).toContainText('Empty = no override; a non-empty list switches on only those.')
-    await expect(page.getByTestId('project-tools-connectors')).toContainText('mail')
-    await expect(page.getByTestId('project-tools-collections')).toContainText('papers')
-    await expect(page.getByTestId('project-tools-connectors')).toContainText('Only these connectors are on in new chats')
-    await expect(page.getByTestId('project-tools-collections')).toContainText('Only these knowledge collections are available in new chats')
+    await expect(page.getByTestId('project-defaults-skills')).toContainText('brand-voice')
+    await expect(page.getByTestId('project-defaults-mcp_servers')).toContainText('docs')
+    await expect(page.getByTestId('project-tools')).toContainText('Empty means no limit.')
+    await expect(page.getByTestId('project-defaults-connectors')).toContainText('Work mail')
+    await expect(page.getByTestId('project-defaults-collections')).toContainText('papers')
+    await expect(page.getByTestId('project-defaults-section-connectors')).toContainText('Only these MCP connectors')
+    await expect(page.getByTestId('project-defaults-section-collections')).toContainText('Only these knowledge collections are available in new chats')
     await expect(page.getByTestId('project-tools-stored')).toHaveCount(0)
     await expect(page.getByTestId('project-tools')).not.toContainText('Stored for later')
     await expect(page.getByTestId('project-tools')).not.toContainText('do not apply them yet')
@@ -146,7 +170,7 @@ test.describe('Projects', () => {
     const sheet = page.getByTestId('project-sheet')
     await sheet.getByTestId('project-defaults-section-connectors').locator('summary').click()
     await sheet.getByTestId('project-defaults-section-collections').locator('summary').click()
-    await expect(sheet.getByTestId('project-defaults-section-connectors')).toContainText('Only these connectors are on in new chats')
+    await expect(sheet.getByTestId('project-defaults-section-connectors')).toContainText('Only these MCP connectors')
     await expect(sheet.getByTestId('project-defaults-section-collections')).toContainText('Only these knowledge collections are available in new chats')
     await expect(sheet).not.toContainText('chats do not apply them yet')
     await expect(sheet).not.toContainText('Stored for later')
@@ -230,6 +254,7 @@ test.describe('Projects', () => {
     await page.goto('/app/projects/p2')
     await page.getByRole('button', { name: 'More actions for Home lab notes' }).click()
     await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
     await expect(page).toHaveURL(/\/app\/projects$/)
     await expect(row(page, 'Home lab notes')).toHaveCount(0)
     expect(writes(s, 'DELETE', '/projects/p2')).toHaveLength(0)
@@ -564,5 +589,73 @@ test.describe('Projects in chats', () => {
     await expect(page.getByTestId('chats-row')).toHaveCount(1)
     await page.getByRole('button', { name: 'Clear shown' }).click()
     await expect(page.getByRole('alertdialog')).toContainText('Delete the 1 chat shown in No project?')
+  })
+  test('the Files tab says what the folder is for, lists the files and takes uploads and a new file', async ({ page }) => {
+    await mockProjects(page)
+    const fs = await stubProjectFiles(page)
+    await page.goto('/app/projects/p1')
+    await page.getByTestId('project-tab-files').click()
+    await expect(page.getByTestId('project-files-note')).toHaveText("Files you add here are what this project's chats and agents can use.")
+    await expect(page.getByTestId('project-files-drop')).toContainText('Drop files here')
+    await expect(page.getByTestId('project-file')).toHaveCount(2)
+    await expect(page.getByTestId('project-file').first()).toContainText('assets')
+    await expect(page.getByTestId('project-file').nth(1)).toContainText('brief.md')
+    await expect(page.getByTestId('project-file').nth(1)).toContainText('120 B')
+
+    await page.getByTestId('project-files-input').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') })
+    await expect(page.getByTestId('project-file').filter({ hasText: 'notes.txt' })).toHaveCount(1)
+    expect(fs.puts).toEqual(['/Projects/client-site-redesign/files/notes.txt'])
+
+    await page.getByTestId('project-files-new').click()
+    await expect.poll(() => fs.puts.at(-1)).toBe('/Projects/client-site-redesign/files/Untitled.md')
+    await expect(page.getByTestId('file-preview')).toBeVisible()
+
+    await page.getByTestId('project-files-open').click()
+    await expect(page).toHaveURL(/\/app\/files\?path=%2FProjects%2Fclient-site-redesign%2Ffiles$/)
+  })
+
+  test('an archived project lists its files read-only: no upload, no new file, no drop target', async ({ page }) => {
+    await mockProjects(page)
+    const fs = await stubProjectFiles(page, [
+      { path: '/Projects/podcast-episode-14/files/notes.md', name: 'notes.md', kind: 'file', size: 80, version: 1, rev: 1, modified: new Date(Date.now() - 3600_000).toISOString() },
+    ])
+    await page.goto('/app/projects/p3?tab=files')
+    await expect(page.getByTestId('project-files-archived')).toContainText('Restore it to add or create files')
+    await expect(page.getByTestId('project-file')).toHaveCount(1)
+    await expect(page.getByTestId('project-files-upload')).toHaveCount(0)
+    await expect(page.getByTestId('project-files-new')).toHaveCount(0)
+    await expect(page.getByTestId('project-files-input')).toHaveCount(0)
+    await expect(page.getByTestId('project-files-drop')).not.toContainText('Drop files here')
+    // A file still opens in the preview, and the folder link stays.
+    await page.getByRole('button', { name: 'Open notes.md' }).click()
+    await expect(page.getByTestId('file-preview')).toContainText('notes.md')
+    await expect(page.getByTestId('project-files-open')).toBeVisible()
+    expect(fs.puts).toEqual([])
+  })
+
+  test('the Files tab opens a file in the preview pane and shows an empty folder and a failed load plainly', async ({ page }) => {
+    await mockProjects(page)
+    await stubProjectFiles(page)
+    await page.goto('/app/projects/p1')
+    await page.getByTestId('project-tab-files').click()
+    await page.getByRole('button', { name: 'Open brief.md' }).click()
+    await expect(page.getByTestId('file-preview')).toContainText('brief.md')
+    await page.keyboard.press('Escape')
+
+    const empty = await page.context().newPage()
+    await mockProjects(empty)
+    await stubProjectFiles(empty, [])
+    await empty.goto('/app/projects/p1')
+    await empty.getByTestId('project-tab-files').click()
+    await expect(empty.getByTestId('project-files-empty')).toContainText('No files yet')
+
+    const failing = await page.context().newPage()
+    await mockProjects(failing)
+    await failing.route(/\/api\/chats\/files\/trash(\?.*)?$/, r => r.fulfill({ json: { entries: [] } }))
+    await failing.route(/\/api\/chats\/files(\?.*)?$/, r => r.fulfill({ status: 500, json: { error: { message: 'boom' } } }))
+    await failing.goto('/app/projects/p1')
+    await failing.getByTestId('project-tab-files').click()
+    await expect(failing.getByTestId('project-files-error')).toContainText('Could not load the files of this project.')
+    await expect(failing.getByTestId('project-files-empty')).toHaveCount(0)
   })
 })

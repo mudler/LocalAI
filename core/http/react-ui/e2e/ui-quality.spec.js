@@ -74,8 +74,15 @@ test.describe('Removed pages', () => {
 test.describe('Theme and language', () => {
   test('the theme choice sticks across a reload', async ({ page }) => {
     await page.goto('/app')
+    const html = page.locator('html')
+    const read = () => page.evaluate(() => document.documentElement.getAttribute('data-theme') || document.documentElement.className)
+    const before = await read()
     await page.getByRole('button', { name: /Switch to (dark|light) mode/ }).click()
-    const after = await page.evaluate(() => document.documentElement.getAttribute('data-theme') || document.documentElement.className)
+    // The switch runs inside a view transition and the choice is stored in an
+    // effect, so wait for both to land before reading it and reloading.
+    await expect(html).not.toHaveAttribute('data-theme', before)
+    const after = await read()
+    await page.waitForFunction(v => localStorage.getItem('localai-theme') === v, after)
     await page.reload()
     const again = await page.evaluate(() => document.documentElement.getAttribute('data-theme') || document.documentElement.className)
     expect(again).toBe(after)

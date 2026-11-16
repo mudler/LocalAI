@@ -42,6 +42,11 @@ TEST_DIR=/tmp/test
 
 TEST_FLAKES?=5
 
+## Total deadline for `ginkgo -r` in `make test`. Ginkgo counts it across all
+## suites, not per suite, and its default is 1h. The suites on a macOS runner
+## need about an hour, so the default cuts the run short.
+TEST_TIMEOUT?=2h
+
 RANDOM := $(shell bash -c 'echo $$RANDOM')
 
 VERSION?=$(shell git describe --always --tags || echo "dev" )
@@ -242,7 +247,7 @@ test: prepare-test
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --timeout $(TEST_TIMEOUT) --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 
 ## Compiles and runs the standalone C++ unit tests for the backends (pure
 ## helpers that depend only on the stdlib + nlohmann/json, no full backend
