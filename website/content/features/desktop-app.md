@@ -15,7 +15,7 @@ demo: ""
 points:
   - "The release carries a DMG for a Mac with Apple silicon, and an AppImage for Linux (x86-64 and ARM64)."
   - "On the first start, choose to run LocalAI on this computer or to connect to a server that runs somewhere else."
-  - "A status bar shows the state of the server. Pages for logs and settings are one click away."
+  - "A status bar shows the state of the server and opens the logs."
   - "Keep several servers and pick a default. The app opens the default one at start."
   - "It checks for a new server version once a day and never installs one without asking. Choose the Stable, Release candidates or Development channel."
 notes:

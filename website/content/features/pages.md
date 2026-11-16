@@ -3,7 +3,7 @@ title: "Pages and widgets"
 weight: 9
 card: "Ask for a small page. The assistant builds it in your files."
 headline: 'Ask for a <span class="hl">page</span>.'
-lede: "The assistant proposes a small page from a sentence. You confirm it, and it is saved in your files."
+lede: "Describe a small page. The assistant drafts it, and it's saved in your files when you confirm."
 docs: "/docs/features/pages/"
 dev: true
 icon: "home"
@@ -11,7 +11,6 @@ illus: "files"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
 demo: ""
 points:
-  - "The assistant proposes a page from a sentence. The page is created only after you confirm."
   - "A page is saved in your home folder, under pages."
   - "Data widgets show a list, a number with a note, a sparkline or your recent chats. Home takes up to twelve widgets."
   - "Add, remove and reorder widgets on Home. Each person has their own Home."

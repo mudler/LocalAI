@@ -13,12 +13,11 @@ demo: ""
 points:
   - "A connected agent reads your Files by default: list, read and search."
   - "It can search the text of PDF, Word, Excel and PowerPoint files."
-  - "Collections index PDF, text, Markdown and web pages. An agent searches a collection when you name it."
+  - "Knowledge indexes PDF, text, Markdown and web pages. An agent searches a collection when you name it."
   - "An admin can make shared folders that the team can read or edit."
   - "Results of image, sound and speech requests are saved here."
 notes:
-  - "Collections are off until an admin turns them on."
-  - "Shared folders are made by an admin."
+  - "An admin turns on Knowledge and creates shared folders."
 films:
   - {name: "files-and-sandbox", title: "Files and Sandbox.", caption: "Ask for a chart of a CSV file. The assistant runs Python in the Sandbox and saves the result in Files.", seconds: 34}
 ---

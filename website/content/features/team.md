@@ -15,7 +15,6 @@ points:
   - "An admin turns features on or off for each person."
   - "Shared folders give the team files in common. Read or edit, set by an admin."
 notes:
-  - "Admins can read all chats."
   - "There are two roles: admin and user."
 films:
   - {name: "team", title: "Team.", caption: "Make a shared folder that your team can use.", seconds: 36}

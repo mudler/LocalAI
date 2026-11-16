@@ -1,9 +1,9 @@
 ---
-title: "Collections"
+title: "Knowledge"
 weight: 8
 card: "Index documents and let an agent search them by meaning."
 headline: 'Ask your <span class="hl">documents</span>.'
-lede: "Collections index PDF, text, Markdown and web pages. An agent finds the passages that answer you."
+lede: "Knowledge holds collections of PDF, text, Markdown and web pages. An agent finds the passages that answer you."
 docs: "/docs/features/collections/"
 dev: true
 icon: "collections"
@@ -17,5 +17,5 @@ points:
   - "A saved agent lists the collections it may search. An agent searches a collection when you name it."
 notes:
   - "Collections need an embedding model. Install one first."
-  - "On a server with user accounts, an admin turns Collections on for each person."
+  - "On a server with user accounts, an admin turns Knowledge on for each person."
 ---

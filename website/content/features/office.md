@@ -2,8 +2,8 @@
 title: "Office"
 weight: 5
 card: "Make Word, Excel, PDF and PowerPoint files from one sentence."
-headline: 'A sentence becomes your <span class="hl">documents</span>.'
-lede: "Type what you need. LocalAI makes real Word, Excel, PDF and PowerPoint files and saves them in Files."
+headline: 'Ask for a document. Get the <span class="hl">file</span>.'
+lede: "Describe what you need. LocalAI makes real Word, Excel, PDF and PowerPoint files and saves them in Files."
 docs: "/docs/features/office/"
 dev: true
 icon: "office"

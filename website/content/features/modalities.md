@@ -22,6 +22,6 @@ points:
   - "Run it on a laptop, a server, in a container or on Kubernetes. [Distributed mode](/docs/administration/distributed-mode/) spreads models over several machines."
 notes:
   - "Animated video needs the Sandbox add-on, which an admin installs. The Sandbox has no network. A chat uses the media profile unless an admin limits the choice."
-  - "Each model kind needs a backend that serves it. LocalAI downloads the backend the first time a model needs it. See the [compatibility table](/docs/models/compatibility-table/)."
-  - "LocalAI runs open models. It does not run every model."
+  - "Each kind of model needs its own backend. LocalAI downloads it the first time a model needs it."
+  - "It runs many open models, not all of them. The [compatibility table](/docs/models/compatibility-table/) lists which."
 ---
