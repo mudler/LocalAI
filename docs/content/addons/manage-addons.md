@@ -574,7 +574,7 @@ At the end of a pass the owner writes one item to the inbox of the administrator
 
 ### On the Updates page
 
-**Operate → Updates** lists the add-ons that have an update, next to the backends, with
+**Admin → Updates** lists the add-ons that have an update, next to the backends, with
 the same states: ready, updating, failed, held for approval, and cannot update. It shows
 the time of the last add-on check and **Check now** reads the library of every installed
 add-on again. A held upgrade opens the same approval dialog as in Apps. An upgrade or a

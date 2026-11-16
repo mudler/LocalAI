@@ -299,7 +299,7 @@ If every node (frontend and workers) mounts the **same** models directory at the
 
 Set `LOCALAI_DISTRIBUTED_SHARED_MODELS=true` (or `--distributed-shared-models`) on the frontend to skip staging entirely. The router then leaves the model's absolute paths untouched and the worker loads them directly from the shared volume.
 
-This flag is a contract you assert: all nodes must mount identical paths. Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
+This flag is a contract you assert: all nodes must mount identical paths. LocalAI doesn't check it. The `.volume-id` check at startup covers only the Files blob folder (see [Chats deployment]({{% relref "/administration/chats-deployment" %}})). Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
 
 ### Which files are staged
 

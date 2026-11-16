@@ -103,11 +103,14 @@ The [LocalAI client tools]({{% relref "/features/chats-and-agents/localai-client
 6. Write to the bot from an account on the allowlist.
 
 ```
-curl -X POST .../api/chats/connectors -d '{"kind": "telegram", "name": "Support bot", "token": "123:abc", "agent_id": "<id>", "enabled": true, "allow": ["12345678"], "reply_mode": "progress", "conversation": "sender", "send_files": true}'
+curl -X POST .../api/chats/connectors -H 'Content-Type: application/json' -d '{"kind": "telegram", "name": "Support bot", "token": "123:abc", "agent_id": "<id>", "enabled": true, "allow": ["12345678"], "reply_mode": "progress", "conversation": "sender", "send_files": true}'
 curl -X POST .../api/chats/connectors/<id>/test
 curl .../api/chats/connectors/<id>/senders
 curl -X POST .../api/chats/connectors/<id>/senders/<sender>/allow   # add a sender of the log to the allowlist
 ```
+
+
+With authentication on, add `-H "Authorization: Bearer $API_KEY"` to each request.
 
 Each sender of the log may carry `chat` (the ID of the chat of the last message), `chat_name`
 (its name, when the add-on knows it) and, for a message that was ignored, `reason`:
@@ -191,7 +194,7 @@ a channel. The add-on uses Socket Mode, so LocalAI needs no public address.
 Over the API the two tokens are one `token`, separated by a space:
 
 ```
-curl -X POST .../api/chats/connectors -d '{"kind": "slack", "name": "Team app", "token": "xoxb-... xapp-...", "agent_id": "<id>", "enabled": true, "allow": ["U012AB3CD", "C0123456"]}'
+curl -X POST .../api/chats/connectors -H 'Content-Type: application/json' -d '{"kind": "slack", "name": "Team app", "token": "xoxb-... xapp-...", "agent_id": "<id>", "enabled": true, "allow": ["U012AB3CD", "C0123456"]}'
 ```
 
 ### How Slack messages map to chats
@@ -304,7 +307,7 @@ add-on opens to Discord), so LocalAI needs no public address.
 6. Mention the bot in a channel it can see, or write to it in a direct message.
 
 ```
-curl -X POST .../api/chats/connectors -d '{"kind": "discord", "name": "Team bot", "token": "<bot token>", "agent_id": "<id>", "enabled": true, "allow": ["<user ID>", "<channel ID>"]}'
+curl -X POST .../api/chats/connectors -H 'Content-Type: application/json' -d '{"kind": "discord", "name": "Team bot", "token": "<bot token>", "agent_id": "<id>", "enabled": true, "allow": ["<user ID>", "<channel ID>"]}'
 ```
 
 ### How Discord messages map to chats
@@ -484,9 +487,9 @@ when the platform cannot tell. The SDK's `connector.Bot` has an `AccountID` fiel
 
 ### Other connectors
 
-Telegram, Slack and MCP servers are built. Discord, IRC, Matrix, email, GitHub and Twitter
-connectors of the old agents are not rebuilt; the release that removes the old
-agents lists them as dropped.
+Telegram, Slack and Discord are messaging connectors, and MCP servers have their own
+page. Mail and GitHub are account connections: see [Accounts]({{% relref "/features/chat-apps/accounts" %}}).
+The IRC, Matrix and Twitter connectors of the old agents are not rebuilt.
 
 ## Next steps
 

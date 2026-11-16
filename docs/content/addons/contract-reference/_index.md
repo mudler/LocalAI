@@ -16,7 +16,7 @@ TLS carrier. The routes are described in [Public API]({{% relref "/addons/contra
 Add-ons pages in [Apps]({{% relref "/addons/contract-reference/apps-and-pages#apps" %}}), and Tables, the first first-party addon, in
 [Tables]({{% relref "/addons/catalogue/work/tables" %}}). The first-party package is described in
 [First-party package and release channels]({{% relref "/addons/contract-reference/first-party-packages#first-party-package-and-release-channels" %}});
-it is not published to a registry by any test or by acceptance.
+CI publishes it, not the tests or acceptance: the master workflow publishes the development channel, and a release tag publishes the pinned entries of the release.
 
 Trust has three parts, and they are different:
 

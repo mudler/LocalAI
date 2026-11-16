@@ -185,7 +185,7 @@ Equal path strings do not prove shared volume identity. With PostgreSQL, the
 first node to start writes a random `.volume-id` file in `DataPath/chats/blobs`
 and records the same id in the database; every node compares the two at startup
 and refuses to start on a mismatch or when the file is missing. This catches a
-volume that is not shared. It does not prove that the storage is coherent.
+volume that is not shared. The check covers the Files blob folder only. It doesn't check the models directory of distributed mode. It does not prove that the storage is coherent.
 Other data-path contents do not thereby become cluster-safe.
 
 Keep the canonical backing directory service-controlled, with compatible UID/GID

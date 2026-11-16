@@ -696,10 +696,12 @@ that did not complete never becomes downloadable.
 
 ## How to try it
 
-The addon is not published in a catalog yet. Acceptance builds the package locally and
-installs it from a catalog on loopback; it never pushes, tags or signs. Build the executable, put it in a
+To use Tables, install it from **Find add-ons** on a development build or a release newer than 4.12.1.
+A release build reads the `addons-index.yaml` that its release attaches. A development build reads the
+development index, where Tables is listed. To build the package yourself, build the executable, put it in a
 package with `manifest.json` from `addons/tables`, and install the package from
-a local source as described in [Addon contracts]({{% relref "/addons/contract-reference" %}}). The suite
+a local source as described in the [add-on contracts]({{% relref "/addons/contract-reference" %}}). Acceptance builds the
+package locally and installs it from a catalog on loopback. It never pushes, tags or signs. The suite
 `sh scripts/addons/verify.sh tables-databases` runs the store and the real
 executable under the real supervisor. The suite
 `sh scripts/addons/verify.sh tables-schema` covers the schema operations,
