@@ -123,16 +123,17 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     sh /usr/local/lib/localai/check-tools.sh media /usr/local/lib/localai/manifest.json
 
-# office: base plus LibreOffice Impress and fonts, to render a presentation to
-# PDF. Only Impress is installed, with no recommended packages and no Java:
-# that is what the .pptx to PDF conversion needs. Carlito and Caladea have the
-# metrics of Calibri and Cambria, so line breaks match PowerPoint. The two
-# checks convert a real deck and look for the fonts.
+# office: base plus LibreOffice Impress, Writer and Calc and fonts, to render
+# a presentation or a document to PDF and to recalculate a workbook. Only these
+# three components are installed, with no recommended packages, no Java and no
+# python3-uno. Carlito and Caladea have the metrics of Calibri and Cambria, so
+# line breaks match Office. The checks convert a real .pptx, .docx and .xlsx
+# (the workbook has a formula with no cached value) and look for the fonts.
 FROM base-tools AS office-tools
-COPY addons/sandbox/images/guest/check-office-convert addons/sandbox/images/guest/check-office-fonts /usr/local/bin/
+COPY addons/sandbox/images/guest/check-office-convert addons/sandbox/images/guest/check-office-docx addons/sandbox/images/guest/check-office-xlsx addons/sandbox/images/guest/check-office-fonts /usr/local/bin/
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends libreoffice-impress fontconfig fonts-dejavu-core fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea; \
+    apt-get install -y --no-install-recommends libreoffice-impress libreoffice-writer libreoffice-calc fontconfig fonts-dejavu-core fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea; \
     rm -rf /var/lib/apt/lists/*; \
     fc-cache -f; \
     sh /usr/local/lib/localai/check-tools.sh office /usr/local/lib/localai/manifest.json

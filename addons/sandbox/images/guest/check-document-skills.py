@@ -43,6 +43,9 @@ def check_pptx_guard(root):
     helpers = HELPERS.parent / "pptx"
     for name in ("pptx_guard.py", "render.sh"):
         require((helpers / name).is_file(), f"missing guest helper asset: pptx/{name}")
+    for kind, names in (("docx", ("render.sh",)), ("xlsx", ("render.sh", "recalc.sh"))):
+        for name in names:
+            require((HELPERS.parent / kind / name).is_file(), f"missing guest helper asset: {kind}/{name}")
     from pptx import Presentation
     from pptx.util import Inches
 

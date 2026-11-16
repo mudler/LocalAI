@@ -48,6 +48,21 @@ def normalize(text):
     start = text.find('## Build and check a deck\n')
     if start != -1:
         text = text[:start] + '## Not available here\n\nRendering a file to PDF or to images needs LibreOffice, which is not installed here. You cannot check how the file looks. Check it by opening it again with the library and reading back what you wrote, and tell the user that the look was not checked.\n'
+    # The office profile later let the docx and xlsx skills render, recalculate
+    # and check a file. Map their last section, and the two sentences of the
+    # xlsx API companion about LibreOffice, back to the original text.
+    start = text.find('## Build and check a document\n')
+    if start != -1:
+        text = text[:start] + '## Not available here\n\nRendering a file to PDF or to images needs LibreOffice, which is not installed here. You cannot check how the file looks. Check it by opening it again with the library and reading back what you wrote, and tell the user that the look was not checked.\n'
+    start = text.find('## Recalculate and check a workbook\n')
+    if start != -1:
+        text = text[:start] + '## Not available here\n\nRecalculation needs LibreOffice, which is not installed here. `openpyxl.oracle` (`recalc`, `certify`, `evaluate`, `evaluate_many`) cannot run, so do not call it. After you change a formula or an input, the cached values in the file are stale until a spreadsheet program recalculates them. Do not report a computed value for a cell that depends on your edit. Say that the file recalculates when it is opened in Excel or another spreadsheet program, and give the formula.\n\nRendering a file to PDF or to images needs LibreOffice, which is not installed here. You cannot check how the file looks. Check it by opening it again with the library and reading back what you wrote, and tell the user that the look was not checked.\n'
+    text = text.replace(
+        'which only the `office` sandbox profile has. In another profile do not call it. ',
+        'which is not installed here. Do not call it. ')
+    text = text.replace(
+        'which only the `office` sandbox profile has, so they cannot run in another profile. Cached values',
+        'which is not installed here, so they cannot run. Cached values')
     return text
 
 

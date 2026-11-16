@@ -286,7 +286,7 @@
             {
               "id": "office",
               "title": "Office",
-              "description": "Base plus LibreOffice Impress and fonts to render a presentation to PDF and images and check how it looks.",
+              "description": "Base plus LibreOffice Impress, Writer and Calc and fonts to render presentations and documents to images and to recalculate workbooks.",
               "cpus": 2,
               "memoryMiB": 4096,
               "diskMiB": 20480,
@@ -373,6 +373,20 @@
                   "check": [
                     "soffice --version",
                     "check-office-convert"
+                  ]
+                },
+                {
+                  "name": "LibreOffice Writer",
+                  "detail": "soffice, renders .docx to PDF",
+                  "check": [
+                    "check-office-docx"
+                  ]
+                },
+                {
+                  "name": "LibreOffice Calc",
+                  "detail": "soffice, recalculates .xlsx and renders it to PDF",
+                  "check": [
+                    "check-office-xlsx"
                   ]
                 },
                 {

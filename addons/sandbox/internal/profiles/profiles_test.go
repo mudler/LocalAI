@@ -54,7 +54,7 @@ func TestOfficeProfileAddsTheRenderToolsOnly(t *testing.T) {
 	if office.ID == "" {
 		t.Fatal("no office profile")
 	}
-	for _, want := range []string{"LibreOffice Impress", "fonts"} {
+	for _, want := range []string{"LibreOffice Impress", "LibreOffice Writer", "LibreOffice Calc", "fonts"} {
 		if !have[profiles.Office][want] || have[profiles.Base][want] || have[profiles.Media][want] {
 			t.Errorf("%s must be in office only", want)
 		}
