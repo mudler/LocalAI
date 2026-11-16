@@ -36,7 +36,7 @@ One server runs text, image, video, music and speech models. Each has its own en
 
 - **Text and vision**: chat, completions, tool calls, image understanding and object detection. Besides the OpenAI API, LocalAI answers in the Anthropic format (`/v1/messages`).
 - **Images and video**: generate images from a prompt, and video with the `/video` endpoint.
-- **Animated video**: you can also get a video without a video model. With the Sandbox add-on and its media profile (ffmpeg, sox and ImageMagick), the assistant can build video itself with the built-in `assemble-media` skill: a title card with a fade, a slideshow with a slow zoom and crossfade, a chart that draws itself, text that fades in. The result is an MP4 in your Files. The same skill joins, trims, mixes and subtitles clips that a video model made. The Sandbox has no network, and an administrator installs the add-on.
+- **Animated video** (development build): With the Sandbox add-on and its media profile, the assistant can build short videos with ffmpeg from a sentence: a title card with a fade, or a slideshow with a slow zoom and crossfade, saved as MP4 in your Files. The Sandbox has no internet. Results need a look before you use them.
 - **Music and sound**: make music and sound effects from a text prompt with `/v1/sound-generation`.
 - **Speech**: text to speech, transcription, voice activity detection and speaker recognition. The Realtime API takes voice in and gives voice back. Text to speech and sound generation also accept the ElevenLabs format.
 - **Search**: embeddings and a reranker, for retrieval over your own data.
