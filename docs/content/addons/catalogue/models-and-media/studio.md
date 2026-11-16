@@ -16,7 +16,7 @@ In the current development builds, this add-on is in the development channel of 
 | Who turns it on | A person needs the `addons` feature, which is off by default for new users on a server with accounts. The page opens at `/app/addons/studio/studio`. |
 
 {{% callout style="note" %}}
-Studio is an add-on. It is not part of the web bundle: install it from **Find add-ons** in the [Add-ons]({{% relref "/addons/contract-reference" %}}#the-studio-add-on) page with **Install and turn on**. Once it is usable, it is in My add-ons and can be shown in the sidebar, and it opens at `/app/addons/studio/studio`. Use its canonical add-on page address.
+Studio is an add-on. It is not part of the web bundle: install it from **Find add-ons** in the [Add-ons]({{% relref "/addons/manage-addons#the-studio-add-on" %}}) page with **Install and turn on**. Once it is usable, it is in My add-ons and can be shown in the sidebar, and it opens at `/app/addons/studio/studio`. Use its canonical add-on page address.
 {{% /callout %}}
 
 Studio is the part of the web UI where you make images, video, 3D objects, speech, sound and transformed audio, and find what you made before. It opens on a front page with a prompt box and your own work. Each type still has its own workspace page (Images, Video, 3D, TTS, Sound, Transform, Diarization) where a run happens.

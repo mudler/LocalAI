@@ -67,7 +67,7 @@ Each connection has a mode, set on the page by you and never by a model:
 | **Asks you first** | Each command waits in your approvals. The card shows the host, the user, the exact command, the time limit and the host key. A new connection made on the page starts here. |
 | **Runs at once** | The command runs as soon as the chat calls it, with no card. |
 
-Choose **Runs at once** only for a host and a user where a wrong command does no harm. In that mode the model is told to say plainly which command ran. The mode is the host's write mode of the connection (see [Confirming a held write in the chat]({{% relref "/addons/contract-reference" %}}#confirming-a-held-write-in-the-chat)): the tool declares no approval of its own, so the connection decides. In a messaging chat, the usual rules for who may confirm apply.
+Choose **Runs at once** only for a host and a user where a wrong command does no harm. In that mode the model is told to say plainly which command ran. The mode is the host's write mode of the connection (see [Confirming a held write in the chat]({{% relref "/addons/contract-reference/owner-forwarding#confirming-a-held-write-in-the-chat" %}})): the tool declares no approval of its own, so the connection decides. In a messaging chat, the usual rules for who may confirm apply.
 
 ## Tools
 

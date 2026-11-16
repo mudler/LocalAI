@@ -15,10 +15,10 @@ A chat runs commands and code with one tool, `bash`. Who serves it depends on
 the server:
 
 - **The Sandbox.** With the [Sandbox
-  add-on]({{%relref "/addons/contract-reference#sandbox" %}}) installed, running and on
+  add-on]({{% relref "/addons/catalogue/work/sandbox-settings#sandbox" %}}) installed, running and on
   for the chat, `bash` runs in an isolated sandbox. The add-on's `bash`
   replaces the built-in one (see [Tools that replace a built-in
-  tool]({{%relref "/addons/contract-reference#tools-that-replace-a-built-in-tool" %}})),
+  tool]({{% relref "/addons/contract-reference/owner-forwarding#tools-that-replace-a-built-in-tool" %}})),
   so the chat never has two.
 - **This machine.** Otherwise, when an administrator allows it, the built-in
   `bash` runs commands directly on the machine that runs LocalAI, **with no
@@ -118,7 +118,7 @@ save it half written; the next checkpoint corrects it.
 the chat's sandbox, inside the add-on. The sandbox stays awake while a job runs.
 It needs a Sandbox add-on of feature level 6; with an older one, `job start`
 says so and runs nothing elsewhere (see [Execution provider and status
-payload]({{%relref "/addons/contract-reference#execution-provider-and-status-payload" %}})).
+payload]({{% relref "/addons/contract-reference/manifest-extensions#execution-provider-and-status-payload" %}})).
 A call that must make the sandbox again (a new profile, folder or mode) ends the
 chat's jobs first and says so at the top of its output.
 
@@ -181,7 +181,7 @@ nothing changes and the model is told to try again.
 
 The Sandbox has no network device: its commands reach HTTP and HTTPS only
 through a proxy that asks LocalAI about each connection (see [Network
-access]({{%relref "/addons/contract-reference#network-access" %}})). Each chat has a
+access]({{% relref "/addons/catalogue/work/sandbox-settings#network-access" %}})). Each chat has a
 **Network** row in its Tools menu with three choices:
 
 - **Off**: commands reach nothing.
@@ -235,7 +235,7 @@ on this machine and use its network*: these settings do not apply there.
 
 The Network row is drawn by LocalAI for the add-on that runs the chat's
 commands, when that add-on has the `network-policy` [host
-control]({{%relref "/addons/contract-reference#host-controls" %}}) (the Sandbox has it).
+control]({{% relref "/addons/contract-reference/apps-and-pages#host-controls" %}}) (the Sandbox has it).
 With an add-on that runs commands but does not have it, the Tools menu has no
 Network row; the limit and the default still apply to its commands.
 
@@ -243,7 +243,7 @@ The routes, for the chat's owner (another user's chat is 404):
 
 | Route | What it does |
 |---|---|
-| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, addon, registries, allowed_hosts, rules, cards}`. `applies` is true when the add-on that serves `bash` reports, in its typed execution status, that it enforces the network policy and the status is available and isolated (the Sandbox does, except on the host backend). It is false when commands run on this machine (`applies_reason` `host`), no Sandbox serves `bash`, or the add-on does not report enforcement (`none`). `addon` is the add-on that runs the commands and draws the network controls of the chat (it has the `network-policy` [host control]({{%relref "/addons/contract-reference#host-controls" %}})); it is absent when no add-on runs the commands or that add-on has no such control. The chat shows the Network row only when `applies` is true and `addon` is set; otherwise it shows a line that says why the settings do not apply. A rule the ceiling no longer admits has `above_limit`. |
+| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, addon, registries, allowed_hosts, rules, cards}`. `applies` is true when the add-on that serves `bash` reports, in its typed execution status, that it enforces the network policy and the status is available and isolated (the Sandbox does, except on the host backend). It is false when commands run on this machine (`applies_reason` `host`), no Sandbox serves `bash`, or the add-on does not report enforcement (`none`). `addon` is the add-on that runs the commands and draws the network controls of the chat (it has the `network-policy` [host control]({{% relref "/addons/contract-reference/apps-and-pages#host-controls" %}})); it is absent when no add-on runs the commands or that add-on has no such control. The chat shows the Network row only when `applies` is true and `addon` is set; otherwise it shows a line that says why the settings do not apply. A rule the ceiling no longer admits has `above_limit`. |
 | `PUT /api/chats/{id}/egress {preset}` | Sets the preset: `off`, `registries` or `all`. Above the ceiling it is 400 `egress_above_ceiling`. |
 | `GET /api/chats/draft/egress?model=&agent_id=` | The network a new chat would start with: the same shape as `GET /api/chats/{id}/egress`, with the default preset (or the saved agent's) under the ceiling, `addon` for the add-on that would run the commands, and no rules or cards. `applies` is always false: no sandbox is bound to a chat that does not exist, so nothing reports enforcement yet. A new chat's composer offers the presets from it; the choice is sent with `PUT /api/chats/{id}/egress` once the chat exists. |
 | `DELETE /api/chats/{id}/egress/rules/{host}/{port}` | Removes an allow or deny rule. |
@@ -263,7 +263,7 @@ it is right after a restart and the same on every frontend of a cluster.
 ### Sandbox profile
 
 A Sandbox add-on that declares profiles (the Sandbox does: `base` and
-`media`, see [Sandbox profiles]({{%relref "/addons/contract-reference#sandbox-profiles" %}}))
+`media`, see [Sandbox profiles]({{% relref "/addons/catalogue/work/sandbox-settings#sandbox-profiles" %}}))
 gives the Tools menu a **Profile** row next to the Network row. It shows the
 profile the next command runs and lets you pick another one. A new chat gets the
 default of the administrator (`media` when the administrator sets none), or the

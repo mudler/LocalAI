@@ -76,7 +76,7 @@ It logs in to Google with OAuth 2.0 (see [Connections that log in with OAuth](#c
 
 1. In the Google Cloud console, create a project and turn on the **Google Drive API** for it.
 2. Set up the **OAuth consent screen**. Add the scope `https://www.googleapis.com/auth/drive.readonly`, and the scope `https://www.googleapis.com/auth/drive.file` if people may write. Then **publish the app to production**. While the app is in the *Testing* state, Google ends every refresh token after 7 days, and the connections stop working until each person connects again.
-3. Create a client of the type **Web application**. As the authorized redirect URI, enter the callback address of your server: the base URL followed by `/api/chats/connectors/oauth/callback`, for example `https://localai.example.test/api/chats/connectors/oauth/callback`. The **Settings** tab of the add-on shows it as the **Callback address**. Set the external base URL of the server first if the form says it does not know its public address (see [the login routes]({{% relref "/addons/contract-reference" %}}#the-login-routes)).
+3. Create a client of the type **Web application**. As the authorized redirect URI, enter the callback address of your server: the base URL followed by `/api/chats/connectors/oauth/callback`, for example `https://localai.example.test/api/chats/connectors/oauth/callback`. The **Settings** tab of the add-on shows it as the **Callback address**. Set the external base URL of the server first if the form says it does not know its public address (see [the login routes]({{% relref "/addons/contract-reference/manifest-extensions#the-login-routes" %}})).
 4. On the **Add-ons** page open **Google Drive**, select the **Settings** tab, enter the **Client ID** and **Client secret** of the client and select **Approve and save**.
 
 `drive.readonly` is a restricted scope. An app that stays unverified can still be used, but Google shows a warning at sign-in and limits the app to 100 users. If you need more users, or the app belongs to an organization outside your own Google Workspace, the app must pass Google's verification for restricted scopes, which includes a security assessment. In a Google Workspace you can set the user type to **Internal**, which needs no verification and allows only the people of that organization.
@@ -304,7 +304,7 @@ connection with the same states as below (**Connect**, **Reconnect**,
 page shows no button: an administrator sees a link to the add-on's **Settings**
 tab, and other people see a note to ask an administrator. A login may return to
 any page of the web app that starts with `/app`: the `return_to` field of the
-start call (see [the login routes]({{% relref "/addons/contract-reference" %}}#the-login-routes)).
+start call (see [the login routes]({{% relref "/addons/contract-reference/manifest-extensions#the-login-routes" %}})).
 
 A binding that logs in shows one state under its name:
 
@@ -343,7 +343,7 @@ may add. Before anyone can connect:
 1. Register the **Callback address** with the service as the redirect address
    of a new client. If the form says the server does not know its public
    address, set the external base URL of the server first (see [OAuth 2.0
-   credentials]({{% relref "/addons/contract-reference" %}}#oauth-20-credentials)).
+   credentials]({{% relref "/addons/contract-reference/manifest-extensions#oauth-20-credentials" %}})).
 2. Enter the **Client ID** and **Client secret** that the service gives you. The
    secret is write-only: the form never shows it again, and an empty field
    keeps the stored one. A login that uses no secret has no secret field.
@@ -376,5 +376,5 @@ back to the page you started from, with `oauth=ok`, `oauth=denied` or
 says `connected` and names the account. `POST .../oauth/disconnect` ends the
 login. An administrator must first save the add-on's client, which approves the
 login the add-on declares. See [OAuth 2.0
-credentials]({{% relref "/addons/contract-reference" %}}#oauth-20-credentials) for the
+credentials]({{% relref "/addons/contract-reference/manifest-extensions#oauth-20-credentials" %}}) for the
 routes, the callback address to register with the service and the approval.

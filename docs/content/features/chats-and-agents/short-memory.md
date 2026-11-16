@@ -73,7 +73,7 @@ settings" as a read-only line.
 
 Built-in memory is the default. At the top of the **Memory** tab, **Memory provider**
 lists the providers you can pick: **Built-in**, **Off**, and every installed add-on that
-says it can serve memory (see [Provider slots]({{% relref "/addons/contract-reference" %}}#provider-slots)). One
+says it can serve memory (see [Provider slots]({{% relref "/addons/contract-reference/host-operations#provider-slots" %}})). One
 serves at a time. When you pick an add-on, its index files, skills and memory tools
 replace the built-in ones, and the built-in provider does not read or save notes. Your
 existing notes stay where they are.
@@ -307,10 +307,10 @@ stop memory and never chose otherwise, memory stays off for you.
 
 The host serves memory itself. An add-on that wants to serve it in place of the built-in
 provider declares `capabilities.provides` with the slot `memory`; the person picks it in
-**Memory provider**. See [Provider slots]({{% relref "/addons/contract-reference" %}}#provider-slots). A provider can also supply the notes of each turn, an export and a forget, and the host
+**Memory provider**. See [Provider slots]({{% relref "/addons/contract-reference/host-operations#provider-slots" %}}). A provider can also supply the notes of each turn, an export and a forget, and the host
 checks its writes against your save level; see
-[What the host does itself with a provider]({{% relref "/addons/contract-reference" %}}#what-the-host-does-itself-with-a-provider).
+[What the host does itself with a provider]({{% relref "/addons/contract-reference/host-operations#what-the-host-does-itself-with-a-provider" %}}).
 The add-on `memory` is an alias of the built-in provider: it stays valid and harmless. An add-on
 can still declare `capabilities.contextFiles` for its own index files;
-see [Context files]({{% relref "/addons/contract-reference" %}}#context-files). A skill named `memory` or
+see [Context files]({{% relref "/addons/contract-reference/connectors-and-chats#context-files" %}}). A skill named `memory` or
 `memory-check-own-files` is reserved for the built-in ones.

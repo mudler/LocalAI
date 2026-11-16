@@ -32,7 +32,7 @@ go build ./addons/tables/...
 - **One owner.** A database is a SQLite file on the disk of the one LocalAI instance
   that owns the add-on. Other frontends forward to it; while the owner is down every
   Tables call fails with `503` on every frontend, and nothing is applied later. See
-  [Singleton owner and its limits]({{% relref "/addons/contract-reference" %}}#singleton-owner-and-its-limits).
+  [Singleton owner and its limits]({{% relref "/addons/contract-reference/owner#singleton-owner-and-its-limits" %}}).
 - **Trust.** The Tables executable is trusted code that runs as the owner's operating
   system user. Tables itself never learns who a caller is: the host gives it the
   database ID and the action, and the host decides the role and the approval.
@@ -43,13 +43,13 @@ go build ./addons/tables/...
 - **Ownership mode.** Named-user mode keeps databases private to their owners and
   shareable. Local-owner mode has one owner and no sharing, so the database page shows no Share button. The mode is stored with the
   data and is changed only while the host is stopped, with an explicit mapping (see
-  [Moving between the modes]({{% relref "/addons/contract-reference" %}}#moving-between-the-modes)).
+  [Moving between the modes]({{% relref "/addons/contract-reference/owner-forwarding#moving-between-the-modes" %}})).
 - **CSV.** An export is a private, temporary file with the formula policy described in
   [Spreadsheet formulas]({{% relref "/addons/catalogue/work/tables#spreadsheet-formulas" %}}): it protects a spreadsheet, not a
   program that trusts CSV.
 - **Updates.** The host never upgrades Tables by itself. An administrator checks for an
   update and applies one named candidate (see
-  [Update detection and upgrade]({{% relref "/addons/contract-reference" %}}#update-detection-and-upgrade)); the data is
+  [Update detection and upgrade]({{% relref "/addons/manage-addons#update-detection-and-upgrade" %}})); the data is
   backed up first.
 - **Optional contributions.** The package declares its UI pages and its tools. A host
   that has no UI still runs the tools, and a UI never gains a tool the manifest does not
@@ -117,7 +117,7 @@ databases it may use, each as **Read** or **Read and change**; with none listed 
 uses none, and the list tool shows it only those databases. Creating a database is
 not limited, but a new database is on no list until you add it to the agent. See
 [Resources of an agent]({{% relref "/features/chats-and-agents/chats-agents" %}}#resources-of-an-agent). This needs
-LocalAI with feature level 2 (see [Feature level]({{% relref "/addons/contract-reference" %}}#feature-level)); an
+LocalAI with feature level 2 (see [Feature level]({{% relref "/addons/contract-reference/manifest#feature-level" %}})); an
 older LocalAI refuses this version of Tables when it installs it.
 
 ### Database discovery
@@ -125,7 +125,7 @@ older LocalAI refuses this version of Tables when it installs it.
 `addon__tables__databases-list` takes exactly `{}` and reads the host's resource
 registry, not the Tables executable. It is available only through existing
 authorized actor-bound consumers when Tables is visible, enabled and running,
-and the backend supports host resource listing. The tool exists because the Tables manifest declares it under `capabilities.resources.list` (see [Resource listing]({{% relref "/addons/contract-reference" %}}#resource-listing)); a copy of Tables with an older manifest keeps it until the add-on updates. Existing chat opt-ins, hidden
+and the backend supports host resource listing. The tool exists because the Tables manifest declares it under `capabilities.resources.list` (see [Resource listing]({{% relref "/addons/contract-reference/manifest-extensions#resource-listing" %}})); a copy of Tables with an older manifest keeps it until the add-on updates. Existing chat opt-ins, hidden
 add-ons and agent allowlists still apply. Shared MCP sessions and consumers
 without a principal do not gain access.
 
@@ -362,7 +362,7 @@ The rules:
 - **Roles.** The role of an undo is the role of the change: owners and editors undo a
   data change, only the owner undoes a schema change or the creation of a database.
 - **Not a tool.** The undo is the person's own action from a browser tab (see
-  [Undoing a change a chat made]({{% relref "/addons/contract-reference" %}}#undoing-a-change-a-chat-made)). An API key, an
+  [Undoing a change a chat made]({{% relref "/addons/contract-reference/proposals-and-resources#undoing-a-change-a-chat-made" %}})). An API key, an
   MCP session, an agent or a model cannot call it, and no tool name for it exists. This is
   a decision: the model is told the change ID and that the person can undo it, so it
   cannot silently undo its own work or anyone else's.

@@ -98,14 +98,14 @@ start the frontends with `--addons-role=frontend`, so they forward add-on reques
 to it and hold no add-on state. The library sources and the backend library
 installs also go through the owner: a frontend follows the owner's sources and
 installs backends on its own node. See
-[Running the owner as its own workload]({{% relref "/addons/contract-reference#running-the-owner-as-its-own-workload" %}}).
+[Running the owner as its own workload]({{% relref "/addons/contract-reference/owner#running-the-owner-as-its-own-workload" %}}).
 
 The owner must join distributed mode with the same `--nats-url`, registration token
 and PostgreSQL database as the frontends. Then it takes part in the leader locks and
 sends model loads to the workers. An owner without these settings loads models in its
 own process (`backend not found`) and polls the connectors next to the leader
 frontend (Slack messages answered twice). See
-[The owner in distributed mode]({{% relref "/addons/contract-reference#the-owner-in-distributed-mode" %}}).
+[The owner in distributed mode]({{% relref "/addons/contract-reference/owner#the-owner-in-distributed-mode" %}}).
 
 ### The model load deadline scales with the checkpoint
 
@@ -353,7 +353,7 @@ on any frontend whether or not it holds the lock, and it installs nothing.
 was checked (see [Checking for backend updates]({{% relref "/models/backends#checking-for-backend-updates" %}})). A standalone server has
 no lock and installs after any check.
 
-The same frontend writes the update items of the inbox: the digest of the updates that need a person, the result of the pass and the notice of a check that keeps failing (see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})). The mode is single runner, on the same lock, so there is no new lock key. The items are rows of the shared database, and every frontend streams a new one to its clients through the bus; the browser push and the Telegram forward run on the frontend that stores the item, so they happen once in the cluster. Failover is safe: a new leader that finds the same updates changes nothing, because the items are keyed and an unchanged item is not written again. The count of failed passes that delays the failed-check notice is kept in the memory of the leader, so a new leader starts it again from zero. Add-on items are written by the add-on owner (see [Add-ons]({{% relref "/addons/contract-reference#automatic-upgrade" %}})). Limit: the two-frontend rules are tested with the in-process bus and a shared store; the lock itself needs PostgreSQL and is tested elsewhere.
+The same frontend writes the update items of the inbox: the digest of the updates that need a person, the result of the pass and the notice of a check that keeps failing (see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})). The mode is single runner, on the same lock, so there is no new lock key. The items are rows of the shared database, and every frontend streams a new one to its clients through the bus; the browser push and the Telegram forward run on the frontend that stores the item, so they happen once in the cluster. Failover is safe: a new leader that finds the same updates changes nothing, because the items are keyed and an unchanged item is not written again. The count of failed passes that delays the failed-check notice is kept in the memory of the leader, so a new leader starts it again from zero. Add-on items are written by the add-on owner (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})). Limit: the two-frontend rules are tested with the in-process bus and a shared store; the lock itself needs PostgreSQL and is tested elsewhere.
 
 ### Watching Backend Installs
 

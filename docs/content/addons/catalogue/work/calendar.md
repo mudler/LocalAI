@@ -46,7 +46,7 @@ Open **Calendar** in the add-ons. It has a month view, an agenda list of the nex
 
 The reads run at once. The writes are action tools: they run at once, as the user, with no confirmation card, and an unattended run (a trigger or a job) needs the `act.addons` grant for them. The add-on ships a skill that tells the model when to use them.
 
-In a messaging chat, the owner and the senders paired with the bot can read and change the calendar. Every other sender the bot lets in can read it but not change it (the `tools.write` rule, see [Add-ons that keep the owner's own data]({{% relref "/addons/contract-reference" %}}#add-ons-that-keep-the-owners-own-data)).
+In a messaging chat, the owner and the senders paired with the bot can read and change the calendar. Every other sender the bot lets in can read it but not change it (the `tools.write` rule, see [Add-ons that keep the owner's own data]({{% relref "/addons/contract-reference/owner-forwarding#add-ons-that-keep-the-owners-own-data" %}})).
 
 ## Limits
 

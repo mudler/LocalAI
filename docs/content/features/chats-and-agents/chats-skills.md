@@ -119,7 +119,7 @@ The add-on layer holds the skills of the add-ons that the chat can use now: inst
 
 An add-on can also replace a built-in skill of the same name, for example the Office add-on's own `xlsx`, written for its tools. The add-on's skill then serves and the built-in one shows `shadowed: "addon"` with `shadowed_by`, the add-on's ID. When the add-on is off for the chat or not running, or you switch its skill off (`addon:xlsx`), the built-in skill serves again: the model is told in one line, and the built-in skill in the skill list carries `fallback`, the add-on's title. When several add-ons replace one skill, the one installed first serves until an administrator chooses another in Settings > Tools, under **Skills that add-ons replace**, or with the switch in the add-on's details on the Add-ons page.
 
-In the **Skills** menu over the message box each skill says where it comes from: **Built-in**, the add-on's title, **Personal**, **Shared** or **Workspace**. A built-in skill that an add-on replaces is listed under the others, dimmed, with "Replaced by <add-on>" and no switch. When a built-in skill serves because the add-on's own skill is off or not running, one line under the title says so. The **Skills** page lists add-on skills under the **Add-on** layer, with the add-on's title as the badge, and says which skill replaces which. See [Skills of an add-on]({{%relref "/addons/contract-reference#skills" %}}) for how an add-on ships them.
+In the **Skills** menu over the message box each skill says where it comes from: **Built-in**, the add-on's title, **Personal**, **Shared** or **Workspace**. A built-in skill that an add-on replaces is listed under the others, dimmed, with "Replaced by <add-on>" and no switch. When a built-in skill serves because the add-on's own skill is off or not running, one line under the title says so. The **Skills** page lists add-on skills under the **Add-on** layer, with the add-on's title as the badge, and says which skill replaces which. See [Skills of an add-on]({{% relref "/addons/contract-reference/manifest#skills" %}}) for how an add-on ships them.
 
 The format is the same as the skills LocalAI already used, so an existing skill carries over by copying its folder into one of the places above. Skills in the public [Agent Skills](https://agentskills.io/specification) format can also be imported from a zip file and exported as one (see [Import and export skills](#import-and-export-skills)). Git sources are not part of chats.
 
@@ -171,8 +171,8 @@ An export of a skill imports again to the same files.
 ### Document skills
 
 The familiar names `docx`, `pptx`, `pdf`, and `xlsx` identify document authoring skills from add-ons, not built-in skills.
-[Sandbox]({{%relref "/addons/contract-reference#sandbox" %}}) supplies Python/Paper procedures and their references.
-[Simple Office]({{%relref "/addons/contract-reference#simple-office" %}}) supplies separate procedures for its document tools, without command execution.
+[Sandbox]({{% relref "/addons/catalogue/work/sandbox-settings#sandbox" %}}) supplies Python/Paper procedures and their references.
+[Simple Office]({{% relref "/addons/contract-reference/first-party-packages#simple-office" %}}) supplies separate procedures for its document tools, without command execution.
 
 1. Install and enable a provider on the **Add-ons** page.
 2. Switch the provider on in the chat's **Tools** menu.

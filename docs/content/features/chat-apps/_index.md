@@ -37,7 +37,7 @@ Core keeps what is the same for every platform: the bindings, the sealed bot tok
 the allowlist, the sender log, one chat for each sender (or for each thread) and the
 turn itself. The
 platform's API is spoken by an add-on that declares the `connector` capability (see
-[Connector add-ons]({{% relref "/addons/contract-reference" %}}#connector-add-ons)). Install the add-on
+[Connector add-ons]({{% relref "/addons/contract-reference/connectors-and-chats#connector-add-ons" %}})). Install the add-on
 from the add-on gallery, and its page adds and edits the bindings of its platform.
 
 The Accounts and Messaging tabs group your bindings by add-on and links each group to the
@@ -47,7 +47,7 @@ platforms and opens the add form of the one you pick. With no connector add-on i
 to the gallery. `GET /api/chats/connectors/kinds` lists the platforms that a running
 add-on serves. A kind whose add-on declares a setup text also has `setup`, a short phrase
 such as "a bot token from @BotFather" that says what the person needs before a connection
-works (see [Setup text]({{%relref "/addons/contract-reference#setup-text" %}})).
+works (see [Setup text]({{% relref "/addons/contract-reference/manifest#setup-text" %}})).
 
 A binding names the add-on that serves it. A binding made before connectors became
 add-ons names none, and belongs to the add-on of its kind: a Telegram binding keeps
@@ -65,7 +65,7 @@ Each kind in the add-on manifest declares `delivery`:
 - **`push`**. The add-on calls the host operation `connector.inbound` for each
   message. The turn then runs in the process that hosts the add-on. A push add-on
   therefore needs a `combined` owner or a distributed owner (see
-  [The owner in distributed mode]({{% relref "/addons/contract-reference" %}}#the-owner-in-distributed-mode)).
+  [The owner in distributed mode]({{% relref "/addons/contract-reference/owner#the-owner-in-distributed-mode" %}})).
 
 ### The page of a connector add-on
 
@@ -455,7 +455,7 @@ so every frontend makes the same one without a lock. See also [Multiple frontend
 ### For add-on authors: sending files
 
 A connector add-on does not choose which files reach a person. The host does, and it
-sends each one with the typed `send_file` op: the request carries a `transfer` handle for the bytes (`name`, `mime` and `size` of the file; see [File abilities and limits]({{% relref "/addons/contract-reference" %}}#file-abilities-and-limits)) with the chat and the thread of the message it answers. The
+sends each one with the typed `send_file` op: the request carries a `transfer` handle for the bytes (`name`, `mime` and `size` of the file; see [File abilities and limits]({{% relref "/addons/contract-reference/connectors-and-chats#file-abilities-and-limits" %}})) with the chat and the thread of the message it answers. The
 host chooses the files in two ways:
 
 - The files that the turn made or changed go on their own, after the answer.

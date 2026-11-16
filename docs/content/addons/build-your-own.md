@@ -277,10 +277,10 @@ sh scripts/addons/zip.sh --addon hello --local-check --out dist/addons
 3. Read the dialog. It shows "Local file, unsigned". Confirm.
 4. Open a chat, switch `hello` on in the **Tools** menu and ask: "Say hello to Ada."
 
-The install needs sign-in to be on, or `--addon-host-ui-grants-without-auth`. See [Install from a file]({{% relref "/addons/contract-reference#install-from-a-file" %}}).
+The install needs sign-in to be on, or `--addon-host-ui-grants-without-auth`. See [Install from a file]({{% relref "/addons/install-and-update#install-from-a-file" %}}).
 
 ## Next steps
 
-- A tool that changes something uses another `kind`. See [Action tools]({{% relref "/addons/contract-reference#action-tools" %}}) and [Proposals and confirmation]({{% relref "/addons/contract-reference#proposals-and-confirmation" %}}).
-- To show a page, add a UI bundle. See [Add-on pages]({{% relref "/addons/contract-reference#add-on-pages" %}}).
+- A tool that changes something uses another `kind`. See [Action tools]({{% relref "/addons/contract-reference/host-operations#action-tools" %}}) and [Proposals and confirmation]({{% relref "/addons/contract-reference/proposals-and-resources#proposals-and-confirmation" %}}).
+- To show a page, add a UI bundle. See [Add-on pages]({{% relref "/addons/contract-reference/apps-and-pages#add-on-pages" %}}).
 - To keep data, use the data directory that the host gives in the startup data.

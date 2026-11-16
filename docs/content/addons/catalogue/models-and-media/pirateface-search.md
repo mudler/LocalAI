@@ -34,4 +34,4 @@ The add-on reads `https://pirateface.co/s/<query>`, the plain text search page. 
 
 The host checks every row the add-on returns. A row whose address does not start with a scheme the importer accepts, or that has a field over its size limit, is dropped and counted: the Models page shows "N results skipped". A gated model has no magnet link on the site, and LocalAI does not go around that.
 
-For the contract of a model search source, see [Model search sources]({{% relref "/addons/contract-reference" %}}#model-search-sources).
+For the contract of a model search source, see [Model search sources]({{% relref "/addons/contract-reference/host-operations#model-search-sources" %}}).

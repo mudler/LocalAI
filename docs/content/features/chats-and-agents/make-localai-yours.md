@@ -137,7 +137,7 @@ A plain Markdown file of at most 4 KiB with the persona and the standing rules o
 saved agent. The host adds it to the prompt of every chat of that agent, right after the
 agent's instructions and the persona; longer text is cut. You can edit it in the Files
 page. Add-ons can also register index files that the host loads in the same way (see
-[Context files]({{% relref "/addons/contract-reference" %}}#context-files)).
+[Context files]({{% relref "/addons/contract-reference/connectors-and-chats#context-files" %}})).
 
 ### LocalAI/user.json
 

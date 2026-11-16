@@ -27,7 +27,7 @@ An agent has:
 | `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
 | `builtins_off` | Groups of built-in tools the agent's chats never have: `shell`, `files`, `web`, `media`, `collections`, `subagents`, `triggers`, `changes`, `localai_client` (the inference tools) and `localai_admin` (the server-management tools). It is a ceiling: a chat with the agent shows the group switched off and cannot switch it on. Empty (the default): the chat has every group it has by default. A group this server does not offer is dropped. |
 | `builtins_on` | Opt-in groups of built-in tools that chats with the agent start with: `saved_agents` and `localai_admin`. The chat can switch them off. `localai_admin` is for administrators and is never offered in a messaging chat or a run that starts by itself, whatever the agent says. |
-| `network` | The network of the [Sandbox]({{%relref "/addons/contract-reference#network-access" %}}) commands of the agent's trigger and connector runs: `off` (the default), `registries` (the package registries) or `all` (every public host), capped by the administrator's `chats_egress_ceiling`. A run never shows a card: a host outside it is blocked, and the block is in the run's output. A chat you start with the agent starts with this preset too; you change it in the chat's Tools menu. The agent form sets it in the add-ons fold. |
+| `network` | The network of the [Sandbox]({{% relref "/addons/catalogue/work/sandbox-settings#network-access" %}}) commands of the agent's trigger and connector runs: `off` (the default), `registries` (the package registries) or `all` (every public host), capped by the administrator's `chats_egress_ceiling`. A run never shows a card: a host outside it is blocked, and the block is in the run's output. A chat you start with the agent starts with this preset too; you change it in the chat's Tools menu. The agent form sets it in the add-ons fold. |
 | `folders` | Optional. Up to 8 folders of your files that chats with the agent work in, each with its own mode: `read` or `write`. `folder` is the same with one entry. Without them the agent works on all your files. See [Folders of an agent](#folders-of-an-agent). |
 
 The agent form shows the same Tools list as the Tools menu of a chat, with a
@@ -231,7 +231,7 @@ the agent. The export file never carries `resources`: a resource ID belongs to o
 server. An import drops the field and says so under `warnings`.
 
 An add-on opts in with `capabilities.resources.agentScoped` in its manifest (feature
-level 2; see [the manifest]({{% relref "/addons/contract-reference" %}}#feature-level)).
+level 2; see [the manifest]({{% relref "/addons/contract-reference/manifest#feature-level" %}})).
 
 ### Folders of an agent
 
@@ -321,7 +321,7 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folders": [
   add-on that works on your files, such as Office or the Sandbox, `/` is the
   agent's folder, and the Sandbox sees the chat folder next to it at
   `/workspace/chat`. This holds for every tool, also one that only reads. See
-  [Workspace operations]({{%relref "/addons/contract-reference#workspace-operations" %}}).
+  [Workspace operations]({{% relref "/addons/contract-reference/first-party-packages#workspace-operations" %}}).
 - A `PUT` without `folders` or `folder` keeps the folders the agent has, so a
   client that does not know the fields cannot give the agent more files by
   editing it. `"folders": []` clears them. When both are sent, `folders` wins.

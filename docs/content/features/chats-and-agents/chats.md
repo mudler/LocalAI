@@ -231,7 +231,7 @@ index shows its size against the caps (at most 40 lines and 2 KiB for an index,
 4 KiB for a profile, 6 KiB of notes in one turn). You can open a file, edit it,
 delete it (it goes to the Trash) or clear all of them. An index cannot be saved
 over its cap. A model changes these files only through a confirmed
-[change proposal]({{% relref "/addons/contract-reference" %}}#change-proposals-from-chats).
+[change proposal]({{% relref "/addons/contract-reference/connectors-and-chats#change-proposals-from-chats" %}}).
 
 `GET /api/chats/context-files` returns the list for the page: `limits`, and
 `groups` of `{source, scope, key, max_bytes, max_lines, files[]}`. It only reads.

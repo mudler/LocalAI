@@ -38,7 +38,7 @@ question.
 - **Add-on writes.** A write of an add-on that waits because its connection asks first is
   written in the chat the same way and answered with the same words, by a paired sender
   who holds `proposals.confirm`. See [Confirming a held write in the
-  chat]({{% relref "/addons/contract-reference" %}}#confirming-a-held-write-in-the-chat).
+  chat]({{% relref "/addons/contract-reference/owner-forwarding#confirming-a-held-write-in-the-chat" %}}).
 - **Several waiting.** A bare word answers only when exactly one proposal (a change, an
   add-on write or a trigger) waits in that chat and thread. Otherwise the bot lists the codes and the
   person writes `confirm CODE` or `cancel CODE`.

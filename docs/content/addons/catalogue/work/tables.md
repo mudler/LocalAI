@@ -22,7 +22,7 @@ For example, make a database called "Reading list" on the **Databases** page and
 
 Creating, renaming, sharing and deleting a database are the person's own
 actions in the Tables pages, through the routes described in
-[UI-only resource management]({{% relref "/addons/contract-reference" %}}#ui-only-resource-management). They
+[UI-only resource management]({{% relref "/addons/contract-reference/proposals-and-resources#ui-only-resource-management" %}}). They
 are not tools: a model never sees them and sharing and deletion are never
 proposals.
 
@@ -111,7 +111,7 @@ Row and schema changes made in these pages are the person's own action. They
 need no confirmation card and are not proposals, and they still go through the
 host's `POST /api/addons/resources/{resourceId}/apply`: the role of the action,
 the declared tool definition, the admission of the resource, the revision and
-the receipt (see [Changing data and schema from the UI]({{% relref "/addons/contract-reference" %}}#changing-data-and-schema-from-the-ui)).
+the receipt (see [Changing data and schema from the UI]({{% relref "/addons/contract-reference/proposals-and-resources#changing-data-and-schema-from-the-ui" %}})).
 
 ### The database of a chat
 
