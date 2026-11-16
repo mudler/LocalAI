@@ -2,7 +2,7 @@
 title: "Pages and widgets"
 weight: 9
 card: "Ask for a small page. The assistant builds it in your files."
-headline: 'Ask for a <span class="hl">page</span>.'
+headline: 'Ask for a small page, such as a task <span class="hl">board</span>.'
 lede: "Describe a small page. The assistant drafts it, and it's saved in your files when you confirm."
 docs: "/docs/features/pages/"
 dev: true
@@ -12,7 +12,7 @@ illus: "files"
 demo: ""
 points:
   - "A page is saved in your home folder, under pages."
-  - "Data widgets show a list, a number with a note, a sparkline or your recent chats. Home takes up to twelve widgets."
+  - "Data widgets show a list, a number with a note or your recent chats. Home takes up to twelve widgets."
   - "Add, remove and reorder widgets on Home. Each person has their own Home."
 notes:
   - "Pages are off for ordinary users until an admin turns them on. Admins always have them. Pages also need Chats."

@@ -28,15 +28,15 @@ The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list eve
 <figcaption>"Hand it over", the 5.0 launch film. 42 seconds, with sound.</figcaption>
 </figure>
 
-We made the film with LocalAI: the pictures, the voices and the music. Each joke in it is a job 5.0 really does: the press article, the budget, the slides, the poster, and carrying on with the internet down. The sections below go through them.
+We made the film with LocalAI: the pictures, the voices and the music. It shows five jobs that 5.0 does: a press article, a budget, slides, a poster, and work with the network down.
 
 ## One API for every kind of model
 
-One server runs every kind of open model, and each kind has its own endpoint:
+One server runs text, image, video, music and speech models. Each has its own endpoint:
 
 - **Text and vision**: chat, completions, tool calls, image understanding and object detection. Besides the OpenAI API, LocalAI answers in the Anthropic format (`/v1/messages`).
 - **Images and video**: generate images from a prompt, and video with the `/video` endpoint.
-- **Animated video**: a video model is not the only way to get a video. With the Sandbox add-on and its media profile (ffmpeg, sox and ImageMagick), the assistant can build video itself with the built-in `assemble-media` skill: a title card with a fade, a slideshow with a slow zoom and crossfade, a chart that draws itself, text that fades in. The result is an MP4 in your Files. The same skill joins, trims, mixes and subtitles clips that a video model made. The Sandbox has no network, and an administrator installs the add-on.
+- **Animated video**: you can also get a video without a video model. With the Sandbox add-on and its media profile (ffmpeg, sox and ImageMagick), the assistant can build video itself with the built-in `assemble-media` skill: a title card with a fade, a slideshow with a slow zoom and crossfade, a chart that draws itself, text that fades in. The result is an MP4 in your Files. The same skill joins, trims, mixes and subtitles clips that a video model made. The Sandbox has no network, and an administrator installs the add-on.
 - **Music and sound**: make music and sound effects from a text prompt with `/v1/sound-generation`.
 - **Speech**: text to speech, transcription, voice activity detection and speaker recognition. The Realtime API takes voice in and gives voice back. Text to speech and sound generation also accept the ElevenLabs format.
 - **Search**: embeddings and a reranker, for retrieval over your own data.
@@ -52,7 +52,7 @@ A project groups chats around one folder in your own files. The folder holds the
 LocalAI now has a desktop app for macOS and Linux. It installs, updates, starts and stops the LocalAI server on your computer, and shows the web interface in its own window with a status bar for the server. On the first start you choose to run LocalAI on this computer or to connect to a server that runs somewhere else. You can keep several servers and pick a default. It checks for a new server version once a day and never installs one without asking.
 
 <!-- TODO owner: check at the tag that the release has these files: LocalAI.dmg, LocalAI-Launcher-x86_64.AppImage and LocalAI-Launcher-arm64.AppImage, each with a .sha256 file, and that the DMG passes the Gatekeeper check of the release guide. The links below use releases/latest/download. -->
-Download [`LocalAI.dmg`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg) for a Mac with Apple silicon, or the [x86-64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage) for Linux. The ARM64 AppImage is `LocalAI-Launcher-arm64.AppImage` on the [release page](https://github.com/mudler/LocalAI/releases/latest). The [desktop app guide](/docs/start/install/desktop/) has the first start, update channels and troubleshooting. It reads the same `~/.localai` folder as the older launcher, so your models stay.
+On an Intel Mac, use a container, because there is no macOS binary for Intel. Download [`LocalAI.dmg`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg) for a Mac with Apple silicon, or the [x86-64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage) for Linux. The ARM64 AppImage is `LocalAI-Launcher-arm64.AppImage` on the [release page](https://github.com/mudler/LocalAI/releases/latest). The [desktop app guide](/docs/start/install/desktop/) has the first start, update channels and troubleshooting. It reads the same `~/.localai` folder as the older launcher, so your models stay.
 
 ## Make documents from a chat
 
@@ -88,7 +88,7 @@ For ordinary users on a server with accounts, Pages are off until an administrat
 
 An add-on is a separate program that gives LocalAI new tools. An administrator installs it from the library, and its tools show up in the chat's Tools menu, where you can switch them off for a chat. The library has Tables, for typed databases that a chat can read and change, and chat-app add-ons, such as Slack and Discord, that let people talk to a saved agent from those apps. There are more, and you can build your own.
 
-Add-ons are not sandboxed. Each one runs with the same rights as LocalAI, so install only the ones you trust. Only the Sandbox isolates what it runs. A bot answers nobody until you add allowed senders.
+An add-on runs as the operating system user that runs LocalAI. Install only add-ons you trust. Only the Sandbox isolates what it runs. A chat-app bot answers nobody until you add allowed senders.
 
 ## Chats that live on the server
 
@@ -126,4 +126,4 @@ Open `http://localhost:8080`. For your first document, install the Simple Office
 
 <!-- TODO owner: contributors. Thank the people who landed work for 5.0 by name. Compute the list at the tag (prior-merged-count method of the release skill), no bots. -->
 
-If something does not work for you, open an issue or ask in the [Discord](https://discord.gg/uJAeKSAGDy). Have fun!
+If something does not work for you, open an issue or ask in the [Discord](https://discord.gg/uJAeKSAGDy).
