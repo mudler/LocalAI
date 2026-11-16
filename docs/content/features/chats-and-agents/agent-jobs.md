@@ -19,7 +19,7 @@ its transcript.
 {{% callout style="note" %}}
 The API needs the `mcp_jobs` feature, which is off by default for a user. An
 administrator grants it in **Settings → Users and keys** and has it always. See
-[Chats permissions]({{% relref "/features/chats-and-agents/chats" %}}#permissions). `LOCALAI_DISABLE_CHATS`
+[Chats permissions]({{% relref "/administration/chats-deployment#permissions" %}}). `LOCALAI_DISABLE_CHATS`
 turns the jobs off with the rest of the chats.
 {{% /callout %}}
 
@@ -143,7 +143,7 @@ Tasks and jobs belong to their owner; another user's id is `404`. An
 administrator can read any job (`GET /api/agent/jobs/{id}`) and list every user's
 tasks and jobs with `?all_users=true`, which adds a `user_groups` object keyed by
 owner. The view is read-only. To switch off or delete what a user set up, see the
-[administrator's view]({{% relref "/features/chats-and-agents/chats" %}}#permissions) of agents, triggers and
+[administrator's view]({{% relref "/administration/chats-deployment#permissions" %}}) of agents, triggers and
 connectors under `/api/chats/admin`.
 
 ## Clusters

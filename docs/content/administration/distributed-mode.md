@@ -1651,7 +1651,7 @@ PostgreSQL/direct-FS publication and purge coordination is automatic for all
 participants, including the separate owner. Blob ingest holds the revision lock,
 serializing metadata writers; blocked operations must honor cancellation and
 orphan cleanup has a bounded 30-second context. S3 remains an alternative. See
-[Shared filesystem for Files]({{% relref "/features/chats-and-agents/chats" %}}#shared-filesystem-for-files) for the
+[Shared filesystem for Files]({{% relref "/administration/chats-deployment#shared-filesystem-for-files" %}}) for the
 full storage and durability contract.
 
 No automatic migration occurs: existing filesystem paths stay put and configured

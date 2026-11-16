@@ -46,7 +46,7 @@ For Sandbox procedures, grant Sandbox and allow its selected, usable isolated `b
 A host command runner alone does not qualify.
 Without an eligible provider, the selected skill is unavailable; no built-in document procedure serves instead.
 An unavailable provider pin never silently selects another provider.
-See [Document skills]({{%relref "/features/chats-and-agents/chats#document-skills" %}}) for provider choices and OFF preferences.
+See [Document skills]({{% relref "/features/chats-and-agents/chats-skills#document-skills" %}}) for provider choices and OFF preferences.
 
 ### Add-on changes apply at once
 
@@ -75,7 +75,7 @@ menu (for example **Your files**) stay off for the sub-agent too.
 
 A chat can also start a saved agent as a sub-agent, when you switch **Saved
 agents** on in its Tools menu. See [Saved agents as
-sub-agents]({{%relref "/features/chats-and-agents/chats#saved-agents-as-sub-agents" %}}).
+sub-agents]({{% relref "/features/chats-and-agents/chats-sub-agents#saved-agents-as-sub-agents" %}}).
 
 If you delete an agent, the chats that ran with it keep their history. For an
 agent without a folder, their next turn runs without the agent's tools,
@@ -111,7 +111,7 @@ definition from their next turn. Another user's agent is `404`, unless it is
 an edit, a delete or an export is `403`.
 
 Agents need the `agents` feature, which is off by default for a user (see
-[Chats permissions]({{% relref "/features/chats-and-agents/chats" %}}#permissions)). They have no administration
+[Chats permissions]({{% relref "/administration/chats-deployment#permissions" %}})). They have no administration
 tools, as they are your own settings.
 
 ### Memory of an agent
@@ -168,7 +168,7 @@ accounts its chats may use. In the agent form, the add-on's row in **What it can
 use** has an **Account it uses** list with a checkbox for each connection. A chat
 of the agent uses that set, shows it read only, and cannot change it. With two or
 more in the set, the model names the connection in each tool call (see [The
-connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on)). With
+connections of an add-on]({{% relref "/features/chats-and-agents/chats-commands#the-connections-of-an-add-on" %}})). With
 none ticked each chat chooses its own (with one connection, it is used); until a
 person chooses, the add-on's tools are not offered. Many agents can use the same connection; the connection's row on its add-on page says how many do. The messaging connections that
 answer with the agent are listed under **Identity**, read only.
@@ -409,7 +409,7 @@ group on) and `history.read` (the agent can search and read your earlier chats
 with the opt-in group **Past chats**; granting it also switches the group on, an
 agent that works in a folder reads only its own chats, and a run that nobody
 watches, a messaging chat and a sub-agent never hold it; see
-[Past chats]({{%relref "/features/chats-and-agents/chats#past-chats" %}})). A sensitive grant changes what the agent may do or reach later; the
+[Past chats]({{% relref "/features/chats-and-agents/chats-sub-agents#past-chats" %}})). A sensitive grant changes what the agent may do or reach later; the
 editor marks it. The five `*.write` grants let the agent propose a memory note,
 its profile, a skill, a page or a dashboard change with `propose_change`; you
 confirm every proposal, and you can undo it. `knowledge.write` (**Add to
@@ -631,7 +631,7 @@ A trigger starts a chat as you, by itself. Each run is an ordinary chat of
 yours: it uses your files, your quota and your model allowlist, you can open it
 and undo what it changed, and it is marked with its trigger. To repeat a
 prompt inside one chat, every few minutes, use a
-[loop]({{%relref "/features/chats-and-agents/chats#loops-repeat-a-prompt-in-a-chat" %}}) instead
+[loop]({{% relref "/features/chats-and-agents/chats-loops#loops-repeat-a-prompt-in-a-chat" %}}) instead
 (see *Loop or trigger?* there). There are two kinds.
 
 | Kind | Runs | Fields |
@@ -859,7 +859,7 @@ The four trigger tools (`propose_trigger`, `list_triggers`, `update_trigger`
 and `delete_trigger`) form the **Triggers** group in the chat's Tools menu. They
 are on in a chat you start, and one switch turns all four off for that chat
 (`PUT /api/chats/{id}/builtins {"off": ["triggers"]}`; see
-[the Tools menu]({{% relref "/features/chats-and-agents/chats" %}}#switch-tools-off-for-one-chat)). Switch it off in the Home
+[the Tools menu]({{% relref "/features/chats-and-agents/chats-tools#switch-tools-off-for-one-chat" %}})). Switch it off in the Home
 composer before you start the chat to have none from the first message.
 
 In a chat, the model can propose a trigger with `propose_trigger` and list yours

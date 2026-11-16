@@ -34,7 +34,7 @@ The add-on runs **one non-interactive command** per call. It has no terminal, no
 5. Press **Check host key**. The page reads the key the machine presents and shows its fingerprint. Compare it with the one on the machine (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), tick that you trust it and save.
 6. Press **Test**: the row shows the user and the system name if the login works.
 
-One connection is one host. For a second machine, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
+One connection is one host. For a second machine, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats-commands#the-connections-of-an-add-on" %}})). With two or more enabled, the model names the connection in each call.
 
 ### The secret
 

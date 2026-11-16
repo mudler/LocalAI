@@ -99,7 +99,7 @@ All paths are in your own workspace. Chat folder rules and read-only access stil
 
 ## With the Sandbox
 
-When the Sandbox is installed and isolated commands work, the `docx`, `xlsx`, `pdf` and `pptx` skills give the model Python procedures. You must switch the Sandbox on for the chat, and a saved agent must be granted the add-on. See [Document skills]({{% relref "/features/chats-and-agents/chats#document-skills" %}}). If both add-ons can serve a skill name, the choice in **Settings > Tools** decides. Without a choice, the one installed first serves it.
+When the Sandbox is installed and isolated commands work, the `docx`, `xlsx`, `pdf` and `pptx` skills give the model Python procedures. You must switch the Sandbox on for the chat, and a saved agent must be granted the add-on. See [Document skills]({{% relref "/features/chats-and-agents/chats-skills#document-skills" %}}). If both add-ons can serve a skill name, the choice in **Settings > Tools** decides. Without a choice, the one installed first serves it.
 
 ## Preview
 

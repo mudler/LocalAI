@@ -625,7 +625,7 @@ A shared folder is a folder outside your home that an administrator gave you
 access to, read-only or read-write (a workspace grant). An administrator
 creates the shared folders and chooses their members in the **Shared** tab of
 **Files** or through the API (see [Shared
-folders]({{%relref "/features/chats-and-agents/chats#shared-folders" %}})). Its pages are the
+folders]({{% relref "/features/files-and-documents/files-reference#shared-folders" %}})). Its pages are the
 folders `pages/<name>/` with an `index.html`, as in your home. They show on the
 Pages screen under **Shared with you**, with their author (the account that
 last wrote `index.html`), the folder, and a badge: **Not allowed yet**,

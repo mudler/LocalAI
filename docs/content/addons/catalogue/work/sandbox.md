@@ -30,7 +30,7 @@ Sandbox is an add-on. It lets a chat run commands and code, for example to make 
 1. Open the **Tools** menu of the chat.
 2. Switch **Sandbox** on.
 
-When it is on, the `bash` tool of the chat runs in the sandbox. Without it, a chat can run commands on the server only if an administrator allows it, and then there is no isolation. See [Running commands]({{% relref "/features/chats-and-agents/chats#running-commands" %}}).
+When it is on, the `bash` tool of the chat runs in the sandbox. Without it, a chat can run commands on the server only if an administrator allows it, and then there is no isolation. See [Running commands]({{% relref "/features/chats-and-agents/chats-commands#running-commands" %}}).
 
 ## How it works
 
@@ -44,7 +44,7 @@ When it is on, the `bash` tool of the chat runs in the sandbox. Without it, a ch
 
 A sandbox has no network device. HTTP and HTTPS go through a proxy that asks LocalAI for each connection. The **Network** row in the Tools menu has three choices: **Off**, **Package registries** and **All public sites**. The limit that an administrator sets is a ceiling. The default limit is Off, so `pip install` does not work until an administrator allows it.
 
-When a command asks for a host that the chat does not allow but the limit allows, the chat shows a card. Choose **Allow once**, **Allow for this chat** or **Deny**. See [Network of the Sandbox commands]({{% relref "/features/chats-and-agents/chats#network-of-the-sandbox-commands" %}}).
+When a command asks for a host that the chat does not allow but the limit allows, the chat shows a card. Choose **Allow once**, **Allow for this chat** or **Deny**. See [Network of the Sandbox commands]({{% relref "/features/chats-and-agents/chats-commands#network-of-the-sandbox-commands" %}}).
 
 ## What is installed
 

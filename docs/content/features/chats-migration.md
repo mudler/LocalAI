@@ -151,11 +151,11 @@ The page `/app/chat` redirects to the chats, and the model in `/app/chat/<model>
 
 The pages do not offer some features of the removed ones. The agent form has no actions, connectors, filters, dynamic prompts, STDIO or HTTP MCP servers by URL, periodic runs, goals or memory switches, and no "draft with a model" button. You can import the JSON export of an older agent: its name, description, model, instructions and skills are read, and the page lists what was not imported. The skills page has no Git repositories, no `.tar.gz` import or export, no files tab and no "try in a context" sheet. The triggers page has no task parameters, media sources, webhooks or cron expressions with `@` shortcuts, and no job details page: a run of a trigger is a chat, and its row opens that chat.
 
-The chat page looks and works as before, with the server keeping the chats. The features that used to live in the browser are on the server now: forking a chat, editing a sent message and running the chat again from it, the per-chat system prompt, temperature, top P, top K, context size and reasoning effort, and the token counters (see [Settings, rename and model change](/features/chats/#settings-rename-and-model-change) and [Regenerate, edit, fork, search, export](/features/chats/#regenerate-edit-fork-search-export)). Two are gone: MCP servers that the browser connected to (use [MCP connectors](/features/chats-connectors/) instead) and reading PDF files in the browser (files go to your workspace and the model reads them there).
+The chat page looks and works as before, with the server keeping the chats. The features that used to live in the browser are on the server now: forking a chat, editing a sent message and running the chat again from it, the per-chat system prompt, temperature, top P, top K, context size and reasoning effort, and the token counters (see [Settings, rename and model change]({{% relref "/features/chats-and-agents/chats-api#settings-rename-and-model-change" %}}) and [Regenerate, edit, fork, search, export]({{% relref "/features/chats-and-agents/chats-api#regenerate-edit-fork-search-export" %}})). Two are gone: MCP servers that the browser connected to (use [MCP connectors](/features/chats-connectors/) instead) and reading PDF files in the browser (files go to your workspace and the model reads them there).
 
 Studio and Talk moved to add-ons in the same change: nothing is preinstalled, and users need the `addons` feature, which the upgrade does not grant. See [Upgrading: Studio and Talk are add-ons now](/features/addons/#upgrading-studio-and-talk-are-add-ons-now).
 
-The features `skills` and `chat_history` are gone from the user permissions; their old keys in a stored permission map are ignored. The features `agents` and `mcp_jobs` are back, with `triggers` and `connectors` beside them, all off by default for a user; a stored `agents` or `mcp_jobs` value carries over, and a one-time rule keeps the access of the users who use them (see [Permissions](/features/chats/#permissions)).
+The features `skills` and `chat_history` are gone from the user permissions; their old keys in a stored permission map are ignored. The features `agents` and `mcp_jobs` are back, with `triggers` and `connectors` beside them, all off by default for a user; a stored `agents` or `mcp_jobs` value carries over, and a one-time rule keeps the access of the users who use them (see [Permissions]({{% relref "/administration/chats-deployment#permissions" %}})).
 
 ## Options that are ignored now
 
@@ -171,7 +171,7 @@ Renamed, because the [collections](/features/collections/) use them. The old nam
 
 | Old name | New name |
 |---|---|
-| `LOCALAI_DISABLE_AGENTS` | `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`. The old name keeps its meaning (the whole agent pool, knowledge base included). `LOCALAI_DISABLE_TRIGGERS` and `LOCALAI_DISABLE_CONNECTORS` switch off one part. See [Chats](/features/chats/#switch-the-chats-off). |
+| `LOCALAI_DISABLE_AGENTS` | `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`. The old name keeps its meaning (the whole agent pool, knowledge base included). `LOCALAI_DISABLE_TRIGGERS` and `LOCALAI_DISABLE_CONNECTORS` switch off one part. See [Chats]({{% relref "/administration/chats-deployment#switch-the-chats-off" %}}). |
 | `LOCALAI_AGENT_POOL_STATE_DIR` | `LOCALAI_COLLECTIONS_STATE_DIR` |
 | `LOCALAI_AGENT_POOL_DEFAULT_MODEL` | `LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
 | `LOCALAI_AGENT_POOL_API_URL` | `LOCALAI_COLLECTIONS_API_URL` |
@@ -184,6 +184,30 @@ Renamed, because the [collections](/features/collections/) use them. The old nam
 | `LOCALAI_AGENT_POOL_COLLECTION_DB_PATH` | `LOCALAI_COLLECTIONS_DB_PATH` |
 
 The keys of `runtime_settings.json` changed the same way: `agent_pool_enabled`, `agent_pool_default_model`, `agent_pool_embedding_model`, `agent_pool_max_chunking_size`, `agent_pool_chunk_overlap`, `agent_pool_collection_db_path`, `agent_pool_vector_engine` and `agent_pool_database_url` are now `collections_enabled`, `collections_default_model`, `collections_embedding_model`, `collections_max_chunking_size`, `collections_chunk_overlap`, `collections_db_path`, `collections_vector_engine` and `collections_database_url`. The file is still read with the old keys, and the server logs one warning at start naming the ones it found; it writes the new ones.
+
+## Feature permissions after the upgrade
+
+**Upgrading.** On the first start after the features were split, a one-time rule
+keeps what each existing user was using, and nothing else. The rule runs once; a
+user who registers later gets the defaults. A value an administrator stored
+always wins.
+
+- `agents`: kept if the user has the stored `agents` permission (the one the old
+  agent pool had) or owns a saved agent.
+- `triggers`: kept if the user owns a trigger, or had `agents` or `mcp_jobs`.
+- `connectors`: kept if the user owns a connector binding, or had `agents`.
+- `mcp_jobs`: stored as it was.
+
+Items that the conversion of the old agents makes after that first start belong to
+users who had the old permissions, which the rule already read.
+
+## Old chat addresses and browser chats
+
+`/app/chats` with no chat id opens Home. A `?model=` in
+the address selects that model on Home, so `/app/chats?model=<id>` and the
+older `/app/chat/<model>` still start a chat on that model.
+
+The chat page offers once to import the chats that the old chat page kept in this browser (`POST /api/chats/import/browser`). The browser's copy is removed when none failed.
 
 ## In a cluster
 

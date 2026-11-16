@@ -200,7 +200,7 @@ This connection does not listen for `@mentions` on GitHub yet. An agent works on
 
 A tool-only connection has no agent. The GitHub kind is tool-only, like the Home Assistant, Jellyfin, Mail and PiKVM kinds: the form has no Agent field, and a connection answers no message. Many agents can use one connection. Each agent chooses it in its own **Account it uses** list (see [Agents]({{% relref "/features/chats-and-agents/chats-agents" %}})), and the connection says **Used by N agents** in the list and in its pane, or **Not used by any agent**. The count is of your own saved agents. The server clears `agent_id` on every save and on every read, so an older connection that still held an agent shows none. It cannot be switched on, accept anyone, take an allowlist, send notifications or hold permissions, and the server refuses `enabled` and `accept_any` with a message. This is the manifest key `toolOnly` of the kind (see [Connector add-ons]({{% relref "/addons/contract-reference" %}})). Telegram and Slack bindings always need an agent. Over the API the connection reports `agent_id: ""`, `credentials_only: true` and `used_by`, the number of your saved agents that hold the connection; the kind reports `tool_only: true` and `agent_optional: true`.
 
-The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not covered by it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. A call uses one of the connections that your chat enabled: with one connection it is enabled, with several you tick the ones the chat may use in the **Tools** menu of the chat (or the agent names a set), and until then the GitHub tools are not offered. With two or more enabled, the model names the connection in each call, and only an enabled one is accepted. LocalAI never picks one for you, and the list of the connection that was named is the only one that applies. See [The connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on).
+The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not covered by it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. A call uses one of the connections that your chat enabled: with one connection it is enabled, with several you tick the ones the chat may use in the **Tools** menu of the chat (or the agent names a set), and until then the GitHub tools are not offered. With two or more enabled, the model names the connection in each call, and only an enabled one is accepted. LocalAI never picks one for you, and the list of the connection that was named is the only one that applies. See [The connections of an add-on]({{% relref "/features/chats-and-agents/chats-commands#the-connections-of-an-add-on" %}}).
 
 ### Any repository
 
@@ -394,7 +394,7 @@ The Jellyfin add-on lets your [saved agents]({{% relref "/features/chats-and-age
 2. In the Jellyfin dashboard, as an administrator, open **Advanced**, then **API Keys**, choose the plus button, name the key (for example `LocalAI`) and copy it. A Jellyfin API key works for the whole server and not for one user; the write mode below is what limits the agent. Deleting the key in the dashboard cuts the access at once.
 3. On the add-on page, choose **New Jellyfin connection**. Paste the key and write the **server address** as you open it in a browser, with the port, for example `http://192.168.1.10:8096` or `https://media.example/jellyfin`. Press **Test**: the row says whether the server answers, which version it runs and whether it accepts the key.
 
-One connection holds one key and one server. To use a second server, add a second connection; when several are enabled in a chat the model names the connection in each call (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on)). The agent field is optional, as for GitHub: a connection without an agent holds credentials only.
+One connection holds one key and one server. To use a second server, add a second connection; when several are enabled in a chat the model names the connection in each call (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats-commands#the-connections-of-an-add-on" %}})). The agent field is optional, as for GitHub: a connection without an agent holds credentials only.
 
 **The address is the access list.** The server address is the one entry that the connection lists, and LocalAI checks it before the add-on is called, like a repository of a GitHub connection. The add-on talks to that address and to no other: only `http` and `https` are accepted, an address with a user name, a password or a query is refused, the key goes only in the `Authorization` header and never in an address, the paths are built by the add-on, and a redirect is not followed. A plain `http` address sends the key unencrypted; the page says so. Use it only on a network you trust.
 
@@ -1115,7 +1115,7 @@ add-on.
   capability is sensitive: only a paired sender holds it, and a bot that accepts
   anyone never gives it to an unpaired sender. `loops.start` is off by default and never part of a
   preset: the owner ticks it. A loop that a connector chat started ends after a fifth of
-  the run limit, as a loop of a trigger does. See [Loops]({{% relref "/features/chats-and-agents/chats" %}}#loops-repeat-a-prompt-in-a-chat).
+  the run limit, as a loop of a trigger does. See [Loops]({{% relref "/features/chats-and-agents/chats-loops#loops-repeat-a-prompt-in-a-chat" %}}).
 - **Roles and grants** (`grants`). An add-on can declare roles, such as the admins of
   a workspace, and report the roles of each sender. You map a role to capabilities
   with `grants: [{"role", "caps"}]`. A grant is within `caps`, within what the kind
@@ -2133,7 +2133,7 @@ time limit to start and to answer. It runs on the frontend, as the LocalAI proce
   `docs__search`, `mail__search` (the connector's name in lower case, two underscores, the tool). The names do not change while the connectors stay as they are.
 - **Limits.** A call has the time limit of the model's MCP tools (360 seconds), so a research or document tool that takes minutes finishes, and its output is cut at 64 KiB like the output of the chat's own tools.
 - **Per chat switches.** The tools panel of a chat lists the connectors and the
-  model's MCP servers with a switch each. See [Chats]({{% relref "/features/chats-and-agents/chats" %}}#mcp-tools).
+  model's MCP servers with a switch each. See [Chats]({{% relref "/features/chats-and-agents/chats-tools#mcp-tools" %}}).
 
 ### MCP Apps
 
@@ -2152,7 +2152,7 @@ with the connector's own credential. The credential never reaches the browser.
   by a page. A tool whose visibility does not include `"model"` is not offered
   to the model.
 
-See [Chats]({{% relref "/features/chats-and-agents/chats" %}}#interactive-tool-pages-mcp-apps) for the routes and
+See [Chats]({{% relref "/features/chats-and-agents/chats-tools#interactive-tool-pages-mcp-apps" %}}) for the routes and
 the sandbox.
 
 ### Import from this browser
