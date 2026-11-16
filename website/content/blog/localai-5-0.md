@@ -1,23 +1,23 @@
 ---
-title: "LocalAI 5.0: hand it over, and take it back"
+title: "LocalAI 5.0: your AI does the work, you keep the files"
 date: 2026-11-15
 draft: true
 author: "Ettore Di Giacinto"
 category: "Release"
 tags: ["release", "multimodal", "projects", "desktop", "office", "files", "sandbox", "team", "pages", "add-ons", "ui"]
-summary: "LocalAI is one open-source server: an OpenAI-compatible API for text, images, video, music and speech, and a workspace for your team. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing."
+summary: "Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing."
 extracss: ["blog.css"]
 placeholders: ["release date", "release tag and release notes link", "PR, commit and contributor counts", "contributor thanks", "screenshots"]
 ---
 
 <!-- TODO owner: this post is a draft (draft: true keeps Hugo from publishing it). Publish it with the 5.0 tag: set the final date, remove `draft: true` and `placeholders`, and resolve every TODO comment below. Nothing in the post claims a number we have not counted. -->
 
-Hand it over, and take it back. That's the idea behind LocalAI 5.0: you give a chore to your own AI, on your own hardware, and it comes back as a file you own. Ask for a one-page summary of the notes in a folder, for example, and the chat reads them and saves a Word file in your Files.
+5.0 lets you give real work to a model you run yourself. Ask for a one-page summary of the notes in a folder, for example, and the chat reads them and saves a Word file in your Files. If you don't like what it did, the History tab has an Undo for that change.
 
-LocalAI is more than a chat app. It's one open-source server: an OpenAI-compatible API for text, images, video, music and speech, plus a workspace for your team, all on hardware you own. It runs on a laptop, a server, in a container or on Kubernetes, and the engine doesn't need a GPU. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing on top.
+Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top. It runs on a laptop, a server, in a container or on Kubernetes. No GPU needed, though a GPU makes it faster. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing.
 
 <!-- TODO owner: release date and tag are not decided. The link below assumes the tag is v5.0.0. Check it before publishing. -->
-The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list every change. This post covers what you can do with 5.0 that you couldn't do with 4.x.
+The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list every change. Here's what's new since 4.x.
 
 <!-- TODO owner: headline numbers (days, merged PRs, commits, authors) are left out on purpose. Count them at the tag and add one sentence here if you want them. Also decide the wording of any "three years" or "since 2023" line; we did not write one. -->
 
@@ -28,11 +28,11 @@ The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list eve
 <figcaption>"Hand it over", the 5.0 launch film. 42 seconds, with sound.</figcaption>
 </figure>
 
-The film is a joke about handing work over. Every job in it is something 5.0 really does: the press article, the budget, the slides, the poster, and carrying on with the internet down. The rest of this post goes through them. We made the film with LocalAI too, so the video, the voices and the music all came from the same server.
+We made the film with LocalAI: the pictures, the voices and the music. Each joke in it is a job 5.0 really does: the press article, the budget, the slides, the poster, and carrying on with the internet down. The sections below go through them.
 
 ## One API for every kind of model
 
-LocalAI is not only a chat. The same server serves many kinds of open model, each with its own endpoint:
+One server runs every kind of open model, and each kind has its own endpoint:
 
 - **Text and vision**: chat, completions, tool calls, image understanding and object detection. Besides the OpenAI API, LocalAI answers in the Anthropic format (`/v1/messages`).
 - **Images and video**: generate images from a prompt, and video with the `/video` endpoint.
@@ -41,11 +41,11 @@ LocalAI is not only a chat. The same server serves many kinds of open model, eac
 - **Speech**: text to speech, transcription, voice activity detection and speaker recognition. The Realtime API takes voice in and gives voice back. Text to speech and sound generation also accept the ElevenLabs format.
 - **Search**: embeddings and a reranker, for retrieval over your own data.
 
-Each model kind needs a backend that serves it. LocalAI downloads the backend the first time a model needs it, and the library has more than 80 of them. There is a CPU build, so the engine does not need a GPU. NVIDIA, AMD, Intel and Apple GPUs make it faster. The [compatibility table](/docs/models/compatibility-table/) lists which backend runs which model family, and [What models can do](/docs/models/capabilities/) has a page for each kind. For several machines, [distributed mode](/docs/administration/distributed-mode/) spreads models over a cluster.
+Each kind of model needs its own backend. LocalAI downloads it the first time a model needs it, and the library has more than 80. The [compatibility table](/docs/models/compatibility-table/) lists which backend runs which model family, and [What models can do](/docs/models/capabilities/) has a page for each kind. For several machines, [distributed mode](/docs/administration/distributed-mode/) spreads models over a cluster.
 
 ## Projects
 
-A project groups chats around one folder in your own files. The folder holds the material of the project, and a `memory/` folder of notes that the chats of the project read. The model can propose a note, and you confirm it before it is saved. A project can set defaults for new chats (skills, add-ons, MCP servers, connectors and collections), you can make an agent from a project, and you can share the project folder with a teammate as read only or read and write. **Projects** is in the sidebar, and the **Project** chip on Home starts a chat in one. A project is a lens for chats, not a security boundary: a chat can still reach the same files through your home folder. Read the [Projects docs](/docs/features/projects/).
+A project groups chats around one folder in your own files. The folder holds the material and a `memory/` folder of notes that the project's chats read. The model can propose a note, and you confirm it before it's saved. A project can set defaults for new chats (skills, add-ons, MCP servers, connections and Knowledge). You can make an agent from a project, and share the folder with a teammate as read only or read and write. **Projects** is in the sidebar, and the **Project** chip on Home starts a chat in one. Projects organise chats. They don't restrict access: a chat outside the project can still open these files from your home folder. Read the [Projects docs](/docs/features/projects/).
 
 ## The desktop app
 
@@ -74,29 +74,29 @@ The Sandbox has no network by default, so `pip install` fails until an administr
 
 ## Share a folder with your team
 
-With user accounts on, there are admin and user roles. Each person has their own files, chats and saved agents, and nothing is shared until its owner shares it. You can share a folder, a saved agent, a collection or a connection with one person or with everyone. An administrator can also make shared folders and choose who uses them ([#13130](https://github.com/mudler/LocalAI/pull/13130)).
+With user accounts on, there are admin and user roles. Each person has their own files, chats and saved agents, and nothing is shared until its owner shares it. You can share a folder, a saved agent, a Knowledge collection or a connection with one person or with everyone. An administrator can also make shared folders and choose who uses them ([#13130](https://github.com/mudler/LocalAI/pull/13130)).
 
-Sharing is never a tool. A model, an agent or an add-on cannot share a folder or take access back. Only the person, in their own browser, can.
+Only you can share a folder, from your own browser. No model, agent or add-on can share anything or take access away.
 
 ## Pages and Home
 
 Ask the assistant to "make me a task board", and it writes a small HTML page that keeps its data in your files. The page runs in a sandboxed frame with no network access. A Home widget can show a list from a file, and a trigger you confirm can rewrite that file every morning.
 
-For ordinary users on a server with accounts, Pages are off until an administrator switches them on. The same is true for saved agents, triggers and connectors. Each scheduled run is a normal chat turn, so it uses model tokens.
+For ordinary users on a server with accounts, Pages are off until an administrator switches them on. The same is true for saved agents, triggers and connections. Each scheduled run is a normal chat turn, so it uses model tokens.
 
 ## Add-ons
 
 An add-on is a separate program that gives LocalAI new tools. An administrator installs it from the library, and its tools show up in the chat's Tools menu, where you can switch them off for a chat. The library has Tables, for typed databases that a chat can read and change, and chat-app add-ons, such as Slack and Discord, that let people talk to a saved agent from those apps. There are more, and you can build your own.
 
-One thing to know before you install: an add-on is trusted code. It runs as the operating system user that runs LocalAI. Only the Sandbox isolates what it runs. A bot answers nobody until you add allowed senders.
+Add-ons are not sandboxed. Each one runs with the same rights as LocalAI, so install only the ones you trust. Only the Sandbox isolates what it runs. A bot answers nobody until you add allowed senders.
 
 ## Chats that live on the server
 
-Chats are now kept by the server. You can keep typing while the model works, the model can hand work to sub-agents, and a long chat is compacted for you ([#12918](https://github.com/mudler/LocalAI/pull/12918)). The OpenAI-compatible `/v1/chat/completions` endpoint is unchanged.
+The server now keeps your chats, so you can keep typing while the model works. The model can hand work to sub-agents, and a long chat is compacted for you ([#12918](https://github.com/mudler/LocalAI/pull/12918)). The OpenAI-compatible `/v1/chat/completions` endpoint is unchanged.
 
-## A new look, and a first run that helps
+## A new look, and Home suggests a model for your machine
 
-5.0 has a new theme, logo and mascot ([#13187](https://github.com/mudler/LocalAI/pull/13187)). On a fresh install, Home recommends models for the hardware it detects ([#13199](https://github.com/mudler/LocalAI/pull/13199)).
+5.0 has a new theme, logo and mascot ([#13187](https://github.com/mudler/LocalAI/pull/13187)). On a fresh install, Home suggests models for the hardware it detects ([#13199](https://github.com/mudler/LocalAI/pull/13199)).
 
 <!-- TODO owner: screenshots. Add Home first run, the Files page with the Trash tab, the Office tool card in a chat, a Sandbox chart in Files, the sharing dialog, a page on Home and the add-ons library. Put the images under website/static/media/ and reference them with <figure>. -->
 
@@ -116,7 +116,7 @@ Or with a container:
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-Open `http://localhost:8080`. For your first document, install the Simple Office add-on from **Add-ons** and ask a chat for a Word file. With authentication off you are the administrator and can do all of it. The engine does not need a GPU, but a small model on a CPU is slow to load and slow to answer.
+Open `http://localhost:8080`. For your first document, install the Simple Office add-on from **Add-ons** and ask a chat for a Word file. With authentication off you are the administrator and can do all of it. A small model on a CPU is slow to load and slow to answer.
 
 ## Known limits
 
