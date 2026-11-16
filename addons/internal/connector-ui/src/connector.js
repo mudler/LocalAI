@@ -253,6 +253,14 @@ export function emptyConnector(capabilities, held = null) {
   }
 }
 
+// The capability list to seed a new form with. A kind that is tool-only has no
+// permission control, and a kind whose connection may have no agent starts
+// without one unless the page picked an agent for it, so neither is given the
+// usual set then: the host refuses permissions on a connection that has no agent.
+export function seedCapabilities(capabilities, { toolOnly = false, agentOptional = false, agentPicked = false } = {}) {
+  return toolOnly || (agentOptional && !agentPicked) ? null : capabilities
+}
+
 const MIB = 1024 * 1024
 
 // The file limits of a binding are typed in MiB and stored in bytes. Empty
@@ -340,8 +348,9 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
     file_receive_max_bytes: mibToBytes(form.file_receive_mib),
     file_send_max_bytes: mibToBytes(form.file_send_mib),
     approval: approvalPayload(form.approval),
-    caps: [...(form.caps || [])],
-    grants: (form.grants || []).map((g) => ({ role: g.role, caps: [...g.caps] })),
+    // Permissions belong to an agent: without one the host refuses them.
+    caps: form.agent_id ? [...(form.caps || [])] : [],
+    grants: form.agent_id ? (form.grants || []).map((g) => ({ role: g.role, caps: [...g.caps] })) : [],
     channels: (form.channels || []).map((x) => ({ id: x.id.trim(), label: (x.label || '').trim(), approved: Boolean(x.approved) })),
   }
   if (body.conversation === 'window') body.window_minutes = Number(form.window_minutes) || 0

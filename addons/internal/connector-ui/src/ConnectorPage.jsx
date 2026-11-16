@@ -22,7 +22,7 @@ import { sharedOfKind, shareAvailable } from './share'
 import { getSdk } from '../../host-compat/src/runtime.js'
 import { changedParts, droppedActs, removedActs } from './access'
 import { basePath } from '../../host-compat/src/utils/basePath.js'
-import { DUPLICATE_CONFIRMATION, canSave, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, listEntries, senderLine } from './connector'
+import { DUPLICATE_CONFIRMATION, canSave, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, seedCapabilities, agentHeld, listEntries, senderLine } from './connector'
 import { loginPlan } from './login'
 import { registerConnectorLocales } from './i18n'
 import { chatNamesFrom, chatText, peopleFrom } from './people'
@@ -345,7 +345,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const openNew = (agentId = '') => {
     const picked = agentId && !toolOnly ? agents.find((a) => a.id === agentId && a.model) : null
     const held = agentHeld(picked || (!toolOnly && agents.length === 1 ? agents[0] : null))
-    const f = { ...emptyConnector(capabilities, held), ...(extraForm ? extraForm({}) : {}) }
+    const f = { ...emptyConnector(seedCapabilities(capabilities, { toolOnly, agentOptional, agentPicked: Boolean(picked) }), held), ...(extraForm ? extraForm({}) : {}) }
     openForm(picked ? { ...f, agent_id: picked.id } : f, { fixedAgent: Boolean(picked) })
   }
   const openEdit = (c, opts) => openForm(savedFormOf(c), opts)
