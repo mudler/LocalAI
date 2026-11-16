@@ -6,10 +6,13 @@ weight: 45
 aliases:
   - "/installation/launcher/"
 keywords: ["launcher", "desktop", "appimage", "dmg", "macos", "linux", "install", "update channel"]
-devbuild: install
 ---
 
-The desktop app installs, updates, starts and stops the LocalAI server on your computer. It shows the real LocalAI web interface in its own window, with a thin status bar at the bottom. It also has pages for logs, settings and a Connect page that shows how other devices and apps reach the server. A worker mode is available too.
+{{% callout style="warning" %}}
+The desktop app isn't in a release yet. The DMG and the AppImages ship with the next release. Until then, test builds are on the [dev-master pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master). Their file names have `dev` in them. See [Development builds for testers](#development-builds-for-testers). The file names below are the ones the release will use.
+{{% /callout %}}
+
+The desktop app installs, updates, starts and stops the LocalAI server on your computer and shows the web interface in its own window, with a thin status bar at the bottom. It also has pages for logs, settings and a Connect page that shows how other devices and apps reach the server.
 
 If you want to run LocalAI on a server, in a container or in a cluster, use the server install methods in the [install guide]({{% relref "/start/install" %}}) instead.
 
@@ -19,7 +22,7 @@ This app replaces the older LocalAI launcher. If you used the older launcher, do
 
 ## Install on Linux
 
-Download the AppImage for your CPU and its checksum file from the [releases page](https://github.com/mudler/LocalAI/releases):
+When the app is released, download the AppImage for your CPU and its checksum file from the [releases page](https://github.com/mudler/LocalAI/releases):
 
 | CPU | File |
 |---|---|
@@ -34,7 +37,7 @@ chmod +x LocalAI-Launcher-x86_64.AppImage
 ./LocalAI-Launcher-x86_64.AppImage
 ```
 
-You can also start the file from your file manager. The file is about 120 MB, because it contains Electron and Chromium. It needs the libraries of a normal desktop (X11 or Wayland).
+You can also start the file from your file manager. The file is large (about 120 MB), because it contains Electron and Chromium. It needs the libraries of a normal desktop (X11 or Wayland).
 
 An AppImage needs FUSE 2 to mount itself. Ubuntu 24.04 and later do not install it by default. Install it with `sudo apt install libfuse2t64` (Ubuntu 24.04 and later) or `sudo apt install libfuse2` (Ubuntu 22.04). If you cannot install FUSE 2, start the AppImage with this option. It extracts the image to a temporary folder and runs it from there:
 
@@ -50,7 +53,7 @@ In this case the app starts with the sandbox turned off (`--no-sandbox`). The wi
 
 For the extra isolation, select **open the WebUI in my browser instead** in the guide, or turn on **Open the WebUI in my browser instead** in Settings. The app then opens the web interface in your browser, which has its own sandbox.
 
-The guide has a **Set up sandbox profile** button, but it is disabled: setup is not available yet. AppArmor attaches a profile to the path of the program that runs. A mounted AppImage runs from a folder with a random name that users can write to, so a profile for that path would weaken the protection for other programs too. Select **Not now** to close the guide. The app remembers this choice for the current launcher version. The chip stays in the status bar.
+The guide has a **Set up sandbox profile** button, but it is disabled: setup is not available yet. AppArmor attaches a profile to the path of the program that runs. A mounted AppImage runs from a folder with a random name that users can write to, so a profile for that path would weaken the protection for other programs too. Select **Not now** to close the guide. The app remembers this choice for the current app version. The chip stays in the status bar.
 
 You can turn the restriction off for all programs with `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
 
@@ -60,7 +63,7 @@ This setting weakens a protection for every program on the computer, not only fo
 
 ## Install on macOS
 
-1. Download [`LocalAI.dmg`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg) from the [releases page](https://github.com/mudler/LocalAI/releases). It is for Macs with Apple Silicon. There is no build for Intel Macs: use a [container]({{% relref "/start/install/containers" %}}) there. The release also has a `.sha256` file for the DMG. Check it with `shasum -a 256 --check`.
+1. When the app is released, download `LocalAI.dmg` from the [releases page](https://github.com/mudler/LocalAI/releases). It is for Macs with Apple Silicon. There is no build for Intel Macs: use a [container]({{% relref "/start/install/containers" %}}) there. The release also has a `.sha256` file for the DMG. Check it with `shasum -a 256 --check`.
 2. Open the DMG and drag **LocalAI Launcher** to your Applications folder.
 3. Start it from your Applications folder.
 

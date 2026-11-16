@@ -7,14 +7,14 @@ keywords = ["cli","flags","environment variables"]
 devbuild = "install"
 +++
 
-Complete reference for all LocalAI command-line interface (CLI) parameters and environment variables.
+Every flag of `local-ai` and the environment variable that sets it.
 
 For client-side text inference measurements, see [Benchmark text models]({{% relref "/models/capabilities/text/benchmark" %}}).
 
 These options configure the LocalAI server process. To configure an individual
 model, see [Model Configuration]({{% relref "/models/model-configuration" %}}).
 
-> **Note:** All CLI flags can also be set via environment variables. Environment variables take precedence over CLI flags. See [.env files]({{%relref "/models/advanced-usage#env-files" %}}) for configuration file support.
+> **Note:** You can set every flag with an environment variable. A flag on the command line wins over its environment variable, and the environment variable wins over the built-in default. See [.env files]({{%relref "/models/advanced-usage#env-files" %}}) for configuration file support.
 
 ## Global Flags
 
@@ -79,7 +79,7 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 | `--addons-backend-library` | `true` | Register the backend library on the first start | `$LOCALAI_ADDONS_BACKEND_LIBRARY` |
 | `--addons-backend-max-bytes` | `8589934592` | Largest compressed size, in bytes, of a backend image installed from a library | `$LOCALAI_ADDONS_BACKEND_MAX_BYTES` |
 | `--max-concurrent-backend-operations` | `1` | How many backend install, upgrade and delete operations run at once. `1` runs them one after the other. Operations on the same backend always run one at a time. In distributed mode it also bounds how many nodes one operation is sent to at the same time | `$LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS` |
-| `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only — a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
+| `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only: a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
 
 Backend processes receive a private scratch directory through `TMPDIR`, `TMP`,
 and `TEMP`. LocalAI removes that directory when the backend exits and removes
@@ -130,7 +130,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
-| `--f16` | `false` | Enable GPU acceleration | `$LOCALAI_F16`, `$F16` |
+| `--f16` | `false` | Default to 16-bit float (f16) memory and KV cache for models whose config does not set `f16`. It does not turn GPU acceleration on | `$LOCALAI_F16`, `$F16` |
 | `-t, --threads` | Automatic | Number of threads used for parallel computation. See the default thread count below | `$LOCALAI_THREADS`, `$THREADS` |
 | `--context-size` | | Context size for models that set no `context_size` (`-1` = each model's full trained context from GGUF metadata). Unset: automatic, 32768 for a model that can serve chats (capped by its trained window and by memory), at most 8192 for other models | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
 
@@ -172,7 +172,7 @@ settings bypasses this automatic default.
 | `--disable-metrics-endpoint` | `false` | Disable the `/metrics` endpoint | `$LOCALAI_DISABLE_METRICS_ENDPOINT`, `$DISABLE_METRICS_ENDPOINT` |
 | `--machine-tag` | | If not empty, add that string to Machine-Tag header in each response. Useful to track response from different machines using multiple P2P federated nodes | `$LOCALAI_MACHINE_TAG`, `$MACHINE_TAG` |
 
-## Collections and Assistant Flags
+## Collections Flags
 
 The collections service is the knowledge base that the chats search. The old
 `LOCALAI_AGENT_POOL_*` names still work and warn once; see
@@ -181,8 +181,8 @@ The collections service is the knowledge base that the chats search. The old
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-collections` | `false` | Turn the collections service off (the API under `/api/collections`) | `$LOCALAI_DISABLE_COLLECTIONS` |
-| `--collections-apiurl` | self | API URL the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_URL` |
-| `--collections-api-key` | first API key | API key the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_KEY` |
+| `--collections-apiurl` | the local server | API URL the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_URL` |
+| `--collections-api-key` | the first API key | API key the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_KEY` |
 | `--collections-default-model` | | Default model of the collections | `$LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
 | `--collections-state-dir` | | State directory of the collections | `$LOCALAI_COLLECTIONS_STATE_DIR` |
 | `--collections-vector-engine` | `chromem` | `chromem` or `postgres` | `$LOCALAI_COLLECTIONS_VECTOR_ENGINE` |
@@ -192,8 +192,7 @@ The collections service is the knowledge base that the chats search. The old
 | `--collections-chunk-overlap` | `0` | Chunk overlap for documents | `$LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
 | `--collections-db-path` | | Where the vector engine keeps its data | `$LOCALAI_COLLECTIONS_DB_PATH` |
 
-`LOCALAI_DISABLE_AGENTS` is now a name for `LOCALAI_DISABLE_COLLECTIONS`; nothing
-switches the chats themselves off except the `chats` permission of each user.
+`LOCALAI_DISABLE_AGENTS` is the old name of the switch that turned off the agent pool, which also held the collections. It still works: see `--disable-agents` in [Chats Flags](#chats-flags). The old `--agent-pool-*` names of the collections options also still work and log a deprecation warning. See [Collections]({{% relref "/features/files-and-documents/collections" %}}).
 
 ## Hardening Flags
 
@@ -229,16 +228,16 @@ See [Authentication & Authorization]({{%relref "/administration/authentication" 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-chats` | `false` | Turn off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts | `$LOCALAI_DISABLE_CHATS` |
-| `--chats-auto-resume` | `false` | Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, within 30 minutes of the interruption. Off: a person, or the page, resumes it. See [If a frontend dies]({{% relref "/features/chats-and-agents/chats#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
-| `--disable-triggers` | `false` | Turn off the trigger runner and the triggers API; the rest of the chats stays on | `$LOCALAI_DISABLE_TRIGGERS` |
+| `--chats-auto-resume` | `false` | Resume a chat turn that a restart interrupted, with no click. It retries up to 3 times (after 15 seconds, 1 minute and 5 minutes), within 30 minutes of the interruption. Off by default: a person or the page resumes it. See [If a frontend dies]({{% relref "/features/chats-and-agents/chats#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
+| `--disable-triggers` | `false` | Turn off triggers. Chats stay on | `$LOCALAI_DISABLE_TRIGGERS` |
 | `--disable-connectors` | `false` | Turn off the connector bots (Telegram, Slack) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
 | `--disable-connector-talkback` | `false` | Turn off the tool with which an agent writes to a chat of its connection, and the reports of triggers to a channel (the rest of the connectors stays on) | `$LOCALAI_DISABLE_CONNECTOR_TALKBACK` |
 | `--skip-binding-caps-migration` | `false` | Do not give the usual permissions, once, to connector bindings saved before permissions were enforced (they stay with none until the owner chooses); also skip the one-time add of loops.wait to existing bindings | `$LOCALAI_SKIP_BINDING_CAPS_MIGRATION` |
 | `--agent-job-retention-days` | `30` | Days to keep ended agent jobs | `$LOCALAI_AGENT_JOB_RETENTION_DAYS`, `$AGENT_JOB_RETENTION_DAYS` |
 | `--trigger-run-keep` | `200` | Finished runs kept for each trigger, beyond the runs of the last two days. `-1` keeps all | `$LOCALAI_TRIGGER_RUN_KEEP` |
 | `--trigger-run-retention-days` | `30` | Days to keep finished trigger runs. `-1` keeps them forever | `$LOCALAI_TRIGGER_RUN_RETENTION_DAYS` |
-| `--mcp-ci-job-timeout` | `10m` | Longest an agent job may run | `$LOCALAI_MCP_CI_JOB_TIMEOUT` |
-| `--disable-agents` | `false` | Deprecated. Sets `--disable-chats` and `--disable-collections`, as the old agent pool switch did | `$LOCALAI_DISABLE_AGENTS` |
+| `--mcp-ci-job-timeout` | `10m` | Longest an agent job may run. The variable still works on the server command. It is removed only on `local-ai agent-worker` | `$LOCALAI_MCP_CI_JOB_TIMEOUT` |
+| `--disable-agents` | `false` | Deprecated. Same as setting `--disable-chats` and `--disable-collections`. A value you set explicitly for either of them wins | `$LOCALAI_DISABLE_AGENTS` |
 | `--disable-local-ai-assistant` | `false` | Deprecated. A true value is mapped to `chats_localai_admin=false` (the admin tools off), with one warning at start. The flag wins over a stored `chats_localai_admin=true`, also after a settings change. Use `chats_localai_admin` in Settings > Tools | `$LOCALAI_DISABLE_ASSISTANT` |
 | `--distributed-chat-workers` | `false` | Distributed mode: send the turns of triggers, agent jobs and connector messages to chat workers. With no chat worker listening, the turn runs on the frontend | `$LOCALAI_DISTRIBUTED_CHAT_WORKERS` |
 | `--chat-worker` | `false` | Distributed mode: run this instance as a chat worker, which runs the turns that frontends send it and starts no triggers, connectors or jobs | `$LOCALAI_CHAT_WORKER` |
@@ -246,24 +245,6 @@ See [Authentication & Authorization]({{%relref "/administration/authentication" 
 | `--chat-start-timeout` | `30s` | Distributed mode: how long a frontend waits for a chat worker to start a turn, and how long the worker gives the start. Set the same value on the frontends and the chat workers | `$LOCALAI_CHAT_START_TIMEOUT` |
 
 See [Chats]({{% relref "/features/chats-and-agents/chats#switch-the-chats-off" %}}), [Agent tasks and jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) and [Chat workers]({{% relref "/administration/distributed-mode#chat-workers" %}}).
-
-## Collections Flags
-
-| Parameter | Default | Description | Environment Variable |
-|-----------|---------|-------------|----------------------|
-| `--disable-collections` | `false` | Disable the collections service (the knowledge base API under `/api/collections`) | `$LOCALAI_DISABLE_COLLECTIONS` |
-| `--collections-apiurl` | the local server | API URL the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_URL` |
-| `--collections-api-key` | the first API key | API key the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_KEY` |
-| `--collections-default-model` | | Default model of the collections | `$LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
-| `--collections-state-dir` | the data path | State directory of the collections | `$LOCALAI_COLLECTIONS_STATE_DIR` |
-| `--collections-vector-engine` | `chromem` | Vector engine: `chromem` or `postgres` | `$LOCALAI_COLLECTIONS_VECTOR_ENGINE` |
-| `--collections-embedding-model` | `granite-embedding-107m-multilingual` | Embedding model of the collections | `$LOCALAI_COLLECTIONS_EMBEDDING_MODEL` |
-| `--collections-database-url` | | Database URL, for the `postgres` vector engine | `$LOCALAI_COLLECTIONS_DATABASE_URL` |
-| `--collections-max-chunking-size` | `400` | Maximum chunking size for collection documents | `$LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE` |
-| `--collections-chunk-overlap` | `0` | Chunk overlap size for collection documents | `$LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
-| `--collections-db-path` | | Where the vector engine keeps its data | `$LOCALAI_COLLECTIONS_DB_PATH` |
-
-See [Collections]({{% relref "/features/files-and-documents/collections" %}}). The old `--agent-pool-*` names still work and log a deprecation warning.
 
 ## Chat Flags
 
@@ -361,6 +342,9 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai models` - Manage LocalAI models and definitions
 - `local-ai backends` - Manage LocalAI backends and definitions
 - `local-ai chat` - Run the built-in terminal agent against a LocalAI server
+- `local-ai addons` - Check an add-on zip file and upload it to a running server to install it
+- `local-ai library` - Manage the library sources (see [Library sources](#library-sources))
+- `local-ai benchmark` - Benchmark configured text models against a running LocalAI server
 - `local-ai tts` - Convert text to speech
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text
@@ -415,11 +399,10 @@ export LOCALAI_F16=true
 
 ```bash
 ./local-ai run \
-  --models model1.yaml model2.yaml \
+  --models-path /path/to/models \
+  --address :9090 \
   --enable-watchdog-idle \
-  --watchdog-idle-timeout=10m \
-  --p2p \
-  --federated
+  --watchdog-idle-timeout=10m
 ```
 
 ## Related Documentation
