@@ -319,10 +319,15 @@ func (s *Service) endAgentRun(k string) {
 		}
 		// A message that waited starts the next turn at once, and that turn
 		// may arm a wait on a job. Its own end calls this hook again, so its
-		// jobs are not ended under it. What stays open is a wait armed in the
-		// instant between this check and the end below: the wait then finds
+		// jobs are not ended under it. A claim that is no turn is waited for
+		// until it goes, however long a loaded host takes to release it: there
+		// is no hook after it, so giving up on a timer would leave the jobs
+		// open. A real turn outlasts the bound of ctx and its own end calls
+		// the hook. A loop or a wait that the claim or a later turn armed is
+		// looked for again before the end. What stays open is a wait armed in
+		// the instant between this check and the end below: the wait then finds
 		// its job ended (a plain wake-up), which is the safe side.
-		if s.turnRunsLater(ctx, p, conv) {
+		if s.turnRunsLater(ctx, p, conv) || s.loopHolds(ctx, p, conv) {
 			return
 		}
 		s.endAgentJobs(ctx, rec, bgjob.EndAgentEnded)
@@ -335,18 +340,14 @@ func (s *Service) endAgentRun(k string) {
 // turnRunsLater says whether the chat runs a turn that will end by itself. The
 // end of every turn starts a goroutine that claims the chat for a moment to
 // look for waiting messages, a goal or a promise, and gives the claim back at
-// once when it finds none. That claim is no turn and ends no hook, so a claim
-// that is still there is waited for briefly; one that stays is a real turn,
+// once when it finds none. That claim is no turn and ends no hook, so it is
+// waited for until it goes; a claim that stays until ctx ends is a real turn,
 // whose own end calls endAgentRun again.
 func (s *Service) turnRunsLater(ctx context.Context, p, conv string) bool {
-	deadline := time.Now().Add(turnClaimGrace)
 	for {
 		info, err := s.d.Store.Turn(ctx, p, conv)
 		if err != nil || !info.Running {
 			return false
-		}
-		if !time.Now().Before(deadline) {
-			return true
 		}
 		select {
 		case <-ctx.Done():
@@ -358,10 +359,5 @@ func (s *Service) turnRunsLater(ctx context.Context, p, conv string) bool {
 	}
 }
 
-// turnClaimGrace is how long endAgentRun waits for a claim of the chat to go
-// before it takes the claim for a turn; turnClaimPoll is the pause between
-// two looks.
-const (
-	turnClaimGrace = 2 * time.Second
-	turnClaimPoll  = 20 * time.Millisecond
-)
+// turnClaimPoll is the pause between two looks at the claim of the chat.
+const turnClaimPoll = 20 * time.Millisecond
