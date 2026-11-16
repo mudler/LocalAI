@@ -27,6 +27,7 @@
 /addons/catalogue/work/sandbox/
 /addons/catalogue/work/tables/
 /addons/catalogue/work/web/
+/addons/tables-reference/
 /advanced/
 /advanced/embedded-routing-log/
 /advanced/model-configuration/
@@ -127,6 +128,8 @@
 /features/p2p/
 /features/pages-and-home/
 /features/pages/
+/features/pages-on-home/
+/features/pages-reference/
 /features/pikvm/
 /features/quantization/
 /features/reranker/

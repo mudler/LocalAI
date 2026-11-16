@@ -4665,7 +4665,7 @@ Quantization keep a change set for the changes they can roll back, and the resul
 carries `undoable`, the `changeId` and a one-line `undo`. See
 [Undoing a change a chat made](#undoing-a-change-a-chat-made). `GET /api/addons/proposals?state=pending`
 lists the caller's own pending proposals (newest first, at most 32). See
-[Tables]({{% relref "/addons/catalogue/work/tables" %}}#model-tools-and-approval-cards) for the tool names, the
+[Tables]({{% relref "/addons/tables-reference#model-tools-and-approval-cards" %}}) for the tool names, the
 approval card and the inventory of tool consumers.
 
 `POST /api/addons/proposals` takes a typed `write` or `schema` request. When the
