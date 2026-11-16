@@ -45,7 +45,7 @@ func (s *Service) homeProjectOf(ctx context.Context, c builtins.Chat) (projects.
 	if c.Actor.ChatID == "" {
 		return projects.Resolved{}, false
 	}
-	rec, err := s.d.Store.GetChat(ctx, principal(c.Actor.Principal), c.Actor.ChatID)
+	rec, err := s.getChatEffective(ctx, principal(c.Actor.Principal), c.Actor.ChatID)
 	if err != nil {
 		return projects.Resolved{}, false
 	}
@@ -276,7 +276,7 @@ func (s *Service) pulledWritable(ctx context.Context, c builtins.Chat) []project
 	if c.Actor.ChatID == "" || s.d.Projects == nil {
 		return nil
 	}
-	rec, err := s.d.Store.GetChat(ctx, principal(c.Actor.Principal), c.Actor.ChatID)
+	rec, err := s.getChatEffective(ctx, principal(c.Actor.Principal), c.Actor.ChatID)
 	if err != nil || s.chatFenced(ctx, rec) {
 		return nil
 	}
@@ -302,7 +302,7 @@ func (s *Service) pulledSharedRef(ctx context.Context, c builtins.Chat, ref stri
 		return "", errors.New("project names a project that is shared with you and that this chat has pulled, by its reference such as s:12. " +
 			"Leave it out for the project of this chat")
 	}
-	rec, err := s.d.Store.GetChat(ctx, principal(c.Actor.Principal), c.Actor.ChatID)
+	rec, err := s.getChatEffective(ctx, principal(c.Actor.Principal), c.Actor.ChatID)
 	if err != nil || s.chatFenced(ctx, rec) || !slices.Contains(rec.PulledProjects, ref) {
 		return "", errors.New("this chat has not pulled that project, so nothing was proposed. Use a reference from the list in this tool description")
 	}

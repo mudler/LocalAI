@@ -89,7 +89,8 @@
     "tools": "Tool defaults",
     "agents": "Agents",
     "connections": "Connections",
-    "automations": "Automations"
+    "automations": "Automations",
+    "skills": "Skills"
   },
   "updated": "Updated {{when}}",
   "overview": {
@@ -175,7 +176,9 @@
       "missing": "Not available",
       "off": "Off now",
       "missingTitle": "Nothing named “{{name}}” is installed here. This entry does nothing until it exists.",
-      "offTitle": "“{{name}}” is switched off. This entry does nothing until it is on."
+      "offTitle": "“{{name}}” is switched off. This entry does nothing until it is on.",
+      "outside": "Outside the limit",
+      "outsideTitle": "{{name}} is not in the limit, so the server refuses this project."
     },
     "countMissing": "{{n}} not available",
     "pickerLoading": "Reading what is installed…",
@@ -186,7 +189,22 @@
     "addTyped": "Add “{{name}}”",
     "save": "Save",
     "discard": "Discard changes",
-    "archivedNote": "This project is archived. Restore it to change its tool defaults."
+    "archivedNote": "This project is archived. Restore it to change its tool defaults.",
+    "attachedTitle": "Attached",
+    "attachedKind": "Always on for this project's chats and agents",
+    "limitKind": "Limit: only these can be used",
+    "attachedLead": "Every chat and agent of this project gets these on, with no step of its own, also in chats that already exist. A chat cannot switch them off. When the limit below has entries, an attached entry must be in it.",
+    "noneAttached": "Nothing attached",
+    "attachLabel": "Attach to {{list}}",
+    "outsideLimit": "Outside the limit: {{names}}. Add them to the limit below or detach them. The server refuses a project like this.",
+    "attachedBlocked": "Attached tools are off while this folder has other writers: what the project attaches is ignored until nobody else can write the folder.",
+    "attachedHints": {
+      "skills": "These skills are on in every chat and agent of this project. Use the name shown on the Skills page.",
+      "addons": "These add-ons are on in every chat and agent of this project. An add-on that holds a credential runs only for you, not for people the project is shared with.",
+      "mcp_servers": "These MCP servers are on in every chat and agent of this project. A server that holds a credential runs only for you.",
+      "connectors": "These MCP connectors are on in every chat and agent of this project. A connector runs only for you, never for people the project is shared with.",
+      "collections": "These knowledge collections can be searched in every chat and agent of this project."
+    }
   },
   "sheet": {
     "newTitle": "New project",
@@ -406,5 +424,21 @@
     "agentsBody": "An administrator can turn them on for you.",
     "connections": "Connections are not available to your account",
     "connectionsBody": "This tab needs the connectors and the agents features. An administrator can turn them on for you."
+  },
+  "projectSkills": {
+    "title": "Project skills",
+    "new": "New skill",
+    "body": "Skills kept in this project's folder. They are on in every chat and agent of this project and in no other chat.",
+    "blocked": "Project skills are off while this folder has other writers.",
+    "loadFailed": "The project skills did not load.",
+    "empty": "This project has no skills yet.",
+    "removed": "Skill {{name}} deleted.",
+    "removeFailed": "The skill was not deleted: {{message}}",
+    "edit": "Edit {{name}}",
+    "editLabel": "Edit",
+    "delete": "Delete {{name}}",
+    "deleteLabel": "Delete",
+    "deleteTitle": "Delete the skill {{name}}?",
+    "deleteBody": "The skill is removed from this project's folder. Chats and agents of the project stop using it."
   }
 }

@@ -586,7 +586,9 @@
         "title": "Lire tes anciens chats",
         "description": "Permet au modèle de rechercher et de lire tes anciens chats. Un agent qui travaille dans un dossier ne lit que les chats de son propre agent."
       }
-    }
+    },
+    "fromProject": "Du projet",
+    "fromProjectTitle": "Le projet associe cet outil, il est donc toujours actif ici. Pour le désactiver, dissociez-le dans le projet."
   },
   "vision": {
     "describedBy": "Ce modèle ne peut pas regarder les images. Choisissez un autre modèle, sinon l'image sera décrite par {{model}}.",

@@ -283,13 +283,15 @@ same rules and limits, but it answers on the frontend that serves the call, so i
 count of searches is kept per frontend.
 
 LocalAI reads some folders of a home with the owner's own authority: the skills
-(the `.skills` folder at the top of the home and every `.skills` folder below it),
+(the `.skills` folder at the top of the home, every `.skills` folder below it
+except under `Projects/`, and the `skills` folder of each project),
+the `attached` block of each `project.json`,
 the notes in `Memory/` and the context files of add-ons, the agent profiles and
 the persona in `LocalAI/`, and the pages in `pages/`. Two rules keep a grantee
 from writing the owner's instructions:
 
-- A person cannot share `LocalAI/`, `Chats/`, `Memory/`, `pages/` or a `.skills`
-  folder, or a folder inside one. A folder that holds a grant, on itself or on a
+- A person cannot share `LocalAI/`, `Chats/`, `Memory/`, `pages/`, a `.skills`
+  folder or the `skills` folder of a project, or a folder inside one. A folder that holds a grant, on itself or on a
   folder below it, cannot move into another home, out of a home, or into one of
   these folders: the move is refused with type `folder_shared`, also in an undo.
   A grant therefore never reaches another home, where its giver could not take

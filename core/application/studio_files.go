@@ -126,6 +126,12 @@ func (a *Application) initStudioFilesWithS3(newS3 func(context.Context, storage.
 	if err := f.SyncBuiltin(context.Background(), adminskills.With(builtinskills.FS())); err != nil {
 		xlog.Warn("Could not write the built-in skills", "error", err)
 	}
+	// A project's old .skills folder loaded for every chat of its owner. The
+	// project layer replaces it, so each skill is copied there once. The
+	// source stays; a failed copy leaves the chats as they are.
+	if _, err := f.MigrateProjectSkills(context.Background()); err != nil {
+		xlog.Warn("Could not copy the .skills folders of projects to their skills folders", "error", err)
+	}
 	a.studioFiles, a.studioFilesIndex = f, closer
 	a.initStudioTextIndex(f, root)
 	a.syncAddonSkills(f)

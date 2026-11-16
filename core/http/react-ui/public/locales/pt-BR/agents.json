@@ -1106,7 +1106,12 @@
       "grant": "A permissão para escrever na memória do projeto é removida. Você pode concedê-la de novo nas configurações do agente.",
       "notes": "As notas próprias do agente começam vazias. As notas antigas ficam nos seus arquivos, em Memory, em Moved agent notes.",
       "foldersInto": "O agente trabalha apenas nas pastas de arquivos e de memória de {{name}}.",
-      "foldersOut": "O agente não pertence mais a um projeto."
+      "foldersOut": "O agente não pertence mais a um projeto.",
+      "attachedLost_one": "O projeto antigo anexava {{count}} ferramenta que deixa de valer: {{names}}.",
+      "attachedLost_other": "O projeto antigo anexava {{count}} ferramentas que deixam de valer: {{names}}.",
+      "attachedGained_one": "O novo projeto anexa {{count}} ferramenta que o agente recebe: {{names}}.",
+      "attachedGained_other": "O novo projeto anexa {{count}} ferramentas que o agente recebe: {{names}}.",
+      "projectSkills": "As habilidades do projeto antigo deixam de valer e as do novo projeto passam a valer."
     },
     "blocked": {
       "busy": "Um chat deste agente está executando um turno. Pare-o e depois mova o agente."

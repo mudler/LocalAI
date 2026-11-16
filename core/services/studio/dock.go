@@ -29,7 +29,7 @@ var ErrDockNotAllowed = errors.New("a sub-agent run has no dock")
 
 // Dock returns the dock of a chat, nil when it has none.
 func (s *Service) Dock(ctx context.Context, user, conv string) (*session.Dock, error) {
-	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s *Service) SetDock(ctx context.Context, user, conv string, d session.Dock
 		return nil, err
 	}
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return nil, err
 	}

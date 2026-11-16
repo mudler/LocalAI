@@ -103,7 +103,7 @@ func (s *Service) agentJobCheck(ctx context.Context, in bgjob.Info) bgjob.EndRea
 	if in.Parent == "" {
 		return ""
 	}
-	if _, err := s.d.Store.GetChat(ctx, in.Owner, in.Parent); err != nil {
+	if _, err := s.getChatEffective(ctx, in.Owner, in.Parent); err != nil {
 		if errors.Is(err, session.ErrNotFound) {
 			return bgjob.EndAgentEnded
 		}
@@ -306,7 +306,7 @@ func (s *Service) endAgentRun(k string) {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	cancel()
 	if err != nil || rec.Kind != session.KindSubAgent {
 		return

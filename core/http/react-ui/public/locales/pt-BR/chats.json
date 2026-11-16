@@ -586,7 +586,9 @@
         "title": "Ler seus chats anteriores",
         "description": "Permite que o modelo pesquise e leia seus chats anteriores. Um agente que trabalha em uma pasta lê apenas os chats do próprio agente."
       }
-    }
+    },
+    "fromProject": "Do projeto",
+    "fromProjectTitle": "O projeto anexa esta ferramenta, então ela está sempre ativa aqui. Para desativá-la, desanexe-a no projeto."
   },
   "vision": {
     "describedBy": "Este modelo não consegue ver imagens. Escolha outro modelo, ou a imagem será descrita por {{model}}.",

@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next'
 import SideSheet from '../SideSheet'
 import { Button } from '../ui'
 import { chatProjectsApi } from '../../utils/api'
-import { DESCRIPTION_CONTEXT_CHARS, NAME_COUNTER_FROM, NAME_MAX, cleanDefaults } from '../../utils/projects'
+import { DESCRIPTION_CONTEXT_CHARS, NAME_COUNTER_FROM, NAME_MAX, cleanAttached, cleanDefaults } from '../../utils/projects'
 import { useProjectToolSources } from '../../hooks/useProjectToolSources'
-import { DefaultsEditor } from './ProjectTools'
+import { AttachedEditor, DefaultsEditor } from './ProjectTools'
 
 // The sheet that makes a project (project is null) or edits one. It keeps a
 // copy of the fields; Save sends them, and a refusal of the server shows under
@@ -18,6 +18,7 @@ export default function ProjectSheet({ project = null, onClose, onSaved }) {
   const [name, setName] = useState(project?.name || '')
   const [description, setDescription] = useState(project?.description || '')
   const [defaults, setDefaults] = useState(() => ({ ...(project?.defaults || {}) }))
+  const [attached, setAttached] = useState(() => ({ ...(project?.attached || {}) }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [touched, setTouched] = useState(false)
@@ -28,7 +29,7 @@ export default function ProjectSheet({ project = null, onClose, onSaved }) {
     if (nameMissing || busy) return
     setBusy(true)
     setError('')
-    const body = { name: name.trim(), description: description.trim(), defaults: cleanDefaults(defaults) }
+    const body = { name: name.trim(), description: description.trim(), defaults: cleanDefaults(defaults), attached: cleanAttached(attached) }
     try {
       const saved = project ? await chatProjectsApi.update(project.id, body) : await chatProjectsApi.create(body)
       onSaved(saved)
@@ -78,6 +79,7 @@ export default function ProjectSheet({ project = null, onClose, onSaved }) {
           <textarea id="project-description" className="dk-textarea" rows={3} value={description} aria-describedby={`${uid}-desc-hint`} onChange={e => setDescription(e.target.value)} />
           <p className="dk-hint" id={`${uid}-desc-hint`} data-testid="project-description-hint">{t('sheet.descriptionHint', { limit: DESCRIPTION_CONTEXT_CHARS })}</p>
         </div>
+        <AttachedEditor value={attached} onChange={setAttached} sources={sources} limit={defaults} />
         <DefaultsEditor value={defaults} onChange={setDefaults} sources={sources} />
         {error && <p className="dk-field-error" role="alert" data-testid="project-sheet-error">{error}</p>}
         <input type="submit" hidden />

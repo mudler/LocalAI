@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/wellknown"
@@ -60,7 +61,7 @@ func validSwitch(n string) bool {
 		return skills.ValidName(n)
 	}
 	switch skills.Layer(layer) {
-	case skills.LayerFolder, skills.LayerPersonal, skills.LayerShared, skills.LayerAddon, skills.LayerBuiltin:
+	case skills.LayerFolder, skills.LayerProject, skills.LayerPersonal, skills.LayerShared, skills.LayerAddon, skills.LayerBuiltin:
 		return skills.ValidName(name)
 	}
 	return false
@@ -72,7 +73,10 @@ func validSwitch(n string) bool {
 func SkillID(sk skills.Skill) string { return string(sk.Layer) + ":" + sk.Name }
 
 // skillOff returns the Off function of Resolve for a list of switches. Resolve
-// calls it nearest layer first, so a plain name finds the winner first.
+// calls it nearest layer first, so a plain name finds the winner first. A skill
+// of the project layer is never off: the project holds it, and a chat cannot
+// switch it off (detach it from the project instead). It does not use up a
+// plain name either, so a switch for a skill of that name below still counts.
 func skillOff(off []string) func(skills.Skill) bool {
 	plain := map[string]bool{}
 	exact := map[string]bool{}
@@ -84,6 +88,9 @@ func skillOff(off []string) func(skills.Skill) bool {
 		}
 	}
 	return func(sk skills.Skill) bool {
+		if sk.Layer == skills.LayerProject {
+			return false
+		}
 		if exact[SkillID(sk)] {
 			return true
 		}
@@ -106,11 +113,11 @@ func skillOff(off []string) func(skills.Skill) bool {
 // offered, and a built-in skill of the same name serves again. fallback is
 // one line for the turn note when a built-in skill serves because the add-on
 // skill that replaces it is off or not running here.
-func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []string, sc *scope, command Commands, gate func(skills.Skill) string) (prompt, note, key, fallback string, err error) {
+func (s *Service) skillTurn(ctx context.Context, p string, rec session.ChatRecord, off, addonsOff []string, sc *scope, command Commands, gate func(skills.Skill) string) (prompt, note, key, fallback string, err error) {
 	if !s.d.Files.Available() {
 		return "", "", "", "", nil
 	}
-	list, notes, fallback, err := s.chatSkillSet(ctx, p, off, addonsOff, sc, command)
+	list, notes, fallback, err := s.chatSkillSet(ctx, p, rec, off, addonsOff, sc, command)
 	if err != nil {
 		var policyErr *providerPolicyError
 		if errors.As(err, &policyErr) {
@@ -166,16 +173,62 @@ func agentSkillRoots(principal string, sc *scope) []skills.Root {
 	return []skills.Root{files.AgentSkillsRoot(principal, sc.agentID, sc.agentName)}
 }
 
+// projectSkillRoots returns the project layer of the chat's project: its own
+// project, or for a chat of a project agent the project of its agent, read now
+// (activeHome). A chat with no project, an archived or deleted project, and a
+// fenced chat get none. The layer is the owner's: the folder is read in the
+// home of the chat's user, and files.Service.ResolveSkills leaves it out when
+// another person may write it.
+func (s *Service) projectSkillRoots(ctx context.Context, p string, rec session.ChatRecord) []skills.Root {
+	r, ok := s.activeHome(ctx, rec)
+	if !ok {
+		return nil
+	}
+	dir, ok := projectDirName(r)
+	if !ok || !files.ValidProjectDir(dir) {
+		return nil
+	}
+	return []skills.Root{files.ProjectSkillsRoot(p, dir)}
+}
+
+// withoutProjectSkills drops from off the plain names that the project's own
+// skills have. The project's skills limit (the skills list of its defaults)
+// switches off every other skill at chat start, by name; a same-named skill
+// of another layer must not take the project's skill with it. An explicit
+// switch of the person is not touched: the caller passes only a list that the
+// limit made. An unreadable layer leaves the list as it is.
+func (s *Service) withoutProjectSkills(ctx context.Context, user string, r projects.Resolved, off []string) []string {
+	if len(off) == 0 || !s.d.Files.Available() {
+		return off
+	}
+	dir, ok := projectDirName(r)
+	if !ok || !files.ValidProjectDir(dir) {
+		return off
+	}
+	p := principal(user)
+	list, _, err := s.d.Files.ResolveSkills(ctx, p, []skills.Root{files.ProjectSkillsRoot(p, dir)}, skills.Options{Logger: s.log})
+	if err != nil || len(list) == 0 {
+		return off
+	}
+	own := map[string]bool{}
+	for _, sk := range list {
+		own[sk.Name] = true
+	}
+	return slices.DeleteFunc(slices.Clone(off), func(n string) bool { return own[n] })
+}
+
 // writingSkillsName is the built-in skill that teaches the model to write a
 // skill. The grant skills.write exposes it to a saved agent.
 const writingSkillsName = "writing-skills"
 
 // grantsSkill reports whether a saved agent may use the skill sk: one it was
 // granted, anything in its own skills layer (the agent made or was given it),
-// and writing-skills when it holds skills.write.
+// anything in the skills layer of its project (the project's own skills are
+// not subject to the project's skills limit), and writing-skills when it holds
+// skills.write.
 func (sc *scope) grantsSkill(sk skills.Skill) bool {
 	switch {
-	case sk.Layer == skills.LayerAgent:
+	case sk.Layer == skills.LayerAgent, sk.Layer == skills.LayerProject:
 		return true
 	case sk.Layer == skills.LayerBuiltin && sk.Name == writingSkillsName && sc.builtins[contract.CapSkillsWrite]:
 		return true
@@ -200,13 +253,13 @@ func (sc *scope) hostGrants(sk skills.Skill) bool {
 // of the add-ons the chat may use now, the chat's switches and the grants of
 // its agent. The index of the turn and load_skill both read it, so the model
 // can load exactly the skills the index lists.
-func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []string, sc *scope, command Commands) ([]skills.Skill, []string, string, error) {
+func (s *Service) chatSkillSet(ctx context.Context, p string, rec session.ChatRecord, off, addonsOff []string, sc *scope, command Commands) ([]skills.Skill, []string, string, error) {
 	skip := skillOff(off)
 	ad, err := s.addonSkillsFor(ctx, p, addonsOff, sc, command)
 	if err != nil {
 		return nil, nil, "", err
 	}
-	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
+	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, slices.Concat(ad.roots(), agentSkillRoots(p, sc), s.projectSkillRoots(ctx, p, rec))...), ad.options(skills.Options{
 		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.grantsSkill(sk)) },
 		Logger: s.log,
 	}))
@@ -230,7 +283,7 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 	var rec session.ChatRecord
 	if conv != "" {
 		var err error
-		rec, err = s.d.Store.GetChat(ctx, p, conv)
+		rec, err = s.getChatEffective(ctx, p, conv)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -245,7 +298,7 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 	if err != nil {
 		return nil, nil, err
 	}
-	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
+	list, notes, err := s.d.Files.ResolveSkills(ctx, p, s.d.Files.SkillRoots(p, slices.Concat(ad.roots(), agentSkillRoots(p, sc), s.projectSkillRoots(ctx, p, rec))...), ad.options(skills.Options{
 		Off:    skillOff(off),
 		Logger: s.log,
 	}))
@@ -298,6 +351,73 @@ func (s *Service) AgentSkills(ctx context.Context, user string) ([]skills.Skill,
 		out = append(out, list...)
 	}
 	return out, nil
+}
+
+// ProjectSkills lists the skills of the project layer of the user's project
+// id, for the project page. It reads the layer alone, whatever the status of
+// the project except broken. blocked is true, and the list empty, when another
+// person may write the project's skills folder: the layer is off then (see
+// files.ErrProjectSkillsBlocked). A project that is not the user's is
+// projects.ErrNotFound.
+func (s *Service) ProjectSkills(ctx context.Context, user, id string) (list []skills.Skill, blocked bool, err error) {
+	if !s.d.Files.Available() {
+		return nil, false, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
+	}
+	dir, err := s.ProjectSkillDir(ctx, user, id, false)
+	if err != nil {
+		return nil, false, err
+	}
+	p := principal(user)
+	if blocked, err = s.d.Files.ProjectSkillsBlocked(ctx, p, dir); err != nil || blocked {
+		return nil, blocked, err
+	}
+	list, _, err = s.d.Files.ResolveSkills(ctx, p, []skills.Root{files.ProjectSkillsRoot(p, dir)}, skills.Options{Logger: s.log})
+	return list, false, err
+}
+
+// ProjectSkillsBlocked reports whether the project skills of the user's
+// project id are off because another person may write the folder. A project
+// that cannot be read is not blocked.
+func (s *Service) ProjectSkillsBlocked(ctx context.Context, user, id string) bool {
+	if !s.d.Files.Available() {
+		return false
+	}
+	dir, err := s.ProjectSkillDir(ctx, user, id, false)
+	if err != nil {
+		s.log.Debug("studio: project skills not checked, the project cannot be read", "user", user, "project", id, "error", err)
+		return false
+	}
+	blocked, err := s.d.Files.ProjectSkillsBlocked(ctx, principal(user), dir)
+	if err != nil {
+		s.log.Debug("studio: project skills not checked, the grants cannot be read", "user", user, "project", id, "error", err)
+	}
+	return err == nil && blocked
+}
+
+// ProjectSkillDir returns the folder name that the skills of the user's
+// project id live under (Projects/<dir>/skills). It is the user's own project
+// only: a project that another person shares, an unknown ID and another
+// user's project are projects.ErrNotFound, so only the owner reads or writes
+// the layer. With write set, an archived project is refused too.
+func (s *Service) ProjectSkillDir(ctx context.Context, user, id string, write bool) (string, error) {
+	if s.d.Projects == nil || projects.IsSharedRef(id) {
+		return "", projects.ErrNotFound
+	}
+	var r projects.Resolved
+	var err error
+	if write {
+		r, err = s.usableProject(ctx, user, id)
+	} else {
+		r, err = s.d.Projects.Get(ctx, principal(user), id)
+	}
+	if err != nil {
+		return "", err
+	}
+	dir, ok := projectDirName(r)
+	if !ok || !files.ValidProjectDir(dir) {
+		return "", fmt.Errorf("%w: the folder of the project is not where it is expected", projects.ErrInvalid)
+	}
+	return dir, nil
 }
 
 // WellKnown returns the well-known files of the users' homes: persona.json,

@@ -215,7 +215,7 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 		t.Folder = abs
 	}
 	if t.Model == "" && t.SourceChatID != "" {
-		if src, err := h.svc.d.Store.GetChat(ctx, owner, t.SourceChatID); err == nil {
+		if src, err := h.svc.getChatEffective(ctx, owner, t.SourceChatID); err == nil {
 			t.Model = src.Model
 		}
 	}

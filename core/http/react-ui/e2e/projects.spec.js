@@ -121,15 +121,15 @@ test.describe('Projects', () => {
     await sheet.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByRole('heading', { name: 'Thesis reading list', level: 1 })).toBeVisible()
     const post = writes(s, 'POST', '/api/chats/projects')[0]
-    expect(post.body).toEqual({ name: 'Thesis reading list', description: 'Papers and a running outline.', defaults: { skills: ['summarize'] } })
+    expect(post.body).toEqual({ name: 'Thesis reading list', description: 'Papers and a running outline.', defaults: { skills: ['summarize'] }, attached: {} })
   })
 
-  test('a project page has its header, status and the eight tabs', async ({ page }) => {
+  test('a project page has its header, status and the nine tabs', async ({ page }) => {
     await mockProjects(page)
     await page.goto('/app/projects/p1')
     await expect(page.getByRole('heading', { name: 'Client site redesign', level: 1 })).toBeVisible()
     await expect(page.getByTestId('project-overview')).toBeVisible()
-    await expect(page.getByRole('tab')).toHaveText(['Overview', 'Files', 'Chats', 'Agents', 'Connections', 'Automations', 'Memory', 'Tool defaults'])
+    await expect(page.getByRole('tab')).toHaveText(['Overview', 'Files', 'Chats', 'Agents', 'Connections', 'Automations', 'Memory', 'Skills', 'Tool defaults'])
     await expect(page.getByTestId('project-stat-chats')).toContainText('2')
     await expect(page.getByTestId('project-chat-row')).toHaveCount(2)
     await stubProjectFiles(page)

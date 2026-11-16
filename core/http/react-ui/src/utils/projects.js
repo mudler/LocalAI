@@ -253,3 +253,26 @@ export function wrapKey(key, index, count) {
   if (key === 'End') return count - 1
   return -1
 }
+
+// The attached lists have the shape of the defaults, so one clean step serves both.
+export const cleanAttached = (attached) => cleanDefaults(attached)
+export const attachedCount = (attached) => defaultsCount(attached)
+
+// The attached entries that a non-empty limit leaves out. The server refuses
+// such a project (HTTP 400), so the form says it before Save. Returns
+// [{ key, name }] in list order; an empty limit list limits nothing.
+export function outsideLimit(attached, limit) {
+  const out = []
+  for (const key of DEFAULT_LISTS) {
+    const cap = limit?.[key] || []
+    if (cap.length === 0) continue
+    for (const name of attached?.[key] || []) if (!cap.includes(name)) out.push({ key, name })
+  }
+  return out
+}
+
+// The path of the skill editor for one skill of the project layer, or for a
+// new one. The editor reads the layer and the project from the URL.
+export const projectSkillPath = (project, name) => (name
+  ? `/app/skills/edit/project/${encodeURIComponent(name)}?project=${encodeURIComponent(project.id)}`
+  : `/app/skills/new?layer=project&project=${encodeURIComponent(project.id)}`)

@@ -99,8 +99,6 @@ var allowed = []entry{
 	// Chat platforms named as examples of what a connector carries. The
 	// platform is a third-party service; the add-on is not named as one.
 	{"core/cli/run.go", "Telegram, Slack", "help text that gives chat platforms as examples"},
-	{"core/http/auth/features.go", "Telegram bots", "the name of a feature permission; the platform is the content"},
-	{ui + "components/users/UsersPanel.jsx", "Telegram bots", "the name of a feature permission; the platform is the content"},
 	{"core/services/addons/tools/consumers.go", "such as Telegram", "an example of a chat platform in a note for add-on authors"},
 	{locales, "connectorsPage.noAddonHint", "a chat platform as an example of what a connector add-on carries"},
 	{"docs/content/reference/cli-reference.md", "(Telegram, Slack)", "help text that gives chat platforms as examples"},

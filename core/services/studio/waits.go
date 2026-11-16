@@ -137,7 +137,7 @@ func (s *Service) pollTool(ctx context.Context, p, chat, name string) (session.T
 	if loopControlNames[name] || !pollableName(name) {
 		return session.Tool{}, fmt.Errorf("the tool %q cannot be polled: only a tool that reads (its name says list, get, search, status and so on) can", name)
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, chat)
+	rec, err := s.getChatEffective(ctx, p, chat)
 	if err != nil {
 		return session.Tool{}, err
 	}
@@ -180,7 +180,7 @@ func (s *Service) pollURL(ctx context.Context, p, chat, raw string, strictJSON b
 	if w == nil || !w.Enabled(webFetchName) {
 		return "", errors.New("web_fetch is switched off on this server")
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, chat)
+	rec, err := s.getChatEffective(ctx, p, chat)
 	if err != nil {
 		return "", err
 	}
@@ -513,7 +513,7 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 		if wb := h.svc.d.Web; wb == nil || !wb.Enabled(webFetchName) {
 			return "", errors.New("web_fetch is switched off on this server, so a URL cannot be polled")
 		}
-		if rec, err := h.svc.d.Store.GetChat(ctx, a.Principal, a.ChatID); err != nil {
+		if rec, err := h.svc.getChatEffective(ctx, a.Principal, a.ChatID); err != nil {
 			return "", err
 		} else if h.svc.hiddenFor(ctx, rec)[webFetchName] {
 			return "", errors.New("web_fetch is switched off in this chat, so a URL cannot be polled")

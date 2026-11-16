@@ -282,7 +282,7 @@ func (s *Service) sweepSandboxJobs(every time.Duration) {
 func (s *Service) sweepSandboxChat(c *sweptChat) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	rec, err := s.d.Store.GetChat(ctx, c.owner, c.chat)
+	rec, err := s.getChatEffective(ctx, c.owner, c.chat)
 	var reason bgjob.EndReason
 	switch {
 	case errors.Is(err, session.ErrNotFound):

@@ -70,15 +70,38 @@ func ValidAgentID(id string) bool { return agentIDRE.MatchString(id) }
 
 var agentIDRE = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
+// ProjectSkillsDir is the folder of a project's skills, relative to the home of
+// its owner, from the folder name of the project.
+func ProjectSkillsDir(project string) string {
+	return projectsDir + "/" + project + "/" + skills.SkillsLayerDir
+}
+
+// ProjectSkillsRoot returns the root of the project layer for the project
+// folder project of principal, for skills.Resolve. The folder name must be
+// safe (see ValidProjectDir): it becomes a folder name.
+func ProjectSkillsRoot(principal, project string) skills.Root {
+	return skills.Root{Layer: skills.LayerProject, Project: project,
+		Path:  session.HomePath(principal) + "/" + ProjectSkillsDir(project),
+		Guest: session.GuestRoot + "/" + session.GuestHome + "/" + ProjectSkillsDir(project)}
+}
+
+// ValidProjectDir reports whether name can name a project folder of the
+// project layer.
+func ValidProjectDir(name string) bool { return agentIDRE.MatchString(name) }
+
 // SkillRoots returns the places where the user's skills are looked for, from
 // the nearest layer to the farthest: any .skills folder of the user's home, the
-// personal skills, the shared skills and the built-in ones. The Chats folder is
-// not walked: it holds uploads, not skills.
+// personal skills, the shared skills and the built-in ones. The Chats folder
+// is not walked: it holds uploads, not skills. The Projects folder is not
+// walked either: the skills of a project load only through its project layer,
+// for the chats and agents of that project.
 //
 // extra are the roots of the add-on layer the chat may use now (see
-// AddonSkillsRoot) and of the agent layer of the chat's saved agent (see
-// AgentSkillsRoot); the caller decides which are usable. Any other root is
-// dropped.
+// AddonSkillsRoot), of the agent layer of the chat's saved agent (see
+// AgentSkillsRoot) and of the project layer of the chat's project (see
+// ProjectSkillsRoot); the caller decides which are usable. Any other root is
+// dropped. A project root is rebuilt from its folder name, so its path is
+// always the project folder of principal.
 func (s *Service) SkillRoots(principal string, extra ...skills.Root) []skills.Root {
 	home := session.HomePath(principal)
 	guestHome := session.GuestRoot + "/" + session.GuestHome
@@ -86,14 +109,17 @@ func (s *Service) SkillRoots(principal string, extra ...skills.Root) []skills.Ro
 		{Layer: skills.LayerBuiltin, Path: BuiltinSkillsPath, Guest: builtinGuest},
 	}
 	for _, r := range extra {
-		if r.Layer == skills.LayerAddon || (r.Layer == skills.LayerAgent && ValidAgentID(r.Agent)) {
+		switch {
+		case r.Layer == skills.LayerAddon || (r.Layer == skills.LayerAgent && ValidAgentID(r.Agent)):
 			roots = append(roots, r)
+		case r.Layer == skills.LayerProject && ValidProjectDir(r.Project):
+			roots = append(roots, ProjectSkillsRoot(principal, r.Project))
 		}
 	}
 	return append(roots,
 		skills.Root{Layer: skills.LayerShared, Path: SharedSkillsPath, Guest: sharedGuest},
 		skills.Root{Layer: skills.LayerPersonal, Path: home + "/" + skills.SkillsDir, Guest: guestHome + "/" + skills.SkillsDir},
-		skills.Root{Layer: skills.LayerFolder, Path: home, Guest: guestHome, Skip: []string{session.ChatsPath(principal)}},
+		skills.Root{Layer: skills.LayerFolder, Path: home, Guest: guestHome, Skip: []string{session.ChatsPath(principal), home + "/" + projectsDir}},
 	)
 }
 

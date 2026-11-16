@@ -105,16 +105,19 @@ sandbox: media
 
 When the folder of a skill holds other files, such as references and scripts, the answer starts with `Base directory for this skill:` and the folder, and names up to 20 of the files, relative to it, so the model reads them with `read_file`. A sub-agent that has no `read_file` gets the instructions only. A skill with `requires: [exec]` in a chat that cannot run commands answers that it cannot be used there. Every chat with at least one skill has `load_skill`, and a sub-agent gets it with its parent's other tools. It has no switch and Settings > Tools does not list it; the Skills menu chooses what it offers. The Sandbox does not see the skill folders (the built-in `bash` does, see [Commands on this machine]({{% relref "/features/chats-and-agents/chats-commands#commands-on-this-machine" %}})). When the model reads a `SKILL.md` with `read_file` at a wrong path, the error names the right path and `load_skill`. A `SKILL.md` over 64 KiB is refused.
 
-Skills come from six places, nearest first, and the nearest wins when two have the same name:
+Skills come from seven places, nearest first, and the nearest wins when two have the same name:
 
 | Layer | Where | Who writes it |
 |---|---|---|
-| Folder | any `.skills` folder in your files | you |
+| Folder | any `.skills` folder in your files, except under `Projects/` | you |
+| Project | `Projects/<project>/skills` in your home folder | you |
 | Agent | `LocalAI/agents/<agent>/skills` in your home folder | the agent proposes, you confirm |
 | Personal | `.skills` in your home folder | you |
 | Shared | for every user | an administrator |
 | Add-on | ships with an installed add-on | the add-on owner |
 | Built-in | ships with the server | the server |
+
+The project layer holds the skills of one project: `Projects/<project>/skills/<name>/SKILL.md`. Every chat and every agent of the project gets them, with no grant and no switch to set first, and a skill you add reaches a chat that already exists on its next turn. They win over your personal and agent skills of the same name; only a skill in a `.skills` folder next to the files you work in is nearer. The project's skills limit (the skills list of its defaults) does not apply to them. Other chats never see them: a `.skills` folder below `Projects/` isn't loaded as a folder skill, and the skills of an older `Projects/<project>/.skills` folder are copied to `skills/` once when the server starts (the old folder is kept). Only you write them: through the project page, or the skills endpoints with `layer=project` and `project=<project id>` (`GET /api/chats/skills?layer=project&project=<id>` lists them, `POST` with `"layer": "project", "project": "<id>"`, and `GET`, `PUT` and `DELETE /api/chats/skills/project/<name>?project=<id>`). The folder is a place LocalAI manages, so it cannot be shared alone. When you share the project folder with **Can edit**, the project's skills are off, because another person could write them: the calls answer 409, and `GET /api/chats/projects/<id>` says `skills_blocked: true`. A switch for a project skill has the id `project:<name>`.
 
 The agent layer holds the skills of one saved agent. Only a chat that runs that agent sees them, and it needs no grant in the agent's skill list. They win over your personal skill of the same name, for that agent only. An agent writes one by a change proposal of kind `skill` with scope `agent` (see [Agents]({{%relref "/features/chats-and-agents/chats-agents" %}})); nothing is written until you confirm, and the write can be undone. An agent skill cannot take the name of a built-in skill or of a document skill such as `xlsx`, and a skill that you locked in your personal layer stays locked against it. The grant `skills.write` shows the built-in `writing-skills` to the agent, led by the line "Do not write files. Call propose_change with kind skill." The **Skills** page lists agent skills with the agent's name and a **Remove** button; a removed skill goes to the Trash. `GET /api/chats/skills?agents=true` adds them to the list with `layer: "agent"`, `agent` and `agent_name` (a chat's own list has the layer of its agent already), and `GET` or `DELETE /api/chats/skills/agent/<name>?agent=<id>` reads or removes one.
 

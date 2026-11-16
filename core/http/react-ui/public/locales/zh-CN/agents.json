@@ -1106,7 +1106,12 @@
       "grant": "写入项目记忆的权限将被移除。你可以在智能体设置中重新授予。",
       "notes": "智能体自己的笔记将从空白开始。旧笔记仍保留在你的文件中，位于 Memory 下的 Moved agent notes。",
       "foldersInto": "智能体只在 {{name}} 的文件和记忆文件夹中工作。",
-      "foldersOut": "智能体不再属于任何项目。"
+      "foldersOut": "智能体不再属于任何项目。",
+      "attachedLost_one": "旧项目附加的 {{count}} 个工具不再适用：{{names}}。",
+      "attachedLost_other": "旧项目附加的 {{count}} 个工具不再适用：{{names}}。",
+      "attachedGained_one": "新项目附加的 {{count}} 个工具会提供给智能体：{{names}}。",
+      "attachedGained_other": "新项目附加的 {{count}} 个工具会提供给智能体：{{names}}。",
+      "projectSkills": "旧项目的技能不再适用，新项目的技能开始适用。"
     },
     "blocked": {
       "busy": "此智能体的一个聊天正在运行。请先停止它，再移动智能体。"

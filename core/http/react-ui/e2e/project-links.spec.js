@@ -24,8 +24,8 @@ test.describe('Project connections', () => {
     await expect(matrix.getByTestId('project-connection-open')).toHaveAttribute('href', '/app/addons?detail=matrix')
     await expect(page.locator('body')).not.toContainText(SECRET)
     expect(await page.content()).not.toContain(SECRET)
-    // Tab 5 of 8 is the open one.
-    await expect(page.getByRole('tab')).toHaveCount(8)
+    // Tab 5 of 9 is the open one.
+    await expect(page.getByRole('tab')).toHaveCount(9)
     await expect(page.getByTestId('project-tab-connections')).toHaveAttribute('aria-selected', 'true')
   })
 

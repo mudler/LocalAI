@@ -1106,7 +1106,12 @@
       "grant": "프로젝트 메모리에 쓸 수 있는 권한이 제거됩니다. 에이전트 설정에서 다시 부여할 수 있습니다.",
       "notes": "에이전트의 자체 메모는 비어 있는 상태로 시작합니다. 이전 메모는 내 파일의 Memory 아래 Moved agent notes에 남습니다.",
       "foldersInto": "에이전트는 {{name}}의 파일 및 메모리 폴더에서만 작업합니다.",
-      "foldersOut": "에이전트는 더 이상 프로젝트에 속하지 않습니다."
+      "foldersOut": "에이전트는 더 이상 프로젝트에 속하지 않습니다.",
+      "attachedLost_one": "이전 프로젝트에 연결된 도구 {{count}}개가 더 이상 적용되지 않습니다: {{names}}.",
+      "attachedLost_other": "이전 프로젝트에 연결된 도구 {{count}}개가 더 이상 적용되지 않습니다: {{names}}.",
+      "attachedGained_one": "새 프로젝트에 연결된 도구 {{count}}개를 에이전트가 받습니다: {{names}}.",
+      "attachedGained_other": "새 프로젝트에 연결된 도구 {{count}}개를 에이전트가 받습니다: {{names}}.",
+      "projectSkills": "이전 프로젝트의 스킬은 더 이상 적용되지 않고 새 프로젝트의 스킬이 적용됩니다."
     },
     "blocked": {
       "busy": "이 에이전트의 채팅이 턴을 실행 중입니다. 중지한 뒤 에이전트를 옮기세요."

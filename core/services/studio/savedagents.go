@@ -157,7 +157,7 @@ func (s *Service) listAgentsTool(ctx context.Context, p, chatID string) (string,
 	if err := s.mayUseAgents(ctx, p); err != nil {
 		return "", err
 	}
-	chat, err := s.d.Store.GetChat(ctx, p, chatID)
+	chat, err := s.getChatEffective(ctx, p, chatID)
 	if err != nil {
 		return "", err
 	}

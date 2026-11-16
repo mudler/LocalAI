@@ -140,7 +140,7 @@ func (s *Service) loadableSkillsAndNotesForActor(ctx context.Context, a workspac
 	// scope. The status of the commands is read here, so the scope is too.
 	ctx, closeScope := s.executionScope(ctx, a.Principal, a.ChatID)
 	defer closeScope()
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -152,7 +152,7 @@ func (s *Service) loadableSkillsAndNotesForActor(ctx context.Context, a workspac
 	if final != nil && !*final {
 		command = Commands{State: CommandsNone}
 	}
-	list, notes, _, err := s.chatSkillSet(ctx, a.Principal, s.skillsOffOf(ctx, rec, sc), rec.AddonsOff, sc, command)
+	list, notes, _, err := s.chatSkillSet(ctx, a.Principal, rec, s.skillsOffOf(ctx, rec, sc), rec.AddonsOff, sc, command)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -203,7 +203,7 @@ func (s *Service) writingSkillsPreamble(ctx context.Context, a workspace.Actor, 
 	if !ok || sk.Name != writingSkillsName || sk.Layer != skills.LayerBuiltin {
 		return ""
 	}
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil || rec.AgentID == "" {
 		return ""
 	}

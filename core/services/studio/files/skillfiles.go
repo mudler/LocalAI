@@ -19,6 +19,10 @@ var (
 	ErrBadSkill = errors.New("files: a skill needs a valid name and a description")
 	// ErrNotAdmin means only an administrator may change the shared skills.
 	ErrNotAdmin = errors.New("files: only an administrator may change the shared skills")
+	// ErrProjectSkillsBlocked means the skills folder of a project is off: a
+	// person other than the owner may write it, so the host neither loads nor
+	// shows its text with the owner's authority.
+	ErrProjectSkillsBlocked = errors.New("files: project skills are off while the project folder has other writers")
 )
 
 // skillDir returns the workspace folder of a skill, and the actor that changes
@@ -47,6 +51,10 @@ func (s *Service) skillDir(principal string, layer skills.Layer, name string, wr
 			return "", workspace.Actor{}, fmt.Errorf("%w: the built-in skills ship with the server", ErrBadSkill)
 		}
 		return BuiltinSkillsPath + "/" + name, s.Actor(principal), nil
+	case skills.LayerProject:
+		// The folder of a project is named by the project, which this
+		// function does not know: use the project functions below.
+		return "", workspace.Actor{}, fmt.Errorf("%w: a project skill is changed through its project", ErrBadSkill)
 	}
 	return "", workspace.Actor{}, fmt.Errorf("%w: unknown layer %q", ErrBadSkill, layer)
 }
@@ -63,6 +71,11 @@ func (s *Service) WriteSkill(ctx context.Context, principal string, layer skills
 	if err != nil {
 		return err
 	}
+	return s.writeSkillAt(ctx, actor, dir, name, description, body)
+}
+
+// writeSkillAt stores the SKILL.md of the skill folder dir as actor.
+func (s *Service) writeSkillAt(ctx context.Context, actor workspace.Actor, dir, name, description, body string) error {
 	description = skills.Clean(description)
 	if description == "" {
 		return fmt.Errorf("%w: the description is empty", ErrBadSkill)
@@ -75,7 +88,7 @@ func (s *Service) WriteSkill(ctx context.Context, principal string, layer skills
 	if n, d, perr := skills.Parse([]byte(text)); perr != nil || n != name || d != description {
 		return fmt.Errorf("%w: the text does not make a valid SKILL.md", ErrBadSkill)
 	}
-	_, err = s.ws.Put(ctx, actor, dir+"/"+skills.SkillFile, strings.NewReader(text), workspace.PutOptions{Overwrite: true})
+	_, err := s.ws.Put(ctx, actor, dir+"/"+skills.SkillFile, strings.NewReader(text), workspace.PutOptions{Overwrite: true})
 	return err
 }
 
@@ -123,6 +136,81 @@ func (s *Service) DeleteAgentSkill(ctx context.Context, principal, agent, name s
 		return ErrUnavailable
 	}
 	dir, err := s.agentSkillDir(principal, agent, name)
+	if err != nil {
+		return err
+	}
+	return s.ws.Delete(ctx, s.Actor(principal), dir)
+}
+
+// projectSkillDir returns the workspace folder of a skill of the project layer
+// of the project folder project, and checks that no other person may write the
+// project's skills folder. A folder that another person may write is that
+// person's text, not the owner's: it is ErrProjectSkillsBlocked, for every
+// read and write of the layer.
+func (s *Service) projectSkillDir(ctx context.Context, principal, project, name string) (string, error) {
+	switch {
+	case !skills.ValidName(name):
+		return "", fmt.Errorf("%w: %q is not a skill name", ErrBadSkill, name)
+	case !validPrincipal(principal), !ValidProjectDir(project):
+		return "", workspace.ErrBadName
+	}
+	if blocked, err := s.ProjectSkillsBlocked(ctx, principal, project); err != nil {
+		return "", err
+	} else if blocked {
+		return "", ErrProjectSkillsBlocked
+	}
+	return session.HomePath(principal) + "/" + ProjectSkillsDir(project) + "/" + name, nil
+}
+
+// ProjectSkillsBlocked reports whether the skills folder of the project folder
+// project of principal is off because another person, or everyone, may write
+// it or a folder above it (OthersWrite). The host then loads nothing from it.
+func (s *Service) ProjectSkillsBlocked(ctx context.Context, principal, project string) (bool, error) {
+	if !s.Available() {
+		return false, ErrUnavailable
+	}
+	if !validPrincipal(principal) || !ValidProjectDir(project) {
+		return false, workspace.ErrBadName
+	}
+	others, err := s.OthersWrite(ctx, principal)
+	if err != nil {
+		return false, err
+	}
+	return others.Covers(session.HomePath(principal) + "/" + ProjectSkillsDir(project)), nil
+}
+
+// WriteProjectSkill creates or replaces a skill of the project layer, like
+// WriteSkill. Only the owner of the project folder writes it: the folder is
+// always read in principal's home.
+func (s *Service) WriteProjectSkill(ctx context.Context, principal, project, name, description, body string) error {
+	if !s.Available() {
+		return ErrUnavailable
+	}
+	dir, err := s.projectSkillDir(ctx, principal, project, name)
+	if err != nil {
+		return err
+	}
+	return s.writeSkillAt(ctx, s.Actor(principal), dir, name, description, body)
+}
+
+// ReadProjectSkill reads a skill of the project layer, like ReadSkill.
+func (s *Service) ReadProjectSkill(ctx context.Context, principal, project, name string) (description, body string, err error) {
+	if !s.Available() {
+		return "", "", ErrUnavailable
+	}
+	dir, err := s.projectSkillDir(ctx, principal, project, name)
+	if err != nil {
+		return "", "", err
+	}
+	return s.readSkillAt(ctx, s.Actor(principal), dir)
+}
+
+// DeleteProjectSkill moves a skill of the project layer to the Trash.
+func (s *Service) DeleteProjectSkill(ctx context.Context, principal, project, name string) error {
+	if !s.Available() {
+		return ErrUnavailable
+	}
+	dir, err := s.projectSkillDir(ctx, principal, project, name)
 	if err != nil {
 		return err
 	}

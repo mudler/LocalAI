@@ -58,6 +58,52 @@ servers, connectors (only the listed ones are on) and
 collections (the chat can use only the listed knowledge collections). When a
 chat is restricted to collections, its chat
 settings show them in a read-only **Collections** section.
+#### Attached tools
+
+A project also has an **attached** block, with the same five lists. Defaults
+are a limit; attached tools are what the project holds. Every chat of the
+project, old or new, and every agent of the project has the attached tools on,
+with no per-chat step, and the manifest is read on each turn (a change made
+through this server is seen at once; a change by another frontend within a few
+seconds): attach a tool and the next turn of a running chat or agent has it.
+An attached collection is searchable in the project's chats and agents. This
+holds for a turn that a trigger or a loop starts too. Attached means always on:
+a chat cannot switch an attached tool off, and a chat that started with such a
+tool switched off has it on while it is attached. To turn it off, detach it
+from the project. The switch a chat stored is kept, so the tool is off again
+after a detach if the chat had switched it off. A trigger, a fork or a
+sub-agent copies what the chat itself chose, never the attached tools.
+
+The effective tools of an agent are what it has plus what is attached. A
+non-empty limit then removes everything outside it, for chats and agents alike,
+and also when the manifest was edited by hand: an attached entry outside a
+non-empty limit is ignored on read. A write that attaches a tool outside a
+non-empty limit is refused with `400`, and the message names the tool and the
+limit. Narrowing the limit under an attached tool is refused the same way. A
+write that attaches an empty entry, an entry with white space at its ends or a
+control character, or an entry longer than 256 bytes is refused too, and so is
+a `connector:<id>` entry in `mcp_servers` (list the connector under
+`connectors`). Each list has at most 64 entries.
+
+Attached tools are the owner's. An attached connector, add-on or MCP server can
+hold a credential, so it runs only for turns that act as the owner of the
+project. A person the project, or one of its agents, is shared with never gets
+them. A chat that starts from a messaging connection (a bot) is not the owner
+at the keyboard: people outside the app write to it. It gets only the attached
+skills and collections. The attached connectors, add-ons and MCP servers reach
+such a chat only when the agent of the chat lists them itself. The same holds
+for a sub-agent of such a chat. Set the tools with `attached` in
+`PATCH /api/chats/projects/{id}`, or in the `attached` key of `project.json`.
+
+`project.json` is a file of the project folder. When another person may write
+the project folder (a share with write access), the `attached` block in it is
+ignored, as the project skills are, and the project page says so
+(`attached_blocked` on a read of the project). The model of an owner chat can
+write any file of your home, `project.json` included: the project page is the
+place to attach a connector, add-on or MCP server, and the file tools are not a
+guarded path. Everyone who can read the project folder sees the names in
+`attached`.
+
 
 An archived project shows a banner with **Restore**; **Edit** and the tool
 defaults are read-only until then. **Delete** asks first and says how many
@@ -105,9 +151,9 @@ All routes are under `/api/chats`, need the `chats` feature, and answer
 | Route | What it does |
 |---|---|
 | `GET /projects` | List your projects. `chat_count` counts up to 500 chats. |
-| `POST /projects` | Create one: `{name, description, defaults}`. `defaults` has five lists: `skills`, `addons`, `connectors`, `mcp_servers` and `collections`. Answers `201` with the `slug` of the folder. |
+| `POST /projects` | Create one: `{name, description, defaults, attached}`. `defaults` and `attached` have five lists each: `skills`, `addons`, `connectors`, `mcp_servers` and `collections`. Answers `201` with the `slug` of the folder. |
 | `GET /projects/{id}` | Read one. |
-| `PATCH /projects/{id}` | Change `name`, `description` or `defaults`. A field that is left out keeps its value. |
+| `PATCH /projects/{id}` | Change `name`, `description`, `defaults` or `attached`. A field that is left out keeps its value. |
 | `DELETE /projects/{id}` | Delete the folder as one change set that one undo restores. Chats of the project stay and read as having no project. |
 | `POST /projects/{id}/archive`, `POST /projects/{id}/restore` | Archive a project, or bring it back. An archived project takes no new chats. |
 | `GET /projects/{id}/memory` | The text of `index.md` and the list of topic files. |
@@ -164,6 +210,34 @@ sub-agents and forks keep it. A list from the request that names only collection
 you do not have leaves the chat with no collections at all; it does not fall
 back to all of them. The restriction stacks with a saved agent: the chat sees
 the collections that are on both lists.
+
+### Project skills and attached tools
+
+Attached tools are always on (see Attached tools under Tool defaults). A chat
+cannot switch an attached tool off, and a switch-off in a request to start a
+chat does not outlast the start of the chat. To turn a tool off for the
+project, remove it from `attached`. Defaults are the limit and attached is what
+the project holds: a non-empty limit never removes a project skill.
+
+**Project skills.** The skills of a project are files in
+`Projects/<slug>/skills/<name>/SKILL.md`. They are on in every chat and agent of
+the project and in no other chat. Project skills are above your personal skills
+and the skills of an agent. A skill in the working folder of the chat still wins
+over them. The skills limit does not apply to them. Edit them in the Skills
+section of the project page, or as files, or with the skill routes with
+`layer=project` and `project=<id>`.
+
+A project skill is read only while you are the only person who can write the
+folder. If someone else has write access to the project folder, project skills
+and the attached tools of the project are off and the project page says so.
+A project skill cannot be switched off in a chat either. The folder walk for folder skills skips
+`Projects/`, so a skill placed there never loads in a chat of another project.
+
+**Moving from `.skills`.** Skills in
+`Projects/<slug>/.skills` don't load in any chat. On first start, LocalAI copies each skill from `.skills/` to `skills/` in the
+same project, once per project: when `skills/` exists, the project is left
+alone, so a skill you delete there does not come back. It does not delete the
+source. Remove the old folder yourself when you no longer need it.
 
 ### The lens model
 
@@ -256,7 +330,11 @@ project agent works inside a fence.
   and `disable_triggers`. The answer lists what the move touches: `chats` and
   `loops` that stop, `triggers_outside`, `shares`, `proposals` that are voided,
   `dropped_tools` that the limits of the new project take away,
-  `memory_grant_dropped` and `blockers`. The move is refused with `409`
+  `attached_new` (what the new project attaches: the agent gets it at each
+  run), `attached_old` (what the old project attached and the new one does not:
+  it stops applying), `project_skills_switch` (true when the skills of the old
+  project stop and those of the new project start), `memory_grant_dropped` and
+  `blockers`. A dry run shows all of it. The move is refused with `409`
   (`agent_move_blocked`) while a chat of the agent runs a turn, while a shared
   agent would enter a project, or while an enabled file trigger watches a folder
   outside the new folders; `revoke_shares` and `disable_triggers` lift the last

@@ -89,7 +89,8 @@
     "tools": "Alat bawaan",
     "agents": "Agen",
     "connections": "Koneksi",
-    "automations": "Otomatisasi"
+    "automations": "Otomatisasi",
+    "skills": "Skill"
   },
   "updated": "Diperbarui {{when}}",
   "overview": {
@@ -175,7 +176,9 @@
       "missing": "Tidak tersedia",
       "off": "Mati saat ini",
       "missingTitle": "Tidak ada yang bernama “{{name}}” terpasang di sini. Entri ini tidak berbuat apa-apa sampai ada.",
-      "offTitle": "“{{name}}” dimatikan. Entri ini tidak berbuat apa-apa sampai dinyalakan."
+      "offTitle": "“{{name}}” dimatikan. Entri ini tidak berbuat apa-apa sampai dinyalakan.",
+      "outside": "Di luar batas",
+      "outsideTitle": "{{name}} tidak ada di batas, jadi server menolak proyek ini."
     },
     "countMissing": "{{n}} tidak tersedia",
     "pickerLoading": "Membaca yang terpasang…",
@@ -186,7 +189,22 @@
     "addTyped": "Tambah “{{name}}”",
     "save": "Simpan",
     "discard": "Buang perubahan",
-    "archivedNote": "Proyek ini diarsipkan. Pulihkan untuk mengubah bawaan alatnya."
+    "archivedNote": "Proyek ini diarsipkan. Pulihkan untuk mengubah bawaan alatnya.",
+    "attachedTitle": "Terlampir",
+    "attachedKind": "Selalu aktif di chat dan agen proyek ini",
+    "limitKind": "Batas: hanya ini yang bisa dipakai",
+    "attachedLead": "Setiap chat dan agen proyek ini memilikinya dalam keadaan aktif, tanpa langkah tambahan, juga di chat yang sudah ada. Chat tidak bisa mematikannya. Jika batas di bawah berisi entri, entri terlampir harus ada di dalamnya.",
+    "noneAttached": "Tidak ada yang terlampir",
+    "attachLabel": "Lampirkan ke {{list}}",
+    "outsideLimit": "Di luar batas: {{names}}. Tambahkan ke batas di bawah atau lepaskan. Server menolak proyek seperti ini.",
+    "attachedBlocked": "Alat yang dilampirkan nonaktif selama folder ini punya penulis lain: apa yang dilampirkan proyek diabaikan sampai tidak ada orang lain yang bisa menulis di folder.",
+    "attachedHints": {
+      "skills": "Skill ini aktif di setiap chat dan agen proyek ini. Gunakan nama yang tampil di halaman Skill.",
+      "addons": "Add-on ini aktif di setiap chat dan agen proyek ini. Add-on yang memakai kredensial hanya berjalan untuk Anda, bukan untuk orang yang diberi akses ke proyek.",
+      "mcp_servers": "Server MCP ini aktif di setiap chat dan agen proyek ini. Server yang memakai kredensial hanya berjalan untuk Anda.",
+      "connectors": "Konektor MCP ini aktif di setiap chat dan agen proyek ini. Konektor hanya berjalan untuk Anda, tidak pernah untuk orang yang diberi akses ke proyek.",
+      "collections": "Koleksi pengetahuan ini dapat dicari di setiap chat dan agen proyek ini."
+    }
   },
   "sheet": {
     "newTitle": "Proyek baru",
@@ -406,5 +424,21 @@
     "agentsBody": "Administrator dapat mengaktifkannya untuk Anda.",
     "connections": "Koneksi tidak tersedia untuk akun Anda",
     "connectionsBody": "Tab ini memerlukan fitur konektor dan agen. Administrator dapat mengaktifkannya untuk Anda."
+  },
+  "projectSkills": {
+    "title": "Skill proyek",
+    "new": "Skill baru",
+    "body": "Skill yang disimpan di folder proyek ini. Aktif di setiap chat dan agen proyek ini, dan tidak di chat lain.",
+    "blocked": "Skill proyek nonaktif selama folder ini punya penulis lain.",
+    "loadFailed": "Skill proyek tidak termuat.",
+    "empty": "Proyek ini belum punya skill.",
+    "removed": "Skill {{name}} dihapus.",
+    "removeFailed": "Skill tidak dihapus: {{message}}",
+    "edit": "Edit {{name}}",
+    "editLabel": "Edit",
+    "delete": "Hapus {{name}}",
+    "deleteLabel": "Hapus",
+    "deleteTitle": "Hapus skill {{name}}?",
+    "deleteBody": "Skill dihapus dari folder proyek. Chat dan agen proyek berhenti memakainya."
   }
 }

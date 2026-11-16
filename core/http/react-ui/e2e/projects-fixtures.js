@@ -118,7 +118,7 @@ export async function mockProjects(page, { projects = PROJECTS, chats = CHATS, m
       const b = body(req)
       rec(req, b)
       const slug = b.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-      const p = { id: `p${s.projects.length + 1}`, name: b.name, description: b.description || '', slug, status: 'active', defaults: b.defaults || {}, updated: new Date().toISOString(), chat_count: 0 }
+      const p = { id: `p${s.projects.length + 1}`, name: b.name, description: b.description || '', slug, status: 'active', defaults: b.defaults || {}, attached: b.attached || {}, updated: new Date().toISOString(), chat_count: 0 }
       s.projects.push(p)
       return json(r, p, 201)
     }

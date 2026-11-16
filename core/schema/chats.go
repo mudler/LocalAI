@@ -1209,7 +1209,8 @@ type ChatsSkill struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Layer is where it comes from: folder (a .skills folder of your files),
-	// agent (a saved agent proposed it), personal, shared, addon (an installed
+	// project (the skills folder of a project), agent (a saved agent proposed
+	// it), personal, shared, addon (an installed
 	// add-on ships it) or builtin.
 	Layer string `json:"layer"`
 	// Addon and AddonTitle name the add-on that provides a skill of the addon
@@ -1220,6 +1221,9 @@ type ChatsSkill struct {
 	// layer: the agent proposed it and the owner confirmed it.
 	Agent     string `json:"agent,omitempty"`
 	AgentName string `json:"agent_name,omitempty"`
+	// Project is the folder name of the project that owns a skill of the
+	// project layer.
+	Project string `json:"project,omitempty"`
 	// Removable is true when the skill can be deleted from the Skills page
 	// although it cannot be edited there (a skill of the agent layer).
 	Removable bool `json:"removable,omitempty"`
@@ -1257,11 +1261,16 @@ type ChatsSkillList struct {
 	Skills []ChatsSkill `json:"skills"`
 	// Notes say what could not be read or searched.
 	Notes []string `json:"notes,omitempty"`
+	// SkillsBlocked is true when the list is for a project (layer=project) and
+	// its skills are off because another person may write the project folder.
+	SkillsBlocked bool `json:"skills_blocked,omitempty"`
 }
 
 // ChatsSkillWrite creates a skill.
 type ChatsSkillWrite struct {
-	Layer       string `json:"layer"` // personal or shared
+	Layer string `json:"layer"` // personal, shared or project
+	// Project is the project's ID, for the project layer.
+	Project     string `json:"project,omitempty"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Body        string `json:"body"`

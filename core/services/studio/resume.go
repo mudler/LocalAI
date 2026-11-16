@@ -35,7 +35,7 @@ func (s *Service) keepResume(ctx context.Context, p, conv string) bool {
 	if err != nil || info.Running || info.Last != store.TurnInterrupted || !info.WillResume {
 		return false
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err == nil && s.resumeEligible(rec) {
 		return true
 	}
@@ -62,7 +62,7 @@ func (s *Service) SweepResumes(ctx context.Context) (int, error) {
 		if ctx.Err() != nil || s.isClosed() {
 			break
 		}
-		rec, err := s.d.Store.GetChat(ctx, d.Principal, d.ChatID)
+		rec, err := s.getChatEffective(ctx, d.Principal, d.ChatID)
 		if err != nil {
 			continue // deleted meanwhile
 		}
@@ -115,7 +115,7 @@ func (s *Service) ResumeInterrupted(ctx context.Context, p, conv string) (SendRe
 	// A chat of a project agent whose project is not available is left for
 	// later: nothing is claimed, so no attempt is spent and a restore of the
 	// project lets the next sweep resume it.
-	if rec, err := s.d.Store.GetChat(ctx, p, conv); err == nil {
+	if rec, err := s.getChatEffective(ctx, p, conv); err == nil {
 		if _, _, err := s.chatScopes(ctx, rec, false); errors.Is(err, ErrProjectUnavailable) {
 			return SendResult{}, nil
 		}

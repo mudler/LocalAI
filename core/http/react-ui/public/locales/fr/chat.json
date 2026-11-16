@@ -194,7 +194,8 @@
     "unavailable": "Indisponible dans ce chat",
     "toolCount_one": "{{count}} outil",
     "toolCount_other": "{{count}} outils",
-    "optionsOf": "Options de {{name}}"
+    "optionsOf": "Options de {{name}}",
+    "projectCollections": "Collections du projet : {{names}}."
   },
   "skills": {
     "label": "Compétences",
@@ -220,7 +221,8 @@
     },
     "replacedBy": "Remplacée par {{name}}",
     "fallback_one": "{{skills}} intégrée utilisée : la compétence du module {{name}} est désactivée ou ne tourne pas ici.",
-    "fallback_other": "{{skills}} intégrées utilisées : les compétences du module {{name}} sont désactivées ou ne tournent pas ici."
+    "fallback_other": "{{skills}} intégrées utilisées : les compétences du module {{name}} sont désactivées ou ne tournent pas ici.",
+    "fromProject": "Du projet"
   },
   "agent": {
     "label": "Agent",

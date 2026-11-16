@@ -132,7 +132,7 @@ func (h *Loops) armScript(ctx context.Context, a workspace.Actor, script string)
 		return fmt.Errorf("script is longer than %d bytes: put it in a file and run that file", loops.MaxScriptBytes)
 	}
 	s := h.svc
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func firstLine(s string) string {
 // value is set when the wait must end at once and says why (the node cannot
 // run the script, or the budget is used up).
 func (h *Loops) checkScript(ctx context.Context, l loops.Loop, lim LoopLimits) (watch.Result, *scriptEnd) {
-	rec, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID)
+	rec, err := h.svc.getChatEffective(ctx, l.Owner, l.ChatID)
 	if err != nil {
 		return watch.Result{Err: err}, nil
 	}

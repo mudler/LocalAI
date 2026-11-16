@@ -60,7 +60,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// folder). Refuse the tools rather than build them on a guess.
 		return session.TurnTools{}, errNoTurnAccess
 	}
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return session.TurnTools{}, err
 	}
@@ -141,7 +141,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.skillsOffOf(ctx, rec, sc), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, rec, s.skillsOffOf(ctx, rec, sc), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
 	if err != nil {
 		return session.TurnTools{}, err
 	}
@@ -396,7 +396,7 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		return "", errors.New("task is required")
 	}
 	wait := args.Wait == nil || *args.Wait
-	parent, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	parent, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return "", err
 	}
@@ -463,6 +463,13 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		return "", err
 	}
 	now := parent.Updated
+	// The restriction is copied from the stored record: the collections that
+	// the project of the parent attaches are not part of what the parent chose.
+	stored, err := s.getChatRaw(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		s.forgetChild(parentKey, childID)
+		return "", err
+	}
 	rec := session.ChatRecord{ID: childID, Principal: a.Principal, Title: title, Created: now, Updated: now,
 		Kind: session.KindSubAgent, ParentID: a.ChatID, Model: model, AgentID: agent.ID,
 		// The connections the parent chose are the child's: its tools run with
@@ -471,7 +478,7 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		// The child never sees more collections than its parent: the
 		// restriction is a limit, so it is copied, and an agent's own list
 		// narrows it further.
-		Collections: slices.Clone(parent.Collections),
+		Collections: slices.Clone(stored.Collections),
 		// The child is refused, never given the whole home, when the folder
 		// it works in can no longer be found (chatScopes).
 		ScopedAgent: parent.ScopedAgent || fencedAgent(agent)}
@@ -579,7 +586,7 @@ func (s *Service) parentTools(ctx context.Context, a workspace.Actor, x *session
 	}
 	// The built-in file tools act for the parent chat: what a sub-agent changes
 	// is an agent change of the parent, and the parent's Files pane refreshes.
-	parent, perr := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	parent, perr := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if x != nil {
 		fileTools := s.d.Files.Tools(*x)
 		if perr == nil {
@@ -709,7 +716,7 @@ func (s *Service) childAllowed(ctx context.Context, rec session.ChatRecord, px *
 	if len(rec.AllowedTools) == 0 {
 		return nil
 	}
-	parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+	parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
 	if err != nil {
 		s.log.Warn("studio: could not read the parent of a sub-agent; it has no tools", "chat", rec.ID, "error", err)
 		return nil

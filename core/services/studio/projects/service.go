@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -43,6 +44,9 @@ type FileHost interface {
 	Actor(principal string) workspace.Actor
 	Store() workspace.Store
 	Written(ctx context.Context, n workspace.Node, principal string)
+	// OthersWrite returns the folders of the home of principal that another
+	// person may write.
+	OthersWrite(ctx context.Context, principal string) (workspace.Writable, error)
 }
 
 // Options configure a Service.
@@ -64,12 +68,14 @@ type Options struct {
 type CreateInput struct {
 	Name, Description string
 	Defaults          Defaults
+	Attached          Defaults
 }
 
 // UpdateInput changes a project. A nil field stays as it is.
 type UpdateInput struct {
 	Name, Description *string
 	Defaults          *Defaults
+	Attached          *Defaults
 }
 
 // Resolved is a project with its manifest and where its folders are now.
@@ -78,6 +84,11 @@ type Resolved struct {
 	Manifest Manifest
 	// FilesPath and MemoryPath are paths inside the owner's home.
 	FilesPath, MemoryPath string
+	// AttachedBlocked is true when the manifest holds an attached block that
+	// the host ignores because another person may write the project folder: a
+	// file that someone else can edit must not give tools to the owner's chats.
+	// Manifest.Attached is empty then.
+	AttachedBlocked bool
 }
 
 // Service creates, finds and changes projects. It keeps nothing in memory: the
@@ -88,7 +99,16 @@ type Service struct {
 	// locks has one mutex per project, so two rewrites in this process queue
 	// instead of racing. Another process is met by the content hash check.
 	locks sync.Map
+	// gen counts the changes this process made to a project (create, save,
+	// delete, reindex), so a reader that keeps a project for a short time can
+	// tell that its copy is older than a write of this process. A write by
+	// another frontend is met by the reader's own time limit.
+	gen atomic.Uint64
 }
+
+// Generation returns a number that grows on every project change made through
+// this service.
+func (s *Service) Generation() uint64 { return s.gen.Load() }
 
 // NewService returns a Service.
 func NewService(o Options) *Service {
@@ -110,11 +130,15 @@ func (s *Service) rootRel() string { return "/" + RootDir }
 // Create makes the folder of a new project with its manifest, in one change
 // set that one undo removes.
 func (s *Service) Create(ctx context.Context, owner string, in CreateInput) (Project, error) {
+	defer s.gen.Add(1)
 	if err := s.permit(ctx, owner); err != nil {
 		return Project{}, err
 	}
-	m := Manifest{Version: ManifestVersion, ID: NewID(), Name: strings.TrimSpace(in.Name), Description: strings.TrimSpace(in.Description), Defaults: in.Defaults}
+	m := Manifest{Version: ManifestVersion, ID: NewID(), Name: strings.TrimSpace(in.Name), Description: strings.TrimSpace(in.Description), Defaults: in.Defaults, Attached: in.Attached}
 	if _, err := ParseManifest(m.Marshal()); err != nil {
+		return Project{}, err
+	}
+	if err := CheckAttached(m.Defaults, m.Attached); err != nil {
 		return Project{}, err
 	}
 	if err := s.o.Files.EnsureHome(ctx, owner); err != nil {
@@ -278,7 +302,28 @@ func (s *Service) resolve(ctx context.Context, owner, id string) (Resolved, bool
 	if perr != nil || m.ID != p.ID {
 		return Resolved{}, false, nil
 	}
-	return Resolved{Project: p, Manifest: m, FilesPath: rel + "/files", MemoryPath: rel + "/memory"}, true, nil
+	r := Resolved{Project: p, Manifest: m, FilesPath: rel + "/files", MemoryPath: rel + "/memory"}
+	if !m.Attached.Empty() {
+		r.Manifest.Attached, r.AttachedBlocked = s.readableAttached(ctx, owner, rel, m)
+	}
+	return r, true, nil
+}
+
+// readableAttached is the attached block of m as the host may apply it. The
+// manifest is a file of the project folder: when another person may write the
+// folder (OthersWrite) the block is theirs as much as the owner's, so it is
+// dropped and blocked is true. A grant list that cannot be read is the same
+// answer. The entries outside the limit or of a bad shape are dropped too.
+func (s *Service) readableAttached(ctx context.Context, owner, rel string, m Manifest) (att Defaults, blocked bool) {
+	abs, err := s.o.Files.Abs(owner, rel+"/"+ManifestFile)
+	if err != nil {
+		return Defaults{}, true
+	}
+	others, err := s.o.Files.OthersWrite(ctx, owner)
+	if err != nil || others.Covers(abs) {
+		return Defaults{}, true
+	}
+	return EffectiveAttached(m.Defaults, m.Attached), false
 }
 
 // List returns the projects of an owner, sorted by name, after a reindex.
@@ -322,7 +367,7 @@ func (s *Service) projectDirs(ctx context.Context, owner string) ([]workspace.No
 // Update changes the manifest of a project and its row. The folder keeps its
 // name.
 func (s *Service) Update(ctx context.Context, owner, id string, in UpdateInput) (Project, error) {
-	return s.rewrite(ctx, owner, id, func(m *Manifest) {
+	return s.rewrite(ctx, owner, id, func(m *Manifest) error {
 		if in.Name != nil {
 			m.Name = strings.TrimSpace(*in.Name)
 		}
@@ -332,17 +377,25 @@ func (s *Service) Update(ctx context.Context, owner, id string, in UpdateInput) 
 		if in.Defaults != nil {
 			m.Defaults = *in.Defaults
 		}
+		if in.Attached != nil {
+			m.Attached = *in.Attached
+		}
+		if in.Defaults != nil || in.Attached != nil {
+			// A narrower limit is refused too when an attached tool would fall outside it.
+			return CheckAttached(m.Defaults, m.Attached)
+		}
+		return nil
 	})
 }
 
 // Archive hides a project from the active list. Nothing is moved.
 func (s *Service) Archive(ctx context.Context, owner, id string) (Project, error) {
-	return s.rewrite(ctx, owner, id, func(m *Manifest) { m.Archived = true })
+	return s.rewrite(ctx, owner, id, func(m *Manifest) error { m.Archived = true; return nil })
 }
 
 // Restore makes an archived project active again.
 func (s *Service) Restore(ctx context.Context, owner, id string) (Project, error) {
-	return s.rewrite(ctx, owner, id, func(m *Manifest) { m.Archived = false })
+	return s.rewrite(ctx, owner, id, func(m *Manifest) error { m.Archived = false; return nil })
 }
 
 func contentHash(text string) string {
@@ -377,7 +430,7 @@ func (s *Service) lock(owner, id string) func() {
 // rewrite changes the manifest of a project with a compare-and-set on the hash
 // of the file it started from. On a change it starts again from the new file,
 // once; a second change is ErrConflict.
-func (s *Service) rewrite(ctx context.Context, owner, id string, change func(*Manifest)) (Project, error) {
+func (s *Service) rewrite(ctx context.Context, owner, id string, change func(*Manifest) error) (Project, error) {
 	defer s.lock(owner, id)()
 	for attempt := 0; ; attempt++ {
 		r, err := s.Get(ctx, owner, id)
@@ -400,7 +453,9 @@ func (s *Service) rewrite(ctx context.Context, owner, id string, change func(*Ma
 			// The folder was given to another project since Get.
 			return Project{}, fmt.Errorf("%w: the folder now belongs to another project", ErrConflict)
 		}
-		change(&m)
+		if err := change(&m); err != nil {
+			return Project{}, err
+		}
 		p, err := s.save(ctx, owner, r, rel, contentHash(text), m)
 		if errors.Is(err, ErrConflict) && attempt == 0 {
 			continue
@@ -416,6 +471,7 @@ func (s *Service) rewrite(ctx context.Context, owner, id string, change func(*Ma
 // manifest is the truth: a failure between the two leaves a row that Reindex
 // corrects.
 func (s *Service) save(ctx context.Context, owner string, r Resolved, rel, want string, m Manifest) (Project, error) {
+	defer s.gen.Add(1)
 	out := m.Marshal()
 	if _, err := ParseManifest(out); err != nil {
 		return Project{}, err
@@ -443,6 +499,7 @@ func statusOf(m Manifest) Status {
 // different project, nothing is trashed: the stale row is removed and the call
 // returns ErrNotFound.
 func (s *Service) Delete(ctx context.Context, owner, id string) error {
+	defer s.gen.Add(1)
 	if err := s.permit(ctx, owner); err != nil {
 		return err
 	}

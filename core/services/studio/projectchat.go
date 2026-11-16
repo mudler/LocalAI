@@ -250,7 +250,7 @@ func (s *Service) resolveHome(ctx context.Context, user string, rec session.Chat
 // one and a chat of another user are not found; an archived project is refused.
 func (s *Service) SetChatProject(ctx context.Context, user, chatID, projectID string) error {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, chatID)
+	rec, err := s.getChatEffective(ctx, p, chatID)
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func (s *Service) SetChatProject(ctx context.Context, user, chatID, projectID st
 // clears it.
 func (s *Service) SetChatPulled(ctx context.Context, user, chatID string, ids []string) error {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, chatID)
+	rec, err := s.getChatEffective(ctx, p, chatID)
 	if err != nil {
 		return err
 	}
@@ -376,7 +376,7 @@ func (s *Service) projectAgentOf(ctx context.Context, rec session.ChatRecord) (a
 	if rec.Kind != session.KindSubAgent || rec.ParentID == "" {
 		return agents.Agent{}, false, nil
 	}
-	parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+	parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
 	switch {
 	case errors.Is(err, session.ErrNotFound):
 		return agents.Agent{}, false, nil
@@ -500,7 +500,7 @@ func (s *Service) projectMounts(ctx context.Context, rec session.ChatRecord) ([]
 		// parent leaves or pulls follows at the child's next turn. A parent
 		// that is gone leaves the child without project mounts. Whether the
 		// child is fenced is decided by chatAccess before this is called.
-		parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+		parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
 		if err != nil {
 			return nil, nil
 		}

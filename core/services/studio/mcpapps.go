@@ -67,7 +67,7 @@ type appTool struct {
 // the connector is the user's and enabled, and a model server is one the model
 // picks by itself or the agent names.
 func (s *Service) appServerFor(ctx context.Context, user, conv, server string) (*appServer, error) {
-	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
 	if err != nil {
 		return nil, err
 	}

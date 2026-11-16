@@ -19,6 +19,7 @@ import ProjectConnections from '../components/projects/ProjectConnections'
 import ProjectAutomations from '../components/projects/ProjectAutomations'
 import ProjectFiles from '../components/projects/ProjectFiles'
 import ProjectMemory from '../components/projects/ProjectMemory'
+import ProjectSkills from '../components/projects/ProjectSkills'
 import ProjectTools from '../components/projects/ProjectTools'
 import { deleteProjectWithUndo } from '../components/projects/projectUndo'
 import { ProjectStatus } from './Projects'
@@ -27,7 +28,7 @@ import { proposalsForProject } from '../utils/changeProposal'
 import { defaultsCount, memoryTopicCount, isProjectsOff, pickStartModel, startChatBody, whenAgo, wrapKey } from '../utils/projects'
 import './projects.css'
 
-const TABS = ['overview', 'files', 'chats', 'agents', 'connections', 'automations', 'memory', 'tools']
+const TABS = ['overview', 'files', 'chats', 'agents', 'connections', 'automations', 'memory', 'skills', 'tools']
 
 export default function ProjectPage() {
   const { id } = useParams()
@@ -286,6 +287,7 @@ export default function ProjectPage() {
               {tab === 'connections' && <ProjectConnections project={project} archived={archived} />}
               {tab === 'automations' && <ProjectAutomations project={project} archived={archived} onRestore={() => act('restore')} />}
               {tab === 'memory' && <ProjectMemory project={project} memory={memory} disabled={archived} addToast={addToast} onChanged={() => load({ quiet: true })} />}
+              {tab === 'skills' && <ProjectSkills project={project} archived={archived} addToast={addToast} />}
               {tab === 'tools' && <ProjectTools project={project} archived={archived} addToast={addToast} onSaved={setProject} />}
             </div>
           </>

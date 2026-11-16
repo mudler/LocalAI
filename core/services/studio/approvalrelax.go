@@ -35,7 +35,7 @@ func (s *Service) ApprovalRelaxed(ctx context.Context, user, chatID, addonID, to
 	if err != nil || !found || v != contract.ApprovalSkip {
 		return false
 	}
-	rec, err := s.d.Store.GetChat(ctx, principal(user), chatID)
+	rec, err := s.getChatEffective(ctx, principal(user), chatID)
 	if err != nil {
 		if !errors.Is(err, session.ErrNotFound) {
 			s.log.Warn("studio: the chat could not be read, the add-on tool will ask for a confirmation", "error", err)

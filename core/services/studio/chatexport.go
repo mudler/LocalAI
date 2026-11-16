@@ -57,7 +57,7 @@ type ChatExportMessage struct {
 // Export returns the chat as a ChatExport. Checkpoints are left out.
 func (s *Service) Export(ctx context.Context, user, conv string) (ChatExport, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return ChatExport{}, err
 	}
@@ -174,7 +174,7 @@ func (s *Service) ImportExport(ctx context.Context, user string, in ChatExport, 
 		return session.ChatRecord{}, err
 	}
 	if state := s.rebuildState(ctx, rec, stored); len(state) > 0 {
-		cur, err := s.d.Store.GetChat(ctx, p, rec.ID)
+		cur, err := s.getChatEffective(ctx, p, rec.ID)
 		if err != nil {
 			return session.ChatRecord{}, err
 		}
@@ -183,7 +183,7 @@ func (s *Service) ImportExport(ctx context.Context, user string, in ChatExport, 
 			return session.ChatRecord{}, err
 		}
 	}
-	return s.d.Store.GetChat(ctx, p, rec.ID)
+	return s.getChatEffective(ctx, p, rec.ID)
 }
 
 // checkImportAttachments refuses attachments that are not paths inside a home

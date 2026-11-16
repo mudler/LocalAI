@@ -196,7 +196,8 @@
     "unavailable": "이 채팅에서 사용할 수 없음",
     "toolCount_one": "도구 {{count}}개",
     "toolCount_other": "도구 {{count}}개",
-    "optionsOf": "{{name}} 옵션"
+    "optionsOf": "{{name}} 옵션",
+    "projectCollections": "프로젝트의 컬렉션: {{names}}."
   },
   "skills": {
     "label": "스킬",
@@ -222,7 +223,8 @@
     },
     "replacedBy": "{{name}}(으)로 대체됨",
     "fallback_one": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",
-    "fallback_other": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다."
+    "fallback_other": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",
+    "fromProject": "프로젝트에서"
   },
   "agent": {
     "label": "에이전트",

@@ -113,7 +113,7 @@ type RunCMD struct {
 	Models                    []string `env:"LOCALAI_MODELS,MODELS" help:"A List of model configuration URLs to load" group:"models"`
 	PreloadModelsConfig       string   `env:"LOCALAI_PRELOAD_MODELS_CONFIG,PRELOAD_MODELS_CONFIG" help:"A List of models to apply at startup. Path to a YAML config file" group:"models"`
 
-	F16         bool `name:"f16" env:"LOCALAI_F16,F16" help:"Enable GPU acceleration" group:"performance"`
+	F16         bool `name:"f16" env:"LOCALAI_F16,F16" help:"Default to 16-bit float (f16) memory and KV cache for models whose config does not set f16" group:"performance"`
 	Threads     int  `env:"LOCALAI_THREADS,THREADS" short:"t" help:"Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested" group:"performance"`
 	ContextSize int  `env:"LOCALAI_CONTEXT_SIZE,CONTEXT_SIZE" help:"Default context size for models" group:"performance"`
 
@@ -169,7 +169,7 @@ type RunCMD struct {
 	MachineTag                         string        `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
 	LoadToMemory                       []string      `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
 	EnableTracing                      bool          `env:"LOCALAI_ENABLE_TRACING,ENABLE_TRACING" help:"Enable API tracing" group:"api"`
-	MaxConcurrentBackendRequests       int           `env:"LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS,MAX_CONCURRENT_BACKEND_REQUESTS" default:"1024" help:"Maximum number of concurrent backend inference operations. Excess inference requests receive HTTP 503; UI and administrative endpoints remain available." group:"backends"`
+	MaxConcurrentBackendRequests       int           `env:"LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS,MAX_CONCURRENT_BACKEND_REQUESTS" default:"1024" help:"Maximum number of concurrent backend inference operations. Excess inference requests receive HTTP 429 with a Retry-After header; UI and administrative endpoints remain available." group:"backends"`
 	TracingMaxItems                    int           `env:"LOCALAI_TRACING_MAX_ITEMS" default:"1024" help:"Maximum number of traces to keep" group:"api"`
 	TracingMaxBodyBytes                int           `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
 	OpenResponsesStoreTTL              string        `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`

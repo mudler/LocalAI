@@ -59,6 +59,14 @@ export function effectsOf(report) {
   const d = report.dropped_tools || {}
   const dropped = [...(d.skills || []), ...(d.addons || []), ...(d.mcp_servers || []), ...(d.collections || [])]
   if (dropped.length > 0) out.push({ key: 'dropped', count: dropped.length, names: dropped })
+  // attached_old stops applying (what the old project attached and the new one
+  // does not); attached_new starts. Same lists as dropped_tools, with connectors.
+  const flat = (x) => ['skills', 'addons', 'mcp_servers', 'connectors', 'collections'].flatMap((k) => (x?.[k] || []))
+  const lost = flat(report.attached_old)
+  const gained = flat(report.attached_new)
+  if (lost.length > 0) out.push({ key: 'attachedLost', count: lost.length, names: lost })
+  if (gained.length > 0) out.push({ key: 'attachedGained', count: gained.length, names: gained })
+  if (report.project_skills_switch) out.push({ key: 'projectSkills' })
   if (report.memory_grant_dropped) out.push({ key: 'grant' })
   return out
 }

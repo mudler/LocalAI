@@ -89,7 +89,8 @@
     "tools": "工具默认值",
     "agents": "智能体",
     "connections": "连接",
-    "automations": "自动化"
+    "automations": "自动化",
+    "skills": "技能"
   },
   "updated": "{{when}}更新",
   "overview": {
@@ -175,7 +176,9 @@
       "missing": "不可用",
       "off": "当前已关闭",
       "missingTitle": "这里没有安装名为“{{name}}”的内容。在它存在之前，此条目不起作用。",
-      "offTitle": "“{{name}}”已关闭。在它开启之前，此条目不起作用。"
+      "offTitle": "“{{name}}”已关闭。在它开启之前，此条目不起作用。",
+      "outside": "超出限制",
+      "outsideTitle": "{{name}}不在限制中，因此服务器会拒绝此项目。"
     },
     "countMissing": "{{n}} 个不可用",
     "pickerLoading": "正在读取已安装的内容…",
@@ -186,7 +189,22 @@
     "addTyped": "添加“{{name}}”",
     "save": "保存",
     "discard": "放弃更改",
-    "archivedNote": "此项目已归档。恢复后才能更改其工具默认值。"
+    "archivedNote": "此项目已归档。恢复后才能更改其工具默认值。",
+    "attachedTitle": "已附加",
+    "attachedKind": "在此项目的聊天和智能体中始终开启",
+    "limitKind": "限制：只能使用这些",
+    "attachedLead": "此项目的每个聊天和智能体都会开启这些项，无需额外步骤，已有的聊天也一样。聊天无法关闭它们。如果下方的限制有条目，已附加的条目必须在其中。",
+    "noneAttached": "未附加任何项",
+    "attachLabel": "附加到{{list}}",
+    "outsideLimit": "超出限制：{{names}}。请将它们加入下方的限制，或取消附加。服务器会拒绝这样的项目。",
+    "attachedBlocked": "当此文件夹有其他人可写入时，已附加的工具会关闭：在没有其他人能写入该文件夹之前，项目附加的内容会被忽略。",
+    "attachedHints": {
+      "skills": "这些技能在此项目的每个聊天和智能体中都开启。请使用“技能”页面显示的名称。",
+      "addons": "这些附加组件在此项目的每个聊天和智能体中都开启。使用凭据的附加组件只为你运行，不会为共享此项目的人运行。",
+      "mcp_servers": "这些 MCP 服务器在此项目的每个聊天和智能体中都开启。使用凭据的服务器只为你运行。",
+      "connectors": "这些 MCP 连接器在此项目的每个聊天和智能体中都开启。连接器只为你运行，绝不会为共享此项目的人运行。",
+      "collections": "此项目的每个聊天和智能体都可以搜索这些知识集合。"
+    }
   },
   "sheet": {
     "newTitle": "新建项目",
@@ -406,5 +424,21 @@
     "agentsBody": "管理员可以为你启用。",
     "connections": "你的账户无法使用连接",
     "connectionsBody": "此标签页需要“连接器”和“智能体”功能。管理员可以为你启用。"
+  },
+  "projectSkills": {
+    "title": "项目技能",
+    "new": "新建技能",
+    "body": "保存在此项目文件夹中的技能。它们在此项目的每个聊天和智能体中开启，在其他聊天中不开启。",
+    "blocked": "此文件夹有其他写入者时，项目技能处于关闭状态。",
+    "loadFailed": "项目技能未能加载。",
+    "empty": "此项目还没有技能。",
+    "removed": "已删除技能 {{name}}。",
+    "removeFailed": "技能未删除：{{message}}",
+    "edit": "编辑 {{name}}",
+    "editLabel": "编辑",
+    "delete": "删除 {{name}}",
+    "deleteLabel": "删除",
+    "deleteTitle": "删除技能 {{name}}？",
+    "deleteBody": "该技能会从项目文件夹中删除。项目的聊天和智能体将不再使用它。"
   }
 }

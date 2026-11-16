@@ -31,7 +31,7 @@ const FALLBACK_FEATURES = {
     { key: 'localai_assistant', label: 'LocalAI Assistant', default: false },
     { key: 'agents', label: 'Saved agents', default: false },
     { key: 'triggers', label: 'Scheduled triggers', default: false },
-    { key: 'connectors', label: 'Chat connectors (Telegram bots)', default: false },
+    { key: 'connectors', label: 'Chat connectors', default: false },
     { key: 'mcp_jobs', label: 'Agent tasks and jobs', default: false },
     { key: 'pages', label: 'Pages (HTML pages in the workspace)', default: false },
   ],

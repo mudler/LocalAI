@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { chatAgentsApi } from '../utils/api'
+import { useProjectAttached } from './useProjectAttached'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useChatDrafts } from './useChatDrafts'
 import { useChatSwitches } from './useChatSwitches'
@@ -47,7 +48,9 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
   const pickedAgent = agents.find((a) => a.id === (activeChat ? activeChat.agent_id : agentId))
   // The model of a new chat comes from the agent when it names one.
   const effectiveModel = activeChat ? activeChat.model : (pickedAgent?.model || draftModel)
-  const switches = useChatSwitches(chatId, filesOn, chatId ? null : { model: effectiveModel, agentId }, actorSession)
+  // What the chat's project attaches (the open chat's, or the project of the draft).
+  const attached = useProjectAttached(chatId ? activeChat?.project_id : projectId)
+  const switches = useChatSwitches(chatId, filesOn, chatId ? null : { model: effectiveModel, agentId }, actorSession, attached)
 
   // Files go to the server with the message that starts a turn and are saved
   // in the chat's folder of the workspace.

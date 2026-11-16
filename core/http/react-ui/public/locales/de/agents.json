@@ -1106,7 +1106,12 @@
       "grant": "Die Erlaubnis, das Projektgedächtnis zu beschreiben, wird entfernt. Du kannst sie in den Einstellungen des Agenten erneut erteilen.",
       "notes": "Die eigenen Notizen des Agenten beginnen leer. Die alten Notizen bleiben in deinen Dateien, in Memory unter Moved agent notes.",
       "foldersInto": "Der Agent arbeitet nur in den Datei- und Gedächtnisordnern von {{name}}.",
-      "foldersOut": "Der Agent gehört nicht mehr zu einem Projekt."
+      "foldersOut": "Der Agent gehört nicht mehr zu einem Projekt.",
+      "attachedLost_one": "Das alte Projekt hatte {{count}} Werkzeug angehängt, das nicht mehr gilt: {{names}}.",
+      "attachedLost_other": "Das alte Projekt hatte {{count}} Werkzeuge angehängt, die nicht mehr gelten: {{names}}.",
+      "attachedGained_one": "Das neue Projekt hängt {{count}} Werkzeug an, das der Agent bekommt: {{names}}.",
+      "attachedGained_other": "Das neue Projekt hängt {{count}} Werkzeuge an, die der Agent bekommt: {{names}}.",
+      "projectSkills": "Die Skills des alten Projekts gelten nicht mehr, die des neuen Projekts beginnen zu gelten."
     },
     "blocked": {
       "busy": "Ein Chat dieses Agenten führt gerade einen Durchlauf aus. Stoppe ihn und verschiebe den Agenten dann."

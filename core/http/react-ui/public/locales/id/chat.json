@@ -244,7 +244,8 @@
     "unavailable": "Tidak tersedia di obrolan ini",
     "toolCount_one": "{{count}} alat",
     "toolCount_other": "{{count}} alat",
-    "optionsOf": "Opsi {{name}}"
+    "optionsOf": "Opsi {{name}}",
+    "projectCollections": "Koleksi dari proyek: {{names}}."
   },
   "skills": {
     "label": "Keahlian",
@@ -270,7 +271,8 @@
     },
     "replacedBy": "Digantikan oleh {{name}}",
     "fallback_one": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
-    "fallback_other": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini."
+    "fallback_other": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
+    "fromProject": "Dari proyek"
   },
   "agent": {
     "label": "Agen",

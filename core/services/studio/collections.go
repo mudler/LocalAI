@@ -167,7 +167,7 @@ func collectionAnswer(hits []CollectionHit, limit int) string {
 // chat with no record has no restriction. Any other failure to read the chat
 // refuses too, so a limit never opens because of a read error.
 func (s *Service) collectionRefused(ctx context.Context, user, chatID, name string) error {
-	rec, err := s.d.Store.GetChat(ctx, user, chatID)
+	rec, err := s.getChatEffective(ctx, user, chatID)
 	if errors.Is(err, session.ErrNotFound) {
 		return nil
 	}

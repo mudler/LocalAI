@@ -43,8 +43,8 @@ func projectsAction(ctx context.Context, client LocalAIClient, in ProjectsToolIn
 	case ActionCreate:
 		err = need(ToolProjects, in.Action, [2]string{"name", in.Name})
 	case ActionUpdate:
-		if err = need(ToolProjects, in.Action, [2]string{"project", in.Project}); err == nil && in.Name == "" && in.Description == nil {
-			err = errors.New(`projects: action "update" needs name or description`)
+		if err = need(ToolProjects, in.Action, [2]string{"project", in.Project}); err == nil && in.Name == "" && in.Description == nil && in.Attached == nil {
+			err = errors.New(`projects: action "update" needs name, description or attached`)
 		}
 	case ActionSetChatProject:
 		// An empty project takes the chat out of its project.
@@ -57,9 +57,13 @@ func projectsAction(ctx context.Context, client LocalAIClient, in ProjectsToolIn
 	if err != nil {
 		return nil, err
 	}
+	attached, err := ProjectAttachedFromMap(in.Attached)
+	if err != nil {
+		return nil, err
+	}
 	return client.Projects(ctx, ProjectsRequest{Action: in.Action, Project: strings.TrimSpace(in.Project),
 		Name: in.Name, Description: in.Description, ChatID: strings.TrimSpace(in.ChatID),
-		File: strings.TrimSpace(in.File), Content: in.Content})
+		File: strings.TrimSpace(in.File), Content: in.Content, Attached: attached})
 }
 
 // apiProject is what the project routes answer.
@@ -71,10 +75,12 @@ type apiProject struct {
 	Status      string `json:"status"`
 	ChatCount   int    `json:"chat_count"`
 	AgentCount  int    `json:"agent_count"`
+	// Attached is what the project attaches, in the shape of its defaults.
+	Attached ProjectAttached `json:"attached"`
 }
 
 func (p apiProject) info() ProjectInfo {
-	return ProjectInfo{ID: p.ID, Name: p.Name, Slug: p.Slug, Description: p.Description, Status: p.Status, ChatCount: p.ChatCount, AgentCount: p.AgentCount}
+	return ProjectInfo{ID: p.ID, Name: p.Name, Slug: p.Slug, Description: p.Description, Status: p.Status, ChatCount: p.ChatCount, AgentCount: p.AgentCount, Attached: p.Attached}
 }
 
 // Projects runs one action of the projects tool through the project routes
@@ -275,6 +281,9 @@ func projectBody(req ProjectsRequest) map[string]any {
 	}
 	if req.Description != nil {
 		body["description"] = *req.Description
+	}
+	if req.Attached != nil {
+		body["attached"] = req.Attached
 	}
 	return body
 }

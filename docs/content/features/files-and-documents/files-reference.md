@@ -207,7 +207,7 @@ same Share dialog as for agents and the other things you can share (see
 
 - **What you can share.** A folder inside your home: not the home itself, and
   not a folder that LocalAI keeps or reads as your own words: `LocalAI/`,
-  `Chats/`, `Memory/`, `pages/`, a `.skills` folder anywhere, or a folder
+  `Chats/`, `Memory/`, `pages/`, a `.skills` folder anywhere, the `skills` folder of a project (`Projects/<project>/skills`), or a folder
   inside one of them. You cannot share a folder that someone shared with you or
   an administrator's shared folder. A person shares at most 100 folders, each
   with at most 200 grants.
@@ -215,7 +215,7 @@ same Share dialog as for agents and the other things you can share (see
   profiles and your persona, and **Pages** runs your pages, with your own
   rights. LocalAI leaves out anything in a folder on which another person, or
   **Everyone**, can edit: a `.skills` folder inside a folder you share with
-  **Can edit** gives your chats no skill, and a page or a note there is not
+  **Can edit** gives your chats no skill, a project you share with **Can edit** loses its own skills while the share lasts, and a page or a note there is not
   yours. What you share with **Can read** stays in use. The others still see and
   change those files as files.
 - **Who.** An active account that the search finds, or **Everyone** (every

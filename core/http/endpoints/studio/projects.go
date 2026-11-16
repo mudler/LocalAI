@@ -90,6 +90,8 @@ func (h *Handlers) projectOut(ctx context.Context, host *projects.Service, user 
 	if r, err := host.Get(ctx, h.svc.Principal(user), p.ID); err == nil {
 		out.Description = r.Manifest.Description
 		out.Defaults = defaultsOut(r.Manifest.Defaults)
+		out.Attached = defaultsOut(r.Manifest.Attached)
+		out.AttachedBlocked = r.AttachedBlocked
 	} else {
 		xlog.Debug("studio: project manifest not read for the list", "project", p.ID, "error", err)
 	}
@@ -154,6 +156,9 @@ func (h *Handlers) CreateProject(c echo.Context) error {
 	if req.Defaults != nil {
 		in.Defaults = defaultsIn(*req.Defaults)
 	}
+	if req.Attached != nil {
+		in.Attached = defaultsIn(*req.Attached)
+	}
 	user := userID(c)
 	p, err := host.Create(c.Request().Context(), h.svc.Principal(user), in)
 	if err != nil {
@@ -164,6 +169,7 @@ func (h *Handlers) CreateProject(c echo.Context) error {
 
 // GetProject reads a project.
 // @Summary Read a project.
+// @Description skills_blocked is true when the project's own skills (the skills folder of the project) are off because another person may write the project folder. attached_blocked is true for the same reason when the project file holds an attached block: the block is ignored and attached comes back empty.
 // @Tags chats
 // @Param id path string true "the project's id"
 // @Success 200 {object} schema.ChatsProject "The project"
@@ -179,12 +185,14 @@ func (h *Handlers) GetProject(c echo.Context) error {
 	if err != nil {
 		return failProject(c, err)
 	}
-	return c.JSON(http.StatusOK, h.projectOut(c.Request().Context(), host, user, r.Project, h.agentCounts(c.Request().Context(), user)))
+	out := h.projectOut(c.Request().Context(), host, user, r.Project, h.agentCounts(c.Request().Context(), user))
+	out.SkillsBlocked = h.svc.ProjectSkillsBlocked(c.Request().Context(), user, r.ID)
+	return c.JSON(http.StatusOK, out)
 }
 
 // UpdateProject changes a project.
 // @Summary Change a project.
-// @Description A field that is left out keeps its value. The folder keeps its name. The defaults are five lists: skills, add-ons, connectors, MCP servers and collections. For each list, a non-empty value means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only; the agents of the project are also limited by them.
+// @Description A field that is left out keeps its value. The folder keeps its name. The defaults are five lists: skills, add-ons, connectors, MCP servers and collections. For each list, a non-empty value means a new chat in the project has only those on; an empty or missing list is no override. Defaults apply to new chats only; the agents of the project are also limited by them. Attached is five lists of the same shape: the tools the project holds. Every chat of the project, new or old, and every agent of it has them on at each turn, with no per-chat step. A chat cannot switch an attached tool off; detach it from the project. The tools are the owner's own, so a person the project is shared with never gets them, and a chat that starts from a messaging connection gets only the attached skills and collections. The attached block is ignored while another person may write the project folder (attached_blocked on a read). A non-empty defaults list is a limit, and an attached entry outside it, an empty or malformed entry, or a connector in the MCP list is refused with a 400 that names the tool and the limit.
 // @Tags chats
 // @Param id path string true "the project's id"
 // @Param request body schema.ChatsProjectWrite true "the fields to change"
@@ -206,6 +214,10 @@ func (h *Handlers) UpdateProject(c echo.Context) error {
 	if req.Defaults != nil {
 		d := defaultsIn(*req.Defaults)
 		in.Defaults = &d
+	}
+	if req.Attached != nil {
+		a := defaultsIn(*req.Attached)
+		in.Attached = &a
 	}
 	user := userID(c)
 	p, err := host.Update(c.Request().Context(), h.svc.Principal(user), c.Param("id"), in)

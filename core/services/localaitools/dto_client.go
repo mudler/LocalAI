@@ -1,5 +1,7 @@
 package localaitools
 
+import "fmt"
+
 // DTOs of the client tools: the inference operations that any user may run
 // within their own permissions. File arguments are references that the
 // FileStore resolves (a path in the user's files, or a data URL); a file
@@ -480,6 +482,51 @@ type ProjectsToolInput struct {
 	ChatID      string  `json:"chat_id,omitempty"`
 	File        string  `json:"file,omitempty"        jsonschema:"Such as food.md; write_memory."`
 	Content     *string `json:"content,omitempty"     jsonschema:"Whole new text, up to 16 KiB; write_memory."`
+	// Attached is the attached block of the project: the tools its chats and agents get on. It replaces the block, except in a chat, where the entries are added and none is removed.
+	Attached map[string][]string `json:"attached,omitempty"    jsonschema:"create, update: lists skills, addons, connectors, mcp_servers, collections; replaces the block."`
+}
+
+// ProjectAttached is what a project attaches, in the shape of the defaults of
+// the project: five lists of names. Chats and agents of the project get these
+// tools on and granted.
+type ProjectAttached struct {
+	Skills      []string `json:"skills,omitempty"`
+	Addons      []string `json:"addons,omitempty"`
+	Connectors  []string `json:"connectors,omitempty"`
+	MCPServers  []string `json:"mcp_servers,omitempty"`
+	Collections []string `json:"collections,omitempty"`
+}
+
+// ProjectAttachedFromMap reads the attached argument of the tool. A key that
+// is not one of the five lists is an error, so a typo is not dropped.
+func ProjectAttachedFromMap(m map[string][]string) (*ProjectAttached, error) {
+	if m == nil {
+		return nil, nil
+	}
+	var a ProjectAttached
+	for k, v := range m {
+		switch k {
+		case "skills":
+			a.Skills = v
+		case "addons":
+			a.Addons = v
+		case "connectors":
+			a.Connectors = v
+		case "mcp_servers":
+			a.MCPServers = v
+		case "collections":
+			a.Collections = v
+		default:
+			return nil, fmt.Errorf("projects: attached has no list %q (use skills, addons, connectors, mcp_servers, collections)", k)
+		}
+	}
+	return &a, nil
+}
+
+// HoldsCredentials says the block attaches a kind of tool that can hold
+// credentials: a connector, an add-on or an MCP server.
+func (a *ProjectAttached) HoldsCredentials() bool {
+	return a != nil && (len(a.Connectors) > 0 || len(a.Addons) > 0 || len(a.MCPServers) > 0)
 }
 
 // ProjectsRequest is what the client sends for one action of the projects
@@ -492,10 +539,13 @@ type ProjectsRequest struct {
 	ChatID      string
 	File        string
 	Content     *string
+	Attached    *ProjectAttached
 }
 
 // ProjectInfo is one project as the tool shows it. The defaults of a project
-// stay out: they name skills, add-ons and servers the model does not need.
+// (the limit) stay out: they name skills, add-ons and servers the model does
+// not need. What the project attaches is shown, so the model can answer what
+// the project gives its chats.
 type ProjectInfo struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -504,6 +554,8 @@ type ProjectInfo struct {
 	Status      string `json:"status"`
 	ChatCount   int    `json:"chat_count,omitempty"`
 	AgentCount  int    `json:"agent_count,omitempty"`
+	// Attached is what the project attaches.
+	Attached ProjectAttached `json:"attached"`
 }
 
 // SharedProjectInfo is one project of another person that is shared with the

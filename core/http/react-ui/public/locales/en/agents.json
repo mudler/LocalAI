@@ -1335,7 +1335,12 @@
       "grant": "The permission to write the project memory is removed. You can grant it again in the agent's settings.",
       "notes": "The agent's own notes start empty. The old notes stay in your files, in Memory under Moved agent notes.",
       "foldersInto": "The agent works only in the files and memory folders of {{name}}.",
-      "foldersOut": "The agent no longer belongs to a project."
+      "foldersOut": "The agent no longer belongs to a project.",
+      "attachedLost_one": "The old project attached {{count}} tool that no longer applies: {{names}}.",
+      "attachedLost_other": "The old project attached {{count}} tools that no longer apply: {{names}}.",
+      "attachedGained_one": "The new project attaches {{count}} tool that the agent gets: {{names}}.",
+      "attachedGained_other": "The new project attaches {{count}} tools that the agent gets: {{names}}.",
+      "projectSkills": "The skills of the old project stop applying, and those of the new project start."
     },
     "blocked": {
       "busy": "A chat of this agent is running a turn. Stop it, then move the agent."
