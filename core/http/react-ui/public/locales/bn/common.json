@@ -107,10 +107,10 @@
   },
   "units": {
     "bytes": "B",
-    "kilobytes": "KB",
-    "megabytes": "MB",
-    "gigabytes": "GB",
-    "terabytes": "TB"
+    "kilobytes": "কেবি",
+    "megabytes": "এমবি",
+    "gigabytes": "জেনারেল বঙ্গল",
+    "terabytes": "টিবি"
   },
   "ui": {
     "tryAgain": "আবার চেষ্টা করুন",

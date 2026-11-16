@@ -1,0 +1,4 @@
+[console_scripts]
+deep-translator=deep_translator.__main__:main
+dt=deep_translator.__main__:main
+
