@@ -11,18 +11,18 @@ devbuild: install
 
 There are two ways to run LocalAI. Pick one first.
 
-- **Desktop app.** The LocalAI launcher is an application for your own computer. It installs, updates, starts and stops the LocalAI server for you, and shows the web interface in its window.
+- **Desktop app.** The desktop app runs on your own computer. It installs, updates, starts and stops the LocalAI server for you, and shows the web interface in its window.
 - **Server.** You install the `local-ai` binary, a container image or a Helm chart, and you run and update it yourself. Use this on a headless machine, on a server, in a cluster, or when you want full control.
 
 | | Desktop app | Server |
 |---|---|---|
 | For | A person who uses LocalAI on a laptop or a desktop | An administrator who runs LocalAI for others, on a server or in a cluster |
 | Platforms | Linux (x86-64 and ARM64) and macOS (Apple Silicon) | Linux, macOS (Apple Silicon), Windows with WSL2 or a container, Kubernetes |
-| What it installs | The launcher. The launcher then installs the `local-ai` server in `~/.localai` | The `local-ai` binary, a container image or a Helm release |
-| How it updates | The launcher offers new server and launcher versions and installs them when you agree | You update it: run the install script again, pull a new image or upgrade the chart |
+| What it installs | The app. The app then installs the `local-ai` server in `~/.localai` | The `local-ai` binary, a container image or a Helm release |
+| How it updates | The app offers new server and app versions and installs them when you agree | You update it: run the install script again, pull a new image or upgrade the chart |
 | Start here | [Desktop app]({{% relref "/start/install/desktop" %}}) | [Install script](#install-script), [Binary]({{% relref "/start/install/linux" %}}), [Container](#container) or [Kubernetes]({{% relref "/start/install/kubernetes" %}}) |
 
-The desktop app can also connect to a LocalAI server that runs somewhere else. So you can install the server on one machine and open it from the launcher on another.
+The desktop app can also connect to a LocalAI server that runs somewhere else. So you can install the server on one machine and open it from the app on another.
 
 ## Path A: desktop app
 

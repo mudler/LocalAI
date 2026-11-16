@@ -9,7 +9,7 @@ keywords = ["quickstart", "install", "first model", "run", "getting started"]
 devbuild = "install"
 +++
 
-{{< diagram "quickstart-journey" "Quickstart in four steps: install with the script, Docker or the macOS app; start LocalAI; pick a model; talk to it in the web UI or the API. Then build an agent, install add-ons or add machines." >}}
+{{< diagram "quickstart-journey" "Quickstart in four steps: install with the script, Docker or the desktop app; start LocalAI; pick a model; talk to it in the web UI or the API. Then build an agent, install add-ons or add machines." >}}
 
 
 
@@ -50,15 +50,7 @@ For NVIDIA GPUs, add `--gpus all`. For AMD, Intel and Vulkan, add the `--device`
 
 ## Chat in the web interface
 
-Open **http://localhost:8080** in your browser. The web interface lets you:
-
-- **Chat** with any installed model
-- **Explore, install, and manage models** from the Models page
-- **Generate images**, audio, and more
-- **Create and manage AI agents** with MCP tool support
-- **Monitor system resources** and loaded models
-- **Configure settings** including GPU acceleration
-
+Open **http://localhost:8080** in your browser. 
 To get your first chat working:
 
 1. On a fresh install, accept the model that the first-run guide recommends. Or open **Models → Explore**, search for `gemma-4-e2b-it-qat-q4_0` and click **Install**. It is a small Google Gemma 4 model that runs on a CPU and reads images. Wait for the download to finish. You can use it again in [Build your first agent]({{% relref "/start/first-agent" %}}).
@@ -72,7 +64,7 @@ local history; **Cancel** discards the draft.
 
 ## Download models from the CLI
 
-When starting LocalAI (either via Docker or via CLI) you can specify as argument a list of models to install automatically before starting the API, for example:
+To install and run a model in one command, name it:
 
 ```bash
 local-ai run gemma-4-e2b-it-qat-q4_0
@@ -134,7 +126,7 @@ By default, LocalAI listens on port 8080 on all interfaces, and authentication i
 
 ## What next
 
-There is much more to explore! LocalAI supports video generation, voice cloning, embeddings, image understanding, and more. Check out:
+Next steps:
 
 - [Container images reference]({{% relref "/start/install/containers" %}})
 - [Try the API endpoints]({{% relref "/start/try-it-out" %}})

@@ -32,11 +32,11 @@ On the Agents page, choose **Chat** on the agent's row and write a message. The 
 
 ## Let it work by itself
 
-Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the agent and a prompt. Each run is an ordinary chat of yours, and the result arrives in your **Inbox**. Add a [Telegram connector]({{% relref "/features/chat-apps" %}}) to talk to the agent from your phone.
+Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the agent and a prompt. Each run is an ordinary chat of yours, and the result arrives in your **Inbox**. Add a [Chat apps and connections]({{% relref "/features/chat-apps" %}}) to talk to the agent from your phone.
 
 ## If your agent will not run
 
-- **No model.** An agent without a model needs one when you start the chat. A trigger or a connector needs an agent that names a model.
+- **No model.** An agent without a model needs one when you start the chat. A trigger or a connection needs an agent that names a model.
 - **A tool is missing.** The chat lists what was unavailable at the start of the turn. Check that the MCP server is configured on the model, the add-on is enabled, and the collection or skill still exists.
 - **A server of the model is unreachable.** An MCP server that does not answer makes its tools time out. Open the model's `mcp:` configuration and test the server.
 - **Folder missing.** The agent's folder was deleted, or it was imported without a folder that exists here. The agent does not start until you restore the folder from the Trash or choose another one in **Files**.
@@ -45,5 +45,5 @@ Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the ag
 ## Next steps
 
 - [Saved agents, triggers and inbox]({{% relref "/features/chats-and-agents/chats-agents" %}})
-- [Telegram connector]({{% relref "/features/chat-apps" %}})
+- [Chat apps and connections]({{% relref "/features/chat-apps" %}})
 - [Moving from the old chat and agents]({{% relref "/features/chats-migration" %}})
