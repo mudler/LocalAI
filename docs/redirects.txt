@@ -107,6 +107,8 @@
 /features/image-generation/
 /features/interleaved-thinking/
 /features/localai-assistant/
+/features/localai-client-tools/
+/features/localai-mcp-server/
 /features/make-localai-yours/
 /features/mcp/
 /features/middleware/

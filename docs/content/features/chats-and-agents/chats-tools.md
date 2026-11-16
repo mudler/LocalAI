@@ -89,14 +89,14 @@ it off, so a chat that never touches the menu works as before:
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
-| **LocalAI client** | `localai_client` | The inference tools of the [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-assistant#tool-groups" %}}): `generate_image`, `speak`, `embed`, `voice_profile` and more. Each one is offered only when your account has its feature and an installed model can serve it. Saving a voice with `voice_profile` shows a card where you confirm that the speaker agreed; nothing is saved before |
+| **LocalAI client** | `localai_client` | The inference tools of the [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-client-tools#tool-groups" %}}): `generate_image`, `speak`, `embed`, `voice_profile` and more. Each one is offered only when your account has its feature and an installed model can serve it. Saving a voice with `voice_profile` shows a card where you confirm that the speaker agreed; nothing is saved before |
 | **Knowledge** | `collections` | `list_collections` and `search_collection` |
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
 | **Past chats** | `history` | `search_chats` and `read_chat` (opt-in; see [Past chats]({{% relref "/features/chats-and-agents/chats-sub-agents#past-chats" %}})) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
 | **Memory** | `memory` | Your notes: the model reads them before it answers and may save new ones (see [Memory]({{% relref "/features/chats-and-agents/short-memory" %}})). Switch it off to make the chat private: it neither reads nor saves memory |
-| **LocalAI admin** | `localai_admin` | The tools that manage this server (administrators only, opt-in; see [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-assistant#tool-groups" %}})). A chat in assistant mode has it on. It is never offered in a messaging chat or a run that starts by itself, whatever the agent switches on |
+| **LocalAI admin** | `localai_admin` | The tools that manage this server (administrators only, opt-in; see [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-client-tools#tool-groups" %}})). A chat in assistant mode has it on. It is never offered in a messaging chat or a run that starts by itself, whatever the agent switches on |
 | **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals]({{% relref "/addons/contract-reference" %}}#change-proposals-from-chats)); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory]({{% relref "/features/chats-and-agents/short-memory" %}}#choose-how-a-note-is-saved)) |
 
 ```bash
@@ -108,7 +108,7 @@ them in full: it sends `tool_search`, `tool_describe` and `tool_call` instead, a
 model finds and runs their tools through them, under the same permissions. The setting
 `chats_tool_search` (`auto`, `on` or `off`) decides; with `on`, the tools of the user's MCP
 connectors load on demand in the same way. See
-[Tool search]({{% relref "/features/chats-and-agents/localai-assistant#tool-search" %}}). The tools panel marks
+[Tool search]({{% relref "/features/chats-and-agents/localai-client-tools#tool-search" %}}). The tools panel marks
 such a group with `"deferred":true`.
 
 `off` replaces the earlier list, and a name that is not a group is refused
