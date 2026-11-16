@@ -331,11 +331,13 @@ jobs:
           signoff: true
 
   bump-strata:
-    # The strata backend ships the engine packages Strata publishes with each
-    # release, so a bump moves the release tag, its commit, the engine version
-    # and every package SHA-256 together (see backend/go/strata/Makefile).
-    # bump_deps.sh handles one commit variable only. Releases, not main: the
-    # prebuilt engine and the Python modules must come from the same release.
+    # The strata backend ships the engine packages Strata publishes with its
+    # releases. Upstream versions each platform on its own and does not attach
+    # every package to every release, so every package is pinned with its own
+    # release tag, version and SHA-256 (see backend/go/strata/Makefile), and a
+    # bump takes each package from the newest release that has it. The newest
+    # release and its commit are pinned too: the Python modules come from it.
+    # bump_deps.sh handles one commit variable only. Releases, not main.
     # If a release changes Strata's Python requirements, regenerate
     # backend/go/strata/requirements.txt by hand in the bump PR.
     if: github.repository == 'mudler/LocalAI'
@@ -350,8 +352,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash .github/bump_strata.sh Niko1221/Strata backend/go/strata/Makefile STRATA_VERSION
-          # The script exits 0 without writing these files when it skips the
-          # bump (the release is inconsistent). Open no pull request then.
+          # The script exits 0 without writing these files when no pin changes.
+          # Open no pull request then.
           if [ ! -s STRATA_VERSION_commit.txt ]; then
             echo 'skipped=true' >> "$GITHUB_OUTPUT"
             exit 0
