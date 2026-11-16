@@ -170,6 +170,15 @@ The gallery entries are experimental. The backend has not yet been run against a
 engine and model, and the pack build has not been run on a real model file. For DeepSeek, the
 pack tool was run on the real GGUF headers only.
 
+## Vision
+
+For vision chat requests with `template.use_tokenizer_template: true`, send images as
+`image_url` content parts on their conversation messages. LocalAI adds one placeholder
+per decoded image to that message before Strata applies the model's chat template,
+including images in earlier turns. There is no need to insert `media_marker` into the
+text or change the model's chat template. The backend's optional `media_marker` setting
+changes the placeholder used between LocalAI and Strata.
+
 ## Limits
 
 No embeddings, no grammar, no video or audio input, one request at a time. DeepSeek models take
