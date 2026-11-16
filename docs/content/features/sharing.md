@@ -32,7 +32,7 @@ kind declares which roles it grants and, for each action, which roles may run it
 | Add-on resources | `viewer`, `editor` | `viewer` reads. `editor` reads and writes rows. Only the owner changes the schema, shares or deletes. |
 | Saved agents (`agent`) | `use`, `viewer` | `use` chats with the agent as yourself. `viewer` also reads the definition. Only the owner edits, deletes, exports or shares. See [Share an agent]({{%relref "/features/chats-and-agents/chats-agents#share-an-agent" %}}). |
 | Other kinds | `use`, `manage` (or the subset the kind declares) | The kind decides. Usually `use` reads and runs the resource and `manage` also changes it. |
-| Folders of your home | `read`, `write` | `read` reads the folder and everything in it. `write` also changes and deletes there. Only the owner shares. See [Share a folder of your home]({{%relref "/features/chats-and-agents/chats#share-a-folder-of-your-home" %}}). |
+| Folders of your home | `read`, `write` | `read` reads the folder and everything in it. `write` also changes and deletes there. Only the owner shares. See [Share a folder of your home]({{% relref "/features/files-and-documents/files-reference#share-a-folder-of-your-home" %}}). |
 
 A role is a set of allowed actions. LocalAI refuses to register a kind whose
 table names a role that the kind does not grant. A role that is stored but not
@@ -203,7 +203,7 @@ the resource ID from the page of the resource, or from the route in the table.
 
 | Kind | What it is | Roles | `@everyone` | Feature | Resource ID from |
 |------|------------|-------|-------------|---------|------------------|
-| `connection` | A [connector binding]({{%relref "/features/chat-apps#sharing-a-connection" %}}) | `use` | No | `connectors` | `POST /api/chats/connectors/{id}/share` |
+| `connection` | A [connector binding]({{% relref "/features/chat-apps/sharing#sharing-a-connection" %}}) | `use` | No | `connectors` | `POST /api/chats/connectors/{id}/share` |
 | `collection` | A [collection]({{%relref "/features/files-and-documents/collections#sharing-a-collection" %}}) | `viewer`, `editor` | Yes | `collections` | `POST /api/collections/{name}/share` |
 | `agent` | A [saved agent]({{%relref "/features/chats-and-agents/chats-agents#share-an-agent" %}}) | `use`, `viewer` | Yes | `agents` | `POST /api/chats/agents/{id}/share` |
 
@@ -276,7 +276,7 @@ frontends get the request on the chat bus and stop theirs within seconds. Its
 grants are the file grants that the file store checks on every file call,
 so they stay with the file store, and the routes are under
 `/api/chats/files/shares` (see [Share a folder of your
-home]({{%relref "/features/chats-and-agents/chats#share-a-folder-of-your-home" %}})). Moving them
+home]({{% relref "/features/files-and-documents/files-reference#share-a-folder-of-your-home" %}})). Moving them
 into the policy store would put the add-on owner on the path of every file
 call. The user picker of a folder is the picker described in [API](#api), with the
 same rules and limits, but it answers on the frontend that serves the call, so its

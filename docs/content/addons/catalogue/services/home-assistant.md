@@ -28,7 +28,7 @@ A chat can answer questions such as:
 3. On the add-on page, choose **New Home Assistant connection**. Paste the token and write the address you use to open Home Assistant in a browser, for example `https://homeassistant.local:8123`. Press **Test**: the row shows the Home Assistant version if the address and the token work.
 4. Leave the **write mode** on **Read only** until you have read the limits on this page.
 
-One connection is one home: one token and one address. For a second home, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
+One connection is one home: one token and one address. For a second home, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats-commands#the-connections-of-an-add-on" %}})). With two or more enabled, the model names the connection in each call.
 
 ### How the address is kept
 

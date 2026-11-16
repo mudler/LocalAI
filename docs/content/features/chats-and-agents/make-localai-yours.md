@@ -121,7 +121,7 @@ A plain Markdown file of at most 4 KiB with the persona and the standing rules o
 saved agent. The host adds it to the prompt of every chat of that agent, right after the
 agent's instructions and the persona; longer text is cut. You can edit it in the Files
 page. Add-ons can also register index files that the host loads in the same way (see
-[Context files]({{% relref "/addons/contract-reference" %}}#context-files)).
+[Context files]({{% relref "/addons/contract-reference/connectors-and-chats#context-files" %}})).
 
 ### LocalAI/user.json
 
@@ -291,7 +291,7 @@ assistant**. A `home.json` with a headline and no widgets is valid.
 
 `pageArea` puts one of your pages in a full-width area below the composer, above
 the widgets. Pick it in **Edit layout** under **Page area**, or ask the
-assistant. See [A page in the page area of Home](/features/pages/#a-page-in-the-page-area-of-home).
+assistant. See [A page in the page area of Home]({{% relref "/features/pages-and-home/pages-on-home#a-page-in-the-page-area-of-home" %}}).
 
 ```json
 { "headline": "{time_of_day}, {user.name}" }
@@ -370,7 +370,7 @@ A metric uses `value`, `note` and `series` (numbers for the small line). A
 of recent chats under it. A missing data file shows as empty. A data file that
 breaks its schema shows its last valid data, marked as stale.
 
-A `page` widget shows one of your [pages]({{% relref "/features/pages-and-home/pages" %}}#a-page-on-home) as
+A `page` widget shows one of your [pages]({{% relref "/features/pages-and-home/pages-on-home#a-page-on-home" %}}) as
 a tile, in the page's compact mode. It names the page (`page`, the folder name
 under `pages/`) and, for a page of a shared folder, `folder` (the folder id).
 Its `title` is optional: without it, the tile shows the title of the page's
@@ -758,7 +758,7 @@ keeps at most eight page frames running at once (the Home tiles and the slots
 together); the others show as a card that runs on a click, which stops the
 frame that started first. A page frame that keeps the computer busy or stops
 answering is stopped with **Reload**; see
-[Pages](/features/pages/#a-page-in-a-slot). A page of a shared folder runs in a
+[Pages]({{% relref "/features/pages-and-home/pages-on-home#a-page-in-a-slot" %}}). A page of a shared folder runs in a
 slot only after you allow it there, apart from opening it.
 
 ## The LocalAI folder

@@ -29,7 +29,7 @@ A chat can answer questions such as:
 4. On the add-on page, choose **New PiKVM connection**. Type the user name, the password and the address, for example `https://pikvm.local#sha256=<fingerprint>`. Press **Test**: the row shows the model and the kvmd version if the address and the login work.
 5. Leave the **write mode** on **Read only** until you have read the limits on this page.
 
-One connection is one device. For a second device, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
+One connection is one device. For a second device, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats-commands#the-connections-of-an-add-on" %}})). With two or more enabled, the model names the connection in each call.
 
 ### The user and the password
 

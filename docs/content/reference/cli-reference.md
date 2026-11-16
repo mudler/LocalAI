@@ -68,11 +68,11 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 
 | `--models-config-file` | | YAML file containing a list of model backend configs (alias: `--config-file`) | `$LOCALAI_MODELS_CONFIG_FILE`, `$CONFIG_FILE` |
 | `--addon-host-ops` | `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.` | Add-ons that may call host operations, as a comma list of `addon-id=operation-prefix`. An add-on that is not listed gets no host operation channel; an empty value lists none. See [Host operations]({{% relref "/addons/contract-reference" %}}) | `$LOCALAI_ADDON_HOST_OPS` |
-| `--addons-role` | `combined` | How this process takes part in the add-on owner: `combined` (the node is its own owner), `owner` or `frontend`. See [Turning the owner on or off]({{% relref "/addons/contract-reference#turning-the-owner-on-or-off" %}}) | `$LOCALAI_ADDONS_ROLE` |
+| `--addons-role` | `combined` | How this process takes part in the add-on owner: `combined` (the node is its own owner), `owner` or `frontend`. See [Turning the owner on or off]({{% relref "/addons/contract-reference/owner#turning-the-owner-on-or-off" %}}) | `$LOCALAI_ADDONS_ROLE` |
 | `--addons-owner-address` | | `https://host:port` of the add-on owner carrier, with no path. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_OWNER_ADDRESS` |
 | `--addons-owner-listen` | | `owner` role only: the address the carrier listens on. Empty listens on all interfaces, on the port of `--addons-owner-address` | `$LOCALAI_ADDONS_OWNER_LISTEN` |
 | `--addons-carrier-dir` | | Directory with the carrier key set from `local-ai util addons-carrier-keys`. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_CARRIER_DIR` |
-| `--addons-enabled` | `true` | Run the add-on owner. `--addons-enabled=false` turns add-ons off completely. See [The addons feature gate]({{% relref "/addons/contract-reference#the-addons-feature-gate" %}}) | `$LOCALAI_ADDONS_ENABLED` |
+| `--addons-enabled` | `true` | Run the add-on owner. `--addons-enabled=false` turns add-ons off completely. See [The addons feature gate]({{% relref "/addons/contract-reference/owner#the-addons-feature-gate" %}}) | `$LOCALAI_ADDONS_ENABLED` |
 | `--addons-ownership-mode` | `local-owner` without authentication, `named-user` with it | `named-user` gives each account its own access to add-ons; `local-owner` makes every caller share one owner | `$LOCALAI_ADDONS_OWNERSHIP_MODE` |
 | `--auto-upgrade-addons` | `false` | Upgrade installed add-ons on their own when a newer version appears in their library | `$LOCALAI_AUTO_UPGRADE_ADDONS` |
 | `--addons-official-library` | `true` | Register the official add-on library on the first start | `$LOCALAI_ADDONS_OFFICIAL_LIBRARY` |
@@ -228,7 +228,7 @@ See [Authentication & Authorization]({{%relref "/administration/authentication" 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--disable-chats` | `false` | Turn off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts | `$LOCALAI_DISABLE_CHATS` |
-| `--chats-auto-resume` | `false` | Resume a chat turn that a restart interrupted, with no click. It retries up to 3 times (after 15 seconds, 1 minute and 5 minutes), within 30 minutes of the interruption. Off by default: a person or the page resumes it. See [If a frontend dies]({{% relref "/features/chats-and-agents/chats#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
+| `--chats-auto-resume` | `false` | Resume a chat turn that a restart interrupted, with no click. It retries up to 3 times (after 15 seconds, 1 minute and 5 minutes), within 30 minutes of the interruption. Off by default: a person or the page resumes it. See [If a frontend dies]({{% relref "/administration/chats-deployment#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
 | `--disable-triggers` | `false` | Turn off triggers. Chats stay on | `$LOCALAI_DISABLE_TRIGGERS` |
 | `--disable-connectors` | `false` | Turn off the connector bots (Telegram, Slack) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
 | `--disable-connector-talkback` | `false` | Turn off the tool with which an agent writes to a chat of its connection, and the reports of triggers to a channel (the rest of the connectors stays on) | `$LOCALAI_DISABLE_CONNECTOR_TALKBACK` |
@@ -244,7 +244,7 @@ See [Authentication & Authorization]({{%relref "/administration/authentication" 
 | `--chat-worker-max-turns` | `32` | Distributed mode: on a chat worker, the most turns it runs at once. A start beyond it is refused and its run fails. `0` means no limit | `$LOCALAI_CHAT_WORKER_MAX_TURNS` |
 | `--chat-start-timeout` | `30s` | Distributed mode: how long a frontend waits for a chat worker to start a turn, and how long the worker gives the start. Set the same value on the frontends and the chat workers | `$LOCALAI_CHAT_START_TIMEOUT` |
 
-See [Chats]({{% relref "/features/chats-and-agents/chats#switch-the-chats-off" %}}), [Agent tasks and jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) and [Chat workers]({{% relref "/administration/distributed-mode#chat-workers" %}}).
+See [Chats]({{% relref "/administration/chats-deployment#switch-the-chats-off" %}}), [Agent tasks and jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) and [Chat workers]({{% relref "/administration/distributed-mode#chat-workers" %}}).
 
 ## Chat Flags
 
@@ -331,7 +331,7 @@ distinct from the `1` a failure reports.
 | `local-ai library enable <id>` | Turn a source on. This also brings back a removed default |
 | `local-ai library disable <id>` | Turn a source off without removing it |
 
-All `local-ai library` commands accept `--official-libraries` (`LOCALAI_OFFICIAL_LIBRARIES`, default `true`). With `--official-libraries=false` the list shows the shipped default sources as off. The same switch is the runtime setting `official_libraries` and the toggle "Use official libraries" in Settings. See [Library sources]({{% relref "/addons/contract-reference" %}}#library-sources).
+All `local-ai library` commands accept `--official-libraries` (`LOCALAI_OFFICIAL_LIBRARIES`, default `true`). With `--official-libraries=false` the list shows the shipped default sources as off. The same switch is the runtime setting `official_libraries` and the toggle "Use official libraries" in Settings. See [Library sources]({{% relref "/addons/install-and-update#library-sources" %}}).
 
 When two enabled sources list the same entry (same kind and id), your own source wins over a shipped default. If two of your own sources list it, the entry is refused and the message names both sources: disable or remove one of them. The `--galleries` and `--backend-galleries` flags keep working: each gallery they name is added as a source of your own (kind `model` or `backend`, format `gallery`) at startup, unless it is already a source.
 
@@ -361,7 +361,7 @@ Use `local-ai <command> --help` for more information on each command.
 
 ### Add-on carrier keys
 
-`local-ai util addons-carrier-keys` makes the key set that a separate add-on owner and its frontends share. See [Running the owner as its own workload]({{% relref "/addons/contract-reference#running-the-owner-as-its-own-workload" %}}) for how the set is used.
+`local-ai util addons-carrier-keys` makes the key set that a separate add-on owner and its frontends share. See [Running the owner as its own workload]({{% relref "/addons/contract-reference/owner#running-the-owner-as-its-own-workload" %}}) for how the set is used.
 
 | Flag | Description |
 |------|-------------|

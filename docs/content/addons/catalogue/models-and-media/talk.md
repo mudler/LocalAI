@@ -14,4 +14,4 @@ Talk starts a realtime voice session with a pipeline you pick (speech in, model,
 |---|---|
 | What it adds | The page `/app/addons/talk/talk`. It can use the MCP servers that you added in the browser. LocalAI checks permissions on every call. |
 | Needs | A realtime pipeline model to talk to. |
-| Guide | [Realtime API]({{% relref "/api/openai-realtime" %}}) and [The Talk add-on in the contract reference]({{% relref "/addons/contract-reference#the-talk-add-on" %}}) |
+| Guide | [Realtime API]({{% relref "/api/openai-realtime" %}}) and [The Talk add-on in the contract reference]({{% relref "/addons/manage-addons#the-talk-add-on" %}}) |

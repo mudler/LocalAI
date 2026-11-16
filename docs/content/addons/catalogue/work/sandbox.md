@@ -26,7 +26,7 @@ Ask a chat to make a bar chart from `sales.csv`. It runs the code in an isolated
 1. Open the **Tools** menu of the chat.
 2. Switch **Sandbox** on.
 
-When it is on, the `bash` tool of the chat runs in the sandbox. Without it, a chat can run commands on the server only if an administrator allows it, and then nothing isolates them. See [Running commands]({{% relref "/features/chats-and-agents/chats#running-commands" %}}).
+When it is on, the `bash` tool of the chat runs in the sandbox. Without it, a chat can run commands on the server only if an administrator allows it, and then nothing isolates them. See [Running commands]({{% relref "/features/chats-and-agents/chats-commands#running-commands" %}}).
 
 ## How it works
 
@@ -40,11 +40,11 @@ When it is on, the `bash` tool of the chat runs in the sandbox. Without it, a ch
 
 A sandbox has no network device. HTTP and HTTPS go through a proxy that asks LocalAI for each connection. The **Network** row in the Tools menu has three choices: **Off**, **Package registries** and **All public sites**. An administrator sets the most a chat can choose. The default is Off, so `pip install` fails until an administrator raises it.
 
-When a command asks for a host that the chat does not allow but the limit allows, the chat shows a card. Choose **Allow once**, **Allow for this chat** or **Deny**. See [Network of the Sandbox commands]({{% relref "/features/chats-and-agents/chats#network-of-the-sandbox-commands" %}}).
+When a command asks for a host that the chat does not allow but the limit allows, the chat shows a card. Choose **Allow once**, **Allow for this chat** or **Deny**. See [Network of the Sandbox commands]({{% relref "/features/chats-and-agents/chats-commands#network-of-the-sandbox-commands" %}}).
 
 ## What is installed
 
-The `base` profile has Python with pandas, matplotlib, openpyxl, python-docx, python-pptx, pypdf and Pillow, and tools such as jq, ripgrep, sqlite3, zip, git and curl. The `media` profile adds ffmpeg, sox and ImageMagick. With the `media` profile, the built-in `assemble-media` skill can join, trim and subtitle clips and make simple animated video (title cards, slideshows, charts) as MP4. You pick the profile in the Tools menu, unless an administrator limits the choice. Programs cannot be installed with `apt`. See [Sandbox profiles]({{% relref "/addons/contract-reference#sandbox-profiles" %}}).
+The `base` profile has Python with pandas, matplotlib, openpyxl, python-docx, python-pptx, pypdf and Pillow, and tools such as jq, ripgrep, sqlite3, zip, git and curl. The `media` profile adds ffmpeg, sox and ImageMagick. With the `media` profile, the built-in `assemble-media` skill can join, trim and subtitle clips and make simple animated video (title cards, slideshows, charts) as MP4. You pick the profile in the Tools menu, unless an administrator limits the choice. Programs cannot be installed with `apt`. See [Sandbox profiles]({{% relref "/addons/catalogue/work/sandbox-settings#sandbox-profiles" %}}).
 
 ## Troubleshooting
 
@@ -54,4 +54,4 @@ The `base` profile has Python with pandas, matplotlib, openpyxl, python-docx, py
 | gVisor fails with `cannot read client sync file` | The host needs an AppArmor profile that allows user namespaces, and a container that may create them. |
 | `pip install` fails | The network is Off. Ask an administrator to raise the most a chat can choose. |
 
-For the settings and the host backend, see [Sandbox backends and settings]({{% relref "/addons/contract-reference#sandbox-backends-and-settings" %}}).
+For the settings and the host backend, see [Sandbox backends and settings]({{% relref "/addons/catalogue/work/sandbox-settings#sandbox-backends-and-settings" %}}).

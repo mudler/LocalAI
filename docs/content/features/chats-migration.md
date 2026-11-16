@@ -19,7 +19,7 @@ Every converted trigger, connector and binding is switched off. Turn on the ones
 | An agent of the pool | A [saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}): instructions, model, the collection named like the agent, selected skills |
 | An agent that ran by itself (periodic) | A [trigger]({{% relref "/features/chats-and-agents/chats-agents" %}}) on the agent, **switched off** |
 | A scheduled task with a cron text | A trigger, **switched off**; `{{.name}}` parts of the prompt are filled from the task's parameters |
-| An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector]({{% relref "/features/chat-apps#mcp-servers" %}}) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
+| An MCP server of an agent (`mcp_servers`: address and token) | An [MCP connector]({{% relref "/features/chat-apps/mcp-servers#mcp-servers" %}}) of the agent's owner, **switched off**, named in the new agent as `connector:<id>` |
 | A local MCP command of an agent (`mcp_stdio_servers`) | The same, only when the owner is an administrator; otherwise it is dropped, with the reason |
 | A Telegram connector of an agent | A [connector binding]({{% relref "/features/chat-apps" %}}) for the converted agent, **switched off**, with the bot token sealed on the server; the old `admins` become the allowlist |
 | A skill folder (shared or personal) | A shared or personal skill |
@@ -156,11 +156,11 @@ The page `/app/chat` redirects to the chats, and the model in `/app/chat/<model>
 
 The pages do not offer some features of the removed ones. The agent form has no actions, connectors, filters, dynamic prompts, STDIO or HTTP MCP servers by URL, periodic runs, goals or memory switches, and no "draft with a model" button. You can import the JSON export of an older agent: its name, description, model, instructions and skills are read, and the page lists what was not imported. The skills page has no Git repositories, no `.tar.gz` import or export, no files tab and no "try in a context" sheet. The triggers page has no task parameters, media sources, webhooks or cron expressions with `@` shortcuts, and no job details page: a run of a trigger is a chat, and its row opens that chat.
 
-The chat page looks and works as before, with the server keeping the chats. The features that used to live in the browser are on the server now: forking a chat, editing a sent message and running the chat again from it, the per-chat system prompt, temperature, top P, top K, context size and reasoning effort, and the token counters (see [Settings, rename and model change]({{% relref "/features/chats-and-agents/chats#settings-rename-and-model-change" %}}) and [Regenerate, edit, fork, search, export]({{% relref "/features/chats-and-agents/chats#regenerate-edit-fork-search-export" %}})). Two are gone: MCP servers that the browser connected to (use [MCP connectors]({{% relref "/features/chat-apps" %}}) instead) and reading PDF files in the browser (files go to your workspace and the model reads them there).
+The chat page looks and works as before, with the server keeping the chats. The features that used to live in the browser are on the server now: forking a chat, editing a sent message and running the chat again from it, the per-chat system prompt, temperature, top P, top K, context size and reasoning effort, and the token counters (see [Settings, rename and model change]({{% relref "/features/chats-and-agents/chats-api#settings-rename-and-model-change" %}}) and [Regenerate, edit, fork, search, export]({{% relref "/features/chats-and-agents/chats-api#regenerate-edit-fork-search-export" %}})). Two are gone: MCP servers that the browser connected to (use [MCP connectors]({{% relref "/features/chat-apps" %}}) instead) and reading PDF files in the browser (files go to your workspace and the model reads them there).
 
-Studio and Talk moved to add-ons in the same change: nothing is preinstalled, and users need the `addons` feature, which the upgrade does not grant. See [Upgrading: Studio and Talk are add-ons now]({{% relref "/addons/contract-reference#upgrading-studio-and-talk-are-add-ons-now" %}}).
+Studio and Talk moved to add-ons in the same change: nothing is preinstalled, and users need the `addons` feature, which the upgrade does not grant. See [Upgrading: Studio and Talk are add-ons now]({{% relref "/addons/install-and-update#upgrading-studio-and-talk-are-add-ons-now" %}}).
 
-The features `skills` and `chat_history` are gone from the user permissions; their old keys in a stored permission map are ignored. The features `agents` and `mcp_jobs` are back, with `triggers` and `connectors` beside them, all off by default for a user; a stored `agents` or `mcp_jobs` value carries over, and a one-time rule keeps the access of the users who use them (see [Permissions]({{% relref "/features/chats-and-agents/chats#permissions" %}})).
+The features `skills` and `chat_history` are gone from the user permissions; their old keys in a stored permission map are ignored. The features `agents` and `mcp_jobs` are back, with `triggers` and `connectors` beside them, all off by default for a user; a stored `agents` or `mcp_jobs` value carries over, and a one-time rule keeps the access of the users who use them (see [Permissions]({{% relref "/administration/chats-deployment#permissions" %}})).
 
 ## Options that are ignored now
 
@@ -176,7 +176,7 @@ Renamed, because the [collections]({{% relref "/features/files-and-documents/col
 
 | Old name | New name |
 |---|---|
-| `LOCALAI_DISABLE_AGENTS` | `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`. The old name keeps its meaning (the whole agent pool, knowledge base included). `LOCALAI_DISABLE_TRIGGERS` and `LOCALAI_DISABLE_CONNECTORS` switch off one part. See [Chats]({{% relref "/features/chats-and-agents/chats#switch-the-chats-off" %}}). |
+| `LOCALAI_DISABLE_AGENTS` | `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`. The old name keeps its meaning (the whole agent pool, knowledge base included). `LOCALAI_DISABLE_TRIGGERS` and `LOCALAI_DISABLE_CONNECTORS` switch off one part. See [Chats]({{% relref "/administration/chats-deployment#switch-the-chats-off" %}}). |
 | `LOCALAI_AGENT_POOL_STATE_DIR` | `LOCALAI_COLLECTIONS_STATE_DIR` |
 | `LOCALAI_AGENT_POOL_DEFAULT_MODEL` | `LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
 | `LOCALAI_AGENT_POOL_API_URL` | `LOCALAI_COLLECTIONS_API_URL` |

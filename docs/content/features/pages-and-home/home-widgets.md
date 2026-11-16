@@ -33,14 +33,14 @@ You can also ask the assistant: "Show my open tasks on Home". It writes the data
 
 ## Make a page a tile
 
-A page can be a tile when its `page.json` has a `widget` block with a `size` of `small`, `medium` or `large`. Pick the page in **Edit layout** (from **Customise Home**), or ask the assistant to put it on Home. See [A page on Home]({{% relref "/features/pages-and-home/pages#a-page-on-home" %}}).
+A page can be a tile when its `page.json` has a `widget` block with a `size` of `small`, `medium` or `large`. Pick the page in **Edit layout** (from **Customise Home**), or ask the assistant to put it on Home. See [A page on Home]({{% relref "/features/pages-and-home/pages-on-home#a-page-on-home" %}}).
 
 ## Keep a tile current
 
 A trigger starts a run of the assistant. The run rewrites a file, and the tile reads it.
 
 - A **schedule** trigger runs daily, on weekdays, weekly, monthly, once, or from a cron expression. A schedule trigger runs at most once every 5 minutes, however it is made.
-- A **file** trigger runs when a file arrives in a folder. A page can write that file. See [A page that starts a run]({{% relref "/features/pages-and-home/pages#a-page-that-starts-a-run" %}}).
+- A **file** trigger runs when a file arrives in a folder. A page can write that file. See [A page that starts a run]({{% relref "/features/pages-and-home/pages-reference#a-page-that-starts-a-run" %}}).
 
 There is no trigger that a web request can start from outside.
 

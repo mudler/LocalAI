@@ -91,11 +91,11 @@ All paths are in your own files. Chat folder rules and read-only access still ap
 
 `create-docx` and `create-pdf` take `markdown`. `create-xlsx` takes `csv`.
 
-For the tool contract, see the [add-on contract reference]({{% relref "/addons/contract-reference#simple-office" %}}).
+For the tool contract, see the [add-on contract reference]({{% relref "/addons/contract-reference/first-party-packages#simple-office" %}}).
 
 ## With the Sandbox
 
-When the Sandbox is installed and isolated commands work, the `docx`, `xlsx`, `pdf` and `pptx` skills give the model Python procedures. You must switch the Sandbox on for the chat, and a saved agent must be granted the add-on. See [Document skills]({{% relref "/features/chats-and-agents/chats#document-skills" %}}). If both add-ons can serve a skill name, the choice in **Settings > Tools** decides. Without a choice, the one installed first serves it.
+When the Sandbox is installed and isolated commands work, the `docx`, `xlsx`, `pdf` and `pptx` skills give the model Python procedures. You must switch the Sandbox on for the chat, and a saved agent must be granted the add-on. See [Document skills]({{% relref "/features/chats-and-agents/chats-skills#document-skills" %}}). If both add-ons can serve a skill name, the choice in **Settings > Tools** decides. Without a choice, the one installed first serves it.
 
 ## Which one?
 

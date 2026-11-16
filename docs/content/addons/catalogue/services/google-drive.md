@@ -14,4 +14,4 @@ Agents can read the files in the Drive folders you choose.
 |---|---|
 | What it adds | Search, list a folder, read the details of a file and read its text. If you allow it, create a text file, replace the text of a file, rename or move a file, and move a file to the trash. It never shares a file. |
 | Needs | A Google OAuth client, which an administrator saves once because LocalAI ships none. Then each person connects their own Google account. |
-| Guide | [Google Drive in Chat apps and connections]({{% relref "/features/chat-apps#google-drive" %}}) |
+| Guide | [Google Drive in Chat apps and connections]({{% relref "/features/chat-apps/accounts#google-drive" %}}) |

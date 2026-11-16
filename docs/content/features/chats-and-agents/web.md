@@ -168,7 +168,7 @@ internal host. `web_fetch` does not use a proxy for the same reason, also when
 `HTTP_PROXY` is set.
 
 The same guard checks the network requests of commands in the Sandbox, see
-[Network access]({{% relref "/addons/contract-reference#network-access" %}}).
+[Network access]({{% relref "/addons/catalogue/work/sandbox-settings#network-access" %}}).
 
 ## Settings
 
@@ -227,7 +227,7 @@ searx" when an add-on replaces both, one line per tool when only one is replaced
 and nothing extra when the built-in tools serve them. `GET /api/chats/{id}/tools`
 reports the same in `builtins[].provider` (`builtin`, an add-on ID, or `mixed`)
 and `builtins[].providers` (the provider of each tool). **Settings > Tools** shows who serves each tool. See
-[Tools that replace a built-in tool]({{%relref "/addons/contract-reference#tools-that-replace-a-built-in-tool" %}}).
+[Tools that replace a built-in tool]({{% relref "/addons/contract-reference/owner-forwarding#tools-that-replace-a-built-in-tool" %}}).
 
 ## The Web add-on
 
@@ -246,7 +246,7 @@ Install it from **Add-ons**, **Find add-ons**. The chat's **Tools** menu then sa
 provider of both tools. When another add-on already replaces one of them, the install
 dialog says so for each tool ("This add-on replaces the built-in web_search. Another add-on
 (...) already does."), and you choose which one serves in **Settings > Tools**. The
-add-on asks for the `tool-providers` [host control]({{%relref "/addons/contract-reference#host-controls" %}}),
+add-on asks for the `tool-providers` [host control]({{% relref "/addons/contract-reference/apps-and-pages#host-controls" %}}),
 so the **Settings** tab of its details also shows the `web_search` and `web_fetch` rows of
 Settings > Tools, with the same choice, and those rows on Settings > Tools link to it.
 

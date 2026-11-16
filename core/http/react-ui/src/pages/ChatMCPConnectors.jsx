@@ -18,7 +18,7 @@ import '../components/addons/addons.css'
 import '../components/mcp/mcp.css'
 
 const storage = () => { try { return window.localStorage } catch { return null } }
-const DOCS = 'https://localai.io/features/chats-connectors/#mcp-servers'
+const DOCS = 'https://localai.io/docs/features/chats-connectors/mcp-servers/'
 // The search and the filter show from this many connectors: below it the list
 // fits on one screen and the toolbar is noise.
 const TOOLBAR_FROM = 4

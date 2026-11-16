@@ -23,11 +23,11 @@ LocalAI keeps two folders for itself. `LocalAI/` holds your settings. `Chats/` h
 
 ## Find a file
 
-Type in the box to filter the open folder by name. Press Enter to search the names and the text of all your files. The search reads the text of PDF, Word, Excel and PowerPoint files too. A scanned PDF has no text layer, so it is found by name only. The details are in [Search inside documents]({{% relref "/features/chats-and-agents/chats#search-inside-documents" %}}).
+Type in the box to filter the open folder by name. Press Enter to search the names and the text of all your files. The search reads the text of PDF, Word, Excel and PowerPoint files too. A scanned PDF has no text layer, so it is found by name only. The details are in [Search inside documents]({{% relref "/features/files-and-documents/files-reference#search-inside-documents" %}}).
 
 ## Unpack an archive
 
-Choose **Extract here** in the menu of an archive. The server unpacks it into a new folder next to the archive. One **Undo** removes the whole result. ZIP and TAR archives work. 7z and RAR are off by default. Their readers can run the server out of memory on a crafted file, so an administrator should turn them on only for people they trust. See [Extract an archive]({{% relref "/features/chats-and-agents/chats#extract-an-archive" %}}).
+Choose **Extract here** in the menu of an archive. The server unpacks it into a new folder next to the archive. One **Undo** removes the whole result. ZIP and TAR archives work. 7z and RAR are off by default. Their readers can run the server out of memory on a crafted file, so an administrator should turn them on only for people they trust. See [Extract an archive]({{% relref "/features/files-and-documents/files-reference#extract-an-archive" %}}).
 
 ## Use a file in a chat
 
@@ -48,7 +48,7 @@ Your files are private to your account until you share something. There are two 
 
 **A folder of your home** can be shared by you. Choose **Share…** in the menu of the folder, then add a person or **Everyone**, with **Can read** or **Can edit**. You can share a folder inside your home. You cannot share the home itself, or the folders that LocalAI keeps. Sharing needs a server with accounts.
 
-Only you can share a folder, in the browser. A model, an agent or an add-on can't. For the rules, see [Users and sharing]({{% relref "/concepts/users-and-sharing" %}}) and [Shared folders]({{% relref "/features/chats-and-agents/chats#shared-folders" %}}).
+Only you can share a folder, in the browser. A model, an agent or an add-on can't. For the rules, see [Users and sharing]({{% relref "/concepts/users-and-sharing" %}}) and [Shared folders]({{% relref "/features/files-and-documents/files-reference#shared-folders" %}}).
 
 ## Limits
 

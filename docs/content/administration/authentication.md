@@ -167,7 +167,7 @@ Before switching an existing instance:
    `POST /api/chats/agents/import`). Recreate collections there as needed.
 7. Grant the new accounts the features they need. Saved agents, triggers,
    connectors and agent jobs are off by default for a user (see
-   [Chats permissions]({{% relref "/features/chats-and-agents/chats" %}}#permissions)); an administrator has all of
+   [Chats permissions]({{% relref "/administration/chats-deployment#permissions" %}})); an administrator has all of
    them.
 8. Open the conversion report and check each item, and verify credentials and required data, before resuming triggers and bots.
 

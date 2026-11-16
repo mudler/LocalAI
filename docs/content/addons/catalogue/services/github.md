@@ -14,6 +14,6 @@ Agents can read the repositories you choose: code, files, issues, pull requests 
 |---|---|
 | What it adds | Read tools, and, if you allow it, comments on issues and pull requests, new issues, labels and line comments on a pull request diff. It cannot merge, delete, push code, approve or request changes. |
 | Needs | A connection with a fine-grained personal access token and the list of repositories the agent may use. |
-| Guide | [GitHub in Chat apps and connections]({{% relref "/features/chat-apps#github" %}}) |
+| Guide | [GitHub in Chat apps and connections]({{% relref "/features/chat-apps/accounts#github" %}}) |
 
 The add-on does not listen for `@mentions` on GitHub. An agent works on GitHub only when you ask it in a chat.

@@ -39,7 +39,7 @@ Open **Contacts** in the add-ons. It has a search box, the list of contacts, the
 
 Reads and writes both run immediately, as the signed-in user, with no confirmation card. A trigger or a job can write only with the `act.addons` grant. The add-on ships a skill that tells the model when to use the tools.
 
-In a messaging chat, the owner and the senders paired with the bot can read and change the book. Every other sender the bot lets in can read it but not change it (the `tools.write` rule, see [Add-ons that keep the owner's own data]({{% relref "/addons/contract-reference" %}}#add-ons-that-keep-the-owners-own-data)). The book is private to its user: a tool call can never name another user's book.
+In a messaging chat, the owner and the senders paired with the bot can read and change the book. Every other sender the bot lets in can read it but not change it (the `tools.write` rule, see [Add-ons that keep the owner's own data]({{% relref "/addons/contract-reference/owner-forwarding#add-ons-that-keep-the-owners-own-data" %}})). The book is private to its user: a tool call can never name another user's book.
 
 ## Limits
 
