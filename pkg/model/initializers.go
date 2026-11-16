@@ -368,7 +368,17 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 	if modelFileName == "" {
 		modelFileName = o.model
 	}
-	model, err := ml.LoadModelWithFile(o.modelID, o.model, modelFileName, ml.grpcModel(backend, o))
+	load := ml.grpcModel(backend, o)
+	model, err := ml.LoadModelWithFile(o.modelID, o.model, modelFileName, func(id, name, file string) (*Model, error) {
+		m, err := load(id, name, file)
+		ml.mu.Lock()
+		local := ml.modelRouter == nil
+		ml.mu.Unlock()
+		if m != nil && local {
+			m.leaseCreator = leaseFromContext(o.context)
+		}
+		return m, err
+	})
 	if err != nil {
 		// Defensive cleanup: the model usually wasn't registered yet (LoadModel
 		// failed before that), so StopGRPC reporting "model not found" is the
@@ -469,6 +479,7 @@ func (ml *ModelLoader) updateModelLastUsed(m *Model) {
 
 func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	o := NewOptions(opts...)
+	ml.touchLease(o.context, o.modelID)
 	diagnostics.Mark(o.context, diagnostics.PhaseModelInit)
 
 	ml.mu.Lock()

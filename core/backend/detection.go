@@ -22,7 +22,7 @@ func Detection(
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
 ) (*proto.DetectResponse, error) {
-	opts := ModelOptions(modelConfig, appConfig)
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	detectionModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)

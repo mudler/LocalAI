@@ -7,6 +7,48 @@ aliases = ["/features/longcat-video/", "/features/video-generation/"]
 
 LocalAI can generate videos from text prompts and optional image or audio conditioning via the `/video` endpoint. Supported backends include `diffusers`, `stablediffusion` (including MiniMax-H3, which generates video **and** audio together), `vllm-omni`, `mlx-video` on Apple Silicon, and the dedicated `longcat-video` backend.
 
+## Wan 2.1 1.3B with stable-diffusion.cpp
+
+The gallery model `wan-2.1-t2v-1.3b-ggml` uses Q8_0 weights and the
+`stablediffusion-ggml` backend. It generates silent video from text; leave
+start-image, end-image, and audio inputs empty for this checkpoint.
+
+Start with these settings in Studio's Video page:
+
+| Setting | Starting value |
+|---------|----------------|
+| Size | 512×512, or 832×480 for landscape |
+| Frames (Advanced Settings) | 17 |
+| FPS | 16 |
+| Steps | 20 |
+| CFG scale | 6 |
+| Seed | 42 for repeatable comparisons |
+
+Set the frame count explicitly. The `stablediffusion-ggml` video path uses
+`num_frames` and `fps`, not the `seconds` field: 17 frames at 16 FPS is about
+1.06 seconds. Use Wan-compatible frame counts such as 17, 33, or 81, and increase
+length only after checking memory use. The gallery sets Euler sampling and
+`flow_shift:3.0`; these are model options rather than per-request settings.
+
+On a 16 GB GPU, parameter offloading can leave more room for the VAE decoder.
+Add this entry to the model's existing `options` list, then unload/reload the
+model:
+
+```yaml
+options:
+  # Keep the existing diffusion_model, sampler, T5, and VAE options too.
+  - offload_params_to_cpu:true
+```
+
+This uses system RAM and may reduce speed. Resolution and frame count affect
+decoder memory substantially; fitting the quantized weights alone does not
+guarantee a longer clip will fit. The backend's image-generation `vae_tiling`
+option is not currently applied by its video-generation path.
+
+If an installed model is missing from the Video selector, ensure its config
+declares `known_usecases: [video]`, reload the model configuration, and refresh
+the page. `/api/models/capabilities` should list `FLAG_VIDEO` for that model.
+
 ## MLX-Video on Apple Silicon
 
 Install the native Metal backend, then configure an LTX-2 repository:

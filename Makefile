@@ -762,6 +762,8 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/go/timestral-cpp
 	$(MAKE) -C backend/go/trellis2cpp
 	$(MAKE) -C backend/go/kimodocpp
+	$(MAKE) -C backend/go/skintokenscpp
+	$(MAKE) -C backend/go/meshremesh
 	$(MAKE) -C backend/go/gemxcpp
 	$(MAKE) -C backend/go/valkey-store
 	$(MAKE) -C backend/go/qdrant-store
@@ -804,6 +806,8 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/nemo-speech-cpp test
 	$(MAKE) -C backend/go/trellis2cpp test
 	$(MAKE) -C backend/go/kimodocpp test
+	$(MAKE) -C backend/go/skintokenscpp test
+	$(MAKE) -C backend/go/meshremesh test
 	$(MAKE) -C backend/go/gemxcpp test
 	$(MAKE) -C backend/go/valkey-store test
 	$(MAKE) -C backend/go/qdrant-store test
@@ -1589,6 +1593,8 @@ BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|tr
 BACKEND_TRELLIS2CPP = trellis2cpp|golang|.|--progress=plain|true
 BACKEND_GEMXCPP = gemxcpp|golang|.|--progress=plain|true
 BACKEND_KIMODOCPP = kimodocpp|golang|.|--progress=plain|true
+BACKEND_SKINTOKENSCPP = skintokenscpp|golang|.|--progress=plain|true
+BACKEND_MESHREMESH = meshremesh|golang|.|--progress=plain|true
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_CRISPASR = crispasr|golang|.|false|true
 BACKEND_PARAKEET_CPP = parakeet-cpp|golang|.|false|true
@@ -1702,6 +1708,21 @@ $(eval $(call generate-docker-build-target,$(BACKEND_TRELLIS2CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KIMODOCPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_GEMXCPP)))
 .NOTPARALLEL: backends/kimodocpp backends/kimodocpp-darwin
+.NOTPARALLEL: backends/skintokenscpp backends/skintokenscpp-darwin
+.NOTPARALLEL: backends/meshremesh backends/meshremesh-darwin
+$(eval $(call generate-docker-build-target,$(BACKEND_MESHREMESH)))
+docker-build-backends: docker-build-meshremesh
+
+backends/meshremesh-darwin:
+	BACKEND=meshremesh BUILD_TYPE=cpu $(MAKE) build-darwin-go-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/meshremesh.tar)"
+
+$(eval $(call generate-docker-build-target,$(BACKEND_SKINTOKENSCPP)))
+docker-build-backends: docker-build-skintokenscpp
+
+backends/skintokenscpp-darwin:
+	BACKEND=skintokenscpp BUILD_TYPE=cpu $(MAKE) build-darwin-go-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/skintokenscpp.tar)"
 docker-build-backends: docker-build-kimodocpp
 
 backends/kimodocpp-darwin:

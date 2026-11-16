@@ -20,6 +20,7 @@ package backend_test
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -155,6 +156,18 @@ var _ = Describe("X-LocalAI-Node ctx propagation contract", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("router short-circuit (test)"))
 		stampViaRouterCtx()
+	})
+
+	It("Model3DAnimation preserves the request context and registers its model with the cleanup lease", func() {
+		ctx, lease := loader.BeginLease(reqCtx, "pipeline-owner", time.Hour)
+		_, err := backend.Model3DAnimation(ctx, &pbproto.Animate3DRequest{}, loader, modelCfg, appCfg)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("router short-circuit (test)"))
+		stampViaRouterCtx()
+		Expect(routerCtxOf()).To(BeIdenticalTo(ctx))
+		results, err := loader.ReleaseLease(context.Background(), "pipeline-owner", lease.ID, false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(results).To(ConsistOf(model.LeaseRelease{Model: modelCfg.Name, State: "retained", Reason: "unload not authorized"}))
 	})
 
 	It("does NOT leak the holder when the app context is used instead", func() {

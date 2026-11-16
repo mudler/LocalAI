@@ -61,7 +61,7 @@ type Limits struct {
 }
 
 // MaxArtifactBytes is the hard upper bound of MaxBytes.
-const MaxArtifactBytes = 64 << 20
+const MaxArtifactBytes = 512 << 20
 
 // DefaultLimits derive from the contract defaults and the relay bound.
 func DefaultLimits() Limits {

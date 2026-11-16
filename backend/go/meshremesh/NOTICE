@@ -1,0 +1,15 @@
+meshremesh — contains GPL-licensed code
+
+The optional meshremesh backend includes CGAL Alpha Wrap, licensed under
+GPL-3.0-or-later. The combined native remesher is not an MIT-only binary.
+The model and backend gallery entries identify this license explicitly.
+
+This backend is distributed separately from the LocalAI server and the
+asset-pipeline add-on. It is invoked through the backend RPC interface.
+The asset-pipeline add-on does not bundle the native remesher.
+
+Retain the original copyright and license notices in source/native/vendor,
+LICENSE.Eigen, and LICENSE.CGAL when present. The source snapshot and build
+recipe are in source/; upstream references are documented in README.md.
+Distributors must also satisfy the applicable GPL source and license
+requirements for their builds and dependencies.

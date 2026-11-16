@@ -2879,12 +2879,12 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_3D) == FLAG_3D {
-		threeDBackends := []string{"trellis2cpp"}
+		threeDBackends := []string{"trellis2cpp", "meshremesh"}
 		if !slices.Contains(threeDBackends, c.Backend) {
 			return false
 		}
 	}
-	if (u&FLAG_3D_ANIMATION) == FLAG_3D_ANIMATION && c.Backend != "kimodocpp" {
+	if (u&FLAG_3D_ANIMATION) == FLAG_3D_ANIMATION && c.Backend != "kimodocpp" && c.Backend != "skintokenscpp" {
 		return false
 	}
 

@@ -195,12 +195,12 @@ func (c *ModelConfig) Capabilities() []string {
 func (c *ModelConfig) InputModalities() []string {
 	modalities := declaredModalities(c.KnownInputModalities)
 	for _, operation := range c.ThreeDOperations() {
-		if operation.ID != "animate" {
+		if operation.Endpoint != "/3d/animate" && !(c.Backend == "meshremesh" && operation.Endpoint == "/3d/remesh") {
 			continue
 		}
 		for _, input := range operation.Inputs {
 			modality := input.Type
-			if modality == "mesh" {
+			if modality == "mesh" || modality == "motion" {
 				modality = Modality3D
 			}
 			modalities[modality] = true
@@ -218,7 +218,7 @@ func (c *ModelConfig) InputModalities() []string {
 	// Ollama surface); detection/depth/face/3D models consume images directly.
 	imageIn := (chatish && c.VisionSupported()) || c.LimitMMPerPrompt.LimitImagePerPrompt > 0 ||
 		c.HasUsecases(FLAG_DETECTION) || c.HasUsecases(FLAG_DEPTH) || c.HasUsecases(FLAG_FACE_RECOGNITION) ||
-		c.HasUsecases(FLAG_3D) || c.HasUsecases(FLAG_UPSCALE)
+		(c.HasUsecases(FLAG_3D) && c.Backend != "meshremesh") || c.HasUsecases(FLAG_UPSCALE)
 
 	audioIn := c.AudioInputSupported() || c.HasUsecases(FLAG_TRANSCRIPT) || c.HasUsecases(FLAG_AUDIO_TRANSFORM) ||
 		c.HasUsecases(FLAG_REALTIME_AUDIO) || c.HasUsecases(FLAG_VAD) || c.HasUsecases(FLAG_DIARIZATION) ||

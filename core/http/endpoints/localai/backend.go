@@ -68,6 +68,8 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	// audio-cpp/audio.cpp-gguf hosts 30-odd families in one repository.
 	{Name: "audio-cpp", Modality: "tts", AutoDetect: false, Description: "audio.cpp multi-family audio engine: TTS, voice cloning, ASR, alignment, VAD, diarization, separation, music generation (preference-only)"},
 	// Detection
+	// Geometry postprocessor: no weight repository to auto-detect.
+	{Name: "meshremesh", Modality: "3d", AutoDetect: false, Description: "Model-free CPU wrapping and quad-dominant remeshing; use the mesh-remesher gallery configuration"},
 	{Name: "sam3-cpp", Modality: "detection", AutoDetect: false, Description: "SAM3 C++ object detection (preference-only)"},
 	// Audio transform (audio-in / audio-out, optional reference signal)
 	{Name: "localvqe", Modality: "audio-transform", AutoDetect: false, Description: "LocalVQE C++ joint AEC + noise suppression + dereverberation (preference-only)"},

@@ -1,0 +1,23 @@
+# Native verification is required before enabling additional release targets.
+schema: 1
+addon: asset-pipeline
+executable: asset-pipeline
+manifest: addons/asset-pipeline/manifest.json
+ui: addons/asset-pipeline/ui/dist
+platforms:
+  - platform: linux/amd64
+    enabled: true
+    runner: ubuntu-24.04
+    native_check: executable-start
+  - platform: linux/arm64
+    enabled: false
+    runner: ubuntu-24.04-arm
+    native_check: executable-start
+  - platform: darwin/arm64
+    enabled: false
+    runner: macos-15
+    native_check: executable-start
+  - platform: darwin/amd64
+    enabled: false
+    runner: macos-15-intel
+    native_check: executable-start

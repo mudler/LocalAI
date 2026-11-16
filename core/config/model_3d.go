@@ -12,6 +12,27 @@ import (
 // cannot advertise inputs or parameters that its selected backend rejects.
 func (c *ModelConfig) ThreeDOperations() []schema.ThreeDOperation {
 	switch c.Backend {
+	case "meshremesh":
+		if !c.HasUsecases(FLAG_3D) {
+			return nil
+		}
+		// The existing HTTP endpoint exposes print wrapping. The pipeline passes
+		// the full remesher parameter contract directly to the backend.
+		return []schema.ThreeDOperation{{ID: "remesh", Label: "Wrap mesh", Endpoint: "/3d/remesh", Output: "mesh",
+			Inputs:     []schema.ThreeDInput{{Name: "mesh", Type: "mesh", Label: "Source mesh", Required: true}},
+			Parameters: []schema.ThreeDParameter{{Name: "detail", Label: "Detail (%)", Type: "number", Default: "0.5", Min: 0.35, Max: 2.5}},
+		}}
+	case "skintokenscpp":
+		if !c.HasUsecases(FLAG_3D_ANIMATION) {
+			return nil
+		}
+		mesh := schema.ThreeDInput{Name: "mesh", Type: "mesh", Label: "Source mesh", Required: true}
+		return []schema.ThreeDOperation{
+			{ID: "rig", Label: "Generate rig and weights", Endpoint: "/3d/animate", Output: "mesh", Inputs: []schema.ThreeDInput{mesh}, Parameters: schema.SkinTokensParameters("rig")},
+			{ID: "skin", Label: "Skin to supplied skeleton", Endpoint: "/3d/animate", Output: "mesh", Inputs: []schema.ThreeDInput{mesh, {Name: "skeleton", Type: "mesh", Label: "Skeleton GLB", Required: true}}, Parameters: schema.SkinTokensParameters("skin")},
+			{ID: "skin_motion", Label: "Skin to motion skeleton", Endpoint: "/3d/animate", Output: "mesh", Inputs: []schema.ThreeDInput{mesh, {Name: "skeleton", Type: "motion", Label: "Skeleton motion GLB", Required: true}}, Parameters: schema.SkinTokensParameters("skin")},
+			{ID: "retarget", Label: "Apply SOMA30 motion", Endpoint: "/3d/animate", Output: "mesh", Inputs: []schema.ThreeDInput{mesh, {Name: "motion", Type: "motion", Label: "SOMA30 motion GLB", Required: true}}},
+		}
 	case "kimodocpp":
 		if !c.HasUsecases(FLAG_3D_ANIMATION) {
 			return nil

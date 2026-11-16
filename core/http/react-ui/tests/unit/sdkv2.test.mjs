@@ -24,6 +24,22 @@ function make(host = {}) {
 
 test('SDK version is 2', () => assert.equal(SDK_VERSION, 2))
 
+test('private blob previews require a file issued to this live SDK', async () => {
+  const id = 'a' + '1'.repeat(32)
+  let downloads = 0
+  const { sdk, controller } = make({ api: {
+    dispatchFile: async () => ({ files: [{ id, size: 3, mediaType: 'image/png' }] }),
+    artifactBlob: async (_id, signal) => { assert.equal(_id, id); assert.equal(signal.aborted, false); downloads++; return new Blob(['png']) },
+  } })
+  await assert.rejects(sdk.files.blob(id), /files.read/)
+  await sdk.files.read({ action: 'preview' })
+  assert.equal(await (await sdk.files.blob(id)).text(), 'png')
+  assert.equal(downloads, 1)
+  controller.abort()
+  await assert.rejects(sdk.files.blob(id))
+  assert.equal(downloads, 1)
+})
+
 test('sdk.ui exposes every shared primitive and widget, and the wrapper passes props through unchanged', () => {
   const { sdk } = make()
   for (const n of NAMES) assert.equal(typeof sdk.ui[n], 'function', n)

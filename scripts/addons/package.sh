@@ -135,9 +135,9 @@ if [ -z "$executable" ]; then
         echo "package.sh: platform $platform needs an executable for $build_platform, which is not this host ($host); pass the native --executable" >&2
         exit 2
     }
-    # Every add-on is pure Go, so its executable is static and needs no C
-    # toolchain or C library (glibc or musl) on any platform.
+    # Asset Pipeline links SQLite; other add-ons need no C toolchain.
     cgo=0
+    [ "$addon" != asset-pipeline ] || cgo=1
     # A Windows executable is named <name>.exe (the manifest of a Windows
     # package says so).
     out=$scratch/$exe_name

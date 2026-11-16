@@ -43621,3 +43621,379 @@
     - https://github.com/OVHai-LLM/llama.cpp
     - https://huggingface.co/OVHaiLLM
   version: 0.0.0-development
+- alias: skintokenscpp
+  capabilities:
+    amd: vulkan-skintokenscpp
+    default: cpu-skintokenscpp
+    intel: vulkan-skintokenscpp
+    metal: cpu-darwin-arm64-skintokenscpp
+    nvidia: vulkan-skintokenscpp
+    nvidia-cuda-12: vulkan-skintokenscpp
+    nvidia-cuda-13: vulkan-skintokenscpp
+    vulkan: vulkan-skintokenscpp
+  channel: latest
+  description: Native rigging, learned skinning weights and compatible SOMA30 motion application.
+  id: skintokenscpp
+  kind: backend
+  license: apache-2.0
+  name: skintokenscpp
+  schemaVersion: 1
+  tags:
+    - 3d-animation
+    - rigging
+    - skinning
+    - CPU
+    - Vulkan
+  urls:
+    - https://github.com/localai-org/skin-tokens.cpp
+  version: 0.0.0-latest
+- alias: skintokenscpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-skintokenscpp
+  capabilities:
+    amd: vulkan-skintokenscpp
+    default: cpu-skintokenscpp
+    intel: vulkan-skintokenscpp
+    metal: cpu-darwin-arm64-skintokenscpp
+    nvidia: vulkan-skintokenscpp
+    nvidia-cuda-12: vulkan-skintokenscpp
+    nvidia-cuda-13: vulkan-skintokenscpp
+    vulkan: vulkan-skintokenscpp
+  channel: latest
+  description: Native rigging, learned skinning weights and compatible SOMA30 motion application.
+  id: cpu-skintokenscpp
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-skintokenscpp
+  mutable: true
+  name: cpu-skintokenscpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - 3d-animation
+    - rigging
+    - skinning
+    - CPU
+    - Vulkan
+  urls:
+    - https://github.com/localai-org/skin-tokens.cpp
+  version: 0.0.0-latest
+- alias: skintokenscpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-skintokenscpp
+  capabilities:
+    amd: vulkan-skintokenscpp
+    default: cpu-skintokenscpp
+    intel: vulkan-skintokenscpp
+    metal: cpu-darwin-arm64-skintokenscpp
+    nvidia: vulkan-skintokenscpp
+    nvidia-cuda-12: vulkan-skintokenscpp
+    nvidia-cuda-13: vulkan-skintokenscpp
+    vulkan: vulkan-skintokenscpp
+  channel: latest
+  description: Native rigging, learned skinning weights and compatible SOMA30 motion application.
+  id: vulkan-skintokenscpp
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-vulkan-skintokenscpp
+  mutable: true
+  name: vulkan-skintokenscpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - 3d-animation
+    - rigging
+    - skinning
+    - CPU
+    - Vulkan
+  urls:
+    - https://github.com/localai-org/skin-tokens.cpp
+  version: 0.0.0-latest
+- alias: skintokenscpp
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-darwin-arm64-skintokenscpp
+  capabilities:
+    amd: vulkan-skintokenscpp
+    default: cpu-skintokenscpp
+    intel: vulkan-skintokenscpp
+    metal: cpu-darwin-arm64-skintokenscpp
+    nvidia: vulkan-skintokenscpp
+    nvidia-cuda-12: vulkan-skintokenscpp
+    nvidia-cuda-13: vulkan-skintokenscpp
+    vulkan: vulkan-skintokenscpp
+  channel: latest
+  description: Native rigging, learned skinning weights and compatible SOMA30 motion application.
+  id: cpu-darwin-arm64-skintokenscpp
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-darwin-arm64-skintokenscpp
+  mutable: true
+  name: cpu-darwin-arm64-skintokenscpp
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - 3d-animation
+    - rigging
+    - skinning
+    - CPU
+    - Vulkan
+  urls:
+    - https://github.com/localai-org/skin-tokens.cpp
+  version: 0.0.0-latest
+- alias: skintokenscpp
+  capabilities:
+    amd: vulkan-skintokenscpp-development
+    default: cpu-skintokenscpp-development
+    intel: vulkan-skintokenscpp-development
+    metal: cpu-darwin-arm64-skintokenscpp-development
+    nvidia: vulkan-skintokenscpp-development
+    nvidia-cuda-12: vulkan-skintokenscpp-development
+    nvidia-cuda-13: vulkan-skintokenscpp-development
+    vulkan: vulkan-skintokenscpp-development
+  channel: development
+  description: Native rigging, learned skinning weights and compatible SOMA30 motion application.
+  id: skintokenscpp-development
+  kind: backend
+  license: apache-2.0
+  name: skintokenscpp-development
+  schemaVersion: 1
+  tags:
+    - 3d-animation
+    - rigging
+    - skinning
+    - CPU
+    - Vulkan
+  urls:
+    - https://github.com/localai-org/skin-tokens.cpp
+  version: 0.0.0-development
+- alias: skintokenscpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-skintokenscpp
+  capabilities:
+    amd: vulkan-skintokenscpp-development
+    default: cpu-skintokenscpp-development
+    intel: vulkan-skintokenscpp-development
+    metal: cpu-darwin-arm64-skintokenscpp-development
+    nvidia: vulkan-skintokenscpp-development
+    nvidia-cuda-12: vulkan-skintokenscpp-development
+    nvidia-cuda-13: vulkan-skintokenscpp-development
+    vulkan: vulkan-skintokenscpp-development
+  channel: development
+  description: Native rigging, learned skinning weights and compatible SOMA30 motion application.
+  id: cpu-skintokenscpp-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-cpu-skintokenscpp
+  mutable: true
+  name: cpu-skintokenscpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - 3d-animation
+    - rigging
+    - skinning
+    - CPU
+    - Vulkan
+  urls:
+    - https://github.com/localai-org/skin-tokens.cpp
+  version: 0.0.0-development
+- alias: skintokenscpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-skintokenscpp
+  capabilities:
+    amd: vulkan-skintokenscpp-development
+    default: cpu-skintokenscpp-development
+    intel: vulkan-skintokenscpp-development
+    metal: cpu-darwin-arm64-skintokenscpp-development
+    nvidia: vulkan-skintokenscpp-development
+    nvidia-cuda-12: vulkan-skintokenscpp-development
+    nvidia-cuda-13: vulkan-skintokenscpp-development
+    vulkan: vulkan-skintokenscpp-development
+  channel: development
+  description: Native rigging, learned skinning weights and compatible SOMA30 motion application.
+  id: vulkan-skintokenscpp-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-vulkan-skintokenscpp
+  mutable: true
+  name: vulkan-skintokenscpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - 3d-animation
+    - rigging
+    - skinning
+    - CPU
+    - Vulkan
+  urls:
+    - https://github.com/localai-org/skin-tokens.cpp
+  version: 0.0.0-development
+- alias: skintokenscpp
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-darwin-arm64-skintokenscpp
+  capabilities:
+    amd: vulkan-skintokenscpp-development
+    default: cpu-skintokenscpp-development
+    intel: vulkan-skintokenscpp-development
+    metal: cpu-darwin-arm64-skintokenscpp-development
+    nvidia: vulkan-skintokenscpp-development
+    nvidia-cuda-12: vulkan-skintokenscpp-development
+    nvidia-cuda-13: vulkan-skintokenscpp-development
+    vulkan: vulkan-skintokenscpp-development
+  channel: development
+  description: Native rigging, learned skinning weights and compatible SOMA30 motion application.
+  id: cpu-darwin-arm64-skintokenscpp-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-cpu-darwin-arm64-skintokenscpp
+  mutable: true
+  name: cpu-darwin-arm64-skintokenscpp-development
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - 3d-animation
+    - rigging
+    - skinning
+    - CPU
+    - Vulkan
+  urls:
+    - https://github.com/localai-org/skin-tokens.cpp
+  version: 0.0.0-development
+- alias: meshremesh
+  capabilities:
+    default: cpu-meshremesh
+    metal: cpu-darwin-arm64-meshremesh
+  channel: latest
+  description: Model-free CPU surface wrapping, quad-dominant remeshing and material projection. Includes CGAL Alpha Wrap.
+  id: meshremesh
+  kind: backend
+  license: GPL-3.0-or-later
+  name: meshremesh
+  schemaVersion: 1
+  tags:
+    - 3d
+    - remeshing
+    - CPU
+  urls:
+    - https://github.com/mudler/LocalAI
+  version: 0.0.0-latest
+- alias: meshremesh
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-meshremesh
+  capabilities:
+    default: cpu-meshremesh
+    metal: cpu-darwin-arm64-meshremesh
+  channel: latest
+  description: Model-free CPU surface wrapping, quad-dominant remeshing and material projection. Includes CGAL Alpha Wrap.
+  id: cpu-meshremesh
+  kind: backend
+  license: GPL-3.0-or-later
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-meshremesh
+  mutable: true
+  name: cpu-meshremesh
+  os: linux
+  schemaVersion: 1
+  tags:
+    - 3d
+    - remeshing
+    - CPU
+  urls:
+    - https://github.com/mudler/LocalAI
+  version: 0.0.0-latest
+- alias: meshremesh
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-darwin-arm64-meshremesh
+  capabilities:
+    default: cpu-meshremesh
+    metal: cpu-darwin-arm64-meshremesh
+  channel: latest
+  description: Model-free CPU surface wrapping, quad-dominant remeshing and material projection. Includes CGAL Alpha Wrap.
+  id: cpu-darwin-arm64-meshremesh
+  kind: backend
+  license: GPL-3.0-or-later
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-darwin-arm64-meshremesh
+  mutable: true
+  name: cpu-darwin-arm64-meshremesh
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - 3d
+    - remeshing
+    - CPU
+  urls:
+    - https://github.com/mudler/LocalAI
+  version: 0.0.0-latest
+- alias: meshremesh
+  capabilities:
+    default: cpu-meshremesh-development
+    metal: cpu-darwin-arm64-meshremesh-development
+  channel: development
+  description: Model-free CPU surface wrapping, quad-dominant remeshing and material projection. Includes CGAL Alpha Wrap.
+  id: meshremesh-development
+  kind: backend
+  license: GPL-3.0-or-later
+  name: meshremesh-development
+  schemaVersion: 1
+  tags:
+    - 3d
+    - remeshing
+    - CPU
+  urls:
+    - https://github.com/mudler/LocalAI
+  version: 0.0.0-development
+- alias: meshremesh
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-meshremesh
+  capabilities:
+    default: cpu-meshremesh-development
+    metal: cpu-darwin-arm64-meshremesh-development
+  channel: development
+  description: Model-free CPU surface wrapping, quad-dominant remeshing and material projection. Includes CGAL Alpha Wrap.
+  id: cpu-meshremesh-development
+  kind: backend
+  license: GPL-3.0-or-later
+  mirrors:
+    - oci://localai/localai-backends:master-cpu-meshremesh
+  mutable: true
+  name: cpu-meshremesh-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - 3d
+    - remeshing
+    - CPU
+  urls:
+    - https://github.com/mudler/LocalAI
+  version: 0.0.0-development
+- alias: meshremesh
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-darwin-arm64-meshremesh
+  capabilities:
+    default: cpu-meshremesh-development
+    metal: cpu-darwin-arm64-meshremesh-development
+  channel: development
+  description: Model-free CPU surface wrapping, quad-dominant remeshing and material projection. Includes CGAL Alpha Wrap.
+  id: cpu-darwin-arm64-meshremesh-development
+  kind: backend
+  license: GPL-3.0-or-later
+  mirrors:
+    - oci://localai/localai-backends:master-cpu-darwin-arm64-meshremesh
+  mutable: true
+  name: cpu-darwin-arm64-meshremesh-development
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - 3d
+    - remeshing
+    - CPU
+  urls:
+    - https://github.com/mudler/LocalAI
+  version: 0.0.0-development

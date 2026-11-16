@@ -10,6 +10,10 @@ backend/go/image/stablediffusion-ggml/build/
 backend/go/*/build
 backend/go/kimodocpp/build-*
 backend/go/kimodocpp/kimodocpp
+backend/go/skintokenscpp/build-*
+backend/go/skintokenscpp/skintokenscpp
+backend/go/meshremesh/build-*
+backend/go/meshremesh/meshremesh
 backend/go/gemxcpp/build-*
 backend/go/gemxcpp/gemxcpp
 backend/go/*/.cache
