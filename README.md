@@ -38,7 +38,7 @@ local-ai
 # open http://localhost:8080 and install a model from there
 ```
 
-The script installs the program and does not start it; `local-ai` starts the server. To run a model directly, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small Google Gemma 4 model for CPUs (about 4.3 GB to download).
+The script installs the program and does not start it; `local-ai` starts the server. To run a model directly, name it, for example `local-ai run gemma-4-e2b-it-qat-q4_0`, a small Google Gemma 4 model for CPUs (4.3 GB to download: 3.35 GB for the model and 0.99 GB for the image projector).
 
 **Container** (Docker, podman, ...):
 
