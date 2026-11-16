@@ -56140,6 +56140,56 @@
       - vae_path:wan_2.1_vae.safetensors
     parameters:
       model: wan2.1-i2v-14b-720p-Q4_K_M.gguf
+- name: mesh-remesher
+  description: Model-free CPU surface wrapping, quad-dominant remeshing and material projection. Requires the meshremesh backend; no weights are downloaded.
+  license: GPL-3.0-or-later
+  tags:
+    - 3d
+    - remeshing
+    - cpu
+  backend: meshremesh
+  config_file:
+    backend: meshremesh
+    known_usecases:
+      - 3d
+    parameters:
+      model: meshremesh
+- name: skintokens-f16
+  description: |
+    SkinTokens native generated rigs, learned skinning weights and compatible
+    SOMA30 motion retargeting on CPU or Vulkan. F16 TokenRig, mesh encoder and
+    SkinVAE bundle. Preserves embedded PBR textures on single-primitive GLB
+    assets. MIT-licensed weights.
+  license: mit
+  urls:
+    - https://huggingface.co/LocalAI-io/SkinTokens-GGUF
+    - https://huggingface.co/VAST-AI/SkinTokens
+    - https://github.com/localai-org/skin-tokens.cpp
+  tags:
+    - 3d_animation
+    - rigging
+    - skinning
+    - gguf
+    - cpu
+    - vulkan
+  files:
+    - filename: skintokens/F16/mesh-encoder.gguf
+      sha256: 532710809e3db6c54389dd6489c2aa3c768244868b9c197198d06fa664214527
+      uri: https://huggingface.co/LocalAI-io/SkinTokens-GGUF/resolve/2c55d38ffe01871c6956103926cc4a40bd7acc8a/F16/mesh-encoder.gguf
+    - filename: skintokens/F16/skin-vae.gguf
+      sha256: dcd5859ac89bae62bcfd6b7823f9d0e2393b22364bcb19f84c1109af8e07455e
+      uri: https://huggingface.co/LocalAI-io/SkinTokens-GGUF/resolve/2c55d38ffe01871c6956103926cc4a40bd7acc8a/F16/skin-vae.gguf
+    - filename: skintokens/F16/tokenrig.gguf
+      sha256: 933529dc0e550fd499e2e1ae1c574c6d5852047c04832e7207304e184901ed82
+      uri: https://huggingface.co/LocalAI-io/SkinTokens-GGUF/resolve/2c55d38ffe01871c6956103926cc4a40bd7acc8a/F16/tokenrig.gguf
+  backend: skintokenscpp
+  config_file:
+    backend: skintokenscpp
+    known_usecases:
+      - 3d_animation
+  overrides:
+    parameters:
+      model: skintokens/F16
 - url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
   name: kimodo-soma-rp
   description: |

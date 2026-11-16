@@ -151,3 +151,4 @@ addons/internal/uibuild/test/*/dist
 # Add-on zip files and the scratch of scripts/addons/zip.sh
 dist/addons/
 .cache/addons/zip/
+addons/*/ui/node_modules/

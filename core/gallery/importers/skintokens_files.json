@@ -1,0 +1,17 @@
+[
+  {
+    "filename": "skintokens/F16/mesh-encoder.gguf",
+    "sha256": "532710809e3db6c54389dd6489c2aa3c768244868b9c197198d06fa664214527",
+    "uri": "https://huggingface.co/LocalAI-io/SkinTokens-GGUF/resolve/2c55d38ffe01871c6956103926cc4a40bd7acc8a/F16/mesh-encoder.gguf"
+  },
+  {
+    "filename": "skintokens/F16/skin-vae.gguf",
+    "sha256": "dcd5859ac89bae62bcfd6b7823f9d0e2393b22364bcb19f84c1109af8e07455e",
+    "uri": "https://huggingface.co/LocalAI-io/SkinTokens-GGUF/resolve/2c55d38ffe01871c6956103926cc4a40bd7acc8a/F16/skin-vae.gguf"
+  },
+  {
+    "filename": "skintokens/F16/tokenrig.gguf",
+    "sha256": "933529dc0e550fd499e2e1ae1c574c6d5852047c04832e7207304e184901ed82",
+    "uri": "https://huggingface.co/LocalAI-io/SkinTokens-GGUF/resolve/2c55d38ffe01871c6956103926cc4a40bd7acc8a/F16/tokenrig.gguf"
+  }
+]

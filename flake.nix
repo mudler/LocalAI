@@ -96,6 +96,11 @@
           gnumake
           pkg-config
           cmake
+          nlohmann_json
+          cgal
+          boost
+          gmp
+          mpfr
           ccache
           protobuf
           go-protobuf

@@ -2,11 +2,34 @@
 package config
 
 import (
+	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("3D animation capabilities", func() {
+	It("advertises the model-free remesher as mesh-in, not image-in", func() {
+		cfg := &ModelConfig{Backend: "meshremesh"}
+		Expect(cfg.HasUsecases(FLAG_3D)).To(BeTrue())
+		Expect(cfg.InputModalities()).To(Equal([]string{"3d"}))
+		Expect(cfg.ThreeDOperations()).To(HaveLen(1))
+		Expect(cfg.ThreeDOperations()[0].ID).To(Equal("remesh"))
+	})
+	It("advertises SkinTokens mesh and motion inputs without claiming text-to-motion", func() {
+		cfg := &ModelConfig{Backend: "skintokenscpp"}
+		Expect(cfg.HasUsecases(FLAG_3D_ANIMATION)).To(BeTrue())
+		Expect(cfg.InputModalities()).To(Equal([]string{"3d"}))
+		Expect(cfg.ThreeDOperations()).To(HaveLen(4))
+		input := &schema.Model3DAnimationRequest{Inputs: map[string]schema.AnimationInput{"mesh": {Type: "mesh", Data: "asset.glb"}, "skeleton": {Type: "motion", Data: "motion.glb"}}, Params: map[string]string{"fit": "global"}}
+		Expect(cfg.ValidateAnimationRequest(input)).To(Succeed())
+		input.Inputs = map[string]schema.AnimationInput{"prompt": {Type: "text", Data: "walk"}}
+		Expect(cfg.ValidateAnimationRequest(input)).NotTo(Succeed())
+		for _, operation := range cfg.ThreeDOperations() {
+			for _, parameter := range operation.Parameters {
+				Expect(parameter.Validate(parameter.Default)).To(Succeed())
+			}
+		}
+	})
 	It("keeps animation distinct from image-conditioned mesh generation", func() {
 		cfg := &ModelConfig{Backend: "kimodocpp"}
 		Expect(cfg.HasUsecases(FLAG_3D_ANIMATION)).To(BeTrue())

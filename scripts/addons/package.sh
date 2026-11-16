@@ -135,10 +135,11 @@ if [ -z "$executable" ]; then
         echo "package.sh: platform $platform needs an executable for $build_platform, which is not this host ($host); pass the native --executable" >&2
         exit 2
     }
-    # Tables links a C library. The other add-ons are pure Go, so their
+    # Tables and Asset Pipeline link SQLite. The other add-ons are pure Go, so their
     # executable needs no C toolchain on any platform.
     cgo=0
     [ "$addon" != tables ] || cgo=1
+    [ "$addon" != asset-pipeline ] || cgo=1
     # A Windows executable is named <name>.exe (the manifest of a Windows
     # package says so). A Windows cgo build links the C runtime statically,
     # so the executable needs no DLL of the build toolchain.

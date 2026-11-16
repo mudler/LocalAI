@@ -19,10 +19,13 @@ type BackendMonitorRequest struct {
 // It is the inverse of the /backend/shutdown request.
 type ModelLoadRequest struct {
 	BasicModelRequest
+	Lease bool `json:"lease,omitempty"`
 }
 
 // ModelLoadResponse reports the outcome of a /backend/load call.
 type ModelLoadResponse struct {
+	LeaseID      string     `json:"lease_id,omitempty"`
+	LeaseExpires *time.Time `json:"lease_expires,omitempty"`
 	// Loaded lists the model names actually resident in memory after the call.
 	// For a pipeline model these are its sub-models, not the pipeline name.
 	Loaded []string `json:"loaded"`

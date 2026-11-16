@@ -17058,6 +17058,44 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/backend/leases/{id}/release": {
+            "post": {
+                "description": "Best-effort cleanup of local models loaded by this lease. Busy, pinned, shared and distributed models are retained. Requires the same administrator who acquired the lease.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Release a model preload lease",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Lease ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.LeaseRelease"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/backend/load": {
             "post": {
                 "description": "Loads the named model (or, for a realtime pipeline, all of its sub-models) into memory so subsequent requests pay no cold-start cost. The inverse of /backend/shutdown.",
@@ -23994,6 +24032,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.LeaseRelease": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "state": {
                     "type": "string"
                 }
             }
@@ -35352,6 +35404,9 @@ const docTemplate = `{
         "schema.ModelLoadRequest": {
             "type": "object",
             "properties": {
+                "lease": {
+                    "type": "boolean"
+                },
                 "model": {
                     "type": "string"
                 }
@@ -35360,6 +35415,12 @@ const docTemplate = `{
         "schema.ModelLoadResponse": {
             "type": "object",
             "properties": {
+                "lease_expires": {
+                    "type": "string"
+                },
+                "lease_id": {
+                    "type": "string"
+                },
                 "loaded": {
                     "description": "Loaded lists the model names actually resident in memory after the call.\nFor a pipeline model these are its sub-models, not the pipeline name.",
                     "type": "array",

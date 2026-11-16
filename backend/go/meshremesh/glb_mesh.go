@@ -1,0 +1,372 @@
+// SPDX-License-Identifier: MIT
+// Adapted from LocalAI's trellis2cpp GLB reader. The coordinate conversion is
+// paired with the standalone vendored exporter's inverse conversion.
+package main
+
+import (
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"math"
+	"slices"
+)
+
+const (
+	glbMagic     = 0x46546c67
+	glbJSONChunk = 0x4e4f534a
+	glbBINChunk  = 0x004e4942
+)
+
+type glbAccessor struct {
+	BufferView    *int            `json:"bufferView"`
+	ByteOffset    int             `json:"byteOffset"`
+	ComponentType int             `json:"componentType"`
+	Count         int             `json:"count"`
+	Type          string          `json:"type"`
+	Normalized    bool            `json:"normalized"`
+	Sparse        json.RawMessage `json:"sparse"`
+}
+
+type glbBufferView struct {
+	Buffer     int `json:"buffer"`
+	ByteOffset int `json:"byteOffset"`
+	ByteLength int `json:"byteLength"`
+	ByteStride int `json:"byteStride"`
+}
+
+type glbPrimitive struct {
+	Attributes map[string]int  `json:"attributes"`
+	Indices    *int            `json:"indices"`
+	Mode       *int            `json:"mode"`
+	Material   *int            `json:"material"`
+	Extensions json.RawMessage `json:"extensions"`
+	Targets    json.RawMessage `json:"targets"`
+}
+
+type glbDocument struct {
+	Buffers []struct {
+		URI        string `json:"uri"`
+		ByteLength int    `json:"byteLength"`
+	} `json:"buffers"`
+	Textures   []json.RawMessage `json:"textures"`
+	Skins      []json.RawMessage `json:"skins"`
+	Animations []json.RawMessage `json:"animations"`
+	Nodes      []struct {
+		Mesh        *int      `json:"mesh"`
+		Matrix      []float64 `json:"matrix"`
+		Translation []float64 `json:"translation"`
+		Rotation    []float64 `json:"rotation"`
+		Scale       []float64 `json:"scale"`
+	} `json:"nodes"`
+	Materials []struct {
+		PBR struct {
+			BaseColorFactor []float32 `json:"baseColorFactor"`
+			MetallicFactor  *float32  `json:"metallicFactor"`
+			RoughnessFactor *float32  `json:"roughnessFactor"`
+		} `json:"pbrMetallicRoughness"`
+		Extensions     json.RawMessage `json:"extensions"`
+		EmissiveFactor []float32       `json:"emissiveFactor"`
+	} `json:"materials"`
+	Accessors   []glbAccessor   `json:"accessors"`
+	BufferViews []glbBufferView `json:"bufferViews"`
+	Meshes      []struct {
+		Primitives []glbPrimitive `json:"primitives"`
+	} `json:"meshes"`
+}
+
+type glbVertexMesh struct {
+	verts []float32
+	tris  []int32
+	pbr   []float32
+}
+
+func glbLayout(componentType int, accessorType string) (componentBytes, components int, err error) {
+	switch componentType {
+	case 5121:
+		componentBytes = 1
+	case 5123:
+		componentBytes = 2
+	case 5125, 5126:
+		componentBytes = 4
+	default:
+		return 0, 0, fmt.Errorf("unsupported GLB component type %d", componentType)
+	}
+	switch accessorType {
+	case "SCALAR":
+		components = 1
+	case "VEC2":
+		components = 2
+	case "VEC3":
+		components = 3
+	case "VEC4":
+		components = 4
+	default:
+		return 0, 0, fmt.Errorf("unsupported GLB accessor type %q", accessorType)
+	}
+	return componentBytes, components, nil
+}
+
+func glbAccessorData(doc *glbDocument, binChunk []byte, index int) (glbAccessor, []byte, error) {
+	if index < 0 || index >= len(doc.Accessors) {
+		return glbAccessor{}, nil, fmt.Errorf("missing GLB accessor %d", index)
+	}
+	a := doc.Accessors[index]
+	if a.BufferView == nil || *a.BufferView < 0 || *a.BufferView >= len(doc.BufferViews) || a.Sparse != nil {
+		return glbAccessor{}, nil, fmt.Errorf("missing buffer view or unsupported sparse accessor")
+	}
+	v := doc.BufferViews[*a.BufferView]
+	if v.Buffer != 0 || v.ByteStride != 0 {
+		return glbAccessor{}, nil, fmt.Errorf("interleaved or external GLB buffers are unsupported")
+	}
+	componentBytes, components, err := glbLayout(a.ComponentType, a.Type)
+	if err != nil {
+		return glbAccessor{}, nil, err
+	}
+	if a.Count <= 0 || a.Count > math.MaxInt/(componentBytes*components) {
+		return glbAccessor{}, nil, fmt.Errorf("invalid GLB accessor count %d", a.Count)
+	}
+	length := a.Count * componentBytes * components
+	if v.ByteOffset < 0 || v.ByteLength < 0 || a.ByteOffset < 0 ||
+		a.ByteOffset > v.ByteLength || length > v.ByteLength-a.ByteOffset ||
+		length > len(binChunk) || v.ByteOffset > len(binChunk)-length-a.ByteOffset {
+		return glbAccessor{}, nil, fmt.Errorf("GLB accessor %d is outside the BIN chunk", index)
+	}
+	start := v.ByteOffset + a.ByteOffset
+	return a, binChunk[start : start+length], nil
+}
+
+// parseVertexGLB reads the dense vertex-PBR form emitted by trellis2.cpp. GLB
+// coordinates and linear COLOR_0 values are converted back to the native
+// trellis coordinate/material convention before CGAL remeshing and rebaking.
+func parseVertexGLB(data []byte) (*glbVertexMesh, error) {
+	if len(data) < 20 || binary.LittleEndian.Uint32(data[0:4]) != glbMagic {
+		return nil, fmt.Errorf("input is not a GLB file")
+	}
+	if binary.LittleEndian.Uint32(data[4:8]) != 2 {
+		return nil, fmt.Errorf("unsupported GLB version")
+	}
+	total := int(binary.LittleEndian.Uint32(data[8:12]))
+	if total != len(data) {
+		return nil, fmt.Errorf("invalid GLB length")
+	}
+
+	var jsonChunk, binChunk []byte
+	for offset := 12; offset <= len(data)-8; {
+		length := int(binary.LittleEndian.Uint32(data[offset : offset+4]))
+		chunkType := binary.LittleEndian.Uint32(data[offset+4 : offset+8])
+		start := offset + 8
+		if length%4 != 0 || start > len(data)-length {
+			return nil, fmt.Errorf("invalid GLB chunk length")
+		}
+		switch chunkType {
+		case glbJSONChunk:
+			if jsonChunk != nil || start != 20 || length > 32<<20 {
+				return nil, fmt.Errorf("invalid JSON chunk")
+			}
+			jsonChunk = data[start : start+length]
+		case glbBINChunk:
+			if binChunk != nil || jsonChunk == nil {
+				return nil, fmt.Errorf("invalid binary chunk")
+			}
+			binChunk = data[start : start+length]
+		default:
+			return nil, fmt.Errorf("unsupported GLB chunk")
+		}
+		offset = start + length
+	}
+	if jsonChunk == nil || binChunk == nil {
+		return nil, fmt.Errorf("GLB must contain JSON and BIN chunks")
+	}
+
+	var doc glbDocument
+	if err := json.Unmarshal(jsonChunk, &doc); err != nil {
+		return nil, fmt.Errorf("parsing GLB JSON: %w", err)
+	}
+	if len(doc.Buffers) != 1 || doc.Buffers[0].URI != "" || doc.Buffers[0].ByteLength < 0 || doc.Buffers[0].ByteLength > len(binChunk) || len(binChunk)-doc.Buffers[0].ByteLength > 3 {
+		return nil, fmt.Errorf("expected one embedded GLB buffer")
+	}
+	if len(doc.Textures) != 0 {
+		return nil, fmt.Errorf("remeshing currently accepts vertex-coloured GLBs, not texture atlases; use the original generated mesh")
+	}
+	if len(doc.Skins) != 0 || len(doc.Animations) != 0 {
+		return nil, fmt.Errorf("remesh before rigging or animation; remeshing would invalidate skin weights")
+	}
+	instances := 0
+	identity := func(value, expected []float64) bool { return len(value) == 0 || slices.Equal(value, expected) }
+	for _, node := range doc.Nodes {
+		if !identity(node.Matrix, []float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}) || !identity(node.Translation, []float64{0, 0, 0}) || !identity(node.Rotation, []float64{0, 0, 0, 1}) || !identity(node.Scale, []float64{1, 1, 1}) {
+			return nil, fmt.Errorf("apply node transforms to the mesh before remeshing")
+		}
+		if node.Mesh != nil {
+			if *node.Mesh != 0 {
+				return nil, fmt.Errorf("invalid mesh node")
+			}
+			instances++
+		}
+	}
+	if instances != 1 {
+		return nil, fmt.Errorf("remeshing requires one mesh instance")
+	}
+	if len(doc.Meshes) != 1 || len(doc.Meshes[0].Primitives) != 1 {
+		return nil, fmt.Errorf("GLB must contain one mesh primitive")
+	}
+	primitive := doc.Meshes[0].Primitives[0]
+	if (primitive.Mode != nil && *primitive.Mode != 4) || primitive.Extensions != nil || primitive.Targets != nil {
+		return nil, fmt.Errorf("remeshing requires uncompressed triangles without morph targets")
+	}
+	positionIndex, ok := primitive.Attributes["POSITION"]
+	if !ok {
+		return nil, fmt.Errorf("GLB mesh has no POSITION attribute")
+	}
+	position, positionData, err := glbAccessorData(&doc, binChunk, positionIndex)
+	if err != nil {
+		return nil, err
+	}
+	if position.ComponentType != 5126 || position.Type != "VEC3" || position.Count > 10000000 {
+		return nil, fmt.Errorf("GLB POSITION must be float32 VEC3")
+	}
+
+	mesh := &glbVertexMesh{verts: make([]float32, position.Count*3)}
+	for i := 0; i < position.Count; i++ {
+		x := math.Float32frombits(binary.LittleEndian.Uint32(positionData[(i*3)*4:]))
+		y := math.Float32frombits(binary.LittleEndian.Uint32(positionData[(i*3+1)*4:]))
+		z := math.Float32frombits(binary.LittleEndian.Uint32(positionData[(i*3+2)*4:]))
+		if math.IsNaN(float64(x)) || math.IsNaN(float64(y)) || math.IsNaN(float64(z)) ||
+			math.IsInf(float64(x), 0) || math.IsInf(float64(y), 0) || math.IsInf(float64(z), 0) {
+			return nil, fmt.Errorf("GLB POSITION contains a non-finite value")
+		}
+		mesh.verts[i*3] = x
+		mesh.verts[i*3+1] = -z
+		mesh.verts[i*3+2] = y
+	}
+
+	if primitive.Indices == nil {
+		if position.Count%3 != 0 {
+			return nil, fmt.Errorf("unindexed GLB vertex count is not divisible by three")
+		}
+		mesh.tris = make([]int32, position.Count)
+		for i := range mesh.tris {
+			mesh.tris[i] = int32(i)
+		}
+	} else {
+		indices, indexData, err := glbAccessorData(&doc, binChunk, *primitive.Indices)
+		if err != nil {
+			return nil, err
+		}
+		if indices.Type != "SCALAR" || indices.Count%3 != 0 || (indices.ComponentType != 5123 && indices.ComponentType != 5125) {
+			return nil, fmt.Errorf("GLB indices must be uint16/uint32 triangles")
+		}
+		mesh.tris = make([]int32, indices.Count)
+		for i := range mesh.tris {
+			var value uint32
+			if indices.ComponentType == 5123 {
+				value = uint32(binary.LittleEndian.Uint16(indexData[i*2:]))
+			} else {
+				value = binary.LittleEndian.Uint32(indexData[i*4:])
+			}
+			if value >= uint32(position.Count) || value > math.MaxInt32 {
+				return nil, fmt.Errorf("GLB index %d is outside the vertex buffer", value)
+			}
+			mesh.tris[i] = int32(value)
+		}
+	}
+
+	colorIndex, hasColor := primitive.Attributes["COLOR_0"]
+	var color glbAccessor
+	var colorData []byte
+	if hasColor {
+		color, colorData, err = glbAccessorData(&doc, binChunk, colorIndex)
+		if err != nil {
+			return nil, err
+		}
+		if (color.Type != "VEC3" && color.Type != "VEC4") || color.Count != position.Count || (color.ComponentType != 5126 && !color.Normalized) || (color.ComponentType != 5121 && color.ComponentType != 5123 && color.ComponentType != 5126) {
+			return nil, fmt.Errorf("COLOR_0 must be float or normalized uint8/uint16 RGB(A) aligned with POSITION")
+		}
+	}
+	factor := []float32{1, 1, 1, 1}
+	metallic, roughness := float32(1), float32(1)
+	if primitive.Material != nil {
+		index := *primitive.Material
+		if index < 0 || index >= len(doc.Materials) {
+			return nil, fmt.Errorf("invalid material index")
+		}
+		material := doc.Materials[index]
+		if material.Extensions != nil {
+			return nil, fmt.Errorf("material extensions require explicit remeshing support")
+		}
+		for _, value := range material.EmissiveFactor {
+			if value != 0 {
+				return nil, fmt.Errorf("emissive materials require explicit remeshing support")
+			}
+		}
+		if material.PBR.BaseColorFactor != nil {
+			if len(material.PBR.BaseColorFactor) != 4 {
+				return nil, fmt.Errorf("invalid base colour factor")
+			}
+			factor = material.PBR.BaseColorFactor
+		}
+		if material.PBR.MetallicFactor != nil {
+			metallic = *material.PBR.MetallicFactor
+		}
+		if material.PBR.RoughnessFactor != nil {
+			roughness = *material.PBR.RoughnessFactor
+		}
+	}
+	for _, value := range append(slices.Clone(factor), metallic, roughness) {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) || value < 0 || value > 1 {
+			return nil, fmt.Errorf("material factors must be finite and in 0..1")
+		}
+	}
+	metalRoughIndex, hasMetalRough := primitive.Attributes["_METALLIC_ROUGHNESS"]
+	var metalRoughData []byte
+	if hasMetalRough {
+		metalRough, data, err := glbAccessorData(&doc, binChunk, metalRoughIndex)
+		if err != nil {
+			return nil, err
+		}
+		if metalRough.ComponentType != 5121 || metalRough.Type != "VEC2" || !metalRough.Normalized || metalRough.Count != position.Count {
+			return nil, fmt.Errorf("_METALLIC_ROUGHNESS must be normalized uint8 VEC2 aligned with POSITION")
+		}
+		metalRoughData = data
+	}
+	mesh.pbr = make([]float32, position.Count*6)
+	for i := 0; i < position.Count; i++ {
+		for channel := 0; channel < 4; channel++ {
+			value := factor[channel]
+			if hasColor {
+				width, components, _ := glbLayout(color.ComponentType, color.Type)
+				if channel < components {
+					offset := (i*components + channel) * width
+					var component float32
+					switch color.ComponentType {
+					case 5121:
+						component = float32(colorData[offset]) / 255
+					case 5123:
+						component = float32(binary.LittleEndian.Uint16(colorData[offset:])) / 65535
+					case 5126:
+						component = math.Float32frombits(binary.LittleEndian.Uint32(colorData[offset:]))
+					}
+					if math.IsNaN(float64(component)) || math.IsInf(float64(component), 0) || component < 0 || component > 1 {
+						return nil, fmt.Errorf("invalid vertex colour")
+					}
+					value *= component
+				}
+			}
+			if channel == 3 {
+				mesh.pbr[i*6+5] = value
+				continue
+			}
+			if value <= 0.0031308 {
+				mesh.pbr[i*6+channel] = value * 12.92
+			} else {
+				mesh.pbr[i*6+channel] = 1.055*float32(math.Pow(float64(value), 1.0/2.4)) - 0.055
+			}
+		}
+		mesh.pbr[i*6+3], mesh.pbr[i*6+4] = metallic, roughness
+		if hasMetalRough {
+			mesh.pbr[i*6+3] = float32(metalRoughData[i*2]) / 255
+			mesh.pbr[i*6+4] = float32(metalRoughData[i*2+1]) / 255
+		}
+	}
+	return mesh, nil
+}

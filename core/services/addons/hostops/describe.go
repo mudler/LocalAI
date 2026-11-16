@@ -13,6 +13,9 @@ const (
 type description struct{ title, text, risk string }
 
 var descriptions = map[string]description{
+	"pipeline.read":          {"Read asset pipelines", "Read saved pipeline configuration, execution history and outputs.", RiskRead},
+	"pipeline.apply":         {"Run asset pipelines", "Save pipeline configuration and run or cancel asset generation stages.", RiskRunsJobs},
+	"pipeline.upload":        {"Upload pipeline inputs", "Store uploaded images as inputs to asset pipelines.", RiskChangesData},
 	"finetune.start":         {"Start fine-tuning", "Start fine-tuning jobs on this server's engines.", RiskRunsJobs},
 	"finetune.stop":          {"Stop fine-tuning", "Stop fine-tuning jobs.", RiskRunsJobs},
 	"finetune.get":           {"Read a fine-tuning job", "Read the state of a fine-tuning job.", RiskRead},

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"bytes"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("backend process exit diagnostics", func() {
@@ -24,7 +24,7 @@ var _ = Describe("backend process exit diagnostics", func() {
 		backendPath := filepath.Join(tmpDir, "failing-backend")
 		Expect(os.WriteFile(backendPath, []byte("#!/bin/sh\nprintf '%s' \"$TMPDIR\" > \"$0.tmpdir\"\necho 'first diagnostic' >&2\necho 'fatal metal pipeline error' >&2\nexit 42\n"), 0o700)).To(Succeed())
 
-		captured := &bytes.Buffer{}
+		captured := gbytes.NewBuffer()
 		handler := slog.NewTextHandler(captured, &slog.HandlerOptions{Level: slog.LevelWarn})
 		xlog.SetLogger(xlog.NewLoggerWithHandler(handler, xlog.LogLevelWarn))
 		DeferCleanup(func() {
@@ -39,7 +39,7 @@ var _ = Describe("backend process exit diagnostics", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(backendTemp)).To(Equal(filepath.Join(process.StateDir(), "tmp")))
 		Eventually(string(backendTemp)).ShouldNot(BeADirectory())
-		Eventually(captured.String).Should(And(
+		Eventually(func() string { return string(captured.Contents()) }).Should(And(
 			ContainSubstring("Backend process exited unexpectedly"),
 			ContainSubstring("exitCode=42"),
 			ContainSubstring(`stderr="fatal metal pipeline error"`),

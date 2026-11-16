@@ -134,7 +134,9 @@ var _ = Describe("real owner transport", func() {
 		Expect(dispatches.Load()).To(Equal(int32(1)))
 	})
 	It("rejects a stream longer than its receiving frontend budget", func() {
-		_, cs := carrierFixture(func(c *Carrier) http.Handler {
+		limits := DefaultRelayLimits()
+		limits.Bytes = 64 << 20
+		fixture := carrierFixtureWith(limits, func(c *Carrier) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/addons/audience" {
 					_, _ = w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
@@ -149,7 +151,7 @@ var _ = Describe("real owner transport", func() {
 				}
 			})
 		})
-		e := cs["front-a"].Relay(context.Background(), contract.Actor{UserID: "u", CredentialID: "k", Mode: "named-user"}, RelayRequest{Request: contract.Request{OperationID: "op"}, Kind: "file"}, httptest.NewRecorder())
+		e := fixture.carriers["front-a"].Relay(context.Background(), contract.Actor{UserID: "u", CredentialID: "k", Mode: "named-user"}, RelayRequest{Request: contract.Request{OperationID: "op"}, Kind: "file"}, httptest.NewRecorder())
 		Expect(e).To(HaveOccurred())
 	})
 })

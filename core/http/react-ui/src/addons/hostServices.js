@@ -23,7 +23,8 @@ import { useOperations } from '../hooks/useOperations'
 import { useMCPClient } from '../hooks/useMCPClient'
 import useObjectUrl from '../hooks/useObjectUrl'
 import { useDelayedAction } from '../hooks/useDelayedAction'
-import { basePath } from '../utils/basePath'
+import { basePath, apiUrl } from '../utils/basePath'
+import { artifactDownloadPath, artifactStatusPath, validArtifactId } from './artifactFacts'
 import ArtifactCard from './ArtifactCard'
 
 // The real host services behind the SDK (see sdk.js for what an add-on gets).
@@ -48,6 +49,22 @@ function subscribeLanguage(fn) {
 // The gateway client. Both calls carry the add-on and the generation the SDK
 // is bound to; the server denies a stale one whatever the page holds.
 const gatewayApi = {
+  async artifactBlob(id, signal) {
+    if (!validArtifactId(id)) throw new TypeError('Invalid artifact identifier')
+    for (let attempt = 0; attempt < 120; attempt++) {
+      signal?.throwIfAborted()
+      const record = await addonsApi.call(artifactStatusPath(id), { signal })
+      if (record.state === 'complete') {
+        if (record.size > 512 * 1024 * 1024) throw new Error('Asset exceeds the preview limit')
+        const response = await fetch(apiUrl(artifactDownloadPath(id)), { signal, credentials: 'same-origin', mode: 'same-origin', redirect: 'error', cache: 'no-store' })
+        if (!response.ok) throw new Error(`Asset unavailable: HTTP ${response.status}`)
+        return response.blob()
+      }
+      if (record.state !== 'transferring') throw new Error('Asset transfer failed or expired')
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    throw new Error('Asset transfer is still pending; try again')
+  },
   dispatch(body, signal) {
     return addonsApi.dispatch(dispatchArgs(body), signal)
   },
