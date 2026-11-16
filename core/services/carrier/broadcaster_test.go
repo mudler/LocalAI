@@ -289,6 +289,38 @@ var _ = Describe("Broadcaster holder", func() {
 			Eventually(first, time.Second).Should(Receive(BeNil()))
 		})
 
+		It("delivers a publish that runs on the old carrier when the old carrier is released", func() {
+			stuck := newFakeCarrier(cluster.CarrierNATS, 1)
+			gate := make(chan struct{})
+			entered := make(chan struct{}, 1)
+			stuck.set.Broadcaster = blockingPublisher{Broadcaster: stuck.bus, gate: gate, entered: entered}
+			var p atomic.Pointer[carrier.Set]
+			p.Store(stuck.set)
+			holder := carrier.NewBroadcaster(&p)
+			got := &received{}
+			_, err := holder.Subscribe("staging.x", got.handler())
+			Expect(err).ToNot(HaveOccurred())
+
+			first := make(chan error, 1)
+			go func() { first <- holder.Publish("staging.x", "old") }()
+			Eventually(entered).Should(Receive())
+
+			Expect(holder.Listen(b.set)).To(Succeed())
+			p.Store(b.set)
+			released := make(chan error, 1)
+			go func() { released <- holder.Release(stuck.set) }()
+
+			// The release waits for the publish on the old carrier, and a publish
+			// on the new carrier does not wait for either of them.
+			Consistently(released, 50*time.Millisecond).ShouldNot(Receive())
+			Expect(holder.Publish("staging.x", "new")).To(Succeed())
+
+			close(gate)
+			Eventually(first, time.Second).Should(Receive(BeNil()))
+			Eventually(released, time.Second).Should(Receive(BeNil()))
+			Expect(got.all()).To(ConsistOf(`"new"`, `"old"`))
+		})
+
 		It("neither loses nor repeats a subscription that races a Listen", func() {
 			const n = 40
 			var wg sync.WaitGroup

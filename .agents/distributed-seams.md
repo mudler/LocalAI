@@ -52,6 +52,9 @@ provide it.
 subscription lives on one carrier. A swap is `Listen(next)` (each handler now
 listens on both carriers), then a store of `next` in the pointer (publishes go
 to `next`), then `Release(old)`. No message is published on two carriers.
+`Release(old)` waits for the publishes that still run on `old` before it drops
+the handlers there, so a publish that loaded `old` just before the store is not
+lost.
 `NotifyReconnect` runs the reconnect hooks that `syncstate` and the failover
 sync register, because messages across the flip are not ordered.
 

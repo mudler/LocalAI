@@ -15,6 +15,7 @@ package carrier
 import (
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -68,6 +69,14 @@ type Set struct {
 
 	// Close releases the carrier's connections. It may be nil.
 	Close func()
+
+	// The fan-out holder (Broadcaster) keeps these. publishing counts the
+	// publishes that run on the set, and released says that the holder dropped
+	// the subscriptions of the set. Release waits for the count to reach zero, so
+	// a publish that started on the set reaches its subscribers. A set belongs to
+	// one holder.
+	publishing atomic.Int64
+	released   atomic.Bool
 }
 
 // Validate reports the first member that is missing.

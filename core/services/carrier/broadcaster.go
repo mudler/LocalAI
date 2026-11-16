@@ -58,9 +58,22 @@ func NewBroadcaster(cur *atomic.Pointer[Set]) *Broadcaster {
 	return b
 }
 
-// Publish sends on the current set. It takes no lock.
+// Publish sends on the current set. It takes no lock. It counts itself on the
+// set while it runs, so a Release of that set waits for it and the handlers on
+// the set still hear the message. A set that was released after the load, while
+// the pointer names another one, is passed over for the current set.
 func (b *Broadcaster) Publish(subject string, data any) error {
-	return b.cur.Load().Broadcaster.Publish(subject, data)
+	for {
+		s := b.cur.Load()
+		s.publishing.Add(1)
+		if s.released.Load() && b.cur.Load() != s {
+			s.publishing.Add(-1)
+			continue
+		}
+		err := s.Broadcaster.Publish(subject, data)
+		s.publishing.Add(-1)
+		return err
+	}
 }
 
 // Subscribe attaches handler to every set the holder listens on. It fails, and
@@ -181,6 +194,7 @@ func (b *Broadcaster) Listen(next *Set) error {
 		return nil
 	}
 	b.listening = append(b.listening, next)
+	next.released.Store(false)
 	b.hook(next)
 	subs := b.snapshotLocked()
 	b.mu.Unlock()
@@ -216,7 +230,15 @@ func (b *Broadcaster) Release(old *Set) error {
 		delete(b.hooked, old)
 	}
 	subs := b.snapshotLocked()
+	old.released.Store(true)
 	b.mu.Unlock()
+
+	// A publish that loaded old before the pointer moved may still run on it.
+	// Its handlers are detached only when it is done, or the message is lost. A
+	// publish that starts now sees the flag and uses the current set.
+	for old.publishing.Load() != 0 {
+		time.Sleep(time.Millisecond)
+	}
 
 	var errs error
 	for _, sub := range subs {
