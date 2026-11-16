@@ -31,7 +31,7 @@ The add-on runs **one non-interactive command** per call. It has no terminal, no
 2. On the machine, make a user just for LocalAI, with only the rights the task needs. A command can change or delete anything that user may touch.
 3. Make a key pair for that user and add the public key to its `authorized_keys`, or choose a password. A key with a passphrase is not supported.
 4. On the add-on page, choose **New SSH connection**. Type the host (with the port if it is not 22), the user name and the key or the password.
-5. Press **Check host key**. The page reads the key the machine presents and shows its fingerprint. Compare it with the one on the machine (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), tick that you trust it and save.
+5. Press **Save**. When no host key is trusted yet, the page reads the key the machine presents and asks whether to trust this host, with its fingerprint. Compare it with the one on the machine (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), then choose **Trust and save**. You can also press **Check host key** first to look at the fingerprint, and tick that you trust it. If the host cannot be reached, the page says so and offers **Retry**; nothing is saved until you trust the key.
 6. Press **Test**: the row shows the user and the system name if the login works.
 
 One connection is one host. For a second machine, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.

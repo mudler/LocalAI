@@ -46,9 +46,17 @@
     "check": "Host-Schlüssel prüfen",
     "checking": "Prüfe...",
     "trust": "Ich habe diesen Fingerabdruck verglichen und vertraue diesem Host.",
-    "needed": "Prüfen Sie den Host-Schlüssel vor dem Speichern.",
+    "needed": "Der Host-Schlüssel wird beim Speichern gelesen, und Sie werden gefragt, ob Sie ihm vertrauen.",
     "unreachable": "Der Host ist nicht erreichbar.",
     "failed": "Der Host-Schlüssel konnte nicht gelesen werden."
+  },
+  "hostKeyStep": {
+    "title": "Diesem Host vertrauen?",
+    "reading": "Host-Schlüssel wird gelesen...",
+    "compare": "Vergleichen Sie diesen Fingerabdruck mit dem, den der Host anzeigt. Vertrauen Sie nur, wenn beide übereinstimmen.",
+    "confirm": "Vertrauen und speichern",
+    "cancel": "Abbrechen",
+    "retry": "Erneut versuchen"
   },
   "testOk": "Die Anmeldung ist gespeichert.",
   "checkFailed": "Gespeichert. Die Prüfung der Anmeldung ist fehlgeschlagen: {{reason}}",
@@ -77,7 +85,7 @@
     "title": "So richten Sie es ein",
     "step1": "Legen Sie auf dem Host einen Benutzer nur für LocalAI an, mit nur den nötigen Rechten.",
     "step2": "Erzeugen Sie ein Schlüsselpaar dafür oder wählen Sie ein Passwort. Tragen Sie den öffentlichen Schlüssel in die authorized_keys dieses Benutzers ein.",
-    "step3": "Geben Sie hier Host und Benutzer ein, klicken Sie auf Host-Schlüssel prüfen und vergleichen Sie den Fingerabdruck.",
+    "step3": "Geben Sie hier Host und Benutzer ein. Beim Speichern wird der Host-Schlüssel gelesen, und Sie vergleichen seinen Fingerabdruck.",
     "step4": "Lassen Sie den Modus auf Fragt zuerst, bis Sie die Grenzen auf dieser Seite gelesen haben.",
     "fingerprint": "Den Fingerabdruck des Hosts zeigt: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
   },
