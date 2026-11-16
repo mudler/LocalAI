@@ -2718,6 +2718,10 @@ type ChatsMCPConnectorTest struct {
 	// order of tools.
 	ToolDetails []ChatsMCPConnectorTool `json:"tool_details"`
 	Error       string                  `json:"error,omitempty"`
+	// Output is what a local command wrote to its error stream before it
+	// failed, with secrets removed. It is absent for a remote server and for
+	// a silent command.
+	Output string `json:"output,omitempty"`
 }
 
 // ChatsMCPConnectorTool is one tool of an MCP connector.
