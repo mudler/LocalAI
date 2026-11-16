@@ -179,7 +179,22 @@ reasoning, which the backend supports.
 
 ## Versions
 
-The Strata release and the SHA-256 of every engine package, DeepSeek packages included, are pinned in
-`backend/go/strata/Makefile`. A nightly job (`bump-strata` in `.github/workflows/bump_deps.yaml`)
-opens a pull request when Strata publishes a release. The backend speaks an unversioned
-line protocol, so review each bump against `backend/go/strata/README.md`.
+Upstream versions each platform on its own and does not attach every package to every release.
+A release can hold the engine for NVIDIA at one version and the engine for another platform at
+an older one, and a package can be missing from the newest release. Mixed versions are normal.
+
+So `backend/go/strata/Makefile` pins every package, DeepSeek packages included, on its own: the
+release tag it is downloaded from, its version and its SHA-256
+(`STRATA_ENGINE_TAG_<package>`, `STRATA_ENGINE_VERSION_<package>`, `STRATA_ENGINE_SHA256_<package>`,
+and the same with `STRATA_DSV41_` for DeepSeek). The download URL is built from the package's own
+tag. `STRATA_VERSION` and `STRATA_COMMIT` name the newest release; the Python modules the backend
+uses are fetched at that commit.
+
+A nightly job (`bump-strata` in `.github/workflows/bump_deps.yaml`, script
+`.github/bump_strata.sh`) takes each package from the newest release that contains it and opens
+one pull request when any pin changes. A package that is missing from the newest release is taken
+from an older one, with a notice in the job log. A package that is in no release keeps its pin and
+the job prints a warning. The job fails if a SHA-256 in the release's `SHA256SUMS.txt` differs from
+the digest GitHub computed for the uploaded file. The pull request lists each package that
+changed, from its old tag and version to the new ones. The backend speaks an unversioned line
+protocol, so review each bump against `backend/go/strata/README.md`.
