@@ -8,16 +8,11 @@ keywords = ["knowledge","collections","rag","search","embeddings"]
 devbuild = "feature"
 +++
 
-Knowledge is the part of LocalAI that holds collections of documents that agents
-can search. In the web UI it is the **Knowledge** item in the sidebar. Each item
-in it is a collection: a named set of documents that LocalAI splits into chunks and
-stores as embeddings. You can search a collection by meaning. A
-[saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}) can list the collections it may search,
-and a [chat]({{% relref "/features/chats-and-agents/chats" %}}) with that agent gets the tools `list_collections`
-and `search_collection`.
+Knowledge lets your agents search your documents by meaning. Upload files or add a URL to a collection, then give a [saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}) that collection. A [chat]({{% relref "/features/chats-and-agents/chats" %}}) with that agent gets the tools `list_collections` and `search_collection`. In the web UI, Knowledge is an item in the sidebar, and each item in it is a collection: a named set of documents that LocalAI splits into chunks and stores as embeddings.
 
-Collections are on by default. To turn them off, set `LOCALAI_DISABLE_COLLECTIONS=true`.
-The name of this variable is old: it now turns off the collections only.
+The default engine finds chunks by meaning. It doesn't match exact words or codes. The `postgres` engine adds a keyword search.
+
+Collections are on by default. `LOCALAI_DISABLE_COLLECTIONS=true` turns Knowledge off.
 
 ## How it works
 
@@ -26,8 +21,7 @@ The name of this variable is old: it now turns off the collections only.
 3. It calls the embedding model to turn each chunk into a vector, and stores the vectors in the vector engine.
 4. A search embeds the query and returns the closest chunks.
 
-With the default `chromem` engine a search is semantic only: it finds chunks by
-meaning and does not match exact words or codes. The `postgres` engine adds a
+With the default `chromem` engine a search is semantic only. The `postgres` engine adds a
 keyword search (BM25) and mixes the two results (hybrid search).
 
 The embedding calls go to the LocalAI API of the same server, inside the
@@ -83,6 +77,13 @@ download of an entry file (`GET /{name}/entries-raw/{entry}`) runs under the sha
 too: a lowering or a revocation stops it, and answers only once no more bytes of the
 file are sent. A call that the role does not allow answers `403`.
 
+## Use a collection in an agent
+
+Add the names of your collections to the `collections` list of a
+[saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}). A chat with that agent can then search
+only those collections. If a listed collection is deleted, the chat still starts
+and the model is told that it is not available.
+
 ## API
 
 All paths are under `/api/collections`. While the service starts, every
@@ -105,7 +106,7 @@ When collections are off, the paths do not exist.
 | `DELETE /{name}/sources` | `{"url": "https://..."}` | Stops following the URL |
 | `POST /{name}/share` | | Only the owner. `{"resource_id": "...", "shared_with": n}`, the ID of the collection in `/api/shares/collection`. `409` with type `sharing_disabled` when this server cannot share. |
 
-Example:
+Example. When authentication is on, add `-H "Authorization: Bearer $API_KEY"` to each call:
 
 ```bash
 curl -X POST http://localhost:8080/api/collections \
@@ -122,7 +123,7 @@ Notes:
 - A `404` means the collection or the entry does not exist for you.
 - A search for more passages than the collection holds returns all of them. An empty collection returns none.
 - `/readyz` answers `200` only after the collections are ready, so `/api/collections` does not answer `503` once the server is in rotation.
-- An upload can fail with `409` when the embedding model changed and the vectors have a different size. Restart LocalAI to embed the collection again, or reset the collection.
+- An upload can fail with `409` when the embedding model changed and the vectors have a different size. Restart the server to embed the collection again, or reset the collection.
 
 ### Admin options
 
@@ -159,7 +160,7 @@ PostgreSQL, use a PostgreSQL database and set:
 
 ```bash
 LOCALAI_COLLECTIONS_VECTOR_ENGINE=postgres
-LOCALAI_COLLECTIONS_DATABASE_URL=postgresql://user:password@host:5432/localrecall?sslmode=disable
+LOCALAI_COLLECTIONS_DATABASE_URL=postgresql://user:password@host:5432/localai?sslmode=disable
 ```
 
 The `docker-compose.yaml` of the project has a commented example with a
@@ -167,22 +168,7 @@ PostgreSQL service. With several frontends in
 [distributed mode]({{% relref "/administration/distributed-mode" %}}), use the `postgres` engine, so
 that all frontends share the same collections.
 
-The shares of the collections are records in the policy store of the add-on owner,
-keyed by the owner and the name of the collection. A search or a write on a shared
-collection runs as admitted work of that policy, which only the owner process holds.
-With several frontends, a frontend asks the owner over the add-on carrier: it lists
-the shared collections, makes a collection shareable and has each search or write
-admitted by the owner, then runs it itself. A revocation on any frontend stops that
-work before it answers. When a frontend cannot reach the owner, it stops the work
-on shared collections, lists none under `shared` and answers as for a collection
-that does not exist; a person's own collections are not affected.
-
-## Use a collection in an agent
-
-Add the names of your collections to the `collections` list of a
-[saved agent]({{% relref "/features/chats-and-agents/chats-agents" %}}). A chat with that agent can then search
-only those collections. If a listed collection is deleted, the chat still starts
-and the model is told that it is not available.
+Shares are kept by the server that owns the add-on policy store. With several frontends, a frontend that can't reach that owner lists no shared collections and answers `404` for them. Your own collections aren't affected.
 
 ## Let an agent propose a text for a collection
 
@@ -199,8 +185,7 @@ with these rules:
   at once, whatever your memory save level is: **Ask**, **Auto** and **Always
   confirm** all wait for your **Confirm**. The level **Never** takes the kind
   away. A wrong text would feed the answers of every chat that searches the
-  collection, and indexing costs compute, so there is no "save and tell me" for
-  Knowledge.
+  collection, and indexing costs compute, so Knowledge has no "save and tell me".
 - **What you see.** The card in **Suggested changes** names the collection and
   shows the first 20 lines of the text and its size against the limit of 64 KiB.
   It also says how many passages will be embedded and with which model, for
@@ -228,5 +213,4 @@ with these rules:
   the usual reasons, plus `knowledge_none` (the agent has no collection) and
   `knowledge_no_embedding` (the embedding model is not installed).
 
-This first version takes a text. Following a URL or adding a file of your Files
-folder by proposal is not available yet; add those yourself on the Knowledge page.
+A model can propose a text. It can't add a URL or a file from your Files folder. Add those on the Knowledge page.
