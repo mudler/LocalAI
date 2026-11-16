@@ -12,7 +12,6 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/mholt/archives"
@@ -316,11 +315,11 @@ var _ = Describe("Extract here", func() {
 			_, _ = w.Write(raw.Bytes())
 			_ = zw.Close()
 			put("/bomb.zip", b.Bytes())
-			peak := heapPeak(func() {
+			used := allocated(func() {
 				_, err := f.Extract(ctx, "alice", "/bomb.zip", "", files.ExtractLimits{MaxBytes: 8 << 20})
 				Expect(err).To(MatchError(files.ErrArchiveLimit))
 			})
-			Expect(peak).To(BeNumerically("<", 150<<20), "the bomb used too much memory")
+			Expect(used).To(BeNumerically("<", 150<<20), "the bomb used too much memory")
 			Expect(list("/")).NotTo(ContainElement("bomb"))
 		})
 		It("refuses a high ratio even under the byte cap", func() {
@@ -431,28 +430,16 @@ func mustRead(p string) []byte {
 	return b
 }
 
-// heapPeak runs fn and returns the highest heap in use that a sampler saw.
-func heapPeak(fn func()) uint64 {
-	var peak atomic.Uint64
-	stop := make(chan struct{})
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		var m runtime.MemStats
-		for {
-			runtime.ReadMemStats(&m)
-			if m.HeapInuse > peak.Load() {
-				peak.Store(m.HeapInuse)
-			}
-			select {
-			case <-stop:
-				return
-			case <-time.After(5 * time.Millisecond):
-			}
-		}
-	}()
+// allocated runs fn and returns the bytes the process allocated meanwhile.
+// TotalAlloc only grows, so unlike HeapInuse it does not depend on the garbage
+// that earlier specs left behind or on when the collector runs. A decoder that
+// buffers the archive allocates at least its size; one that streams reuses a
+// small buffer.
+func allocated(fn func()) uint64 {
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
 	fn()
-	close(stop)
-	<-done
-	return peak.Load()
+	runtime.ReadMemStats(&after)
+	return after.TotalAlloc - before.TotalAlloc
 }
