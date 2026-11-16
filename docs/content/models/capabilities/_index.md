@@ -6,7 +6,7 @@ icon = "psychology"
 weight = 10
 +++
 
-LocalAI runs models of many kinds. Each page here shows what a kind of model does, how to call it and which backends serve it. The API features are on by default for new users.
+Pick the kind of model you want to run. Each page shows the endpoint, an example request and the backends that serve it. The API features are on by default for new users.
 
 | Group | What it covers |
 |---|---|

@@ -76,7 +76,7 @@ defaults.
 ### Valkey store backend
 
 The `valkey-store` backend persists vectors in a [Valkey Search](https://valkey.io/) server, so
-the data survives a LocalAI restart — unlike the in-memory default. It requires a reachable server
+the data survives a LocalAI restart, unlike the in-memory default. It requires a reachable server
 that ships the Valkey Search module (for example the `valkey/valkey-bundle` image).
 
 Select it by passing `"backend": "valkey-store"` (or the `"valkey"` alias) on any `/stores/*` request:
@@ -119,11 +119,11 @@ below (so the zero-config experience still works).
 | `addr` | `localhost:6379` | Valkey server address (`host:port`). |
 | `username` | *(empty)* | Optional ACL username (plaintext in config). |
 | `password` | *(empty)* | Optional password / ACL secret (plaintext in config). |
-| `username_env` | *(empty)* | Name of an env var that holds the username. Preferred over `username` for secrets — keeps credentials out of the model YAML. |
+| `username_env` | *(empty)* | Name of an env var that holds the username. Preferred over `username` for secrets: keeps credentials out of the model YAML. |
 | `password_env` | *(empty)* | Name of an env var that holds the password. Preferred over `password` for secrets. |
 | `tls` | `false` | Enable TLS (required by many managed deployments). |
 | `tls_ca_cert` | *(empty)* | Path to a PEM CA bundle used to verify the server certificate (self-signed / private CA). |
-| `tls_skip_verify` | `false` | Skip TLS certificate verification. Insecure — for testing only. |
+| `tls_skip_verify` | `false` | Skip TLS certificate verification. Insecure: for testing only. |
 | `client_name` | `localai-valkey-store` | Connection name reported by `CLIENT LIST`. Always set. |
 | `db` | `0` | Logical Valkey DB index (`SELECT n`). Namespace prefixing already isolates keyspaces on a shared DB. |
 | `index_algo` | `FLAT` | `FLAT` (exact, default) or `HNSW` (approximate ANN for large corpora). |
@@ -136,18 +136,18 @@ below (so the zero-config experience still works).
 For `COSINE` the returned `similarities` follow the same convention as the local store
 (`1.0` = identical, `-1.0` = opposite); internally Valkey returns a cosine *distance* which the
 backend converts with `similarity = 1 - distance`. For `L2` and `IP` the raw Valkey score is
-returned in `similarities` (for `L2`, smaller means closer — the opposite ordering of `COSINE`);
+returned in `similarities` (for `L2`, smaller means closer, the opposite ordering of `COSINE`);
 nearest-first ordering of the results is preserved in all cases.
 
 {{% callout style="note" %}}
 Valkey Search updates its vector index **asynchronously** after a write. A `find` issued
-immediately after `set` may not yet see the new vectors — poll `find` briefly (or retry) until the
+immediately after `set` may not yet see the new vectors, poll `find` briefly (or retry) until the
 expected results appear. `get` and `delete` are synchronous and unaffected.
 {{% /callout %}}
 
 {{% callout style="note" %}}
 This backend targets a **standalone** Valkey Search server (one server per namespace/model). Valkey
-Cluster is not a supported target yet — index coordination across shards is out of scope for this
+Cluster is not a supported target yet. Index coordination across shards is out of scope for this
 backend.
 {{% /callout %}}
 
@@ -203,12 +203,12 @@ request, so a rejected `set` writes nothing. `NaN` and `Inf` components are reje
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `addr` | `localhost:6334` | Qdrant gRPC address (`host:port`; the port defaults to `6334`). Not a URL — use `tls:true` for HTTPS endpoints. |
+| `addr` | `localhost:6334` | Qdrant gRPC address (`host:port`; the port defaults to `6334`). Not a URL: use `tls:true` for HTTPS endpoints. |
 | `api_key` | *(empty)* | Qdrant API key (plaintext in config). |
-| `api_key_env` | *(empty)* | Name of an env var that holds the API key. Preferred over `api_key` — keeps the secret out of the model YAML. |
+| `api_key_env` | *(empty)* | Name of an env var that holds the API key. Preferred over `api_key`: keeps the secret out of the model YAML. |
 | `tls` | `false` | Enable TLS (required by Qdrant Cloud). |
 | `tls_ca_cert` | *(empty)* | Path to a PEM CA bundle used to verify the server certificate (self-signed / private CA). Turns on `tls`. |
-| `tls_skip_verify` | `false` | Skip TLS certificate verification. Insecure — for testing only. Turns on `tls`. |
+| `tls_skip_verify` | `false` | Skip TLS certificate verification. Insecure: for testing only. Turns on `tls`. |
 | `collection` | *(derived)* | Use this exact collection name instead of the derived one. |
 | `distance_metric` | `COSINE` | `COSINE`, `EUCLID`, `DOT` or `MANHATTAN` (case-insensitive). |
 | `request_timeout_ms` | `5000` | Per-request timeout in milliseconds. |

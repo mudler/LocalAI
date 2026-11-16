@@ -463,7 +463,7 @@ detection, depth, face and voice).
 Errors from the upstream: a 5xx response (other than 501) or a connection
 failure becomes `Unavailable`, and a failover chain marks the target down. A
 4xx response becomes `InvalidArgument`, and LocalAI returns it to the client
-without a retry or a trip — except `429 Too Many Requests`, which becomes
+without a retry or a trip, except `429 Too Many Requests`, which becomes
 `ResourceExhausted`: the request itself is fine, the upstream is just out of
 capacity, so a failover chain retries it on the next target and trips the
 rate-limited one, moving traffic off it until it recovers.

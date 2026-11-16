@@ -157,7 +157,7 @@ You can provide custom reward function code as a Python function body. The funct
 {{% callout style="warning" %}}
 **Inline reward code executes arbitrary Python and is disabled by default.**
 
-Inline code is compiled and run in the backend process. The restricted-builtins allowlist is **not** a security sandbox — trivial expressions can escape it to reach the host (arbitrary code execution). Because the fine-tuning endpoint is unauthenticated by default, inline reward functions are refused unless the operator explicitly opts in by setting `LOCALAI_TRL_ALLOW_INLINE_REWARD=true` on the backend.
+Inline code is compiled and run in the backend process. The restricted-builtins allowlist is **not** a security sandbox: trivial expressions can escape it to reach the host (arbitrary code execution). Because the fine-tuning endpoint is unauthenticated by default, inline reward functions are refused unless the operator explicitly opts in by setting `LOCALAI_TRL_ALLOW_INLINE_REWARD=true` on the backend.
 
 Only enable it on a trusted, access-controlled instance where every caller of the fine-tuning API is authorized to run code on the host. Otherwise use the builtin reward functions above.
 {{% /callout %}}

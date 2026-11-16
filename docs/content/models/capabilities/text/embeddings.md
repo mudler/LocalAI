@@ -130,10 +130,10 @@ curl http://localhost:8080/v1/embeddings -X POST -H "Content-Type: application/j
 
 | Value | Meaning |
 |-------|---------|
-| _(empty)_ / `backend` | The backend pools by itself — the default, today's exact behavior. |
+| _(empty)_ / `backend` | The backend pools by itself: the default, today's exact behavior. |
 | `mean` | Average of all token vectors. |
 | `last` | The last token's vector. |
-| `decayed_mean` | Recency-weighted mean: token *i* of *T* weighs `2^(-(T-1-i)/H)` with half-life `H` = `pooling_half_life_tokens` (default 256) — recent turns dominate without erasing earlier context. |
+| `decayed_mean` | Recency-weighted mean: token *i* of *T* weighs `2^(-(T-1-i)/H)` with half-life `H` = `pooling_half_life_tokens` (default 256): recent turns dominate without erasing earlier context. |
 
 Go-side schemes need raw per-token vectors from the backend. Each backend
 declares whether an embedding result is final or per-token; LocalAI rejects a

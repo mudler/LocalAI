@@ -8,30 +8,29 @@ keywords = ["settings","runtime","admin"]
 devbuild = "feature"
 +++
 
-LocalAI provides a web-based interface for managing application settings at runtime. These settings can be configured through the web UI and are automatically persisted to a configuration file, allowing changes to take effect immediately without requiring a restart.
+Change settings in the web interface and they apply without a restart. LocalAI saves them to `runtime_settings.json`.
 
 ## Accessing Runtime Settings
 
-Open **Operate → Settings** in the web UI (`/app/settings`). The page lists every setting below under eight groups by intent, and keeps your edits in a pending bar until you apply them.
+Open **Admin → Settings** in the web UI (`/app/settings`). The page lists every setting below under nine groups, and keeps your edits in a pending bar until you apply them.
 
 ### Groups
 
-The groups reorganise the fields the page used to show under fifteen sections. The mapping:
+| Group | Settings it holds |
+|---|---|
+| Models in memory | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, GPU memory budget |
+| Speed and defaults | Default threads, default context size, artifact download concurrency, F16 |
+| Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists |
+| Access and security | CORS and allowed origins, CSRF protection, shared API keys, whether MCP connectors may reach private networks |
+| Debugging and traces | Verbose debug logging, API traces and their limits, backend logging |
+| Chats and collections | The collections service (Knowledge in the sidebar), the helper models of the chats, the response store TTL, shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "/features/pages-and-home/pages" %}})), the page area of Home (`home_page_area_enabled`), the offers from the assistant |
+| Tools | The built-in chat tools (web search, web pages, LocalAI client and admin tools), commands on this machine and their network limits, limits for steps, goals, loops and triggers |
+| Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check |
+| Look and feel | Instance name, tagline, the three logos |
 
-| Group | Settings it holds | Used to be under |
-|---|---|---|
-| Models in memory | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, GPU memory budget | Watchdog, Memory Reclaimer, Backend Management, Performance |
-| Speed and defaults | Default threads, default context size, artifact download concurrency, F16 | Performance |
-| Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists | Backend Management, Galleries |
-| Access and security | CORS and allowed origins, CSRF protection, shared API keys | API & CORS, API Keys |
-| Debugging and traces | Verbose debug logging, API traces and their limits, backend logging | Performance, Tracing |
-| Chats and responses | The collections (knowledge base) service, the helper models of the chats, MCP connector addresses, the LocalAI Assistant (the switch for the admin assistant chat that starts from Home; see [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-assistant" %}})), shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "/features/pages-and-home/pages" %}})), the page area of Home (`home_page_area_enabled`), the response store TTL | Collections, Chats, LocalAI Assistant, Open Responses |
-| Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check | P2P Network, Distributed |
-| Look and feel | Instance name, tagline, the three logos | Branding |
+Search at the top of the page matches a setting's name, description and key, and the group. It also matches the name of the section a setting used to be under, so a search for "Watchdog" still finds the watchdog settings. Each result says where the setting used to be.
 
-Search at the top of the page matches a setting's name, description and key, the group, and the old section name, so a search for "Watchdog" still finds the watchdog settings and each result says where it used to be.
-
-`/app/settings?group=<id>` opens a group (`memory`, `speed`, `backends`, `access`, `debug`, `agents`, `tools`, `swarm`, `look` or `addons`), and a hash after it brings a block of the group into view: `#settings-builtin-tools` (the built-in chat tools) on the Tools group. The old address of the command network, `/app/settings?group=tools#settings-egress`, opens the Settings tab of the add-on that holds it now (see below), or the Tools group when no add-on does.
+`/app/settings?group=<id>` opens a group (`memory`, `speed`, `backends`, `access`, `debug`, `agents`, `tools`, `swarm` or `look`, plus `addons` when an add-on has settings), and a hash after it brings a block of the group into view: `#settings-builtin-tools` (the built-in chat tools) on the Tools group. The old address of the command network, `/app/settings?group=tools#settings-egress`, opens the Settings tab of the add-on that holds it now (see below), or the Tools group when no add-on does.
 
 The settings of an add-on are not on this page: each add-on keeps them on the **Settings** tab of its details on the Add-ons page. When at least one add-on has settings, an **Add-ons** group at the end of the list names those add-ons, each with a link to its Settings tab. See [Host slots]({{%relref "/addons/contract-reference#host-slots" %}}). An add-on can also ask LocalAI to draw some of LocalAI's own settings on that tab, with a [host control]({{%relref "/addons/contract-reference#host-controls" %}}). The rule: this page keeps the settings of the features that exist without any add-on (the commands on this machine, the built-in web tools), and points to the add-on where an add-on serves them; the settings that exist only for an add-on are on its tab. The Sandbox network below is one: with the Sandbox installed, the Tools group shows a row that links to its Settings tab, and neither the group nor the search lists those settings. A built-in tool row that an add-on with the `tool-providers` control serves links to that add-on's tab.
 
@@ -43,7 +42,7 @@ Edits are not sent as you type. A bar at the bottom of the page counts them and 
 
 A setting shows **Changed** and its built-in default, with a **Reset** link, only when the default is known (the defaults of the `local-ai run` flags). Settings without a stated default, such as threads and the context size, never show the marker. An environment variable or flag can change the value the server starts with, so the marker compares with the built-in default, not with the startup value.
 
-A row says **Applies now** when the save handler applies the setting immediately (the watchdog and the memory reclaimer restart with the new values; so does the P2P stack when its settings change), and **Needs restart** for most collections settings. A setting without either note is saved, and the code does not say when it takes effect.
+A row says **Applies now** when the save handler applies the setting immediately (the watchdog and the memory reclaimer restart with the new values; so does the P2P stack when its settings change), and **Needs restart** for most collections settings. If a row shows neither note, restart LocalAI to be sure the setting is in use.
 
 **History** lists the settings you applied from this browser, newest first, up to the last 50. LocalAI keeps no settings log of its own, so changes made elsewhere do not appear, and a secret (the P2P token, shared API keys, the collections database URL) is listed as changed without its value. **Revert** puts the old value back as an edit.
 
@@ -89,7 +88,7 @@ You can configure these settings via the web UI or through environment variables
 - **Context Size**: Context size for models that set no `context_size` of their own. A value in a model's configuration always wins, and so does any value you set here over the automatic size. Unset (the default), a model that can serve chats gets `32768` tokens, capped by what it was trained for and by the memory of the machine, and other models get at most `8192`. The chat needs at least `16384`: see [the context window a chat needs]({{% relref "/features/chats-and-agents/chats#the-context-window-a-chat-needs" %}}).
 - **Concurrent Backend Operations**: How many backend installs, upgrades and deletes run at once. `1` runs them one after the other (default: `1`, minimum `1`). Operations on the same backend never overlap, whatever the value. Model operations run in their own queue and are not held up by backend operations. In distributed mode the same limit bounds how many nodes receive one operation at the same time. The limit is per frontend. A change applies to operations that start after the change
 - **Artifact Download Concurrency**: Maximum number of artifact files downloaded at once. `1` downloads sequentially (default: `1`)
-- **F16**: Enable GPU acceleration using 16-bit floating point
+- **F16**: Default for 16-bit memory and KV cache. It applies to models whose config does not set `f16`. It does not enable the GPU
 - **VRAM Budget**: Cap on VRAM used for model allocation (for example `80%` or `12GB`; empty means no cap). See [VRAM Management]({{%relref "/models/vram-management" %}})
 
 ### Debug and Logging
@@ -213,7 +212,7 @@ The same rule is applied identically in all three places where settings can chan
 
 ## Example Configuration
 
-The `runtime_settings.json` file follows this structure:
+The `runtime_settings.json` file follows this structure. The `galleries` and `backend_galleries` entries are the built-in defaults, including the signature check (`artifact_verification`). If you copy the example, keep that block, or the gallery index is no longer verified. `"csrf": false` means the disable flag is off, so CSRF protection is on.
 
 ```json
 {
@@ -241,15 +240,29 @@ The `runtime_settings.json` file follows this structure:
   "galleries": [
     {
       "url": "https://index.localai.io/models",
-      "mirrors": ["github:mudler/LocalAI/gallery/index.yaml@master"],
-      "name": "localai"
+      "mirrors": [
+        "github:mudler/LocalAI/gallery/index.yaml@master",
+        "oci://quay.io/go-skynet/local-ai-backends:gallery-models"
+      ],
+      "name": "localai",
+      "artifact_verification": {
+        "issuer": "https://token.actions.githubusercontent.com",
+        "identity": "https://github.com/mudler/LocalAI/.github/workflows/gallery_publish.yml@refs/heads/master"
+      }
     }
   ],
   "backend_galleries": [
     {
       "url": "https://index.localai.io/backends",
-      "mirrors": ["github:mudler/LocalAI/backend/index.yaml@master"],
-      "name": "localai"
+      "mirrors": [
+        "github:mudler/LocalAI/backend/index.yaml@master",
+        "oci://quay.io/go-skynet/local-ai-backends:gallery-backends"
+      ],
+      "name": "localai",
+      "artifact_verification": {
+        "issuer": "https://token.actions.githubusercontent.com",
+        "identity": "https://github.com/mudler/LocalAI/.github/workflows/gallery_publish.yml@refs/heads/master"
+      }
     }
   ],
   "autoload_galleries": true,
@@ -289,7 +302,6 @@ Changes to these files are automatically detected and applied without requiring 
 
 4. **Secure API Keys**: API keys are sensitive information. Ensure proper file permissions on configuration files (they should be readable only by the LocalAI process).
 
-5. **Test Changes**: Some settings (like watchdog timeouts) may require testing to find optimal values for your specific use case.
 
 ## Troubleshooting
 

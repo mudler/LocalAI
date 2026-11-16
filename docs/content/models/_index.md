@@ -132,7 +132,7 @@ is installed). The tabs are:
   chart. The same tab lists the files the model uses on disk, with their size,
   the other models that use them, and any file the configuration names that is
   not on disk (see [Disk and cleanup](#disk-and-cleanup)). Configuration holds the [Placement]({{% relref "/models/model-configuration" %}}#placement)
-  section. Logs is the backend log viewer of the Operate section.
+  section. Logs is the backend log viewer of the Admin section.
 
 The page reads the same lists as the table, so it works for a model the gallery
 does not list (it has no variants or files tab) and for a gallery model that is
@@ -611,13 +611,13 @@ The tests in `core/gallery` run the same checks on every entry of the real libra
 
 A gallery entry can declare a `mirrors` list of alternative locations for the same index file. Mirrors exist for availability, not for load balancing: LocalAI always prefers the `url`, and only falls back to the mirrors, in the order you listed them, when the one before it cannot be fetched. If the primary works, the mirrors are never contacted.
 
-Mirrors accept any URI the gallery loader understands — `https://`, `github:`, `huggingface://` (also `hf://` and `hf.co/`), `pirateface://`, `magnet:`, `.torrent` files (see [Download over BitTorrent]({{% relref "/models/setting-up-models" %}}#download-over-bittorrent)), `file://`, and `oci://` — and the same rules apply to them as to a primary URL, so a `file://` mirror must still live inside your models directory.
+Mirrors accept any URI the gallery loader understands (`https://`, `github:`, `huggingface://` (also `hf://` and `hf.co/`), `pirateface://`, `magnet:`, `.torrent` files (see [Download over BitTorrent]({{% relref "/models/setting-up-models" %}}#download-over-bittorrent)), `file://`, and `oci://`) and the same rules apply to them as to a primary URL, so a `file://` mirror must still live inside your models directory.
 
 ```json
 GALLERIES=[{"name":"localai", "url":"https://example.org/gallery/index.yaml", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]
 ```
 
-Each attempt is bounded by a 120 second timeout, and a source that fails — a connection error, a timeout, or an HTTP error status such as 404 or 502 — is skipped for the next 10 minutes so a dead host is not re-dialled on every gallery listing. A source that answers is usable again immediately, and a request you cancel yourself is not counted against it. If every source happens to be inside that 10 minute window, LocalAI tries them all anyway rather than refuse to serve the gallery.
+Each attempt is bounded by a 120 second timeout, and a source that fails (a connection error, a timeout, or an HTTP error status such as 404 or 502) is skipped for the next 10 minutes so a dead host is not re-dialled on every gallery listing. A source that answers is usable again immediately, and a request you cancel yourself is not counted against it. If every source happens to be inside that 10 minute window, LocalAI tries them all anyway rather than refuse to serve the gallery.
 
 {{% callout style="warning" %}}
 **Neither mirrors nor the offline cache cover a `.ref` URL.** If a gallery's `url` ends in `.ref`, that reference file is fetched and resolved to the real index location *before* mirrors or the cached copy are consulted, and a failure to fetch it fails the gallery outright. That includes the offline case: a `.ref` gallery fails when the network is gone even if it has been fetched successfully before. Mirrors are alternates for the index, not for the reference that points at it. If you want mirror coverage or offline listings, point `url` directly at the index file.
@@ -629,13 +629,13 @@ A library source carries the same list. Set it in the **Manage libraries** panel
 
 ## Offline gallery listings
 
-Every successful gallery fetch is written to a cache directory alongside your models directory (`<MODELS_PATH>/../cache/gallery/`), one file per gallery URL. If nothing can serve the index — the primary and every mirror failed, there is no network at all, the host is airgapped — LocalAI serves that last successfully fetched copy instead of failing the listing, and logs a warning saying it did so. This applies to every gallery whose `url` points directly at an index file, with or without `mirrors` — but not to a `.ref` URL, which is resolved before the cache is consulted (see the warning above).
+Every successful gallery fetch is written to a cache directory alongside your models directory (`<MODELS_PATH>/../cache/gallery/`), one file per gallery URL. If nothing can serve the index, the primary and every mirror failed, there is no network at all, the host is airgapped, LocalAI serves that last successfully fetched copy instead of failing the listing, and logs a warning saying it did so. This applies to every gallery whose `url` points directly at an index file, with or without `mirrors`, but not to a `.ref` URL, which is resolved before the cache is consulted (see the warning above).
 
 Only a response that actually parses as a gallery index is stored. A captive portal, a proxy or a CDN can answer an index request with HTTP 200 and an HTML error page; caching that would replace a working offline copy with something no listing can read. An empty index is rejected for the same reason, so the previous copy survives.
 
 Entries served this way may be stale: the copy is only as fresh as the last time the gallery could be reached, so models added or changed upstream since then will not show up, and an entry may point at a file that has since moved. A listing served from disk is a degraded mode, not a substitute for a reachable gallery.
 
-The copy is deliberately kept out of the models directory itself, where LocalAI reads a `.yaml` file as an installed model's configuration. Deleting the cache directory is safe — the next successful fetch recreates it — and a machine that has never reached a gallery has nothing cached, so its first listing still fails.
+The copy is deliberately kept out of the models directory itself, where LocalAI reads a `.yaml` file as an installed model's configuration. Deleting the cache directory is safe (the next successful fetch recreates it) and a machine that has never reached a gallery has nothing cached, so its first listing still fails.
 
 ## Galleries published as OCI artifacts
 
@@ -815,7 +815,7 @@ carries a `variants` list, and installing it normally lets LocalAI choose:
 
 - variants whose backend cannot run on this machine are dropped;
 - variants that do not fit the available memory are dropped. That budget is
-  VRAM on a discrete-GPU host, and system RAM otherwise — including on
+  VRAM on a discrete-GPU host, and system RAM otherwise, including on
   unified-memory machines such as Apple Silicon, where the GPU shares system
   RAM and reports no separate VRAM pool;
 - the entry's own build is never dropped. It competes with whatever survived

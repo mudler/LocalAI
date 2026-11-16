@@ -33,7 +33,7 @@ parameters:
 context_size: 1024
 threads: 1
 
-f16: true # enable with GPU acceleration
+f16: true # 16-bit memory and KV cache (does not switch the GPU on)
 gpu_layers: 22 # GPU Layers (only used when built with cublas)
 
 ```
@@ -186,13 +186,13 @@ iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
 | `HSA_OVERRIDE_GFX_VERSION` | `11.5.1` | Tells the HSA runtime to use gfx1151 code objects |
 | `ROCBLAS_USE_HIPBLASLT` | `1` | Prefer hipBLASLt over rocBLAS for GEMM (required for gfx1151) |
 | `HSA_XNACK` | `1` | Enable XNACK (memory-fault retry) for APU unified memory |
-| `HSA_ENABLE_SDMA` | `0` | Disable SDMA engine — causes hangs on APU/iGPU configs |
+| `HSA_ENABLE_SDMA` | `0` | Disable SDMA engine: causes hangs on APU/iGPU configs |
 
 > **Warning:** Do **not** set `GGML_CUDA_ENABLE_UNIFIED_MEMORY`. The C-level check is
 > `getenv(...) != nullptr`, so even `=0` activates `hipMallocManaged` (allocates from
 > system RAM instead of the 96 GB VRAM pool).
 
-**Running LocalAI on gfx1151** (use the standard ROCm/hipblas image — there is only one ROCm image, and it ships with ROCm 7.x by default):
+**Running LocalAI on gfx1151** (use the standard ROCm/hipblas image; there is only one ROCm image, and it ships with ROCm 7.x by default):
 ```yaml
     image: quay.io/go-skynet/local-ai:master-gpu-hipblas
     environment:
@@ -512,6 +512,6 @@ mmap: false
 
 ### Slow performance or unexpected CPU fallback
 
-- Ensure `f16: true` is set in the model YAML for GPU-accelerated backends.
+- `f16: true` in the model YAML sets 16-bit memory and KV cache for that model. It does not turn GPU use on. GPU use comes from the backend build and `gpu_layers`.
 - Set `threads: 1` when using full GPU offloading to avoid CPU thread contention.
 - Verify the correct `BUILD_TYPE` matches your hardware (e.g., `cublas` for NVIDIA, `hipblas` for AMD).

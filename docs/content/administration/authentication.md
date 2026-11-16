@@ -324,7 +324,7 @@ When authentication is enabled, the following endpoints require admin role:
 When auth is enabled, the React UI sidebar dynamically shows/hides sections based on the user's role:
 
 - **All users see**: Home, Chat, Images, Video, TTS, Sound, Talk, Usage, API docs link
-- **Admins also see**: Models, the Build console (Training, Recognition and the other tools that need an administrator), and the Operate console (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
+- **Admins also see**: Models, the Build console (Training, Recognition and the other tools that need an administrator), and the Admin section (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
 
 Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
 
