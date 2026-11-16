@@ -9,7 +9,9 @@ LocalAI can generate videos from text prompts and optional image or audio condit
 
 ## Animated video from the assistant
 
-A video model is not the only way to make a video. With the [Sandbox]({{% relref "/addons/catalogue/work/sandbox" %}}) add-on, the assistant can build simple video itself. The built-in `assemble-media` skill has tested recipes that use `ffmpeg`, `sox`, ImageMagick and Python with Pillow and matplotlib in the `media` sandbox profile. It can make a title card with a fade, a slideshow with a slow zoom and a crossfade, a chart that draws itself, and text that fades in, and it saves the result as MP4. It can also join, trim, mix and subtitle clips that a video model made. The sandbox has no network, so it works only with files you already have or that the generation tools made. An administrator installs the Sandbox add-on. See [Built-in skills]({{% relref "/features/chats-and-agents/chats-skills#skills" %}}).
+{{< devbuild addon >}}
+
+A video model is not the only way to make a video. With the [Sandbox]({{% relref "/addons/catalogue/work/sandbox" %}}) add-on and its `media` profile, the assistant can build short videos with `ffmpeg` from a sentence: a title card with a fade, or a slideshow with a slow zoom and crossfade, saved as MP4 in your Files. The built-in `assemble-media` skill has recipes for this. Simple animated charts work with mixed results. A landscape video can be cropped to vertical, but a new vertical video can come out landscape. Long runs are slow: on a small remote model a title card took about 2 minutes and a 10-second slideshow about 8. The first use pulls the `media` image (about 384 MB), you need a model that can call tools, and the Sandbox has no internet. Look at the result before you use it. An administrator installs the Sandbox add-on. See [Built-in skills]({{% relref "/features/chats-and-agents/chats-skills#skills" %}}).
 
 ## MLX-Video on Apple Silicon
 
