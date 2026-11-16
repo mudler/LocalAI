@@ -29,6 +29,8 @@ import (
 // waiting message, a goal or a promise holds the claim and finds nothing.
 type claimingTurn struct {
 	store.Store
+	// hold is how long the claim stays; 300ms when zero.
+	hold  time.Duration
 	mu    sync.Mutex
 	until map[string]time.Time
 }
@@ -45,7 +47,11 @@ func (c *claimingTurn) Turn(ctx context.Context, principal, conv string) (store.
 	}
 	end, ok := c.until[conv]
 	if !ok {
-		end = time.Now().Add(300 * time.Millisecond)
+		hold := c.hold
+		if hold == 0 {
+			hold = 300 * time.Millisecond
+		}
+		end = time.Now().Add(hold)
 		c.until[conv] = end
 	}
 	info.Running = time.Now().Before(end)
@@ -302,6 +308,13 @@ var _ = Describe("background jobs of sub-agents", func() {
 
 		It("ends the job when a claim of the chat for waiting messages is still held as the turn ends", func() {
 			g := newSubRig("on", func(d *studio.Deps) { d.Store = &claimingTurn{Store: d.Store} })
+			g.spawn("build it")
+			until("the job", func() bool { return len(g.infos()) == 1 })
+			finished(g, g.infos()[0].ID, bgjob.EndAgentEnded)
+		})
+
+		It("ends the job when the claim outlasts any fixed grace, as it does on a loaded host", func() {
+			g := newSubRig("on", func(d *studio.Deps) { d.Store = &claimingTurn{Store: d.Store, hold: 4 * time.Second} })
 			g.spawn("build it")
 			until("the job", func() bool { return len(g.infos()) == 1 })
 			finished(g, g.infos()[0].ID, bgjob.EndAgentEnded)

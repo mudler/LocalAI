@@ -262,8 +262,8 @@ it is right after a restart and the same on every frontend of a cluster.
 
 ### Sandbox profile
 
-A Sandbox add-on that declares profiles (the Sandbox does: `base` and
-`media`, see [Sandbox profiles]({{% relref "/addons/catalogue/work/sandbox-settings#sandbox-profiles" %}}))
+A Sandbox add-on that declares profiles (the Sandbox does: `base`, `media` and
+`office`, see [Sandbox profiles]({{% relref "/addons/catalogue/work/sandbox-settings#sandbox-profiles" %}}))
 gives the Tools menu a **Profile** row next to the Network row. It shows the
 profile the next command runs and lets you pick another one. A new chat gets the
 default of the administrator (`media` when the administrator sets none), or the

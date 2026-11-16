@@ -5,8 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -16,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/mcptransport"
+	"github.com/mudler/LocalAI/pkg/stderrtail"
 	"github.com/mudler/xlog"
 )
 
@@ -239,18 +238,16 @@ func connectNamedSession(ctx context.Context, serverName, kind string,
 	}
 	server := stdio.Servers[serverName]
 	xlog.Debug("[MCP stdio server] Configuration", "name", serverName, "server", server)
-	command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
-	command.Env = os.Environ()
-	for key, value := range server.Env {
-		command.Env = append(command.Env, key+"="+value)
-	}
+	command, tail := newStdioCommand(server)
 	transport := &mcp.CommandTransport{Command: command}
 	mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
 	if err != nil {
-		xlog.Error("Failed to start MCP server", "error", err, "name", serverName, "command", command)
-		return NamedSession{Name: serverName, Type: "stdio", Error: fmt.Sprintf("startup failed: %v", err)}
+		output := stdioFailureOutput(tail, server)
+		xlog.Error("Failed to start MCP server", "error", err, "name", serverName, "command", command, "command_output", output)
+		return NamedSession{Name: serverName, Type: "stdio", Error: fmt.Sprintf("startup failed: %v", stderrtail.Wrap(err, output))}
 	}
 	xlog.Debug("[MCP stdio server] Connected", "name", serverName, "command", command)
+	rememberTail(mcpSession, tail, server)
 	return NamedSession{Name: serverName, Type: "stdio", Session: mcpSession, state: track(mcpSession)}
 }
 

@@ -206,7 +206,14 @@ Other skill preferences remain unchanged.
 
 Sandbox installs PDF helpers inside its guest:
 `/usr/local/lib/localai/document-skills/pdf/content_qa.py` and
-`/usr/local/lib/localai/document-skills/pdf/verify_pdf.py`.
+`/usr/local/lib/localai/document-skills/pdf/verify_pdf.py`. For the other formats it also installs
+`/usr/local/lib/localai/document-skills/pptx/pptx_guard.py` (checks that no shape collapsed to nothing,
+sticks out of the slide or holds text that does not fit), a `render.sh` for each of `pptx`, `docx` and
+`xlsx` (renders each slide or page to a PNG) and `xlsx/recalc.sh` (recalculates a workbook).
+Rendering and recalculation need LibreOffice, which only the `office` profile has: the `pptx`, `docx`
+and `xlsx` skills tell the model to switch to it before it builds a file, and to look at every image,
+or check the recalculated values, before it reports the file done. The render is LibreOffice's, not
+Microsoft Office's.
 Run them with `python3` through Sandbox commands, not through paths in host skill folders.
 Upgrades remove stale built-in document trees, but preserve user-written skills.
 Use `load_skill` by name; historical physical paths are not a compatibility interface.

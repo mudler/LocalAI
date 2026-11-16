@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addressOf, checkFailure, checkItem, credentialProblem, defaultName, extraBody, extraForm, extraValid, fingerprintOfPin, followName, hostProblem, needsSecretAgain, normalizePin, parseHost, splitAddress, sshSecret, targetKey, userProblem, writeModeOf, WRITE_MODES } from '../src/ssh.js'
+import { addressOf, checkFailure, checkItem, credentialProblem, defaultName, extraBody, extraForm, extraValid, fingerprintOfPin, followName, hostProblem, needsHostKeyStep, needsSecretAgain, normalizePin, parseHost, scanHostKey, splitAddress, sshSecret, targetKey, trustedKey, userProblem, writeModeOf, WRITE_MODES } from '../src/ssh.js'
 import { canSave, connectorPayload } from '../../../internal/connector-ui/src/connector.js'
 import en from '../src/i18n/ssh.en.json' with { type: 'json' }
 
@@ -59,11 +59,11 @@ test('ssh: a new connection starts on "asks you first" and never on "auto"', () 
   assert.equal(writeModeOf('anything'), 'off')
 })
 
-test('ssh: saving needs a host, a user and a host key the person trusted', () => {
+test('ssh: saving needs a host and a user; the host key is a step of Save, not a condition of it', () => {
   const ok = { user: 'deploy', host_text: 'example.com', pin_text: PIN, pin_ok: true }
   assert.equal(extraValid(ok), true)
-  assert.equal(extraValid({ ...ok, pin_ok: false }), false)
-  assert.equal(extraValid({ ...ok, pin_text: '' }), false)
+  assert.equal(extraValid({ ...ok, pin_ok: false }), true)
+  assert.equal(extraValid({ ...ok, pin_text: '', pin_ok: false }), true, 'a person who skipped the check can still press Save')
   assert.equal(extraValid({ ...ok, user: '' }), false)
   assert.equal(extraValid({ ...ok, host_text: 'a b' }), false)
   assert.deepEqual(extraBody({ ...ok, write_mode: 'propose' }), { resources: [`deploy@example.com#sha256=${PIN}`], write_mode: 'propose' })
@@ -75,7 +75,31 @@ test('ssh: a saved connection that moves to another user or host needs its secre
   assert.equal(needsSecretAgain({ id: 'c1', ...saved }), false)
   assert.equal(needsSecretAgain({ id: 'c1', ...saved, user: 'other' }), true)
   assert.equal(needsSecretAgain({ id: 'c1', ...saved, user: 'other', method: 'password', passwd: 'x' }), false)
-  assert.equal(extraValid({ id: 'c1', ...saved, host_text: 'b.example' }), false, 'the pin is reset by the page; without it the form is not valid')
+  assert.equal(extraValid({ id: 'c1', ...saved, host_text: 'b.example' }), false, 'the secret is needed again')
+})
+
+test('ssh: Save asks about the host key unless a trusted one is pinned', () => {
+  const trusted = { user: 'deploy', host_text: 'example.com', pin_text: PIN, pin_ok: true }
+  assert.equal(needsHostKeyStep(trusted), false)
+  assert.equal(needsHostKeyStep({ ...trusted, pin_text: '', pin_ok: false }), true, 'nothing pinned')
+  assert.equal(needsHostKeyStep({ ...trusted, pin_ok: false }), true, 'checked with the button but not trusted')
+  assert.equal(needsHostKeyStep({ ...trusted, pin_text: 'nope' }), true, 'a pin that is not a fingerprint')
+  const saved = extraForm({ id: 'c1', resources: [`deploy@a.example:22#sha256=${PIN}`] })
+  assert.equal(needsHostKeyStep({ id: 'c1', ...saved }), false, 'a saved connection with the same user and host goes straight through')
+  assert.equal(needsHostKeyStep({ id: 'c1', ...saved, pin_text: '', pin_ok: false, pin_type: '' }), true, 'the page resets the pin when the host or user changes')
+})
+
+test('ssh: the scan reads the key without a secret and says why it failed', async () => {
+  const calls = []
+  const found = await scanHostKey(async (req) => { calls.push(req); return { data: { pin: PIN.toUpperCase(), keyType: 'ssh-ed25519' } } }, 'deploy@example.com')
+  assert.deepEqual(found, { pin: PIN, type: 'ssh-ed25519' })
+  assert.deepEqual(calls, [{ arguments: { tool: 'scan-host-key', address: 'deploy@example.com' } }])
+  assert.deepEqual(trustedKey(found), { pin_text: PIN, pin_ok: true, pin_type: 'ssh-ed25519' })
+  assert.deepEqual(await scanHostKey(async () => { throw new Error('the host could not be reached') }, 'a@b'), { error: 'hostKey.unreachable' })
+  assert.deepEqual(await scanHostKey(async () => { throw new Error('boom') }, 'a@b'), { error: 'hostKey.failed' })
+  assert.deepEqual(await scanHostKey(async () => ({ data: { pin: 'abcd' } }), 'a@b'), { error: 'hostKey.failed' }, 'a reply with no usable key')
+  for (const key of ['hostKey.unreachable', 'hostKey.failed']) assert.ok(en.hostKey[key.split('.')[1]], key)
+  for (const k of ['title', 'reading', 'compare', 'confirm', 'cancel', 'retry']) assert.ok(en.hostKeyStep[k], k)
 })
 
 test('ssh: the host check shows its own words for each failure', () => {

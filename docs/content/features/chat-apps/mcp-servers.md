@@ -130,6 +130,12 @@ being an administrator loses their running local commands at their next use.
 A local command (`stdio`) runs without a shell, with a minimal environment
 (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, `TZ`) plus the variables you sealed, and with a
 time limit to start and to answer. It runs on the frontend, as the LocalAI process.
+When a local command fails to start, to answer or to run a tool, LocalAI keeps
+the last 4 KB of what it wrote to its error stream. The connection test shows
+it in the connector details as **Last output from the command**, apart from the
+one-line reason, and the server log has it too. The sealed values are replaced
+with `***` first. The API returns it as `output` in the answer of
+`POST /api/chats/mcp-connectors/{id}/test`.
 
 ### How chats use them
 

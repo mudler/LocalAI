@@ -154,6 +154,8 @@ Configure local command-based MCP servers:
 - **`args`**: Array of command-line arguments
 - **`env`**: Environment variables (optional)
 
+If a stdio server fails to start, to answer or to run a tool, LocalAI adds the last 4 KB of its error stream to the error, after a line `command output:`, and to the server log. The first line of the error does not change. The values you set in `env` are replaced with `***` first.
+
 #### Automatic activation (`auto`)
 
 `/v1/chat/completions` only runs a model's MCP servers when the request selects

@@ -38,6 +38,32 @@ def run_helper(name, pdf, exit_code):
     return data
 
 
+def check_pptx_guard(root):
+    """The pptx helper must flag a collapsed deck and pass a good one."""
+    helpers = HELPERS.parent / "pptx"
+    for name in ("pptx_guard.py", "render.sh"):
+        require((helpers / name).is_file(), f"missing guest helper asset: pptx/{name}")
+    for kind, names in (("docx", ("render.sh",)), ("xlsx", ("render.sh", "recalc.sh"))):
+        for name in names:
+            require((HELPERS.parent / kind / name).is_file(), f"missing guest helper asset: {kind}/{name}")
+    from pptx import Presentation
+    from pptx.util import Inches
+
+    decks = {}
+    for name, collapsed in (("good", False), ("collapsed", True)):
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        args = (0.5, 1.0, 4.0, 1.0) if collapsed else tuple(Inches(v) for v in (0.5, 1.0, 4.0, 1.0))
+        slide.shapes.add_textbox(*args).text_frame.text = "Sandbox deck fixture"
+        decks[name] = root / f"{name}.pptx"
+        prs.save(decks[name])
+    for name, code in (("good", 0), ("collapsed", 1)):
+        result = subprocess.run([sys.executable, str(helpers / "pptx_guard.py"), str(decks[name])],
+                                capture_output=True, text=True, timeout=60, check=False)
+        require(result.returncode == code,
+                f"pptx_guard.py {name}: exit {result.returncode}, expected {code}: {result.stdout}{result.stderr}")
+
+
 def main():
     for name in ("content_qa.py", "verify_pdf.py", "notice.txt"):
         require((HELPERS / name).is_file(), f"missing guest helper asset: {name}")
@@ -48,6 +74,7 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="document-skills-") as directory:
         root = Path(directory)
+        check_pptx_guard(root)
         for name, x in (("valid", 72), ("empty", None), ("defective", -144)):
             pdf = root / f"{name}.pdf"
             document = canvas.Canvas(str(pdf), pagesize=(612, 792), invariant=1)
