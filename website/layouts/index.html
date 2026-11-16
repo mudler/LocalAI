@@ -9,7 +9,7 @@
   <div class="shell duo">
     <div>
       <h1>Your own AI, on your own hardware.</h1>
-      <p class="lede">LocalAI is one open-source server: an OpenAI-compatible API for text, images, video, music and speech, and a workspace for your team, on hardware you own.</p>
+      <p class="lede">Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top.</p>
       <div class="acts">
         <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
         <a class="btn btn--o" href="#whats-new">See what is new</a>
@@ -24,7 +24,7 @@
         </video>
         <button class="film-play" type="button" data-film-play aria-label="Watch the film, with sound"><span class="film-play__i" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span>Watch the film</span></button>
       </figure>
-      <p class="fine film-note">40 seconds. Made with LocalAI: the video, the voices and the music.</p>
+      <p class="fine film-note">42 seconds. We made this film with LocalAI: the pictures, the voices and the music.</p>
     </div>
   </div>
 </section>
@@ -32,7 +32,7 @@
 <section class="facts" aria-label="At a glance">
   <div class="shell facts__g">
     <div><b>CPU or GPU</b>NVIDIA, AMD, Intel and Apple</div>
-    <div><b>{{ $eng }} own engines</b>Written by the team, mostly in C++</div>
+    <div><b>{{ $eng }} engines we wrote</b>C++ and GGML, with no Python at inference</div>
     <div><b>OpenAI-compatible</b>Also Anthropic and ElevenLabs formats</div>
     <div><b>MIT licence</b>Open since March 2023, {{ lang.FormatNumberCustom 0 $s.stars }} stars</div>
   </div>
@@ -59,7 +59,7 @@
 <span class="p">5</span> text = client.audio.transcriptions.create(
 <span class="p">&nbsp;</span>     model="whisper-1", file=open("meeting.mp3", "rb")).text
 <span class="p">6</span> print(text)</pre></div>
-      <p class="fine">The model names are models you installed. Transcription needs a speech model, such as one that you name <code>whisper-1</code>.</p>
+      <p class="fine">Both models come from the gallery. For the second call, install <code>whisper-1</code> from the gallery.</p>
     </div>
   </div>
 </section>
@@ -83,7 +83,6 @@
 <section class="grid5" id="whats-new">
   <div class="shell">
     <h2>Everything <span class="hl">new</span>.</h2>
-    <p class="lede">Each card opens the page that says how to use it.</p>
     <div class="cards">
       {{ range hugo.Data.home.cards }}
       <a class="card" href="{{ .href }}"><span class="ic">{{ partial "icon.html" .icon }}</span><h3>{{ .t }}</h3><p>{{ .p }}</p><span class="go">Docs &rarr;</span></a>
@@ -96,7 +95,7 @@
   <div class="shell duo">
     <div class="rv">
       <p class="kicker">Get started</p>
-      <h2>Install in a <span class="hl">minute</span>.</h2>
+      <h2>Install with <span class="hl">one command</span>.</h2>
       <p class="lede">Install a server with a script, Docker or Kubernetes, or use the desktop app. Backends download the first time a model needs one.</p>
       {{ partial "download-app.html" . }}
       <div class="acts"><a class="btn btn--o" href="{{ "get-started/" | relURL }}">Get started</a><a class="btn btn--o" href="{{ "download/" | relURL }}">All downloads</a></div>
@@ -107,7 +106,7 @@
 
 <section class="band-sun endcard">
   <div class="shell">
-    <h2>Ready to <span class="hl">work</span> for you.</h2>
+    <h2>One command to <span class="hl">install</span>.</h2>
     <p><span class="url-pill">localai.io</span></p>
     <div class="acts"><a class="btn" href="{{ "get-started/" | relURL }}">Get started</a></div>
   </div>
