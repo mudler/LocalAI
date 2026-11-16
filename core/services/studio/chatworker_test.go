@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
@@ -24,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // requestBus is the fake bus with request/reply: a request reaches the reply
@@ -33,11 +35,17 @@ import (
 type requestBus struct {
 	*testutil.FakeBus
 	gone atomic.Bool
+	// fail, when set, is the error of every request: a carrier that could not
+	// deliver it, or a link that broke after it was sent.
+	fail atomic.Pointer[error]
 }
 
 func (b *requestBus) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
 	if b.gone.Load() {
 		return nil, nats.ErrNoResponders
+	}
+	if err := b.fail.Load(); err != nil {
+		return nil, *err
 	}
 	reply, ok := b.DeliverReply(subject, data)
 	if !ok {
@@ -179,6 +187,27 @@ var _ = Describe("chatworker", func() {
 		Expect(r.hWorker.Sent()).To(BeEmpty())
 	})
 
+	It("a background start runs on the frontend when the start reached no chat worker", func() {
+		r := newWorkerRig(true)
+		undelivered := fmt.Errorf("%w: no chat worker could be reached", messaging.ErrNotDelivered)
+		r.bus.fail.Store(&undelivered)
+		id := create(r.front, alice)
+		res := background(r.front, alice, id, "go")
+		Expect(res.Started).To(BeTrue(), "SendBackground = %+v, want a started turn", res)
+		until("the frontend to run the turn", func() bool { return len(r.hFront.Sent()) == 1 })
+		Expect(r.hWorker.Sent()).To(BeEmpty())
+	})
+
+	It("a start whose outcome is unknown fails and nothing runs on the frontend", func() {
+		r := newWorkerRig(true)
+		lost := errors.New("the link broke after the start was sent")
+		r.bus.fail.Store(&lost)
+		id := create(r.front, alice)
+		_, err := r.front.SendBackground(context.Background(), alice, id, "go", nil)
+		Expect(err).To(MatchError(ContainSubstring("the link broke")))
+		Expect(r.hFront.Sent()).To(BeEmpty(), "the worker may have started the turn")
+	})
+
 	It("a chat workers refusal is an error and nothing runs on the frontend", func() {
 		r := newWorkerRig(true)
 		// A chat the worker cannot find: it answers, so it is present, and the
@@ -197,6 +226,9 @@ var _ = Describe("chatworker", func() {
 		_, err := r.front.SendBackground(context.Background(), alice, second, "go", nil)
 		Expect(err).To(MatchError(studio.ErrWorkerRefused), "SendBackground to a full worker = %v", err)
 		Expect(err).To(MatchError(ContainSubstring("runs as many turns as it may")))
+		// The refusal says that the worker is full, so a frontend that picks the
+		// worker can send the start to another one.
+		Expect(r.worker.ServeStart(context.Background(), workerctl.ChatStartRequest{Principal: alice, ChatID: second, Text: "go"}).Full).To(BeTrue())
 		Expect(r.hFront.Sent()).To(BeEmpty(), "a refused start ran on the frontend")
 		Expect(r.hWorker.Sent()).To(HaveLen(1))
 		Expect(turn(r.front, alice, second).Running).To(BeFalse())

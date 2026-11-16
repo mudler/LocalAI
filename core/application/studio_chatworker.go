@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -30,19 +32,23 @@ func (a *Application) StartChatWorker() error {
 		return nil
 	}
 	d := a.Distributed()
-	if d == nil || d.Nats == nil {
-		return errors.New("chat worker: distributed mode with NATS is required")
+	if d == nil || d.Replies == nil {
+		return errors.New("chat worker: distributed mode is required")
 	}
 	if a.studioService == nil {
 		return errors.New("chat worker: the chats did not start (see the earlier log, or LOCALAI_DISABLE_CHATS)")
 	}
-	sub, err := nodes.NewNATSChatStartServer(d.Nats, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout)).Serve(a.studioService.ServeStart)
+	// The subscription follows the carrier of the cluster. On NATS the worker is
+	// a member of the chat-workers queue group; on the tunnel a frontend finds it
+	// by the labels of its node (chatWorkerInstances) and sends the start over
+	// the peer link.
+	sub, err := nodes.NewNATSChatStartServer(d.Replies, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout)).Serve(a.studioService.ServeStart)
 	if err != nil {
 		return fmt.Errorf("chat worker: %w", err)
 	}
 	a.studioWorkerSub = sub
 	if d.Registry != nil {
-		node, err := registerChatWorkerNode(a.applicationConfig.Context, d.Registry, chatWorkerNodeName(a.applicationConfig.Distributed), chatWorkerHeartbeat)
+		node, err := registerChatWorkerNode(a.applicationConfig.Context, d.Registry, chatWorkerNodeName(a.applicationConfig.Distributed), a.applicationConfig.Distributed.InstanceID, chatWorkerHeartbeat)
 		if err != nil {
 			// The worker serves starts all the same; it is only missing from
 			// the node list.
@@ -72,6 +78,36 @@ func (a *Application) stopChatWorker() {
 
 // ChatWorkerRole is the node.role label of a chat worker in the node list.
 const ChatWorkerRole = "chat-worker"
+
+// chatWorkerInstanceLabel names the replica that a chat worker runs as. A
+// frontend on the tunnel carrier reads it to send a start to the worker over
+// the peer link.
+const chatWorkerInstanceLabel = "node.instance"
+
+// chatWorkerInstances lists the replicas that run a chat worker and are live
+// now: the healthy agent nodes with the chat-worker role that name a replica,
+// and of those the replicas that live reports. A worker whose labels an admin
+// removed, or that went offline, is not listed, and its starts go to the other
+// workers. Another kind of node that carries the labels is not a chat worker.
+//
+// It runs on every chat start, so it reads only the labels of those nodes, and
+// it lists the live replicas only when some node names one.
+func chatWorkerInstances(reg *nodes.NodeRegistry, live func(context.Context) ([]string, error)) carrier.QueueMembers {
+	return func(ctx context.Context) ([]string, error) {
+		named, err := reg.LabelValuesOfHealthy(ctx, nodes.NodeTypeAgent, map[string]string{"node.role": ChatWorkerRole}, chatWorkerInstanceLabel)
+		if err != nil {
+			return nil, fmt.Errorf("reading the replicas of the chat workers: %w", err)
+		}
+		if len(named) == 0 {
+			return nil, nil
+		}
+		alive, err := live(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("listing the live replicas: %w", err)
+		}
+		return slices.DeleteFunc(named, func(id string) bool { return !slices.Contains(alive, id) }), nil
+	}
+}
 
 // chatWorkerHeartbeat is how often a chat worker tells the node registry that
 // it is alive, as the other workers do by default.
@@ -108,7 +144,7 @@ type chatWorkerNode struct {
 //
 // State mode: stateless. The row is in the shared database, and the health
 // monitor of the frontends marks it offline when the beats stop.
-func registerChatWorkerNode(ctx context.Context, reg *nodes.NodeRegistry, name string, interval time.Duration) (*chatWorkerNode, error) {
+func registerChatWorkerNode(ctx context.Context, reg *nodes.NodeRegistry, name, instance string, interval time.Duration) (*chatWorkerNode, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -118,6 +154,9 @@ func registerChatWorkerNode(ctx context.Context, reg *nodes.NodeRegistry, name s
 	}
 	if err := reg.SetNodeLabel(ctx, node.ID, "node.role", ChatWorkerRole); err != nil {
 		xlog.Warn("Chat worker: could not label its node", "node", name, "error", err)
+	}
+	if err := reg.SetNodeLabel(ctx, node.ID, chatWorkerInstanceLabel, instance); err != nil {
+		xlog.Warn("Chat worker: could not name its replica on its node; no frontend on the tunnel carrier can reach it", "node", name, "error", err)
 	}
 	beatCtx, cancel := context.WithCancel(ctx)
 	n := &chatWorkerNode{reg: reg, id: node.ID, cancel: cancel}

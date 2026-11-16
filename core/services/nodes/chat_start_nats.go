@@ -44,37 +44,60 @@ func newChatStartOptions(opts []ChatStartOption) chatStartOptions {
 // NATSChatStarter sends the frontend's chat starts to the chat-workers queue
 // group as NATS request/reply. One worker of the group runs the turn.
 type NATSChatStarter struct {
-	bus     messaging.MessagingClient
+	bus     messaging.RequestReply
 	timeout time.Duration
 }
 
 // NewNATSChatStarter returns a NATSChatStarter on bus.
-func NewNATSChatStarter(bus messaging.MessagingClient, opts ...ChatStartOption) *NATSChatStarter {
+func NewNATSChatStarter(bus messaging.RequestReply, opts ...ChatStartOption) *NATSChatStarter {
 	return &NATSChatStarter{bus: bus, timeout: newChatStartOptions(opts).timeout}
 }
 
 // StartChat asks one chat worker to start the turn. It returns an error that
-// wraps ErrNoRoute when no worker is listening. A timeout is an ordinary
-// error: the worker may have started the turn. A decoded reply is returned
-// with a nil error even when its Error field holds the worker's refusal. The
-// deadline of ctx bounds the wait, as for the agent RPC; without one the
-// start's budget (WithChatStartTimeout) does.
+// wraps ErrNoRoute when no worker is listening, and one that wraps
+// messaging.ErrNotDelivered when the start reached no worker. A timeout is an
+// ordinary error: the worker may have started the turn. A decoded reply is
+// returned with a nil error even when its Error field holds the worker's
+// refusal. The deadline of ctx bounds the wait, as for the agent RPC; without
+// one the start's budget (WithChatStartTimeout) does.
+//
+// On a carrier where the frontend picks the worker, a worker that is full
+// (ChatStartReply.Full) has started nothing, and the start goes to another
+// one. On NATS the queue group picks the worker, and a full one fails the
+// start.
 func (c *NATSChatStarter) StartChat(ctx context.Context, req workerctl.ChatStartRequest) (*workerctl.ChatStartReply, error) {
 	timeout, err := agentRequestTimeout(ctx, c.timeout)
 	if err != nil {
 		return nil, err
 	}
-	return controlRequestJSON[workerctl.ChatStartRequest, workerctl.ChatStartReply](c.bus, messaging.SubjectChatStart, req, timeout)
+	data, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling request: %w", err)
+	}
+	raw, err := messaging.RequestQueue(c.bus, messaging.SubjectChatStart, data, timeout, workerFull)
+	if err != nil {
+		return nil, mapRequestError(messaging.SubjectChatStart, err)
+	}
+	var reply workerctl.ChatStartReply
+	if err := json.Unmarshal(raw, &reply); err != nil {
+		return nil, fmt.Errorf("unmarshaling reply from %s: %w", messaging.SubjectChatStart, err)
+	}
+	return &reply, nil
+}
+
+func workerFull(raw []byte) bool {
+	var reply workerctl.ChatStartReply
+	return json.Unmarshal(raw, &reply) == nil && reply.Full
 }
 
 // NATSChatStartServer is the chat worker's end of NATSChatStarter.
 type NATSChatStartServer struct {
-	bus     messaging.MessagingClient
+	bus     messaging.RequestReply
 	timeout time.Duration
 }
 
 // NewNATSChatStartServer returns a server on bus.
-func NewNATSChatStartServer(bus messaging.MessagingClient, opts ...ChatStartOption) *NATSChatStartServer {
+func NewNATSChatStartServer(bus messaging.RequestReply, opts ...ChatStartOption) *NATSChatStartServer {
 	return &NATSChatStartServer{bus: bus, timeout: newChatStartOptions(opts).timeout}
 }
 

@@ -50,4 +50,7 @@ const (
 	// remotes at startup. It is held for one pass, not for the life of the
 	// frontend.
 	KeyRemotesRefresh int64 = 118
+	// KeyCarrierSwitch elects the one frontend that makes the next move of a
+	// change of carrier.
+	KeyCarrierSwitch int64 = 119
 )

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -92,7 +91,7 @@ func (s *Service) resumeInterruptedVia(ctx context.Context, p, conv string) (Sen
 	}
 	reply, err := s.d.Workers.StartChat(ctx, workerctl.ChatStartRequest{Principal: p, ChatID: conv, Resume: true})
 	switch {
-	case errors.Is(err, nodes.ErrNoRoute):
+	case notStarted(err):
 		s.log.Info("studio: no chat worker took the resume, running it here", "chat", conv)
 		return s.ResumeInterrupted(ctx, p, conv)
 	case err != nil:
