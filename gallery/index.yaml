@@ -82516,3 +82516,67 @@
       model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: minimax-h3-image
+  description: |
+    # MiniMax-H3-Image
+
+    ## Online API
+
+    Use MiniMax-H3-Image directly via API.
+
+      - Global: platform.minimax.io | CN: platform.minimax.cn
+
+    API docs:
+      - Text-to-image: EN-docs, CN-docs
+      - Image editing: EN-docs, CN-docs
+      - Prompt expansion: EN-docs, CN-docs
+
+    ## Online App
+
+    Use MiniMax-H3-Image directly via App.
+
+      - WebApp Global: hailuoai.video | CN: hailuoai.com
+      - Desktop Global: agent.minimax.io | CN: agent.minimax.cn
+
+    ## Introduction
+
+    MiniMax-H3-Image is a state-of-the-art open-source model for image generation and editing from
+    the MiniMax H3 family. It combines intelligent
+    understanding of creative intent with the ability to build visual worlds: with precise
+    instruction following, it develops a creative concept into concrete characters, scenes and
+    atmosphere. Generation and editing are unified in one checkpoint, which generates images from
+    text (text-to-image) and edits one or more reference images (image editing), giving creators
+    and developers a flexible and controllable way to create images.
+
+    ...
+  license: other
+  urls:
+    - https://huggingface.co/Abiray/MiniMax-H3-Image-GGUF
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3-Image/blob/main/examples/reference1.png
+  tags:
+    - llm
+    - gguf
+  files:
+    - filename: llama-cpp/models/MiniMax-H3-Image-Pruned-Q4_K_M/MiniMax-H3-Image-Pruned-Q4_K_M.gguf
+      sha256: e545379320e533f9d60e2d831a9489d94889158e88cd681ea7940da47882015f
+      uri: https://huggingface.co/Abiray/MiniMax-H3-Image-GGUF/resolve/main/MiniMax-H3-Image-Pruned-Q4_K_M.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/MiniMax-H3-Image-Pruned-Q4_K_M/MiniMax-H3-Image-Pruned-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 40
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
