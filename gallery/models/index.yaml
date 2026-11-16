@@ -97,6 +97,10 @@
         top_p: 0.95
       template:
         use_tokenizer_template: true
+    variants:
+      - model: qwen3.8-flash-next-ista-iq2_xs
+      - model: qwen3.8-flash-next-ista-iq3_s
+      - model: qwen3.8-flash-next-ista-iq3_xxs
 - kind: model
   id: qwen3.8-flash-next-ista-iq2_xs
   name: qwen3.8-flash-next-ista-iq2_xs
@@ -842,6 +846,10 @@
         top_p: 0.95
       template:
         use_tokenizer_template: true
+    variants:
+      - model: qwen3.8-flash-next-unsloth-ud-q4_k_xl
+      - model: qwen3.8-flash-next-unsloth-ud-q5_k_xl
+      - model: qwen3.8-flash-next-unsloth-ud-q6_k_xl
 - kind: model
   id: qwen3.8-flash-next-unsloth-ud-q4_k_xl
   name: qwen3.8-flash-next-unsloth-ud-q4_k_xl
@@ -1798,6 +1806,9 @@
         top_p: 1.0
       template:
         use_tokenizer_template: true
+    variants:
+      - model: deepseek-v4.1-flash-ista-iq2_xs
+      - model: deepseek-v4.1-flash-ista-iq2_xxs
 - kind: model
   id: deepseek-v4.1-flash-ista-iq2_xxs
   name: deepseek-v4.1-flash-ista-iq2_xxs
@@ -31294,6 +31305,7 @@
         model: ced-base-q8_0.gguf
     variants:
       - model: ced-base-f16
+      - model: parakeet-cpp-ced-base
 - kind: model
   id: ced-tiny-f16
   name: ced-tiny-f16
@@ -31358,6 +31370,7 @@
         model: ced-tiny-q8_0.gguf
     variants:
       - model: ced-tiny-f16
+      - model: parakeet-cpp-ced-tiny
 - kind: model
   id: ced-mini-f16
   name: ced-mini-f16
@@ -39436,6 +39449,14 @@
         use_tokenizer_template: true
       tts:
         voice: female
+    variants:
+      - model: lfm3-audio-2b-pipeline
+      - model: lfm3-audio-2b-pipeline-vad
+      - model: lfm3-audio-2b-q8
+      - model: lfm3-audio-2b-q8-pipeline
+      - model: lfm3-audio-2b-q8-pipeline-vad
+      - model: lfm3-audio-2b-q8-vad
+      - model: lfm3-audio-2b-vad
 - kind: model
   id: lfm3-audio-2b-q8
   name: lfm3-audio-2b-q8
@@ -70127,6 +70148,8 @@
       parameters:
         model: stablediffusion-cpp/models/flux3_image_klein_sd-Q4_K_M.gguf
       step: 16
+    variants:
+      - model: flux.3-image-klein-q8_0
 - kind: model
   id: flux.3-image-klein-q8_0
   name: flux.3-image-klein-q8_0
@@ -70236,6 +70259,8 @@
       parameters:
         model: stablediffusion-cpp/models/flux3_image_klein-Q4_K_M.gguf
       step: 20
+    variants:
+      - model: flux.3-image-klein-base-q8_0
 - kind: model
   id: flux.3-image-klein-base-q8_0
   name: flux.3-image-klein-base-q8_0
@@ -78576,6 +78601,8 @@
       name: parakeet-cpp-tdt-0.6b-v3
       parameters:
         model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+    variants:
+      - model: parakeet-cpp-tdt-0.6b-v3-silero-vad
 - kind: model
   id: parakeet-cpp-phonon-2.5-f16
   name: parakeet-cpp-phonon-2.5-f16
@@ -78693,6 +78720,9 @@
       name: parakeet-cpp-phonon-2.5-q4_k
       parameters:
         model: parakeet-cpp/phonon-2.5-q4_k.gguf
+    variants:
+      - model: parakeet-cpp-phonon-2.5-f16
+      - model: parakeet-cpp-phonon-2.5-q8_0
 - kind: model
   id: parakeet-cpp-phonon-2.5-packed
   name: parakeet-cpp-phonon-2.5-packed
@@ -78849,6 +78879,9 @@
       name: parakeet-cpp-phonon-2.5-english-q4_k
       parameters:
         model: parakeet-cpp/phonon-2.5-english-q4_k.gguf
+    variants:
+      - model: parakeet-cpp-phonon-2.5-english-f16
+      - model: parakeet-cpp-phonon-2.5-english-q8_0
 - kind: model
   id: parakeet-cpp-phonon-2.5-english-packed
   name: parakeet-cpp-phonon-2.5-english-packed
@@ -79194,6 +79227,8 @@
         - vad:true
       parameters:
         model: parakeet-cpp/ultra-q8_0.gguf
+    variants:
+      - model: parakeet-cpp-moondream-ultra-f16
 - kind: model
   id: parakeet-cpp-moondream-redux-packed
   name: parakeet-cpp-moondream-redux-packed
@@ -79317,6 +79352,8 @@
         - vad:true
       parameters:
         model: parakeet-cpp/redux-q8_0.gguf
+    variants:
+      - model: parakeet-cpp-moondream-redux-f16
 - kind: model
   id: parakeet-cpp-fluid-speech-pro
   name: parakeet-cpp-fluid-speech-pro
@@ -79357,6 +79394,8 @@
       name: parakeet-cpp-fluid-speech-pro
       parameters:
         model: parakeet-cpp/fluid-speech-pro-q8_0.gguf
+    variants:
+      - model: parakeet-cpp-fluid-speech-pro-f32
 - kind: model
   id: parakeet-cpp-fluid-speech-pro-f32
   name: parakeet-cpp-fluid-speech-pro-f32
@@ -79436,6 +79475,8 @@
       name: parakeet-cpp-silero-vad-f16
       parameters:
         model: parakeet-cpp/silero-vad-f16.gguf
+    variants:
+      - model: parakeet-cpp-vad
 - kind: model
   id: parakeet-cpp-vad-moondream-redux-packed
   name: parakeet-cpp-vad-moondream-redux-packed
@@ -79591,6 +79632,8 @@
       name: parakeet-cpp-vad-moondream-ultra
       parameters:
         model: parakeet-cpp/ultra-vad-q8_0.gguf
+    variants:
+      - model: parakeet-cpp-vad-moondream-ultra-q8_0
 - kind: model
   id: parakeet-cpp-vad
   name: parakeet-cpp-vad
@@ -79709,6 +79752,10 @@
       name: parakeet-cpp-nemotron-3-diarization
       parameters:
         model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+    variants:
+      - model: parakeet-cpp-nemotron-3-diarization-asr
+      - model: parakeet-cpp-nemotron-3-diarization-asr-speakers
+      - model: parakeet-cpp-nemotron-3-diarization-speakers
 - kind: model
   id: parakeet-cpp-nemotron-3-diarization-asr
   name: parakeet-cpp-nemotron-3-diarization-asr
@@ -79936,6 +79983,10 @@
         - speaker_model:voice-detect-wespeaker-resnet34.gguf
       parameters:
         model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+    variants:
+      - model: parakeet-cpp-multilingual-diarization-speakers-sounds
+      - model: parakeet-cpp-realtime-scene-tdt
+      - model: parakeet-cpp-realtime-scene-tdt-base
 - kind: model
   id: parakeet-cpp-multilingual-diarization-speakers-sounds
   name: parakeet-cpp-multilingual-diarization-speakers-sounds
@@ -80230,6 +80281,9 @@
         - sound_model:parakeet-cpp/ced-tiny-q8_0.gguf
       parameters:
         model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+    variants:
+      - model: parakeet-cpp-realtime-scene-base
+      - model: parakeet-cpp-realtime-scene-speakers
 - kind: model
   id: parakeet-cpp-realtime-scene-tdt
   name: parakeet-cpp-realtime-scene-tdt
@@ -94067,6 +94121,8 @@
       name: nemo-speech-cpp-nemotron-3.5-asr-streaming
       parameters:
         model: nemo-speech-cpp/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+    variants:
+      - model: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
 - kind: model
   id: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
   name: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
@@ -94165,6 +94221,8 @@
       name: nemo-speech-cpp-parakeet-tdt-0.6b-v3
       parameters:
         model: nemo-speech-cpp/parakeet-tdt-0.6b-v3.q8_0.gguf
+    variants:
+      - model: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
 - kind: model
   id: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
   name: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
@@ -95325,6 +95383,9 @@
         use_tokenizer_template: true
     variants:
       - model: swift-1.5-qwen3.8-flash-next-q8
+      - model: swift-1.5-qwen3.8-flash-next-iq2_xs
+      - model: swift-1.5-qwen3.8-flash-next-iq3_s
+      - model: swift-1.5-qwen3.8-flash-next-iq3_xxs
 - kind: model
   id: swift-1.5-qwen3.8-flash-next-q8
   name: swift-1.5-qwen3.8-flash-next-q8
