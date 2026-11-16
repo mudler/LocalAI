@@ -32,10 +32,11 @@
 # The Sandbox add-on needs the reference of its guest image, built into the
 # executable with -X main.guestImage. Set SANDBOX_GUEST_IMAGE to
 # <repository>@sha256:<digest> (the output of the sandbox-images workflow).
-# The media profile has its own image: SANDBOX_GUEST_IMAGE_MEDIA,
-# <repository>@sha256:<digest>, optional. It reaches the executable as the
-# flag -X main.profileImages=media=<ref>; a profile without an image is not
-# offered by that release.
+# The media and office profiles have their own images: SANDBOX_GUEST_IMAGE_MEDIA
+# and SANDBOX_GUEST_IMAGE_OFFICE, each <repository>@sha256:<digest>, optional.
+# They reach the executable as the flag
+# -X main.profileImages=media=<ref>,office=<ref>; a profile without an image is
+# not offered by that release.
 # The darwin/arm64 Sandbox executable is signed ad hoc with the virtualization
 # entitlement (addons/sandbox/package/entitlements.plist), by codesign on a Mac
 # and by rcodesign elsewhere. The script fails when neither exists.
@@ -110,7 +111,7 @@ if [ "$addon" = sandbox ] && [ -z "$addon_root" ]; then
     }
     ldflags="-X main.guestImage=$guest"
     extra=
-    for pair in media:${SANDBOX_GUEST_IMAGE_MEDIA-}; do
+    for pair in media:${SANDBOX_GUEST_IMAGE_MEDIA-} office:${SANDBOX_GUEST_IMAGE_OFFICE-}; do
         ref=${pair#*:}
         [ -n "$ref" ] || continue
         printf '%s\n' "$ref" | grep -E '^[A-Za-z0-9._/:-]+@sha256:[0-9a-f]{64}$' >/dev/null || {

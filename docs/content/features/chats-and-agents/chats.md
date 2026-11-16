@@ -1424,8 +1424,8 @@ it is right after a restart and the same on every frontend of a cluster.
 
 ### Sandbox profile
 
-A Sandbox add-on that declares profiles (the Sandbox does: `base` and
-`media`, see [Sandbox profiles]({{%relref "/addons/contract-reference#sandbox-profiles" %}}))
+A Sandbox add-on that declares profiles (the Sandbox does: `base`, `media` and
+`office`, see [Sandbox profiles]({{%relref "/addons/contract-reference#sandbox-profiles" %}}))
 gives the Tools menu a **Profile** row next to the Network row. It shows the
 profile the next command runs and lets you pick another one. A new chat gets the
 default of the administrator (`media` when the administrator sets none), or the
@@ -2169,7 +2169,11 @@ Other skill preferences remain unchanged.
 
 Sandbox installs PDF helpers inside its guest:
 `/usr/local/lib/localai/document-skills/pdf/content_qa.py` and
-`/usr/local/lib/localai/document-skills/pdf/verify_pdf.py`.
+`/usr/local/lib/localai/document-skills/pdf/verify_pdf.py`. For a presentation it also installs
+`/usr/local/lib/localai/document-skills/pptx/pptx_guard.py` (checks that no shape collapsed to nothing,
+sticks out of the slide or holds text that does not fit) and `render.sh` (renders each slide to a PNG).
+Rendering needs LibreOffice, which only the `office` profile has: the `pptx` skill tells the model to
+switch to it before it builds a deck, and to look at every slide image before it reports the deck done.
 Run them with `python3` through Sandbox commands, not through paths in host skill folders.
 Upgrades remove stale built-in document trees, but preserve user-written skills.
 Use `load_skill` by name; historical physical paths are not a compatibility interface.

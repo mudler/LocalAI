@@ -40,6 +40,14 @@ def normalize(text):
         "in the chat's work folder that the prompt or the note of the turn names (`/workspace/home/Chats/<chat>/work/`), for example `python3 /workspace/home/Chats/<chat>/work/build.py`, or run a one-off script inline with `python3 - <<'EOF'`. Save only")
     # The add-on later said the work folder may also be named in the turn note.
     text = text.replace('that the prompt or the note of the turn names (', 'that the prompt names (')
+    # The office profile later let the pptx skill render and check a deck. Map
+    # its description sentence and its last two sections back to the original
+    # "Not available here" section, which the fingerprints were made from.
+    text = text.replace(
+        ' To build a deck, switch to the `office` sandbox profile, which can render every slide to an image.', '')
+    start = text.find('## Build and check a deck\n')
+    if start != -1:
+        text = text[:start] + '## Not available here\n\nRendering a file to PDF or to images needs LibreOffice, which is not installed here. You cannot check how the file looks. Check it by opening it again with the library and reading back what you wrote, and tell the user that the look was not checked.\n'
     return text
 
 

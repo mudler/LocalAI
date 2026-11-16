@@ -69,10 +69,10 @@ COPY go.mod go.sum ./
 COPY addons/sandbox/internal/sandbox/guestagent ./addons/sandbox/internal/sandbox/guestagent
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags=-s -o /sandbox-agent ./addons/sandbox/internal/sandbox/guestagent/cmd/sandbox-agent
 
-# One userland stage per profile (base, media), each built on the one
-# before it, on the build machine's network. The proxy settings of the guest
-# are set only in the finish block of each target below, so no install runs
-# with the guest proxy. Every target repeats the finish block; it is short.
+# One userland stage per profile (base, media, office), each built on the one
+# before it (office is built on base, not on media), on the build machine's
+# network. The proxy settings of the guest are set only in the finish block of
+# each target below, so no install runs with the guest proxy. Every target repeats the finish block; it is short.
 FROM ${DEBIAN} AS base-tools
 RUN set -eux; \
     apt-get update; \
@@ -123,12 +123,48 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     sh /usr/local/lib/localai/check-tools.sh media /usr/local/lib/localai/manifest.json
 
+# office: base plus LibreOffice Impress and fonts, to render a presentation to
+# PDF. Only Impress is installed, with no recommended packages and no Java:
+# that is what the .pptx to PDF conversion needs. Carlito and Caladea have the
+# metrics of Calibri and Cambria, so line breaks match PowerPoint. The two
+# checks convert a real deck and look for the fonts.
+FROM base-tools AS office-tools
+COPY addons/sandbox/images/guest/check-office-convert addons/sandbox/images/guest/check-office-fonts /usr/local/bin/
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends libreoffice-impress fontconfig fonts-dejavu-core fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea; \
+    rm -rf /var/lib/apt/lists/*; \
+    fc-cache -f; \
+    sh /usr/local/lib/localai/check-tools.sh office /usr/local/lib/localai/manifest.json
+
 # Target media. The media profile.
 FROM media-tools AS media
 ARG IMAGE_VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.description="Guest image of the LocalAI Sandbox add-on, profile media"
+# The guest has no network device. Every tool must use the proxy on the
+# loopback interface; the sandbox serves it with a host port handler.
+ENV HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 NO_PROXY=localhost,127.0.0.1 \
+    http_proxy=http://127.0.0.1:3128 https_proxy=http://127.0.0.1:3128 no_proxy=localhost,127.0.0.1
+# Go and npm fetch from their registries through the proxy, not from version
+# control hosts directly (GOPROXY without ",direct"). cargo and uv read
+# HTTPS_PROXY.
+ENV GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod \
+    npm_config_proxy=http://127.0.0.1:3128 npm_config_https_proxy=http://127.0.0.1:3128
+RUN set -eux; \
+    printf '[global]\nproxy = http://127.0.0.1:3128\nbreak-system-packages = true\n' > /etc/pip.conf; \
+    printf 'Acquire::http::Proxy "http://127.0.0.1:3128";\nAcquire::https::Proxy "http://127.0.0.1:3128";\n' > /etc/apt/apt.conf.d/80proxy; \
+    git config --system http.proxy http://127.0.0.1:3128
+COPY --from=kernel /vmlinux /boot/vmlinux
+COPY --from=agent /sandbox-agent /sbin/sandbox-agent
+
+# Target office. The office profile.
+FROM office-tools AS office
+ARG IMAGE_VERSION=dev
+LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.description="Guest image of the LocalAI Sandbox add-on, profile office"
 # The guest has no network device. Every tool must use the proxy on the
 # loopback interface; the sandbox serves it with a host port handler.
 ENV HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 NO_PROXY=localhost,127.0.0.1 \
