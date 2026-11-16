@@ -70,7 +70,7 @@ type RemovedAgentWorkerOptions struct {
 	APIToken        string `env:"LOCALAI_API_TOKEN" hidden:"" help:"Removed; ignored"`
 	Subject         string `env:"LOCALAI_AGENT_SUBJECT" hidden:"" help:"Removed; ignored"`
 	Queue           string `env:"LOCALAI_AGENT_QUEUE" hidden:"" help:"Removed; ignored"`
-	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" hidden:"" help:"Removed; ignored"`
+	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" hidden:"" help:"Removed on agent-worker; ignored there. The server still reads it."`
 }
 
 // setOptions returns the first environment variable name of each field of the

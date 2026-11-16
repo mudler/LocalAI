@@ -507,7 +507,7 @@ func AgentFeatureMetas() []FeatureMeta {
 		{FeatureLocalAIAssistant, "LocalAI Assistant", false},
 		{FeatureAgents, "Saved agents", false},
 		{FeatureTriggers, "Scheduled triggers", false},
-		{FeatureConnectors, "Chat connectors (Telegram bots)", false},
+		{FeatureConnectors, "Chat connectors", false},
 		{FeatureMCPJobs, "Agent tasks and jobs", false},
 		{FeaturePages, "Pages (HTML pages in the workspace)", false},
 	}

@@ -130,7 +130,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
-| `--f16` | `false` | Enable GPU acceleration | `$LOCALAI_F16`, `$F16` |
+| `--f16` | `false` | Default to 16-bit float (f16) memory and KV cache for models whose config does not set f16 | `$LOCALAI_F16`, `$F16` |
 | `-t, --threads` | Automatic | Number of threads used for parallel computation. See the default thread count below | `$LOCALAI_THREADS`, `$THREADS` |
 | `--context-size` | | Context size for models that set no `context_size` (`-1` = each model's full trained context from GGUF metadata). Unset: automatic, 32768 for a model that can serve chats (capped by its trained window and by memory), at most 8192 for other models | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
 
