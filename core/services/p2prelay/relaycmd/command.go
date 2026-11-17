@@ -90,16 +90,21 @@ func (c *Command) Config() (p2prelay.RunConfig, error) {
 	return cfg, nil
 }
 
-// Execute runs the relay until the process gets SIGINT or SIGTERM.
-func (c *Command) Execute() error {
+// Execute runs the relay until ctx ends or the process gets SIGINT or SIGTERM. With
+// --json, standard output carries only the JSON banner line: every log line
+// goes to standard error.
+func (c *Command) Execute(ctx context.Context, logs LogSettings) error {
 	if c.Healthcheck {
 		return c.healthcheck()
+	}
+	if c.JSON {
+		SetLogger(logs, true)
 	}
 	cfg, err := c.Config()
 	if err != nil {
 		return err
 	}
-	return p2prelay.Run(context.Background(), cfg)
+	return p2prelay.Run(ctx, cfg)
 }
 
 // healthcheck connects to the relay's TCP port on this host.

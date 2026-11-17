@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/services/p2prelay/relaycmd"
 )
@@ -11,4 +13,6 @@ type P2PRelayCMD struct {
 	relaycmd.Command `embed:""`
 }
 
-func (c *P2PRelayCMD) Run(_ *cliContext.Context) error { return c.Execute() }
+func (c *P2PRelayCMD) Run(ctx *cliContext.Context) error {
+	return c.Execute(context.Background(), relaycmd.NewLogSettings(ctx.Debug, ctx.LogLevel, ctx.LogFormat, ctx.LogDedupLogs))
+}
