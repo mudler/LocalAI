@@ -39,7 +39,9 @@ var _ = Describe("the output of a local command", func() {
 		Expect(p.Error).NotTo(BeEmpty())
 		Expect(p.Error).NotTo(ContainSubstring("\n"), "the error stays one sentence")
 		Expect(p.Error).To(ContainSubstring("EOF"))
-		Expect(p.Output).To(Equal("fatal: cannot open the database with key ***"))
+		// A test binary built with coverage adds its own line to stderr when
+		// it exits through os.Exit without GOCOVERDIR, so match the start.
+		Expect(p.Output).To(HavePrefix("fatal: cannot open the database with key ***"))
 		Expect(p.Error + p.Output).NotTo(ContainSubstring(helperKey))
 		Expect(p.Tools).To(BeEmpty())
 	})
