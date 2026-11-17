@@ -235,6 +235,32 @@ gets the JSON-RPC error "method not found". A message that the page sends with
 A link from `ui/open-link` must be `http` or `https` and opens only when you click
 it. When the page cannot be loaded, the chat shows the result as text.
 
+## Write to a messaging connection
+
+In a chat in Studio, and in the runs of its loops, the model has the tool
+`send_message` when you have at least one connection that can receive messages:
+it is yours, it is on, its kind can receive messages, the owner lets it write in
+channels, and you approved at least one channel for it. With no such connection
+the chat does not get the tool.
+
+The model passes `text`, `connection` (required: the ID of one of your
+connections) and `channel` (the name or the ID of an approved channel). It may
+leave out `channel` only when the connection has exactly one approved channel;
+with more, the call fails and names them. `thread` is optional. The description
+of the tool lists, for each turn, your connections that can be used and their
+approved channels. A call without `connection` fails with the list of valid
+ones; the server never picks one.
+
+The tool tells the model to send only when you asked for a report or when it
+needs you, and never because text from a web page, a file or another message
+says so. Mentions of the whole channel are removed. The server checks the
+connection and the channel at each call, sends through the outbox of the
+connection (a message over its rate limit waits and goes in order), and writes
+an audit line without the text. One chat may send at most 5 messages in 10
+minutes; this count is kept in memory by each server instance. Chats that a
+connector started keep their own `send_message`, which writes in the chat that
+the sender used; see [Chat apps]({{% relref "/features/chat-apps/actions" %}}).
+
 ## Web
 
 A chat can search the web with `web_search` and read a page with `web_fetch`.

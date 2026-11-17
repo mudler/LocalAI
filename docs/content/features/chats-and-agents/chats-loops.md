@@ -55,6 +55,21 @@ stop it. Type `/loop` in the message box, or use the API.
   a chat that a trigger, a job, a page or a connector started ends after a fifth
   of the run limit (20 runs by default). The runs of a loop have no sender, so
   a connector chat keeps `schedule_next` and `loop_done` while its loop runs.
+- **Report to a messaging app.** `start_loop` takes an optional `report`
+  object: `connection` (the ID of one of your connections), `channel` (a channel
+  that you approved for it) and `mode`. `on_done` sends the summary that
+  `loop_done` gives. `on_problem` sends a message when a run fails, when the
+  loop stops at its run limit or because the model asked for no further run,
+  and when the system pauses or stops it. `never`, or no `report`, sends
+  nothing. The destination must pass the same checks as the delivery of a
+  trigger: the connection is yours, is on, is of a kind that can receive
+  messages (not a service that agents use only as a tool), the owner lets it
+  write in channels, and the channel is approved. The checks run again at each
+  delivery, so a connection that you switch off later receives nothing. The loop
+  shows the destination and the mode in its line above the message box and in
+  `/loop list`, and the API gives them in the `report` field of the loop. If a
+  delivery fails, the server logs it and the loop goes on. The tool
+  `send_message` is separate: a call to it does not depend on `report`.
 - **Sub-agents.** A sub-agent can start a loop, end its turn and wait. The
   parent is not told that the sub-agent finished until its loop ends: by
   `loop_done`, the run limit, a pause after failed runs, or a stop. Then the
