@@ -939,7 +939,7 @@ test-extra-backend-vllm: docker-build-vllm
 	$(MAKE) test-extra-backend
 
 ## vllm multi-node data-parallel smoke test. Runs LocalAI head + a
-## `local-ai p2p-worker vllm` follower in docker compose against
+## `local-ai worker vllm` follower in docker compose against
 ## Qwen2.5-0.5B with data_parallel_size=2. Requires 2 NVIDIA GPUs and
 ## nvidia-container-runtime on the host — vLLM v1's DP coordinator is
 ## not viable on CPU so this cannot run in CI without GPU.

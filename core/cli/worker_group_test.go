@@ -1,0 +1,73 @@
+package cli
+
+import (
+	"strings"
+
+	"github.com/alecthomas/kong"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/config"
+)
+
+// parseCLI parses args against a copy of the real command tree, with the
+// variables cmd/local-ai/main.go supplies.
+func parseCLI(args ...string) (*kong.Context, error) {
+	app := CLI
+	k, err := kong.New(&app, kong.Vars{
+		"basepath":             kong.ExpandPath("."),
+		"generatedcontentpath": DefaultGeneratedContentPath(),
+		"uploadpath":           DefaultUploadPath(),
+		"galleries":            config.DefaultGalleriesJSON,
+		"backends":             config.DefaultBackendGalleriesJSON,
+		"version":              "test",
+	})
+	Expect(err).ToNot(HaveOccurred())
+	return k.Parse(args)
+}
+
+var _ = Describe("worker command group", func() {
+	// `local-ai worker --flags` is the distributed-mode worker it always was; the
+	// old p2p-worker name reaches the same group.
+	DescribeTable("selects the command",
+		func(args []string, want string) {
+			ctx, err := parseCLI(args...)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ctx.Command()).To(HavePrefix(want))
+		},
+		Entry("worker with flags is the default child", []string{"worker", "--register-to=http://x", "--nats-url=nats://x"}, "worker run"),
+		Entry("worker run", []string{"worker", "run", "--register-to=http://x", "--nats-url=nats://x"}, "worker run"),
+		Entry("llama-cpp-rpc", []string{"worker", "llama-cpp-rpc"}, "worker llama-cpp-rpc"),
+		Entry("mlx-distributed", []string{"worker", "mlx-distributed", "--hostfile=h", "--rank=0"}, "worker mlx-distributed"),
+		Entry("p2p-worker llama-cpp-rpc", []string{"p2p-worker", "llama-cpp-rpc"}, "worker llama-cpp-rpc"),
+		Entry("p2p-worker vllm", []string{"p2p-worker", "vllm", "some/model"}, "worker vllm <model>"),
+		Entry("p2p-worker with flags is the default child", []string{"p2p-worker", "--register-to=http://x", "--nats-url=nats://x"}, "worker run"),
+	)
+
+	It("keeps the removed P2P workers parseable so that they can explain themselves", func() {
+		for _, args := range [][]string{{"worker", "p2p-llama-cpp-rpc", "--token", "x"}, {"p2p-worker", "p2p-mlx", "--token=x", "--p2p-enable-limits=true"}} {
+			ctx, err := parseCLI(args...)
+			Expect(err).ToNot(HaveOccurred(), "%v", args)
+			Expect(ctx.Run(&cliContext.Context{})).To(MatchError(ContainSubstring("was removed")))
+		}
+	})
+
+	It("lists the new p2p commands", func() {
+		for _, cmd := range []string{"relay", "relays add", "relays remove", "relays list", "relays check", "id", "status", "pair --invite=x", "forward --peer=x --listen=127.0.0.1:1"} {
+			ctx, err := parseCLI(append([]string{"p2p"}, strings.Fields(cmd)...)...)
+			if cmd == "relays add" || cmd == "relays remove" {
+				Expect(err).To(HaveOccurred(), "needs an argument")
+				continue
+			}
+			Expect(err).ToNot(HaveOccurred(), cmd)
+			Expect(ctx.Command()).To(HavePrefix("p2p "))
+		}
+	})
+
+	It("fails every p2p command that is not wired yet, naming it", func() {
+		ctx, err := parseCLI("p2p", "relay")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ctx.Run(&cliContext.Context{})).To(MatchError(ContainSubstring("local-ai p2p relay is not available")))
+	})
+})

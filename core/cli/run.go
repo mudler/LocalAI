@@ -19,7 +19,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/http/tlsconf"
-	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
@@ -31,19 +30,11 @@ import (
 )
 
 // CLI Flag Naming Convention:
-// All CLI flags use kebab-case (e.g., --backends-path, --p2p-token).
+// All CLI flags use kebab-case (e.g., --backends-path, --p2p-mode).
 // When renaming flags, add the old name as an alias for backward compatibility
 // and document the deprecation in the help text.
 
-// workerJoinCommand is the command a user runs on another node to join the
-// P2P network with a llama.cpp worker. It is printed after `run --p2p`
-// generates a token, and a test parses it against the CLI so it cannot drift
-// from the command tree again (it named the pre-v4 `worker` command for a
-// release cycle).
-const workerJoinCommand = "local-ai p2p-worker p2p-llama-cpp-rpc"
-
 type RunCMD struct {
-	P2PEnableLimits              string `name:"p2p-enable-limits" env:"LOCALAI_P2P_ENABLE_LIMITS" help:"Set to true to enable P2P resource limits" group:"p2p"`
 	AddonHostPolicy              string `name:"addon-host-policy" env:"LOCALAI_ADDON_HOST_POLICY" help:"Absolute path to administrator host operation policy JSON, read once at startup. Empty disables environment policy" group:"addons"`
 	AddonHostOps                 string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
 	AddonHostDeny                string `name:"addon-host-deny" env:"LOCALAI_ADDON_HOST_DENY" help:"Host operations no grant may enable, as a comma list of addon-id=operation (a prefix such as egress., an exact name or *). Use *=prefix for every add-on. Deny always wins over grants and is unioned with the deny rules of the policy file" group:"addons"`
@@ -141,11 +132,7 @@ type RunCMD struct {
 	AllowInsecurePublicBind            bool          `env:"LOCALAI_ALLOW_INSECURE_PUBLIC_BIND" default:"false" help:"Allow binding the API to a public-internet address without any authentication configured. Without this flag the server refuses to start when the bind address is public (or a wildcard on a host with a public interface) and no auth backend or static API key is set. Loopback, RFC 1918 LAN, ULA, link-local, and CGNAT (Tailscale) ranges are accepted regardless." group:"hardening"`
 	DisableMetricsEndpoint             bool          `env:"LOCALAI_DISABLE_METRICS_ENDPOINT,DISABLE_METRICS_ENDPOINT" default:"false" help:"Disable the /metrics endpoint" group:"api"`
 	HttpGetExemptedEndpoints           []string      `env:"LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS" default:"^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/explorer/?$,^/assets/.*$,^/static/.*$,^/swagger.*$" help:"If LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET is overriden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review" group:"hardening"`
-	Peer2Peer                          bool          `env:"LOCALAI_P2P,P2P" name:"p2p" default:"false" help:"Enable P2P mode" group:"p2p"`
-	Peer2PeerDHTInterval               int           `env:"LOCALAI_P2P_DHT_INTERVAL,P2P_DHT_INTERVAL" default:"360" name:"p2p-dht-interval" help:"Interval for DHT refresh (used during token generation)" group:"p2p"`
-	Peer2PeerOTPInterval               int           `env:"LOCALAI_P2P_OTP_INTERVAL,P2P_OTP_INTERVAL" default:"9000" name:"p2p-otp-interval" help:"Interval for OTP refresh (used during token generation)" group:"p2p"`
-	Peer2PeerToken                     string        `env:"LOCALAI_P2P_TOKEN,P2P_TOKEN,TOKEN" name:"p2p-token" aliases:"p2ptoken" help:"Token for P2P mode (optional; --p2ptoken is deprecated, use --p2p-token)" group:"p2p"`
-	Peer2PeerNetworkID                 string        `env:"LOCALAI_P2P_NETWORK_ID,P2P_NETWORK_ID" help:"Network ID for P2P mode, can be set arbitrarly by the user for grouping a set of instances" group:"p2p"`
+	P2PMode                            string        `name:"p2p-mode" env:"LOCALAI_P2P_MODE" default:"off" enum:"off,connect,share" help:"P2P mode: off, connect (dial out to remotes over P2P, accept nobody; needs no authentication) or share (connect, and accept paired devices; needs authentication)" group:"p2p"`
 	SingleActiveBackend                bool          `env:"LOCALAI_SINGLE_ACTIVE_BACKEND,SINGLE_ACTIVE_BACKEND" help:"Allow only one backend to be run at a time (deprecated: use --max-active-backends=1 instead)" group:"backends"`
 	MaxActiveBackends                  int           `env:"LOCALAI_MAX_ACTIVE_BACKENDS,MAX_ACTIVE_BACKENDS" default:"0" help:"Maximum number of backends to keep loaded at once (0 = unlimited, 1 = single backend mode). Least recently used backends are evicted when limit is reached" group:"backends"`
 	PreloadBackendOnly                 bool          `env:"LOCALAI_PRELOAD_BACKEND_ONLY,PRELOAD_BACKEND_ONLY" default:"false" help:"Do not launch the API services, only the preloaded models / backends are started (useful for multi-node setups)" group:"backends"`
@@ -163,7 +150,6 @@ type RunCMD struct {
 	LRUEvictionMaxRetries              int           `env:"LOCALAI_LRU_EVICTION_MAX_RETRIES,LRU_EVICTION_MAX_RETRIES" default:"30" help:"Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)" group:"backends"`
 	LRUEvictionRetryInterval           string        `env:"LOCALAI_LRU_EVICTION_RETRY_INTERVAL,LRU_EVICTION_RETRY_INTERVAL" default:"1s" help:"Interval between retries when waiting for busy models to become idle (e.g., 1s, 2s) (default: 1s)" group:"backends"`
 	ModelLoadFailureCooldown           string        `env:"LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN,MODEL_LOAD_FAILURE_COOLDOWN" default:"10s" help:"After a model load fails, refuse new load attempts for that model for this long (returned as HTTP 503 + Retry-After) so a client polling a broken model doesn't respawn a crashing backend every request. Doubles per consecutive failure up to 5m; reset on success. Set to 0 to disable (e.g., 10s, 30s)" group:"backends"`
-	Federated                          bool          `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
 	DisableGalleryEndpoint             bool          `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 	DisableMCP                         bool          `env:"LOCALAI_DISABLE_MCP,DISABLE_MCP" help:"Disable MCP (Model Context Protocol) support" group:"api" default:"false"`
 	MachineTag                         string        `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
@@ -335,6 +321,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	r.RemovedAssistantOptions.warn()
 	r.resolveLegacyCollections()
 	r.normalizeDataPath()
+	if err := r.checkRemovedOptions(); err != nil {
+		return err
+	}
+	if err := r.resolveP2PMode(); err != nil {
+		return err
+	}
 	if err := r.TorrentFlags.Apply(); err != nil {
 		return err
 	}
@@ -471,7 +463,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithSubtleKeyComparison(r.UseSubtleKeyComparison),
 		config.WithDisableApiKeyRequirementForHttpGet(r.DisableApiKeyRequirementForHttpGet),
 		config.WithHttpGetExemptedEndpoints(r.HttpGetExemptedEndpoints),
-		config.WithP2PNetworkID(r.Peer2PeerNetworkID),
 		config.WithLoadToMemory(r.LoadToMemory),
 		config.WithMachineTag(r.MachineTag),
 		config.WithAPIAddress(r.Address),
@@ -674,28 +665,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	opts = append(opts, config.WithTracingMaxItems(r.TracingMaxItems))
 	opts = append(opts, config.WithTracingMaxBodyBytes(r.TracingMaxBodyBytes))
 
-	token := ""
-	if r.Peer2Peer || r.Peer2PeerToken != "" {
-		xlog.Info("P2P mode enabled")
-		token = r.Peer2PeerToken
-		if token == "" {
-			// IF no token is provided, and p2p is enabled,
-			// we generate one and wait for the user to pick up the token (this is for interactive)
-			xlog.Info("No token provided, generating one")
-			token = p2p.GenerateToken(r.Peer2PeerDHTInterval, r.Peer2PeerOTPInterval)
-			xlog.Info("Generated Token:")
-			fmt.Println(token)
-
-			xlog.Info("To use the token, you can run the following command in another node or terminal:")
-			fmt.Printf("export TOKEN=\"%s\"\n%s\n", token, workerJoinCommand)
-		}
-		opts = append(opts, config.WithP2PToken(token), config.WithP2PEnableLimits(r.P2PEnableLimits == "true"))
-	}
-
-	if r.Federated {
-		opts = append(opts, config.EnableFederated)
-	}
-
 	idleWatchDog := r.EnableWatchdogIdle
 	busyWatchDog := r.EnableWatchdogBusy
 
@@ -788,7 +757,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 
 	// Authentication
-	authEnabled := r.AuthEnabled || r.GitHubClientID != "" || r.OIDCClientID != ""
+	authEnabled := r.authEnabled()
 	addonCfg, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, r.DataPath, authEnabled, addonRoleFlags{Role: r.AddonsRole, OwnerAddress: r.AddonsOwnerAddress, OwnerListen: r.AddonsOwnerListen, CarrierDir: r.AddonsCarrierDir})
 	if err != nil {
 		cancelRun(nil)
@@ -1078,13 +1047,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		xlog.Info("Using systemd socket activation listener", "address", listenAddress)
 	}
 	xlog.Info("LocalAI is started and running", "address", listenAddress)
-
-	// Start P2P if token was provided via CLI/env or loaded from runtime_settings.json
-	if token != "" || app.ApplicationConfig().P2PToken != "" {
-		if err := app.StartP2P(); err != nil {
-			return err
-		}
-	}
 
 	// Drain first: stop accepting, flip /readyz, let in-flight requests (chat
 	// streams included) finish. The hooks below run once the drain ends.

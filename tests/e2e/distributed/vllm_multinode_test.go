@@ -40,7 +40,7 @@ engine_args:
   max_model_len: 512
 `
 
-// End-to-end smoke for `local-ai p2p-worker vllm`. Two containers from
+// End-to-end smoke for `local-ai worker vllm`. Two containers from
 // the locally-built `local-ai:tests` image — head + headless follower
 // — share a docker network and a backend bind-mount (so the cpu-vllm
 // backend extracted by `make extract-backend-vllm` is seen as a system
@@ -143,12 +143,12 @@ var _ = Describe("vLLM multi-node DP on CPU", Ordered, Label("Distributed", "VLL
 		})
 
 		// Follower: rank 1, headless. Speaks ZMQ directly to the head
-		// rank — no LocalAI gRPC; `p2p-worker vllm` exec's vllm serve.
+		// rank — no LocalAI gRPC; `worker vllm` exec's vllm serve.
 		follower, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 			ContainerRequest: testcontainers.ContainerRequest{
 				Image: imageRef,
 				Cmd: []string{
-					"p2p-worker", "vllm", "Qwen/Qwen2.5-0.5B-Instruct",
+					"worker", "vllm", "Qwen/Qwen2.5-0.5B-Instruct",
 					"--data-parallel-size=2",
 					"--data-parallel-size-local=1",
 					"--start-rank=1",
