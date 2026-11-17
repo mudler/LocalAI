@@ -119,7 +119,22 @@
     "noUsableTitle": "No usable models.",
     "noUsableText": "The remote answered, but it lists no models this server can use.",
     "refreshWarn": "Refreshed {{name}}, but it has no usable models.",
-    "authTextLocalai": "Use a key that can list the models of that server, then connect again."
+    "authTextLocalai": "Use a key that can list the models of that server, then connect again.",
+    "p2p": {
+      "badge": "P2P",
+      "path": {
+        "direct": "Direct",
+        "hole_punched": "Hole punched",
+        "relayed": "Through a relay"
+      },
+      "limited": "limited",
+      "state": {
+        "off": "P2P is off",
+        "listening": "Not used yet",
+        "down": "Not reachable",
+        "error": "Tunnel not running"
+      }
+    }
   },
   "empty": {
     "title": "No remotes connected",
