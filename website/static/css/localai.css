@@ -345,3 +345,4 @@ html.rv-on .rv { transition: opacity .3s ease, transform .3s ease; }
 .dlb__ico { width: 20px; height: 20px; flex: none; fill: currentColor; }
 .dlb__opt .dlb__ico { grid-row: 1 / span 2; }
 .dlb .btn svg.dlb__ico { fill: currentColor; stroke: none; }
+.hero__oss { margin: .7rem 0 0; }

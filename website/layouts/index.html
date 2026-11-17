@@ -10,6 +10,7 @@
     <div>
       <h1>Your own AI, on your own hardware.</h1>
       <p class="lede">Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, and the assistant can write and run code.</p>
+      <p class="alts hero__oss">Open source under the MIT licence. {{ if ge $s.stars 50000 }}{{ lang.FormatNumberCustom 0 (mul (div $s.stars 1000) 1000) }}+{{ else }}{{ lang.FormatNumberCustom 0 $s.stars }}{{ end }} <a href="{{ .Site.Params.github }}">stars on GitHub</a>.</p>
       <div class="acts">
         <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
         <a class="btn btn--o" href="#whats-new">See what is new</a>
