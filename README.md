@@ -16,7 +16,7 @@
 <a href="https://localai.io/blog/">Blog</a>
 </p>
 
-**LocalAI** runs open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top. It runs on a laptop, a server, in a container or on Kubernetes, and a distributed mode spreads models over several machines. No GPU needed, though a GPU makes it faster.
+**LocalAI** runs open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, plus coding, even small apps. It runs on a laptop, a server, in a container or on Kubernetes, and a distributed mode spreads models over several machines. No GPU needed, though a GPU makes it faster.
 
 - **Chats, agents, Projects and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, Knowledge collections and skills. [Projects](https://localai.io/docs/features/projects/) group chats, files, notes and agents around one piece of work. Users, roles, quotas and shared folders for a team (development builds).
 - **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps, mail, calendar and more (development builds).
