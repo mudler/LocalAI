@@ -126,20 +126,15 @@ func FuzzParseLink(f *testing.F) {
 	f.Add("localai://pair?v=1&k=remote&p=bad&c=&e=0&n=&o=,&r=%2Fip4%2F1.1.1.1%2Ftcp%2F1")
 	f.Add("")
 	f.Fuzz(func(t *testing.T, s string) {
+		g := NewWithT(t)
 		l, err := p2ppair.ParseLink(s)
 		if err != nil {
-			if !errors.Is(err, p2ppair.ErrBadLink) {
-				t.Fatalf("error %v does not wrap ErrBadLink", err)
-			}
+			g.Expect(err).To(MatchError(p2ppair.ErrBadLink), "the error must wrap ErrBadLink")
 			return
 		}
 		out := l.String()
 		again, err := p2ppair.ParseLink(out)
-		if err != nil {
-			t.Fatalf("parsed %q but its own output %q does not parse: %v", s, out, err)
-		}
-		if again.String() != out {
-			t.Fatalf("not stable: %q vs %q", again.String(), out)
-		}
+		g.Expect(err).ToNot(HaveOccurred(), "parsed %q but its own output %q does not parse", s, out)
+		g.Expect(again.String()).To(Equal(out), "the output is not stable")
 	})
 }

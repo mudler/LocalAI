@@ -180,7 +180,9 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (*Minted, error) {
 	}
 	if err := s.st.CreateInvite(ctx, inv, code); err != nil {
 		if pass != "" {
-			s.cancelPass(ctx, passRelay, inv.ID)
+			// The store error is the one the caller needs; cancelPass logs
+			// its own failure and the pass expires with its TTL anyway.
+			_ = s.cancelPass(ctx, passRelay, inv.ID)
 		}
 		return nil, err
 	}
