@@ -57,6 +57,9 @@ type p2pNet struct {
 
 	handlers atomic.Pointer[p2pHandlers]
 
+	// tunnels are the forwarders of the remotes over P2P.
+	tunnels p2pTunnels
+
 	// relayFactory builds the relay manager; nil when this build has none
 	// (relay operations then answer 503).
 	relayFactory func(relayManagerConfig) (relayManager, error)
@@ -103,7 +106,10 @@ type p2pRuntime struct {
 }
 
 func (a *Application) p2p() *p2pNet {
-	a.p2pNetOnce.Do(func() { a.p2pNet = &p2pNet{app: a, relayFactory: newRelayManager} })
+	a.p2pNetOnce.Do(func() {
+		a.p2pNet = &p2pNet{app: a, relayFactory: newRelayManager}
+		a.p2pNet.tunnels.n = a.p2pNet
+	})
 	return a.p2pNet
 }
 
@@ -161,6 +167,7 @@ func (n *p2pNet) restart() error {
 	n.rt = rt
 	if rt != nil {
 		xlog.Info("P2P started", "mode", string(mode), "peer", rt.host.ID().String())
+		n.tunnels.start(rt)
 	}
 	return nil
 }
@@ -177,6 +184,7 @@ func (n *p2pNet) stopLocked() {
 	if n.rt == nil {
 		return
 	}
+	n.tunnels.stop()
 	n.rt.close()
 	n.rt = nil
 }

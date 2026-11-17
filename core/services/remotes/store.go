@@ -35,6 +35,24 @@ type record struct {
 	Created     time.Time       `json:"created"`
 	// Sealed is the encrypted key; nil means no key.
 	Sealed []byte `json:"sealed,omitempty"`
+	// Transport and P2P describe a remote over P2P; URL is then
+	// p2p://<peer ID>.
+	Transport Transport  `json:"transport,omitempty"`
+	P2P       *p2pRecord `json:"p2p,omitempty"`
+}
+
+// p2pRecord is how this server reaches a remote over P2P.
+type p2pRecord struct {
+	Peer   string   `json:"peer"`
+	Addrs  []string `json:"addrs,omitempty"`
+	Relays []string `json:"relays,omitempty"`
+	// Port is the loopback port of the forwarder, kept so that the
+	// upstream address of the entries never changes.
+	Port int `json:"port"`
+}
+
+func (r record) tunnel() Tunnel {
+	return Tunnel{ID: r.ID, Peer: r.P2P.Peer, Addrs: slices.Clone(r.P2P.Addrs), Relays: slices.Clone(r.P2P.Relays), Port: r.P2P.Port}
 }
 
 func (r record) clone() record {
@@ -42,6 +60,11 @@ func (r record) clone() record {
 	r.Unavailable = slices.Clone(r.Unavailable)
 	r.New = slices.Clone(r.New)
 	r.Sealed = slices.Clone(r.Sealed)
+	if r.P2P != nil {
+		p := *r.P2P
+		p.Addrs, p.Relays = slices.Clone(p.Addrs), slices.Clone(p.Relays)
+		r.P2P = &p
+	}
 	if r.LastRefresh != nil {
 		t := *r.LastRefresh
 		r.LastRefresh = &t
@@ -57,6 +80,7 @@ func (r record) view() Remote {
 		Entries:     make([]string, 0, len(r.Owned)),
 		Unavailable: slices.Clone(r.Unavailable),
 		New:         slices.Clone(r.New),
+		Transport:   r.Transport,
 	}
 	if c.Status == "" {
 		c.Status = StatusNever

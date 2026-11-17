@@ -65,6 +65,9 @@ func normalizeURL(kind Kind, raw string) (*url.URL, error) {
 			return nil, upstreamErr(StepInvalidURL, "Enter the address of the server.")
 		}
 	}
+	if strings.HasPrefix(strings.ToLower(raw), p2pScheme) {
+		return nil, upstreamErr(StepInvalidURL, "A server over P2P is added with an invite link, not with its address.")
+	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, upstreamErr(StepInvalidURL, "The address must start with http:// or https:// and name a host.")

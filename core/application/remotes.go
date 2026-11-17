@@ -72,12 +72,21 @@ func (a *Application) startRemotes(ctx context.Context) {
 	if a.galleryService != nil {
 		opts.Broadcaster = a.galleryService
 	}
+	if a.distributed == nil {
+		// A model of a remote over P2P loads in this process and reaches the
+		// remote through this server's loopback forwarder. In distributed
+		// mode it may load on a worker, which cannot, so such remotes are
+		// refused there.
+		opts.Tunnels = a.RemoteTunnels()
+	}
 	svc, err := remotes.New(opts)
 	if err != nil {
 		xlog.Error("Remotes are unavailable", "error", err)
 		return
 	}
 	a.remotes = svc
+	// Register the forwarders before P2P starts, so they open with it.
+	remotes.StartTunnels(ctx, svc)
 	// One resolver per process: the key of a model load comes from here.
 	config.SetProxyKeyResolver(svc)
 

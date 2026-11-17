@@ -35,13 +35,20 @@ type RemoteTestRequest struct {
 	APIKey string       `json:"api_key"` // write-only
 }
 
-// RemoteCreateRequest is the body of POST /api/remotes.
+// RemoteCreateRequest is the body of POST /api/remotes. With invite set
+// the remote is a LocalAI over P2P: url and api_key stay empty and name is
+// optional.
 type RemoteCreateRequest struct {
 	Kind   remotes.Kind            `json:"kind"`
 	Name   string                  `json:"name"`
 	URL    string                  `json:"url"`
 	APIKey string                  `json:"api_key"` // write-only
 	Models []remotes.UpstreamModel `json:"models"`
+	// Invite is an invite link of kind remote (localai://pair?...).
+	// Write-only: it is a one-time credential.
+	Invite string `json:"invite,omitempty"`
+	// AllowOpenRelay accepts an invite that names an open relay.
+	AllowOpenRelay bool `json:"allow_open_relay,omitempty"`
 }
 
 // RemoteUpdateRequest is the body of PATCH /api/remotes/{id}. An
@@ -65,6 +72,9 @@ type RemoteResultResponse struct {
 	Created []string       `json:"created"`
 	Skipped []remotes.Skip `json:"skipped"`
 	Warning string         `json:"warning,omitempty"`
+	// Phrase is the confirmation phrase of a remote added by invite: the
+	// other server shows the same words in its device list.
+	Phrase string `json:"phrase,omitempty"`
 }
 
 // Warnings of a partial create or adopt.
@@ -147,7 +157,7 @@ func decodeRemoteBody(c echo.Context, dst any) bool {
 }
 
 func remoteResult(r remotes.Result) RemoteResultResponse {
-	out := RemoteResultResponse{Remote: r.Remote, Created: r.Created, Skipped: r.Skipped}
+	out := RemoteResultResponse{Remote: r.Remote, Created: r.Created, Skipped: r.Skipped, Phrase: r.Phrase}
 	if out.Created == nil {
 		out.Created = []string{}
 	}
@@ -201,7 +211,7 @@ func CheckRemoteEndpoint(get RemotesProvider) echo.HandlerFunc {
 // CreateRemoteEndpoint saves a remote and adopts the chosen models.
 //
 //	@Summary	Create a remote
-//	@Description	Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in "skipped" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with "warning" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.
+//	@Description	Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. With "invite" (an invite link of kind remote from another LocalAI) the server redeems the invite over P2P, keeps the key the other server issues, and reaches it through a forwarder on a loopback port; P2P must be on (mode connect or share), url and api_key must be empty, and the answer carries the confirmation "phrase". Models that cannot be adopted are listed in "skipped" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with "warning" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.
 //	@Tags		remotes
 //	@Accept		json
 //	@Produce	json
@@ -224,6 +234,7 @@ func CreateRemoteEndpoint(get RemotesProvider) echo.HandlerFunc {
 		}
 		res, err := svc.Create(c.Request().Context(), remotes.CreateRequest{
 			Kind: req.Kind, Name: req.Name, URL: req.URL, APIKey: req.APIKey, Models: req.Models,
+			Invite: req.Invite, AllowOpenRelay: req.AllowOpenRelay,
 		})
 		if errors.Is(err, remotes.ErrPartial) && res.Remote.ID != "" {
 			return partialResult(c, "create", http.StatusCreated, res, err, remoteCreateWarning)

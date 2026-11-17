@@ -58,6 +58,10 @@ type Options struct {
 	// a refresh only when its model is neither loaded nor on disk there. With
 	// it empty nothing is dropped.
 	ModelsPath string
+	// Tunnels connects remotes over P2P. Nil means that this server cannot
+	// add them (distributed mode: a model of the remote may load on a
+	// worker, which cannot reach this server's loopback forwarder).
+	Tunnels Tunnels
 }
 
 type service struct {
@@ -259,7 +263,7 @@ func (s *service) List(ctx context.Context) ([]Remote, error) {
 	}
 	out := make([]Remote, 0, len(recs))
 	for _, r := range recs {
-		out = append(out, r.view())
+		out = append(out, s.viewOf(r))
 	}
 	return out, nil
 }
@@ -269,7 +273,7 @@ func (s *service) Get(ctx context.Context, id string) (Remote, error) {
 	if err != nil {
 		return Remote{}, err
 	}
-	return r.view(), nil
+	return s.viewOf(r), nil
 }
 
 // ResolveKey returns the key of a remote together with the address its
@@ -281,9 +285,14 @@ func (s *service) ResolveKey(ctx context.Context, id string) (config.ProxyRemote
 	if err != nil {
 		return config.ProxyRemoteKey{}, err
 	}
-	t, err := parseTarget(r.Kind, r.URL, "")
+	t, err := recordTarget(r, "")
 	if err != nil {
 		return config.ProxyRemoteKey{}, errors.New("remotes: the address of the remote is not valid")
+	}
+	if err := s.tunnelReady(r); err != nil {
+		// The key goes to the loopback port only while this server's
+		// forwarder holds it; otherwise another local process could.
+		return config.ProxyRemoteKey{}, fmt.Errorf("remotes: %w", err)
 	}
 	key, err := s.openKey(ctx, r)
 	if err != nil {
@@ -295,6 +304,9 @@ func (s *service) ResolveKey(ctx context.Context, id string) (config.ProxyRemote
 // --- Create ---------------------------------------------------------------
 
 func (s *service) Create(ctx context.Context, r CreateRequest) (Result, error) {
+	if strings.TrimSpace(r.Invite) != "" {
+		return s.createP2P(ctx, r)
+	}
 	if !r.Kind.valid() {
 		return Result{}, errBadKind()
 	}
@@ -325,13 +337,20 @@ func (s *service) Create(ctx context.Context, r CreateRequest) (Result, error) {
 		}
 		return Result{}, err
 	}
+	return s.finishCreate(ctx, id, r.Models)
+}
+
+// finishCreate adopts the chosen models of a remote that was just stored
+// and refreshes it once.
+func (s *service) finishCreate(ctx context.Context, id string, models []UpstreamModel) (Result, error) {
 	// From here the remote exists: any failure is partial, so the caller
 	// does not retry into a name conflict.
 	unlock := s.locks.lock(id)
 	defer unlock()
 	res := Result{Created: []string{}, Skipped: []Skip{}}
-	if len(r.Models) > 0 {
-		if res, err = s.adopt(ctx, id, r.Models); err != nil {
+	if len(models) > 0 {
+		var err error
+		if res, err = s.adopt(ctx, id, models); err != nil {
 			return s.partial(ctx, id, res, err)
 		}
 	}
@@ -415,7 +434,7 @@ func (s *service) adopt(ctx context.Context, id string, models []UpstreamModel) 
 	if err != nil {
 		return Result{}, err
 	}
-	t, err := parseTarget(rec.Kind, rec.URL, "")
+	t, err := recordTarget(rec, "")
 	if err != nil {
 		return Result{}, invalid("The address of the remote is not valid. Change it first.")
 	}
@@ -544,7 +563,9 @@ func (s *service) Refresh(ctx context.Context, id string) (Remote, error) {
 	key, kerr := s.openKey(ctx, rec)
 	if kerr != nil {
 		listErr = upstreamErr(StepAuth, "The stored key cannot be opened. Enter the key again.")
-	} else if t, perr := parseTarget(rec.Kind, rec.URL, key); perr != nil {
+	} else if terr := s.tunnelReady(rec); terr != nil {
+		listErr = terr
+	} else if t, perr := recordTarget(rec, key); perr != nil {
 		listErr = perr
 	} else {
 		var total int
@@ -586,7 +607,7 @@ func (s *service) Refresh(ctx context.Context, id string) (Remote, error) {
 	if err != nil {
 		return Remote{}, err
 	}
-	return out.view(), nil
+	return s.viewOf(out), nil
 }
 
 // --- Update ---------------------------------------------------------------
@@ -609,7 +630,12 @@ func (s *service) Update(ctx context.Context, id string, req UpdateRequest) (Rem
 		}
 	}
 	if req.URL != nil {
-		if newURL, err = cleanURL(old.Kind, *req.URL); err != nil {
+		if old.Transport == TransportP2P {
+			if strings.TrimSpace(*req.URL) != old.URL {
+				return Remote{}, invalid("The address of a remote over P2P cannot change. Remove the remote and add it again with a new invite link.")
+			}
+			req.URL = nil
+		} else if newURL, err = cleanURL(old.Kind, *req.URL); err != nil {
 			return Remote{}, err
 		}
 	}
@@ -652,7 +678,7 @@ func (s *service) Update(ctx context.Context, id string, req UpdateRequest) (Rem
 		// loads it again and resolves the new one.
 		s.unload(s.modelsOf(out)...)
 	}
-	conn := out.view()
+	conn := s.viewOf(out)
 	if keyChanged || urlChanged {
 		// The status, the last error and the lists belong to the old key or
 		// address; ask the remote again so the answer is current.
@@ -693,8 +719,8 @@ func (s *service) modelsOf(r record) []string {
 // address changed. An entry whose value a person changed to something else is
 // left alone.
 func (s *service) patchEntryURLs(ctx context.Context, old, cur record) []error {
-	oldT, err1 := parseTarget(old.Kind, old.URL, "")
-	newT, err2 := parseTarget(cur.Kind, cur.URL, "")
+	oldT, err1 := recordTarget(old, "")
+	newT, err2 := recordTarget(cur, "")
 	if err1 != nil || err2 != nil {
 		return nil
 	}
@@ -798,6 +824,9 @@ func (s *service) Delete(ctx context.Context, id string, removeEntries bool) err
 		}
 		return nil
 	})
+	if err == nil && rec.Transport == TransportP2P && s.o.Tunnels != nil {
+		s.o.Tunnels.Close(id)
+	}
 	return err
 }
 

@@ -127,7 +127,7 @@ var adminRoutesWithoutTool = map[string]string{
 	// not belong in the always-sent assistant tool budget: a person manages
 	// them on the Remotes page or over REST.
 	"POST /api/remotes/test":        "credential handling for a remote does not belong in the always-sent assistant tool budget",
-	"POST /api/remotes":             "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"POST /api/remotes":             "credential handling for a remote (an API key or a one-time invite link) does not belong in the always-sent assistant tool budget",
 	"GET /api/remotes":              "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"GET /api/remotes/:id":          "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"PATCH /api/remotes/:id":        "credential handling for a remote does not belong in the always-sent assistant tool budget",

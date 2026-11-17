@@ -72,8 +72,9 @@ is also removed. Federation returns as remotes over P2P with a router.
    minutes. The maximum is 24 hours.
 4. Copy the link, or scan the QR code. QR codes exist for devices and remotes
    only.
-5. On the other machine, paste the link in the launcher, or in **Settings**,
-   **Remotes**, **Add a remote**.
+5. On the other machine, paste the link in the launcher, or, for a remote, in
+   **Models**, **Connect a remote**. See
+   [Remotes over P2P]({{% relref "/administration/remotes#remotes-over-p2p" %}}).
 
 The link works once. It holds the identity of your server, so the other machine
 knows which server it is talking to.
