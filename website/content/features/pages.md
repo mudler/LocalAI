@@ -17,4 +17,6 @@ points:
 notes:
   - "Pages are off for ordinary users until an admin turns them on. Admins always have them. Pages also need Chats."
   - "Widgets read data from JSON files. A page has no network access."
+films:
+  - {name: "pages", title: "Pages.", caption: "Ask for a task board in one sentence. The assistant writes the page, saves it in Files, and opens it beside the chat. Undo removes it.", seconds: 42}
 ---

@@ -17,7 +17,6 @@ points:
   - "Results are saved as files in Files."
   - "Changes are listed in History, with an Undo button."
   - "With the media profile (ffmpeg, sox, ImageMagick), the assistant can join, trim, mix and subtitle clips."
-  - "It can also build short videos, such as a title card or a slideshow. The built-in `assemble-media` skill has recipes. Look at the result before you use it."
 notes:
   - "Sandbox is an add-on. An admin installs it. It runs on Linux. The macOS package for Apple silicon is built but not released yet."
   - "An admin can allow network access."

@@ -13,7 +13,7 @@ sections:
     lede: Install a model from the gallery and call it from your code.
     points:
       - "Text and vision: chat, tool calls, image understanding, object detection."
-      - "Generate images, video and music. With the Sandbox (development build), the assistant can also make short MP4 videos with ffmpeg, such as a title card or a slideshow. Look at the result before you use it."
+      - "Generate images, video and music."
       - "Speech to text, text to speech, embeddings and a reranker."
     links:
       - {t: "See every modality", href: "features/modalities/"}
