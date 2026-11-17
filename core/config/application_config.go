@@ -195,6 +195,8 @@ type ApplicationConfig struct {
 	P2PToken                 string
 	P2PNetworkID             string
 	Federated                bool
+	// P2P configures the P2P layer (p2pnet): mode, discovery, relays.
+	P2P P2PSettings
 
 	// ExternalBaseURL is the externally visible base URL of this instance
 	// (scheme+host[:port]), set via LOCALAI_BASE_URL. When non-empty it is

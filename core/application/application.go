@@ -248,6 +248,10 @@ type Application struct {
 	p2pCtx            context.Context
 	p2pCancel         context.CancelFunc
 
+	// p2pNet is the P2P layer (p2pnet); see p2pnet.go.
+	p2pNetOnce sync.Once
+	p2pNet     *p2pNet
+
 	// remotesStop cancels the startup refresh of the remotes and waits for it.
 	remotesStop func()
 
@@ -726,6 +730,7 @@ func (a *Application) Shutdown() error {
 		if a.remotesStop != nil {
 			a.remotesStop()
 		}
+		a.StopP2PNet()
 		// A chat worker stops taking starts first: a start that arrived now
 		// would meet a closing service. Its running turns end as interrupted.
 		a.stopChatWorker()

@@ -26,16 +26,31 @@ it connects.
 
 ## Turn on P2P
 
-P2P needs [authentication]({{% relref "/administration/authentication" %}}). A
-paired device may reach the API, and without sign-in LocalAI cannot tell the
-users apart. LocalAI refuses to turn P2P on while authentication is off.
+P2P has three modes. Set the mode in **Settings**, **P2P**, with the runtime
+setting `p2p_mode`, or with `--p2p-mode` (environment variable
+`LOCALAI_P2P_MODE`) at start:
+
+| Mode | In the interface | What the server does |
+|---|---|---|
+| `off` | Off | Nothing. This is the default. |
+| `connect` | Connect only | It connects out to remotes over P2P and accepts nobody. It has no listener, no invites and no devices. It needs no authentication. |
+| `share` | Connect and share | It also accepts paired devices: it listens, mints invites, and has the devices and relays pages. |
+
+Mode `share` needs [authentication]({{% relref "/administration/authentication" %}}).
+A paired device may reach the API, and without sign-in LocalAI cannot tell the
+users apart. LocalAI refuses mode `share` while authentication is off, at start
+and in the settings.
 
 P2P also needs a data path, because the server keeps its identity key there. It
-does not start when you run LocalAI with `--data-path -`.
+does not start when you run LocalAI with `--data-path -`, unless you name the key
+file with `--p2p-identity`.
 
-1. Open **Settings** and turn on **P2P enabled**.
+1. Open **Settings**, **P2P**, and choose **Connect and share**.
 2. Open **Swarm**, then **P2P**. This page is shown whenever P2P is on, also on
    a single server.
+
+A change of a P2P setting restarts the P2P layer. Paired devices connect again by
+themselves.
 
 The first start creates the identity of the server, a key file in the data
 path. Keep this file safe. If you regenerate it, every paired device must pair
@@ -116,21 +131,71 @@ get a direct connection.
 
 ## Settings
 
-These settings are in **Settings**, **P2P**. Names that are not final are marked
-in the table.
+These settings are in **Settings**, **P2P**. They are runtime settings: the
+names below are the keys of `/api/settings` and of `runtime_settings.json`.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `p2p_enabled` | off | Turns the P2P layer on. Not final. |
-| `p2p_public_dht` | on | Finds public relays for hole punching through the public DHT. The DHT uses about 0.5 to 0.9 MB per minute. Not final. |
-| `p2p_bootstrap_peers` | empty | Your own list of bootstrap peers. Not final. |
-| `p2p_relays` | empty | Your own relays, with a label for each. Not final. |
-| `p2p_relay_paired` | on | "Via your server": this server relays for its paired devices. Not final. |
-| `p2p_mdns` | on | Finds machines on the local network. Not final. |
+| `p2p_mode` | `off` | `off`, `connect` or `share`. See [Turn on P2P](#turn-on-p2p). |
+| `p2p_public_dht` | on | Finds public relays for hole punching through the public DHT. The DHT uses about 0.5 to 0.9 MB per minute. |
+| `p2p_bootstrap_peers` | empty | Your own list of bootstrap peers, addresses that end in `/p2p/<peer ID>`. Empty uses the public bootstrap peers while the public DHT is on. |
+| `p2p_relays` | empty | Your own relays: a list of `{id, addr, label}`, where `addr` ends in `/p2p/<relay peer ID>`. Manage them on the **Relays** page. |
+| `p2p_relay_paired` | on | "Via your server": this server relays for its paired devices. Mode `share` only. |
+| `p2p_relay_mode` | `auto` | When this server relays for its devices: `auto` while it is reachable from the internet, `on` always, `off` never. |
+| `p2p_relay_rate_limit` | 0 | Bandwidth limit of each relayed connection through this server, in bytes per second. 0 is no limit. |
+| `p2p_mdns` | on | Finds machines on the local network. |
 
-Command-line flags (not final): `--p2p-listen` (addresses to listen on),
-`--p2p-bootstrap` (bootstrap peers) and `--p2p-identity` (path of the identity
-key, by default under the data path).
+Command-line flags, read at start:
+
+| Flag | Environment variable | Meaning |
+|---|---|---|
+| `--p2p-mode` | `LOCALAI_P2P_MODE` | The mode at start. The setting `p2p_mode` wins when the flag keeps its default. |
+| `--p2p-listen` | `LOCALAI_P2P_LISTEN_MADDRS` | Addresses to listen on in mode `share`. The default is TCP and QUIC on every interface, on random ports. |
+| `--p2p-bootstrap` | `LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` | Bootstrap peers at start (setting `p2p_bootstrap_peers`). |
+| `--p2p-identity` | `LOCALAI_P2P_IDENTITY` | The identity key file. The default is `p2p/identity.key` under the data path. |
+
+## HTTP API
+
+All routes but redeem are for administrators. The routes of invites, devices and
+relays need mode `share`. In another mode they answer 409 with a message that
+names the mode.
+
+| Route | What it does |
+|---|---|
+| `GET /api/p2p/status` | Mode, peer ID, addresses, reachability, relay reservations, whether the server relays for its devices, and the number of pending invites and devices. Works in every mode. |
+| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker`, `split` or `federated`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
+| `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`. |
+| `DELETE /api/p2p/invites/{id}` | Cancels a pending invite and its relay pass. |
+| `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. |
+| `PATCH /api/p2p/devices/{id}` | Renames a device: `{label}`. |
+| `DELETE /api/p2p/devices/{id}` | Revokes a device. |
+| `GET`, `POST /api/p2p/relays` | Lists the relays, or adds one: `{addr, label, claim_code}`. |
+| `DELETE /api/p2p/relays/{id}` | Removes a relay. |
+| `POST /api/p2p/relays/{id}/check`, `/sync`, `/claim` | Checks a relay, pushes the paired set to it now, or claims it with its code: `{code}`. |
+| `POST /api/p2p/identity/regenerate` | Makes a new identity. The body must be `{"confirm": true}`. Every device must pair again. |
+| `POST /api/p2p/redeem` | Redeems an invite: `{v: 1, code, name, platform}`. Served **only over P2P**; the normal HTTP listener answers 404. |
+
+The redeem route takes the peer ID of the caller from the P2P connection. A
+wrong, used, canceled or expired code all get the same answer, 410, so the route
+does not tell which codes exist. After 5 wrong codes from one peer in an hour,
+or 60 from all peers in a minute, it answers 429.
+
+While an invite is pending, a machine that is not paired may connect, but it may
+call only the redeem route. Every other request gets 403.
+
+The LocalAI Assistant has the tools `get_p2p_status`, `list_p2p_devices`,
+`list_p2p_invites`, `list_p2p_relays`, `revoke_p2p_device` and
+`cancel_p2p_invite`. It cannot create invites: a link is a credential.
+
+## Several frontends
+
+In [distributed mode]({{% relref "/administration/distributed-mode" %}}) each frontend
+has its own identity and its own P2P host. An invite names the frontend that
+created it, so the device pairs with that frontend. Devices and invites are in the
+shared database, so every frontend lists them. When a frontend pairs or revokes a
+device, it tells the others over the message bus, and they reload their
+allowlists at once. Every frontend also reloads its allowlist every 30 seconds,
+so a revoke reaches every frontend within 30 seconds even if a message is lost.
 
 ## Command line
 

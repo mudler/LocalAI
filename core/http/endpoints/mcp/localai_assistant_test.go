@@ -300,6 +300,21 @@ func (stubClient) PinFailoverTarget(_ context.Context, _, _ string) error { retu
 
 func (stubClient) UnpinFailoverTarget(_ context.Context, _ string) error { return nil }
 
+func (stubClient) GetP2PStatus(_ context.Context) (*localaitools.P2PStatusInfo, error) {
+	return &localaitools.P2PStatusInfo{}, nil
+}
+func (stubClient) ListP2PDevices(_ context.Context) ([]localaitools.P2PDeviceInfo, error) {
+	return nil, nil
+}
+func (stubClient) ListP2PInvites(_ context.Context) ([]localaitools.P2PInviteInfo, error) {
+	return nil, nil
+}
+func (stubClient) ListP2PRelays(_ context.Context) ([]localaitools.P2PRelayInfo, error) {
+	return nil, nil
+}
+func (stubClient) RevokeP2PDevice(_ context.Context, _ string) error { return nil }
+func (stubClient) CancelP2PInvite(_ context.Context, _ string) error { return nil }
+
 func (stubClient) ListSharedFolders(_ context.Context) ([]localaitools.SharedFolder, error) {
 	return nil, nil
 }

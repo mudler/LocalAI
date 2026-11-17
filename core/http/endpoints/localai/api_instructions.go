@@ -161,6 +161,12 @@ var instructionDefs = []instructionDef{
 		Intro:       "A remote saves the address and key of another server (kind localai, openai or anthropic). POST /api/remotes/test lists the models of a remote without saving anything; a failed test is a 200 answer with ok=false and the failed step. POST /api/remotes saves it and turns each chosen model into a model config (an entry) that carries only the remote id. The API key is write-only: it is stored sealed and no route returns it, only key_set. POST /api/remotes/{id}/refresh records the models the remote lists now (new) and the adopted ones it dropped (unavailable); POST /api/remotes/{id}/adopt adds entries for chosen models. PATCH changes the name, url or key (an empty api_key removes the key). DELETE takes entries=keep (default, the entries stay as plain models) or entries=remove. All routes are admin only.",
 	},
 	{
+		Name:        "p2p",
+		Description: "P2P: pair devices and other servers by invite link, list and revoke them, and manage the relays",
+		Tags:        []string{"p2p"},
+		Intro:       "The P2P layer has three modes, set with the runtime setting p2p_mode (or --p2p-mode): off, connect (this server dials out to remotes over P2P and accepts nobody) and share (it also accepts paired devices; needs authentication). GET /api/p2p/status works in every mode. The invite, device and relay routes need mode share and answer 409 naming the mode otherwise. POST /api/p2p/invites returns a one-time link (localai://pair?...) that is shown once; kind device gives P2P admission only, kind remote also issues an API key limited to the given models. A device redeems the link over P2P with POST /api/p2p/redeem, a route the normal HTTP listener does not serve (404): a wrong, used, canceled or expired code all get 410, and 5 wrong codes per peer per hour give 429. DELETE /api/p2p/devices/{id} revokes a device: its connections close at once and every relay drops it. POST /api/p2p/identity/regenerate with {\"confirm\": true} makes a new peer ID and unpairs everything. All routes but redeem are admin only.",
+	},
+	{
 		Name:        "intelligent-routing",
 		Description: "Per-model `router:` configuration that classifies requests and rewrites the served model",
 		Tags:        []string{"router"},

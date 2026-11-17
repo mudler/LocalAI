@@ -56,6 +56,10 @@ var toolToHTTPRoute = map[string]string{
 	ToolGetChatEgress:             "GET /api/chats/admin/egress",
 	ToolListEgressEvents:          "GET /api/chats/admin/egress/events",
 	ToolListFailoverChains:        "GET /api/failover",
+	ToolGetP2PStatus:              "GET /api/p2p/status",
+	ToolListP2PDevices:            "GET /api/p2p/devices",
+	ToolListP2PInvites:            "GET /api/p2p/invites",
+	ToolListP2PRelays:             "GET /api/p2p/relays",
 
 	// Mutating tools.
 	ToolInstallModel:             "POST /models/apply",
@@ -85,6 +89,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolDeleteScheduling:         "DELETE /api/nodes/scheduling/:model",
 	ToolPinFailoverTarget:        "POST /api/failover/:chain/pin",
 	ToolUnpinFailoverTarget:      "DELETE /api/failover/:chain/pin",
+	ToolRevokeP2PDevice:          "DELETE /api/p2p/devices/:id",
+	ToolCancelP2PInvite:          "DELETE /api/p2p/invites/:id",
 	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
 	// adminRoutesWithoutTool.
 	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",
@@ -128,6 +134,19 @@ var adminRoutesWithoutTool = map[string]string{
 	"DELETE /api/remotes/:id":       "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"POST /api/remotes/:id/refresh": "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"POST /api/remotes/:id/adopt":   "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	// P2P: an invite link and a relay claim code are credentials that must
+	// not pass through a chat; a new identity unpairs every device; the
+	// relay admin and the mode are set on the Swarm, P2P page.
+	"POST /api/p2p/invites":              "the link is a credential shown once: a person mints it and passes it on",
+	"PATCH /api/p2p/devices/:id":         "a label edited in the device list",
+	"POST /api/p2p/relays":               "adding a relay may carry its claim code, a credential",
+	"DELETE /api/p2p/relays/:id":         "relay admin on the Swarm, P2P page",
+	"POST /api/p2p/relays/:id/check":     "a diagnostic button: it checks one relay and changes nothing",
+	"POST /api/p2p/relays/:id/sync":      "relay admin on the Swarm, P2P page; the server syncs relays by itself",
+	"POST /api/p2p/relays/:id/claim":     "takes the relay's claim code, a credential that must not pass through a chat",
+	"POST /api/p2p/identity/regenerate":  "unpairs every device and remote at once: a person's act, with a typed confirmation",
+	"POST /api/settings (p2p_mode)":      "turns on accepting paired devices: a person's choice on the Swarm, P2P page",
+	"POST /api/settings (p2p_relays...)": "the P2P discovery and relay settings: set on the Swarm, P2P page",
 	// The administrator's oversight of other users' saved agents, triggers
 	// and connectors. Each acts on another person's private automation
 	// (disable or delete it). It stays a deliberate click on the

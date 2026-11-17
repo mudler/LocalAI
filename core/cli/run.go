@@ -133,6 +133,9 @@ type RunCMD struct {
 	DisableMetricsEndpoint             bool          `env:"LOCALAI_DISABLE_METRICS_ENDPOINT,DISABLE_METRICS_ENDPOINT" default:"false" help:"Disable the /metrics endpoint" group:"api"`
 	HttpGetExemptedEndpoints           []string      `env:"LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS" default:"^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/assets/.*$,^/static/.*$,^/swagger.*$" help:"If LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET is overriden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review" group:"hardening"`
 	P2PMode                            string        `name:"p2p-mode" env:"LOCALAI_P2P_MODE" default:"off" enum:"off,connect,share" help:"P2P mode: off, connect (dial out to remotes over P2P, accept nobody; needs no authentication) or share (connect, and accept paired devices; needs authentication)" group:"p2p"`
+	P2PListen                          []string      `name:"p2p-listen" env:"LOCALAI_P2P_LISTEN_MADDRS" help:"Listen multiaddrs of the P2P host in mode share (default: TCP and QUIC on every interface, random ports)" group:"p2p"`
+	P2PBootstrap                       []string      `name:"p2p-bootstrap" env:"LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS" help:"Bootstrap peers of the P2P host, multiaddrs that end in /p2p/<peer ID> (default: the public bootstrap peers while the public DHT is on). Runtime setting p2p_bootstrap_peers" group:"p2p"`
+	P2PIdentity                        string        `name:"p2p-identity" env:"LOCALAI_P2P_IDENTITY" help:"Key file of the P2P peer identity (default: <data path>/p2p/identity.key). It must survive a restart: every paired device and remote knows this server by it" group:"p2p"`
 	SingleActiveBackend                bool          `env:"LOCALAI_SINGLE_ACTIVE_BACKEND,SINGLE_ACTIVE_BACKEND" help:"Allow only one backend to be run at a time (deprecated: use --max-active-backends=1 instead)" group:"backends"`
 	MaxActiveBackends                  int           `env:"LOCALAI_MAX_ACTIVE_BACKENDS,MAX_ACTIVE_BACKENDS" default:"0" help:"Maximum number of backends to keep loaded at once (0 = unlimited, 1 = single backend mode). Least recently used backends are evicted when limit is reached" group:"backends"`
 	PreloadBackendOnly                 bool          `env:"LOCALAI_PRELOAD_BACKEND_ONLY,PRELOAD_BACKEND_ONLY" default:"false" help:"Do not launch the API services, only the preloaded models / backends are started (useful for multi-node setups)" group:"backends"`
@@ -470,6 +473,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithMITMListen(r.MITMListen),
 		config.WithMITMCADir(r.MITMCADir),
 		config.WithPIIDefaultDetectors(r.PIIDefaultDetectors),
+		config.WithP2PMode(r.P2PMode),
+		config.WithP2PListenAddrs(r.P2PListen),
+		config.WithP2PBootstrapPeers(r.P2PBootstrap),
+		config.WithP2PIdentityPath(r.P2PIdentity),
 		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
 			tunnelEnvVar := strings.Join(tunnels, ",")
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
