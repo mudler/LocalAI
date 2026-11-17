@@ -17,6 +17,7 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
+	"github.com/mudler/LocalAI/core/services/p2prelay/relaycmd"
 	"github.com/mudler/LocalAI/core/services/p2prelay/relayproto"
 )
 
@@ -73,7 +74,11 @@ func (c *P2PPairCMD) identityPath() string {
 	return ""
 }
 
-func (c *P2PPairCMD) Run(_ *cliContext.Context) error {
+func (c *P2PPairCMD) Run(cctx *cliContext.Context) error {
+	if c.JSON {
+		// Standard output carries only the JSON result.
+		relaycmd.SetLogger(relaycmd.NewLogSettings(cctx.Debug, cctx.LogLevel, cctx.LogFormat, cctx.LogDedupLogs), true)
+	}
 	link, err := p2ppair.ParseLink(c.Invite)
 	if err != nil {
 		return err
