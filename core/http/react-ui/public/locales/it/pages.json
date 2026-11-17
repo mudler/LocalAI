@@ -24,7 +24,8 @@
     "shared": "Condivisa",
     "sharedWith_one": "Condivisa con {{count}} persona",
     "sharedWith_other": "Condivisa con {{count}} persone",
-    "sharedEveryone": "Condivisa con tutti"
+    "sharedEveryone": "Condivisa con tutti",
+    "someone": "qualcuno"
   },
   "empty": {
     "text": "Una pagina è un piccolo strumento, come una bacheca delle attività o una lista di lettura. Chiedine una all'assistente in una chat, oppure parti da una pagina pronta.",
@@ -60,7 +61,8 @@
   "viewer": {
     "stopAllowing": "Non consentire più questa pagina",
     "authorChanged": "{{author}} ha cambiato questa pagina. La versione che hai consentito continua finché non esamini la modifica.",
-    "sandboxShared": "Isolata. Viene eseguita come te, solo in {{folder}}, e non raggiunge la rete."
+    "sandboxShared": "Isolata. Viene eseguita come te, solo in {{folder}}, e non raggiunge la rete.",
+    "sandboxUser": "In una sandbox. Viene eseguita come te, solo nella propria cartella, e non può raggiungere la rete."
   },
   "trust": {
     "title": "Aprire \"{{title}}\"?",
@@ -143,7 +145,8 @@
       "where": "Pagina condivisa",
       "readOnly": "Puoi solo guardare questa pagina, quindi non può salvare le sue modifiche.",
       "chrome": "Pagina condivisa. Non è stata eseguita.",
-      "blocked": "Hai scelto di non eseguirla. Viene da {{author}}. Nulla è stato eseguito e nulla è stato salvato."
+      "blocked": "Hai scelto di non eseguirla. Viene da {{author}}. Nulla è stato eseguito e nulla è stato salvato.",
+      "files": "Leggere e scrivere file nella propria cartella"
     }
   },
   "frame": {

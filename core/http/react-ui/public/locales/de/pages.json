@@ -24,7 +24,8 @@
     "shared": "Geteilt",
     "sharedWith_one": "Mit {{count}} Person geteilt",
     "sharedWith_other": "Mit {{count}} Personen geteilt",
-    "sharedEveryone": "Mit allen geteilt"
+    "sharedEveryone": "Mit allen geteilt",
+    "someone": "jemand"
   },
   "empty": {
     "text": "Eine Seite ist ein kleines Werkzeug, etwa ein Aufgabenboard oder eine Leseliste. Bitte den Assistenten im Chat um eine oder starte mit einer fertigen Seite.",
@@ -60,7 +61,8 @@
   "viewer": {
     "stopAllowing": "Diese Seite nicht mehr erlauben",
     "authorChanged": "{{author}} hat diese Seite geändert. Die erlaubte Version läuft weiter, bis du die Änderung prüfst.",
-    "sandboxShared": "Abgeschottet. Läuft als du, nur in {{folder}}, und erreicht das Netzwerk nicht."
+    "sandboxShared": "Abgeschottet. Läuft als du, nur in {{folder}}, und erreicht das Netzwerk nicht.",
+    "sandboxUser": "In einer Sandbox. Läuft als du, nur in ihrem eigenen Ordner, und hat keinen Netzwerkzugriff."
   },
   "trust": {
     "title": "„{{title}}“ öffnen?",
@@ -143,7 +145,8 @@
       "where": "Geteilte Seite",
       "readOnly": "Du kannst diese Seite nur ansehen, sie kann ihre Änderungen also nicht speichern.",
       "chrome": "Geteilte Seite. Sie wurde nicht ausgeführt.",
-      "blocked": "Du hast entschieden, sie nicht auszuführen. Sie stammt von {{author}}. Nichts darin wurde ausgeführt und nichts gespeichert."
+      "blocked": "Du hast entschieden, sie nicht auszuführen. Sie stammt von {{author}}. Nichts darin wurde ausgeführt und nichts gespeichert.",
+      "files": "Dateien in ihrem eigenen Ordner lesen und schreiben"
     }
   },
   "frame": {

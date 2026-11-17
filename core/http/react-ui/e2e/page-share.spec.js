@@ -91,7 +91,7 @@ function mock(page, init = {}) {
 
 const sharedPage = (extra = {}) => ({
   folder_id: 7, folder: '/users/u-bob', name: 'groceries', title: 'Groceries', icon: 'users', description: 'What to buy',
-  author_name: 'Bob Rossi', user_shared: true, role: 'use', consent: 'none', source: 'shared', hash: 'g1',
+  author_id: 'u-bob', author_name: 'Bob Rossi', user_shared: true, role: 'use', consent: 'none', source: 'shared', hash: 'g1',
   size: 200, meta_size: 20, writable: true, code_files: [],
   get updated_at() { return new Date().toISOString() },
   ...extra,
@@ -273,6 +273,52 @@ test('asks for consent to a page that a person wrote, with Allow and Allow once 
   await sheet.getByTestId('trust-allow').click()
   await expect(page.getByTestId('shared-pill')).toHaveText('Allowed')
   expect(consent.allows).toEqual([{ hash: 'g1' }])
+})
+
+// What a person can read on the screen: the text, and the words of titles
+// and labels. Nothing of the owner's path or account may be in it.
+async function visibleWords(page) {
+  return page.evaluate(() => [
+    document.body.innerText,
+    ...[...document.querySelectorAll('[title],[aria-label],[alt]')].flatMap(el => [el.getAttribute('title'), el.getAttribute('aria-label'), el.getAttribute('alt')]),
+  ].filter(Boolean).join('\n'))
+}
+const expectNoOwnerPath = (words) => {
+  expect(words).not.toContain('users/')
+  expect(words).not.toContain('u-bob')
+  expect(words).not.toMatch(/pages\/groceries/)
+}
+
+test('shows no path and no account ID of the owner for a page that a person shared', async ({ page }) => {
+  await signIn(page)
+  // The name is missing on purpose: the account ID must not stand in for it.
+  mock(page, { shared: [sharedPage(), sharedPage({ folder_id: 8, name: 'plans', title: 'Weekend plans', author_name: '' })] })
+  mockSharedPage(page, { author_name: '' })
+  await page.goto('/app/pages')
+  await expect(page.locator('[data-testid="shared-card"][data-page="groceries"]')).toBeVisible()
+  expectNoOwnerPath(await visibleWords(page))
+  await expect(page.locator('[data-testid="shared-card"][data-page="plans"]').getByTestId('shared-from')).toHaveText('From someone')
+
+  await page.goto('/app/pages/shared/7/groceries')
+  const sheet = page.getByTestId('trust-sheet')
+  await expect(sheet).toBeVisible()
+  await expect(sheet).toContainText('Read and write files in its own folder')
+  expectNoOwnerPath(await visibleWords(page))
+  await sheet.getByTestId('trust-source').click()
+  await expect(page.getByTestId('trust-source-sheet')).toBeVisible()
+  expectNoOwnerPath(await visibleWords(page))
+  await page.keyboard.press('Escape')
+  await sheet.getByTestId('trust-allow').click()
+  await expect(page.getByTestId('shared-pill')).toHaveText('Allowed')
+  await expect(page.getByTestId('page-view').getByText('Sandboxed. Runs as you, in its own folder only')).toBeVisible()
+  expectNoOwnerPath(await visibleWords(page))
+})
+
+test('shows the folder of a page of an administrator folder, as before', async ({ page }) => {
+  await signIn(page)
+  mock(page, { shared: [sharedPage({ user_shared: false, role: undefined, folder: '/shared/Team', author_name: 'Admin' })] })
+  await page.goto('/app/pages')
+  await expect(page.locator('[data-testid="shared-card"][data-page="groceries"]')).toContainText('shared/Team/pages/groceries')
 })
 
 test('keeps the wording of a page of an administrator folder in the trust sheet', async ({ page }) => {

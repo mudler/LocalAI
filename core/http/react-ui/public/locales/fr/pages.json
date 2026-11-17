@@ -24,7 +24,8 @@
     "shared": "Partagée",
     "sharedWith_one": "Partagée avec {{count}} personne",
     "sharedWith_other": "Partagée avec {{count}} personnes",
-    "sharedEveryone": "Partagée avec tout le monde"
+    "sharedEveryone": "Partagée avec tout le monde",
+    "someone": "quelqu’un"
   },
   "empty": {
     "text": "Une page est un petit outil, comme un tableau de tâches ou une liste de lecture. Demandez-en une à l’assistant dans un chat, ou partez d’une page prête.",
@@ -60,7 +61,8 @@
   "viewer": {
     "stopAllowing": "Ne plus autoriser cette page",
     "authorChanged": "{{author}} a modifié cette page. La version autorisée continue jusqu’à ce que vous examiniez la modification.",
-    "sandboxShared": "Isolée. S’exécute en votre nom, uniquement dans {{folder}}, sans accès au réseau."
+    "sandboxShared": "Isolée. S’exécute en votre nom, uniquement dans {{folder}}, sans accès au réseau.",
+    "sandboxUser": "Dans un bac à sable. S’exécute en votre nom, dans son propre dossier uniquement, sans accès au réseau."
   },
   "trust": {
     "title": "Ouvrir « {{title}} » ?",
@@ -143,7 +145,8 @@
       "where": "Page partagée",
       "readOnly": "Vous ne pouvez que regarder cette page, elle ne peut donc pas enregistrer ses changements.",
       "chrome": "Page partagée. Elle ne s’est pas exécutée.",
-      "blocked": "Vous avez choisi de ne pas l’exécuter. Elle vient de {{author}}. Rien ne s’est exécuté et rien n’a été enregistré."
+      "blocked": "Vous avez choisi de ne pas l’exécuter. Elle vient de {{author}}. Rien ne s’est exécuté et rien n’a été enregistré.",
+      "files": "Lire et écrire des fichiers dans son propre dossier"
     }
   },
   "frame": {

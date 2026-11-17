@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import PageFrame from '../PageFrame'
 import PageLinkAsk from '../PageLinkAsk'
+import { authorOf } from '../../utils/pages'
 import TrustSheet, { SourceSheet } from '../pages/TrustSheet'
 import { usePageLinks } from '../../hooks/usePageLinks'
 import { useTilePage } from '../../hooks/useTilePage'
@@ -97,7 +98,7 @@ export default function PageTile({ w, size: cell, listed, onFix }) {
       <div className="wk-ptile__calm" data-testid="page-tile-allow">
         <Icon name="lock" className="wk-ptile__calm-icon" />
         <p className="wk-ptile__calm-title">{t(read.consent === 'changed' ? 'wellKnown.home.page.changed' : 'wellKnown.home.page.notAllowed')}</p>
-        <p className="wk-ptile__calm-text">{t('wellKnown.home.page.allowHint', { author: page?.author_name || page?.author_id || '' })}</p>
+        <p className="wk-ptile__calm-text">{t('wellKnown.home.page.allowHint', { author: authorOf(page, '') })}</p>
         <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={tile.openSheet} data-testid="page-tile-allow-open"><Icon name="shield" /> {t('wellKnown.home.page.allow')}</button>
       </div>
     )

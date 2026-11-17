@@ -11,7 +11,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, sharedPagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import { readLastModel } from '../utils/lastModel'
-import { isPageName } from '../utils/pages'
+import { authorOf, isPageName } from '../utils/pages'
 import { folderLabel, refreshSharedPages } from '../hooks/useSharedPages'
 import { SendAsk } from './PageView'
 import './pages.css'
@@ -213,11 +213,11 @@ export default function SharedPageView() {
   }
 
   const page = (run?.page) || src?.page
-  const author = page ? (page.author_name || page.author_id) : ''
+  const author = page ? authorOf(page, t('trust.someone')) : ''
   const folderText = page ? folderLabel(page.folder) : ''
   const userShared = page?.user_shared === true
-  // A page that a person shared shows no folder: the folder is theirs.
-  const inPath = userShared ? `pages/${name}` : `${folderText}/pages/${name}`
+  // A page that a person shared shows no path: the folder is theirs.
+  const inPath = `${folderText}/pages/${name}`
   let pill = 'notYet'
   if (run) pill = run.token ? 'once' : 'allowed'
   else if (src?.consent?.state === 'changed') pill = 'changed'
@@ -231,7 +231,7 @@ export default function SharedPageView() {
         <span className="icon-chip tone-primary pg-strip__chip"><Icon name="users" /></span>
         <div className="pg-strip__id">
           <h1 className="pg-strip__title">{page?.title || name}</h1>
-          <code className="pg-strip__path">{inPath}</code>
+          {!userShared && <code className="pg-strip__path">{inPath}</code>}
         </div>
         {page && (
           <div className="pg-strip__pills">
@@ -295,7 +295,7 @@ export default function SharedPageView() {
 
       <section className="pg-stage" aria-label={t('view.frameTitle', { title: page?.title || name })}>
         <div className="pg-stage__bar">
-          <Icon name="lock" /> {run ? t('viewer.sandboxShared', { folder: inPath }) : (userShared ? t('trust.user.chrome') : t('trust.frame.chrome', { folder: folderText }))}
+          <Icon name="lock" /> {run ? (userShared ? t('viewer.sandboxUser') : t('viewer.sandboxShared', { folder: inPath })) : (userShared ? t('trust.user.chrome') : t('trust.frame.chrome', { folder: folderText }))}
         </div>
         {status === 'loading' || !src ? (
           <div className="pg-stage__state" role="status"><Icon name="spinner" spin /> {t('view.loading')}</div>

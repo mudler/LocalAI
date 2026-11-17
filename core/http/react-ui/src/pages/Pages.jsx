@@ -10,7 +10,7 @@ import PageShareDialog from '../components/pages/PageShareDialog'
 import { Button } from '../components/ui'
 import { filesApi, pagesApi, sharedPagesApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
-import { pageIndexPath } from '../utils/pages'
+import { authorOf, pageIndexPath } from '../utils/pages'
 import { DOCS_MAKE_YOURS } from '../utils/discovery'
 import { refreshPages, usePageAge, usePages } from '../hooks/usePages'
 import { usePinnedPages } from '../hooks/usePinnedPages'
@@ -120,7 +120,7 @@ function SharedRow({ page, enabled, userSharesOn, onStop, age, t }) {
   const navigate = useNavigate()
   const b = BADGE[page.consent] || BADGE.none
   const allowed = page.consent === 'allowed'
-  const author = page.author_name || page.author_id
+  const author = authorOf(page, t('card.someone'))
   // A page that a person shared, while an administrator turned that off.
   const userOff = enabled && page.user_shared === true && !userSharesOn
   const role = ['view', 'use', 'edit'].includes(page.role) ? page.role : ''
@@ -139,8 +139,12 @@ function SharedRow({ page, enabled, userSharesOn, onStop, age, t }) {
         <span className="pg-row__meta">
           <span data-testid="shared-from">{t('shared.from', { author })}</span>
           {role && <><span aria-hidden="true">·</span><span data-testid="shared-role">{t(`share.role.${role}`)}</span></>}
-          <span aria-hidden="true">·</span>
-          <code className="pg-row__path">{folderLabel(page.folder)}/pages/{page.name}</code>
+          {page.user_shared !== true && (
+            <>
+              <span aria-hidden="true">·</span>
+              <code className="pg-row__path">{folderLabel(page.folder)}/pages/{page.name}</code>
+            </>
+          )}
           <span aria-hidden="true">·</span>
           <span>{t('card.changed', { when: age(page.updated_at) })}</span>
         </span>

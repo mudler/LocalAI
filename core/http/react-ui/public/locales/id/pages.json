@@ -24,7 +24,8 @@
     "shared": "Dibagikan",
     "sharedWith_one": "Dibagikan ke {{count}} orang",
     "sharedWith_other": "Dibagikan ke {{count}} orang",
-    "sharedEveryone": "Dibagikan ke semua orang"
+    "sharedEveryone": "Dibagikan ke semua orang",
+    "someone": "seseorang"
   },
   "empty": {
     "text": "Halaman adalah alat kecil, seperti papan tugas atau daftar bacaan. Minta satu ke asisten di chat, atau mulai dari halaman siap pakai.",
@@ -60,7 +61,8 @@
   "viewer": {
     "stopAllowing": "Berhenti mengizinkan halaman ini",
     "authorChanged": "{{author}} mengubah halaman ini. Versi yang Anda izinkan tetap berjalan sampai Anda meninjau perubahannya.",
-    "sandboxShared": "Dalam sandbox. Berjalan sebagai Anda, hanya di {{folder}}, dan tidak dapat menjangkau jaringan."
+    "sandboxShared": "Dalam sandbox. Berjalan sebagai Anda, hanya di {{folder}}, dan tidak dapat menjangkau jaringan.",
+    "sandboxUser": "Dalam sandbox. Berjalan sebagai Anda, hanya di folder miliknya, dan tidak dapat mengakses jaringan."
   },
   "trust": {
     "title": "Buka \"{{title}}\"?",
@@ -143,7 +145,8 @@
       "where": "Halaman bersama",
       "readOnly": "Anda hanya dapat melihat halaman ini, jadi halaman tidak dapat menyimpan perubahannya.",
       "chrome": "Halaman bersama. Belum dijalankan.",
-      "blocked": "Anda memilih tidak menjalankannya. Halaman ini dari {{author}}. Tidak ada yang berjalan dan tidak ada yang disimpan."
+      "blocked": "Anda memilih tidak menjalankannya. Halaman ini dari {{author}}. Tidak ada yang berjalan dan tidak ada yang disimpan.",
+      "files": "Membaca dan menulis file di folder miliknya"
     }
   },
   "frame": {

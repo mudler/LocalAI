@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { folderLabel } from '../../hooks/useSharedPages'
+import { authorOf } from '../../utils/pages'
 
 const initials = (name) => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?'
 
@@ -74,9 +75,9 @@ export default function TrustSheet({ src, changed, embed: embedAsked = false, bu
   const p = src.page
   const userShared = p.user_shared === true
   const embed = embedAsked && !userShared
-  const author = p.author_name || p.author_id || t('trust.someone')
+  const author = authorOf(p, t('trust.someone'))
   const folder = folderLabel(p.folder)
-  const pageFolder = userShared ? `pages/${p.name}` : `${folder}/pages/${p.name}`
+  const pageFolder = `${folder}/pages/${p.name}`
   const when = (ts) => {
     try { return new Date(ts).toLocaleDateString(i18n.language, { day: 'numeric', month: 'long' }) } catch { return '' }
   }
@@ -150,7 +151,7 @@ export default function TrustSheet({ src, changed, embed: embedAsked = false, bu
 
           <h3 className="pg-trust__h">{changed ? t('trust.canStillTitle') : t('trust.canTitle')}</h3>
           <ul className="pg-trust__list">
-            <li><Icon name="check-circle" className="tone-ok" /><span>{t('trust.items.files')}<code>{pageFolder}</code>{!p.writable && <small>{userShared ? t('trust.user.readOnly') : t('trust.items.readOnly')}</small>}</span></li>
+            <li><Icon name="check-circle" className="tone-ok" /><span>{userShared ? t('trust.user.files') : <>{t('trust.items.files')}<code>{pageFolder}</code></>}{!p.writable && <small>{userShared ? t('trust.user.readOnly') : t('trust.items.readOnly')}</small>}</span></li>
             <li><Icon name="check-circle" className="tone-ok" /><span>{t('trust.items.chat')}<small>{t('trust.items.chatNote')}</small></span></li>
             {embed && <li data-testid="trust-embed-item"><Icon name="check-circle" className="tone-ok" /><span>{t('trust.embed.item')}<small>{t('trust.embed.note')}</small></span></li>}
           </ul>
@@ -208,7 +209,7 @@ export function SourceSheet({ src, onClose }) {
         <div className="dk-sheet-head">
           <div>
             <h2 className="dk-dialog-title" id="pg-source-title">{t('trust.sourceTitle', { title: src.page.title })}</h2>
-            <p className="dk-dialog-desc"><code>{folderLabel(src.page.folder)}/pages/{src.page.name}/index.html</code> · {t('trust.sourceLines', { count: src.lines })}</p>
+            <p className="dk-dialog-desc">{src.page.user_shared === true ? <code>index.html</code> : <code>{folderLabel(src.page.folder)}/pages/{src.page.name}/index.html</code>} · {t('trust.sourceLines', { count: src.lines })}</p>
           </div>
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('trust.close')} onClick={onClose}><Icon name="close" /></button>
         </div>

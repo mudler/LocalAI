@@ -39,7 +39,8 @@
     "shared": "Shared",
     "sharedWith_one": "Shared with {{count}} person",
     "sharedWith_other": "Shared with {{count}} people",
-    "sharedEveryone": "Shared with everyone"
+    "sharedEveryone": "Shared with everyone",
+    "someone": "someone"
   },
   "empty": {
     "title": "No pages yet",
@@ -111,7 +112,8 @@
   "viewer": {
     "stopAllowing": "Stop allowing this page",
     "authorChanged": "{{author}} changed this page. The version you allowed keeps running until you review the change.",
-    "sandboxShared": "Sandboxed. Runs as you, in {{folder}} only, and cannot reach the network."
+    "sandboxShared": "Sandboxed. Runs as you, in {{folder}} only, and cannot reach the network.",
+    "sandboxUser": "Sandboxed. Runs as you, in its own folder only, and cannot reach the network."
   },
   "trust": {
     "title": "Open \"{{title}}\"?",
@@ -194,7 +196,8 @@
       "where": "Shared page",
       "readOnly": "You can only look at this page, so it cannot save its changes.",
       "chrome": "Shared page. It has not run.",
-      "blocked": "You chose not to run it. It comes from {{author}}. Nothing in it has run, and nothing was saved."
+      "blocked": "You chose not to run it. It comes from {{author}}. Nothing in it has run, and nothing was saved.",
+      "files": "Read and write files in its own folder"
     }
   },
   "frame": {

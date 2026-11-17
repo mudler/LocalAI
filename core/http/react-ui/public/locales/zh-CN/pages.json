@@ -24,7 +24,8 @@
     "shared": "已共享",
     "sharedWith_one": "已与 {{count}} 人共享",
     "sharedWith_other": "已与 {{count}} 人共享",
-    "sharedEveryone": "已与所有人共享"
+    "sharedEveryone": "已与所有人共享",
+    "someone": "某人"
   },
   "empty": {
     "text": "页面是一个小工具，比如任务看板或阅读清单。可以在聊天中让助手做一个，或从现成的页面开始。",
@@ -60,7 +61,8 @@
   "viewer": {
     "stopAllowing": "不再允许此页面",
     "authorChanged": "{{author}} 修改了此页面。在你审核更改之前，你允许的版本会继续运行。",
-    "sandboxShared": "沙盒中运行。以你的身份运行，仅限 {{folder}}，无法访问网络。"
+    "sandboxShared": "沙盒中运行。以你的身份运行，仅限 {{folder}}，无法访问网络。",
+    "sandboxUser": "沙盒运行。以你的身份运行,仅限其自己的文件夹,无法访问网络。"
   },
   "trust": {
     "title": "打开“{{title}}”？",
@@ -143,7 +145,8 @@
       "where": "共享页面",
       "readOnly": "你只能查看此页面,因此它不能保存更改。",
       "chrome": "共享页面。尚未运行。",
-      "blocked": "你选择了不运行。它来自 {{author}}。其中没有任何内容运行,也没有保存任何内容。"
+      "blocked": "你选择了不运行。它来自 {{author}}。其中没有任何内容运行,也没有保存任何内容。",
+      "files": "读写其自己文件夹中的文件"
     }
   },
   "frame": {

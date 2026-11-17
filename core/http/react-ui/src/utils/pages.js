@@ -109,3 +109,10 @@ export function ageParts(ts, now = Date.now()) {
   }
   return null
 }
+
+// authorOf is the name to show for the author of a shared page. A page that a
+// person shared shows a name or the fallback, never the account ID.
+export function authorOf(page, fallback = '') {
+  if (page?.author_name) return page.author_name
+  return page?.user_shared === true ? fallback : (page?.author_id || fallback)
+}
