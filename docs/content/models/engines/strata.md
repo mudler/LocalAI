@@ -117,8 +117,7 @@ before you offer a model to other people. The ISTA-DASLab model cards also carry
 tag; their text says the weights inherit the base model's licence, and the entries follow the
 text.
 
-DeepSeek V4.1-Flash is not supported. Strata v0.2.15 removed it, and the backend refuses `family:deepseek41`.
-The four `deepseek-v4.1-flash-ista-*` gallery entries do not load with this version.
+DeepSeek V4.1-Flash is not supported: Strata v0.2.15 removed it, and the backend refuses `family:deepseek41`.
 
 Not in the gallery:
 

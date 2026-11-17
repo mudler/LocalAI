@@ -215,7 +215,7 @@ answer-room limits of the server are not applied.
 
 - Protocol is unversioned (see above). `engine_args` is not validated.
 - The Python helper needs a Strata source tree and Python packages. The backend image has them; running outside the image needs them set up by hand.
-- The gallery has entries for the ready-made NVFP4 packs and for the GGUF models (see the feature page). Its four ISTA-DAS DeepSeek V4.1-Flash entries no longer load, because Strata v0.2.15 removed DeepSeek V4.1. Not in it: NVIDIA's FP4-QAD checkpoint (needs a conversion first) and OrcaRouter (manual).
+- The gallery has entries for the ready-made NVFP4 packs and for the GGUF models (see the feature page). Not in it: NVIDIA's FP4-QAD checkpoint (needs a conversion first) and OrcaRouter (manual).
 - The pack build and the GGUF entries have been tested with a stand-in interpreter and the real tool's imports only; no model has been packed and no real engine has run.
 - CI builds Linux amd64 CUDA 12 and 13 images only. No CPU, ROCm, Darwin or arm64 build.
 - Split or multi-GPU layouts and the drafter options are reachable only through `engine_args`, untested.
