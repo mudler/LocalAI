@@ -73,7 +73,7 @@ Note: The galleries available in LocalAI can be customized to point to a differe
 
 ### Browse Online
 
-Visit [models.localai.io](https://models.localai.io) to browse all available models in your browser.
+Open the **Models** page of the web interface (for example `http://localhost:8080`) to browse all available models in your browser. You can also run `local-ai models list`, or read the [gallery index](https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml) on GitHub.
 
 On a phone, the model page wraps build descriptions in the **Variants** table
 to keep the fit status and install buttons visible.
