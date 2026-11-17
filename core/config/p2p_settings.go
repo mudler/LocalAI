@@ -7,8 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
+	"github.com/mudler/LocalAI/core/services/p2pnet"
 )
 
 // P2PRelayMode says when the server relays for its paired devices.
@@ -121,24 +120,11 @@ func ValidateP2PRelayMode(v string) error {
 // with /p2p/<peer ID>, as bootstrap peers and relays do.
 func ValidateP2PPeerAddrs(addrs []string) error {
 	for _, a := range addrs {
-		if _, err := ParseP2PPeerAddr(a); err != nil {
+		if _, err := p2pnet.ParsePeerAddr(a); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// ParseP2PPeerAddr parses a multiaddr that ends in /p2p/<peer ID>.
-func ParseP2PPeerAddr(a string) (*peer.AddrInfo, error) {
-	m, err := ma.NewMultiaddr(strings.TrimSpace(a))
-	if err != nil {
-		return nil, fmt.Errorf("invalid address %q: %w", a, err)
-	}
-	ai, err := peer.AddrInfoFromP2pAddr(m)
-	if err != nil {
-		return nil, fmt.Errorf("address %q must end in /p2p/<peer ID>: %w", a, err)
-	}
-	return ai, nil
 }
 
 // ValidateP2PRelays checks the p2p_relays setting: each relay has a unique
@@ -153,7 +139,7 @@ func ValidateP2PRelays(relays []P2PRelay) error {
 			return fmt.Errorf("relay id %q is used twice", r.ID)
 		}
 		seen[r.ID] = true
-		if _, err := ParseP2PPeerAddr(r.Addr); err != nil {
+		if _, err := p2pnet.ParsePeerAddr(r.Addr); err != nil {
 			return err
 		}
 	}

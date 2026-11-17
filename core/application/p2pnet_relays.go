@@ -3,8 +3,6 @@ package application
 import (
 	"context"
 
-	ma "github.com/multiformats/go-multiaddr"
-
 	"github.com/mudler/LocalAI/core/config"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
@@ -52,7 +50,7 @@ func (rt *p2pRuntime) Relays(context.Context) []p2ppair.Relay {
 		if rt.relays != nil && r.Mode != "gated" && r.Mode != "open" {
 			continue
 		}
-		addr, err := ma.NewMultiaddr(r.Addr)
+		addr, err := p2pnet.ParseMultiaddr(r.Addr)
 		if err != nil {
 			continue
 		}

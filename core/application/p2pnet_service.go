@@ -7,11 +7,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr/net"
-
 	"github.com/mudler/LocalAI/core/config"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
@@ -51,7 +46,7 @@ func (s p2pService) Status(ctx context.Context) (p2papi.Status, error) {
 	for _, a := range rt.host.Addrs() {
 		// A host with no listener still lists the bare /p2p/<id> that the
 		// relay transport yields; it is no address anyone can dial.
-		if ps := a.Protocols(); len(ps) == 0 || ps[0].Code == ma.P_P2P {
+		if ps := a.Protocols(); len(ps) == 0 || ps[0].Code == p2pnet.ProtocolP2P {
 			continue
 		}
 		st.Addrs = append(st.Addrs, a.String())
@@ -61,9 +56,9 @@ func (s p2pService) Status(ctx context.Context) (p2papi.Status, error) {
 		}
 	}
 	switch rt.host.Reachability() {
-	case network.ReachabilityPublic:
+	case p2pnet.ReachabilityPublic:
 		st.Reachability = "public"
-	case network.ReachabilityPrivate:
+	case p2pnet.ReachabilityPrivate:
 		st.Reachability = "private"
 	}
 	st.PublicDHT = p2papi.PublicDHTInfo{On: !rt.cfg.DisablePublicDHT, Peers: len(rt.host.Libp2p().Network().Peers())}
@@ -78,19 +73,19 @@ func (s p2pService) Status(ctx context.Context) (p2papi.Status, error) {
 }
 
 // circuitRelay returns the relay peer ID of a /p2p-circuit address.
-func circuitRelay(a ma.Multiaddr) string {
+func circuitRelay(a p2pnet.Multiaddr) string {
 	if !isCircuit(a) {
 		return ""
 	}
-	v, err := a.ValueForProtocol(ma.P_P2P)
+	v, err := a.ValueForProtocol(p2pnet.ProtocolP2P)
 	if err != nil {
 		return ""
 	}
 	return v
 }
 
-func isCircuit(a ma.Multiaddr) bool {
-	_, err := a.ValueForProtocol(ma.P_CIRCUIT)
+func isCircuit(a p2pnet.Multiaddr) bool {
+	_, err := a.ValueForProtocol(p2pnet.ProtocolCircuit)
 	return err == nil
 }
 
@@ -199,7 +194,7 @@ func (s p2pService) ListDevices(ctx context.Context) ([]p2papi.DeviceView, error
 	}
 	labels := map[string]string{}
 	for _, r := range rt.relayList() {
-		if ai, err := config.ParseP2PPeerAddr(r.Addr); err == nil {
+		if ai, err := p2pnet.ParsePeerAddr(r.Addr); err == nil {
 			labels[ai.ID.String()] = r.Label
 		}
 	}
@@ -212,7 +207,7 @@ func (s p2pService) ListDevices(ctx context.Context) ([]p2papi.DeviceView, error
 		if d.LastPath != "" {
 			v.Path.Kind = d.LastPath
 		}
-		if p, err := peer.Decode(d.PeerID); err == nil && d.RevokedAt == nil {
+		if p, err := p2pnet.DecodePeerID(d.PeerID); err == nil && d.RevokedAt == nil {
 			if path := rt.host.Path(p); path.Kind != p2pnet.PathNone {
 				v.Online = true
 				v.Path = pathView(path, labels)
@@ -262,7 +257,7 @@ func (s p2pService) RevokeDevice(ctx context.Context, id, by string) error {
 		return p2papi.ErrNotFound
 	}
 	revokeErr := rt.pair.Revoke(ctx, id, by)
-	if p, err := peer.Decode(devs[i].PeerID); err == nil && !errors.Is(revokeErr, p2ppair.ErrNotFound) {
+	if p, err := p2pnet.DecodePeerID(devs[i].PeerID); err == nil && !errors.Is(revokeErr, p2ppair.ErrNotFound) {
 		rt.host.Revoke(p)
 		if rt.relays != nil {
 			rt.relays.PeerRemoved(p.String())
@@ -293,7 +288,7 @@ func (s p2pService) ListRelays(context.Context) ([]p2papi.Relay, error) {
 }
 
 func (s p2pService) AddRelay(ctx context.Context, addr, label, claimCode string) (p2papi.Relay, error) {
-	if _, err := config.ParseP2PPeerAddr(addr); err != nil {
+	if _, err := p2pnet.ParsePeerAddr(addr); err != nil {
 		return p2papi.Relay{}, fmt.Errorf("%w: %s", p2papi.ErrInvalid, err.Error())
 	}
 	rm, err := s.relayManager()
@@ -379,7 +374,7 @@ func (s p2pService) Redeem(ctx context.Context, from string, req p2papi.RedeemRe
 	if err != nil {
 		return p2papi.RedeemResult{}, err
 	}
-	p, err := peer.Decode(from)
+	p, err := p2pnet.DecodePeerID(from)
 	if err != nil {
 		return p2papi.RedeemResult{}, fmt.Errorf("%w: unknown peer", p2papi.ErrInvalid)
 	}
@@ -409,13 +404,13 @@ func (s p2pService) Redeem(ctx context.Context, from string, req p2papi.RedeemRe
 
 // sourceOf is the network source of a peer for the per-source limit of wrong
 // codes: the IP address of a direct connection, the relay of a relayed one.
-func (rt *p2pRuntime) sourceOf(p peer.ID) string {
+func (rt *p2pRuntime) sourceOf(p p2pnet.ID) string {
 	for _, c := range rt.host.Libp2p().Network().ConnsToPeer(p) {
 		a := c.RemoteMultiaddr()
 		if r := circuitRelay(a); r != "" {
 			return "relay:" + r
 		}
-		if ip, err := manet.ToIP(a); err == nil {
+		if ip, err := p2pnet.AddrIP(a); err == nil {
 			return ip.String()
 		}
 	}

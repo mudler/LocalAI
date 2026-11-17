@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/libp2p/go-libp2p/core/peer"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -49,7 +48,7 @@ func device(server *p2pRuntime) (*p2pnet.Host, *http.Client) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 	DeferCleanup(h.Close)
-	ai := peer.AddrInfo{ID: server.host.ID(), Addrs: server.host.Libp2p().Addrs()}
+	ai := p2pnet.AddrInfo{ID: server.host.ID(), Addrs: server.host.Libp2p().Addrs()}
 	c := h.HTTPClient(ai.ID, p2pnet.WithAddrs(ai.Addrs...))
 	c.Timeout = 10 * time.Second
 	return h, c

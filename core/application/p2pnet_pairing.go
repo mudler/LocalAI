@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
 )
 
@@ -125,7 +125,7 @@ func (g *globalLimiter) prune(now time.Time) {
 	g.fails = g.fails[i:]
 }
 
-func (g *globalLimiter) Blocked(p peer.ID, source string) bool {
+func (g *globalLimiter) Blocked(p p2pnet.ID, source string) bool {
 	g.mu.Lock()
 	g.prune(g.now())
 	full := len(g.fails) >= g.max
@@ -133,7 +133,7 @@ func (g *globalLimiter) Blocked(p peer.ID, source string) bool {
 	return full || g.inner.Blocked(p, source)
 }
 
-func (g *globalLimiter) Fail(p peer.ID, source string) {
+func (g *globalLimiter) Fail(p p2pnet.ID, source string) {
 	g.mu.Lock()
 	now := g.now()
 	g.prune(now)
