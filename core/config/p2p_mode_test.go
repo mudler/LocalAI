@@ -25,6 +25,7 @@ var _ = Describe("ResolveP2PMode", func() {
 		Entry("connect with auth", "connect", true, P2PModeConnect, false, "accepts no one"),
 		Entry("share with auth", "share", true, P2PModeShare, false, "accepts paired devices"),
 		Entry("share without auth is refused", "share", false, P2PModeOff, true, "needs authentication"),
+		Entry("share refusal names the real flag", "share", false, P2PModeOff, true, "--auth-enabled"),
 		Entry("case and spaces are ignored", " Share ", true, P2PModeShare, false, "share"),
 		Entry("unknown value", "on", true, P2PModeOff, true, "off, connect or share"),
 	)

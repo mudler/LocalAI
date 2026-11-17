@@ -12,12 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/event"
-	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mudler/xlog"
-	ma "github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr/net"
 
 	"github.com/mudler/LocalAI/core/config"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
@@ -95,7 +90,7 @@ type p2pRuntime struct {
 
 	// peers is the paired set as last loaded into the gate.
 	peersMu sync.Mutex
-	peers   map[peer.ID]struct{}
+	peers   map[p2pnet.ID]struct{}
 	// pending is the number of pending invites as last loaded.
 	pending atomic.Int32
 
@@ -104,7 +99,7 @@ type p2pRuntime struct {
 	reason  string
 
 	touchMu sync.Mutex
-	touched map[peer.ID]time.Time
+	touched map[p2pnet.ID]time.Time
 }
 
 func (a *Application) p2p() *p2pNet {
@@ -246,7 +241,7 @@ func (n *p2pNet) startRuntime() (*p2pRuntime, config.P2PMode, error) {
 	}
 	rt := &p2pRuntime{
 		net: n, mode: mode, cfg: s, host: host, gate: gate, ctx: ctx, cancel: cancel,
-		peers: map[peer.ID]struct{}{}, touched: map[peer.ID]time.Time{},
+		peers: map[p2pnet.ID]struct{}{}, touched: map[p2pnet.ID]time.Time{},
 	}
 	if mode == config.P2PModeShare {
 		if err := rt.startShare(); err != nil {
@@ -264,10 +259,10 @@ func appContext(cfg *config.ApplicationConfig) context.Context {
 	return context.Background()
 }
 
-func parsePeerAddrs(addrs []string) ([]peer.AddrInfo, error) {
-	var out []peer.AddrInfo
+func parsePeerAddrs(addrs []string) ([]p2pnet.AddrInfo, error) {
+	var out []p2pnet.AddrInfo
 	for _, a := range addrs {
-		ai, err := config.ParseP2PPeerAddr(a)
+		ai, err := p2pnet.ParsePeerAddr(a)
 		if err != nil {
 			return nil, err
 		}
@@ -374,10 +369,10 @@ func (rt *p2pRuntime) close() {
 }
 
 // linkAddrs are the direct addresses an invite carries: the public ones.
-func (rt *p2pRuntime) linkAddrs() []ma.Multiaddr {
-	var out []ma.Multiaddr
+func (rt *p2pRuntime) linkAddrs() []p2pnet.Multiaddr {
+	var out []p2pnet.Multiaddr
 	for _, a := range rt.host.Addrs() {
-		if manet.IsPublicAddr(a) && !isCircuit(a) {
+		if p2pnet.IsPublicAddr(a) && !isCircuit(a) {
 			out = append(out, a)
 		}
 	}
@@ -411,12 +406,12 @@ func (rt *p2pRuntime) reload() {
 		xlog.Warn("P2P: could not load the paired devices", "error", err)
 		return
 	}
-	next := make(map[peer.ID]struct{}, len(paired))
+	next := make(map[p2pnet.ID]struct{}, len(paired))
 	for _, p := range paired {
 		next[p] = struct{}{}
 	}
 	rt.peersMu.Lock()
-	var gone []peer.ID
+	var gone []p2pnet.ID
 	for p := range rt.peers {
 		if _, ok := next[p]; !ok {
 			gone = append(gone, p)
@@ -456,7 +451,7 @@ func (rt *p2pRuntime) pairedPeerStrings() []string {
 	return out
 }
 
-func (rt *p2pRuntime) paired(p peer.ID) bool {
+func (rt *p2pRuntime) paired(p p2pnet.ID) bool {
 	rt.peersMu.Lock()
 	defer rt.peersMu.Unlock()
 	_, ok := rt.peers[p]
@@ -481,7 +476,7 @@ func (rt *p2pRuntime) httpHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := rt.net.handlers.Load()
 		ps, _ := p2papi.PeerFrom(r.Context())
-		p, err := peer.Decode(ps)
+		p, err := p2pnet.DecodePeerID(ps)
 		if err != nil {
 			http.Error(w, "unknown peer", http.StatusForbidden)
 			return
@@ -508,7 +503,7 @@ func (rt *p2pRuntime) httpHandler() http.Handler {
 }
 
 // touch records that a paired device was seen, at most once a minute.
-func (rt *p2pRuntime) touch(p peer.ID) {
+func (rt *p2pRuntime) touch(p p2pnet.ID) {
 	now := time.Now()
 	rt.touchMu.Lock()
 	if now.Sub(rt.touched[p]) < time.Minute {
@@ -530,7 +525,7 @@ func (rt *p2pRuntime) touch(p peer.ID) {
 // watchReachability starts and stops the in-process relay as the host's
 // reachability changes.
 func (rt *p2pRuntime) watchReachability() error {
-	sub, err := rt.host.Libp2p().EventBus().Subscribe(new(event.EvtLocalReachabilityChanged))
+	sub, err := rt.host.SubscribeReachability()
 	if err != nil {
 		return fmt.Errorf("p2p: watch reachability: %w", err)
 	}
@@ -545,7 +540,7 @@ func (rt *p2pRuntime) watchReachability() error {
 				if !ok {
 					return
 				}
-				rt.updateRelayService(e.(event.EvtLocalReachabilityChanged).Reachability)
+				rt.updateRelayService(p2pnet.ReachabilityOf(e))
 			}
 		}
 	})
@@ -554,19 +549,19 @@ func (rt *p2pRuntime) watchReachability() error {
 
 // relayServiceWanted says whether the server should relay for its paired
 // devices at this reachability, and why not.
-func relayServiceWanted(s config.P2PSettings, reach network.Reachability) (bool, string) {
+func relayServiceWanted(s config.P2PSettings, reach p2pnet.Reachability) (bool, string) {
 	switch {
 	case s.NoRelayPaired || s.EffectiveRelayMode() == config.P2PRelayOff:
 		return false, "off"
 	case s.EffectiveRelayMode() == config.P2PRelayOn:
 		return true, ""
-	case reach != network.ReachabilityPublic:
+	case reach != p2pnet.ReachabilityPublic:
 		return false, "not_public"
 	}
 	return true, ""
 }
 
-func (rt *p2pRuntime) updateRelayService(reach network.Reachability) {
+func (rt *p2pRuntime) updateRelayService(reach p2pnet.Reachability) {
 	want, reason := relayServiceWanted(rt.cfg, reach)
 	if !want {
 		rt.stopRelayService(reason)

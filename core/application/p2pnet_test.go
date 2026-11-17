@@ -7,14 +7,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/config"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
+	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2prelaymgr"
 )
 
@@ -134,17 +133,17 @@ var _ = Describe("P2P layer lifecycle", func() {
 
 var _ = Describe("relaying for paired devices", func() {
 	DescribeTable("runs only when it should",
-		func(s config.P2PSettings, reach network.Reachability, want bool, reason string) {
+		func(s config.P2PSettings, reach p2pnet.Reachability, want bool, reason string) {
 			got, why := relayServiceWanted(s, reach)
 			Expect(got).To(Equal(want))
 			Expect(why).To(Equal(reason))
 		},
-		Entry("auto and public", config.P2PSettings{}, network.ReachabilityPublic, true, ""),
-		Entry("auto and private", config.P2PSettings{}, network.ReachabilityPrivate, false, "not_public"),
-		Entry("auto and unknown", config.P2PSettings{}, network.ReachabilityUnknown, false, "not_public"),
-		Entry("on and private", config.P2PSettings{RelayMode: "on"}, network.ReachabilityPrivate, true, ""),
-		Entry("mode off", config.P2PSettings{RelayMode: "off"}, network.ReachabilityPublic, false, "off"),
-		Entry("paired relaying off", config.P2PSettings{NoRelayPaired: true}, network.ReachabilityPublic, false, "off"),
+		Entry("auto and public", config.P2PSettings{}, p2pnet.ReachabilityPublic, true, ""),
+		Entry("auto and private", config.P2PSettings{}, p2pnet.ReachabilityPrivate, false, "not_public"),
+		Entry("auto and unknown", config.P2PSettings{}, p2pnet.ReachabilityUnknown, false, "not_public"),
+		Entry("on and private", config.P2PSettings{RelayMode: "on"}, p2pnet.ReachabilityPrivate, true, ""),
+		Entry("mode off", config.P2PSettings{RelayMode: "off"}, p2pnet.ReachabilityPublic, false, "off"),
+		Entry("paired relaying off", config.P2PSettings{NoRelayPaired: true}, p2pnet.ReachabilityPublic, false, "off"),
 	)
 })
 
@@ -168,8 +167,8 @@ var _ = Describe("the global limit of wrong codes", func() {
 
 type countingLimiter struct{ fails int }
 
-func (c *countingLimiter) Blocked(peer.ID, string) bool { return false }
-func (c *countingLimiter) Fail(peer.ID, string)         { c.fails++ }
+func (c *countingLimiter) Blocked(p2pnet.ID, string) bool { return false }
+func (c *countingLimiter) Fail(p2pnet.ID, string)         { c.fails++ }
 
 // transportListenAddrs are the TCP and UDP listen addresses of a host. The
 // relay transport always lists /p2p-circuit, which is not a socket.
