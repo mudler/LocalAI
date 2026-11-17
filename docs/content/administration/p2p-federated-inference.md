@@ -38,7 +38,7 @@ A LocalAI server started with `local-ai explorer` serves the same list at `/expl
 
 Starting LocalAI with `--p2p` generates a shared token for connecting multiple instances: and that's all you need to create AI clusters, eliminating the need for intricate network setups. 
 
-Navigate to **Operate → Swarm → P2P** in the WebUI, or open **Add a node** and choose a peer instance or a memory shard, and follow the on-screen instructions.
+Navigate to **Admin → Swarm → P2P** in the WebUI, or open **Add a node** and choose a peer instance or a memory shard, and follow the on-screen instructions.
 
 For fully shared instances, initiate LocalAI with --p2p --federated and adhere to the Swarm section's guidance. This feature, while still experimental, offers a tech preview quality experience.
 
@@ -89,7 +89,7 @@ To connect multiple workers to a single LocalAI instance, start first a server i
 local-ai run --p2p
 ```
 
-And open **Operate → Swarm → P2P** to see the network token and the instructions to connect multiple workers to the network.
+And open **Admin → Swarm → P2P** to see the network token and the instructions to connect multiple workers to the network.
 
 ![346663124-1d2324fd-8b55-4fa2-9856-721a467969c2](https://github.com/user-attachments/assets/b8cadddf-a467-49cf-a1ed-8850de95366d)
 

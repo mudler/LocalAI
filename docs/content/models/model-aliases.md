@@ -30,8 +30,7 @@ optional [profile](#profile-aliases) block.
   cannot point an alias at a missing model, a disabled model, or another alias
   (no chains).
 - Aliases are 1:1. One alias maps to exactly one target.
-- The target can be swapped live by editing the config file, calling the API,
-  using the UI, or asking the assistant. No restart is required.
+- Swap the target with no restart: edit the file, call the API, use the UI or ask the LocalAI Assistant.
 - Both `gpt-4` and `my-llama-3` appear in `GET /v1/models`.
 - Responses echo the requested alias: a call to `gpt-4` returns `gpt-4` in the
   response `model` field, not the target name.
@@ -91,12 +90,10 @@ be checked without calling the model.
 
 ### Evidence check
 
-A profile with server-side MCP tools returns only the final answer to the
-client; the tool calls and their results stay on the server. When the client
-sends the conversation back on the next turn, that tool trail is missing, and a
-model may answer a follow-up question with a number it never looked up instead
-of calling the tool again. The evidence check marks such answers at the output,
-independently of the prompt:
+With server-side MCP tools, the client sees only the final answer, not the tool
+calls. On the next turn the tool results are missing, so the model may invent a
+number instead of calling the tool again. The evidence check marks such answers
+at the output, independently of the prompt:
 
 ```yaml
 name: bookkeeper
@@ -127,7 +124,7 @@ The rule is deterministic and applies to each request on its own:
 
 Answers that hand tool calls to the client are not checked. The check is off
 unless `numbers: true` is set, and `note` without `numbers: true` is rejected.
-It flags, it does not prove: a number the client happened to mention is
+It marks a suspect answer. It cannot tell whether the answer is right: a number the client happened to mention is
 accepted even if the answer uses it wrongly.
 
 ### Source line
@@ -197,8 +194,8 @@ rule is deterministic and applies to each request on its own:
 
 1. Every `http://` or `https://` URL in the final answer is collected, bare or
    inside a Markdown link. Punctuation that ends a sentence is not part of it.
-2. Evidence is every URL in the request as received — the profile's system
-   prompt and the content of every system, user and tool message — and in the
+2. Evidence is every URL in the request as received (the profile's system
+   prompt and the content of every system, user and tool message) and in the
    results of the MCP tool calls that succeeded on the server during this
    request. Assistant messages are not evidence, so a link the model invented on
    an earlier turn is marked again when the client sends it back. Failed tool
@@ -215,7 +212,7 @@ rule is deterministic and applies to each request on its own:
 
 The source line, this note and the number note can be enabled together and are
 appended in that order. `urls_note` without `urls: true` is rejected. The check
-flags, it does not prove: a link that was retrieved can still be cited for a
+marks a suspect answer and cannot tell whether it is right: a link that was retrieved can still be cited for a
 claim the page does not make.
 
 ### Requiring a tool call

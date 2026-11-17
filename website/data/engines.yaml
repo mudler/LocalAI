@@ -1,6 +1,7 @@
-# The native engines the LocalAI team wrote, and the one quantization recipe
-# that feeds them. Every entry has to exist in this tree (backend/ or the
-# gallery); drop an engine here when it is not shipped. This file is the single source of truth for the
+# The native engines the LocalAI team wrote. Only engines are listed here: a vector
+# store (local-store) and a quantization recipe (apex-quant) are not engines and are not
+# counted. Every entry has to exist in this tree (backend/); drop an engine here when it
+# is not shipped. The README table lists the same engines, so the two counts match. This file is the single source of truth for the
 # /engines/ page: the layout renders whatever is here, in this order, and adds
 # nothing of its own. Numbers in `highlights` come from each engine's own
 # benchmark suite, so if a README moves, move the number here too.
@@ -37,9 +38,9 @@ categories:
   - id: text
     label: Text
     blurb: Serving language models, and cleaning what goes into them before it leaves the machine.
-  - id: data
-    label: Data
-    blurb: The storage and quantization work that decides what actually fits on your hardware.
+  - id: forecast
+    label: Forecasting
+    blurb: Reading a series of numbers and saying what comes next.
 
 engines:
   # ---------------------------------------------------------------- hearing
@@ -234,25 +235,22 @@ engines:
       - Exact UTF-8 byte offsets for every span it finds
       - 360 tokens a second on a Raspberry Pi 5, on-device
 
-  # ------------------------------------------------------------------- data
-  - name: local-store
-    tagline: Get vector search inside LocalAI with nothing to deploy, nothing to configure and no second service to run.
-    category: data
-    language: Go
-    repo: https://github.com/mudler/LocalAI
-    highlights:
-      - Ships in-tree and is the default, so embeddings work on a fresh install
-      - Exact cosine similarity, zero configuration
-      - Backs RAG, the face and voice registries and the semantic router cache
-      - Swap in valkey-store or qdrant-store per request when you need durability
+  # ---------------------------------------------------------------- forecast
+  - name: timestral.cpp
+    tagline: Forecast a series of numbers on a CPU, with quantile forecasts and covariates, in one binary.
+    category: forecast
+    language: C++
+    repo: https://github.com/mudler/timestral.cpp
 
-  - name: apex-quant
-    tagline: Fit a 35B mixture-of-experts model on a card you already own, and watch it run faster than the full-size build.
-    category: data
-    language: Shell
-    repo: https://github.com/localai-org/apex-quant
-    highlights:
-      - 64.6 GB down to 12.2 GB, at 74.4 tokens a second against 30.4
-      - APEX Quality beats F16 perplexity at a third of the size
-      - Ordinary GGUF files, so stock llama.cpp opens them unpatched
-      - 201 builds already sitting in the LocalAI gallery
+  # ---------------------------------------------------------------- space (motion)
+  - name: gem-x.cpp
+    tagline: Track a person's body pose live and stream it as SOMA or SMPL motion, on a CPU or with Vulkan.
+    category: space
+    language: C++
+    repo: https://github.com/localai-org/gem-x.cpp
+
+  - name: kimodo.cpp
+    tagline: Turn a sentence into a character animation on a CPU or with Vulkan, saved as a skeleton GLB.
+    category: space
+    language: C++
+    repo: https://github.com/localai-org/kimodo.cpp

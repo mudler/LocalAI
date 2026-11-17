@@ -74,7 +74,8 @@ on:
       - 'scripts/**'
       - 'backend/*.proto'
       - 'backend/*/*.proto'
-      - 'docs/content/addons/contract-reference.md'
+      - 'docs/content/addons/contract-reference/**'
+      - 'docs/content/addons/catalogue/work/sandbox-settings.md'
       - '.github/actions/**'
   push:
     branches: [master]
@@ -95,7 +96,8 @@ on:
       - 'scripts/**'
       - 'backend/*.proto'
       - 'backend/*/*.proto'
-      - 'docs/content/addons/contract-reference.md'
+      - 'docs/content/addons/contract-reference/**'
+      - 'docs/content/addons/catalogue/work/sandbox-settings.md'
       - '.github/actions/**'
   release:
     types: [published]
@@ -252,7 +254,7 @@ jobs:
               printf '%s\n' "$changed" > changed-files.txt
               # Files that no package build reads. The validate job still
               # checks the catalog and the packaging tests run elsewhere.
-              shared=$(grep -vE '^(addons/[^/]+/|gallery/addons/|tests/addons/packaging/|docs/content/addons/contract-reference\.md$)' changed-files.txt || true)
+              shared=$(grep -vE '^(addons/[^/]+/|gallery/addons/|tests/addons/packaging/|docs/content/addons/contract-reference/|docs/content/addons/catalogue/work/sandbox-settings\.md$)' changed-files.txt || true)
               # Files directly under addons/, addons/internal and
               # addons/testhost are shared by every add-on.
               shared="$shared$(grep -E '^addons/([^/]+$|internal/|testhost/)' changed-files.txt || true)"

@@ -2,15 +2,23 @@
 disableToc = false
 title = "Strata backend (experimental)"
 weight = 30
+devbuild = "feature"
 aliases = ["/features/strata/"]
 +++
 
-[Strata](https://github.com/Niko1221/Strata) is an MIT-licensed inference engine for large
-mixture-of-experts models on consumer hardware. LocalAI exposes it through the experimental
-`strata` backend. The backend starts the Strata engine as a child process and talks to it
-over the engine's line protocol. Text generation only.
+[Strata](https://github.com/Niko1221/Strata) runs very large mixture-of-experts models, such as a 125B Qwen or a 763B DeepSeek, on one machine with a GPU, a lot of RAM and a lot of disk. Strata is a separate project. LocalAI wraps it in the experimental `strata` backend, which starts the Strata engine as a child process and talks to it over the engine's line protocol.
 
-Strata is developed by its own authors, not by the LocalAI project.
+{{% callout style="warning" %}}
+This backend is experimental. LocalAI's tests have not run the gallery entries against a real Strata engine and model, and the pack build has not been run on a real model file. For DeepSeek, the pack tool was run on the real GGUF headers only. The speed, memory and quality figures on this page are Strata's own.
+{{% /callout %}}
+
+Qwen entries take text and images. DeepSeek entries take text only.
+
+## What you need
+
+- A GPU from the [supported hardware](#supported-hardware) list.
+- RAM and disk as listed for the model in [Models](#models). Even the smallest entry downloads about 24 GB, and the largest ones more than 250 GB.
+- An SSD or NVMe drive for the larger entries, because the n-gram table is read from disk.
 
 ## Installing
 
@@ -66,7 +74,7 @@ projector for images. Every file is pinned to a Hugging Face commit and checked 
 
 For the GGUF models the gallery downloads only the GGUF files. The backend builds the pack
 with Strata's own tools the first time the model loads (the `pack_gguf` option; see
-`backend/go/strata/README.md`). This takes a few minutes and a few GB of disk. A finished pack
+the [backend README](https://github.com/mudler/LocalAI/blob/master/backend/go/strata/README.md)). This takes a few minutes and a few GB of disk. A finished pack
 is never built again. If the build fails, the load fails with the last lines of the tool.
 
 ```bash
@@ -75,11 +83,10 @@ local-ai models install qwen3.8-flash-next-ista-iq2_xs
 
 **Qwen3.8-Flash-Next** (125B parameters, mixture of experts, Qwen Community License 1.0). The
 n-gram table (about 29 GB in the ISTA-DASLab files) is read from disk, so use an SSD. RAM is
-what the experts need plus about 10 GB; the entries map the experts from the files, so a
-machine with less RAM still runs, slower. Add `--resident-experts` to `engine_args` to copy
+what the experts need plus about 10 GB; with less RAM it still runs, at lower speed. Add `--resident-experts` to `engine_args` to copy
 the experts into RAM when there is room.
 
-| Gallery name | Source and format | Download | Memory (RAM and VRAM) |
+| Gallery name | Source and format | Download | Memory |
 |---|---|---|---|
 | `qwen3.8-flash-next-ista-q2_0` | ISTA-DASLab GSQ-RCO Q2_0, the fastest | 67 GB | about 38 GB |
 | `qwen3.8-flash-next-ista-iq2_xs` | ISTA-DASLab IQ2_XS | 69 GB | about 39 GB |
@@ -107,13 +114,15 @@ default; set `context_size` for more. For less RAM with the Unsloth files, add
 `--resident-budget-gib N` to `engine_args`, as described in the
 [Strata model guide](https://github.com/Niko1221/Strata/blob/main/docs/NVFP4.md).
 
+The memory columns come from Strata's guides. They are a minimum, and Strata does not state them the same way for every model.
+
 **Qwen3.6-35B-A3B** (35B parameters, 3B active, Apache License 2.0). Unsloth's GGUF with the
 MTP layer, which the engine uses for speculative decoding. It runs on NVIDIA and AMD GPUs; the
 Intel Arc and Apple builds of Strata do not run it. The engine keeps every expert it can in
 VRAM and computes the rest on the CPU. On the first load the backend only exports the tokenizer
 from the GGUF file (`pack_tool:tokenizer`).
 
-| Gallery name | Format | Download | RAM |
+| Gallery name | Format | Download | Memory |
 |---|---|---|---|
 | `qwen3.6-35b-a3b-ud-q4_k_xl-strata` | Unsloth UD-Q4_K_XL | 24 GB | about 32 GB |
 | `qwen3.6-35b-a3b-ud-q6_k_xl-strata` | Unsloth UD-Q6_K_XL | 34 GB | about 44 GB |
@@ -131,14 +140,13 @@ text.
 **DeepSeek-V4.1-Flash-1017** (763B parameters, 384 experts per layer, MIT License). It runs on
 the `strata-dsv41` engine, with the model's own V4.1 chat template, its reasoning trace and its
 DSML tool calls (the same prompt bytes as DeepSeek's reference encoder). The quantization is
-ISTA-DAS's GSQ-RCO; the draft model for speculative decoding (DSpark) is Unsloth's. Text only:
-this backend does not send images to the DeepSeek engine. Each entry needs a GPU with 12 GB of
+ISTA-DAS's GSQ-RCO; the draft model for speculative decoding (DSpark) is Unsloth's. This backend does not send images to the DeepSeek engine. Each entry needs a GPU with 12 GB of
 VRAM or more, and Strata measured it with 46 to 64 GB of RAM; with less it runs slowly. The
 111 GB n-gram table stays on disk and is read for every token, so use an NVMe drive. The table
 and the 8 GB draft model are downloaded once into `strata/models/deepseek-v4.1-flash-shared`
 and used by every DeepSeek entry.
 
-| Gallery name | Source and format | Download | RAM, at the least |
+| Gallery name | Source and format | Download | Memory, at the least |
 |---|---|---|---|
 | `deepseek-v4.1-flash-ista-iq1_m` | ISTA-DAS IQ1_M, 1.75 bpw, the smallest | 239 GB | about 34 GB |
 | `deepseek-v4.1-flash-ista-iq2_xxs` | ISTA-DAS IQ2_XXS, 2.00 bpw | 257 GB | about 40 GB |
@@ -147,15 +155,14 @@ and used by every DeepSeek entry.
 
 Strata measured the quality against the original model: the 2.25 set is 7% worse in perplexity,
 the 2.00 set 16% and the 1.75 set 21%; the Coder set is about 48% worse overall and is meant for
-code and agent work. Free disk space is the download plus about 1 GB. The default context is 8192
+code and agent work. Keep the download size plus the size of the pack free on disk. The default context is 8192
 tokens, the size Strata checked; the engine reads up to 1M, and the KV cache takes GPU memory
 from the experts, so raise `context_size` with care.
 
 The DeepSeek options of the backend are `family:deepseek41` (set by these entries), `dspark`
 (`auto`, the default, `on`, `off` or `none`), `experts` (`5` for faster answers, `6` for full
 quality; the engine decides when it is not set) and `mmap_experts`. See
-`backend/go/strata/README.md`. These entries were not run on a real engine: the pack build was
-run on the real file headers, and the prompts were compared with Strata's reference tokens.
+the backend README.
 
 Not in the gallery:
 
@@ -164,11 +171,7 @@ Not in the gallery:
 - OrcaRouter's uncensored IQ3_XXS. Upstream documents it as a manual conversion.
 
 You can still run these by building the pack with Strata and writing a model config by hand
-(see `backend/go/strata/README.md`).
-
-The gallery entries are experimental. The backend has not yet been run against a real
-engine and model, and the pack build has not been run on a real model file. For DeepSeek, the
-pack tool was run on the real GGUF headers only.
+(see the backend README).
 
 ## Vision
 
@@ -181,29 +184,12 @@ changes the placeholder used between LocalAI and Strata.
 
 ## Limits
 
-No embeddings, no grammar, no video or audio input, one request at a time. DeepSeek models take
-no images and no logprobs. See
-`backend/go/strata/README.md` for the full list, including images, logprobs, tool calls and
-reasoning, which the backend supports.
+The backend has no embeddings, no grammar and no video or audio input, and it serves one request at a time. DeepSeek models take no images and no logprobs. Qwen entries support images, logprobs, tool calls and reasoning. The backend README has the full list.
 
 ## Versions
 
-Upstream versions each platform on its own and does not attach every package to every release.
-A release can hold the engine for NVIDIA at one version and the engine for another platform at
-an older one, and a package can be missing from the newest release. Mixed versions are normal.
+Upstream versions each platform on its own, and a release doesn't always hold every package. One release can have the NVIDIA engine at one version and another platform's engine at an older one. Mixed versions are normal.
 
-So `backend/go/strata/Makefile` pins every package, DeepSeek packages included, on its own: the
-release tag it is downloaded from, its version and its SHA-256
-(`STRATA_ENGINE_TAG_<package>`, `STRATA_ENGINE_VERSION_<package>`, `STRATA_ENGINE_SHA256_<package>`,
-and the same with `STRATA_DSV41_` for DeepSeek). The download URL is built from the package's own
-tag. `STRATA_VERSION` and `STRATA_COMMIT` name the newest release; the Python modules the backend
-uses are fetched at that commit.
+`backend/go/strata/Makefile` pins every package, DeepSeek packages included, on its own: the release tag it comes from, its version and its SHA-256 (`STRATA_ENGINE_TAG_<package>`, `STRATA_ENGINE_VERSION_<package>` and `STRATA_ENGINE_SHA256_<package>`, and the same with `STRATA_DSV41_` for DeepSeek). The download URL is built from the package's own tag. `STRATA_VERSION` and `STRATA_COMMIT` name the newest release, and the backend's Python modules are fetched at that commit.
 
-A nightly job (`bump-strata` in `.github/workflows/bump_deps.yaml`, script
-`.github/bump_strata.sh`) takes each package from the newest release that contains it and opens
-one pull request when any pin changes. A package that is missing from the newest release is taken
-from an older one, with a notice in the job log. A package that is in no release keeps its pin and
-the job prints a warning. The job fails if a SHA-256 in the release's `SHA256SUMS.txt` differs from
-the digest GitHub computed for the uploaded file. The pull request lists each package that
-changed, from its old tag and version to the new ones. The backend speaks an unversioned line
-protocol, so review each bump against `backend/go/strata/README.md`.
+A nightly job (`bump-strata` in `.github/workflows/bump_deps.yaml`, script `.github/bump_strata.sh`) takes each package from the newest release that has it and opens one pull request when any pin changes. If a package is missing from the newest release, the job takes it from an older one and logs a notice. If a package is in no release, it keeps its pin and prints a warning. The job fails when a SHA-256 in the release's `SHA256SUMS.txt` differs from the digest GitHub computed for the uploaded file. The pull request lists each package that changed, with its old and new tag and version. The backend speaks an unversioned line protocol, so review each bump against the backend README.

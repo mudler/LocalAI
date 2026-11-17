@@ -2,66 +2,23 @@
 title: "Backends"
 description: "Learn how to use, manage, and develop backends in LocalAI"
 weight: 80
+devbuild: feature
 aliases:
   - "/backends/"
 ---
 
 
-LocalAI supports a variety of backends that can be used to run different types of AI models. There are core Backends which are included, and there are containerized applications that provide the runtime environment for specific model types, such as LLMs, diffusion models, or text-to-speech models.
+A backend is the program that runs a model. LocalAI downloads the right one the first time a model needs it, and you rarely have to choose.
 
 ## Available Backends
 
-LocalAI ships **60+ backends** covering text generation, speech-to-text, text-to-speech, music and sound generation, image and video generation, vision and object detection, audio processing, reranking, fine-tuning, and more. Each one is published as an on-demand OCI image with the appropriate acceleration variants (CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T).
+LocalAI ships **more than 80 backends** covering text generation, speech-to-text, text-to-speech, music and sound generation, image and video generation, vision and object detection, audio processing, reranking, fine-tuning, and more. Each one is published as an on-demand OCI image with the appropriate acceleration variants (CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T).
 
-For the complete list of backends, the model families they support, and their acceleration targets, see the [Backend & Model Compatibility Table]({{%relref "/models/compatibility-table" %}}). The authoritative source is the backend library, [`gallery/backends/index.yaml`](https://github.com/mudler/LocalAI/blob/master/gallery/backends/index.yaml) (see [The backend library and the generated gallery](#the-backend-library-and-the-generated-gallery)), and the same catalog is browsable in the web UI under the **Backends** section.
-
-## Prefer installed development backends
-
-Set `LOCALAI_PREFER_DEV_BACKENDS=true` (legacy alias: `PREFER_DEV_BACKENDS`)
-or pass `--prefer-development-backends` to prefer development builds for generic
-backend aliases. The default is `false`, which preserves existing selection,
-including installations that contain only development builds.
-
-When enabled, LocalAI selects compatible installed builds with an existing,
-non-directory run file. It prefers names ending in `-development` (or the
-configured `LOCALAI_BACKEND_DEV_SUFFIX`). Within that group, existing hardware
-ranking and lexical-name ordering still apply. If no eligible development build
-exists, LocalAI selects an eligible non-development build. If neither group has
-an eligible build, it does not register the alias.
-
-For example (`my-engine` is a placeholder name, not a real backend), generic `my-engine` selects `cpu-my-engine-development`
-over `cpu-my-engine` when both are installed and compatible. A compatible
-CPU development build also takes priority over a stable CUDA build.
-An incompatible development build cannot take priority over a compatible stable
-build. Compatibility uses LocalAI's existing hardware heuristics, including the
-`LOCALAI_FORCE_META_BACKEND_CAPABILITY=disable` override; it does not guarantee
-that native libraries can load.
-
-Explicit concrete names keep their original paths. Selecting
-`cpu-my-engine` does not redirect to its development counterpart.
-Installing a development image under a stable name does not rename that entry.
-The preference also retains its existing development-first download behavior.
-
-The **Settings** value `prefer_development_backends` supplies the frontend's
-preference at its next startup. POST `/api/settings` returns `restart_required: true` when this value changes,
-while retaining the existing `success` and `message` response fields. Unchanged
-values return `restart_required: false`. This notification does not reconfigure
-the watchdog; genuine watchdog setting updates still apply live. Neither API
-updates nor edits to `runtime_settings.json` change
-registered paths or restart running models. The displayed preference can change
-before the resolver adopts it. Startup uses the existing settings merge:
-explicit default-valued CLI or environment values, including `false`, can be
-indistinguishable from unset and do not necessarily override a saved `true`.
-
-For distributed `local-ai worker`, set the flag or environment variable on each
-worker, then restart it. Frontend flags and Settings changes do not configure
-remote workers. Legacy specialized worker subcommands do not expose this
-worker-local option.
+For the complete list of backends, the model families they support, and their acceleration targets, see the [Backend & Model Compatibility Table]({{%relref "/models/compatibility-table" %}}). The source of the list is the backend library, [`gallery/backends/index.yaml`](https://github.com/mudler/LocalAI/blob/master/gallery/backends/index.yaml). The default gallery that a server reads is generated from it (see [The backend library and the generated gallery](#the-backend-library-and-the-generated-gallery)). You can browse the same catalog in **Admin → Runtime → Backends**.
 
 ## Managing Backends in the UI
 
-The **Operate → Runtime → Backends** page is the canonical home for the
-complete backend lifecycle. It is one list with two views, **Installed** and
+Manage backends in **Admin → Runtime → Backends**. It is one list with two views, **Installed** and
 **Catalog**, each with a count:
 
 1. **Catalog** browses configured galleries, searches by name or description,
@@ -107,7 +64,7 @@ lists and shows the progress in the row. The same update is also listed on
 the Updates page.
 
 The current view, search, filter, open row, and target node are stored in the
-URL. Browser Back and shared links therefore restore the same state.
+URL, so a shared link opens the same state.
 
 **Removing** a backend asks first. The dialog names the configured models that
 ask for that backend by name, and any installed meta backend that points at it
@@ -116,14 +73,14 @@ stop working without it. The catalog does not report a size per backend, and
 LocalAI keeps no earlier version of a backend, so there is no size column and
 no rollback.
 
-**Operate → Runtime → Logs** (`/app/backend-logs`) lists the backend processes
+**Admin → Runtime → Logs** (`/app/backend-logs`) lists the backend processes
 that have printed something. Open one to read its output live, filter by stream
 or text, follow the end, show or hide times, export the lines as JSON, or clear
 them. Clearing hides the lines at once and wipes them on the server after 6
 seconds, unless you press **Undo**.
 
 Installs run in the background. The strip at the top of the app follows the
-current one, and **Operate → Activity** lists everything in flight, what needs
+current one, and **Admin → Activity** lists everything in flight, what needs
 attention, and what has finished, and is where a running install is paused,
 cancelled or a failed one retried. See [Activity]({{% relref "/administration/activity" %}}).
 
@@ -137,7 +94,7 @@ Each open row displays:
 
 ## The Updates page
 
-**Operate → Updates** (`/app/updates`) is the one place that answers "what is
+**Admin → Updates** (`/app/updates`) is the one place that answers "what is
 out of date, and what is changing". It is for administrators. It lists three
 kinds of things: backends of the gallery, backends of a library, and add-ons.
 
@@ -190,15 +147,15 @@ On a single machine there is no **Nodes** action and **Update** starts at once.
 
 Other pages show that an update exists and send you here; none of them runs a bulk
 update of its own. The Backends page has **Review** in its rows and in the line above
-its list. The Operate **Status** page lists the backends with an update as one row,
+its list. The **Admin → Status** page lists the backends with an update as one row,
 "N updates available", with **Review**. The Apps page has **Open Updates**. The
 **Nodes** page keeps its **Update** button for the nodes you selected, which opens the same
 confirmation as this page, and a node's **Backends** tab has **Update** for a backend that
 is behind on that node.
 
-### The count on the Updates tab and on Operate
+### The count on the Updates tab and on Admin
 
-A number on the **Updates** tab and on the **Operate** item of the sidebar (on
+A number on the **Updates** tab and on the **Admin** item of the sidebar (on
 every page, for administrators) counts what needs a person: ready updates that
 no automatic setting covers, plus updates that failed, are held for approval, or
 are blocked by something other than the server setting for backend installs. An
@@ -206,7 +163,7 @@ update that an automatic setting will apply is listed on the page but not
 counted. The number is red when an update failed. One poll reads the numbers
 once a minute while the browser tab is visible, and again when an operation ends.
 
-The badge on the **Operate** item has one number at a time, so it follows an
+The badge on the **Admin** item has one number at a time, so it follows an
 order: failed operations first (red, counting the failed operations), then the
 count above, then the number of operations that are running. The tab always
 shows the count above, so the two numbers differ while an operation has failed.
@@ -222,7 +179,7 @@ Administrators get updates in the [inbox]({{% relref "/features/chats-and-agents
   - when you delete it, it is hidden, not forgotten. It stays hidden while the updates are the same or fewer, and it comes back, unread, for the next new update;
   - when none is left it is removed. A later update is then new again.
   The digest changes only when every source that can be checked answered in that pass. A failed check does not turn "unknown" into "all done".
-- **The result of an automatic pass**, "Backends: 2 updated automatically, 1 failed". When the automatic update installed or failed to install something, the pass writes one item, with the counts and the names. A pass that did nothing writes nothing. The item is a failure (red) when anything failed, and then it links to the updates that need you. A report is written once: the same failure of the same release at the next pass (the pass retries every six hours) does not write it again, also after you deleted the first item. A different release, or a different set of outcomes, is a new item. Add-ons write their own item in their own pass (see [Add-ons]({{% relref "/addons/contract-reference#automatic-upgrade" %}})).
+- **The result of an automatic pass**, "Backends: 2 updated automatically, 1 failed". When the automatic update installed or failed to install something, the pass writes one item, with the counts and the names. A pass that did nothing writes nothing. The item is a failure (red) when anything failed, and then it links to the updates that need you. A report is written once: the same failure of the same release at the next pass (the pass retries every six hours) does not write it again, also after you deleted the first item. A different release, or a different set of outcomes, is a new item. Add-ons write their own item in their own pass (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})).
 - **The failed check**, "The update check failed". When the automatic check of the backend gallery or the backend library fails in two passes in a row (more than half a day), one item names the sources. It is removed when the check works again, and written again only if a source fails again for two passes. The Updates page shows the same failure on its source line at once.
 
 Each item opens the Updates page on the list it is about: the digest opens **Ready**, a result with a failure or a held update opens **Needs you**.
@@ -286,6 +243,48 @@ own cache only, whether or not it holds the lock that runs automatic updates.
 
 The LocalAI Assistant reads the same data with the `backend_updates` tool
 (`action` `list` or `check`).
+
+## Prefer installed development backends
+
+Development builds are ignored when a stable build is installed. Set `LOCALAI_PREFER_DEV_BACKENDS=true` (legacy alias: `PREFER_DEV_BACKENDS`)
+or pass `--prefer-development-backends` to prefer them for generic backend aliases. The default is `false`, which preserves existing selection,
+including installations that contain only development builds.
+
+When enabled, LocalAI selects compatible installed builds with an existing,
+non-directory run file. It prefers names ending in `-development` (or the
+configured `LOCALAI_BACKEND_DEV_SUFFIX`). Within that group, existing hardware
+ranking and lexical-name ordering still apply. If no eligible development build
+exists, LocalAI selects an eligible non-development build. If neither group has
+an eligible build, it does not register the alias.
+
+For example (`my-engine` is a placeholder name, not a real backend), generic `my-engine` selects `cpu-my-engine-development`
+over `cpu-my-engine` when both are installed and compatible. A compatible
+CPU development build also takes priority over a stable CUDA build.
+An incompatible development build cannot take priority over a compatible stable
+build. Compatibility uses LocalAI's existing hardware heuristics, including the
+`LOCALAI_FORCE_META_BACKEND_CAPABILITY=disable` override; it does not guarantee
+that native libraries can load.
+
+Explicit concrete names keep their original paths. Selecting
+`cpu-my-engine` does not redirect to its development counterpart.
+Installing a development image under a stable name does not rename that entry.
+The preference also retains its existing development-first download behavior.
+
+The **Settings** value `prefer_development_backends` supplies the frontend's
+preference at its next startup. POST `/api/settings` returns `restart_required: true` when this value changes,
+while retaining the existing `success` and `message` response fields. Unchanged
+values return `restart_required: false`. This notification does not reconfigure
+the watchdog; genuine watchdog setting updates still apply live. Neither API
+updates nor edits to `runtime_settings.json` change
+registered paths or restart running models. The displayed preference can change
+before the resolver adopts it. Startup uses the existing settings merge:
+explicit default-valued CLI or environment values, including `false`, can be
+indistinguishable from unset and do not necessarily override a saved `true`.
+
+For distributed `local-ai worker`, set the flag or environment variable on each
+worker, then restart it. Frontend flags and Settings changes do not configure
+remote workers. Legacy specialized worker subcommands do not expose this
+worker-local option.
 
 ## Backend Galleries
 
@@ -402,11 +401,11 @@ local-ai run
 
 What is refused:
 
-- installs from the backend gallery, from OCI images, URLs or local paths —
-  from the Backends page, `POST /backends/apply`, the `/api/backends/...`
+- installs from the backend gallery, from OCI images, URLs or local paths:
+  the Backends page, `POST /backends/apply`, the `/api/backends/...`
   install routes, the LocalAI Assistant's `install_backend` tool and the
   `LOCALAI_EXTERNAL_BACKENDS` boot-time list;
-- upgrades — manual, "update all", the Assistant's `upgrade_backend` tool and
+- upgrades: manual, "update all", the Assistant's `upgrade_backend` tool and
   the background auto-upgrader, which is not started at all (upgrade checks
   stop too, so no registry is polled for versions nobody can apply);
 - installing a model whose backend is not present: refused before anything
@@ -416,9 +415,8 @@ What is refused:
 What still works: backends already installed, backends provided under the
 system path, listing and browsing the backend galleries, and deleting a
 backend. In distributed mode a model counts as installable when a healthy
-worker has its backend, under its own name or an alias — availability is
-judged where inference runs, not on the frontend, which keeps no backends of
-its own.
+worker has its backend, under its own name or an alias. Availability is
+judged where inference runs. The frontend keeps no backends of its own.
 
 How clients can tell: install and upgrade endpoints answer `403` with
 `"code": "backend_install_disabled"`; installing a gallery model whose
@@ -438,7 +436,7 @@ backends or system path and exit with an error instead of installing one.
 
 The backend library, `gallery/backends/index.yaml`, is the **source of truth** of the backends, the way the model library is for the models. Edits go there. The backend gallery, `backend/index.yaml`, is a **generated copy** of it. It stays only so that releases from before the cutover, which read the gallery, keep working. Never edit it by hand; CI fails when it differs from the generated copy.
 
-An entry of the library is one backend image for one platform, pinned by a digest. It carries what the gallery carried: the name, `alias`, `description`, `license`, `urls`, `tags`, an `icon` URL, the ordered `mirrors` and the `capabilities` map of a meta backend. A development image (a `master-` tag) keeps its tag and has no digest in the library; the install pins it. The [Add-ons page]({{% relref "/addons/contract-reference#a-backend-entry" %}}) lists every field.
+An entry of the library is one backend image for one platform, pinned by a digest. It carries what the gallery carried: the name, `alias`, `description`, `license`, `urls`, `tags`, an `icon` URL, the ordered `mirrors` and the `capabilities` map of a meta backend. A development image (a `master-` tag) keeps its tag and has no digest in the library; the install pins it. The [Add-ons page]({{% relref "/addons/install-and-update#a-backend-entry" %}}) lists every field.
 
 ### Which source a build reads
 
@@ -469,7 +467,7 @@ CI (the `backend library` workflow) checks the library file itself. It decodes, 
 
 ## Installing from a library
 
-A library of the [Add-ons page]({{% relref "/addons/contract-reference" %}}) can list backends too, and the backend library is one of them. A library entry installs with a pinned image digest, the signature check of the library and a size limit (8 GiB by default). The Browse tab of the Add-ons page shows each entry with its kind. See [Backends in the library]({{% relref "/addons/contract-reference#backends-in-the-library" %}}) for the entry format, the signer pattern and the install route.
+A library of the [Add-ons page]({{% relref "/addons/contract-reference" %}}) can list backends too, and the backend library is one of them. A library entry installs with a pinned image digest, the signature check of the library and a size limit (8 GiB by default). The Browse tab of the Add-ons page shows each entry with its kind. See [Backends in the library]({{% relref "/addons/install-and-update#backends-in-the-library" %}}) for the entry format, the signer pattern and the install route.
 
 ## Pre-installing Backends
 
@@ -486,7 +484,7 @@ Every backend, whether the gallery installed it into the user-managed
 location or a system package shipped it, is a directory with one
 required file:
 
-- `run.sh` — the entry point LocalAI executes to start the backend.
+- `run.sh`: the entry point LocalAI executes to start the backend.
 
 and one optional file, `metadata.json`:
 
@@ -497,8 +495,8 @@ and one optional file, `metadata.json`:
 }
 ```
 
-- `name` — the concrete backend name (defaults to the directory name).
-- `alias` — registers this directory as a *variant* of a backend
+- `name`: the concrete backend name (defaults to the directory name).
+- `alias`: registers this directory as a *variant* of a backend
   family. When several installed variants share an alias
   (`cpu-audio-cpp`, `rocm-audio-cpp`, ... all aliased to `audio-cpp`),
   a model config using `backend: audio-cpp` resolves to the variant
@@ -506,7 +504,7 @@ and one optional file, `metadata.json`:
   on an NVIDIA host, ROCm first on AMD, and so on). Each variant also
   stays individually addressable by its concrete name, e.g.
   `backend: cpu-audio-cpp` to keep VRAM free for other models.
-- `meta_backend_for` — points a meta entry at a concrete backend
+- `meta_backend_for`: points a meta entry at a concrete backend
   directory installed next to it.
 
 A directory without `metadata.json` is a plain backend under its
@@ -521,29 +519,29 @@ Backends do not have to come from the gallery: directories under
 `LOCALAI_BACKENDS_SYSTEM_PATH` (default `/var/lib/local-ai/backends`)
 are discovered on every scan, using the same
 [directory format](#backend-directory-format) as user-managed
-backends. This is the integration point for distribution packages —
-the package manager installs backends there, while gallery installs
+backends. This is the integration point for distribution packages.
+The package manager installs backends there, while gallery installs
 keep living in the user-managed `LOCALAI_BACKENDS_PATH`.
 
 One difference in error handling: a system directory with unreadable
 metadata is skipped with a warning, while unreadable metadata in the
-user-managed location fails the listing — a system package must never
+user-managed location fails the listing. A system package must not
 be able to break the discovery of the user's own backends.
 
 ### Precedence between the two locations
 
 User-managed backends always win over system-provided ones:
 
-- **Same name in both locations** — the user-managed backend hides the
+- **Same name in both locations**: the user-managed backend hides the
   system one entirely.
-- **Family takeover** — installing *any* variant of an alias family
+- **Family takeover**: installing *any* variant of an alias family
   into the user-managed location (e.g. from the gallery) replaces the
   whole system family: the alias resolves only among user-managed
   variants, and the system family's concrete names disappear from the
   listing. Variants of one family are versioned together; resolution
   never mixes installations of different origins within a family, and
   a stale system variant is not kept reachable.
-- **Names never get hijacked** — a system variant's alias cannot take
+- **Names never get hijacked**: a system variant's alias cannot take
   over a name that exists as a user-managed backend (including a meta
   backend): `backend:
   audio-cpp` keeps running the user's `audio-cpp` installation even if
@@ -567,7 +565,7 @@ Your backend container should:
 4. Include necessary dependencies. Python backends are unpacked from the
    builder path into a runtime directory, so packages must be installed into
    the backend virtualenv with a regular `pip install .` / `uv pip install .`
-   — not an editable (`-e`) source install. An editable finder keeps pointing
+   not an editable (`-e`) source install. An editable finder keeps pointing
    at the vanished builder tree, and `import` fails after relocation.
 5. Have a top level `run.sh` file that will be used to run the backend
 6. Pushed to a registry so can be used in a gallery
@@ -615,7 +613,7 @@ LocalAI supports various types of backends:
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
 - **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
 - **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [MLX-Video on Apple Silicon]({{%relref "/models/capabilities/vision/video-generation" %}}), [LongCat-Video]({{%relref "/models/capabilities/vision/video-generation" %}}), [MiniMax-H3 on stable-diffusion.cpp]({{%relref "/models/capabilities/vision/video-generation" %}}))
-- **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "/models/capabilities/vision/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
+- **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "/models/capabilities/vision/3d-generation" %}}): Microsoft TRELLIS.2, producing GLB assets with PBR textures)
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
 - **Time-Series Backends**: For quantile forecasting of numeric series ([timestral.cpp]({{%relref "/models/capabilities/text/forecast" %}}), Mistral's Timestral models)
 - **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
@@ -642,8 +640,8 @@ failed write as final and returns, which releases the slot the generation held.
 
 This matters most for a model configured without a generation cap. With
 `max_tokens: 0` and a large `context_size`, an abandoned request that keeps
-decoding occupies its slot until it reaches the context limit — tens of minutes
-on a large model — and every other request for that model queues behind it. A
+decoding occupies its slot until it reaches the context limit, which takes tens of minutes
+on a large model, and every other request for that model queues behind it. A
 couple of abandoned requests is enough to make a healthy node look wedged.
 
 Cancellation is cooperative and checked between decoded results, so a batch

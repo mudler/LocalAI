@@ -5,17 +5,14 @@ weight = 80
 aliases = ["/features/ssh/"]
 +++
 
-In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
-
 ## At a glance
 
 | Topic | Detail |
 |---|---|
 | What it adds | A tool to run one non-interactive command on a remote machine over SSH. A person confirms each command by default. |
-| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
-| Who turns it on | A person needs the `addons` feature. It is off by default for new users on a server with accounts. The person switches the add-on on for a chat in the **Tools** menu. A saved agent uses it only when you name it in the agent. A person adds a connection: a host, a user and a key or a password. |
+| Needs | A connection with a host, a user and a key or a password. |
 
-The SSH add-on lets your [chats]({{% relref "/features/chats-and-agents/chats" %}}) and [saved agents]({{% relref "/features/chats-and-agents/chats-agents" %}}) run commands on a remote machine over SSH. By default **a person confirms each command**: the card shows the host, the user and the exact text before anything runs.
+Run commands on a remote machine from your [chats]({{% relref "/features/chats-and-agents/chats" %}}) and [saved agents]({{% relref "/features/chats-and-agents/chats-agents" %}}) over SSH. By default **a person confirms each command**: the card shows the host, the user and the exact text before anything runs.
 
 A chat can answer questions such as:
 
@@ -27,18 +24,18 @@ The add-on runs **one non-interactive command** per call. It has no terminal, no
 
 ## Set it up
 
-1. Install the **SSH** add-on from the add-on gallery and open its page.
+1. Install the **SSH** add-on from **Find add-ons** and open its page.
 2. On the machine, make a user just for LocalAI, with only the rights the task needs. A command can change or delete anything that user may touch.
 3. Make a key pair for that user and add the public key to its `authorized_keys`, or choose a password. A key with a passphrase is not supported.
 4. On the add-on page, choose **New SSH connection**. Type the host (with the port if it is not 22), the user name and the key or the password.
 5. Press **Save**. When no host key is trusted yet, the page reads the key the machine presents and asks whether to trust this host, with its fingerprint. Compare it with the one on the machine (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), then choose **Trust and save**. You can also press **Check host key** first to look at the fingerprint, and tick that you trust it. If the host cannot be reached, the page says so and offers **Retry**; nothing is saved until you trust the key.
 6. Press **Test**: the row shows the user and the system name if the login works.
 
-One connection is one host. For a second machine, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
+One connection is one host. For a second machine, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats-commands#the-connections-of-an-add-on" %}})). With two or more enabled, the model names the connection in each call.
 
 ### The secret
 
-The connection keeps one sealed secret. It is either a private key in PEM or OpenSSH format, or `user:password`. For a password the host splits it at the first colon, so the user name has no colon and the password may have colons. This is a v1 format: when the host gets a credential kind with named fields, the add-on will move to it and you will enter the secret again.
+The connection keeps one sealed secret. It is either a private key in PEM or OpenSSH format, or `user:password`. For a password the host splits it at the first colon, so the user name has no colon and the password may have colons.
 
 For a key, the user name is the one in the address of the connection. The page asks for the secret again when you change the user or the host, because the saved one belongs to the old ones.
 
@@ -67,7 +64,7 @@ Each connection has a mode, set on the page by you and never by a model:
 | **Asks you first** | Each command waits in your approvals. The card shows the host, the user, the exact command, the time limit and the host key. A new connection made on the page starts here. |
 | **Runs at once** | The command runs as soon as the chat calls it, with no card. |
 
-Choose **Runs at once** only for a host and a user where a wrong command does no harm. In that mode the model is told to say plainly which command ran. The mode is the host's write mode of the connection (see [Confirming a held write in the chat]({{% relref "/addons/contract-reference" %}}#confirming-a-held-write-in-the-chat)): the tool declares no approval of its own, so the connection decides. In a messaging chat, the usual rules for who may confirm apply.
+Choose **Runs at once** only for a host and a user where a wrong command does no harm. In that mode the model is told to say plainly which command ran. The mode is the host's write mode of the connection (see [Confirming a held write in the chat]({{% relref "/addons/contract-reference/owner-forwarding#confirming-a-held-write-in-the-chat" %}})): the tool declares no approval of its own, so the connection decides. In a messaging chat, the usual rules for who may confirm apply.
 
 ## Tools
 
@@ -78,14 +75,14 @@ Choose **Runs at once** only for a host and a user where a wrong command does no
 
 `run` returns the exit code, standard output and standard error. Each stream is cut at 32 KiB, and a flag (`stdoutTruncated`, `stderrTruncated`) says when it was cut. A command that does not finish within the time limit gets its connection closed; the result says `timedOut` and holds the output so far, and the command may still run on the machine.
 
-The limit is 45 seconds, not more, because the host stops a write call after 60 seconds and the login takes part of that.
+The limit is 45 seconds because LocalAI stops a write call after 60 seconds, and the login uses part of that.
 
 The page also uses a third tool, `scan-host-key`, to read the host key for you. No model calls it.
 
 ## Limits and safety
 
 - **One command at a time per connection.** A second call is refused while one runs.
-- **Never twice.** The add-on notes a command before it sends it, and a repeat of the same operation answers from that note. If the connection drops after the command started, the result is "unknown" and the add-on does not send it again.
+- **No double runs.** The add-on records a command before it sends it. If the same call repeats, LocalAI returns the recorded answer and doesn't run it again. If the connection drops after the command started, the result is "unknown" and the add-on doesn't send it again.
 - **Output is data.** Results are marked untrusted, and the skill tells the model never to follow instructions in them.
-- **Errors have their own words.** The host cannot be reached, the login was refused, the host key changed, no host key is pinned, and the host would not run a command are different messages.
+- **Errors are specific.** Each of these gives its own message: the host can't be reached, the login was refused, the host key changed, no host key is pinned, and the host wouldn't run a command.
 - **The add-on reaches any address a connection lists**, including addresses on your own network and on the LocalAI machine itself. The secret of the connection is the only limit on what a command can do there.

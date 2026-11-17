@@ -6,10 +6,10 @@ description = "Put widgets and pages on Home, and update them on a schedule or w
 weight = 20
 +++
 
-Home can show widgets. A widget is a small tile with a list, a number or one of your pages. You can change what Home shows, and a trigger can keep a tile current.
+Add small tiles to Home that show a list, a number or one of your pages, and have a schedule keep them current.
 
 {{% callout style="note" %}}
-This needs the chats and their files. The **Pages** feature, and the **Triggers** feature, are off for new users on a server with accounts. An administrator turns them on in the permissions of each user. Administrators always have them. The server option `LOCALAI_DISABLE_TRIGGERS` turns triggers off for everyone.
+This needs the chats and their files. The Pages and Scheduled triggers permissions are off for new users on a server with accounts. An administrator turns them on in the permissions of each user. Administrators always have them. The server option `LOCALAI_DISABLE_TRIGGERS` turns triggers off for everyone.
 {{% /callout %}}
 
 ## Kinds of tile
@@ -21,11 +21,11 @@ This needs the chats and their files. The **Pages** feature, and the **Triggers*
 | `chats` | Your last chats | No file needed |
 | `page` | One of your [pages]({{% relref "/features/pages-and-home/pages" %}}), in compact mode | The page itself |
 
-Data comes from files, not from live services. A page has no network access. A line chart is the only chart type of the data widgets.
+A tile reads a JSON file in your home. It can't call a live service, and a page can't reach the network. The only chart type is a line chart.
 
 ## Add, remove and reorder
 
-1. Open Home and choose **Edit layout**.
+1. Open Home and choose **Customise Home**. It opens **Edit layout**.
 2. Add a widget, remove one, or change the order.
 3. Save.
 
@@ -33,14 +33,14 @@ You can also ask the assistant: "Show my open tasks on Home". It writes the data
 
 ## Make a page a tile
 
-A page can be a tile when its `page.json` has a `widget` block with a `size` of `small`, `medium` or `large`. Pick the page in **Edit layout**, or ask the assistant to put it on Home. See [A page on Home]({{% relref "/features/pages-and-home/pages#a-page-on-home" %}}).
+A page can be a tile when its `page.json` has a `widget` block with a `size` of `small`, `medium` or `large`. Pick the page in **Edit layout** (from **Customise Home**), or ask the assistant to put it on Home. See [A page on Home]({{% relref "/features/pages-and-home/pages-on-home#a-page-on-home" %}}).
 
 ## Keep a tile current
 
 A trigger starts a run of the assistant. The run rewrites a file, and the tile reads it.
 
 - A **schedule** trigger runs daily, on weekdays, weekly, monthly, once, or from a cron expression. A schedule trigger runs at most once every 5 minutes, however it is made.
-- A **file** trigger runs when a file arrives in a folder. A page can write that file. See [A page that starts a run]({{% relref "/features/pages-and-home/pages#a-page-that-starts-a-run" %}}).
+- A **file** trigger runs when a file arrives in a folder. A page can write that file. See [A page that starts a run]({{% relref "/features/pages-and-home/pages-reference#a-page-that-starts-a-run" %}}).
 
 There is no trigger that a web request can start from outside.
 
@@ -51,9 +51,9 @@ Example:
 3. Review the trigger card and choose **Create**.
 4. Each morning the trigger runs one chat turn for you and rewrites the file. The tile shows the new list.
 
-Each run uses a model turn, so it costs tokens. See [Saved agents, triggers and inbox]({{% relref "/features/chats-and-agents/chats-agents" %}}).
+Each run uses a model turn, so it costs tokens. See [Saved agents, triggers and notifications]({{% relref "/features/chats-and-agents/chats-agents" %}}).
 
 ## Limits to know
 
 - A tile shows its last valid data and marks it as stale when a file breaks its schema.
-- A trigger run is an ordinary chat turn. It can fail like one. Try your own setup with a short schedule first.
+- A trigger run is an ordinary chat turn. It can fail like one. Test with a short schedule first, but not under 5 minutes.

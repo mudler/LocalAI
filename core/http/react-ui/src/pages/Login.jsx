@@ -6,6 +6,7 @@ import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import './login.css'
 import Icon from '../components/Icon'
+import BrandName from '../components/BrandName'
 
 // Sign-in, registration and the invite page: one screen, one field per step.
 // What it offers comes from /api/auth/status and nothing else: the providers
@@ -195,7 +196,7 @@ export default function Login() {
     <aside className="lg-brand" aria-label={branding.instanceName}>
       <div className="lg-brand__top">
         <img src={apiUrl(branding.logoUrl)} alt="" className="lg-brand__logo" />
-        <span className="lg-brand__name">{branding.instanceName}</span>
+        <span className="lg-brand__name"><BrandName /></span>
       </div>
       {branding.instanceTagline && <p className="lg-brand__tagline">{branding.instanceTagline}</p>}
     </aside>

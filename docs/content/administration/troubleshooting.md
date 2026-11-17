@@ -89,7 +89,7 @@ uname -m
 
 **Symptoms:** macOS shows a warning when you open LocalAI, or the app does not start.
 
-**Solution:** The app in the release DMG and the `local-ai` binary are signed with an Apple Developer ID and notarized, so a current release opens without a workaround. Check that you downloaded `LocalAI.dmg` from the [releases page](https://github.com/mudler/LocalAI/releases/latest). To check the signature, run the `spctl` command in the [macOS install guide]({{% relref "/start/install/macos" %}}#verification). A copy that was modified or downloaded from another place fails this check.
+**Solution:** The app in the release DMG and the `local-ai` binary are signed with an Apple Developer ID and notarized, so a current release opens without a workaround. Check that you downloaded `LocalAI.dmg` from the [releases page](https://github.com/mudler/LocalAI/releases/latest). To check the signature, run the `spctl` command in the [desktop app guide]({{% relref "/start/install/desktop" %}}#install-on-macos). A copy that was modified or downloaded from another place fails this check.
 
 ## Model Loading Problems
 

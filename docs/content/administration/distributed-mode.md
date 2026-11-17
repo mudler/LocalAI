@@ -83,8 +83,8 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
-| `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
-| *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
+| `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget: the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
+| *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes: only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--model-config-resync-interval` | `LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL` | `30s` | How often each frontend compares its model configs with the shared models directory, to apply a change whose NATS message it missed. A frontend that missed a message serves the old config for at most this long. See [Model configs across frontends](#model-configs-across-frontends). |
@@ -98,14 +98,14 @@ start the frontends with `--addons-role=frontend`, so they forward add-on reques
 to it and hold no add-on state. The library sources and the backend library
 installs also go through the owner: a frontend follows the owner's sources and
 installs backends on its own node. See
-[Running the owner as its own workload]({{% relref "/addons/contract-reference#running-the-owner-as-its-own-workload" %}}).
+[Running the owner as its own workload]({{% relref "/addons/contract-reference/owner#running-the-owner-as-its-own-workload" %}}).
 
 The owner must join distributed mode with the same `--nats-url`, registration token
 and PostgreSQL database as the frontends. Then it takes part in the leader locks and
 sends model loads to the workers. An owner without these settings loads models in its
 own process (`backend not found`) and polls the connectors next to the leader
 frontend (Slack messages answered twice). See
-[The owner in distributed mode]({{% relref "/addons/contract-reference#the-owner-in-distributed-mode" %}}).
+[The owner in distributed mode]({{% relref "/addons/contract-reference/owner#the-owner-in-distributed-mode" %}}).
 
 ### The model load deadline scales with the checkpoint
 
@@ -123,9 +123,9 @@ budget = 5m + 20s per GiB of checkpoint,  capped at 6h
 | 70 GB | 28m20s |
 | 600 GB | 3h25m |
 
-The per-GiB rate is deliberately pessimistic — it corresponds to reading weights at about 54 MB/s, below what any supported storage sustains — because the two errors are not symmetric: a budget that is too long costs only *failure latency* on a load that was going to fail anyway, while a budget that is too short causes a guaranteed false failure on a load that was perfectly healthy.
+The per-GiB rate is deliberately pessimistic (it corresponds to reading weights at about 54 MB/s, below what any supported storage sustains) because the two errors are not symmetric: a budget that is too long costs only *failure latency* on a load that was going to fail anyway, while a budget that is too short causes a guaranteed false failure on a load that was perfectly healthy.
 
-The size is measured from the model files on the frontend's disk, over the same set of paths that get staged to the worker. If those files are not present locally — a backend handed a bare HuggingFace repo id fetches its own weights on the worker — there is nothing to measure and the budget stays at the plain 5m default. Pin `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` for those models if their load is slow.
+The size is measured from the model files on the frontend's disk, over the same set of paths that get staged to the worker. If those files are not present locally (a backend handed a bare HuggingFace repo id fetches its own weights on the worker) there is nothing to measure and the budget stays at the plain 5m default. Pin `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` for those models if their load is slow.
 
 When the budget *is* exceeded, the error names the budget, the checkpoint size it was derived from, and the knob that overrides it, instead of surfacing a bare `context deadline exceeded`.
 
@@ -133,22 +133,22 @@ When the budget *is* exceeded, the error names the budget, the checkpoint size i
 
 The router also bounds how long a single cold load may hold the per-model advisory lock, so a worker that dies mid-install cannot pin every other replica's request for that model. That bound is **derived**, not configured, and it is based on *progress* rather than on wall-clock time.
 
-The load starts with a base budget of `max(backend-install-timeout + model-load-timeout + 5m, 25m)` — with the defaults, `15m + 5m + 5m = 25m`. That budget covers the steps that report no progress: node selection, backend install, and the remote `LoadModel` call. Raising either timeout widens it in step, so a longer load deadline is never clipped.
+The load starts with a base budget of `max(backend-install-timeout + model-load-timeout + 5m, 25m)`, with the defaults, `15m + 5m + 5m = 25m`. That budget covers the steps that report no progress: node selection, backend install, and the remote `LoadModel` call. Raising either timeout widens it in step, so a longer load deadline is never clipped.
 
-That base is the hold's *starting* budget, not its maximum. Because the derived load budget above can exceed it — a 70 GB checkpoint's 28m20s against a 25m base — the hold is widened again as the router enters the load phase, by the derived budget plus the same 5m of slack. Without that step the ceiling would cancel a load that was still comfortably inside its own deadline.
+That base is the hold's *starting* budget, not its maximum. Because the derived load budget above can exceed it (a 70 GB checkpoint's 28m20s against a 25m base) the hold is widened again as the router enters the load phase, by the derived budget plus the same 5m of slack. Without that step the ceiling would cancel a load that was still comfortably inside its own deadline.
 
-While **model files are staging**, however, the deadline extends every time staging does real work, and expires only once staging has been silent for a 5-minute stall window. Real work means uploaded bytes, and also the resumable-upload verify phase: when a shard is already present on the worker from an earlier attempt, the frontend HEADs it and hashes the local copy to confirm it matches, then skips the transfer. That phase uploads nothing at all — on a 70 GB model resuming with 56 GB already staged it ran for six-plus consecutive minutes at ~45s per shard — so hashing counts as progress too. Otherwise a resumed transfer would be mistaken for a wedged one. Staging time is a function of checkpoint size and available bandwidth, not a constant: a 70 GB model at 26 MB/s needs about 45 minutes, and a 600 GB checkpoint needs hours. A fixed ceiling would therefore be a model-size cliff — every increase just moves the cliff to the next larger model. Extending on progress means a large model transfers for as long as it legitimately needs, while a worker that dies mid-transfer still releases the lock within the stall window.
+While **model files are staging**, however, the deadline extends every time staging does real work, and expires only once staging has been silent for a 5-minute stall window. Real work means uploaded bytes, and also the resumable-upload verify phase: when a shard is already present on the worker from an earlier attempt, the frontend HEADs it and hashes the local copy to confirm it matches, then skips the transfer. That phase uploads nothing at all, on a 70 GB model resuming with 56 GB already staged it ran for six-plus consecutive minutes at ~45s per shard, so hashing counts as progress too. Otherwise a resumed transfer would be mistaken for a wedged one. Staging time is a function of checkpoint size and available bandwidth, not a constant: a 70 GB model at 26 MB/s needs about 45 minutes, and a 600 GB checkpoint needs hours. A fixed ceiling would therefore be a model-size cliff, every increase just moves the cliff to the next larger model. Extending on progress means a large model transfers for as long as it legitimately needs, while a worker that dies mid-transfer still releases the lock within the stall window.
 
 An absolute cap of 24h ends the hold even if progress keeps arriving, so a degenerate peer trickling a few bytes at a time cannot pin the lock forever. No configuration is needed for either value; both are sized well above any legitimate transfer.
 
 ### Requests for a model that is still loading
 
-A cold load in distributed mode is a long-running background job: install the backend, stage multi-GB model files to the worker, then load the checkpoint. Staging a 35.7 GB GGUF onto a fresh worker takes roughly twenty minutes on a fast LAN — far longer than any HTTP request can be held open.
+A cold load in distributed mode is a long-running background job: install the backend, stage multi-GB model files to the worker, then load the checkpoint. Staging a 35.7 GB GGUF onto a fresh worker takes roughly twenty minutes on a fast LAN, far longer than any HTTP request can be held open.
 
-So the load does **not** run on the request. The first request for an unloaded model claims a durable **model load job** — that claim takes milliseconds and is the only part that holds the per-model advisory lock — and the job then runs in the background on the frontend replica that claimed it. Every other request for the same model, on any replica, attaches to that job as a waiter:
+So the load does **not** run on the request. The first request for an unloaded model claims a durable **model load job** (that claim takes milliseconds and is the only part that holds the per-model advisory lock) and the job then runs in the background on the frontend replica that claimed it. Every other request for the same model, on any replica, attaches to that job as a waiter:
 
 - It is **served the moment the model is ready**, with no client-side retry. A model already 90% staged usually needs no second request.
-- It never starts a duplicate load and never blocks on the database lock. (Before this split, concurrent requests blocked on `pg_advisory_lock` for the whole load and were killed by the PostgreSQL role's `statement_timeout` — `SQLSTATE 57014` — so from the operator's seat the model simply never loaded.)
+- It never starts a duplicate load and never blocks on the database lock. (Before this split, concurrent requests blocked on `pg_advisory_lock` for the whole load and were killed by the PostgreSQL role's `statement_timeout` (`SQLSTATE 57014`) so from the operator's seat the model simply never loaded.)
 - If the load fails, the waiter gets the *real* cause (`worker out of disk`), not an anonymous timeout.
 - If the client disconnects, the load keeps going. It belongs to the job record, not to the request.
 - The owner of a job holds a 30 second lease, which it renews on every heartbeat. The database clock decides whether a lease has expired, so a frontend with a wrong clock cannot expire a live lease or keep a dead one. If an owner cannot renew for a whole lease, it stops its own load.
@@ -180,7 +180,7 @@ When the wait budget (`LOCALAI_MODEL_LOAD_WAIT`, default `60s`) runs out, the re
 }
 ```
 
-The `error` envelope keeps OpenAI clients working unchanged; `loading` is additive, so a client that understands it renders progress instead of an error. `eta_seconds` is derived from the job's own observed transfer rate and is **omitted rather than guessed** until enough bytes have moved for that rate to mean anything — a confidently wrong ETA on a twenty-minute wait is worse than none. `state` is one of `pending` (choosing a node), `installing`, `staging` (transferring files) or `loading` (the worker is reading the checkpoint).
+The `error` envelope keeps OpenAI clients working unchanged; `loading` is additive, so a client that understands it renders progress instead of an error. `eta_seconds` is derived from the job's own observed transfer rate and is **omitted rather than guessed** until enough bytes have moved for that rate to mean anything, a confidently wrong ETA on a twenty-minute wait is worse than none. `state` is one of `pending` (choosing a node), `installing`, `staging` (transferring files) or `loading` (the worker is reading the checkpoint).
 
 The chat UI renders this state inline and retries automatically once the model reports ready. Poll `GET /api/models/{id}/load-status` for the same `loading` object at any time.
 
@@ -299,7 +299,7 @@ If every node (frontend and workers) mounts the **same** models directory at the
 
 Set `LOCALAI_DISTRIBUTED_SHARED_MODELS=true` (or `--distributed-shared-models`) on the frontend to skip staging entirely. The router then leaves the model's absolute paths untouched and the worker loads them directly from the shared volume.
 
-This flag is a contract you assert: all nodes must mount identical paths. Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
+This flag is a contract you assert: all nodes must mount identical paths. LocalAI doesn't check it. The `.volume-id` check at startup covers only the Files blob folder (see [Chats deployment]({{% relref "/administration/chats-deployment" %}})). Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
 
 ### Which files are staged
 
@@ -353,7 +353,7 @@ on any frontend whether or not it holds the lock, and it installs nothing.
 was checked (see [Checking for backend updates]({{% relref "/models/backends#checking-for-backend-updates" %}})). A standalone server has
 no lock and installs after any check.
 
-The same frontend writes the update items of the inbox: the digest of the updates that need a person, the result of the pass and the notice of a check that keeps failing (see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})). The mode is single runner, on the same lock, so there is no new lock key. The items are rows of the shared database, and every frontend streams a new one to its clients through the bus; the browser push and the Telegram forward run on the frontend that stores the item, so they happen once in the cluster. Failover is safe: a new leader that finds the same updates changes nothing, because the items are keyed and an unchanged item is not written again. The count of failed passes that delays the failed-check notice is kept in the memory of the leader, so a new leader starts it again from zero. Add-on items are written by the add-on owner (see [Add-ons]({{% relref "/addons/contract-reference#automatic-upgrade" %}})). Limit: the two-frontend rules are tested with the in-process bus and a shared store; the lock itself needs PostgreSQL and is tested elsewhere.
+The same frontend writes the update items of the inbox: the digest of the updates that need a person, the result of the pass and the notice of a check that keeps failing (see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})). The mode is single runner, on the same lock, so there is no new lock key. The items are rows of the shared database, and every frontend streams a new one to its clients through the bus; the browser push and the Telegram forward run on the frontend that stores the item, so they happen once in the cluster. Failover is safe: a new leader that finds the same updates changes nothing, because the items are keyed and an unchanged item is not written again. The count of failed passes that delays the failed-check notice is kept in the memory of the leader, so a new leader starts it again from zero. Add-on items are written by the add-on owner (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})). Limit: the two-frontend rules are tested with the in-process bus and a shared store; the lock itself needs PostgreSQL and is tested elsewhere.
 
 ### Watching Backend Installs
 
@@ -363,7 +363,7 @@ several workers, a roll-up of how far the fan-out has got, `Node 3 of 5`.
 Per-file byte counts are not on the tab; they are in the per-node detail
 below.
 
-The per-node detail is on the **Operate → Activity** page
+The per-node detail is on the **Admin → Activity** page
 ([Activity]({{% relref "/administration/activity" %}})). When an install targets
 more than one worker, an **N nodes** tag appears on the operation card, with
 one row per worker showing:
@@ -440,7 +440,7 @@ backends, set `LOCALAI_DISABLE_BACKEND_INSTALL=1` on the worker: it then
 refuses frontend install and upgrade requests for backends it does not have,
 and a model that needs a missing backend fails to load on that node with a
 clear error instead of pulling an image. Set the same variable on the
-frontend so its own install and upgrade endpoints refuse as well — each
+frontend so its own install and upgrade endpoints refuse as well, each
 process enforces the switch for the backends it owns. Model installs on the
 frontend are judged against the workers' backends, so a model whose backend
 is installed on any healthy worker, under its own name or an alias, is still
@@ -463,7 +463,7 @@ The worker's HTTP server (base port - 1, default 50050) exposes two unauthentica
 | `/healthz` | **Liveness.** 200 whenever the process is up and serving. Deliberately independent of readiness, so a brief NATS outage does not trigger a restart storm across every worker. |
 | `/readyz` | **Readiness.** 200 only when the worker is registered, its NATS connection is live, *and* every backend process it is currently serving answers a short TCP dial on its gRPC address; 503 otherwise. A worker holding no backends is ready, because idle is a healthy state, and so is one whose backends are still starting up. |
 
-`/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS — a worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
+`/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS. A worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
 
 The same applies to the data path. A worker can hold a live NATS link while the backend processes it believes it is running have died, so it reports healthy while every load routed to it fails. `/readyz` therefore also dials the recorded gRPC address of each backend the worker is serving, and a worker whose backend port refuses connections drops out of rotation instead of absorbing work it cannot serve.
 
@@ -621,7 +621,7 @@ When the SmartRouter needs to free capacity, it can unload models with zero in-f
 
 ### Managing nodes in the WebUI
 
-With distributed mode on, **Operate → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws these pages.
+With distributed mode on, **Admin → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws these pages.
 
 **Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page asks first, then sends the update to the nodes that differ from the rest of the cluster, or to the nodes you selected.
 
@@ -781,7 +781,7 @@ The responses from `GET /api/node/:id/models` and `GET /api/nodes/:id/models` in
 
 `backend.stop` is request-reply. The worker answers with what it terminated, so the controller can tell a stop that worked from one that matched nothing or failed outright.
 
-This matters for `POST /api/nodes/:id/models/unload`, which stops the backend after unloading the model. The stop used to be fire-and-forget, so the endpoint answered `200` as soon as the message left the frontend — including when the backend was still running and still holding its VRAM. It now returns an error when the worker reports that the stop failed.
+This matters for `POST /api/nodes/:id/models/unload`, which stops the backend after unloading the model. The stop used to be fire-and-forget, so the endpoint answered `200` as soon as the message left the frontend, including when the backend was still running and still holding its VRAM. It now returns an error when the worker reports that the stop failed.
 
 Two outcomes are deliberately **not** errors:
 
@@ -824,7 +824,7 @@ The value accepts the same formats as the standalone budget: a percentage (`80%`
 
 Model weights are **staged onto the worker's disk** before the backend loads them, so a node needs free space as well as free VRAM. Each worker reports the capacity of the filesystem backing its **models directory** (`--models-path`), not the root filesystem, on registration and on every heartbeat. Those figures appear as `total_disk` and `available_disk` in the nodes API and as **Models disk free** on the node detail page.
 
-Before placing a model, the SmartRouter removes any node whose models filesystem cannot hold it. The requirement is derived from the model's actual on-disk size plus a small margin (5%, at least 1 GiB), rather than a fixed percentage of the node's disk — a fixed threshold would take a small-but-usable node out of rotation for models it could comfortably store. When the model's size cannot be determined locally (a bare HuggingFace repo id that the worker fetches itself), the node only has to clear a 2 GiB floor.
+Before placing a model, the SmartRouter removes any node whose models filesystem cannot hold it. The requirement is derived from the model's actual on-disk size plus a small margin (5%, at least 1 GiB), rather than a fixed percentage of the node's disk, a fixed threshold would take a small-but-usable node out of rotation for models it could comfortably store. When the model's size cannot be determined locally (a bare HuggingFace repo id that the worker fetches itself), the node only has to clear a 2 GiB floor.
 
 If **no** node has enough space, the request fails immediately with a capacity error naming the requirement and each node's free space, for example:
 
@@ -833,7 +833,7 @@ scheduling longcat-video-avatar-1.5: no node has enough free disk for the model:
 need 73.5 GB free on the models filesystem, but nvidia-thor has 0 B free of 937.0 GB
 ```
 
-This is deliberately a scheduling-time verdict. Without it, a worker with a full disk still reported `status: healthy`, accepted the staging request, transferred tens of gigabytes and only then failed with `no space left on device` — minutes after a decision that could never have succeeded.
+This is deliberately a scheduling-time verdict. Without it, a worker with a full disk still reported `status: healthy`, accepted the staging request, transferred tens of gigabytes and only then failed with `no space left on device`, minutes after a decision that could never have succeeded.
 
 Workers that predate this feature (or whose disk reading fails) report `total_disk` as `0`. Such nodes are treated as *unknown*, not *full*, and stay in rotation, so a rolling upgrade never empties the candidate pool. A full disk is distinguishable because it reports a non-zero `total_disk` with `available_disk` at `0`.
 
@@ -851,7 +851,7 @@ WARN No node has room to store this model, but the disk-headroom check is DISABL
      model=longcat-video-avatar-1.5 knob=distributed-disk-headroom-check
 ```
 
-The alternative — skipping the check outright — was rejected because it reproduces the condition that made the original bug expensive: the cluster was doing something that could not work and said nothing about it. The escape hatch exists for setups where the size estimate is wrong (deduplicating or compressing filesystems, a backend that fetches its own weights rather than using the staged copy), and in exactly those cases the operator needs to see what LocalAI thought was wrong. Disabling is logged once at startup as well.
+The alternative (skipping the check outright) was rejected because it reproduces the condition that made the original bug expensive: the cluster was doing something that could not work and said nothing about it. The escape hatch exists for setups where the size estimate is wrong (deduplicating or compressing filesystems, a backend that fetches its own weights rather than using the staged copy), and in exactly those cases the operator needs to see what LocalAI thought was wrong. Disabling is logged once at startup as well.
 
 The **LocalAI Assistant** can also set a node budget conversationally through the `set_node_vram_budget` MCP tool.
 
@@ -1009,7 +1009,7 @@ Agent workers:
 - Handle MCP tool discovery and execution requests from the frontend
 - Close their MCP sessions when a backend stops
 
-The agent worker does not run chat turns. To run the turns of triggers, connectors and [agent jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) away from the frontends, use [chat workers](#chat-workers). The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted by `local-ai agent-worker` and ignored. The frontends and the chat workers read `LOCALAI_MCP_CI_JOB_TIMEOUT` and `LOCALAI_AGENT_JOB_RETENTION_DAYS`.
+The agent worker does not run chat turns. To run the turns of triggers, connectors and [agent jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) away from the frontends, use [chat workers](#chat-workers). The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted by `local-ai agent-worker` and ignored. `LOCALAI_MCP_CI_JOB_TIMEOUT` is live on the server command (`local-ai run`, also used by frontends and chat workers) and is ignored only on `local-ai agent-worker`. `LOCALAI_AGENT_JOB_RETENTION_DAYS` is read by `local-ai run`.
 
 In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
 
@@ -1241,7 +1241,7 @@ local-ai worker \
 
 ## Model Scheduling
 
-Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Placement rules** page (**Operate → Swarm → Placement rules**, at `/app/scheduling`). Each rule is written as a sentence, shows the nodes the model is loaded on now, and opens in a side sheet that previews which nodes the draft rule could use. The preview is worked out in the browser from the node list and labels; the scheduler also checks free memory and disk when it loads a model. A deleted rule can be taken back for a few seconds. A rule combines two optional features:
+Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Placement rules** page (**Admin → Swarm → Placement rules**, at `/app/scheduling`). Each rule is written as a sentence, shows the nodes the model is loaded on now, and opens in a side sheet that previews which nodes the draft rule could use. The preview is worked out in the browser from the node list and labels; the scheduler also checks free memory and disk when it loads a model. A deleted rule can be taken back for a few seconds. A rule combines two optional features:
 
 ### Node Selectors
 
@@ -1651,10 +1651,88 @@ PostgreSQL/direct-FS publication and purge coordination is automatic for all
 participants, including the separate owner. Blob ingest holds the revision lock,
 serializing metadata writers; blocked operations must honor cancellation and
 orphan cleanup has a bounded 30-second context. S3 remains an alternative. See
-[Shared filesystem for Files]({{% relref "/features/chats-and-agents/chats" %}}#shared-filesystem-for-files) for the
+[Shared filesystem for Files]({{% relref "/administration/chats-deployment#shared-filesystem-for-files" %}}) for the
 full storage and durability contract.
 
 No automatic migration occurs: existing filesystem paths stay put and configured
 S3 workspaces remain on S3. Switching populated metadata requires a separately
 planned copy and verification, with all consumers switching together. Mixed
 S3/local/shared backends can yield missing content.
+
+## Chat apps, MCP servers and Projects in a cluster
+
+Chat apps, MCP servers and Projects keep state in a cluster as the sections below say. The user pages are [Chat apps and connections]({{% relref "/features/chat-apps" %}}), [MCP servers]({{% relref "/features/chat-apps/mcp-servers" %}}) and [Projects]({{% relref "/features/chats-and-agents/projects-reference" %}}).
+
+### Multiple frontends and readiness
+
+In a multi-frontend deployment, connector discovery and calls go to the frontend
+that owns the add-on runtime over the private, peer-authenticated add-on carrier.
+You can create and test bindings from another frontend; it does not need its own
+Slack or Telegram runtime. Poll leadership is unchanged: the polling frontend
+and notification sender can reach the runtime owner without owning it themselves.
+Connector access still requires **Connectors**, not the separate **Add-ons**
+permission. Existing agent permissions and sender allowlists still apply.
+
+A healthy owner with no running connector kinds returns an empty list. An
+unreachable, unready or fenced owner returns an error instead: an empty list is
+not an outage signal. Check that the connector add-on is running and that the
+frontends can reach the configured private carrier before trying discovery again.
+
+If discovery fails or the platform explicitly refuses a token, creating a binding
+fails without saving it. Once discovery succeeds, a temporary outage during token
+verification retains the existing permissive save behavior; use **Test** when the
+platform is available again. An authorization denial or explicit token refusal
+during replacement leaves the stored binding unchanged. Binding calls use the
+owner's stored token. LocalAI does not replay a forwarded send automatically after
+a transport failure, since the platform may already have received it.
+
+Telegram's legacy binding resolution remains compatible with existing bindings.
+It is not a fallback for discovering other connector kinds or for owner outages.
+
+
+### Connections: storage and clusters
+
+Bindings, the read position in Telegram's updates, the sender log and the chat of
+each sender are stored with your chats: in the database, in JSON files under the
+data path, or in memory when there is no data path (then nothing survives a
+restart). The JSON store is for one process.
+
+| State | Mode | How |
+|---|---|---|
+| Bindings, offsets, sender log, sender chats, the key | Shared | Rows in the database. |
+| Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. Add-ons run on the process that owns the add-ons, and the loops run only where the add-on answers. |
+| The upstream account of a binding, and which of two twin bindings answers | Shared | The account is stored with the binding. The oldest enabled binding of the same account answers; every frontend derives that from the stored bindings, so no claim is needed. A frontend remembers in memory only when it last asked an add-on for an account that the add-on did not tell, to ask again after 10 minutes. |
+| Where the next message is read from | Shared | The offset is stored with the binding. Core passes it to the add-on's poll call and stores the offset that the answer names. |
+| The reply being sent for a turn | Per instance | The frontend that took the message sends the answer, edits its working message or sends its draft, and sends its files. If it dies, the answer is lost; the message is not repeated. |
+| The preview budget of a binding | Per instance | The time of the next edit or draft is kept in memory by the frontend that sends the replies. Replies of one binding run on the leader, so one budget covers them. |
+| Draft IDs | Per instance | A counter in the process that sends the replies gives each turn a new draft ID. Two frontends could give the same ID, but a draft only lives in one chat for one turn. |
+| The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
+| Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
+| The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses English. The interface language of the owner is stored with the binding, so it is the same on every frontend. A fixed language is stored with the binding and works everywhere. |
+| Shares of a binding | Single runner | The grants are records in the policy store of the add-on owner, the one process that writes them, keyed by the binding ID; the binding itself is not copied. A call through a shared binding is admitted on the owner, which is also the only process that opens the sealed tokens, so a revocation cancels it there. Other frontends ask the owner for the listing, the record of a binding and its removal. |
+| Files marked by `attach_file` | Per instance | The marks live in the process that runs the turn and are sent by the process that sends the replies. A turn that ends on another frontend than the one that sends the answer loses its marks; the agent then sees no error, and the person asks again. |
+
+
+### MCP servers: storage and clusters
+
+| State | Mode | How |
+|---|---|---|
+| The connectors and their sealed secrets | Shared | Rows in the database (JSON files under the data path for one process). |
+| The sealing key | Shared | The key of the Telegram connectors. |
+| Open MCP sessions | Per instance | Each frontend opens its own sessions, lazily, for its own users' calls, and closes them after 10 idle minutes and when a connector is edited, switched off or deleted. A frontend notices an edit made on another by the record's update time at the next use. A session is never shared between users. |
+| Local commands (`stdio`) | Refused | They would run on whichever frontend served the request. |
+
+Remote connectors connect from the frontend that runs the turn, not from an
+agent worker, so a server must be reachable from every frontend.
+
+
+### Projects: storage and clusters
+
+| State | Mode | How |
+|---|---|---|
+| The folder, manifest, files and memory of a project | Shared | Ordinary files in your home, in the same store as your other files. |
+| The index of your projects (id, slug, status) | Shared, rebuilt | A table of rows in the database, or a JSON file for one process. It is a cache of the folders: it is rebuilt from the manifests at each list, and a row that disagrees with its folder is corrected. |
+| Anything else | None | A frontend keeps nothing in memory. Each request reads the index and the folders, so every frontend of a cluster gives the same answer. |
+
+In distributed mode the projects are stateless per request. If you lose the
+index, nothing is lost: the next list rebuilds it from the folders.

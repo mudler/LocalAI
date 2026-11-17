@@ -1,29 +1,27 @@
 +++
 disableToc = false
 title = "Studio"
+description = "Make images, video, 3D models, speech and sound, and find what you made later."
 weight = 10
 aliases = ["/features/studio/"]
 +++
-
-In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
 
 ## At a glance
 
 | Topic | Detail |
 |---|---|
 | What it adds | A page to make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and to keep what you make. |
-| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
-| Who turns it on | A person needs the `addons` feature, which is off by default for new users on a server with accounts. The page opens at `/app/addons/studio/studio`. |
+| Needs | The models for the kind of media you want to make. |
 
 {{% callout style="note" %}}
-Studio is an add-on. It is not part of the web bundle: install it from **Find add-ons** in the [Add-ons]({{% relref "/addons/contract-reference" %}}#the-studio-add-on) page with **Install and turn on**. Once it is usable, it is in My add-ons and can be shown in the sidebar, and it opens at `/app/addons/studio/studio`. Use its canonical add-on page address.
+Install Studio from **Find add-ons** with **Install and turn on** (see the [user guide]({{% relref "/addons/user-guide" %}})). It then shows in **My add-ons**, and you can pin it to the sidebar. It opens at `/app/addons/studio/studio`.
 {{% /callout %}}
 
-Studio is the part of the web UI where you make images, video, 3D objects, speech, sound and transformed audio, and find what you made before. It opens on a front page with a prompt box and your own work. Each type still has its own workspace page (Images, Video, 3D, TTS, Sound, Transform, Diarization) where a run happens.
+Make images, video, 3D models, speech and sound with the models you have installed, and find what you made later. Studio opens on a front page with a prompt box and your own work. Each type still has its own workspace page (Images, Video, 3D, TTS, Sound, Transform, Diarization) where a run happens.
 
 ## Make something
 
-Type what you want in the box under **What do you want to make?**, or pick a type first. The box suggests a type from your words ("Sounds like Video") and never switches by itself. The suggestion is a short list of keywords in the browser. No model is called.
+Type what you want in the box under **What do you want to make?**, or pick a type first. The box suggests a type from keywords in your text, for example "Sounds like Video". It never switches by itself and calls no model.
 
 | Key | Action |
 |---|---|
@@ -49,7 +47,7 @@ Results made from each other stack into one project tile. Open a tile to see the
 
 ### Where the history is kept
 
-The history lives in your browser, not on the server. Each workspace writes its own list when a result is produced: images, video, TTS, sound and audio transform in browser storage (up to 100 entries each), 3D in IndexedDB (up to 20 entries, with the model file), and diarization in browser storage with the file name, the model and the speaker count only. It never keeps the recording or the transcript. A prompt longer than 2000 characters is cut when it is stored. Favourites are a list of up to 500 ids.
+Your history is stored in this browser. The files are on the server. Each workspace writes its own list when a result is produced: images, video, TTS, sound and audio transform in browser storage (up to 100 entries each), 3D in IndexedDB (up to 20 entries, with the model file), and diarization in browser storage with the file name, the model and the speaker count only. It never keeps the recording or the transcript. A prompt longer than 2000 characters is cut when it is stored. Favourites are a list of up to 500 ids.
 
 Results made before this version have no link to the result they came from, so they appear as single tiles. The files themselves are on the server; if the server has cleaned its output folder, the tile shows the type icon instead of a picture.
 
@@ -73,7 +71,7 @@ Arrow keys walk the board, `B` branches and `Esc` closes the draft, then the det
 All seven workspaces share one layout, under a row of tabs, one per type:
 
 - **Compose card.** Optional sources as dashed chips (a start image, reference images, an end image, avatar audio), or a drop area where the run cannot start without a file (a recording for Diarization, audio for Transform, a picture for 3D). Then the prompt, with starters while it is empty, a model chip, the essential options as chips (size and count, duration and frame rate, voice, mode), and an **Advanced** fold that names what is inside when it is closed. Below that: the memory the model needs and whether it fits, when the gallery knows it, and one button. When the button cannot run, the reason is next to it. With no model for the type, the install note from the front page shows in the card.
-- **Run area.** While a request is out, a job card shows the model and options and the time that has passed. The server reports no phase and no percentage on these endpoints, so the bar is indeterminate. A failed run shows what the server said, says the prompt and settings are still there, and offers **Try again**. A finished run shows the result in a viewer for its type (picture grid, video player, waveform player, 3D viewer, spectrograms, or a timeline of speakers) with a toolbar:
+- **Run area.** While a request is out, a job card shows the model and options and the time that has passed. The bar has no percentage because the server doesn't report progress. A failed run shows what the server said, says the prompt and settings are still there, and offers **Try again**. A finished run shows the result in a viewer for its type (picture grid, video player, waveform player, 3D viewer, spectrograms, or a timeline of speakers) with a toolbar:
   - **Favourite**, the same list the front page keeps.
   - **Download**.
   - **Use in** lists where the result can go next. A step is disabled, with the reason, when the destination cannot start from it, or when no model for it is installed it says so.

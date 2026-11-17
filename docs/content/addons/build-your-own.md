@@ -5,7 +5,7 @@ description = "A tutorial that builds a small add-on with one tool, a skill and 
 weight = 20
 +++
 
-This tutorial builds an add-on called `hello`. It has one tool, `greet`, and one skill. You test it, pack it as a zip file and install it from the file. It does not need a UI, a database or a network.
+This tutorial builds an add-on called `hello`. It has one tool, `greet`, and one skill. You test it, pack it as a zip file and install it from the file. You end up with a zip that adds a `greet` tool to a chat. It needs no UI, no database and no network.
 
 {{% callout style="note" %}}
 This tutorial puts the add-on inside a checkout of the LocalAI repository, like the first-party add-ons. To build an add-on in your own repository, with its own Go module, read [Build an add-on in your own repository]({{% relref "/features/addon-sdk" %}}). It uses the same Go helper package, `pkg/addons/sdk/protocol`.
@@ -15,7 +15,7 @@ This tutorial puts the add-on inside a checkout of the LocalAI repository, like 
 
 - A checkout of the LocalAI repository.
 - Go 1.26 or newer. The `go.mod` file of the repository names the exact version.
-- Linux on amd64, or macOS on Apple silicon. The manifest below names Linux on amd64; on a Mac, write `darwin` and `arm64`.
+- Linux on amd64, or macOS on Apple silicon. The manifest below names Linux on amd64. Step 6 says what to change on a Mac.
 
 ## 1. Make the folders
 
@@ -67,7 +67,7 @@ The manifest says who the add-on is, which host it needs and which tools it offe
 
 ## 3. Write the tool
 
-Save this as `addons/hello/internal/tools/tools.go`. The runtime has five methods. A read-only add-on answers the last four with an error.
+Save this as `addons/hello/internal/tools/tools.go`. The runtime has five methods. A read-only add-on serves `Read` and returns an error from the other four, as below.
 
 ```go
 // SPDX-License-Identifier: MIT
@@ -195,6 +195,8 @@ platforms:
     native_check: executable-start
 ```
 
+On a Mac, use `platform: darwin/arm64` and `runner: macos-15` instead, and write `darwin` and `arm64` in the manifest. The zip is then named `hello-0.1.0-darwin-arm64.zip`.
+
 ## 7. Test it
 
 Save this as `addons/hello/internal/tools/tools_test.go`. It calls the tool and checks that the manifest passes the same parser that the host uses.
@@ -260,7 +262,7 @@ go vet ./addons/hello/...
 go test ./addons/hello/...
 ```
 
-Both commands must pass. For the larger suites that check the contract, see [Testing add-ons]({{% relref "/addons/testing" %}}).
+For the larger suites that check the contract, see [Testing add-ons]({{% relref "/addons/testing" %}}).
 
 ## 8. Pack it
 
@@ -268,7 +270,7 @@ Both commands must pass. For the larger suites that check the contract, see [Tes
 sh scripts/addons/zip.sh --addon hello --local-check --out dist/addons
 ```
 
-`--local-check` lets you pack a platform that is not in the official release matrix. The output is a zip and a `.sha256` file, named `hello-0.1.0-linux-amd64.zip`. The packager says `publishable=false`, because a local package is never published.
+`--local-check` lets you pack a platform that is not in the official release matrix. The output is a zip and a `.sha256` file, named `hello-0.1.0-linux-amd64.zip`. The packager prints `publishable=false`. That's expected for a local package.
 
 ## 9. Install it
 
@@ -277,10 +279,10 @@ sh scripts/addons/zip.sh --addon hello --local-check --out dist/addons
 3. Read the dialog. It shows "Local file, unsigned". Confirm.
 4. Open a chat, switch `hello` on in the **Tools** menu and ask: "Say hello to Ada."
 
-The install needs sign-in to be on, or `--addon-host-ui-grants-without-auth`. See [Install from a file]({{% relref "/addons/contract-reference#install-from-a-file" %}}).
+The install needs sign-in to be on, or `--addon-host-ui-grants-without-auth`. See [Install from a file]({{% relref "/addons/install-and-update#install-from-a-file" %}}).
 
 ## Next steps
 
-- A tool that changes something uses another `kind`. See [Action tools]({{% relref "/addons/contract-reference#action-tools" %}}) and [Proposals and confirmation]({{% relref "/addons/contract-reference#proposals-and-confirmation" %}}).
-- To show a page, add a UI bundle. See [Add-on pages]({{% relref "/addons/contract-reference#add-on-pages" %}}).
+- A tool that changes something uses another `kind`. See [Action tools]({{% relref "/addons/contract-reference/host-operations#action-tools" %}}) and [Proposals and confirmation]({{% relref "/addons/contract-reference/proposals-and-resources#proposals-and-confirmation" %}}).
+- To show a page, add a UI bundle. See [Add-on pages]({{% relref "/addons/contract-reference/apps-and-pages#add-on-pages" %}}).
 - To keep data, use the data directory that the host gives in the startup data.

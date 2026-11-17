@@ -6,6 +6,7 @@ import { ToastContainer, useToast } from './components/Toast'
 import { systemApi } from './utils/api'
 import { useTheme } from './contexts/ThemeContext'
 import { useBranding } from './contexts/BrandingContext'
+import BrandName from './components/BrandName'
 import { useAuth } from './context/AuthContext'
 import RouteFallback from './components/RouteFallback'
 import { hubs, hubOwnsPath } from './components/hub/hubConfig'
@@ -143,7 +144,7 @@ export default function App() {
             >
               <Icon name="menu" />
             </button>
-            <span className="mobile-title">{branding.instanceName}</span>
+            <span className="mobile-title"><BrandName /></span>
             <div className="mobile-header-actions">
               <MobileInboxButton />
               <button

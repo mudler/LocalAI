@@ -8,7 +8,7 @@ aliases = ["/basics/kubernetes/"]
 keywords = ["kubernetes", "helm", "install", "cluster"]
 +++
 
-Use the Helm chart to run LocalAI on Kubernetes. Add the chart repository first, then install the chart:
+Install LocalAI on Kubernetes with the Helm chart. LocalAI listens with authentication off, so read [Authentication]({{% relref "/administration/authentication" %}}) before you expose the service.
 
 ```bash
 helm repo add go-skynet https://go-skynet.github.io/helm-charts/
@@ -17,11 +17,18 @@ helm show values go-skynet/local-ai > values.yaml
 helm install local-ai go-skynet/local-ai -f values.yaml
 ```
 
-Edit `values.yaml` before you install. The chart is maintained in the [helm-charts repository](https://github.com/go-skynet/helm-charts). The chart repository is separate from the LocalAI release. Check its `values.yaml` for the image tag it uses.
+Edit `values.yaml` before you install. The chart is maintained in the [helm-charts repository](https://github.com/go-skynet/helm-charts) and released separately from LocalAI, so its default image can be older than the latest LocalAI release. Check the image tag in its `values.yaml` and set a newer one if you need it.
+
+To reach the server from your computer, forward its port and check that it answers. Use the service name of your release:
+
+```bash
+kubectl port-forward svc/<service-name> 8080:8080
+curl http://localhost:8080/readyz
+```
 
 ## Example manifests
 
-You can also apply a plain deployment file from the examples repository:
+You can also apply a plain deployment file from the examples repository. The links follow the `main` branch, so read the file before you apply it:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/mudler/LocalAI-examples/refs/heads/main/kubernetes/deployment.yaml
@@ -37,4 +44,3 @@ kubectl apply -f https://raw.githubusercontent.com/mudler/LocalAI-examples/refs/
 
 - For several nodes with a shared database, see [Distributed mode]({{% relref "/administration/distributed-mode" %}}).
 - For GPU images, see [GPU acceleration]({{% relref "/models/gpu-acceleration" %}}).
-- Before you expose the service, read [Authentication]({{% relref "/administration/authentication" %}}).

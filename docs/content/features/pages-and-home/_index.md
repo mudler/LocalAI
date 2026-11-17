@@ -1,15 +1,15 @@
 +++
 disableToc = false
 title = "Pages and Home"
-description = "Small pages in your workspace, and widgets on Home that update on a schedule."
+description = "Small HTML pages and widgets on Home that you can keep current."
 icon = "dashboard"
 weight = 3
-devbuild = "addon"
+devbuild = "feature"
 
 [cascade]
-  devbuild = "addon"
+  devbuild = "feature"
 +++
 
-Make small pages in your workspace, and put pages and widgets on Home. A trigger or a file change can update them.
+Ask the assistant for a small HTML page, such as a task board, and put it on Home. A schedule or a file change can keep it current.
 
 {{% pages description="true" display="tree" orderby="weight" %}}

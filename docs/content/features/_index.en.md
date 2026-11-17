@@ -21,6 +21,8 @@ LocalAI also runs models that do more than write text. These pages are in [What 
 - [Audio and speech]({{% relref "/models/capabilities/audio" %}}): turn text into speech, transcribe speech, work with voices.
 - [Text and retrieval]({{% relref "/models/capabilities/text" %}}): embeddings and reranking for search.
 
+For work that spans chats, files and agents, see [Projects]({{% relref "/features/chats-and-agents/projects" %}}).
+
 <div class="lai-feats">
 <a class="lai-feat" href="{{% relref "/features/chats-and-agents" %}}"><span class="lai-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/></svg></span><span class="lai-ft"><b>Chats and agents</b><span>Talk to a model, save agents, run triggers, keep memory and use MCP tools.</span></span><span class="lai-tags"><span class="lai-tag lai-tag-built">Built in</span><span class="lai-tag lai-tag-admin">Admin on</span></span></a>
 <a class="lai-feat" href="{{% relref "/features/files-and-documents" %}}"><span class="lai-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"/></svg></span><span class="lai-ft"><b>Files and documents</b><span>Keep and share files, make Office documents and search your documents by meaning.</span></span><span class="lai-tags"><span class="lai-tag lai-tag-built">Built in</span><span class="lai-tag lai-tag-admin">Admin on</span><span class="lai-tag lai-tag-addon">Add-on</span></span></a>

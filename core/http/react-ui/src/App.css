@@ -4246,6 +4246,18 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 }
 .home-step[data-state="now"] .home-step__num { box-shadow: inset 0 0 0 1.75px var(--dk-accent-text); color: var(--dk-accent-text); }
 .home-step__main { min-width: 0; }
+/* The llama in its teal circle sits in the corner of step 1 and takes no
+   width from the buttons below: only the title and the text keep clear of it. */
+.home-step--lead { position: relative; min-height: 132px; }
+.home-step__mascot { position: absolute; top: 14px; right: 18px; }
+.home-step--lead > .home-step__main > b,
+.home-step--lead > .home-step__main > .home-step__desc { padding-right: 122px; }
+@media (max-width: 720px) {
+  .home-step--lead { min-height: 0; }
+  .home-step__mascot { height: 68px; right: 14px; }
+  .home-step--lead > .home-step__main > b,
+  .home-step--lead > .home-step__main > .home-step__desc { padding-right: 82px; }
+}
 .home-step__main > b { display: block; font-size: 15px; font-weight: 600; color: var(--dk-text); }
 .home-step[data-state="now"] .home-step__main > b { font-weight: 700; }
 .home-step__desc { display: block; margin-top: 2px; font-size: 13px; line-height: 1.45; }

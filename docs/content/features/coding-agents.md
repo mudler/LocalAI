@@ -6,12 +6,11 @@ url = '/features/coding-agents'
 +++
 
 Coding agents such as Codex CLI, Claude Code and opencode talk to a model over HTTP.
-LocalAI exposes the three APIs they use, so you can point them at your own server
-and keep your code on your own hardware.
+LocalAI serves the three APIs these agents use, so you can point them at a model you run yourself. Your prompts and code go to that model. An agent can still call other tools or services that you set up, so check what each one does.
 
 This page shows the smallest working setup for each agent. All examples use
-`http://localhost:8080` as the server address and `sk-localai` as a placeholder key.
-Replace both with your own values.
+`http://localhost:8080` as the server address, `sk-localai` as a placeholder key and `my-model` as the model name.
+Replace all three with your own values. `GET /v1/models` lists the model names.
 
 The agent settings below were checked against each project's documentation or source
 in November 2026. Agents change fast. If a key is rejected, check the agent's own
