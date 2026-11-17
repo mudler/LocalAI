@@ -51,7 +51,7 @@ class NativePaths(unittest.TestCase):
             'coverage-baseline.txt': ['test.yml'],
             'Entitlements.plist': ['build-test.yaml'],
             'docs/content/models/capabilities/vision/image-generation.md': ['test.yml'],
-            'docs/content/addons/contract-reference.md': ['test.yml', 'addons-tests.yml', 'addons-package.yml'],
+            'docs/content/addons/contract-reference/manifest.md': ['test.yml', 'addons-tests.yml', 'addons-package.yml'],
             'docs/content/addons/catalogue/work/tables.md': ['test.yml', 'addons-tests.yml'],
             'docs/content/administration/diagnostics.md': ['test.yml'],
             'docs/content/reference/cli-reference.md': ['test.yml'],
