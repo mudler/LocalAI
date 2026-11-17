@@ -46,6 +46,8 @@ var pageRules = []errRule{
 	verbatim(http.StatusForbidden, typePageNotAllowed, "pages: ", pages.ErrNoConsent),
 	verbatim(http.StatusConflict, typeConflict, "pages: ", pages.ErrChanged),
 	verbatim(http.StatusConflict, typeConflict, "pages: ", pages.ErrCodeChanged),
+	fixed(http.StatusForbidden, typeUserSharesOff, "pages that people share are turned off by an administrator", pages.ErrUserSharesOff),
+	sentinelText(http.StatusBadRequest, typeInvalid, pages.ErrNoEmbed),
 }
 
 func failPage(c echo.Context, err error) error {
@@ -103,8 +105,12 @@ func (h *Handlers) ListPages(c echo.Context) error {
 		return failPage(c, err)
 	}
 	out := schema.PagesList{Pages: make([]schema.PagesPage, 0, len(list)), PageAreaEnabled: h.svc.PageAreaOn()}
+	// A person who cannot share (no accounts) has no counts; the list is the same.
+	counts, _ := h.svc.SharedFolders().PageShareCounts(c.Request().Context(), fc.a)
 	for _, p := range list {
-		out.Pages = append(out.Pages, pageJSON(p))
+		pj := pageJSON(p)
+		pj.SharedWith = counts[p.Name]
+		out.Pages = append(out.Pages, pj)
 	}
 	return c.JSON(http.StatusOK, out)
 }

@@ -32,12 +32,29 @@ type PagesPage struct {
 	// of the page's folder that the page names: the UI puts no other text
 	// file into a shared page.
 	CodeFiles []string `json:"code_files,omitempty"`
-	Folder    string   `json:"folder,omitempty"`
-	FolderID  int64    `json:"folder_id,omitempty"`
-	Writable  bool     `json:"writable,omitempty"`
-	Hash      string   `json:"hash,omitempty"`
-	Consent   string   `json:"consent,omitempty"`
-	MetaSize  int64    `json:"meta_size,omitempty"`
+	// A page that a person shared from their own home (not an administrator's
+	// shared folder) has user_shared set: no administrator checked it, and the
+	// trust sheet says who wrote it. role is what you may do with it: view
+	// (run it and read its data), use (also save data through it) or edit
+	// (also change its code). owner_id and owner_name are the person whose home
+	// holds it; author_name is who last wrote its index.html. turned_off is set
+	// when an administrator turned such pages off: the page is listed and does
+	// not open. Such a page has no folder and no path, which would name the
+	// owner's account.
+	UserShared bool   `json:"user_shared,omitempty"`
+	Role       string `json:"role,omitempty"`
+	OwnerID    string `json:"owner_id,omitempty"`
+	OwnerName  string `json:"owner_name,omitempty"`
+	TurnedOff  bool   `json:"turned_off,omitempty"`
+	// SharedWith is, on one of your own pages, how many accounts you shared it
+	// with (everyone counts as one).
+	SharedWith int    `json:"shared_with,omitempty"`
+	Folder     string `json:"folder,omitempty"`
+	FolderID   int64  `json:"folder_id,omitempty"`
+	Writable   bool   `json:"writable,omitempty"`
+	Hash       string `json:"hash,omitempty"`
+	Consent    string `json:"consent,omitempty"`
+	MetaSize   int64  `json:"meta_size,omitempty"`
 	// UpdatedAt and UpdatedBy are the last change to anything in the folder.
 	UpdatedAt time.Time `json:"updated_at"`
 	UpdatedBy string    `json:"updated_by"`
@@ -146,8 +163,12 @@ type PagesStarterList struct {
 // administrator switched shared pages off: the pages are listed, but none
 // opens.
 type PagesSharedList struct {
-	Enabled bool        `json:"enabled"`
-	Pages   []PagesPage `json:"pages"`
+	Enabled bool `json:"enabled"`
+	// UserSharesEnabled is false when an administrator turned off the pages
+	// that people share from their own homes: those pages have turned_off
+	// set, are listed and do not open.
+	UserSharesEnabled bool        `json:"user_shares_enabled"`
+	Pages             []PagesPage `json:"pages"`
 }
 
 // PagesConsent is your consent to a shared page.

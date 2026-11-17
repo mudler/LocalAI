@@ -8310,6 +8310,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/pages/shares/search": {
+            "get": {
+                "description": "The same picker as the other kinds of sharing: active named accounts by a prefix of the display name, 3 to 64 characters, at most 20 results, never you. A prefix of an address finds nobody; an account without a display name is found by its whole address only and comes back with an empty display name. Each result is an account ID and a display name and nothing else. Each person may search 20 times at once and then once every 2 seconds; a search over that rate answers 429 rate_limited. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the word pages, no API key, no tool, agent or MCP marker). No MCP tool maps to this route.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Search the people you can share a page with (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Display name prefix, or a whole address",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "At most this many results, up to 20",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Matching people",
+                        "schema": {
+                            "$ref": "#/definitions/schema.FolderShareUserList"
+                        }
+                    },
+                    "400": {
+                        "description": "The search text is not 3 to 64 characters",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled (pages cannot be shared here, or an administrator turned page sharing off)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Type rate_limited: too many searches",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/pages/{name}": {
             "get": {
                 "description": "The UI shows the HTML in a sandboxed frame. An index.html over 1 MiB is refused.",
@@ -8598,6 +8654,140 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The path leaves the page's folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/pages/{name}/shares": {
+            "get": {
+                "description": "Each grant has the account ID (or @everyone), the display name (empty for @everyone), the role view, use or edit, and, for a named account, whether it allowed the current version of the page (consent: none, allowed or changed). allowedCount is how many named accounts allowed the current version. enabled is false when an administrator turned off the pages that people share: the list still works and you can still take a share back. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent or MCP marker). A page that is not yours and a page that does not exist get the same 403. No MCP tool maps to this route.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "List who a page of your home is shared with (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The grants",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PageShareList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a page you cannot share, or no such page",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled: pages cannot be shared on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "principal is the account ID that the user picker returned, an active named account, or @everyone for every account, the ones created later too. role is view (run the page and read its data), use (also save data files through the page) or edit (also change its code, in Files and in the page). edit is for named accounts only: @everyone with edit gets 400. The page stays where it is, in your home, and everybody sees the same data. People run the page's code in their own browser with their own rights, after they allow that version; a change of the code asks them again. A page that people share never runs on Home or in a slot by itself. Lowering a role or removing a grant drops the consent of that account and holds from its next call of the page on every frontend. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent or MCP marker). Safe to repeat. A page that is not yours and a page that does not exist get the same 403. No MCP tool maps to this route: sharing is never a tool.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Share a page of your home, or change the role (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The account and the role",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PageShareRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PageShareList"
+                        }
+                    },
+                    "400": {
+                        "description": "A role that is not view, use or edit, edit for @everyone, or a principal that is not an active account",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a page you cannot share, or no such page",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled (pages cannot be shared here, or an administrator turned page sharing off), or a limit",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/pages/{name}/shares/{principal}": {
+            "delete": {
+                "description": "Removes the grant of the principal, an account ID or @everyone, and drops the consent of that account. A person's own grant and the grant to everyone are separate. The grantee loses the page at their next call of it on every frontend, and the page they have open stops at that call. What they saved in the page's folder stays. It works while an administrator keeps page sharing off. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent or MCP marker). Safe to repeat. No MCP tool maps to this route.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Stop sharing a page of your home (owner, UI only).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Account ID, or @everyone",
+                        "name": "principal",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PageShareList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not your own browser session, a page you cannot share, or no such page",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled: pages cannot be shared on this server",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9560,7 +9750,7 @@ const docTemplate = `{
         },
         "/api/chats/shared-pages": {
             "get": {
-                "description": "A shared folder is a folder outside your home that an administrator gave you access to. Its pages are the folders pages/\u003cname\u003e/ with an index.html. Each page has its folder, its author (the account that last wrote index.html), the hash of its code and your consent: none, allowed (this version) or changed (you allowed an earlier one). enabled is false when an administrator turned shared pages off.",
+                "description": "A shared folder is a folder outside your home that an administrator gave you access to. Its pages are the folders pages/\u003cname\u003e/ with an index.html. A page that another person shared from their own home is listed too: it has user_shared set (no administrator checked it), the role view, use or edit, and owner_name, and it has no folder or path. Each page has its author (the account that last wrote index.html), the hash of its code and your consent: none, allowed (this version) or changed (you allowed an earlier one). enabled is false when an administrator turned shared pages off. user_shares_enabled is false when an administrator turned off the pages that people share: those pages have turned_off set, are listed and do not open.",
                 "tags": [
                     "pages"
                 ],
@@ -9612,7 +9802,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Shared pages are off on this server",
+                        "description": "Shared pages are off on this server, or type user_page_shares_off: an administrator turned off the pages that people share",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9682,7 +9872,7 @@ const docTemplate = `{
         },
         "/api/chats/shared-pages/{folder}/{name}/consent": {
             "put": {
-                "description": "hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. embed is a lasting consent that also lets the version run on Home and in the slots of ui.json, where it starts without a click; it cannot go with once (400). A lasting consent to the same version keeps embed. Each consent and revoke is audited.",
+                "description": "hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. embed is a lasting consent that also lets the version run on Home and in the slots of ui.json, where it starts without a click; it cannot go with once (400), and a page that a person shared (user_shared) never gets it (400). A lasting consent to the same version keeps embed. Each consent and revoke is audited.",
                 "tags": [
                     "pages"
                 ],
@@ -9814,7 +10004,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "With your own grant on the folder: a read grant is refused with 403. A page writes data files only: code and document files (.js .mjs .cjs .css .html .htm .svg .xml .xhtml .wasm, index, page.json) are refused with 403.",
+                "description": "With your own grant on the folder: a read grant (role view) is refused with 403. A page writes data files only: code and document files (.js .mjs .cjs .css .html .htm .svg .xml .xhtml .wasm, index, page.json and the code_files of the page) are refused with 403, whatever the grant. With the role use or edit the write goes into the owner's page folder, so everybody who has the page sees it; two writes to the same file: the last one wins, unless base is the version you read.",
                 "tags": [
                     "pages"
                 ],
@@ -36245,6 +36435,57 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.PageShareGrant": {
+            "type": "object",
+            "properties": {
+                "consent": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PageShareList": {
+            "type": "object",
+            "properties": {
+                "allowedCount": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.PageShareGrant"
+                    }
+                },
+                "hash": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PageShareRequest": {
+            "type": "object",
+            "properties": {
+                "principal": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.PagesChatRequest": {
             "type": "object",
             "properties": {
@@ -36506,11 +36747,24 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "owner_id": {
+                    "type": "string"
+                },
+                "owner_name": {
+                    "type": "string"
+                },
                 "path": {
                     "description": "inside the home: /pages/\u003cname\u003e",
                     "type": "string"
                 },
                 "rev": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "shared_with": {
+                    "description": "SharedWith is, on one of your own pages, how many accounts you shared it\nwith (everyone counts as one).",
                     "type": "integer"
                 },
                 "size": {
@@ -36523,12 +36777,19 @@ const docTemplate = `{
                 "title": {
                     "type": "string"
                 },
+                "turned_off": {
+                    "type": "boolean"
+                },
                 "updated_at": {
                     "description": "UpdatedAt and UpdatedBy are the last change to anything in the folder.",
                     "type": "string"
                 },
                 "updated_by": {
                     "type": "string"
+                },
+                "user_shared": {
+                    "description": "A page that a person shared from their own home (not an administrator's\nshared folder) has user_shared set: no administrator checked it, and the\ntrust sheet says who wrote it. role is what you may do with it: view\n(run it and read its data), use (also save data through it) or edit\n(also change its code). owner_id and owner_name are the person whose home\nholds it; author_name is who last wrote its index.html. turned_off is set\nwhen an administrator turned such pages off: the page is listed and does\nnot open. Such a page has no folder and no path, which would name the\nowner's account.",
+                    "type": "boolean"
                 },
                 "widget": {
                     "description": "Widget is the widget block of page.json: the page can be a tile on Home\n(a widget of type page in LocalAI/home.json). Absent when the page has\nnone.",
@@ -36554,6 +36815,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.PagesPage"
                     }
+                },
+                "user_shares_enabled": {
+                    "description": "UserSharesEnabled is false when an administrator turned off the pages\nthat people share from their own homes: those pages have turned_off\nset, are listed and do not open.",
+                    "type": "boolean"
                 }
             }
         },
