@@ -29,6 +29,9 @@ var p2pnetImports = []string{
 var libp2pImporters = []string{
 	module + "/core/services/p2pnet/...",
 	module + "/core/services/p2prelay/...",
+	// The relay manager connects to relays and runs a throwaway peer for
+	// the circuit test.
+	module + "/core/services/p2prelaymgr/...",
 	// core/p2p is the edgevpn-based layer that p2pnet replaces. It stays
 	// here until the change that removes it.
 	module + "/core/p2p/...",

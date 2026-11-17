@@ -25,15 +25,17 @@ connects.
 
 ## Start a relay
 
-Use the `localai/relay` image. The image name and the command are not final.
+Use the `localai/relay` image. It holds one small program and nothing else.
 
 ```bash
-docker run -d --name localai-relay --network host \
+docker run -d --name localai-relay --restart unless-stopped --network host \
   -v localai-relay:/data \
   localai/relay
+docker logs localai-relay
 ```
 
-Or use the command in the main binary:
+You can also run the same relay from the `local-ai` binary. It takes the same
+options:
 
 ```bash
 local-ai p2p relay
@@ -45,11 +47,15 @@ networking (Docker Desktop, rootless Docker), publish the port instead and set
 the public address:
 
 ```bash
-docker run -d --name localai-relay \
+docker run -d --name localai-relay --restart unless-stopped \
   -p 4001:4001/tcp -p 4001:4001/udp \
   -v localai-relay:/data \
   localai/relay --public-ip <public IPv4 address>
 ```
+
+The `relay` folder of the source tree has a Dockerfile, a Compose file, a systemd
+unit and a cloud-init file. The image is not published yet: build it with
+`docker build -f relay/Dockerfile -t localai/relay .`.
 
 ### Ports and the firewall
 
@@ -59,21 +65,39 @@ Nothing else is needed. Use `--port` to change the number.
 
 ### The public address
 
-The relay must tell clients which address to use. It finds a public IPv4 address
-on the machine by itself. On some cloud providers the network card has only a
-private address, because the provider maps a public address to it. In that case
-set `--public-ip <address>`. To announce exact addresses, use `--announce`.
+The relay must tell clients which address to use. These ways work, from the most
+reliable:
 
-On start the relay prints its peer ID and its addresses:
+1. `--public-ip <address>` or `--announce <multiaddr>`. Always right. You need
+   one of them on AWS, Google Cloud, Oracle Cloud and other providers with 1:1
+   NAT, where the network card has only a private address.
+2. A public IPv4 address on a network card. The relay finds it by itself. Most
+   small virtual machine providers work this way.
+3. If the relay finds no public address, it prints a warning and the private
+   addresses. Clients outside your network cannot use it.
+
+The relay does not ask an outside service for its address. That would be a call
+to a third party, and it would tell that party that your relay exists.
+
+On start the relay prints its peer ID, its addresses and the next step. The
+addresses are in this order: public first, loopback last. Without an admin, it
+also prints a claim code:
 
 ```text
-LocalAI relay  mode: GATED  admins: 1  paired peers: 0
+LocalAI relay 1  mode: UNCLAIMED  admins: 0  paired peers: 0  data: /data
+limits: 1 GiB / 30m0s per circuit, 128 circuits (16 per peer), 128 reservations (8 per IP), no bandwidth limit
 PEERID 12D3KooW...
 RELAY_ADDR /ip4/203.0.113.10/tcp/4001/p2p/12D3KooW...
 RELAY_ADDR /ip4/203.0.113.10/udp/4001/quic-v1/p2p/12D3KooW...
+Firewall: allow inbound 4001/tcp and 4001/udp (or the port you set), also in the security group of your cloud.
+CLAIM_CODE A972-F9B0-048A
+This relay has no admin yet. The first server that sends the code becomes its admin.
+On your LocalAI server run:
+  local-ai p2p relays add /ip4/203.0.113.10/tcp/4001/p2p/12D3KooW... --claim A972-F9B0-048A
 ```
 
-The text above is an example. The exact output is not final.
+The banner never shows the key of the relay. For scripts, `--json` prints the
+same facts as one JSON line.
 
 ## Connect your server to the relay
 
@@ -101,7 +125,12 @@ Then add the relay on the server, in the interface or with:
 local-ai p2p relays add <relay address> --label <name>
 ```
 
-Press **Check** on the **Relays** page. The check connects to the relay, makes a
+The command talks to the running server. It uses `--server` (default
+`http://127.0.0.1:8080`) and an admin API key from `--api-key` or
+`LOCALAI_API_KEY`. The other commands are `local-ai p2p relays list`, `check`,
+`sync`, `claim` and `remove`.
+
+Press **Check** on the **Relays** page, or run `local-ai p2p relays check`. The check connects to the relay, makes a
 reservation, reads the status and compares the lists. It reports one of these
 states:
 
@@ -126,6 +155,7 @@ servers can share one relay. A device of one server cannot reach a device of
 another server through the relay.
 
 If you remove an admin from `--admin` and restart, the relay forgets its list.
+To forget every admin and start unclaimed, use `--reset-admins` once.
 
 ## Invites and the relay
 
@@ -151,14 +181,30 @@ no pass. The interface tells you.
 | `--max-reservations-per-ip` | 8 | The same, for each IP address. |
 | `--max-conns-per-ip` | 32 | Connections for each IP address. |
 | `--max-peers-per-admin` | 1024 | Devices in the list of one admin. |
-| `--rate-limit` | none | Speed limit for each connection, in bytes per second. Not final. |
-| `--total-rate-limit` | none | Speed limit for the whole relay. Not final. |
+| `--rate-limit` | none (open relay: 64 KiB/s) | Speed limit for each connection and direction, in bytes per second. `0` removes the limit and prints a warning for an open relay. |
+| `--total-rate-limit` | none | Speed limit for the whole relay, in bytes per second. |
+| `--pending-ttl` | 10m | How long a device that came in with a pass stays a member until its server confirms it. |
 
 When a connection reaches its data or time limit, the relay closes it. LocalAI
 connects again by itself.
 
 Many devices can share one home or mobile address. Raise `--max-conns-per-ip` and
 `--max-reservations-per-ip` if your users are behind one address.
+
+## Other options
+
+| Option | Environment variable | Meaning |
+|---|---|---|
+| `--admin <peer ID>` | `LOCALAI_RELAY_ADMINS` | An admin server. Repeat it, or separate IDs with commas. |
+| `--data-dir` | `LOCALAI_RELAY_DATA` | Folder for the key and the lists. Default: `localai-relay` in the user config folder, `/data` in the image. |
+| `--port` | `LOCALAI_RELAY_PORT` | Port for TCP and QUIC. Default 4001. |
+| `--listen <multiaddr>` | `LOCALAI_RELAY_LISTEN` | Exact listen address. Replaces `--port`. |
+| `--public-ip <address>` | `LOCALAI_RELAY_PUBLIC_IP` | Public IPv4 address to announce. |
+| `--announce <multiaddr>` | `LOCALAI_RELAY_ANNOUNCE` | Exact addresses to announce. |
+| `--open` | `LOCALAI_RELAY_OPEN` | Open mode. See below. |
+| `--allow-private-addrs` | | Hand out private addresses too. For a relay on a local network. It turns on by itself when the relay has no public address. |
+| `--reset-admins` | | Forget the admins and their lists, and start unclaimed. |
+| `--json` | | Print the banner as one JSON line. |
 
 ## Open mode
 
@@ -173,8 +219,8 @@ shows a warning before it connects.
 
 An open relay has a default speed limit of 64 KiB per second for each
 connection. The data and time limits stay at the defaults above. You can raise
-the speed limit with `--rate-limit`, or remove it with `--rate-limit 0`. This
-option is not final.
+the speed limit with `--rate-limit`, or remove it with `--rate-limit 0`. The banner then
+prints a warning, because one connection can use all the bandwidth of the host.
 
 ## Keys and backups
 

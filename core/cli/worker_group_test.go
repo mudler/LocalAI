@@ -54,7 +54,7 @@ var _ = Describe("worker command group", func() {
 	})
 
 	It("lists the new p2p commands", func() {
-		for _, cmd := range []string{"relay", "relays add", "relays remove", "relays list", "relays check", "id", "status", "pair --invite=x", "forward --peer=x --listen=127.0.0.1:1"} {
+		for _, cmd := range []string{"relay", "relays add", "relays remove", "relays list", "relays check", "relays sync x", "relays claim x y", "id", "status", "pair --invite=x", "forward --peer=x --listen=127.0.0.1:1"} {
 			ctx, err := parseCLI(append([]string{"p2p"}, strings.Fields(cmd)...)...)
 			if cmd == "relays add" || cmd == "relays remove" {
 				Expect(err).To(HaveOccurred(), "needs an argument")
@@ -65,9 +65,4 @@ var _ = Describe("worker command group", func() {
 		}
 	})
 
-	It("fails every p2p command that is not wired yet, naming it", func() {
-		ctx, err := parseCLI("p2p", "relay")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(ctx.Run(&cliContext.Context{})).To(MatchError(ContainSubstring("local-ai p2p relay is not available")))
-	})
 })
