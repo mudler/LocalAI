@@ -1395,7 +1395,7 @@ var _ = Describe("workflow behavior", func() {
 	})
 
 	It("publishes every add-on to the one documented repository, with its id as the tag prefix", func() {
-		docs, err := os.ReadFile("../../../docs/content/addons/contract-reference.md")
+		docs, err := os.ReadFile("../../../docs/content/addons/contract-reference/first-party-packages.md")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(docs)).To(ContainSubstring("`" + documentedAddonRepository + "`"))
 		for _, job := range []string{"publish", "promote"} {

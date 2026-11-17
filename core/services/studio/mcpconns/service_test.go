@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -26,13 +27,34 @@ import (
 
 // TestMain lets the test binary act as a stdio MCP server.
 func TestMain(m *testing.M) {
-	if os.Getenv("MCPCONNS_HELPER") == "1" {
-		srv := mcp.NewServer(&mcp.Implementation{Name: "helper", Version: "1"}, nil)
-		addEcho(srv, "local_echo")
-		_ = srv.Run(context.Background(), &mcp.StdioTransport{})
+	if mode := os.Getenv("MCPCONNS_HELPER"); mode != "" {
+		runHelper(mode)
 		return
 	}
 	os.Exit(m.Run())
+}
+
+// runHelper is the stdio server of the tests. Mode "1" is a healthy server,
+// "fail-start" writes to its error stream and exits before it answers, and
+// "die-on-call" writes to its error stream and exits when a tool is called.
+func runHelper(mode string) {
+	if mode == "fail-start" {
+		fmt.Fprintln(os.Stderr, "fatal: cannot open the database with key "+os.Getenv("HELPER_KEY"))
+		os.Exit(1)
+	}
+	if mode == "die-on-call" {
+		fmt.Fprintln(os.Stderr, "note: ready")
+	}
+	srv := mcp.NewServer(&mcp.Implementation{Name: "helper", Version: "1"}, nil)
+	addEcho(srv, "local_echo")
+	if mode == "die-on-call" {
+		mcp.AddTool(srv, &mcp.Tool{Name: "crash", Description: "exits"}, func(context.Context, *mcp.CallToolRequest, echoIn) (*mcp.CallToolResult, any, error) {
+			fmt.Fprintln(os.Stderr, "panic: out of memory, key "+os.Getenv("HELPER_KEY"))
+			os.Exit(3)
+			return nil, nil, nil
+		})
+	}
+	_ = srv.Run(context.Background(), &mcp.StdioTransport{})
 }
 
 type echoIn struct {

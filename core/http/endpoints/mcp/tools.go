@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -22,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/mcptransport"
 	"github.com/mudler/LocalAI/pkg/signals"
+	"github.com/mudler/LocalAI/pkg/stderrtail"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/mudler/xlog"
@@ -249,18 +248,15 @@ func SessionsFromMCPConfig(
 
 	for _, server := range stdio.Servers {
 		xlog.Debug("[MCP stdio server] Configuration", "server", server)
-		command := exec.Command(server.Command, server.Args...) // #nosec G204 -- the command is the administrator's own MCP server configuration
-		command.Env = os.Environ()
-		for key, value := range server.Env {
-			command.Env = append(command.Env, key+"="+value)
-		}
+		command, tail := newStdioCommand(server)
 		transport := &mcp.CommandTransport{Command: command}
 		mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
 		if err != nil {
-			xlog.Error("Failed to start MCP server", "error", err, "command", command)
+			xlog.Error("Failed to start MCP server", "error", err, "command", command, "command_output", stdioFailureOutput(tail, server))
 			continue
 		}
 		xlog.Debug("[MCP stdio server] Connected to MCP server", "command", command)
+		rememberTail(mcpSession, tail, server)
 		cache.cache[name] = append(cache.cache[name], mcpSession)
 		allSessions = append(allSessions, mcpSession)
 	}
@@ -376,7 +372,11 @@ func callMCPTool(ctx context.Context, tools []MCPToolInfo, server, toolName stri
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("MCP tool %q call failed: %w", toolName, err)
+		output := tailOutput(toolInfo.Session)
+		if output != "" {
+			xlog.Warn("MCP tool call failed", "error", err, "server", toolInfo.ServerName, "tool", toolName, "command_output", output)
+		}
+		return nil, stderrtail.Wrap(fmt.Errorf("MCP tool %q call failed: %w", toolName, err), output)
 	}
 	return result, nil
 }

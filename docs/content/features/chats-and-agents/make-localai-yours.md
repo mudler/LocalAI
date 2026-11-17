@@ -6,15 +6,9 @@ weight = 100
 devbuild = "feature"
 +++
 
-You can change how LocalAI looks and behaves for you by asking for it in a
-[chat]({{% relref "/features/chats-and-agents/chats" %}}): the name and the instructions of the assistant, what
-it knows about you, the shortcuts of the message box, the widgets on Home, the
-look, and small tools of your own (pages). Every change is a file in your home
-folder, so it has a history, it can be undone, and the settings pages edit the
-same files. The settings files are in the `LocalAI/` folder of your home;
-pages are in `pages/`.
+Ask a [chat]({{% relref "/features/chats-and-agents/chats" %}}) to change LocalAI and it edits a file in your home folder. Try "Call yourself Ada and keep answers short". You can change the name and instructions of the assistant, what it knows about you, the shortcuts of the message box, the widgets on Home, the look, and small tools of your own (pages).
 
-The files need the chats and files of the server (see [Chats]({{% relref "/features/chats-and-agents/chats" %}})).
+Every change is a file, so it has a history and you can undo it. The settings pages edit the same files. The settings files are in the `LocalAI/` folder of your home, and pages are in `pages/`. They need the chats and files of the server (see [Chats]({{% relref "/features/chats-and-agents/chats" %}})).
 
 ## What you can change
 
@@ -54,17 +48,7 @@ The files need the chats and files of the server (see [Chats]({{% relref "/featu
 
 ### Examples on Home
 
-A user with a chat model and none of these files sees **Make LocalAI yours**
-under the Home message box: three example cards ("Call me <your first name>
-and keep answers short", "Make me a task board", "Every morning, list
-yesterday's chats here", or "summarise my inbox" when a mail connector is set
-up), and links to the ready pages. A card puts its sentence into the message
-box and sends nothing; you send it when you are ready. A card goes away once
-its result exists (your persona or profile is saved, a page exists, Home has a
-widget that reads a data file). **Hide these** hides the whole block, with
-Undo, and is kept under `seen` in `LocalAI/user.json`. A user who already has
-`LocalAI/shortcuts.json` or `LocalAI/ui.json` and another of these files never sees the
-examples; the library line under Home then offers **Customise Home**.
+Until you set something up, Home shows **Make LocalAI yours** under the message box: example cards such as "Make me a task board". A card puts its sentence into the message box and sends nothing. A card goes away once its result exists. **Hide these** hides the whole block, with Undo.
 
 ### What a change shows
 
@@ -137,7 +121,7 @@ A plain Markdown file of at most 4 KiB with the persona and the standing rules o
 saved agent. The host adds it to the prompt of every chat of that agent, right after the
 agent's instructions and the persona; longer text is cut. You can edit it in the Files
 page. Add-ons can also register index files that the host loads in the same way (see
-[Context files]({{% relref "/addons/contract-reference" %}}#context-files)).
+[Context files]({{% relref "/addons/contract-reference/connectors-and-chats#context-files" %}})).
 
 ### LocalAI/user.json
 
@@ -244,17 +228,18 @@ then says why and keeps "Manage setups" at hand.
 each kind of work:
 
 ```json
-{
-  "chat": "qwen3-8b-instruct",
+{  "chat": "gemma-4-e2b-it-qat-q4_0",
   "image": "flux.1-schnell",
-  "tts": "kokoro-82m",
-  "stt": "whisper-large-v3-turbo",
-  "embeddings": "bge-m3",
-  "rerank": "bge-reranker-v2-m3",
+  "tts": "kokoro",
+  "stt": "whisper-base",
+  "embeddings": "granite-embedding-107m-multilingual",
+  "rerank": "qwen3-reranker-0.6b",
   "video": null,
   "vision": "ask"
 }
 ```
+
+These names are examples. Use models you have installed.
 
 The keys are `chat` (the model a new chat starts with), `image`, `tts` (text
 to speech), `stt` (speech to text), `embeddings`, `rerank`, `video` and
@@ -263,12 +248,12 @@ to speech), `stt` (speech to text), `embeddings`, `rerank`, `video` and
 - the name of an installed model;
 - `"ask"`: the assistant asks you which model to use, every time;
 - `null`, or no key: you made no choice, and LocalAI picks the first installed
-  model that can do the work, as it did before this file existed.
+  model that can do the work.
 
 The assistant reads the file before it makes a picture, reads text aloud,
 transcribes, embeds, reranks, makes a video or looks at an image. It says which
 default it used ("Made with flux.1-schnell, your default for images"). Say
-"use sd-3.5-medium this time" to use another model for one request; that
+"use <model name> this time" to use another model for one request; that
 never changes your default. To change the default itself, use the Defaults tab
 or ask ("use kokoro for speech from now on"); the assistant tells you what it
 changed and never edits the file on its own.
@@ -281,7 +266,7 @@ this request and offers to set a new default. The Defaults tab marks such a row
 The model picker of a new chat follows `chat` too. With `"ask"` it chooses no
 model and says **Choose a model**. With a model that is not installed it
 chooses no other model and names the missing one. With no `chat` key it starts
-with the last model you used, as before. A row with no installed model shows **Install one**, which
+with the last model you used. A row with no installed model shows **Install one**, which
 opens the model gallery.
 
 Each row of the tab lists only the installed models that can do that kind of
@@ -306,7 +291,7 @@ assistant**. A `home.json` with a headline and no widgets is valid.
 
 `pageArea` puts one of your pages in a full-width area below the composer, above
 the widgets. Pick it in **Edit layout** under **Page area**, or ask the
-assistant. See [A page in the page area of Home](/features/pages/#a-page-in-the-page-area-of-home).
+assistant. See [A page in the page area of Home]({{% relref "/features/pages-and-home/pages-on-home#a-page-in-the-page-area-of-home" %}}).
 
 ```json
 { "headline": "{time_of_day}, {user.name}" }
@@ -385,7 +370,7 @@ A metric uses `value`, `note` and `series` (numbers for the small line). A
 of recent chats under it. A missing data file shows as empty. A data file that
 breaks its schema shows its last valid data, marked as stale.
 
-A `page` widget shows one of your [pages]({{% relref "/features/pages-and-home/pages" %}}#a-page-on-home) as
+A `page` widget shows one of your [pages]({{% relref "/features/pages-and-home/pages-on-home#a-page-on-home" %}}) as
 a tile, in the page's compact mode. It names the page (`page`, the folder name
 under `pages/`) and, for a page of a shared folder, `folder` (the folder id).
 Its `title` is optional: without it, the tile shows the title of the page's
@@ -766,14 +751,14 @@ refuses a file with an unknown slot, a slot over its cap, an item without the
 field of its kind or with the field of another kind, or an item listed twice.
 A save from the tab sends only `slots`, merged item by item with the file as it
 is then, so a change that the assistant made while the tab was open is not lost.
-Without `slots` the app looks as before.
+Without `slots` the app has no slot items.
 
 Pages in slots and on Home run in the same sandbox as everywhere, and the app
 keeps at most eight page frames running at once (the Home tiles and the slots
 together); the others show as a card that runs on a click, which stops the
 frame that started first. A page frame that keeps the computer busy or stops
 answering is stopped with **Reload**; see
-[Pages](/features/pages/#a-page-in-a-slot). A page of a shared folder runs in a
+[Pages]({{% relref "/features/pages-and-home/pages-on-home#a-page-in-a-slot" %}}). A page of a shared folder runs in a
 slot only after you allow it there, apart from opening it.
 
 ## The LocalAI folder
@@ -785,21 +770,7 @@ on what each holds. Moving a managed folder or a settings file to the Trash,
 or renaming it, asks first and says what stops working. You can restore it
 from the Trash.
 
-Before this folder existed, the files were at the top of the home. LocalAI
-moves them into `LocalAI/` the first time it reads your settings (or when you
-open **Files**), one change set per file, so the history and the versions of
-each file stay, and **Undo** of the move puts it back:
-
-- Only the old file exists: it moves.
-- Both exist: LocalAI keeps `LocalAI/` and leaves the old file alone.
-- A file written at the old place after the move (by an old page or script):
-  its content becomes a new version of the file in `LocalAI/`, and the old
-  file goes to the Trash.
-
-Until the next minor release, LocalAI also reads an old file in place when it
-cannot move it; writes always go to `LocalAI/`. The move needs no setup and
-works with several frontends: each step is one atomic change of the shared
-workspace.
+Settings files from older versions that sit at the top of your home move into `LocalAI/` the first time LocalAI reads your settings or you open **Files**. Each move is one change, so the history of each file stays and **Undo** puts it back. If both an old and a new file exist, LocalAI keeps the one in `LocalAI/`.
 
 ## Undo, versions and broken files
 
@@ -882,7 +853,7 @@ suggestions**, stored under `seen` in `LocalAI/user.json`:
 - The runtime setting `chats_suggestions` (**Offers from the assistant** in the
   settings, on by default) is the default for users who did not choose. It
   applies at once. See [Runtime settings]({{%relref "/administration/runtime-settings" %}}).
-- The hint record lives in each user's `LocalAI/user.json`, in the shared workspace,
+- The hint record lives in each user's `LocalAI/user.json`, in your files,
   so the limits hold when several frontends serve the chats.
 
 ## File reference
@@ -898,8 +869,7 @@ The built-in skill `localai-workspace` tells the assistant what each file does,
 where the schemas are (`/workspace/shared-builtin-skills/localai-workspace/schemas/`
 in the chat's files) and how to change a file without losing other keys. It has
 recipes for "add a shortcut", "show my open tasks on Home" and "every morning
-update this". Its line in the index of
-skills costs about 44 tokens a turn; like any skill, you can switch it off for
+update this". Like any skill, you can switch it off for
 a chat in the **Skills** menu.
 
 ## API
@@ -920,11 +890,14 @@ read in `If-Match` (`0` when the file did not exist): when the file changed
 since, the answer is `409` with the file as it is now in `current`. A result
 that breaks the schema is `400` with `errors`.
 
+With auth on, add `-H "Authorization: Bearer $API_KEY"` to each call.
+
 ```bash
-curl .../api/chats/wellknown/persona
-curl -X PUT .../api/chats/wellknown/persona -H 'If-Match: "3"' \
+curl http://localhost:8080/api/chats/wellknown/persona
+curl -X PUT http://localhost:8080/api/chats/wellknown/persona \
+  -H "Content-Type: application/json" -H 'If-Match: "3"' \
   -d '{"values": {"system_prompt": "Keep answers short."}}'
-curl .../api/chats/wellknown/widget-data?path=data/tasks.json
+curl "http://localhost:8080/api/chats/wellknown/widget-data?path=data/tasks.json"
 ```
 
 The routes are in the `chats` feature and work on your own home folder only.

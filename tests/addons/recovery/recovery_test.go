@@ -468,8 +468,16 @@ var _ = Describe("Add-on data recovery over the real owner", func() {
 			}
 			Expect(ins.raw).To(ContainSubstring(want), want)
 		}
-		docs, err := os.ReadFile("../../../docs/content/addons/contract-reference.md")
+		pages, err := filepath.Glob("../../../docs/content/addons/contract-reference/*.md")
 		Expect(err).NotTo(HaveOccurred())
+		Expect(pages).NotTo(BeEmpty())
+		pages = append(pages, "../../../docs/content/addons/manage-addons.md")
+		var docs []byte
+		for _, name := range pages {
+			part, err := os.ReadFile(name)
+			Expect(err).NotTo(HaveOccurred())
+			docs = append(docs, part...)
+		}
 		for _, want := range []string{"needs-recovery", "sole recovery copy", "retained data", "ownership mapping", "migration.json"} {
 			Expect(strings.ToLower(string(docs))).To(ContainSubstring(strings.ToLower(want)), want)
 		}

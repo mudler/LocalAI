@@ -19,5 +19,5 @@ Each example includes configuration files and step-by-step instructions to get s
 
 - **Examples Repository**: https://github.com/mudler/LocalAI-examples
 - **Documentation**: https://localai.io/
-- **Model Gallery**: https://models.localai.io/
+- **Model Gallery**: https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml
 - **Getting Started**: https://localai.io/basics/getting_started/

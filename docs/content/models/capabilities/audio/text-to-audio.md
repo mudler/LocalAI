@@ -288,7 +288,7 @@ Required: Don't use `LocalAI` images ending with the `-core` tag,. Python depend
 Coqui works without any configuration, to test it, you can run the following curl command:
 
 ```
-    curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+    curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
         "backend": "coqui",
         "model": "tts_models/en/ljspeech/glow-tts",
         "input":"Hello, this is a test!"
@@ -519,7 +519,7 @@ Install the `vibevoice` model in the Model gallery or run `local-ai models insta
 Use the tts endpoint by specifying the vibevoice backend:
 
 ```
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "model": "vibevoice",
      "input":"Hello!"
    }' | aplay
@@ -665,7 +665,7 @@ Install the `pocket-tts` model in the Model gallery or run `local-ai models inst
 Use the tts endpoint by specifying the pocket-tts backend:
 
 ```
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "model": "pocket-tts",
      "input":"Hello world, this is a test."
    }' | aplay
@@ -707,7 +707,7 @@ options:
 Then you can use the model:
 
 ```
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "model": "pocket-tts",
      "input":"Hello world, this is a test."
    }' | aplay
@@ -732,7 +732,7 @@ Supported values depend on the installed `pocket-tts` version; current releases 
 
 #### Setup
 
-Install the `qwen-tts` model in the Model gallery or run `local-ai models install qwen-tts`.
+`qwen-tts` is the name of the backend. Install a gallery model that uses it, for example `local-ai models install qwen3-tts-0.6b-custom-voice`, or pick one in the model gallery.
 
 #### C++ / GGML gallery variants
 
@@ -822,11 +822,11 @@ Note that `qwen3-tts-cpp` (qwentts.cpp) remains available and is unaffected. It 
 
 #### Usage
 
-Use the tts endpoint by specifying the qwen-tts backend:
+Use the tts endpoint with the name of the model you installed (the examples use `qwen3-tts-0.6b-custom-voice`):
 
 ```
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
-     "model": "qwen-tts",
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
+     "model": "qwen3-tts-0.6b-custom-voice",
      "input":"Hello world, this is a test."
    }' | aplay
 ```
@@ -837,7 +837,7 @@ You can hint the synthesis language with the `language` request field:
 
 ```
 curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
-     "model": "qwen-tts",
+     "model": "qwen3-tts-0.6b-custom-voice",
      "input": "Bonjour le monde.",
      "language": "fr"
    }' | aplay
@@ -888,7 +888,7 @@ options:
 Then use the model:
 
 ```
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "model": "qwen-tts-design",
      "input":"Hello world, this is a test."
    }' | aplay
@@ -947,7 +947,7 @@ You can also use URLs or base64 strings for the reference audio. The backend aut
 Then use the model:
 
 ```
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "model": "qwen-tts-clone",
      "input":"Hello world, this is a test."
    }' | aplay
@@ -974,14 +974,14 @@ The `voices` option accepts a JSON array where each voice entry must have:
 Then use the model with voice selection:
 
 ```bash
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "model": "qwen-tts-multi-voice",
      "input":"Hello world, this is Jane speaking.",
      "voice": "jane"
    }' | aplay
 
 # Switch to a different voice
-curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
      "model": "qwen-tts-multi-voice",
      "input":"Hello world, this is John speaking.",
      "voice": "john"

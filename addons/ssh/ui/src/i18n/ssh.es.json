@@ -46,9 +46,17 @@
     "check": "Comprobar clave del host",
     "checking": "Comprobando...",
     "trust": "He comparado esta huella y confío en este host.",
-    "needed": "Comprueba la clave del host antes de guardar.",
+    "needed": "La clave del host se lee al pulsar Guardar y se te pide que confíes en ella.",
     "unreachable": "No se pudo llegar al host.",
     "failed": "No se pudo leer la clave del host."
+  },
+  "hostKeyStep": {
+    "title": "¿Confiar en este host?",
+    "reading": "Leyendo la clave del host...",
+    "compare": "Compara esta huella con la que muestra el host. Confía solo si coinciden.",
+    "confirm": "Confiar y guardar",
+    "cancel": "Cancelar",
+    "retry": "Reintentar"
   },
   "testOk": "El acceso está guardado.",
   "checkFailed": "Guardado. La comprobación del acceso falló: {{reason}}",
@@ -77,7 +85,7 @@
     "title": "Cómo configurarlo",
     "step1": "Crea en el host un usuario solo para LocalAI, con los permisos que la tarea necesita.",
     "step2": "Crea un par de claves para él, o elige una contraseña. Añade la clave pública a authorized_keys de ese usuario.",
-    "step3": "Escribe aquí el host y el usuario, pulsa Comprobar clave del host y compara la huella.",
+    "step3": "Escribe aquí el host y el usuario. Al pulsar Guardar se lee la clave del host y comparas su huella.",
     "step4": "Deja el modo en Pregunta primero hasta que hayas leído los límites de esta página.",
     "fingerprint": "La huella del host se ve con: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
   },

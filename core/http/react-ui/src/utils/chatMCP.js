@@ -147,7 +147,9 @@ export function checkRecord(c, res, at = Date.now()) {
   const details = Array.isArray(res.tool_details) && res.tool_details.length
     ? res.tool_details.map(d => ({ name: d.name, description: d.description || '' }))
     : (res.tools || []).map(name => ({ name, description: '' }))
-  return { at, ok: Boolean(res.ok), tools: res.ok ? details : [], error: res.ok ? '' : (res.error || ''), sig: connectorSig(c) }
+  // output is what a local command wrote before it failed, kept apart from the
+  // one-line error.
+  return { at, ok: Boolean(res.ok), tools: res.ok ? details : [], error: res.ok ? '' : (res.error || ''), output: res.ok ? '' : (res.output || ''), sig: connectorSig(c) }
 }
 
 export function readChecks(storage) {

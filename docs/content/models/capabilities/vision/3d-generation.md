@@ -5,9 +5,9 @@ weight = 60
 aliases = ["/features/3d-generation/"]
 +++
 
-LocalAI can generate textured 3D meshes from a single conditioning image via the `/3d/generations` endpoint, powered by the `trellis2cpp` backend — a C++/GGML port of [Microsoft TRELLIS.2](https://github.com/microsoft/TRELLIS.2) ([trellis2.cpp](https://github.com/localai-org/trellis2cpp)). The output is a binary glTF (`.glb`) asset with PBR materials.
+LocalAI can generate textured 3D meshes from a single conditioning image via the `/3d/generations` endpoint, powered by the `trellis2cpp` backend, a C++/GGML port of [Microsoft TRELLIS.2](https://github.com/microsoft/TRELLIS.2) ([trellis2.cpp](https://github.com/localai-org/trellis2cpp)). The output is a binary glTF (`.glb`) asset with PBR materials.
 
-Generation is image-conditioned only — there is no text-prompt path. Provide a photo or rendering of a single object (ideally on a plain background) and TRELLIS.2 reconstructs a full 3D mesh from it.
+Generation is image-conditioned only. There is no text-prompt path. Provide a photo or rendering of a single object (ideally on a plain background) and TRELLIS.2 reconstructs a full 3D mesh from it.
 
 For text-conditioned animated skeletons, see [3D Animation]({{% relref "/models/capabilities/vision/3d-animation" %}}). Both workflows appear under **3D** in Studio; selecting a model changes the inputs and generation options.
 
@@ -45,11 +45,11 @@ The request body is JSON with the following fields:
 | `response_format` | `string` | No       | `url`   | `url` to return a file URL, `b64_json` for base64 output           |
 | `params`          | `object` | No       |         | Backend-specific string parameters (`texture_size`, `components`)  |
 
-`quality` selects the mesh resolution: `coarse` is a fast marching-cubes preview, `512` the fine dual-grid mesh, `1024` the high-resolution cascade (slow — several minutes, roughly 10 GB VRAM), and `auto` picks the best pipeline the installed model set supports.
+`quality` selects the mesh resolution: `coarse` is a fast marching-cubes preview, `512` the fine dual-grid mesh, `1024` the high-resolution cascade (slow: several minutes, roughly 10 GB VRAM), and `auto` picks the best pipeline the installed model set supports.
 
 `background` controls solid-background removal on the conditioning image before generation: `auto` detects border-connected near-black/near-white, `keep` preserves the image alpha exactly, and `black`/`white` force removal of that colour.
 
-Backend-specific `params`: `texture_size` (UV-atlas resolution hint when atlas baking is enabled) and `components` (`tiny` removes small islands, `largest` keeps only the biggest connected component, `all` — the default — keeps everything).
+Backend-specific `params`: `texture_size` (UV-atlas resolution hint when atlas baking is enabled) and `components` (`tiny` removes small islands, `largest` keeps only the biggest connected component, `all` (the default) keeps everything).
 
 ### Response
 

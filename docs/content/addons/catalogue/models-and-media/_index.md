@@ -5,6 +5,6 @@ description = "Studio, Talk, Voice, Face, Fine-tuning, Quantization and Pirate F
 weight = 40
 +++
 
-These add-ons are pages for working with models and media. The routes that they call stay in LocalAI.
+These add-ons add pages for working with models and media.
 
 {{% pages description="true" display="tree" orderby="weight" %}}

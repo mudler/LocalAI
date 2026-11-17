@@ -1,20 +1,14 @@
 +++
 url = "/features/workspace-feed/"
 disableToc = false
-title = "See what changed in your files"
+title = "Files change events (API)"
 weight = 40
 devbuild = "feature"
 +++
 
-The change feed shows which of your files changed, as it happens. A client reads it as an event stream. A
-change can come from anywhere: you in another tab, a chat that wrote a file
-with a tool, an upload, a trigger run, a connector, another API client, or
-another frontend of a cluster. The web UI uses it to refresh what it shows
-without a reload.
+Open one HTTP stream to learn when your files change. Use it to refresh a view or trigger a script when a chat, an upload or another tab changes a file. A change can come from you in another tab, a chat that wrote a file with a tool, an upload, a trigger run, a connector, another API client, or another frontend of a cluster. The web UI uses the same stream to refresh without a reload. To undo a change, use **History** in [Files]({{% relref "/features/files-and-documents/files" %}}).
 
-The files are the workspace of the [chats]({{% relref "/features/chats-and-agents/chats" %}}), so the feed
-needs the `chats` feature, which is on by default. When the server has no
-files (no data path), the stream answers `409` with the type `files_off`.
+The feed is part of Chats. It is on by default. When the server has no files (no data path), the stream answers `409` with the type `files_off`.
 
 ## Open the stream
 
@@ -47,12 +41,12 @@ data: {"revision":57}
   (`pages/tasks/index.html`). A move gives the old and the new path. A
   folder that a write created is a path too. You never see a path you cannot
   read, and never a path of another user.
-- `kinds` are the kinds of the change sets: `user` (a change you made in the
+- `kinds` say where the change came from: `user` (a change you made in the
   UI or the API), `agent` (a chat), `upload` and `undo`.
 - `revision` is the revision of the newest change in the event. It is also the
   event id.
 - Changes that arrive close together come as one event. The feed reads the
-  record of changes about once a second, so expect up to a second of delay.
+  changes about once a second, so expect up to a second of delay.
 - A comment line (`: ping`) comes every 25 seconds, so that idle proxies keep
   the connection open.
 
@@ -75,32 +69,12 @@ starts with a `resync` event instead of the changes.
 
 - At most 8 open streams per user. One more answers `429`. The web UI opens one
   stream per browser tab, whatever the number of pages that listen.
-- A client that does not read fast enough does not slow anything down: when
-  its queue is full, the queued events are replaced by one `resync` event.
+- A slow client gets a `resync` event and reads again. It doesn't slow anything down.
 
-## Several frontends
+## In a cluster
 
-The feed keeps no state that frontends must share. Every change to a file is
-written, with a revision, to the record of changes of the workspace (the
-journal), and revisions are committed in order. In a cluster the journal is in
-the shared database, so each frontend reads the same record, and a change that
-any process made reaches the clients of every frontend. Nothing goes over the
-message bus: the bus delivers a message at most once, the journal does not
-lose one.
-
-Each frontend reads the journal only while at least one client is connected to
-it: one small query per second, and one query per user whose files changed.
-The position in the journal of each frontend and of each client is kept in that
-process only. After a restart it starts again from the newest revision, and a
-client that reconnects gives its own position back.
-
-A server without a database keeps the journal in a folder (the JSON index).
-That server runs alone, so the feed is local too.
+Every frontend reads the same shared record of changes, so a change that any process made reaches the clients of every frontend. A server without a database keeps the record in a folder and runs alone. After a restart a frontend starts again from the newest revision, and a client that reconnects gives its own position back.
 
 ## In the web UI
 
-Pages of the React UI listen through one shared stream per tab
-(`useWorkspaceFeed`). They also refresh when the window gets the focus again
-and when a chat turn ends, in case the stream was down. The **Files** page
-reads the open folder again when something in it changes, so a file that a
-chat or another tab writes shows up without a reload.
+The **Files** page reads the open folder again when something in it changes, so a file that a chat or another tab writes shows up without a reload. Pages also refresh when the window gets the focus again and when a chat turn ends, in case the stream was down.

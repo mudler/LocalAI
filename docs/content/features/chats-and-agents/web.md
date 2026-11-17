@@ -3,13 +3,13 @@ url = "/features/web/"
 disableToc = false
 title = "Search the web in chats"
 weight = 90
-description = "A chat can search the web and read web pages with two built-in tools, with no add-on and no key."
+description = "A chat can search the web and read web pages with two built-in tools. No add-on and no API key are needed."
 keywords = ["web search","browse","chat"]
 devbuild = "feature"
 +++
 
 A [chat]({{% relref "/features/chats-and-agents/chats" %}}) can search the web and read web pages. LocalAI
-serves two tools for this itself, with no add-on and no key:
+serves two tools for this itself. You don't need an add-on or an API key. Search works by reading public result pages, so some servers get blocked by the search engines. A SearXNG instance fixes that (see [Search providers](#search-providers)).
 
 | Tool | What it does |
 |---|---|
@@ -31,10 +31,14 @@ A sub-agent gets the web tools when its parent names them, or all the tools
 of its parent when the parent names none. Chats that run without a person
 (triggers, connectors, agent jobs) and chats with a saved agent get them too.
 
+Set `CHAT_ID` to the `id` of a chat. If the server uses accounts or API keys, add `-H "Authorization: Bearer $API_KEY"`.
+
 ```bash
-curl .../api/chats/3f1c.../tools
+curl http://localhost:8080/api/chats/$CHAT_ID/tools
 # {"builtins":[{"group":"web","tools":["web_search","web_fetch"],"off":false,"provider":"builtin"}], ...}
-curl -X PUT .../api/chats/3f1c.../builtins -d '{"off": ["web"]}'   # switch web off for this chat
+curl -X PUT http://localhost:8080/api/chats/$CHAT_ID/builtins \
+  -H "Content-Type: application/json" \
+  -d '{"off": ["web"]}'   # switch web off for this chat
 ```
 
 ### `web_search`
@@ -70,16 +74,15 @@ engine that fails is skipped and the next one is tried:
 
 A challenged or blocked engine is not asked again for 5 minutes, so each
 search does not wait for it first. When every engine is in this cool-down, all
-are asked again. The cool-down is kept in the memory of each frontend, see
-[Several frontends](#several-frontends).
+are asked again.
 
 An administrator can change the order, or leave an engine out, with
 `chats_web_search_providers` (see [Settings](#settings)).
 
 Your own [SearXNG](https://docs.searxng.org/) instance is the better choice
-when you can run one: it keeps the searches on a server you control and does
-not depend on the bot checks of the engines. When an administrator sets
-`chats_web_searxng_url`, the search uses SearXNG alone; list it with the
+when you can run one: it keeps the searches on a server you control and doesn't
+depend on the bot checks of the engines. To use it, set `chats_web_searxng_url`
+in **Settings > Tools**. Then the search uses SearXNG alone; list it with the
 keyless engines (`searxng,duckduckgo,brave_html`) to fall back to them when
 SearXNG does not answer. The instance must allow the JSON format: add `json`
 to `search.formats` in its `settings.yml`. The [Web add-on](#the-web-add-on)
@@ -133,9 +136,7 @@ End of content from example.com.
 
 Control characters are escaped and Unicode direction overrides are removed.
 The chat's system prompt also says, in one line, that what the web tools return
-is untrusted text whose instructions must not be followed. This lowers the
-risk that a page steers the model; it does not remove it. Treat what a model
-did after reading a page with the same care as the page.
+is untrusted text whose instructions must not be followed. A web page can still try to steer the model. Check what a chat did after it read an untrusted page.
 
 ## Addresses inside your network
 
@@ -167,7 +168,7 @@ internal host. `web_fetch` does not use a proxy for the same reason, also when
 `HTTP_PROXY` is set.
 
 The same guard checks the network requests of commands in the Sandbox, see
-[Network access]({{% relref "/addons/contract-reference#network-access" %}}).
+[Network access]({{% relref "/addons/catalogue/work/sandbox-settings#network-access" %}}).
 
 ## Settings
 
@@ -197,7 +198,10 @@ cool-down; one that is challenged or blocked enters it. The test counts as one
 search against the limits.
 
 ```bash
-curl -X POST .../api/chats/admin/web/test -d '{"query": "LocalAI"}'
+curl -X POST http://localhost:8080/api/chats/admin/web/test \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -d '{"query": "LocalAI"}'
 # {"ok":true,"provider":"brave_html","host":"search.brave.com","results":[{"title":"...","url":"...","snippet":"..."}],
 #  "providers":[{"name":"duckduckgo","host":"duckduckgo.com","outcome":"challenged","results":0,"reason":"challenged by a bot check"},
 #               {"name":"brave_html","host":"search.brave.com","outcome":"ok","results":20},
@@ -223,7 +227,7 @@ searx" when an add-on replaces both, one line per tool when only one is replaced
 and nothing extra when the built-in tools serve them. `GET /api/chats/{id}/tools`
 reports the same in `builtins[].provider` (`builtin`, an add-on ID, or `mixed`)
 and `builtins[].providers` (the provider of each tool). **Settings > Tools** shows who serves each tool. See
-[Tools that replace a built-in tool]({{%relref "/addons/contract-reference#tools-that-replace-a-built-in-tool" %}}).
+[Tools that replace a built-in tool]({{% relref "/addons/contract-reference/owner-forwarding#tools-that-replace-a-built-in-tool" %}}).
 
 ## The Web add-on
 
@@ -242,7 +246,7 @@ Install it from **Add-ons**, **Find add-ons**. The chat's **Tools** menu then sa
 provider of both tools. When another add-on already replaces one of them, the install
 dialog says so for each tool ("This add-on replaces the built-in web_search. Another add-on
 (...) already does."), and you choose which one serves in **Settings > Tools**. The
-add-on asks for the `tool-providers` [host control]({{%relref "/addons/contract-reference#host-controls" %}}),
+add-on asks for the `tool-providers` [host control]({{% relref "/addons/contract-reference/apps-and-pages#host-controls" %}}),
 so the **Settings** tab of its details also shows the `web_search` and `web_fetch` rows of
 Settings > Tools, with the same choice, and those rows on Settings > Tools link to it.
 
@@ -276,8 +280,7 @@ without a key out of the order to never use the keyless pages.
 
 The Settings tab says which providers serve and lists each page of the chain that is in
 its cool-down, with the reason ("Bing page is skipped for a few minutes: it answered with a
-bot check."). The cool-down is kept in the memory of the add-on process (per-instance state, like
-the built-in's) and starts again when the settings are saved.
+bot check."). The cool-down is kept in the memory of the add-on process (like the built-in's) and starts again when the settings are saved.
 
 A key is a secret of the add-on. It is saved in the add-on's data folder (`settings.json`,
 mode 0600) and sent only to its provider, in a header, never in a URL. The add-on's clients
@@ -338,7 +341,7 @@ A search answered from the cache does not count against the limits.
 ### Several frontends
 
 The cache, the rate limits and the cool-down of the search providers are kept
-in the memory of each frontend (per-instance state). With several frontends,
+in the memory of each frontend. With several frontends,
 each has its own cache, and the limit for everyone applies to each frontend,
 so N frontends allow N times 60 searches a minute. Each frontend finds out on
 its own that an engine challenges it: the engines judge each address, and

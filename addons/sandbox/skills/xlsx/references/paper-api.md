@@ -22,7 +22,7 @@ from openpyxl.package import (
 - `Chart`: `repoint(series_index, new_range)` for one series' validated, sheet-qualified values range.
 - `openpyxl.preserve`: inspection, formatting helpers, workbook diff, and standalone receipt.
 - `openpyxl.package`: cell, part, and semantic XML comparison.
-- `openpyxl.oracle`: needs LibreOffice, which is not installed here. Do not call it. `openpyxl.errors` provides `PaperRefusal` and typed subclasses.
+- `openpyxl.oracle`: needs LibreOffice, which only the `office` sandbox profile has. In another profile do not call it. `openpyxl.errors` provides `PaperRefusal` and typed subclasses.
 
 ## Preservation and inspection
 
@@ -108,7 +108,7 @@ added, removed, byte-identical, semantically equivalent, and changed parts.
 
 ## Recalculation and caches
 
-Paper does not calculate formulas in Python. Recalculation, certification and scenarios (`openpyxl.oracle`) need LibreOffice, which is not installed here, so they cannot run. Cached values of cells that depend on an edit stay stale until a spreadsheet program recalculates the file.
+Paper does not calculate formulas in Python. Recalculation, certification and scenarios (`openpyxl.oracle`) need LibreOffice, which only the `office` sandbox profile has, so they cannot run in another profile. Cached values of cells that depend on an edit stay stale until a spreadsheet program recalculates the file.
 
 ## Tables, images, pivots, and outcomes
 

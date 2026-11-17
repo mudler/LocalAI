@@ -12,7 +12,7 @@ import (
 
 // triggerToolNames are the model tools of the triggers group, in the order the
 // trace lists them.
-var triggerToolNames = []string{proposeTriggerName, listTriggersName, updateTriggerName, deleteTriggerName}
+var triggerToolNames = []string{proposeTriggerName, listTriggersName, updateTriggerName, deleteTriggerName, listConnectionsName}
 
 // maxTraceText cuts the error text of a tool call in the log.
 const maxTraceText = 200

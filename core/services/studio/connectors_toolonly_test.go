@@ -2,12 +2,14 @@ package studio_test
 
 import (
 	"context"
+	"time"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/tests/studiobot"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -78,6 +80,67 @@ var _ = Describe("a binding of a tool-only kind", func() {
 		Expect(st.PutBinding(ctx, raw)).To(Succeed())
 		_, err = r.conns.SetConnectorEnabled(ctx, alice, got.ID, true)
 		Expect(err).To(MatchError(connectors.ErrInvalid))
+	})
+	Describe("the settings that need an agent", func() {
+		// The connector page seeds the usual permissions and sends them with
+		// every save; the page of a tool-only kind has no control to remove them.
+		seeded := func(in studio.ConnectorInput) studio.ConnectorInput {
+			in = input(in)
+			in.Caps = []string{contract.CapToolsWrite}
+			in.Grants = []connectors.RoleGrant{{Role: "owner", Caps: []string{contract.CapToolsWrite}}}
+			in.Allow = []string{"@someone"}
+			in.NotifyChat = "123"
+			return in
+		}
+		It("are dropped on create, so a person can save with no agent and the usual permissions", func() {
+			got, err := r.conns.CreateConnector(ctx, alice, seeded(studio.ConnectorInput{}))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.CredentialsOnly()).To(BeTrue())
+			raw, err := st.GetBinding(ctx, got.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(raw.Caps).To(BeEmpty())
+			Expect(raw.Grants).To(BeEmpty())
+			Expect(raw.Allow).To(BeEmpty())
+			Expect(raw.NotifyChat).To(BeEmpty())
+		})
+		It("are dropped on update", func() {
+			got, err := r.conns.CreateConnector(ctx, alice, input(studio.ConnectorInput{}))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = r.conns.UpdateConnector(ctx, alice, got.ID, seeded(studio.ConnectorInput{}))
+			Expect(err).NotTo(HaveOccurred())
+			raw, _ := st.GetBinding(ctx, got.ID)
+			Expect(raw.Caps).To(BeEmpty())
+			Expect(raw.Grants).To(BeEmpty())
+			Expect(raw.AgentID).To(BeEmpty())
+		})
+		It("are dropped when a row saved before the kind was tool-only is saved again unchanged", func() {
+			got, err := r.conns.CreateConnector(ctx, alice, input(studio.ConnectorInput{}))
+			Expect(err).NotTo(HaveOccurred())
+			raw, _ := st.GetBinding(ctx, got.ID)
+			raw.Caps = []string{contract.CapToolsWrite}
+			raw.Grants = []connectors.RoleGrant{{Role: "owner", Caps: []string{contract.CapToolsWrite}}}
+			raw.Channels = []connectors.Channel{{ID: "c1"}}
+			raw.Paired = []connectors.PairedSender{{SenderID: "1", At: time.Now()}}
+			Expect(st.PutBinding(ctx, raw)).To(Succeed())
+
+			_, err = r.conns.UpdateConnector(ctx, alice, got.ID, input(studio.ConnectorInput{}))
+			Expect(err).NotTo(HaveOccurred())
+			raw, _ = st.GetBinding(ctx, got.ID)
+			Expect(raw.Caps).To(BeEmpty())
+			Expect(raw.Grants).To(BeEmpty())
+			Expect(raw.Channels).To(BeEmpty())
+			Expect(raw.Paired).To(BeEmpty())
+		})
+		It("are not shown for an older row that still holds them", func() {
+			got, err := r.conns.CreateConnector(ctx, alice, input(studio.ConnectorInput{}))
+			Expect(err).NotTo(HaveOccurred())
+			raw, _ := st.GetBinding(ctx, got.ID)
+			raw.Caps = []string{contract.CapToolsWrite}
+			Expect(st.PutBinding(ctx, raw)).To(Succeed())
+			one, err := r.conns.GetConnector(ctx, alice, got.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(one.Caps).To(BeEmpty())
+		})
 	})
 	It("shows an older row as agentless and off", func() {
 		got, err := r.conns.CreateConnector(ctx, alice, input(studio.ConnectorInput{}))
@@ -153,5 +216,16 @@ var _ = Describe("a binding of a kind that is not tool-only", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.UsedBy).To(BeNil())
 		Expect(got.AgentID).NotTo(BeEmpty())
+	})
+	It("still needs an agent, whatever permissions it carries", func() {
+		ctx := context.Background()
+		st := connStore()
+		bot := newScriptedBot()
+		addon := studiobot.Telegram(&transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()})
+		r := newConnRigWith(newShared(), st, studiobot.NewTransport(addon), connSay("never"), nil)
+		r.bot, r.untrusted = bot, true
+		_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "Bot", Token: botToken, Caps: []string{contract.CapToolsWrite}})
+		Expect(err).To(MatchError(connectors.ErrInvalid))
+		Expect(err).To(MatchError(ContainSubstring("an agent is required")))
 	})
 })

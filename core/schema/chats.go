@@ -1669,7 +1669,10 @@ type ChatsTrigger struct {
 type ChatsTriggerDelivery struct {
 	Target       string `json:"target"`
 	ChannelLabel string `json:"channel_label,omitempty"`
-	InThread     bool   `json:"in_thread,omitempty"`
+	// ConnectionName is the name the owner gave the connection of the channel,
+	// for a trigger that was proposed in Studio and reports there.
+	ConnectionName string `json:"connection_name,omitempty"`
+	InThread       bool   `json:"in_thread,omitempty"`
 }
 
 // ChatsTriggerProposal is a trigger a chat proposed and what became of it.
@@ -2718,6 +2721,10 @@ type ChatsMCPConnectorTest struct {
 	// order of tools.
 	ToolDetails []ChatsMCPConnectorTool `json:"tool_details"`
 	Error       string                  `json:"error,omitempty"`
+	// Output is what a local command wrote to its error stream before it
+	// failed, with secrets removed. It is absent for a remote server and for
+	// a silent command.
+	Output string `json:"output,omitempty"`
 }
 
 // ChatsMCPConnectorTool is one tool of an MCP connector.

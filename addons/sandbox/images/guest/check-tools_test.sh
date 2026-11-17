@@ -45,3 +45,13 @@ for p in $(jq -r '.capabilities.toolDefinitions[] | select(.name=="bash") | .exe
   [ "$n" = 0 ] || { echo "FAIL: profile $p has $n tools without a check" >&2; exit 1; }
 done
 ok 'every tool of every profile of the real manifest has a check'
+# The office profile checks name four scripts that the Dockerfile copies to
+# /usr/local/bin. They must exist here, and they must fail when the programs
+# they test are missing (an empty PATH has no soffice and no fc-match).
+for s in check-office-convert check-office-docx check-office-xlsx check-office-fonts; do
+  [ -x "$here/$s" ] || { echo "FAIL: $s is missing or not executable" >&2; exit 1; }
+  jq -e --arg s "$s" '.capabilities.toolDefinitions[] | select(.name=="bash") | .execution.profiles[] | select(.id=="office") | .tools[].check[] | select(. == $s)' "$manifest" >/dev/null \
+    || { echo "FAIL: the office profile does not call $s" >&2; exit 1; }
+  if PATH="$work/bin" /bin/sh "$here/$s" >/dev/null 2>&1; then echo "FAIL: $s passed with no soffice and no fonts" >&2; exit 1; fi
+done
+ok 'the office check scripts exist, are in the manifest and fail without their programs'

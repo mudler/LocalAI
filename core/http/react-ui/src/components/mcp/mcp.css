@@ -95,6 +95,35 @@
 .mcp-note .lai-icon { flex: none; width: 13px; height: 13px; margin-top: 2px; }
 .mcp-tools-search { flex: none; width: 100%; }
 
+/* ---- Output of a local command ---------------------------------------------- */
+.mcp-output { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); min-width: 0; width: 100%; }
+.mcp-output__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); width: 100%; }
+.mcp-output__label { font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 600; color: var(--dk-muted); }
+.mcp-output__text {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-inset);
+  color: var(--dk-text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
+  max-height: 24rem;
+}
+/* Eight lines of the block's own line height plus its padding and border, then
+   the rest is folded and the last line fades out. */
+.mcp-output__text--folded {
+  max-height: calc(8 * var(--lh-meta) + 2 * var(--sp-2) + 2px);
+  overflow-y: hidden;
+  mask-image: linear-gradient(to bottom, black calc(100% - var(--lh-meta)), transparent);
+}
+
 /* ---- Tools ----------------------------------------------------------------- */
 .mcp-tools {
   list-style: none;

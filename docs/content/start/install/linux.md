@@ -30,17 +30,17 @@ chmod +x local-ai-*
 
 ### Run your first model
 
-Starting the binary on its own gives you an empty server. To get a working chat right away, run LocalAI with a model name and it will download and serve it from the gallery:
+Starting the binary on its own gives you an empty server. Open `http://localhost:8080` and the first-run guide recommends a model for your hardware. To name a model yourself, run LocalAI with a model name and it will download and serve it from the gallery:
 
 ```bash
-./local-ai-* run qwen3-4b
+./local-ai-* run gemma-4-e2b-it-qat-q4_0
 ```
 
 Once it is ready, open the WebUI at `http://localhost:8080` or send a request to the API:
 
 ```bash
 curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{
-  "model": "qwen3-4b",
+  "model": "gemma-4-e2b-it-qat-q4_0",
   "messages": [{"role": "user", "content": "Hello!"}]
 }'
 ```

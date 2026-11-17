@@ -5,14 +5,15 @@ description = "Use the models of another LocalAI, an OpenAI-compatible service o
 tags = ["Proxy", "Cloud", "Routing", "Administration"]
 categories = ["Features"]
 weight = 115
+devbuild = "feature"
 +++
 
-A **remote** is a saved address and key of another server. That server is
-another LocalAI, an OpenAI-compatible service or Anthropic. You choose which
-of its models to use. LocalAI creates one model **entry** for each chosen
-model.
+Use a model that runs on another server as if it ran here. Save the server's
+address and key once as a **remote**, then pick the models to add. The server
+is another LocalAI, an OpenAI-compatible service or Anthropic.
 
-An entry is a normal model config. You use it like any other model:
+LocalAI adds each chosen model to your model list as an **entry**. An entry is
+a normal model config. You use it like any other model:
 
 - Clients call it by name in the chat APIs.
 - It can be a target of a [failover chain]({{% relref "/models/model-failover" %}}).
@@ -40,8 +41,11 @@ answer the second call, LocalAI sets `chat` for every model. LocalAI keeps only
 the usecases that it knows. It drops modifiers such as `tools` and
 `thinking`. It also drops `decisions`, `score` and `token_classify`, because
 these reserve a model for a local primitive. If no usecase is left, LocalAI
-sets `chat`. So a model that the server reports only as `score` becomes a chat
-entry here.
+sets `chat`.
+
+{{% callout style="warning" %}}
+A model that the other server reports only as `score` becomes a chat entry here.
+{{% /callout %}}
 
 **`openai`.** LocalAI asks `GET <address>/models`. The OpenAI listing does not
 say what a model does, so LocalAI judges by name. It leaves out ids that
