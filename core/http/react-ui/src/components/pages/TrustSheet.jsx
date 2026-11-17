@@ -153,7 +153,7 @@ export default function TrustSheet({ src, changed, embed: embedAsked = false, bu
 
           <h3 className="pg-trust__h">{changed ? t('trust.canStillTitle') : t('trust.canTitle')}</h3>
           <ul className="pg-trust__list">
-            <li><Icon name="check-circle" className="tone-ok" /><span>{userShared || own ? t('trust.user.files') : <>{t('trust.items.files')}<code>{pageFolder}</code></>}{!p.writable && !own && <small>{userShared ? t('trust.user.readOnly') : t('trust.items.readOnly')}</small>}</span></li>
+            <li><Icon name="check-circle" className="tone-ok" /><span>{userShared || own ? t('trust.user.files') : <>{t('trust.items.files')}<code>{pageFolder}</code></>}{!own && (userShared ? p.role === 'view' : !p.writable) && <small>{userShared ? t('trust.user.readOnly') : t('trust.items.readOnly')}</small>}</span></li>
             <li><Icon name="check-circle" className="tone-ok" /><span>{t('trust.items.chat')}<small>{t('trust.items.chatNote')}</small></span></li>
             {embed && <li data-testid="trust-embed-item"><Icon name="check-circle" className="tone-ok" /><span>{t('trust.embed.item')}<small>{t('trust.embed.note')}</small></span></li>}
           </ul>

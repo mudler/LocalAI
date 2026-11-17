@@ -147,8 +147,8 @@ function SharedRow({ page, enabled, userSharesOn, onStop, age, t }) {
               <code className="pg-row__path">{folderLabel(page.folder)}/pages/{page.name}</code>
             </>
           )}
-          <span aria-hidden="true">·</span>
-          <span>{t('card.changed', { when: age(page.updated_at) })}</span>
+          {/* A page that is turned off is listed without being read: it has no time. */}
+          {!userOff && <><span aria-hidden="true">·</span><span>{t('card.changed', { when: age(page.updated_at) })}</span></>}
         </span>
         {userOff && <p className="pg-row__desc" data-testid="shared-user-off">{t('shared.userOff')}</p>}
       </div>
