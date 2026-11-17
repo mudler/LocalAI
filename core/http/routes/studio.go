@@ -211,6 +211,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/pages/:name/file", h.WritePageFile)
 	e.POST(base+"/pages/:name/chat", h.SendFromPage)
 	e.POST(base+"/pages/:name/errors", h.ReportPageError)
+	e.PUT(base+"/pages/:name/consent", h.AllowOwnPage)
+	e.DELETE(base+"/pages/:name/consent", h.RevokeOwnPage)
 	// A person shares one page of their own home (never a tool).
 	e.GET(base+"/pages/shares/search", h.SearchPageShareUsers)
 	e.GET(base+"/pages/:name/shares", h.ListPageShares)

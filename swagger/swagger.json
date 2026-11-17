@@ -8454,6 +8454,80 @@
                 }
             }
         },
+        "/api/chats/pages/{name}/consent": {
+            "put": {
+                "description": "Only for a page with others_can_edit: someone else may change its code, so it runs for you only after you allow its hash, as a shared page does. hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit and returns a token for the bridge calls of that visit. embed is refused with 400: such a page never runs on Home, in a slot or in the dock by itself. A page nobody else may edit needs no consent and answers 404.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Allow a version of your own page that others can edit to run.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the version",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesConsentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The consent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesConsentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "embed was asked for",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such page, or it needs no consent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The page changed while you were reviewing it",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Its open frames stop at their next bridge call; the next open shows the trust sheet again.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Stop allowing your own page that others can edit.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Revoked"
+                    }
+                }
+            }
+        },
         "/api/chats/pages/{name}/errors": {
             "post": {
                 "description": "The UI calls this for an error that the script of the caller's own page threw (window.onerror or an unhandled rejection), caught by the frame. Nothing is added to a chat; the assistant reads the errors with its page_errors tool. The texts are cut, the browser's own noise (such as ResizeObserver loop) is dropped, the same error is counted once, and a page keeps its 10 newest errors until any of its files changes. A page that reports too fast gets 429. Shared pages have no such route: only the owner's own view records.",
@@ -36744,6 +36818,10 @@
                 "name": {
                     "type": "string"
                 },
+                "others_can_edit": {
+                    "description": "OthersCanEdit is set on one of your own pages that another account may\nedit (an edit grant). Its code can change without you, so it runs for you\nonly after you allow its version, as a shared page does: hash, code_files,\nmeta_size and consent (none, allowed, changed) are set, the bridge calls\ncarry X-LocalAI-Page-Hash, PUT and DELETE /api/chats/pages/{name}/consent\nallow and revoke, and the page never runs on Home, in a slot or in the\ndock by itself (embed is refused with 400).",
+                    "type": "boolean"
+                },
                 "owner_name": {
                     "type": "string"
                 },
@@ -36756,6 +36834,10 @@
                 },
                 "role": {
                     "type": "string"
+                },
+                "shared_allowed": {
+                    "description": "SharedAllowed is, on the page you read with GET /api/chats/pages/{name},\nhow many of the named accounts it is shared with allowed its current\nversion, so that the page can say how many will be asked again.",
+                    "type": "integer"
                 },
                 "shared_with": {
                     "description": "SharedWith is, on one of your own pages, how many accounts you shared it\nwith (everyone counts as one).",
@@ -36836,8 +36918,15 @@
         "schema.PagesSource": {
             "type": "object",
             "properties": {
+                "consent": {
+                    "$ref": "#/definitions/schema.PagesConsent"
+                },
                 "html": {
                     "type": "string"
+                },
+                "lines": {
+                    "description": "Lines and Consent are set when others_can_edit is true: your consent to\nthe version of this page, in the shape of the shared pages.",
+                    "type": "integer"
                 },
                 "page": {
                     "$ref": "#/definitions/schema.PagesPage"

@@ -65,11 +65,42 @@ func (h *Handlers) pagesOn(c echo.Context) (fileCall, bool) {
 }
 
 func pageJSON(p pages.Page) schema.PagesPage {
-	return schema.PagesPage{
+	out := schema.PagesPage{
 		Name: p.Name, Path: p.Path, Title: p.Title, Icon: p.Icon, Description: p.Description,
 		Source: p.Source, Author: p.Author, UpdatedAt: p.UpdatedAt, UpdatedBy: p.UpdatedBy, Rev: p.Rev, Size: p.Size,
-		Widget: widgetJSON(p.Widget),
+		Widget: widgetJSON(p.Widget), OthersCanEdit: p.OthersCanEdit,
 	}
+	if p.OthersCanEdit {
+		out.Hash, out.MetaSize, out.CodeFiles = p.Hash, p.MetaSize, append([]string{}, p.CodeFiles...)
+	}
+	return out
+}
+
+// guardedBridge checks the consent of the frame that calls the bridge of an own
+// page that others may edit: it must carry the hash of a version that the
+// owner allowed. A page nobody else may write needs none. On failure it has
+// written the response and returns false.
+func (h *Handlers) guardedBridge(c echo.Context, fc fileCall, name, rel string, read bool) bool {
+	ctx := c.Request().Context()
+	guarded, err := h.pages.Guarded(ctx, fc.p, name)
+	if err != nil {
+		_ = failPage(c, err)
+		return false
+	}
+	if !guarded {
+		return true
+	}
+	hash, visit := c.Request().Header.Get(headerPageHash), c.Request().Header.Get(headerPageVisit)
+	if read {
+		err = h.trust.OwnCheckRead(ctx, fc.p, name, hash, visit, rel)
+	} else {
+		err = h.trust.OwnCheck(ctx, fc.p, name, hash, visit)
+	}
+	if err != nil {
+		_ = failPage(c, err)
+		return false
+	}
+	return true
 }
 
 func widgetJSON(w *pages.Widget) *schema.PagesWidget {
@@ -109,6 +140,13 @@ func (h *Handlers) ListPages(c echo.Context) error {
 	counts, _ := h.svc.SharedFolders().PageShareCounts(c.Request().Context(), fc.a)
 	for _, p := range list {
 		pj := pageJSON(p)
+		if p.OthersCanEdit {
+			rev, err := h.trust.State(c.Request().Context(), fc.p, p)
+			if err != nil {
+				return failPage(c, err)
+			}
+			pj.Consent = rev.State
+		}
 		pj.SharedWith = counts[p.Name]
 		out.Pages = append(out.Pages, pj)
 	}
@@ -134,7 +172,79 @@ func (h *Handlers) GetPage(c echo.Context) error {
 		return failPage(c, err)
 	}
 	c.Response().Header().Set("Cache-Control", "no-store")
-	return c.JSON(http.StatusOK, schema.PagesSource{Page: pageJSON(p), HTML: html})
+	ctx := c.Request().Context()
+	out := schema.PagesSource{Page: pageJSON(p), HTML: html}
+	if p.OthersCanEdit {
+		rev, err := h.trust.State(ctx, fc.p, p)
+		if err != nil {
+			return failPage(c, err)
+		}
+		out.Page.Consent, out.Lines = rev.State, strings.Count(html, "\n")+1
+		out.Consent = &schema.PagesConsent{State: rev.State, Embed: false}
+		if a := rev.Allowed; a != nil {
+			out.Consent.AllowedAt, out.Consent.Size, out.Consent.MetaSize, out.Consent.Lines = utcPtr(a.At), a.Size, a.MetaSize, a.Lines
+		}
+	}
+	// How many of the accounts it is shared with allowed this version.
+	if f, err := h.svc.SharedFolders().PageGrants(ctx, fc.a, p.Name); err == nil && len(f.Members) > 0 {
+		if sh, err := h.pageShareJSON(c, fc, p.Name, f); err == nil {
+			out.Page.SharedWith, out.Page.SharedAllowed = len(f.Members), sh.AllowedCount
+		}
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+// AllowOwnPage records your consent to a version of your own page that
+// another account may edit.
+// @Summary Allow a version of your own page that others can edit to run.
+// @Description Only for a page with others_can_edit: someone else may change its code, so it runs for you only after you allow its hash, as a shared page does. hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit and returns a token for the bridge calls of that visit. embed is refused with 400: such a page never runs on Home, in a slot or in the dock by itself. A page nobody else may edit needs no consent and answers 404.
+// @Tags pages
+// @Param name path string true "page name"
+// @Param request body schema.PagesConsentRequest true "the version"
+// @Success 200 {object} schema.PagesConsentResponse "The consent"
+// @Failure 400 {object} schema.ErrorResponse "embed was asked for"
+// @Failure 404 {object} schema.ErrorResponse "No such page, or it needs no consent"
+// @Failure 409 {object} schema.ErrorResponse "The page changed while you were reviewing it"
+// @Router /api/chats/pages/{name}/consent [put]
+func (h *Handlers) AllowOwnPage(c echo.Context) error {
+	fc, ok := h.pagesOn(c)
+	if !ok {
+		return nil
+	}
+	var req schema.PagesConsentRequest
+	if err := c.Bind(&req); err != nil {
+		return fail(c, http.StatusBadRequest, typeInvalid, msgNotJSON)
+	}
+	if req.Embed {
+		return failPage(c, pages.ErrNoEmbed)
+	}
+	got, err := h.trust.OwnAllow(c.Request().Context(), fc.p, c.Param("name"), req.Hash, req.Once, false)
+	if err != nil {
+		return failPage(c, err)
+	}
+	out := schema.PagesConsentResponse{State: pages.StateAllowed, Kind: got.Kind, Hash: got.Hash, Token: got.Token}
+	if got.Kind == pages.ConsentOnce {
+		out.State, out.Expires = pages.StateNone, utcPtr(got.Expires)
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+// RevokeOwnPage removes your consents to your own page that others can edit.
+// @Summary Stop allowing your own page that others can edit.
+// @Description Its open frames stop at their next bridge call; the next open shows the trust sheet again.
+// @Tags pages
+// @Param name path string true "page name"
+// @Success 204 "Revoked"
+// @Router /api/chats/pages/{name}/consent [delete]
+func (h *Handlers) RevokeOwnPage(c echo.Context) error {
+	fc, ok := h.pagesOn(c)
+	if !ok {
+		return nil
+	}
+	if err := h.trust.OwnRevoke(c.Request().Context(), fc.p, c.Param("name")); err != nil {
+		return failPage(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 // ListPageFiles lists a folder of a page.
@@ -148,6 +258,9 @@ func (h *Handlers) GetPage(c echo.Context) error {
 func (h *Handlers) ListPageFiles(c echo.Context) error {
 	fc, ok := h.pagesOn(c)
 	if !ok {
+		return nil
+	}
+	if !h.guardedBridge(c, fc, c.Param("name"), "", false) {
 		return nil
 	}
 	list, err := h.pages.ListFiles(c.Request().Context(), fc.p, c.Param("name"), c.QueryParam("dir"))
@@ -179,6 +292,9 @@ func (h *Handlers) ReadPageFile(c echo.Context) error {
 		return nil
 	}
 	ctx, name, rel := c.Request().Context(), c.Param("name"), c.QueryParam("path")
+	if !h.guardedBridge(c, fc, name, rel, true) {
+		return nil
+	}
 	if image, ok := imageRead(c); !ok {
 		return nil
 	} else if image {
@@ -235,6 +351,9 @@ func (h *Handlers) WritePageFile(c echo.Context) error {
 	if !ok {
 		return nil
 	}
+	if !h.guardedBridge(c, fc, c.Param("name"), "", false) {
+		return nil
+	}
 	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxPageWriteBody)
 	var req schema.PagesWriteRequest
 	if err := c.Bind(&req); err != nil {
@@ -268,6 +387,9 @@ func (h *Handlers) WritePageFile(c echo.Context) error {
 func (h *Handlers) SendFromPage(c echo.Context) error {
 	fc, ok := h.pagesOn(c)
 	if !ok {
+		return nil
+	}
+	if !h.guardedBridge(c, fc, c.Param("name"), "", false) {
 		return nil
 	}
 	var req schema.PagesChatRequest

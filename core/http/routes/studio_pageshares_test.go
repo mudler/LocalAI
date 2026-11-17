@@ -308,6 +308,80 @@ var _ = Describe("Chats page sharing endpoints", func() {
 		Expect(exists("/users/alice/pages/todo/data/b.json")).To(BeFalse())
 	})
 
+	// ownPage reads alice's own page as her UI does.
+	ownPage := func() map[string]any {
+		GinkgoHelper()
+		rec := s.do("alice", http.MethodGet, "/api/chats/pages/todo", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		return decodeJSON(rec)
+	}
+	ownBridge := func(method, rel, hash string, body any) *httptest.ResponseRecorder {
+		return bridge("alice", method, "/api/chats/pages/todo/"+rel, hash, body)
+	}
+
+	It("leaves the owner's page as it was when it is shared to view or use only", func() {
+		Expect(share("bob", "view").Code).To(Equal(http.StatusOK))
+		Expect(share("root", "use").Code).To(Equal(http.StatusOK))
+		got := ownPage()
+		Expect(got["page"]).NotTo(HaveKey("others_can_edit"))
+		Expect(got["page"]).NotTo(HaveKey("hash"))
+		Expect(got).NotTo(HaveKey("consent"))
+		Expect(got["page"]).To(HaveKeyWithValue("shared_with", BeEquivalentTo(2)))
+		Expect(got["page"]).NotTo(HaveKey("shared_allowed"), "nobody allowed it yet")
+		Expect(ownBridge(http.MethodGet, "file?path=data/items.json", "", nil).Code).To(Equal(http.StatusOK), "no consent is asked")
+		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": "x"}).Code).To(Equal(http.StatusNotFound))
+		allow("root")
+		Expect(ownPage()["page"]).To(HaveKeyWithValue("shared_allowed", BeEquivalentTo(1)))
+	})
+
+	It("asks the owner to allow a page that someone may edit, as for a shared page", func() {
+		Expect(share("bob", "edit").Code).To(Equal(http.StatusOK))
+		own := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/pages", nil))["pages"].([]any)
+		Expect(own).To(ConsistOf(And(HaveKeyWithValue("name", "todo"), HaveKeyWithValue("others_can_edit", true), HaveKeyWithValue("consent", "none"), HaveKey("hash"))))
+		got := ownPage()
+		Expect(got["html"]).To(Equal("<p>todo</p>\n"), "the trust sheet can show the code")
+		Expect(got["consent"]).To(HaveKeyWithValue("state", "none"))
+		hash := got["page"].(map[string]any)["hash"].(string)
+		rec := ownBridge(http.MethodGet, "file?path=data/items.json", hash, nil)
+		Expect(rec.Code).To(Equal(http.StatusForbidden))
+		Expect(rec.Body.String()).To(ContainSubstring("page_not_allowed"))
+		Expect(ownBridge(http.MethodGet, "files", "", nil).Code).To(Equal(http.StatusForbidden), "no hash")
+
+		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": hash, "embed": true}).Code).To(Equal(http.StatusBadRequest), "no consent for Home or a slot")
+		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": "stale"}).Code).To(Equal(http.StatusConflict))
+		rec = s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": hash})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(ownPage()["consent"]).To(HaveKeyWithValue("state", "allowed"))
+		Expect(ownPage()["consent"]).NotTo(HaveKeyWithValue("embed", true))
+		Expect(ownBridge(http.MethodGet, "file?path=data/items.json", hash, nil).Code).To(Equal(http.StatusOK))
+		Expect(ownBridge(http.MethodPut, "file", hash, map[string]any{"path": "data/mine.json", "content": "{}"}).Code).To(Equal(http.StatusOK))
+		Expect(ownBridge(http.MethodPut, "file", hash, map[string]any{"path": "app.js", "content": "x"}).Code).To(Equal(http.StatusForbidden))
+
+		// bob changes the code: alice is asked again, and a frame of the old
+		// version reads no new code.
+		_, err := f.Store().Put(ctx, f.Actor("bob"), "/users/alice/pages/todo/index.html", strings.NewReader("<p>bob's version</p>\n"), workspace.PutOptions{Overwrite: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ownPage()["consent"]).To(HaveKeyWithValue("state", "changed"))
+		Expect(ownBridge(http.MethodGet, "file?path=index.html", hash, nil).Code).To(Equal(http.StatusConflict), "the stale frame")
+		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": hash}).Code).To(Equal(http.StatusConflict))
+		newHash := ownPage()["page"].(map[string]any)["hash"].(string)
+		Expect(newHash).NotTo(Equal(hash))
+		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": newHash, "once": true}).Code).To(Equal(http.StatusOK))
+
+		// A revoke stops the open frame.
+		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": newHash}).Code).To(Equal(http.StatusOK))
+		Expect(s.do("alice", http.MethodDelete, "/api/chats/pages/todo/consent", nil).Code).To(Equal(http.StatusNoContent))
+		Expect(ownBridge(http.MethodGet, "files", newHash, nil).Code).To(Equal(http.StatusForbidden))
+
+		// Taking back the last edit grant returns the page to the normal path.
+		Expect(unshare("bob").Code).To(Equal(http.StatusOK))
+		got = ownPage()
+		Expect(got["page"]).NotTo(HaveKey("others_can_edit"))
+		Expect(got).NotTo(HaveKey("consent"))
+		Expect(ownBridge(http.MethodGet, "files", "", nil).Code).To(Equal(http.StatusOK))
+		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": newHash}).Code).To(Equal(http.StatusNotFound))
+	})
+
 	It("never allows a page that a person shared on Home or in a slot", func() {
 		Expect(share("bob", "use").Code).To(Equal(http.StatusOK))
 		rec := s.do("bob", http.MethodPut, pageBase("bob")+"/consent", map[string]any{"hash": hashOf("bob"), "embed": true})

@@ -152,9 +152,14 @@ type Page struct {
 	// says that an administrator turned such pages off, so the page is listed
 	// and does not open.
 	UserShared bool
-	Role       string
-	OwnerID    string
-	TurnedOff  bool
+	// OthersCanEdit is set on an own page that another account may write (an
+	// edit grant): what they write is their code, not the owner's, so the
+	// page runs for its owner only after a consent to its version, as a
+	// shared page does, and never on Home or in a slot by itself.
+	OthersCanEdit bool
+	Role          string
+	OwnerID       string
+	TurnedOff     bool
 	// UpdatedAt and UpdatedBy are the last change to anything in the folder.
 	UpdatedAt time.Time
 	UpdatedBy string
@@ -286,12 +291,16 @@ type loc struct {
 	// shared pages run only with a consent to their code, so their hash
 	// covers the files of code too.
 	shared bool
+	// guarded marks an own page that others may write: it needs a consent
+	// like a shared page.
+	guarded bool
 }
 
 // own returns the location of a page of the user's home. A page that another
-// person may write (files.Service.OthersWrite) is not the user's page: it
-// would run as the user's own page, with no consent and labelled as theirs,
-// so it does not exist here.
+// person may write (files.Service.OthersWrite) is the user's page, but it
+// would run as the user's own with code they did not write: it is guarded,
+// so it runs only after a consent to its version (Trust.OwnAllow), as a shared
+// page does.
 func (s *Service) own(ctx context.Context, principal, name string) (loc, error) {
 	if !ValidName(name) {
 		return loc{}, ErrBadName
@@ -304,10 +313,8 @@ func (s *Service) own(ctx context.Context, principal, name string) (loc, error) 
 	if err != nil {
 		return loc{}, err
 	}
-	if others.Covers(folder) {
-		return loc{}, ErrNotFound
-	}
-	return loc{a: s.actor(principal), folder: folder, name: name, key: principal + "/" + name}, nil
+	guarded := others.Covers(folder)
+	return loc{a: s.actor(principal), folder: folder, name: name, key: principal + "/" + name, shared: guarded, guarded: guarded}, nil
 }
 
 // path returns the workspace path of rel, a path that CleanPath accepted,
@@ -408,7 +415,7 @@ func (s *Service) getAt(ctx context.Context, l loc) (Page, error) {
 	if index.Kind != workspace.KindFile {
 		return Page{}, ErrNotFound
 	}
-	p := Page{Name: l.name, Title: l.name, Source: SourceOwn, Author: AuthorYou, UpdatedBy: AuthorYou, Rev: index.Rev, Size: index.Size}
+	p := Page{Name: l.name, Title: l.name, Source: SourceOwn, Author: AuthorYou, UpdatedBy: AuthorYou, Rev: index.Rev, Size: index.Size, OthersCanEdit: l.guarded}
 	meta := s.readMeta(ctx, l.a, l.folder, &p)
 	p.MetaSize = meta.Size
 	var code []codeFile
@@ -692,6 +699,16 @@ func (s *Service) writeAt(ctx context.Context, l loc, rel string, body []byte, b
 	if first := workspace.FoldName(strings.SplitN(rel, "/", 2)[0]); first == workspace.FoldName(IndexFile) || first == workspace.FoldName(MetaFile) || IsCodeFile(rel) {
 		return File{}, ErrReadOnly
 	}
+	if l.shared {
+		// A file that the page's code names is code too.
+		p, err := s.getAt(ctx, l)
+		if err != nil {
+			return File{}, err
+		}
+		if isCode(p, rel) {
+			return File{}, ErrReadOnly
+		}
+	}
 	if len(body) > MaxFileSize {
 		return File{}, ErrTooLarge
 	}
@@ -758,6 +775,13 @@ func (s *Service) listAt(ctx context.Context, l loc, dir string) ([]File, error)
 		out = append(out, l.file(k))
 	}
 	return out, nil
+}
+
+// Guarded says whether the own page name needs a consent to run: another
+// account may write it.
+func (s *Service) Guarded(ctx context.Context, principal, name string) (bool, error) {
+	l, err := s.own(ctx, principal, name)
+	return l.guarded, err
 }
 
 // AllowSend says whether a page may send another message to a chat now.

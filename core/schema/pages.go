@@ -45,6 +45,18 @@ type PagesPage struct {
 	Role       string `json:"role,omitempty"`
 	OwnerName  string `json:"owner_name,omitempty"`
 	TurnedOff  bool   `json:"turned_off,omitempty"`
+	// OthersCanEdit is set on one of your own pages that another account may
+	// edit (an edit grant). Its code can change without you, so it runs for you
+	// only after you allow its version, as a shared page does: hash, code_files,
+	// meta_size and consent (none, allowed, changed) are set, the bridge calls
+	// carry X-LocalAI-Page-Hash, PUT and DELETE /api/chats/pages/{name}/consent
+	// allow and revoke, and the page never runs on Home, in a slot or in the
+	// dock by itself (embed is refused with 400).
+	OthersCanEdit bool `json:"others_can_edit,omitempty"`
+	// SharedAllowed is, on the page you read with GET /api/chats/pages/{name},
+	// how many of the named accounts it is shared with allowed its current
+	// version, so that the page can say how many will be asked again.
+	SharedAllowed int `json:"shared_allowed,omitempty"`
 	// SharedWith is, on one of your own pages, how many accounts you shared it
 	// with (everyone counts as one).
 	SharedWith int    `json:"shared_with,omitempty"`
@@ -91,6 +103,10 @@ type PagesList struct {
 type PagesSource struct {
 	Page PagesPage `json:"page"`
 	HTML string    `json:"html"`
+	// Lines and Consent are set when others_can_edit is true: your consent to
+	// the version of this page, in the shape of the shared pages.
+	Lines   int           `json:"lines,omitempty"`
+	Consent *PagesConsent `json:"consent,omitempty"`
 }
 
 // PagesFile is an entry of a page's folder. Path is relative to the folder.

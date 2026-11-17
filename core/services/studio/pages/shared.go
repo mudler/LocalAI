@@ -316,18 +316,7 @@ func (s *Service) WriteShared(ctx context.Context, principal string, folderID in
 	if err != nil {
 		return File{}, err
 	}
-	clean, err := CleanPath(rel)
-	if err != nil {
-		return File{}, err
-	}
-	p, err := s.getAt(ctx, l)
-	if err != nil {
-		return File{}, err
-	}
-	if isCode(p, clean) {
-		return File{}, ErrReadOnly
-	}
-	return s.writeAt(ctx, l, clean, body, base)
+	return s.writeAt(ctx, l, rel, body, base)
 }
 
 // ListSharedFiles lists a folder of a shared page.
