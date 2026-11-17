@@ -58544,6 +58544,102 @@
       model: iris-3b.safetensors
     step: 100
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: flux.2-klein-4b-q8_0-ggml
+  description: |
+    FLUX.2 [klein] 4B is a compact, distilled text-to-image model from Black
+    Forest Labs. It generates in 4 steps with a guidance scale of 1, uses a
+    Qwen3 4B text encoder and the FLUX.2 VAE, and runs on a consumer GPU.
+
+    This is the Q8_0 quantization of the diffusion model (~4.3 GB) by leejet for
+    stable-diffusion.cpp, with the Qwen3 4B Q4_K_M text encoder (~2.5 GB) and
+    the FLUX.2 VAE.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/black-forest-labs/FLUX.2-klein-4B
+    - https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF
+  tags:
+    - flux
+    - flux2
+    - text-to-image
+    - image-generation
+    - diffusion
+    - gguf
+    - quantized
+    - stablediffusion-ggml
+    - gpu
+  files:
+    - filename: flux-2-klein-4b-Q8_0.gguf
+      sha256: 0bba6951258ec8f92d51114a8fa13e66828297bfff58a738f52729b3ef66fa28
+      uri: huggingface://leejet/FLUX.2-klein-4B-GGUF/flux-2-klein-4b-Q8_0.gguf
+    - filename: Qwen3-4B-Q4_K_M.gguf
+      sha256: f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a
+      uri: huggingface://unsloth/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf
+    - filename: flux2-vae.safetensors
+      sha256: d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5
+      uri: huggingface://Comfy-Org/flux2-dev/split_files/vae/flux2-vae.safetensors
+  overrides:
+    backend: stablediffusion-ggml
+    cfg_scale: 1
+    options:
+      - diffusion_model
+      - llm_path:Qwen3-4B-Q4_K_M.gguf
+      - vae_path:flux2-vae.safetensors
+      - diffusion_flash_attn:true
+      - offload_params_to_cpu:true
+    parameters:
+      model: flux-2-klein-4b-Q8_0.gguf
+    step: 4
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: moss-image-sft-q4_k-ggml
+  description: |
+    MOSS-Image is a 5B diffusion transformer text-to-image model that uses the
+    FLUX.2 VAE and a Qwen3.5 9B text encoder. This is the SFT variant.
+
+    This is the Q4_K quantization of the diffusion model (~3.3 GB) by leejet for
+    stable-diffusion.cpp. The bundle also pulls the Qwen3.5 9B Q4_K_M text
+    encoder (~5.7 GB), the FLUX.2 VAE and the Qwen3.5 tokenizer file, which must
+    be given explicitly because Qwen3.5 does not use the embedded Qwen
+    vocabulary. Use image dimensions divisible by 16.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base
+    - https://huggingface.co/leejet/MOSS-Image-SFT-GGUF
+  tags:
+    - moss-image
+    - text-to-image
+    - image-generation
+    - diffusion
+    - gguf
+    - quantized
+    - stablediffusion-ggml
+    - gpu
+  files:
+    - filename: MOSS-Image-SFT-Q4_K.gguf
+      sha256: 902dbb0364d8b313cd91792b3cfe7c87b987386f0c5414986f3f1027b82b2225
+      uri: huggingface://leejet/MOSS-Image-SFT-GGUF/MOSS-Image-SFT-Q4_K.gguf
+    - filename: Qwen3.5-9B-Q4_K_M.gguf
+      sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
+      uri: huggingface://unsloth/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf
+    - filename: flux2-vae.safetensors
+      sha256: 868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3
+      uri: huggingface://Comfy-Org/MOSS-Image/vae/flux2-vae.safetensors
+    - filename: moss-tokenizer.json
+      sha256: 06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523
+      uri: huggingface://OpenMOSS-Team/MOSS-Image-Base/tokenizer/tokenizer.json
+  overrides:
+    backend: stablediffusion-ggml
+    cfg_scale: 3
+    options:
+      - diffusion_model
+      - llm_path:Qwen3.5-9B-Q4_K_M.gguf
+      - vae_path:flux2-vae.safetensors
+      - tokenizer:moss-tokenizer.json
+      - diffusion_flash_attn:true
+      - offload_params_to_cpu:true
+    parameters:
+      model: MOSS-Image-SFT-Q4_K.gguf
+    step: 20
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: qwen-image-2.1-q4_k-ggml
   description: |
     Qwen-Image 2.1 is the Qwen image generation foundation model, with strong prompt adherence and accurate text rendering (English and Chinese). It uses Qwen3-VL-8B as the text encoder and its own VAE, and supports both text-to-image and image editing: pass reference images to edit them.
