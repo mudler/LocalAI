@@ -1246,6 +1246,10 @@ export default function Models() {
         : null,
     }
   })
+  // The gallery can come back empty while an online section still loads, failed,
+  // or holds rows. That is one results view, not an empty page with a table
+  // under it, so the empty state waits until every source has nothing to show.
+  const onlineHasContent = onlineSections.some(sec => sec.loading || sec.error || sec.models.length > 0)
   const filtersActive = !!(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants)
   const firstLoad = loading && !loadedOnce.current
   const galleryEmpty = statsLoaded && stats.total === 0 && !filtersActive && !loadError
@@ -1508,7 +1512,7 @@ export default function Models() {
           </div>
           {remote && remoteEmpty ? remoteEmpty : (
           <>
-          {!remote && !firstLoad && visibleModels.length === 0 && (
+          {!remote && !firstLoad && visibleModels.length === 0 && !onlineHasContent && (
             loadError ? (
               // The list could not be fetched, which is not the same as an empty
               // gallery. The banner above holds the reason and the way out.
@@ -1546,7 +1550,7 @@ export default function Models() {
             </div>
             )
           )}
-          {(remote || firstLoad || visibleModels.length > 0 || sectionIds.length > 0) && (
+          {(remote || firstLoad || visibleModels.length > 0 || onlineHasContent) && (
             <ExploreTable
               models={visibleModels}
               loading={remote ? remoteBusy : firstLoad}
@@ -1557,6 +1561,7 @@ export default function Models() {
               heading={remote ? { label: t(remoteTerm ? 'remote.heading' : 'remote.latestHeading', { source: sourceLabel }), icon: 'cloud', tag: remote.p2p ? t('remote.p2p') : '' } : undefined}
               onRowVisible={sectionIds.length > 0 ? onRowVisible : undefined}
               sections={remote ? undefined : onlineSections}
+              mixed={!remote && !!search.trim()}
               remoteOps={remote ? undefined : remoteOps}
               collapsedGroups={collapsedGroups}
               onToggleGroup={toggleGroup}
