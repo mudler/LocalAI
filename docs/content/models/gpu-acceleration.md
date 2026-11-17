@@ -219,7 +219,7 @@ Please note the following list of verified backends and devices.
 
 LocalAI hipblas images are built against the following targets: gfx908, gfx90a, gfx942, gfx950, gfx1030, gfx1100, gfx1101, gfx1102, gfx1103, gfx1150, gfx1151, gfx1152, gfx1153, gfx1200, gfx1201
 
-The Python backends (diffusers, transformers, vllm, coqui, ...) are built on ROCm 7.2.1 and use the PyTorch ROCm wheels from `download.pytorch.org/whl/rocm7.0`. Their GPU support is that of the wheel, not the list above; PyTorch does not publish ROCm 10.1 wheels yet. To build a backend for another ROCm release, see [Choosing the ROCm release for `hipblas` builds]({{%relref "getting-started/build#choosing-the-rocm-release-for-hipblas-builds" %}}).
+The Python backends (diffusers, transformers, vllm, coqui, ...) are built on ROCm 7.2.1 and use the PyTorch ROCm wheels from `download.pytorch.org/whl/rocm7.0`. Their GPU support is that of the wheel, not the list above; PyTorch does not publish ROCm 10.1 wheels yet. To build a backend for another ROCm release, see [Choosing the ROCm release for `hipblas` builds]({{%relref "/contributing/build-from-source#choosing-the-rocm-release-for-hipblas-builds" %}}).
 
 **Note:** Starting with ROCm 6.4, AMD removed rocBLAS kernel support for older architectures (gfx803, gfx900, gfx906). Since llama.cpp and other backends depend on rocBLAS for matrix operations, these GPUs (e.g. Radeon VII) are no longer supported in pre-built images.
 
