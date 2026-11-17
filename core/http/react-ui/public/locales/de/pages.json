@@ -63,7 +63,7 @@
     "stopAllowing": "Diese Seite nicht mehr erlauben",
     "authorChanged": "{{author}} hat diese Seite geändert. Die erlaubte Version läuft weiter, bis du die Änderung prüfst.",
     "sandboxShared": "Abgeschottet. Läuft als du, nur in {{folder}}, und erreicht das Netzwerk nicht.",
-    "sandboxUser": "In einer Sandbox. Läuft als du, nur in ihrem eigenen Ordner, und hat keinen Netzwerkzugriff."
+    "sandboxUser": "Abgeschottet. Läuft als du, nur in ihrem eigenen Ordner, und hat keinen Netzwerkzugriff."
   },
   "trust": {
     "title": "„{{title}}“ öffnen?",
