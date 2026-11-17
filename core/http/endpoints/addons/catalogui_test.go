@@ -346,6 +346,7 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 		pages, err := filepath.Glob(filepath.Join("..", "..", "..", "..", "docs", "content", "addons", "contract-reference", "*.md"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(pages).NotTo(BeEmpty())
+		pages = append(pages, filepath.Join("..", "..", "..", "..", "docs", "content", "addons", "manage-addons.md"))
 		var page []byte
 		for _, name := range pages {
 			part, err := os.ReadFile(name)
