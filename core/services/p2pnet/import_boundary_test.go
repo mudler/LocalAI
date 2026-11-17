@@ -25,11 +25,27 @@ var p2pnetImports = []string{
 }
 
 // libp2pImporters are the packages that may import libp2p. Everything else
-// uses p2pnet. core/p2p is the edgevpn-based layer that p2pnet replaces.
+// uses p2pnet.
 var libp2pImporters = []string{
 	module + "/core/services/p2pnet/...",
 	module + "/core/services/p2prelay/...",
+	// core/p2p is the edgevpn-based layer that p2pnet replaces. It stays
+	// here until the change that removes it.
 	module + "/core/p2p/...",
+}
+
+// p2ppairPath is the pairing service. It parses peer IDs and multiaddrs in
+// invite links and opens no connection, so it may use only the libp2p and
+// multiaddr packages in p2ppairP2PImports.
+const p2ppairPath = module + "/core/services/p2ppair"
+
+var p2ppairP2PImports = []string{
+	"github.com/libp2p/go-libp2p/core/peer",
+	"github.com/multiformats/go-multiaddr",
+}
+
+func isP2PImport(p string) bool {
+	return strings.HasPrefix(p, "github.com/libp2p/") || strings.HasPrefix(p, "github.com/multiformats/")
 }
 
 func matches(p string, list []string) bool {
@@ -137,7 +153,24 @@ var _ = Describe("Import boundary", func() {
 				continue
 			}
 			for _, imp := range imports {
+				if pkg == p2ppairPath && matches(imp, p2ppairP2PImports) {
+					continue
+				}
 				Expect(strings.HasPrefix(imp, "github.com/libp2p/")).To(BeFalse(), "%s imports %s; use core/services/p2pnet", pkg, imp)
+			}
+		}
+	})
+
+	It("p2ppair imports only the peer ID and multiaddr packages", func() {
+		root := moduleRoot()
+		pkgs := moduleImports(root, filepath.Join(root, "core", "services", "p2ppair"))
+		Expect(pkgs).To(HaveKey(p2ppairPath))
+		for pkg, imports := range pkgs {
+			for _, imp := range imports {
+				if !isP2PImport(imp) {
+					continue
+				}
+				Expect(matches(imp, p2ppairP2PImports)).To(BeTrue(), "%s imports %s; only %v are allowed", pkg, imp, p2ppairP2PImports)
 			}
 		}
 	})
