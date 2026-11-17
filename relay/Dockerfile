@@ -15,9 +15,7 @@ COPY cmd/localai-relay ./cmd/localai-relay
 COPY core/services/p2pnet ./core/services/p2pnet
 COPY core/services/p2prelay ./core/services/p2prelay
 COPY pkg/httpclient ./pkg/httpclient
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/localai-relay ./cmd/localai-relay
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/localai-relay ./cmd/localai-relay
 # The data folder must exist and belong to the runtime user, because a
 # scratch image has no tools to create it.
 RUN mkdir -p /out/data && chown 10001:10001 /out/data && chmod 0700 /out/data
