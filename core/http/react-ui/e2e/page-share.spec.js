@@ -186,7 +186,7 @@ test('finds a person from three characters and adds them with the Use role', asy
   expect(state.searches).toHaveLength(0)
   await dialog.getByTestId('share-search').fill('car')
   await expect(dialog.getByTestId('share-user')).toHaveCount(1, { timeout: 5000 })
-  expect(state.searches[0]).toEqual({ q: 'car', confirm: 'tasks' })
+  expect(state.searches[0]).toEqual({ q: 'car', confirm: 'pages' })
   // The three roles are offered; the first is View.
   const roles = dialog.getByTestId('share-new-role')
   await expect(roles.locator('option')).toHaveText(['View', 'Use', 'Edit'])

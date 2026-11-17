@@ -13,7 +13,9 @@ test('page share requests: the path, the method and the confirmation header come
     { method: 'PUT', path: '/api/chats/pages/tasks/shares', headers: { 'X-LocalAI-Confirm': 'tasks' }, body: { principal: 'u-1', role: 'use' } })
   assert.deepEqual(pageShareRequest({ op: 'grant-revoke', name: 'tasks', principal: '@everyone' }),
     { method: 'DELETE', path: '/api/chats/pages/tasks/shares/@everyone', headers: { 'X-LocalAI-Confirm': 'tasks' } })
-  assert.equal(pageShareRequest({ op: 'users', name: 'tasks', query: '  ali ', limit: 50 }).path, '/api/chats/pages/shares/search?q=ali&limit=20')
+  const users = pageShareRequest({ op: 'users', name: 'tasks', query: '  ali ', limit: 50 })
+  assert.equal(users.path, '/api/chats/pages/shares/search?q=ali&limit=20')
+  assert.deepEqual(users.headers, { 'X-LocalAI-Confirm': 'pages' }, 'the picker is confirmed with the word pages')
 })
 
 test('page share requests: a bad page, person, role or query is refused before it is sent', () => {

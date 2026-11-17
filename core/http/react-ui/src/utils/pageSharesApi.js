@@ -48,7 +48,8 @@ export function pageShareRequest(call) {
       const q = typeof call.query === 'string' ? call.query.trim() : ''
       need(q.length >= SEARCH_MIN && q.length <= SEARCH_MAX, `A query of ${SEARCH_MIN} to ${SEARCH_MAX} characters is required`)
       const limit = Number.isInteger(call.limit) && call.limit > 0 ? `&limit=${Math.min(call.limit, 20)}` : ''
-      return { method: 'GET', path: `${BASE}/shares/search?q=${encodeURIComponent(q)}${limit}`, headers: confirm }
+      // The picker has no page in its path: the server expects the word "pages".
+      return { method: 'GET', path: `${BASE}/shares/search?q=${encodeURIComponent(q)}${limit}`, headers: { 'X-LocalAI-Confirm': 'pages' } }
     }
     default:
       throw new TypeError('Unknown page share operation')
