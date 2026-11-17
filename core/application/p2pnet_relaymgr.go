@@ -118,8 +118,10 @@ func (a relayManagerAdapter) Claim(ctx context.Context, id, code string) (p2papi
 	return relayView(r), relayErr(err)
 }
 
-func (a relayManagerAdapter) Registrar() p2ppair.PassRegistrar { return p2prelaymgr.NewPassRegistrar(a.m) }
-func (a relayManagerAdapter) PeerAdded(peer string)            { a.m.PeerAdded(peer) }
-func (a relayManagerAdapter) PeerRemoved(peer string)          { a.m.PeerRemoved(peer) }
-func (a relayManagerAdapter) Start(ctx context.Context) error  { return a.m.Start(ctx) }
-func (a relayManagerAdapter) Close() error                     { return a.m.Close() }
+func (a relayManagerAdapter) Registrar() p2ppair.PassRegistrar {
+	return p2prelaymgr.NewPassRegistrar(a.m)
+}
+func (a relayManagerAdapter) PeerAdded(peer string)           { a.m.PeerAdded(peer) }
+func (a relayManagerAdapter) PeerRemoved(peer string)         { a.m.PeerRemoved(peer) }
+func (a relayManagerAdapter) Start(ctx context.Context) error { return a.m.Start(ctx) }
+func (a relayManagerAdapter) Close() error                    { return a.m.Close() }

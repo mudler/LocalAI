@@ -226,7 +226,7 @@ func (f *fakeRelays) Remove(context.Context, string) error { return nil }
 func (f *fakeRelays) Check(context.Context, string) (p2papi.RelayCheck, error) {
 	return p2papi.RelayCheck{}, nil
 }
-func (f *fakeRelays) Sync(context.Context, string) (p2papi.Relay, error)  { return p2papi.Relay{}, nil }
+func (f *fakeRelays) Sync(context.Context, string) (p2papi.Relay, error) { return p2papi.Relay{}, nil }
 func (f *fakeRelays) Claim(context.Context, string, string) (p2papi.Relay, error) {
 	return p2papi.Relay{}, nil
 }
