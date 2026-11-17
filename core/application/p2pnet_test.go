@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
+	"github.com/mudler/LocalAI/core/services/p2prelaymgr"
 )
 
 // newP2PTestApp is an application with only what the P2P layer reads: the
@@ -181,3 +182,31 @@ func transportListenAddrs(rt *p2pRuntime) []string {
 	}
 	return out
 }
+
+var _ = Describe("the relay manager on the p2p_relays setting", func() {
+	It("keeps relays in the setting and maps the manager's errors", func() {
+		a := newP2PTestApp("connect", GinkgoT().TempDir(), nil)
+		Expect(a.StartP2PNet()).To(Succeed())
+		rt, _ := a.p2p().runtime()
+		rm, err := newRelayManager(relayManagerConfig{
+			Host: rt.host, LoadRelays: a.p2pRelays, SaveRelays: a.saveP2PRelays,
+			PairedPeers: func() []string { return nil },
+		})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(rm.Close)
+		Expect(rm.List()).To(BeEmpty())
+
+		_, err = rm.Add(context.Background(), "/ip4/192.0.2.1/tcp/4001", "home", "")
+		Expect(err).To(MatchError(p2papi.ErrInvalid))
+		Expect(rm.Remove(context.Background(), "nope")).To(MatchError(p2papi.ErrNotFound))
+
+		store := settingsRelayStore{load: a.p2pRelays, save: a.saveP2PRelays}
+		Expect(store.Save(context.Background(), []p2prelaymgr.Entry{{ID: "r", Label: "home", Addr: testRelayAddr}})).To(Succeed())
+		Expect(a.ApplicationConfig().P2P.Relays).To(Equal([]config.P2PRelay{{ID: "r", Label: "home", Addr: testRelayAddr}}))
+		entries, err := store.Load(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(entries).To(HaveLen(1))
+	})
+})
+
+const testRelayAddr = "/ip4/192.0.2.2/tcp/4001/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN"

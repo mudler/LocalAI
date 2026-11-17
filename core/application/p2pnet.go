@@ -108,7 +108,7 @@ type p2pRuntime struct {
 }
 
 func (a *Application) p2p() *p2pNet {
-	a.p2pNetOnce.Do(func() { a.p2pNet = &p2pNet{app: a} })
+	a.p2pNetOnce.Do(func() { a.p2pNet = &p2pNet{app: a, relayFactory: newRelayManager} })
 	return a.p2pNet
 }
 
@@ -295,7 +295,7 @@ func (rt *p2pRuntime) startShare() error {
 	}
 	if rt.net.relayFactory != nil {
 		rm, err := rt.net.relayFactory(relayManagerConfig{
-			Host: rt.host, Relays: rt.cfg.Relays, SaveRelays: app.saveP2PRelays, PairedPeers: rt.pairedPeerStrings,
+			Host: rt.host, LoadRelays: app.p2pRelays, SaveRelays: app.saveP2PRelays, PairedPeers: rt.pairedPeerStrings,
 		})
 		if err != nil {
 			return fmt.Errorf("p2p: relay manager: %w", err)
@@ -615,6 +615,11 @@ func (a *Application) p2pBroadcaster() messaging.Broadcaster {
 		return nil
 	}
 	return a.distributed.Nats
+}
+
+// p2pRelays reads the p2p_relays setting.
+func (a *Application) p2pRelays() []config.P2PRelay {
+	return slices.Clone(a.ApplicationConfig().P2P.Relays)
 }
 
 // saveP2PRelays stores the relays in the p2p_relays setting, in the config and

@@ -14,11 +14,9 @@ import (
 // relayManager is what the P2P layer needs from the relay manager: the list of
 // relays, the admin operations of the API, the registrar of relay passes for
 // invites, and the pairing changes it pushes to every relay. The relay manager
-// of package p2prelaymgr implements it through a small adapter that converts
-// its types to the API types and returns p2prelaymgr.NewPassRegistrar as the
-// registrar; p2pNet.relayFactory builds it. Without one, the relays of the
-// p2p_relays setting are listed without passes and the admin operations
-// answer 503.
+// of package p2prelaymgr implements it through relayManagerAdapter;
+// p2pNet.relayFactory builds it. Without one, the relays of the p2p_relays
+// setting are listed without passes and the admin operations answer 503.
 type relayManager interface {
 	List() []p2papi.Relay
 	Add(ctx context.Context, addr, label, claimCode string) (p2papi.Relay, error)
@@ -36,8 +34,8 @@ type relayManager interface {
 // relayManagerConfig is what the P2P layer hands to the relay manager.
 type relayManagerConfig struct {
 	Host *p2pnet.Host
-	// Relays is the p2p_relays setting at start.
-	Relays []config.P2PRelay
+	// LoadRelays reads the p2p_relays setting.
+	LoadRelays func() []config.P2PRelay
 	// SaveRelays stores the relays in the p2p_relays setting.
 	SaveRelays func([]config.P2PRelay) error
 	// PairedPeers lists the peer IDs of the active devices.

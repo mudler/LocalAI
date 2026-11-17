@@ -299,6 +299,7 @@ var _ = Describe("P2P layer with a relay manager", func() {
 		db, err := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
 		Expect(err).ToNot(HaveOccurred())
 		a := newP2PTestApp("share", GinkgoT().TempDir(), db)
+		a.p2p().relayFactory = nil
 		Expect(a.StartP2PNet()).To(Succeed())
 		_, err = a.P2P().CheckRelay(context.Background(), "r1")
 		Expect(err).To(MatchError(p2papi.ErrUnavailable))
