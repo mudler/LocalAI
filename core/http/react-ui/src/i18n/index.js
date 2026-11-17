@@ -40,7 +40,6 @@ export const NAMESPACES = [
   'swarm',
   'traffic',
   'usage',
-  'explorer',
   'addons',
   'upgrade',
   'updates',

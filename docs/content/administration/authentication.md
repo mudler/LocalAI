@@ -58,7 +58,7 @@ LocalAI also permits the requests needed for health checks, credential acquisiti
 - GitHub OAuth: `GET /api/auth/github/login` and `GET /api/auth/github/callback`.
 - OIDC: `GET /api/auth/oidc/login` and `GET /api/auth/oidc/callback`.
 - CORS preflight requests: `OPTIONS` on every path. A cross-origin preflight cannot carry credentials by HTTP spec, so these requests are never gated on auth; the CORS middleware answers them, which grants no API access.
-- SPA shell routes: `GET /`, `HEAD /`, and `GET` requests at `/app`, `/browse`, `/login`, `/invite/*`, and `/explorer`. Subpaths under `/app/` and `/browse/` are also available through `GET`.
+- SPA shell routes: `GET /`, `HEAD /`, and `GET` requests at `/app`, `/browse`, `/login`, and `/invite/*`. Subpaths under `/app/` and `/browse/` are also available through `GET`.
 - SPA assets: `GET /favicon.svg` and `GET` requests under `/assets/`, `/locales/`, and `/static/`.
 - Branding reads: `GET /api/branding` and `GET` requests under `/branding/asset/`. Branding mutations still require admin credentials.
 

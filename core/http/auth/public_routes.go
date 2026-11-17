@@ -55,7 +55,6 @@ var publicRouteRegistry = []publicRouteRule{
 	{Method: http.MethodGet, Path: "/browse/", Prefix: true},
 	{Method: http.MethodGet, Path: "/login"},
 	{Method: http.MethodGet, Path: "/invite/", Prefix: true},
-	{Method: http.MethodGet, Path: "/explorer"},
 
 	// Assets.
 	{Method: http.MethodGet, Path: "/favicon.svg"},

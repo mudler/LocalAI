@@ -138,10 +138,6 @@
       "truncatedWarning": "Affichage des 200 principales clés. Appliquez un filtre pour affiner."
     }
   },
-  "explorer": {
-    "title": "Explorateur",
-    "subtitle": "Parcourir les fichiers et la configuration"
-  },
   "settingsTools": {
     "intro": "Les chats ont quelques outils intégrés qu'un module peut remplacer. Quand le module est installé, en marche et activé pour un chat, le chat utilise l'outil du module, sous le même nom.",
     "empty": "Aucun outil intégré n'est gérable sur ce serveur.",

@@ -71,8 +71,8 @@ After installation, restart your shell or source your shell configuration file. 
 
 ```
 $ local-ai <TAB>
-run              backends         completion       explorer         models
-federated        sound-generation transcript       tts              util
+run              backends         completion       models           p2p
+sound-generation transcript       tts              util             worker
 ```
 
 Tab completion also works for subcommands and flags:

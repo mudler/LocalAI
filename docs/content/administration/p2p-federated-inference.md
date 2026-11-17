@@ -30,10 +30,6 @@ LocalAI supports two modes of distributed inferencing via p2p:
 - **Federated Mode**: Requests are shared between the cluster and routed to a single worker node in the network based on the load balancer's decision.
 - **Worker Mode** (aka "model sharding" or "splitting weights"): Requests are processed by all the workers which contributes to the final inference result (by sharing the model weights).
 
-A list of global instances shared by the community is available at [explorer.localai.io](https://explorer.localai.io).
-
-A LocalAI server started with `local-ai explorer` serves the same list at `/explorer`. Each swarm shows its name, description, the types of its clusters, how many workers are online and a shortened token. **How to join** shows the whole token and, for a federated cluster, the Docker and command-line commands that start a node on it. **List a swarm** adds a swarm to the list. Listing publishes its token, so anyone who sees the list can use the swarm's workers. Only swarms with at least one online worker are listed. On a server that is not in explorer mode, the page says so.
-
 ## Usage
 
 Starting LocalAI with `--p2p` generates a shared token for connecting multiple instances: and that's all you need to create AI clusters, eliminating the need for intricate network setups. 
@@ -147,9 +143,8 @@ There are options that can be tweaked or parameters that can be set using enviro
 |----------------------|-------------|
 | **LOCALAI_P2P** | Set to "true" to enable p2p |
 | **LOCALAI_FEDERATED** | Set to "true" to enable federated mode |
-| **FEDERATED_SERVER** | Set to "true" to enable federated server |
 | **LOCALAI_P2P_DISABLE_DHT** | Set to "true" to disable DHT and enable p2p layer to be local only (mDNS) |
-| **LOCALAI_P2P_ENABLE_LIMITS** | Set to "true" (or pass `--p2p-enable-limits=true` to `run`, a `p2p-worker` command, or `explorer`) to enable connection limits and resources management (useful when running with poor connectivity or want to limit resources consumption) |
+| **LOCALAI_P2P_ENABLE_LIMITS** | Set to "true" (or pass `--p2p-enable-limits=true` to `run` or a `p2p-worker` command) to enable connection limits and resources management (useful when running with poor connectivity or want to limit resources consumption) |
 | **LOCALAI_P2P_LISTEN_MADDRS** | Set to comma separated list of multiaddresses to override default libp2p 0.0.0.0 multiaddresses |
 | **LOCALAI_P2P_DHT_ANNOUNCE_MADDRS** | Set to comma separated list of multiaddresses to override announcing of listen multiaddresses (useful when external address:port is remapped) |
 | **LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS** | Set to comma separated list of multiaddresses to specify custom DHT bootstrap nodes |

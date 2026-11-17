@@ -23,6 +23,5 @@ var CLI struct {
 	AgentWorker     AgentWorkerCMD     `cmd:"" name:"agent-worker" help:"Start a worker for distributed mode (serves MCP tool calls via NATS)"`
 	Util            UtilCMD            `cmd:"" help:"Utility commands"`
 	MCPServer       MCPServerCMD       `cmd:"" name:"mcp-server" help:"Run the LocalAI admin tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP)"`
-	Explorer        ExplorerCMD        `cmd:"" help:"Run p2p explorer"`
 	Completion      CompletionCMD      `cmd:"" help:"Generate shell completion scripts for bash, zsh, or fish"`
 }

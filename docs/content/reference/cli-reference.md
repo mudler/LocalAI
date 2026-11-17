@@ -204,7 +204,7 @@ switches the chats themselves off except the `chats` permission of each user.
 | `--opaque-errors` | `false` | If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended | `$LOCALAI_OPAQUE_ERRORS` |
 | `--use-subtle-key-comparison` | `false` | If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resilience against timing attacks | `$LOCALAI_SUBTLE_KEY_COMPARISON` |
 | `--disable-api-key-requirement-for-http-get` | `false` | If true, a valid API key is not required to issue GET requests to portions of the web UI. This should only be enabled in secure testing environments | `$LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET` |
-| `--http-get-exempted-endpoints` | `^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/explorer/?$,^/assets/.*$,^/static/.*$,^/swagger.*$` | If `--disable-api-key-requirement-for-http-get` is overridden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review | `$LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS` |
+| `--http-get-exempted-endpoints` | `^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/assets/.*$,^/static/.*$,^/swagger.*$` | If `--disable-api-key-requirement-for-http-get` is overridden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review | `$LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS` |
 
 ## Authentication Flags
 
@@ -394,7 +394,6 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai p2p` - Run a relay, manage relays and pair devices over P2P
 - `local-ai agent-worker` - Start a worker for distributed mode (serves MCP tool calls via NATS)
 - `local-ai util` - Utility commands
-- `local-ai explorer` - Run P2P explorer
 - `local-ai completion` - Generate shell completion scripts for bash, zsh, or fish
 
 Use `local-ai <command> --help` for more information on each command.

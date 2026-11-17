@@ -152,7 +152,7 @@ if [ -z "$endpoint" ]; then
             exit 0
             ;;
         *)
-            # run / federated / explorer, and anything unrecognised: kong's
+            # run, and anything unrecognised: kong's
             # default command is `run`, so a bare `local-ai`, `local-ai --flag`
             # and `local-ai <model-name>` are all frontends on the API port.
             port=$(port_of "${LOCALAI_ADDRESS:-${ADDRESS:-}}")

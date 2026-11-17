@@ -211,10 +211,6 @@
       "truncatedWarning": "Mostrando as 200 principais chaves. Aplique um filtro para reduzir ainda mais."
     }
   },
-  "explorer": {
-    "title": "Explorador",
-    "subtitle": "Navegar por arquivos e configurações"
-  },
   "operate": {
     "overview": {
       "title": "Visão geral",
