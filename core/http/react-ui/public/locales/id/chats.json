@@ -46,6 +46,7 @@
       "deliveryChat": "Obrolan ini",
       "deliveryThread": "Utas ini",
       "deliveryChannel": "{{channel}}, di tingkat atas kanal",
+      "deliveryChannelIn": "{{channel}} di {{connection}}, di tingkat atas kanal",
       "stopLabel": "Untuk menghentikannya",
       "when": "{{schedule}}, {{zone}}. Jalan pertama {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

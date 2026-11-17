@@ -114,6 +114,7 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
     for (const [label, delivery, text] of [
       ['a thread', { target: 'origin', in_thread: true }, 'This thread'],
       ['a channel', { target: 'channel', channel_label: 'KairosInternal' }, 'KairosInternal, at the top of the channel'],
+      ['a channel of a named connection', { target: 'channel', channel_label: 'General', connection_name: 'Team chat' }, 'General in Team chat, at the top of the channel'],
     ]) {
       test(`the card names ${label} as the place of the results`, async ({ page }) => {
         await open(page, { extra: { delivery } })

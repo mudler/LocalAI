@@ -46,6 +46,7 @@
       "deliveryChat": "Cette conversation",
       "deliveryThread": "Ce fil",
       "deliveryChannel": "{{channel}}, au premier niveau du canal",
+      "deliveryChannelIn": "{{channel}} dans {{connection}}, au premier niveau du canal",
       "stopLabel": "Pour l’arrêter",
       "when": "{{schedule}}, {{zone}}. Première exécution {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

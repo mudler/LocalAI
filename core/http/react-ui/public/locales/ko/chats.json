@@ -46,6 +46,7 @@
       "deliveryChat": "이 채팅",
       "deliveryThread": "이 스레드",
       "deliveryChannel": "{{channel}}, 채널 최상단",
+      "deliveryChannelIn": "{{connection}}의 {{channel}}, 채널 최상단",
       "stopLabel": "멈추려면",
       "when": "{{schedule}}, {{zone}}. 첫 실행 {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

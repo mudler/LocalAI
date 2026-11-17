@@ -46,6 +46,7 @@
       "deliveryChat": "Este chat",
       "deliveryThread": "Este hilo",
       "deliveryChannel": "{{channel}}, en el nivel principal del canal",
+      "deliveryChannelIn": "{{channel}} en {{connection}}, en el nivel principal del canal",
       "stopLabel": "Para detenerlo",
       "when": "{{schedule}}, {{zone}}. Primera ejecución {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

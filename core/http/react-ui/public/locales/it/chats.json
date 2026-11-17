@@ -46,6 +46,7 @@
       "deliveryChat": "Questa chat",
       "deliveryThread": "Questo thread",
       "deliveryChannel": "{{channel}}, in cima al canale",
+      "deliveryChannelIn": "{{channel}} in {{connection}}, in cima al canale",
       "stopLabel": "Per fermarlo",
       "when": "{{schedule}}, {{zone}}. Prima esecuzione {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

@@ -1669,7 +1669,10 @@ type ChatsTrigger struct {
 type ChatsTriggerDelivery struct {
 	Target       string `json:"target"`
 	ChannelLabel string `json:"channel_label,omitempty"`
-	InThread     bool   `json:"in_thread,omitempty"`
+	// ConnectionName is the name the owner gave the connection of the channel,
+	// for a trigger that was proposed in Studio and reports there.
+	ConnectionName string `json:"connection_name,omitempty"`
+	InThread       bool   `json:"in_thread,omitempty"`
 }
 
 // ChatsTriggerProposal is a trigger a chat proposed and what became of it.

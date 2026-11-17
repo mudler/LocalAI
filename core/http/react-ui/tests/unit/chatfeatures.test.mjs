@@ -109,6 +109,7 @@ test('trigger changes: the card reads the state the server keeps and the cards k
   assert.equal(changeValue('acts', { acts: ['act.files', 'act.spend'] }), 'act.files, act.spend')
   assert.equal(changeValue('acts', {}), '')
   assert.equal(changeValue('delivery', { delivery: { target: 'channel', channel_label: 'General' } }), 'channel General')
+  assert.equal(changeValue('delivery', { delivery: { target: 'channel', channel_label: 'General', connection_name: 'Team chat' } }), 'channel Team chat General')
   assert.equal(changeValue('delivery', { delivery: { target: 'inbox' } }), 'inbox')
   assert.deepEqual(triggerCards([
     { role: 'tool', card: { kind: 'trigger_change', id: 'c1' } },

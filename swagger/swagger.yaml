@@ -10673,6 +10673,11 @@ definitions:
     properties:
       channel_label:
         type: string
+      connection_name:
+        description: |-
+          ConnectionName is the name the owner gave the connection of the channel,
+          for a trigger that was proposed in Studio and reports there.
+        type: string
       in_thread:
         type: boolean
       target:

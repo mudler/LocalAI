@@ -46,6 +46,7 @@
       "deliveryChat": "此聊天",
       "deliveryThread": "此线程",
       "deliveryChannel": "{{channel}}，频道顶层",
+      "deliveryChannelIn": "{{connection}} 中的 {{channel}}，频道顶层",
       "stopLabel": "如何停止",
       "when": "{{schedule}}，{{zone}}。首次运行 {{when}}。",
       "whenNoFirst": "{{schedule}}，{{zone}}。",
