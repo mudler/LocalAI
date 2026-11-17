@@ -300,7 +300,11 @@ func (s p2pService) AddRelay(ctx context.Context, addr, label, claimCode string)
 	if err != nil {
 		return p2papi.Relay{}, err
 	}
-	return rm.Add(ctx, addr, label, claimCode)
+	r, err := rm.Add(ctx, addr, label, claimCode)
+	if err == nil {
+		s.restartForRelays()
+	}
+	return r, err
 }
 
 func (s p2pService) RemoveRelay(ctx context.Context, id string) error {
@@ -308,7 +312,20 @@ func (s p2pService) RemoveRelay(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	return rm.Remove(ctx, id)
+	if err := rm.Remove(ctx, id); err != nil {
+		return err
+	}
+	s.restartForRelays()
+	return nil
+}
+
+// restartForRelays restarts the host after the relay set changed: its static
+// relays are fixed when it starts. It runs after the answer is sent, so the
+// request is not cut by its own restart.
+func (s p2pService) restartForRelays() {
+	go func() {
+		_ = s.n.restart()
+	}()
 }
 
 func (s p2pService) CheckRelay(ctx context.Context, id string) (p2papi.RelayCheck, error) {
@@ -385,7 +402,7 @@ func (s p2pService) Redeem(ctx context.Context, from string, req p2papi.RedeemRe
 		Server: p2papi.ServerInfo{PeerID: rt.host.ID().String(), Name: name, Version: internal.Version},
 	}
 	if res.ClientKey != nil {
-		out.ClientKey = &p2papi.ClientKey{ID: res.ClientKey.ID, Key: res.ClientKey.Secret}
+		out.ClientKey = &p2papi.ClientKey{ID: res.ClientKey.ID, Secret: res.ClientKey.Secret}
 	}
 	return out, nil
 }

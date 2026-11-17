@@ -285,8 +285,8 @@ type ServerInfo struct {
 
 // ClientKey is the client key of a remote invite.
 type ClientKey struct {
-	ID  string `json:"id"`
-	Key string `json:"key"`
+	ID     string `json:"id"`
+	Secret string `json:"secret"`
 }
 
 // RevokeResult is the answer of DELETE /api/p2p/devices/{id}.

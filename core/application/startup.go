@@ -293,6 +293,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// pin_failover_target / unpin_failover_target see real chains.
 	if application.assistantClient != nil {
 		application.assistantClient.Failover = application.failoverManager
+		application.assistantClient.P2P = application.P2P()
 	}
 
 	// Subsystem 5: admission control. Limiter is always wired so a

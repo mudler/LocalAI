@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"os"
 	"path/filepath"
 	"slices"
@@ -114,6 +115,10 @@ type Client struct {
 	// running" — the same as a deployment with no failover chains
 	// configured.
 	Failover *failover.Manager
+
+	// P2P backs the P2P tools. nil makes them report that P2P is not
+	// available.
+	P2P p2papi.Service
 
 	// SharedFolders backs the shared folder tools. It is read at each call,
 	// because the chats start after the assistant; nil or a nil service makes
@@ -1283,6 +1288,96 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 		return nil, err
 	}
 	return &localaitools.RouterCorpusClearResult{Router: cfg.Name, Cleared: cleared}, nil
+}
+
+// ---- P2P ----
+
+var errNoP2P = errors.New("P2P is not available on this server")
+
+func (c *Client) GetP2PStatus(ctx context.Context) (*localaitools.P2PStatusInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	st, err := c.P2P.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.P2PStatusInfo{
+		Mode: st.Mode, Running: st.Running, Error: st.Error, PeerID: st.PeerID, Addrs: st.Addrs,
+		Reachability: st.Reachability, RelayService: st.RelayService.Running,
+		PendingInvites: st.PendingInvites, Devices: st.Devices,
+	}, nil
+}
+
+func (c *Client) ListP2PDevices(ctx context.Context) ([]localaitools.P2PDeviceInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	devs, err := c.P2P.ListDevices(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.P2PDeviceInfo, 0, len(devs))
+	for _, d := range devs {
+		out = append(out, localaitools.P2PDeviceInfo{
+			ID: d.ID, Kind: d.Kind, Label: d.Label, PeerID: d.PeerID, Status: d.Status, Online: d.Online,
+			Path: d.Path.Kind, RelayLabel: d.Path.RelayLabel, LastSeenAt: d.LastSeenAt,
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) ListP2PInvites(ctx context.Context) ([]localaitools.P2PInviteInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	invs, err := c.P2P.ListInvites(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.P2PInviteInfo, 0, len(invs))
+	for _, i := range invs {
+		out = append(out, localaitools.P2PInviteInfo{
+			ID: i.ID, Kind: i.Kind, Label: i.Label, Status: i.Status, ExpiresAt: i.ExpiresAt, DeviceID: i.DeviceID,
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) ListP2PRelays(ctx context.Context) ([]localaitools.P2PRelayInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	rs, err := c.P2P.ListRelays(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.P2PRelayInfo, 0, len(rs))
+	for _, r := range rs {
+		out = append(out, localaitools.P2PRelayInfo{
+			ID: r.ID, Label: r.Label, Addr: r.Addr, Mode: r.Mode, State: r.State, Health: r.Health, Members: r.Members,
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) RevokeP2PDevice(ctx context.Context, id string) error {
+	if c.P2P == nil {
+		return errNoP2P
+	}
+	// The assistant acts for the administrator of the chat.
+	by := ""
+	if u := localaitools.UserFromContext(ctx); u != nil {
+		by = u.ID
+	}
+	return c.P2P.RevokeDevice(ctx, id, by)
+}
+
+func (c *Client) CancelP2PInvite(ctx context.Context, id string) error {
+	if c.P2P == nil {
+		return errNoP2P
+	}
+	return c.P2P.CancelInvite(ctx, id)
 }
 
 // ---- Failover chains ----

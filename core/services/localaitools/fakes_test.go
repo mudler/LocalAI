@@ -455,6 +455,36 @@ func (f *fakeClient) ClearRouterCorpus(_ context.Context, routerModel string) (*
 	return &RouterCorpusClearResult{Router: routerModel}, nil
 }
 
+func (f *fakeClient) GetP2PStatus(_ context.Context) (*P2PStatusInfo, error) {
+	f.record("GetP2PStatus", nil)
+	return &P2PStatusInfo{Mode: "share"}, nil
+}
+
+func (f *fakeClient) ListP2PDevices(_ context.Context) ([]P2PDeviceInfo, error) {
+	f.record("ListP2PDevices", nil)
+	return []P2PDeviceInfo{}, nil
+}
+
+func (f *fakeClient) ListP2PInvites(_ context.Context) ([]P2PInviteInfo, error) {
+	f.record("ListP2PInvites", nil)
+	return []P2PInviteInfo{}, nil
+}
+
+func (f *fakeClient) ListP2PRelays(_ context.Context) ([]P2PRelayInfo, error) {
+	f.record("ListP2PRelays", nil)
+	return []P2PRelayInfo{}, nil
+}
+
+func (f *fakeClient) RevokeP2PDevice(_ context.Context, id string) error {
+	f.record("RevokeP2PDevice", id)
+	return nil
+}
+
+func (f *fakeClient) CancelP2PInvite(_ context.Context, id string) error {
+	f.record("CancelP2PInvite", id)
+	return nil
+}
+
 func (f *fakeClient) ListFailoverChains(_ context.Context) ([]FailoverChainInfo, error) {
 	f.record("ListFailoverChains", nil)
 	if f.listFailoverChains != nil {

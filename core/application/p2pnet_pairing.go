@@ -2,12 +2,7 @@ package application
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base32"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"sync"
 	"time"
@@ -145,24 +140,4 @@ func (g *globalLimiter) Fail(p peer.ID, source string) {
 	g.fails = append(g.fails, now)
 	g.mu.Unlock()
 	g.inner.Fail(p, source)
-}
-
-// passSecret keys the relay passes. A pass is derived from the invite ID, so
-// any frontend can cancel the pass of an invite another one minted.
-func passSecret(a *Application) []byte {
-	if s := a.ApplicationConfig().Auth.APIKeyHMACSecret; s != "" {
-		return []byte("p2p-relay-pass:" + s)
-	}
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		panic(fmt.Sprintf("p2p: no randomness: %v", err))
-	}
-	return b
-}
-
-// passCode derives the relay pass of an invite.
-func passCode(secret []byte, inviteID string) string {
-	m := hmac.New(sha256.New, secret)
-	m.Write([]byte(inviteID))
-	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(m.Sum(nil))[:20]
 }

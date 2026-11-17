@@ -70,6 +70,8 @@ const (
 	ToolPinFailoverTarget    = "pin_failover_target"
 	ToolUnpinFailoverTarget  = "unpin_failover_target"
 	ToolSetChatEgressCeiling = "set_chat_egress_ceiling"
+	ToolRevokeP2PDevice      = "revoke_p2p_device"
+	ToolCancelP2PInvite      = "cancel_p2p_invite"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
@@ -78,6 +80,13 @@ const (
 	// ToolListFailoverChains is read-only but lives here so the failover
 	// tools stay grouped; the catalog tests assert its read-only placement.
 	ToolListFailoverChains = "list_failover_chains"
+
+	// The read-only P2P tools; revoke_p2p_device and cancel_p2p_invite are
+	// in the mutating block above.
+	ToolGetP2PStatus   = "get_p2p_status"
+	ToolListP2PDevices = "list_p2p_devices"
+	ToolListP2PInvites = "list_p2p_invites"
+	ToolListP2PRelays  = "list_p2p_relays"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when
@@ -117,4 +126,6 @@ var mutatingToolNames = []string{
 	ToolPinFailoverTarget,
 	ToolUnpinFailoverTarget,
 	ToolSetChatEgressCeiling,
+	ToolRevokeP2PDevice,
+	ToolCancelP2PInvite,
 }

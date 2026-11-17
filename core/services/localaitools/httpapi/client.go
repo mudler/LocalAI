@@ -985,6 +985,88 @@ func (c *Client) UnpinFailoverTarget(ctx context.Context, chain string) error {
 	return c.do(ctx, http.MethodDelete, routeFailover+"/"+url.PathEscape(chain)+"/pin", nil, nil)
 }
 
+// ---- P2P ----
+
+// p2pStatusWire, p2pDeviceWire and p2pRelayWire are the parts of the REST
+// answers the tools show.
+type p2pStatusWire struct {
+	Mode           string   `json:"mode"`
+	Running        bool     `json:"running"`
+	Error          string   `json:"error"`
+	PeerID         string   `json:"peer_id"`
+	Addrs          []string `json:"addrs"`
+	Reachability   string   `json:"reachability"`
+	PendingInvites int      `json:"pending_invites"`
+	Devices        int      `json:"devices"`
+	RelayService   struct {
+		Running bool `json:"running"`
+	} `json:"relay_service"`
+}
+
+type p2pDeviceWire struct {
+	localaitools.P2PDeviceInfo
+	Path struct {
+		Kind       string `json:"kind"`
+		RelayLabel string `json:"relay_label"`
+	} `json:"path"`
+}
+
+func (c *Client) GetP2PStatus(ctx context.Context) (*localaitools.P2PStatusInfo, error) {
+	var w p2pStatusWire
+	if err := c.do(ctx, http.MethodGet, routeP2PStatus, nil, &w); err != nil {
+		return nil, err
+	}
+	return &localaitools.P2PStatusInfo{
+		Mode: w.Mode, Running: w.Running, Error: w.Error, PeerID: w.PeerID, Addrs: w.Addrs,
+		Reachability: w.Reachability, RelayService: w.RelayService.Running,
+		PendingInvites: w.PendingInvites, Devices: w.Devices,
+	}, nil
+}
+
+func (c *Client) ListP2PDevices(ctx context.Context) ([]localaitools.P2PDeviceInfo, error) {
+	var out struct {
+		Devices []p2pDeviceWire `json:"devices"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PDevices, nil, &out); err != nil {
+		return nil, err
+	}
+	devs := make([]localaitools.P2PDeviceInfo, 0, len(out.Devices))
+	for _, d := range out.Devices {
+		info := d.P2PDeviceInfo
+		info.Path, info.RelayLabel = d.Path.Kind, d.Path.RelayLabel
+		devs = append(devs, info)
+	}
+	return devs, nil
+}
+
+func (c *Client) ListP2PInvites(ctx context.Context) ([]localaitools.P2PInviteInfo, error) {
+	var out struct {
+		Invites []localaitools.P2PInviteInfo `json:"invites"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PInvites, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Invites, nil
+}
+
+func (c *Client) ListP2PRelays(ctx context.Context) ([]localaitools.P2PRelayInfo, error) {
+	var out struct {
+		Relays []localaitools.P2PRelayInfo `json:"relays"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PRelays, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Relays, nil
+}
+
+func (c *Client) RevokeP2PDevice(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, routeP2PDevices+"/"+url.PathEscape(id), nil, nil)
+}
+
+func (c *Client) CancelP2PInvite(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, routeP2PInvites+"/"+url.PathEscape(id), nil, nil)
+}
+
 // ---- Shared folders ----
 
 func (c *Client) ListSharedFolders(ctx context.Context) ([]localaitools.SharedFolder, error) {

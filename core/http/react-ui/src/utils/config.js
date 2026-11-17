@@ -61,6 +61,18 @@ export const API_CONFIG = {
     p2pFederation: '/api/p2p/federation',
     p2pStats: '/api/p2p/stats',
     p2pToken: '/api/p2p/token',
+    // P2P layer (p2pnet): status, invites, devices, relays, identity
+    p2pStatus: '/api/p2p/status',
+    p2pInvites: '/api/p2p/invites',
+    p2pInvite: (id) => `/api/p2p/invites/${encodeURIComponent(id)}`,
+    p2pDevices: '/api/p2p/devices',
+    p2pDevice: (id) => `/api/p2p/devices/${encodeURIComponent(id)}`,
+    p2pRelays: '/api/p2p/relays',
+    p2pRelay: (id) => `/api/p2p/relays/${encodeURIComponent(id)}`,
+    p2pRelayCheck: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/check`,
+    p2pRelaySync: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/sync`,
+    p2pRelayClaim: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/claim`,
+    p2pIdentityRegenerate: '/api/p2p/identity/regenerate',
 
     // Chats the server keeps: steering, sub-agents and live events
     chats: '/api/chats',

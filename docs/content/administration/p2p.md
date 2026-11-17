@@ -154,6 +154,39 @@ Command-line flags, read at start:
 | `--p2p-bootstrap` | `LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` | Bootstrap peers at start (setting `p2p_bootstrap_peers`). |
 | `--p2p-identity` | `LOCALAI_P2P_IDENTITY` | The identity key file. The default is `p2p/identity.key` under the data path. |
 
+## HTTP API
+
+All routes but redeem are for administrators. The routes of invites, devices and
+relays need mode `share`. In another mode they answer 409 with a message that
+names the mode.
+
+| Route | What it does |
+|---|---|
+| `GET /api/p2p/status` | Mode, peer ID, addresses, reachability, relay reservations, whether the server relays for its devices, and the number of pending invites and devices. Works in every mode. |
+| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker`, `split` or `federated`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
+| `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`. |
+| `DELETE /api/p2p/invites/{id}` | Cancels a pending invite and its relay pass. |
+| `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. |
+| `PATCH /api/p2p/devices/{id}` | Renames a device: `{label}`. |
+| `DELETE /api/p2p/devices/{id}` | Revokes a device. |
+| `GET`, `POST /api/p2p/relays` | Lists the relays, or adds one: `{addr, label, claim_code}`. |
+| `DELETE /api/p2p/relays/{id}` | Removes a relay. |
+| `POST /api/p2p/relays/{id}/check`, `/sync`, `/claim` | Checks a relay, pushes the paired set to it now, or claims it with its code: `{code}`. |
+| `POST /api/p2p/identity/regenerate` | Makes a new identity. The body must be `{"confirm": true}`. Every device must pair again. |
+| `POST /api/p2p/redeem` | Redeems an invite: `{v: 1, code, name, platform}`. Served **only over P2P**; the normal HTTP listener answers 404. |
+
+The redeem route takes the peer ID of the caller from the P2P connection. A
+wrong, used, canceled or expired code all get the same answer, 410, so the route
+does not tell which codes exist. After 5 wrong codes from one peer in an hour,
+or 60 from all peers in a minute, it answers 429.
+
+While an invite is pending, a machine that is not paired may connect, but it may
+call only the redeem route. Every other request gets 403.
+
+The LocalAI Assistant has the tools `get_p2p_status`, `list_p2p_devices`,
+`list_p2p_invites`, `list_p2p_relays`, `revoke_p2p_device` and
+`cancel_p2p_invite`. It cannot create invites: a link is a credential.
+
 ## Several frontends
 
 In [distributed mode]({{% relref "/administration/distributed-mode" %}}) each frontend

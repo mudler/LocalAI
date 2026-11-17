@@ -497,6 +497,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterAuthRoutes(e, application)
 	// Routes of paired clients: pairing, client keys and what a client key may reach.
 	routes.RegisterClientRoutes(e, application, adminMiddleware)
+	routes.RegisterP2PRoutes(e, application, adminMiddleware)
 	// With add-ons off, no real add-on, fine-tuning or quantization handler is
 	// registered. One handler per prefix answers the same unavailable response
 	// whether or not the path exists, so the off state does not reveal the route

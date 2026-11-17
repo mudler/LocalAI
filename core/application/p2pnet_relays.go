@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"time"
 
 	ma "github.com/multiformats/go-multiaddr"
 
@@ -13,11 +12,13 @@ import (
 )
 
 // relayManager is what the P2P layer needs from the relay manager: the list of
-// relays, the admin operations of the API, relay passes for invites, and the
-// pairing changes it pushes to every relay. The relay manager of package
-// p2prelaymgr implements it through a small adapter that converts its types
-// to the API types; p2pNet.relayFactory builds it. Without one, the relays of
-// the p2p_relays setting are listed and the admin operations answer 503.
+// relays, the admin operations of the API, the registrar of relay passes for
+// invites, and the pairing changes it pushes to every relay. The relay manager
+// of package p2prelaymgr implements it through a small adapter that converts
+// its types to the API types and returns p2prelaymgr.NewPassRegistrar as the
+// registrar; p2pNet.relayFactory builds it. Without one, the relays of the
+// p2p_relays setting are listed without passes and the admin operations
+// answer 503.
 type relayManager interface {
 	List() []p2papi.Relay
 	Add(ctx context.Context, addr, label, claimCode string) (p2papi.Relay, error)
@@ -25,8 +26,7 @@ type relayManager interface {
 	Check(ctx context.Context, id string) (p2papi.RelayCheck, error)
 	Sync(ctx context.Context, id string) (p2papi.Relay, error)
 	Claim(ctx context.Context, id, code string) (p2papi.Relay, error)
-	RegisterPass(ctx context.Context, relayID, code string, ttl time.Duration) error
-	CancelPass(ctx context.Context, relayID, code string) error
+	Registrar() p2ppair.PassRegistrar
 	PeerAdded(peer string)
 	PeerRemoved(peer string)
 	Start(ctx context.Context) error
@@ -38,27 +38,10 @@ type relayManagerConfig struct {
 	Host *p2pnet.Host
 	// Relays is the p2p_relays setting at start.
 	Relays []config.P2PRelay
+	// SaveRelays stores the relays in the p2p_relays setting.
+	SaveRelays func([]config.P2PRelay) error
 	// PairedPeers lists the peer IDs of the active devices.
 	PairedPeers func() []string
-}
-
-// passRegistrar registers the relay pass of an invite on a relay. The pass is
-// derived from the invite ID (see passCode).
-type passRegistrar struct {
-	rm     relayManager
-	secret []byte
-}
-
-func (r *passRegistrar) RegisterPass(ctx context.Context, req p2ppair.PassRequest) (string, error) {
-	code := passCode(r.secret, req.InviteID)
-	if err := r.rm.RegisterPass(ctx, req.Relay.ID, code, req.TTL); err != nil {
-		return "", err
-	}
-	return code, nil
-}
-
-func (r *passRegistrar) CancelPass(ctx context.Context, relay p2ppair.Relay, inviteID string) error {
-	return r.rm.CancelPass(ctx, relay.ID, passCode(r.secret, inviteID))
 }
 
 // Relays implements p2ppair.RelaySource: the relays an invite may name, gated

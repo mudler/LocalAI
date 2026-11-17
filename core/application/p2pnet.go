@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -56,6 +57,8 @@ type p2pNet struct {
 	rt      *p2pRuntime
 	mode    config.P2PMode
 	lastErr string
+	// closed is set when the application shuts down; nothing starts after.
+	closed bool
 
 	handlers atomic.Pointer[p2pHandlers]
 
@@ -120,7 +123,8 @@ func (a *Application) StartP2PNet() error { return a.p2p().restart() }
 // settings. The settings endpoint calls it when a P2P setting changes.
 func (a *Application) RestartP2PNet() error { return a.p2p().restart() }
 
-// StopP2PNet stops the P2P layer.
+// StopP2PNet stops the P2P layer for good; the application calls it when it
+// shuts down.
 func (a *Application) StopP2PNet() { a.p2p().stop() }
 
 // ServeP2PHTTP sets the handlers served over P2P in mode share: main is the
@@ -147,6 +151,9 @@ func (n *p2pNet) restart() error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.stopLocked()
+	if n.closed {
+		return nil
+	}
 	rt, mode, err := n.startRuntime()
 	n.mode = mode
 	n.lastErr = ""
@@ -168,6 +175,7 @@ func (n *p2pNet) stop() {
 	defer n.mu.Unlock()
 	n.stopLocked()
 	n.mode = config.P2PModeOff
+	n.closed = true
 }
 
 func (n *p2pNet) stopLocked() {
@@ -286,12 +294,14 @@ func (rt *p2pRuntime) startShare() error {
 		pcfg.Issuer = &clientKeyIssuer{app: app}
 	}
 	if rt.net.relayFactory != nil {
-		rm, err := rt.net.relayFactory(relayManagerConfig{Host: rt.host, Relays: rt.cfg.Relays, PairedPeers: rt.pairedPeerStrings})
+		rm, err := rt.net.relayFactory(relayManagerConfig{
+			Host: rt.host, Relays: rt.cfg.Relays, SaveRelays: app.saveP2PRelays, PairedPeers: rt.pairedPeerStrings,
+		})
 		if err != nil {
 			return fmt.Errorf("p2p: relay manager: %w", err)
 		}
 		rt.relays = rm
-		pcfg.Registrar = &passRegistrar{rm: rm, secret: passSecret(app)}
+		pcfg.Registrar = rm.Registrar()
 	}
 	svc, err := p2ppair.NewService(store, pcfg)
 	if err != nil {
@@ -605,4 +615,24 @@ func (a *Application) p2pBroadcaster() messaging.Broadcaster {
 		return nil
 	}
 	return a.distributed.Nats
+}
+
+// saveP2PRelays stores the relays in the p2p_relays setting, in the config and
+// in the settings file. The static relays of the host change at its next
+// start; the relay routes restart it after a change.
+func (a *Application) saveP2PRelays(relays []config.P2PRelay) error {
+	if err := config.ValidateP2PRelays(relays); err != nil {
+		return err
+	}
+	cfg := a.ApplicationConfig()
+	cfg.P2P.Relays = slices.Clone(relays)
+	if cfg.DynamicConfigsDir == "" {
+		return nil
+	}
+	persisted, err := cfg.ReadPersistedSettings()
+	if err != nil {
+		return err
+	}
+	persisted.P2PRelays = &cfg.P2P.Relays
+	return cfg.WritePersistedSettings(persisted)
 }

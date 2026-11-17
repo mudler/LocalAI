@@ -163,11 +163,6 @@ var _ = Describe("the global limit of wrong codes", func() {
 		Expect(g.Blocked("b", "")).To(BeFalse())
 	})
 
-	It("derives the same relay pass for an invite on every frontend", func() {
-		Expect(passCode([]byte("k"), "inv")).To(Equal(passCode([]byte("k"), "inv")))
-		Expect(passCode([]byte("k"), "inv")).ToNot(Equal(passCode([]byte("k"), "other")))
-		Expect(passCode([]byte("k"), "inv")).To(HaveLen(20))
-	})
 })
 
 type countingLimiter struct{ fails int }
