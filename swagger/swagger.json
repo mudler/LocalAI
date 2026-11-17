@@ -8456,7 +8456,7 @@
         },
         "/api/chats/pages/{name}/consent": {
             "put": {
-                "description": "Only for a page with others_can_edit: someone else may change its code, so it runs for you only after you allow its hash, as a shared page does. hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit and returns a token for the bridge calls of that visit. embed is refused with 400: such a page never runs on Home, in a slot or in the dock by itself. A page nobody else may edit needs no consent and answers 404.",
+                "description": "Only for a page with others_can_edit: someone else may change its code, so it runs for you only after you allow its hash, as a shared page does. hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit and returns a token for the bridge calls of that visit. embed is refused with 400: such a page never runs on Home, in a slot or in the dock by itself. A page nobody else may edit needs no consent and answers 404. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent or MCP marker).",
                 "tags": [
                     "pages"
                 ],
@@ -8492,6 +8492,12 @@
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Type not_human_surface: not your own browser session",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "No such page, or it needs no consent",
                         "schema": {
@@ -8507,7 +8513,7 @@
                 }
             },
             "delete": {
-                "description": "Its open frames stop at their next bridge call; the next open shows the trust sheet again.",
+                "description": "Its open frames stop at their next bridge call; the next open shows the trust sheet again. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent or MCP marker).",
                 "tags": [
                     "pages"
                 ],
@@ -8524,6 +8530,12 @@
                 "responses": {
                     "204": {
                         "description": "Revoked"
+                    },
+                    "403": {
+                        "description": "Type not_human_surface: not your own browser session",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }

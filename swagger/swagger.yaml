@@ -23302,7 +23302,9 @@ paths:
   /api/chats/pages/{name}/consent:
     delete:
       description: Its open frames stop at their next bridge call; the next open shows
-        the trust sheet again.
+        the trust sheet again. Accepted only from your own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent
+        or MCP marker).
       parameters:
       - description: page name
         in: path
@@ -23312,6 +23314,10 @@ paths:
       responses:
         "204":
           description: Revoked
+        "403":
+          description: 'Type not_human_surface: not your own browser session'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Stop allowing your own page that others can edit.
       tags:
       - pages
@@ -23322,7 +23328,9 @@ paths:
         with 409. once allows one visit and returns a token for the bridge calls of
         that visit. embed is refused with 400: such a page never runs on Home, in
         a slot or in the dock by itself. A page nobody else may edit needs no consent
-        and answers 404.'
+        and answers 404. Accepted only from your own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent
+        or MCP marker).'
       parameters:
       - description: page name
         in: path
@@ -23342,6 +23350,10 @@ paths:
             $ref: '#/definitions/schema.PagesConsentResponse'
         "400":
           description: embed was asked for
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: 'Type not_human_surface: not your own browser session'
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":

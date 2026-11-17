@@ -385,8 +385,8 @@ export const pagesApi = {
   files: (name, dir) => fetchJSON(`${pageUrl(name)}/files${q({ dir })}`),
   // A page that others may edit runs only after its owner allowed the version
   // (the trust sheet): allow records it, stopAllowing takes it back.
-  allow: (name, hash, once = false) => fetchJSON(`${pageUrl(name)}/consent`, { method: 'PUT', body: JSON.stringify({ hash, ...(once ? { once: true } : {}) }) }),
-  stopAllowing: (name) => fetchJSON(`${pageUrl(name)}/consent`, { method: 'DELETE' }),
+  allow: (name, hash, once = false) => fetchJSON(`${pageUrl(name)}/consent`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-LocalAI-Confirm': name }, body: JSON.stringify({ hash, ...(once ? { once: true } : {}) }) }),
+  stopAllowing: (name) => fetchJSON(`${pageUrl(name)}/consent`, { method: 'DELETE', headers: { 'X-LocalAI-Confirm': name } }),
   // The bridge calls of such a page, which name the version that runs and,
   // for a visit allowed once, the visit token. frame is {hash, token}.
   frame: (name, frame) => {

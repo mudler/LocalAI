@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	addonsendpoint "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
@@ -199,20 +200,33 @@ func (h *Handlers) GetPage(c echo.Context) error {
 	return c.JSON(http.StatusOK, out)
 }
 
+// ownConsentCall checks what the consent routes of an own page need: your own
+// browser session, as the share routes need, because the consent lets code
+// that another account may have changed run as you. The session is checked
+// first, then the pages feature.
+func (h *Handlers) ownConsentCall(c echo.Context) (fileCall, bool) {
+	if !addonsendpoint.HumanSession(c, c.Param("name")) {
+		_ = fail(c, http.StatusForbidden, "not_human_surface", "This action requires your own browser session")
+		return fileCall{}, false
+	}
+	return h.pagesOn(c)
+}
+
 // AllowOwnPage records your consent to a version of your own page that
 // another account may edit.
 // @Summary Allow a version of your own page that others can edit to run.
-// @Description Only for a page with others_can_edit: someone else may change its code, so it runs for you only after you allow its hash, as a shared page does. hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit and returns a token for the bridge calls of that visit. embed is refused with 400: such a page never runs on Home, in a slot or in the dock by itself. A page nobody else may edit needs no consent and answers 404.
+// @Description Only for a page with others_can_edit: someone else may change its code, so it runs for you only after you allow its hash, as a shared page does. hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit and returns a token for the bridge calls of that visit. embed is refused with 400: such a page never runs on Home, in a slot or in the dock by itself. A page nobody else may edit needs no consent and answers 404. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent or MCP marker).
 // @Tags pages
 // @Param name path string true "page name"
 // @Param request body schema.PagesConsentRequest true "the version"
 // @Success 200 {object} schema.PagesConsentResponse "The consent"
+// @Failure 403 {object} schema.ErrorResponse "Type not_human_surface: not your own browser session"
 // @Failure 400 {object} schema.ErrorResponse "embed was asked for"
 // @Failure 404 {object} schema.ErrorResponse "No such page, or it needs no consent"
 // @Failure 409 {object} schema.ErrorResponse "The page changed while you were reviewing it"
 // @Router /api/chats/pages/{name}/consent [put]
 func (h *Handlers) AllowOwnPage(c echo.Context) error {
-	fc, ok := h.pagesOn(c)
+	fc, ok := h.ownConsentCall(c)
 	if !ok {
 		return nil
 	}
@@ -236,13 +250,14 @@ func (h *Handlers) AllowOwnPage(c echo.Context) error {
 
 // RevokeOwnPage removes your consents to your own page that others can edit.
 // @Summary Stop allowing your own page that others can edit.
-// @Description Its open frames stop at their next bridge call; the next open shows the trust sheet again.
+// @Description Its open frames stop at their next bridge call; the next open shows the trust sheet again. Accepted only from your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent or MCP marker).
 // @Tags pages
 // @Param name path string true "page name"
+// @Failure 403 {object} schema.ErrorResponse "Type not_human_surface: not your own browser session"
 // @Success 204 "Revoked"
 // @Router /api/chats/pages/{name}/consent [delete]
 func (h *Handlers) RevokeOwnPage(c echo.Context) error {
-	fc, ok := h.pagesOn(c)
+	fc, ok := h.ownConsentCall(c)
 	if !ok {
 		return nil
 	}

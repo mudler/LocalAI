@@ -329,9 +329,43 @@ var _ = Describe("Chats page sharing endpoints", func() {
 		Expect(got["page"]).To(HaveKeyWithValue("shared_with", BeEquivalentTo(2)))
 		Expect(got["page"]).NotTo(HaveKey("shared_allowed"), "nobody allowed it yet")
 		Expect(ownBridge(http.MethodGet, "file?path=data/items.json", "", nil).Code).To(Equal(http.StatusOK), "no consent is asked")
-		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": "x"}).Code).To(Equal(http.StatusNotFound))
+		Expect(human("alice", http.MethodPut, "/api/chats/pages/todo/consent", "todo", map[string]any{"hash": "x"}).Code).To(Equal(http.StatusNotFound))
 		allow("root")
 		Expect(ownPage()["page"]).To(HaveKeyWithValue("shared_allowed", BeEquivalentTo(1)))
+	})
+
+	It("takes the consent of an own page only from the owner's own browser session", func() {
+		Expect(share("bob", "edit").Code).To(Equal(http.StatusOK))
+		hash := ownPage()["page"].(map[string]any)["hash"].(string)
+		consent := "/api/chats/pages/todo/consent"
+		body := map[string]any{"hash": hash}
+		refused := func(rec *httptest.ResponseRecorder, why string) {
+			GinkgoHelper()
+			Expect(rec.Code).To(Equal(http.StatusForbidden), why)
+			Expect(rec.Body.String()).To(ContainSubstring("not_human_surface"), why)
+		}
+		refused(s.do("alice", http.MethodPut, consent, body), "no confirmation")
+		refused(s.do("alice", http.MethodDelete, consent, nil), "no confirmation on a revoke")
+		refused(human("alice", http.MethodPut, consent, "other", body), "the wrong confirmation")
+		marked := func(method string, mark func(*http.Request)) *httptest.ResponseRecorder {
+			req := s.request("alice", method, consent, body)
+			req.Header.Set("Sec-Fetch-Site", "same-origin")
+			req.Header.Set("Sec-Fetch-Mode", "cors")
+			req.Header.Set("Sec-Fetch-Dest", "empty")
+			req.Header.Set("X-LocalAI-Confirm", "todo")
+			mark(req)
+			rec := httptest.NewRecorder()
+			s.e.ServeHTTP(rec, req)
+			return rec
+		}
+		for _, method := range []string{http.MethodPut, http.MethodDelete} {
+			refused(marked(method, func(r *http.Request) { r.Header.Set("Authorization", "Bearer sk-test") }), method+" with an API key")
+			for _, h := range []string{"Mcp-Session-Id", "X-LocalAI-Tool-Call", "X-LocalAI-Agent", "X-LocalAI-Execution-Context"} {
+				refused(marked(method, func(r *http.Request) { r.Header.Set(h, "1") }), method+" with the marker "+h)
+			}
+		}
+		Expect(ownPage()["consent"]).To(HaveKeyWithValue("state", "none"), "nothing was recorded")
+		Expect(human("alice", http.MethodPut, consent, "todo", body).Code).To(Equal(http.StatusOK))
 	})
 
 	It("asks the owner to allow a page that someone may edit, as for a shared page", func() {
@@ -347,9 +381,9 @@ var _ = Describe("Chats page sharing endpoints", func() {
 		Expect(rec.Body.String()).To(ContainSubstring("page_not_allowed"))
 		Expect(ownBridge(http.MethodGet, "files", "", nil).Code).To(Equal(http.StatusForbidden), "no hash")
 
-		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": hash, "embed": true}).Code).To(Equal(http.StatusBadRequest), "no consent for Home or a slot")
-		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": "stale"}).Code).To(Equal(http.StatusConflict))
-		rec = s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": hash})
+		Expect(human("alice", http.MethodPut, "/api/chats/pages/todo/consent", "todo", map[string]any{"hash": hash, "embed": true}).Code).To(Equal(http.StatusBadRequest), "no consent for Home or a slot")
+		Expect(human("alice", http.MethodPut, "/api/chats/pages/todo/consent", "todo", map[string]any{"hash": "stale"}).Code).To(Equal(http.StatusConflict))
+		rec = human("alice", http.MethodPut, "/api/chats/pages/todo/consent", "todo", map[string]any{"hash": hash})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(ownPage()["consent"]).To(HaveKeyWithValue("state", "allowed"))
 		Expect(ownPage()["consent"]).NotTo(HaveKeyWithValue("embed", true))
@@ -363,14 +397,14 @@ var _ = Describe("Chats page sharing endpoints", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ownPage()["consent"]).To(HaveKeyWithValue("state", "changed"))
 		Expect(ownBridge(http.MethodGet, "file?path=index.html", hash, nil).Code).To(Equal(http.StatusConflict), "the stale frame")
-		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": hash}).Code).To(Equal(http.StatusConflict))
+		Expect(human("alice", http.MethodPut, "/api/chats/pages/todo/consent", "todo", map[string]any{"hash": hash}).Code).To(Equal(http.StatusConflict))
 		newHash := ownPage()["page"].(map[string]any)["hash"].(string)
 		Expect(newHash).NotTo(Equal(hash))
-		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": newHash, "once": true}).Code).To(Equal(http.StatusOK))
+		Expect(human("alice", http.MethodPut, "/api/chats/pages/todo/consent", "todo", map[string]any{"hash": newHash, "once": true}).Code).To(Equal(http.StatusOK))
 
 		// A revoke stops the open frame.
-		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": newHash}).Code).To(Equal(http.StatusOK))
-		Expect(s.do("alice", http.MethodDelete, "/api/chats/pages/todo/consent", nil).Code).To(Equal(http.StatusNoContent))
+		Expect(human("alice", http.MethodPut, "/api/chats/pages/todo/consent", "todo", map[string]any{"hash": newHash}).Code).To(Equal(http.StatusOK))
+		Expect(human("alice", http.MethodDelete, "/api/chats/pages/todo/consent", "todo", nil).Code).To(Equal(http.StatusNoContent))
 		Expect(ownBridge(http.MethodGet, "files", newHash, nil).Code).To(Equal(http.StatusForbidden))
 
 		// Taking back the last edit grant returns the page to the normal path.
@@ -379,7 +413,7 @@ var _ = Describe("Chats page sharing endpoints", func() {
 		Expect(got["page"]).NotTo(HaveKey("others_can_edit"))
 		Expect(got).NotTo(HaveKey("consent"))
 		Expect(ownBridge(http.MethodGet, "files", "", nil).Code).To(Equal(http.StatusOK))
-		Expect(s.do("alice", http.MethodPut, "/api/chats/pages/todo/consent", map[string]any{"hash": newHash}).Code).To(Equal(http.StatusNotFound))
+		Expect(human("alice", http.MethodPut, "/api/chats/pages/todo/consent", "todo", map[string]any{"hash": newHash}).Code).To(Equal(http.StatusNotFound))
 	})
 
 	It("never allows a page that a person shared on Home or in a slot", func() {

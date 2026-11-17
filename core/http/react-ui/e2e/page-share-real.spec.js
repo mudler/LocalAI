@@ -324,7 +324,6 @@ test('(c) a Use grantee cannot write code through the bridge, Files, the folder 
   }
   // A folder that already has grants is found, so the owner can see and take
   // them back (a page included); no grant can be made or changed through it.
-  await ctx.olivia.put('/api/chats/pages/todo/consent', { data: {} }).catch(() => {})
   expect((await fetchAsOwner('PUT', '/api/chats/pages/todo/shares', { principal: ids.gus, role: 'use' })).status).toBe(200)
   const found = await fetchAs(owner, 'POST', '/api/chats/files/shares', { path: '/pages/todo' }, '/pages/todo')
   if (found.status === 200) {
@@ -511,8 +510,13 @@ test('(h) an Edit grantee changes the code: the owner is asked through the trust
   await expect(owner.getByTestId('page-frame')).toHaveCount(0)
   await expect(sheet.getByTestId('trust-allow-embed')).toHaveCount(0)
   await shot(owner, 'h-owner-trust-desktop-light')
-  const embed = await ctx.olivia.put('/api/chats/pages/todo/consent', { data: { hash: list.hash, embed: true } })
-  expect(embed.status()).toBe(400)
+  // The consent comes only from the owner's own browser session: a call from
+  // an API client, even with the session cookie, is refused.
+  const direct = await ctx.olivia.put('/api/chats/pages/todo/consent', { data: { hash: list.hash } })
+  expect(direct.status()).toBe(403)
+  expect((await direct.json()).error.type).toBe('not_human_surface')
+  expect((await ctx.olivia.delete('/api/chats/pages/todo/consent')).status()).toBe(403)
+  expect((await fetchAs(owner, 'PUT', '/api/chats/pages/todo/consent', { hash: list.hash, embed: true }, 'todo')).status).toBe(400)
 
   // Home does not run it either, with it as the page area.
   expect((await put(ctx.olivia, '/LocalAI/home.json', JSON.stringify({ pageArea: 'todo' }))).ok()).toBe(true)
