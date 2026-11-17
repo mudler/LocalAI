@@ -140,7 +140,9 @@ func (t *Trust) allowFrom(ctx context.Context, principal string, src source, has
 		if err != nil {
 			return Consent{}, err
 		}
-		c.Embed = ok && prev.Embed && prev.Hash == p.Hash
+		// Never for a page that a person shared or that others can edit, even
+		// if a consent with embed is stored for it.
+		c.Embed = ok && prev.Embed && prev.Hash == p.Hash && !p.UserShared && !p.OthersCanEdit
 	}
 	ev := ConsentEvent{Principal: principal, PageID: p.PageID, Folder: p.Folder, Name: p.Name, Hash: p.Hash, Action: action, At: now}
 	if err := t.store.Put(ctx, c, ev); err != nil {
