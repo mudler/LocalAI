@@ -97,7 +97,7 @@ it off, so a chat that never touches the menu has every group:
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
 | **Past chats** | `history` | `search_chats` and `read_chat` (opt-in; see [Past chats]({{% relref "/features/chats-and-agents/chats-sub-agents#past-chats" %}})) |
-| **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
+| **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger`, `delete_trigger` and `list_connections` |
 | **Memory** | `memory` | Your notes: the model reads them before it answers and may save new ones (see [Memory]({{% relref "/features/chats-and-agents/short-memory" %}})). Switch it off to make the chat private: it neither reads nor saves memory |
 | **LocalAI admin** | `localai_admin` | The tools that manage this server (administrators only, opt-in; see [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-client-tools#tool-groups" %}})). A chat in assistant mode has it on. It is never offered in a messaging chat or a run that starts by itself, whatever the agent switches on |
 | **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals]({{% relref "/addons/contract-reference/connectors-and-chats#change-proposals-from-chats" %}})); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory]({{% relref "/features/chats-and-agents/short-memory" %}}#choose-how-a-note-is-saved)) |
@@ -149,9 +149,9 @@ trigger or connector run never gets the trigger tools). `load_skill`, `page_erro
 goal and loop tools have no switch.
 
 The trigger tools have a group too, `triggers`: `propose_trigger`,
-`list_triggers`, `update_trigger` and `delete_trigger` switch together, and the
+`list_triggers`, `update_trigger`, `delete_trigger` and `list_connections` switch together, and the
 menu shows them as one **Triggers** row. It is on by default; `{"off":["triggers"]}`
-takes the four tools away from that chat. A chat started by a trigger or a
+takes the five tools away from that chat. A chat started by a trigger or a
 connector and a sub-agent never have them, and the row then shows as not usable
 with the reason. The row also shows as not usable when you do not have the
 `triggers` feature, and it is not listed at all when the server runs no

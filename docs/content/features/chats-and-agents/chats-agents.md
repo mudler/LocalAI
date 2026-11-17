@@ -836,13 +836,29 @@ downtime, a missed schedule runs once, not once for each missed time.
   `user.json`; without either, `at` is an error that says to pass one. The description of
   `propose_trigger` and `update_trigger` gives today's date and your zone, so the model
   does not work out a day, and it changes once a day.
+- **Where a run reports.** The answer of a run goes to your Inbox. In Studio, `propose_trigger`
+  and `update_trigger` also take `delivery`: `{"target": "channel", "connection": <id>,
+  "channel": <name or id>, "mode": "always" | "on_change" | "on_problem"}` to post the answer
+  in a channel of a connection you set up (a chat app such as Telegram, Discord or Slack);
+  `{"target": "inbox"}` goes back to the Inbox. The model finds the connections with
+  `list_connections`, which returns only your own: the id, the kind, the name, whether it is on,
+  whether its kind can receive a report (`can_receive_reports`), whether you let it write in
+  channels (`talkback_allowed`) and the channels you approved, with their ids and labels. It never
+  returns a token, a sender list or pairing data. Add-ons that agents only use as a tool (a code
+  host, a file store, a remote shell) cannot receive a report; the add-on manifest decides
+  (`toolOnly` and `agentOptional` kinds are refused). A destination is accepted only on a connection
+  of yours that is on, that you let write in channels (the capability `talkback.channels`), for a
+  channel you approved, and never while `LOCALAI_DISABLE_CONNECTOR_TALKBACK` is on. The checks run
+  when the model asks, again when you confirm, and at each delivery; a failed delivery goes to the
+  Inbox. `origin` stays for a trigger that a chat app proposed. The proposal card shows the
+  destination.
 - **Proof in the result.** The result of `propose_trigger`, `update_trigger` and
   `delete_trigger` ends with the state that was read back from the store after the write:
   `ref`, `state` (`proposed`, `active`, `paused`, `deleted_pending`, `withdrawn`),
   `active`, `now`, `next_run` (RFC 3339, from the schedule and the zone), when a proposal
   lapses (`expires`) and `change: "pending"` while an update or a delete waits. The same
   proposal made again says that it is the one that already waits.
-- **A turn without trigger tools.** When none of the four tools is offered in a turn (the
+- **A turn without trigger tools.** When none of the five tools is offered in a turn (the
   server runs no triggers, the chat switched the group off, a run nobody watches, a
   sub-agent, a messaging chat without an agent or without the permission, or an account
   without the feature), the note of the turn starts with one line that names the reason
@@ -858,9 +874,9 @@ downtime, a missed schedule runs once, not once for each missed time.
 
 ### Proposals
 
-The four trigger tools (`propose_trigger`, `list_triggers`, `update_trigger`
-and `delete_trigger`) form the **Triggers** group in the chat's Tools menu. They
-are on in a chat you start, and one switch turns all four off for that chat
+The five trigger tools (`propose_trigger`, `list_triggers`, `update_trigger`,
+`delete_trigger` and `list_connections`) form the **Triggers** group in the chat's Tools menu. They
+are on in a chat you start, and one switch turns all five off for that chat
 (`PUT /api/chats/{id}/builtins {"off": ["triggers"]}`; see
 [the Tools menu]({{% relref "/features/chats-and-agents/chats-tools#switch-tools-off-for-one-chat" %}})). Switch it off in the Home
 composer before you start the chat to have none from the first message.
