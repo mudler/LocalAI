@@ -101137,3 +101137,71 @@
         model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
       template:
         use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-40b-ultimate-heretic-uncensored-turbo-brilliance-50x-agi-neo
+  name: qwen3.8-40b-ultimate-heretic-uncensored-turbo-brilliance-50x-agi-neo
+  version: 0.0.0-gallery.94676762ed89
+  description: |
+    [DavidAU] FOLLOW | ALL MODELS | COLLECTIONS | TRENDING | FAQs | SUPPORT
+
+    Qwen3.8-40B-Ultimate-Heretic-Uncensored
+
+    For model notes, how to use, settings and using the Turbo Brilliance 50X V2, with (21) AGI constructs, and 50x reasoning/instruct modes see this document:
+
+    https://huggingface.co/DavidAU/Qwen3.8-40B-Ultimate-Heretic-Uncensored-Turbo-Brilliance-50x-AGI-NEO-GGUF
+
+    PLEASE READ BEFORE USE:
+      - Quants of this SPECIFIC mode will appear in the model tree below / to the right AND at the above repo.
+      - This repo contains the source code at BF16/full precision for making quants, training and merging.
+      - Example(s) of generation of this specific model below AND the repo above.
+      - Below are project notes/dev notes which you may find useful.
+      - Please note experiences with this model in the community tab AT THIS REPO OR the above repo please.
+
+    QUICK START (see "gguf repo" for additional/detailed settings AND DETAILED REFERENCES for using Turbo Brilliance systems):
+
+    ...
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.8-40B-Ultimate-Heretic-Uncensored-Turbo-Brilliance-50x-AGI-NEO-GGUF
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/Qwen3.8-40B-Ultimate-Heretic-Uncn-Turbo-Brilli-50x-AGI-NEO-MTP-Q4_K_M/Qwen3.8-40B-Ultimate-Heretic-Uncn-Turbo-Brilli-50x-AGI-NEO-MTP-Q4_K_M.gguf
+        sha256: 1fe4c162cfe0db1ee9c7261c965060548fea9856e597a0fac23aa7b07eeff096
+        uri: https://huggingface.co/DavidAU/Qwen3.8-40B-Ultimate-Heretic-Uncensored-Turbo-Brilliance-50x-AGI-NEO-GGUF/resolve/main/Qwen3.8-40B-Ultimate-Heretic-Uncn-Turbo-Brilli-50x-AGI-NEO-MTP-Q4_K_M.gguf
+      - filename: llama-cpp/mmproj/Qwen3.8-40B-Ultimate-Heretic-Uncn-Turbo-Brilli-50x-AGI-NEO-MTP-Q4_K_M/mmproj-F32.gguf
+        sha256: 05544a667cbc990f0659cd735eb66515b3d47fca7f25c0f904c8dda3ad4a86a9
+        uri: https://huggingface.co/DavidAU/Qwen3.8-40B-Ultimate-Heretic-Uncensored-Turbo-Brilliance-50x-AGI-NEO-GGUF/resolve/main/mmproj-F32.gguf
+    overrides:
+      backend: llama-cpp
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      mmproj: llama-cpp/mmproj/Qwen3.8-40B-Ultimate-Heretic-Uncn-Turbo-Brilli-50x-AGI-NEO-MTP-Q4_K_M/mmproj-F32.gguf
+      options:
+        - use_jinja:true
+        - spec_type:draft-mtp
+        - spec_n_max:6
+        - spec_p_min:0.75
+      parameters:
+        min_p: 0
+        model: llama-cpp/models/Qwen3.8-40B-Ultimate-Heretic-Uncn-Turbo-Brilli-50x-AGI-NEO-MTP-Q4_K_M/Qwen3.8-40B-Ultimate-Heretic-Uncn-Turbo-Brilli-50x-AGI-NEO-MTP-Q4_K_M.gguf
+        presence_penalty: 1.5
+        repeat_penalty: 1
+        temperature: 0.7
+        top_k: 20
+        top_p: 0.8
+      template:
+        use_tokenizer_template: true
