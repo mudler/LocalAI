@@ -7,7 +7,7 @@ type = "home"
 keywords = ["documentation", "install", "quickstart", "team", "add-on", "sandbox", "office", "agents"]
 +++
 
-<p class="lai-lede">Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top.</p>
+<p class="lai-lede">Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, and the assistant can write and run code.</p>
 
 ## Start in three steps
 

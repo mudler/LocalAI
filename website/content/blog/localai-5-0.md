@@ -16,7 +16,7 @@ placeholders: ["release date", "release tag and release notes link", "PR, commit
 
 5.0 lets you give real work to a model you run yourself. Ask for a one-page summary of the notes in a folder, for example, and the chat reads them and saves a Word file in your Files. If you don't like what it did, the History tab has an Undo for that change.
 
-Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top. It runs on a laptop, a server, in a container or on Kubernetes. No GPU needed, though a GPU makes it faster. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing.
+Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, and the assistant can write and run code. It runs on a laptop, a server, in a container or on Kubernetes. No GPU needed, though a GPU makes it faster. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing.
 
 <!-- TODO owner: release date and tag are not decided. The link below assumes the tag is v5.0.0. Check it before publishing. -->
 The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list every change. Here's what's new since 4.x.

@@ -10,7 +10,7 @@ weight = 40
 - Use short sentences. One idea in each sentence. Use the active voice and the present tense.
 - Use digits for numbers. Write the product name as "LocalAI".
 - Say what the code does. Do not promise features that are not released. Do not write "coming soon" or "roadmap".
-- Do not use marketing words, such as "powerful", "seamless" or "unlock". Do not write "any model". Name the models that run, or say "open models". Describe the product with one sentence: "Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top." Do not use slogans in body text. Do not use "workspace" or "platform" as a name for a LocalAI feature.
+- Do not use marketing words, such as "powerful", "seamless" or "unlock". Do not write "any model". Name the models that run, or say "open models". Describe the product with one sentence: "Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, and the assistant can write and run code." Do not use slogans in body text. Do not use "workspace" or "platform" as a name for a LocalAI feature.
 - Do not claim that data stays on the machine. Text can leave it when you use a cloud model, or an add-on that calls a service. Say which.
 - Mark an add-on as an add-on, and say when it is in the development channel of the library.
 - Use contractions. Do not use em dashes. Do not write "not X but Y", and do not write a sentence about the page ("This page explains..."). Start with what the reader can do.
