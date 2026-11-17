@@ -19,5 +19,5 @@ points:
 notes:
   - "An admin turns on Knowledge and creates shared folders."
 films:
-  - {name: "files-and-sandbox", title: "Files and Sandbox.", caption: "Ask for a chart of a CSV file. The assistant runs Python in the Sandbox and saves the result in Files.", seconds: 34}
+  - {name: "files-and-sandbox", title: "Files and Sandbox.", caption: "Ask for a chart of a CSV file. The assistant runs Python in the Sandbox, saves the chart in Files, and Undo removes it. With the network off, a download fails.", seconds: 55}
 ---

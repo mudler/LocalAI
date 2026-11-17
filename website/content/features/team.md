@@ -16,6 +16,4 @@ points:
   - "An admin can make a shared folder and choose who reads it and who edits it."
 notes:
   - "There are two roles: admin and user."
-films:
-  - {name: "team", title: "Team.", caption: "Make a shared folder that your team can use.", seconds: 36}
 ---
