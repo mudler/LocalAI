@@ -13,8 +13,8 @@
   {{- $mac = printf "%s/releases/latest/download/LocalAI.dmg" $gh -}}
 {{- end -}}
 <div class="acts dlb">
-  <a class="{{ .cls }}" href="{{ $linux }}">{{ partial "icon.html" "desktop" }}Download for Linux</a>
-  <a class="{{ .cls }}" href="{{ $mac }}">{{ partial "icon.html" "desktop" }}Download for Mac</a>
+  <a class="{{ .cls }}" href="{{ $linux }}">{{ partial "icon.html" "linux" }}Download for Linux</a>
+  <a class="{{ .cls }}" href="{{ $mac }}">{{ partial "icon.html" "apple" }}Download for Mac</a>
 </div>
 {{- if not $released }}
 <p class="fine dlb__note">Test build from the development release. The release build is coming.</p>
