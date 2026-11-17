@@ -13,6 +13,7 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
+	"github.com/mudler/LocalAI/core/services/p2prelay/relaycmd"
 )
 
 // P2PIdentityFlags name the identity file of this machine.
@@ -70,7 +71,11 @@ type forwardLine struct {
 	Error string `json:"error,omitempty"`
 }
 
-func (c *P2PForwardCMD) Run(_ *cliContext.Context) error {
+func (c *P2PForwardCMD) Run(cctx *cliContext.Context) error {
+	if c.JSON {
+		// A supervisor reads the status lines: logs must not mix with them.
+		relaycmd.SetLogger(relaycmd.NewLogSettings(cctx.Debug, cctx.LogLevel, cctx.LogFormat, cctx.LogDedupLogs), true)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
