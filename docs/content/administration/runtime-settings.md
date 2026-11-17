@@ -28,6 +28,8 @@ Open **Admin → Settings** in the web UI (`/app/settings`). The page lists ever
 | Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check |
 | Look and feel | Instance name, tagline, the three logos |
 
+With the default name "LocalAI", the sidebar, the sign-in page and the mobile title draw "AI" in the brand colour, and the first-run guide on Home shows the LocalAI llama beside step 1. When you set your own instance name or logo, the name is plain text, your logo is used as before, and the llama is not shown.
+
 Search at the top of the page matches a setting's name, description and key, and the group. It also matches the name of the section a setting used to be under, so a search for "Watchdog" still finds the watchdog settings. Each result says where the setting used to be.
 
 `/app/settings?group=<id>` opens a group (`memory`, `speed`, `backends`, `access`, `debug`, `agents`, `tools`, `swarm` or `look`, plus `addons` when an add-on has settings), and a hash after it brings a block of the group into view: `#settings-builtin-tools` (the built-in chat tools) on the Tools group. The old address of the command network, `/app/settings?group=tools#settings-egress`, opens the Settings tab of the add-on that holds it now (see below), or the Tools group when no add-on does.
