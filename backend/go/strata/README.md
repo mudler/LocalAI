@@ -110,6 +110,8 @@ options:
 
 ## DeepSeek V4.1-Flash
 
+Note: the Strata source pinned by this backend (v0.2.15) no longer has the DeepSeek code the backend reads (the tool-call parser, the V4.1 chat template and `tools/dsv41/pack_gguf.py`). The image does not fetch them. The tokenizer helper refuses `family:deepseek41` with a clear load error, and `pack_tool:dsv41` fails with the missing-tool message. The rest of this section describes the option handling that remains.
+
 `family:deepseek41` runs DeepSeek-V4.1-Flash-1017 on Strata's second engine, `strata-dsv41`
 (source `src/dsv41` in the Strata repository). It speaks the same `--serve` line protocol, so the
 request path is the one described below. What differs:
@@ -301,8 +303,4 @@ mapping and the load checks. `TestHelperTokenizer` runs the real Python helper, 
 Strata parser, and is skipped unless `STRATA_ROOT` and `STRATA_TEST_PACK` (a directory with `tokenizer/`)
 are set.
 
-The DeepSeek specs in `deepseek_helper_test.go` also run the real helper. They need `STRATA_ROOT`
-(a Strata checkout at the pinned commit) and `STRATA_TEST_PYTHON` (a Python with `regex` and
-`jinja2`) and compare the rendered prompts with the golden file of that checkout. Set
-`STRATA_TEST_DS_PACK` to a pack made by `pack_gguf.py` as well to compare the token ids on the
-real vocabulary.
+The spec in `deepseek_helper_test.go` runs the real helper (needs `STRATA_ROOT` and `STRATA_TEST_PYTHON`) and checks that it refuses `family:deepseek41`: Strata v0.2.15 removed its DeepSeek code.

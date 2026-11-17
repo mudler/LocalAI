@@ -243,18 +243,21 @@ engine-python:
 # hash is the integrity check): the three the tokenizer helper imports
 # (tools/strata_tokenizer.py, serve/frontend.py and the serve package marker),
 # the pack tools that build a model's pack from its GGUF files on the first
-# load (tools/iq_pack.py with gguf_reader.py and _paths.py), and the licence.
-# For DeepSeek V4.1 it also takes serve/dsml.py (the tool-call parser), the
-# V4.1 chat template of serve/fixtures and tools/dsv41/pack_gguf.py.
-# iq_pack.py reads gguf-py from third_party/llama.cpp/gguf-py under the Strata
-# tree, so that folder is fetched from llama.cpp at the commit Strata pins.
+# load (tools/iq_pack.py with gguf_reader.py and _paths.py, and the strata_gguf,
+# strata_quants and strata_quant_tables modules it uses as its GGUF library),
+# and the licence.
+# Strata v0.2.15 no longer carries any DeepSeek code (serve/dsml.py, the V4.1
+# chat template and tools/dsv41/pack_gguf.py are gone), so none is fetched.
+# Since v0.2.15 iq_pack.py uses strata_gguf by default. llama.cpp's gguf-py,
+# fetched at the commit Strata pins into third_party/llama.cpp/gguf-py under
+# the Strata tree, stays available as the STRATA_GGUF_PY alternative.
 engine-source:
 	@set -e; \
 	if [ -f strata-src/$(STAMP)-$(STRATA_COMMIT) ]; then echo "==> strata-src is up to date"; exit 0; fi; \
 	rm -rf $(SRC_DIR) strata-src; mkdir -p $(SRC_DIR) strata-src; \
 	cd $(SRC_DIR) && git init -q && git remote add origin $(STRATA_REPO) && \
 	git sparse-checkout init --no-cone && \
-	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /serve/__init__.py /serve/frontend.py /serve/dsml.py /serve/fixtures/deepseek41/chat_template.jinja /tools/dsv41/pack_gguf.py && \
+	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /tools/strata_gguf.py /tools/strata_quants.py /tools/strata_quant_tables.py /serve/__init__.py /serve/frontend.py && \
 	git fetch -q --depth 1 --filter=blob:none origin $(STRATA_COMMIT) && \
 	git checkout -q FETCH_HEAD; \
 	cd "$(CURDIR)"; \
@@ -265,14 +268,12 @@ engine-source:
 	git fetch -q --depth 1 --filter=blob:none origin $(LLAMA_CPP_COMMIT) && \
 	git checkout -q FETCH_HEAD; \
 	cd "$(CURDIR)"; \
-	mkdir -p strata-src/tools/dsv41 strata-src/serve/fixtures/deepseek41 strata-src/third_party/llama.cpp; \
+	mkdir -p strata-src/tools strata-src/serve strata-src/third_party/llama.cpp; \
 	cp $(SRC_DIR)/LICENSE strata-src/LICENSE; \
-	cp $(SRC_DIR)/tools/strata_tokenizer.py $(SRC_DIR)/tools/iq_pack.py $(SRC_DIR)/tools/gguf_reader.py $(SRC_DIR)/tools/_paths.py strata-src/tools/; \
+	cp $(SRC_DIR)/tools/strata_tokenizer.py $(SRC_DIR)/tools/iq_pack.py $(SRC_DIR)/tools/gguf_reader.py $(SRC_DIR)/tools/_paths.py $(SRC_DIR)/tools/strata_gguf.py $(SRC_DIR)/tools/strata_quants.py $(SRC_DIR)/tools/strata_quant_tables.py strata-src/tools/; \
 	cp -r $(LLAMA_DIR)/gguf-py strata-src/third_party/llama.cpp/gguf-py; \
 	cp $(LLAMA_DIR)/LICENSE strata-src/third_party/llama.cpp/LICENSE; \
-	cp $(SRC_DIR)/serve/__init__.py $(SRC_DIR)/serve/frontend.py $(SRC_DIR)/serve/dsml.py strata-src/serve/; \
-	cp $(SRC_DIR)/serve/fixtures/deepseek41/chat_template.jinja strata-src/serve/fixtures/deepseek41/; \
-	cp $(SRC_DIR)/tools/dsv41/pack_gguf.py strata-src/tools/dsv41/; \
+	cp $(SRC_DIR)/serve/__init__.py $(SRC_DIR)/serve/frontend.py strata-src/serve/; \
 	touch strata-src/$(STAMP)-$(STRATA_COMMIT)
 
 package:
