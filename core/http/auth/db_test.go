@@ -3,6 +3,8 @@
 package auth_test
 
 import (
+	"path/filepath"
+
 	"github.com/mudler/LocalAI/core/http/auth"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,6 +50,29 @@ var _ = Describe("InitDB", func() {
 			var found auth.User
 			Expect(db.Where("provider = ? AND subject = ?", auth.ProviderGitHub, "12345").First(&found).Error).ToNot(HaveOccurred())
 			Expect(found.ID).To(Equal("test-1"))
+		})
+
+		It("creates the peer-to-peer pairing tables", func() {
+			db, err := auth.InitDB(":memory:")
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(db.Migrator().HasTable("p2p_invites")).To(BeTrue())
+			Expect(db.Migrator().HasTable("p2p_devices")).To(BeTrue())
+		})
+
+		It("opens an existing database file again", func() {
+			path := filepath.Join(GinkgoT().TempDir(), "auth.db")
+			first, err := auth.InitDB(path)
+			Expect(err).ToNot(HaveOccurred())
+			sqlDB, err := first.DB()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sqlDB.Close()).To(Succeed())
+
+			// The second open migrates the tables that exist, including the
+			// partial index of p2p_devices.
+			second, err := auth.InitDB(path)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(second.Migrator().HasTable("p2p_devices")).To(BeTrue())
 		})
 	})
 })
