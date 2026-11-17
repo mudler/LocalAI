@@ -360,4 +360,85 @@ var _ = Describe("a trigger from a chat in Studio that reports to a connection",
 			Expect(after.ConnectionName).To(Equal(before.ConnectionName))
 		})
 	})
+
+	Describe("applying and undoing a change after the connection changed", func() {
+		var ref, tid string
+		toChannel := func() string {
+			res := c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"target":"channel","connection":%q,"channel":"G1"}}`, ref, chatB.ID))
+			Expect(res.Err).To(BeNil(), "%+v", res)
+			return lastCard(r.trigRig, chat).ID
+		}
+		edit := func(f func(b *connectors.Binding)) {
+			b, err := r.store.GetBinding(ctx, chatB.ID)
+			Expect(err).NotTo(HaveOccurred())
+			f(&b)
+			Expect(r.store.PutBinding(ctx, b)).To(Succeed())
+		}
+		BeforeEach(func() {
+			setup()
+			tid = r.schedule(studio.TriggerInput{Name: "Plain", Prompt: "p"}).ID
+			ref = studio.TriggerRef(tid)
+		})
+		It("applies while the connection and the channel are usable", func() {
+			got, err := r.host.ApplyChange(ctx, alice, toChannel())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Route.Connection).To(Equal(chatB.ID))
+		})
+		It("refuses to apply after the connection was switched off, and keeps the trigger", func() {
+			id := toChannel()
+			edit(func(b *connectors.Binding) { b.Enabled = false })
+			_, err := r.host.ApplyChange(ctx, alice, id)
+			Expect(err).To(MatchError(ContainSubstring("gone or switched off")))
+			live, err := r.host.GetTrigger(ctx, alice, tid)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(live.Route.TargetOrDefault()).To(Equal(triggers.TargetInbox))
+			Expect(live.Route.Connection).To(BeEmpty())
+		})
+		It("refuses to apply after the channel was un-approved, and the change can be answered again later", func() {
+			id := toChannel()
+			edit(func(b *connectors.Binding) { b.Channels = []connectors.Channel{{ID: "G1", Label: "General"}} })
+			_, err := r.host.ApplyChange(ctx, alice, id)
+			Expect(err).To(MatchError(ContainSubstring("not approved any more")))
+			edit(func(b *connectors.Binding) { b.Channels = channels })
+			got, err := r.host.ApplyChange(ctx, alice, id)
+			Expect(err).NotTo(HaveOccurred(), "a refused apply leaves the change waiting")
+			Expect(got.Route.Channel).To(Equal("G1"))
+		})
+		Context("an undo that would bring back a route to a connection", func() {
+			var id string
+			BeforeEach(func() {
+				tr := r.schedule(studio.TriggerInput{Name: "Reports", Prompt: "p",
+					Route: triggers.Route{Connection: chatB.ID, Channel: "G1", Target: triggers.TargetChannel}})
+				res := c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"target":"inbox"}}`, studio.TriggerRef(tr.ID)))
+				Expect(res.Err).To(BeNil(), "%+v", res)
+				id = lastCard(r.trigRig, chat).ID
+				got, err := r.host.ApplyChange(ctx, alice, id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(got.Route.TargetOrDefault()).To(Equal(triggers.TargetInbox))
+				tid = tr.ID
+			})
+			It("works while the connection is usable", func() {
+				back, err := r.host.UndoChange(ctx, alice, id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(back.Route.Connection).To(Equal(chatB.ID))
+			})
+			It("is refused after the connection was switched off, and leaves the trigger as it is", func() {
+				edit(func(b *connectors.Binding) { b.Enabled = false })
+				_, err := r.host.UndoChange(ctx, alice, id)
+				Expect(err).To(MatchError(ContainSubstring("gone or switched off")))
+				live, err := r.host.GetTrigger(ctx, alice, tid)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(live.Route.TargetOrDefault()).To(Equal(triggers.TargetInbox))
+				Expect(live.Route.Connection).To(BeEmpty())
+			})
+			It("is refused after the channel was un-approved, and leaves the trigger as it is", func() {
+				edit(func(b *connectors.Binding) { b.Channels = []connectors.Channel{{ID: "G1", Label: "General"}} })
+				_, err := r.host.UndoChange(ctx, alice, id)
+				Expect(err).To(MatchError(ContainSubstring("not approved any more")))
+				live, err := r.host.GetTrigger(ctx, alice, tid)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(live.Route.Connection).To(BeEmpty())
+			})
+		})
+	})
 })

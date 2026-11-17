@@ -674,6 +674,12 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
 		return triggers.Trigger{}, err
 	}
+	// The person may answer a day after the change was asked for: the
+	// connection may be off since, or the channel no longer approved.
+	if err := h.checkLiveConnection(ctx, t); err != nil {
+		h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
+		return triggers.Trigger{}, err
+	}
 	t.ID = live.ID
 	t.Outcome, t.OutcomeAt, t.Touched = live.Outcome, live.OutcomeAt, live.Touched || live.Outcome != ""
 	t = triggers.Arm(&live, t, h.o.Clock())
@@ -776,6 +782,12 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	}
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
+	}
+	// An undo that brings back a route to a connection stores it only while
+	// the connection and the channel are still usable; otherwise the trigger
+	// stays as it is.
+	if err := h.checkLiveConnection(ctx, t); err != nil {
+		return triggers.Trigger{}, err
 	}
 	// An undo that brings back a trigger that is on is a switch on: refused
 	// while the project of its agent is not available.
