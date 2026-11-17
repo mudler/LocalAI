@@ -47,6 +47,8 @@
       "deliveryThread": "Este hilo",
       "deliveryChannel": "{{channel}}, en el nivel principal del canal",
       "deliveryChannelIn": "{{channel}} en {{connection}}, en el nivel principal del canal",
+      "deliveryModeOnChange": "Solo cuando la respuesta difiere de la ejecución anterior.",
+      "deliveryModeOnProblem": "Solo cuando una ejecución falla. Una ejecución correcta no informa de nada.",
       "stopLabel": "Para detenerlo",
       "when": "{{schedule}}, {{zone}}. Primera ejecución {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

@@ -10680,6 +10680,12 @@ definitions:
         type: string
       in_thread:
         type: boolean
+      mode:
+        description: |-
+          Mode is when a run reports: always (the default), on_change (only when
+          the answer differs from the run before) or on_problem (only when a run
+          fails).
+        type: string
       target:
         type: string
     type: object

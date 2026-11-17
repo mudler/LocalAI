@@ -69,11 +69,13 @@ type DeliveryView struct {
 	ConnectionName string
 	// InThread is set when the origin is a thread.
 	InThread bool
+	// Mode is when a run reports: always, on_change or on_problem.
+	Mode string
 }
 
 // DeliveryOf says where the runs of a trigger report.
 func (h *Triggers) DeliveryOf(ctx context.Context, t triggers.Trigger) DeliveryView {
-	d := DeliveryView{Target: string(t.Route.TargetOrDefault())}
+	d := DeliveryView{Target: string(t.Route.TargetOrDefault()), Mode: t.Route.ModeOrDefault()}
 	switch t.Route.TargetOrDefault() {
 	case triggers.TargetChannel:
 		d.ChannelLabel = h.channelLabel(ctx, t)

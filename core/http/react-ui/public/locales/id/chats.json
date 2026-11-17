@@ -47,6 +47,8 @@
       "deliveryThread": "Utas ini",
       "deliveryChannel": "{{channel}}, di tingkat atas kanal",
       "deliveryChannelIn": "{{channel}} di {{connection}}, di tingkat atas kanal",
+      "deliveryModeOnChange": "Hanya jika jawabannya berbeda dari proses sebelumnya.",
+      "deliveryModeOnProblem": "Hanya jika sebuah proses gagal. Proses yang berhasil tidak melaporkan apa pun.",
       "stopLabel": "Untuk menghentikannya",
       "when": "{{schedule}}, {{zone}}. Jalan pertama {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

@@ -47,6 +47,8 @@
       "deliveryThread": "이 스레드",
       "deliveryChannel": "{{channel}}, 채널 최상단",
       "deliveryChannelIn": "{{connection}}의 {{channel}}, 채널 최상단",
+      "deliveryModeOnChange": "답변이 이전 실행과 다를 때만.",
+      "deliveryModeOnProblem": "실행이 실패할 때만. 성공한 실행은 아무것도 보고하지 않습니다.",
       "stopLabel": "멈추려면",
       "when": "{{schedule}}, {{zone}}. 첫 실행 {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

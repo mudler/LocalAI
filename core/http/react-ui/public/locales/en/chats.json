@@ -1006,6 +1006,8 @@
       "deliveryThread": "This thread",
       "deliveryChannel": "{{channel}}, at the top of the channel",
       "deliveryChannelIn": "{{channel}} in {{connection}}, at the top of the channel",
+      "deliveryModeOnChange": "Only when the answer differs from the run before.",
+      "deliveryModeOnProblem": "Only when a run fails. A run that works reports nothing.",
       "stopLabel": "To stop it",
       "when": "{{schedule}}, {{zone}}. First run {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

@@ -32505,6 +32505,10 @@ const docTemplate = `{
                 "in_thread": {
                     "type": "boolean"
                 },
+                "mode": {
+                    "description": "Mode is when a run reports: always (the default), on_change (only when\nthe answer differs from the run before) or on_problem (only when a run\nfails).",
+                    "type": "string"
+                },
                 "target": {
                     "type": "string"
                 }

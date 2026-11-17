@@ -1673,6 +1673,10 @@ type ChatsTriggerDelivery struct {
 	// for a trigger that was proposed in Studio and reports there.
 	ConnectionName string `json:"connection_name,omitempty"`
 	InThread       bool   `json:"in_thread,omitempty"`
+	// Mode is when a run reports: always (the default), on_change (only when
+	// the answer differs from the run before) or on_problem (only when a run
+	// fails).
+	Mode string `json:"mode,omitempty"`
 }
 
 // ChatsTriggerProposal is a trigger a chat proposed and what became of it.

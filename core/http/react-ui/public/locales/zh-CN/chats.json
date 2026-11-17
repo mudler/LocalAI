@@ -47,6 +47,8 @@
       "deliveryThread": "此线程",
       "deliveryChannel": "{{channel}}，频道顶层",
       "deliveryChannelIn": "{{connection}} 中的 {{channel}}，频道顶层",
+      "deliveryModeOnChange": "仅当答案与上一次运行不同时。",
+      "deliveryModeOnProblem": "仅当运行失败时。成功的运行不会报告任何内容。",
       "stopLabel": "如何停止",
       "when": "{{schedule}}，{{zone}}。首次运行 {{when}}。",
       "whenNoFirst": "{{schedule}}，{{zone}}。",

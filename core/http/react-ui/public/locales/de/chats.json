@@ -47,6 +47,8 @@
       "deliveryThread": "Dieser Thread",
       "deliveryChannel": "{{channel}}, oben im Kanal",
       "deliveryChannelIn": "{{channel}} in {{connection}}, oben im Kanal",
+      "deliveryModeOnChange": "Nur wenn sich die Antwort vom vorigen Lauf unterscheidet.",
+      "deliveryModeOnProblem": "Nur wenn ein Lauf fehlschlägt. Ein Lauf, der gelingt, meldet nichts.",
       "stopLabel": "Zum Beenden",
       "when": "{{schedule}}, {{zone}}. Erster Lauf {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",

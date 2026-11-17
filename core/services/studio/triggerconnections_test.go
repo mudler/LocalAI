@@ -332,4 +332,32 @@ var _ = Describe("a trigger from a chat in Studio that reports to a connection",
 			}
 		})
 	})
+	Describe("the mode of the delivery on the cards", func() {
+		It("is part of the delivery view of a proposal, and the default adds no word", func() {
+			setup()
+			Expect(propose(fmt.Sprintf(`{"target":"channel","connection":%q,"channel":"G1","mode":"on_problem"}`, chatB.ID)).Err).To(BeNil())
+			Expect(propose(fmt.Sprintf(`{"target":"channel","connection":%q,"channel":"G1"}`, chatB.ID)).Err).To(BeNil())
+			modes := map[string]bool{}
+			for _, p := range waiting() {
+				modes[r.host.DeliveryOf(ctx, p).Mode] = true
+			}
+			Expect(modes).To(HaveKey(triggers.ModeOnProblem))
+			Expect(modes).To(HaveKey(triggers.ModeAlways), "the default is always, which the card does not spell out")
+		})
+		It("shows a change of the mode alone as a change of the delivery, with the mode on each side", func() {
+			setup()
+			tr := r.schedule(studio.TriggerInput{Name: "Reports", Prompt: "p",
+				Route: triggers.Route{Connection: chatB.ID, Channel: "G1", Target: triggers.TargetChannel}})
+			res := c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"mode":"on_problem"}}`, studio.TriggerRef(tr.ID)))
+			Expect(res.Err).To(BeNil(), "%+v", res)
+			v, err := r.host.ChangeStatus(ctx, alice, lastCard(r.trigRig, chat).ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(v.Fields).To(ContainElement("delivery"), "a mode-only change is a visible change")
+			before, after := r.host.DeliveryOf(ctx, v.Before), r.host.DeliveryOf(ctx, v.After)
+			Expect(before.Mode).To(Equal(triggers.ModeAlways))
+			Expect(after.Mode).To(Equal(triggers.ModeOnProblem))
+			Expect(after.ChannelLabel).To(Equal(before.ChannelLabel))
+			Expect(after.ConnectionName).To(Equal(before.ConnectionName))
+		})
+	})
 })

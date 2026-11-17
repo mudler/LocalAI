@@ -47,6 +47,8 @@
       "deliveryThread": "Ce fil",
       "deliveryChannel": "{{channel}}, au premier niveau du canal",
       "deliveryChannelIn": "{{channel}} dans {{connection}}, au premier niveau du canal",
+      "deliveryModeOnChange": "Seulement quand la réponse diffère de l'exécution précédente.",
+      "deliveryModeOnProblem": "Seulement quand une exécution échoue. Une exécution réussie ne signale rien.",
       "stopLabel": "Pour l’arrêter",
       "when": "{{schedule}}, {{zone}}. Première exécution {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
