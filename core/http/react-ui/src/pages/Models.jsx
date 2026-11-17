@@ -1249,6 +1249,15 @@ export default function Models() {
   // The gallery can come back empty while an online section still loads, failed,
   // or holds rows. That is one results view, not an empty page with a table
   // under it, so the empty state waits until every source has nothing to show.
+  // While a term is typed under All the list is one mix of gallery and online
+  // rows, so the counters add the online rows the list shows to the gallery
+  // matches. Rows still loading are not counted yet; the count only grows.
+  const mixedList = allOnline && !!search.trim()
+  const onlineShown = mixedList ? onlineSections.reduce((sum, sec) => sum + sec.models.length, 0) : 0
+  const onlineLoading = mixedList && onlineSections.some(sec => sec.loading)
+  const allFacetCounts = mixedList && typeof facetCounts[''] === 'number'
+    ? { ...facetCounts, '': facetCounts[''] + onlineShown }
+    : facetCounts
   const onlineHasContent = onlineSections.some(sec => sec.loading || sec.error || sec.models.length > 0)
   const filtersActive = !!(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants)
   const firstLoad = loading && !loadedOnce.current
@@ -1266,7 +1275,7 @@ export default function Models() {
       {pageHead((remote || statsLoaded) && (
         remote
           ? <span className="models-tabsrow__count" data-testid="remote-count">{t('remote.resultCount', { count: visibleModels.length })}{remoteSearch.dropped > 0 && <> · <span data-testid="remote-dropped">{t('remote.dropped', { count: remoteSearch.dropped })}</span></>}</span>
-          : <span className="models-tabsrow__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
+          : <span className="models-tabsrow__count">{t('rail.showingCount', { shown: visibleModels.length + onlineShown, total: stats.total + onlineShown })}</span>
       ))}
 
       <KindLibraries
@@ -1445,8 +1454,8 @@ export default function Models() {
           <FacetBar
             facets={FILTERS}
             active={filters}
-            counts={facetCounts}
-            stale={facetsStale}
+            counts={allFacetCounts}
+            stale={facetsStale || onlineLoading}
             isAvailable={isFilterAvailable}
             onToggle={toggleFilter}
             t={t}
