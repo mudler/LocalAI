@@ -495,7 +495,9 @@ func InstallModelFromGallery(
 		// A caller who named a variant asked for something this entry cannot
 		// give. Installing the entry anyway would look like success while
 		// quietly ignoring the choice, so it is refused by name instead.
-		if installOpts.variant != "" {
+		// Naming the entry itself is not a choice between builds: it is the
+		// only build there is, so the request is already honored.
+		if installOpts.variant != "" && installOpts.variant != model.Name {
 			return fmt.Errorf("%w: %q was requested but model %q declares no variants", ErrPinNotFound, installOpts.variant, model.Name)
 		}
 		return applyModel(model, nil)
