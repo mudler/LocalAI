@@ -10174,27 +10174,31 @@
   name: qwen3.8-27b-dflash2
   version: 0.0.0-gallery.5ae11cdb460c
   description: |
-    # Qwen3.8-27B
+    Qwen3.8-27B with DFlash 2 speculative decoding on the llama.cpp backend.
 
-    > [!Note]
-    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
-    >
-    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, TokenSpeed, etc.
+    DFlash 2 is a small drafter model that guesses a whole block of upcoming tokens in one pass. It keeps several candidates for each position and picks one coherent path through them. The full Qwen3.8-27B model then checks the guessed tokens in a single step and keeps the ones it agrees with, so generation is faster and the output is the same as without the drafter: greedy output is identical, and sampling keeps the target's distribution. The drafter is not a standalone model; it only runs paired with the target.
 
-    > [!Tip]
-    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
-    > In particular, **Qwen3.8-27B** will be available as a hosted version with more production features, e.g., 1M context length by default, official built-in tools. For more information, please refer to the Qwen3.8-27B Overview. The service is coming soon. Stay tuned for updates.
-
-    Following the widespread community adoption of the Qwen3.5 and Qwen3.6 series, we are pleased to introduce Qwen3.8, the most capable generation in the Qwen open-model family to date.
-
-    ...
+    This entry downloads the Q4_K_M target (about 19 GB) and the Q4_K_M drafter (about 1.1 GB). Any standard Qwen3.8-27B GGUF quantization can serve as the target. The block size is set to 7 draft tokens. Flash attention is required and is enabled. A GPU is recommended. This entry is text only.
   license: apache-2.0
   urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/ggml-org/Qwen3.8-27B-GGUF
     - https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF
+    - https://github.com/ggml-org/llama.cpp/pull/27342
   tags:
     - llm
     - gguf
-  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - long-context
+    - dflash
+    - speculative
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
   channel: gallery
   policy:
     requireSignature: false
@@ -10202,11 +10206,17 @@
   model:
     url: github:mudler/LocalAI/gallery/virtual.yaml@master
     files:
+      - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
+        uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_K_M.gguf
+        sha256: d15d4b6de55f662ac40e867702d31afe738d032fa06b829b2b1a21a49d4a48ee
       - filename: llama-cpp/models/Qwen3.8-27B-DFlash2-Q4_K_M/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
         sha256: 1a25c56858e1ebe93f2718ac1d49d1151f9323325c1bbfd6209370f4db131ebd
         uri: https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF/resolve/main/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
     overrides:
       backend: llama-cpp
+      context_size: 262144
+      draft_model: llama-cpp/models/Qwen3.8-27B-DFlash2-Q4_K_M/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
+      flash_attention: "on"
       function:
         automatic_tool_parsing_fallback: true
         grammar:
@@ -10215,14 +10225,16 @@
         - chat
       options:
         - use_jinja:true
+        - spec_type:draft-dflash
+        - spec_n_max:7
       parameters:
         min_p: 0
-        model: llama-cpp/models/Qwen3.8-27B-DFlash2-Q4_K_M/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
-        presence_penalty: 1.5
+        model: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
+        presence_penalty: 0
         repeat_penalty: 1
-        temperature: 0.7
+        temperature: 1
         top_k: 20
-        top_p: 0.8
+        top_p: 0.95
       template:
         use_tokenizer_template: true
 - kind: model
