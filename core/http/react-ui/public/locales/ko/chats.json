@@ -894,6 +894,10 @@
       "ended": "종료됨",
       "wait": "기다리는 중: {{wait}}"
     },
+    "report": {
+      "on_done": "완료되면 알림: {{channel}} · {{connection}}",
+      "on_problem": "문제가 생기면 알림: {{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "일시 중지",
       "resume": "다시 시작",

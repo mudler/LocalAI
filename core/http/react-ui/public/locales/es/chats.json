@@ -894,6 +894,10 @@
       "ended": "terminado",
       "wait": "Esperando: {{wait}}"
     },
+    "report": {
+      "on_done": "Avisa al terminar: {{channel}} · {{connection}}",
+      "on_problem": "Avisa si hay un problema: {{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "Pausar",
       "resume": "Reanudar",

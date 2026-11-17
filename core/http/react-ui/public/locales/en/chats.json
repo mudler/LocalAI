@@ -1218,6 +1218,10 @@
       "ended": "ended",
       "wait": "Waiting for: {{wait}}"
     },
+    "report": {
+      "on_done": "Reports when done: {{channel}} · {{connection}}",
+      "on_problem": "Reports on a problem: {{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "Pause",
       "resume": "Resume",

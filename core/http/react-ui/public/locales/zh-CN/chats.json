@@ -894,6 +894,10 @@
       "ended": "已结束",
       "wait": "正在等待：{{wait}}"
     },
+    "report": {
+      "on_done": "完成时通知：{{channel}} · {{connection}}",
+      "on_problem": "出现问题时通知：{{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "暂停",
       "resume": "继续",

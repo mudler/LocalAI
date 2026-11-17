@@ -894,6 +894,10 @@
       "ended": "selesai",
       "wait": "Menunggu: {{wait}}"
     },
+    "report": {
+      "on_done": "Melapor saat selesai: {{channel}} · {{connection}}",
+      "on_problem": "Melapor jika ada masalah: {{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "Jeda",
       "resume": "Lanjutkan",
