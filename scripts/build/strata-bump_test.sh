@@ -60,7 +60,6 @@ PY
 }
 
 E=strata-engine
-D=strata-dsv41
 fixture_makefile() {
     cat <<MK
 STRATA_VERSION?=v1
@@ -77,9 +76,6 @@ STRATA_ENGINE_SHA256_linux_x86_64_sycl?=$(sha $E-0.1.59-linux-x86_64-sycl.tar.gz
 STRATA_ENGINE_TAG_linux_x86_64_hip_halo?=v0
 STRATA_ENGINE_VERSION_linux_x86_64_hip_halo?=0.1.50
 STRATA_ENGINE_SHA256_linux_x86_64_hip_halo?=$(printf '%064d' 7)
-STRATA_DSV41_TAG_linux_x86_64_cuda_cuda13?=v1
-STRATA_DSV41_VERSION_linux_x86_64_cuda_cuda13?=0.1.59
-STRATA_DSV41_SHA256_linux_x86_64_cuda_cuda13?=$(sha $D-0.1.59-linux-x86_64-cuda-cuda13.tar.gz)
 MK
 }
 
@@ -98,11 +94,10 @@ run_case() {
 }
 pin() { grep -E "^$1\?=" "$CASE/Makefile" | cut -d= -f2; }
 
-V1="$E-0.1.59-linux-x86_64-cuda-cuda12.tar.gz,$E-0.1.59-linux-aarch64-cuda-cuda13.tar.gz,$E-0.1.59-linux-x86_64-sycl.tar.gz,$D-0.1.59-linux-x86_64-cuda-cuda13.tar.gz"
+V1="$E-0.1.59-linux-x86_64-cuda-cuda12.tar.gz,$E-0.1.59-linux-aarch64-cuda-cuda13.tar.gz,$E-0.1.59-linux-x86_64-sycl.tar.gz"
 
 # 1. Mixed versions, a package missing from the newest release, a package in no
-# release: v2 has a newer x86 engine, the same aarch64 engine and no sycl or
-# DeepSeek package. hip_halo is in no release.
+# release: v2 has a newer x86 engine, the same aarch64 engine and no sycl package. hip_halo is in no release.
 make_stub "$TMP/s1" "v2:$E-0.1.60-linux-x86_64-cuda-cuda12.tar.gz,$E-0.1.59-linux-aarch64-cuda-cuda13.tar.gz" "v1:$V1"
 run_case mixed "$TMP/s1"
 [ "$RC" = 0 ] || fail "mixed: exit $RC, want 0"
@@ -115,7 +110,6 @@ run_case mixed "$TMP/s1"
 [ "$(pin STRATA_ENGINE_VERSION_linux_aarch64_cuda_cuda13)" = 0.1.59 ] || fail "mixed: aarch64 version"
 # Missing from the newest release: taken from the older one, with a notice.
 [ "$(pin STRATA_ENGINE_TAG_linux_x86_64_sycl)" = v1 ] || fail "mixed: sycl tag moved"
-[ "$(pin STRATA_DSV41_TAG_linux_x86_64_cuda_cuda13)" = v1 ] || fail "mixed: DeepSeek tag moved"
 grep -q '::notice.*linux-x86_64-sycl' "$CASE/out.txt" || fail "mixed: no notice for the package taken from an older release"
 # In no release: the pin stays and there is a warning.
 [ "$(pin STRATA_ENGINE_TAG_linux_x86_64_hip_halo)" = v0 ] || fail "no release: tag changed"

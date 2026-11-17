@@ -54,7 +54,7 @@ if not releases:
     sys.exit("Refusing to bump: no release found")
 
 text = open(makefile).read()
-families = {"ENGINE": "strata-engine", "DSV41": "strata-dsv41"}
+families = {"ENGINE": "strata-engine"}
 plan, tags = [], [releases[0]["tag_name"]]
 for fam, prefix in families.items():
     for pkg in re.findall(rf"^STRATA_{fam}_SHA256_([a-z0-9_]+)\?=", text, re.M):
@@ -135,7 +135,7 @@ for row in open(f"{work}/plan.tsv").read().splitlines():
         sys.exit(f"Refusing to bump: SHA256SUMS.txt and the GitHub asset digest disagree for {name} ({sha} vs '{digest}')")
     old = (get(f"STRATA_{fam}_TAG_{pkg}"), get(f"STRATA_{fam}_VERSION_{pkg}"), get(f"STRATA_{fam}_SHA256_{pkg}"))
     if old != (tag, ver, sha):
-        label = {"ENGINE": "engine", "DSV41": "DeepSeek"}[fam]
+        label = "engine"
         changes.append(f"- {label} `{pkg}`: {old[0]} / {old[1]} -> {tag} / {ver}")
         put(f"STRATA_{fam}_TAG_{pkg}", tag)
         put(f"STRATA_{fam}_VERSION_{pkg}", ver)
