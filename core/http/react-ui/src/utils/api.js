@@ -4,6 +4,7 @@ import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
 import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
+import { createPageSharesApi } from './pageSharesApi'
 import { reportUnauthorized } from './sessionEvents'
 
 const enc = encodeURIComponent
@@ -1298,3 +1299,6 @@ export const diarizationApi = {
 // kindShareClient (components/share/shareClients.js) for the dialog.
 export const sharesApi = createSharesApi(addonsApi)
 export const folderSharesApi = createFolderSharesApi(addonsApi)
+
+// Sharing of one page of the person's own pages, with named people or everyone.
+export const pageSharesApi = createPageSharesApi(addonsApi)
