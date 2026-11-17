@@ -25,7 +25,7 @@ const (
 // authentication is off. The startup check and the runtime setting show the
 // same text.
 const ErrP2PShareNeedsAuth = "P2P mode \"share\" needs authentication: it accepts paired devices, and without accounts there is no way to tell them apart. " +
-	"Turn authentication on (--auth), or use P2P mode \"connect\", which only dials out and needs no authentication"
+	"Turn authentication on (--auth-enabled or LOCALAI_AUTH), or use P2P mode \"connect\", which only dials out and needs no authentication"
 
 // ResolveP2PMode checks the requested P2P mode against the authentication
 // state and returns the mode that may run. An empty request means off. The
