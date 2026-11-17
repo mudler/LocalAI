@@ -23,7 +23,7 @@ Open **Admin → Settings** in the web UI (`/app/settings`). The page lists ever
 | Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists |
 | Access and security | CORS and allowed origins, CSRF protection, shared API keys, whether MCP connectors may reach private networks |
 | Debugging and traces | Verbose debug logging, API traces and their limits, backend logging |
-| Chats and collections | The collections service (Knowledge in the sidebar), the helper models of the chats, the response store TTL, shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "/features/pages-and-home/pages" %}})), the page area of Home (`home_page_area_enabled`), the offers from the assistant |
+| Chats and collections | The collections service (Knowledge in the sidebar), the helper models of the chats, the response store TTL, shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "/features/pages-and-home/pages" %}})), the pages that people share (`user_page_shares_enabled`), the page area of Home (`home_page_area_enabled`), the offers from the assistant |
 | Tools | The built-in chat tools (web search, web pages, LocalAI client and admin tools), commands on this machine and their network limits, limits for steps, goals, loops and triggers |
 | Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check |
 | Look and feel | Instance name, tagline, the three logos |
@@ -140,6 +140,8 @@ Configure the collections (the knowledge base) and the models the [chats]({{%rel
 - **Chunk Overlap**: Overlap between document chunks (default: `0`)
 - **Collection DB Path**: Custom path for the collections database
 - **Shared pages** (`shared_pages_enabled`, default on): lets users open the [pages]({{%relref "/features/pages-and-home/pages" %}}) of the shared folders they have access to. Each user still allows each page before it runs. It applies at once: off, the pages are listed but do not open, and an open shared page stops at its next action. Start with `LOCALAI_DISABLE_SHARED_PAGES=true` to have it off from the start.
+
+- **Pages that people share** (`user_page_shares_enabled`, default on): lets users share one of their own [pages]({{%relref "/features/pages-and-home/pages#share-a-page" %}}) with other accounts. It is separate from **Shared pages**, which covers the folders that an administrator shares. It applies at once. When it is off, nobody can share a page or search for people to share with (`409 sharing_disabled`), the pages that people already shared are listed as turned off and do not open, and an open page stops at its next action. Owners can still take their shares back, and the files are kept. Start with `LOCALAI_DISABLE_USER_PAGE_SHARES=true` to have it off from the start.
 
 - **Page area on Home** (`home_page_area_enabled`, default on): lets users show one of their [pages]({{%relref "/features/pages-and-home/pages" %}}) below the composer on Home (`pageArea` in `home.json`). It applies at once: off, Home ignores `pageArea` and the area says an administrator turned it off. The files and pages are kept. Start with `LOCALAI_DISABLE_PAGE_AREA=true` to have it off from the start.
 

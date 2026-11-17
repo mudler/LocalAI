@@ -229,6 +229,72 @@ turned them off."; a page does not open; and the bridge refuses every call, so
 an open shared page stops at its next call. Revoking a consent still works. The
 files are kept.
 
+## Share a page
+
+You can share one of your pages with other people on the same LocalAI. Sharing needs accounts, so authentication must be on. The page stays in your home, in its folder `pages/<name>/`. Nobody gets a copy.
+
+To share a page:
+
+1. Open **Pages**, open the menu of the page and choose **Share**. On the page itself, use **Share** in the strip above it.
+2. Type at least three letters of a person's name, choose the person, and choose a role.
+3. Or use **Share with everyone** to give a role to every account, the accounts made later too.
+
+The dialog lists the people with access. It says how many of them allowed the current version of the page.
+
+### Roles
+
+| Role | What the person can do |
+|---|---|
+| **View** | Run the page and read its data. The page cannot save anything. |
+| **Use** | Run the page and save data files through it. The person cannot change the code. |
+| **Edit** | Everything Use can do. The person can also change the code of the page, for example in a chat that has the page folder. |
+
+**Everyone** can have View or Use. It cannot have Edit. A grant to Everyone and a grant to a named person are two separate grants. A page has at most 200 grants. A person can share at most 100 folders and pages in all.
+
+The code files are `index.html`, `page.json`, and any file with the extension `.js`, `.mjs`, `.cjs`, `.css`, `.html`, `.htm`, `.svg`, `.xml`, `.xhtml` or `.wasm`. A page that a person runs can never write these files through the bridge, with any role. Only Edit lets a person change them, in the page folder.
+
+### Where the data goes
+
+A page saves its data as files in its own folder, in your home. Everybody who has the page sees the same files. If you share a todo page that keeps its items in `todos.json`, then every person with the Use role who adds an item changes the same `todos.json`, and you see the new item too.
+
+When two people write the same file at nearly the same time, the last write wins. A write that comes later replaces the earlier one. To lose less, keep one file per item (`todos/1.json`, `todos/2.json`) and not one big file. You can also pass `base` to `localai.files.write`: a file that changed since you read it is then kept, and your content goes to a conflict copy (see [the bridge]({{% relref "/features/pages-and-home/pages-reference#the-bridge" %}})).
+
+### What the people run
+
+People run the code of your page in their own browser, with their own rights. This is why each person must allow the page before it runs. When you change the code, each person is asked again. The dialog says how many people will be asked again, and the strip of your page says it after you change the code.
+
+{{% callout style="warning" %}}
+A person with the Edit role can change code that runs in your browser and in the browsers of the other people. LocalAI cannot check that code. Give Edit only to people you trust.
+{{% /callout %}}
+
+{{% callout style="warning" %}}
+There is no quota for what a person with the Use or Edit role writes into the page folder. The limits are 1 MiB for each write through the page bridge, a rate limit on bridge writes (see [Limits](#limits)), and 256 MiB for each file written another way. Share with people you trust.
+{{% /callout %}}
+
+### Take a share back
+
+Open **Share** again and use the remove button of the person, or of Everyone. The person loses the page at their next call. A page that is open stops at that call. The files that the person saved stay in the page folder. If you share the page with the person again later, they are asked to allow it again.
+
+An administrator can turn off sharing of pages (see below). You can still take a share back when it is off.
+
+### When you give the Edit role
+
+Because another account can change the code of your page, the page is not "yours alone" any more. It stays in your list, with the label **Others can edit**, and you open it through the same allow step that other people use. The sheet shows the code and lets you choose **Allow** or **Allow once**. When someone changes the code, you are asked again. A page that others can edit never runs on Home, in a slot or in the dock by itself. There you see **Open this page to run it**. When you take away the last Edit grant, the page opens as before.
+
+### Pages that people share with you
+
+A page that a person shared with you shows under **Shared with you** on the **Pages** screen. The row says **From** and the name of the person, and your role. It shows no folder and no path, because they would name the other person's account.
+
+The first time you open it, the sheet says **Written by <name>. Not checked by an administrator.** It has **Allow** and **Allow once**. It does not offer the choice to run the page on Home, in a slot or in the dock. A page that a person shared never runs there by itself. You open it from **Pages**.
+
+With the View role, the page cannot save. With the Use or Edit role, it saves data files into the page folder of its owner. If the owner changes the code, the page asks you again, and an open page keeps the version you allowed until you reload it.
+
+If an administrator turns off the pages that people share, the row says **Turned off by an administrator.** and the page does not open.
+
+### Administrator switch
+
+The setting `user_page_shares_enabled` (see [Runtime settings]({{% relref "/administration/runtime-settings" %}})) turns sharing of pages on or off. It is on by default. When it is off, nobody can share a page or search for people to share with, and the pages that people shared are listed as turned off and do not open. Owners can still take their shares back. The setting `shared_pages_enabled` is separate: it controls the pages of the folders that an administrator shares.
+
 ## Limits
 
 | Limit | Value |

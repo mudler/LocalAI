@@ -228,9 +228,12 @@ same Share dialog as for agents and the other things you can share (see
 - **What they see.** The folder is in their **Shared** tab with your name and
   their access, and their chats see it at `/workspace/shared-<name>` like an
   administrator's shared folder (`shared-<name> 2` when two have the same name).
-  Its path in your home is not shown to them. Its `pages/` are not shared pages:
-  a page runs in the browser of the person who opens it, so only an
-  administrator's shared folder can share one.
+  Its path in your home is not shown to them. Its `pages/` are not shared pages,
+  and the `pages` folder of your home cannot be shared this way at all, nor a
+  folder inside it. A page runs in the browser of the person who opens it, so a
+  page is shared on its own, from the **Pages** screen (see [Share a
+  page]({{%relref "/features/pages-and-home/pages#share-a-page" %}})). The other way
+  to share a page is an administrator's shared folder.
 - **Taking it back.** A lower access or a removed grant holds from their next
   file call, on every frontend. Their chats that run with the folder on the
   frontend that serves your change are stopped before the change answers; the

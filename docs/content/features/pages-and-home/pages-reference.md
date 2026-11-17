@@ -200,6 +200,12 @@ The UI uses these routes. They need the `chats` and `pages` features (the dock r
 | `PUT /api/chats/{id}/dock` | Replace the dock of a chat: at most 6 tabs, each page once (`folder` is the `folder_id` of a shared page, absent for your own), `active` the index of the tab in front, `width` 0 (the default) or 320 to 4096. A dock with no tab clears it. `400` out of bounds, `409` for a sub-agent run. The chat's event stream sends `dock` when it changes. |
 | `GET /api/chats/page-starters` | The starter pages. |
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
+| `PUT /api/chats/pages/{name}/consent` | Allow a version of your own page that others can edit (`others_can_edit`), body `{hash, once}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. `embed` is refused with `400`: such a page never runs on Home, in a slot or in the dock by itself. A page that nobody else can edit needs no consent and answers `404`. Own browser session only (see below). |
+| `DELETE /api/chats/pages/{name}/consent` | Stop allowing it. Own browser session only. |
+| `GET /api/chats/pages/{name}/shares` | Who the page is shared with: `{name, enabled, hash, allowedCount, grants: [{userId, displayName, role, consent}]}`. `role` is `view`, `use` or `edit`. `userId` is an account ID, or `@everyone` (with an empty `displayName`). `consent` is `none`, `allowed` or `changed` for a named account, and absent for `@everyone`. `hash` is the current version, and `allowedCount` is how many named accounts allowed it. `enabled` is `false` when an administrator turned off the pages that people share; you can still list and take back. |
+| `PUT /api/chats/pages/{name}/shares` | Share the page or change a role, body `{principal, role}`. `principal` is an account ID from the picker, or `@everyone`. `edit` for `@everyone` answers `400`. A lower role or a removed grant drops the consent of that account. Safe to repeat. The answer is the list of grants. |
+| `DELETE /api/chats/pages/{name}/shares/{principal}` | Stop sharing with an account or with everyone. It works while sharing is off. Safe to repeat. |
+| `GET /api/chats/pages/shares/search?q=` | The user picker: 3 to 64 characters of a display name, at most 20 results, each `{id, displayName}` and nothing else. 20 searches at once, then one every 2 seconds (`429 rate_limited`). |
 | `GET /api/chats/shared-folders` | Your shared folders, with your `mode` and how many `pages` each has. `folder_id` of a shared page is the `id` of its folder. |
 | `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `code_files`, `widget`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
 | `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`, and `embed` when you allowed it on Home, in the slots and in the dock). |
@@ -209,6 +215,52 @@ The UI uses these routes. They need the `chats` and `pages` features (the dock r
 
 With shared pages off, every shared-pages route but the list and the revoke
 answers `403 shared_pages_off`.
+
+### Sharing one of your pages
+
+The share routes and the consent routes of an own page accept only your own browser session: a same-origin fetch with the header `X-LocalAI-Confirm` set to the page name (to the word `pages` for the picker), no API key, and no tool, agent or MCP marker. A call that does not fit answers `403` with the type `not_human_surface`. No MCP tool maps to these routes, because sharing and consent are never a tool. A page that is not yours and a page that does not exist get the same `403` (`authorization_error`). The routes need accounts: without them, they answer `409 sharing_disabled`.
+
+These fields of a page in `GET /api/chats/pages` and `GET /api/chats/pages/{name}` are new:
+
+| Field | Where | Meaning |
+|---|---|---|
+| `shared_with` | Your own page | How many accounts you shared it with (Everyone counts as one). |
+| `shared_allowed` | `GET /api/chats/pages/{name}` | How many named accounts allowed the current version. |
+| `others_can_edit` | Your own page | Another account has the Edit role. The page then has `hash`, `code_files`, `meta_size` and `consent` (`none`, `allowed`, `changed`), and it runs only after you allow its version. |
+| `hash` | Your own page | Sent when the page is shared or others can edit it: the version that consents are kept against. |
+
+The answer of `GET /api/chats/pages/{name}` for a page that others can edit also has `lines` and `consent` (`state`, `allowed_at`, `size`, `meta_size`, `lines`), as for a shared page. The consent never has `embed`.
+
+For a page that others can edit, each bridge call of the page (`files`, `file`, `chat` under `/api/chats/pages/{name}/`) must send `X-LocalAI-Page-Hash` (the version that runs) and, for a visit allowed once, `X-LocalAI-Page-Visit`. Without a valid consent the call answers `403 page_not_allowed`, and a read of a file of code by a frame of an older version answers `409`. A page that nobody else can edit needs neither header.
+
+For a page that a person shared with you, `GET /api/chats/shared-pages` and `GET /api/chats/shared-pages/{folder_id}/{name}` have these fields:
+
+| Field | Meaning |
+|---|---|
+| `user_shared` | `true`: a person shared it, and no administrator checked it. |
+| `role` | What you may do: `view`, `use` or `edit`. |
+| `owner_name` | The name of the person whose home holds it. |
+| `author_name` | Who last wrote its `index.html`. The account ID is not sent. |
+| `turned_off` | `true` when an administrator turned off the pages that people share: the page is listed and does not open. |
+
+Such a page has no `folder` and no `path`, because they would name the owner's account. `GET /api/chats/shared-pages` also has `user_shares_enabled`, which is `false` when the pages that people share are turned off. The bridge of such a page writes into the page folder of its owner: with `view`, a write answers `403`; with `use` or `edit`, a data file is saved and a code file is refused with `403`, so the page cannot change its own code.
+
+The error types, besides those of the chats API:
+
+| Status and type | When |
+|---|---|
+| `403 not_human_surface` | The call is not from your own browser session. |
+| `403 authorization_error` | The page is not yours, or does not exist, or the call is not allowed. |
+| `403 page_not_allowed` | The version that the frame runs is not allowed. |
+| `403 user_page_shares_off` | An administrator turned off the pages that people share, and you open one. |
+| `409 sharing_disabled` | Pages cannot be shared on this server, or an administrator turned sharing off (a new share or a search). |
+| `409 conflict` | A limit (200 grants a page, 100 folders and pages a person), or a page that changed while you reviewed it. |
+| `400 invalid_request_error` | A role that is not `view`, `use` or `edit`, `edit` for `@everyone`, or a person who is not an active account. |
+| `429 rate_limited` | Too many searches for people. |
+
+The setting that turns this off is `user_page_shares_enabled` (see [Runtime settings]({{% relref "/administration/runtime-settings" %}})).
+
+There is no quota on what a person with the Use or Edit role writes into the page folder. The limits are those of the bridge: 1 MiB for each write, the write rate limit of [Limits]({{% relref "/features/pages-and-home/pages#limits" %}}), and 256 MiB for each file written through Files or a chat.
 
 ```bash
 curl -s http://localhost:8080/api/chats/pages -H "Authorization: Bearer $KEY"
