@@ -1,19 +1,9 @@
-{{- /* The desktop app block. Before the release that carries the new launcher
-       (data/home.yaml `download.released` is false) it shows no download buttons: the
-       files of the latest release are the older launcher. After it, the buttons link to
-       releases/latest/download/<name>, the names the release workflow attaches. */ -}}
-{{- $rel := printf "%s/releases/latest/download" .Site.Params.github -}}
+{{- /* The desktop app block of the download section: the buttons (see download-buttons.html),
+       the longer note and a screenshot. */ -}}
 <div class="dl">
   <p class="dl__h">Desktop app</p>
-  {{- if hugo.Data.home.download.released }}
-  <div class="acts">
-    <a class="btn" href="{{ $rel }}/LocalAI.dmg">{{ partial "icon.html" "desktop" }}Download for macOS</a>
-    <a class="btn" href="{{ $rel }}/LocalAI-Launcher-x86_64.AppImage">{{ partial "icon.html" "desktop" }}Download for Linux</a>
-  </div>
-  <p class="fine">macOS: a DMG for Apple silicon. Linux: an AppImage for x86-64. For ARM64 Linux, take <code>LocalAI-Launcher-arm64.AppImage</code> from the <a href="{{ .Site.Params.github }}/releases/latest">latest release</a>. Each file has a <code>.sha256</code> file. <a href="{{ .Site.Params.docsURL }}start/install/desktop/">Desktop app guide</a></p>
-  {{- else }}
-  <p class="need">Desktop app: coming with the next release. Test builds are on the <a href="{{ .Site.Params.github }}/releases/tag/dev-master">dev-master pre-release</a>. See the <a href="{{ .Site.Params.docsURL }}start/install/desktop/">desktop app guide</a>.</p>
-  {{- end }}
+  {{ partial "download-buttons.html" (dict "site" . "cls" "btn") }}
+  <p class="fine">macOS: a DMG for Apple silicon. Linux: an AppImage for x86-64. For ARM64 Linux, take <code>LocalAI-Launcher-{{ if not hugo.Data.home.download.released }}dev-{{ end }}arm64.AppImage</code> from the <a href="{{ .Site.Params.github }}/releases/{{ if hugo.Data.home.download.released }}latest{{ else }}tag/dev-master{{ end }}">{{ if hugo.Data.home.download.released }}latest release{{ else }}development release{{ end }}</a>. Each file has a <code>.sha256</code> file. <a href="{{ .Site.Params.docsURL }}start/install/desktop/">Desktop app guide</a></p>
   <figure class="dl__shot">
     <img class="shot shot--lt" src="{{ "media/launcher-home-light.webp" | relURL }}" width="1400" height="900" loading="lazy" alt="The LocalAI desktop app on first start. It shows the model that it recommends for this machine, with an Install button.">
     <img class="shot shot--dk" src="{{ "media/launcher-home-dark.webp" | relURL }}" width="1400" height="900" loading="lazy" alt="" aria-hidden="true">
