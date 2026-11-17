@@ -26,7 +26,7 @@ it connects.
 
 ## Turn on P2P
 
-P2P has three modes. Set the mode in **Settings**, **P2P**, with the runtime
+P2P has three modes. Set the mode on the **P2P** settings page, with the runtime
 setting `p2p_mode`, or with `--p2p-mode` (environment variable
 `LOCALAI_P2P_MODE`) at start:
 
@@ -45,16 +45,25 @@ P2P also needs a data path, because the server keeps its identity key there. It
 does not start when you run LocalAI with `--data-path -`, unless you name the key
 file with `--p2p-identity`.
 
-1. Open **Settings**, **P2P**, and choose **Connect and share**.
-2. Open **Swarm**, then **P2P**. This page is shown whenever P2P is on, also on
-   a single server.
+1. Open **Administration**, then **This machine**, **P2P** (on a cluster:
+   **Swarm**, **P2P**), and choose **Settings**.
+2. Under **Network**, choose **Connect only** or **Connect and share**. The
+   change applies at once. Without authentication, **Connect and share** is
+   shown but cannot be chosen, and the page says what to turn on.
+
+In mode `connect` the page also offers **Switch to Connect and share** when
+authentication is on. The settings that matter only for sharing (relay for paired
+devices, the **Relays** section) are shown only in mode `share`.
 
 A change of a P2P setting restarts the P2P layer. Paired devices connect again by
 themselves.
 
 The first start creates the identity of the server, a key file in the data
-path. Keep this file safe. If you regenerate it, every paired device must pair
-again.
+path. Keep this file safe. The **Identity** section of the P2P settings page
+shows the peer ID with a copy button. **Regenerate** makes a new key and keeps
+the old one next to it as a backup. Every paired device, remote and P2P worker
+pinned the old peer ID, so each one must pair again with a new invite. The
+dialog asks you to confirm this before the button works.
 
 {{% callout style="note" %}}
 The old token network is removed. The flags `--p2p`, `--p2p-token` and
@@ -131,8 +140,10 @@ get a direct connection.
 
 ## Settings
 
-These settings are in **Settings**, **P2P**. They are runtime settings: the
-names below are the keys of `/api/settings` and of `runtime_settings.json`.
+These settings are on the **P2P** settings page, under **Network**. A switch
+applies at once; a list or a number applies with its **Save** button. They are
+runtime settings: the names below are the keys of `/api/settings` and of
+`runtime_settings.json`.
 
 | Setting | Default | Meaning |
 |---|---|---|

@@ -104,9 +104,10 @@ same facts as one JSON line.
 A relay needs an **admin**: a LocalAI server that it trusts. There are two ways.
 
 **Claim the relay.** If you start the relay with no admin, it prints a one-time
-claim code on its console. In LocalAI, open **Swarm**, **P2P**, **Relays**, and
-choose **Add relay**. Paste the relay address and the claim code. The first
-server that presents the code becomes the admin. The code stops working after
+claim code on its console. In LocalAI, open the **P2P** settings page, then
+**Relays**, and choose **Run a relay**. Paste the relay address and choose
+**Check reachability**. The check finds that the relay has no admin and asks
+for the claim code. The first server that presents the code becomes the admin. The code stops working after
 that. This way you do not copy the peer ID of the server to the relay host.
 
 **Name the admin.** Give the peer ID of your server when you start the relay:
@@ -119,7 +120,15 @@ docker run -d --name localai-relay --network host -v localai-relay:/data \
 You can repeat `--admin`, or set `LOCALAI_RELAY_ADMINS=id1,id2`. Find the peer ID
 with `local-ai p2p id`, or on the **P2P** page.
 
-Then add the relay on the server, in the interface or with:
+The **Run a relay** dialog shows these commands with the peer ID of your server
+filled in. Paste the address the relay prints, choose **Check reachability**, and
+then **Add relay**. The check shows three steps: a reserved slot, a circuit test
+through the relay, and the allowlist push. The dialog stores nothing until you
+add the relay. When the address names another peer ID than the relay has (for
+example after the relay restarted without its key volume), the dialog shows both
+IDs.
+
+Or add the relay with:
 
 ```bash
 local-ai p2p relays add <relay address> --label <name>
@@ -137,7 +146,7 @@ states:
 | State | Meaning |
 |---|---|
 | In sync | The relay knows this server as admin and has the same paired devices. |
-| Out of sync | The lists differ. Choose **Push now**. |
+| Out of sync | The lists differ. Choose **Sync now**. |
 | Open | The relay is open. See below. |
 | Unclaimed | The relay has no admin. Claim it with the code. |
 | Not admin | The server is a member, not an admin. Another server added this relay. |
@@ -187,6 +196,13 @@ no pass. The interface tells you.
 
 When a connection reaches its data or time limit, the relay closes it. LocalAI
 connects again by itself.
+
+The relay reads its limits when it starts. On the **Relays** page, the limits
+button of a relay opens a form for the data, time and bandwidth per connection
+and the connections per machine, and builds the start command with these flags.
+Start the relay again with that command. Connections that are already open keep
+the old limits until they close. **No limit** on an open relay asks you first,
+because then one stranger can use all the bandwidth of the relay.
 
 Many devices can share one home or mobile address. Raise `--max-conns-per-ip` and
 `--max-reservations-per-ip` if your users are behind one address.
