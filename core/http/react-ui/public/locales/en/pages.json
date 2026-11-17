@@ -40,7 +40,8 @@
     "sharedWith_one": "Shared with {{count}} person",
     "sharedWith_other": "Shared with {{count}} people",
     "sharedEveryone": "Shared with everyone",
-    "someone": "someone"
+    "someone": "someone",
+    "othersEdit": "Others can edit"
   },
   "empty": {
     "title": "No pages yet",
@@ -198,6 +199,16 @@
       "chrome": "Shared page. It has not run.",
       "blocked": "You chose not to run it. It comes from {{author}}. Nothing in it has run, and nothing was saved.",
       "files": "Read and write files in its own folder"
+    },
+    "owner": {
+      "desc": "Others can edit this page. Pages run as you, so check it before it runs.",
+      "who": "Others can edit this page. Check it before it runs.",
+      "changedWho": "This page changed since you allowed it.",
+      "where": "Your page",
+      "warn": "It acts as you inside its folder. If someone changes it, you are asked again.",
+      "changedWarn": "If you allow it, this version runs each time you open it, until someone changes it again.",
+      "blocked": "You chose not to run it. Others can edit it. Nothing in it has run, and nothing was saved.",
+      "stale": "This page changed. Review it again."
     }
   },
   "frame": {
@@ -280,7 +291,9 @@
       "text": "A person shared it with you. It does not run on Home or in a slot. Open it to run it.",
       "open": "Open the page",
       "dock": "A person shared this page with you. Open it from Pages to run it.",
-      "slot": "Open {{title}} to run it"
+      "slot": "Open {{title}} to run it",
+      "textOwn": "Others can edit it. It does not run on Home or in a slot. Open it to run it.",
+      "dockOwn": "Others can edit this page. Open it from Pages to run it."
     }
   }
 }

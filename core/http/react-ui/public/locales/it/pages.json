@@ -25,7 +25,8 @@
     "sharedWith_one": "Condivisa con {{count}} persona",
     "sharedWith_other": "Condivisa con {{count}} persone",
     "sharedEveryone": "Condivisa con tutti",
-    "someone": "qualcuno"
+    "someone": "qualcuno",
+    "othersEdit": "Altri possono modificare"
   },
   "empty": {
     "text": "Una pagina è un piccolo strumento, come una bacheca delle attività o una lista di lettura. Chiedine una all'assistente in una chat, oppure parti da una pagina pronta.",
@@ -147,6 +148,16 @@
       "chrome": "Pagina condivisa. Non è stata eseguita.",
       "blocked": "Hai scelto di non eseguirla. Viene da {{author}}. Nulla è stato eseguito e nulla è stato salvato.",
       "files": "Leggere e scrivere file nella propria cartella"
+    },
+    "owner": {
+      "desc": "Altri possono modificare questa pagina. Le pagine vengono eseguite come te: controllala prima che parta.",
+      "who": "Altri possono modificare questa pagina. Controllala prima che parta.",
+      "changedWho": "Questa pagina è cambiata da quando l’hai consentita.",
+      "where": "La tua pagina",
+      "warn": "Agisce come te nella sua cartella. Se qualcuno la cambia, ti viene chiesto di nuovo.",
+      "changedWarn": "Se la consenti, questa versione viene eseguita a ogni apertura, finché qualcuno non la cambia di nuovo.",
+      "blocked": "Hai scelto di non eseguirla. Altri possono modificarla. Nulla è stato eseguito e nulla è stato salvato.",
+      "stale": "Questa pagina è cambiata. Controllala di nuovo."
     }
   },
   "frame": {
@@ -235,7 +246,9 @@
       "text": "Una persona l’ha condivisa con te. Non viene eseguita nella Home né in uno slot. Aprila per eseguirla.",
       "open": "Apri la pagina",
       "dock": "Una persona ha condiviso questa pagina con te. Aprila da Pagine per eseguirla.",
-      "slot": "Apri {{title}} per eseguirla"
+      "slot": "Apri {{title}} per eseguirla",
+      "textOwn": "Altri possono modificarla. Non viene eseguita nella Home né in uno slot. Aprila per eseguirla.",
+      "dockOwn": "Altri possono modificare questa pagina. Aprila da Pagine per eseguirla."
     }
   }
 }

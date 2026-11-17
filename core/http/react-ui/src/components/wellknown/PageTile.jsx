@@ -98,7 +98,7 @@ export default function PageTile({ w, size: cell, listed, onFix }) {
       <div className="wk-ptile__calm" data-testid="page-tile-open-only">
         <Icon name="lock" className="wk-ptile__calm-icon" />
         <p className="wk-ptile__calm-title">{tp('share.tile.title')}</p>
-        <p className="wk-ptile__calm-text">{tp('share.tile.text')}</p>
+        <p className="wk-ptile__calm-text">{tp(tile.ownEdit ? 'share.tile.textOwn' : 'share.tile.text')}</p>
         <Link className="dk-btn dk-btn--primary dk-btn--sm" to={pagePath} data-testid="page-tile-open-page">{tp('share.tile.open')}</Link>
       </div>
     )

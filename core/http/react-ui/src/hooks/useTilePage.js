@@ -109,8 +109,10 @@ export function useTilePage(ref, { widget = true } = {}) {
 
   // A visit allowed once runs although the tile state still asks.
   const runnable = (state === 'ready' || (read.once && run)) && (!ref?.folder || !!run)
-  // A page that a person shared never runs on its own: a tile says it must be
-  // opened. The server ignores an embed consent for these pages.
-  const openOnly = !!ref?.folder && read.page?.user_shared === true
-  return { read, state, run, runnable, openOnly, files, frameRef, load, allow, onRefused, sheet, openSheet, closeSheet, showSource }
+  // A page that a person shared, or an own page that others may edit, never
+  // runs on its own: a tile says it must be opened. The server ignores an embed consent for these pages.
+  const openOnly = ref?.folder ? read.page?.user_shared === true : read.page?.others_can_edit === true
+  // The own page whose others may edit (its words differ from a shared page).
+  const ownEdit = !ref?.folder && read.page?.others_can_edit === true
+  return { read, state, run, runnable, openOnly, ownEdit, files, frameRef, load, allow, onRefused, sheet, openSheet, closeSheet, showSource }
 }

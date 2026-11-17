@@ -25,7 +25,8 @@
     "sharedWith_one": "Compartilhada com {{count}} pessoa",
     "sharedWith_other": "Compartilhada com {{count}} pessoas",
     "sharedEveryone": "Compartilhada com todos",
-    "someone": "alguém"
+    "someone": "alguém",
+    "othersEdit": "Outros podem editar"
   },
   "empty": {
     "text": "Uma página é uma pequena ferramenta, como um quadro de tarefas ou uma lista de leitura. Peça uma ao assistente em um chat ou comece com uma página pronta.",
@@ -147,6 +148,16 @@
       "chrome": "Página compartilhada. Ela não rodou.",
       "blocked": "Você escolheu não rodá-la. Ela vem de {{author}}. Nada rodou e nada foi salvo.",
       "files": "Ler e gravar arquivos na própria pasta"
+    },
+    "owner": {
+      "desc": "Outros podem editar esta página. As páginas rodam como você, então confira antes de rodar.",
+      "who": "Outros podem editar esta página. Confira antes de rodar.",
+      "changedWho": "Esta página mudou desde que você a permitiu.",
+      "where": "Sua página",
+      "warn": "Ela age como você dentro da própria pasta. Se alguém a mudar, você é consultado de novo.",
+      "changedWarn": "Se você permitir, esta versão roda toda vez que você a abrir, até alguém mudá-la de novo.",
+      "blocked": "Você escolheu não rodá-la. Outros podem editá-la. Nada rodou e nada foi salvo.",
+      "stale": "Esta página mudou. Confira de novo."
     }
   },
   "frame": {
@@ -235,7 +246,9 @@
       "text": "Uma pessoa a compartilhou com você. Ela não roda na Home nem em um slot. Abra-a para rodar.",
       "open": "Abrir a página",
       "dock": "Uma pessoa compartilhou esta página com você. Abra-a em Páginas para rodá-la.",
-      "slot": "Abra {{title}} para rodá-la"
+      "slot": "Abra {{title}} para rodá-la",
+      "textOwn": "Outros podem editá-la. Ela não roda na Home nem em um slot. Abra-a para rodar.",
+      "dockOwn": "Outros podem editar esta página. Abra-a em Páginas para rodá-la."
     }
   }
 }

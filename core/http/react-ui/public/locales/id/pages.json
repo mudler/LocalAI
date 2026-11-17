@@ -25,7 +25,8 @@
     "sharedWith_one": "Dibagikan ke {{count}} orang",
     "sharedWith_other": "Dibagikan ke {{count}} orang",
     "sharedEveryone": "Dibagikan ke semua orang",
-    "someone": "seseorang"
+    "someone": "seseorang",
+    "othersEdit": "Orang lain dapat mengubah"
   },
   "empty": {
     "text": "Halaman adalah alat kecil, seperti papan tugas atau daftar bacaan. Minta satu ke asisten di chat, atau mulai dari halaman siap pakai.",
@@ -147,6 +148,16 @@
       "chrome": "Halaman bersama. Belum dijalankan.",
       "blocked": "Anda memilih tidak menjalankannya. Halaman ini dari {{author}}. Tidak ada yang berjalan dan tidak ada yang disimpan.",
       "files": "Membaca dan menulis file di folder miliknya"
+    },
+    "owner": {
+      "desc": "Orang lain dapat mengubah halaman ini. Halaman berjalan sebagai Anda, jadi periksa dulu sebelum dijalankan.",
+      "who": "Orang lain dapat mengubah halaman ini. Periksa sebelum dijalankan.",
+      "changedWho": "Halaman ini berubah sejak Anda mengizinkannya.",
+      "where": "Halaman Anda",
+      "warn": "Halaman bertindak sebagai Anda di dalam foldernya. Jika seseorang mengubahnya, Anda ditanya lagi.",
+      "changedWarn": "Jika Anda mengizinkannya, versi ini berjalan setiap kali dibuka, sampai seseorang mengubahnya lagi.",
+      "blocked": "Anda memilih tidak menjalankannya. Orang lain dapat mengubahnya. Tidak ada yang berjalan dan tidak ada yang disimpan.",
+      "stale": "Halaman ini berubah. Periksa lagi."
     }
   },
   "frame": {
@@ -235,7 +246,9 @@
       "text": "Seseorang membagikannya kepada Anda. Halaman ini tidak berjalan di Beranda atau di slot. Buka untuk menjalankannya.",
       "open": "Buka halaman",
       "dock": "Seseorang membagikan halaman ini kepada Anda. Buka dari Halaman untuk menjalankannya.",
-      "slot": "Buka {{title}} untuk menjalankannya"
+      "slot": "Buka {{title}} untuk menjalankannya",
+      "textOwn": "Orang lain dapat mengubahnya. Halaman ini tidak berjalan di Beranda atau di slot. Buka untuk menjalankannya.",
+      "dockOwn": "Orang lain dapat mengubah halaman ini. Buka dari Halaman untuk menjalankannya."
     }
   }
 }

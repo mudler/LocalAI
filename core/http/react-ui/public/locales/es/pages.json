@@ -25,7 +25,8 @@
     "sharedWith_one": "Compartida con {{count}} persona",
     "sharedWith_other": "Compartida con {{count}} personas",
     "sharedEveryone": "Compartida con todos",
-    "someone": "alguien"
+    "someone": "alguien",
+    "othersEdit": "Otros pueden editar"
   },
   "empty": {
     "text": "Una página es una herramienta pequeña, como un tablero de tareas o una lista de lectura. Pídele una al asistente en un chat o empieza con una página lista.",
@@ -147,6 +148,16 @@
       "chrome": "Página compartida. No se ha ejecutado.",
       "blocked": "Elegiste no ejecutarla. Viene de {{author}}. Nada de ella se ejecutó y no se guardó nada.",
       "files": "Leer y escribir archivos en su propia carpeta"
+    },
+    "owner": {
+      "desc": "Otros pueden editar esta página. Las páginas se ejecutan como tú, así que revísala antes de ejecutarla.",
+      "who": "Otros pueden editar esta página. Revísala antes de ejecutarla.",
+      "changedWho": "Esta página cambió desde que la permitiste.",
+      "where": "Tu página",
+      "warn": "Actúa como tú dentro de su carpeta. Si alguien la cambia, se te vuelve a preguntar.",
+      "changedWarn": "Si la permites, esta versión se ejecuta cada vez que la abras, hasta que alguien la cambie de nuevo.",
+      "blocked": "Elegiste no ejecutarla. Otros pueden editarla. Nada de ella se ejecutó y no se guardó nada.",
+      "stale": "Esta página cambió. Revísala de nuevo."
     }
   },
   "frame": {
@@ -235,7 +246,9 @@
       "text": "Una persona la compartió contigo. No se ejecuta en Inicio ni en un slot. Ábrela para ejecutarla.",
       "open": "Abrir la página",
       "dock": "Una persona compartió esta página contigo. Ábrela desde Páginas para ejecutarla.",
-      "slot": "Abre {{title}} para ejecutarla"
+      "slot": "Abre {{title}} para ejecutarla",
+      "textOwn": "Otros pueden editarla. No se ejecuta en Inicio ni en un slot. Ábrela para ejecutarla.",
+      "dockOwn": "Otros pueden editar esta página. Ábrela desde Páginas para ejecutarla."
     }
   }
 }

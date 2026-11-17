@@ -152,7 +152,7 @@ const DockFrame = forwardRef(function DockFrame({ tabRef, title, chatId, visible
     body = (
       <div className="pd-state" data-testid="dock-open-only">
         <Icon name="lock" className="pd-state__icon" />
-        <span>{t('share.tile.dock')}</span>
+        <span>{t(tile.ownEdit ? 'share.tile.dockOwn' : 'share.tile.dock')}</span>
         <Button size="sm" variant="primary" to={tilePagePath(tabRef)} data-testid="dock-open-page">{t('share.tile.open')}</Button>
       </div>
     )

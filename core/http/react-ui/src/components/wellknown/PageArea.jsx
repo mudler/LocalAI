@@ -180,7 +180,7 @@ function AreaPage({ pageRef: ref, wk, onRemoved, listed }) {
       <div className="wk-area__calm" data-testid="page-area-open-only">
         <Icon name="lock" className="wk-area__calm-icon" />
         <p className="wk-area__calm-title">{tp('share.tile.title')}</p>
-        <p className="wk-area__calm-text">{tp('share.tile.text')}</p>
+        <p className="wk-area__calm-text">{tp(tile.ownEdit ? 'share.tile.textOwn' : 'share.tile.text')}</p>
         <Button variant="primary" size="sm" to={tilePagePath(ref)} data-testid="page-area-open-page">{tp('share.tile.open')}</Button>
       </div>
     )

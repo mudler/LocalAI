@@ -25,7 +25,8 @@
     "sharedWith_one": "Mit {{count}} Person geteilt",
     "sharedWith_other": "Mit {{count}} Personen geteilt",
     "sharedEveryone": "Mit allen geteilt",
-    "someone": "jemand"
+    "someone": "jemand",
+    "othersEdit": "Andere können bearbeiten"
   },
   "empty": {
     "text": "Eine Seite ist ein kleines Werkzeug, etwa ein Aufgabenboard oder eine Leseliste. Bitte den Assistenten im Chat um eine oder starte mit einer fertigen Seite.",
@@ -147,6 +148,16 @@
       "chrome": "Geteilte Seite. Sie wurde nicht ausgeführt.",
       "blocked": "Du hast entschieden, sie nicht auszuführen. Sie stammt von {{author}}. Nichts darin wurde ausgeführt und nichts gespeichert.",
       "files": "Dateien in ihrem eigenen Ordner lesen und schreiben"
+    },
+    "owner": {
+      "desc": "Andere können diese Seite bearbeiten. Seiten laufen als du, prüfe sie also, bevor sie läuft.",
+      "who": "Andere können diese Seite bearbeiten. Prüfe sie, bevor sie läuft.",
+      "changedWho": "Diese Seite hat sich geändert, seit du sie erlaubt hast.",
+      "where": "Deine Seite",
+      "warn": "Sie handelt als du in ihrem Ordner. Wenn jemand sie ändert, wirst du erneut gefragt.",
+      "changedWarn": "Wenn du es erlaubst, läuft diese Version bei jedem Öffnen, bis jemand sie wieder ändert.",
+      "blocked": "Du hast entschieden, sie nicht auszuführen. Andere können sie bearbeiten. Nichts darin wurde ausgeführt und nichts gespeichert.",
+      "stale": "Diese Seite hat sich geändert. Prüfe sie erneut."
     }
   },
   "frame": {
@@ -235,7 +246,9 @@
       "text": "Eine Person hat sie mit dir geteilt. Sie läuft nicht auf der Startseite oder in einem Slot. Öffne sie, um sie auszuführen.",
       "open": "Seite öffnen",
       "dock": "Eine Person hat diese Seite mit dir geteilt. Öffne sie unter Seiten, um sie auszuführen.",
-      "slot": "Öffne {{title}}, um sie auszuführen"
+      "slot": "Öffne {{title}}, um sie auszuführen",
+      "textOwn": "Andere können sie bearbeiten. Sie läuft nicht auf der Startseite oder in einem Slot. Öffne sie, um sie auszuführen.",
+      "dockOwn": "Andere können diese Seite bearbeiten. Öffne sie unter Seiten, um sie auszuführen."
     }
   }
 }

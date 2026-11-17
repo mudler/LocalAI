@@ -17,6 +17,13 @@ const TASKS = {
 const NOTES = { ...TASKS, name: 'notes', path: '/pages/notes', title: 'Reading notes', description: '', hash: 'n1' }
 
 const HTML = '<!doctype html><body><p id="v">tasks</p></body>'
+// A page that others may edit reads a file when it starts and again on a click.
+const GUARDED_HTML = `<!doctype html><body><p id="v">tasks</p><p id="d"></p><button id="r">read</button>
+<script>
+const show = (p) => p.then((f) => { document.getElementById('d').textContent = f.content }, (e) => { document.getElementById('d').textContent = 'ERR ' + e.message })
+show(localai.files.read('data.txt'))
+document.getElementById('r').onclick = () => show(localai.files.read('data.txt'))
+</script></body>`
 const SHARED_HTML = '<!doctype html><body><p id="v">groceries</p></body>'
 
 async function signIn(page, { authEnabled = true } = {}) {
@@ -43,15 +50,45 @@ function mock(page, init = {}) {
     shared: [],
     shareSeen: [],
     searches: [],
+    edit: false,
+    pageConsent: { state: 'none' },
+    allows: [],
+    stops: 0,
+    fileSeen: [],
     ...init,
   }
   const answer = () => ({ name: 'tasks', enabled: state.on, hash: state.hash || 'h1', allowedCount: state.allowed, grants: state.grants })
   page.route(/\/api\/chats\/pages(\?.*)?$/, route => route.fulfill({
-    json: { pages: state.pages.map(p => (p.name === 'tasks' ? { ...p, ...(state.listFields || {}) } : p)) },
+    json: { pages: state.pages.map(p => (p.name === 'tasks' ? { ...p, ...(state.edit ? { others_can_edit: true, hash: state.hash || 'h1', consent: state.pageConsent.state } : {}), ...(state.listFields || {}) } : p)) },
   }))
   page.route(/\/api\/chats\/pages\/tasks(\?.*)?$/, route => route.fulfill({
-    json: { page: { ...TASKS }, html: HTML },
+    json: state.edit
+      ? {
+        page: { ...TASKS, hash: state.hash || 'h1', shared_allowed: state.allowed, shared_with: state.grants.length, others_can_edit: true, code_files: [], consent: state.pageConsent.state },
+        html: GUARDED_HTML, consent: state.pageConsent, lines: 12,
+      }
+      : { page: { ...TASKS, hash: state.hash || 'h1', shared_allowed: state.allowed }, html: HTML },
   }))
+  page.route(/\/api\/chats\/pages\/tasks\/consent$/, route => {
+    const req = route.request()
+    if (req.method() === 'DELETE') {
+      state.stops++
+      state.pageConsent = { state: 'none' }
+      return route.fulfill({ status: 204, body: '' })
+    }
+    const body = req.postDataJSON()
+    state.allows.push(body)
+    if (body.hash !== (state.hash || 'h1')) return route.fulfill({ status: 409, json: { error: { message: 'the page changed', type: 'conflict' } } })
+    if (!body.once) state.pageConsent = { state: 'allowed' }
+    return route.fulfill({ json: { hash: body.hash, ...(body.once ? { token: 'vt' } : {}) } })
+  })
+  page.route(/\/api\/chats\/pages\/tasks\/file(\?.*)?$/, route => {
+    const h = route.request().headers()
+    state.fileSeen.push({ hash: h['x-localai-page-hash'] || '', visit: h['x-localai-page-visit'] || '' })
+    if (state.edit && !h['x-localai-page-hash']) return route.fulfill({ status: 403, json: { error: { message: 'allow it first', type: 'page_not_allowed' } } })
+    if (state.edit && h['x-localai-page-hash'] !== (state.hash || 'h1')) return route.fulfill({ status: 409, json: { error: { message: 'the code changed', type: 'conflict' } } })
+    return route.fulfill({ json: { path: 'data.txt', content: 'hello', version: 1 } })
+  })
   page.route(/\/api\/chats\/pages\/shares\/search(\?.*)?$/, route => {
     const req = route.request()
     const q = new URL(req.url()).searchParams.get('q')
@@ -531,7 +568,161 @@ test.describe('screenshots', () => {
         const off = await openShare(page)
         await expect(off.getByTestId('share-add-off')).toBeVisible()
         await shot('dialog-off')
+
+        // A page that others can edit: the list, the trust sheet, the strip, a change, the dock.
+        state.on = true
+        state.edit = true
+        state.pageConsent = { state: 'none' }
+        await page.goto('/app/pages')
+        await expect(card(page, 'tasks').getByTestId('page-others-edit-badge')).toBeVisible()
+        await shot('list-edit')
+        await card(page, 'tasks').getByRole('link', { name: 'Tasks board' }).click()
+        await expect(page.getByTestId('trust-sheet')).toBeVisible()
+        await shot('trust-owner')
+        await page.getByTestId('trust-allow').click()
+        await expect(frame(page).locator('#d')).toHaveText('hello')
+        await shot('strip-edit')
+        state.hash = 'h4'
+        state.pageConsent = { state: 'changed' }
+        await page.getByTestId('page-reload').click()
+        await expect(page.getByTestId('page-blocked')).toBeVisible()
+        await shot('blocked-stale')
+        await page.getByTestId('page-review').click()
+        await expect(page.getByTestId('trust-sheet')).toBeVisible()
+        await shot('trust-owner-changed')
+        await page.keyboard.press('Escape')
+        await page.goto('/app/pages')
+        await card(page, 'tasks').getByRole('button', { name: /^More for / }).click()
+        await page.getByRole('menuitem', { name: 'Open in dock' }).click()
+        await expect(page.getByTestId('dock-open-only')).toBeVisible()
+        await shot('dock-open-only')
       })
     }
   }
+})
+
+const frame = (page) => page.frameLocator('[data-testid="page-frame"]')
+
+test('the owner opens a page that others can edit through the trust sheet, and it runs with the version in its calls', async ({ page }) => {
+  await signIn(page)
+  const state = mock(page, { edit: true, listFields: { shared_with: 3 } })
+  await page.goto('/app/pages')
+  await expect(card(page, 'tasks').getByTestId('page-others-edit-badge')).toHaveText('Others can edit')
+  await card(page, 'tasks').getByRole('link', { name: 'Tasks board' }).click()
+  const sheet = page.getByTestId('trust-sheet')
+  await expect(sheet).toBeVisible()
+  await expect(sheet.getByTestId('trust-who')).toHaveText('Others can edit this page. Check it before it runs.')
+  await expect(sheet.getByTestId('trust-allow-once')).toBeVisible()
+  await expect(sheet.getByTestId('trust-allow')).toBeVisible()
+  await expect(sheet.getByTestId('trust-allow-embed')).toHaveCount(0)
+  // The owner can write to the own page: no read-only note.
+  await expect(sheet).not.toContainText('can only read')
+  // Nothing ran and no file call was made before the owner allowed it.
+  await expect(page.getByTestId('page-frame')).toHaveCount(0)
+  expect(state.fileSeen).toHaveLength(0)
+  await sheet.getByTestId('trust-allow').click()
+  await expect(frame(page).locator('#d')).toHaveText('hello')
+  expect(state.allows).toEqual([{ hash: 'h1' }])
+  expect(state.fileSeen[0]).toEqual({ hash: 'h1', visit: '' })
+  await expect(page.getByTestId('page-others-edit')).toHaveText('Others can edit')
+  await expect(page.getByTestId('page-consent-pill')).toContainText('Allowed')
+})
+
+test('Allow once sends the visit token with every call', async ({ page }) => {
+  await signIn(page)
+  const state = mock(page, { edit: true, listFields: { shared_with: 1 } })
+  await page.goto('/app/pages/tasks')
+  await page.getByTestId('trust-allow-once').click()
+  await expect(frame(page).locator('#d')).toHaveText('hello')
+  expect(state.allows).toEqual([{ hash: 'h1', once: true }])
+  expect(state.fileSeen[0]).toEqual({ hash: 'h1', visit: 'vt' })
+})
+
+test('an own page that nobody else can edit opens at once and sends no version header', async ({ page }) => {
+  await signIn(page)
+  const state = mock(page)
+  await page.goto('/app/pages/tasks')
+  await expect(frame(page).locator('#v')).toHaveText('tasks')
+  await expect(page.getByTestId('trust-sheet')).toHaveCount(0)
+  await expect(page.getByTestId('page-others-edit')).toHaveCount(0)
+  expect(state.allows).toHaveLength(0)
+  expect(state.fileSeen).toHaveLength(0)
+})
+
+test('an allowed version runs again at once, and Stop allowing takes it back', async ({ page }) => {
+  await signIn(page)
+  const state = mock(page, { edit: true, pageConsent: { state: 'allowed' } })
+  await page.goto('/app/pages/tasks')
+  await expect(page.getByTestId('trust-sheet')).toHaveCount(0)
+  await expect(frame(page).locator('#d')).toHaveText('hello')
+  await page.getByTestId('page-menu').click()
+  await page.getByTestId('page-stop-allowing').click()
+  await expect(page.getByTestId('page-blocked')).toContainText('You stopped allowing this page')
+  await expect(page.getByTestId('page-frame')).toHaveCount(0)
+  expect(state.stops).toBe(1)
+})
+
+test('when the code changes under a running page, it stops and the owner is asked again', async ({ page }) => {
+  await signIn(page)
+  const state = mock(page, { edit: true, pageConsent: { state: 'allowed' } })
+  await page.goto('/app/pages/tasks')
+  await expect(frame(page).locator('#d')).toHaveText('hello')
+  // The next call of the running page is a conflict.
+  state.hash = 'h2'
+  state.pageConsent = { state: 'changed' }
+  await frame(page).locator('#r').click()
+  const blocked = page.getByTestId('page-blocked')
+  await expect(blocked).toHaveAttribute('data-reason', 'stale')
+  await expect(blocked).toContainText('This page changed. Review it again.')
+  await expect(page.getByTestId('page-frame')).toHaveCount(0)
+  await page.getByTestId('page-review').click()
+  const sheet = page.getByTestId('trust-sheet')
+  await expect(sheet).toHaveAttribute('data-variant', 'changed')
+  await expect(sheet.getByTestId('trust-who')).toHaveText('This page changed since you allowed it.')
+  await sheet.getByTestId('trust-allow').click()
+  await expect(frame(page).locator('#d')).toHaveText('hello')
+  expect(state.allows.at(-1)).toEqual({ hash: 'h2' })
+})
+
+test('a change found on reload asks again, and an allow of an old version shows the new one', async ({ page }) => {
+  await signIn(page)
+  const state = mock(page, { edit: true, pageConsent: { state: 'allowed' } })
+  await page.goto('/app/pages/tasks')
+  await expect(frame(page).locator('#d')).toHaveText('hello')
+  state.hash = 'h2'
+  state.pageConsent = { state: 'changed' }
+  await page.getByTestId('page-reload').click()
+  await expect(page.getByTestId('page-blocked')).toHaveAttribute('data-reason', 'stale')
+  await page.getByTestId('page-review').click()
+  // The code changes again while the sheet is open: the allow is refused with 409.
+  state.hash = 'h3'
+  await page.getByTestId('trust-allow').click()
+  await expect(page.getByTestId('trust-sheet')).toContainText('The page changed while you were reviewing it.')
+  await page.getByTestId('trust-allow').click()
+  await expect(frame(page).locator('#d')).toHaveText('hello')
+  expect(state.allows.map(a => a.hash)).toEqual(['h2', 'h3'])
+})
+
+test('after the last Edit is taken away the page opens as any own page', async ({ page }) => {
+  await signIn(page)
+  const state = mock(page, { edit: true, pageConsent: { state: 'allowed' } })
+  await page.goto('/app/pages/tasks')
+  await expect(frame(page).locator('#d')).toHaveText('hello')
+  state.edit = false
+  await page.getByTestId('page-reload').click()
+  await expect(frame(page).locator('#v')).toHaveText('tasks')
+  await expect(page.getByTestId('page-others-edit')).toHaveCount(0)
+  await expect(page.getByTestId('trust-sheet')).toHaveCount(0)
+})
+
+test('the dock does not offer Allow for a page that others can edit', async ({ page }) => {
+  await signIn(page)
+  const state = mock(page, { edit: true, pageConsent: { state: 'allowed' } })
+  await page.goto('/app/pages')
+  await card(page, 'tasks').getByRole('button', { name: /^More for / }).click()
+  await page.getByRole('menuitem', { name: 'Open in dock' }).click()
+  await expect(page.getByTestId('dock-open-only')).toContainText('Others can edit this page. Open it from Pages to run it.')
+  await expect(page.getByTestId('dock-allow-open')).toHaveCount(0)
+  await expect(page.getByTestId('page-frame')).toHaveCount(0)
+  expect(state.fileSeen).toHaveLength(0)
 })

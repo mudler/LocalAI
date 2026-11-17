@@ -11,7 +11,6 @@ import { Button } from '../components/ui'
 import { filesApi, pagesApi, sharedPagesApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { authorOf, pageIndexPath } from '../utils/pages'
-import { ownerOpenPath } from '../utils/pageOwnerOpen'
 import { DOCS_MAKE_YOURS } from '../utils/discovery'
 import { refreshPages, usePageAge, usePages } from '../hooks/usePages'
 import { usePinnedPages } from '../hooks/usePinnedPages'
@@ -40,7 +39,7 @@ function PageRow({ page, shares, pinned, onPin, onShare, onDelete, onRename, age
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(page.name)
   const author = page.author === 'assistant' ? 'assistant' : 'you'
-  const open = ownerOpenPath(page)
+  const open = `/app/pages/${encodeURIComponent(page.name)}`
   const shared = sharedWith(page, shares)
   const ask = () => navigate('/app/chats', { state: { draft: t('view.askPrompt', { name: page.name }) } })
   const dock = () => navigate('/app/chats', { state: { dock: { name: page.name, folder: 0 } } })
@@ -68,6 +67,9 @@ function PageRow({ page, shares, pinned, onPin, onShare, onDelete, onRename, age
         ) : (
           <span className="pg-row__titleline">
             <Link className="pg-row__title" to={open}>{page.title}</Link>
+            {page.others_can_edit === true && (
+              <span className="pg-badge pg-badge--warn" data-testid="page-others-edit-badge"><Icon name="pencil" /> {t('card.othersEdit')}</span>
+            )}
             {shared > 0 && (
               <span className="pg-badge pg-badge--plain" data-testid="page-shared-badge" title={t('card.sharedWith', { count: shared })}>
                 <Icon name="users" /> {t('card.shared')}<b data-testid="page-shared-count">{shared}</b>
