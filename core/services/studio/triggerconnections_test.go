@@ -404,6 +404,36 @@ var _ = Describe("a trigger from a chat in Studio that reports to a connection",
 			Expect(err).NotTo(HaveOccurred(), "a refused apply leaves the change waiting")
 			Expect(got.Route.Channel).To(Equal("G1"))
 		})
+		Context("a change that leaves the destination as it is", func() {
+			var live string
+			BeforeEach(func() {
+				tr := r.schedule(studio.TriggerInput{Name: "Reports", Prompt: "p",
+					Route: triggers.Route{Connection: chatB.ID, Channel: "G1", Target: triggers.TargetChannel}})
+				live = tr.ID
+				edit(func(b *connectors.Binding) { b.Enabled = false })
+			})
+			ask := func(args string) string {
+				res := c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,%s}`, studio.TriggerRef(live), args))
+				Expect(res.Err).To(BeNil(), "%+v", res)
+				return lastCard(r.trigRig, chat).ID
+			}
+			It("renames while the connection is switched off", func() {
+				got, err := r.host.ApplyChange(ctx, alice, ask(`"name":"Renamed"`))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(got.Name).To(Equal("Renamed"))
+				Expect(got.Route.Connection).To(Equal(chatB.ID))
+			})
+			It("pauses while the connection is switched off, and the undo of the pause works too", func() {
+				id := ask(`"enabled":false`)
+				paused, err := r.host.GetTrigger(ctx, alice, live)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(paused.Enabled).To(BeFalse(), "a pause needs no answer")
+				back, err := r.host.UndoChange(ctx, alice, id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(back.Enabled).To(BeTrue())
+				Expect(back.Route.Connection).To(Equal(chatB.ID))
+			})
+		})
 		Context("an undo that would bring back a route to a connection", func() {
 			var id string
 			BeforeEach(func() {
