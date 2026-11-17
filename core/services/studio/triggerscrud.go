@@ -474,7 +474,7 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 		// gets the proposal that waits.
 		if m.Name == t.Name && m.Prompt == t.Prompt && m.Kind == t.Kind && m.Schedule == t.Schedule &&
 			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) &&
-			(m.Route.FromConnector() || deliveryKey(m) == deliveryKey(t)) {
+			((m.Route.FromConnector() && t.Route.FromConnector()) || deliveryKey(m) == deliveryKey(t)) {
 			return m, false, nil
 		}
 		pending++

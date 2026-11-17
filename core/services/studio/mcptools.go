@@ -12,7 +12,7 @@ import (
 
 // reservedToolNames are the names the service owns. A tool from another source
 // cannot take one, so the model always gets the real thing.
-var reservedToolNames = map[string]bool{"spawn_agent": true, proposeTriggerName: true, listTriggersName: true, startLoopName: true, waitForName: true, waitAgentsName: true,
+var reservedToolNames = map[string]bool{"spawn_agent": true, proposeTriggerName: true, listTriggersName: true, updateTriggerName: true, deleteTriggerName: true, listConnectionsName: true, startLoopName: true, waitForName: true, waitAgentsName: true,
 	webSearchName: true, webFetchName: true, listAgentsName: true,
 	toolSearchName: true, toolDescribeName: true, toolCallName: true}
 

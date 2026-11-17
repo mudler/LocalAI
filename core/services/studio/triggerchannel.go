@@ -106,8 +106,13 @@ func (h *Triggers) deliverChannel(ctx context.Context, t triggers.Trigger, body 
 	// it must still be the owner's own, which the capability check below also
 	// enforces.
 	b, err := c.o.Store.GetBinding(ctx, t.Route.ChannelBinding())
-	if err != nil || !b.Enabled || b.Owner != t.Owner {
+	if err != nil || !b.Enabled || b.Owner != principal(t.Owner) {
 		return refuse("the binding is off")
+	}
+	// The kind of the connection may have changed since the trigger was made
+	// (the add-on is gone, or now declares a service that only tools use).
+	if !c.canReceiveReports(ctx, b) {
+		return refuse("the connection cannot receive reports")
 	}
 	kind, _, terr := ChannelTarget(b, t.Route.Channel)
 	switch {

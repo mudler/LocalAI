@@ -52,6 +52,13 @@ type connectionRow struct {
 // agentOptional), so no kind is named here.
 func kindCanReceive(k *contract.ConnectorKind) bool { return k != nil && !k.NoAgentAllowed() }
 
+// canReceiveReports says whether the binding can be the destination of a
+// report now: its kind runs and can receive, and the binding is not credentials
+// only. Setting a destination, confirming and delivering all use it.
+func (c *Connectors) canReceiveReports(ctx context.Context, b connectors.Binding) bool {
+	return kindCanReceive(c.kindOf(ctx, b)) && !b.CredentialsOnly()
+}
+
 // kinds of the connector add-ons that run now.
 func (c *Connectors) runningKinds(ctx context.Context) []contract.ConnectorKind {
 	if c == nil || c.o.Transport == nil {
@@ -91,7 +98,7 @@ func (c *Connectors) ownBinding(ctx context.Context, owner, id string) (connecto
 		return connectors.Binding{}, false
 	}
 	for _, b := range all {
-		if b.ID == id && b.Owner == principal(owner) {
+		if b.ID == id && principal(b.Owner) == principal(owner) {
 			return b, true
 		}
 	}
@@ -123,11 +130,11 @@ func (h *Triggers) listConnectionsTool(ctx context.Context, c builtins.Chat) (st
 	}
 	rows := make([]connectionRow, 0, len(all))
 	for _, b := range all {
-		if b.Owner != owner {
+		if principal(b.Owner) != owner {
 			continue
 		}
 		k := conns.kindOf(ctx, b)
-		row := connectionRow{ID: b.ID, Kind: b.Kind, Name: b.Name, Enabled: b.Enabled, CanReceiveReport: kindCanReceive(k) && !b.CredentialsOnly()}
+		row := connectionRow{ID: b.ID, Kind: b.Kind, Name: b.Name, Enabled: b.Enabled, CanReceiveReport: conns.canReceiveReports(ctx, b)}
 		if k != nil {
 			row.KindTitle = k.Title
 		}
@@ -245,8 +252,7 @@ func (h *Triggers) checkConnectionChannel(ctx context.Context, c builtins.Chat, 
 	if !ok {
 		return "", fmt.Errorf("%q is not one of the user's connections; call list_connections and use an id from it", connection)
 	}
-	k := conns.kindOf(ctx, b)
-	if !kindCanReceive(k) || b.CredentialsOnly() {
+	if !conns.canReceiveReports(ctx, b) {
 		can, _ := conns.receivingKinds(ctx)
 		hint := "no installed add-on offers a connection that can receive a report"
 		if len(can) > 0 {
@@ -316,7 +322,7 @@ func (h *Triggers) checkLiveConnection(ctx context.Context, t triggers.Trigger) 
 		return bad("connections to messaging apps are off on this server, so this trigger cannot report to a channel")
 	}
 	b, ok := conns.ownBinding(ctx, t.Owner, t.Route.Connection)
-	if !ok || !b.Enabled || !kindCanReceive(conns.kindOf(ctx, b)) || b.CredentialsOnly() {
+	if !ok || !b.Enabled || !conns.canReceiveReports(ctx, b) {
 		return bad("the connection that this trigger reports to is gone or switched off; ask for the trigger again")
 	}
 	if kind, _, err := ChannelTarget(b, t.Route.Channel); err != nil || kind != SendChannel {
