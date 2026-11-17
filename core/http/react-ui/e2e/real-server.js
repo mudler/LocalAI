@@ -18,12 +18,12 @@ function freePort() {
   })
 }
 
-export async function startRealServer({ auth = false, withModel = true, env = {} } = {}) {
+export async function startRealServer({ auth = false, withModel = true, contextSize = 0, env = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'localai-real-'))
   const models = path.join(dir, 'models')
   fs.mkdirSync(models, { recursive: true })
   if (withModel) {
-    fs.writeFileSync(path.join(models, 'mock-model.yaml'), 'name: mock-model\nbackend: mock-backend\nknown_usecases:\n  - chat\nparameters:\n  model: mock-model.bin\n')
+    fs.writeFileSync(path.join(models, 'mock-model.yaml'), `name: mock-model\nbackend: mock-backend\nknown_usecases:\n  - chat\n${contextSize ? `context_size: ${contextSize}\n` : ''}parameters:\n  model: mock-model.bin\n`)
   }
   const port = await freePort()
   const args = ['run', '--address', `127.0.0.1:${port}`, '--models-path', models, '--data-path', path.join(dir, 'data'),
