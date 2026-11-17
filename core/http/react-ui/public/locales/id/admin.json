@@ -211,10 +211,6 @@
       "truncatedWarning": "Menampilkan 200 key teratas. Terapkan filter untuk mempersempit pencarian."
     }
   },
-  "explorer": {
-    "title": "Penjelajah",
-    "subtitle": "Jelajahi file dan konfigurasi"
-  },
   "operate": {
     "overview": {
       "title": "Ikhtisar",

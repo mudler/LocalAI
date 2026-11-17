@@ -1085,10 +1085,10 @@ The head will start its 2 local ranks, listen on `10.0.0.1:32100`, and wait for 
 
 ### Follower nodes
 
-Each follower runs `local-ai p2p-worker vllm` with matching topology, an explicit start rank, and the head's address:
+Each follower runs `local-ai worker vllm` with matching topology, an explicit start rank, and the head's address (the old name, `local-ai p2p-worker vllm`, still works):
 
 ```bash
-local-ai p2p-worker vllm \
+local-ai worker vllm \
   moonshotai/Kimi-K2.6-Instruct \
   --data-parallel-size 4 \
   --data-parallel-size-local 2 \
@@ -1122,7 +1122,7 @@ engine_args:
 
 ```bash
 # On 10.0.0.2 (follower)
-local-ai p2p-worker vllm moonshotai/Kimi-K2.6-Instruct \
+local-ai worker vllm moonshotai/Kimi-K2.6-Instruct \
   --data-parallel-size 8 --data-parallel-size-local 4 --start-rank 4 \
   --master-addr 10.0.0.1 --master-port 32100 \
   --register-to http://10.0.0.1:8080 --registration-token changeme

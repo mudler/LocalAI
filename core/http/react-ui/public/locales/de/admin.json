@@ -188,10 +188,6 @@
     "title": "Nutzung",
     "subtitle": "API-Token-Nutzungsstatistiken"
   },
-  "explorer": {
-    "title": "Explorer",
-    "subtitle": "Dateien und Konfiguration durchsuchen"
-  },
   "operate": {
     "overview": {
       "title": "Overview",

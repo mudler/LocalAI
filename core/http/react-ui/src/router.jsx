@@ -130,7 +130,6 @@ const ModelPage = page(null, () => import('./pages/ModelPage'))
 // PipelineEditor removed — the Model Editor with templates handles all model types
 const ImportModel = page(null, () => import('./pages/ImportModel'))
 const BackendLogs = page(null, () => import('./pages/BackendLogs'))
-const Explorer = page(null, () => import('./pages/Explorer'))
 const Login = page(null, () => import('./pages/Login'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
 const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
@@ -380,10 +379,6 @@ export const router = createBrowserRouter([
   {
     path: '/invite/:code',
     element: <Login />,
-  },
-  {
-    path: '/explorer',
-    element: <Explorer />,
   },
   {
     path: '/app',

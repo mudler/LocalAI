@@ -188,10 +188,6 @@
     "title": "使用情况",
     "subtitle": "API 令牌使用统计"
   },
-  "explorer": {
-    "title": "资源浏览器",
-    "subtitle": "浏览文件和配置"
-  },
   "operate": {
     "overview": {
       "title": "Overview",
