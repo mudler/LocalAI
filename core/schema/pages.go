@@ -36,14 +36,13 @@ type PagesPage struct {
 	// shared folder) has user_shared set: no administrator checked it, and the
 	// trust sheet says who wrote it. role is what you may do with it: view
 	// (run it and read its data), use (also save data through it) or edit
-	// (also change its code). owner_id and owner_name are the person whose home
+	// (also change its code). owner_name is the person whose home
 	// holds it; author_name is who last wrote its index.html. turned_off is set
 	// when an administrator turned such pages off: the page is listed and does
 	// not open. Such a page has no folder and no path, which would name the
 	// owner's account.
 	UserShared bool   `json:"user_shared,omitempty"`
 	Role       string `json:"role,omitempty"`
-	OwnerID    string `json:"owner_id,omitempty"`
 	OwnerName  string `json:"owner_name,omitempty"`
 	TurnedOff  bool   `json:"turned_off,omitempty"`
 	// SharedWith is, on one of your own pages, how many accounts you shared it

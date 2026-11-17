@@ -64,7 +64,7 @@ func (h *Handlers) sharedJSON(c echo.Context, p pages.Page, consent string) sche
 		// The folder of the page is the owner's page folder: its path would
 		// name the owner's account.
 		out.Folder, out.Path = "", ""
-		out.UserShared, out.Role, out.OwnerID, out.TurnedOff = true, p.Role, p.OwnerID, p.TurnedOff
+		out.UserShared, out.Role, out.TurnedOff = true, p.Role, p.TurnedOff
 		out.OwnerName = h.svc.UserName(c.Request().Context(), p.OwnerID)
 	}
 	out.CodeFiles = append([]string{}, p.CodeFiles...)

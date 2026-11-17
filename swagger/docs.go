@@ -36747,9 +36747,6 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "owner_id": {
-                    "type": "string"
-                },
                 "owner_name": {
                     "type": "string"
                 },
@@ -36788,7 +36785,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_shared": {
-                    "description": "A page that a person shared from their own home (not an administrator's\nshared folder) has user_shared set: no administrator checked it, and the\ntrust sheet says who wrote it. role is what you may do with it: view\n(run it and read its data), use (also save data through it) or edit\n(also change its code). owner_id and owner_name are the person whose home\nholds it; author_name is who last wrote its index.html. turned_off is set\nwhen an administrator turned such pages off: the page is listed and does\nnot open. Such a page has no folder and no path, which would name the\nowner's account.",
+                    "description": "A page that a person shared from their own home (not an administrator's\nshared folder) has user_shared set: no administrator checked it, and the\ntrust sheet says who wrote it. role is what you may do with it: view\n(run it and read its data), use (also save data through it) or edit\n(also change its code). owner_name is the person whose home\nholds it; author_name is who last wrote its index.html. turned_off is set\nwhen an administrator turned such pages off: the page is listed and does\nnot open. Such a page has no folder and no path, which would name the\nowner's account.",
                     "type": "boolean"
                 },
                 "widget": {

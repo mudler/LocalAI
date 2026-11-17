@@ -64,7 +64,7 @@ func (t *Trust) State(ctx context.Context, principal string, p Page) (Review, er
 	case !ok:
 		return Review{State: StateNone}, nil
 	case c.Hash == p.Hash:
-		return Review{State: StateAllowed, Allowed: &c, Embed: c.Embed}, nil
+		return Review{State: StateAllowed, Allowed: &c, Embed: c.Embed && !p.UserShared}, nil
 	}
 	return Review{State: StateChanged, Allowed: &c}, nil
 }

@@ -220,7 +220,7 @@ var _ = Describe("Chats page sharing endpoints", func() {
 		Expect(p).To(HaveKeyWithValue("source", "shared"))
 		Expect(p).To(HaveKeyWithValue("user_shared", true))
 		Expect(p).To(HaveKeyWithValue("role", "view"))
-		Expect(p).To(HaveKeyWithValue("owner_id", "alice"))
+		Expect(p).NotTo(HaveKey("owner_id"), "the account ID of the owner is not sent")
 		Expect(p).To(HaveKeyWithValue("owner_name", "alice"), "the name the studio knows; the account ID when it knows none")
 		Expect(p).To(HaveKeyWithValue("author_id", "alice"))
 		Expect(p).To(HaveKeyWithValue("author_name", "alice"))
