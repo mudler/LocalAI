@@ -1,6 +1,7 @@
 package studio
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -44,6 +45,20 @@ func loopJSON(l loops.Loop) schema.ChatsLoop {
 	if l.Watch != nil {
 		out.Kind = "wait"
 		out.Watch = waitJSON(l)
+	}
+	if l.Report != nil {
+		out.Report = &schema.ChatsLoopReport{Connection: l.Report.Connection, Channel: l.Report.Channel, Mode: l.Report.Mode}
+	}
+	return out
+}
+
+// namedLoopJSON is loopJSON with the names that the owner gave to the
+// destination of the report, so that a screen can say where the loop reports.
+func namedLoopJSON(ctx context.Context, host *studiosvc.Loops, l loops.Loop) schema.ChatsLoop {
+	out := loopJSON(l)
+	if out.Report != nil && host != nil {
+		v := host.ReportOf(ctx, l)
+		out.Report.ConnectionName, out.Report.ChannelLabel = v.ConnectionName, v.ChannelLabel
 	}
 	return out
 }
@@ -146,10 +161,10 @@ func redactURLs(s string) string {
 	return s
 }
 
-func loopsJSON(list []loops.Loop) []schema.ChatsLoop {
+func loopsJSON(ctx context.Context, host *studiosvc.Loops, list []loops.Loop) []schema.ChatsLoop {
 	out := make([]schema.ChatsLoop, 0, len(list))
 	for _, l := range list {
-		out = append(out, loopJSON(l))
+		out = append(out, namedLoopJSON(ctx, host, l))
 	}
 	return out
 }
@@ -171,7 +186,7 @@ func (h *Handlers) ListLoops(c echo.Context) error {
 	if err != nil {
 		return failLoop(c, err)
 	}
-	return c.JSON(http.StatusOK, schema.ChatsLoopList{Loops: loopsJSON(list), Jobs: h.jobsOf(c, userID(c), c.Param("id"))})
+	return c.JSON(http.StatusOK, schema.ChatsLoopList{Loops: loopsJSON(c.Request().Context(), host, list), Jobs: h.jobsOf(c, userID(c), c.Param("id"))})
 }
 
 // StartLoop starts a loop in a chat.
@@ -225,7 +240,7 @@ func (h *Handlers) SetLoopState(c echo.Context) error {
 	if err != nil {
 		return failLoop(c, err)
 	}
-	return c.JSON(http.StatusOK, loopJSON(l))
+	return c.JSON(http.StatusOK, namedLoopJSON(c.Request().Context(), host, l))
 }
 
 // StopLoop stops one loop of a chat for good.

@@ -7922,7 +7922,7 @@ const docTemplate = `{
         },
         "/api/chats/mcp-connectors/{id}/test": {
             "post": {
-                "description": "Connects with the stored definition, with the same address and credential checks as a chat, and lists the tools, with the description each one has in tool_details. It works for a connector that is switched off. A server that cannot be used is a 200 with ok false and the reason, which never holds a header value.",
+                "description": "Connects with the stored definition, with the same address and credential checks as a chat, and lists the tools, with the description each one has in tool_details. It works for a connector that is switched off. A server that cannot be used is a 200 with ok false and the reason, which never holds a header value. When a local command fails, output holds the last text it wrote to its error stream, with secrets removed.",
                 "tags": [
                     "chats"
                 ],
@@ -29813,6 +29813,14 @@ const docTemplate = `{
                     "description": "Reason says why the loop is paused or ended, or why it waits.",
                     "type": "string"
                 },
+                "report": {
+                    "description": "Report is set when the loop tells you in a messaging app how it ended.\nA loop with no report sends nothing.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsLoopReport"
+                        }
+                    ]
+                },
                 "running": {
                     "description": "Running is true while a run of the loop goes on in the chat.",
                     "type": "boolean"
@@ -29864,6 +29872,29 @@ const docTemplate = `{
                 },
                 "run": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsLoopReport": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    "description": "Channel is the id of the channel, and ChannelLabel its name; empty when\nthe channel has none or is gone.",
+                    "type": "string"
+                },
+                "channel_label": {
+                    "type": "string"
+                },
+                "connection": {
+                    "description": "Connection is the id of the connection, and ConnectionName the name you\ngave it; empty when the connection is gone.",
+                    "type": "string"
+                },
+                "connection_name": {
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "Mode is on_done (the summary of a finished loop) or on_problem (a run\nfails, the loop stops at a limit, or the system stops it).",
+                    "type": "string"
                 }
             }
         },
@@ -30018,6 +30049,10 @@ const docTemplate = `{
                 },
                 "ok": {
                     "type": "boolean"
+                },
+                "output": {
+                    "description": "Output is what a local command wrote to its error stream before it\nfailed, with secrets removed. It is absent for a remote server and for\na silent command.",
+                    "type": "string"
                 },
                 "tool_details": {
                     "description": "ToolDetails is each tool with the description its server gives, in the\norder of tools.",

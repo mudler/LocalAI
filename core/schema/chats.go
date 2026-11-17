@@ -559,6 +559,26 @@ type ChatsLoop struct {
 	LastRun *time.Time `json:"last_run,omitempty"`
 	// Watch is set when Kind is "wait": what it watches and how the checks go.
 	Watch *ChatsWait `json:"watch,omitempty"`
+	// Report is set when the loop tells you in a messaging app how it ended.
+	// A loop with no report sends nothing.
+	Report *ChatsLoopReport `json:"report,omitempty"`
+}
+
+// ChatsLoopReport is where a loop reports and when. The model sets it with
+// start_loop, only for a connection of yours and a channel that you approved
+// for it; the destination is checked again each time the loop reports.
+type ChatsLoopReport struct {
+	// Connection is the id of the connection, and ConnectionName the name you
+	// gave it; empty when the connection is gone.
+	Connection     string `json:"connection"`
+	ConnectionName string `json:"connection_name,omitempty"`
+	// Channel is the id of the channel, and ChannelLabel its name; empty when
+	// the channel has none or is gone.
+	Channel      string `json:"channel"`
+	ChannelLabel string `json:"channel_label,omitempty"`
+	// Mode is on_done (the summary of a finished loop) or on_problem (a run
+	// fails, the loop stops at a limit, or the system stops it).
+	Mode string `json:"mode"`
 }
 
 // ChatsWait is the state of a wait, in fields a client can show as they are.

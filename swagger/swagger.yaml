@@ -8628,6 +8628,12 @@ definitions:
       reason:
         description: Reason says why the loop is paused or ended, or why it waits.
         type: string
+      report:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsLoopReport'
+        description: |-
+          Report is set when the loop tells you in a messaging app how it ended.
+          A loop with no report sends nothing.
       running:
         description: Running is true while a run of the loop goes on in the chat.
         type: boolean
@@ -8663,6 +8669,28 @@ definitions:
         type: string
       run:
         type: integer
+    type: object
+  schema.ChatsLoopReport:
+    properties:
+      channel:
+        description: |-
+          Channel is the id of the channel, and ChannelLabel its name; empty when
+          the channel has none or is gone.
+        type: string
+      channel_label:
+        type: string
+      connection:
+        description: |-
+          Connection is the id of the connection, and ConnectionName the name you
+          gave it; empty when the connection is gone.
+        type: string
+      connection_name:
+        type: string
+      mode:
+        description: |-
+          Mode is on_done (the summary of a finished loop) or on_problem (a run
+          fails, the loop stops at a limit, or the system stops it).
+        type: string
     type: object
   schema.ChatsLoopRequest:
     properties:
@@ -8775,6 +8803,12 @@ definitions:
         type: string
       ok:
         type: boolean
+      output:
+        description: |-
+          Output is what a local command wrote to its error stream before it
+          failed, with secrets removed. It is absent for a remote server and for
+          a silent command.
+        type: string
       tool_details:
         description: |-
           ToolDetails is each tool with the description its server gives, in the
@@ -22819,7 +22853,8 @@ paths:
         credential checks as a chat, and lists the tools, with the description each
         one has in tool_details. It works for a connector that is switched off. A
         server that cannot be used is a 200 with ok false and the reason, which never
-        holds a header value.
+        holds a header value. When a local command fails, output holds the last text
+        it wrote to its error stream, with secrets removed.
       parameters:
       - description: the connector's id
         in: path

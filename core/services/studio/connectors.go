@@ -171,6 +171,10 @@ type Connectors struct {
 	smu     sync.Mutex
 	senders map[string]*senderState
 
+	// chatSends counts the messages that the model of a chat in Studio wrote
+	// with send_message (see sendlimit.go).
+	chatSends sendLimiter
+
 	amu2         sync.Mutex
 	accountTried map[string]time.Time // by binding: when this process last asked its add-on for its account
 

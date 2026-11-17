@@ -371,7 +371,7 @@ func (h *Handlers) Get(c echo.Context) error {
 		if err != nil {
 			return failFor(c, err)
 		}
-		out.Loops = loopsJSON(list)
+		out.Loops = loopsJSON(c.Request().Context(), host, list)
 	}
 	out.Jobs = h.jobsOf(c, user, id)
 	return c.JSON(http.StatusOK, out)
