@@ -262,6 +262,9 @@ test('(b) a View grantee can read the page and gets 403 when it saves', async ({
 test('(c) a Use grantee cannot write code through the bridge, Files, the folder routes or a chat', async ({ browser }) => {
   const { context: gc, page: gus } = await as(browser, 'gus')
   const ref = await sharedRef('gus')
+  const { context: oc0, page: owner0 } = await as(browser, 'olivia')
+  ownerPage = owner0
+  await owner0.goto('/app/pages')
   await gus.goto(sharedPath(ref))
   await expect(gus.getByTestId('trust-sheet')).toHaveCount(0) // the consent of (a) is "once"
   await gus.getByTestId('trust-allow').click()
@@ -281,6 +284,22 @@ test('(c) a Use grantee cannot write code through the bridge, Files, the folder 
   expect(await clickAndStatus(gus, '#add')).toBe(200)
   const html = await (await ctx.olivia.get('/api/chats/pages/todo')).json()
   expect(html.html).toBe(TODO_HTML)
+
+  // A grantee cannot list, change or take back the shares of the owner's page
+  // (the routes take the caller's own pages), and cannot share it onward. The
+  // answer is the one for a page that does not exist.
+  const none = await gus.evaluate(async () => (await fetch('/api/chats/pages/nosuchpage/shares', { headers: { 'X-LocalAI-Confirm': 'nosuchpage' } })).status)
+  expect(none).toBe(403)
+  for (const [method, path, body] of [
+    ['GET', '/api/chats/pages/todo/shares'],
+    ['PUT', '/api/chats/pages/todo/shares', { principal: ids.theo, role: 'view' }],
+    ['DELETE', `/api/chats/pages/todo/shares/${ids.vera}`],
+  ]) {
+    const r = await fetchAs(gus, method, path, body, 'todo')
+    expect(r.status, `${method} ${path}`).toBe(none)
+  }
+  expect((await ctx.vera.get('/api/chats/pages/todo/shares')).status()).toBeGreaterThanOrEqual(400)
+  expect((await grantsOf()).grants.some(g => g.userId === ids.theo)).toBe(false)
 
   // Files reaches the caller's own home only: the owner's page is not there.
   const tree = JSON.stringify(await (await ctx.gus.get('/api/chats/files?path=/')).json())
@@ -327,6 +346,7 @@ test('(c) a Use grantee cannot write code through the bridge, Files, the folder 
   const chatId = gus.url().split('/').pop()
   await expect.poll(async () => (await (await ctx.gus.get(`/api/chats/${chatId}`)).json()).running, { timeout: 60_000 }).toBe(false)
   expect(await ownerRead('index.html')).toBe(TODO_HTML)
+  await oc0.close()
   await gc.close()
 })
 
