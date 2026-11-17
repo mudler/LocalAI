@@ -29,12 +29,6 @@ const (
 	// chat template, for models whose engine path reads the GGUF as it is
 	// (Qwen3.6-35B-A3B).
 	packToolTokenizer = "tokenizer"
-	// packToolDSV41 is tools/dsv41/pack_gguf.py: the pack of a DeepSeek V4.1
-	// GGUF set (tensor map, n-gram table index, tokenizer, chat template).
-	// The files it names stay where they are. It takes the model directory,
-	// not one shard, and the files to read through pack_args (--shards,
-	// --engram, --engram-meta, --dspark-gguf).
-	packToolDSV41 = "dsv41"
 
 	defaultPackTimeout = 2 * time.Hour
 	packTailLines      = 20
@@ -58,9 +52,6 @@ func packMarkers(tool string) []string {
 	switch tool {
 	case packToolTokenizer:
 		return []string{filepath.Join("tokenizer", "vocab.json"), filepath.Join("tokenizer", "chat_template.jinja")}
-	case packToolDSV41:
-		// pack_gguf.py writes the tokenizer last.
-		return []string{"ds4.txt", "tensors.txt", "engram.bin", filepath.Join("tokenizer", "vocab.json"), filepath.Join("tokenizer", "chat_template.jinja")}
 	}
 	return []string{"native_experts.txt", "index.txt", filepath.Join("tokenizer", "vocab.json")}
 }
@@ -80,8 +71,6 @@ func packScript(tool string) string {
 	switch tool {
 	case packToolTokenizer:
 		return filepath.Join("tools", "strata_tokenizer.py")
-	case packToolDSV41:
-		return filepath.Join("tools", "dsv41", "pack_gguf.py")
 	}
 	return filepath.Join("tools", "iq_pack.py")
 }
@@ -121,25 +110,9 @@ func runPackBuild(b packBuild) error {
 	defer cancel()
 
 	args := append([]string{b.script, "--gguf", b.gguf, "--out", stage}, b.args...)
-	dir := ""
-	if b.tool == packToolDSV41 {
-		// The tool reads every GGUF of the model from one directory and writes
-		// their paths into the pack relative to it. The files in pack_args are
-		// relative to the same directory, so run the tool there.
-		abs, err := filepath.Abs(filepath.Dir(b.gguf))
-		if err != nil {
-			return err
-		}
-		if stage, err = filepath.Abs(stage); err != nil {
-			return err
-		}
-		dir = abs
-		args = append([]string{b.script, "--model", abs, "--out", stage}, b.args...)
-	}
 	xlog.Info("strata: building the pack from the GGUF files (first load only)", "tool", b.tool, "gguf", filepath.Base(b.gguf))
 	start := time.Now()
 	cmd := exec.CommandContext(ctx, b.python, args...) // #nosec G204 -- the interpreter and the arguments come from the model config; the script path is under strata_root
-	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 	r, w := io.Pipe()
 	cmd.Stdout, cmd.Stderr = w, w
