@@ -48,6 +48,12 @@ var _ = Describe("working files", func() {
 			{"/shared/X", "/users/a/X", false},
 			{"/users/a/X", "/users/a/LocalAI/X", false},
 			{"/users/a/X", "/users/a/Projects/.skills", false},
+			{"/users/a/pages/todo", "/users/a/pages/tasks", true},
+			{"/users/a/pages/todo", "/users/b/pages/todo", false},
+			{"/users/a/pages/todo", "/users/a/pages/todo/inner", false},
+			{"/users/a/pages/todo", "/users/a/pages", false},
+			{"/users/a/X", "/users/a/pages/tasks", false},
+			{"/users/a/pages/todo/data", "/users/a/pages/tasks", false},
 		} {
 			Expect(workfiles.GrantsMayMove(c.from, c.to)).To(Equal(c.want), c.from+" -> "+c.to)
 		}

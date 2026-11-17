@@ -71,12 +71,24 @@ func HomeOf(p string) (principal, rel string, ok bool) {
 // grant moves with its folder, so the move must not take it into another
 // home (where the owner of that home did not give it and its giver can no
 // longer take it back) or out of a home or into one, and must not take it
-// into a folder that Managed reports.
+// into a folder that Managed reports. The one exception is a page: the folder
+// pages/<name> of a home, which its owner may share, can be renamed to another
+// pages/<name> of the same home, and its grants follow it.
 func GrantsMayMove(from, to string) bool {
-	fromOwner, _, fromHome := HomeOf(from)
+	fromOwner, fromRel, fromHome := HomeOf(from)
 	toOwner, toRel, toHome := HomeOf(to)
 	if fromHome != toHome || fromOwner != toOwner {
 		return false
 	}
+	if toHome && isPageFolder(fromRel) && isPageFolder(toRel) {
+		return true
+	}
 	return !toHome || !Managed(toRel)
+}
+
+// isPageFolder reports whether rel, a path inside a home, is the folder of one
+// page: pages/<name>, one level below pages/.
+func isPageFolder(rel string) bool {
+	segs := strings.Split(strings.Trim(rel, "/"), "/")
+	return len(segs) == 2 && strings.EqualFold(segs[0], PagesDir) && segs[1] != ""
 }
