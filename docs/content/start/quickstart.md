@@ -10,7 +10,7 @@ keywords = ["quickstart", "install", "first model", "run", "getting started"]
 
 {{< diagram "quickstart-journey" "Quickstart in four steps: install with the script, Docker or the desktop app; start LocalAI; pick a model; talk to it in the web UI or the API. Then build an agent, install add-ons or add machines." >}}
 
-Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, plus coding, even small apps. No GPU needed for the engine, and a GPU makes it faster.
+Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, and the assistant can write and run code. No GPU needed for the engine, and a GPU makes it faster.
 
 ## Install and start LocalAI
 
