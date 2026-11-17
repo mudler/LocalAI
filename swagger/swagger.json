@@ -36836,7 +36836,7 @@
                     "type": "string"
                 },
                 "shared_allowed": {
-                    "description": "SharedAllowed is, on the page you read with GET /api/chats/pages/{name},\nhow many of the named accounts it is shared with allowed its current\nversion, so that the page can say how many will be asked again.",
+                    "description": "SharedAllowed is, on the page you read with GET /api/chats/pages/{name},\nhow many of the named accounts it is shared with allowed its current\nversion, so that the page can say how many will be asked again. The page\nthen also has hash, the version they allowed or not.",
                     "type": "integer"
                 },
                 "shared_with": {

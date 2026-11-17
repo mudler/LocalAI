@@ -55,7 +55,8 @@ type PagesPage struct {
 	OthersCanEdit bool `json:"others_can_edit,omitempty"`
 	// SharedAllowed is, on the page you read with GET /api/chats/pages/{name},
 	// how many of the named accounts it is shared with allowed its current
-	// version, so that the page can say how many will be asked again.
+	// version, so that the page can say how many will be asked again. The page
+	// then also has hash, the version they allowed or not.
 	SharedAllowed int `json:"shared_allowed,omitempty"`
 	// SharedWith is, on one of your own pages, how many accounts you shared it
 	// with (everyone counts as one).

@@ -189,6 +189,11 @@ func (h *Handlers) GetPage(c echo.Context) error {
 	if f, err := h.svc.SharedFolders().PageGrants(ctx, fc.a, p.Name); err == nil && len(f.Members) > 0 {
 		if sh, err := h.pageShareJSON(c, fc, p.Name, f); err == nil {
 			out.Page.SharedWith, out.Page.SharedAllowed = len(f.Members), sh.AllowedCount
+			// The version that the grantees' consent is kept against: the page
+			// compares it between two reads to say that they will be asked again.
+			if out.Page.Hash == "" {
+				out.Page.Hash = sh.Hash
+			}
 		}
 	}
 	return c.JSON(http.StatusOK, out)
