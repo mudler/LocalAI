@@ -84,7 +84,12 @@ export const operateHub = {
       // it shows this host and what is loaded on it. With distributed mode on,
       // the Swarm tab takes over the same route.
       signals: [{ key: 'running', kind: 'count' }],
-      items: [{ path: '/app/nodes', labelKey: 'items.thisMachine', adminOnly: true, unlessFeature: 'distributed' }],
+      items: [
+        { path: '/app/nodes', labelKey: 'items.thisMachine', adminOnly: true, unlessFeature: 'distributed' },
+        // P2P works on a single server too (remotes, paired devices), so its
+        // pages sit here until distributed mode moves them under Swarm.
+        { path: '/app/p2p', labelKey: 'items.p2p', adminOnly: true, unlessFeature: 'distributed' },
+      ],
       match: ['/app/node-backend-logs'],
     },
     {
