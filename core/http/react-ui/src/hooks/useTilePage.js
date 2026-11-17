@@ -86,7 +86,7 @@ export function useTilePage(ref, { widget = true } = {}) {
     if (!src) return false
     setSheet((s) => ({ ...s, busy: true, error: '' }))
     try {
-      const res = await sharedPagesApi.allow(ref.folder, ref.name, src.page.hash, { once, embed: !once })
+      const res = await sharedPagesApi.allow(ref.folder, ref.name, src.page.hash, { once, embed: !once && src.page.user_shared !== true })
       setRun({ html: src.html, page: src.page, hash: res.hash, token: res.token || '' })
       setRead((r) => ({ ...r, consent: once ? r.consent : 'allowed', embed: once ? r.embed : true, once }))
       setSheet({ open: false, source: false, busy: false, error: '' })

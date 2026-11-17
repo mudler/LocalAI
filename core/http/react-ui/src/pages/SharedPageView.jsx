@@ -18,6 +18,8 @@ import './pages.css'
 
 const MAX_ASKS = 3
 const POLL = 30_000
+// The error types that say an administrator turned sharing off.
+const OFF_TYPES = new Set(['shared_pages_off', 'sharing_disabled'])
 let nextAsk = 0
 
 // The pill of the strip for each state of the consent (mockups 12, 13, 14).
@@ -73,7 +75,7 @@ export default function SharedPageView() {
       return res
     } catch (e) {
       if (quiet) return null
-      if (e?.body?.error?.type === 'shared_pages_off') setStatus('off')
+      if (OFF_TYPES.has(e?.body?.error?.type)) setStatus('off')
       else setStatus(e?.status === 404 || e?.status === 400 ? 'notfound' : 'error')
       setError(e?.message || '')
       return null
@@ -156,7 +158,7 @@ export default function SharedPageView() {
 
   const onRefused = useCallback((e) => {
     setRun(null)
-    setStopped(e?.body?.error?.type === 'shared_pages_off' ? 'off' : 'refused')
+    setStopped(OFF_TYPES.has(e?.body?.error?.type) ? 'off' : 'refused')
     setDeclined(true)
     load({ quiet: true })
   }, [load])
@@ -213,6 +215,9 @@ export default function SharedPageView() {
   const page = (run?.page) || src?.page
   const author = page ? (page.author_name || page.author_id) : ''
   const folderText = page ? folderLabel(page.folder) : ''
+  const userShared = page?.user_shared === true
+  // A page that a person shared shows no folder: the folder is theirs.
+  const inPath = userShared ? `pages/${name}` : `${folderText}/pages/${name}`
   let pill = 'notYet'
   if (run) pill = run.token ? 'once' : 'allowed'
   else if (src?.consent?.state === 'changed') pill = 'changed'
@@ -226,7 +231,7 @@ export default function SharedPageView() {
         <span className="icon-chip tone-primary pg-strip__chip"><Icon name="users" /></span>
         <div className="pg-strip__id">
           <h1 className="pg-strip__title">{page?.title || name}</h1>
-          <code className="pg-strip__path">{folderText}/pages/{name}</code>
+          <code className="pg-strip__path">{inPath}</code>
         </div>
         {page && (
           <div className="pg-strip__pills">
@@ -234,6 +239,12 @@ export default function SharedPageView() {
               <Icon name={PILL[pill].icon} /> {pillText}
             </span>
             <span className="pg-pill pg-pill--plain" data-testid="shared-author"><Icon name="user" /> {t('trust.from', { author })}</span>
+            {page.user_shared === true && ['view', 'use', 'edit'].includes(page.role) && (
+              <span className="pg-pill" data-testid="shared-role">{t(`share.role.${page.role}`)}</span>
+            )}
+            {page.user_shared === true && page.role === 'view' && (
+              <span className="pg-pill pg-pill--plain" data-testid="shared-view-only"><Icon name="eye" /> {t('share.viewOnly')}</span>
+            )}
             {run && <span className="pg-pill" title={t('view.runsAsYouHint')}><Icon name="user" /> {t('view.runsAsYou')}</span>}
           </div>
         )}
@@ -284,7 +295,7 @@ export default function SharedPageView() {
 
       <section className="pg-stage" aria-label={t('view.frameTitle', { title: page?.title || name })}>
         <div className="pg-stage__bar">
-          <Icon name="lock" /> {run ? t('viewer.sandboxShared', { folder: `${folderText}/pages/${name}` }) : t('trust.frame.chrome', { folder: folderText })}
+          <Icon name="lock" /> {run ? t('viewer.sandboxShared', { folder: inPath }) : (userShared ? t('trust.user.chrome') : t('trust.frame.chrome', { folder: folderText }))}
         </div>
         {status === 'loading' || !src ? (
           <div className="pg-stage__state" role="status"><Icon name="spinner" spin /> {t('view.loading')}</div>
@@ -313,7 +324,7 @@ export default function SharedPageView() {
             <span className="pg-blocked__icon" aria-hidden="true"><Icon name="lock" /></span>
             <h2 className="pg-blocked__title">{declined ? t('trust.blocked.title') : t('trust.waiting.title')}</h2>
             <p className="pg-blocked__body">
-              {stopped ? t(`trust.stopped.${stopped}`) : declined ? t('trust.blocked.body', { author, folder: folderText }) : t('trust.waiting.body')}
+              {stopped ? t(`trust.stopped.${stopped}`) : declined ? (userShared ? t('trust.user.blocked', { author }) : t('trust.blocked.body', { author, folder: folderText })) : t('trust.waiting.body')}
             </p>
             {stopped !== 'off' && (
               <div className="pg-blocked__acts">
