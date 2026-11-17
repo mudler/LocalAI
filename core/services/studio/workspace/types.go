@@ -16,8 +16,52 @@ type Mode int
 const (
 	ModeNone Mode = iota
 	ModeRead
+	// ModeData is read access plus writes to data files: the holder may
+	// create, change, move and delete files and folders whose names are not
+	// code (see IsCodeFile), and nothing else. A store enforces it on every
+	// change, so it holds for the Files routes and the page bridge alike.
+	ModeData
 	ModeWrite
 )
+
+// The stored form of a mode. The numbers of read and write are the ones that
+// grants have always had, so existing grants keep their meaning. Data is
+// stored as a negative number: a server that does not know the mode yet, in
+// the middle of a rolling upgrade, reads it as no access instead of as write
+// access.
+const (
+	storedRead  = 1
+	storedWrite = 2
+	storedData  = -1
+)
+
+// StoredMode returns the number a store keeps for a grant mode. A mode that
+// cannot be granted returns 0.
+func StoredMode(m Mode) int {
+	switch m {
+	case ModeRead:
+		return storedRead
+	case ModeData:
+		return storedData
+	case ModeWrite:
+		return storedWrite
+	}
+	return 0
+}
+
+// ModeFromStored is the reverse of StoredMode. A number that is not a stored
+// mode is ModeNone.
+func ModeFromStored(v int) Mode {
+	switch v {
+	case storedRead:
+		return ModeRead
+	case storedData:
+		return ModeData
+	case storedWrite:
+		return ModeWrite
+	}
+	return ModeNone
+}
 
 // Actor is who makes a call: a principal, the groups it belongs to (both
 // opaque IDs from the host application), and an optional chat ID.
@@ -452,6 +496,21 @@ type RootStore interface {
 type Grant struct {
 	Principal string
 	Mode      Mode
+	// Page is set on a grant that was made through GrantPage: the person who
+	// owns the folder shared it as a page. Only a store that implements
+	// PageGranter sets it.
+	Page bool
+}
+
+// PageGranter is a Store that can mark a grant as made through the page
+// routes. The mark is kept apart from the mode, so a general share of a
+// folder never carries it, and Grant clears it.
+type PageGranter interface {
+	// GrantPage is Grant with the page mark. Only the admin may call it.
+	GrantPage(ctx context.Context, admin Actor, principal, p string, m Mode) error
+	// PageShared reports whether the actor, or one of its groups, holds a
+	// grant with the page mark on the live folder p itself.
+	PageShared(ctx context.Context, a Actor, p string) (bool, error)
 }
 
 // GrantLister is a Store that lists the grants on one folder, so an

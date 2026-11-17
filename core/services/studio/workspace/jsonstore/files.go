@@ -21,7 +21,7 @@ func (s *Store) precheckPut(d *data, a workspace.Actor, segs []string) error {
 			target = ex
 		}
 	}
-	return s.needWrite(d, a, target)
+	return s.needChange(d, a, target)
 }
 
 func (s *Store) Put(ctx context.Context, a workspace.Actor, p string, r io.Reader, o workspace.PutOptions) (workspace.Node, error) {
