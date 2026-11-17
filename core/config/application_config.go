@@ -353,6 +353,12 @@ type ApplicationConfig struct {
 	// Runtime-toggleable via /api/settings (shared_pages_enabled).
 	DisableSharedPages bool
 
+	// DisableUserPageShares turns off the pages that people share from their
+	// own homes: nobody can share one, the ones already shared do not open
+	// and are listed as turned off, and their owners can still take them
+	// back. Runtime-toggleable via /api/settings (user_page_shares_enabled).
+	DisableUserPageShares bool
+
 	// DisablePageArea turns off the page area of Home for every user: a
 	// pageArea of home.json is ignored and the area says an administrator
 	// turned it off. Runtime-toggleable via /api/settings
@@ -1547,6 +1553,13 @@ func WithChatsHostExec(mode string) AppOption {
 func WithDisableSharedPages(disabled bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableSharedPages = disabled
+	}
+}
+
+// WithDisableUserPageShares turns off the pages that people share.
+func WithDisableUserPageShares(disabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableUserPageShares = disabled
 	}
 }
 

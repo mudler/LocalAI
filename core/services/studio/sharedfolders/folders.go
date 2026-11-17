@@ -154,6 +154,10 @@ type Options struct {
 	// the call returns, with the principal that lost access (Everyone for
 	// every account). The host stops the work that still holds the folder.
 	AccessLost func(ctx context.Context, principal string)
+	// PageShares says whether people may share pages and whether the pages
+	// they shared open. Nil: yes. When it says no, a person can still take a
+	// share back.
+	PageShares func() bool
 	Now        func() time.Time
 }
 
@@ -172,7 +176,7 @@ func New(o Options) *Service {
 	if o.Now == nil {
 		o.Now = time.Now
 	}
-	return &Service{o: o, pages: pages.New(o.Files), admin: workspace.Actor{Principal: files.AdminPrincipal}}
+	return &Service{o: o, pages: pages.New(o.Files, pages.WithUserShares(o.PageShares)), admin: workspace.Actor{Principal: files.AdminPrincipal}}
 }
 
 func (s *Service) store() (workspace.Store, error) {

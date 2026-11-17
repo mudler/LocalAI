@@ -81,7 +81,8 @@ func (t *Trust) Allow(ctx context.Context, principal string, folderID int64, nam
 // that also lets it run on Home and in the slots of the app (ui.json slots).
 // There a page starts as soon as the screen shows, without a click, so the
 // viewer says yes to that apart from opening the page. A changed page needs a
-// new consent, as for Allow.
+// new consent, as for Allow. A page that a person shared is never allowed
+// there (ErrNoEmbed): the code of a stranger does not start by itself.
 func (t *Trust) AllowEmbed(ctx context.Context, principal string, folderID int64, name, hash string) (Consent, error) {
 	return t.allow(ctx, principal, folderID, name, hash, false, true)
 }
@@ -93,6 +94,9 @@ func (t *Trust) allow(ctx context.Context, principal string, folderID int64, nam
 	}
 	if hash == "" || hash != p.Hash {
 		return Consent{}, ErrChanged
+	}
+	if embed && p.UserShared {
+		return Consent{}, ErrNoEmbed
 	}
 	now := t.now().UTC()
 	c := Consent{Principal: principal, PageID: p.PageID, Folder: p.Folder, Name: p.Name, Hash: p.Hash, Kind: ConsentAlways,
@@ -118,6 +122,27 @@ func (t *Trust) allow(ctx context.Context, principal string, folderID int64, nam
 	}
 	xlog.Info("pages: a shared page was allowed", "user", principal, "folder", p.Folder, "page", p.Name, "hash", p.Hash, "kind", c.Kind, "embed", c.Embed)
 	return c, nil
+}
+
+// ConsentStates returns, for each principal, whether it allowed the version
+// hash of the page pageID: StateNone, StateAllowed or StateChanged.
+func (t *Trust) ConsentStates(ctx context.Context, pageID int64, hash string, principals []string) (map[string]string, error) {
+	out := make(map[string]string, len(principals))
+	for _, p := range principals {
+		c, ok, err := t.store.Always(ctx, p, pageID)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case !ok:
+			out[p] = StateNone
+		case c.Hash == hash:
+			out[p] = StateAllowed
+		default:
+			out[p] = StateChanged
+		}
+	}
+	return out, nil
 }
 
 // Revoke removes the viewer's consents to a shared page. The page's open

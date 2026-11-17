@@ -265,6 +265,9 @@ type Deps struct {
 	// SharedPagesOn says whether the pages of shared folders are on; an
 	// administrator switches them at run time. Nil: on.
 	SharedPagesOn func() bool
+	// UserPageSharesOn says whether the pages that people share from their
+	// own homes are on; an administrator switches them at run time. Nil: on.
+	UserPageSharesOn func() bool
 	// PageAreaOn says whether the page area of Home is on; an administrator
 	// switches it at run time. Nil: on.
 	PageAreaOn func() bool
@@ -557,6 +560,11 @@ func New(d Deps) (*Service, error) {
 	if d.Connectors == nil && d.MCPConnectors != nil {
 		d.Connectors = d.MCPConnectors
 	}
+	if d.PageConsents == nil {
+		// One store for the endpoints and for the sharing service: a share
+		// that is taken back drops the consents in the same store.
+		d.PageConsents, _ = pages.NewJSONConsents("")
+	}
 	log := d.Logger
 	if log == nil {
 		log = slog.Default()
@@ -653,7 +661,7 @@ func New(d Deps) (*Service, error) {
 	s.registerMemorySlot()
 	s.ctxfiles = contextfiles.NewLoader(contextfiles.NewRegistry(), homeReader{f: d.Files}, log)
 	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers(),
-		Directory: d.FolderDirectory, AccessLost: s.folderAccessLost})
+		Directory: d.FolderDirectory, AccessLost: s.folderAccessLost, PageShares: s.UserPageSharesOn})
 	s.stopFolderWatch = s.bus.OnControl(folderAccessKey, s.onFolderAccess)
 	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.
 	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools,
@@ -1120,6 +1128,12 @@ func (s *Service) PageErrors() pages.ErrorStore { return s.d.PageErrors }
 
 // SharedPagesOn says whether the pages of shared folders are on now.
 func (s *Service) SharedPagesOn() bool { return s.d.SharedPagesOn == nil || s.d.SharedPagesOn() }
+
+// UserPageSharesOn says whether the pages that people share from their own
+// homes are on now.
+func (s *Service) UserPageSharesOn() bool {
+	return s.d.UserPageSharesOn == nil || s.d.UserPageSharesOn()
+}
 
 // PageAreaOn says whether the page area of Home is on now.
 func (s *Service) PageAreaOn() bool { return s.d.PageAreaOn == nil || s.d.PageAreaOn() }

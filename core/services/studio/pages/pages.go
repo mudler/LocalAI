@@ -70,6 +70,12 @@ var (
 	// ErrFolderReadOnly means the viewer may only read the shared folder of the
 	// page, so the page cannot write there either.
 	ErrFolderReadOnly = errors.New("pages: you can only read this shared folder, so the page cannot save here")
+	// ErrUserSharesOff means an administrator turned off the pages that
+	// people share from their own homes.
+	ErrUserSharesOff = errors.New("pages: pages that people share are turned off by an administrator")
+	// ErrNoEmbed means a page that a person shared cannot run on Home or in
+	// a slot, where it would start without a click.
+	ErrNoEmbed = errors.New("pages: a page that a person shared cannot run on Home or in a slot; open it to run it")
 )
 
 var nameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
@@ -139,6 +145,16 @@ type Page struct {
 	PageID    int64
 	Hash      string
 	MetaSize  int64 // of page.json, 0 when it has none
+	// UserShared is set on a shared page that a person shared from their own
+	// home through the page routes: no administrator vouched for it. Role is
+	// then what the viewer may do (RoleView, RoleUse or RoleEdit), OwnerID is
+	// the principal of the person whose home holds the page, and TurnedOff
+	// says that an administrator turned such pages off, so the page is listed
+	// and does not open.
+	UserShared bool
+	Role       string
+	OwnerID    string
+	TurnedOff  bool
 	// UpdatedAt and UpdatedBy are the last change to anything in the folder.
 	UpdatedAt time.Time
 	UpdatedBy string
@@ -210,6 +226,8 @@ type Service struct {
 	// errs keeps the runtime errors of the pages (see errors.go).
 	errs      ErrorStore
 	errorRate *limiter
+	// userShares says whether the pages that people share are on. Nil: on.
+	userShares func() bool
 }
 
 // Option configures a Service.
@@ -227,6 +245,12 @@ func WithErrorStore(st ErrorStore) Option {
 		}
 	}
 }
+
+// WithUserShares sets the switch of the pages that people share from their own
+// homes. Without it they are on.
+func WithUserShares(on func() bool) Option { return func(s *Service) { s.userShares = on } }
+
+func (s *Service) userSharesOn() bool { return s.userShares == nil || s.userShares() }
 
 // New returns the service on the files of the chats.
 func New(f *files.Service, opts ...Option) *Service {

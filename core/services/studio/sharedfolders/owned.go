@@ -27,7 +27,8 @@ import (
 // LocalAI manages there or reads with the owner's authority (LocalAI/, Chats/,
 // Memory/, pages/ or any .skills folder: workfiles.Managed). A folder that is
 // not one is ErrNotShareable, whatever the reason, so a caller cannot learn
-// what exists.
+// what exists. The one exception is a single page, pages/<name>, which the
+// page routes share (pageshares.go) and these routes still refuse.
 //
 // The owner sees and may revoke every grant on a folder of the home, whoever
 // made it and wherever it is, a managed folder included: a grant made before
@@ -301,6 +302,13 @@ func (s *Service) OwnSetMember(ctx context.Context, a workspace.Actor, id int64,
 	if mode != workspace.ModeRead && mode != workspace.ModeWrite {
 		return Folder{}, ErrBadMode
 	}
+	return s.setOwnMember(ctx, st, a, n, principal, mode, false)
+}
+
+// setOwnMember gives the grant on the folder n of the person a's home. page
+// marks a grant made through the page routes. The caller checked that the
+// person may share the folder and that the mode may be given.
+func (s *Service) setOwnMember(ctx context.Context, st workspace.Store, a workspace.Actor, n workspace.Node, principal string, mode workspace.Mode, page bool) (Folder, error) {
 	p, err := s.grantee(ctx, a.Principal, principal)
 	if err != nil {
 		return Folder{}, err
@@ -326,11 +334,21 @@ func (s *Service) OwnSetMember(ctx context.Context, a workspace.Actor, id int64,
 			}
 		}
 	}
-	if err := st.Grant(ctx, s.admin, p, n.Path, mode); err != nil {
+	if page {
+		pg, ok := st.(workspace.PageGranter)
+		if !ok {
+			return Folder{}, ErrSharingOff
+		}
+		err = pg.GrantPage(ctx, s.admin, p, n.Path, mode)
+	} else {
+		err = st.Grant(ctx, s.admin, p, n.Path, mode)
+	}
+	if err != nil {
 		return Folder{}, err
 	}
 	s.audit(ctx, Event{Actor: a.Principal, Action: ActionGrant, FolderID: n.ID, Folder: n.Path, Principal: p, Mode: mode})
 	if old > mode {
+		s.lostPageAccess(ctx, n, p)
 		s.accessLost(ctx, p)
 	}
 	return s.describeOwned(ctx, st, a.Principal, n)
@@ -349,6 +367,12 @@ func (s *Service) OwnRemoveMember(ctx context.Context, a workspace.Actor, id int
 	if err != nil {
 		return Folder{}, err
 	}
+	return s.removeOwnMember(ctx, st, a, n, principal)
+}
+
+// removeOwnMember takes away the grant of principal on the folder n of the
+// person a's home.
+func (s *Service) removeOwnMember(ctx context.Context, st workspace.Store, a workspace.Actor, n workspace.Node, principal string) (Folder, error) {
 	p := strings.TrimSpace(principal)
 	if p == "" || p == a.Principal {
 		return Folder{}, ErrUnknownUser
@@ -363,6 +387,7 @@ func (s *Service) OwnRemoveMember(ctx context.Context, a workspace.Actor, id int
 	}
 	s.audit(ctx, Event{Actor: a.Principal, Action: ActionRevoke, FolderID: n.ID, Folder: n.Path, Principal: p})
 	if had {
+		s.lostPageAccess(ctx, n, p)
 		s.accessLost(ctx, p)
 	}
 	return s.describeOwned(ctx, st, a.Principal, n)
@@ -379,6 +404,10 @@ func (s *Service) SearchAccounts(ctx context.Context, a workspace.Actor, id int6
 	if _, err := s.shareable(ctx, st, a, id); err != nil {
 		return nil, err
 	}
+	return s.searchAccounts(ctx, a, query, limit)
+}
+
+func (s *Service) searchAccounts(ctx context.Context, a workspace.Actor, query string, limit int) ([]User, error) {
 	if limit <= 0 || limit > maxSearch {
 		limit = maxSearch
 	}

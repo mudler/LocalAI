@@ -174,6 +174,12 @@ type RuntimeSettings struct {
 	// request, so switching them off stops open pages at their next call.
 	SharedPagesEnabled *bool `json:"shared_pages_enabled,omitempty"` // negation of DisableSharedPages
 
+	// Pages that people share from their own homes — read live on every
+	// request, like the pages of shared folders. Off: nobody can share a
+	// page, the pages already shared do not open and their owners can still
+	// take them back.
+	UserPageSharesEnabled *bool `json:"user_page_shares_enabled,omitempty"` // negation of DisableUserPageShares
+
 	// The page area of Home: a page of the user's workspace that fills the
 	// area below the composer. Read live on every list of pages, so switching
 	// it off hides the area at the next read.
