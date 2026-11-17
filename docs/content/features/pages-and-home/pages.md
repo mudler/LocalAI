@@ -257,3 +257,7 @@ user types.
 The rate limits are kept by each frontend. With several frontends, a page gets
 one budget on each. They protect against a page that loops, not against a
 person.
+
+<script>
+var m={"the-bridge":"../pages-reference/#the-bridge","chatsend":"../pages-reference/#chatsend","files-next-to-the-page":"../pages-reference/#files-next-to-the-page","links":"../pages-reference/#links","a-page-that-starts-a-run":"../pages-reference/#a-page-that-starts-a-run","a-page-on-home":"../pages-on-home/#a-page-on-home","a-page-in-a-slot":"../pages-on-home/#a-page-in-a-slot","live-frames-and-the-budget-of-a-tile":"../pages-on-home/#live-frames-and-the-budget-of-a-tile","shared-pages-in-a-slot-and-on-home":"../pages-on-home/#shared-pages-in-a-slot-and-on-home","a-page-in-the-page-area-of-home":"../pages-on-home/#a-page-in-the-page-area-of-home","when-the-page-does-not-load":"../pages-on-home/#when-the-page-does-not-load","a-start-page":"../pages-on-home/#a-start-page","the-dock":"../pages-on-home/#the-dock","the-sandbox":"../pages-reference/#the-sandbox","api":"../pages-reference/#api"};var h=decodeURIComponent((location.hash||"").slice(1));if(h&&m[h]&&!document.getElementById(h)){location.replace(m[h]);}
+</script>

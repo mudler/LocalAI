@@ -2,7 +2,7 @@
 disableToc = true
 title = "LocalAI documentation"
 linkTitle = "LocalAI docs"
-description = "Documentation for LocalAI: install it, run models of every kind behind an OpenAI-compatible API, build agents, and run it for a team."
+description = "Documentation for LocalAI: install it, run models of every kind behind an API in the OpenAI and Anthropic formats, build agents, and run it for a team."
 type = "home"
 keywords = ["documentation", "install", "quickstart", "team", "add-on", "sandbox", "office", "agents"]
 +++

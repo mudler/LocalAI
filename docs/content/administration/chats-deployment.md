@@ -29,6 +29,17 @@ only, whatever the features. A trigger or a connector whose owner loses its feat
 stops running: a trigger run is skipped with the reason, and the bot says it is not
 available. The owner can get the feature back without losing the definition.
 
+**Upgrading.** On the first start after the features were split, a one-time rule
+keeps what each existing user was using, and nothing else. The rule runs once; a
+user who registers later gets the defaults. A value an administrator stored
+always wins.
+
+- `agents`: kept if the user has the stored `agents` permission (the one the old
+  agent pool had) or owns a saved agent.
+- `triggers`: kept if the user owns a trigger, or had `agents` or `mcp_jobs`.
+- `connectors`: kept if the user owns a connector binding, or had `agents`.
+- `mcp_jobs`: stored as it was.
+
 ### What an administrator can see
 
 An administrator sees what every user has set up, each with its owner, and can

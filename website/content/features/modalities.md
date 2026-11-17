@@ -3,8 +3,8 @@ title: "Every modality"
 weight: 1
 card: "Text, images, video, music, speech and search behind one API."
 headline: 'Text, images, video, music and <span class="hl">voice</span>.'
-lede: "Send text, image, audio and video requests to one OpenAI-compatible API. Each request runs on the model you installed."
-description: "LocalAI runs open models for text, vision, images, video, music, speech, embeddings and reranking behind one OpenAI-compatible API."
+lede: "Send text, image, audio and video requests to one API in the OpenAI and Anthropic formats."
+description: "LocalAI runs open models for text, vision, images, video, music, speech, embeddings and reranking behind one API in the OpenAI and Anthropic formats."
 docs: "/docs/models/capabilities/"
 icon: "modalities"
 illus: "modalities"
@@ -21,7 +21,7 @@ points:
   - "The engine runs on a CPU, so it does not need a GPU. NVIDIA, AMD, Intel and Apple GPUs make it faster, and large image and video models need one to be practical."
   - "[Distributed mode](/docs/administration/distributed-mode/) spreads models over several machines."
 notes:
-  - "Animated video needs the Sandbox add-on, which an admin installs from the development catalog today, and a model that can call tools. A chat uses the media profile unless an admin limits the choice, and the first use pulls an image of about 384 MB."
+  - "Animated video needs the Sandbox add-on, which an admin installs from the development catalog today, and a model that can call tools. A chat uses the media profile unless an admin limits the choice. The first use pulls the media image."
   - "Each kind of model needs its own backend. LocalAI downloads it the first time a model needs it."
   - "The [compatibility table](/docs/models/compatibility-table/) lists the model families that run."
 ---

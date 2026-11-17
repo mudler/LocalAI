@@ -12,6 +12,8 @@ placeholders: ["release date", "release tag and release notes link", "PR, commit
 
 <!-- TODO owner: this post is a draft (draft: true keeps Hugo from publishing it). Publish it with the 5.0 tag: set the final date, remove `draft: true` and `placeholders`, and resolve every TODO comment below. Nothing in the post claims a number we have not counted. -->
 
+<!-- TODO owner: after the 5.0 tag, update the home banner (website/layouts/index.html "Coming in the next release" and the hard-coded 4.12.1 in index.html and get-started) and set `draft: false`. -->
+
 5.0 lets you give real work to a model you run yourself. Ask for a one-page summary of the notes in a folder, for example, and the chat reads them and saves a Word file in your Files. If you don't like what it did, the History tab has an Undo for that change.
 
 Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top. It runs on a laptop, a server, in a container or on Kubernetes. No GPU needed, though a GPU makes it faster. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing.
@@ -41,7 +43,7 @@ One server runs text, image, video, music and speech models. Each has its own en
 - **Speech**: text to speech, transcription, voice activity detection and speaker recognition. The Realtime API takes voice in and gives voice back. Text to speech and sound generation also accept the ElevenLabs format.
 - **Search**: embeddings and a reranker, for retrieval over your own data.
 
-Each kind of model needs its own backend. LocalAI downloads it the first time a model needs it, and the library has more than 80. The [compatibility table](/docs/models/compatibility-table/) lists which backend runs which model family, and [What models can do](/docs/models/capabilities/) has a page for each kind. For several machines, [distributed mode](/docs/administration/distributed-mode/) spreads models over a cluster.
+A model runs on a backend. LocalAI downloads the backend the first time you use a model that needs it. The library has more than 80. The [compatibility table](/docs/models/compatibility-table/) lists which backend runs which model family, and [What models can do](/docs/models/capabilities/) has a page for each kind. For several machines, [distributed mode](/docs/administration/distributed-mode/) spreads models over a cluster.
 
 ## Projects
 
@@ -70,7 +72,7 @@ A chat uses the same files. Attach a file to a message, or ask the model to read
 
 The Sandbox add-on gives a chat a `bash` tool that runs in an isolated runtime with your files mounted. Ask for "a bar chart of the numbers in sales.csv as a PNG", and the model reads the file, runs a Python script and saves the image in Files. What a command changed is saved as one change that you can undo.
 
-The Sandbox has no network by default, so `pip install` fails until an administrator allows package registries or public sites. A chat can ask for a wider setting, but never for more than the administrator allows. The Sandbox add-on is Linux only.
+The Sandbox has no network by default, so `pip install` fails until an administrator allows package registries or public sites. A chat can ask for a wider setting, but never for more than the administrator allows. The Sandbox add-on is for Linux today. Its macOS package for Apple silicon is built but not released yet.
 
 ## Share a folder with your team
 
@@ -92,7 +94,7 @@ An add-on runs as the operating system user that runs LocalAI. Install only add-
 
 ## Chats that live on the server
 
-The server now keeps your chats, so you can keep typing while the model works. The model can hand work to sub-agents, and a long chat is compacted for you ([#12918](https://github.com/mudler/LocalAI/pull/12918)). The OpenAI-compatible `/v1/chat/completions` endpoint is unchanged.
+Chats now run on the server, so a chat keeps working when you close the tab. The model can hand work to sub-agents, and a long chat is compacted for you ([#12918](https://github.com/mudler/LocalAI/pull/12918)). The OpenAI-compatible `/v1/chat/completions` endpoint is unchanged.
 
 ## A new look, and Home suggests a model for your machine
 
@@ -121,7 +123,7 @@ Open `http://localhost:8080`. For your first document, install the Simple Office
 ## Known limits
 
 - A release build reads the add-on library that was built and signed with that release. A source build reads the development channel, which can change.
-- The Sandbox needs Linux. No add-on is built for Windows yet.
+- The Sandbox add-on is for Linux today, and its macOS package for Apple silicon is not released yet. No add-on is built for Windows yet.
 - The add-on library needs a network connection. Without one, use a private library or an add-on zip file.
 
 <!-- TODO owner: contributors. Thank the people who landed work for 5.0 by name. Compute the list at the tag (prior-merged-count method of the release skill), no bots. -->

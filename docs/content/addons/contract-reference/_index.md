@@ -13,7 +13,7 @@ The version-one contracts in `pkg/addons/contract` define managed-process addons
 The owner installs, verifies, starts and supervises them, and a deployment with
 several frontends forwards every addon request to that owner over a pinned mutual
 TLS carrier. The routes are described in [Public API]({{% relref "/addons/contract-reference/owner-forwarding#public-api" %}}), the Apps and
-Add-ons pages in [Apps]({{% relref "/addons/contract-reference/apps-and-pages#apps" %}}), and Tables, the first first-party addon, in
+Add-ons pages in [Apps]({{% relref "/addons/contract-reference/apps-and-pages#apps" %}}), and Tables, the first first-party add-on, in
 [Tables]({{% relref "/addons/catalogue/work/tables" %}}). The first-party package is described in
 [First-party package and release channels]({{% relref "/addons/contract-reference/first-party-packages#first-party-package-and-release-channels" %}});
 CI publishes it, not the tests or acceptance: the master workflow publishes the development channel, and a release tag publishes the pinned entries of the release.

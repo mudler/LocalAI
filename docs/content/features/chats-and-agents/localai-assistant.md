@@ -74,3 +74,7 @@ The admin tools come with a system prompt: the role, the safety rules (confirm b
 The safety rules never move into a skill. Measured on the shipped recipes, the prompt of an administrator's chat is about 4,300 bytes instead of 25,000 (about 1,070 tokens instead of 6,250), and the full recipe text costs tokens only on the turns that load it.
 
 The standalone `local-ai mcp-server` has no skills layer, so it sends the full prompt: the role, the safety rules, the tool catalog and every recipe inline. Both forms come from the same files.
+
+<script>
+var m={"tool-groups":"../localai-client-tools/#tool-groups","tool-search":"../localai-client-tools/#tool-search","standalone-stdio-mcp-server":"../localai-mcp-server/#standalone-stdio-mcp-server","client-tools":"../localai-client-tools/#client-tools","adding-new-tools-or-skills":"../../contributing/assistant-tools/#adding-new-tools-or-skills"};var h=decodeURIComponent((location.hash||"").slice(1));if(h&&m[h]&&!document.getElementById(h)){location.replace(m[h]);}
+</script>

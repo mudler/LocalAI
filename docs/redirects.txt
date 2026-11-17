@@ -112,6 +112,7 @@
 /features/face-recognition/
 /features/files-and-documents/
 /features/files/
+/features/projects/
 /features/projects-reference/
 /features/files-reference/
 /features/fine-tuning/
@@ -236,3 +237,4 @@
 /search/
 /start/install/docker/
 /stores/
+/contributing/assistant-tools/

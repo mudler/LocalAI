@@ -8,7 +8,7 @@ keywords = ["architecture","backends","grpc"]
 devbuild = "install"
 +++
 
-LocalAI is an API written in Go. A program that uses an OpenAI SDK works with LocalAI after you change the base URL. Anthropic clients work too. It runs on a laptop CPU, and a GPU makes inference faster. The inference runs in separate backends, many of them in C++. Backends are gRPC servers. You can build your own gRPC server, or point LocalAI at an external gRPC server that you run yourself (`LOCALAI_EXTERNAL_GRPC_BACKENDS`).
+LocalAI is a server written in Go: an API, chats, files and agents on top of separate backends. A program that uses an OpenAI SDK works with LocalAI after you change the base URL. Anthropic clients work too. It runs on a laptop CPU, and a GPU makes inference faster. Each backend runs as a separate gRPC process, and many are written in C++. You can build your own gRPC server, or point LocalAI at an external gRPC server that you run yourself (`LOCALAI_EXTERNAL_GRPC_BACKENDS`).
 
 Backends are written in C++, Go and Python. The [compatibility table]({{%relref "/models/compatibility-table" %}}) lists which backend runs which model family.
 

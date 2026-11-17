@@ -26,7 +26,7 @@ The script downloads the release binary for your machine, checks it against the 
 curl -sSL https://localai.io/install.sh | sh
 ```
 
-The script installs the `local-ai` program and does not start it. If the script says the folder is not on your `PATH`, run the `export` line it prints. The [quickstart]({{% relref "/start/quickstart" %}}) shows how to start the server and run a first model.
+The script installs the `local-ai` program and does not start it. If the script says the folder is not on your `PATH`, run the `export` line it prints. After the script, run `local-ai`, open `http://localhost:8080` and install a model from the UI. The [quickstart]({{% relref "/start/quickstart" %}}) has the details.
 
 If a release has no checksum file, the script says so and installs without checking.
 

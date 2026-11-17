@@ -64,11 +64,11 @@ sections:
   - id: models
     kicker: Models and hardware
     h: 'Open models, your <span class="hl">hardware</span>.'
-    lede: LocalAI installs a model and picks an engine that fits your machine.
+    lede: LocalAI installs the model and downloads the backend for your CPU or GPU.
     points:
       - Runs on a plain CPU. NVIDIA, AMD, Intel and Apple GPUs make it faster.
       - Run it on a laptop, a server, in a container or on Kubernetes. Distributed mode spreads models over several machines.
-      - More than 80 engines, from llama.cpp to vLLM. We wrote {{engines}} of them.
+      - More than 80 backends, from llama.cpp to vLLM. We wrote {{engines}} engines of them.
     links:
       - {t: "See Models", href: "features/models/"}
       - {t: "See the engines", href: "engines/"}
@@ -81,7 +81,7 @@ cards:
   - {t: Office, p: "Ask in one sentence, get a Word, Excel, PowerPoint or PDF file.", icon: office, href: "/docs/features/office/"}
   - {t: Sandbox, p: "Python and shell in an isolated box.", icon: sandbox, href: "/docs/addons/catalogue/work/sandbox/"}
   - {t: Team, p: "A login per person. Admins choose features.", icon: team, href: "/docs/concepts/users-and-sharing/"}
-  - {t: Add-ons, p: "Install tools, apps and services.", icon: addons, href: "/docs/addons/user-guide/"}
+  - {t: Add-ons, p: "Programs an admin installs to give chats new tools, such as Office files or a Python sandbox.", icon: addons, href: "/docs/addons/user-guide/"}
 
 # The desktop app block of the download section. `released` is true once the release
 # that carries the new launcher is published and its files are the latest release files.
