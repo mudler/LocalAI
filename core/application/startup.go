@@ -611,6 +611,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// refresh runs in the background and never delays startup.
 	application.startRemotes(options.Context)
 
+	// The P2P layer, in the mode of the settings. A failure leaves it off and
+	// the status says why; it never fails the startup.
+	_ = application.StartP2PNet()
+
 	// Start the failover scheduler: it syncs chains from config, runs
 	// liveness/recovery probes and dwell-based fail-back. Run is the only
 	// caller of Sync in production so onWarm callbacks stay ordered.

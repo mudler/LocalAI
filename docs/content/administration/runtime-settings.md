@@ -109,13 +109,11 @@ For multi-user authentication with roles, OAuth, and usage tracking, see [Authen
 
 ### P2P Settings
 
-Configure peer-to-peer networking for distributed inference:
-
-- **P2P Token**: Authentication token for P2P network
-- **P2P Network ID**: Network identifier for P2P connections
-- **Federated Mode**: Enable federated mode for P2P network
-
-Changes to P2P settings automatically restart the P2P stack with the new configuration.
+The P2P layer: `p2p_mode` (`off`, `connect` or `share`), `p2p_public_dht`,
+`p2p_bootstrap_peers`, `p2p_relays`, `p2p_relay_paired`, `p2p_relay_mode`,
+`p2p_relay_rate_limit` and `p2p_mdns`. Mode `share` is refused while
+authentication is off, and every mode but `off` is refused without a data path.
+A change of one of them restarts the P2P layer. See [P2P]({{%relref "/administration/p2p#settings" %}}).
 
 ### Gallery Settings
 

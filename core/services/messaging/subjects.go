@@ -248,6 +248,11 @@ const (
 	// 6-hour upgrade-available cache flips to fresh on every replica, not
 	// just the one that handled the request.
 	SubjectCacheInvalidateBackends = "cache.invalidate.backends"
+	// SubjectCacheInvalidateP2PPeers is broadcast after a P2P device is paired
+	// or revoked. Each frontend has its own P2P identity and allowlist; peers
+	// reload theirs from the shared store at once instead of at the next
+	// periodic reload.
+	SubjectCacheInvalidateP2PPeers = "cache.invalidate.p2ppeers"
 )
 
 // CacheInvalidateEvent is the payload for cache invalidation broadcasts.

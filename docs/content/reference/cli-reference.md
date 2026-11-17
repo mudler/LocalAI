@@ -332,8 +332,12 @@ distinct from the `1` a failure reports.
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--p2p-mode` | `off` | `off`: no P2P layer. `connect`: this server dials out to remotes over P2P and accepts nobody (no invites, no sharing); it needs no authentication. `share`: connect, and accept paired devices; it requires authentication to be on, and the server refuses to start with `share` while authentication is off | `$LOCALAI_P2P_MODE` |
+| `--p2p-listen` | TCP and QUIC on every interface, random ports | Addresses the P2P host listens on in mode `share` (multiaddrs, repeatable) | `$LOCALAI_P2P_LISTEN_MADDRS` |
+| `--p2p-bootstrap` | the public bootstrap peers | Bootstrap peers, multiaddrs that end in `/p2p/<peer ID>`; also the runtime setting `p2p_bootstrap_peers` | `$LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` |
+| `--p2p-identity` | `<data path>/p2p/identity.key` | The key file of the peer identity. Without a data path (`--data-path -`) and without this flag, P2P does not start: the identity must survive a restart | `$LOCALAI_P2P_IDENTITY` |
 
 The mode is also the runtime setting `p2p_mode`. The setting rejects `share` with the same message while authentication is off.
+The other P2P runtime settings (`p2p_public_dht`, `p2p_relays`, `p2p_relay_paired`, `p2p_relay_mode`, `p2p_relay_rate_limit`, `p2p_mdns`) are described in [P2P]({{%relref "/administration/p2p#settings" %}}).
 
 ### Removed P2P options
 
