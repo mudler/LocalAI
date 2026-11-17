@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/p2ppair"
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -37,6 +38,10 @@ func InitDB(databaseURL string) (*gorm.DB, error) {
 
 	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}, &ClientPairingCode{}, &QuotaRule{}, &DataMigration{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate auth tables: %w", err)
+	}
+	// The peer-to-peer invites and devices live in the same database.
+	if err := db.AutoMigrate(p2ppair.Models()...); err != nil {
+		return nil, fmt.Errorf("failed to migrate peer-to-peer pairing tables: %w", err)
 	}
 
 	// Backfill: users created before the provider column existed have an empty
