@@ -164,12 +164,23 @@ export default function SharedPageView() {
   }, [load])
 
   const frame = run ? { hash: run.hash, token: run.token } : null
+  // A read or write of a page that is no longer shared with you answers 404,
+  // like a file that is not there. The host cannot tell them apart from the
+  // answer, so it asks for the page itself: when that is gone too, the page
+  // lost its grant (a revoke) and the frame stops at this call.
+  const watch = useCallback((call) => call.catch(async (e) => {
+    if (e?.status === 404) {
+      const gone = await sharedPagesApi.get(folder, name).then(() => false, (g) => g?.status === 404)
+      if (gone) setTimeout(() => onRefused(e), 0)
+    }
+    throw e
+  }), [folder, name, onRefused])
   const files = useMemo(() => (frame ? {
-    read: (path) => sharedPagesApi.read(folder, name, frame, path),
-    readImage: (path) => sharedPagesApi.readImage(folder, name, frame, path),
-    write: (path, content, base) => sharedPagesApi.write(folder, name, frame, path, content, base),
-    list: async (dir) => (await sharedPagesApi.files(folder, name, frame, dir)).entries || [],
-  } : null), [folder, name, frame?.hash, frame?.token]) // eslint-disable-line react-hooks/exhaustive-deps
+    read: (path) => watch(sharedPagesApi.read(folder, name, frame, path)),
+    readImage: (path) => watch(sharedPagesApi.readImage(folder, name, frame, path)),
+    write: (path, content, base) => watch(sharedPagesApi.write(folder, name, frame, path, content, base)),
+    list: async (dir) => (await watch(sharedPagesApi.files(folder, name, frame, dir))).entries || [],
+  } : null), [folder, name, frame?.hash, frame?.token, watch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onPageSend = useCallback((text) => new Promise((resolve, reject) => {
     if (asksRef.current.filter((a) => a.status !== 'sent').length >= MAX_ASKS) {

@@ -84,7 +84,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     }
   }
   const guarded = (call) => call().catch((e) => {
-    if (e?.status === 403 && /page_not_allowed|shared_pages_off/.test(e?.body?.error?.type || '')) {
+    if (e?.status === 403 && /page_not_allowed|shared_pages_off|user_page_shares_off/.test(e?.body?.error?.type || '')) {
       setTimeout(() => handlers.current.onRefused?.(e), 0)
     }
     throw e
