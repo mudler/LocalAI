@@ -115,6 +115,6 @@ LocalAI listens on port 8080 on all interfaces, and authentication is off. Prote
 - [Container images]({{% relref "/start/install/containers" %}})
 - [Try the API endpoints]({{% relref "/start/try-it-out" %}})
 - [All features]({{% relref "/features" %}})
-- [Model gallery](https://models.localai.io)
+- [Model gallery]({{% relref "/models" %}})
 - [Build from source]({{% relref "/contributing/build-from-source" %}})
 - [Examples](https://github.com/mudler/LocalAI/tree/master/examples#examples)

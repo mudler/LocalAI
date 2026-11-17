@@ -11,7 +11,6 @@
 <p align="center">
 <a href="https://localai.io/">Documentation</a> |
 <a href="#quick-start">Quick start</a> |
-<a href="https://models.localai.io/">Models</a> |
 <a href="https://discord.gg/uJAeKSAGDy">Discord</a> |
 <a href="https://localai.io/docs/reference/faq/">FAQ</a> |
 <a href="https://localai.io/blog/">Blog</a>
@@ -85,7 +84,7 @@ LocalAI detects your GPU and downloads the matching backend. See [GPU Accelerati
 Load a model:
 
 ```bash
-# From the model gallery (list it with `local-ai models list` or at https://models.localai.io)
+# From the model gallery (list it with `local-ai models list` or on the Models page of the web UI)
 local-ai run gemma-4-e2b-it-qat-q4_0
 # From Hugging Face
 local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf

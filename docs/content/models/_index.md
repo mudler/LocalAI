@@ -11,7 +11,7 @@ The model gallery is a curated collection of models configurations for [LocalAI]
 
 To see what the models can do, such as text, speech, images and video, see [What models can do]({{% relref "/models/capabilities" %}}). For engines with their own page, see [Engines]({{% relref "/models/engines" %}}). To fine-tune or quantize a model, see [Train and quantize]({{% relref "/models/training" %}}).
 
-A list of the models available can also be browsed at [the Public LocalAI Gallery](https://models.localai.io).
+You can browse the available models on the **Models** page of the web interface, list them with `local-ai models list`, or read the [gallery index](https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml) on GitHub.
 
 LocalAI to ease out installations of models provide a way to preload models on start and downloading and installing them in runtime. You can install models manually by copying them over the `models` directory, or use the API or the Web interface to configure, download and verify the model assets for you. 
 

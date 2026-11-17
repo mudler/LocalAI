@@ -46,7 +46,7 @@ The backend contract is a small gRPC interface, so you can write your own backen
 ## Next steps
 
 - [Quickstart]({{% relref "/start/quickstart" %}}): run a first model and send a first message.
-- [Model gallery](https://models.localai.io) and the [compatibility table]({{% relref "/models/compatibility-table" %}}).
+- [Model gallery]({{% relref "/models" %}}) and the [compatibility table]({{% relref "/models/compatibility-table" %}}).
 - [Try out examples]({{% relref "/start/try-it-out" %}}).
 - [Discord community](https://discord.gg/uJAeKSAGDy) and the [GitHub repository](https://github.com/mudler/LocalAI).
 

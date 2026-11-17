@@ -281,7 +281,7 @@ You can use LocalAI in GitHub Actions workflows to perform AI-powered tasks like
 #### Prerequisites
 
 - A GitHub repository with Actions enabled
-- A model name from [models.localai.io](https://models.localai.io) or a Hugging Face model reference
+- A model name from the [model gallery]({{% relref "/models" %}}) or a Hugging Face model reference
 
 #### Example Workflow
 
@@ -312,7 +312,7 @@ jobs:
     - id: foo
       uses: mudler/localai-github-action@v1.1
       with:
-        model: 'qwen_qwen3-4b-instruct-2507' # Any from models.localai.io, or from huggingface.com with: "huggingface://<repository>/file"
+        model: 'qwen_qwen3-4b-instruct-2507' # Any from the model gallery, or from huggingface.com with: "huggingface://<repository>/file"
     # Check the PR diff using the current branch and the base branch of the PR
     - uses: GrantBirki/git-diff-action@v2.7.0
       id: git-diff-action
@@ -377,7 +377,7 @@ jobs:
 
 #### Configuration Options
 
-- **Model selection**: Replace `qwen_qwen3-4b-instruct-2507` with any model from [models.localai.io](https://models.localai.io). You can also use Hugging Face models by using the full huggingface model url`.
+- **Model selection**: Replace `qwen_qwen3-4b-instruct-2507` with any model from the [model gallery]({{% relref "/models" %}}). You can also use Hugging Face models by using the full huggingface model url`.
 - **Trigger conditions**: Customize the `if` condition to control when the workflow runs. The example only runs when a PR is merged and has a specific label.
 - **API endpoint**: The LocalAI container runs on `http://localhost:8080` by default. The action exposes the service on the standard port.
 - **Custom prompts**: Modify the system message in the JSON payload to change what LocalAI is asked to do with the diff.
@@ -393,7 +393,7 @@ jobs:
 #### Additional Resources
 
 - [LocalAI GitHub Action repository](https://github.com/mudler/localai-github-action)
-- [Available models](https://models.localai.io)
+- [Available models]({{% relref "/models" %}})
 - [LocalAI API documentation]({{% relref "/reference" %}})
 
 ### Realtime Voice Assistant
