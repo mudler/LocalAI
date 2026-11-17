@@ -4,9 +4,13 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import PageFrame from '../components/PageFrame'
 import PageLinkAsk from '../components/PageLinkAsk'
+import PageShareDialog from '../components/pages/PageShareDialog'
+import { useAuth } from '../context/AuthContext'
+import { usePages } from '../hooks/usePages'
 import { usePageLinks } from '../hooks/usePageLinks'
 import { usePinnedPages } from '../hooks/usePinnedPages'
 import Switch from '../components/ui/Switch'
+import { Button } from '../components/ui'
 import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, pagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -74,6 +78,14 @@ export default function PageView() {
   const frameRef = useRef(null)
   const links = usePageLinks()
   const age = usePageAge()
+  const { authEnabled } = useAuth()
+  const { userSharesOn } = usePages(true)
+  // Sharing: the dialog, what it last read, and how many people the page
+  // will ask again after a change of its code.
+  const [sharing, setSharing] = useState(false)
+  const [freshShare, setFreshShare] = useState(null)
+  const [askAgain, setAskAgain] = useState(0)
+  const seenShare = useRef(null)
   const asksRef = useRef(asks)
   asksRef.current = asks
   // The start page is the first pinned page. The switch of the bar writes the
@@ -115,6 +127,10 @@ export default function PageView() {
 
   useEffect(() => {
     setSource(null)
+    setSharing(false)
+    setFreshShare(null)
+    setAskAgain(0)
+    seenShare.current = null
     setAsks([])
     setNavigated(false)
     load()
@@ -134,6 +150,17 @@ export default function PageView() {
     setFrameKey((k) => k + 1)
     load({ quiet: true })
   }
+
+  // The code of a shared page changed: the people who allowed the version
+  // before are asked again. The strip says how many, and does not block.
+  useEffect(() => {
+    const p = source?.page
+    if (!p) return
+    const prev = seenShare.current
+    if (prev && p.hash && prev.hash && p.hash !== prev.hash && prev.allowed > 0) setAskAgain(prev.allowed)
+    const allowed = Number.isFinite(p.shared_allowed) ? p.shared_allowed : (prev?.allowed ?? 0)
+    seenShare.current = { hash: p.hash || '', allowed: p.hash === prev?.hash && prev ? prev.allowed : allowed }
+  }, [source])
 
   const ask = () => navigate('/app/chats', { state: { draft: t('view.askPrompt', { name }) } })
 
@@ -182,6 +209,10 @@ export default function PageView() {
   const page = source?.page
   const when = page ? age(page.updated_at) : ''
   const by = page?.updated_by === 'assistant' ? 'assistant' : 'you'
+  const known = page?.shared_with !== undefined
+  const shared = known || !freshShare
+    ? { people: Number(page?.shared_with) || 0, everyone: page?.shared_everyone === true }
+    : freshShare
 
   return (
     <div className="pg-view" data-testid="page-view">
@@ -196,6 +227,11 @@ export default function PageView() {
             <span className="pg-pill" title={t('view.runsAsYouHint')} data-testid="page-runs-as-you">
               <Icon name="user" /> {t('view.runsAsYou')}
             </span>
+            {(shared.people > 0 || shared.everyone) && (
+              <span className="pg-pill" data-testid="page-shared-pill">
+                <Icon name="users" /> {shared.everyone && shared.people === 0 ? t('card.sharedEveryone') : t('card.sharedWith', { count: shared.people })}
+              </span>
+            )}
             {isStart && (
               <span className="pg-pill pg-pill--start" data-testid="page-start-badge">
                 <Icon name="pin" /> {t('view.startPage')}
@@ -217,6 +253,9 @@ export default function PageView() {
               {alone && <span id="pg-start-hint" className="pg-start__hint">{t('view.startAlone')}</span>}
             </span>
           )}
+          {page && (
+            <Button size="sm" icon="users" onClick={() => setSharing(true)} data-testid="page-share">{t('card.share')}</Button>
+          )}
           <button type="button" className="btn btn-ghost btn-sm" onClick={reload} data-testid="page-reload">
             <Icon name="refresh" /> {t('view.reload')}
           </button>
@@ -227,6 +266,15 @@ export default function PageView() {
       </header>
 
       {startError && <p className="pg-asks pg-ask__error" role="alert" data-testid="page-start-error">{t('view.startFailed', { message: startError })}</p>}
+
+      {askAgain > 0 && (
+        <div className="pg-asks">
+          <div className="pg-ask" role="status" data-testid="page-ask-again">
+            <Icon name="info" className="pg-ask__icon" />
+            <span className="pg-ask__label">{t('share.askAgain', { count: askAgain })}</span>
+          </div>
+        </div>
+      )}
 
       {asks.length > 0 && (
         <div className="pg-asks">
@@ -240,6 +288,15 @@ export default function PageView() {
         <div className="pg-asks">
           <PageLinkAsk key={links.link.id} link={links.link} t={t} onOpen={links.open} onCancel={links.cancel} />
         </div>
+      )}
+
+      {sharing && page && (
+        <PageShareDialog
+          page={page} sharing={authEnabled} off={userSharesOn ? '' : t('share.offAdmin')}
+          onChanged={setFreshShare}
+          onLost={() => setSharing(false)}
+          close={() => { setSharing(false); load({ quiet: true }) }}
+        />
       )}
 
       <section className="pg-stage" aria-label={t('view.frameTitle', { title: page?.title || name })}>

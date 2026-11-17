@@ -6,8 +6,10 @@ import Icon from '../components/Icon'
 import PageHeader from '../components/PageHeader'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
+import PageShareDialog from '../components/pages/PageShareDialog'
 import { Button } from '../components/ui'
-import { filesApi, pagesApi } from '../utils/api'
+import { filesApi, pagesApi, sharedPagesApi } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
 import { pageIndexPath } from '../utils/pages'
 import { DOCS_MAKE_YOURS } from '../utils/discovery'
 import { refreshPages, usePageAge, usePages } from '../hooks/usePages'
@@ -24,12 +26,22 @@ const STARTERS = [
 const FILTER_FROM = 8
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
 
-function PageRow({ page, pinned, onPin, onDelete, onRename, age, t }) {
+// Who a page is shared with, from the list or from the last answer of the
+// Share dialog: { people, everyone }, or null when it is private.
+function sharedWith(page, fresh) {
+  // The list, when it says, is newer than what the dialog read.
+  const known = page.shared_with !== undefined
+  const s = known || !fresh ? { people: Number(page.shared_with) || 0, everyone: page.shared_everyone === true } : fresh
+  return s.people > 0 || s.everyone ? s : null
+}
+
+function PageRow({ page, shares, pinned, onPin, onShare, onDelete, onRename, age, t }) {
   const navigate = useNavigate()
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(page.name)
   const author = page.author === 'assistant' ? 'assistant' : 'you'
   const open = `/app/pages/${encodeURIComponent(page.name)}`
+  const shared = sharedWith(page, shares)
   const ask = () => navigate('/app/chats', { state: { draft: t('view.askPrompt', { name: page.name }) } })
   const dock = () => navigate('/app/chats', { state: { dock: { name: page.name, folder: 0 } } })
   const saveName = async (e) => {
@@ -54,7 +66,14 @@ function PageRow({ page, pinned, onPin, onDelete, onRename, age, t }) {
             <span className="pg-row__meta" id={`pg-rename-${page.name}-hint`}>{t('card.renameHint')}</span>
           </form>
         ) : (
-          <Link className="pg-row__title" to={open}>{page.title}</Link>
+          <span className="pg-row__titleline">
+            <Link className="pg-row__title" to={open}>{page.title}</Link>
+            {shared && (
+              <span className="pg-badge pg-badge--plain" data-testid="page-shared-badge" title={shared.everyone ? t('card.sharedEveryone') : t('card.sharedWith', { count: shared.people })}>
+                <Icon name="users" /> {t('card.shared')}{!shared.everyone && <b data-testid="page-shared-count">{shared.people}</b>}
+              </span>
+            )}
+          </span>
         )}
         {page.description && <p className="pg-row__desc">{page.description}</p>}
         <span className="pg-row__meta">
@@ -76,6 +95,7 @@ function PageRow({ page, pinned, onPin, onDelete, onRename, age, t }) {
           items={[
             { key: 'dock', icon: 'columns', label: t('dock.openInDock'), onClick: dock },
             { key: 'ask', icon: 'sparkles', label: t('card.ask'), onClick: ask },
+            { key: 'share', icon: 'users', label: t('card.share'), onClick: () => onShare(page) },
             { key: 'files', icon: 'folder', label: t('card.files'), onClick: () => navigate(`/app/files?path=${encodeURIComponent(`/pages/${page.name}`)}`) },
             { key: 'rename', icon: 'pencil', label: t('card.rename'), onClick: () => setRenaming(true) },
             { divider: true },
@@ -96,31 +116,42 @@ const BADGE = {
 // A page of a shared folder: its author and folder, and whether the user
 // allowed it. A page that is not allowed (or changed since) only offers
 // Review; nothing in it runs from this screen.
-function SharedRow({ page, enabled, age, t }) {
+function SharedRow({ page, enabled, userSharesOn, onStop, age, t }) {
   const navigate = useNavigate()
   const b = BADGE[page.consent] || BADGE.none
   const allowed = page.consent === 'allowed'
   const author = page.author_name || page.author_id
+  // A page that a person shared, while an administrator turned that off.
+  const userOff = enabled && page.user_shared === true && !userSharesOn
+  const role = ['view', 'use', 'edit'].includes(page.role) ? page.role : ''
+  const open = enabled && !userOff
   return (
-    <li className={`pg-row${enabled ? '' : ' pg-row--off'}`} data-testid="shared-card" data-page={page.name} data-consent={page.consent}>
+    <li className={`pg-row${open ? '' : ' pg-row--off'}`} data-testid="shared-card" data-page={page.name} data-consent={page.consent}>
       <span className="icon-chip tone-primary pg-row__chip"><Icon name={page.icon || 'users'} /></span>
       <div className="pg-row__main">
         <span className="pg-row__titleline">
-          {enabled
+          {open
             ? <Link className="pg-row__title" to={sharedPagePath(page)}>{page.title}</Link>
             : <span className="pg-row__title">{page.title}</span>}
           <span className={`pg-badge pg-badge--${b.tone}`} data-testid="shared-badge"><Icon name={b.icon} /> {t(`shared.badge.${b.key}`)}</span>
         </span>
         {page.description && <p className="pg-row__desc">{page.description}</p>}
         <span className="pg-row__meta">
-          <span>{t('shared.from', { author })}</span>
+          <span data-testid="shared-from">{t('shared.from', { author })}</span>
+          {role && <><span aria-hidden="true">·</span><span data-testid="shared-role">{t(`share.role.${role}`)}</span></>}
           <span aria-hidden="true">·</span>
           <code className="pg-row__path">{folderLabel(page.folder)}/pages/{page.name}</code>
           <span aria-hidden="true">·</span>
           <span>{t('card.changed', { when: age(page.updated_at) })}</span>
         </span>
+        {userOff && <p className="pg-row__desc" data-testid="shared-user-off">{t('shared.userOff')}</p>}
       </div>
-      {enabled && (
+      {userOff && page.consent !== 'none' && (
+        <div className="pg-row__actions">
+          <Button variant="ghost" size="sm" icon="ban" onClick={() => onStop(page)} data-testid="shared-stop">{t('viewer.stopAllowing')}</Button>
+        </div>
+      )}
+      {open && (
         <div className="pg-row__actions">
           <Link className={`btn btn-sm ${allowed ? 'btn-primary' : 'btn-secondary'}`} to={sharedPagePath(page)} data-testid="shared-open">
             {allowed ? t('card.open') : t('shared.review')}
@@ -141,13 +172,26 @@ export default function Pages() {
   const { t } = useTranslation('pages')
   const navigate = useNavigate()
   const { addToast } = useOutletContext() || {}
-  const { pages, loaded, error, off } = usePages(true)
+  const { pages, loaded, error, off, userSharesOn: ownOn } = usePages(true)
+  const { authEnabled } = useAuth()
   const { pins, setPin } = usePinnedPages(true)
   const shared = useSharedPages(true)
   const age = usePageAge()
   const [starting, setStarting] = useState('')
   const [filter, setFilter] = useState('')
   const [deleting, setDeleting] = useState(null)
+  const [sharing, setSharing] = useState(null)
+  // What the Share dialog last read for each page, until the list is read again.
+  const [shares, setShares] = useState({})
+  const userSharesOn = ownOn && shared.userSharesOn
+  const stopAllowing = async (p) => {
+    try {
+      await sharedPagesApi.revoke(p.folder_id, p.name)
+      shared.refresh()
+    } catch (e) {
+      addToast?.(t('shared.stopFailed', { message: e.message }), 'error')
+    }
+  }
 
   const pin = async (name, on) => {
     try {
@@ -251,7 +295,7 @@ export default function Pages() {
               </div>
             )}
             <ul className="pg-list" aria-label={t('card.list')}>
-              {sorted.map((p) => <PageRow key={p.name} page={p} pinned={pins.includes(p.name)} onPin={pin} onDelete={setDeleting} onRename={rename} age={age} t={t} />)}
+              {sorted.map((p) => <PageRow key={p.name} page={p} pinned={pins.includes(p.name)} shares={shares[p.name]} onPin={pin} onShare={setSharing} onDelete={setDeleting} onRename={rename} age={age} t={t} />)}
             </ul>
           </section>
         )}
@@ -260,7 +304,7 @@ export default function Pages() {
             <h2 className="pg-group" id="pg-shared">{t('shared.group')} <span className="pg-group__count">{shared.pages.length}</span></h2>
             {!shared.enabled && <p className="pg-note" role="note" data-testid="shared-off">{t('shared.offNotice')}</p>}
             <ul className="pg-list" aria-label={t('shared.group')}>
-              {shared.pages.map((p) => <SharedRow key={`${p.folder_id}/${p.name}`} page={p} enabled={shared.enabled} age={age} t={t} />)}
+              {shared.pages.map((p) => <SharedRow key={`${p.folder_id}/${p.name}`} page={p} enabled={shared.enabled} userSharesOn={userSharesOn} onStop={stopAllowing} age={age} t={t} />)}
             </ul>
             {shared.enabled && <p className="pg-group__note">{t('shared.note')}</p>}
           </section>
@@ -278,6 +322,14 @@ export default function Pages() {
         ) : undefined}
       />
       {body}
+      {sharing && (
+        <PageShareDialog
+          page={sharing} sharing={authEnabled} off={userSharesOn ? '' : t('share.offAdmin')}
+          onChanged={(s) => setShares((m) => ({ ...m, [sharing.name]: s }))}
+          onLost={() => { setSharing(null); addToast?.(t('share.lost'), 'error'); refreshPages() }}
+          close={() => { setSharing(null); refreshPages() }}
+        />
+      )}
       <ConfirmDialog
         open={!!deleting}
         title={t('card.deleteTitle', { title: deleting?.title || '' })}
