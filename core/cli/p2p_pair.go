@@ -1,24 +1,19 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
+	"github.com/mudler/LocalAI/core/services/p2ppair/pairclient"
 	"github.com/mudler/LocalAI/core/services/p2prelay/relaycmd"
-	"github.com/mudler/LocalAI/core/services/p2prelay/relayproto"
 )
 
 // P2PPairCMD redeems an invite on a device. It does not need a server of its
@@ -35,33 +30,15 @@ type P2PPairCMD struct {
 	JSON           bool   `help:"Print the result as JSON, with the client key of a remote invite"`
 }
 
-type redeemResponse struct {
-	DeviceID string `json:"device_id"`
-	Kind     string `json:"kind"`
-	Phrase   string `json:"phrase"`
-	Server   struct {
-		PeerID  string `json:"peer_id"`
-		Name    string `json:"name"`
-		Version string `json:"version"`
-	} `json:"server"`
-	ClientKey *struct {
-		ID     string `json:"id"`
-		Secret string `json:"secret"`
-	} `json:"client_key,omitempty"`
-}
-
 // pairRecord is what a saved pairing holds.
 type pairRecord struct {
-	ServerPeer string   `json:"server_peer"`
-	ServerName string   `json:"server_name,omitempty"`
-	Kind       string   `json:"kind"`
-	DeviceID   string   `json:"device_id"`
-	Relays     []string `json:"relays,omitempty"`
-	Addrs      []string `json:"addrs,omitempty"`
-	ClientKey  *struct {
-		ID     string `json:"id"`
-		Secret string `json:"secret"`
-	} `json:"client_key,omitempty"`
+	ServerPeer string                `json:"server_peer"`
+	ServerName string                `json:"server_name,omitempty"`
+	Kind       string                `json:"kind"`
+	DeviceID   string                `json:"device_id"`
+	Relays     []string              `json:"relays,omitempty"`
+	Addrs      []string              `json:"addrs,omitempty"`
+	ClientKey  *pairclient.ClientKey `json:"client_key,omitempty"`
 }
 
 func (c *P2PPairCMD) identityPath() string {
@@ -83,11 +60,13 @@ func (c *P2PPairCMD) Run(cctx *cliContext.Context) error {
 	if err != nil {
 		return err
 	}
+	// Check the link before anything is written, so a link that cannot be
+	// used leaves no identity behind.
 	if link.Expired(time.Now()) {
-		return errors.New("the invite has expired: ask for a new one")
+		return pairclient.ErrExpired
 	}
 	if len(link.Open) > 0 && !c.AllowOpenRelay {
-		return errors.New("the invite names an open relay, which anyone can use; pass --allow-open-relay to connect through it anyway")
+		return fmt.Errorf("%w; pass --allow-open-relay to connect through it anyway", pairclient.ErrOpenRelay)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -110,60 +89,13 @@ func (c *P2PPairCMD) Run(cctx *cliContext.Context) error {
 	}
 	defer func() { _ = h.Close() }()
 
-	// The relay pass lets this still-unknown device through the relay. The
-	// link does not say which relay holds it, so try the gated ones.
-	if link.Pass != "" {
-		for i, r := range link.Relays {
-			if slices.Contains(link.Open, i) {
-				continue
-			}
-			cctx, ccancel := context.WithTimeout(ctx, 15*time.Second)
-			err := h.Libp2p().Connect(cctx, r)
-			ccancel()
-			if err != nil {
-				continue
-			}
-			if _, err := relayproto.UsePass(ctx, h.Libp2p(), r.ID, link.Pass); err == nil {
-				break
-			}
-		}
-	}
-
-	opts := []p2pnet.DialOption{p2pnet.WithRelays(link.Relays...), p2pnet.WithAddrs(link.Addrs...)}
 	name := c.Name
 	if name == "" {
 		name, _ = os.Hostname()
 	}
-	body, err := json.Marshal(map[string]any{"v": 1, "code": link.Code, "name": name, "platform": runtime.GOOS})
+	out, err := pairclient.Redeem(ctx, h, link, pairclient.Request{Name: name, Platform: runtime.GOOS, AllowOpenRelay: c.AllowOpenRelay})
 	if err != nil {
 		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+link.Peer.String()+"/api/p2p/redeem", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := h.HTTPClient(link.Peer, opts...).Do(req)
-	if err != nil {
-		return fmt.Errorf("cannot reach the server named in the invite: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusGone:
-		return errors.New("the invite is not valid any more: it was used, cancelled or expired")
-	case http.StatusTooManyRequests:
-		return errors.New("too many wrong codes from this device or relay: wait a while and try again")
-	default:
-		return apiError(resp.StatusCode, raw)
-	}
-	var out redeemResponse
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return fmt.Errorf("unexpected answer from the server: %w", err)
-	}
-	if out.Server.PeerID != "" && out.Server.PeerID != link.Peer.String() {
-		return fmt.Errorf("the answering server is %s, not the %s of the invite: do not trust this pairing", out.Server.PeerID, link.Peer)
 	}
 
 	var saved string
@@ -175,7 +107,7 @@ func (c *P2PPairCMD) Run(cctx *cliContext.Context) error {
 	return c.report(out, link, saved)
 }
 
-func (c *P2PPairCMD) save(identity string, link *p2ppair.Link, out redeemResponse) (string, error) {
+func (c *P2PPairCMD) save(identity string, link *p2ppair.Link, out *pairclient.Result) (string, error) {
 	dir := filepath.Join(filepath.Dir(identity), "pairs")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
@@ -200,7 +132,7 @@ func (c *P2PPairCMD) save(identity string, link *p2ppair.Link, out redeemRespons
 	return path, nil
 }
 
-func (c *P2PPairCMD) report(out redeemResponse, link *p2ppair.Link, saved string) error {
+func (c *P2PPairCMD) report(out *pairclient.Result, link *p2ppair.Link, saved string) error {
 	if c.JSON {
 		view := map[string]any{
 			"device_id": out.DeviceID, "kind": out.Kind, "phrase": out.Phrase,
