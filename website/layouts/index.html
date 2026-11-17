@@ -15,7 +15,7 @@
         <a class="btn btn--o" href="#whats-new">See what is new</a>
       </div>
       <div class="cmd"><span class="p" aria-hidden="true">$</span><code>curl -sSL https://localai.io/install.sh | sh</code><button class="cpy" type="button" data-copy="curl -sSL https://localai.io/install.sh | sh" aria-label="Copy the install command">copy</button></div>
-      <div class="hero__dl">{{ partial "download-buttons.html" (dict "site" . "cls" "btn btn--o") }}</div>
+      <div class="hero__dl">{{ partial "download-buttons.html" (dict "site" . "cls" "btn btn--o" "id" "hero") }}</div>
       <p class="alts">Or a <a href="{{ .Site.Params.docsURL }}start/install/containers/">container</a>, the <a href="{{ .Site.Params.docsURL }}start/install/desktop/">desktop app</a> or <a href="{{ .Site.Params.docsURL }}start/install/kubernetes/">Kubernetes</a>. Then open <code>http://localhost:8080</code>.</p>
     </div>
     <div class="heroFilm">
