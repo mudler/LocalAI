@@ -36,12 +36,58 @@
 
 
 
-sd_ctx_params_t ctx_params;
 sd_ctx_t* sd_c;
-// Moved from the context (load time) to generation time params
-scheduler_t scheduler = SCHEDULER_COUNT;
-sample_method_t sample_method = SAMPLE_METHOD_COUNT;
+// Moved from the context (load time) to generation time options. The sampler
+// and scheduler are kept as the strings the operator gave; upstream parses
+// them when they are set on the generation options. Empty means "auto".
+static std::string sampler_name;
+static std::string scheduler_name;
 float flow_shift = INFINITY;
+
+// Typed option setters. A rejected value is logged and ignored, so an invalid
+// operator option falls back to the upstream default like before.
+static bool opt_str(sd_opt_t* o, const char* key, const char* v) {
+    if (!v || !*v) return true;
+    if (sd_opt_set_string(o, key, v) != SD_STATUS_OK) {
+        fprintf(stderr, "Option %s=%s rejected: %s\n", key, v, sd_get_last_error());
+        return false;
+    }
+    return true;
+}
+static bool opt_bool(sd_opt_t* o, const char* key, bool v) {
+    if (sd_opt_set_bool(o, key, v) != SD_STATUS_OK) {
+        fprintf(stderr, "Option %s rejected: %s\n", key, sd_get_last_error());
+        return false;
+    }
+    return true;
+}
+static bool opt_int(sd_opt_t* o, const char* key, int64_t v) {
+    if (sd_opt_set_int(o, key, v) != SD_STATUS_OK) {
+        fprintf(stderr, "Option %s=%lld rejected: %s\n", key, (long long)v, sd_get_last_error());
+        return false;
+    }
+    return true;
+}
+static bool opt_float(sd_opt_t* o, const char* key, double v) {
+    if (sd_opt_set_float(o, key, v) != SD_STATUS_OK) {
+        fprintf(stderr, "Option %s=%g rejected: %s\n", key, v, sd_get_last_error());
+        return false;
+    }
+    return true;
+}
+
+struct opt_deleter { void operator()(sd_opt_t* o) const { sd_opt_free(o); } };
+using opt_ptr = std::unique_ptr<sd_opt_t, opt_deleter>;
+struct tensor_deleter { void operator()(sd_tensor_t* t) const { sd_tensor_free(t); } };
+using tensor_ptr = std::unique_ptr<sd_tensor_t, tensor_deleter>;
+struct result_deleter { void operator()(sd_result_t* r) const { sd_result_free(r); } };
+using result_ptr = std::unique_ptr<sd_result_t, result_deleter>;
+
+// Copy an interleaved 8-bit image (width * height * channels bytes) into a tensor.
+static tensor_ptr make_u8_image(const uint8_t* data, int width, int height, int channels) {
+    int64_t shape[3] = {channels, width, height};
+    return tensor_ptr(sd_tensor_create(SD_TENSOR_U8, 3, shape, data, (size_t)width * height * channels));
+}
 
 // Storage for embeddings (needs to persist for the lifetime of ctx_params)
 static std::vector<sd_embedding_t> embedding_vec;
@@ -344,6 +390,9 @@ static void sd_log_cb(enum sd_log_level_t level, const char* log, void* data) {
         case SD_LOG_DEBUG:
             level_str = "DEBUG";
             break;
+        case SD_LOG_VERBOSE:
+            level_str = "VERB";
+            break;
         case SD_LOG_INFO:
             level_str = "INFO";
             break;
@@ -406,11 +455,13 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *max_vram_arg = "";
 
     int n_threads = threads;
-    enum sd_type_t wtype = SD_TYPE_COUNT;
-    enum rng_type_t rng_type = CUDA_RNG;
-    enum rng_type_t sampler_rng_type = RNG_TYPE_COUNT;
-    enum prediction_t prediction = PREDICTION_COUNT;
-    enum lora_apply_mode_t lora_apply_mode = LORA_APPLY_AUTO;
+    // Enum-like options are strings in the upstream option API; the setter
+    // validates them.
+    std::string wtype_str;
+    std::string rng_type_str = "cuda";
+    std::string sampler_rng_type_str;
+    std::string prediction_str;
+    std::string lora_apply_mode_str;
     bool offload_params_to_cpu = false;
     bool keep_clip_on_cpu = false;
     bool keep_control_net_on_cpu = false;
@@ -538,51 +589,11 @@ int load_model(const char *model, char *model_path, char* options[], int threads
 
         if (!strcmp(optname, "flow_shift")) flow_shift = atof(optval);
 
-        if (!strcmp(optname, "rng_type")) {
-            rng_type_t parsed = str_to_rng_type(optval);
-            if (parsed != RNG_TYPE_COUNT) {
-                rng_type = parsed;
-                fprintf(stderr, "Found rng_type: %s\n", optval);
-            } else {
-                fprintf(stderr, "Invalid rng_type: %s, using default\n", optval);
-            }
-        }
-        if (!strcmp(optname, "sampler_rng_type")) {
-            rng_type_t parsed = str_to_rng_type(optval);
-            if (parsed != RNG_TYPE_COUNT) {
-                sampler_rng_type = parsed;
-                fprintf(stderr, "Found sampler_rng_type: %s\n", optval);
-            } else {
-                fprintf(stderr, "Invalid sampler_rng_type: %s, using default\n", optval);
-            }
-        }
-        if (!strcmp(optname, "prediction")) {
-            prediction_t parsed = str_to_prediction(optval);
-            if (parsed != PREDICTION_COUNT) {
-                prediction = parsed;
-                fprintf(stderr, "Found prediction: %s\n", optval);
-            } else {
-                fprintf(stderr, "Invalid prediction: %s, using default\n", optval);
-            }
-        }
-        if (!strcmp(optname, "lora_apply_mode")) {
-            lora_apply_mode_t parsed = str_to_lora_apply_mode(optval);
-            if (parsed != LORA_APPLY_MODE_COUNT) {
-                lora_apply_mode = parsed;
-                fprintf(stderr, "Found lora_apply_mode: %s\n", optval);
-            } else {
-                fprintf(stderr, "Invalid lora_apply_mode: %s, using default\n", optval);
-            }
-        }
-        if (!strcmp(optname, "wtype")) {
-            sd_type_t parsed = str_to_sd_type(optval);
-            if (parsed != SD_TYPE_COUNT) {
-                wtype = parsed;
-                fprintf(stderr, "Found wtype: %s\n", optval);
-            } else {
-                fprintf(stderr, "Invalid wtype: %s, using default\n", optval);
-            }
-        }
+        if (!strcmp(optname, "rng_type")) rng_type_str = optval;
+        if (!strcmp(optname, "sampler_rng_type")) sampler_rng_type_str = optval;
+        if (!strcmp(optname, "prediction")) prediction_str = optval;
+        if (!strcmp(optname, "lora_apply_mode")) lora_apply_mode_str = optval;
+        if (!strcmp(optname, "wtype")) wtype_str = optval;
     }
 
     fprintf(stderr, "parsed options\n");
@@ -591,22 +602,27 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     build_embedding_vec(embedding_dir);
 
     fprintf (stderr, "Creating context\n");
-    sd_ctx_params_init(&ctx_params);
-    ctx_params.model_path = model;
-    ctx_params.clip_l_path = clip_l_path;
-    ctx_params.clip_g_path = clip_g_path;
-    ctx_params.clip_vision_path = clip_vision_path;
-    ctx_params.t5xxl_path = t5xxl_path;
-    ctx_params.llm_path = llm_path;
-    ctx_params.llm_vision_path = llm_vision_path;
-    ctx_params.diffusion_model_path = diffusion_model_path;
-    ctx_params.high_noise_diffusion_model_path = high_noise_diffusion_model_path;
-    ctx_params.uncond_diffusion_model_path = uncond_diffusion_model_path;
-    ctx_params.vae_path = vae_path;
-    ctx_params.audio_vae_path = audio_vae_path;
-    ctx_params.embeddings_connectors_path = embeddings_connectors_path;
-    ctx_params.taesd_path = taesd_path;
-    ctx_params.control_net_path = control_net_path;
+    opt_ptr ctx_opt(sd_ctx_opt_create());
+    if (!ctx_opt) {
+        fprintf(stderr, "failed to allocate context options\n");
+        return 1;
+    }
+    sd_opt_t* co = ctx_opt.get();
+    opt_str(co, "model_path", model);
+    opt_str(co, "clip_l_path", clip_l_path);
+    opt_str(co, "clip_g_path", clip_g_path);
+    opt_str(co, "clip_vision_path", clip_vision_path);
+    opt_str(co, "t5xxl_path", t5xxl_path);
+    opt_str(co, "llm_path", llm_path);
+    opt_str(co, "llm_vision_path", llm_vision_path);
+    opt_str(co, "diffusion_model_path", diffusion_model_path);
+    opt_str(co, "high_noise_diffusion_model_path", high_noise_diffusion_model_path);
+    opt_str(co, "uncond_diffusion_model_path", uncond_diffusion_model_path);
+    opt_str(co, "vae_path", vae_path);
+    opt_str(co, "audio_vae_path", audio_vae_path);
+    opt_str(co, "embeddings_connectors_path", embeddings_connectors_path);
+    opt_str(co, "taesd_path", taesd_path);
+    opt_str(co, "control_net_path", control_net_path);
     if (lora_dir && strlen(lora_dir) > 0) {
         lora_dir_path = std::string(lora_dir);
         fprintf(stderr, "LoRA model directory set to: %s\n", lora_dir);
@@ -615,25 +631,26 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     } else {
         fprintf(stderr, "WARNING: LoRA model directory not set. LoRAs in prompts will not be loaded.\n");
     }
-    // Set embeddings array and count
-    ctx_params.embeddings = embedding_vec.empty() ? NULL : embedding_vec.data();
-    ctx_params.embedding_count = static_cast<uint32_t>(embedding_vec.size());
-    ctx_params.photo_maker_path = photo_maker_path;
-    if (strlen(pulid_weights_path) > 0) ctx_params.pulid_weights_path = pulid_weights_path;
-    ctx_params.tensor_type_rules = tensor_type_rules;
-    if (strlen(tokenizer_path) > 0) ctx_params.tokenizer = tokenizer_path;
-    ctx_params.n_threads = n_threads;
-    ctx_params.rng_type = rng_type;
-    if (wtype != SD_TYPE_COUNT) ctx_params.wtype = wtype;
-    if (sampler_rng_type != RNG_TYPE_COUNT) ctx_params.sampler_rng_type = sampler_rng_type;
-    if (prediction != PREDICTION_COUNT) ctx_params.prediction = prediction;
-    if (lora_apply_mode != LORA_APPLY_MODE_COUNT) ctx_params.lora_apply_mode = lora_apply_mode;
+    if (!embedding_vec.empty()) {
+        if (sd_opt_set_embeddings(co, "embeddings", embedding_vec.data(), embedding_vec.size()) != SD_STATUS_OK) {
+            fprintf(stderr, "Embeddings rejected: %s\n", sd_get_last_error());
+        }
+    }
+    opt_str(co, "photo_maker_path", photo_maker_path);
+    opt_str(co, "pulid_weights_path", pulid_weights_path);
+    opt_str(co, "tensor_type_rules", tensor_type_rules);
+    opt_str(co, "tokenizer", tokenizer_path);
+    opt_int(co, "n_threads", n_threads);
+    opt_str(co, "rng_type", rng_type_str.c_str());
+    opt_str(co, "sampler_rng_type", sampler_rng_type_str.c_str());
+    opt_str(co, "wtype", wtype_str.c_str());
+    opt_str(co, "prediction", prediction_str.c_str());
+    opt_str(co, "lora_apply_mode", lora_apply_mode_str.c_str());
     // Backend / parameter placement specs. Upstream replaced the boolean
     // CPU-offload knobs (offload_params_to_cpu, keep_clip_on_cpu, keep_vae_on_cpu,
     // keep_control_net_on_cpu) with these specs. Seed from the explicit
     // backend/params_backend options, then prepend the legacy boolean-derived
     // assignments, mirroring prepare_backend_assignments() in the upstream CLI.
-    // These strings must outlive new_sd_ctx() below.
     std::string backend_spec = backend_arg;
     std::string params_backend_spec = params_backend_arg;
     auto prepend_spec = [](std::string& spec, const char* assignment) {
@@ -643,422 +660,316 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     if (keep_clip_on_cpu) prepend_spec(backend_spec, "te=cpu");
     if (keep_vae_on_cpu) prepend_spec(backend_spec, "vae=cpu");
     if (keep_control_net_on_cpu) prepend_spec(backend_spec, "controlnet=cpu");
-    if (!backend_spec.empty()) ctx_params.backend = backend_spec.c_str();
-    if (!params_backend_spec.empty()) ctx_params.params_backend = params_backend_spec.c_str();
+    opt_str(co, "backend", backend_spec.c_str());
+    opt_str(co, "params_backend", params_backend_spec.c_str());
     // RPC servers: prefer the explicit option, otherwise fall back to the
     // LLAMACPP_GRPC_SERVERS env var. LocalAI's p2p worker mode populates that
     // var with discovered ggml rpc-server workers (shared with the llama.cpp
     // backend), so distributed image generation works with no extra config.
     if (strlen(rpc_servers_arg) > 0) {
-        ctx_params.rpc_servers = rpc_servers_arg;
+        opt_str(co, "rpc_servers", rpc_servers_arg);
     } else {
-        const char* env_rpc_servers = std::getenv("LLAMACPP_GRPC_SERVERS");
-        if (env_rpc_servers != NULL && strlen(env_rpc_servers) > 0) {
-            ctx_params.rpc_servers = env_rpc_servers;
-        }
+        opt_str(co, "rpc_servers", std::getenv("LLAMACPP_GRPC_SERVERS"));
     }
     // max_vram is an optional GiB budget or per-backend spec for automatic
     // graph-cut execution. A zero value uses the live free-VRAM budget.
-    if (strlen(max_vram_arg) > 0) ctx_params.max_vram = max_vram_arg;
-    ctx_params.diffusion_flash_attn = diffusion_flash_attn;
-    ctx_params.tae_preview_only = tae_preview_only;
-    ctx_params.diffusion_conv_direct = diffusion_conv_direct;
-    ctx_params.vae_conv_direct = vae_conv_direct;
-    ctx_params.force_sdxl_vae_conv_scale = force_sdxl_vae_conv_scale;
-    // Chroma knobs: upstream dropped the dedicated chroma_use_dit_mask /
-    // chroma_use_t5_mask / chroma_t5_mask_pad struct fields and now reads them
-    // from the generic model_args key=value spec (parse_key_value_args). Emit
-    // them there so the existing chroma options keep working. This string must
-    // outlive new_sd_ctx() below.
+    opt_str(co, "max_vram", max_vram_arg);
+    opt_bool(co, "diffusion_flash_attn", diffusion_flash_attn);
+    opt_bool(co, "tae_preview_only", tae_preview_only);
+    opt_bool(co, "diffusion_conv_direct", diffusion_conv_direct);
+    opt_bool(co, "vae_conv_direct", vae_conv_direct);
+    opt_bool(co, "force_sdxl_vae_conv_scale", force_sdxl_vae_conv_scale);
+    // Chroma knobs are read from the generic model_args key=value spec.
     std::string model_args_spec =
         "chroma_use_dit_mask=" + std::string(chroma_use_dit_mask ? "true" : "false") +
         ",chroma_use_t5_mask=" + std::string(chroma_use_t5_mask ? "true" : "false") +
         ",chroma_t5_mask_pad=" + std::to_string(chroma_t5_mask_pad);
-    ctx_params.model_args = model_args_spec.c_str();
-    sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
+    opt_str(co, "model_args", model_args_spec.c_str());
 
-    if (sd_ctx == NULL) {
-        fprintf (stderr, "failed loading model (generic error)\n");
-        // TODO: Clean up allocated memory
+    sd_ctx_t* sd_ctx = nullptr;
+    if (sd_ctx_create(co, &sd_ctx) != SD_STATUS_OK || sd_ctx == NULL) {
+        fprintf (stderr, "failed loading model: %s\n", sd_get_last_error());
         return 1;
     }
     fprintf (stderr, "Created context: OK\n");
 
-    int sample_method_found = -1;
-    sample_method_t sm = str_to_sample_method(sampler);
-    if (sm != SAMPLE_METHOD_COUNT) {
-        sample_method_found = (int)sm;
-        fprintf(stderr, "Found sampler: %s\n", sampler);
-    }
-    if (sample_method_found == -1) {
-        sample_method_found = sd_get_default_sample_method(sd_ctx);
-        fprintf(stderr, "Invalid sample method, using default: %s\n", sd_sample_method_name((sample_method_t)sample_method_found));
-    }
-    sample_method = (sample_method_t)sample_method_found;
-
-    scheduler_t sched = str_to_scheduler(scheduler_str);
-    if (sched != SCHEDULER_COUNT) {
-        scheduler = sched;
-        fprintf(stderr, "Found scheduler: %s\n", scheduler_str);
-    }
-    if (scheduler == SCHEDULER_COUNT) {
-        scheduler = sd_get_default_scheduler(sd_ctx, sample_method);
-        fprintf(stderr, "Invalid scheduler, using default: %s\n", sd_scheduler_name(scheduler));
-    }
-
+    // Sampler and scheduler are applied per generation. Empty or invalid
+    // values leave the upstream "auto" choice for the loaded model.
+    sampler_name = sampler;
+    scheduler_name = scheduler_str;
     sd_c = sd_ctx;
 
     return 0;
 }
 
-void sd_tiling_params_set_enabled(sd_tiling_params_t *params, bool enabled) {
+// Generation parameters collected from the Go side. Upstream now takes opaque
+// option objects, so the values are kept here and applied by gen_image().
+struct gosd_tiling_t {
+    bool enabled = false;
+    bool has_tile_sizes = false, has_rel_sizes = false, has_overlap = false;
+    int tile_size_w = 0, tile_size_h = 0;
+    float rel_size_w = 0, rel_size_h = 0;
+    float target_overlap = 0;
+};
+
+struct gosd_img_gen_params_t {
+    std::string prompt, negative_prompt;
+    std::vector<sd_lora_t> loras;
+    int width = 512, height = 512;
+    int64_t seed = -1;
+    std::vector<float> custom_sigmas;
+    gosd_tiling_t vae_tiling;
+};
+
+void sd_tiling_params_set_enabled(gosd_tiling_t *params, bool enabled) {
     params->enabled = enabled;
 }
 
-void sd_tiling_params_set_tile_sizes(sd_tiling_params_t *params, int tile_size_w, int tile_size_h) {
+void sd_tiling_params_set_tile_sizes(gosd_tiling_t *params, int tile_size_w, int tile_size_h) {
     params->tile_size_w = tile_size_w;
     params->tile_size_h = tile_size_h;
+    params->has_tile_sizes = true;
 }
 
-void sd_tiling_params_set_rel_sizes(sd_tiling_params_t *params, float rel_size_w, float rel_size_h) {
+void sd_tiling_params_set_rel_sizes(gosd_tiling_t *params, float rel_size_w, float rel_size_h) {
     params->rel_size_w = rel_size_w;
     params->rel_size_h = rel_size_h;
+    params->has_rel_sizes = true;
 }
 
-void sd_tiling_params_set_target_overlap(sd_tiling_params_t *params, float target_overlap) {
+void sd_tiling_params_set_target_overlap(gosd_tiling_t *params, float target_overlap) {
     params->target_overlap = target_overlap;
+    params->has_overlap = true;
 }
 
-sd_tiling_params_t* sd_img_gen_params_get_vae_tiling_params(sd_img_gen_params_t *params) {
-    return &params->vae_tiling_params;
+gosd_tiling_t* sd_img_gen_params_get_vae_tiling_params(gosd_img_gen_params_t *params) {
+    return &params->vae_tiling;
 }
 
-sd_img_gen_params_t* sd_img_gen_params_new(void) {
-    sd_img_gen_params_t *params = (sd_img_gen_params_t *)std::malloc(sizeof(sd_img_gen_params_t));
-    sd_img_gen_params_init(params);
-    sd_sample_params_init(&params->sample_params);
-    sd_cache_params_init(&params->cache);
-    params->control_strength = 0.9f;
-    return params;
+gosd_img_gen_params_t* sd_img_gen_params_new(void) {
+    return new gosd_img_gen_params_t();
 }
 
-// Storage for cleaned prompt strings (needs to persist)
-static std::string cleaned_prompt_storage;
-static std::string cleaned_negative_prompt_storage;
-
-void sd_img_gen_params_set_prompts(sd_img_gen_params_t *params, const char *prompt, const char *negative_prompt) {
+void sd_img_gen_params_set_prompts(gosd_img_gen_params_t *params, const char *prompt, const char *negative_prompt) {
     // Clear previous LoRA data
     lora_vec.clear();
     lora_strings.clear();
 
-    // Parse LoRAs from prompt
     std::string prompt_str = prompt ? prompt : "";
     std::string negative_prompt_str = negative_prompt ? negative_prompt : "";
 
-    // Get lora_dir from ctx_params if available, otherwise use stored path
+    // Use the stored LoRA directory
     const char* lora_dir_to_use = lora_dir_path.empty() ? nullptr : lora_dir_path.c_str();
 
     auto [loras, cleaned_prompt] = parse_loras_from_prompt(prompt_str, lora_dir_to_use);
     lora_vec = loras;
-    cleaned_prompt_storage = cleaned_prompt;
 
     // Also check negative prompt for LoRAs (though this is less common)
     auto [neg_loras, cleaned_negative] = parse_loras_from_prompt(negative_prompt_str, lora_dir_to_use);
-    // Merge negative prompt LoRAs (though typically not used)
     if (!neg_loras.empty()) {
         fprintf(stderr, "Note: Found %zu LoRAs in negative prompt (may not be supported)\n", neg_loras.size());
     }
-    cleaned_negative_prompt_storage = cleaned_negative;
 
-    // Set the cleaned prompts
-    params->prompt = cleaned_prompt_storage.c_str();
-    params->negative_prompt = cleaned_negative_prompt_storage.c_str();
-
-    // Set LoRAs in params
-    params->loras = lora_vec.empty() ? nullptr : lora_vec.data();
-    params->lora_count = static_cast<uint32_t>(lora_vec.size());
+    params->prompt = cleaned_prompt;
+    params->negative_prompt = cleaned_negative;
+    params->loras = lora_vec;
 
     fprintf(stderr, "Set prompts with %zu LoRAs. Original prompt: %s\n", lora_vec.size(), prompt ? prompt : "(null)");
-    fprintf(stderr, "Cleaned prompt: %s\n", cleaned_prompt_storage.c_str());
-
-    // Debug: Verify LoRAs are set correctly
-    if (params->loras && params->lora_count > 0) {
-        fprintf(stderr, "DEBUG: LoRAs set in params structure:\n");
-        for (uint32_t i = 0; i < params->lora_count; i++) {
-            fprintf(stderr, "  params->loras[%u]: path='%s' (ptr=%p), multiplier=%.2f, is_high_noise=%s\n",
-                    i,
-                    params->loras[i].path ? params->loras[i].path : "(null)",
-                    (void*)params->loras[i].path,
-                    params->loras[i].multiplier,
-                    params->loras[i].is_high_noise ? "true" : "false");
-        }
-    } else {
-        fprintf(stderr, "DEBUG: No LoRAs set in params structure (loras=%p, lora_count=%u)\n",
-                (void*)params->loras, params->lora_count);
-    }
+    fprintf(stderr, "Cleaned prompt: %s\n", params->prompt.c_str());
 }
 
-void sd_img_gen_params_set_dimensions(sd_img_gen_params_t *params, int width, int height) {
+void sd_img_gen_params_set_dimensions(gosd_img_gen_params_t *params, int width, int height) {
     params->width = width;
     params->height = height;
 }
 
-void sd_img_gen_params_set_seed(sd_img_gen_params_t *params, int64_t seed) {
+void sd_img_gen_params_set_seed(gosd_img_gen_params_t *params, int64_t seed) {
     params->seed = seed;
 }
 
-void sd_img_gen_params_set_custom_sigmas(sd_img_gen_params_t *params, float *sigmas, int count) {
-    params->sample_params.custom_sigmas = sigmas;
-    params->sample_params.custom_sigmas_count = count;
+void sd_img_gen_params_set_custom_sigmas(gosd_img_gen_params_t *params, float *sigmas, int count) {
+    params->custom_sigmas.assign(sigmas, sigmas + count);
 }
 
-int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count) {
+// Apply the sampler choices shared by image and video generation. The
+// scheduler and flow shift are shared with the high-noise pass upstream.
+static void apply_sampling_options(sd_opt_t* o, int steps, float cfg_scale) {
+    static const int skip_layers[] = {7, 8, 9};
+    opt_float(o, "sample.guidance.txt_cfg", cfg_scale);
+    if (sd_opt_set_ints(o, "sample.guidance.slg.layers", skip_layers, 3) != SD_STATUS_OK) {
+        fprintf(stderr, "SLG layers rejected: %s\n", sd_get_last_error());
+    }
+    opt_str(o, "sample.method", sampler_name.c_str());
+    opt_int(o, "sample.steps", steps);
+    opt_str(o, "sample.scheduler", scheduler_name.c_str());
+    if (std::isfinite(flow_shift)) opt_float(o, "sample.flow_shift", flow_shift);
+}
 
-    sd_image_generation_result_t* generated = nullptr;
+// Load an image file as RGB (or one channel for a mask) and resize it to the
+// target size. Returns an empty pointer on failure.
+static std::unique_ptr<uint8_t, decltype(&free)> load_resized(const char* path, int channels, int width, int height) {
+    int c = 0, w = 0, h = 0;
+    uint8_t* buf = stbi_load(path, &w, &h, &c, channels);
+    if (!buf) {
+        fprintf(stderr, "Failed to load image from '%s'\n", path);
+        return {nullptr, free};
+    }
+    if (w != width || h != height) {
+        fprintf(stderr, "Resizing image from %dx%d to %dx%d\n", w, h, width, height);
+        uint8_t* resized = (uint8_t*)malloc((size_t)width * height * channels);
+        if (!resized) {
+            free(buf);
+            return {nullptr, free};
+        }
+        stbir_resize(buf, w, h, 0,
+                     resized, width, height, 0, STBIR_TYPE_UINT8,
+                     channels, STBIR_ALPHA_CHANNEL_NONE, 0,
+                     STBIR_EDGE_CLAMP, STBIR_EDGE_CLAMP,
+                     STBIR_FILTER_BOX, STBIR_FILTER_BOX,
+                     STBIR_COLORSPACE_SRGB, nullptr);
+        free(buf);
+        buf = resized;
+    }
+    return {buf, free};
+}
 
-    std::vector<int> skip_layers = {7, 8, 9};
+int gen_image(gosd_img_gen_params_t *p_raw, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count) {
+    // The Go side hands over ownership of the parameters.
+    std::unique_ptr<gosd_img_gen_params_t> p(p_raw);
 
     fprintf (stderr, "Generating image\n");
 
-    p->sample_params.guidance.txt_cfg = cfg_scale;
-    p->sample_params.guidance.slg.layers = skip_layers.data();
-    p->sample_params.guidance.slg.layer_count = skip_layers.size();
-    p->sample_params.sample_method = sample_method;
-    p->sample_params.sample_steps = steps;
-    p->sample_params.scheduler = scheduler;
-    p->sample_params.flow_shift = flow_shift;
-
-    int width = p->width;
-    int height = p->height;
-
-    // Handle input image for img2img
-    bool has_input_image = (src_image != NULL && strlen(src_image) > 0);
-    bool has_mask_image = (mask_image != NULL && strlen(mask_image) > 0);
-
-    uint8_t* input_image_buffer = NULL;
-    uint8_t* mask_image_buffer = NULL;
-    std::vector<uint8_t> default_mask_image_vec;
-
-    if (has_input_image) {
-        fprintf(stderr, "Loading input image: %s\n", src_image);
-
-        int c = 0;
-        int img_width = 0;
-        int img_height = 0;
-        input_image_buffer = stbi_load(src_image, &img_width, &img_height, &c, 3);
-        if (input_image_buffer == NULL) {
-            fprintf(stderr, "Failed to load input image from '%s'\n", src_image);
-            return 1;
-        }
-        if (c < 3) {
-            fprintf(stderr, "Input image must have at least 3 channels, got %d\n", c);
-            free(input_image_buffer);
-            return 1;
-        }
-
-        // Resize input image if dimensions don't match
-        if (img_width != width || img_height != height) {
-            fprintf(stderr, "Resizing input image from %dx%d to %dx%d\n", img_width, img_height, width, height);
-
-            uint8_t* resized_image_buffer = (uint8_t*)malloc(height * width * 3);
-            if (resized_image_buffer == NULL) {
-                fprintf(stderr, "Failed to allocate memory for resized image\n");
-                free(input_image_buffer);
-                return 1;
-            }
-
-            stbir_resize(input_image_buffer, img_width, img_height, 0,
-                         resized_image_buffer, width, height, 0, STBIR_TYPE_UINT8,
-                         3, STBIR_ALPHA_CHANNEL_NONE, 0,
-                         STBIR_EDGE_CLAMP, STBIR_EDGE_CLAMP,
-                         STBIR_FILTER_BOX, STBIR_FILTER_BOX,
-                         STBIR_COLORSPACE_SRGB, nullptr);
-
-            free(input_image_buffer);
-            input_image_buffer = resized_image_buffer;
-        }
-
-        p->init_image = {(uint32_t)width, (uint32_t)height, 3, input_image_buffer};
-        p->strength = strength;
-        fprintf(stderr, "Using img2img with strength: %.2f\n", strength);
-    } else {
-        // No input image, use empty image for text-to-image
-        p->init_image = {(uint32_t)width, (uint32_t)height, 3, NULL};
-        p->strength = 0.0f;
+    opt_ptr gen(sd_img_gen_opt_create());
+    if (!gen) {
+        fprintf(stderr, "failed to allocate generation options\n");
+        return 1;
     }
+    sd_opt_t* o = gen.get();
 
-    // Handle mask image for inpainting
-    if (has_mask_image) {
-        fprintf(stderr, "Loading mask image: %s\n", mask_image);
+    opt_str(o, "prompt", p->prompt.c_str());
+    opt_str(o, "negative_prompt", p->negative_prompt.c_str());
+    opt_int(o, "width", p->width);
+    opt_int(o, "height", p->height);
+    opt_int(o, "seed", p->seed);
+    apply_sampling_options(o, steps, cfg_scale);
 
-        int c = 0;
-        int mask_width = 0;
-        int mask_height = 0;
-        mask_image_buffer = stbi_load(mask_image, &mask_width, &mask_height, &c, 1);
-        if (mask_image_buffer == NULL) {
-            fprintf(stderr, "Failed to load mask image from '%s'\n", mask_image);
-            if (input_image_buffer) free(input_image_buffer);
-            return 1;
-        }
-
-        // Resize mask if dimensions don't match
-        if (mask_width != width || mask_height != height) {
-            fprintf(stderr, "Resizing mask image from %dx%d to %dx%d\n", mask_width, mask_height, width, height);
-
-            uint8_t* resized_mask_buffer = (uint8_t*)malloc(height * width);
-            if (resized_mask_buffer == NULL) {
-                fprintf(stderr, "Failed to allocate memory for resized mask\n");
-                free(mask_image_buffer);
-                if (input_image_buffer) free(input_image_buffer);
-                return 1;
-            }
-
-            stbir_resize(mask_image_buffer, mask_width, mask_height, 0,
-                         resized_mask_buffer, width, height, 0, STBIR_TYPE_UINT8,
-                         1, STBIR_ALPHA_CHANNEL_NONE, 0,
-                         STBIR_EDGE_CLAMP, STBIR_EDGE_CLAMP,
-                         STBIR_FILTER_BOX, STBIR_FILTER_BOX,
-                         STBIR_COLORSPACE_SRGB, nullptr);
-
-            free(mask_image_buffer);
-            mask_image_buffer = resized_mask_buffer;
-        }
-
-        p->mask_image = {(uint32_t)width, (uint32_t)height, 1, mask_image_buffer};
-        fprintf(stderr, "Using inpainting with mask\n");
-    } else {
-        // No mask image, create default full mask
-        default_mask_image_vec.resize(width * height, 255);
-        p->mask_image = {(uint32_t)width, (uint32_t)height, 1, default_mask_image_vec.data()};
-    }
-
-    // Handle reference images
-    std::vector<sd_image_t> ref_images_vec;
-    std::vector<uint8_t*> ref_image_buffers;
-
-    if (ref_images_count > 0 && ref_images != NULL) {
-        fprintf(stderr, "Loading %d reference images\n", ref_images_count);
-
-        for (int i = 0; i < ref_images_count; i++) {
-            if (ref_images[i] == NULL || strlen(ref_images[i]) == 0) {
-                continue;
-            }
-
-            fprintf(stderr, "Loading reference image %d: %s\n", i + 1, ref_images[i]);
-
-            int c = 0;
-            int ref_width = 0;
-            int ref_height = 0;
-            uint8_t* ref_image_buffer = stbi_load(ref_images[i], &ref_width, &ref_height, &c, 3);
-            if (ref_image_buffer == NULL) {
-                fprintf(stderr, "Failed to load reference image from '%s'\n", ref_images[i]);
-                continue;
-            }
-            if (c < 3) {
-                fprintf(stderr, "Reference image must have at least 3 channels, got %d\n", c);
-                free(ref_image_buffer);
-                continue;
-            }
-
-            // Resize reference image if dimensions don't match
-            if (ref_width != width || ref_height != height) {
-                fprintf(stderr, "Resizing reference image from %dx%d to %dx%d\n", ref_width, ref_height, width, height);
-
-                uint8_t* resized_ref_buffer = (uint8_t*)malloc(height * width * 3);
-                if (resized_ref_buffer == NULL) {
-                    fprintf(stderr, "Failed to allocate memory for resized reference image\n");
-                    free(ref_image_buffer);
-                    continue;
-                }
-
-                stbir_resize(ref_image_buffer, ref_width, ref_height, 0,
-                             resized_ref_buffer, width, height, 0, STBIR_TYPE_UINT8,
-                             3, STBIR_ALPHA_CHANNEL_NONE, 0,
-                             STBIR_EDGE_CLAMP, STBIR_EDGE_CLAMP,
-                             STBIR_FILTER_BOX, STBIR_FILTER_BOX,
-                             STBIR_COLORSPACE_SRGB, nullptr);
-
-                free(ref_image_buffer);
-                ref_image_buffer = resized_ref_buffer;
-            }
-
-            ref_image_buffers.push_back(ref_image_buffer);
-            ref_images_vec.push_back({(uint32_t)width, (uint32_t)height, 3, ref_image_buffer});
-        }
-
-        if (!ref_images_vec.empty()) {
-            p->ref_images = ref_images_vec.data();
-            p->ref_images_count = ref_images_vec.size();
-            fprintf(stderr, "Using %zu reference images\n", ref_images_vec.size());
+    if (p->custom_sigmas.size() > 0) {
+        if (sd_opt_set_floats(o, "sample.sigmas", p->custom_sigmas.data(), p->custom_sigmas.size()) != SD_STATUS_OK) {
+            fprintf(stderr, "custom sigmas rejected: %s\n", sd_get_last_error());
         }
     }
-
-    // Log LoRA information
-    if (p->loras && p->lora_count > 0) {
-        fprintf(stderr, "Using %u LoRA(s) in generation:\n", p->lora_count);
-        for (uint32_t i = 0; i < p->lora_count; i++) {
-            fprintf(stderr, "  LoRA[%u]: path='%s', multiplier=%.2f, is_high_noise=%s\n",
-                    i,
-                    p->loras[i].path ? p->loras[i].path : "(null)",
-                    p->loras[i].multiplier,
-                    p->loras[i].is_high_noise ? "true" : "false");
+    if (!p->loras.empty()) {
+        if (sd_opt_set_loras(o, "loras", p->loras.data(), p->loras.size()) != SD_STATUS_OK) {
+            fprintf(stderr, "LoRAs rejected: %s\n", sd_get_last_error());
+        }
+        for (size_t i = 0; i < p->loras.size(); i++) {
+            fprintf(stderr, "  LoRA[%zu]: path='%s', multiplier=%.2f, is_high_noise=%s\n", i,
+                    p->loras[i].path, p->loras[i].multiplier, p->loras[i].is_high_noise ? "true" : "false");
         }
     } else {
         fprintf(stderr, "No LoRAs specified for this generation\n");
     }
 
-    fprintf(stderr, "Generating image with params: \nctx\n---\n%s\ngen\n---\n%s\n",
-            sd_ctx_params_to_str(&ctx_params),
-            sd_img_gen_params_to_str(p));
+    // VAE tiling: only the values the operator set are applied, an unset tile
+    // size or overlap keeps the library default.
+    const gosd_tiling_t& t = p->vae_tiling;
+    opt_bool(o, "vae_tiling.enabled", t.enabled);
+    if (t.has_tile_sizes) {
+        opt_int(o, "vae_tiling.tile_size_w", t.tile_size_w);
+        opt_int(o, "vae_tiling.tile_size_h", t.tile_size_h);
+    }
+    if (t.has_rel_sizes) {
+        opt_float(o, "vae_tiling.rel_size_w", t.rel_size_w);
+        opt_float(o, "vae_tiling.rel_size_h", t.rel_size_h);
+    }
+    if (t.has_overlap) opt_float(o, "vae_tiling.target_overlap", t.target_overlap);
 
-    bool gen_ok = generate_image(sd_c, p, &generated);
-    std::unique_ptr<sd_image_generation_result_t, decltype(&free_sd_image_generation_result)>
-        output(generated, free_sd_image_generation_result);
+    const int width = p->width;
+    const int height = p->height;
 
-    std::free(p);
-
-    if (!gen_ok || !output || output->count <= 0 || !output->items) {
-        fprintf (stderr, "NO results\n");
-        if (input_image_buffer) free(input_image_buffer);
-        if (mask_image_buffer) free(mask_image_buffer);
-        for (auto buffer : ref_image_buffers) {
-            if (buffer) free(buffer);
+    // img2img input
+    if (src_image != NULL && strlen(src_image) > 0) {
+        fprintf(stderr, "Loading input image: %s\n", src_image);
+        auto buf = load_resized(src_image, 3, width, height);
+        if (!buf) return 1;
+        tensor_ptr tensor = make_u8_image(buf.get(), width, height, 3);
+        if (!tensor || sd_opt_set_tensor(o, "init_image", tensor.get()) != SD_STATUS_OK) {
+            fprintf(stderr, "init_image rejected: %s\n", sd_get_last_error());
+            return 1;
         }
+        opt_float(o, "strength", strength);
+        fprintf(stderr, "Using img2img with strength: %.2f\n", strength);
+    }
+
+    // inpainting mask
+    if (mask_image != NULL && strlen(mask_image) > 0) {
+        fprintf(stderr, "Loading mask image: %s\n", mask_image);
+        auto buf = load_resized(mask_image, 1, width, height);
+        if (!buf) return 1;
+        tensor_ptr tensor = make_u8_image(buf.get(), width, height, 1);
+        if (!tensor || sd_opt_set_tensor(o, "mask_image", tensor.get()) != SD_STATUS_OK) {
+            fprintf(stderr, "mask_image rejected: %s\n", sd_get_last_error());
+            return 1;
+        }
+        fprintf(stderr, "Using inpainting with mask\n");
+    }
+
+    // reference images
+    std::vector<tensor_ptr> ref_tensors;
+    if (ref_images_count > 0 && ref_images != NULL) {
+        fprintf(stderr, "Loading %d reference images\n", ref_images_count);
+        for (int i = 0; i < ref_images_count; i++) {
+            if (ref_images[i] == NULL || strlen(ref_images[i]) == 0) {
+                continue;
+            }
+            fprintf(stderr, "Loading reference image %d: %s\n", i + 1, ref_images[i]);
+            auto buf = load_resized(ref_images[i], 3, width, height);
+            if (!buf) continue;
+            tensor_ptr tensor = make_u8_image(buf.get(), width, height, 3);
+            if (tensor) ref_tensors.push_back(std::move(tensor));
+        }
+        if (!ref_tensors.empty()) {
+            std::vector<const sd_tensor_t*> raw;
+            for (auto& r : ref_tensors) raw.push_back(r.get());
+            if (sd_opt_set_tensors(o, "ref_images", raw.data(), raw.size()) != SD_STATUS_OK) {
+                fprintf(stderr, "ref_images rejected: %s\n", sd_get_last_error());
+                return 1;
+            }
+            fprintf(stderr, "Using %zu reference images\n", ref_tensors.size());
+        }
+    }
+
+    sd_result_t* generated = nullptr;
+    sd_status_t status = sd_generate_image(sd_c, o, &generated);
+    result_ptr output(generated);
+
+    if (status != SD_STATUS_OK || !output || sd_result_get_image_count(output.get()) == 0) {
+        fprintf (stderr, "NO results: %s\n", sd_get_last_error());
         return 1;
     }
 
-    const sd_image_t& result = output->items[0].image;
-    if (result.data == NULL) {
+    const sd_tensor_t* image = sd_result_get_image(output.get(), 0);
+    const void* data = image ? sd_tensor_data(image) : nullptr;
+    if (!data || sd_tensor_rank(image) != 3) {
         fprintf (stderr, "Results with no data\n");
-        if (input_image_buffer) free(input_image_buffer);
-        if (mask_image_buffer) free(mask_image_buffer);
-        for (auto buffer : ref_image_buffers) {
-            if (buffer) free(buffer);
-        }
         return 1;
     }
+    const int channel = (int)sd_tensor_dim(image, 0);
+    const int out_width = (int)sd_tensor_dim(image, 1);
+    const int out_height = (int)sd_tensor_dim(image, 2);
 
     fprintf (stderr, "Writing PNG\n");
-
     fprintf (stderr, "DST: %s\n", dst);
-    fprintf (stderr, "Width: %d\n", result.width);
-    fprintf (stderr, "Height: %d\n", result.height);
-    fprintf (stderr, "Channel: %d\n", result.channel);
-    fprintf (stderr, "Data: %p\n", result.data);
+    fprintf (stderr, "Width: %d\n", out_width);
+    fprintf (stderr, "Height: %d\n", out_height);
+    fprintf (stderr, "Channel: %d\n", channel);
 
-    int ret = stbi_write_png(dst, result.width, result.height, result.channel,
-                             result.data, 0);
+    int ret = stbi_write_png(dst, out_width, out_height, channel, data, 0);
     if (ret)
       fprintf (stderr, "Saved resulting image to '%s'\n", dst);
     else
       fprintf(stderr, "Failed to write image to '%s'\n", dst);
 
-    // Clean up
-    if (input_image_buffer) free(input_image_buffer);
-    if (mask_image_buffer) free(mask_image_buffer);
-    for (auto buffer : ref_image_buffers) {
-        if (buffer) free(buffer);
-    }
     fprintf (stderr, "gen_image is done: %s\n", dst);
     fflush(stderr);
 
@@ -1067,20 +978,19 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
 
 // ---------------- Video generation ----------------
 
-sd_vid_gen_params_t* sd_vid_gen_params_new(void) {
-    sd_vid_gen_params_t *params = (sd_vid_gen_params_t *)std::malloc(sizeof(sd_vid_gen_params_t));
-    sd_vid_gen_params_init(params);
-    sd_sample_params_init(&params->sample_params);
-    sd_sample_params_init(&params->high_noise_sample_params);
-    sd_cache_params_init(&params->cache);
-    return params;
+struct gosd_vid_gen_params_t {
+    std::string prompt, negative_prompt;
+    std::vector<sd_lora_t> loras;
+    int width = 512, height = 512;
+    int64_t seed = -1;
+    int video_frames = 0;
+};
+
+gosd_vid_gen_params_t* sd_vid_gen_params_new(void) {
+    return new gosd_vid_gen_params_t();
 }
 
-// Persistent storage for cleaned video prompts (kept alive for the duration of generation)
-static std::string cleaned_vid_prompt_storage;
-static std::string cleaned_vid_negative_prompt_storage;
-
-void sd_vid_gen_params_set_prompts(sd_vid_gen_params_t *params, const char *prompt, const char *negative_prompt) {
+void sd_vid_gen_params_set_prompts(gosd_vid_gen_params_t *params, const char *prompt, const char *negative_prompt) {
     lora_vec.clear();
     lora_strings.clear();
 
@@ -1091,67 +1001,49 @@ void sd_vid_gen_params_set_prompts(sd_vid_gen_params_t *params, const char *prom
 
     auto [loras, cleaned_prompt] = parse_loras_from_prompt(prompt_str, lora_dir_to_use);
     lora_vec = loras;
-    cleaned_vid_prompt_storage = cleaned_prompt;
 
     auto [neg_loras, cleaned_negative] = parse_loras_from_prompt(negative_prompt_str, lora_dir_to_use);
-    cleaned_vid_negative_prompt_storage = cleaned_negative;
 
-    params->prompt          = cleaned_vid_prompt_storage.c_str();
-    params->negative_prompt = cleaned_vid_negative_prompt_storage.c_str();
-    params->loras           = lora_vec.empty() ? nullptr : lora_vec.data();
-    params->lora_count      = static_cast<uint32_t>(lora_vec.size());
+    params->prompt = cleaned_prompt;
+    params->negative_prompt = cleaned_negative;
+    params->loras = lora_vec;
 }
 
-void sd_vid_gen_params_set_dimensions(sd_vid_gen_params_t *params, int width, int height) {
+void sd_vid_gen_params_set_dimensions(gosd_vid_gen_params_t *params, int width, int height) {
     params->width = width;
     params->height = height;
 }
 
-void sd_vid_gen_params_set_seed(sd_vid_gen_params_t *params, int64_t seed) {
+void sd_vid_gen_params_set_seed(gosd_vid_gen_params_t *params, int64_t seed) {
     params->seed = seed;
 }
 
-void sd_vid_gen_params_set_video_frames(sd_vid_gen_params_t *params, int n) {
+void sd_vid_gen_params_set_video_frames(gosd_vid_gen_params_t *params, int n) {
     params->video_frames = n;
 }
 
-// Load an image file into an sd_image_t, resizing to target dims if needed.
-// Returns a heap-allocated buffer the caller must free (or nullptr on failure).
-static uint8_t* load_and_resize_image(const char* path, int target_width, int target_height, sd_image_t* out) {
-    if (!path || strlen(path) == 0) {
-        *out = {0, 0, 0, nullptr};
-        return nullptr;
-    }
-    int c = 0, img_w = 0, img_h = 0;
-    uint8_t* buf = stbi_load(path, &img_w, &img_h, &c, 3);
-    if (!buf) {
-        fprintf(stderr, "Failed to load image from '%s'\n", path);
-        *out = {0, 0, 0, nullptr};
-        return nullptr;
-    }
-    if (img_w != target_width || img_h != target_height) {
-        fprintf(stderr, "Resizing image from %dx%d to %dx%d\n", img_w, img_h, target_width, target_height);
-        uint8_t* resized = (uint8_t*)malloc((size_t)target_width * target_height * 3);
-        if (!resized) { free(buf); *out = {0, 0, 0, nullptr}; return nullptr; }
-        stbir_resize(buf, img_w, img_h, 0,
-                     resized, target_width, target_height, 0, STBIR_TYPE_UINT8,
-                     3, STBIR_ALPHA_CHANNEL_NONE, 0,
-                     STBIR_EDGE_CLAMP, STBIR_EDGE_CLAMP,
-                     STBIR_FILTER_BOX, STBIR_FILTER_BOX,
-                     STBIR_COLORSPACE_SRGB, nullptr);
-        free(buf);
-        buf = resized;
-    }
-    *out = {(uint32_t)target_width, (uint32_t)target_height, 3, buf};
-    return buf;
-}
+// Decoded reference audio: interleaved float samples (frame-major).
+struct gosd_audio {
+    uint32_t sample_rate;
+    uint32_t channels;
+    uint64_t sample_count;
+    float* data;
+};
+
+// One decoded video frame, borrowed from a result tensor.
+struct gosd_frame {
+    int width;
+    int height;
+    int channel;
+    const uint8_t* data;
+};
 
 // Read a RIFF/WAVE file (PCM 16/24/32-bit or IEEE float 32-bit) into an
-// sd_audio_t holding interleaved float samples (frame-major: ch0_s0, ch1_s0,
+// gosd_audio holding interleaved float samples (frame-major: ch0_s0, ch1_s0,
 // ch0_s1, ...), the layout sd.cpp reads as data[frame * channels + channel].
 // The caller owns out->data (free()).
 // Returns false and prints the reason on any unsupported or malformed input.
-static bool load_wav_audio(const char* path, sd_audio_t* out) {
+static bool load_wav_audio(const char* path, gosd_audio* out) {
     *out = {0, 0, 0, nullptr};
     FILE* f = fopen(path, "rb");
     if (!f) { fprintf(stderr, "Failed to open reference audio '%s'\n", path); return false; }
@@ -1229,13 +1121,13 @@ static bool load_wav_audio(const char* path, sd_audio_t* out) {
 }
 
 // Write sd.cpp's audio buffer to a temp WAV file (IEEE float, interleaved).
-// sd_audio_t.data is already interleaved (frame-major: ch0_s0, ch1_s0, ch0_s1,
+// The audio data is already interleaved (frame-major: ch0_s0, ch1_s0, ch0_s1,
 // ...): sd.cpp permutes its [samples, channels] waveform before copying it out
 // and its own writers read data[frame * channels + channel]. The buffer is
 // copied as is. Reading it as planar swaps the halves of the clip between the
 // channels and stretches each half to the full length (slow, one octave lower).
 // Returns 0 on success and fills wav_path.
-static int write_interleaved_float_wav(const sd_audio_t* a, char* wav_path, size_t wav_path_sz) {
+static int write_interleaved_float_wav(const gosd_audio* a, char* wav_path, size_t wav_path_sz) {
     if (!a || !a->data || a->sample_count == 0 || a->channels == 0 || a->sample_rate == 0) {
         return -1;
     }
@@ -1311,8 +1203,8 @@ static void format_mux_duration(int num_frames, int fps, char* dur, size_t dur_s
 // Uses fork+execvp to avoid shell interpretation of dst. When `audio` is
 // non-null, the audio waveform is staged to a temp WAV and added as a second
 // ffmpeg input so the final MP4 contains both video and AAC audio.
-static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
-                                  const sd_audio_t* audio, const char* dst) {
+static int ffmpeg_mux_raw_to_mp4(const gosd_frame* frames, int num_frames, int fps,
+                                  const gosd_audio* audio, const char* dst) {
     if (num_frames <= 0 || !frames || !frames[0].data) {
         fprintf(stderr, "ffmpeg_mux: empty frames\n");
         return 1;
@@ -1470,74 +1362,73 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
     return 0;
 }
 
-int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image, char *ref_images, char *ref_videos, char *ref_audios) {
-    if (!p) return 1;
+int gen_video(gosd_vid_gen_params_t *p_raw, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image, char *ref_images, char *ref_videos, char *ref_audios) {
+    if (!p_raw) return 1;
+    // The Go side hands over ownership of the parameters.
+    std::unique_ptr<gosd_vid_gen_params_t> p(p_raw);
     if (!dst || strlen(dst) == 0) {
         fprintf(stderr, "gen_video: dst is empty\n");
-        std::free(p);
         return 1;
     }
-
-    std::vector<int> skip_layers = {7, 8, 9};
 
     fprintf(stderr, "Generating video: %dx%d, frames=%d, fps=%d, steps=%d, cfg=%.2f\n",
             p->width, p->height, p->video_frames, fps, steps, cfg_scale);
 
-    // Sample params (shared by both low and high-noise passes — MoE models use the high-noise
-    // set during the first phase; single-model Wan2.1 ignores it. Same defaults for both is fine.)
-    p->sample_params.guidance.txt_cfg        = cfg_scale;
-    p->sample_params.guidance.slg.layers     = skip_layers.data();
-    p->sample_params.guidance.slg.layer_count = skip_layers.size();
-    p->sample_params.sample_method           = sample_method;
-    p->sample_params.sample_steps            = steps;
-    p->sample_params.scheduler               = scheduler;
-    p->sample_params.flow_shift              = flow_shift;
-
-    p->high_noise_sample_params.guidance.txt_cfg         = cfg_scale;
-    p->high_noise_sample_params.guidance.slg.layers      = skip_layers.data();
-    p->high_noise_sample_params.guidance.slg.layer_count = skip_layers.size();
-    p->high_noise_sample_params.sample_method            = sample_method;
-    p->high_noise_sample_params.sample_steps             = steps;
-    p->high_noise_sample_params.scheduler                = scheduler;
-    p->high_noise_sample_params.flow_shift               = flow_shift;
-
-    // Pin output fps in params; upstream uses it for audio sync (and we also mux at this rate).
-    p->fps = fps;
-
-    // Load init/end reference images if provided (resized to output dims).
-    uint8_t* init_buf = nullptr;
-    uint8_t* end_buf  = nullptr;
-    sd_image_t init_img = {0, 0, 0, nullptr};
-    sd_image_t end_img  = {0, 0, 0, nullptr};
-    if (init_image && strlen(init_image) > 0) {
-        init_buf = load_and_resize_image(init_image, p->width, p->height, &init_img);
-        if (!init_buf) { std::free(p); return 1; }
+    opt_ptr gen(sd_vid_gen_opt_create());
+    if (!gen) {
+        fprintf(stderr, "failed to allocate generation options\n");
+        return 1;
     }
-    if (end_image && strlen(end_image) > 0) {
-        end_buf = load_and_resize_image(end_image, p->width, p->height, &end_img);
-        if (!end_buf) { if (init_buf) free(init_buf); std::free(p); return 1; }
+    sd_opt_t* o = gen.get();
+
+    opt_str(o, "prompt", p->prompt.c_str());
+    opt_str(o, "negative_prompt", p->negative_prompt.c_str());
+    opt_int(o, "width", p->width);
+    opt_int(o, "height", p->height);
+    opt_int(o, "seed", p->seed);
+    if (p->video_frames > 0) opt_int(o, "video_frames", p->video_frames);
+    // Pin output fps; upstream uses it for audio sync (and we also mux at this rate).
+    opt_int(o, "fps", fps);
+    if (!p->loras.empty() &&
+        sd_opt_set_loras(o, "loras", p->loras.data(), p->loras.size()) != SD_STATUS_OK) {
+        fprintf(stderr, "LoRAs rejected: %s\n", sd_get_last_error());
     }
-    p->init_image = init_img;
-    p->end_image  = end_img;
+
+    // Sampling. MoE models use the high-noise set during the first phase;
+    // upstream shares the scheduler and flow shift between both passes.
+    apply_sampling_options(o, steps, cfg_scale);
+    {
+        static const int skip_layers[] = {7, 8, 9};
+        opt_str(o, "high_noise_sample.method", sampler_name.c_str());
+        opt_int(o, "high_noise_sample.steps", steps);
+        opt_float(o, "high_noise_sample.guidance.txt_cfg", cfg_scale);
+        if (sd_opt_set_ints(o, "high_noise_sample.guidance.slg.layers", skip_layers, 3) != SD_STATUS_OK) {
+            fprintf(stderr, "high-noise SLG layers rejected: %s\n", sd_get_last_error());
+        }
+    }
+
+    // Owned tensors. Options retain what they need, these handles are released
+    // when the function returns.
+    std::vector<tensor_ptr> keep;
+    auto set_one = [&](const char* key, const std::string& path, int w, int h) {
+        auto buf = load_resized(path.c_str(), 3, w, h);
+        if (!buf) return false;
+        tensor_ptr t = make_u8_image(buf.get(), w, h, 3);
+        if (!t || sd_opt_set_tensor(o, key, t.get()) != SD_STATUS_OK) {
+            fprintf(stderr, "%s rejected: %s\n", key, sd_get_last_error());
+            return false;
+        }
+        keep.push_back(std::move(t));
+        return true;
+    };
+    if (init_image && strlen(init_image) > 0 && !set_one("init_image", init_image, p->width, p->height)) return 1;
+    if (end_image && strlen(end_image) > 0 && !set_one("end_image", end_image, p->width, p->height)) return 1;
 
     // MiniMax-H3 Ref2VA references. Keyframes and references are mutually
     // exclusive upstream; the Go side rejects the mix before getting here.
     // The lists arrive flattened because purego cannot pass arrays of strings
     // here: ref_images and ref_audios are newline-separated paths, ref_videos
     // is one "frames_dir\x1ffps\x1faudio" record per line.
-    std::vector<uint8_t*> ref_bufs;                  // owned pixel buffers
-    std::vector<sd_image_t> ref_imgs;
-    std::vector<std::vector<sd_image_t>> ref_vid_frames;
-    std::vector<sd_ref_video_t> ref_vids;
-    std::vector<sd_audio_t> ref_auds;                // standalone clips, then video audio via ref_vids
-    std::vector<float*> ref_audio_bufs;              // owned audio buffers
-    auto free_inputs = [&]() {
-        if (init_buf) free(init_buf);
-        if (end_buf) free(end_buf);
-        for (auto* b : ref_bufs) free(b);
-        for (auto* b : ref_audio_bufs) free(b);
-    };
-    auto fail = [&]() { free_inputs(); std::free(p); return 1; };
     auto split = [](const char* list, char sep) {
         std::vector<std::string> out;
         if (!list) return out;
@@ -1549,39 +1440,65 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
         if (!cur.empty()) out.push_back(cur);
         return out;
     };
-    auto load_ref_image = [&](const std::string& path, sd_image_t* out) {
-        // Keep the native size: upstream keeps the aspect ratio of a reference
-        // image and only downscales it when it exceeds the output canvas.
-        int c = 0, w = 0, h = 0;
-        uint8_t* buf = stbi_load(path.c_str(), &w, &h, &c, 3);
+    // Load an image at its native size: upstream keeps the aspect ratio of a
+    // reference image and only downscales it when it exceeds the output canvas.
+    auto load_native = [](const std::string& path, std::vector<uint8_t>* pixels, int* w, int* h) {
+        int c = 0;
+        uint8_t* buf = stbi_load(path.c_str(), w, h, &c, 3);
         if (!buf) { fprintf(stderr, "Failed to load reference image from '%s'\n", path.c_str()); return false; }
-        ref_bufs.push_back(buf);
-        *out = {(uint32_t)w, (uint32_t)h, 3, buf};
+        pixels->assign(buf, buf + (size_t)*w * *h * 3);
+        stbi_image_free(buf);
         return true;
     };
-    auto load_ref_audio = [&](const std::string& path, sd_audio_t* out) {
-        if (!load_wav_audio(path.c_str(), out)) return false;
-        ref_audio_bufs.push_back(out->data);
+    // Make an F32 [channels, samples] tensor and wrap it with its rate.
+    auto make_audio = [&](const std::string& path, sd_audio_t* out) {
+        gosd_audio a;
+        if (!load_wav_audio(path.c_str(), &a)) return false;
+        std::unique_ptr<float, decltype(&free)> owned(a.data, free);
+        int64_t shape[2] = {(int64_t)a.channels, (int64_t)a.sample_count};
+        tensor_ptr t(sd_tensor_create(SD_TENSOR_F32, 2, shape, a.data,
+                                      (size_t)a.channels * a.sample_count * sizeof(float)));
+        if (!t) { fprintf(stderr, "audio tensor failed: %s\n", sd_get_last_error()); return false; }
+        out->sample_rate = a.sample_rate;
+        out->data = t.get();
+        keep.push_back(std::move(t));
         return true;
     };
 
+    std::vector<tensor_ptr> ref_imgs;
     for (const auto& path : split(ref_images, '\n')) {
-        sd_image_t img;
-        if (!load_ref_image(path, &img)) return fail();
-        ref_imgs.push_back(img);
+        std::vector<uint8_t> px; int w = 0, h = 0;
+        if (!load_native(path, &px, &w, &h)) return 1;
+        tensor_ptr t = make_u8_image(px.data(), w, h, 3);
+        if (!t) return 1;
+        ref_imgs.push_back(std::move(t));
     }
+    if (!ref_imgs.empty()) {
+        std::vector<const sd_tensor_t*> raw;
+        for (auto& r : ref_imgs) raw.push_back(r.get());
+        if (sd_opt_set_tensors(o, "ref_images", raw.data(), raw.size()) != SD_STATUS_OK) {
+            fprintf(stderr, "ref_images rejected: %s\n", sd_get_last_error());
+            return 1;
+        }
+    }
+
+    std::vector<sd_audio_t> ref_auds;
     for (const auto& path : split(ref_audios, '\n')) {
-        sd_audio_t aud;
-        if (!load_ref_audio(path, &aud)) return fail();
+        sd_audio_t aud = {0, nullptr};
+        if (!make_audio(path, &aud)) return 1;
         ref_auds.push_back(aud);
     }
-    auto video_records = split(ref_videos, '\n');
-    ref_vid_frames.resize(video_records.size());  // fixed size: frame pointers must stay valid
-    for (size_t v = 0; v < video_records.size(); v++) {
-        const std::string& rec = video_records[v];
+    if (!ref_auds.empty() &&
+        sd_opt_set_audios(o, "ref_audios", ref_auds.data(), ref_auds.size()) != SD_STATUS_OK) {
+        fprintf(stderr, "ref_audios rejected: %s\n", sd_get_last_error());
+        return 1;
+    }
+
+    std::vector<sd_video_t> ref_vids;
+    for (const auto& rec : split(ref_videos, '\n')) {
         size_t sep1 = rec.find('\x1f');
         size_t sep2 = sep1 == std::string::npos ? std::string::npos : rec.find('\x1f', sep1 + 1);
-        if (sep2 == std::string::npos) { fprintf(stderr, "Malformed reference video record\n"); return fail(); }
+        if (sep2 == std::string::npos) { fprintf(stderr, "Malformed reference video record\n"); return 1; }
         std::string dir = rec.substr(0, sep1);
         int vid_fps = atoi(rec.substr(sep1 + 1, sep2 - sep1 - 1).c_str());
         std::string vid_audio = rec.substr(sep2 + 1);
@@ -1593,41 +1510,73 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
         }
         if (ec || files.empty()) {
             fprintf(stderr, "Reference video directory '%s' is missing or has no frames\n", dir.c_str());
-            return fail();
+            return 1;
         }
         std::sort(files.begin(), files.end());
-        ref_vid_frames[v].reserve(files.size());
+        // One U8 [3, W, H, T] tensor: all frames must have the same size.
+        std::vector<uint8_t> pixels;
+        int vw = 0, vh = 0;
         for (const auto& file : files) {
-            sd_image_t frame;
-            if (!load_ref_image(file, &frame)) return fail();
-            ref_vid_frames[v].push_back(frame);
+            std::vector<uint8_t> px; int w = 0, h = 0;
+            if (!load_native(file, &px, &w, &h)) return 1;
+            if (vw == 0) { vw = w; vh = h; }
+            if (w != vw || h != vh) {
+                fprintf(stderr, "Reference video frames in '%s' differ in size\n", dir.c_str());
+                return 1;
+            }
+            pixels.insert(pixels.end(), px.begin(), px.end());
         }
-        sd_audio_t vid_aud = {0, 0, 0, nullptr};
-        if (!vid_audio.empty() && !load_ref_audio(vid_audio, &vid_aud)) return fail();
-        ref_vids.push_back({ref_vid_frames[v].data(), (int)ref_vid_frames[v].size(), vid_fps, vid_aud});
+        int64_t shape[4] = {3, vw, vh, (int64_t)files.size()};
+        tensor_ptr t(sd_tensor_create(SD_TENSOR_U8, 4, shape, pixels.data(), pixels.size()));
+        if (!t) { fprintf(stderr, "reference video tensor failed: %s\n", sd_get_last_error()); return 1; }
+        sd_video_t vid;
+        vid.data = t.get();
+        vid.fps = vid_fps;
+        vid.audio = {0, nullptr};
+        keep.push_back(std::move(t));
+        if (!vid_audio.empty() && !make_audio(vid_audio, &vid.audio)) return 1;
+        ref_vids.push_back(vid);
     }
-    if (!ref_imgs.empty()) { p->ref_images = ref_imgs.data(); p->ref_images_count = (int)ref_imgs.size(); }
-    if (!ref_vids.empty()) { p->ref_videos = ref_vids.data(); p->ref_videos_count = (int)ref_vids.size(); }
-    if (!ref_auds.empty()) { p->ref_audios = ref_auds.data(); p->ref_audios_count = (int)ref_auds.size(); }
-
-    // Generate
-    sd_video_generation_result_t* generated = nullptr;
-    bool ok = generate_video(sd_c, p, &generated);
-    std::unique_ptr<sd_video_generation_result_t, decltype(&free_sd_video_generation_result)>
-        output(generated, free_sd_video_generation_result);
-    std::free(p);
-
-    if (!ok || !output || !output->frames || output->frame_count <= 0) {
-        fprintf(stderr, "generate_video produced no frames\n");
-        free_inputs();
+    if (!ref_vids.empty() &&
+        sd_opt_set_videos(o, "ref_videos", ref_vids.data(), ref_vids.size()) != SD_STATUS_OK) {
+        fprintf(stderr, "ref_videos rejected: %s\n", sd_get_last_error());
         return 1;
     }
 
-    fprintf(stderr, "Generated %d frames, muxing to %s via ffmpeg\n", output->frame_count, dst);
+    // Generate
+    sd_result_t* generated = nullptr;
+    sd_status_t status = sd_generate_video(sd_c, o, &generated);
+    result_ptr output(generated);
 
-    int rc = ffmpeg_mux_raw_to_mp4(output->frames, output->frame_count, output->fps,
-                                  output->audio, dst);
-    free_inputs();
+    size_t frame_count = output ? sd_result_get_image_count(output.get()) : 0;
+    if (status != SD_STATUS_OK || frame_count == 0) {
+        fprintf(stderr, "generate_video produced no frames: %s\n", sd_get_last_error());
+        return 1;
+    }
+
+    std::vector<gosd_frame> frames;
+    for (size_t i = 0; i < frame_count; i++) {
+        const sd_tensor_t* f = sd_result_get_image(output.get(), i);
+        if (!f || sd_tensor_rank(f) != 3) { fprintf(stderr, "invalid frame %zu\n", i); return 1; }
+        frames.push_back({(int)sd_tensor_dim(f, 1), (int)sd_tensor_dim(f, 2), (int)sd_tensor_dim(f, 0),
+                          (const uint8_t*)sd_tensor_data(f)});
+    }
+
+    // Optional audio produced by the model: F32 [channels, samples], interleaved.
+    gosd_audio audio = {0, 0, 0, nullptr};
+    const sd_audio_t* out_audio = sd_result_get_audio(output.get());
+    if (out_audio && out_audio->data && sd_tensor_rank(out_audio->data) == 2) {
+        audio.sample_rate = out_audio->sample_rate;
+        audio.channels = (uint32_t)sd_tensor_dim(out_audio->data, 0);
+        audio.sample_count = (uint64_t)sd_tensor_dim(out_audio->data, 1);
+        audio.data = (float*)const_cast<void*>(sd_tensor_data(out_audio->data));
+    }
+    int out_fps = sd_result_get_fps(output.get());
+    if (out_fps <= 0) out_fps = fps;
+
+    fprintf(stderr, "Generated %zu frames, muxing to %s via ffmpeg\n", frame_count, dst);
+
+    int rc = ffmpeg_mux_raw_to_mp4(frames.data(), (int)frame_count, out_fps, &audio, dst);
 
     if (rc == 0) {
         fprintf(stderr, "gen_video done: %s\n", dst);
@@ -1637,37 +1586,45 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 }
 
 int unload() {
-    free_sd_ctx(sd_c);
+    sd_ctx_free(sd_c);
+    sd_c = nullptr;
     return 0;
 }
 
 
-// Own copies even if upstream retains constructor arguments: never retain a Go
-// string pointer across the ABI call.
 struct gosd_upscaler {
-    std::string path, backend, params_backend;
-    upscaler_ctx_t* ctx = nullptr;
-    ~gosd_upscaler() { if (ctx) free_upscaler_ctx(ctx); }
+    sd_upscaler_t* ctx = nullptr;
+    ~gosd_upscaler() { if (ctx) sd_upscaler_free(ctx); }
 };
 
 void* gosd_upscaler_create(const char* path, bool direct, int threads, int tile_size,
                           const char* backend, const char* params_backend) {
     if (!path || !*path || tile_size < 0) return nullptr;
     try {
+        opt_ptr opt(sd_upscaler_opt_create());
+        if (!opt) return nullptr;
+        // Setters copy their strings, nothing retains a Go pointer.
+        if (!opt_str(opt.get(), "model_path", path) ||
+            !opt_bool(opt.get(), "conv_direct", direct) ||
+            !opt_int(opt.get(), "n_threads", threads) ||
+            !opt_int(opt.get(), "tile_size", tile_size) ||
+            !opt_str(opt.get(), "backend", backend) ||
+            !opt_str(opt.get(), "params_backend", params_backend)) {
+            return nullptr;
+        }
         auto h = std::make_unique<gosd_upscaler>();
-        h->path = path;
-        h->backend = backend ? backend : "";
-        h->params_backend = params_backend ? params_backend : "";
-        h->ctx = new_upscaler_ctx(h->path.c_str(), direct, threads, tile_size,
-                                 h->backend.c_str(), h->params_backend.c_str());
-        if (!h->ctx) return nullptr;
+        if (sd_upscaler_create(opt.get(), &h->ctx) != SD_STATUS_OK || !h->ctx) {
+            fprintf(stderr, "upscaler load failed: %s\n", sd_get_last_error());
+            h->ctx = nullptr;
+            return nullptr;
+        }
         return h.release();
     } catch (...) { return nullptr; }
 }
 
 int gosd_upscaler_scale(void* handle) {
     if (!handle) return 0;
-    try { return get_upscale_factor(static_cast<gosd_upscaler*>(handle)->ctx); }
+    try { return sd_upscaler_get_scale(static_cast<gosd_upscaler*>(handle)->ctx); }
     catch (...) { return 0; }
 }
 
@@ -1677,11 +1634,6 @@ void gosd_upscaler_destroy(void* handle) {
 
 int gosd_upscaler_run(void* handle, const char* src, const char* dst, int scale) {
     if (!handle || !src || !*src || !dst || !*dst || scale <= 0) return 1;
-    // RAII also covers exceptions from native inference.
-    struct images {
-        sd_image_generation_result_t* data = nullptr;
-        ~images() { free_sd_image_generation_result(data); }
-    } output;
     int width = 0, height = 0, channels = 0;
     std::unique_ptr<unsigned char, decltype(&stbi_image_free)> input(
         stbi_load(src, &width, &height, &channels, 3), stbi_image_free);
@@ -1690,16 +1642,26 @@ int gosd_upscaler_run(void* handle, const char* src, const char* dst, int scale)
     const uint64_t out_height = uint64_t(height) * scale;
     if (out_width > INT_MAX / 3 || out_height > INT_MAX ||
         out_width * out_height > SIZE_MAX / 3) return 4;
-    sd_image_t image = {uint32_t(width), uint32_t(height), 3, input.get()};
     try {
-        if (!upscale(static_cast<gosd_upscaler*>(handle)->ctx, image, scale,
-                     &output.data)) return 3;
-        if (!output.data || output.data->count != 1 || !output.data->items) return 4;
-        const sd_image_t& result = output.data->items[0].image;
-        if (!result.data || result.width != out_width || result.height != out_height ||
-            result.channel != 3) return 4;
+        tensor_ptr image = make_u8_image(input.get(), width, height, 3);
+        opt_ptr opt(sd_upscale_opt_create());
+        if (!image || !opt) return 3;
+        if (sd_opt_set_tensor(opt.get(), "image", image.get()) != SD_STATUS_OK) return 3;
+        sd_result_t* raw = nullptr;
+        sd_status_t status = sd_upscale(static_cast<gosd_upscaler*>(handle)->ctx, opt.get(), &raw);
+        result_ptr output(raw);
+        if (status != SD_STATUS_OK) {
+            fprintf(stderr, "upscale failed: %s\n", sd_get_last_error());
+            return 3;
+        }
+        if (!output || sd_result_get_image_count(output.get()) != 1) return 4;
+        const sd_tensor_t* result = sd_result_get_image(output.get(), 0);
+        if (!result || sd_tensor_rank(result) != 3 || !sd_tensor_data(result)) return 4;
+        // The scale is fixed by the loaded model; check it matches the request.
+        if (sd_tensor_dim(result, 0) != 3 || uint64_t(sd_tensor_dim(result, 1)) != out_width ||
+            uint64_t(sd_tensor_dim(result, 2)) != out_height) return 4;
         if (!stbi_write_png(dst, int(out_width), int(out_height), 3,
-                            result.data, int(out_width) * 3)) return 5;
+                            sd_tensor_data(result), int(out_width) * 3)) return 5;
         return 0;
     } catch (...) { return 3; }
 }
