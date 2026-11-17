@@ -31,18 +31,25 @@ test('page share requests: a bad page, person, role or query is refused before i
   }
 })
 
-test('page share answers: names, IDs and the count of people who allowed are read from either spelling', () => {
-  const a = readGrants({ grants: [{ id: 'u-1', display_name: 'Ann', role: 'use' }, { userId: 'u-2', displayName: 'Bo', role: 'edit' }, { role: 'view' }], allowed: 1 })
-  assert.deepEqual(a.grants.map(g => [g.userId, g.displayName, g.role]), [['u-1', 'Ann', 'use'], ['u-2', 'Bo', 'edit']])
+test('page share answers: the grants, the count of people who allowed, the switch and the version are read', () => {
+  const a = readGrants({
+    name: 'tasks', enabled: true, hash: 'h1', allowedCount: 1,
+    grants: [{ userId: 'u-1', displayName: 'Ann', role: 'use', consent: 'allowed' }, { userId: '@everyone', displayName: '', role: 'view' }, { role: 'view' }],
+  })
+  assert.deepEqual(a.grants.map(g => [g.userId, g.displayName, g.role, g.consent]), [['u-1', 'Ann', 'use', 'allowed'], ['@everyone', '', 'view', '']])
   assert.equal(a.allowed, 1)
-  // Without a count for the page, the grants that carry a consent add up.
-  const b = readGrants({ grants: [{ principal: 'u-1', role: 'view', consent: 1 }, { principal: 'u-2', role: 'view', consent: 0 }] })
-  assert.equal(b.allowed, 1)
-  // Nothing says: the count is unknown, not zero.
-  assert.equal(readGrants({ grants: [{ principal: 'u-1', role: 'view' }] }).allowed, null)
+  assert.equal(a.enabled, true)
+  assert.equal(a.hash, 'h1')
+  // The switch is off when the server says so; a count that is missing is unknown, not zero.
+  const b = readGrants({ enabled: false, grants: [{ userId: 'u-1', role: 'edit', consent: 'changed' }] })
+  assert.equal(b.enabled, false)
+  assert.equal(b.allowed, null)
+  assert.equal(b.grants[0].consent, 'changed')
+  // An unknown consent word is dropped, and the numbers of a grant are never added up.
+  assert.equal(readGrants({ grants: [{ userId: 'u-1', role: 'view', consent: 1 }] }).grants[0].consent, '')
   // An answer without a list is passed on, so the dialog reads again.
   assert.deepEqual(readGrants({}), {})
-  assert.deepEqual(readUsers({ users: [{ id: 'u-1', display_name: 'Ann' }, {}] }).users, [{ id: 'u-1', displayName: 'Ann' }])
+  assert.deepEqual(readUsers({ users: [{ id: 'u-1', displayName: 'Ann' }, {}] }).users, [{ id: 'u-1', displayName: 'Ann' }])
 })
 
 test('page share client: the dialog gets its four calls over the page routes', async () => {

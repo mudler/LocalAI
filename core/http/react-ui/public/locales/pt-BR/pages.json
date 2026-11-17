@@ -228,6 +228,14 @@
     "lost": "Você não pode mais compartilhar esta página.",
     "askAgain_one": "Você mudou o código. {{count}} pessoa será consultada de novo.",
     "askAgain_other": "Você mudou o código. {{count}} pessoas serão consultadas de novo.",
-    "viewOnly": "Você pode ver esta página, mas não mudá-la"
+    "viewOnly": "Você pode ver esta página, mas não mudá-la",
+    "editNote": "Com Editar, esta página também abre para você pela etapa de permissão.",
+    "tile": {
+      "title": "Abra esta página para rodá-la",
+      "text": "Uma pessoa a compartilhou com você. Ela não roda na Home nem em um slot. Abra-a para rodar.",
+      "open": "Abrir a página",
+      "dock": "Uma pessoa compartilhou esta página com você. Abra-a em Páginas para rodá-la.",
+      "slot": "Abra {{title}} para rodá-la"
+    }
   }
 }

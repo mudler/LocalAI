@@ -12,7 +12,7 @@ import { usePinnedPages } from '../hooks/usePinnedPages'
 import Switch from '../components/ui/Switch'
 import { Button } from '../components/ui'
 import { useTheme } from '../contexts/ThemeContext'
-import { chatsApi, pagesApi } from '../utils/api'
+import { chatsApi, pageSharesApi, pagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import { readLastModel } from '../utils/lastModel'
 import { feedPaths, isPageName, pageChanges, pageIndexPath, trusted } from '../utils/pages'
@@ -79,7 +79,8 @@ export default function PageView() {
   const links = usePageLinks()
   const age = usePageAge()
   const { authEnabled } = useAuth()
-  const { userSharesOn } = usePages(true)
+  const { pages: ownPages } = usePages(true)
+  const listedShared = Number(ownPages.find((p) => p.name === name)?.shared_with) || 0
   // Sharing: the dialog, what it last read, and how many people the page
   // will ask again after a change of its code.
   const [sharing, setSharing] = useState(false)
@@ -153,14 +154,19 @@ export default function PageView() {
 
   // The code of a shared page changed: the people who allowed the version
   // before are asked again. The strip says how many, and does not block.
+  // It reads the version and the count of people who allowed it from the
+  // shares of the page, in the background, and only for a shared page.
   useEffect(() => {
-    const p = source?.page
-    if (!p) return
-    const prev = seenShare.current
-    if (prev && p.hash && prev.hash && p.hash !== prev.hash && prev.allowed > 0) setAskAgain(prev.allowed)
-    const allowed = Number.isFinite(p.shared_allowed) ? p.shared_allowed : (prev?.allowed ?? 0)
-    seenShare.current = { hash: p.hash || '', allowed: p.hash === prev?.hash && prev ? prev.allowed : allowed }
-  }, [source])
+    if (!source?.page || !authEnabled || listedShared === 0) return undefined
+    let live = true
+    pageSharesApi.grants(name).then((res) => {
+      if (!live || !res) return
+      const prev = seenShare.current
+      if (prev && res.hash && prev.hash && res.hash !== prev.hash && prev.allowed > 0) setAskAgain(prev.allowed)
+      seenShare.current = { hash: res.hash || '', allowed: res.allowed ?? 0 }
+    }).catch(() => {})
+    return () => { live = false }
+  }, [source, name, authEnabled, listedShared > 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ask = () => navigate('/app/chats', { state: { draft: t('view.askPrompt', { name }) } })
 
@@ -209,10 +215,7 @@ export default function PageView() {
   const page = source?.page
   const when = page ? age(page.updated_at) : ''
   const by = page?.updated_by === 'assistant' ? 'assistant' : 'you'
-  const known = page?.shared_with !== undefined
-  const shared = known || !freshShare
-    ? { people: Number(page?.shared_with) || 0, everyone: page?.shared_everyone === true }
-    : freshShare
+  const shared = listedShared > 0 || !freshShare ? { total: listedShared, onlyEveryone: false } : { total: freshShare.total, onlyEveryone: freshShare.everyone && freshShare.people === 0 }
 
   return (
     <div className="pg-view" data-testid="page-view">
@@ -227,9 +230,9 @@ export default function PageView() {
             <span className="pg-pill" title={t('view.runsAsYouHint')} data-testid="page-runs-as-you">
               <Icon name="user" /> {t('view.runsAsYou')}
             </span>
-            {(shared.people > 0 || shared.everyone) && (
+            {shared.total > 0 && (
               <span className="pg-pill" data-testid="page-shared-pill">
-                <Icon name="users" /> {shared.everyone && shared.people === 0 ? t('card.sharedEveryone') : t('card.sharedWith', { count: shared.people })}
+                <Icon name="users" /> {shared.onlyEveryone ? t('card.sharedEveryone') : t('card.sharedWith', { count: shared.total })}
               </span>
             )}
             {isStart && (
@@ -292,8 +295,8 @@ export default function PageView() {
 
       {sharing && page && (
         <PageShareDialog
-          page={page} sharing={authEnabled} off={userSharesOn ? '' : t('share.offAdmin')}
-          onChanged={setFreshShare}
+          page={page} sharing={authEnabled}
+          onChanged={(s) => { setFreshShare(s); if (s.hash && seenShare.current && s.allowed !== null) seenShare.current = { hash: s.hash, allowed: s.allowed } }}
           onLost={() => setSharing(false)}
           close={() => { setSharing(false); load({ quiet: true }) }}
         />

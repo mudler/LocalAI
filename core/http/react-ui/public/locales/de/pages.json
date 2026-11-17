@@ -228,6 +228,14 @@
     "lost": "Du kannst diese Seite nicht mehr teilen.",
     "askAgain_one": "Du hast den Code geändert. {{count}} Person wird erneut um Erlaubnis gefragt.",
     "askAgain_other": "Du hast den Code geändert. {{count}} Personen werden erneut um Erlaubnis gefragt.",
-    "viewOnly": "Du kannst diese Seite ansehen, aber nicht ändern"
+    "viewOnly": "Du kannst diese Seite ansehen, aber nicht ändern",
+    "editNote": "Mit „Bearbeiten“ öffnet sich diese Seite auch für dich über den Erlauben-Schritt.",
+    "tile": {
+      "title": "Öffne diese Seite, um sie auszuführen",
+      "text": "Eine Person hat sie mit dir geteilt. Sie läuft nicht auf der Startseite oder in einem Slot. Öffne sie, um sie auszuführen.",
+      "open": "Seite öffnen",
+      "dock": "Eine Person hat diese Seite mit dir geteilt. Öffne sie unter Seiten, um sie auszuführen.",
+      "slot": "Öffne {{title}}, um sie auszuführen"
+    }
   }
 }

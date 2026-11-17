@@ -9,9 +9,8 @@ import { useWorkspaceFeed } from './workspaceFeed'
 // reason when the server refuses (feature off, files off): the Pages entry then
 // stays hidden.
 // pageAreaOn is the administrator's switch for the page area of Home, null until
-// the list is read; a list that fails leaves it on. userSharesOn is the switch
-// for sharing a page with other people, on unless the list says it is off.
-let state = { pages: [], loaded: false, loading: false, error: '', off: '', pageAreaOn: null, userSharesOn: true }
+// the list is read; a list that fails leaves it on.
+let state = { pages: [], loaded: false, loading: false, error: '', off: '', pageAreaOn: null }
 const subscribers = new Set()
 let inflight = null
 
@@ -24,7 +23,7 @@ export function refreshPages() {
   if (inflight) return inflight
   set({ loading: true })
   inflight = pagesApi.list()
-    .then((res) => set({ pages: res.pages || [], loaded: true, error: '', off: '', pageAreaOn: res.page_area_enabled !== false, userSharesOn: res.user_page_shares_enabled !== false }))
+    .then((res) => set({ pages: res.pages || [], loaded: true, error: '', off: '', pageAreaOn: res.page_area_enabled !== false }))
     .catch((e) => {
       const off = e?.status === 403 || e?.status === 409 || e?.status === 404
       set({ loaded: true, error: off ? '' : (e?.message || 'error'), off: off ? (e?.message || 'off') : '', pageAreaOn: true })

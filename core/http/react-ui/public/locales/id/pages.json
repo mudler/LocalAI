@@ -228,6 +228,14 @@
     "lost": "Anda tidak dapat lagi membagikan halaman ini.",
     "askAgain_one": "Anda mengubah kode. {{count}} orang akan diminta mengizinkan lagi.",
     "askAgain_other": "Anda mengubah kode. {{count}} orang akan diminta mengizinkan lagi.",
-    "viewOnly": "Anda dapat melihat halaman ini, tetapi tidak mengubahnya"
+    "viewOnly": "Anda dapat melihat halaman ini, tetapi tidak mengubahnya",
+    "editNote": "Dengan Ubah, halaman ini juga dibuka untuk Anda melalui langkah izin.",
+    "tile": {
+      "title": "Buka halaman ini untuk menjalankannya",
+      "text": "Seseorang membagikannya kepada Anda. Halaman ini tidak berjalan di Beranda atau di slot. Buka untuk menjalankannya.",
+      "open": "Buka halaman",
+      "dock": "Seseorang membagikan halaman ini kepada Anda. Buka dari Halaman untuk menjalankannya.",
+      "slot": "Buka {{title}} untuk menjalankannya"
+    }
   }
 }

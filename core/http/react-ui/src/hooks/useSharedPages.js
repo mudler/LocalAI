@@ -18,7 +18,7 @@ function set(next) {
 export function refreshSharedPages() {
   if (inflight) return inflight
   inflight = sharedPagesApi.list()
-    .then(res => set({ pages: res.pages || [], enabled: res.enabled !== false, userSharesOn: res.user_page_shares_enabled !== false, loaded: true, error: '' }))
+    .then(res => set({ pages: res.pages || [], enabled: res.enabled !== false, userSharesOn: res.user_shares_enabled !== false, loaded: true, error: '' }))
     .catch(e => set({ pages: [], loaded: true, error: e?.status === 403 || e?.status === 404 || e?.status === 409 ? '' : (e?.message || 'error') }))
     .finally(() => { inflight = null })
   return inflight

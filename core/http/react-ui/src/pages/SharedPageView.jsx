@@ -19,7 +19,7 @@ import './pages.css'
 const MAX_ASKS = 3
 const POLL = 30_000
 // The error types that say an administrator turned sharing off.
-const OFF_TYPES = new Set(['shared_pages_off', 'sharing_disabled'])
+const OFF_TYPES = new Set(['shared_pages_off', 'sharing_disabled', 'user_page_shares_off'])
 let nextAsk = 0
 
 // The pill of the strip for each state of the consent (mockups 12, 13, 14).

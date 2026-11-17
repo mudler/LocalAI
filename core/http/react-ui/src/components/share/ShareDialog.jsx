@@ -35,12 +35,14 @@ import './share.css'
 //                 `roles`); the row of everyone offers only these
 //   summary       (payload) => string, a line under "People with access", for
 //                 example a count, drawn from the grants as the client sent them
+//   roleNotes     { roleId: text }: a short note shown while that role is the one
+//                 chosen for the next person, or is held by someone
 //   addOff        a reason, when sharing with more people is off but the
 //                 people who have access can still be removed: the add part
 //                 gives way to this text and the roles are fixed
 export default function ShareDialog({
   client, roles, allowEveryone = false, everyoneRoles, resource, sharing = true, references, onShare,
-  onChanged, onLost, close, title, intro, warning, summary, addOff = '', testId = 'share-dialog',
+  onChanged, onLost, close, title, intro, warning, summary, roleNotes, addOff = '', testId = 'share-dialog',
 }) {
   const { t } = useTranslation('common')
   const labelId = useId()
@@ -60,7 +62,7 @@ export default function ShareDialog({
     >
       {sharing
         ? <SharePanel client={client} roles={roles} allowEveryone={allowEveryone} everyoneRoles={everyoneRoles} references={references}
-            warning={warning} summary={summary} addOff={addOff} onShare={onShare} onChanged={onChanged} onLost={onLost} busy={busy} setBusy={setBusy} t={t} />
+            warning={warning} summary={summary} roleNotes={roleNotes} addOff={addOff} onShare={onShare} onChanged={onChanged} onLost={onLost} busy={busy} setBusy={setBusy} t={t} />
         : <EmptyState variant="unavailable" icon="users" level={4} title={t('share.disabled.title')} body={t('share.disabled.text')} testId="share-disabled" />}
     </Dialog>
   )
@@ -110,7 +112,7 @@ function RoleSelect({ value, roles, onChange, disabled, label, testId }) {
   )
 }
 
-function SharePanel({ client, roles: rawRoles, allowEveryone, everyoneRoles, warning, summary, addOff, references: rawRefs, onShare, onChanged, onLost, busy, setBusy, t }) {
+function SharePanel({ client, roles: rawRoles, allowEveryone, everyoneRoles, warning, summary, roleNotes, addOff, references: rawRefs, onShare, onChanged, onLost, busy, setBusy, t }) {
   const roles = useMemo(() => cleanRoles(rawRoles), [rawRoles])
   const refs = useMemo(() => cleanReferences(rawRefs), [rawRefs])
   const [newRole, setNewRole] = useState(roles[0]?.id || '')
@@ -237,6 +239,7 @@ function SharePanel({ client, roles: rawRoles, allowEveryone, everyoneRoles, war
           )}
         </div>
         <p className="share-dlg__note" id={hintId}>{roles.find(r => r.id === newRole)?.help || t('share.searchHint')}</p>
+        {roleNotes?.[newRole] && <p className="share-dlg__note share-dlg__note--warn" data-testid="share-role-note">{roleNotes[newRole]}</p>}
         {searching && (
           <p className="share-dlg__status" role="status" data-testid="share-searching"><LoadingSpinner size="sm" /> {t('share.searching')}</p>
         )}
@@ -287,6 +290,9 @@ function SharePanel({ client, roles: rawRoles, allowEveryone, everyoneRoles, war
           <p className="share-dlg__status" role="status" data-testid="share-loading"><LoadingSpinner size="sm" /> {t('share.loading')}</p>
         )}
         {grants.state === 'error' && <ShareProblem error={grants.error} onRetry={grants.reload} t={t} />}
+        {grants.state === 'ready' && roleNotes && !(addOff ? false : roleNotes[newRole]) && all.some(g => roleNotes[g.role]) && (
+          <p className="share-dlg__note" data-testid="share-role-note-held">{roleNotes[all.find(g => roleNotes[g.role]).role]}</p>
+        )}
         {grants.state === 'ready' && summary && summary(grants.data) && <p className="share-dlg__note" data-testid="share-summary">{summary(grants.data)}</p>}
         {grants.state === 'ready' && all.length === 0 && <p className="share-dlg__note" data-testid="share-no-grants">{t('share.none')}</p>}
         {all.length > 0 && (

@@ -273,6 +273,14 @@
     "lost": "You can no longer share this page.",
     "askAgain_one": "You changed the code. {{count}} person will be asked to allow it again.",
     "askAgain_other": "You changed the code. {{count}} people will be asked to allow it again.",
-    "viewOnly": "You can look at this page, not change it"
+    "viewOnly": "You can look at this page, not change it",
+    "editNote": "With Edit, this page opens through the allow step for you too.",
+    "tile": {
+      "title": "Open this page to run it",
+      "text": "A person shared it with you. It does not run on Home or in a slot. Open it to run it.",
+      "open": "Open the page",
+      "dock": "A person shared this page with you. Open it from Pages to run it.",
+      "slot": "Open {{title}} to run it"
+    }
   }
 }

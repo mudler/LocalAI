@@ -35,9 +35,9 @@ function mock(page, init = {}) {
     on: true,
     pages: [TASKS, NOTES],
     grants: [
-      { id: 'u-bob', display_name: 'Bob Rossi', role: 'use' },
-      { id: 'u-dana', display_name: 'Dana Weiss', role: 'view' },
-      { id: 'u-eli', display_name: 'Eli Chen', role: 'edit' },
+      { userId: 'u-bob', displayName: 'Bob Rossi', role: 'use', consent: 'allowed' },
+      { userId: 'u-dana', displayName: 'Dana Weiss', role: 'view', consent: 'allowed' },
+      { userId: 'u-eli', displayName: 'Eli Chen', role: 'edit', consent: 'none' },
     ],
     allowed: 2,
     shared: [],
@@ -45,22 +45,19 @@ function mock(page, init = {}) {
     searches: [],
     ...init,
   }
-  const answer = () => ({ grants: state.grants, allowed: state.allowed })
+  const answer = () => ({ name: 'tasks', enabled: state.on, hash: state.hash || 'h1', allowedCount: state.allowed, grants: state.grants })
   page.route(/\/api\/chats\/pages(\?.*)?$/, route => route.fulfill({
-    json: {
-      pages: state.pages.map(p => (p.name === 'tasks' ? { ...p, ...(state.listFields || {}) } : p)),
-      user_page_shares_enabled: state.on,
-    },
+    json: { pages: state.pages.map(p => (p.name === 'tasks' ? { ...p, ...(state.listFields || {}) } : p)) },
   }))
   page.route(/\/api\/chats\/pages\/tasks(\?.*)?$/, route => route.fulfill({
-    json: { page: { ...TASKS, hash: state.hash || 'h1', shared_allowed: state.allowed, shared_with: state.grants.length }, html: HTML },
+    json: { page: { ...TASKS }, html: HTML },
   }))
   page.route(/\/api\/chats\/pages\/shares\/search(\?.*)?$/, route => {
     const req = route.request()
     const q = new URL(req.url()).searchParams.get('q')
     state.searches.push({ q, confirm: req.headers()['x-localai-confirm'] || '' })
-    const all = [{ id: 'u-carol', display_name: 'Carol Mendes' }, { id: 'u-bob', display_name: 'Bob Rossi' }]
-    return route.fulfill({ json: { users: all.filter(u => u.display_name.toLowerCase().includes(String(q).toLowerCase())) } })
+    const all = [{ id: 'u-carol', displayName: 'Carol Mendes' }, { id: 'u-bob', displayName: 'Bob Rossi' }]
+    return route.fulfill({ json: { users: all.filter(u => u.displayName.toLowerCase().includes(String(q).toLowerCase())) } })
   })
   page.route(/\/api\/chats\/pages\/tasks\/shares(\/.*)?(\?.*)?$/, route => {
     const req = route.request()
@@ -73,25 +70,25 @@ function mock(page, init = {}) {
     const names = { 'u-carol': 'Carol Mendes', '@everyone': '' }
     if (req.method() === 'PUT') {
       const { principal, role } = seen.body
-      const g = { id: principal, display_name: names[principal] ?? principal, role }
-      const i = state.grants.findIndex(x => x.id === principal)
+      const g = { userId: principal, displayName: names[principal] ?? principal, role, ...(principal === '@everyone' ? {} : { consent: 'none' }) }
+      const i = state.grants.findIndex(x => x.userId === principal)
       if (i >= 0) state.grants[i] = { ...state.grants[i], role }
       else state.grants = principal === '@everyone' ? [g, ...state.grants] : [...state.grants, g]
     } else if (req.method() === 'DELETE') {
       const who = decodeURIComponent(rest.replace(/^\//, ''))
-      state.grants = state.grants.filter(g => g.id !== who)
+      state.grants = state.grants.filter(g => g.userId !== who)
     }
     return route.fulfill({ json: answer() })
   })
   page.route(/\/api\/chats\/shared-pages(\?.*)?$/, route => route.fulfill({
-    json: { enabled: true, user_page_shares_enabled: state.on, pages: state.shared },
+    json: { enabled: true, user_shares_enabled: state.on, pages: state.shared },
   }))
   return state
 }
 
 const sharedPage = (extra = {}) => ({
-  folder_id: 7, folder: '/users/u-bob', name: 'groceries', title: 'Groceries', icon: 'users', description: 'What to buy',
-  author_id: 'u-bob', author_name: 'Bob Rossi', user_shared: true, role: 'use', consent: 'none', source: 'shared', hash: 'g1',
+  folder_id: 7, folder: '', path: '', name: 'groceries', title: 'Groceries', icon: 'users', description: 'What to buy',
+  author_id: 'u-bob', author_name: 'Bob Rossi', owner_name: 'Bob Rossi', user_shared: true, turned_off: false, role: 'use', consent: 'none', source: 'shared', hash: 'g1',
   size: 200, meta_size: 20, writable: true, code_files: [],
   get updated_at() { return new Date().toISOString() },
   ...extra,
@@ -230,7 +227,7 @@ test('shows the badge from the dialog at once when the list does not say', async
 
 test('has a Share action on the strip of an own page, and says how many people will be asked again', async ({ page }) => {
   await signIn(page)
-  const state = mock(page)
+  const state = mock(page, { listFields: { shared_with: 3 } })
   await page.goto('/app/pages/tasks')
   await expect(page.getByTestId('page-shared-pill')).toHaveText('Shared with 3 people')
   await page.getByTestId('page-share').click()
@@ -292,8 +289,8 @@ const expectNoOwnerPath = (words) => {
 test('shows no path and no account ID of the owner for a page that a person shared', async ({ page }) => {
   await signIn(page)
   // The name is missing on purpose: the account ID must not stand in for it.
-  mock(page, { shared: [sharedPage(), sharedPage({ folder_id: 8, name: 'plans', title: 'Weekend plans', author_name: '' })] })
-  mockSharedPage(page, { author_name: '' })
+  mock(page, { shared: [sharedPage(), sharedPage({ folder_id: 8, name: 'plans', title: 'Weekend plans', author_name: '', owner_name: '' })] })
+  mockSharedPage(page, { author_name: '', owner_name: '' })
   await page.goto('/app/pages')
   await expect(page.locator('[data-testid="shared-card"][data-page="groceries"]')).toBeVisible()
   expectNoOwnerPath(await visibleWords(page))
@@ -332,18 +329,68 @@ test('keeps the wording of a page of an administrator folder in the trust sheet'
   await expect(sheet).not.toContainText('Not checked by an administrator')
 })
 
-test('does not offer to run a page that a person wrote on Home, in slots and in the dock', async ({ page }) => {
+test('the dock says a page that a person wrote must be opened, and offers no Allow', async ({ page }) => {
   await signIn(page)
   mock(page, { shared: [sharedPage()] })
   mockSharedPage(page)
   await page.goto('/app/pages')
   await page.getByTestId('shared-dock').click()
-  await page.getByTestId('dock-allow-open').click()
-  const sheet = page.getByTestId('trust-sheet')
-  await expect(sheet.getByTestId('trust-who')).toContainText('Not checked by an administrator')
-  await expect(sheet.getByTestId('trust-allow-embed')).toHaveCount(0)
-  await expect(sheet.getByTestId('trust-embed-item')).toHaveCount(0)
-  await expect(sheet.getByTestId('trust-allow')).toBeVisible()
+  await expect(page.getByTestId('dock-open-only')).toContainText('Open it from Pages to run it.')
+  await expect(page.getByTestId('dock-allow-open')).toHaveCount(0)
+  await page.getByTestId('dock-open-page').click()
+  await expect(page).toHaveURL(/\/app\/pages\/shared\/7\/groceries$/)
+  // The page's own screen still offers Allow and Allow once, never the third choice.
+  await expect(page.getByTestId('trust-sheet').getByTestId('trust-allow-embed')).toHaveCount(0)
+})
+
+test('never sends the embed consent for a page that a person wrote', async ({ page }) => {
+  await signIn(page)
+  mock(page, { shared: [sharedPage()] })
+  const consent = mockSharedPage(page)
+  await page.goto('/app/pages/shared/7/groceries')
+  await page.getByTestId('trust-allow').click()
+  await expect(page.getByTestId('shared-pill')).toHaveText('Allowed')
+  expect(consent.allows.every(b => b.embed === undefined)).toBe(true)
+})
+
+test('names the owner of a shared page, then the author, then says someone, and never the account ID', async ({ page }) => {
+  await signIn(page)
+  mock(page, { shared: [
+    sharedPage({ owner_name: 'Olga Ivanova', author_name: 'Bob Rossi' }),
+    sharedPage({ folder_id: 8, name: 'second', title: 'Second', owner_name: '', author_name: 'Bob Rossi' }),
+    sharedPage({ folder_id: 9, name: 'third', title: 'Third', owner_name: '', author_name: '', author_id: 'u-bob' }),
+  ] })
+  await page.goto('/app/pages')
+  const from = (n) => page.locator(`[data-testid="shared-card"][data-page="${n}"]`).getByTestId('shared-from')
+  await expect(from('groceries')).toHaveText('From Olga Ivanova')
+  await expect(from('second')).toHaveText('From Bob Rossi')
+  await expect(from('third')).toHaveText('From someone')
+})
+
+test('a page turned off by an administrator is dimmed and does not open, with sharing on for others', async ({ page }) => {
+  await signIn(page)
+  mock(page, { shared: [sharedPage({ turned_off: true }), sharedPage({ folder_id: 8, name: 'plans', title: 'Weekend plans' })] })
+  await page.goto('/app/pages')
+  const off = page.locator('[data-testid="shared-card"][data-page="groceries"]')
+  await expect(off).toHaveClass(/pg-row--off/)
+  await expect(off.getByTestId('shared-user-off')).toBeVisible()
+  await expect(off.getByTestId('shared-open')).toHaveCount(0)
+  await expect(page.locator('[data-testid="shared-card"][data-page="plans"]').getByTestId('shared-open')).toBeVisible()
+})
+
+test('says in the dialog that Edit opens the page through the allow step for the owner too', async ({ page }) => {
+  await signIn(page)
+  mock(page, { grants: [{ userId: 'u-bob', displayName: 'Bob Rossi', role: 'use', consent: 'allowed' }] })
+  await page.goto('/app/pages')
+  const dialog = await openShare(page)
+  await expect(dialog.getByTestId('share-role-note')).toHaveCount(0)
+  await dialog.getByTestId('share-new-role').selectOption('edit')
+  await expect(dialog.getByTestId('share-role-note')).toHaveText('With Edit, this page opens through the allow step for you too.')
+  // The note does not block: a person can still be added.
+  await dialog.getByTestId('share-search').fill('car')
+  await expect(dialog.getByTestId('share-user')).toHaveCount(1, { timeout: 5000 })
+  await dialog.getByTestId('share-user').getByRole('button', { name: /Carol Mendes/ }).click()
+  await expect(dialog.locator('[data-testid="share-grant"][data-user="u-carol"]')).toHaveAttribute('data-role', 'edit')
 })
 
 test('says in the strip that a View grantee can look at a page and not change it', async ({ page }) => {

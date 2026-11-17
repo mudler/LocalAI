@@ -168,6 +168,9 @@ export default function SlotTile({ item, slot }) {
   } else if (state === 'noWidget' || (page && !compact && state === 'ready')) {
     body = chip({ onClick: openPage, title: t('wellKnown.slots.tile.open', { title }), 'data-testid': 'slot-tile-button' },
       <><Icon name={icon} className="ws-chip__icon" />{name}<Icon name="arrow-right" className="ws-chip__go" /></>)
+  } else if (!runnable && tile.openOnly) {
+    body = chip({ onClick: openPage, title: tp('share.tile.slot', { title }), 'data-testid': 'slot-tile-open-only' },
+      <><Icon name="lock" className="ws-chip__icon" />{name}</>)
   } else if (!runnable) {
     body = chip({ onClick: tile.openSheet, title: t('wellKnown.slots.tile.allow', { title }), 'data-testid': 'slot-tile-allow' },
       <><Icon name="lock" className="ws-chip__icon" />{name}</>)

@@ -93,6 +93,15 @@ export default function PageTile({ w, size: cell, listed, onFix }) {
         <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={retry} data-testid="page-tile-retry"><Icon name="refresh" /> {t('wellKnown.home.page.retry')}</button>
       </div>
     )
+  } else if (!runnable && tile.openOnly) {
+    body = (
+      <div className="wk-ptile__calm" data-testid="page-tile-open-only">
+        <Icon name="lock" className="wk-ptile__calm-icon" />
+        <p className="wk-ptile__calm-title">{tp('share.tile.title')}</p>
+        <p className="wk-ptile__calm-text">{tp('share.tile.text')}</p>
+        <Link className="dk-btn dk-btn--primary dk-btn--sm" to={pagePath} data-testid="page-tile-open-page">{tp('share.tile.open')}</Link>
+      </div>
+    )
   } else if (!runnable) {
     body = (
       <div className="wk-ptile__calm" data-testid="page-tile-allow">

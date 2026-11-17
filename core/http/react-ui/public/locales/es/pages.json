@@ -228,6 +228,14 @@
     "lost": "Ya no puedes compartir esta página.",
     "askAgain_one": "Cambiaste el código. Se pedirá permiso de nuevo a {{count}} persona.",
     "askAgain_other": "Cambiaste el código. Se pedirá permiso de nuevo a {{count}} personas.",
-    "viewOnly": "Puedes ver esta página, pero no cambiarla"
+    "viewOnly": "Puedes ver esta página, pero no cambiarla",
+    "editNote": "Con Editar, esta página también se abre para ti mediante el paso de permiso.",
+    "tile": {
+      "title": "Abre esta página para ejecutarla",
+      "text": "Una persona la compartió contigo. No se ejecuta en Inicio ni en un slot. Ábrela para ejecutarla.",
+      "open": "Abrir la página",
+      "dock": "Una persona compartió esta página contigo. Ábrela desde Páginas para ejecutarla.",
+      "slot": "Abre {{title}} para ejecutarla"
+    }
   }
 }

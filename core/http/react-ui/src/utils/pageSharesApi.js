@@ -9,8 +9,7 @@
 //   searchUsers    -> { users: [{ id, displayName }] }
 //
 // `allowed` is how many people allowed the version of the page that is
-// current, or null when the server does not say. Optional fields may be
-// missing: nothing here fails on a field it does not know.
+// current, or null when the server does not say.
 //
 // It takes the add-on client's `call`, so an answer is classified like a
 // grant call of the other sharing routes and the share dialog reads one error
@@ -26,7 +25,6 @@ const ROLES = new Set(PAGE_ROLES)
 
 const need = (ok, what) => { if (!ok) throw new TypeError(what) }
 const segment = (s) => encodeURIComponent(s).replace(/%3A/gi, ':').replace(/%40/g, '@')
-const text = (...values) => values.find(v => typeof v === 'string' && v !== '') || ''
 
 // pageShareRequest validates one call and returns { path, method, headers, body }.
 export function pageShareRequest(call) {
@@ -57,29 +55,36 @@ export function pageShareRequest(call) {
   }
 }
 
-// readGrants turns the answer of the grants route (or of a change) into the
-// dialog's payload. A grant carries the account ID as userId, user_id,
-// principal or id; the name as displayName, display_name or name. An answer
-// without a grants list is returned as it came, so the dialog reads again.
+// readGrants reads the answer of the grants route, and of every change (they
+// have one shape): { name, enabled, hash, allowedCount, grants: [{ userId,
+// displayName, role, consent }] }. `consent` is none, allowed or changed, and
+// is absent for everyone. The dialog gets { grants, allowed, enabled, hash }:
+// `allowed` is how many people allowed the current version, null when the
+// server does not say. An answer without a grants list is returned as it came,
+// so the dialog reads again.
+const CONSENTS = new Set(['none', 'allowed', 'changed'])
 export function readGrants(raw) {
   if (!raw || !Array.isArray(raw.grants)) return raw
   const grants = raw.grants
+    .filter(g => g && typeof g.userId === 'string' && g.userId !== '')
     .map(g => ({
-      userId: text(g?.userId, g?.user_id, g?.principal, g?.id),
-      displayName: text(g?.displayName, g?.display_name, g?.name),
-      role: ROLES.has(g?.role) ? g.role : 'view',
-      consent: Number(g?.consent ?? g?.consent_count ?? 0) || 0,
+      userId: g.userId,
+      displayName: typeof g.displayName === 'string' ? g.displayName : '',
+      role: ROLES.has(g.role) ? g.role : 'view',
+      consent: CONSENTS.has(g.consent) ? g.consent : '',
     }))
-    .filter(g => g.userId !== '')
-  const counted = [raw.allowed, raw.allowed_count, raw.consent_count, raw.consents].find(n => Number.isFinite(n))
-  // Without a count for the page, add up what each grant says.
-  const allowed = counted !== undefined ? counted : (raw.grants.some(g => g && (g.consent !== undefined || g.consent_count !== undefined)) ? grants.reduce((n, g) => n + (g.consent > 0 ? 1 : 0), 0) : null)
-  return { ...raw, grants, allowed }
+  return {
+    ...raw,
+    grants,
+    allowed: Number.isFinite(raw.allowedCount) ? raw.allowedCount : null,
+    enabled: raw.enabled !== false,
+    hash: typeof raw.hash === 'string' ? raw.hash : '',
+  }
 }
 
 export function readUsers(raw) {
   if (!raw || !Array.isArray(raw.users)) return raw
-  return { ...raw, users: raw.users.map(u => ({ id: text(u?.id, u?.user_id, u?.userId), displayName: text(u?.displayName, u?.display_name, u?.name) })).filter(u => u.id !== '') }
+  return { ...raw, users: raw.users.filter(u => u && typeof u.id === 'string' && u.id !== '').map(u => ({ id: u.id, displayName: typeof u.displayName === 'string' ? u.displayName : '' })) }
 }
 
 // createPageSharesApi binds the requests to a client with `call(path, {

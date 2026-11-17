@@ -11,6 +11,7 @@ import { Button } from '../components/ui'
 import { filesApi, pagesApi, sharedPagesApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { authorOf, pageIndexPath } from '../utils/pages'
+import { ownerOpenPath } from '../utils/pageOwnerOpen'
 import { DOCS_MAKE_YOURS } from '../utils/discovery'
 import { refreshPages, usePageAge, usePages } from '../hooks/usePages'
 import { usePinnedPages } from '../hooks/usePinnedPages'
@@ -26,13 +27,12 @@ const STARTERS = [
 const FILTER_FROM = 8
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
 
-// Who a page is shared with, from the list or from the last answer of the
-// Share dialog: { people, everyone }, or null when it is private.
+// How many people a page is shared with (everyone counts as one), from the
+// list or, when the list does not say, from the last answer of the Share
+// dialog. Zero when it is private.
 function sharedWith(page, fresh) {
-  // The list, when it says, is newer than what the dialog read.
-  const known = page.shared_with !== undefined
-  const s = known || !fresh ? { people: Number(page.shared_with) || 0, everyone: page.shared_everyone === true } : fresh
-  return s.people > 0 || s.everyone ? s : null
+  if (page.shared_with !== undefined) return Number(page.shared_with) || 0
+  return fresh?.total || 0
 }
 
 function PageRow({ page, shares, pinned, onPin, onShare, onDelete, onRename, age, t }) {
@@ -40,7 +40,7 @@ function PageRow({ page, shares, pinned, onPin, onShare, onDelete, onRename, age
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(page.name)
   const author = page.author === 'assistant' ? 'assistant' : 'you'
-  const open = `/app/pages/${encodeURIComponent(page.name)}`
+  const open = ownerOpenPath(page)
   const shared = sharedWith(page, shares)
   const ask = () => navigate('/app/chats', { state: { draft: t('view.askPrompt', { name: page.name }) } })
   const dock = () => navigate('/app/chats', { state: { dock: { name: page.name, folder: 0 } } })
@@ -68,9 +68,9 @@ function PageRow({ page, shares, pinned, onPin, onShare, onDelete, onRename, age
         ) : (
           <span className="pg-row__titleline">
             <Link className="pg-row__title" to={open}>{page.title}</Link>
-            {shared && (
-              <span className="pg-badge pg-badge--plain" data-testid="page-shared-badge" title={shared.everyone ? t('card.sharedEveryone') : t('card.sharedWith', { count: shared.people })}>
-                <Icon name="users" /> {t('card.shared')}{!shared.everyone && <b data-testid="page-shared-count">{shared.people}</b>}
+            {shared > 0 && (
+              <span className="pg-badge pg-badge--plain" data-testid="page-shared-badge" title={t('card.sharedWith', { count: shared })}>
+                <Icon name="users" /> {t('card.shared')}<b data-testid="page-shared-count">{shared}</b>
               </span>
             )}
           </span>
@@ -122,7 +122,7 @@ function SharedRow({ page, enabled, userSharesOn, onStop, age, t }) {
   const allowed = page.consent === 'allowed'
   const author = authorOf(page, t('card.someone'))
   // A page that a person shared, while an administrator turned that off.
-  const userOff = enabled && page.user_shared === true && !userSharesOn
+  const userOff = enabled && page.user_shared === true && (page.turned_off === true || !userSharesOn)
   const role = ['view', 'use', 'edit'].includes(page.role) ? page.role : ''
   const open = enabled && !userOff
   return (
@@ -176,7 +176,7 @@ export default function Pages() {
   const { t } = useTranslation('pages')
   const navigate = useNavigate()
   const { addToast } = useOutletContext() || {}
-  const { pages, loaded, error, off, userSharesOn: ownOn } = usePages(true)
+  const { pages, loaded, error, off } = usePages(true)
   const { authEnabled } = useAuth()
   const { pins, setPin } = usePinnedPages(true)
   const shared = useSharedPages(true)
@@ -187,7 +187,7 @@ export default function Pages() {
   const [sharing, setSharing] = useState(null)
   // What the Share dialog last read for each page, until the list is read again.
   const [shares, setShares] = useState({})
-  const userSharesOn = ownOn && shared.userSharesOn
+  const userSharesOn = shared.userSharesOn
   const stopAllowing = async (p) => {
     try {
       await sharedPagesApi.revoke(p.folder_id, p.name)
@@ -328,7 +328,7 @@ export default function Pages() {
       {body}
       {sharing && (
         <PageShareDialog
-          page={sharing} sharing={authEnabled} off={userSharesOn ? '' : t('share.offAdmin')}
+          page={sharing} sharing={authEnabled}
           onChanged={(s) => setShares((m) => ({ ...m, [sharing.name]: s }))}
           onLost={() => { setSharing(null); addToast?.(t('share.lost'), 'error'); refreshPages() }}
           close={() => { setSharing(null); refreshPages() }}

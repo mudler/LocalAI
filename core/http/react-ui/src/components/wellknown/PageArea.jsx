@@ -175,6 +175,15 @@ function AreaPage({ pageRef: ref, wk, onRemoved, listed }) {
     )
   } else if (view.view === 'loading') {
     body = <div className="skeleton skeleton--block wk-area__fill" role="status" aria-label={t('wellKnown.home.area.loading')} data-testid="page-area-loading" />
+  } else if (view.view === 'allow' && tile.openOnly) {
+    body = (
+      <div className="wk-area__calm" data-testid="page-area-open-only">
+        <Icon name="lock" className="wk-area__calm-icon" />
+        <p className="wk-area__calm-title">{tp('share.tile.title')}</p>
+        <p className="wk-area__calm-text">{tp('share.tile.text')}</p>
+        <Button variant="primary" size="sm" to={tilePagePath(ref)} data-testid="page-area-open-page">{tp('share.tile.open')}</Button>
+      </div>
+    )
   } else if (view.view === 'allow') {
     body = (
       <div className="wk-area__calm" data-testid="page-area-allow">
