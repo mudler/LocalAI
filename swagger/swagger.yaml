@@ -4125,6 +4125,9 @@ definitions:
         type: string
       device_id:
         type: string
+      device_peer_id:
+        description: DevicePeerID is the peer that redeemed a used invite.
+        type: string
       expires_at:
         type: string
       id:
@@ -4132,6 +4135,16 @@ definitions:
       kind:
         type: string
       label:
+        type: string
+      phrase:
+        description: |-
+          Phrase is the confirmation phrase of a used invite: the words the
+          device was shown when it redeemed. The admin compares them.
+        type: string
+      relay_pass:
+        description: |-
+          RelayPass is the label of the relay that holds the pass of the invite;
+          empty when the link carries no pass.
         type: string
       status:
         description: Status is pending, used, expired or canceled.

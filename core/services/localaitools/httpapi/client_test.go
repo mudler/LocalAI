@@ -800,7 +800,10 @@ var _ = Describe("P2P", func() {
 					{"id": "d1", "label": "laptop", "status": "active", "online": true, "path": map[string]any{"kind": "relayed", "relay_label": "home"}},
 				}})
 			case "/api/p2p/invites":
-				_ = json.NewEncoder(w).Encode(map[string]any{"invites": []map[string]any{{"id": "i1", "status": "pending"}}})
+				_ = json.NewEncoder(w).Encode(map[string]any{"invites": []map[string]any{
+					{"id": "i1", "status": "pending", "relay_pass": "home"},
+					{"id": "i2", "status": "used", "phrase": "amber canal dune echo"},
+				}})
 			case "/api/p2p/relays":
 				_ = json.NewEncoder(w).Encode(map[string]any{"relays": []map[string]any{{"id": "r1", "state": "in_sync"}}})
 			default:
@@ -824,6 +827,8 @@ var _ = Describe("P2P", func() {
 		invs, err := c.ListP2PInvites(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(invs[0].Status).To(Equal("pending"))
+		Expect(invs[0].RelayPass).To(Equal("home"))
+		Expect(invs[1].Phrase).To(Equal("amber canal dune echo"))
 
 		rs, err := c.ListP2PRelays(ctx)
 		Expect(err).ToNot(HaveOccurred())

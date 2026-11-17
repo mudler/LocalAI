@@ -160,13 +160,30 @@ func (s p2pService) ListInvites(ctx context.Context) ([]p2papi.InviteView, error
 	if err != nil {
 		return nil, err
 	}
+	relays := map[string]string{}
+	for _, r := range rt.relayList() {
+		relays[r.ID] = r.Label
+	}
 	now := time.Now()
 	out := make([]p2papi.InviteView, 0, len(invs))
 	for _, i := range invs {
-		out = append(out, p2papi.InviteView{
+		v := p2papi.InviteView{
 			ID: i.ID, Kind: string(i.Kind), Label: i.Label, CreatedAt: i.CreatedAt, CreatedBy: i.CreatedBy,
 			ExpiresAt: i.ExpiresAt, Status: string(i.Status(now)), DeviceID: i.DeviceID,
-		})
+		}
+		if i.PassRelayID != "" {
+			v.RelayPass = relays[i.PassRelayID]
+			if v.RelayPass == "" {
+				v.RelayPass = i.PassRelayID
+			}
+		}
+		// The admin compares the phrase with the one the device shows, so a
+		// used invite carries it, computed the way the redeem did.
+		if p, err := p2pnet.DecodePeerID(i.UsedByPeer); i.UsedByPeer != "" && err == nil {
+			v.DevicePeerID = i.UsedByPeer
+			v.Phrase = p2ppair.Phrase(rt.host.ID(), p, i.ID)
+		}
+		out = append(out, v)
 	}
 	return out, nil
 }
