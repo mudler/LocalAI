@@ -184,6 +184,9 @@ no pass. The interface tells you.
 |---|---|---|
 | `--circuit-max-bytes` | 1 GiB | Data for each connection and direction. `0` means no limit. |
 | `--circuit-max-duration` | 30m | Time for each connection. `0` means no limit. |
+| `--max-circuit-bytes` | 8 GiB | Ceiling for the data limit that an admin may set from LocalAI. `0` means no ceiling. |
+| `--max-circuit-duration` | 24h | Ceiling for the time limit that an admin may set from LocalAI. `0` means no ceiling. |
+| `--max-rate-limit` | none | Ceiling for the speed limit that an admin may set from LocalAI, in bytes per second. `0` means no ceiling. |
 | `--max-circuits` | 128 | Connections through the relay at the same time. |
 | `--max-circuits-per-peer` | 16 | Connections for each machine. |
 | `--max-reservations` | 128 | Machines that wait for a connection. |
@@ -221,10 +224,39 @@ change is `PUT /api/p2p/relays/{id}/limits`, and the Assistant has the tools
   start, these values win over the options above. Delete the file to use the
   options again.
 - Any admin of a shared relay can change these limits, and they apply to
-  everyone on the relay.
+  everyone on the relay. For this reason, you set a ceiling (see below).
 - Only a gated relay that lists the server as admin accepts the change. For an
   open relay, or a relay where the server is only a member, the form shows the
   limits and you set them with the options above where the relay runs.
+
+### Set a ceiling for the limits
+
+You, the operator of the relay, set the highest value that an admin may choose
+for each of the three limits, with `--max-circuit-bytes`,
+`--max-circuit-duration` and `--max-rate-limit`. The relay refuses a change
+above the ceiling with an error that names the ceiling, for example
+`the circuit data limit of 20 GiB is above the ceiling of 8 GiB set by the relay operator`.
+It never lowers a value to the ceiling by itself. A ceiling also forbids
+removing the limit, because "no limit" is above every ceiling. The limits
+dialog shows the maximum next to each field, checks the values before it
+sends them, and shows the error of the relay if the relay refuses them.
+The ceiling is part of the answer of `GET /api/p2p/relays/{id}/limits`
+(`ceiling`), and of `get_p2p_relay_limits`. In both, `0` means no ceiling.
+
+- The defaults are 8 GiB of data and 24 hours for each connection. They are
+  above the default limits (1 GiB and 30 minutes), so admins can raise them
+  without a change of the options. The default speed ceiling is none, because a
+  gated relay has no speed limit by default.
+- An admin cannot change the ceiling. It is an option of the relay, and you
+  change it where the relay runs.
+- The limit options (`--circuit-max-bytes`, `--circuit-max-duration` and
+  `--rate-limit`) must be inside the ceiling. If not, the relay does not
+  start and the error names the limit. If you use a ceiling, set each limit
+  that has one to a value that is not `0`.
+- If `limits.json` from an earlier run is above a new ceiling, the relay
+  uses the ceiling for that value when it starts and logs a warning. The file
+  stays as it is until an admin changes a limit.
+- Set a ceiling to `0` to give admins full control, as before.
 
 The other options in the table are read when the relay starts. The connections per
 machine are one of them.
