@@ -516,7 +516,8 @@ outside the gallery.
 ## System-Provided Backends
 
 Backends do not have to come from the gallery: directories under
-`LOCALAI_BACKENDS_SYSTEM_PATH` (default `/var/lib/local-ai/backends`)
+`LOCALAI_BACKENDS_SYSTEM_PATH` (default `/var/lib/local-ai/backends`, on
+Windows `%ProgramData%\LocalAI\backends`)
 are discovered on every scan, using the same
 [directory format](#backend-directory-format) as user-managed
 backends. This is the integration point for distribution packages.

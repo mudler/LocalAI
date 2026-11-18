@@ -10,6 +10,7 @@ import (
 	nethttp "net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -85,7 +86,7 @@ type RunCMD struct {
 	WebRTCICEInterfaces         []string `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
 	WebRTCUDPPort               int      `env:"LOCALAI_WEBRTC_UDP_PORT" help:"Shared UDP port for /v1/realtime WebRTC ICE traffic. Publish this port as UDP and allow it through the firewall." group:"api" name:"web-rtc-udp-port"`
 	BackendsPath                string   `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
-	BackendsSystemPath          string   `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
+	BackendsSystemPath          string   `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"${backendssystempath}" help:"Path containing system backends used for inferencing" group:"backends"`
 	ModelsPath                  string   `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 	DownloadStagingPath         string   `env:"LOCALAI_DOWNLOAD_STAGING_PATH,DOWNLOAD_STAGING_PATH" type:"path" default:"${basepath}/downloading" help:"Path where in-flight downloads are staged before extraction" group:"storage"`
 	ArtifactDownloadConcurrency int      `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
@@ -393,6 +394,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		}()
 	}
 
+	warnLongPaths(runtime.GOOS, []namedPath{
+		{"--models-path", r.ModelsPath}, {"--backends-path", r.BackendsPath},
+		{"--data-path", r.DataPath}, {"--download-staging-path", r.DownloadStagingPath},
+	})
 	os.MkdirAll(r.BackendsPath, 0750)
 	os.MkdirAll(r.ModelsPath, 0750)
 

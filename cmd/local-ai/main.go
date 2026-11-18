@@ -3,13 +3,11 @@ package main
 import (
 	"errors"
 	"os"
-	"path/filepath"
 
 	"github.com/alecthomas/kong"
 	"github.com/joho/godotenv"
 	"github.com/mudler/LocalAI/core/cli"
-	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 
 	_ "github.com/mudler/LocalAI/swagger"
@@ -21,14 +19,11 @@ func main() {
 	// Initialize xlog at a level of INFO, we will set the desired level after we parse the CLI options
 	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text"))
 
-	// handle loading environment variables from .env files
-	envFiles := []string{".env", "localai.env"}
-	homeDir, err := os.UserHomeDir()
-	if err == nil {
-		envFiles = append(envFiles, filepath.Join(homeDir, "localai.env"), filepath.Join(homeDir, ".config/localai.env"))
-	}
-	envFiles = append(envFiles, "/etc/localai.env")
-
+	// The default folders and the env files depend on the OS: the current
+	// folder and /etc/localai.env on Linux and macOS, the standard folders on
+	// Windows. LOCALAI_BASE_PATH can come from an env file, so resolve the
+	// folders again once the files are loaded.
+	envFiles := system.ResolveDefaultDirs().EnvFiles
 	for _, envFile := range envFiles {
 		if _, err := os.Stat(envFile); err == nil {
 			xlog.Debug("env file found, loading environment variables from file", "envFile", envFile)
@@ -39,6 +34,8 @@ func main() {
 			}
 		}
 	}
+
+	defaultDirs := system.ResolveDefaultDirs()
 
 	// Actually parse the CLI options
 	k := kong.Must(&cli.CLI,
@@ -58,19 +55,7 @@ For documentation and support:
 `,
 		),
 		kong.UsageOnError(),
-		kong.Vars{
-			"basepath": kong.ExpandPath("."),
-			// Per-user temp locations for ephemeral writable content. A fixed
-			// shared name under /tmp collides across accounts on multi-user hosts
-			// (notably macOS, where /tmp is the shared /private/tmp for everyone),
-			// failing startup with "mkdir /tmp/generated/content: permission
-			// denied". See cli.DefaultGeneratedContentPath.
-			"generatedcontentpath": cli.DefaultGeneratedContentPath(),
-			"uploadpath":           cli.DefaultUploadPath(),
-			"galleries":            config.DefaultGalleriesJSON,
-			"backends":             config.DefaultBackendGalleriesJSON,
-			"version":              internal.PrintableVersion(),
-		},
+		cli.KongVars(defaultDirs),
 	)
 	ctx, err := k.Parse(os.Args[1:])
 	if err != nil {
@@ -104,6 +89,8 @@ For documentation and support:
 	}
 
 	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(*cli.CLI.LogLevel), *cli.CLI.LogFormat, logOpts...))
+
+	cli.LogDefaultDirs(defaultDirs)
 
 	// Loaded here rather than in RunCMD so `worker`, `backends install` and
 	// `models install` authenticate the same way the server does.

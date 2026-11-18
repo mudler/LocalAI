@@ -32,7 +32,7 @@ var _ = Describe("Diagnostics CLI", Serial, func() {
 		r := &command.Run
 		// Match cmd/local-ai/main.go, including gallery substitutions. Parsing
 		// must fail for the supplied value, not an unrelated missing variable.
-		p, err := kong.New(&command, kong.Vars{
+		p, err := kong.New(&command, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends",
 			"basepath":             kong.ExpandPath("."),
 			"generatedcontentpath": DefaultGeneratedContentPath(),
 			"uploadpath":           DefaultUploadPath(),

@@ -75,6 +75,42 @@ Download `local-ai-<version>-windows-amd64.exe` from the [releases page](https:/
 
 LocalAI picks the llama.cpp binary from the Windows backend image for you. You do not need to configure anything.
 
+## Where LocalAI keeps its files
+
+On Windows, LocalAI uses the standard folders of your user account, not the current folder (except for the files of an earlier build, see below). You can start `local-ai.exe` from any folder and it finds the same models.
+
+| Folder | Default on Windows | Flag | Variable |
+|---|---|---|---|
+| Models | `%LOCALAPPDATA%\LocalAI\models` | `--models-path` | `LOCALAI_MODELS_PATH` |
+| Backends | `%LOCALAPPDATA%\LocalAI\backends` | `--backends-path` | `LOCALAI_BACKENDS_PATH` |
+| Data (chats, files, database) | `%LOCALAPPDATA%\LocalAI\data` | `--data-path` | `LOCALAI_DATA_PATH` |
+| Configuration (runtime settings, API keys) | `%LOCALAPPDATA%\LocalAI\configuration` | `--localai-config-dir` | `LOCALAI_CONFIG_DIR` |
+| Downloads in progress | `%LOCALAPPDATA%\LocalAI\downloading` | `--download-staging-path` | `LOCALAI_DOWNLOAD_STAGING_PATH` |
+| Backends that an administrator installs | `%ProgramData%\LocalAI\backends` | `--backends-system-path` | `LOCALAI_BACKENDS_SYSTEM_PATH` |
+| Generated content and uploads | `%TEMP%\localai-<SID>` | `--generated-content-path`, `--upload-path` | `LOCALAI_GENERATED_CONTENT_PATH`, `LOCALAI_UPLOAD_PATH` |
+
+`%LOCALAPPDATA%` is usually `C:\Users\<you>\AppData\Local`. The folder is private to your account and Windows does not copy it to other computers with a roaming profile. The configuration stays in this folder too, and not in the roaming `%APPDATA%` folder, because it holds API keys and settings that are specific to this computer.
+
+A flag or a variable of one folder always wins over the default. To move all the folders in the `LocalAI` folder at once, for example to a larger drive, set `LOCALAI_BASE_PATH`:
+
+```powershell
+$env:LOCALAI_BASE_PATH = 'D:\LocalAI'
+.\local-ai.exe run
+```
+
+`LOCALAI_BASE_PATH` moves the models, backends, data, configuration and downloading folders. It does not move the temporary folders or the folder of the administrator backends. To keep the setting, put it in an env file (see below) or set it as a user variable in **Settings > System > About > Advanced system settings > Environment Variables**.
+
+**Earlier test builds.** Earlier builds used the current folder. When the current folder has files that only LocalAI writes (an installed backend, a model configuration or a `.gguf` file in `models`, `data\database.db`, or `runtime_settings.json` or `api_keys.json` in `configuration`), LocalAI keeps using the current folder and logs a warning with the standard folder. It never moves or deletes files. To use the standard folder, move the `models`, `backends`, `data` and `configuration` folders to `%LOCALAPPDATA%\LocalAI` while LocalAI is stopped, or set `LOCALAI_BASE_PATH` to the old folder to keep it and stop the warning.
+
+**Env files.** LocalAI reads variables from these files when they exist, in this order. A variable keeps the first value it gets, and a variable that is already set in the environment wins over all files:
+
+1. `.env` and `localai.env` in the current folder
+2. `%USERPROFILE%\localai.env` and `%USERPROFILE%\.config\localai.env`
+3. `%LOCALAPPDATA%\LocalAI\localai.env` (for your user)
+4. `%ProgramData%\LocalAI\localai.env` (for all users of the computer, the Windows form of `/etc/localai.env`)
+
+**Long paths.** LocalAI itself handles long paths. The backends that it starts may not: most Windows programs are limited to 260 characters in a path. When the models, backends, data or downloading folder is longer than 200 characters, `local-ai run` logs a warning. Use a shorter folder, or [enable long paths in Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation).
+
 ## What is not available on Windows yet
 
 - The Sandbox add-on. It isolates commands with gVisor or a virtual machine, and neither is available on Windows, so there is no Windows package of it. Chat commands that need the Sandbox add-on are not available.
@@ -91,7 +127,7 @@ A Windows host can be a node of a LocalAI cluster:
 - The worker reports the GPU and its VRAM. For NVIDIA GPUs it uses `nvidia-smi`, which the NVIDIA driver installs. For other GPUs it reads the adapter list from DirectX (DXGI) and the memory in use from the "GPU Adapter Memory" performance counters (Windows 10 version 1709 or later). An integrated GPU reports the shared system memory it can use. If the counters are not available, the free VRAM is unknown: the worker reports the total VRAM, and its heartbeats do not report free VRAM. The frontend then keeps the free VRAM from the registration, which is the total.
 - The frontend and the workers can run on different operating systems. A path on a worker keeps the separator of the worker's operating system.
 
-The default folders are the same as for `local-ai run`: `models`, `backends` and `data` in the current folder. Set `--models-path`, `--backends-path` and `LOCALAI_DATA_PATH` to use other folders. A folder under `%LOCALAPPDATA%` keeps the files private to your user.
+The default folders are the same as for `local-ai run`: `models`, `backends` and `data` in `%LOCALAPPDATA%\LocalAI`. See [Where LocalAI keeps its files](#where-localai-keeps-its-files). Set `--models-path`, `--backends-path` and `LOCALAI_DATA_PATH`, or `LOCALAI_BASE_PATH`, to use other folders.
 
 ### Stop a worker
 
@@ -106,7 +142,7 @@ sc.exe create LocalAIWorker start= auto binPath= "C:\LocalAI\local-ai.exe worker
 sc.exe start LocalAIWorker
 ```
 
-Set the paths explicitly: a service starts in `C:\Windows\System32`, so the default folders relative to the current folder are not useful. The service runs as `LocalSystem` unless you set another account with `obj=`. Set environment variables such as `LOCALAI_REGISTRATION_TOKEN` and `LOCALAI_DATA_PATH` for the service in the registry key `HKLM\SYSTEM\CurrentControlSet\Services\LocalAIWorker`, value `Environment` (multi-string), or pass them as flags.
+Set the paths explicitly. The service runs as `LocalSystem` unless you set another account with `obj=`, and the `%LOCALAPPDATA%` folder of `LocalSystem` is in the system profile (`C:\Windows\System32\config\systemprofile\AppData\Local`). A folder such as `%ProgramData%\LocalAI` or `C:\LocalAI` is easier to find and to back up. To move all folders with one setting, set `LOCALAI_BASE_PATH` for the service. Set environment variables such as `LOCALAI_REGISTRATION_TOKEN` and `LOCALAI_DATA_PATH` for the service in the registry key `HKLM\SYSTEM\CurrentControlSet\Services\LocalAIWorker`, value `Environment` (multi-string), or pass them as flags.
 
 ### Limits
 
@@ -138,6 +174,7 @@ loaded dynamically, so the backend never hard-depends on it.
 | Variable | Effect |
 |----------|--------|
 | `LLAMACPP_GRPC_SERVERS` | Comma-separated RPC server addresses. When set, `run.ps1` starts `llama-cpp-grpc.exe` and the backend connects to these servers. |
+| `LOCALAI_BASE_PATH` | Folder that holds the `models`, `backends`, `data`, `configuration` and `downloading` folders. The default is `%LOCALAPPDATA%\LocalAI`. See [Where LocalAI keeps its files](#where-localai-keeps-its-files). |
 | `LOCALAI_FFMPEG_PATH` | Full path of the `ffmpeg.exe` program. When it is not set, LocalAI looks for `ffmpeg` on `PATH`. |
 
 ## Troubleshooting

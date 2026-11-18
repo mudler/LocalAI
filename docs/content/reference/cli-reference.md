@@ -56,6 +56,8 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 
 ## Storage Flags
 
+`BASEPATH` in the defaults below is the current folder on Linux and macOS, and `%LOCALAPPDATA%\LocalAI` on Windows. Set `LOCALAI_BASE_PATH` to use another folder on any system: it moves every default that starts with `BASEPATH` at once. A flag or a variable of one folder still wins over it. `LOCALAI_BASE_PATH` is a variable and not a flag, because the defaults of all flags are set before the command line is read. You can put it in an [env file]({{%relref "/models/advanced-usage" %}}#env-files). See [Install on Windows]({{%relref "/start/install/windows" %}}#where-localai-keeps-its-files) for the Windows folders.
+
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--models-path` | `BASEPATH/models` | Path containing models used for inferencing | `$LOCALAI_MODELS_PATH`, `$MODELS_PATH` |
@@ -92,7 +94,7 @@ appends `localai-UID/backend-runtime`; the default base is `TMPDIR`.
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--backends-path` | `BASEPATH/backends` | Path containing backends used for inferencing | `$LOCALAI_BACKENDS_PATH`, `$BACKENDS_PATH` |
-| `--backends-system-path` | `/var/lib/local-ai/backends` | Path containing system backends used for inferencing | `$LOCALAI_BACKENDS_SYSTEM_PATH`, `$BACKEND_SYSTEM_PATH` |
+| `--backends-system-path` | `/var/lib/local-ai/backends` (Windows: `%ProgramData%\LocalAI\backends`) | Path containing system backends used for inferencing | `$LOCALAI_BACKENDS_SYSTEM_PATH`, `$BACKEND_SYSTEM_PATH` |
 | `--external-backends` | | A list of external backends to load from gallery on boot | `$LOCALAI_EXTERNAL_BACKENDS`, `$EXTERNAL_BACKENDS` |
 | `--external-grpc-backends` | | A list of external gRPC backends (format: `BACKEND_NAME:URI`) | `$LOCALAI_EXTERNAL_GRPC_BACKENDS`, `$EXTERNAL_GRPC_BACKENDS` |
 | `--backend-galleries` | | JSON list of backend galleries | `$LOCALAI_BACKEND_GALLERIES`, `$BACKEND_GALLERIES` |

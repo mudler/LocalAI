@@ -193,7 +193,7 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
 
 ## Configuration Persistence
 
-All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
+All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`, where `BASEPATH` is the current folder on Linux and macOS, `%LOCALAPPDATA%\LocalAI` on Windows, or `LOCALAI_BASE_PATH` when it is set). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
 
 ## Settings Precedence
 
