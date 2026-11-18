@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { Callout, LoadError, SkeletonRows } from '../components/ui'
 import { HubHeader } from '../components/hub/HubHeader'
+import P2PTabs from '../components/p2p/P2PTabs'
 import { p2pRelaysApi, settingsApi } from '../utils/api'
 import NetworkSection from '../components/p2psettings/NetworkSection'
 import RelaysSection from '../components/p2psettings/RelaysSection'
@@ -13,6 +14,7 @@ import { p2pSettingsFrom } from '../components/p2psettings/p2pSettingsModel'
 import './settings.css'
 // The relay commands use the command block of the Swarm pages.
 import './swarm.css'
+import '../components/p2p/p2p.css'
 import '../components/p2psettings/p2psettings.css'
 
 // The sections of the page and the modes that show them: relays exist only
@@ -95,6 +97,7 @@ export default function P2PSettings() {
     return (
       <div className="page page--wide st-page" data-testid="p2p-settings-page">
         <h1 className="dk-sr-only">{t('title')}</h1>
+        <P2PTabs />
         <LoadError title={t('loadError')} error={error} onRetry={load} />
       </div>
     )
@@ -105,6 +108,7 @@ export default function P2PSettings() {
     <div className="page page--wide st-page" data-testid="p2p-settings-page" data-mode={mode}>
       <h1 className="dk-sr-only">{t('title')}</h1>
       <HubHeader supporting={<p className="st-lede">{t(`lede.${mode}`)}</p>} />
+      <P2PTabs />
       {status?.error && <Callout tone="error" role="alert" title={t('notRunning')} testId="p2p-status-error">{status.error}</Callout>}
       <div className="st-layout">
         <nav className="st-groups" aria-label={t('sections.label')}>

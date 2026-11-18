@@ -70,6 +70,15 @@ test.describe('P2P settings: modes', () => {
     await page.getByTestId('p2p-bootstrap-save').click()
     await expect.poll(() => calls.settings).toContainEqual({ p2p_bootstrap_peers: [`/ip4/203.0.113.5/tcp/4001/p2p/${OTHER_ID}`] })
   })
+
+  test('shows the tab row of Swarm, P2P with Settings as the current tab', async ({ page }) => {
+    await mockP2PSettings(page, { mode: 'share' })
+    await page.goto(PAGE)
+    await ready(page)
+    const tabs = page.getByTestId('p2p-tabs')
+    await expect(tabs.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page')
+    await expect(tabs.getByRole('link', { name: 'Devices and invites' })).toHaveAttribute('href', '/app/p2p')
+  })
 })
 
 test.describe('P2P settings: relays', () => {
