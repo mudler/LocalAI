@@ -5,8 +5,13 @@ Tests for the P2P layer (`core/services/p2pnet`, `core/services/p2prelay`,
 
 | Path | What it is |
 |---|---|
-| `lab/` | A NAT lab in Docker: two peers behind NAT routers, a public segment with a gated relay. The shell harness and the cases. |
-| `labbin/` | The small command the lab runs in its containers. It is built from the P2P packages. |
+| `lab/` | A NAT lab in Docker: two peers behind NAT routers, a public segment with the real relay. The shell harness and the cases. |
+| `labbin/` | The small command that runs the peers in the lab: a server, a dialer, an invite redeemer, a relay admin client. It is built from the real P2P packages. |
+
+The relay in the lab is the real `localai-relay` binary (`cmd/localai-relay`),
+not a test double. The peers use the real host (`p2pnet`), the real server side
+of the relay protocol (`p2prelaymgr`) and the real invite client
+(`p2ppair/pairclient`).
 
 The unit tests of the packages sit next to the code and run with `make test-p2p`.
 
@@ -18,7 +23,7 @@ Docker socket.
 
 ```sh
 make test-p2p          # unit tests, race detector
-make test-e2e-p2p      # builds the lab binary and runs every lab case
+make test-e2e-p2p      # builds the relay and the lab binary, runs every lab case
 ```
 
 Run some cases only, keep the lab up to look around, and clean up:
@@ -32,12 +37,16 @@ tests/e2e/p2p/lab/lab.sh rmi            # remove the lab image
 tests/e2e/p2p/lab/run.sh --list         # the cases
 ```
 
-Settings, all optional: `P2P_LAB_BIN` (use a binary you built instead of
-`labbin`), `P2P_LAB_LOGS` (log directory, default `tests/e2e/p2p/lab/logs`),
-`LAB_NATS` (the two NAT types, default `sym sym`; `cone` allows hole punching),
-`LAB_IPTABLES` (`iptables-legacy` if the host kernel has no nftables).
+Settings, all optional: `P2P_LAB_BIN` and `P2P_LAB_RELAY_BIN` (use binaries
+you built instead of `labbin` and `localai-relay`; they must be static, so build
+with `CGO_ENABLED=0 GOOS=linux`), `P2P_LAB_LOGS` (log directory, default
+`tests/e2e/p2p/lab/logs`), `LAB_NATS` (the two NAT types the cases start with,
+default `sym sym`; a case may change them), `LAB_IPTABLES` (`iptables-legacy` if
+the host kernel has no nftables).
 
-While `labbin` is still the placeholder the lab prints a notice and exits 0.
+The lab starts about ten small containers and needs less than 500 MB of
+memory. The first run builds a small image (`p2plab-lab:local`, 20 MB); remove
+it with `lab.sh rmi`.
 
 ## Read the logs
 

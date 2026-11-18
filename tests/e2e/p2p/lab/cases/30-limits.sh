@@ -15,7 +15,7 @@ case_circuit_limit() {
   expect_match "the connection is gone" '^TEST transfer .* path="not-connected"' "$out"
 }
 
-register bandwidth_cap "the relay holds a circuit to its bandwidth cap" relay-rate-limit
+register bandwidth_cap "the relay holds a circuit to its bandwidth cap"
 case_bandwidth_cap() {
   relay_start --open --rate-limit 1048576
   serve_plain a ROGUE
@@ -27,18 +27,18 @@ case_bandwidth_cap() {
   expect_true "the rate stays near the cap" num_lt "${rate:-99999}" 1.8
 }
 
-register relay_pass "a one-time relay pass lets a stranger pair, and only once" relay-pass
+register relay_pass "a one-time relay pass lets a stranger pair, and only once"
 case_relay_pass() {
   relay_start --admin "$SRV"
-  local s1 s2 out
-  s1=$(keygen a STRANGER1)
-  s2=$(keygen a STRANGER2)
-  serve b SRV "$CLI $s1 $s2"
-  out=$(admin b SRV pass --code LABCODE --ttl 5m)
+  local out
+  keygen a STRANGER1 >/dev/null
+  keygen a STRANGER2 >/dev/null
+  serve b SRV "$CLI" --pairing-open
+  out=$(admin b SRV pass --code LABCODE123 --ttl 5m)
   expect_match "the admin registers a pass on the relay" 'ok=true' "$out"
-  out=$(dial a STRANGER1 "$SRV" --quick --pass LABCODE --timeout 20s | grep RESULT)
+  out=$(dial a STRANGER1 "$SRV" --quick --relay "$RELAY" --pass LABCODE123 --timeout 20s | grep RESULT)
   expect_match "a stranger with the pass reaches the server" 'RESULT connect=ok' "$out"
-  out=$(dial a STRANGER2 "$SRV" --quick --pass LABCODE --timeout 20s | grep RESULT)
+  out=$(dial a STRANGER2 "$SRV" --quick --relay "$RELAY" --pass LABCODE123 --timeout 20s | grep RESULT)
   expect_match "the same pass is refused a second time" 'RESULT connect=fail' "$out"
   out=$(dial a ROGUE "$SRV" --quick --timeout 15s | grep RESULT)
   expect_match "a stranger without a pass is refused" 'RESULT connect=fail' "$out"

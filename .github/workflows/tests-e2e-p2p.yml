@@ -8,8 +8,10 @@ name: 'P2P E2E Tests'
 # The P2P layer (core/services/p2pnet, p2prelay, p2ppair):
 #   - unit tests under the race detector (`make test-p2p`);
 #   - the NAT lab (`make test-e2e-p2p`): two peers behind NAT routers (cone and
-#     symmetric masquerade), a public segment with a gated relay, and the relay
-#     cases listed in tests/e2e/p2p/README.md, all in Docker containers.
+#     symmetric masquerade) and a public segment with the real localai-relay
+#     binary, in Docker containers. The cases cover the relay gate, relay
+#     restart, limits, relay passes, invites, revoke and hole punching; they
+#     are listed in tests/e2e/p2p/README.md.
 #
 # The lab needs no secrets and no token beyond read access, so it also runs on
 # pull requests from forks. Only the nightly run is limited to the main
@@ -24,12 +26,14 @@ on:
   pull_request:
     paths:
       - 'core/services/p2p*/**'
+      - 'cmd/localai-relay/**'
       - 'tests/e2e/p2p/**'
       - '.github/workflows/tests-e2e-p2p.yml'
   push:
     branches: [master]
     paths:
       - 'core/services/p2p*/**'
+      - 'cmd/localai-relay/**'
       - 'tests/e2e/p2p/**'
       - '.github/workflows/tests-e2e-p2p.yml'
   schedule:
@@ -85,6 +89,7 @@ jobs:
         # Builds the small lab image and tries a NAT rule with NET_ADMIN.
         run: tests/e2e/p2p/lab/lab.sh preflight
       - name: Run the NAT lab
+        # Builds the real relay and the lab binary, then runs every case.
         run: make test-e2e-p2p
         env:
           P2P_LAB_LOGS: ${{ runner.temp }}/p2p-lab-logs

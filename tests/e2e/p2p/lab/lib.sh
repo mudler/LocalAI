@@ -4,10 +4,12 @@
 
 P=${LAB_PREFIX:-p2plab}
 X=/usr/local/bin/p2plab
+RELAY_BIN=/usr/local/bin/localai-relay
 LST="--listen /ip4/0.0.0.0/tcp/4001 --listen /ip4/0.0.0.0/udp/4001/quic-v1"
-# Peers behind a NAT accept streams over limited (relayed) connections, and do
-# not join the public DHT or ask the router for a port mapping.
-NODE="--no-dht --upnp=false --limited-conn $LST"
+# The node flags: a peer listens on the port that the relay sees, which is
+# what a hole punch through a cone NAT needs. The lab hosts use no DHT and no
+# port mapping.
+NODE="$LST"
 # AutoRelay backoff for static relays (the libp2p default is one hour; the
 # relay restart case needs a short one).
 SX="--relay-backoff ${LAB_RELAY_BACKOFF:-30s}"
@@ -87,7 +89,7 @@ relay_start() {
   RELAY_STARTED_AT=$(date +%s.%N)
   RELAY_GEN=$((RELAY_GEN + 1))
   RELAY_LOG=relay$RELAY_GEN
-  bg relay "$RELAY_LOG" "$X relay --data /data $*"
+  bg relay "$RELAY_LOG" "$RELAY_BIN --data-dir /data --log-level debug --log-format text $*"
   if ! waitfor relay "$RELAY_LOG.out" '^RELAY_ADDR' 20; then
     fail "relay did not start: $(get relay "$RELAY_LOG.err" | tail -3)"
     return 1
@@ -111,15 +113,16 @@ serve() {
   local c=$1 n=$2 allow=$3 a="" id
   shift 3
   for id in $allow; do a="$a --allow $id"; done
-  bg "$c" "$n" "$X serve --key /root/$n.key $NODE --relay $RELAY --only-static-relays$a --relay-sync $SX $*"
+  bg "$c" "$n" "$X serve --key /root/$n.key $NODE $BOOT --relay $RELAY$a --relay-sync $SX $*"
   waitfor "$c" "$n.out" FIRST_RELAY_ADDR 60 || fail "$n: no relay address after 60 s"
 }
 
-# serve_plain <node> <name> [extra]: a NATed server with no allowlist of its own.
+# serve_plain <node> <name> [extra]: a NATed server that admits every peer, for
+# the cases of an open relay.
 serve_plain() {
   local c=$1 n=$2
   shift 2
-  bg "$c" "$n" "$X serve --key /root/$n.key $NODE --relay $RELAY --only-static-relays $*"
+  bg "$c" "$n" "$X serve --key /root/$n.key $NODE $BOOT --relay $RELAY --admit-all $*"
   waitfor "$c" "$n.out" FIRST_RELAY_ADDR 60 || fail "$n: no relay address after 60 s"
 }
 
@@ -132,7 +135,7 @@ circ() { echo "$RELAY/p2p-circuit/p2p/$1"; }
 dial() {
   local c=$1 k=$2 t=$3
   shift 3
-  ex "$c" "$X dial $t --key /root/$k.key $NODE --hint $(circ "$t") --wait-direct 0 $*" 2>&1
+  ex "$c" "$X dial $t --key /root/$k.key $NODE $BOOT --hint $(circ "$t") $*" 2>&1
 }
 
 # admin <node> <key name> <op...>: call the relay admin protocol as that identity.
@@ -148,15 +151,32 @@ transfer_bytes() { awk '/^TEST transfer/{split($3, a, "/"); print a[1]; exit}' <
 # transfer_rate <dial output>: MB/s of the transfer test.
 transfer_rate() { awk '/^TEST transfer/{for (i = 1; i <= NF; i++) if ($i == "=") {print $(i + 1); exit}}' <<<"$1"; }
 
-# need <capability>: succeeds when the lab binary has it; otherwise the case is
-# skipped (returns 3 from the case).
-need() { grep -qw -- "$1" <<<"$LAB_CAPS"; }
-
-# relay_start_open <relay flags...>: start an open relay. An open relay has a
-# default bandwidth cap; the cases that are not about it remove it when the
-# binary has the flag.
-relay_start_open() {
-  local extra=()
-  if need relay-rate-limit; then extra=(--rate-limit 0); fi
-  relay_start --open "${extra[@]}" "$@"
+# set_nats <natA> <natB>: change the NAT type of the two routers (cone or sym).
+set_nats() {
+  "$HERE/lab.sh" nat a "$1"
+  "$HERE/lab.sh" nat b "$2"
 }
+
+# observers: start the four observer peers and set BOOT to the flags that make
+# a node connect to them. A node needs four distinct observers before libp2p
+# trusts the public address they report, and a hole punch needs that address.
+observers() {
+  local i id
+  BOOT=""
+  for i in 1 2 3 4; do
+    bg "obs$i" observer "$X observer $LST"
+    waitfor "obs$i" observer.out '^PEERID' 10 || fail "observer $i did not start"
+    id=$(get "obs$i" observer.out | awk '/^PEERID/{print $2; exit}')
+    # Two over TCP and two over QUIC, so both kinds of address get observed.
+    if [ "$i" -le 2 ]; then
+      BOOT="$BOOT --bootstrap /ip4/11.77.0.1$i/tcp/4001/p2p/$id"
+    else
+      BOOT="$BOOT --bootstrap /ip4/11.77.0.1$i/udp/4001/quic-v1/p2p/$id"
+    fi
+  done
+}
+
+# relay_start_open <relay flags...>: start an open relay without the default
+# bandwidth limit of an open relay. The cases that are about that limit start
+# the relay themselves.
+relay_start_open() { relay_start --open --rate-limit 0 "$@"; }

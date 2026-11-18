@@ -12,16 +12,20 @@ case_relay_restart() {
   relay_stop
   relay_start --admin "$SRV"
   expect_match "the allowlist is loaded from disk before any admin contact" 'paired peers: 1' "$(relay_log)"
+  # The server comes back when a dial through the relay works again. The dials
+  # are three seconds apart: the relay limits how fast one IP address may open
+  # connections, and both peers of the lab sit behind one address each.
   local secs=""
-  for _ in $(seq 1 360); do
-    if relay_log | grep -q "allow reserve $SRV"; then
+  for _ in $(seq 1 40); do
+    if dial a CLI "$SRV" --quick --timeout 5s | grep -q 'RESULT connect=ok'; then
       secs=$(awk -v a="$(date +%s.%N)" -v b="$RELAY_STARTED_AT" 'BEGIN{printf "%.1f", a - b}')
       break
     fi
-    sleep 0.25
+    sleep 3
   done
-  echo "  the server re-reserved ${secs:-never} s after the restart" | tee "$CASE_LOGS/restart.log"
-  expect_true "the server holds a reservation again within 70 s" num_lt "${secs:-99999}" 70
+  echo "  the server was reachable again ${secs:-never} s after the restart" | tee "$CASE_LOGS/restart.log"
+  expect_true "the server is reachable through the relay again within 70 s" num_lt "${secs:-99999}" 70
+  sleep 3
   out=$(dial a CLI "$SRV" --quick --timeout 20s | grep RESULT)
   expect_match "the pair connects again after the restart" 'RESULT connect=ok' "$out"
 }
@@ -34,7 +38,7 @@ case_first_reservation() {
   secs=$(first_relay_seconds b SRV)
   echo "  first relay address after $secs s" | tee "$CASE_LOGS/first-reservation.log"
   expect_true "the first relay address came in under 10 s" num_lt "$secs" 10
-  expect_match "the relay holds the reservation" "allow reserve $SRV" "$(relay_log)"
+  expect_match "the relay holds the reservation" 'reservations=[1-9]' "$(admin b SRV status)"
 }
 
 register open_mode "an open relay serves a stranger, announces itself as open and warns"
@@ -47,6 +51,6 @@ case_open_mode() {
   serve_plain a ROGUE
   out=$(dial b CLI2 "$ROGUE" --mb 50 --timeout 60s | tee "$CASE_LOGS/dial.log")
   expect_match "an unpaired client moves 50 MiB through the open relay" '^TEST transfer 52428800/52428800 bytes .* err=<nil>' "$out"
-  out=$(admin b CLI2 check --target "$ROGUE" | tee "$CASE_LOGS/check.log")
+  out=$(admin b CLI2 check | tee "$CASE_LOGS/check.log")
   expect_match "the probe reports open mode" '^STATE open' "$out"
 }
