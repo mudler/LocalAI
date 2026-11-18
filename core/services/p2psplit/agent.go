@@ -79,6 +79,7 @@ type Agent struct {
 	ringPort int
 	rank     int
 	size     int
+	anyway   bool
 	fwds     []*localForwarder
 }
 
@@ -226,21 +227,22 @@ func (a *Agent) session(ctx context.Context) (welcomed bool, err error) {
 			return true, err
 		}
 		if m.Type == msgAssign && a.cfg.Engine == EngineMLX {
-			a.assign(ctx, m.Rank, m.Size)
+			a.assign(ctx, m.Rank, m.Size, m.Anyway)
 		}
 	}
 }
 
 // assign sets up the ring forwarders and hostfile for a new rank and tells
 // the caller.
-func (a *Agent) assign(ctx context.Context, rank, size int) {
+func (a *Agent) assign(ctx context.Context, rank, size int, anyway bool) {
 	a.mu.Lock()
-	if rank == a.rank && size == a.size {
+	if rank == a.rank && size == a.size && anyway == a.anyway {
 		a.mu.Unlock()
 		return
 	}
 	a.closeRingLocked()
-	a.rank, a.size = rank, size
+	a.rank, a.size, a.anyway = rank, size, anyway
+	need := needFor(anyway, anyway)
 	if rank <= 0 || size < 2 || rank >= size {
 		a.rank, a.size = 0, 0
 		a.mu.Unlock()
@@ -256,7 +258,7 @@ func (a *Agent) assign(ctx context.Context, rank, size int) {
 		}
 		target := j
 		f, err := newLocalForwarder(ctx, 0, func(ctx context.Context) (net.Conn, error) {
-			return dialRing(ctx, a.cfg.Host, a.cfg.Server, target, append(a.cfg.Dial, p2pnet.WithNeed(p2pnet.NeedBulk))...)
+			return dialRing(ctx, a.cfg.Host, a.cfg.Server, target, append(a.cfg.Dial, p2pnet.WithNeed(need))...)
 		})
 		if err != nil {
 			a.closeRingLocked()

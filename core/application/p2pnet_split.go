@@ -26,11 +26,12 @@ var splitPorts = p2psplit.NewPortBook()
 func (rt *p2pRuntime) startSplit() error {
 	cfg := rt.net.app.ApplicationConfig()
 	m, err := p2psplit.NewManager(rt.ctx, p2psplit.Config{
-		Host:    rt.host,
-		Devices: rt.splitDevices,
-		OnLlama: cfg.LlamaCPPTunnelCallback,
-		OnMLX:   cfg.MLXTunnelCallback,
-		Ports:   splitPorts,
+		Host:     rt.host,
+		Devices:  rt.splitDevices,
+		OnLlama:  cfg.LlamaCPPTunnelCallback,
+		OnMLX:    cfg.MLXTunnelCallback,
+		OwnRelay: rt.ownRelay,
+		Ports:    splitPorts,
 	})
 	if err != nil {
 		return fmt.Errorf("p2p: model-split workers: %w", err)
@@ -117,14 +118,14 @@ func (s p2pService) ListSplitWorkers(ctx context.Context) (p2papi.SplitWorkerLis
 	if err != nil {
 		return p2papi.SplitWorkerList{}, err
 	}
-	labels := rt.relayLabels()
+	labels, ids := rt.relayLabels(), rt.relayIDs()
 	out := p2papi.SplitWorkerList{Workers: []p2papi.SplitWorkerView{}}
 	for _, w := range rt.split.Workers() {
 		i := slices.IndexFunc(devs, func(d p2ppair.Device) bool { return d.ID == w.DeviceID })
 		if i < 0 {
 			continue
 		}
-		v := splitView(w, devs[i], labels)
+		v := splitView(w, devs[i], labels, ids)
 		if v.State == string(p2psplit.StateOnline) {
 			out.MemoryInUse += v.MemoryBytes
 		}
@@ -151,11 +152,11 @@ func (s p2pService) SetSplitWorker(ctx context.Context, id string, req p2papi.Sp
 		// Every frontend reloads the devices; this one now.
 		rt.changed("split")
 	}
-	labels := rt.relayLabels()
+	labels, ids := rt.relayLabels(), rt.relayIDs()
 	for _, w := range rt.split.Workers() {
 		if w.DeviceID == id {
 			w.AllowSlowPath = dev.AllowSlowPath
-			return splitView(w, dev, labels), nil
+			return splitView(w, dev, labels, ids), nil
 		}
 	}
 	return p2papi.SplitWorkerView{}, p2papi.ErrNotFound
@@ -176,6 +177,31 @@ func (rt *p2pRuntime) splitDevice(ctx context.Context, id string) (p2ppair.Devic
 	return devs[i], nil
 }
 
+// ownRelay reports whether relay is a gated relay that this server
+// administers: its limits can change, so a model-split worker may use it
+// after "Use anyway" even when it limits each connection.
+func (rt *p2pRuntime) ownRelay(relay p2pnet.ID) bool {
+	for _, r := range rt.relayList() {
+		ai, err := p2pnet.ParsePeerAddr(r.Addr)
+		if err != nil || ai.ID != relay {
+			continue
+		}
+		return r.Mode == "gated" && r.State != "not_admin" && r.State != "denied"
+	}
+	return false
+}
+
+// relayIDs maps relay peer IDs to the server's IDs of the relays it knows.
+func (rt *p2pRuntime) relayIDs() map[string]string {
+	ids := map[string]string{}
+	for _, r := range rt.relayList() {
+		if ai, err := p2pnet.ParsePeerAddr(r.Addr); err == nil {
+			ids[ai.ID.String()] = r.ID
+		}
+	}
+	return ids
+}
+
 // relayLabels maps relay peer IDs to the labels of the relays the server knows.
 func (rt *p2pRuntime) relayLabels() map[string]string {
 	labels := map[string]string{}
@@ -187,7 +213,7 @@ func (rt *p2pRuntime) relayLabels() map[string]string {
 	return labels
 }
 
-func splitView(w p2psplit.Worker, d p2ppair.Device, labels map[string]string) p2papi.SplitWorkerView {
+func splitView(w p2psplit.Worker, d p2ppair.Device, labels, ids map[string]string) p2papi.SplitWorkerView {
 	v := p2papi.SplitWorkerView{
 		ID: w.DeviceID, Label: w.Label, PeerID: w.Peer, Engine: string(w.Engine), State: string(w.State),
 		Error: w.Error, AllowSlowPath: w.AllowSlowPath, MemoryBytes: w.MemoryBytes, Name: w.Name,
@@ -196,6 +222,10 @@ func splitView(w p2psplit.Worker, d p2ppair.Device, labels map[string]string) p2
 	}
 	if w.Path.Kind != p2pnet.PathNone {
 		v.Path = pathView(w.Path, labels)
+	}
+	if w.Path.Relay != "" {
+		v.RelayID = ids[w.Path.Relay.String()]
+		v.OwnRelay = w.OwnRelay
 	}
 	return v
 }

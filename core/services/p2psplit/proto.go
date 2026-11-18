@@ -78,6 +78,9 @@ type message struct {
 	// zero is the server; a worker with Rank 0 stands by.
 	Rank int `json:"rank,omitempty"`
 	Size int `json:"size,omitempty"`
+	// Anyway is set when the administrator chose "Use anyway" for a relay
+	// of theirs that limits each connection: the ring streams may use it.
+	Anyway bool `json:"anyway,omitempty"`
 }
 
 // ringHeader starts a ProtoMLX stream.

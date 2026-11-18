@@ -65,6 +65,9 @@ type Worker struct {
 	State         State
 	// Path is the best connection to the worker; Kind is none when offline.
 	Path p2pnet.Path
+	// OwnRelay is true when Path goes through a relay the administrator
+	// controls, whose limits can change.
+	OwnRelay bool
 	// MemoryBytes is the memory the worker reported (VRAM, else RAM).
 	MemoryBytes uint64
 	// Name and Version are what the worker reported about itself.
@@ -92,6 +95,11 @@ type Config struct {
 	// OnMLX receives the MLX ring hostfile of the server (rank 0 first),
 	// each time it changes; empty means no ring.
 	OnMLX func(hostfile []string)
+	// OwnRelay reports whether a relay is one the administrator controls
+	// (a gated relay of this server), whose limits can change. A slow worker
+	// behind such a relay may be used even when the relay limits each
+	// connection. Nil means none.
+	OwnRelay func(relay p2pnet.ID) bool
 	// Ports keeps the loopback ports across managers, so a model loaded
 	// with an address keeps working when P2P restarts. Nil keeps none.
 	Ports *PortBook
@@ -129,9 +137,17 @@ type worker struct {
 	state    State
 	path     p2pnet.Path
 	fwd      *p2pnet.Forwarder
+	fwdNeed  p2pnet.Need
+	own      bool
 	ringFwd  *localForwarder
 	rank     int
-	assigned [2]int // rank, size last sent
+	assigned assignment // last sent
+}
+
+// assignment is the place of an MLX worker in the ring as last sent.
+type assignment struct {
+	rank, size int
+	anyway     bool
 }
 
 // session is one open control session.
@@ -259,7 +275,7 @@ func (m *Manager) Workers() []Worker {
 			AllowSlowPath: d.AllowSlowPath, State: StateOffline, Path: p2pnet.Path{Kind: p2pnet.PathNone},
 		}
 		if w := m.workers[d.ID]; w != nil {
-			v.State, v.Error, v.Rank = w.state, w.refusal, w.rank
+			v.State, v.Error, v.Rank, v.OwnRelay = w.state, w.refusal, w.rank, w.own
 			if w.sess != nil {
 				since := w.sess.since
 				v.Since = &since
@@ -346,7 +362,7 @@ func (m *Manager) evaluate() {
 		}
 		switch w.hello.Engine {
 		case EngineLlama:
-			if addr := m.llamaForwarderLocked(d, w); addr != "" {
+			if addr := m.llamaForwarderLocked(d, w, &closers); addr != "" {
 				llama = append(llama, addr)
 			}
 		case EngineMLX:
@@ -360,9 +376,9 @@ func (m *Manager) evaluate() {
 		if w == nil || w.sess == nil || w.hello.Engine != EngineMLX {
 			continue
 		}
-		want := [2]int{0, 0}
+		want := assignment{}
 		if w.rank > 0 {
-			want = [2]int{w.rank, len(hostfile)}
+			want = assignment{rank: w.rank, size: len(hostfile), anyway: needFor(w.own, d.AllowSlowPath) == anywayNeed}
 		}
 		if want == w.assigned {
 			continue
@@ -370,7 +386,7 @@ func (m *Manager) evaluate() {
 		w.assigned = want
 		sess := w.sess
 		sends = append(sends, func() {
-			if err := sess.send(message{Type: msgAssign, V: protoVersion, Rank: want[0], Size: want[1]}); err != nil {
+			if err := sess.send(message{Type: msgAssign, V: protoVersion, Rank: want.rank, Size: want.size, Anyway: want.anyway}); err != nil {
 				_ = sess.conn.Close()
 			}
 		})
@@ -404,19 +420,51 @@ func (m *Manager) evaluate() {
 	}
 }
 
-// decideLocked sets w.state and w.path.
+// anywayNeed is what model traffic needs from a relay of the user after
+// "Use anyway": more data per connection than a public relay allows (128 KiB),
+// so a public relay never carries model layers. The connection still ends at
+// the relay's own limits; the administrator accepted that.
+var anywayNeed = p2pnet.Need{Bytes: 256 << 10}
+
+// needFor is the need of the model traffic of a worker: NeedBulk (a direct
+// path or a relay without a data limit), or anywayNeed once the
+// administrator chose "Use anyway" for a path through a relay of theirs.
+func needFor(own, allowSlow bool) p2pnet.Need {
+	if own && allowSlow {
+		return anywayNeed
+	}
+	return p2pnet.NeedBulk
+}
+
+// ownRelay reports whether the relay of path is one the administrator
+// controls (a gated relay of this server, or this server), so its limits
+// can change.
+func (m *Manager) ownRelay(path p2pnet.Path) bool {
+	if path.Kind != p2pnet.PathRelayed || path.Relay == "" {
+		return false
+	}
+	if path.Relay == m.cfg.Host.ID() {
+		return true
+	}
+	return m.cfg.OwnRelay != nil && m.cfg.OwnRelay(path.Relay)
+}
+
+// decideLocked sets w.state, w.path and w.own.
 func (m *Manager) decideLocked(d Device, w *worker) {
 	w.path = p2pnet.Path{Kind: p2pnet.PathNone}
 	if w.sess != nil {
 		w.path = m.cfg.Host.Path(d.Peer)
 	}
-	w.state = decide(w.sess != nil, w.refusal, w.path, d.AllowSlowPath)
+	w.own = m.ownRelay(w.path)
+	w.state = decide(w.sess != nil, w.refusal, w.path, w.own, d.AllowSlowPath)
 }
 
-// decide is the policy of the slow path: a direct or hole-punched path is
-// used; a relayed path is used only when its limits can carry model layers
-// and the administrator chose "Use anyway".
-func decide(connected bool, refusal string, path p2pnet.Path, allowSlow bool) State {
+// decide is the policy of the slow path. A direct or hole-punched path is
+// used. A relayed path is slow: it is used after the administrator chose
+// "Use anyway", when it can carry model layers at all. A relay with a data
+// limit qualifies only when it is the administrator's own (its limits can
+// change); a public relay never does.
+func decide(connected bool, refusal string, path p2pnet.Path, own, allowSlow bool) State {
 	switch {
 	case refusal != "":
 		return StateRefused
@@ -424,7 +472,7 @@ func decide(connected bool, refusal string, path p2pnet.Path, allowSlow bool) St
 		return StateOffline
 	case path.Kind != p2pnet.PathRelayed:
 		return StateOnline
-	case !p2pnet.NeedBulk.SatisfiedBy(path):
+	case !p2pnet.NeedBulk.SatisfiedBy(path) && !(own && anywayNeed.SatisfiedBy(path)):
 		return StateLimited
 	case !allowSlow:
 		return StateSlow
@@ -433,21 +481,26 @@ func decide(connected bool, refusal string, path p2pnet.Path, allowSlow bool) St
 }
 
 // llamaForwarderLocked starts the forwarder of an online llama.cpp worker
-// and returns its address. The forwarder dials with NeedBulk, so a public
-// relay never carries model layers even when the path changes after this
-// check.
-func (m *Manager) llamaForwarderLocked(d Device, w *worker) string {
+// and returns its address. The forwarder dials with the need of the worker
+// (see needFor), so a public relay never carries model layers even when the
+// path changes after this check. A forwarder whose need changed is replaced
+// on the same port.
+func (m *Manager) llamaForwarderLocked(d Device, w *worker, closers *[]func()) string {
+	need := needFor(w.own, d.AllowSlowPath)
+	if w.fwd != nil && w.fwdNeed != need {
+		m.detachLocked(w, closers)
+	}
 	if w.fwd == nil {
-		f, err := m.forward(d, m.cfg.Ports.Get(d.ID))
+		f, err := m.forward(d, m.cfg.Ports.Get(d.ID), need)
 		if err != nil {
 			xlog.Warn("p2p split: the port of a worker is in use, taking another one", "worker", d.Label, "error", err)
-			f, err = m.forward(d, 0)
+			f, err = m.forward(d, 0, need)
 		}
 		if err != nil {
 			xlog.Warn("p2p split: could not forward a worker", "worker", d.Label, "error", err)
 			return ""
 		}
-		w.fwd = f
+		w.fwd, w.fwdNeed = f, need
 		if a, ok := f.Addr().(*net.TCPAddr); ok {
 			m.cfg.Ports.Set(d.ID, a.Port)
 		}
@@ -455,9 +508,9 @@ func (m *Manager) llamaForwarderLocked(d Device, w *worker) string {
 	return w.fwd.Addr().String()
 }
 
-func (m *Manager) forward(d Device, port int) (*p2pnet.Forwarder, error) {
+func (m *Manager) forward(d Device, port int, need p2pnet.Need) (*p2pnet.Forwarder, error) {
 	return m.cfg.Host.Forward(m.ctx, d.Peer, ProtoLlamaRPC, net.JoinHostPort(loopback, strconv.Itoa(port)),
-		p2pnet.WithDialOptions(p2pnet.WithNeed(p2pnet.NeedBulk)))
+		p2pnet.WithDialOptions(p2pnet.WithNeed(need)))
 }
 
 // ringLocked assigns the MLX ranks in pairing order, keeps a ring forwarder
@@ -531,15 +584,15 @@ func (m *Manager) dialWorkerRing(ctx context.Context, id string) (net.Conn, erro
 	m.mu.Lock()
 	d := m.deviceByIDLocked(id)
 	w := m.workers[id]
-	rank := 0
+	rank, need := 0, p2pnet.NeedBulk
 	if w != nil {
-		rank = w.rank
+		rank, need = w.rank, needFor(w.own, d.AllowSlowPath)
 	}
 	m.mu.Unlock()
 	if rank == 0 || d.Peer == "" {
 		return nil, fmt.Errorf("p2psplit: worker %s has no rank", id)
 	}
-	return dialRing(ctx, m.cfg.Host, d.Peer, rank, p2pnet.WithNeed(p2pnet.NeedBulk))
+	return dialRing(ctx, m.cfg.Host, d.Peer, rank, p2pnet.WithNeed(need))
 }
 
 // detachLocked takes the forwarders off w and adds their close to *closers.
@@ -615,7 +668,7 @@ func (m *Manager) serveControl(c net.Conn) {
 		_ = w.sess.conn.Close()
 	}
 	w.refusal = refusal
-	w.sess, w.hello, w.assigned = sess, hello, [2]int{}
+	w.sess, w.hello, w.assigned = sess, hello, assignment{}
 	if refusal != "" {
 		w.sess = nil
 	}
