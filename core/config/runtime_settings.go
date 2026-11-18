@@ -54,11 +54,6 @@ type RuntimeSettings struct {
 	CSRF             *bool   `json:"csrf,omitempty"`
 	CORSAllowOrigins *string `json:"cors_allow_origins,omitempty"`
 
-	// P2P settings
-	P2PToken     *string `json:"p2p_token,omitempty"`
-	P2PNetworkID *string `json:"p2p_network_id,omitempty"`
-	Federated    *bool   `json:"federated,omitempty"`
-
 	// P2P layer. A change of any of them restarts the P2P host.
 	P2PMode           *string     `json:"p2p_mode,omitempty"`             // off, connect or share (default: off)
 	P2PPublicDHT      *bool       `json:"p2p_public_dht,omitempty"`       // use the public DHT for discovery and hole punching (default: true)

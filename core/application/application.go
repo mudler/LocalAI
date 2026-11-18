@@ -245,9 +245,6 @@ type Application struct {
 	federation        remotes.Federation
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
-	p2pMutex          sync.Mutex
-	p2pCtx            context.Context
-	p2pCancel         context.CancelFunc
 
 	// p2pNet is the P2P layer (p2pnet); see p2pnet.go.
 	p2pNetOnce sync.Once

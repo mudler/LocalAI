@@ -13631,19 +13631,6 @@ definitions:
         description: URL to fetch from
         type: string
     type: object
-  schema.NodeData:
-    properties:
-      id:
-        type: string
-      lastSeen:
-        type: string
-      name:
-        type: string
-      serviceID:
-        type: string
-      tunnelAddress:
-        type: string
-    type: object
   schema.ORAnnotation:
     properties:
       end_index:
@@ -14262,21 +14249,6 @@ definitions:
       truncation:
         description: '"auto"|"disabled"'
         type: string
-    type: object
-  schema.P2PNodesResponse:
-    properties:
-      federated_nodes:
-        items:
-          $ref: '#/definitions/schema.NodeData'
-        type: array
-      llama_cpp_nodes:
-        items:
-          $ref: '#/definitions/schema.NodeData'
-        type: array
-      mlx_nodes:
-        items:
-          $ref: '#/definitions/schema.NodeData'
-        type: array
     type: object
   schema.PIIAnalyzeRequest:
     properties:
@@ -28184,18 +28156,6 @@ paths:
       summary: List all loaded models cluster-wide
       tags:
       - Nodes
-  /api/p2p:
-    get:
-      responses:
-        "200":
-          description: Response
-          schema:
-            items:
-              $ref: '#/definitions/schema.P2PNodesResponse'
-            type: array
-      summary: Returns available P2P nodes
-      tags:
-      - p2p
   /api/p2p/devices:
     get:
       description: Lists the paired devices, revoked ones included, with how each
@@ -28804,16 +28764,6 @@ paths:
           schema:
             $ref: '#/definitions/p2p.Status'
       summary: P2P status
-      tags:
-      - p2p
-  /api/p2p/token:
-    get:
-      responses:
-        "200":
-          description: Response
-          schema:
-            type: string
-      summary: Show the P2P token
       tags:
       - p2p
   /api/pii/analyze:

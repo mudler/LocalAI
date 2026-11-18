@@ -25,7 +25,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -1905,109 +1904,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"message":   "Backend upgrade started",
 		})
 	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
-
-	// P2P APIs
-	app.GET("/api/p2p/workers", func(c echo.Context) error {
-		llamaNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.LlamaCPPWorkerID))
-		mlxNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.MLXWorkerID))
-
-		llamaJSON := make([]map[string]any, 0, len(llamaNodes))
-		for _, n := range llamaNodes {
-			llamaJSON = append(llamaJSON, map[string]any{
-				"name":          n.Name,
-				"id":            n.ID,
-				"tunnelAddress": n.TunnelAddress,
-				"serviceID":     n.ServiceID,
-				"lastSeen":      n.LastSeen,
-				"isOnline":      n.IsOnline(),
-			})
-		}
-
-		mlxJSON := make([]map[string]any, 0, len(mlxNodes))
-		for _, n := range mlxNodes {
-			mlxJSON = append(mlxJSON, map[string]any{
-				"name":          n.Name,
-				"id":            n.ID,
-				"tunnelAddress": n.TunnelAddress,
-				"serviceID":     n.ServiceID,
-				"lastSeen":      n.LastSeen,
-				"isOnline":      n.IsOnline(),
-			})
-		}
-
-		return c.JSON(200, map[string]any{
-			"llama_cpp": map[string]any{
-				"nodes": llamaJSON,
-			},
-			"mlx": map[string]any{
-				"nodes": mlxJSON,
-			},
-			// Keep backward-compatible "nodes" key with llama.cpp workers
-			"nodes": llamaJSON,
-		})
-	}, adminMiddleware)
-
-	app.GET("/api/p2p/federation", func(c echo.Context) error {
-		nodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))
-
-		nodesJSON := make([]map[string]any, 0, len(nodes))
-		for _, n := range nodes {
-			nodesJSON = append(nodesJSON, map[string]any{
-				"name":          n.Name,
-				"id":            n.ID,
-				"tunnelAddress": n.TunnelAddress,
-				"serviceID":     n.ServiceID,
-				"lastSeen":      n.LastSeen,
-				"isOnline":      n.IsOnline(),
-			})
-		}
-
-		return c.JSON(200, map[string]any{
-			"nodes": nodesJSON,
-		})
-	}, adminMiddleware)
-
-	app.GET("/api/p2p/stats", func(c echo.Context) error {
-		llamaCPPNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.LlamaCPPWorkerID))
-		federatedNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))
-		mlxWorkerNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.MLXWorkerID))
-
-		llamaCPPOnline := 0
-		for _, n := range llamaCPPNodes {
-			if n.IsOnline() {
-				llamaCPPOnline++
-			}
-		}
-
-		federatedOnline := 0
-		for _, n := range federatedNodes {
-			if n.IsOnline() {
-				federatedOnline++
-			}
-		}
-
-		mlxWorkersOnline := 0
-		for _, n := range mlxWorkerNodes {
-			if n.IsOnline() {
-				mlxWorkersOnline++
-			}
-		}
-
-		return c.JSON(200, map[string]any{
-			"llama_cpp_workers": map[string]any{
-				"online": llamaCPPOnline,
-				"total":  len(llamaCPPNodes),
-			},
-			"federated": map[string]any{
-				"online": federatedOnline,
-				"total":  len(federatedNodes),
-			},
-			"mlx_workers": map[string]any{
-				"online": mlxWorkersOnline,
-				"total":  len(mlxWorkerNodes),
-			},
-		})
-	}, adminMiddleware)
 
 	// Resources API endpoint - unified memory info (GPU if available, otherwise RAM)
 	app.GET("/api/resources", func(c echo.Context) error {

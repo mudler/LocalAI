@@ -75,14 +75,13 @@ var _ = Describe("TestAddonSettingsAuthorityLegacyWrites", Label("addon-settings
 		Expect(current).To(Equal(disk), "file bytes must remain unchanged")
 		Expect(cfg.ChatsEgressAuditDays).To(Equal(17))
 		Expect(cfg.AutoUpgradeAddons).To(BeTrue())
-		Expect(cfg.P2PToken).To(BeEmpty())
 		Expect(cfg.EnableBackendLogging).To(BeFalse())
 	}
 	for _, key := range keys {
 		for _, alias := range []struct{ name, key string }{{"canonical", key}, {"uppercase", strings.ToUpper(key)}, {"unicode-long-s", strings.ReplaceAll(key, "s", "ſ")}} {
 			for _, value := range []string{"null", `false`, `"all"`, `{}`} {
 				It(fmt.Sprintf("rejects %s %s=%s atomically with unchanged file bytes", alias.name, key, value), func() {
-					w := post(`{"chats_egress_audit_days":19,"p2p_token":"0","enable_backend_logging":true,"` + alias.key + `":` + value + `}`)
+					w := post(`{"chats_egress_audit_days":19,"enable_backend_logging":true,"` + alias.key + `":` + value + `}`)
 					Expect(w.Code).To(Equal(http.StatusConflict), w.Body.String())
 					var response struct {
 						Success bool

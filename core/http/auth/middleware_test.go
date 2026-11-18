@@ -661,7 +661,7 @@ var _ = Describe("Auth Middleware", func() {
 			sessionID := createTestSession(db, user.ID)
 			app := newAdminTestApp(db, appConfig)
 
-			for _, path := range []string{"/api/operations", "/api/models", "/api/backends", "/api/resources", "/api/p2p/workers", "/system", "/backend/monitor"} {
+			for _, path := range []string{"/api/operations", "/api/models", "/api/backends", "/api/resources", "/api/p2p/status", "/system", "/backend/monitor"} {
 				rec := doRequest(app, http.MethodGet, path, withSessionCookie(sessionID))
 				Expect(rec.Code).To(Equal(http.StatusForbidden), "expected 403 for path: "+path)
 			}
@@ -672,7 +672,7 @@ var _ = Describe("Auth Middleware", func() {
 			sessionID := createTestSession(db, admin.ID)
 			app := newAdminTestApp(db, appConfig)
 
-			for _, path := range []string{"/api/operations", "/api/models", "/api/backends", "/api/resources", "/api/p2p/workers", "/system", "/backend/monitor"} {
+			for _, path := range []string{"/api/operations", "/api/models", "/api/backends", "/api/resources", "/api/p2p/status", "/system", "/backend/monitor"} {
 				rec := doRequest(app, http.MethodGet, path, withSessionCookie(sessionID))
 				Expect(rec.Code).To(Equal(http.StatusOK), "expected 200 for path: "+path)
 			}

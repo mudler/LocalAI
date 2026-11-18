@@ -383,10 +383,6 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/ws/backend-logs/:modelId", localai.BackendLogsWebSocketEndpoint(ml), adminMiddleware)
 	}
 
-	// p2p
-	router.GET("/api/p2p", localai.ShowP2PNodes(appConfig), adminMiddleware)
-	router.GET("/api/p2p/token", localai.ShowP2PToken(appConfig), adminMiddleware)
-
 	// Score (logprob over candidate continuations) — admin-only smoke-test
 	// surface for the gRPC Score primitive. Production consumers should
 	// use application.ScorerFactory() directly rather than HTTP.
@@ -504,10 +500,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"prompts":          "/v1/mcp/prompts/:model",
 					"resources":        "/v1/mcp/resources/:model",
 				},
-				// #nosec G101 -- route paths, not credentials.
 				"p2p": map[string]string{
-					"nodes": "/api/p2p",
-					"token": "/api/p2p/token",
+					"status":        "/api/p2p/status",
+					"invites":       "/api/p2p/invites",
+					"devices":       "/api/p2p/devices",
+					"relays":        "/api/p2p/relays",
+					"split_workers": "/api/p2p/split-workers",
 				},
 				"settings": map[string]string{
 					"get":    "/api/settings",

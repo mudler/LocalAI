@@ -15911,25 +15911,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/p2p": {
-            "get": {
-                "tags": [
-                    "p2p"
-                ],
-                "summary": "Returns available P2P nodes",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/schema.P2PNodesResponse"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/p2p/devices": {
             "get": {
                 "description": "Lists the paired devices, revoked ones included, with how each one reaches the server now (path kind direct, hole_punched or relayed, the relay and its limits). Needs P2P mode share. Admin only.",
@@ -16765,22 +16746,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/p2p.Status"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/p2p/token": {
-            "get": {
-                "tags": [
-                    "p2p"
-                ],
-                "summary": "Show the P2P token",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "type": "string"
                         }
                     }
                 }
@@ -38143,26 +38108,6 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.NodeData": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "lastSeen": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "serviceID": {
-                    "type": "string"
-                },
-                "tunnelAddress": {
-                    "type": "string"
-                }
-            }
-        },
         "schema.ORAnnotation": {
             "type": "object",
             "properties": {
@@ -39028,29 +38973,6 @@ const docTemplate = `{
                 "truncation": {
                     "description": "\"auto\"|\"disabled\"",
                     "type": "string"
-                }
-            }
-        },
-        "schema.P2PNodesResponse": {
-            "type": "object",
-            "properties": {
-                "federated_nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.NodeData"
-                    }
-                },
-                "llama_cpp_nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.NodeData"
-                    }
-                },
-                "mlx_nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.NodeData"
-                    }
                 }
             }
         },

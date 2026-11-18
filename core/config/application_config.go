@@ -191,10 +191,6 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath    string
 	CORSAllowOrigins         string
 	ApiKeys                  []string
-	P2PEnableLimits          bool
-	P2PToken                 string
-	P2PNetworkID             string
-	Federated                bool
 	// P2P configures the P2P layer (p2pnet): mode, discovery, relays.
 	P2P P2PSettings
 
@@ -712,12 +708,6 @@ func WithCors(b bool) AppOption {
 	}
 }
 
-func WithP2PNetworkID(s string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.P2PNetworkID = s
-	}
-}
-
 func WithDisableCSRF(b bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableCSRF = b
@@ -733,12 +723,6 @@ func WithDisableHTTPCompression(b bool) AppOption {
 func WithHTTPCompressionMinLength(n int) AppOption {
 	return func(o *ApplicationConfig) {
 		o.HTTPCompressionMinLength = n
-	}
-}
-
-func WithP2PToken(s string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.P2PToken = s
 	}
 }
 
@@ -966,10 +950,6 @@ func WithDisableBackendInstall(v bool) AppOption {
 
 func WithPreferDevelopmentBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.PreferDevelopmentBackends = v }
-}
-
-var EnableFederated = func(o *ApplicationConfig) {
-	o.Federated = true
 }
 
 func WithExternalBackend(name string, uri string) AppOption {
@@ -1894,10 +1874,6 @@ func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
 		return DefaultChatsMaxIterations
 	}
 	return o.ChatsMaxIterations
-}
-
-func WithP2PEnableLimits(enabled bool) AppOption {
-	return func(o *ApplicationConfig) { o.P2PEnableLimits = enabled }
 }
 
 // BrandingAssetURL returns the URL clients should use for an uploaded

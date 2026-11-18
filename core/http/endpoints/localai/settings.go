@@ -16,7 +16,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
-	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -237,12 +236,6 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{Success: false, Error: msg})
 		}
 
-		// Generate P2P token before saving so the real token is persisted (not "0")
-		if settings.P2PToken != nil && *settings.P2PToken == "0" {
-			token := p2p.GenerateToken(60, 60)
-			settings.P2PToken = &token
-		}
-
 		// Save to file
 		if appConfig.DynamicConfigsDir == "" {
 			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
@@ -433,28 +426,6 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 					Success: false,
 					Error:   "Settings saved but failed to restart MITM proxy: " + err.Error(),
 				})
-			}
-		}
-
-		// Restart P2P if P2P settings changed
-		p2pChanged := settings.P2PToken != nil || settings.P2PNetworkID != nil || settings.Federated != nil
-		if p2pChanged {
-			if settings.P2PToken != nil && *settings.P2PToken == "" {
-				if err := app.StopP2P(); err != nil {
-					xlog.Error("Failed to stop P2P", "error", err)
-					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
-						Success: false,
-						Error:   "Settings saved but failed to stop P2P: " + err.Error(),
-					})
-				}
-			} else {
-				if err := app.RestartP2P(); err != nil {
-					xlog.Error("Failed to restart P2P", "error", err)
-					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
-						Success: false,
-						Error:   "Settings saved but failed to restart P2P: " + err.Error(),
-					})
-				}
 			}
 		}
 
