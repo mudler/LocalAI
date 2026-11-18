@@ -111,7 +111,7 @@ var _ = Describe("The flags of the frontend of a worker", func() {
 
 	It("refuses an invite of another kind before it starts anything", func() {
 		server := loopbackHostFor(p2pnet.NewAllowlist())
-		link := &p2ppair.Link{V: 1, Kind: p2ppair.KindDevice, Peer: server.ID(), Code: "ABCD-EFGH", Expires: time.Now().Add(time.Hour)}
+		link := &p2ppair.Link{V: 1, Kind: p2ppair.KindDevice, Peer: server.ID(), Code: "K7QF29MXAB", Expires: time.Now().Add(time.Hour)}
 		dir := GinkgoT().TempDir()
 		_, err := joinP2P(context.Background(), &Config{Join: link.String(), P2PIdentity: filepath.Join(dir, "id.key")})
 		Expect(err).To(MatchError(ContainSubstring("device invite")))
@@ -121,7 +121,7 @@ var _ = Describe("The flags of the frontend of a worker", func() {
 
 	It("refuses an expired worker invite that it never redeemed", func() {
 		server := loopbackHostFor(p2pnet.NewAllowlist())
-		link := &p2ppair.Link{V: 1, Kind: p2ppair.KindWorker, Peer: server.ID(), Code: "ABCD-EFGH", Expires: time.Now().Add(-time.Minute)}
+		link := &p2ppair.Link{V: 1, Kind: p2ppair.KindWorker, Peer: server.ID(), Code: "K7QF29MXAB", Expires: time.Now().Add(-time.Minute)}
 		_, err := joinP2P(context.Background(), &Config{Join: link.String(), P2PIdentity: filepath.Join(GinkgoT().TempDir(), "id.key")})
 		Expect(err).To(HaveOccurred())
 	})
