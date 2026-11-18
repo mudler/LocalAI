@@ -41,6 +41,7 @@ on:
 jobs:
   windows-backend-build:
     runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 240
     strategy:
       matrix:
         go-version: ['${{ inputs.go-version }}']
@@ -212,6 +213,7 @@ jobs:
     needs: windows-backend-build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # id-token: write is required for keyless cosign — the workflow exchanges
     # the GitHub OIDC token for a short-lived Fulcio cert that signs each
     # pushed image. Without this permission the runner cannot mint the token,

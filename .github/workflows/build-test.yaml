@@ -13,6 +13,7 @@ on:
       - 'pkg/**'
       - 'cmd/**'
       - 'internal/**'
+      - 'tests/**'
       - 'backend/*.proto'
       - 'backend/*/*.proto'
       - 'addons/**'
@@ -34,6 +35,7 @@ on:
       - 'pkg/**'
       - 'cmd/**'
       - 'internal/**'
+      - 'tests/**'
       - 'backend/*.proto'
       - 'backend/*/*.proto'
       - 'addons/**'
@@ -79,6 +81,35 @@ jobs:
       - name: Run GoReleaser
         run: |
           make ${{ github.event_name == 'pull_request' && 'dev-dist-single' || 'dev-dist' }}
+  # Cheap compile and vet check for the Windows build, run on Linux. The
+  # Windows runner jobs below are slow and queue behind other work; this
+  # catches code that only compiles on Unix (syscall.Kill, Getsockname on an
+  # int descriptor and similar) without them. It also compiles the test files.
+  # The copylocks and lostcancel analyzers are off because they report code
+  # that is the same on every OS; they are not a Windows problem.
+  vet-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # protogen-go downloads protoc and the Go plugins by itself. The React
+      # UI is embedded at build time, so an empty dist folder is enough to
+      # type-check the server without running the UI build.
+      - name: Generate protobuf code
+        run: |
+          make protogen-go
+          mkdir -p core/http/react-ui/dist
+          touch core/http/react-ui/dist/index.html
+      - name: Vet for windows/amd64
+        env:
+          GOOS: windows
+          CGO_ENABLED: '0'
+        run: go vet -copylocks=false -lostcancel=false ./pkg/... ./core/... ./tests/... ./cmd/...
   # Windows ships no GNU toolchain on the default runner: make is not
   # installed there and Git for Windows does not ship it (it bundles sh, uname,
   # unzip, grep, awk, sed only), so it is installed via Chocolatey below. The
@@ -90,6 +121,7 @@ jobs:
   # protobuf plugins itself (see the protoc/protogen-go targets).
   build-test-windows:
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7
