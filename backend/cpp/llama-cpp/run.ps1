@@ -9,12 +9,12 @@ $ErrorActionPreference = "Stop"
 $curDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $binary = "llama-cpp-fallback.exe"
-if (Test-Path (Join-Path $curDir "llama-cpp-cpu-all.exe")) {
+if (Test-Path -LiteralPath (Join-Path $curDir "llama-cpp-cpu-all.exe")) {
     $binary = "llama-cpp-cpu-all.exe"
 }
 
 if ($env:LLAMACPP_GRPC_SERVERS) {
-    if (Test-Path (Join-Path $curDir "llama-cpp-grpc.exe")) {
+    if (Test-Path -LiteralPath (Join-Path $curDir "llama-cpp-grpc.exe")) {
         $binary = "llama-cpp-grpc.exe"
     }
 }
@@ -23,7 +23,7 @@ if ($env:LLAMACPP_GRPC_SERVERS) {
 # ggml's own registry finds them; a lib\ dir is still honoured when a variant
 # ships one, mirroring the run.sh LD_LIBRARY_PATH handling.
 $lib = Join-Path $curDir "lib"
-if (Test-Path $lib) {
+if (Test-Path -LiteralPath $lib) {
     $env:PATH = "$lib;$env:PATH"
 }
 
