@@ -5,6 +5,7 @@ import { isDown, memoryOf, nodeState } from '../../utils/swarm'
 import { formatBytes, timeAgo } from '../nodes/nodeStatus'
 import { cssVars } from '../../utils/modelLedger'
 import NodeSpark from './NodeSpark'
+import NodeRoute from './NodeRoute'
 
 function describe(node, models, t) {
   const gpu = node.node_type === 'agent'
@@ -85,6 +86,7 @@ export default function NodeList({
             {why.filter(reason => reason.startsWith('low')).map(reason => (
               <span key={reason} className="sw-nrow__state" data-level="warn">{t(`attention.${reason}`)}</span>
             ))}
+            <NodeRoute node={node} />
           </span>
           <span className="sw-nrow__sub" title={sub}>{sub}</span>
         </button>

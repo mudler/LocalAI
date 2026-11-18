@@ -2,8 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   QR_KINDS, SHARE_KINDS, clock, inviteFailure, inviteProblem, inviteWarnings, multiaddrHost, parseInviteLink,
-  pathKey, pathTone, pendingInvites, phraseWords, relativeTime, secondsLeft, shortPeer, sortedDevices,
+  pathKey, pathTone, pendingInvites, phraseWords, relativeTime, secondsLeft, shareKinds, shortPeer, sortedDevices,
 } from '../../src/utils/p2p.js'
+import { joinCommand, nodeRoute } from '../../src/utils/swarm.js'
 import { qrPath } from '../../src/components/p2p/qrPath.js'
 
 const PEER = '12D3KooWRk4eHq7vN2cYpTzS8mFJuX3aWbLdQe5Gh6iKoPzXk9'
@@ -14,6 +15,34 @@ const link = (extra = '') => `localai://pair?v=1&k=remote&p=${PEER}&c=K7QF29MX4A
 test('p2p: the share dialog offers device and remote invites, both with a QR code', () => {
   assert.deepEqual(SHARE_KINDS, ['device', 'remote'])
   assert.ok(SHARE_KINDS.every(k => QR_KINDS.includes(k)))
+})
+
+test('p2p: the share dialog offers a worker invite in distributed mode only, without a QR code', () => {
+  assert.deepEqual(shareKinds(false), ['device', 'remote'])
+  assert.deepEqual(shareKinds(true), ['device', 'remote', 'worker'])
+  assert.ok(!QR_KINDS.includes('worker'))
+})
+
+test('p2p: the join command of a worker carries the invite and no token', () => {
+  const option = { dockerFlags: '--gpus all', tag: 'latest-gpu', devTag: 'master-gpu' }
+  const l = link().replace('k=remote', 'k=worker')
+  const cli = joinCommand({ flavor: 'cli', option, dev: false, link: l })
+  assert.match(cli, /^local-ai worker/)
+  assert.ok(cli.includes(`--join "${l}"`))
+  const docker = joinCommand({ flavor: 'docker', option, dev: true, link: l })
+  assert.ok(docker.includes(`LOCALAI_JOIN="${l}"`))
+  assert.match(docker, /LOCALAI_P2P_IDENTITY=\/data\/p2p\/identity\.key/)
+  assert.match(docker, /master-gpu worker$/)
+  assert.doesNotMatch(cli + docker, /TOKEN/)
+})
+
+test('p2p: the route of a node is NATS first, then the tunnel over a websocket or over P2P', () => {
+  assert.deepEqual(nodeRoute({ attached: 'nats,tunnel' }), { kind: 'nats' })
+  assert.deepEqual(nodeRoute({ attached: 'tunnel' }), { kind: 'websocket' })
+  assert.deepEqual(nodeRoute({ attached: 'tunnel', peer_id: PEER, tunnel_transport: 'p2p', tunnel_path: 'relayed', tunnel_limited: true }),
+    { kind: 'p2p', path: 'relayed', limited: true })
+  assert.deepEqual(nodeRoute({ peer_id: PEER }), { kind: 'p2p', path: null, limited: false })
+  assert.equal(nodeRoute({}), null)
 })
 
 test('p2p: an invite link is read with its relays, the open ones and the pass', () => {

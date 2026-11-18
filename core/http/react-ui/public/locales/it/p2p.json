@@ -28,7 +28,8 @@
       "body": "Un altro LocalAI usa tutti i modelli di questa istanza."
     },
     "worker": {
-      "title": "Worker"
+      "title": "Worker",
+      "body": "Un nodo di calcolo di questo cluster. Entra via P2P e attende la tua approvazione."
     },
     "split": {
       "title": "Worker con modello suddiviso"
@@ -56,12 +57,17 @@
       "remote": {
         "title": "Tutti i modelli, nient'altro.",
         "body": "L'altro LocalAI riceve una chiave API che può usare ogni modello di questa istanza, anche i modelli che aggiungi in seguito. I modelli con strumenti collegati sono esclusi. La chiave non raggiunge nient'altro: né impostazioni, né file, né altre parti dell'API."
+      },
+      "worker": {
+        "title": "Un nodo per questo cluster.",
+        "body": "La macchina esegue local-ai worker --join con il link. Si registra via P2P, senza porte aperte né token di registrazione, e attende nella pagina dei nodi finché non la approvi."
       }
     },
     "label": "Etichetta",
     "labelPlaceholder": {
       "device": "Portatile di Alex",
-      "remote": "Filiale"
+      "remote": "Filiale",
+      "worker": "gpu-box-5"
     },
     "labelHint": "Mostrata in Dispositivi e inviti.",
     "expires": "Scade dopo",
@@ -88,7 +94,8 @@
       "qrCaption": "Per telefono o tablet",
       "how": {
         "device": "Nel launcher: Aggiungi server, poi Link di invito. Il link contiene l'ID peer di questo server e il pass del relay, quindi un codice breve da solo non basta.",
-        "remote": "Sull'altro LocalAI: Home o Connessioni, Connetti un remoto, poi Link di invito. Incolla il link intero."
+        "remote": "Sull'altro LocalAI: Home o Connessioni, Connetti un remoto, poi Link di invito. Incolla il link intero.",
+        "worker": "Sulla nuova macchina esegui local-ai worker --join con il link intero tra virgolette. Il nodo poi attende la tua approvazione nella pagina dei nodi."
       },
       "waiting": "In attesa del dispositivo… Annullare l'invito annulla anche il suo pass del relay.",
       "expired": "L'invito è scaduto.",
@@ -148,7 +155,8 @@
       "signIn": "La persona accede comunque all'interfaccia web.",
       "keyNote": "Puoi revocarlo in qualsiasi momento in Dispositivi e inviti.",
       "mismatch": "Non corrispondono: revoca",
-      "match": "Corrispondono"
+      "match": "Corrispondono",
+      "approve": "Il nodo ora si registra e attende la tua approvazione nella pagina dei nodi."
     }
   },
   "invites": {

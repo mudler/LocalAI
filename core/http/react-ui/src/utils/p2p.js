@@ -2,9 +2,15 @@
 // invite, the life left of an invite and how a device reaches the server. No
 // React and no fetch, so the unit tests read them directly.
 
-// The kinds an admin can make from the Share dialog. Worker, model-split and
+// The kinds an admin can make from the Share dialog. Model-split and
 // federated invites are made where those nodes are added.
 export const SHARE_KINDS = ['device', 'remote']
+
+// The kinds of the Share dialog on this server: a worker invite (a compute
+// node over P2P) only on a server in distributed mode, which has nodes.
+export function shareKinds(distributed) {
+  return distributed ? [...SHARE_KINDS, 'worker'] : SHARE_KINDS
+}
 
 // Only device and remote invites are shown as a QR code: a node runs a
 // command on its own machine and gets the link as text.

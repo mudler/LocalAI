@@ -28,7 +28,8 @@
       "body": "LocalAI lain memakai semua model dari instans ini."
     },
     "worker": {
-      "title": "Worker"
+      "title": "Worker",
+      "body": "Node komputasi klaster ini. Node bergabung lewat P2P dan menunggu persetujuan Anda."
     },
     "split": {
       "title": "Worker model terpisah"
@@ -56,12 +57,17 @@
       "remote": {
         "title": "Semua model, tidak lebih.",
         "body": "LocalAI lain mendapat kunci API yang dapat memakai setiap model dari instans ini, juga model yang Anda tambahkan nanti. Model yang memiliki tools terpasang tidak termasuk. Kunci itu tidak menjangkau hal lain: tidak ada pengaturan, tidak ada berkas, tidak ada bagian lain dari API."
+      },
+      "worker": {
+        "title": "Node untuk klaster ini.",
+        "body": "Mesin menjalankan local-ai worker --join dengan tautan ini. Mesin mendaftar lewat P2P, tanpa port terbuka dan tanpa token registrasi, lalu menunggu di halaman Node sampai Anda menyetujuinya."
       }
     },
     "label": "Label",
     "labelPlaceholder": {
       "device": "Laptop Alex",
-      "remote": "Kantor cabang"
+      "remote": "Kantor cabang",
+      "worker": "gpu-box-5"
     },
     "labelHint": "Ditampilkan di Perangkat dan undangan.",
     "expires": "Kedaluwarsa setelah",
@@ -88,7 +94,8 @@
       "qrCaption": "Untuk ponsel atau tablet",
       "how": {
         "device": "Di peluncur: Tambah server, lalu Tautan undangan. Tautan itu berisi ID peer server ini dan pass relay, jadi kode pendek saja tidak cukup.",
-        "remote": "Di LocalAI lain: Beranda atau Koneksi, Hubungkan remote, lalu Tautan undangan. Tempelkan seluruh tautan."
+        "remote": "Di LocalAI lain: Beranda atau Koneksi, Hubungkan remote, lalu Tautan undangan. Tempelkan seluruh tautan.",
+        "worker": "Di mesin baru jalankan local-ai worker --join dengan seluruh tautan dalam tanda kutip. Node lalu menunggu persetujuan Anda di halaman Node."
       },
       "waiting": "Menunggu perangkat… Membatalkan undangan juga membatalkan pass relay-nya.",
       "expired": "Undangan kedaluwarsa.",
@@ -148,7 +155,8 @@
       "signIn": "Pengguna tetap masuk ke antarmuka web.",
       "keyNote": "Cabut kapan saja di Perangkat dan undangan.",
       "mismatch": "Tidak cocok: cabut",
-      "match": "Cocok"
+      "match": "Cocok",
+      "approve": "Node akan mendaftar dan menunggu persetujuan Anda di halaman Node."
     }
   },
   "invites": {

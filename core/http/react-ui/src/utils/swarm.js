@@ -246,6 +246,36 @@ export function workerCommand({ flavor, nodeType, option, dev, frontend }) {
   return `${dockerPrefix(option)}-e LOCALAI_REGISTER_TO="${frontend}" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${image(option, dev)} ${sub}`
 }
 
+// The command that starts a worker with a worker invite. The link is single
+// use and names this server by its peer ID, so the worker needs no address of
+// this server and no registration token.
+export function joinCommand({ flavor, option, dev, link }) {
+  const value = link || 'localai://pair?...'
+  if (flavor === 'cli') return `local-ai worker \\\n  --join "${value}"`
+  return `${dockerPrefix(option)}-v localai-worker-data:/data \\\n  -e LOCALAI_JOIN="${value}" \\\n  -e LOCALAI_P2P_IDENTITY=/data/p2p/identity.key \\\n  ${image(option, dev)} worker`
+}
+
+// How the frontends reach a node, from what the node reported: 'nats', the
+// tunnel over a websocket ('websocket') or over P2P ('p2p'), or null when it
+// says nothing (a worker that predates carriers is on NATS, but the page does
+// not guess). `path` and `limited` describe a P2P tunnel.
+export function nodeRoute(node) {
+  const attached = String(node?.attached || '').split(',').map(c => c.trim()).filter(Boolean)
+  if (attached.includes('nats')) return { kind: 'nats' }
+  if (node?.peer_id || node?.tunnel_transport === 'p2p') {
+    return { kind: 'p2p', path: node?.tunnel_path || null, limited: !!node?.tunnel_limited }
+  }
+  if (attached.includes('tunnel')) return { kind: 'websocket' }
+  return null
+}
+
+// A peer ID cut to its first and last characters, for a narrow column. The
+// whole ID stays in the title.
+export function shortPeer(id) {
+  const s = String(id || '')
+  return s.length > 16 ? `${s.slice(0, 10)}…${s.slice(-4)}` : s
+}
+
 // Peer instances and memory shards join with the P2P network token. The
 // federated server is the entry point they balance behind.
 export function p2pCommand({ method, option, dev, token, flavor }) {

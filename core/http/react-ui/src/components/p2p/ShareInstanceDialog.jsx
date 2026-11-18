@@ -9,11 +9,12 @@ import QrCode from './QrCode'
 import { p2pNetApi } from '../../utils/api'
 import { copyToClipboard } from '../../utils/clipboard'
 import {
-  QR_KINDS, SHARE_KINDS, TTL_CHOICES, clock, inviteWarnings, phraseWords, secondsLeft, shortPeer,
+  QR_KINDS, TTL_CHOICES, clock, shareKinds, inviteWarnings, phraseWords, secondsLeft, shortPeer,
 } from '../../utils/p2p'
 import { P2P_SETTINGS_PATH } from './P2PTabs'
+import { useDistributedMode } from '../../hooks/useDistributedMode'
 
-const KIND_ICON = { device: 'monitor', remote: 'globe' }
+const KIND_ICON = { device: 'monitor', remote: 'globe', worker: 'server' }
 // How often the open dialog asks whether the device has redeemed the invite.
 const POLL_MS = 3000
 
@@ -30,6 +31,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
   const { t } = useTranslation('p2p')
   const labelId = useId()
   const [kind, setKind] = useState('device')
+  const { enabled: distributed } = useDistributedMode()
   const [label, setLabel] = useState('')
   const [ttl, setTtl] = useState(TTL_CHOICES[0].id)
   const [busy, setBusy] = useState('')
@@ -129,7 +131,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
         onClose={close} pending={busy !== ''} closeLabel={t('share.close')} labelId={labelId} testId="share-confirm"
         foot={(
           <div className="p2p-foot">
-            <span className="p2p-foot__note">{t(minted.kind === 'device' ? 'share.connected.signIn' : 'share.connected.keyNote')}</span>
+            <span className="p2p-foot__note">{t(minted.kind === 'device' ? 'share.connected.signIn' : minted.kind === 'worker' ? 'share.connected.approve' : 'share.connected.keyNote')}</span>
             <span className="p2p-foot__actions">
               <Button variant="danger-ghost" busy={busy === 'revoke'} onClick={revoke} data-testid="share-mismatch">{t('share.connected.mismatch')}</Button>
               <Button variant="primary" onClick={onClose} data-autofocus data-testid="share-match">{t('share.connected.match')}</Button>
@@ -245,7 +247,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
       )}
     >
       <div className="p2p-dialog">
-      <KindChoice kind={kind} onChange={k => { setKind(k); setNeedsAccount(false) }} t={t} />
+      <KindChoice kinds={shareKinds(distributed)} kind={kind} onChange={k => { setKind(k); setNeedsAccount(false) }} t={t} />
       <p className="p2p-hint">{t('share.qrNote')}</p>
       <Callout tone="info" title={t(`share.kindNote.${kind}.title`)} testId="share-kind-note">{t(`share.kindNote.${kind}.body`)}</Callout>
       <div className="p2p-form">
@@ -278,15 +280,15 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
   )
 }
 
-// The three kinds as cards with a radio each, the way the person reads them:
-// a name and one line on what the other side gets.
-function KindChoice({ kind, onChange, t }) {
+// The kinds as cards with a radio each, the way the person reads them: a name
+// and one line on what the other side gets.
+function KindChoice({ kinds, kind, onChange, t }) {
   const id = useId()
   return (
     <fieldset className="p2p-kinds">
       <legend className="dk-label" id={id}>{t('share.kind')}</legend>
       <div className="p2p-kinds__cards" role="radiogroup" aria-labelledby={id} data-testid="share-kind">
-        {SHARE_KINDS.map(k => (
+        {kinds.map(k => (
           <label key={k} className={kind === k ? 'p2p-kind p2p-kind--on' : 'p2p-kind'} data-testid={`share-kind-${k}`}>
             <input type="radio" name="p2p-share-kind" value={k} checked={kind === k} onChange={() => onChange(k)} />
             <span className="p2p-kind__text">

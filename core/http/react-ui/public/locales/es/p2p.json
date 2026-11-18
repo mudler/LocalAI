@@ -28,7 +28,8 @@
       "body": "Otro LocalAI usa todos los modelos de esta instancia."
     },
     "worker": {
-      "title": "Worker"
+      "title": "Worker",
+      "body": "Un nodo de cómputo de este clúster. Se une por P2P y espera tu aprobación."
     },
     "split": {
       "title": "Worker con modelo dividido"
@@ -56,12 +57,17 @@
       "remote": {
         "title": "Todos los modelos, nada más.",
         "body": "El otro LocalAI recibe una clave API que puede usar cada modelo de esta instancia, también los modelos que añadas más tarde. Los modelos con herramientas adjuntas quedan fuera. La clave no llega a nada más: ni ajustes, ni archivos, ni otra parte de la API."
+      },
+      "worker": {
+        "title": "Un nodo para este clúster.",
+        "body": "La máquina ejecuta local-ai worker --join con el enlace. Se registra por P2P, sin puerto abierto ni token de registro, y espera en la página de nodos hasta que la apruebes."
       }
     },
     "label": "Etiqueta",
     "labelPlaceholder": {
       "device": "Portátil de Alex",
-      "remote": "Sucursal"
+      "remote": "Sucursal",
+      "worker": "gpu-box-5"
     },
     "labelHint": "Se muestra en Dispositivos e invitaciones.",
     "expires": "Caduca después de",
@@ -88,7 +94,8 @@
       "qrCaption": "Para un teléfono o una tableta",
       "how": {
         "device": "En el launcher: Añadir servidor y luego Enlace de invitación. El enlace contiene el ID de peer de este servidor y el pase del relay, así que un código corto no basta.",
-        "remote": "En el otro LocalAI: Inicio o Conexiones, Conectar un remoto y luego Enlace de invitación. Pega el enlace completo."
+        "remote": "En el otro LocalAI: Inicio o Conexiones, Conectar un remoto y luego Enlace de invitación. Pega el enlace completo.",
+        "worker": "En la máquina nueva ejecuta local-ai worker --join con el enlace completo entre comillas. Luego el nodo espera tu aprobación en la página de nodos."
       },
       "waiting": "Esperando al dispositivo… Cancelar la invitación también cancela su pase del relay.",
       "expired": "La invitación caducó.",
@@ -148,7 +155,8 @@
       "signIn": "La persona sigue iniciando sesión en la interfaz web.",
       "keyNote": "Revócalo cuando quieras en Dispositivos e invitaciones.",
       "mismatch": "No coinciden: revocar",
-      "match": "Coinciden"
+      "match": "Coinciden",
+      "approve": "El nodo se registra a continuación y espera tu aprobación en la página de nodos."
     }
   },
   "invites": {

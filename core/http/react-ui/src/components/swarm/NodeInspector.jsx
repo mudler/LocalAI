@@ -2,9 +2,10 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { nodeLifecycleAction } from '../../utils/nodeFleet'
-import { isDown, memoryOf, nodeState } from '../../utils/swarm'
+import { isDown, memoryOf, nodeRoute, nodeState, shortPeer } from '../../utils/swarm'
 import { formatBytes, timeAgo } from '../nodes/nodeStatus'
 import Icon from '../Icon'
+import NodeRoute from './NodeRoute'
 
 function Tile({ label, value, note, level }) {
   return (
@@ -78,6 +79,8 @@ export default function NodeInspector({ node, rows, reasons, busy, onApprove, on
         <h3 className="sw-hero__kick">{t('inspector.details')}</h3>
         <dl className="sw-kv-list">
           {node.gpu_vendor && <div className="sw-kv"><dt className="sw-kv__k">{t('inspector.gpu')}</dt><dd className="sw-kv__v">{node.gpu_vendor}</dd></div>}
+          <div className="sw-kv"><dt className="sw-kv__k">{t('inspector.route')}</dt><dd className="sw-kv__v"><NodeRoute node={node} />{!nodeRoute(node) && '—'}</dd></div>
+          {node.peer_id && <div className="sw-kv"><dt className="sw-kv__k">{t('inspector.peer')}</dt><dd className="sw-kv__v dk-mono sw-insp__peer" title={node.peer_id}>{shortPeer(node.peer_id)}</dd></div>}
           <div className="sw-kv"><dt className="sw-kv__k">{t('inspector.version')}</dt><dd className="sw-kv__v dk-mono">{node.version || '—'}</dd></div>
           <div className="sw-kv"><dt className="sw-kv__k">{t('inspector.heartbeat')}</dt><dd className="sw-kv__v" data-late={down ? '' : undefined}>{node.last_heartbeat ? timeAgo(node.last_heartbeat) : '—'}</dd></div>
           {labels.length > 0 && (

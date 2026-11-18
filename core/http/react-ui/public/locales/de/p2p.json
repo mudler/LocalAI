@@ -28,7 +28,8 @@
       "body": "Ein anderes LocalAI nutzt alle Modelle dieser Instanz."
     },
     "worker": {
-      "title": "Worker"
+      "title": "Worker",
+      "body": "Ein Rechenknoten dieses Clusters. Er tritt über P2P bei und wartet auf deine Freigabe."
     },
     "split": {
       "title": "Worker mit geteiltem Modell"
@@ -56,12 +57,17 @@
       "remote": {
         "title": "Alle Modelle, sonst nichts.",
         "body": "Das andere LocalAI erhält einen API-Schlüssel, der jedes Modell dieser Instanz nutzen kann, auch Modelle, die Sie später hinzufügen. Modelle mit angehängten Werkzeugen sind ausgenommen. Der Schlüssel erreicht sonst nichts: keine Einstellungen, keine Dateien, keinen anderen Teil der API."
+      },
+      "worker": {
+        "title": "Ein Knoten für diesen Cluster.",
+        "body": "Die Maschine führt local-ai worker --join mit dem Link aus. Sie registriert sich über P2P, ohne offenen Port und ohne Registrierungstoken, und wartet auf der Knotenseite, bis du sie freigibst."
       }
     },
     "label": "Bezeichnung",
     "labelPlaceholder": {
       "device": "Alex' Laptop",
-      "remote": "Zweigstelle"
+      "remote": "Zweigstelle",
+      "worker": "gpu-box-5"
     },
     "labelHint": "Wird unter Geräte und Einladungen angezeigt.",
     "expires": "Läuft ab nach",
@@ -88,7 +94,8 @@
       "qrCaption": "Für ein Telefon oder ein Tablet",
       "how": {
         "device": "Im Launcher: Server hinzufügen, dann Einladungslink. Der Link enthält die Peer-ID dieses Servers und den Relay-Pass, ein kurzer Code allein reicht also nicht.",
-        "remote": "Im anderen LocalAI: Start oder Verbindungen, Gegenstelle verbinden, dann Einladungslink. Fügen Sie den ganzen Link ein."
+        "remote": "Im anderen LocalAI: Start oder Verbindungen, Gegenstelle verbinden, dann Einladungslink. Fügen Sie den ganzen Link ein.",
+        "worker": "Führe auf der neuen Maschine local-ai worker --join mit dem ganzen Link in Anführungszeichen aus. Der Knoten wartet dann auf der Knotenseite auf deine Freigabe."
       },
       "waiting": "Warten auf das Gerät… Wenn Sie die Einladung abbrechen, wird auch ihr Relay-Pass widerrufen.",
       "expired": "Die Einladung ist abgelaufen.",
@@ -148,7 +155,8 @@
       "signIn": "Die Person meldet sich weiterhin an der Weboberfläche an.",
       "keyNote": "Widerrufen Sie es jederzeit unter Geräte und Einladungen.",
       "mismatch": "Stimmt nicht überein: widerrufen",
-      "match": "Stimmt überein"
+      "match": "Stimmt überein",
+      "approve": "Der Knoten registriert sich als Nächstes und wartet auf der Knotenseite auf deine Freigabe."
     }
   },
   "invites": {

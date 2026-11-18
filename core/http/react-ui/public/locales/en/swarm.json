@@ -524,7 +524,9 @@
       "dev": "Dev",
       "devTitle": "Use development (master) images instead of stable releases",
       "tokenNote": "Set TOKEN to the registration token from the server configuration. This page never shows it.",
-      "p2pNote": "The token is the P2P network token of this instance. Every machine in the network uses the same one."
+      "p2pNote": "The token is the P2P network token of this instance. Every machine in the network uses the same one.",
+      "inviteFirst": "Make an invite first. The command holds the invite link.",
+      "joinNote": "The link works once. The worker keeps its identity, so a restart with the same command needs no new invite."
     },
     "wait": {
       "title": "Waiting for the machine",
@@ -536,7 +538,36 @@
       "p2pCount": "{{count}} peers online. This page updates when another joins.",
       "p2pFound": "A new peer joined: {{count}} online.",
       "p2pOpen": "Open P2P",
-      "p2pStuck": "Nothing arrives? Check that the machine reaches this network and uses the same token."
+      "p2pStuck": "Nothing arrives? Check that the machine reaches this network and uses the same token.",
+      "checkPeer": "Check the peer ID with the person who runs the machine before you approve.",
+      "joinStuck": "Nothing arrives? Behind strict NAT the node can take a minute to find a path. Check that the invite has not expired."
+    },
+    "connect": {
+      "title": "How should it connect?",
+      "url": "Server address",
+      "p2p": "P2P invite",
+      "urlSub": "The node dials the address of this server with the registration token. It uses the carrier of the cluster: NATS, or the WebSocket tunnel.",
+      "p2pSub": "The node joins from any network with a one-time invite. It finds this server by its peer ID and connects directly, by hole punching, or through your relay. It needs no open port and no registration token.",
+      "order": "Order in this cluster: NATS, then WebSocket, then P2P. A node that joins over P2P always uses its tunnel."
+    },
+    "invite": {
+      "title": "Make an invite",
+      "needsShare": "Worker invites need P2P in mode Connect and share.",
+      "settings": "Open P2P settings",
+      "name": "Node name (optional)",
+      "namePlaceholder": "gpu-box-5",
+      "make": "Make invite",
+      "ready": "Invite ready",
+      "single": "Single use",
+      "expires": "expires in",
+      "pass": "relay pass on {{relay}}",
+      "again": "New invite",
+      "warn": {
+        "no_relay": "This server has no relay. A node behind strict NAT cannot connect.",
+        "open_relay": "The invite names an open relay, which anyone can use.",
+        "relay_unreachable": "The relay did not answer, so the invite has no relay pass.",
+        "no_public_addr": "This server has no public address. The node connects by hole punching or through a relay."
+      }
     }
   },
   "nodeLogs": {
@@ -600,6 +631,20 @@
     "labels": "Labels",
     "logs": "Logs",
     "open": "Open full page",
-    "close": "Close details"
+    "close": "Close details",
+    "route": "Route",
+    "peer": "Peer ID"
+  },
+  "route": {
+    "nats": "NATS",
+    "websocket": "WebSocket",
+    "p2p": "P2P",
+    "path": {
+      "direct": "Direct",
+      "hole_punched": "Hole-punched",
+      "relayed": "Via a relay"
+    },
+    "limited": "Limited",
+    "limitedHint": "The relay limits the data or the time of this connection. Model files do not go through it."
   }
 }
