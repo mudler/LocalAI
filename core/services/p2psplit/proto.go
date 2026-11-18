@@ -53,17 +53,23 @@ const (
 	sessionTimeout = 3 * heartbeatEvery
 )
 
-// The message types of the control session.
+// The message types of the control session. Hello, heartbeat: worker to
+// server. Welcome, refused, assign, moved, wait: server to worker.
 const (
 	msgHello     = "hello"
 	msgWelcome   = "welcome"
 	msgRefused   = "refused"
 	msgAssign    = "assign"
 	msgHeartbeat = "heartbeat"
+	// msgMoved names the peer that serves the worker now: a backend node
+	// of a cluster. The worker opens its control session there.
+	msgMoved = "moved"
+	// msgWait ends a session without refusing the worker: the peer it
+	// should use is not ready. The worker asks the server again later.
+	msgWait = "wait"
 )
 
-// message is one message of the control session. Hello, heartbeat: worker to
-// server. Welcome, refused, assign: server to worker.
+// message is one message of the control session.
 type message struct {
 	Type string `json:"type"`
 	V    int    `json:"v,omitempty"`
@@ -72,8 +78,12 @@ type message struct {
 	Name        string `json:"name,omitempty"`
 	Version     string `json:"version,omitempty"`
 	MemoryBytes uint64 `json:"memory_bytes,omitempty"`
-	// Refused.
+	// Refused, wait.
 	Err string `json:"error,omitempty"`
+	// Moved: the peer ID and the multiaddrs of the backend node that
+	// serves the worker.
+	Peer  string   `json:"peer,omitempty"`
+	Addrs []string `json:"addrs,omitempty"`
 	// Assign (MLX): the rank of the worker in a group of Size ranks. Rank
 	// zero is the server; a worker with Rank 0 stands by.
 	Rank int `json:"rank,omitempty"`

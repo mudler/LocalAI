@@ -1,6 +1,7 @@
 package p2psplit
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -72,15 +74,29 @@ type AgentConfig struct {
 
 // Agent is the worker side of model splitting. It keeps a control session
 // open to the server and serves the data streams the server opens.
+//
+// In a cluster the server may move the worker to a backend node: the agent
+// then admits that node, keeps its control session there and serves the
+// streams of the node. When that session ends it asks the server again.
 type Agent struct {
 	cfg AgentConfig
 
-	mu       sync.Mutex
+	mu sync.Mutex
+	// ctl is the peer that holds the control session: the server, or the
+	// node the server moved the worker to.
+	ctl      controller
 	ringPort int
 	rank     int
 	size     int
 	anyway   bool
 	fwds     []*localForwarder
+}
+
+// controller is a peer that may hold the control session, with the options
+// that reach it.
+type controller struct {
+	peer p2pnet.ID
+	dial []p2pnet.DialOption
 }
 
 // NewAgent returns an Agent; Run starts it.
@@ -100,13 +116,21 @@ func NewAgent(cfg AgentConfig) (*Agent, error) {
 	default:
 		return nil, fmt.Errorf("p2psplit: unknown engine %q", cfg.Engine)
 	}
-	return &Agent{cfg: cfg}, nil
+	return &Agent{cfg: cfg, ctl: controller{peer: cfg.Server, dial: cfg.Dial}}, nil
+}
+
+// controller returns the peer that holds the control session now.
+func (a *Agent) controller() controller {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.ctl
 }
 
 // Run serves until ctx ends or the server refuses the worker. It reconnects
 // the control session after a failure.
 func (a *Agent) Run(ctx context.Context) error {
-	admit := func(p p2pnet.ID) bool { return p == a.cfg.Server }
+	// Only the peer that holds the control session opens data streams.
+	admit := func(p p2pnet.ID) bool { return p == a.controller().peer }
 	var wg sync.WaitGroup
 	var l net.Listener
 	var err error
@@ -137,17 +161,38 @@ func (a *Agent) Run(ctx context.Context) error {
 		wg.Wait()
 	}()
 
+	defer func() {
+		if ctl := a.controller(); ctl.peer != a.cfg.Server {
+			a.cfg.Host.Revoke(ctl.peer)
+		}
+	}()
+
 	delay := reconnectMin
 	for {
-		welcomed, err := a.session(ctx)
+		ctl := a.controller()
+		welcomed, next, err := a.session(ctx, ctl)
 		if ctx.Err() != nil {
 			return nil
 		}
 		if errors.Is(err, ErrRefused) {
 			return err
 		}
+		if next != nil {
+			// The server named the node of this worker: go there now.
+			a.moveTo(ctx, *next)
+			delay = reconnectMin
+			continue
+		}
 		if welcomed {
 			delay = reconnectMin
+		}
+		if ctl.peer != a.cfg.Server {
+			// The node let the worker go, or cannot be reached: the
+			// server says where the worker belongs now.
+			a.moveTo(ctx, controller{peer: a.cfg.Server, dial: a.cfg.Dial})
+			if welcomed {
+				continue
+			}
 		}
 		xlog.Warn("Connection to the server lost, retrying", "in", delay.String(), "error", err)
 		select {
@@ -159,14 +204,15 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 }
 
-// session runs one control session. welcomed reports whether the server
-// accepted the worker before the session ended.
-func (a *Agent) session(ctx context.Context) (welcomed bool, err error) {
+// session runs one control session with ctl. welcomed reports whether ctl
+// accepted the worker before the session ended; next is the node that ctl
+// moved the worker to.
+func (a *Agent) session(ctx context.Context, ctl controller) (welcomed bool, next *controller, err error) {
 	dctx, cancel := context.WithTimeout(ctx, dialTimeout)
-	c, err := a.cfg.Host.Dial(dctx, a.cfg.Server, ProtoControl, a.cfg.Dial...)
+	c, err := a.cfg.Host.Dial(dctx, ctl.peer, ProtoControl, ctl.dial...)
 	cancel()
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	defer func() { _ = c.Close() }()
 	stop := context.AfterFunc(ctx, func() { _ = c.Close() })
@@ -180,23 +226,38 @@ func (a *Agent) session(ctx context.Context) (welcomed bool, err error) {
 		return writeMsg(c, m)
 	}
 	if err := send(message{Type: msgHello, V: protoVersion, Engine: a.cfg.Engine, Name: a.cfg.Name, Version: a.cfg.Version, MemoryBytes: a.cfg.MemoryBytes}); err != nil {
-		return false, err
+		return false, nil, err
 	}
 	_ = c.SetReadDeadline(time.Now().Add(dialTimeout))
 	var first message
 	if err := readMsg(c, &first); err != nil {
-		return false, err
+		return false, nil, err
 	}
 	_ = c.SetReadDeadline(time.Time{})
 	switch first.Type {
 	case msgWelcome:
 	case msgRefused:
-		return false, &RefusedError{Reason: first.Err}
+		return false, nil, &RefusedError{Reason: first.Err}
+	case msgMoved:
+		next, err := movedTo(first)
+		if err != nil || ctl.peer != a.cfg.Server {
+			// Only the server moves a worker, and a node never sends
+			// it on to another node.
+			return false, nil, fmt.Errorf("p2psplit: unusable move to %q: %w", first.Peer, cmp.Or(err, errors.New("not sent by the server")))
+		}
+		xlog.Info("The server attached this worker to a node of its cluster", "node", next.peer.String())
+		return false, next, nil
+	case msgWait:
+		return false, nil, fmt.Errorf("p2psplit: asked to wait: %s", first.Err)
 	default:
-		return false, fmt.Errorf("p2psplit: unexpected message %q", first.Type)
+		return false, nil, fmt.Errorf("p2psplit: unexpected message %q", first.Type)
 	}
-	path := a.cfg.Host.Path(a.cfg.Server)
-	xlog.Info("Connected to the server", "server", a.cfg.Server.String(), "path", string(path.Kind))
+	path := a.cfg.Host.Path(ctl.peer)
+	if ctl.peer == a.cfg.Server {
+		xlog.Info("Connected to the server", "server", ctl.peer.String(), "path", string(path.Kind))
+	} else {
+		xlog.Info("Connected to the node of the cluster", "node", ctl.peer.String(), "path", string(path.Kind))
+	}
 	if a.cfg.OnConnected != nil {
 		a.cfg.OnConnected(true)
 		defer a.cfg.OnConnected(false)
@@ -224,17 +285,55 @@ func (a *Agent) session(ctx context.Context) (welcomed bool, err error) {
 		var m message
 		if err := readMsg(c, &m); err != nil {
 			_ = c.Close()
-			return true, err
+			return true, nil, err
 		}
 		if m.Type == msgAssign && a.cfg.Engine == EngineMLX {
-			a.assign(ctx, m.Rank, m.Size, m.Anyway)
+			a.assign(ctx, ctl, m.Rank, m.Size, m.Anyway)
 		}
 	}
 }
 
-// assign sets up the ring forwarders and hostfile for a new rank and tells
-// the caller.
-func (a *Agent) assign(ctx context.Context, rank, size int, anyway bool) {
+// movedTo reads the node of a moved message.
+func movedTo(m message) (*controller, error) {
+	p, err := p2pnet.DecodePeerID(m.Peer)
+	if err != nil {
+		return nil, err
+	}
+	addrs, err := p2pnet.AddrsOption(m.Addrs)
+	if err != nil {
+		return nil, err
+	}
+	return &controller{peer: p, dial: []p2pnet.DialOption{addrs}}, nil
+}
+
+// moveTo makes next the peer of the control session. The worker admits a
+// node it moves to and stops admitting the node it leaves. The MLX ring of
+// the previous peer is void, so the worker stands by until the new peer
+// assigns a rank.
+func (a *Agent) moveTo(ctx context.Context, next controller) {
+	a.mu.Lock()
+	prev := a.ctl
+	a.ctl = next
+	a.mu.Unlock()
+	if prev.peer == next.peer {
+		return
+	}
+	if next.peer != a.cfg.Server {
+		if g, ok := a.cfg.Host.Gate().(interface{ Allow(p2pnet.ID) }); ok {
+			g.Allow(next.peer)
+		}
+	}
+	if prev.peer != a.cfg.Server {
+		a.cfg.Host.Revoke(prev.peer)
+	}
+	if a.cfg.Engine == EngineMLX {
+		a.assign(ctx, next, 0, 0, false)
+	}
+}
+
+// assign sets up the ring forwarders and hostfile for a new rank given by
+// ctl and tells the caller.
+func (a *Agent) assign(ctx context.Context, ctl controller, rank, size int, anyway bool) {
 	a.mu.Lock()
 	if rank == a.rank && size == a.size && anyway == a.anyway {
 		a.mu.Unlock()
@@ -258,7 +357,7 @@ func (a *Agent) assign(ctx context.Context, rank, size int, anyway bool) {
 		}
 		target := j
 		f, err := newLocalForwarder(ctx, 0, func(ctx context.Context) (net.Conn, error) {
-			return dialRing(ctx, a.cfg.Host, a.cfg.Server, target, append(a.cfg.Dial, p2pnet.WithNeed(need))...)
+			return dialRing(ctx, a.cfg.Host, ctl.peer, target, append(slices.Clone(ctl.dial), p2pnet.WithNeed(need))...)
 		})
 		if err != nil {
 			a.closeRingLocked()
