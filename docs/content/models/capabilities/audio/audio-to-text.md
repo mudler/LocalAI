@@ -20,7 +20,7 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 - **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)**: NVIDIA's C++/ggml runtime for the Nemotron Speech models. Serves offline, streaming and live transcription, with VAD, punctuation, inverse text normalization and Sortformer speaker tags attached through model options, and covers diarization, speech synthesis and translation from the same backend. See the [NeMo-Speech.cpp backend]({{%relref "/models/engines/nemo-speech-cpp" %}}) page for the model options.
 - **[audio.cpp](https://github.com/0xShug0/audio.cpp)**: Multi-family GGML audio engine. Serves transcription and forced alignment from families such as `nemotron_asr`, `qwen3_asr`, `citrinet_asr`, `higgs_audio_stt` and `voxtral_realtime`, and covers diarization, VAD, TTS and source separation from the same backend. See the [audio.cpp backend]({{%relref "/models/engines/audio-cpp" %}}) page for the model options.
 
-The endpoint input supports all the audio formats supported by `ffmpeg`.
+The endpoint input supports all the audio formats supported by `ffmpeg`. LocalAI runs the `ffmpeg` program from `PATH`, or the program that `LOCALAI_FFMPEG_PATH` names.
 
 > Looking for **"who spoke when"** instead of a flat transcript? See [Speaker Diarization]({{% relref "/models/capabilities/audio/audio-diarization" %}}) - `/v1/audio/diarization` returns time-stamped speaker segments and supports the `rttm` format used by `pyannote.metrics`.
 

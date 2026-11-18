@@ -91,6 +91,18 @@ uname -m
 
 **Solution:** The app in the release DMG and the `local-ai` binary are signed with an Apple Developer ID and notarized, so a current release opens without a workaround. Check that you downloaded `LocalAI.dmg` from the [releases page](https://github.com/mudler/LocalAI/releases/latest). To check the signature, run the `spctl` command in the [desktop app guide]({{% relref "/start/install/desktop" %}}#install-on-macos). A copy that was modified or downloaded from another place fails this check.
 
+### Audio requests fail with "ffmpeg not found"
+
+**Symptoms:** transcription, text to speech in a format other than WAV, or an audio upload fails with `ffmpeg not found`. At start the log shows `ffmpeg is not available; audio conversion will fail`.
+
+**Solution:** LocalAI runs the `ffmpeg` program to convert audio. It does not bundle it. Install it and restart LocalAI:
+
+- Windows: `winget install Gyan.FFmpeg` or `choco install ffmpeg`. You can also download a build and put the folder of `ffmpeg.exe` on `PATH`.
+- macOS: `brew install ffmpeg`.
+- Linux: use the package manager, for example `apt install ffmpeg`.
+
+To use a program that is not on `PATH`, set `LOCALAI_FFMPEG_PATH` to its full path, for example `LOCALAI_FFMPEG_PATH=C:\tools\ffmpeg\bin\ffmpeg.exe`.
+
 ## Model Loading Problems
 
 ### Model Not Found

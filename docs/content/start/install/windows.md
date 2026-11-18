@@ -12,7 +12,7 @@ LocalAI runs natively on Windows. It uses pre-built backend images packaged as O
 
 - Windows 10 or 11 on **amd64**. There is no Windows arm64 build.
 - PowerShell. LocalAI starts the backend through `powershell.exe`, which ships with Windows.
-- `ffmpeg` on your `PATH`, if you use audio features. LocalAI does not bundle it.
+- `ffmpeg`, if you use audio features. LocalAI does not bundle it. Install it with `winget install Gyan.FFmpeg` or `choco install ffmpeg`, or set `LOCALAI_FFMPEG_PATH` to the full path of `ffmpeg.exe`. If LocalAI cannot find it, the start log shows a warning.
 
 The llama.cpp backend comes from the backend gallery as a native Windows image. LocalAI runs it as a normal process.
 
@@ -64,6 +64,7 @@ loaded dynamically, so the backend never hard-depends on it.
 | Variable | Effect |
 |----------|--------|
 | `LLAMACPP_GRPC_SERVERS` | Comma-separated RPC server addresses. When set, `run.ps1` starts `llama-cpp-grpc.exe` and the backend connects to these servers. |
+| `LOCALAI_FFMPEG_PATH` | Full path of the `ffmpeg.exe` program. When it is not set, LocalAI looks for `ffmpeg` on `PATH`. |
 
 ## Troubleshooting
 

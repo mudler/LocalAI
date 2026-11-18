@@ -37,6 +37,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/sanitize"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -81,6 +82,13 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	xlog.Info("Starting LocalAI", "threads", options.Threads, "modelsPath", options.SystemState.Model.ModelsPath)
 	xlog.Info("LocalAI version", "version", internal.PrintableVersion())
+	// ffmpeg is an outside program. Say at start that it is missing, so an
+	// audio request does not fail later with no context.
+	if ffmpeg, err := utils.FFmpegPath(); err != nil {
+		xlog.Warn("ffmpeg is not available; audio conversion will fail", "error", err)
+	} else {
+		xlog.Debug("ffmpeg found", "path", ffmpeg)
+	}
 
 	// The account database is opened before the services start: the add-on
 	// owner checks its callers against it in named-user mode, and has no
