@@ -1744,7 +1744,8 @@ func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*loc
 func splitInfo(w p2papi.SplitWorkerView) localaitools.P2PSplitWorkerInfo {
 	return localaitools.P2PSplitWorkerInfo{
 		ID: w.ID, Label: w.Label, Engine: w.Engine, State: w.State, Error: w.Error,
-		AllowSlowPath: w.AllowSlowPath, Path: w.Path.Kind, RelayLabel: w.Path.RelayLabel, MemoryBytes: w.MemoryBytes,
+		AllowSlowPath: w.AllowSlowPath, Path: w.Path.Kind, RelayLabel: w.Path.RelayLabel, RelayID: w.RelayID,
+		OwnRelay: w.OwnRelay, MemoryBytes: w.MemoryBytes,
 	}
 }
 

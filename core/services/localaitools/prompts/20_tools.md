@@ -74,5 +74,5 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `unpin_failover_target` — Remove a failover pin.
 - `revoke_p2p_device` — Revoke a paired P2P device; it is cut off at once.
 - `cancel_p2p_invite` — Cancel a pending P2P invite.
-- `set_p2p_split_slow_path` — Use a model-split worker over a relay ("Use anyway"), or stop.
+- `set_p2p_split_slow_path` — Use a model-split worker over a relay ("Use anyway"), or stop; a relay of the user with limits cuts each connection at them.
 - `set_p2p_relay_limits` — Change the data, time or bandwidth limit of one circuit on a P2P relay this server administers; a new data or time limit restarts the relay's circuit service.

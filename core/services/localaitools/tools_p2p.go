@@ -93,7 +93,7 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolSetP2PSplitSlowPath,
-		Description: "Use a model-split worker that only a relay reaches (allow=true, \"Use anyway\": it works, but every token waits for the relay), or stop using it there (allow=false). A relay with a data limit never carries model layers. Requires user confirmation per safety rule 1.",
+		Description: "Use a model-split worker that only a relay reaches (allow=true, \"Use anyway\": it works, but every token waits for the relay), or stop using it there (allow=false). A relay of the user (own_relay) that limits each connection ends it at its limit; say so, and that the model must then be loaded again. A public relay never carries model layers. Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		ID    string `json:"id" jsonschema:"worker ID from list_p2p_split_workers"`
 		Allow bool   `json:"allow" jsonschema:"true to use the worker over the relay, false to stop"`
