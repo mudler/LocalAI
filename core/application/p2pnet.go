@@ -619,12 +619,13 @@ func (rt *p2pRuntime) relayServiceInfo() p2papi.RelayServiceInfo {
 	return p2papi.RelayServiceInfo{Running: rt.inproc != nil, Reason: rt.reason}
 }
 
-// p2pBroadcaster is the message bus of a cluster, or nil.
+// p2pBroadcaster is the fan-out of the cluster carrier in use (NATS or the
+// tunnel), or nil on a single server.
 func (a *Application) p2pBroadcaster() messaging.Broadcaster {
-	if a.distributed == nil || a.distributed.Nats == nil {
+	if a.distributed == nil || a.distributed.Broadcaster == nil {
 		return nil
 	}
-	return a.distributed.Nats
+	return a.distributed.Broadcaster
 }
 
 // p2pRelays reads the p2p_relays setting.
