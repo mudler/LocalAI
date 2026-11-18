@@ -6,6 +6,9 @@ import Icon from '../Icon'
 import { Button, Callout, LoadError, Segmented, SkeletonRows } from '../ui'
 import { p2pRelaysApi } from '../../utils/api'
 import { defaultLimits, hasLimits, limitsFromReported, limitsPatch, relayName, validLimits } from './p2pSettingsModel'
+// The dialog also opens from the Nodes page, which does not load the P2P
+// settings styles.
+import './p2psettings.css'
 
 const FIELDS = [
   { key: 'dataGiB', unit: 'gib' },
