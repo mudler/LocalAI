@@ -919,7 +919,7 @@ var _ = Describe("Federation", func() {
 			Expect(r.URL.Path).To(Equal("/api/federation"))
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"instances": []map[string]any{{"id": "r1", "name": "Branch", "transport": "p2p", "in_flight": 1,
-					"p2p": map[string]any{"peer_id": "12D3KooW", "state": "up", "path": "relayed", "limited": true, "local_port": 4100},
+					"p2p":    map[string]any{"peer_id": "12D3KooW", "state": "up", "path": "relayed", "limited": true, "local_port": 4100},
 					"models": []map[string]any{{"model": "branch-qwen", "upstream_id": "qwen"}}}},
 				"groups": []map[string]any{{"name": "g", "policy": "least_busy", "members": []map[string]any{{"model": "branch-qwen", "instance": "r1", "drained": true, "in_flight": 1}}}},
 			})
