@@ -20,7 +20,18 @@ import (
 // contract.StartupHandleEnv), StartupChannel first binds the listener and
 // reports its address to the owner, because the owner writes the startup
 // object only after it knows the endpoint. Otherwise it is descriptor 4.
+//
+// An add-on that runs in WSL 2 (contract.ChannelEnv is contract.ChannelStdio)
+// gets its channels over its standard streams; StartupChannel then takes
+// them and returns the startup stream.
 func StartupChannel() (*os.File, error) {
+	if stdioMode() {
+		c, err := openStdioOnce()
+		if err != nil {
+			return nil, err
+		}
+		return c.startup, nil
+	}
 	h, ok := os.LookupEnv(contract.StartupHandleEnv) //nolint:forbidigo // the owner names the inherited handles in the environment of the add-on process; it is the wire contract, not configuration
 	if !ok {
 		return os.NewFile(4, "startup"), nil
@@ -35,8 +46,16 @@ func StartupChannel() (*os.File, error) {
 // It is descriptor 3, already bound by the owner, unless the owner passed the
 // channels as named handles: then the add-on binds 127.0.0.1 on an ephemeral
 // port itself and reports the address on the endpoint handle. Repeated calls
-// return the same listener.
+// return the same listener. In the stdio mode (an add-on in WSL 2) it accepts
+// the protocol connections that the owner opens over the standard streams.
 func Listener() (net.Listener, error) {
+	if stdioMode() {
+		c, err := openStdioOnce()
+		if err != nil {
+			return nil, err
+		}
+		return c.listener(), nil
+	}
 	h, ok := os.LookupEnv(contract.EndpointHandleEnv) //nolint:forbidigo // the owner names the inherited handles in the environment of the add-on process; it is the wire contract, not configuration
 	if !ok {
 		return net.FileListener(os.NewFile(3, "listener"))

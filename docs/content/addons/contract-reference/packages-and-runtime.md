@@ -361,8 +361,28 @@ The environment of the child also has `SYSTEMROOT` (the network stack of
 Windows needs it) and `TMP` and `TEMP` (the temporary folder of LocalAI). The
 executable must end in `.exe`, because Windows has no execute bit.
 
-The Go SDK does this for you: `protocol.Run` uses the descriptors or the handles,
-whichever the owner passed. An add-on that does not use `protocol.Run` calls
+A package with `"execution": "wsl2"` (see [Manifest](manifest/)) runs in a WSL 2
+distribution on a Windows host. No handle of the owner exists there. The owner starts
+the executable through `wsl.exe` with `LOCALAI_ADDON_CHANNEL=stdio`, and the standard
+input and output of the process carry one multiplexed session (yamux). The owner is the
+client and the add-on is the server:
+
+| Stream | Opened by | Carries |
+|---|---|---|
+| First stream | owner | The add-on writes its process ID as one decimal line (at most 24 bytes with the newline). The owner then writes the `runtime.Startup` object. The end of this stream, or of the session, has the meaning of EOF on descriptor 4. |
+| Every later stream | owner | One connection to the protocol endpoint of the add-on. |
+| Every stream | add-on | One connection to the host operation endpoint. |
+
+The owner serves the protocol endpoint on a `127.0.0.1` port of Windows, so the
+registration names a Windows address. The SDK serves the host operation endpoint on a
+`127.0.0.1` port in WSL and writes that address in the startup object, so the add-on
+reaches the host without a network path from WSL to Windows. Standard error stays the
+log stream. The SDK points standard output at standard error, so a print never goes
+into the session. When the session ends, the SDK ends the process after the shutdown
+budget and two more seconds.
+
+The Go SDK does this for you: `protocol.Run` uses the descriptors, the handles or the
+standard streams, whichever the owner passed. An add-on that does not use `protocol.Run` calls
 `protocol.StartupChannel` and `protocol.Listener` in place of opening
 descriptors 4 and 3 itself.
 
