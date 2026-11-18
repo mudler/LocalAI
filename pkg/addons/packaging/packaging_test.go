@@ -156,7 +156,6 @@ var _ = Describe("package layout", func() {
 		Expect(filepath.Join(dest, "tables")).To(BeARegularFile())
 	})
 
-
 	It("refuses an invalid version, an existing layout and an empty executable", func() {
 		p := newProject(both)
 		for _, v := range []string{"", "v1.2.3", "1.2", "1.2.3+build", "latest", "01.2.3"} {
