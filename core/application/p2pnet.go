@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
 	"github.com/mudler/LocalAI/core/services/p2prelay"
+	"github.com/mudler/LocalAI/core/services/p2psplit"
 	"github.com/mudler/LocalAI/internal"
 )
 
@@ -83,6 +84,7 @@ type p2pRuntime struct {
 	gate   *p2pnet.Allowlist
 	pair   *p2ppair.Service
 	relays relayManager
+	split  *p2psplit.Manager
 	srv    *http.Server
 	sub    messaging.Subscription
 	limit  *globalLimiter
@@ -319,6 +321,9 @@ func (rt *p2pRuntime) startShare() error {
 	}
 	rt.pair = svc
 	rt.reload()
+	if err := rt.startSplit(); err != nil {
+		return err
+	}
 
 	ln, err := rt.host.Listen(p2pnet.ProtoHTTP, nil)
 	if err != nil {
@@ -372,6 +377,7 @@ func (rt *p2pRuntime) close() {
 		cancel()
 	}
 	rt.stopRelayService("")
+	rt.stopSplit()
 	if rt.relays != nil {
 		if err := rt.relays.Close(); err != nil {
 			xlog.Warn("P2P relay manager close", "error", err)
@@ -454,6 +460,7 @@ func (rt *p2pRuntime) reload() {
 	}
 	rt.pending.Store(int32(pending))
 	rt.gate.SetPairing(pending > 0)
+	rt.refreshSplit()
 }
 
 func (rt *p2pRuntime) pairedPeerStrings() []string {

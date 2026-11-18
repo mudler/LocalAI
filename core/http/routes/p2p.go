@@ -17,6 +17,7 @@ import (
 func RegisterP2PRoutes(e *echo.Echo, app *application.Application, adminMw echo.MiddlewareFunc) {
 	svc := app.P2P()
 	registerP2PAdminRoutes(e, svc, adminMw)
+	registerP2PSplitRoutes(e, app.P2PSplit(), adminMw)
 	app.ServeP2PHTTP(e, P2PRedeemHandler(svc))
 }
 
@@ -35,6 +36,11 @@ func registerP2PAdminRoutes(e *echo.Echo, svc p2papi.Service, adminMw echo.Middl
 	e.POST("/api/p2p/relays/:id/sync", p2papi.SyncRelayEndpoint(svc), adminMw)
 	e.POST("/api/p2p/relays/:id/claim", p2papi.ClaimRelayEndpoint(svc), adminMw)
 	e.POST("/api/p2p/identity/regenerate", p2papi.RegenerateIdentityEndpoint(svc), adminMw)
+}
+
+func registerP2PSplitRoutes(e *echo.Echo, svc p2papi.SplitService, adminMw echo.MiddlewareFunc) {
+	e.GET("/api/p2p/split-workers", p2papi.ListSplitWorkersEndpoint(svc), adminMw)
+	e.PATCH("/api/p2p/split-workers/:id", p2papi.SetSplitWorkerEndpoint(svc), adminMw)
 }
 
 // P2PRedeemHandler serves POST /api/p2p/redeem for requests that arrived over

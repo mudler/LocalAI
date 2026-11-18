@@ -16270,6 +16270,91 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/p2p/split-workers": {
+            "get": {
+                "description": "Lists the paired llama.cpp RPC and MLX workers that lend their memory to models that run on this server, with their state (online, offline, slow, limited, refused), the path that reaches them and the memory they add. A worker reached only through a relay is \"slow\" until allow_slow_path is set; a relay with a data limit (a public relay) never carries model layers (\"limited\"). Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "List model-split workers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SplitWorkerList"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/split-workers/{id}": {
+            "patch": {
+                "description": "Sets allow_slow_path of a model-split worker. With true the server uses the worker over a relay without a data limit (\"Use anyway\"): it works, but every token waits for the relay. With false it uses the worker only over a direct or hole-punched path. A model that is loaded keeps its workers until it is loaded again. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Use a model-split worker over a slow path, or stop",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device ID of the worker",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SplitWorkerUpdate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SplitWorkerView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p/status": {
             "get": {
                 "description": "The mode in effect (off, connect or share), the peer ID and addresses of this server, its reachability, the relays that hold a reservation for it, whether it relays for its paired devices, and the number of pending invites and paired devices. Admin only.",
@@ -26209,6 +26294,91 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "peer_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.SplitWorkerList": {
+            "type": "object",
+            "properties": {
+                "memory_in_use": {
+                    "description": "MemoryInUse is the memory of the workers in use, in bytes.",
+                    "type": "integer"
+                },
+                "workers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.SplitWorkerView"
+                    }
+                }
+            }
+        },
+        "p2p.SplitWorkerUpdate": {
+            "type": "object",
+            "properties": {
+                "allow_slow_path": {
+                    "description": "AllowSlowPath uses the worker over a relayed path (\"Use anyway\"), or\nstops using it there.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.SplitWorkerView": {
+            "type": "object",
+            "properties": {
+                "addr": {
+                    "description": "Addr is the loopback address of this server that reaches the worker:\nan entry of LLAMACPP_GRPC_SERVERS, or of the MLX hostfile.",
+                    "type": "string"
+                },
+                "allow_slow_path": {
+                    "description": "AllowSlowPath is the \"Use anyway\" choice for a relayed path.",
+                    "type": "boolean"
+                },
+                "connected_since": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "engine": {
+                    "description": "Engine is llama (llama.cpp RPC) or mlx.",
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error says why a refused worker was refused.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_seen_at": {
+                    "type": "string"
+                },
+                "memory_bytes": {
+                    "description": "MemoryBytes is the memory the worker reported: its VRAM, or its RAM\nwhen it has no GPU (unified memory on Apple Silicon).",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "Name and Version are what the worker reported.",
+                    "type": "string"
+                },
+                "path": {
+                    "$ref": "#/definitions/p2p.PathView"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "rank": {
+                    "description": "Rank is the MLX rank of the worker; zero when not in the ring.",
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "State is online (in use), offline, slow (only a relay reaches it: it\nwaits for allow_slow_path), limited (only a relay with a data limit\nreaches it, which cannot carry model layers) or refused.",
                     "type": "string"
                 },
                 "version": {
