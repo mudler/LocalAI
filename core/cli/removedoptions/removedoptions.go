@@ -45,9 +45,11 @@ func (f Finding) Line() string {
 var ErrRemovedCommand = errors.New("this command was removed; see 'local-ai worker --help' and 'local-ai p2p --help'")
 
 const (
-	useMode = "use --p2p-mode connect (dial out to remotes) or --p2p-mode share (also accept paired devices; needs authentication), env LOCALAI_P2P_MODE"
-	invite  = "P2P tokens are gone; devices and nodes join with an invite created under Swarm, P2P"
-	noop    = "no replacement; the option only applied to the removed token network"
+	useMode    = "use --p2p-mode connect (dial out to remotes) or --p2p-mode share (also accept paired devices; needs authentication), env LOCALAI_P2P_MODE"
+	invite     = "P2P tokens are gone; devices and nodes join with an invite created under Swarm, P2P"
+	noop       = "no replacement; the option only applied to the removed token network"
+	federation = "federation is replaced by federation groups of P2P remotes: add the other instance with a remote invite (Models, Remotes) and group it under Swarm, P2P, Federation"
+	logLevel   = "no replacement; the P2P layer logs at the level of the server (--log-level)"
 )
 
 type rule struct {
@@ -61,11 +63,11 @@ type rule struct {
 var flagRules = []rule{
 	{[]string{"--p2p"}, useMode},
 	{[]string{"--p2p-token", "--p2ptoken"}, invite},
-	{[]string{"--p2p-network-id"}, invite},
+	{[]string{"--p2p-network-id", "--peer-2-peer-network-id"}, invite},
 	{[]string{"--p2p-dht-interval", "--p2p-otp-interval"}, noop},
 	{[]string{"--p2p-enable-limits"}, "no replacement; limits are set on the relay (local-ai p2p relay)"},
-	{[]string{"--federated"}, "federation is replaced by federated-instance invites, created under Swarm, P2P"},
-	{[]string{"--random-worker", "--target-worker"}, "federation is replaced by federated-instance invites, created under Swarm, P2P"},
+	{[]string{"--federated"}, federation},
+	{[]string{"--random-worker", "--target-worker"}, federation},
 }
 
 var envRules = []rule{
@@ -76,14 +78,15 @@ var envRules = []rule{
 	{[]string{"LOCALAI_P2P_ENABLE_LIMITS"}, "no replacement; limits are set on the relay (local-ai p2p relay)"},
 	{[]string{"LOCALAI_P2P_DISABLE_DHT"}, "the public DHT is the runtime setting p2p_public_dht (Settings, P2P)"},
 	{[]string{"LOCALAI_P2P_DHT_ANNOUNCE_MADDRS"}, "no replacement; the server announces the addresses it listens on (--p2p-listen)"},
-	{[]string{"LOCALAI_FEDERATED", "FEDERATED"}, "federation is replaced by federated-instance invites, created under Swarm, P2P"},
-	{[]string{"LOCALAI_RANDOM_WORKER", "RANDOM_WORKER", "LOCALAI_TARGET_WORKER", "TARGET_WORKER"}, "federation is replaced by federated-instance invites, created under Swarm, P2P"},
+	{[]string{"LOCALAI_P2P_LOGLEVEL", "LOCALAI_P2P_LIB_LOGLEVEL"}, logLevel},
+	{[]string{"LOCALAI_FEDERATED", "FEDERATED"}, federation},
+	{[]string{"LOCALAI_RANDOM_WORKER", "RANDOM_WORKER", "LOCALAI_TARGET_WORKER", "TARGET_WORKER"}, federation},
 }
 
 var settingRules = []rule{
 	{[]string{"p2p_token"}, invite},
 	{[]string{"p2p_network_id"}, invite},
-	{[]string{"federated"}, "federation is replaced by federated-instance invites, created under Swarm, P2P"},
+	{[]string{"federated"}, federation},
 }
 
 const (
@@ -146,7 +149,7 @@ func removedCommand(cmds []string) (Finding, bool) {
 	}
 	switch cmds[0] {
 	case "federated":
-		return Finding{Command, "local-ai federated", "federation is replaced by federated-instance invites, created under Swarm, P2P"}, true
+		return Finding{Command, "local-ai federated", federation}, true
 	case "explorer":
 		return Finding{Command, "local-ai explorer", "the Explorer was removed; there is no replacement"}, true
 	case "worker", "p2p-worker":
