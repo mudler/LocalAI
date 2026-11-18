@@ -52,6 +52,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 	node.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
 	node.POST("/:id/deregister", localai.DeactivateNodeEndpoint(registry))
 	node.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
+	node.POST("/:id/split", localai.NodeSplitEndpoint(registry, options...))
 	node.DELETE("/:id", localai.DeactivateNodeEndpoint(registry))
 }
 
