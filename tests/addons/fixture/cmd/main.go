@@ -285,7 +285,7 @@ func main() {
 // what the owner adds to pass the channels as handles and, on Windows, the
 // system folder and the temporary folder.
 func exactEnvironment() bool {
-	allowed := map[string]bool{"LANG": true, "TZ": true, contract.StartupHandleEnv: true, contract.EndpointHandleEnv: true}
+	allowed := map[string]bool{"LANG": true, "TZ": true, contract.StartupHandleEnv: true, contract.EndpointHandleEnv: true, contract.ChannelEnv: true}
 	if runtime.GOOS == "windows" {
 		for _, k := range []string{"SYSTEMROOT", "TMP", "TEMP"} {
 			allowed[k] = true

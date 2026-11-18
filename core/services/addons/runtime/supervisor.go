@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -92,6 +93,9 @@ type Config struct {
 	// (stream "stdout") or error ("stderr"). Nil sends the lines to the LocalAI
 	// log with the add-on ID as a prefix.
 	Output func(addonID, stream, line string)
+	// WSL runs the add-ons whose manifest has execution "wsl2". Nil refuses
+	// them with ErrNoWSL; it is set only on Windows.
+	WSL WSL
 }
 
 // HostOps wires the host operation channel into the supervisor. Authority
@@ -155,7 +159,7 @@ type Instance struct {
 }
 type process struct {
 	cmd          *exec.Cmd
-	parent       *os.File
+	parent       io.Closer
 	tree         interface{ terminate() }
 	done         chan struct{}
 	client       *Client
@@ -195,6 +199,13 @@ type Supervisor struct {
 	// reports its endpoint. It is true only on Windows; specs set it to run
 	// that way on other platforms.
 	reportEndpoint bool
+	// wslSpec, when set, runs every add-on the way an add-on with execution
+	// "wsl2" runs, through this WSL. Specs set it to check that way on
+	// other platforms.
+	wslSpec WSL
+	// hostDataDirs is the data directory, as this host sees it, of each
+	// running add-on whose data directory is not under DataRoot.
+	hostDataDirs map[string]string
 }
 
 func NewSupervisor(c Config) (*Supervisor, error) {
@@ -299,6 +310,10 @@ func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, gen
 			delete(s.slots, pkg.Manifest.ID)
 		}
 		close(slot.workerDone)
+		// A launch that knows why it failed (no WSL, for one) says so.
+		if e != nil && errors.Is(e, ErrRuntime) {
+			return Instance{}, e
+		}
 		return Instance{}, ErrRuntime
 	}
 	slot.launching = false
@@ -325,9 +340,27 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	if json.Unmarshal(b, &disk) != nil || !reflect.DeepEqual(disk, pkg) {
 		return nil, ErrRuntime
 	}
-	path, ok := executablePath(pkg.Directory, pkg.Manifest.Executable)
+	// An add-on that runs in WSL 2 is a Linux program that wsl.exe starts.
+	wsl := s.wslSpec
+	if pkg.Manifest.RunsInWSL() {
+		if wsl = s.config.WSL; wsl == nil {
+			return nil, fmt.Errorf("%w: %w", ErrRuntime, ErrNoWSL)
+		}
+	}
+	executable := executablePath
+	if wsl != nil {
+		executable = linuxExecutablePath
+	}
+	path, ok := executable(pkg.Directory, pkg.Manifest.Executable)
 	if !ok {
 		return nil, ErrRuntime
+	}
+	var inWSL WSLLaunch
+	if wsl != nil {
+		inWSL, e = wsl.Prepare(ctx, pkg)
+		if e != nil {
+			return nil, fmt.Errorf("%w: %w", ErrRuntime, e)
+		}
 	}
 	// The host operation endpoint belongs to the incarnation: only an add-on
 	// that the host setting names gets one. The listener is closed on every
@@ -360,11 +393,30 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	if s.reportEndpoint {
 		open = openReportedChannels
 	}
+	if wsl != nil {
+		// wsl.exe starts the executable in the distribution; only the
+		// variables that WSLENV names cross into it.
+		cmd = exec.Command(inWSL.Path, inWSL.Args...) // #nosec G204 -- wsl.exe with the arguments the WSL launcher built for the verified package
+		cmd.Dir = pkg.Directory
+		cmd.Env = append(append([]string{"LANG=C", "TZ=UTC"}, platformEnv()...), inWSL.Env...)
+		open = openStdioChannels
+	}
 	ch, e := open(cmd)
 	if e != nil {
 		return nil, ErrRuntime
 	}
 	defer ch.release()
+	// The stdio way holds its session for the life of the process; a launch
+	// that fails before the process is handed over closes it here.
+	handed := false
+	defer func() {
+		if !handed {
+			ch.end()
+		}
+	}()
+	if hostListener != nil && ch.stdio != nil {
+		ch.stdio.hostAddr = hostListener.Addr().String()
+	}
 	parent := ch.parent
 	credential := make([]byte, 32)
 	if _, e = rand.Read(credential); e != nil {
@@ -383,11 +435,28 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 			return nil, ErrRuntime
 		}
 		dataDir = filepath.Join(s.config.DataRoot, pkg.Manifest.ID)
-		if os.MkdirAll(dataDir, 0o700) != nil {
+		hostDir := dataDir
+		if wsl != nil {
+			// The data directory of an add-on in WSL is in the file system
+			// of the distribution; the host reaches it by another path.
+			if inWSL.DataDir == "" || inWSL.HostDataDir == "" {
+				return nil, ErrRuntime
+			}
+			dataDir, hostDir = inWSL.DataDir, inWSL.HostDataDir
+		}
+		if os.MkdirAll(hostDir, 0o700) != nil {
 			return nil, ErrRuntime
 		}
-		if fi, e := os.Lstat(dataDir); e != nil || !fi.IsDir() {
+		if fi, e := os.Lstat(hostDir); e != nil || !fi.IsDir() {
 			return nil, ErrRuntime
+		}
+		if wsl != nil {
+			s.mu.Lock()
+			if s.hostDataDirs == nil {
+				s.hostDataDirs = map[string]string{}
+			}
+			s.hostDataDirs[pkg.Manifest.ID] = hostDir
+			s.mu.Unlock()
 		}
 	}
 	// The streams are pipes the supervisor owns, not an io.Writer on the
@@ -410,6 +479,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		return nil, ErrRuntime
 	}
 	cmd.Stdout, cmd.Stderr = outW, errW
+	ch.claimStdio(cmd)
 	closeOutput := func() {
 		_ = outW.Close()
 		_ = errW.Close()
@@ -445,6 +515,9 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
 		return nil, ErrRuntime
 	}
+	// In the stdio way the startup stream replaces the standard input as
+	// the parent channel once the session runs.
+	parent = ch.parent
 	p := &process{cmd: cmd, parent: parent, tree: tree, done: make(chan struct{}), registration: r}
 	c, e := newClient(r, hex.EncodeToString(credential), s.config.Limits)
 	if e != nil {
@@ -469,6 +542,8 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		identityErr = s.ledger.put(pkg.Manifest.ID, ident)
 	}
 	go func() { _ = cmd.Wait(); c.withdraw(); close(p.done) }()
+	handed = true
+	go func() { <-p.done; ch.end() }()
 	if identityErr != nil {
 		s.terminate(p)
 		return nil, ErrRuntime
@@ -485,7 +560,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	if hostListener != nil {
 		startupObject.HostEndpoint, startupObject.HostCredential = "http://"+hostListener.Addr().String(), hostCredential
 	}
-	if e = writeStartup(ctx, parent, time.Now().Add(s.config.ReadyTimeout), startupObject); e != nil {
+	if e = writeStartup(ctx, ch.parent, time.Now().Add(s.config.ReadyTimeout), startupObject); e != nil {
 		s.terminate(p)
 		return nil, ErrRuntime
 	}
@@ -827,6 +902,15 @@ func (s *Supervisor) Close(ctx context.Context) error {
 		return s.ledger.close()
 	}
 	return nil
+}
+
+// HostDataDir returns the data directory of an add-on as this host sees it,
+// when it is not DataRoot/<id>: the directory of an add-on that runs in WSL 2,
+// in the file system of its distribution. Empty means DataRoot/<id>.
+func (s *Supervisor) HostDataDir(id string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.hostDataDirs[id]
 }
 
 // relativeSafe reports an addon ID that is one plain path element.

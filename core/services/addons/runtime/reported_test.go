@@ -6,6 +6,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -20,6 +21,9 @@ import (
 // descriptor numbers, so the wire logic is checked on every platform.
 var _ = Describe("Channels passed as named handles", func() {
 	reported := func() *Supervisor {
+		if os.Getenv("ADDON_RUNTIME_WSL") == "1" {
+			Skip("the named handles are not used for an add-on in WSL")
+		}
 		s := supervisor()
 		s.reportEndpoint = true
 		return s
