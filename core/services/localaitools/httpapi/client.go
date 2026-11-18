@@ -1109,6 +1109,39 @@ func (c *Client) ListP2PRelays(ctx context.Context) ([]localaitools.P2PRelayInfo
 	return out.Relays, nil
 }
 
+func (c *Client) GetP2PRelayLimits(ctx context.Context, id string) (*localaitools.P2PRelayLimitsInfo, error) {
+	var out struct {
+		Limits    localaitools.P2PRelayLimitsInfo `json:"limits"`
+		CanChange bool                            `json:"can_change"`
+		Restarted bool                            `json:"restarted"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PRelays+"/"+url.PathEscape(id)+"/limits", nil, &out); err != nil {
+		return nil, err
+	}
+	info := out.Limits
+	info.CanChange, info.Restarted = out.CanChange, out.Restarted
+	return &info, nil
+}
+
+func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaitools.SetP2PRelayLimitsRequest) (*localaitools.P2PRelayLimitsInfo, error) {
+	var out struct {
+		Limits    localaitools.P2PRelayLimitsInfo `json:"limits"`
+		CanChange bool                            `json:"can_change"`
+		Restarted bool                            `json:"restarted"`
+	}
+	body := struct {
+		CircuitBytes   *int64 `json:"circuit_bytes,omitempty"`
+		CircuitSeconds *int64 `json:"circuit_seconds,omitempty"`
+		RateBPS        *int64 `json:"rate_bps,omitempty"`
+	}{req.CircuitBytes, req.CircuitSeconds, req.RateBPS}
+	if err := c.do(ctx, http.MethodPut, routeP2PRelays+"/"+url.PathEscape(id)+"/limits", body, &out); err != nil {
+		return nil, err
+	}
+	info := out.Limits
+	info.CanChange, info.Restarted = out.CanChange, out.Restarted
+	return &info, nil
+}
+
 func (c *Client) RevokeP2PDevice(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodDelete, routeP2PDevices+"/"+url.PathEscape(id), nil, nil)
 }

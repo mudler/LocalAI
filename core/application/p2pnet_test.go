@@ -198,6 +198,11 @@ var _ = Describe("the relay manager on the p2p_relays setting", func() {
 		_, err = rm.Add(context.Background(), "/ip4/192.0.2.1/tcp/4001", "home", "")
 		Expect(err).To(MatchError(p2papi.ErrInvalid))
 		Expect(rm.Remove(context.Background(), "nope")).To(MatchError(p2papi.ErrNotFound))
+		_, err = rm.Limits(context.Background(), "nope")
+		Expect(err).To(MatchError(p2papi.ErrNotFound))
+		rate := int64(1)
+		_, err = rm.SetLimits(context.Background(), "nope", p2papi.SetRelayLimitsRequest{RateBPS: &rate})
+		Expect(err).To(MatchError(p2papi.ErrNotFound))
 
 		store := settingsRelayStore{load: a.p2pRelays, save: a.saveP2PRelays}
 		Expect(store.Save(context.Background(), []p2prelaymgr.Entry{{ID: "r", Label: "home", Addr: testRelayAddr}})).To(Succeed())

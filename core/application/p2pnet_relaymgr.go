@@ -73,6 +73,10 @@ func relayErr(err error) error {
 		return p2papi.ErrNotFound
 	case errors.Is(err, p2prelaymgr.ErrBadAddr):
 		return fmt.Errorf("%w: %s", p2papi.ErrInvalid, err.Error())
+	case errors.Is(err, p2prelaymgr.ErrNotAdmin):
+		return fmt.Errorf("%w: this server is not an admin of the relay, or the relay is open", p2papi.ErrConflict)
+	case errors.Is(err, p2prelaymgr.ErrInvalidLimits):
+		return fmt.Errorf("%w: %s", p2papi.ErrInvalid, err.Error())
 	case errors.Is(err, p2prelaymgr.ErrClaimRefused):
 		return fmt.Errorf("%w: the relay refused the claim code", p2papi.ErrConflict)
 	}
@@ -116,6 +120,26 @@ func (a relayManagerAdapter) Sync(ctx context.Context, id string) (p2papi.Relay,
 func (a relayManagerAdapter) Claim(ctx context.Context, id, code string) (p2papi.Relay, error) {
 	r, err := a.m.Claim(ctx, id, code)
 	return relayView(r), relayErr(err)
+}
+
+func limitsView(i p2prelaymgr.LimitsInfo) p2papi.RelayLimitsInfo {
+	return p2papi.RelayLimitsInfo{
+		Limits:    p2papi.RelayLimits{CircuitBytes: i.Limits.CircuitBytes, CircuitSeconds: i.Limits.CircuitSeconds, RateBPS: i.Limits.RateBPS},
+		CanChange: i.CanChange,
+		Restarted: i.Restarted,
+	}
+}
+
+func (a relayManagerAdapter) Limits(ctx context.Context, id string) (p2papi.RelayLimitsInfo, error) {
+	i, err := a.m.Limits(ctx, id)
+	return limitsView(i), relayErr(err)
+}
+
+func (a relayManagerAdapter) SetLimits(ctx context.Context, id string, req p2papi.SetRelayLimitsRequest) (p2papi.RelayLimitsInfo, error) {
+	i, err := a.m.SetLimits(ctx, id, p2prelaymgr.LimitsPatch{
+		CircuitBytes: req.CircuitBytes, CircuitSeconds: req.CircuitSeconds, RateBPS: req.RateBPS,
+	})
+	return limitsView(i), relayErr(err)
 }
 
 func (a relayManagerAdapter) Registrar() p2ppair.PassRegistrar {

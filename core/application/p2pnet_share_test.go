@@ -301,6 +301,12 @@ func (f *fakeRelays) Sync(context.Context, string) (p2papi.Relay, error) { retur
 func (f *fakeRelays) Claim(context.Context, string, string) (p2papi.Relay, error) {
 	return p2papi.Relay{}, nil
 }
+func (f *fakeRelays) Limits(context.Context, string) (p2papi.RelayLimitsInfo, error) {
+	return p2papi.RelayLimitsInfo{}, nil
+}
+func (f *fakeRelays) SetLimits(context.Context, string, p2papi.SetRelayLimitsRequest) (p2papi.RelayLimitsInfo, error) {
+	return p2papi.RelayLimitsInfo{}, nil
+}
 func (f *fakeRelays) Registrar() p2ppair.PassRegistrar { return f }
 func (f *fakeRelays) RegisterPass(context.Context, p2ppair.PassRequest) (string, error) {
 	f.mu.Lock()

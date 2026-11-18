@@ -26,6 +26,7 @@ type fakeService struct {
 	redeem   RedeemRequest
 	renamed  [2]string
 	regen    int
+	limits   SetRelayLimitsRequest
 }
 
 func (f *fakeService) Status(context.Context) (Status, error) {
@@ -62,6 +63,13 @@ func (f *fakeService) SyncRelay(context.Context, string) (Relay, error) {
 }
 func (f *fakeService) ClaimRelay(context.Context, string, string) (Relay, error) {
 	return Relay{ID: "r1", Mode: "gated"}, f.err
+}
+func (f *fakeService) RelayLimits(context.Context, string) (RelayLimitsInfo, error) {
+	return RelayLimitsInfo{Limits: RelayLimits{CircuitBytes: 1 << 30, CircuitSeconds: 1800}, CanChange: true}, f.err
+}
+func (f *fakeService) SetRelayLimits(_ context.Context, _ string, req SetRelayLimitsRequest) (RelayLimitsInfo, error) {
+	f.limits = req
+	return RelayLimitsInfo{Limits: RelayLimits{RateBPS: *req.RateBPS}, CanChange: true, Restarted: true}, f.err
 }
 func (f *fakeService) RegenerateIdentity(context.Context) (Status, error) {
 	f.regen++
@@ -188,6 +196,28 @@ var _ = Describe("P2P handlers", func() {
 		Expect(call(RemoveRelayEndpoint(svc), http.MethodDelete, "", nil, "id", "r1").Code).To(Equal(http.StatusOK))
 		Expect(call(ClaimRelayEndpoint(svc), http.MethodPost, `{"code":""}`, nil, "id", "r1").Code).To(Equal(http.StatusBadRequest))
 		Expect(call(ClaimRelayEndpoint(svc), http.MethodPost, `{"code":"ABC"}`, nil, "id", "r1").Code).To(Equal(http.StatusOK))
+	})
+
+	It("reads and changes the limits of a relay", func() {
+		rec := call(RelayLimitsEndpoint(svc), http.MethodGet, "", nil, "id", "r1")
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(rec.Body.String()).To(ContainSubstring(`"circuit_seconds":1800`))
+		Expect(rec.Body.String()).To(ContainSubstring(`"can_change":true`))
+
+		rec = call(SetRelayLimitsEndpoint(svc), http.MethodPut, `{"rate_bps":65536}`, nil, "id", "r1")
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*svc.limits.RateBPS).To(BeEquivalentTo(65536))
+		Expect(svc.limits.CircuitBytes).To(BeNil())
+		Expect(rec.Body.String()).To(ContainSubstring(`"restarted":true`))
+	})
+
+	It("refuses a limits change that names no limit", func() {
+		Expect(call(SetRelayLimitsEndpoint(svc), http.MethodPut, `{}`, nil, "id", "r1").Code).To(Equal(http.StatusBadRequest))
+	})
+
+	It("maps a limits conflict to 409", func() {
+		svc.err = fmt.Errorf("%w: not an admin", ErrConflict)
+		Expect(call(SetRelayLimitsEndpoint(svc), http.MethodPut, `{"rate_bps":1}`, nil, "id", "r1").Code).To(Equal(http.StatusConflict))
 	})
 
 	It("regenerates the identity only when confirmed", func() {
