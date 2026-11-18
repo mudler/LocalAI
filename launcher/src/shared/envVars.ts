@@ -32,12 +32,15 @@ export const STRIPPED_PREFIXES: readonly string[] = ['ELECTRON_', 'APPIMAGE_', '
  * user value would fight the setting, so it is refused; an inherited value is
  * dropped, so a stray `API_KEY` in the desktop session cannot lock the server.
  *
+ * LOCALAI_BASE_PATH: the launcher sets it to the data folder of its settings.
+ * Change the folder in Settings instead.
+ *
  * PATH: the server gets the PATH of the system, unchanged. A user value would
  * replace the search path of the server and every backend it starts, which
  * breaks them in ways that are hard to see, so PATH is refused here. Change
  * the system PATH instead.
  */
-export const CONTROLLED_VARS: readonly string[] = ['LOCALAI_API_KEY', 'API_KEY', 'LOCALAI_ADDRESS', 'ADDRESS', 'PATH']
+export const CONTROLLED_VARS: readonly string[] = ['LOCALAI_API_KEY', 'API_KEY', 'LOCALAI_ADDRESS', 'ADDRESS', 'PATH', 'LOCALAI_BASE_PATH']
 
 /** Names the server's API key may be under in an old config. */
 export const API_KEY_VARS: readonly string[] = ['LOCALAI_API_KEY', 'API_KEY']

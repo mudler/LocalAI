@@ -491,7 +491,9 @@ most 200 variables. Refused names: the variables the launcher strips
 (`ELECTRON_*`, `APPDIR`, `APPIMAGE*`, `ARGV0`, `OWD`, `LD_LIBRARY_PATH`,
 `LD_PRELOAD`, `NODE_OPTIONS`, `GSETTINGS_SCHEMA_DIR`, `CHROME_*`) and the ones
 it sets itself (`LOCALAI_API_KEY`, `API_KEY`, `LOCALAI_ADDRESS`, `ADDRESS`,
-`PATH`). PATH: the server gets the system PATH unchanged, because a user
+`PATH`, `LOCALAI_BASE_PATH`). `LOCALAI_BASE_PATH` is the data folder (the
+parent of the models folder), so the server never picks a base folder of its
+own from the current folder. PATH: the server gets the system PATH unchanged, because a user
 value would replace the search path of the server and of every backend it
 starts; change the system PATH instead. An inherited `API_KEY` or
 `LOCALAI_API_KEY` of the desktop session is dropped too. A name of this kind
