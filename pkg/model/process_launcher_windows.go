@@ -66,10 +66,15 @@ func resolveLauncherPath(grpcProcess, workDir string, args []string) (processNam
 	}
 
 	// Last resort for a backend that ships no run.ps1: run the gallery
-	// contract path as it is. Resolve it against workDir: CreateProcess does
-	// not search the child's working directory, so a bare basename would be
-	// looked up next to local-ai.exe instead of in the backend directory.
-	return filepath.Join(workDir, filepath.Base(grpcProcess)), args, nil
+	// contract path as it is, when it is a Windows executable. Resolve it
+	// against workDir: CreateProcess does not search the child's working
+	// directory, so a bare basename would be looked up next to local-ai.exe
+	// instead of in the backend directory.
+	direct := filepath.Join(workDir, filepath.Base(grpcProcess))
+	if err := checkWindowsDirectLaunch(direct); err != nil {
+		return "", nil, err
+	}
+	return direct, args, nil
 }
 
 // prepareBackendEnv adds the backend's lib directory to the front of PATH so

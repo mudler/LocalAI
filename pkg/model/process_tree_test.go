@@ -18,7 +18,7 @@ type recordingProcessTree struct {
 }
 
 func (t *recordingProcessTree) assign(int) error { t.assigned.Add(1); return nil }
-func (t *recordingProcessTree) terminate()        { t.terminated.Add(1) }
+func (t *recordingProcessTree) terminate()       { t.terminated.Add(1) }
 
 var _ = Describe("TerminateProcessTree", func() {
 	It("terminates the tree of a process started through StartProcess", func() {
