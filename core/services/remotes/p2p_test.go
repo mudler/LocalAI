@@ -181,8 +181,10 @@ var _ = Describe("Remotes over P2P", func() {
 		Expect(errors.As(err, &inv)).To(BeTrue())
 		Expect(inv.Message).To(ContainSubstring("distributed mode"))
 
-		tun.pairErr = &remotes.InvalidError{Message: "The invite has expired. Ask for a new one."}
+		tun.pairErr = &remotes.InvalidError{Message: "The invite has expired. Ask for a new one.", Reason: remotes.ErrInviteGone}
 		_, err = e.svc.Create(ctx, remotes.CreateRequest{Invite: invite})
+		Expect(errors.Is(err, remotes.ErrInviteGone)).To(BeTrue())
+		Expect(errors.Is(err, remotes.ErrInvalid)).To(BeTrue())
 		Expect(errors.As(err, &inv)).To(BeTrue())
 		Expect(inv.Message).To(HavePrefix("The invite has expired"))
 		all, _ := e.svc.List(ctx)

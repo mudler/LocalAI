@@ -506,9 +506,14 @@ yet), `up`, `down` (the last connection failed; `error` says why) or `error`
 `relayed`, and `limited` is `true` when a relay limits the connection. The
 state belongs to the server that answers.
 
-A redeem that fails is a `400` with a message: the link is not valid, it is
-not an invite of kind remote, it has expired or was used, the other server
-cannot be reached, or P2P is off on this server.
+A redeem that fails answers with a message:
+
+| Status | When |
+|---|---|
+| `400` | The link is not valid, it is not an invite of kind remote, it names an open relay that is not allowed, the other server cannot be reached, or P2P is off on this server. |
+| `409` | The name is taken (checked before the invite is used). |
+| `410` | The invite was used, cancelled or has expired. Ask for a new one. |
+| `429` | The other server saw too many wrong codes from this server. Wait and try again. |
 
 A skipped model has an `id` and a `reason`. The reasons are:
 

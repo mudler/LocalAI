@@ -71,6 +71,13 @@ var (
 	// of the same call can finish the rest. Create, Adopt, Update and Delete
 	// return it; Create and Adopt also return the partial Result.
 	ErrPartial = errors.New("remotes: the change was saved only in part")
+	// ErrInviteGone means the invite link of a remote over P2P cannot be
+	// used: it was used, cancelled or expired. It comes wrapped in an
+	// InvalidError that carries the message.
+	ErrInviteGone = errors.New("remotes: the invite is not valid any more")
+	// ErrInviteRateLimited means the other server saw too many wrong codes.
+	// It comes wrapped in an InvalidError that carries the message.
+	ErrInviteRateLimited = errors.New("remotes: too many wrong invite codes")
 )
 
 const (
@@ -82,12 +89,18 @@ const (
 )
 
 // InvalidError is an ErrInvalid with a message that a UI can show as is.
-type InvalidError struct{ Message string }
+// Reason, when set, is a more precise error such as ErrInviteGone.
+type InvalidError struct {
+	Message string
+	Reason  error
+}
 
 func (e *InvalidError) Error() string { return e.Message }
 
-// Is makes errors.Is(err, ErrInvalid) true.
-func (e *InvalidError) Is(target error) bool { return target == ErrInvalid }
+// Is makes errors.Is(err, ErrInvalid) true, and errors.Is(err, e.Reason).
+func (e *InvalidError) Is(target error) bool {
+	return target == ErrInvalid || (e.Reason != nil && target == e.Reason)
+}
 
 func invalid(msg string) error { return &InvalidError{Message: msg} }
 

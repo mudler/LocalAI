@@ -150,6 +150,10 @@ var _ = Describe("Remote over P2P end to end", func() {
 		Expect(r.P2P.Path).To(Equal("direct"))
 		Expect(string(body)).NotTo(ContainSubstring(`"secret"`))
 
+		By("answering 410 when the used invite is sent again")
+		code, body = do(laptop, http.MethodPost, "/api/remotes", "", map[string]any{"invite": link, "name": "Again"})
+		Expect(code).To(Equal(http.StatusGone), string(body))
+
 		By("showing the same confirmation phrase on the studio")
 		code, body = do(studio, http.MethodGet, "/api/p2p/devices", admin, nil)
 		Expect(code).To(Equal(http.StatusOK))

@@ -116,6 +116,10 @@ func mapRemoteError(c echo.Context, op string, err error) error {
 func mapRemoteErrorMsg(c echo.Context, op string, err error, internal string) error {
 	var inv *remotes.InvalidError
 	switch {
+	case errors.Is(err, remotes.ErrInviteGone) && errors.As(err, &inv):
+		return remotesError(c, http.StatusGone, inv.Message)
+	case errors.Is(err, remotes.ErrInviteRateLimited) && errors.As(err, &inv):
+		return remotesError(c, http.StatusTooManyRequests, inv.Message)
 	case errors.As(err, &inv):
 		return remotesError(c, http.StatusBadRequest, inv.Message)
 	case errors.Is(err, remotes.ErrInvalid):
@@ -219,7 +223,9 @@ func CheckRemoteEndpoint(get RemotesProvider) echo.HandlerFunc {
 //	@Success	201		{object}	RemoteResultResponse
 //	@Failure	400		{object}	schema.ErrorResponse
 //	@Failure	409		{object}	schema.ErrorResponse
+//	@Failure	410		{object}	schema.ErrorResponse
 //	@Failure	413		{object}	schema.ErrorResponse
+//	@Failure	429		{object}	schema.ErrorResponse
 //	@Failure	503		{object}	schema.ErrorResponse
 //	@Router		/api/remotes [post]
 func CreateRemoteEndpoint(get RemotesProvider) echo.HandlerFunc {

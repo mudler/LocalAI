@@ -277,15 +277,16 @@ func (t *p2pTunnels) Pair(ctx context.Context, link string, allowOpenRelay bool)
 // of an unreachable server goes to the log only.
 func pairError(err error) error {
 	msg := ""
+	var reason error
 	switch {
 	case errors.Is(err, pairclient.ErrExpired):
-		msg = "The invite has expired. Ask for a new one."
+		msg, reason = "The invite has expired. Ask for a new one.", remotes.ErrInviteGone
 	case errors.Is(err, pairclient.ErrOpenRelay):
 		msg = "The invite names an open relay, which anyone can use. The traffic stays encrypted, but the relay sees who talks to whom. Allow open relays to connect anyway."
 	case errors.Is(err, pairclient.ErrGone):
-		msg = "The invite is not valid any more: it was used, cancelled or expired. Ask for a new one."
+		msg, reason = "The invite is not valid any more: it was used, cancelled or expired. Ask for a new one.", remotes.ErrInviteGone
 	case errors.Is(err, pairclient.ErrTooManyTries):
-		msg = "The server saw too many wrong codes from this server. Wait a while and try again."
+		msg, reason = "The server saw too many wrong codes from this server. Wait a while and try again.", remotes.ErrInviteRateLimited
 	case errors.Is(err, pairclient.ErrWrongServer):
 		msg = "Another server answered than the one of the invite. Do not use this invite."
 	case errors.Is(err, pairclient.ErrUnreachable):
@@ -295,5 +296,5 @@ func pairError(err error) error {
 		xlog.Warn("P2P pairing failed", "error", err)
 		msg = "The server refused the invite. Ask for a new one."
 	}
-	return &remotes.InvalidError{Message: msg}
+	return &remotes.InvalidError{Message: msg, Reason: reason}
 }
