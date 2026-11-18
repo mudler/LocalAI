@@ -1,3 +1,5 @@
+import { limitParts } from '../p2psettings/p2pSettingsModel.js'
+
 // The model-split workers of the Nodes page and the "Model-split worker" way
 // of Add a node: llama.cpp RPC and MLX workers that lend their memory to
 // models that run on this server. No React here, so the unit tests read it.
@@ -41,6 +43,26 @@ export function pathOf(worker) {
   }
 }
 
+// The limits after which a relay of the user ends each connection of a
+// worker that is slow or used anyway: an empty list when the path has none,
+// and for a public relay, which is never used.
+export function cutLimits(worker) {
+  const path = worker?.path || {}
+  if (!worker?.own_relay || path.kind !== 'relayed' || !path.limited) return []
+  return limitParts({ circuit_bytes: path.limit_bytes, circuit_seconds: path.limit_seconds })
+}
+
+// The relay whose limits the limits dialog edits, for a worker behind a relay
+// of the user; null otherwise. The dialog reads the current limits itself.
+export function limitsRelay(worker) {
+  if (!worker?.own_relay || !worker.relay_id) return null
+  const path = worker.path || {}
+  return {
+    id: worker.relay_id, label: path.relay_label || '', mode: 'gated',
+    limits: { circuit_bytes: path.limit_bytes || 0, circuit_seconds: path.limit_seconds || 0 },
+  }
+}
+
 // The counts of the group heading: workers online of all workers.
 export function summarize(workers) {
   const list = Array.isArray(workers) ? workers : []
@@ -49,6 +71,7 @@ export function summarize(workers) {
     online: list.filter(w => w.state === 'online').length,
     slow: list.filter(w => w.state === 'slow'),
     limited: list.filter(w => w.state === 'limited'),
+    cut: list.filter(w => (w.state === 'slow' || w.state === 'online') && cutLimits(w).length > 0),
   }
 }
 

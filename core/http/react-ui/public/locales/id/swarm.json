@@ -5,8 +5,12 @@
     "note": "Bukan node kluster: tanpa backend dan tanpa aturan penempatan. Worker ini meminjamkan memorinya untuk model yang berjalan di instans ini.",
     "slowTitle": "Membagi model paling baik lewat jalur langsung atau jalur hasil hole punching.",
     "slowBody": "Hanya relay yang menjangkau {{names}}. Ini berjalan, tetapi setiap token menunggu relay. Pilih Tetap gunakan atau biarkan worker tidak dipakai. Membuka port 4001 UDP dan TCP di jaringannya memberi jalur langsung.",
-    "limitedTitle": "Relay dengan batas data tidak bisa membawa lapisan model.",
-    "limitedBody": "Satu-satunya jalur ke worker ini adalah relay yang membatasi data setiap koneksi, misalnya relay publik. Beri worker jalur langsung, atau relay milik Anda tanpa batas data.",
+    "limitedTitle": "Relay publik tidak bisa membawa lapisan model.",
+    "limitedBody": "Satu-satunya jalur ke worker ini adalah relay publik, yang batasnya tidak bisa Anda ubah. Beri worker jalur langsung, atau relay milik Anda di kedua sisi.",
+    "cutTitle": "Relay milik Anda memutus setiap koneksi pada batasnya.",
+    "cutBody": "{{names}} lewat relay milik Anda yang mengakhiri setiap koneksi setelah batas data atau waktunya. Tetap gunakan berjalan, lambat, sampai relay memutus koneksi; lalu muat ulang model. Naikkan atau hapus batas relay untuk sesi yang lebih panjang.",
+    "cutHint": "Terputus setelah {{limits}}",
+    "relayLimits": "Batas relay",
     "memoryInUse": "Memori tambahan dari worker yang dipakai: {{memory}}.",
     "add": {
       "p2pTitle": "Bagikan dulu instans ini lewat P2P",
@@ -42,6 +46,7 @@
       "relayTitle": "Worker hanya terhubung lewat relay",
       "slowTitle": "Lambat: lewat relay.",
       "slowBody": "{{name}} tidak punya jalur langsung atau jalur hole punching ke instans ini. Pembagian model berjalan lewat relay Anda, tetapi setiap token menunggunya. Membuka port 4001 UDP dan TCP di salah satu sisi dapat memberi jalur langsung nanti.",
+      "slowCut": "Relay mengakhiri setiap koneksi setelah {{limits}}: model lalu berhenti sampai dimuat ulang. Naikkan atau hapus batasnya agar berjalan lebih lama.",
       "addAnyway": "Tetap tambahkan",
       "notNow": "Nanti saja"
     },
@@ -71,7 +76,7 @@
       "online": "Online",
       "offline": "Offline",
       "slow": "Lambat: lewat relay",
-      "limited": "Relay terlalu kecil",
+      "limited": "Relay publik: tidak dipakai",
       "refused": "Ditolak"
     },
     "useAnyway": "Tetap gunakan",

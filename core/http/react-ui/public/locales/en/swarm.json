@@ -5,8 +5,12 @@
     "note": "Not cluster nodes: no backends and no placement rules. They lend memory to models that run on this instance.",
     "slowTitle": "Model splitting works best on a direct or hole-punched path.",
     "slowBody": "Only a relay reaches {{names}}. It works, but every token waits for the relay. Choose Use anyway or leave the worker out. Opening UDP and TCP port 4001 on its network gives a direct path.",
-    "limitedTitle": "A relay with a data limit cannot carry model layers.",
-    "limitedBody": "The only path to this worker is a relay that limits the data of each connection, such as a public relay. Give the worker a direct path, or a relay of yours without a data limit.",
+    "limitedTitle": "A public relay cannot carry model layers.",
+    "limitedBody": "The only path to this worker is a public relay, whose limits you cannot change. Give the worker a direct path, or a relay of yours on both sides.",
+    "cutTitle": "A relay of yours cuts each connection at its limits.",
+    "cutBody": "{{names}} goes through a relay of yours that ends each connection after its data or time limit. Use anyway works, slowly, until the relay cuts the connection; then load the model again. Raise or remove the limits of the relay for longer runs.",
+    "cutHint": "Cut after {{limits}}",
+    "relayLimits": "Relay limits",
     "memoryInUse": "Memory added by workers in use: {{memory}}.",
     "add": {
       "p2pTitle": "Share this instance over P2P first",
@@ -42,6 +46,7 @@
       "relayTitle": "The worker connected through a relay only",
       "slowTitle": "Slow: through a relay.",
       "slowBody": "{{name}} has no direct or hole-punched path to this instance. Model splitting works through your relay, but every token waits for it. Opening UDP and TCP port 4001 on either side can give a direct path later.",
+      "slowCut": "The relay ends each connection after {{limits}}: the model then stops until it is loaded again. Raise or remove the limits to run longer.",
       "addAnyway": "Add anyway",
       "notNow": "Not now"
     },
@@ -71,7 +76,7 @@
       "online": "Online",
       "offline": "Offline",
       "slow": "Slow: through a relay",
-      "limited": "Relay too small",
+      "limited": "Public relay: not used",
       "refused": "Refused"
     },
     "useAnyway": "Use anyway",

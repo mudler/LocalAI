@@ -9,7 +9,8 @@ import { clock, secondsLeft, shortPeer } from '../../utils/p2p'
 import { P2P_SETTINGS_PATH } from '../p2p/P2PTabs'
 import { Button, Callout, Segmented, StatusChip, useLoad } from '../ui'
 import CommandBlock from './CommandBlock'
-import { ENGINES, pathOf, splitCommand, stateOf } from './splitWorkersModel'
+import RelayLimitsDialog from '../p2psettings/RelayLimitsDialog'
+import { ENGINES, cutLimits, limitsRelay, pathOf, splitCommand, stateOf } from './splitWorkersModel'
 import './split.css'
 
 // The life of a model-split invite: long enough to set up the worker.
@@ -168,6 +169,7 @@ function WaitStep({ Step, n, invite, addToast, onPaired }) {
   const [worker, setWorker] = useState(null)
   const [busy, setBusy] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [limitsOf, setLimitsOf] = useState(null)
   const [startedAt] = useState(() => Date.now())
 
   const read = useCallback(async () => {
@@ -220,13 +222,18 @@ function WaitStep({ Step, n, invite, addToast, onPaired }) {
           actions={(
             <>
               <Button size="sm" variant="primary" busy={busy} onClick={useAnyway} data-testid="split-add-anyway">{t('split.add.addAnyway')}</Button>
+              {limitsRelay(worker) && (
+                <Button size="sm" variant="ghost" icon="sliders" onClick={() => setLimitsOf(limitsRelay(worker))} data-testid="split-add-limits">{t('split.relayLimits')}</Button>
+              )}
               <Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>{t('split.add.notNow')}</Button>
             </>
           )}
         >
           {t('split.add.slowBody', { name: worker.label || shortPeer(worker.peer_id) })}
+          {cutLimits(worker).length > 0 && <> {t('split.add.slowCut', { limits: cutLimits(worker).join(', ') })}</>}
         </Callout>
       )}
+      {limitsOf && <RelayLimitsDialog relay={limitsOf} addToast={addToast} onSaved={read} onClose={() => setLimitsOf(null)} />}
       {state === 'limited' && <Callout tone="error" title={t('split.limitedTitle')} testId="split-add-limited">{t('split.limitedBody')}</Callout>}
       {state === 'refused' && <Callout tone="error" role="alert" testId="split-add-refused">{worker.error}</Callout>}
       {state === 'online' && (

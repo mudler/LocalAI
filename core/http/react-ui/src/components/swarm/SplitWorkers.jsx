@@ -7,7 +7,8 @@ import { formatBytes } from '../../utils/format'
 import { shortPeer } from '../../utils/p2p'
 import { Button, Callout, StatusChip } from '../ui'
 import ConfirmDialog from '../ConfirmDialog'
-import { pathOf, slowAction, stateOf, summarize } from './splitWorkersModel'
+import RelayLimitsDialog from '../p2psettings/RelayLimitsDialog'
+import { cutLimits, limitsRelay, pathOf, slowAction, stateOf, summarize } from './splitWorkersModel'
 import './split.css'
 
 // The "Model-split workers" group of the Nodes page: machines that lend their
@@ -20,6 +21,7 @@ export default function SplitWorkers({ addToast }) {
   const [busy, setBusy] = useState(null)
   const [revoking, setRevoking] = useState(null)
   const [revokeBusy, setRevokeBusy] = useState(false)
+  const [limitsOf, setLimitsOf] = useState(null)
 
   if (split.status !== 'ready' || split.workers.length === 0) return null
   const sum = summarize(split.workers)
@@ -61,6 +63,11 @@ export default function SplitWorkers({ addToast }) {
       {sum.slow.length > 0 && (
         <Callout title={t('split.slowTitle')} testId="split-slow-callout">
           {t('split.slowBody', { names: sum.slow.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
+        </Callout>
+      )}
+      {sum.cut.length > 0 && (
+        <Callout tone="warn" title={t('split.cutTitle')} testId="split-cut-callout">
+          {t('split.cutBody', { names: sum.cut.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
         </Callout>
       )}
       {sum.limited.length > 0 && (
@@ -106,6 +113,9 @@ export default function SplitWorkers({ addToast }) {
                         {action === 'stopUsing' && (
                           <Button size="sm" busy={busy === worker.id} onClick={() => setSlow(worker, false)} data-testid={`split-stop-${worker.id}`}>{t('split.stopUsing')}</Button>
                         )}
+                        {limitsRelay(worker) && (
+                          <Button size="sm" variant="ghost" icon="sliders" onClick={() => setLimitsOf(limitsRelay(worker))} data-testid={`split-limits-${worker.id}`}>{t('split.relayLimits')}</Button>
+                        )}
                         <Button size="sm" variant="danger-ghost" onClick={() => setRevoking(worker)} data-testid={`split-revoke-${worker.id}`}>{t('split.revoke')}</Button>
                       </div>
                     </td>
@@ -120,6 +130,7 @@ export default function SplitWorkers({ addToast }) {
         <span className="sw-note sw-note--quiet">{t('split.memoryInUse', { memory: formatBytes(split.memory) })}</span>
         <Button icon="plus" to="/app/nodes/add?join=shard">{t('split.addWorker')}</Button>
       </div>
+      {limitsOf && <RelayLimitsDialog relay={limitsOf} addToast={addToast} onSaved={split.refetch} onClose={() => setLimitsOf(null)} />}
       <ConfirmDialog
         open={Boolean(revoking)}
         title={t('split.revokeTitle', { name: revoking ? revoking.label || shortPeer(revoking.peer_id) : '' })}
@@ -144,6 +155,7 @@ function PathChip({ worker }) {
     <span className="sw-split-path">
       <StatusChip tone={worker.path?.kind === 'relayed' ? 'warn' : 'ok'} dot>{t(`split.path.${path.key}`, { relay: path.relay })}</StatusChip>
       {path.rtt && <span className="sw-hint">{t('split.path.rtt', { ms: path.rtt })}</span>}
+      {cutLimits(worker).length > 0 && <span className="sw-hint">{t('split.cutHint', { limits: cutLimits(worker).join(', ') })}</span>}
     </span>
   )
 }

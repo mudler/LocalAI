@@ -1,6 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockSwarm, GB } from './swarm-fixtures.js'
-import { LINK, PEER, mockSplit } from './split-fixtures.js'
+import { LINK, PEER, mockSplit, ownRelayWorker, splitWorkers } from './split-fixtures.js'
 
 // Model-split workers: llama.cpp RPC and MLX workers that pair with an invite
 // and lend their memory to models on this server. The Nodes page lists them in
@@ -49,6 +49,31 @@ test.describe('Model-split workers on the Nodes page', () => {
     await expect(dialog).toContainText('Revoke attic-3090?')
     await dialog.getByRole('button', { name: 'Revoke', exact: true }).click()
     await expect.poll(() => log.find(e => e.method === 'DELETE')?.path).toBe('/api/p2p/devices/w-attic')
+  })
+
+  test('offers Use anyway through a relay of the user that cuts each connection, and opens its limits', async ({ page }) => {
+    await mockSwarm(page)
+    const log = await mockSplit(page, { workers: [...splitWorkers(), ownRelayWorker()] })
+    await page.goto('/app/nodes')
+    const row = page.getByTestId('split-worker-w-home')
+    await expect(row).toContainText('Slow: through a relay', { timeout: 15_000 })
+    await expect(row).toContainText('Cut after 1 GiB, 30 min')
+    await expect(page.getByTestId('split-cut-callout')).toContainText('home-box goes through a relay of yours')
+    await expect(page.getByTestId('split-use-w-home')).toBeVisible()
+    await page.getByTestId('split-limits-w-home').click()
+    await expect(page.getByTestId('relay-limits-dialog')).toContainText('Limits for home relay')
+    await expect.poll(() => log.some(e => e.path === '/api/p2p/relays/r1/limits')).toBe(true)
+  })
+
+  test('never offers Use anyway through a public relay', async ({ page }) => {
+    const pub = { id: 'w-pub', label: 'cafe-laptop', peer_id: `${PEER}d`, engine: 'llama', state: 'limited', allow_slow_path: false, path: { kind: 'relayed', relay_label: 'public relay', limited: true, limit_bytes: 131072, rtt_ms: 80 }, memory_bytes: 8 * GB, created_at: new Date().toISOString() }
+    await mockSwarm(page)
+    await mockSplit(page, { workers: [pub] })
+    await page.goto('/app/nodes')
+    await expect(page.getByTestId('split-worker-w-pub')).toContainText('Public relay: not used', { timeout: 15_000 })
+    await expect(page.getByTestId('split-limited-callout')).toContainText('A public relay cannot carry model layers.')
+    await expect(page.getByTestId('split-use-w-pub')).toHaveCount(0)
+    await expect(page.getByTestId('split-limits-w-pub')).toHaveCount(0)
   })
 
   test('shows no group when the server does not share over P2P', async ({ page }) => {

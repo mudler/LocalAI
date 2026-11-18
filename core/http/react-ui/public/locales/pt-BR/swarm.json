@@ -5,8 +5,12 @@
     "note": "Não são nós do cluster: sem backends e sem regras de alocação. Emprestam memória aos modelos que rodam nesta instância.",
     "slowTitle": "Dividir um modelo funciona melhor por um caminho direto ou aberto com hole punching.",
     "slowBody": "Só um relay alcança {{names}}. Funciona, mas cada token espera o relay. Escolha Usar mesmo assim ou deixe o worker de fora. Abrir a porta 4001 UDP e TCP na rede dele dá um caminho direto.",
-    "limitedTitle": "Um relay com limite de dados não consegue levar as camadas do modelo.",
-    "limitedBody": "O único caminho até este worker é um relay que limita os dados de cada conexão, como um relay público. Dê ao worker um caminho direto, ou um relay seu sem limite de dados.",
+    "limitedTitle": "Um relay público não consegue levar as camadas do modelo.",
+    "limitedBody": "O único caminho até este worker é um relay público, cujos limites você não pode mudar. Dê ao worker um caminho direto, ou um relay seu dos dois lados.",
+    "cutTitle": "Um relay seu corta cada conexão nos limites dele.",
+    "cutBody": "{{names}} passa por um relay seu que encerra cada conexão após o limite de dados ou de tempo. Usar mesmo assim funciona, devagar, até o relay cortar a conexão; depois carregue o modelo de novo. Aumente ou remova os limites do relay para sessões mais longas.",
+    "cutHint": "Corta após {{limits}}",
+    "relayLimits": "Limites do relay",
     "memoryInUse": "Memória somada pelos workers em uso: {{memory}}.",
     "add": {
       "p2pTitle": "Primeiro compartilhe esta instância por P2P",
@@ -42,6 +46,7 @@
       "relayTitle": "O worker se conectou só por um relay",
       "slowTitle": "Lento: por um relay.",
       "slowBody": "{{name}} não tem caminho direto nem aberto com hole punching até esta instância. A divisão funciona pelo seu relay, mas cada token espera por ele. Abrir a porta 4001 UDP e TCP em qualquer um dos lados pode dar um caminho direto depois.",
+      "slowCut": "O relay encerra cada conexão após {{limits}}: o modelo então para até ser carregado de novo. Aumente ou remova os limites para ir mais longe.",
       "addAnyway": "Adicionar mesmo assim",
       "notNow": "Agora não"
     },
@@ -71,7 +76,7 @@
       "online": "Online",
       "offline": "Offline",
       "slow": "Lento: por um relay",
-      "limited": "Relay pequeno demais",
+      "limited": "Relay público: não usado",
       "refused": "Recusado"
     },
     "useAnyway": "Usar mesmo assim",

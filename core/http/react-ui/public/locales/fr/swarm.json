@@ -5,8 +5,12 @@
     "note": "Ce ne sont pas des nœuds du cluster : ni backends ni règles de placement. Ils prêtent leur mémoire aux modèles qui tournent sur cette instance.",
     "slowTitle": "Répartir un modèle marche mieux sur un chemin direct ou ouvert par hole punching.",
     "slowBody": "Seul un relais atteint {{names}}. Cela marche, mais chaque token attend le relais. Choisissez Utiliser quand même, ou laissez le worker de côté. Ouvrir le port 4001 UDP et TCP sur son réseau donne un chemin direct.",
-    "limitedTitle": "Un relais avec une limite de données ne peut pas transporter les couches du modèle.",
-    "limitedBody": "Le seul chemin vers ce worker est un relais qui limite les données de chaque connexion, comme un relais public. Donnez au worker un chemin direct, ou un relais à vous sans limite de données.",
+    "limitedTitle": "Un relais public ne peut pas transporter les couches du modèle.",
+    "limitedBody": "Le seul chemin vers ce worker est un relais public, dont vous ne pouvez pas changer les limites. Donnez au worker un chemin direct, ou un relais à vous des deux côtés.",
+    "cutTitle": "Un relais à vous coupe chaque connexion à ses limites.",
+    "cutBody": "{{names}} passe par un relais à vous qui ferme chaque connexion après sa limite de données ou de temps. Utiliser quand même marche, lentement, jusqu'à ce que le relais coupe la connexion ; rechargez ensuite le modèle. Augmentez ou retirez les limites du relais pour des sessions plus longues.",
+    "cutHint": "Coupé après {{limits}}",
+    "relayLimits": "Limites du relais",
     "memoryInUse": "Mémoire apportée par les workers utilisés : {{memory}}.",
     "add": {
       "p2pTitle": "Partagez d'abord cette instance en P2P",
@@ -42,6 +46,7 @@
       "relayTitle": "Le worker s'est connecté uniquement par un relais",
       "slowTitle": "Lent : par un relais.",
       "slowBody": "{{name}} n'a pas de chemin direct ou ouvert par hole punching vers cette instance. La répartition marche par votre relais, mais chaque token l'attend. Ouvrir le port 4001 UDP et TCP d'un des deux côtés peut donner plus tard un chemin direct.",
+      "slowCut": "Le relais ferme chaque connexion après {{limits}} : le modèle s'arrête alors jusqu'à ce qu'il soit rechargé. Augmentez ou retirez les limites pour aller plus loin.",
       "addAnyway": "Ajouter quand même",
       "notNow": "Pas maintenant"
     },
@@ -71,7 +76,7 @@
       "online": "En ligne",
       "offline": "Hors ligne",
       "slow": "Lent : par un relais",
-      "limited": "Relais trop petit",
+      "limited": "Relais public : non utilisé",
       "refused": "Refusé"
     },
     "useAnyway": "Utiliser quand même",

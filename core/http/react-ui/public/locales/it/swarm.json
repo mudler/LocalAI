@@ -5,8 +5,12 @@
     "note": "Non sono nodi del cluster: niente backend e niente regole di posizionamento. Prestano memoria ai modelli che girano su questa istanza.",
     "slowTitle": "La suddivisione di un modello funziona meglio su un percorso diretto o con hole punching.",
     "slowBody": "Solo un relay raggiunge {{names}}. Funziona, ma ogni token aspetta il relay. Scegli Usa comunque oppure lascia fuori il worker. Aprire la porta 4001 UDP e TCP sulla sua rete dà un percorso diretto.",
-    "limitedTitle": "Un relay con un limite di dati non può trasportare i layer del modello.",
-    "limitedBody": "L'unico percorso verso questo worker è un relay che limita i dati di ogni connessione, come un relay pubblico. Dai al worker un percorso diretto, o un tuo relay senza limite di dati.",
+    "limitedTitle": "Un relay pubblico non può trasportare i layer del modello.",
+    "limitedBody": "L'unico percorso verso questo worker è un relay pubblico, i cui limiti non puoi cambiare. Dai al worker un percorso diretto, o un tuo relay su entrambi i lati.",
+    "cutTitle": "Un tuo relay interrompe ogni connessione ai suoi limiti.",
+    "cutBody": "{{names}} passa da un tuo relay che chiude ogni connessione dopo il suo limite di dati o di tempo. Usa comunque funziona, lentamente, finché il relay non interrompe la connessione; poi ricarica il modello. Alza o togli i limiti del relay per sessioni più lunghe.",
+    "cutHint": "Interrotto dopo {{limits}}",
+    "relayLimits": "Limiti del relay",
     "memoryInUse": "Memoria aggiunta dai worker in uso: {{memory}}.",
     "add": {
       "p2pTitle": "Prima condividi questa istanza via P2P",
@@ -42,6 +46,7 @@
       "relayTitle": "Il worker si è collegato solo tramite un relay",
       "slowTitle": "Lento: tramite un relay.",
       "slowBody": "{{name}} non ha un percorso diretto o con hole punching verso questa istanza. La suddivisione funziona tramite il tuo relay, ma ogni token lo aspetta. Aprire la porta 4001 UDP e TCP su uno dei due lati può dare più avanti un percorso diretto.",
+      "slowCut": "Il relay chiude ogni connessione dopo {{limits}}: il modello poi si ferma finché non viene ricaricato. Alza o togli i limiti per andare più a lungo.",
       "addAnyway": "Aggiungi comunque",
       "notNow": "Non ora"
     },
@@ -71,7 +76,7 @@
       "online": "Online",
       "offline": "Offline",
       "slow": "Lento: tramite un relay",
-      "limited": "Relay troppo piccolo",
+      "limited": "Relay pubblico: non usato",
       "refused": "Rifiutato"
     },
     "useAnyway": "Usa comunque",

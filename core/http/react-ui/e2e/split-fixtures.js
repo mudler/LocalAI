@@ -8,6 +8,17 @@ export const LINK = `localai://pair?v=1&k=split&p=${PEER}&c=S9QK2LWD8e&e=1794842
 const json = body => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 const ago = ms => new Date(Date.now() - ms).toISOString()
 
+// A slow worker behind a relay of the user that ends each connection after
+// 1 GiB and 30 minutes: Use anyway, with the limits dialog of the relay.
+export function ownRelayWorker() {
+  return {
+    id: 'w-home', label: 'home-box', peer_id: `${PEER}h`, engine: 'llama', state: 'slow', allow_slow_path: false,
+    own_relay: true, relay_id: 'r1',
+    path: { kind: 'relayed', relay_label: 'home relay', limited: true, limit_bytes: 1024 ** 3, limit_seconds: 1800, rtt_ms: 61 },
+    memory_bytes: 16 * GB, created_at: ago(300_000),
+  }
+}
+
 export function splitWorkers() {
   return [
     {
@@ -58,6 +69,10 @@ export async function mockSplit(page, { mode = 'share', workers = splitWorkers()
       return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 'inv-1', link: LINK, kind: 'split', expires_at: new Date(Date.now() + 600_000).toISOString(), qr: false, relay: { pass: false, reason: 'no_relay' }, warnings: ['no_relay'] }) })
     }
     if (path === '/api/p2p/invites' && method === 'GET') return route.fulfill(json({ invites: invites() }))
+    if (path === '/api/p2p/relays/r1/limits' && method === 'GET') {
+      log.push({ method, path })
+      return route.fulfill(json({ limits: { circuit_bytes: 1024 ** 3, circuit_seconds: 1800, rate_bps: 0 }, can_change: true }))
+    }
     const device = path.match(/^\/api\/p2p\/devices\/(.+)$/)
     if (device && method === 'DELETE') {
       log.push({ method, path })

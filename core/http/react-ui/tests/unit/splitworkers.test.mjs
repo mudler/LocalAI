@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  arrivedSince, pathOf, slowAction, splitCommand, stateOf, summarize,
+  arrivedSince, cutLimits, limitsRelay, pathOf, slowAction, splitCommand, stateOf, summarize,
 } from '../../src/components/swarm/splitWorkersModel.js'
 
 const worker = (extra = {}) => ({ id: 'w', state: 'online', path: { kind: 'direct' }, allow_slow_path: false, ...extra })
@@ -59,4 +59,22 @@ test('split workers: the command joins with the link and keeps its state', () =>
   // MLX runs on Apple Silicon outside a container.
   assert.equal(splitCommand({ engine: 'mlx', link, flavor: 'docker' }), `local-ai worker mlx-distributed \\\n  --join "${link}"`)
   assert.match(splitCommand({ engine: 'llama', flavor: 'cli' }), /<invite link>/)
+})
+
+test('split workers: a relay of the user that limits each connection is slow, with its cut and its limits dialog', () => {
+  const own = worker({
+    state: 'slow', own_relay: true, relay_id: 'r1',
+    path: { kind: 'relayed', relay_label: 'home relay', limited: true, limit_bytes: 1024 ** 3, limit_seconds: 1800 },
+  })
+  assert.equal(slowAction(own), 'useAnyway')
+  assert.deepEqual(cutLimits(own), ['1 GiB', '30 min'])
+  assert.deepEqual(limitsRelay(own), { id: 'r1', label: 'home relay', mode: 'gated', limits: { circuit_bytes: 1024 ** 3, circuit_seconds: 1800 } })
+  // Used anyway, it can still be stopped.
+  assert.equal(slowAction({ ...own, state: 'online', allow_slow_path: true }), 'stopUsing')
+  // A relay without limits cuts nothing; a public relay has no dialog.
+  assert.deepEqual(cutLimits(worker({ state: 'slow', own_relay: true, relay_id: 'r1', path: { kind: 'relayed' } })), [])
+  const pub = worker({ state: 'limited', path: { kind: 'relayed', limited: true, limit_bytes: 131072 } })
+  assert.deepEqual(cutLimits(pub), [])
+  assert.equal(limitsRelay(pub), null)
+  assert.equal(slowAction(pub), null)
 })
