@@ -34,9 +34,6 @@
     },
     "split": {
       "title": "Model-split worker"
-    },
-    "federated": {
-      "title": "Federated instance"
     }
   },
   "ttl": {

@@ -15911,25 +15911,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/p2p": {
-            "get": {
-                "tags": [
-                    "p2p"
-                ],
-                "summary": "Returns available P2P nodes",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/schema.P2PNodesResponse"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/p2p/devices": {
             "get": {
                 "description": "Lists the paired devices, revoked ones included, with how each one reaches the server now (path kind direct, hole_punched or relayed, the relay and its limits). Needs P2P mode share. Admin only.",
@@ -16125,7 +16106,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key for the other server: limited to \"models\" when given, else every model this server lets a client key use, models added later too), worker, split or federated. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY gets 409. relays is \"auto\", \"none\" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; \"relay.reason\" says why there is none. The link is shown once. Needs P2P mode share. Admin only.",
+                "description": "Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key for the other server: limited to \"models\" when given, else every model this server lets a client key use, models added later too), worker or split. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY gets 409. relays is \"auto\", \"none\" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; \"relay.reason\" says why there is none. The link is shown once. Needs P2P mode share. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -16765,22 +16746,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/p2p.Status"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/p2p/token": {
-            "get": {
-                "tags": [
-                    "p2p"
-                ],
-                "summary": "Show the P2P token",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "type": "string"
                         }
                     }
                 }
@@ -26458,7 +26423,7 @@ const docTemplate = `{
                     }
                 },
                 "kind": {
-                    "description": "Kind is device, remote, worker, split or federated.",
+                    "description": "Kind is device, remote, worker or split.",
                     "type": "string"
                 },
                 "label": {
@@ -38143,26 +38108,6 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.NodeData": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "lastSeen": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "serviceID": {
-                    "type": "string"
-                },
-                "tunnelAddress": {
-                    "type": "string"
-                }
-            }
-        },
         "schema.ORAnnotation": {
             "type": "object",
             "properties": {
@@ -39028,29 +38973,6 @@ const docTemplate = `{
                 "truncation": {
                     "description": "\"auto\"|\"disabled\"",
                     "type": "string"
-                }
-            }
-        },
-        "schema.P2PNodesResponse": {
-            "type": "object",
-            "properties": {
-                "federated_nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.NodeData"
-                    }
-                },
-                "llama_cpp_nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.NodeData"
-                    }
-                },
-                "mlx_nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.NodeData"
-                    }
                 }
             }
         },

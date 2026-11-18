@@ -131,6 +131,10 @@
     "wait": {
       "checkPeer": "Confira o ID de par com a pessoa que opera a máquina antes de aprovar.",
       "joinStuck": "Nada chega? Atrás de NAT restrito o nó pode levar um minuto para achar um caminho. Confira se o convite não expirou."
+    },
+    "join": {
+      "instanceNote": "Outra instância do LocalAI que deve atender parte das solicitações não é um nó: adicione-a como remoto e depois agrupe-a em",
+      "instanceLink": "Federação"
     }
   },
   "route": {

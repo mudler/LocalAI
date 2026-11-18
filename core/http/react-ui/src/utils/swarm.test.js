@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  attentionOf, eligibleNodes, leavePreview, matchesSelector, memoryOf, nodeState, p2pCommand,
+  attentionOf, eligibleNodes, leavePreview, matchesSelector, memoryOf, nodeState,
   ruleKind, rulePlan, selectorOf, singleReplicaModels, updateTargets, workerCommand, DISTRIBUTED_COMMAND,
 } from './swarm.js'
 
@@ -142,7 +142,4 @@ test('builds join commands that carry no secret', () => {
   assert.doesNotMatch(docker, /NATS/i)
   assert.doesNotMatch(cli, /nats/i)
   assert.doesNotMatch(DISTRIBUTED_COMMAND, /nats/i)
-  assert.match(p2pCommand({ method: 'peer', option, dev: false, token: 'abc', flavor: 'docker' }), /run --federated --p2p$/)
-  assert.match(p2pCommand({ method: 'peer', option, dev: true, token: '', flavor: 'docker' }), /your-token-here/)
-  assert.match(p2pCommand({ method: 'server', option, dev: false, token: 't', flavor: 'docker' }), /--name local-ai-federated[\s\S]*federated$/)
 })

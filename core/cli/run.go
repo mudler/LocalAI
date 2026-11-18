@@ -326,7 +326,6 @@ func (r *RunCMD) normalizeDataPath() {
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
-	warnDeprecatedFlags()
 	r.RemovedAgentOptions.warn()
 	r.RemovedAssistantOptions.warn()
 	r.resolveLegacyCollections()

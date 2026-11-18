@@ -893,18 +893,6 @@ export const metricsApi = {
   },
 }
 
-// P2P API
-export const p2pApi = {
-  getWorkers: () => fetchJSON(API_CONFIG.endpoints.p2pWorkers),
-  getFederation: () => fetchJSON(API_CONFIG.endpoints.p2pFederation),
-  getStats: () => fetchJSON(API_CONFIG.endpoints.p2pStats),
-  getToken: async () => {
-    const response = await fetch(apiUrl(API_CONFIG.endpoints.p2pToken))
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    return response.text()
-  },
-}
-
 // P2P layer: status, invites and paired devices (admin). Invites and devices
 // answer 409 outside mode "share". The invite link is in the mint answer only.
 export const p2pNetApi = {

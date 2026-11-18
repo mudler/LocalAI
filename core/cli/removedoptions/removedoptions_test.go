@@ -37,7 +37,7 @@ var _ = Describe("Check", func() {
 		Entry("llama.cpp worker", []string{"p2p-worker", "p2p-llama-cpp-rpc", "--token", "x"}, "p2p-worker p2p-llama-cpp-rpc", "local-ai worker llama-cpp-rpc"),
 		Entry("llama.cpp worker under the new name", []string{"worker", "p2p-llama-cpp-rpc"}, "worker p2p-llama-cpp-rpc", "local-ai worker llama-cpp-rpc"),
 		Entry("mlx worker", []string{"p2p-worker", "p2p-mlx"}, "p2p-worker p2p-mlx", "local-ai worker mlx-distributed"),
-		Entry("federated", []string{"federated"}, "local-ai federated", "federated-instance invites"),
+		Entry("federated", []string{"federated"}, "local-ai federated", "federation groups of P2P remotes"),
 		Entry("explorer", []string{"explorer", "--address", ":8080"}, "local-ai explorer", "no replacement"),
 	)
 
@@ -55,9 +55,9 @@ var _ = Describe("Check", func() {
 	})
 
 	It("finds every removed flag, with and without a value", func() {
-		fs := Check(Input{Args: []string{"--p2p", "--p2p-token=abc", "--p2ptoken", "abc", "--p2p-network-id=n",
+		fs := Check(Input{Args: []string{"--p2p", "--p2p-token=abc", "--p2ptoken", "abc", "--p2p-network-id=n", "--peer-2-peer-network-id=n",
 			"--p2p-dht-interval=1", "--p2p-otp-interval=1", "--p2p-enable-limits=true", "--federated"}, Env: env(nil)})
-		Expect(Names(fs)).To(ConsistOf("--p2p", "--p2p-token", "--p2ptoken", "--p2p-network-id",
+		Expect(Names(fs)).To(ConsistOf("--p2p", "--p2p-token", "--p2ptoken", "--p2p-network-id", "--peer-2-peer-network-id",
 			"--p2p-dht-interval", "--p2p-otp-interval", "--p2p-enable-limits", "--federated"))
 	})
 
@@ -70,12 +70,13 @@ var _ = Describe("Check", func() {
 			"LOCALAI_P2P": "true", "P2P": "true", "LOCALAI_P2P_TOKEN": "t", "P2P_TOKEN": "t", "LOCALAI_TOKEN": "t", "TOKEN": "t",
 			"LOCALAI_P2P_NETWORK_ID": "n", "P2P_NETWORK_ID": "n", "LOCALAI_P2P_DHT_INTERVAL": "1", "LOCALAI_P2P_OTP_INTERVAL": "1",
 			"LOCALAI_P2P_ENABLE_LIMITS": "true", "LOCALAI_P2P_DISABLE_DHT": "true", "LOCALAI_P2P_DHT_ANNOUNCE_MADDRS": "x",
-			"LOCALAI_FEDERATED": "true", "FEDERATED": "true",
+			"LOCALAI_FEDERATED": "true", "FEDERATED": "true", "LOCALAI_P2P_LOGLEVEL": "debug", "LOCALAI_P2P_LIB_LOGLEVEL": "debug",
 			"LOCALAI_P2P_LISTEN_MADDRS": "x", "LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS": "x", "LOCALAI_P2P_MODE": "connect",
 		})})
 		Expect(Names(fs)).To(ConsistOf("LOCALAI_P2P", "P2P", "LOCALAI_P2P_TOKEN", "P2P_TOKEN", "LOCALAI_TOKEN", "TOKEN",
 			"LOCALAI_P2P_NETWORK_ID", "P2P_NETWORK_ID", "LOCALAI_P2P_DHT_INTERVAL", "LOCALAI_P2P_OTP_INTERVAL",
-			"LOCALAI_P2P_ENABLE_LIMITS", "LOCALAI_P2P_DISABLE_DHT", "LOCALAI_P2P_DHT_ANNOUNCE_MADDRS", "LOCALAI_FEDERATED", "FEDERATED"))
+			"LOCALAI_P2P_ENABLE_LIMITS", "LOCALAI_P2P_DISABLE_DHT", "LOCALAI_P2P_DHT_ANNOUNCE_MADDRS", "LOCALAI_FEDERATED", "FEDERATED",
+			"LOCALAI_P2P_LOGLEVEL", "LOCALAI_P2P_LIB_LOGLEVEL"))
 		for _, f := range fs {
 			Expect(f.Replacement).ToNot(BeEmpty(), f.Name)
 		}

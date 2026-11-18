@@ -78,7 +78,7 @@ type RelayServiceInfo struct {
 
 // MintRequest is the body of POST /api/p2p/invites.
 type MintRequest struct {
-	// Kind is device, remote, worker, split or federated.
+	// Kind is device, remote, worker or split.
 	Kind  string `json:"kind"`
 	Label string `json:"label"`
 	// TTLSeconds is the life of the invite: 600 when zero, at most 86400.

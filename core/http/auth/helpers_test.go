@@ -168,7 +168,7 @@ func newAdminTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Ech
 	e.GET("/api/models", ok, adminMw)
 	e.GET("/api/backends", ok, adminMw)
 	e.GET("/api/resources", ok, adminMw)
-	e.GET("/api/p2p/workers", ok, adminMw)
+	e.GET("/api/p2p/status", ok, adminMw)
 
 	// Agent task/job routes (admin only)
 	e.POST("/api/agent/tasks", ok, adminMw)

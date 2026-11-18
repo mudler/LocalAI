@@ -328,19 +328,6 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) string { return o.CORSAllowOrigins },
 		func(o *ApplicationConfig, v string) { o.CORSAllowOrigins = v }),
 
-	// P2P.
-	field("p2p_token",
-		func(s *RuntimeSettings) **string { return &s.P2PToken },
-		func(o *ApplicationConfig) string { return o.P2PToken },
-		func(o *ApplicationConfig, v string) { o.P2PToken = v }),
-	field("p2p_network_id",
-		func(s *RuntimeSettings) **string { return &s.P2PNetworkID },
-		func(o *ApplicationConfig) string { return o.P2PNetworkID },
-		func(o *ApplicationConfig, v string) { o.P2PNetworkID = v }),
-	field("federated",
-		func(s *RuntimeSettings) **bool { return &s.Federated },
-		func(o *ApplicationConfig) bool { return o.Federated },
-		func(o *ApplicationConfig, v bool) { o.Federated = v }),
 	// The P2P layer. Values are checked by the settings endpoint before they
 	// are stored; a bad value in the file is refused here.
 	withApply(field("p2p_mode",

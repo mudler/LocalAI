@@ -56,11 +56,6 @@ export const API_CONFIG = {
     backendLogsModel: (modelId) => `/api/backend-logs/${encodeURIComponent(modelId)}`,
     clearBackendLogs: (modelId) => `/api/backend-logs/${encodeURIComponent(modelId)}/clear`,
 
-    // P2P
-    p2pWorkers: '/api/p2p/workers',
-    p2pFederation: '/api/p2p/federation',
-    p2pStats: '/api/p2p/stats',
-    p2pToken: '/api/p2p/token',
     // P2P layer (p2pnet): status, invites, devices, relays, identity
     p2pStatus: '/api/p2p/status',
     p2pInvites: '/api/p2p/invites',

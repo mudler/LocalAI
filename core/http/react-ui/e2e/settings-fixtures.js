@@ -15,7 +15,6 @@ export function settingsFixture(overrides = {}) {
     threads: 8, context_size: 8192, artifact_download_concurrency: 4, vram_budget: '80%', f16: false, debug: false,
     enable_tracing: true, tracing_max_items: 500, tracing_max_body_bytes: 65536, enable_backend_logging: true,
     cors: true, csrf: false, cors_allow_origins: 'https://app.example.org',
-    p2p_token: '', p2p_network_id: '', federated: false,
     galleries: [{ url: 'https://index.localai.io/models', name: 'localai' }],
     backend_galleries: [{ url: 'https://index.localai.io/backends', name: 'localai' }],
     autoload_galleries: true, autoload_backend_galleries: true, vram_persistent_cache: true,

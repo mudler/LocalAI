@@ -238,3 +238,5 @@
 /start/install/docker/
 /stores/
 /contributing/assistant-tools/
+/administration/p2p-federated-inference/
+/administration/p2p-api/

@@ -32,9 +32,6 @@ var libp2pImporters = []string{
 	// The relay manager connects to relays and runs a throwaway peer for
 	// the circuit test.
 	module + "/core/services/p2prelaymgr/...",
-	// core/p2p is the edgevpn-based layer that p2pnet replaces. It stays
-	// here until the change that removes it.
-	module + "/core/p2p/...",
 }
 
 // p2ppairPath is the pairing service. It parses peer IDs and multiaddrs in

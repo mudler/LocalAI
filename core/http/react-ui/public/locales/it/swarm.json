@@ -131,6 +131,10 @@
     "wait": {
       "checkPeer": "Verifica il peer ID con chi gestisce la macchina prima di approvare.",
       "joinStuck": "Non arriva niente? Dietro un NAT rigido il nodo può impiegare un minuto a trovare un percorso. Controlla che l’invito non sia scaduto."
+    },
+    "join": {
+      "instanceNote": "Un'altra istanza LocalAI che deve servire una parte delle richieste non è un nodo: aggiungila come remoto, poi raggruppala in",
+      "instanceLink": "Federazione"
     }
   },
   "route": {

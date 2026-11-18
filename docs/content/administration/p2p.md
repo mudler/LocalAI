@@ -75,7 +75,8 @@ dialog asks you to confirm this before the button works.
 The old token network is removed. The flags `--p2p`, `--p2p-token` and
 `--p2p-network-id`, and the matching environment variables, no longer work.
 LocalAI prints a message that names the replacement and exits. The Explorer
-is also removed. Federation returns as remotes over P2P with a router.
+is also removed. Federation returns as [federation groups]({{% relref "/administration/federation" %}})
+of remotes over P2P. See [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}}).
 {{% /callout %}}
 
 ## Pair a device or a remote
@@ -227,7 +228,7 @@ names the mode.
 | Route | What it does |
 |---|---|
 | `GET /api/p2p/status` | Mode, peer ID, addresses, reachability, relay reservations, whether the server relays for its devices, and the number of pending invites and devices. Works in every mode. |
-| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker`, `split` or `federated`. `models` limits the key of a remote; without it the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
+| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker` or `split`. `models` limits the key of a remote; without it the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
 | `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`, and `relay_pass`, the relay that holds the pass. A used invite also has `device_peer_id` and `phrase`, the confirmation phrase the device was shown. |
 | `DELETE /api/p2p/invites/{id}` | Cancels a pending invite and its relay pass. |
 | `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. |

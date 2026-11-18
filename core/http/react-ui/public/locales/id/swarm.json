@@ -131,6 +131,10 @@
     "wait": {
       "checkPeer": "Cocokkan peer ID dengan orang yang menjalankan mesin sebelum Anda menyetujui.",
       "joinStuck": "Tidak ada yang masuk? Di balik NAT ketat, node bisa butuh satu menit untuk menemukan jalur. Pastikan undangan belum kedaluwarsa."
+    },
+    "join": {
+      "instanceNote": "Instans LocalAI lain yang perlu menangani sebagian permintaan bukan node: tambahkan sebagai remote, lalu kelompokkan di",
+      "instanceLink": "Federasi"
     }
   },
   "route": {

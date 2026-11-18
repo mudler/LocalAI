@@ -34,9 +34,6 @@
     },
     "split": {
       "title": "모델 분할 Worker"
-    },
-    "federated": {
-      "title": "연합 인스턴스"
     }
   },
   "ttl": {
