@@ -66,7 +66,7 @@ test.describe('Hub tabs: the right tab for each route', () => {
   test('Swarm owns nodes, placement rules, failover and p2p when distributed mode is on', async ({ page }) => {
     await mockFeatures(page, { distributed: true, agents: true, mcp: true })
     await quietOperate(page)
-    for (const path of ['/app/nodes', '/app/nodes/n1', '/app/nodes/add', '/app/scheduling', '/app/failover', '/app/p2p', '/app/node-backend-logs/n1/some-model']) {
+    for (const path of ['/app/nodes', '/app/nodes/n1', '/app/nodes/add', '/app/scheduling', '/app/failover', '/app/p2p', '/app/p2p/settings', '/app/node-backend-logs/n1/some-model']) {
       await page.goto(path)
       await expect(tab(page, 'swarm')).toHaveAttribute('aria-current', 'page')
       await expect(tab(page, 'machine')).toHaveCount(0)
@@ -187,11 +187,12 @@ test.describe('Hub tabs: reveal on route', () => {
     await expect(tab(page, 'swarm')).toHaveCount(0)
   })
 
-  test('a direct link to P2P keeps its Swarm tab on a single node', async ({ page }) => {
+  test('P2P sits under This machine on a single node', async ({ page }) => {
     await mockFeatures(page, { distributed: false })
     await quietOperate(page)
     await page.goto('/app/p2p')
-    await expect(tab(page, 'swarm')).toHaveAttribute('aria-current', 'page')
-    await expect(page.locator('.hub-subnav a[href="/app/nodes"]')).toHaveCount(0)
+    await expect(tab(page, 'machine')).toHaveAttribute('aria-current', 'page')
+    await expect(tab(page, 'swarm')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'P2P', exact: true })).toHaveAttribute('aria-current', 'page')
   })
 })

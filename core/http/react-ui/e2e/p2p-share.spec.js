@@ -18,6 +18,12 @@ async function openP2P(page, options = {}) {
 }
 
 test.describe('P2P devices and invites', () => {
+  test('renders against the real server, where P2P is off, and links to the settings', async ({ page }) => {
+    await page.goto('/app/p2p')
+    await expect(page.getByTestId('p2p-mode-notice')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('p2p-mode-fix')).toHaveAttribute('href', '/app/p2p/settings')
+  })
+
   test('lists the pending invites and the devices with their path', async ({ page }) => {
     await openP2P(page)
     const invites = page.getByTestId('p2p-invites')
