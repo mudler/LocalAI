@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // fakeCache is an image cache whose pulls the test controls.
@@ -262,5 +263,26 @@ func TestNoCacheMeansTheHostBackendAndNoPull(t *testing.T) {
 	got := mustResolve(t, d, "base")
 	if got.ID != "base" || got.Image != "" {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+// A first command waits for the pull of the guest image before it starts, and
+// the host operations of the call (the user's files) come after that wait. The
+// authority of the call must outlive the longest wait, or the first command on
+// a machine with an empty image cache fails with no_live_operation.
+func TestActAuthorityOutlivesTheImageWait(t *testing.T) {
+	if contract.ActAuthorityLife <= profiles.DefaultWaitBudget+time.Minute {
+		t.Fatalf("the authority of an action call (%s) must outlive the pull wait (%s) and the command", contract.ActAuthorityLife, profiles.DefaultWaitBudget)
+	}
+}
+
+func TestSlowFirstPullIsWaitedFor(t *testing.T) {
+	c := newCache()
+	c.gate[ref("base1")] = make(chan struct{})
+	d := newDelivery(t, c, profiles.Images{"base": ref("base1")}, nil)
+	time.AfterFunc(300*time.Millisecond, func() { close(c.gate[ref("base1")]) })
+	got, err := d.Resolve(context.Background(), "base", false, profiles.Caps{})
+	if err != nil || got.Image != ref("base1") || got.Fallback {
+		t.Fatalf("choice = %+v, %v", got, err)
 	}
 }
