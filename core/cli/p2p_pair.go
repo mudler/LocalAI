@@ -112,14 +112,9 @@ func (c *P2PPairCMD) save(identity string, link *p2ppair.Link, out *pairclient.R
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
-	rec := pairRecord{ServerPeer: link.Peer.String(), ServerName: out.Server.Name, Kind: out.Kind, DeviceID: out.DeviceID, ClientKey: out.ClientKey}
-	for _, r := range link.Relays {
-		for _, a := range r.Addrs {
-			rec.Relays = append(rec.Relays, a.String()+"/p2p/"+r.ID.String())
-		}
-	}
-	for _, a := range link.Addrs {
-		rec.Addrs = append(rec.Addrs, a.String())
+	rec := pairRecord{
+		ServerPeer: link.Peer.String(), ServerName: out.Server.Name, Kind: out.Kind, DeviceID: out.DeviceID, ClientKey: out.ClientKey,
+		Relays: link.RelayAddrStrings(), Addrs: link.AddrStrings(),
 	}
 	b, err := json.MarshalIndent(rec, "", "  ")
 	if err != nil {

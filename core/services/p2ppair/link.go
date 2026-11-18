@@ -64,6 +64,28 @@ type Link struct {
 // Expired reports whether the link has expired at now.
 func (l *Link) Expired(now time.Time) bool { return !now.Before(l.Expires) }
 
+// AddrStrings returns the direct addresses of the server as text, or nil
+// when the link has none.
+func (l *Link) AddrStrings() []string {
+	var out []string
+	for _, a := range l.Addrs {
+		out = append(out, a.String())
+	}
+	return out
+}
+
+// RelayAddrStrings returns one multiaddr ending in /p2p/<relay ID> for each
+// address of each relay of the link, or nil when the link has no relays.
+func (l *Link) RelayAddrStrings() []string {
+	var out []string
+	for _, r := range l.Relays {
+		for _, a := range r.Addrs {
+			out = append(out, a.String()+"/p2p/"+r.ID.String())
+		}
+	}
+	return out
+}
+
 // String returns the link text. Fields are written in a fixed order, so the
 // output is stable.
 func (l *Link) String() string {

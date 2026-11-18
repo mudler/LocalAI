@@ -163,16 +163,10 @@ func hostname() string {
 }
 
 func recordOf(link *p2ppair.Link, out *pairclient.Result) *joinRecord {
-	rec := &joinRecord{ServerPeer: link.Peer.String(), ServerName: out.Server.Name, Kind: out.Kind, DeviceID: out.DeviceID}
-	for _, r := range link.Relays {
-		for _, a := range r.Addrs {
-			rec.Relays = append(rec.Relays, a.String()+"/p2p/"+r.ID.String())
-		}
+	return &joinRecord{
+		ServerPeer: link.Peer.String(), ServerName: out.Server.Name, Kind: out.Kind, DeviceID: out.DeviceID,
+		Relays: link.RelayAddrStrings(), Addrs: link.AddrStrings(),
 	}
-	for _, a := range link.Addrs {
-		rec.Addrs = append(rec.Addrs, a.String())
-	}
-	return rec
 }
 
 func readJoinRecord(path string) (*joinRecord, error) {

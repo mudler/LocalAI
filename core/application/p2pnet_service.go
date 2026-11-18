@@ -219,12 +219,7 @@ func (s p2pService) ListDevices(ctx context.Context) ([]p2papi.DeviceView, error
 	if err != nil {
 		return nil, err
 	}
-	labels := map[string]string{}
-	for _, r := range rt.relayList() {
-		if ai, err := p2pnet.ParsePeerAddr(r.Addr); err == nil {
-			labels[ai.ID.String()] = r.Label
-		}
-	}
+	labels := rt.relayLabels()
 	out := make([]p2papi.DeviceView, 0, len(devs))
 	for _, d := range devs {
 		v := p2papi.DeviceView{
