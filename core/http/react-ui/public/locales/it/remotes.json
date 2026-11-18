@@ -119,7 +119,22 @@
     "noUsableTitle": "Nessun modello utilizzabile.",
     "noUsableText": "Il remoto ha risposto, ma non elenca modelli che questo server possa usare.",
     "refreshWarn": "{{name}} aggiornato, ma non ha modelli utilizzabili.",
-    "authTextLocalai": "Usa una chiave che possa elencare i modelli di quel server, poi collega di nuovo."
+    "authTextLocalai": "Usa una chiave che possa elencare i modelli di quel server, poi collega di nuovo.",
+    "p2p": {
+      "badge": "P2P",
+      "path": {
+        "direct": "Diretta",
+        "hole_punched": "Con hole punching",
+        "relayed": "Tramite un relay"
+      },
+      "limited": "limitata",
+      "state": {
+        "off": "P2P è spento",
+        "listening": "Non ancora usata",
+        "down": "Non raggiungibile",
+        "error": "Tunnel non attivo"
+      }
+    }
   },
   "empty": {
     "title": "Nessun remoto connesso",

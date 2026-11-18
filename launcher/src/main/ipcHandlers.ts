@@ -56,6 +56,7 @@ export type CoreApi = Pick<
   | 'serversView'
   | 'testServer'
   | 'addServer'
+  | 'addServerByInvite'
   | 'updateServer'
   | 'removeServer'
   | 'setDefaultServer'
@@ -164,6 +165,7 @@ export function createIpcHandlers(d: HandlerDeps): { invoke: InvokeHandlers; sen
     'launcher:servers:get': (...a) => (v.noArgs(a), c.serversView()),
     'launcher:servers:test': (...a) => c.testServer(v.testInput(v.one(a))),
     'launcher:servers:add': (...a) => c.addServer(v.addServerInput(v.one(a))),
+    'launcher:servers:add-by-invite': (...a) => c.addServerByInvite(v.addServerByInviteInput(v.one(a))),
     'launcher:servers:update': (...a) => c.updateServer(v.updateServerInput(v.one(a))),
     'launcher:servers:remove': (...a) => c.removeServer(v.serverId(v.one(a))),
     'launcher:servers:set-default': (...a) => c.setDefaultServer(v.serverTarget(v.one(a))),

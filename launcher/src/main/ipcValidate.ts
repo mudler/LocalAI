@@ -268,6 +268,17 @@ export function addServerInput(v: unknown): { name: string; address: string; mak
   return out
 }
 
+export function addServerByInviteInput(v: unknown): { link: string; name?: string; allowOpenRelay?: boolean; makeDefault?: boolean } {
+  if (!isPlainObject(v)) fail('invite must be an object')
+  const o = v as Record<string, unknown>
+  onlyKeys(o, ['link', 'name', 'allowOpenRelay', 'makeDefault'], 'invite')
+  const out: { link: string; name?: string; allowOpenRelay?: boolean; makeDefault?: boolean } = { link: text(o.link, 2048, 'link') }
+  if (o.name !== undefined && o.name !== '') out.name = serverName(o.name)
+  if (o.allowOpenRelay !== undefined) out.allowOpenRelay = bool(o.allowOpenRelay, 'allowOpenRelay')
+  if (o.makeDefault !== undefined) out.makeDefault = bool(o.makeDefault, 'makeDefault')
+  return out
+}
+
 export function updateServerInput(v: unknown): { id: string; name?: string; address?: string; skipTest?: boolean } {
   if (!isPlainObject(v)) fail('server must be an object')
   const o = v as Record<string, unknown>

@@ -469,6 +469,8 @@ export interface ServerRowView {
   status: ServerStatusName
   /** Milliseconds since the epoch of the last check, when there was one. */
   checkedAt?: number
+  /** Set for a server over P2P: the state of its forwarder. */
+  p2p?: TunnelStatusView
 }
 
 /** The switch to another server is under way (the calm "Opening X" card). */
@@ -508,6 +510,36 @@ export interface AddServerInput {
   makeDefault?: boolean
   /** "Save without testing" (Settings only). Otherwise the server is saved only after a passing test. */
   skipTest?: boolean
+}
+
+export interface AddServerByInviteInput {
+  /** An invite link: localai://pair?... */
+  link: string
+  /** Default: the name the server gives. */
+  name?: string
+  /** Connect through an open relay that the link names. */
+  allowOpenRelay?: boolean
+  makeDefault?: boolean
+}
+
+export type InviteFailReason =
+  | 'invite-invalid'
+  | 'invite-kind'
+  | 'invite-expired'
+  | 'open-relay'
+  | 'no-binary'
+  | 'pair-failed'
+
+export type AddServerByInviteResult =
+  | { ok: true; view: ServersView; id: string; phrase: string; opened: boolean }
+  | { ok: false; reason: InviteFailReason | ServerFailReason; detail?: string }
+
+/** The forwarder of a server over P2P. */
+export interface TunnelStatusView {
+  state: 'starting' | 'ready' | 'up' | 'down' | 'stopped' | 'failed'
+  /** direct, hole_punched or relayed. */
+  path?: string
+  error?: string
 }
 
 export interface UpdateServerInput {
@@ -609,6 +641,7 @@ export interface LauncherApi {
   testServer(input: TestInput): Promise<TestOutcome>
   /** Saves a server; unless `skipTest`, only after a passing test. */
   addServer(input: AddServerInput): Promise<ServerChangeResult>
+  addServerByInvite(input: AddServerByInviteInput): Promise<AddServerByInviteResult>
   updateServer(input: UpdateServerInput): Promise<ServerChangeResult>
   /** Removes a saved server. Removing the default falls back to This computer and starts it. */
   removeServer(id: string): Promise<ServerChangeResult>

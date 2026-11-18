@@ -15958,7 +15958,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with \"warning\" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.",
+                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. With \"invite\" (an invite link of kind remote from another LocalAI) the server redeems the invite over P2P, keeps the key the other server issues, and reaches it through a forwarder on a loopback port; P2P must be on (mode connect or share), url and api_key must be empty, and the answer carries the confirmation \"phrase\". Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with \"warning\" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15999,8 +15999,20 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "410": {
+                        "description": "Gone",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "413": {
                         "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -24164,8 +24176,16 @@ const docTemplate = `{
         "localai.RemoteCreateRequest": {
             "type": "object",
             "properties": {
+                "allow_open_relay": {
+                    "description": "AllowOpenRelay accepts an invite that names an open relay.",
+                    "type": "boolean"
+                },
                 "api_key": {
                     "description": "write-only",
+                    "type": "string"
+                },
+                "invite": {
+                    "description": "Invite is an invite link of kind remote (localai://pair?...).\nWrite-only: it is a one-time credential.",
                     "type": "string"
                 },
                 "kind": {
@@ -24204,6 +24224,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "phrase": {
+                    "description": "Phrase is the confirmation phrase of a remote added by invite: the\nother server shows the same words in its device list.",
+                    "type": "string"
                 },
                 "remote": {
                     "$ref": "#/definitions/remotes.Remote"
@@ -25837,6 +25861,38 @@ const docTemplate = `{
                 "KindAnthropic"
             ]
         },
+        "remotes.P2PInfo": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error is the last dial or listen error, for a person to read.",
+                    "type": "string"
+                },
+                "limited": {
+                    "description": "Limited is true when the relay of a relayed path limits the data or\nthe time of the connection.",
+                    "type": "boolean"
+                },
+                "local_port": {
+                    "description": "LocalPort is the loopback port of the forwarder. The entries of the\nremote use http://127.0.0.1:\u003cLocalPort\u003e as their upstream address.",
+                    "type": "integer"
+                },
+                "path": {
+                    "description": "Path is how the last request reached the server: direct,\nhole_punched or relayed. Empty before the first request.",
+                    "type": "string"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is off (P2P is off on this server), listening (no request went\nthrough yet), up, down or error (the port could not be opened).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.TunnelState"
+                        }
+                    ]
+                }
+            }
+        },
         "remotes.Remote": {
             "type": "object",
             "properties": {
@@ -25872,8 +25928,24 @@ const docTemplate = `{
                         "$ref": "#/definitions/remotes.UpstreamModel"
                     }
                 },
+                "p2p": {
+                    "description": "P2P is the tunnel of a remote over P2P. It is the state of this\nserver's forwarder, not of the shared store.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.P2PInfo"
+                        }
+                    ]
+                },
                 "status": {
                     "$ref": "#/definitions/remotes.Status"
+                },
+                "transport": {
+                    "description": "Transport is \"p2p\" for a remote over P2P and absent otherwise.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.Transport"
+                        }
+                    ]
                 },
                 "unavailable": {
                     "description": "subset of Entries the upstream no longer lists",
@@ -25934,6 +26006,32 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "remotes.Transport": {
+            "type": "string",
+            "enum": [
+                "p2p"
+            ],
+            "x-enum-varnames": [
+                "TransportP2P"
+            ]
+        },
+        "remotes.TunnelState": {
+            "type": "string",
+            "enum": [
+                "off",
+                "listening",
+                "up",
+                "down",
+                "error"
+            ],
+            "x-enum-varnames": [
+                "TunnelOff",
+                "TunnelListening",
+                "TunnelUp",
+                "TunnelDown",
+                "TunnelError"
+            ]
         },
         "remotes.UpstreamModel": {
             "type": "object",

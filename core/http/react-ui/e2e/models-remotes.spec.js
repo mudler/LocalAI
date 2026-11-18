@@ -201,6 +201,24 @@ test.describe('Remotes tab', () => {
     await expect(c.getByTestId('remote-new')).toHaveCount(0)
   })
 
+  test('a remote over P2P shows how it is reached', async ({ page }) => {
+    const peer = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
+    const p2p = (over) => remote({ url: `p2p://${peer}`, transport: 'p2p', p2p: { peer_id: peer, local_port: 41231, state: 'up', path: 'relayed', limited: true, ...over } })
+    await open(page, { remotes: [p2p()], url: '/app/models?view=remotes' })
+    const path = cards(page).first().getByTestId('remote-p2p-path')
+    await expect(path).toHaveText('P2P · Through a relay (limited)')
+    await expect(path).toHaveAttribute('data-state', 'up')
+
+    await open(page, { remotes: [p2p({ state: 'off', path: undefined, limited: false })], url: '/app/models?view=remotes' })
+    await expect(cards(page).first().getByTestId('remote-p2p-path')).toHaveText('P2P · P2P is off')
+  })
+
+  test('an address remote has no P2P mark', async ({ page }) => {
+    await open(page, { remotes: [CONNECTED], url: '/app/models?view=remotes' })
+    await expect(cards(page).first()).toBeVisible({ timeout: 15_000 })
+    await expect(cards(page).first().getByTestId('remote-p2p-path')).toHaveCount(0)
+  })
+
   test('never refreshed reads as such', async ({ page }) => {
     await open(page, { remotes: [NEVER], url: '/app/models?view=remotes' })
     await expect(cards(page).first().getByTestId('remote-status')).toHaveText('Not refreshed yet')

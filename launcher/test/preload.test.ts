@@ -28,7 +28,7 @@ function fakeDeps(): { deps: HandlerDeps; core: Record<string, ReturnType<typeof
     'sandboxPlan', 'runSandboxSetup', 'runSandboxRemove', 'dismissSandboxNotice', 'statusBarVisible', 'setStatusBarVisible',
     'webuiState', 'setShellScreen', 'setWebuiOverlay', 'setShellInsets', 'openWebuiInBrowser', 'connectRemote', 'backToLocal', 'reloadWebui',
     'resetWebuiPermissions', 'windowSettings', 'setOpenInBrowser', 'updateInfo', 'setAutoCheck', 'setUpdateChannel', 'backToStable', 'installDetails',
-    'serversView', 'testServer', 'addServer', 'updateServer', 'removeServer', 'setDefaultServer', 'cancelSwitch', 'retryRemote', 'setKeepLocalRunning',
+    'serversView', 'testServer', 'addServer', 'addServerByInvite', 'updateServer', 'removeServer', 'setDefaultServer', 'cancelSwitch', 'retryRemote', 'setKeepLocalRunning',
     'networkView', 'networkPlan', 'setNetworkExposed', 'regenerateApiKey', 'dismissKeyNotice', 'revealApiKey', 'envVarsView', 'setEnvVar',
     'deleteEnvVar', 'secretStorageView',
   ]
@@ -111,7 +111,7 @@ describe('IPC handlers check their input', () => {
         'launcher:window:set-open-in-browser', 'launcher:updates:set-auto-check', 'launcher:updates:release-notes',
         'launcher:port:find-free', 'launcher:port:process', 'launcher:settings:pick-folder',
         'launcher:network:set-exposed', 'launcher:api-key:copy', 'launcher:env:set', 'launcher:env:delete',
-        'launcher:updates:set-channel', 'launcher:servers:test', 'launcher:servers:add', 'launcher:servers:update', 'launcher:servers:remove',
+        'launcher:updates:set-channel', 'launcher:servers:test', 'launcher:servers:add', 'launcher:servers:add-by-invite', 'launcher:servers:update', 'launcher:servers:remove',
         'launcher:servers:set-default', 'launcher:servers:set-keep-local'].includes(c)) continue
       expect(() => h('extra'), c).toThrow(IpcInputError)
     }
@@ -153,6 +153,10 @@ describe('IPC handlers check their input', () => {
       ['launcher:servers:add', [{ name: 'A', address: 'https://a.example.com', id: 'srv_00000001' }]],
       ['launcher:servers:add', [{ name: 'A', address: 'https://a.example.com', skipTest: 'yes' }]],
       ['launcher:servers:add', [{ name: 'a\u0000', address: 'https://a.example.com' }]],
+      ['launcher:servers:add-by-invite', [{}]],
+      ['launcher:servers:add-by-invite', [{ link: 'localai://pair?v=1', address: 'https://a.example.com' }]],
+      ['launcher:servers:add-by-invite', [{ link: 'localai://pair?v=1', allowOpenRelay: 'yes' }]],
+      ['launcher:servers:add-by-invite', [{ link: 'x'.repeat(3000) }]],
       ['launcher:servers:update', [{ name: 'A' }]],
       ['launcher:servers:update', [{ id: 'srv_00000001', url: 'https://a.example.com' }]],
       ['launcher:servers:set-keep-local', ['true']],

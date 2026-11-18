@@ -85,8 +85,9 @@ Sharing needs mode `share` (**Connect and share**). In another mode the
 4. Choose **Make invite**. Copy the link, or scan the QR code. QR codes exist for
    devices and remotes only.
 5. On the other machine, paste the link in the launcher (**Add server**, then
-   **Invite link**), or on another LocalAI in **Connect a remote**, **Invite
-   link**.
+   **Invite link**), or on another LocalAI in **Models**, **Connect a remote**,
+   **Invite link**. See
+   [Remotes over P2P]({{% relref "/administration/remotes#remotes-over-p2p" %}}).
 
 The dialog shows what the link carries: the peer ID of your server, the relay
 it names, and whether a relay pass was registered on that relay. It also warns

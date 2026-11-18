@@ -84,6 +84,7 @@ const api: LauncherApi = {
   onOpenSwitcher: (cb) => listen('launcher:servers:open-switcher', () => cb()),
   testServer: (input) => invoke('launcher:servers:test', input),
   addServer: (input) => invoke('launcher:servers:add', input),
+  addServerByInvite: (input) => invoke('launcher:servers:add-by-invite', input),
   updateServer: (input) => invoke('launcher:servers:update', input),
   removeServer: (id) => invoke('launcher:servers:remove', id),
   setDefaultServer: (target) => invoke('launcher:servers:set-default', target),

@@ -119,7 +119,22 @@
     "noUsableTitle": "Tidak ada model yang dapat digunakan.",
     "noUsableText": "Remote merespons, tetapi tidak mencantumkan model yang dapat digunakan server ini.",
     "refreshWarn": "{{name}} disegarkan, tetapi tidak ada model yang dapat digunakan.",
-    "authTextLocalai": "Gunakan kunci yang dapat menampilkan daftar model server itu, lalu hubungkan lagi."
+    "authTextLocalai": "Gunakan kunci yang dapat menampilkan daftar model server itu, lalu hubungkan lagi.",
+    "p2p": {
+      "badge": "P2P",
+      "path": {
+        "direct": "Langsung",
+        "hole_punched": "Lewat hole punching",
+        "relayed": "Lewat relay"
+      },
+      "limited": "terbatas",
+      "state": {
+        "off": "P2P mati",
+        "listening": "Belum dipakai",
+        "down": "Tidak terjangkau",
+        "error": "Terowongan tidak berjalan"
+      }
+    }
   },
   "empty": {
     "title": "Belum ada remote yang terhubung",
