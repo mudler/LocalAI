@@ -17,11 +17,13 @@ var _ = Describe("Split worker reports of the nodes", func() {
 	var (
 		ctx context.Context
 		reg *NodeRegistry
+		db  *gorm.DB
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		db, err := sqlitedb.Open("file:"+filepath.Join(GinkgoT().TempDir(), "nodes.db")+"?_busy_timeout=5000", &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		var err error
+		db, err = sqlitedb.Open("file:"+filepath.Join(GinkgoT().TempDir(), "nodes.db")+"?_busy_timeout=5000", &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 		Expect(err).ToNot(HaveOccurred())
 		reg, err = NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
@@ -47,7 +49,10 @@ var _ = Describe("Split worker reports of the nodes", func() {
 		Expect(got.Report).To(Equal(second))
 		Expect(got.UpdatedAt).ToNot(BeZero())
 
-		all, err := reg.SplitReports(ctx)
+		// A second frontend on the same database reads the same report.
+		other, err := NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		all, err := other.SplitReports(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(all).To(HaveKey(n.ID))
 		Expect(all[n.ID].Report.Workers).To(HaveLen(1))
