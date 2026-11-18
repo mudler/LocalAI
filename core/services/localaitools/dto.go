@@ -1,6 +1,7 @@
 package localaitools
 
 import (
+	"slices"
 	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
@@ -167,6 +168,27 @@ type Node struct {
 	TotalVRAM   uint64 `json:"total_vram,omitempty"`
 	Healthy     bool   `json:"healthy"`
 	LastSeen    string `json:"last_seen,omitempty"`
+	// Route is how the frontends reach the node: nats, websocket (the tunnel
+	// over a websocket) or p2p (the tunnel of a worker that joined with an
+	// invite). Empty when the node reports nothing.
+	Route string `json:"route,omitempty"`
+	// PeerID is the P2P peer of a node that joined over P2P.
+	PeerID string `json:"peer_id,omitempty"`
+}
+
+// NodeRoute names the route of a node from what it reported: NATS when it is
+// attached to NATS, then its tunnel, over P2P for a node with a peer ID and
+// over a websocket otherwise.
+func NodeRoute(attached []string, peerID string) string {
+	switch {
+	case slices.Contains(attached, "nats"):
+		return "nats"
+	case peerID != "":
+		return "p2p"
+	case slices.Contains(attached, "tunnel"):
+		return "websocket"
+	}
+	return ""
 }
 
 // SetNodeVRAMBudgetRequest is the input for set_node_vram_budget. It PUTs
