@@ -5,7 +5,9 @@ ONNX_VERSION?=1.28.2
 # Microsoft's onnxruntime release page is gone (404), so the prebuilt
 # runtimes come from the mirror that sherpa-onnx itself builds against.
 # Same builds, but zip files, and the libraries are not versioned.
-ONNX_BASE_URL?=https://github.com/csukuangfj/onnxruntime-libs/releases/download/v$(ONNX_VERSION)
+# We host unmodified copies of the mirror's assets, with the same file names,
+# in https://github.com/mudler/onnxruntime-libs (SHA256 values in its README).
+ONNX_BASE_URL?=https://github.com/mudler/onnxruntime-libs/releases/download/v$(ONNX_VERSION)
 ONNX_FLAVOR?=-glibc2_17-Release
 # v1.12.39 — includes upstream's onnxruntime 1.24.4 bump (#3501). Earlier
 # pinned commits only support onnxruntime 1.23.2, which has no CUDA 13
