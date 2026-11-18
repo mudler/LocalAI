@@ -22,6 +22,7 @@ import { GithubReleasesProvider, RedirectFirstProvider, type PlatformTarget } fr
 import { findFreePort, hardwareSummary, portProcess } from './hostTools'
 import { externalUrl, partitionForOrigin } from './webuiPolicy'
 import { WebuiHost } from './webuiView'
+import { DesktopNotifier } from './notifyGlue'
 import { WebuiCredentials } from './webuiCredential'
 import { computeLayout, dimWanted, MIN_SIZE, orderChanged, type Layout, type ViewName } from './windowLayout'
 import { DimLayer } from './dimView'
@@ -56,6 +57,8 @@ let trayCreated = false
 let quitRequested = false
 let confirming = false
 let core: LauncherCore | undefined
+let notifier: DesktopNotifier | undefined
+let unreadCount = 0
 
 function platformTarget(): PlatformTarget | undefined {
   const os = process.platform === 'linux' ? 'linux' : process.platform === 'darwin' ? 'darwin' : undefined
@@ -283,6 +286,7 @@ function createWindow() {
 async function shutdown(code = 0) {
   if (quitRequested) return
   quitRequested = true
+  notifier?.stop()
   try {
     await core?.shutdown()
   } finally {
@@ -446,6 +450,11 @@ if (!gotLock) {
       trace: (m) => signal(`init ${m}`),
       networkInterfaces: () => os.networkInterfaces(),
       webuiCredential,
+      notificationTargetsChanged: () => notifier?.sync(),
+      remoteFetch: (origin) => {
+        const ses = session.fromPartition(partitionForOrigin(origin))
+        return ((input: string | URL | Request, init?: RequestInit) => ses.fetch(input as string, init)) as typeof fetch
+      },
     })
     await core.init()
     core.syncLoginItem()
@@ -466,6 +475,23 @@ if (!gotLock) {
       onQuit: () => void shutdown(),
     })
     trayCreated = tray !== undefined
+    tray?.setUnread(unreadCount)
+    notifier = new DesktopNotifier({
+      core: () => core,
+      windowFocused: () => !!win && !win.isDestroyed() && win.isVisible() && win.isFocused(),
+      currentUrl: () => webui?.currentUrl(),
+      showWindow: () => {
+        win?.show()
+        win?.focus()
+      },
+      onUnread: (n) => {
+        unreadCount = n
+        tray?.setUnread(n)
+      },
+      log: (m, level) => core?.log(m, level),
+      signal,
+    })
+    notifier.sync()
     // A hidden start never opens the browser by itself ("open in browser" waits for a user action).
     core.setStartedHidden(!shouldStartVisible(trayCreated, startHiddenRequested()))
     signal(`pid=${process.pid}`)

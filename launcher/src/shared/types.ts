@@ -306,6 +306,8 @@ export interface InstallDetailsView {
 export interface WindowSettingsView {
   /** Open the WebUI in the system browser instead of this window. */
   openInBrowser: boolean
+  /** Show a desktop notification for each new item of a server's notification inbox. */
+  desktopNotifications: boolean
   /** The remembered microphone and camera choice for the local server, if any. */
   media?: 'allow' | 'deny'
   /** Some server has a remembered choice; reset forgets all of them. */
@@ -590,6 +592,7 @@ export interface LauncherApi {
   // window settings
   getWindowSettings(): Promise<WindowSettingsView>
   setOpenInBrowser(on: boolean): Promise<WindowSettingsView>
+  setDesktopNotifications(on: boolean): Promise<WindowSettingsView>
   // updates
   getUpdateInfo(): Promise<UpdateInfoView>
   setAutoCheck(on: boolean): Promise<UpdateInfoView>

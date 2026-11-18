@@ -88,7 +88,9 @@ import {
   autoCheckUpdates,
   ConfigStore,
   lastUpdateCheck,
+  desktopNotifications,
   openWebuiInBrowser,
+  withDesktopNotifications,
   sandboxNoticeDismissedVersion,
   secretsPlaintextFile,
   showStatusBar,
@@ -118,6 +120,7 @@ import { applySettings, checkDataFolder, toSettings, type FolderProbe } from './
 import { ServerSupervisor, type SupervisorOptions } from './supervisor'
 import { releasePageUrl, type PlatformTarget } from './updateProvider'
 import { chatUrl } from './models'
+import { resolveLink, type NotifyTarget } from './notifications'
 import type { LoginItemResult } from './loginItem'
 import { WebuiModel, type WebuiEffect, type WebuiEvent, type WebuiInputs } from './webuiState'
 import { RemoteMonitor, REMOTE_RETRY_MS } from './remoteMonitor'
@@ -213,6 +216,10 @@ export interface CoreDeps {
    * server's launch values are rebuilt.
    */
   webuiCredential?: (origin: string, key: string | undefined) => Promise<void>
+  /** Called when the servers to watch for notifications may have changed (see notificationTargets). */
+  notificationTargetsChanged?: () => void
+  /** A `fetch` that signs in to a remote server with the cookies of its WebUI session. */
+  remoteFetch?: (origin: string) => typeof fetch
   /** Random bytes for keys and plan ids. Default: the OS CSPRNG. */
   randomBytes?: (n: number) => Buffer
   /** Milliseconds since the epoch, for the reveal limit and plan expiry. */
@@ -543,6 +550,7 @@ export class LauncherCore {
 
   private emitServers(): void {
     this.d.emit('launcher:servers:event', this.serversView())
+    this.d.notificationTargetsChanged?.()
   }
 
   /** Shows a saved server in the window and watches it. */
@@ -855,6 +863,7 @@ export class LauncherCore {
       if (s.state !== 'starting') this.serverLines.flush((l) => this.hub.write('server', this.redact(l)))
       this.hub.write('launcher', `server ${s.state}${s.detail ? `: ${this.redact(s.detail)}` : ''}`, s.state === 'failed' ? 'error' : 'info')
       this.d.emit('launcher:server:event', this.snapshot())
+      this.d.notificationTargetsChanged?.()
     })
     this.supervisor.on('log', (chunk: string) => this.serverLines.push(chunk, (l) => this.hub.write('server', this.redact(l))))
     this.launchStale = false
@@ -1650,6 +1659,7 @@ export class LauncherCore {
     const store = webuiPermissions(c)
     return {
       openInBrowser: openWebuiInBrowser(c),
+      desktopNotifications: desktopNotifications(c),
       media: recall(store, this.localOrigin(), 'media'),
       anyRemembered: Object.keys(store).length > 0,
     }
@@ -1658,6 +1668,53 @@ export class LauncherCore {
   async setOpenInBrowser(on: boolean): Promise<WindowSettingsView> {
     await this.saveSettings({ openWebuiInBrowser: on })
     return this.windowSettings()
+  }
+
+  async setDesktopNotifications(on: boolean): Promise<WindowSettingsView> {
+    await this.store.update((c) => withDesktopNotifications(c, on))
+    this.hub.write('launcher', `desktop notifications ${on ? 'on' : 'off'}`)
+    this.d.notificationTargetsChanged?.()
+    return this.windowSettings()
+  }
+
+  /**
+   * The servers whose notification inbox the launcher watches: the local
+   * server while it runs, and every saved remote server. `all` is the number
+   * of configured servers; the notifier puts the server name in a title when
+   * it is more than one. The local server signs in with the API key, a remote
+   * one with the cookies of its WebUI session.
+   */
+  notificationTargets(): { enabled: boolean; targets: NotifyTarget[]; all: number } {
+    const c = this.store.get()
+    const list = remotes(c)
+    const targets: NotifyTarget[] = []
+    if (this.supervisor?.state === 'ready') {
+      targets.push({
+        id: LOCAL_TARGET,
+        name: 'This computer',
+        origin: this.localOrigin(),
+        headers: (): Record<string, string> => {
+          const key = this.secrets.get(API_KEY_SECRET)
+          return key ? { authorization: `Bearer ${key}` } : {}
+        },
+      })
+    }
+    for (const r of list) targets.push({ id: r.id, name: r.name, origin: r.url, ...(this.d.remoteFetch ? { fetch: this.d.remoteFetch(r.url) } : {}) })
+    return { enabled: desktopNotifications(c), targets, all: 1 + list.length }
+  }
+
+  /**
+   * A click on a notification: shows the notification's page. The link is an
+   * in-app path of the server that sent it and is checked again here; the
+   * view model decides where it opens (the window for the server on show, the
+   * system browser for another one).
+   */
+  openNotificationLink(targetId: string, link: string): boolean {
+    const t = this.notificationTargets().targets.find((x) => x.id === targetId)
+    const url = t ? resolveLink(t.origin, link) : undefined
+    if (!url) return false
+    this.webuiDispatch({ type: 'deep-link', url })
+    return true
   }
 
   permissionStore(): PermissionStore {
