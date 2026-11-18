@@ -318,7 +318,8 @@ Limits:
   worker, which cannot use the tunnel of a frontend. The create call answers
   `400`.
 - An invite that names an open relay is refused unless you allow open relays
-  (`allow_open_relay` in the API).
+  (`allow_open_relay` in the API). The web UI warns about the open relay
+  before **Connect**, and **Connect** allows it.
 
 ## Distributed mode
 

@@ -52,7 +52,11 @@ export function useRemoteInvite({ onDone } = {}) {
         setSwitched(true)
       }
       const label = parsed.link.label || `LocalAI ${shortPeer(parsed.link.peer)}`
-      const res = await remotesApi.create({ kind: 'localai', name: label, invite: link.trim() })
+      // The step warns about an open relay before Connect, so Connect accepts it.
+      const openRelay = parsed.link.relays.some(r => r.open)
+      const res = await remotesApi.create({
+        kind: 'localai', name: label, invite: link.trim(), ...(openRelay ? { allow_open_relay: true } : {}),
+      })
       const list = Array.isArray(res?.remote?.new) ? res.remote.new : []
       setSaved(res)
       setTicked(initialTicked('localai', list))

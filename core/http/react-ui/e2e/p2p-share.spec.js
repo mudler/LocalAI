@@ -208,6 +208,17 @@ test.describe('First run: connect a remote with an invite link', () => {
     expect(settings).toEqual([])
   })
 
+  test('warns about an open relay and accepts it on Connect', async ({ page }) => {
+    const { remotes } = await firstRun(page, { mode: 'connect', create: ({ body }) => saved(body) })
+    const link = `${remoteInviteLink()}&o=0`
+    await page.getByTestId('remote-invite-link').fill(link)
+    await expect(page.getByTestId('remote-invite-open-relay')).toBeVisible()
+    await page.getByTestId('remote-invite-connect').click()
+    await expect(page.getByTestId('remote-invite-ok')).toBeVisible()
+    const create = remotes.calls.find(c => c.method === 'POST' && c.path === '/')
+    expect(create.body).toEqual({ kind: 'localai', name: 'Branch LocalAI', invite: link, allow_open_relay: true })
+  })
+
   test('refuses a link of another kind before sending anything', async ({ page }) => {
     const { remotes } = await firstRun(page)
     await page.getByTestId('remote-invite-link').fill(remoteInviteLink({ kind: 'device' }))
