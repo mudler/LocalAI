@@ -30,6 +30,11 @@ export function p2pStatus(mode = 'share', extra = {}) {
 
 const limits = (bytes, seconds, rate) => ({ circuit_bytes: bytes, circuit_seconds: seconds, rate_bps: rate })
 
+// What the operator of each gated relay allows at most: r-gated has no
+// ceiling, r-sync has the defaults of the relay command (8 GiB and 24 h).
+const CEILINGS = { 'r-sync': limits(8 * 2 ** 30, 86400, 0) }
+const NO_CEILING = limits(0, 0, 0)
+
 // One relay of each kind the table tells apart.
 export function relayList() {
   return [
@@ -63,7 +68,7 @@ export const checks = {
 
 // mockP2PSettings answers every call of the page and records the writes in
 // `calls`. `auth` signs in an administrator with authentication on.
-export async function mockP2PSettings(page, { mode = 'share', settings = {}, status = {}, relays = relayList(), check = checks.ok, auth = true } = {}) {
+export async function mockP2PSettings(page, { mode = 'share', settings = {}, status = {}, relays = relayList(), check = checks.ok, auth = true, refuseLimits = '', ceilings = CEILINGS } = {}) {
   const calls = { settings: [], added: [], removed: [], synced: [], claimed: [], limits: [], regenerated: 0 }
   let current = p2pSettings(mode, settings)
   let list = relays
@@ -107,11 +112,12 @@ export async function mockP2PSettings(page, { mode = 'share', settings = {}, sta
       if (req.method() === 'PUT') {
         const body = req.postDataJSON()
         calls.limits.push({ id, ...body })
+        if (refuseLimits) return route.fulfill({ status: 400, json: { error: { message: refuseLimits } } })
         const restarted = body.circuit_bytes !== relay.limits.circuit_bytes || body.circuit_seconds !== relay.limits.circuit_seconds
         list = list.map(r => (r.id === id ? { ...r, limits: { circuit_bytes: body.circuit_bytes, circuit_seconds: body.circuit_seconds, rate_bps: body.rate_bps } } : r))
-        return route.fulfill({ json: { limits: list.find(r => r.id === id).limits, can_change: true, restarted } })
+        return route.fulfill({ json: { limits: list.find(r => r.id === id).limits, ceiling: ceilings[id] || NO_CEILING, can_change: true, restarted } })
       }
-      return route.fulfill({ json: { limits: relay.limits, can_change: can } })
+      return route.fulfill({ json: { limits: relay.limits, ceiling: ceilings[id] || NO_CEILING, can_change: can } })
     }
     if (op === 'check') return route.fulfill({ json: id === 'r-new' ? check : { ...checks.ok, relay: list.find(r => r.id === id) } })
     if (op === 'sync') { calls.synced.push(id); return route.fulfill({ json: { ...list.find(r => r.id === id), state: 'in_sync' } }) }

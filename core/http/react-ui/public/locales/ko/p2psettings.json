@@ -260,7 +260,16 @@
     "loadError": "릴레이에서 제한을 읽지 못했습니다.",
     "readOnlyTitle": "이 서버는 이 제한을 변경할 수 없습니다.",
     "readOnlyOpen": "공개 릴레이이며 이 서버는 관리자가 아닙니다. 릴레이가 실행되는 곳에서 --circuit-max-bytes, --circuit-max-duration, --rate-limit로 제한을 설정하세요.",
-    "readOnlyMember": "이 서버는 이 릴레이의 관리자가 아닙니다. 릴레이 관리자에게 요청하거나, 릴레이가 실행되는 곳에서 --circuit-max-bytes, --circuit-max-duration, --rate-limit로 제한을 설정하세요."
+    "readOnlyMember": "이 서버는 이 릴레이의 관리자가 아닙니다. 릴레이 관리자에게 요청하거나, 릴레이가 실행되는 곳에서 --circuit-max-bytes, --circuit-max-duration, --rate-limit로 제한을 설정하세요.",
+    "max": "최대: {{value}}",
+    "noMax": "최대 없음",
+    "ceilingTitle": "릴레이 운영자가 최댓값을 설정했습니다.",
+    "ceilingBody": "이 릴레이의 운영자가 시작 옵션으로 각 제한의 상한을 정했습니다. 제한은 최댓값까지만 바꿀 수 있고, 최댓값이 있는 제한은 없앨 수 없습니다.",
+    "issue": {
+      "above": "최댓값 {{max}}을(를) 넘었습니다.",
+      "required": "{{max}} 이하의 값을 입력하세요. 최댓값이 있는 제한은 없앨 수 없습니다."
+    },
+    "refusedTitle": "릴레이가 변경을 거부했습니다."
   },
   "identity": {
     "title": "ID",
