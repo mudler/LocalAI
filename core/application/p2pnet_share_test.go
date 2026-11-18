@@ -130,6 +130,10 @@ var _ = Describe("P2P layer in mode share", func() {
 		invs, err := svc.ListInvites(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(invs[0].Status).To(Equal("used"))
+		By("listing the used invite with the phrase the device was shown")
+		Expect(invs[0].Phrase).To(Equal(out["phrase"]))
+		Expect(invs[0].DevicePeerID).To(Equal(devs[0].PeerID))
+		Expect(invs[0].RelayPass).To(BeEmpty())
 
 		By("closing pairing once no invite is pending")
 		Expect(server.gate.AdmitConn("stranger")).To(BeFalse())

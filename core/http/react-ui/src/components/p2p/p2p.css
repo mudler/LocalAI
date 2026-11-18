@@ -1,0 +1,91 @@
+/* Swarm, P2P: devices and invites, the Share dialog, and the invite step of
+   "connect a remote". Colour comes from the theme roles only. */
+
+.p2p-page { display: grid; gap: var(--sp-5); align-content: start; min-width: 0; }
+.p2p-tabs { margin-top: 0; }
+
+.p2p-section { display: grid; gap: var(--sp-3); min-width: 0; }
+.p2p-section__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-2) var(--sp-4); }
+.p2p-h2 { margin: 0; font-size: var(--fs-lead); font-weight: 600; color: var(--dk-text); }
+.p2p-count { margin-left: var(--sp-1); font-size: var(--text-sm); font-weight: 400; color: var(--dk-muted); }
+.p2p-section__note { margin: 0; font-size: var(--text-sm); color: var(--dk-muted); }
+
+.p2p-table td { vertical-align: middle; }
+.p2p-cell-title { display: block; font-weight: 600; color: var(--dk-text); overflow-wrap: break-word; }
+.p2p-cell-sub { display: block; font-size: var(--text-xs); color: var(--dk-muted); }
+.p2p-cell-sub.dk-only-phone { display: none; }
+@media (max-width: 900px) { .p2p-cell-sub.dk-only-phone { display: block; } }
+.p2p-cell-actions { text-align: right; white-space: nowrap; }
+.p2p-table tr[data-revoked] .p2p-cell-title { color: var(--dk-muted); }
+.p2p-path { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.p2p-path .p2p-cell-sub { display: inline; }
+
+/* The Share dialog. */
+.p2p-dialog { display: grid; gap: var(--sp-3); min-width: 0; }
+.p2p-kinds { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: var(--sp-2); }
+.p2p-kinds__cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.p2p-kind { display: flex; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--dk-radius-2); box-shadow: inset 0 0 0 1px var(--dk-edge); cursor: pointer; min-width: 0; }
+.p2p-kind--on { background: var(--dk-accent-wash); box-shadow: inset 0 0 0 1px var(--dk-accent); }
+.p2p-kind input { margin-top: 3px; accent-color: var(--dk-accent); flex: none; }
+.p2p-kind:focus-within { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
+.p2p-kind__text { display: grid; gap: 2px; min-width: 0; }
+.p2p-kind__title { display: inline-flex; align-items: center; gap: var(--sp-1); font-weight: 600; color: var(--dk-text); }
+.p2p-kind__body { font-size: var(--text-sm); color: var(--dk-muted); }
+.p2p-hint { margin: 0; font-size: var(--text-sm); color: var(--dk-muted); }
+.p2p-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3) var(--sp-4); }
+
+.p2p-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); width: 100%; }
+.p2p-foot__note { font-size: var(--text-sm); color: var(--dk-muted); }
+.p2p-foot__actions { display: inline-flex; flex-wrap: wrap; gap: var(--sp-2); margin-left: auto; }
+
+.p2p-invite { display: grid; gap: var(--sp-4); min-width: 0; }
+.p2p-invite--qr { grid-template-columns: 200px minmax(0, 1fr); align-items: start; }
+.p2p-invite__qr { margin: 0; display: grid; gap: var(--sp-2); justify-items: center; font-size: var(--text-xs); color: var(--dk-muted); }
+.p2p-invite__main { display: grid; gap: var(--sp-3); min-width: 0; }
+
+/* The code stays dark on light in both themes; see QrCode.jsx. */
+.p2p-qr { width: 100%; max-width: 200px; height: auto; border-radius: var(--dk-radius-2); }
+.p2p-qr__tile { fill: var(--dk-card); }
+.p2p-qr__modules { fill: var(--dk-text); }
+[data-theme="dark"] .p2p-qr__tile { fill: var(--dk-text); }
+[data-theme="dark"] .p2p-qr__modules { fill: var(--dk-card); }
+
+.p2p-link { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
+.p2p-link__text {
+  flex: 1 1 0; min-width: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--dk-radius-2);
+  background: var(--dk-inset); box-shadow: inset 0 0 0 1px var(--dk-edge);
+  font-size: var(--text-xs); line-height: 1.6; color: var(--dk-text); overflow-wrap: anywhere; word-break: break-all; user-select: all;
+}
+.p2p-link__copy { flex: none; }
+.p2p-link__text:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
+
+.p2p-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-1) var(--sp-4); margin: 0; font-size: var(--text-sm); }
+.p2p-facts dt { color: var(--dk-muted); }
+.p2p-facts dd { margin: 0; color: var(--dk-text); min-width: 0; overflow-wrap: anywhere; }
+
+.p2p-phrase { display: grid; gap: var(--sp-2); justify-items: center; padding: var(--sp-4); border-radius: var(--dk-radius-2); background: var(--dk-inset); text-align: center; }
+.p2p-phrase__title { margin: 0; font-weight: 600; color: var(--dk-text); }
+.p2p-phrase__words { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); margin: 0; }
+.p2p-phrase__word {
+  padding: var(--sp-1) var(--sp-3); border-radius: var(--dk-radius-2); background: var(--dk-card); box-shadow: inset 0 0 0 1px var(--dk-edge);
+  font-family: var(--dk-font-mono); font-size: var(--fs-lead); font-weight: 600; color: var(--dk-text);
+}
+.p2p-phrase__hint { margin: 0; font-size: var(--text-sm); color: var(--dk-muted); }
+.p2p-revoke__text { margin: 0; color: var(--dk-text); }
+
+/* The invite step of "connect a remote" and the Home guide. */
+.p2p-invite-input { line-height: 1.5; word-break: break-all; }
+.p2p-invite-preview { padding: var(--sp-3); border-radius: var(--dk-radius-2); background: var(--dk-inset); }
+.p2p-fail-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+.p2p-advice { display: grid; gap: var(--sp-1); margin: var(--sp-2) 0; padding-left: var(--sp-5); }
+.p2p-connect-with { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.p2p-connect-with > fieldset { justify-self: start; min-width: 0; max-width: 100%; margin: 0; padding: 0; border: 0; }
+.home-step__num--optional { box-shadow: none; border: 1.5px dashed var(--dk-control-edge); }
+.home-step--optional .home-step__main > b .dk-badge { margin-left: var(--sp-1); vertical-align: middle; }
+.home-step--optional .home-step__extra > .home-step__desc { flex: 1 1 240px; margin-top: 0; }
+
+@media (max-width: 640px) {
+  .p2p-kinds__cards, .p2p-form, .p2p-invite--qr { grid-template-columns: minmax(0, 1fr); }
+  .p2p-invite__qr { justify-self: center; }
+  .p2p-link { flex-direction: column; }
+}

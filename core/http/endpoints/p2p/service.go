@@ -167,6 +167,14 @@ type InviteView struct {
 	// Status is pending, used, expired or canceled.
 	Status   string `json:"status"`
 	DeviceID string `json:"device_id,omitempty"`
+	// DevicePeerID is the peer that redeemed a used invite.
+	DevicePeerID string `json:"device_peer_id,omitempty"`
+	// Phrase is the confirmation phrase of a used invite: the words the
+	// device was shown when it redeemed. The admin compares them.
+	Phrase string `json:"phrase,omitempty"`
+	// RelayPass is the label of the relay that holds the pass of the invite;
+	// empty when the link carries no pass.
+	RelayPass string `json:"relay_pass,omitempty"`
 }
 
 // DeviceView is one device in GET /api/p2p/devices.

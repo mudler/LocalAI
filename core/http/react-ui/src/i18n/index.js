@@ -31,6 +31,7 @@ export const NAMESPACES = [
   'pages',
   'models',
   'remotes',
+  'p2p',
   'collections',
   'library',
   'media',

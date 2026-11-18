@@ -1339,6 +1339,7 @@ func (c *Client) ListP2PInvites(ctx context.Context) ([]localaitools.P2PInviteIn
 	for _, i := range invs {
 		out = append(out, localaitools.P2PInviteInfo{
 			ID: i.ID, Kind: i.Kind, Label: i.Label, Status: i.Status, ExpiresAt: i.ExpiresAt, DeviceID: i.DeviceID,
+			Phrase: i.Phrase, RelayPass: i.RelayPass,
 		})
 	}
 	return out, nil

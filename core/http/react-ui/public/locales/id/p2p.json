@@ -1,0 +1,281 @@
+{
+  "title": "P2P",
+  "supporting": "Perangkat, remote, dan node yang menjangkau server ini lewat P2P, serta undangan yang mengizinkan mereka masuk.",
+  "loadStatusFailed": "Tidak dapat membaca status P2P.",
+  "tabs": {
+    "label": "P2P",
+    "devices": "Perangkat dan undangan",
+    "settings": "Pengaturan"
+  },
+  "mode": {
+    "off": {
+      "title": "P2P nonaktif",
+      "reason": "Setel mode P2P ke Terhubung dan berbagi untuk mengundang perangkat, remote, dan node. Mode itu memerlukan autentikasi yang aktif."
+    },
+    "connect": {
+      "title": "P2P dalam mode Hanya terhubung",
+      "reason": "Server ini memakai remote lewat P2P dan tidak menerima siapa pun. Untuk mengundang perangkat, setel mode ke Terhubung dan berbagi. Mode itu memerlukan autentikasi yang aktif."
+    },
+    "fix": "Buka pengaturan P2P"
+  },
+  "kinds": {
+    "device": {
+      "title": "Perangkat",
+      "body": "Peluncur atau peramban lain. Pengguna masuk seperti biasa."
+    },
+    "remote": {
+      "title": "Remote",
+      "body": "LocalAI lain memakai model dari instans ini."
+    },
+    "worker": {
+      "title": "Worker"
+    },
+    "split": {
+      "title": "Worker model terpisah"
+    },
+    "federated": {
+      "title": "Instans federasi"
+    }
+  },
+  "ttl": {
+    "600": "10 mnt",
+    "3600": "1 jam",
+    "86400": "1 hari"
+  },
+  "share": {
+    "open": "Bagikan instans ini…",
+    "title": "Bagikan instans ini",
+    "intro": "Buat tautan undangan sekali pakai. Pihak lain menempelkannya atau memindai kode QR-nya.",
+    "kind": "Jenis",
+    "qrNote": "Undangan perangkat dan remote menampilkan kode QR, untuk ponsel atau tablet.",
+    "kindNote": {
+      "device": {
+        "title": "Hanya izin masuk P2P.",
+        "body": "Undangan perangkat memungkinkan perangkat menjangkau instans ini. Pengguna tetap masuk ke antarmuka web dengan akunnya sendiri."
+      },
+      "remote": {
+        "title": "Hanya model.",
+        "body": "Undangan remote memberi LocalAI lain sebuah kunci API yang hanya dapat memakai model dari instans ini dan tidak lebih."
+      }
+    },
+    "label": "Label",
+    "labelPlaceholder": {
+      "device": "Laptop Alex",
+      "remote": "Kantor cabang"
+    },
+    "labelHint": "Ditampilkan di Perangkat dan undangan.",
+    "expires": "Kedaluwarsa setelah",
+    "singleUseHint": "Setiap undangan hanya berlaku sekali.",
+    "nothingYet": "Tidak ada yang dibuat sampai Anda menekan Buat undangan.",
+    "cancel": "Batal",
+    "close": "Tutup",
+    "mint": "Buat undangan",
+    "mintFailed": "Undangan tidak dibuat.",
+    "copy": "Salin",
+    "copied": "Tersalin",
+    "copyFailed": "Tautan tidak tersalin. Pilih lalu salin secara manual.",
+    "canceled": "Undangan dibatalkan.",
+    "revoked": "{{label}} dicabut.",
+    "result": {
+      "title": "Undangan untuk {{label}}",
+      "sub": "{{kind}} · sekali pakai · {{ttl}}",
+      "link": "Tautan undangan",
+      "qrLabel": "Kode QR tautan undangan",
+      "qrCaption": "Untuk ponsel atau tablet",
+      "how": {
+        "device": "Di peluncur: Tambah server, lalu Tautan undangan. Tautan itu berisi ID peer server ini dan pass relay, jadi kode pendek saja tidak cukup.",
+        "remote": "Di LocalAI lain: Beranda atau Koneksi, Hubungkan remote, lalu Tautan undangan. Tempelkan seluruh tautan."
+      },
+      "waiting": "Menunggu perangkat… Membatalkan undangan juga membatalkan pass relay-nya.",
+      "expired": "Undangan kedaluwarsa.",
+      "expiredTitle": "Undangan ini kedaluwarsa.",
+      "expiredBody": "Tidak ada yang memakainya tepat waktu. Buat yang baru saat pihak lain siap.",
+      "again": "Buat lagi",
+      "cancel": "Batalkan undangan",
+      "done": "Selesai"
+    },
+    "facts": {
+      "expires": "Kedaluwarsa",
+      "singleUse": "sekali pakai",
+      "serverPeer": "ID peer server",
+      "devicePeer": "ID peer perangkat",
+      "relay": "Petunjuk relay",
+      "relayGated": "{{relay}} (relay Anda, dengan kontrol akses)",
+      "relayOpen": "{{relay}} (relay terbuka)",
+      "none": "Tidak ada",
+      "pass": "Pass relay",
+      "passOn": "Terdaftar di {{relay}}, berlaku {{ttl}}, sekali pakai",
+      "passUnreachable": "Tidak ada: {{relay}} tidak menjawab",
+      "passNone": "Tidak ada",
+      "public": "Alamat publik",
+      "publicYes": "Ya",
+      "publicNo": "Tidak ada (di belakang NAT)"
+    },
+    "admission": {
+      "title": "Hanya izin masuk P2P.",
+      "result": "Undangan memungkinkan perangkat menjangkau instans ini. Pengguna tetap masuk ke antarmuka web."
+    },
+    "warn": {
+      "unreachable": {
+        "title": "Undangan ini tidak punya pass relay. Undangan ini hanya dapat dipasangkan lewat koneksi langsung.",
+        "body": "{{relay}} tidak menjawab saat undangan dibuat, jadi tidak ada pass yang terdaftar di sana. Buat undangan lagi setelah relay kembali.",
+        "again": "Buat lagi",
+        "check": "Periksa relay"
+      },
+      "noRelay": {
+        "title": "Perangkat di belakang NAT ketat tidak dapat terhubung tanpa relay.",
+        "body": "Server ini tidak punya relay. Sekitar 3 dari 10 jaringan memblokir koneksi langsung. Tambahkan relay atau jalankan sendiri.",
+        "add": "Tambah relay"
+      },
+      "openRelay": {
+        "title": "Undangan ini menyebut relay terbuka.",
+        "body": "Siapa pun dapat memakai {{relay}}, dan relay itu mungkin membatasi kecepatan setiap koneksi."
+      },
+      "noPublic": {
+        "title": "Server ini tidak punya alamat publik.",
+        "body": "Perangkat terhubung dengan hole punching, atau lewat relay jika itu gagal."
+      }
+    },
+    "connected": {
+      "title": "{{label}} terhubung",
+      "sub": "{{kind}} · baru saja dipasangkan",
+      "confirm": "Pastikan pihak lain menampilkan",
+      "hint": "{{label}} sekarang menampilkan kata yang sama. Jika tidak cocok, orang lain memakai undangan itu.",
+      "signIn": "Pengguna tetap masuk ke antarmuka web.",
+      "keyNote": "Cabut kapan saja di Perangkat dan undangan.",
+      "mismatch": "Tidak cocok: cabut",
+      "match": "Cocok"
+    }
+  },
+  "invites": {
+    "title": "Undangan tertunda",
+    "note": "Undangan hanya berlaku sekali dan kedaluwarsa. Membatalkan undangan juga membatalkan pass relay-nya.",
+    "loadFailed": "Tidak dapat memuat undangan.",
+    "empty": {
+      "title": "Tidak ada undangan tertunda",
+      "body": "Buat undangan agar perangkat atau remote dapat menjangkau server ini."
+    },
+    "col": {
+      "label": "Label",
+      "kind": "Jenis",
+      "created": "Dibuat",
+      "expires": "Kedaluwarsa dalam",
+      "pass": "Pass relay",
+      "actions": "Tindakan"
+    },
+    "passOn": "Di {{relay}}",
+    "passNone": "Tidak ada: hanya dipasangkan lewat koneksi langsung",
+    "cancel": "Batal",
+    "canceled": "Undangan untuk {{label}} dibatalkan.",
+    "cancelFailed": "Undangan tidak dibatalkan: {{message}}"
+  },
+  "devices": {
+    "title": "Perangkat",
+    "active_one": "{{count}} aktif",
+    "active_other": "{{count}} aktif",
+    "note": "Setiap perangkat punya kunci sendiri. Cabut satu perangkat dan yang lain tetap berfungsi.",
+    "loadFailed": "Tidak dapat memuat perangkat.",
+    "empty": {
+      "title": "Belum ada perangkat yang dipasangkan",
+      "body": "Perangkat muncul di sini setelah menukarkan undangan."
+    },
+    "col": {
+      "label": "Label",
+      "kind": "Jenis",
+      "peer": "ID peer",
+      "seen": "Terakhir terlihat",
+      "path": "Jalur",
+      "status": "Status",
+      "actions": "Tindakan"
+    },
+    "never": "Tidak pernah",
+    "status": {
+      "active": "Aktif",
+      "revoked": "Dicabut"
+    },
+    "path": {
+      "direct": "Langsung",
+      "holePunched": "Hole punching",
+      "relayed": "Lewat {{relay}}",
+      "relayedUnknown": "Lewat relay",
+      "none": "Tidak terhubung",
+      "offline": "Tidak terhubung",
+      "limited": "Terbatas",
+      "limitedHint": "Relay membatasi data atau waktu setiap koneksi. Transfer besar memerlukan jalur langsung.",
+      "rtt": "{{ms}} ms"
+    },
+    "revoke": "Cabut…",
+    "revokeTitle": "Cabut {{label}}?",
+    "revokeConfirm": "Cabut",
+    "revokeBody": {
+      "device": "Perangkat langsung kehilangan kunci P2P-nya dan koneksinya yang terbuka ditutup. Pengguna tetap memiliki akunnya. Perangkat lain tidak terpengaruh. Untuk menghubungkannya lagi, buat undangan baru.",
+      "remote": "Remote langsung kehilangan kunci P2P dan kunci API-nya, dan koneksinya yang terbuka ditutup. Modelnya berhenti berfungsi di sisi lain. Perangkat lain tidak terpengaruh. Untuk menghubungkannya lagi, buat undangan baru.",
+      "other": "Node langsung kehilangan kunci P2P-nya dan koneksinya yang terbuka ditutup. Perangkat lain tidak terpengaruh. Untuk menghubungkannya lagi, buat undangan baru."
+    },
+    "revoked": "{{label}} dicabut."
+  },
+  "invite": {
+    "connectWith": "Hubungkan dengan",
+    "withAddress": "Alamat",
+    "withInvite": "Tautan undangan",
+    "link": "Tautan undangan",
+    "linkHint": "Minta admin LocalAI lain untuk undangan Remote dan tempelkan seluruh tautan.",
+    "problem": {
+      "malformed": "Ini bukan tautan undangan LocalAI. Tautan itu diawali dengan localai://pair.",
+      "wrongKind": "Ini undangan {{kind}}. Minta admin LocalAI lain untuk undangan Remote.",
+      "expired": "Undangan ini kedaluwarsa. Minta yang baru kepada admin LocalAI lain."
+    },
+    "preview": {
+      "server": "Server",
+      "kind": "Jenis",
+      "pass": "Pass relay",
+      "passIncluded": "Disertakan · {{relay}}",
+      "passNone": "Tidak ada: tautan ini dipasangkan lewat koneksi langsung atau hole punching",
+      "path": "Jalur",
+      "pathRelay": "Langsung dulu, lalu hole punching, lalu {{relay}}",
+      "pathDirect": "Langsung dulu, lalu hole punching",
+      "expires": "Kedaluwarsa",
+      "expiresAt": "{{when}} · sekali pakai"
+    },
+    "openRelay": "Tautan ini menyebut relay terbuka. Siapa pun dapat memakainya, dan relay itu mungkin membatasi kecepatan setiap koneksi.",
+    "connect": "Hubungkan",
+    "connecting": "Menghubungkan…",
+    "connected": "Terhubung",
+    "ok_one": "Terhubung ke {{name}} lewat P2P. Ditemukan {{count}} model.",
+    "ok_other": "Terhubung ke {{name}} lewat P2P. Ditemukan {{count}} model.",
+    "switched": {
+      "title": "P2P aktif dalam mode Hanya terhubung. Server ini tidak menerima siapa pun.",
+      "body": "P2P sebelumnya nonaktif. Proses menghubungkan mengaktifkannya agar server ini dapat menjangkau LocalAI lain. Ubah mode di Swarm, P2P, Pengaturan."
+    },
+    "fail": {
+      "title": "Tidak dapat terhubung",
+      "invalid": "Undangan tidak valid: sudah dipakai, dibatalkan, atau kedaluwarsa. Minta yang baru.",
+      "rateLimited": "Terlalu banyak percobaan. Tunggu beberapa menit, lalu coba lagi.",
+      "malformed": "LocalAI lain tidak dapat membaca undangan ini.",
+      "unsupported": "Server ini tidak dapat menghubungkan remote dengan tautan undangan.",
+      "conflict": "Server ini sudah dipasangkan dengan LocalAI itu, atau remote dengan nama itu sudah ada."
+    },
+    "blocked": {
+      "title": "Kedua jaringan memblokir koneksi langsung.",
+      "body": "Hole punching gagal. Sekitar 3 dari 10 pasang jaringan memerlukan relay yang berfungsi.",
+      "bodyRelay": "Hole punching gagal, dan {{relay}} tidak menjawab. Sekitar 3 dari 10 pasang jaringan memerlukan relay yang berfungsi.",
+      "relayTitle": "Jalankan relay.",
+      "relayBody": "Admin LocalAI lain menjalankannya di mesin dengan alamat publik, lalu mengirim undangan baru.",
+      "portTitle": "Buka port.",
+      "portBody": "Teruskan UDP dan TCP 4001 ke server ini atau ke server lain.",
+      "networkTitle": "Pakai jaringan lain.",
+      "networkBody": "Pindahkan server ini ke jaringan lain, misalnya hotspot ponsel, lalu coba lagi.",
+      "retry": "Coba lagi",
+      "copy": "Salin detail untuk admin"
+    }
+  },
+  "home": {
+    "title": "Hubungkan mesin lain",
+    "optional": "Opsional",
+    "body": "Pakai server ini dari laptop Anda, atau tambahkan mesin lain. Memerlukan autentikasi yang aktif.",
+    "open": "Buka Swarm, P2P",
+    "openNote": "Di sana, setel mode P2P ke Terhubung dan berbagi. Anda dapat melakukannya nanti.",
+    "auth": "Aktifkan autentikasi dulu",
+    "authNote": "Autentikasi nonaktif. Untuk memakai model dari instans lain, pilih Di server atau layanan lain di atas: itu tidak memerlukan autentikasi."
+  }
+}

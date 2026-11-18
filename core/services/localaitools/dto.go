@@ -634,6 +634,12 @@ type P2PInviteInfo struct {
 	Status    string    `json:"status"`
 	ExpiresAt time.Time `json:"expires_at"`
 	DeviceID  string    `json:"device_id,omitempty"`
+	// Phrase is the confirmation phrase of a used invite, which the admin
+	// compares with the one the device shows.
+	Phrase string `json:"phrase,omitempty"`
+	// RelayPass is the relay that holds the pass of the invite; empty when
+	// the link carries none.
+	RelayPass string `json:"relay_pass,omitempty"`
 }
 
 // P2PRelayInfo is the LLM-facing view of one relay.

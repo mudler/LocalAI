@@ -886,6 +886,17 @@ export const p2pApi = {
   },
 }
 
+// P2P layer: status, invites and paired devices (admin). Invites and devices
+// answer 409 outside mode "share". The invite link is in the mint answer only.
+export const p2pNetApi = {
+  status: () => fetchJSON(API_CONFIG.endpoints.p2pStatus),
+  mintInvite: (body) => postJSON(API_CONFIG.endpoints.p2pInvites, body),
+  invites: () => fetchJSON(API_CONFIG.endpoints.p2pInvites),
+  cancelInvite: (id) => fetchJSON(API_CONFIG.endpoints.p2pInvite(id), { method: 'DELETE' }),
+  devices: () => fetchJSON(API_CONFIG.endpoints.p2pDevices),
+  revokeDevice: (id) => fetchJSON(API_CONFIG.endpoints.p2pDevice(id), { method: 'DELETE' }),
+}
+
 // Image generation
 export const imageApi = {
   upscale: async ({ model, image, scale }) => {

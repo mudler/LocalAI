@@ -74,30 +74,64 @@ is also removed. Federation returns as remotes over P2P with a router.
 
 ## Pair a device or a remote
 
-1. Open **Swarm**, then **P2P**, then **Share**.
-2. Choose what to share: a **device** (a phone or a laptop) or a **remote** (a
-   LocalAI server that will use your models).
-3. Give it a name and choose how long the invite is valid. The default is 10
-   minutes. The maximum is 24 hours.
-4. Copy the link, or scan the QR code. QR codes exist for devices and remotes
-   only.
-5. On the other machine, paste the link in the launcher, or in **Settings**,
-   **Remotes**, **Add a remote**.
+Sharing needs mode `share` (**Connect and share**). In another mode the
+**Devices and invites** page says which mode is on and links to the settings.
 
-The link works once. It holds the identity of your server, so the other machine
-knows which server it is talking to.
+1. Open **Swarm**, then **P2P**, then **Share this instance**.
+2. Choose what to share: a **device** (a launcher, a phone or a laptop) or a
+   **remote** (another LocalAI server that will use your models).
+3. Give it a label and choose how long the invite is valid: 10 minutes, 1 hour
+   or 1 day. The default is 10 minutes. Each invite works once.
+4. Choose **Make invite**. Copy the link, or scan the QR code. QR codes exist for
+   devices and remotes only.
+5. On the other machine, paste the link in the launcher (**Add server**, then
+   **Invite link**), or on another LocalAI in **Connect a remote**, **Invite
+   link**.
 
-After the link is redeemed, both machines show a **confirmation phrase** of four
-words. Check that both phrases match. If they differ, the link was changed on the
-way. Cancel the pairing.
+The dialog shows what the link carries: the peer ID of your server, the relay
+it names, and whether a relay pass was registered on that relay. It also warns
+when the invite can pair only over a direct connection:
+
+- **No relay.** The server has no relay. A device behind a strict NAT cannot
+  connect. Add a relay, or run one.
+- **No relay pass.** The relay did not answer when the invite was made, so no
+  pass is registered on it. Make the invite again when the relay is back.
+- **Open relay.** The link names a relay that anyone can use. It may limit the
+  speed of each connection.
+
+The link is shown once. The list of pending invites does not show it again.
+
+When the device redeems the link, the dialog shows a **confirmation phrase** of
+four words, and the device shows the same phrase. Check that both phrases
+match. If they differ, someone else used the invite: choose **It does not
+match: revoke**, which revokes the device at once.
 
 A **device** invite gives access to the server only. The person still signs in as
 before. A **remote** invite also gives the other server a key that reaches only
-the models you chose.
+the models.
 
-To revoke a machine, open **Swarm**, then **P2P**, then **Devices**, and choose
-**Revoke**. LocalAI closes its connections at once. It also removes it from your
-relays.
+The **Devices and invites** page lists the pending invites, with the time left
+and the relay that holds the pass, and the paired devices, with the path of
+each one. **Cancel** cancels an invite and its relay pass. **Revoke** revokes a
+device: LocalAI closes its connections at once, removes it from your relays,
+and for a remote also revokes its API key. The other devices keep working.
+
+### Connect a remote with an invite link
+
+On the server that will use the models, open **Home** (on the first run, choose
+**On another server or service**) or the remotes list, choose **Connect a
+remote**, then **Invite link**, and paste the link. LocalAI reads the link
+before it sends anything and shows the server, the relay pass, the path it will
+try and the expiry. **Connect** redeems the invite and saves the remote; then
+choose the models to add.
+
+If P2P is off, **Connect** turns it on in mode `connect` (**Connect only**)
+first. In that mode the server dials out and accepts nobody, so it needs no
+authentication.
+
+If both networks block direct connections and the relay does not answer, the
+page says so and lists what helps: run a relay, forward UDP and TCP port 4001, or
+try from another network.
 
 ## How machines connect
 
@@ -175,7 +209,7 @@ names the mode.
 |---|---|
 | `GET /api/p2p/status` | Mode, peer ID, addresses, reachability, relay reservations, whether the server relays for its devices, and the number of pending invites and devices. Works in every mode. |
 | `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker`, `split` or `federated`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
-| `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`. |
+| `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`, and `relay_pass`, the relay that holds the pass. A used invite also has `device_peer_id` and `phrase`, the confirmation phrase the device was shown. |
 | `DELETE /api/p2p/invites/{id}` | Cancels a pending invite and its relay pass. |
 | `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. |
 | `PATCH /api/p2p/devices/{id}` | Renames a device: `{label}`. |
