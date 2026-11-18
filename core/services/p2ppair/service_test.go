@@ -145,6 +145,7 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 		It("refuses a bad kind, label and life", func() {
 			for _, req := range []p2ppair.MintRequest{
 				{Kind: "bogus"},
+				{Kind: "federated"},
 				{Kind: p2ppair.KindDevice, Label: "bad\nlabel"},
 				{Kind: p2ppair.KindDevice, TTL: 25 * time.Hour},
 				{Kind: p2ppair.KindDevice, TTL: -time.Second},

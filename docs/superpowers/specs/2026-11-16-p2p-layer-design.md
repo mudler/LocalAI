@@ -215,7 +215,7 @@ localai://pair?v=1&k=<kind>&p=<server peer ID>&c=<code>&e=<expiry>&n=<label>
     [&a=<direct address>]... [&r=<relay address>]... [&o=<open relay index>] [&x=<relay pass>]
 ```
 
-- `k` is the kind: `device`, `remote`, `worker`, `split` or `federated`.
+- `k` is the kind: `device`, `remote`, `worker` or `split`.
 - `c` is a one-time code of 10 characters. The server keeps only a keyed hash.
 - `e` is the expiry as a Unix time. The default time to live is 10 minutes, and
   the maximum is 24 hours.

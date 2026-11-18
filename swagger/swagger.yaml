@@ -4500,7 +4500,7 @@ definitions:
           type: string
         type: array
       kind:
-        description: Kind is device, remote, worker, split or federated.
+        description: Kind is device, remote, worker or split.
         type: string
       label:
         type: string
@@ -28299,7 +28299,7 @@ paths:
       description: 'Creates a one-time invite link. kind is device (P2P admission
         only; the person signs in as usual), remote (also issues an API key for the
         other server: limited to "models" when given, else every model this server
-        lets a client key use, models added later too), worker, split or federated.
+        lets a client key use, models added later too), worker or split.
         A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY
         gets 409. relays is "auto", "none" or a list of relay IDs. When a gated relay
         is named, a single-use relay pass is registered on it; "relay.reason" says

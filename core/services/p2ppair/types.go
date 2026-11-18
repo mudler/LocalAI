@@ -21,14 +21,12 @@ const (
 	KindWorker Kind = "worker"
 	// KindSplit admits a node that holds a part of a split model.
 	KindSplit Kind = "split"
-	// KindFederated admits a member of a federation.
-	KindFederated Kind = "federated"
 )
 
 // Valid reports whether k is one of the known kinds.
 func (k Kind) Valid() bool {
 	switch k {
-	case KindDevice, KindRemote, KindWorker, KindSplit, KindFederated:
+	case KindDevice, KindRemote, KindWorker, KindSplit:
 		return true
 	}
 	return false
