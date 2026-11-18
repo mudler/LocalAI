@@ -19,7 +19,7 @@ import (
 // link of its own, dialled by itself, for what it sends to this replica. A
 // stream that arrives here is reset, like a stream that a worker opens.
 func peerClientSession(ws *websocket.Conn) (*Session, error) {
-	return clientSessionWith(ws, LaneBulk, 0)
+	return clientSessionWith(websocketConn(ws), LaneBulk, 0)
 }
 
 // PeerServerSession starts the accepting side of a peer link on ws. It accepts
@@ -27,7 +27,7 @@ func peerClientSession(ws *websocket.Conn) (*Session, error) {
 // multiplexer. A window is a bound on data received and not read, so a replica is
 // sized against the windows times the limit for each link.
 func PeerServerSession(ws *websocket.Conn) (*Session, error) {
-	return serverSessionWith(ws, LaneBulk, defaultIncomingStreams)
+	return serverSessionWith(websocketConn(ws), LaneBulk, defaultIncomingStreams)
 }
 
 // PeerSessions holds the peer links that this replica has accepted. It is the
