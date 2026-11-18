@@ -29,37 +29,61 @@ paired with SRV2), `ROGUE` (peer a, paired with nobody).
 
 ## Cases
 
-| Case | What it checks | Needs |
-|---|---|---|
-| `unpaired_refused` | A peer nobody paired is refused at the connection by the relay and cannot reach a paired server. | |
-| `paired_relayed_50mib` | Paired peers move 50 MiB through the relay with raised circuit limits (1 GiB, 30 min); streams, SSE, websocket and half-close work over the relay. | |
-| `revoke_live_circuit` | Revoking a peer closes its live circuit during a transfer, and it cannot reconnect. | |
-| `relay_restart` | After a relay restart the allowlist is loaded from disk, the server holds a reservation again within 70 s and the pair connects. | |
-| `non_admin_refused` | A paired non-admin gets "not an admin" for the admin protocol; a stranger cannot open it. | |
-| `open_mode` | An open relay shows `mode: OPEN` and a warning, and serves a stranger. | |
-| `first_reservation` | A server with a static relay has a relay address at once (under 10 s). | |
-| `two_admins` | Two admins on one relay see only their own members; a peer cannot reach the other admin's server; removing a peer that is not yours changes nothing. | |
-| `circuit_limit` | A circuit that reaches its byte limit ends the transfer. | |
-| `relay_pass` | A one-time relay pass lets a stranger reach the server, a second use of the pass and a stranger without one are refused. | `relay-pass` |
-| `bandwidth_cap` | The relay holds a circuit to its bandwidth cap (1 MiB/s here). | `relay-rate-limit` |
+| Case | What it checks |
+|---|---|
+| `unpaired_refused` | A peer nobody paired is refused at the connection by the relay and cannot reach a paired server. |
+| `paired_relayed_50mib` | Paired peers move 50 MiB through the relay with raised circuit limits (1 GiB, 30 min); streams, SSE, websocket and half-close work over the relay. |
+| `revoke_live_circuit` | Removing a peer from the relay closes its live circuit during a transfer, and it cannot reconnect. |
+| `relay_restart` | After a relay restart the allowlist is loaded from disk, the server is reachable through the relay again within 70 s (60 s with a 30 s relay backoff) and the pair connects. |
+| `non_admin_refused` | A paired non-admin gets "not an admin" for the admin protocol; a stranger cannot open it. |
+| `open_mode` | An open relay shows `mode: OPEN` and a warning, and serves a stranger. |
+| `first_reservation` | A server with a static relay has a relay address at once (under 10 s). |
+| `two_admins` | Two admins on one relay see only their own members; a peer cannot reach the other admin's server; removing a peer that is not yours changes nothing. |
+| `circuit_limit` | A circuit that reaches its byte limit ends the transfer. |
+| `bandwidth_cap` | The relay holds a circuit to its bandwidth cap (1 MiB/s here). |
+| `relay_pass` | A one-time relay pass lets a stranger reach the server; a second use of the pass and a stranger without one are refused. |
+| `hole_punch` | Two peers behind cone NATs connect through the relay, then reach each other directly (hole punch). |
+| `no_punch_symmetric` | Behind symmetric NATs the hole punch fails, the path stays on the relay and the dialer reads the relay's limits. |
+| `revoke_server` | A revoke by the server cuts the live stream, the relay removes the peer, and the peer cannot reconnect. |
+| `limits_live` | An admin changes the circuit limits through the admin protocol; a member can read but not change them; the next circuit reports the new limits and a transfer above them is cut. |
+| `invite_redeem` | A device with only an invite link redeems it through the relay pass; the link works once. |
+| `invite_without_pass` | A link minted without a relay pass does not get a stranger through a gated relay. |
 
-A case with a missing capability is reported as skipped, not failed.
+## The commands of the lab binary
 
-## The contract of the lab binary
-
-The harness is generic over the binary. The binary (`../labbin`, built from the
-P2P packages) must answer these commands. Flags are the ones the cases use.
+The harness runs these commands of `../labbin` (built from the P2P packages) in
+the peer containers. The relay is not among them: the relay container runs the
+real `localai-relay` with `--data-dir /data`, `--log-level debug` and the flags
+of the case, and the harness reads its banner (`PEERID`, `RELAY_ADDR`, `mode:`,
+`paired peers:`) and its log lines (`deny connection`, `deny circuit`,
+`relay: revoked`, `relay: pass used`).
 
 | Command | Meaning |
 |---|---|
 | `keygen --key F` | Create an identity file if missing, print the peer ID. |
-| `relay --data DIR [--admin ID]... [--open] [--circuit-max-bytes N] [--circuit-max-duration D] [--rate-limit BYTES_PER_S]` | Run the gated relay. Prints `PEERID <id>`, `RELAY_ADDR <multiaddr>` and a banner with `mode: GATED\|OPEN` and `paired peers: N`. Logs `DENY connection ... (not paired)`, `DENY circuit ... (no common admin)`, `allow reserve <peer>`, `revoked <peer>: closed N connection(s)`. `--rate-limit 0` removes the cap. |
-| `serve --key F [--allow ID]... --relay ADDR --only-static-relays --relay-sync --relay-backoff D --revoke-after D --revoke-relay-only` plus the listen flags | A NATed server. Prints `FIRST_RELAY_ADDR <duration> <addr>` and serves a small HTTP test service. `--relay-sync` pushes the `--allow` set to the relay as its admin. |
-| `dial PEER --key F --hint ADDR [--mb N] [--quick] [--pass CODE] [--timeout D]` | Connect and run checks. Prints `RESULT connect=ok\|fail ...`, `PATH ...`, `PATH_FINAL ...`, `TEST ...` lines. |
-| `relay-admin --key F --relay ADDR status\|list\|add ID\|remove ID\|check [--target ID] [--expect ID] [--no-reserve]\|pass --code C --ttl D` | The admin protocol client. `check` prints `CHECK ...` lines and a `STATE` line. |
-| `caps` | Print the capabilities, space separated: `relay-rate-limit`, `relay-pass`. `placeholder` means the lab has nothing to run yet. A binary without `caps` has none of them. |
+| `serve --key F [--allow ID]... [--relay ADDR]... [--bootstrap ADDR]... [--listen ADDR]... [--relay-sync] [--relay-backoff D] [--revoke-after D [--revoke-relay-only]] [--invite [--invite-pass=false]]` | A server behind a NAT. Prints `PEERID`, `FIRST_RELAY_ADDR <duration> <addr>`, `REVOKED`, `REDEEMED` and `INVITE <link>`. It serves a small HTTP service (hello, download, SSE, websocket, a half-close protocol) and `POST /api/p2p/redeem`. `--relay-sync` runs the real relay manager: it adds the first `--relay`, pushes the `--allow` set as admin and keeps it in sync. `--invite` mints a link with a relay pass registered through the manager. |
+| `dial PEER --key F [--hint ADDR]... [--relay ADDR --pass CODE] [--mb N] [--quick] [--warmup D] [--wait-direct D] [--timeout D]` | Connect and run checks. Prints `RESULT connect=ok\|fail`, `PATH <kind>`, `PATH_FINAL` and `TEST` lines. A limited relayed path shows the limits that the relay reported. |
+| `redeem --link L --key F` | Redeem an invite link with the real pairing client, then connect to the server. Prints `REDEEM ok\|fail`. |
+| `relay-admin --key F --relay ADDR status\|list\|add ID\|remove ID\|pass --code C --ttl D\|limits [--bytes N --seconds N --rate N]\|check [--expect ID]` | The admin protocol client. `check` runs the manager's relay check and prints `CHECK` lines and a `STATE` line. |
+| `observer [--listen ADDR]...` | A public peer that admits every connection. Peers connect to four of them to learn their public address. |
 
-The first lab binary was a prototype with this command line; its results are
-the numbers the cases assert (for example 50 MiB at 58 to 82 MB/s through the
-relay, a first relay address after 0.13 s, a reservation 59.5 s after a relay
-restart with a 30 s AutoRelay backoff).
+Every command takes `--key`, `--listen` and `--bootstrap` where it starts a host.
+The peers listen on port 4001 so that a cone NAT keeps the port the relay sees,
+which a hole punch needs. A host can punch only after it knows its public
+address, so the hole-punch case connects the observers and the dialer waits 20
+s before it dials.
+
+## Things to know when you write a case
+
+- The relay limits how fast one IP address may open connections (the default of
+  the libp2p resource manager), and every peer of a LAN shares one address at
+  the relay. A loop that starts a new `dial` process each second trips it and
+  then fails with `failed to negotiate security protocol: EOF`. Space such
+  dials three seconds apart, as `relay_restart` does.
+- A case that needs other NAT types calls `set_nats <natA> <natB>`; the next
+  case starts with `LAB_NATS` again.
+- A hole punch needs `observers` (four public peers) and a `--warmup` on the
+  dialer, and `dial --wait-direct` to wait for the direct path.
+- The pairing, pass and limit calls run in the `serve` process on purpose: the
+  real server is the admin of its relay, and a limit change keeps that admin's
+  own reservation alive only because the server re-reserves itself.

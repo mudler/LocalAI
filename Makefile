@@ -1827,24 +1827,30 @@ else
 endif
 
 ## P2P NAT lab (needs Docker and a Linux kernel with iptables NAT). Builds the
-## lab binary (tests/e2e/p2p/labbin) as a static linux binary and runs the cases
-## in tests/e2e/p2p/lab in Docker containers behind two NAT routers. Logs go to
-## P2P_LAB_LOGS. P2P_LAB_BIN uses a binary you built, P2P_LAB_ARGS picks cases
-## (see tests/e2e/p2p/README.md).
+## real relay (cmd/localai-relay) and the lab binary (tests/e2e/p2p/labbin) as
+## static linux binaries and runs the cases in tests/e2e/p2p/lab in Docker
+## containers behind two NAT routers. Logs go to P2P_LAB_LOGS. P2P_LAB_BIN and
+## P2P_LAB_RELAY_BIN use binaries you built, P2P_LAB_ARGS picks cases (see
+## tests/e2e/p2p/README.md).
 P2P_LAB_DIR=tests/e2e/p2p/lab
 P2P_LAB_BIN?=
+P2P_LAB_RELAY_BIN?=
 P2P_LAB_LOGS?=$(abspath $(P2P_LAB_DIR)/logs)
 P2P_LAB_ARGS?=
 
 test-e2e-p2p:
-ifeq ($(strip $(P2P_LAB_BIN)),)
-	@echo 'Building the P2P lab binary'
 	@mkdir -p $(P2P_LAB_DIR)/bin
-	CGO_ENABLED=0 GOOS=linux $(GOCMD) build -trimpath -o $(P2P_LAB_DIR)/bin/p2plab ./tests/e2e/p2p/labbin
-	LAB_BIN=$(abspath $(P2P_LAB_DIR)/bin/p2plab) LAB_LOGS=$(P2P_LAB_LOGS) $(P2P_LAB_DIR)/run.sh $(P2P_LAB_ARGS)
-else
-	LAB_BIN=$(abspath $(P2P_LAB_BIN)) LAB_LOGS=$(P2P_LAB_LOGS) $(P2P_LAB_DIR)/run.sh $(P2P_LAB_ARGS)
-endif
+	@if [ -z "$(strip $(P2P_LAB_BIN))" ]; then \
+		echo 'Building the P2P lab binary'; \
+		CGO_ENABLED=0 GOOS=linux $(GOCMD) build -trimpath -o $(P2P_LAB_DIR)/bin/p2plab ./tests/e2e/p2p/labbin || exit 1; \
+	fi
+	@if [ -z "$(strip $(P2P_LAB_RELAY_BIN))" ]; then \
+		echo 'Building the relay'; \
+		CGO_ENABLED=0 GOOS=linux $(GOCMD) build -trimpath -tags nosqlite,purego_utp -o $(P2P_LAB_DIR)/bin/localai-relay ./cmd/localai-relay || exit 1; \
+	fi
+	LAB_BIN=$(abspath $(or $(P2P_LAB_BIN),$(P2P_LAB_DIR)/bin/p2plab)) \
+	LAB_RELAY_BIN=$(abspath $(or $(P2P_LAB_RELAY_BIN),$(P2P_LAB_DIR)/bin/localai-relay)) \
+	LAB_LOGS=$(P2P_LAB_LOGS) $(P2P_LAB_DIR)/run.sh $(P2P_LAB_ARGS)
 
 ## The add-on suites of scripts/addons/suites.json that need the integration
 ## build (UI server, mock backend, browser). ADDON_SUITES picks the ones to run;
