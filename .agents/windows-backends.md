@@ -103,7 +103,14 @@ Add entries to `gallery/backends/index.yaml`:
 
 - A `latest-*` release entry with `os: windows`, `arch: amd64`, pinned digest.
 - A `*-development` mutable entry.
-- Add `windows: windows-<backend>` to the meta-backend's `capabilities` map.
+- Add `windows: windows-<backend>` to the meta-backend's `capabilities` map,
+  and `windows: windows-<backend>-development` to the development meta backend.
+- Name the image tag with the OS and the architecture, as the matrix
+  `tag-suffix` does: `latest-windows-amd64-<backend>`.
+
+A Windows host offers only entries whose name or image URI has the `windows`
+token, and a meta backend without a `windows` key has no target there
+(`IsBackendCompatible` and `PickCapability` in `pkg/system/capabilities.go`).
 
 **Important:** Digests must be filled in by running `backendcatalog --repin`
 after the images are published. Never edit digests by hand.
@@ -124,7 +131,9 @@ In `pkg/system/capabilities.go`:
 Create `backend/cpp/<backend>/run.ps1` — a PowerShell launcher mirroring
 `run.sh`. It:
 
-- Picks the best binary variant (cpu-all, grpc, fallback).
+- Picks the best binary variant (cpu-all, fallback), and the RPC build (grpc)
+  only when the RPC server list variable is set, as `run.sh` does. The RPC
+  build has no CPU optimizations, so it must never be the default.
 - Sets `PATH` to include bundled DLLs.
 - Forwards arguments and exit code.
 
