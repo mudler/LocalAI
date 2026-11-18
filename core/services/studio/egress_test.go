@@ -216,6 +216,17 @@ var _ = Describe("the network line of a turn", func() {
 		Expect(turn(svc, h)).To(ContainSubstring("Network for commands: off. A blocked host asks the user"))
 	})
 
+	It("names the administrator's extra domains under the Custom preset", func() {
+		svc, h := sandboxed(egress.Settings{Ceiling: egress.PresetAll, Default: egress.PresetRegistries, ExtraRegistries: []string{"mirror.example.com"}})
+		got := turn(svc, h)
+		Expect(got).To(ContainSubstring("and the domains an administrator added (mirror.example.com)"))
+	})
+
+	It("keeps the registries-only line when no domain was added", func() {
+		svc, h := sandboxed(egress.Settings{Ceiling: egress.PresetAll, Default: egress.PresetRegistries})
+		Expect(turn(svc, h)).To(ContainSubstring("Network for commands: package registries only ("))
+	})
+
 	It("does not promise a card when the ceiling is off", func() {
 		svc, h := sandboxed(egress.Settings{Ceiling: egress.PresetOff})
 		got := turn(svc, h)
