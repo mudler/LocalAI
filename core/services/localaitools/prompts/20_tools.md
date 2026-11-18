@@ -39,6 +39,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_p2p_devices` — List the paired P2P devices and how each one is connected.
 - `list_p2p_invites` — List the P2P invites and their state, never the links.
 - `list_p2p_relays` — List the P2P relays and their sync state.
+- `list_federation` — List the LocalAI instances (this server and LocalAI remotes) and the federation groups with member health and load.
 
 ## Mutating (require user confirmation per safety rule 1)
 
@@ -72,3 +73,4 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `unpin_failover_target` — Remove a failover pin.
 - `revoke_p2p_device` — Revoke a paired P2P device; it is cut off at once.
 - `cancel_p2p_invite` — Cancel a pending P2P invite.
+- `manage_federation_group` — Create, update or delete a federation group, or drain or undrain one member.

@@ -1236,3 +1236,50 @@ func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*loc
 	}
 	return c.GetChatEgress(ctx)
 }
+
+// ---- Federation ----
+
+// The REST answers of the federation routes have the field names of the
+// DTOs, so they decode into them directly.
+
+func (c *Client) GetFederation(ctx context.Context) (*localaitools.FederationInfo, error) {
+	var out localaitools.FederationInfo
+	if err := c.do(ctx, http.MethodGet, routeFederation, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ManageFederationGroup(ctx context.Context, req localaitools.FederationGroupAction) (*localaitools.FederationGroupInfo, error) {
+	group := routeFederationGroups + "/" + url.PathEscape(req.Name)
+	var (
+		method, path string
+		body         any
+	)
+	switch req.Action {
+	case localaitools.FederationActionCreate:
+		method, path = http.MethodPost, routeFederationGroups
+		body = map[string]any{"name": req.Name, "policy": req.Policy, "members": req.Members}
+	case localaitools.FederationActionUpdate:
+		patch := map[string]any{}
+		if req.Policy != "" {
+			patch["policy"] = req.Policy
+		}
+		if req.Members != nil {
+			patch["members"] = req.Members
+		}
+		method, path, body = http.MethodPatch, group, patch
+	case localaitools.FederationActionDelete:
+		return nil, c.do(ctx, http.MethodDelete, group, nil, nil)
+	case localaitools.FederationActionDrain, localaitools.FederationActionUndrain:
+		method, path = http.MethodPost, group+"/drain"
+		body = map[string]any{"model": req.Model, "drain": req.Action == localaitools.FederationActionDrain}
+	default:
+		return nil, fmt.Errorf("unknown federation action %q", req.Action)
+	}
+	var out localaitools.FederationGroupInfo
+	if err := c.do(ctx, method, path, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}

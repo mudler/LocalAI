@@ -535,6 +535,83 @@ type FailoverChainInfo struct {
 	Targets []FailoverTargetInfo `json:"targets"`
 }
 
+// FederationP2PInfo is how this server reaches an instance over P2P.
+type FederationP2PInfo struct {
+	PeerID string `json:"peer_id"`
+	// State is off, listening, up, down or error.
+	State string `json:"state"`
+	// Path is direct, hole_punched or relayed; empty before the first
+	// request.
+	Path    string `json:"path,omitempty"`
+	Limited bool   `json:"limited,omitempty"`
+}
+
+// FederationModelInfo is a model an instance serves: its model name on
+// this server and its id at the instance.
+type FederationModelInfo struct {
+	Model      string `json:"model"`
+	UpstreamID string `json:"upstream_id"`
+}
+
+// FederationInstanceInfo is a LocalAI that can serve a group. ID "local" is
+// this server; any other ID is a remote.
+type FederationInstanceInfo struct {
+	ID        string                `json:"id"`
+	Name      string                `json:"name,omitempty"`
+	Local     bool                  `json:"local"`
+	Transport string                `json:"transport,omitempty"`
+	Status    string                `json:"status,omitempty"`
+	P2P       *FederationP2PInfo    `json:"p2p,omitempty"`
+	InFlight  int                   `json:"in_flight"`
+	Models    []FederationModelInfo `json:"models"`
+}
+
+// FederationMemberInfo is one model of a group with its health.
+type FederationMemberInfo struct {
+	Model        string `json:"model"`
+	Instance     string `json:"instance,omitempty"`
+	InstanceName string `json:"instance_name,omitempty"`
+	Drained      bool   `json:"drained"`
+	State        string `json:"state,omitempty"`
+	InFlight     int    `json:"in_flight"`
+	Constrained  bool   `json:"constrained,omitempty"`
+	LastError    string `json:"last_error,omitempty"`
+}
+
+// FederationGroupInfo is a model name served by several instances.
+type FederationGroupInfo struct {
+	Name    string                 `json:"name"`
+	Policy  string                 `json:"policy"`
+	State   string                 `json:"state,omitempty"`
+	Members []FederationMemberInfo `json:"members"`
+}
+
+// FederationInfo is the answer of list_federation.
+type FederationInfo struct {
+	Instances []FederationInstanceInfo `json:"instances"`
+	Groups    []FederationGroupInfo    `json:"groups"`
+}
+
+// FederationGroupAction is one change of a group. Action is create, update,
+// delete, drain or undrain. Create needs Name and at least two Members;
+// update takes Policy and/or Members; drain and undrain take Model.
+type FederationGroupAction struct {
+	Action  string   `json:"action" jsonschema:"create, update, delete, drain or undrain"`
+	Name    string   `json:"name" jsonschema:"the group's model name"`
+	Policy  string   `json:"policy,omitempty" jsonschema:"least_busy (default) or round_robin; for create and update"`
+	Members []string `json:"members,omitempty" jsonschema:"model names that serve the group (this server's models or entries of remotes, see list_federation); at least two; for create and update"`
+	Model   string   `json:"model,omitempty" jsonschema:"the member to drain or undrain"`
+}
+
+// Actions of manage_federation_group.
+const (
+	FederationActionCreate  = "create"
+	FederationActionUpdate  = "update"
+	FederationActionDelete  = "delete"
+	FederationActionDrain   = "drain"
+	FederationActionUndrain = "undrain"
+)
+
 // LoadCancelResult is what a cancel of a distributed load did. State is
 // "stopped" (the worker confirmed), "stopping" (recorded, stop pending; the model
 // is released after RetryAfter seconds regardless) or "gone".

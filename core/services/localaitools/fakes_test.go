@@ -514,6 +514,19 @@ func (f *fakeClient) UnpinFailoverTarget(_ context.Context, chain string) error 
 	return nil
 }
 
+func (f *fakeClient) GetFederation(_ context.Context) (*FederationInfo, error) {
+	f.record("GetFederation", nil)
+	return &FederationInfo{Instances: []FederationInstanceInfo{}, Groups: []FederationGroupInfo{}}, nil
+}
+
+func (f *fakeClient) ManageFederationGroup(_ context.Context, req FederationGroupAction) (*FederationGroupInfo, error) {
+	f.record("ManageFederationGroup", req)
+	if req.Action == FederationActionDelete {
+		return nil, nil
+	}
+	return &FederationGroupInfo{Name: req.Name, Members: []FederationMemberInfo{}}, nil
+}
+
 func (f *fakeClient) ListSharedFolders(_ context.Context) ([]SharedFolder, error) {
 	f.record("ListSharedFolders", nil)
 	return []SharedFolder{}, nil

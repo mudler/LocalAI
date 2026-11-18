@@ -223,6 +223,16 @@ type LocalAIClient interface {
 	// active target again.
 	UnpinFailoverTarget(ctx context.Context, chain string) error
 
+	// ---- Federation ----
+	// GetFederation lists the LocalAI instances that can serve a group
+	// (this server and the remotes of kind localai) and the groups: model
+	// names served by several instances.
+	GetFederation(ctx context.Context) (*FederationInfo, error)
+	// ManageFederationGroup creates, updates, deletes, drains or undrains a
+	// group. It returns the group as it is after the change, nil after a
+	// delete.
+	ManageFederationGroup(ctx context.Context, req FederationGroupAction) (*FederationGroupInfo, error)
+
 	// ---- Client (inference) ----
 	// These run inference through the LocalAI API as the acting user, so the
 	// route's permission, the model allow-list and the quota apply. Files
