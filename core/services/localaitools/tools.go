@@ -77,6 +77,7 @@ const (
 	ToolManageFederationGroup = "manage_federation_group"
 	ToolSetP2PSplitSlowPath   = "set_p2p_split_slow_path"
 	ToolSetP2PSplitNode       = "set_p2p_split_node"
+	ToolSetNodeSplitServer    = "set_node_split_server"
 	ToolSetP2PRelayLimits     = "set_p2p_relay_limits"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
@@ -151,5 +152,6 @@ var mutatingToolNames = []string{
 	ToolManageFederationGroup,
 	ToolSetP2PSplitSlowPath,
 	ToolSetP2PSplitNode,
+	ToolSetNodeSplitServer,
 	ToolSetP2PRelayLimits,
 }

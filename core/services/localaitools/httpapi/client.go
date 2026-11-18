@@ -621,6 +621,7 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 		Status      string `json:"status"`
 		Attached    string `json:"attached"`
 		PeerID      string `json:"peer_id"`
+		SplitServer bool   `json:"split_server"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeNodes, nil, &raw); err != nil {
 		// Treat 404/disabled as "no nodes" to keep parity with single-process.
@@ -638,6 +639,7 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 			Healthy:     n.Status == "healthy",
 			Route:       localaitools.NodeRoute(strings.Split(n.Attached, ","), n.PeerID),
 			PeerID:      n.PeerID,
+			SplitServer: n.SplitServer,
 		})
 	}
 	return out, nil
@@ -684,6 +686,15 @@ func (c *Client) DeleteScheduling(ctx context.Context, modelName string) error {
 		return errors.New("model_name is required")
 	}
 	return c.do(ctx, http.MethodDelete, routeModelScheduling(modelName), nil, nil)
+}
+
+func (c *Client) SetNodeSplitServer(ctx context.Context, nodeID string, on bool) (*localaitools.NodeSplitServer, error) {
+	var out localaitools.NodeSplitServer
+	if err := c.do(ctx, http.MethodPut, routeNodeSplitServer(nodeID), map[string]bool{"split_server": on}, &out); err != nil {
+		return nil, err
+	}
+	out.NodeID = nodeID
+	return &out, nil
 }
 
 func (c *Client) SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error {
@@ -1161,11 +1172,18 @@ type p2pSplitWire struct {
 		Kind       string `json:"kind"`
 		RelayLabel string `json:"relay_label"`
 	} `json:"path"`
+	NodeRelayWire *struct {
+		State  string `json:"state"`
+		Reason string `json:"reason"`
+	} `json:"node_relay"`
 }
 
 func (w p2pSplitWire) info() localaitools.P2PSplitWorkerInfo {
 	info := w.P2PSplitWorkerInfo
 	info.Path, info.RelayLabel = w.Path.Kind, w.Path.RelayLabel
+	if w.NodeRelayWire != nil {
+		info.NodeRelay, info.NodeRelayReason = w.NodeRelayWire.State, w.NodeRelayWire.Reason
+	}
 	return info
 }
 

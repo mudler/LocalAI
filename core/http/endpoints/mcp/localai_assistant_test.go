@@ -337,6 +337,9 @@ func (stubClient) ListP2PSplitWorkers(_ context.Context) ([]localaitools.P2PSpli
 func (stubClient) SetP2PSplitSlowPath(_ context.Context, _ string, _ bool) (*localaitools.P2PSplitWorkerInfo, error) {
 	return &localaitools.P2PSplitWorkerInfo{}, nil
 }
+func (stubClient) SetNodeSplitServer(_ context.Context, _ string, _ bool) (*localaitools.NodeSplitServer, error) {
+	return nil, nil
+}
 func (stubClient) SetP2PSplitNode(_ context.Context, _, _ string) (*localaitools.P2PSplitWorkerInfo, error) {
 	return &localaitools.P2PSplitWorkerInfo{}, nil
 }

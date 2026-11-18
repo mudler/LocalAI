@@ -78,4 +78,5 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `manage_federation_group` — Create, update or delete a federation group, or drain or undrain one member.
 - `set_p2p_split_slow_path` — Use a model-split worker over a relay ("Use anyway"), or stop; a relay of the user with limits cuts each connection at them.
 - `set_p2p_split_node` — Attach a model-split worker to a backend node of the cluster, or to this server; pin the model to that node.
+- `set_node_split_server` — Declare a backend node a split server so model-split workers can be attached to it, or clear it (detaches its workers, stops its P2P host).
 - `set_p2p_relay_limits` — Change the data, time or bandwidth limit of one circuit on a P2P relay this server administers; a new data or time limit restarts the relay's circuit service.

@@ -510,6 +510,11 @@ func (f *fakeClient) SetP2PSplitSlowPath(_ context.Context, id string, allow boo
 	return &P2PSplitWorkerInfo{ID: id, AllowSlowPath: allow}, nil
 }
 
+func (f *fakeClient) SetNodeSplitServer(_ context.Context, nodeID string, on bool) (*NodeSplitServer, error) {
+	f.record("SetNodeSplitServer", []any{nodeID, on})
+	return &NodeSplitServer{NodeID: nodeID, SplitServer: on}, nil
+}
+
 func (f *fakeClient) SetP2PSplitNode(_ context.Context, id, nodeID string) (*P2PSplitWorkerInfo, error) {
 	f.record("SetP2PSplitNode", id)
 	return &P2PSplitWorkerInfo{ID: id, NodeID: nodeID}, nil

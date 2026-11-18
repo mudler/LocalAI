@@ -216,6 +216,7 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListP2PSplitWorkers, map[string]any{}, "ListP2PSplitWorkers"},
 		{ToolSetP2PSplitSlowPath, map[string]any{"id": "w1", "allow": true}, "SetP2PSplitSlowPath"},
 		{ToolSetP2PSplitNode, map[string]any{"id": "w1", "node_id": "n1"}, "SetP2PSplitNode"},
+		{ToolSetNodeSplitServer, map[string]any{"node_id": "n1", "split_server": true}, "SetNodeSplitServer"},
 		{ToolGenerateImage, GenerateImageRequest{Prompt: "a fox"}, "GenerateImage"},
 		{ToolGenerateImage, GenerateImageToolInput{Prompt: "a hat", Image: "a.png", Mask: "m.png"}, "EditImage"},
 		{ToolSpeak, SpeakRequest{Text: "hello"}, "Speak"},

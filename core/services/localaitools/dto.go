@@ -174,6 +174,17 @@ type Node struct {
 	Route string `json:"route,omitempty"`
 	// PeerID is the P2P peer of a node that joined over P2P.
 	PeerID string `json:"peer_id,omitempty"`
+	// SplitServer is true when the node may serve model-split workers.
+	SplitServer bool `json:"split_server,omitempty"`
+}
+
+// NodeSplitServer is the result of set_node_split_server.
+type NodeSplitServer struct {
+	NodeID      string `json:"node_id"`
+	SplitServer bool   `json:"split_server"`
+	// Detached is the number of split workers that were attached to the node
+	// and are now attached to no node.
+	Detached int `json:"detached"`
 }
 
 // NodeRoute names the route of a node from what it reported: NATS when it is
@@ -806,6 +817,16 @@ type P2PSplitWorkerInfo struct {
 	// node is not used.
 	NodeID   string `json:"node_id,omitempty"`
 	NodeName string `json:"node_name,omitempty"`
+	// NodeOffline is true when that node is offline: the worker stays
+	// attached and waits for it.
+	NodeOffline bool `json:"node_offline,omitempty"`
+	// NodeNote says why a worker attached to no node was detached.
+	NodeNote string `json:"node_note,omitempty"`
+	// NodeRelay is whether the user's gated relays admit the node, so the
+	// worker can reach it through them: admitted, refused, pending or
+	// not_needed. NodeRelayReason says why when it is not admitted.
+	NodeRelay       string `json:"relay_admission,omitempty"`
+	NodeRelayReason string `json:"relay_admission_reason,omitempty"`
 }
 
 // P2PRelayLimitsInfo is the LLM-facing view of the limits of one relay.
