@@ -5,6 +5,7 @@ package model
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -106,11 +107,24 @@ func TestResolveLauncherWindowsDoesNotUseRunSh(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "run.sh"), []byte("#!/bin/sh"), 0o644); err != nil {
 		t.Fatalf("failed to create run.sh: %v", err)
 	}
+	// It cannot be started directly either, so the launch fails with a
+	// message that says the backend has no Windows build.
 	processName, _, err := resolveLauncher(filepath.Join(dir, "run.sh"), dir, nil)
+	if err == nil {
+		t.Fatalf("expected an error for a backend with only run.sh, got launcher %q", processName)
+	}
+	if !strings.Contains(err.Error(), "no Windows build") {
+		t.Fatalf("error does not say the backend has no Windows build: %v", err)
+	}
+}
+
+func TestResolveLauncherWindowsStartsAnExecutableDirectly(t *testing.T) {
+	dir := t.TempDir()
+	processName, _, err := resolveLauncher(filepath.Join(dir, "backend.exe"), dir, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if filepath.Base(processName) == "powershell.exe" {
-		t.Fatal("run.sh must not be launched through powershell.exe")
+	if processName != filepath.Join(dir, "backend.exe") {
+		t.Fatalf("processName = %q, want the executable in the backend directory", processName)
 	}
 }

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -19,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/sanitize"
+	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/xlog"
 )
 
@@ -185,7 +184,9 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// credentials became unrenewable), so the worker restarts and re-acquires
 	// rather than lingering unable to serve.
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	// NotifyTermination also covers a stop request from the Windows service
+	// manager, which is not a signal.
+	signals.NotifyTermination(sigCh)
 	var runErr error
 	select {
 	case <-sigCh:

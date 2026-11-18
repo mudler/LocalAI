@@ -35,10 +35,42 @@ LocalAI picks the llama.cpp binary from the Windows backend image for you. You d
 ## What is not available on Windows yet
 
 - The add-on runtime. Features that need an add-on do not work. The log can show "add-on runtime unavailable" warnings.
-- Worker and distributed mode. They are not tested on Windows and are not supported.
+- The worker commands for backends without a Windows build: `local-ai worker mlx-distributed`, `p2p-mlx`, `vllm` and `ds4-distributed` stop at once with an error. See [Distributed mode and workers on Windows](#distributed-mode-and-workers-on-windows) for what works.
 - The desktop launcher application.
 - Backends other than llama.cpp.
 - The built-in bash tool of the chat. It needs a POSIX shell.
+
+## Distributed mode and workers on Windows
+
+A Windows host can be a node of a LocalAI cluster:
+
+- `local-ai worker` (distributed mode with NATS) registers the host as a worker. The frontend can schedule llama.cpp models on it. A model that needs another backend fails to start on this node with the message "this backend has no Windows build".
+- `local-ai worker llama-cpp-rpc` and `local-ai worker p2p-llama-cpp-rpc` run the llama.cpp RPC server. The RPC server is in the `rpc` variant of the Windows backend image, which the published image includes.
+- The worker reports the GPU and its VRAM. For NVIDIA GPUs it uses `nvidia-smi`, which the NVIDIA driver installs. For other GPUs it reads the adapter list from DirectX (DXGI) and the memory in use from the "GPU Adapter Memory" performance counters (Windows 10 version 1709 or later). An integrated GPU reports the shared system memory it can use. If the counters are not available, the worker reports the free VRAM as equal to the total.
+- The frontend and the workers can run on different operating systems. A path on a worker keeps the separator of the worker's operating system.
+
+The default folders are the same as for `local-ai run`: `models`, `backends` and `data` in the current folder. Set `--models-path`, `--backends-path` and `LOCALAI_DATA_PATH` to use other folders. A folder under `%LOCALAPPDATA%` keeps the files private to your user.
+
+### Stop a worker
+
+Ctrl+C or Ctrl+Break stops the worker. The worker deregisters from the frontend and stops its backends. Each backend runs in a Windows job object, so it also stops when the worker process is killed. When a killed worker leaves a backend that was not in a job object, the next start of the worker stops it.
+
+### Run a worker as a Windows service
+
+LocalAI connects to the Windows service manager when it starts as a service. This applies to every command, for example `local-ai run` and `local-ai worker`. A stop or shutdown request then stops LocalAI like Ctrl+C. Create the service from an elevated PowerShell, with the full path to the executable and the worker flags:
+
+```powershell
+sc.exe create LocalAIWorker start= auto binPath= "C:\LocalAI\local-ai.exe worker --register-to http://frontend:8080 --nats-url nats://nats:4222 --models-path C:\LocalAI\models --backends-path C:\LocalAI\backends"
+sc.exe start LocalAIWorker
+```
+
+Set the paths explicitly: a service starts in `C:\Windows\System32`, so the default folders relative to the current folder are not useful. The service runs as `LocalSystem` unless you set another account with `obj=`. Set environment variables such as `LOCALAI_REGISTRATION_TOKEN` and `LOCALAI_DATA_PATH` for the service in the registry key `HKLM\SYSTEM\CurrentControlSet\Services\LocalAIWorker`, value `Environment` (multi-string), or pass them as flags.
+
+### Limits
+
+- Only the llama.cpp backend has a Windows build, so a Windows worker serves llama.cpp models only.
+- The per-process VRAM figures of the Nodes page are not available on Windows. The node totals are.
+- Worker and distributed mode have had much less use on Windows than on Linux. Report problems on the issue tracker.
 
 ## Backend selection on Windows
 

@@ -182,7 +182,7 @@ func (f *FileStagingClient) translateModelPath(frontendPath string) string {
 		return frontendPath
 	}
 	// Use the basename of the frontend path joined with the remote ModelPath
-	return filepath.Join(rmp, filepath.Base(frontendPath))
+	return remoteJoin(rmp, filepath.Base(frontendPath))
 }
 
 func (f *FileStagingClient) Predict(ctx context.Context, in *pb.PredictOptions, opts ...ggrpc.CallOption) (*pb.Reply, error) {
@@ -395,7 +395,7 @@ func (f *FileStagingClient) stageFramesDirectory(ctx context.Context, lifecycle 
 		if err != nil {
 			return "", err
 		}
-		remoteDir = filepath.Dir(remote)
+		remoteDir = remoteDirOf(remote)
 	}
 	if remoteDir == "" {
 		return "", fmt.Errorf("frames directory has no files")

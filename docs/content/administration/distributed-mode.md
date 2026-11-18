@@ -564,6 +564,10 @@ from VRAM on every registration and heartbeat. On unified-memory nodes, the
 available RAM and available VRAM values should therefore track each other
 closely; on discrete-GPU nodes they can change independently.
 
+### Windows workers
+
+A worker can run natively on Windows (amd64). It serves the llama.cpp backend, the only backend with a Windows build. A model that the scheduler places on a Windows worker and that needs another backend fails on that node with "this backend has no Windows build", so use node labels to keep such models on Linux or macOS workers. The worker reports the GPU and VRAM through `nvidia-smi` for NVIDIA GPUs and through DirectX (DXGI) and the "GPU Adapter Memory" performance counters for other GPUs. The frontend and the workers can run on different operating systems. To run the worker as a Windows service and for the other limits, see [Distributed mode and workers on Windows]({{% relref "/start/install/windows#distributed-mode-and-workers-on-windows" %}}).
+
 ### CPU telemetry
 
 Backend workers report host-wide CPU telemetry in `GET /api/nodes` and
