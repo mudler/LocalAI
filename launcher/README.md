@@ -108,7 +108,7 @@ unknown keys are kept; writes go through the one config queue):
 
 | Key | Meaning |
 |---|---|
-| `remotes` | A list of `{id, name, url}`: the saved servers. The url is an origin (no path, no credentials, no secret). At most 20, names of 1 to 60 characters, unique addresses. The ids are made by the main process. |
+| `remotes` | A list of `{id, name, url}`: the saved servers. The url is an origin (no path, no credentials, no secret). At most 20, names of 1 to 60 characters, unique addresses. The ids are made by the main process. A server over P2P also has `p2p: {peer, port, addrs, relays}` and its url must be `http://127.0.0.1:<port>`; an entry where they differ is dropped on read. |
 | `default_target` | `local` or the id of a saved server. Missing, or an id that is not in the list, means `local`. Written only when it changes. |
 | `keep_local_running` | Opt-in, missing means false. See below. |
 | `update_channel` | `stable`, `rc` or `dev`. Missing means `stable`; an old `include_prereleases: true` reads as `rc`. |
@@ -131,7 +131,16 @@ every 30 s (`remoteMonitor.ts`); it never starts the local server by itself.
 Plain http to any host is accepted, with a warning in the form and an amber
 "Remote, not encrypted" chip in the bar.
 
-The IPC channels are `launcher:servers:{get,event,test,add,update,remove,
+A server over P2P (`src/main/p2pRemote.ts`) is added with an invite link.
+The launcher runs `local-ai p2p pair --invite <link> --identity <file> --json`
+once, with the identity file `~/.localai/launcher-p2p/identity.key`, picks a
+free loopback port, saves the server at `http://127.0.0.1:<port>` and keeps
+one `local-ai p2p forward` per server running (JSON status lines on stderr,
+restart with a delay from 1 s doubling to 60 s). The port never changes, so
+the origin, the cookies and the session partition stay the same across
+restarts. Pairing needs the local-ai binary; without it the add form says so.
+
+The IPC channels are `launcher:servers:{get,event,test,add,add-by-invite,update,remove,
 set-default,cancel-switch,retry,set-keep-local,open-switcher}`. They take a
 saved server id or a typed address, never an origin. The switcher shortcut is
 Ctrl+Shift+S (Cmd+Shift+S on macOS), a View menu accelerator, so it works

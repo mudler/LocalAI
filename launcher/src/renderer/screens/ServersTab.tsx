@@ -117,6 +117,12 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
           <strong>{r.name}</strong>
           {r.isDefault && <span className="lnr-badge lnr-badge--accent">{S.servers.isDefault}</span>}
           {r.insecure && <span className="lnr-badge lnr-badge--warn">{S.servers.notEncrypted}</span>}
+          {r.p2p && (
+            <span className="lnr-badge" data-testid={`server-p2p-${r.id}`} data-state={r.p2p.state} title={r.p2p.error}>
+              {S.invite.p2pBadge} · {S.invite.tunnel[r.p2p.state] ?? r.p2p.state}
+              {r.p2p.state === 'up' && r.p2p.path ? ` (${S.invite.path[r.p2p.path] ?? r.p2p.path})` : ''}
+            </span>
+          )}
         </div>
         <div className="lnr-srow__host dk-mono dk-small">
           {r.kind === 'local' ? `${r.host}${r.version ? ` · LocalAI ${r.version}` : ''}` : r.insecure ? `${r.origin}` : r.host}

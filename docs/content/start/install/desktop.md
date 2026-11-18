@@ -93,6 +93,8 @@ Open **Settings > Servers** to keep several LocalAI servers. One of them is the 
 - **This computer** is the server that the launcher manages for you.
 - A remote server is a server you reach by address. Add it with its address, for example `https://localai.example.com`. The launcher tests it before it saves it. A server that asks you to sign in counts as reachable. You sign in in the web interface.
 
+- A server **over P2P** is a server you reach with an invite link, also when it is behind a home router. Select **Have an invite link? Paste it instead** in the add form, and paste the link that the server owner made in **Swarm**, **P2P**, **Share** (a device invite). The launcher pairs this computer with the server and shows a four-word **confirmation phrase**. The server shows the same words: check that they match. Pairing needs LocalAI on this computer, because the launcher uses its `local-ai p2p pair` and `local-ai p2p forward` commands. The server then opens at a fixed local address, `http://127.0.0.1:<port>`, and you sign in as usual. The list shows **P2P** and how the launcher reaches the server: direct, hole punched or through a relay. See [P2P]({{% relref "/administration/p2p" %}}).
+
 If a remote server is the default, the launcher opens it at once. It does not install, start or update the local server. To keep the local server running in the background anyway, turn on **Keep this computer's server running too**.
 
 To change the server, use the switcher in the status bar. The shortcut is Ctrl+Shift+S, or Cmd+Shift+S on macOS. If you pick a server in the switcher, it becomes the default. If you pick This computer, the launcher starts it, and installs it first when it is missing.

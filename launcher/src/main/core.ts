@@ -27,6 +27,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type {
+  AddServerByInviteInput,
+  AddServerByInviteResult,
   AddServerInput,
   CopyKeyFormat,
   EnvVarResult,
@@ -121,7 +123,9 @@ import { chatUrl } from './models'
 import type { LoginItemResult } from './loginItem'
 import { WebuiModel, type WebuiEffect, type WebuiEvent, type WebuiInputs } from './webuiState'
 import { RemoteMonitor, REMOTE_RETRY_MS } from './remoteMonitor'
+import { freePort, linkRoutes, pair, readInvite, runCommand, TunnelSupervisor, type RunCommand, type SpawnFn, type TunnelStatus } from './p2pRemote'
 import {
+  addP2PRemote,
   addRemote,
   defaultTarget,
   devChannelConfirmed,
@@ -195,6 +199,12 @@ export interface CoreDeps {
   testServer?: (origin: string, o: { signal?: AbortSignal }) => Promise<TestResult>
   /** Test hook: the wait between tries while the remote default does not answer. */
   remoteRetryMs?: number
+  /** Test hook: runs `local-ai p2p pair`. */
+  runCommand?: RunCommand
+  /** Test hook: spawns `local-ai p2p forward`. */
+  spawnTunnel?: SpawnFn
+  /** Test hook: picks the loopback port of a server over P2P. */
+  freePort?: () => Promise<number>
   /** Turns "Launch at login" on or off (loginItem.ts). Without it the setting is only saved. */
   loginItem?: (enabled: boolean) => LoginItemResult
   /** Electron's safeStorage. Missing means no secure storage: secrets stay in memory unless the user opts in. */
@@ -308,6 +318,8 @@ export class LauncherCore {
   private localVersion: string | undefined
   private startAfterInstall = false
   private openTests = new Set<AbortController>()
+  /** One forwarder per saved server over P2P, by server id. */
+  private tunnels = new Map<string, TunnelSupervisor>()
 
   constructor(private readonly d: CoreDeps) {}
 
@@ -442,7 +454,9 @@ export class LauncherCore {
     void this.installer.installedVersion().then((v) => (this.localVersion = v)).catch(() => undefined)
 
     this.d.trace?.('step-default-server')
-    // 8. the default server: a remote opens at once, and the local server is not touched
+    // 8. the forwarders of the servers over P2P, so their origins answer, then
+    // the default server: a remote opens at once, and the local server is not touched
+    this.startTunnels()
     this.monitor = new RemoteMonitor({
       probe: (origin) => this.checkOrigin(origin),
       onStatus: (st) => {
@@ -529,6 +543,7 @@ export class LauncherCore {
           insecure: isInsecureRemote(r.url),
           status: k?.status ?? (current ? 'connected' : 'not-tested'),
           checkedAt: k?.at,
+          p2p: r.p2p ? (this.tunnels.get(r.id)?.status ?? { state: 'stopped' }) : undefined,
         }
       }),
     ]
@@ -659,12 +674,117 @@ export class LauncherCore {
     return { ok: true, view: this.serversView(), id: after.id, test }
   }
 
+  /** The identity of this computer on P2P. Servers admit its peer ID once paired. */
+  private p2pIdentity(): string {
+    return path.join(this.d.home, '.localai', 'launcher-p2p', 'identity.key')
+  }
+
+  /** Starts the forwarders of every saved server over P2P. */
+  private startTunnels(): void {
+    if (!this.binaryInstalled()) return
+    for (const r of remotes(this.store.get())) if (r.p2p) this.startTunnel(r)
+  }
+
+  private startTunnel(r: RemoteServer): TunnelSupervisor | undefined {
+    if (!r.p2p) return undefined
+    this.stopTunnel(r.id)
+    const t = new TunnelSupervisor(this.serverBinary(), this.p2pIdentity(), r.p2p, this.d.spawnTunnel)
+    t.on('status', (st: TunnelStatus) => {
+      this.hub?.write('launcher', `servers: P2P tunnel of ${r.name}: ${st.state}${st.path ? ` (${st.path})` : ''}${st.error ? `: ${st.error}` : ''}`, st.state === 'failed' ? 'warn' : 'info')
+      this.emitServers()
+    })
+    this.tunnels.set(r.id, t)
+    t.start()
+    return t
+  }
+
+  /** Resolves true once the forwarder listens, false after timeoutMs or a failure. */
+  private tunnelReady(t: TunnelSupervisor, timeoutMs: number): Promise<boolean> {
+    const done = (st: TunnelStatus) => st.state === 'ready' || st.state === 'up' || st.state === 'down'
+    if (done(t.status)) return Promise.resolve(true)
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => finish(false), timeoutMs)
+      const on = (st: TunnelStatus) => {
+        if (done(st)) finish(true)
+        else if (st.state === 'failed' || st.state === 'stopped') finish(false)
+      }
+      const finish = (ok: boolean) => {
+        clearTimeout(timer)
+        t.off('status', on)
+        resolve(ok)
+      }
+      t.on('status', on)
+    })
+  }
+
+  private stopTunnel(id: string): void {
+    const t = this.tunnels.get(id)
+    if (!t) return
+    t.removeAllListeners()
+    t.stop()
+    this.tunnels.delete(id)
+  }
+
+  /**
+   * Adds a server from an invite link: pairs this computer with it through
+   * `local-ai p2p pair`, picks a loopback port, saves the server and starts its
+   * forwarder. The answer carries the confirmation phrase, which the other
+   * server shows too.
+   */
+  async addServerByInvite(input: AddServerByInviteInput): Promise<AddServerByInviteResult> {
+    const inv = readInvite(input.link, this.nowMs())
+    if (!inv.ok) return { ok: false, reason: inv.reason }
+    if (inv.info.openRelay && !input.allowOpenRelay) return { ok: false, reason: 'open-relay' }
+    if (remotes(this.store.get()).some((r) => r.p2p?.peer === inv.info.peer)) return { ok: false, reason: 'duplicate' }
+    if (!this.binaryInstalled()) return { ok: false, reason: 'no-binary' }
+    const identity = this.p2pIdentity()
+    await fs.promises.mkdir(path.dirname(identity), { recursive: true, mode: 0o700 })
+    this.hub.write('launcher', 'servers: pairing with a server over P2P')
+    const paired = await pair(this.d.runCommand ?? runCommand, this.serverBinary(), {
+      link: input.link.trim(),
+      identity,
+      name: os.hostname() || 'LocalAI Launcher',
+      allowOpenRelay: input.allowOpenRelay === true,
+    })
+    if (!paired.ok) {
+      this.hub.write('launcher', `servers: pairing failed: ${paired.detail}`, 'warn')
+      return { ok: false, reason: paired.reason, detail: paired.detail }
+    }
+    const port = await (this.d.freePort ?? freePort)()
+    const name = [input.name, paired.result.serverName, inv.info.label, 'LocalAI'].map((x) => (x ?? '').trim()).find((x) => x !== '') ?? 'LocalAI'
+    const target = { peer: paired.result.peer, port, ...linkRoutes(input.link) }
+    const idGen = () => newRemoteId((n) => this.random(n))
+    let added: RemoteServer | undefined
+    let failure: AddServerByInviteResult | undefined
+    await this.store.update((c) => {
+      const r = addP2PRemote(c, { name: name.slice(0, 60), target }, idGen)
+      if (!r.ok) {
+        failure = { ok: false, reason: r.reason }
+        return c
+      }
+      added = r.remote
+      return r.config
+    })
+    if (failure || !added) return failure ?? { ok: false, reason: 'limit' }
+    this.hub.write('launcher', 'servers: server over P2P saved')
+    const tunnel = this.startTunnel(added)
+    const phrase = paired.result.phrase
+    if (input.makeDefault && tunnel && (await this.tunnelReady(tunnel, 20_000))) {
+      const r = await this.switchTo(added.id, false)
+      if (!r.ok) return { ok: true, view: this.serversView(), id: added.id, phrase, opened: false }
+      return { ok: true, view: r.view, id: added.id, phrase, opened: true }
+    }
+    this.emitServers()
+    return { ok: true, view: this.serversView(), id: added.id, phrase, opened: false }
+  }
+
   async removeServer(id: string): Promise<ServerChangeResult> {
     const c = this.store.get()
     if (!remotes(c).some((r) => r.id === id)) return { ok: false, reason: 'not-found' }
     const wasDefault = defaultTarget(c) === id
     await this.store.update((x) => removeRemote(x, id))
     this.checks.delete(id)
+    this.stopTunnel(id)
     this.hub.write('launcher', 'servers: server removed')
     if (wasDefault) await this.openLocal()
     this.emitServers()
@@ -1678,6 +1798,7 @@ export class LauncherCore {
 
   async shutdown(): Promise<void> {
     this.monitor?.stop()
+    for (const id of [...this.tunnels.keys()]) this.stopTunnel(id)
     for (const ac of this.openTests) ac.abort()
     this.installer?.cancel()
     try {
