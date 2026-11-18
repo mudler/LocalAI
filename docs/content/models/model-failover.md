@@ -69,6 +69,42 @@ Rules:
 - When all targets are down, the chain is `degraded`. Each request still tries
   every target in order.
 
+## Spread requests over the targets
+
+By default a chain uses its targets in priority order. Set `policy` to spread
+the requests over every healthy target instead:
+
+```yaml
+name: shared-qwen
+failover:
+  policy: least_busy        # or round_robin; the default is priority
+  targets:
+    - model: qwen-local
+    - model: qwen-branch    # an entry of a remote LocalAI
+    - model: qwen-lab
+      drain: true           # takes no new request
+```
+
+| `policy` | Which target a request starts on |
+|---|---|
+| `priority` (default) | The active target: the first healthy target in the list. |
+| `least_busy` | The healthy target with the fewest requests in flight from this server. Ties go to each target in turn. |
+| `round_robin` | Each healthy target in turn. |
+
+With every policy, a target that fails is marked down and the request moves
+to the next target, as described above. A target with `drain: true` takes no
+new request: requests in flight finish and the health checks go on, so the
+target is ready when you set `drain` back to `false`. A pin still chooses a
+drained target. At least one target of a chain must not be drained.
+
+A target that is a remote over P2P and that LocalAI reached through a relay
+that limits the connection is tried last by `least_busy` and `round_robin`:
+it takes a request only when no other target can.
+
+A chain with `least_busy` or `round_robin` is what a
+[federation group]({{% relref "/administration/federation" %}}) is. The
+Federation page and its API make and change these chains for you.
+
 ## Retry inside a request
 
 When a target fails before the response starts, LocalAI sends the same
@@ -304,6 +340,10 @@ share one failover state:
   after a NATS reconnect, and applies any change within 10 seconds. A frontend
   that missed a pin or an unpin catches up in this way. If a pin cannot be written to the database, LocalAI returns an
   error and restores the previous pin.
+
+- The requests in flight that `least_busy` counts, and the turn of
+  `round_robin`, are kept by each frontend for itself. They are not shared:
+  each frontend spreads its own requests.
 
 ## Limits
 

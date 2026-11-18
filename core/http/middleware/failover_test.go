@@ -84,6 +84,7 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		write("remote", "name: remote\nbackend: cloud-proxy\nproxy:\n  mode: passthrough\n  upstream_url: http://127.0.0.1:1/v1/chat/completions\n")
 		write("remote-mapped", "name: remote-mapped\nbackend: cloud-proxy\nproxy:\n  mode: translate\n  provider: openai\n  upstream_url: http://127.0.0.1:1/v1/chat/completions\n  upstream_model: big-llm\n")
 		write("chain-remote", "name: chain-remote\nfailover:\n  targets:\n    - model: remote\n    - model: remote-mapped\n")
+		write("group", "name: group\nfailover:\n  policy: round_robin\n  targets:\n    - model: a\n    - model: b\n")
 
 		ss := &system.SystemState{Model: system.Model{ModelsPath: dir}}
 		appConfig := config.NewApplicationConfig()
@@ -121,6 +122,44 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		app.POST("/v1/audio/transcriptions-default", handler,
 			re.BuildFilteredFirstAvailableDefaultModel(config.NoFilterFn),
 			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }))
+	})
+
+	It("spreads the requests of a balanced chain and moves a failed one on", func() {
+		Expect(chat("group").Body.String()).To(ContainSubstring(`"served":"a"`))
+		Expect(chat("group").Body.String()).To(ContainSubstring(`"served":"b"`))
+		behavior["a"] = func(echo.Context) error { return errors.New("dial tcp: connection refused") }
+		rec := chat("group")
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(rec.Body.String()).To(ContainSubstring(`"served":"b"`))
+		Expect(calls).To(Equal([]string{"a", "b", "a", "b"}))
+	})
+
+	It("counts a request of a chain as in flight until the server is done with it", func() {
+		inFlight := func(target string) int {
+			st, _ := fm.ChainStatus("group")
+			for _, ts := range st.Targets {
+				if ts.Model == target {
+					return ts.InFlight
+				}
+			}
+			return -1
+		}
+		seen := -1
+		behavior["a"] = func(c echo.Context) error {
+			seen = inFlight("a")
+			return served(c)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions",
+			strings.NewReader(`{"model":"group","messages":[{"role":"user","content":"hi"}]}`)).WithContext(ctx)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(seen).To(Equal(1))
+		// net/http cancels the request context when the handler returns.
+		cancel()
+		Eventually(func() int { return inFlight("a") }).Should(Equal(0))
 	})
 
 	It("serves from the next target when the first fails before responding", func() {

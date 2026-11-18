@@ -42,6 +42,14 @@ func WithProber(p Prober) Option { return func(m *Manager) { m.prober = p } }
 // local targets changes. The application pins and preloads them.
 func WithOnWarmChanged(fn func(warm []string)) Option { return func(m *Manager) { m.onWarm = fn } }
 
+// WithConstrained marks targets that should carry requests only when no
+// other target can, such as a remote reached through a relay that limits
+// the data or the time of a connection. A balanced chain tries them last.
+// fn runs under the manager lock and must not call back into the manager.
+func WithConstrained(fn func(target config.ModelConfig) bool) Option {
+	return func(m *Manager) { m.constrained = fn }
+}
+
 // Manager tracks health per target and the active target per chain.
 type Manager struct {
 	mu sync.Mutex
@@ -52,6 +60,8 @@ type Manager struct {
 	clock  Clock
 	prober Prober
 	onWarm func([]string)
+	// constrained marks targets a balanced chain tries last; nil marks none.
+	constrained func(config.ModelConfig) bool
 	// pins holds every known pin by chain name, including pins for chains
 	// or targets this frontend's config does not have yet: with a sync
 	// layer the pin is delivered once, and a chain that appears (or is
@@ -108,6 +118,9 @@ type targetState struct {
 	probing bool
 	// params come from the first chain, in name order, that lists the target.
 	params config.FailoverConfig
+	// inFlight counts the requests of this server that the target serves
+	// now, over every chain that lists it. Least busy reads it.
+	inFlight int
 }
 
 func (ts *targetState) cold() bool { return ts.kind == KindLocal && !ts.warm }
@@ -123,6 +136,27 @@ type chainState struct {
 	// adopted is set once a follower received the leader's decision for this
 	// chain; from then on it stops choosing the active target itself.
 	adopted bool
+	// turn rotates the first target of a balanced chain, so round robin
+	// moves on and least busy breaks ties fairly.
+	turn int
+}
+
+// drained reports whether the chain takes new requests away from target.
+func (ch *chainState) drained(target string) bool {
+	for _, t := range ch.cfg.Targets {
+		if t.Model == target {
+			return t.Drain
+		}
+	}
+	return false
+}
+
+// serves reports whether target i of the chain can take a new request in
+// priority order: healthy and not drained.
+func (m *Manager) serves(ch *chainState, i int) bool {
+	name := ch.targets[i]
+	ts := m.targets[name]
+	return ts != nil && ts.state == StateHealthy && !ch.drained(name)
 }
 
 func New(src ConfigSource, opts ...Option) *Manager {
@@ -361,8 +395,8 @@ func (m *Manager) recomputeLocked(ch *chainState, override Reason) {
 	next := prev
 	reason := ReasonTrip
 	best := -1
-	for i, name := range ch.targets {
-		if ts := m.targets[name]; ts != nil && ts.state == StateHealthy {
+	for i := range ch.targets {
+		if m.serves(ch, i) {
 			best = i
 			break
 		}
@@ -376,9 +410,7 @@ func (m *Manager) recomputeLocked(ch *chainState, override Reason) {
 	case best > prev:
 		next = best // the active target is not healthy
 	case best < prev:
-		cur := m.targets[ch.targets[prev]]
-		curHealthy := cur != nil && cur.state == StateHealthy
-		if !curHealthy {
+		if !m.serves(ch, prev) {
 			next = best
 		} else if now.Sub(ch.activeSince) >= ch.cfg.MinDwell() {
 			next = best
@@ -442,11 +474,17 @@ type Attempt struct {
 	degraded bool
 	targets  []string
 	i        int
+	// held is the target whose in-flight count this attempt holds; empty
+	// once released. The manager lock guards it.
+	held string
 }
 
-// Plan returns the attempt order for one request: the active target, then the
-// other healthy targets. A degraded chain tries every target in priority
-// order; a pinned chain only the pinned target.
+// Plan returns the attempt order for one request. A priority chain starts
+// on the active target and goes on with the other healthy targets; a
+// balanced chain orders its healthy targets by its policy. A degraded chain
+// tries every target, a pinned chain only the pinned target, and drained
+// targets are left out unless pinned. The attempt counts as in flight on its
+// current target until Release.
 func (m *Manager) Plan(chain string) (*Attempt, error) {
 	m.mu.Lock()
 	defer m.unlockAndFlush()
@@ -455,37 +493,138 @@ func (m *Manager) Plan(chain string) (*Attempt, error) {
 		return nil, fmt.Errorf("%w: %q", ErrChainNotFound, chain)
 	}
 	att := &Attempt{m: m, chain: ch.name, primary: ch.targets[0], degraded: ch.state == ChainDegraded}
-	usable := func(name string) bool {
-		ts := m.targets[name]
-		if ts == nil || ts.state == StateMissing {
-			return false
-		}
-		return att.degraded || ts.state == StateHealthy
-	}
 	switch {
 	case ch.pinned != "":
 		att.targets = []string{ch.pinned}
-	case att.degraded:
-		for _, name := range ch.targets {
-			if usable(name) {
-				att.targets = append(att.targets, name)
-			}
-		}
+	case ch.cfg.Balanced():
+		att.targets = m.balancedLocked(ch, att.degraded)
 	default:
-		active := ch.targets[ch.active]
-		if usable(active) {
-			att.targets = append(att.targets, active)
-		}
-		for _, name := range ch.targets {
-			if name != active && usable(name) {
-				att.targets = append(att.targets, name)
-			}
+		att.targets = m.priorityLocked(ch, att.degraded)
+	}
+	if len(att.targets) == 0 && ch.pinned == "" && !att.degraded {
+		// Only drained targets are healthy: try the others as a degraded
+		// chain would, rather than refuse the request.
+		att.degraded = true
+		if ch.cfg.Balanced() {
+			att.targets = m.balancedLocked(ch, true)
+		} else {
+			att.targets = m.priorityLocked(ch, true)
 		}
 	}
 	if len(att.targets) == 0 {
 		return nil, fmt.Errorf("%w: %q", ErrNoTarget, chain)
 	}
+	m.acquireLocked(att, att.targets[0])
 	return att, nil
+}
+
+// usableLocked reports whether a request may start on target: known, not
+// drained, and healthy unless every target is to be tried.
+func (m *Manager) usableLocked(ch *chainState, name string, all bool) bool {
+	ts := m.targets[name]
+	if ts == nil || ts.state == StateMissing || ch.drained(name) {
+		return false
+	}
+	return all || ts.state == StateHealthy
+}
+
+func (m *Manager) priorityLocked(ch *chainState, degraded bool) []string {
+	var out []string
+	if !degraded {
+		if active := ch.targets[ch.active]; m.usableLocked(ch, active, false) {
+			out = append(out, active)
+		}
+	}
+	for _, name := range ch.targets {
+		if !slices.Contains(out, name) && m.usableLocked(ch, name, degraded) {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// balancedLocked orders the usable targets of a balanced chain: each request
+// starts one target further along the list, least busy then moves the
+// targets with fewer requests in flight to the front, and constrained
+// targets go last.
+func (m *Manager) balancedLocked(ch *chainState, degraded bool) []string {
+	var open, constrained []string
+	for _, name := range ch.targets {
+		if !m.usableLocked(ch, name, degraded) {
+			continue
+		}
+		if m.constrainedLocked(name) {
+			constrained = append(constrained, name)
+		} else {
+			open = append(open, name)
+		}
+	}
+	turn := ch.turn
+	ch.turn++
+	order := func(names []string) []string {
+		if len(names) == 0 {
+			return nil
+		}
+		k := turn % len(names)
+		out := append(slices.Clone(names[k:]), names[:k]...)
+		if ch.cfg.Policy == config.FailoverPolicyLeastBusy {
+			sort.SliceStable(out, func(i, j int) bool {
+				return m.targets[out[i]].inFlight < m.targets[out[j]].inFlight
+			})
+		}
+		return out
+	}
+	return append(order(open), order(constrained)...)
+}
+
+func (m *Manager) constrainedLocked(name string) bool {
+	if m.constrained == nil {
+		return false
+	}
+	cfg, ok := m.lookupTarget(name)
+	return ok && m.constrained(cfg)
+}
+
+// acquireLocked moves the in-flight count of the attempt to target.
+func (m *Manager) acquireLocked(a *Attempt, target string) {
+	m.releaseLocked(a)
+	if ts := m.targets[target]; ts != nil {
+		ts.inFlight++
+	}
+	a.held = target
+}
+
+func (m *Manager) releaseLocked(a *Attempt) {
+	if a.held == "" {
+		return
+	}
+	// A target dropped and added again by a sync starts from zero, so the
+	// count of an older attempt must not take it below.
+	if ts := m.targets[a.held]; ts != nil && ts.inFlight > 0 {
+		ts.inFlight--
+	}
+	a.held = ""
+}
+
+// Release ends the attempt's claim on its current target, so least busy
+// stops counting it. It is safe to call more than once and from another
+// goroutine.
+func (a *Attempt) Release() {
+	a.m.mu.Lock()
+	defer a.m.mu.Unlock()
+	a.m.releaseLocked(a)
+}
+
+// next moves to the following target and moves the in-flight count with it.
+func (a *Attempt) next() bool {
+	if a.i+1 >= len(a.targets) {
+		return false
+	}
+	a.i++
+	a.m.mu.Lock()
+	a.m.acquireLocked(a, a.targets[a.i])
+	a.m.mu.Unlock()
+	return true
 }
 
 func (a *Attempt) Chain() string   { return a.chain }
@@ -497,23 +636,13 @@ func (a *Attempt) Degraded() bool  { return a.degraded }
 // returns false when no target is left.
 func (a *Attempt) Fail(err error) bool {
 	a.m.ReportFailure(a.Target(), err)
-	if a.i+1 >= len(a.targets) {
-		return false
-	}
-	a.i++
-	return true
+	return a.next()
 }
 
 // Skip moves to the next target without recording a failure, for a target
 // that could not take this request although nothing is wrong with it (at
 // capacity, disabled). It returns false when no target is left.
-func (a *Attempt) Skip() bool {
-	if a.i+1 >= len(a.targets) {
-		return false
-	}
-	a.i++
-	return true
-}
+func (a *Attempt) Skip() bool { return a.next() }
 
 // Report records err against the current target without moving on: the
 // response was already committed, so nothing is left to retry.
@@ -683,15 +812,19 @@ func (m *Manager) ChainStatus(name string) (ChainStatus, bool) {
 }
 
 func (m *Manager) statusLocked(ch *chainState) ChainStatus {
-	cs := ChainStatus{Name: ch.name, State: ch.state, Active: ch.targets[ch.active], ActiveSince: ch.activeSince}
+	cs := ChainStatus{Name: ch.name, Policy: ch.cfg.Policy, State: ch.state, Active: ch.targets[ch.active], ActiveSince: ch.activeSince}
+	if cs.Policy == "" {
+		cs.Policy = config.FailoverPolicyPriority
+	}
 	if ch.pinned != "" {
 		p := ch.pinned
 		cs.Pinned = &p
 	}
 	for _, name := range ch.targets {
-		st := TargetStatus{Model: name}
+		st := TargetStatus{Model: name, Drained: ch.drained(name), Constrained: m.constrainedLocked(name)}
 		if ts := m.targets[name]; ts != nil {
 			st.Kind, st.Warm, st.State = ts.kind, ts.warm, ts.state
+			st.InFlight = ts.inFlight
 			st.ConsecutiveOK, st.LastError = ts.consecutiveOK, ts.lastError
 			if !ts.lastProbe.IsZero() {
 				lp := ts.lastProbe
@@ -764,6 +897,7 @@ func (m *Manager) Do(ctx context.Context, chain string, fn func(ctx context.Cont
 	if err != nil {
 		return err
 	}
+	defer att.Release()
 	for {
 		var committed atomic.Bool
 		err := fn(ctx, att.Target(), func() { committed.Store(true) })
