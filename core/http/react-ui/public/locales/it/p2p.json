@@ -25,7 +25,7 @@
     },
     "remote": {
       "title": "Remoto",
-      "body": "Un altro LocalAI usa i modelli di questa istanza."
+      "body": "Un altro LocalAI usa tutti i modelli di questa istanza."
     },
     "worker": {
       "title": "Worker"
@@ -54,8 +54,8 @@
         "body": "Un invito per dispositivo permette al dispositivo di raggiungere questa istanza. La persona accede comunque all'interfaccia web con il proprio account."
       },
       "remote": {
-        "title": "Solo modelli.",
-        "body": "Un invito per remoto dà all'altro LocalAI una chiave API che può usare i modelli di questa istanza e nient'altro."
+        "title": "Tutti i modelli, nient'altro.",
+        "body": "L'altro LocalAI riceve una chiave API che può usare ogni modello di questa istanza, anche i modelli che aggiungi in seguito. I modelli con strumenti collegati sono esclusi. La chiave non raggiunge nient'altro: né impostazioni, né file, né altre parti dell'API."
       }
     },
     "label": "Etichetta",
@@ -71,6 +71,10 @@
     "close": "Chiudi",
     "mint": "Crea invito",
     "mintFailed": "L'invito non è stato creato.",
+    "needsAccount": {
+      "title": "Accedi con un account utente per condividere con un remoto",
+      "body": "L'altro LocalAI riceve una chiave API che appartiene al tuo account utente. Hai effettuato l'accesso con la chiave API impostata in LOCALAI_API_KEY, che non ha un account. Accedi con un account utente e crea di nuovo l'invito. Gli inviti per i dispositivi funzionano come prima."
+    },
     "copy": "Copia",
     "copied": "Copiato",
     "copyFailed": "Il link non è stato copiato. Selezionalo e copialo a mano.",

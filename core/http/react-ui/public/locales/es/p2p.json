@@ -25,7 +25,7 @@
     },
     "remote": {
       "title": "Remoto",
-      "body": "Otro LocalAI usa los modelos de esta instancia."
+      "body": "Otro LocalAI usa todos los modelos de esta instancia."
     },
     "worker": {
       "title": "Worker"
@@ -54,8 +54,8 @@
         "body": "Una invitación de dispositivo permite que el dispositivo llegue a esta instancia. La persona sigue iniciando sesión en la interfaz web con su propia cuenta."
       },
       "remote": {
-        "title": "Solo modelos.",
-        "body": "Una invitación de remoto da al otro LocalAI una clave API que puede usar los modelos de esta instancia y nada más."
+        "title": "Todos los modelos, nada más.",
+        "body": "El otro LocalAI recibe una clave API que puede usar cada modelo de esta instancia, también los modelos que añadas más tarde. Los modelos con herramientas adjuntas quedan fuera. La clave no llega a nada más: ni ajustes, ni archivos, ni otra parte de la API."
       }
     },
     "label": "Etiqueta",
@@ -71,6 +71,10 @@
     "close": "Cerrar",
     "mint": "Crear invitación",
     "mintFailed": "No se creó la invitación.",
+    "needsAccount": {
+      "title": "Inicia sesión con una cuenta de usuario para compartir con un remoto",
+      "body": "El otro LocalAI recibe una clave API que pertenece a tu cuenta de usuario. Has iniciado sesión con la clave API definida en LOCALAI_API_KEY, que no tiene cuenta. Inicia sesión con una cuenta de usuario y vuelve a crear la invitación. Las invitaciones de dispositivo funcionan como antes."
+    },
     "copy": "Copiar",
     "copied": "Copiado",
     "copyFailed": "No se copió el enlace. Selecciónalo y cópialo a mano.",

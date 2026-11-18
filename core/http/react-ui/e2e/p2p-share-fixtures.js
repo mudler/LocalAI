@@ -67,7 +67,7 @@ export async function mockP2PShare(page, { mode = 'share', status = {}, invites 
     try { body = req.postDataJSON() } catch { body = null }
     state.calls.push({ method, path, body })
     const forced = fail[`${method} ${path}`]
-    if (forced) return route.fulfill({ status: forced.status, json: { error: { message: forced.message || 'failed', code: forced.status } } })
+    if (forced) return route.fulfill({ status: forced.status, json: { error: { message: forced.message || 'failed', code: forced.status, type: forced.type || 'p2p_error' } } })
     if (mode !== 'share') return route.fulfill({ status: 409, json: { error: { message: `P2P mode is "${mode}"` } } })
     if (path === '/invites' && method === 'POST') {
       const answer = typeof mint === 'function' ? mint(body) : mintAnswer(body, mint)

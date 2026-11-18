@@ -34,6 +34,8 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
   const [ttl, setTtl] = useState(TTL_CHOICES[0].id)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  // The server refused a remote invite: the caller has no user account.
+  const [needsAccount, setNeedsAccount] = useState(false)
   // The mint answer: the link is in it and nowhere else.
   const [minted, setMinted] = useState(null)
   // The invite row once the device has used it: the phrase and the peer.
@@ -41,7 +43,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
   const [left, setLeft] = useState(0)
 
   const mint = async () => {
-    setBusy('mint'); setError('')
+    setBusy('mint'); setError(''); setNeedsAccount(false)
     try {
       const res = await p2pNetApi.mintInvite({
         kind, label: label.trim(), ttl_seconds: Number(ttl), relays: 'auto',
@@ -50,7 +52,8 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
       setUsed(null)
       onChanged?.()
     } catch (err) {
-      setError(err?.message || t('share.mintFailed'))
+      if (err?.status === 409 && err?.body?.error?.type === 'needs_account') setNeedsAccount(true)
+      else setError(err?.message || t('share.mintFailed'))
     } finally {
       setBusy('')
     }
@@ -242,7 +245,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
       )}
     >
       <div className="p2p-dialog">
-      <KindChoice kind={kind} onChange={setKind} t={t} />
+      <KindChoice kind={kind} onChange={k => { setKind(k); setNeedsAccount(false) }} t={t} />
       <p className="p2p-hint">{t('share.qrNote')}</p>
       <Callout tone="info" title={t(`share.kindNote.${kind}.title`)} testId="share-kind-note">{t(`share.kindNote.${kind}.body`)}</Callout>
       <div className="p2p-form">
@@ -264,6 +267,11 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
           <p className="dk-hint">{t('share.singleUseHint')}</p>
         </div>
       </div>
+      {needsAccount && (
+        <Callout tone="warn" role="alert" title={t('share.needsAccount.title')} testId="share-needs-account">
+          {t('share.needsAccount.body')}
+        </Callout>
+      )}
       {error && <Callout tone="error" role="alert" testId="share-error">{error}</Callout>}
       </div>
     </Dialog>
