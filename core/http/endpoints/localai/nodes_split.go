@@ -29,7 +29,13 @@ func WithSplitNodes(s SplitNodes) RegisterOption {
 // node. The node calls it at every heartbeat interval.
 //
 // A node that joined over P2P serves its workers on the host it joined with,
-// so the peer of its report must be the peer it is pinned to.
+// so the peer of its report must be the peer it is pinned to. A node that
+// registered with the token is bound to the first peer it reports, until it
+// registers again; a report of another peer gets 409.
+//
+// A 409 without a binding error means that this frontend cannot answer: the
+// node keeps its list. A node whose binding is refused keeps it too, and logs
+// the error.
 func NodeSplitEndpoint(registry *nodes.NodeRegistry, options ...RegisterOption) echo.HandlerFunc {
 	opts := newRegisterOptions(options)
 	return func(c echo.Context) error {
@@ -51,6 +57,18 @@ func NodeSplitEndpoint(registry *nodes.NodeRegistry, options ...RegisterOption) 
 		}
 		if node.PeerID != "" && rep.PeerID != "" && rep.PeerID != node.PeerID {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "a node that joined over P2P serves its split workers on the peer it joined with"))
+		}
+		if rep.PeerID != "" && node.PeerID == "" {
+			// A node that registered with the token binds its split host to
+			// the first peer it reports: the relays admit that peer for it,
+			// so a holder of the token must not move the node to its own.
+			if err := registry.PinSplitPeer(ctx, id, rep.PeerID); err != nil {
+				if errors.Is(err, nodes.ErrSplitPeerPinned) {
+					return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, err.Error()))
+				}
+				xlog.Warn("Failed to bind the split host of a node", "id", id, "error", err)
+				return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to bind the split host of the node"))
+			}
 		}
 		if rep.PeerID != "" {
 			if err := registry.SetSplitReport(ctx, id, rep); err != nil {

@@ -18,6 +18,11 @@ import (
 // workers it has.
 var ErrSplitUnavailable = errors.New("this frontend does not serve model-split workers")
 
+// ErrSplitPeerPinned is the error of a split report whose peer is not the
+// peer that the split host of the node is bound to. Registering the node
+// again releases the binding.
+var ErrSplitPeerPinned = errors.New("the split host of this node is bound to another peer; register the node again to change it")
+
 // NodeSplitReport is the last report of a backend node about the model-split
 // workers attached to it: the P2P endpoint of the node and the live state of
 // each worker. One row per node, replaced by every report, so that every
@@ -25,8 +30,13 @@ var ErrSplitUnavailable = errors.New("this frontend does not serve model-split w
 type NodeSplitReport struct {
 	NodeID string `gorm:"primaryKey;size:36"`
 	// Report is the JSON of workerctl.SplitReport.
-	Report    string `gorm:"type:text"`
-	UpdatedAt time.Time
+	Report string `gorm:"type:text"`
+	// PinnedPeer is the peer that the split host of the node is bound to:
+	// the first peer that reported after the node registered. The relays
+	// that the frontends administer admit this peer only. Registration
+	// clears it.
+	PinnedPeer string `gorm:"size:64"`
+	UpdatedAt  time.Time
 }
 
 // TableName is the table of the reports.
@@ -34,9 +44,40 @@ func (NodeSplitReport) TableName() string { return "node_split_reports" }
 
 // StoredSplitReport is a report as the frontends read it.
 type StoredSplitReport struct {
-	NodeID    string
-	Report    workerctl.SplitReport
-	UpdatedAt time.Time
+	NodeID     string
+	Report     workerctl.SplitReport
+	PinnedPeer string
+	UpdatedAt  time.Time
+}
+
+// PinSplitPeer binds the split host of a node to peer, when the node has no
+// binding yet. It returns ErrSplitPeerPinned when the node is bound to
+// another peer. The check and the write are one statement, so two frontends
+// that take reports at the same time cannot bind two peers.
+func (r *NodeRegistry) PinSplitPeer(ctx context.Context, nodeID, peer string) error {
+	db := r.db.WithContext(ctx)
+	row := NodeSplitReport{NodeID: nodeID, PinnedPeer: peer, UpdatedAt: time.Now().UTC()}
+	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
+		return fmt.Errorf("binding the split host of node %s: %w", nodeID, err)
+	}
+	res := db.Model(&NodeSplitReport{}).
+		Where("node_id = ? AND (pinned_peer = '' OR pinned_peer IS NULL OR pinned_peer = ?)", nodeID, peer).
+		Update("pinned_peer", peer)
+	if res.Error != nil {
+		return fmt.Errorf("binding the split host of node %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return ErrSplitPeerPinned
+	}
+	return nil
+}
+
+// unpinSplitPeer releases the binding of the split host of a node.
+func unpinSplitPeer(db *gorm.DB, nodeID string) error {
+	if err := db.Model(&NodeSplitReport{}).Where("node_id = ?", nodeID).Update("pinned_peer", "").Error; err != nil {
+		return fmt.Errorf("releasing the split host of node %s: %w", nodeID, err)
+	}
+	return nil
 }
 
 // SetSplitReport replaces the split report of a node.
@@ -90,8 +131,12 @@ func (r *NodeRegistry) SplitReports(ctx context.Context) (map[string]StoredSplit
 
 func (row NodeSplitReport) decode() (StoredSplitReport, error) {
 	var rep workerctl.SplitReport
+	if row.Report == "" {
+		// Bound, but no report stored yet.
+		return StoredSplitReport{NodeID: row.NodeID, PinnedPeer: row.PinnedPeer, UpdatedAt: row.UpdatedAt}, nil
+	}
 	if err := json.Unmarshal([]byte(row.Report), &rep); err != nil {
 		return StoredSplitReport{}, fmt.Errorf("reading the split report of node %s: %w", row.NodeID, err)
 	}
-	return StoredSplitReport{NodeID: row.NodeID, Report: rep, UpdatedAt: row.UpdatedAt}, nil
+	return StoredSplitReport{NodeID: row.NodeID, Report: rep, PinnedPeer: row.PinnedPeer, UpdatedAt: row.UpdatedAt}, nil
 }

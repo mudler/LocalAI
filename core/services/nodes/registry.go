@@ -684,6 +684,11 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		}
 		// Re-registration (node restart): preserve ID, respect approval history
 		node.ID = existing.ID
+		// A node that registers again may bind its split host to a new peer,
+		// for example after it lost its key.
+		if err := unpinSplitPeer(r.db.WithContext(ctx), existing.ID); err != nil {
+			return err
+		}
 		if autoApprove || existing.Status != StatusPending {
 			// Auto-approve enabled, or node was previously approved — restore healthy
 			node.Status = StatusHealthy

@@ -58,6 +58,36 @@ var _ = Describe("Split worker reports of the nodes", func() {
 		Expect(all[n.ID].Report.Workers).To(HaveLen(1))
 	})
 
+	It("pins the split host of a node to the first peer that reports it, until the node registers again", func() {
+		n := &BackendNode{Name: "gpu-pin", NodeType: NodeTypeBackend}
+		Expect(reg.Register(ctx, n, true)).To(Succeed())
+		Expect(reg.PinSplitPeer(ctx, n.ID, "peer-a")).To(Succeed())
+		Expect(reg.PinSplitPeer(ctx, n.ID, "peer-a")).To(Succeed(), "the same peer again is fine")
+		Expect(reg.SetSplitReport(ctx, n.ID, workerctl.SplitReport{PeerID: "peer-a"})).To(Succeed())
+
+		// Another caller with the registration token cannot move the node to
+		// its own peer, through this frontend or another one.
+		Expect(reg.PinSplitPeer(ctx, n.ID, "peer-b")).To(MatchError(ErrSplitPeerPinned))
+		other, err := NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(other.PinSplitPeer(ctx, n.ID, "peer-b")).To(MatchError(ErrSplitPeerPinned))
+		got, ok, err := reg.SplitReport(ctx, n.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(got.PinnedPeer).To(Equal("peer-a"))
+		Expect(got.Report.PeerID).To(Equal("peer-a"))
+
+		// A node that registers again (it restarted, maybe with a new key)
+		// may bind a new peer.
+		again := &BackendNode{Name: "gpu-pin", NodeType: NodeTypeBackend}
+		Expect(reg.Register(ctx, again, true)).To(Succeed())
+		Expect(again.ID).To(Equal(n.ID))
+		Expect(reg.PinSplitPeer(ctx, n.ID, "peer-b")).To(Succeed())
+		got, _, err = reg.SplitReport(ctx, n.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.PinnedPeer).To(Equal("peer-b"))
+	})
+
 	It("drops the report of a node that is removed", func() {
 		n := &BackendNode{Name: "gpu-2", NodeType: NodeTypeBackend}
 		Expect(reg.Register(ctx, n, true)).To(Succeed())

@@ -100,6 +100,23 @@ var _ = Describe("The split exchange of a backend node", func() {
 		Expect(code).To(Equal(http.StatusOK))
 	})
 
+	It("binds the split host of a node that registered with the token to its first peer", func() {
+		id := register(&nodes.BackendNode{Name: "gpu-4", NodeType: nodes.NodeTypeBackend})
+		code, _ := exchange(id, `{"peer_id":"peer-first"}`, WithSplitNodes(splitSource{}))
+		Expect(code).To(Equal(http.StatusOK))
+
+		// A caller that has the registration token but reports another peer
+		// for this node is refused, and the stored report keeps the first.
+		code, _ = exchange(id, `{"peer_id":"peer-spoofed","workers":[{"device_id":"d1","state":"online"}]}`, WithSplitNodes(splitSource{}))
+		Expect(code).To(Equal(http.StatusConflict))
+		rep, ok, err := registry.SplitReport(ctx, id)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(rep.Report.PeerID).To(Equal("peer-first"))
+		Expect(rep.PinnedPeer).To(Equal("peer-first"))
+		Expect(rep.Report.Workers).To(BeEmpty())
+	})
+
 	It("refuses an agent node and an unknown node", func() {
 		id := register(&nodes.BackendNode{Name: "agent-1", NodeType: nodes.NodeTypeAgent})
 		code, _ := exchange(id, `{}`, WithSplitNodes(splitSource{}))
