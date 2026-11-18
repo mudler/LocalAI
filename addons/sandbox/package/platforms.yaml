@@ -7,6 +7,9 @@
 # fetch-runtime.sh fetches nothing for it. The macOS platforms stay disabled
 # until a macOS runner shows the native check passing (see the rule below);
 # darwin/amd64 never gets a guest, because the backend needs Apple silicon.
+# windows/amd64 stays disabled: none of the backends runs on Windows (gVisor,
+# Cloud Hypervisor with KVM and Virtualization.framework do not exist there,
+# and the unsafe host backend needs a POSIX shell and process groups).
 # The Linux packages carry the runsc of package/runsc.json, the gvisor-profile tool, and
 # the Cloud Hypervisor and virtiofsd of package/kvm.json (virtiofsd on amd64
 # only: upstream publishes no static arm64 build). fetch-runtime.sh puts them
@@ -67,4 +70,8 @@ platforms:
   - platform: darwin/amd64
     enabled: false
     runner: macos-15-intel
+    native_check: executable-start
+  - platform: windows/amd64
+    enabled: false
+    runner: windows-2025
     native_check: executable-start

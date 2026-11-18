@@ -91,8 +91,7 @@ func readLoopbackPortFile(root string) ([]byte, error) {
 	}
 	// Windows limit: POSIX mode bits do not exist there, so this check is
 	// skipped and LocalAI sets no ACL. Access to the file depends on the ACL
-	// it inherits from the data directory. The add-on runtime is not enabled
-	// on Windows, so this path is not reached there today.
+	// it inherits from the data directory.
 	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		return nil, fmt.Errorf("add-on owner loopback port file %s must be a regular file with mode 0600 or less; fix or remove it together with the add-on state", filepath.Join(root, loopbackPortFile))
 	}

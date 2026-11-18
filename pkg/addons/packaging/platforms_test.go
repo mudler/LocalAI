@@ -14,20 +14,21 @@ import (
 // The release platforms of the packaged first-party add-ons, with the runner
 // that builds and checks each one natively.
 var releasePlatforms = map[string]string{
-	"linux/amd64":  "ubuntu-24.04",
-	"linux/arm64":  "ubuntu-24.04-arm",
-	"darwin/arm64": "macos-15",
-	"darwin/amd64": "macos-15-intel",
+	"linux/amd64":   "ubuntu-24.04",
+	"linux/arm64":   "ubuntu-24.04-arm",
+	"darwin/arm64":  "macos-15",
+	"darwin/amd64":  "macos-15-intel",
+	"windows/amd64": "windows-2025",
 }
 
 // nativeChecked records the platforms whose native check has passed on a runner
 // of that platform. A task of group G adds a platform here in the same change
 // that enables it in the five files and shows the passing legs in its pull
 // request. Enabling without this record, or recording without enabling, fails.
-var nativeChecked = map[string]bool{"linux/amd64": true, "linux/arm64": true, "darwin/arm64": true, "darwin/amd64": true}
+var nativeChecked = map[string]bool{"linux/amd64": true, "linux/arm64": true, "darwin/arm64": true, "darwin/amd64": true, "windows/amd64": true}
 
-// linuxOnly lists the add-ons whose code cannot run on macOS: their macOS
-// platforms stay listed and disabled.
+// linuxOnly lists the add-ons whose code cannot run on macOS or Windows: their
+// other platforms stay listed and disabled.
 var linuxOnly = map[string]bool{"sandbox": true}
 
 var packagedAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "office", "sandbox", "web"}

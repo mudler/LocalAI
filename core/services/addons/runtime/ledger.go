@@ -1,4 +1,4 @@
-//go:build linux || darwin
+//go:build linux || darwin || windows
 
 // SPDX-License-Identifier: MIT
 package runtime
@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 // Unlike the worker ledger, loss of this ledger is a launch failure. A durable
@@ -40,19 +38,14 @@ func openLedger(root string, timeout time.Duration) (*processLedger, error) {
 	if e := os.MkdirAll(root, 0700); e != nil {
 		return nil, e
 	}
-	resolved, e := filepath.EvalSymlinks(root)
-	if e != nil || resolved != root {
-		return nil, ErrRuntime
+	if e := checkStateRoot(root); e != nil {
+		return nil, e
 	}
-	info, e := os.Stat(root)
-	if e != nil || info.Mode().Perm()&0077 != 0 {
-		return nil, ErrRuntime
-	}
-	f, e := os.OpenFile(filepath.Join(root, "process.lock"), os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
+	f, e := os.OpenFile(filepath.Join(root, "process.lock"), os.O_CREATE|os.O_RDWR|ledgerNoFollow, 0600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
 	if e != nil {
 		return nil, e
 	}
-	if e = unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB); e != nil {
+	if e = lockLedger(f); e != nil {
 		_ = f.Close()
 		return nil, e
 	}
@@ -105,7 +98,7 @@ func (l *processLedger) flush() error {
 	if e != nil {
 		return e
 	}
-	f, e := os.OpenFile(filepath.Join(l.root, "processes.tmp"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY|unix.O_NOFOLLOW, 0600)
+	f, e := os.OpenFile(filepath.Join(l.root, "processes.tmp"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY|ledgerNoFollow, 0600)
 	if e != nil {
 		return e
 	}
@@ -120,12 +113,7 @@ func (l *processLedger) flush() error {
 	if e = os.Rename(filepath.Join(l.root, "processes.tmp"), filepath.Join(l.root, "processes.json")); e != nil {
 		return e
 	}
-	d, e := os.Open(l.root)
-	if e != nil {
-		return e
-	}
-	defer func() { _ = d.Close() }()
-	return d.Sync()
+	return syncLedgerDir(l.root)
 }
 func (l *processLedger) put(id string, p processIdentity) error {
 	l.mu.Lock()

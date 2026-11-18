@@ -77,8 +77,9 @@ if [ -n "$addonpkg" ]; then
     [ -x "$addonpkg" ] || { echo "zip.sh: --addonpkg $addonpkg is not an executable file" >&2; exit 2; }
     ADDONPKG=$addonpkg
 else
-    go build -o "$work/addonpkg" ./scripts/addons/cmd/addonpkg
-    ADDONPKG="$work/addonpkg"
+    # GOEXE is ".exe" on a Windows host, where a program needs that extension.
+    go build -o "$work/addonpkg$(go env GOEXE)" ./scripts/addons/cmd/addonpkg
+    ADDONPKG="$work/addonpkg$(go env GOEXE)"
 fi
 export ADDONPKG
 
@@ -121,6 +122,7 @@ for a in $list; do
             set -- "$@" --executable "$executable"
         elif [ "$p" != "$host" ]; then
             exe="$executables/$(echo "$p" | tr '/' '-')/$exe_name"
+            case "$p" in windows/*) exe=$exe.exe ;; esac
             [ -n "$executables" ] && [ -f "$exe" ] || {
                 echo "zip.sh: $a for $p needs the native executable at $exe (pass --executables <dir>)" >&2
                 exit 2

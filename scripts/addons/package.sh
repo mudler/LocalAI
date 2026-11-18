@@ -79,10 +79,11 @@ fi
 [ -n "$config" ] || config=addons/tables/package/platforms.yaml
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/addon-package.XXXXXX")
 trap 'chmod -R u+rwx "$scratch" 2>/dev/null; rm -rf "$scratch"' EXIT HUP INT TERM
+# GOEXE is ".exe" on a Windows host, where a program needs that extension.
 tool=${ADDONPKG:-}
 if [ -z "$tool" ]; then
-    go build -o "$scratch/addonpkg" ./scripts/addons/cmd/addonpkg
-    tool="$scratch/addonpkg"
+    go build -o "$scratch/addonpkg$(go env GOEXE)" ./scripts/addons/cmd/addonpkg
+    tool="$scratch/addonpkg$(go env GOEXE)"
 fi
 # The add-on, its executable and its UI directory come from the platform file.
 [ -f "$config" ] || { echo "package.sh: platform file $config not found" >&2; exit 2; }
@@ -132,6 +133,13 @@ if [ -z "$executable" ]; then
     # executable needs no C toolchain on any platform.
     cgo=0
     [ "$addon" != tables ] || cgo=1
+    # A Windows executable is named <name>.exe (the manifest of a Windows
+    # package says so). A Windows cgo build links the C runtime statically,
+    # so the executable needs no DLL of the build toolchain.
+    out=$scratch/$exe_name
+    case "$platform" in windows/*) out=$out.exe ;; esac
+    static=
+    case "$platform:$cgo" in windows/*:1) static='-extldflags=-static' ;; esac
     if [ -n "$addon_root" ]; then
         # Pure Go unless the caller sets CGO_ENABLED.
         cgo=${CGO_ENABLED:-0}
@@ -139,13 +147,15 @@ if [ -z "$executable" ]; then
             echo "package.sh: no $addon_root/cmd/$exe_name to build; pass --executable" >&2
             exit 2
         }
-        (cd "$addon_root" && CGO_ENABLED=$cgo go build -trimpath -o "$scratch/$exe_name" "./cmd/$exe_name")
+        (cd "$addon_root" && CGO_ENABLED=$cgo go build -trimpath -o "$out" "./cmd/$exe_name")
     elif [ -n "$ldflags" ]; then
-        CGO_ENABLED=$cgo go build -trimpath -ldflags "$ldflags" -o "$scratch/$exe_name" "./addons/$addon/cmd/$exe_name"
+        CGO_ENABLED=$cgo go build -trimpath -ldflags "$ldflags" -o "$out" "./addons/$addon/cmd/$exe_name"
+    elif [ -n "$static" ]; then
+        CGO_ENABLED=$cgo go build -trimpath -ldflags "$static" -o "$out" "./addons/$addon/cmd/$exe_name"
     else
-        CGO_ENABLED=$cgo go build -trimpath -o "$scratch/$exe_name" "./addons/$addon/cmd/$exe_name"
+        CGO_ENABLED=$cgo go build -trimpath -o "$out" "./addons/$addon/cmd/$exe_name"
     fi
-    executable="$scratch/$exe_name"
+    executable=$out
 elif [ -n "$ldflags" ] && [ -z "$local_check" ]; then
     # A binary built elsewhere must carry the guest image too. Its build info
     # cannot show it (with -trimpath, Go leaves -ldflags out), so look for

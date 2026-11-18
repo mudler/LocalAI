@@ -343,6 +343,29 @@ private random bearer credential, and finite host limits. The child must monitor
 that descriptor after decoding and exit on EOF. EOF is cooperative liveness, not
 an ownership fence: a paused child may not observe it before its owner restarts.
 
+Windows cannot pass numbered descriptors, and a child cannot turn an inherited
+socket into a listener. On Windows the owner passes two inherited pipe handles
+instead and names them in two more environment variables:
+
+| Variable | Handle |
+|---|---|
+| `LOCALAI_ADDON_STARTUP_HANDLE` | Read end of the startup pipe. It carries the same `runtime.Startup` object as descriptor 4, and EOF has the same meaning. |
+| `LOCALAI_ADDON_ENDPOINT_HANDLE` | Write end of the endpoint pipe. |
+
+The child binds its own listener to `127.0.0.1` on an ephemeral port, writes the
+address as one line (for example `127.0.0.1:49152`, at most 64 bytes with the
+newline) on the endpoint pipe and closes it. The owner then writes the startup
+object, whose registration names that endpoint. The owner stops a child that
+reports any other address, or that does not report within the ready timeout.
+The environment of the child also has `SYSTEMROOT` (the network stack of
+Windows needs it) and `TMP` and `TEMP` (the temporary folder of LocalAI). The
+executable must end in `.exe`, because Windows has no execute bit.
+
+The Go SDK does this for you: `protocol.Run` uses the descriptors or the handles,
+whichever the owner passed. An add-on that does not use `protocol.Run` calls
+`protocol.StartupChannel` and `protocol.Listener` in place of opening
+descriptors 4 and 3 itself.
+
 The supervisor requires a private durable `StateRoot` (application default:
 `<addon root>/runtime`). The path must be absolute and must not contain a symbolic
 link. A separately locked, fsynced process ledger records the boot identity, PID,
@@ -360,10 +383,15 @@ How identity is read and how a child is stopped depends on the platform:
 |---|---|---|
 | Linux | `/proc` boot ID and process start time | A pidfd is opened before the identity is read and the signal goes through that handle, so a recycled PID cannot be hit. Readable `/proc` and pidfd support are required. |
 | macOS | `kern.boottime` and the process start time from `kern.proc.pid` (microsecond resolution), read through `sysctl` | The identity is read, then the PID is signaled. macOS has no pidfd, so the check and the signal are two steps. PIDs on macOS rise in sequence and wrap at 99999, so a recycle inside that gap is not realistic, but the gap is not zero. |
+| Windows | The process creation time, an absolute time with 100 ns resolution, read through a process handle | A process handle is opened before the creation time is read, and the process is terminated through that handle, so a recycled PID cannot be hit. |
 
 Other systems refuse runtime startup rather than weaken identity checks. This is not a sandbox
 or descendant containment: installed code is trusted, and must not detach workers
-outside the supervised process lifetime.
+outside the supervised process lifetime. On Windows the owner also puts each
+add-on process in a job object that stops every process in it when the add-on
+stops, and when LocalAI itself exits. On Windows the state root must not be a
+link, but it has no permission check: see the security limits in
+[Install on Windows]({{% relref "/start/install/windows" %}}).
 
 Every local HTTP request requires the bearer credential and
 `X-LocalAI-Incarnation`. The authenticated `/health` response must exactly match
