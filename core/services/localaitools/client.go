@@ -207,6 +207,10 @@ type LocalAIClient interface {
 	ListP2PInvites(ctx context.Context) ([]P2PInviteInfo, error)
 	// ListP2PRelays lists the relays the server knows.
 	ListP2PRelays(ctx context.Context) ([]P2PRelayInfo, error)
+	// GetP2PRelayLimits reads the limits of one relay.
+	GetP2PRelayLimits(ctx context.Context, id string) (*P2PRelayLimitsInfo, error)
+	// SetP2PRelayLimits changes the limits of a relay this server administers.
+	SetP2PRelayLimits(ctx context.Context, id string, req SetP2PRelayLimitsRequest) (*P2PRelayLimitsInfo, error)
 	// RevokeP2PDevice revokes a paired device: it is cut off at once.
 	RevokeP2PDevice(ctx context.Context, id string) error
 	// CancelP2PInvite cancels a pending invite.

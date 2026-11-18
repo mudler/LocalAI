@@ -72,6 +72,7 @@ const (
 	ToolSetChatEgressCeiling = "set_chat_egress_ceiling"
 	ToolRevokeP2PDevice      = "revoke_p2p_device"
 	ToolCancelP2PInvite      = "cancel_p2p_invite"
+	ToolSetP2PRelayLimits    = "set_p2p_relay_limits"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
@@ -88,10 +89,11 @@ const (
 
 	// The read-only P2P tools; revoke_p2p_device and cancel_p2p_invite are
 	// in the mutating block above.
-	ToolGetP2PStatus   = "get_p2p_status"
-	ToolListP2PDevices = "list_p2p_devices"
-	ToolListP2PInvites = "list_p2p_invites"
-	ToolListP2PRelays  = "list_p2p_relays"
+	ToolGetP2PStatus      = "get_p2p_status"
+	ToolListP2PDevices    = "list_p2p_devices"
+	ToolListP2PInvites    = "list_p2p_invites"
+	ToolListP2PRelays     = "list_p2p_relays"
+	ToolGetP2PRelayLimits = "get_p2p_relay_limits"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when
@@ -133,4 +135,5 @@ var mutatingToolNames = []string{
 	ToolSetChatEgressCeiling,
 	ToolRevokeP2PDevice,
 	ToolCancelP2PInvite,
+	ToolSetP2PRelayLimits,
 }

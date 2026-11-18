@@ -197,12 +197,33 @@ no pass. The interface tells you.
 When a connection reaches its data or time limit, the relay closes it. LocalAI
 connects again by itself.
 
-The relay reads its limits when it starts. On the **Relays** page, the limits
-button of a relay opens a form for the data, time and bandwidth per connection
-and the connections per machine, and builds the start command with these flags.
-Start the relay again with that command. Connections that are already open keep
-the old limits until they close. **No limit** on an open relay asks you first,
-because then one stranger can use all the bandwidth of the relay.
+### Change the limits from LocalAI
+
+An admin server can change the data, time and speed limits of a relay without
+starting it again. On the **Relays** page, the limits button of a relay opens a
+form with the three values. **No limit** removes all three and shows a warning,
+because then one paired device can use all the bandwidth of the relay. The same
+change is `PUT /api/p2p/relays/{id}/limits`, and the Assistant has the tools
+`get_p2p_relay_limits` and `set_p2p_relay_limits`.
+
+- A new speed limit applies to the next connection. Connections that are open
+  keep their old speed.
+- A new data or time limit makes the relay restart its circuit service. The
+  reservations are dropped, connections that are open keep their old limits
+  until they close, and the relay closes the connections of the other machines
+  so that they reserve again. Paired devices connect again through the relay
+  within a short time.
+- The relay saves the values in `limits.json` in its data directory. At the next
+  start, these values win over the options above. Delete the file to use the
+  options again.
+- Any admin of a shared relay can change these limits, and they apply to
+  everyone on the relay.
+- Only a gated relay that lists the server as admin accepts the change. For an
+  open relay, or a relay where the server is only a member, the form shows the
+  limits and you set them with the options above where the relay runs.
+
+The other options in the table are read when the relay starts. The connections per
+machine are one of them.
 
 Many devices can share one home or mobile address. Raise `--max-conns-per-ip` and
 `--max-reservations-per-ip` if your users are behind one address.
@@ -244,6 +265,7 @@ The relay keeps two files in its data directory (`/data` in the image):
 
 - `relay.key`, the identity key of the relay.
 - `allowlist.json`, the lists of the admins.
+- `limits.json`, the limits an admin set from LocalAI. It exists only after a change.
 
 Both files can be read by the relay user only. Keep the volume. If you lose
 `relay.key`, the relay gets a new peer ID, and every server and every invite that

@@ -71,6 +71,7 @@ export const API_CONFIG = {
     p2pRelay: (id) => `/api/p2p/relays/${encodeURIComponent(id)}`,
     p2pRelayCheck: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/check`,
     p2pRelaySync: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/sync`,
+    p2pRelayLimits: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/limits`,
     p2pRelayClaim: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/claim`,
     p2pIdentityRegenerate: '/api/p2p/identity/regenerate',
 

@@ -16223,6 +16223,116 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/p2p/relays/{id}/limits": {
+            "get": {
+                "description": "Reads the limits the relay runs with now: the data, the time and the bandwidth of one circuit (zero means no limit). can_change says whether this server is an admin of the relay and may change them. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Read the limits of a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RelayLimitsInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Changes the data, time and bandwidth limits of one circuit on a relay this server administers; a field left out stays as it is and zero removes that limit. The relay saves the new limits, so they stay over a restart of the relay. A new bandwidth limit applies to the next circuit at once. A new data or time limit makes the relay restart its circuit service: its reservations are dropped, running circuits keep their old limits until they end, and the paired devices reserve again within moments (\"restarted\" is true). Answers 409 when this server is not an admin of the relay or the relay is open. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Change the limits of a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Limits to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SetRelayLimitsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RelayLimitsInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p/relays/{id}/sync": {
             "post": {
                 "description": "Pushes the full set of paired devices to the relay now. Needs P2P mode share. Admin only.",
@@ -26141,6 +26251,22 @@ const docTemplate = `{
                 }
             }
         },
+        "p2p.RelayLimitsInfo": {
+            "type": "object",
+            "properties": {
+                "can_change": {
+                    "description": "CanChange is true when this server is an admin of a gated relay and\nmay change the limits.",
+                    "type": "boolean"
+                },
+                "limits": {
+                    "$ref": "#/definitions/p2p.RelayLimits"
+                },
+                "restarted": {
+                    "description": "Restarted is true when the relay restarted its circuit service to\napply the change: it dropped its reservations and the paired devices\nreserve again within moments. A change of the bandwidth limit alone\nnever restarts it.",
+                    "type": "boolean"
+                }
+            }
+        },
         "p2p.RelayList": {
             "type": "object",
             "properties": {
@@ -26213,6 +26339,23 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "string"
+                }
+            }
+        },
+        "p2p.SetRelayLimitsRequest": {
+            "type": "object",
+            "properties": {
+                "circuit_bytes": {
+                    "description": "CircuitBytes is the data one circuit may carry in each direction.",
+                    "type": "integer"
+                },
+                "circuit_seconds": {
+                    "description": "CircuitSeconds is the time one circuit may stay open.",
+                    "type": "integer"
+                },
+                "rate_bps": {
+                    "description": "RateBPS is the bandwidth of one circuit in each direction, in bytes\nper second.",
+                    "type": "integer"
                 }
             }
         },

@@ -680,6 +680,32 @@ type P2PInviteInfo struct {
 	RelayPass string `json:"relay_pass,omitempty"`
 }
 
+// P2PRelayLimitsInfo is the LLM-facing view of the limits of one relay.
+// Zero means no limit.
+type P2PRelayLimitsInfo struct {
+	// CircuitBytes is the data one circuit may carry in each direction.
+	CircuitBytes int64 `json:"circuit_bytes"`
+	// CircuitSeconds is the time one circuit may stay open.
+	CircuitSeconds int64 `json:"circuit_seconds"`
+	// RateBPS is the bandwidth of one circuit in each direction, in bytes
+	// per second.
+	RateBPS int64 `json:"rate_bps"`
+	// CanChange is true when this server is an admin of a gated relay.
+	CanChange bool `json:"can_change"`
+	// Restarted is true when the change made the relay restart its circuit
+	// service.
+	Restarted bool `json:"restarted,omitempty"`
+}
+
+// SetP2PRelayLimitsRequest is the input of set_p2p_relay_limits. A field
+// that is left out stays as it is; zero removes that limit.
+type SetP2PRelayLimitsRequest struct {
+	ID             string `json:"id" jsonschema:"relay ID from list_p2p_relays"`
+	CircuitBytes   *int64 `json:"circuit_bytes,omitempty" jsonschema:"data one circuit may carry in each direction, in bytes (0 removes the limit)"`
+	CircuitSeconds *int64 `json:"circuit_seconds,omitempty" jsonschema:"time one circuit may stay open, in seconds (0 removes the limit)"`
+	RateBPS        *int64 `json:"rate_bps,omitempty" jsonschema:"bandwidth of one circuit in each direction, in bytes per second (0 removes the limit)"`
+}
+
 // P2PRelayInfo is the LLM-facing view of one relay.
 type P2PRelayInfo struct {
 	ID    string `json:"id"`

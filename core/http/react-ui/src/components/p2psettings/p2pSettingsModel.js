@@ -19,7 +19,6 @@ export const RELAY_DEFAULTS = {
   circuitSeconds: 30 * 60,
   // An open relay gets 64 KiB/s per circuit; a gated one has no bandwidth limit.
   openRateBPS: 64 << 10,
-  circuitsPerPeer: 16,
 }
 
 // normalizeMode reads the mode the server reports; anything unknown is off.
@@ -256,28 +255,23 @@ export function relayCommands(peerID) {
   }
 }
 
-// limitsFromRelay reads the limits a relay reports into the form of the
-// limits dialog (GiB, minutes, KiB/s, circuits). A limit the relay does not
-// report starts at the relay default.
-export function limitsFromRelay(relay) {
-  const l = relay?.limits || {}
-  const open = relay?.mode === 'open' || relay?.state === 'open'
-  const rate = l.rate_bps > 0 ? l.rate_bps : (open ? RELAY_DEFAULTS.openRateBPS : 0)
+// limitsFromReported reads the limits a relay reports into the form of the
+// limits dialog (GiB, minutes, KiB/s). Zero means no limit for that value.
+export function limitsFromReported(limits) {
+  const l = limits || {}
   return {
-    dataGiB: round2((l.circuit_bytes > 0 ? l.circuit_bytes : RELAY_DEFAULTS.circuitBytes) / (1 << 30)),
-    minutes: round2((l.circuit_seconds > 0 ? l.circuit_seconds : RELAY_DEFAULTS.circuitSeconds) / 60),
-    kibps: round2(rate / 1024),
-    circuits: RELAY_DEFAULTS.circuitsPerPeer,
+    dataGiB: round2((l.circuit_bytes || 0) / (1 << 30)),
+    minutes: round2((l.circuit_seconds || 0) / 60),
+    kibps: round2((l.rate_bps || 0) / 1024),
   }
 }
 
 // defaultLimits is the form for "Reset to defaults".
 export function defaultLimits(open) {
   return {
-    dataGiB: 1,
-    minutes: 30,
+    dataGiB: RELAY_DEFAULTS.circuitBytes / (1 << 30),
+    minutes: RELAY_DEFAULTS.circuitSeconds / 60,
     kibps: open ? RELAY_DEFAULTS.openRateBPS / 1024 : 0,
-    circuits: RELAY_DEFAULTS.circuitsPerPeer,
   }
 }
 
@@ -286,41 +280,21 @@ function round2(n) {
 }
 
 // validLimits says whether every field of the limits form is a number of zero
-// or more (zero means no limit for that field); circuits must be at least 1.
+// or more (zero means no limit for that field).
 export function validLimits(f) {
   const ok = (v) => Number.isFinite(Number(v)) && Number(v) >= 0 && String(v).trim() !== ''
-  return ok(f.dataGiB) && ok(f.minutes) && ok(f.kibps) && ok(f.circuits) && Number(f.circuits) >= 1
+  return ok(f.dataGiB) && ok(f.minutes) && ok(f.kibps)
 }
 
-// limitsCommand returns the start command of the relay with these limits.
-// A relay reads its limits when it starts, so the person runs it again with
-// these flags. noLimit drops the data, time and bandwidth limits.
-export function limitsCommand({ peerID, open, form, noLimit }) {
-  const flags = []
-  if (open) flags.push('--open')
-  else flags.push(`--admin ${shellQuote(peerID || '<peer ID of this server>')}`)
-  if (noLimit) {
-    flags.push('--circuit-max-bytes 0', '--circuit-max-duration 0', '--rate-limit 0')
-  } else {
-    flags.push(
-      `--circuit-max-bytes ${Math.round(Number(form.dataGiB) * (1 << 30))}`,
-      `--circuit-max-duration ${durationFlag(Number(form.minutes) * 60)}`,
-      `--rate-limit ${Math.round(Number(form.kibps) * 1024)}`,
-    )
+// limitsPatch is the body of PUT /api/p2p/relays/{id}/limits for the form.
+// noLimit removes the data, time and bandwidth limits.
+export function limitsPatch({ form, noLimit }) {
+  if (noLimit) return { circuit_bytes: 0, circuit_seconds: 0, rate_bps: 0 }
+  return {
+    circuit_bytes: Math.round(Number(form.dataGiB) * (1 << 30)),
+    circuit_seconds: Math.round(Number(form.minutes) * 60),
+    rate_bps: Math.round(Number(form.kibps) * 1024),
   }
-  flags.push(`--max-circuits-per-peer ${Math.max(1, Math.round(Number(form?.circuits) || RELAY_DEFAULTS.circuitsPerPeer))}`)
-  // One flag a line, so the command fits a dialog without wrapping.
-  return ['local-ai p2p relay', ...flags].join(' \\\n  ')
-}
-
-// durationFlag writes seconds as a Go duration: 30m, 1h30m, 45s, 0.
-function durationFlag(seconds) {
-  const v = Math.max(0, Math.round(seconds))
-  if (v === 0) return '0'
-  const h = Math.floor(v / 3600)
-  const m = Math.floor((v % 3600) / 60)
-  const s = v % 60
-  return `${h ? `${h}h` : ''}${m ? `${m}m` : ''}${s ? `${s}s` : ''}`
 }
 
 // ago says how long ago a time was, as a key and a count for the words:

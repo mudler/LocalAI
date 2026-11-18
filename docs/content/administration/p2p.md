@@ -227,6 +227,7 @@ names the mode.
 | `GET`, `POST /api/p2p/relays` | Lists the relays, or adds one: `{addr, label, claim_code}`. |
 | `DELETE /api/p2p/relays/{id}` | Removes a relay. |
 | `POST /api/p2p/relays/{id}/check`, `/sync`, `/claim` | Checks a relay, pushes the paired set to it now, or claims it with its code: `{code}`. |
+| `GET`, `PUT /api/p2p/relays/{id}/limits` | Reads the limits of a relay (`circuit_bytes`, `circuit_seconds`, `rate_bps`; 0 is no limit) and whether this server may change them, or changes them: a field left out stays. A new data or time limit restarts the circuit service of the relay (`restarted` is `true`). `409` when this server is not an admin of the relay or the relay is open. |
 | `POST /api/p2p/identity/regenerate` | Makes a new identity. The body must be `{"confirm": true}`. Every device must pair again. |
 | `POST /api/p2p/redeem` | Redeems an invite: `{v: 1, code, name, platform}`. Served **only over P2P**; the normal HTTP listener answers 404. |
 
@@ -239,8 +240,8 @@ While an invite is pending, a machine that is not paired may connect, but it may
 call only the redeem route. Every other request gets 403.
 
 The LocalAI Assistant has the tools `get_p2p_status`, `list_p2p_devices`,
-`list_p2p_invites`, `list_p2p_relays`, `revoke_p2p_device` and
-`cancel_p2p_invite`. It cannot create invites: a link is a credential.
+`list_p2p_invites`, `list_p2p_relays`, `get_p2p_relay_limits`,
+`revoke_p2p_device`, `cancel_p2p_invite` and `set_p2p_relay_limits`. It cannot create invites: a link is a credential.
 
 ## Several frontends
 
@@ -286,7 +287,8 @@ then create a new invite.
 **A relayed connection stops after some time.**
 The relay limits the data or the time of each connection. Your own relay has
 generous limits. An open relay has a low speed limit. LocalAI connects again by
-itself. To raise the limits, see [Run your own relay]({{% relref "/administration/p2p-relay" %}}).
+itself. To raise the limits of your own relay, use the limits button on the **Relays** page, or see
+[Run your own relay]({{% relref "/administration/p2p-relay" %}}).
 
 **A model-split worker is slow.**
 The worker is reachable only through a relay. Move the worker to a network that
