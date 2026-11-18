@@ -33,10 +33,10 @@ local owner, so a client credential would add nothing and the routes answer
 | `GET /api/client/pairing-codes` | administrator | Lists the codes that are not used or expired, with the same `tlsFingerprint` and `tlsDigest` when TLS is on. |
 | `DELETE /api/client/pairing-codes/{id}` | administrator | Cancels a code. |
 | `POST /api/client/pair` | the client, no credential | Body: `code`, optional `name`. Returns the client key once. |
-| `GET /api/client/keys` | administrator | Lists the paired clients, with their features, their add-ons, their models and last use. |
-| `PUT /api/client/keys/{id}` | administrator | Changes the add-ons, the models or the folder grant of a paired client. Body: `{"addons": ["id", ...]}`, `{"models": ["name", ...]}`, `{"readFolders": [...], "writeFolder": "..."}` or any of them. A field that is absent stays as it is. It applies at the next request. An empty add-on list cuts the client off from every add-on. A key with `client_inference` needs at least one model. |
+| `GET /api/client/keys` | administrator | Lists the paired clients, with their features, their add-ons, their models and last use. `allModels` is `true` for a key that may use every model (see [Inference with a client key](#inference-with-a-client-key)). |
+| `PUT /api/client/keys/{id}` | administrator | Changes the add-ons, the models or the folder grant of a paired client. Body: `{"addons": ["id", ...]}`, `{"models": ["name", ...]}`, `{"readFolders": [...], "writeFolder": "..."}` or any of them. A field that is absent stays as it is. It applies at the next request. An empty add-on list cuts the client off from every add-on. A key with `client_inference` needs at least one model. A list of models replaces the grant of every model (`allModels` becomes `false`). |
 | `DELETE /api/client/keys/{id}` | administrator | Revokes a client. It stops at the next request, and it closes a realtime session that is open (see below). |
-| `GET /api/client/self` | the client | Returns what the key may use in one call: `id`, `name`, `features`, `addons`, `models`, the expiry, and the `version` and `commit` of the instance. `version` is the tag of a release, or `dev` for a source build. Needs `client_self`. |
+| `GET /api/client/self` | the client | Returns what the key may use in one call: `id`, `name`, `features`, `addons`, `models`, `allModels`, the expiry, and the `version` and `commit` of the instance. `version` is the tag of a release, or `dev` for a source build. Needs `client_self`. |
 
 A code has 10 characters, for example `7KQ3M-X9PTD`. It expires after 10 minutes
 by default and after one hour at most. It works once. LocalAI stores only its
@@ -100,6 +100,11 @@ A key with `client_inference` calls these routes of the standard API, with
 | `POST /v1/audio/classification` | Sound classification |
 | `GET /v1/realtime` | Realtime session over a websocket |
 | `GET /v1/models` | The models of the key |
+
+A key normally has a list of models. The key that a remote over P2P receives
+from an invite without a list of models has `allModels`: it may use every model
+of this instance that passes the check (the model exists and has no tools
+attached), also models added later. `GET /v1/models` lists those models.
 
 The list is fixed. Embeddings, voice activity detection, voice and face
 recognition, diarization, sound generation, audio transformations, MCP, the

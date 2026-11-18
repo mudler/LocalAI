@@ -103,6 +103,9 @@ type ClientPairingCode struct {
 	Features PermissionMap `gorm:"type:text"`
 	Addons   AddonList     `gorm:"type:text"` // add-ons the issued key may reach
 	Models   ModelList     `gorm:"type:text"` // models the issued key may use (client_inference)
+	// AllModels gives the issued key every model instead of a list (see
+	// UserAPIKey.AllModels).
+	AllModels bool `gorm:"not null;default:false"`
 	// ReadFolders and WriteFolder are the folder grant of the issued key
 	// (client_folders), relative to the workspace of the owner.
 	ReadFolders FolderList `gorm:"type:text"`
@@ -270,8 +273,8 @@ func checkClientModels(models ModelList, check ClientModelCheck) error {
 }
 
 // ErrClientModels is the refusal of a model list that does not fit the
-// features: client_inference needs at least one model, and a list without that
-// feature has no use.
+// features: client_inference needs at least one model or the grant of every
+// model (never both), and a list without that feature has no use.
 var ErrClientModels error = &clientInputError{msg: "client_inference needs a list of models, and only client_inference takes one"}
 
 // PairingOption sets an optional field of a pairing code.
@@ -279,6 +282,7 @@ type PairingOption func(*pairingOptions)
 
 type pairingOptions struct {
 	models      []string
+	allModels   bool
 	modelCheck  ClientModelCheck
 	readFolders []string
 	writeFolder string
@@ -294,6 +298,12 @@ func WithFolders(read []string, write string) PairingOption {
 // client_inference.
 func WithModels(models []string) PairingOption {
 	return func(o *pairingOptions) { o.models = models }
+}
+
+// WithAllModels gives the issued key every model that passes the model check,
+// for a code that carries client_inference and no list of models.
+func WithAllModels() PairingOption {
+	return func(o *pairingOptions) { o.allModels = true }
 }
 
 // WithModelCheck makes CreatePairingCode check each listed model.
@@ -387,8 +397,12 @@ func CreatePairingCode(db *gorm.DB, ownerID, name string, features, addons []str
 		return "", nil, err
 	}
 	// The same rule for models, and no model can be listed until it passes the
-	// check of LocalAI: it exists and has no tools attached.
-	if perms[FeatureClientInference] != (len(models) > 0) {
+	// check of LocalAI: it exists and has no tools attached. A grant of every
+	// model stands for the list and takes none.
+	if po.allModels && len(models) > 0 {
+		return "", nil, ErrClientModels
+	}
+	if perms[FeatureClientInference] != (len(models) > 0 || po.allModels) {
 		return "", nil, ErrClientModels
 	}
 	if err := checkClientModels(models, po.modelCheck); err != nil {
@@ -435,6 +449,7 @@ func CreatePairingCode(db *gorm.DB, ownerID, name string, features, addons []str
 		Features:    perms,
 		Addons:      list,
 		Models:      models,
+		AllModels:   po.allModels,
 		ReadFolders: readFolders,
 		WriteFolder: writeFolder,
 		KeyTTL:      int64(keyTTL / time.Second),
@@ -538,6 +553,7 @@ func RedeemPairingCode(db *gorm.DB, code, clientName, hmacSecret string) (string
 			Features:    rec.Features,
 			Addons:      rec.Addons,
 			Models:      rec.Models,
+			AllModels:   rec.AllModels,
 			ReadFolders: rec.ReadFolders,
 			WriteFolder: rec.WriteFolder,
 			ExpiresAt:   expires,
@@ -705,15 +721,17 @@ func SetClientKeyAddons(db *gorm.DB, id, ownerID string, addons []string) (Addon
 }
 
 // AllowsModel reports whether a client key may use the model. It needs the
-// client_inference feature and the name in the list of the key. An empty list
-// reaches nothing, and so does a request that names no model.
+// client_inference feature and the name in the list of the key, or a grant of
+// every model. An empty list reaches nothing, and so does a request that names
+// no model. The model check of LocalAI applies on top in every case.
 func (k *UserAPIKey) AllowsModel(model string) bool {
-	return model != "" && k.ClientAllows(FeatureClientInference) && slices.Contains(k.Models, model)
+	return model != "" && k.ClientAllows(FeatureClientInference) && (k.AllModels || slices.Contains(k.Models, model))
 }
 
 // SetClientKeyModels replaces the model list of a client key of the owner. The
 // key must hold client_inference, which needs at least one model, and any other
-// key takes no list. Each model is checked with check (nil skips the check).
+// key takes no list. Each model is checked with check (nil skips the check). A
+// grant of every model ends: the key keeps the list only.
 func SetClientKeyModels(db *gorm.DB, id, ownerID string, models []string, check ClientModelCheck) (ModelList, error) {
 	list, err := NormalizeClientModels(models)
 	if err != nil {
@@ -729,7 +747,8 @@ func SetClientKeyModels(db *gorm.DB, id, ownerID string, models []string, check 
 	if err := checkClientModels(list, check); err != nil {
 		return nil, err
 	}
-	res := db.Model(&UserAPIKey{}).Where("id = ? AND user_id = ? AND kind = ?", id, ownerID, KeyKindClient).Update("models", list)
+	res := db.Model(&UserAPIKey{}).Where("id = ? AND user_id = ? AND kind = ?", id, ownerID, KeyKindClient).
+		Updates(map[string]any{"models": list, "all_models": false})
 	if res.Error != nil {
 		return nil, res.Error
 	}
