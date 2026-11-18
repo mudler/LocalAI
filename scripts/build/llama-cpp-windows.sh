@@ -927,8 +927,8 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE" "$ROOT/backend-images"
 
 # The main build's grpc-server keeps the historical llama-cpp-cpu-all.exe name:
-# run.ps1 selects it by that name and pkg/model's resolveLauncher falls back to
-# run.ps1 when no rpc build ships llama-cpp-grpc.exe.
+# run.ps1 selects it by that name. The rpc build below is used only when
+# LLAMACPP_GRPC_SERVERS is set, as in run.sh.
 cp llama.cpp/build-cpu-all/bin/grpc-server.exe "$STAGE/llama-cpp-cpu-all.exe"
 # ggml's shared backends are loadable DLLs; they go next to the executable so
 # the registry finds them without any PATH setup (mirrors run.sh LD_LIBRARY_PATH).

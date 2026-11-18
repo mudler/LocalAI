@@ -14,18 +14,15 @@ import (
 )
 
 // resolveLauncher rewrites the gallery-contract run.sh launch for a Windows
-// host, which has no POSIX shell to execute that stub. On Windows, prefer
-// launching llama-cpp-grpc.exe directly: it is the dedicated gRPC server that
-// stays running for inference, whereas run.sh/run.ps1 default to
-// llama-cpp-cpu-all.exe which loads the model and exits. We do not set
-// LLAMACPP_GRPC_SERVERS to select grpc.exe because grpc-server.cpp also reads
-// that variable as RPC server addresses (add_rpc_devices), so setting it to "1"
-// would make the backend try to connect to endpoint "1" and crash.
+// host, which has no POSIX shell to execute that stub. The bundled run.ps1 is
+// started through the system PowerShell. It picks the backend binary the same
+// way run.sh does: llama-cpp-cpu-all.exe by default, llama-cpp-fallback.exe
+// when that is absent, and the RPC build (llama-cpp-grpc.exe) only when
+// LLAMACPP_GRPC_SERVERS is set. The RPC build is compiled without AVX, AVX2,
+// AVX512, FMA, F16C and BMI2, so it must not be the default.
 //
-// run.ps1/run.sh remain fallbacks for backends that don't ship
-// llama-cpp-grpc.exe. The lib/ directory is added to PATH in
-// prepareBackendEnv so DLLs are found, mirroring run.ps1's
-// "$env:PATH = \"$lib;$env:PATH\"".
+// The lib/ directory is added to PATH in prepareBackendEnv so DLLs are found,
+// mirroring run.ps1's "$env:PATH = \"$lib;$env:PATH\"".
 func resolveLauncher(grpcProcess, workDir string, args []string) (processName string, processArgs []string, err error) {
 	processName, processArgs, err = resolveLauncherPath(grpcProcess, workDir, args)
 	if err != nil {
@@ -50,14 +47,6 @@ func joinAddrArgs(args []string) []string {
 }
 
 func resolveLauncherPath(grpcProcess, workDir string, args []string) (processName string, processArgs []string, err error) {
-	// Prefer launching llama-cpp-grpc.exe directly.
-	grpcBinary := filepath.Join(workDir, "llama-cpp-grpc.exe")
-	if _, statErr := os.Stat(grpcBinary); statErr == nil {
-		return grpcBinary, args, nil
-	}
-
-	// Fall back to run.ps1 via PowerShell: it handles backend binary selection
-	// and environment setup correctly.
 	runScript := filepath.Join(workDir, "run.ps1")
 	if _, statErr := os.Stat(runScript); statErr == nil {
 		// os.StartProcess resolves the executable against ProcAttr.Dir on
@@ -76,25 +65,10 @@ func resolveLauncherPath(grpcProcess, workDir string, args []string) (processNam
 		return powershell, processArgs, nil
 	}
 
-	// Fall back to run.sh via PowerShell (has environment setup).
-	runScript = filepath.Join(workDir, "run.sh")
-	if _, statErr := os.Stat(runScript); statErr == nil {
-		powershell, lookErr := exec.LookPath("powershell.exe")
-		if lookErr != nil {
-			return "", nil, fmt.Errorf("could not locate powershell.exe to launch %s: %w", runScript, lookErr)
-		}
-		processArgs = append([]string{
-			"-NoProfile",
-			"-ExecutionPolicy", "Bypass",
-			"-File", runScript,
-		}, args...)
-		return powershell, processArgs, nil
-	}
-
-	// Last resort: the raw gallery contract path. Resolve it against workDir:
-	// CreateProcess does not search the child's working directory, so a bare
-	// basename would be looked up next to local-ai.exe instead of in the
-	// backend directory.
+	// Last resort for a backend that ships no run.ps1: run the gallery
+	// contract path as it is. Resolve it against workDir: CreateProcess does
+	// not search the child's working directory, so a bare basename would be
+	// looked up next to local-ai.exe instead of in the backend directory.
 	return filepath.Join(workDir, filepath.Base(grpcProcess)), args, nil
 }
 

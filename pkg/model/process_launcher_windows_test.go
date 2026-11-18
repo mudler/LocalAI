@@ -70,32 +70,47 @@ func TestResolveLauncherWindowsWithoutRunPs1(t *testing.T) {
 	}
 }
 
-func TestResolveLauncherWindowsPrefersGrpcBinary(t *testing.T) {
+func TestResolveLauncherWindowsIgnoresGrpcBinary(t *testing.T) {
 	dir := t.TempDir()
-	// The backend ships llama-cpp-grpc.exe: the launcher must start it
-	// directly, without going through run.ps1 or setting
-	// LLAMACPP_GRPC_SERVERS (which grpc-server.cpp reads as RPC addresses).
-	grpcBinary := filepath.Join(dir, "llama-cpp-grpc.exe")
-	if err := os.WriteFile(grpcBinary, []byte("dummy"), 0o644); err != nil {
-		t.Fatalf("failed to create llama-cpp-grpc.exe: %v", err)
+	// The RPC build ships as llama-cpp-grpc.exe and has no CPU
+	// optimizations. The launcher must go through run.ps1, which selects it
+	// only when LLAMACPP_GRPC_SERVERS is set.
+	for _, name := range []string{"llama-cpp-grpc.exe", "run.ps1"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("dummy"), 0o644); err != nil {
+			t.Fatalf("failed to create %s: %v", name, err)
+		}
 	}
 
 	processName, args, err := resolveLauncher(filepath.Join(dir, "run.sh"), dir, []string{"--addr", "localhost:50051"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	if processName != grpcBinary {
-		t.Fatalf("expected processName %q, got %q", grpcBinary, processName)
+	if filepath.Base(processName) != "powershell.exe" {
+		t.Fatalf("expected powershell.exe, got %q", processName)
 	}
-
-	expectedArgs := []string{"--addr=localhost:50051"}
-	if len(args) != len(expectedArgs) {
-		t.Fatalf("expected %d args, got %d: %v", len(expectedArgs), len(args), args)
+	want := []string{"-NoProfile", "-ExecutionPolicy", "Bypass", "-File", filepath.Join(dir, "run.ps1"), "--addr=localhost:50051"}
+	if len(args) != len(want) {
+		t.Fatalf("expected args %v, got %v", want, args)
 	}
-	for i := range expectedArgs {
-		if args[i] != expectedArgs[i] {
-			t.Fatalf("arg %d: expected %q, got %q", i, expectedArgs[i], args[i])
+	for i := range want {
+		if args[i] != want[i] {
+			t.Fatalf("arg %d: expected %q, got %q", i, want[i], args[i])
 		}
+	}
+}
+
+func TestResolveLauncherWindowsDoesNotUseRunSh(t *testing.T) {
+	dir := t.TempDir()
+	// PowerShell -File needs a .ps1 script, so a lone run.sh must never be
+	// passed to it.
+	if err := os.WriteFile(filepath.Join(dir, "run.sh"), []byte("#!/bin/sh"), 0o644); err != nil {
+		t.Fatalf("failed to create run.sh: %v", err)
+	}
+	processName, _, err := resolveLauncher(filepath.Join(dir, "run.sh"), dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if filepath.Base(processName) == "powershell.exe" {
+		t.Fatal("run.sh must not be launched through powershell.exe")
 	}
 }
