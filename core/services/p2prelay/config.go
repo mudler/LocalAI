@@ -23,6 +23,10 @@ const (
 	DefaultMaxReservations            = 128
 	DefaultMaxReservationsPerIP       = 8
 	DefaultMaxConnsPerIP              = 32
+	DefaultConnRatePerIP              = 2.0
+	DefaultConnBurstPerIP             = 128
+	DefaultConnRateTotal              = 200.0
+	DefaultConnBurstTotal             = 1000
 	DefaultMaxPeersPerAdmin           = 1024
 	DefaultMaxPassesPerAdmin          = 64
 	DefaultPendingTTL                 = 10 * time.Minute
@@ -137,6 +141,18 @@ type Config struct {
 	// MaxConnsPerIP is the number of connections from one IPv4 address or
 	// one IPv6 /56. Many devices can share one home or CGNAT address.
 	MaxConnsPerIP int
+	// ConnRatePerIP is the number of new connections per second that one
+	// IPv4 address (or IPv6 /56) may open once its burst is used up, and
+	// ConnBurstPerIP is the burst. Many devices behind one home, office or
+	// CGNAT address redeem invites and reconnect together, so the burst is
+	// large. Zero for the rate means no limit. Loopback is never limited.
+	ConnRatePerIP  float64
+	ConnBurstPerIP int
+	// ConnRateTotal and ConnBurstTotal are the same for all addresses
+	// together: the ceiling for a flood from many addresses. Zero for the
+	// rate means no limit.
+	ConnRateTotal  float64
+	ConnBurstTotal int
 	// MaxPeersPerAdmin bounds the set of one admin, pending members included.
 	MaxPeersPerAdmin int
 	// MaxPassesPerAdmin bounds the open relay passes of one admin.
@@ -157,6 +173,10 @@ func DefaultConfig(open bool) Config {
 		Open:              open,
 		Limits:            DefaultLimits(),
 		MaxConnsPerIP:     DefaultMaxConnsPerIP,
+		ConnRatePerIP:     DefaultConnRatePerIP,
+		ConnBurstPerIP:    DefaultConnBurstPerIP,
+		ConnRateTotal:     DefaultConnRateTotal,
+		ConnBurstTotal:    DefaultConnBurstTotal,
 		MaxPeersPerAdmin:  DefaultMaxPeersPerAdmin,
 		MaxPassesPerAdmin: DefaultMaxPassesPerAdmin,
 		PendingTTL:        DefaultPendingTTL,
@@ -177,6 +197,12 @@ func (c *Config) validate() error {
 	}
 	if c.MaxConnsPerIP < 0 {
 		return errors.New("p2prelay: MaxConnsPerIP must not be negative")
+	}
+	if c.ConnRatePerIP < 0 || c.ConnRateTotal < 0 || c.ConnBurstPerIP < 0 || c.ConnBurstTotal < 0 {
+		return errors.New("p2prelay: connection rates and bursts must not be negative")
+	}
+	if (c.ConnRatePerIP > 0 && c.ConnBurstPerIP == 0) || (c.ConnRateTotal > 0 && c.ConnBurstTotal == 0) {
+		return errors.New("p2prelay: a connection rate needs a burst of at least 1")
 	}
 	if c.MaxPeersPerAdmin <= 0 || c.MaxPassesPerAdmin <= 0 {
 		return errors.New("p2prelay: MaxPeersPerAdmin and MaxPassesPerAdmin must be positive")

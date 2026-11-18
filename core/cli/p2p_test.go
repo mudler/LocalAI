@@ -82,7 +82,7 @@ var _ = Describe("local-ai p2p relay flags", func() {
 	It("reads limits, caps and the public address", func() {
 		cfg, err := relayConfig("--rate-limit=1000", "--total-rate-limit=5000", "--circuit-max-bytes=10", "--circuit-max-duration=1m",
 			"--max-circuits=3", "--max-reservations=4", "--max-reservations-per-ip=2", "--max-circuits-per-peer=1",
-			"--max-conns-per-ip=5", "--pending-ttl=2m", "--public-ip=203.0.113.9", "--json")
+			"--max-conns-per-ip=5", "--conn-rate-per-ip=1.5", "--conn-burst-per-ip=9", "--conn-rate-total=50", "--conn-burst-total=70", "--pending-ttl=2m", "--public-ip=203.0.113.9", "--json")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(cfg.RateLimit).To(BeEquivalentTo(1000))
 		Expect(cfg.TotalRateLimit).To(BeEquivalentTo(5000))
@@ -93,6 +93,10 @@ var _ = Describe("local-ai p2p relay flags", func() {
 		Expect(cfg.MaxReservationsPerIP).To(Equal(2))
 		Expect(cfg.MaxCircuitsPerPeer).To(Equal(1))
 		Expect(cfg.MaxConnsPerIP).To(Equal(5))
+		Expect(cfg.ConnRatePerIP).To(Equal(1.5))
+		Expect(cfg.ConnBurstPerIP).To(Equal(9))
+		Expect(cfg.ConnRateTotal).To(Equal(50.0))
+		Expect(cfg.ConnBurstTotal).To(Equal(70))
 		Expect(cfg.PendingTTL).To(Equal(2 * time.Minute))
 		Expect(cfg.PublicIP.String()).To(Equal("203.0.113.9"))
 		Expect(cfg.JSON).To(BeTrue())

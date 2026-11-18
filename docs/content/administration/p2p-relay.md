@@ -189,6 +189,10 @@ no pass. The interface tells you.
 | `--max-reservations` | 128 | Machines that wait for a connection. |
 | `--max-reservations-per-ip` | 8 | The same, for each IP address. |
 | `--max-conns-per-ip` | 32 | Connections for each IP address. |
+| `--conn-burst-per-ip` | 128 | New connections that one IP address may open at once. |
+| `--conn-rate-per-ip` | 2 | New connections for each second that one IP address may open after the burst. `0` means no limit. |
+| `--conn-burst-total` | 1000 | New connections that all addresses together may open at once. |
+| `--conn-rate-total` | 200 | The same for each second, for all addresses together. `0` means no limit. |
 | `--max-peers-per-admin` | 1024 | Devices in the list of one admin. |
 | `--rate-limit` | none (open relay: 64 KiB/s) | Speed limit for each connection and direction, in bytes per second. `0` removes the limit and prints a warning for an open relay. |
 | `--total-rate-limit` | none | Speed limit for the whole relay, in bytes per second. |
@@ -227,6 +231,23 @@ machine are one of them.
 
 Many devices can share one home or mobile address. Raise `--max-conns-per-ip` and
 `--max-reservations-per-ip` if your users are behind one address.
+
+### Connection rate
+
+The relay also limits how fast new connections arrive, before any device has
+shown that it is a member. A stranger can open a connection, so this limit
+protects the relay from a flood. It has two parts: one for each IP address (an
+IPv6 `/56`) and one for all addresses together. Each part is a burst that is
+available at once and a rate that refills it. The default burst for one address
+is large (128) because the devices of a home, an office or a mobile network
+share one address and often connect together, for example when they redeem
+invites. Connections from the same machine (loopback) are never limited.
+
+When the limit refuses a connection, the other side sees `failed to negotiate
+security protocol: EOF` and the relay logs `rate limit exceeded`. Raise
+`--conn-burst-per-ip` if many devices share one address. Keep the total rate:
+it is the limit for a flood from many addresses. These are start options. They
+are not part of the limits that a server can change.
 
 ## Other options
 
