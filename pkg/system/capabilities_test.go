@@ -390,3 +390,63 @@ var _ = Describe("ServingFeaturePreferenceTokens", func() {
 		Expect(ServingFeaturePreferenceTokens()[0]).To(Equal("dflash"))
 	})
 })
+
+var _ = Describe("a Windows host", func() {
+	var previous string
+
+	BeforeEach(func() {
+		previous = os.Getenv(capabilityEnv)
+		Expect(os.Setenv(capabilityEnv, windows)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if previous == "" {
+			Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
+		} else {
+			Expect(os.Setenv(capabilityEnv, previous)).To(Succeed())
+		}
+	})
+
+	It("accepts only backends that carry the windows token", func() {
+		s := &SystemState{}
+		Expect(s.IsBackendCompatible("windows-llama-cpp", "quay.io/x/local-ai-backends:latest-windows-amd64-llama-cpp")).To(BeTrue())
+		Expect(s.IsBackendCompatible("windows-llama-cpp-development", "")).To(BeTrue())
+	})
+
+	It("rejects Linux CPU backends and GPU backends", func() {
+		s := &SystemState{}
+		Expect(s.IsBackendCompatible("cpu-llama-cpp", "quay.io/x/local-ai-backends:latest-cpu-llama-cpp")).To(BeFalse())
+		Expect(s.IsBackendCompatible("cpu-whisper", "")).To(BeFalse())
+		Expect(s.IsBackendCompatible("cuda12-llama-cpp", "")).To(BeFalse())
+		Expect(s.IsBackendCompatible("metal-llama-cpp", "")).To(BeFalse())
+	})
+
+	It("does not pick a default or cpu entry of a meta backend", func() {
+		withWindows := map[string]string{"default": "cpu-x", "windows": "windows-x"}
+		Expect(PickCapability(windows, withWindows)).To(Equal(windows))
+		withoutWindows := map[string]string{"default": "cpu-x", "cpu": "cpu-x", "nvidia": "cuda12-x"}
+		Expect(withoutWindows[PickCapability(windows, withoutWindows)]).To(BeEmpty())
+	})
+
+	It("keeps the fallback to default for other hosts", func() {
+		Expect(PickCapability("default", map[string]string{"default": "cpu-x"})).To(Equal("default"))
+		Expect(PickCapability("some-gpu", map[string]string{"default": "cpu-x"})).To(Equal("default"))
+	})
+})
+
+var _ = Describe("a non-Windows host", func() {
+	It("rejects Windows backends", func() {
+		previous := os.Getenv(capabilityEnv)
+		Expect(os.Setenv(capabilityEnv, "default")).To(Succeed())
+		DeferCleanup(func() {
+			if previous == "" {
+				Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
+			} else {
+				Expect(os.Setenv(capabilityEnv, previous)).To(Succeed())
+			}
+		})
+		s := &SystemState{}
+		Expect(s.IsBackendCompatible("windows-llama-cpp", "")).To(BeFalse())
+		Expect(s.IsBackendCompatible("cpu-llama-cpp", "")).To(BeTrue())
+	})
+})

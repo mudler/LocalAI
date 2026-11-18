@@ -331,6 +331,14 @@ func PickCapability(reportedCapability string, capMap map[string]string) string 
 		return reportedCapability
 	}
 
+	// A Windows host can only run a native Windows build. Falling back to the
+	// "default" or "cpu" entry would pick a Linux image, so report the missing
+	// key and let the caller treat the meta backend as having no target.
+	if reportedCapability == windows {
+		xlog.Debug("No Windows target in the meta backend", "capMap", capMap)
+		return reportedCapability
+	}
+
 	// Fall back to the explicit "default" catch-all, then to "cpu". The cpu
 	// fallback matters for meta backends that only enumerate GPU variants +
 	// cpu (e.g. vllm maps nvidia/amd/intel/cpu but not default): on a
@@ -515,6 +523,13 @@ func (s *SystemState) IsBackendCompatible(name, uri string) bool {
 	combined := strings.ToLower(name + " " + uri)
 	capability := s.getSystemCapabilities()
 
+	// A Windows host runs only native Windows builds. Every other backend is a
+	// Linux or macOS image, so the "CPU backends are always compatible" rule at
+	// the end of this function must not apply to it.
+	if capability == windows {
+		return strings.Contains(combined, backendTokenWindows)
+	}
+
 	// Check for darwin/macOS-specific backends (mlx, metal, darwin)
 	isDarwinBackend := strings.Contains(combined, backendTokenDarwin) ||
 		strings.Contains(combined, backendTokenMLX) ||
@@ -524,9 +539,9 @@ func (s *SystemState) IsBackendCompatible(name, uri string) bool {
 		return capability == metal || capability == darwinX86
 	}
 
-	// Check for Windows-specific backends (native windows/amd64 builds)
+	// A Windows build is not usable on any other host.
 	if strings.Contains(combined, backendTokenWindows) {
-		return capability == windows
+		return false
 	}
 
 	// Check for NVIDIA L4T-specific backends (arm64 Linux with NVIDIA GPU)
