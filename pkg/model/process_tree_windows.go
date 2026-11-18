@@ -17,7 +17,7 @@ type jobProcessTree struct {
 	job  windows.Handle
 }
 
-func newProcessTree() processTree { return &jobProcessTree{} }
+func newPlatformProcessTree() processTree { return &jobProcessTree{} }
 
 // assign wraps the process tree rooted at pid in a job object. A child joins
 // its parent's job, so assigning the run.ps1 wrapper captures the backend it

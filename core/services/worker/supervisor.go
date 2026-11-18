@@ -645,7 +645,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// surface the failure to the caller with the backend's stderr tail.
 	stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
 	xlog.Error("Backend gRPC server not ready before deadline; aborting install", "backend", backend, "addr", clientAddr, "timeout", readinessTimeout, "healthError", lastHealthErr, "stderr", stderrTail)
-	if killErr := proc.Stop(); killErr != nil {
+	if killErr := s.stopProcess(proc); killErr != nil {
 		xlog.Warn("Failed to stop unready backend process", "backend", backend, "error", killErr)
 	}
 	s.releaseBackendStart(backend, bp)
@@ -975,7 +975,7 @@ func (s *backendSupervisor) finishStopping(key string, bp *backendProcess, force
 
 	xlog.Info("Stopping backend process", "backend", key, "addr", bp.addr, "force", force, "backendName", bp.backendName)
 	s.ml.NoteIntentionalStop(bp.proc)
-	stopErr := bp.proc.Stop()
+	stopErr := s.stopProcess(bp.proc)
 	if stopErr != nil {
 		xlog.Error("Error stopping backend process", "backend", key, "error", stopErr)
 	}
@@ -1041,7 +1041,7 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	}
 
 	s.ml.NoteIntentionalStop(bp.proc)
-	stopErr := bp.proc.Stop()
+	stopErr := s.stopProcess(bp.proc)
 	if stopErr == nil {
 		<-bp.proc.Done()
 	}
@@ -1102,6 +1102,19 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 	}
 	s.releasePortForKey(key, bp.port)
 	return nil
+}
+
+// stopProcess stops a backend process and then its whole process tree. On
+// Windows, proc.Stop ends only the run.ps1 wrapper; the backend binary it
+// started would keep running, and keep its port, until the runtime cleanup
+// some time later. Terminating the tree here makes the stop complete before
+// the port goes back to the allocator. Elsewhere the tree step does nothing.
+func (s *backendSupervisor) stopProcess(proc *process.Process) error {
+	err := proc.Stop()
+	if s.ml != nil {
+		s.ml.TerminateProcessTree(proc)
+	}
+	return err
 }
 
 func (s *backendSupervisor) cleanupProcessRuntime(proc *process.Process) {

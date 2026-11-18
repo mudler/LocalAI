@@ -7,7 +7,7 @@ package model
 // needed to reap it on stop.
 type noopProcessTree struct{}
 
-func newProcessTree() processTree { return noopProcessTree{} }
+func newPlatformProcessTree() processTree { return noopProcessTree{} }
 
 func (noopProcessTree) assign(int) error { return nil }
 

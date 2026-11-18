@@ -490,6 +490,17 @@ func (ml *ModelLoader) forgetExitedProcess(id string, p *process.Process) {
 	ml.cleanupProcessRuntime(p)
 }
 
+// TerminateProcessTree kills every process in the tree of a backend started
+// through StartProcess. Callers that stop such a process directly with
+// process.Stop must call it too: on Windows, Stop ends only the run.ps1
+// wrapper, and the backend binary that the wrapper started keeps running (and
+// keeps its port) until the tree is terminated. Elsewhere it does nothing,
+// because the process manager stops the whole process group. It is
+// idempotent and safe to call for a process that already exited.
+func (ml *ModelLoader) TerminateProcessTree(process *process.Process) {
+	ml.terminateProcessTreeForProcess(process)
+}
+
 // terminateProcessTreeForProcess kills the backend's full process tree using
 // the tracker created at launch (see createProcess). Idempotent: the tracker
 // makes a concurrent stop racing with this one safe, and the map lookup is a

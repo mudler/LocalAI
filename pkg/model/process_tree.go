@@ -16,3 +16,8 @@ type processTree interface {
 	// terminate kills the tracked process tree and releases its handles.
 	terminate()
 }
+
+// newProcessTree creates the tracker for one backend. It is a variable so tests
+// can observe the tree operations on platforms where the real tracker does
+// nothing.
+var newProcessTree = newPlatformProcessTree
