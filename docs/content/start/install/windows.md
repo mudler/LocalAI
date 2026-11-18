@@ -18,7 +18,48 @@ The llama.cpp backend comes from the backend gallery as a native Windows image. 
 
 ## Install
 
-Download the Windows release file `local-ai-<version>-windows-amd64.exe` from the [releases page](https://github.com/mudler/LocalAI/releases). Put it in a folder of your choice and run it from PowerShell. The install script is for Linux and macOS and does not work on Windows.
+### Install script
+
+The PowerShell script installs LocalAI for your user. It needs no administrator rights. It downloads the release file `local-ai-<version>-windows-amd64.exe`, checks its SHA-256 sum against the checksum file of the release, and puts it in `%LOCALAPPDATA%\LocalAI\bin`. It then adds that folder to your user `PATH`. It works in Windows PowerShell 5.1 and in PowerShell 7.
+
+To read the script before you run it, download it first:
+
+```powershell
+irm https://localai.io/install.ps1 -OutFile install.ps1
+Get-Content .\install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+The one-line form runs the script without a review step:
+
+```powershell
+irm https://localai.io/install.ps1 | iex
+```
+
+Run the script again to upgrade. It does nothing when the installed file already matches the release. A running `local-ai.exe` keeps the old version until you restart it.
+
+The download-then-run form takes these parameters. The one-line form cannot take parameters, so set the environment variable in the same row before it.
+
+| Parameter | Environment variable | Effect |
+|---|---|---|
+| `-Version v4.7.1` | `LOCALAI_VERSION` | Install a given release. The default is the latest release. |
+| `-InstallDir C:\tools\localai` | `INSTALL_DIR` | Install into this folder. The default is `%LOCALAPPDATA%\LocalAI\bin`. |
+| `-NoPath` | `LOCALAI_NO_PATH=1` | Do not change your `PATH`. |
+| `-InstallBackend` | `LOCALAI_INSTALL_BACKEND=1` | Download the llama.cpp backend after the install, with `local-ai backends install llama-cpp`. Without this, LocalAI downloads it when a model first needs it. |
+| `-Force` | `LOCALAI_FORCE=1` | Install again even when the same build is present. |
+| `-Uninstall` | `LOCALAI_UNINSTALL=1` | Remove `local-ai.exe` and the `PATH` entry. Your models, backends and settings stay. |
+
+Example with a pinned version and the backend, in one line:
+
+```powershell
+$env:LOCALAI_VERSION = 'v4.7.1'; $env:LOCALAI_INSTALL_BACKEND = '1'; irm https://localai.io/install.ps1 | iex
+```
+
+The script stops with a clear message on Windows arm64, because there is no arm64 build. It uses TLS 1.2 or later and stops when the checksum does not match.
+
+### Manual install
+
+Download `local-ai-<version>-windows-amd64.exe` from the [releases page](https://github.com/mudler/LocalAI/releases). The checksum file of the release is `LocalAI-<version>-checksums.txt`. Check the file with `Get-FileHash -Algorithm SHA256 .\local-ai-<version>-windows-amd64.exe`, put it in a folder of your choice and run it from PowerShell.
 
 ## First run
 
@@ -84,9 +125,14 @@ check the GPU's compute capability with
 
 ### Antivirus / SmartScreen
 
-Windows Defender SmartScreen may warn about the unsigned `local-ai.exe` and
-backend binaries. Click **More info** → **Run anyway** to proceed. Future
-releases will be signed.
+Windows Defender SmartScreen may warn about `local-ai.exe` and the backend
+binaries. The server binary of a release is signed with Authenticode only when
+the project has a signing certificate set up for that release, and the backend
+binaries are not signed. A file that you download with the install script has
+no web mark, so SmartScreen does not check it. A file that you download with a
+browser does. Click **More info** and then **Run anyway** to proceed. Check the
+SHA-256 sum against the checksum file of the release first. To see if a file is
+signed, run `Get-AuthenticodeSignature .\local-ai.exe`.
 
 ### App chats fail with "The model's context window is too small for the tools"
 
