@@ -6185,9 +6185,9 @@
     - GPU
   capabilities:
     default: cpu-llama-cpp
-  uri: quay.io/go-skynet/local-ai-backends:latest-windows-llama-cpp
+  uri: quay.io/go-skynet/local-ai-backends:latest-windows-amd64-llama-cpp
   mirrors:
-    - localai/localai-backends:latest-windows-llama-cpp
+    - localai/localai-backends:latest-windows-amd64-llama-cpp
 - name: windows-llama-cpp-development
   alias: llama-cpp
   license: mit
@@ -6204,9 +6204,9 @@
     - GPU
   capabilities:
     default: cpu-llama-cpp
-  uri: quay.io/go-skynet/local-ai-backends:master-windows-llama-cpp
+  uri: quay.io/go-skynet/local-ai-backends:master-windows-amd64-llama-cpp
   mirrors:
-    - localai/localai-backends:master-windows-llama-cpp
+    - localai/localai-backends:master-windows-amd64-llama-cpp
 - name: cpu-turboquant
   alias: turboquant
   license: mit

@@ -8730,7 +8730,7 @@
   version: 0.0.0-development
 - alias: llama-cpp
   arch: amd64
-  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-windows-llama-cpp
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-windows-amd64-llama-cpp
   capabilities:
     default: cpu-llama-cpp
   channel: latest
@@ -8740,7 +8740,7 @@
   kind: backend
   license: mit
   mirrors:
-    - oci://localai/localai-backends:latest-windows-llama-cpp
+    - oci://localai/localai-backends:latest-windows-amd64-llama-cpp
   # Unpinned until backend-jobs-windows pushes the image once; pin it with
   # backendcatalog --repin afterwards.
   mutable: true
@@ -8759,7 +8759,7 @@
   version: 0.0.0-latest
 - alias: llama-cpp
   arch: amd64
-  artifact: oci://quay.io/go-skynet/local-ai-backends:master-windows-llama-cpp
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-windows-amd64-llama-cpp
   capabilities:
     default: cpu-llama-cpp
   channel: development
@@ -8769,7 +8769,7 @@
   kind: backend
   license: mit
   mirrors:
-    - oci://localai/localai-backends:master-windows-llama-cpp
+    - oci://localai/localai-backends:master-windows-amd64-llama-cpp
   mutable: true
   name: windows-llama-cpp-development
   os: windows
