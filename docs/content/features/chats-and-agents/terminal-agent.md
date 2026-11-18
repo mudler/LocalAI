@@ -115,7 +115,8 @@ work. It is the stdin that has to be a terminal.
 ## Where the agent keeps its state
 
 Config, plugins and skills live in `~/.config/localai/chat/`, or under `$XDG_CONFIG_HOME`
-when you have set it. Override it with `--config-dir`, or with
+when you have set it. On Windows the default is `%LOCALAPPDATA%\LocalAI\chat`, but a
+`%USERPROFILE%\.config\localai\chat` folder from an earlier release stays in use. Override it with `--config-dir`, or with
 `LOCALAI_CHAT_CONFIG_DIR`. The directory is user-scoped rather than server-scoped, because
 the agent is a client and may be pointed at a remote LocalAI.
 

@@ -198,3 +198,21 @@ var _ = Describe("LongPath", func() {
 		Expect(LongPath("linux", long)).To(BeFalse())
 	})
 })
+
+var _ = Describe("standardDataDir", func() {
+	local := func(knownFolder) (string, error) { return "/x/AppData/Local", nil }
+
+	It("is the LocalAI folder in the local application data folder on Windows", func() {
+		Expect(standardDataDir("windows", local)).To(Equal(filepath.Join("/x/AppData/Local", "LocalAI")))
+	})
+
+	It("does not exist on other systems", func() {
+		_, err := standardDataDir("linux", local)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("fails when the folder is unknown", func() {
+		_, err := standardDataDir("windows", func(knownFolder) (string, error) { return "", errors.New("no profile") })
+		Expect(err).To(MatchError(ContainSubstring("no profile")))
+	})
+})

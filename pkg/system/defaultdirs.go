@@ -215,3 +215,25 @@ func LongPath(goos, p string) bool {
 }
 
 func isWindows() bool { return runtime.GOOS == "windows" }
+
+// StandardDataDir returns %LOCALAPPDATA%\LocalAI on Windows. It is an error on
+// other systems, which have no such folder for LocalAI. Unlike
+// DefaultDirs.Base it ignores LOCALAI_BASE_PATH and the current folder, for
+// files that belong to the user and not to a server.
+func StandardDataDir() (string, error) {
+	return standardDataDir(runtime.GOOS, knownFolderPath)
+}
+
+func standardDataDir(goos string, folder func(knownFolder) (string, error)) (string, error) {
+	if goos != "windows" {
+		return "", fmt.Errorf("no standard LocalAI data folder on %s", goos)
+	}
+	local, err := folder(folderLocalAppData)
+	if err != nil {
+		return "", err
+	}
+	if local == "" {
+		return "", fmt.Errorf("the local application data folder is empty")
+	}
+	return filepath.Join(local, "LocalAI"), nil
+}

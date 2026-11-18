@@ -260,7 +260,7 @@ See [Terminal agent]({{% relref "/features/chats-and-agents/terminal-agent" %}})
 | `--endpoint` | `http://127.0.0.1:8080` | LocalAI server endpoint. The `/v1` path is added automatically when omitted. | `$LOCALAI_CHAT_ENDPOINT` |
 | `--model` | | Model to use. Defaults to the only model the server offers, or asks when there are several. | |
 | `--api-key` | | API key to use when the LocalAI server requires authentication. | `$LOCALAI_API_KEY`, `$API_KEY` |
-| `--config-dir` | `~/.config/localai/chat` | Directory holding the agent's config, plugins, and skills. | `$LOCALAI_CHAT_CONFIG_DIR` |
+| `--config-dir` | `~/.config/localai/chat` (Windows: `%LOCALAPPDATA%\LocalAI\chat`) | Directory holding the agent's config, plugins, and skills. | `$LOCALAI_CHAT_CONFIG_DIR` |
 | `--trace-dir` | | Write a session LLM trace (NDJSON) to this directory. | `$LOCALAI_CHAT_TRACE_DIR` |
 | `--cli` | `false` | Plain CLI mode instead of the full-screen interface. Pipe stdin for one-shot use. | |
 | `--tui` | `false` | Force the full-screen interface. | |
