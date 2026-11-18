@@ -64,6 +64,35 @@ describe('electron-builder.yml', () => {
     expect(cfg.mac.artifactName).toContain('${version}')
   })
 
+  it('builds the Windows installer and the portable zip for x64 only, with names without spaces', () => {
+    const cfg = load()
+    expect(cfg.win.target).toEqual([
+      { target: 'nsis', arch: ['x64'] },
+      { target: 'zip', arch: ['x64'] },
+    ])
+    expect(cfg.win.icon).toBe('build/icon.png')
+    expect(cfg.nsis.artifactName).toBe('LocalAI-Launcher-Setup-${arch}.${ext}')
+    expect(cfg.win.artifactName).toBe('LocalAI-Launcher-win-${arch}.${ext}')
+    // A per-user install: no administrator prompt for an install or an update.
+    expect(cfg.nsis.oneClick).toBe(true)
+    expect(cfg.nsis.perMachine).toBe(false)
+    // The user's models and settings survive an uninstall.
+    expect(cfg.nsis.deleteAppDataOnUninstall).toBe(false)
+  })
+
+  it('keeps every certificate out of the config: Windows signing comes from the environment only', () => {
+    const cfg = load()
+    for (const key of ['certificateFile', 'certificatePassword', 'certificateSubjectName', 'certificateSha1']) {
+      expect(cfg.win[key], key).toBeUndefined()
+      expect(cfg.win.signtoolOptions?.[key], key).toBeUndefined()
+    }
+    expect(cfg.win.signtoolOptions.rfc3161TimeStampServer).toMatch(/^https?:\/\//)
+  })
+
+  it('has a Windows dist script that matches the targets', () => {
+    expect(pkg.scripts['dist:win']).toContain('--win nsis zip --x64')
+  })
+
   it('uses the hardened runtime with only the entitlements the design allows', () => {
     const cfg = load()
     expect(cfg.mac.hardenedRuntime).toBe(true)

@@ -18,7 +18,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "dist:appimage": "npm run build && electron-builder --linux AppImage --x64 --publish never",
     "dist:appimage:arm64": "npm run build && electron-builder --linux AppImage --arm64 --publish never",
-    "dist:mac": "npm run build && electron-builder --mac dmg zip --arm64 --publish never"
+    "dist:mac": "npm run build && electron-builder --mac dmg zip --arm64 --publish never",
+    "dist:win": "npm run build && electron-builder --win nsis zip --x64 --publish never"
   },
   "dependencies": {
     "electron-updater": "^6.8.11"
