@@ -109,21 +109,13 @@ func WriteRelayRequest(w io.Writer, nodeID, lane string, budget time.Duration) e
 	return writeFrame(w, nodeID+streamRequestSeparator+lane+streamRequestSeparator+strconv.FormatInt(millis, 10))
 }
 
-// ReadRelayRequest reads the opening frame of a peer stream. The budget is zero
-// when the dialling replica stated none.
+// parseRelayRequest parses the opening frame of a peer stream. The budget is
+// zero when the dialling replica stated none.
 //
 // A malformed frame is an ordinary error and not ErrRelayRequestInvalid. That
 // sentinel is what a relay sends to describe a refusal, and returning it here
 // would leave a caller unable to tell "the peer refused my request" from "I could
 // not read the request of the peer".
-func ReadRelayRequest(r io.Reader) (nodeID, lane string, budget time.Duration, err error) {
-	payload, err := readFrame(r)
-	if err != nil {
-		return "", "", 0, fmt.Errorf("reading a relay request: %w", err)
-	}
-	return parseRelayRequest(payload)
-}
-
 func parseRelayRequest(payload string) (nodeID, lane string, budget time.Duration, err error) {
 	fields := strings.Split(payload, streamRequestSeparator)
 	if len(fields) != 3 || fields[0] == "" {

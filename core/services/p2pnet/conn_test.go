@@ -51,8 +51,8 @@ var _ = Describe("Streams", func() {
 
 		var sc net.Conn
 		Eventually(peers).Should(Receive(&sc))
-		p, ok = p2pnet.PeerFromRemoteAddr(sc.RemoteAddr().String())
-		Expect(ok).To(BeTrue())
+		p, err = p2pnet.DecodePeerID(sc.RemoteAddr().String())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(p).To(Equal(client.ID()))
 
 		Expect(client.Path(server.ID()).Kind).To(Equal(p2pnet.PathDirect))
@@ -138,8 +138,8 @@ var _ = Describe("Streams", func() {
 		l, err := server.Listen(p2pnet.ProtoHTTP, nil)
 		Expect(err).ToNot(HaveOccurred())
 		srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			p, ok := p2pnet.PeerFromRemoteAddr(r.RemoteAddr)
-			_, _ = fmt.Fprintf(w, "%v %s", ok, p)
+			p, err := p2pnet.DecodePeerID(r.RemoteAddr)
+			_, _ = fmt.Fprintf(w, "%v %s", err == nil, p)
 		}), ReadHeaderTimeout: 5 * time.Second}
 		go func() { _ = srv.Serve(l) }()
 		DeferCleanup(srv.Close)
@@ -153,12 +153,12 @@ var _ = Describe("Streams", func() {
 	})
 
 	It("does not parse a TCP address as a peer", func() {
-		_, ok := p2pnet.PeerFromRemoteAddr("127.0.0.1:8080")
-		Expect(ok).To(BeFalse())
+		_, err := p2pnet.DecodePeerID("127.0.0.1:8080")
+		Expect(err).To(HaveOccurred())
 		a, b := net.Pipe()
 		defer func() { _ = a.Close() }()
 		defer func() { _ = b.Close() }()
-		_, ok = p2pnet.PeerOf(a)
+		_, ok := p2pnet.PeerOf(a)
 		Expect(ok).To(BeFalse())
 	})
 

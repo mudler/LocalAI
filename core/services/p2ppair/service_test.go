@@ -167,7 +167,7 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 		})
 
 		It("mints without a pass, and says why, when every relay fails", func() {
-			reg.fail["g1"] = p2ppair.ErrRelayUnreachable
+			reg.fail["g1"] = errors.New("unreachable")
 			reg.fail["g2"] = errors.New("timeout")
 			m := mint(p2ppair.MintRequest{})
 			Expect(m.Link.Pass).To(BeEmpty())
