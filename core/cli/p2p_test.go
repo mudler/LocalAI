@@ -326,9 +326,7 @@ var _ = Describe("local-ai p2p pair", func() {
 		DeferCleanup(hs.Close)
 
 		link := &p2ppair.Link{V: 1, Kind: p2ppair.KindDevice, Peer: server.ID(), Code: "ABCDEFGHJK", Expires: time.Now().Add(time.Hour), Label: "x"}
-		for _, a := range server.Libp2p().Addrs() {
-			link.Addrs = append(link.Addrs, a)
-		}
+		link.Addrs = append(link.Addrs, server.Libp2p().Addrs()...)
 
 		out, err := runP2P("pair", "--invite", link.String(), "--name", "laptop")
 		Expect(err).ToNot(HaveOccurred())

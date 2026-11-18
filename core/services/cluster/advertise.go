@@ -165,7 +165,7 @@ func dsnHostPort(dsn string) (string, string, error) {
 	}
 
 	host, port := "", defaultPort
-	for _, field := range strings.Fields(dsn) {
+	for field := range strings.FieldsSeq(dsn) {
 		key, value, found := strings.Cut(field, "=")
 		if !found {
 			continue

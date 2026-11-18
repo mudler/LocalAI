@@ -92,7 +92,7 @@ func splitCarriers(s string) []cluster.Carrier {
 		return nil
 	}
 	var out []cluster.Carrier
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		if c := cluster.Carrier(strings.TrimSpace(part)); c == cluster.CarrierNATS || c == cluster.CarrierTunnel {
 			out = append(out, c)
 		}
@@ -207,10 +207,8 @@ func (s *SwitchWorkers) AgentsAttached(ctx context.Context, c cluster.Carrier) (
 		if n.NodeType != NodeTypeAgent || n.Status == StatusPending || n.Status == StatusOffline || now.Sub(n.LastHeartbeat) > s.stale {
 			continue
 		}
-		for _, a := range s.attached(n) {
-			if a == c {
-				return true, nil
-			}
+		if slices.Contains(s.attached(n), c) {
+			return true, nil
 		}
 	}
 	return false, nil

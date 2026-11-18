@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math/rand/v2"
 	"net"
 	"net/http"
@@ -239,10 +240,7 @@ func StartTunnel(ctx context.Context, cfg TunnelConfig) (*Tunnel, error) {
 	}
 
 	// Copied, so that the routing table cannot change under the accept loop.
-	services := make(map[string]LocalService, len(cfg.Services))
-	for tag, svc := range cfg.Services {
-		services[tag] = svc
-	}
+	services := maps.Clone(cfg.Services)
 
 	dialer := tunnel.NewDialer(tunnelHandshakeTimeout)
 	// A worker reaches its frontend over the internet in the deployments that

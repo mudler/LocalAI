@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -95,12 +96,8 @@ func (s *jsonStore) load() (*jsonFile, error) {
 
 func cloneFile(f *jsonFile) *jsonFile {
 	c := newJSONFile()
-	for k, v := range f.Invites {
-		c.Invites[k] = v
-	}
-	for k, v := range f.Devices {
-		c.Devices[k] = v
-	}
+	maps.Copy(c.Invites, f.Invites)
+	maps.Copy(c.Devices, f.Devices)
 	return c
 }
 

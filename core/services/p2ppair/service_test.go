@@ -268,7 +268,7 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 			m := mint(p2ppair.MintRequest{})
 			var wins atomic.Int32
 			var wg sync.WaitGroup
-			for i := 0; i < 12; i++ {
+			for range 12 {
 				wg.Add(1)
 				go func(p peer.ID) {
 					defer GinkgoRecover()
@@ -285,7 +285,7 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 		It("limits a peer to five wrong codes an hour", func() {
 			from := newPeer()
 			m := mint(p2ppair.MintRequest{})
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				_, err := svc.Redeem(ctx, from, p2ppair.RedeemRequest{V: 1, Code: "ZZZZZZZZZ2"})
 				Expect(err).To(MatchError(p2ppair.ErrInviteInvalid))
 			}
@@ -295,7 +295,7 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 			Expect(err).NotTo(HaveOccurred(), "other peers are not affected")
 
 			from2 := newPeer()
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				_, _ = svc.Redeem(ctx, from2, p2ppair.RedeemRequest{V: 1, Code: "ZZZZZZZZZ2"})
 			}
 			clk.Advance(time.Hour + time.Second)
@@ -305,7 +305,7 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 		})
 
 		It("limits a source to ten wrong codes a minute across peers", func() {
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				_, err := svc.Redeem(ctx, newPeer(), p2ppair.RedeemRequest{V: 1, Code: "ZZZZZZZZZ2", Source: "192.0.2.5"})
 				Expect(err).To(MatchError(p2ppair.ErrInviteInvalid))
 			}
@@ -322,7 +322,7 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 
 		It("counts a malformed code as a wrong one", func() {
 			from := newPeer()
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				_, err := svc.Redeem(ctx, from, p2ppair.RedeemRequest{V: 1, Code: "short"})
 				Expect(err).To(MatchError(p2ppair.ErrInviteInvalid))
 			}

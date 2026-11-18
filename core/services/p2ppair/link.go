@@ -247,7 +247,7 @@ func ParseLink(s string) (*Link, error) {
 	}
 	if len(q["o"]) == 1 && q["o"][0] != "" {
 		seen := map[int]bool{}
-		for _, f := range strings.Split(q["o"][0], ",") {
+		for f := range strings.SplitSeq(q["o"][0], ",") {
 			i, err := strconv.Atoi(f)
 			if err != nil || i < 0 || i >= len(l.Relays) || seen[i] || strconv.Itoa(i) != f {
 				return nil, badLink("bad open relay index")
