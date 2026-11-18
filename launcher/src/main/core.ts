@@ -99,6 +99,7 @@ import {
   withShowStatusBar,
   withWebuiPermissions,
 } from './configStore'
+import { serverBinaryName } from './platform'
 import { defaultLogsDir, LogHub, type LogLine } from './logs'
 import { initialNotice, reduceNotice, type NoticeEvent, type NoticeState, type SetupOutcome } from './sandboxNotice'
 import type { SandboxProbe } from './sandboxProbe'
@@ -106,7 +107,6 @@ import { InvalidAttachPattern, validateAttachPattern, type SandboxPlan } from '.
 import { prepareRemove, prepareSetup, runPlan, type Runner, type SetupResult } from './sandboxSetup'
 import { buildServerLaunch, needsRestart, type ServerLaunch } from './serverLaunch'
 import {
-  BINARY_NAME,
   execServerVersion,
   isActive,
   nodeInstallFs,
@@ -163,7 +163,7 @@ export interface CoreDeps {
   env: NodeJS.ProcessEnv
   /** undefined on a platform with no server build. */
   target: PlatformTarget | undefined
-  /** Test hook: run this file as the server instead of <home>/.localai/bin/local-ai. */
+  /** Test hook: run this file as the server instead of <home>/.localai/bin/local-ai (local-ai.exe on Windows). */
   serverBinOverride?: string
   /** Test hook: the server listens here instead of the configured address. */
   endpointOverride?: string
@@ -828,7 +828,7 @@ export class LauncherCore {
   }
 
   serverBinary(): string {
-    return this.d.serverBinOverride ?? path.join(this.installPaths().binDir, BINARY_NAME)
+    return this.d.serverBinOverride ?? path.join(this.installPaths().binDir, serverBinaryName(this.d.target))
   }
 
   private binaryInstalled(): boolean {
@@ -1389,15 +1389,20 @@ export class LauncherCore {
     return {
       vars: this.secrets.list(ENV_PREFIX).map((n) => {
         const name = n.slice(ENV_PREFIX.length)
-        return { name, ignored: envNameProblem(name) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
+        return { name, ignored: envNameProblem(name, this.envIgnoreCase()) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
       }),
       restartRequired: this.restartRequired(),
       storage: this.secrets.state(),
     }
   }
 
+  /** Windows: variable names have no case, so `Path` is the controlled PATH. */
+  private envIgnoreCase(): boolean {
+    return (this.d.platform ?? process.platform) === 'win32'
+  }
+
   async setEnvVar(name: string, value: string): Promise<EnvVarResult> {
-    const problem = envNameProblem(name)
+    const problem = envNameProblem(name, this.envIgnoreCase())
     if (problem) return { ok: false, reason: problem === 'format' ? 'name-format' : problem === 'length' ? 'name-length' : 'name-controlled' }
     if (value.length > MAX_ENV_VALUE) return { ok: false, reason: 'value-length' }
     if (!this.secrets.has(envSecret(name)) && this.secrets.list(ENV_PREFIX).length >= MAX_ENV_VARS) return { ok: false, reason: 'too-many' }

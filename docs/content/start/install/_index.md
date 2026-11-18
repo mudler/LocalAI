@@ -55,7 +55,7 @@ Podman works the same way for the CPU image. For GPU images and persistent stora
 
 The desktop app installs, updates, starts and stops the LocalAI server on your computer and shows the web interface in a window. It can also connect to a LocalAI server that runs somewhere else.
 
-The 5.0 release has the DMG for a Mac with Apple Silicon and the AppImages for Linux (x86-64 and ARM64). Download them from the [latest release](https://github.com/mudler/LocalAI/releases/latest). See [Desktop app]({{% relref "/start/install/desktop" %}}) for the steps, the first start, the update channels and troubleshooting.
+The 5.0 release has the DMG for a Mac with Apple Silicon and the AppImages for Linux (x86-64 and ARM64). Later releases also have a Windows installer for x86-64. Download them from the [latest release](https://github.com/mudler/LocalAI/releases/latest). See [Desktop app]({{% relref "/start/install/desktop" %}}) for the steps, the first start, the update channels and troubleshooting.
 
 ## Development builds
 

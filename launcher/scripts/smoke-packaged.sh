@@ -2,10 +2,12 @@
 # Smoke test of the packaged launcher, with an isolated HOME and a fake
 # release server, so no network is needed. On Linux it runs an AppImage under
 # a virtual display (Xvfb). On macOS it runs a .app (for example from the
-# mounted DMG) on the runner's own display.
+# mounted DMG) on the runner's own display. On Windows (Git Bash) it runs the
+# installed local-ai-launcher.exe on the runner's own desktop.
 #
 #   SMOKE_DIR=/short/dir scripts/smoke-packaged.sh release/LocalAI-Launcher-x86_64.AppImage [extra args]
 #   SMOKE_DIR=/short/dir SMOKE_FEED_FILE=release/latest-mac.yml scripts/smoke-packaged.sh "/Volumes/LocalAI Launcher/LocalAI Launcher.app"
+#   SMOKE_DIR=/c/smoke SMOKE_FEED_FILE=release/latest.yml scripts/smoke-packaged.sh "$LOCALAPPDATA/Programs/LocalAI Launcher/local-ai-launcher.exe"
 #
 # It passes when:
 #   1. the main process reports "window-ready" and the shell reports its first
@@ -19,7 +21,8 @@
 #
 # Limits: this proves that the packaged app starts, renders its shell and
 # stops. It does not install or start a LocalAI server, load a model, use a
-# GPU, or test the tray.
+# GPU, or test the tray. Windows has no SIGTERM: there the app is ended with
+# `taskkill /T /F`, so check 4 is only that the app is gone afterwards.
 #
 # Environment:
 #   SMOKE_DIR          empty scratch directory (required). Keep it short:
@@ -37,7 +40,13 @@ set -euo pipefail
 
 TARGET=$(cd "$(dirname "${1:?usage: smoke-packaged.sh <AppImage or .app> [args...]}")" && pwd)/$(basename "$1")
 shift || true
-if [ "$(uname -s)" = Darwin ]; then
+case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) IS_WIN=1 ;; *) IS_WIN=0 ;; esac
+if [ "$IS_WIN" = 1 ]; then
+  OS=win
+  case "$TARGET" in *.exe) ;; *) echo "FAIL: on Windows the target is the launcher .exe"; exit 2 ;; esac
+  APP_EXE=$TARGET
+  [ -f "$APP_EXE" ] || { echo "FAIL: $APP_EXE does not exist"; exit 2; }
+elif [ "$(uname -s)" = Darwin ]; then
   OS=mac
   case "$TARGET" in *.app) ;; *) echo "FAIL: on macOS the target is a .app directory"; exit 2 ;; esac
   APP_EXE=$(find "$TARGET/Contents/MacOS" -maxdepth 1 -type f -perm -u+x | head -n 1)
@@ -55,8 +64,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 
 case "$SMOKE_SELF_UPDATE" in check | off) ;; *) echo "FAIL: SMOKE_SELF_UPDATE must be check or off"; exit 2 ;; esac
 # Chromium makes $TMPDIR/scoped_dirXXXXXX/SingletonSocket; a Unix socket path
-# has at most 103 characters on macOS (107 on Linux).
-if [ $(( ${#SMOKE_DIR} + 4 + 36 )) -gt 103 ]; then
+# has at most 103 characters on macOS (107 on Linux). Windows uses no such socket.
+if [ "$OS" != win ] && [ $(( ${#SMOKE_DIR} + 4 + 36 )) -gt 103 ]; then
   echo "FAIL: SMOKE_DIR is too long (${#SMOKE_DIR} characters); use a path of at most 63 characters"; exit 2
 fi
 
@@ -69,10 +78,12 @@ touch "$FEEDLOG"
 if [ "$SMOKE_SELF_UPDATE" = check ]; then
   feed=${SMOKE_FEED_FILE:-}
   if [ -z "$feed" ]; then
-    feed=$(find "$(dirname "$TARGET")" -maxdepth 1 -name "latest-$OS*.yml" | head -n 1)
+    if [ "$OS" = win ]; then pattern=latest.yml; else pattern="latest-$OS*.yml"; fi
+    feed=$(find "$(dirname "$TARGET")" -maxdepth 1 -name "$pattern" | head -n 1)
   fi
-  [ -n "$feed" ] && [ -f "$feed" ] || { echo "FAIL: no latest-$OS*.yml next to the target; set SMOKE_FEED_FILE or SMOKE_SELF_UPDATE=off"; exit 1; }
-  # The app asks for latest-linux.yml (x64), latest-linux-arm64.yml or latest-mac.yml.
+  [ -n "$feed" ] && [ -f "$feed" ] || { echo "FAIL: no feed file next to the target; set SMOKE_FEED_FILE or SMOKE_SELF_UPDATE=off"; exit 1; }
+  # The app asks for latest-linux.yml (x64), latest-linux-arm64.yml,
+  # latest-mac.yml or latest.yml (Windows).
   cp "$feed" "$SMOKE_DIR/feed/"
 fi
 
@@ -80,9 +91,17 @@ node "$HERE/fake-release-server.mjs" "$SMOKE_PORT" "$SMOKE_DIR/feed" "$FEEDLOG" 
 FEED_PID=$!
 trap 'kill $FEED_PID 2>/dev/null || true' EXIT
 
-export APP_EXE SIGNAL SMOKE_DIR FEEDLOG SMOKE_SELF_UPDATE SMOKE_TIMEOUT
+export APP_EXE SIGNAL SMOKE_DIR FEEDLOG SMOKE_SELF_UPDATE SMOKE_TIMEOUT OS
 export HOME="$SMOKE_DIR/home" XDG_CONFIG_HOME="$SMOKE_DIR/home/.config" TMPDIR="$SMOKE_DIR/tmp"
 export LOCALAI_LAUNCHER_SIGNAL_FILE="$SIGNAL"
+if [ "$OS" = win ]; then
+  # A Windows program reads Windows paths. Node takes the home folder from
+  # USERPROFILE, so the launcher's .localai folder lands in the scratch folder.
+  USERPROFILE=$(cygpath -w "$SMOKE_DIR/home")
+  TEMP=$(cygpath -w "$SMOKE_DIR/tmp")
+  LOCALAI_LAUNCHER_SIGNAL_FILE=$(cygpath -w "$SIGNAL")
+  export USERPROFILE TEMP TMP="$TEMP" LOCALAI_LAUNCHER_SIGNAL_FILE
+fi
 # The launcher probes the macOS keychain at start. On a CI runner nobody can
 # answer the keychain dialog, so the app waits there and never opens its
 # window. Chromium's mock keychain exists for this case. Only on a CI runner
@@ -124,7 +143,7 @@ INNER='
   if [ "$SMOKE_SELF_UPDATE" = check ]; then
     for _ in $(seq 1 150); do grep -q "ua=electron-builder" "$FEEDLOG" && break; sleep 0.1; done
     grep -q "ua=electron-builder" "$FEEDLOG" || fail "no self-update check reached the fake feed"
-    grep -E "GET /latest-(linux(-arm64)?|mac)\.yml" "$FEEDLOG" | grep -q "ua=electron-builder" || fail "the self-update check did not ask for a feed file"
+    grep -E "GET /latest(-linux(-arm64)?|-mac)?\.yml" "$FEEDLOG" | grep -q "ua=electron-builder" || fail "the self-update check did not ask for a feed file"
     echo "self-update check reached the fake feed"
   else
     sleep 8
@@ -132,8 +151,17 @@ INNER='
     echo "no self-update check (development build)"
   fi
   kill -0 $wrapper 2>/dev/null || fail "the app exited before the stop test"
-  pid=$(awk -F= "/ pid=/{print \$2; exit}" "$SIGNAL")
+  pid=$(awk -F= "/ pid=/{print \$2; exit}" "$SIGNAL" | tr -d "\r")
   [ -n "$pid" ] || fail "no pid line in the signal file"
+  if [ "$OS" = win ]; then
+    # No SIGTERM on Windows, and closing the window only hides it to the tray.
+    taskkill //PID "$pid" //T //F > /dev/null || fail "taskkill could not end the app"
+    for _ in $(seq 1 100); do kill -0 $wrapper 2>/dev/null || break; sleep 0.1; done
+    kill -0 $wrapper 2>/dev/null && fail "still running 10 s after taskkill"
+    tasklist //FI "PID eq $pid" //NH | grep -q "$pid" && fail "process $pid is still there after taskkill"
+    echo "PASS (Windows: ended with taskkill, no clean-exit check)"
+    exit 0
+  fi
   kill -TERM "$pid"
   for _ in $(seq 1 100); do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
   if kill -0 "$pid" 2>/dev/null; then kill -KILL "$pid"; fail "still running 10 s after SIGTERM (forced kill)"; fi
@@ -143,7 +171,7 @@ INNER='
   [ "$code" -lt 128 ] || fail "the app ended by a signal (status $code)"
   echo "PASS"
 '
-if [ "$OS" = mac ]; then
+if [ "$OS" = mac ] || [ "$OS" = win ]; then
   bash -c "$INNER" smoke "$@"
 else
   xvfb-run -a -s "-screen 0 1280x800x24" bash -c "$INNER" smoke "$@"

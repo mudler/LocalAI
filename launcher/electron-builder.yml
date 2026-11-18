@@ -3,7 +3,8 @@
 # Builds never publish (`--publish never`): the release workflow uploads the
 # tested files in a separate job. The `publish` block below is still needed,
 # because it makes the builder write the update feed files (latest-linux.yml,
-# latest-linux-arm64.yml, latest-mac.yml) and app-update.yml inside the app.
+# latest-linux-arm64.yml, latest-mac.yml, latest.yml for Windows) and
+# app-update.yml inside the app.
 # See launcher/README.md, "Packaging and CI".
 appId: io.localai.launcher
 productName: LocalAI Launcher
@@ -82,6 +83,44 @@ dmg:
   # The build workflow adds "dev" for a development build.
   artifactName: LocalAI.dmg
   title: LocalAI Launcher
+
+win:
+  # x64 only: the release has no windows/arm64 server. Windows on Arm runs the
+  # x64 launcher and server under emulation.
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+  # The builder makes the .ico from the 512 px PNG.
+  icon: build/icon.png
+  # The portable zip. It does not update itself (see updaterStatus.ts,
+  # isPortableWindows). The build workflow adds "dev" for a development build.
+  artifactName: LocalAI-Launcher-win-${arch}.${ext}
+  # Signing: the builder signs the app, the installer and the uninstaller
+  # with signtool when WIN_CSC_LINK (a base64 .pfx or a path) and
+  # WIN_CSC_KEY_PASSWORD are set (CI only, from repository secrets). Without
+  # them it logs that signing is skipped and the build is unsigned. Nothing
+  # about the certificate is in this file. When the build is signed, the
+  # builder writes the publisher name into app-update.yml, and the updater
+  # then installs only an update signed by the same publisher.
+  signtoolOptions:
+    signingHashAlgorithms: [sha256]
+    rfc3161TimeStampServer: http://timestamp.digicert.com
+
+nsis:
+  # A per-user install under %LOCALAPPDATA%\Programs, with no administrator
+  # prompt. The update is the next installer, run by electron-updater.
+  oneClick: true
+  perMachine: false
+  # No spaces (see the AppImage name). latest.yml names this file.
+  # The build workflow adds "dev" for a development build.
+  artifactName: LocalAI-Launcher-Setup-${arch}.${ext}
+  shortcutName: LocalAI Launcher
+  uninstallDisplayName: LocalAI Launcher
+  # Models, settings and logs live in the user's .localai folder, not in the
+  # app folder. The uninstaller keeps them.
+  deleteAppDataOnUninstall: false
 
 publish:
   provider: github

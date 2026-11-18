@@ -1,17 +1,20 @@
 # Attaches the Electron launcher and its update feed to the release of a tag.
 # release.yaml calls it on every version tag (release candidates too), after
 # GoReleaser has made the release. Every server release must carry the
-# launcher feed: the updater reads latest-linux.yml, latest-linux-arm64.yml
-# and latest-mac.yml from the newest release, and a release without them makes
-# every installed launcher report an update error.
+# launcher feed: the updater reads latest-linux.yml, latest-linux-arm64.yml,
+# latest-mac.yml and latest.yml (Windows) from the newest release, and a
+# release without them makes every installed launcher report an update error.
 #
 # Jobs: version (from the tag) -> build and smoke (read-only) -> upload (write,
 # downloads the tested files only, no checkout) -> check the feed (read-only).
 # This workflow never publishes a release. See launcher/README.md.
 #
 # The files it attaches: LocalAI-Launcher-x86_64.AppImage and
-# LocalAI-Launcher-arm64.AppImage, LocalAI.dmg (each with a .sha256 file), the
-# macOS zip the updater applies, blockmaps, and the three feed files.
+# LocalAI-Launcher-arm64.AppImage, LocalAI.dmg, the Windows installer
+# LocalAI-Launcher-Setup-x64.exe and the portable LocalAI-Launcher-win-x64.zip
+# (each with a .sha256 file), the macOS zip the updater applies, blockmaps,
+# and the four feed files. The Windows files are signed when the
+# WINDOWS_CERTIFICATE secrets exist, and unsigned otherwise.
 name: Launcher (Electron) release
 
 on:
@@ -31,6 +34,10 @@ on:
       MACOS_NOTARY_KEY_ID:
         required: false
       MACOS_NOTARY_ISSUER_ID:
+        required: false
+      WINDOWS_CERTIFICATE:
+        required: false
+      WINDOWS_CERTIFICATE_PWD:
         required: false
 
 permissions:
@@ -71,6 +78,7 @@ jobs:
       artifact-prefix: localai-launcher-release
       linux-arm64: true
       macos: true
+      windows: true
       sign-macos: true
       # A release is always signed and notarized: a missing secret fails the build.
       require-signing: true
@@ -83,6 +91,8 @@ jobs:
       MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
       MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
       MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}
 
   upload:
     name: Attach to the release
@@ -101,11 +111,12 @@ jobs:
         working-directory: dist
         run: |
           ls -l
-          for f in latest-linux.yml latest-linux-arm64.yml latest-mac.yml; do
+          for f in latest-linux.yml latest-linux-arm64.yml latest-mac.yml latest.yml; do
             [ -f "$f" ] || { echo "::error::$f is missing"; exit 1; }
           done
-          ls ./*.AppImage ./*.AppImage.sha256 ./*.dmg ./*.dmg.sha256 ./*-mac.zip ./*-mac.zip.sha256 > /dev/null
-          sha256sum --check ./*.AppImage.sha256
+          ls ./*.AppImage ./*.AppImage.sha256 ./*.dmg ./*.dmg.sha256 ./*-mac.zip ./*-mac.zip.sha256 \
+            ./*Setup*.exe ./*Setup*.exe.sha256 ./*-win-*.zip ./*-win-*.zip.sha256 > /dev/null
+          sha256sum --check ./*.AppImage.sha256 ./*.exe.sha256 ./*-win-*.zip.sha256
           shasum -a 256 --check ./*.dmg.sha256 ./*-mac.zip.sha256
       - name: Attach to the existing release
         working-directory: dist
@@ -127,7 +138,7 @@ jobs:
             exit 1
           fi
           gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
-          gh release upload "$TAG" latest-linux.yml latest-linux-arm64.yml latest-mac.yml --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload "$TAG" latest-linux.yml latest-linux-arm64.yml latest-mac.yml latest.yml --clobber --repo "$GITHUB_REPOSITORY"
 
   check-feed:
     name: Check the attached feed
@@ -147,7 +158,7 @@ jobs:
             --jq '.assets[] | "\(.name) \(.size)"' > assets.txt
           cat assets.txt
           status=0
-          for feed in latest-linux.yml latest-linux-arm64.yml latest-mac.yml; do
+          for feed in latest-linux.yml latest-linux-arm64.yml latest-mac.yml latest.yml; do
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$feed" --clobber
             grep -q "^version: $VERSION$" "$feed" || { echo "::error::$feed does not name version $VERSION"; status=1; }
             # Each "url:" entry is a file with its "size:"; "path:" is the main file.

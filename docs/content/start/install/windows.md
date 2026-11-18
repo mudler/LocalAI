@@ -8,6 +8,8 @@ aliases:
 
 LocalAI runs natively on Windows. It uses pre-built backend images packaged as OCI tarballs, so you do not need WSL, Docker Desktop or MSYS2 to run it. The llama.cpp backend is the first backend with native Windows support. Other backends are not available on Windows yet.
 
+To install and run LocalAI with a window and a tray icon instead of PowerShell, use the [desktop app]({{% relref "/start/install/desktop" %}}#install-on-windows). It downloads `local-ai.exe` for you, checks its checksum, starts it and updates it.
+
 ## Prerequisites
 
 - Windows 10 or 11 on **amd64**. There is no Windows arm64 build.
@@ -36,7 +38,6 @@ LocalAI picks the llama.cpp binary from the Windows backend image for you. You d
 
 - The add-on runtime. Features that need an add-on do not work. The log can show "add-on runtime unavailable" warnings.
 - The worker commands for backends without a Windows build: `local-ai worker mlx-distributed`, `p2p-mlx`, `vllm` and `ds4-distributed` stop at once with an error. See [Distributed mode and workers on Windows](#distributed-mode-and-workers-on-windows) for what works.
-- The desktop launcher application.
 - Backends other than llama.cpp.
 - The built-in bash tool of the chat. It needs a POSIX shell.
 
