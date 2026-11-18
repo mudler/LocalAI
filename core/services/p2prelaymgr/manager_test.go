@@ -7,10 +7,12 @@ import (
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/p2ppair"
+	"github.com/mudler/LocalAI/core/services/p2prelay"
 	"github.com/mudler/LocalAI/core/services/p2prelay/relayproto"
 	"github.com/mudler/LocalAI/core/services/p2prelaymgr"
 )
@@ -386,6 +388,75 @@ var _ = Describe("Manager", func() {
 			s := p2prelaymgr.NewMemoryStore(p2prelaymgr.Entry{ID: "x", Addr: "/ip4/127.0.0.1/tcp/1/p2p/" + randomPeer()})
 			m := srv.manager(s, false)
 			Expect(m.List()).To(HaveLen(1))
+		})
+	})
+
+	Describe("Limits", func() {
+		i64 := func(n int64) *int64 { return &n }
+
+		It("reads the limits and tells an admin it can change them", func() {
+			relay := newTestRelay(gatedCfg(srv.host.ID()))
+			m := srv.manager(nil, false)
+			r, err := m.Add(ctx10(), relay.addr(), "", "")
+			Expect(err).ToNot(HaveOccurred())
+
+			info, err := m.Limits(ctx10(), r.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.CanChange).To(BeTrue())
+			Expect(info.Limits.CircuitBytes).To(BeEquivalentTo(p2prelay.DefaultCircuitMaxBytes))
+		})
+
+		It("changes the limits, keeps the reservation and reports what the relay now runs", func() {
+			relay := newTestRelay(gatedCfg(srv.host.ID()))
+			m := srv.manager(nil, false)
+			r, err := m.Add(ctx10(), relay.addr(), "", "")
+			Expect(err).ToNot(HaveOccurred())
+
+			info, err := m.SetLimits(ctx10(), r.ID, p2prelaymgr.LimitsPatch{
+				CircuitBytes: i64(3 << 20), CircuitSeconds: i64(120), RateBPS: i64(64 << 10),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.Restarted).To(BeTrue())
+			Expect(info.Limits).To(Equal(p2prelaymgr.Limits{CircuitBytes: 3 << 20, CircuitSeconds: 120, RateBPS: 64 << 10}))
+			Expect(m.List()[0].Limits).To(Equal(info.Limits))
+			Expect(relay.relay.Status().CircuitMaxBytes).To(BeEquivalentTo(3 << 20))
+
+			// The server holds a reservation again, with the new limits.
+			Eventually(func() error {
+				_, err := client.Reserve(ctx10(), srv.host.Libp2p(), peer.AddrInfo{ID: relay.h.ID(), Addrs: relay.h.Addrs()})
+				return err
+			}).Should(Succeed())
+		})
+
+		It("refuses a server that is not an admin and an open relay", func() {
+			other := newTestRelay(gatedCfg(newServer().host.ID()))
+			m := srv.manager(nil, false)
+			r, err := m.Add(ctx10(), other.addr(), "", "")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = m.SetLimits(ctx10(), r.ID, p2prelaymgr.LimitsPatch{RateBPS: i64(1)})
+			Expect(err).To(MatchError(p2prelaymgr.ErrNotAdmin))
+
+			cfg := p2prelay.DefaultConfig(true)
+			open := newTestRelay(cfg)
+			r, err = m.Add(ctx10(), open.addr(), "", "")
+			Expect(err).ToNot(HaveOccurred())
+			info, err := m.Limits(ctx10(), r.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.CanChange).To(BeFalse())
+			Expect(info.Limits.RateBPS).To(BeEquivalentTo(p2prelay.DefaultOpenRateLimit))
+			_, err = m.SetLimits(ctx10(), r.ID, p2prelaymgr.LimitsPatch{RateBPS: i64(0)})
+			Expect(err).To(MatchError(p2prelaymgr.ErrNotAdmin))
+		})
+
+		It("reports a refused value and an unknown relay", func() {
+			relay := newTestRelay(gatedCfg(srv.host.ID()))
+			m := srv.manager(nil, false)
+			r, err := m.Add(ctx10(), relay.addr(), "", "")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = m.SetLimits(ctx10(), r.ID, p2prelaymgr.LimitsPatch{RateBPS: i64(-5)})
+			Expect(err).To(MatchError(p2prelaymgr.ErrInvalidLimits))
+			_, err = m.Limits(ctx10(), "nope")
+			Expect(err).To(MatchError(p2prelaymgr.ErrNotFound))
 		})
 	})
 })

@@ -3,6 +3,7 @@ package p2prelay
 import (
 	"context"
 	"slices"
+	"sync/atomic"
 
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -28,7 +29,14 @@ func RateLimitedHost(h host.Host, perCircuit, total int64) host.Host {
 	if perCircuit <= 0 && total <= 0 {
 		return h
 	}
-	r := &rateLimitedHost{Host: h, perCircuit: perCircuit}
+	return newRateLimitedHost(h, perCircuit, total)
+}
+
+// newRateLimitedHost is RateLimitedHost that always wraps, so that the
+// per-circuit limit can be changed later with setPerCircuit.
+func newRateLimitedHost(h host.Host, perCircuit, total int64) *rateLimitedHost {
+	r := &rateLimitedHost{Host: h}
+	r.perCircuit.Store(perCircuit)
 	if total > 0 {
 		r.total = newLimiter(total)
 	}
@@ -37,9 +45,13 @@ func RateLimitedHost(h host.Host, perCircuit, total int64) host.Host {
 
 type rateLimitedHost struct {
 	host.Host
-	perCircuit int64
+	// perCircuit is read for every new stream, so a change reaches the next
+	// circuit and leaves the running ones alone.
+	perCircuit atomic.Int64
 	total      *rate.Limiter
 }
+
+func (r *rateLimitedHost) setPerCircuit(bps int64) { r.perCircuit.Store(bps) }
 
 // SetStreamHandler wraps the streams of the hop protocol.
 func (r *rateLimitedHost) SetStreamHandler(pid protocol.ID, handler network.StreamHandler) {
@@ -61,8 +73,8 @@ func (r *rateLimitedHost) NewStream(ctx context.Context, p peer.ID, pids ...prot
 
 func (r *rateLimitedHost) wrap(s network.Stream) network.Stream {
 	ls := &limitedStream{Stream: s, total: r.total}
-	if r.perCircuit > 0 {
-		ls.own = newLimiter(r.perCircuit)
+	if bps := r.perCircuit.Load(); bps > 0 {
+		ls.own = newLimiter(bps)
 	}
 	ls.chunk = burst(ls.own, ls.total)
 	ls.ctx, ls.cancel = context.WithCancel(context.Background())

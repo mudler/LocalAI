@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  ago, canAdd, checkOutcome, formatBytes, formatSeconds, hasLimits, isRelayAddr, limitParts, limitsCommand,
-  limitsFromRelay, modeChoices, normalizeMode, p2pSettingsFrom, parsePeerList, relayCommands, relayPass,
+  ago, canAdd, defaultLimits, checkOutcome, formatBytes, formatSeconds, hasLimits, isRelayAddr, limitParts, limitsFromReported,
+  limitsPatch, modeChoices, normalizeMode, p2pSettingsFrom, parsePeerList, relayCommands, relayPass,
   relayHost, relayName, relayPeerID, relayTone, shortID, validLimits, wrongPeer,
 } from '../../src/components/p2psettings/p2pSettingsModel.js'
 
@@ -134,28 +134,20 @@ test('p2p settings: relay start commands name this server as admin', () => {
   assert.match(relayCommands('').binary, /--admin '<peer ID of this server>'$/)
 })
 
-test('p2p settings: limits form and the command that applies it', () => {
-  const open = { mode: 'open', state: 'open', limits: { circuit_bytes: 0, circuit_seconds: 0, rate_bps: 0 } }
-  assert.deepEqual(limitsFromRelay(open), { dataGiB: 1, minutes: 30, kibps: 64, circuits: 16 })
-  const gated = { mode: 'gated', state: 'in_sync', limits: { circuit_bytes: 2 * 2 ** 30, circuit_seconds: 3600, rate_bps: 10 << 20 } }
-  assert.deepEqual(limitsFromRelay(gated), { dataGiB: 2, minutes: 60, kibps: 10240, circuits: 16 })
+test('p2p settings: limits form and the body that saves it', () => {
+  assert.deepEqual(limitsFromReported({ circuit_bytes: 0, circuit_seconds: 0, rate_bps: 0 }), { dataGiB: 0, minutes: 0, kibps: 0 })
+  assert.deepEqual(limitsFromReported({ circuit_bytes: 2 * 2 ** 30, circuit_seconds: 3600, rate_bps: 10 << 20 }), { dataGiB: 2, minutes: 60, kibps: 10240 })
+  assert.deepEqual(limitsFromReported(undefined), { dataGiB: 0, minutes: 0, kibps: 0 })
+  assert.deepEqual(defaultLimits(true), { dataGiB: 1, minutes: 30, kibps: 64 })
+  assert.deepEqual(defaultLimits(false), { dataGiB: 1, minutes: 30, kibps: 0 })
 
-  assert.ok(validLimits({ dataGiB: '1', minutes: '0', kibps: '64', circuits: '16' }))
-  assert.ok(!validLimits({ dataGiB: '-1', minutes: '30', kibps: '64', circuits: '16' }))
-  assert.ok(!validLimits({ dataGiB: '1', minutes: '', kibps: '64', circuits: '16' }))
-  assert.ok(!validLimits({ dataGiB: '1', minutes: '30', kibps: '64', circuits: '0' }))
+  assert.ok(validLimits({ dataGiB: '1', minutes: '0', kibps: '64' }))
+  assert.ok(!validLimits({ dataGiB: '-1', minutes: '30', kibps: '64' }))
+  assert.ok(!validLimits({ dataGiB: '1', minutes: '', kibps: '64' }))
+  assert.ok(!validLimits({ dataGiB: '1', minutes: 'x', kibps: '64' }))
 
-  const oneLine = (cmd) => cmd.replace(/ \\\n  /g, ' ')
-  const gatedCmd = limitsCommand({ peerID: ID, open: false, form: { dataGiB: 1, minutes: 90, kibps: 64, circuits: 16 } })
-  assert.equal(gatedCmd.split('\n').length, 6)
-  assert.equal(
-    oneLine(gatedCmd),
-    `local-ai p2p relay --admin ${ID} --circuit-max-bytes 1073741824 --circuit-max-duration 1h30m --rate-limit 65536 --max-circuits-per-peer 16`,
-  )
-  assert.equal(
-    oneLine(limitsCommand({ open: true, form: { dataGiB: 1, minutes: 30, kibps: 64, circuits: 8 }, noLimit: true })),
-    'local-ai p2p relay --open --circuit-max-bytes 0 --circuit-max-duration 0 --rate-limit 0 --max-circuits-per-peer 8',
-  )
+  assert.deepEqual(limitsPatch({ form: { dataGiB: 1, minutes: 90, kibps: 64 } }), { circuit_bytes: 1073741824, circuit_seconds: 5400, rate_bps: 65536 })
+  assert.deepEqual(limitsPatch({ form: { dataGiB: 1, minutes: 90, kibps: 64 }, noLimit: true }), { circuit_bytes: 0, circuit_seconds: 0, rate_bps: 0 })
 })
 
 test('p2p settings: how long ago a relay was checked', () => {

@@ -189,7 +189,7 @@ func (r *Relay) Banner() Banner {
 	if st.Mode == "open" {
 		b.Warnings = append(b.Warnings,
 			"OPEN RELAY: anyone who knows this address can reserve and relay through this host. It is logged every 10 minutes.")
-		if r.cfg.RateLimit == 0 {
+		if r.currentLimits().RateLimit == 0 {
 			b.Warnings = append(b.Warnings,
 				"OPEN RELAY WITHOUT A BANDWIDTH LIMIT: one circuit can use all the bandwidth of this host. Set --rate-limit.")
 		}
@@ -198,7 +198,7 @@ func (r *Relay) Banner() Banner {
 }
 
 func (r *Relay) limitsLine() string {
-	l := r.cfg.Limits
+	l := r.currentLimits()
 	data, dur := "no data limit", "no time limit"
 	if l.CircuitMaxBytes > 0 {
 		data = formatBytes(l.CircuitMaxBytes)

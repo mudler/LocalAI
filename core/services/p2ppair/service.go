@@ -464,6 +464,12 @@ func (s *Service) RenameDevice(ctx context.Context, id, label string) error {
 	return s.st.RenameDevice(ctx, id, label)
 }
 
+// SetAllowSlowPath records whether the server may use a device over a
+// relayed path.
+func (s *Service) SetAllowSlowPath(ctx context.Context, id string, allow bool) error {
+	return s.st.SetDeviceAllowSlowPath(ctx, id, allow)
+}
+
 // Touch records that an active device was seen now, and by which path.
 func (s *Service) Touch(ctx context.Context, p peer.ID, path string) error {
 	return s.st.TouchDevice(ctx, p, s.cfg.Now(), path)

@@ -207,10 +207,20 @@ type LocalAIClient interface {
 	ListP2PInvites(ctx context.Context) ([]P2PInviteInfo, error)
 	// ListP2PRelays lists the relays the server knows.
 	ListP2PRelays(ctx context.Context) ([]P2PRelayInfo, error)
+	// GetP2PRelayLimits reads the limits of one relay.
+	GetP2PRelayLimits(ctx context.Context, id string) (*P2PRelayLimitsInfo, error)
+	// SetP2PRelayLimits changes the limits of a relay this server administers.
+	SetP2PRelayLimits(ctx context.Context, id string, req SetP2PRelayLimitsRequest) (*P2PRelayLimitsInfo, error)
 	// RevokeP2PDevice revokes a paired device: it is cut off at once.
 	RevokeP2PDevice(ctx context.Context, id string) error
 	// CancelP2PInvite cancels a pending invite.
 	CancelP2PInvite(ctx context.Context, id string) error
+	// ListP2PSplitWorkers lists the llama.cpp RPC and MLX workers that lend
+	// their memory to this server. Needs P2P mode share.
+	ListP2PSplitWorkers(ctx context.Context) ([]P2PSplitWorkerInfo, error)
+	// SetP2PSplitSlowPath uses a split worker over a relayed path ("Use
+	// anyway") or stops using it there.
+	SetP2PSplitSlowPath(ctx context.Context, id string, allow bool) (*P2PSplitWorkerInfo, error)
 
 	// ---- Failover chains ----
 	// ListFailoverChains reports every configured failover chain, its

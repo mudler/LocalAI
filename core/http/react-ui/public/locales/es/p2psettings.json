@@ -25,8 +25,7 @@
   "units": {
     "kibps": "KiB/s",
     "gib": "GiB",
-    "minutes": "minutos",
-    "circuits": "circuitos"
+    "minutes": "minutos"
   },
   "modes": {
     "off": {
@@ -241,8 +240,6 @@
     "ledeOpen": "Relay abierto: cualquiera puede usarlo.",
     "ledeGated": "Relay restringido: solo lo usan los peers vinculados.",
     "reset": "Restablecer valores predeterminados",
-    "openWarnTitle": "Cualquiera puede usar este relay.",
-    "openWarnBody": "Los límites evitan que desconocidos consuman todo su ancho de banda. Estos son los valores predeterminados de un relay abierto. Ajústalos, o elige Sin límite.",
     "noLimitTitle": "Sin límite.",
     "noLimitOpen": "Un desconocido puede usar todo el ancho de banda y los datos de este relay, y tus propios peers se ralentizan.",
     "noLimitGated": "Un peer vinculado puede usar todo el ancho de banda de este relay, por ejemplo para copiar un modelo.",
@@ -252,17 +249,18 @@
     "fields": {
       "dataGiB": "Datos por circuito",
       "minutes": "Tiempo por circuito",
-      "kibps": "Ancho de banda por circuito",
-      "circuits": "Circuitos por peer"
+      "kibps": "Ancho de banda por circuito"
     },
     "zeroHint": "0 significa sin límite para ese valor.",
-    "commandTitle": "Iniciar el relay con estos límites",
-    "invalid": "Cada valor debe ser un número igual o mayor que 0, y los circuitos al menos 1.",
-    "applyHint": "Un relay lee sus límites al arrancar. Ejecútalo de nuevo con este comando; los circuitos ya abiertos mantienen los límites antiguos hasta que se cierren.",
-    "confirmTitle": "¿Quitar todos los límites?",
-    "confirmBody": "{{name}} es abierto: cualquiera puede usarlo. Sin límite, un desconocido puede usar todo su ancho de banda y sus datos, y tus propios peers se ralentizan. Puedes volver a añadir límites en cualquier momento.",
-    "confirmRemove": "Quitar límites",
-    "confirmKeep": "Mantener límites"
+    "invalid": "Cada valor debe ser un número igual o mayor que 0.",
+    "applyHint": "Un nuevo límite de ancho de banda se aplica al siguiente circuito. Un nuevo límite de datos o de tiempo reinicia el servicio de circuitos del relay: los circuitos abiertos mantienen los límites antiguos hasta que se cierren, y los dispositivos vinculados se reconectan por el relay en unos instantes.",
+    "save": "Guardar límites",
+    "saved": "Límites guardados en {{name}}.",
+    "savedRestarted": "Límites guardados en {{name}}. El relay reinició su servicio de circuitos; los dispositivos se reconectan en un momento.",
+    "loadError": "No se pudieron leer los límites del relay.",
+    "readOnlyTitle": "Este servidor no puede cambiar estos límites.",
+    "readOnlyOpen": "Es un relay abierto y este servidor no es su administrador. Define los límites donde se ejecuta el relay, con --circuit-max-bytes, --circuit-max-duration y --rate-limit.",
+    "readOnlyMember": "Este servidor no es administrador de este relay. Pídeselo a su administrador o define los límites donde se ejecuta el relay, con --circuit-max-bytes, --circuit-max-duration y --rate-limit."
   },
   "identity": {
     "title": "Identidad",

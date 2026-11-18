@@ -817,6 +817,8 @@ export const p2pRelaysApi = {
   check: (id) => postJSON(API_CONFIG.endpoints.p2pRelayCheck(id), {}),
   sync: (id) => postJSON(API_CONFIG.endpoints.p2pRelaySync(id), {}),
   claim: (id, code) => postJSON(API_CONFIG.endpoints.p2pRelayClaim(id), { code }),
+  limits: (id) => fetchJSON(API_CONFIG.endpoints.p2pRelayLimits(id)),
+  setLimits: (id, body) => fetchJSON(API_CONFIG.endpoints.p2pRelayLimits(id), { method: 'PUT', body: JSON.stringify(body) }),
   regenerateIdentity: () => postJSON(API_CONFIG.endpoints.p2pIdentityRegenerate, { confirm: true }),
 }
 
@@ -922,6 +924,13 @@ export const federationApi = {
   update: (name, body) => fetchJSON(API_CONFIG.endpoints.federationGroup(name), { method: 'PATCH', body: JSON.stringify(body) }),
   remove: (name) => fetchJSON(API_CONFIG.endpoints.federationGroup(name), { method: 'DELETE' }),
   drain: (name, model, drain) => postJSON(API_CONFIG.endpoints.federationDrain(name), { model, drain }),
+}
+
+// Model-split workers: llama.cpp RPC and MLX workers that lend their memory to
+// models on this server. Answers 409 outside mode "share".
+export const p2pSplitApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.p2pSplitWorkers),
+  setSlowPath: (id, allow) => fetchJSON(API_CONFIG.endpoints.p2pSplitWorker(id), { method: 'PATCH', body: JSON.stringify({ allow_slow_path: allow }) }),
 }
 
 // Image generation

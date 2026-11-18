@@ -1,4 +1,98 @@
 {
+  "split": {
+    "title": "Worker model terbagi",
+    "online": "{{online}} dari {{total}} online",
+    "note": "Bukan node kluster: tanpa backend dan tanpa aturan penempatan. Worker ini meminjamkan memorinya untuk model yang berjalan di instans ini.",
+    "slowTitle": "Membagi model paling baik lewat jalur langsung atau jalur hasil hole punching.",
+    "slowBody": "Hanya relay yang menjangkau {{names}}. Ini berjalan, tetapi setiap token menunggu relay. Pilih Tetap gunakan atau biarkan worker tidak dipakai. Membuka port 4001 UDP dan TCP di jaringannya memberi jalur langsung.",
+    "limitedTitle": "Relay publik tidak bisa membawa lapisan model.",
+    "limitedBody": "Satu-satunya jalur ke worker ini adalah relay publik, yang batasnya tidak bisa Anda ubah. Beri worker jalur langsung, atau relay milik Anda di kedua sisi.",
+    "cutTitle": "Relay milik Anda memutus setiap koneksi pada batasnya.",
+    "cutBody": "{{names}} lewat relay milik Anda yang mengakhiri setiap koneksi setelah batas data atau waktunya. Tetap gunakan berjalan, lambat, sampai relay memutus koneksi; lalu muat ulang model. Naikkan atau hapus batas relay untuk sesi yang lebih panjang.",
+    "cutHint": "Terputus setelah {{limits}}",
+    "relayLimits": "Batas relay",
+    "memoryInUse": "Memori tambahan dari worker yang dipakai: {{memory}}.",
+    "add": {
+      "p2pTitle": "Bagikan dulu instans ini lewat P2P",
+      "p2pBody": "Worker model terbagi dipasangkan dengan undangan, dan undangan memerlukan mode P2P Hubungkan dan bagikan.",
+      "p2pOpen": "Buka pengaturan P2P",
+      "engineTitle": "Mesin",
+      "engineSub": {
+        "llama": "Model berjalan di instans ini. Worker menyimpan sebagian lapisannya di memorinya sendiri.",
+        "mlx": "Model berjalan di instans ini dan di worker, sebagai rank dari satu cincin MLX. Hanya Apple Silicon."
+      },
+      "inviteTitle": "Buat undangan",
+      "name": "Nama worker (opsional)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Buat undangan",
+      "inviteReady": "Undangan siap",
+      "inviteExpired": "Undangan kedaluwarsa",
+      "inviteUsed": "Undangan sudah dipakai",
+      "inviteMeta": "Sekali pakai · kedaluwarsa dalam {{time}}",
+      "noPass": "Relay tidak bisa dijangkau, jadi tautan tidak membawa pass relay.",
+      "pathTitle": "Membagi model paling baik lewat jalur langsung atau jalur hasil hole punching.",
+      "pathBody": "Lapisan saling berbicara di setiap token. Lewat relay tetap berjalan, tetapi setiap token menunggu relay. Jika hanya ada jalur relay, Anda yang memutuskan apakah worker ditambahkan.",
+      "runTitle": "Jalankan ini di worker",
+      "runFirst": "Buat undangan dulu: perintahnya memuat tautan undangan.",
+      "runNote": "Volume menyimpan identitas dan pemasangan worker, jadi perintah yang sama tetap berjalan setelah restart. Nama lama p2p-worker masih berfungsi.",
+      "runNoteMlx": "Worker menyimpan identitas dan pemasangannya di ./p2p/mlx-distributed, jadi perintah yang sama tetap berjalan setelah restart.",
+      "waitTitle": "Menunggu worker",
+      "waiting": "Menunggu worker terhubung…",
+      "pairedTitle": "Worker sudah dipasangkan",
+      "pairedWaiting": "Worker sudah memakai undangan. Menunggu koneksinya.",
+      "foundTitle": "Worker sedang dipakai",
+      "foundBody": "Worker tampil di halaman Node di bawah Worker model terbagi, beserta memori yang ditambahkannya. Muat ulang model untuk memakainya.",
+      "openNodes": "Buka Node",
+      "relayTitle": "Worker hanya terhubung lewat relay",
+      "slowTitle": "Lambat: lewat relay.",
+      "slowBody": "{{name}} tidak punya jalur langsung atau jalur hole punching ke instans ini. Pembagian model berjalan lewat relay Anda, tetapi setiap token menunggunya. Membuka port 4001 UDP dan TCP di salah satu sisi dapat memberi jalur langsung nanti.",
+      "slowCut": "Relay mengakhiri setiap koneksi setelah {{limits}}: model lalu berhenti sampai dimuat ulang. Naikkan atau hapus batasnya agar berjalan lebih lama.",
+      "addAnyway": "Tetap tambahkan",
+      "notNow": "Nanti saja"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Mesin",
+      "path": "Jalur",
+      "memory": "Memori tambahan",
+      "status": "Status",
+      "actions": "Tindakan"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Langsung",
+      "holePunched": "Hole punching",
+      "relayed": "Lewat {{relay}}",
+      "relayedUnknown": "Lewat relay",
+      "none": "Tanpa jalur",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "Online",
+      "offline": "Offline",
+      "slow": "Lambat: lewat relay",
+      "limited": "Relay publik: tidak dipakai",
+      "refused": "Ditolak"
+    },
+    "useAnyway": "Tetap gunakan",
+    "stopUsing": "Berhenti memakai",
+    "revoke": "Cabut…",
+    "revokeTitle": "Cabut {{name}}?",
+    "revokeBody": "Worker langsung diputus dan harus dipasangkan lagi dengan undangan baru. Model yang dimuat dengannya gagal sampai dimuat ulang.",
+    "revokeConfirm": "Cabut",
+    "revoking": "Mencabut…",
+    "addWorker": "Tambahkan worker model terbagi",
+    "toast": {
+      "used": "{{name}} dipakai lewat relay.",
+      "stopped": "{{name}} tidak lagi dipakai lewat relay.",
+      "revoked": "{{name}} sudah dicabut."
+    }
+  },
   "nodes": {
     "retry": "Coba lagi"
   }

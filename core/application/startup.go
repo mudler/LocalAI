@@ -295,6 +295,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	if application.assistantClient != nil {
 		application.assistantClient.Failover = application.failoverManager
 		application.assistantClient.P2P = application.P2P()
+		application.assistantClient.P2PSplit = application.P2PSplit()
 	}
 
 	// Subsystem 5: admission control. Limiter is always wired so a

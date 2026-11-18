@@ -25,8 +25,7 @@
   "units": {
     "kibps": "KiB/s",
     "gib": "GiB",
-    "minutes": "minutes",
-    "circuits": "circuits"
+    "minutes": "minutes"
   },
   "modes": {
     "off": {
@@ -241,8 +240,6 @@
     "ledeOpen": "Open relay: anyone can use it.",
     "ledeGated": "Gated relay: only paired peers use it.",
     "reset": "Reset to defaults",
-    "openWarnTitle": "Anyone can use this relay.",
-    "openWarnBody": "Limits keep strangers from using all its bandwidth. These are the defaults for an open relay. Tune them, or choose No limit.",
     "noLimitTitle": "No limit.",
     "noLimitOpen": "One stranger can use all the bandwidth and data of this relay, and your own peers slow down.",
     "noLimitGated": "A paired peer can use all the bandwidth of this relay, for example for a model copy.",
@@ -252,17 +249,18 @@
     "fields": {
       "dataGiB": "Data per circuit",
       "minutes": "Time per circuit",
-      "kibps": "Bandwidth per circuit",
-      "circuits": "Circuits per peer"
+      "kibps": "Bandwidth per circuit"
     },
     "zeroHint": "0 means no limit for that value.",
-    "commandTitle": "Start the relay with these limits",
-    "invalid": "Each value must be a number of 0 or more, and circuits at least 1.",
-    "applyHint": "A relay reads its limits when it starts. Run it again with this command; circuits already open keep the old limits until they close.",
-    "confirmTitle": "Remove all limits?",
-    "confirmBody": "{{name}} is open: anyone can use it. With no limit, one stranger can use all its bandwidth and data, and your own peers slow down. You can add limits again at any time.",
-    "confirmRemove": "Remove limits",
-    "confirmKeep": "Keep limits"
+    "invalid": "Each value must be a number of 0 or more.",
+    "applyHint": "A new bandwidth limit applies to the next circuit. A new data or time limit restarts the relay's circuit service: circuits that are open keep the old limits until they close, and paired devices reconnect through the relay within moments.",
+    "save": "Save limits",
+    "saved": "Limits saved on {{name}}.",
+    "savedRestarted": "Limits saved on {{name}}. The relay restarted its circuit service; devices reconnect in a moment.",
+    "loadError": "Could not read the limits from the relay.",
+    "readOnlyTitle": "This server cannot change these limits.",
+    "readOnlyOpen": "This is an open relay and this server is not its admin. Set the limits where the relay runs, with --circuit-max-bytes, --circuit-max-duration and --rate-limit.",
+    "readOnlyMember": "This server is not an admin of this relay. Ask its admin, or set the limits where the relay runs, with --circuit-max-bytes, --circuit-max-duration and --rate-limit."
   },
   "identity": {
     "title": "Identity",
