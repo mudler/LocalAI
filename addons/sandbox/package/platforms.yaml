@@ -4,9 +4,10 @@
 # in a Virtualization.framework guest on macOS with Apple silicon. The macOS
 # package carries no runtime file: package.sh signs its executable with the
 # virtualization entitlement (package/entitlements.plist), and
-# fetch-runtime.sh fetches nothing for it. The macOS platforms stay disabled
-# until a macOS runner shows the native check passing (see the rule below);
-# darwin/amd64 never gets a guest, because the backend needs Apple silicon.
+# fetch-runtime.sh fetches nothing for it. darwin/arm64 is enabled: its leg
+# builds, signs and checks the executable natively on a macOS runner, where
+# package.sh signs with codesign. darwin/amd64 never gets a guest, because the
+# backend needs Apple silicon, so it stays disabled.
 # The Linux packages carry the runsc of package/runsc.json, the gvisor-profile tool, and
 # the Cloud Hypervisor and virtiofsd of package/kvm.json (virtiofsd on amd64
 # only: upstream publishes no static arm64 build). fetch-runtime.sh puts them
@@ -61,7 +62,7 @@ platforms:
       - gvisor-bin/runsc-fd-parking
       - gvisor-bin/runsc-metric-server
   - platform: darwin/arm64
-    enabled: false
+    enabled: true
     runner: macos-15
     native_check: executable-start
   - platform: darwin/amd64

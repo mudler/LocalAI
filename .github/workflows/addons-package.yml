@@ -55,6 +55,12 @@ name: 'add-on packages'
 # Sandbox package as SANDBOX_GUEST_IMAGE; a publishing event fails without it.
 # An event that publishes nothing pushes no image, so its Sandbox leg is a
 # local-check build.
+#
+# Sandbox on macOS. The darwin/arm64 leg runs on a macOS runner, so the build,
+# the ad hoc signing with the virtualization entitlement (codesign, by
+# scripts/addons/package.sh) and the native check all happen on a Mac. The
+# merge and publish jobs only move the signed layout, on Linux, and never
+# re-sign it. A Linux job that packaged darwin/arm64 would need rcodesign.
 
 on:
   pull_request:
@@ -383,6 +389,22 @@ jobs:
           fi
           if [ -d "$RUNNER_TEMP/runtime" ]; then set -- "$@" --runtime-dir "$RUNNER_TEMP/runtime"; fi
           sh scripts/addons/package.sh "$@"
+      - name: Check the virtualization entitlement of the macOS Sandbox executable
+        # The leg runs on a Mac, so package.sh signs with codesign (no rcodesign
+        # is needed). Read the signature back from the packaged file, not from
+        # the build output: Virtualization.framework refuses an executable
+        # without com.apple.security.virtualization.
+        if: matrix.addon == 'sandbox' && matrix.platform == 'darwin/arm64'
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -eu
+          go run ./scripts/addons/cmd/addonpkg extract --config addons/sandbox/package/platforms.yaml \
+            --layout layout --platform "$PLATFORM" --version "$VERSION" --dest "$RUNNER_TEMP/signed"
+          codesign --verify --strict "$RUNNER_TEMP/signed/sandbox"
+          codesign -d --entitlements - "$RUNNER_TEMP/signed/sandbox" 2>&1 | tee "$RUNNER_TEMP/entitlements.txt"
+          grep -q 'com.apple.security.virtualization' "$RUNNER_TEMP/entitlements.txt"
       - name: Native runtime check
         env:
           ADDON: ${{ matrix.addon }}
