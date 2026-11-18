@@ -3,9 +3,7 @@ package signals
 import (
 	"context"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -45,7 +43,7 @@ var (
 
 var setupSignalHandler = sync.OnceFunc(func() {
 	c := make(chan os.Signal, 2)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	NotifyTermination(c)
 	go signalHandler(c)
 })
 
@@ -90,10 +88,12 @@ func signalHandler(c chan os.Signal) {
 	// A second signal means the operator wants out now.
 	go func() {
 		<-c
+		reportServiceStopped()
 		os.Exit(1)
 	}()
 
 	terminate(drains, hooks, timeout, DefaultHookTimeout)
+	reportServiceStopped()
 	os.Exit(0)
 }
 
