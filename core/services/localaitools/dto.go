@@ -801,6 +801,11 @@ type P2PSplitWorkerInfo struct {
 	// Use anyway; set_p2p_relay_limits raises or removes the limits.
 	OwnRelay    bool   `json:"own_relay,omitempty"`
 	MemoryBytes uint64 `json:"memory_bytes"`
+	// NodeID is the backend node the worker is attached to (empty: this
+	// server); NodeName is its name. In a cluster a worker attached to no
+	// node is not used.
+	NodeID   string `json:"node_id,omitempty"`
+	NodeName string `json:"node_name,omitempty"`
 }
 
 // P2PRelayLimitsInfo is the LLM-facing view of the limits of one relay.

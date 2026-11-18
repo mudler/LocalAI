@@ -654,6 +654,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 		// A worker that joined with a worker invite registers over P2P with
 		// its peer ID, and opens its tunnel there.
 		registerOpts = append(registerOpts, localai.WithWorkerPeers(application))
+		// Backend nodes learn the model-split workers attached to them.
+		registerOpts = append(registerOpts, localai.WithSplitNodes(application))
 		p2pTunnels := clusterep.P2PTunnelServer{Registry: d.Registry, Tunnels: d.Tunnels}
 		application.ServeP2PTunnels(p2pTunnels.ServeConn)
 		if d.Router != nil {

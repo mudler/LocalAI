@@ -510,6 +510,11 @@ func (f *fakeClient) SetP2PSplitSlowPath(_ context.Context, id string, allow boo
 	return &P2PSplitWorkerInfo{ID: id, AllowSlowPath: allow}, nil
 }
 
+func (f *fakeClient) SetP2PSplitNode(_ context.Context, id, nodeID string) (*P2PSplitWorkerInfo, error) {
+	f.record("SetP2PSplitNode", id)
+	return &P2PSplitWorkerInfo{ID: id, NodeID: nodeID}, nil
+}
+
 func (f *fakeClient) ListFailoverChains(_ context.Context) ([]FailoverChainInfo, error) {
 	f.record("ListFailoverChains", nil)
 	if f.listFailoverChains != nil {

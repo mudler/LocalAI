@@ -126,7 +126,7 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 		}
 	}
 	if p2ppair.Kind(req.Kind) == p2ppair.KindSplit {
-		if req.Labels, err = splitInviteLabels(req.Labels); err != nil {
+		if req.Labels, err = rt.splitInviteLabels(ctx, req.Labels); err != nil {
 			return p2papi.MintResult{}, err
 		}
 	}

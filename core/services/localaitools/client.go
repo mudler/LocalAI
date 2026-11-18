@@ -221,6 +221,9 @@ type LocalAIClient interface {
 	// SetP2PSplitSlowPath uses a split worker over a relayed path ("Use
 	// anyway") or stops using it there.
 	SetP2PSplitSlowPath(ctx context.Context, id string, allow bool) (*P2PSplitWorkerInfo, error)
+	// SetP2PSplitNode attaches a split worker to a backend node of the
+	// cluster, or to this server with an empty node ID.
+	SetP2PSplitNode(ctx context.Context, id, nodeID string) (*P2PSplitWorkerInfo, error)
 
 	// ---- Failover chains ----
 	// ListFailoverChains reports every configured failover chain, its

@@ -1749,7 +1749,7 @@ func splitInfo(w p2papi.SplitWorkerView) localaitools.P2PSplitWorkerInfo {
 	return localaitools.P2PSplitWorkerInfo{
 		ID: w.ID, Label: w.Label, Engine: w.Engine, State: w.State, Error: w.Error,
 		AllowSlowPath: w.AllowSlowPath, Path: w.Path.Kind, RelayLabel: w.Path.RelayLabel, RelayID: w.RelayID,
-		OwnRelay: w.OwnRelay, MemoryBytes: w.MemoryBytes,
+		OwnRelay: w.OwnRelay, MemoryBytes: w.MemoryBytes, NodeID: w.NodeID, NodeName: w.NodeName,
 	}
 }
 
@@ -1773,6 +1773,18 @@ func (c *Client) SetP2PSplitSlowPath(ctx context.Context, id string, allow bool)
 		return nil, errNoP2P
 	}
 	w, err := c.P2PSplit.SetSplitWorker(ctx, id, p2papi.SplitWorkerUpdate{AllowSlowPath: &allow})
+	if err != nil {
+		return nil, err
+	}
+	info := splitInfo(w)
+	return &info, nil
+}
+
+func (c *Client) SetP2PSplitNode(ctx context.Context, id, nodeID string) (*localaitools.P2PSplitWorkerInfo, error) {
+	if c.P2PSplit == nil {
+		return nil, errNoP2P
+	}
+	w, err := c.P2PSplit.SetSplitWorker(ctx, id, p2papi.SplitWorkerUpdate{NodeID: &nodeID})
 	if err != nil {
 		return nil, err
 	}

@@ -97,6 +97,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolCancelP2PInvite:          "DELETE /api/p2p/invites/:id",
 	ToolManageFederationGroup:    "POST /api/federation/groups (action create), PATCH /api/federation/groups/:name (action update), DELETE /api/federation/groups/:name (action delete), POST /api/federation/groups/:name/drain (actions drain, undrain)",
 	ToolSetP2PSplitSlowPath:      "PATCH /api/p2p/split-workers/:id",
+	ToolSetP2PSplitNode:          "PATCH /api/p2p/split-workers/:id (node_id)",
 	ToolSetP2PRelayLimits:        "PUT /api/p2p/relays/:id/limits",
 	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
 	// adminRoutesWithoutTool.

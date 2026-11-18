@@ -16,7 +16,8 @@ type SplitService interface {
 }
 
 // SplitWorkerView is one model-split worker: a paired device of kind split
-// that lends its memory to models that run on this server.
+// that lends its memory to models that run on this server, or on the backend
+// node of the cluster it is attached to.
 type SplitWorkerView struct {
 	ID     string `json:"id"`
 	Label  string `json:"label"`
@@ -45,9 +46,15 @@ type SplitWorkerView struct {
 	// Name and Version are what the worker reported.
 	Name    string `json:"name,omitempty"`
 	Version string `json:"version,omitempty"`
-	// Addr is the loopback address of this server that reaches the worker:
-	// an entry of LLAMACPP_GRPC_SERVERS, or of the MLX hostfile.
+	// Addr is the loopback address that reaches the worker, on this server
+	// or on the node of NodeID: an entry of LLAMACPP_GRPC_SERVERS, or of the
+	// MLX hostfile.
 	Addr string `json:"addr,omitempty"`
+	// NodeID is the backend node the worker is attached to; empty means
+	// this server. NodeName is its name. The state, path and address of an
+	// attached worker are what the node last reported.
+	NodeID   string `json:"node_id,omitempty"`
+	NodeName string `json:"node_name,omitempty"`
 	// Rank is the MLX rank of the worker; zero when not in the ring.
 	Rank           int        `json:"rank,omitempty"`
 	ConnectedSince *time.Time `json:"connected_since,omitempty"`
@@ -60,19 +67,26 @@ type SplitWorkerList struct {
 	Workers []SplitWorkerView `json:"workers"`
 	// MemoryInUse is the memory of the workers in use, in bytes.
 	MemoryInUse uint64 `json:"memory_in_use"`
+	// Distributed is true in a cluster: models run on the backend nodes, so
+	// a worker is used only when it is attached to one (node_id).
+	Distributed bool `json:"distributed,omitempty"`
 }
 
-// SplitWorkerUpdate is the body of PATCH /api/p2p/split-workers/{id}.
+// SplitWorkerUpdate is the body of PATCH /api/p2p/split-workers/{id}. At
+// least one field is required.
 type SplitWorkerUpdate struct {
 	// AllowSlowPath uses the worker over a relayed path ("Use anyway"), or
 	// stops using it there.
-	AllowSlowPath *bool `json:"allow_slow_path"`
+	AllowSlowPath *bool `json:"allow_slow_path,omitempty"`
+	// NodeID attaches the worker to a backend node of the cluster, or to
+	// this server with "".
+	NodeID *string `json:"node_id,omitempty"`
 }
 
 // ListSplitWorkersEndpoint lists the model-split workers.
 //
 //	@Summary	List model-split workers
-//	@Description	Lists the paired llama.cpp RPC and MLX workers that lend their memory to models that run on this server, with their state (online, offline, slow, limited, refused), the path that reaches them and the memory they add. A worker reached only through a relay is "slow" until allow_slow_path is set. A relay of the user (own_relay: a gated relay this server administers) may carry it even with a data or time limit, and then ends each connection at the limit; its limits change with PUT /api/p2p/relays/{relay_id}/limits. A public relay never carries model layers ("limited"). Needs P2P mode share. Admin only.
+//	@Description	Lists the paired llama.cpp RPC and MLX workers that lend their memory to models that run on this server or, in a cluster, on the backend node each is attached to (node_id), with their state (online, offline, slow, limited, refused), the path that reaches them and the memory they add. A worker reached only through a relay is "slow" until allow_slow_path is set. A relay of the user (own_relay: a gated relay this server administers) may carry it even with a data or time limit, and then ends each connection at the limit; its limits change with PUT /api/p2p/relays/{relay_id}/limits. A public relay never carries model layers ("limited"). Needs P2P mode share. Admin only.
 //	@Tags		p2p
 //	@Produce	json
 //	@Success	200	{object}	SplitWorkerList
@@ -90,8 +104,8 @@ func ListSplitWorkersEndpoint(svc SplitService) echo.HandlerFunc {
 
 // SetSplitWorkerEndpoint changes how the server uses a model-split worker.
 //
-//	@Summary	Use a model-split worker over a slow path, or stop
-//	@Description	Sets allow_slow_path of a model-split worker. With true the server uses the worker over a relay ("Use anyway"): it works, but every token waits for the relay, and a relay of the user that limits each connection ends it at the limit. A public relay is never used. With false it uses the worker only over a direct or hole-punched path. A model that is loaded keeps its workers until it is loaded again. Needs P2P mode share. Admin only.
+//	@Summary	Use a model-split worker over a slow path, or attach it to a node
+//	@Description	Sets node_id and/or allow_slow_path of a model-split worker. node_id attaches the worker to a backend node of the cluster ("" attaches it to this server): the worker moves to the node at its next session, the node forwards its port and the backends that the node starts use it. Pin the model to that node with a node selector. With allow_slow_path true the server or the node uses the worker over a relay ("Use anyway"): it works, but every token waits for the relay, and a relay of the user that limits each connection ends it at the limit. A public relay is never used. With false it uses the worker only over a direct or hole-punched path. A model that is loaded keeps its workers until it is loaded again. Needs P2P mode share. Admin only.
 //	@Tags		p2p
 //	@Accept		json
 //	@Produce	json
@@ -108,8 +122,8 @@ func SetSplitWorkerEndpoint(svc SplitService) echo.HandlerFunc {
 		if err := bind(c, &req); err != nil {
 			return err
 		}
-		if req.AllowSlowPath == nil {
-			return fail(c, fmt.Errorf("%w: allow_slow_path is required", ErrInvalid))
+		if req.AllowSlowPath == nil && req.NodeID == nil {
+			return fail(c, fmt.Errorf("%w: allow_slow_path or node_id is required", ErrInvalid))
 		}
 		v, err := svc.SetSplitWorker(c.Request().Context(), c.Param("id"), req)
 		if err != nil {
