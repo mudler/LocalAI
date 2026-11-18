@@ -50,8 +50,12 @@ This bash script runs under MSYS2 UCRT64 and must:
 
 - Re-exec under real MSYS2 bash if started from Git for Windows' bash
   (see `scripts/build/llama-cpp-windows.sh` lines 42-72).
-- Build gRPC from source (pinned version) into `backend/cpp/grpc/installed_packages`
+- Build gRPC from source into `backend/cpp/grpc/installed_packages`
   — this is the layout the llama-cpp Makefile expects.
+  The script reads the version from `ARG GRPC_VERSION` in
+  `backend/Dockerfile.base-grpc-builder`, so Linux and Windows share one pin.
+  After a bump, check each mingw-w64 patch against the new tag (the bundled
+  c-ares, zlib, boringssl and abseil sources change between gRPC releases).
 - Apply any mingw-w64 patches needed (c-ares, abseil, zlib, etc. — see the
   llama-cpp script for examples).
 - Compile the backend variants with cmake/ninja.

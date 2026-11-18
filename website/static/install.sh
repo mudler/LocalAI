@@ -88,7 +88,7 @@ detect_platform() {
 		Darwin) OS="darwin" ;;
 		*)
 			die "unsupported operating system: ${uname_s}" \
-				"LocalAI publishes binaries for Linux and macOS. On Windows, use WSL2 or the container image: docker run -p 8080:8080 localai/localai:latest"
+				"LocalAI publishes binaries for Linux and macOS. On Windows, use the PowerShell installer: irm https://localai.io/install.ps1 | iex"
 			;;
 	esac
 

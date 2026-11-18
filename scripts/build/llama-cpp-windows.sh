@@ -281,14 +281,26 @@ fi
 # gRPC from source (backend/cpp/grpc/installed_packages)
 # ---------------------------------------------------------------------------
 GRPC_DIR="$ROOT/backend/cpp/grpc"
+# One pin for gRPC across platforms: the default is read from the Linux
+# base-grpc-builder Dockerfile, so a bump there also moves this build. Set
+# GRPC_VERSION in the environment to override it. The mingw-w64 patches below
+# were checked against the bundled c-ares 1.19.1, zlib 1.3 and the
+# boringssl-with-bazel and abseil sources of that release; re-check them when
+# the pin moves.
+GRPC_VERSION="${GRPC_VERSION:-$(sed -n 's/^ARG GRPC_VERSION=//p' "$ROOT/backend/Dockerfile.base-grpc-builder" | head -n 1)}"
+if [ -z "$GRPC_VERSION" ]; then
+  echo "ERROR: cannot read GRPC_VERSION from backend/Dockerfile.base-grpc-builder" >&2
+  exit 1
+fi
+echo "==> gRPC ${GRPC_VERSION}"
 mkdir -p "$GRPC_DIR/grpc_repo/grpc" "$GRPC_DIR/grpc_build"
 cd "$GRPC_DIR/grpc_repo/grpc"
 git init -q
 # Re-runnable: a previous (possibly failed) run may already have wired origin.
 git remote remove origin 2>/dev/null || true
 git remote add origin https://github.com/grpc/grpc.git
-git fetch origin refs/tags/v1.59.0:refs/tags/v1.59.0 --depth 1
-git checkout -q v1.59.0
+git fetch origin "refs/tags/${GRPC_VERSION}:refs/tags/${GRPC_VERSION}" --depth 1
+git checkout -q "${GRPC_VERSION}"
 git submodule update --init --recursive --depth 1 --single-branch
 
 # abseil's cctz win32 local-time-zone path (USE_WIN32_LOCAL_TIME_ZONE) uses
@@ -300,7 +312,7 @@ git submodule update --init --recursive --depth 1 --single-branch
 perl -0pi -e 's/(#include <windows\.globalization\.h>\R#include <windows\.h>\R)(#endif)/$1#include <winstring.h>\n$2/' \
   third_party/abseil-cpp/absl/time/internal/cctz/src/time_zone_lookup.cc
 
-# c-ares (bundled with gRPC 1.59.0) has a broken CMake build under mingw-w64
+# c-ares (bundled with gRPC) has a broken CMake build under mingw-w64
 # UCRT64 + CMake 4.x. Its CMakeLists uses CHECK_INCLUDE_FILES to detect
 # winsock2.h / ws2tcpip.h / windows.h on WIN32, but the probes run BEFORE
 # CMAKE_REQUIRED_DEFINITIONS is set (so without WIN32_LEAN_AND_MEAN), causing
@@ -321,7 +333,7 @@ perl -0pi -e 's/(#include <windows\.globalization\.h>\R#include <windows\.h>\R)(
 cat >> third_party/cares/cares/src/lib/ares_config.h.cmake <<'CARES_WIN32_FIX'
 
 /* ---- LocalAI mingw-w64 build fix ----
- * The CMake detection in this old c-ares (pinned by gRPC 1.59.0) doesn't
+ * The CMake detection in this old c-ares (bundled with gRPC) doesn't
  * reliably detect Windows socket types and functions under mingw-w64's
  * UCRT64 headers + CMake 4.x. Force the known-correct values on _WIN32
  * so the build doesn't trip setup_once.h's Error guards or ares_ipv6.h's
@@ -637,7 +649,7 @@ do
   fi
 done
 
-# zlib bundled with gRPC 1.59.0 ships win32/zlib1.rc which the mingw-w64
+# zlib bundled with gRPC ships win32/zlib1.rc which the mingw-w64
 # binutils 2.46+ windres rejects ("zlib1.rc:7: syntax error" — the VERSIONINFO
 # resource format it emits is no longer accepted). The .rc is only used to
 # embed Windows version metadata into the DLL; it is unnecessary for a static
@@ -658,7 +670,7 @@ ZLIB_RC_FIX
 # would pick the Visual Studio generator, producing an MSVC gRPC that the
 # mingw-built grpc-server cannot link against.
 cd "$GRPC_DIR/grpc_build"
-# gRPC 1.59.0's bundled c-ares still declares cmake_minimum_required < 3.5,
+# The bundled c-ares (1.19.1) still declares cmake_minimum_required < 3.5,
 # which cmake >= 4 removed support for. MSYS2 ships cmake 4.x, so configure
 # with the minimum policy version c-ares' CMakeLists can still read.
 # Static-library resolution on MinGW is order-sensitive: GNU ld scans each
