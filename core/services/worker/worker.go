@@ -33,6 +33,9 @@ import (
 // subscribes to NATS lifecycle subjects, and blocks on signals.
 func Run(ctx *cliContext.Context, cfg *Config) error {
 	xlog.Info("Starting worker", "advertise", cfg.advertiseAddr(), "basePort", cfg.effectiveBasePort())
+	if err := cfg.validateFrontend(); err != nil {
+		return err
+	}
 
 	// Fail fast (before prefetch/registration/NATS) when enforcement is on but no
 	// registration token is set: the worker's HTTP file-transfer server fails
@@ -72,10 +75,26 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// PVC keeps restarts cheap.
 	prefetchModels(context.Background(), cfg, systemState, ml, galleries, nil)
 
+	// A worker with an invite joins over P2P: it redeems the invite (once),
+	// and every call to the frontend goes over the P2P layer from here on.
+	if cfg.Join != "" {
+		join, err := joinP2P(context.Background(), cfg)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = join.Close() }()
+		cfg.join = join
+		cfg.RegisterTo = join.FrontendURL()
+	}
+
 	// Self-registration with frontend (with retry)
 	regClient := &workerregistry.RegistrationClient{
 		FrontendURL:       cfg.RegisterTo,
 		RegistrationToken: cfg.RegistrationToken,
+	}
+	if cfg.join != nil {
+		// Longer than over TCP: the first call may wait for a hole punch.
+		regClient.HTTPClient = cfg.join.HTTPClient(p2pCallTimeout)
 	}
 
 	// Context cancelled on shutdown — used by registration waits, heartbeat, and
@@ -119,9 +138,13 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return fmt.Errorf("failed to register with frontend: %w", regErr)
 	}
 	nodeID := res.ID
-	onTunnel, err := carrierOf(res.Carrier, res.NatsURL, cfg)
-	if err != nil {
-		return err
+	// A worker over P2P is tunnel-only, whichever carrier the cluster runs on:
+	// the frontends route to it through its tunnel.
+	onTunnel := cfg.join != nil
+	if !onTunnel {
+		if onTunnel, err = carrierOf(res.Carrier, res.NatsURL, cfg); err != nil {
+			return err
+		}
 	}
 	bootCarrier := cluster.CarrierNATS
 	if onTunnel {

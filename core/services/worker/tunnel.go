@@ -123,6 +123,12 @@ type TunnelConfig struct {
 	// worker to retry the credential it has.
 	Reauthorize func(ctx context.Context) error
 
+	// Dial opens the connection of a lane over another door than the
+	// websocket, with the hello already accepted: the P2P stream of a worker
+	// that joined with an invite. A refusal is a *tunnelDialError with the
+	// status of the reply. Nil dials the websocket of FrontendURL.
+	Dial func(ctx context.Context, lane tunnel.Lane, nodeID, token string) (net.Conn, error)
+
 	// The fields below are for the specs. They are not exported, so that a caller
 	// cannot reach them.
 	sleep         func(ctx context.Context, d time.Duration) error
@@ -144,6 +150,7 @@ type Tunnel struct {
 	dialer   *websocket.Dialer
 
 	reauthorize func(ctx context.Context) error
+	dialConn    func(ctx context.Context, lane tunnel.Lane, nodeID, token string) (net.Conn, error)
 
 	headerTimeout time.Duration
 	noBulk        bool
@@ -226,7 +233,7 @@ func StartTunnel(ctx context.Context, cfg TunnelConfig) (*Tunnel, error) {
 		return nil, err
 	}
 
-	if plaintextToRemoteHost(endpoint) {
+	if cfg.Dial == nil && plaintextToRemoteHost(endpoint) {
 		xlog.Warn("The worker tunnel dials a frontend over plain ws, so its credential and every request that crosses it are readable on the network; "+
 			"register with an https URL", "frontend", endpoint)
 	}
@@ -249,6 +256,7 @@ func StartTunnel(ctx context.Context, cfg TunnelConfig) (*Tunnel, error) {
 		services:      services,
 		dialer:        dialer,
 		reauthorize:   cfg.Reauthorize,
+		dialConn:      cfg.Dial,
 		headerTimeout: cmp.Or(cfg.headerTimeout, tunnelHeaderTimeout),
 		noBulk:        cfg.noBulk,
 		sleep:         cfg.sleep,
@@ -677,6 +685,18 @@ func (t *Tunnel) dial(ctx context.Context, lane tunnel.Lane) (*tunnel.Session, e
 		// mismatch that does not exist.
 		return nil, errors.New("dialling the worker tunnel: this node has no tunnel credential yet")
 	}
+	if t.dialConn != nil {
+		conn, err := t.dialConn(ctx, lane, t.nodeID, token)
+		if err != nil {
+			return nil, err
+		}
+		sess, err := tunnel.ClientSessionConn(conn, lane)
+		if err != nil {
+			_ = conn.Close()
+			return nil, err
+		}
+		return sess, nil
+	}
 	header := http.Header{}
 	header.Set("Authorization", "Bearer "+token)
 
@@ -700,6 +720,14 @@ func (t *Tunnel) dial(ctx context.Context, lane tunnel.Lane) (*tunnel.Session, e
 		return nil, err
 	}
 	return sess, nil
+}
+
+// TunnelRefusal is the error of a dial that the frontend refused with status,
+// for a TunnelConfig.Dial of another door than the websocket. The tunnel reads
+// the status as it reads the one of a refused websocket dial: 401 and 403
+// register the worker again, 409 dials the bulk lane again soon.
+func TunnelRefusal(status int, msg string) error {
+	return &tunnelDialError{status: status, cause: errors.New(msg)}
 }
 
 // tunnelDialError carries the status of a dial that the frontend refused, so
