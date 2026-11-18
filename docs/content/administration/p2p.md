@@ -16,6 +16,9 @@ P2P gives you:
 - **Paired devices.** A device pairs once and can then reach this server.
 - **Remotes over P2P.** You use the models of another LocalAI server as models
   of this one. See [Remotes]({{% relref "/administration/remotes" %}}).
+- **Compute nodes over P2P.** A worker of a distributed cluster joins with a
+  worker invite (`local-ai worker --join <link>`) and needs no inbound port and
+  no registration token. See [Workers over P2P]({{% relref "/administration/distributed-mode#workers-over-p2p" %}}).
 - **Model-split workers.** Workers that hold part of a large model join with an
   invite. See [MLX distributed]({{% relref "/administration/mlx-distributed" %}}).
 - **A view of each connection.** You see whether a device is connected directly,

@@ -67,6 +67,12 @@ A frontend that finds a cluster on NATS but has no NATS address fails to start a
 
 You can start on one and change to the other later.
 
+### Workers that hold only a tunnel
+
+A worker that [joined over P2P](#workers-over-p2p) holds a tunnel and nothing else, whichever carrier is active. A cluster on `nats` reaches such a worker through its tunnel: for each call the frontend takes NATS when the worker is attached to NATS, then the tunnel. A worker holds one tunnel, over a websocket or over P2P, so the order between the two kinds of tunnel never comes into play. The same rule reaches a worker that could not follow a change to NATS. The health monitor does not demote a worker that is attached to the tunnel while NATS is active, because it is reachable.
+
+The Nodes page shows the route of each node: **NATS**, **WebSocket** (the tunnel over a websocket) or **P2P**, and for P2P the path (direct, hole-punched or relayed, and *limited* when the relay limits the data or the time of a connection).
+
 ## Prerequisites
 
 - **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the carrier row, and the shared state. On the `tunnel` carrier it is also the message bus, so size it for that (see [Operational limits](#operational-limits)).
@@ -454,7 +460,10 @@ The worker needs no NATS address. The frontend tells it which [carrier](#carrier
 | `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |
 | `--ephemeral-staging-byte-limit` | `LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT` | `0` (automatic) | Maximum bytes held by request-input staging across the worker's HTTP staging directory and S3 cache. Automatic mode uses the smaller of 10 GiB and 10% of filesystem capacity. |
 | `--ephemeral-staging-min-free-bytes` | `LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES` | `0` (automatic) | Free filesystem space preserved while staging request inputs. Automatic mode uses the larger of 1 GiB and 5% of filesystem capacity. |
-| `--register-to` | `LOCALAI_REGISTER_TO` | *(required)* | Frontend URL for self-registration |
+| `--register-to` | `LOCALAI_REGISTER_TO` | *(empty)* | Frontend URL for self-registration. Required unless `--join` is given |
+| `--join` | `LOCALAI_JOIN` | *(empty)* | Join the cluster over P2P with a worker invite link instead of `--register-to` and a registration token. See [Workers over P2P](#workers-over-p2p) |
+| `--p2p-identity` | `LOCALAI_P2P_IDENTITY` | `<models path>/../data/p2p/identity.key` | Key file of the P2P identity of a worker that joins with `--join`. Keep it: the frontend knows the worker by it |
+| `--allow-open-relay` | `LOCALAI_ALLOW_OPEN_RELAY` | `false` | With `--join`: redeem an invite that names an open relay, which anyone can use |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
@@ -476,6 +485,29 @@ The worker needs no NATS address. The frontend tells it which [carrier](#carrier
 
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /callout %}}
+
+### Workers over P2P
+
+A worker on another network (a laptop, a machine behind NAT, a box at another site) can join with a one-time **worker invite** instead of a URL and the registration token. The frontend must run P2P in mode `share` (Connect and share; see [P2P]({{%relref "administration/p2p" %}})).
+
+1. On the **Nodes** page, open **Add a node**, choose **Compute node** and **P2P invite**, and make an invite. The API is `POST /api/p2p/invites` with `{"kind": "worker"}`. A worker invite has no QR code.
+2. On the new machine, run the command that the page shows:
+
+   ```bash
+   local-ai worker --join "localai://pair?v=1&k=worker&p=<peer ID>&c=<code>&..."
+   ```
+
+3. The worker finds the frontend by its peer ID and connects directly, by hole punching, or through a relay. It redeems the invite, prints a phrase, and registers. The node waits for approval whatever `--auto-approve-nodes` says: compare the phrase and the peer ID with the person who runs the machine, then approve it.
+
+What the worker keeps and does:
+
+- It keeps its P2P identity (`--p2p-identity`) and a record of the frontend under `data/p2p/pairs/`. A restart with the same command does not redeem the used invite again.
+- It registers, heartbeats and drains over P2P HTTP. The frontend knows it by its peer ID, so it needs no registration token, and the node is pinned to that peer: a registration under its name from another peer or with the registration token is refused (409), and the tunnel accepts it only from its peer. A paired worker may act only on its own node.
+- Its tunnel is one P2P stream per lane (`/localai/tunnel/1/inference` and `/localai/tunnel/1/bulk`), with the same yamux sessions as the websocket tunnel. The bulk lane (model files) needs a path without a data limit, so a public relay never carries it; a relay that you run does.
+- It is **tunnel-only**: it never attaches to NATS, and a cluster on `nats` reaches it through the tunnel (see [Workers that hold only a tunnel](#workers-that-hold-only-a-tunnel)). During a change of carrier to `nats` it is listed as a worker that cannot follow, and its `follow_error` says that it joined over P2P. A forced change leaves it on the tunnel, where the frontends still reach it. To move it to NATS, restart it with `--register-to`, the registration token and `--addr`.
+- Revoking the device under **Swarm, P2P** closes its connections, and the node stops heartbeating.
+
+Several frontends: the invite names the frontend that made it, and the worker always reaches that one. The other frontends reach the worker through the peer link, as for a websocket tunnel.
 
 ### Disabling backend installation on workers
 
@@ -911,6 +943,8 @@ curl -X POST http://frontend:8080/api/nodes/<node-id>/approve \
 ```
 
 The **Nodes** page in the WebUI shows pending nodes with an **Approve** button, and so does the node's own page and the **Add a node** page once the machine has registered.
+
+A worker that joins with a [worker invite](#workers-over-p2p) always waits for approval the first time, and keeps its approval when it registers again from the same peer.
 
 To skip manual approval and let nodes join immediately, set `--auto-approve-nodes` (or `LOCALAI_AUTO_APPROVE_NODES=true`) on the frontend. This is convenient for development and trusted environments.
 
