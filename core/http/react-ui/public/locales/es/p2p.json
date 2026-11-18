@@ -5,6 +5,7 @@
   "tabs": {
     "label": "P2P",
     "devices": "Dispositivos e invitaciones",
+    "federation": "Federación",
     "settings": "Ajustes"
   },
   "mode": {
@@ -281,5 +282,110 @@
     "openNote": "Allí, cambia el modo P2P a Conectar y compartir. Puedes hacerlo más tarde.",
     "auth": "Activa primero la autenticación",
     "authNote": "La autenticación está desactivada. Para usar en su lugar los modelos de otra instancia, elige En otro servidor o servicio arriba: eso no necesita autenticación."
+  },
+  "federation": {
+    "title": "Federación",
+    "loadFailed": "No se pudo leer la federación.",
+    "routing": {
+      "label": "Enrutamiento",
+      "least_busy": {
+        "title": "Menos ocupada",
+        "body": "Una solicitud va a la instancia con menos solicitudes en curso de este servidor. Si falla, la siguiente instancia atiende la solicitud."
+      },
+      "round_robin": {
+        "title": "Por turnos",
+        "body": "Las solicitudes van a cada instancia por turnos. Si una falla, la siguiente instancia atiende la solicitud."
+      }
+    },
+    "groups": {
+      "title": "Grupos",
+      "note": "Un grupo es un nombre de modelo que sirven varias instancias. Los clientes llaman al nombre del grupo como a cualquier modelo.",
+      "new": "Nuevo grupo",
+      "delete": "Eliminar",
+      "serving": "{{count}} en servicio",
+      "degraded": "Ninguna instancia responde",
+      "created": "Grupo {{name}} guardado.",
+      "deleted": "Grupo {{name}} eliminado.",
+      "changeFailed": "El cambio no se guardó: {{message}}",
+      "deleteTitle": "¿Eliminar el grupo {{name}}?",
+      "deleteBody": "Los clientes que llamen a este nombre reciben un error. Los modelos de las instancias quedan como están.",
+      "deleteConfirm": "Eliminar grupo",
+      "empty": {
+        "title": "Aún no hay grupos",
+        "body": "Sirve un nombre de modelo desde este servidor y otras instancias de LocalAI. Las solicitudes se reparten entre ellas y, cuando una falla, responde la siguiente.",
+        "factInstances_one": "{{count}} instancia más",
+        "factInstances_other": "{{count}} instancias más",
+        "factFailover": "Incluye failover"
+      }
+    },
+    "members": {
+      "caption": "Las instancias de {{name}}",
+      "col": {
+        "instance": "Instancia",
+        "model": "Modelo allí",
+        "status": "Estado",
+        "inFlight": "En curso",
+        "actions": "Acciones"
+      },
+      "state": {
+        "healthy": "En uso",
+        "recovering": "Recuperándose",
+        "down": "No responde",
+        "missing": "Falta el modelo",
+        "unknown": "Aún sin comprobar",
+        "drained": "Drenada"
+      },
+      "constrained": "Solo solicitudes pequeñas",
+      "constrainedHint": "Un relay limita esta conexión, así que la instancia recibe una solicitud solo cuando ninguna otra puede.",
+      "drain": "Drenar",
+      "undrain": "Volver a poner",
+      "drained": "{{model}} no recibe solicitudes nuevas.",
+      "undrained": "{{model}} vuelve a recibir solicitudes.",
+      "lastServing": "La última instancia en servicio no se puede drenar."
+    },
+    "instances": {
+      "title": "Instancias",
+      "note": "Este servidor y los remotos de LocalAI que usa. Cada remoto también aparece en Modelos, Remotos.",
+      "add": "Añadir una instancia federada",
+      "local": "Esta instancia",
+      "otherProxy": "Otro endpoint",
+      "http": "HTTP",
+      "inFlightNote": "Las solicitudes en curso son las de este servidor. Cada servidor de un clúster cuenta las suyas.",
+      "col": {
+        "instance": "Instancia",
+        "peer": "Peer ID",
+        "path": "Ruta",
+        "inFlight": "En curso",
+        "models": "Modelos"
+      },
+      "status": {
+        "ok": "Responde",
+        "never": "Aún sin contactar",
+        "auth_failed": "Clave rechazada",
+        "unreachable": "No accesible"
+      }
+    },
+    "path": {
+      "local": "Esta instancia",
+      "http": "HTTP",
+      "off": "P2P está apagado",
+      "down": "Sin conexión",
+      "waiting": "Esperando una solicitud",
+      "direct": "Directa",
+      "holePunched": "Hole punching",
+      "relayed": "Mediante un relay",
+      "limited": "Limitada",
+      "limitedHint": "El relay limita los datos o la duración de cada conexión."
+    },
+    "sheet": {
+      "title": "Nuevo grupo",
+      "description": "Un nombre de modelo que sirven varias instancias.",
+      "name": "Nombre del modelo",
+      "nameHint": "Los clientes llaman a este nombre. No puede ser el nombre de un modelo que ya existe.",
+      "members": "Instancias ({{count}} elegidas)",
+      "membersHint": "Elige el mismo modelo en dos o más instancias.",
+      "noModels": "Ninguna instancia tiene aún un modelo. Añade primero un remoto en Modelos, Remotos.",
+      "save": "Guardar"
+    }
   }
 }

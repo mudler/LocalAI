@@ -5,6 +5,7 @@
   "tabs": {
     "label": "P2P",
     "devices": "Appareils et invitations",
+    "federation": "Fédération",
     "settings": "Paramètres"
   },
   "mode": {
@@ -281,5 +282,110 @@
     "openNote": "Là, réglez le mode P2P sur Connexion et partage. Vous pouvez le faire plus tard.",
     "auth": "Activez d'abord l'authentification",
     "authNote": "L'authentification est désactivée. Pour utiliser plutôt les modèles d'une autre instance, choisissez Sur un autre serveur ou service ci-dessus : cela n'exige pas d'authentification."
+  },
+  "federation": {
+    "title": "Fédération",
+    "loadFailed": "Impossible de lire la fédération.",
+    "routing": {
+      "label": "Routage",
+      "least_busy": {
+        "title": "Moins chargée",
+        "body": "Une requête va à l'instance qui a le moins de requêtes en cours de ce serveur. En cas d'échec, l'instance suivante prend la requête."
+      },
+      "round_robin": {
+        "title": "À tour de rôle",
+        "body": "Les requêtes vont à chaque instance à tour de rôle. Si l'une échoue, l'instance suivante prend la requête."
+      }
+    },
+    "groups": {
+      "title": "Groupes",
+      "note": "Un groupe est un nom de modèle servi par plusieurs instances. Les clients appellent le nom du groupe comme n'importe quel modèle.",
+      "new": "Nouveau groupe",
+      "delete": "Supprimer",
+      "serving": "{{count}} en service",
+      "degraded": "Aucune instance ne répond",
+      "created": "Groupe {{name}} enregistré.",
+      "deleted": "Groupe {{name}} supprimé.",
+      "changeFailed": "La modification n'a pas été enregistrée : {{message}}",
+      "deleteTitle": "Supprimer le groupe {{name}} ?",
+      "deleteBody": "Les clients qui appellent ce nom reçoivent une erreur. Les modèles des instances restent tels quels.",
+      "deleteConfirm": "Supprimer le groupe",
+      "empty": {
+        "title": "Aucun groupe pour l'instant",
+        "body": "Servez un nom de modèle depuis ce serveur et d'autres instances LocalAI. Les requêtes sont réparties entre elles et, quand l'une échoue, la suivante répond.",
+        "factInstances_one": "{{count}} autre instance",
+        "factInstances_other": "{{count}} autres instances",
+        "factFailover": "Le basculement est inclus"
+      }
+    },
+    "members": {
+      "caption": "Les instances de {{name}}",
+      "col": {
+        "instance": "Instance",
+        "model": "Modèle là-bas",
+        "status": "État",
+        "inFlight": "En cours",
+        "actions": "Actions"
+      },
+      "state": {
+        "healthy": "En service",
+        "recovering": "En reprise",
+        "down": "Ne répond pas",
+        "missing": "Modèle absent",
+        "unknown": "Pas encore vérifiée",
+        "drained": "Vidée"
+      },
+      "constrained": "Petites requêtes seulement",
+      "constrainedHint": "Un relais limite cette connexion : l'instance ne reçoit une requête que si aucune autre ne peut la prendre.",
+      "drain": "Vider",
+      "undrain": "Remettre en service",
+      "drained": "{{model}} ne reçoit plus de nouvelles requêtes.",
+      "undrained": "{{model}} reçoit de nouveau des requêtes.",
+      "lastServing": "La dernière instance en service ne peut pas être vidée."
+    },
+    "instances": {
+      "title": "Instances",
+      "note": "Ce serveur et les serveurs distants LocalAI qu'il utilise. Chacun apparaît aussi dans Modèles, Serveurs distants.",
+      "add": "Ajouter une instance fédérée",
+      "local": "Cette instance",
+      "otherProxy": "Un autre point d'accès",
+      "http": "HTTP",
+      "inFlightNote": "Les requêtes en cours sont celles de ce serveur. Chaque serveur d'un cluster compte les siennes.",
+      "col": {
+        "instance": "Instance",
+        "peer": "Peer ID",
+        "path": "Chemin",
+        "inFlight": "En cours",
+        "models": "Modèles"
+      },
+      "status": {
+        "ok": "Répond",
+        "never": "Pas encore contactée",
+        "auth_failed": "Clé refusée",
+        "unreachable": "Injoignable"
+      }
+    },
+    "path": {
+      "local": "Cette instance",
+      "http": "HTTP",
+      "off": "P2P est désactivé",
+      "down": "Non connectée",
+      "waiting": "En attente d'une requête",
+      "direct": "Direct",
+      "holePunched": "Hole punching",
+      "relayed": "Via un relais",
+      "limited": "Limité",
+      "limitedHint": "Le relais limite les données ou la durée de chaque connexion."
+    },
+    "sheet": {
+      "title": "Nouveau groupe",
+      "description": "Un nom de modèle servi par plusieurs instances.",
+      "name": "Nom du modèle",
+      "nameHint": "Les clients appellent ce nom. Il ne doit pas être le nom d'un modèle existant.",
+      "members": "Instances ({{count}} choisies)",
+      "membersHint": "Choisissez le même modèle sur deux instances ou plus.",
+      "noModels": "Aucune instance n'a encore de modèle. Ajoutez d'abord un serveur distant dans Modèles, Serveurs distants.",
+      "save": "Enregistrer"
+    }
   }
 }

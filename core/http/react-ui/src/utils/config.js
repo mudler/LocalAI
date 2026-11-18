@@ -73,6 +73,11 @@ export const API_CONFIG = {
     p2pRelaySync: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/sync`,
     p2pRelayClaim: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/claim`,
     p2pIdentityRegenerate: '/api/p2p/identity/regenerate',
+    // Federation: groups of instances behind one model name
+    federation: '/api/federation',
+    federationGroups: '/api/federation/groups',
+    federationGroup: (name) => `/api/federation/groups/${encodeURIComponent(name)}`,
+    federationDrain: (name) => `/api/federation/groups/${encodeURIComponent(name)}/drain`,
 
     // Chats the server keeps: steering, sub-agents and live events
     chats: '/api/chats',

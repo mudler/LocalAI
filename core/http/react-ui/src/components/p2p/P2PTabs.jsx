@@ -4,14 +4,16 @@ import { useTranslation } from 'react-i18next'
 
 export const P2P_PATH = '/app/p2p'
 export const P2P_SETTINGS_PATH = '/app/p2p/settings'
+export const P2P_FEDERATION_PATH = '/app/p2p/federation'
 
 const TABS = [
   { path: P2P_PATH, key: 'devices', exact: true },
+  { path: P2P_FEDERATION_PATH, key: 'federation' },
   { path: P2P_SETTINGS_PATH, key: 'settings' },
 ]
 
-// The tabs of Swarm, P2P: the paired devices and the invites, and the
-// settings of the P2P layer. The pages render it at the top, so both show the
+// The tabs of Swarm, P2P: the paired devices and the invites, the federation
+// groups, and the settings of the P2P layer. The pages render it at the top, so both show the
 // same row; it reuses the look of the hub's second row.
 export default function P2PTabs() {
   const { t } = useTranslation('p2p')

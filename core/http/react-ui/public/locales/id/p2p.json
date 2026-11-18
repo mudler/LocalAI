@@ -5,6 +5,7 @@
   "tabs": {
     "label": "P2P",
     "devices": "Perangkat dan undangan",
+    "federation": "Federasi",
     "settings": "Pengaturan"
   },
   "mode": {
@@ -281,5 +282,110 @@
     "openNote": "Di sana, setel mode P2P ke Terhubung dan berbagi. Anda dapat melakukannya nanti.",
     "auth": "Aktifkan autentikasi dulu",
     "authNote": "Autentikasi nonaktif. Untuk memakai model dari instans lain, pilih Di server atau layanan lain di atas: itu tidak memerlukan autentikasi."
+  },
+  "federation": {
+    "title": "Federasi",
+    "loadFailed": "Federasi tidak dapat dibaca.",
+    "routing": {
+      "label": "Perutean",
+      "least_busy": {
+        "title": "Paling senggang",
+        "body": "Permintaan dikirim ke instans dengan permintaan berjalan paling sedikit dari server ini. Jika gagal, instans berikutnya mengambil permintaan itu."
+      },
+      "round_robin": {
+        "title": "Bergiliran",
+        "body": "Permintaan dikirim ke setiap instans secara bergiliran. Jika satu gagal, instans berikutnya mengambil permintaan itu."
+      }
+    },
+    "groups": {
+      "title": "Grup",
+      "note": "Grup adalah satu nama model yang dilayani beberapa instans. Klien memanggil nama grup seperti model lainnya.",
+      "new": "Grup baru",
+      "delete": "Hapus",
+      "serving": "{{count}} melayani",
+      "degraded": "Tidak ada instans yang menjawab",
+      "created": "Grup {{name}} disimpan.",
+      "deleted": "Grup {{name}} dihapus.",
+      "changeFailed": "Perubahan tidak disimpan: {{message}}",
+      "deleteTitle": "Hapus grup {{name}}?",
+      "deleteBody": "Klien yang memanggil nama ini akan mendapat galat. Model di setiap instans tetap seperti semula.",
+      "deleteConfirm": "Hapus grup",
+      "empty": {
+        "title": "Belum ada grup",
+        "body": "Layani satu nama model dari server ini dan instans LocalAI lain. Permintaan dibagi ke semuanya, dan jika satu gagal, instans berikutnya menjawab.",
+        "factInstances_one": "{{count}} instans lain",
+        "factInstances_other": "{{count}} instans lain",
+        "factFailover": "Failover sudah termasuk"
+      }
+    },
+    "members": {
+      "caption": "Instans dari {{name}}",
+      "col": {
+        "instance": "Instans",
+        "model": "Model di sana",
+        "status": "Status",
+        "inFlight": "Berjalan",
+        "actions": "Tindakan"
+      },
+      "state": {
+        "healthy": "Dipakai",
+        "recovering": "Memulihkan",
+        "down": "Tidak menjawab",
+        "missing": "Model tidak ada",
+        "unknown": "Belum diperiksa",
+        "drained": "Dikosongkan"
+      },
+      "constrained": "Hanya permintaan kecil",
+      "constrainedHint": "Relay membatasi koneksi ini, jadi instans hanya menerima permintaan jika tidak ada instans lain yang bisa.",
+      "drain": "Kosongkan",
+      "undrain": "Aktifkan lagi",
+      "drained": "{{model}} tidak menerima permintaan baru.",
+      "undrained": "{{model}} menerima permintaan lagi.",
+      "lastServing": "Instans terakhir yang melayani tidak dapat dikosongkan."
+    },
+    "instances": {
+      "title": "Instans",
+      "note": "Server ini dan remote LocalAI yang dipakainya. Setiap remote juga tercantum di Model, Remote.",
+      "add": "Tambah instans federasi",
+      "local": "Instans ini",
+      "otherProxy": "Endpoint lain",
+      "http": "HTTP",
+      "inFlightNote": "Permintaan berjalan adalah permintaan server ini. Setiap server dalam klaster menghitung miliknya sendiri.",
+      "col": {
+        "instance": "Instans",
+        "peer": "Peer ID",
+        "path": "Jalur",
+        "inFlight": "Berjalan",
+        "models": "Model"
+      },
+      "status": {
+        "ok": "Menjawab",
+        "never": "Belum dihubungi",
+        "auth_failed": "Kunci ditolak",
+        "unreachable": "Tidak terjangkau"
+      }
+    },
+    "path": {
+      "local": "Instans ini",
+      "http": "HTTP",
+      "off": "P2P mati",
+      "down": "Tidak terhubung",
+      "waiting": "Menunggu permintaan",
+      "direct": "Langsung",
+      "holePunched": "Hole punching",
+      "relayed": "Lewat relay",
+      "limited": "Terbatas",
+      "limitedHint": "Relay membatasi data atau durasi setiap koneksi."
+    },
+    "sheet": {
+      "title": "Grup baru",
+      "description": "Satu nama model yang dilayani beberapa instans.",
+      "name": "Nama model",
+      "nameHint": "Klien memanggil nama ini. Nama ini tidak boleh sama dengan model yang sudah ada.",
+      "members": "Instans ({{count}} dipilih)",
+      "membersHint": "Pilih model yang sama di dua instans atau lebih.",
+      "noModels": "Belum ada instans yang punya model. Tambahkan remote dulu di Model, Remote.",
+      "save": "Simpan"
+    }
   }
 }

@@ -89,3 +89,17 @@
   .p2p-invite__qr { justify-self: center; }
   .p2p-link { flex-direction: column; }
 }
+
+/* Federation: groups of instances behind one model name. */
+.fed-group { display: grid; gap: var(--sp-3); min-width: 0; }
+.fed-group__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); }
+.fed-group__title { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); min-width: 0; }
+.fed-group__title h3 { margin: 0; }
+.fed-group__routing { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.fed-group__routing .p2p-hint { flex: 1 1 260px; }
+.fed-num { text-align: right; }
+.fed-pick { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: var(--sp-2); }
+.fed-pick__group { display: grid; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); border-radius: var(--dk-radius-2); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.fed-pick__model { font-weight: 600; color: var(--dk-text); overflow-wrap: anywhere; }
+.fed-pick__option { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); min-width: 0; color: var(--dk-text); cursor: pointer; }
+.fed-pick__option .p2p-cell-sub { display: inline; }

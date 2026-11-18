@@ -5,6 +5,7 @@
   "tabs": {
     "label": "P2P",
     "devices": "기기 및 초대",
+    "federation": "연합",
     "settings": "설정"
   },
   "mode": {
@@ -281,5 +282,110 @@
     "openNote": "그곳에서 P2P 모드를 연결 및 공유로 설정하세요. 나중에 해도 됩니다.",
     "auth": "먼저 인증을 켜세요",
     "authNote": "인증이 꺼져 있습니다. 대신 다른 인스턴스의 모델을 사용하려면 위에서 다른 서버 또는 서비스를 선택하세요. 그 경우에는 인증이 필요하지 않습니다."
+  },
+  "federation": {
+    "title": "연합",
+    "loadFailed": "연합 정보를 읽을 수 없습니다.",
+    "routing": {
+      "label": "라우팅",
+      "least_busy": {
+        "title": "가장 한가한 곳",
+        "body": "요청은 이 서버에서 처리 중인 요청이 가장 적은 인스턴스로 갑니다. 실패하면 다음 인스턴스가 요청을 받습니다."
+      },
+      "round_robin": {
+        "title": "차례대로",
+        "body": "요청은 각 인스턴스로 차례대로 갑니다. 하나가 실패하면 다음 인스턴스가 요청을 받습니다."
+      }
+    },
+    "groups": {
+      "title": "그룹",
+      "note": "그룹은 여러 인스턴스가 함께 제공하는 하나의 모델 이름입니다. 클라이언트는 다른 모델처럼 그룹 이름을 호출합니다.",
+      "new": "새 그룹",
+      "delete": "삭제",
+      "serving": "{{count}}개 제공 중",
+      "degraded": "응답하는 인스턴스가 없습니다",
+      "created": "{{name}} 그룹을 저장했습니다.",
+      "deleted": "{{name}} 그룹을 삭제했습니다.",
+      "changeFailed": "변경 사항을 저장하지 못했습니다: {{message}}",
+      "deleteTitle": "{{name}} 그룹을 삭제할까요?",
+      "deleteBody": "이 이름을 호출하는 클라이언트는 오류를 받습니다. 각 인스턴스의 모델은 그대로 남습니다.",
+      "deleteConfirm": "그룹 삭제",
+      "empty": {
+        "title": "아직 그룹이 없습니다",
+        "body": "이 서버와 다른 LocalAI 인스턴스에서 하나의 모델 이름을 제공하세요. 요청이 인스턴스들에 나뉘고, 하나가 실패하면 다음 인스턴스가 응답합니다.",
+        "factInstances_one": "다른 인스턴스 {{count}}개",
+        "factInstances_other": "다른 인스턴스 {{count}}개",
+        "factFailover": "장애 조치 포함"
+      }
+    },
+    "members": {
+      "caption": "{{name}}의 인스턴스",
+      "col": {
+        "instance": "인스턴스",
+        "model": "그쪽 모델",
+        "status": "상태",
+        "inFlight": "처리 중",
+        "actions": "작업"
+      },
+      "state": {
+        "healthy": "사용 중",
+        "recovering": "복구 중",
+        "down": "응답 없음",
+        "missing": "모델 없음",
+        "unknown": "아직 확인 안 됨",
+        "drained": "비움"
+      },
+      "constrained": "작은 요청만",
+      "constrainedHint": "릴레이가 이 연결을 제한하므로, 다른 인스턴스가 받을 수 없을 때만 이 인스턴스가 요청을 받습니다.",
+      "drain": "비우기",
+      "undrain": "다시 사용",
+      "drained": "{{model}}은(는) 새 요청을 받지 않습니다.",
+      "undrained": "{{model}}이(가) 다시 요청을 받습니다.",
+      "lastServing": "마지막으로 제공 중인 인스턴스는 비울 수 없습니다."
+    },
+    "instances": {
+      "title": "인스턴스",
+      "note": "이 서버와 이 서버가 사용하는 LocalAI 원격입니다. 각 원격은 모델, 원격에도 표시됩니다.",
+      "add": "연합 인스턴스 추가",
+      "local": "이 인스턴스",
+      "otherProxy": "다른 엔드포인트",
+      "http": "HTTP",
+      "inFlightNote": "처리 중인 요청은 이 서버의 요청입니다. 클러스터의 각 서버는 자신의 요청을 셉니다.",
+      "col": {
+        "instance": "인스턴스",
+        "peer": "피어 ID",
+        "path": "경로",
+        "inFlight": "처리 중",
+        "models": "모델"
+      },
+      "status": {
+        "ok": "응답함",
+        "never": "아직 연결 안 함",
+        "auth_failed": "키 거부됨",
+        "unreachable": "연결할 수 없음"
+      }
+    },
+    "path": {
+      "local": "이 인스턴스",
+      "http": "HTTP",
+      "off": "P2P 꺼짐",
+      "down": "연결 안 됨",
+      "waiting": "요청 대기 중",
+      "direct": "직접",
+      "holePunched": "홀 펀칭",
+      "relayed": "릴레이 경유",
+      "limited": "제한됨",
+      "limitedHint": "릴레이가 각 연결의 데이터 양이나 시간을 제한합니다."
+    },
+    "sheet": {
+      "title": "새 그룹",
+      "description": "여러 인스턴스가 함께 제공하는 하나의 모델 이름입니다.",
+      "name": "모델 이름",
+      "nameHint": "클라이언트가 이 이름을 호출합니다. 이미 있는 모델 이름은 쓸 수 없습니다.",
+      "members": "인스턴스 ({{count}}개 선택)",
+      "membersHint": "두 개 이상의 인스턴스에서 같은 모델을 고르세요.",
+      "noModels": "아직 모델이 있는 인스턴스가 없습니다. 먼저 모델, 원격에서 원격을 추가하세요.",
+      "save": "저장"
+    }
   }
 }

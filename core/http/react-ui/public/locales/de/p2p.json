@@ -5,6 +5,7 @@
   "tabs": {
     "label": "P2P",
     "devices": "Geräte und Einladungen",
+    "federation": "Föderation",
     "settings": "Einstellungen"
   },
   "mode": {
@@ -281,5 +282,110 @@
     "openNote": "Stellen Sie dort den P2P-Modus auf Verbinden und teilen. Das können Sie auch später tun.",
     "auth": "Schalten Sie zuerst die Authentifizierung ein",
     "authNote": "Die Authentifizierung ist aus. Um stattdessen die Modelle einer anderen Instanz zu nutzen, wählen Sie oben Auf einem anderen Server oder Dienst: Das braucht keine Authentifizierung."
+  },
+  "federation": {
+    "title": "Föderation",
+    "loadFailed": "Die Föderation konnte nicht gelesen werden.",
+    "routing": {
+      "label": "Verteilung",
+      "least_busy": {
+        "title": "Geringste Last",
+        "body": "Eine Anfrage geht an die Instanz mit den wenigsten laufenden Anfragen dieses Servers. Schlägt sie fehl, übernimmt die nächste Instanz."
+      },
+      "round_robin": {
+        "title": "Reihum",
+        "body": "Die Anfragen gehen der Reihe nach an jede Instanz. Schlägt eine fehl, übernimmt die nächste Instanz."
+      }
+    },
+    "groups": {
+      "title": "Gruppen",
+      "note": "Eine Gruppe ist ein Modellname, den mehrere Instanzen bedienen. Clients rufen den Namen der Gruppe wie jedes Modell auf.",
+      "new": "Neue Gruppe",
+      "delete": "Löschen",
+      "serving": "{{count}} in Betrieb",
+      "degraded": "Keine Instanz antwortet",
+      "created": "Gruppe {{name}} gespeichert.",
+      "deleted": "Gruppe {{name}} gelöscht.",
+      "changeFailed": "Die Änderung wurde nicht gespeichert: {{message}}",
+      "deleteTitle": "Gruppe {{name}} löschen?",
+      "deleteBody": "Clients, die diesen Namen aufrufen, erhalten einen Fehler. Die Modelle der Instanzen bleiben unverändert.",
+      "deleteConfirm": "Gruppe löschen",
+      "empty": {
+        "title": "Noch keine Gruppen",
+        "body": "Bediene einen Modellnamen von diesem Server und anderen LocalAI-Instanzen aus. Die Anfragen werden auf sie verteilt, und fällt eine aus, antwortet die nächste.",
+        "factInstances_one": "{{count}} weitere Instanz",
+        "factInstances_other": "{{count}} weitere Instanzen",
+        "factFailover": "Failover ist enthalten"
+      }
+    },
+    "members": {
+      "caption": "Die Instanzen von {{name}}",
+      "col": {
+        "instance": "Instanz",
+        "model": "Modell dort",
+        "status": "Status",
+        "inFlight": "Laufend",
+        "actions": "Aktionen"
+      },
+      "state": {
+        "healthy": "In Betrieb",
+        "recovering": "Erholt sich",
+        "down": "Antwortet nicht",
+        "missing": "Modell fehlt",
+        "unknown": "Noch nicht geprüft",
+        "drained": "Entleert"
+      },
+      "constrained": "Nur kleine Anfragen",
+      "constrainedHint": "Ein Relay begrenzt diese Verbindung, daher erhält die Instanz eine Anfrage nur, wenn keine andere Instanz sie annehmen kann.",
+      "drain": "Entleeren",
+      "undrain": "Wieder aufnehmen",
+      "drained": "{{model}} erhält keine neuen Anfragen.",
+      "undrained": "{{model}} erhält wieder Anfragen.",
+      "lastServing": "Die letzte Instanz in Betrieb kann nicht entleert werden."
+    },
+    "instances": {
+      "title": "Instanzen",
+      "note": "Dieser Server und die LocalAI-Gegenstellen, die er nutzt. Jede Gegenstelle steht auch unter Modelle, Gegenstellen.",
+      "add": "Föderierte Instanz hinzufügen",
+      "local": "Diese Instanz",
+      "otherProxy": "Anderer Endpunkt",
+      "http": "HTTP",
+      "inFlightNote": "Laufende Anfragen sind die Anfragen dieses Servers. Jeder Server eines Clusters zählt seine eigenen.",
+      "col": {
+        "instance": "Instanz",
+        "peer": "Peer-ID",
+        "path": "Weg",
+        "inFlight": "Laufend",
+        "models": "Modelle"
+      },
+      "status": {
+        "ok": "Antwortet",
+        "never": "Noch nicht kontaktiert",
+        "auth_failed": "Schlüssel abgelehnt",
+        "unreachable": "Nicht erreichbar"
+      }
+    },
+    "path": {
+      "local": "Diese Instanz",
+      "http": "HTTP",
+      "off": "P2P ist aus",
+      "down": "Nicht verbunden",
+      "waiting": "Wartet auf eine Anfrage",
+      "direct": "Direkt",
+      "holePunched": "Hole Punching",
+      "relayed": "Über ein Relay",
+      "limited": "Begrenzt",
+      "limitedHint": "Das Relay begrenzt die Daten oder die Dauer jeder Verbindung."
+    },
+    "sheet": {
+      "title": "Neue Gruppe",
+      "description": "Ein Modellname, den mehrere Instanzen bedienen.",
+      "name": "Modellname",
+      "nameHint": "Clients rufen diesen Namen auf. Er darf nicht der Name eines bestehenden Modells sein.",
+      "members": "Instanzen ({{count}} gewählt)",
+      "membersHint": "Wähle dasselbe Modell auf zwei oder mehr Instanzen.",
+      "noModels": "Noch keine Instanz hat ein Modell. Füge zuerst unter Modelle, Gegenstellen eine Gegenstelle hinzu.",
+      "save": "Speichern"
+    }
   }
 }

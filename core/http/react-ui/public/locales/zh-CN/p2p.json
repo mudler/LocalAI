@@ -5,6 +5,7 @@
   "tabs": {
     "label": "P2P",
     "devices": "设备和邀请",
+    "federation": "联邦",
     "settings": "设置"
   },
   "mode": {
@@ -281,5 +282,110 @@
     "openNote": "在那里将 P2P 模式设为“连接并共享”。你也可以稍后再做。",
     "auth": "请先开启身份验证",
     "authNote": "身份验证已关闭。若要改用其他实例的模型，请在上方选择“在另一台服务器或服务上”：这不需要身份验证。"
+  },
+  "federation": {
+    "title": "联邦",
+    "loadFailed": "无法读取联邦信息。",
+    "routing": {
+      "label": "路由",
+      "least_busy": {
+        "title": "最空闲",
+        "body": "请求发往本服务器进行中请求最少的实例。如果失败，由下一个实例接手。"
+      },
+      "round_robin": {
+        "title": "轮流",
+        "body": "请求依次发往每个实例。如果某个实例失败，由下一个实例接手。"
+      }
+    },
+    "groups": {
+      "title": "组",
+      "note": "组是由多个实例共同提供的一个模型名称。客户端像调用任何模型一样调用组名。",
+      "new": "新建组",
+      "delete": "删除",
+      "serving": "{{count}} 个在服务",
+      "degraded": "没有实例响应",
+      "created": "已保存组 {{name}}。",
+      "deleted": "已删除组 {{name}}。",
+      "changeFailed": "更改未保存：{{message}}",
+      "deleteTitle": "删除组 {{name}}？",
+      "deleteBody": "调用此名称的客户端会收到错误。各实例上的模型保持不变。",
+      "deleteConfirm": "删除组",
+      "empty": {
+        "title": "还没有组",
+        "body": "由本服务器和其他 LocalAI 实例共同提供一个模型名称。请求会分配到这些实例上，一个失败时由下一个响应。",
+        "factInstances_one": "另外 {{count}} 个实例",
+        "factInstances_other": "另外 {{count}} 个实例",
+        "factFailover": "包含故障转移"
+      }
+    },
+    "members": {
+      "caption": "{{name}} 的实例",
+      "col": {
+        "instance": "实例",
+        "model": "对端模型",
+        "status": "状态",
+        "inFlight": "进行中",
+        "actions": "操作"
+      },
+      "state": {
+        "healthy": "使用中",
+        "recovering": "恢复中",
+        "down": "无响应",
+        "missing": "缺少模型",
+        "unknown": "尚未检查",
+        "drained": "已排空"
+      },
+      "constrained": "仅限小请求",
+      "constrainedHint": "中继限制了此连接，因此只有在其他实例都无法处理时，此实例才会收到请求。",
+      "drain": "排空",
+      "undrain": "恢复服务",
+      "drained": "{{model}} 不再接收新请求。",
+      "undrained": "{{model}} 重新接收请求。",
+      "lastServing": "最后一个在服务的实例不能排空。"
+    },
+    "instances": {
+      "title": "实例",
+      "note": "本服务器及其使用的 LocalAI 远程。每个远程也会列在“模型 > 远程”中。",
+      "add": "添加联邦实例",
+      "local": "本实例",
+      "otherProxy": "其他端点",
+      "http": "HTTP",
+      "inFlightNote": "进行中的请求是本服务器的请求。集群中的每台服务器各自计数。",
+      "col": {
+        "instance": "实例",
+        "peer": "Peer ID",
+        "path": "路径",
+        "inFlight": "进行中",
+        "models": "模型"
+      },
+      "status": {
+        "ok": "正常响应",
+        "never": "尚未联系",
+        "auth_failed": "密钥被拒绝",
+        "unreachable": "无法访问"
+      }
+    },
+    "path": {
+      "local": "本实例",
+      "http": "HTTP",
+      "off": "P2P 已关闭",
+      "down": "未连接",
+      "waiting": "等待请求",
+      "direct": "直连",
+      "holePunched": "打洞",
+      "relayed": "经由中继",
+      "limited": "受限",
+      "limitedHint": "中继限制了每个连接的数据量或时长。"
+    },
+    "sheet": {
+      "title": "新建组",
+      "description": "由多个实例共同提供的一个模型名称。",
+      "name": "模型名称",
+      "nameHint": "客户端调用此名称。不能与已有模型同名。",
+      "members": "实例（已选 {{count}} 个）",
+      "membersHint": "在两个或更多实例上选择同一个模型。",
+      "noModels": "还没有实例拥有模型。请先在“模型 > 远程”中添加远程。",
+      "save": "保存"
+    }
   }
 }
