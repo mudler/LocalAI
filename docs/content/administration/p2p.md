@@ -16,6 +16,9 @@ P2P gives you:
 - **Paired devices.** A device pairs once and can then reach this server.
 - **Remotes over P2P.** You use the models of another LocalAI server as models
   of this one. See [Remotes]({{% relref "/administration/remotes" %}}).
+- **Federation.** One model name served by this server and other LocalAI
+  servers, with least busy or round robin routing and failover. See
+  [Federation]({{% relref "/administration/federation" %}}).
 - **Model-split workers.** Workers that hold part of a large model join with an
   invite. See [MLX distributed]({{% relref "/administration/mlx-distributed" %}}).
 - **A view of each connection.** You see whether a device is connected directly,

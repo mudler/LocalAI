@@ -1164,6 +1164,16 @@ definitions:
       type:
         type: string
     type: object
+  config.FailoverPolicy:
+    enum:
+    - priority
+    - least_busy
+    - round_robin
+    type: string
+    x-enum-varnames:
+    - FailoverPolicyPriority
+    - FailoverPolicyLeastBusy
+    - FailoverPolicyRoundRobin
   config.Gallery:
     properties:
       artifact_verification:
@@ -1807,6 +1817,8 @@ definitions:
         type: string
       pinned:
         type: string
+      policy:
+        $ref: '#/definitions/config.FailoverPolicy'
       state:
         $ref: '#/definitions/failover.ChainState'
       targets:
@@ -1837,6 +1849,17 @@ definitions:
   failover.TargetStatus:
     properties:
       consecutive_ok:
+        type: integer
+      constrained:
+        description: Constrained targets are tried last by a balanced chain.
+        type: boolean
+      drained:
+        description: Drained targets take no new request.
+        type: boolean
+      in_flight:
+        description: |-
+          InFlight is the number of requests of this server that the target
+          serves now. It is not shared between frontends.
         type: integer
       kind:
         $ref: '#/definitions/failover.Kind'
@@ -3513,6 +3536,41 @@ definitions:
       target:
         type: string
     type: object
+  localai.FederationDrainRequest:
+    properties:
+      drain:
+        description: Drain true stops new requests to the model; false starts them
+          again.
+        type: boolean
+      model:
+        type: string
+    type: object
+  localai.FederationGroupRequest:
+    properties:
+      members:
+        description: |-
+          Members are the model names that serve the group: a model of this
+          server or an entry of a remote. At least two.
+        items:
+          type: string
+        type: array
+      name:
+        description: Name is the model name clients use for the group.
+        type: string
+      policy:
+        allOf:
+        - $ref: '#/definitions/config.FailoverPolicy'
+        description: Policy is least_busy (default) or round_robin.
+    type: object
+  localai.FederationGroupUpdateRequest:
+    properties:
+      members:
+        items:
+          type: string
+        type: array
+      policy:
+        $ref: '#/definitions/config.FailoverPolicy'
+    type: object
   localai.GalleryBackend:
     properties:
       force:
@@ -4984,6 +5042,104 @@ definitions:
         - $ref: '#/definitions/recovery.RetentionView'
         description: Retention is the policy applied to the backups.
       state:
+        type: string
+    type: object
+  remotes.FederationView:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/remotes.Group'
+        type: array
+      instances:
+        items:
+          $ref: '#/definitions/remotes.Instance'
+        type: array
+    type: object
+  remotes.Group:
+    properties:
+      members:
+        items:
+          $ref: '#/definitions/remotes.GroupMember'
+        type: array
+      name:
+        type: string
+      policy:
+        $ref: '#/definitions/config.FailoverPolicy'
+      state:
+        description: |-
+          State is the state of the chain: primary, fallback or degraded. Empty
+          when the failover manager does not know it yet.
+        type: string
+    type: object
+  remotes.GroupMember:
+    properties:
+      constrained:
+        description: |-
+          Constrained is true when the target is reached through a relay that
+          limits the connection: it takes a request only when no other can.
+        type: boolean
+      drained:
+        type: boolean
+      in_flight:
+        description: InFlight counts the requests of this server that the target serves.
+        type: integer
+      instance:
+        description: |-
+          Instance is the id of the instance that serves the model: LocalInstance,
+          a remote id, or empty for a model of another proxy.
+        type: string
+      instance_name:
+        type: string
+      last_error:
+        type: string
+      model:
+        type: string
+      state:
+        description: |-
+          State is the health of the target: healthy, down, recovering or
+          missing. Empty when the failover manager does not know it yet.
+        type: string
+      upstream_id:
+        type: string
+    type: object
+  remotes.Instance:
+    properties:
+      id:
+        description: ID is LocalInstance or the id of the remote.
+        type: string
+      in_flight:
+        description: |-
+          InFlight counts the requests of this server that the instance serves
+          now through a group.
+        type: integer
+      local:
+        type: boolean
+      models:
+        items:
+          $ref: '#/definitions/remotes.InstanceModel'
+        type: array
+      name:
+        type: string
+      p2p:
+        allOf:
+        - $ref: '#/definitions/remotes.P2PInfo'
+        description: P2P is the tunnel of a remote over P2P.
+      status:
+        $ref: '#/definitions/remotes.Status'
+      transport:
+        $ref: '#/definitions/remotes.Transport'
+      url:
+        type: string
+    type: object
+  remotes.InstanceModel:
+    properties:
+      model:
+        description: Model is the name of the model config on this server.
+        type: string
+      upstream_id:
+        description: |-
+          UpstreamID is the model id at the instance. For this server it is
+          the model name.
         type: string
     type: object
   remotes.Kind:
@@ -26798,6 +26954,211 @@ paths:
       summary: Stream failover events (server-sent events)
       tags:
       - failover
+  /api/federation:
+    get:
+      description: Lists the instances that can serve a group (this server, id "local",
+        and every remote of kind localai with its P2P tunnel state and its entries)
+        and the groups. A group is a model name served by several of them with the
+        policy least_busy or round_robin; each member has its health, whether it is
+        drained, whether it is constrained (reached through a relay that limits the
+        connection, so it takes a request only when no other member can) and the requests
+        of this server in flight. Requests in flight are counted by each frontend
+        for itself. Admin only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/remotes.FederationView'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Show the federation
+      tags:
+      - remotes
+  /api/federation/groups:
+    post:
+      consumes:
+      - application/json
+      description: 'Makes a model named "name" whose requests go to one of "members"
+        (at least two existing models: models of this server or entries of remotes)
+        by "policy": least_busy (default; the member with the fewest requests of this
+        server in flight) or round_robin. A member that fails is marked down and the
+        request moves to the next member. The group is a model config with a balanced
+        failover chain, so it shows under /api/failover too. Admin only.'
+      parameters:
+      - description: The group
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.FederationGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/remotes.Group'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a federation group
+      tags:
+      - remotes
+  /api/federation/groups/{name}:
+    delete:
+      description: Removes the group's model config. The members stay as they are.
+        Admin only.
+      parameters:
+      - description: Group name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a federation group
+      tags:
+      - remotes
+    get:
+      parameters:
+      - description: Group name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/remotes.Group'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get a federation group
+      tags:
+      - remotes
+    patch:
+      consumes:
+      - application/json
+      description: An absent field is left as it is. A new member list keeps the drain
+        flag of the members that stay; the probe, trip and recovery settings of the
+        group file are kept. Admin only.
+      parameters:
+      - description: Group name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.FederationGroupUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/remotes.Group'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Update a federation group
+      tags:
+      - remotes
+  /api/federation/groups/{name}/drain:
+    post:
+      consumes:
+      - application/json
+      description: With drain true the member takes no new request; requests in flight
+        finish and its health checks go on. With drain false it takes requests again.
+        The last member that takes requests cannot be drained. Admin only.
+      parameters:
+      - description: Group name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Member and drain flag
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.FederationDrainRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/remotes.Group'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Drain a member of a federation group
+      tags:
+      - remotes
   /api/fine-tuning/status:
     get:
       description: Returns model_exports=false when this instance does not share the

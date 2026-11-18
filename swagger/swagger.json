@@ -14387,6 +14387,291 @@
                 }
             }
         },
+        "/api/federation": {
+            "get": {
+                "description": "Lists the instances that can serve a group (this server, id \"local\", and every remote of kind localai with its P2P tunnel state and its entries) and the groups. A group is a model name served by several of them with the policy least_busy or round_robin; each member has its health, whether it is drained, whether it is constrained (reached through a relay that limits the connection, so it takes a request only when no other member can) and the requests of this server in flight. Requests in flight are counted by each frontend for itself. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Show the federation",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.FederationView"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/federation/groups": {
+            "post": {
+                "description": "Makes a model named \"name\" whose requests go to one of \"members\" (at least two existing models: models of this server or entries of remotes) by \"policy\": least_busy (default; the member with the fewest requests of this server in flight) or round_robin. A member that fails is marked down and the request moves to the next member. The group is a model config with a balanced failover chain, so it shows under /api/failover too. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Create a federation group",
+                "parameters": [
+                    {
+                        "description": "The group",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FederationGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Group"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/federation/groups/{name}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Get a federation group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Group"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the group's model config. The members stay as they are. Admin only.",
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Delete a federation group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "An absent field is left as it is. A new member list keeps the drain flag of the members that stay; the probe, trip and recovery settings of the group file are kept. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Update a federation group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FederationGroupUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Group"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/federation/groups/{name}/drain": {
+            "post": {
+                "description": "With drain true the member takes no new request; requests in flight finish and its health checks go on. With drain false it takes requests again. The last member that takes requests cannot be drained. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Drain a member of a federation group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Member and drain flag",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FederationDrainRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Group"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/fine-tuning/status": {
             "get": {
                 "description": "Returns model_exports=false when this instance does not share the models path of the add-on owner. The value is the same as the model_exports key of GET /api/features.",
@@ -21648,6 +21933,19 @@
                 }
             }
         },
+        "config.FailoverPolicy": {
+            "type": "string",
+            "enum": [
+                "priority",
+                "least_busy",
+                "round_robin"
+            ],
+            "x-enum-varnames": [
+                "FailoverPolicyPriority",
+                "FailoverPolicyLeastBusy",
+                "FailoverPolicyRoundRobin"
+            ]
+        },
         "config.Gallery": {
             "type": "object",
             "properties": {
@@ -22393,6 +22691,9 @@
                 "pinned": {
                     "type": "string"
                 },
+                "policy": {
+                    "$ref": "#/definitions/config.FailoverPolicy"
+                },
                 "state": {
                     "$ref": "#/definitions/failover.ChainState"
                 },
@@ -22434,6 +22735,18 @@
             "type": "object",
             "properties": {
                 "consecutive_ok": {
+                    "type": "integer"
+                },
+                "constrained": {
+                    "description": "Constrained targets are tried last by a balanced chain.",
+                    "type": "boolean"
+                },
+                "drained": {
+                    "description": "Drained targets take no new request.",
+                    "type": "boolean"
+                },
+                "in_flight": {
+                    "description": "InFlight is the number of requests of this server that the target\nserves now. It is not shared between frontends.",
                     "type": "integer"
                 },
                 "kind": {
@@ -24676,6 +24989,56 @@
                 }
             }
         },
+        "localai.FederationDrainRequest": {
+            "type": "object",
+            "properties": {
+                "drain": {
+                    "description": "Drain true stops new requests to the model; false starts them again.",
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.FederationGroupRequest": {
+            "type": "object",
+            "properties": {
+                "members": {
+                    "description": "Members are the model names that serve the group: a model of this\nserver or an entry of a remote. At least two.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "description": "Name is the model name clients use for the group.",
+                    "type": "string"
+                },
+                "policy": {
+                    "description": "Policy is least_busy (default) or round_robin.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.FailoverPolicy"
+                        }
+                    ]
+                }
+            }
+        },
+        "localai.FederationGroupUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "policy": {
+                    "$ref": "#/definitions/config.FailoverPolicy"
+                }
+            }
+        },
         "localai.GalleryBackend": {
             "type": "object",
             "properties": {
@@ -26660,6 +27023,135 @@
                     ]
                 },
                 "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.FederationView": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.Group"
+                    }
+                },
+                "instances": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.Instance"
+                    }
+                }
+            }
+        },
+        "remotes.Group": {
+            "type": "object",
+            "properties": {
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.GroupMember"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "policy": {
+                    "$ref": "#/definitions/config.FailoverPolicy"
+                },
+                "state": {
+                    "description": "State is the state of the chain: primary, fallback or degraded. Empty\nwhen the failover manager does not know it yet.",
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.GroupMember": {
+            "type": "object",
+            "properties": {
+                "constrained": {
+                    "description": "Constrained is true when the target is reached through a relay that\nlimits the connection: it takes a request only when no other can.",
+                    "type": "boolean"
+                },
+                "drained": {
+                    "type": "boolean"
+                },
+                "in_flight": {
+                    "description": "InFlight counts the requests of this server that the target serves.",
+                    "type": "integer"
+                },
+                "instance": {
+                    "description": "Instance is the id of the instance that serves the model: LocalInstance,\na remote id, or empty for a model of another proxy.",
+                    "type": "string"
+                },
+                "instance_name": {
+                    "type": "string"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is the health of the target: healthy, down, recovering or\nmissing. Empty when the failover manager does not know it yet.",
+                    "type": "string"
+                },
+                "upstream_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.Instance": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is LocalInstance or the id of the remote.",
+                    "type": "string"
+                },
+                "in_flight": {
+                    "description": "InFlight counts the requests of this server that the instance serves\nnow through a group.",
+                    "type": "integer"
+                },
+                "local": {
+                    "type": "boolean"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.InstanceModel"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "p2p": {
+                    "description": "P2P is the tunnel of a remote over P2P.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.P2PInfo"
+                        }
+                    ]
+                },
+                "status": {
+                    "$ref": "#/definitions/remotes.Status"
+                },
+                "transport": {
+                    "$ref": "#/definitions/remotes.Transport"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.InstanceModel": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "description": "Model is the name of the model config on this server.",
+                    "type": "string"
+                },
+                "upstream_id": {
+                    "description": "UpstreamID is the model id at the instance. For this server it is\nthe model name.",
                     "type": "string"
                 }
             }
