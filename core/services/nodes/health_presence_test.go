@@ -300,6 +300,14 @@ var _ = Describe("The health monitor and the carriers a worker reports", func() 
 		Expect(hm.misses).To(BeEmpty())
 	})
 
+	It("leaves a worker on the tunnel alone while NATS is active when the frontends route to it through the tunnel", func() {
+		hm.UseTunnelRoutes()
+		node("n1", StatusHealthy, "tunnel", "tunnel")
+		hm.doCheckAll(context.Background())
+		Expect(store.getNode("n1").Status).To(Equal(StatusHealthy))
+		Expect(store.getCalls()).ToNot(ContainElement("MarkUnhealthy:n1"))
+	})
+
 	It("does nothing when it was not told where to read the carrier", func() {
 		hm.carrier = nil
 		node("n1", StatusHealthy, "tunnel", "tunnel")

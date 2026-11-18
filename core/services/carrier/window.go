@@ -45,8 +45,16 @@ const attachmentTTL = time.Second
 // that one, else nowhere (nodes.ErrNoRoute). The choice is read from the state of
 // the worker. It is never made from the error of an earlier attempt, and a call
 // is never tried on the other carrier.
+//
+// The window also holds the hybrid routing of a cluster that runs on NATS: a
+// worker that holds only a tunnel (a worker that joined over P2P, or one that
+// could not follow a change to NATS) is reached through the routes of the
+// tunnel (UseTunnelRoutes). The order is fixed: NATS when the worker is
+// attached to it, then the tunnel. A worker holds one tunnel, over a websocket
+// or over P2P, so the two kinds of tunnel never compete for one worker.
 type Window struct {
 	prev     atomic.Pointer[Set]
+	tunnel   atomic.Pointer[Set]
 	attached AttachmentSource
 	agents   AgentSource
 
@@ -72,6 +80,11 @@ func (w *Window) Open(prev *Set) {
 	w.mu.Unlock()
 	w.prev.Store(prev)
 }
+
+// UseTunnelRoutes sets the routes of the tunnel (NewTunnelRoutes) that a call to
+// a worker takes while NATS is active and the worker is attached to the tunnel
+// only. Nil turns the hybrid routing off.
+func (w *Window) UseTunnelRoutes(routes *Set) { w.tunnel.Store(routes) }
 
 // Close ends the window.
 func (w *Window) Close() { w.prev.Store(nil) }
@@ -99,8 +112,11 @@ func (w *Window) attachment(ctx context.Context, nodeID string) (Attachment, err
 // route returns the set that a call to nodeID uses.
 func (w *Window) route(ctx context.Context, cur *Set, nodeID string) (*Set, error) {
 	prev := w.prev.Load()
-	if prev == nil || prev == cur || w.attached == nil {
+	if w.attached == nil {
 		return cur, nil
+	}
+	if prev == nil || prev == cur {
+		return w.routeHybrid(ctx, cur, nodeID), nil
 	}
 	a, err := w.attachment(ctx, nodeID)
 	if err != nil {
@@ -116,6 +132,22 @@ func (w *Window) route(ctx context.Context, cur *Set, nodeID string) (*Set, erro
 	}
 	return nil, fmt.Errorf("%w: worker %s is attached to neither the %s carrier nor the %s carrier that is draining",
 		nodes.ErrNoRoute, nodeID, cur.Name, prev.Name)
+}
+
+// routeHybrid returns the set of a call outside a change: the active one,
+// unless NATS is active and the worker is attached to the tunnel and not to
+// NATS. Not knowing where the worker is attached keeps the active set, whose
+// own error then answers.
+func (w *Window) routeHybrid(ctx context.Context, cur *Set, nodeID string) *Set {
+	routes := w.tunnel.Load()
+	if routes == nil || cur.Name != cluster.CarrierNATS {
+		return cur
+	}
+	a, err := w.attachment(ctx, nodeID)
+	if err != nil || a.NATS || !a.Tunnel {
+		return cur
+	}
+	return routes
 }
 
 // routeAgents returns the set that a request for an agent worker uses: the active

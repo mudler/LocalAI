@@ -62,7 +62,16 @@ type HealthMonitor struct {
 
 	// carrier is set by UseCarrier. It is written before the loop starts.
 	carrier func() (cluster.Carrier, bool)
+	// tunnelRoutes is set by UseTunnelRoutes. It is written before the loop
+	// starts.
+	tunnelRoutes bool
 }
+
+// UseTunnelRoutes tells the monitor that the frontends reach a worker attached
+// to the tunnel while NATS is active (the hybrid routing of carrier.Window), so
+// such a worker is not off the active carrier in any way that matters: it is
+// not demoted. Call it before Start.
+func (hm *HealthMonitor) UseTunnelRoutes() { hm.tunnelRoutes = true }
 
 // UseCarrier makes the monitor demote a worker that reports it is not attached to
 // the active carrier, once the cluster has settled. Such a worker heartbeats over
@@ -88,7 +97,11 @@ func (hm *HealthMonitor) carrierDeparted(node *BackendNode) bool {
 	if !settled {
 		return false
 	}
-	return !slices.Contains(splitCarriers(node.Attached), active)
+	attached := splitCarriers(node.Attached)
+	if hm.tunnelRoutes && active == cluster.CarrierNATS && slices.Contains(attached, cluster.CarrierTunnel) {
+		return false
+	}
+	return !slices.Contains(attached, active)
 }
 
 // UsePresence makes the monitor read the tunnel of each node while the tunnel is
