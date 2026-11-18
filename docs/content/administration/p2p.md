@@ -177,8 +177,9 @@ for each request:
 - Large transfers need a direct connection, or a relay with a large enough limit.
 - A model-split worker that is reachable only through a relay still pairs and
   shows on the Nodes page, but it is slow. LocalAI shows a warning and you
-  choose **Use anyway**. A relay with a data limit, such as a public relay,
-  never carries model layers. See
+  choose **Use anyway**. Through a relay of yours that limits each
+  connection, the worker runs until the relay cuts the connection; you can
+  raise or remove the limits. A public relay never carries model layers. See
   [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}}#paths-relays-and-use-anyway).
 
 When a relayed connection ends at its limit, LocalAI connects again and tries to

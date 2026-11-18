@@ -113,14 +113,16 @@ a worker matters. LocalAI uses each worker by its path:
 | Path | What LocalAI does |
 |---|---|
 | Direct or hole-punched | Uses the worker. |
-| A relay without a data limit, such as your own relay with no limit | Shows **Slow: through a relay** and waits. Choose **Use anyway** to use the worker; every token then waits for the relay. **Stop using** undoes it. |
-| A relay with a data limit, such as a public relay or a relay with the default circuit limit | Shows **Relay too small**. The relay ends a connection after its data limit, and the model layers are larger. No choice makes this path usable. |
+| A relay without a data limit | Shows **Slow: through a relay** and waits. Choose **Use anyway** to use the worker; every token then waits for the relay. **Stop using** undoes it. |
+| A relay of yours with a data or time limit (a gated relay this server administers, for example with the default circuit limit) | Shows **Slow: through a relay**, with the limits after which the relay cuts each connection. **Use anyway** uses the worker until the relay cuts the connection; the model then stops until you load it again. **Relay limits** opens the limits of the relay, where you raise or remove them. |
+| A public relay | Shows **Public relay: not used**. A public relay limits each connection to a small amount of data and you cannot change its limits, so it never carries model layers. |
 
-A relay with a data limit never carries model layers. To use a worker that only
-a relay reaches, remove the data limit of the circuits on
-[your relay]({{% relref "/administration/p2p-relay" %}}), or give the worker a
-direct path: forward UDP and TCP port 4001 on either side and start the worker
-with `--p2p-listen /ip4/0.0.0.0/tcp/4001 --p2p-listen /ip4/0.0.0.0/udp/4001/quic-v1`.
+To run longer through a relay of yours, raise or remove the data and time
+limits of its circuits with **Relay limits**, on the **Relays** page, or with
+`PUT /api/p2p/relays/{id}/limits` (see [Run your own relay]({{% relref "/administration/p2p-relay" %}})).
+A direct path is still faster: forward UDP and TCP port 4001 on either side and
+start the worker with
+`--p2p-listen /ip4/0.0.0.0/tcp/4001 --p2p-listen /ip4/0.0.0.0/udp/4001/quic-v1`.
 
 When a better path opens later, for example after a hole punch, LocalAI uses it
 at the next connection.
@@ -159,7 +161,7 @@ that names the replacement.
 
 | Route | What it does |
 |---|---|
-| `GET /api/p2p/split-workers` | Lists the workers: `{workers: [{id, label, peer_id, engine, state, allow_slow_path, path, memory_bytes, addr, rank, ...}], memory_in_use}`. `state` is `online`, `offline`, `slow`, `limited` or `refused`. |
+| `GET /api/p2p/split-workers` | Lists the workers: `{workers: [{id, label, peer_id, engine, state, allow_slow_path, path, memory_bytes, addr, rank, ...}], memory_in_use}`. `state` is `online`, `offline`, `slow`, `limited` (public relay) or `refused`. A relayed worker carries `relay_id` and `own_relay` (a relay this server administers, whose limits can change). |
 | `PATCH /api/p2p/split-workers/{id}` | `{allow_slow_path: true}` is **Use anyway**; `false` stops using the worker over a relay. |
 
 A worker invite is `POST /api/p2p/invites` with `kind` `split` and
@@ -168,7 +170,8 @@ with another engine than its invite named is refused. The routes are for
 administrators and need mode `share`.
 
 The LocalAI Assistant has the tools `list_p2p_split_workers` and
-`set_p2p_split_slow_path`.
+`set_p2p_split_slow_path`, and `get_p2p_relay_limits` and
+`set_p2p_relay_limits` for the limits of a relay of yours.
 
 ## Distributed mode
 
