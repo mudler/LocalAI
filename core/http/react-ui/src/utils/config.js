@@ -71,8 +71,12 @@ export const API_CONFIG = {
     p2pRelay: (id) => `/api/p2p/relays/${encodeURIComponent(id)}`,
     p2pRelayCheck: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/check`,
     p2pRelaySync: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/sync`,
+    p2pRelayLimits: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/limits`,
     p2pRelayClaim: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/claim`,
     p2pIdentityRegenerate: '/api/p2p/identity/regenerate',
+    // Model-split workers (llama.cpp RPC and MLX over P2P)
+    p2pSplitWorkers: '/api/p2p/split-workers',
+    p2pSplitWorker: (id) => `/api/p2p/split-workers/${encodeURIComponent(id)}`,
 
     // Chats the server keeps: steering, sub-agents and live events
     chats: '/api/chats',

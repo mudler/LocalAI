@@ -536,7 +536,7 @@ func (m *manager) refreshLocked(ctx context.Context, e *entry, o refreshOpts) er
 		r.Mode = st.Mode
 		r.Latency = latency
 		r.Admins, r.Members = st.Admins, st.Members
-		r.Limits = Limits{CircuitBytes: st.CircuitMaxBytes, CircuitSeconds: st.CircuitMaxSeconds, RateBPS: st.RateBPS}
+		r.Limits = limitsOf(st)
 	}
 	switch {
 	case st.Mode == relayproto.ModeOpen:

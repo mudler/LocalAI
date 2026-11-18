@@ -25,8 +25,7 @@
   "units": {
     "kibps": "KiB/s",
     "gib": "GiB",
-    "minutes": "minuti",
-    "circuits": "circuiti"
+    "minutes": "minuti"
   },
   "modes": {
     "off": {
@@ -241,8 +240,6 @@
     "ledeOpen": "Relay aperto: chiunque può usarlo.",
     "ledeGated": "Relay ad accesso controllato: lo usano solo i peer associati.",
     "reset": "Ripristina i valori predefiniti",
-    "openWarnTitle": "Chiunque può usare questo relay.",
-    "openWarnBody": "I limiti impediscono a sconosciuti di consumare tutta la sua banda. Questi sono i valori predefiniti per un relay aperto. Regolali, oppure scegli Nessun limite.",
     "noLimitTitle": "Nessun limite.",
     "noLimitOpen": "Un singolo sconosciuto può usare tutta la banda e i dati di questo relay, e i tuoi peer rallentano.",
     "noLimitGated": "Un peer associato può usare tutta la banda di questo relay, per esempio per copiare un modello.",
@@ -252,17 +249,18 @@
     "fields": {
       "dataGiB": "Dati per circuito",
       "minutes": "Tempo per circuito",
-      "kibps": "Banda per circuito",
-      "circuits": "Circuiti per peer"
+      "kibps": "Banda per circuito"
     },
     "zeroHint": "0 significa nessun limite per quel valore.",
-    "commandTitle": "Avvia il relay con questi limiti",
-    "invalid": "Ogni valore deve essere un numero pari o superiore a 0, e i circuiti almeno 1.",
-    "applyHint": "Un relay legge i suoi limiti all'avvio. Avvialo di nuovo con questo comando; i circuiti già aperti mantengono i vecchi limiti finché non si chiudono.",
-    "confirmTitle": "Rimuovere tutti i limiti?",
-    "confirmBody": "{{name}} è aperto: chiunque può usarlo. Senza limiti, un singolo sconosciuto può usare tutta la sua banda e i suoi dati, e i tuoi peer rallentano. Puoi aggiungere di nuovo i limiti in qualsiasi momento.",
-    "confirmRemove": "Rimuovi i limiti",
-    "confirmKeep": "Mantieni i limiti"
+    "invalid": "Ogni valore deve essere un numero pari o superiore a 0.",
+    "applyHint": "Un nuovo limite di banda si applica al circuito successivo. Un nuovo limite di dati o di tempo riavvia il servizio di circuiti del relay: i circuiti già aperti mantengono i vecchi limiti finché non si chiudono e i dispositivi associati si riconnettono tramite il relay in pochi istanti.",
+    "save": "Salva i limiti",
+    "saved": "Limiti salvati su {{name}}.",
+    "savedRestarted": "Limiti salvati su {{name}}. Il relay ha riavviato il servizio di circuiti; i dispositivi si riconnettono tra un attimo.",
+    "loadError": "Impossibile leggere i limiti dal relay.",
+    "readOnlyTitle": "Questo server non può modificare questi limiti.",
+    "readOnlyOpen": "È un relay aperto e questo server non ne è l'amministratore. Imposta i limiti dove gira il relay, con --circuit-max-bytes, --circuit-max-duration e --rate-limit.",
+    "readOnlyMember": "Questo server non è amministratore di questo relay. Chiedi al suo amministratore, oppure imposta i limiti dove gira il relay, con --circuit-max-bytes, --circuit-max-duration e --rate-limit."
   },
   "identity": {
     "title": "Identità",

@@ -334,8 +334,8 @@ The token-based P2P mode, federation and the Explorer were removed. A server tha
 | `$LOCALAI_P2P_DISABLE_DHT` | The runtime setting `p2p_public_dht` |
 | `$LOCALAI_P2P_DHT_ANNOUNCE_MADDRS` | None |
 | `--federated`, `$LOCALAI_FEDERATED`, `$FEDERATED`, setting `federated`, `local-ai federated` (`--random-worker`, `--target-worker`) | A federated-instance invite, created under Swarm, P2P |
-| `local-ai worker p2p-llama-cpp-rpc` (and `p2p-worker p2p-llama-cpp-rpc`) | `local-ai worker llama-cpp-rpc` |
-| `local-ai worker p2p-mlx` (and `p2p-worker p2p-mlx`) | `local-ai worker mlx-distributed` |
+| `local-ai worker p2p-llama-cpp-rpc` (and `p2p-worker p2p-llama-cpp-rpc`) | `local-ai worker llama-cpp-rpc --join <invite link>`, with a model-split worker invite |
+| `local-ai worker p2p-mlx` (and `p2p-worker p2p-mlx`) | `local-ai worker mlx-distributed --join <invite link>`, with a model-split worker invite |
 | `local-ai explorer` | None |
 
 ### `local-ai p2p`
@@ -378,7 +378,7 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text
 - `local-ai mcp-server` - Run the LocalAI admin and client tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP). `--files-dir` (`LOCALAI_MCP_FILES_DIR`) is the folder where the client tools read and write files; it has no default, and without it the client tools that read or write files are not registered. `--read-only` also leaves out the client tools that write files or make content (`generate_*`, `speak`, `embed`, `voice_profile` create and delete)
-- `local-ai worker` - Start a worker. With no subcommand it is the worker for distributed mode (generic, backend-agnostic). The subcommands `llama-cpp-rpc`, `mlx-distributed`, `vllm` and `ds4-distributed` run the standalone workers. `p2p-worker` is the old name of this command and still works
+- `local-ai worker` - Start a worker. With no subcommand it is the worker for distributed mode (generic, backend-agnostic). The subcommands `llama-cpp-rpc`, `mlx-distributed`, `vllm` and `ds4-distributed` run the standalone workers; `llama-cpp-rpc` and `mlx-distributed` also join a server over P2P with `--join <invite link>` (see [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}})). `p2p-worker` is the old name of this command and still works
 - `local-ai cluster` - Read or change the carrier (NATS or the database tunnel) and the settings of a distributed cluster through a running frontend. See [Distributed Mode]({{% relref "/administration/distributed-mode" %}})
 - `local-ai p2p` - Run a relay, manage relays and pair devices over P2P
 - `local-ai agent-worker` - Start a worker for distributed mode (serves MCP tool calls via NATS)

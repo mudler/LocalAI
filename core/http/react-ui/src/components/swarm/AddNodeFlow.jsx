@@ -6,6 +6,7 @@ import { nodesApi, p2pApi, p2pNetApi } from '../../utils/api'
 import { usePolling } from '../../hooks/usePolling'
 import { useImageSelector } from '../ImageSelector'
 import { DISTRIBUTED_COMMAND, joinCommand, p2pCommand, shortPeer, workerCommand } from '../../utils/swarm'
+import AddSplitWorker from './AddSplitWorker'
 import CommandBlock from './CommandBlock'
 import NodeState from './NodeState'
 import NodeRoute from './NodeRoute'
@@ -119,12 +120,11 @@ function Elapsed({ since }) {
 export default function AddNodeFlow({ nodes, single, addToast, onApproved, initialMethod }) {
   const { t } = useTranslation('swarm')
   const [method, setMethod] = useState(METHODS.includes(initialMethod) ? initialMethod : 'worker')
-  const [shard, setShard] = useState('llama')
   const [flavor, setFlavor] = useState('docker')
   const [nodeType, setNodeType] = useState('backend')
   const hardware = useImageSelector('cpu')
   const [startedAt] = useState(() => Date.now())
-  const p2p = useP2P(method !== 'worker')
+  const p2p = useP2P(method === 'peer')
   const [approving, setApproving] = useState(null)
   // How a compute node reaches this server: its address with the registration
   // token ('url'), or a worker invite over P2P ('p2p').
@@ -148,7 +148,7 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
     ? joinCommand({ flavor, option: hardware.option, dev: hardware.dev, link: invite.minted?.link })
     : method === 'worker'
     ? workerCommand({ flavor, nodeType, option: hardware.option, dev: hardware.dev, frontend })
-    : p2pCommand({ method: method === 'peer' ? 'peer' : shard === 'mlx' ? 'mlx' : 'shard', option: hardware.option, dev: hardware.dev, token: p2p.token, flavor })
+    : p2pCommand({ method: 'peer', option: hardware.option, dev: hardware.dev, token: p2p.token, flavor })
 
   const approve = async (node) => {
     setApproving(node.id)
@@ -169,25 +169,30 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
   const next = () => { n += 1; return n }
   const p2pFound = method !== 'worker' && p2p.online !== null && p2pBaseline.current !== null && p2p.online > p2pBaseline.current
 
+  const joinStep = (
+    <Step n={next()} id="sw-add-join" title={t('add.join.title')}>
+      <Segmented
+        label={t('add.join.title')}
+        value={method}
+        onChange={setMethod}
+        options={METHODS.map(key => [key, t(`add.join.${key}`)])}
+      />
+      <p className="sw-note">{t(`add.join.${method}Sub`)}</p>
+    </Step>
+  )
+  // A model-split worker pairs with an invite; its steps are its own.
+  if (method === 'shard') {
+    return (
+      <div className="sw-add" data-testid="add-node">
+        {joinStep}
+        <AddSplitWorker Step={Step} first={2} addToast={addToast} />
+      </div>
+    )
+  }
+
   return (
     <div className="sw-add" data-testid="add-node">
-      <Step n={next()} id="sw-add-join" title={t('add.join.title')}>
-        <Segmented
-          label={t('add.join.title')}
-          value={method}
-          onChange={setMethod}
-          options={METHODS.map(key => [key, t(`add.join.${key}`)])}
-        />
-        <p className="sw-note">{t(`add.join.${method}Sub`)}</p>
-        {method === 'shard' && (
-          <Segmented
-            label={t('add.shard.label')}
-            value={shard}
-            onChange={setShard}
-            options={[['llama', t('add.shard.llama')], ['mlx', t('add.shard.mlx')]]}
-          />
-        )}
-      </Step>
+      {joinStep}
 
       {method === 'worker' && !single && (
         <Step n={next()} id="sw-add-connect" title={t('add.connect.title')}>
@@ -262,7 +267,7 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
 
       <Step n={next()} id="sw-add-run" title={t('add.run.title')}>
         <div className="sw-add__choices">
-          {flavor === 'docker' && !(method === 'shard' && shard === 'mlx') && (
+          {flavor === 'docker' && (
             <div className="dk-segmented sw-hardware" role="radiogroup" aria-label={t('add.run.hardware')}>
               {hardware.options.map(option => (
                 <button

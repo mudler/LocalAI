@@ -125,6 +125,10 @@ type Client struct {
 	// available.
 	P2P p2papi.Service
 
+	// P2PSplit backs the model-split worker tools. nil makes them report
+	// that P2P is not available.
+	P2PSplit p2papi.SplitService
+
 	// SharedFolders backs the shared folder tools. It is read at each call,
 	// because the chats start after the assistant; nil or a nil service makes
 	// the tools report that the chats are off.
@@ -1403,6 +1407,37 @@ func (c *Client) ListP2PRelays(ctx context.Context) ([]localaitools.P2PRelayInfo
 	return out, nil
 }
 
+func (c *Client) GetP2PRelayLimits(ctx context.Context, id string) (*localaitools.P2PRelayLimitsInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	info, err := c.P2P.RelayLimits(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return relayLimitsInfo(info), nil
+}
+
+func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaitools.SetP2PRelayLimitsRequest) (*localaitools.P2PRelayLimitsInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	info, err := c.P2P.SetRelayLimits(ctx, id, p2papi.SetRelayLimitsRequest{
+		CircuitBytes: req.CircuitBytes, CircuitSeconds: req.CircuitSeconds, RateBPS: req.RateBPS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return relayLimitsInfo(info), nil
+}
+
+func relayLimitsInfo(i p2papi.RelayLimitsInfo) *localaitools.P2PRelayLimitsInfo {
+	return &localaitools.P2PRelayLimitsInfo{
+		CircuitBytes: i.Limits.CircuitBytes, CircuitSeconds: i.Limits.CircuitSeconds, RateBPS: i.Limits.RateBPS,
+		CanChange: i.CanChange, Restarted: i.Restarted,
+	}
+}
+
 func (c *Client) RevokeP2PDevice(ctx context.Context, id string) error {
 	if c.P2P == nil {
 		return errNoP2P
@@ -1704,4 +1739,39 @@ func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*loc
 	}
 	c.AppConfig.ChatsEgressCeiling = ceiling
 	return c.GetChatEgress(ctx)
+}
+
+func splitInfo(w p2papi.SplitWorkerView) localaitools.P2PSplitWorkerInfo {
+	return localaitools.P2PSplitWorkerInfo{
+		ID: w.ID, Label: w.Label, Engine: w.Engine, State: w.State, Error: w.Error,
+		AllowSlowPath: w.AllowSlowPath, Path: w.Path.Kind, RelayLabel: w.Path.RelayLabel, RelayID: w.RelayID,
+		OwnRelay: w.OwnRelay, MemoryBytes: w.MemoryBytes,
+	}
+}
+
+func (c *Client) ListP2PSplitWorkers(ctx context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {
+	if c.P2PSplit == nil {
+		return nil, errNoP2P
+	}
+	list, err := c.P2PSplit.ListSplitWorkers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.P2PSplitWorkerInfo, 0, len(list.Workers))
+	for _, w := range list.Workers {
+		out = append(out, splitInfo(w))
+	}
+	return out, nil
+}
+
+func (c *Client) SetP2PSplitSlowPath(ctx context.Context, id string, allow bool) (*localaitools.P2PSplitWorkerInfo, error) {
+	if c.P2PSplit == nil {
+		return nil, errNoP2P
+	}
+	w, err := c.P2PSplit.SetSplitWorker(ctx, id, p2papi.SplitWorkerUpdate{AllowSlowPath: &allow})
+	if err != nil {
+		return nil, err
+	}
+	info := splitInfo(w)
+	return &info, nil
 }

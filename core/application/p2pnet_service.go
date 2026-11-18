@@ -125,6 +125,11 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 			return p2papi.MintResult{}, err
 		}
 	}
+	if p2ppair.Kind(req.Kind) == p2ppair.KindSplit {
+		if req.Labels, err = splitInviteLabels(req.Labels); err != nil {
+			return p2papi.MintResult{}, err
+		}
+	}
 	mr := p2ppair.MintRequest{
 		OwnerID: by, CreatedBy: by, Kind: p2ppair.Kind(req.Kind), Label: req.Label,
 		TTL:            time.Duration(req.TTLSeconds) * time.Second,
@@ -367,6 +372,27 @@ func (s p2pService) ClaimRelay(ctx context.Context, id, code string) (p2papi.Rel
 		return p2papi.Relay{}, err
 	}
 	return rm.Claim(ctx, id, code)
+}
+
+func (s p2pService) RelayLimits(ctx context.Context, id string) (p2papi.RelayLimitsInfo, error) {
+	rm, err := s.relayManager()
+	if err != nil {
+		return p2papi.RelayLimitsInfo{}, err
+	}
+	return rm.Limits(ctx, id)
+}
+
+func (s p2pService) SetRelayLimits(ctx context.Context, id string, req p2papi.SetRelayLimitsRequest) (p2papi.RelayLimitsInfo, error) {
+	rm, err := s.relayManager()
+	if err != nil {
+		return p2papi.RelayLimitsInfo{}, err
+	}
+	for _, v := range []*int64{req.CircuitBytes, req.CircuitSeconds, req.RateBPS} {
+		if v != nil && *v < 0 {
+			return p2papi.RelayLimitsInfo{}, fmt.Errorf("%w: limits must not be negative", p2papi.ErrInvalid)
+		}
+	}
+	return rm.SetLimits(ctx, id, req)
 }
 
 // RegenerateIdentity makes a new key (the old one is kept next to it as a

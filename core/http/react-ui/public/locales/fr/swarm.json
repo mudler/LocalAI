@@ -1,4 +1,98 @@
 {
+  "split": {
+    "title": "Workers de modèles répartis",
+    "online": "{{online}} sur {{total}} en ligne",
+    "note": "Ce ne sont pas des nœuds du cluster : ni backends ni règles de placement. Ils prêtent leur mémoire aux modèles qui tournent sur cette instance.",
+    "slowTitle": "Répartir un modèle marche mieux sur un chemin direct ou ouvert par hole punching.",
+    "slowBody": "Seul un relais atteint {{names}}. Cela marche, mais chaque token attend le relais. Choisissez Utiliser quand même, ou laissez le worker de côté. Ouvrir le port 4001 UDP et TCP sur son réseau donne un chemin direct.",
+    "limitedTitle": "Un relais public ne peut pas transporter les couches du modèle.",
+    "limitedBody": "Le seul chemin vers ce worker est un relais public, dont vous ne pouvez pas changer les limites. Donnez au worker un chemin direct, ou un relais à vous des deux côtés.",
+    "cutTitle": "Un relais à vous coupe chaque connexion à ses limites.",
+    "cutBody": "{{names}} passe par un relais à vous qui ferme chaque connexion après sa limite de données ou de temps. Utiliser quand même marche, lentement, jusqu'à ce que le relais coupe la connexion ; rechargez ensuite le modèle. Augmentez ou retirez les limites du relais pour des sessions plus longues.",
+    "cutHint": "Coupé après {{limits}}",
+    "relayLimits": "Limites du relais",
+    "memoryInUse": "Mémoire apportée par les workers utilisés : {{memory}}.",
+    "add": {
+      "p2pTitle": "Partagez d'abord cette instance en P2P",
+      "p2pBody": "Un worker de modèles répartis s'appaire avec une invitation, et les invitations demandent le mode P2P Se connecter et partager.",
+      "p2pOpen": "Ouvrir les réglages P2P",
+      "engineTitle": "Moteur",
+      "engineSub": {
+        "llama": "Le modèle tourne sur cette instance. Le worker garde certaines de ses couches dans sa propre mémoire.",
+        "mlx": "Le modèle tourne sur cette instance et sur le worker, comme rangs d'un même anneau MLX. Apple Silicon uniquement."
+      },
+      "inviteTitle": "Créer une invitation",
+      "name": "Nom du worker (facultatif)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Créer l'invitation",
+      "inviteReady": "Invitation prête",
+      "inviteExpired": "Invitation expirée",
+      "inviteUsed": "Invitation utilisée",
+      "inviteMeta": "Usage unique · expire dans {{time}}",
+      "noPass": "Le relais était injoignable, le lien ne contient donc pas de pass de relais.",
+      "pathTitle": "Répartir un modèle marche mieux sur un chemin direct ou ouvert par hole punching.",
+      "pathBody": "Les couches communiquent à chaque token. Par un relais cela marche, mais chaque token attend le relais. S'il n'existe qu'un chemin par relais, vous choisissez d'ajouter le worker ou non.",
+      "runTitle": "Lancez ceci sur le worker",
+      "runFirst": "Créez d'abord l'invitation : la commande contient son lien.",
+      "runNote": "Le volume garde l'identité et l'appairage du worker, la même commande marche donc après un redémarrage. L'ancien nom p2p-worker marche toujours.",
+      "runNoteMlx": "Le worker garde son identité et son appairage dans ./p2p/mlx-distributed, la même commande marche donc après un redémarrage.",
+      "waitTitle": "En attente du worker",
+      "waiting": "En attente de la connexion du worker…",
+      "pairedTitle": "Le worker s'est appairé",
+      "pairedWaiting": "Le worker a utilisé l'invitation. En attente de sa connexion.",
+      "foundTitle": "Le worker est utilisé",
+      "foundBody": "Il apparaît sur la page Nœuds, sous Workers de modèles répartis, avec la mémoire qu'il apporte. Rechargez le modèle pour l'utiliser.",
+      "openNodes": "Ouvrir Nœuds",
+      "relayTitle": "Le worker s'est connecté uniquement par un relais",
+      "slowTitle": "Lent : par un relais.",
+      "slowBody": "{{name}} n'a pas de chemin direct ou ouvert par hole punching vers cette instance. La répartition marche par votre relais, mais chaque token l'attend. Ouvrir le port 4001 UDP et TCP d'un des deux côtés peut donner plus tard un chemin direct.",
+      "slowCut": "Le relais ferme chaque connexion après {{limits}} : le modèle s'arrête alors jusqu'à ce qu'il soit rechargé. Augmentez ou retirez les limites pour aller plus loin.",
+      "addAnyway": "Ajouter quand même",
+      "notNow": "Pas maintenant"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Moteur",
+      "path": "Chemin",
+      "memory": "Mémoire apportée",
+      "status": "État",
+      "actions": "Actions"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Direct",
+      "holePunched": "Hole punching",
+      "relayed": "Par {{relay}}",
+      "relayedUnknown": "Par un relais",
+      "none": "Aucun chemin",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "En ligne",
+      "offline": "Hors ligne",
+      "slow": "Lent : par un relais",
+      "limited": "Relais public : non utilisé",
+      "refused": "Refusé"
+    },
+    "useAnyway": "Utiliser quand même",
+    "stopUsing": "Ne plus utiliser",
+    "revoke": "Révoquer…",
+    "revokeTitle": "Révoquer {{name}} ?",
+    "revokeBody": "Le worker est coupé tout de suite et doit s'appairer à nouveau avec une nouvelle invitation. Un modèle chargé avec lui échoue jusqu'à ce qu'il soit rechargé.",
+    "revokeConfirm": "Révoquer",
+    "revoking": "Révocation…",
+    "addWorker": "Ajouter un worker de modèles répartis",
+    "toast": {
+      "used": "{{name}} est utilisé par le relais.",
+      "stopped": "{{name}} n'est plus utilisé par le relais.",
+      "revoked": "{{name}} a été révoqué."
+    }
+  },
   "nodes": {
     "retry": "Réessayer"
   },

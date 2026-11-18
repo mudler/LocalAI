@@ -39,6 +39,8 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_p2p_devices` — List the paired P2P devices and how each one is connected.
 - `list_p2p_invites` — List the P2P invites and their state, never the links.
 - `list_p2p_relays` — List the P2P relays and their sync state.
+- `list_p2p_split_workers` — List the model-split workers (llama.cpp RPC, MLX), their state, path and memory.
+- `get_p2p_relay_limits` — Read the data, time and bandwidth limits of one circuit on a P2P relay and whether this server may change them.
 
 ## Mutating (require user confirmation per safety rule 1)
 
@@ -72,3 +74,5 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `unpin_failover_target` — Remove a failover pin.
 - `revoke_p2p_device` — Revoke a paired P2P device; it is cut off at once.
 - `cancel_p2p_invite` — Cancel a pending P2P invite.
+- `set_p2p_split_slow_path` — Use a model-split worker over a relay ("Use anyway"), or stop; a relay of the user with limits cuts each connection at them.
+- `set_p2p_relay_limits` — Change the data, time or bandwidth limit of one circuit on a P2P relay this server administers; a new data or time limit restarts the relay's circuit service.

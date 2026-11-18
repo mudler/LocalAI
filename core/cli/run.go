@@ -485,11 +485,23 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithP2PBootstrapPeers(r.P2PBootstrap),
 		config.WithP2PIdentityPath(r.P2PIdentity),
 		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
+			// No worker: unset it, so llama.cpp does not read an empty list.
+			if len(tunnels) == 0 {
+				_ = os.Unsetenv("LLAMACPP_GRPC_SERVERS")
+				xlog.Debug("unsetting LLAMACPP_GRPC_SERVERS")
+				return
+			}
 			tunnelEnvVar := strings.Join(tunnels, ",")
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
 			xlog.Debug("setting LLAMACPP_GRPC_SERVERS", "value", tunnelEnvVar)
 		}),
 		config.WithMLXTunnelCallback(func(tunnels []string) {
+			// No ring: MLX runs on this machine alone.
+			if len(tunnels) == 0 {
+				_ = os.Unsetenv("MLX_DISTRIBUTED_HOSTFILE")
+				xlog.Debug("unsetting MLX_DISTRIBUTED_HOSTFILE")
+				return
+			}
 			hostfile := filepath.Join(os.TempDir(), "localai_mlx_hostfile.json")
 			data, _ := json.Marshal(tunnels)
 			if err := os.WriteFile(hostfile, data, 0600); err != nil {

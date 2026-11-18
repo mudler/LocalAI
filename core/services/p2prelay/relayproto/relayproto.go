@@ -50,6 +50,9 @@ const (
 	OpPass = "pass"
 	// OpPassCancel removes a pass and the pending member it admitted, if any.
 	OpPassCancel = "pass-cancel"
+	// OpLimits reads the per-circuit limits of the relay and, when the
+	// request carries a LimitsPatch, changes them.
+	OpLimits = "limits"
 )
 
 // Relay modes reported in Status.Mode.
@@ -85,6 +88,32 @@ type Request struct {
 	// Code is the claim code of OpClaim.
 	Code string `json:"code,omitempty"`
 	Pass *Pass  `json:"pass,omitempty"`
+	// Limits is the argument of OpLimits. Without it the request only reads.
+	Limits *LimitsPatch `json:"limits,omitempty"`
+}
+
+// LimitsPatch changes the limits of a relay. A nil field stays as it is; a
+// zero value removes that limit.
+type LimitsPatch struct {
+	CircuitMaxBytes   *int64 `json:"circuit_max_bytes,omitempty"`
+	CircuitMaxSeconds *int64 `json:"circuit_max_seconds,omitempty"`
+	RateBPS           *int64 `json:"rate_bps,omitempty"`
+}
+
+// Limits are the per-circuit limits of a relay, as OpLimits reports them.
+// Zero means no limit.
+type Limits struct {
+	// CircuitMaxBytes is the data limit per circuit and direction.
+	CircuitMaxBytes int64 `json:"circuit_max_bytes"`
+	// CircuitMaxSeconds is the time limit per circuit.
+	CircuitMaxSeconds int64 `json:"circuit_max_seconds"`
+	// RateBPS is the bandwidth limit per circuit and direction, in bytes per
+	// second.
+	RateBPS int64 `json:"rate_bps"`
+	// Restarted is set when applying the change restarted the circuit
+	// service: reservations are dropped and peers reserve again within
+	// moments. A change of the bandwidth limit alone never restarts it.
+	Restarted bool `json:"restarted,omitempty"`
 }
 
 // Response is the answer to a Request. When OK is false, Err says why.
@@ -102,6 +131,8 @@ type Response struct {
 	Peers []Peer `json:"peers,omitempty"`
 	// Status is filled by OpStatus.
 	Status *Status `json:"status,omitempty"`
+	// Limits is filled by OpLimits.
+	Limits *Limits `json:"limits,omitempty"`
 }
 
 // Status describes a relay. Admins get every field; members get only the

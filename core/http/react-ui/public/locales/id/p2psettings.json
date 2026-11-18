@@ -25,8 +25,7 @@
   "units": {
     "kibps": "KiB/s",
     "gib": "GiB",
-    "minutes": "menit",
-    "circuits": "sirkuit"
+    "minutes": "menit"
   },
   "modes": {
     "off": {
@@ -241,8 +240,6 @@
     "ledeOpen": "Relay terbuka: siapa pun bisa memakainya.",
     "ledeGated": "Relay terbatas: hanya peer yang dipasangkan yang memakainya.",
     "reset": "Kembalikan ke bawaan",
-    "openWarnTitle": "Siapa pun bisa memakai relay ini.",
-    "openWarnBody": "Batas mencegah orang asing menghabiskan seluruh bandwidth-nya. Ini adalah nilai bawaan untuk relay terbuka. Sesuaikan, atau pilih Tanpa batas.",
     "noLimitTitle": "Tanpa batas.",
     "noLimitOpen": "Satu orang asing dapat memakai seluruh bandwidth dan data relay ini, dan peer Anda sendiri menjadi lambat.",
     "noLimitGated": "Satu peer yang dipasangkan dapat memakai seluruh bandwidth relay ini, misalnya untuk menyalin model.",
@@ -252,17 +249,18 @@
     "fields": {
       "dataGiB": "Data per sirkuit",
       "minutes": "Waktu per sirkuit",
-      "kibps": "Bandwidth per sirkuit",
-      "circuits": "Sirkuit per peer"
+      "kibps": "Bandwidth per sirkuit"
     },
     "zeroHint": "0 berarti tanpa batas untuk nilai itu.",
-    "commandTitle": "Jalankan relay dengan batas ini",
-    "invalid": "Setiap nilai harus berupa angka 0 atau lebih, dan sirkuit minimal 1.",
-    "applyHint": "Relay membaca batasnya saat dimulai. Jalankan lagi dengan perintah ini; sirkuit yang sudah terbuka tetap memakai batas lama sampai ditutup.",
-    "confirmTitle": "Hapus semua batas?",
-    "confirmBody": "{{name}} terbuka: siapa pun bisa memakainya. Tanpa batas, satu orang asing dapat memakai seluruh bandwidth dan datanya, dan peer Anda sendiri menjadi lambat. Anda bisa menambahkan batas lagi kapan saja.",
-    "confirmRemove": "Hapus batas",
-    "confirmKeep": "Pertahankan batas"
+    "invalid": "Setiap nilai harus berupa angka 0 atau lebih.",
+    "applyHint": "Batas bandwidth baru berlaku untuk sirkuit berikutnya. Batas data atau waktu baru memulai ulang layanan sirkuit relay: sirkuit yang sudah terbuka tetap memakai batas lama sampai ditutup, dan perangkat yang dipasangkan tersambung lagi lewat relay dalam sekejap.",
+    "save": "Simpan batas",
+    "saved": "Batas disimpan di {{name}}.",
+    "savedRestarted": "Batas disimpan di {{name}}. Relay memulai ulang layanan sirkuitnya; perangkat tersambung lagi sebentar lagi.",
+    "loadError": "Tidak dapat membaca batas dari relay.",
+    "readOnlyTitle": "Server ini tidak dapat mengubah batas ini.",
+    "readOnlyOpen": "Ini relay terbuka dan server ini bukan adminnya. Atur batas di tempat relay berjalan, dengan --circuit-max-bytes, --circuit-max-duration, dan --rate-limit.",
+    "readOnlyMember": "Server ini bukan admin relay ini. Minta admin relay, atau atur batas di tempat relay berjalan, dengan --circuit-max-bytes, --circuit-max-duration, dan --rate-limit."
   },
   "identity": {
     "title": "Identitas",

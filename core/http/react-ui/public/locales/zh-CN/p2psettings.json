@@ -25,8 +25,7 @@
   "units": {
     "kibps": "KiB/s",
     "gib": "GiB",
-    "minutes": "分钟",
-    "circuits": "条电路"
+    "minutes": "分钟"
   },
   "modes": {
     "off": {
@@ -241,8 +240,6 @@
     "ledeOpen": "开放中继：任何人都可使用。",
     "ledeGated": "受限中继：仅已配对的节点可使用。",
     "reset": "恢复默认值",
-    "openWarnTitle": "任何人都可使用此中继。",
-    "openWarnBody": "限制可防止陌生人占满它的全部带宽。这些是开放中继的默认值。你可以调整它们，或选择“无限制”。",
     "noLimitTitle": "无限制。",
     "noLimitOpen": "一个陌生人就能占用此中继的全部带宽和流量，你自己的节点也会变慢。",
     "noLimitGated": "一个已配对的节点可以占用此中继的全部带宽，例如用于复制模型。",
@@ -252,17 +249,18 @@
     "fields": {
       "dataGiB": "每条电路的数据量",
       "minutes": "每条电路的时长",
-      "kibps": "每条电路的带宽",
-      "circuits": "每个节点的电路数"
+      "kibps": "每条电路的带宽"
     },
     "zeroHint": "0 表示该项无限制。",
-    "commandTitle": "使用这些限制启动中继",
-    "invalid": "每个值必须是不小于 0 的数字，电路数至少为 1。",
-    "applyHint": "中继在启动时读取其限制。请用此命令重新运行；已打开的电路会沿用旧限制，直到关闭。",
-    "confirmTitle": "移除所有限制？",
-    "confirmBody": "{{name}} 是开放的：任何人都可使用。没有限制时，一个陌生人就能占用它的全部带宽和流量，你自己的节点也会变慢。你可以随时重新添加限制。",
-    "confirmRemove": "移除限制",
-    "confirmKeep": "保留限制"
+    "invalid": "每个值必须是不小于 0 的数字。",
+    "applyHint": "新的带宽限制对下一个电路生效。新的数据或时间限制会重启中继的电路服务：已打开的电路沿用旧限制直到关闭，已配对的设备会在片刻后通过中继重新连接。",
+    "save": "保存限制",
+    "saved": "已在 {{name}} 上保存限制。",
+    "savedRestarted": "已在 {{name}} 上保存限制。中继已重启其电路服务，设备稍后会重新连接。",
+    "loadError": "无法从中继读取限制。",
+    "readOnlyTitle": "此服务器无法更改这些限制。",
+    "readOnlyOpen": "这是开放中继，且此服务器不是它的管理员。请在中继运行的位置用 --circuit-max-bytes、--circuit-max-duration 和 --rate-limit 设置限制。",
+    "readOnlyMember": "此服务器不是该中继的管理员。请联系其管理员，或在中继运行的位置用 --circuit-max-bytes、--circuit-max-duration 和 --rate-limit 设置限制。"
   },
   "identity": {
     "title": "身份",

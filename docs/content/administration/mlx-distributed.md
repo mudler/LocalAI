@@ -38,7 +38,7 @@ parameters:
 
 The `mlx-distributed` backend shards the model across all the ranks in the hostfile.
 
-> The earlier `local-ai p2p-worker p2p-mlx` command, which found its peers with a P2P token and wrote the hostfile for you, was removed. It exits with a message that points here. `local-ai worker mlx-distributed` is the replacement; `p2p-worker` still works as the old name of the `worker` command group.
+> The earlier `local-ai p2p-worker p2p-mlx` command, which found its peers with a P2P token and wrote the hostfile for you, was removed. It exits with a message that points here. To let LocalAI assign the ranks and write the hostfiles, pair each worker with an invite: `local-ai worker mlx-distributed --join <invite link>`. See [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}}). `p2p-worker` still works as the old name of the `worker` command group.
 
 ## Model Configuration
 

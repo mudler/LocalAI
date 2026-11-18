@@ -117,6 +117,9 @@ type Device struct {
 	LastPath  string     `json:"last_path,omitempty"`
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 	RevokedBy string     `json:"revoked_by,omitempty"`
+	// AllowSlowPath is set when the administrator chose to use a split
+	// worker that the server reaches only through a relay ("Use anyway").
+	AllowSlowPath bool `json:"allow_slow_path,omitempty"`
 }
 
 // Status returns whether the device is active.

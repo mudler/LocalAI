@@ -480,6 +480,16 @@ func (f *fakeClient) ListP2PRelays(_ context.Context) ([]P2PRelayInfo, error) {
 	return []P2PRelayInfo{}, nil
 }
 
+func (f *fakeClient) GetP2PRelayLimits(_ context.Context, id string) (*P2PRelayLimitsInfo, error) {
+	f.record("GetP2PRelayLimits", id)
+	return &P2PRelayLimitsInfo{CanChange: true}, nil
+}
+
+func (f *fakeClient) SetP2PRelayLimits(_ context.Context, id string, req SetP2PRelayLimitsRequest) (*P2PRelayLimitsInfo, error) {
+	f.record("SetP2PRelayLimits", id)
+	return &P2PRelayLimitsInfo{CanChange: true}, nil
+}
+
 func (f *fakeClient) RevokeP2PDevice(_ context.Context, id string) error {
 	f.record("RevokeP2PDevice", id)
 	return nil
@@ -488,6 +498,16 @@ func (f *fakeClient) RevokeP2PDevice(_ context.Context, id string) error {
 func (f *fakeClient) CancelP2PInvite(_ context.Context, id string) error {
 	f.record("CancelP2PInvite", id)
 	return nil
+}
+
+func (f *fakeClient) ListP2PSplitWorkers(_ context.Context) ([]P2PSplitWorkerInfo, error) {
+	f.record("ListP2PSplitWorkers", nil)
+	return []P2PSplitWorkerInfo{}, nil
+}
+
+func (f *fakeClient) SetP2PSplitSlowPath(_ context.Context, id string, allow bool) (*P2PSplitWorkerInfo, error) {
+	f.record("SetP2PSplitSlowPath", id)
+	return &P2PSplitWorkerInfo{ID: id, AllowSlowPath: allow}, nil
 }
 
 func (f *fakeClient) ListFailoverChains(_ context.Context) ([]FailoverChainInfo, error) {

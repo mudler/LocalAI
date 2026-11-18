@@ -25,8 +25,7 @@
   "units": {
     "kibps": "KiB/s",
     "gib": "GiB",
-    "minutes": "Minuten",
-    "circuits": "Circuits"
+    "minutes": "Minuten"
   },
   "modes": {
     "off": {
@@ -241,8 +240,6 @@
     "ledeOpen": "Offenes Relay: jeder kann es nutzen.",
     "ledeGated": "Beschränktes Relay: nur gekoppelte Peers nutzen es.",
     "reset": "Auf Standard zurücksetzen",
-    "openWarnTitle": "Jeder kann dieses Relay nutzen.",
-    "openWarnBody": "Limits verhindern, dass Fremde die gesamte Bandbreite verbrauchen. Das sind die Standardwerte für ein offenes Relay. Passe sie an oder wähle Kein Limit.",
     "noLimitTitle": "Kein Limit.",
     "noLimitOpen": "Ein Fremder kann die gesamte Bandbreite und das gesamte Datenvolumen dieses Relays nutzen, und deine eigenen Peers werden langsamer.",
     "noLimitGated": "Ein gekoppelter Peer kann die gesamte Bandbreite dieses Relays nutzen, zum Beispiel für eine Modellkopie.",
@@ -252,17 +249,18 @@
     "fields": {
       "dataGiB": "Daten pro Circuit",
       "minutes": "Zeit pro Circuit",
-      "kibps": "Bandbreite pro Circuit",
-      "circuits": "Circuits pro Peer"
+      "kibps": "Bandbreite pro Circuit"
     },
     "zeroHint": "0 bedeutet kein Limit für diesen Wert.",
-    "commandTitle": "Das Relay mit diesen Limits starten",
-    "invalid": "Jeder Wert muss eine Zahl ab 0 sein, und Circuits mindestens 1.",
-    "applyHint": "Ein Relay liest seine Limits beim Start. Starte es erneut mit diesem Befehl; bereits offene Circuits behalten die alten Limits, bis sie schließen.",
-    "confirmTitle": "Alle Limits entfernen?",
-    "confirmBody": "{{name}} ist offen: Jeder kann es nutzen. Ohne Limit kann ein Fremder die gesamte Bandbreite und alle Daten nutzen, und deine eigenen Peers werden langsamer. Du kannst jederzeit wieder Limits hinzufügen.",
-    "confirmRemove": "Limits entfernen",
-    "confirmKeep": "Limits behalten"
+    "invalid": "Jeder Wert muss eine Zahl ab 0 sein.",
+    "applyHint": "Ein neues Bandbreitenlimit gilt für den nächsten Circuit. Ein neues Daten- oder Zeitlimit startet den Circuit-Dienst des Relays neu: offene Circuits behalten die alten Limits, bis sie schließen, und gekoppelte Geräte verbinden sich in Kürze erneut über das Relay.",
+    "save": "Limits speichern",
+    "saved": "Limits auf {{name}} gespeichert.",
+    "savedRestarted": "Limits auf {{name}} gespeichert. Das Relay hat seinen Circuit-Dienst neu gestartet; die Geräte verbinden sich gleich erneut.",
+    "loadError": "Die Limits konnten nicht vom Relay gelesen werden.",
+    "readOnlyTitle": "Dieser Server kann diese Limits nicht ändern.",
+    "readOnlyOpen": "Dies ist ein offenes Relay, und dieser Server ist nicht sein Admin. Lege die Limits dort fest, wo das Relay läuft, mit --circuit-max-bytes, --circuit-max-duration und --rate-limit.",
+    "readOnlyMember": "Dieser Server ist kein Admin dieses Relays. Frage dessen Admin oder lege die Limits dort fest, wo das Relay läuft, mit --circuit-max-bytes, --circuit-max-duration und --rate-limit."
   },
   "identity": {
     "title": "Identität",

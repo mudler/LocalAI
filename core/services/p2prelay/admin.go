@@ -66,6 +66,11 @@ func (r *Relay) adminOp(p peer.ID, from ma.Multiaddr, req relayproto.Request) (r
 		if !r.allowWrite(p, now) {
 			return fail("rate limited"), nil
 		}
+	case relayproto.OpLimits:
+		if req.Limits != nil && !r.allowWrite(p, now) {
+			return fail("rate limited"), nil
+		}
+		return r.limitsOp(p, req.Limits)
 	}
 	resp, drop := r.gate.apply(p, req, now)
 	if resp.OK && req.Op == relayproto.OpStatus {
