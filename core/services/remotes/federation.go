@@ -1,11 +1,11 @@
 package remotes
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -375,9 +375,9 @@ func (f *federation) View(ctx context.Context) (FederationView, error) {
 	if err != nil {
 		return FederationView{}, err
 	}
-	sort.Slice(recs, func(i, j int) bool { return nameKey(recs[i].Name) < nameKey(recs[j].Name) })
+	slices.SortFunc(recs, func(a, b record) int { return cmp.Compare(nameKey(a.Name), nameKey(b.Name)) })
 	configs := f.s.o.Configs.GetAllModelsConfigs()
-	sort.Slice(configs, func(i, j int) bool { return configs[i].Name < configs[j].Name })
+	slices.SortFunc(configs, func(a, b config.ModelConfig) int { return cmp.Compare(a.Name, b.Name) })
 
 	local := Instance{ID: LocalInstance, Local: true, Models: []InstanceModel{}}
 	instances := []Instance{}
