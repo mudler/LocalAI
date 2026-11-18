@@ -1438,6 +1438,7 @@ func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaito
 func relayLimitsInfo(i p2papi.RelayLimitsInfo) *localaitools.P2PRelayLimitsInfo {
 	return &localaitools.P2PRelayLimitsInfo{
 		CircuitBytes: i.Limits.CircuitBytes, CircuitSeconds: i.Limits.CircuitSeconds, RateBPS: i.Limits.RateBPS,
+		Ceiling:   localaitools.P2PRelayCeiling{CircuitBytes: i.Ceiling.CircuitBytes, CircuitSeconds: i.Ceiling.CircuitSeconds, RateBPS: i.Ceiling.RateBPS},
 		CanChange: i.CanChange, Restarted: i.Restarted,
 	}
 }

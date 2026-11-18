@@ -1116,6 +1116,7 @@ func (c *Client) ListP2PRelays(ctx context.Context) ([]localaitools.P2PRelayInfo
 func (c *Client) GetP2PRelayLimits(ctx context.Context, id string) (*localaitools.P2PRelayLimitsInfo, error) {
 	var out struct {
 		Limits    localaitools.P2PRelayLimitsInfo `json:"limits"`
+		Ceiling   localaitools.P2PRelayCeiling    `json:"ceiling"`
 		CanChange bool                            `json:"can_change"`
 		Restarted bool                            `json:"restarted"`
 	}
@@ -1123,13 +1124,14 @@ func (c *Client) GetP2PRelayLimits(ctx context.Context, id string) (*localaitool
 		return nil, err
 	}
 	info := out.Limits
-	info.CanChange, info.Restarted = out.CanChange, out.Restarted
+	info.Ceiling, info.CanChange, info.Restarted = out.Ceiling, out.CanChange, out.Restarted
 	return &info, nil
 }
 
 func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaitools.SetP2PRelayLimitsRequest) (*localaitools.P2PRelayLimitsInfo, error) {
 	var out struct {
 		Limits    localaitools.P2PRelayLimitsInfo `json:"limits"`
+		Ceiling   localaitools.P2PRelayCeiling    `json:"ceiling"`
 		CanChange bool                            `json:"can_change"`
 		Restarted bool                            `json:"restarted"`
 	}
@@ -1142,7 +1144,7 @@ func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaito
 		return nil, err
 	}
 	info := out.Limits
-	info.CanChange, info.Restarted = out.CanChange, out.Restarted
+	info.Ceiling, info.CanChange, info.Restarted = out.Ceiling, out.CanChange, out.Restarted
 	return &info, nil
 }
 

@@ -125,6 +125,7 @@ func (a relayManagerAdapter) Claim(ctx context.Context, id, code string) (p2papi
 func limitsView(i p2prelaymgr.LimitsInfo) p2papi.RelayLimitsInfo {
 	return p2papi.RelayLimitsInfo{
 		Limits:    p2papi.RelayLimits{CircuitBytes: i.Limits.CircuitBytes, CircuitSeconds: i.Limits.CircuitSeconds, RateBPS: i.Limits.RateBPS},
+		Ceiling:   p2papi.RelayLimits{CircuitBytes: i.Ceiling.CircuitBytes, CircuitSeconds: i.Ceiling.CircuitSeconds, RateBPS: i.Ceiling.RateBPS},
 		CanChange: i.CanChange,
 		Restarted: i.Restarted,
 	}

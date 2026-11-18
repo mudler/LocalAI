@@ -16488,7 +16488,7 @@
         },
         "/api/p2p/relays/{id}/limits": {
             "get": {
-                "description": "Reads the limits the relay runs with now: the data, the time and the bandwidth of one circuit (zero means no limit). can_change says whether this server is an admin of the relay and may change them. Needs P2P mode share. Admin only.",
+                "description": "Reads the limits the relay runs with now: the data, the time and the bandwidth of one circuit (zero means no limit). ceiling is the most a change may set for each limit (zero means no ceiling); the operator of the relay sets it with the relay's flags. can_change says whether this server is an admin of the relay and may change them. Needs P2P mode share. Admin only.",
                 "produces": [
                     "application/json"
                 ],
@@ -16533,7 +16533,7 @@
                 }
             },
             "put": {
-                "description": "Changes the data, time and bandwidth limits of one circuit on a relay this server administers; a field left out stays as it is and zero removes that limit. The relay saves the new limits, so they stay over a restart of the relay. A new bandwidth limit applies to the next circuit at once. A new data or time limit makes the relay restart its circuit service: its reservations are dropped, running circuits keep their old limits until they end, and the paired devices reserve again within moments (\"restarted\" is true). Answers 409 when this server is not an admin of the relay or the relay is open. Needs P2P mode share. Admin only.",
+                "description": "Changes the data, time and bandwidth limits of one circuit on a relay this server administers; a field left out stays as it is and zero removes that limit. The relay saves the new limits, so they stay over a restart of the relay. A new bandwidth limit applies to the next circuit at once. A new data or time limit makes the relay restart its circuit service: its reservations are dropped, running circuits keep their old limits until they end, and the paired devices reserve again within moments (\"restarted\" is true). A value above the ceiling of the relay, or zero for a limit that has a ceiling, is refused with 400 and an error that names the ceiling; nothing is clamped. Answers 409 when this server is not an admin of the relay or the relay is open. Needs P2P mode share. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -26667,6 +26667,14 @@
                 "can_change": {
                     "description": "CanChange is true when this server is an admin of a gated relay and\nmay change the limits.",
                     "type": "boolean"
+                },
+                "ceiling": {
+                    "description": "Ceiling is the most a change may set for each limit; the operator of\nthe relay sets it. Zero means no ceiling. With a ceiling a limit\ncannot be removed either: a value above it, or zero, is refused with\nan error that names the ceiling.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/p2p.RelayLimits"
+                        }
+                    ]
                 },
                 "limits": {
                     "$ref": "#/definitions/p2p.RelayLimits"

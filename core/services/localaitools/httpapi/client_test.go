@@ -880,7 +880,7 @@ var _ = Describe("P2P", func() {
 				Expect(json.NewDecoder(r.Body).Decode(&put)).To(Succeed())
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"limits": map[string]any{"circuit_bytes": 1 << 30, "circuit_seconds": 1800, "rate_bps": 65536}, "can_change": true, "restarted": r.Method == http.MethodPut,
+				"limits": map[string]any{"circuit_bytes": 1 << 30, "circuit_seconds": 1800, "rate_bps": 65536}, "ceiling": map[string]any{"circuit_bytes": 8 << 30, "circuit_seconds": 86400, "rate_bps": 0}, "can_change": true, "restarted": r.Method == http.MethodPut,
 			})
 		}))
 		DeferCleanup(srv.Close)
@@ -888,7 +888,7 @@ var _ = Describe("P2P", func() {
 
 		info, err := c.GetP2PRelayLimits(context.Background(), "r 1")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(info).To(Equal(&localaitools.P2PRelayLimitsInfo{CircuitBytes: 1 << 30, CircuitSeconds: 1800, RateBPS: 65536, CanChange: true}))
+		Expect(info).To(Equal(&localaitools.P2PRelayLimitsInfo{CircuitBytes: 1 << 30, CircuitSeconds: 1800, RateBPS: 65536, Ceiling: localaitools.P2PRelayCeiling{CircuitBytes: 8 << 30, CircuitSeconds: 86400}, CanChange: true}))
 
 		rate := int64(65536)
 		info, err = c.SetP2PRelayLimits(context.Background(), "r 1", localaitools.SetP2PRelayLimitsRequest{ID: "r 1", RateBPS: &rate})

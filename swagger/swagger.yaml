@@ -4673,6 +4673,14 @@ definitions:
           CanChange is true when this server is an admin of a gated relay and
           may change the limits.
         type: boolean
+      ceiling:
+        allOf:
+        - $ref: '#/definitions/p2p.RelayLimits'
+        description: |-
+          Ceiling is the most a change may set for each limit; the operator of
+          the relay sets it. Zero means no ceiling. With a ceiling a limit
+          cannot be removed either: a value above it, or zero, is refused with
+          an error that names the ceiling.
       limits:
         $ref: '#/definitions/p2p.RelayLimits'
       restarted:
@@ -28299,8 +28307,8 @@ paths:
       description: 'Creates a one-time invite link. kind is device (P2P admission
         only; the person signs in as usual), remote (also issues an API key for the
         other server: limited to "models" when given, else every model this server
-        lets a client key use, models added later too), worker or split.
-        A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY
+        lets a client key use, models added later too), worker or split. A remote
+        invite needs a signed-in user account: the API key set with LOCALAI_API_KEY
         gets 409. relays is "auto", "none" or a list of relay IDs. When a gated relay
         is named, a single-use relay pass is registered on it; "relay.reason" says
         why there is none. The link is shown once. Needs P2P mode share. Admin only.'
@@ -28568,9 +28576,11 @@ paths:
   /api/p2p/relays/{id}/limits:
     get:
       description: 'Reads the limits the relay runs with now: the data, the time and
-        the bandwidth of one circuit (zero means no limit). can_change says whether
-        this server is an admin of the relay and may change them. Needs P2P mode share.
-        Admin only.'
+        the bandwidth of one circuit (zero means no limit). ceiling is the most a
+        change may set for each limit (zero means no ceiling); the operator of the
+        relay sets it with the relay''s flags. can_change says whether this server
+        is an admin of the relay and may change them. Needs P2P mode share. Admin
+        only.'
       parameters:
       - description: Relay ID
         in: path
@@ -28608,9 +28618,11 @@ paths:
         of the relay. A new bandwidth limit applies to the next circuit at once. A
         new data or time limit makes the relay restart its circuit service: its reservations
         are dropped, running circuits keep their old limits until they end, and the
-        paired devices reserve again within moments ("restarted" is true). Answers
-        409 when this server is not an admin of the relay or the relay is open. Needs
-        P2P mode share. Admin only.'
+        paired devices reserve again within moments ("restarted" is true). A value
+        above the ceiling of the relay, or zero for a limit that has a ceiling, is
+        refused with 400 and an error that names the ceiling; nothing is clamped.
+        Answers 409 when this server is not an admin of the relay or the relay is
+        open. Needs P2P mode share. Admin only.'
       parameters:
       - description: Relay ID
         in: path
