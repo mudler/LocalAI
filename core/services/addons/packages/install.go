@@ -8,13 +8,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	goruntime "runtime"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -108,9 +108,10 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		return out, e
 	}
 	info, e := os.Lstat(root)
-	// Windows carries no POSIX permission bits: a 0700 dir reports 0777, and
-	// the world-writable check would refuse every package (see
-	// gateway/loopback.go for the same guard).
+	// Windows limit: there are no POSIX permission bits, so a 0700 directory
+	// reports 0777 and this check is skipped. LocalAI sets no ACL; access
+	// depends on the ACL the directory inherits. The add-on runtime is not
+	// enabled on Windows, so this path is not reached there today.
 	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || (goruntime.GOOS != "windows" && info.Mode().Perm()&0077 != 0) {
 		return out, ErrPackage
 	}
@@ -278,8 +279,8 @@ func (i *Installer) inspectStage(dir string) (contract.Manifest, *PackageIcon, [
 	}
 	for _, asset := range assets {
 		info, e := os.Lstat(filepath.Join(dir, filepath.FromSlash(asset)))
-		// Windows reports no POSIX bits, so the executable check would fail
-		// for every package; on Windows every file is executable.
+		// Windows limit: it reports no POSIX bits, so the executable check is
+		// skipped and any file of the package counts as executable there.
 		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && goruntime.GOOS != "windows" && info.Mode()&0100 == 0) {
 			return contract.Manifest{}, nil, nil, ErrPackage
 		}

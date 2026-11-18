@@ -8,12 +8,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	goruntime "runtime"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	goruntime "runtime"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -293,9 +293,10 @@ func (i *Installer) StageFile(ctx context.Context, p, name string, progress func
 		return out, e
 	}
 	info, e := os.Lstat(root)
-	// Windows carries no POSIX permission bits: a 0700 dir reports 0777, and
-	// the world-writable check would refuse every package (see
-	// gateway/loopback.go for the same guard).
+	// Windows limit: there are no POSIX permission bits, so a 0700 directory
+	// reports 0777 and this check is skipped. LocalAI sets no ACL; access
+	// depends on the ACL the directory inherits. The add-on runtime is not
+	// enabled on Windows, so this path is not reached there today.
 	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || (goruntime.GOOS != "windows" && info.Mode().Perm()&0077 != 0) {
 		return out, ErrPackage
 	}

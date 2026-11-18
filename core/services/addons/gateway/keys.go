@@ -244,9 +244,10 @@ func readKeyFile(path string) ([]byte, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("%s must be a regular file", path)
 	}
-	// On Windows, skip the Unix-style permission check since Windows
-	// doesn't use Unix-style file permissions (0600). The file is
-	// already protected by being inside the user's data directory.
+	// Windows limit: POSIX mode bits do not exist there, so this check is
+	// skipped and LocalAI sets no ACL. Access to the file depends on the ACL
+	// it inherits from the data directory. The add-on runtime is not enabled
+	// on Windows, so this path is not reached there today.
 	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		return nil, fmt.Errorf("%s must have mode 0600 or less", path)
 	}

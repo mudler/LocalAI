@@ -8,8 +8,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// Windows has no O_NOFOLLOW; the owner root is trusted, and the mode and type
-// checks in Open still reject a substituted file.
+// Windows limit: there is no O_NOFOLLOW, so a symbolic link is not refused at
+// open. Open still checks that the file is a regular file.
 const noFollowFlag = 0
 
 func lockFile(f *os.File) error {
@@ -26,8 +26,9 @@ func syncDir(*os.File) error {
 	return nil
 }
 
-// validFileMode cannot enforce Unix permission bits on Windows; the owner-root
-// ACL is the guard there, so only the regular-file check applies.
+// validFileMode cannot enforce Unix permission bits on Windows, and LocalAI
+// sets no ACL, so only the regular-file check applies. Access depends on the
+// ACL the owner directory inherits.
 func validFileMode(m os.FileMode) bool {
 	return m.IsRegular()
 }
