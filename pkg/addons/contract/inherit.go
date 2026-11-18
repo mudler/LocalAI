@@ -24,3 +24,31 @@ const (
 	// MaxEndpointReport bounds the endpoint line, newline included.
 	MaxEndpointReport = 64
 )
+
+// A package with execution "wsl2" runs in WSL 2, where no handle of the owner
+// exists. The owner starts it through wsl.exe with ChannelEnv set to
+// ChannelStdio, and the standard input and output of the process carry one
+// multiplexed session (yamux):
+//
+//   - The first stream, opened by the owner, is the startup stream. The add-on
+//     writes its process ID as one decimal line (at most MaxStdioHello bytes,
+//     newline included), then reads the startup object, which has the same
+//     content as on the other platforms. The end of the stream, or of the
+//     session, is the signal to stop, as the end of the startup pipe is.
+//   - Every later stream that the owner opens is one connection to the
+//     protocol endpoint of the add-on.
+//   - Every stream that the add-on opens is one connection to the host
+//     operation endpoint. The SDK serves a 127.0.0.1 listener in WSL for it
+//     and puts its address in the startup object as the host endpoint.
+//
+// Standard error stays the log stream. The SDK handles all of this; an add-on
+// that uses protocol.StartupChannel and protocol.Listener needs no change.
+const (
+	// ChannelEnv names the variable that selects the channel mode.
+	ChannelEnv = "LOCALAI_ADDON_CHANNEL"
+	// ChannelStdio is the value of ChannelEnv for the multiplexed standard
+	// streams.
+	ChannelStdio = "stdio"
+	// MaxStdioHello bounds the process ID line of the startup stream.
+	MaxStdioHello = 24
+)

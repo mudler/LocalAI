@@ -34,6 +34,16 @@ parent traversal, backslashes, percent escapes or URL schemes. These checks do
 not substitute for safe extraction, symlink checks, executable mode validation,
 or checking declared files exist, which belong to package installation.
 
+### Execution environment
+
+`execution` is optional. When it is absent, the executable runs natively on `os` and
+`arch`. The only other value is `"wsl2"`, and only with `"os": "windows"` and
+`"arch": "amd64"`. Such a package installs on a Windows host, but its executable is a
+linux/amd64 program (no `.exe` name) that the owner runs in a WSL 2 distribution. The
+owner talks to it over its standard streams (see [Packages and runtime](packages-and-runtime/)).
+A manifest that sets `execution` must declare `featureLevel: 10`. Use it only for an
+add-on that cannot run on Windows itself, such as the Sandbox add-on.
+
 ### Feature level
 
 The four compatibility ranges above are integers that every published add-on states
@@ -41,7 +51,7 @@ The four compatibility ranges above are integers that every published add-on sta
 without making every published add-on incompatible, so the host also has a **feature
 level**: one integer that counts the additive manifest features it understands.
 
-- The host declares its level (`contract.HostFeatureLevel`). This version has level 9.
+- The host declares its level (`contract.HostFeatureLevel`). This version has level 10.
   A host that predates the levels is level 1.
 - A manifest may set `featureLevel` (a positive integer, default 1). It states the level
   the add-on needs. A manifest that uses a field of a higher level must say so: the
@@ -54,6 +64,7 @@ level**: one integer that counts the additive manifest features it understands.
   `capabilities.client` is level 7. A wildcard tail (`{name...}`) as the last segment of a client
   route is level 8; a host of level 7 refuses such a manifest with the reason below.
   `capabilities.modelSearch` (a source of the model-search slot) is level 9.
+  `execution` (see below) is level 10.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with
