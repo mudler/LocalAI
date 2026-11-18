@@ -19,8 +19,8 @@ var _ = Describe("Packaged Sandbox smoke", func() {
 	// package, extracts it and sets:
 	//
 	//	SANDBOX_SMOKE_PACKAGE  the extracted package directory
-	//	SANDBOX_SMOKE_REQUIRE  "isolated" when the host must run commands in gVisor
-	//	                       or KVM; empty accepts a host that cannot, as long as
+	//	SANDBOX_SMOKE_REQUIRE  "isolated" when the host must run commands in gVisor,
+	//	                       KVM or a macOS VM; empty accepts a host that cannot, as long as
 	//	                       the tools say so in the documented words
 	//
 	// The add-on starts from the files of the package under the real supervisor,
@@ -39,6 +39,7 @@ var _ = Describe("Packaged Sandbox smoke", func() {
 		_, _ = fmt.Fprintf(GinkgoWriter, "status for a user: %v\n", st)
 		_, _ = fmt.Fprintf(GinkgoWriter, "status for an administrator: %v\n", adminStatus)
 		Expect(st["hostNotice"]).NotTo(Equal(true), "the default settings run commands on the host with no isolation: %v", st)
+		skipOnStandInImage(st)
 
 		got := w.act("bash", "alice", "convsmoke", map[string]any{"command": "echo smoke-ok; cat smoke.txt; echo written > smoke-out.txt"})
 		out, _ := got["output"].(string)
@@ -52,7 +53,7 @@ var _ = Describe("Packaged Sandbox smoke", func() {
 			return
 		}
 		active, _ := st["active"].(string)
-		Expect(active).To(BeElementOf("gvisor", "kvm"), "the active backend")
+		Expect(active).To(BeElementOf("gvisor", "kvm", "vz"), "the active backend")
 		Expect(out).To(ContainSubstring("smoke-ok"), "the command did not run in the sandbox with the user's files: (%v)", got)
 		Expect(out).To(ContainSubstring("from the user's files"), "the command did not run in the sandbox with the user's files: (%v)", got)
 		text, made := w.text("alice", "/smoke-out.txt")
@@ -68,6 +69,7 @@ var _ = Describe("Packaged Sandbox smoke", func() {
 		w := startAddonFrom("sandbox", pkg)
 		st := w.read("status", "alice", nil)
 		Expect(st["hostNotice"]).NotTo(Equal(true))
+		skipOnStandInImage(st)
 		if st["canRun"] != true {
 			if os.Getenv("SANDBOX_SMOKE_REQUIRE") == "isolated" {
 				Fail(fmt.Sprintf("guest document helpers require gVisor or KVM: %v", w.read("status", "root", nil)))
@@ -80,7 +82,7 @@ var _ = Describe("Packaged Sandbox smoke", func() {
 			Expect(got["output"]).To(Equal(unavailableAnswer))
 			return
 		}
-		Expect(st["active"]).To(BeElementOf("gvisor", "kvm"))
+		Expect(st["active"]).To(BeElementOf("gvisor", "kvm", "vz"))
 		got := w.act("bash", "alice", "convdocumentsmoke", map[string]any{
 			"command": "python3 /usr/local/lib/localai/document-skills/check-document-skills.py && echo document-skills-command-exit-zero",
 		})
@@ -90,3 +92,12 @@ var _ = Describe("Packaged Sandbox smoke", func() {
 	})
 
 })
+
+// skipOnStandInImage skips a run that cannot work: a local-check package names
+// a guest image that does not exist, so a host that can start a VM fails at the
+// image pull. A host that cannot run commands still gets the exact answer.
+func skipOnStandInImage(status map[string]any) {
+	if os.Getenv("SANDBOX_SMOKE_LOCAL_CHECK") != "" && status["canRun"] == true {
+		Skip("a local-check package has a stand-in guest image that cannot be pulled; run the smoke test without --local-check")
+	}
+}

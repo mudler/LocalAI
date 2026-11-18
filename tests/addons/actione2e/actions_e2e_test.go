@@ -67,8 +67,8 @@ func startAddon(id string) *world { return startAddonFrom(id, "") }
 // the release process (package.sh and addonpkg extract), when packageDir is
 // set: its executable, runtime files and manifest are used as they are.
 func startAddonFrom(id, packageDir string) *world {
-	if goruntime.GOOS != "linux" {
-		Skip("the sandbox add-on is Linux only")
+	if goruntime.GOOS != "linux" && (goruntime.GOOS != "darwin" || goruntime.GOARCH != "arm64") {
+		Skip("the sandbox add-on runs on Linux and on macOS with Apple silicon only")
 	}
 	root := GinkgoT().TempDir()
 	bin := filepath.Join(root, "pkg", id)
