@@ -3,6 +3,7 @@
 package cluster
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -67,60 +68,11 @@ func ConnectHandler(registry *nodes.NodeRegistry, tunnels *tunnel.Registry) echo
 			return echo.NewHTTPError(http.StatusBadRequest, "missing node id")
 		}
 
-		node, err := registry.Get(c.Request().Context(), nodeID)
-		switch {
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			// 401 and not 404, so that a caller cannot list node IDs by status.
-			xlog.Debug("worker tunnel dial named an unknown node", "node", nodeID)
-			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
-		case err != nil:
-			// A query that failed is neither a rejection nor an absence. To tell
-			// a worker that its credentials are wrong when the database could not
-			// be read sends it to register again instead of retrying, and a
-			// worker that registers again has thrown away the credential that
-			// its tunnel is keyed by.
-			xlog.Error("Looking up a worker for its tunnel dial failed", "node", nodeID, "error", err)
-			return echo.NewHTTPError(http.StatusInternalServerError, "node lookup failed")
-		}
-
-		// An empty hash and a wrong token are two problems with two fixes. An
-		// empty hash means that the node has not registered since the tunnel
-		// credential existed, so it has no secret to check and must register.
-		// A wrong token is a stale credential, usually from before a rotation.
-		if node.TunnelTokenHash == "" {
-			// Debug, because every such worker fails in this way on every dial.
-			xlog.Debug("refusing a worker tunnel: this node has no tunnel credential, so it has not registered since they were introduced",
-				"node", nodeID)
-			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
-		}
-		if !authorizedWorker(token, node.TunnelTokenHash) {
-			xlog.Debug("worker tunnel dial presented the wrong token", "node", nodeID)
-			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
-		}
-
-		// The credential is right, but the node is not allowed yet: 403, because
-		// the fix is that an admin approves the node and a different credential
-		// would not help. A tunnel is a standing pipe into the worker that other
-		// replicas relay to, so a node that waits for approval does not get one.
-		// Draining and unhealthy nodes keep their tunnels: draining means finish
-		// what you have, and a node marked unhealthy for missed heartbeats needs
-		// the pipe to recover.
-		if node.Status == nodes.StatusPending {
-			xlog.Warn("Refusing a worker tunnel: this node is awaiting admin approval", "node", nodeID)
-			return echo.NewHTTPError(http.StatusForbidden, "node is pending approval")
-		}
-
-		lane, err := tunnel.ParseLane(c.QueryParam("lane"))
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-		}
-
-		// The bulk lane belongs to the replica that holds the inference lane of
-		// the node. A load balancer can send the dial to another replica. Only a
-		// status can say that, and the status is possible before the upgrade, so
-		// the worker is told to dial again at once.
-		if lane == tunnel.LaneBulk && !tunnels.Holds(nodeID) {
-			return echo.NewHTTPError(http.StatusConflict, "this replica does not hold the tunnel of the node")
+		// A dial over the websocket has no peer: a node that joined over P2P
+		// is refused here, because it is pinned to its peer.
+		lane, refusal := admitTunnel(c.Request().Context(), registry, tunnels, nodeID, token, c.QueryParam("lane"), "")
+		if refusal != nil {
+			return echo.NewHTTPError(refusal.status, refusal.msg)
 		}
 
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
@@ -136,52 +88,133 @@ func ConnectHandler(registry *nodes.NodeRegistry, tunnels *tunnel.Registry) echo
 			_ = ws.Close()
 			return nil
 		}
-
-		// net/http recovers a panic of this goroutine but does not close the
-		// connection that was hijacked, and the recovery middleware does not
-		// either. A panic below would leave the worker with a session that this
-		// replica has no entry for and will never detach. Attach does database
-		// work, so this is not far-fetched. The panic goes on, because it is a
-		// bug and the recovery middleware is what reports it.
-		defer func() {
-			if r := recover(); r != nil {
-				_ = sess.Close()
-				panic(r)
-			}
-		}()
-
-		// The connection is hijacked, so no status can reach the worker any more.
-		// A failure is a closed socket, which is what the reconnect loop of the
-		// worker reads.
-		attachment, err := tunnels.Attach(c.Request().Context(), nodeID, lane, sess)
-		if err != nil {
-			if errors.Is(err, tunnel.ErrNotOwner) {
-				// The inference session ended between the check before the
-				// upgrade and here. The worker dials again, and this is not an
-				// error of this replica.
-				xlog.Debug("worker bulk tunnel dial lost the inference session of its node", "node", nodeID)
-			} else {
-				xlog.Error("Attaching a worker tunnel failed", "node", nodeID, "lane", lane, "error", err)
-			}
-			_ = sess.Close()
-			return nil
-		}
-
-		xlog.Info("Worker tunnel established", "node", nodeID, "lane", lane, "remote", ws.RemoteAddr().String())
-		// The session outlives this handler, so something else has to see it end.
-		// yamux closes its channel from the receive loop as soon as the
-		// connection fails, and its keepalive notices a worker that vanished
-		// without a FIN.
-		go func() {
-			<-sess.CloseChan()
-			// The token that Attach returned. Detach compares it by equality: it
-			// names this attachment, so a worker that has already dialled again
-			// is not removed by the end of its predecessor.
-			tunnels.Detach(nodeID, lane, attachment)
-			xlog.Debug("worker tunnel closed", "node", nodeID, "lane", lane)
-		}()
+		attachSession(c.Request().Context(), tunnels, nodeID, lane, sess, "websocket", ws.RemoteAddr().String())
 		return nil
 	}
+}
+
+// tunnelRefusal is why a dial for a tunnel is refused: the status of the
+// connect endpoint and its message. The P2P door sends the same status in its
+// hello reply, so that a worker handles both doors in one way.
+type tunnelRefusal struct {
+	status int
+	msg    string
+}
+
+// admitTunnel runs every check of a dial before the session starts, in the
+// order that the connect endpoint has always used. peer is the P2P peer that
+// dialled, and empty for a websocket. A node that joined over P2P is pinned to
+// its peer ID, and a dial from anywhere else is refused as a wrong credential.
+func admitTunnel(ctx context.Context, registry *nodes.NodeRegistry, tunnels *tunnel.Registry, nodeID, token, laneParam, peer string) (tunnel.Lane, *tunnelRefusal) {
+	node, err := registry.Get(ctx, nodeID)
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		// 401 and not 404, so that a caller cannot list node IDs by status.
+		xlog.Debug("worker tunnel dial named an unknown node", "node", nodeID)
+		return "", &tunnelRefusal{http.StatusUnauthorized, "unauthorized"}
+	case err != nil:
+		// A query that failed is neither a rejection nor an absence. To tell
+		// a worker that its credentials are wrong when the database could not
+		// be read sends it to register again instead of retrying, and a
+		// worker that registers again has thrown away the credential that
+		// its tunnel is keyed by.
+		xlog.Error("Looking up a worker for its tunnel dial failed", "node", nodeID, "error", err)
+		return "", &tunnelRefusal{http.StatusInternalServerError, "node lookup failed"}
+	}
+
+	// An empty hash and a wrong token are two problems with two fixes. An
+	// empty hash means that the node has not registered since the tunnel
+	// credential existed, so it has no secret to check and must register.
+	// A wrong token is a stale credential, usually from before a rotation.
+	if node.TunnelTokenHash == "" {
+		// Debug, because every such worker fails in this way on every dial.
+		xlog.Debug("refusing a worker tunnel: this node has no tunnel credential, so it has not registered since they were introduced",
+			"node", nodeID)
+		return "", &tunnelRefusal{http.StatusUnauthorized, "unauthorized"}
+	}
+	if !authorizedWorker(token, node.TunnelTokenHash) {
+		xlog.Debug("worker tunnel dial presented the wrong token", "node", nodeID)
+		return "", &tunnelRefusal{http.StatusUnauthorized, "unauthorized"}
+	}
+	// The credential and the peer are both checked: the credential alone
+	// would let a holder of a leaked token dial from another peer, and the
+	// peer alone would let a paired worker claim a node that is not its own.
+	if node.PeerID != peer {
+		xlog.Debug("worker tunnel dial came from another peer than the one of the node", "node", nodeID, "p2p", peer != "")
+		return "", &tunnelRefusal{http.StatusUnauthorized, "unauthorized"}
+	}
+
+	// The credential is right, but the node is not allowed yet: 403, because
+	// the fix is that an admin approves the node and a different credential
+	// would not help. A tunnel is a standing pipe into the worker that other
+	// replicas relay to, so a node that waits for approval does not get one.
+	// Draining and unhealthy nodes keep their tunnels: draining means finish
+	// what you have, and a node marked unhealthy for missed heartbeats needs
+	// the pipe to recover.
+	if node.Status == nodes.StatusPending {
+		xlog.Warn("Refusing a worker tunnel: this node is awaiting admin approval", "node", nodeID)
+		return "", &tunnelRefusal{http.StatusForbidden, "node is pending approval"}
+	}
+
+	lane, err := tunnel.ParseLane(laneParam)
+	if err != nil {
+		return "", &tunnelRefusal{http.StatusBadRequest, err.Error()}
+	}
+
+	// The bulk lane belongs to the replica that holds the inference lane of
+	// the node. A load balancer can send the dial to another replica, and a
+	// worker over P2P can reach another replica than the one of its inference
+	// lane after a restart of that replica. The worker is told to dial again.
+	if lane == tunnel.LaneBulk && !tunnels.Holds(nodeID) {
+		return "", &tunnelRefusal{http.StatusConflict, "this replica does not hold the tunnel of the node"}
+	}
+	return lane, nil
+}
+
+// attachSession gives a session that was accepted to the registry, and
+// detaches it when it ends. A failure closes the session, which is what the
+// reconnect loop of the worker reads: no status can reach the worker any more.
+func attachSession(ctx context.Context, tunnels *tunnel.Registry, nodeID string, lane tunnel.Lane, sess *tunnel.Session, transport, remote string) {
+	// net/http recovers a panic of this goroutine but does not close the
+	// connection that was hijacked, and the recovery middleware does not
+	// either. A panic below would leave the worker with a session that this
+	// replica has no entry for and will never detach. Attach does database
+	// work, so this is not far-fetched. The panic goes on, because it is a
+	// bug and the recovery middleware is what reports it.
+	defer func() {
+		if r := recover(); r != nil {
+			_ = sess.Close()
+			panic(r)
+		}
+	}()
+
+	attachment, err := tunnels.Attach(ctx, nodeID, lane, sess)
+	if err != nil {
+		if errors.Is(err, tunnel.ErrNotOwner) {
+			// The inference session ended between the check before the
+			// session and here. The worker dials again, and this is not an
+			// error of this replica.
+			xlog.Debug("worker bulk tunnel dial lost the inference session of its node", "node", nodeID)
+		} else {
+			xlog.Error("Attaching a worker tunnel failed", "node", nodeID, "lane", lane, "error", err)
+		}
+		_ = sess.Close()
+		return
+	}
+
+	xlog.Info("Worker tunnel established", "node", nodeID, "lane", lane, "transport", transport, "remote", remote)
+	// The session outlives the caller, so something else has to see it end.
+	// yamux closes its channel from the receive loop as soon as the
+	// connection fails, and its keepalive notices a worker that vanished
+	// without a FIN.
+	go func() {
+		<-sess.CloseChan()
+		// The token that Attach returned. Detach compares it by equality: it
+		// names this attachment, so a worker that has already dialled again
+		// is not removed by the end of its predecessor.
+		tunnels.Detach(nodeID, lane, attachment)
+		xlog.Debug("worker tunnel closed", "node", nodeID, "lane", lane)
+	}()
 }
 
 // bearerToken returns the token of an Authorization: Bearer header, and whether

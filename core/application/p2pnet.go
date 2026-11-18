@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
 	"github.com/mudler/LocalAI/core/services/p2prelay"
+	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/mudler/LocalAI/internal"
 )
 
@@ -56,6 +57,8 @@ type p2pNet struct {
 	closed bool
 
 	handlers atomic.Pointer[p2pHandlers]
+	// tunnel serves the tunnel streams of the workers that joined over P2P.
+	tunnel atomic.Pointer[P2PTunnelHandler]
 
 	// tunnels are the forwarders of the remotes over P2P.
 	tunnels p2pTunnels
@@ -94,6 +97,8 @@ type p2pRuntime struct {
 	// peers is the paired set as last loaded into the gate.
 	peersMu sync.Mutex
 	peers   map[p2pnet.ID]struct{}
+	// workers are the paired peers that redeemed a worker invite.
+	workers map[p2pnet.ID]struct{}
 	// pending is the number of pending invites as last loaded.
 	pending atomic.Int32
 
@@ -134,6 +139,31 @@ func (a *Application) RestartP2PNet() error { return a.p2p().restart() }
 // StopP2PNet stops the P2P layer for good; the application calls it when it
 // shuts down.
 func (a *Application) StopP2PNet() { a.p2p().stop() }
+
+// P2PTunnelHandler serves one stream of the cluster tunnel that a worker
+// opened over P2P, for one lane.
+type P2PTunnelHandler func(ctx context.Context, conn net.Conn, lane tunnel.Lane)
+
+// ServeP2PTunnels sets the handler of the tunnel streams of workers over P2P.
+// The host listens for them in mode share on a distributed frontend; until
+// this is called, a stream is refused as by a frontend that is starting.
+func (a *Application) ServeP2PTunnels(h P2PTunnelHandler) {
+	a.p2p().tunnel.Store(&h)
+}
+
+// IsWorkerPeer reports whether peer is a device of kind worker that is paired
+// with this server and not revoked. It is false outside mode share.
+func (a *Application) IsWorkerPeer(_ context.Context, peer string) bool {
+	rt, mode := a.p2p().runtime()
+	if rt == nil || mode != config.P2PModeShare {
+		return false
+	}
+	p, err := p2pnet.DecodePeerID(peer)
+	if err != nil {
+		return false
+	}
+	return rt.worker(p)
+}
 
 // ServeP2PHTTP sets the handlers served over P2P in mode share: main is the
 // application's HTTP handler, which only paired peers reach; redeem serves
@@ -339,6 +369,11 @@ func (rt *p2pRuntime) startShare() error {
 			xlog.Error("P2P HTTP server stopped", "error", err)
 		}
 	})
+	if app.Distributed() != nil {
+		if err := rt.listenTunnels(); err != nil {
+			return err
+		}
+	}
 	if rt.relays != nil {
 		if err := rt.relays.Start(rt.ctx); err != nil {
 			xlog.Warn("P2P relay manager did not start", "error", err)
@@ -416,14 +451,25 @@ func (rt *p2pRuntime) reloadLoop() {
 func (rt *p2pRuntime) reload() {
 	ctx, cancel := context.WithTimeout(rt.ctx, 10*time.Second)
 	defer cancel()
-	paired, err := rt.pair.PairedPeers(ctx)
+	devices, err := rt.pair.ListDevices(ctx)
 	if err != nil {
 		xlog.Warn("P2P: could not load the paired devices", "error", err)
 		return
 	}
-	next := make(map[p2pnet.ID]struct{}, len(paired))
-	for _, p := range paired {
+	next := make(map[p2pnet.ID]struct{}, len(devices))
+	workers := map[p2pnet.ID]struct{}{}
+	for _, d := range devices {
+		if d.Status() != p2ppair.DeviceActive {
+			continue
+		}
+		p, err := p2pnet.DecodePeerID(d.PeerID)
+		if err != nil {
+			continue
+		}
 		next[p] = struct{}{}
+		if d.Kind == p2ppair.KindWorker {
+			workers[p] = struct{}{}
+		}
 	}
 	rt.peersMu.Lock()
 	var gone []p2pnet.ID
@@ -436,6 +482,7 @@ func (rt *p2pRuntime) reload() {
 		rt.gate.Allow(p)
 	}
 	rt.peers = next
+	rt.workers = workers
 	rt.peersMu.Unlock()
 	for _, p := range gone {
 		rt.host.Revoke(p)
@@ -470,6 +517,51 @@ func (rt *p2pRuntime) paired(p p2pnet.ID) bool {
 	rt.peersMu.Lock()
 	defer rt.peersMu.Unlock()
 	_, ok := rt.peers[p]
+	return ok
+}
+
+// p2pTunnelLanes maps the protocols of the tunnel to its lanes.
+var p2pTunnelLanes = map[p2pnet.Protocol]tunnel.Lane{
+	p2pnet.ProtoTunnelInference: tunnel.LaneInference,
+	p2pnet.ProtoTunnelBulk:      tunnel.LaneBulk,
+}
+
+// listenTunnels accepts the tunnel streams of the paired workers. A paired
+// device of another kind may not open one: its stream is reset by the host.
+func (rt *p2pRuntime) listenTunnels() error {
+	for proto, lane := range p2pTunnelLanes {
+		ln, err := rt.host.Listen(proto, rt.worker)
+		if err != nil {
+			return err
+		}
+		rt.wg.Go(func() {
+			for {
+				conn, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				go rt.serveTunnel(conn, lane)
+			}
+		})
+	}
+	return nil
+}
+
+func (rt *p2pRuntime) serveTunnel(conn net.Conn, lane tunnel.Lane) {
+	h := rt.net.tunnel.Load()
+	if h == nil {
+		_ = tunnel.WriteHelloReply(conn, tunnel.HelloReply{Status: http.StatusServiceUnavailable, Error: "the server is starting"})
+		_ = conn.Close()
+		return
+	}
+	(*h)(rt.ctx, conn, lane)
+}
+
+// worker reports whether p is a paired worker.
+func (rt *p2pRuntime) worker(p p2pnet.ID) bool {
+	rt.peersMu.Lock()
+	defer rt.peersMu.Unlock()
+	_, ok := rt.workers[p]
 	return ok
 }
 

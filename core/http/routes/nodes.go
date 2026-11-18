@@ -43,7 +43,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 	}
 
 	readyMw := nodeReadyMiddleware(registry)
-	tokenAuthMw := nodeTokenAuth(registrationToken)
+	tokenAuthMw := nodeTokenAuth(registrationToken, registry, options...)
 
 	node := e.Group("/api/node", readyMw, tokenAuthMw)
 	node.POST("/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret, natsCfg, options...))
@@ -135,9 +135,27 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 //
 // It validates the token from an Authorization: Bearer <token> header using
 // constant-time comparison.
-func nodeTokenAuth(registrationToken string) echo.MiddlewareFunc {
+//
+// A paired worker that calls over P2P needs no token: the P2P layer has
+// authenticated its peer ID. It may act only on the node that is pinned to
+// that peer, so a route with a node ID answers 403 for any other node. The
+// registration route pins the node (see localai.RegisterNodeEndpoint).
+func nodeTokenAuth(registrationToken string, registry *nodes.NodeRegistry, options ...localai.RegisterOption) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			if peer, ok := localai.P2PWorkerPeer(c.Request().Context(), options...); ok {
+				id := c.Param("id")
+				if id == "" {
+					return next(c)
+				}
+				node, err := registry.Get(c.Request().Context(), id)
+				if err != nil || node.PeerID != peer {
+					return c.JSON(http.StatusForbidden, map[string]string{
+						"error": "this worker may act on its own node only",
+					})
+				}
+				return next(c)
+			}
 			if registrationToken == "" {
 				return next(c)
 			}

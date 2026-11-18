@@ -25,6 +25,44 @@ type CarrierReport struct {
 	AttachedEpoch int64
 	Follow        []cluster.Carrier
 	FollowError   string
+	// Tunnel is how the tunnel of the worker travels. It is zero when the
+	// worker holds none or does not say.
+	Tunnel TunnelRoute
+}
+
+// The transports of a worker tunnel.
+const (
+	TunnelWebSocket = "websocket"
+	TunnelP2P       = "p2p"
+)
+
+// TunnelRoute is how the tunnel of a worker travels: over a websocket, or over
+// P2P with the path that the P2P layer found.
+type TunnelRoute struct {
+	Transport string
+	// Path is direct, hole_punched or relayed, for P2P only.
+	Path string
+	// Limited says that the relay of a relayed path limits its data or time.
+	Limited bool
+}
+
+// parseTunnelRoute keeps the values that it knows, so that a column never
+// holds what a worker made up.
+func parseTunnelRoute(transport, path string, limited bool) TunnelRoute {
+	switch transport {
+	case TunnelWebSocket:
+		return TunnelRoute{Transport: transport}
+	case TunnelP2P:
+		r := TunnelRoute{Transport: transport}
+		switch path {
+		case "direct", "hole_punched":
+			r.Path = path
+		case "relayed":
+			r.Path, r.Limited = path, limited
+		}
+		return r
+	}
+	return TunnelRoute{}
 }
 
 // followErrorMax is the size of the column that holds FollowError.
@@ -77,10 +115,13 @@ func splitCarriers(s string) []cluster.Carrier {
 // SetCarrierReport stores what a worker reported about its carriers.
 func (r *NodeRegistry) SetCarrierReport(ctx context.Context, nodeID string, rep CarrierReport) error {
 	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Updates(map[string]any{
-		"attached":       joinCarriers(rep.Attached),
-		"attached_epoch": rep.AttachedEpoch,
-		"follow":         joinCarriers(rep.Follow),
-		"follow_error":   rep.FollowError,
+		"attached":         joinCarriers(rep.Attached),
+		"attached_epoch":   rep.AttachedEpoch,
+		"follow":           joinCarriers(rep.Follow),
+		"follow_error":     rep.FollowError,
+		"tunnel_transport": rep.Tunnel.Transport,
+		"tunnel_path":      rep.Tunnel.Path,
+		"tunnel_limited":   rep.Tunnel.Limited,
 	})
 	if res.Error != nil {
 		return fmt.Errorf("storing the carrier report of node %s: %w", nodeID, res.Error)

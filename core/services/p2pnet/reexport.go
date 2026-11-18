@@ -8,6 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 )
@@ -21,6 +22,9 @@ type ID = peer.ID
 
 // AddrInfo is a peer ID with its addresses.
 type AddrInfo = peer.AddrInfo
+
+// Protocol is the ID of a stream protocol.
+type Protocol = protocol.ID
 
 // Multiaddr is a multiaddr.
 type Multiaddr = ma.Multiaddr

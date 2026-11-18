@@ -29,6 +29,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/routes"
 
 	"github.com/mudler/LocalAI/core/application"
+	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -650,6 +651,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 		registerOpts = append(registerOpts, localai.WithCarrierReader(d.Carriers))
 		registerOpts = append(registerOpts, localai.WithTunnelDisconnector(d))
 		registerOpts = append(registerOpts, localai.WithNATSHandover(d.Runtime))
+		// A worker that joined with a worker invite registers over P2P with
+		// its peer ID, and opens its tunnel there.
+		registerOpts = append(registerOpts, localai.WithWorkerPeers(application))
+		p2pTunnels := clusterep.P2PTunnelServer{Registry: d.Registry, Tunnels: d.Tunnels}
+		application.ServeP2PTunnels(p2pTunnels.ServeConn)
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}

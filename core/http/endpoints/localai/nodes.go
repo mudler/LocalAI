@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
+	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -141,6 +142,39 @@ type registerOptions struct {
 	carriers CarrierReader
 	tunnels  TunnelDisconnector
 	nats     NATSHandover
+	workers  WorkerPeers
+}
+
+// WorkerPeers says whether a peer of the P2P layer is a paired worker: a peer
+// that redeemed a worker invite and is not revoked.
+type WorkerPeers interface {
+	IsWorkerPeer(ctx context.Context, peer string) bool
+}
+
+// WithWorkerPeers lets a paired worker that calls over P2P register and use
+// the node routes without the registration token. The node is pinned to its
+// peer: it may act on that node only, and the node's name cannot be taken by
+// anyone else.
+func WithWorkerPeers(w WorkerPeers) RegisterOption {
+	return func(o *registerOptions) { o.workers = w }
+}
+
+// P2PWorkerPeer returns the peer of a request that a paired worker sent over
+// P2P. A request that came over TCP never has one: the peer is set by the
+// server of the P2P layer, not by anything the caller sends.
+func P2PWorkerPeer(ctx context.Context, options ...RegisterOption) (string, bool) {
+	return newRegisterOptions(options).workerPeer(ctx)
+}
+
+func (o registerOptions) workerPeer(ctx context.Context) (string, bool) {
+	if o.workers == nil {
+		return "", false
+	}
+	peer, ok := p2papi.PeerFrom(ctx)
+	if !ok || !o.workers.IsWorkerPeer(ctx, peer) {
+		return "", false
+	}
+	return peer, true
 }
 
 // NATSHandover says what a worker needs to reach NATS besides its own credential.
@@ -268,8 +302,13 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
 		}
 
+		// A worker that joined with a worker invite proves who it is with its
+		// peer ID, which the P2P layer authenticated. It has no registration
+		// token.
+		peer, viaP2P := opts.workerPeer(c.Request().Context())
+
 		// Validate registration token if one is configured on the frontend
-		if expectedToken != "" {
+		if expectedToken != "" && !viaP2P {
 			if req.Token == "" {
 				return c.JSON(http.StatusUnauthorized, nodeError(http.StatusUnauthorized, "registration token required"))
 			}
@@ -299,11 +338,17 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		if haveCarrier {
 			credFor = credentialCarrier(carrierRow, req.Carrier)
 		}
-		tunnelActive := haveCarrier && credFor == cluster.CarrierTunnel
+		// A worker over P2P reaches the cluster through its tunnel and nothing
+		// else, whichever carrier is active: the frontends route to it through
+		// the tunnel (see carrier.Window). It is tunnel-only.
+		if viaP2P {
+			credFor = cluster.CarrierTunnel
+		}
+		tunnelActive := (haveCarrier || viaP2P) && credFor == cluster.CarrierTunnel
 		// A worker that said that its address cannot be reached holds an
 		// outbound tunnel and nothing dials it. Its address is dropped and not
 		// stored: a dialable-looking endpoint that nothing may dial misleads.
-		tunnelOnly := tunnelActive && req.Routable != nil && !*req.Routable
+		tunnelOnly := viaP2P || tunnelActive && req.Routable != nil && !*req.Routable
 		if tunnelOnly {
 			req.Address, req.HTTPAddress = "", ""
 		}
@@ -363,9 +408,20 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			VRAMBudget:           req.VRAMBudget,
 			Version:              req.Version,
 			Commit:               req.Commit,
+			PeerID:               peer,
 		}
 
-		if err := registry.Register(ctx, node, autoApprove); err != nil {
+		// A worker over P2P waits for an admin the first time it registers,
+		// whatever the setting of automatic approval says: the admin checks
+		// its peer ID with the person who runs it. Register keeps the
+		// approval of a node that registers again from the same peer.
+		approve := autoApprove && !viaP2P
+		if err := registry.Register(ctx, node, approve); err != nil {
+			if errors.Is(err, nodes.ErrNodePinned) {
+				xlog.Warn("Refusing a registration under the name of a node that belongs to another worker", "name", req.Name, "p2p", viaP2P)
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict,
+					"this node name belongs to another worker: choose another name with LOCALAI_NODE_NAME"))
+			}
 			xlog.Error("Failed to register node", "name", req.Name, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to register node"))
 		}
@@ -406,7 +462,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			revokeLegacyAgentWorkerAccount(ctx, authDB, registry, node)
 		}
 
-		attachCarrierCredential(ctx, response, registry, node, natsCfg, carrierRow, haveCarrier, credFor, opts)
+		attachCarrierCredential(ctx, response, registry, node, natsCfg, carrierRow, haveCarrier || viaP2P, credFor, opts)
 		if tunnelActive && expectedToken == "" && autoApprove {
 			openRegistrationWarning.Do(func() {
 				xlog.Warn("Worker registration is open: there is no registration token and new nodes are approved at once, " +
@@ -445,7 +501,8 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, _ *gorm.DB, _ string, nat
 		// A node that waited for approval already holds its tunnel credential,
 		// which was minted when it registered and is inert until now. Only the
 		// NATS credential is minted at approval, and only when NATS is active.
-		if row, haveCarrier := opts.activeCarrier(ctx); !haveCarrier || row.Active != cluster.CarrierTunnel {
+		// A worker over P2P never uses NATS.
+		if row, haveCarrier := opts.activeCarrier(ctx); node.PeerID == "" && (!haveCarrier || row.Active != cluster.CarrierTunnel) {
 			attachNatsJWT(response, node, natsCfg)
 		}
 
