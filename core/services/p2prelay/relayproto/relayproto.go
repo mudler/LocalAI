@@ -127,6 +127,10 @@ type Response struct {
 	// Digest is Digest of the caller's permanent members.
 	Digest string `json:"digest,omitempty"`
 	Count  int    `json:"count"`
+	// MaxPeers is how many peers the set of one admin may hold, pending
+	// members included. It is sent to admins only, so that a server can
+	// choose which peers to leave out when its list does not fit.
+	MaxPeers int `json:"max_peers,omitempty"`
 	// Peers is filled by OpList.
 	Peers []Peer `json:"peers,omitempty"`
 	// Status is filled by OpStatus.

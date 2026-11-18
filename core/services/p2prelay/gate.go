@@ -352,7 +352,9 @@ func (g *gate) apply(p peer.ID, req relayproto.Request, now time.Time) (relaypro
 			}
 		}
 		if len(next) > g.maxPerSet {
-			return fail(fmt.Sprintf("too many peers: %d > %d", len(next), g.maxPerSet)), nil
+			r := fail(fmt.Sprintf("too many peers: %d > %d", len(next), g.maxPerSet))
+			r.MaxPeers = g.maxPerSet
+			return r, nil
 		}
 		set.Peers, set.Seq = next, req.Seq
 		changed = true
@@ -395,7 +397,7 @@ func (g *gate) apply(p peer.ID, req relayproto.Request, now time.Time) (relaypro
 		}
 		xlog.Info("relay: admin operation", "admin", p, "op", req.Op, "members", len(set.Peers), "seq", set.Seq, "revoked", len(drop))
 	}
-	resp := relayproto.Response{V: relayproto.Version, OK: true, Admin: true, Seq: set.Seq}
+	resp := relayproto.Response{V: relayproto.Version, OK: true, Admin: true, Seq: set.Seq, MaxPeers: g.maxPerSet}
 	var ids []peer.ID
 	for k, m := range set.Peers {
 		id, err := peer.Decode(k)

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,6 +41,13 @@ type Config struct {
 	Store Store
 	// PairedPeers returns the peer IDs of the paired devices. Required.
 	PairedPeers func() []string
+	// NodePeers returns the peer IDs of other peers that the server vouches
+	// for on its relays: the P2P hosts of backend nodes that registered with
+	// the registration token and serve model-split workers. They come after
+	// the paired devices: when the list does not fit in what a relay allows
+	// one admin, node peers are left out, in the order of their peer IDs, so
+	// that every server of a cluster leaves out the same ones. Nil means none.
+	NodePeers func() []string
 	// Logger receives the manager's log lines. Nil means slog.Default().
 	Logger *slog.Logger
 	// Tick is how often the loop looks for a lost connection. Zero means
@@ -70,6 +78,13 @@ type entry struct {
 	queue     []setOp
 	lastCheck time.Time
 	removed   bool
+	// maxPeers is the size of one admin's list as the relay last reported
+	// it; zero means not known.
+	maxPeers int
+	// admitted are the node peers in the list the relay holds now, and
+	// refused the node peers left out of it, with the reason.
+	admitted map[string]bool
+	refused  map[string]string
 
 	kick chan struct{}
 }
@@ -84,6 +99,9 @@ type manager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	wg      sync.WaitGroup
+	// life ends at Close; Resync runs under it, also before Start.
+	life context.Context
+	stop context.CancelFunc
 
 	lastSeq  atomic.Int64
 	lastOpID atomic.Uint64
@@ -114,6 +132,7 @@ func New(cfg Config) (Manager, error) {
 		cfg.Retry = DefaultRetry
 	}
 	m := &manager{cfg: cfg, log: cfg.Logger}
+	m.life, m.stop = context.WithCancel(context.Background())
 	stored, err := cfg.Store.Load(context.Background())
 	if err != nil {
 		return nil, err
@@ -284,11 +303,11 @@ func (m *manager) Start(ctx context.Context) error {
 		return errors.New("p2prelaymgr: already started")
 	}
 	m.started = true
-	m.ctx, m.cancel = context.WithCancel(context.WithoutCancel(ctx))
-	stop := context.AfterFunc(ctx, m.cancel)
+	m.ctx, m.cancel = context.WithCancel(m.life)
+	stopAfter := context.AfterFunc(ctx, m.cancel)
 	m.wg.Go(func() {
 		<-m.ctx.Done()
-		stop()
+		stopAfter()
 	})
 	for _, e := range m.relays {
 		m.startDrain(e)
@@ -300,14 +319,50 @@ func (m *manager) Start(ctx context.Context) error {
 // Close implements Manager. It stops the loop and waits for it; it does not
 // close the host.
 func (m *manager) Close() error {
-	m.mu.Lock()
-	cancel := m.cancel
-	m.mu.Unlock()
-	if cancel != nil {
-		cancel()
-	}
+	m.stop()
 	m.wg.Wait()
 	return nil
+}
+
+// Resync implements Manager.
+func (m *manager) Resync() {
+	m.wg.Go(func() {
+		for _, e := range m.entries() {
+			if _, err := m.refresh(m.life, e, refreshOpts{repair: true}); err != nil && m.life.Err() == nil {
+				m.log.Debug("relay sync failed", "relay", e.relay.ID, "error", err)
+			}
+		}
+	})
+}
+
+// NodeAdmission implements Manager.
+func (m *manager) NodeAdmission(p string) []Admission {
+	if !slices.Contains(m.nodeStrings(), p) {
+		return nil
+	}
+	es := m.entries()
+	out := make([]Admission, 0, len(es))
+	for _, e := range es {
+		e.mu.Lock()
+		a := Admission{RelayID: e.relay.ID, Label: e.relay.Label}
+		switch {
+		case e.relay.State == StateOpen:
+			a.State, a.Reason = AdmissionSkipped, "the relay is open; this server keeps no list there"
+		case e.relay.State == StateNotAdmin || e.relay.State == StateDenied || e.relay.State == StateUnclaimed:
+			a.State, a.Reason = AdmissionSkipped, "this server is not an admin of the relay"
+		case e.relay.State == StateUnreachable:
+			a.State, a.Reason = AdmissionPending, "this server cannot reach the relay"
+		case e.refused[p] != "":
+			a.State, a.Reason = AdmissionRefused, e.refused[p]
+		case e.admitted[p]:
+			a.State = AdmissionAdmitted
+		default:
+			a.State, a.Reason = AdmissionPending, "waiting for the next sync with the relay"
+		}
+		e.mu.Unlock()
+		out = append(out, a)
+	}
+	return out
 }
 
 func (m *manager) startDrain(e *entry) {
@@ -384,6 +439,42 @@ func (m *manager) paired() []peer.ID {
 	return ids
 }
 
+func (m *manager) nodeStrings() []string {
+	if m.cfg.NodePeers == nil {
+		return nil
+	}
+	return m.cfg.NodePeers()
+}
+
+// nodes returns the node peers that parse and are not paired, in the order
+// of their peer IDs.
+func (m *manager) nodes(paired []peer.ID) []peer.ID {
+	var ids []peer.ID
+	for _, s := range m.nodeStrings() {
+		id, err := peer.Decode(s)
+		if err != nil {
+			m.log.Warn("ignoring a node peer with a bad ID", "peer", s)
+			continue
+		}
+		if !slices.Contains(paired, id) && !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+	slices.SortFunc(ids, func(a, b peer.ID) int { return strings.Compare(a.String(), b.String()) })
+	return ids
+}
+
+// fit splits the node peers into those that fit in a list of limit peers
+// after the paired devices, and the others. A limit of zero is no limit.
+func fit(paired, nodes []peer.ID, limit int) (admit, refuse []peer.ID) {
+	if limit <= 0 {
+		return nodes, nil
+	}
+	room := max(limit-len(paired), 0)
+	room = min(room, len(nodes))
+	return nodes[:room], nodes[room:]
+}
+
 func (m *manager) pairedPeers(ids []peer.ID) []relayproto.Peer {
 	out := make([]relayproto.Peer, 0, len(ids))
 	for _, id := range ids {
@@ -436,7 +527,14 @@ func (m *manager) flush(ctx context.Context, e *entry) {
 			m.log.Debug("relay change not sent yet", "relay", e.relay.ID, "op", head.op, "error", err)
 			if resp.V == 0 {
 				m.markUnreachable(e, err)
+				return
 			}
+			// The relay refused the change, for example because the list is
+			// full of node peers. The next tick of the loop sends the whole
+			// list again, with the paired devices first.
+			e.mu.Lock()
+			e.lastCheck = time.Time{}
+			e.mu.Unlock()
 			return
 		}
 		e.mu.Lock()
@@ -584,16 +682,35 @@ func (m *manager) statusFailed(ctx context.Context, e *entry, resp relayproto.Re
 	return nil
 }
 
-// syncAdmin compares the relay's digest with the paired set and repairs it.
+// syncAdmin compares the relay's digest with the list this server wants
+// there, the paired set and the node peers that fit, and repairs it.
 func (m *manager) syncAdmin(ctx context.Context, e *entry, resp relayproto.Response, apply func(*Relay), o refreshOpts) error {
 	upto := m.lastOpID.Load()
-	ids := m.paired()
-	want := relayproto.Digest(ids)
+	paired := m.paired()
+	nodes := m.nodes(paired)
+	e.mu.Lock()
+	if resp.MaxPeers > 0 {
+		e.maxPeers = resp.MaxPeers
+	}
+	limit := e.maxPeers
+	e.mu.Unlock()
+	admit, refuse := fit(paired, nodes, limit)
+	want := relayproto.Digest(slices.Concat(paired, admit))
 	inSync := resp.Digest == want
 	if (!inSync && o.repair && !o.readOnly) || (o.force && !o.readOnly) {
-		r, err := relayproto.Call(ctx, m.lh(), e.info.ID, relayproto.Request{
-			Op: relayproto.OpReplace, Seq: m.nextSeq(), Peers: m.pairedPeers(ids),
-		})
+		r, err := m.replace(ctx, e, slices.Concat(paired, admit))
+		if err != nil && r.V != 0 && len(admit) > 0 && ctx.Err() == nil {
+			// The relay refused the list. Members that came in with a pass
+			// and wait for confirmation take room too, so leave every node
+			// peer out and keep the paired devices.
+			m.log.Debug("relay refused the list with the node peers; sending the paired devices only", "relay", e.relay.ID, "error", err)
+			if r.MaxPeers > 0 {
+				limit = r.MaxPeers
+			}
+			refuse, admit = slices.Concat(admit, refuse), nil
+			want = relayproto.Digest(paired)
+			r, err = m.replace(ctx, e, paired)
+		}
 		if err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
@@ -610,6 +727,17 @@ func (m *manager) syncAdmin(ctx context.Context, e *entry, resp relayproto.Respo
 		e.queue = slices.DeleteFunc(e.queue, func(op setOp) bool { return op.id <= upto })
 		e.mu.Unlock()
 	}
+	e.mu.Lock()
+	e.admitted, e.refused = map[string]bool{}, map[string]string{}
+	if inSync {
+		for _, p := range admit {
+			e.admitted[p.String()] = true
+		}
+	}
+	for _, p := range refuse {
+		e.refused[p.String()] = refusedReason(limit)
+	}
+	e.mu.Unlock()
 	m.set(e, func(r *Relay) {
 		apply(r)
 		if inSync {
@@ -619,4 +747,18 @@ func (m *manager) syncAdmin(ctx context.Context, e *entry, resp relayproto.Respo
 		}
 	})
 	return nil
+}
+
+// replace sends the whole list of this server to the relay.
+func (m *manager) replace(ctx context.Context, e *entry, ids []peer.ID) (relayproto.Response, error) {
+	return relayproto.Call(ctx, m.lh(), e.info.ID, relayproto.Request{
+		Op: relayproto.OpReplace, Seq: m.nextSeq(), Peers: m.pairedPeers(ids),
+	})
+}
+
+func refusedReason(limit int) string {
+	if limit > 0 {
+		return fmt.Sprintf("the relay admits at most %d devices for this server, and the paired devices come first", limit)
+	}
+	return "the relay refused the list of this server; the paired devices come first"
 }
