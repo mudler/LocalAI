@@ -64,9 +64,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         try:
             # Get voice from request, default to 'af_heart' if not specified
             voice = request.voice if request.voice else 'af_heart'
-            
+
+            # OpenAI-compat speed is validated by core and forwarded via params["speed"];
+            # KPipeline accepts speed natively (see kokoro/pipeline.py __call__).
+            speed = 1.0
+            raw_speed = request.params.get("speed")
+            if raw_speed:
+                try:
+                    speed = min(4.0, max(0.25, float(raw_speed)))
+                except (TypeError, ValueError):
+                    print(f"Kokoro: ignoring unparseable speed {raw_speed!r}", file=sys.stderr)
+
             # Generate audio using Kokoro pipeline
-            generator = self.pipeline(request.text, voice=voice)
+            generator = self.pipeline(request.text, voice=voice, speed=speed)
             
             speechs = []
             # Get all the audio segment
