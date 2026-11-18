@@ -42,6 +42,11 @@ var (
 	ErrBadAddr = errors.New("p2prelaymgr: the relay address must be a multiaddr that ends in /p2p/<relay peer ID>")
 	// ErrNotFound means that no relay has the ID.
 	ErrNotFound = errors.New("p2prelaymgr: unknown relay")
+	// ErrNotAdmin means that this server cannot change the limits of the
+	// relay because it is not an admin of a gated relay.
+	ErrNotAdmin = errors.New("p2prelaymgr: this server is not an admin of the relay")
+	// ErrInvalidLimits means that the relay refused the limits.
+	ErrInvalidLimits = errors.New("p2prelaymgr: the relay refused the limits")
 	// ErrClaimRefused means that the relay refused the claim code.
 	ErrClaimRefused = errors.New("p2prelaymgr: the relay refused the claim code")
 )
@@ -52,6 +57,25 @@ type Limits struct {
 	CircuitSeconds int64
 	// RateBPS is the bandwidth limit per circuit, in bytes per second.
 	RateBPS int64
+}
+
+// LimitsPatch changes limits. A nil field stays as it is; zero removes the limit.
+type LimitsPatch struct {
+	CircuitBytes   *int64
+	CircuitSeconds *int64
+	RateBPS        *int64
+}
+
+// LimitsInfo is what a relay reports about its limits and whether this
+// server may change them.
+type LimitsInfo struct {
+	Limits Limits
+	// CanChange is true when this server is an admin of a gated relay.
+	CanChange bool
+	// Restarted is set on the result of SetLimits when the relay restarted
+	// its circuit service to apply the change: its reservations were
+	// dropped and the other peers reserve again within moments.
+	Restarted bool
 }
 
 // Relay is a relay of this server and what the server knows about it.
@@ -101,6 +125,12 @@ type Manager interface {
 	// Sync pushes the full paired set now.
 	Sync(ctx context.Context, id string) (Relay, error)
 	Claim(ctx context.Context, id, code string) (Relay, error)
+	// Limits reads the limits the relay runs with now. Any member can read
+	// them; CanChange says whether this server can change them.
+	Limits(ctx context.Context, id string) (LimitsInfo, error)
+	// SetLimits changes the limits of a relay this server administers. It
+	// returns ErrNotAdmin otherwise.
+	SetLimits(ctx context.Context, id string, patch LimitsPatch) (LimitsInfo, error)
 	// RegisterPass registers a one-time relay pass with a TTL.
 	RegisterPass(ctx context.Context, relayID, code string, ttl time.Duration) error
 	CancelPass(ctx context.Context, relayID, code string) error
