@@ -16382,7 +16382,7 @@ const docTemplate = `{
         },
         "/api/p2p/split-workers": {
             "get": {
-                "description": "Lists the paired llama.cpp RPC and MLX workers that lend their memory to models that run on this server, with their state (online, offline, slow, limited, refused), the path that reaches them and the memory they add. A worker reached only through a relay is \"slow\" until allow_slow_path is set; a relay with a data limit (a public relay) never carries model layers (\"limited\"). Needs P2P mode share. Admin only.",
+                "description": "Lists the paired llama.cpp RPC and MLX workers that lend their memory to models that run on this server, with their state (online, offline, slow, limited, refused), the path that reaches them and the memory they add. A worker reached only through a relay is \"slow\" until allow_slow_path is set. A relay of the user (own_relay: a gated relay this server administers) may carry it even with a data or time limit, and then ends each connection at the limit; its limits change with PUT /api/p2p/relays/{relay_id}/limits. A public relay never carries model layers (\"limited\"). Needs P2P mode share. Admin only.",
                 "produces": [
                     "application/json"
                 ],
@@ -16408,7 +16408,7 @@ const docTemplate = `{
         },
         "/api/p2p/split-workers/{id}": {
             "patch": {
-                "description": "Sets allow_slow_path of a model-split worker. With true the server uses the worker over a relay without a data limit (\"Use anyway\"): it works, but every token waits for the relay. With false it uses the worker only over a direct or hole-punched path. A model that is loaded keeps its workers until it is loaded again. Needs P2P mode share. Admin only.",
+                "description": "Sets allow_slow_path of a model-split worker. With true the server uses the worker over a relay (\"Use anyway\"): it works, but every token waits for the relay, and a relay of the user that limits each connection ends it at the limit. A public relay is never used. With false it uses the worker only over a direct or hole-punched path. A model that is loaded keeps its workers until it is loaded again. Needs P2P mode share. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -26510,6 +26510,10 @@ const docTemplate = `{
                     "description": "Name and Version are what the worker reported.",
                     "type": "string"
                 },
+                "own_relay": {
+                    "description": "OwnRelay is true when that relay is a gated relay this server\nadministers: its limits can change. With a data or time limit the\nrelay ends each connection at the limit, also after allow_slow_path.",
+                    "type": "boolean"
+                },
                 "path": {
                     "$ref": "#/definitions/p2p.PathView"
                 },
@@ -26520,8 +26524,12 @@ const docTemplate = `{
                     "description": "Rank is the MLX rank of the worker; zero when not in the ring.",
                     "type": "integer"
                 },
+                "relay_id": {
+                    "description": "RelayID is the server's ID of the relay of a relayed path, when the\nrelay is one the server knows (see /api/p2p/relays/{id}/limits).",
+                    "type": "string"
+                },
                 "state": {
-                    "description": "State is online (in use), offline, slow (only a relay reaches it: it\nwaits for allow_slow_path), limited (only a relay with a data limit\nreaches it, which cannot carry model layers) or refused.",
+                    "description": "State is online (in use), offline, slow (only a relay reaches it: it\nwaits for allow_slow_path), limited (only a public relay reaches it,\nwhose limits cannot carry model layers) or refused.",
                     "type": "string"
                 },
                 "version": {
