@@ -490,6 +490,52 @@ export const S = {
     } as Record<string, string>,
   },
 
+  // Add a server with an invite link (P2P).
+  invite: {
+    useInvite: 'Have an invite link? Paste it instead',
+    useAddress: 'Enter an address instead',
+    title: 'Add server by invite link',
+    sub: 'Paste the invite link that the server owner sent you. It starts with localai://pair. It works once and for a short time.',
+    link: 'Invite link',
+    linkPlaceholder: 'localai://pair?v=1&k=device&p=…',
+    name: 'Name',
+    nameNote: 'Leave it empty to use the name the server gives.',
+    openRelay: 'Connect through the open relay that the link names',
+    openRelayNote: 'Anyone can use an open relay. The traffic stays encrypted, but the relay sees which computers talk to each other.',
+    pair: 'Pair',
+    pairing: 'Pairing with the server…',
+    pairingNote: 'This can take up to two minutes when the server is behind a router.',
+    pairedTitle: 'Paired',
+    phrase: 'Confirmation phrase',
+    phraseNote: 'The server shows four words too. Check that they are the same. If they differ, remove this server and tell the server owner.',
+    done: 'Done',
+    p2pBadge: 'P2P',
+    tunnel: {
+      starting: 'Starting the P2P connection',
+      ready: 'P2P ready',
+      up: 'P2P connected',
+      down: 'P2P not reachable',
+      stopped: 'P2P stopped',
+      failed: 'P2P connection failed',
+    } as Record<string, string>,
+    path: {
+      direct: 'direct',
+      hole_punched: 'hole punched',
+      relayed: 'through a relay',
+    } as Record<string, string>,
+    failed: {
+      'invite-invalid': 'This is not an invite link. Copy the whole link, starting with localai://pair.',
+      'invite-kind': 'This invite is not for a device or a remote. Ask the server owner for a device invite.',
+      'invite-expired': 'The invite has expired. Ask the server owner for a new one.',
+      'open-relay': 'The link names an open relay. Allow it below to connect anyway.',
+      'no-binary': 'Pairing needs LocalAI on this computer. Install it first, then paste the link again.',
+      'pair-failed': 'The pairing failed.',
+      duplicate: 'This server is already saved.',
+      limit: 'You can save up to 20 servers.',
+      name: 'Enter a name of 1 to 60 characters.',
+    } as Record<string, string>,
+  },
+
   // The live message under the address field.
   hint: {
     fixScheme: 'Start with https:// or http://.',

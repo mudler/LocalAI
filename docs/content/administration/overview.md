@@ -138,12 +138,13 @@ preserving legacy search, filter, selection, variant, and development flags.
 ## The tab bar
 
 Operate has one row of tabs above the page: **Status** (this overview),
-**This machine**, **Swarm** (only with distributed mode on), **Runtime**,
+**This machine**, **Swarm** (with distributed mode on, or with P2P on), **Runtime**,
 **Traffic** and **Settings**. A tab that holds several pages shows a second row
 of links under the bar: Runtime holds Backends, Activity, Logs and (on a single
 install) Failover; Traffic holds Usage, Traces and Middleware; Settings holds
 Settings and Users (with authentication on); Swarm holds Nodes, Placement rules,
-Failover and P2P. Adding a node opens from the Nodes page. Every page keeps its
+Failover and P2P (on a single install with P2P on, P2P alone; with P2P off, P2P
+sits under This machine). Adding a node opens from the Nodes page. Every page keeps its
 own URL, and a page such as a node detail keeps its tab highlighted. On a phone
 the bar scrolls sideways. The **API** link at the end of the bar opens the
 API documentation.

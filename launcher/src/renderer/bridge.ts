@@ -49,7 +49,7 @@ export const OPTIONAL_API = [
   'backToLocal', 'reloadWebui', 'resetWebuiPermissions',
   'getWindowSettings', 'setOpenInBrowser',
   'getUpdateInfo', 'setAutoCheck', 'setUpdateChannel', 'backToStable',
-  'getServers', 'onServers', 'onOpenSwitcher', 'testServer', 'addServer', 'updateServer', 'removeServer', 'setDefaultServer', 'cancelSwitch', 'retryRemote', 'setKeepLocalRunning',
+  'getServers', 'onServers', 'onOpenSwitcher', 'testServer', 'addServer', 'addServerByInvite', 'updateServer', 'removeServer', 'setDefaultServer', 'cancelSwitch', 'retryRemote', 'setKeepLocalRunning',
   'openReleaseNotes', 'getInstallDetails', 'installLauncherUpdate', 'relaunch',
   'findFreePort', 'showPortProcess', 'pickFolder', 'getHardwareSummary',
   'getNetwork', 'getNetworkPlan', 'setNetworkExposed', 'regenerateApiKey', 'dismissKeyNotice', 'revealApiKey', 'copyApiKey',

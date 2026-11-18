@@ -790,6 +790,19 @@ export const settingsApi = {
   save: (body) => postJSON(API_CONFIG.endpoints.settings, body),
 }
 
+// P2P relays and identity (the P2P settings page). Status, invites and devices
+// are in their own block.
+export const p2pRelaysApi = {
+  status: () => fetchJSON(API_CONFIG.endpoints.p2pStatus),
+  list: () => fetchJSON(API_CONFIG.endpoints.p2pRelays),
+  add: (addr, label = '', claimCode = '') => postJSON(API_CONFIG.endpoints.p2pRelays, { addr, label, ...(claimCode ? { claim_code: claimCode } : {}) }),
+  remove: (id) => fetchJSON(API_CONFIG.endpoints.p2pRelay(id), { method: 'DELETE' }),
+  check: (id) => postJSON(API_CONFIG.endpoints.p2pRelayCheck(id), {}),
+  sync: (id) => postJSON(API_CONFIG.endpoints.p2pRelaySync(id), {}),
+  claim: (id, code) => postJSON(API_CONFIG.endpoints.p2pRelayClaim(id), { code }),
+  regenerateIdentity: () => postJSON(API_CONFIG.endpoints.p2pIdentityRegenerate, { confirm: true }),
+}
+
 // Branding / whitelabeling
 // /api/branding is public (no auth) — the login page reads it before the
 // user signs in. Asset uploads/deletes still require admin privileges.
@@ -871,6 +884,17 @@ export const p2pApi = {
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     return response.text()
   },
+}
+
+// P2P layer: status, invites and paired devices (admin). Invites and devices
+// answer 409 outside mode "share". The invite link is in the mint answer only.
+export const p2pNetApi = {
+  status: () => fetchJSON(API_CONFIG.endpoints.p2pStatus),
+  mintInvite: (body) => postJSON(API_CONFIG.endpoints.p2pInvites, body),
+  invites: () => fetchJSON(API_CONFIG.endpoints.p2pInvites),
+  cancelInvite: (id) => fetchJSON(API_CONFIG.endpoints.p2pInvite(id), { method: 'DELETE' }),
+  devices: () => fetchJSON(API_CONFIG.endpoints.p2pDevices),
+  revokeDevice: (id) => fetchJSON(API_CONFIG.endpoints.p2pDevice(id), { method: 'DELETE' }),
 }
 
 // Image generation

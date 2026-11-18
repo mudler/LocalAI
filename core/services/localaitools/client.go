@@ -197,6 +197,21 @@ type LocalAIClient interface {
 	// that cannot follow a change. It never changes anything.
 	GetClusterCarrier(ctx context.Context) (*ClusterCarrierStatus, error)
 
+	// ---- P2P ----
+	// GetP2PStatus reports the mode and state of the P2P layer.
+	GetP2PStatus(ctx context.Context) (*P2PStatusInfo, error)
+	// ListP2PDevices lists the paired devices with how each one is
+	// connected. Needs P2P mode share.
+	ListP2PDevices(ctx context.Context) ([]P2PDeviceInfo, error)
+	// ListP2PInvites lists the invites and their state, never the links.
+	ListP2PInvites(ctx context.Context) ([]P2PInviteInfo, error)
+	// ListP2PRelays lists the relays the server knows.
+	ListP2PRelays(ctx context.Context) ([]P2PRelayInfo, error)
+	// RevokeP2PDevice revokes a paired device: it is cut off at once.
+	RevokeP2PDevice(ctx context.Context, id string) error
+	// CancelP2PInvite cancels a pending invite.
+	CancelP2PInvite(ctx context.Context, id string) error
+
 	// ---- Failover chains ----
 	// ListFailoverChains reports every configured failover chain, its
 	// currently active target, and the health of each target.

@@ -134,7 +134,6 @@ var _ = Describe("Route auth coverage", func() {
 			{method: http.MethodGet, path: "/browse/*"}:     {},
 			{method: http.MethodGet, path: "/login"}:        {},
 			{method: http.MethodGet, path: "/invite/:code"}: {},
-			{method: http.MethodGet, path: "/explorer"}:     {},
 
 			// Static assets needed to render the pre-authentication UI.
 			{method: http.MethodGet, path: "/favicon.svg"}: {},

@@ -7,6 +7,7 @@ import { Button, Icon } from '@localai/ui-kit'
 import type { ServerRowView, TestResultView } from '../shared/types'
 import { useBridge } from './bridge'
 import { Dialog } from './Dialog'
+import { InviteForm } from './InviteForm'
 import { S } from './strings'
 import { addressHint, addressUsable, suggestName, testCard } from './serversUi'
 
@@ -43,6 +44,7 @@ export function ServerForm(p: ServerFormProps) {
   const [error, setError] = useState<string>()
   const [details, setDetails] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [byInvite, setByInvite] = useState(false)
   const token = useRef(0)
 
   const hint = addressHint(address, p.servers, p.editing?.id)
@@ -218,6 +220,30 @@ export function ServerForm(p: ServerFormProps) {
     </>
   )
 
+  const inviteSwitch = !p.editing && (
+    <button type="button" className="lnr-link" onClick={() => setByInvite(true)} data-testid="use-invite">{S.invite.useInvite}</button>
+  )
+  const invite = <InviteForm makeDefault={p.makeDefault} onDone={p.onDone} onCancel={p.onCancel} onUseAddress={() => setByInvite(false)} />
+
+  if (byInvite && p.variant === 'page') {
+    return (
+      <div className="lnr-form lnr-form--page">
+        <button type="button" className="lnr-backlink" onClick={p.onCancel}>
+          <Icon name="arrow-left" /> <span>{S.servers.back}</span>
+        </button>
+        <h1 className="lnr-h">{S.invite.title}</h1>
+        <section className="dk-card lnr-card lnr-form__card" aria-label={S.invite.title}>{invite}</section>
+      </div>
+    )
+  }
+  if (byInvite) {
+    return (
+      <Dialog title={S.invite.title} titleId={`${ids}-invite`} onClose={p.onCancel} className="lnr-dialog--form" testId="invite-sheet">
+        {invite}
+      </Dialog>
+    )
+  }
+
   const primaryLabel = p.variant === 'page' ? S.servers.connect : S.servers.save
   const actions = (
     <>
@@ -238,6 +264,7 @@ export function ServerForm(p: ServerFormProps) {
         <h1 className="lnr-h">{S.servers.connectTitle}</h1>
         <p className="lnr-sub">{S.servers.connectSub}</p>
         <section className="dk-card lnr-card lnr-form__card" aria-label={S.servers.connectTitle}>{fields}</section>
+        {inviteSwitch}
         <div className="lnr-row lnr-form__foot">
           <p className="lnr-form__lock lnr-grow"><Icon name="lock" /> <span>{S.servers.noSecret}</span></p>
           {actions}
@@ -251,6 +278,7 @@ export function ServerForm(p: ServerFormProps) {
     <>
       <Dialog title={p.editing ? S.servers.editTitle : S.servers.addTitle} titleId={titleId} onClose={close} initialFocus={`#${nameId}`} className="lnr-dialog--form" testId="server-sheet">
         <div className="lnr-form">{fields}</div>
+        {inviteSwitch}
         {p.editing?.isDefault && (
           <p className="lnr-form__default"><span className="lnr-badge lnr-badge--accent">{S.servers.isDefault}</span> <span>{S.servers.defaultNote}</span></p>
         )}

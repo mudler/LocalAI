@@ -35,6 +35,10 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_aliases` — List configured model aliases and their targets.
 - `list_failover_chains` — List failover chains, their active target and target health.
 - `get_cluster_carrier` — Read which transport a distributed cluster uses (NATS or the database tunnel), the state of a change, the live frontends and the workers that cannot follow. Read-only. No tool changes the carrier.
+- `get_p2p_status` — Show the P2P mode (off, connect, share), peer ID, reachability and counts.
+- `list_p2p_devices` — List the paired P2P devices and how each one is connected.
+- `list_p2p_invites` — List the P2P invites and their state, never the links.
+- `list_p2p_relays` — List the P2P relays and their sync state.
 
 ## Mutating (require user confirmation per safety rule 1)
 
@@ -66,3 +70,5 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `delete_scheduling` — Remove a distributed per-model scheduling config.
 - `pin_failover_target` — Force a failover chain to one target.
 - `unpin_failover_target` — Remove a failover pin.
+- `revoke_p2p_device` — Revoke a paired P2P device; it is cut off at once.
+- `cancel_p2p_invite` — Cancel a pending P2P invite.

@@ -1,0 +1,285 @@
+{
+  "title": "P2P",
+  "supporting": "Les appareils, serveurs distants et nœuds qui joignent ce serveur en P2P, et les invitations qui les font entrer.",
+  "loadStatusFailed": "Impossible de lire l'état du P2P.",
+  "tabs": {
+    "label": "P2P",
+    "devices": "Appareils et invitations",
+    "settings": "Paramètres"
+  },
+  "mode": {
+    "off": {
+      "title": "Le P2P est désactivé",
+      "reason": "Réglez le mode P2P sur Connexion et partage pour inviter des appareils, des serveurs distants et des nœuds. Ce mode exige que l'authentification soit activée."
+    },
+    "connect": {
+      "title": "Le P2P est en mode Connexion seule",
+      "reason": "Ce serveur utilise des serveurs distants en P2P et n'accepte personne. Pour inviter des appareils, réglez le mode sur Connexion et partage. Ce mode exige que l'authentification soit activée."
+    },
+    "fix": "Ouvrir les paramètres P2P"
+  },
+  "kinds": {
+    "device": {
+      "title": "Appareil",
+      "body": "Un lanceur ou un autre navigateur. La personne se connecte comme aujourd'hui."
+    },
+    "remote": {
+      "title": "Serveur distant",
+      "body": "Un autre LocalAI utilise tous les modèles de cette instance."
+    },
+    "worker": {
+      "title": "Worker"
+    },
+    "split": {
+      "title": "Worker de modèle réparti"
+    },
+    "federated": {
+      "title": "Instance fédérée"
+    }
+  },
+  "ttl": {
+    "600": "10 min",
+    "3600": "1 heure",
+    "86400": "1 jour"
+  },
+  "share": {
+    "open": "Partager cette instance…",
+    "title": "Partager cette instance",
+    "intro": "Créez un lien d'invitation à usage unique. L'autre côté le colle ou scanne son code QR.",
+    "kind": "Type",
+    "qrNote": "Les invitations d'appareil et de serveur distant affichent un code QR, pour un téléphone ou une tablette.",
+    "kindNote": {
+      "device": {
+        "title": "Admission P2P uniquement.",
+        "body": "Une invitation d'appareil permet à l'appareil de joindre cette instance. La personne se connecte quand même à l'interface web avec son propre compte."
+      },
+      "remote": {
+        "title": "Tous les modèles, rien d'autre.",
+        "body": "L'autre LocalAI reçoit une clé API qui peut utiliser chaque modèle de cette instance, y compris les modèles que vous ajoutez plus tard. Les modèles auxquels des outils sont attachés sont exclus. La clé n'atteint rien d'autre : ni les paramètres, ni les fichiers, ni une autre partie de l'API."
+      }
+    },
+    "label": "Libellé",
+    "labelPlaceholder": {
+      "device": "Portable d'Alex",
+      "remote": "Agence"
+    },
+    "labelHint": "Affiché dans Appareils et invitations.",
+    "expires": "Expire après",
+    "singleUseHint": "Chaque invitation ne fonctionne qu'une fois.",
+    "nothingYet": "Rien n'est créé tant que vous n'appuyez pas sur Créer l'invitation.",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "mint": "Créer l'invitation",
+    "mintFailed": "L'invitation n'a pas été créée.",
+    "needsAccount": {
+      "title": "Connectez-vous avec un compte utilisateur pour partager avec un serveur distant",
+      "body": "L'autre LocalAI reçoit une clé API qui appartient à votre compte utilisateur. Vous êtes connecté avec la clé API définie par LOCALAI_API_KEY, qui n'a pas de compte. Connectez-vous avec un compte utilisateur et créez l'invitation à nouveau. Les invitations d'appareil fonctionnent comme avant."
+    },
+    "copy": "Copier",
+    "copied": "Copié",
+    "copyFailed": "Le lien n'a pas été copié. Sélectionnez-le et copiez-le à la main.",
+    "canceled": "Invitation annulée.",
+    "revoked": "{{label}} révoqué.",
+    "result": {
+      "title": "Invitation pour {{label}}",
+      "sub": "{{kind}} · usage unique · {{ttl}}",
+      "link": "Lien d'invitation",
+      "qrLabel": "Code QR du lien d'invitation",
+      "qrCaption": "Pour un téléphone ou une tablette",
+      "how": {
+        "device": "Dans le lanceur : Ajouter un serveur, puis Lien d'invitation. Le lien contient l'ID de pair de ce serveur et le pass du relais, un code court seul ne suffit donc pas.",
+        "remote": "Sur l'autre LocalAI : Accueil ou Connexions, Connecter un serveur distant, puis Lien d'invitation. Collez le lien en entier."
+      },
+      "waiting": "En attente de l'appareil… Annuler l'invitation annule aussi son pass du relais.",
+      "expired": "L'invitation a expiré.",
+      "expiredTitle": "Cette invitation a expiré.",
+      "expiredBody": "Personne ne l'a utilisée à temps. Créez-en une nouvelle quand l'autre côté est prêt.",
+      "again": "La recréer",
+      "cancel": "Annuler l'invitation",
+      "done": "Terminé"
+    },
+    "facts": {
+      "expires": "Expire",
+      "singleUse": "usage unique",
+      "serverPeer": "ID de pair du serveur",
+      "devicePeer": "ID de pair de l'appareil",
+      "relay": "Relais indiqué",
+      "relayGated": "{{relay}} (votre relais, à accès contrôlé)",
+      "relayOpen": "{{relay}} (relais ouvert)",
+      "none": "Aucun",
+      "pass": "Pass du relais",
+      "passOn": "Enregistré sur {{relay}}, valide {{ttl}}, usage unique",
+      "passUnreachable": "Aucun : {{relay}} n'a pas répondu",
+      "passNone": "Aucun",
+      "public": "Adresse publique",
+      "publicYes": "Oui",
+      "publicNo": "Aucune (derrière un NAT)"
+    },
+    "admission": {
+      "title": "Admission P2P uniquement.",
+      "result": "L'invitation permet à l'appareil de joindre cette instance. La personne se connecte quand même à l'interface web."
+    },
+    "warn": {
+      "unreachable": {
+        "title": "Cette invitation n'a pas de pass du relais. Elle ne peut s'appairer que par une connexion directe.",
+        "body": "{{relay}} n'a pas répondu à la création de l'invitation, donc aucun pass n'y est enregistré. Recréez l'invitation quand le relais sera de retour.",
+        "again": "La recréer",
+        "check": "Vérifier le relais"
+      },
+      "noRelay": {
+        "title": "Les appareils derrière un NAT strict ne peuvent pas se connecter sans relais.",
+        "body": "Ce serveur n'a pas de relais. Environ 3 réseaux sur 10 bloquent les connexions directes. Ajoutez un relais, ou faites-en tourner un.",
+        "add": "Ajouter un relais"
+      },
+      "openRelay": {
+        "title": "Cette invitation désigne un relais ouvert.",
+        "body": "N'importe qui peut utiliser {{relay}}, et il peut limiter le débit de chaque connexion."
+      },
+      "noPublic": {
+        "title": "Ce serveur n'a pas d'adresse publique.",
+        "body": "L'appareil se connecte par hole punching, ou par un relais si cela échoue."
+      }
+    },
+    "connected": {
+      "title": "{{label}} connecté",
+      "sub": "{{kind}} · appairé à l'instant",
+      "confirm": "Vérifiez que l'autre côté affiche",
+      "hint": "{{label}} affiche maintenant les mêmes mots. S'ils ne correspondent pas, quelqu'un d'autre a utilisé l'invitation.",
+      "signIn": "La personne se connecte quand même à l'interface web.",
+      "keyNote": "Révoquez-le à tout moment dans Appareils et invitations.",
+      "mismatch": "Ils ne correspondent pas : révoquer",
+      "match": "Ils correspondent"
+    }
+  },
+  "invites": {
+    "title": "Invitations en attente",
+    "note": "Une invitation ne fonctionne qu'une fois et expire. Annuler une invitation annule aussi son pass du relais.",
+    "loadFailed": "Impossible de charger les invitations.",
+    "empty": {
+      "title": "Aucune invitation en attente",
+      "body": "Créez une invitation pour permettre à un appareil ou à un serveur distant de joindre ce serveur."
+    },
+    "col": {
+      "label": "Libellé",
+      "kind": "Type",
+      "created": "Créée",
+      "expires": "Expire dans",
+      "pass": "Pass du relais",
+      "actions": "Actions"
+    },
+    "passOn": "Sur {{relay}}",
+    "passNone": "Aucun : ne s'appaire que par une connexion directe",
+    "cancel": "Annuler",
+    "canceled": "Invitation pour {{label}} annulée.",
+    "cancelFailed": "L'invitation n'a pas été annulée : {{message}}"
+  },
+  "devices": {
+    "title": "Appareils",
+    "active_one": "{{count}} actif",
+    "active_other": "{{count}} actifs",
+    "note": "Chaque appareil a sa propre clé. Révoquez-en un et les autres continuent de fonctionner.",
+    "loadFailed": "Impossible de charger les appareils.",
+    "empty": {
+      "title": "Aucun appareil appairé pour l'instant",
+      "body": "Un appareil apparaît ici dès qu'il utilise une invitation."
+    },
+    "col": {
+      "label": "Libellé",
+      "kind": "Type",
+      "peer": "ID de pair",
+      "seen": "Dernière activité",
+      "path": "Chemin",
+      "status": "État",
+      "actions": "Actions"
+    },
+    "never": "Jamais",
+    "status": {
+      "active": "Actif",
+      "revoked": "Révoqué"
+    },
+    "path": {
+      "direct": "Direct",
+      "holePunched": "Hole punching",
+      "relayed": "Via {{relay}}",
+      "relayedUnknown": "Via un relais",
+      "none": "Non connecté",
+      "offline": "Non connecté",
+      "limited": "Limité",
+      "limitedHint": "Le relais limite les données ou la durée de chaque connexion. Les gros transferts demandent un chemin direct.",
+      "rtt": "{{ms}} ms"
+    },
+    "revoke": "Révoquer…",
+    "revokeTitle": "Révoquer {{label}} ?",
+    "revokeConfirm": "Révoquer",
+    "revokeBody": {
+      "device": "L'appareil perd sa clé P2P tout de suite et ses connexions ouvertes se ferment. La personne garde son compte. Les autres appareils ne sont pas touchés. Pour le reconnecter, créez une nouvelle invitation.",
+      "remote": "Le serveur distant perd sa clé P2P et sa clé API tout de suite, et ses connexions ouvertes se ferment. Ses modèles cessent de fonctionner de l'autre côté. Les autres appareils ne sont pas touchés. Pour le reconnecter, créez une nouvelle invitation.",
+      "other": "Le nœud perd sa clé P2P tout de suite et ses connexions ouvertes se ferment. Les autres appareils ne sont pas touchés. Pour le reconnecter, créez une nouvelle invitation."
+    },
+    "revoked": "{{label}} révoqué."
+  },
+  "invite": {
+    "connectWith": "Se connecter avec",
+    "withAddress": "Adresse",
+    "withInvite": "Lien d'invitation",
+    "link": "Lien d'invitation",
+    "linkHint": "Demandez à l'administrateur de l'autre LocalAI une invitation de serveur distant et collez le lien en entier.",
+    "problem": {
+      "malformed": "Ce n'est pas un lien d'invitation LocalAI. Il commence par localai://pair.",
+      "wrongKind": "C'est une invitation de type {{kind}}. Demandez à l'administrateur de l'autre LocalAI une invitation de serveur distant.",
+      "expired": "Cette invitation a expiré. Demandez-en une nouvelle à l'administrateur de l'autre LocalAI."
+    },
+    "preview": {
+      "server": "Serveur",
+      "kind": "Type",
+      "pass": "Pass du relais",
+      "passIncluded": "Inclus · {{relay}}",
+      "passNone": "Aucun : le lien s'appaire par connexion directe ou par hole punching",
+      "path": "Chemin",
+      "pathRelay": "Direct d'abord, puis hole punching, puis {{relay}}",
+      "pathDirect": "Direct d'abord, puis hole punching",
+      "expires": "Expire",
+      "expiresAt": "{{when}} · usage unique"
+    },
+    "openRelay": "Le lien désigne un relais ouvert. N'importe qui peut l'utiliser, et il peut limiter le débit de chaque connexion.",
+    "connect": "Connecter",
+    "connecting": "Connexion…",
+    "connected": "Connecté",
+    "ok_one": "Connecté à {{name}} en P2P. {{count}} modèle trouvé.",
+    "ok_other": "Connecté à {{name}} en P2P. {{count}} modèles trouvés.",
+    "switched": {
+      "title": "Le P2P est activé en mode Connexion seule. Ce serveur n'accepte personne.",
+      "body": "Le P2P était désactivé. La connexion l'a activé pour que ce serveur puisse joindre l'autre LocalAI. Changez le mode dans Swarm, P2P, Paramètres."
+    },
+    "fail": {
+      "title": "Impossible de se connecter",
+      "invalid": "L'invitation n'est pas valide : elle a été utilisée, annulée ou a expiré. Demandez-en une nouvelle.",
+      "rateLimited": "Trop de tentatives. Attendez quelques minutes, puis réessayez.",
+      "malformed": "L'autre LocalAI n'a pas pu lire cette invitation.",
+      "unsupported": "Ce serveur ne peut pas connecter de serveur distant avec un lien d'invitation.",
+      "conflict": "Ce serveur est déjà appairé avec ce LocalAI, ou un serveur distant de ce nom existe."
+    },
+    "blocked": {
+      "title": "Les deux réseaux bloquent les connexions directes.",
+      "body": "Le hole punching a échoué. Environ 3 paires de réseaux sur 10 ont besoin d'un relais qui fonctionne.",
+      "bodyRelay": "Le hole punching a échoué et {{relay}} n'a pas répondu. Environ 3 paires de réseaux sur 10 ont besoin d'un relais qui fonctionne.",
+      "relayTitle": "Faites tourner un relais.",
+      "relayBody": "L'administrateur de l'autre LocalAI en lance un sur une machine avec une adresse publique, puis envoie une nouvelle invitation.",
+      "portTitle": "Ouvrez un port.",
+      "portBody": "Redirigez UDP et TCP 4001 vers ce serveur ou vers l'autre.",
+      "networkTitle": "Utilisez un autre réseau.",
+      "networkBody": "Placez ce serveur sur un autre réseau, par exemple un partage de connexion du téléphone, puis réessayez.",
+      "retry": "Réessayer",
+      "copy": "Copier les détails pour l'administrateur"
+    }
+  },
+  "home": {
+    "title": "Connecter d'autres machines",
+    "optional": "Facultatif",
+    "body": "Utilisez ce serveur depuis votre portable, ou ajoutez d'autres machines. Exige que l'authentification soit activée.",
+    "open": "Ouvrir Swarm, P2P",
+    "openNote": "Là, réglez le mode P2P sur Connexion et partage. Vous pouvez le faire plus tard.",
+    "auth": "Activez d'abord l'authentification",
+    "authNote": "L'authentification est désactivée. Pour utiliser plutôt les modèles d'une autre instance, choisissez Sur un autre serveur ou service ci-dessus : cela n'exige pas d'authentification."
+  }
+}

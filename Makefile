@@ -152,7 +152,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -951,7 +951,7 @@ test-extra-backend-vllm: docker-build-vllm
 	$(MAKE) test-extra-backend
 
 ## vllm multi-node data-parallel smoke test. Runs LocalAI head + a
-## `local-ai p2p-worker vllm` follower in docker compose against
+## `local-ai worker vllm` follower in docker compose against
 ## Qwen2.5-0.5B with data_parallel_size=2. Requires 2 NVIDIA GPUs and
 ## nvidia-container-runtime on the host — vLLM v1's DP coordinator is
 ## not viable on CPU so this cannot run in CI without GPU.
@@ -1804,6 +1804,40 @@ test-distributed-fakebus:
 		./core/services/collections/... ./core/services/syncstate/... \
 		./core/services/modeladmin/... ./core/services/failover/...
 
+## Unit and race tests of the P2P packages (the lean libp2p host, the gated
+## relay and the pairing service). Packages that do not exist yet are skipped,
+## so the target stays green while the layer is built up.
+P2P_PACKAGES=p2pnet p2prelay p2ppair
+P2P_TEST_DIRS=$(foreach p,$(P2P_PACKAGES),$(if $(wildcard core/services/$(p)),./core/services/$(p)/...))
+
+test-p2p:
+ifeq ($(strip $(P2P_TEST_DIRS)),)
+	@echo 'test-p2p: none of the P2P packages ($(P2P_PACKAGES)) exists under core/services yet, nothing to test'
+else
+	@echo 'Running P2P unit tests under the race detector: $(P2P_TEST_DIRS)'
+	$(GOTEST) -race -count=1 -timeout 15m $(P2P_TEST_DIRS)
+endif
+
+## P2P NAT lab (needs Docker and a Linux kernel with iptables NAT). Builds the
+## lab binary (tests/e2e/p2p/labbin) as a static linux binary and runs the cases
+## in tests/e2e/p2p/lab in Docker containers behind two NAT routers. Logs go to
+## P2P_LAB_LOGS. P2P_LAB_BIN uses a binary you built, P2P_LAB_ARGS picks cases
+## (see tests/e2e/p2p/README.md).
+P2P_LAB_DIR=tests/e2e/p2p/lab
+P2P_LAB_BIN?=
+P2P_LAB_LOGS?=$(abspath $(P2P_LAB_DIR)/logs)
+P2P_LAB_ARGS?=
+
+test-e2e-p2p:
+ifeq ($(strip $(P2P_LAB_BIN)),)
+	@echo 'Building the P2P lab binary'
+	@mkdir -p $(P2P_LAB_DIR)/bin
+	CGO_ENABLED=0 GOOS=linux $(GOCMD) build -trimpath -o $(P2P_LAB_DIR)/bin/p2plab ./tests/e2e/p2p/labbin
+	LAB_BIN=$(abspath $(P2P_LAB_DIR)/bin/p2plab) LAB_LOGS=$(P2P_LAB_LOGS) $(P2P_LAB_DIR)/run.sh $(P2P_LAB_ARGS)
+else
+	LAB_BIN=$(abspath $(P2P_LAB_BIN)) LAB_LOGS=$(P2P_LAB_LOGS) $(P2P_LAB_DIR)/run.sh $(P2P_LAB_ARGS)
+endif
+
 ## The add-on suites of scripts/addons/suites.json that need the integration
 ## build (UI server, mock backend, browser). ADDON_SUITES picks the ones to run;
 ## `packaging` is left out because addons-package.yml runs it.
@@ -1866,11 +1900,6 @@ clean-ui-test-server:
 .PHONY: swagger
 swagger:
 	swag init -g core/http/app.go --output swagger
-
-# DEPRECATED: gen-assets is for the Explorer page (Alpine.js). Remove when the Explorer page moves to the React UI.
-.PHONY: gen-assets
-gen-assets:
-	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets
 
 ## Documentation and website
 # The published site is two Hugo sites: website/ owns the root, docs/ is nested

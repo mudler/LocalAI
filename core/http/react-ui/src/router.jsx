@@ -122,6 +122,7 @@ const Activity = page('activity', () => import('./pages/Activity'))
 const Settings = page('settings', () => import('./pages/Settings'))
 const Traces = page('traces', () => import('./pages/Traces'))
 const P2P = page('p2p', () => import('./pages/P2P'))
+const P2PSettings = page('p2p', () => import('./pages/P2PSettings'))
 const Collections = page('collections', () => import('./pages/Collections'))
 const ModelEditor = page(null, () => import('./pages/ModelEditor'))
 // Rendered by Models, through its <Outlet/>: the list stays mounted behind it.
@@ -130,7 +131,6 @@ const ModelPage = page(null, () => import('./pages/ModelPage'))
 // PipelineEditor removed — the Model Editor with templates handles all model types
 const ImportModel = page(null, () => import('./pages/ImportModel'))
 const BackendLogs = page(null, () => import('./pages/BackendLogs'))
-const Explorer = page(null, () => import('./pages/Explorer'))
 const Login = page(null, () => import('./pages/Login'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
 const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
@@ -343,6 +343,7 @@ const appChildren = [
       { path: 'backend-logs', element: <Admin><BackendLogs /></Admin> },
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
       { path: 'p2p', element: <Admin><P2P /></Admin> },
+      { path: 'p2p/settings', element: <Admin><P2PSettings /></Admin> },
       { path: 'nodes', element: <Admin><Nodes /></Admin> },
       { path: 'nodes/add', element: <Admin><AddNode /></Admin> },
       { path: 'nodes/:id', element: <Admin><NodeDetail /></Admin> },
@@ -380,10 +381,6 @@ export const router = createBrowserRouter([
   {
     path: '/invite/:code',
     element: <Login />,
-  },
-  {
-    path: '/explorer',
-    element: <Explorer />,
   },
   {
     path: '/app',

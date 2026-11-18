@@ -824,3 +824,65 @@ var _ = Describe("Cluster carrier", func() {
 		Expect(out.Distributed).To(BeFalse())
 	})
 })
+
+var _ = Describe("P2P", func() {
+	It("reads the status, devices, invites and relays from the REST routes", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.Method).To(Equal(http.MethodGet))
+			switch r.URL.Path {
+			case "/api/p2p/status":
+				_ = json.NewEncoder(w).Encode(map[string]any{"mode": "share", "running": true, "devices": 2, "relay_service": map[string]any{"running": true}})
+			case "/api/p2p/devices":
+				_ = json.NewEncoder(w).Encode(map[string]any{"devices": []map[string]any{
+					{"id": "d1", "label": "laptop", "status": "active", "online": true, "path": map[string]any{"kind": "relayed", "relay_label": "home"}},
+				}})
+			case "/api/p2p/invites":
+				_ = json.NewEncoder(w).Encode(map[string]any{"invites": []map[string]any{
+					{"id": "i1", "status": "pending", "relay_pass": "home"},
+					{"id": "i2", "status": "used", "phrase": "amber canal dune echo"},
+				}})
+			case "/api/p2p/relays":
+				_ = json.NewEncoder(w).Encode(map[string]any{"relays": []map[string]any{{"id": "r1", "state": "in_sync"}}})
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+		ctx := context.Background()
+
+		st, err := c.GetP2PStatus(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(st.Mode).To(Equal("share"))
+		Expect(st.Devices).To(Equal(2))
+		Expect(st.RelayService).To(BeTrue())
+
+		devs, err := c.ListP2PDevices(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(devs).To(ConsistOf(localaitools.P2PDeviceInfo{ID: "d1", Label: "laptop", Status: "active", Online: true, Path: "relayed", RelayLabel: "home"}))
+
+		invs, err := c.ListP2PInvites(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(invs[0].Status).To(Equal("pending"))
+		Expect(invs[0].RelayPass).To(Equal("home"))
+		Expect(invs[1].Phrase).To(Equal("amber canal dune echo"))
+
+		rs, err := c.ListP2PRelays(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rs[0].State).To(Equal("in_sync"))
+	})
+
+	It("revokes a device and cancels an invite with DELETE", func() {
+		var paths []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.Method).To(Equal(http.MethodDelete))
+			paths = append(paths, r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+		Expect(c.RevokeP2PDevice(context.Background(), "d 1")).To(Succeed())
+		Expect(c.CancelP2PInvite(context.Background(), "i1")).To(Succeed())
+		Expect(paths).To(Equal([]string{"/api/p2p/devices/d 1", "/api/p2p/invites/i1"}))
+	})
+})

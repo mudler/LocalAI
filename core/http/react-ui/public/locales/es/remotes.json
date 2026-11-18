@@ -119,7 +119,22 @@
     "noUsableTitle": "No hay modelos utilizables.",
     "noUsableText": "El remoto respondió, pero no lista modelos que este servidor pueda usar.",
     "refreshWarn": "Se actualizó {{name}}, pero no tiene modelos utilizables.",
-    "authTextLocalai": "Use una clave que pueda listar los modelos de ese servidor y vuelva a conectar."
+    "authTextLocalai": "Use una clave que pueda listar los modelos de ese servidor y vuelva a conectar.",
+    "p2p": {
+      "badge": "P2P",
+      "path": {
+        "direct": "Directa",
+        "hole_punched": "Por perforación NAT",
+        "relayed": "A través de un relay"
+      },
+      "limited": "limitada",
+      "state": {
+        "off": "P2P está desactivado",
+        "listening": "Aún sin usar",
+        "down": "No accesible",
+        "error": "El túnel no está activo"
+      }
+    }
   },
   "empty": {
     "title": "Ningún remoto conectado",

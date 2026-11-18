@@ -539,60 +539,6 @@
       "p2pStuck": "Nothing arrives? Check that the machine reaches this network and uses the same token."
     }
   },
-  "p2p": {
-    "title": "P2P",
-    "lede": "Peers join this instance over a shared network token. They need no message bus and no database.",
-    "peer": "Peer",
-    "unnamed": "Peer {{n}}",
-    "online": "Online",
-    "offline": "Offline",
-    "offTitle": "P2P is not enabled",
-    "offSub": "Turn on peer-to-peer networking to use other machines without a message bus or a database: share whole instances or split one model across machines.",
-    "features": {
-      "federation": {
-        "title": "Instance federation",
-        "text": "Balance requests across several LocalAI instances."
-      },
-      "sharding": {
-        "title": "Model sharding",
-        "text": "Split one large model across workers so it fits."
-      },
-      "sharing": {
-        "title": "Resource sharing",
-        "text": "Pool the memory and compute of devices you already have."
-      }
-    },
-    "enableTitle": "How to enable P2P",
-    "enableStart": "Start LocalAI with P2P on. It makes a network token for you.",
-    "enableToken": "Or start it with a token you already have from another instance.",
-    "enableThen": "Reload this page when it runs to see the token and connect machines.",
-    "docs": "P2P documentation",
-    "token": "Network token",
-    "copyToken": "Copy token",
-    "tokenCopied": "Token copied to clipboard",
-    "tokenNote": "Every machine in the network uses the same token. Pass it in the TOKEN environment variable.",
-    "sections": "P2P sections",
-    "federation": "Federation",
-    "sharding": "Model sharding",
-    "count": "{{online}}/{{total}} online",
-    "federationSub": "A federated server is the entry point: it takes API requests and balances them across the federated instances behind it.",
-    "instances": "Connected instances",
-    "noInstances": "No federated instances connected yet.",
-    "serverTitle": "Start the federated server",
-    "serverSub": "Run this on the machine that clients will call. It listens on port 8080 by default.",
-    "port": "To change the port, add -e ADDRESS=:9090.",
-    "addPeer": "Add a peer instance",
-    "addShard": "Add a memory shard",
-    "shardingSub": "Federation spreads whole requests. Model sharding splits one model across machines, each holding part of its layers.",
-    "llama": "llama.cpp RPC workers",
-    "llamaSub": "Each worker lends its GPU or CPU memory to hold a share of the model.",
-    "noLlama": "No llama.cpp workers connected yet.",
-    "mlx": "MLX distributed workers",
-    "mlxSub": "Apple Silicon Macs run the model together over native links.",
-    "mlxDocs": "MLX distributed documentation",
-    "noMlx": "No MLX workers connected yet.",
-    "shardCommands": "The commands to start a worker are in"
-  },
   "nodeLogs": {
     "noneTitle": "No node or model selected",
     "noneBefore": "Open the logs of a replica from the",

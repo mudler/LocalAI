@@ -15369,6 +15369,651 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/p2p/devices": {
+            "get": {
+                "description": "Lists the paired devices, revoked ones included, with how each one reaches the server now (path kind direct, hole_punched or relayed, the relay and its limits). Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "List P2P devices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.DeviceList"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/devices/{id}": {
+            "delete": {
+                "description": "Revokes a device: it is removed from the allowlist, its connections are closed, every relay is told to drop it, and the API key of a remote device is revoked. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Revoke a P2P device",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RevokeResult"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Rename a P2P device",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New label",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RenameDeviceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.OKResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/identity/regenerate": {
+            "post": {
+                "description": "Makes a new peer identity for this server and restarts P2P with it. The old key is kept next to the new one as a backup. Every paired device and remote knows the old peer ID, so each must pair again. The body must be {\"confirm\": true}. Needs P2P mode connect or share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Regenerate the P2P identity",
+                "parameters": [
+                    {
+                        "description": "Confirmation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RegenerateIdentityRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Status"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/invites": {
+            "get": {
+                "description": "Lists the invites with their state: pending, used, expired or canceled. The links are not part of the answer. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "List P2P invites",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.InviteList"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key for the other server: limited to \"models\" when given, else every model this server lets a client key use, models added later too), worker, split or federated. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY gets 409. relays is \"auto\", \"none\" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; \"relay.reason\" says why there is none. The link is shown once. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Create a P2P invite",
+                "parameters": [
+                    {
+                        "description": "Invite to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.MintRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.MintResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/invites/{id}": {
+            "delete": {
+                "description": "Cancels a pending invite and drops its relay pass. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Cancel a P2P invite",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Invite ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.OKResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/redeem": {
+            "post": {
+                "description": "Served only on the P2P protocol /localai/http/1; the normal HTTP listener answers 404. The caller's peer ID comes from the connection. A wrong, used, canceled or expired code all get the same 410 answer. After 5 wrong codes from one peer in an hour, or too many from all peers, the answer is 429. The answer carries the confirmation phrase to compare on both sides, and for a remote invite the API key (shown once).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Redeem a P2P invite (over P2P only)",
+                "parameters": [
+                    {
+                        "description": "Code and device name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RedeemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RedeemResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "410": {
+                        "description": "Gone",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays": {
+            "get": {
+                "description": "Lists the relays this server knows, with their mode (gated, open, unclaimed) and state (in_sync, out_of_sync, open, unclaimed, not_admin, denied, unreachable, checking). Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "List P2P relays",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RelayList"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Adds a relay by its address, which must end in /p2p/\u003crelay peer ID\u003e, and checks it. claim_code claims a relay that has no admin yet, with the code it printed at start. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Add a P2P relay",
+                "parameters": [
+                    {
+                        "description": "Relay to add",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.AddRelayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Relay"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays/{id}": {
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Remove a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.OKResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays/{id}/check": {
+            "post": {
+                "description": "Connects to the relay, reserves a slot, reads whether this server is an admin, tests a circuit and compares the paired set. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Check a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RelayCheck"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays/{id}/claim": {
+            "post": {
+                "description": "Makes this server an admin of a relay that has none, with the one-time code the relay printed at start. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Claim a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Claim code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.ClaimRelayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Relay"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays/{id}/sync": {
+            "post": {
+                "description": "Pushes the full set of paired devices to the relay now. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Sync a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Relay"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/status": {
+            "get": {
+                "description": "The mode in effect (off, connect or share), the peer ID and addresses of this server, its reachability, the relays that hold a reservation for it, whether it relays for its paired devices, and the number of pending invites and paired devices. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "P2P status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Status"
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p/token": {
             "get": {
                 "tags": [
@@ -15495,7 +16140,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with \"warning\" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.",
+                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. With \"invite\" (an invite link of kind remote from another LocalAI) the server redeems the invite over P2P, keeps the key the other server issues, and reaches it through a forwarder on a loopback port; P2P must be on (mode connect or share), url and api_key must be empty, and the answer carries the confirmation \"phrase\". Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with \"warning\" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15536,14 +16181,32 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "410": {
+                        "description": "Gone",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "503": {
                         "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "504": {
+                        "description": "Gateway Timeout",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -24056,8 +24719,16 @@ const docTemplate = `{
         "localai.RemoteCreateRequest": {
             "type": "object",
             "properties": {
+                "allow_open_relay": {
+                    "description": "AllowOpenRelay accepts an invite that names an open relay.",
+                    "type": "boolean"
+                },
                 "api_key": {
                     "description": "write-only",
+                    "type": "string"
+                },
+                "invite": {
+                    "description": "Invite is an invite link of kind remote (localai://pair?...).\nWrite-only: it is a one-time credential.",
                     "type": "string"
                 },
                 "kind": {
@@ -24096,6 +24767,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "phrase": {
+                    "description": "Phrase is the confirmation phrase of a remote added by invite: the\nother server shows the same words in its device list.",
+                    "type": "string"
                 },
                 "remote": {
                     "$ref": "#/definitions/remotes.Remote"
@@ -24803,6 +25478,530 @@ const docTemplate = `{
                 }
             }
         },
+        "p2p.AddRelayRequest": {
+            "type": "object",
+            "properties": {
+                "addr": {
+                    "description": "Addr must end in /p2p/\u003crelay peer ID\u003e.",
+                    "type": "string"
+                },
+                "claim_code": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.ClaimRelayRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.ClientKey": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.DeviceList": {
+            "type": "object",
+            "properties": {
+                "devices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.DeviceView"
+                    }
+                }
+            }
+        },
+        "p2p.DeviceView": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_seen_at": {
+                    "type": "string"
+                },
+                "online": {
+                    "description": "Online is true while the device is connected.",
+                    "type": "boolean"
+                },
+                "path": {
+                    "$ref": "#/definitions/p2p.PathView"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is active or revoked.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.InviteList": {
+            "type": "object",
+            "properties": {
+                "invites": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.InviteView"
+                    }
+                }
+            }
+        },
+        "p2p.InviteView": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "device_id": {
+                    "type": "string"
+                },
+                "device_peer_id": {
+                    "description": "DevicePeerID is the peer that redeemed a used invite.",
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "phrase": {
+                    "description": "Phrase is the confirmation phrase of a used invite: the words the\ndevice was shown when it redeemed. The admin compares them.",
+                    "type": "string"
+                },
+                "relay_pass": {
+                    "description": "RelayPass is the label of the relay that holds the pass of the invite;\nempty when the link carries no pass.",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is pending, used, expired or canceled.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.MintRequest": {
+            "type": "object",
+            "properties": {
+                "allow_open_relay": {
+                    "description": "AllowOpenRelay lets the invite name an open relay.",
+                    "type": "boolean"
+                },
+                "features": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "kind": {
+                    "description": "Kind is device, remote, worker, split or federated.",
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "models": {
+                    "description": "Models limits a remote invite to these models.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "relays": {
+                    "description": "Relays is \"auto\", \"none\" or a list of relay IDs.",
+                    "type": "string",
+                    "example": "auto"
+                },
+                "ttl_seconds": {
+                    "description": "TTLSeconds is the life of the invite: 600 when zero, at most 86400.",
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.MintResult": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "link": {
+                    "type": "string"
+                },
+                "qr": {
+                    "description": "QR says whether the interface may show the link as a QR code (device\nand remote invites only).",
+                    "type": "boolean"
+                },
+                "relay": {
+                    "$ref": "#/definitions/p2p.RelayPass"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "p2p.OKResponse": {
+            "type": "object",
+            "properties": {
+                "ok": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.PathView": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is none, direct, hole_punched or relayed.",
+                    "type": "string"
+                },
+                "limit_bytes": {
+                    "type": "integer"
+                },
+                "limit_seconds": {
+                    "type": "integer"
+                },
+                "limited": {
+                    "type": "boolean"
+                },
+                "relay_label": {
+                    "type": "string"
+                },
+                "rtt_ms": {
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.PublicDHTInfo": {
+            "type": "object",
+            "properties": {
+                "on": {
+                    "type": "boolean"
+                },
+                "peers": {
+                    "description": "Peers is the number of peers the host is connected to.",
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.RedeemRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "v": {
+                    "description": "V is the protocol version, 1.",
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.RedeemResult": {
+            "type": "object",
+            "properties": {
+                "client_key": {
+                    "description": "ClientKey is the API key of a remote invite; it is shown once.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/p2p.ClientKey"
+                        }
+                    ]
+                },
+                "device_id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "phrase": {
+                    "description": "Phrase is shown on both sides; the person compares them.",
+                    "type": "string"
+                },
+                "server": {
+                    "$ref": "#/definitions/p2p.ServerInfo"
+                }
+            }
+        },
+        "p2p.RegenerateIdentityRequest": {
+            "type": "object",
+            "properties": {
+                "confirm": {
+                    "description": "Confirm must be true: a new identity unpairs every device and remote.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.Relay": {
+            "type": "object",
+            "properties": {
+                "addr": {
+                    "description": "Addr is a multiaddr that ends in /p2p/\u003crelay peer ID\u003e.",
+                    "type": "string"
+                },
+                "admins": {
+                    "type": "integer"
+                },
+                "checked_at": {
+                    "type": "string"
+                },
+                "health": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "integer"
+                },
+                "limits": {
+                    "$ref": "#/definitions/p2p.RelayLimits"
+                },
+                "members": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "description": "Mode is gated, open, unclaimed or unknown.",
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is in_sync, out_of_sync, open, unclaimed, not_admin, denied,\nunreachable or checking.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.RelayCheck": {
+            "type": "object",
+            "properties": {
+                "admin_ok": {
+                    "type": "boolean"
+                },
+                "circuit_ok": {
+                    "type": "boolean"
+                },
+                "connected": {
+                    "type": "boolean"
+                },
+                "detail": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "in_sync": {
+                    "type": "boolean"
+                },
+                "relay": {
+                    "$ref": "#/definitions/p2p.Relay"
+                },
+                "reserved": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.RelayLimits": {
+            "type": "object",
+            "properties": {
+                "circuit_bytes": {
+                    "type": "integer"
+                },
+                "circuit_seconds": {
+                    "type": "integer"
+                },
+                "rate_bps": {
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.RelayList": {
+            "type": "object",
+            "properties": {
+                "relays": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.Relay"
+                    }
+                }
+            }
+        },
+        "p2p.RelayPass": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "open": {
+                    "type": "boolean"
+                },
+                "pass": {
+                    "description": "Pass is true when the link carries a relay pass.",
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "Reason is no_relay or relay_unreachable when there is no pass.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.RelayServiceInfo": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "description": "Reason says why it does not run: off, not_share, not_public.",
+                    "type": "string"
+                },
+                "running": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.RenameDeviceRequest": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.RevokeResult": {
+            "type": "object",
+            "properties": {
+                "revoked": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.ServerInfo": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.Status": {
+            "type": "object",
+            "properties": {
+                "addrs": {
+                    "description": "Addrs are the addresses of the host, each with /p2p/\u003cpeer ID\u003e.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "devices": {
+                    "description": "Devices is the number of active paired devices.",
+                    "type": "integer"
+                },
+                "enabled": {
+                    "description": "Enabled is true when the mode is not off.",
+                    "type": "boolean"
+                },
+                "error": {
+                    "description": "Error says why the host does not run although the mode asks for it.",
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "Mode is the mode in effect: off, connect or share.",
+                    "type": "string"
+                },
+                "peer_id": {
+                    "description": "PeerID is the peer ID of this server; empty when the host does not run.",
+                    "type": "string"
+                },
+                "pending_invites": {
+                    "description": "PendingInvites is the number of invites that can still be redeemed.",
+                    "type": "integer"
+                },
+                "public_dht": {
+                    "$ref": "#/definitions/p2p.PublicDHTInfo"
+                },
+                "reachability": {
+                    "description": "Reachability is unknown, public or private.",
+                    "type": "string"
+                },
+                "relay_service": {
+                    "description": "RelayService says whether this server relays for its paired devices.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/p2p.RelayServiceInfo"
+                        }
+                    ]
+                },
+                "reservations": {
+                    "description": "Reservations are the peer IDs of the relays that hold a reservation for\nthis server.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "running": {
+                    "description": "Running is true when the host runs.",
+                    "type": "boolean"
+                }
+            }
+        },
         "proposals.Event": {
             "type": "object",
             "properties": {
@@ -25205,6 +26404,38 @@ const docTemplate = `{
                 "KindAnthropic"
             ]
         },
+        "remotes.P2PInfo": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error is the last dial or listen error, for a person to read.",
+                    "type": "string"
+                },
+                "limited": {
+                    "description": "Limited is true when the relay of a relayed path limits the data or\nthe time of the connection.",
+                    "type": "boolean"
+                },
+                "local_port": {
+                    "description": "LocalPort is the loopback port of the forwarder. The entries of the\nremote use http://127.0.0.1:\u003cLocalPort\u003e as their upstream address.",
+                    "type": "integer"
+                },
+                "path": {
+                    "description": "Path is how the last request reached the server: direct,\nhole_punched or relayed. Empty before the first request.",
+                    "type": "string"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is off (P2P is off on this server), listening (no request went\nthrough yet), up, down or error (the port could not be opened).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.TunnelState"
+                        }
+                    ]
+                }
+            }
+        },
         "remotes.Remote": {
             "type": "object",
             "properties": {
@@ -25240,8 +26471,24 @@ const docTemplate = `{
                         "$ref": "#/definitions/remotes.UpstreamModel"
                     }
                 },
+                "p2p": {
+                    "description": "P2P is the tunnel of a remote over P2P. It is the state of this\nserver's forwarder, not of the shared store.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.P2PInfo"
+                        }
+                    ]
+                },
                 "status": {
                     "$ref": "#/definitions/remotes.Status"
+                },
+                "transport": {
+                    "description": "Transport is \"p2p\" for a remote over P2P and absent otherwise.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.Transport"
+                        }
+                    ]
                 },
                 "unavailable": {
                     "description": "subset of Entries the upstream no longer lists",
@@ -25302,6 +26549,32 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "remotes.Transport": {
+            "type": "string",
+            "enum": [
+                "p2p"
+            ],
+            "x-enum-varnames": [
+                "TransportP2P"
+            ]
+        },
+        "remotes.TunnelState": {
+            "type": "string",
+            "enum": [
+                "off",
+                "listening",
+                "up",
+                "down",
+                "error"
+            ],
+            "x-enum-varnames": [
+                "TunnelOff",
+                "TunnelListening",
+                "TunnelUp",
+                "TunnelDown",
+                "TunnelError"
+            ]
         },
         "remotes.UpstreamModel": {
             "type": "object",

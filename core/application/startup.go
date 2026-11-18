@@ -293,6 +293,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// pin_failover_target / unpin_failover_target see real chains.
 	if application.assistantClient != nil {
 		application.assistantClient.Failover = application.failoverManager
+		application.assistantClient.P2P = application.P2P()
 	}
 
 	// Subsystem 5: admission control. Limiter is always wired so a
@@ -615,6 +616,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// services exist, so the service can write entries and resolve keys. The
 	// refresh runs in the background and never delays startup.
 	application.startRemotes(options.Context)
+
+	// The P2P layer, in the mode of the settings. A failure leaves it off and
+	// the status says why; it never fails the startup.
+	_ = application.StartP2PNet()
 
 	// Start the failover scheduler: it syncs chains from config, runs
 	// liveness/recovery probes and dwell-based fail-back. Run is the only

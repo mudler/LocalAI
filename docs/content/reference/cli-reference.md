@@ -204,7 +204,7 @@ switches the chats themselves off except the `chats` permission of each user.
 | `--opaque-errors` | `false` | If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended | `$LOCALAI_OPAQUE_ERRORS` |
 | `--use-subtle-key-comparison` | `false` | If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resilience against timing attacks | `$LOCALAI_SUBTLE_KEY_COMPARISON` |
 | `--disable-api-key-requirement-for-http-get` | `false` | If true, a valid API key is not required to issue GET requests to portions of the web UI. This should only be enabled in secure testing environments | `$LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET` |
-| `--http-get-exempted-endpoints` | `^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/explorer/?$,^/assets/.*$,^/static/.*$,^/swagger.*$` | If `--disable-api-key-requirement-for-http-get` is overridden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review | `$LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS` |
+| `--http-get-exempted-endpoints` | `^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/assets/.*$,^/static/.*$,^/swagger.*$` | If `--disable-api-key-requirement-for-http-get` is overridden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review | `$LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS` |
 
 ## Authentication Flags
 
@@ -327,16 +327,45 @@ Read-only tools still run in a piped session. A tool call that is not read-only 
 nobody to approve it, so it is denied and the session exits `3`, a code chosen to be
 distinct from the `1` a failure reports.
 
-## P2P Flags
+## P2P flags
 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
-| `--p2p` | `false` | Enable P2P mode | `$LOCALAI_P2P`, `$P2P` |
-| `--p2p-dht-interval` | `360` | Interval for DHT refresh (used during token generation) | `$LOCALAI_P2P_DHT_INTERVAL`, `$P2P_DHT_INTERVAL` |
-| `--p2p-otp-interval` | `9000` | Interval for OTP refresh (used during token generation) | `$LOCALAI_P2P_OTP_INTERVAL`, `$P2P_OTP_INTERVAL` |
-| `--p2ptoken` | | Token for P2P mode (optional) | `$LOCALAI_P2P_TOKEN`, `$P2P_TOKEN`, `$TOKEN` |
-| `--peer-2-peer-network-id` | | Network ID for P2P mode, can be set arbitrarily by the user for grouping a set of instances | `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID` |
-| `--federated` | `false` | Enable federated instance | `$LOCALAI_FEDERATED`, `$FEDERATED` |
+| `--p2p-mode` | `off` | `off`: no P2P layer. `connect`: this server dials out to remotes over P2P and accepts nobody (no invites, no sharing); it needs no authentication. `share`: connect, and accept paired devices; it requires authentication to be on, and the server refuses to start with `share` while authentication is off | `$LOCALAI_P2P_MODE` |
+| `--p2p-listen` | TCP and QUIC on every interface, random ports | Addresses the P2P host listens on in mode `share` (multiaddrs, repeatable) | `$LOCALAI_P2P_LISTEN_MADDRS` |
+| `--p2p-bootstrap` | the public bootstrap peers | Bootstrap peers, multiaddrs that end in `/p2p/<peer ID>`; also the runtime setting `p2p_bootstrap_peers` | `$LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` |
+| `--p2p-identity` | `<data path>/p2p/identity.key` | The key file of the peer identity. Without a data path (`--data-path -`) and without this flag, P2P does not start: the identity must survive a restart | `$LOCALAI_P2P_IDENTITY` |
+
+The mode is also the runtime setting `p2p_mode`. The setting rejects `share` with the same message while authentication is off.
+The other P2P runtime settings (`p2p_public_dht`, `p2p_relays`, `p2p_relay_paired`, `p2p_relay_mode`, `p2p_relay_rate_limit`, `p2p_mdns`) are described in [P2P]({{%relref "/administration/p2p#settings" %}}).
+
+### Removed P2P options
+
+The token-based P2P mode, federation and the Explorer were removed. A server that still sets one of the old options does not start: it exits with status 1 and prints one line per option, with its replacement. The check reads the command line, the environment (including `.env` files) and the stored runtime settings.
+
+| Removed | Replacement |
+|---------|-------------|
+| `--p2p`, `$LOCALAI_P2P`, `$P2P` | `--p2p-mode connect` or `--p2p-mode share` |
+| `--p2p-token`, `--p2ptoken`, `$LOCALAI_P2P_TOKEN`, `$P2P_TOKEN`, `$LOCALAI_TOKEN`, `$TOKEN`, setting `p2p_token` | An invite created under Swarm, P2P |
+| `--p2p-network-id`, `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID`, setting `p2p_network_id` | An invite created under Swarm, P2P |
+| `--p2p-dht-interval`, `--p2p-otp-interval` and their variables | None; they only applied to token generation |
+| `--p2p-enable-limits`, `$LOCALAI_P2P_ENABLE_LIMITS` | None; limits are set on the relay (`local-ai p2p relay`) |
+| `$LOCALAI_P2P_DISABLE_DHT` | The runtime setting `p2p_public_dht` |
+| `$LOCALAI_P2P_DHT_ANNOUNCE_MADDRS` | None |
+| `--federated`, `$LOCALAI_FEDERATED`, `$FEDERATED`, setting `federated`, `local-ai federated` (`--random-worker`, `--target-worker`) | A federated-instance invite, created under Swarm, P2P |
+| `local-ai worker p2p-llama-cpp-rpc` (and `p2p-worker p2p-llama-cpp-rpc`) | `local-ai worker llama-cpp-rpc` |
+| `local-ai worker p2p-mlx` (and `p2p-worker p2p-mlx`) | `local-ai worker mlx-distributed` |
+| `local-ai explorer` | None |
+
+### `local-ai p2p`
+
+| Command | What it does |
+|---------|--------------|
+| `local-ai p2p relay` | Run a gated relay. Flags: `--admin` (repeatable, `$LOCALAI_RELAY_ADMINS`), `--data`, `--port`, `--listen`, `--public-ip`, `--announce`, `--open`, `--circuit-max-bytes`, `--circuit-max-duration`, `--rate-limit`, `--total-rate-limit`, `--max-circuits`, `--max-circuits-per-peer`, `--max-reservations`, `--max-reservations-per-ip`, `--max-conns-per-ip`, `--max-peers-per-admin`, `--allow-private-addrs`, `--reset-admins` |
+| `local-ai p2p relays add\|remove\|list\|check` | Manage the relays of a running server (`--target`, `--api-key`, `--json`) |
+| `local-ai p2p id` and `local-ai p2p status` | Show the peer ID, addresses, reachability and paths of a running server |
+| `local-ai p2p pair --invite <link>` | Redeem an invite on this machine |
+| `local-ai p2p forward --peer <id> --listen <addr>` | Forward a local port to a paired peer |
 
 ## Library sources
 
@@ -365,13 +394,11 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text
 - `local-ai mcp-server` - Run the LocalAI admin and client tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP). `--files-dir` (`LOCALAI_MCP_FILES_DIR`) is the folder where the client tools read and write files; it has no default, and without it the client tools that read or write files are not registered. `--read-only` also leaves out the client tools that write files or make content (`generate_*`, `speak`, `embed`, `voice_profile` create and delete)
-- `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic)
+- `local-ai worker` - Start a worker. With no subcommand it is the worker for distributed mode (generic, backend-agnostic). The subcommands `llama-cpp-rpc`, `mlx-distributed`, `vllm` and `ds4-distributed` run the standalone workers. `p2p-worker` is the old name of this command and still works
 - `local-ai cluster` - Read or change the carrier (NATS or the database tunnel) and the settings of a distributed cluster through a running frontend. See [Distributed Mode]({{% relref "/administration/distributed-mode" %}})
-- `local-ai p2p-worker` - Run workers to distribute workload via p2p (llama.cpp-only)
+- `local-ai p2p` - Run a relay, manage relays and pair devices over P2P
 - `local-ai agent-worker` - Start a worker for distributed mode (serves MCP tool calls via NATS)
 - `local-ai util` - Utility commands
-- `local-ai explorer` - Run P2P explorer
-- `local-ai federated` - Run LocalAI in federated mode
 - `local-ai completion` - Generate shell completion scripts for bash, zsh, or fish
 
 Use `local-ai <command> --help` for more information on each command.
@@ -419,8 +446,7 @@ export LOCALAI_F16=true
   --models model1.yaml model2.yaml \
   --enable-watchdog-idle \
   --watchdog-idle-timeout=10m \
-  --p2p \
-  --federated
+  --p2p-mode connect
 ```
 
 ## Related Documentation

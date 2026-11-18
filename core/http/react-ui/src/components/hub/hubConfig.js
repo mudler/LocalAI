@@ -11,15 +11,18 @@
 // Gating is per item and decides the tab: a tab shows when at least one of its
 // items is visible to the viewer, so a tab nobody can use is never drawn.
 // `/api/features` only emits: collections, mcp, fine_tuning, quantization,
-// distributed, backend_install, localai_assistant. Capability-style flags (face_recognition,
+// distributed, p2p, backend_install, localai_assistant. Capability-style flags (face_recognition,
 // skills, ...) come from hasFeature(), not the features map.
 //
 // Item and tab fields:
 //   path          route the item links to
 //   labelKey      `nav` i18n key of the item label
 //   adminOnly, authOnly, feature, requiresCollections, unlessFeature  gating
+//                 (unlessFeature takes one flag or a list: the item hides
+//                 while any of them is not answered false)
 //   match         extra path prefixes that belong to the tab (sub-pages)
-//   showWhen      tab only: `/api/features` flag that must be on
+//   showWhen      tab only: `/api/features` flag that must be on, or a list
+//                 of flags of which one must be on
 //   showWhenOff   tab only: `/api/features` flag that must be off (answered false)
 //   revealOnRoute tab only: draw the tab while the viewer is on one of its
 //                 routes, even when `showWhen` is off
@@ -84,14 +87,22 @@ export const operateHub = {
       // it shows this host and what is loaded on it. With distributed mode on,
       // the Swarm tab takes over the same route.
       signals: [{ key: 'running', kind: 'count' }],
-      items: [{ path: '/app/nodes', labelKey: 'items.thisMachine', adminOnly: true, unlessFeature: 'distributed' }],
+      items: [
+        { path: '/app/nodes', labelKey: 'items.thisMachine', adminOnly: true, unlessFeature: 'distributed' },
+        // With P2P off on a single server its pages sit here, where the
+        // administrator switches it on. With P2P on, or in distributed mode,
+        // they are under Swarm.
+        { path: '/app/p2p', labelKey: 'items.p2p', adminOnly: true, unlessFeature: ['distributed', 'p2p'] },
+      ],
       match: ['/app/node-backend-logs'],
     },
     {
       id: 'swarm',
       labelKey: 'items.swarm',
       icon: 'network',
-      showWhen: 'distributed',
+      // A cluster, or P2P on (a single server too: its paired devices,
+      // remotes and relays are a swarm of their own).
+      showWhen: ['distributed', 'p2p'],
       revealOnRoute: true,
       signals: [{ key: 'nodes', kind: 'count' }],
       items: [
@@ -171,8 +182,12 @@ export function isHubItemVisible(item, { isAdmin, authEnabled, hasFeature, featu
   if (item.feature && !hasFeature(item.feature)) return false
   // Hidden until /api/features has answered: showing it and then swapping it
   // for the cluster tab would move the bar under the user's pointer.
-  if (item.unlessFeature && features[item.unlessFeature] !== false) return false
+  if (item.unlessFeature && flags(item.unlessFeature).some(f => features[f] !== false)) return false
   return true
+}
+
+function flags(v) {
+  return Array.isArray(v) ? v : [v]
 }
 
 export function visibleItems(tab, auth) {
@@ -189,7 +204,7 @@ export function visibleItems(tab, auth) {
 // A tab with a `showWhen` flag stays hidden until /api/features says it is on.
 function tabGateOpen(tab, auth) {
   if (tab.showWhenOff && auth.features[tab.showWhenOff] !== false) return false
-  return !tab.showWhen || auth.features[tab.showWhen] === true
+  return !tab.showWhen || flags(tab.showWhen).some(f => auth.features[f] === true)
 }
 
 export function isTabVisible(tab, auth) {
@@ -214,7 +229,11 @@ export function resolveTabs(hub, auth, pathname) {
   // Only when no drawn tab owns the route does a gated-off tab step in.
   const tabs = owned ? shown : hub.tabs.filter(tab => shown.includes(tab)
     || (tab.revealOnRoute && tab.items.some(i => (!i.adminOnly || auth.isAdmin) && pathIn(pathname, i.path))))
-  const current = tabs.find(tab => tabOwnsPath(tab, pathname)) || null
+  // A tab whose visible items hold the route wins over a tab that only lists
+  // it: with P2P on, This machine still lists /app/p2p (hidden) and Swarm
+  // shows it.
+  const current = tabs.find(tab => visibleItems(tab, auth).some(i => pathIn(pathname, i.path)))
+    || tabs.find(tab => tabOwnsPath(tab, pathname)) || null
   return { tabs, current }
 }
 

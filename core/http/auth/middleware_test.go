@@ -60,7 +60,6 @@ var _ = Describe("Auth Middleware", func() {
 		{http.MethodGet, "/browse/models"},
 		{http.MethodGet, "/login"},
 		{http.MethodGet, "/invite/token"},
-		{http.MethodGet, "/explorer"},
 		{http.MethodGet, "/favicon.svg"},
 		{http.MethodGet, "/assets/app.js"},
 		{http.MethodGet, "/locales/en/common.json"},

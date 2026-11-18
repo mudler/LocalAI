@@ -37,6 +37,8 @@ import type {
   ServerSnapshot,
   ShellInsets,
   ShellScreen,
+  AddServerByInviteInput,
+  AddServerByInviteResult,
   AddServerInput,
   ServerChangeResult,
   ServersView,
@@ -117,6 +119,7 @@ export const IPC = {
   openSwitcher: 'launcher:servers:open-switcher',
   testServer: 'launcher:servers:test',
   addServer: 'launcher:servers:add',
+  addServerByInvite: 'launcher:servers:add-by-invite',
   updateServer: 'launcher:servers:update',
   removeServer: 'launcher:servers:remove',
   setDefaultServer: 'launcher:servers:set-default',
@@ -195,6 +198,7 @@ export interface InvokeContract {
   'launcher:servers:get': { args: []; result: ServersView }
   'launcher:servers:test': { args: [input: TestInput]; result: TestOutcome }
   'launcher:servers:add': { args: [input: AddServerInput]; result: ServerChangeResult }
+  'launcher:servers:add-by-invite': { args: [input: AddServerByInviteInput]; result: AddServerByInviteResult }
   'launcher:servers:update': { args: [input: UpdateServerInput]; result: ServerChangeResult }
   'launcher:servers:remove': { args: [id: string]; result: ServerChangeResult }
   'launcher:servers:set-default': { args: [target: string]; result: SwitchResult }
@@ -302,6 +306,7 @@ export const CHANNEL_KIND: { [C in Channel]: C extends InvokeChannel ? 'invoke' 
   'launcher:servers:open-switcher': 'event',
   'launcher:servers:test': 'invoke',
   'launcher:servers:add': 'invoke',
+  'launcher:servers:add-by-invite': 'invoke',
   'launcher:servers:update': 'invoke',
   'launcher:servers:remove': 'invoke',
   'launcher:servers:set-default': 'invoke',

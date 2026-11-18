@@ -1,6 +1,8 @@
 package localaitools
 
 import (
+	"time"
+
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
@@ -629,4 +631,63 @@ type EgressEventsQuery struct {
 // SetChatEgressCeilingRequest is the input for set_chat_egress_ceiling.
 type SetChatEgressCeilingRequest struct {
 	Ceiling string `json:"ceiling" jsonschema:"The widest network preset any chat may use: off, registries or all."`
+}
+
+// P2PStatusInfo is the LLM-facing view of the P2P layer.
+type P2PStatusInfo struct {
+	// Mode is off, connect (dial out only) or share (accepts paired devices).
+	Mode           string   `json:"mode"`
+	Running        bool     `json:"running"`
+	Error          string   `json:"error,omitempty"`
+	PeerID         string   `json:"peer_id,omitempty"`
+	Addrs          []string `json:"addrs,omitempty"`
+	Reachability   string   `json:"reachability"`
+	RelayService   bool     `json:"relays_for_devices"`
+	PendingInvites int      `json:"pending_invites"`
+	Devices        int      `json:"devices"`
+}
+
+// P2PDeviceInfo is the LLM-facing view of one paired device.
+type P2PDeviceInfo struct {
+	ID     string `json:"id"`
+	Kind   string `json:"kind"`
+	Label  string `json:"label"`
+	PeerID string `json:"peer_id"`
+	// Status is active or revoked.
+	Status string `json:"status"`
+	Online bool   `json:"online"`
+	// Path is none, direct, hole_punched or relayed.
+	Path       string     `json:"path"`
+	RelayLabel string     `json:"relay,omitempty"`
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+}
+
+// P2PInviteInfo is the LLM-facing view of one invite. The link is never part
+// of it: it is shown once, to the person who made it.
+type P2PInviteInfo struct {
+	ID    string `json:"id"`
+	Kind  string `json:"kind"`
+	Label string `json:"label"`
+	// Status is pending, used, expired or canceled.
+	Status    string    `json:"status"`
+	ExpiresAt time.Time `json:"expires_at"`
+	DeviceID  string    `json:"device_id,omitempty"`
+	// Phrase is the confirmation phrase of a used invite, which the admin
+	// compares with the one the device shows.
+	Phrase string `json:"phrase,omitempty"`
+	// RelayPass is the relay that holds the pass of the invite; empty when
+	// the link carries none.
+	RelayPass string `json:"relay_pass,omitempty"`
+}
+
+// P2PRelayInfo is the LLM-facing view of one relay.
+type P2PRelayInfo struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Addr  string `json:"addr"`
+	// Mode is gated, open, unclaimed or unknown.
+	Mode    string `json:"mode"`
+	State   string `json:"state"`
+	Health  string `json:"health,omitempty"`
+	Members int    `json:"members"`
 }

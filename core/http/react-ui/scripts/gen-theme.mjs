@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
  * Writes packages/ui-kit/themes/localai.css and ../static/theme-localai.css from
- * src/theme/theme-localai.json. The second copy is for the few pages the server
- * still renders itself (core/http/static/theme.css maps the old names onto it).
+ * src/theme/theme-localai.json. The server embeds the second copy and serves it
+ * at /static/theme-localai.css. No page in this tree links it: the server no
+ * longer renders HTML pages of its own. tests/unit/themelocalai.test.mjs keeps
+ * both copies equal.
  *
  * The JSON is the one source of the palette. It is a copy of the LocalAI theme
  * file of the branding kit (tokens/theme-localai.json), taken as is: when the
