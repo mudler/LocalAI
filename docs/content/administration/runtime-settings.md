@@ -25,7 +25,7 @@ Open **Admin → Settings** in the web UI (`/app/settings`). The page lists ever
 | Debugging and traces | Verbose debug logging, API traces and their limits, backend logging |
 | Chats and collections | The collections service (Knowledge in the sidebar), the helper models of the chats, the response store TTL, shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "/features/pages-and-home/pages" %}})), the pages that people share (`user_page_shares_enabled`), the page area of Home (`home_page_area_enabled`), the offers from the assistant |
 | Tools | The built-in chat tools (web search, web pages, LocalAI client and admin tools), commands on this machine and their network limits, limits for steps, goals, loops and triggers |
-| Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check |
+| Swarm and sharing | The disk headroom check of distributed mode |
 | Look and feel | Instance name, tagline, the three logos |
 
 With the default name "LocalAI", the sidebar, the sign-in page and the mobile title draw "AI" in the brand colour, and the first-run guide on Home shows the LocalAI llama beside step 1. When you set your own instance name or logo, the name is plain text, your logo is used as before, and the llama is not shown.
@@ -236,9 +236,6 @@ The `runtime_settings.json` file follows this structure. The `galleries` and `ba
   "cors": true,
   "csrf": false,
   "cors_allow_origins": "*",
-  "p2p_token": "",
-  "p2p_network_id": "",
-  "federated": false,
   "galleries": [
     {
       "url": "https://index.localai.io/models",
@@ -326,7 +323,8 @@ If the watchdog is not functioning:
 ### P2P Not Starting
 
 If P2P is not starting:
-1. Verify the P2P token is set (non-empty)
+1. Check `p2p_mode`: `share` needs authentication, and every mode but `off` needs a data path or `--p2p-identity`
 2. Check network connectivity
-3. Ensure the P2P network ID matches across nodes (if using federated mode)
-4. Review logs for P2P-related errors
+3. Review logs for P2P-related errors
+
+See [P2P]({{% relref "/administration/p2p" %}}#troubleshooting). The old P2P token, network ID and federated mode are removed: see [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}}).

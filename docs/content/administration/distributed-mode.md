@@ -8,7 +8,7 @@ keywords = ["distributed","cluster","nodes","scale","nats","tunnel","carrier"]
 devbuild = "install"
 +++
 
-Distributed mode scales LocalAI across several machines. **PostgreSQL** holds the state and the node registry. A **carrier** moves the control traffic between the frontends and the workers. Unlike the [P2P/federation approach]({{% relref "/administration/p2p-federated-inference" %}}), distributed mode is for production deployments and Kubernetes. It gives you central management, health monitoring, and deterministic routing.
+Distributed mode scales LocalAI across several machines. **PostgreSQL** holds the state and the node registry. A **carrier** moves the control traffic between the frontends and the workers. Unlike [P2P]({{% relref "/administration/p2p" %}}) and [federation]({{% relref "/administration/federation" %}}), distributed mode is for production deployments and Kubernetes. It gives you central management, health monitoring, and deterministic routing.
 
 {{% callout style="note" %}}
 Distributed mode needs authentication and a **PostgreSQL** database. SQLite is not supported, because the node registry, the job store, and the other distributed state are PostgreSQL tables.
@@ -707,7 +707,7 @@ The same confirmation opens from the **Nodes** action of a backend on the **Upda
 
 The **Running models** view groups replicas by model. Its **View logs…** action opens logs directly when there is one placement. When a model has several, it opens the row so you can choose the logs of one replica.
 
-**Add a node** (`/app/nodes/add`) explains how a machine joins: a registered worker, a peer instance, or a memory shard. It prints the command to run on the new machine with a **Copy** button, and updates the page when the machine appears. On a single-node install it starts with the command that turns distributed mode on.
+**Add a node** (`/app/nodes/add`) explains how a machine joins: a registered worker (by the server address or with a P2P invite) or a [model-split worker]({{% relref "/administration/p2p-model-split" %}}). Another LocalAI instance is not a node: add it as a remote and group it under [Federation]({{% relref "/administration/federation" %}}). It prints the command to run on the new machine with a **Copy** button, and updates the page when the machine appears. On a single-node install it starts with the command that turns distributed mode on.
 
 Open a node for node-scoped work. The page shows its state, VRAM, RAM, models disk, CPU and in-flight requests, and has tabs for **Models** (replica logs, unload), **Backends** (update, delete), **Logs**, and **Capacity and labels** (replica capacity, labels). **Drain…** shows what the drain would change before it does anything; **Remove…** asks for the node's name. **Update** in the **Backends** tab is offered only for a backend that has a newer version on this node, and asks first like the bulk button. A node that stopped answering says so and shows the last figures it reported.
 

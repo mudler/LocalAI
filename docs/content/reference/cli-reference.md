@@ -170,7 +170,7 @@ settings bypasses this automatic default.
 | `--disable-runtime-settings` | `false` | Disables the runtime settings feature. When set to true, the server will not load runtime settings from the `runtime_settings.json` file and the settings web interface will be disabled | `$LOCALAI_DISABLE_RUNTIME_SETTINGS`, `$DISABLE_RUNTIME_SETTINGS` |
 | `--disable-gallery-endpoint` | `false` | Disable the gallery endpoints | `$LOCALAI_DISABLE_GALLERY_ENDPOINT`, `$DISABLE_GALLERY_ENDPOINT` |
 | `--disable-metrics-endpoint` | `false` | Disable the `/metrics` endpoint | `$LOCALAI_DISABLE_METRICS_ENDPOINT`, `$DISABLE_METRICS_ENDPOINT` |
-| `--machine-tag` | | If not empty, add that string to Machine-Tag header in each response. Useful to track response from different machines using multiple P2P federated nodes | `$LOCALAI_MACHINE_TAG`, `$MACHINE_TAG` |
+| `--machine-tag` | | If not empty, add that string to Machine-Tag header in each response. Useful to track responses from different machines, for example the members of a federation group | `$LOCALAI_MACHINE_TAG`, `$MACHINE_TAG` |
 
 ## Collections Flags
 
@@ -322,21 +322,7 @@ The other P2P runtime settings (`p2p_public_dht`, `p2p_relays`, `p2p_relay_paire
 
 ### Removed P2P options
 
-The token-based P2P mode, federation and the Explorer were removed. A server that still sets one of the old options does not start: it exits with status 1 and prints one line per option, with its replacement. The check reads the command line, the environment (including `.env` files) and the stored runtime settings.
-
-| Removed | Replacement |
-|---------|-------------|
-| `--p2p`, `$LOCALAI_P2P`, `$P2P` | `--p2p-mode connect` or `--p2p-mode share` |
-| `--p2p-token`, `--p2ptoken`, `$LOCALAI_P2P_TOKEN`, `$P2P_TOKEN`, `$LOCALAI_TOKEN`, `$TOKEN`, setting `p2p_token` | An invite created under Swarm, P2P |
-| `--p2p-network-id`, `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID`, setting `p2p_network_id` | An invite created under Swarm, P2P |
-| `--p2p-dht-interval`, `--p2p-otp-interval` and their variables | None; they only applied to token generation |
-| `--p2p-enable-limits`, `$LOCALAI_P2P_ENABLE_LIMITS` | None; limits are set on the relay (`local-ai p2p relay`) |
-| `$LOCALAI_P2P_DISABLE_DHT` | The runtime setting `p2p_public_dht` |
-| `$LOCALAI_P2P_DHT_ANNOUNCE_MADDRS` | None |
-| `--federated`, `$LOCALAI_FEDERATED`, `$FEDERATED`, setting `federated`, `local-ai federated` (`--random-worker`, `--target-worker`) | A federated-instance invite, created under Swarm, P2P |
-| `local-ai worker p2p-llama-cpp-rpc` (and `p2p-worker p2p-llama-cpp-rpc`) | `local-ai worker llama-cpp-rpc --join <invite link>`, with a model-split worker invite |
-| `local-ai worker p2p-mlx` (and `p2p-worker p2p-mlx`) | `local-ai worker mlx-distributed --join <invite link>`, with a model-split worker invite |
-| `local-ai explorer` | None |
+The token-based P2P mode, federation and the Explorer were removed. A server that still sets one of the old options does not start: it exits with status 1 and prints one line per option, with its replacement. The check reads the command line, the environment (including `.env` files) and the stored runtime settings. The full list of removed options and their replacements is in [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}}).
 
 ### `local-ai p2p`
 

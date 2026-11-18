@@ -157,7 +157,6 @@ const maxKnownDebt = 0
 // grouped by task, so the list names each page.
 var coreDocs = []string{
 	"docs/content/administration/embedded-routing-log.md",
-	"docs/content/administration/p2p-api.md",
 	"docs/content/administration/reverse-proxy-tls.md",
 	"docs/content/administration/troubleshooting.md",
 	"docs/content/api/api-errors.md",
