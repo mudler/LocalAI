@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"gorm.io/gorm"
 
@@ -78,17 +77,6 @@ func parseCarriers(names []string) []cluster.Carrier {
 		}
 	}
 	return out
-}
-
-// truncateRunes cuts s to at most n bytes without splitting a character.
-func truncateRunes(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	for n > 0 && !utf8.RuneStart(s[n]) {
-		n--
-	}
-	return s[:n]
 }
 
 func joinCarriers(cs []cluster.Carrier) string {

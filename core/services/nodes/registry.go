@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -1226,7 +1227,7 @@ func (u HeartbeatUpdate) CarrierReport() (CarrierReport, bool) {
 		Attached:      parseCarriers(u.Attached),
 		AttachedEpoch: u.AttachedEpoch,
 		Follow:        parseCarriers(u.FollowCapabilities),
-		FollowError:   truncateRunes(u.FollowError, followErrorMax),
+		FollowError:   utils.TruncateUTF8(u.FollowError, followErrorMax),
 		Tunnel:        parseTunnelRoute(u.TunnelTransport, u.TunnelPath, u.TunnelLimited),
 	}, true
 }
