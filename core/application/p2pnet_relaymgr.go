@@ -18,6 +18,7 @@ func newRelayManager(c relayManagerConfig) (relayManager, error) {
 		Host:        c.Host,
 		Store:       settingsRelayStore{load: c.LoadRelays, save: c.SaveRelays},
 		PairedPeers: c.PairedPeers,
+		NodePeers:   c.NodePeers,
 	})
 	if err != nil {
 		return nil, err
@@ -145,6 +146,16 @@ func (a relayManagerAdapter) SetLimits(ctx context.Context, id string, req p2pap
 func (a relayManagerAdapter) Registrar() p2ppair.PassRegistrar {
 	return p2prelaymgr.NewPassRegistrar(a.m)
 }
+func (a relayManagerAdapter) Resync() { a.m.Resync() }
+
+func (a relayManagerAdapter) NodeAdmission(peer string) []p2papi.SplitRelayAdmission {
+	var out []p2papi.SplitRelayAdmission
+	for _, ad := range a.m.NodeAdmission(peer) {
+		out = append(out, p2papi.SplitRelayAdmission{RelayID: ad.RelayID, Label: ad.Label, State: ad.State, Reason: ad.Reason})
+	}
+	return out
+}
+
 func (a relayManagerAdapter) PeerAdded(peer string)           { a.m.PeerAdded(peer) }
 func (a relayManagerAdapter) PeerRemoved(peer string)         { a.m.PeerRemoved(peer) }
 func (a relayManagerAdapter) Start(ctx context.Context) error { return a.m.Start(ctx) }

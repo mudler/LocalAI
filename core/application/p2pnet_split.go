@@ -168,11 +168,16 @@ func (a *Application) SplitAssignment(ctx context.Context, nodeID string) (worke
 			AllowSlowPath: d.AllowSlowPath, CreatedAt: d.CreatedAt,
 		})
 	}
-	for _, r := range rt.relayList() {
-		ai, err := p2pnet.ParsePeerAddr(r.Addr)
-		if err == nil && rt.ownRelay(ai.ID) {
+	own := rt.ownRelayAddrs()
+	for _, addr := range own {
+		if ai, err := p2pnet.ParsePeerAddr(addr); err == nil {
 			out.OwnRelays = append(out.OwnRelays, ai.ID.String())
 		}
+	}
+	// A node that registered with the token reserves on the relays while
+	// the frontends vouch for it.
+	if c := rt.checkNodeRelay(ctx, nodeID, devs); c.Peer != "" {
+		out.Relays = own
 	}
 	return out, nil
 }
@@ -289,6 +294,7 @@ func (rt *p2pRuntime) attachedSplitViews(ctx context.Context, reg splitNodeRegis
 	}
 	reports := map[string]nodes.StoredSplitReport{}
 	names := map[string]string{}
+	relays := rt.nodeRelayViews()
 	if reg != nil {
 		var err error
 		if reports, err = reg.SplitReports(ctx); err != nil {
@@ -309,6 +315,11 @@ func (rt *p2pRuntime) attachedSplitViews(ctx context.Context, reg splitNodeRegis
 			State: string(p2psplit.StateOffline), AllowSlowPath: d.AllowSlowPath,
 			CreatedAt: d.CreatedAt, LastSeenAt: d.LastSeenAt,
 			Path: p2papi.PathView{Kind: string(p2pnet.PathNone)}, NodeID: d.NodeID, NodeName: names[d.NodeID],
+			NodeRelay: relays[d.NodeID],
+		}
+		if v.NodeRelay == nil {
+			// Attached a moment ago: the next reload decides.
+			v.NodeRelay = &p2papi.SplitNodeRelay{State: p2papi.NodeRelayPending, Reason: "waiting for the next reload of the server"}
 		}
 		rep, ok := reports[d.NodeID]
 		if ok && time.Since(rep.UpdatedAt) <= splitReportStale {

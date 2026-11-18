@@ -103,6 +103,9 @@ type p2pRuntime struct {
 	peers   map[p2pnet.ID]struct{}
 	// workers are the paired peers that redeemed a worker invite.
 	workers map[p2pnet.ID]struct{}
+	// nodeRelays is the relay admission of the backend nodes that serve
+	// split workers, by node ID, as last loaded (see splitRelayCandidates).
+	nodeRelays map[string]splitRelayCandidate
 	// pending is the number of pending invites as last loaded.
 	pending atomic.Int32
 
@@ -340,6 +343,7 @@ func (rt *p2pRuntime) startShare() error {
 	if rt.net.relayFactory != nil {
 		rm, err := rt.net.relayFactory(relayManagerConfig{
 			Host: rt.host, LoadRelays: app.p2pRelays, SaveRelays: app.saveP2PRelays, PairedPeers: rt.pairedPeerStrings,
+			NodePeers: rt.splitNodePeers,
 		})
 		if err != nil {
 			return fmt.Errorf("p2p: relay manager: %w", err)
@@ -495,6 +499,7 @@ func (rt *p2pRuntime) reload() {
 	for _, p := range gone {
 		rt.host.Revoke(p)
 	}
+	rt.reloadNodeRelays(ctx, devices)
 	invites, err := rt.pair.ListInvites(ctx)
 	if err != nil {
 		xlog.Warn("P2P: could not load the invites", "error", err)
