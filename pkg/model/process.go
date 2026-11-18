@@ -201,7 +201,7 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 		ml.cleanupProcessRuntime(process)
 	} else if err := process.Stop(); err != nil {
 		xlog.Error("(deleteProcess) error while deleting process", "error", err, "model", s)
-		if !process.IsAlive() {
+		if !ProcessAlive(process) {
 			// A concurrently crashed/already-reaped process can no longer own
 			// resources even if Stop could not read or signal its PID.
 			ml.terminateProcessTreeForProcess(process)
@@ -376,7 +376,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		// its pidfile. Calling Stop again then fails with "failed to read PID".
 		// Skip when it's already gone; this handler still covers processes that
 		// StopAllGRPC doesn't track (e.g. worker-supervised backends).
-		if !grpcControlProcess.IsAlive() {
+		if !ProcessAlive(grpcControlProcess) {
 			return
 		}
 		ml.stoppingProcs.Store(grpcControlProcess, struct{}{})
