@@ -48,7 +48,16 @@
       "slowBody": "{{name}} has no direct or hole-punched path to this instance. Model splitting works through your relay, but every token waits for it. Opening UDP and TCP port 4001 on either side can give a direct path later.",
       "slowCut": "The relay ends each connection after {{limits}}: the model then stops until it is loaded again. Raise or remove the limits to run longer.",
       "addAnyway": "Add anyway",
-      "notNow": "Not now"
+      "notNow": "Not now",
+      "engineSubNode": {
+        "llama": "The model runs on the node you choose next. The worker holds some of its layers in its own memory.",
+        "mlx": "The model runs on the node you choose next and on the worker, as ranks of one MLX ring. Apple Silicon only."
+      },
+      "nodeTitle": "Node",
+      "nodeLabel": "Attach the worker to",
+      "nodeSub": "Models that this node loads use the worker. Pin the model to the node with a placement rule, so that it loads there. You can change the node later on the Nodes page.",
+      "nodeNone": "The cluster has no backend node yet. Add one first, or attach the worker to a node later on the Nodes page.",
+      "nodeServer": "This instance (it runs no models in a cluster)"
     },
     "col": {
       "worker": "Worker",
@@ -56,7 +65,8 @@
       "path": "Path",
       "memory": "Memory added",
       "status": "Status",
-      "actions": "Actions"
+      "actions": "Actions",
+      "node": "Attached to"
     },
     "engine": {
       "llama": "llama.cpp RPC",
@@ -90,8 +100,15 @@
     "toast": {
       "used": "{{name}} is used through the relay.",
       "stopped": "{{name}} is no longer used through the relay.",
-      "revoked": "{{name}} was revoked."
-    }
+      "revoked": "{{name}} was revoked.",
+      "attached": "{{name}} is attached to {{node}}. Models that {{node}} loads from now on use it.",
+      "detached": "{{name}} is attached to this instance."
+    },
+    "noteCluster": "Not cluster nodes: no backends and no placement rules. Each one lends memory to the models of the node it is attached to.",
+    "thisServer": "This instance",
+    "nodeLabel": "Node of {{name}}",
+    "unattachedTitle": "These workers are not used: attach them to a node.",
+    "unattachedBody": "Attached to this instance: {{names}}. In a cluster the models run on the backend nodes, not on this instance. Choose a node for each of them."
   },
   "state": {
     "healthy": "Healthy",

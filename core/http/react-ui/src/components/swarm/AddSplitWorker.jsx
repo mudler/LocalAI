@@ -1,8 +1,8 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { p2pNetApi, p2pSplitApi } from '../../utils/api'
+import { nodesApi, p2pNetApi, p2pSplitApi } from '../../utils/api'
 import { usePolling } from '../../hooks/usePolling'
 import { useImageSelector } from '../ImageSelector'
 import { clock, secondsLeft, shortPeer } from '../../utils/p2p'
@@ -10,7 +10,7 @@ import { P2P_SETTINGS_PATH } from '../p2p/P2PTabs'
 import { Button, Callout, Segmented, StatusChip, useLoad } from '../ui'
 import CommandBlock from './CommandBlock'
 import RelayLimitsDialog from '../p2psettings/RelayLimitsDialog'
-import { ENGINES, cutLimits, limitsRelay, pathOf, splitCommand, stateOf } from './splitWorkersModel'
+import { ENGINES, cutLimits, limitsRelay, nodeChoices, pathOf, splitCommand, stateOf } from './splitWorkersModel'
 import './split.css'
 
 // The life of a model-split invite: long enough to set up the worker.
@@ -19,7 +19,9 @@ const INVITE_TTL = 600
 // The steps of "Add a node" for a model-split worker (after "What are you
 // adding?"): the engine, an invite of kind split, the command with the link,
 // and a line that follows the worker once it pairs. A worker that only a relay
-// reaches is not used until the administrator chooses "Add anyway".
+// reaches is not used until the administrator chooses "Add anyway". In a
+// cluster the invite names the backend node the worker is attached to: the
+// models run on the nodes, not on this instance.
 //
 //   Step      the step component of the flow (number, title, children)
 //   first     the number of the first step here
@@ -27,6 +29,10 @@ export default function AddSplitWorker({ Step, first, addToast }) {
   const { t } = useTranslation('swarm')
   const status = useLoad(() => p2pNetApi.status(), [])
   const sharing = status.status === 'ready' && status.data?.mode === 'share'
+  // GET /api/nodes answers only in a cluster.
+  const cluster = useLoad(() => nodesApi.list().then(list => ({ nodes: nodeChoices(list) })).catch(() => ({ nodes: null })), [])
+  const nodes = cluster.data?.nodes || null
+  const [node, setNode] = useState('')
   const [engine, setEngine] = useState('llama')
   const [name, setName] = useState('')
   const [invite, setInvite] = useState(null)
@@ -34,13 +40,23 @@ export default function AddSplitWorker({ Step, first, addToast }) {
   const [minting, setMinting] = useState(false)
   const [error, setError] = useState('')
   const [flavor, setFlavor] = useState('docker')
+  const chosenRef = useRef(false)
   const hardware = useImageSelector('cpu')
+  // In a cluster the first backend node is the default: this instance runs
+  // no models there.
+  useEffect(() => {
+    if (nodes?.length && !chosenRef.current) {
+      chosenRef.current = true
+      setNode(nodes[0].id)
+    }
+  }, [nodes])
 
   const mint = async () => {
     setMinting(true)
     setError('')
     try {
-      const res = await p2pNetApi.mintInvite({ kind: 'split', label: name.trim(), ttl_seconds: INVITE_TTL, labels: { engine } })
+      const labels = node ? { engine, node } : { engine }
+      const res = await p2pNetApi.mintInvite({ kind: 'split', label: name.trim(), ttl_seconds: INVITE_TTL, labels })
       setInvite(res)
       setUsed(false)
     } catch (err) {
@@ -49,8 +65,10 @@ export default function AddSplitWorker({ Step, first, addToast }) {
       setMinting(false)
     }
   }
-  // A new engine needs a new invite: the invite names it.
+  // A new engine or node needs a new invite: the invite names them.
   const chooseEngine = id => { setEngine(id); setInvite(null) }
+  const chooseNode = id => { setNode(id); setInvite(null) }
+
 
   let n = first - 1
   const next = () => { n += 1; return n }
@@ -77,8 +95,21 @@ export default function AddSplitWorker({ Step, first, addToast }) {
           options={ENGINES.map(id => ({ id, label: t(`split.engine.${id}Long`) }))}
           itemTestId="split-engine-"
         />
-        <p className="sw-note sw-note--quiet">{t(`split.add.engineSub.${engine}`)}</p>
+        <p className="sw-note sw-note--quiet">{t(nodes ? `split.add.engineSubNode.${engine}` : `split.add.engineSub.${engine}`)}</p>
       </Step>
+
+      {nodes && (
+        <Step n={next()} id="sw-split-node" title={t('split.add.nodeTitle')}>
+          <label className="sw-split-node-field">
+            <span className="dk-label">{t('split.add.nodeLabel')}</span>
+            <select className="dk-select" value={node} onChange={event => chooseNode(event.target.value)} data-testid="split-add-node">
+              {nodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+              <option value="">{t('split.add.nodeServer')}</option>
+            </select>
+          </label>
+          <p className="sw-note sw-note--quiet">{t(nodes.length ? 'split.add.nodeSub' : 'split.add.nodeNone')}</p>
+        </Step>
+      )}
 
       <Step n={next()} id="sw-split-invite" title={t('split.add.inviteTitle')}>
         <div className="sw-split-invite">

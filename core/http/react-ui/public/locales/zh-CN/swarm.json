@@ -48,7 +48,16 @@
       "slowBody": "{{name}} 没有到本实例的直连或打洞路径。模型拆分可以通过你的中继工作，但每个 token 都要等它。在任意一端开放 UDP 和 TCP 4001 端口，之后可能获得直连路径。",
       "slowCut": "中继会在 {{limits}} 后结束每个连接：模型随后会停止，直到重新加载。若要运行更久，请提高或取消上限。",
       "addAnyway": "仍然添加",
-      "notNow": "暂不"
+      "notNow": "暂不",
+      "engineSubNode": {
+        "llama": "模型运行在你接下来选择的节点上。工作节点在自己的内存中保存部分模型层。",
+        "mlx": "模型运行在你接下来选择的节点和工作节点上，作为同一个 MLX 环中的各个 rank。仅限 Apple Silicon。"
+      },
+      "nodeTitle": "节点",
+      "nodeLabel": "把工作节点关联到",
+      "nodeSub": "该节点加载的模型会使用这个工作节点。请用放置规则把模型固定到该节点，让它在那里加载。之后可以在“节点”页面更换节点。",
+      "nodeNone": "集群中还没有后端节点。请先添加一个，或稍后在“节点”页面把工作节点关联到某个节点。",
+      "nodeServer": "本实例（在集群中不运行模型）"
     },
     "col": {
       "worker": "工作节点",
@@ -56,7 +65,8 @@
       "path": "路径",
       "memory": "提供的内存",
       "status": "状态",
-      "actions": "操作"
+      "actions": "操作",
+      "node": "关联到"
     },
     "engine": {
       "llama": "llama.cpp RPC",
@@ -90,8 +100,15 @@
     "toast": {
       "used": "{{name}} 正经由中继使用。",
       "stopped": "{{name}} 不再经由中继使用。",
-      "revoked": "{{name}} 已撤销。"
-    }
+      "revoked": "{{name}} 已撤销。",
+      "attached": "{{name}} 已关联到 {{node}}。从现在起，{{node}} 加载的模型会使用它。",
+      "detached": "{{name}} 已关联到本实例。"
+    },
+    "noteCluster": "它们不是集群节点：没有后端，也没有放置规则。每个工作节点把内存借给它所关联节点上的模型。",
+    "thisServer": "本实例",
+    "nodeLabel": "{{name}} 的节点",
+    "unattachedTitle": "这些工作节点未被使用：请把它们关联到一个节点。",
+    "unattachedBody": "关联在本实例上：{{names}}。在集群中，模型运行在后端节点上，而不是本实例上。请为每个工作节点选择一个节点。"
   },
   "nodes": {
     "retry": "重试"
