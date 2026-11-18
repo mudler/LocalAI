@@ -1,4 +1,93 @@
 {
+  "split": {
+    "title": "模型拆分工作节点",
+    "online": "{{online}} / {{total}} 在线",
+    "note": "它们不是集群节点：没有后端，也没有放置规则。它们把内存借给在本实例上运行的模型。",
+    "slowTitle": "模型拆分在直连或打洞路径上效果最好。",
+    "slowBody": "只有中继能连到 {{names}}。可以工作，但每个 token 都要等中继。请选择“仍然使用”，或不使用该工作节点。在它的网络上开放 UDP 和 TCP 4001 端口即可获得直连路径。",
+    "limitedTitle": "有数据上限的中继无法传输模型层。",
+    "limitedBody": "到该工作节点的唯一路径是一个限制每个连接数据量的中继，例如公共中继。请给工作节点一条直连路径，或使用你自己的、没有数据上限的中继。",
+    "memoryInUse": "正在使用的工作节点提供的内存：{{memory}}。",
+    "add": {
+      "p2pTitle": "请先通过 P2P 共享本实例",
+      "p2pBody": "模型拆分工作节点通过邀请配对，而邀请需要 P2P 模式“连接并共享”。",
+      "p2pOpen": "打开 P2P 设置",
+      "engineTitle": "引擎",
+      "engineSub": {
+        "llama": "模型在本实例上运行。工作节点在自己的内存中保存部分模型层。",
+        "mlx": "模型作为同一个 MLX 环的各个 rank，在本实例和工作节点上运行。仅限 Apple Silicon。"
+      },
+      "inviteTitle": "创建邀请",
+      "name": "工作节点名称（可选）",
+      "namePlaceholder": "attic-3090",
+      "mint": "创建邀请",
+      "inviteReady": "邀请已就绪",
+      "inviteExpired": "邀请已过期",
+      "inviteUsed": "邀请已使用",
+      "inviteMeta": "仅限一次 · {{time}} 后过期",
+      "noPass": "中继无法连接，因此链接中没有中继通行证。",
+      "pathTitle": "模型拆分在直连或打洞路径上效果最好。",
+      "pathBody": "每个 token 都需要各层之间通信。经由中继可以工作，但每个 token 都要等中继。如果只有中继路径，由你决定是否添加该工作节点。",
+      "runTitle": "在工作节点上运行",
+      "runFirst": "请先创建邀请：命令中包含邀请链接。",
+      "runNote": "卷会保存工作节点的身份和配对，因此重启后同一条命令仍可使用。旧名称 p2p-worker 仍然可用。",
+      "runNoteMlx": "工作节点把身份和配对保存在 ./p2p/mlx-distributed 中，因此重启后同一条命令仍可使用。",
+      "waitTitle": "正在等待工作节点",
+      "waiting": "正在等待工作节点连接…",
+      "pairedTitle": "工作节点已配对",
+      "pairedWaiting": "工作节点已使用邀请。正在等待它连接。",
+      "foundTitle": "工作节点正在使用",
+      "foundBody": "它显示在“节点”页面的“模型拆分工作节点”下，并标出它提供的内存。重新加载模型即可使用它。",
+      "openNodes": "打开节点",
+      "relayTitle": "工作节点只通过中继连接",
+      "slowTitle": "较慢：经由中继。",
+      "slowBody": "{{name}} 没有到本实例的直连或打洞路径。模型拆分可以通过你的中继工作，但每个 token 都要等它。在任意一端开放 UDP 和 TCP 4001 端口，之后可能获得直连路径。",
+      "addAnyway": "仍然添加",
+      "notNow": "暂不"
+    },
+    "col": {
+      "worker": "工作节点",
+      "engine": "引擎",
+      "path": "路径",
+      "memory": "提供的内存",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX（Apple Silicon）"
+    },
+    "path": {
+      "direct": "直连",
+      "holePunched": "打洞",
+      "relayed": "经由 {{relay}}",
+      "relayedUnknown": "经由中继",
+      "none": "无路径",
+      "rtt": "{{ms}} 毫秒"
+    },
+    "state": {
+      "online": "在线",
+      "offline": "离线",
+      "slow": "较慢：经由中继",
+      "limited": "中继上限太小",
+      "refused": "已拒绝"
+    },
+    "useAnyway": "仍然使用",
+    "stopUsing": "停止使用",
+    "revoke": "撤销…",
+    "revokeTitle": "撤销 {{name}}？",
+    "revokeBody": "工作节点会立即断开，必须用新的邀请重新配对。使用它加载的模型在重新加载前会失败。",
+    "revokeConfirm": "撤销",
+    "revoking": "正在撤销…",
+    "addWorker": "添加模型拆分工作节点",
+    "toast": {
+      "used": "{{name}} 正经由中继使用。",
+      "stopped": "{{name}} 不再经由中继使用。",
+      "revoked": "{{name}} 已撤销。"
+    }
+  },
   "nodes": {
     "retry": "重试"
   }

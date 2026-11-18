@@ -914,6 +914,13 @@ export const p2pNetApi = {
   revokeDevice: (id) => fetchJSON(API_CONFIG.endpoints.p2pDevice(id), { method: 'DELETE' }),
 }
 
+// Model-split workers: llama.cpp RPC and MLX workers that lend their memory to
+// models on this server. Answers 409 outside mode "share".
+export const p2pSplitApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.p2pSplitWorkers),
+  setSlowPath: (id, allow) => fetchJSON(API_CONFIG.endpoints.p2pSplitWorker(id), { method: 'PATCH', body: JSON.stringify({ allow_slow_path: allow }) }),
+}
+
 // Image generation
 export const imageApi = {
   upscale: async ({ model, image, scale }) => {

@@ -246,18 +246,15 @@ export function workerCommand({ flavor, nodeType, option, dev, frontend }) {
   return `${dockerPrefix(option)}-e LOCALAI_REGISTER_TO="${frontend}" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${image(option, dev)} ${sub}`
 }
 
-// Peer instances and memory shards join with the P2P network token. The
-// federated server is the entry point they balance behind.
+// Peer instances join with the P2P network token. The federated server is the
+// entry point they balance behind. (Model-split workers pair with an invite:
+// see components/swarm/splitWorkersModel.js.)
 export function p2pCommand({ method, option, dev, token, flavor }) {
-  const suffix = method === 'peer' ? 'run --federated --p2p'
-    : method === 'server' ? 'federated'
-      : method === 'mlx' ? 'p2p-worker p2p-mlx'
-        : 'p2p-worker p2p-llama-cpp-rpc'
-  const name = method === 'peer' ? 'local-ai' : method === 'server' ? 'local-ai-federated' : method === 'mlx' ? 'local-ai-mlx-worker' : 'local-ai-worker'
+  const suffix = method === 'server' ? 'federated' : 'run --federated --p2p'
+  const name = method === 'server' ? 'local-ai-federated' : 'local-ai'
   const tokenValue = token || 'your-token-here'
   if (flavor === 'cli') return `TOKEN="${tokenValue}" local-ai ${suffix}`
-  const opt = method === 'mlx' ? { dockerFlags: '', tag: 'latest-metal-darwin-arm64', devTag: 'latest-metal-darwin-arm64' } : option
-  return `${dockerPrefix(opt)}-e TOKEN="${tokenValue}" \\\n  --name ${name} \\\n  ${image(opt, dev)} ${suffix}`
+  return `${dockerPrefix(option)}-e TOKEN="${tokenValue}" \\\n  --name ${name} \\\n  ${image(option, dev)} ${suffix}`
 }
 
 // NATS is optional: a cluster with only PostgreSQL uses the database tunnel,

@@ -1,0 +1,17 @@
+/* Model-split workers: the Nodes group and the Add a node way. */
+.sw-split-workers { margin-top: var(--dk-space-4); }
+.sw-split-table td { vertical-align: middle; }
+.sw-split-path { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); }
+.sw-split-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); }
+.sw-split-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--dk-space-3); }
+.sw-hint.sw-split-phone, .sw-split-phone--chip { display: none; }
+.sw-split-phone--chip { margin-top: var(--dk-space-1); }
+@media (max-width: 900px) {
+  .sw-hint.sw-split-phone, .sw-split-phone--chip { display: block; }
+  .sw-split-actions { justify-content: flex-start; }
+}
+.sw-split-invite { display: flex; flex-direction: column; gap: var(--dk-space-3); max-width: 720px; }
+.sw-split-invite__row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--dk-space-3); }
+.sw-split-invite__field { display: flex; flex-direction: column; gap: var(--dk-space-1); flex: 1 1 240px; min-width: 0; }
+.sw-split-invite__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); font-size: var(--dk-text-12); color: var(--dk-muted); }
+.sw-split-found { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-3); padding: var(--dk-space-3) var(--dk-space-4); border-radius: var(--dk-radius-2); background: var(--dk-inset); }

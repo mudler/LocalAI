@@ -1,4 +1,93 @@
 {
+  "split": {
+    "title": "Model-split workers",
+    "online": "{{online}} of {{total}} online",
+    "note": "Not cluster nodes: no backends and no placement rules. They lend memory to models that run on this instance.",
+    "slowTitle": "Model splitting works best on a direct or hole-punched path.",
+    "slowBody": "Only a relay reaches {{names}}. It works, but every token waits for the relay. Choose Use anyway or leave the worker out. Opening UDP and TCP port 4001 on its network gives a direct path.",
+    "limitedTitle": "A relay with a data limit cannot carry model layers.",
+    "limitedBody": "The only path to this worker is a relay that limits the data of each connection, such as a public relay. Give the worker a direct path, or a relay of yours without a data limit.",
+    "memoryInUse": "Memory added by workers in use: {{memory}}.",
+    "add": {
+      "p2pTitle": "Share this instance over P2P first",
+      "p2pBody": "A model-split worker pairs with an invite, and invites need the P2P mode Connect and share.",
+      "p2pOpen": "Open P2P settings",
+      "engineTitle": "Engine",
+      "engineSub": {
+        "llama": "The model runs on this instance. The worker holds some of its layers in its own memory.",
+        "mlx": "The model runs on this instance and on the worker, as ranks of one MLX ring. Apple Silicon only."
+      },
+      "inviteTitle": "Make an invite",
+      "name": "Worker name (optional)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Make invite",
+      "inviteReady": "Invite ready",
+      "inviteExpired": "Invite expired",
+      "inviteUsed": "Invite used",
+      "inviteMeta": "Single use · expires in {{time}}",
+      "noPass": "The relay was not reachable, so the link carries no relay pass.",
+      "pathTitle": "Model splitting works best on a direct or hole-punched path.",
+      "pathBody": "Layers talk to each other on every token. Through a relay it works, but every token waits for the relay. If only a relay path exists, you choose whether to add the worker.",
+      "runTitle": "Run this on the worker",
+      "runFirst": "Make the invite first: the command carries its link.",
+      "runNote": "The volume keeps the worker's identity and pairing, so the same command works after a restart. The old name p2p-worker still works.",
+      "runNoteMlx": "The worker keeps its identity and pairing in ./p2p/mlx-distributed, so the same command works after a restart.",
+      "waitTitle": "Waiting for the worker",
+      "waiting": "Waiting for the worker to connect…",
+      "pairedTitle": "The worker paired",
+      "pairedWaiting": "The worker redeemed the invite. Waiting for its connection.",
+      "foundTitle": "The worker is in use",
+      "foundBody": "It shows on the Nodes page under Model-split workers, with the memory it adds. Load the model again to use it.",
+      "openNodes": "Open Nodes",
+      "relayTitle": "The worker connected through a relay only",
+      "slowTitle": "Slow: through a relay.",
+      "slowBody": "{{name}} has no direct or hole-punched path to this instance. Model splitting works through your relay, but every token waits for it. Opening UDP and TCP port 4001 on either side can give a direct path later.",
+      "addAnyway": "Add anyway",
+      "notNow": "Not now"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Engine",
+      "path": "Path",
+      "memory": "Memory added",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Direct",
+      "holePunched": "Hole-punched",
+      "relayed": "Via {{relay}}",
+      "relayedUnknown": "Via a relay",
+      "none": "No path",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "Online",
+      "offline": "Offline",
+      "slow": "Slow: through a relay",
+      "limited": "Relay too small",
+      "refused": "Refused"
+    },
+    "useAnyway": "Use anyway",
+    "stopUsing": "Stop using",
+    "revoke": "Revoke…",
+    "revokeTitle": "Revoke {{name}}?",
+    "revokeBody": "The worker is cut off at once and must pair again with a new invite. A model that is loaded with it fails until it is loaded again.",
+    "revokeConfirm": "Revoke",
+    "revoking": "Revoking…",
+    "addWorker": "Add a model-split worker",
+    "toast": {
+      "used": "{{name}} is used through the relay.",
+      "stopped": "{{name}} is no longer used through the relay.",
+      "revoked": "{{name}} was revoked."
+    }
+  },
   "state": {
     "healthy": "Healthy",
     "draining": "Draining",
@@ -492,15 +581,10 @@
       "title": "How should it join?",
       "worker": "Registered worker",
       "peer": "Peer instance",
-      "shard": "Memory shard",
+      "shard": "Model-split worker",
       "workerSub": "The worker registers with this instance and waits for your approval. It needs the message bus and the database that distributed mode uses.",
       "peerSub": "Another LocalAI instance joins over P2P and shares its models. Requests are balanced across the instances.",
-      "shardSub": "A machine lends its memory to hold part of one large model. It splits one model across machines instead of spreading requests."
-    },
-    "shard": {
-      "label": "Shard engine",
-      "llama": "llama.cpp RPC",
-      "mlx": "MLX (Apple Silicon)"
+      "shardSub": "A machine that lends its memory so one big model runs across machines (llama.cpp or MLX). It is not a cluster node: no backends, no placement rules."
     },
     "distributed": {
       "title": "Turn on distributed mode first",

@@ -1,4 +1,93 @@
 {
+  "split": {
+    "title": "Workers de modelos divididos",
+    "online": "{{online}} de {{total}} en línea",
+    "note": "No son nodos del clúster: sin backends y sin reglas de ubicación. Prestan memoria a los modelos que se ejecutan en esta instancia.",
+    "slowTitle": "Dividir un modelo funciona mejor por una ruta directa o abierta con hole punching.",
+    "slowBody": "Solo un relay llega a {{names}}. Funciona, pero cada token espera al relay. Elige Usar de todos modos o deja fuera el worker. Abrir el puerto 4001 UDP y TCP en su red da una ruta directa.",
+    "limitedTitle": "Un relay con límite de datos no puede llevar las capas del modelo.",
+    "limitedBody": "La única ruta a este worker es un relay que limita los datos de cada conexión, como un relay público. Da al worker una ruta directa, o un relay tuyo sin límite de datos.",
+    "memoryInUse": "Memoria que aportan los workers en uso: {{memory}}.",
+    "add": {
+      "p2pTitle": "Primero comparte esta instancia por P2P",
+      "p2pBody": "Un worker de modelos divididos se empareja con una invitación, y las invitaciones necesitan el modo P2P Conectar y compartir.",
+      "p2pOpen": "Abrir ajustes de P2P",
+      "engineTitle": "Motor",
+      "engineSub": {
+        "llama": "El modelo se ejecuta en esta instancia. El worker guarda algunas de sus capas en su propia memoria.",
+        "mlx": "El modelo se ejecuta en esta instancia y en el worker, como rangos de un anillo MLX. Solo Apple Silicon."
+      },
+      "inviteTitle": "Crear una invitación",
+      "name": "Nombre del worker (opcional)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Crear invitación",
+      "inviteReady": "Invitación lista",
+      "inviteExpired": "Invitación caducada",
+      "inviteUsed": "Invitación usada",
+      "inviteMeta": "Un solo uso · caduca en {{time}}",
+      "noPass": "No se pudo llegar al relay, así que el enlace no lleva pase de relay.",
+      "pathTitle": "Dividir un modelo funciona mejor por una ruta directa o abierta con hole punching.",
+      "pathBody": "Las capas se comunican en cada token. A través de un relay funciona, pero cada token espera al relay. Si solo existe una ruta por relay, tú decides si añadir el worker.",
+      "runTitle": "Ejecuta esto en el worker",
+      "runFirst": "Primero crea la invitación: el comando lleva su enlace.",
+      "runNote": "El volumen guarda la identidad y el emparejamiento del worker, así el mismo comando funciona tras un reinicio. El nombre antiguo p2p-worker sigue funcionando.",
+      "runNoteMlx": "El worker guarda su identidad y emparejamiento en ./p2p/mlx-distributed, así el mismo comando funciona tras un reinicio.",
+      "waitTitle": "Esperando al worker",
+      "waiting": "Esperando a que el worker se conecte…",
+      "pairedTitle": "El worker se emparejó",
+      "pairedWaiting": "El worker usó la invitación. Esperando su conexión.",
+      "foundTitle": "El worker está en uso",
+      "foundBody": "Aparece en la página Nodos, en Workers de modelos divididos, con la memoria que aporta. Vuelve a cargar el modelo para usarlo.",
+      "openNodes": "Abrir Nodos",
+      "relayTitle": "El worker se conectó solo a través de un relay",
+      "slowTitle": "Lento: a través de un relay.",
+      "slowBody": "{{name}} no tiene una ruta directa ni abierta con hole punching hacia esta instancia. Dividir el modelo funciona a través de tu relay, pero cada token lo espera. Abrir el puerto 4001 UDP y TCP en cualquiera de los dos lados puede dar más adelante una ruta directa.",
+      "addAnyway": "Añadir de todos modos",
+      "notNow": "Ahora no"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Motor",
+      "path": "Ruta",
+      "memory": "Memoria aportada",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Directa",
+      "holePunched": "Hole punching",
+      "relayed": "Por {{relay}}",
+      "relayedUnknown": "Por un relay",
+      "none": "Sin ruta",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "En línea",
+      "offline": "Sin conexión",
+      "slow": "Lento: por un relay",
+      "limited": "Relay demasiado pequeño",
+      "refused": "Rechazado"
+    },
+    "useAnyway": "Usar de todos modos",
+    "stopUsing": "Dejar de usar",
+    "revoke": "Revocar…",
+    "revokeTitle": "¿Revocar {{name}}?",
+    "revokeBody": "El worker queda desconectado al instante y debe emparejarse de nuevo con una invitación nueva. Un modelo cargado con él falla hasta que se vuelva a cargar.",
+    "revokeConfirm": "Revocar",
+    "revoking": "Revocando…",
+    "addWorker": "Añadir un worker de modelos divididos",
+    "toast": {
+      "used": "{{name}} se usa a través del relay.",
+      "stopped": "{{name}} ya no se usa a través del relay.",
+      "revoked": "{{name}} fue revocado."
+    }
+  },
   "nodes": {
     "retry": "Reintentar"
   }

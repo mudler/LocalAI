@@ -108,15 +108,12 @@ test.describe('Add a node', () => {
       await expect(page.getByText('1 peers online')).toBeVisible()
     })
 
-    test('a memory shard offers llama.cpp RPC and MLX', async ({ page }) => {
+    test('a model-split worker pairs with an invite, not with the network token', async ({ page }) => {
       await mockSwarm(page, { p2p })
       await page.goto('/app/nodes/add?join=shard')
-      await expect(command(page)).toContainText('p2p-worker p2p-llama-cpp-rpc', { timeout: 15_000 })
-      await page.getByRole('radio', { name: 'MLX (Apple Silicon)' }).click()
-      await expect(command(page)).toContainText('p2p-worker p2p-mlx')
-      await expect(command(page)).toContainText('latest-metal-darwin-arm64')
-      // MLX runs on a Mac: GPU build targets do not apply.
-      await expect(page.getByRole('radio', { name: 'CUDA 12', exact: true })).toHaveCount(0)
+      await expect(page.getByRole('radio', { name: 'MLX (Apple Silicon)' })).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText('net-token-1')).toHaveCount(0)
+      await expect(page.getByText('p2p-worker p2p-llama-cpp-rpc')).toHaveCount(0)
     })
 
     test('says to turn P2P on first when it is off', async ({ page }) => {
@@ -161,7 +158,7 @@ test.describe('Add a node', () => {
     const copy = await page.getByRole('button', { name: 'Copy command' }).last().boundingBox()
     expect(copy.x + copy.width).toBeLessThanOrEqual(390)
     // The method switch scrolls too; none of its choices is cut off for good.
-    await page.getByRole('radio', { name: 'Memory shard' }).scrollIntoViewIfNeeded()
-    await expect(page.getByRole('radio', { name: 'Memory shard' })).toBeInViewport()
+    await page.getByRole('radio', { name: 'Model-split worker' }).scrollIntoViewIfNeeded()
+    await expect(page.getByRole('radio', { name: 'Model-split worker' })).toBeInViewport()
   })
 })

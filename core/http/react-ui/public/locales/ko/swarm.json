@@ -1,4 +1,93 @@
 {
+  "split": {
+    "title": "모델 분할 워커",
+    "online": "{{total}}대 중 {{online}}대 온라인",
+    "note": "클러스터 노드가 아닙니다. 백엔드도 배치 규칙도 없습니다. 이 인스턴스에서 실행되는 모델에 메모리를 빌려줍니다.",
+    "slowTitle": "모델 분할은 직접 경로나 홀 펀칭으로 연 경로에서 가장 잘 동작합니다.",
+    "slowBody": "{{names}}에는 릴레이로만 연결됩니다. 동작은 하지만 토큰마다 릴레이를 기다립니다. 그래도 사용을 선택하거나 이 워커를 제외하세요. 워커 네트워크에서 UDP와 TCP 4001번 포트를 열면 직접 경로가 생깁니다.",
+    "limitedTitle": "데이터 제한이 있는 릴레이는 모델 레이어를 전달할 수 없습니다.",
+    "limitedBody": "이 워커로 가는 유일한 경로는 공개 릴레이처럼 연결마다 데이터를 제한하는 릴레이입니다. 워커에 직접 경로를 주거나, 데이터 제한이 없는 직접 운영하는 릴레이를 쓰세요.",
+    "memoryInUse": "사용 중인 워커가 더한 메모리: {{memory}}.",
+    "add": {
+      "p2pTitle": "먼저 이 인스턴스를 P2P로 공유하세요",
+      "p2pBody": "모델 분할 워커는 초대로 페어링하며, 초대에는 P2P 모드 '연결 및 공유'가 필요합니다.",
+      "p2pOpen": "P2P 설정 열기",
+      "engineTitle": "엔진",
+      "engineSub": {
+        "llama": "모델은 이 인스턴스에서 실행됩니다. 워커는 일부 레이어를 자신의 메모리에 보관합니다.",
+        "mlx": "모델은 하나의 MLX 링의 랭크로서 이 인스턴스와 워커에서 함께 실행됩니다. Apple Silicon 전용입니다."
+      },
+      "inviteTitle": "초대 만들기",
+      "name": "워커 이름 (선택)",
+      "namePlaceholder": "attic-3090",
+      "mint": "초대 만들기",
+      "inviteReady": "초대 준비됨",
+      "inviteExpired": "초대 만료됨",
+      "inviteUsed": "초대 사용됨",
+      "inviteMeta": "한 번만 사용 · {{time}} 후 만료",
+      "noPass": "릴레이에 연결할 수 없어 링크에 릴레이 패스가 없습니다.",
+      "pathTitle": "모델 분할은 직접 경로나 홀 펀칭으로 연 경로에서 가장 잘 동작합니다.",
+      "pathBody": "레이어는 토큰마다 서로 통신합니다. 릴레이를 거쳐도 동작하지만 토큰마다 릴레이를 기다립니다. 릴레이 경로만 있으면 워커를 추가할지 직접 고릅니다.",
+      "runTitle": "워커에서 이것을 실행하세요",
+      "runFirst": "먼저 초대를 만드세요. 명령에 초대 링크가 들어갑니다.",
+      "runNote": "볼륨이 워커의 ID와 페어링을 보관하므로 재시작 후에도 같은 명령이 동작합니다. 예전 이름 p2p-worker도 계속 동작합니다.",
+      "runNoteMlx": "워커는 ID와 페어링을 ./p2p/mlx-distributed에 보관하므로 재시작 후에도 같은 명령이 동작합니다.",
+      "waitTitle": "워커를 기다리는 중",
+      "waiting": "워커가 연결되기를 기다리는 중…",
+      "pairedTitle": "워커가 페어링되었습니다",
+      "pairedWaiting": "워커가 초대를 사용했습니다. 연결을 기다리는 중입니다.",
+      "foundTitle": "워커를 사용 중입니다",
+      "foundBody": "노드 페이지의 모델 분할 워커 아래에 더해진 메모리와 함께 표시됩니다. 사용하려면 모델을 다시 불러오세요.",
+      "openNodes": "노드 열기",
+      "relayTitle": "워커가 릴레이로만 연결되었습니다",
+      "slowTitle": "느림: 릴레이를 거침.",
+      "slowBody": "{{name}}에는 이 인스턴스로 가는 직접 경로나 홀 펀칭 경로가 없습니다. 모델 분할은 사용자의 릴레이로 동작하지만 토큰마다 릴레이를 기다립니다. 양쪽 중 한 곳에서 UDP와 TCP 4001번 포트를 열면 나중에 직접 경로가 생길 수 있습니다.",
+      "addAnyway": "그래도 추가",
+      "notNow": "나중에"
+    },
+    "col": {
+      "worker": "워커",
+      "engine": "엔진",
+      "path": "경로",
+      "memory": "더한 메모리",
+      "status": "상태",
+      "actions": "작업"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "직접",
+      "holePunched": "홀 펀칭",
+      "relayed": "{{relay}} 경유",
+      "relayedUnknown": "릴레이 경유",
+      "none": "경로 없음",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "온라인",
+      "offline": "오프라인",
+      "slow": "느림: 릴레이 경유",
+      "limited": "릴레이 제한이 너무 작음",
+      "refused": "거부됨"
+    },
+    "useAnyway": "그래도 사용",
+    "stopUsing": "사용 중지",
+    "revoke": "해지…",
+    "revokeTitle": "{{name}}을(를) 해지할까요?",
+    "revokeBody": "워커의 연결이 즉시 끊기며 새 초대로 다시 페어링해야 합니다. 이 워커와 함께 불러온 모델은 다시 불러올 때까지 실패합니다.",
+    "revokeConfirm": "해지",
+    "revoking": "해지 중…",
+    "addWorker": "모델 분할 워커 추가",
+    "toast": {
+      "used": "{{name}}을(를) 릴레이를 거쳐 사용합니다.",
+      "stopped": "{{name}}을(를) 더 이상 릴레이를 거쳐 사용하지 않습니다.",
+      "revoked": "{{name}}이(가) 해지되었습니다."
+    }
+  },
   "nodes": {
     "retry": "다시 시도"
   }
