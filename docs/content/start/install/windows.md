@@ -1,35 +1,24 @@
 ---
-title: Windows
-weight: 8
-description: >
-  Install and run LocalAI on Windows without WSL or Docker. Native
-  windows/amd64 backend support.
+title: "Install on Windows"
+description: "Install and run LocalAI on Windows without WSL or Docker, with the native windows/amd64 llama.cpp backend."
+weight: 85
+aliases:
+  - "/getting-started/windows/"
 ---
 
-## Native Windows backends (no WSL / Docker required)
-
-LocalAI can run entirely natively on Windows using pre-built backend images
-packaged as OCI tarballs. The llama-cpp backend is the first backend with
-native Windows support; other backends will follow.
+LocalAI runs natively on Windows. It uses pre-built backend images packaged as OCI tarballs, so you do not need WSL, Docker Desktop or MSYS2 to run it. The llama.cpp backend is the first backend with native Windows support. Other backends are not available on Windows yet.
 
 ## Prerequisites
 
-- Windows 10/11, **amd64**
-- PowerShell 7+ (recommended) or cmd.exe
-- No WSL, no Docker Desktop, no MSYS2 needed at runtime
+- Windows 10 or 11 on **amd64**. There is no Windows arm64 build.
+- PowerShell. LocalAI starts the backend through `powershell.exe`, which ships with Windows.
+- `ffmpeg` on your `PATH`, if you use audio features. LocalAI does not bundle it.
 
-The `local-ai` launcher downloads the Windows backend image on first run and
-executes it as a native process.
+The llama.cpp backend comes from the backend gallery as a native Windows image. LocalAI runs it as a normal process.
 
 ## Install
 
-```powershell
-# Download the Windows release asset `local-ai-<version>-windows-amd64.exe`
-# from the releases page: https://github.com/mudler/LocalAI/releases
-
-# Or via winget (when available):
-# winget install mudler.localai
-```
+Download the Windows release file `local-ai-<version>-windows-amd64.exe` from the [releases page](https://github.com/mudler/LocalAI/releases). Put it in a folder of your choice and run it from PowerShell. The install script is for Linux and macOS and does not work on Windows.
 
 ## First run
 
@@ -41,23 +30,25 @@ executes it as a native process.
 .\local-ai.exe run
 ```
 
-LocalAI selects the best llama-cpp binary shipped in the Windows backend image
-automatically. No configuration is required.
+LocalAI picks the llama.cpp binary from the Windows backend image for you. You do not need to configure anything.
+
+## What is not available on Windows yet
+
+- The add-on runtime. Features that need an add-on do not work. The log can show "add-on runtime unavailable" warnings.
+- Worker and distributed mode. They are not tested on Windows and are not supported.
+- The desktop launcher application.
+- Backends other than llama.cpp.
+- The built-in bash tool of the chat. It needs a POSIX shell.
 
 ## Backend selection on Windows
 
-Windows backend images ship three llama-cpp executables:
+The Windows backend image has these llama.cpp executables:
 
-- `llama-cpp-cpu-all.exe` — CPU-only build with all ggml CPU backends (preferred
-  when present).
-- `llama-cpp-grpc.exe` — gRPC-RPC build, selected automatically when the
-  `LLAMACPP_GRPC_SERVERS` environment variable is set.
-- `llama-cpp-fallback.exe` — static fallback used when neither of the above
-  applies.
+- `llama-cpp-cpu-all.exe`: the CPU build with all ggml CPU variants. The ggml registry loads the best variant for your CPU. LocalAI uses this build by default.
+- `llama-cpp-fallback.exe`: a static build for any x86-64 CPU. LocalAI uses it only when `llama-cpp-cpu-all.exe` is not in the image.
+- `llama-cpp-grpc.exe`: the RPC build. It is compiled without AVX, AVX2, AVX512, FMA, F16C and BMI2, so it is slower on the CPU. LocalAI uses it only when the `LLAMACPP_GRPC_SERVERS` environment variable is set.
 
-A small `run.ps1` launcher (Windows has no shell to run the `run.sh` stub
-through, so `pkg/model/process.go` starts `run.ps1` via `powershell.exe`)
-picks the right binary at startup.
+Windows has no shell to run the `run.sh` stub. LocalAI starts `run.ps1` through `powershell.exe` instead. The script selects the binary with the rules above, adds the `lib` folder to `PATH` and forwards the arguments.
 
 ### GPU (Vulkan) support
 
@@ -65,14 +56,14 @@ The Windows backend image ships `ggml-vulkan.dll` alongside the CPU backends.
 The single `llama-cpp-cpu-all.exe` build auto-detects a Vulkan device at
 startup and offloads `gpu_layers` to it when a model requests them, falling
 back to CPU inference on hosts with no Vulkan driver. No configuration is
-required — the Vulkan loader (`vulkan-1.dll`) is bundled with the image and
+required. The Vulkan loader (`vulkan-1.dll`) is bundled with the image and
 loaded dynamically, so the backend never hard-depends on it.
 
 ## Environment variables
 
 | Variable | Effect |
 |----------|--------|
-| `LLAMACPP_GRPC_SERVERS` | Forces use of `llama-cpp-grpc.exe` when set. |
+| `LLAMACPP_GRPC_SERVERS` | Comma-separated RPC server addresses. When set, `run.ps1` starts `llama-cpp-grpc.exe` and the backend connects to these servers. |
 
 ## Troubleshooting
 
@@ -149,7 +140,7 @@ connectors that need an add-on runtime are the missing piece.
 ### Firewall
 
 LocalAI binds `:8080` on **all interfaces** by default, with no API key
-configured — on a shared network that exposes the API to anyone who can
+configured. On a shared network, that exposes the API to anyone who can
 reach the host. For local use, bind explicitly to the loopback interface
 and set a key instead:
 
@@ -161,6 +152,10 @@ When the firewall prompts on first run, allow local-ai.exe only if you
 intend to listen on non-loopback interfaces (for example, to serve models
 to other machines on your LAN); for a loopback-only setup, deny the
 prompt.
+
+## Security limits on Windows
+
+LocalAI keeps some files private on Linux and macOS with POSIX permission bits, for example the add-on gateway key and the add-on package folders. Windows has no such bits, so LocalAI skips these checks there. It does not set an ACL as a replacement. Access to these files depends on the ACL they inherit from the data folder, which by default is your user profile. On a shared machine, keep the data folder in a place that other users cannot read. The add-on runtime is not enabled on Windows, so the add-on files are not used there today. Package files also have no executable bit on Windows, so every file of a package counts as executable.
 
 ## Building from source
 
@@ -194,7 +189,7 @@ reachable via `GOROOT`, `GO_TOOLCHAIN_ROOT`, or `PATH`).
 | `make backends/llama-cpp-windows-all` | everything the CI publishes: `vulkan` + `rpc` + `fallback` | `backend-images/llama-cpp.tar` |
 | `make backends/llama-cpp-windows-cpu` | CPU-only build (no Vulkan packages needed) | `backend-images/llama-cpp-cpu.tar` |
 | `make backends/llama-cpp-windows-vulkan` | the Vulkan-capable build alone | `backend-images/llama-cpp-vulkan.tar` |
-| `make backends/llama-cpp-windows-cuda` | CUDA build — needs the NVIDIA CUDA toolkit and Visual Studio 2022+ (the C++ workload provides the MSVC host compiler nvcc requires); the script locates both automatically and explains what is missing. The llama.cpp tree stays MinGW-built; only `ggml-cuda.dll` comes from an MSVC configure and is loaded at runtime | `backend-images/llama-cpp-cuda.tar` |
+| `make backends/llama-cpp-windows-cuda` | CUDA build. Needs the NVIDIA CUDA toolkit and Visual Studio 2022+ (the C++ workload provides the MSVC host compiler nvcc requires); the script locates both automatically and explains what is missing. The llama.cpp tree stays MinGW-built; only `ggml-cuda.dll` comes from an MSVC configure and is loaded at runtime | `backend-images/llama-cpp-cuda.tar` |
 | `make backends/llama-cpp-windows-rpc` | gRPC-RPC server + `ggml-rpc-server` | `backend-images/llama-cpp-rpc.tar` |
 | `make backends/llama-cpp-windows-fallback` | static lowest-common-denominator build | `backend-images/llama-cpp-fallback.tar` |
 
@@ -220,7 +215,7 @@ pacman -S --needed --noconfirm base-devel git cmake ninja mingw-w64-ucrt-x86_64-
 The Vulkan packages are required: `GGML_VULKAN=ON` makes CMake's `FindVulkan`
 treat `glslc` as a REQUIRED component, and ggml-vulkan runs
 `find_package(SPIRV-Headers CONFIG REQUIRED)`. MSYS2 ships glslc only in the
-mingw64 variant of `shaderc` (there is no ucrt64 build) — it is a standalone
+mingw64 variant of `shaderc` (there is no ucrt64 build). It is a standalone
 tool, so the build script adds `/mingw64/bin` to `PATH` when no glslc is
 already available (e.g. from a Vulkan SDK installed via the registry). The
 script also installs `mingw-w64-ucrt-x86_64-spirv-headers` itself if its cmake
@@ -248,7 +243,7 @@ bash scripts/build/llama-cpp-windows.sh
 ```
 
 The script packages the result as an OCI tarball (`backend-images/llama-cpp.tar`)
-and — when run through the Makefile — installs it with
+and, when run through the Makefile, installs it with
 `./local-ai.exe backends install "ocifile://..."`.
 
 ### CI build
@@ -256,7 +251,7 @@ and — when run through the Makefile — installs it with
 CI builds the Windows backend in the reusable
 [`.github/workflows/backend_build_windows.yml`](https://github.com/mudler/LocalAI/blob/master/.github/workflows/backend_build_windows.yml)
 workflow, dispatched from `.github/workflows/backend.yml` for the `includeWindows`
-matrix entry. Only `llama-cpp` has a Windows build path today — a future entry
+matrix entry. Only `llama-cpp` has a Windows build path today. A future entry
 dispatched without one fails loudly rather than upload an empty tarball.
 
 The pipeline:
@@ -279,8 +274,7 @@ fetches the exact artifact CI produced.
 The published image is signed keyless with Sigstore/cosign, the same way the
 platform images that go through the `backend_merge.yml` manifest merge are:
 the publish job resolves the pushed digest and signs it with an OCI 1.1
-referrer bundle. The gallery does not enforce a `verification:` policy yet —
-`backend/index.yaml` still ships without those blocks populated, and strict
-mode stays off until a gallery covers every published variant — so installs
-verify the signature, but a missing or invalid one degrades to a warning
-rather than a refusal.
+referrer bundle. The gallery does not enforce a `verification:` policy yet.
+Strict mode stays off until a gallery covers every published variant, so
+installs verify the signature, but a missing or invalid one degrades to a
+warning rather than a refusal.

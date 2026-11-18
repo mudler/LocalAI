@@ -8,13 +8,14 @@ aliases:
 keywords: ["install", "desktop", "launcher", "appimage", "script", "docker", "macos", "linux", "kubernetes", "setup"]
 ---
 
-Install the server with a script, a binary, a container or Helm. The desktop app, which installs and runs the server for you, is in the 5.0 release.
+Install the server with a script, a binary, a container or Helm. Windows has a native binary. The desktop app, which installs and runs the server for you, is in the 5.0 release.
 
 | You have | Use | Command or guide |
 |---|---|---|
 | Linux, or a Mac with Apple Silicon | Install script | See [below](#install-script) |
 | Linux or macOS, and you want to choose the file | Binary | [Binary]({{% relref "/start/install/linux" %}}) |
-| Windows (WSL2), an Intel Mac, a server, or a GPU image | Container | [Containers]({{% relref "/start/install/containers" %}}) |
+| Windows on amd64 | Binary | [Windows]({{% relref "/start/install/windows" %}}) |
+| An Intel Mac, a server, or a GPU image | Container | [Containers]({{% relref "/start/install/containers" %}}) |
 | A cluster | Helm chart | [Kubernetes]({{% relref "/start/install/kubernetes" %}}) |
 | A change to the code | Source | [Build from source]({{% relref "/contributing/build-from-source" %}}) |
 
@@ -40,7 +41,7 @@ You can set these environment variables before the command:
 | `LOCALAI_NO_SUDO` | Set to `1` to never ask for `sudo`. LocalAI then installs into `~/.local/bin`. |
 | `GITHUB_TOKEN` | A GitHub token, used only to avoid GitHub API rate limits when the script looks up the latest release. |
 
-The script supports Linux on amd64 and arm64, and macOS on arm64 (Apple Silicon). There is no binary for Intel Macs. Use a container there.
+The script supports Linux on amd64 and arm64, and macOS on arm64 (Apple Silicon). There is no binary for Intel Macs. Use a container there. On Windows, see [Windows]({{% relref "/start/install/windows" %}}).
 
 ## Container
 
