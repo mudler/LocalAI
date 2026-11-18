@@ -1053,18 +1053,19 @@
     "label": "Network",
     "preset": {
       "off": "Off",
-      "registries": "Package registries",
+      "registries": "Custom",
       "all": "All public sites"
     },
     "presetHint": {
       "off": "Commands reach no network.",
-      "registries": "Commands reach the package registries only (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub releases).",
+      "registries": "Commands reach the package registries (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub releases) and the domains your administrator added.",
       "all": "Commands reach every public site."
     },
     "limited": "Limited by your administrator",
     "limitedBy": "Your administrator allows at most: {{limit}}.",
     "hostNetwork": "Commands run on this machine and use its network. Network limits need an add-on that isolates commands.",
     "panel": "Rules and requests ({{count}})",
+    "panelCustom": "Custom domains",
     "rules": "Rules of this chat",
     "cards": "Requests of this chat",
     "ruleAllow": "Allowed for this chat",
@@ -1104,9 +1105,13 @@
       "rowOff": "Off: the administrator has not allowed network access.",
       "runner": "the add-on that runs commands"
     },
-    "allowedHosts": "Always allowed by your administrator:",
     "allowedHostsOff": "They apply when the network is on.",
-    "allowedHostsNote": "{{count}} hosts are always allowed by your administrator.",
+    "allowedHostsNote": "Custom domains added by your administrator: {{count}}.",
+    "customDomains": "Custom reaches the package registries and these domains, set by your administrator:",
+    "customEmpty": "Custom reaches the package registries only. Your administrator has not added other domains.",
+    "customLabel": "Custom domains",
+    "customEdit": "Edit domains",
+    "customAdmin": "An administrator manages this list.",
     "limitNote": "This chat’s network. The administrator sets the most a chat can reach.",
     "draftNote": "The chat starts with this setting. The administrator sets the most a chat can reach, and that limit applies.",
     "asksAbove": "This chat asks for {{choice}}; the administrator limit is {{limit}}.",
