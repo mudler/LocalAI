@@ -34,11 +34,11 @@ LocalAI picks the llama.cpp binary from the Windows backend image for you. You d
 
 ## What is not available on Windows yet
 
-- The add-on runtime. Features that need an add-on do not work. The log can show "add-on runtime unavailable" warnings.
+- The Sandbox add-on. It isolates commands with gVisor or a virtual machine, and neither is available on Windows, so there is no Windows package of it. Chat commands that need the Sandbox add-on are not available.
 - Worker and distributed mode. They are not tested on Windows and are not supported.
 - The desktop launcher application.
 - Backends other than llama.cpp.
-- The built-in bash tool of the chat. It needs a POSIX shell.
+- The built-in bash tool of the chat. It needs a POSIX shell and process groups. It is not a fallback for the Sandbox add-on: on Windows the chat has no tool that runs commands.
 
 ## Backend selection on Windows
 
@@ -127,15 +127,16 @@ resolve through the model gallery index instead.
 
 The chats' built-in bash needs a POSIX process group and shell, which
 Windows does not provide, so the command tool is unavailable (the reasoning
-and chat itself keep working). Commands in chats run when the add-on that
-isolates them is installed.
+and chat itself keep working). The Sandbox add-on, which runs commands on
+Linux and macOS, has no Windows package. LocalAI never runs a command of a
+chat on Windows without isolation.
 
-### Add-on runtime warnings ("addon runtime unavailable")
+### Add-ons on Windows
 
-The add-on supervisor does not run on Windows yet; while a chat page is open
-the log may repeat `could not list the connector kinds` / `addon owner
-unavailable` warnings every few seconds. Chats, models and the API work;
-connectors that need an add-on runtime are the missing piece.
+The add-on runtime runs on Windows as on Linux and macOS. Install add-ons from
+the **Add-ons** page. The library lists only the add-ons that have a Windows
+package. Each add-on runs as its own process (`<name>.exe`). When an add-on
+stops, or LocalAI exits, Windows also stops every process the add-on started.
 
 ### Firewall
 
@@ -155,7 +156,7 @@ prompt.
 
 ## Security limits on Windows
 
-LocalAI keeps some files private on Linux and macOS with POSIX permission bits, for example the add-on gateway key and the add-on package folders. Windows has no such bits, so LocalAI skips these checks there. It does not set an ACL as a replacement. Access to these files depends on the ACL they inherit from the data folder, which by default is your user profile. On a shared machine, keep the data folder in a place that other users cannot read. The add-on runtime is not enabled on Windows, so the add-on files are not used there today. Package files also have no executable bit on Windows, so every file of a package counts as executable.
+LocalAI keeps some files private on Linux and macOS with POSIX permission bits, for example the add-on gateway key and the add-on package folders. Windows has no such bits, so LocalAI skips these checks there. It does not set an ACL as a replacement. Access to these files depends on the ACL they inherit from the data folder, which by default is your user profile. On a shared machine, keep the data folder in a place that other users cannot read. This also applies to the add-on runtime state folder, which LocalAI checks only for links on Windows. Package files have no executable bit on Windows: LocalAI starts only the file the manifest names as the executable, and on Windows that name must end in `.exe`.
 
 ## Building from source
 

@@ -2,9 +2,10 @@
 
 // SPDX-License-Identifier: MIT
 
-// The supervisor and its specs are POSIX-only: the runtime ledger fails closed
-// on the other platforms, and the specs use process groups, `sleep` and
-// symlinked state roots.
+// These supervisor specs are POSIX-only: they use process groups, `sleep` and
+// symlinked state roots. supervisor_windows_test.go checks the supervisor on
+// Windows, and reported_test.go runs the Windows way of passing the channels
+// here.
 package runtime
 
 import (
@@ -71,6 +72,11 @@ func supervisor() *Supervisor {
 	l.BackoffAttempts = 2
 	s, e := NewSupervisor(Config{StateRoot: realTempDir(), Limits: l, ReadyTimeout: startBudget, StableHealth: time.Second})
 	Expect(e).NotTo(HaveOccurred())
+	// ADDON_RUNTIME_REPORTED=1 runs every spec in the way Windows passes the
+	// channels (named handles, endpoint reported by the child).
+	if os.Getenv("ADDON_RUNTIME_REPORTED") == "1" {
+		s.reportEndpoint = true
+	}
 	DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 	return s
 }

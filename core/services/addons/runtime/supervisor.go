@@ -127,8 +127,10 @@ type Registration struct {
 	Capabilities contract.Capabilities `json:"capabilities"`
 }
 
-// Startup is delivered only on inherited descriptor 4, never argv or environment.
-// Descriptor 3 is an already-bound loopback listener. EOF on descriptor 4 means
+// Startup is delivered only on the inherited startup channel (descriptor 4,
+// or the pipe named by contract.StartupHandleEnv on Windows), never argv or
+// environment. The listener is descriptor 3, already bound to loopback, or on
+// Windows one the child binds and reports. EOF on the startup channel means
 // the owner has died; cooperating addons must exit rather than become orphans.
 type Startup struct {
 	Registration Registration    `json:"registration"`
@@ -154,6 +156,7 @@ type Instance struct {
 type process struct {
 	cmd          *exec.Cmd
 	parent       *os.File
+	tree         interface{ terminate() }
 	done         chan struct{}
 	client       *Client
 	registration Registration
@@ -187,6 +190,11 @@ type Supervisor struct {
 	Registry      *Registry
 	workers       sync.WaitGroup
 	launchStarted func(*process) // deterministic launch-boundary instrumentation for subprocess tests
+	// reportEndpoint selects how a child gets its channels: false passes
+	// descriptors 3 and 4, true passes named pipe handles and the child
+	// reports its endpoint. It is true only on Windows; specs set it to run
+	// that way on other platforms.
+	reportEndpoint bool
 }
 
 func NewSupervisor(c Config) (*Supervisor, error) {
@@ -197,7 +205,7 @@ func NewSupervisor(c Config) (*Supervisor, error) {
 	if e != nil {
 		return nil, e
 	}
-	s := &Supervisor{config: c, slots: map[string]*slot{}, ledger: l}
+	s := &Supervisor{config: c, slots: map[string]*slot{}, ledger: l, reportEndpoint: reportEndpointDefault}
 	s.Registry = &Registry{supervisor: s}
 	return s, nil
 }
@@ -317,25 +325,10 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	if json.Unmarshal(b, &disk) != nil || !reflect.DeepEqual(disk, pkg) {
 		return nil, ErrRuntime
 	}
-	path := filepath.Join(pkg.Directory, filepath.FromSlash(pkg.Manifest.Executable))
-	resolved, e := filepath.EvalSymlinks(path)
-	if e != nil || resolved != path {
+	path, ok := executablePath(pkg.Directory, pkg.Manifest.Executable)
+	if !ok {
 		return nil, ErrRuntime
 	}
-	info, e := os.Stat(path)
-	if e != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
-		return nil, ErrRuntime
-	}
-	listener, e := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
-	if e != nil {
-		return nil, ErrRuntime
-	}
-	defer func() { _ = listener.Close() }()
-	socket, e := listener.File()
-	if e != nil {
-		return nil, ErrRuntime
-	}
-	defer func() { _ = socket.Close() }()
 	// The host operation endpoint belongs to the incarnation: only an add-on
 	// that the host setting names gets one. The listener is closed on every
 	// failed launch, and by serveHostOps when the process ends.
@@ -358,11 +351,21 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		}
 		hostCredential = hex.EncodeToString(hc)
 	}
-	child, parent, e := os.Pipe()
+	// No shell, no inherited environment, no ambient host credentials. The argv
+	// contract is fixed; package manifests cannot smuggle interpreter switches.
+	cmd := exec.Command(path, "--localai-addon-v1") // #nosec G204 -- launches the verified add-on executable from the installed package directory, never from a request
+	cmd.Dir = pkg.Directory
+	cmd.Env = append([]string{"LANG=C", "TZ=UTC"}, platformEnv()...)
+	open := openDescriptorChannels
+	if s.reportEndpoint {
+		open = openReportedChannels
+	}
+	ch, e := open(cmd)
 	if e != nil {
 		return nil, ErrRuntime
 	}
-	defer func() { _ = child.Close() }()
+	defer ch.release()
+	parent := ch.parent
 	credential := make([]byte, 32)
 	if _, e = rand.Read(credential); e != nil {
 		_ = parent.Close()
@@ -373,7 +376,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		_ = parent.Close()
 		return nil, ErrRuntime
 	}
-	r := Registration{AddonID: pkg.Manifest.ID, Generation: generation, Incarnation: hex.EncodeToString(inc), Protocol: int(contract.HostProtocolVersion), Endpoint: "http://" + listener.Addr().String(), Capabilities: pkg.Manifest.Capabilities}
+	r := Registration{AddonID: pkg.Manifest.ID, Generation: generation, Incarnation: hex.EncodeToString(inc), Protocol: int(contract.HostProtocolVersion), Endpoint: ch.endpoint, Capabilities: pkg.Manifest.Capabilities}
 	dataDir := ""
 	if s.config.DataRoot != "" {
 		if !filepath.IsAbs(s.config.DataRoot) || !relativeSafe(pkg.Manifest.ID) {
@@ -387,12 +390,6 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 			return nil, ErrRuntime
 		}
 	}
-	// No shell, no inherited environment, no ambient host credentials. The argv
-	// contract is fixed; package manifests cannot smuggle interpreter switches.
-	cmd := exec.Command(path, "--localai-addon-v1") // #nosec G204 -- launches the verified add-on executable from the installed package directory, never from a request
-	cmd.Dir = pkg.Directory
-	cmd.Env = []string{"LANG=C", "TZ=UTC"}
-	cmd.ExtraFiles = []*os.File{socket, child}
 	// The streams are pipes the supervisor owns, not an io.Writer on the
 	// command: with a writer, Wait would block while a child of the add-on
 	// still holds the pipe open.
@@ -434,12 +431,25 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	// close theirs.
 	_ = outW.Close()
 	_ = errW.Close()
+	ch.started()
+	tree := newProcessTree(cmd.Process.Pid)
 	go func() { logOutput(outR, pkg.Manifest.ID, "stdout", sink); _ = outR.Close() }()
 	go func() { logOutput(errR, pkg.Manifest.ID, "stderr", sink); _ = errR.Close() }()
-	p := &process{cmd: cmd, parent: parent, done: make(chan struct{}), registration: r}
+	// A child that reports its endpoint must do so within the ready timeout,
+	// and only as 127.0.0.1.
+	if r.Endpoint, e = ch.awaitEndpoint(ctx); e != nil {
+		_ = cmd.Process.Kill()
+		tree.terminate()
+		_ = cmd.Wait()
+		_ = parent.Close()
+		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
+		return nil, ErrRuntime
+	}
+	p := &process{cmd: cmd, parent: parent, tree: tree, done: make(chan struct{}), registration: r}
 	c, e := newClient(r, hex.EncodeToString(credential), s.config.Limits)
 	if e != nil {
 		_ = cmd.Process.Kill()
+		tree.terminate()
 		_ = cmd.Wait()
 		_ = parent.Close()
 		return nil, e
@@ -471,13 +481,11 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	}
 	// The startup object is bounded; write with a deadline so even a child that
 	// never reads its inherited pipe cannot hang the owner.
-	_ = parent.SetWriteDeadline(time.Now().Add(s.config.ReadyTimeout))
 	startupObject := Startup{Registration: r, Credential: c.credential, Limits: s.config.Limits, DataDir: dataDir}
 	if hostListener != nil {
 		startupObject.HostEndpoint, startupObject.HostCredential = "http://"+hostListener.Addr().String(), hostCredential
 	}
-	e = json.NewEncoder(parent).Encode(startupObject)
-	if e != nil {
+	if e = writeStartup(ctx, parent, time.Now().Add(s.config.ReadyTimeout), startupObject); e != nil {
 		s.terminate(p)
 		return nil, ErrRuntime
 	}
@@ -542,6 +550,8 @@ func (s *Supervisor) terminate(p *process) {
 	// os.Process owns the OS process handle (pidfd on supported Linux). Never
 	// reconstruct a Process from a recorded numeric PID, which may be reused.
 	_ = p.cmd.Process.Kill()
+	// What the add-on started goes with it where the platform tracks it.
+	p.tree.terminate()
 	<-p.done
 	p.client.http.CloseIdleConnections()
 	_ = s.ledger.remove(p.registration.AddonID, p.registration.Incarnation)

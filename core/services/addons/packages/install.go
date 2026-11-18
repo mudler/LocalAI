@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
@@ -110,8 +111,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	info, e := os.Lstat(root)
 	// Windows limit: there are no POSIX permission bits, so a 0700 directory
 	// reports 0777 and this check is skipped. LocalAI sets no ACL; access
-	// depends on the ACL the directory inherits. The add-on runtime is not
-	// enabled on Windows, so this path is not reached there today.
+	// depends on the ACL the directory inherits.
 	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || (goruntime.GOOS != "windows" && info.Mode().Perm()&0077 != 0) {
 		return out, ErrPackage
 	}
@@ -279,9 +279,7 @@ func (i *Installer) inspectStage(dir string) (contract.Manifest, *PackageIcon, [
 	}
 	for _, asset := range assets {
 		info, e := os.Lstat(filepath.Join(dir, filepath.FromSlash(asset)))
-		// Windows limit: it reports no POSIX bits, so the executable check is
-		// skipped and any file of the package counts as executable there.
-		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && goruntime.GOOS != "windows" && info.Mode()&0100 == 0) {
+		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && !runnable(goruntime.GOOS, info, asset)) {
 			return contract.Manifest{}, nil, nil, ErrPackage
 		}
 	}
@@ -476,4 +474,15 @@ func expectedImageDigest(pinned string, r catalog.Release, rt http.RoundTripper)
 		}
 	}
 	return "", ErrPackage
+}
+
+// runnable reports whether the executable of a package can run on goos.
+// Windows has no execute bit: there the name must end in .exe, which is what
+// makes a file a program for Windows (a Windows package names its executable
+// so). Other systems need the owner execute bit.
+func runnable(goos string, info os.FileInfo, name string) bool {
+	if goos == "windows" {
+		return strings.EqualFold(path.Ext(name), ".exe")
+	}
+	return info.Mode()&0100 != 0
 }
