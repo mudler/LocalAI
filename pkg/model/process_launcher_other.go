@@ -4,7 +4,6 @@ package model
 
 import (
 	"path/filepath"
-	"strconv"
 
 	process "github.com/mudler/go-processmanager"
 )
@@ -18,19 +17,13 @@ func resolveLauncher(grpcProcess, _ string, args []string) (processName string, 
 }
 
 // processLauncherOther implements processLauncher for non-Windows platforms.
-// It starts the process with Run() and then tracks it in the process tree.
+// It starts the process with Run().
 type processLauncherOther struct{}
 
 var _ processLauncher = processLauncherOther{}
 
 func (processLauncherOther) launch(proc *process.Process, runtime *backendProcessRuntime, processName string, processArgs []string, workDir string, env []string) error {
-	if err := proc.Run(); err != nil {
-		return err
-	}
-	if pid, err := strconv.Atoi(proc.CurrentPID()); err == nil {
-		runtime.trackProcessTree(pid)
-	}
-	return nil
+	return proc.Run()
 }
 
 // newLauncher returns the platform-specific process launcher for non-Windows.

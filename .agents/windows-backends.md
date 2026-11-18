@@ -142,9 +142,13 @@ Create `backend/cpp/<backend>/run.ps1` — a PowerShell launcher mirroring
 
 ### 8. Process tree cleanup
 
-`pkg/model/process_tree_windows.go` already exists — it uses Windows Job
-Objects (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) so backend trees are reaped
-when `local-ai.exe` exits. No per-backend work needed.
+`pkg/model/process.go` starts every backend with go-processmanager's
+`WithJobObject(true)`. On Windows the library creates the process suspended,
+puts it in a Windows Job Object (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) and
+resumes it. `Stop` ends the whole job, and Windows ends the job when
+`local-ai.exe` exits or crashes. No per-backend work needed. The job closes
+when the `run.ps1` wrapper exits, so `run.ps1` must run the backend in the
+foreground.
 
 ---
 

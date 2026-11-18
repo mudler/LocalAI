@@ -9,7 +9,7 @@ import (
 	process "github.com/mudler/go-processmanager"
 )
 
-func TestAliveFromDone(t *testing.T) {
+func TestProcessAlive(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("uses a POSIX sleep binary")
 	}
@@ -19,7 +19,7 @@ func TestAliveFromDone(t *testing.T) {
 	}
 
 	notStarted := process.New(process.WithTemporaryStateDir(), process.WithName(sleep))
-	if aliveFromDone(notStarted) {
+	if ProcessAlive(notStarted) {
 		t.Fatal("a process that was never started must not be alive")
 	}
 
@@ -27,13 +27,9 @@ func TestAliveFromDone(t *testing.T) {
 	if err := p.Run(); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if !aliveFromDone(p) {
+	if !ProcessAlive(p) {
 		t.Fatal("a running process must be alive")
 	}
-	if !ProcessAlive(p) {
-		t.Fatal("ProcessAlive must report a running process as alive")
-	}
-
 	if err := p.Stop(); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
@@ -42,7 +38,7 @@ func TestAliveFromDone(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Done() did not close after Stop")
 	}
-	if aliveFromDone(p) {
+	if ProcessAlive(p) {
 		t.Fatal("a stopped process must not be alive")
 	}
 	if ProcessAlive(nil) {
