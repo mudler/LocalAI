@@ -172,6 +172,14 @@ Known limits:
 - The add-on runtime is not enabled on Windows. Its gateway key and package checks do not use the Windows ACL yet.
 - Windows has no executable bit. LocalAI treats a file as a program when its extension is `.exe`, `.com`, `.cmd`, `.bat` or `.ps1`.
 
+## Other differences on Windows
+
+- **Temporary folders.** Generated content, uploads and backend scratch files go to `%TEMP%\localai-<SID>`, where `<SID>` is the security identifier of your account. On Linux and macOS the folder name has the user id instead.
+- **Symbolic links in backend images.** Windows lets a user make symbolic links only with administrator rights or in Developer Mode. Without that right, LocalAI copies the target of each link in a backend image in its place. The install takes more disk space but works the same.
+- **Stopping the server.** Ctrl+C and Ctrl+Break stop LocalAI gracefully: it finishes the requests in flight and then exits. When you close the console window, or when you log off or shut down, Windows gives the process only about 5 seconds, so long requests can be cut.
+- **Converted schedules.** Windows does not give LocalAI the name of its time zone. When old cron tasks are converted to chat schedules, they run in UTC and the report says so. To keep the local time, set the `TZ` environment variable to a zone name, for example `TZ=Europe/Rome`, before you start LocalAI.
+- **Windows service.** LocalAI does not install itself as a Windows service. Run it from a console, from the Task Scheduler at logon, or with a service wrapper of your choice.
+
 ## Building from source
 
 The commands mirror the Linux/macOS flow: `make build` produces the

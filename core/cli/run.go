@@ -290,7 +290,7 @@ type RunCMD struct {
 // once a stale root-owned /tmp/generated is left behind). Scoping to the current
 // UID gives each account its own tree so they never collide.
 func userScopedTempDir() string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("localai-%d", os.Getuid()))
+	return filepath.Join(os.TempDir(), system.UserScopedName())
 }
 
 // DefaultGeneratedContentPath returns the default location for backend-generated
