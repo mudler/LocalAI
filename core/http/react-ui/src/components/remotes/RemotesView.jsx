@@ -176,7 +176,6 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
   )
 }
 
-// The Remotes tab of the Models page: one card for each remote.
 // p2pPathText names how a remote over P2P is reached: the path of the last
 // request while the tunnel is up, otherwise the state of the tunnel.
 function p2pPathText(t, p2p) {
@@ -187,6 +186,7 @@ function p2pPathText(t, p2p) {
   return t(`card.p2p.state.${p2p.state}`, { defaultValue: p2p.state })
 }
 
+// The Remotes tab of the Models page: one card for each remote.
 export default function RemotesView({ state, addToast, onConnect, onChanged, onViewInstalled }) {
   const { t } = useTranslation('remotes')
   const { remotes, loading, error, unsupported, refetch, replace } = state
