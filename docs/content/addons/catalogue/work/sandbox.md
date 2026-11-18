@@ -38,7 +38,7 @@ When it is on, the `bash` tool of the chat runs in the sandbox. Without it, a ch
 
 ## Network
 
-A sandbox has no network device. HTTP and HTTPS go through a proxy that asks LocalAI for each connection. The **Network** row in the Tools menu has three choices: **Off**, **Package registries** and **All public sites**. An administrator sets the most a chat can choose. The default is Off, so `pip install` fails until an administrator raises it.
+A sandbox has no network device. HTTP and HTTPS go through a proxy that asks LocalAI for each connection. The **Network** row in the Tools menu has three choices: **Off**, **Custom** (the package registries and the domains an administrator added) and **All public sites**. An administrator sets the most a chat can choose. The default is Off, so `pip install` fails until an administrator raises it.
 
 When a command asks for a host that the chat does not allow but the limit allows, the chat shows a card. Choose **Allow once**, **Allow for this chat** or **Deny**. See [Network of the Sandbox commands]({{% relref "/features/chats-and-agents/chats-commands#network-of-the-sandbox-commands" %}}).
 

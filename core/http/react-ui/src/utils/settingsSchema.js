@@ -266,7 +266,7 @@ export const FIELDS = [
   // stores '' (or 0) for a setting never set and reads it as the default, so
   // that value is not "changed" and a select or number shows the default.
   { key: 'chats_egress_ceiling', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Command network limit', fallback: 'off', emptyIsDefault: true,
-    desc: 'The widest network any chat\'s isolated commands may use: off, the package registries only, or every public host. A chat chooses up to this. Commands on this machine are not covered: they have the network of the server.',
+    desc: 'The widest network any chat\'s isolated commands may use: off, Custom (the package registries plus the extra registries and always allowed hosts below), or every public host. A chat chooses up to this. Commands on this machine are not covered: they have the network of the server.',
     default: 'off', apply: 'live' },
   { key: 'chats_egress_default', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Command network of a new chat', fallback: 'off', emptyIsDefault: true,
     desc: 'The network preset a new chat starts with, capped by the limit above.',
@@ -275,10 +275,10 @@ export const FIELDS = [
     desc: 'The ports isolated commands may reach, comma separated. 22 and 25 are always refused.',
     placeholder: '80,443', default: '80,443', apply: 'live' },
   { key: 'chats_egress_extra_registries', group: 'tools', was: 'chats', kind: 'text', label: 'Extra package registries',
-    desc: 'Exact host names added to the package registries list, comma separated, for example an internal mirror. They count as registries, so they need a chat on the Package registries choice (HTTPS only). To allow a host for any request, use Always allowed hosts. No patterns.',
+    desc: 'Exact host names added to the package registries list, comma separated, for example an internal mirror. They count as registries, so they need a chat on the Custom choice (HTTPS only), and chats see them in their Custom list. To allow a host for any request, use Always allowed hosts. No patterns.',
     placeholder: 'pypi.mirror.example.org', default: '', apply: 'live' },
   { key: 'chats_egress_allowed_hosts', group: 'tools', was: 'chats', kind: 'hosts', max: 64, label: 'Always allowed hosts',
-    desc: 'Exact hosts, *.domain (descendants only, not the apex), or * (public destinations only), optionally with :port. Wildcards obey the network ceiling, allowed ports and private-address guard even when private access is enabled. Extra package registries still require exact names. The owner validates every change.',
+    desc: 'Exact hosts, *.domain (descendants only, not the apex), or * (public destinations only), optionally with :port. Wildcards obey the network ceiling, allowed ports and private-address guard even when private access is enabled. Extra package registries still require exact names. Chats on the Custom choice see this list. The owner validates every change.',
     placeholder: 'api.example.org', default: '', apply: 'live' },
   // The step limit of a chat turn (core/config/runtime_settings_registry.go;
   // read when a turn starts, so live). A model's agent.max_iterations wins.

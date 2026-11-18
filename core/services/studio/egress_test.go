@@ -162,6 +162,18 @@ var _ = Describe("egress.check and egress.audit on the chats service", func() {
 		Expect(view.JSON().AllowedHosts).NotTo(BeNil(), "the wire form is a list, never null")
 	})
 
+	It("sends the whole Custom list: the extra registries and the always-allowed hosts as written, wildcards included", func() {
+		id := create(svc, alice)
+		settings.ExtraRegistries = []string{"mirror.example.com"}
+		settings.AllowedHosts = []egress.AllowedHost{{Host: "*.example.org"}, {Host: "api.example.com"}}
+		view, err := svc.Egress(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		wire := view.JSON()
+		Expect(wire.AllowedHosts).To(Equal([]string{"*.example.org", "api.example.com"}))
+		Expect(wire.Registries).To(ContainElement(SatisfyAll(HaveField("ID", "extra"), HaveField("Hosts", []string{"mirror.example.com"}))))
+		Expect(wire.Registries[0].ID).NotTo(Equal("extra"), "the built-in registries stay first")
+	})
+
 	It("lowering the ceiling applies at the next check", func() {
 		id := create(svc, alice)
 		settings.Ceiling = egress.PresetOff
