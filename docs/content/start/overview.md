@@ -1,7 +1,7 @@
 +++
 title = "Overview"
 toc = true
-description = "What is LocalAI?"
+description = "What LocalAI does and how it is built."
 tags = ["Beginners"]
 categories = [""]
 author = "Ettore Di Giacinto"
@@ -11,78 +11,45 @@ aliases = ["/overview/"]
 devbuild = "install"
 +++
 
+Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, and the assistant can write and run code.
 
-LocalAI is an AI server that runs on your own hardware. A small core speaks the OpenAI and Anthropic APIs. Each model backend is added only when you need it. Many existing clients work with it.
+## What you can do
 
-{{< diagram "architecture-overview" "How LocalAI works: clients call one API on a small core with chats, agents, an add-on host and an MCP client and server, which talks over gRPC to a separate backend process for each model, running on your own hardware." >}}
+- **Call an API.** Routes in the OpenAI, Anthropic and Open Responses formats. A client that uses the OpenAI or Anthropic SDK works when you change the base URL.
+- **Use the web interface.** Chats, saved agents, files, model management, image generation and system monitoring.
+- **Build agents.** Saved agents use tools over MCP (Model Context Protocol), add-ons and your files.
+- **Run many kinds of models.** Text, images, video, speech, sound, vision and embeddings. See [what models can do]({{% relref "/models/capabilities" %}}).
+- **Use your GPU, or none.** LocalAI runs on NVIDIA, AMD, Intel and Vulkan-capable GPUs, and on a CPU.
+- **Run several nodes.** Worker nodes and P2P federation, and P2P model sharding for llama.cpp models only. See [Distributed mode]({{% relref "/administration/distributed-mode" %}}).
+- **Add programs.** Add-ons are separate programs that add tools, such as the Sandbox and Office documents.
 
-## Why LocalAI
+Your files and models stay on your machines. Features that call outside services, such as web search or Gmail, are opt-in.
 
-- **Self-hosted.** The server, the models and your files stay on your machines. Features that call outside services, such as web search or Gmail, are opt-in.
-- **Open source.** MIT licence.
-- **Any hardware.** Laptops and servers, with or without a GPU.
-- **Small core.** Backends are separate. LocalAI installs a backend when a model needs it.
+## Install
 
-## What is included
-
-- **OpenAI-compatible API.** Routes in the OpenAI, Anthropic and Open Responses formats.
-- **Web interface.** Chats, saved agents, files, model management, image generation and system monitoring.
-- **Agents.** Saved agents that use tools over MCP (Model Context Protocol), add-ons and your files.
-- **Many modalities.** Text, images, video, speech, sound, vision and embeddings. Each one runs on its own backend. See [what models can do]({{% relref "/models/capabilities" %}}).
-- **GPU support.** LocalAI detects NVIDIA, AMD, Intel and Vulkan GPUs.
-- **Distributed mode.** Worker nodes, P2P federation and model sharding.
-- **Add-ons.** Separate programs that add tools, such as the Sandbox and Office documents.
-
-Each backend is a gRPC service around an engine such as llama.cpp, vLLM, whisper.cpp, stable-diffusion or MLX. Backends are OCI images that run as separate processes. You can install, upgrade or remove one without touching the core. One can run on another machine. A fault in one does not stop the others.
-
-The backend contract is a small gRPC interface. You can write your own backend in any language.
-
-## Get started
-
-On Linux or macOS, install with the script:
-
-```bash
-curl -sSL https://localai.io/install.sh | sh
-local-ai run qwen3-4b
-```
-
-Then open **http://localhost:8080** to use the web interface. On Windows, or if you prefer a container, use Docker:
+The [quickstart]({{% relref "/start/quickstart" %}}) has the install script, the first model and the first chat. The script works on Linux and on Macs with Apple Silicon. For Windows, an Intel Mac or a GPU image, use a container:
 
 ```bash
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-For all methods, see the [install guide]({{% relref "/start/install" %}}). For GPU images, see the [container images reference]({{% relref "/start/install/containers" %}}).
+Files inside the container are lost when you remove it. See [Persistent storage]({{% relref "/start/install/containers#persistent-storage" %}}) for the four paths to mount. All install methods are in the [install guide]({{% relref "/start/install" %}}).
 
-## Community and Support
+## How it works
 
-LocalAI is a community-driven project. You can:
+{{< diagram "architecture-overview" "How LocalAI works: clients call one API on a small core with chats, agents, an add-on host and an MCP client and server, which talks over gRPC to a separate backend process for each model, running on your own hardware." >}}
 
-- Join the [Discord community](https://discord.gg/uJAeKSAGDy)
-- Visit the [GitHub repository](https://github.com/mudler/LocalAI)
-- Contribute to the project
-- Share your use cases and examples
+The core serves the API and the web interface. Each model runs in a backend, which is a gRPC service around an engine such as llama.cpp, vLLM, whisper.cpp, stable-diffusion or MLX. Backends are OCI images that run as separate processes. LocalAI downloads a backend the first time a model needs it. You can install, upgrade or remove one without touching the core, and one can run on another machine.
 
-## Next Steps
+The backend contract is a small gRPC interface, so you can write your own backend in any language. See [Creating a backend]({{% relref "/models/backends#creating-a-backend" %}}) and the [step-by-step checklist](https://github.com/mudler/LocalAI/blob/master/.agents/adding-backends.md).
 
-Ready to dive in? Here are some recommended next steps:
+## Next steps
 
-1. **[Install LocalAI]({{% relref "/start/install" %}})** - Choose the desktop app or a server install
-2. **[Quickstart guide]({{% relref "/start/quickstart" %}})** - Run a first model and send a first message
-3. [Explore available models](https://models.localai.io)
-4. [Model compatibility]({{% relref "/models/compatibility-table" %}})
-5. [Try out examples]({{% relref "/start/try-it-out" %}})
-6. [Join the community](https://discord.gg/uJAeKSAGDy)
-
-## Team
-
-LocalAI is created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the LocalAI team:
-
-- **[Ettore Di Giacinto](https://github.com/mudler)** - original author and project lead
-- **[Richard Palethorpe](https://github.com/richiejp)** - maintainer
-
-LocalAI is helped by the wider community of contributors. See the full [contributors list](https://github.com/mudler/LocalAI/graphs/contributors).
+- [Quickstart]({{% relref "/start/quickstart" %}}): run a first model and send a first message.
+- [Model gallery]({{% relref "/models" %}}) and the [compatibility table]({{% relref "/models/compatibility-table" %}}).
+- [Try out examples]({{% relref "/start/try-it-out" %}}).
+- [Discord community](https://discord.gg/uJAeKSAGDy) and the [GitHub repository](https://github.com/mudler/LocalAI).
 
 ## License
 
-LocalAI is MIT licensed.
+LocalAI is open source under the MIT license. It was created by [Ettore Di Giacinto](https://github.com/mudler) and has many [contributors](https://github.com/mudler/LocalAI/graphs/contributors).

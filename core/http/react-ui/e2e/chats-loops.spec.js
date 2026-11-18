@@ -122,6 +122,22 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
       expect(s.calls).toEqual(expect.arrayContaining(['PUT l1', 'DELETE l1']))
     })
 
+    test('a loop that reports to a messaging app says where and when, and one that does not says nothing', async ({ page }) => {
+      await open(page, { loops: [
+        loop({ id: 'l4', report: { connection: 'conn1', connection_name: 'Team chat', channel: 'G1', channel_label: 'General', mode: 'on_done' } }),
+        loop({ id: 'l5', report: { connection: 'conn1', channel: 'G3', mode: 'on_problem' } }),
+        loop({ id: 'l6' }),
+      ] })
+      const chips = page.getByTestId('loop-chip')
+      await expect(chips).toHaveCount(3)
+      await expect(chips.nth(0).getByTestId('loop-chip-report')).toHaveText('Reports when done: General · Team chat')
+      await expect(chips.nth(0).getByTestId('loop-chip-report')).toHaveAttribute('data-mode', 'on_done')
+      // The names are gone: the ids stand in, so the destination is still shown.
+      await expect(chips.nth(1).getByTestId('loop-chip-report')).toHaveText('Reports on a problem: G3 · conn1')
+      await expect(chips.nth(2).getByTestId('loop-chip-report')).toHaveCount(0)
+      await shot(page, `${name}-report`)
+    })
+
     test('a loop that ended says why and can be dismissed', async ({ page }) => {
       await open(page, { loops: [
         loop({ id: 'l2', state: 'ended', next: undefined, interval: '', interval_seconds: 0, reason: 'Done: the build is green' }),

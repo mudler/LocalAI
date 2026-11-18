@@ -27,6 +27,12 @@ const (
 	SendNew = "new"
 	// SendDelivery is the report of a trigger run.
 	SendDelivery = "delivery"
+	// SendStudio is a message that the model of a chat in Studio wrote with
+	// send_message, in an approved channel of a connection of the owner.
+	SendStudio = "studio"
+	// SendLoopReport is the report that a loop sends when it ends or has a
+	// problem, as its start_loop report asked.
+	SendLoopReport = "loop_report"
 )
 
 // ErrMessageEmpty and ErrMessageTooLong are the refusals of the text rules.

@@ -16,12 +16,23 @@ func (s *Workspace) isAdmin(a Actor) bool {
 	return s.admin != "" && a.Principal == s.admin && !HasFence(a)
 }
 
-// Grant gives principal mode m on the folder p and everything below it.
+// Grant gives principal mode m (read, data or write) on the folder p and
+// everything below it. A grant that carried the page mark loses it.
 func (s *Workspace) Grant(ctx context.Context, admin Actor, principal, p string, m Mode) error {
+	return s.grant(ctx, admin, principal, p, m, false)
+}
+
+// GrantPage is Grant with the page mark: the grant was made through the page
+// routes by the person who owns the page.
+func (s *Workspace) GrantPage(ctx context.Context, admin Actor, principal, p string, m Mode) error {
+	return s.grant(ctx, admin, principal, p, m, true)
+}
+
+func (s *Workspace) grant(ctx context.Context, admin Actor, principal, p string, m Mode, page bool) error {
 	if !s.isAdmin(admin) {
 		return ErrNotAdmin
 	}
-	if principal == "" || (m != ModeRead && m != ModeWrite) {
+	if principal == "" || StoredMode(m) == 0 {
 		return ErrInvalid
 	}
 	n, err := lookupPath(ctx, s.db, p)
@@ -31,9 +42,45 @@ func (s *Workspace) Grant(ctx context.Context, admin Actor, principal, p string,
 	if n.kind != KindDir {
 		return ErrInvalid
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO studio_ws_grants (principal, node_id, mode) VALUES (?, ?, ?)
-		ON CONFLICT (principal, node_id) DO UPDATE SET mode = excluded.mode`, principal, n.id, int(m))
-	return err
+	t, err := s.db.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = t.Rollback() }()
+	if _, err := t.ExecContext(ctx, `INSERT INTO studio_ws_grants (principal, node_id, mode) VALUES (?, ?, ?)
+		ON CONFLICT (principal, node_id) DO UPDATE SET mode = excluded.mode`, principal, n.id, StoredMode(m)); err != nil {
+		return err
+	}
+	if page {
+		_, err = t.ExecContext(ctx, `INSERT INTO studio_ws_page_grants (principal, node_id) VALUES (?, ?)
+			ON CONFLICT (principal, node_id) DO NOTHING`, principal, n.id)
+	} else {
+		_, err = t.ExecContext(ctx, `DELETE FROM studio_ws_page_grants WHERE principal = ? AND node_id = ?`, principal, n.id)
+	}
+	if err != nil {
+		return err
+	}
+	return t.Commit()
+}
+
+// PageShared reports whether the actor, or one of its groups, holds a grant
+// with the page mark on the live folder p itself.
+func (s *Workspace) PageShared(ctx context.Context, a Actor, p string) (bool, error) {
+	n, err := lookupPath(ctx, s.db, p)
+	if errors.Is(err, ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	ps := principals(a)
+	args := []any{n.id}
+	for _, p := range ps {
+		args = append(args, p)
+	}
+	var c int
+	err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM studio_ws_page_grants WHERE node_id = ? AND principal IN (`+strings.Repeat(",?", len(ps))[1:]+`)`, args...).Scan(&c)
+	return c > 0, err
 }
 
 // Revoke removes the grant of principal on p. A missing grant is not an error.
@@ -45,8 +92,18 @@ func (s *Workspace) Revoke(ctx context.Context, admin Actor, principal, p string
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `DELETE FROM studio_ws_grants WHERE principal = ? AND node_id = ?`, principal, n.id)
-	return err
+	t, err := s.db.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = t.Rollback() }()
+	if _, err := t.ExecContext(ctx, `DELETE FROM studio_ws_page_grants WHERE principal = ? AND node_id = ?`, principal, n.id); err != nil {
+		return err
+	}
+	if _, err := t.ExecContext(ctx, `DELETE FROM studio_ws_grants WHERE principal = ? AND node_id = ?`, principal, n.id); err != nil {
+		return err
+	}
+	return t.Commit()
 }
 
 // View checks each request against the actor's grants. A mount gets at most
@@ -110,12 +167,12 @@ func (s *Workspace) ReadablePrefixes(ctx context.Context, a Actor) ([]string, er
 		return nil, err
 	}
 	ps := principals(a)
-	args := []any{int(ModeRead)}
+	args := []any{}
 	for _, p := range ps {
 		args = append(args, p)
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT g.node_id FROM studio_ws_grants g JOIN studio_ws_nodes n ON n.id = g.node_id
-		WHERE g.mode >= ? AND n.deleted = 0 AND n.kind = 'dir' AND g.principal IN (`+strings.Repeat(",?", len(ps))[1:]+`)`, args...)
+		WHERE g.mode <> 0 AND n.deleted = 0 AND n.kind = 'dir' AND g.principal IN (`+strings.Repeat(",?", len(ps))[1:]+`)`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +266,9 @@ func (s *Workspace) Grants(ctx context.Context, admin Actor, p string) ([]Grant,
 	if n.kind != KindDir {
 		return nil, ErrInvalid
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT principal, mode FROM studio_ws_grants WHERE node_id = ? ORDER BY principal`, n.id)
+	rows, err := s.db.QueryContext(ctx, `SELECT g.principal, g.mode, pg.principal IS NOT NULL FROM studio_ws_grants g
+		LEFT JOIN studio_ws_page_grants pg ON pg.principal = g.principal AND pg.node_id = g.node_id
+		WHERE g.node_id = ? ORDER BY g.principal`, n.id)
 	if err != nil {
 		return nil, err
 	}
@@ -218,10 +277,12 @@ func (s *Workspace) Grants(ctx context.Context, admin Actor, p string) ([]Grant,
 	for rows.Next() {
 		var g Grant
 		var m int
-		if err := rows.Scan(&g.Principal, &m); err != nil {
+		if err := rows.Scan(&g.Principal, &m, &g.Page); err != nil {
 			return nil, err
 		}
-		g.Mode = Mode(m)
+		if g.Mode = ModeFromStored(m); g.Mode == ModeNone {
+			continue
+		}
 		out = append(out, g)
 	}
 	return out, rows.Err()
@@ -241,8 +302,9 @@ func (s *Workspace) GrantsBelow(ctx context.Context, admin Actor, p string) ([]N
 			SELECT id FROM studio_ws_nodes WHERE id = ?
 			UNION ALL
 			SELECT n.id FROM studio_ws_nodes n JOIN sub ON n.parent_id = sub.id WHERE n.deleted = 0)
-		SELECT g.node_id, g.principal, g.mode FROM studio_ws_grants g JOIN sub ON g.node_id = sub.id
+		SELECT g.node_id, g.principal, g.mode, pg.principal IS NOT NULL FROM studio_ws_grants g JOIN sub ON g.node_id = sub.id
 		JOIN studio_ws_nodes n ON n.id = g.node_id
+		LEFT JOIN studio_ws_page_grants pg ON pg.principal = g.principal AND pg.node_id = g.node_id
 		WHERE g.node_id <> ? AND n.kind = 'dir' AND n.deleted = 0`, top.id, top.id)
 	if err != nil {
 		return nil, err
@@ -251,11 +313,13 @@ func (s *Workspace) GrantsBelow(ctx context.Context, admin Actor, p string) ([]N
 	for rows.Next() {
 		var g NodeGrant
 		var m int
-		if err := rows.Scan(&g.NodeID, &g.Principal, &m); err != nil {
+		if err := rows.Scan(&g.NodeID, &g.Principal, &m, &g.Page); err != nil {
 			_ = rows.Close()
 			return nil, err
 		}
-		g.Mode = Mode(m)
+		if g.Mode = ModeFromStored(m); g.Mode == ModeNone {
+			continue
+		}
 		out = append(out, g)
 	}
 	err = rows.Err()

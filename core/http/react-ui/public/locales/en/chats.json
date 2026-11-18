@@ -1005,6 +1005,9 @@
       "deliveryChat": "This chat",
       "deliveryThread": "This thread",
       "deliveryChannel": "{{channel}}, at the top of the channel",
+      "deliveryChannelIn": "{{channel}} in {{connection}}, at the top of the channel",
+      "deliveryModeOnChange": "Only when the answer differs from the run before.",
+      "deliveryModeOnProblem": "Only when a run fails. A run that works reports nothing.",
       "stopLabel": "To stop it",
       "when": "{{schedule}}, {{zone}}. First run {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -1214,6 +1217,10 @@
       "next": "next at {{time}}",
       "ended": "ended",
       "wait": "Waiting for: {{wait}}"
+    },
+    "report": {
+      "on_done": "Reports when done: {{channel}} · {{connection}}",
+      "on_problem": "Reports on a problem: {{channel}} · {{connection}}"
     },
     "actions": {
       "pause": "Pause",

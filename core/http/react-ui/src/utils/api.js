@@ -4,6 +4,7 @@ import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
 import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
+import { createPageSharesApi } from './pageSharesApi'
 import { reportUnauthorized } from './sessionEvents'
 
 const enc = encodeURIComponent
@@ -382,6 +383,22 @@ export const pagesApi = {
     method: 'PUT', body: JSON.stringify({ path, content, ...(base ? { base } : {}) }),
   }),
   files: (name, dir) => fetchJSON(`${pageUrl(name)}/files${q({ dir })}`),
+  // A page that others may edit runs only after its owner allowed the version
+  // (the trust sheet): allow records it, stopAllowing takes it back.
+  allow: (name, hash, once = false) => fetchJSON(`${pageUrl(name)}/consent`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-LocalAI-Confirm': name }, body: JSON.stringify({ hash, ...(once ? { once: true } : {}) }) }),
+  stopAllowing: (name) => fetchJSON(`${pageUrl(name)}/consent`, { method: 'DELETE', headers: { 'X-LocalAI-Confirm': name } }),
+  // The bridge calls of such a page, which name the version that runs and,
+  // for a visit allowed once, the visit token. frame is {hash, token}.
+  frame: (name, frame) => {
+    const headers = frameHeaders(frame)
+    return {
+      read: (path) => fetchJSON(`${pageUrl(name)}/file${q({ path })}`, { headers }),
+      readImage: (path) => fetchJSON(`${pageUrl(name)}/file${q({ path, encoding: 'base64' })}`, { headers }),
+      write: (path, content, base) => fetchJSON(`${pageUrl(name)}/file`, { method: 'PUT', headers, body: JSON.stringify({ path, content, ...(base ? { base } : {}) }) }),
+      list: async (dir) => (await fetchJSON(`${pageUrl(name)}/files${q({ dir })}`, { headers })).entries || [],
+      send: (text, chatId, model) => fetchJSON(`${pageUrl(name)}/chat`, { method: 'POST', headers, body: JSON.stringify({ text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}) }) }),
+    }
+  },
   // chatId empty: the page's own chat; model is used when that chat is new.
   send: (name, text, chatId, model) => postJSON(`${pageUrl(name)}/chat`, {
     text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}),
@@ -1337,3 +1354,6 @@ export const diarizationApi = {
 // kindShareClient (components/share/shareClients.js) for the dialog.
 export const sharesApi = createSharesApi(addonsApi)
 export const folderSharesApi = createFolderSharesApi(addonsApi)
+
+// Sharing of one page of the person's own pages, with named people or everyone.
+export const pageSharesApi = createPageSharesApi(addonsApi)

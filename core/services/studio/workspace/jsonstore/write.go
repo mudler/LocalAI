@@ -112,12 +112,18 @@ func (w *writer) apply(id int64, kind workspace.Kind, op workspace.OpKind, ns st
 			return nodeRow{}, workspace.ErrReadOnly
 		}
 		before, beforePath = cur.state, d.pathOf(id)
+		if err := w.checkData(id, kind, cur.state, ns); err != nil {
+			return nodeRow{}, err
+		}
 		if err := w.checkGrantsMove(id, kind, cur.state, ns, beforePath); err != nil {
 			return nodeRow{}, err
 		}
 		n = cur
 		n.Version++
 	} else {
+		if err := w.checkData(0, kind, before, ns); err != nil {
+			return nodeRow{}, err
+		}
 		id = d.nextID
 		n = nodeRow{ID: id, Kind: kind, Version: 1}
 	}
@@ -134,8 +140,50 @@ func (w *writer) apply(id int64, kind workspace.Kind, op workspace.OpKind, ns st
 	return d.get(id)
 }
 
+// checkData narrows a change to the files that a data grant allows. It is the
+// last guard of every change (a write, a move, a delete, an undo, an upper
+// layer), like the fence guard in apply: when the actor reaches the node, or
+// the folder it goes to, with a data grant and no more, every name the change
+// touches must be a data file (IsCodeFile), and a folder that moves must hold
+// no code. The administrator and an actor with write access are not narrowed.
+// A folder that is deleted is narrowed through its files: each one is a
+// change of its own.
+func (w *writer) checkData(id int64, kind workspace.Kind, cur, ns state) error {
+	if w.s.isAdmin(w.actor) {
+		return nil
+	}
+	var at []int64
+	if id != 0 {
+		at = append(at, id)
+	}
+	if id == 0 || ns.Parent != cur.Parent {
+		at = append(at, ns.Parent)
+	}
+	narrowed := false
+	for _, n := range at {
+		if w.s.access(w.d, w.actor, n) == workspace.ModeData {
+			narrowed = true
+			break
+		}
+	}
+	if !narrowed {
+		return nil
+	}
+	if workspace.IsCodeFile(ns.Name) || (id != 0 && workspace.IsCodeFile(cur.Name)) {
+		return workspace.ErrReadOnly
+	}
+	if id != 0 && kind == workspace.KindDir && !ns.Deleted && !cur.Deleted && (ns.Parent != cur.Parent || ns.Name != cur.Name) {
+		for _, r := range w.d.subtree(id, false) {
+			if workspace.IsCodeFile(r.Name) {
+				return workspace.ErrReadOnly
+			}
+		}
+	}
+	return nil
+}
+
 func (w *writer) checkWrite(n nodeRow) error {
-	return w.s.needWrite(w.d, w.actor, n)
+	return w.s.needChange(w.d, w.actor, n)
 }
 
 // ensureDirs creates the missing folders of segs and returns the last one.

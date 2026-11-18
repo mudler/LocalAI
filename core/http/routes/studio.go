@@ -211,6 +211,13 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/pages/:name/file", h.WritePageFile)
 	e.POST(base+"/pages/:name/chat", h.SendFromPage)
 	e.POST(base+"/pages/:name/errors", h.ReportPageError)
+	e.PUT(base+"/pages/:name/consent", h.AllowOwnPage)
+	e.DELETE(base+"/pages/:name/consent", h.RevokeOwnPage)
+	// A person shares one page of their own home (never a tool).
+	e.GET(base+"/pages/shares/search", h.SearchPageShareUsers)
+	e.GET(base+"/pages/:name/shares", h.ListPageShares)
+	e.PUT(base+"/pages/:name/shares", h.SetPageShare)
+	e.DELETE(base+"/pages/:name/shares/:principal", h.RevokePageShare)
 	// The pages of the caller's shared folders, by folder id and name, and the
 	// caller's consent to the version that runs.
 	// The folders an administrator, or another person, shared with the caller.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -495,7 +496,9 @@ func InstallModelFromGallery(
 		// A caller who named a variant asked for something this entry cannot
 		// give. Installing the entry anyway would look like success while
 		// quietly ignoring the choice, so it is refused by name instead.
-		if installOpts.variant != "" {
+		// Naming the entry itself is not a choice between builds: it is the
+		// only build there is, so the request is already honored.
+		if installOpts.variant != "" && installOpts.variant != model.Name {
 			return fmt.Errorf("%w: %q was requested but model %q declares no variants", ErrPinNotFound, installOpts.variant, model.Name)
 		}
 		return applyModel(model, nil)
@@ -889,12 +892,61 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 	return allFiles, nil
 }
 
+// IncompleteDeleteError reports a deletion that removed the model's
+// configuration, so the model is no longer installed, but could not remove
+// everything it owns. Callers must not roll the configuration back: the files
+// that did go are gone for good, and a configuration pointing at them would
+// leave the model listed as installed and broken.
+type IncompleteDeleteError struct {
+	Model string
+	Errs  []error
+}
+
+func (e *IncompleteDeleteError) Error() string {
+	return fmt.Sprintf("model %q was removed, but some files could not be deleted: %v", e.Model, errors.Join(e.Errs...))
+}
+
+func (e *IncompleteDeleteError) Unwrap() []error { return e.Errs }
+
+// removeIfPresent removes a path and treats "already gone" as success.
+func removeIfPresent(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+// DeleteModelFromSystem removes an installed model: its configuration, its
+// gallery metadata file and the files it declares that no other model uses.
+//
+// The configuration is removed first, and a failure there is returned with
+// nothing else touched. The configuration is what marks the model as
+// installed, so removing the weights while it stays would leave a model that is
+// listed but cannot load, and cannot be installed again. Failures on the other
+// files are collected into an *IncompleteDeleteError rather than only logged.
+//
+// A configuration that cannot be parsed still gets deleted, together with its
+// gallery metadata file: it must not make the model impossible to remove.
 func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 	configFile := filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", name))
 
 	filesToRemove, err := listModelFiles(systemState, name)
+	var unreadable error
 	if err != nil {
-		return err
+		// Only a name that stays inside the models directory may fall back to
+		// removing just the configuration and the gallery metadata file.
+		if verr := utils.VerifyPath(fmt.Sprintf("%s.yaml", name), systemState.Model.ModelsPath); verr != nil {
+			return err
+		}
+		galleryName := strings.ReplaceAll(name, string(os.PathSeparator), "__")
+		if verr := utils.VerifyPath(galleryFileName(galleryName), systemState.Model.ModelsPath); verr != nil {
+			return err
+		}
+		if _, statErr := os.Stat(configFile); statErr != nil {
+			return err
+		}
+		unreadable = err
+		filesToRemove = []string{filepath.Join(systemState.Model.ModelsPath, galleryFileName(galleryName))}
 	}
 
 	allOtherFiles := []string{}
@@ -932,18 +984,28 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 	xlog.Debug("Files to remove", "files", filesToRemove)
 	xlog.Debug("All other files", "files", allOtherFiles)
 
-	// Removing files
+	if err := removeIfPresent(configFile); err != nil {
+		return fmt.Errorf("failed to remove model configuration %s: %w", configFile, err)
+	}
+
+	var failures []error
+	if unreadable != nil {
+		failures = append(failures, fmt.Errorf("configuration could not be read, so its model files were left in place: %w", unreadable))
+	}
 	for _, f := range filesToRemove {
 		if slices.Contains(allOtherFiles, f) {
 			xlog.Debug("Skipping file because it is part of another model", "file", f)
 			continue
 		}
-		if e := os.Remove(f); e != nil {
+		if e := removeIfPresent(f); e != nil {
 			xlog.Error("failed to remove file", "error", e, "file", f)
+			failures = append(failures, e)
 		}
 	}
-
-	return os.Remove(configFile)
+	if len(failures) > 0 {
+		return &IncompleteDeleteError{Model: name, Errs: failures}
+	}
+	return nil
 }
 
 // This is ***NEVER*** going to be perfect or finished.

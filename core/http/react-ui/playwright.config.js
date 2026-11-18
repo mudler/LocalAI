@@ -17,7 +17,7 @@ export default defineConfig({
     '**/addons-recovery.spec.js', '**/addons-runtime.spec.js', '**/addons-slots.spec.js',
     '**/addons-upgrade.spec.js', '**/tables-acceptance.spec.js', '**/tables-artifacts.spec.js',
     '**/tables-ui.spec.js', '**/library-sources.spec.js', '**/shared-pages-real.spec.js',
-    '**/shared-folders-real.spec.js',
+    '**/shared-folders-real.spec.js', '**/page-share-real.spec.js',
   ],
   globalSetup: './e2e/global-setup.js',
   timeout: 30_000,

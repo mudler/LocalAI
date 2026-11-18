@@ -91,7 +91,7 @@ func (w *writer) checkParentWrite(n nodeRow) error {
 }
 
 func (w *writer) move(from, to string) (nodeRow, error) {
-	src, err := w.s.find(w.ctx, w.tx, w.actor, from, ModeWrite)
+	src, err := w.s.find(w.ctx, w.tx, w.actor, from, ModeData)
 	if err != nil {
 		return nodeRow{}, err
 	}
@@ -125,7 +125,7 @@ func (w *writer) deleteNode(n nodeRow) error {
 }
 
 func (w *writer) delete(p string) error {
-	n, err := w.s.find(w.ctx, w.tx, w.actor, p, ModeWrite)
+	n, err := w.s.find(w.ctx, w.tx, w.actor, p, ModeData)
 	if err != nil {
 		return err
 	}

@@ -2,38 +2,47 @@
 disableToc = false
 title = "LocalAI binaries"
 weight = 30
-description = "Download LocalAI binaries and the macOS app."
+description = "Release binaries of the local-ai server, their file names and how to download one by hand."
 keywords = ["binaries","download","macos","linux"]
-devbuild = "install"
 +++
 
-LocalAI binaries are available for both Linux and MacOS platforms and can be executed directly from your command line. These binaries are continuously updated and hosted on [our GitHub Releases page](https://github.com/mudler/LocalAI/releases). This method also supports Windows users via the Windows Subsystem for Linux (WSL).
+The `local-ai` server is one file per platform on the [releases page](https://github.com/mudler/LocalAI/releases). The [install script]({{% relref "/start/install#install-script" %}}) downloads the right one for you and checks it. Download by hand when you want to choose the file yourself. On Windows, use WSL2 or a [container]({{% relref "/start/install/containers" %}}).
 
-## macOS Download
+## Files
 
-You can download the DMG and install the application:
+Each release has these files, with the release tag in the name:
 
-[Download LocalAI.dmg](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg). The app in the DMG is signed with an Apple Developer ID and notarized. See the [desktop app guide]({{% relref "/start/install/desktop" %}}) for the first start and the settings.
+| OS | File |
+| --- | --- |
+| Linux (amd64) | `local-ai-{{< version >}}-linux-amd64` |
+| Linux (arm64) | `local-ai-{{< version >}}-linux-arm64` |
+| macOS (Apple Silicon) | `local-ai-{{< version >}}-darwin-arm64` |
 
-Otherwise, use the following one-liner command in your terminal to download and run LocalAI on Linux or MacOS:
+There is no binary for Intel Macs. The checksums of the release are in `LocalAI-{{< version >}}-checksums.txt`. Download from `https://github.com/mudler/LocalAI/releases/download/{{< version >}}/`.
+
+## Download and run
+
+This command picks the file for the machine it runs on, from the latest release shown in these docs:
 
 ```bash
-curl -Lo local-ai "https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-$(uname -s)-$(uname -m)" && chmod +x local-ai && ./local-ai
+os=$(uname -s | tr A-Z a-z)
+arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+tag={{< version >}}
+curl -fLo local-ai "https://github.com/mudler/LocalAI/releases/download/$tag/local-ai-$tag-$os-$arch"
+chmod +x local-ai
+./local-ai
 ```
 
-Otherwise, here are the links to the binaries:
+To check the download, get the checksum file and compare:
 
-| OS | Link | 
-| --- | --- |
-| Linux (amd64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-x86_64) |
-| Linux (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-arm64) |
-| MacOS (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Darwin-arm64) |
+```bash
+curl -fLO "https://github.com/mudler/LocalAI/releases/download/$tag/LocalAI-$tag-checksums.txt"
+grep " local-ai-$tag-$os-$arch\$" LocalAI-$tag-checksums.txt
+sha256sum local-ai   # on macOS: shasum -a 256 local-ai
+```
 
+The two hashes must match.
 
-{{% callout style="warning" icon="bolt" %}}
-Binaries do have limited support compared to container images:
+## Backends
 
-- Python-based backends are not shipped with binaries (e.g. `diffusers` or `transformers`)
-- MacOS binaries and Linux-arm64 do not ship TTS nor `stablediffusion-cpp` backends
-- Linux binaries do not ship `stablediffusion-cpp` backend
- {{% /callout %}}
+A binary doesn't bundle backends. LocalAI downloads each backend as an OCI image the first time a model needs one. See [Backends]({{% relref "/models/backends" %}}).

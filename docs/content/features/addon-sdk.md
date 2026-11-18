@@ -25,7 +25,7 @@ An add-on in another repository cannot have a UI yet. The UI build reads the UI 
 go install github.com/mudler/LocalAI/scripts/addons/cmd/addonpkg@<version>
 ```
 
-`<version>` is a release tag or a commit. Use the same one as in your `go.mod`.
+`<version>` is a release tag or a commit. Use the same one as in your `go.mod`. No release tag has this path yet, so use a commit hash until a release has it.
 
 ## 1. Set up the module
 
@@ -231,7 +231,7 @@ dist/hello-0.1.0-linux-amd64.zip
 dist/hello-0.1.0-linux-amd64.zip.sha256
 ```
 
-The `.sha256` file is in `sha256sum` format. Build a platform natively: an executable of another platform is not accepted by the host that runs there.
+The `.sha256` file is in `sha256sum` format. Build on the platform you target. A binary built for another platform is rejected at install.
 
 If you have a checkout of the LocalAI repository, one command does the same steps. It builds the executable from `cmd/hello`, so it needs the Go module of your add-on to be resolvable:
 
@@ -269,6 +269,6 @@ The packages under `pkg/addons/sdk` are the public helpers of an add-on:
 | `atomicfile` | Writes a file so that a reader never sees half of it. |
 | `argutil` | Reads typed arguments of a tool call. |
 
-Together with `pkg/addons/contract`, they follow the manifest `api` range. As long as your manifest declares the `api` version that you built against, a new LocalAI version with the same `api` version keeps your add-on working. A change that breaks a caller of these packages needs a new `api` version. Adding a function or a type is not a break. A test in the LocalAI repository records the exported names of these packages, so a break cannot land by accident.
+Together with `pkg/addons/contract`, they follow the manifest `api` range. As long as your manifest declares the `api` version that you built against, a new LocalAI version with the same `api` version keeps your add-on working. A change that breaks a caller of these packages needs a new `api` version. Adding a function or a type is not a break. A test records the exported names of these packages, so a breaking change fails CI.
 
 These packages never import `core/` or an `internal` path, so they work from another module. Other helper packages under `addons/internal`, such as the connector and the UI build tools, are not part of the SDK. You cannot import them.

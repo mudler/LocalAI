@@ -473,7 +473,8 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 		// A model that proposes the same thing again, in this chat or the next,
 		// gets the proposal that waits.
 		if m.Name == t.Name && m.Prompt == t.Prompt && m.Kind == t.Kind && m.Schedule == t.Schedule &&
-			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) {
+			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) &&
+			((m.Route.FromConnector() && t.Route.FromConnector()) || deliveryKey(m) == deliveryKey(t)) {
 			return m, false, nil
 		}
 		pending++
@@ -593,6 +594,9 @@ func (h *Triggers) confirm(ctx context.Context, user, id, tz string, mod func(*t
 	}
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
+	}
+	if err := h.checkLiveConnection(ctx, t); err != nil {
+		return triggers.Trigger{}, err
 	}
 	// A folder that was readable when it was proposed may be gone now, and
 	// the agent's folder may have moved or gone since.

@@ -24,12 +24,20 @@ const startLoopDescription = "Start a self-paced loop in this chat. Use it whene
 	"without it nothing runs later. prompt is what each run does; it must stand alone, because a run sees only this text and the chat. " +
 	"first_run_after is a duration such as 30s or 2m before the first run (at least the minimum the server allows, at most 24h). " +
 	"reason is one short line about what you wait for, which the person sees. " +
-	"In each run call schedule_next to run again, or loop_done when the task is complete. The person can stop the loop at any time."
+	"In each run call schedule_next to run again, or loop_done when the task is complete. The person can stop the loop at any time. " +
+	"report is optional and sends nothing by default: set it only when the person asked to be told in a messaging app. " +
+	"report.connection is the id of one of the person's connections and report.channel an approved channel of it (see the description of send_message for both); " +
+	"report.mode is on_done (the summary of loop_done), on_problem (a run fails, the loop stops at a limit, or the system stops it) or never. " +
+	"The loop shows the destination to the person."
 
 const startLoopSchema = `{"type":"object","properties":{` +
 	`"prompt":{"type":"string","description":"What each run does. It must make sense without the rest of this turn."},` +
 	`"first_run_after":{"type":"string","description":"How long to wait before the first run, such as 30s or 2m."},` +
-	`"reason":{"type":"string","maxLength":300,"description":"One short line about what you wait for."}},` +
+	`"reason":{"type":"string","maxLength":300,"description":"One short line about what you wait for."},` +
+	`"report":{"type":"object","description":"Optional. Where the loop tells the person how it ended. Leave it out to send nothing.","properties":{` +
+	`"connection":{"type":"string","description":"The id of one of the person's connections."},` +
+	`"channel":{"type":"string","description":"The name or the id of an approved channel of that connection."},` +
+	`"mode":{"type":"string","enum":["on_done","on_problem","never"]}},"required":["mode"]}},` +
 	`"required":["prompt","first_run_after"]}`
 
 const scheduleNextDescription = "Say when the self-paced loop of this chat runs again. Call it once at the end of a loop run, " +
@@ -258,6 +266,11 @@ func (h *Loops) loopDone(ctx context.Context, a workspace.Actor, raw json.RawMes
 		return "", err
 	}
 	h.publish(l.Owner, l.ChatID)
+	done := strings.TrimSpace(args.Summary)
+	if done == "" {
+		done = "the task is complete."
+	}
+	h.report(l, loops.ReportOnDone, "done. "+loops.Cut(done))
 	return "The loop is stopped. Tell the person in one short sentence what it did.", nil
 }
 
@@ -266,9 +279,10 @@ func (h *Loops) loopDone(ctx context.Context, a workspace.Actor, raw json.RawMes
 // cost, and the person sees the loop and can stop it.
 func (h *Loops) startLoop(ctx context.Context, a workspace.Actor, raw json.RawMessage) (string, error) {
 	var args struct {
-		Prompt        string `json:"prompt"`
-		FirstRunAfter string `json:"first_run_after"`
-		Reason        string `json:"reason"`
+		Prompt        string      `json:"prompt"`
+		FirstRunAfter string      `json:"first_run_after"`
+		Reason        string      `json:"reason"`
+		Report        *reportArgs `json:"report"`
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
@@ -294,8 +308,16 @@ func (h *Loops) startLoop(ctx context.Context, a workspace.Actor, raw json.RawMe
 				"In a run of that loop, call schedule_next to run again or loop_done to stop it")
 		}
 	}
+	rec, err := h.chatOf(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return "", err
+	}
+	report, err := h.checkReport(ctx, a.Principal, rec.AgentID, args.Report)
+	if err != nil {
+		return "", fmt.Errorf("no loop was started: %w", err)
+	}
 	wait := loops.Clamp(d, lim.MinInterval)
-	l, err := h.begin(ctx, a.Principal, a.ChatID, LoopInput{Prompt: args.Prompt}, &modelStart{wait: wait, reason: args.Reason})
+	l, err := h.begin(ctx, a.Principal, a.ChatID, LoopInput{Prompt: args.Prompt}, &modelStart{wait: wait, reason: args.Reason, report: report})
 	switch {
 	case errors.Is(err, loops.ErrTooManyInChat):
 		return "", fmt.Errorf("no loop was started: this chat has %d loops, the most it may have. Tell the person; they can stop one", lim.PerChat)
@@ -309,5 +331,17 @@ func (h *Loops) startLoop(ctx context.Context, a workspace.Actor, raw json.RawMe
 	if wait != d {
 		out += fmt.Sprintf(" The wait was set to %s: it must be from %s to 24h.", loops.ShortDuration(wait), loops.ShortDuration(lim.MinInterval))
 	}
+	if report != nil {
+		v := h.ReportOf(ctx, l)
+		out += fmt.Sprintf(" The loop will report to the channel %s of the connection %s (%s). The person sees this on the loop.",
+			firstNonEmpty(v.ChannelLabel, report.Channel), firstNonEmpty(v.ConnectionName, report.Connection), report.Mode)
+	}
 	return out, nil
+}
+
+func firstNonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
 }

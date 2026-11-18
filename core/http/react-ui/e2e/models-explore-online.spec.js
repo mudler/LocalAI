@@ -462,18 +462,15 @@ test.describe('Explore: All covers the online sources', () => {
 
     await expect(page.getByRole('button', { name: 'All libraries' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page).not.toHaveURL(/source=/)
-    // One table, in this order: library rows, the two headings with their rows.
-    const order = await page.locator('[data-testid="discover-rail"] tbody tr').evaluateAll(trs => trs.map(tr => (
-      tr.getAttribute('data-section') && tr.getAttribute('data-testid') === 'discover-section-heading' ? `#${tr.getAttribute('data-section')}` : (tr.getAttribute('data-entity') || '')
-    )).filter(Boolean))
-    const hf = order.indexOf('#huggingface')
-    const pf = order.indexOf('#pirateface')
-    expect(order.indexOf('qwen3-8b-instruct')).toBeLessThan(hf)
-    expect(hf).toBeLessThan(order.indexOf('huggingface:acme/Tiny-GGUF'))
-    expect(order.indexOf('huggingface:acme/Locked-GGUF')).toBeLessThan(pf)
-    expect(pf).toBeLessThan(order.indexOf('pirateface:acme/Peer'))
-    await expect(section(page, 'huggingface')).toContainText('From Hugging Face')
-    await expect(section(page, 'pirateface')).toContainText('From Pirate Face')
+    // One list, in this order: library rows, then Hugging Face, then Pirate Face,
+    // with no heading rows; each row names its origin.
+    const order = await page.locator('[data-testid="discover-rail"] tbody tr[data-entity]').evaluateAll(trs => trs.map(tr => tr.getAttribute('data-entity')))
+    expect(order.indexOf('qwen3-8b-instruct')).toBeLessThan(order.indexOf('huggingface:acme/Tiny-GGUF'))
+    expect(order.indexOf('huggingface:acme/Locked-GGUF')).toBeLessThan(order.indexOf('pirateface:acme/Peer'))
+    await expect(page.getByTestId('discover-section-heading')).toHaveCount(0)
+    await expect(row(page, 'qwen3-8b-instruct').getByTestId('row-origin')).toHaveText('Gallery')
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF').getByTestId('row-origin')).toHaveText('Hugging Face')
+    await expect(row(page, 'pirateface:acme/Peer').getByTestId('row-origin')).toHaveText('Pirate Face')
 
     // One request per source, a short page each.
     const asked = Object.fromEntries(seen.search.map(q => [q.get('providers'), q]))
@@ -576,7 +573,7 @@ test.describe('Explore: All covers the online sources', () => {
     await expect(page).not.toHaveURL(/source=/)
     await expect(row(page, 'qwen3-8b-instruct')).toBeVisible()
     await expect(row(page, 'pirateface:acme/Peer')).toBeVisible()
-    await expect(section(page, 'huggingface')).toBeVisible()
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible()
   })
 
   test('a library chip keeps the online sections out, and the address keeps the term under All', async ({ page }) => {
@@ -588,10 +585,10 @@ test.describe('Explore: All covers the online sources', () => {
     await page.goto('/app/models?q=qwen')
     await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible({ timeout: 15_000 })
     await page.getByRole('button', { name: 'Official model library' }).click()
-    await expect(section(page, 'huggingface')).toHaveCount(0)
-    await expect(section(page, 'pirateface')).toHaveCount(0)
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toHaveCount(0)
+    await expect(row(page, 'pirateface:acme/Peer')).toHaveCount(0)
     await page.getByRole('button', { name: 'All libraries' }).click()
-    await expect(section(page, 'huggingface')).toBeVisible()
+    await expect(row(page, 'huggingface:acme/Tiny-GGUF')).toBeVisible()
   })
 })
 

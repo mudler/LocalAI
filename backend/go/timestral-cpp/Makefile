@@ -13,7 +13,7 @@
 # The default target does the clone-at-pin and cmake build, so CI needs no
 # side checkout.
 
-TIMESTRAL_VERSION?=6c0ee070de54e9b2611ea90696dee3a41178700c
+TIMESTRAL_VERSION?=500884a308632a2b11d3691284662e7c84da58cc
 TIMESTRAL_REPO?=https://github.com/mudler/timestral.cpp
 
 GOCMD?=go

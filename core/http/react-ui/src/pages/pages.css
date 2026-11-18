@@ -286,6 +286,8 @@
 .pg-badge--warn, .pg-pill--warn { border-color: var(--color-warning-border); background: var(--color-warning-light); color: var(--dk-warn-text); }
 .pg-badge--ok, .pg-pill--ok { border-color: var(--color-success-border); background: var(--color-success-light); color: var(--color-success); }
 .pg-pill--plain { border-color: transparent; padding-inline: 4px; color: var(--color-text-muted); }
+.pg-badge--plain { border-color: var(--color-border-default); color: var(--color-text-secondary); }
+.pg-badge--plain b { font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
 
 .pg-menu { position: relative; display: inline-flex; }
 .pg-menu__list {

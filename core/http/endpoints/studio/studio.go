@@ -62,7 +62,7 @@ type Handlers struct {
 func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 	h := &Handlers{svc: svc, models: models, previews: newPreviewCache()}
 	if svc != nil {
-		h.pages = pages.New(svc.Files(), pages.WithErrorStore(svc.PageErrors()))
+		h.pages = pages.New(svc.Files(), pages.WithErrorStore(svc.PageErrors()), pages.WithUserShares(svc.UserPageSharesOn))
 		store := svc.PageConsents()
 		if store == nil {
 			store, _ = pages.NewJSONConsents("")
@@ -371,7 +371,7 @@ func (h *Handlers) Get(c echo.Context) error {
 		if err != nil {
 			return failFor(c, err)
 		}
-		out.Loops = loopsJSON(list)
+		out.Loops = loopsJSON(c.Request().Context(), host, list)
 	}
 	out.Jobs = h.jobsOf(c, user, id)
 	return c.JSON(http.StatusOK, out)

@@ -79,6 +79,9 @@
   --color-modal-backdrop: var(--dk-scrim);
 
   --color-focus-ring: var(--dk-accent);
+  /* The "AI" of the product name: logo teal on light, brand yellow on dark.
+     Both clear 4.5:1 on the canvas, the inset and the card. */
+  --color-brand-ai: var(--brand-logo-teal);
   --color-eyebrow: var(--dk-accent-text);
 
   /* Data viz: roles where one fits, fixed hues for the rest (see the
@@ -340,5 +343,6 @@
    fill and this edge, at least 3:1 against the canvas and a card. The button
    rules that read it are in packages/ui-kit/css/kit.css. */
 [data-theme="dark"] {
+  --color-brand-ai: var(--brand-yellow);
   --ctl-edge-dark: color-mix(in srgb, var(--dk-control-edge) 70%, var(--dk-edge));
 }

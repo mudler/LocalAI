@@ -1,2 +1,2 @@
-git+https://github.com/Blaizzy/mlx-audio
+git+https://github.com/Blaizzy/mlx-audio@4db39099e86a0d9314308539207a4b875f811764
 mlx[cuda12]

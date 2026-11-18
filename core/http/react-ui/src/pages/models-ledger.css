@@ -342,6 +342,19 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-name__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ledger-name__pin { flex: none; display: inline-flex; color: var(--dk-muted); font-size: 13px; }
 .ledger-table .dk-table-sub { max-width: none; }
+.ledger-origin {
+  flex: none;
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--dk-border);
+  border-radius: var(--dk-radius-1);
+  color: var(--dk-muted);
+  font-family: var(--dk-font-body, var(--dk-font-sans, sans-serif));
+  font-size: var(--dk-text-11, 11px);
+  line-height: 16px;
+  white-space: nowrap;
+}
 .ledger-builds::before { content: "\00a0\00b7\00a0"; }
 
 .ledger-size { color: var(--dk-text); }

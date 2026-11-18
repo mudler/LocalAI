@@ -5,17 +5,14 @@ weight = 70
 aliases = ["/features/pikvm/"]
 +++
 
-In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
-
 ## At a glance
 
 | Topic | Detail |
 |---|---|
 | What it adds | Tools to check a PiKVM and the machine it controls. If you allow it, press its power buttons and type on its keyboard, with a confirmation each time unless you say otherwise. |
-| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
-| Who turns it on | A person needs the `addons` feature. It is off by default for new users on a server with accounts. The person switches the add-on on for a chat in the **Tools** menu. A saved agent uses it only when you name it in the agent. A person adds a connection: a user name, a password and the address of the device. |
+| Needs | A connection with the device address, a user name and a password. |
 
-The PiKVM add-on lets your [chats]({{% relref "/features/chats-and-agents/chats" %}}) and [saved agents]({{% relref "/features/chats-and-agents/chats-agents" %}}) look at a [PiKVM](https://pikvm.org) (or another device that runs the kvmd API) and the machine it controls: is it on, what is the device, is the keyboard connected. If you allow it, they can also press the power buttons of that machine and type on its keyboard. A **person confirms those actions** unless you choose otherwise for power actions and key presses (see [Not asking for some actions](#not-asking-for-some-actions) and [Allow all](#allow-all)), and typing and forced power actions are off until an administrator switches them on.
+Ask your [chats]({{% relref "/features/chats-and-agents/chats" %}}) and [saved agents]({{% relref "/features/chats-and-agents/chats-agents" %}}) about a [PiKVM](https://pikvm.org) (or another device that runs the kvmd API) and the machine it controls: is it on, what is the device, is the keyboard connected. If you allow it, they can also press the power buttons of that machine and type on its keyboard. A **person confirms those actions** unless you choose otherwise for power actions and key presses (see [Not asking for some actions](#not-asking-for-some-actions) and [Allow all](#allow-all)), and typing and forced power actions are off until an administrator switches them on.
 
 A chat can answer questions such as:
 
@@ -25,14 +22,14 @@ A chat can answer questions such as:
 
 ## Set it up
 
-1. Install the **PiKVM** add-on from the add-on gallery and open its page.
+1. Install the **PiKVM** add-on from **Find add-ons** and open its page.
 2. On the PiKVM, add a user for LocalAI: switch the filesystem to read-write with `rw`, run `kvmd-htpasswd add localai`, then `ro`. See [the PiKVM authentication guide](https://docs.pikvm.org/auth/).
    A PiKVM has no per-user rights: every user can do everything. A dedicated user does not limit what the add-on can do, but you can remove it on its own. The limits of the add-on (below) are the only ones.
 3. Get the fingerprint of the certificate of the PiKVM (see [The certificate](#the-certificate)).
 4. On the add-on page, choose **New PiKVM connection**. Type the user name, the password and the address, for example `https://pikvm.local#sha256=<fingerprint>`. Press **Test**: the row shows the model and the kvmd version if the address and the login work.
 5. Leave the **write mode** on **Read only** until you have read the limits on this page.
 
-One connection is one device. For a second device, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
+One connection is one device. For a second device, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats-commands#the-connections-of-an-add-on" %}})). With two or more enabled, the model names the connection in each call.
 
 ### The user and the password
 
@@ -44,10 +41,10 @@ The add-on sends the user and the password in the `X-KVMD-User` and `X-KVMD-Pass
 
 ### How the address is kept
 
-The address is not a secret, so it is not stored with the password. The connection lists it as its one allowed resource, the same list the GitHub, Jellyfin and Home Assistant add-ons use. Every tool takes a `device` argument. LocalAI compares it with the address on the connection before the add-on is called and refuses any other, so a model cannot send the password to another host. The add-on talks only to that address:
+LocalAI keeps the address separate from the password. Every tool takes a `device` argument, and LocalAI refuses any call that names a different address, so a model can't send the password elsewhere. The add-on talks only to that address:
 
 - The address is `https`. Plain `http` is accepted only for an address on your own network (a private IP address, a single-word name, or a name ending in `.local`, `.lan`, `.home`, `.internal` or `.home.arpa`), because the login travels in headers.
-- A reply that redirects is an error. The password is never sent to another host.
+- If the device answers with a redirect, the call fails. The password is never sent to another host.
 - The add-on does not use a proxy of the environment.
 
 ### The certificate
@@ -139,7 +136,7 @@ The switches are on the add-on page, under the connections. Everyone who opens t
 | Longest typed text | 200 characters (1 to 1000) |
 | Allow hard power actions | off |
 
-The add-on asks the host, through the `workspace.admin` operation, whether the person who saves the switches is an administrator. The shipped host policy (`deploy/addons/host-policy.json`) grants it. Without that grant, the switches can be read and not changed. A settings file that cannot be read leaves every switch off. They are kept in `settings.json` in the add-on's data folder; the add-on runs one process for the server.
+Only an administrator can change the switches. Other users can read them. A settings file that can't be read leaves every switch off. They are kept in `settings.json` in the add-on's data folder; the add-on runs one process for the server.
 
 ## What is not supported
 
@@ -149,14 +146,3 @@ The add-on asks the host, through the `workspace.admin` operation, whether the p
 - **Changes to the users or the configuration of the device.**
 - **Two-factor login.** See above.
 - Windows and Meta key chords.
-
-## Not verified without a real device
-
-The tests run against a fake that speaks the parts of the kvmd API listed above, as [the PiKVM API reference](https://docs.pikvm.org/api/) describes them. A real PiKVM can still differ. Check these on a device you can reach before you rely on the add-on:
-
-1. The Test shows the model and the version (`GET /api/info`; the add-on reads `hw.platform` and `system` leniently).
-2. `get-power-state` follows the real power LED.
-3. A soft `off` and an `on` change a spare machine, and `reset` restarts it.
-4. `type-text` types a short text with the layout you expect. The add-on does not set a keymap: the PiKVM default applies.
-5. `send-key` presses `escape` and `ctrl+alt+delete`.
-6. With a wrong pin, the connection is refused before the password is sent.

@@ -86,7 +86,7 @@ export function useTilePage(ref, { widget = true } = {}) {
     if (!src) return false
     setSheet((s) => ({ ...s, busy: true, error: '' }))
     try {
-      const res = await sharedPagesApi.allow(ref.folder, ref.name, src.page.hash, { once, embed: !once })
+      const res = await sharedPagesApi.allow(ref.folder, ref.name, src.page.hash, { once, embed: !once && src.page.user_shared !== true })
       setRun({ html: src.html, page: src.page, hash: res.hash, token: res.token || '' })
       setRead((r) => ({ ...r, consent: once ? r.consent : 'allowed', embed: once ? r.embed : true, once }))
       setSheet({ open: false, source: false, busy: false, error: '' })
@@ -109,5 +109,10 @@ export function useTilePage(ref, { widget = true } = {}) {
 
   // A visit allowed once runs although the tile state still asks.
   const runnable = (state === 'ready' || (read.once && run)) && (!ref?.folder || !!run)
-  return { read, state, run, runnable, files, frameRef, load, allow, onRefused, sheet, openSheet, closeSheet, showSource }
+  // A page that a person shared, or an own page that others may edit, never
+  // runs on its own: a tile says it must be opened. The server ignores an embed consent for these pages.
+  const openOnly = ref?.folder ? read.page?.user_shared === true : read.page?.others_can_edit === true
+  // The own page whose others may edit (its words differ from a shared page).
+  const ownEdit = !ref?.folder && read.page?.others_can_edit === true
+  return { read, state, run, runnable, openOnly, ownEdit, files, frameRef, load, allow, onRefused, sheet, openSheet, closeSheet, showSource }
 }

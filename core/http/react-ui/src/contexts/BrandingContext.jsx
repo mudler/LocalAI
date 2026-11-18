@@ -11,6 +11,13 @@ export const DEFAULT_BRANDING = {
   faviconUrl: '/favicon.svg',
 }
 
+// The name is the bundled one: only then is it safe to draw the brand colour
+// on it, and to show the product mascot. An operator-set name or logo is
+// never second-guessed.
+export const isDefaultName = (name) => name === DEFAULT_BRANDING.instanceName
+export const isDefaultBranding = (b) =>
+  isDefaultName(b?.instanceName) && b?.logoUrl === DEFAULT_BRANDING.logoUrl
+
 const BrandingContext = createContext(null)
 
 // Reads /api/branding (public — works pre-auth so the login screen renders

@@ -266,6 +266,8 @@ type modelStart struct {
 	// watch makes the loop a wait: wait is then its check interval, and the
 	// first check is due at once.
 	watch *loops.Watch
+	// report is where the loop tells the person how it ended; nil: nowhere.
+	report *loops.Report
 }
 
 // begin is Start. A non-nil by makes it the start of a model.
@@ -308,6 +310,7 @@ func (h *Loops) begin(ctx context.Context, user, conv string, in LoopInput, by *
 		State: loops.StatePending, Created: now, Updated: now}
 	switch {
 	case by != nil:
+		l.Report = by.report
 		l.State, l.Next, l.Scheduled, l.Wait = loops.StateActive, now.Add(by.wait), true, loops.Cut(by.reason)
 		if by.watch != nil {
 			l.Interval, l.Next, l.Watch = by.wait, now, by.watch
@@ -829,7 +832,10 @@ func (h *Loops) finish(id string, failed bool, why string) {
 		return
 	}
 	most := h.maxRunsFor(ctx, cur.Owner, cur.ChatID, lim)
+	// problem is what the on_problem report says, when this end of a run is one.
+	problem := ""
 	l, err := h.o.Store.Update(ctx, id, func(c *loops.Loop) error {
+		problem = ""
 		if !c.Running {
 			return errLoopSkip
 		}
@@ -850,9 +856,11 @@ func (h *Loops) finish(id string, failed bool, why string) {
 			if why != "" {
 				c.Reason = loops.Cut(c.Reason + " Last error: " + why)
 			}
+			problem = c.Reason
 		case c.Runs >= most:
 			c.State, c.Next = loops.StateEnded, time.Time{}
 			c.Reason = fmt.Sprintf("Stopped after %d runs, the most a loop may make.", most)
+			problem = c.Reason
 		case c.Watch != nil && failed:
 			// The wake-up run failed: ask again, the wake-up text is kept.
 			c.Next = now.Add(lim.MinInterval)
@@ -864,10 +872,17 @@ func (h *Loops) finish(id string, failed bool, why string) {
 		case c.SelfPaced() && !c.Scheduled:
 			c.State, c.Next = loops.StateEnded, time.Time{}
 			c.Reason = "Stopped: the model did not ask for another run."
+			problem = c.Reason
 		case c.SelfPaced():
 			// schedule_next set Next
 		default:
 			c.Next = loops.NextSlot(c.LastRun, c.Interval, now)
+		}
+		if failed && problem == "" && c.State != loops.StateEnded {
+			problem = "a run failed."
+			if why != "" {
+				problem = loops.Cut("a run failed: " + why)
+			}
 		}
 		return nil
 	})
@@ -879,6 +894,9 @@ func (h *Loops) finish(id string, failed bool, why string) {
 	}
 	if l.State == loops.StateEnded {
 		h.pruneEnded(ctx, l.Owner, l.ChatID)
+	}
+	if problem != "" {
+		h.report(l, loops.ReportOnProblem, "problem. "+problem)
 	}
 	h.publish(l.Owner, l.ChatID)
 	h.Notify()
@@ -912,13 +930,14 @@ func (h *Loops) end(ctx context.Context, id, reason string) {
 		return
 	}
 	h.pruneEnded(ctx, l.Owner, l.ChatID)
+	h.report(l, loops.ReportOnProblem, "problem. "+l.Reason)
 	h.publish(l.Owner, l.ChatID)
 	h.release(l.Owner, l.ChatID, store.TurnDone)
 }
 
 // pause pauses a loop with a reason.
 func (h *Loops) pause(ctx context.Context, l loops.Loop, reason string) {
-	_, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
+	paused, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
 		if c.State != loops.StateActive {
 			return errLoopSkip
 		}
@@ -926,6 +945,7 @@ func (h *Loops) pause(ctx context.Context, l loops.Loop, reason string) {
 		return nil
 	})
 	if err == nil {
+		h.report(paused, loops.ReportOnProblem, "problem. "+paused.Reason)
 		h.publish(l.Owner, l.ChatID)
 		h.release(l.Owner, l.ChatID, store.TurnFailed)
 	}

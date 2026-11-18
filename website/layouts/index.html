@@ -3,36 +3,71 @@
 {{- $eng := len hugo.Data.engines.engines -}}
 <main id="main">
 
+<aside class="notice" aria-label="Release status"><div class="shell"><p><b>In development builds:</b> Projects, the desktop app, Office, Sandbox, Team, Pages and add-ons. The latest release is 4.12.1. <a href="#whats-new">See what is new</a></p></div></aside>
+
 <section class="hero">
   <div class="shell duo">
     <div>
-      <a class="news" href="#whats-new"><b>New</b><span>Office, Sandbox, Team and add-ons (development builds)</span><span aria-hidden="true">&rarr;</span></a>
       <h1>Your own AI, on your own hardware.</h1>
-      <p class="hero__line">Ready to <span class="hl">work</span> for you.</p>
-      <p class="lede">LocalAI runs open models on your own machine. Chat, work with your files, make Office documents and connect your chat apps. Free and open source.</p>
-      <p class="need need--dev">Files, Office and chat apps: in development builds, coming in the next release.</p>
+      <p class="lede">Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, and the assistant can write and run code.</p>
+      <p class="alts hero__oss">Open source under the MIT licence. {{ if ge $s.stars 50000 }}{{ lang.FormatNumberCustom 0 (mul (div $s.stars 1000) 1000) }}+{{ else }}{{ lang.FormatNumberCustom 0 $s.stars }}{{ end }} <a href="{{ .Site.Params.github }}">stars on GitHub</a>.</p>
       <div class="acts">
         <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
         <a class="btn btn--o" href="#whats-new">See what is new</a>
       </div>
       <div class="cmd"><span class="p" aria-hidden="true">$</span><code>curl -sSL https://localai.io/install.sh | sh</code><button class="cpy" type="button" data-copy="curl -sSL https://localai.io/install.sh | sh" aria-label="Copy the install command">copy</button></div>
+      <div class="hero__dl">{{ partial "download-buttons.html" (dict "site" . "cls" "btn btn--o" "id" "hero") }}</div>
       <p class="alts">Or a <a href="{{ .Site.Params.docsURL }}start/install/containers/">container</a>, the <a href="{{ .Site.Params.docsURL }}start/install/desktop/">desktop app</a> or <a href="{{ .Site.Params.docsURL }}start/install/kubernetes/">Kubernetes</a>. Then open <code>http://localhost:8080</code>.</p>
     </div>
-    <figure class="scene"><img src="{{ "img/scenes/scene-s9-close.jpg" | relURL }}" width="1024" height="576" alt="The LocalAI llama, a blue wool llama in teal sunglasses with a badge on a lanyard, standing in warm sunlight."></figure>
+    <div class="heroFilm">
+      <figure class="film-hero" data-film>
+        <video controls playsinline preload="none" poster="{{ "media/hand-it-over.jpg" | relURL }}" aria-label="Hand it over, the LocalAI film: a llama director and a coworker in a dinosaur costume get a premiere ready by five o'clock. It has sound.">
+          <source src="{{ "media/hand-it-over.mp4" | relURL }}" type="video/mp4">
+        </video>
+        <button class="film-play" type="button" data-film-play aria-label="Watch the film, with sound"><span class="film-play__i" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span>Watch the film</span></button>
+      </figure>
+      <p class="fine film-note">42 seconds. We made this film with LocalAI: the pictures, the voices and the music.</p>
+    </div>
   </div>
 </section>
 
 <section class="facts" aria-label="At a glance">
   <div class="shell facts__g">
     <div><b>CPU or GPU</b>NVIDIA, AMD, Intel and Apple</div>
-    <div><b>{{ $eng }} own engines</b>Written by the team, mostly in C++</div>
-    <div><b>Your server</b>Files stay on your hardware</div>
+    <div><b>{{ $eng }} engines we wrote</b>C++ and GGML, with no Python at inference</div>
+    <div><b>OpenAI-compatible</b>Also Anthropic and ElevenLabs formats</div>
     <div><b>MIT licence</b>Open since March 2023, {{ lang.FormatNumberCustom 0 $s.stars }} stars</div>
   </div>
 </section>
 
+<section class="api band-inset" id="api">
+  <div class="shell duo duo--wide">
+    <div class="rv">
+      <p class="kicker">One API</p>
+      <h2>Change the <span class="hl">base URL</span>. Keep your client.</h2>
+      <p class="lede">Any OpenAI client works. The same server also does speech, images, video and music.</p>
+      <p class="links"><a href="{{ .Site.Params.docsURL }}start/try-it-out/">Try the API &rarr;</a><a href="{{ .Site.Params.docsURL }}api/">API docs &rarr;</a></p>
+    </div>
+    <div class="rv">
+      <div class="term"><div class="term__b"><span>python</span><button class="cpy" type="button" data-copy="from openai import OpenAI&#10;client = OpenAI(base_url=&quot;http://localhost:8080/v1&quot;, api_key=&quot;none&quot;)&#10;chat = client.chat.completions.create(model=&quot;gemma-4-e2b-it-qat-q4_0&quot;, messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello&quot;}])&#10;print(chat.choices[0].message.content)&#10;text = client.audio.transcriptions.create(model=&quot;whisper-1&quot;, file=open(&quot;meeting.mp3&quot;, &quot;rb&quot;)).text&#10;print(text)" aria-label="Copy the code">copy</button></div>
+<pre><span class="p">1</span> from openai import OpenAI
+<span class="p">2</span> client = OpenAI(
+<span class="p">&nbsp;</span>     <b>base_url="http://localhost:8080/v1"</b>,
+<span class="p">&nbsp;</span>     api_key="none")
+<span class="p">3</span> chat = client.chat.completions.create(
+<span class="p">&nbsp;</span>     model="gemma-4-e2b-it-qat-q4_0",
+<span class="p">&nbsp;</span>     messages=[{"role": "user", "content": "Hello"}])
+<span class="p">4</span> print(chat.choices[0].message.content)
+<span class="p">5</span> text = client.audio.transcriptions.create(
+<span class="p">&nbsp;</span>     model="whisper-1", file=open("meeting.mp3", "rb")).text
+<span class="p">6</span> print(text)</pre></div>
+      <p class="fine">Both models come from the gallery. For the second call, install <code>whisper-1</code> from the gallery.</p>
+    </div>
+  </div>
+</section>
+
 {{ range $i, $f := hugo.Data.home.sections }}
-<section class="feat{{ if eq (mod $i 2) 0 }} band-inset{{ end }}" id="{{ $f.id }}"{{ if eq $i 0 }} aria-labelledby="h-{{ $f.id }}"{{ end }}>
+<section class="feat{{ if eq (mod $i 2) 1 }} band-inset{{ end }}" id="{{ $f.id }}"{{ if eq $i 0 }} aria-labelledby="h-{{ $f.id }}"{{ end }}>
   <div class="shell duo duo--wide{{ if eq (mod $i 2) 1 }} flip{{ end }}">
     <div class="rv">
       <p class="kicker">{{ $f.kicker }}</p>
@@ -40,10 +75,9 @@
       <p class="lede">{{ $f.lede }}</p>
       <ul class="ticks">{{ range $f.points }}<li>{{ replace . "{{engines}}" (string $eng) }}</li>{{ end }}</ul>
       {{ with $f.need }}<p class="need">{{ . }}</p>{{ end }}
-      {{ if $f.dev }}<p class="need need--dev">In development builds, coming in the next release.</p>{{ end }}
       <p class="links">{{ range $f.links }}<a href="{{ if hasPrefix .href "/" }}{{ .href }}{{ else }}{{ .href | relURL }}{{ end }}">{{ .t }} &rarr;</a>{{ end }}</p>
     </div>
-    <div class="rv">{{ partial "demo-slot.html" (dict "kind" $f.illus "demo" $f.demo "alt" (printf "%s: a short demo" $f.kicker)) }}</div>
+    <div class="rv">{{ partial "demo-slot.html" (dict "kind" $f.illus "shot" $f.shot "demo" $f.demo "alt" (or $f.alt (printf "%s: a short demo" $f.kicker))) }}</div>
   </div>
 </section>
 {{ end }}
@@ -51,10 +85,9 @@
 <section class="grid5" id="whats-new">
   <div class="shell">
     <h2>Everything <span class="hl">new</span>.</h2>
-    <p class="lede">Each card opens the page that says how to use it.</p>
     <div class="cards">
       {{ range hugo.Data.home.cards }}
-      <a class="card" href="{{ .href }}"><span class="ic">{{ partial "icon.html" .icon }}</span><h3>{{ .t }}</h3><p>{{ .p }}</p>{{ if .dev }}<span class="devtag">In development builds</span>{{ end }}<span class="go">Docs &rarr;</span></a>
+      <a class="card" href="{{ .href }}"><span class="ic">{{ partial "icon.html" .icon }}</span><h3>{{ .t }}</h3><p>{{ .p }}</p><span class="go">Docs &rarr;</span></a>
       {{ end }}
     </div>
   </div>
@@ -64,9 +97,10 @@
   <div class="shell duo">
     <div class="rv">
       <p class="kicker">Get started</p>
-      <h2>Install in a <span class="hl">minute</span>.</h2>
-      <p class="lede">macOS app, Linux script, Docker or Kubernetes. Backends download the first time a model needs one.</p>
-      <div class="acts"><a class="btn" href="{{ "get-started/" | relURL }}">Get started</a><a class="btn btn--o" href="{{ "download/" | relURL }}">All downloads</a></div>
+      <h2>Install with <span class="hl">one command</span>.</h2>
+      <p class="lede">Install a server with a script, Docker or Kubernetes, or use the desktop app. Backends download the first time a model needs one.</p>
+      {{ partial "download-app.html" . }}
+      <div class="acts"><a class="btn btn--o" href="{{ "get-started/" | relURL }}">Get started</a><a class="btn btn--o" href="{{ "download/" | relURL }}">All downloads</a></div>
     </div>
     <div class="rv">{{ partial "install.html" . }}</div>
   </div>
@@ -74,7 +108,7 @@
 
 <section class="band-sun endcard">
   <div class="shell">
-    <h2>Ready to <span class="hl">work</span> for you.</h2>
+    <h2>One command to <span class="hl">install</span>.</h2>
     <p><span class="url-pill">localai.io</span></p>
     <div class="acts"><a class="btn" href="{{ "get-started/" | relURL }}">Get started</a></div>
   </div>

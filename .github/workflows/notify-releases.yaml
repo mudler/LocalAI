@@ -16,7 +16,7 @@ jobs:
     steps:
     - uses: mudler/localai-github-action@v1
       with:
-        model: 'gemma-3-12b-it-qat' # Any from models.localai.io, or from huggingface.com with: "huggingface://<repository>/file"
+        model: 'gemma-3-12b-it-qat' # Any from the model gallery, or from huggingface.com with: "huggingface://<repository>/file"
     - name: Summarize
       id: summarize
       run: |

@@ -87,6 +87,25 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(got.Watch).To(BeNil())
 	})
 
+	It("keeps the report of a loop through Add, Update and Get", func() {
+		l := sample("r1", "u1", "c1", 0)
+		l.Report = &loops.Report{Connection: "conn1", Channel: "G1", Mode: loops.ReportOnProblem}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "r1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Report).To(Equal(&loops.Report{Connection: "conn1", Channel: "G1", Mode: loops.ReportOnProblem}))
+		got, err = s.Update(ctx, "r1", func(c *loops.Loop) error {
+			c.Reason = "x"
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Report).NotTo(BeNil(), "an update that does not touch the report keeps it")
+		plain := sample("r2", "u1", "c1", 1)
+		Expect(s.Add(ctx, plain, loops.Limits{})).To(Succeed())
+		got, _ = s.Get(ctx, "r2")
+		Expect(got.Report).To(BeNil())
+	})
+
 	It("keeps the job fields of a wait through Add, Update and Get", func() {
 		l := sample("j1", "u1", "c1", 0)
 		l.Watch = &loops.Watch{Job: "job-ab12cd", JobLabel: "build", Node: "addon:sandbox@3", Mode: loops.UntilStall, Idle: 10 * time.Minute,

@@ -46,6 +46,9 @@
       "deliveryChat": "Questa chat",
       "deliveryThread": "Questo thread",
       "deliveryChannel": "{{channel}}, in cima al canale",
+      "deliveryChannelIn": "{{channel}} in {{connection}}, in cima al canale",
+      "deliveryModeOnChange": "Solo quando la risposta è diversa dall'esecuzione precedente.",
+      "deliveryModeOnProblem": "Solo quando un'esecuzione fallisce. Un'esecuzione riuscita non segnala nulla.",
       "stopLabel": "Per fermarlo",
       "when": "{{schedule}}, {{zone}}. Prima esecuzione {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -890,6 +893,10 @@
       "next": "prossima alle {{time}}",
       "ended": "terminato",
       "wait": "In attesa di: {{wait}}"
+    },
+    "report": {
+      "on_done": "Avvisa a fine lavoro: {{channel}} · {{connection}}",
+      "on_problem": "Avvisa se c'è un problema: {{channel}} · {{connection}}"
     },
     "actions": {
       "pause": "Pausa",

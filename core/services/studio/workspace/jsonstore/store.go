@@ -320,7 +320,7 @@ func (d *data) restore(snap snapshot) {
 		d.addSet(snap.Sets[i])
 	}
 	for _, g := range snap.Grants {
-		d.grants[grantKey{g.Principal, g.Node}] = g.Mode
+		d.putGrant(g)
 	}
 }
 
@@ -366,11 +366,7 @@ func (d *data) apply(rec record) {
 		d.addSet(*rec.Set)
 	}
 	for _, g := range rec.Grants {
-		if g.Mode == workspace.ModeNone {
-			delete(d.grants, grantKey{g.Principal, g.Node})
-			continue
-		}
-		d.grants[grantKey{g.Principal, g.Node}] = g.Mode
+		d.putGrant(g)
 	}
 }
 
@@ -481,7 +477,7 @@ func (d *data) snapshot() snapshot {
 		snap.Sets = append(snap.Sets, *d.sets[rev])
 	}
 	for k, m := range d.grants {
-		snap.Grants = append(snap.Grants, grantRec{Principal: k.Principal, Node: k.Node, Mode: m})
+		snap.Grants = append(snap.Grants, grantRec{Principal: k.Principal, Node: k.Node, Mode: workspace.StoredMode(m), Page: d.pages[k]})
 	}
 	slices.SortFunc(snap.Grants, func(a, b grantRec) int {
 		return cmp.Or(cmp.Compare(a.Node, b.Node), cmp.Compare(a.Principal, b.Principal))

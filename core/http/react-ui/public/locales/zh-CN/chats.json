@@ -46,6 +46,9 @@
       "deliveryChat": "此聊天",
       "deliveryThread": "此线程",
       "deliveryChannel": "{{channel}}，频道顶层",
+      "deliveryChannelIn": "{{connection}} 中的 {{channel}}，频道顶层",
+      "deliveryModeOnChange": "仅当答案与上一次运行不同时。",
+      "deliveryModeOnProblem": "仅当运行失败时。成功的运行不会报告任何内容。",
       "stopLabel": "如何停止",
       "when": "{{schedule}}，{{zone}}。首次运行 {{when}}。",
       "whenNoFirst": "{{schedule}}，{{zone}}。",
@@ -890,6 +893,10 @@
       "next": "下次 {{time}}",
       "ended": "已结束",
       "wait": "正在等待：{{wait}}"
+    },
+    "report": {
+      "on_done": "完成时通知：{{channel}} · {{connection}}",
+      "on_problem": "出现问题时通知：{{channel}} · {{connection}}"
     },
     "actions": {
       "pause": "暂停",

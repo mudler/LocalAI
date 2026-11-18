@@ -165,6 +165,13 @@ var humanOnlyChatsRoutes = map[string]bool{
 	"PUT /api/chats/files/shares/:id/grants/:principal":    true,
 	"DELETE /api/chats/files/shares/:id/grants/:principal": true,
 	"GET /api/chats/files/shares/:id/users":                true,
+	// Sharing a page and allowing it to run are the owner's decisions too.
+	"PUT /api/chats/pages/:name/consent":              true,
+	"DELETE /api/chats/pages/:name/consent":           true,
+	"GET /api/chats/pages/shares/search":              true,
+	"GET /api/chats/pages/:name/shares":               true,
+	"PUT /api/chats/pages/:name/shares":               true,
+	"DELETE /api/chats/pages/:name/shares/:principal": true,
 }
 
 // A route's answer in each mode. The expectations below do not depend on what

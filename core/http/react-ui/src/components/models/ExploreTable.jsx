@@ -59,12 +59,16 @@ function SkeletonRows({ count = 8 }) {
 // (the same functions the page passes for an online table: `estimates`,
 // `pending`, `isInstalling`, `progressOf`, `failedOp`, `onInstall`, `onRetry`),
 // while `models` keep using the props above.
+//
+// `mixed` makes a search one list: the section heading rows go away, every row
+// carries a small badge with its origin (the gallery, or the online source),
+// and a section that is still loading shows placeholder rows in place.
 export default function ExploreTable({
   models, loading, grouped, collapsedGroups, onToggleGroup,
   selectedName, onSelect, onOpen, onInstall, onRetry,
   estimates, pendingEstimates, contextSize, contextLabel, budget, ramAvailable,
   isInstalling, progressOf, failedOp,
-  sort, order, onSort, density, heading, onRowVisible, sections: onlineSections = [], remoteOps, t,
+  sort, order, onSort, density, heading, onRowVisible, sections: onlineSections = [], remoteOps, mixed = false, t,
 }) {
   const bodyRef = useRef(null)
   useRestoreRowFocus(selectedName, bodyRef)
@@ -158,8 +162,14 @@ export default function ExploreTable({
           <span className="ledger-mark" aria-hidden="true"><Icon name="check" /></span>
         </td>
         <td className="ledger-name-cell">
-          <span className="dk-table-name ledger-name"><span className="ledger-name__text">{title}</span></span>
+          <span className="dk-table-name ledger-name"><span className="ledger-name__text">{title}</span>
+          </span>
           <span className="dk-table-sub" title={failed ? failed.error : undefined}>
+            {mixed && !failed && (
+              <span className="ledger-origin" data-testid="row-origin" data-origin={model.remote ? 'online' : 'gallery'}>
+                {model.remote ? (model.gallery || t('remote.originOnline')) : t('remote.originGallery')}
+              </span>
+            )}
             {failed ? failed.error : (sub || ' ')}
             {!failed && model.gated && <span className="ledger-builds ledger-builds--gated" data-testid="row-gated">{t('remote.gated')}</span>}
             {!failed && model.has_variants && <span className="ledger-builds">{t('ledger.builds')}</span>}
@@ -226,16 +236,18 @@ export default function ExploreTable({
   }
 
   const renderOnline = (sec) => [
-    <tr key={`o-${sec.id}`} className="ledger-group ledger-group--static" data-testid="discover-section-heading" data-section={sec.id}>
-      <td colSpan={5}>
-        <div className="ledger-group__toggle ledger-group__toggle--static">
-          {sec.heading.icon && <Icon name={sec.heading.icon} className="ledger-group__icon" />}
-          <span className="ledger-group__label">{sec.heading.label}</span>
-          {sec.heading.tag && <span className="ledger-group__tag">{sec.heading.tag}</span>}
-          <span className="ledger-group__count">{sec.models.length}</span>
-        </div>
-      </td>
-    </tr>,
+    ...(mixed ? [] : [(
+      <tr key={`o-${sec.id}`} className="ledger-group ledger-group--static" data-testid="discover-section-heading" data-section={sec.id}>
+        <td colSpan={5}>
+          <div className="ledger-group__toggle ledger-group__toggle--static">
+            {sec.heading.icon && <Icon name={sec.heading.icon} className="ledger-group__icon" />}
+            <span className="ledger-group__label">{sec.heading.label}</span>
+            {sec.heading.tag && <span className="ledger-group__tag">{sec.heading.tag}</span>}
+            <span className="ledger-group__count">{sec.models.length}</span>
+          </div>
+        </td>
+      </tr>
+    )]),
     ...sec.models.map(m => renderRow({ model: m, name: m.name })),
     ...(sec.loading && sec.models.length === 0
       ? Array.from({ length: 3 }, (_, i) => (

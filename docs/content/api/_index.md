@@ -6,7 +6,7 @@ type = "chapter"
 icon = "api"
 +++
 
-LocalAI serves one HTTP API. These pages describe the parts of it that need more than an endpoint list.
+Start here for function calling, realtime voice and error codes. The server also publishes an interactive reference at `/swagger/index.html`.
 
 - [OpenAI functions and tools]({{% relref "/api/openai-functions" %}}): function calling and the tools API.
 - [Realtime API]({{% relref "/api/openai-realtime" %}}): voice and text conversations over WebSocket.
@@ -16,4 +16,4 @@ LocalAI serves one HTTP API. These pages describe the parts of it that need more
 - [API errors]({{% relref "/api/api-errors" %}}): what each error code means.
 - [Integrations]({{% relref "/api/integrations" %}}): projects and tools built on LocalAI.
 
-Task pages that use the API, such as text generation, embeddings and image generation, are in [Features]({{% relref "/features" %}}). The server also publishes its own interactive API reference at `/swagger/index.html`.
+Task pages that use the API, such as text generation, embeddings and image generation, are in [Features]({{% relref "/features" %}}).

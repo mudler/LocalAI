@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import Button from '../ui/Button'
-import { barItems, groupView, isWait, jobView, loopEvery, loopSummary, pendingLoops, shortId, splitJobs, waitView } from '../../utils/chatLoops'
+import { barItems, groupView, isWait, jobView, loopEvery, loopSummary, pendingLoops, reportLine, shortId, splitJobs, waitView } from '../../utils/chatLoops'
 
 function clock(iso) {
   if (!iso) return ''
@@ -62,6 +62,7 @@ function LoopChip({ loop, chatId, chat }) {
   const { t } = useTranslation('chats')
   const ended = loop.state === 'ended'
   const label = chipText(t, loop)
+  const report = reportLine(t, loop)
   return (
     <div className={`cx-loop cx-loop--${loop.state}`} data-testid="loop-chip" data-state={loop.state} data-loop={loop.id}>
       <span className="cx-loop__main" title={loop.prompt}>
@@ -71,6 +72,12 @@ function LoopChip({ loop, chatId, chat }) {
       </span>
       {(loop.reason || loop.wait) && (
         <span className="cx-loop__why" data-testid="loop-chip-why">{loop.reason || t('loops.chip.wait', { wait: loop.wait })}</span>
+      )}
+      {report && (
+        <span className="cx-loop__report" data-testid="loop-chip-report" data-mode={loop.report.mode}>
+          <Icon name="send" className="cx-loop__icon" />
+          {report}
+        </span>
       )}
       <span className="cx-loop__acts">
         {loop.state === 'active' && (
@@ -296,6 +303,7 @@ export function LoopList({ loops, onClose }) {
                   t(`loops.state.${l.state}`),
                   t('loops.chip.run', { count: l.runs }),
                   l.next && l.state === 'active' && !l.running ? t('loops.chip.next', { time: clock(l.next) }) : '',
+                  reportLine(t, l),
                 ].filter(Boolean).join(' · ')}
               </span>
             </li>

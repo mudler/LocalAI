@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { folderLabel } from '../../hooks/useSharedPages'
+import { authorOf } from '../../utils/pages'
 
 const initials = (name) => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?'
 
@@ -58,9 +59,12 @@ function Changes({ src, t }) {
 //               which run the page as soon as the screen shows: the main button
 //               is "Allow on Home, in slots and in the dock", kept against the
 //               hash like Allow (onAllow records it)
+//               A page that a person shared (user_shared) never offers this: it
+//               is a page of someone who is not an administrator, so it only
+//               runs when opened, and the sheet shows Allow and Allow once.
 //   onCancel, onAllowOnce, onAllow, onSource
 //   covered     the source sheet is open over it: its keys belong to that sheet
-export default function TrustSheet({ src, changed, embed = false, busy, error, covered, onCancel, onAllowOnce, onAllow, onSource }) {
+export default function TrustSheet({ src, changed, embed: embedAsked = false, busy, error, covered, onCancel, onAllowOnce, onAllow, onSource }) {
   const { t, i18n } = useTranslation('pages')
   const ref = useRef(null)
   const cancelRef = useRef(null)
@@ -69,7 +73,11 @@ export default function TrustSheet({ src, changed, embed = false, busy, error, c
   const coveredRef = useRef(covered)
   coveredRef.current = covered
   const p = src.page
-  const author = p.author_name || p.author_id || t('trust.someone')
+  const userShared = p.user_shared === true
+  // An own page that others may edit: its owner allows each version too.
+  const own = !userShared && p.others_can_edit === true
+  const embed = embedAsked && !userShared && !own
+  const author = authorOf(p, t('trust.someone'))
   const folder = folderLabel(p.folder)
   const pageFolder = `${folder}/pages/${p.name}`
   const when = (ts) => {
@@ -113,7 +121,7 @@ export default function TrustSheet({ src, changed, embed = false, busy, error, c
         <div className="dk-dialog-head">
           <div>
             <h2 className="dk-dialog-title pg-trust__title" id="pg-trust-title">{title}</h2>
-            <p className="dk-dialog-desc" id="pg-trust-desc">{onlyEmbed ? t('trust.embed.desc') : changed ? t('trust.changed.desc') : t('trust.desc')}</p>
+            <p className="dk-dialog-desc" id="pg-trust-desc">{onlyEmbed ? t('trust.embed.desc') : changed ? t('trust.changed.desc') : own ? t('trust.owner.desc') : userShared ? t('trust.user.desc') : t('trust.desc')}</p>
           </div>
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('trust.close')} onClick={onCancel} disabled={busy}>
             <Icon name="close" />
@@ -121,13 +129,16 @@ export default function TrustSheet({ src, changed, embed = false, busy, error, c
         </div>
         <div className="dk-dialog-body pg-trust__body">
           <div className="pg-trust__who">
-            <span className="pg-trust__avatar" aria-hidden="true">{initials(author)}</span>
+            <span className="pg-trust__avatar" aria-hidden="true">{own ? <Icon name="users" /> : initials(author)}</span>
             <div>
-              <b>{changed ? t('trust.changed.who', { author, when: changedAt }) : t('trust.who', { author })}</b>
+              <b data-testid="trust-who">{changed ? (own ? t('trust.owner.changedWho') : t('trust.changed.who', { author, when: changedAt })) : own ? t('trust.owner.who') : userShared ? t('trust.user.who', { author }) : t('trust.who', { author })}</b>
+              {userShared && changed && <span data-testid="trust-unchecked">{t('trust.user.unchecked')}</span>}
               <span>
                 {changed && src.consent?.allowed_at
                   ? t('trust.changed.allowed', { date: when(src.consent.allowed_at) })
-                  : <>{t('trust.whereLabel')} <code>{folder}</code>{t('trust.whereWhen', { when: changedAt })}</>}
+                  : own || userShared
+                    ? <>{own ? t('trust.owner.where') : t('trust.user.where')}{t('trust.whereWhen', { when: changedAt })}</>
+                    : <>{t('trust.whereLabel')} <code>{folder}</code>{t('trust.whereWhen', { when: changedAt })}</>}
               </span>
             </div>
           </div>
@@ -142,7 +153,7 @@ export default function TrustSheet({ src, changed, embed = false, busy, error, c
 
           <h3 className="pg-trust__h">{changed ? t('trust.canStillTitle') : t('trust.canTitle')}</h3>
           <ul className="pg-trust__list">
-            <li><Icon name="check-circle" className="tone-ok" /><span>{t('trust.items.files')}<code>{pageFolder}</code>{!p.writable && <small>{t('trust.items.readOnly')}</small>}</span></li>
+            <li><Icon name="check-circle" className="tone-ok" /><span>{userShared || own ? t('trust.user.files') : <>{t('trust.items.files')}<code>{pageFolder}</code></>}{!own && (userShared ? p.role === 'view' : !p.writable) && <small>{userShared ? t('trust.user.readOnly') : t('trust.items.readOnly')}</small>}</span></li>
             <li><Icon name="check-circle" className="tone-ok" /><span>{t('trust.items.chat')}<small>{t('trust.items.chatNote')}</small></span></li>
             {embed && <li data-testid="trust-embed-item"><Icon name="check-circle" className="tone-ok" /><span>{t('trust.embed.item')}<small>{t('trust.embed.note')}</small></span></li>}
           </ul>
@@ -156,7 +167,7 @@ export default function TrustSheet({ src, changed, embed = false, busy, error, c
               </ul>
             </>
           )}
-          <p className="pg-trust__warn" role="note"><Icon name="warning" /> {changed ? t('trust.changed.warn', { author }) : t('trust.warn', { author })}</p>
+          <p className="pg-trust__warn" role="note"><Icon name="warning" /> {changed ? (own ? t('trust.owner.changedWarn') : t('trust.changed.warn', { author })) : own ? t('trust.owner.warn') : t('trust.warn', { author })}</p>
           {error && <p className="pg-trust__error" role="alert"><Icon name="alert-circle" /> {error}</p>}
         </div>
         <div className="dk-dialog-foot pg-trust__foot">
@@ -200,7 +211,7 @@ export function SourceSheet({ src, onClose }) {
         <div className="dk-sheet-head">
           <div>
             <h2 className="dk-dialog-title" id="pg-source-title">{t('trust.sourceTitle', { title: src.page.title })}</h2>
-            <p className="dk-dialog-desc"><code>{folderLabel(src.page.folder)}/pages/{src.page.name}/index.html</code> · {t('trust.sourceLines', { count: src.lines })}</p>
+            <p className="dk-dialog-desc">{src.page.user_shared === true ? <code>index.html</code> : <code>{src.page.folder ? `${folderLabel(src.page.folder)}/` : ''}pages/{src.page.name}/index.html</code>} · {t('trust.sourceLines', { count: src.lines })}</p>
           </div>
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('trust.close')} onClick={onClose}><Icon name="close" /></button>
         </div>
