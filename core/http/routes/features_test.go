@@ -24,6 +24,10 @@ import (
 )
 
 var _ = Describe("GET /api/features and the addons gate", func() {
+	// prepare, when set, runs on the application before the request.
+	var prepare func(*application.Application)
+	BeforeEach(func() { prepare = nil })
+
 	features := func(opts ...config.AppOption) map[string]bool {
 		dir, err := filepath.EvalSymlinks(GinkgoT().TempDir())
 		Expect(err).NotTo(HaveOccurred())
@@ -38,6 +42,9 @@ var _ = Describe("GET /api/features and the addons gate", func() {
 		app, err := application.New(opts...)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = app.Shutdown() })
+		if prepare != nil {
+			prepare(app)
+		}
 		e := echo.New()
 		routes.RegisterFeatureRoutes(e, app.ApplicationConfig(), app)
 		w := httptest.NewRecorder()
@@ -95,6 +102,16 @@ var _ = Describe("GET /api/features and the addons gate", func() {
 			Expect(got).To(HaveKeyWithValue(k, false), k)
 		}
 		Expect(got).To(HaveKeyWithValue("collections", true))
+	})
+
+	It("reports p2p as the P2P mode in effect", func() {
+		Expect(features()).To(HaveKeyWithValue("p2p", false))
+
+		prepare = func(app *application.Application) {
+			app.ApplicationConfig().P2P = config.P2PSettings{Mode: "connect", DisablePublicDHT: true, DisableMDNS: true}
+			Expect(app.RestartP2PNet()).To(Succeed())
+		}
+		Expect(features(config.WithDataPath(GinkgoT().TempDir()))).To(HaveKeyWithValue("p2p", true))
 	})
 
 	It("switches off the triggers or the connectors alone", func() {

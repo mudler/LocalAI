@@ -116,6 +116,13 @@ func (a *Application) p2p() *p2pNet {
 // P2P returns the P2P layer as the HTTP handlers see it.
 func (a *Application) P2P() p2papi.Service { return p2pService{n: a.p2p()} }
 
+// P2PEnabled reports whether the P2P layer runs in mode connect or share. A
+// mode that failed to start reads as off.
+func (a *Application) P2PEnabled() bool {
+	_, mode := a.p2p().runtime()
+	return mode != config.P2PModeOff && mode != ""
+}
+
 // StartP2PNet starts the P2P layer in the mode of the settings. Mode off
 // starts nothing. An error leaves the layer off; the status reports it.
 func (a *Application) StartP2PNet() error { return a.p2p().restart() }

@@ -199,6 +199,34 @@ test('sidebar entries own one route each: Apps on /app/addons, never a hub', asy
   assert.equal(hubOwnsPath(addons, '/app/addons', { ...auth, features: { addon_navigation: false } }), true)
 })
 
+test('P2P sits under Swarm whenever P2P is on, and under This machine only with P2P off on a single server', async () => {
+  const { operateHub, resolveTabs } = await import('../../src/components/hub/hubConfig.js')
+  const auth = features => ({ isAdmin: true, authEnabled: true, hasFeature: () => true, features })
+  const at = (features, path) => {
+    const { tabs, current } = resolveTabs(operateHub, auth(features), path)
+    return { ids: tabs.map(t => t.id), current: current?.id }
+  }
+  // A single server with P2P on: both tabs, P2P under Swarm, Nodes under This machine.
+  let r = at({ distributed: false, p2p: true }, '/app/p2p')
+  assert.ok(r.ids.includes('machine') && r.ids.includes('swarm'))
+  assert.equal(r.current, 'swarm')
+  assert.equal(at({ distributed: false, p2p: true }, '/app/p2p/settings').current, 'swarm')
+  assert.equal(at({ distributed: false, p2p: true }, '/app/nodes').current, 'machine')
+  // A single server with P2P off: no Swarm tab, P2P under This machine.
+  r = at({ distributed: false, p2p: false }, '/app/p2p')
+  assert.ok(!r.ids.includes('swarm'))
+  assert.equal(r.current, 'machine')
+  // A cluster: Swarm owns everything, P2P on or off.
+  for (const p2p of [true, false]) {
+    r = at({ distributed: true, p2p }, '/app/p2p')
+    assert.ok(!r.ids.includes('machine'))
+    assert.equal(r.current, 'swarm')
+  }
+  // Before /api/features answers, neither tab shows P2P: the bar does not jump.
+  r = at({}, '/app/operate')
+  assert.ok(!r.ids.includes('swarm'))
+})
+
 test('the primary items: files, projects, pages, agents, connections, knowledge, skills, models and add-ons', () => {
   assert.deepEqual(primaryDestinations.map(i => i.path), [
     '/app/files', '/app/projects', '/app/pages', '/app/agents', '/app/chats/connectors', '/app/collections', '/app/skills', '/app/models', '/app/addons',

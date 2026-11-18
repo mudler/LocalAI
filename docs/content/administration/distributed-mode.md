@@ -621,7 +621,7 @@ When the SmartRouter needs to free capacity, it can unload models with zero in-f
 
 ### Managing nodes in the WebUI
 
-With distributed mode on, **Operate → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws these pages.
+With distributed mode on, **Operate → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws the cluster pages. With P2P on, a single-node install also has **Swarm**, with **P2P** alone.
 
 **Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page asks first, then sends the update to the nodes that differ from the rest of the cluster, or to the nodes you selected.
 

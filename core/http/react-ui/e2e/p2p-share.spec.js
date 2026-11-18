@@ -64,6 +64,16 @@ test.describe('P2P devices and invites', () => {
     await expect(page.getByTestId('p2p-device-d-2')).toContainText('Revoked')
   })
 
+  test('sits under Swarm when P2P is on, on a single server too', async ({ page }) => {
+    await page.route('**/api/features', route => route.fulfill({ json: { distributed: false, p2p: true } }))
+    await openP2P(page)
+    const bar = page.locator('.dk-hubtabs')
+    await expect(bar.locator('[data-hub-tab="swarm"]')).toHaveAttribute('aria-current', 'page')
+    await expect(bar.locator('[data-hub-tab="swarm"]')).toHaveAttribute('href', '/app/p2p')
+    await expect(bar.locator('[data-hub-tab="machine"]')).toBeVisible()
+    await expect(page.getByTestId('p2p-tabs').getByRole('link', { name: 'Devices and invites' })).toHaveAttribute('aria-current', 'page')
+  })
+
   for (const mode of ['off', 'connect']) {
     test(`in mode ${mode} the page says why nothing is listed and links to the settings`, async ({ page }) => {
       await openP2P(page, { mode })
