@@ -36,8 +36,9 @@
 
 .PARAMETER InstallBackend
   After the install, download the llama-cpp backend with
-  "local-ai backends install llama-cpp". Without this switch LocalAI
-  downloads a backend the first time a model needs one.
+  "local-ai backends install llama-cpp" into the backends folder of the
+  LocalAI data folder, where "local-ai run" looks for it. Without this
+  switch LocalAI downloads a backend the first time a model needs one.
   Environment variable: LOCALAI_INSTALL_BACKEND=1.
 
 .PARAMETER Force
@@ -46,7 +47,8 @@
 
 .PARAMETER Uninstall
   Remove local-ai.exe and its PATH entry. Models, backends and settings in
-  your data folder are not touched.
+  your data folder (%LOCALAPPDATA%\LocalAI, or LOCALAI_BASE_PATH when it is
+  set) are not touched.
   Environment variable: LOCALAI_UNINSTALL=1.
 
 .NOTES
@@ -212,6 +214,16 @@ function Install-LocalAI {
 
     Write-Host 'LocalAI installer'
 
+    # The folder where local-ai.exe keeps models, backends, data and settings
+    # by default: the same rule as the server (LOCALAI_BASE_PATH, else the
+    # LocalAI folder in the local application data folder).
+    $dataDir = $env:LOCALAI_BASE_PATH
+    if ([string]::IsNullOrWhiteSpace($dataDir)) {
+        $local = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+        if ([string]::IsNullOrEmpty($local)) { $local = $env:LOCALAPPDATA }
+        $dataDir = if ([string]::IsNullOrEmpty($local)) { '' } else { Join-Path $local 'LocalAI' }
+    }
+
     # --- uninstall ----------------------------------------------------------
 
     if ($Uninstall) {
@@ -233,7 +245,11 @@ function Install-LocalAI {
         }
         if (Remove-UserPathEntry $InstallDir) { Write-Step 'user PATH' "removed $InstallDir" }
         Write-Host ''
-        Write-Host 'Your models, backends and settings were not removed.'
+        if ($dataDir) {
+            Write-Host "Your models, backends and settings were not removed. They are in $dataDir"
+        } else {
+            Write-Host 'Your models, backends and settings were not removed.'
+        }
         return
     }
 
@@ -403,7 +419,19 @@ function Install-LocalAI {
 
     if ($InstallBackend) {
         Write-Step 'backend' 'llama-cpp (this can take a few minutes)'
-        & $target backends install llama-cpp
+        # Run from the data folder, not from the folder this script runs in:
+        # a release that keeps its files in the current folder would otherwise
+        # put the backend where "local-ai run" never looks, and a current folder
+        # with LocalAI files of an earlier test install would get it too.
+        if ($dataDir) {
+            [void][IO.Directory]::CreateDirectory($dataDir)
+            Push-Location -LiteralPath $dataDir
+        }
+        try {
+            & $target backends install llama-cpp
+        } finally {
+            if ($dataDir) { Pop-Location }
+        }
         if ($LASTEXITCODE -ne 0) {
             Write-Warning "The backend install failed (exit code $LASTEXITCODE). LocalAI installs it when a model first needs it, or run: local-ai backends install llama-cpp"
         }
@@ -419,6 +447,8 @@ function Install-LocalAI {
     Write-Host '  Start the server:'
     Write-Host '    local-ai run'
     Write-Host '  Then open http://localhost:8080 and install a model from there.'
+    if ($dataDir) { Write-Host "  Models, backends and settings go to $dataDir" }
+    Write-Host '  To use another folder, set LOCALAI_BASE_PATH. See https://localai.io/start/install/windows/'
     if (-not $InstallBackend) {
         Write-Host '  The llama-cpp backend downloads itself the first time a model needs it.'
         Write-Host '  To download it now: local-ai backends install llama-cpp'

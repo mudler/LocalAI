@@ -47,9 +47,9 @@ The download-then-run form takes these parameters. The one-line form cannot take
 | `-Version v4.7.1` | `LOCALAI_VERSION` | Install a given release. The default is the latest release. |
 | `-InstallDir C:\tools\localai` | `INSTALL_DIR` | Install into this folder. The default is `%LOCALAPPDATA%\LocalAI\bin`. |
 | `-NoPath` | `LOCALAI_NO_PATH=1` | Do not change your `PATH`. |
-| `-InstallBackend` | `LOCALAI_INSTALL_BACKEND=1` | Download the llama.cpp backend after the install, with `local-ai backends install llama-cpp`. Without this, LocalAI downloads it when a model first needs it. |
+| `-InstallBackend` | `LOCALAI_INSTALL_BACKEND=1` | Download the llama.cpp backend after the install, with `local-ai backends install llama-cpp`, into the backends folder of the data folder (see [Where LocalAI keeps its files](#where-localai-keeps-its-files)). Without this, LocalAI downloads it when a model first needs it. |
 | `-Force` | `LOCALAI_FORCE=1` | Install again even when the same build is present. |
-| `-Uninstall` | `LOCALAI_UNINSTALL=1` | Remove `local-ai.exe` and the `PATH` entry. Your models, backends and settings stay. |
+| `-Uninstall` | `LOCALAI_UNINSTALL=1` | Remove `local-ai.exe` and the `PATH` entry. Your models, backends and settings stay in `%LOCALAPPDATA%\LocalAI`. |
 
 Example with a pinned version and the backend, in one line:
 
