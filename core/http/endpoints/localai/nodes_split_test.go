@@ -1,0 +1,118 @@
+package localai
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+
+	"github.com/labstack/echo/v4"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
+)
+
+// splitSource answers the split exchange from a fixed list, or with err.
+type splitSource struct {
+	workers map[string][]workerctl.SplitAssigned
+	err     error
+}
+
+func (s splitSource) SplitAssignment(_ context.Context, nodeID string) (workerctl.SplitAssignment, error) {
+	if s.err != nil {
+		return workerctl.SplitAssignment{}, s.err
+	}
+	return workerctl.SplitAssignment{Workers: s.workers[nodeID], OwnRelays: []string{"relay-1"}}, nil
+}
+
+var _ = Describe("The split exchange of a backend node", func() {
+	var (
+		ctx      context.Context
+		registry *nodes.NodeRegistry
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		db, err := sqlitedb.Open("file:"+filepath.Join(GinkgoT().TempDir(), "nodes.db")+"?_busy_timeout=5000", &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		Expect(err).ToNot(HaveOccurred())
+		registry, err = nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	exchange := func(id, body string, opts ...RegisterOption) (int, workerctl.SplitAssignment) {
+		GinkgoHelper()
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetParamNames("id")
+		c.SetParamValues(id)
+		Expect(NodeSplitEndpoint(registry, opts...)(c)).To(Succeed())
+		var out workerctl.SplitAssignment
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+
+	register := func(n *nodes.BackendNode) string {
+		GinkgoHelper()
+		Expect(registry.Register(ctx, n, true)).To(Succeed())
+		return n.ID
+	}
+
+	It("stores the report and answers with the workers attached to the node", func() {
+		id := register(&nodes.BackendNode{Name: "gpu-1", NodeType: nodes.NodeTypeBackend})
+		src := splitSource{workers: map[string][]workerctl.SplitAssigned{id: {{DeviceID: "d1", PeerID: "peer-w", Engine: "llama"}}}}
+		code, a := exchange(id, `{"peer_id":"peer-n","addrs":["/ip4/10.0.0.2/tcp/4001"],"workers":[{"device_id":"d1","state":"online"}]}`, WithSplitNodes(src))
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(a.Workers).To(HaveLen(1))
+		Expect(a.OwnRelays).To(ConsistOf("relay-1"))
+		rep, ok, err := registry.SplitReport(ctx, id)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(rep.Report.PeerID).To(Equal("peer-n"))
+		Expect(rep.Report.Workers[0].State).To(Equal("online"))
+	})
+
+	It("writes nothing for a node that runs no host, and still answers", func() {
+		id := register(&nodes.BackendNode{Name: "gpu-2", NodeType: nodes.NodeTypeBackend})
+		code, a := exchange(id, `{}`, WithSplitNodes(splitSource{}))
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(a.Workers).ToNot(BeNil(), "an empty list, so the node drops what it had")
+		Expect(a.Workers).To(BeEmpty())
+		_, ok, err := registry.SplitReport(ctx, id)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeFalse())
+	})
+
+	It("refuses a node that joined over P2P and reports another peer", func() {
+		id := register(&nodes.BackendNode{Name: "p2p-1", NodeType: nodes.NodeTypeBackend, PeerID: "peer-pinned"})
+		code, _ := exchange(id, `{"peer_id":"peer-other"}`, WithSplitNodes(splitSource{}))
+		Expect(code).To(Equal(http.StatusBadRequest))
+		code, _ = exchange(id, `{"peer_id":"peer-pinned"}`, WithSplitNodes(splitSource{}))
+		Expect(code).To(Equal(http.StatusOK))
+	})
+
+	It("refuses an agent node and an unknown node", func() {
+		id := register(&nodes.BackendNode{Name: "agent-1", NodeType: nodes.NodeTypeAgent})
+		code, _ := exchange(id, `{}`, WithSplitNodes(splitSource{}))
+		Expect(code).To(Equal(http.StatusBadRequest))
+		code, _ = exchange("nope", `{}`, WithSplitNodes(splitSource{}))
+		Expect(code).To(Equal(http.StatusNotFound))
+	})
+
+	It("answers 409 when this frontend does not serve split workers, so the node keeps its list", func() {
+		id := register(&nodes.BackendNode{Name: "gpu-3", NodeType: nodes.NodeTypeBackend})
+		code, _ := exchange(id, `{}`)
+		Expect(code).To(Equal(http.StatusConflict))
+		code, _ = exchange(id, `{}`, WithSplitNodes(splitSource{err: nodes.ErrSplitUnavailable}))
+		Expect(code).To(Equal(http.StatusConflict))
+	})
+})
