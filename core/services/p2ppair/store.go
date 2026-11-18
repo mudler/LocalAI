@@ -63,6 +63,9 @@ type Store interface {
 	// SetDeviceAllowSlowPath sets whether the server may use the device
 	// over a relayed path. It returns ErrNotFound for an unknown ID.
 	SetDeviceAllowSlowPath(ctx context.Context, id string, allow bool) error
+	// SetDeviceNode attaches a split device to a backend node, or to the
+	// server with an empty node. It returns ErrNotFound for an unknown ID.
+	SetDeviceNode(ctx context.Context, id, node string) error
 	// RevokeDevice sets revoked_at and revoked_by. Revoking a revoked device
 	// changes nothing and succeeds. It returns the device as it is stored.
 	RevokeDevice(ctx context.Context, id, by string, now time.Time) (Device, error)

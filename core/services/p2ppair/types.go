@@ -118,7 +118,15 @@ type Device struct {
 	// AllowSlowPath is set when the administrator chose to use a split
 	// worker that the server reaches only through a relay ("Use anyway").
 	AllowSlowPath bool `json:"allow_slow_path,omitempty"`
+	// NodeID is the backend node of a cluster that a split device lends its
+	// memory to; empty means the server that paired it. A split invite may
+	// name the first node in its NodeLabel label.
+	NodeID string `json:"node_id,omitempty"`
 }
+
+// NodeLabel is the scope label of a split invite that names the backend node
+// the device is attached to when it redeems.
+const NodeLabel = "node"
 
 // Status returns whether the device is active.
 func (d Device) Status() DeviceStatus {

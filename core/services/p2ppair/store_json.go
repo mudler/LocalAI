@@ -219,6 +219,7 @@ func (s *jsonStore) Redeem(ctx context.Context, p RedeemParams) (Invite, Device,
 	dev := Device{
 		ID: p.DeviceID, OwnerID: found.OwnerID, Kind: found.Kind, Label: label,
 		PeerID: p.Peer.String(), InviteID: found.ID, Scope: found.Scope, CreatedAt: now,
+		NodeID: found.Scope.Labels[NodeLabel],
 	}
 	if p.Issue != nil {
 		keyID, err := p.Issue(ctx, Tx{}, found.Invite, dev)
@@ -298,6 +299,22 @@ func (s *jsonStore) SetDeviceAllowSlowPath(_ context.Context, id string, allow b
 		return ErrNotFound
 	}
 	d.AllowSlowPath = allow
+	f.Devices[id] = d
+	return s.save(f)
+}
+
+func (s *jsonStore) SetDeviceNode(_ context.Context, id, node string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, err := s.load()
+	if err != nil {
+		return err
+	}
+	d, ok := f.Devices[id]
+	if !ok {
+		return ErrNotFound
+	}
+	d.NodeID = node
 	f.Devices[id] = d
 	return s.save(f)
 }
