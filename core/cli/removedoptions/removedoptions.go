@@ -87,8 +87,8 @@ var settingRules = []rule{
 }
 
 const (
-	llamaWorker = "run the standalone worker instead: local-ai worker llama-cpp-rpc (see the distributed mode docs)"
-	mlxWorker   = "run the standalone worker instead: local-ai worker mlx-distributed (see the MLX distributed docs)"
+	llamaWorker = "pair the worker with an invite instead: local-ai worker llama-cpp-rpc --join <invite link> (make the invite under Nodes, Add a node, Model-split worker)"
+	mlxWorker   = "pair the worker with an invite instead: local-ai worker mlx-distributed --join <invite link> (make the invite under Nodes, Add a node, Model-split worker)"
 )
 
 // Input is what the check reads. Env is os.LookupEnv in production. Settings is
