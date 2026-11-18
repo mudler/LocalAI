@@ -509,7 +509,11 @@ export const SHARED_BUILD_INPUTS = [
     windows: never,
   },
   {
-    matches: file => file === "scripts/build/llama-cpp-windows.sh",
+    // The .ps1 is the PowerShell dispatcher of the .sh engine for a native
+    // Windows host (make backends/llama-cpp-windows); it feeds the same image.
+    matches: file =>
+      file === "scripts/build/llama-cpp-windows.sh" ||
+      file === "scripts/build/llama-cpp-windows.ps1",
     linux: never,
     darwin: never,
     windows: item => item.backend === "llama-cpp",

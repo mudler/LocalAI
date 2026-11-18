@@ -362,6 +362,16 @@ test("the Windows llama-cpp build script rebuilds only its backend", () => {
   assert.deepEqual(names(filteredWindows), ["llama-cpp"]);
 });
 
+test("the Windows llama-cpp PowerShell dispatcher rebuilds only its backend", () => {
+  const { filtered, filteredDarwin, filteredWindows } = run([
+    "scripts/build/llama-cpp-windows.ps1",
+  ]);
+
+  assert.deepEqual(filtered, []);
+  assert.deepEqual(filteredDarwin, []);
+  assert.deepEqual(names(filteredWindows), ["llama-cpp"]);
+});
+
 test("a pkg/ subtree change never rebuilds the Windows entry", () => {
   // The launcher is the run.ps1 script (no Go, no compile) and local-ai.exe
   // is rebuilt in the workflow itself, so the shipped image does not depend on
