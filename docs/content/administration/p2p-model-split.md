@@ -14,7 +14,9 @@ then runs across several.
 
 A model-split worker is not a cluster node. It has no backends and no placement
 rules, and it works on a single server too: you do not need
-[distributed mode]({{% relref "/administration/distributed-mode" %}}).
+[distributed mode]({{% relref "/administration/distributed-mode" %}}). In a
+cluster you attach each worker to a backend node, and the models that node
+loads use it (see [Distributed mode](#distributed-mode)).
 
 The worker joins over [P2P]({{% relref "/administration/p2p" %}}) with an
 invite link. You do not open a port and you do not share a token. You can
@@ -34,9 +36,10 @@ revoke each worker alone.
 
 1. Open **Nodes**, then **Add a node**, then **Model-split worker**.
 2. Choose the engine: **llama.cpp RPC** or **MLX (Apple Silicon)**.
-3. Optionally give the worker a name, then choose **Make invite**. The invite
+3. In a cluster, choose the backend node that the worker is attached to.
+4. Optionally give the worker a name, then choose **Make invite**. The invite
    is valid for 10 minutes and works once. It has no QR code.
-4. Run the command that the page shows on the worker machine. For llama.cpp:
+5. Run the command that the page shows on the worker machine. For llama.cpp:
 
    ```bash
    local-ai worker llama-cpp-rpc --join "localai://pair?v=1&k=split&..."
@@ -59,7 +62,7 @@ revoke each worker alone.
    local-ai worker mlx-distributed --join "localai://pair?v=1&k=split&..."
    ```
 
-5. The worker pairs, prints a four-word confirmation phrase, and connects. The
+6. The worker pairs, prints a four-word confirmation phrase, and connects. The
    page shows the worker when it arrives. Check that the phrase on the worker
    is the same as the phrase of the used invite under **Swarm**, **P2P**.
 
@@ -161,27 +164,70 @@ that names the replacement.
 
 | Route | What it does |
 |---|---|
-| `GET /api/p2p/split-workers` | Lists the workers: `{workers: [{id, label, peer_id, engine, state, allow_slow_path, path, memory_bytes, addr, rank, ...}], memory_in_use}`. `state` is `online`, `offline`, `slow`, `limited` (public relay) or `refused`. A relayed worker carries `relay_id` and `own_relay` (a relay this server administers, whose limits can change). |
-| `PATCH /api/p2p/split-workers/{id}` | `{allow_slow_path: true}` is **Use anyway**; `false` stops using the worker over a relay. |
+| `GET /api/p2p/split-workers` | Lists the workers: `{workers: [{id, label, peer_id, engine, state, allow_slow_path, path, memory_bytes, addr, rank, node_id, node_name, ...}], memory_in_use, distributed}`. `state` is `online`, `offline`, `slow`, `limited` (public relay) or `refused`. A relayed worker carries `relay_id` and `own_relay` (a relay this server administers, whose limits can change). `node_id` is the backend node the worker is attached to; `distributed` is true in a cluster. |
+| `PATCH /api/p2p/split-workers/{id}` | `{allow_slow_path: true}` is **Use anyway**; `false` stops using the worker over a relay. `{node_id: "<node ID>"}` attaches the worker to a backend node; `{node_id: ""}` attaches it to this server. Give at least one of the two. |
 
 A worker invite is `POST /api/p2p/invites` with `kind` `split` and
-`labels: {engine: "llama" | "mlx"}` (default `llama`). A worker that connects
-with another engine than its invite named is refused. The routes are for
-administrators and need mode `share`.
+`labels: {engine: "llama" | "mlx", node: "<node ID>"}` (default engine `llama`,
+no node). A worker that connects with another engine than its invite named is
+refused. An invite that names a node that is not a backend node is refused. The
+routes are for administrators and need mode `share`.
 
-The LocalAI Assistant has the tools `list_p2p_split_workers` and
-`set_p2p_split_slow_path`, and `get_p2p_relay_limits` and
-`set_p2p_relay_limits` for the limits of a relay of yours.
+The LocalAI Assistant has the tools `list_p2p_split_workers`,
+`set_p2p_split_slow_path` and `set_p2p_split_node`, and `get_p2p_relay_limits`
+and `set_p2p_relay_limits` for the limits of a relay of yours.
 
 ## Distributed mode
 
-The server hands the workers to the llama.cpp or MLX process that it starts
-itself. In [distributed mode]({{% relref "/administration/distributed-mode" %}})
-models load on the backend nodes, not on the frontend, so the model-split
-workers of a frontend serve only models that this frontend loads on its own
-machine. A backend node cannot use them yet.
+In [distributed mode]({{% relref "/administration/distributed-mode" %}}) the
+models load on the backend nodes, not on the frontend. You attach each
+model-split worker to one backend node, and the llama.cpp and MLX processes
+that this node starts use the worker, with the same rules as on a single
+server: the paths and **Use anyway** above, the MLX ring with the node as
+rank 0, and a worker that leaves drops out of the next load.
 
-Each frontend has its own P2P host. A worker pairs with the frontend that made
-its invite and keeps its connection to that frontend. The workers are listed on
-every frontend that shares the database, but each frontend shows the state of
-its own connections.
+Attach a worker when you make its invite (step 3 of [Add a worker](#add-a-worker)),
+or later in the **Attached to** column of **Model-split workers** on the
+**Nodes** page. A worker that is attached to the frontend is not used in a
+cluster, and the page says so. The router does not count the memory of the
+workers when it places a model, so pin the model to the node with a
+[placement rule]({{% relref "/administration/distributed-mode" %}}) (a node
+selector), and load it again after a worker joins, leaves or moves.
+
+How the parts find each other:
+
+1. The worker pairs with a frontend, as on a single server, and opens its
+   control session there.
+2. The frontend sends a worker that is attached to a node to that node: the
+   answer names the peer ID and the addresses of the node. The worker admits
+   the node and opens its control session there. When that session ends, it
+   asks the frontend again, so a worker that moves follows at its next session.
+3. The node runs the split manager on its own P2P host. It forwards a local
+   port to each worker, sets `LLAMACPP_GRPC_SERVERS` and
+   `MLX_DISTRIBUTED_HOSTFILE` for the backends it starts, and relays the MLX
+   ring streams. The node admits only the workers attached to it.
+4. At every heartbeat interval the node sends the frontend the address of its
+   host and the state of its workers (`POST /api/node/{id}/split`, with the
+   node credential), and gets the workers attached to it, their **Use anyway**
+   choice, and the relays of the frontend.
+
+A node that joined over P2P (`local-ai worker --join`) uses the P2P host it
+joined with. A node that registered with the token starts a P2P host the first
+time a worker is attached to it, with its identity in
+`<models path>/../data/p2p/identity.key` (`--p2p-identity`). Set
+`--p2p-listen` (`LOCALAI_P2P_LISTEN_MADDRS`) on the node to a fixed, open port
+to give the workers a direct path. A node that registered with the token is not
+a paired device, so the gated relays of the frontend do not admit it: the
+workers reach it directly or by hole punching. When neither works, join the
+node over P2P.
+
+State in a cluster: the node a worker is attached to is stored with the device
+in the database. The state of an attached worker is what its node last
+reported, stored in the database (table `node_split_reports`), so every
+frontend shows the same state; a node that has not reported for a minute shows
+its workers offline. The node keeps its list of workers in memory and asks for
+it again at every interval and after a restart; when the frontend cannot be
+reached it keeps the last list. A worker attached to the frontend keeps its
+connection to the frontend that it reaches, and that frontend shows the state
+of its own connections. A change of node or a revoke reaches the node within
+one heartbeat interval (10 seconds by default).

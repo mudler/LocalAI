@@ -254,7 +254,7 @@ call only the redeem route. Every other request gets 403.
 The LocalAI Assistant has the tools `get_p2p_status`, `list_p2p_devices`,
 `list_p2p_invites`, `list_p2p_relays`, `get_p2p_relay_limits`,
 `list_p2p_split_workers`, `revoke_p2p_device`, `cancel_p2p_invite`,
-`set_p2p_relay_limits` and `set_p2p_split_slow_path`. It cannot create invites: a link is a credential.
+`set_p2p_relay_limits`, `set_p2p_split_slow_path` and `set_p2p_split_node`. It cannot create invites: a link is a credential.
 
 ## Several frontends
 
