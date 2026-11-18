@@ -49,6 +49,7 @@ export type CoreApi = Pick<
   | 'resetWebuiPermissions'
   | 'windowSettings'
   | 'setOpenInBrowser'
+  | 'setDesktopNotifications'
   | 'updateInfo'
   | 'setAutoCheck'
   | 'setUpdateChannel'
@@ -152,6 +153,7 @@ export function createIpcHandlers(d: HandlerDeps): { invoke: InvokeHandlers; sen
     // window settings
     'launcher:window:get': (...a) => (v.noArgs(a), c.windowSettings()),
     'launcher:window:set-open-in-browser': (...a) => c.setOpenInBrowser(v.bool(v.one(a), 'on')),
+    'launcher:window:set-desktop-notifications': (...a) => c.setDesktopNotifications(v.bool(v.one(a), 'on')),
     // updates
     'launcher:updates:get': (...a) => (v.noArgs(a), c.updateInfo()),
     'launcher:updates:set-auto-check': (...a) => c.setAutoCheck(v.bool(v.one(a), 'on')),

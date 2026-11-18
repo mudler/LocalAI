@@ -67,6 +67,17 @@ export function withWebuiPermissions(c: LauncherConfig, store: PermissionStore):
   return { ...c, extra }
 }
 
+/** Show a desktop notification for each new item of a server's notification inbox. Missing means true. */
+export const DESKTOP_NOTIFICATIONS_KEY = 'desktop_notifications'
+
+export function desktopNotifications(c: LauncherConfig): boolean {
+  return c.extra[DESKTOP_NOTIFICATIONS_KEY] !== false
+}
+
+export function withDesktopNotifications(c: LauncherConfig, on: boolean): LauncherConfig {
+  return { ...c, extra: { ...c.extra, [DESKTOP_NOTIFICATIONS_KEY]: on } }
+}
+
 /** Check for LocalAI updates by itself (missing means true). */
 export const AUTO_CHECK_UPDATES_KEY = 'auto_check_updates'
 /** When the last server update check finished, in milliseconds since the epoch. */

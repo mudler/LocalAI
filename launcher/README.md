@@ -25,8 +25,9 @@ removed from the repository. It uses the same data folder (`~/.localai`) and the
   what listens on a port, hardware summary), `loginItem.ts` (Launch at
   login), `secretStore.ts` (secrets.json over an injected safeStorage),
   `apiKey.ts`, `network.ts` (bind address and LAN addresses),
-  `webuiCredential.ts` (the WebUI sign-in cookie).
-  Electron-facing: `index.ts`, `menu.ts`, `tray.ts`, `selfUpdate.ts`, `webuiView.ts`, `dimView.ts`.
+  `webuiCredential.ts` (the WebUI sign-in cookie), `notifications.ts` (the
+  notification streams, event parser, reconnect, link check, suppression rule).
+  Electron-facing: `index.ts`, `menu.ts`, `tray.ts`, `selfUpdate.ts`, `webuiView.ts`, `dimView.ts`, `notifyGlue.ts` (desktop notifications, badge).
 - `src/shared/ipc.ts`: the IPC contract. Every channel, its direction
   (invoke, event, send) and its payload types. `test/preload.test.ts` fails
   when the preload or the main handler table disagrees with it.
@@ -87,7 +88,8 @@ Go launcher. It adds keys of its own, which an older launcher keeps and
 ignores: `show_status_bar` (missing means true; View menu, tray, Settings),
 `sandbox_notice_dismissed_version` (the launcher version for which the user
 chose "Not now" on the sandbox notice), `open_webui_in_browser` (missing means
-false), `remotes` (the saved servers, see Servers below), `default_target`,
+false), `desktop_notifications` (missing means true, see Desktop
+notifications below), `remotes` (the saved servers, see Servers below), `default_target`,
 `keep_local_running`, `update_channel`, `remote_server_url` (the old "last
 server chosen in Connect": read once for the migration, never written again),
 `webui_permissions` (remembered microphone and camera choices
@@ -601,6 +603,37 @@ provider) opens in the system browser, so it cannot complete inside the view;
 use Open in browser for it. This is by decision: the view never shows a page
 of an origin the user did not choose. A `javascript:` link runs inside the page itself
 (same origin, no new rights), as in any browser.
+
+### Desktop notifications
+
+The launcher shows a native notification for each new item of a server's
+notification inbox, such as a finished trigger run. Settings, General,
+"Desktop notifications" turns it off (key `desktop_notifications`, missing
+means on).
+
+- One stream per server: `GET /api/chats/notifications/events` (server-sent
+  events) of the local server while it runs, and of every saved remote
+  server. A stream ends when its server is removed, stops answering or the
+  setting is off; it reconnects after 1 s, doubling to 60 s (with jitter),
+  and every 5 minutes after a 401, 403 or 404. The stream is live only: items
+  that came while the launcher was closed are not shown.
+- Sign-in: the local server gets `Authorization: Bearer <API key>`. A remote
+  server gets the cookies of its WebUI session, so it works after the user
+  has signed in to that server in the window.
+- The title carries the server name when more than one server is configured.
+  A notification is not shown when the window has the focus and already shows
+  the page of the item's `link`.
+- Clicking one focuses the window and opens the item's `link`. The link must
+  be an in-app path (`/...`); a full URL, `//host`, a backslash or `..` is
+  refused. A page of the server on show opens in the window; a page of any
+  other server opens in the system browser.
+- The unread count (`GET /api/chats/notifications/count`, read again on each
+  `notifications_changed` event and on each reconnect) is the app badge
+  (`app.setBadgeCount`, where the system supports it) and the tray tooltip.
+
+`test/notifications.test.ts` covers the parser, reconnect, link check,
+suppression and the setting, against `test/fixtures/fake-server.cjs`, which
+serves the inbox endpoints and two test hooks (`POST /__emit`, `GET /__stats`).
 
 ### Tests
 
