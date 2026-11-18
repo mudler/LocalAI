@@ -286,6 +286,22 @@ func (s *jsonStore) RenameDevice(_ context.Context, id, label string) error {
 	return s.save(f)
 }
 
+func (s *jsonStore) SetDeviceAllowSlowPath(_ context.Context, id string, allow bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, err := s.load()
+	if err != nil {
+		return err
+	}
+	d, ok := f.Devices[id]
+	if !ok {
+		return ErrNotFound
+	}
+	d.AllowSlowPath = allow
+	f.Devices[id] = d
+	return s.save(f)
+}
+
 func (s *jsonStore) RevokeDevice(_ context.Context, id, by string, now time.Time) (Device, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
