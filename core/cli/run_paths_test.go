@@ -1,12 +1,13 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 // Regression for the startup failure observed when a second OS account (or a
@@ -20,7 +21,7 @@ import (
 // parent with 0750 perms and locks everyone else out. The defaults must instead
 // be scoped to the current user so unrelated accounts never collide.
 var _ = Describe("default writable paths", func() {
-	userScope := fmt.Sprintf("localai-%d", os.Getuid())
+	userScope := system.UserScopedName()
 
 	Describe("DefaultGeneratedContentPath", func() {
 		It("is scoped to the current user under the OS temp dir", func() {

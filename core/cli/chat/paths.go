@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
 )
 
 // stateDirMode matches the mode nib uses for the same directory. The directory
@@ -144,6 +146,10 @@ func writeConfigFile(path string, data []byte) error {
 	// so set the mode explicitly rather than inheriting whatever survived.
 	if err := os.Chmod(tmpPath, configFileMode); err != nil {
 		return fmt.Errorf("setting mode on %s: %w", tmpPath, err)
+	}
+	// Windows has no mode bits: the private mode becomes an access control list.
+	if err := fsperm.RestrictIfPrivate(tmpPath, configFileMode); err != nil {
+		return fmt.Errorf("setting access on %s: %w", tmpPath, err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
 		return fmt.Errorf("replacing %s: %w", path, err)

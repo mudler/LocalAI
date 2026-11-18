@@ -12,7 +12,7 @@ LocalAI runs natively on Windows. It uses pre-built backend images packaged as O
 
 - Windows 10 or 11 on **amd64**. There is no Windows arm64 build.
 - PowerShell. LocalAI starts the backend through `powershell.exe`, which ships with Windows.
-- `ffmpeg` on your `PATH`, if you use audio features. LocalAI does not bundle it.
+- `ffmpeg`, if you use audio features. LocalAI does not bundle it. Install it with `winget install Gyan.FFmpeg` or `choco install ffmpeg`, or set `LOCALAI_FFMPEG_PATH` to the full path of `ffmpeg.exe`. If LocalAI cannot find it, the start log shows a warning.
 
 The llama.cpp backend comes from the backend gallery as a native Windows image. LocalAI runs it as a normal process.
 
@@ -96,6 +96,7 @@ loaded dynamically, so the backend never hard-depends on it.
 | Variable | Effect |
 |----------|--------|
 | `LLAMACPP_GRPC_SERVERS` | Comma-separated RPC server addresses. When set, `run.ps1` starts `llama-cpp-grpc.exe` and the backend connects to these servers. |
+| `LOCALAI_FFMPEG_PATH` | Full path of the `ffmpeg.exe` program. When it is not set, LocalAI looks for `ffmpeg` on `PATH`. |
 
 ## Troubleshooting
 
@@ -185,9 +186,31 @@ intend to listen on non-loopback interfaces (for example, to serve models
 to other machines on your LAN); for a loopback-only setup, deny the
 prompt.
 
-## Security limits on Windows
+## Private files on Windows
 
-LocalAI keeps some files private on Linux and macOS with POSIX permission bits, for example the add-on gateway key and the add-on package folders. Windows has no such bits, so LocalAI skips these checks there. It does not set an ACL as a replacement. Access to these files depends on the ACL they inherit from the data folder, which by default is your user profile. On a shared machine, keep the data folder in a place that other users cannot read. The add-on runtime is not enabled on Windows, so the add-on files are not used there today. Package files also have no executable bit on Windows, so every file of a package counts as executable.
+On Linux and macOS, LocalAI keeps secret files private with POSIX permission bits (mode `0600` for a file, `0700` for a folder). Windows has no permission bits. On Windows, LocalAI gives these files a protected access control list (ACL) that grants access to the current user only. This applies to:
+
+- the sealing keys of the remotes and connectors stores,
+- the HMAC secret for API key hashing,
+- the TLS and MITM proxy private keys,
+- the CLI chat configuration,
+- every state file that LocalAI writes atomically with a private mode.
+
+Before LocalAI reads a sealing key, it checks the ACL. The SYSTEM account and the Administrators group can stay in the list, because they can read every file on the machine. If another user or group has access, for example because the key was written by an older LocalAI version and has the ACL of its folder, LocalAI replaces the ACL and logs a warning. On Linux and macOS a key file with a loose mode is refused instead.
+
+Known limits:
+
+- Files that LocalAI does not mark as private keep the ACL of their folder. On a shared machine, keep the data folder in a place that other users cannot read. By default it is in your user profile.
+- The add-on runtime is not enabled on Windows. Its gateway key and package checks do not use the Windows ACL yet.
+- Windows has no executable bit. LocalAI treats a file as a program when its extension is `.exe`, `.com`, `.cmd`, `.bat` or `.ps1`.
+
+## Other differences on Windows
+
+- **Temporary folders.** Generated content, uploads and backend scratch files go to `%TEMP%\localai-<SID>`, where `<SID>` is the security identifier of your account. On Linux and macOS the folder name has the user id instead.
+- **Symbolic links in backend images.** Windows lets a user make symbolic links only with administrator rights or in Developer Mode. Without that right, LocalAI copies the target of each link in a backend image in its place. The install takes more disk space but works the same.
+- **Stopping the server.** Ctrl+C and Ctrl+Break stop LocalAI gracefully: it finishes the requests in flight and then exits. When you close the console window, or when you log off or shut down, Windows gives the process only about 5 seconds, so long requests can be cut.
+- **Converted schedules.** Windows does not give LocalAI the name of its time zone. When old cron tasks are converted to chat schedules, they run in UTC and the report says so. To keep the local time, set the `TZ` environment variable to a zone name, for example `TZ=Europe/Rome`, before you start LocalAI.
+- **Windows service.** LocalAI does not install itself as a Windows service. Run it from a console, from the Task Scheduler at logon, or with a service wrapper of your choice.
 
 ## Building from source
 
