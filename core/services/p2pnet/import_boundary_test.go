@@ -47,6 +47,14 @@ var p2ppairP2PImports = []string{
 	"github.com/multiformats/go-multiaddr",
 }
 
+// standaloneLibp2pModules are modules of the libp2p organisation that are
+// not part of the libp2p stack and open no peer connection. Any package may
+// import them. go-yamux is the stream multiplexer that the cluster tunnel runs
+// over a websocket.
+var standaloneLibp2pModules = []string{
+	"github.com/libp2p/go-yamux/...",
+}
+
 func isP2PImport(p string) bool {
 	return strings.HasPrefix(p, "github.com/libp2p/") || strings.HasPrefix(p, "github.com/multiformats/")
 }
@@ -157,6 +165,9 @@ var _ = Describe("Import boundary", func() {
 			}
 			for _, imp := range imports {
 				if pkg == p2ppairPath && matches(imp, p2ppairP2PImports) {
+					continue
+				}
+				if matches(imp, standaloneLibp2pModules) {
 					continue
 				}
 				Expect(strings.HasPrefix(imp, "github.com/libp2p/")).To(BeFalse(), "%s imports %s; use core/services/p2pnet", pkg, imp)
