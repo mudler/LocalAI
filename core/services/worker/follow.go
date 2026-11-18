@@ -158,5 +158,6 @@ func tunnelConfig(cfg *Config, nodeID, httpAddr string, token func() string, rea
 		// which is the security boundary of the tunnel, can be reached from a
 		// spec without starting a worker.
 		Services: tunnelServices(cfg, httpAddr),
+		Dial:     cfg.join.tunnelDialer(),
 	}
 }

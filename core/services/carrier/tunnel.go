@@ -64,14 +64,53 @@ type TunnelOptions struct {
 // NewTunnelSet builds the set of seam implementations that reach workers through
 // their tunnels. The set is complete or it is an error, as for NATS.
 func NewTunnelSet(o TunnelOptions) (*Set, error) {
-	if o.Dialer == nil {
-		return nil, errors.New("tunnel set needs a dialer")
-	}
 	if o.Fanout == nil {
 		return nil, errors.New("tunnel set needs a fan-out")
 	}
 	if o.AgentSelector == nil {
 		return nil, errors.New("tunnel set needs an agent selector")
+	}
+	set, control, err := newTunnelRoutes(o)
+	if err != nil {
+		return nil, err
+	}
+	set.Broadcaster = o.Fanout.Broadcaster
+	set.OnReconnect = o.Fanout.OnReconnect
+	set.Agents = nodes.NewAgentControlClient(o.AgentSelector, control)
+	closeRoutes := set.Close
+	set.Close = func() {
+		closeRoutes()
+		if o.Fanout.Close != nil {
+			o.Fanout.Close()
+		}
+	}
+	if o.Peers != nil && o.Replies != nil {
+		if o.Self == "" {
+			return nil, errors.New("tunnel set needs the id of this replica for request and reply")
+		}
+		set.Replies = &tunnelReplies{self: o.Self, peers: o.Peers, local: o.Replies, queues: o.Queues}
+	}
+	if err := set.Validate(); err != nil {
+		return nil, err
+	}
+	return set, nil
+}
+
+// NewTunnelRoutes builds the members of a tunnel set that reach one worker:
+// the control verbs, the file stager, the client factory and the dialer of the
+// HTTP server of a worker. It has no fan-out, no agent RPC and no request and
+// reply, so it is no carrier and cannot be active: a cluster that runs on NATS
+// keeps it beside its set, and the window routes a worker that is attached to
+// the tunnel only there (see Window.UseTunnelRoutes). Fanout, AgentSelector,
+// Self, Peers, Replies and Queues of o are not read.
+func NewTunnelRoutes(o TunnelOptions) (*Set, error) {
+	set, _, err := newTunnelRoutes(o)
+	return set, err
+}
+
+func newTunnelRoutes(o TunnelOptions) (*Set, *nodes.ControlClient, error) {
+	if o.Dialer == nil {
+		return nil, nil, errors.New("tunnel set needs a dialer")
 	}
 
 	// The control verbs, the logs and the health of a worker go over the
@@ -88,7 +127,7 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 	)
 	if o.S3Staging {
 		if o.FileManager == nil {
-			return nil, errors.New("tunnel set needs a file manager for S3 staging")
+			return nil, nil, errors.New("tunnel set needs a file manager for S3 staging")
 		}
 		// The bytes go through the object store, and only the verbs go through
 		// the tunnel, so the lane of the files is not needed.
@@ -103,15 +142,12 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 	}
 
 	set := &Set{
-		Name:        cluster.CarrierTunnel,
-		Epoch:       o.Epoch,
-		Broadcaster: o.Fanout.Broadcaster,
-		OnReconnect: o.Fanout.OnReconnect,
-		Commands:    nodes.NewTunnelControl(o.Registry, control, o.InstallTimeout, o.UpgradeTimeout),
-		Files:       files,
-		Clients:     nodes.NewDialerClientFactory(o.Token, grpcDialerFor(o.Dialer)),
-		Dialer:      httpDial,
-		Agents:      nodes.NewAgentControlClient(o.AgentSelector, control),
+		Name:     cluster.CarrierTunnel,
+		Epoch:    o.Epoch,
+		Commands: nodes.NewTunnelControl(o.Registry, control, o.InstallTimeout, o.UpgradeTimeout),
+		Files:    files,
+		Clients:  nodes.NewDialerClientFactory(o.Token, grpcDialerFor(o.Dialer)),
+		Dialer:   httpDial,
 		// The control client and the HTTP stager keep one client for each node.
 		ForgetNode: func(nodeID string) {
 			control.ForgetNode(nodeID)
@@ -126,21 +162,9 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 			if closeFiles != nil {
 				closeFiles()
 			}
-			if o.Fanout.Close != nil {
-				o.Fanout.Close()
-			}
 		},
 	}
-	if o.Peers != nil && o.Replies != nil {
-		if o.Self == "" {
-			return nil, errors.New("tunnel set needs the id of this replica for request and reply")
-		}
-		set.Replies = &tunnelReplies{self: o.Self, peers: o.Peers, local: o.Replies, queues: o.Queues}
-	}
-	if err := set.Validate(); err != nil {
-		return nil, err
-	}
-	return set, nil
+	return set, control, nil
 }
 
 // httpDialerFor returns the dialer of the HTTP server of a worker.

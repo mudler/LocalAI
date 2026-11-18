@@ -28,7 +28,8 @@
       "body": "Un autre LocalAI utilise tous les modèles de cette instance."
     },
     "worker": {
-      "title": "Worker"
+      "title": "Worker",
+      "body": "Un nœud de calcul de ce cluster. Il rejoint en P2P et attend votre approbation."
     },
     "split": {
       "title": "Worker de modèle réparti"
@@ -56,12 +57,17 @@
       "remote": {
         "title": "Tous les modèles, rien d'autre.",
         "body": "L'autre LocalAI reçoit une clé API qui peut utiliser chaque modèle de cette instance, y compris les modèles que vous ajoutez plus tard. Les modèles auxquels des outils sont attachés sont exclus. La clé n'atteint rien d'autre : ni les paramètres, ni les fichiers, ni une autre partie de l'API."
+      },
+      "worker": {
+        "title": "Un nœud pour ce cluster.",
+        "body": "La machine lance local-ai worker --join avec le lien. Elle s’enregistre en P2P, sans port ouvert ni jeton d’enregistrement, et attend sur la page des nœuds que vous l’approuviez."
       }
     },
     "label": "Libellé",
     "labelPlaceholder": {
       "device": "Portable d'Alex",
-      "remote": "Agence"
+      "remote": "Agence",
+      "worker": "gpu-box-5"
     },
     "labelHint": "Affiché dans Appareils et invitations.",
     "expires": "Expire après",
@@ -88,9 +94,11 @@
       "qrCaption": "Pour un téléphone ou une tablette",
       "how": {
         "device": "Dans le lanceur : Ajouter un serveur, puis Lien d'invitation. Le lien contient l'ID de pair de ce serveur et le pass du relais, un code court seul ne suffit donc pas.",
-        "remote": "Sur l'autre LocalAI : Accueil ou Connexions, Connecter un serveur distant, puis Lien d'invitation. Collez le lien en entier."
+        "remote": "Sur l'autre LocalAI : Accueil ou Connexions, Connecter un serveur distant, puis Lien d'invitation. Collez le lien en entier.",
+        "worker": "Sur la nouvelle machine, lancez local-ai worker --join avec le lien entier entre guillemets. Le nœud attend ensuite votre approbation sur la page des nœuds."
       },
       "waiting": "En attente de l'appareil… Annuler l'invitation annule aussi son pass du relais.",
+      "waitingWorker": "En attente du worker… Annuler l'invitation annule aussi son pass du relais.",
       "expired": "L'invitation a expiré.",
       "expiredTitle": "Cette invitation a expiré.",
       "expiredBody": "Personne ne l'a utilisée à temps. Créez-en une nouvelle quand l'autre côté est prêt.",
@@ -148,7 +156,8 @@
       "signIn": "La personne se connecte quand même à l'interface web.",
       "keyNote": "Révoquez-le à tout moment dans Appareils et invitations.",
       "mismatch": "Ils ne correspondent pas : révoquer",
-      "match": "Ils correspondent"
+      "match": "Ils correspondent",
+      "approve": "Le nœud s’enregistre ensuite et attend votre approbation sur la page des nœuds."
     }
   },
   "invites": {

@@ -28,7 +28,8 @@
       "body": "另一台 LocalAI 使用此实例的所有模型。"
     },
     "worker": {
-      "title": "Worker"
+      "title": "Worker",
+      "body": "此集群的计算节点。它通过 P2P 加入并等待你的批准。"
     },
     "split": {
       "title": "模型拆分 Worker"
@@ -56,12 +57,17 @@
       "remote": {
         "title": "所有模型，别无其他。",
         "body": "另一台 LocalAI 会得到一个 API 密钥，可以使用此实例的每个模型，包括你以后添加的模型。附带工具的模型除外。该密钥不能访问其他任何内容：没有设置，没有文件，也没有 API 的其他部分。"
+      },
+      "worker": {
+        "title": "用于此集群的节点。",
+        "body": "该机器使用此链接运行 local-ai worker --join。它通过 P2P 注册，无需开放端口和注册令牌，并在节点页面等待你批准。"
       }
     },
     "label": "标签",
     "labelPlaceholder": {
       "device": "Alex 的笔记本电脑",
-      "remote": "分公司"
+      "remote": "分公司",
+      "worker": "gpu-box-5"
     },
     "labelHint": "显示在“设备和邀请”中。",
     "expires": "有效期",
@@ -88,9 +94,11 @@
       "qrCaption": "用于手机或平板",
       "how": {
         "device": "在启动器中：添加服务器，然后选择“邀请链接”。链接包含此服务器的对等节点 ID 和中继通行证，只有短代码是不够的。",
-        "remote": "在另一台 LocalAI 上：主页或“连接”，连接远程，然后选择“邀请链接”。粘贴完整链接。"
+        "remote": "在另一台 LocalAI 上：主页或“连接”，连接远程，然后选择“邀请链接”。粘贴完整链接。",
+        "worker": "在新机器上运行 local-ai worker --join，并用引号括起完整链接。之后节点会在节点页面等待你的批准。"
       },
       "waiting": "正在等待设备… 取消邀请也会取消其中继通行证。",
+      "waitingWorker": "正在等待工作节点… 取消邀请也会取消其中继通行证。",
       "expired": "邀请已过期。",
       "expiredTitle": "此邀请已过期。",
       "expiredBody": "没有人在有效期内使用它。等对方准备好后再生成新的。",
@@ -148,7 +156,8 @@
       "signIn": "用户仍需登录网页界面。",
       "keyNote": "可随时在“设备和邀请”中撤销。",
       "mismatch": "不一致：撤销",
-      "match": "一致"
+      "match": "一致",
+      "approve": "节点接下来会注册，并在节点页面等待你的批准。"
     }
   },
   "invites": {

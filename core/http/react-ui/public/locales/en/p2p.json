@@ -28,7 +28,8 @@
       "body": "Another LocalAI uses all the models of this instance."
     },
     "worker": {
-      "title": "Worker"
+      "title": "Worker",
+      "body": "A compute node of this cluster. It joins over P2P and waits for your approval."
     },
     "split": {
       "title": "Model-split worker"
@@ -56,12 +57,17 @@
       "remote": {
         "title": "All models, nothing else.",
         "body": "The other LocalAI gets an API key that can use every model of this instance, also the models you add later. Models with tools attached are left out. The key reaches nothing else: no settings, no files, no other part of the API."
+      },
+      "worker": {
+        "title": "A node for this cluster.",
+        "body": "The machine runs local-ai worker --join with the link. It registers over P2P, with no open port and no registration token, and waits on the Nodes page until you approve it."
       }
     },
     "label": "Label",
     "labelPlaceholder": {
       "device": "Alex's laptop",
-      "remote": "Branch office"
+      "remote": "Branch office",
+      "worker": "gpu-box-5"
     },
     "labelHint": "Shown in Devices and invites.",
     "expires": "Expires after",
@@ -88,9 +94,11 @@
       "qrCaption": "For a phone or a tablet",
       "how": {
         "device": "In the launcher: Add server, then Invite link. The link holds this server's peer ID and the relay pass, so a short code alone is not enough.",
-        "remote": "On the other LocalAI: Home or Connections, Connect a remote, then Invite link. Paste the whole link."
+        "remote": "On the other LocalAI: Home or Connections, Connect a remote, then Invite link. Paste the whole link.",
+        "worker": "On the new machine run local-ai worker --join with the whole link in quotes. The node then waits for your approval on the Nodes page."
       },
       "waiting": "Waiting for the device… Cancel invite also cancels its relay pass.",
+      "waitingWorker": "Waiting for the worker… Cancel invite also cancels its relay pass.",
       "expired": "The invite expired.",
       "expiredTitle": "This invite expired.",
       "expiredBody": "Nobody used it in time. Make a new one when the other side is ready.",
@@ -148,7 +156,8 @@
       "signIn": "The person still signs in to the web UI.",
       "keyNote": "Revoke it any time in Devices and invites.",
       "mismatch": "It does not match: revoke",
-      "match": "It matches"
+      "match": "It matches",
+      "approve": "The node registers next and waits for your approval on the Nodes page."
     }
   },
   "invites": {

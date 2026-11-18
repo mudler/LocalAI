@@ -25,8 +25,12 @@ type RegistrationClient struct {
 	FrontendURL       string
 	RegistrationToken string
 	HTTPTimeout       time.Duration // used for registration calls; defaults to 10s
-	client            *http.Client
-	clientOnce        sync.Once
+	// HTTPClient, when set, carries every call instead of a client built from
+	// HTTPTimeout: a worker that joined over P2P reaches the frontend through
+	// the P2P layer, whatever host FrontendURL names.
+	HTTPClient *http.Client
+	client     *http.Client
+	clientOnce sync.Once
 }
 
 // httpTimeout returns the configured timeout or a sensible default.
@@ -40,6 +44,10 @@ func (c *RegistrationClient) httpTimeout() time.Duration {
 // httpClient returns the shared HTTP client, initializing it on first use.
 func (c *RegistrationClient) httpClient() *http.Client {
 	c.clientOnce.Do(func() {
+		if c.HTTPClient != nil {
+			c.client = c.HTTPClient
+			return
+		}
 		c.client = httpclient.NewWithTimeout(c.httpTimeout())
 	})
 	return c.client

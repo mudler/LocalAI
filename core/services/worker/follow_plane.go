@@ -106,8 +106,12 @@ func (p *BackendPlane) Attachers() map[cluster.Carrier]Attacher {
 // Cannot says, for each carrier, why the worker cannot attach to it. routable is
 // true when the frontends can dial the worker.
 func (p *BackendPlane) Cannot(routable bool) map[cluster.Carrier]func(CarrierView) string {
+	nats := NATSReasons(routable, p.local)
+	if p.cfg != nil && p.cfg.join != nil {
+		nats = func(CarrierView) string { return joinedOverP2P }
+	}
 	return map[cluster.Carrier]func(CarrierView) string{
-		cluster.CarrierNATS: NATSReasons(routable, p.local),
+		cluster.CarrierNATS: nats,
 		cluster.CarrierTunnel: func(CarrierView) string {
 			if !p.tunnel.CanAttach() {
 				return "this worker has no frontend URL that a tunnel can use"
@@ -116,3 +120,10 @@ func (p *BackendPlane) Cannot(routable bool) map[cluster.Carrier]func(CarrierVie
 		},
 	}
 }
+
+// joinedOverP2P is why a worker that joined with an invite does not follow a
+// change to NATS. It is in follow_error of every heartbeat while the cluster
+// runs on NATS, and it is not a fault: the frontends route to such a worker
+// through its tunnel on either carrier.
+const joinedOverP2P = "this worker joined over P2P and reaches the cluster through its tunnel only; " +
+	"the frontends route to it there on either carrier. To attach it to NATS, restart it with --register-to, a registration token and --addr"

@@ -114,6 +114,8 @@ type DistributedServices struct {
 	active *atomic.Pointer[carrier.Set]
 	// window routes the calls to workers while two carriers are attached.
 	window *carrier.Window
+	// tunnelRoutes are the hybrid routes of the window.
+	tunnelRoutes *carrier.Set
 	// workers answers the questions about workers that a change asks.
 	workers *nodes.SwitchWorkers
 
@@ -175,6 +177,9 @@ func (ds *DistributedServices) Shutdown() {
 			if set := ds.active.Load(); set != nil && set.Close != nil {
 				set.Close()
 			}
+		}
+		if ds.tunnelRoutes != nil && ds.tunnelRoutes.Close != nil {
+			ds.tunnelRoutes.Close()
 		}
 		xlog.Info("Distributed services shut down")
 	})
@@ -390,6 +395,24 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		},
 		workers.AgentsAttached,
 	)
+	// A worker that holds only a tunnel (one that joined over P2P, or one that
+	// could not follow a change to NATS) is reached through the routes of the
+	// tunnel while NATS is active. They hold no connection until a call needs
+	// one, so a cluster with no such worker pays nothing for them.
+	tunnelRoutes, err := carrier.NewTunnelRoutes(carrier.TunnelOptions{
+		Epoch:          carrierRow.Epoch,
+		Dialer:         tunnel.NewWorkerDialer(tunnels, peerPool),
+		Registry:       registry,
+		InstallTimeout: cfg.Distributed.BackendInstallTimeoutOrDefault(),
+		UpgradeTimeout: cfg.Distributed.BackendUpgradeTimeoutOrDefault(),
+		Token:          cfg.Distributed.RegistrationToken,
+		S3Staging:      cfg.Distributed.StorageURL != "",
+		FileManager:    fileMgr,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("building the routes of the tunnel: %w", err)
+	}
+	window.UseTunnelRoutes(tunnelRoutes)
 	clientFactory := carrier.NewClients(active)
 	clientFactory.UseWindow(window)
 	fileStager := carrier.NewFiles(active)
@@ -553,6 +576,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			}
 			return ""
 		},
+		// The window reaches a worker that holds only a tunnel while NATS is
+		// active, so the router may place a model on it.
+		TunnelRoutes:     true,
 		FileStager:       fileStager,
 		ClientFactory:    clientFactory,
 		GalleriesJSON:    routerGalleriesJSON,
@@ -644,6 +670,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// could not follow. While two carriers are attached the window routes it, so
 	// nothing is demoted then. The check also runs when a carrier is released, so
 	// that the demotion does not wait for the next tick.
+	healthMon.UseTunnelRoutes()
 	healthMon.UseCarrier(func() (cluster.Carrier, bool) {
 		set := active.Load()
 		if set == nil {
@@ -730,9 +757,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 		WorkerHTTPDial: workerHTTPDial,
 
-		active:  active,
-		window:  window,
-		workers: workers,
+		active:       active,
+		window:       window,
+		tunnelRoutes: tunnelRoutes,
+		workers:      workers,
 	}, nil
 }
 

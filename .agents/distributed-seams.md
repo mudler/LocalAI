@@ -204,6 +204,27 @@ of the sessions that a replica holds, and `Splice`. The connect endpoint is
   under that claim, only on the replica that holds the inference lane, and it is
   closed with it. A bulk dial that reaches another replica gets 409 and the
   worker dials again.
+- A worker that joined with a worker invite (`local-ai worker --join`) opens its
+  lanes over P2P instead: one stream per lane on `p2pnet.ProtoTunnelInference`
+  and `p2pnet.ProtoTunnelBulk`. A stream carries no HTTP request, so the node,
+  the lane and the credential travel in a first frame (`tunnel.Hello`, a uvarint
+  length and JSON of at most 4 KiB) and the answer in `tunnel.HelloReply` with
+  the status codes of the connect endpoint; the worker reads them as it reads a
+  refused websocket dial (`worker.TunnelRefusal`). The yamux session then runs on
+  the stream (`ServerSessionConn`, `ClientSessionConn`), and the session goes to
+  the same `Registry`, so nothing above the registry knows the door. Both doors
+  run the checks of `admitTunnel` (`core/http/endpoints/cluster`), which adds
+  one: `BackendNode.PeerID` must equal the peer that dialled, and is empty for a
+  websocket. The host listens on the tunnel protocols only in mode `share` on a
+  distributed frontend, and admits only peers paired as workers
+  (`Application.IsWorkerPeer`). The bulk lane is dialled with
+  `p2pnet.NeedBulk`, so a relay with a data limit never carries files.
+- A worker over P2P registers and heartbeats over P2P HTTP. `nodeTokenAuth`
+  and `RegisterNodeEndpoint` take its peer ID (`localai.WithWorkerPeers`) in
+  place of the registration token, pin the node to it, keep it pending at its
+  first registration, and always mint the tunnel credential. A registration
+  under the name of a pinned node from anywhere else, and one of a P2P worker
+  under the name of a token node, is `nodes.ErrNodePinned` (409).
 - `Splice` passes the end of one direction on with `CloseWrite` and goes on
   copying the other direction. It closes both streams at once when a direction
   fails or when a stream cannot half-close.
@@ -620,6 +641,21 @@ that attaches later.
   like the tunnel read, and the worker is promoted when it reports the active
   carrier.
 
+## Workers that hold only a tunnel
+
+`carrier.Window` routes outside a change too: with `UseTunnelRoutes` (a set from
+`carrier.NewTunnelRoutes`, which has the worker-facing members of a tunnel set
+and no fan-out), a call to a worker that is attached to the tunnel and not to
+NATS goes through the tunnel while NATS is active. The order is NATS, then the
+tunnel; a worker holds one tunnel, over a websocket or over P2P, so the two
+kinds never compete. The attachment comes from the heartbeat report, as in a
+change, and is cached for a second. `HealthMonitor.UseTunnelRoutes` stops the
+demotion of such a worker, and `SmartRouterOptions.TunnelRoutes` lets the router
+place a model on it (`nodes.NodeReachableOn`). A worker over P2P is tunnel-only: it never attaches
+to NATS, and its `follow_error` says so (`joinedOverP2P`) for as long as the
+cluster runs on NATS. The agent RPC is not routed this way: an agent worker
+over P2P is not supported.
+
 ## Open items for a second carrier
 
 - A worker that registers an address and holds a tunnel (a worker that can use
@@ -652,3 +688,9 @@ that attaches later.
   tunnel has two lanes, would keep them out of that queue.
 - A start that carries files runs on the frontend: the uploads are not sent
   over the bus.
+- The P2P door of the tunnel. The invite names the frontend that made it, and a
+  worker over P2P always dials that frontend: another replica reaches it only
+  through the peer link. A worker cannot fall back to another frontend when that
+  one is gone. The presence read of the health monitor (`UsePresence`) runs only
+  while the tunnel is the active carrier, so on NATS a worker over P2P whose
+  tunnel is gone is seen through its heartbeat and the failed calls only.

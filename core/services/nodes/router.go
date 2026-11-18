@@ -120,6 +120,10 @@ type SmartRouterOptions struct {
 	// leaves out the nodes that cannot be reached on that carrier: a worker that
 	// is attached to another carrier and cannot follow. Nil keeps every node.
 	ActiveCarrier func() cluster.Carrier
+	// TunnelRoutes says that the frontend reaches a worker attached to the
+	// tunnel while NATS is active (the hybrid routing of carrier.Window), so
+	// such a worker is not left out. A worker that joined over P2P is one.
+	TunnelRoutes bool
 	// StagingStallWindow is how long file staging may report zero bytes before
 	// the cold load is declared wedged and the advisory lock released. While
 	// bytes keep moving the hold extends, so transfer size no longer bounds the
@@ -184,6 +188,7 @@ func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duratio
 type SmartRouter struct {
 	// activeCarrier is optional. See SmartRouterOptions.ActiveCarrier.
 	activeCarrier    func() cluster.Carrier
+	tunnelRoutes     bool
 	unroutable       unroutableCache
 	registry         ModelRouter
 	unloader         NodeCommandSender // optional, for NATS-driven load/unload
@@ -284,6 +289,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	return &SmartRouter{
 		registry:            registry,
 		activeCarrier:       opts.ActiveCarrier,
+		tunnelRoutes:        opts.TunnelRoutes,
 		unloader:            opts.Unloader,
 		modelCleanup:        opts.ModelCleanup,
 		fileStager:          opts.FileStager,

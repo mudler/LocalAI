@@ -73,7 +73,8 @@ func sessionConfig(lane Lane) *yamux.Config {
 	return cfg
 }
 
-// Session is a multiplexed session on one websocket.
+// Session is a multiplexed session on one connection: a websocket, or a stream
+// of the peer-to-peer layer.
 type Session struct {
 	s *yamux.Session
 }
@@ -90,7 +91,14 @@ type Session struct {
 // misbehaves. The worker side keeps the default, because it accepts the
 // streams of the frontend.
 func ServerSession(ws *websocket.Conn, lane Lane) (*Session, error) {
-	return serverSessionWith(ws, lane, 0)
+	return serverSessionWith(websocketConn(ws), lane, 0)
+}
+
+// ServerSessionConn starts the frontend side of a session on conn, a
+// connection that already carries a stream of bytes, such as a stream of the
+// peer-to-peer layer. It behaves as ServerSession does.
+func ServerSessionConn(conn net.Conn, lane Lane) (*Session, error) {
+	return serverSessionWith(conn, lane, 0)
 }
 
 // defaultIncomingStreams is the limit of yamux on the streams that the other side
@@ -99,10 +107,10 @@ const defaultIncomingStreams = 1000
 
 // serverSessionWith starts the server side of a session that accepts at most
 // incoming streams opened by the other side. Zero resets every one of them.
-func serverSessionWith(ws *websocket.Conn, lane Lane, incoming uint32) (*Session, error) {
+func serverSessionWith(conn net.Conn, lane Lane, incoming uint32) (*Session, error) {
 	cfg := sessionConfig(lane)
 	cfg.MaxIncomingStreams = incoming
-	s, err := yamux.Server(websocketConn(ws), cfg, nil)
+	s, err := yamux.Server(conn, cfg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("starting the server side of a tunnel session: %w", err)
 	}
@@ -112,13 +120,19 @@ func serverSessionWith(ws *websocket.Conn, lane Lane, incoming uint32) (*Session
 // ClientSession starts the worker side of a session on ws. The worker accepts
 // the streams that the frontend opens.
 func ClientSession(ws *websocket.Conn, lane Lane) (*Session, error) {
-	return clientSessionWith(ws, lane, defaultIncomingStreams)
+	return clientSessionWith(websocketConn(ws), lane, defaultIncomingStreams)
 }
 
-func clientSessionWith(ws *websocket.Conn, lane Lane, incoming uint32) (*Session, error) {
+// ClientSessionConn starts the worker side of a session on conn. It behaves as
+// ClientSession does.
+func ClientSessionConn(conn net.Conn, lane Lane) (*Session, error) {
+	return clientSessionWith(conn, lane, defaultIncomingStreams)
+}
+
+func clientSessionWith(conn net.Conn, lane Lane, incoming uint32) (*Session, error) {
 	cfg := sessionConfig(lane)
 	cfg.MaxIncomingStreams = incoming
-	s, err := yamux.Client(websocketConn(ws), cfg, nil)
+	s, err := yamux.Client(conn, cfg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("starting the client side of a tunnel session: %w", err)
 	}

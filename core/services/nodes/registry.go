@@ -118,13 +118,26 @@ type BackendNode struct {
 	// Follow lists the carriers the worker reported it can attach to, separated by
 	// commas, and FollowError is why it cannot attach to another one, in its own
 	// words. A worker that predates carrier switching reports neither.
-	Follow        string    `gorm:"column:follow;size:64" json:"follow,omitempty"`
-	FollowError   string    `gorm:"column:follow_error;size:255" json:"follow_error,omitempty"`
-	APIKeyID      string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
-	AuthUserID    string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
-	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	Follow      string `gorm:"column:follow;size:64" json:"follow,omitempty"`
+	FollowError string `gorm:"column:follow_error;size:255" json:"follow_error,omitempty"`
+	// PeerID is the P2P peer ID of a worker that joined with a worker invite.
+	// The node is pinned to it: registration, the node routes and the tunnel
+	// accept such a node only from that peer, over P2P. Empty for a node that
+	// registers with the registration token.
+	PeerID string `gorm:"column:peer_id;size:64;index" json:"peer_id,omitempty"`
+	// TunnelTransport is how the tunnel of the worker reaches a frontend, as
+	// the worker reported it: "websocket" or "p2p". Empty when the worker holds
+	// no tunnel or does not report it. TunnelPath is the path of a P2P tunnel
+	// (direct, hole_punched or relayed), and TunnelLimited says that the relay
+	// of that path limits its data or its time.
+	TunnelTransport string    `gorm:"column:tunnel_transport;size:16" json:"tunnel_transport,omitempty"`
+	TunnelPath      string    `gorm:"column:tunnel_path;size:16" json:"tunnel_path,omitempty"`
+	TunnelLimited   bool      `gorm:"column:tunnel_limited;default:false" json:"tunnel_limited,omitempty"`
+	APIKeyID        string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID      string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat   time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 const (
@@ -161,6 +174,10 @@ var (
 	// ErrNodeStatusConflict reports that a node exists but no longer has the
 	// status required by a conditional lifecycle transition.
 	ErrNodeStatusConflict = errors.New("node status conflict")
+	// ErrNodePinned reports a registration under the name of a node that
+	// belongs to another P2P peer, or that belongs to the registration token
+	// while the caller is a P2P worker (or the other way round).
+	ErrNodePinned = errors.New("the node name belongs to another worker")
 )
 
 // NodeModel tracks which models are loaded on which nodes.
@@ -657,6 +674,14 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 	var existing BackendNode
 	err := r.db.WithContext(ctx).Where("name = ?", node.Name).First(&existing).Error
 	if err == nil {
+		// A node that joined over P2P belongs to its peer, and a node that
+		// registered with the registration token belongs to that path. Neither
+		// may take the name of the other: a holder of the registration token
+		// would otherwise take over a P2P worker by its name, and a paired
+		// worker would take over a node it never was.
+		if existing.PeerID != node.PeerID {
+			return fmt.Errorf("%w: node %s", ErrNodePinned, node.Name)
+		}
 		// Re-registration (node restart): preserve ID, respect approval history
 		node.ID = existing.ID
 		if autoApprove || existing.Status != StatusPending {
@@ -1184,6 +1209,11 @@ type HeartbeatUpdate struct {
 	AttachedEpoch      int64    `json:"attached_epoch,omitempty"`
 	FollowCapabilities []string `json:"follow_capabilities,omitempty"`
 	FollowError        string   `json:"follow_error,omitempty"`
+	// The tunnel the worker holds: its transport ("websocket" or "p2p"), and
+	// for P2P the path and whether a relay limits it. See BackendNode.
+	TunnelTransport string `json:"tunnel_transport,omitempty"`
+	TunnelPath      string `json:"tunnel_path,omitempty"`
+	TunnelLimited   bool   `json:"tunnel_limited,omitempty"`
 }
 
 // CarrierReport returns the carrier report of a heartbeat, and false when the
@@ -1197,6 +1227,7 @@ func (u HeartbeatUpdate) CarrierReport() (CarrierReport, bool) {
 		AttachedEpoch: u.AttachedEpoch,
 		Follow:        parseCarriers(u.FollowCapabilities),
 		FollowError:   truncateRunes(u.FollowError, followErrorMax),
+		Tunnel:        parseTunnelRoute(u.TunnelTransport, u.TunnelPath, u.TunnelLimited),
 	}, true
 }
 

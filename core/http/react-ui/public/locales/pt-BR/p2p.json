@@ -28,7 +28,8 @@
       "body": "Outro LocalAI usa todos os modelos desta instância."
     },
     "worker": {
-      "title": "Worker"
+      "title": "Worker",
+      "body": "Um nó de computação deste cluster. Ele entra por P2P e espera a sua aprovação."
     },
     "split": {
       "title": "Worker de modelo dividido"
@@ -56,12 +57,17 @@
       "remote": {
         "title": "Todos os modelos, nada mais.",
         "body": "O outro LocalAI recebe uma chave de API que pode usar cada modelo desta instância, inclusive os modelos que você adicionar depois. Modelos com ferramentas anexadas ficam de fora. A chave não alcança mais nada: nem configurações, nem arquivos, nem outra parte da API."
+      },
+      "worker": {
+        "title": "Um nó para este cluster.",
+        "body": "A máquina executa local-ai worker --join com o link. Ela se registra por P2P, sem porta aberta e sem token de registro, e espera na página de nós até você aprovar."
       }
     },
     "label": "Rótulo",
     "labelPlaceholder": {
       "device": "Notebook do Alex",
-      "remote": "Filial"
+      "remote": "Filial",
+      "worker": "gpu-box-5"
     },
     "labelHint": "Exibido em Dispositivos e convites.",
     "expires": "Expira após",
@@ -88,9 +94,11 @@
       "qrCaption": "Para um celular ou um tablet",
       "how": {
         "device": "No launcher: Adicionar servidor e depois Link de convite. O link contém o ID de peer deste servidor e o passe do relay, então um código curto sozinho não basta.",
-        "remote": "No outro LocalAI: Início ou Conexões, Conectar um remoto e depois Link de convite. Cole o link inteiro."
+        "remote": "No outro LocalAI: Início ou Conexões, Conectar um remoto e depois Link de convite. Cole o link inteiro.",
+        "worker": "Na máquina nova execute local-ai worker --join com o link inteiro entre aspas. Depois o nó espera a sua aprovação na página de nós."
       },
       "waiting": "Aguardando o dispositivo… Cancelar o convite também cancela o passe do relay.",
+      "waitingWorker": "Aguardando o worker… Cancelar o convite também cancela o passe do relay.",
       "expired": "O convite expirou.",
       "expiredTitle": "Este convite expirou.",
       "expiredBody": "Ninguém o usou a tempo. Crie um novo quando o outro lado estiver pronto.",
@@ -148,7 +156,8 @@
       "signIn": "A pessoa continua entrando na interface web.",
       "keyNote": "Revogue a qualquer momento em Dispositivos e convites.",
       "mismatch": "Não são iguais: revogar",
-      "match": "São iguais"
+      "match": "São iguais",
+      "approve": "O nó se registra em seguida e espera a sua aprovação na página de nós."
     }
   },
   "invites": {

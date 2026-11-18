@@ -26,6 +26,14 @@ import (
 // ProtoHTTP is the protocol of LocalAI's HTTP API over P2P.
 const ProtoHTTP protocol.ID = "/localai/http/1"
 
+// The protocols of the cluster tunnel over P2P: a worker opens one stream for
+// each lane of its tunnel to a frontend. The lanes are separate protocols so
+// that the bulk lane can be dialled with a Need of its own.
+const (
+	ProtoTunnelInference protocol.ID = "/localai/tunnel/1/inference"
+	ProtoTunnelBulk      protocol.ID = "/localai/tunnel/1/bulk"
+)
+
 // DefaultRelayRetry is the default of Config.RelayRetry.
 const DefaultRelayRetry = 30 * time.Second
 

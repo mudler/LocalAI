@@ -32,6 +32,17 @@ func NodeRoutableOn(n *BackendNode, c cluster.Carrier) bool {
 	return slices.Contains(follow, c) && n.FollowError == ""
 }
 
+// NodeReachableOn is NodeRoutableOn for a frontend that also keeps the routes of
+// the tunnel while NATS is active (carrier.Window.UseTunnelRoutes): there a
+// worker that is attached to the tunnel is reached through it, whatever it can
+// follow.
+func NodeReachableOn(n *BackendNode, c cluster.Carrier, tunnelRoutes bool) bool {
+	if NodeRoutableOn(n, c) {
+		return true
+	}
+	return tunnelRoutes && c == cluster.CarrierNATS && slices.Contains(splitCarriers(n.Attached), cluster.CarrierTunnel)
+}
+
 // unroutableTTL is how long the router keeps its answer about which nodes can be
 // reached. A request does not read the whole node table. A worker that changed
 // state is seen after at most this time.
@@ -101,7 +112,7 @@ func (r *SmartRouter) unroutableNodes(ctx context.Context, active cluster.Carrie
 	c.bad = map[string]struct{}{}
 	for i := range nodes {
 		c.healthy = append(c.healthy, nodes[i].ID)
-		if !NodeRoutableOn(&nodes[i], active) {
+		if !NodeReachableOn(&nodes[i], active, r.tunnelRoutes) {
 			c.bad[nodes[i].ID] = struct{}{}
 		}
 	}

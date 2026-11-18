@@ -308,5 +308,15 @@ func (cfg *Config) heartbeatBody() map[string]any {
 		body["cpu_usage_percent"] = clampCPUUsage(cpuInfo.UsagePercent)
 		body["cpu_load_1"] = cpuInfo.Load1
 	}
+	// A worker that joined over P2P says how its tunnel reaches the frontend,
+	// so that the nodes page shows the path and its limits.
+	if cfg.join != nil {
+		r := cfg.join.Route()
+		body["tunnel_transport"] = r.Transport
+		if r.Path != "" {
+			body["tunnel_path"] = r.Path
+			body["tunnel_limited"] = r.Limited
+		}
+	}
 	return body
 }

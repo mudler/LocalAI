@@ -152,7 +152,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-e2e-distributed-p2p-worker test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -391,6 +391,14 @@ test-e2e-distributed-switch: protogen-go build-mock-backend
 	@echo 'Running the carrier switch e2e (label CarrierSwitch)'
 	LOCALAI_E2E_MOCK_BACKEND=$(abspath tests/e2e/mock-backend/mock-backend) \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='CarrierSwitch' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+
+## A worker that joins over P2P with a worker invite (`local-ai worker --join`),
+## with real processes: PostgreSQL and NATS in containers, a frontend in P2P
+## mode share, and the worker. The spec carries the P2PWorker label.
+test-e2e-distributed-p2p-worker: protogen-go build-mock-backend
+	@echo 'Running the P2P worker e2e (label P2PWorker)'
+	LOCALAI_E2E_MOCK_BACKEND=$(abspath tests/e2e/mock-backend/mock-backend) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='P2PWorker' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
 
 # Platform e2e: MCP connectors and apps, collections, the process flags and the
 # permission of the new routes, against the real local-ai binary. The suite builds

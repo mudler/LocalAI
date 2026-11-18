@@ -2,14 +2,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { nodesApi, p2pApi } from '../../utils/api'
+import { nodesApi, p2pApi, p2pNetApi } from '../../utils/api'
 import { usePolling } from '../../hooks/usePolling'
 import { useImageSelector } from '../ImageSelector'
-import { DISTRIBUTED_COMMAND, p2pCommand, workerCommand } from '../../utils/swarm'
+import { DISTRIBUTED_COMMAND, joinCommand, p2pCommand, shortPeer, workerCommand } from '../../utils/swarm'
 import AddSplitWorker from './AddSplitWorker'
 import CommandBlock from './CommandBlock'
 import NodeState from './NodeState'
+import NodeRoute from './NodeRoute'
 import Icon from '../Icon'
+import { Button } from '../ui'
 
 const METHODS = ['worker', 'peer', 'shard']
 
@@ -55,6 +57,48 @@ function useP2P(enabled) {
   return { token, online, loaded: token !== null }
 }
 
+// The worker invite of a compute node that joins over P2P: the mode of P2P on
+// this server (an invite needs "share"), the invite once made, and the call
+// that makes it. The link is in the answer of the mint only, so it lives here
+// and nowhere else.
+function useWorkerInvite(enabled) {
+  const [mode, setMode] = useState(null)
+  const [minted, setMinted] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  useEffect(() => {
+    if (!enabled) return undefined
+    let live = true
+    p2pNetApi.status()
+      .then(st => { if (live) setMode(st?.mode || (st?.enabled ? 'share' : 'off')) })
+      .catch(() => { if (live) setMode('off') })
+    return () => { live = false }
+  }, [enabled])
+  const mint = async (label) => {
+    setBusy(true)
+    setError(null)
+    try {
+      setMinted({ ...(await p2pNetApi.mintInvite({ kind: 'worker', label: label || undefined })), at: Date.now() })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return { mode, minted, busy, error, mint, reset: () => setMinted(null) }
+}
+
+// Seconds left until a time, as m:ss, counting down.
+function Remaining({ until }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const seconds = Math.max(0, Math.floor((new Date(until).getTime() - now) / 1000))
+  return <span className="dk-mono">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</span>
+}
+
 function Elapsed({ since }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -82,6 +126,12 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
   const [startedAt] = useState(() => Date.now())
   const p2p = useP2P(method === 'peer')
   const [approving, setApproving] = useState(null)
+  // How a compute node reaches this server: its address with the registration
+  // token ('url'), or a worker invite over P2P ('p2p').
+  const [connect, setConnect] = useState('url')
+  const [label, setLabel] = useState('')
+  const overP2P = method === 'worker' && connect === 'p2p'
+  const invite = useWorkerInvite(overP2P)
 
   // The roster at the moment the page opened. Anything else is new.
   const baseline = useRef(null)
@@ -94,7 +144,9 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
   ), [nodes])
 
   const frontend = typeof window === 'undefined' ? '' : window.location.origin
-  const command = method === 'worker'
+  const command = overP2P
+    ? joinCommand({ flavor, option: hardware.option, dev: hardware.dev, link: invite.minted?.link })
+    : method === 'worker'
     ? workerCommand({ flavor, nodeType, option: hardware.option, dev: hardware.dev, frontend })
     : p2pCommand({ method: 'peer', option: hardware.option, dev: hardware.dev, token: p2p.token, flavor })
 
@@ -142,6 +194,55 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
     <div className="sw-add" data-testid="add-node">
       {joinStep}
 
+      {method === 'worker' && !single && (
+        <Step n={next()} id="sw-add-connect" title={t('add.connect.title')}>
+          <Segmented
+            label={t('add.connect.title')}
+            value={connect}
+            onChange={setConnect}
+            options={[['url', t('add.connect.url')], ['p2p', t('add.connect.p2p')]]}
+          />
+          <p className="sw-note">{t(connect === 'p2p' ? 'add.connect.p2pSub' : 'add.connect.urlSub')}</p>
+          <p className="sw-note sw-note--quiet">{t('add.connect.order')}</p>
+        </Step>
+      )}
+
+      {overP2P && !single && (
+        <Step n={next()} id="sw-add-invite" title={t('add.invite.title')}>
+          {invite.mode !== null && invite.mode !== 'share' && (
+            <p className="sw-note" data-testid="invite-needs-share">
+              {t('add.invite.needsShare')}{' '}
+              <Link className="dk-link" to="/app/p2p/settings">{t('add.invite.settings')}</Link>
+            </p>
+          )}
+          {invite.mode === 'share' && !invite.minted && (
+            <div className="sw-invite">
+              <label className="sw-invite__field">
+                <span className="sw-invite__label">{t('add.invite.name')}</span>
+                <input className="dk-input" value={label} maxLength={64} placeholder={t('add.invite.namePlaceholder')} onChange={event => setLabel(event.target.value)} />
+              </label>
+              <Button variant="primary" busy={invite.busy} onClick={() => invite.mint(label.trim())} data-testid="make-worker-invite">{t('add.invite.make')}</Button>
+            </div>
+          )}
+          {invite.error && <p className="sw-note" data-level="error" role="alert">{invite.error}</p>}
+          {invite.minted && (
+            <p className="sw-invite__ready" data-testid="worker-invite">
+              <span className="dk-badge dk-badge--ok">{t('add.invite.ready')}</span>
+              <span>
+                {t('add.invite.single')}{' · '}{t('add.invite.expires')} <Remaining until={invite.minted.expires_at} />
+                {invite.minted.relay?.pass && <>{' · '}{t('add.invite.pass', { relay: invite.minted.relay.label || invite.minted.relay.id })}</>}
+              </span>
+              <Button variant="ghost" size="sm" onClick={invite.reset}>{t('add.invite.again')}</Button>
+            </p>
+          )}
+          {invite.minted && invite.minted.warnings?.length > 0 && (
+            <ul className="sw-invite__warn">
+              {invite.minted.warnings.map(w => <li key={w}>{t(`add.invite.warn.${w}`, { defaultValue: w })}</li>)}
+            </ul>
+          )}
+        </Step>
+      )}
+
       {needsDistributed && (
         <Step n={next()} id="sw-add-distributed" title={t('add.distributed.title')}>
           <p className="sw-note">{t('add.distributed.sub')}</p>
@@ -183,16 +284,17 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
             </div>
           )}
           <Segmented label={t('add.run.how')} value={flavor} onChange={setFlavor} options={[['docker', t('add.run.docker')], ['cli', t('add.run.cli')]]} />
-          {method === 'worker' && (
+          {method === 'worker' && !overP2P && (
             <Segmented label={t('add.run.kind')} value={nodeType} onChange={setNodeType} options={[['backend', t('add.run.backend')], ['agent', t('add.run.agent')]]} />
           )}
           {flavor === 'docker' && (
             <button type="button" className="dk-chip" aria-pressed={hardware.dev} onClick={() => hardware.setDev(!hardware.dev)} title={t('add.run.devTitle')}>{t('add.run.dev')}</button>
           )}
         </div>
-        <CommandBlock command={command} label={t('add.run.title')} addToast={addToast} />
+        {(!overP2P || invite.minted) && <CommandBlock command={command} label={t('add.run.title')} addToast={addToast} />}
+        {overP2P && !invite.minted && <p className="sw-note">{t('add.run.inviteFirst')}</p>}
         <p className="sw-note sw-note--quiet">
-          {method === 'worker' ? t('add.run.tokenNote') : t('add.run.p2pNote')}
+          {overP2P ? t('add.run.joinNote') : method === 'worker' ? t('add.run.tokenNote') : t('add.run.p2pNote')}
         </p>
       </Step>
 
@@ -207,7 +309,8 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
           <div key={node.id} className="sw-found" data-testid="found-node">
             <div className="sw-found__text">
               <Link className="dk-table-name dk-mono sw-name" to={`/app/nodes/${encodeURIComponent(node.id)}`}>{node.name}</Link>
-              <span className="dk-mono sw-found__addr">{node.address}</span>
+              <span className="dk-mono sw-found__addr" title={node.peer_id || undefined}>{node.peer_id ? shortPeer(node.peer_id) : node.address}</span>
+              <NodeRoute node={node} />
               <NodeState node={node} />
             </div>
             <div className="sw-found__acts">
@@ -232,7 +335,10 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
             <Link className="dk-link" to="/app/p2p">{t('add.wait.p2pOpen')}</Link>
           </p>
         )}
-        {arrived.length === 0 && !p2pFound && <p className="sw-note sw-note--quiet">{t(method === 'worker' ? 'add.wait.stuck' : 'add.wait.p2pStuck')}</p>}
+        {method === 'worker' && arrived.some(node => node.status === 'pending' && node.peer_id) && (
+          <p className="sw-note sw-note--quiet">{t('add.wait.checkPeer')}</p>
+        )}
+        {arrived.length === 0 && !p2pFound && <p className="sw-note sw-note--quiet">{t(overP2P ? 'add.wait.joinStuck' : method === 'worker' ? 'add.wait.stuck' : 'add.wait.p2pStuck')}</p>}
       </Step>
     </div>
   )

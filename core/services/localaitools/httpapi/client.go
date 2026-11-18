@@ -619,6 +619,8 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 		Address     string `json:"address"`
 		HTTPAddress string `json:"http_address"`
 		Status      string `json:"status"`
+		Attached    string `json:"attached"`
+		PeerID      string `json:"peer_id"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeNodes, nil, &raw); err != nil {
 		// Treat 404/disabled as "no nodes" to keep parity with single-process.
@@ -634,6 +636,8 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 			Address:     n.Address,
 			HTTPAddress: n.HTTPAddress,
 			Healthy:     n.Status == "healthy",
+			Route:       localaitools.NodeRoute(strings.Split(n.Attached, ","), n.PeerID),
+			PeerID:      n.PeerID,
 		})
 	}
 	return out, nil

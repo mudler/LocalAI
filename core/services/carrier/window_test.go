@@ -150,4 +150,64 @@ var _ = Describe("The window of a change of carrier", func() {
 			Expect(next.commands.seen()).To(HaveLen(1))
 		})
 	})
+
+	Describe("the hybrid routing of a cluster on NATS", func() {
+		var routes *fakeCarrier
+
+		BeforeEach(func() {
+			cur.Store(old.set)
+			routes = newFakeCarrier(cluster.CarrierTunnel, 1)
+			window.UseTunnelRoutes(routes.set)
+		})
+
+		It("sends a call to a worker that holds only a tunnel through the routes of the tunnel", func() {
+			attached["p2p"] = carrier.Attachment{Tunnel: true}
+			files := carrier.NewFiles(&cur)
+			files.UseWindow(window)
+			_, err := files.EnsureRemote(ctx, "p2p", "p", "k")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(routes.files.seen()).To(HaveLen(1))
+			Expect(old.files.seen()).To(BeEmpty())
+		})
+
+		It("prefers NATS for a worker attached to both", func() {
+			attached["both"] = carrier.Attachment{NATS: true, Tunnel: true}
+			files := carrier.NewFiles(&cur)
+			files.UseWindow(window)
+			_, err := files.EnsureRemote(ctx, "both", "p", "k")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(old.files.seen()).To(HaveLen(1))
+			Expect(routes.files.seen()).To(BeEmpty())
+		})
+
+		It("keeps the active set for a worker on NATS, one attached nowhere and one whose attachment is unknown", func() {
+			attached["nats"] = carrier.Attachment{NATS: true}
+			files := carrier.NewFiles(&cur)
+			files.UseWindow(window)
+			for _, id := range []string{"nats", "nowhere", "unknown"} {
+				_, err := files.EnsureRemote(ctx, id, "p", "k")
+				Expect(err).ToNot(HaveOccurred())
+			}
+			Expect(old.files.seen()).To(HaveLen(3))
+			Expect(routes.files.seen()).To(BeEmpty())
+		})
+
+		It("does nothing while the tunnel is the active carrier", func() {
+			cur.Store(next.set)
+			attached["p2p"] = carrier.Attachment{Tunnel: true}
+			files := carrier.NewFiles(&cur)
+			files.UseWindow(window)
+			_, err := files.EnsureRemote(ctx, "p2p", "p", "k")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(next.files.seen()).To(HaveLen(1))
+			Expect(routes.files.seen()).To(BeEmpty())
+		})
+
+		It("routes the dialer of the HTTP server of a worker in the same way", func() {
+			attached["p2p"] = carrier.Attachment{Tunnel: true}
+			dial := carrier.NewRoutedWorkerDialer(&cur, window)
+			_, _ = dial("p2p")(ctx, "tcp", "x:1")
+			Expect(routes.dialed.seen()).To(Equal([]string{"dial:p2p"}))
+		})
+	})
 })
