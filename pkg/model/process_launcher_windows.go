@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	process "github.com/mudler/go-processmanager"
@@ -99,25 +98,21 @@ func prepareBackendEnv(workDir string, env []string) []string {
 // closes Done() when the process exits, and waits on the process so its handle
 // is released.
 //
-// Limit: go-processmanager passes an empty SysProcAttr on Windows, so the
-// caller cannot set creation flags such as CREATE_NEW_PROCESS_GROUP or
-// CREATE_SUSPENDED. The process is therefore assigned to the kill-on-close job
-// object right after Run returns. A child that the launcher spawned before
-// that assignment would not join the job; the launcher needs far longer than
-// that to start its backend. Because the backend shares the console of
-// local-ai.exe, a console Ctrl+C also reaches it.
+// The process tree is owned by the library: startProcess passes
+// WithJobObject(true), so Run creates the PowerShell wrapper suspended, puts
+// it in a kill-on-close job object and then resumes it. The backend that
+// run.ps1 starts therefore joins the job from its first instruction. Stop
+// terminates the whole job, and Windows kills the job if LocalAI exits or
+// crashes.
+//
+// Limit: the job closes when the wrapper exits. run.ps1 runs the backend in
+// the foreground, so the wrapper lives as long as the backend does.
 type processLauncherWindows struct{}
 
 var _ processLauncher = processLauncherWindows{}
 
-func (processLauncherWindows) launch(proc *process.Process, runtime *backendProcessRuntime, _ string, _ []string, _ string, _ []string) error {
-	if err := proc.Run(); err != nil {
-		return err
-	}
-	if pid, err := strconv.Atoi(proc.CurrentPID()); err == nil {
-		runtime.trackProcessTree(pid)
-	}
-	return nil
+func (processLauncherWindows) launch(proc *process.Process, _ *backendProcessRuntime, _ string, _ []string, _ string, _ []string) error {
+	return proc.Run()
 }
 
 // newLauncher returns the platform-specific process launcher for Windows.

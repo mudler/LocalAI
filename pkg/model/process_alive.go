@@ -1,38 +1,20 @@
 package model
 
 import (
-	"runtime"
-
 	process "github.com/mudler/go-processmanager"
 )
 
 // ProcessAlive reports whether a backend process started by this package is
-// still running.
+// still running. It is a nil-safe wrapper around the process manager's
+// IsAlive, which works on every platform, Windows included.
 //
-// go-processmanager's IsAlive sends signal 0, which Go does not support on
-// Windows, so there it always reports false. On Windows this function uses
-// the process manager's Done() channel instead: the monitor goroutine closes
-// it when Wait returns. On other platforms it calls IsAlive.
+// IsAlive reads the pidfile. After the process exits and its pidfile is
+// removed (by Stop) it reports false. A pidfile left behind by a process that
+// exited on its own can name a PID that the OS has reused for another
+// process, so callers that need an exit signal should also watch Done().
 func ProcessAlive(p *process.Process) bool {
 	if p == nil {
 		return false
 	}
-	if runtime.GOOS == "windows" {
-		return aliveFromDone(p)
-	}
 	return p.IsAlive()
-}
-
-// aliveFromDone reports a started process as alive until its monitor has seen
-// it exit. A handle that was never started has no PID and is not alive.
-func aliveFromDone(p *process.Process) bool {
-	if p.CurrentPID() == "" {
-		return false
-	}
-	select {
-	case <-p.Done():
-		return false
-	default:
-		return true
-	}
 }
