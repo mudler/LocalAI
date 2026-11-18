@@ -227,7 +227,7 @@ func HasGPU(vendor string) bool {
 		if err == nil && len(gpus) > 0 {
 			return true
 		}
-		return len(scanSysfsGPUs(defaultSysfsDRMPath)) > 0
+		return len(scanSysfsGPUs(defaultSysfsDRMPath)) > 0 || len(platformGPUMemory()) > 0
 	}
 	return hasGPUVendor(vendor)
 }
@@ -249,6 +249,12 @@ func DetectGPUVendor() (string, error) {
 	// ended up undetected in #10941.
 	if vendor := sysfsVendorPriority(defaultSysfsDRMPath); vendor != "" {
 		xlog.Debug("GPU vendor detected via sysfs", "vendor", vendor)
+		return vendor, nil
+	}
+
+	// The adapters the OS reports (DXGI on Windows, nothing elsewhere).
+	if vendor := vendorFromAdapterInfos(platformGPUMemory()); vendor != "" {
+		xlog.Debug("GPU vendor detected via the OS adapter list", "vendor", vendor)
 		return vendor, nil
 	}
 
@@ -321,10 +327,17 @@ func GetGPUMemoryUsage() []GPUMemoryInfo {
 		gpus = append(gpus, nvidiaGPUs...)
 	}
 
+	// GPUs the OS reports itself (DXGI on Windows, where the Linux vendor
+	// tools and sysfs do not exist). nvidia-smi entries win over these.
+	gpus = mergeOSAdapters(gpus, platformGPUMemory())
+
 	// XXX: Note - I could not test this with AMD and Intel GPUs, so I'm not sure if it works and it was added with the help of AI.
 
 	// Try AMD ROCm
-	amdGPUs := getAMDGPUMemory()
+	var amdGPUs []GPUMemoryInfo
+	if !gpuListHasVendor(gpus, VendorAMD) {
+		amdGPUs = getAMDGPUMemory()
+	}
 	if len(amdGPUs) > 0 {
 		// Adjust indices to continue from NVIDIA GPUs
 		startIdx := len(gpus)
@@ -335,7 +348,10 @@ func GetGPUMemoryUsage() []GPUMemoryInfo {
 	}
 
 	// Try Intel
-	intelGPUs := getIntelGPUMemory()
+	var intelGPUs []GPUMemoryInfo
+	if !gpuListHasVendor(gpus, VendorIntel) {
+		intelGPUs = getIntelGPUMemory()
+	}
 	if len(intelGPUs) > 0 {
 		startIdx := len(gpus)
 		for i := range intelGPUs {
@@ -864,7 +880,7 @@ func hasGPUVendor(vendor string) bool {
 			return true
 		}
 	}
-	return false
+	return gpuListHasVendor(platformGPUMemory(), vendor)
 }
 
 // getIntelXPUSMI queries Intel GPUs using xpu-smi
