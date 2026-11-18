@@ -16,8 +16,8 @@ P2P gives you:
 - **Paired devices.** A device pairs once and can then reach this server.
 - **Remotes over P2P.** You use the models of another LocalAI server as models
   of this one. See [Remotes]({{% relref "/administration/remotes" %}}).
-- **Model-split workers.** Workers that hold part of a large model join with an
-  invite. See [MLX distributed]({{% relref "/administration/mlx-distributed" %}}).
+- **Model-split workers.** llama.cpp and MLX workers that hold part of a large
+  model join with an invite. See [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}}).
 - **A view of each connection.** You see whether a device is connected directly,
   through a hole punched in the router, or through a relay.
 
@@ -175,9 +175,12 @@ for each request:
 
 - Pairing and small requests use any relay, also a public one.
 - Large transfers need a direct connection, or a relay with a large enough limit.
-- A model-split worker that is reachable only through a relay still works, but it
-  is slow. LocalAI shows a warning and you choose **Use anyway**. LocalAI never
-  refuses the worker.
+- A model-split worker that is reachable only through a relay still pairs and
+  shows on the Nodes page, but it is slow. LocalAI shows a warning and you
+  choose **Use anyway**. Through a relay of yours that limits each
+  connection, the worker runs until the relay cuts the connection; you can
+  raise or remove the limits. A public relay never carries model layers. See
+  [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}}#paths-relays-and-use-anyway).
 
 When a relayed connection ends at its limit, LocalAI connects again and tries to
 get a direct connection.
@@ -227,6 +230,8 @@ names the mode.
 | `GET`, `POST /api/p2p/relays` | Lists the relays, or adds one: `{addr, label, claim_code}`. |
 | `DELETE /api/p2p/relays/{id}` | Removes a relay. |
 | `POST /api/p2p/relays/{id}/check`, `/sync`, `/claim` | Checks a relay, pushes the paired set to it now, or claims it with its code: `{code}`. |
+| `GET /api/p2p/split-workers` | Lists the model-split workers with their state and path. See [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}}#http-api-and-assistant). |
+| `PATCH /api/p2p/split-workers/{id}` | `{allow_slow_path}`: uses a worker over a relay ("Use anyway"), or stops. |
 | `GET`, `PUT /api/p2p/relays/{id}/limits` | Reads the limits of a relay (`circuit_bytes`, `circuit_seconds`, `rate_bps`; 0 is no limit) and whether this server may change them, or changes them: a field left out stays. A new data or time limit restarts the circuit service of the relay (`restarted` is `true`). `409` when this server is not an admin of the relay or the relay is open. |
 | `POST /api/p2p/identity/regenerate` | Makes a new identity. The body must be `{"confirm": true}`. Every device must pair again. |
 | `POST /api/p2p/redeem` | Redeems an invite: `{v: 1, code, name, platform}`. Served **only over P2P**; the normal HTTP listener answers 404. |
@@ -241,7 +246,8 @@ call only the redeem route. Every other request gets 403.
 
 The LocalAI Assistant has the tools `get_p2p_status`, `list_p2p_devices`,
 `list_p2p_invites`, `list_p2p_relays`, `get_p2p_relay_limits`,
-`revoke_p2p_device`, `cancel_p2p_invite` and `set_p2p_relay_limits`. It cannot create invites: a link is a credential.
+`list_p2p_split_workers`, `revoke_p2p_device`, `cancel_p2p_invite`,
+`set_p2p_relay_limits` and `set_p2p_split_slow_path`. It cannot create invites: a link is a credential.
 
 ## Several frontends
 

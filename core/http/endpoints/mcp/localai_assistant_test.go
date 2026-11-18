@@ -324,6 +324,12 @@ func (stubClient) SetP2PRelayLimits(_ context.Context, _ string, _ localaitools.
 }
 func (stubClient) RevokeP2PDevice(_ context.Context, _ string) error { return nil }
 func (stubClient) CancelP2PInvite(_ context.Context, _ string) error { return nil }
+func (stubClient) ListP2PSplitWorkers(_ context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {
+	return nil, nil
+}
+func (stubClient) SetP2PSplitSlowPath(_ context.Context, _ string, _ bool) (*localaitools.P2PSplitWorkerInfo, error) {
+	return &localaitools.P2PSplitWorkerInfo{}, nil
+}
 
 func (stubClient) ListSharedFolders(_ context.Context) ([]localaitools.SharedFolder, error) {
 	return nil, nil

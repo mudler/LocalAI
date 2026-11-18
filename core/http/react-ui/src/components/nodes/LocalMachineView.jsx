@@ -13,8 +13,9 @@ import '../../pages/operate.css'
 // loaded on it. The host is treated as a fleet of one so the capacity readings
 // and the running-models table match what a cluster operator sees. The setup
 // for more than one machine stays behind a button, since most single-node
-// installs are single-node on purpose.
-export default function LocalMachineView({ addToast, scaleOut }) {
+// installs are single-node on purpose. `extra` is shown below, for example the
+// model-split workers that lend this machine their memory.
+export default function LocalMachineView({ addToast, scaleOut, extra }) {
   const { t } = useTranslation('operate')
   const machine = useLocalMachine()
   const [showScaleOut, setShowScaleOut] = useState(false)
@@ -42,6 +43,7 @@ export default function LocalMachineView({ addToast, scaleOut }) {
       {showScaleOut && scaleOut}
       <HostOverview summary={summary} models={machine.rows} ramTotal={machine.resources?.ram?.total} resources={machine.resources} />
       <LocalRunningModels machine={machine} addToast={addToast} />
+      {extra}
     </div>
   )
 }

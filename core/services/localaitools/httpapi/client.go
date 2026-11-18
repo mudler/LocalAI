@@ -1150,6 +1150,44 @@ func (c *Client) CancelP2PInvite(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodDelete, routeP2PInvites+"/"+url.PathEscape(id), nil, nil)
 }
 
+// p2pSplitWire is the part of a model-split worker the tools show.
+type p2pSplitWire struct {
+	localaitools.P2PSplitWorkerInfo
+	Path struct {
+		Kind       string `json:"kind"`
+		RelayLabel string `json:"relay_label"`
+	} `json:"path"`
+}
+
+func (w p2pSplitWire) info() localaitools.P2PSplitWorkerInfo {
+	info := w.P2PSplitWorkerInfo
+	info.Path, info.RelayLabel = w.Path.Kind, w.Path.RelayLabel
+	return info
+}
+
+func (c *Client) ListP2PSplitWorkers(ctx context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {
+	var out struct {
+		Workers []p2pSplitWire `json:"workers"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PSplitWorkers, nil, &out); err != nil {
+		return nil, err
+	}
+	ws := make([]localaitools.P2PSplitWorkerInfo, 0, len(out.Workers))
+	for _, w := range out.Workers {
+		ws = append(ws, w.info())
+	}
+	return ws, nil
+}
+
+func (c *Client) SetP2PSplitSlowPath(ctx context.Context, id string, allow bool) (*localaitools.P2PSplitWorkerInfo, error) {
+	var w p2pSplitWire
+	if err := c.do(ctx, http.MethodPatch, routeP2PSplitWorkers+"/"+url.PathEscape(id), map[string]bool{"allow_slow_path": allow}, &w); err != nil {
+		return nil, err
+	}
+	info := w.info()
+	return &info, nil
+}
+
 // ---- Shared folders ----
 
 func (c *Client) ListSharedFolders(ctx context.Context) ([]localaitools.SharedFolder, error) {

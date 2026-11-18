@@ -19,7 +19,9 @@ import (
 )
 
 type LLamaCPP struct {
-	WorkerFlags `embed:""`
+	WorkerFlags  `embed:""`
+	P2PJoinFlags `embed:""`
+	P2PStateDir  string `name:"p2p-state-dir" env:"LOCALAI_P2P_STATE_DIR" type:"path" default:"${basepath}/p2p/llama-cpp-rpc" help:"Directory of the P2P identity and pairing of this worker (with --join). Keep it across restarts: the server knows the worker by this identity" group:"p2p"`
 }
 
 const (
@@ -64,6 +66,9 @@ func findLLamaCPPBackend(galleries string, systemState *system.SystemState, requ
 }
 
 func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
+	if r.Join != "" {
+		return r.runP2P()
+	}
 
 	if len(os.Args) < 4 {
 		return fmt.Errorf("usage: local-ai worker llama-cpp-rpc -- <llama-rpc-server-args>")

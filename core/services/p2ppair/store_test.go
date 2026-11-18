@@ -234,6 +234,24 @@ func storeContract(newStore func() p2ppair.Store) {
 		Expect(s.RenameDevice(ctx, "nope", "x")).To(MatchError(p2ppair.ErrNotFound))
 	})
 
+	It("stores whether a device may use a slow path", func() {
+		Expect(s.CreateInvite(ctx, invite("a", time.Hour), testCode)).To(Succeed())
+		_, _, err := s.Redeem(ctx, redeemParams(testCode, "d1"))
+		Expect(err).NotTo(HaveOccurred())
+		d, _ := s.GetDevice(ctx, "d1")
+		Expect(d.AllowSlowPath).To(BeFalse())
+		Expect(s.SetDeviceAllowSlowPath(ctx, "d1", true)).To(Succeed())
+		d, _ = s.GetDevice(ctx, "d1")
+		Expect(d.AllowSlowPath).To(BeTrue())
+		devs, _ := s.ListDevices(ctx)
+		Expect(devs).To(HaveLen(1))
+		Expect(devs[0].AllowSlowPath).To(BeTrue())
+		Expect(s.SetDeviceAllowSlowPath(ctx, "d1", false)).To(Succeed())
+		d, _ = s.GetDevice(ctx, "d1")
+		Expect(d.AllowSlowPath).To(BeFalse())
+		Expect(s.SetDeviceAllowSlowPath(ctx, "nope", true)).To(MatchError(p2ppair.ErrNotFound))
+	})
+
 	It("undoes the redeem when the key issuer fails", func() {
 		Expect(s.CreateInvite(ctx, invite("a", time.Hour), testCode)).To(Succeed())
 		rp := redeemParams(testCode, "d1")

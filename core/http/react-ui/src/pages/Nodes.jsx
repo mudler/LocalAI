@@ -22,6 +22,7 @@ import FleetHero from '../components/swarm/FleetHero'
 import NodeInspector from '../components/swarm/NodeInspector'
 import NodeList from '../components/swarm/NodeList'
 import RunningModels from '../components/swarm/RunningModels'
+import SplitWorkers from '../components/swarm/SplitWorkers'
 import Icon from '../components/Icon'
 import './swarm.css'
 import './swarm-nodes.css'
@@ -191,7 +192,7 @@ export default function Nodes() {
   }
   if (loadStatus === 'loading') return <div className="page page--wide sw-page"><SkeletonRows /></div>
   if (loadStatus === 'single') {
-    return <LocalMachineView addToast={addToast} scaleOut={<ScaleOut addToast={addToast} />} />
+    return <LocalMachineView addToast={addToast} scaleOut={<ScaleOut addToast={addToast} />} extra={<SplitWorkers addToast={addToast} />} />
   }
   if (loadStatus === 'ready' && nodes.length === 0) {
     return (
@@ -202,6 +203,7 @@ export default function Nodes() {
         </header>
         <AddNodeFlow nodes={nodes} single={false} addToast={addToast} onApproved={refetch} />
         <ClusterTransport addToast={addToast} />
+        <SplitWorkers addToast={addToast} />
       </div>
     )
   }
@@ -354,6 +356,8 @@ export default function Nodes() {
       )}
 
       {shownView === 'models' && <RunningModels nodes={nodes} replicas={replicas} addToast={addToast} />}
+
+      <SplitWorkers addToast={addToast} />
 
       <ConfirmDialog
         open={confirmRemove}

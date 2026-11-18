@@ -65,6 +65,17 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		return jsonResult(info), nil, nil
 	})
 
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolListP2PSplitWorkers,
+		Description: "List the model-split workers (llama.cpp RPC and MLX) that lend their memory to models on this server, with their state (online, offline, slow, limited, refused), path and memory.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+		ws, err := client.ListP2PSplitWorkers(ctx)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(ws), nil, nil
+	})
+
 	if opts.DisableMutating {
 		return
 	}
@@ -79,6 +90,19 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 			return errorResult(err), nil, nil
 		}
 		return jsonResult(map[string]any{"id": args.ID, "revoked": true}), nil, nil
+	})
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolSetP2PSplitSlowPath,
+		Description: "Use a model-split worker that only a relay reaches (allow=true, \"Use anyway\": it works, but every token waits for the relay), or stop using it there (allow=false). A relay of the user (own_relay) that limits each connection ends it at its limit; say so, and that the model must then be loaded again. A public relay never carries model layers. Requires user confirmation per safety rule 1.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
+		ID    string `json:"id" jsonschema:"worker ID from list_p2p_split_workers"`
+		Allow bool   `json:"allow" jsonschema:"true to use the worker over the relay, false to stop"`
+	}) (*mcp.CallToolResult, any, error) {
+		w, err := client.SetP2PSplitSlowPath(ctx, args.ID, args.Allow)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(w), nil, nil
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolCancelP2PInvite,

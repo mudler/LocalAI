@@ -50,6 +50,7 @@ const (
 	routeP2PDevices             = "/api/p2p/devices"
 	routeP2PInvites             = "/api/p2p/invites"
 	routeP2PRelays              = "/api/p2p/relays"
+	routeP2PSplitWorkers        = "/api/p2p/split-workers"
 	routeSharedFolders          = "/api/chats/admin/shared-folders"
 	routeSharedFolderRestore    = "/api/chats/admin/shared-folders/restore"
 	routeSharedFolderEvents     = "/api/chats/admin/shared-folders/events"

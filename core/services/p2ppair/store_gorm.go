@@ -50,6 +50,8 @@ type deviceRow struct {
 	LastPath    string `gorm:"size:32"`
 	RevokedAt   *time.Time
 	RevokedBy   string `gorm:"size:64"`
+	// AllowSlowPath is the "Use anyway" choice of a split worker.
+	AllowSlowPath bool `gorm:"not null;default:false"`
 }
 
 // TableName is the table of the devices.
@@ -109,7 +111,7 @@ func (r deviceRow) device() Device {
 		ID: r.ID, OwnerID: r.OwnerID, Kind: Kind(r.Kind), Label: r.Label,
 		PeerID: r.PeerID, ClientKeyID: r.ClientKeyID, InviteID: r.InviteID,
 		CreatedAt: r.CreatedAt, LastSeenAt: r.LastSeenAt, LastPath: r.LastPath,
-		RevokedAt: r.RevokedAt, RevokedBy: r.RevokedBy,
+		RevokedAt: r.RevokedAt, RevokedBy: r.RevokedBy, AllowSlowPath: r.AllowSlowPath,
 	}
 	_ = json.Unmarshal([]byte(r.Scope), &d.Scope)
 	return d
@@ -121,6 +123,7 @@ func deviceToRow(d Device) deviceRow {
 		PeerID: d.PeerID, ClientKeyID: d.ClientKeyID, InviteID: d.InviteID,
 		Scope: marshalJSON(d.Scope), CreatedAt: d.CreatedAt, LastSeenAt: d.LastSeenAt,
 		LastPath: d.LastPath, RevokedAt: d.RevokedAt, RevokedBy: d.RevokedBy,
+		AllowSlowPath: d.AllowSlowPath,
 	}
 }
 
@@ -275,6 +278,19 @@ func (s *gormStore) RenameDevice(ctx context.Context, id, label string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (s *gormStore) SetDeviceAllowSlowPath(ctx context.Context, id string, allow bool) error {
+	var n int64
+	if err := s.db.WithContext(ctx).Model(&deviceRow{}).Where("id = ?", id).Count(&n).Error; err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	// Update with a map: GORM skips a false bool in a struct update.
+	return s.db.WithContext(ctx).Model(&deviceRow{}).Where("id = ?", id).
+		Updates(map[string]any{"allow_slow_path": allow}).Error
 }
 
 func (s *gormStore) RevokeDevice(ctx context.Context, id, by string, now time.Time) (Device, error) {

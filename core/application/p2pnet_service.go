@@ -125,6 +125,11 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 			return p2papi.MintResult{}, err
 		}
 	}
+	if p2ppair.Kind(req.Kind) == p2ppair.KindSplit {
+		if req.Labels, err = splitInviteLabels(req.Labels); err != nil {
+			return p2papi.MintResult{}, err
+		}
+	}
 	mr := p2ppair.MintRequest{
 		OwnerID: by, CreatedBy: by, Kind: p2ppair.Kind(req.Kind), Label: req.Label,
 		TTL:            time.Duration(req.TTLSeconds) * time.Second,
