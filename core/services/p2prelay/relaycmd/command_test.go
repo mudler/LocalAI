@@ -44,6 +44,22 @@ var _ = Describe("relay command", func() {
 		Expect(cfg.Port).To(Equal(p2prelay.DefaultPort))
 	})
 
+	It("keeps the connection rate defaults of the package and reads the flags", func() {
+		cfg, err := parse().Config()
+		Expect(err).ToNot(HaveOccurred())
+		def := p2prelay.DefaultConfig(false)
+		Expect(cfg.ConnRatePerIP).To(Equal(def.ConnRatePerIP))
+		Expect(cfg.ConnBurstPerIP).To(Equal(def.ConnBurstPerIP))
+		Expect(cfg.ConnRateTotal).To(Equal(def.ConnRateTotal))
+		Expect(cfg.ConnBurstTotal).To(Equal(def.ConnBurstTotal))
+		cfg, err = parse("--conn-rate-per-ip=0", "--conn-burst-per-ip=7", "--conn-rate-total=3.5", "--conn-burst-total=9").Config()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(cfg.ConnRatePerIP).To(BeZero())
+		Expect(cfg.ConnBurstPerIP).To(Equal(7))
+		Expect(cfg.ConnRateTotal).To(Equal(3.5))
+		Expect(cfg.ConnBurstTotal).To(Equal(9))
+	})
+
 	It("limits an open relay unless --rate-limit=0", func() {
 		cfg, err := parse("--open").Config()
 		Expect(err).ToNot(HaveOccurred())

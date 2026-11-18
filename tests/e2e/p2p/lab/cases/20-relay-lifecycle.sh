@@ -12,20 +12,17 @@ case_relay_restart() {
   relay_stop
   relay_start --admin "$SRV"
   expect_match "the allowlist is loaded from disk before any admin contact" 'paired peers: 1' "$(relay_log)"
-  # The server comes back when a dial through the relay works again. The dials
-  # are three seconds apart: the relay limits how fast one IP address may open
-  # connections, and both peers of the lab sit behind one address each.
+  # The server comes back when a dial through the relay works again.
   local secs=""
-  for _ in $(seq 1 40); do
+  for _ in $(seq 1 100); do
     if dial a CLI "$SRV" --quick --timeout 5s | grep -q 'RESULT connect=ok'; then
       secs=$(awk -v a="$(date +%s.%N)" -v b="$RELAY_STARTED_AT" 'BEGIN{printf "%.1f", a - b}')
       break
     fi
-    sleep 3
+    sleep 1
   done
   echo "  the server was reachable again ${secs:-never} s after the restart" | tee "$CASE_LOGS/restart.log"
   expect_true "the server is reachable through the relay again within 70 s" num_lt "${secs:-99999}" 70
-  sleep 3
   out=$(dial a CLI "$SRV" --quick --timeout 20s | grep RESULT)
   expect_match "the pair connects again after the restart" 'RESULT connect=ok' "$out"
 }

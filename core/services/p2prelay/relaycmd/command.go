@@ -34,6 +34,10 @@ type Command struct {
 	MaxReservations      int           `default:"128" help:"Reservations the relay holds at once"`
 	MaxReservationsPerIP int           `default:"8" help:"Reservations one IP address may hold"`
 	MaxConnsPerIP        int           `default:"32" help:"Connections one IP address may hold"`
+	ConnRatePerIP        float64       `default:"2" help:"New connections per second one IP address may open after its burst (0: no limit). Loopback is never limited"`
+	ConnBurstPerIP       int           `default:"128" help:"New connections one IP address may open at once. Many devices can share one address"`
+	ConnRateTotal        float64       `default:"200" help:"New connections per second from all addresses together after the burst (0: no limit)"`
+	ConnBurstTotal       int           `default:"1000" help:"New connections from all addresses together that the relay accepts at once"`
 	MaxPeersPerAdmin     int           `default:"1024" help:"Peers one admin may allow"`
 	PendingTTL           time.Duration `default:"10m" help:"How long a device that came in with a relay pass stays a member until its server confirms it"`
 	AllowPrivateAddrs    bool          `help:"Put private addresses in reservations (for a relay on a LAN). Turns on by itself when no public address is known"`
@@ -81,6 +85,10 @@ func (c *Command) Config() (p2prelay.RunConfig, error) {
 	cfg.MaxReservations = c.MaxReservations
 	cfg.MaxReservationsPerIP = c.MaxReservationsPerIP
 	cfg.MaxConnsPerIP = c.MaxConnsPerIP
+	cfg.ConnRatePerIP = c.ConnRatePerIP
+	cfg.ConnBurstPerIP = c.ConnBurstPerIP
+	cfg.ConnRateTotal = c.ConnRateTotal
+	cfg.ConnBurstTotal = c.ConnBurstTotal
 	cfg.MaxPeersPerAdmin = c.MaxPeersPerAdmin
 	cfg.PendingTTL = c.PendingTTL
 	cfg.Port = c.Port

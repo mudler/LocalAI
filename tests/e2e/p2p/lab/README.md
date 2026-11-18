@@ -75,11 +75,12 @@ s before it dials.
 
 ## Things to know when you write a case
 
-- The relay limits how fast one IP address may open connections (the default of
-  the libp2p resource manager), and every peer of a LAN shares one address at
-  the relay. A loop that starts a new `dial` process each second trips it and
-  then fails with `failed to negotiate security protocol: EOF`. Space such
-  dials three seconds apart, as `relay_restart` does.
+- The relay limits how fast one IP address may open connections, and every
+  peer of a LAN shares one address at the relay. The default burst is large
+  enough for a loop that starts a `dial` process each second. A case that
+  tests the limit itself starts the relay with `--conn-burst-per-ip` and
+  `--conn-rate-per-ip`; a refused dial fails with `failed to negotiate
+  security protocol: EOF`.
 - A case that needs other NAT types calls `set_nats <natA> <natB>`; the next
   case starts with `LAB_NATS` again.
 - A hole punch needs `observers` (four public peers) and a `--warmup` on the
