@@ -95,7 +95,7 @@ The default folders are the same as for `local-ai run`: `models`, `backends` and
 
 ### Stop a worker
 
-Ctrl+C or Ctrl+Break stops the worker. The worker deregisters from the frontend and stops its backends. Each backend runs in a Windows job object, so it also stops when the worker process is killed. When a killed worker leaves a backend that was not in a job object, the next start of the worker stops it.
+Ctrl+C or Ctrl+Break stops the worker. The worker deregisters from the frontend and stops its backends. Each backend runs in a Windows job object, so it also stops when the worker process is killed. The worker also records the process of each backend, and its next start stops any backend that is still running.
 
 ### Run a worker as a Windows service
 
@@ -259,7 +259,7 @@ Known limits:
 - **Symbolic links in backend images.** Windows lets a user make symbolic links only with administrator rights or in Developer Mode. Without that right, LocalAI copies the target of each link in a backend image in its place. The install takes more disk space but works the same.
 - **Stopping the server.** Ctrl+C and Ctrl+Break stop LocalAI gracefully: it finishes the requests in flight and then exits. When you close the console window, or when you log off or shut down, Windows gives the process only about 5 seconds, so long requests can be cut.
 - **Converted schedules.** Windows does not give LocalAI the name of its time zone. When old cron tasks are converted to chat schedules, they run in UTC and the report says so. To keep the local time, set the `TZ` environment variable to a zone name, for example `TZ=Europe/Rome`, before you start LocalAI.
-- **Windows service.** LocalAI does not install itself as a Windows service. Run it from a console, from the Task Scheduler at logon, or with a service wrapper of your choice.
+- **Windows service.** LocalAI does not install itself as a Windows service, but it can run as one: when the service manager starts it, a service stop or a shutdown stops it like Ctrl+C. Create the service with `sc.exe`, as shown in [Run a worker as a Windows service](#run-a-worker-as-a-windows-service); the same steps work for `local-ai run`. You can also run LocalAI from a console or from the Task Scheduler at logon.
 
 ## Building from source
 
