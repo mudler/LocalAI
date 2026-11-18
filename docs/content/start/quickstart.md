@@ -30,7 +30,7 @@ On Windows, on an Intel Mac, or when you prefer a container, use Docker instead:
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-A desktop app for macOS and Linux comes with the next release. Test builds are on the dev-master pre-release. See the [install guide]({{% relref "/start/install" %}}) for the other ways to install.
+A desktop app for macOS and Linux is in the 5.0 release. See the [install guide]({{% relref "/start/install" %}}) for the other ways to install.
 
 For a GPU in a container, use the image that matches your hardware:
 

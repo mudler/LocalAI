@@ -696,7 +696,7 @@ that did not complete never becomes downloadable.
 
 ## How to try it
 
-To use Tables, install it from **Find add-ons** on a development build or a release newer than 4.12.1.
+To use Tables, install it from **Find add-ons** on LocalAI 5.0 or newer, or on a development build.
 A release build reads the `addons-index.yaml` that its release attaches. A development build reads the
 development index, where Tables is listed. To build the package yourself, build the executable, put it in a
 package with `manifest.json` from `addons/tables`, and install the package from
