@@ -96,10 +96,10 @@ When you close the window, the app stays in the notification area of the taskbar
 
 On the first start the app asks you to choose:
 
-- **Run LocalAI on this computer.** The app downloads the latest LocalAI server release into `~/.localai`, checks its checksum, and starts it. The first start needs an internet connection. Models and backends are downloaded later, when you use them.
+- **Run LocalAI on this computer.** The app downloads the latest LocalAI server release into `~/.localai` (`%LOCALAPPDATA%\LocalAI\launcher` on Windows), checks its checksum, and starts it. The first start needs an internet connection. Models and backends are downloaded later, when you use them.
 - **Connect to a LocalAI server.** You give the address of a server that runs somewhere else, for example `https://localai.example.com`. The app tests the address and then opens that server in its window.
 
-On Windows the server is `local-ai.exe`, and the app keeps it in `%USERPROFILE%\.localai`.
+On Windows the server is `local-ai.exe`, and the app keeps it in `%LOCALAPPDATA%\LocalAI\launcher\bin`.
 
 When the server is ready, the window shows the LocalAI web interface. You can use it as you would in a browser.
 
@@ -166,16 +166,27 @@ The new app reads the same `~/.localai` folder. Your models, backends and settin
 
 ## Where your data is
 
-The app keeps everything for the local server under `~/.localai` (`%USERPROFILE%\.localai` on Windows):
+On Linux and macOS, the app keeps everything for the local server under `~/.localai`:
 
 - Models and backends. To move them, open Settings and select **Change...** next to the folder, then choose a folder in the dialog.
-- `bin`, with the `local-ai` server binary and `local-ai.previous`, the copy that the app keeps for a rollback. On Windows the names are `local-ai.exe` and `local-ai.previous.exe`.
+- `bin`, with the `local-ai` server binary and `local-ai.previous`, the copy that the app keeps for a rollback.
 - The server configuration.
 - `launcher.json`, the settings of the app, including the saved server addresses.
 
-The app also keeps the API key of the local server and other secrets there, in a separate file. The system keyring encrypts them when one exists. On Windows the app encrypts them for your user account with the Windows data protection API.
+On Windows, the app uses the same folders as `local-ai.exe` started from a terminal (see [Where LocalAI keeps its files]({{% relref "/start/install/windows" %}}#where-localai-keeps-its-files)), so both find the same models:
 
-To remove the app, delete the AppImage file on Linux, or drag LocalAI Launcher from Applications to the Trash on macOS. On Windows, quit the app, then remove **LocalAI Launcher** in **Settings > Apps > Installed apps** (or delete the folder of the portable copy). This does not delete `~/.localai`, so your models stay. To remove all data, delete the `~/.localai` folder after you quit the app. The app also adds an autostart entry only if you turn on **Launch at login** in Settings. Turn it off before you remove the app.
+- `%LOCALAPPDATA%\LocalAI`: models, backends, the server data and configuration, and the logs.
+- `%LOCALAPPDATA%\LocalAI\launcher`: `launcher.json`, the secrets file, and `bin` with `local-ai.exe` and `local-ai.previous.exe`. This is not the `bin` folder of the PowerShell installer, so the two do not replace each other's server.
+
+If an earlier build of the app left a `launcher.json` in `%USERPROFILE%\.localai`, the app keeps using that folder for everything. It does not move files. To move to the standard folders, quit the app, move the `models` and `backends` folders to `%LOCALAPPDATA%\LocalAI`, and move or delete `%USERPROFILE%\.localai`.
+
+On every system, when `LOCALAI_BASE_PATH` is set to a full path, the app uses it as the default data folder instead. Folders that you chose in Settings win.
+
+Do not run the app's server and a `local-ai run` from a terminal at the same time on the same folders.
+
+The app keeps the API key of the local server and other secrets in a separate file next to `launcher.json`. The system keyring encrypts them when one exists. On Windows the app encrypts them for your user account with the Windows data protection API.
+
+To remove the app, delete the AppImage file on Linux, or drag LocalAI Launcher from Applications to the Trash on macOS. On Windows, quit the app, then remove **LocalAI Launcher** in **Settings > Apps > Installed apps** (or delete the folder of the portable copy). This does not delete `~/.localai` (on Windows `%LOCALAPPDATA%\LocalAI`), so your models stay. To remove all data, delete that folder after you quit the app. The app also adds an autostart entry only if you turn on **Launch at login** in Settings. Turn it off before you remove the app.
 
 ## Troubleshooting
 

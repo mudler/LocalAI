@@ -20,6 +20,7 @@ import { decideClose, shouldStartVisible } from './trayPolicy'
 import { checkForLauncherUpdate, getUpdaterStatus, initSelfUpdate, installLauncherUpdate, setLauncherPrereleases } from './selfUpdate'
 import { GithubReleasesProvider, RedirectFirstProvider } from './updateProvider'
 import { platformTarget } from './platform'
+import { resolveLayout } from './paths'
 import { findFreePort, hardwareSummary, portProcess } from './hostTools'
 import { externalUrl, partitionForOrigin } from './webuiPolicy'
 import { WebuiHost } from './webuiView'
@@ -423,6 +424,7 @@ if (!gotLock) {
     const repo = 'LocalAI'
     core = new LauncherCore({
       home: os.homedir(),
+      layout: resolveLayout({ platform: process.platform, env: process.env, home: os.homedir(), exists: (p) => fs.existsSync(p) }),
       launcherVersion: app.getVersion(),
       env: process.env,
       target: platformTarget(process.platform, process.arch),

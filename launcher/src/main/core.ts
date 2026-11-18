@@ -100,6 +100,7 @@ import {
   withWebuiPermissions,
 } from './configStore'
 import { serverBinaryName } from './platform'
+import { homeLayout, layoutNote, type LauncherLayout } from './paths'
 import { defaultLogsDir, LogHub, type LogLine } from './logs'
 import { initialNotice, reduceNotice, type NoticeEvent, type NoticeState, type SetupOutcome } from './sandboxNotice'
 import type { SandboxProbe } from './sandboxProbe'
@@ -156,7 +157,9 @@ export type Emit = <C extends keyof EventContract>(channel: C, payload: EventCon
 export interface CoreDeps {
   /** Home directory; launcher.json, the binary and the default data folder live under <home>/.localai. */
   home: string
-  /** launcher.json; default <home>/.localai/launcher.json. */
+  /** Folders of the launcher and the default data folder (paths.ts). Default: <home>/.localai for all. */
+  layout?: LauncherLayout
+  /** launcher.json; default <launcher folder>/launcher.json. */
   configPath?: string
   launcherVersion: string
   /** Environment the server's environment is built from. */
@@ -318,7 +321,9 @@ export class LauncherCore {
 
     this.d.trace?.('init-start')
     // 1. config
-    this.store = await ConfigStore.open({ home: this.d.home, path: this.d.configPath, log: launcherLog })
+    const layoutLine = layoutNote(this.layout())
+    if (layoutLine) launcherLog(`folders: ${layoutLine}`)
+    this.store = await ConfigStore.open({ home: this.d.home, layout: this.layout(), path: this.d.configPath, log: launcherLog })
     if (this.store.loaded.status === 'recovered') {
       this.configNotice = { status: 'recovered', reason: this.store.loaded.reason ?? 'config file could not be used' }
     }
@@ -332,7 +337,7 @@ export class LauncherCore {
 
     // 1b. secrets, then the move of old plain-text values out of launcher.json
     this.secrets = await SecretStore.open({
-      file: this.d.secretsPath ?? path.join(path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home)), SECRETS_FILE),
+      file: this.d.secretsPath ?? path.join(path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home, this.layout())), SECRETS_FILE),
       safeStorage: this.d.safeStorage,
       platform: this.d.platform,
       plaintextOptIn: secretsPlaintextFile(config),
@@ -362,7 +367,7 @@ export class LauncherCore {
 
     this.d.trace?.('step-folders')
     // 2. data folders, as the Go launcher created them at start
-    const data = dataPath(config, this.d.home)
+    const data = dataPath(config, this.d.home, this.layout())
     this.ensureFolders([config.models_path, config.backends_path, defaultLogsDir(data)], launcherLog)
 
     this.d.trace?.('step-logs')
@@ -818,8 +823,12 @@ export class LauncherCore {
     }
   }
 
+  private layout(): LauncherLayout {
+    return this.d.layout ?? homeLayout(this.d.home)
+  }
+
   private installPaths() {
-    const base = path.join(this.d.home, '.localai')
+    const base = this.layout().launcherDir
     return {
       binDir: this.d.serverBinOverride ? path.dirname(this.d.serverBinOverride) : path.join(base, 'bin'),
       metaDir: path.join(base, 'metadata'),
@@ -840,12 +849,12 @@ export class LauncherCore {
     const apiKey = this.secrets.get(API_KEY_SECRET)
     const env = this.userEnv()
     for (const v of [apiKey, ...Object.values(env)]) if (v && v.length >= REDACT_MIN_LENGTH) this.redactValues.add(v)
-    this.launch = buildServerLaunch(config, dataPath(config, this.d.home), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config))
+    this.launch = buildServerLaunch(config, dataPath(config, this.d.home, this.layout()), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config))
     this.supervisor = new ServerSupervisor({
       command: this.serverBinary(),
       args: this.launch.args,
       env: this.launch.env,
-      cwd: dataPath(config, this.d.home),
+      cwd: dataPath(config, this.d.home, this.layout()),
       healthUrl: this.launch.healthUrl,
       ...this.d.supervisorTuning,
     })

@@ -86,7 +86,8 @@ Electron's login item (a `Run` entry of the current user) with `--hidden`.
 
 ## Config
 
-The launcher reads and writes `~/.localai/launcher.json`, with the keys of the
+The launcher reads and writes `~/.localai/launcher.json` (on Windows
+`%LOCALAPPDATA%\LocalAI\launcher\launcher.json`), with the keys of the
 Go launcher. It adds keys of its own, which an older launcher keeps and
 ignores: `show_status_bar` (missing means true; View menu, tray, Settings),
 `sandbox_notice_dismissed_version` (the launcher version for which the user
@@ -347,8 +348,13 @@ No worker mode.
   `%SystemRoot%\System32`, never from `PATH`. "What listens on this port"
   reads `netstat -ano` and finds listening sockets by the foreign address
   `*:0`, because the state column is translated.
-- Data: `%USERPROFILE%\.localai`, as on the other platforms. Electron keeps
-  its own cache in `%APPDATA%\LocalAI Launcher`. Folder modes (`0o700`) do
+- Data: `%LOCALAPPDATA%\LocalAI` (models, backends, server data, logs), shared
+  with `local-ai.exe` from a terminal; the launcher's own files (launcher.json,
+  secrets.json, bin, metadata, downloads) in `%LOCALAPPDATA%\LocalAI\launcher`,
+  apart from the `bin` folder of `install.ps1`. A `%USERPROFILE%\.localai\launcher.json`
+  of an earlier build keeps the old layout (`src/main/paths.ts`). An absolute
+  `LOCALAI_BASE_PATH` moves the default data folder on every platform. Electron
+  keeps its own cache in `%APPDATA%\LocalAI Launcher`. Folder modes (`0o700`) do
   nothing on Windows; the files inherit the ACL of the user profile.
 - Window and tray: no menu bar in the window (the accelerators work). The
   tray icon is 16 px; a click shows the window. Closing the window hides it
