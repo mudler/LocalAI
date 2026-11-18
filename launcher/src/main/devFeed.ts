@@ -8,16 +8,17 @@
 //
 // Today: one rolling pre-release of github.com/mudler/LocalAI with the tag
 // `dev-master`. It carries, for each platform, a binary
-// `local-ai-master-<os>-<arch>` (os: linux or darwin; arch: amd64 or arm64)
-// and a checksum file `local-ai-master-<os>-<arch>.sha256` in `sha256sum`
+// `local-ai-master-<os>-<arch>` (os: linux, darwin or windows; arch: amd64 or
+// arm64; `.exe` added for windows) and a checksum file `<binary>.sha256`, for
+// example `local-ai-master-windows-amd64.exe.sha256`, in `sha256sum`
 // format (hash, two spaces, file name). The release body holds the commit
 // sha, the commit date and the commit subject.
-import type { PlatformTarget } from './updateProvider'
+import { exeSuffix, type PlatformTarget } from './platform'
 
 export const DEV_RELEASE_TAG = 'dev-master'
 
 export function devAssetName(t: PlatformTarget): string {
-  return `local-ai-master-${t.os}-${t.arch}`
+  return `local-ai-master-${t.os}-${t.arch}${exeSuffix(t)}`
 }
 
 export function devChecksumName(t: PlatformTarget): string {

@@ -42,16 +42,26 @@ export const CONTROLLED_VARS: readonly string[] = ['LOCALAI_API_KEY', 'API_KEY',
 /** Names the server's API key may be under in an old config. */
 export const API_KEY_VARS: readonly string[] = ['LOCALAI_API_KEY', 'API_KEY']
 
-export function isStrippedName(name: string): boolean {
-  return STRIPPED_EXACT.includes(name) || STRIPPED_PREFIXES.some((p) => name.startsWith(p))
+/**
+ * Windows treats variable names without regard to case: `Path` is `PATH`.
+ * With `ignoreCase` the lists match in any case. The lists are upper case.
+ */
+export function isStrippedName(name: string, ignoreCase = false): boolean {
+  const n = ignoreCase ? name.toUpperCase() : name
+  return STRIPPED_EXACT.includes(n) || STRIPPED_PREFIXES.some((p) => n.startsWith(p))
+}
+
+/** True when the launcher controls `name` (see CONTROLLED_VARS). */
+export function isControlledName(name: string, ignoreCase = false): boolean {
+  return CONTROLLED_VARS.includes(ignoreCase ? name.toUpperCase() : name)
 }
 
 export type EnvNameProblem = 'format' | 'length' | 'controlled'
 
-/** Why a name cannot be a user variable, or undefined when it can. */
-export function envNameProblem(name: string): EnvNameProblem | undefined {
+/** Why a name cannot be a user variable, or undefined when it can. `ignoreCase`: the Windows rule. */
+export function envNameProblem(name: string, ignoreCase = false): EnvNameProblem | undefined {
   if (name.length === 0 || name.length > MAX_ENV_NAME) return 'length'
   if (!ENV_NAME.test(name)) return 'format'
-  if (isStrippedName(name) || CONTROLLED_VARS.includes(name)) return 'controlled'
+  if (isStrippedName(name, ignoreCase) || isControlledName(name, ignoreCase)) return 'controlled'
   return undefined
 }
