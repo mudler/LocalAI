@@ -100,9 +100,13 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 
 				if err := cmd.Start(); err != nil {
 					xlog.Error("Failed to start llama-cpp-rpc-server", "error", err, "grpcProcess", grpcProcess, "args", args)
+					// Wait before the retry, so a server that cannot start
+					// does not turn this loop into a busy loop.
+					time.Sleep(5 * time.Second)
+					continue
 				}
 
-				cmd.Wait()
+				_ = cmd.Wait()
 			}
 		}()
 

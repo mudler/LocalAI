@@ -62,6 +62,9 @@ type VLLMDistributed struct {
 }
 
 func (r *VLLMDistributed) Run(ctx *cliContext.Context) error {
+	if err := requireHostBackendBuild("vllm", "vllm"); err != nil {
+		return err
+	}
 	// Rank 0 is the head: it must serve the OpenAI API. --headless
 	// disables that, so the combination is operator error and would
 	// silently produce a cluster that can't accept requests.
