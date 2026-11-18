@@ -13,11 +13,11 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	goruntime "runtime"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/addons/zipformat"
+	"github.com/mudler/LocalAI/pkg/fsperm"
 )
 
 // Codes of a FileError. They tell the administrator which rule a file broke.
@@ -293,10 +293,12 @@ func (i *Installer) StageFile(ctx context.Context, p, name string, progress func
 		return out, e
 	}
 	info, e := os.Lstat(root)
-	// Windows limit: there are no POSIX permission bits, so a 0700 directory
-	// reports 0777 and this check is skipped. LocalAI sets no ACL; access
-	// depends on the ACL the directory inherits.
-	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || (goruntime.GOOS != "windows" && info.Mode().Perm()&0077 != 0) {
+	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return out, ErrPackage
+	}
+	// On Windows, which has no mode bits, the folder is made private to the
+	// current user (a new folder has the access control list of its parent).
+	if _, e = fsperm.RequirePrivate(root, info); e != nil {
 		return out, ErrPackage
 	}
 	dir, e := os.MkdirTemp(root, "stage-")

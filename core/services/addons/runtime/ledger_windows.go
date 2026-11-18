@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/mudler/LocalAI/pkg/fsperm"
 	"golang.org/x/sys/windows"
 )
 
@@ -30,12 +31,16 @@ const stillActive = 259
 const ledgerNoFollow = 0
 
 // checkStateRoot refuses a state root that is a symbolic link or a junction.
-// Windows has no POSIX permission bits, so the private-mode check of the
-// other platforms does not apply: the folder keeps the ACL it inherits from
-// the data folder (see the Windows security limits in the docs).
+// Windows has no POSIX permission bits: in place of the private-mode check of
+// the other platforms, the folder gets an access control list that grants
+// access to the current user only. A new folder, or one made by an older
+// LocalAI version, has the list of its parent until then.
 func checkStateRoot(root string) error {
 	info, e := os.Lstat(root)
 	if e != nil || !info.IsDir() || info.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
+		return ErrRuntime
+	}
+	if _, e = fsperm.RequirePrivate(root, info); e != nil {
 		return ErrRuntime
 	}
 	return nil

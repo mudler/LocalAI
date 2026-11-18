@@ -102,3 +102,25 @@ func TestWindowsIsExecutable(t *testing.T) {
 		t.Fatal("IsExecutable does not follow the extension rule")
 	}
 }
+
+func TestWindowsRequirePrivateRepairs(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "key")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	grantEveryone(t, file)
+	info, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restricted, err := RequirePrivate(file, info)
+	if err != nil || !restricted {
+		t.Fatalf("RequirePrivate = %v, %v; want true, nil", restricted, err)
+	}
+	if err := Check(file); err != nil {
+		t.Fatal(err)
+	}
+	if restricted, err := RequirePrivate(file, info); err != nil || restricted {
+		t.Fatalf("RequirePrivate on a private file = %v, %v; want false, nil", restricted, err)
+	}
+}

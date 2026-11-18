@@ -85,6 +85,27 @@ func CheckOrRestrict(path string) (restricted bool, err error) {
 	return true, nil
 }
 
+// RequirePrivate checks a file or folder that the caller has already opened
+// or read with Stat or Lstat. info is what the caller read.
+//
+//   - On Linux and macOS it checks the mode in info, so the answer is about the
+//     object the caller holds and not about what the path names now. When
+//     group or other bits are set it returns an error that wraps ErrNotPrivate.
+//     It never changes the mode.
+//   - On Windows info has no permission bits. It calls CheckOrRestrict on
+//     path, so a file or folder made by an older LocalAI version, which has
+//     the access control list of its folder, is made private and
+//     restricted=true is returned.
+func RequirePrivate(path string, info fs.FileInfo) (restricted bool, err error) {
+	if noModeBits {
+		return CheckOrRestrict(path)
+	}
+	if perm := info.Mode().Perm(); perm&0o077 != 0 {
+		return false, fmt.Errorf("%s has mode %04o: %w", path, perm, ErrNotPrivate)
+	}
+	return false, nil
+}
+
 // RestrictIfPrivate gives path the private intent of perm on a system without
 // permission bits. On Windows, when perm has no group or other bits, it calls
 // Restrict. On Linux and macOS it does nothing, because the caller already

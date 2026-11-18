@@ -242,14 +242,15 @@ On Linux and macOS, LocalAI keeps secret files private with POSIX permission bit
 - the HMAC secret for API key hashing,
 - the TLS and MITM proxy private keys,
 - the CLI chat configuration,
+- the add-on gateway keys, the add-on loopback port file and the add-on host policy file,
+- the add-on package folders and the add-on runtime state folder,
 - every state file that LocalAI writes atomically with a private mode.
 
-Before LocalAI reads a sealing key, it checks the ACL. The SYSTEM account and the Administrators group can stay in the list, because they can read every file on the machine. If another user or group has access, for example because the key was written by an older LocalAI version and has the ACL of its folder, LocalAI replaces the ACL and logs a warning. On Linux and macOS a key file with a loose mode is refused instead.
+Before LocalAI reads a sealing key or one of the add-on files and folders above, it checks the ACL. The SYSTEM account and the Administrators group can stay in the list, because they can read every file on the machine. If another user or group has access, for example because the key was written by an older LocalAI version and has the ACL of its folder, LocalAI replaces the ACL. For a file, it also logs a warning. On Linux and macOS a key file or folder with a loose mode is refused instead.
 
 Known limits:
 
 - Files that LocalAI does not mark as private keep the ACL of their folder. On a shared machine, keep the data folder in a place that other users cannot read. By default it is in your user profile.
-- The add-on runtime does not use the Windows ACL yet. Its gateway key, loopback port file, package folders and policy store keep the ACL of the data folder, and its state folder is checked only for links.
 - Windows has no executable bit. LocalAI treats a file as a program when its extension is `.exe`, `.com`, `.cmd`, `.bat` or `.ps1`. An add-on package must name an `.exe` file as its executable, and LocalAI starts only that file.
 
 ## Other differences on Windows

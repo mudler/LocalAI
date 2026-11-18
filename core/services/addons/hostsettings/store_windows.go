@@ -26,9 +26,9 @@ func syncDir(*os.File) error {
 	return nil
 }
 
-// validFileMode cannot enforce Unix permission bits on Windows, and LocalAI
-// sets no ACL, so only the regular-file check applies. Access depends on the
-// ACL the owner directory inherits.
+// validFileMode checks only that the file is regular: Windows has no Unix
+// permission bits. Open makes the file private to the current user with an
+// access control list instead (see fsperm.RequirePrivate).
 func validFileMode(m os.FileMode) bool {
 	return m.IsRegular()
 }

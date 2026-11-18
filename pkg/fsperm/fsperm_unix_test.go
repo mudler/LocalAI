@@ -165,3 +165,40 @@ func TestIsExecutable(t *testing.T) {
 		t.Error("IsExecutable does not follow the Unix rule")
 	}
 }
+
+func TestRequirePrivateChecksTheModeTheCallerHolds(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "key")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(file, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restricted, err := RequirePrivate(file, info)
+	if restricted || !errors.Is(err, ErrNotPrivate) {
+		t.Fatalf("RequirePrivate(0644) = %v, %v; want false, ErrNotPrivate", restricted, err)
+	}
+	if got := mode(t, file); got != 0o644 {
+		t.Fatalf("mode changed to %04o; Unix must keep the mode of the owner", got)
+	}
+
+	// The check uses the mode the caller read, not the path, so a file that
+	// changes after the caller opened it does not change the answer.
+	if err := os.Chmod(file, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RequirePrivate(file, info); !errors.Is(err, ErrNotPrivate) {
+		t.Fatalf("RequirePrivate read the path again: %v", err)
+	}
+	info, err = os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restricted, err := RequirePrivate(file, info); restricted || err != nil {
+		t.Fatalf("RequirePrivate(0600) = %v, %v", restricted, err)
+	}
+}

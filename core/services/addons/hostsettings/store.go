@@ -12,6 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
+	"github.com/mudler/xlog"
 )
 
 // Store serializes one owner's policy transactions. The parent directory is
@@ -43,6 +46,9 @@ func Open(path string, migration *Migration) (*Store, error) {
 	if err = lock.Chmod(0600); err != nil {
 		return fail(err)
 	}
+	if err = fsperm.RestrictIfPrivate(path+".lock", 0600); err != nil {
+		return fail(err)
+	}
 	if err = lockFile(lock); err != nil {
 		return fail(err)
 	}
@@ -70,6 +76,15 @@ func Open(path string, migration *Migration) (*Store, error) {
 		if !validFileMode(info.Mode()) || info.Size() > maxDocumentBytes {
 			_ = f.Close()
 			return fail(ErrInvalid)
+		}
+		// validFileMode has checked the mode on Linux and macOS. On Windows
+		// this makes a policy file of an older LocalAI version, which has the
+		// access control list of its folder, private to the current user.
+		if restricted, privErr := fsperm.RequirePrivate(path, info); privErr != nil {
+			_ = f.Close()
+			return fail(ErrInvalid)
+		} else if restricted {
+			xlog.Warn("Other users could change the add-on host policy file; it is now private to the current user", "path", path)
 		}
 		b, readErr := io.ReadAll(io.LimitReader(f, maxDocumentBytes+1))
 		closeErr := f.Close()
@@ -207,6 +222,12 @@ func persistFile(path string, d document) (bool, error) {
 		return false, err
 	}
 	defer func() { _ = os.Remove(f.Name()) }() // Best-effort removal; successful rename already removed this name.
+	// CreateTemp uses mode 0600; on Windows the file gets a private access
+	// control list instead, which the rename keeps.
+	if err = fsperm.RestrictIfPrivate(f.Name(), 0600); err != nil {
+		_ = f.Close()
+		return false, err
+	}
 	if _, err = f.Write(b); err == nil {
 		err = f.Sync()
 	}

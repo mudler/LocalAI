@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/credentials"
+	"github.com/mudler/LocalAI/pkg/fsperm"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
@@ -109,10 +110,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		return out, e
 	}
 	info, e := os.Lstat(root)
-	// Windows limit: there are no POSIX permission bits, so a 0700 directory
-	// reports 0777 and this check is skipped. LocalAI sets no ACL; access
-	// depends on the ACL the directory inherits.
-	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || (goruntime.GOOS != "windows" && info.Mode().Perm()&0077 != 0) {
+	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return out, ErrPackage
+	}
+	// On Windows, which has no mode bits, the folder is made private to the
+	// current user (a new folder has the access control list of its parent).
+	if _, e = fsperm.RequirePrivate(root, info); e != nil {
 		return out, ErrPackage
 	}
 	dir, e := os.MkdirTemp(root, "stage-")
