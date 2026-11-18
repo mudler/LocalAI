@@ -790,6 +790,19 @@ export const settingsApi = {
   save: (body) => postJSON(API_CONFIG.endpoints.settings, body),
 }
 
+// P2P relays and identity (the P2P settings page). Status, invites and devices
+// are in their own block.
+export const p2pRelaysApi = {
+  status: () => fetchJSON(API_CONFIG.endpoints.p2pStatus),
+  list: () => fetchJSON(API_CONFIG.endpoints.p2pRelays),
+  add: (addr, label = '', claimCode = '') => postJSON(API_CONFIG.endpoints.p2pRelays, { addr, label, ...(claimCode ? { claim_code: claimCode } : {}) }),
+  remove: (id) => fetchJSON(API_CONFIG.endpoints.p2pRelay(id), { method: 'DELETE' }),
+  check: (id) => postJSON(API_CONFIG.endpoints.p2pRelayCheck(id), {}),
+  sync: (id) => postJSON(API_CONFIG.endpoints.p2pRelaySync(id), {}),
+  claim: (id, code) => postJSON(API_CONFIG.endpoints.p2pRelayClaim(id), { code }),
+  regenerateIdentity: () => postJSON(API_CONFIG.endpoints.p2pIdentityRegenerate, { confirm: true }),
+}
+
 // Branding / whitelabeling
 // /api/branding is public (no auth) — the login page reads it before the
 // user signs in. Asset uploads/deletes still require admin privileges.

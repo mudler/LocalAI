@@ -38,6 +38,7 @@ export const NAMESPACES = [
   'admin',
   'operate',
   'swarm',
+  'p2psettings',
   'traffic',
   'usage',
   'addons',
