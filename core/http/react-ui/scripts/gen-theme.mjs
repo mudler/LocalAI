@@ -1,10 +1,6 @@
 #!/usr/bin/env node
 /**
- * Writes packages/ui-kit/themes/localai.css and ../static/theme-localai.css from
- * src/theme/theme-localai.json. The server embeds the second copy and serves it
- * at /static/theme-localai.css. No page in this tree links it: the server no
- * longer renders HTML pages of its own. tests/unit/themelocalai.test.mjs keeps
- * both copies equal.
+ * Writes packages/ui-kit/themes/localai.css from src/theme/theme-localai.json.
  *
  * The JSON is the one source of the palette. It is a copy of the LocalAI theme
  * file of the branding kit (tokens/theme-localai.json), taken as is: when the
@@ -26,7 +22,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SOURCE = join(ROOT, 'src/theme/theme-localai.json')
-const OUTS = [join(ROOT, 'packages/ui-kit/themes/localai.css'), join(ROOT, '../static/theme-localai.css')]
+const OUTS = [join(ROOT, 'packages/ui-kit/themes/localai.css')]
 
 const block = (map, pad) => Object.entries(map).map(([k, v]) => `${' '.repeat(pad)}--dk-${k}: ${v};`).join('\n')
 
