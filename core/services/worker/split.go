@@ -42,8 +42,9 @@ type splitConfig struct {
 	// the workers. Nil for a node that registered with the token.
 	Join *p2pJoin
 	// NewHost starts the host of a node that registered with the token, the
-	// first time a worker is attached to it.
-	NewHost func(ctx context.Context, gate *p2pnet.Allowlist) (*p2pnet.Host, error)
+	// first time a worker is attached to it, with a reservation on relays:
+	// the gated relays of the frontend that admit this node.
+	NewHost func(ctx context.Context, gate *p2pnet.Allowlist, relays []p2pnet.AddrInfo) (*p2pnet.Host, error)
 	// OnLlama and OnMLX receive the addresses of the workers in use.
 	OnLlama func(addrs []string)
 	OnMLX   func(hostfile []string)
@@ -61,7 +62,10 @@ type splitNode struct {
 	host    *p2pnet.Host
 	gate    *p2pnet.Allowlist
 	ownHost bool
-	mgr     *p2psplit.Manager
+	// relays are the relays the own host keeps a reservation on, as the
+	// frontend named them.
+	relays []string
+	mgr    *p2psplit.Manager
 	// allowed are the worker peers this node admits.
 	allowed map[p2pnet.ID]struct{}
 }
@@ -107,7 +111,7 @@ func (s *splitNode) sync(ctx context.Context) {
 // report is the endpoint of the host and the state of each worker.
 func (s *splitNode) report() workerctl.SplitReport {
 	s.mu.Lock()
-	h, m := s.host, s.mgr
+	h, m, relays := s.host, s.mgr, s.relays
 	s.mu.Unlock()
 	var rep workerctl.SplitReport
 	if h == nil {
@@ -116,6 +120,14 @@ func (s *splitNode) report() workerctl.SplitReport {
 	rep.PeerID = h.ID().String()
 	for _, a := range h.Addrs() {
 		rep.Addrs = append(rep.Addrs, a.String())
+	}
+	// The addresses through the relays: a split worker dials the node with
+	// the addresses of this report only.
+	for _, r := range relays {
+		a := r + "/p2p-circuit/p2p/" + rep.PeerID
+		if !slices.Contains(rep.Addrs, a) {
+			rep.Addrs = append(rep.Addrs, a)
+		}
 	}
 	if m == nil {
 		return rep
@@ -159,8 +171,27 @@ func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) erro
 		s.mu.Unlock()
 		return nil
 	}
+	if s.ownHost && len(a.Relays) == 0 {
+		// The relays no longer admit the node: forget them, so that a later
+		// admission starts the host again instead of waiting out the dial
+		// backoff of a refused reservation.
+		s.relays = nil
+	}
+	if s.ownHost && s.host != nil && len(a.Relays) > 0 && !slices.Equal(s.relays, a.Relays) {
+		// New relays: the frontend names a relay only once it admits the
+		// node, and a host reserves on the relays it started with, so start
+		// it again. The identity stays, and the workers come back at their
+		// next session.
+		xlog.Info("Starting the P2P host for model-split workers again with new relays", "relays", len(a.Relays))
+		if s.mgr != nil {
+			_ = s.mgr.Close()
+		}
+		_ = s.host.Close()
+		s.host, s.gate, s.mgr = nil, nil, nil
+		s.allowed = map[p2pnet.ID]struct{}{}
+	}
 	if s.host == nil {
-		if err := s.startHostLocked(ctx); err != nil {
+		if err := s.startHostLocked(ctx, a.Relays); err != nil {
 			s.mu.Unlock()
 			return err
 		}
@@ -187,7 +218,9 @@ func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) erro
 	switch {
 	case len(want) == 0:
 		xlog.Info("No model-split worker is attached to this node any more")
-		_ = m.Close()
+		if m != nil {
+			_ = m.Close()
+		}
 	case m == nil:
 		nm, err := p2psplit.NewManager(ctx, p2psplit.Config{
 			Host: h, Devices: s.devices, OwnRelay: s.ownRelay, Ports: s.ports,
@@ -216,7 +249,7 @@ func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) erro
 
 // startHostLocked takes the host of a node that joined over P2P, or starts
 // one of its own.
-func (s *splitNode) startHostLocked(ctx context.Context) error {
+func (s *splitNode) startHostLocked(ctx context.Context, relays []string) error {
 	if s.cfg.Join != nil {
 		s.host, s.gate = s.cfg.Join.host, s.cfg.Join.gate
 		return nil
@@ -224,13 +257,24 @@ func (s *splitNode) startHostLocked(ctx context.Context) error {
 	if s.cfg.NewHost == nil {
 		return errors.New("this node has no P2P host for model-split workers")
 	}
+	var static []p2pnet.AddrInfo
+	var kept []string
+	for _, r := range relays {
+		ai, err := p2pnet.ParsePeerAddr(r)
+		if err != nil {
+			xlog.Warn("Ignoring a relay of the frontend with a bad address", "relay", r, "error", err)
+			continue
+		}
+		static = append(static, *ai)
+		kept = append(kept, r)
+	}
 	gate := p2pnet.NewAllowlist()
-	h, err := s.cfg.NewHost(ctx, gate)
+	h, err := s.cfg.NewHost(ctx, gate, static)
 	if err != nil {
 		return err
 	}
-	s.host, s.gate, s.ownHost = h, gate, true
-	xlog.Info("Started the P2P host for model-split workers", "peer", h.ID().String())
+	s.host, s.gate, s.ownHost, s.relays = h, gate, true, kept
+	xlog.Info("Started the P2P host for model-split workers", "peer", h.ID().String(), "relays", len(static))
 	return nil
 }
 
@@ -276,7 +320,7 @@ func (s *splitNode) close() {
 }
 
 // splitHost starts the P2P host of a node that registered with the token.
-func (c *Config) splitHost(ctx context.Context, gate *p2pnet.Allowlist) (*p2pnet.Host, error) {
+func (c *Config) splitHost(ctx context.Context, gate *p2pnet.Allowlist, relays []p2pnet.AddrInfo) (*p2pnet.Host, error) {
 	var boot []p2pnet.AddrInfo
 	for _, a := range c.P2PBootstrap {
 		ai, err := p2pnet.ParsePeerAddr(a)
@@ -290,6 +334,7 @@ func (c *Config) splitHost(ctx context.Context, gate *p2pnet.Allowlist) (*p2pnet
 		ListenAddrs:    c.P2PListen,
 		PublicDHT:      true,
 		BootstrapPeers: boot,
+		StaticRelays:   relays,
 		MDNS:           true,
 		Gate:           gate,
 		UserAgent:      "localai-worker/" + internal.Version,

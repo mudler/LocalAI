@@ -281,8 +281,9 @@ var _ = Describe("relay admission of the backend nodes that serve split workers"
 
 		By("admitting the node on its first report")
 		nodePeer := newPeerID()
-		as := c.report(gpu.ID, nodePeer)
-		Expect(as.Relays).To(ConsistOf(relay), "the node reserves on the relays of the frontend")
+		c.report(gpu.ID, nodePeer)
+		Eventually(func() []string { return c.report(gpu.ID, nodePeer).Relays }, 10*time.Second).Should(ConsistOf(relay),
+			"the node reserves on the relays that admit it")
 		Eventually(func() []string { return relayMembers(c.a, relay) }, 10*time.Second).Should(ContainElement(nodePeer))
 		Eventually(func() []string { return relayMembers(c.b, relay) }, 10*time.Second).Should(ContainElement(nodePeer), "the other frontend vouches for it too")
 		Eventually(nodeRelayState(c.a, dev), 10*time.Second).Should(Equal(p2papi.NodeRelayAdmitted))
@@ -307,7 +308,7 @@ var _ = Describe("relay admission of the backend nodes that serve split workers"
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() []string { return relayMembers(c.a, relay) }, 10*time.Second).ShouldNot(ContainElement(nodePeer))
 		Eventually(func() []string { return relayMembers(c.b, relay) }, 10*time.Second).ShouldNot(ContainElement(nodePeer))
-		as, err = c.a.SplitAssignment(ctx, gpu.ID)
+		as, err := c.a.SplitAssignment(ctx, gpu.ID)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(as.Relays).To(BeEmpty())
 

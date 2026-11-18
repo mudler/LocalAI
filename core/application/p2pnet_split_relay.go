@@ -183,6 +183,25 @@ func (rt *p2pRuntime) ownRelayAddrs() []string {
 	return out
 }
 
+// admittingRelayAddrs are the addresses of the relays that admit peer.
+func (rt *p2pRuntime) admittingRelayAddrs(peer string) []string {
+	if rt.relays == nil {
+		return nil
+	}
+	addrs := map[string]string{}
+	for _, r := range rt.relayList() {
+		addrs[r.ID] = r.Addr
+	}
+	var out []string
+	for _, a := range rt.relays.NodeAdmission(peer) {
+		if a.State == p2papi.NodeRelayAdmitted && addrs[a.RelayID] != "" {
+			out = append(out, addrs[a.RelayID])
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
 // nodeRelayViews returns the relay admission of each node, by node ID.
 func (rt *p2pRuntime) nodeRelayViews() map[string]*p2papi.SplitNodeRelay {
 	rt.peersMu.Lock()

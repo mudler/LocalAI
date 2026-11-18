@@ -122,7 +122,7 @@ var _ = Describe("Model-split workers attached to a backend node", func() {
 		node = newSplitNode(splitConfig{
 			Sync:     front.sync,
 			Interval: 200 * time.Millisecond,
-			NewHost: func(_ context.Context, gate *p2pnet.Allowlist) (*p2pnet.Host, error) {
+			NewHost: func(_ context.Context, gate *p2pnet.Allowlist, _ []p2pnet.AddrInfo) (*p2pnet.Host, error) {
 				h := splitTestHost(gate)
 				hostCh <- h
 				return h, nil

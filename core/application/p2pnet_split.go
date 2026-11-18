@@ -168,16 +168,16 @@ func (a *Application) SplitAssignment(ctx context.Context, nodeID string) (worke
 			AllowSlowPath: d.AllowSlowPath, CreatedAt: d.CreatedAt,
 		})
 	}
-	own := rt.ownRelayAddrs()
-	for _, addr := range own {
+	for _, addr := range rt.ownRelayAddrs() {
 		if ai, err := p2pnet.ParsePeerAddr(addr); err == nil {
 			out.OwnRelays = append(out.OwnRelays, ai.ID.String())
 		}
 	}
-	// A node that registered with the token reserves on the relays while
-	// the frontends vouch for it.
+	// A node that registered with the token reserves on the relays that
+	// admit it. Only those: a reservation that a relay refused keeps the
+	// node off that relay for minutes (the dial backoff of libp2p).
 	if c := rt.checkNodeRelay(ctx, nodeID, devs); c.Peer != "" {
-		out.Relays = own
+		out.Relays = rt.admittingRelayAddrs(c.Peer)
 	}
 	return out, nil
 }
