@@ -25,8 +25,7 @@
   "units": {
     "kibps": "KiB/s",
     "gib": "GiB",
-    "minutes": "minutes",
-    "circuits": "circuits"
+    "minutes": "minutes"
   },
   "modes": {
     "off": {
@@ -241,8 +240,6 @@
     "ledeOpen": "Relais ouvert : tout le monde peut l'utiliser.",
     "ledeGated": "Relais restreint : seuls les pairs appairés l'utilisent.",
     "reset": "Rétablir les valeurs par défaut",
-    "openWarnTitle": "Tout le monde peut utiliser ce relais.",
-    "openWarnBody": "Les limites empêchent des inconnus d'utiliser toute sa bande passante. Ce sont les valeurs par défaut d'un relais ouvert. Ajustez-les, ou choisissez Sans limite.",
     "noLimitTitle": "Sans limite.",
     "noLimitOpen": "Un inconnu peut utiliser toute la bande passante et toutes les données de ce relais, et vos propres pairs ralentissent.",
     "noLimitGated": "Un pair appairé peut utiliser toute la bande passante de ce relais, par exemple pour copier un modèle.",
@@ -252,17 +249,18 @@
     "fields": {
       "dataGiB": "Données par circuit",
       "minutes": "Durée par circuit",
-      "kibps": "Débit par circuit",
-      "circuits": "Circuits par pair"
+      "kibps": "Débit par circuit"
     },
     "zeroHint": "0 signifie sans limite pour cette valeur.",
-    "commandTitle": "Lancer le relais avec ces limites",
-    "invalid": "Chaque valeur doit être un nombre supérieur ou égal à 0, et les circuits au moins 1.",
-    "applyHint": "Un relais lit ses limites au démarrage. Relancez-le avec cette commande ; les circuits déjà ouverts gardent les anciennes limites jusqu'à leur fermeture.",
-    "confirmTitle": "Supprimer toutes les limites ?",
-    "confirmBody": "{{name}} est ouvert : tout le monde peut l'utiliser. Sans limite, un inconnu peut utiliser toute sa bande passante et ses données, et vos propres pairs ralentissent. Vous pouvez rajouter des limites à tout moment.",
-    "confirmRemove": "Supprimer les limites",
-    "confirmKeep": "Garder les limites"
+    "invalid": "Chaque valeur doit être un nombre supérieur ou égal à 0.",
+    "applyHint": "Une nouvelle limite de bande passante s'applique au prochain circuit. Une nouvelle limite de données ou de durée redémarre le service de circuits du relais : les circuits ouverts gardent les anciennes limites jusqu'à leur fermeture, et les appareils appairés se reconnectent via le relais en quelques instants.",
+    "save": "Enregistrer les limites",
+    "saved": "Limites enregistrées sur {{name}}.",
+    "savedRestarted": "Limites enregistrées sur {{name}}. Le relais a redémarré son service de circuits ; les appareils se reconnectent dans un instant.",
+    "loadError": "Impossible de lire les limites du relais.",
+    "readOnlyTitle": "Ce serveur ne peut pas modifier ces limites.",
+    "readOnlyOpen": "Ce relais est ouvert et ce serveur n'en est pas l'administrateur. Définissez les limites là où le relais s'exécute, avec --circuit-max-bytes, --circuit-max-duration et --rate-limit.",
+    "readOnlyMember": "Ce serveur n'est pas administrateur de ce relais. Demandez à son administrateur, ou définissez les limites là où le relais s'exécute, avec --circuit-max-bytes, --circuit-max-duration et --rate-limit."
   },
   "identity": {
     "title": "Identité",

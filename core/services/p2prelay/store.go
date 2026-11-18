@@ -96,29 +96,36 @@ func saveState(path string, st *state) error {
 	if err != nil {
 		return fmt.Errorf("p2prelay: encode state: %w", err)
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), stateFile+".*.tmp")
+	return writeFileAtomic(path, b)
+}
+
+// writeFileAtomic replaces path with b, with mode 0600, so a crash leaves
+// the old file or the new one.
+func writeFileAtomic(path string, b []byte) error {
+	name := filepath.Base(path)
+	f, err := os.CreateTemp(filepath.Dir(path), name+".*.tmp")
 	if err != nil {
-		return fmt.Errorf("p2prelay: save state: %w", err)
+		return fmt.Errorf("p2prelay: save %s: %w", name, err)
 	}
 	tmp := f.Name()
 	defer func() { _ = os.Remove(tmp) }()
 	if err := f.Chmod(0o600); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("p2prelay: save state: %w", err)
+		return fmt.Errorf("p2prelay: save %s: %w", name, err)
 	}
 	if _, err := f.Write(b); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("p2prelay: save state: %w", err)
+		return fmt.Errorf("p2prelay: save %s: %w", name, err)
 	}
 	if err := f.Sync(); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("p2prelay: save state: %w", err)
+		return fmt.Errorf("p2prelay: save %s: %w", name, err)
 	}
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("p2prelay: save state: %w", err)
+		return fmt.Errorf("p2prelay: save %s: %w", name, err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
-		return fmt.Errorf("p2prelay: save state: %w", err)
+		return fmt.Errorf("p2prelay: save %s: %w", name, err)
 	}
 	return nil
 }

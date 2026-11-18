@@ -872,6 +872,31 @@ var _ = Describe("P2P", func() {
 		Expect(rs[0].State).To(Equal("in_sync"))
 	})
 
+	It("reads and changes the limits of a relay", func() {
+		var put map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.URL.Path).To(Equal("/api/p2p/relays/r 1/limits"))
+			if r.Method == http.MethodPut {
+				Expect(json.NewDecoder(r.Body).Decode(&put)).To(Succeed())
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"limits": map[string]any{"circuit_bytes": 1 << 30, "circuit_seconds": 1800, "rate_bps": 65536}, "can_change": true, "restarted": r.Method == http.MethodPut,
+			})
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+
+		info, err := c.GetP2PRelayLimits(context.Background(), "r 1")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info).To(Equal(&localaitools.P2PRelayLimitsInfo{CircuitBytes: 1 << 30, CircuitSeconds: 1800, RateBPS: 65536, CanChange: true}))
+
+		rate := int64(65536)
+		info, err = c.SetP2PRelayLimits(context.Background(), "r 1", localaitools.SetP2PRelayLimitsRequest{ID: "r 1", RateBPS: &rate})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info.Restarted).To(BeTrue())
+		Expect(put).To(Equal(map[string]any{"rate_bps": float64(65536)}))
+	})
+
 	It("revokes a device and cancels an invite with DELETE", func() {
 		var paths []string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

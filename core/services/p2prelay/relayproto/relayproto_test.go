@@ -3,6 +3,7 @@ package relayproto_test
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"io"
 	"math/rand/v2"
 	"testing"
@@ -45,6 +46,18 @@ var _ = Describe("framing", func() {
 		Expect(got).To(Equal(req))
 		rest, _ := io.ReadAll(&buf)
 		Expect(string(rest)).To(Equal("tail"))
+	})
+
+	It("sends only the limits of a patch that it names, and zero is a value", func() {
+		zero := int64(0)
+		var buf bytes.Buffer
+		Expect(relayproto.Write(&buf, relayproto.Request{V: 1, Op: relayproto.OpLimits,
+			Limits: &relayproto.LimitsPatch{CircuitMaxBytes: &zero}})).To(Succeed())
+		var raw map[string]any
+		body := buf.Bytes()
+		_, n := binary.Uvarint(body)
+		Expect(json.Unmarshal(body[n:], &raw)).To(Succeed())
+		Expect(raw["limits"]).To(Equal(map[string]any{"circuit_max_bytes": float64(0)}))
 	})
 
 	It("ignores unknown fields", func() {

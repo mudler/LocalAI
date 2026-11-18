@@ -35,6 +35,8 @@ func registerP2PAdminRoutes(e *echo.Echo, svc p2papi.Service, adminMw echo.Middl
 	e.POST("/api/p2p/relays/:id/check", p2papi.CheckRelayEndpoint(svc), adminMw)
 	e.POST("/api/p2p/relays/:id/sync", p2papi.SyncRelayEndpoint(svc), adminMw)
 	e.POST("/api/p2p/relays/:id/claim", p2papi.ClaimRelayEndpoint(svc), adminMw)
+	e.GET("/api/p2p/relays/:id/limits", p2papi.RelayLimitsEndpoint(svc), adminMw)
+	e.PUT("/api/p2p/relays/:id/limits", p2papi.SetRelayLimitsEndpoint(svc), adminMw)
 	e.POST("/api/p2p/identity/regenerate", p2papi.RegenerateIdentityEndpoint(svc), adminMw)
 }
 

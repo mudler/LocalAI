@@ -372,6 +372,60 @@ func ClaimRelayEndpoint(svc Service) echo.HandlerFunc {
 	}
 }
 
+// RelayLimitsEndpoint reads the limits of a relay.
+//
+//	@Summary	Read the limits of a P2P relay
+//	@Description	Reads the limits the relay runs with now: the data, the time and the bandwidth of one circuit (zero means no limit). can_change says whether this server is an admin of the relay and may change them. Needs P2P mode share. Admin only.
+//	@Tags		p2p
+//	@Produce	json
+//	@Param		id	path		string	true	"Relay ID"
+//	@Success	200	{object}	RelayLimitsInfo
+//	@Failure	404	{object}	schema.ErrorResponse
+//	@Failure	409	{object}	schema.ErrorResponse
+//	@Failure	503	{object}	schema.ErrorResponse
+//	@Router		/api/p2p/relays/{id}/limits [get]
+func RelayLimitsEndpoint(svc Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		info, err := svc.RelayLimits(c.Request().Context(), c.Param("id"))
+		if err != nil {
+			return fail(c, err)
+		}
+		return c.JSON(http.StatusOK, info)
+	}
+}
+
+// SetRelayLimitsEndpoint changes the limits of a relay.
+//
+//	@Summary	Change the limits of a P2P relay
+//	@Description	Changes the data, time and bandwidth limits of one circuit on a relay this server administers; a field left out stays as it is and zero removes that limit. The relay saves the new limits, so they stay over a restart of the relay. A new bandwidth limit applies to the next circuit at once. A new data or time limit makes the relay restart its circuit service: its reservations are dropped, running circuits keep their old limits until they end, and the paired devices reserve again within moments ("restarted" is true). Answers 409 when this server is not an admin of the relay or the relay is open. Needs P2P mode share. Admin only.
+//	@Tags		p2p
+//	@Accept		json
+//	@Produce	json
+//	@Param		id		path		string					true	"Relay ID"
+//	@Param		request	body		SetRelayLimitsRequest	true	"Limits to change"
+//	@Success	200		{object}	RelayLimitsInfo
+//	@Failure	400		{object}	schema.ErrorResponse
+//	@Failure	404		{object}	schema.ErrorResponse
+//	@Failure	409		{object}	schema.ErrorResponse
+//	@Failure	503		{object}	schema.ErrorResponse
+//	@Router		/api/p2p/relays/{id}/limits [put]
+func SetRelayLimitsEndpoint(svc Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var req SetRelayLimitsRequest
+		if err := bind(c, &req); err != nil {
+			return err
+		}
+		if req.CircuitBytes == nil && req.CircuitSeconds == nil && req.RateBPS == nil {
+			return fail(c, fmt.Errorf("%w: give circuit_bytes, circuit_seconds or rate_bps", ErrInvalid))
+		}
+		info, err := svc.SetRelayLimits(c.Request().Context(), c.Param("id"), req)
+		if err != nil {
+			return fail(c, err)
+		}
+		return c.JSON(http.StatusOK, info)
+	}
+}
+
 // RegenerateIdentityEndpoint makes a new peer identity.
 //
 //	@Summary	Regenerate the P2P identity

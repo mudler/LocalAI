@@ -1407,6 +1407,37 @@ func (c *Client) ListP2PRelays(ctx context.Context) ([]localaitools.P2PRelayInfo
 	return out, nil
 }
 
+func (c *Client) GetP2PRelayLimits(ctx context.Context, id string) (*localaitools.P2PRelayLimitsInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	info, err := c.P2P.RelayLimits(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return relayLimitsInfo(info), nil
+}
+
+func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaitools.SetP2PRelayLimitsRequest) (*localaitools.P2PRelayLimitsInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	info, err := c.P2P.SetRelayLimits(ctx, id, p2papi.SetRelayLimitsRequest{
+		CircuitBytes: req.CircuitBytes, CircuitSeconds: req.CircuitSeconds, RateBPS: req.RateBPS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return relayLimitsInfo(info), nil
+}
+
+func relayLimitsInfo(i p2papi.RelayLimitsInfo) *localaitools.P2PRelayLimitsInfo {
+	return &localaitools.P2PRelayLimitsInfo{
+		CircuitBytes: i.Limits.CircuitBytes, CircuitSeconds: i.Limits.CircuitSeconds, RateBPS: i.Limits.RateBPS,
+		CanChange: i.CanChange, Restarted: i.Restarted,
+	}
+}
+
 func (c *Client) RevokeP2PDevice(ctx context.Context, id string) error {
 	if c.P2P == nil {
 		return errNoP2P

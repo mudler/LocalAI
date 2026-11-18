@@ -316,6 +316,12 @@ func (stubClient) ListP2PInvites(_ context.Context) ([]localaitools.P2PInviteInf
 func (stubClient) ListP2PRelays(_ context.Context) ([]localaitools.P2PRelayInfo, error) {
 	return nil, nil
 }
+func (stubClient) GetP2PRelayLimits(_ context.Context, _ string) (*localaitools.P2PRelayLimitsInfo, error) {
+	return nil, nil
+}
+func (stubClient) SetP2PRelayLimits(_ context.Context, _ string, _ localaitools.SetP2PRelayLimitsRequest) (*localaitools.P2PRelayLimitsInfo, error) {
+	return nil, nil
+}
 func (stubClient) RevokeP2PDevice(_ context.Context, _ string) error { return nil }
 func (stubClient) CancelP2PInvite(_ context.Context, _ string) error { return nil }
 func (stubClient) ListP2PSplitWorkers(_ context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {

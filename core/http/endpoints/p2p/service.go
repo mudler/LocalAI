@@ -26,6 +26,8 @@ type Service interface {
 	CheckRelay(ctx context.Context, id string) (RelayCheck, error)
 	SyncRelay(ctx context.Context, id string) (Relay, error)
 	ClaimRelay(ctx context.Context, id, code string) (Relay, error)
+	RelayLimits(ctx context.Context, id string) (RelayLimitsInfo, error)
+	SetRelayLimits(ctx context.Context, id string, req SetRelayLimitsRequest) (RelayLimitsInfo, error)
 	RegenerateIdentity(ctx context.Context) (Status, error)
 	// Redeem is served over P2P only; from is the caller's peer ID as the
 	// connection authenticated it.
@@ -227,6 +229,31 @@ type RelayLimits struct {
 	CircuitBytes   int64 `json:"circuit_bytes"`
 	CircuitSeconds int64 `json:"circuit_seconds"`
 	RateBPS        int64 `json:"rate_bps"`
+}
+
+// RelayLimitsInfo is the answer of GET and PUT /api/p2p/relays/{id}/limits.
+type RelayLimitsInfo struct {
+	Limits RelayLimits `json:"limits"`
+	// CanChange is true when this server is an admin of a gated relay and
+	// may change the limits.
+	CanChange bool `json:"can_change"`
+	// Restarted is true when the relay restarted its circuit service to
+	// apply the change: it dropped its reservations and the paired devices
+	// reserve again within moments. A change of the bandwidth limit alone
+	// never restarts it.
+	Restarted bool `json:"restarted,omitempty"`
+}
+
+// SetRelayLimitsRequest is the body of PUT /api/p2p/relays/{id}/limits. A
+// field that is left out stays as it is; zero removes that limit.
+type SetRelayLimitsRequest struct {
+	// CircuitBytes is the data one circuit may carry in each direction.
+	CircuitBytes *int64 `json:"circuit_bytes,omitempty"`
+	// CircuitSeconds is the time one circuit may stay open.
+	CircuitSeconds *int64 `json:"circuit_seconds,omitempty"`
+	// RateBPS is the bandwidth of one circuit in each direction, in bytes
+	// per second.
+	RateBPS *int64 `json:"rate_bps,omitempty"`
 }
 
 // RelayCheck is the result of POST /api/p2p/relays/{id}/check.

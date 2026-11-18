@@ -480,6 +480,16 @@ func (f *fakeClient) ListP2PRelays(_ context.Context) ([]P2PRelayInfo, error) {
 	return []P2PRelayInfo{}, nil
 }
 
+func (f *fakeClient) GetP2PRelayLimits(_ context.Context, id string) (*P2PRelayLimitsInfo, error) {
+	f.record("GetP2PRelayLimits", id)
+	return &P2PRelayLimitsInfo{CanChange: true}, nil
+}
+
+func (f *fakeClient) SetP2PRelayLimits(_ context.Context, id string, req SetP2PRelayLimitsRequest) (*P2PRelayLimitsInfo, error) {
+	f.record("SetP2PRelayLimits", id)
+	return &P2PRelayLimitsInfo{CanChange: true}, nil
+}
+
 func (f *fakeClient) RevokeP2PDevice(_ context.Context, id string) error {
 	f.record("RevokeP2PDevice", id)
 	return nil

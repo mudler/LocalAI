@@ -22,6 +22,8 @@ type relayManager interface {
 	Check(ctx context.Context, id string) (p2papi.RelayCheck, error)
 	Sync(ctx context.Context, id string) (p2papi.Relay, error)
 	Claim(ctx context.Context, id, code string) (p2papi.Relay, error)
+	Limits(ctx context.Context, id string) (p2papi.RelayLimitsInfo, error)
+	SetLimits(ctx context.Context, id string, req p2papi.SetRelayLimitsRequest) (p2papi.RelayLimitsInfo, error)
 	Registrar() p2ppair.PassRegistrar
 	PeerAdded(peer string)
 	PeerRemoved(peer string)

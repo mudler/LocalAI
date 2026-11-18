@@ -817,6 +817,8 @@ export const p2pRelaysApi = {
   check: (id) => postJSON(API_CONFIG.endpoints.p2pRelayCheck(id), {}),
   sync: (id) => postJSON(API_CONFIG.endpoints.p2pRelaySync(id), {}),
   claim: (id, code) => postJSON(API_CONFIG.endpoints.p2pRelayClaim(id), { code }),
+  limits: (id) => fetchJSON(API_CONFIG.endpoints.p2pRelayLimits(id)),
+  setLimits: (id, body) => fetchJSON(API_CONFIG.endpoints.p2pRelayLimits(id), { method: 'PUT', body: JSON.stringify(body) }),
   regenerateIdentity: () => postJSON(API_CONFIG.endpoints.p2pIdentityRegenerate, { confirm: true }),
 }
 
