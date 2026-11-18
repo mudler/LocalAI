@@ -33,6 +33,103 @@ type storedLimits struct {
 	RateBPS           int64 `json:"rate_bps"`
 }
 
+// ceilingValue is a limit and its ceiling in the units of the wire type.
+type ceilingValue struct {
+	name    string
+	value   int64
+	ceiling int64
+	format  func(int64) string
+}
+
+// over reports whether value is above the ceiling. Zero means "no limit" for
+// the value and "no ceiling" for the ceiling, so with a ceiling a value of
+// zero is above it.
+func (c ceilingValue) over() bool {
+	return c.ceiling > 0 && (c.value == 0 || c.value > c.ceiling)
+}
+
+// clamped is the value when it is inside the ceiling, else the ceiling.
+func (c ceilingValue) clamped() int64 {
+	if c.over() {
+		return c.ceiling
+	}
+	return c.value
+}
+
+// err describes why the value is above the ceiling.
+func (c ceilingValue) err() error {
+	if c.value == 0 {
+		return fmt.Errorf("the %s cannot be removed: the relay operator set a ceiling of %s", c.name, c.format(c.ceiling))
+	}
+	return fmt.Errorf("the %s of %s is above the ceiling of %s set by the relay operator", c.name, c.format(c.value), c.format(c.ceiling))
+}
+
+func formatSeconds(n int64) string { return (time.Duration(n) * time.Second).String() }
+
+func formatRate(n int64) string { return formatBytes(n) + "/s" }
+
+// values pairs the limits with the ceiling, in a fixed order.
+func (c Ceiling) values(bytes, seconds, bps int64) []ceilingValue {
+	return []ceilingValue{
+		{"circuit data limit", bytes, c.CircuitMaxBytes, formatBytes},
+		{"circuit time limit", seconds, int64(c.CircuitMaxDuration / time.Second), formatSeconds},
+		{"circuit bandwidth limit", bps, c.RateLimit, formatRate},
+	}
+}
+
+func (c Ceiling) validate() error {
+	if c.CircuitMaxBytes < 0 || c.CircuitMaxDuration < 0 || c.RateLimit < 0 {
+		return errors.New("p2prelay: the ceiling must not be negative")
+	}
+	return nil
+}
+
+// reported maps the ceiling to the wire type.
+func (c Ceiling) reported() relayproto.LimitsCeiling {
+	return relayproto.LimitsCeiling{
+		CircuitMaxBytes:   c.CircuitMaxBytes,
+		CircuitMaxSeconds: int64(c.CircuitMaxDuration / time.Second),
+		RateBPS:           c.RateLimit,
+	}
+}
+
+// check returns an error that names the ceiling when one of the limits is
+// above it.
+func (c Ceiling) check(l Limits) error {
+	for _, v := range c.values(l.CircuitMaxBytes, int64(l.CircuitMaxDuration/time.Second), l.RateLimit) {
+		if v.over() {
+			return v.err()
+		}
+	}
+	return nil
+}
+
+// checkStart is check for the limits of the flags: it refuses to start a relay
+// whose limits are outside its own ceiling.
+func (c Ceiling) checkStart(l Limits) error {
+	if err := c.check(l); err != nil {
+		return fmt.Errorf("p2prelay: %w (lower the limit or raise the ceiling)", err)
+	}
+	return nil
+}
+
+// clamp returns l with every limit that is above the ceiling replaced by the
+// ceiling, and the names of the limits it changed.
+func (c Ceiling) clamp(l Limits) (Limits, []string) {
+	vals := c.values(l.CircuitMaxBytes, int64(l.CircuitMaxDuration/time.Second), l.RateLimit)
+	var changed []string
+	for i, v := range vals {
+		if v.over() {
+			changed = append(changed, v.name)
+			vals[i].value = v.clamped()
+		}
+	}
+	l.CircuitMaxBytes = vals[0].value
+	l.CircuitMaxDuration = time.Duration(vals[1].value) * time.Second
+	l.RateLimit = vals[2].value
+	return l, changed
+}
+
 // applyStoredLimits replaces the per-circuit limits of cfg with the stored ones.
 func applyStoredLimits(cfg *Config) error {
 	path := filepath.Join(cfg.DataDir, limitsFile)
@@ -52,6 +149,11 @@ func applyStoredLimits(cfg *Config) error {
 		return fmt.Errorf("p2prelay: %s: %w", path, err)
 	}
 	xlog.Info("relay: using the limits an admin set; delete the file to use the flags again", "file", path)
+	if clamped, names := cfg.Ceiling.clamp(l); len(names) > 0 {
+		xlog.Warn("relay: the saved limits are above the ceiling of this relay: using the ceiling for them",
+			"file", path, "limits", names)
+		l = clamped
+	}
 	cfg.Limits = l
 	return nil
 }
@@ -118,9 +220,13 @@ func (r *Relay) limitsOp(p peer.ID, patch *relayproto.LimitsPatch) (relayproto.R
 		if next, err = old.with(bytes, seconds, bps); err != nil {
 			return fail(err.Error()), nil
 		}
+		if err := r.cfg.Ceiling.check(next); err != nil {
+			return fail(err.Error()), nil
+		}
 	}
 	resp := relayproto.Response{V: relayproto.Version, OK: true, Admin: true}
 	rep := next.reported()
+	rep.Ceiling = r.cfg.Ceiling.reported()
 	if next == old {
 		resp.Limits = &rep
 		return resp, nil

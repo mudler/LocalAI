@@ -326,6 +326,7 @@ func (r *Relay) statusLocked(from ma.Multiaddr) relayproto.Status {
 		CircuitMaxBytes:   r.cfg.CircuitMaxBytes,
 		CircuitMaxSeconds: int64(r.cfg.CircuitMaxDuration / time.Second),
 		RateBPS:           r.cfg.RateLimit,
+		Ceiling:           r.cfg.Ceiling.reported(),
 		TotalRateBPS:      r.cfg.TotalRateLimit,
 		MaxCircuits:       r.cfg.MaxCircuits,
 		MaxReservations:   r.cfg.MaxReservations,
@@ -349,6 +350,7 @@ func publicStatus(st relayproto.Status) *relayproto.Status {
 		CircuitMaxBytes:   st.CircuitMaxBytes,
 		CircuitMaxSeconds: st.CircuitMaxSeconds,
 		RateBPS:           st.RateBPS,
+		Ceiling:           st.Ceiling,
 		YourAddr:          st.YourAddr,
 	}
 }

@@ -100,6 +100,16 @@ type LimitsPatch struct {
 	RateBPS           *int64 `json:"rate_bps,omitempty"`
 }
 
+// LimitsCeiling is the highest value an admin may set for each limit. The
+// operator of the relay sets it with the relay's flags. Zero means no
+// ceiling for that limit. With a ceiling, an admin cannot remove the limit
+// (set it to zero) either.
+type LimitsCeiling struct {
+	CircuitMaxBytes   int64 `json:"circuit_max_bytes"`
+	CircuitMaxSeconds int64 `json:"circuit_max_seconds"`
+	RateBPS           int64 `json:"rate_bps"`
+}
+
 // Limits are the per-circuit limits of a relay, as OpLimits reports them.
 // Zero means no limit.
 type Limits struct {
@@ -110,6 +120,9 @@ type Limits struct {
 	// RateBPS is the bandwidth limit per circuit and direction, in bytes per
 	// second.
 	RateBPS int64 `json:"rate_bps"`
+	// Ceiling is what an admin may set at most. OpLimits refuses a patch
+	// above it with an error that names the ceiling.
+	Ceiling LimitsCeiling `json:"ceiling"`
 	// Restarted is set when applying the change restarted the circuit
 	// service: reservations are dropped and peers reserve again within
 	// moments. A change of the bandwidth limit alone never restarts it.
@@ -136,7 +149,7 @@ type Response struct {
 }
 
 // Status describes a relay. Admins get every field; members get only the
-// public ones (version, mode, peer ID, circuit limits, rate limit, your_addr).
+// public ones (version, mode, peer ID, circuit limits, rate limit, their ceiling, your_addr).
 type Status struct {
 	Version  string `json:"version"`
 	Mode     string `json:"mode"`
@@ -159,6 +172,9 @@ type Status struct {
 	// RateBPS is the bandwidth limit per circuit and direction in bytes per
 	// second (0: none).
 	RateBPS int64 `json:"rate_bps"`
+	// Ceiling is the highest value an admin may set for each of the three
+	// limits above (0: no ceiling).
+	Ceiling LimitsCeiling `json:"ceiling"`
 	// TotalRateBPS is the bandwidth limit of the whole relay (0: none).
 	TotalRateBPS    int64 `json:"total_rate_bps,omitempty"`
 	MaxCircuits     int   `json:"max_circuits,omitempty"`
