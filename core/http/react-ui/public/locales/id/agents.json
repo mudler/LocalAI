@@ -148,7 +148,7 @@
     "networkHelp": "Saat pemicu atau konektor menjalankan agen ini, perintahnya menjangkau jaringan sejauh ini, sampai batas yang diatur administrator. Proses tidak pernah bertanya: host di luarnya diblokir. Chat yang Anda mulai dengan agen ini juga dimulai dengan ini.",
     "networkPresets": {
       "off": "Mati",
-      "registries": "Registri paket",
+      "registries": "Kustom",
       "all": "Semua situs publik"
     },
     "toolsSummary": "{{on}} dari {{total}} aktif",

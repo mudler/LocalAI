@@ -1,7 +1,14 @@
 CURRENT_DIR=$(abspath ./)
 GOCMD=go
 
-ONNX_VERSION?=1.24.4
+ONNX_VERSION?=1.28.2
+# Microsoft's onnxruntime release page is gone (404), so the prebuilt
+# runtimes come from the mirror that sherpa-onnx itself builds against.
+# Same builds, but zip files, and the libraries are not versioned.
+# We host unmodified copies of the mirror's assets, with the same file names,
+# in https://github.com/mudler/onnxruntime-libs (SHA256 values in its README).
+ONNX_BASE_URL?=https://github.com/mudler/onnxruntime-libs/releases/download/v$(ONNX_VERSION)
+ONNX_FLAVOR?=-glibc2_17-Release
 # v1.12.39 — includes upstream's onnxruntime 1.24.4 bump (#3501). Earlier
 # pinned commits only support onnxruntime 1.23.2, which has no CUDA 13
 # pre-built tarball, blocking the -gpu-nvidia-cuda-13 build matrix entry.
@@ -15,6 +22,7 @@ endif
 
 ifeq ($(OS),Darwin)
 	ONNX_OS=osx
+	ONNX_FLAVOR=
 	ifneq (,$(findstring aarch64,$(shell uname -m)))
 		ONNX_ARCH=arm64
 	else ifneq (,$(findstring arm64,$(shell uname -m)))
@@ -33,7 +41,7 @@ ifeq ($(BUILD_TYPE),cublas)
 	ifeq ($(CUDA_MAJOR_VERSION),13)
 		ONNX_VARIANT=-gpu_cuda13
 	else
-		ONNX_VARIANT=-gpu
+		ONNX_VARIANT=-gpu_cuda12
 	endif
 else
 	ONNX_VARIANT=
@@ -43,11 +51,13 @@ endif
 
 JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
+ONNX_ASSET=onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)$(if $(ONNX_VARIANT),$(ONNX_VARIANT)-$(ONNX_VERSION)-patched,$(ONNX_FLAVOR)-$(ONNX_VERSION))
+
 sources/onnxruntime:
 	mkdir -p sources/onnxruntime
-	curl -L https://github.com/microsoft/onnxruntime/releases/download/v$(ONNX_VERSION)/onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)$(ONNX_VARIANT)-$(ONNX_VERSION).tgz \
-	  -o sources/onnxruntime/onnxruntime.tgz
-	cd sources/onnxruntime && tar -xf onnxruntime.tgz --strip-components=1 && rm onnxruntime.tgz
+	curl -fL $(ONNX_BASE_URL)/$(ONNX_ASSET).zip -o sources/onnxruntime/onnxruntime.zip
+	cd sources/onnxruntime && unzip -q onnxruntime.zip && rm onnxruntime.zip
+	cd sources/onnxruntime && mv onnxruntime-*/* ./ && rmdir onnxruntime-*
 
 sources/sherpa-onnx: sources/onnxruntime
 	git clone https://github.com/k2-fsa/sherpa-onnx.git sources/sherpa-onnx

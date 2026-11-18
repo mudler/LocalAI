@@ -258,7 +258,7 @@
     "networkHelp": "When a trigger or a connector runs this agent, its commands reach this much of the network, up to the limit an administrator set. A run never asks: a host outside it is blocked. A chat you start with this agent starts with it too.",
     "networkPresets": {
       "off": "Off",
-      "registries": "Package registries",
+      "registries": "Custom",
       "all": "All public sites"
     },
     "toolsSummary": "{{on}} of {{total}} on",

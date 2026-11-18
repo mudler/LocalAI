@@ -148,7 +148,7 @@
     "networkHelp": "Wenn ein Trigger oder ein Connector diesen Agenten ausführt, erreichen seine Befehle so viel vom Netzwerk, bis zum Limit eines Administrators. Ein Lauf fragt nie: Ein Host außerhalb wird blockiert. Ein Chat, den Sie mit diesem Agenten starten, beginnt ebenfalls damit.",
     "networkPresets": {
       "off": "Aus",
-      "registries": "Paket-Registries",
+      "registries": "Benutzerdefiniert",
       "all": "Alle öffentlichen Seiten"
     },
     "toolsSummary": "{{on}} von {{total}} an",

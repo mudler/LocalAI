@@ -66,7 +66,8 @@ consent, the audit and the settings.
 
 1. The guest keeps no network device. Egress is possible only through a
    guarded **host proxy**; it is the single path.
-2. Three presets: **Off** (default), **Package registries only**, **Allow
+2. Three presets: **Off** (default), **Package registries only** (shown as **Custom** since the
+   administrator's domain list joined it; the id stays `registries`), **Allow
    all**. "Allow all" means all **public** hosts. Private, loopback,
    link-local and cloud metadata ranges are always blocked, unless an
    administrator switch with a typed confirmation enables the private ranges.
@@ -90,7 +91,7 @@ consent, the audit and the settings.
 ## Goals
 
 - `pip install requests` works in a chat whose preset is "Package registries
-  only", with no other change by the user.
+  only" (Custom), with no other change by the user.
 - A host outside the preset pauses the command and asks the person, in the
   chat, once per host.
 - The administrator can cap every chat with one setting and read who reached
@@ -535,7 +536,10 @@ paragraph, docs pages below.
 ### 12. UI
 
 - **Chat Tools menu** (where the Sandbox switch is): a "Network" row with a
-  three-way control (Off, Package registries, All public sites). Options
+  three-way control (Off, Custom, All public sites). Custom is the package
+  registries plus the administrator's extra registries and always-allowed
+  hosts; the panel lists them read only, with an Edit domains link to the
+  add-on's network settings for administrators. Options
   above the ceiling are disabled with "Limited by your administrator". The
   row is hidden when `applies` is false and replaced by "Commands run on this
   machine and use its network" when the host backend serves.

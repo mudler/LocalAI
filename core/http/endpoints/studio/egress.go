@@ -29,7 +29,7 @@ func (h *Handlers) GetEgress(c echo.Context) error {
 
 // PutEgress sets the preset of a chat.
 // @Summary Set the network preset of a chat's commands.
-// @Description off reaches nothing; registries the HTTPS hosts of the package registries; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.
+// @Description off reaches nothing; registries (shown as Custom) the HTTPS hosts of the package registries plus the administrator's extra registries and always-allowed hosts; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsEgressPreset true "the preset"

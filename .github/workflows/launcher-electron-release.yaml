@@ -108,6 +108,7 @@ jobs:
           sha256sum --check ./*.AppImage.sha256
           shasum -a 256 --check ./*.dmg.sha256 ./*-mac.zip.sha256
       - name: Attach to the existing release
+        working-directory: dist
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
@@ -119,9 +120,13 @@ jobs:
         run: |
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease \
             --jq '"draft=\(.isDraft) prerelease=\(.isPrerelease)"'
-          files=$(ls | grep -v '^latest-.*\.yml$')
-          # shellcheck disable=SC2086
-          gh release upload "$TAG" $files --clobber --repo "$GITHUB_REPOSITORY"
+          # Regular files only: the download step can leave directories.
+          mapfile -t files < <(find . -maxdepth 1 -type f ! -name 'latest-*.yml' -printf '%f\n' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No release files found in $PWD to attach"
+            exit 1
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
           gh release upload "$TAG" latest-linux.yml latest-linux-arm64.yml latest-mac.yml --clobber --repo "$GITHUB_REPOSITORY"
 
   check-feed:

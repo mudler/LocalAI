@@ -26,7 +26,7 @@
 #   base-grpc-cuda-13-amd64         ubuntu:22.04 + CUDA 13.0
 #   base-grpc-cuda-13-arm64         ubuntu:24.04 + CUDA 13.0 (sbsa)
 #   base-grpc-l4t-cuda-12-arm64     ubuntu:22.04 + CUDA 12.x (legacy JetPack)
-#   base-grpc-rocm-amd64            rocm/dev-ubuntu-24.04:7.2.1 + hipblas
+#   base-grpc-rocm-amd64            rocm/dev-ubuntu-24.04:10.1.0-full + hipblas
 #   base-grpc-vulkan-amd64          ubuntu:24.04 + Vulkan SDK 1.4.335
 #   base-grpc-vulkan-arm64          ubuntu:24.04 + Vulkan SDK ARM 1.4.335
 #   base-grpc-intel-amd64           intel/oneapi-basekit:2025.3.2 (sycl)
@@ -60,6 +60,7 @@ ARG CMAKE_VERSION=3.31.10
 ARG GRPC_VERSION=v1.65.0
 ARG GRPC_MAKEFLAGS="-j4 -Otarget"
 ARG SKIP_DRIVERS=false
+ARG ROCM_PACKAGES="amdrocm-blas-dev10.1"
 ARG TARGETARCH
 ARG UBUNTU_VERSION=2404
 ARG APT_MIRROR=""
@@ -74,6 +75,7 @@ ENV BUILD_TYPE=${BUILD_TYPE} \
     GRPC_VERSION=${GRPC_VERSION} \
     GRPC_MAKEFLAGS=${GRPC_MAKEFLAGS} \
     SKIP_DRIVERS=${SKIP_DRIVERS} \
+    ROCM_PACKAGES=${ROCM_PACKAGES} \
     TARGETARCH=${TARGETARCH} \
     UBUNTU_VERSION=${UBUNTU_VERSION} \
     APT_MIRROR=${APT_MIRROR} \
@@ -93,6 +95,7 @@ WORKDIR /build
 # script the variant Dockerfiles' builder-fromsource stage runs.
 RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
     --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    --mount=type=bind,source=.docker/rocm-compat-links.sh,target=/usr/local/sbin/rocm-compat-links \
     bash /usr/local/sbin/install-base-deps
 
 WORKDIR /

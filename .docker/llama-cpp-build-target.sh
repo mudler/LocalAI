@@ -11,8 +11,9 @@ build_type=${2-}
 #
 # ROCm runs out of the same 6h budget for a different reason: volume, not a
 # stall. hipcc compiles ggml's HIP kernels once per entry in AMDGPU_TARGETS,
-# which is eleven architectures (gfx908 through gfx1201), and the CPU variant
-# matrix lands on top of that. The job built in 2h27m before it was added and
+# which is fifteen architectures (gfx908 through gfx1201, four of them the
+# RDNA3/3.5 APUs added with ROCm 10.1), and the CPU variant matrix lands on
+# top of that. The job built in 2h27m (with eleven) before it was added and
 # has been killed at exactly 6h00m on every run since, so no ROCm llama-cpp
 # image has been published since 2026-08-01.
 case "$build_type" in

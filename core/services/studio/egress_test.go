@@ -162,6 +162,18 @@ var _ = Describe("egress.check and egress.audit on the chats service", func() {
 		Expect(view.JSON().AllowedHosts).NotTo(BeNil(), "the wire form is a list, never null")
 	})
 
+	It("sends the whole Custom list: the extra registries and the always-allowed hosts as written, wildcards included", func() {
+		id := create(svc, alice)
+		settings.ExtraRegistries = []string{"mirror.example.com"}
+		settings.AllowedHosts = []egress.AllowedHost{{Host: "*.example.org"}, {Host: "api.example.com"}}
+		view, err := svc.Egress(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		wire := view.JSON()
+		Expect(wire.AllowedHosts).To(Equal([]string{"*.example.org", "api.example.com"}))
+		Expect(wire.Registries).To(ContainElement(SatisfyAll(HaveField("ID", "extra"), HaveField("Hosts", []string{"mirror.example.com"}))))
+		Expect(wire.Registries[0].ID).NotTo(Equal("extra"), "the built-in registries stay first")
+	})
+
 	It("lowering the ceiling applies at the next check", func() {
 		id := create(svc, alice)
 		settings.Ceiling = egress.PresetOff
@@ -202,6 +214,17 @@ var _ = Describe("the network line of a turn", func() {
 	It("says a blocked host asks the user when a card can appear", func() {
 		svc, h := sandboxed(egress.Settings{Ceiling: egress.PresetAll})
 		Expect(turn(svc, h)).To(ContainSubstring("Network for commands: off. A blocked host asks the user"))
+	})
+
+	It("names the administrator's extra domains under the Custom preset", func() {
+		svc, h := sandboxed(egress.Settings{Ceiling: egress.PresetAll, Default: egress.PresetRegistries, ExtraRegistries: []string{"mirror.example.com"}})
+		got := turn(svc, h)
+		Expect(got).To(ContainSubstring("and the domains an administrator added (mirror.example.com)"))
+	})
+
+	It("keeps the registries-only line when no domain was added", func() {
+		svc, h := sandboxed(egress.Settings{Ceiling: egress.PresetAll, Default: egress.PresetRegistries})
+		Expect(turn(svc, h)).To(ContainSubstring("Network for commands: package registries only ("))
 	})
 
 	It("does not promise a card when the ceiling is off", func() {

@@ -606,18 +606,19 @@
     "label": "Netzwerk",
     "preset": {
       "off": "Aus",
-      "registries": "Paket-Registries",
+      "registries": "Benutzerdefiniert",
       "all": "Alle öffentlichen Seiten"
     },
     "presetHint": {
       "off": "Befehle erreichen kein Netzwerk.",
-      "registries": "Befehle erreichen nur die Paket-Registries (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub-Releases).",
+      "registries": "Befehle erreichen die Paket-Registries (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub-Releases) und die Domains, die Ihr Administrator hinzugefügt hat.",
       "all": "Befehle erreichen jede öffentliche Seite."
     },
     "limited": "Von Ihrem Administrator begrenzt",
     "limitedBy": "Ihr Administrator erlaubt höchstens: {{limit}}.",
     "hostNetwork": "Befehle laufen auf diesem Rechner und nutzen dessen Netzwerk. Netzwerkgrenzen erfordern ein Add-on, das Befehle isoliert.",
     "panel": "Regeln und Anfragen ({{count}})",
+    "panelCustom": "Eigene Domains",
     "rules": "Regeln dieses Chats",
     "cards": "Anfragen dieses Chats",
     "ruleAllow": "Für diesen Chat erlaubt",
@@ -657,9 +658,13 @@
       "rowOff": "Aus: Der Administrator hat keinen Netzwerkzugriff erlaubt.",
       "runner": "dem Add-on, das die Befehle ausführt"
     },
-    "allowedHosts": "Von Ihrem Administrator immer erlaubt:",
     "allowedHostsOff": "Sie gelten, wenn das Netzwerk eingeschaltet ist.",
-    "allowedHostsNote": "{{count}} Hosts sind von Ihrem Administrator immer erlaubt.",
+    "allowedHostsNote": "Von Ihrem Administrator hinzugefügte Domains: {{count}}.",
+    "customDomains": "Benutzerdefiniert erreicht die Paket-Registries und diese Domains, die Ihr Administrator festlegt:",
+    "customEmpty": "Benutzerdefiniert erreicht nur die Paket-Registries. Ihr Administrator hat keine weiteren Domains hinzugefügt.",
+    "customLabel": "Eigene Domains",
+    "customEdit": "Domains bearbeiten",
+    "customAdmin": "Ein Administrator verwaltet diese Liste.",
     "limitNote": "Netzwerk dieses Chats. Der Administrator legt fest, was ein Chat höchstens erreichen darf.",
     "draftNote": "Der Chat startet mit dieser Einstellung. Der Administrator legt fest, was ein Chat höchstens erreichen darf; diese Grenze gilt.",
     "asksAbove": "Dieser Chat verlangt {{choice}}; das Limit des Administrators ist {{limit}}.",

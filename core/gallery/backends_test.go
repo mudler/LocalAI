@@ -107,7 +107,7 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 			BuildType: "hipblas",
 			Platforms: "linux/amd64",
 			TagSuffix: "-gpu-rocm-hipblas-audio-cpp",
-			BaseImage: "rocm/dev-ubuntu-24.04:7.2.1",
+			BaseImage: "rocm/dev-ubuntu-24.04:10.1.0-full",
 		}))
 	})
 

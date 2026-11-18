@@ -606,18 +606,19 @@
     "label": "网络",
     "preset": {
       "off": "关闭",
-      "registries": "软件包仓库",
+      "registries": "自定义",
       "all": "所有公共网站"
     },
     "presetHint": {
       "off": "命令无法访问任何网络。",
-      "registries": "命令只能访问软件包仓库（PyPI、npm、Go、crates.io、RubyGems、Maven Central、GitHub 发布）。",
+      "registries": "命令可以访问软件包仓库（PyPI、npm、Go、crates.io、RubyGems、Maven Central、GitHub 发布）以及管理员添加的域名。",
       "all": "命令可以访问所有公共网站。"
     },
     "limited": "受管理员限制",
     "limitedBy": "管理员最多允许：{{limit}}。",
     "hostNetwork": "命令在这台机器上运行，并使用它的网络。网络限制需要可隔离命令的插件。",
     "panel": "规则和请求（{{count}}）",
+    "panelCustom": "自定义域名",
     "rules": "此聊天的规则",
     "cards": "此聊天的请求",
     "ruleAllow": "在此聊天中允许",
@@ -657,9 +658,13 @@
       "rowOff": "关闭：管理员尚未允许网络访问。",
       "runner": "运行命令的附加组件"
     },
-    "allowedHosts": "管理员始终允许：",
     "allowedHostsOff": "网络开启时生效。",
-    "allowedHostsNote": "管理员始终允许 {{count}} 个主机。",
+    "allowedHostsNote": "管理员添加的域名：{{count}} 个。",
+    "customDomains": "自定义可以访问软件包仓库和管理员设置的以下域名：",
+    "customEmpty": "自定义只能访问软件包仓库。管理员尚未添加其他域名。",
+    "customLabel": "自定义域名",
+    "customEdit": "编辑域名",
+    "customAdmin": "此列表由管理员管理。",
     "limitNote": "此对话的网络。管理员决定对话最多能访问的范围。",
     "draftNote": "聊天将以此设置开始。管理员决定聊天最多能访问的范围，该限制同样适用。",
     "asksAbove": "此对话请求“{{choice}}”；管理员的限制是“{{limit}}”。",
