@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"unsafe"
 
+	"github.com/mudler/LocalAI/pkg/jobobject"
 	"golang.org/x/sys/windows"
 )
 
@@ -89,27 +89,9 @@ type processTree struct {
 // by its own handle, but what it started is not.
 func newProcessTree(pid int) *processTree {
 	t := &processTree{}
-	job, e := windows.CreateJobObject(nil, nil)
-	if e != nil {
-		return t
+	if job, e := jobobject.AssignKillOnClose(pid); e == nil {
+		t.job = job
 	}
-	var limit windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION
-	limit.BasicLimitInformation.LimitFlags = windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-	if _, e = windows.SetInformationJobObject(job, windows.JobObjectExtendedLimitInformation, uintptr(unsafe.Pointer(&limit)), uint32(unsafe.Sizeof(limit))); e != nil {
-		_ = windows.CloseHandle(job)
-		return t
-	}
-	h, e := windows.OpenProcess(windows.PROCESS_SET_QUOTA|windows.PROCESS_TERMINATE, false, uint32(pid))
-	if e != nil {
-		_ = windows.CloseHandle(job)
-		return t
-	}
-	defer func() { _ = windows.CloseHandle(h) }()
-	if e = windows.AssignProcessToJobObject(job, h); e != nil {
-		_ = windows.CloseHandle(job)
-		return t
-	}
-	t.job = job
 	return t
 }
 
