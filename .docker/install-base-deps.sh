@@ -10,6 +10,7 @@
 # All four files invoke this script via
 #   RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
 #       --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+#       --mount=type=bind,source=.docker/rocm-compat-links.sh,target=/usr/local/sbin/rocm-compat-links \
 #       bash /usr/local/sbin/install-base-deps
 #
 # so the prebuilt CI base image and the from-source local-dev path are
@@ -28,6 +29,7 @@
 #   GRPC_MAKEFLAGS            ("-j4 -Otarget")
 #   APT_MIRROR / APT_PORTS_MIRROR  (optional; consumed by /usr/local/sbin/apt-mirror)
 #   AMDGPU_TARGETS            (optional; only relevant for hipblas downstream)
+#   ROCM_PACKAGES             (optional; hipblas only, default "amdrocm-blas-dev10.1", ROCm 7.x: "hipblas-dev hipblaslt-dev rocblas-dev")
 #
 # IMPORTANT: install logic is copied verbatim from the prior in-Dockerfile
 # RUN blocks. Do not paraphrase apt invocations / version pins / sed line
@@ -238,10 +240,11 @@ fi
 # --- 6. ROCm / HIP build deps (BUILD_TYPE=hipblas) ---
 if [ "${BUILD_TYPE:-}" = "hipblas" ] && [ "${SKIP_DRIVERS:-false}" = "false" ]; then
     apt_retry update
+    # ROCM_PACKAGES lets a build on another ROCm release (e.g. 7.x, whose
+    # package names differ) pass its own list; unset keeps the 10.1 default.
+    # shellcheck disable=SC2086 # word splitting of the package list is intended
     apt_retry install -y --no-install-recommends \
-        hipblas-dev \
-        hipblaslt-dev \
-        rocblas-dev
+        ${ROCM_PACKAGES-amdrocm-blas-dev10.1}
     apt-get clean
     rm -rf /var/lib/apt/lists/*
     # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install,
@@ -252,6 +255,14 @@ if [ "${BUILD_TYPE:-}" = "hipblas" ] && [ "${SKIP_DRIVERS:-false}" = "false" ]; 
     echo "rocBLAS library data architectures:"
     (ls /opt/rocm*/lib/rocblas/library/Kernels* 2>/dev/null || ls /opt/rocm*/lib64/rocblas/library/Kernels* 2>/dev/null) | grep -oP 'gfx[0-9a-z+-]+' | sort -u || \
         echo "WARNING: No rocBLAS kernel data found"
+fi
+# ROCm 10.x has no /opt/rocm/llvm (its compiler is under
+# /opt/rocm/core-<ver>/lib/llvm), but the hipblas branch of the llama.cpp
+# Makefiles compiles with /opt/rocm/llvm/bin/clang++. The bind-mounted helper
+# adds the link and is a no-op on ROCm 7.x. Outside the SKIP_DRIVERS check on
+# purpose: a base image that already ships ROCm needs the link too.
+if [ "${BUILD_TYPE:-}" = "hipblas" ] && [ -f /usr/local/sbin/rocm-compat-links ]; then
+    sh /usr/local/sbin/rocm-compat-links
 fi
 
 echo "TARGETARCH: ${TARGETARCH:-}"
