@@ -190,6 +190,44 @@ var _ = Describe("P2P sharing end to end", func() {
 		Expect(string(body)).To(ContainSubstring(`"online":true`))
 	})
 
+	It("refuses a remote invite made with the API key of LOCALAI_API_KEY and says why", func() {
+		const legacy = "legacy-key-for-p2p-test"
+		app.ApplicationConfig().ApiKeys = []string{legacy}
+		app.ApplicationConfig().P2P = config.P2PSettings{Mode: "share", DisablePublicDHT: true, DisableMDNS: true,
+			ListenAddrs: []string{"/ip4/127.0.0.1/tcp/0"}}
+		Expect(app.RestartP2PNet()).To(Succeed())
+		e, err := API(app)
+		Expect(err).NotTo(HaveOccurred())
+		send := func(key string, body any) (int, []byte) {
+			b, _ := json.Marshal(body)
+			req := httptest.NewRequest(http.MethodPost, "/api/p2p/invites", bytes.NewReader(b))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+key)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			return rec.Code, rec.Body.Bytes()
+		}
+
+		code, body := send(legacy, map[string]any{"kind": "remote", "label": "office", "relays": "none"})
+		Expect(code).To(Equal(http.StatusConflict), string(body))
+		var refusal struct {
+			Error struct {
+				Message string `json:"message"`
+				Type    string `json:"type"`
+			} `json:"error"`
+		}
+		Expect(json.Unmarshal(body, &refusal)).To(Succeed())
+		Expect(refusal.Error.Type).To(Equal("needs_account"))
+		Expect(refusal.Error.Message).To(ContainSubstring("user account"))
+		Expect(refusal.Error.Message).To(ContainSubstring("LOCALAI_API_KEY"))
+
+		By("still making a device invite with that key, and a remote invite with a user key")
+		code, body = send(legacy, map[string]any{"kind": "device", "relays": "none"})
+		Expect(code).To(Equal(http.StatusCreated), string(body))
+		code, body = send(admin, map[string]any{"kind": "remote", "relays": "none"})
+		Expect(code).To(Equal(http.StatusCreated), string(body))
+	})
+
 	It("refuses an unknown P2P mode in the settings", func() {
 		code, body := do(http.MethodPost, "/api/settings", admin, map[string]any{"p2p_mode": "both"})
 		Expect(code).To(Equal(http.StatusBadRequest))

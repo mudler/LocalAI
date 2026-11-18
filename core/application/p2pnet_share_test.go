@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
@@ -163,10 +165,76 @@ var _ = Describe("P2P layer in mode share", func() {
 		keyID := out["client_key"].(map[string]any)["id"].(string)
 		Expect(auth.ClientKeyActive(a.AuthDB(), keyID, owner.ID)).To(BeTrue())
 
+		By("giving the key of an invite without models every model a client key may use")
+		var key auth.UserAPIKey
+		Expect(a.AuthDB().First(&key, "id = ?", keyID).Error).To(Succeed())
+		Expect(key.ClientAllows(auth.FeatureClientInference)).To(BeTrue())
+		Expect(key.AllModels).To(BeTrue())
+		Expect(key.Models).To(BeEmpty())
+		Expect(key.AllowsModel("added-later")).To(BeTrue())
+
 		devs, err := svc.ListDevices(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(svc.RevokeDevice(ctx, devs[0].ID, owner.ID)).To(Succeed())
 		Expect(auth.ClientKeyActive(a.AuthDB(), keyID, owner.ID)).To(BeFalse())
+	})
+
+	It("limits the key of a remote invite to the models it lists", func() {
+		a, server := shareServer()
+		models := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(models, "shared.yaml"), []byte("name: shared\nbackend: llama-cpp\n"), 0o600)).To(Succeed())
+		a.backendLoader = config.NewModelConfigLoader(models)
+		Expect(a.backendLoader.LoadModelConfigsFromPath(models)).To(Succeed())
+		svc := a.P2P()
+		ctx := context.Background()
+		owner := &auth.User{ID: "owner-1", Name: "Owner", Email: "o@example.com", Role: auth.RoleAdmin, Status: auth.StatusActive, Provider: auth.ProviderLocal}
+		Expect(a.AuthDB().Create(owner).Error).To(Succeed())
+
+		By("refusing an unknown model when the invite is made, not when it is redeemed")
+		_, err := svc.MintInvite(ctx, owner.ID, p2papi.MintRequest{Kind: "remote", Models: []string{"missing"}, Relays: p2papi.RelayChoice{Mode: "none"}})
+		Expect(err).To(MatchError(p2papi.ErrInvalid))
+		Expect(err.Error()).To(ContainSubstring("missing"))
+
+		m, err := svc.MintInvite(ctx, owner.ID, p2papi.MintRequest{Kind: "remote", Models: []string{"shared"}, Relays: p2papi.RelayChoice{Mode: "none"}})
+		Expect(err).ToNot(HaveOccurred())
+		_, client := device(server)
+		status, out := redeemCode(client, server, codeOf(m.Link))
+		Expect(status).To(Equal(http.StatusOK))
+		var key auth.UserAPIKey
+		Expect(a.AuthDB().First(&key, "id = ?", out["client_key"].(map[string]any)["id"]).Error).To(Succeed())
+		Expect(key.AllModels).To(BeFalse())
+		Expect(key.Models).To(Equal(auth.ModelList{"shared"}))
+		Expect(key.AllowsModel("shared")).To(BeTrue())
+		Expect(key.AllowsModel("other")).To(BeFalse())
+	})
+
+	It("refuses a remote invite for an identity without a user account, and still makes device invites for it", func() {
+		a, server := shareServer()
+		svc := a.P2P()
+		ctx := context.Background()
+
+		By("refusing the remote invite of the API key set with LOCALAI_API_KEY, which has no user row")
+		for _, by := range []string{"legacy-api-key", ""} {
+			_, err := svc.MintInvite(ctx, by, p2papi.MintRequest{Kind: "remote", Relays: p2papi.RelayChoice{Mode: "none"}})
+			Expect(err).To(MatchError(p2papi.ErrNeedsAccount), by)
+		}
+		invs, err := svc.ListInvites(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(invs).To(BeEmpty(), "a refused invite is not stored")
+
+		By("refusing it for a disabled account too")
+		Expect(a.AuthDB().Create(&auth.User{ID: "gone", Name: "Gone", Email: "g@example.com", Role: auth.RoleAdmin, Status: auth.StatusDisabled, Provider: auth.ProviderLocal}).Error).To(Succeed())
+		_, err = svc.MintInvite(ctx, "gone", p2papi.MintRequest{Kind: "remote", Relays: p2papi.RelayChoice{Mode: "none"}})
+		Expect(err).To(MatchError(p2papi.ErrNeedsAccount))
+
+		By("making and redeeming a device invite for the same identity, which needs no account")
+		m, err := svc.MintInvite(ctx, "legacy-api-key", p2papi.MintRequest{Kind: "device", Relays: p2papi.RelayChoice{Mode: "none"}})
+		Expect(err).ToNot(HaveOccurred())
+		_, client := device(server)
+		status, out := redeemCode(client, server, codeOf(m.Link))
+		Expect(status).To(Equal(http.StatusOK))
+		Expect(out["kind"]).To(Equal("device"))
+		Expect(out).ToNot(HaveKey("client_key"))
 	})
 
 	It("answers 429 after five wrong codes from one peer", func() {

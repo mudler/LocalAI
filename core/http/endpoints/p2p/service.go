@@ -317,6 +317,10 @@ var (
 	ErrRateLimited = errors.New("too many attempts, try again later")
 	// ErrUnavailable: 503. Wrap it with the reason.
 	ErrUnavailable = errors.New("unavailable")
+	// ErrNeedsAccount: 409. The key of a remote belongs to the user account
+	// that shares, and the caller has none: it signed in with the API key of
+	// LOCALAI_API_KEY.
+	ErrNeedsAccount = errors.New("sharing with a remote needs a signed-in user account, because the remote gets an API key of that account. The API key set with LOCALAI_API_KEY has no account: sign in with a user account and create the invite again")
 )
 
 // ModeError says that the operation needs another P2P mode. The handlers
