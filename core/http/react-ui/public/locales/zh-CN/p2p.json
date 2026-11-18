@@ -34,9 +34,6 @@
     },
     "split": {
       "title": "模型拆分 Worker"
-    },
-    "federated": {
-      "title": "联邦实例"
     }
   },
   "ttl": {

@@ -122,23 +122,6 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
           onChange={(e) => set(e.target.value)}
         />
       )
-    case 'token':
-      return (
-        <div className="st-token">
-          <input
-            id={id} className="dk-input dk-input--mono" value={value} placeholder="No token set"
-            autoComplete="off" spellCheck={false} onChange={(e) => set(e.target.value)}
-          />
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" title="Generate a new P2P token (applied when you apply)" onClick={() => set('0')}>
-            <Icon name="refresh" /> Generate
-          </button>
-          {value && (
-            <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label="Clear token" title="Clear token (stops P2P when you apply)" onClick={() => set('')}>
-              <Icon name="close" />
-            </button>
-          )}
-        </div>
-      )
     case 'asset': {
       const a = assets.state(field.asset)
       return (

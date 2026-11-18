@@ -131,6 +131,10 @@
     "wait": {
       "checkPeer": "Vérifiez l’ID de pair avec la personne qui gère la machine avant d’approuver.",
       "joinStuck": "Rien n’arrive ? Derrière un NAT strict, le nœud peut mettre une minute à trouver un chemin. Vérifiez que l’invitation n’a pas expiré."
+    },
+    "join": {
+      "instanceNote": "Une autre instance LocalAI qui doit prendre une part des requêtes n'est pas un nœud : ajoutez-la comme distant, puis regroupez-la sous",
+      "instanceLink": "Fédération"
     }
   },
   "route": {

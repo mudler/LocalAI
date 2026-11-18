@@ -96,46 +96,21 @@ test.describe('Add a node', () => {
     await expect(page.getByRole('heading', { name: 'Run this on the new machine' })).toBeVisible()
   })
 
-  test.describe('over P2P', () => {
-    const p2p = { token: 'net-token-1', stats: { federated: { online: 1, total: 1 }, llama_cpp_workers: { online: 0, total: 0 }, mlx_workers: { online: 0, total: 0 } } }
+  test('a model-split worker pairs with an invite and has no network token', async ({ page }) => {
+    await mockSwarm(page)
+    await page.goto('/app/nodes/add?join=shard')
+    await expect(page.getByRole('radio', { name: 'Model-split worker' })).toHaveAttribute('aria-checked', 'true', { timeout: 15_000 })
+    await expect(page.getByText('p2p-worker p2p-llama-cpp-rpc')).toHaveCount(0)
+    await expect(page.getByText(/TOKEN=/)).toHaveCount(0)
+  })
 
-    test('a peer instance joins with the network token', async ({ page }) => {
-      await mockSwarm(page, { p2p })
-      await page.goto('/app/nodes/add?join=peer')
-      await expect(page.getByRole('radio', { name: 'Peer instance' })).toHaveAttribute('aria-checked', 'true', { timeout: 15_000 })
-      await expect(command(page)).toContainText('-e TOKEN="net-token-1"')
-      await expect(command(page)).toContainText('run --federated --p2p')
-      await expect(page.getByText('1 peers online')).toBeVisible()
-    })
-
-    test('a model-split worker pairs with an invite, not with the network token', async ({ page }) => {
-      await mockSwarm(page, { p2p })
-      await page.goto('/app/nodes/add?join=shard')
-      await expect(page.getByRole('radio', { name: 'MLX (Apple Silicon)' })).toBeVisible({ timeout: 15_000 })
-      await expect(page.getByText('net-token-1')).toHaveCount(0)
-      await expect(page.getByText('p2p-worker p2p-llama-cpp-rpc')).toHaveCount(0)
-    })
-
-    test('says to turn P2P on first when it is off', async ({ page }) => {
-      await mockSwarm(page)
-      await page.goto('/app/nodes/add?join=peer')
-      await expect(page.getByRole('heading', { name: 'Turn on P2P first' })).toBeVisible({ timeout: 15_000 })
-      await expect(page.getByTestId('command-block').first()).toContainText('run --p2p')
-      await expect(page.getByTestId('command-block').last()).toContainText('your-token-here')
-    })
-
-    test('shows a new peer when the online count goes up', async ({ page }) => {
-      let calls = 0
-      await mockSwarm(page)
-      await page.route('**/api/p2p/token', route => route.fulfill({ status: 200, contentType: 'text/plain', body: 'net-token-1' }))
-      await page.route('**/api/p2p/stats', route => {
-        calls += 1
-        const online = calls < 3 ? 1 : 2
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ federated: { online, total: 2 }, llama_cpp_workers: { online: 0, total: 0 }, mlx_workers: { online: 0, total: 0 } }) })
-      })
-      await page.goto('/app/nodes/add?join=peer')
-      await expect(page.getByTestId('found-peer')).toContainText('A new peer joined: 2 online', { timeout: 20_000 })
-    })
+  test('another LocalAI instance is not a node: the page points to Federation', async ({ page }) => {
+    await mockSwarm(page)
+    await page.goto('/app/nodes/add')
+    await expect(page.getByRole('radio', { name: 'Peer instance' })).toHaveCount(0, { timeout: 15_000 })
+    await expect(page.getByRole('radio', { name: 'Model-split worker' })).toBeVisible()
+    await expect(page.getByTestId('add-node').getByRole('link', { name: 'Federation' })).toHaveAttribute('href', '/app/p2p/federation')
+    await expect(page.getByText('run --federated')).toHaveCount(0)
   })
 
   test('first run of a cluster carries the same steps in place', async ({ page }) => {

@@ -34,9 +34,6 @@
     },
     "split": {
       "title": "Worker con modello suddiviso"
-    },
-    "federated": {
-      "title": "Istanza federata"
     }
   },
   "ttl": {

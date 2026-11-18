@@ -585,21 +585,17 @@
     "join": {
       "title": "How should it join?",
       "worker": "Registered worker",
-      "peer": "Peer instance",
       "shard": "Model-split worker",
       "workerSub": "The worker registers with this instance and waits for your approval. It needs the message bus and the database that distributed mode uses.",
-      "peerSub": "Another LocalAI instance joins over P2P and shares its models. Requests are balanced across the instances.",
-      "shardSub": "A machine that lends its memory so one big model runs across machines (llama.cpp or MLX). It is not a cluster node: no backends, no placement rules."
+      "shardSub": "A machine that lends its memory so one big model runs across machines (llama.cpp or MLX). It is not a cluster node: no backends, no placement rules.",
+      "instanceNote": "Another LocalAI instance that should take a share of the requests is not a node: add it as a remote, then group it under",
+      "instanceLink": "Federation"
     },
     "distributed": {
       "title": "Turn on distributed mode first",
       "sub": "This install runs on one machine. Start it with distributed mode, then add workers.",
       "docs": "Production setup is in the",
       "docsLink": "distributed mode documentation"
-    },
-    "p2pOff": {
-      "title": "Turn on P2P first",
-      "sub": "P2P is not enabled on this instance. Start LocalAI with it enabled; it makes a network token that the new machine uses. Reload this page when it runs."
     },
     "run": {
       "title": "Run this on the new machine",
@@ -613,7 +609,6 @@
       "dev": "Dev",
       "devTitle": "Use development (master) images instead of stable releases",
       "tokenNote": "Set TOKEN to the registration token from the server configuration. This page never shows it.",
-      "p2pNote": "The token is the P2P network token of this instance. Every machine in the network uses the same one.",
       "inviteFirst": "Make an invite first. The command holds the invite link.",
       "joinNote": "The link works once. The worker keeps its identity, so a restart with the same command needs no new invite."
     },
@@ -623,11 +618,6 @@
       "listening": "Listening for a worker. This page updates when one registers.",
       "open": "Open node",
       "stuck": "Nothing arrives? Check that the machine reaches the message bus and that the token matches.",
-      "p2pListening": "Reading the P2P network.",
-      "p2pCount": "{{count}} peers online. This page updates when another joins.",
-      "p2pFound": "A new peer joined: {{count}} online.",
-      "p2pOpen": "Open P2P",
-      "p2pStuck": "Nothing arrives? Check that the machine reaches this network and uses the same token.",
       "checkPeer": "Check the peer ID with the person who runs the machine before you approve.",
       "joinStuck": "Nothing arrives? Behind strict NAT the node can take a minute to find a path. Check that the invite has not expired."
     },

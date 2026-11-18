@@ -131,6 +131,10 @@
     "wait": {
       "checkPeer": "Prüfe die Peer-ID mit der Person, die die Maschine betreibt, bevor du freigibst.",
       "joinStuck": "Kommt nichts an? Hinter strengem NAT kann der Knoten eine Minute brauchen, um einen Weg zu finden. Prüfe, ob die Einladung abgelaufen ist."
+    },
+    "join": {
+      "instanceNote": "Eine weitere LocalAI-Instanz, die einen Teil der Anfragen übernehmen soll, ist kein Knoten: Füge sie als Gegenstelle hinzu und gruppiere sie dann unter",
+      "instanceLink": "Föderation"
     }
   },
   "route": {

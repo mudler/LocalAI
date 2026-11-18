@@ -2,18 +2,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { nodesApi, p2pApi, p2pNetApi } from '../../utils/api'
-import { usePolling } from '../../hooks/usePolling'
+import { nodesApi, p2pNetApi } from '../../utils/api'
 import { useImageSelector } from '../ImageSelector'
-import { DISTRIBUTED_COMMAND, joinCommand, p2pCommand, shortPeer, workerCommand } from '../../utils/swarm'
+import { DISTRIBUTED_COMMAND, joinCommand, shortPeer, workerCommand } from '../../utils/swarm'
 import AddSplitWorker from './AddSplitWorker'
 import CommandBlock from './CommandBlock'
 import NodeState from './NodeState'
 import NodeRoute from './NodeRoute'
-import Icon from '../Icon'
 import { Button } from '../ui'
 
-const METHODS = ['worker', 'peer', 'shard']
+const METHODS = ['worker', 'shard']
 
 function Step({ n, title, children, id }) {
   return (
@@ -35,26 +33,6 @@ function Segmented({ label, value, onChange, options }) {
       ))}
     </div>
   )
-}
-
-// Reads the P2P token and the number of peers online, for the two methods that
-// join over P2P. `enabled` is false for a registered worker, which uses neither.
-function useP2P(enabled) {
-  const [token, setToken] = useState(null)
-  const [stats, setStats] = useState(null)
-  const read = async () => {
-    const [tokenResult, statsResult] = await Promise.allSettled([p2pApi.getToken(), p2pApi.getStats()])
-    if (tokenResult.status === 'fulfilled') {
-      const value = tokenResult.value
-      setToken((typeof value === 'string' ? value : value?.token || '').trim())
-    } else {
-      setToken('')
-    }
-    if (statsResult.status === 'fulfilled') setStats(statsResult.value)
-  }
-  usePolling(read, 3000, { enabled })
-  const online = stats ? (stats.federated?.online ?? 0) + (stats.llama_cpp_workers?.online ?? 0) + (stats.mlx_workers?.online ?? 0) : null
-  return { token, online, loaded: token !== null }
 }
 
 // The worker invite of a compute node that joins over P2P: the mode of P2P on
@@ -116,7 +94,7 @@ function Elapsed({ since }) {
 //
 //   nodes    the roster (array), or null when this install is not a cluster
 //   single   this install is not in distributed mode yet
-//   initialMethod  'worker' | 'peer' | 'shard', the join method shown first
+//   initialMethod  'worker' | 'shard', the join method shown first
 export default function AddNodeFlow({ nodes, single, addToast, onApproved, initialMethod }) {
   const { t } = useTranslation('swarm')
   const [method, setMethod] = useState(METHODS.includes(initialMethod) ? initialMethod : 'worker')
@@ -124,7 +102,6 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
   const [nodeType, setNodeType] = useState('backend')
   const hardware = useImageSelector('cpu')
   const [startedAt] = useState(() => Date.now())
-  const p2p = useP2P(method === 'peer')
   const [approving, setApproving] = useState(null)
   // How a compute node reaches this server: its address with the registration
   // token ('url'), or a worker invite over P2P ('p2p').
@@ -136,8 +113,6 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
   // The roster at the moment the page opened. Anything else is new.
   const baseline = useRef(null)
   if (baseline.current === null && Array.isArray(nodes)) baseline.current = new Set(nodes.map(node => node.id))
-  const p2pBaseline = useRef(null)
-  if (p2pBaseline.current === null && p2p.online !== null) p2pBaseline.current = p2p.online
 
   const arrived = useMemo(() => (
     Array.isArray(nodes) && baseline.current ? nodes.filter(node => !baseline.current.has(node.id)) : []
@@ -146,9 +121,7 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
   const frontend = typeof window === 'undefined' ? '' : window.location.origin
   const command = overP2P
     ? joinCommand({ flavor, option: hardware.option, dev: hardware.dev, link: invite.minted?.link })
-    : method === 'worker'
-    ? workerCommand({ flavor, nodeType, option: hardware.option, dev: hardware.dev, frontend })
-    : p2pCommand({ method: 'peer', option: hardware.option, dev: hardware.dev, token: p2p.token, flavor })
+    : workerCommand({ flavor, nodeType, option: hardware.option, dev: hardware.dev, frontend })
 
   const approve = async (node) => {
     setApproving(node.id)
@@ -163,11 +136,8 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
     }
   }
 
-  const needsDistributed = single && method === 'worker'
-  const p2pOff = method !== 'worker' && p2p.loaded && !p2p.token
   let n = 0
   const next = () => { n += 1; return n }
-  const p2pFound = method !== 'worker' && p2p.online !== null && p2pBaseline.current !== null && p2p.online > p2pBaseline.current
 
   const joinStep = (
     <Step n={next()} id="sw-add-join" title={t('add.join.title')}>
@@ -178,6 +148,10 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
         options={METHODS.map(key => [key, t(`add.join.${key}`)])}
       />
       <p className="sw-note">{t(`add.join.${method}Sub`)}</p>
+      <p className="sw-note sw-note--quiet">
+        {t('add.join.instanceNote')}{' '}
+        <Link className="dk-link" to="/app/p2p/federation">{t('add.join.instanceLink')}</Link>
+      </p>
     </Step>
   )
   // A model-split worker pairs with an invite; its steps are its own.
@@ -194,7 +168,7 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
     <div className="sw-add" data-testid="add-node">
       {joinStep}
 
-      {method === 'worker' && !single && (
+      {!single && (
         <Step n={next()} id="sw-add-connect" title={t('add.connect.title')}>
           <Segmented
             label={t('add.connect.title')}
@@ -243,7 +217,7 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
         </Step>
       )}
 
-      {needsDistributed && (
+      {single && (
         <Step n={next()} id="sw-add-distributed" title={t('add.distributed.title')}>
           <p className="sw-note">{t('add.distributed.sub')}</p>
           <CommandBlock command={DISTRIBUTED_COMMAND} label={t('add.distributed.title')} addToast={addToast} />
@@ -251,17 +225,6 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
             {t('add.distributed.docs')}{' '}
             <a className="dk-link" href="https://localai.io/features/distributed-mode/" target="_blank" rel="noopener noreferrer">{t('add.distributed.docsLink')}</a>
           </p>
-        </Step>
-      )}
-
-      {p2pOff && (
-        <Step n={next()} id="sw-add-p2p" title={t('add.p2pOff.title')}>
-          <p className="sw-note">{t('add.p2pOff.sub')}</p>
-          <CommandBlock
-            command={flavor === 'cli' ? 'local-ai run --p2p' : `docker run -ti --net host${hardware.option.dockerFlags ? ` ${hardware.option.dockerFlags}` : ''} \\\n  --name local-ai \\\n  localai/localai:${hardware.dev ? hardware.option.devTag : hardware.option.tag} run --p2p`}
-            label={t('add.p2pOff.title')}
-            addToast={addToast}
-          />
         </Step>
       )}
 
@@ -284,7 +247,7 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
             </div>
           )}
           <Segmented label={t('add.run.how')} value={flavor} onChange={setFlavor} options={[['docker', t('add.run.docker')], ['cli', t('add.run.cli')]]} />
-          {method === 'worker' && !overP2P && (
+          {!overP2P && (
             <Segmented label={t('add.run.kind')} value={nodeType} onChange={setNodeType} options={[['backend', t('add.run.backend')], ['agent', t('add.run.agent')]]} />
           )}
           {flavor === 'docker' && (
@@ -294,18 +257,18 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
         {(!overP2P || invite.minted) && <CommandBlock command={command} label={t('add.run.title')} addToast={addToast} />}
         {overP2P && !invite.minted && <p className="sw-note">{t('add.run.inviteFirst')}</p>}
         <p className="sw-note sw-note--quiet">
-          {overP2P ? t('add.run.joinNote') : method === 'worker' ? t('add.run.tokenNote') : t('add.run.p2pNote')}
+          {overP2P ? t('add.run.joinNote') : t('add.run.tokenNote')}
         </p>
       </Step>
 
-      <Step n={next()} id="sw-add-wait" title={arrived.length > 0 || p2pFound ? t('add.wait.foundTitle') : t('add.wait.title')}>
-        {method === 'worker' && arrived.length === 0 && (
+      <Step n={next()} id="sw-add-wait" title={arrived.length > 0 ? t('add.wait.foundTitle') : t('add.wait.title')}>
+        {arrived.length === 0 && (
           <p className="sw-wait" role="status">
             <span className="sw-wait__dot" aria-hidden="true" />
             <span>{t('add.wait.listening')} <Elapsed since={startedAt} /></span>
           </p>
         )}
-        {method === 'worker' && arrived.map(node => (
+        {arrived.map(node => (
           <div key={node.id} className="sw-found" data-testid="found-node">
             <div className="sw-found__text">
               <Link className="dk-table-name dk-mono sw-name" to={`/app/nodes/${encodeURIComponent(node.id)}`}>{node.name}</Link>
@@ -321,24 +284,10 @@ export default function AddNodeFlow({ nodes, single, addToast, onApproved, initi
             </div>
           </div>
         ))}
-        {method !== 'worker' && !p2pFound && (
-          <p className="sw-wait" role="status">
-            <span className="sw-wait__dot" aria-hidden="true" />
-            <span>
-              {p2p.online === null ? t('add.wait.p2pListening') : t('add.wait.p2pCount', { count: p2p.online })} <Elapsed since={startedAt} />
-            </span>
-          </p>
-        )}
-        {method !== 'worker' && p2pFound && (
-          <p className="sw-found sw-found--p2p" role="status" data-testid="found-peer">
-            <Icon name="check-circle" /> {t('add.wait.p2pFound', { count: p2p.online })}
-            <Link className="dk-link" to="/app/p2p">{t('add.wait.p2pOpen')}</Link>
-          </p>
-        )}
-        {method === 'worker' && arrived.some(node => node.status === 'pending' && node.peer_id) && (
+        {arrived.some(node => node.status === 'pending' && node.peer_id) && (
           <p className="sw-note sw-note--quiet">{t('add.wait.checkPeer')}</p>
         )}
-        {arrived.length === 0 && !p2pFound && <p className="sw-note sw-note--quiet">{t(overP2P ? 'add.wait.joinStuck' : method === 'worker' ? 'add.wait.stuck' : 'add.wait.p2pStuck')}</p>}
+        {arrived.length === 0 && <p className="sw-note sw-note--quiet">{t(overP2P ? 'add.wait.joinStuck' : 'add.wait.stuck')}</p>}
       </Step>
     </div>
   )

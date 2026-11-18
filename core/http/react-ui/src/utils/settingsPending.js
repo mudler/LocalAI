@@ -58,7 +58,6 @@ export function linesOf(text) {
 
 export function displayValue(field, v) {
   if (field.sensitive) {
-    if (field.key === 'p2p_token' && v === '0') return 'new token'
     return String(v ?? '').trim() ? 'set' : 'empty'
   }
   switch (field.kind) {
@@ -148,10 +147,6 @@ export function runChecks(changes, initial, draft) {
   if (restart.length) {
     checks.push({ level: 'warn', text: `Restart LocalAI for ${restart.map(c => c.field.label).join(', ')} to take effect.` })
   }
-  const token = changed('p2p_token')
-  if (token && !String(token.to).trim() && String(token.from).trim()) {
-    checks.push({ level: 'warn', text: 'An empty P2P token stops peer-to-peer networking.' })
-  }
   const force = changed('force_eviction_when_busy')
   if (force && force.to) {
     checks.push({ level: 'warn', text: 'Evicting while busy can interrupt requests in flight.' })
@@ -176,8 +171,7 @@ export function hasBlockingCheck(checks) {
 
 // ---- Request body ------------------------------------------------------------
 // POST /api/settings merges the keys it receives over the saved settings, so
-// the page sends only the fields that changed. (The old page sent every field
-// each time, which also restarted peer-to-peer networking on every save.)
+// the page sends only the fields that changed.
 
 export function payloadFor(changes, source) {
   const body = {}

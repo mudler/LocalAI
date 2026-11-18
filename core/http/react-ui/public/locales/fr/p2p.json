@@ -34,9 +34,6 @@
     },
     "split": {
       "title": "Worker de modèle réparti"
-    },
-    "federated": {
-      "title": "Instance fédérée"
     }
   },
   "ttl": {

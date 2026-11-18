@@ -276,17 +276,6 @@ export function shortPeer(id) {
   return s.length > 16 ? `${s.slice(0, 10)}…${s.slice(-4)}` : s
 }
 
-// Peer instances join with the P2P network token. The federated server is the
-// entry point they balance behind. (Model-split workers pair with an invite:
-// see components/swarm/splitWorkersModel.js.)
-export function p2pCommand({ method, option, dev, token, flavor }) {
-  const suffix = method === 'server' ? 'federated' : 'run --federated --p2p'
-  const name = method === 'server' ? 'local-ai-federated' : 'local-ai'
-  const tokenValue = token || 'your-token-here'
-  if (flavor === 'cli') return `TOKEN="${tokenValue}" local-ai ${suffix}`
-  return `${dockerPrefix(option)}-e TOKEN="${tokenValue}" \\\n  --name ${name} \\\n  ${image(option, dev)} ${suffix}`
-}
-
 // NATS is optional: a cluster with only PostgreSQL uses the database tunnel,
 // and NATS can be added and switched to later from the Nodes page.
 export const DISTRIBUTED_COMMAND = 'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db"'

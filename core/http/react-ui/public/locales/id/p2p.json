@@ -34,9 +34,6 @@
     },
     "split": {
       "title": "Worker model terpisah"
-    },
-    "federated": {
-      "title": "Instans federasi"
     }
   },
   "ttl": {
