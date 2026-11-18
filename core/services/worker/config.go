@@ -68,8 +68,8 @@ type Config struct {
 	AdvertiseAddr           string   `env:"LOCALAI_ADVERTISE_ADDR" help:"Address the frontend uses to reach this node (defaults to hostname:port from Addr)" group:"registration" hidden:""`
 	RegisterTo              string   `env:"LOCALAI_REGISTER_TO" help:"Frontend URL for registration. Required unless --join is given" group:"registration"`
 	Join                    string   `env:"LOCALAI_JOIN" help:"Join the cluster over P2P with a worker invite link (localai://pair?...), instead of --register-to and a registration token. The worker needs no inbound port; an admin approves it" group:"registration"`
-	P2PIdentity             string   `env:"LOCALAI_P2P_IDENTITY" help:"Key file of the P2P identity of a worker that joins with --join (default: <models path>/../data/p2p/identity.key)" group:"registration"`
-	P2PBootstrap            []string `env:"LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS" help:"With --join: peers to connect to at start, multiaddrs that end in /p2p/<peer ID>. Give the address of the frontend on a network where the invite carries none (a LAN with no public address)" group:"registration"`
+	P2PIdentity             string   `name:"p2p-identity" env:"LOCALAI_P2P_IDENTITY" help:"Key file of the P2P identity of a worker that joins with --join (default: <models path>/../data/p2p/identity.key)" group:"registration"`
+	P2PBootstrap            []string `name:"p2p-bootstrap" env:"LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS" help:"With --join: peers to connect to at start, multiaddrs that end in /p2p/<peer ID>. Give the address of the frontend on a network where the invite carries none (a LAN with no public address)" group:"registration"`
 	AllowOpenRelay          bool     `env:"LOCALAI_ALLOW_OPEN_RELAY" help:"With --join: redeem an invite that names an open relay, which anyone can use" group:"registration"`
 	NodeName                string   `env:"LOCALAI_NODE_NAME" help:"Node name for registration (defaults to hostname)" group:"registration"`
 	RegistrationToken       string   `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token for authenticating with the frontend" group:"registration"`

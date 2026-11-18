@@ -43,6 +43,7 @@ var _ = Describe("worker command group", func() {
 		Entry("p2p-worker llama-cpp-rpc", []string{"p2p-worker", "llama-cpp-rpc"}, "worker llama-cpp-rpc"),
 		Entry("p2p-worker vllm", []string{"p2p-worker", "vllm", "some/model", "--data-parallel-size=2", "--data-parallel-size-local=1", "--master-addr=h", "--master-port=1", "--start-rank=1"}, "worker vllm"),
 		Entry("p2p-worker with flags is the default child", []string{"p2p-worker", "--register-to=http://x", "--nats-url=nats://x"}, "worker run"),
+		Entry("worker that joins over P2P", []string{"worker", "--join=localai://pair?v=1", "--p2p-identity=/k", "--p2p-bootstrap=/ip4/127.0.0.1/tcp/1/p2p/x", "--allow-open-relay"}, "worker run"),
 	)
 
 	It("keeps the removed P2P workers parseable so that they can explain themselves", func() {
