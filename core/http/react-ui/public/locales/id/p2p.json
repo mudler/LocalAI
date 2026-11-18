@@ -348,7 +348,7 @@
       "note": "Server ini dan remote LocalAI yang dipakainya. Setiap remote juga tercantum di Model, Remote.",
       "add": "Tambah instans federasi",
       "local": "Instans ini",
-      "otherProxy": "Endpoint lain",
+      "otherProxy": "Server lain",
       "http": "HTTP",
       "inFlightNote": "Permintaan berjalan adalah permintaan server ini. Setiap server dalam klaster menghitung miliknya sendiri.",
       "col": {

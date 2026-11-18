@@ -348,7 +348,7 @@
       "note": "Questo server e i remoti LocalAI che usa. Ogni remoto compare anche in Modelli, Remoti.",
       "add": "Aggiungi un'istanza federata",
       "local": "Questa istanza",
-      "otherProxy": "Un altro endpoint",
+      "otherProxy": "Un altro server",
       "http": "HTTP",
       "inFlightNote": "Le richieste in corso sono quelle di questo server. Ogni server di un cluster conta le proprie.",
       "col": {

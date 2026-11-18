@@ -348,7 +348,7 @@
       "note": "Este servidor y los remotos de LocalAI que usa. Cada remoto también aparece en Modelos, Remotos.",
       "add": "Añadir una instancia federada",
       "local": "Esta instancia",
-      "otherProxy": "Otro endpoint",
+      "otherProxy": "Otro servidor",
       "http": "HTTP",
       "inFlightNote": "Las solicitudes en curso son las de este servidor. Cada servidor de un clúster cuenta las suyas.",
       "col": {

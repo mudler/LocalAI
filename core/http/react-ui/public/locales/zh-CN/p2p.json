@@ -348,7 +348,7 @@
       "note": "本服务器及其使用的 LocalAI 远程。每个远程也会列在“模型 > 远程”中。",
       "add": "添加联邦实例",
       "local": "本实例",
-      "otherProxy": "其他端点",
+      "otherProxy": "其他服务器",
       "http": "HTTP",
       "inFlightNote": "进行中的请求是本服务器的请求。集群中的每台服务器各自计数。",
       "col": {

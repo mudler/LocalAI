@@ -348,7 +348,7 @@
       "note": "Dieser Server und die LocalAI-Gegenstellen, die er nutzt. Jede Gegenstelle steht auch unter Modelle, Gegenstellen.",
       "add": "Föderierte Instanz hinzufügen",
       "local": "Diese Instanz",
-      "otherProxy": "Anderer Endpunkt",
+      "otherProxy": "Anderer Server",
       "http": "HTTP",
       "inFlightNote": "Laufende Anfragen sind die Anfragen dieses Servers. Jeder Server eines Clusters zählt seine eigenen.",
       "col": {

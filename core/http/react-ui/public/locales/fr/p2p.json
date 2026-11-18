@@ -348,7 +348,7 @@
       "note": "Ce serveur et les serveurs distants LocalAI qu'il utilise. Chacun apparaît aussi dans Modèles, Serveurs distants.",
       "add": "Ajouter une instance fédérée",
       "local": "Cette instance",
-      "otherProxy": "Un autre point d'accès",
+      "otherProxy": "Un autre serveur",
       "http": "HTTP",
       "inFlightNote": "Les requêtes en cours sont celles de ce serveur. Chaque serveur d'un cluster compte les siennes.",
       "col": {

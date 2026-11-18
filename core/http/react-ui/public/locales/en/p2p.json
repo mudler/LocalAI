@@ -348,7 +348,7 @@
       "note": "This server and the LocalAI remotes it uses. Each remote is also listed under Models, Remotes.",
       "add": "Add a federated instance",
       "local": "This instance",
-      "otherProxy": "Another endpoint",
+      "otherProxy": "Another server",
       "http": "HTTP",
       "inFlightNote": "Requests in flight are the requests of this server. Each server of a cluster counts its own.",
       "col": {
