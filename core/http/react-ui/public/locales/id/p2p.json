@@ -98,6 +98,7 @@
         "worker": "Di mesin baru jalankan local-ai worker --join dengan seluruh tautan dalam tanda kutip. Node lalu menunggu persetujuan Anda di halaman Node."
       },
       "waiting": "Menunggu perangkat… Membatalkan undangan juga membatalkan pass relay-nya.",
+      "waitingWorker": "Menunggu worker… Membatalkan undangan juga membatalkan pass relay-nya.",
       "expired": "Undangan kedaluwarsa.",
       "expiredTitle": "Undangan ini kedaluwarsa.",
       "expiredBody": "Tidak ada yang memakainya tepat waktu. Buat yang baru saat pihak lain siap.",

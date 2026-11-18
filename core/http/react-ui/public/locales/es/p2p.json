@@ -98,6 +98,7 @@
         "worker": "En la máquina nueva ejecuta local-ai worker --join con el enlace completo entre comillas. Luego el nodo espera tu aprobación en la página de nodos."
       },
       "waiting": "Esperando al dispositivo… Cancelar la invitación también cancela su pase del relay.",
+      "waitingWorker": "Esperando al worker… Cancelar la invitación también cancela su pase del relay.",
       "expired": "La invitación caducó.",
       "expiredTitle": "Esta invitación caducó.",
       "expiredBody": "Nadie la usó a tiempo. Crea una nueva cuando el otro lado esté listo.",

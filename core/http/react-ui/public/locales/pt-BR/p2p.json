@@ -98,6 +98,7 @@
         "worker": "Na máquina nova execute local-ai worker --join com o link inteiro entre aspas. Depois o nó espera a sua aprovação na página de nós."
       },
       "waiting": "Aguardando o dispositivo… Cancelar o convite também cancela o passe do relay.",
+      "waitingWorker": "Aguardando o worker… Cancelar o convite também cancela o passe do relay.",
       "expired": "O convite expirou.",
       "expiredTitle": "Este convite expirou.",
       "expiredBody": "Ninguém o usou a tempo. Crie um novo quando o outro lado estiver pronto.",

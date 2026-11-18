@@ -174,7 +174,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
         onClose={close} pending={busy !== ''} closeLabel={t('share.close')} labelId={labelId} testId="share-result"
         foot={(
           <div className="p2p-foot">
-            <span className="p2p-foot__note" role="status">{expired ? t('share.result.expired') : t('share.result.waiting')}</span>
+            <span className="p2p-foot__note" role="status">{expired ? t('share.result.expired') : t(minted.kind === 'worker' ? 'share.result.waitingWorker' : 'share.result.waiting')}</span>
             <span className="p2p-foot__actions">
               {!expired && <Button variant="ghost" busy={busy === 'cancel'} onClick={cancelInvite} data-testid="share-cancel-invite">{t('share.result.cancel')}</Button>}
               <Button variant="primary" onClick={onClose} data-testid="share-done">{t('share.result.done')}</Button>

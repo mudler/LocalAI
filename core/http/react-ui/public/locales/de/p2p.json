@@ -98,6 +98,7 @@
         "worker": "Führe auf der neuen Maschine local-ai worker --join mit dem ganzen Link in Anführungszeichen aus. Der Knoten wartet dann auf der Knotenseite auf deine Freigabe."
       },
       "waiting": "Warten auf das Gerät… Wenn Sie die Einladung abbrechen, wird auch ihr Relay-Pass widerrufen.",
+      "waitingWorker": "Warten auf den Worker… Wenn Sie die Einladung abbrechen, wird auch ihr Relay-Pass widerrufen.",
       "expired": "Die Einladung ist abgelaufen.",
       "expiredTitle": "Diese Einladung ist abgelaufen.",
       "expiredBody": "Niemand hat sie rechtzeitig genutzt. Erstellen Sie eine neue, wenn die Gegenseite bereit ist.",

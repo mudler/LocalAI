@@ -122,6 +122,7 @@ test.describe('The Share dialog in distributed mode', () => {
     await expect(result.getByTestId('share-link')).toContainText('k=worker')
     await expect(result.getByTestId('qr-code')).toHaveCount(0)
     await expect(result).toContainText('local-ai worker --join')
+    await expect(result).toContainText('Waiting for the worker')
   })
 
   test('has no worker kind on a single server', async ({ page }) => {

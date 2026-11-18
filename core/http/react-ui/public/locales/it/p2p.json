@@ -98,6 +98,7 @@
         "worker": "Sulla nuova macchina esegui local-ai worker --join con il link intero tra virgolette. Il nodo poi attende la tua approvazione nella pagina dei nodi."
       },
       "waiting": "In attesa del dispositivo… Annullare l'invito annulla anche il suo pass del relay.",
+      "waitingWorker": "In attesa del worker… Annullare l'invito annulla anche il suo pass del relay.",
       "expired": "L'invito è scaduto.",
       "expiredTitle": "Questo invito è scaduto.",
       "expiredBody": "Nessuno l'ha usato in tempo. Creane uno nuovo quando l'altra parte è pronta.",

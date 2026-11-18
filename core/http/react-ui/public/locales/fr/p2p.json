@@ -98,6 +98,7 @@
         "worker": "Sur la nouvelle machine, lancez local-ai worker --join avec le lien entier entre guillemets. Le nœud attend ensuite votre approbation sur la page des nœuds."
       },
       "waiting": "En attente de l'appareil… Annuler l'invitation annule aussi son pass du relais.",
+      "waitingWorker": "En attente du worker… Annuler l'invitation annule aussi son pass du relais.",
       "expired": "L'invitation a expiré.",
       "expiredTitle": "Cette invitation a expiré.",
       "expiredBody": "Personne ne l'a utilisée à temps. Créez-en une nouvelle quand l'autre côté est prêt.",

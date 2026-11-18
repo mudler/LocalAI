@@ -98,6 +98,7 @@
         "worker": "On the new machine run local-ai worker --join with the whole link in quotes. The node then waits for your approval on the Nodes page."
       },
       "waiting": "Waiting for the device… Cancel invite also cancels its relay pass.",
+      "waitingWorker": "Waiting for the worker… Cancel invite also cancels its relay pass.",
       "expired": "The invite expired.",
       "expiredTitle": "This invite expired.",
       "expiredBody": "Nobody used it in time. Make a new one when the other side is ready.",
