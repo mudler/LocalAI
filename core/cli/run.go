@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -19,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/http/tlsconf"
+	"github.com/mudler/LocalAI/core/services/p2psplit"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
@@ -484,31 +484,18 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithP2PBootstrapPeers(r.P2PBootstrap),
 		config.WithP2PIdentityPath(r.P2PIdentity),
 		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
-			// No worker: unset it, so llama.cpp does not read an empty list.
-			if len(tunnels) == 0 {
-				_ = os.Unsetenv("LLAMACPP_GRPC_SERVERS")
-				xlog.Debug("unsetting LLAMACPP_GRPC_SERVERS")
+			if err := p2psplit.SetLlamaEnv(tunnels); err != nil {
+				xlog.Error("failed to set the llama.cpp RPC servers", "error", err)
 				return
 			}
-			tunnelEnvVar := strings.Join(tunnels, ",")
-			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
-			xlog.Debug("setting LLAMACPP_GRPC_SERVERS", "value", tunnelEnvVar)
+			xlog.Debug("llama.cpp RPC servers", "value", tunnels)
 		}),
 		config.WithMLXTunnelCallback(func(tunnels []string) {
-			// No ring: MLX runs on this machine alone.
-			if len(tunnels) == 0 {
-				_ = os.Unsetenv("MLX_DISTRIBUTED_HOSTFILE")
-				xlog.Debug("unsetting MLX_DISTRIBUTED_HOSTFILE")
+			if err := p2psplit.SetMLXEnv(os.TempDir(), tunnels); err != nil {
+				xlog.Error("failed to write the MLX hostfile", "error", err)
 				return
 			}
-			hostfile := filepath.Join(os.TempDir(), "localai_mlx_hostfile.json")
-			data, _ := json.Marshal(tunnels)
-			if err := os.WriteFile(hostfile, data, 0600); err != nil {
-				xlog.Error("failed to write MLX hostfile", "path", hostfile, "error", err)
-				return
-			}
-			os.Setenv("MLX_DISTRIBUTED_HOSTFILE", hostfile)
-			xlog.Debug("setting MLX_DISTRIBUTED_HOSTFILE", "value", hostfile, "tunnels", tunnels)
+			xlog.Debug("MLX ring hostfile", "tunnels", tunnels)
 		}),
 	}
 
