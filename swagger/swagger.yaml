@@ -27548,6 +27548,10 @@ paths:
           description: Service Unavailable
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
+        "504":
+          description: Gateway Timeout
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Create a remote
       tags:
       - remotes

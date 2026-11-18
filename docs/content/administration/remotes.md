@@ -510,10 +510,11 @@ A redeem that fails answers with a message:
 
 | Status | When |
 |---|---|
-| `400` | The link is not valid, it is not an invite of kind remote, it names an open relay that is not allowed, the other server cannot be reached, or P2P is off on this server. |
+| `400` | The link is not valid, it is not an invite of kind remote, it names an open relay that is not allowed, or P2P is off on this server. |
 | `409` | The name is taken (checked before the invite is used). |
 | `410` | The invite was used, cancelled or has expired. Ask for a new one. |
 | `429` | The other server saw too many wrong codes from this server. Wait and try again. |
+| `504` | The other server cannot be reached over P2P: direct dialing, hole punching and the relays of the link all failed. |
 
 A skipped model has an `id` and a `reason`. The reasons are:
 

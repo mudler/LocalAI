@@ -318,7 +318,7 @@ var _ = Describe("remote endpoints", func() {
 			}
 		})
 
-		It("passes an invite on and answers 410 or 429 for an invite that cannot be used", func() {
+		It("passes an invite on and answers 410, 429 or 504 for an invite that cannot be used", func() {
 			var got remotes.CreateRequest
 			stub.create = func(r remotes.CreateRequest) (remotes.Result, error) {
 				got = r
@@ -331,7 +331,11 @@ var _ = Describe("remote endpoints", func() {
 			Expect(rec.Body.String()).To(ContainSubstring(`"phrase":"apple river stone cloud"`))
 			Expect(rec.Body.String()).To(ContainSubstring(`"transport":"p2p"`))
 
-			for reason, code := range map[error]int{remotes.ErrInviteGone: http.StatusGone, remotes.ErrInviteRateLimited: http.StatusTooManyRequests} {
+			for reason, code := range map[error]int{
+				remotes.ErrInviteGone:        http.StatusGone,
+				remotes.ErrInviteRateLimited: http.StatusTooManyRequests,
+				remotes.ErrInviteUnreachable: http.StatusGatewayTimeout,
+			} {
 				stub.create = func(remotes.CreateRequest) (remotes.Result, error) {
 					return remotes.Result{}, &remotes.InvalidError{Message: "Ask for a new one.", Reason: reason}
 				}

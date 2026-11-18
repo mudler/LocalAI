@@ -291,7 +291,7 @@ func pairError(err error) error {
 		msg = "Another server answered than the one of the invite. Do not use this invite."
 	case errors.Is(err, pairclient.ErrUnreachable):
 		xlog.Warn("P2P pairing: the server of the invite is unreachable", "error", err)
-		msg = "The server of the invite cannot be reached. Check that it is online, or ask for an invite with a relay."
+		msg, reason = "The server of the invite cannot be reached. Check that it is online, or ask for an invite with a relay.", remotes.ErrInviteUnreachable
 	default:
 		xlog.Warn("P2P pairing failed", "error", err)
 		msg = "The server refused the invite. Ask for a new one."

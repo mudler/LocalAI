@@ -78,6 +78,10 @@ var (
 	// ErrInviteRateLimited means the other server saw too many wrong codes.
 	// It comes wrapped in an InvalidError that carries the message.
 	ErrInviteRateLimited = errors.New("remotes: too many wrong invite codes")
+	// ErrInviteUnreachable means the server of the invite could not be
+	// reached over P2P. It comes wrapped in an InvalidError that carries the
+	// message.
+	ErrInviteUnreachable = errors.New("remotes: the server of the invite cannot be reached")
 )
 
 const (
