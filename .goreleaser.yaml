@@ -33,6 +33,10 @@ builds:
     ignore:
       - goos: darwin
         goarch: amd64
+      # No Windows backend image exists for arm64, so a Windows arm64 server
+      # would have no inference engine.
+      - goos: windows
+        goarch: arm64
 archives:
   - formats: [ 'binary' ] # this removes the tar of the archives, leaving the binaries alone
     name_template: local-ai-{{ .Tag }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
