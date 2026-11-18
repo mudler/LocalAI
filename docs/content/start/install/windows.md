@@ -153,9 +153,23 @@ intend to listen on non-loopback interfaces (for example, to serve models
 to other machines on your LAN); for a loopback-only setup, deny the
 prompt.
 
-## Security limits on Windows
+## Private files on Windows
 
-LocalAI keeps some files private on Linux and macOS with POSIX permission bits, for example the add-on gateway key and the add-on package folders. Windows has no such bits, so LocalAI skips these checks there. It does not set an ACL as a replacement. Access to these files depends on the ACL they inherit from the data folder, which by default is your user profile. On a shared machine, keep the data folder in a place that other users cannot read. The add-on runtime is not enabled on Windows, so the add-on files are not used there today. Package files also have no executable bit on Windows, so every file of a package counts as executable.
+On Linux and macOS, LocalAI keeps secret files private with POSIX permission bits (mode `0600` for a file, `0700` for a folder). Windows has no permission bits. On Windows, LocalAI gives these files a protected access control list (ACL) that grants access to the current user only. This applies to:
+
+- the sealing keys of the remotes and connectors stores,
+- the HMAC secret for API key hashing,
+- the TLS and MITM proxy private keys,
+- the CLI chat configuration,
+- every state file that LocalAI writes atomically with a private mode.
+
+Before LocalAI reads a sealing key, it checks the ACL. The SYSTEM account and the Administrators group can stay in the list, because they can read every file on the machine. If another user or group has access, for example because the key was written by an older LocalAI version and has the ACL of its folder, LocalAI replaces the ACL and logs a warning. On Linux and macOS a key file with a loose mode is refused instead.
+
+Known limits:
+
+- Files that LocalAI does not mark as private keep the ACL of their folder. On a shared machine, keep the data folder in a place that other users cannot read. By default it is in your user profile.
+- The add-on runtime is not enabled on Windows. Its gateway key and package checks do not use the Windows ACL yet.
+- Windows has no executable bit. LocalAI treats a file as a program when its extension is `.exe`, `.com`, `.cmd`, `.bat` or `.ps1`.
 
 ## Building from source
 

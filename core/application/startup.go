@@ -30,6 +30,7 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/fsperm"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -745,7 +746,7 @@ func loadOrGenerateHMACSecret(path string) (string, error) {
 	}
 	secret := hex.EncodeToString(b)
 
-	if err := os.WriteFile(path, []byte(secret), 0o600); err != nil {
+	if err := fsperm.WriteFile(path, []byte(secret), 0o600); err != nil {
 		return "", fmt.Errorf("failed to persist HMAC secret: %w", err)
 	}
 
