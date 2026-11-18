@@ -650,7 +650,8 @@ NATS goes through the tunnel while NATS is active. The order is NATS, then the
 tunnel; a worker holds one tunnel, over a websocket or over P2P, so the two
 kinds never compete. The attachment comes from the heartbeat report, as in a
 change, and is cached for a second. `HealthMonitor.UseTunnelRoutes` stops the
-demotion of such a worker. A worker over P2P is tunnel-only: it never attaches
+demotion of such a worker, and `SmartRouterOptions.TunnelRoutes` lets the router
+place a model on it (`nodes.NodeReachableOn`). A worker over P2P is tunnel-only: it never attaches
 to NATS, and its `follow_error` says so (`joinedOverP2P`) for as long as the
 cluster runs on NATS. The agent RPC is not routed this way: an agent worker
 over P2P is not supported.

@@ -576,6 +576,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			}
 			return ""
 		},
+		// The window reaches a worker that holds only a tunnel while NATS is
+		// active, so the router may place a model on it.
+		TunnelRoutes:     true,
 		FileStager:       fileStager,
 		ClientFactory:    clientFactory,
 		GalleriesJSON:    routerGalleriesJSON,
