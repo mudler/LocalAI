@@ -79,6 +79,11 @@ type GPUMemoryInfo struct {
 	UsedVRAM     uint64  `json:"used_vram"`     // Used VRAM in bytes
 	FreeVRAM     uint64  `json:"free_vram"`     // Free VRAM in bytes
 	UsagePercent float64 `json:"usage_percent"` // Usage as percentage (0-100)
+	// UsageUnknown is set when the total is known but the memory in use is
+	// not, for example on Windows without the GPU memory performance
+	// counters. UsedVRAM, FreeVRAM and UsagePercent are then 0 and mean
+	// "unknown", not "empty" or "full".
+	UsageUnknown bool `json:"usage_unknown,omitempty"`
 }
 
 // GPUAggregateInfo contains aggregate GPU information across all GPUs
@@ -88,6 +93,10 @@ type GPUAggregateInfo struct {
 	FreeVRAM     uint64  `json:"free_vram"`
 	UsagePercent float64 `json:"usage_percent"`
 	GPUCount     int     `json:"gpu_count"`
+	// UsageUnknown is set when the usage of at least one GPU is unknown (see
+	// GPUMemoryInfo.UsageUnknown). UsedVRAM, FreeVRAM and UsagePercent are
+	// then 0, and a worker does not report its free VRAM.
+	UsageUnknown bool `json:"usage_unknown,omitempty"`
 }
 
 // AggregateMemoryInfo contains aggregate memory information (unified for GPU/RAM)
@@ -97,6 +106,8 @@ type AggregateMemoryInfo struct {
 	FreeMemory   uint64  `json:"free_memory"`
 	UsagePercent float64 `json:"usage_percent"`
 	GPUCount     int     `json:"gpu_count"`
+	// UsageUnknown: see GPUAggregateInfo.UsageUnknown.
+	UsageUnknown bool `json:"usage_unknown,omitempty"`
 }
 
 // ResourceInfo represents unified memory resource information
@@ -385,8 +396,11 @@ func GetGPUMemoryUsage() []GPUMemoryInfo {
 
 // GetGPUAggregateInfo returns aggregate GPU information across all GPUs
 func GetGPUAggregateInfo() GPUAggregateInfo {
-	gpus := GetGPUMemoryUsage()
+	return aggregateGPUInfo(GetGPUMemoryUsage(), DefaultVRAMBudget())
+}
 
+// aggregateGPUInfo sums the GPUs and applies the VRAM budget b.
+func aggregateGPUInfo(gpus []GPUMemoryInfo, b vrambudget.Budget) GPUAggregateInfo {
 	var aggregate GPUAggregateInfo
 	aggregate.GPUCount = len(gpus)
 
@@ -394,6 +408,9 @@ func GetGPUAggregateInfo() GPUAggregateInfo {
 		aggregate.TotalVRAM += gpu.TotalVRAM
 		aggregate.UsedVRAM += gpu.UsedVRAM
 		aggregate.FreeVRAM += gpu.FreeVRAM
+		if gpu.UsageUnknown {
+			aggregate.UsageUnknown = true
+		}
 	}
 
 	if aggregate.TotalVRAM > 0 {
@@ -402,12 +419,18 @@ func GetGPUAggregateInfo() GPUAggregateInfo {
 
 	// Apply the process-wide allocation cap so scheduling/hardware-default
 	// consumers see budgeted capacity, not physical capacity.
-	if b := DefaultVRAMBudget(); b.IsSet() && aggregate.TotalVRAM > 0 {
+	if b.IsSet() && aggregate.TotalVRAM > 0 {
 		aggregate.TotalVRAM, aggregate.FreeVRAM = b.Apply(aggregate.TotalVRAM, aggregate.FreeVRAM)
 		aggregate.UsedVRAM = aggregate.TotalVRAM - aggregate.FreeVRAM
 		if aggregate.TotalVRAM > 0 {
 			aggregate.UsagePercent = float64(aggregate.UsedVRAM) / float64(aggregate.TotalVRAM) * 100
 		}
+	}
+
+	// A partial sum is not a usage. Without this, the budget step above would
+	// read a free of 0 as "all used", and the memory reclaimer would act on it.
+	if aggregate.UsageUnknown {
+		aggregate.UsedVRAM, aggregate.FreeVRAM, aggregate.UsagePercent = 0, 0, 0
 	}
 
 	return aggregate
@@ -1135,6 +1158,7 @@ func GetResourceInfo() ResourceInfo {
 				FreeMemory:   aggregate.FreeVRAM,
 				UsagePercent: aggregate.UsagePercent,
 				GPUCount:     aggregate.GPUCount,
+				UsageUnknown: aggregate.UsageUnknown,
 			},
 		}
 	}

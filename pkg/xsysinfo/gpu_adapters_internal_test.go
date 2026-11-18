@@ -1,6 +1,7 @@
 package xsysinfo
 
 import (
+	"github.com/mudler/LocalAI/pkg/vrambudget"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -58,12 +59,28 @@ var _ = Describe("OS adapter GPU detection", func() {
 			Expect(adapterGPUInfos(adapters, nil)).To(BeEmpty())
 		})
 
-		It("reports free as total when the usage is unknown", func() {
+		It("marks the usage unknown, not free as total, when the counters are missing", func() {
 			adapters := []osAdapter{{Name: "RTX", VendorID: 0x10de, DedicatedVideoMemory: 8 * gib}}
 			infos := adapterGPUInfos(adapters, nil)
 			Expect(infos).To(HaveLen(1))
+			Expect(infos[0].TotalVRAM).To(BeEquivalentTo(8 * gib))
+			Expect(infos[0].UsageUnknown).To(BeTrue())
 			Expect(infos[0].UsedVRAM).To(BeZero())
-			Expect(infos[0].FreeVRAM).To(BeEquivalentTo(8 * gib))
+			Expect(infos[0].FreeVRAM).To(BeZero())
+			Expect(infos[0].UsagePercent).To(BeZero())
+		})
+
+		It("marks the usage unknown for an adapter the counters do not list", func() {
+			adapters := []osAdapter{
+				{VendorID: 0x10de, LUID: 1, DedicatedVideoMemory: 8 * gib},
+				{VendorID: 0x1002, LUID: 2, DedicatedVideoMemory: 4 * gib},
+			}
+			infos := adapterGPUInfos(adapters, map[uint64]osAdapterUsage{1: {Dedicated: 2 * gib}})
+			Expect(infos).To(HaveLen(2))
+			Expect(infos[0].UsageUnknown).To(BeFalse())
+			Expect(infos[0].FreeVRAM).To(BeEquivalentTo(6 * gib))
+			Expect(infos[1].UsageUnknown).To(BeTrue())
+			Expect(infos[1].FreeVRAM).To(BeZero())
 		})
 
 		It("caps a usage above the total", func() {
@@ -94,5 +111,38 @@ var _ = Describe("OS adapter GPU detection", func() {
 			Expect(vendorFromAdapterInfos([]GPUMemoryInfo{{Vendor: VendorIntel}, {Vendor: VendorAMD}})).To(Equal(VendorAMD))
 			Expect(vendorFromAdapterInfos(nil)).To(BeEmpty())
 		})
+	})
+})
+
+var _ = Describe("aggregateGPUInfo", func() {
+	It("keeps an unknown usage unknown, also under a VRAM budget", func() {
+		budget, err := vrambudget.Parse("50%")
+		Expect(err).ToNot(HaveOccurred())
+		gpus := []GPUMemoryInfo{
+			{TotalVRAM: 8 * gib, UsedVRAM: 2 * gib, FreeVRAM: 6 * gib, UsagePercent: 25},
+			{TotalVRAM: 8 * gib, UsageUnknown: true},
+		}
+
+		aggregate := aggregateGPUInfo(gpus, budget)
+
+		Expect(aggregate.UsageUnknown).To(BeTrue())
+		Expect(aggregate.TotalVRAM).To(BeEquivalentTo(8 * gib))
+		Expect(aggregate.FreeVRAM).To(BeZero())
+		Expect(aggregate.UsedVRAM).To(BeZero())
+		// Not 100: the memory reclaimer must not read unknown as full.
+		Expect(aggregate.UsagePercent).To(BeZero())
+	})
+
+	It("sums known usages as before", func() {
+		gpus := []GPUMemoryInfo{
+			{TotalVRAM: 8 * gib, UsedVRAM: 2 * gib, FreeVRAM: 6 * gib},
+			{TotalVRAM: 8 * gib, UsedVRAM: 6 * gib, FreeVRAM: 2 * gib},
+		}
+
+		aggregate := aggregateGPUInfo(gpus, vrambudget.Budget{})
+
+		Expect(aggregate.UsageUnknown).To(BeFalse())
+		Expect(aggregate.FreeVRAM).To(BeEquivalentTo(8 * gib))
+		Expect(aggregate.UsagePercent).To(BeNumerically("==", 50))
 	})
 })

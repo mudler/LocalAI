@@ -218,7 +218,9 @@ func (r *VLLMDistributed) registrationBody() map[string]any {
 func (r *VLLMDistributed) heartbeatBody() map[string]any {
 	body := map[string]any{}
 	aggregate := xsysinfo.GetGPUAggregateInfo()
-	if aggregate.TotalVRAM > 0 {
+	// An unknown usage is omitted, like an unknown total: the frontend keeps
+	// its last value.
+	if aggregate.TotalVRAM > 0 && !aggregate.UsageUnknown {
 		body["available_vram"] = aggregate.FreeVRAM
 	}
 	return body

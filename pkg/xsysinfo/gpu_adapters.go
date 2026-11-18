@@ -54,8 +54,9 @@ func pciVendor(vendorID uint32) string {
 
 // adapterGPUInfos turns OS adapters and their memory usage into
 // GPUMemoryInfo values. usage may be nil when the counters are not
-// available; the used memory is then unknown and reported as 0, so the free
-// memory equals the total.
+// available, or miss an adapter. The memory in use is then unknown: the
+// adapter reports its total with UsageUnknown set, and no used or free
+// memory. Free as total would tell the scheduler that a busy GPU is empty.
 func adapterGPUInfos(adapters []osAdapter, usage map[uint64]osAdapterUsage) []GPUMemoryInfo {
 	var out []GPUMemoryInfo
 	for _, a := range adapters {
@@ -63,13 +64,24 @@ func adapterGPUInfos(adapters []osAdapter, usage map[uint64]osAdapterUsage) []GP
 		if a.Software || vendor == "" {
 			continue
 		}
+		u, known := usage[a.LUID]
 		total := a.DedicatedVideoMemory
-		used := usage[a.LUID].Dedicated
+		used := u.Dedicated
 		if total < integratedDedicatedLimit && a.SharedSystemMemory > total {
 			total = a.SharedSystemMemory
-			used = usage[a.LUID].Shared
+			used = u.Shared
 		}
 		if total == 0 {
+			continue
+		}
+		if !known {
+			out = append(out, GPUMemoryInfo{
+				Index:        len(out),
+				Name:         a.Name,
+				Vendor:       vendor,
+				TotalVRAM:    total,
+				UsageUnknown: true,
+			})
 			continue
 		}
 		if used > total {
