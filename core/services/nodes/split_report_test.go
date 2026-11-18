@@ -88,6 +88,35 @@ var _ = Describe("Split worker reports of the nodes", func() {
 		Expect(got.PinnedPeer).To(Equal("peer-b"))
 	})
 
+	It("stores the split server declaration of the worker, and keeps the admin's choice over the start flag", func() {
+		n := &BackendNode{Name: "gpu-decl", NodeType: NodeTypeBackend, SplitServer: true}
+		Expect(reg.Register(ctx, n, true)).To(Succeed())
+		got, err := reg.Get(ctx, n.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.SplitServer).To(BeTrue(), "the start flag declares the worker")
+
+		// A restart without the flag clears it while the admin has not chosen.
+		Expect(reg.Register(ctx, &BackendNode{Name: "gpu-decl", NodeType: NodeTypeBackend}, true)).To(Succeed())
+		got, _ = reg.Get(ctx, n.ID)
+		Expect(got.SplitServer).To(BeFalse())
+
+		// The admin declares it; a restart without the flag keeps that.
+		Expect(reg.SetSplitServer(ctx, n.ID, true)).To(Succeed())
+		Expect(reg.Register(ctx, &BackendNode{Name: "gpu-decl", NodeType: NodeTypeBackend}, true)).To(Succeed())
+		got, _ = reg.Get(ctx, n.ID)
+		Expect(got.SplitServer).To(BeTrue())
+		Expect(got.SplitServerManuallySet).To(BeTrue())
+
+		// Reset hands the choice back to the flag at the next registration.
+		Expect(reg.ResetSplitServer(ctx, n.ID)).To(Succeed())
+		Expect(reg.Register(ctx, &BackendNode{Name: "gpu-decl", NodeType: NodeTypeBackend}, true)).To(Succeed())
+		got, _ = reg.Get(ctx, n.ID)
+		Expect(got.SplitServer).To(BeFalse())
+		Expect(got.SplitServerManuallySet).To(BeFalse())
+
+		Expect(reg.SetSplitServer(ctx, "nope", true)).To(MatchError(ContainSubstring("not found")))
+	})
+
 	It("drops the report of a node that is removed", func() {
 		n := &BackendNode{Name: "gpu-2", NodeType: NodeTypeBackend}
 		Expect(reg.Register(ctx, n, true)).To(Succeed())

@@ -303,7 +303,7 @@ func (s *jsonStore) SetDeviceAllowSlowPath(_ context.Context, id string, allow b
 	return s.save(f)
 }
 
-func (s *jsonStore) SetDeviceNode(_ context.Context, id, node string) error {
+func (s *jsonStore) SetDeviceNode(_ context.Context, id, node, note string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	f, err := s.load()
@@ -314,7 +314,7 @@ func (s *jsonStore) SetDeviceNode(_ context.Context, id, node string) error {
 	if !ok {
 		return ErrNotFound
 	}
-	d.NodeID = node
+	d.NodeID, d.NodeNote = node, note
 	f.Devices[id] = d
 	return s.save(f)
 }

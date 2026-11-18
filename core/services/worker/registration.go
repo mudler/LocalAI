@@ -201,6 +201,7 @@ func (cfg *Config) registrationBody() map[string]any {
 		"gpu_compute_capability": gpuComputeCap,
 		"capability":             capability,
 		"max_replicas_per_model": maxReplicas,
+		"split_server":           cfg.SplitServer, // the admin's choice on the frontend wins
 		"version":                internal.Version,
 		"commit":                 internal.Commit,
 	}

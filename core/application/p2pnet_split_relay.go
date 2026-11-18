@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/config"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
@@ -54,7 +55,9 @@ func splitRelayCandidates(devs []p2ppair.Device, nodeList []nodes.BackendNode, r
 	}
 	out := map[string]splitRelayCandidate{}
 	for _, n := range nodeList {
-		if !attached[n.ID] {
+		if !attached[n.ID] || !n.SplitServer {
+			// A node that is not a split server serves no worker; its
+			// workers are detached (see detachUndeclared).
 			continue
 		}
 		rep, reported := reports[n.ID]
@@ -100,6 +103,7 @@ func (rt *p2pRuntime) reloadNodeRelays(ctx context.Context, devs []p2ppair.Devic
 		xlog.Warn("P2P: could not load the nodes for the relays", "error", err)
 		return
 	}
+	rt.detachUndeclared(ctx, devs, nodeList)
 	reports, err := reg.SplitReports(ctx)
 	if err != nil {
 		xlog.Warn("P2P: could not load the split reports for the relays", "error", err)
@@ -255,4 +259,70 @@ func (rt *p2pRuntime) nodeRelayView(c splitRelayCandidate) *p2papi.SplitNodeRela
 	}
 	v.State, v.Reason = p2papi.NodeRelayRefused, refused
 	return v
+}
+
+// detachUndeclared attaches to no node the split workers whose node is not a
+// split server any more: the admin cleared the declaration on another
+// frontend, or the worker registered again without --split-server. Every
+// frontend does it at its reload; the write is the same on each.
+func (rt *p2pRuntime) detachUndeclared(ctx context.Context, devs []p2ppair.Device, nodeList []nodes.BackendNode) {
+	undeclared := map[string]string{}
+	for _, n := range nodeList {
+		if !n.SplitServer {
+			undeclared[n.ID] = n.Name
+		}
+	}
+	detached := 0
+	for _, d := range devs {
+		name, ok := undeclared[d.NodeID]
+		if d.Kind != p2ppair.KindSplit || d.RevokedAt != nil || d.NodeID == "" || !ok {
+			continue
+		}
+		if err := rt.pair.DetachSplitNode(ctx, d.ID, undeclaredNote(name)); err != nil {
+			xlog.Warn("P2P: could not detach a split worker from a node that is not a split server", "worker", d.Label, "error", err)
+			continue
+		}
+		xlog.Warn("P2P: split worker detached: its node is not a split server any more", "worker", d.Label, "node", name)
+		detached++
+	}
+	if detached > 0 {
+		rt.refreshSplit()
+	}
+}
+
+func undeclaredNote(node string) string {
+	return node + " is no longer a split server; attach the worker to a split server"
+}
+
+// DetachSplitWorkers attaches the split workers of a node that is no longer a
+// split server to no node, with a note, and tells the other frontends. It
+// returns how many it detached.
+func (a *Application) DetachSplitWorkers(ctx context.Context, nodeID string) (int, error) {
+	rt, mode := a.p2p().runtime()
+	if rt == nil || mode != config.P2PModeShare {
+		// No pairing store in use: nothing is attached.
+		return 0, nil
+	}
+	name := nodeID
+	if reg := rt.net.splitNodes(); reg != nil {
+		if n, err := reg.Get(ctx, nodeID); err == nil {
+			name = n.Name
+		}
+	}
+	devs, err := rt.pair.ListDevices(ctx)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, d := range devs {
+		if d.Kind != p2ppair.KindSplit || d.RevokedAt != nil || d.NodeID != nodeID {
+			continue
+		}
+		if err := rt.pair.DetachSplitNode(ctx, d.ID, undeclaredNote(name)); err != nil {
+			return n, err
+		}
+		n++
+	}
+	rt.changed("split")
+	return n, nil
 }

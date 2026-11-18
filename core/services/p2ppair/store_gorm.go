@@ -54,6 +54,8 @@ type deviceRow struct {
 	AllowSlowPath bool `gorm:"not null;default:false"`
 	// NodeID is the backend node a split device is attached to.
 	NodeID string `gorm:"size:64"`
+	// NodeNote is why a split device was detached from its node.
+	NodeNote string `gorm:"size:255"`
 }
 
 // TableName is the table of the devices.
@@ -114,7 +116,7 @@ func (r deviceRow) device() Device {
 		PeerID: r.PeerID, ClientKeyID: r.ClientKeyID, InviteID: r.InviteID,
 		CreatedAt: r.CreatedAt, LastSeenAt: r.LastSeenAt, LastPath: r.LastPath,
 		RevokedAt: r.RevokedAt, RevokedBy: r.RevokedBy, AllowSlowPath: r.AllowSlowPath,
-		NodeID: r.NodeID,
+		NodeID: r.NodeID, NodeNote: r.NodeNote,
 	}
 	_ = json.Unmarshal([]byte(r.Scope), &d.Scope)
 	return d
@@ -126,7 +128,7 @@ func deviceToRow(d Device) deviceRow {
 		PeerID: d.PeerID, ClientKeyID: d.ClientKeyID, InviteID: d.InviteID,
 		Scope: marshalJSON(d.Scope), CreatedAt: d.CreatedAt, LastSeenAt: d.LastSeenAt,
 		LastPath: d.LastPath, RevokedAt: d.RevokedAt, RevokedBy: d.RevokedBy,
-		AllowSlowPath: d.AllowSlowPath, NodeID: d.NodeID,
+		AllowSlowPath: d.AllowSlowPath, NodeID: d.NodeID, NodeNote: d.NodeNote,
 	}
 }
 
@@ -297,7 +299,7 @@ func (s *gormStore) SetDeviceAllowSlowPath(ctx context.Context, id string, allow
 		Updates(map[string]any{"allow_slow_path": allow}).Error
 }
 
-func (s *gormStore) SetDeviceNode(ctx context.Context, id, node string) error {
+func (s *gormStore) SetDeviceNode(ctx context.Context, id, node, note string) error {
 	var n int64
 	if err := s.db.WithContext(ctx).Model(&deviceRow{}).Where("id = ?", id).Count(&n).Error; err != nil {
 		return err
@@ -307,7 +309,7 @@ func (s *gormStore) SetDeviceNode(ctx context.Context, id, node string) error {
 	}
 	// Update with a map: GORM skips an empty string in a struct update.
 	return s.db.WithContext(ctx).Model(&deviceRow{}).Where("id = ?", id).
-		Updates(map[string]any{"node_id": node}).Error
+		Updates(map[string]any{"node_id": node, "node_note": note}).Error
 }
 
 func (s *gormStore) RevokeDevice(ctx context.Context, id, by string, now time.Time) (Device, error) {

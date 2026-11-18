@@ -51,7 +51,11 @@ type SplitPath struct {
 
 // SplitAssignment is the answer: the workers attached to the node.
 type SplitAssignment struct {
-	Workers []SplitAssigned `json:"workers"`
+	// SplitServer is the declaration of the node: only a split server runs
+	// the P2P host for split workers. A node that is not one stops its host
+	// and serves no worker; Workers is then empty.
+	SplitServer bool            `json:"split_server"`
+	Workers     []SplitAssigned `json:"workers"`
 	// OwnRelays are the peer IDs of the gated relays that the frontend
 	// administers. A worker behind one of them may be used after "Use
 	// anyway" even when the relay limits each connection.

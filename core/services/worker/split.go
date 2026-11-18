@@ -23,6 +23,11 @@ import (
 // environment that llama.cpp and MLX read when a model loads, as a standalone
 // server does.
 //
+// Only a split server does this. The worker becomes one with its
+// --split-server flag or by the admin's choice on the frontend; the node
+// learns the declaration in the same answer, and starts or stops its host
+// without a restart.
+//
 // The node learns its workers from the frontend (POST /api/node/{id}/split)
 // at every heartbeat interval, and reports in the same call the endpoint of
 // its host and the state of each worker. The list it holds is a copy of the
@@ -154,10 +159,14 @@ func workerReport(w p2psplit.Worker) workerctl.SplitWorkerReport {
 	return r
 }
 
-// apply makes the node serve the workers of a: it starts the host and the
-// manager for the first worker, admits the new peers, revokes the peers that
-// left, and stops the manager when no worker is left.
+// apply makes the node serve the workers of a. A node that is not a split
+// server runs nothing: it stops the manager and closes a host of its own.
+// A split server starts its host and the manager at once, admits the peers
+// of new workers and revokes the peers of the workers that left.
 func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) error {
+	if !a.SplitServer {
+		a.Workers = nil
+	}
 	s.assigned.Store(&a)
 	want := map[p2pnet.ID]struct{}{}
 	for _, w := range a.Workers {
@@ -167,8 +176,24 @@ func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) erro
 	}
 
 	s.mu.Lock()
-	if len(want) == 0 && s.mgr == nil {
+	if !a.SplitServer {
+		m, h, own, allowed := s.mgr, s.host, s.ownHost, s.allowed
+		s.mgr, s.host, s.gate, s.ownHost, s.relays = nil, nil, nil, false, nil
+		s.allowed = map[p2pnet.ID]struct{}{}
 		s.mu.Unlock()
+		if m != nil {
+			_ = m.Close()
+			xlog.Info("This node is no longer a split server: it stopped serving model-split workers")
+		}
+		switch {
+		case h != nil && own:
+			_ = h.Close()
+		case h != nil:
+			// The host of the P2P join stays; it stops admitting the workers.
+			for p := range allowed {
+				h.Revoke(p)
+			}
+		}
 		return nil
 	}
 	if s.ownHost && len(a.Relays) == 0 {
@@ -210,18 +235,9 @@ func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) erro
 		}
 	}
 	h, m := s.host, s.mgr
-	if len(want) == 0 {
-		s.mgr = nil
-	}
 	s.mu.Unlock()
 
-	switch {
-	case len(want) == 0:
-		xlog.Info("No model-split worker is attached to this node any more")
-		if m != nil {
-			_ = m.Close()
-		}
-	case m == nil:
+	if m == nil {
 		nm, err := p2psplit.NewManager(ctx, p2psplit.Config{
 			Host: h, Devices: s.devices, OwnRelay: s.ownRelay, Ports: s.ports,
 			OnLlama: s.cfg.OnLlama, OnMLX: s.cfg.OnMLX,
@@ -237,8 +253,8 @@ func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) erro
 		s.mu.Lock()
 		s.mgr = nm
 		s.mu.Unlock()
-		xlog.Info("Serving the model-split workers attached to this node", "peer", h.ID().String(), "workers", len(want))
-	default:
+		xlog.Info("This node is a split server: serving the model-split workers attached to it", "peer", h.ID().String(), "workers", len(want))
+	} else {
 		m.Refresh()
 	}
 	for _, p := range gone {

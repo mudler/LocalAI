@@ -55,6 +55,12 @@ type SplitWorkerView struct {
 	// attached worker are what the node last reported.
 	NodeID   string `json:"node_id,omitempty"`
 	NodeName string `json:"node_name,omitempty"`
+	// NodeOffline is true when the node of NodeID is offline: the worker
+	// stays attached and waits for it; nothing moves it.
+	NodeOffline bool `json:"node_offline,omitempty"`
+	// NodeNote says why a worker attached to no node was detached, for
+	// example because its node stopped being a split server.
+	NodeNote string `json:"node_note,omitempty"`
 	// NodeRelay says whether the gated relays of this server admit the node
 	// of NodeID, so that the worker can reach it through them when no direct
 	// or hole-punched path works. Set only for a worker attached to a node.

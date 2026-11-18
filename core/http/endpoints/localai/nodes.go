@@ -105,6 +105,9 @@ type RegisterNodeRequest struct {
 	// can run rather than what the (typically GPU-less) controller can run.
 	Capability string            `json:"capability,omitempty"`
 	Labels     map[string]string `json:"labels,omitempty"`
+	// SplitServer is the --split-server flag of the worker: it declares the
+	// worker a split server, unless the admin chose otherwise.
+	SplitServer bool `json:"split_server,omitempty"`
 	// MaxReplicasPerModel is the per-node cap on replicas of any single model.
 	// Workers older than this field omit it; we coerce 0 → 1 below to preserve
 	// historical single-replica behavior.
@@ -406,6 +409,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			GPUComputeCapability: req.GPUComputeCapability,
 			Capability:           req.Capability,
 			MaxReplicasPerModel:  maxReplicasPerModel,
+			SplitServer:          req.SplitServer && nodeType != nodes.NodeTypeAgent,
 			VRAMBudget:           req.VRAMBudget,
 			Version:              req.Version,
 			Commit:               req.Commit,

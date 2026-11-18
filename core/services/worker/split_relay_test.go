@@ -51,7 +51,11 @@ type peerList struct {
 	ids []string
 }
 
-func (l *peerList) get() []string    { l.mu.Lock(); defer l.mu.Unlock(); return append([]string(nil), l.ids...) }
+func (l *peerList) get() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]string(nil), l.ids...)
+}
 func (l *peerList) set(ids ...string) { l.mu.Lock(); l.ids = ids; l.mu.Unlock() }
 
 var _ = Describe("A token node reached by its split workers through a gated relay", func() {
@@ -117,6 +121,7 @@ var _ = Describe("A token node reached by its split workers through a gated rela
 		})
 		front2node.set(func(f *splitFrontend) {
 			f.assign = workerctl.SplitAssignment{
+				SplitServer: true,
 				Workers: []workerctl.SplitAssigned{{
 					DeviceID: "d1", Label: "attic", PeerID: worker.ID().String(), Engine: "llama",
 					AllowSlowPath: true, CreatedAt: time.Now(),
@@ -203,7 +208,9 @@ var _ = Describe("A token node reached by its split workers through a gated rela
 			OnMLX:   func([]string) {},
 		})
 		w := workerctl.SplitAssigned{DeviceID: "d1", PeerID: splitTestHost(p2pnet.NewAllowlist()).ID().String(), Engine: "llama"}
-		front.set(func(f *splitFrontend) { f.assign = workerctl.SplitAssignment{Workers: []workerctl.SplitAssigned{w}} })
+		front.set(func(f *splitFrontend) {
+			f.assign = workerctl.SplitAssignment{SplitServer: true, Workers: []workerctl.SplitAssigned{w}}
+		})
 		ctx, cancel := context.WithCancel(context.Background())
 		done := make(chan struct{})
 		go func() { defer close(done); node.run(ctx) }()
@@ -216,7 +223,7 @@ var _ = Describe("A token node reached by its split workers through a gated rela
 
 		relay := gatedRelay(splitTestHost(p2pnet.NewAllowlist()).ID())
 		front.set(func(f *splitFrontend) {
-			f.assign = workerctl.SplitAssignment{Workers: []workerctl.SplitAssigned{w}, Relays: []string{relayAddr(relay)}}
+			f.assign = workerctl.SplitAssignment{SplitServer: true, Workers: []workerctl.SplitAssigned{w}, Relays: []string{relayAddr(relay)}}
 		})
 		var second []p2pnet.AddrInfo
 		Eventually(got, 10*time.Second).Should(Receive(&second))
@@ -225,7 +232,9 @@ var _ = Describe("A token node reached by its split workers through a gated rela
 		Expect(<-ids).To(Equal(firstID), "the same peer: the frontend keeps the node bound to it")
 
 		By("keeping the host when the relays go away")
-		front.set(func(f *splitFrontend) { f.assign = workerctl.SplitAssignment{Workers: []workerctl.SplitAssigned{w}} })
+		front.set(func(f *splitFrontend) {
+			f.assign = workerctl.SplitAssignment{SplitServer: true, Workers: []workerctl.SplitAssigned{w}}
+		})
 		Consistently(got, time.Second).ShouldNot(Receive())
 	})
 })

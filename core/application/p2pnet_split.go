@@ -159,6 +159,16 @@ func (a *Application) SplitAssignment(ctx context.Context, nodeID string) (worke
 		return workerctl.SplitAssignment{}, err
 	}
 	out := workerctl.SplitAssignment{Workers: []workerctl.SplitAssigned{}}
+	if reg := rt.net.splitNodes(); reg != nil {
+		if n, err := reg.Get(ctx, nodeID); err == nil {
+			out.SplitServer = n.SplitServer
+		}
+	}
+	if !out.SplitServer {
+		// Not a split server: the node runs no host and serves no worker.
+		// The workers still attached to it are detached at the next reload.
+		return out, nil
+	}
 	for _, d := range devs {
 		if d.Kind != p2ppair.KindSplit || d.RevokedAt != nil || d.NodeID != nodeID {
 			continue
@@ -199,7 +209,40 @@ func (rt *p2pRuntime) checkSplitNode(ctx context.Context, node string) error {
 	if n.NodeType == nodes.NodeTypeAgent {
 		return fmt.Errorf("%w: %s is an agent node, which runs no models", p2papi.ErrInvalid, n.Name)
 	}
+	if !n.SplitServer {
+		return fmt.Errorf("%w: %s is not a split server; declare it first (Nodes page, PUT /api/nodes/%s/split-server, or start the worker with --split-server)",
+			p2papi.ErrConflict, n.Name, n.ID)
+	}
 	return nil
+}
+
+// defaultSplitNode is the node a new split worker attaches to when its
+// invite names none: the only online split server of the cluster. With none,
+// or with several, it is "" and the administrator picks.
+func (rt *p2pRuntime) defaultSplitNode(ctx context.Context) string {
+	reg := rt.net.splitNodes()
+	if reg == nil {
+		return ""
+	}
+	ns, err := reg.List(ctx)
+	if err != nil {
+		return ""
+	}
+	var found []string
+	for _, n := range ns {
+		if n.SplitServer && n.NodeType != nodes.NodeTypeAgent && nodeOnline(n) {
+			found = append(found, n.ID)
+		}
+	}
+	if len(found) != 1 {
+		return ""
+	}
+	return found[0]
+}
+
+// nodeOnline reports whether a node takes work now.
+func nodeOnline(n nodes.BackendNode) bool {
+	return n.Status == nodes.StatusHealthy || n.Status == nodes.StatusDraining
 }
 
 // splitEngine is the engine a split invite named; invites made before the
@@ -217,6 +260,11 @@ func (rt *p2pRuntime) splitInviteLabels(ctx context.Context, labels map[string]s
 	out, err := splitInviteLabels(labels)
 	if err != nil {
 		return nil, err
+	}
+	if _, named := out[p2ppair.NodeLabel]; !named {
+		if node := rt.defaultSplitNode(ctx); node != "" {
+			out[p2ppair.NodeLabel] = node
+		}
 	}
 	if err := rt.checkSplitNode(ctx, out[p2ppair.NodeLabel]); err != nil {
 		return nil, err
@@ -294,6 +342,7 @@ func (rt *p2pRuntime) attachedSplitViews(ctx context.Context, reg splitNodeRegis
 	}
 	reports := map[string]nodes.StoredSplitReport{}
 	names := map[string]string{}
+	offline := map[string]bool{}
 	relays := rt.nodeRelayViews()
 	if reg != nil {
 		var err error
@@ -306,6 +355,7 @@ func (rt *p2pRuntime) attachedSplitViews(ctx context.Context, reg splitNodeRegis
 		}
 		for _, n := range ns {
 			names[n.ID] = n.Name
+			offline[n.ID] = !nodeOnline(n)
 		}
 	}
 	out := make([]p2papi.SplitWorkerView, 0, len(attached))
@@ -315,13 +365,16 @@ func (rt *p2pRuntime) attachedSplitViews(ctx context.Context, reg splitNodeRegis
 			State: string(p2psplit.StateOffline), AllowSlowPath: d.AllowSlowPath,
 			CreatedAt: d.CreatedAt, LastSeenAt: d.LastSeenAt,
 			Path: p2papi.PathView{Kind: string(p2pnet.PathNone)}, NodeID: d.NodeID, NodeName: names[d.NodeID],
-			NodeRelay: relays[d.NodeID],
+			NodeRelay: relays[d.NodeID], NodeOffline: offline[d.NodeID],
 		}
 		if v.NodeRelay == nil {
 			// Attached a moment ago: the next reload decides.
 			v.NodeRelay = &p2papi.SplitNodeRelay{State: p2papi.NodeRelayPending, Reason: "waiting for the next reload of the server"}
 		}
 		rep, ok := reports[d.NodeID]
+		if ok && time.Since(rep.UpdatedAt) > splitReportStale {
+			v.NodeOffline = true
+		}
 		if ok && time.Since(rep.UpdatedAt) <= splitReportStale {
 			if i := slices.IndexFunc(rep.Report.Workers, func(w workerctl.SplitWorkerReport) bool { return w.DeviceID == d.ID }); i >= 0 {
 				reportedView(&v, rep.Report.Workers[i], labels, ids)
@@ -470,6 +523,7 @@ func splitView(w p2psplit.Worker, d p2ppair.Device, labels, ids map[string]strin
 		Error: w.Error, AllowSlowPath: w.AllowSlowPath, MemoryBytes: w.MemoryBytes, Name: w.Name,
 		Version: w.Version, Addr: w.Addr, Rank: w.Rank, ConnectedSince: w.Since,
 		CreatedAt: d.CreatedAt, LastSeenAt: d.LastSeenAt, Path: p2papi.PathView{Kind: string(p2pnet.PathNone)},
+		NodeNote: d.NodeNote,
 	}
 	if w.Path.Kind != p2pnet.PathNone {
 		v.Path = pathView(w.Path, labels)
