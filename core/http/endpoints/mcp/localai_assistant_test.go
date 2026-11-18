@@ -304,6 +304,13 @@ func (stubClient) PinFailoverTarget(_ context.Context, _, _ string) error { retu
 
 func (stubClient) UnpinFailoverTarget(_ context.Context, _ string) error { return nil }
 
+func (stubClient) GetFederation(_ context.Context) (*localaitools.FederationInfo, error) {
+	return &localaitools.FederationInfo{}, nil
+}
+func (stubClient) ManageFederationGroup(_ context.Context, _ localaitools.FederationGroupAction) (*localaitools.FederationGroupInfo, error) {
+	return nil, nil
+}
+
 func (stubClient) GetP2PStatus(_ context.Context) (*localaitools.P2PStatusInfo, error) {
 	return &localaitools.P2PStatusInfo{}, nil
 }

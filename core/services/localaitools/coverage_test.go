@@ -61,6 +61,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListP2PDevices:            "GET /api/p2p/devices",
 	ToolListP2PInvites:            "GET /api/p2p/invites",
 	ToolListP2PRelays:             "GET /api/p2p/relays",
+	ToolListFederation:            "GET /api/federation",
 	ToolListP2PSplitWorkers:       "GET /api/p2p/split-workers",
 	ToolGetP2PRelayLimits:         "GET /api/p2p/relays/:id/limits",
 
@@ -94,6 +95,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolUnpinFailoverTarget:      "DELETE /api/failover/:chain/pin",
 	ToolRevokeP2PDevice:          "DELETE /api/p2p/devices/:id",
 	ToolCancelP2PInvite:          "DELETE /api/p2p/invites/:id",
+	ToolManageFederationGroup:    "POST /api/federation/groups (action create), PATCH /api/federation/groups/:name (action update), DELETE /api/federation/groups/:name (action delete), POST /api/federation/groups/:name/drain (actions drain, undrain)",
 	ToolSetP2PSplitSlowPath:      "PATCH /api/p2p/split-workers/:id",
 	ToolSetP2PRelayLimits:        "PUT /api/p2p/relays/:id/limits",
 	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
@@ -152,6 +154,7 @@ var adminRoutesWithoutTool = map[string]string{
 	"POST /api/p2p/identity/regenerate":  "unpairs every device and remote at once: a person's act, with a typed confirmation",
 	"POST /api/settings (p2p_mode)":      "turns on accepting paired devices: a person's choice on the Swarm, P2P page",
 	"POST /api/settings (p2p_relays...)": "the P2P discovery and relay settings: set on the Swarm, P2P page",
+	"GET /api/federation/groups/:name":   "list_federation returns every group with the same fields",
 	// The administrator's oversight of other users' saved agents, triggers
 	// and connectors. Each acts on another person's private automation
 	// (disable or delete it). It stays a deliberate click on the

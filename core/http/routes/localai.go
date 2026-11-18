@@ -90,6 +90,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// every request: the service is built after the routes exist and is nil
 	// when its store could not be opened.
 	registerRemoteRoutes(router, app.Remotes, adminMiddleware)
+	registerFederationRoutes(router, app.Federation, adminMiddleware)
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
@@ -647,4 +648,15 @@ func registerRemoteRoutes(router *echo.Echo, get localai.RemotesProvider, adminM
 	router.DELETE("/api/remotes/:id", localai.DeleteRemoteEndpoint(get), adminMiddleware)
 	router.POST("/api/remotes/:id/refresh", localai.RefreshRemoteEndpoint(get), adminMiddleware)
 	router.POST("/api/remotes/:id/adopt", localai.AdoptRemoteModelsEndpoint(get), adminMiddleware)
+}
+
+// registerFederationRoutes mounts the six federation routes, each behind
+// adminMiddleware.
+func registerFederationRoutes(router *echo.Echo, get localai.FederationProvider, adminMiddleware echo.MiddlewareFunc) {
+	router.GET("/api/federation", localai.GetFederationEndpoint(get), adminMiddleware)
+	router.POST("/api/federation/groups", localai.CreateFederationGroupEndpoint(get), adminMiddleware)
+	router.GET("/api/federation/groups/:name", localai.GetFederationGroupEndpoint(get), adminMiddleware)
+	router.PATCH("/api/federation/groups/:name", localai.UpdateFederationGroupEndpoint(get), adminMiddleware)
+	router.DELETE("/api/federation/groups/:name", localai.DeleteFederationGroupEndpoint(get), adminMiddleware)
+	router.POST("/api/federation/groups/:name/drain", localai.DrainFederationMemberEndpoint(get), adminMiddleware)
 }

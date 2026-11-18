@@ -66,9 +66,16 @@ type Event struct {
 }
 
 type TargetStatus struct {
-	Model         string      `json:"model"`
-	Kind          Kind        `json:"kind"`
-	Warm          bool        `json:"warm"`
+	Model string `json:"model"`
+	Kind  Kind   `json:"kind"`
+	Warm  bool   `json:"warm"`
+	// Drained targets take no new request.
+	Drained bool `json:"drained,omitempty"`
+	// Constrained targets are tried last by a balanced chain.
+	Constrained bool `json:"constrained,omitempty"`
+	// InFlight is the number of requests of this server that the target
+	// serves now. It is not shared between frontends.
+	InFlight      int         `json:"in_flight"`
 	State         TargetState `json:"state"`
 	ConsecutiveOK int         `json:"consecutive_ok"`
 	LastProbe     *time.Time  `json:"last_probe,omitempty"`
@@ -76,12 +83,13 @@ type TargetStatus struct {
 }
 
 type ChainStatus struct {
-	Name        string         `json:"name"`
-	State       ChainState     `json:"state"`
-	Active      string         `json:"active"`
-	ActiveSince time.Time      `json:"active_since"`
-	Pinned      *string        `json:"pinned"`
-	Targets     []TargetStatus `json:"targets"`
+	Name        string                `json:"name"`
+	Policy      config.FailoverPolicy `json:"policy"`
+	State       ChainState            `json:"state"`
+	Active      string                `json:"active"`
+	ActiveSince time.Time             `json:"active_since"`
+	Pinned      *string               `json:"pinned"`
+	Targets     []TargetStatus        `json:"targets"`
 }
 
 // KindOf decides how a target is probed: proxy backends forward to another

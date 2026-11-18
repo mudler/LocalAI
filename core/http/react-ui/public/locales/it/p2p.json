@@ -5,6 +5,7 @@
   "tabs": {
     "label": "P2P",
     "devices": "Dispositivi e inviti",
+    "federation": "Federazione",
     "settings": "Impostazioni"
   },
   "mode": {
@@ -290,5 +291,110 @@
     "openNote": "Lì, imposta la modalità P2P su Connessione e condivisione. Puoi farlo più tardi.",
     "auth": "Attiva prima l'autenticazione",
     "authNote": "L'autenticazione è disattivata. Per usare invece i modelli di un'altra istanza, scegli Su un altro server o servizio qui sopra: non richiede l'autenticazione."
+  },
+  "federation": {
+    "title": "Federazione",
+    "loadFailed": "Impossibile leggere la federazione.",
+    "routing": {
+      "label": "Instradamento",
+      "least_busy": {
+        "title": "Meno occupata",
+        "body": "Una richiesta va all'istanza con meno richieste in corso da questo server. Se fallisce, la richiesta passa all'istanza successiva."
+      },
+      "round_robin": {
+        "title": "A turno",
+        "body": "Le richieste vanno a ogni istanza a turno. Se una fallisce, la richiesta passa all'istanza successiva."
+      }
+    },
+    "groups": {
+      "title": "Gruppi",
+      "note": "Un gruppo è un nome di modello servito da più istanze. I client chiamano il nome del gruppo come qualsiasi modello.",
+      "new": "Nuovo gruppo",
+      "delete": "Elimina",
+      "serving": "{{count}} in servizio",
+      "degraded": "Nessuna istanza risponde",
+      "created": "Gruppo {{name}} salvato.",
+      "deleted": "Gruppo {{name}} eliminato.",
+      "changeFailed": "La modifica non è stata salvata: {{message}}",
+      "deleteTitle": "Eliminare il gruppo {{name}}?",
+      "deleteBody": "I client che chiamano questo nome ricevono un errore. I modelli delle istanze restano come sono.",
+      "deleteConfirm": "Elimina gruppo",
+      "empty": {
+        "title": "Ancora nessun gruppo",
+        "body": "Servi un nome di modello da questo server e da altre istanze LocalAI. Le richieste vengono distribuite tra loro e, quando una fallisce, risponde la successiva.",
+        "factInstances_one": "{{count}} altra istanza",
+        "factInstances_other": "{{count}} altre istanze",
+        "factFailover": "Il failover è incluso"
+      }
+    },
+    "members": {
+      "caption": "Le istanze di {{name}}",
+      "col": {
+        "instance": "Istanza",
+        "model": "Modello lì",
+        "status": "Stato",
+        "inFlight": "In corso",
+        "actions": "Azioni"
+      },
+      "state": {
+        "healthy": "In uso",
+        "recovering": "In ripresa",
+        "down": "Non risponde",
+        "missing": "Modello mancante",
+        "unknown": "Non ancora verificata",
+        "drained": "Svuotata"
+      },
+      "constrained": "Solo richieste piccole",
+      "constrainedHint": "Un relay limita questa connessione, quindi l'istanza riceve una richiesta solo quando nessun'altra istanza può.",
+      "drain": "Svuota",
+      "undrain": "Rimetti in servizio",
+      "drained": "{{model}} non riceve nuove richieste.",
+      "undrained": "{{model}} riceve di nuovo richieste.",
+      "lastServing": "L'ultima istanza in servizio non può essere svuotata."
+    },
+    "instances": {
+      "title": "Istanze",
+      "note": "Questo server e i remoti LocalAI che usa. Ogni remoto compare anche in Modelli, Remoti.",
+      "add": "Aggiungi un'istanza federata",
+      "local": "Questa istanza",
+      "otherProxy": "Un altro server",
+      "http": "HTTP",
+      "inFlightNote": "Le richieste in corso sono quelle di questo server. Ogni server di un cluster conta le proprie.",
+      "col": {
+        "instance": "Istanza",
+        "peer": "Peer ID",
+        "path": "Percorso",
+        "inFlight": "In corso",
+        "models": "Modelli"
+      },
+      "status": {
+        "ok": "Risponde",
+        "never": "Non ancora contattata",
+        "auth_failed": "Chiave rifiutata",
+        "unreachable": "Non raggiungibile"
+      }
+    },
+    "path": {
+      "local": "Questa istanza",
+      "http": "HTTP",
+      "off": "P2P è spento",
+      "down": "Non connessa",
+      "waiting": "In attesa di una richiesta",
+      "direct": "Diretto",
+      "holePunched": "Hole punching",
+      "relayed": "Tramite un relay",
+      "limited": "Limitato",
+      "limitedHint": "Il relay limita i dati o la durata di ogni connessione."
+    },
+    "sheet": {
+      "title": "Nuovo gruppo",
+      "description": "Un nome di modello servito da più istanze.",
+      "name": "Nome del modello",
+      "nameHint": "I client chiamano questo nome. Non deve essere il nome di un modello esistente.",
+      "members": "Istanze ({{count}} scelte)",
+      "membersHint": "Scegli lo stesso modello su due o più istanze.",
+      "noModels": "Nessuna istanza ha ancora un modello. Aggiungi prima un remoto in Modelli, Remoti.",
+      "save": "Salva"
+    }
   }
 }

@@ -916,6 +916,16 @@ export const p2pNetApi = {
   revokeDevice: (id) => fetchJSON(API_CONFIG.endpoints.p2pDevice(id), { method: 'DELETE' }),
 }
 
+// Federation (admin): the instances that can serve a group and the groups,
+// each one model name served by several instances.
+export const federationApi = {
+  get: () => fetchJSON(API_CONFIG.endpoints.federation),
+  create: (body) => postJSON(API_CONFIG.endpoints.federationGroups, body),
+  update: (name, body) => fetchJSON(API_CONFIG.endpoints.federationGroup(name), { method: 'PATCH', body: JSON.stringify(body) }),
+  remove: (name) => fetchJSON(API_CONFIG.endpoints.federationGroup(name), { method: 'DELETE' }),
+  drain: (name, model, drain) => postJSON(API_CONFIG.endpoints.federationDrain(name), { model, drain }),
+}
+
 // Model-split workers: llama.cpp RPC and MLX workers that lend their memory to
 // models on this server. Answers 409 outside mode "share".
 export const p2pSplitApi = {

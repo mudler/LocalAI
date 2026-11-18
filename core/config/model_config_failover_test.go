@@ -66,6 +66,40 @@ failover:
 		Entry("bad duration", func(c *ModelConfig) { c.Failover.Probe.Interval = "soon" }, "invalid probe.interval"),
 		Entry("negative errors", func(c *ModelConfig) { c.Failover.Trip.Errors = -1 }, "trip.errors"),
 		Entry("no name", func(c *ModelConfig) { c.Name = "" }, "requires a name"),
+		Entry("unknown policy", func(c *ModelConfig) { c.Failover.Policy = "fastest" }, "unknown policy"),
+		Entry("every target drained", func(c *ModelConfig) {
+			c.Failover.Targets[0].Drain = true
+			c.Failover.Targets[1].Drain = true
+		}, "every target is drained"),
+	)
+
+	It("parses a balanced chain with a drained target", func() {
+		var c ModelConfig
+		Expect(yaml.Unmarshal([]byte(`
+name: shared-llm
+failover:
+  policy: least_busy
+  targets:
+    - model: qwen-local
+    - model: qwen-branch
+      drain: true
+`), &c)).To(Succeed())
+		ok, err := c.Validate()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(c.Failover.Policy).To(Equal(FailoverPolicyLeastBusy))
+		Expect(c.Failover.Balanced()).To(BeTrue())
+		Expect(c.Failover.Targets[1].Drain).To(BeTrue())
+	})
+
+	DescribeTable("tells balanced policies from the priority order",
+		func(p FailoverPolicy, balanced bool) {
+			Expect(FailoverConfig{Policy: p}.Balanced()).To(Equal(balanced))
+		},
+		Entry("empty is priority", FailoverPolicy(""), false),
+		Entry("priority", FailoverPolicyPriority, false),
+		Entry("least busy", FailoverPolicyLeastBusy, true),
+		Entry("round robin", FailoverPolicyRoundRobin, true),
 	)
 })
 

@@ -74,6 +74,11 @@ export const API_CONFIG = {
     p2pRelayLimits: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/limits`,
     p2pRelayClaim: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/claim`,
     p2pIdentityRegenerate: '/api/p2p/identity/regenerate',
+    // Federation: groups of instances behind one model name
+    federation: '/api/federation',
+    federationGroups: '/api/federation/groups',
+    federationGroup: (name) => `/api/federation/groups/${encodeURIComponent(name)}`,
+    federationDrain: (name) => `/api/federation/groups/${encodeURIComponent(name)}/drain`,
     // Model-split workers (llama.cpp RPC and MLX over P2P)
     p2pSplitWorkers: '/api/p2p/split-workers',
     p2pSplitWorker: (id) => `/api/p2p/split-workers/${encodeURIComponent(id)}`,

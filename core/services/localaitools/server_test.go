@@ -107,6 +107,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListP2PDevices,
 	ToolListP2PInvites,
 	ToolListP2PRelays,
+	ToolListFederation,
 	ToolListP2PSplitWorkers,
 	ToolGetP2PRelayLimits,
 	// The read-only flavour keeps the client tools that only analyse or list.
@@ -210,6 +211,8 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolSetP2PRelayLimits, map[string]any{"id": "r1", "rate_bps": 65536}, "SetP2PRelayLimits"},
 		{ToolRevokeP2PDevice, map[string]any{"id": "d1"}, "RevokeP2PDevice"},
 		{ToolCancelP2PInvite, map[string]any{"id": "i1"}, "CancelP2PInvite"},
+		{ToolListFederation, map[string]any{}, "GetFederation"},
+		{ToolManageFederationGroup, map[string]any{"action": "drain", "name": "g", "model": "a"}, "ManageFederationGroup"},
 		{ToolListP2PSplitWorkers, map[string]any{}, "ListP2PSplitWorkers"},
 		{ToolSetP2PSplitSlowPath, map[string]any{"id": "w1", "allow": true}, "SetP2PSplitSlowPath"},
 		{ToolGenerateImage, GenerateImageRequest{Prompt: "a fox"}, "GenerateImage"},

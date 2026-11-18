@@ -17,6 +17,8 @@ a normal model config. You use it like any other model:
 
 - Clients call it by name in the chat APIs.
 - It can be a target of a [failover chain]({{% relref "/models/model-failover" %}}).
+- It can be a member of a [federation group]({{% relref "/administration/federation" %}}),
+  which spreads the requests of one model name over several LocalAI servers.
 - API keys, per-user access and usage statistics apply to it.
 
 The key of the other server is stored once, on the remote. The entries

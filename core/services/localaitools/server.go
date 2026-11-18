@@ -69,6 +69,7 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	registerFailoverTools(srv, client, opts)
 	registerClusterTools(srv, client)
 	registerP2PTools(srv, client, opts)
+	registerFederationTools(srv, client, opts)
 
 	// The second group: inference for any user. Kept apart so a caller can
 	// register or filter the two groups separately.

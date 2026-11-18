@@ -242,6 +242,7 @@ type Application struct {
 	admissionLimiter  *admission.Limiter
 	failoverManager   *failover.Manager
 	remotes           remotes.Service
+	federation        remotes.Federation
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
 	p2pMutex          sync.Mutex

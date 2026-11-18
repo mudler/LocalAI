@@ -287,6 +287,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	application.failoverManager = failover.New(application.ModelConfigLoader(),
 		failover.WithProber(failover.NewProber(failoverLoadedBackend(application.ModelLoader()), options.ProxyAPIKeyEnvLookup)),
 		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
+		failover.WithConstrained(application.limitedP2PRemote),
 	)
 	// The assistant client was built in start() (above), before this
 	// manager existed; wire it now so list_failover_chains /

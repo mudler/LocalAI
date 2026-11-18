@@ -32,6 +32,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
@@ -125,6 +126,9 @@ type Client struct {
 	// available.
 	P2P p2papi.Service
 
+	// Federation backs list_federation and manage_federation_group. nil
+	// makes them report that federation is not available.
+	Federation remotes.Federation
 	// P2PSplit backs the model-split worker tools. nil makes them report
 	// that P2P is not available.
 	P2PSplit p2papi.SplitService
@@ -1773,5 +1777,84 @@ func (c *Client) SetP2PSplitSlowPath(ctx context.Context, id string, allow bool)
 		return nil, err
 	}
 	info := splitInfo(w)
+	return &info, nil
+}
+
+// ---- Federation ----
+
+var errNoFederation = errors.New("federation is not available on this server: the remote store could not be opened")
+
+func (c *Client) GetFederation(ctx context.Context) (*localaitools.FederationInfo, error) {
+	if c.Federation == nil {
+		return nil, errNoFederation
+	}
+	v, err := c.Federation.View(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := &localaitools.FederationInfo{Instances: []localaitools.FederationInstanceInfo{}, Groups: []localaitools.FederationGroupInfo{}}
+	for _, in := range v.Instances {
+		info := localaitools.FederationInstanceInfo{
+			ID: in.ID, Name: in.Name, Local: in.Local, Transport: string(in.Transport), Status: string(in.Status),
+			InFlight: in.InFlight, Models: []localaitools.FederationModelInfo{},
+		}
+		if in.P2P != nil {
+			info.P2P = &localaitools.FederationP2PInfo{PeerID: in.P2P.PeerID, State: string(in.P2P.State), Path: in.P2P.Path, Limited: in.P2P.Limited}
+		}
+		for _, m := range in.Models {
+			info.Models = append(info.Models, localaitools.FederationModelInfo{Model: m.Model, UpstreamID: m.UpstreamID})
+		}
+		out.Instances = append(out.Instances, info)
+	}
+	for _, g := range v.Groups {
+		out.Groups = append(out.Groups, federationGroupInfo(g))
+	}
+	return out, nil
+}
+
+func federationGroupInfo(g remotes.Group) localaitools.FederationGroupInfo {
+	info := localaitools.FederationGroupInfo{Name: g.Name, Policy: string(g.Policy), State: g.State, Members: []localaitools.FederationMemberInfo{}}
+	for _, m := range g.Members {
+		info.Members = append(info.Members, localaitools.FederationMemberInfo{
+			Model: m.Model, Instance: m.Instance, InstanceName: m.InstanceName, Drained: m.Drained,
+			State: m.State, InFlight: m.InFlight, Constrained: m.Constrained, LastError: m.LastError,
+		})
+	}
+	return info
+}
+
+func (c *Client) ManageFederationGroup(ctx context.Context, req localaitools.FederationGroupAction) (*localaitools.FederationGroupInfo, error) {
+	if c.Federation == nil {
+		return nil, errNoFederation
+	}
+	var (
+		g   remotes.Group
+		err error
+	)
+	switch req.Action {
+	case localaitools.FederationActionCreate:
+		g, err = c.Federation.CreateGroup(ctx, remotes.GroupRequest{Name: req.Name, Policy: config.FailoverPolicy(req.Policy), Members: req.Members})
+	case localaitools.FederationActionUpdate:
+		up := remotes.GroupUpdate{}
+		if req.Policy != "" {
+			p := config.FailoverPolicy(req.Policy)
+			up.Policy = &p
+		}
+		if req.Members != nil {
+			m := req.Members
+			up.Members = &m
+		}
+		g, err = c.Federation.UpdateGroup(ctx, req.Name, up)
+	case localaitools.FederationActionDelete:
+		return nil, c.Federation.DeleteGroup(ctx, req.Name)
+	case localaitools.FederationActionDrain, localaitools.FederationActionUndrain:
+		g, err = c.Federation.Drain(ctx, req.Name, req.Model, req.Action == localaitools.FederationActionDrain)
+	default:
+		return nil, fmt.Errorf("unknown federation action %q", req.Action)
+	}
+	if err != nil {
+		return nil, err
+	}
+	info := federationGroupInfo(g)
 	return &info, nil
 }

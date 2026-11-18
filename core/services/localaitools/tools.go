@@ -72,8 +72,11 @@ const (
 	ToolSetChatEgressCeiling = "set_chat_egress_ceiling"
 	ToolRevokeP2PDevice      = "revoke_p2p_device"
 	ToolCancelP2PInvite      = "cancel_p2p_invite"
-	ToolSetP2PSplitSlowPath  = "set_p2p_split_slow_path"
-	ToolSetP2PRelayLimits    = "set_p2p_relay_limits"
+	// ToolManageFederationGroup creates, updates, deletes, drains and
+	// undrains federation groups (an action parameter).
+	ToolManageFederationGroup = "manage_federation_group"
+	ToolSetP2PSplitSlowPath   = "set_p2p_split_slow_path"
+	ToolSetP2PRelayLimits     = "set_p2p_relay_limits"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
@@ -98,6 +101,10 @@ const (
 	// ToolListP2PSplitWorkers lists the model-split workers;
 	// set_p2p_split_slow_path is in the mutating block above.
 	ToolListP2PSplitWorkers = "list_p2p_split_workers"
+
+	// ToolListFederation is read-only: the instances and the federation
+	// groups; manage_federation_group is in the mutating block above.
+	ToolListFederation = "list_federation"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when
@@ -139,6 +146,7 @@ var mutatingToolNames = []string{
 	ToolSetChatEgressCeiling,
 	ToolRevokeP2PDevice,
 	ToolCancelP2PInvite,
+	ToolManageFederationGroup,
 	ToolSetP2PSplitSlowPath,
 	ToolSetP2PRelayLimits,
 }
