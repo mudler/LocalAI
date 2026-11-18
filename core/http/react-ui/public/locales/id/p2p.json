@@ -25,7 +25,7 @@
     },
     "remote": {
       "title": "Remote",
-      "body": "LocalAI lain memakai model dari instans ini."
+      "body": "LocalAI lain memakai semua model dari instans ini."
     },
     "worker": {
       "title": "Worker"
@@ -54,8 +54,8 @@
         "body": "Undangan perangkat memungkinkan perangkat menjangkau instans ini. Pengguna tetap masuk ke antarmuka web dengan akunnya sendiri."
       },
       "remote": {
-        "title": "Hanya model.",
-        "body": "Undangan remote memberi LocalAI lain sebuah kunci API yang hanya dapat memakai model dari instans ini dan tidak lebih."
+        "title": "Semua model, tidak lebih.",
+        "body": "LocalAI lain mendapat kunci API yang dapat memakai setiap model dari instans ini, juga model yang Anda tambahkan nanti. Model yang memiliki tools terpasang tidak termasuk. Kunci itu tidak menjangkau hal lain: tidak ada pengaturan, tidak ada berkas, tidak ada bagian lain dari API."
       }
     },
     "label": "Label",
@@ -71,6 +71,10 @@
     "close": "Tutup",
     "mint": "Buat undangan",
     "mintFailed": "Undangan tidak dibuat.",
+    "needsAccount": {
+      "title": "Masuk dengan akun pengguna untuk berbagi dengan remote",
+      "body": "LocalAI lain mendapat kunci API milik akun pengguna Anda. Anda masuk dengan kunci API dari LOCALAI_API_KEY, yang tidak memiliki akun. Masuk dengan akun pengguna lalu buat undangan lagi. Undangan perangkat tetap berfungsi seperti sebelumnya."
+    },
     "copy": "Salin",
     "copied": "Tersalin",
     "copyFailed": "Tautan tidak tersalin. Pilih lalu salin secara manual.",

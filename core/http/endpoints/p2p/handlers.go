@@ -38,7 +38,7 @@ type OKResponse struct {
 
 // fail writes err as an error response with the status it maps to.
 func fail(c echo.Context, err error) error {
-	code, msg := http.StatusInternalServerError, "internal error"
+	code, msg, typ := http.StatusInternalServerError, "internal error", "p2p_error"
 	var me *ModeError
 	switch {
 	case errors.As(err, &me):
@@ -54,12 +54,15 @@ func fail(c echo.Context, err error) error {
 		code, msg = http.StatusBadRequest, err.Error()
 	case errors.Is(err, ErrConflict):
 		code, msg = http.StatusConflict, err.Error()
+	case errors.Is(err, ErrNeedsAccount):
+		// The type lets a client tell this refusal from a wrong mode.
+		code, msg, typ = http.StatusConflict, ErrNeedsAccount.Error(), "needs_account"
 	case errors.Is(err, ErrUnavailable):
 		code, msg = http.StatusServiceUnavailable, err.Error()
 	default:
 		xlog.Error("P2P API", "path", c.Path(), "error", err)
 	}
-	return c.JSON(code, schema.ErrorResponse{Error: &schema.APIError{Message: msg, Code: code, Type: "p2p_error"}})
+	return c.JSON(code, schema.ErrorResponse{Error: &schema.APIError{Message: msg, Code: code, Type: typ}})
 }
 
 // bind reads a JSON body of at most maxBody bytes.
@@ -99,7 +102,7 @@ func StatusEndpoint(svc Service) echo.HandlerFunc {
 // MintInviteEndpoint creates an invite.
 //
 //	@Summary	Create a P2P invite
-//	@Description	Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key limited to "models"), worker, split or federated. relays is "auto", "none" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; "relay.reason" says why there is none. The link is shown once. Needs P2P mode share. Admin only.
+//	@Description	Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key for the other server: limited to "models" when given, else every model this server lets a client key use, models added later too), worker, split or federated. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY gets 409. relays is "auto", "none" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; "relay.reason" says why there is none. The link is shown once. Needs P2P mode share. Admin only.
 //	@Tags		p2p
 //	@Accept		json
 //	@Produce	json

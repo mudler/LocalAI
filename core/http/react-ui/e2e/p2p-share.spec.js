@@ -64,6 +64,16 @@ test.describe('P2P devices and invites', () => {
     await expect(page.getByTestId('p2p-device-d-2')).toContainText('Revoked')
   })
 
+  test('sits under Swarm when P2P is on, on a single server too', async ({ page }) => {
+    await page.route('**/api/features', route => route.fulfill({ json: { distributed: false, p2p: true } }))
+    await openP2P(page)
+    const bar = page.locator('.dk-hubtabs')
+    await expect(bar.locator('[data-hub-tab="swarm"]')).toHaveAttribute('aria-current', 'page')
+    await expect(bar.locator('[data-hub-tab="swarm"]')).toHaveAttribute('href', '/app/p2p')
+    await expect(bar.locator('[data-hub-tab="machine"]')).toBeVisible()
+    await expect(page.getByTestId('p2p-tabs').getByRole('link', { name: 'Devices and invites' })).toHaveAttribute('aria-current', 'page')
+  })
+
   for (const mode of ['off', 'connect']) {
     test(`in mode ${mode} the page says why nothing is listed and links to the settings`, async ({ page }) => {
       await openP2P(page, { mode })
@@ -101,10 +111,35 @@ test.describe('Share this instance', () => {
     await page.getByTestId('p2p-share-open').click()
     const dialog = page.getByTestId('share-dialog')
     await dialog.getByTestId('share-kind-remote').click()
-    await expect(dialog.getByTestId('share-kind-note')).toContainText('Models only.')
+    await expect(dialog.getByTestId('share-kind-note')).toContainText('All models, nothing else.')
+    await expect(dialog.getByTestId('share-kind-note')).toContainText('also the models you add later')
     await dialog.getByTestId('share-mint').click()
     await expect(page.getByTestId('share-result').getByTestId('qr-code')).toBeVisible()
     await expect(page.getByTestId('share-admission')).toHaveCount(0)
+  })
+
+  test('says that a remote needs a user account when the server refuses the invite', async ({ page }) => {
+    const message = 'sharing with a remote needs a signed-in user account'
+    await openP2P(page, { fail: { 'POST /invites': { status: 409, type: 'needs_account', message } } })
+    await page.getByTestId('p2p-share-open').click()
+    const dialog = page.getByTestId('share-dialog')
+    await dialog.getByTestId('share-kind-remote').click()
+    await dialog.getByTestId('share-mint').click()
+    const note = dialog.getByTestId('share-needs-account')
+    await expect(note).toContainText('Sign in with a user account to share with a remote')
+    await expect(note).toContainText('LOCALAI_API_KEY')
+    await expect(dialog.getByTestId('share-error')).toHaveCount(0)
+    // Another kind clears it: device invites need no account.
+    await dialog.getByTestId('share-kind-device').click()
+    await expect(note).toHaveCount(0)
+  })
+
+  test('shows any other refusal as the server wrote it', async ({ page }) => {
+    await openP2P(page, { fail: { 'POST /invites': { status: 400, message: 'invalid request: label' } } })
+    await page.getByTestId('p2p-share-open').click()
+    await page.getByTestId('share-mint').click()
+    await expect(page.getByTestId('share-error')).toHaveText('invalid request: label')
+    await expect(page.getByTestId('share-needs-account')).toHaveCount(0)
   })
 
   test('says so when the server has no relay', async ({ page }) => {

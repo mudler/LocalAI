@@ -120,6 +120,11 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 	if req.TTLSeconds < 0 || time.Duration(req.TTLSeconds)*time.Second > p2ppair.MaxTTL {
 		return p2papi.MintResult{}, fmt.Errorf("%w: ttl_seconds must be between 0 and %d", p2papi.ErrInvalid, int(p2ppair.MaxTTL.Seconds()))
 	}
+	if p2ppair.Kind(req.Kind) == p2ppair.KindRemote {
+		if err := s.n.app.checkRemoteMint(ctx, by, req.Models); err != nil {
+			return p2papi.MintResult{}, err
+		}
+	}
 	mr := p2ppair.MintRequest{
 		OwnerID: by, CreatedBy: by, Kind: p2ppair.Kind(req.Kind), Label: req.Label,
 		TTL:            time.Duration(req.TTLSeconds) * time.Second,

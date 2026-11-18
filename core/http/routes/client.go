@@ -93,6 +93,7 @@ func clientKeyJSON(k auth.UserAPIKey) map[string]any {
 		"features":    featureNames(k.Features),
 		"addons":      addonsOrEmpty(k.Addons),
 		"models":      modelsOrEmpty(k.Models),
+		"allModels":   k.AllModels,
 		"readFolders": foldersOrEmpty(k.ReadFolders),
 		"writeFolder": k.WriteFolder,
 		"createdAt":   k.CreatedAt,
@@ -287,7 +288,7 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		for _, r := range codes {
 			out = append(out, ro.addTLS(map[string]any{
 				"id": r.ID, "name": r.Name, "features": featureNames(r.Features), "addons": addonsOrEmpty(r.Addons), "models": modelsOrEmpty(r.Models),
-				"readFolders": foldersOrEmpty(r.ReadFolders), "writeFolder": r.WriteFolder,
+				"allModels": r.AllModels, "readFolders": foldersOrEmpty(r.ReadFolders), "writeFolder": r.WriteFolder,
 				"expiresAt": r.ExpiresAt, "createdAt": r.CreatedAt,
 			}))
 		}
@@ -393,6 +394,7 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		}
 		if body.Models != nil {
 			resp["models"] = modelsOrEmpty(models)
+			resp["allModels"] = false
 		}
 		if folders {
 			resp["readFolders"] = foldersOrEmpty(readFolders)

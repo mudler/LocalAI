@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
 )
@@ -37,6 +39,38 @@ func (a *Application) p2pPairStore() (p2ppair.Store, error) {
 	return p2ppair.NewJSONStore(filepath.Join(dir, "p2p"), secret)
 }
 
+// checkRemoteMint refuses a remote invite whose key could not be issued when
+// it is redeemed, so the admin learns it now and not the other server later.
+// The key belongs to the account of the owner, so the owner must be an active
+// user: the identity of the API key set with LOCALAI_API_KEY has no row. A
+// list of models must pass the same checks as at redeem time.
+func (a *Application) checkRemoteMint(ctx context.Context, ownerID string, models []string) error {
+	db := a.AuthDB()
+	if db == nil {
+		return fmt.Errorf("%w: remote invites need authentication", p2papi.ErrConflict)
+	}
+	if ownerID == "" {
+		return p2papi.ErrNeedsAccount
+	}
+	var n int64
+	if err := db.WithContext(ctx).Model(&auth.User{}).Where("id = ? AND status = ?", ownerID, auth.StatusActive).Count(&n).Error; err != nil {
+		return err
+	}
+	if n == 0 {
+		return p2papi.ErrNeedsAccount
+	}
+	list, err := auth.NormalizeClientModels(models)
+	if err != nil {
+		return fmt.Errorf("%w: %s", p2papi.ErrInvalid, err.Error())
+	}
+	for _, m := range list {
+		if err := a.ModelConfigLoader().ClientModelProblem(m); err != nil {
+			return fmt.Errorf("%w: model %q: %s", p2papi.ErrInvalid, m, err.Error())
+		}
+	}
+	return nil
+}
+
 // clientKeyIssuer issues the API key of a remote invite through the client
 // pairing flow of the auth package: it creates a one-time client pairing code
 // with the invite's model scope and redeems it in the same transaction as the
@@ -52,9 +86,15 @@ func (i *clientKeyIssuer) Issue(_ context.Context, tx p2ppair.Tx, inv p2ppair.In
 		return p2ppair.IssuedKey{}, p2ppair.ErrNoKeyIssuer
 	}
 	secret := i.app.ApplicationConfig().Auth.APIKeyHMACSecret
-	features := []string{auth.FeatureClientSelf}
+	// A remote always uses models: the list of the invite limits them, and an
+	// invite without a list shares every model a client key may use, as the
+	// admin who shares the server means.
+	features := []string{auth.FeatureClientSelf, auth.FeatureClientInference}
+	opts := []auth.PairingOption{auth.WithModelCheck(i.app.ModelConfigLoader().ClientModelProblem)}
 	if len(inv.Scope.Models) > 0 {
-		features = append(features, auth.FeatureClientInference)
+		opts = append(opts, auth.WithModels(inv.Scope.Models))
+	} else {
+		opts = append(opts, auth.WithAllModels())
 	}
 	name := dev.Label
 	if name == "" {
@@ -63,8 +103,7 @@ func (i *clientKeyIssuer) Issue(_ context.Context, tx p2ppair.Tx, inv p2ppair.In
 	var plaintext string
 	var key *auth.UserAPIKey
 	err := db.Transaction(func(tx *gorm.DB) error {
-		code, _, err := auth.CreatePairingCode(tx, inv.OwnerID, name, features, nil, 0, 0, secret,
-			auth.WithModels(inv.Scope.Models), auth.WithModelCheck(i.app.ModelConfigLoader().ClientModelProblem))
+		code, _, err := auth.CreatePairingCode(tx, inv.OwnerID, name, features, nil, 0, 0, secret, opts...)
 		if err != nil {
 			return err
 		}

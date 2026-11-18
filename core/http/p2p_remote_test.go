@@ -203,4 +203,86 @@ var _ = Describe("Remote over P2P end to end", func() {
 			return cur.Status
 		}, 30*time.Second, time.Second).ShouldNot(Equal(remotes.StatusOK))
 	})
+
+	// The invite of the Share dialog lists no models: the remote then uses
+	// every model a client key may use, and a model with tools stays out.
+	It("shares every model with an invite that lists none, and answers a chat through the tunnel", func() {
+		if mockBackendPath == "" {
+			Skip("mock-backend binary not built; run 'make build-mock-backend'")
+		}
+		studio := newServer(true, map[string]string{
+			"chat-model":  "name: chat-model\nbackend: mock-backend\nparameters:\n  model: mock-model.bin\n",
+			"other-model": "name: other-model\nbackend: mock-backend\nparameters:\n  model: mock-model.bin\n",
+			"tool-model":  "name: tool-model\nbackend: mock-backend\nparameters:\n  model: mock-model.bin\nagent:\n  max_iterations: 3\n",
+		})
+		studio.app.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+		laptop := newServer(false, nil)
+
+		db := studio.app.AuthDB()
+		Expect(db.Create(&auth.User{ID: "root", Email: "root@example.test", Name: "root", Role: auth.RoleAdmin, Status: auth.StatusActive, Provider: auth.ProviderLocal}).Error).To(Succeed())
+		admin, _, err := auth.CreateAPIKey(db, "root", "test", auth.RoleAdmin, secret, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(studio.app.ModelConfigLoader().ClientModelProblem("tool-model")).To(HaveOccurred(), "the fixture must have tools attached")
+
+		By("minting a remote invite without models, as the Share dialog does")
+		p2pOn(studio, "share")
+		code, body := do(studio, http.MethodPost, "/api/p2p/invites", admin, map[string]any{"kind": "remote", "label": "laptop", "relays": "none"})
+		Expect(code).To(Equal(http.StatusCreated), string(body))
+		var minted struct {
+			Link string `json:"link"`
+		}
+		Expect(json.Unmarshal(body, &minted)).To(Succeed())
+		var st struct {
+			Addrs []string `json:"addrs"`
+		}
+		code, body = do(studio, http.MethodGet, "/api/p2p/status", admin, nil)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(json.Unmarshal(body, &st)).To(Succeed())
+		link := minted.Link + "&a=" + url.QueryEscape(st.Addrs[0])
+
+		By("adding it on the laptop, which lists the models of the studio")
+		p2pOn(laptop, "connect")
+		code, body = do(laptop, http.MethodPost, "/api/remotes", "", map[string]any{"invite": link})
+		Expect(code).To(Equal(http.StatusCreated), string(body))
+		var created struct {
+			Remote remotes.Remote `json:"remote"`
+		}
+		Expect(json.Unmarshal(body, &created)).To(Succeed())
+		r := created.Remote
+		Expect(r.Status).To(Equal(remotes.StatusOK), r.LastError)
+		var listed []string
+		for _, m := range r.New {
+			listed = append(listed, m.ID)
+		}
+		Expect(listed).To(ConsistOf("chat-model", "other-model"))
+
+		By("adopting a model and sending a chat request through the tunnel with the issued key")
+		code, body = do(laptop, http.MethodPost, "/api/remotes/"+r.ID+"/adopt", "", map[string]any{"models": []map[string]any{{"id": "chat-model", "usecases": []string{"chat"}}}})
+		Expect(code).To(Equal(http.StatusOK), string(body))
+		cfg, ok := laptop.app.ModelConfigLoader().GetModelConfig("chat-model")
+		Expect(ok).To(BeTrue())
+		key, err := config.ResolveProxyRemoteKey(context.Background(), r.ID, cfg.Proxy.UpstreamURL)
+		Expect(err).NotTo(HaveOccurred())
+		client := &http.Client{Timeout: 60 * time.Second}
+		send := func(model string) (int, string) {
+			payload, _ := json.Marshal(map[string]any{"model": model, "messages": []map[string]string{{"role": "user", "content": "hi"}}})
+			req, _ := http.NewRequest(http.MethodPost, cfg.Proxy.UpstreamURL+"/v1/chat/completions", bytes.NewReader(payload))
+			req.Header.Set("Authorization", "Bearer "+key)
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := client.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			out, _ := io.ReadAll(resp.Body)
+			return resp.StatusCode, string(out)
+		}
+		code, out := send("chat-model")
+		Expect(code).To(Equal(http.StatusOK), out)
+		Expect(out).To(ContainSubstring(`"choices"`))
+
+		By("refusing a model with tools, and a model the studio does not have")
+		code, out = send("tool-model")
+		Expect(code).To(Equal(http.StatusForbidden), out)
+		code, out = send("missing-model")
+		Expect(code).To(Equal(http.StatusForbidden), out)
+	})
 })

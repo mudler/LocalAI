@@ -45,8 +45,8 @@ P2P also needs a data path, because the server keeps its identity key there. It
 does not start when you run LocalAI with `--data-path -`, unless you name the key
 file with `--p2p-identity`.
 
-1. Open **Administration**, then **This machine**, **P2P** (on a cluster:
-   **Swarm**, **P2P**), and choose **Settings**.
+1. Open **Administration**, then **This machine**, **P2P** (on a cluster, or
+   when P2P is already on: **Swarm**, **P2P**), and choose **Settings**.
 2. Under **Network**, choose **Connect only** or **Connect and share**. The
    change applies at once. Without authentication, **Connect and share** is
    shown but cannot be chosen, and the page says what to turn on.
@@ -108,8 +108,17 @@ match. If they differ, someone else used the invite: choose **It does not
 match: revoke**, which revokes the device at once.
 
 A **device** invite gives access to the server only. The person still signs in as
-before. A **remote** invite also gives the other server a key that reaches only
-the models.
+before. A **remote** invite also gives the other server an API key that reaches
+the models and nothing else. From the dialog, that key may use every model of
+this server that a client key may use (a model with tools attached is left
+out), also models you add later. With the API, `models` in
+`POST /api/p2p/invites` limits the key to the models it lists.
+
+The key of a remote belongs to your user account, so a remote invite needs a
+signed-in user account. The API key set with `LOCALAI_API_KEY` (or
+`--api-keys`) has no account: an invite of kind `remote` made with it gets
+`409` and the dialog says to sign in with a user account. Device invites work
+with that key too.
 
 The **Devices and invites** page lists the pending invites, with the time left
 and the relay that holds the pass, and the paired devices, with the path of
@@ -209,7 +218,7 @@ names the mode.
 | Route | What it does |
 |---|---|
 | `GET /api/p2p/status` | Mode, peer ID, addresses, reachability, relay reservations, whether the server relays for its devices, and the number of pending invites and devices. Works in every mode. |
-| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker`, `split` or `federated`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
+| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker`, `split` or `federated`. `models` limits the key of a remote; without it the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
 | `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`, and `relay_pass`, the relay that holds the pass. A used invite also has `device_peer_id` and `phrase`, the confirmation phrase the device was shown. |
 | `DELETE /api/p2p/invites/{id}` | Cancels a pending invite and its relay pass. |
 | `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. |

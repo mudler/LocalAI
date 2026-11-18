@@ -20,7 +20,9 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 		// owner's models path; an unknown check leaves it true.
 		// The chats keys say what runs on this server, not what a user may use:
 		// the permissions of a user come from /api/auth/me. A part that was
-		// switched off, or that failed to start, reads false.
+		// switched off, or that failed to start, reads false. p2p is the P2P
+		// mode in effect (connect or share); the UI shows Swarm, P2P with it,
+		// on a single server too.
 		chats := app.StudioService() != nil
 		return c.JSON(200, map[string]bool{
 			"chats":             chats,
@@ -36,6 +38,7 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 			"quantization":      addons,
 			"model_exports":     addons && app.ModelExportsAllowed(c.Request().Context()),
 			"distributed":       appConfig.Distributed.Enabled,
+			"p2p":               app.P2PEnabled(),
 			"backend_install":   !appConfig.DisableBackendInstall,
 			"localai_assistant": !appConfig.DisableChatsLocalAIAdmin && app.LocalAIAssistant() != nil,
 			"addon_navigation":  !appConfig.LegacyNavigation,

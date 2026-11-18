@@ -25,7 +25,7 @@
     },
     "remote": {
       "title": "Serveur distant",
-      "body": "Un autre LocalAI utilise les modèles de cette instance."
+      "body": "Un autre LocalAI utilise tous les modèles de cette instance."
     },
     "worker": {
       "title": "Worker"
@@ -54,8 +54,8 @@
         "body": "Une invitation d'appareil permet à l'appareil de joindre cette instance. La personne se connecte quand même à l'interface web avec son propre compte."
       },
       "remote": {
-        "title": "Modèles uniquement.",
-        "body": "Une invitation de serveur distant donne à l'autre LocalAI une clé API qui peut utiliser les modèles de cette instance et rien d'autre."
+        "title": "Tous les modèles, rien d'autre.",
+        "body": "L'autre LocalAI reçoit une clé API qui peut utiliser chaque modèle de cette instance, y compris les modèles que vous ajoutez plus tard. Les modèles auxquels des outils sont attachés sont exclus. La clé n'atteint rien d'autre : ni les paramètres, ni les fichiers, ni une autre partie de l'API."
       }
     },
     "label": "Libellé",
@@ -71,6 +71,10 @@
     "close": "Fermer",
     "mint": "Créer l'invitation",
     "mintFailed": "L'invitation n'a pas été créée.",
+    "needsAccount": {
+      "title": "Connectez-vous avec un compte utilisateur pour partager avec un serveur distant",
+      "body": "L'autre LocalAI reçoit une clé API qui appartient à votre compte utilisateur. Vous êtes connecté avec la clé API définie par LOCALAI_API_KEY, qui n'a pas de compte. Connectez-vous avec un compte utilisateur et créez l'invitation à nouveau. Les invitations d'appareil fonctionnent comme avant."
+    },
     "copy": "Copier",
     "copied": "Copié",
     "copyFailed": "Le lien n'a pas été copié. Sélectionnez-le et copiez-le à la main.",

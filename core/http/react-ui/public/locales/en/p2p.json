@@ -25,7 +25,7 @@
     },
     "remote": {
       "title": "Remote",
-      "body": "Another LocalAI uses the models of this instance."
+      "body": "Another LocalAI uses all the models of this instance."
     },
     "worker": {
       "title": "Worker"
@@ -54,8 +54,8 @@
         "body": "A device invite lets the device reach this instance. The person still signs in to the web UI with their own account."
       },
       "remote": {
-        "title": "Models only.",
-        "body": "A remote invite gives the other LocalAI an API key that can use the models of this instance and nothing else."
+        "title": "All models, nothing else.",
+        "body": "The other LocalAI gets an API key that can use every model of this instance, also the models you add later. Models with tools attached are left out. The key reaches nothing else: no settings, no files, no other part of the API."
       }
     },
     "label": "Label",
@@ -71,6 +71,10 @@
     "close": "Close",
     "mint": "Make invite",
     "mintFailed": "The invite was not made.",
+    "needsAccount": {
+      "title": "Sign in with a user account to share with a remote",
+      "body": "The other LocalAI gets an API key that belongs to your user account. You are signed in with the API key set with LOCALAI_API_KEY, which has no account. Sign in with a user account and make the invite again. Device invites work as before."
+    },
     "copy": "Copy",
     "copied": "Copied",
     "copyFailed": "The link was not copied. Select it and copy it by hand.",

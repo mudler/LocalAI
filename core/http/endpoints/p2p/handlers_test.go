@@ -148,8 +148,20 @@ var _ = Describe("P2P handlers", func() {
 		Entry("invalid", fmt.Errorf("%w: label", ErrInvalid), http.StatusBadRequest),
 		Entry("conflict", fmt.Errorf("%w: no longer pending", ErrConflict), http.StatusConflict),
 		Entry("unavailable", fmt.Errorf("%w: no relay manager", ErrUnavailable), http.StatusServiceUnavailable),
+		Entry("no user account", ErrNeedsAccount, http.StatusConflict),
 		Entry("other", fmt.Errorf("disk on fire"), http.StatusInternalServerError),
 	)
+
+	It("tells a caller without a user account how to share a remote", func() {
+		svc.err = fmt.Errorf("mint: %w", ErrNeedsAccount)
+		rec := call(MintInviteEndpoint(svc), http.MethodPost, `{"kind":"remote"}`, nil)
+		Expect(rec.Code).To(Equal(http.StatusConflict))
+		Expect(errorOf(rec)).To(Equal(ErrNeedsAccount.Error()))
+		Expect(errorOf(rec)).To(ContainSubstring("LOCALAI_API_KEY"))
+		var r schema.ErrorResponse
+		Expect(json.Unmarshal(rec.Body.Bytes(), &r)).To(Succeed())
+		Expect(r.Error.Type).To(Equal("needs_account"))
+	})
 
 	It("does not show an internal error to the caller", func() {
 		svc.err = fmt.Errorf("secret detail")

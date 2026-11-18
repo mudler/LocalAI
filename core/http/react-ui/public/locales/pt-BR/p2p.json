@@ -25,7 +25,7 @@
     },
     "remote": {
       "title": "Remoto",
-      "body": "Outro LocalAI usa os modelos desta instância."
+      "body": "Outro LocalAI usa todos os modelos desta instância."
     },
     "worker": {
       "title": "Worker"
@@ -54,8 +54,8 @@
         "body": "Um convite de dispositivo permite que o dispositivo acesse esta instância. A pessoa continua entrando na interface web com a própria conta."
       },
       "remote": {
-        "title": "Somente modelos.",
-        "body": "Um convite de remoto dá ao outro LocalAI uma chave de API que pode usar os modelos desta instância e nada mais."
+        "title": "Todos os modelos, nada mais.",
+        "body": "O outro LocalAI recebe uma chave de API que pode usar cada modelo desta instância, inclusive os modelos que você adicionar depois. Modelos com ferramentas anexadas ficam de fora. A chave não alcança mais nada: nem configurações, nem arquivos, nem outra parte da API."
       }
     },
     "label": "Rótulo",
@@ -71,6 +71,10 @@
     "close": "Fechar",
     "mint": "Criar convite",
     "mintFailed": "O convite não foi criado.",
+    "needsAccount": {
+      "title": "Entre com uma conta de usuário para compartilhar com um remoto",
+      "body": "O outro LocalAI recebe uma chave de API que pertence à sua conta de usuário. Você entrou com a chave de API definida em LOCALAI_API_KEY, que não tem conta. Entre com uma conta de usuário e crie o convite de novo. Convites de dispositivo funcionam como antes."
+    },
     "copy": "Copiar",
     "copied": "Copiado",
     "copyFailed": "O link não foi copiado. Selecione-o e copie manualmente.",
