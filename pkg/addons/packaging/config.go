@@ -37,11 +37,22 @@ const (
 
 var (
 	versionRE  = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(\.[0-9A-Za-z-]+)*)?$`)
-	platformRE = regexp.MustCompile(`^(linux|darwin)/(amd64|arm64)$`)
+	platformRE = regexp.MustCompile(`^((linux|darwin)/(amd64|arm64)|windows/amd64)$`)
 	addonRE    = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
 	shaRE      = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	digestRE   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 )
+
+// ExecutableFor is the file name of the executable of a package for
+// platform. A Windows package names it <executable>.exe: Windows has no
+// execute bit, and only the .exe extension makes a file a program there. The
+// platform matrix and the manifest template keep the plain name.
+func ExecutableFor(executable, platform string) string {
+	if strings.HasPrefix(platform, "windows/") {
+		return executable + ".exe"
+	}
+	return executable
+}
 
 // PlatformEntry is one row of the release platform matrix. A platform ships
 // only while Enabled is true, and it is enabled only after its native runtime
@@ -120,7 +131,7 @@ func loadPlatforms(file string) (*PlatformsFile, error) {
 			return nil, fmt.Errorf("platform matrix: enabled platform %q needs a runner and native_check %q", e.Platform, NativeCheckKind)
 		}
 		for _, r := range e.Runtime {
-			if !localPath(r) || r == "manifest.json" || r == p.Executable {
+			if !localPath(r) || r == "manifest.json" || r == p.Executable || r == ExecutableFor(p.Executable, e.Platform) {
 				return nil, fmt.Errorf("platform matrix: invalid runtime file %q", r)
 			}
 		}

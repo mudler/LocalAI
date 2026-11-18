@@ -90,6 +90,15 @@ func stampManifest(template []byte, version, platform string) ([]byte, error) {
 		b, _ := json.Marshal(v)
 		m[k] = b
 	}
+	// A Windows package names its executable with .exe (see ExecutableFor).
+	if os_ == "windows" {
+		var exe string
+		if err := json.Unmarshal(m["executable"], &exe); err != nil {
+			return nil, fmt.Errorf("manifest template: executable: %w", err)
+		}
+		b, _ := json.Marshal(ExecutableFor(exe, platform))
+		m["executable"] = b
+	}
 	out, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return nil, err
@@ -129,7 +138,7 @@ func cmdBuild(args []string) error {
 		return fmt.Errorf("version %q is not a semantic version without a v prefix or build metadata", *version)
 	}
 	if !platformRE.MatchString(*platform) {
-		return fmt.Errorf("platform %q is not os/arch of linux or darwin on amd64 or arm64", *platform)
+		return fmt.Errorf("platform %q is not os/arch of linux or darwin on amd64 or arm64, or windows/amd64", *platform)
 	}
 	if *revision != "" && !shaRE.MatchString(*revision) {
 		return errors.New("revision must be 40 lower-case hex characters")
@@ -166,7 +175,7 @@ func cmdBuild(args []string) error {
 	if err := contract.ValidateManifest(m, hostFor(*platform)); err != nil {
 		return fmt.Errorf("manifest: %w", err)
 	}
-	if m.ID != cfg.Addon || m.Executable != cfg.Executable {
+	if m.ID != cfg.Addon || m.Executable != ExecutableFor(cfg.Executable, *platform) {
 		return errors.New("manifest id or executable differs from the platform matrix")
 	}
 	exeBytes, err := readRegular(*exe)

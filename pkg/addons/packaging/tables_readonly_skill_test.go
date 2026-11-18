@@ -24,7 +24,7 @@ var _ = Describe("Tables read-only skill", func() {
 			Expect(p.Enabled).To(BeTrue())
 			platforms = append(platforms, p.Platform)
 		}
-		Expect(platforms).To(ConsistOf("linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"))
+		Expect(platforms).To(ConsistOf("linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64", "windows/amd64"))
 
 		p := newProject(map[string][]string{"linux/amd64": nil})
 		dir := p.mustBuild("linux/amd64", "1.2.3", "fixture tables binary")
