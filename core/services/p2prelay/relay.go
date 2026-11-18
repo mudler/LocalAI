@@ -90,9 +90,13 @@ type Relay struct {
 	passIP     *attempts
 	passPeer   *attempts
 
+	// limitsMu serialises changes of the limits.
+	limitsMu sync.Mutex
+
 	mu     sync.Mutex
 	h      host.Host
 	relay  *relayv2.Relay
+	rl     *rateLimitedHost
 	notify *network.NotifyBundle
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -115,6 +119,9 @@ func New(cfg Config) (*Relay, error) {
 	}
 	g, err := newGate(&cfg)
 	if err != nil {
+		return nil, err
+	}
+	if err := applyStoredLimits(&cfg); err != nil {
 		return nil, err
 	}
 	tr := &tracer{}
@@ -185,22 +192,14 @@ func (r *Relay) Start(h host.Host) error {
 	if r.h != nil {
 		return errors.New("p2prelay: already started")
 	}
-	ropts := []relayv2.Option{
-		relayv2.WithResources(r.cfg.Limits.resources()),
-		relayv2.WithACL(r.gate),
-		relayv2.WithMetricsTracer(r.tracer),
-	}
-	if r.cfg.AllowPrivateAddrs || !hasPublicAddr(h.Addrs()) {
-		if !r.cfg.AllowPrivateAddrs {
-			xlog.Warn("relay: no public address; reservations carry private addresses")
-		}
-		ropts = append(ropts, relayv2.WithReservationAddressFilter(func(ma.Multiaddr) bool { return true }))
-	}
-	rel, err := relayv2.New(RateLimitedHost(h, r.cfg.RateLimit, r.cfg.TotalRateLimit), ropts...)
+	r.h = h
+	r.rl = newRateLimitedHost(h, r.cfg.RateLimit, r.cfg.TotalRateLimit)
+	rel, err := r.newCircuitRelayLocked()
 	if err != nil {
-		return fmt.Errorf("p2prelay: start relay: %w", err)
+		r.h, r.rl = nil, nil
+		return err
 	}
-	r.h, r.relay, r.start = h, rel, time.Now()
+	r.relay, r.start = rel, time.Now()
 	h.SetStreamHandler(relayproto.AdminID, r.handleAdmin)
 	h.SetStreamHandler(relayproto.PassID, r.handlePass)
 	r.notify = &network.NotifyBundle{ConnectedF: r.connected, DisconnectedF: r.disconnected}
@@ -218,6 +217,27 @@ func (r *Relay) Start(h host.Host) error {
 		xlog.Warn("relay: OPEN RELAY: any peer can reserve and relay through this host")
 	}
 	return nil
+}
+
+// newCircuitRelayLocked starts the circuit v2 service on the rate-limited
+// host with the current limits. The caller holds mu.
+func (r *Relay) newCircuitRelayLocked() (*relayv2.Relay, error) {
+	ropts := []relayv2.Option{
+		relayv2.WithResources(r.cfg.Limits.resources()),
+		relayv2.WithACL(r.gate),
+		relayv2.WithMetricsTracer(r.tracer),
+	}
+	if r.cfg.AllowPrivateAddrs || !hasPublicAddr(r.h.Addrs()) {
+		if !r.cfg.AllowPrivateAddrs {
+			xlog.Warn("relay: no public address; reservations carry private addresses")
+		}
+		ropts = append(ropts, relayv2.WithReservationAddressFilter(func(ma.Multiaddr) bool { return true }))
+	}
+	rel, err := relayv2.New(r.rl, ropts...)
+	if err != nil {
+		return nil, fmt.Errorf("p2prelay: start relay: %w", err)
+	}
+	return rel, nil
 }
 
 // Close stops the relay and removes its handlers. It does not close the host.
