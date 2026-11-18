@@ -125,6 +125,10 @@ type Client struct {
 	// available.
 	P2P p2papi.Service
 
+	// P2PSplit backs the model-split worker tools. nil makes them report
+	// that P2P is not available.
+	P2PSplit p2papi.SplitService
+
 	// SharedFolders backs the shared folder tools. It is read at each call,
 	// because the chats start after the assistant; nil or a nil service makes
 	// the tools report that the chats are off.
@@ -1704,4 +1708,38 @@ func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*loc
 	}
 	c.AppConfig.ChatsEgressCeiling = ceiling
 	return c.GetChatEgress(ctx)
+}
+
+func splitInfo(w p2papi.SplitWorkerView) localaitools.P2PSplitWorkerInfo {
+	return localaitools.P2PSplitWorkerInfo{
+		ID: w.ID, Label: w.Label, Engine: w.Engine, State: w.State, Error: w.Error,
+		AllowSlowPath: w.AllowSlowPath, Path: w.Path.Kind, RelayLabel: w.Path.RelayLabel, MemoryBytes: w.MemoryBytes,
+	}
+}
+
+func (c *Client) ListP2PSplitWorkers(ctx context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {
+	if c.P2PSplit == nil {
+		return nil, errNoP2P
+	}
+	list, err := c.P2PSplit.ListSplitWorkers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.P2PSplitWorkerInfo, 0, len(list.Workers))
+	for _, w := range list.Workers {
+		out = append(out, splitInfo(w))
+	}
+	return out, nil
+}
+
+func (c *Client) SetP2PSplitSlowPath(ctx context.Context, id string, allow bool) (*localaitools.P2PSplitWorkerInfo, error) {
+	if c.P2PSplit == nil {
+		return nil, errNoP2P
+	}
+	w, err := c.P2PSplit.SetSplitWorker(ctx, id, p2papi.SplitWorkerUpdate{AllowSlowPath: &allow})
+	if err != nil {
+		return nil, err
+	}
+	info := splitInfo(w)
+	return &info, nil
 }

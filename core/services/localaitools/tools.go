@@ -72,6 +72,7 @@ const (
 	ToolSetChatEgressCeiling = "set_chat_egress_ceiling"
 	ToolRevokeP2PDevice      = "revoke_p2p_device"
 	ToolCancelP2PInvite      = "cancel_p2p_invite"
+	ToolSetP2PSplitSlowPath  = "set_p2p_split_slow_path"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
@@ -92,6 +93,9 @@ const (
 	ToolListP2PDevices = "list_p2p_devices"
 	ToolListP2PInvites = "list_p2p_invites"
 	ToolListP2PRelays  = "list_p2p_relays"
+	// ToolListP2PSplitWorkers lists the model-split workers;
+	// set_p2p_split_slow_path is in the mutating block above.
+	ToolListP2PSplitWorkers = "list_p2p_split_workers"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when
@@ -133,4 +137,5 @@ var mutatingToolNames = []string{
 	ToolSetChatEgressCeiling,
 	ToolRevokeP2PDevice,
 	ToolCancelP2PInvite,
+	ToolSetP2PSplitSlowPath,
 }

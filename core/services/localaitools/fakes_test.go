@@ -490,6 +490,16 @@ func (f *fakeClient) CancelP2PInvite(_ context.Context, id string) error {
 	return nil
 }
 
+func (f *fakeClient) ListP2PSplitWorkers(_ context.Context) ([]P2PSplitWorkerInfo, error) {
+	f.record("ListP2PSplitWorkers", nil)
+	return []P2PSplitWorkerInfo{}, nil
+}
+
+func (f *fakeClient) SetP2PSplitSlowPath(_ context.Context, id string, allow bool) (*P2PSplitWorkerInfo, error) {
+	f.record("SetP2PSplitSlowPath", id)
+	return &P2PSplitWorkerInfo{ID: id, AllowSlowPath: allow}, nil
+}
+
 func (f *fakeClient) ListFailoverChains(_ context.Context) ([]FailoverChainInfo, error) {
 	f.record("ListFailoverChains", nil)
 	if f.listFailoverChains != nil {

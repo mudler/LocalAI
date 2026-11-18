@@ -107,6 +107,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListP2PDevices,
 	ToolListP2PInvites,
 	ToolListP2PRelays,
+	ToolListP2PSplitWorkers,
 	// The read-only flavour keeps the client tools that only analyse or list.
 	ToolTranscribeAudio, ToolDescribeImage, ToolDetect, ToolRerank,
 	ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels, ToolProjects,
@@ -206,6 +207,8 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListP2PRelays, map[string]any{}, "ListP2PRelays"},
 		{ToolRevokeP2PDevice, map[string]any{"id": "d1"}, "RevokeP2PDevice"},
 		{ToolCancelP2PInvite, map[string]any{"id": "i1"}, "CancelP2PInvite"},
+		{ToolListP2PSplitWorkers, map[string]any{}, "ListP2PSplitWorkers"},
+		{ToolSetP2PSplitSlowPath, map[string]any{"id": "w1", "allow": true}, "SetP2PSplitSlowPath"},
 		{ToolGenerateImage, GenerateImageRequest{Prompt: "a fox"}, "GenerateImage"},
 		{ToolGenerateImage, GenerateImageToolInput{Prompt: "a hat", Image: "a.png", Mask: "m.png"}, "EditImage"},
 		{ToolSpeak, SpeakRequest{Text: "hello"}, "Speak"},

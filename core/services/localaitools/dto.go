@@ -680,6 +680,24 @@ type P2PInviteInfo struct {
 	RelayPass string `json:"relay_pass,omitempty"`
 }
 
+// P2PSplitWorkerInfo is the LLM-facing view of one model-split worker.
+type P2PSplitWorkerInfo struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	// Engine is llama (llama.cpp RPC) or mlx.
+	Engine string `json:"engine"`
+	// State is online (in use), offline, slow (only a relay reaches it; it
+	// waits for allow_slow_path), limited (only a relay with a data limit
+	// reaches it, which cannot carry model layers) or refused.
+	State         string `json:"state"`
+	Error         string `json:"error,omitempty"`
+	AllowSlowPath bool   `json:"allow_slow_path"`
+	// Path is none, direct, hole_punched or relayed.
+	Path        string `json:"path"`
+	RelayLabel  string `json:"relay,omitempty"`
+	MemoryBytes uint64 `json:"memory_bytes"`
+}
+
 // P2PRelayInfo is the LLM-facing view of one relay.
 type P2PRelayInfo struct {
 	ID    string `json:"id"`

@@ -61,6 +61,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListP2PDevices:            "GET /api/p2p/devices",
 	ToolListP2PInvites:            "GET /api/p2p/invites",
 	ToolListP2PRelays:             "GET /api/p2p/relays",
+	ToolListP2PSplitWorkers:       "GET /api/p2p/split-workers",
 
 	// Mutating tools.
 	ToolInstallModel:             "POST /models/apply",
@@ -92,6 +93,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolUnpinFailoverTarget:      "DELETE /api/failover/:chain/pin",
 	ToolRevokeP2PDevice:          "DELETE /api/p2p/devices/:id",
 	ToolCancelP2PInvite:          "DELETE /api/p2p/invites/:id",
+	ToolSetP2PSplitSlowPath:      "PATCH /api/p2p/split-workers/:id",
 	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
 	// adminRoutesWithoutTool.
 	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",
