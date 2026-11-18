@@ -5,11 +5,10 @@
 #   run.sh --list          list the cases
 #
 # Environment:
-#   LAB_BIN     the lab binary to run in the containers (required, linux)
+#   LAB_BIN        the lab binary (p2plab) to run in the containers (required, linux)
+#   LAB_RELAY_BIN  the localai-relay binary the relay container runs (required, linux)
 #   LAB_LOGS    where the logs go (default: ./logs next to this script)
-#   LAB_CAPS    capabilities of the binary (default: what "<bin> caps" prints;
-#               a binary without a "caps" command has just "base")
-#   LAB_NATS    the two NAT types, "<a> <b>" with cone or sym (default: sym sym)
+#   LAB_NATS    the two NAT types, "<a> <b>" with cone or sym (default: sym sym); a case may change them
 #   LAB_KEEP    set to 1 to leave the containers up after the run, for debugging
 #   LAB_PREFIX, LAB_IMAGE, LAB_IPTABLES, LAB_RELAY_BACKOFF   see lab.sh and lib.sh
 set -u
@@ -19,12 +18,11 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 . "$HERE/lib.sh"
 
 CASES=()
-declare -A CASE_DESC CASE_NEEDS
-# register <name> <description> [capability]: the case is the function case_<name>.
+declare -A CASE_DESC
+# register <name> <description>: the case is the function case_<name>.
 register() {
   CASES+=("$1")
   CASE_DESC[$1]=$2
-  CASE_NEEDS[$1]=${3:-}
 }
 for f in "$HERE"/cases/*.sh; do
   # shellcheck disable=SC1090
@@ -32,7 +30,7 @@ for f in "$HERE"/cases/*.sh; do
 done
 
 if [ "${1:-}" = "--list" ]; then
-  for c in "${CASES[@]}"; do printf '%-22s %s%s\n' "$c" "${CASE_DESC[$c]}" "${CASE_NEEDS[$c]:+ (needs ${CASE_NEEDS[$c]})}"; done
+  for c in "${CASES[@]}"; do printf '%-22s %s\n' "$c" "${CASE_DESC[$c]}"; done
   exit 0
 fi
 
@@ -41,17 +39,9 @@ LAB_LOGS=${LAB_LOGS:-$HERE/logs}
 LAB_NATS=${LAB_NATS:-sym sym}
 mkdir -p "$LAB_LOGS"
 
-# Capabilities: a binary says what it can do with "caps".
-if [ -z "${LAB_CAPS:-}" ]; then
-  "$HERE/lab.sh" preflight || exit 1
-  LAB_CAPS=$(docker run --rm -v "$LAB_BIN:/usr/local/bin/p2plab:ro" "${LAB_IMAGE:-p2plab-lab:local}" p2plab caps 2>/dev/null) || LAB_CAPS=base
-fi
-if grep -qw placeholder <<<"$LAB_CAPS"; then
-  echo "P2P lab: the lab binary is still the placeholder (tests/e2e/p2p/labbin), so there is nothing to run. Skipping."
-  exit 0
-fi
+: "${LAB_RELAY_BIN:?LAB_RELAY_BIN must name the localai-relay binary (a static linux binary)}"
 "$HERE/lab.sh" preflight || exit 1
-echo "P2P lab: binary $LAB_BIN, capabilities: $LAB_CAPS, NATs: $LAB_NATS"
+echo "P2P lab: lab binary $LAB_BIN, relay binary $LAB_RELAY_BIN, NATs: $LAB_NATS"
 
 wanted=("$@")
 if [ ${#wanted[@]} -eq 0 ]; then wanted=("${CASES[@]}"); fi
@@ -87,17 +77,19 @@ done
 # reset_nodes: stop every background process and clear the logs of the last case.
 reset_nodes() {
   local n
-  for n in a b relay; do
+  for n in a b relay obs1 obs2 obs3 obs4; do
     # shellcheck disable=SC2016  # the loop runs in the node
     ex $n 'for f in /root/*.pid; do [ -f "$f" ] && kill "$(cat "$f")" 2>/dev/null; done; sleep 1; rm -f /root/*.pid /root/*.out /root/*.err' >/dev/null 2>&1 || true
   done
   relay_wipe
+  BOOT=""
+  set_nats $LAB_NATS
 }
 
 # collect_logs: copy the output of every background process to the case logs.
 collect_logs() {
   local n
-  for n in a b relay; do
+  for n in a b relay obs1 obs2 obs3 obs4; do
     docker exec "${P}-$n" sh -c 'cd /root && tar cf - *.out *.err 2>/dev/null' | tar xf - -C "$CASE_LOGS" 2>/dev/null || true
     for f in "$CASE_LOGS"/*.out "$CASE_LOGS"/*.err; do
       [ -f "$f" ] && mv "$f" "$CASE_LOGS/$n-$(basename "$f").log"
@@ -105,14 +97,9 @@ collect_logs() {
   done
 }
 
-PASSED=() FAILED=() SKIPPED=()
+PASSED=() FAILED=()
 for c in "${wanted[@]}"; do
   say "case $c: ${CASE_DESC[$c]}"
-  if [ -n "${CASE_NEEDS[$c]}" ] && ! need "${CASE_NEEDS[$c]}"; then
-    echo "  skip (the lab binary lacks the capability ${CASE_NEEDS[$c]})"
-    SKIPPED+=("$c")
-    continue
-  fi
   CASE_LOGS=$LAB_LOGS/$c
   rm -rf "$CASE_LOGS"
   mkdir -p "$CASE_LOGS"
@@ -126,7 +113,6 @@ done
 
 say "summary"
 echo "passed:  ${PASSED[*]:-none}"
-echo "skipped: ${SKIPPED[*]:-none}"
 echo "failed:  ${FAILED[*]:-none}"
 echo "logs: $LAB_LOGS"
 [ ${#FAILED[@]} -eq 0 ]
