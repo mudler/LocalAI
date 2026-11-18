@@ -166,7 +166,7 @@ export default function RelaysSection({ status, relays, error, onReload, addToas
       ))}
 
       {running && <RunRelayDialog peerID={peerID} addToast={addToast} onClose={() => { setRunning(false); onReload() }} onAdded={() => { setRunning(false); onReload() }} />}
-      {limitsOf && <RelayLimitsDialog relay={limitsOf} peerID={peerID} addToast={addToast} onClose={() => setLimitsOf(null)} />}
+      {limitsOf && <RelayLimitsDialog relay={limitsOf} addToast={addToast} onSaved={onReload} onClose={() => setLimitsOf(null)} />}
       {claiming && (
         <Dialog
           title={t('relays.claimTitle')} description={t('relays.claimLede')} onClose={() => setClaiming(null)} pending={busy === 'claim'}

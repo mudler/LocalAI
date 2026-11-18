@@ -64,7 +64,7 @@ export const checks = {
 // mockP2PSettings answers every call of the page and records the writes in
 // `calls`. `auth` signs in an administrator with authentication on.
 export async function mockP2PSettings(page, { mode = 'share', settings = {}, status = {}, relays = relayList(), check = checks.ok, auth = true } = {}) {
-  const calls = { settings: [], added: [], removed: [], synced: [], claimed: [], regenerated: 0 }
+  const calls = { settings: [], added: [], removed: [], synced: [], claimed: [], limits: [], regenerated: 0 }
   let current = p2pSettings(mode, settings)
   let list = relays
   if (auth) {
@@ -90,7 +90,7 @@ export async function mockP2PSettings(page, { mode = 'share', settings = {}, sta
   await page.route(/\/api\/p2p\/relays(\/.*)?$/, async route => {
     const req = route.request()
     const path = new URL(req.url()).pathname
-    const m = /\/api\/p2p\/relays(?:\/([^/]+))?(?:\/(check|sync|claim))?$/.exec(path)
+    const m = /\/api\/p2p\/relays(?:\/([^/]+))?(?:\/(check|sync|claim|limits))?$/.exec(path)
     const id = m?.[1] && decodeURIComponent(m[1])
     const op = m?.[2]
     if (!id && req.method() === 'GET') return route.fulfill({ json: { relays: list } })
@@ -100,6 +100,18 @@ export async function mockP2PSettings(page, { mode = 'share', settings = {}, sta
       const relay = { id: 'r-new', label: '', addr: body.addr, mode: 'unknown', state: 'checking', admins: 0, members: 0, limits: limits(0, 0, 0) }
       list = [...list, relay]
       return route.fulfill({ status: 201, json: relay })
+    }
+    if (op === 'limits') {
+      const relay = list.find(r => r.id === id)
+      const can = relay?.mode === 'gated' && relay?.state !== 'unclaimed'
+      if (req.method() === 'PUT') {
+        const body = req.postDataJSON()
+        calls.limits.push({ id, ...body })
+        const restarted = body.circuit_bytes !== relay.limits.circuit_bytes || body.circuit_seconds !== relay.limits.circuit_seconds
+        list = list.map(r => (r.id === id ? { ...r, limits: { circuit_bytes: body.circuit_bytes, circuit_seconds: body.circuit_seconds, rate_bps: body.rate_bps } } : r))
+        return route.fulfill({ json: { limits: list.find(r => r.id === id).limits, can_change: true, restarted } })
+      }
+      return route.fulfill({ json: { limits: relay.limits, can_change: can } })
     }
     if (op === 'check') return route.fulfill({ json: id === 'r-new' ? check : { ...checks.ok, relay: list.find(r => r.id === id) } })
     if (op === 'sync') { calls.synced.push(id); return route.fulfill({ json: { ...list.find(r => r.id === id), state: 'in_sync' } }) }
