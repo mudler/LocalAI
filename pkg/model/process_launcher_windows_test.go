@@ -31,7 +31,7 @@ func TestResolveLauncherWindowsWithRunPs1(t *testing.T) {
 		"-ExecutionPolicy",
 		"Bypass",
 		"-File", runPs1,
-		"--addr", "localhost:50051",
+		"--addr=localhost:50051",
 	}
 	if len(args) != len(expectedArgs) {
 		t.Fatalf("expected %d args, got %d: %v", len(expectedArgs), len(args), args)
@@ -59,7 +59,7 @@ func TestResolveLauncherWindowsWithoutRunPs1(t *testing.T) {
 		t.Fatalf("expected processName %q, got %q", filepath.Join(dir, "grpc-server"), processName)
 	}
 
-	expectedArgs := []string{"--addr", "localhost:50051"}
+	expectedArgs := []string{"--addr=localhost:50051"}
 	if len(args) != len(expectedArgs) {
 		t.Fatalf("expected %d args, got %d: %v", len(expectedArgs), len(args), args)
 	}
@@ -89,7 +89,7 @@ func TestResolveLauncherWindowsPrefersGrpcBinary(t *testing.T) {
 		t.Fatalf("expected processName %q, got %q", grpcBinary, processName)
 	}
 
-	expectedArgs := []string{"--addr", "localhost:50051"}
+	expectedArgs := []string{"--addr=localhost:50051"}
 	if len(args) != len(expectedArgs) {
 		t.Fatalf("expected %d args, got %d: %v", len(expectedArgs), len(args), args)
 	}

@@ -298,9 +298,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 
 	// Include --addr in processArgs so the launcher passes it to the backend
-	// process. On Linux proc.Run() uses the stored args from
-	// grpcControlProcess; on Windows startProcessWindows uses processArgs
-	// directly and also converts --addr <addr> to --addr=<addr>.
+	// process. On Windows resolveLauncher also rewrites --addr <addr> to
+	// --addr=<addr>.
 	processArgs := append(args, []string{"--addr", serverAddress}...)
 
 	// The gallery contract names a run.sh stub as the backend entrypoint. On a
@@ -343,6 +342,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 
 	env = vulkanICDEnv(workDir, env)
+	// Platform hook: on Windows this puts the backend's lib directory on PATH.
+	env = prepareBackendEnv(workDir, env)
 
 	grpcControlProcess := process.New(
 		process.WithStateDir(stateDir),
@@ -357,12 +358,9 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		ml.wd.AddAddressModelMap(serverAddress, id)
 	}
 
-	// On Windows, startProcessWindows assigns the process to a job object
-	// immediately after CreateProcess returns, before the launcher can spawn
-	// children, so the tree cannot outlive a stop. On other platforms, Run()
-	// starts the process and trackProcessTree is called immediately after;
-	// the race window is negligible because child processes inherit the
-	// job/cgroup of their parent.
+	// Run() starts the process and trackProcessTree is called immediately
+	// after, on every platform (a job object on Windows). The race window is
+	// negligible because child processes inherit the job of their parent.
 	if err := backendProcessLauncher.launch(grpcControlProcess, runtime, processName, processArgs, workDir, env); err != nil {
 		ml.untrackProcess(grpcControlProcess)
 		runtime.cleanup()

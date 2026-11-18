@@ -37,3 +37,9 @@ func (processLauncherOther) launch(proc *process.Process, runtime *backendProces
 func newLauncher() processLauncher {
 	return processLauncherOther{}
 }
+
+// prepareBackendEnv returns the backend environment unchanged: the dynamic
+// loader path is set by the run.sh stub on these platforms.
+func prepareBackendEnv(_ string, env []string) []string {
+	return env
+}
