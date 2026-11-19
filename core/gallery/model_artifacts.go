@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 type ArtifactMaterializer interface {
@@ -102,6 +103,37 @@ func WithoutArtifactBinding() InstallOption {
 	return func(options *installOptions) {
 		options.skipArtifactBinding = true
 	}
+}
+
+// BindPlanArtifact binds the primary artifact of a plan made with
+// WithoutArtifactBinding: it materializes the artifact and rewrites the plan
+// config with the resolved spec. It reports whether the config changed. A
+// plan of an entry that lists files, writes no config or has no artifact is
+// left as it is.
+func BindPlanArtifact(ctx context.Context, systemState *system.SystemState, plan *InstallPlan, options ...InstallOption) (bool, error) {
+	if plan == nil || !plan.WriteConfig || len(plan.Gallery.Files) > 0 {
+		return false, nil
+	}
+	installOptions := applyInstallOptions(options...)
+	basePath := systemState.Model.ModelsPath
+	spec, inferred, ok, err := plan.Model.PrimaryArtifactSpec(basePath)
+	if err != nil || !ok {
+		return false, err
+	}
+	var configMap map[string]any
+	if err := yaml.Unmarshal(plan.ConfigYAML, &configMap); err != nil {
+		return false, err
+	}
+	applied, err := bindPrimaryArtifact(ctx, basePath, &plan.Model, configMap, installOptions.materializer, spec, inferred)
+	if err != nil || !applied {
+		return false, err
+	}
+	out, err := yaml.Marshal(configMap)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal config with the bound artifact: %w", err)
+	}
+	plan.ConfigYAML = out
+	return true, nil
 }
 
 func applyInstallOptions(options ...InstallOption) installOptions {

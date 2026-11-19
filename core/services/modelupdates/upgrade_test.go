@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 )
 
 var _ = Describe("The upgrade state machine", func() {
@@ -714,6 +715,29 @@ var _ = Describe("A model upgrade", func() {
 		Expect(refused.Reason).To(ContainSubstring("not enough free disk space"))
 	})
 
+	It("materializes the artifact of an entry that lists only an artifact while it stages", func() {
+		var phases []string
+		mat := &phaseMaterializer{ensure: func() {
+			phases = append(phases, journal().Phase)
+		}}
+		u := upgrader(nil)
+		u.InstallOptions = []gallery.InstallOption{gallery.WithArtifactMaterializer(mat)}
+		f.publish(gallery.GalleryModel{
+			Metadata: gallery.Metadata{Name: "tiny", Description: "v2"},
+			Overrides: map[string]any{
+				"backend":    "transformers",
+				"artifacts":  []any{map[string]any{"name": "model", "target": "model", "source": map[string]any{"type": "huggingface", "repo": "owner/repo"}}},
+				"parameters": map[string]any{"model": "owner/repo"},
+			},
+		})
+		Expect(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(Succeed())
+		Expect(phases).To(Equal([]string{gallery.PhaseStaging}))
+		Expect(read("tiny.yaml")).To(ContainSubstring("0123456789abcdef0123456789abcdef01234567"))
+		sc, err := gallery.ReadSidecar(f.dir, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sc.ConfigSHA256).To(Equal(gallery.SHA256Hex([]byte(read("tiny.yaml")))))
+	})
+
 	It("tells a refusal before the journal as a failed upgrade, once, from the upgrader", func() {
 		n := &upgradeNotifier{}
 		u := upgrader(nil)
@@ -841,4 +865,20 @@ type upgradeNotifier struct{ results []modelupdates.UpgradeResult }
 func (n *upgradeNotifier) ModelUpgradeResult(_ context.Context, r modelupdates.UpgradeResult) error {
 	n.results = append(n.results, r)
 	return nil
+}
+
+// phaseMaterializer is an artifact materializer that tells when it runs and
+// resolves every spec to a fixed revision.
+type phaseMaterializer struct {
+	ensure func()
+}
+
+func (m *phaseMaterializer) Ensure(_ context.Context, _ string, spec modelartifacts.Spec) (modelartifacts.Result, error) {
+	m.ensure()
+	spec.Resolved = &modelartifacts.Resolved{
+		Endpoint: "https://huggingface.co",
+		Revision: "0123456789abcdef0123456789abcdef01234567",
+		CacheKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+	}
+	return modelartifacts.Result{Spec: spec, RelativePath: ".artifacts/huggingface/key/snapshot"}, nil
 }

@@ -209,6 +209,9 @@ type Upgrader struct {
 	Mutate func(fn func() error) error
 	// Workers moves the files onto the workers of a cluster. Nil skips it.
 	Workers Workers
+	// InstallOptions are passed to the planning of the new version, for
+	// instance the artifact materializer.
+	InstallOptions []gallery.InstallOption
 	// StrategyNote returns what a person should know about how the upgrade
 	// of the model replaces its running replicas, or "" (stop and start, as
 	// asked). Nil means stop and start.
@@ -488,7 +491,11 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) (started bool, err 
 	if err != nil {
 		return false, fmt.Errorf("read the galleries: %w", err)
 	}
-	inst, plan, err := PlanUpgrade(ctx, u.SystemState, models, name, sc)
+	// The plan leaves the artifact of an entry unbound: binding it downloads
+	// the artifact, and that belongs to the staging phase, after the
+	// preflight and the journal, not to the plan.
+	planOptions := append(slices.Clone(u.InstallOptions), gallery.WithoutArtifactBinding())
+	inst, plan, err := PlanUpgrade(ctx, u.SystemState, models, name, sc, planOptions...)
 	if err != nil {
 		if errors.Is(err, ErrGone) {
 			return false, &ErrRefused{Reason: err.Error()}
@@ -504,22 +511,23 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) (started bool, err 
 	if err != nil {
 		return false, fmt.Errorf("read the model config: %w", err)
 	}
-	var finalYAML []byte
-	if plan.WriteConfig {
+	// finalConfig merges the new gallery config with the config on disk.
+	finalConfig := func() ([]byte, error) {
+		if !plan.WriteConfig {
+			return disk, nil
+		}
 		if sc.Origin.ConfigYAML != "" {
-			finalYAML, err = MergeConfig([]byte(sc.Origin.ConfigYAML), disk, plan.ConfigYAML, req.Choices)
-		} else {
-			// No record of what the install wrote, so an edit cannot be told
-			// from what the old version wrote: the new config is the gallery's,
-			// and only the operator state (pinned, disabled) carries over. The
-			// disk config as "installed" makes no key an edit.
-			finalYAML, err = MergeConfig(disk, disk, plan.ConfigYAML, nil)
+			return MergeConfig([]byte(sc.Origin.ConfigYAML), disk, plan.ConfigYAML, req.Choices)
 		}
-		if err != nil {
-			return false, err
-		}
-	} else {
-		finalYAML = disk
+		// No record of what the install wrote, so an edit cannot be told
+		// from what the old version wrote: the new config is the gallery's,
+		// and only the operator state (pinned, disabled) carries over. The
+		// disk config as "installed" makes no key an edit.
+		return MergeConfig(disk, disk, plan.ConfigYAML, nil)
+	}
+	finalYAML, err := finalConfig()
+	if err != nil {
+		return false, err
 	}
 
 	staged, err := u.stageList(sc, plan.Gallery)
@@ -582,7 +590,24 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) (started bool, err 
 	go run.heartbeat(stop)
 	defer close(stop)
 
-	err = u.drive(ctx, run, plan.Model.Backend, finalYAML)
+	// bind materializes the artifact during the staging phase. The resolved
+	// spec changes the config the upgrade writes, so the journal and the
+	// gallery file take the new hash.
+	bind := func(ctx context.Context) ([]byte, error) {
+		applied, err := gallery.BindPlanArtifact(ctx, u.SystemState, plan, u.InstallOptions...)
+		if err != nil || !applied {
+			return nil, err
+		}
+		bound, err := finalConfig()
+		if err != nil {
+			return nil, err
+		}
+		sum := gallery.SHA256Hex(bound)
+		to.ConfigSHA256, to.Origin.ConfigYAML = sum, string(plan.ConfigYAML)
+		next.ConfigSHA256, next.Origin.ConfigYAML = sum, string(plan.ConfigYAML)
+		return bound, nil
+	}
+	err = u.drive(ctx, run, plan.Model.Backend, finalYAML, bind)
 	u.notify(context.WithoutCancel(ctx), run, err)
 	u.changed(name)
 	return true, err
@@ -694,7 +719,7 @@ func digest8(digest string) string {
 func (u *Upgrader) path(rel string) string { return filepath.Join(u.modelsPath(), rel) }
 
 // drive runs the phases from preflight to confirmed, or to the rollback.
-func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, finalYAML []byte) error {
+func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, finalYAML []byte, bind func(context.Context) ([]byte, error)) error {
 	// preflight
 	if err := u.preflight(ctx, r, backend); err != nil {
 		return u.failBeforeCommit(ctx, r, err)
@@ -704,6 +729,15 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 	}
 	if err := u.stage(ctx, r); err != nil {
 		return u.failBeforeCommit(ctx, r, err)
+	}
+	if bind != nil {
+		bound, err := bind(ctx)
+		if err != nil {
+			return u.failBeforeCommit(ctx, r, err)
+		}
+		if bound != nil {
+			finalYAML = bound
+		}
 	}
 	wasLoaded := u.Runtime != nil && u.Runtime.IsLoaded(ctx, r.name)
 	note := ""
@@ -728,7 +762,10 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 		return u.failBeforeCommit(ctx, r, err)
 	}
 	ctx = context.WithoutCancel(ctx)
-	if err := r.advance(EvOK, func(j *gallery.Journal) { j.WasLoaded, j.Note = wasLoaded, note }); err != nil { // -> unloading
+	if err := r.advance(EvOK, func(j *gallery.Journal) { // -> unloading
+		j.WasLoaded, j.Note = wasLoaded, note
+		j.ToConfigSHA256 = gallery.SHA256Hex(finalYAML)
+	}); err != nil {
 		return u.failBeforeCommit(ctx, r, err)
 	}
 	// From here on the loads of the model are refused until the new config
