@@ -43,7 +43,7 @@ var _ = Describe("A windows/amd64 row with execution wsl2", func() {
 		Expect(out).To(Equal("linux/arm64\n"))
 	})
 
-	It("makes a Windows package that carries the Linux executable and says platform.windows.execution wsl2 at feature level 10", func() {
+	It("makes a Windows package that carries the Linux executable and says osSettings.windows.execution wsl2 at feature level 10", func() {
 		p := wslProject(map[string][]string{"windows/amd64": nil})
 		dir, err := p.build("windows/amd64", "1.2.3", elf())
 		Expect(err).NotTo(HaveOccurred())
@@ -58,13 +58,13 @@ var _ = Describe("A windows/amd64 row with execution wsl2", func() {
 		var m struct {
 			Executable, OS, Arch string
 			FeatureLevel         uint64
-			Platform             json.RawMessage
+			OSSettings           json.RawMessage
 			Execution            *string
 		}
 		Expect(json.Unmarshal(b, &m)).To(Succeed())
 		Expect(m.Executable).To(Equal("tables"))
 		Expect(m.OS + "/" + m.Arch).To(Equal("windows/amd64"))
-		Expect(m.Platform).To(MatchJSON(`{"windows":{"execution":"wsl2"}}`))
+		Expect(m.OSSettings).To(MatchJSON(`{"windows":{"execution":"wsl2"}}`))
 		Expect(m.Execution).To(BeNil(), "no top-level execution field")
 		Expect(m.FeatureLevel).To(BeNumerically(">=", 10))
 	})
@@ -88,22 +88,22 @@ var _ = Describe("A windows/amd64 row with execution wsl2", func() {
 		expectCode(native.verify(dir, "windows/amd64", "1.2.3"), "E_MANIFEST")
 	})
 
-	It("takes the platform block only from the row, never from the manifest template", func() {
+	It("takes the osSettings block only from the row, never from the manifest template", func() {
 		for _, rows := range []func(map[string][]string) *project{newProject, wslProject} {
 			p := rows(map[string][]string{amd: nil, "windows/amd64": nil})
 			b, err := os.ReadFile(manifestPath(p))
 			Expect(err).NotTo(HaveOccurred())
 			var m map[string]any
 			Expect(json.Unmarshal(b, &m)).To(Succeed())
-			m["platform"] = map[string]any{"windows": map[string]any{"execution": "wsl2"}}
+			m["osSettings"] = map[string]any{"windows": map[string]any{"execution": "wsl2"}}
 			m["featureLevel"] = 10
 			b, err = json.Marshal(m)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(os.WriteFile(manifestPath(p), b, 0o644)).To(Succeed())
 			_, err = p.build("windows/amd64", "1.2.3", elf())
-			Expect(err).To(MatchError(ContainSubstring("platform")))
+			Expect(err).To(MatchError(ContainSubstring("osSettings")))
 			_, err = p.build(amd, "1.2.3", exe("linux bin"))
-			Expect(err).To(MatchError(ContainSubstring("platform")))
+			Expect(err).To(MatchError(ContainSubstring("osSettings")))
 		}
 	})
 

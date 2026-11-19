@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Platform settings", func() {
+var _ = Describe("OS settings", func() {
 	windows := func() HostCompatibility {
 		h := compatible()
 		h.OS, h.Arch = "windows", "amd64"
@@ -18,7 +18,7 @@ var _ = Describe("Platform settings", func() {
 		m, e := ParseManifest(fixture())
 		Expect(e).NotTo(HaveOccurred())
 		m.OS, m.Arch = "windows", "amd64"
-		m.Platform = &PlatformSettings{Windows: &WindowsSettings{Execution: ExecutionWSL2}}
+		m.OSSettings = &OSSettings{Windows: &WindowsSettings{Execution: ExecutionWSL2}}
 		m.FeatureLevel = 10
 		return m
 	}
@@ -38,23 +38,23 @@ var _ = Describe("Platform settings", func() {
 	It("is absent for a native package, and a native manifest is unchanged", func() {
 		m, e := ParseManifest(fixture())
 		Expect(e).NotTo(HaveOccurred())
-		Expect(m.Platform).To(BeNil())
+		Expect(m.OSSettings).To(BeNil())
 		Expect(m.RunsInWSL()).To(BeFalse())
 		Expect(ValidateManifest(m, compatible())).To(Succeed())
 		b, e := json.Marshal(m)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(string(b)).NotTo(ContainSubstring(`"platform"`))
+		Expect(string(b)).NotTo(ContainSubstring(`"osSettings"`))
 	})
 
-	It("reads platform.windows.execution wsl2 for a windows/amd64 package at feature level 10", func() {
+	It("reads osSettings.windows.execution wsl2 for a windows/amd64 package at feature level 10", func() {
 		m, e := ParseManifest(manifestJSON(map[string]any{"os": "windows", "arch": "amd64", "featureLevel": 10,
-			"platform": block(`{"windows":{"execution":"wsl2"}}`)}))
+			"osSettings": block(`{"windows":{"execution":"wsl2"}}`)}))
 		Expect(e).NotTo(HaveOccurred())
 		Expect(m.RunsInWSL()).To(BeTrue())
 		Expect(ValidateManifest(m, windows())).To(Succeed())
 		b, e := json.Marshal(m)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(string(b)).To(ContainSubstring(`"platform":{"windows":{"execution":"wsl2"}}`))
+		Expect(string(b)).To(ContainSubstring(`"osSettings":{"windows":{"execution":"wsl2"}}`))
 	})
 
 	It("requires the manifest to declare feature level 10", func() {
@@ -69,34 +69,34 @@ var _ = Describe("Platform settings", func() {
 		Expect(ValidateManifest(wsl(), h)).To(MatchError("needs a newer LocalAI"))
 	})
 
-	It("is refused by the strict reader of an older host, which knows no platform key", func() {
+	It("is refused by the strict reader of an older host, which knows no osSettings key", func() {
 		type olderManifest struct {
 			ID   string `json:"id"`
 			OS   string `json:"os"`
 			Arch string `json:"arch"`
 		}
 		var o olderManifest
-		Expect(strictJSON([]byte(`{"id":"a","os":"windows","arch":"amd64","platform":{"windows":{"execution":"wsl2"}}}`), &o, 1024)).NotTo(Succeed())
+		Expect(strictJSON([]byte(`{"id":"a","os":"windows","arch":"amd64","osSettings":{"windows":{"execution":"wsl2"}}}`), &o, 1024)).NotTo(Succeed())
 	})
 
 	It("refuses the block on a package for any other platform", func() {
 		_, e := ParseManifest(manifestJSON(map[string]any{"featureLevel": 10,
-			"platform": block(`{"windows":{"execution":"wsl2"}}`)}))
-		Expect(e).To(MatchError(ContainSubstring("platform.windows")))
+			"osSettings": block(`{"windows":{"execution":"wsl2"}}`)}))
+		Expect(e).To(MatchError(ContainSubstring("osSettings.windows")))
 		m := wsl()
 		m.OS, m.Arch = "linux", "amd64"
-		Expect(ValidateManifest(m, compatible())).To(MatchError(ContainSubstring("platform.windows")))
+		Expect(ValidateManifest(m, compatible())).To(MatchError(ContainSubstring("osSettings.windows")))
 		m = wsl()
 		m.Arch = "arm64"
 		h := windows()
 		h.Arch = "arm64"
-		Expect(ValidateManifest(m, h)).To(MatchError(ContainSubstring("platform.windows.execution")))
+		Expect(ValidateManifest(m, h)).To(MatchError(ContainSubstring("osSettings.windows.execution")))
 	})
 
 	DescribeTable("refuses an unknown OS key, an unknown field or an unknown value",
 		func(raw string) {
 			_, e := ParseManifest(manifestJSON(map[string]any{"os": "windows", "arch": "amd64", "featureLevel": 10,
-				"platform": block(raw)}))
+				"osSettings": block(raw)}))
 			Expect(e).To(HaveOccurred())
 		},
 		Entry("an unknown OS key", `{"linux":{"execution":"wsl2"}}`),
@@ -111,6 +111,12 @@ var _ = Describe("Platform settings", func() {
 
 	It("refuses the former top-level execution field", func() {
 		_, e := ParseManifest(manifestJSON(map[string]any{"os": "windows", "arch": "amd64", "featureLevel": 10, "execution": "wsl2"}))
+		Expect(e).To(HaveOccurred())
+	})
+
+	It("refuses the block under the key platform", func() {
+		_, e := ParseManifest(manifestJSON(map[string]any{"os": "windows", "arch": "amd64", "featureLevel": 10,
+			"platform": block(`{"windows":{"execution":"wsl2"}}`)}))
 		Expect(e).To(HaveOccurred())
 	})
 })

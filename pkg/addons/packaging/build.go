@@ -80,15 +80,15 @@ func (r rawImage) Digest() (v1.Hash, error) {
 }
 func (r rawImage) Size() (int64, error) { return int64(len(r.raw)), nil }
 
-func stampManifest(template []byte, version, platform string, settings *contract.PlatformSettings) ([]byte, error) {
+func stampManifest(template []byte, version, platform string, settings *contract.OSSettings) ([]byte, error) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(template, &m); err != nil {
 		return nil, fmt.Errorf("manifest template: %w", err)
 	}
 	// The platform matrix is the only source of the OS-specific settings: a
 	// template that sets them would apply them to every platform.
-	if _, ok := m["platform"]; ok {
-		return nil, errors.New("manifest template: platform is set from the platform matrix, remove it from the template")
+	if _, ok := m["osSettings"]; ok {
+		return nil, errors.New("manifest template: osSettings is set from the platform matrix, remove it from the template")
 	}
 	os_, arch, _ := strings.Cut(platform, "/")
 	for k, v := range map[string]string{"version": version, "os": os_, "arch": arch} {
@@ -99,7 +99,7 @@ func stampManifest(template []byte, version, platform string, settings *contract
 	// block, and keeps the plain name of its Linux executable.
 	if settings != nil {
 		b, _ := json.Marshal(settings)
-		m["platform"] = b
+		m["osSettings"] = b
 		var level uint64
 		if raw, ok := m["featureLevel"]; ok {
 			if err := json.Unmarshal(raw, &level); err != nil {
@@ -184,7 +184,7 @@ func cmdBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := stampManifest(template, *version, *platform, entry.ManifestPlatform())
+	manifest, err := stampManifest(template, *version, *platform, entry.ManifestOSSettings())
 	if err != nil {
 		return err
 	}

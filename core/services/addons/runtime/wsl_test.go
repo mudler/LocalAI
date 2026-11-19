@@ -195,7 +195,7 @@ var _ = Describe("A package with execution wsl2", func() {
 	It("is refused on a host without WSL, with the reason", func() {
 		s := supervisor()
 		p := fixture("normal", service)
-		p.Manifest.Platform = &contract.PlatformSettings{Windows: &contract.WindowsSettings{Execution: contract.ExecutionWSL2}}
+		p.Manifest.OSSettings = &contract.OSSettings{Windows: &contract.WindowsSettings{Execution: contract.ExecutionWSL2}}
 		_, e := s.launch(context.Background(), p, 1)
 		Expect(e).To(HaveOccurred())
 		// The manifest names Windows, which this host is not, so the

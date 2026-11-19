@@ -209,7 +209,7 @@ platforms:
 
 A platform is built only when `enabled` is `true`. For a test build of a platform that is not enabled, use `--local-check`.
 
-An add-on that cannot run on Windows itself can run in WSL 2 on a Windows host. Add `execution: wsl2` to its `windows/amd64` row. The package then carries the linux/amd64 executable and runtime files, and `addonpkg build` writes `"platform": {"windows": {"execution": "wsl2"}}` and at least `featureLevel: 10` to the manifest. Do not write `platform` in the manifest file yourself: `addonpkg build` refuses it. `execution: wsl2` is valid only on the `windows/amd64` row. See [Platform settings]({{% relref "/addons/contract-reference/manifest" %}}#platform-settings).
+An add-on that cannot run on Windows itself can run in WSL 2 on a Windows host. Add `execution: wsl2` to its `windows/amd64` row. The package then carries the linux/amd64 executable and runtime files, and `addonpkg build` writes `"osSettings": {"windows": {"execution": "wsl2"}}` and at least `featureLevel: 10` to the manifest. Do not write `osSettings` in the manifest file yourself: `addonpkg build` refuses it. `execution: wsl2` is valid only on the `windows/amd64` row. See [OS settings]({{% relref "/addons/contract-reference/manifest" %}}#os-settings).
 
 ## 7. Build the zip
 

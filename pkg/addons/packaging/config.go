@@ -69,17 +69,17 @@ type PlatformEntry struct {
 	// windows/amd64) makes a Windows package whose executable and runtime
 	// files are those of linux/amd64: they run in WSL 2. It is build
 	// configuration; the package manifest gets it as
-	// platform.windows.execution (see ManifestPlatform).
+	// osSettings.windows.execution (see ManifestOSSettings).
 	Execution string `yaml:"execution"`
 }
 
-// ManifestPlatform is the platform block that the manifest of the row's
+// ManifestOSSettings is the osSettings block that the manifest of the row's
 // package must carry: nil for a native row.
-func (e PlatformEntry) ManifestPlatform() *contract.PlatformSettings {
+func (e PlatformEntry) ManifestOSSettings() *contract.OSSettings {
 	if e.Execution == "" {
 		return nil
 	}
-	return &contract.PlatformSettings{Windows: &contract.WindowsSettings{Execution: e.Execution}}
+	return &contract.OSSettings{Windows: &contract.WindowsSettings{Execution: e.Execution}}
 }
 
 // BuildPlatform is the os/arch the executable and the runtime files of the

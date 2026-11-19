@@ -206,8 +206,8 @@ func verifyLoaded(l *leg, rec *Receipt, platform, version string, cfg *Platforms
 	if err := contract.ValidateManifest(m, hostFor(platform)); err != nil {
 		return nil, fail("E_MANIFEST", "%v", err)
 	}
-	if want := entry.ManifestPlatform(); !reflect.DeepEqual(m.Platform, want) {
-		return nil, fail("E_MANIFEST", "manifest platform block %s, the platform matrix says %s", platformJSON(m.Platform), platformJSON(want))
+	if want := entry.ManifestOSSettings(); !reflect.DeepEqual(m.OSSettings, want) {
+		return nil, fail("E_MANIFEST", "manifest osSettings block %s, the platform matrix says %s", osSettingsJSON(m.OSSettings), osSettingsJSON(want))
 	}
 
 	// Layer roles: executable, ui and skills when declared, manifest. Nothing
@@ -419,9 +419,9 @@ func checkIcon(name string, b []byte) error {
 	return nil
 }
 
-// platformJSON is the platform block as the manifest writes it, "absent" for
+// osSettingsJSON is the osSettings block as the manifest writes it, "absent" for
 // none.
-func platformJSON(p *contract.PlatformSettings) string {
+func osSettingsJSON(p *contract.OSSettings) string {
 	if p == nil {
 		return "absent"
 	}

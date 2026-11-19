@@ -361,7 +361,7 @@ The environment of the child also has `SYSTEMROOT` (the network stack of
 Windows needs it) and `TMP` and `TEMP` (the temporary folder of LocalAI). The
 executable must end in `.exe`, because Windows has no execute bit.
 
-A package with `"platform": {"windows": {"execution": "wsl2"}}` (see [Manifest](manifest/)) runs in a WSL 2
+A package with `"osSettings": {"windows": {"execution": "wsl2"}}` (see [Manifest](manifest/)) runs in a WSL 2
 distribution on a Windows host. No handle of the owner exists there. The owner starts
 the executable through `wsl.exe` with `LOCALAI_ADDON_CHANNEL=stdio`, and the standard
 input and output of the process carry one multiplexed session (yamux). The owner is the

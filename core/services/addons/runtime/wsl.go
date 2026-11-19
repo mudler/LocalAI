@@ -16,7 +16,7 @@ import (
 )
 
 // WSL prepares the launch of an add-on whose manifest has
-// platform.windows.execution "wsl2": a Linux executable that runs in a WSL 2
+// osSettings.windows.execution "wsl2": a Linux executable that runs in a WSL 2
 // distribution of this Windows host.
 type WSL interface {
 	// Prepare checks that WSL 2 can run the package and readies the
@@ -35,7 +35,7 @@ type WSL interface {
 // has no data root. wsl.Launcher prepares it on Windows.
 type WSLLaunch = wsl.Launch
 
-// ErrNoWSL is the refusal of a package with platform.windows.execution "wsl2"
+// ErrNoWSL is the refusal of a package with osSettings.windows.execution "wsl2"
 // on a host that has no WSL support configured. It is an ErrRuntime.
 var ErrNoWSL = errors.New("this LocalAI cannot run add-ons in WSL 2")
 

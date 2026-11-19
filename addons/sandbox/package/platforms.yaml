@@ -11,7 +11,7 @@
 # KVM and Virtualization.framework do not exist there, and the unsafe host
 # backend needs a POSIX shell and process groups). The windows/amd64 package
 # runs the Linux add-on in WSL 2 instead ("execution: wsl2" on the row; the
-# packager writes it to the manifest as platform.windows.execution): it carries
+# packager writes it to the manifest as osSettings.windows.execution): it carries
 # the linux/amd64 executable and runtime files, and package.sh builds it on a
 # linux/amd64 host. Its native check starts the executable through wsl.exe,
 # so it needs a Windows runner with WSL. It stays disabled until such a runner

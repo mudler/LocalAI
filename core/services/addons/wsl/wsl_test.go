@@ -96,7 +96,7 @@ func pkgOf(digest string) packages.PackageReceipt {
 	Expect(os.WriteFile(filepath.Join(dir, "sandbox"), []byte("\x7fELF program "+digest), 0o600)).To(Succeed())
 	Expect(os.MkdirAll(filepath.Join(dir, "gvisor-bin"), 0o700)).To(Succeed())
 	Expect(os.WriteFile(filepath.Join(dir, "gvisor-bin", "runsc"), []byte("runtime"), 0o600)).To(Succeed())
-	m := contract.Manifest{ID: "sandbox", Executable: "sandbox", OS: "windows", Arch: "amd64", Platform: &contract.PlatformSettings{Windows: &contract.WindowsSettings{Execution: contract.ExecutionWSL2}}}
+	m := contract.Manifest{ID: "sandbox", Executable: "sandbox", OS: "windows", Arch: "amd64", OSSettings: &contract.OSSettings{Windows: &contract.WindowsSettings{Execution: contract.ExecutionWSL2}}}
 	return packages.PackageReceipt{Manifest: m, Directory: dir, Digest: "sha256:" + digest}
 }
 

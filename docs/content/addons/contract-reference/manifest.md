@@ -16,7 +16,7 @@ page/navigation, chat-action-only, and incompatible-host fixtures.
 
 The required fields are `schemaVersion` (1), `id`, `version`, `executable`, `os`,
 `arch`, `host`, `api`, `protocol`, `dataFormat`, and `capabilities`. The optional
-`platform` block holds OS-specific runtime settings (see [Platform settings](#platform-settings)). Compatibility
+`osSettings` block holds OS-specific runtime settings (see [OS settings](#os-settings)). Compatibility
 ranges are inclusive positive integer `{min,max}` pairs, not semver expressions.
 The package version uses immutable `major.minor.patch`, optionally a lowercase
 prerelease starting with a letter; moving aliases and build metadata are not
@@ -35,23 +35,23 @@ parent traversal, backslashes, percent escapes or URL schemes. These checks do
 not substitute for safe extraction, symlink checks, executable mode validation,
 or checking declared files exist, which belong to package installation.
 
-### Platform settings
+### OS settings
 
-`platform` is optional. It holds runtime settings that apply on one OS only. Each key
-is an OS, and the value is the settings object of that OS. When `platform` is absent,
+`osSettings` is optional. It holds runtime settings that apply on one OS only. Each key
+is an OS, and the value is the settings object of that OS. When `osSettings` is absent,
 the executable runs natively on `os` and `arch` with no OS-specific setting.
 
 This version defines one key and one setting:
 
 ```json
-"platform": {
+"osSettings": {
   "windows": {
     "execution": "wsl2"
   }
 }
 ```
 
-`platform.windows.execution` is the execution environment of the executable. The only
+`osSettings.windows.execution` is the execution environment of the executable. The only
 value is `"wsl2"`, and only with `"os": "windows"` and `"arch": "amd64"`. Such a
 package installs on a Windows host, but its executable is a linux/amd64 program (no
 `.exe` name) that the owner runs in a WSL 2 distribution. The owner talks to it over
@@ -60,16 +60,16 @@ for an add-on that cannot run on Windows itself, such as the Sandbox add-on.
 
 The host refuses:
 
-- a `platform` object with no OS key,
+- an `osSettings` object with no OS key,
 - an OS key other than `windows`, and the `windows` key on a package whose `os` is not
   `windows`,
 - an unknown field in an OS object,
 - a missing `execution`, or any value other than `"wsl2"` on windows/amd64.
 
-A manifest that sets `platform` must declare `featureLevel: 10`. An add-on author does
-not write `platform` in the manifest template. The packager takes it from the
+A manifest that sets `osSettings` must declare `featureLevel: 10`. An add-on author does
+not write `osSettings` in the manifest template. The packager takes it from the
 `execution` key of the platform row in `platforms.yaml`, and the package verifier
-refuses a manifest whose `platform` differs from the row.
+refuses a manifest whose `osSettings` differs from the row.
 
 ### Feature level
 
@@ -91,7 +91,7 @@ level**: one integer that counts the additive manifest features it understands.
   `capabilities.client` is level 7. A wildcard tail (`{name...}`) as the last segment of a client
   route is level 8; a host of level 7 refuses such a manifest with the reason below.
   `capabilities.modelSearch` (a source of the model-search slot) is level 9.
-  `platform` (see above) is level 10.
+  `osSettings` (see above) is level 10.
 - A host with a lower level refuses the add-on with the plain reason **needs a newer
   LocalAI**. The add-on is not installed and not upgraded. A failed install or upgrade has
   the cause `needs_newer_host`, and an update check shows the add-on as incompatible with

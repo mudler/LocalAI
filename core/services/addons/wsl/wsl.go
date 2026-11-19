@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-// Package wsl runs the add-ons whose manifest has platform.windows.execution
+// Package wsl runs the add-ons whose manifest has osSettings.windows.execution
 // "wsl2" in a WSL 2 distribution of this Windows host. It finds a usable distribution, copies
 // the package into the file system of the distribution and says how to start
 // it with wsl.exe. Launch has the fields of Launch, so a Launcher

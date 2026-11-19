@@ -254,7 +254,7 @@ The add-on runtime runs on Windows as on Linux and macOS. Install add-ons from
 the **Add-ons** page. The library lists only the add-ons that have a Windows
 package. Each add-on runs as its own process (`<name>.exe`). When an add-on
 stops, or LocalAI exits, Windows also stops every process the add-on started.
-An add-on whose manifest has `"platform": {"windows": {"execution": "wsl2"}}` runs in WSL 2 instead
+An add-on whose manifest has `"osSettings": {"windows": {"execution": "wsl2"}}` runs in WSL 2 instead
 (see [Sandbox add-on](#sandbox-add-on)).
 
 ### Sandbox add-on
