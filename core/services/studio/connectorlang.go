@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,6 +101,12 @@ func (l *langMemory) learn(binding, sender, chat, text string, now time.Time) {
 // reads the text and keeps nothing of it.
 func (c *Connectors) noteLanguage(b connectors.Binding, m contract.ConnectorMessage) {
 	if b.ReplyLang() != hostmsg.Auto {
+		return
+	}
+	// A pairing code is random letters and digits, not a sentence. Its letter
+	// runs can read as stop words of some language ("la", "el", "je"), and
+	// that must not decide the language of the answer to the code.
+	if pairingShape.MatchString(strings.ToUpper(strings.TrimSpace(m.Text))) {
 		return
 	}
 	c.lang.learn(b.ID, m.SenderID, m.Chat, m.Text, c.o.Clock())

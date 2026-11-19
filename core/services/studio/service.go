@@ -1513,6 +1513,14 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 	if info, terr := s.d.Store.Turn(ctx, p, conv); terr == nil && info.Last != "" {
 		last = info.Last
 	}
+	if last == store.TurnInterrupted {
+		// The chat waits for its resume. A claim that is only given back would
+		// restart the count of resumes and move the time of the next one, so
+		// with no message waiting the chat is left as it is.
+		if waiting, perr := s.d.Store.Pending(ctx, p, conv); perr == nil && len(waiting) == 0 {
+			return false, nil
+		}
+	}
 	if err := s.d.Store.ClaimTurn(ctx, p, conv, runID); err != nil {
 		if errors.Is(err, store.ErrTurnRunning) {
 			return false, nil // a turn is running; it takes them at its next request
