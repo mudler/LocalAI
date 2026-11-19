@@ -11,9 +11,9 @@ aliases = ["/features/sandbox/"]
 | Topic | Detail |
 |---|---|
 | What it adds | A `bash` tool that runs commands and code in an isolated sandbox with your files mounted. It makes charts, converts files and runs scripts. |
-| Needs | A Linux host that can run KVM or gVisor, and the chats and their files turned on. |
+| Needs | A Linux host that can run KVM or gVisor, or a Mac with Apple silicon, and the chats and their files turned on. |
 
-Ask a chat to make a bar chart from `sales.csv`. It runs the code in an isolated sandbox with your files mounted and saves the PNG in your files. Sandbox can also convert a file or run a script. It runs on Linux only.
+Ask a chat to make a bar chart from `sales.csv`. It runs the code in an isolated sandbox with your files mounted and saves the PNG in your files. Sandbox can also convert a file or run a script. It runs on Linux, and on macOS with Apple silicon.
 
 ## What you need
 
