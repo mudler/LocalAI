@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // Entry is what the manager persists about a relay. A claim code is never
@@ -93,20 +95,8 @@ func (s *FileStore) Save(_ context.Context, entries []Entry) error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
 		return fmt.Errorf("p2prelaymgr: relays folder: %w", err)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(s.path), ".relays-*")
-	if err != nil {
+	if err := atomicfile.Write(s.path, b, 0o600); err != nil {
 		return fmt.Errorf("p2prelaymgr: write relays: %w", err)
 	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
-	if _, err := tmp.Write(b); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("p2prelaymgr: write relays: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("p2prelaymgr: write relays: %w", err)
-	}
-	if err := os.Chmod(tmp.Name(), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), s.path)
+	return nil
 }

@@ -232,6 +232,13 @@ change is `PUT /api/p2p/relays/{id}/limits`, and the Assistant has the tools
 
 - A new speed limit applies to the next connection. Connections that are open
   keep their old speed.
+- Only an operator of the relay can change the limits: a server named with
+  `--admin`, or, when you named none, the server that claimed the relay. The
+  limits are shared by every admin of a shared relay.
+- A second change of the data or time limit within 30 seconds of the last
+  one is refused, because each one restarts the circuit service. If the
+  circuit service cannot start with the new values, the relay starts it again
+  with the old ones and the change is not saved.
 - A new data or time limit makes the relay restart its circuit service. The
   reservations are dropped, connections that are open keep their old limits
   until they close, and the relay closes the connections of the other machines

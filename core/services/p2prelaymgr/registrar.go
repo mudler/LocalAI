@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/xlog"
+
 	"github.com/mudler/LocalAI/core/services/p2ppair"
 	"github.com/mudler/LocalAI/core/services/p2prelay/relayproto"
 )
@@ -30,7 +32,7 @@ func (m *manager) passCall(ctx context.Context, relayID, op string, p relayproto
 	}
 	_, err = m.call(ctx, e, relayproto.Request{Op: op, Pass: &p})
 	if err != nil && ctx.Err() == nil {
-		m.log.Debug("relay pass call failed", "relay", relayID, "op", op, "error", err)
+		xlog.Debug("relay pass call failed", "relay", relayID, "op", op, "error", err)
 	}
 	return err
 }
@@ -38,8 +40,10 @@ func (m *manager) passCall(ctx context.Context, relayID, op string, p relayproto
 // NewPassRegistrar adapts a Manager to the pairing service. The pairing
 // service names a pass by invite and expects the registrar to make up the
 // pass code, so the adapter creates a random code per invite and keeps it
-// in memory until the invite is cancelled. After a restart a pass cannot be
-// cancelled; it ends with its TTL.
+// in memory until the invite is cancelled or the pass expires. After a restart
+// a pass cannot be cancelled; it ends with its TTL. The map is per instance: in
+// a cluster only the frontend that made the invite can cancel its pass, and
+// another frontend that cancels the invite leaves the pass to end with its TTL.
 func NewPassRegistrar(m Manager) p2ppair.PassRegistrar { return &registrar{m: m} }
 
 type registrar struct {
@@ -58,12 +62,12 @@ func (r *registrar) RegisterPass(ctx context.Context, req p2ppair.PassRequest) (
 	if err := r.m.RegisterPass(ctx, req.Relay.ID, code, req.TTL); err != nil {
 		return "", err
 	}
-	r.passes.store(req.InviteID, code)
+	r.passes.store(req.InviteID, code, time.Now().Add(req.TTL))
 	return code, nil
 }
 
 func (r *registrar) CancelPass(ctx context.Context, relay p2ppair.Relay, inviteID string) error {
-	code, ok := r.passes.load(inviteID)
+	code, ok := r.passes.load(inviteID, time.Now())
 	if !ok {
 		return fmt.Errorf("p2prelaymgr: the pass of invite %s is not known any more; it ends with its TTL", inviteID)
 	}

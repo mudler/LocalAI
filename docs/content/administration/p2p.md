@@ -275,6 +275,13 @@ device, it tells the others over the message bus, and they reload their
 allowlists at once. Every frontend also reloads its allowlist every 30 seconds,
 so a revoke reaches every frontend within 30 seconds even if a message is lost.
 
+The relay pass of an invite is kept in the memory of the frontend that made the
+invite, until the invite ends. Only that frontend can cancel the pass: when
+another frontend cancels the invite, or after a restart, the pass is not
+cancelled and ends with its time limit. The same holds for the count of wrong
+invite codes, which each frontend keeps for itself, so an attacker gets the
+limit once for each frontend.
+
 ## Command line
 
 These commands are not final.

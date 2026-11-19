@@ -1,8 +1,11 @@
 package p2prelaymgr_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -16,6 +19,13 @@ import (
 	"github.com/mudler/LocalAI/core/services/p2prelay/relayproto"
 	"github.com/mudler/LocalAI/core/services/p2prelaymgr"
 )
+
+// drainGoroutines counts the running goroutines that drain the queue of a relay.
+func drainGoroutines() int {
+	var b bytes.Buffer
+	_ = pprof.Lookup("goroutine").WriteTo(&b, 2)
+	return strings.Count(b.String(), "(*manager).startDrain.func1")
+}
 
 var _ = Describe("Manager", func() {
 	var (
@@ -382,6 +392,18 @@ var _ = Describe("Manager", func() {
 			Expect(m.List()).To(BeEmpty())
 			m3 := srv.manager(p2prelaymgr.NewFileStore(path), false)
 			Expect(m3.List()).To(BeEmpty())
+		})
+
+		It("stops the goroutine that drains the queue of a relay that was removed", func() {
+			relay := newTestRelay(gatedCfg(srv.host.ID()))
+			m := srv.manager(nil, true)
+			Expect(m.Start(ctx10())).To(Succeed())
+			r, err := m.Add(ctx10(), relay.addr(), "home", "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(drainGoroutines()).To(Equal(1))
+
+			Expect(m.Remove(ctx10(), r.ID)).To(Succeed())
+			Eventually(drainGoroutines, 5*time.Second, 50*time.Millisecond).Should(BeZero())
 		})
 
 		It("keeps the list in memory by default", func() {

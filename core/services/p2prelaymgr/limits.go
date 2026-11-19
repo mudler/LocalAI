@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/p2prelay/relayproto"
 )
@@ -85,7 +86,7 @@ func (m *manager) SetLimits(ctx context.Context, id string, patch LimitsPatch) (
 		rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), connectTimeout)
 		defer cancel()
 		if _, err := client.Reserve(rctx, m.lh(), e.info); err != nil {
-			m.log.Debug("reserve again after a limits change failed", "relay", id, "error", err)
+			xlog.Debug("reserve again after a limits change failed", "relay", id, "error", err)
 		}
 	}
 	return LimitsInfo{Limits: l, Ceiling: ceilingOf(resp.Limits.Ceiling), CanChange: true, Restarted: resp.Limits.Restarted}, nil

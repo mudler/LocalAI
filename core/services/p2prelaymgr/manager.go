@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"slices"
 	"strings"
 	"sync"
@@ -20,6 +19,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2prelay/relayproto"
@@ -48,8 +48,6 @@ type Config struct {
 	// one admin, node peers are left out, in the order of their peer IDs, so
 	// that every server of a cluster leaves out the same ones. Nil means none.
 	NodePeers func() []string
-	// Logger receives the manager's log lines. Nil means slog.Default().
-	Logger *slog.Logger
 	// Tick is how often the loop looks for a lost connection. Zero means
 	// DefaultTick.
 	Tick time.Duration
@@ -87,11 +85,13 @@ type entry struct {
 	refused  map[string]string
 
 	kick chan struct{}
+	// stopDrain ends the goroutine that sends the queue of this entry. Remove
+	// calls it, so a removed relay leaves no goroutine and no ticker behind.
+	stopDrain context.CancelFunc
 }
 
 type manager struct {
 	cfg Config
-	log *slog.Logger
 
 	mu      sync.Mutex
 	relays  []*entry
@@ -119,9 +119,6 @@ func New(cfg Config) (Manager, error) {
 	if cfg.Store == nil {
 		cfg.Store = NewMemoryStore()
 	}
-	if cfg.Logger == nil {
-		cfg.Logger = slog.Default()
-	}
 	if cfg.Tick <= 0 {
 		cfg.Tick = DefaultTick
 	}
@@ -131,7 +128,7 @@ func New(cfg Config) (Manager, error) {
 	if cfg.Retry <= 0 {
 		cfg.Retry = DefaultRetry
 	}
-	m := &manager{cfg: cfg, log: cfg.Logger}
+	m := &manager{cfg: cfg}
 	m.life, m.stop = context.WithCancel(context.Background())
 	stored, err := cfg.Store.Load(context.Background())
 	if err != nil {
@@ -140,7 +137,7 @@ func New(cfg Config) (Manager, error) {
 	for _, s := range stored {
 		e, err := newEntry(s)
 		if err != nil {
-			m.log.Warn("ignoring a stored relay with a bad address", "relay", s.ID, "error", err)
+			xlog.Warn("ignoring a stored relay with a bad address", "relay", s.ID, "error", err)
 			continue
 		}
 		m.relays = append(m.relays, e)
@@ -254,6 +251,9 @@ func (m *manager) Remove(ctx context.Context, id string) error {
 	m.mu.Unlock()
 	e.mu.Lock()
 	e.removed, e.queue = true, nil
+	if e.stopDrain != nil {
+		e.stopDrain()
+	}
 	e.mu.Unlock()
 	return m.persist(ctx)
 }
@@ -329,7 +329,7 @@ func (m *manager) Resync() {
 	m.wg.Go(func() {
 		for _, e := range m.entries() {
 			if _, err := m.refresh(m.life, e, refreshOpts{repair: true}); err != nil && m.life.Err() == nil {
-				m.log.Debug("relay sync failed", "relay", e.relay.ID, "error", err)
+				xlog.Debug("relay sync failed", "relay", e.relay.ID, "error", err)
 			}
 		}
 	})
@@ -365,18 +365,25 @@ func (m *manager) NodeAdmission(p string) []Admission {
 	return out
 }
 
+// startDrain runs the goroutine that sends the queue of e, until the manager
+// stops or the relay is removed.
 func (m *manager) startDrain(e *entry) {
+	ctx, cancel := context.WithCancel(m.ctx)
+	e.mu.Lock()
+	e.stopDrain = cancel
+	e.mu.Unlock()
 	m.wg.Go(func() {
+		defer cancel()
 		t := time.NewTicker(m.cfg.Retry)
 		defer t.Stop()
 		for {
 			select {
-			case <-m.ctx.Done():
+			case <-ctx.Done():
 				return
 			case <-e.kick:
 			case <-t.C:
 			}
-			m.flush(m.ctx, e)
+			m.flush(ctx, e)
 		}
 	})
 }
@@ -431,7 +438,7 @@ func (m *manager) paired() []peer.ID {
 	for _, s := range m.cfg.PairedPeers() {
 		id, err := peer.Decode(s)
 		if err != nil {
-			m.log.Warn("ignoring a paired peer with a bad ID", "peer", s)
+			xlog.Warn("ignoring a paired peer with a bad ID", "peer", s)
 			continue
 		}
 		ids = append(ids, id)
@@ -453,7 +460,7 @@ func (m *manager) nodes(paired []peer.ID) []peer.ID {
 	for _, s := range m.nodeStrings() {
 		id, err := peer.Decode(s)
 		if err != nil {
-			m.log.Warn("ignoring a node peer with a bad ID", "peer", s)
+			xlog.Warn("ignoring a node peer with a bad ID", "peer", s)
 			continue
 		}
 		if !slices.Contains(paired, id) && !slices.Contains(ids, id) {
@@ -524,7 +531,7 @@ func (m *manager) flush(ctx context.Context, e *entry) {
 			Op: head.op, Seq: m.nextSeq(), Peers: []relayproto.Peer{{ID: head.peer}},
 		})
 		if err != nil {
-			m.log.Debug("relay change not sent yet", "relay", e.relay.ID, "op", head.op, "error", err)
+			xlog.Debug("relay change not sent yet", "relay", e.relay.ID, "op", head.op, "error", err)
 			if resp.V == 0 {
 				m.markUnreachable(e, err)
 				return
@@ -703,7 +710,7 @@ func (m *manager) syncAdmin(ctx context.Context, e *entry, resp relayproto.Respo
 			// The relay refused the list. Members that came in with a pass
 			// and wait for confirmation take room too, so leave every node
 			// peer out and keep the paired devices.
-			m.log.Debug("relay refused the list with the node peers; sending the paired devices only", "relay", e.relay.ID, "error", err)
+			xlog.Debug("relay refused the list with the node peers; sending the paired devices only", "relay", e.relay.ID, "error", err)
 			if r.MaxPeers > 0 {
 				limit = r.MaxPeers
 			}
