@@ -5,7 +5,6 @@
 package notifications
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -15,6 +14,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/http/sse"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/notify"
 )
@@ -183,53 +183,12 @@ func (h *Handlers) Delete(c echo.Context) error {
 func (h *Handlers) Events(c echo.Context) error {
 	ch, cancel := h.notifier.Subscribe(principal(c))
 	defer cancel()
-	return stream(c, ch, func(n notify.Notification) (string, any) {
+	return sse.Events(c, ch, heartbeat, func(n notify.Notification) (string, any) {
 		if n.Op == notify.OpChanged {
 			return "notifications_changed", struct{}{}
 		}
 		return "notification", notificationOut(n)
 	})
-}
-
-// stream writes the values of events as server-sent events until the client
-// goes away or the channel closes. A closed channel means the subscriber fell
-// behind; the client reconnects and reads what it missed. A heartbeat comment
-// keeps idle proxies from closing the stream.
-func stream[T any](c echo.Context, events <-chan T, frame func(T) (name string, data any)) error {
-	w := c.Response()
-	w.Header().Set(echo.HeaderContentType, "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-	w.WriteHeader(http.StatusOK)
-	w.Flush()
-
-	tick := time.NewTicker(heartbeat)
-	defer tick.Stop()
-	for {
-		select {
-		case <-c.Request().Context().Done():
-			return nil
-		case <-tick.C:
-			if _, err := w.Write([]byte(": ping\n\n")); err != nil {
-				return nil
-			}
-			w.Flush()
-		case v, ok := <-events:
-			if !ok {
-				return nil
-			}
-			name, data := frame(v)
-			raw, err := json.Marshal(data)
-			if err != nil {
-				continue
-			}
-			if _, err := w.Write([]byte("event: " + name + "\ndata: " + string(raw) + "\n\n")); err != nil {
-				return nil
-			}
-			w.Flush()
-		}
-	}
 }
 
 var errPushOff = errors.New("browser push is not available: the server needs a database or a data path to keep subscriptions")

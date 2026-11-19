@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/http/sse"
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
@@ -656,7 +657,7 @@ func (h *Handlers) Events(c echo.Context) error {
 	}
 	defer cancel()
 
-	return streamSSEWithIDs(c, events, heartbeat, func(ev session.Event) (string, string, any) {
+	return sse.Stream(c, events, heartbeat, func(ev session.Event) (string, string, any) {
 		return ev.ID, string(ev.Kind), eventJSON(ev)
 	})
 }

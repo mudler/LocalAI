@@ -1,4 +1,6 @@
-package studio
+// Package sse writes server-sent event streams from a channel, for the
+// endpoints that push events to the browser.
+package sse
 
 import (
 	"encoding/json"
@@ -8,22 +10,23 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// streamSSE writes the values of events as server-sent events until the client
+// Events writes the values of events as server-sent events until the client
 // goes away or the channel closes. A closed channel means the subscriber fell
 // behind; the client reconnects and reads what it missed. frame gives the event
 // name and the value to encode. A value that cannot be encoded is skipped. A
-// heartbeat comment keeps idle proxies from closing the stream.
-func streamSSE[T any](c echo.Context, events <-chan T, frame func(T) (name string, data any)) error {
-	return streamSSEWithIDs(c, events, heartbeat, func(v T) (string, string, any) {
+// heartbeat comment, sent every `every`, keeps idle proxies from closing the
+// stream.
+func Events[T any](c echo.Context, events <-chan T, every time.Duration, frame func(T) (name string, data any)) error {
+	return Stream(c, events, every, func(v T) (string, string, any) {
 		name, data := frame(v)
 		return "", name, data
 	})
 }
 
-// streamSSEWithIDs is streamSSE with an event id on each event (none when id
+// Stream is Events with an event id on each event (none when id
 // is empty), which a browser sends back as Last-Event-ID when it reconnects,
 // and a heartbeat interval of the caller's choice.
-func streamSSEWithIDs[T any](c echo.Context, events <-chan T, every time.Duration, frame func(T) (id, name string, data any)) error {
+func Stream[T any](c echo.Context, events <-chan T, every time.Duration, frame func(T) (id, name string, data any)) error {
 	w := c.Response()
 	w.Header().Set(echo.HeaderContentType, "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
