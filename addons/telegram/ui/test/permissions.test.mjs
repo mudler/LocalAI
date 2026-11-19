@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   MAX_CHANNELS, canSave, channelsProblem, connectorForm, connectorPayload, emptyConnector, grantableFor, roleHas, setCap, setGrant, usualCaps,
-  AGENT_GRANT_CAPS, channelOnly, DEFAULT_CONNECTOR_GRANTS, agentHas, agentHeld, usualFor, withUsualCaps,
+  AGENT_GRANT_CAPS, channelOnly, DEFAULT_CONNECTOR_GRANTS, agentHas, agentHeld, usualFor, withUsualCaps, loopCaps, matrixCaps,
 } from '../../../internal/connector-ui/src/connector.js'
 
 const CAPS = [
@@ -150,4 +150,22 @@ test('channel trust: the request carries the levels of the entries on the list o
   const lists = [{ match: (x) => !x.startsWith('C') }, { match: (x) => x.startsWith('C') }]
   assert.equal(channelOnly({ allow: ['C1'], allow_trust: { C1: 'answer' } }, lists), true)
   assert.equal(channelOnly({ allow: ['C1'], allow_trust: { C1: 'act' } }, lists), false)
+})
+
+const WITH_LOOPS = [
+  ...CAPS,
+  { name: 'loops.wait', title: 'Wait', description: 'x', sensitive: false, usual: true, binding_only: true },
+  { name: 'loops.start', title: 'Timer', description: 'x', sensitive: true, usual: false, binding_only: true },
+]
+
+test('permissions: the loop capabilities are switches of the binding, never role grants', () => {
+  assert.deepEqual(loopCaps(WITH_LOOPS).map((c) => c.name), ['loops.wait', 'loops.start'], 'the wait first, then the timer')
+  assert.deepEqual(matrixCaps(WITH_LOOPS).map((c) => c.name), CAPS.map((c) => c.name), 'the matrix leaves them out')
+  const kind = { roles: [{ id: 'admin', title: 'Admin' }], permissions: [{ name: 'memory.write', sensitive: false }, { name: 'loops.wait', sensitive: false, binding_only: true }] }
+  assert.deepEqual(grantableFor(kind, ['memory.write', 'loops.wait']), ['memory.write'])
+  const f = { caps: ['memory.write', 'loops.wait'], grants: [] }
+  assert.equal(setGrant(f, 'admin', 'loops.wait', true, WITH_LOOPS), f, 'a role is refused a binding-only cap')
+  const on = setCap({ caps: [], grants: [] }, 'loops.start', true)
+  assert.deepEqual(on.caps, ['loops.start'])
+  assert.deepEqual(setCap(on, 'loops.start', false).caps, [])
 })

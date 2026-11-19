@@ -133,6 +133,10 @@ var _ = Describe("Chats connectors endpoints", func() {
 		}
 		Expect(byName["memory.write"]).To(And(HaveKeyWithValue("sensitive", false), HaveKeyWithValue("usual", true)))
 		Expect(byName["profile.write"]).To(And(HaveKeyWithValue("sensitive", true), HaveKeyWithValue("usual", false)))
+		// The loop capabilities are switches of the binding, never role grants.
+		Expect(byName["loops.wait"]).To(And(HaveKeyWithValue("binding_only", true), HaveKeyWithValue("usual", true), HaveKeyWithValue("sensitive", false)))
+		Expect(byName["loops.start"]).To(And(HaveKeyWithValue("binding_only", true), HaveKeyWithValue("sensitive", true)))
+		Expect(byName["memory.write"]).NotTo(HaveKey("binding_only"))
 	})
 
 	It("lists the kinds that a running add-on serves and marks a binding whose add-on does not run", func() {

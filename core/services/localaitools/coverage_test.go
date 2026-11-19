@@ -177,6 +177,7 @@ var adminRoutesWithoutTool = map[string]string{
 	// to change them, and the first one is a limit a model must not raise
 	// for itself. A person sets them in Settings.
 	"POST /api/settings (chats_max_iterations)":       "the step limit of every chat turn: a model must not raise its own limit; set in Settings > Tools",
+	"POST /api/settings (chats_loop_*)":               "the limits of the loops and waits of every chat (interval, runs, counts, daily runs and daily script checks): a model must not raise the limits of its own loops; set in Settings > Tools",
 	"POST /api/settings (chats_work_folder)":          "where every chat keeps its helper files: set in Settings > Tools",
 	"POST /api/settings (chats_index_files)":          "reads the text of every user's documents into the server's store: a person's choice in Settings > Tools",
 	"POST /api/settings (chats_index_max_text_bytes)": "how much text the index keeps per document, which sizes the database: set in Settings > Tools",

@@ -60,6 +60,51 @@ const loopDoneSchema = `{"type":"object","properties":{` +
 // errNoLoopRun means a loop tool was called outside a run of a self-paced loop.
 var errNoLoopRun = errors.New("no run of a self-paced loop goes on in this chat; use this tool only in a loop run")
 
+// loopOffer is what the loop tools of a chat offer the model now. loopTools
+// builds the tools from it and the promise guard names them from it, so the
+// note of the guard never offers a tool that the model does not have.
+type loopOffer struct {
+	// start offers start_loop; pace offers schedule_next and loop_done.
+	start, pace bool
+	// wait offers wait_for; script says that a wait on a command is allowed.
+	wait, script bool
+}
+
+// loopOfferIn is the offer of the chat of rec, with its loops at hand.
+func (s *Service) loopOfferIn(rec session.ChatRecord, list []loops.Loop) loopOffer {
+	connector := rec.Origin == session.OriginConnector
+	canStart, canWait := s.loopAllowedIn(rec, list, contract.CapLoopsStart), s.loopAllowedIn(rec, list, contract.CapLoopsWait)
+	paced, live, runningPaced := false, false, false
+	for _, l := range list {
+		if l.SelfPaced() && l.State.Live() {
+			live = true
+		}
+		if l.SelfPaced() && (l.State == loops.StateActive || l.Running) {
+			paced = true
+		}
+		if l.SelfPaced() && l.Running {
+			runningPaced = true
+		}
+	}
+	var o loopOffer
+	if !paced {
+		if live {
+			// A paused or waiting loop is the person's to resume: it has no
+			// tools, and a second loop would only pile up.
+			return o
+		}
+		o.start = canStart
+	} else {
+		// The runs of a loop have no sender, so a loop that a connector chat
+		// already has keeps its two tools: only a sender who held the start
+		// capability could have started it (see begin).
+		o.pace = !connector || canStart || runningPaced
+	}
+	o.wait = canWait
+	o.script = canWait && s.scriptWaitAllowedIn(rec, list)
+	return o
+}
+
 // loopTools returns schedule_next and loop_done while the chat has a
 // self-paced loop that is active or running. A chat without a self-paced loop
 // gets start_loop instead, so that the model can arm one itself. The tools are
@@ -71,48 +116,73 @@ func (s *Service) loopTools(ctx context.Context, a workspace.Actor, rec session.
 	if h == nil || !s.loopOriginKnown(rec.Origin) {
 		return nil
 	}
-	connector := rec.Origin == session.OriginConnector
 	list, err := h.o.Store.ListChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nil
 	}
-	canStart, canWait := s.loopAllowedIn(rec, list, contract.CapLoopsStart), s.loopAllowedIn(rec, list, contract.CapLoopsWait)
-	paced, live := false, false
-	for _, l := range list {
-		if l.SelfPaced() && l.State.Live() {
-			live = true
-		}
-		if l.SelfPaced() && (l.State == loops.StateActive || l.Running) {
-			paced = true
-		}
-	}
+	o := s.loopOfferIn(rec, list)
 	var out []session.Tool
-	if !paced {
-		if live {
-			// A paused or waiting loop is the person's to resume: it has no
-			// tools, and a second loop would only pile up.
-			return nil
-		}
-		if canStart {
-			out = append(out, session.Tool{Name: startLoopName, Description: startLoopDescription, Schema: json.RawMessage(startLoopSchema),
-				Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startLoop(ctx, a, raw) }})
-		}
-	} else if !connector || canStart || s.connectorLoopRunning(ctx, a, rec) {
-		// The runs of a loop have no sender, so a loop that a connector chat
-		// already has keeps its two tools: only a sender who held the start
-		// capability could have started it (see begin).
+	if o.start {
+		out = append(out, session.Tool{Name: startLoopName, Description: startLoopDescription, Schema: json.RawMessage(startLoopSchema),
+			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startLoop(ctx, a, raw) }})
+	}
+	if o.pace {
 		out = append(out,
 			session.Tool{Name: scheduleNextName, Description: scheduleNextDescription, Schema: json.RawMessage(scheduleNextSchema),
 				Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.scheduleNext(ctx, a, raw) }},
 			session.Tool{Name: loopDoneName, Description: loopDoneDescription, Schema: json.RawMessage(loopDoneSchema),
 				Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.loopDone(ctx, a, raw) }})
 	}
-	if canWait {
+	if o.wait {
 		out = append(out, session.Tool{Name: waitForName, Description: waitForDescription, Schema: json.RawMessage(waitForSchema),
 			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.startWait(ctx, a, raw) }})
 	}
 	return out
 }
+
+// scriptWaitAllowedIn says whether the model of the chat may arm a wait on a
+// command. A wait on a command runs it at every check with no model call, so
+// in a connector chat it needs a paired sender, even when a sender who is only
+// listed holds loops.wait. A turn with a sender is decided by that sender;
+// the run of a loop or a wait continues the pairing of the sender who armed
+// it (loops.GrantPaired). Elsewhere the owner's own rules (the bash mode and
+// its approval) decide, as before.
+func (s *Service) scriptWaitAllowedIn(rec session.ChatRecord, list []loops.Loop) bool {
+	if modelLoopOrigin(rec.Origin) {
+		return true
+	}
+	if rec.Origin != session.OriginConnector {
+		return false
+	}
+	if g, held := s.access.get(rec.ID); held {
+		return g.Paired
+	}
+	for _, l := range list {
+		if l.Running && slices.Contains(l.Grant, loops.GrantPaired) {
+			return true
+		}
+	}
+	return false
+}
+
+// scriptWaitAllowed is scriptWaitAllowedIn for the chat of a. A read that
+// fails refuses.
+func (h *Loops) scriptWaitAllowed(ctx context.Context, a workspace.Actor) bool {
+	rec, err := h.svc.getChatEffective(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return false
+	}
+	list, err := h.o.Store.ListChat(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return false
+	}
+	return h.svc.scriptWaitAllowedIn(rec, list)
+}
+
+// errScriptNeedsPairing refuses a wait on a command in a connector chat whose
+// sender is not paired.
+var errScriptNeedsPairing = errors.New("a wait that runs a command needs a verified person in this chat. " +
+	"Wait on a URL, a read-only tool or a job instead, or tell the person to ask the owner to verify them")
 
 // loopCapability is the capability that a start by the model needs: a wait
 // needs loops.wait, a loop needs loops.start.
@@ -121,16 +191,6 @@ func loopCapability(by *modelStart) string {
 		return contract.CapLoopsWait
 	}
 	return contract.CapLoopsStart
-}
-
-// connectorLoopRunning says whether a loop run is going on in the chat now.
-// Such a run has no sender and so no grant; the loop was started under one.
-func (s *Service) connectorLoopRunning(ctx context.Context, a workspace.Actor, rec session.ChatRecord) bool {
-	if rec.Origin != session.OriginConnector || s.loops == nil {
-		return false
-	}
-	_, err := s.loops.runningPaced(ctx, a)
-	return err == nil
 }
 
 // loopOriginKnown says whether chats with that origin can have loop tools at
@@ -194,17 +254,25 @@ func (s *Service) loopAllowedIn(rec session.ChatRecord, list []loops.Loop, capab
 
 // armedGrant is the Grant to store on a loop that the model arms in rec: the
 // loop capabilities that the model holds now, by the sender of the turn or,
-// in a run of such a loop, by the grant that run continues. It is nil outside
-// a connector chat, where no grant is needed.
+// in a run of such a loop, by the grant that run continues, and
+// loops.GrantPaired when that sender was paired. It is nil outside a
+// connector chat, where no grant is needed.
 func (s *Service) armedGrant(ctx context.Context, rec session.ChatRecord) []string {
 	if rec.Origin != session.OriginConnector {
 		return nil
 	}
+	var list []loops.Loop
+	if s.loops != nil {
+		list, _ = s.loops.o.Store.ListChat(ctx, rec.Principal, rec.ID)
+	}
 	var out []string
 	for _, c := range []string{contract.CapLoopsWait, contract.CapLoopsStart} {
-		if s.loopAllowed(ctx, rec, c) {
+		if s.loopAllowedIn(rec, list, c) {
 			out = append(out, c)
 		}
+	}
+	if len(out) > 0 && s.scriptWaitAllowedIn(rec, list) {
+		out = append(out, loops.GrantPaired)
 	}
 	return out
 }
@@ -228,6 +296,15 @@ func modelLoopOrigin(origin string) bool {
 // started (a trigger, a job or a page), as a share of the operator's limit: no
 // one watches such a chat, so its loops end sooner.
 const systemRunMaxRuns = 5
+
+// runLimitNote tells the model how many runs the loop may make, and why
+// fewer than the server's limit when the chat is not a person's own.
+func runLimitNote(most int, lim LoopLimits) string {
+	if most >= lim.MaxRuns {
+		return fmt.Sprintf(" The loop ends after at most %d runs.", most)
+	}
+	return fmt.Sprintf(" The loop ends after at most %d runs: a fifth of the %d that the server allows a loop, in a chat of a messaging app, a trigger, a job or a page. Tell the person if the task may need more.", most, lim.MaxRuns)
+}
 
 // maxRunsFor is the number of runs a loop of the chat may make.
 func (h *Loops) maxRunsFor(ctx context.Context, owner, chatID string, lim LoopLimits) int {
@@ -382,6 +459,7 @@ func (h *Loops) startLoop(ctx context.Context, a workspace.Actor, raw json.RawMe
 	if wait != d {
 		out += fmt.Sprintf(" The wait was set to %s: it must be from %s to 24h.", loops.ShortDuration(wait), loops.ShortDuration(lim.MinInterval))
 	}
+	out += runLimitNote(h.maxRunsFor(ctx, a.Principal, a.ChatID, lim), lim)
 	if report != nil {
 		v := h.ReportOf(ctx, l)
 		out += fmt.Sprintf(" The loop will report to the channel %s of the connection %s (%s). The person sees this on the loop.",

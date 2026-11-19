@@ -14,6 +14,7 @@ import ApprovalOptions from './ApprovalFields'
 import FilesFields from './FilesFields'
 import WhoFields from './WhoFields'
 import AccessMatrix from './AccessMatrix'
+import LoopSwitches from './LoopSwitches'
 import PermissionFields from './PermissionFields'
 import NotifyField from './NotifyField'
 import { Field, Notice, RadioCards, Select, TextInput } from './controls'
@@ -53,6 +54,7 @@ function Permissions({ p }) {
           agent={agent} paired={p.pairedList || form.paired || []}
           onReset={() => { setPreset('custom'); setForm(applyPreset(form, 'standard', capabilities, agent)) }} />
       )}
+      <LoopSwitches form={form} setForm={setForm} capabilities={capabilities} s={s} />
     </>
   )
 }

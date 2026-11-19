@@ -492,8 +492,12 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 	case w.Job != "":
 		// Resolved and validated below, with the condition.
 	case w.Script != "":
-		// Whether this chat can run it is checked after the other arguments
-		// and the repeat of a wait (armScript).
+		// Who may arm it is checked now. Whether this chat can run it is
+		// checked after the other arguments and the repeat of a wait
+		// (armScript).
+		if !h.scriptWaitAllowed(ctx, a) {
+			return "", fmt.Errorf("no wait was started: %w", errScriptNeedsPairing)
+		}
 	case w.Tool != "":
 		if len(args.Arguments) > 0 && string(args.Arguments) != "null" {
 			if !json.Valid(args.Arguments) || args.Arguments[0] != '{' {
