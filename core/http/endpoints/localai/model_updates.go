@@ -163,3 +163,72 @@ func queueModelUpgrade(c echo.Context, d ModelUpgradeDeps, retry bool) error {
 		ID: uid, JobID: uid, StatusURL: fmt.Sprintf("%smodels/jobs/%s", middleware.BaseURL(c), uid), Message: "Upgrade started",
 	})
 }
+
+// RemoveOldModelVersionEndpoint deletes the files a confirmed upgrade kept.
+// @Summary Remove the old version of an upgraded model
+// @Description Deletes the old files that the last upgrade of the model kept (retainedFiles of GET /api/models/updates). Only after a confirmed upgrade; refused with 409 while an upgrade runs or when there is nothing to remove. A kept file that another model now uses is not deleted. The model config does not change.
+// @Tags models
+// @Param name path string true "Installed model name"
+// @Success 200 {object} schema.ModelRemoveOldResponse "Removed files"
+// @Failure 404 {object} schema.ModelUpgradeError "Not installed"
+// @Failure 409 {object} schema.ModelUpgradeError "Nothing to remove, an upgrade runs, or a file is shared"
+// @Router /api/models/{name}/remove-old [post]
+func RemoveOldModelVersionEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		up := upgraderOf(d)
+		if up == nil {
+			return c.JSON(http.StatusServiceUnavailable, schema.ModelUpgradeError{Error: "model upgrades are not available: no model gallery is configured"})
+		}
+		name := c.Param("name")
+		removed, err := up.RemoveOld(c.Request().Context(), name)
+		if err != nil && len(removed) == 0 {
+			if errors.Is(err, modelupdates.ErrNoOldVersion) {
+				return c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: err.Error()})
+			}
+			if errors.Is(err, modelupdates.ErrNotFound) || errors.Is(err, modelupdates.ErrNotUpgradable) || errors.Is(err, modelupdates.ErrBusy) {
+				return modelUpgradeError(c, err)
+			}
+			return c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: err.Error()})
+		}
+		if removed == nil {
+			removed = []string{}
+		}
+		return c.JSON(http.StatusOK, schema.ModelRemoveOldResponse{Name: name, Removed: removed})
+	}
+}
+
+// SetModelHoldEndpoint sets or clears the hold of a model.
+// @Summary Hold a model at its installed version
+// @Description With hold true the model is reported as held and offered no update until the hold is cleared. Only the gallery file changes: the model config, its revision and the loaded model stay as they are, and a reinstall keeps the hold. Refused with 409 while an upgrade of the model runs.
+// @Tags models
+// @Param name path string true "Installed model name"
+// @Param request body schema.ModelHoldRequest true "Hold or release"
+// @Success 200 {object} schema.ModelHoldResponse "The hold"
+// @Failure 404 {object} schema.ModelUpgradeError "Not installed"
+// @Failure 409 {object} schema.ModelUpgradeError "An upgrade runs"
+// @Failure 422 {object} schema.ModelUpgradeError "Not installed from a gallery with a recorded origin"
+// @Router /api/models/{name}/hold [put]
+func SetModelHoldEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		up := upgraderOf(d)
+		if up == nil {
+			return c.JSON(http.StatusServiceUnavailable, schema.ModelUpgradeError{Error: "model upgrades are not available: no model gallery is configured"})
+		}
+		var req schema.ModelHoldRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, schema.ModelUpgradeError{Error: "invalid body: " + err.Error()})
+		}
+		name := c.Param("name")
+		if err := up.SetHold(name, req.Hold); err != nil {
+			return modelUpgradeError(c, err)
+		}
+		return c.JSON(http.StatusOK, schema.ModelHoldResponse{Name: name, Hold: req.Hold})
+	}
+}
+
+func upgraderOf(d ModelUpgradeDeps) *modelupdates.Upgrader {
+	if d.Upgrader == nil {
+		return nil
+	}
+	return d.Upgrader()
+}

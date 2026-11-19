@@ -80,6 +80,8 @@ var modelUpdatesRoutes = []string{
 	"POST /api/models/updates/check",
 	"POST /api/models/upgrade/:name",
 	"POST /api/models/:name/upgrade/retry",
+	"POST /api/models/:name/remove-old",
+	"PUT /api/models/:name/hold",
 }
 
 func isModelUpdatesRoute(methodPath string) bool {

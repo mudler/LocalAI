@@ -12643,6 +12643,18 @@ definitions:
       object:
         type: string
     type: object
+  schema.ModelHoldRequest:
+    properties:
+      hold:
+        type: boolean
+    type: object
+  schema.ModelHoldResponse:
+    properties:
+      hold:
+        type: boolean
+      name:
+        type: string
+    type: object
   schema.ModelLoadCancelRequest:
     properties:
       job_id:
@@ -12731,6 +12743,18 @@ definitions:
         type: integer
       total_files:
         type: integer
+    type: object
+  schema.ModelRemoveOldResponse:
+    properties:
+      name:
+        type: string
+      removed:
+        description: |-
+          Removed are the old files that were deleted, relative to the models
+          directory.
+        items:
+          type: string
+        type: array
     type: object
   schema.ModelUpgradeError:
     properties:
@@ -26471,6 +26495,72 @@ paths:
       summary: Toggle model enabled/disabled status
       tags:
       - config
+  /api/models/{name}/hold:
+    put:
+      description: 'With hold true the model is reported as held and offered no update
+        until the hold is cleared. Only the gallery file changes: the model config,
+        its revision and the loaded model stay as they are, and a reinstall keeps
+        the hold. Refused with 409 while an upgrade of the model runs.'
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Hold or release
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelHoldRequest'
+      responses:
+        "200":
+          description: The hold
+          schema:
+            $ref: '#/definitions/schema.ModelHoldResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: An upgrade runs
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "422":
+          description: Not installed from a gallery with a recorded origin
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Hold a model at its installed version
+      tags:
+      - models
+  /api/models/{name}/remove-old:
+    post:
+      description: Deletes the old files that the last upgrade of the model kept (retainedFiles
+        of GET /api/models/updates). Only after a confirmed upgrade; refused with
+        409 while an upgrade runs or when there is nothing to remove. A kept file
+        that another model now uses is not deleted. The model config does not change.
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Removed files
+          schema:
+            $ref: '#/definitions/schema.ModelRemoveOldResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Nothing to remove, an upgrade runs, or a file is shared
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Remove the old version of an upgraded model
+      tags:
+      - models
   /api/models/{name}/upgrade/retry:
     post:
       description: Runs the last upgrade of the model again, with its options and

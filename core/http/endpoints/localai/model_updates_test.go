@@ -141,3 +141,55 @@ var _ = Describe("Model update routes", func() {
 		Expect(snap.Items).To(BeEmpty())
 	})
 })
+
+var _ = Describe("Model hold and old version routes", func() {
+	var (
+		e   *echo.Echo
+		dir string
+	)
+
+	do := func(method, path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, req)
+		return w
+	}
+
+	BeforeEach(func() {
+		dir = GinkgoT().TempDir()
+		state, err := system.GetSystemState(system.WithModelPath(dir))
+		Expect(err).ToNot(HaveOccurred())
+		up := &modelupdates.Upgrader{SystemState: state}
+		deps := ModelUpgradeDeps{Upgrader: func() *modelupdates.Upgrader { return up }}
+		e = echo.New()
+		e.PUT("/api/models/:name/hold", SetModelHoldEndpoint(deps))
+		e.POST("/api/models/:name/remove-old", RemoveOldModelVersionEndpoint(deps))
+		Expect(os.WriteFile(filepath.Join(dir, "tiny.yaml"), []byte("name: tiny\n"), 0600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "tiny.gguf.prev-12345678"), []byte("old"), 0600)).To(Succeed())
+		Expect(gallery.WriteSidecar(dir, "tiny", &gallery.ModelConfig{Name: "tiny", Version: gallery.SidecarVersion,
+			Origin:  &gallery.Origin{EntryName: "tiny", EntryDigest: "sha256:b"},
+			Upgrade: &gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseConfirmed, RetainedFiles: []string{"tiny.gguf.prev-12345678"}}})).To(Succeed())
+	})
+
+	It("sets and clears the hold", func() {
+		w := do(http.MethodPut, "/api/models/tiny/hold", `{"hold":true}`)
+		Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+		var resp schema.ModelHoldResponse
+		Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+		Expect(resp).To(Equal(schema.ModelHoldResponse{Name: "tiny", Hold: true}))
+		sc, err := gallery.ReadSidecar(dir, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sc.Hold).To(BeTrue())
+		Expect(do(http.MethodPut, "/api/models/none/hold", `{"hold":true}`).Code).To(Equal(http.StatusNotFound))
+	})
+
+	It("removes the old version once, then answers 409", func() {
+		w := do(http.MethodPost, "/api/models/tiny/remove-old", "")
+		Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+		var resp schema.ModelRemoveOldResponse
+		Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+		Expect(resp.Removed).To(Equal([]string{"tiny.gguf.prev-12345678"}))
+		Expect(do(http.MethodPost, "/api/models/tiny/remove-old", "").Code).To(Equal(http.StatusConflict))
+	})
+})

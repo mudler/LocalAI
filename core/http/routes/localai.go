@@ -152,6 +152,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		upgradeDeps := localai.ModelUpgradeDeps{Gallery: galleryService, Upgrader: app.ModelUpgrader, Updates: app.ModelUpdates}
 		router.POST("/api/models/upgrade/:name", localai.UpgradeModelEndpoint(upgradeDeps), adminMiddleware)
 		router.POST("/api/models/:name/upgrade/retry", localai.RetryModelUpgradeEndpoint(upgradeDeps), adminMiddleware)
+		router.POST("/api/models/:name/remove-old", localai.RemoveOldModelVersionEndpoint(upgradeDeps), adminMiddleware)
+		router.PUT("/api/models/:name/hold", localai.SetModelHoldEndpoint(upgradeDeps), adminMiddleware)
 		// Custom model import endpoint
 		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig, opcache), adminMiddleware)
 

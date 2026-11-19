@@ -95,6 +95,10 @@ func (n modelUpgradeNotifier) ModelUpgradeResult(ctx context.Context, r modelupd
 	})
 }
 
+func (n modelUpgradeNotifier) ModelRemovedOld(ctx context.Context, key, name string, files int) error {
+	return n.em.ModelRemovedOld(ctx, key, name, files)
+}
+
 // modelUpgraderOp runs a gallery operation's model upgrade on the upgrader.
 type modelUpgraderOp struct{ u *modelupdates.Upgrader }
 

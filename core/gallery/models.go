@@ -971,6 +971,16 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 	// read the model config
 	galleryconfig, err := ReadConfigFile[ModelConfig](galleryFile)
 	if err == nil && galleryconfig != nil {
+		// The old files a confirmed upgrade kept belong to the model too: a
+		// deletion removes them instead of leaving them on disk.
+		if galleryconfig.Upgrade != nil {
+			for _, f := range galleryconfig.Upgrade.RetainedFiles {
+				if err := utils.VerifyPath(f, systemState.Model.ModelsPath); err != nil {
+					return allFiles, fmt.Errorf("failed to verify path %s: %w", f, err)
+				}
+				allFiles = append(allFiles, filepath.Join(systemState.Model.ModelsPath, f))
+			}
+		}
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(systemState.Model.ModelsPath, f.Filename)
 			if err := utils.VerifyPath(f.Filename, systemState.Model.ModelsPath); err != nil {
