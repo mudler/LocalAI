@@ -9,10 +9,12 @@
     <meta name="theme-color" content="#fff4dc" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0c1211" media="(prefers-color-scheme: dark)" />
     <script>
-      // Set the theme before first paint, with the same rule as ThemeContext:
-      // a stored choice wins, a fresh install opens dark.
+      // Set the theme before first paint, from the theme last shown in this
+      // browser (utils/theme.js keeps it): React then confirms it, or applies
+      // the account's own, without a flash. A fresh install opens dark.
       try {
-        document.documentElement.setAttribute('data-theme', localStorage.getItem('localai-theme') || 'dark')
+        var t = localStorage.getItem('localai.theme') || localStorage.getItem('localai-theme')
+        document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark')
       } catch (e) {
         document.documentElement.setAttribute('data-theme', 'dark')
       }

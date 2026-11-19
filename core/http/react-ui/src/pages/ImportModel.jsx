@@ -146,10 +146,10 @@ export default function ImportModel() {
   // Simple/Power modes they replace, which were the same form at two
   // different lengths.
   const [tab, setTab] = useState(() => {
-    try { return localStorage.getItem('import-form-tab') === 'yaml' ? 'yaml' : 'source' } catch { return 'source' }
+    return readStored('import.tab', ['import-form-tab']) === 'yaml' ? 'yaml' : 'source'
   })
   const [showOptions, setShowOptions] = useState(() => {
-    try { return localStorage.getItem('import-form-options') === 'open' } catch { return false }
+    return readStored('import.options', ['import-form-options']) === 'open'
   })
 
   const optionsToggleRef = useRef(null)
@@ -213,11 +213,11 @@ export default function ImportModel() {
   }, [])
 
   useEffect(() => {
-    try { localStorage.setItem('import-form-tab', tab) } catch { /* ignore quota / privacy mode */ }
+    writeStored('import.tab', tab)
   }, [tab])
 
   useEffect(() => {
-    try { localStorage.setItem('import-form-options', showOptions ? 'open' : 'closed') } catch { /* ignore */ }
+    writeStored('import.options', showOptions ? 'open' : 'closed')
   }, [showOptions])
 
   useEffect(() => {

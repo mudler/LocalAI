@@ -50,7 +50,11 @@ export default function ChatAppFrame({ chatId, app, onSend, t }) {
       host.receive(event.data).catch(() => {})
     }
     window.addEventListener('message', listen)
-    return () => { window.removeEventListener('message', listen); host.close() }
+    // The app hears a later change of theme; the frame is not rebuilt for it.
+    const root = document.documentElement
+    const observer = new MutationObserver(() => host.setTheme(root.getAttribute('data-theme')))
+    observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => { observer.disconnect(); window.removeEventListener('message', listen); host.close() }
   // The input and result belong to one finished call and never change; the page
   // is rebuilt only when it is another page.
   // eslint-disable-next-line react-hooks/exhaustive-deps
