@@ -216,7 +216,6 @@ func (p *modelPrefetcher) discard(places []string, evict bool) error {
 	return errors.Join(errs...)
 }
 
-
 func removeQuiet(path string) {
 	if err := utils.RemoveIfPresent(path); err != nil {
 		xlog.Warn("Could not remove a staged file", "file", path, "error", err)
