@@ -244,7 +244,7 @@ var _ = Describe("concurrent backend operations", func() {
 		start(1)
 		models := newGatedModelManager()
 		svc.SetModelManager(models)
-		close(models.gate)
+		close(models.current())
 
 		enqueue("slow", "alpha")
 		Eventually(mgr.Started, "5s", "10ms").Should(HaveLen(1))
