@@ -59,6 +59,25 @@ var _ = Describe("Identity", func() {
 		Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)))
 	})
 
+	It("keeps an older backup when it regenerates a second time", func() {
+		k1, err := p2pnet.LoadOrCreateIdentity(path)
+		Expect(err).ToNot(HaveOccurred())
+		k2, err := p2pnet.RegenerateIdentity(path)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = p2pnet.RegenerateIdentity(path)
+		Expect(err).ToNot(HaveOccurred())
+
+		prev, err := p2pnet.LoadOrCreateIdentity(path + ".prev")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(prev.Equals(k2)).To(BeTrue(), "the last key before the change")
+		older, err := filepath.Glob(path + ".prev.*")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(older).To(HaveLen(1))
+		kept, err := p2pnet.LoadOrCreateIdentity(older[0])
+		Expect(err).ToNot(HaveOccurred())
+		Expect(kept.Equals(k1)).To(BeTrue(), "the first key is not lost")
+	})
+
 	It("refuses a corrupt key and leaves the file untouched", func() {
 		Expect(os.MkdirAll(filepath.Dir(path), 0o700)).To(Succeed())
 		Expect(os.WriteFile(path, []byte("not a key"), 0o600)).To(Succeed())

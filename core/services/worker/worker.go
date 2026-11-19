@@ -9,8 +9,10 @@ import (
 	"maps"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -79,7 +81,11 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// A worker with an invite joins over P2P: it redeems the invite (once),
 	// and every call to the frontend goes over the P2P layer from here on.
 	if cfg.Join != "" {
-		join, err := joinP2P(context.Background(), cfg)
+		// A signal during the redeem or the wait for a hole punch ends it,
+		// so the worker does not have to wait out the join timeout to stop.
+		joinCtx, stopJoin := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		join, err := joinP2P(joinCtx, cfg)
+		stopJoin()
 		if err != nil {
 			return err
 		}

@@ -8,9 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // identityMode is the file mode of an identity key: the key is the peer's
@@ -44,79 +47,66 @@ func LoadOrCreateIdentity(path string) (crypto.PrivKey, error) {
 }
 
 // RegenerateIdentity replaces the key at path with a new ed25519 key and
-// keeps the old key next to it as path + ".prev". Every peer that pinned the
-// old peer ID must pair again.
+// keeps the old key next to it as path + ".prev". A ".prev" that is already
+// there is an older key: it is kept as path + ".prev.<unix time>" and is never
+// overwritten. Every peer that pinned the old peer ID must pair again.
 func RegenerateIdentity(path string) (crypto.PrivKey, error) {
 	if path == "" {
 		return nil, errors.New("p2pnet: identity path is empty")
 	}
-	k, tmp, err := stageIdentity(path)
+	k, b, err := newIdentity()
 	if err != nil {
 		return nil, err
 	}
-	if err := os.Rename(path, path+".prev"); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		_ = os.Remove(tmp)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, fmt.Errorf("p2pnet: create identity directory: %w", err)
+	}
+	prev := path + ".prev"
+	if old, err := os.ReadFile(path); err == nil {
+		if _, err := os.Stat(prev); err == nil {
+			older := fmt.Sprintf("%s.%d", prev, time.Now().Unix())
+			if err := os.Rename(prev, older); err != nil {
+				return nil, fmt.Errorf("p2pnet: keep the older identity backup: %w", err)
+			}
+		}
+		// A copy, so that the key at path never goes missing.
+		if err := atomicfile.Write(prev, old, identityMode); err != nil {
+			return nil, fmt.Errorf("p2pnet: keep previous identity: %w", err)
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("p2pnet: keep previous identity: %w", err)
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	if err := atomicfile.Write(path, b, identityMode); err != nil {
 		return nil, fmt.Errorf("p2pnet: install identity: %w", err)
 	}
 	return k, nil
 }
 
 func writeNewIdentity(path string) (crypto.PrivKey, error) {
-	k, tmp, err := stageIdentity(path)
+	k, b, err := newIdentity()
 	if err != nil {
 		return nil, err
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, fmt.Errorf("p2pnet: create identity directory: %w", err)
+	}
+	if err := atomicfile.Write(path, b, identityMode); err != nil {
 		return nil, fmt.Errorf("p2pnet: install identity: %w", err)
 	}
 	return k, nil
 }
 
-// stageIdentity writes a new key to a temporary file in the directory of
-// path, so that the final rename is atomic and a crash never leaves a
-// half-written key at path.
-func stageIdentity(path string) (crypto.PrivKey, string, error) {
+// newIdentity makes a new ed25519 key and its encoding.
+func newIdentity() (crypto.PrivKey, []byte, error) {
 	k, _, err := crypto.GenerateEd25519Key(rand.Reader)
 	if err != nil {
-		return nil, "", fmt.Errorf("p2pnet: generate identity: %w", err)
+		return nil, nil, fmt.Errorf("p2pnet: generate identity: %w", err)
 	}
 	b, err := crypto.MarshalPrivateKey(k)
 	if err != nil {
-		return nil, "", fmt.Errorf("p2pnet: encode identity: %w", err)
+		return nil, nil, fmt.Errorf("p2pnet: encode identity: %w", err)
 	}
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, "", fmt.Errorf("p2pnet: create identity directory: %w", err)
-	}
-	f, err := os.CreateTemp(dir, ".identity-*")
-	if err != nil {
-		return nil, "", fmt.Errorf("p2pnet: write identity: %w", err)
-	}
-	tmp := f.Name()
-	fail := func(err error) (crypto.PrivKey, string, error) {
-		_ = f.Close()
-		_ = os.Remove(tmp)
-		return nil, "", fmt.Errorf("p2pnet: write identity: %w", err)
-	}
-	if err := f.Chmod(identityMode); err != nil {
-		return fail(err)
-	}
-	if _, err := f.Write(b); err != nil {
-		return fail(err)
-	}
-	if err := f.Sync(); err != nil {
-		return fail(err)
-	}
-	if err := f.Close(); err != nil {
-		_ = os.Remove(tmp)
-		return nil, "", fmt.Errorf("p2pnet: write identity: %w", err)
-	}
-	return k, tmp, nil
+	return k, b, nil
 }
 
 // restrictIdentityMode removes group and other permissions from a key file

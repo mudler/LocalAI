@@ -313,6 +313,16 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 	return d, nil
 }
 
+// mlxHostfileDir is where the MLX ring hostfile is written: the data path of
+// the server, so it is not a name in the shared temporary folder that another
+// user can take. With no data path it is the temporary folder of this user.
+func (r *RunCMD) mlxHostfileDir() string {
+	if r.DataPath != "" {
+		return filepath.Join(r.DataPath, "p2p")
+	}
+	return userScopedTempDir()
+}
+
 // NoDataPath is the value of --data-path that keeps nothing on disk: the chats
 // then live in memory and files are off. An empty value cannot say this, because
 // the option has a default and the command line parser reads an empty path as
@@ -497,7 +507,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 			xlog.Debug("llama.cpp RPC servers", "value", tunnels)
 		}),
 		config.WithMLXTunnelCallback(func(tunnels []string) {
-			if err := splitenv.SetMLX(os.TempDir(), tunnels); err != nil {
+			if err := splitenv.SetMLX(r.mlxHostfileDir(), tunnels); err != nil {
 				xlog.Error("failed to write the MLX hostfile", "error", err)
 				return
 			}

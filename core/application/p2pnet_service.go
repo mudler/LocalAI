@@ -7,6 +7,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/mudler/xlog"
+
 	"github.com/mudler/LocalAI/core/config"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
@@ -359,7 +361,9 @@ func (s p2pService) RemoveRelay(ctx context.Context, id string) error {
 // request is not cut by its own restart.
 func (s p2pService) restartForRelays() {
 	go func() {
-		_ = s.n.restart()
+		if err := s.n.restart(); err != nil {
+			xlog.Error("P2P: could not restart the host after the relays changed", "error", err)
+		}
 	}()
 }
 
