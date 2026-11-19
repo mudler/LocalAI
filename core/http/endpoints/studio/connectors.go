@@ -160,7 +160,7 @@ func tokenGuardsOut(gs []contract.TokenGuard) []schema.ChatsConnectorTokenGuard 
 func permissionsOut(k contract.ConnectorKind) []schema.ChatsConnectorPermission {
 	var out []schema.ChatsConnectorPermission
 	for _, p := range k.Permissions {
-		out = append(out, schema.ChatsConnectorPermission{Name: p, Sensitive: contract.SensitiveCapability(p)})
+		out = append(out, schema.ChatsConnectorPermission{Name: p, Sensitive: contract.SensitiveCapability(p), BindingOnly: contract.BindingOnlyCapability(p)})
 	}
 	return out
 }
@@ -653,7 +653,7 @@ func (h *Handlers) RemoveConnectorPaired(c echo.Context) error {
 // capabilityOut adds the title and description in the negotiated language
 // beside the English ones.
 func capabilityOut(ci contract.CapabilityInfo, lang string) schema.ChatsConnectorCapability {
-	out := schema.ChatsConnectorCapability{Name: ci.Name, Title: ci.Title, Description: ci.Description, Sensitive: ci.Sensitive, Usual: ci.Usual}
+	out := schema.ChatsConnectorCapability{Name: ci.Name, Title: ci.Title, Description: ci.Description, Sensitive: ci.Sensitive, Usual: ci.Usual, BindingOnly: ci.BindingOnly}
 	if lang == "" {
 		return out
 	}

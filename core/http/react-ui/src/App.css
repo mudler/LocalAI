@@ -844,6 +844,11 @@
 .model-selector:focus {
   border-color: var(--color-border-strong);
 }
+/* The outline is off above; the ring comes back for the keyboard. */
+.model-selector:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
 
 /* The .page frame is in the UI kit (packages/ui-kit/css/kit.css). The width
    archetypes below are the app's own: add .page--narrow for forms /

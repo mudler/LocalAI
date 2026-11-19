@@ -7901,6 +7901,11 @@ definitions:
     type: object
   schema.ChatsConnectorCapability:
     properties:
+      binding_only:
+        description: |-
+          BindingOnly capabilities are never granted to a role, even when a kind
+          lists them: the owner turns them on for the whole binding.
+        type: boolean
       description:
         type: string
       language:
@@ -8256,6 +8261,11 @@ definitions:
     type: object
   schema.ChatsConnectorPermission:
     properties:
+      binding_only:
+        description: |-
+          BindingOnly says that the listing grants nothing to a role: the
+          capability belongs to the binding alone.
+        type: boolean
       name:
         type: string
       sensitive:

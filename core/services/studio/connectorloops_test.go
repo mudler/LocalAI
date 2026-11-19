@@ -78,6 +78,101 @@ var _ = Describe("loop tools in a connector chat", func() {
 		Expect(names).NotTo(ContainElement("wait_for"))
 	})
 
+	It("says the reduced run limit in the answer of start_loop", func() {
+		r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{Limits: func() studio.LoopLimits { return studio.LoopLimits{MaxRuns: 100} }})
+		id := chat(r)
+		r.svc.HoldSenderForTest(id, binding, "PAIRED", false, now)
+		sent(r.svc, alice, id, "arm")
+		idle(r.svc, alice, id)
+		res := r.h.ResultsFor("start_loop")
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Out).To(ContainSubstring("at most 20 runs"))
+		Expect(res[0].Out).To(ContainSubstring("a fifth of the 100"))
+	})
+
+	// A wait on a script runs a command at every check. In a connector chat
+	// only a paired sender may arm one, even when every sender holds
+	// loops.wait; the other sources stay open to any sender with loops.wait.
+	Describe("a wait on a command", func() {
+		const onScript = `{"script":"true","until":"exit_zero","every":"1m","then":"Tell the person."}`
+		const onTool = `{"tool":"list_things","then":"Tell the person."}`
+
+		It("is refused to a listed sender who is not paired, and the refusal says why", func() {
+			r := newLoopRig(say, studio.LoopOptions{})
+			id := chat(r)
+			r.svc.HoldSenderForTest(id, binding, "LISTED", true, now)
+			_, err := r.host.StartWaitForTest(ctx, alice, id, onScript)
+			Expect(err).To(MatchError(ContainSubstring("verified person")))
+			list, _ := r.host.List(ctx, alice, id)
+			Expect(list).To(BeEmpty())
+			_, err = r.host.StartWaitForTest(ctx, alice, id, onTool)
+			Expect(err).NotTo(MatchError(ContainSubstring("verified person")), "another source needs only loops.wait")
+		})
+
+		It("passes the pairing check for a paired sender", func() {
+			r := newLoopRig(say, studio.LoopOptions{})
+			id := chat(r)
+			r.svc.HoldSenderForTest(id, binding, "PAIRED", false, now)
+			_, err := r.host.StartWaitForTest(ctx, alice, id, onScript)
+			Expect(err).NotTo(MatchError(ContainSubstring("verified person")))
+		})
+
+		It("passes the pairing check in the run of a wait that a paired sender armed, and not of one a listed sender armed", func() {
+			r := newLoopRig(say, studio.LoopOptions{})
+			id := chat(r)
+			r.svc.HoldSenderForTest(id, binding, "PAIRED", false, now)
+			l, err := r.host.BeginByModelForTest(ctx, alice, id, true)
+			Expect(err).NotTo(HaveOccurred())
+			r.svc.ReleaseSenderForTest(id)
+			running(r, l.ID)
+			_, err = r.host.StartWaitForTest(ctx, alice, id, onScript)
+			Expect(err).NotTo(MatchError(ContainSubstring("verified person")))
+
+			other := chat(r)
+			r.svc.HoldSenderForTest(other, binding, "LISTED", true, now)
+			m, err := r.host.BeginByModelForTest(ctx, alice, other, true)
+			Expect(err).NotTo(HaveOccurred())
+			r.svc.ReleaseSenderForTest(other)
+			running(r, m.ID)
+			_, err = r.host.StartWaitForTest(ctx, alice, other, onScript)
+			Expect(err).To(MatchError(ContainSubstring("verified person")))
+		})
+	})
+
+	// The note of the promise guard names only what the model is offered.
+	Describe("the promise guard", func() {
+		It("names wait_for without a command for a listed sender, and with one for a paired sender", func() {
+			r := newLoopRig(say, studio.LoopOptions{})
+			id := chat(r)
+			r.svc.HoldSenderForTest(id, binding, "LISTED", true, now)
+			got := r.svc.GuardToolsForTest(ctx, alice, id)
+			Expect(got).To(HaveLen(1))
+			Expect(got[0]).To(HavePrefix("wait_for"))
+			Expect(got[0]).NotTo(ContainSubstring("command"))
+			r.svc.HoldSenderForTest(id, binding, "PAIRED", false, now)
+			got = r.svc.GuardToolsForTest(ctx, alice, id)
+			Expect(got).To(HaveLen(2))
+			Expect(got[0]).To(HavePrefix("start_loop"))
+			Expect(got[1]).To(ContainSubstring("command"))
+		})
+
+		It("names no loop tool while a paused loop holds the chat, as the tool list does", func() {
+			r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{})
+			id := create(r.svc, alice)
+			sent(r.svc, alice, id, "arm")
+			idle(r.svc, alice, id)
+			list, _ := r.host.List(ctx, alice, id)
+			Expect(list).To(HaveLen(1))
+			_, err := r.host.SetState(ctx, alice, id, list[0].ID, loops.StatePaused)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(r.host.ToolNamesForTest(ctx, alice, id)).To(BeEmpty())
+			for _, t := range r.svc.GuardToolsForTest(ctx, alice, id) {
+				Expect(t).NotTo(HavePrefix("start_loop"))
+				Expect(t).NotTo(HavePrefix("wait_for"))
+			}
+		})
+	})
+
 	It("starts a loop for a paired sender with the reduced run limit", func() {
 		r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{Limits: func() studio.LoopLimits { return studio.LoopLimits{MaxRuns: 100} }})
 		id := chat(r)
@@ -156,7 +251,8 @@ var _ = Describe("loop tools in a connector chat", func() {
 			l := arm(r, chat(r), "LISTED", true, binding)
 			Expect(l.Grant).To(ConsistOf(contract.CapLoopsWait))
 			p := arm(r, chat(r), "PAIRED", false, binding)
-			Expect(p.Grant).To(ConsistOf(contract.CapLoopsWait, contract.CapLoopsStart))
+			Expect(p.Grant).To(ConsistOf(contract.CapLoopsWait, contract.CapLoopsStart, loops.GrantPaired),
+				"a paired sender's wait also records the pairing, which a wait on a command needs")
 		})
 
 		It("offers wait_for and not start_loop to the wake-up of a listed sender's wait", func() {

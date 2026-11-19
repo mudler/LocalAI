@@ -2218,6 +2218,9 @@ type ChatsConnectorCapability struct {
 	Sensitive bool `json:"sensitive"`
 	// Usual capabilities are what a one-click preset turns on.
 	Usual bool `json:"usual"`
+	// BindingOnly capabilities are never granted to a role, even when a kind
+	// lists them: the owner turns them on for the whole binding.
+	BindingOnly bool `json:"binding_only,omitempty"`
 	// Language is the language of localized_title and localized_description:
 	// the one the request asked for (lang, else Accept-Language) among the
 	// translated ones. Absent for English and for a language with no
@@ -2232,6 +2235,9 @@ type ChatsConnectorCapability struct {
 type ChatsConnectorPermission struct {
 	Name      string `json:"name"`
 	Sensitive bool   `json:"sensitive"`
+	// BindingOnly says that the listing grants nothing to a role: the
+	// capability belongs to the binding alone.
+	BindingOnly bool `json:"binding_only,omitempty"`
 }
 
 // ChatsConnectorFiles are the file limits of a binding or of a kind, for both

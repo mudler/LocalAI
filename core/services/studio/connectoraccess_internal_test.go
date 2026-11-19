@@ -424,13 +424,14 @@ var _ = Describe("Authorize for the loop capabilities", func() {
 		Expect(allowed(b, s, contract.CapLoopsWait)).To(BeFalse())
 		Expect(allowed(b, s, contract.CapLoopsStart)).To(BeFalse())
 	})
-	It("never gives the loop to a role, even when the kind lists it and the owner grants it", func() {
+	It("never gives a loop or a wait to a role, even when the kind lists it and the owner grants it", func() {
 		kind := contract.ConnectorKind{ID: "chat", Roles: []contract.ConnectorRole{{ID: "admin", Title: "Admin"}},
 			Permissions: []string{contract.CapLoopsWait, contract.CapLoopsStart}}
 		b := binding
 		b.Grants = []connectors.RoleGrant{{Role: "admin", Caps: []string{contract.CapLoopsWait, contract.CapLoopsStart}}}
 		s := AccessSubject{SenderID: "R", Allowlisted: true, Roles: []string{"admin"}}
-		Expect(Authorize(b, &kind, s, contract.CapLoopsWait, now, Block{}).Allowed).To(BeTrue())
+		// Both belong to the binding alone, as the settings page shows them.
+		Expect(Authorize(b, &kind, s, contract.CapLoopsWait, now, Block{}).Allowed).To(BeFalse())
 		Expect(Authorize(b, &kind, s, contract.CapLoopsStart, now, Block{}).Allowed).To(BeFalse())
 	})
 	It("keeps the ceiling: a capability the owner did not enable is denied to a paired sender", func() {

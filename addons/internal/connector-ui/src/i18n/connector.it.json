@@ -287,6 +287,8 @@
   "ready.quiet_other": "{{count}} cose da impostare",
   "ready.quietDone": "Non resta nulla da impostare",
   "matrix.title": "Chi può fare cosa",
+  "loops.title": "Attese e timer",
+  "loops.help": "Cosa può fare l'agente più tardi in questa chat da solo. Appartengono al bot: un ruolo non li riceve mai.",
   "matrix.note": "Gli interruttori e le caselle dei ruoli sono tuoi da impostare. Ogni altra cella è calcolata dalle tue impostazioni attuali, con lo stesso controllo che l'host esegue a ogni messaggio.",
   "matrix.capability": "Permesso",
   "matrix.pick": "Tipo di mittente",

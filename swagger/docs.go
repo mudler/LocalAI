@@ -30647,6 +30647,10 @@ const docTemplate = `{
         "schema.ChatsConnectorCapability": {
             "type": "object",
             "properties": {
+                "binding_only": {
+                    "description": "BindingOnly capabilities are never granted to a role, even when a kind\nlists them: the owner turns them on for the whole binding.",
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -31058,6 +31062,10 @@ const docTemplate = `{
         "schema.ChatsConnectorPermission": {
             "type": "object",
             "properties": {
+                "binding_only": {
+                    "description": "BindingOnly says that the listing grants nothing to a role: the\ncapability belongs to the binding alone.",
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },

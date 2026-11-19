@@ -136,9 +136,15 @@ type Loop struct {
 	// wait. The run of the loop has no sender, so the host reads it to offer
 	// the same tools again in that run. It is set by the host only, is never
 	// shown by the API and dies with the loop. Empty means no grant: a run
-	// then holds nothing. Treat it as immutable.
+	// then holds nothing. Besides the capabilities it may hold GrantPaired.
+	// Treat it as immutable.
 	Grant []string `json:"grant,omitempty"`
 }
+
+// GrantPaired in Loop.Grant says that the sender who armed the loop was
+// paired with the bot. It is not a capability: a run reads it only to allow a
+// wait on a command, which needs a paired sender in a connector chat.
+const GrantPaired = "sender.paired"
 
 // When a loop reports to its destination.
 const (

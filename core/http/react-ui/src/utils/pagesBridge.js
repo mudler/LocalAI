@@ -133,7 +133,7 @@ const BOOTSTRAP = `(function () {
   root.setAttribute('data-theme', info.theme)
   setMode()
   root.style.colorScheme = info.theme
-  var port = null, queue = [], seq = 0, waiting = {}, listeners = { 'files.changed': [], 'visibility': [], 'mode': [] }
+  var port = null, queue = [], seq = 0, waiting = {}, listeners = { 'files.changed': [], 'visibility': [], 'mode': [], 'theme': [] }
   function deliver(ev) {
     var m = read(evData, ev, 'data')
     if (!m || typeof m !== 'object') return
@@ -156,6 +156,15 @@ const BOOTSTRAP = `(function () {
       info.size = d.size || ''
       setMode()
       m = { event: 'mode', data: { mode: info.mode, size: info.size } }
+    }
+    if (m.event === 'theme') {
+      var th = m.data && m.data.theme
+      if (th !== 'dark' && th !== 'light') return
+      if (th === info.theme) return
+      info.theme = th
+      root.setAttribute('data-theme', th)
+      root.style.colorScheme = th
+      m = { event: 'theme', data: { theme: th } }
     }
     if (typeof m.event === 'string' && listeners[m.event]) {
       listeners[m.event].slice().forEach(function (fn) {
@@ -732,12 +741,14 @@ export function createPageHost({ post, files, chat, links, errors, resize, onBea
       }
       return undefined
     },
-    // Sends an event to the page: files.changed ({paths}), visibility
+    // Sends an event to the page: files.changed ({paths}), theme ({theme}:
+    // the host theme changed, the frame is not reloaded), visibility
     // ({visible}: the tab or the tile went out of sight, or came back) and
     // mode ({mode, size}: the tile changed size; only known values pass).
     emit(event, payload) {
       if (event === 'files.changed') answer({ event, data: payload })
       else if (event === 'visibility') answer({ event, data: { visible: Boolean(payload?.visible) } })
+      else if (event === 'theme') answer({ event, data: { theme: payload?.theme === 'dark' ? 'dark' : 'light' } })
       else if (event === 'mode') {
         const mode = PAGE_MODES.includes(payload?.mode) ? payload.mode : 'page'
         const size = mode === 'widget' ? (TILE_SIZES.includes(payload?.size) ? payload.size : 'medium') : ''

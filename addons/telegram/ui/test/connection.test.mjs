@@ -98,3 +98,23 @@ test('last test: kept in the browser, newest first, and a damaged store reads as
   assert.deepEqual(Object.keys(readChecks(store)), ['y'])
   assert.deepEqual(readChecks(null), {})
 })
+
+// The two loop capabilities are switches of their own: turning one on or off
+// does not change which preset the form shows, and a preset still sets them.
+const LOOP_CAPS = [
+  { name: 'memory.write', title: 'Save to memory', sensitive: false, usual: true },
+  { name: 'loops.wait', title: 'Wait', sensitive: false, usual: true, binding_only: true },
+  { name: 'loops.start', title: 'Timer', sensitive: true, usual: false, binding_only: true },
+]
+
+test('presets: the loop switches do not change the preset the form shows', () => {
+  const standard = applyPreset(emptyConnector(LOOP_CAPS, null), 'standard', LOOP_CAPS, null)
+  assert.deepEqual([...standard.caps].sort(), ['loops.wait', 'memory.write'], 'the usual set holds the wait')
+  assert.equal(presetOf(standard, LOOP_CAPS, null), 'standard')
+  assert.equal(presetOf({ ...standard, caps: [...standard.caps, 'loops.start'] }, LOOP_CAPS, null), 'standard', 'a timer switched on')
+  assert.equal(presetOf({ ...standard, caps: ['memory.write'] }, LOOP_CAPS, null), 'standard', 'the wait switched off')
+  const answer = applyPreset(standard, 'answer', LOOP_CAPS, null)
+  assert.deepEqual(answer.caps, [], 'answer turns everything off, the switches too')
+  assert.equal(presetOf({ ...answer, caps: ['loops.wait'] }, LOOP_CAPS, null), 'answer')
+  assert.deepEqual(standardTitles(LOOP_CAPS, null), ['Save to memory'], 'the preset text names the matrix caps; the switches say the rest')
+})

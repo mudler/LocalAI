@@ -12,7 +12,7 @@ import Icon from '../../host-compat/src/components/Icon'
 import { FixNotice, Hint, Select, Switch } from './controls'
 import { FixButton } from './accessHooks'
 import { hasPairing, remainingChecks, sentenceCase } from './access'
-import { agentHas, agentHeld, grantableFor, roleHas, setCap, setGrant } from './connector'
+import { agentHas, agentHeld, grantableFor, matrixCaps, roleHas, setCap, setGrant } from './connector'
 import { matrixColumns, matrixRows } from './matrix'
 import ApprovalOptions, { approvalEffect, changeEffect } from './ApprovalFields'
 
@@ -65,7 +65,8 @@ export default function AccessMatrix({ form, setForm, kindInfo, capabilities, pr
   const view = preview.view
   const phone = usePhone()
   const columns = matrixColumns(form, view, kindInfo?.roles)
-  const rows = matrixRows(view, capabilities, form, columns)
+  // The loop capabilities are the switches below the matrix (LoopSwitches).
+  const rows = matrixRows(view, matrixCaps(capabilities), form, columns)
   const [picked, setPicked] = useState(null) // { row, col }
   const [open, setOpen] = useState(() => new Set())
   const kinds = columns.filter((c) => c.id !== 'on')

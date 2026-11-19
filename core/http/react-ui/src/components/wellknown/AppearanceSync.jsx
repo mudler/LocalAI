@@ -6,6 +6,7 @@ import { setChatStart } from '../../utils/lastModel'
 import { defaultChoice } from '../../utils/defaults'
 import { lookAttributes, lookOf, accentCheck, onAccentRole } from '../../utils/look'
 import { pageMode, paletteOf } from './contrast'
+import { uiThemeToApply } from '../../utils/theme'
 import './wellKnown.css'
 import './look.css'
 
@@ -64,9 +65,11 @@ export function applyAppearance(ui, setTheme) {
 }
 
 // AppearanceSync applies the user's ui.json when the app starts and whenever
-// the file changes, whoever changed it. The accent is checked again when the
-// theme changes, since a colour that reads on the dark page may not on the
-// light one.
+// the file changes, whoever changed it. The theme is applied only when the
+// theme of the file differs from the one applied last, so a pin or any other
+// save of the file never moves it; with 'system' it also follows the OS. The
+// accent is checked again when the theme changes, since a colour that reads
+// on the dark page may not on the light one.
 export default function AppearanceSync() {
   const { theme, setTheme } = useTheme()
   const { hasFeature } = useAuth()
@@ -74,11 +77,24 @@ export default function AppearanceSync() {
   const { doc } = useWellKnown('ui', { enabled: on })
   const { doc: defaults } = useWellKnown('defaults', { enabled: on })
   const applied = useRef(null)
+  const appliedTheme = useRef(undefined)
   useEffect(() => {
     if (!doc || applied.current === doc.version) return
     applied.current = doc.version
-    applyAppearance(doc.data, setTheme)
+    const change = uiThemeToApply(appliedTheme.current, doc.data?.theme)
+    if (change) appliedTheme.current = change
+    applyAppearance(doc.data, change ? setTheme : undefined)
   }, [doc, setTheme])
+  // With 'system' the page follows the OS setting while the file says so.
+  const system = doc?.data?.theme === 'system'
+  useEffect(() => {
+    if (!system) return undefined
+    let query
+    try { query = window.matchMedia('(prefers-color-scheme: light)') } catch { return undefined }
+    const follow = () => setTheme(systemTheme())
+    query.addEventListener?.('change', follow)
+    return () => query.removeEventListener?.('change', follow)
+  }, [system, setTheme])
   // What a new chat starts with: the chat default of defaults.json (a model or
   // ask), or the older defaultModel of ui.json when that file has none.
   useEffect(() => {
