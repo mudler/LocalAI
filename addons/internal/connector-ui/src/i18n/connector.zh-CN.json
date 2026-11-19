@@ -287,6 +287,8 @@
   "ready.quiet_other": "{{count}} 项待设置",
   "ready.quietDone": "没有需要设置的项目",
   "matrix.title": "谁能做什么",
+  "loops.title": "等待和定时器",
+  "loops.help": "智能体之后在此聊天中可以自行做的事。这些属于机器人：角色永远不会获得。",
   "matrix.note": "开关和角色复选框由你设置。其他单元格都根据你当前的设置计算，使用主机处理每条消息时相同的检查。",
   "matrix.capability": "权限",
   "matrix.pick": "发送者类型",
