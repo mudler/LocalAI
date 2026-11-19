@@ -193,3 +193,20 @@ var _ = Describe("Model hold and old version routes", func() {
 		Expect(do(http.MethodPost, "/api/models/tiny/remove-old", "").Code).To(Equal(http.StatusConflict))
 	})
 })
+
+var _ = Describe("The removed POST /api/models/config/{id}", func() {
+	It("answers 410 Gone and points at the upgrade route", func() {
+		e := echo.New()
+		e.POST("/api/models/config/:id", RemovedModelConfigEndpoint())
+		req := httptest.NewRequest(http.MethodPost, "/api/models/config/localai%40tiny", nil)
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, req)
+
+		Expect(w.Code).To(Equal(http.StatusGone))
+		Expect(w.Header().Get("Link")).To(Equal(`</api/models/upgrade/{name}>; rel="successor-version"`))
+		var body schema.RemovedRouteResponse
+		Expect(json.Unmarshal(w.Body.Bytes(), &body)).To(Succeed())
+		Expect(body.Error).To(ContainSubstring("removed"))
+		Expect(body.Replacement).To(Equal("POST /api/models/upgrade/{name}"))
+	})
+})

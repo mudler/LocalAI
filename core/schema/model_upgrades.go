@@ -46,3 +46,10 @@ type ModelRemoveOldResponse struct {
 	// directory.
 	Removed []string `json:"removed"`
 }
+
+// RemovedRouteResponse is the answer of a route that was removed: 410 Gone
+// with the route to use instead.
+type RemovedRouteResponse struct {
+	Error       string `json:"error"`
+	Replacement string `json:"replacement"`
+}

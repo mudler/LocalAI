@@ -82,6 +82,8 @@ var modelUpdatesRoutes = []string{
 	"POST /api/models/:name/upgrade/retry",
 	"POST /api/models/:name/remove-old",
 	"PUT /api/models/:name/hold",
+	// Removed, answers 410 Gone for one release; still administrators only.
+	"POST /api/models/config/:id",
 }
 
 func isModelUpdatesRoute(methodPath string) bool {

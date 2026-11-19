@@ -222,3 +222,24 @@ func upgraderOf(d ModelUpgradeDeps) *modelupdates.Upgrader {
 	}
 	return d.Upgrader()
 }
+
+// RemovedModelConfigEndpoint answers the removed route that rewrote a model
+// config from its gallery entry. It wrote the config at once, outside the
+// operation queue, without a backup, a load check or the edits a person made,
+// and told no other frontend of a cluster. An upgrade does all of that.
+// @Summary Removed: rewrite a model config from the gallery
+// @Description Removed. Always answers 410 Gone with a Link header to POST /api/models/upgrade/{name}; use that route with config_only true to apply the gallery config of an installed model. This answer stays for one release, then the route goes away.
+// @Tags models
+// @Deprecated
+// @Param id path string true "Gallery model ID"
+// @Failure 410 {object} schema.RemovedRouteResponse "Removed"
+// @Router /api/models/config/{id} [post]
+func RemovedModelConfigEndpoint() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		c.Response().Header().Set("Link", `</api/models/upgrade/{name}>; rel="successor-version"`)
+		return c.JSON(http.StatusGone, schema.RemovedRouteResponse{
+			Error:       "this route was removed: upgrade the installed model with config_only true instead",
+			Replacement: "POST /api/models/upgrade/{name}",
+		})
+	}
+}

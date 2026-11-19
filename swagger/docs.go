@@ -14589,6 +14589,33 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/config/{id}": {
+            "post": {
+                "description": "Removed. Always answers 410 Gone with a Link header to POST /api/models/upgrade/{name}; use that route with config_only true to apply the gallery config of an installed model. This answer stays for one release, then the route goes away.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Removed: rewrite a model config from the gallery",
+                "deprecated": true,
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Gallery model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "410": {
+                        "description": "Removed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RemovedRouteResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/recommended": {
             "get": {
                 "description": "Returns the curated models for the hardware tier of the machine, best first, with the context window each would be installed with and whether it fits. Every signed-in user may read it; installing stays admin-only. The hardware is the host, or the best single node of a cluster.",
@@ -37690,6 +37717,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.RemovedRouteResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "replacement": {
                     "type": "string"
                 }
             }
