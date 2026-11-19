@@ -744,12 +744,11 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 					xlog.Debug("File already exists and matches the SHA. Skipping download", "file", filePath)
 					return nil
 				}
-				// SHA doesn't match, delete the file and download again
-				err = os.Remove(filePath)
-				if err != nil {
-					return fmt.Errorf("failed to remove existing file %q: %v", filePath, err)
-				}
-				xlog.Debug("Removed file (SHA doesn't match)", "file", filePath)
+				// SHA doesn't match: download again, but keep the old file. It
+				// is replaced by the atomic rename below only after the new
+				// content is complete and verified, so a failed or interrupted
+				// download never leaves the model without weights.
+				xlog.Debug("File exists but SHA doesn't match, downloading a new copy", "file", filePath)
 			} else {
 				// SHA is missing, skip downloading
 				xlog.Debug("File already exists. Skipping download", "file", filePath)
