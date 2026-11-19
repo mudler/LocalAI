@@ -184,6 +184,50 @@ func (s *SettingsStore) Clear(ctx context.Context, key string) error {
 	return nil
 }
 
+// SettingChange is one change of Apply: a value to store, or with Clear a
+// setting to remove.
+type SettingChange struct {
+	Key   string
+	Value string
+	Clear bool
+}
+
+// Apply stores and clears several settings in one transaction, so a request
+// that fails half way leaves the settings as they were. Every change is
+// checked before the transaction starts.
+func (s *SettingsStore) Apply(ctx context.Context, changes []SettingChange, by string) error {
+	for _, ch := range changes {
+		if ch.Clear {
+			if _, ok := knownSettings[ch.Key]; !ok {
+				return fmt.Errorf("%w: %q", ErrUnknownSetting, ch.Key)
+			}
+			continue
+		}
+		if err := checkSetting(ch.Key, ch.Value); err != nil {
+			return err
+		}
+	}
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, ch := range changes {
+			if ch.Clear {
+				if err := tx.Where("key = ?", ch.Key).Delete(&Setting{}).Error; err != nil {
+					return fmt.Errorf("clearing cluster setting %s: %w", ch.Key, err)
+				}
+				continue
+			}
+			err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "key"}},
+				DoUpdates: clause.Assignments(map[string]any{"value": ch.Value, "updated_by": by, "updated_at": gorm.Expr("now()")}),
+			}).Create(&Setting{Key: ch.Key, Value: ch.Value, UpdatedBy: by}).Error
+			if err != nil {
+				return fmt.Errorf("storing cluster setting %s: %w", ch.Key, err)
+			}
+		}
+		return nil
+	})
+	return err
+}
+
 // All returns every stored setting by key.
 func (s *SettingsStore) All(ctx context.Context) (map[string]string, error) {
 	var rows []Setting

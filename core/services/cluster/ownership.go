@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/mudler/LocalAI/pkg/dbdialect"
 )
 
 // ErrNoConnection reports that no tunnel is recorded for the requested node, or
@@ -16,16 +17,6 @@ import (
 // it from a transport failure to decide whether to relay through an owner, to
 // answer "this worker is not connected here", or to retry.
 var ErrNoConnection = errors.New("cluster: no connection recorded for node")
-
-// isPostgres reports whether the gorm dialect is PostgreSQL. The connection
-// fence is built out of PostgreSQL-only pieces (a sequence, ON CONFLICT
-// RETURNING), and the single-binary path runs on SQLite. advisorylock has an
-// identical private check; this one is copied rather than imported because it
-// is a one-line comparison on gorm's own dialector name and cluster is
-// deliberately a leaf package.
-func isPostgres(db *gorm.DB) bool {
-	return strings.Contains(db.Dialector.Name(), "postgres")
-}
 
 // epochSequence is the PostgreSQL sequence every claim draws its epoch from.
 // A sequence rather than a per-row counter because a connection row does not
@@ -134,7 +125,7 @@ func ensureEpochSequence(ctx context.Context, db *gorm.DB) error {
 	// against SQLite in single-binary mode. Nothing there can claim a
 	// connection (Claim refuses the dialect outright), so there is nothing to
 	// create.
-	if !isPostgres(db) {
+	if !dbdialect.IsPostgres(db) {
 		return nil
 	}
 	if err := db.WithContext(ctx).Exec(`CREATE SEQUENCE IF NOT EXISTS ` + epochSequence + ` AS bigint`).Error; err != nil {
@@ -169,7 +160,7 @@ func (r *Registry) Claim(ctx context.Context, nodeID, ownerID string) (int64, er
 	// statement would fail anyway, but with a driver-level "no such function:
 	// nextval" that reads like a missing migration; and a fence that cannot
 	// issue a token must not look like one that did.
-	if !isPostgres(r.db) {
+	if !dbdialect.IsPostgres(r.db) {
 		return 0, fmt.Errorf("claiming connection for node %q as %q: connection ownership requires PostgreSQL, this deployment runs on %q", nodeID, ownerID, r.db.Dialector.Name())
 	}
 	// connected_at is stamped by the database, never by this process, for the
@@ -248,7 +239,7 @@ func (r *Registry) Owner(ctx context.Context, nodeID string) (string, int64, err
 	// migration. It is deliberately not ErrNoConnection. A deployment with no
 	// cluster has no answer to give about who owns a tunnel, and reporting
 	// absence would let a caller conclude the worker is not connected.
-	if !isPostgres(r.db) {
+	if !dbdialect.IsPostgres(r.db) {
 		return "", 0, fmt.Errorf("looking up live owner of node %q: connection ownership requires PostgreSQL, this deployment runs on %q", nodeID, r.db.Dialector.Name())
 	}
 	var conn NodeConnection
@@ -317,7 +308,7 @@ func (r *Registry) Release(ctx context.Context, nodeID, ownerID string, epoch in
 	// deliberately not ErrNoConnection: a deployment with no cluster holds no
 	// claims, and reporting a fenced-out release would tell the caller it lost
 	// one.
-	if !isPostgres(r.db) {
+	if !dbdialect.IsPostgres(r.db) {
 		return fmt.Errorf("releasing connection for node %q held by %q: connection ownership requires PostgreSQL, this deployment runs on %q", nodeID, ownerID, r.db.Dialector.Name())
 	}
 	// gorm reports no error when a Where matches nothing, so the miss has to be
@@ -357,7 +348,7 @@ func (r *Registry) PurgeDepartedBefore(ctx context.Context, olderThan time.Durat
 	// make_interval are PostgreSQL, and on the single-binary SQLite path this
 	// would fail with "no such function: now", which reads as a missing
 	// migration.
-	if !isPostgres(r.db) {
+	if !dbdialect.IsPostgres(r.db) {
 		return 0, fmt.Errorf("purging departed connections: connection ownership requires PostgreSQL, this deployment runs on %q", r.db.Dialector.Name())
 	}
 	res := r.db.WithContext(ctx).
@@ -441,7 +432,7 @@ func (r *Registry) ConnectedAmong(ctx context.Context, nodeIDs []string, owner s
 	// deliberately not an empty answer: a deployment with no cluster has
 	// nothing to say about who holds a tunnel, and an empty list would be read
 	// as "nobody does".
-	if !isPostgres(r.db) {
+	if !dbdialect.IsPostgres(r.db) {
 		return nil, nil, fmt.Errorf("reading which of %d nodes are connected: connection ownership requires PostgreSQL, this deployment runs on %q", len(nodeIDs), r.db.Dialector.Name())
 	}
 	var rows []struct {

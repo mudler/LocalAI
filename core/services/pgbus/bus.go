@@ -57,6 +57,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/dbdialect"
 )
 
 // channelPrefix namespaces the LISTEN channels of this carrier away from
@@ -224,8 +225,8 @@ func New(ctx context.Context, cfg Config) (*Bus, error) {
 	// Everything below is PostgreSQL only (pg_notify, LISTEN, now(),
 	// make_interval). Without this check, now() on SQLite reads as a missing
 	// migration and not as a carrier that was never meant to run there.
-	if name := cfg.DB.Dialector.Name(); name != "postgres" {
-		return nil, fmt.Errorf("pgbus: the broadcast carrier requires PostgreSQL, got %q", name)
+	if !dbdialect.IsPostgres(cfg.DB) {
+		return nil, fmt.Errorf("pgbus: the broadcast carrier requires PostgreSQL, got %q", cfg.DB.Dialector.Name())
 	}
 	if cfg.DSN == "" {
 		return nil, errors.New("pgbus: no DSN for the LISTEN connection")

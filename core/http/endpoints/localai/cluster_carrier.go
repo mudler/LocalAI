@@ -51,6 +51,8 @@ type ClusterSettings interface {
 	Get(ctx context.Context, key string) (string, bool, error)
 	Set(ctx context.Context, key, value, by string) error
 	Clear(ctx context.Context, key string) error
+	// Apply stores and clears several settings in one transaction.
+	Apply(ctx context.Context, changes []cluster.SettingChange, by string) error
 	All(ctx context.Context) (map[string]string, error)
 }
 
@@ -359,22 +361,20 @@ func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, p
 			}
 		}
 
+		// One transaction: a request that fails half way changes nothing.
+		var batch []cluster.SettingChange
 		for _, ch := range changes {
 			if ch.val == nil {
 				continue
 			}
-			var err error
-			if *ch.val == "" {
-				err = settings.Clear(ctx, ch.key)
-			} else {
-				err = settings.Set(ctx, ch.key, *ch.val, by)
-			}
+			batch = append(batch, cluster.SettingChange{Key: ch.key, Value: *ch.val, Clear: *ch.val == ""})
+		}
+		if err := settings.Apply(ctx, batch, by); err != nil {
 			switch {
 			case errors.Is(err, cluster.ErrUnknownSetting), errors.Is(err, cluster.ErrCredentialInURL):
 				return carrierError(c, http.StatusBadRequest, err.Error(), nil)
-			case err != nil:
-				return carrierError(c, http.StatusInternalServerError, err.Error(), nil)
 			}
+			return carrierError(c, http.StatusInternalServerError, err.Error(), nil)
 		}
 		xlog.Info("Cluster settings changed", "by", by)
 

@@ -127,6 +127,31 @@ func (s *memorySettings) Set(_ context.Context, k, v, _ string) error {
 	return nil
 }
 
+func (s *memorySettings) Apply(ctx context.Context, changes []cluster.SettingChange, by string) error {
+	// All or nothing, as the store: a change that fails undoes the others.
+	s.mu.Lock()
+	before := map[string]string{}
+	for k, v := range s.m {
+		before[k] = v
+	}
+	s.mu.Unlock()
+	for _, ch := range changes {
+		var err error
+		if ch.Clear {
+			err = s.Clear(ctx, ch.Key)
+		} else {
+			err = s.Set(ctx, ch.Key, ch.Value, by)
+		}
+		if err != nil {
+			s.mu.Lock()
+			s.m = before
+			s.mu.Unlock()
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *memorySettings) Clear(_ context.Context, k string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

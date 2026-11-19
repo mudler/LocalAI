@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/dbdialect"
 )
 
 // DefaultReconnectGrace is how long a departure must be older than before a
@@ -137,7 +139,7 @@ func (r *Registry) Presence(ctx context.Context, nodeID string, grace time.Durat
 	// migration. The refusal carries PresenceUnknown, the one value nobody may
 	// act on: a deployment with no cluster has no answer about a worker's
 	// tunnel, and reporting PresenceGone would license a reap.
-	if !isPostgres(r.db) {
+	if !dbdialect.IsPostgres(r.db) {
 		return PresenceUnknown, fmt.Errorf("reading presence of node %q: connection ownership requires PostgreSQL, this deployment runs on %q", nodeID, r.db.Dialector.Name())
 	}
 	var row struct {

@@ -156,6 +156,29 @@ var _ = Describe("The settings of the cluster", func() {
 		Expect(ok).To(BeFalse())
 	})
 
+	It("applies several changes in one transaction", func() {
+		Expect(store.Set(ctx, cluster.SettingNATSURL, "nats://one:4222", "admin")).To(Succeed())
+		Expect(store.Apply(ctx, []cluster.SettingChange{
+			{Key: cluster.SettingNATSURL, Clear: true},
+			{Key: cluster.SettingMaxDrain, Value: "20m"},
+		}, "admin")).To(Succeed())
+		all, err := store.All(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(all).To(Equal(map[string]string{cluster.SettingMaxDrain: "20m"}))
+	})
+
+	It("changes nothing when one change of a batch is refused", func() {
+		Expect(store.Set(ctx, cluster.SettingNATSURL, "nats://one:4222", "admin")).To(Succeed())
+		err := store.Apply(ctx, []cluster.SettingChange{
+			{Key: cluster.SettingNATSURL, Clear: true},
+			{Key: "no.such.setting", Value: "x"},
+		}, "admin")
+		Expect(err).To(MatchError(cluster.ErrUnknownSetting))
+		all, err := store.All(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(all).To(HaveKeyWithValue(cluster.SettingNATSURL, "nats://one:4222"))
+	})
+
 	It("stores a value and replaces it", func() {
 		Expect(store.Set(ctx, cluster.SettingNATSURL, "nats://one:4222", "admin")).To(Succeed())
 		Expect(store.Set(ctx, cluster.SettingNATSURL, "nats://two:4222", "admin")).To(Succeed())
