@@ -95,14 +95,14 @@ export APP_EXE SIGNAL SMOKE_DIR FEEDLOG SMOKE_SELF_UPDATE SMOKE_TIMEOUT OS
 export HOME="$SMOKE_DIR/home" XDG_CONFIG_HOME="$SMOKE_DIR/home/.config" TMPDIR="$SMOKE_DIR/tmp"
 export LOCALAI_LAUNCHER_SIGNAL_FILE="$SIGNAL"
 if [ "$OS" = win ]; then
-  # A Windows program reads Windows paths. Node takes the home folder from
-  # USERPROFILE, so the launcher's .localai folder lands in the scratch folder.
+  # A Windows program reads Windows paths. Do not move USERPROFILE, TEMP or
+  # TMP: the packaged app crashes at start (EXCEPTION_BREAKPOINT) when they
+  # point to a scratch folder, while it starts with the runner's own values.
+  # So on Windows the app runs with the real profile of the (clean) runner.
   # Chromium logs and stack dumps go to the captured app log.
   export ELECTRON_ENABLE_LOGGING=1 ELECTRON_ENABLE_STACK_DUMPING=1
-  USERPROFILE=$(cygpath -w "$SMOKE_DIR/home")
-  TEMP=$(cygpath -w "$SMOKE_DIR/tmp")
   LOCALAI_LAUNCHER_SIGNAL_FILE=$(cygpath -w "$SIGNAL")
-  export USERPROFILE TEMP TMP="$TEMP" LOCALAI_LAUNCHER_SIGNAL_FILE
+  export LOCALAI_LAUNCHER_SIGNAL_FILE
 fi
 # The launcher probes the macOS keychain at start. On a CI runner nobody can
 # answer the keychain dialog, so the app waits there and never opens its
