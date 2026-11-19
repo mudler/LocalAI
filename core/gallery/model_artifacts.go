@@ -2,6 +2,7 @@ package gallery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,8 @@ type installOptions struct {
 	origin *Origin
 	// instance names the frontend that writes the install journal.
 	instance string
+	// modelLock, when set, is taken around the commit of the install.
+	modelLock ModelLock
 	// skipArtifactBinding makes PlanInstall leave the artifact unbound, so a
 	// check can plan without materializing anything.
 	skipArtifactBinding bool
@@ -64,6 +67,25 @@ func WithVariant(variant string) InstallOption {
 func WithOrigin(origin *Origin) InstallOption {
 	return func(options *installOptions) {
 		options.origin = origin
+	}
+}
+
+// ModelLock takes the cluster-wide lock of one installed model without
+// waiting, for a change of its config and gallery file (an install commit, an
+// upgrade, a hold, the removal of an old version). It returns ErrModelLocked
+// when another holder has it; release frees it. While a frontend holds it, the
+// journal of the model is live: another frontend takes the lock before it
+// finishes or undoes an abandoned journal, so it never touches a running one.
+type ModelLock func(ctx context.Context, name string) (release func(), err error)
+
+// ErrModelLocked is returned by a ModelLock that another holder has.
+var ErrModelLocked = errors.New("another change of this model is running")
+
+// WithModelLock takes lock around the commit of the install. A busy lock
+// fails the install before it writes the config.
+func WithModelLock(lock ModelLock) InstallOption {
+	return func(options *installOptions) {
+		options.modelLock = lock
 	}
 }
 

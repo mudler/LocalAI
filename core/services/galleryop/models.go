@@ -157,6 +157,9 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 		if op.BackendAvailability == nil {
 			op.BackendAvailability = g.backendManager.BackendAvailable
 		}
+		if op.ModelLock == nil {
+			op.ModelLock = g.getModelLock()
+		}
 		err = g.modelManager.InstallModel(operationCtx, op, progressCallback)
 	}
 	if err != nil {

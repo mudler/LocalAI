@@ -224,6 +224,52 @@ var _ = Describe("Gallery file version 2", func() {
 		})
 	})
 
+	It("refuses a reinstall while a change of the model runs, and takes the model lock around the commit", func() {
+		writeGallery(gallery.GalleryModel{Metadata: gallery.Metadata{Name: "busy"}, Overrides: map[string]any{"backend": "llama-cpp"}})
+		id := galleries[0].Name + "@busy"
+		Expect(install(id, gallery.GalleryModel{})).To(Succeed())
+		sc, err := gallery.ReadSidecar(dir, "busy")
+		Expect(err).ToNot(HaveOccurred())
+		running := &gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseStaging, Instance: "b"}
+		sc.Upgrade = running
+		Expect(gallery.WriteSidecar(dir, "busy", sc)).To(Succeed())
+
+		Expect(install(id, gallery.GalleryModel{})).To(MatchError(gallery.ErrModelLocked))
+		sc, err = gallery.ReadSidecar(dir, "busy")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sc.Upgrade.Phase).To(Equal(gallery.PhaseStaging), "the running journal is kept")
+
+		By("refusing it while another frontend holds the lock of the model")
+		sc.Upgrade = nil
+		Expect(gallery.WriteSidecar(dir, "busy", sc)).To(Succeed())
+		var took []string
+		busy := func(_ context.Context, name string) (func(), error) {
+			took = append(took, name)
+			return nil, gallery.ErrModelLocked
+		}
+		err = gallery.InstallModelFromGallery(context.TODO(), galleries, nil, systemState, nil, id, gallery.GalleryModel{},
+			func(string, string, string, float64) {}, false, false, false, gallery.WithModelLock(busy))
+		Expect(err).To(MatchError(gallery.ErrModelLocked))
+		Expect(took).To(ConsistOf("busy"))
+
+		free := func(context.Context, string) (func(), error) { return func() {}, nil }
+		Expect(gallery.InstallModelFromGallery(context.TODO(), galleries, nil, systemState, nil, id, gallery.GalleryModel{},
+			func(string, string, string, float64) {}, false, false, false, gallery.WithModelLock(free))).To(Succeed())
+	})
+
+	It("recovers the install journal of one model", func() {
+		Expect(gallery.WriteSidecar(dir, "one", &gallery.ModelConfig{Name: "one", Version: gallery.SidecarVersion,
+			Upgrade: &gallery.Journal{Kind: gallery.JournalInstall, Phase: gallery.PhaseCommitting, Previous: &gallery.Previous{}}})).To(Succeed())
+		found, err := gallery.RecoverInstallJournal(dir, "one")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(found).To(BeTrue())
+		_, err = gallery.ReadSidecar(dir, "one")
+		Expect(err).To(MatchError(gallery.ErrNoSidecar))
+		found, err = gallery.RecoverInstallJournal(dir, "one")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(found).To(BeFalse())
+	})
+
 	It("tells a stale running journal from a fresh or finished one", func() {
 		now := time.Now()
 		running := &gallery.Journal{Phase: gallery.PhaseCommitting, UpdatedAt: now.Add(-time.Hour)}

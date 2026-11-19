@@ -14,7 +14,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/updatenotify"
-	"github.com/mudler/xlog"
 )
 
 // modelUpdateNotifier writes the model digest through the update emitter.
@@ -85,22 +84,20 @@ func (a *Application) startModelUpdates() {
 			svc.Notify(options.Context)
 		}
 	}
+	if db := a.distributedDB(); db != nil {
+		// One install, upgrade, hold or removal of a model at a time across
+		// the cluster; the lock also tells a live journal from an abandoned
+		// one (runJournalRecovery).
+		upgrader.Lock = modelLockFor(db)
+		if gs := a.GalleryService(); gs != nil {
+			gs.SetModelLock(upgrader.Lock)
+		}
+	}
 	a.modelUpgrader = upgrader
-	policy := journalPolicy(options)
 	opts := modelupdates.Options{
 		SystemState: options.SystemState,
 		ListGallery: listGallery,
 		Notifier:    modelUpdateNotifier{em: a.updateEmitter()},
-		// The runner of a check also ends the upgrades whose frontend
-		// stopped: a stale journal is not touched by anyone else.
-		AfterTick: func(ctx context.Context) {
-			stale := func(j *gallery.Journal) bool { return j.Instance != options.Distributed.InstanceID && policy(j) }
-			if names, err := upgrader.Recover(ctx, stale); err != nil {
-				xlog.Warn("Could not end some interrupted model upgrades", "error", err)
-			} else if len(names) > 0 {
-				xlog.Info("Ended interrupted model upgrades", "models", names)
-			}
-		},
 	}
 	if db := a.distributedDB(); db != nil {
 		opts.Lock = func(ctx context.Context, fn func() error) (bool, error) {
@@ -109,6 +106,9 @@ func (a *Application) startModelUpdates() {
 	}
 	a.modelUpdates = modelupdates.New(opts)
 	go a.modelUpdates.Run(options.Context)
+	if upgrader.Lock != nil {
+		go runJournalRecovery(options.Context, upgrader)
+	}
 }
 
 // modelUpgradeNotifier writes the result of an upgrade through the update

@@ -53,6 +53,11 @@ type ManagementOp[T any, E any] struct {
 	// on workers.
 	BackendAvailability gallery.BackendAvailability
 
+	// ModelLock is the cluster-wide lock of the model, taken around the commit
+	// of an install; set by the gallery service when it dispatches a model op.
+	// Nil takes none.
+	ModelLock gallery.ModelLock
+
 	// Variant pins a model install to one of the gallery entry's declared
 	// variants, by that variant's model name. Empty means auto-select: LocalAI
 	// picks the largest variant this host's backend support and memory can

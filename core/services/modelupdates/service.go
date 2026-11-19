@@ -53,9 +53,6 @@ type Options struct {
 	// Notifier gets the digest after each check this process runs. May be
 	// nil.
 	Notifier Notifier
-	// AfterTick runs after each periodic check this process runs, under the
-	// lock (the upgrade recovery of stale journals hooks here).
-	AfterTick func(ctx context.Context)
 
 	Now          func() time.Time
 	Interval     time.Duration
@@ -138,9 +135,6 @@ func (s *Service) tick(ctx context.Context) {
 	_, err := s.opts.Lock(ctx, func() error {
 		if err := s.runCheck(ctx, false); err != nil {
 			xlog.Warn("Model update check failed", "error", err)
-		}
-		if s.opts.AfterTick != nil {
-			s.opts.AfterTick(ctx)
 		}
 		return nil
 	})

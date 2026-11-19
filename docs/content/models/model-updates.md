@@ -140,7 +140,9 @@ A pause keeps them, so the next upgrade to the same version resumes them. If
 the gallery changed in between, the resumed file fails its checksum and the
 upgrade fails; run it again.
 
-If the server stops during an upgrade, it ends the upgrade at the next start.
+If the server stops during an upgrade, it ends the upgrade at the next start
+(in a cluster, another frontend ends it within minutes; see
+[Distributed mode]({{% relref "/administration/distributed-mode#model-updates-in-a-cluster" %}})).
 Before the unloading phase it removes the staged files and the upgrade ends
 `failed`. From the unloading phase on, it puts the old version back.
 

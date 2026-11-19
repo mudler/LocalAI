@@ -907,6 +907,13 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			Phase: modelartifacts.PhasePersisting, Artifact: modelConfig.Artifacts[0].Name,
 		})
 	}
+	if installOptions.modelLock != nil {
+		release, err := installOptions.modelLock(ctx, plan.Name)
+		if err != nil {
+			return nil, fmt.Errorf("write the model config: %w", err)
+		}
+		defer release()
+	}
 	if err := commitInstall(basePath, plan, installOptions.origin, installOptions.instance, time.Now()); err != nil {
 		return nil, err
 	}

@@ -31,6 +31,9 @@ type GalleryService struct {
 	cancellations  map[string]cancellationActions
 	// modelUpgrader runs model upgrade operations; nil until wired.
 	modelUpgrader ModelUpgrader
+	// modelLock is the cluster-wide lock of one model, taken around the
+	// commit of an install; nil (standalone) takes none.
+	modelLock gallery.ModelLock
 
 	// backendScheduler runs backend operations; set by Start.
 	backendScheduler *opScheduler
@@ -958,6 +961,21 @@ func (g *GalleryService) Hydrate() error {
 // confirmed, rolled back or failed.
 type ModelUpgrader interface {
 	UpgradeModel(ctx context.Context, opID, name string, opts ModelUpgradeOptions, progress func(*OpStatus)) error
+}
+
+// SetModelLock sets the cluster-wide lock of one model that an install takes
+// around its commit, so it neither runs into an upgrade on another frontend
+// nor replaces its journal.
+func (g *GalleryService) SetModelLock(lock gallery.ModelLock) {
+	g.Lock()
+	defer g.Unlock()
+	g.modelLock = lock
+}
+
+func (g *GalleryService) getModelLock() gallery.ModelLock {
+	g.Lock()
+	defer g.Unlock()
+	return g.modelLock
 }
 
 // SetModelUpgrader sets what runs model upgrade operations. Without one a

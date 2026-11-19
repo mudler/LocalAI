@@ -225,7 +225,14 @@ type Upgrader struct {
 	// (a hold, the end of an upgrade), so the digest notification follows at
 	// once instead of at the next check. Nil does nothing.
 	Changed func(name string)
-	// Instance names this frontend in the journal.
+	// Lock is the cluster-wide lock of one model (an advisory lock in
+	// distributed mode). An upgrade holds it from its start to its end, so
+	// two frontends never upgrade one model at once, and a journal whose lock
+	// is free belongs to a frontend that stopped (RecoverAbandoned). Nil
+	// (standalone) uses the process lock alone.
+	Lock gallery.ModelLock
+	// Instance names this frontend in the journal. It is informative: the
+	// lock, not the name, tells whether the frontend of a journal still runs.
 	Instance string
 	Notifier UpgradeNotifier
 	Now      func() time.Time
@@ -277,6 +284,29 @@ func (u *Upgrader) release(name string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	delete(u.running, name)
+}
+
+// acquire takes the process lock and the cluster-wide lock of the model, or
+// returns ErrBusy when another change of the model holds either.
+func (u *Upgrader) acquire(ctx context.Context, name string) (func(), error) {
+	if !u.claim(name) {
+		return nil, ErrBusy
+	}
+	if u.Lock == nil {
+		return func() { u.release(name) }, nil
+	}
+	unlock, err := u.Lock(ctx, name)
+	if err != nil {
+		u.release(name)
+		if errors.Is(err, gallery.ErrModelLocked) {
+			return nil, ErrBusy
+		}
+		return nil, fmt.Errorf("take the lock of the model: %w", err)
+	}
+	return func() {
+		unlock()
+		u.release(name)
+	}, nil
 }
 
 // upgradeRun is one upgrade: the gallery file in memory and its journal.
@@ -388,10 +418,11 @@ func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
 		return ErrNotFound
 	}
-	if !u.claim(name) {
-		return ErrBusy
+	unlock, err := u.acquire(ctx, name)
+	if err != nil {
+		return err
 	}
-	defer u.release(name)
+	defer unlock()
 
 	sc, err := gallery.ReadSidecar(u.modelsPath(), name)
 	if errors.Is(err, gallery.ErrNoSidecar) {

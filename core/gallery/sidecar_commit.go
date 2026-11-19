@@ -60,6 +60,11 @@ func commitInstall(basePath string, plan *InstallPlan, origin *Origin, instance 
 		next.Origin = &o
 	}
 
+	if prev.Upgrade != nil && !prev.Upgrade.Terminal() {
+		// The journal of a running change owns the gallery file: replacing it
+		// would leave that change nothing to finish or undo.
+		return fmt.Errorf("%w: a %s of model %s is in the %s phase; wait for it to end", ErrModelLocked, prev.Upgrade.Kind, name, prev.Upgrade.Phase)
+	}
 	if !plan.WriteConfig {
 		return WriteSidecar(basePath, name, &next)
 	}
@@ -134,6 +139,17 @@ func RecoverInstallJournals(modelsPath string, act func(*Journal) bool) ([]strin
 		recovered = append(recovered, name)
 	}
 	return recovered, errors.Join(errs...)
+}
+
+// RecoverInstallJournal finishes or undoes the interrupted install of one
+// model, as RecoverInstallJournals does. The caller holds the lock of the
+// model. It reports whether there was an install journal to recover.
+func RecoverInstallJournal(modelsPath, name string) (bool, error) {
+	sc, err := ReadSidecar(modelsPath, name)
+	if err != nil || sc.Upgrade == nil || sc.Upgrade.Kind != JournalInstall {
+		return false, nil
+	}
+	return true, recoverInstall(modelsPath, name, sc)
 }
 
 func recoverInstall(modelsPath, name string, sc *ModelConfig) error {

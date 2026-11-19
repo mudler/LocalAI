@@ -56,7 +56,8 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 			op.GalleryElement, op.Req.Overrides, progressCb, m.enforcePredownloadScans,
 			gallery.WithArtifactMaterializer(m.artifactMaterializer),
 			gallery.WithBackendAvailability(op.BackendAvailability),
-			gallery.WithInstance(m.instance))
+			gallery.WithInstance(m.instance),
+			gallery.WithModelLock(op.ModelLock))
 		if err != nil {
 			return err
 		}
@@ -71,6 +72,7 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 			gallery.WithArtifactMaterializer(m.artifactMaterializer),
 			gallery.WithBackendAvailability(op.BackendAvailability),
 			gallery.WithInstance(m.instance),
+			gallery.WithModelLock(op.ModelLock),
 		}
 		if op.Variant != "" {
 			opts = append(opts, gallery.WithVariant(op.Variant))
@@ -83,7 +85,8 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 		return installModelFromRemoteConfig(ctx, m.systemState, m.modelLoader, op.Req,
 			progressCb, m.enforcePredownloadScans, m.automaticallyInstallBackend, op.BackendGalleries, m.requireBackendIntegrity,
 			gallery.WithArtifactMaterializer(m.artifactMaterializer),
-			gallery.WithBackendAvailability(op.BackendAvailability))
+			gallery.WithBackendAvailability(op.BackendAvailability),
+			gallery.WithModelLock(op.ModelLock))
 	}
 }
 
