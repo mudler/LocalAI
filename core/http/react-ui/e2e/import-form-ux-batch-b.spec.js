@@ -37,6 +37,8 @@ async function clearFormStorage(page) {
     try {
       window.localStorage.removeItem('import-form-tab')
       window.localStorage.removeItem('import-form-options')
+      window.localStorage.removeItem('localai.import.tab')
+      window.localStorage.removeItem('localai.import.options')
     } catch {
       // ignore quota / privacy mode
     }
@@ -66,7 +68,7 @@ test.describe('Import form UX — Batch B1 (source / YAML tabs)', () => {
     await expect(page.locator('[data-testid="import-yaml"]')).toBeVisible()
     await expect(page.locator('[data-testid="import-create"]')).toBeVisible()
 
-    const stored = await page.evaluate(() => window.localStorage.getItem('import-form-tab'))
+    const stored = await page.evaluate(() => window.localStorage.getItem('localai.import.tab'))
     expect(stored).toBe('yaml')
 
     await page.reload()
