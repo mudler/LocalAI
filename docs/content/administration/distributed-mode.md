@@ -463,6 +463,7 @@ The worker needs no NATS address. The frontend tells it which [carrier](#carrier
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(empty)* | Frontend URL for self-registration. Required unless `--join` is given |
 | `--join` | `LOCALAI_JOIN` | *(empty)* | Join the cluster over P2P with a worker invite link instead of `--register-to` and a registration token. See [Workers over P2P](#workers-over-p2p) |
 | `--p2p-identity` | `LOCALAI_P2P_IDENTITY` | `<models path>/../data/p2p/identity.key` | Key file of the P2P identity of the worker: of a worker that joins with `--join`, and of the host that [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) attached to this node connect to. Keep it: the frontend knows the worker by it |
+| `--split-server` | `LOCALAI_SPLIT_SERVER` | `false` | Declare this worker a split server: it may serve [model-split workers]({{% relref "/administration/p2p-model-split" %}}#split-servers). An administrator can also turn it on or off on the Nodes page; that choice wins over the flag |
 | `--p2p-listen` | `LOCALAI_P2P_LISTEN_MADDRS` | TCP and QUIC on every interface, random ports | Listen addresses of the P2P host of the worker. Model-split workers attached to this node connect to it; a fixed, open port gives them a direct path |
 | `--p2p-bootstrap` | `LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` | *(public bootstrap peers)* | Peers the P2P host connects to at start, addresses that end in `/p2p/<peer ID>` |
 | `--allow-open-relay` | `LOCALAI_ALLOW_OPEN_RELAY` | `false` | With `--join`: redeem an invite that names an open relay, which anyone can use |
@@ -729,7 +730,7 @@ Used by workers themselves (registration, heartbeat, etc.). Authenticated via th
 | `POST` | `/api/node/:id/heartbeat` | Update heartbeat timestamp |
 | `POST` | `/api/node/:id/drain` | Mark self as draining |
 | `GET` | `/api/node/:id/models` | Query own loaded models |
-| `POST` | `/api/node/:id/split` | Report the P2P host and the [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) of the node; the answer lists the workers attached to it |
+| `POST` | `/api/node/:id/split` | Report the P2P host and the [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) of the node; the answer says whether the node is a split server and lists the workers attached to it and the relays that admit it. A node that registered with the token is bound to the first peer it reports; another peer gets `409` until the node registers again |
 | `DELETE` | `/api/node/:id` | Deregister self |
 
 ### `/api/nodes/` - Admin management
@@ -753,6 +754,8 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
 | `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
 | `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
+| `PUT` | `/api/nodes/:id/split-server` | Declare a worker a [split server]({{% relref "/administration/p2p-model-split" %}}#split-servers) (`{"split_server":true}`), or clear it, which detaches its model-split workers |
+| `DELETE` | `/api/nodes/:id/split-server` | Hand the split server declaration back to the `--split-server` flag of the worker |
 
 The **Nodes** page reads `GET /api/nodes` every five seconds and renders 50 workers at a time. Bulk drain, resume and remove run with bounded concurrency, so the page stays usable for fleets with thousands of registrations. Selecting the visible page or a group does not discard selections elsewhere; selections are removed only when a later poll confirms the worker no longer exists.
 

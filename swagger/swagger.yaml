@@ -3902,6 +3902,22 @@ definitions:
           type: string
         type: array
     type: object
+  localai.SetSplitServerRequest:
+    properties:
+      split_server:
+        description: SplitServer declares the node a split server, or clears it.
+        type: boolean
+    type: object
+  localai.SetSplitServerResponse:
+    properties:
+      detached:
+        description: |-
+          Detached is the number of split workers that were attached to the node
+          and are now attached to no node.
+        type: integer
+      split_server:
+        type: boolean
+    type: object
   localai.TTSModelVoices:
     properties:
       model:
@@ -4746,6 +4762,31 @@ definitions:
           per second.
         type: integer
     type: object
+  p2p.SplitNodeRelay:
+    properties:
+      reason:
+        type: string
+      relays:
+        description: Relays is the state on each gated relay that this server administers.
+        items:
+          $ref: '#/definitions/p2p.SplitRelayAdmission'
+        type: array
+      state:
+        description: State is admitted, refused, pending or not_needed.
+        type: string
+    type: object
+  p2p.SplitRelayAdmission:
+    properties:
+      label:
+        type: string
+      reason:
+        type: string
+      relay_id:
+        type: string
+      state:
+        description: State is admitted, refused or pending.
+        type: string
+    type: object
   p2p.SplitWorkerList:
     properties:
       distributed:
@@ -4817,6 +4858,23 @@ definitions:
         type: string
       node_name:
         type: string
+      node_note:
+        description: |-
+          NodeNote says why a worker attached to no node was detached, for
+          example because its node stopped being a split server.
+        type: string
+      node_offline:
+        description: |-
+          NodeOffline is true when the node of NodeID is offline: the worker
+          stays attached and waits for it; nothing moves it.
+        type: boolean
+      node_relay:
+        allOf:
+        - $ref: '#/definitions/p2p.SplitNodeRelay'
+        description: |-
+          NodeRelay says whether the gated relays of this server admit the node
+          of NodeID, so that the worker can reach it through them when no direct
+          or hole-punched path works. Set only for a worker attached to a node.
       own_relay:
         description: |-
           OwnRelay is true when that relay is a gated relay this server
@@ -28107,6 +28165,77 @@ paths:
       summary: Update a node's max replicas per model
       tags:
       - Nodes
+  /api/nodes/{id}/split-server:
+    delete:
+      description: 'Clears the admin''s choice: the next registration of the worker
+        sets the declaration from its --split-server flag. The current value stays
+        until then. Admin only.'
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Hand the split server declaration back to the worker flag
+      tags:
+      - Nodes
+    put:
+      consumes:
+      - application/json
+      description: 'A split server is a backend node that serves model-split workers
+        (llama.cpp RPC and MLX helpers): it runs a P2P host with open ports, the frontends
+        admit it on the gated relays they administer, and the helpers attached to
+        it join the next model it loads. A node becomes one only by this admin action
+        or by the --split-server flag of the worker; the admin''s choice wins over
+        the flag until DELETE. Clearing it detaches the split workers of the node
+        (they wait, attached to no node, with a warning), removes its relay admission
+        and stops its P2P host at its next exchange. Admin only.'
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Declaration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.SetSplitServerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.SetSplitServerResponse'
+        "400":
+          description: agent node, or no split_server field
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Declare a node a split server, or clear it
+      tags:
+      - Nodes
   /api/nodes/{id}/vram-budget:
     delete:
       parameters:
@@ -28318,8 +28447,8 @@ paths:
       description: 'Creates a one-time invite link. kind is device (P2P admission
         only; the person signs in as usual), remote (also issues an API key for the
         other server: limited to "models" when given, else every model this server
-        lets a client key use, models added later too), worker or split.
-        A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY
+        lets a client key use, models added later too), worker or split. A remote
+        invite needs a signed-in user account: the API key set with LOCALAI_API_KEY
         gets 409. relays is "auto", "none" or a list of relay IDs. When a gated relay
         is named, a single-use relay pass is registered on it; "relay.reason" says
         why there is none. The link is shown once. Needs P2P mode share. Admin only.'

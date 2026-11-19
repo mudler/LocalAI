@@ -165,17 +165,27 @@ that names the replacement.
 | Route | What it does |
 |---|---|
 | `GET /api/p2p/split-workers` | Lists the workers: `{workers: [{id, label, peer_id, engine, state, allow_slow_path, path, memory_bytes, addr, rank, node_id, node_name, ...}], memory_in_use, distributed}`. `state` is `online`, `offline`, `slow`, `limited` (public relay) or `refused`. A relayed worker carries `relay_id` and `own_relay` (a relay this server administers, whose limits can change). `node_id` is the backend node the worker is attached to; `distributed` is true in a cluster. |
-| `PATCH /api/p2p/split-workers/{id}` | `{allow_slow_path: true}` is **Use anyway**; `false` stops using the worker over a relay. `{node_id: "<node ID>"}` attaches the worker to a backend node; `{node_id: ""}` attaches it to this server. Give at least one of the two. |
+| `PATCH /api/p2p/split-workers/{id}` | `{allow_slow_path: true}` is **Use anyway**; `false` stops using the worker over a relay. `{node_id: "<node ID>"}` attaches the worker to a backend node that is a split server (otherwise `409`); `{node_id: ""}` attaches it to this server. Give at least one of the two. |
+| `PUT /api/nodes/{id}/split-server` | `{split_server: true}` declares the node a split server; `false` clears it and detaches its workers. Answers `{split_server, detached}`. |
+| `DELETE /api/nodes/{id}/split-server` | Hands the declaration back to the `--split-server` flag of the node, at its next registration. |
+
+In a cluster each worker also carries `node_offline` (its node is offline),
+`node_note` (why a worker attached to no node was detached) and `node_relay`
+(`{state, reason, relays}`, see [Relays for the nodes](#relays-for-the-nodes)).
 
 A worker invite is `POST /api/p2p/invites` with `kind` `split` and
-`labels: {engine: "llama" | "mlx", node: "<node ID>"}` (default engine `llama`,
-no node). A worker that connects with another engine than its invite named is
-refused. An invite that names a node that is not a backend node is refused. The
+`labels: {engine: "llama" | "mlx", node: "<node ID>"}` (default engine `llama`).
+With no `node` label the worker goes to the only online split server, when
+there is exactly one; `node: ""` keeps it on this server. A worker that
+connects with another engine than its invite named is refused. An invite that
+names a node that is not a backend node is refused, and one that names a node
+that is not a split server gets `409`. The
 routes are for administrators and need mode `share`.
 
 The LocalAI Assistant has the tools `list_p2p_split_workers`,
-`set_p2p_split_slow_path` and `set_p2p_split_node`, and `get_p2p_relay_limits`
-and `set_p2p_relay_limits` for the limits of a relay of yours.
+`set_p2p_split_slow_path`, `set_p2p_split_node` and `set_node_split_server`,
+and `get_p2p_relay_limits` and `set_p2p_relay_limits` for the limits of a relay
+of yours.
 
 ## Distributed mode
 
@@ -186,11 +196,57 @@ that this node starts use the worker, with the same rules as on a single
 server: the paths and **Use anyway** above, the MLX ring with the node as
 rank 0, and a worker that leaves drops out of the next load.
 
+### Split servers
+
+A backend node accepts model-split workers only when it is a **split server**.
+A node never becomes one by itself or because a worker was attached to it.
+One of these makes it one:
+
+- The operator of the node starts it with `--split-server`
+  (`LOCALAI_SPLIT_SERVER=true`). The node sends the flag when it registers.
+- An administrator turns it on: on the **Nodes** page, select the node and
+  choose **Make split server**, or use **Set up a split server** under
+  **Model-split workers**. The dialog says what changes on the node and needs a
+  confirm click. The same change is `PUT /api/nodes/{id}/split-server` with
+  `{"split_server": true}`, and the assistant tool `set_node_split_server`.
+
+The choice of the administrator wins over the flag until
+`DELETE /api/nodes/{id}/split-server` hands it back; the next registration of
+the node then sets it from its flag. The declaration is stored with the node in
+the database, so every frontend sees the same value.
+
+When a node becomes a split server:
+
+- It starts a P2P host for its model-split workers and opens its ports. This
+  happens within one heartbeat interval, without a restart.
+- The frontends admit it on the gated relays that you run (see
+  [Relays for the nodes](#relays-for-the-nodes)).
+- The workers attached to it are used from the **next** llama.cpp or MLX model
+  it loads. A model that is loaded keeps its workers until it is loaded again.
+  The node sets `LLAMACPP_GRPC_SERVERS` and the MLX hostfile itself; you do not
+  wire each worker.
+
+When you turn it off, its P2P host stops, the relays stop admitting it, and its
+workers are detached: they wait, attached to no node, with a note that says
+why, until you attach them to another split server. The same happens when the
+node registers again without `--split-server` and no administrator chose
+otherwise.
+
+An attach to a node that is not a split server is refused with `409` and an
+error that names the declare action. Nothing changes on the node.
+
+### Attach a worker
+
 Attach a worker when you make its invite (step 3 of [Add a worker](#add-a-worker)),
 or later in the **Attached to** column of **Model-split workers** on the
-**Nodes** page. A worker that is attached to the frontend is not used in a
-cluster, and the page says so. The router does not count the memory of the
-workers when it places a model, so pin the model to the node with a
+**Nodes** page. The list offers split servers only. When exactly one split
+server is online, a new worker goes there by default, also when the invite
+names no node; with two or more, choose one; with none, the page says so and
+offers **Set up a split server**. A worker that is attached to the frontend is
+not used in a cluster, and the page says so. A worker whose node is offline
+stays attached and shows **Node offline**; nothing moves it to another node.
+The router does not count the memory of the workers when it places a model, so
+pin the model to the node with a
 [placement rule]({{% relref "/administration/distributed-mode" %}}) (a node
 selector), and load it again after a worker joins, leaves or moves.
 
@@ -212,17 +268,64 @@ How the parts find each other:
    choice, and the relays of the frontend.
 
 A node that joined over P2P (`local-ai worker --join`) uses the P2P host it
-joined with. A node that registered with the token starts a P2P host the first
-time a worker is attached to it, with its identity in
+joined with. A node that registered with the token starts a P2P host when it
+becomes a split server, with its identity in
 `<models path>/../data/p2p/identity.key` (`--p2p-identity`). Set
 `--p2p-listen` (`LOCALAI_P2P_LISTEN_MADDRS`) on the node to a fixed, open port
-to give the workers a direct path. A node that registered with the token is not
-a paired device, so the gated relays of the frontend do not admit it: the
-workers reach it directly or by hole punching. When neither works, join the
-node over P2P.
+to give the workers a direct path.
 
-State in a cluster: the node a worker is attached to is stored with the device
-in the database. The state of an attached worker is what its node last
+### Relays for the nodes
+
+A worker that reaches a node neither directly nor by hole punching needs a
+[relay of yours]({{% relref "/administration/p2p-relay" %}}). A node that
+joined over P2P is a paired device, so your relays admit it already. For a node
+that registered with the token, every frontend adds the P2P host of the node to
+its list on each gated relay that it administers, next to the paired devices,
+while all of these are true:
+
+- the node is a split server, approved and online;
+- it registered with the current registration token;
+- at least one model-split worker that is not revoked is attached to it;
+- it reported the peer ID of its host, and that peer is the one the node is
+  bound to.
+
+The node is bound to the first peer it reports after it registers: a report of
+another peer for the same node is refused (`409`), so a holder of the
+registration token cannot put its own peer on your relays in the name of a
+node. A node that registers again, for example after it lost its key, may bind
+a new peer.
+
+The node leaves the relays when one of these stops being true: at the next
+reload of the frontends (every 30 seconds, and at once on the frontend that
+sees the change). A deleted node, a node whose registration token was replaced,
+a node that is no longer a split server and a node whose last worker was
+detached or revoked lose their place.
+
+The frontend names, in its answer to the node, the relays that admit it, and
+the node keeps a reservation on them and reports its addresses through them.
+A node starts its host again, with the same identity, when that list changes.
+
+The paired devices come first on a relay. When the list does not fit in what
+the relay allows one admin (`--max-peers-per-admin`), nodes are left out in the
+order of their peer IDs, so every frontend leaves out the same ones. The
+**Model-split workers** group shows the relay state of the node of each worker:
+
+| State | Meaning |
+|---|---|
+| **Relay: admitted** | At least one of your relays admits the node. |
+| **Relay: refused** | No relay admits it. The reason says why: a full relay, a node that is not approved, or a registration token that is no longer valid. |
+| **Relay: pending** | Not yet: the node has not reported its host, it is offline, or a relay cannot be reached. |
+| **Relay: not needed** | The node joined over P2P, or this server administers no gated relay. |
+
+The same state is `node_relay` in `GET /api/p2p/split-workers`.
+
+State in a cluster: the split server declaration is stored with the node, and
+the node a worker is attached to with the device, both in the database. The
+nodes that the frontends vouch for on the relays are derived from the database
+at every reload; each frontend writes its own list on each relay, and a relay
+whose list is already right gets no write, so the frontends agree without a
+leader. The relay state that the page shows is what the relay manager of the
+frontend that answers last saw (state per frontend). The state of an attached worker is what its node last
 reported, stored in the database (table `node_split_reports`), so every
 frontend shows the same state; a node that has not reported for a minute shows
 its workers offline. The node keeps its list of workers in memory and asks for
