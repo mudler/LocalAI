@@ -13,11 +13,11 @@ import (
 
 	"dario.cat/mergo"
 	lconfig "github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
