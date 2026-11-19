@@ -342,14 +342,19 @@ var absPath = regexp.MustCompile(`(?:[A-Za-z]:)?(?:[\\/][^\s\\/:"'()]+)+[\\/]([^
 
 // withoutPaths replaces each absolute path in s by its file name. An error
 // text reaches the inbox and a browser push service, which must not learn
-// the layout of the server. A URL is left alone.
+// the layout of the server. A path counts only at the start of the text or
+// after a space, a tab, a quote, a parenthesis or an equals sign, so a URL, a
+// scheme-less URL and a relative path are left alone.
 func withoutPaths(s string) string {
 	var b strings.Builder
 	last := 0
 	for _, m := range absPath.FindAllStringSubmatchIndex(s, -1) {
 		start := m[0]
-		if start > 0 && (s[start-1] == ':' || s[start-1] == '/' || s[start-1] == '\\') {
-			continue // the path of a URL
+		if start > 0 && !strings.ContainsRune(" \t\"'(=", rune(s[start-1])) {
+			// The tail of a longer token: the path of a URL, a relative path
+			// ("models/sub/x.gguf") or a scheme-less URL. Only a path that
+			// starts a word is absolute.
+			continue
 		}
 		b.WriteString(s[last:start])
 		b.WriteString(s[m[2]:m[3]])
