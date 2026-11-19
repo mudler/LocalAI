@@ -3,6 +3,7 @@ package model
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -12,6 +13,9 @@ import (
 
 var _ = Describe("gRPC backend startup errors", func() {
 	It("reports a backend process exit and its stderr instead of only a readiness timeout", func() {
+		if runtime.GOOS == "windows" {
+			Skip("the fixture backend is a shell script, which Windows cannot execute")
+		}
 		tmpDir := GinkgoT().TempDir()
 		backendPath := filepath.Join(tmpDir, "failing-backend")
 		Expect(os.WriteFile(backendPath, []byte("#!/bin/sh\necho 'dyld: Library not loaded: libprotobuf.33.dylib' >&2\nexit 42\n"), 0o700)).To(Succeed())

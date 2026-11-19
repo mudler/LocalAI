@@ -1,2 +1,10 @@
 *.sh text eol=lf
 backend/cpp/llama/*.hpp linguist-vendored
+# Catalogs, golden files and sources are compared byte for byte by tests, so
+# a Windows checkout must not turn their line endings into CRLF.
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.go text eol=lf
+*.golden text eol=lf

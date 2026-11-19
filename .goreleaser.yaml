@@ -26,13 +26,25 @@ builds:
     goos:
       - linux
       - darwin
-      #- windows
+      - windows
     goarch:
       - amd64
       - arm64
     ignore:
       - goos: darwin
         goarch: amd64
+      # No Windows backend image exists for arm64, so a Windows arm64 server
+      # would have no inference engine.
+      - goos: windows
+        goarch: arm64
+    hooks:
+      post:
+        # Authenticode-sign the Windows binary in place. It runs before the
+        # archive and checksum steps, so the published checksum is the one of
+        # the signed file. A no-op for other targets and when WINDOWS_SIGN_PFX
+        # is unset (forks, PRs, snapshots). See scripts/sign-windows.sh.
+        - cmd: ./scripts/sign-windows.sh "{{ .Os }}" "{{ .Path }}"
+          output: true
 archives:
   - formats: [ 'binary' ] # this removes the tar of the archives, leaving the binaries alone
     name_template: local-ai-{{ .Tag }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}

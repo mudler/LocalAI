@@ -11,9 +11,9 @@ aliases = ["/features/sandbox/"]
 | Topic | Detail |
 |---|---|
 | What it adds | A `bash` tool that runs commands and code in an isolated sandbox with your files mounted. It makes charts, converts files and runs scripts. |
-| Needs | A Linux host that can run KVM or gVisor, and the chats and their files turned on. |
+| Needs | A Linux host that can run KVM or gVisor, or a Mac with Apple silicon, and the chats and their files turned on. |
 
-Ask a chat to make a bar chart from `sales.csv`. It runs the code in an isolated sandbox with your files mounted and saves the PNG in your files. Sandbox can also convert a file or run a script. It runs on Linux only.
+Ask a chat to make a bar chart from `sales.csv`. It runs the code in an isolated sandbox with your files mounted and saves the PNG in your files. Sandbox can also convert a file or run a script. It runs on Linux, and on macOS with Apple silicon.
 
 ## What you need
 
@@ -38,7 +38,7 @@ When it is on, the `bash` tool of the chat runs in the sandbox. Without it, a ch
 
 ## Network
 
-A sandbox has no network device. HTTP and HTTPS go through a proxy that asks LocalAI for each connection. The **Network** row in the Tools menu has three choices: **Off**, **Package registries** and **All public sites**. An administrator sets the most a chat can choose. The default is Off, so `pip install` fails until an administrator raises it.
+A sandbox has no network device. HTTP and HTTPS go through a proxy that asks LocalAI for each connection. The **Network** row in the Tools menu has three choices: **Off**, **Custom** (the package registries and the domains an administrator added) and **All public sites**. An administrator sets the most a chat can choose. The default is Off, so `pip install` fails until an administrator raises it.
 
 When a command asks for a host that the chat does not allow but the limit allows, the chat shows a card. Choose **Allow once**, **Allow for this chat** or **Deny**. See [Network of the Sandbox commands]({{% relref "/features/chats-and-agents/chats-commands#network-of-the-sandbox-commands" %}}).
 

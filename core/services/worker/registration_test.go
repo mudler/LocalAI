@@ -111,4 +111,17 @@ var _ = Describe("Worker registration body", func() {
 		Expect(body["available_vram"]).To(Equal(uint64(12_000)))
 		Expect(body["available_ram"]).To(Equal(uint64(40_000)))
 	})
+
+	It("omits available VRAM from heartbeats when the GPU usage is unknown", func() {
+		// For example a Windows GPU without the memory performance counters:
+		// the total is known, the free memory is not. Total as free would
+		// overstate the capacity to the scheduler.
+		getGPUAggregateInfo = func() xsysinfo.GPUAggregateInfo {
+			return xsysinfo.GPUAggregateInfo{TotalVRAM: 24_000, UsageUnknown: true}
+		}
+
+		body := (&Config{}).heartbeatBody()
+
+		Expect(body).ToNot(HaveKey("available_vram"))
+	})
 })

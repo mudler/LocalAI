@@ -148,7 +148,7 @@
     "networkHelp": "Quando un trigger o un connettore esegue questo agente, i suoi comandi raggiungono questa parte della rete, fino al limite fissato da un amministratore. Un’esecuzione non chiede mai: un host al di fuori viene bloccato. Anche una chat che avvii con questo agente parte così.",
     "networkPresets": {
       "off": "Disattivata",
-      "registries": "Registri di pacchetti",
+      "registries": "Personalizzato",
       "all": "Tutti i siti pubblici"
     },
     "toolsSummary": "{{on}} su {{total}} attivi",

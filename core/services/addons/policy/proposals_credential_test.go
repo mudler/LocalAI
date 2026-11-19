@@ -96,6 +96,12 @@ var _ = Describe("the write tools of an add-on with a credential", Label("propos
 		who     = named("owner")
 	)
 	setup := func(approval string) {
+		// A spec may re-run setup on top of the BeforeEach one; the previous
+		// fixture must be closed first or its open store keeps the policy
+		// lock file busy (Windows cannot unlink an open file).
+		if f != nil {
+			f.close()
+		}
 		binding = &bindingSource{mode: gateway.WritePropose, repos: []string{"acme/widgets"}, token: secret}
 		rt := newFixtureRuntime()
 		spy = &spyRuntime{fixtureRuntime: rt}

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -21,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/worker"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/sanitize"
+	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/xlog"
 )
 
@@ -223,7 +223,9 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 // serve.
 func awaitShutdown(shutdownCtx context.Context, fatal string) error {
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	// NotifyTermination also covers a stop request from the Windows service
+	// manager, which is not a signal.
+	signals.NotifyTermination(sigCh)
 	defer signal.Stop(sigCh)
 	select {
 	case <-sigCh:

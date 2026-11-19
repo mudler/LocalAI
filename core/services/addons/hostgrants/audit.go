@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 package hostgrants
 
 import (
@@ -6,7 +7,6 @@ import (
 	"errors"
 	"os"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -60,19 +60,6 @@ type AuditEntry struct {
 type Audit struct {
 	mu sync.Mutex
 	f  *os.File
-}
-
-// OpenAudit opens or creates the audit file for append. A symlink is refused.
-func OpenAudit(path string) (*Audit, error) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND|syscall.O_NOFOLLOW, 0600) // #nosec G304 -- fixed file in the guarded owner root; NOFOLLOW rejects symlinks.
-	if err != nil {
-		return nil, err
-	}
-	if err = f.Chmod(0600); err != nil {
-		_ = f.Close()
-		return nil, err
-	}
-	return &Audit{f: f}, nil
 }
 
 // Append writes one entry and syncs it. A nil Audit does nothing, so tests and

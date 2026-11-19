@@ -18,6 +18,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
+	"github.com/mudler/xlog"
 )
 
 // loopbackPortFile names the file in the add-on state root that keeps the
@@ -58,7 +61,7 @@ func loopbackPort(root string) (int, error) {
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return 0, err
 	}
-	if err := os.WriteFile(path, []byte(strconv.Itoa(port)+"\n"), 0o600); err != nil {
+	if err := fsperm.WriteFile(path, []byte(strconv.Itoa(port)+"\n"), 0o600); err != nil {
 		return 0, err
 	}
 	return port, nil
@@ -85,8 +88,19 @@ func readLoopbackPortFile(root string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
-		return nil, fmt.Errorf("add-on owner loopback port file %s must be a regular file with mode 0600 or less; fix or remove it together with the add-on state", filepath.Join(root, loopbackPortFile))
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("add-on owner loopback port file %s must be a regular file", filepath.Join(root, loopbackPortFile))
+	}
+	// On Windows, which has no mode bits, a port file from an older LocalAI
+	// version has the access control list of its folder: it is made private
+	// to the current user instead of refused.
+	path := filepath.Join(root, loopbackPortFile)
+	restricted, err := fsperm.RequirePrivate(path, info)
+	if err != nil {
+		return nil, fmt.Errorf("add-on owner loopback port file %s must be a regular file with mode 0600 or less; fix or remove it together with the add-on state: %w", path, err)
+	}
+	if restricted {
+		xlog.Warn("Other users could change the add-on loopback port file; it is now private to the current user", "path", path)
 	}
 	return io.ReadAll(io.LimitReader(f, 64))
 }

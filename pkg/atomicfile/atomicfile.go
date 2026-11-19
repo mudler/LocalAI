@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
 )
 
 // Options changes the steps of a write. The zero value does them all for real.
@@ -17,7 +19,9 @@ type Options struct {
 	SyncDir func(dir *os.File) error
 }
 
-// Write replaces the file at path with data and perm. It writes a temporary
+// Write replaces the file at path with data and perm. On Windows a perm with
+// no group or other bits makes the file private to the current user (see
+// package fsperm). It writes a temporary
 // file in the same folder, syncs it, renames it over path and syncs the
 // folder. On error the old file is untouched and the temporary file is gone.
 func Write(path string, data []byte, perm os.FileMode) error {
@@ -55,6 +59,11 @@ func WriteWith(path string, data []byte, perm os.FileMode, o Options) (renamed b
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
+	if err == nil {
+		// Windows ignores the mode bits, so a private mode becomes an access
+		// control list for the current user, set before the file has its name.
+		err = fsperm.RestrictIfPrivate(f.Name(), perm)
+	}
 	if err != nil {
 		return false, err
 	}
@@ -68,10 +77,23 @@ func WriteWith(path string, data []byte, perm os.FileMode, o Options) (renamed b
 	defer func() { _ = d.Close() }()
 	sync := o.SyncDir
 	if sync == nil {
-		sync = func(d *os.File) error { return d.Sync() }
+		sync = SyncDirTolerant
 	}
 	if err := sync(d); err != nil {
 		return true, fmt.Errorf("atomicfile: sync %s: %w", dir, err)
 	}
 	return true, nil
+}
+
+// SyncDirTolerant syncs a directory handle for durability. On Windows,
+// syncing a directory handle fails with "Access is denied"; the file data is
+// already synced by the file handle's Sync above, so treat that as non-fatal.
+func SyncDirTolerant(d *os.File) error {
+	if err := d.Sync(); err != nil {
+		if SyncDenied(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }

@@ -67,7 +67,7 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 	})
 
 	It("are not confused with an unrelated process that reused the pid", func() {
-		other := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sleep"), process.WithArgs("300"))
+		other := process.New(process.WithTemporaryStateDir(), process.WithName(sleepBinary()), process.WithArgs("300"))
 		Expect(other.Run()).To(Succeed())
 		DeferCleanup(func() { _ = other.Stop() })
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
@@ -82,7 +82,7 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 	})
 
 	It("are not swept once the worker stopped them itself", func() {
-		other := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sleep"), process.WithArgs("300"))
+		other := process.New(process.WithTemporaryStateDir(), process.WithName(sleepBinary()), process.WithArgs("300"))
 		Expect(other.Run()).To(Succeed())
 		DeferCleanup(func() { _ = other.Stop() })
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
@@ -96,7 +96,7 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 	})
 
 	It("kills nothing where start times cannot be read, as on macOS", func() {
-		other := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sleep"), process.WithArgs("300"))
+		other := process.New(process.WithTemporaryStateDir(), process.WithName(sleepBinary()), process.WithArgs("300"))
 		Expect(other.Run()).To(Succeed())
 		DeferCleanup(func() { _ = other.Stop() })
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
@@ -114,7 +114,7 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 	})
 
 	It("never kills an entry recorded without a start time", func() {
-		other := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sleep"), process.WithArgs("300"))
+		other := process.New(process.WithTemporaryStateDir(), process.WithName(sleepBinary()), process.WithArgs("300"))
 		Expect(other.Run()).To(Succeed())
 		DeferCleanup(func() { _ = other.Stop() })
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")

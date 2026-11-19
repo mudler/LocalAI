@@ -205,7 +205,7 @@ test('voice library: the name hint no longer says only admins make profiles', as
   const { readFileSync, readdirSync } = await import('node:fs')
   const dir = new URL('../../../../../addons/voice/ui/src/i18n/', import.meta.url)
   const files = readdirSync(dir).filter(f => f.startsWith('voice.') && f.endsWith('.json'))
-  assert.equal(files.length, 9)
+  assert.equal(files.length, 10)
   for (const f of files) {
     const body = JSON.parse(readFileSync(new URL(f, dir), 'utf8'))['voiceCreate.sections.details.body']
     assert.ok(body && !/admins|administrators|amministratori|administradores|administrateurs/i.test(body), f)

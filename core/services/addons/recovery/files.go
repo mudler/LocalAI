@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3" // the driver of the backup and the integrity check
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // FileEntry is one file of a backup.
@@ -131,6 +132,11 @@ func syncPath(path string) error {
 		return err
 	}
 	err = f.Sync()
+	if err != nil && atomicfile.SyncDenied(err) {
+		// Windows: a read-only handle cannot FlushFileBuffers; the copy that
+		// produced the file already synced it through a writable handle.
+		err = nil
+	}
 	return errors.Join(err, f.Close())
 }
 

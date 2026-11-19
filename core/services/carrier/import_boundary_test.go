@@ -68,7 +68,16 @@ var boundaries = []boundary{
 	// The multiplexer of the tunnel carrier. The connect endpoint and the
 	// worker hold a tunnel session, but they reach it through the types of the
 	// tunnel package.
-	{name: "yamux", prefix: yamuxLibrary, allowlist: []string{"core/services/tunnel/"}},
+	//
+	// The add-on stdio channel is not a carrier. It multiplexes the
+	// standard streams of an add-on process over one pipe with the same
+	// library, and it never touches the cluster transport.
+	{name: "yamux", prefix: yamuxLibrary, allowlist: []string{
+		"core/services/tunnel/",
+		"core/services/addons/runtime/channels.go",
+		"pkg/addons/sdk/protocol/stdio.go",
+		"pkg/addons/stdiomux/stdiomux.go",
+	}},
 }
 
 // importers returns the slash paths, from root, of the non-test Go files that

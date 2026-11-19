@@ -85,7 +85,7 @@ func newProjectFor(id string, enabled map[string][]string) *project {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "schema: 1\naddon: %s\nexecutable: %s\nmanifest: addons/%s/manifest.json\nui: dist\n%splatforms:\n", id, id, id, skillsLine)
-	for _, p := range []string{"linux/amd64", "linux/arm64", "darwin/arm64"} {
+	for _, p := range []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"} {
 		rt, on := enabled[p]
 		fmt.Fprintf(&b, "  - platform: %s\n    enabled: %t\n    runner: runner-%s\n    native_check: executable-start\n", p, on, strings.ReplaceAll(p, "/", "-"))
 		if len(rt) > 0 {

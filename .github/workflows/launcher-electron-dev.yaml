@@ -1,8 +1,10 @@
 # Development builds of the Electron launcher (no update feed files):
 #
-# - push to master: AppImage amd64 and arm64, and the DMG (signed and
-#   notarized when the secrets are available), as workflow artifacts
-#   localai-launcher-dev-linux-amd64, -linux-arm64 and -macos-arm64, kept 14 days.
+# - push to master: AppImage amd64 and arm64, the DMG (signed and notarized
+#   when the secrets are available), and the Windows installer and zip
+#   (signed when the Windows secrets are available), as workflow artifacts
+#   localai-launcher-dev-linux-amd64, -linux-arm64, -macos-arm64 and
+#   -windows-amd64, kept 14 days.
 #   When all builds pass, the same files are also attached to the rolling
 #   `dev-master` pre-release, next to the server binaries that
 #   master-dev-binary.yml publishes there. The publish job is the only job
@@ -13,8 +15,9 @@
 #
 # The version is <newest vX.Y.Z tag, patch + 1>-dev.<run number>, and a
 # development build never updates itself. Its files have "dev" in the name
-# (LocalAI-Launcher-dev-x86_64.AppImage, LocalAI-Launcher-dev.dmg), so they are
-# never mistaken for release files. See launcher/README.md.
+# (LocalAI-Launcher-dev-x86_64.AppImage, LocalAI-Launcher-dev.dmg,
+# LocalAI-Launcher-dev-Setup-x64.exe, LocalAI-Launcher-dev-win-x64.zip), so
+# they are never mistaken for release files. See launcher/README.md.
 #
 # Repository variables (Settings > Variables), both optional:
 # - LAUNCHER_DEV_ARM64=false: no arm64 AppImage on master pushes. Each package
@@ -111,6 +114,7 @@ jobs:
       artifact-prefix: localai-launcher-dev
       linux-arm64: false
       macos: false
+      windows: false
       sign-macos: false
       feed: false
       upload: true
@@ -128,6 +132,7 @@ jobs:
       artifact-prefix: localai-launcher-dev
       linux-arm64: ${{ vars.LAUNCHER_DEV_ARM64 != 'false' }}
       macos: true
+      windows: true
       sign-macos: ${{ vars.LAUNCHER_DEV_SIGN_MACOS != 'false' }}
       feed: false
       upload: true
@@ -138,6 +143,8 @@ jobs:
       MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
       MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
       MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}
 
   # The only job with write access. It checks out no code and runs nothing
   # from the repository: it downloads the artifacts of the master build,
@@ -179,8 +186,8 @@ jobs:
           count=0
           for f in ./*; do
             case "${f#./}" in
-              LocalAI-Launcher-dev[-.]*AppImage|LocalAI-Launcher-dev[-.]*dmg) count=$((count + 1)) ;;
-              LocalAI-Launcher-dev[-.]*AppImage.sha256|LocalAI-Launcher-dev[-.]*dmg.sha256) ;;
+              LocalAI-Launcher-dev[-.]*AppImage|LocalAI-Launcher-dev[-.]*dmg|LocalAI-Launcher-dev-*.exe|LocalAI-Launcher-dev-*.zip) count=$((count + 1)) ;;
+              LocalAI-Launcher-dev[-.]*AppImage.sha256|LocalAI-Launcher-dev[-.]*dmg.sha256|LocalAI-Launcher-dev-*.exe.sha256|LocalAI-Launcher-dev-*.zip.sha256) ;;
               *) echo "unexpected file in the launcher artifacts: ${f}" >&2; exit 1 ;;
             esac
           done
@@ -206,8 +213,10 @@ jobs:
       - name: Upload the packages
         run: |
           set -euo pipefail
+          shopt -s nullglob
+          packages=(upload/*.AppImage upload/*.dmg upload/*.exe upload/*.zip)
           upload() {
-            gh release upload "${RELEASE_TAG}" upload/*.AppImage upload/*.dmg --clobber
+            gh release upload "${RELEASE_TAG}" "${packages[@]}" --clobber
             gh release upload "${RELEASE_TAG}" upload/*.sha256 --clobber
           }
           for attempt in 1 2 3 4 5; do
@@ -246,6 +255,7 @@ jobs:
       artifact-prefix: localai-launcher-manual
       linux-arm64: true
       macos: true
+      windows: true
       sign-macos: ${{ inputs.sign-macos }}
       feed: false
       upload: false
@@ -255,3 +265,5 @@ jobs:
       MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
       MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
       MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}

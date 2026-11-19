@@ -298,10 +298,32 @@ func cmdMerge(args []string) error {
 	return nil
 }
 
+// cmdBuildPlatform prints the os/arch that the executable and the runtime
+// files of a platform row are built for (linux/amd64 for a wsl2 row).
+func cmdBuildPlatform(args []string) error {
+	fs := flag.NewFlagSet("build-platform", flag.ContinueOnError)
+	platform := fs.String("platform", "", "platform of the row")
+	config := fs.String("config", "", "platform matrix file")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	cfg, err := loadPlatforms(*config)
+	if err != nil {
+		return err
+	}
+	entry, ok := cfg.find(*platform)
+	if !ok {
+		return fmt.Errorf("platform %s is not in the platform matrix", *platform)
+	}
+	_, _ = fmt.Fprintln(stdout, entry.BuildPlatform())
+	return nil
+}
+
 // cmdNativeCheck extracts the verified package and starts its executable
 // with an argument the add-on protocol rejects. An executable that loads and
 // runs on this platform exits 2; a missing library, a wrong format or a crash
-// does not. The check refuses to run for a platform other than the host's, so
+// does not. The executable of a wsl2 package starts through wsl.exe, so the
+// check needs WSL on the Windows runner. The check refuses to run for a platform other than the host's, so
 // an advertised platform is only ever checked natively.
 func cmdNativeCheck(args []string) error {
 	fs := flag.NewFlagSet("native-check", flag.ContinueOnError)
@@ -335,6 +357,11 @@ func cmdNativeCheck(args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, filepath.Join(tmp, v.Manifest.Executable)) // #nosec G204 -- runs the add-on executable of the package under verification, from a private temporary directory
+	if v.Manifest.RunsInWSL() {
+		// The Linux executable of a wsl2 package starts in WSL, from the
+		// same folder (wsl.exe translates the Windows path).
+		cmd = exec.CommandContext(ctx, "wsl.exe", "--cd", tmp, "--exec", "./"+v.Manifest.Executable) // #nosec G204 -- runs the add-on executable of the package under verification in WSL
+	}
 	cmd.Dir = tmp
 	cmd.Stdin = nil
 	var buf bytes.Buffer

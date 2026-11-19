@@ -1,27 +1,18 @@
 ---
 title: "LocalAI 5.0: your AI does the work, you keep the files"
-date: 2026-11-15
-draft: true
+date: 2026-11-18
 author: "Ettore Di Giacinto"
 category: "Release"
 tags: ["release", "multimodal", "projects", "desktop", "office", "files", "sandbox", "team", "pages", "add-ons", "ui"]
 summary: "Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing."
 extracss: ["blog.css"]
-placeholders: ["release date", "release tag and release notes link", "PR, commit and contributor counts", "contributor thanks", "screenshots"]
 ---
-
-<!-- TODO owner: this post is a draft (draft: true keeps Hugo from publishing it). Publish it with the 5.0 tag: set the final date, remove `draft: true` and `placeholders`, and resolve every TODO comment below. Nothing in the post claims a number we have not counted. -->
-
-<!-- TODO owner: after the 5.0 tag, update the home banner (website/layouts/index.html "Coming in the next release" and the hard-coded 4.12.1 in index.html and get-started) and set `draft: false`. -->
 
 5.0 lets you give real work to a model you run yourself. Ask for a one-page summary of the notes in a folder, for example, and the chat reads them and saves a Word file in your Files. If you don't like what it did, the History tab has an Undo for that change.
 
 Run open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, and the assistant can write and run code. It runs on a laptop, a server, in a container or on Kubernetes. No GPU needed, though a GPU makes it faster. 5.0 adds Projects, a desktop app for macOS and Linux, and documents, files and team sharing.
 
-<!-- TODO owner: release date and tag are not decided. The link below assumes the tag is v5.0.0. Check it before publishing. -->
 The [full notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0) list every change. Here's what's new since 4.x.
-
-<!-- TODO owner: headline numbers (days, merged PRs, commits, authors) are left out on purpose. Count them at the tag and add one sentence here if you want them. Also decide the wording of any "three years" or "since 2023" line; we did not write one. -->
 
 ## Hand it over
 
@@ -52,7 +43,6 @@ A project groups chats around one folder in your own files. The folder holds the
 
 LocalAI now has a desktop app for macOS and Linux. It installs, updates, starts and stops the LocalAI server on your computer, and shows the web interface in its own window with a status bar for the server. On the first start you choose to run LocalAI on this computer or to connect to a server that runs somewhere else. You can keep several servers and pick a default. It checks for a new server version once a day and never installs one without asking.
 
-<!-- TODO owner: check at the tag that the release has these files: LocalAI.dmg, LocalAI-Launcher-x86_64.AppImage and LocalAI-Launcher-arm64.AppImage, each with a .sha256 file, and that the DMG passes the Gatekeeper check of the release guide. The links below use releases/latest/download. -->
 On an Intel Mac, use a container, because there is no macOS binary for Intel. Download [`LocalAI.dmg`](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg) for a Mac with Apple silicon, or the [x86-64 AppImage](https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage) for Linux. The ARM64 AppImage is `LocalAI-Launcher-arm64.AppImage` on the [release page](https://github.com/mudler/LocalAI/releases/latest). The [desktop app guide](/docs/start/install/desktop/) has the first start, update channels and troubleshooting. It reads the same `~/.localai` folder as the older launcher, so your models stay.
 
 ## Make documents from a chat
@@ -99,8 +89,6 @@ Chats now run on the server, so a chat keeps working when you close the tab. The
 
 5.0 has a new theme, logo and mascot ([#13187](https://github.com/mudler/LocalAI/pull/13187)). On a fresh install, Home suggests models for the hardware it detects ([#13199](https://github.com/mudler/LocalAI/pull/13199)).
 
-<!-- TODO owner: screenshots. Add Home first run, the Files page with the Trash tab, the Office tool card in a chat, a Sandbox chart in Files, the sharing dialog, a page on Home and the add-ons library. Put the images under website/static/media/ and reference them with <figure>. -->
-
 ## Try it
 
 The easiest start is the desktop app above. To install a server, on Linux or macOS:
@@ -124,7 +112,5 @@ Open `http://localhost:8080`. For your first document, install the Simple Office
 - A release build reads the add-on library that was built and signed with that release. A source build reads the development channel, which can change.
 - The Sandbox add-on is for Linux today, and its macOS package for Apple silicon is not released yet. No add-on is built for Windows yet.
 - The add-on library needs a network connection. Without one, use a private library or an add-on zip file.
-
-<!-- TODO owner: contributors. Thank the people who landed work for 5.0 by name. Compute the list at the tag (prior-merged-count method of the release skill), no bots. -->
 
 If something does not work for you, open an issue or ask in the [Discord](https://discord.gg/uJAeKSAGDy).

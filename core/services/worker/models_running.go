@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
 
@@ -40,7 +41,7 @@ func (s *backendSupervisor) runningModels() []workerctl.RunningModelInfo {
 
 	running := make([]workerctl.RunningModelInfo, 0, len(s.processes))
 	for key, bp := range s.processes {
-		if bp == nil || bp.stopping || bp.proc == nil || !bp.proc.IsAlive() {
+		if bp == nil || bp.stopping || bp.proc == nil || !model.ProcessAlive(bp.proc) {
 			continue
 		}
 		modelID, replicaIndex, ok := parseProcessKey(key)

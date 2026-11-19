@@ -9,10 +9,8 @@ import (
 	"maps"
 	"net"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -27,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 )
@@ -219,7 +218,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	basePort := cfg.effectiveBasePort()
 	// Buffered so NATS stop handler can send without blocking
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	// NotifyTermination also covers a stop request from the Windows service
+	// manager, which is not a signal.
+	signals.NotifyTermination(sigCh)
 
 	// Set the registration token once before any backends are started
 	if cfg.RegistrationToken != "" {

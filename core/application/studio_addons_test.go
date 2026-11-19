@@ -157,6 +157,16 @@ var _ = Describe("the studio add-ons", func() {
 		Expect(s.Unavailable(ctx, "alice", "office", true)).To(BeEmpty(), "office with files on")
 	})
 
+	It("says why an add-on that runs commands could not start, such as WSL 2 missing", func() {
+		s := &studioAddons{mode: auth.AddonModeNamedUser, startFailure: func(id string) string {
+			if id == "sandbox" {
+				return "WSL is not installed"
+			}
+			return ""
+		}}
+		Expect(s.Unavailable(context.Background(), "alice", "sandbox", true)).To(Equal("WSL is not installed"))
+	})
+
 	It("gives a user without the add-ons feature no add-on tools", func() {
 		s := &studioAddons{adapter: addontools.NewChatToolAdapter(forbiddenOwner{}), mode: auth.AddonModeNamedUser}
 		got, err := s.Tools(context.Background(), "alice")

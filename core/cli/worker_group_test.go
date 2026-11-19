@@ -16,6 +16,7 @@ import (
 func parseCLI(args ...string) (*kong.Context, error) {
 	app := CLI
 	k, err := kong.New(&app, kong.Vars{
+		"backendssystempath":   "/var/lib/local-ai/backends",
 		"basepath":             kong.ExpandPath("."),
 		"generatedcontentpath": DefaultGeneratedContentPath(),
 		"uploadpath":           DefaultUploadPath(),

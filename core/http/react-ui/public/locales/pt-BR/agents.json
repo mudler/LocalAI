@@ -148,7 +148,7 @@
     "networkHelp": "Quando um gatilho ou um conector roda este agente, os comandos dele alcançam esta parte da rede, até o limite definido por um administrador. Uma execução nunca pergunta: um host fora dela é bloqueado. Um chat que você inicia com este agente também começa assim.",
     "networkPresets": {
       "off": "Desligada",
-      "registries": "Registros de pacotes",
+      "registries": "Personalizado",
       "all": "Todos os sites públicos"
     },
     "toolsSummary": "{{on}} de {{total}} ligadas",

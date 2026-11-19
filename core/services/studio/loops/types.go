@@ -131,6 +131,13 @@ type Loop struct {
 	// checks the destination when the loop starts and again at each delivery;
 	// the package only stores it. Treat it as immutable.
 	Report *Report `json:"report,omitempty"`
+	// Grant holds the loop capabilities (loops.wait, loops.start) that the
+	// sender of the connector turn held when the model armed this loop or
+	// wait. The run of the loop has no sender, so the host reads it to offer
+	// the same tools again in that run. It is set by the host only, is never
+	// shown by the API and dies with the loop. Empty means no grant: a run
+	// then holds nothing. Treat it as immutable.
+	Grant []string `json:"grant,omitempty"`
 }
 
 // When a loop reports to its destination.

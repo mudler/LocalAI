@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/registry"
@@ -94,7 +95,10 @@ var _ = Describe("PullArtifact", func() {
 		for _, relative := range []string{"index.yaml", "base/virtual.yaml"} {
 			info, err := os.Stat(filepath.Join(dest, relative))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(info.Mode().Perm() & 0o077).To(BeZero())
+			if runtime.GOOS != "windows" {
+				// Windows reports 0666 for every file: no group or other bits.
+				Expect(info.Mode().Perm() & 0o077).To(BeZero())
+			}
 		}
 	})
 

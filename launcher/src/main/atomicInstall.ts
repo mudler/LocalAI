@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import type { ExecutableFormat } from './platform'
 
 export class InstallError extends Error {
   constructor(message: string, readonly step: string, options?: { cause?: unknown }) {
@@ -26,11 +27,45 @@ export interface FsOps {
   unlink(p: string): void
 }
 
+/** Error codes Windows gives while another process (an antivirus scan, the search indexer) holds the file for a moment. */
+const TRANSIENT_WIN_CODES = new Set(['EPERM', 'EBUSY', 'EACCES'])
+
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/**
+ * rename(2), with retries on Windows. There a scanner can hold a file that was
+ * just written for a short time, and the rename fails with EPERM or EBUSY.
+ * The wait grows to about 2 s in total. On other platforms one try.
+ */
+export function renameWithRetry(
+  rename: (from: string, to: string) => void,
+  from: string,
+  to: string,
+  o: { platform?: NodeJS.Platform; attempts?: number; sleep?: (ms: number) => void } = {},
+): void {
+  const platform = o.platform ?? process.platform
+  const attempts = platform === 'win32' ? (o.attempts ?? 8) : 1
+  const sleep = o.sleep ?? sleepSync
+  for (let n = 1; ; n++) {
+    try {
+      rename(from, to)
+      return
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException)?.code
+      if (n >= attempts || !code || !TRANSIENT_WIN_CODES.has(code)) throw e
+      sleep(50 * n)
+    }
+  }
+}
+
 export const realFs: FsOps = {
   copyFile: (s, d) => fs.copyFileSync(s, d, fs.constants.COPYFILE_EXCL),
+  // On Windows only the read-only flag follows the mode; 0o755 keeps the file writable.
   chmod: (fd, mode) => fs.fchmodSync(fd, mode),
   fsync: (fd) => fs.fsyncSync(fd),
-  rename: (a, b) => fs.renameSync(a, b),
+  rename: (a, b) => renameWithRetry((x, y) => fs.renameSync(x, y), a, b),
   unlink: (p) => fs.unlinkSync(p),
 }
 
@@ -40,6 +75,8 @@ export interface ValidateOptions {
   appImage?: boolean
   /** The exact size the file must have (from the release feed). */
   size?: number
+  /** The executable format to expect. Default `elf`. */
+  format?: ExecutableFormat
 }
 
 export interface InstallOptions extends ValidateOptions {
@@ -55,6 +92,19 @@ export interface InstallOptions extends ValidateOptions {
 }
 
 const ELF = Buffer.from([0x7f, 0x45, 0x4c, 0x46])
+/** Mach-O 32 and 64 bit in both byte orders, and the universal (fat) header. */
+const MACHO = ['feedface', 'feedfacf', 'cefaedfe', 'cffaedfe', 'cafebabe'].map((h) => Buffer.from(h, 'hex'))
+const FORMAT_NAME: Record<ExecutableFormat, string> = { elf: 'an ELF', macho: 'a Mach-O', pe: 'a Windows (PE)' }
+
+/** True when `head` (the first bytes of the file) starts an executable of `format`. */
+export function hasExecutableMagic(head: Buffer, format: ExecutableFormat): boolean {
+  if (format === 'elf') return head.length >= 4 && head.subarray(0, 4).equals(ELF)
+  if (format === 'macho') return head.length >= 4 && MACHO.some((m) => head.subarray(0, 4).equals(m))
+  // PE: the DOS header "MZ", and at the offset in e_lfanew (0x3c) the "PE\0\0" signature.
+  if (head.length < 0x40 || head[0] !== 0x4d || head[1] !== 0x5a) return false
+  const off = head.readUInt32LE(0x3c)
+  return off + 4 <= head.length && head.readUInt32BE(off) === 0x50450000
+}
 
 /** Cheap sanity checks on a downloaded executable. */
 export function validateExecutable(file: string, opts: ValidateOptions = {}): void {
@@ -67,11 +117,13 @@ export function validateExecutable(file: string, opts: ValidateOptions = {}): vo
   if (!st.isFile()) throw new InstallError('downloaded path is not a regular file', 'validate')
   if (st.size < (opts.minBytes ?? 1024)) throw new InstallError('downloaded file is too small to be an executable', 'validate')
   if (opts.size !== undefined && st.size !== opts.size) throw new InstallError(`downloaded file has ${st.size} bytes, the release says ${opts.size}`, 'validate')
+  const format = opts.format ?? 'elf'
   const fd = fs.openSync(file, 'r')
   try {
-    const head = Buffer.alloc(16)
-    fs.readSync(fd, head, 0, 16, 0)
-    if (!head.subarray(0, 4).equals(ELF)) throw new InstallError('downloaded file is not an ELF executable', 'validate')
+    // 1 KiB holds the PE signature of every normal Windows executable.
+    const head = Buffer.alloc(1024)
+    const n = fs.readSync(fd, head, 0, head.length, 0)
+    if (!hasExecutableMagic(head.subarray(0, n), format)) throw new InstallError(`downloaded file is not ${FORMAT_NAME[format]} executable`, 'validate')
     if (opts.appImage && !(head[8] === 0x41 && head[9] === 0x49 && head[10] === 0x02)) {
       throw new InstallError('downloaded file is not an AppImage (type 2)', 'validate')
     }

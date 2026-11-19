@@ -1,10 +1,12 @@
 package egress_test
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/egress"
+	"github.com/mudler/LocalAI/pkg/egresspolicy"
 	"github.com/mudler/LocalAI/pkg/web/safehttp"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -254,6 +256,42 @@ var _ = Describe("the registries list", func() {
 		Expect(err).To(HaveOccurred())
 		_, err = egress.ParseRegistries([]byte(`{"version":1,"registries":[{"id":"x","title":"X","hosts":["example.com:443"]}]}`))
 		Expect(err).To(HaveOccurred())
+	})
+
+	Describe("the line under the registries preset", func() {
+		It("keeps the registries-only sentence without extra domains", func() {
+			got := egress.DescribeFor(egress.Settings{}, egress.PresetRegistries, reg, true, "Runbox")
+			Expect(got).To(Equal(egress.Describe(egress.PresetRegistries, reg, true, "Runbox")))
+			Expect(got).To(HavePrefix("Network for commands: package registries only ("))
+		})
+
+		It("names the extra registries and always-allowed hosts as configured", func() {
+			hosts, err := egresspolicy.ParseEgressAllowedHosts("*.corp.example", false)
+			Expect(err).NotTo(HaveOccurred())
+			s := egress.Settings{ExtraRegistries: []string{"mirror.example.com", "api.example.org"}, AllowedHosts: hosts}
+			got := egress.DescribeFor(s, egress.PresetRegistries, reg, true, "Runbox")
+			Expect(got).To(ContainSubstring("and the domains an administrator added (mirror.example.com, api.example.org, *.corp.example)."))
+			Expect(got).To(ContainSubstring("Python (PyPI)"))
+			Expect(got).NotTo(ContainSubstring("and 0 more"))
+			Expect(egress.DescribeFor(s, egress.PresetAll, reg, true, "Runbox")).NotTo(ContainSubstring("mirror.example.com"))
+			Expect(egress.DescribeFor(s, egress.PresetOff, reg, true, "Runbox")).NotTo(ContainSubstring("mirror.example.com"))
+		})
+
+		It("caps the named domains and counts the rest", func() {
+			var extra []string
+			for i := 0; i < 23; i++ {
+				extra = append(extra, fmt.Sprintf("h%02d.example.com", i))
+			}
+			got := egress.DescribeFor(egress.Settings{ExtraRegistries: extra}, egress.PresetRegistries, reg, true, "Runbox")
+			Expect(got).To(ContainSubstring("h19.example.com, and 3 more)"))
+			Expect(got).NotTo(ContainSubstring("h20.example.com"))
+		})
+
+		It("lists them in the limited line too", func() {
+			s := egress.Settings{ExtraRegistries: []string{"mirror.example.com"}}
+			got := egress.DescribeLimitFor(s, egress.PresetRegistries, egress.PresetRegistries, reg, false, "Runbox")
+			Expect(got).To(SatisfyAll(ContainSubstring("mirror.example.com"), ContainSubstring("not by a missing approval")))
+		})
 	})
 
 	It("describes the presets to the model", func() {

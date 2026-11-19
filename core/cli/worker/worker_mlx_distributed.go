@@ -22,6 +22,9 @@ type MLXDistributed struct {
 }
 
 func (r *MLXDistributed) Run(ctx *cliContext.Context) error {
+	if err := requireHostBackendBuild("mlx-distributed", "mlx-distributed"); err != nil {
+		return err
+	}
 	if r.Join != "" {
 		return r.runP2P()
 	}

@@ -102,7 +102,8 @@ func (in *instance) StartEnv(env []string, args ...string) {
 	in.cmd.Env = append(in.cmd.Env, "E2E_CHATS_UPSTREAM_KEY=sk-e2e", "NO_COLOR=1")
 	in.cmd.Env = append(in.cmd.Env, env...)
 	in.cmd.Stdout, in.cmd.Stderr = &lockedWriter{in}, &lockedWriter{in}
-	in.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	in.cmd.SysProcAttr = &syscall.SysProcAttr{}
+	setProcessGroup(in.cmd.SysProcAttr)
 	Expect(in.cmd.Start()).To(Succeed())
 	in.done = make(chan struct{})
 	go func() { _ = in.cmd.Wait(); close(in.done) }()
@@ -151,11 +152,11 @@ func (in *instance) stop(sig syscall.Signal) {
 	default:
 	}
 	// The group, so the backend processes go too.
-	_ = syscall.Kill(-in.cmd.Process.Pid, sig)
+	_ = killProcessGroup(in.cmd.Process.Pid, sig)
 	select {
 	case <-in.done:
 	case <-time.After(30 * time.Second):
-		_ = syscall.Kill(-in.cmd.Process.Pid, syscall.SIGKILL)
+		_ = killProcessGroup(in.cmd.Process.Pid, syscall.SIGKILL)
 		<-in.done
 	}
 }

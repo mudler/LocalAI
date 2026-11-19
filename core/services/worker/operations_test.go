@@ -39,6 +39,7 @@ func (b *freeHookBackend) Free(context.Context, *pb.HealthMessage) (*pb.Result, 
 // starts a grandchild and records its pid, so a spec can tell that the whole
 // group is gone and not only the leader.
 func startGroupProcess() (*process.Process, int) {
+	skipOnWindows("the spec needs a Unix process group and a shell that reports Unix pids")
 	pidFile := filepath.Join(GinkgoT().TempDir(), "grandchild.pid")
 	proc := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sh"),
 		process.WithArgs("-c", "sleep 300 & echo $! > "+pidFile+"; wait"))

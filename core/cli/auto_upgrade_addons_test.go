@@ -19,7 +19,7 @@ var _ = Describe("automatic add-on upgrade flag", func() {
 		cmd := struct {
 			Run RunCMD `cmd:""`
 		}{}
-		parser, err := kong.New(&cmd, kong.Vars{"basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]",
+		parser, err := kong.New(&cmd, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends", "basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]",
 			"generatedcontentpath": GinkgoT().TempDir(), "uploadpath": GinkgoT().TempDir(), "version": "test"})
 		Expect(err).NotTo(HaveOccurred())
 		_, err = parser.Parse(append([]string{"run"}, args...))

@@ -80,15 +80,44 @@ func (r rawImage) Digest() (v1.Hash, error) {
 }
 func (r rawImage) Size() (int64, error) { return int64(len(r.raw)), nil }
 
-func stampManifest(template []byte, version, platform string) ([]byte, error) {
+func stampManifest(template []byte, version, platform string, settings *contract.OSSettings) ([]byte, error) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(template, &m); err != nil {
 		return nil, fmt.Errorf("manifest template: %w", err)
+	}
+	// The platform matrix is the only source of the OS-specific settings: a
+	// template that sets them would apply them to every platform.
+	if _, ok := m["osSettings"]; ok {
+		return nil, errors.New("manifest template: osSettings is set from the platform matrix, remove it from the template")
 	}
 	os_, arch, _ := strings.Cut(platform, "/")
 	for k, v := range map[string]string{"version": version, "os": os_, "arch": arch} {
 		b, _ := json.Marshal(v)
 		m[k] = b
+	}
+	// A package that runs in WSL 2 says so, at the feature level of the
+	// block, and keeps the plain name of its Linux executable.
+	if settings != nil {
+		b, _ := json.Marshal(settings)
+		m["osSettings"] = b
+		var level uint64
+		if raw, ok := m["featureLevel"]; ok {
+			if err := json.Unmarshal(raw, &level); err != nil {
+				return nil, fmt.Errorf("manifest template: featureLevel: %w", err)
+			}
+		}
+		if level < 10 {
+			m["featureLevel"] = json.RawMessage("10")
+		}
+	}
+	// A Windows package names its executable with .exe (see ExecutableFor).
+	if os_ == "windows" && settings == nil {
+		var exe string
+		if err := json.Unmarshal(m["executable"], &exe); err != nil {
+			return nil, fmt.Errorf("manifest template: executable: %w", err)
+		}
+		b, _ := json.Marshal(ExecutableFor(exe, platform))
+		m["executable"] = b
 	}
 	out, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
@@ -129,7 +158,7 @@ func cmdBuild(args []string) error {
 		return fmt.Errorf("version %q is not a semantic version without a v prefix or build metadata", *version)
 	}
 	if !platformRE.MatchString(*platform) {
-		return fmt.Errorf("platform %q is not os/arch of linux or darwin on amd64 or arm64", *platform)
+		return fmt.Errorf("platform %q is not os/arch of linux or darwin on amd64 or arm64, or windows/amd64", *platform)
 	}
 	if *revision != "" && !shaRE.MatchString(*revision) {
 		return errors.New("revision must be 40 lower-case hex characters")
@@ -155,7 +184,7 @@ func cmdBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := stampManifest(template, *version, *platform)
+	manifest, err := stampManifest(template, *version, *platform, entry.ManifestOSSettings())
 	if err != nil {
 		return err
 	}
@@ -166,7 +195,7 @@ func cmdBuild(args []string) error {
 	if err := contract.ValidateManifest(m, hostFor(*platform)); err != nil {
 		return fmt.Errorf("manifest: %w", err)
 	}
-	if m.ID != cfg.Addon || m.Executable != cfg.Executable {
+	if m.ID != cfg.Addon || m.Executable != entry.ExecutableName(cfg.Executable) {
 		return errors.New("manifest id or executable differs from the platform matrix")
 	}
 	exeBytes, err := readRegular(*exe)

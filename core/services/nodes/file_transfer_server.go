@@ -1054,7 +1054,7 @@ func handleListDir(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir
 		if !d.IsDir() {
 			rel, err := filepath.Rel(dirPath, path)
 			if err == nil {
-				files = append(files, rel)
+				files = append(files, filepath.ToSlash(rel))
 			}
 		}
 		return nil

@@ -148,7 +148,7 @@
     "networkHelp": "当触发器或连接器运行此代理时，其命令可访问的网络范围，不超过管理员设置的限制。运行时从不询问：范围外的主机会被阻止。用此代理开始的聊天也以此开始。",
     "networkPresets": {
       "off": "关闭",
-      "registries": "软件包仓库",
+      "registries": "自定义",
       "all": "所有公共网站"
     },
     "toolsSummary": "{{total}} 项中开启 {{on}} 项",

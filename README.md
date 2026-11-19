@@ -19,7 +19,7 @@
 **LocalAI** runs open models for chat, images, speech and video on your own machines. The API speaks the OpenAI and Anthropic formats. Your team gets chats, files and documents on top, and the assistant can write and run code. It runs on a laptop, a server, in a container or on Kubernetes, and a distributed mode spreads models over several machines. No GPU needed, though a GPU makes it faster.
 
 - **Chats, agents, Projects and a team**: chats and saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/) servers, files, Knowledge collections and skills. [Projects](https://localai.io/docs/features/projects/) group chats, files, notes and agents around one piece of work. Users, roles, quotas and shared folders for a team (development builds).
-- **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps, mail, calendar and more (development builds).
+- **Add-ons**: an admin installs add-ons from a library: Office, Sandbox, Tables, chat apps, mail, calendar and more.
 - **Every kind of model, one API**: text, vision, speech to text, text to speech, images, video, music and sound, embeddings and reranking, in the OpenAI and Anthropic formats (with ElevenLabs-compatible text to speech and sound generation), with more than 80 backends. Each backend is its own image, pulled only when a model needs it.
 - **Your hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, NVIDIA Jetson or CPU only. The server, the models and your files stay on your own machines.
 
@@ -45,9 +45,9 @@ The script installs the program and does not start it; `local-ai` starts the ser
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 ```
 
-**Desktop app**: it installs, updates, starts and stops the server for you and shows the web interface in its own window, on macOS and Linux. It comes with the next release. Test builds are on the [dev-master pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master). See the [desktop app guide](https://localai.io/docs/start/install/desktop/).
+**Desktop app**: it installs, updates, starts and stops the server for you and shows the web interface in its own window, on macOS and Linux. It is in the 5.0 release. Download it from the [latest release](https://github.com/mudler/LocalAI/releases/latest). See the [desktop app guide](https://localai.io/docs/start/install/desktop/).
 
-The install script and the `latest` image give 4.12.1 today. Projects, the new desktop app, the add-ons, Office, Sandbox and team features described below need a development build or a newer release.
+The install script and the `latest` image give 5.0.0.
 
 Then open `http://localhost:8080`. To restart an existing container, use `docker start -i local-ai`. More ways to install: [Install LocalAI](https://localai.io/docs/start/install/).
 
@@ -107,7 +107,7 @@ More in the [Quickstart](https://localai.io/docs/start/quickstart/).
 | Area | What it gives you |
 |---|---|
 | [Chats](https://localai.io/docs/features/chats/) | Conversations the server keeps, with saved agents that use tools, [MCP](https://localai.io/docs/features/mcp/), skills and files, triggers, and chat apps |
-| [Add-ons](https://localai.io/docs/addons/) | Office, Sandbox, Tables, chat apps, mail, calendar and more install from a library and run beside the server (development builds) |
+| [Add-ons](https://localai.io/docs/addons/) | Office, Sandbox, Tables, chat apps, mail, calendar and more install from a library and run beside the server |
 | [Text generation](https://localai.io/docs/models/capabilities/text/text-generation/) | `llama.cpp`, `transformers`, `vllm` ... [and more](https://localai.io/docs/models/compatibility-table/), with an [OpenAI-compatible tools API](https://localai.io/docs/api/openai-functions/) and [constrained grammars](https://localai.io/docs/models/capabilities/text/constrained_grammars/) |
 | Music and sound | Make music and sound effects from a text prompt with `/v1/sound-generation`. See [text to audio](https://localai.io/docs/models/capabilities/audio/text-to-audio/) |
 | Speech | [Text to audio](https://localai.io/docs/models/capabilities/audio/text-to-audio/), [audio to text](https://localai.io/docs/models/capabilities/audio/audio-to-text/), voice activity detection (Silero-VAD) and the [Realtime API](https://localai.io/docs/api/openai-realtime/) for speech-to-speech |
@@ -148,6 +148,8 @@ The team also ships a vector store, `local-store`, in the main tree, and maintai
 ## Latest news
 
 <!-- Next release: add its entry here, newest first, when the release post is published: month, one line, and a link to the post. Do not add a date or a link before the post exists. -->
+
+- **November 2026**: **LocalAI 5.0**: Projects, a desktop app for macOS and Linux, Office and Sandbox add-ons, a Files page, team sharing and Pages. [Release post](https://localai.io/blog/localai-5-0/) · [Release notes](https://github.com/mudler/LocalAI/releases/tag/v5.0.0)
 
 - **October 2026**: **LocalAI 4.12.1**: A security fix for the policy on URLs that users give. Redirect targets are now checked on every hop. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.12.1)
 - **October 2026**: **LocalAI 4.12.0**: A redesigned web UI, streaming voice answers, decision routing with the `/v1/decisions` API, image upscaling in Studio and Qdrant stores. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.12.0)

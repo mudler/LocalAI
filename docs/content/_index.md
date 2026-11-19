@@ -18,7 +18,7 @@ keywords = ["documentation", "install", "quickstart", "team", "add-on", "sandbox
 
 ### Install
 
-The script works on Linux and on Macs with Apple Silicon. You can also use a container or Kubernetes. A desktop app is coming in the next release. See the [install guide]({{% relref "/start/install" %}}).
+The script works on Linux and on Macs with Apple Silicon. You can also use a container or Kubernetes. The desktop app for macOS and Linux is in the 5.0 release. See the [install guide]({{% relref "/start/install" %}}).
 
 ```bash
 curl -sSL https://localai.io/install.sh | sh

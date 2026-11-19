@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/connectors/connectorstest"
+	"github.com/mudler/LocalAI/pkg/fsperm"
 )
 
 var _ = Describe("the JSON store", func() {
@@ -42,7 +44,10 @@ var _ = Describe("the JSON store", func() {
 		for _, f := range []string{"connectors.json", "connectors.key"} {
 			st, err := os.Stat(filepath.Join(dir, f))
 			Expect(err).NotTo(HaveOccurred(), f)
-			Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)), f)
+			if runtime.GOOS != "windows" {
+				Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)), f)
+			}
+			Expect(fsperm.Check(filepath.Join(dir, f))).To(Succeed(), f)
 		}
 	})
 
@@ -85,6 +90,9 @@ var _ = Describe("the JSON store", func() {
 	})
 
 	It("refuses a key file that others can read", func() {
+		if runtime.GOOS == "windows" {
+			Skip("Windows has no mode bits; pkg/fsperm tests the access control list")
+		}
 		dir := GinkgoT().TempDir()
 		first, _ := connectors.NewJSON(dir)
 		connectorstest.Seed(first)

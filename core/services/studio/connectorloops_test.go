@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -134,4 +135,97 @@ var _ = Describe("loop tools in a connector chat", func() {
 		_, err = r.host.BeginByModelForTest(ctx, alice, id, false)
 		Expect(err).To(MatchError(studio.ErrLoopSender))
 	})
+
+	// The wake-up of a wait has no sender. It continues the sender who armed
+	// the wait: it holds the loop capabilities that sender held, and nothing else.
+	Describe("the run of a wait that a sender armed", func() {
+		// arm arms a wait in a chat as the sender, then makes it the run that
+		// goes on now, with no sender, as a wake-up is.
+		arm := func(r *loopRig, id, sender string, listed bool, b connectors.Binding) loops.Loop {
+			r.svc.HoldSenderForTest(id, b, sender, listed, now)
+			l, err := r.host.BeginByModelForTest(ctx, alice, id, true)
+			Expect(err).NotTo(HaveOccurred())
+			r.svc.ReleaseSenderForTest(id)
+			l = running(r, l.ID)
+			return l
+		}
+		allow := func(r *loopRig, id string) []string { return r.host.ToolNamesForTest(ctx, alice, id) }
+
+		It("stores the loop capabilities of the sender with the wait", func() {
+			r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{})
+			l := arm(r, chat(r), "LISTED", true, binding)
+			Expect(l.Grant).To(ConsistOf(contract.CapLoopsWait))
+			p := arm(r, chat(r), "PAIRED", false, binding)
+			Expect(p.Grant).To(ConsistOf(contract.CapLoopsWait, contract.CapLoopsStart))
+		})
+
+		It("offers wait_for and not start_loop to the wake-up of a listed sender's wait", func() {
+			r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{})
+			id := chat(r)
+			arm(r, id, "LISTED", true, binding)
+			Expect(allow(r, id)).To(ContainElement("wait_for"))
+			Expect(allow(r, id)).NotTo(ContainElement("start_loop"))
+		})
+
+		It("lets the wake-up arm the next wait, which carries the grant on", func() {
+			r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{})
+			id := chat(r)
+			first := arm(r, id, "LISTED", true, binding)
+			_, err := r.sh.loops.Update(ctx, first.ID, func(c *loops.Loop) error { c.Running, c.State = false, loops.StateEnded; return nil })
+			Expect(err).NotTo(HaveOccurred())
+			Expect(allow(r, id)).NotTo(ContainElement("wait_for"), "the grant dies with the wait that held it")
+			second := arm(r, id, "LISTED", true, binding)
+			next, err := r.host.BeginByModelForTest(ctx, alice, id, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(next.Grant).To(Equal(second.Grant))
+		})
+
+		It("offers start_loop to the wake-up of a wait that a sender with loops.start armed", func() {
+			r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{})
+			id := chat(r)
+			arm(r, id, "PAIRED", false, binding)
+			Expect(allow(r, id)).To(ContainElements("wait_for", "start_loop"))
+		})
+
+		It("offers neither tool to the wake-up of a wait armed by a sender with neither", func() {
+			r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{})
+			id := chat(r)
+			// Such a sender cannot arm a wait; a wait row with no grant is what is left.
+			l := arm(r, id, "LISTED", true, binding)
+			_, err := r.sh.loops.Update(ctx, l.ID, func(c *loops.Loop) error { c.Grant = nil; return nil })
+			Expect(err).NotTo(HaveOccurred())
+			Expect(allow(r, id)).To(BeEmpty(), "an old row with no grant behaves as before")
+			_, err = r.sh.loops.Update(ctx, l.ID, func(c *loops.Loop) error { c.Grant = []string{"triggers.propose"}; return nil })
+			Expect(err).NotTo(HaveOccurred())
+			Expect(allow(r, id)).To(BeEmpty(), "a grant of another capability gives no loop tool")
+			_, err = r.host.BeginByModelForTest(ctx, alice, id, true)
+			Expect(err).To(MatchError(studio.ErrLoopSender))
+		})
+
+		It("does not widen a turn that has a sender", func() {
+			r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{})
+			id := chat(r)
+			arm(r, id, "PAIRED", false, binding)
+			b := binding
+			b.AcceptAny = true
+			r.svc.HoldSenderForTest(id, b, "STRANGER", false, now)
+			Expect(allow(r, id)).To(BeEmpty(), "the grant of the sender decides, not the stored one")
+		})
+
+		It("keeps the other capabilities refused in the wake-up", func() {
+			r := newLoopRig(startLoopScript(armArgs), studio.LoopOptions{})
+			id := chat(r)
+			arm(r, id, "PAIRED", false, binding)
+			allowed, why := r.svc.TurnAllowForTest(id, contract.CapTriggersPropose)
+			Expect(allowed).To(BeFalse())
+			Expect(why).To(ContainSubstring("no sender"))
+		})
+	})
 })
+
+// running makes the loop the run that goes on in its chat now.
+func running(r *loopRig, id string) loops.Loop {
+	l, err := r.sh.loops.Update(context.Background(), id, func(c *loops.Loop) error { c.Running = true; return nil })
+	Expect(err).NotTo(HaveOccurred())
+	return l
+}

@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { aboveCeiling, askedAboveLimit, ceilingKind, cardAnswers, cardStateKey, cardsByTool, declaredPresetTitle, draftEgressView, draftPresetToSave, networkMode, presetChoices, presetLabel, sortedCards } from '../../src/utils/chatEgress.js'
+import { aboveCeiling, askedAboveLimit, ceilingKind, cardAnswers, cardStateKey, cardsByTool, customDomains, declaredPresetTitle, draftEgressView, draftPresetToSave, networkMode, presetChoices, presetLabel, sortedCards } from '../../src/utils/chatEgress.js'
+import { readFileSync } from 'node:fs'
+import { addonSettingsAddress, NETWORK_SECTION } from '../../src/utils/addonSettings.js'
 import { payloadFor, runChecks, EGRESS_CONFIRM_KEY, EGRESS_PRIVATE_PHRASE } from '../../src/utils/settingsPending.js'
 import { FIELD_BY_KEY } from '../../src/utils/settingsSchema.js'
 
@@ -129,4 +131,32 @@ test('chat egress: the draft saves a preset only when it differs from the start 
   assert.equal(draftPresetToSave(res, 'all'), '')
   assert.equal(draftPresetToSave(res, ''), '')
   assert.equal(draftPresetToSave({ preset: 'all', ceiling: 'all' }, 'off'), 'off')
+})
+
+test('chat egress: the Custom list is the extra registries then the always-allowed hosts, as written, without repeats', () => {
+  assert.deepEqual(customDomains(undefined), [])
+  assert.deepEqual(customDomains({ registries: [{ id: 'pypi', hosts: ['pypi.org'] }], allowed_hosts: [] }), [])
+  assert.deepEqual(customDomains({
+    registries: [{ id: 'pypi', hosts: ['pypi.org'] }, { id: 'extra', hosts: ['mirror.example.com'] }],
+    allowed_hosts: ['*.example.org', 'mirror.example.com', 'git.example.org:8443', '*'],
+  }), ['mirror.example.com', '*.example.org', 'git.example.org:8443', '*'])
+})
+
+test('chat egress: the settings address of an add-on can name the network section', () => {
+  assert.equal(addonSettingsAddress('sandbox'), '/app/addons?detail=sandbox&view=settings')
+  assert.equal(addonSettingsAddress('sandbox', NETWORK_SECTION), '/app/addons?detail=sandbox&view=settings&section=network')
+})
+
+test('chat egress: the middle preset is called Custom in every locale, and the id stays registries', () => {
+  const dir = new URL('../../public/locales/', import.meta.url)
+  const names = {}
+  for (const l of ['en', 'de', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'zh-CN']) {
+    const chats = JSON.parse(readFileSync(new URL(`${l}/chats.json`, dir), 'utf8')).egress
+    const agents = JSON.parse(readFileSync(new URL(`${l}/agents.json`, dir), 'utf8')).create.networkPresets
+    assert.equal(chats.preset.registries, agents.registries, l)
+    for (const k of ['customDomains', 'customEmpty', 'customEdit', 'customAdmin', 'panelCustom']) assert.ok(chats[k], `${l} ${k}`)
+    names[l] = chats.preset.registries
+  }
+  assert.equal(names.en, 'Custom')
+  assert.deepEqual(presetChoices({ preset: 'off', ceiling: 'all' }).map(c => c.id), ['off', 'registries', 'all'])
 })

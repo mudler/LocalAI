@@ -26,7 +26,7 @@ var _ = Describe("addon host policy CLI precedence", Serial, func() {
 		command := struct {
 			Run RunCMD `cmd:"" default:"withargs"`
 		}{}
-		p, err := kong.New(&command, kong.Vars{
+		p, err := kong.New(&command, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends",
 			"basepath": kong.ExpandPath("."), "generatedcontentpath": DefaultGeneratedContentPath(), "uploadpath": DefaultUploadPath(),
 			"galleries": config.DefaultGalleriesJSON, "backends": config.DefaultBackendGalleriesJSON,
 		})

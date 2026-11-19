@@ -163,7 +163,7 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
 - **Web pages may be on private networks** (`chats_web_allow_private`, default off): let `web_fetch` reach addresses inside your network. The cloud metadata addresses stay refused. Turn it on only if you trust every user of chats.
 - **Ports for web pages** (`chats_web_ports`, default `80,443`): the ports `web_fetch` may use, comma separated. A value that is not a list of ports is refused.
 - **Command network** (applies at the next connection of a command; an allow the proxy cached lives at most 30 seconds). The commands a chat runs in isolation reach the network only through the proxy of the add-on that runs them, and these settings bound it. They are on the Settings tab of the add-on that runs the commands (its `network-policy` host control), not on this page; `chats_egress_audit_days` is on both, since it also keeps the audit of the commands on this machine. They do not apply to commands on this machine (`chats_host_exec`), which have the network of the server. See [Network access]({{% relref "/addons/catalogue/work/sandbox-settings#network-access" %}}).
-  - `chats_egress_ceiling` (`off`, `registries` or `all`, default `off`): the widest preset any chat may use. `registries` admits the package registries only; `all` admits every public host. A chat chooses its own preset up to this.
+  - `chats_egress_ceiling` (`off`, `registries` or `all`, default `off`): the widest preset any chat may use. `registries` (called Custom in the chat's Network row) admits the package registries and the hosts of `chats_egress_extra_registries` and `chats_egress_allowed_hosts`; `all` admits every public host. A chat chooses its own preset up to this.
   - `chats_egress_default` (`off`, `registries` or `all`, default `off`): the preset a new chat starts with, capped by the ceiling.
   - `chats_egress_allow_private` (default off): let a host that an administrator allowed, by a rule or a card answer, reach addresses inside your network. A preset alone never does, and the cloud metadata addresses and the server's own addresses stay refused. Turning it on needs `chats_egress_private_confirm` in the same request, with the phrase *I understand that commands can reach my private network*; the phrase is not stored. The add-on's Settings tab asks for it. With add-ons enabled the add-on owner checks the same phrase, so a direct `host-settings-update` call needs `chats_egress_private_confirm` in its patch too.
   - `chats_egress_ports` (default `80,443`): the ports a command may reach, comma separated. Ports 22 and 25 are refused.
@@ -191,7 +191,7 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
 
 ## Configuration Persistence
 
-All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
+All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`, where `BASEPATH` is the current folder on Linux and macOS, `%LOCALAPPDATA%\LocalAI` on Windows, or `LOCALAI_BASE_PATH` when it is set). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
 
 ## Settings Precedence
 

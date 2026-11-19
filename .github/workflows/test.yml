@@ -247,6 +247,69 @@ jobs:
           connect-timeout-seconds: 180
           limit-access-to-actor: true
 
+  # Unit tests on a real Windows host for the pure Go packages that the
+  # Windows server uses: file permissions (ACLs), atomic writes, paths, the
+  # backend process code, downloads, OCI extraction, the gallery and the CLI.
+  # The vet-windows job in build-test.yaml only compiles them. CGO is off, as in
+  # the Windows release, so no C toolchain, backend or Docker is needed. Files
+  # named *_windows_test.go hold the tests that only run here. Extend the list
+  # when a package gets Windows code; see .agents/building-and-testing.md.
+  tests-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    # Non-blocking until the job has passed once: these tests have not run on
+    # a Windows host before. Remove continue-on-error after the first green run.
+    continue-on-error: true
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # make is not on the runner image. The Makefile runs its recipes through
+      # the sh of Git for Windows, and protogen-go downloads protoc itself.
+      - name: Add Git usr/bin to PATH
+        run: |
+          echo "$env:ProgramFiles\Git\usr\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: Install GNU Make
+        run: choco install make -y
+      # The ffmpeg specs of pkg/utils run the real binary.
+      - name: Install ffmpeg
+        run: choco install ffmpeg -y --no-progress
+      # The React UI is embedded at build time. An empty dist folder is enough
+      # for the packages under test, so the UI build is skipped.
+      - name: Generate protobuf code
+        run: |
+          make protogen-go
+          New-Item -ItemType Directory -Force core/http/react-ui/dist | Out-Null
+          New-Item -ItemType File -Force core/http/react-ui/dist/index.html | Out-Null
+      - name: Test
+        env:
+          CGO_ENABLED: '0'
+        run: >-
+          go test -timeout 30m
+          ./pkg/fsperm/...
+          ./pkg/jobobject/...
+          ./pkg/atomicfile/...
+          ./pkg/utils/...
+          ./pkg/system/...
+          ./pkg/xsysinfo/...
+          ./pkg/signals/...
+          ./pkg/safefile/...
+          ./pkg/downloader/...
+          ./pkg/oci/...
+          ./pkg/model/...
+          ./core/gallery/...
+          ./core/cli/...
+          ./core/services/remotes/...
+          ./core/services/studio/connectors/...
+          ./core/services/worker/...
+          ./core/services/addons/runtime/...
+          ./core/services/addons/gateway/...
+          ./core/services/addons/packages/...
+          ./core/services/addons/hostsettings/...
+
   # Fast standalone unit tests for the backends' pure C++ helpers - currently the
   # llama-cpp message reconstruction (backend/cpp/llama-cpp/message_content.h),
   # which guards the OpenAI chat content normalization (mudler/LocalAI#10524,

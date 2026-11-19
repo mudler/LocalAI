@@ -56,6 +56,8 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 
 ## Storage Flags
 
+`BASEPATH` in the defaults below is the current folder on Linux and macOS, and `%LOCALAPPDATA%\LocalAI` on Windows. Set `LOCALAI_BASE_PATH` to use another folder on any system: it moves every default that starts with `BASEPATH` at once. A flag or a variable of one folder still wins over it. `LOCALAI_BASE_PATH` is a variable and not a flag, because the defaults of all flags are set before the command line is read. You can put it in an [env file]({{%relref "/models/advanced-usage" %}}#env-files). See [Install on Windows]({{%relref "/start/install/windows" %}}#where-localai-keeps-its-files) for the Windows folders.
+
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--models-path` | `BASEPATH/models` | Path containing models used for inferencing | `$LOCALAI_MODELS_PATH`, `$MODELS_PATH` |
@@ -78,6 +80,7 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 | `--addons-official-library` | `true` | Register the official add-on library on the first start | `$LOCALAI_ADDONS_OFFICIAL_LIBRARY` |
 | `--addons-backend-library` | `true` | Register the backend library on the first start | `$LOCALAI_ADDONS_BACKEND_LIBRARY` |
 | `--addons-backend-max-bytes` | `8589934592` | Largest compressed size, in bytes, of a backend image installed from a library | `$LOCALAI_ADDONS_BACKEND_MAX_BYTES` |
+| `--addons-wsl-distro` | | Windows only: the WSL 2 distribution that runs the add-ons whose package runs in WSL 2 (osSettings.windows.execution wsl2). Empty uses the default distribution of WSL | `$LOCALAI_ADDONS_WSL_DISTRO` |
 | `--max-concurrent-backend-operations` | `1` | How many backend install, upgrade and delete operations run at once. `1` runs them one after the other. Operations on the same backend always run one at a time. In distributed mode it also bounds how many nodes one operation is sent to at the same time | `$LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS` |
 | `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only: a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
 
@@ -92,7 +95,7 @@ appends `localai-UID/backend-runtime`; the default base is `TMPDIR`.
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--backends-path` | `BASEPATH/backends` | Path containing backends used for inferencing | `$LOCALAI_BACKENDS_PATH`, `$BACKENDS_PATH` |
-| `--backends-system-path` | `/var/lib/local-ai/backends` | Path containing system backends used for inferencing | `$LOCALAI_BACKENDS_SYSTEM_PATH`, `$BACKEND_SYSTEM_PATH` |
+| `--backends-system-path` | `/var/lib/local-ai/backends` (Windows: `%ProgramData%\LocalAI\backends`) | Path containing system backends used for inferencing | `$LOCALAI_BACKENDS_SYSTEM_PATH`, `$BACKEND_SYSTEM_PATH` |
 | `--external-backends` | | A list of external backends to load from gallery on boot | `$LOCALAI_EXTERNAL_BACKENDS`, `$EXTERNAL_BACKENDS` |
 | `--external-grpc-backends` | | A list of external gRPC backends (format: `BACKEND_NAME:URI`) | `$LOCALAI_EXTERNAL_GRPC_BACKENDS`, `$EXTERNAL_GRPC_BACKENDS` |
 | `--backend-galleries` | | JSON list of backend galleries | `$LOCALAI_BACKEND_GALLERIES`, `$BACKEND_GALLERIES` |
@@ -258,7 +261,7 @@ See [Terminal agent]({{% relref "/features/chats-and-agents/terminal-agent" %}})
 | `--endpoint` | `http://127.0.0.1:8080` | LocalAI server endpoint. The `/v1` path is added automatically when omitted. | `$LOCALAI_CHAT_ENDPOINT` |
 | `--model` | | Model to use. Defaults to the only model the server offers, or asks when there are several. | |
 | `--api-key` | | API key to use when the LocalAI server requires authentication. | `$LOCALAI_API_KEY`, `$API_KEY` |
-| `--config-dir` | `~/.config/localai/chat` | Directory holding the agent's config, plugins, and skills. | `$LOCALAI_CHAT_CONFIG_DIR` |
+| `--config-dir` | `~/.config/localai/chat` (Windows: `%LOCALAPPDATA%\LocalAI\chat`) | Directory holding the agent's config, plugins, and skills. | `$LOCALAI_CHAT_CONFIG_DIR` |
 | `--trace-dir` | | Write a session LLM trace (NDJSON) to this directory. | `$LOCALAI_CHAT_TRACE_DIR` |
 | `--cli` | `false` | Plain CLI mode instead of the full-screen interface. Pipe stdin for one-shot use. | |
 | `--tui` | `false` | Force the full-screen interface. | |

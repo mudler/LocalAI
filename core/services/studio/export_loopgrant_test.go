@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/loops"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -46,4 +47,24 @@ func (h *Loops) BeginByModelForTest(ctx context.Context, user, conv string, wait
 // MaxRunsForTest is the run limit of the loops in a chat.
 func (h *Loops) MaxRunsForTest(ctx context.Context, user, conv string, lim LoopLimits) int {
 	return h.maxRunsFor(ctx, principal(user), conv, lim)
+}
+
+// ToolNamesForTest names the loop tools that the model of a chat is offered
+// now, with no turn running.
+func (h *Loops) ToolNamesForTest(ctx context.Context, user, conv string) []string {
+	rec, err := h.chatOf(ctx, user, conv)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, t := range h.svc.loopTools(ctx, workspace.Actor{Principal: principal(user), ChatID: conv}, rec) {
+		out = append(out, t.Name)
+	}
+	return out
+}
+
+// TurnAllowForTest asks the check that the tools of a connector chat use.
+func (s *Service) TurnAllowForTest(chat, capability string) (bool, string) {
+	allow, _ := s.turnAllow(chat)
+	return allow(capability)
 }

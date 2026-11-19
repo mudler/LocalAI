@@ -7,6 +7,7 @@ import path from 'node:path'
 import type { LauncherConfig } from './config'
 import { buildChildEnv } from './childEnv'
 import { normalizeAddress } from './network'
+import { BASE_PATH_ENV } from './paths'
 import type { UpdateChannel } from './serversConfig'
 
 export interface ServerLaunch {
@@ -85,6 +86,11 @@ export function buildServerLaunch(
     // computer can read with ps.
     env: buildChildEnv(processEnv, secrets.env ?? {}, {
       ...(secrets.apiKey ? { [API_KEY_ENV]: secrets.apiKey } : {}),
+      // The server's base folder is the data folder, as the paths in `args`
+      // say. Without it the server would pick a base from the current folder
+      // on Windows, log that the folder holds LocalAI files, and stage
+      // downloads there.
+      [BASE_PATH_ENV]: dataFolder,
       // The update channel decides this one, so it is in the launcher's own layer.
       ...(channel === 'dev' ? { [PREFER_DEV_BACKENDS_ENV]: 'true' } : {}),
     }),

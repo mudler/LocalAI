@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -76,7 +77,11 @@ var _ = Describe("package icons", func() {
 		Expect(disk.Icon).To(Equal(receipt.Icon))
 		info, e := os.Lstat(filepath.Join(receipt.Directory, "ui/icon.png"))
 		Expect(e).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0400)), "the icon is read-only after commit")
+		if runtime.GOOS != "windows" { // Windows reports a read-only file as 0444
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0400)), "the icon is read-only after commit")
+		} else {
+			Expect(info.Mode().Perm()&0o222).To(BeZero(), "the icon is read-only after commit")
+		}
 
 		// No icon declared: no record.
 		receipt, e = stage("", map[string][]byte{"ui/main.js": []byte("export {}")})

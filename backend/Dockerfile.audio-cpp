@@ -57,6 +57,13 @@ ARG APT_PORTS_MIRROR
 # CMAKE_CUDA_ARCHITECTURES is unset, and no CI runner has a GPU to enumerate.
 # The value is the same cuda-major-version the matrix entry declares.
 ARG CUDA_MAJOR_VERSION
+# ROCm packages installed when BUILD_TYPE=hipblas: the BLAS and hipCUB headers
+# this backend compiles against. The names depend on the ROCm release of
+# BASE_IMAGE (see docs/content/getting-started/build.md); this backend needs
+# hipCUB on top of the BLAS list the other Dockerfiles use. The default is for
+# the ROCm 10.1 base (hipCUB is in amdrocm-ccl-dev10.1); on ROCm 7.x use
+# "hipblas-dev rocblas-dev hipcub-dev".
+ARG ROCM_PACKAGES="amdrocm-blas-dev10.1 amdrocm-ccl-dev10.1"
 
 ENV BUILD_TYPE=${BUILD_TYPE} \
     CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
@@ -76,6 +83,7 @@ WORKDIR /build
 # BUILD_TYPE=vulkan additionally needs the loader headers and glslc; both are in
 # Noble. The CUDA and ROCm toolkits come from their matching BASE_IMAGE.
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    --mount=type=bind,source=.docker/rocm-compat-links.sh,target=/usr/local/sbin/rocm-compat-links \
     sh /usr/local/sbin/apt-mirror && \
     sh /usr/local/sbin/apt-mirror apt-get update && \
     sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends \
@@ -85,7 +93,8 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
         sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends libvulkan-dev glslc; \
     fi && \
     if [ "${BUILD_TYPE}" = "hipblas" ]; then \
-        sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends hipblas-dev rocblas-dev hipcub-dev; \
+        sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends ${ROCM_PACKAGES} && \
+        sh /usr/local/sbin/rocm-compat-links; \
     fi && \
     if [ "${TARGETARCH}" = "arm64" ]; then \
         sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends gcc-14 g++-14; \

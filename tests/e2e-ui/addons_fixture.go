@@ -1,3 +1,5 @@
+//go:build !windows
+
 package main
 
 // The add-ons UI fixture: with --addons-fixture the server runs with

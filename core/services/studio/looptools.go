@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -71,11 +72,11 @@ func (s *Service) loopTools(ctx context.Context, a workspace.Actor, rec session.
 		return nil
 	}
 	connector := rec.Origin == session.OriginConnector
-	canStart, canWait := s.loopAllowed(rec, contract.CapLoopsStart), s.loopAllowed(rec, contract.CapLoopsWait)
 	list, err := h.o.Store.ListChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nil
 	}
+	canStart, canWait := s.loopAllowedIn(rec, list, contract.CapLoopsStart), s.loopAllowedIn(rec, list, contract.CapLoopsWait)
 	paced, live := false, false
 	for _, l := range list {
 		if l.SelfPaced() && l.State.Live() {
@@ -145,17 +146,67 @@ func (s *Service) loopOriginKnown(origin string) bool {
 // this binding: loops.wait for the waits, loops.start for loops. The check
 // reads the grant that Authorize built for the turn, so a bot that accepts
 // anyone gives an unpaired sender neither, and a chat with no sender turn
-// (a loop run, an owner typing in Studio) gets neither.
-func (s *Service) loopAllowed(rec session.ChatRecord, capability string) bool {
-	switch {
-	case modelLoopOrigin(rec.Origin):
+// (an owner typing in Studio) gets neither. The one exception is the run of a
+// wait or loop that a granted sender armed: see loopAllowedIn.
+func (s *Service) loopAllowed(ctx context.Context, rec session.ChatRecord, capability string) bool {
+	if modelLoopOrigin(rec.Origin) {
 		return true
-	case rec.Origin != session.OriginConnector:
+	}
+	if rec.Origin != session.OriginConnector {
+		return false
+	}
+	var list []loops.Loop
+	if s.loops != nil {
+		list, _ = s.loops.o.Store.ListChat(ctx, rec.Principal, rec.ID)
+	}
+	return s.loopAllowedIn(rec, list, capability)
+}
+
+// loopAllowedIn is loopAllowed with the loops of the chat at hand. When no
+// sender turn runs in a connector chat, the run of a loop or a wait goes on as
+// a continuation of the sender who armed it: it holds the loop capabilities
+// that sender held then (Loop.Grant), and nothing else. A turn with a sender
+// is decided by its own grant alone.
+func (s *Service) loopAllowedIn(rec session.ChatRecord, list []loops.Loop, capability string) bool {
+	if modelLoopOrigin(rec.Origin) {
+		return true
+	}
+	if rec.Origin != session.OriginConnector {
 		return false
 	}
 	allow, _ := s.turnAllow(rec.ID)
-	ok, _ := allow(capability)
-	return ok
+	if ok, _ := allow(capability); ok {
+		return true
+	}
+	if _, held := s.access.get(rec.ID); held {
+		return false
+	}
+	if capability != contract.CapLoopsWait && capability != contract.CapLoopsStart {
+		return false
+	}
+	for _, l := range list {
+		if l.Running && slices.Contains(l.Grant, capability) {
+			return true
+		}
+	}
+	return false
+}
+
+// armedGrant is the Grant to store on a loop that the model arms in rec: the
+// loop capabilities that the model holds now, by the sender of the turn or,
+// in a run of such a loop, by the grant that run continues. It is nil outside
+// a connector chat, where no grant is needed.
+func (s *Service) armedGrant(ctx context.Context, rec session.ChatRecord) []string {
+	if rec.Origin != session.OriginConnector {
+		return nil
+	}
+	var out []string
+	for _, c := range []string{contract.CapLoopsWait, contract.CapLoopsStart} {
+		if s.loopAllowed(ctx, rec, c) {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // modelLoopOrigin says whether the model of a chat with that origin may use

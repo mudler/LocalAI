@@ -9,6 +9,7 @@ import (
 	nethttp "net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -55,6 +56,7 @@ type RunCMD struct {
 	AddonsBackendLibrary         bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the backend library on the first start, when the add-on owner has no sources.json yet. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. Turn it off to read the backend gallery only" group:"addons"`
 	OfficialLibraries            bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of add-ons, backends and models. Off: they stay in the list, shown as off, and are not read. Sources you added are not affected. Also a runtime setting (official_libraries)" group:"addons"`
 	AddonsBackendMaxBytes        int64  `name:"addons-backend-max-bytes" env:"LOCALAI_ADDONS_BACKEND_MAX_BYTES" default:"8589934592" help:"Largest compressed size, in bytes, of a backend image installed from a library. Add-ons keep their own limit of 512 MiB" group:"addons"`
+	AddonsWSLDistro              string `name:"addons-wsl-distro" env:"LOCALAI_ADDONS_WSL_DISTRO" help:"Windows only: the WSL 2 distribution that runs the add-ons whose package runs in WSL 2 (osSettings.windows.execution wsl2). Empty uses the default distribution of WSL" group:"addons"`
 	Pprof                        bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
 	PprofAddress                 string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
 	PprofMutexProfileFraction    int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
@@ -76,7 +78,7 @@ type RunCMD struct {
 	WebRTCICEInterfaces         []string `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
 	WebRTCUDPPort               int      `env:"LOCALAI_WEBRTC_UDP_PORT" help:"Shared UDP port for /v1/realtime WebRTC ICE traffic. Publish this port as UDP and allow it through the firewall." group:"api" name:"web-rtc-udp-port"`
 	BackendsPath                string   `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
-	BackendsSystemPath          string   `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
+	BackendsSystemPath          string   `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"${backendssystempath}" help:"Path containing system backends used for inferencing" group:"backends"`
 	ModelsPath                  string   `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 	DownloadStagingPath         string   `env:"LOCALAI_DOWNLOAD_STAGING_PATH,DOWNLOAD_STAGING_PATH" type:"path" default:"${basepath}/downloading" help:"Path where in-flight downloads are staged before extraction" group:"storage"`
 	ArtifactDownloadConcurrency int      `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
@@ -285,7 +287,7 @@ type RunCMD struct {
 // once a stale root-owned /tmp/generated is left behind). Scoping to the current
 // UID gives each account its own tree so they never collide.
 func userScopedTempDir() string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("localai-%d", os.Getuid()))
+	return filepath.Join(os.TempDir(), system.UserScopedName())
 }
 
 // DefaultGeneratedContentPath returns the default location for backend-generated
@@ -393,6 +395,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		}()
 	}
 
+	warnLongPaths(runtime.GOOS, []namedPath{
+		{"--models-path", r.ModelsPath}, {"--backends-path", r.BackendsPath},
+		{"--data-path", r.DataPath}, {"--download-staging-path", r.DownloadStagingPath},
+	})
 	os.MkdirAll(r.BackendsPath, 0750)
 	os.MkdirAll(r.ModelsPath, 0750)
 
@@ -817,6 +823,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		addonCfg.OfficialLibrary = r.AddonsOfficialLibrary
 		addonCfg.OfficialBackendLibrary = r.AddonsBackendLibrary
 		addonCfg.BackendMaxBytes = r.AddonsBackendMaxBytes
+		addonCfg.WSLDistro = r.AddonsWSLDistro
 		opts = append(opts, config.WithAddons(addonCfg))
 	} else if addonCfg.Frontend {
 		// Add-ons are off, but the role still forbids owner state.

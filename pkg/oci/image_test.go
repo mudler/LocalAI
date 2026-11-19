@@ -18,6 +18,9 @@ var _ = Describe("OCI", func() {
 			if runtime.GOOS == "darwin" {
 				Skip("Skipping test on darwin")
 			}
+			if runtime.GOOS == "windows" {
+				Skip("the alpine image has no windows/amd64 variant")
+			}
 			imageName := "alpine"
 			img, err := GetImage(imageName, "", nil, nil)
 			Expect(err).NotTo(HaveOccurred())

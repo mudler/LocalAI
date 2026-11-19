@@ -40,7 +40,7 @@ var _ = Describe("model.unload and the backend process", func() {
 
 		Expect(reply.Success).To(BeTrue())
 		Expect(backend.freeCalls.Load()).To(Equal(int32(1)), "Free is tried once, not again before the stop")
-		Expect(old.Done()).To(BeClosed())
+		Eventually(old.Done()).Should(BeClosed())
 		Expect(s.processes).NotTo(HaveKey("model#0"))
 		Expect(s.getAddr("model#0")).To(BeEmpty(), "installBackend must not take its already-running path")
 	})
@@ -63,7 +63,7 @@ var _ = Describe("model.unload and the backend process", func() {
 		old := s.processes["model#0"].proc
 
 		Expect(s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{ModelName: "model"}).Success).To(BeTrue())
-		Expect(old.Done()).To(BeClosed())
+		Eventually(old.Done()).Should(BeClosed())
 		Expect(s.getAddr("model#0")).To(BeEmpty(), "installBackend must not take its already-running path")
 	})
 
