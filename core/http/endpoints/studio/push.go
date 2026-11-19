@@ -7,8 +7,8 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/notify"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 )
 
 func (h *Handlers) pusher(c echo.Context) (*notify.Pusher, bool) {

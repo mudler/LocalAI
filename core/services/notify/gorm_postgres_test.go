@@ -8,8 +8,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/mudler/LocalAI/core/services/studio/notify"
-	"github.com/mudler/LocalAI/core/services/studio/notify/notifytest"
+	"github.com/mudler/LocalAI/core/services/notify"
+	"github.com/mudler/LocalAI/core/services/notify/notifytest"
 )
 
 // The PostgreSQL run needs a database that tests may wipe. Set

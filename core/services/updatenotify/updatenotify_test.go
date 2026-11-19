@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/backendupdates"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	. "github.com/mudler/LocalAI/core/services/updatenotify"
 )

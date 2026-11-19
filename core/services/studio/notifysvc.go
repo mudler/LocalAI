@@ -3,7 +3,7 @@ package studio
 import (
 	"context"
 
-	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/notify"
 )
 
 // Notifier returns the inbox service, or nil when there is none.

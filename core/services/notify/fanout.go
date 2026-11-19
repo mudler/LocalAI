@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
-	"github.com/mudler/LocalAI/core/services/studio/fanout"
+	"github.com/mudler/LocalAI/core/services/notify/fanout"
 )
 
 // Fanout delivers each new notification to the live clients of its owner on

@@ -8,8 +8,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
-	"github.com/mudler/LocalAI/core/services/studio/notify/notifytest"
+	"github.com/mudler/LocalAI/core/services/notify"
+	"github.com/mudler/LocalAI/core/services/notify/notifytest"
 )
 
 func openSQLite(path string) *gorm.DB {

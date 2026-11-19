@@ -18,8 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/studio/notify"
-	"github.com/mudler/LocalAI/core/services/studio/notify/notifytest"
+	"github.com/mudler/LocalAI/core/services/notify"
+	"github.com/mudler/LocalAI/core/services/notify/notifytest"
 )
 
 // browserKeys makes the keys a browser makes for a push subscription.
