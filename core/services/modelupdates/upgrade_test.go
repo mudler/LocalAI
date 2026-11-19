@@ -361,11 +361,15 @@ var _ = Describe("A model upgrade", func() {
 				go cancel()
 				return halfDownload(c, tasks, st)
 			}
-			err := u.Upgrade(cctx, modelupdates.Request{Name: "tiny"})
+			n := &upgradeNotifier{}
+			u.Notifier = n
+			err := u.Upgrade(cctx, modelupdates.Request{OpID: "op", Name: "tiny"})
 			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
 			Expect(read("tiny.gguf")).To(Equal("v1"))
 			Expect(rt.calls).To(BeEmpty(), "the model never stopped")
 			Expect(leftovers()).To(BeEmpty())
+			Expect(journal()).To(BeNil(), "a cancel is not a failed upgrade: the model has the journal it had")
+			Expect(n.results).To(BeEmpty(), "the operation tells the cancel")
 		})
 
 		It("keeps the partial files on a pause, so the next upgrade resumes them", func() {
@@ -395,7 +399,7 @@ var _ = Describe("A model upgrade", func() {
 			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
 			Expect(rt.calls).To(BeEmpty())
 			Expect(read("tiny.gguf")).To(Equal("v1"))
-			Expect(journal().Phase).To(Equal(gallery.PhaseFailed))
+			Expect(journal()).To(BeNil())
 			Expect(reported).To(ContainElement(gallery.PhaseUnloading), "the status said it could no longer be cancelled")
 		})
 

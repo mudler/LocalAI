@@ -57,10 +57,32 @@ var _ = Describe("the model notifications", func() {
 		Expect(failed.Params).To(HaveKeyWithValue("error", "load failed"))
 	})
 
-	It("leaves a model upgrade operation to ModelUpgradeResult", func() {
+	It("tells a model upgrade that ended before it started changing anything, as its operation", func() {
 		f := newFrontend(memStore(), nil, "admin")
-		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-9", Name: "tiny", Upgrade: true, Outcome: galleryop.OpCompleted})).To(Succeed())
-		Expect(list(f, "admin")).To(BeEmpty())
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-9", Name: "tiny", Upgrade: true, Outcome: galleryop.OpFailed, Err: "the model is up to date"})).To(Succeed())
+		got := list(f, "admin")
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].Code).To(Equal(CodeOpFailed))
+		Expect(got[0].Params).To(HaveKeyWithValue("action", "upgrade"))
+		Expect(got[0].Params).To(HaveKeyWithValue("error", "the model is up to date"))
+	})
+
+	It("keeps the upgrade result as the one row of its operation", func() {
+		f := newFrontend(memStore(), nil, "admin")
+		Expect(f.em.ModelUpgradeResult(ctx, ModelUpgrade{OpID: "op-9", Name: "tiny", Failed: true, RolledBack: true, Err: "load failed"})).To(Succeed())
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-9", Name: "tiny", Upgrade: true, Outcome: galleryop.OpFailed, Err: "load failed"})).To(Succeed())
+		got := list(f, "admin")
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].Code).To(Equal(CodeModelUpgradeFailed))
+	})
+
+	It("tells a cancelled model upgrade as cancelled, not failed", func() {
+		f := newFrontend(memStore(), nil, "admin")
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-9", Name: "tiny", Upgrade: true, Outcome: galleryop.OpCancelled})).To(Succeed())
+		got := list(f, "admin")
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].Params).To(HaveKeyWithValue("outcome", "cancelled"))
+		Expect(got[0].Status).ToNot(Equal(notify.StatusFailed))
 	})
 
 	It("tells a removal of old files", func() {

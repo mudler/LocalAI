@@ -74,7 +74,11 @@ of the last good check.
     `update-available`, `edited` and `failed`. It is kept up to date in place
     and removed when none is left.
   - The end of an upgrade, "Model X upgraded" or "Model X: the upgrade failed"
-    with the reason. It is written once for each upgrade.
+    with the reason. It is written once for each upgrade operation, also when
+    the upgrade ends before it changes anything: the model is up to date, the
+    entry is gone, a check of the preflight refuses it, edited keys need a
+    choice, or the model is held. A cancelled or paused upgrade is told as
+    "cancelled", not as a failure: the model keeps the state it had before.
   - "Model X: the old version was removed", after **Remove old version**.
 - The [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-assistant" %}})
   has the tools `model_updates` and `upgrade_model`.

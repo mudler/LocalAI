@@ -335,6 +335,13 @@ type upgradeRun struct {
 	// keptConfig is set by a rollback that left a config edited after the
 	// switch in place instead of the old config.
 	keptConfig bool
+	// prevJournal is the journal of the last change before this upgrade.
+	// A cancel before the stop puts it back: nothing changed, so nothing
+	// failed.
+	prevJournal *gallery.Journal
+	// cancelled is set when the upgrade ended on a cancel or a pause. The
+	// operation, not the upgrade, tells it (galleryop.OpCancelled).
+	cancelled bool
 }
 
 func (r *upgradeRun) j() *gallery.Journal { return r.sc.Upgrade }
@@ -369,10 +376,14 @@ func (r *upgradeRun) advance(ev Event, change func(j *gallery.Journal)) error {
 	return nil
 }
 
-// write writes the gallery file as it is in memory.
+// write writes the gallery file as it is in memory. A journal that ended is
+// not touched again.
 func (r *upgradeRun) write() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.j() == nil || r.j().Terminal() {
+		return nil
+	}
 	r.j().UpdatedAt = r.u.now()
 	return gallery.WriteSidecar(r.u.modelsPath(), r.name, r.sc)
 }
@@ -553,7 +564,7 @@ func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 	// version 2 fields set here, never taken from a base config.
 	next := *plan.Gallery
 	next.Version, next.Origin, next.ConfigSHA256, next.Managed, next.Hold = gallery.SidecarVersion, to.Origin, to.ConfigSHA256, to.Managed, sc.Hold
-	run := &upgradeRun{u: u, name: name, sc: sc, req: req, next: &next, planConfigSHA256: gallery.SHA256Hex(disk)}
+	run := &upgradeRun{u: u, name: name, sc: sc, req: req, next: &next, planConfigSHA256: gallery.SHA256Hex(disk), prevJournal: prevJournal}
 	var carried []string
 	if prevJournal != nil {
 		// Old files of an earlier upgrade that nobody removed yet stay
@@ -575,7 +586,7 @@ func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 	defer close(stop)
 
 	err = u.drive(ctx, run, plan.Model.Backend, finalYAML)
-	u.notify(ctx, run, err)
+	u.notify(context.WithoutCancel(ctx), run, err)
 	u.changed(name)
 	return err
 }
@@ -1024,6 +1035,20 @@ func (u *Upgrader) failBeforeCommit(ctx context.Context, r *upgradeRun, cause er
 	u.removeStaged(r, ctx.Err() != nil && !errors.Is(context.Cause(ctx), downloader.ErrUserCancelled))
 	u.discardOnWorkers(context.WithoutCancel(ctx), r, false)
 	u.syncConfigHash(r)
+	if ctx.Err() != nil {
+		// Cancelled or paused before the stop: nothing changed, so the model
+		// gets back the journal it had and is not "failed". The operation
+		// tells the cancel.
+		r.mu.Lock()
+		r.cancelled = true
+		r.sc.Upgrade = r.prevJournal
+		err := gallery.WriteSidecar(r.u.modelsPath(), r.name, r.sc)
+		r.mu.Unlock()
+		if err != nil {
+			return errors.Join(ctx.Err(), err)
+		}
+		return ctx.Err()
+	}
 	if err := r.advance(EvFailed, func(j *gallery.Journal) {
 		j.Error = cause.Error()
 		j.Previous, j.To = nil, nil
@@ -1181,7 +1206,7 @@ func (u *Upgrader) restore(ctx context.Context, r *upgradeRun) error {
 }
 
 func (u *Upgrader) notify(ctx context.Context, r *upgradeRun, err error) {
-	if u.Notifier == nil || r.req.OpID == "" {
+	if u.Notifier == nil || r.req.OpID == "" || r.cancelled {
 		return
 	}
 	j := r.j()
