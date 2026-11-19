@@ -367,7 +367,7 @@ index 9377e3c..b0a0bf9 100644
  
                      // make a checkpoint of the parts of the memory that cannot be rolled back.
                      // checkpoints are created only if:
-@@ -4489,16 +4763,49 @@ private:
+@@ -4489,19 +4763,52 @@ private:
                          // embedding requires all tokens in the batch to be output;
                          // MTP also wants logits at every prompt position so the
                          // streaming hook can mirror t_h_nextn into ctx_dft.
@@ -386,6 +386,9 @@ index 9377e3c..b0a0bf9 100644
                              /* is_prompt = */ true);
                          if (!slot.task->decision.order.empty()) {
                              batch.set_decision_order(batch.size() - 1, slot.task->decision.order[slot.prompt.n_tokens()]);
+                         }
+                         if (!slot.task->decision.group.empty()) {
+                             batch.set_decision_group(batch.size() - 1, slot.task->decision.group[slot.prompt.n_tokens()]);
                          }
                          slot.prompt.tokens.push_back(cur_tok);
  
