@@ -58,6 +58,9 @@ var _ = Describe("the loopback carrier config", func() {
 	})
 
 	It("rejects a port file with a loose mode", func() {
+		if runtime.GOOS == "windows" {
+			Skip("Windows has no group or other permission bits to set")
+		}
 		root := GinkgoT().TempDir()
 		path := filepath.Join(root, loopbackPortFile)
 		Expect(os.WriteFile(path, []byte("40123\n"), 0o600)).To(Succeed())

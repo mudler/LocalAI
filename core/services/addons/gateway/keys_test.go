@@ -64,7 +64,9 @@ var _ = Describe("carrier key set", func() {
 			names = append(names, entry.Name())
 			fi, e := entry.Info()
 			Expect(e).NotTo(HaveOccurred())
-			Expect(fi.Mode().Perm()).To(Equal(os.FileMode(0o600)), entry.Name())
+			if runtime.GOOS != "windows" { // Windows has no permission bits
+				Expect(fi.Mode().Perm()).To(Equal(os.FileMode(0o600)), entry.Name())
+			}
 		}
 		Expect(names).To(ConsistOf("ca.pem", "owner.pem", "owner.key", "frontend.pem", "frontend.key", "frontend-sign.key", "frontend-sign.pub"))
 	})
