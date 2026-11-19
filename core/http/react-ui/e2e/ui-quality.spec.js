@@ -82,7 +82,7 @@ test.describe('Theme and language', () => {
     // effect, so wait for both to land before reading it and reloading.
     await expect(html).not.toHaveAttribute('data-theme', before)
     const after = await read()
-    await page.waitForFunction(v => localStorage.getItem('localai-theme') === v, after)
+    await page.waitForFunction(v => localStorage.getItem('localai.theme') === v, after)
     await page.reload()
     const again = await page.evaluate(() => document.documentElement.getAttribute('data-theme') || document.documentElement.className)
     expect(again).toBe(after)
