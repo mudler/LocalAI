@@ -344,7 +344,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	wsl := s.wslSpec
 	if pkg.Manifest.RunsInWSL() {
 		if wsl = s.config.WSL; wsl == nil {
-			return nil, fmt.Errorf("%w: %w", ErrRuntime, ErrNoWSL)
+			return nil, refusal(ErrNoWSL)
 		}
 	}
 	executable := executablePath
@@ -359,7 +359,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	if wsl != nil {
 		inWSL, e = wsl.Prepare(ctx, pkg)
 		if e != nil {
-			return nil, fmt.Errorf("%w: %w", ErrRuntime, e)
+			return nil, refusal(e)
 		}
 	}
 	// The host operation endpoint belongs to the incarnation: only an add-on

@@ -1036,6 +1036,20 @@ func (m *Manager) syncFor(ctx context.Context, id string) error {
 	return m.startFailed[id]
 }
 
+// StartFailure is the reason, for people, why an enabled add-on is not
+// running, when its last start gave one (WSL 2 cannot run an add-on that
+// needs it, for one). It is empty otherwise, also for a failure whose text is
+// not meant for people. It is an observation of this owner process.
+func (m *Manager) StartFailure(id string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var r *addonruntime.StartRefusal
+	if errors.As(m.startFailed[id], &r) {
+		return r.Reason
+	}
+	return ""
+}
+
 // startCandidate stops the running generation of an enabled add-on and starts
 // the one that an upgrade published. If the candidate does not become ready,
 // the previous generation is started again, so a failed upgrade never leaves
@@ -1176,6 +1190,7 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 				continue
 			}
 			m.startFailed[l.id] = l.err
+			xlog.Warn("An add-on did not start", "addon", l.id, "error", l.err)
 			continue
 		}
 		delete(m.startFailed, l.id)

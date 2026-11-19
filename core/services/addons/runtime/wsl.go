@@ -38,6 +38,20 @@ type WSLLaunch = wsl.Launch
 // has no WSL support configured. It is an ErrRuntime.
 var ErrNoWSL = errors.New("this LocalAI cannot run add-ons in WSL 2")
 
+// StartRefusal is a launch that could not start for a reason meant for
+// people, such as WSL 2 missing for an add-on that runs there. It is an
+// ErrRuntime, and it wraps the cause.
+type StartRefusal struct {
+	// Reason says what is missing and what to do.
+	Reason string
+	cause  error
+}
+
+func (r *StartRefusal) Error() string   { return ErrRuntime.Error() + ": " + r.Reason }
+func (r *StartRefusal) Unwrap() []error { return []error{ErrRuntime, r.cause} }
+
+func refusal(cause error) *StartRefusal { return &StartRefusal{Reason: cause.Error(), cause: cause} }
+
 // elfMagic starts every Linux executable.
 var elfMagic = []byte{0x7f, 'E', 'L', 'F'}
 

@@ -679,7 +679,7 @@ func (a *Application) StudioAddonTools() studio.AddonTools {
 	if db := a.AuthDB(); db != nil {
 		has = addonFeatureCheck(db)
 	}
-	return &studioAddons{gw: a.addonGateway, adapter: addontools.NewChatToolAdapter(a.addonGateway).WithConnectionNames(a.chatConnectionName), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has}
+	return &studioAddons{gw: a.addonGateway, adapter: addontools.NewChatToolAdapter(a.addonGateway).WithConnectionNames(a.chatConnectionName), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has, startFailure: a.addonStartFailure}
 }
 
 // lateStudioAddons asks for the broker at each call: the chats service starts
@@ -841,6 +841,10 @@ type studioAddons struct {
 	ids func() []string
 	// has answers whether a user holds a host feature. Nil offers every tool.
 	has func(userID, feature string) bool
+	// startFailure says why an enabled add-on did not start, when the owner of
+	// this process knows a reason for people (see Manager.StartFailure). Nil
+	// or "" says nothing.
+	startFailure func(addonID string) string
 }
 
 // hostOpFeatures maps the prefix of a host operation to the feature the host
@@ -897,6 +901,16 @@ func filterByFeature(tools []studio.AddonTool, hostOps hostops.Authority, has fu
 	return out
 }
 
+// addonStartFailure is why an enabled add-on of the owner in this process did
+// not start, when there is a reason for people. A frontend has no owner here
+// and says nothing.
+func (a *Application) addonStartFailure(id string) string {
+	if a.addonManager == nil {
+		return ""
+	}
+	return a.addonManager.StartFailure(id)
+}
+
 // installed lists the installed add-ons, or none when no list is wired.
 func (s *studioAddons) installed() []string {
 	if s.ids == nil {
@@ -923,6 +937,12 @@ func hasWorkspaceOperation(operations []string) bool {
 func (s *studioAddons) Unavailable(ctx context.Context, user, addonID string, workspace bool) string {
 	if !workspace && s.needsWorkspace(addonID) {
 		return "the Files workspace is off on this server, so there is no place for files or code"
+	}
+	// An add-on that could not start has no status of its own to give.
+	if s.startFailure != nil {
+		if reason := s.startFailure(addonID); reason != "" {
+			return reason
+		}
 	}
 	value, explanation := studio.ExecutionObservation(ctx, user, addonID)
 	if value.Readiness == "unavailable" {
