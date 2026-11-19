@@ -46,6 +46,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	localaiInproc "github.com/mudler/LocalAI/core/services/localaitools/inproc"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/notify"
@@ -267,6 +268,9 @@ type Application struct {
 
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
+	// modelUpdates is the update check of gallery models; nil without model
+	// galleries.
+	modelUpdates *modelupdates.Service
 
 	// LocalAI Assistant in-process MCP server. nil until initialised in start() after galleryService, and
 	// when that initialisation fails.
@@ -425,6 +429,12 @@ func (a *Application) TemplatesEvaluator() *templates.Evaluator {
 
 func (a *Application) GalleryService() *galleryop.GalleryService {
 	return a.galleryService
+}
+
+// ModelUpdates returns the update check of gallery models, or nil when no
+// model gallery is configured.
+func (a *Application) ModelUpdates() *modelupdates.Service {
+	return a.modelUpdates
 }
 
 func (a *Application) UpgradeChecker() *UpgradeChecker {

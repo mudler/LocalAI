@@ -518,6 +518,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 		go uc.Run(options.Context)
 	}
 
+	// The update check of gallery models: single-runner, never installs.
+	if len(options.Galleries) > 0 {
+		application.startModelUpdates()
+	}
+
 	// Wire gallery generation counter into VRAM caches so they invalidate
 	// when gallery data refreshes instead of using a fixed TTL.
 	vram.SetGalleryGenerationFunc(gallery.GalleryGeneration)

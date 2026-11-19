@@ -50,4 +50,8 @@ const (
 	// remotes at startup. It is held for one pass, not for the life of the
 	// frontend.
 	KeyRemotesRefresh int64 = 118
+	// KeyModelUpdateCheck elects the one frontend that checks the galleries
+	// for updates of the installed models and writes the model digest. It is
+	// held for one check.
+	KeyModelUpdateCheck int64 = 119
 )

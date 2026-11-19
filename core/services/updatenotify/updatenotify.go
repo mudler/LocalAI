@@ -273,8 +273,11 @@ func (e *Emitter) Result(ctx context.Context, r Result) error {
 // is keyed by the operation ID and posted once for each administrator, so a
 // replayed report of the same operation is silent. An operation with no ID is
 // an automatic pass, which Result reports; it posts nothing here.
+//
+// A model upgrade is told by ModelUpgradeResult, which says whether the old
+// version was put back; Operation posts nothing for it.
 func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
-	if op.ID == "" || op.Name == "" {
+	if op.ID == "" || op.Name == "" || (op.Upgrade && !op.Backend) {
 		return nil
 	}
 	kind, link := "model", LinkModels

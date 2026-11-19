@@ -256,6 +256,12 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 		source = FindGalleryElement(models, selected.Variant.Model)
 	}
 
+	return variantInstallTarget(entry, source), selected.Variant, nil
+}
+
+// variantInstallTarget returns source (the entry itself or one of its
+// variants) as a concrete install target named and presented as entry.
+func variantInstallTarget(entry, source *GalleryModel) *GalleryModel {
 	resolved := *source
 	resolved.Name = entry.Name
 	resolved.Description = entry.Description
@@ -285,7 +291,7 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 	resolved.URLs = slices.Clone(entry.URLs)
 	resolved.Tags = slices.Clone(entry.Tags)
 
-	return &resolved, selected.Variant, nil
+	return &resolved
 }
 
 // HostResolveEnv describes this machine to variant selection.
@@ -397,6 +403,126 @@ func deepCopyYAMLValue(v any) any {
 	}
 }
 
+// GalleryInstall is a gallery entry resolved into what InstallModel takes: the
+// installed name, the gallery config, the overrides and the origin to record.
+type GalleryInstall struct {
+	Name      string
+	Config    ModelConfig
+	Overrides map[string]any
+	Origin    *Origin
+}
+
+// buildGalleryInstall fetches the base config of the build to install (model,
+// which is parent itself or the variant it resolved to) and merges the entry
+// and the request into what InstallModel takes. record carries the variant
+// resolution, nil for an entry without variants.
+func buildGalleryInstall(ctx context.Context, basePath string, parent, model *GalleryModel, record *ModelConfig, req GalleryModel) (*GalleryInstall, error) {
+	var config ModelConfig
+	// The digest covers the gallery's payload only, so it is taken before
+	// the request's overrides are merged into model.Overrides below.
+	var resolvedForDigest *GalleryModel
+	if model != parent {
+		resolvedForDigest = &GalleryModel{Metadata: Metadata{URL: model.URL, AdditionalFiles: slices.Clone(model.AdditionalFiles)},
+			ConfigFile: deepCopyStringMap(model.ConfigFile), Overrides: deepCopyStringMap(model.Overrides)}
+	}
+	parentForDigest := *parent
+	parentForDigest.Overrides = deepCopyStringMap(parent.Overrides)
+	baseConfigSHA := ""
+
+	if len(model.URL) > 0 {
+		var err error
+		config, baseConfigSHA, err = galleryConfigWithHash(ctx, model.URL, basePath)
+		if err != nil {
+			xlog.Error("failed to get gallery config for url", "error", err, "url", model.URL)
+			return nil, err
+		}
+		config.Description = model.Description
+		config.License = model.License
+	} else if len(model.ConfigFile) > 0 {
+		// TODO: is this worse than using the override method with a blank cfg yaml?
+		reYamlConfig, err := yaml.Marshal(model.ConfigFile)
+		if err != nil {
+			return nil, err
+		}
+		config = ModelConfig{
+			ConfigFile:  string(reYamlConfig),
+			Description: model.Description,
+			License:     model.License,
+			Name:        model.Name,
+			Files:       make([]File, 0), // Real values get added below, must be blank
+			// URLs are deliberately not seeded here: they are appended once
+			// below for both branches, and seeding them too would write every
+			// URL twice into the persisted gallery file.
+			// Prompt Template Skipped for now - I expect in this mode that they will be delivered as files.
+		}
+	} else {
+		// An entry that names no base config describes itself entirely
+		// through overrides: and files:, so the base is simply empty.
+		//
+		// This is what the several hundred entries pointing at
+		// gallery/virtual.yaml were already getting. That stub carries only
+		// a name, a description and a license, all three of which are
+		// overwritten from the gallery entry a few lines up, and overrides
+		// reach InstallModel as a separate argument rather than being merged
+		// into the fetched config. So the fetch bought nothing beyond a
+		// round trip to GitHub on every install, and an author who omits the
+		// key is asking for exactly the same thing.
+		if !model.installsSomething(req) {
+			return nil, fmt.Errorf("gallery model %q installs nothing: it declares no url, no config_file, no overrides and no files", model.Name)
+		}
+		config = ModelConfig{
+			Description: model.Description,
+			License:     model.License,
+			Name:        model.Name,
+			Files:       make([]File, 0), // Real values get added below, must be blank
+			// URLs are appended once below for every branch, as in the
+			// config_file case above.
+		}
+	}
+
+	if record != nil {
+		config.EntryName = record.EntryName
+		config.ResolvedVariant = record.ResolvedVariant
+		config.PinnedVariant = record.PinnedVariant
+		// The variant's own name would otherwise be persisted here, which
+		// contradicts the whole point of variants: the model is known by
+		// the entry's stable name regardless of which variant backs it.
+		config.Name = record.EntryName
+	}
+
+	installName := model.Name
+	if req.Name != "" {
+		installName = req.Name
+	}
+
+	// Copy the model configuration from the request schema
+	config.URLs = append(config.URLs, model.URLs...)
+	config.Icon = model.Icon
+	config.Files = append(config.Files, req.AdditionalFiles...)
+	config.Files = append(config.Files, model.AdditionalFiles...)
+
+	// TODO model.Overrides could be merged with user overrides (not defined yet)
+	if req.Overrides != nil {
+		if err := mergo.Merge(&model.Overrides, req.Overrides, mergo.WithOverride); err != nil {
+			return nil, err
+		}
+	}
+
+	if resolvedForDigest == nil {
+		resolvedForDigest = &parentForDigest
+	}
+	origin := &Origin{
+		Gallery:          parent.Gallery.Name,
+		EntryName:        parent.Name,
+		ConfigURL:        model.URL,
+		EntryDigest:      EntryDigest(&parentForDigest, resolvedForDigest, baseConfigSHA),
+		BaseConfigSHA256: baseConfigSHA,
+		OverridesSHA256:  canonicalSHA256(model.Overrides),
+		RequestOverrides: deepCopyStringMap(req.Overrides),
+	}
+	return &GalleryInstall{Name: installName, Config: config, Overrides: model.Overrides, Origin: origin}, nil
+}
+
 // Installs a model from the gallery
 func InstallModelFromGallery(
 	ctx context.Context,
@@ -410,111 +536,12 @@ func InstallModelFromGallery(
 	applyModel := func(parent, model *GalleryModel, record *ModelConfig) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
-		var config ModelConfig
-		// The digest covers the gallery's payload only, so it is taken before
-		// the request's overrides are merged into model.Overrides below.
-		var resolvedForDigest *GalleryModel
-		if model != parent {
-			resolvedForDigest = &GalleryModel{Metadata: Metadata{URL: model.URL, AdditionalFiles: slices.Clone(model.AdditionalFiles)},
-				ConfigFile: deepCopyStringMap(model.ConfigFile), Overrides: deepCopyStringMap(model.Overrides)}
+		inst, err := buildGalleryInstall(ctx, systemState.Model.ModelsPath, parent, model, record, req)
+		if err != nil {
+			return err
 		}
-		parentForDigest := *parent
-		parentForDigest.Overrides = deepCopyStringMap(parent.Overrides)
-		baseConfigSHA := ""
-
-		if len(model.URL) > 0 {
-			var err error
-			config, baseConfigSHA, err = galleryConfigWithHash(ctx, model.URL, systemState.Model.ModelsPath)
-			if err != nil {
-				xlog.Error("failed to get gallery config for url", "error", err, "url", model.URL)
-				return err
-			}
-			config.Description = model.Description
-			config.License = model.License
-		} else if len(model.ConfigFile) > 0 {
-			// TODO: is this worse than using the override method with a blank cfg yaml?
-			reYamlConfig, err := yaml.Marshal(model.ConfigFile)
-			if err != nil {
-				return err
-			}
-			config = ModelConfig{
-				ConfigFile:  string(reYamlConfig),
-				Description: model.Description,
-				License:     model.License,
-				Name:        model.Name,
-				Files:       make([]File, 0), // Real values get added below, must be blank
-				// URLs are deliberately not seeded here: they are appended once
-				// below for both branches, and seeding them too would write every
-				// URL twice into the persisted gallery file.
-				// Prompt Template Skipped for now - I expect in this mode that they will be delivered as files.
-			}
-		} else {
-			// An entry that names no base config describes itself entirely
-			// through overrides: and files:, so the base is simply empty.
-			//
-			// This is what the several hundred entries pointing at
-			// gallery/virtual.yaml were already getting. That stub carries only
-			// a name, a description and a license, all three of which are
-			// overwritten from the gallery entry a few lines up, and overrides
-			// reach InstallModel as a separate argument rather than being merged
-			// into the fetched config. So the fetch bought nothing beyond a
-			// round trip to GitHub on every install, and an author who omits the
-			// key is asking for exactly the same thing.
-			if !model.installsSomething(req) {
-				return fmt.Errorf("gallery model %q installs nothing: it declares no url, no config_file, no overrides and no files", model.Name)
-			}
-			config = ModelConfig{
-				Description: model.Description,
-				License:     model.License,
-				Name:        model.Name,
-				Files:       make([]File, 0), // Real values get added below, must be blank
-				// URLs are appended once below for every branch, as in the
-				// config_file case above.
-			}
-		}
-
-		if record != nil {
-			config.EntryName = record.EntryName
-			config.ResolvedVariant = record.ResolvedVariant
-			config.PinnedVariant = record.PinnedVariant
-			// The variant's own name would otherwise be persisted here, which
-			// contradicts the whole point of variants: the model is known by
-			// the entry's stable name regardless of which variant backs it.
-			config.Name = record.EntryName
-		}
-
-		installName := model.Name
-		if req.Name != "" {
-			installName = req.Name
-		}
-
-		// Copy the model configuration from the request schema
-		config.URLs = append(config.URLs, model.URLs...)
-		config.Icon = model.Icon
-		config.Files = append(config.Files, req.AdditionalFiles...)
-		config.Files = append(config.Files, model.AdditionalFiles...)
-
-		// TODO model.Overrides could be merged with user overrides (not defined yet)
-		if req.Overrides != nil {
-			if err := mergo.Merge(&model.Overrides, req.Overrides, mergo.WithOverride); err != nil {
-				return err
-			}
-		}
-
-		if resolvedForDigest == nil {
-			resolvedForDigest = &parentForDigest
-		}
-		origin := &Origin{
-			Gallery:          parent.Gallery.Name,
-			EntryName:        parent.Name,
-			ConfigURL:        model.URL,
-			EntryDigest:      EntryDigest(&parentForDigest, resolvedForDigest, baseConfigSHA),
-			BaseConfigSHA256: baseConfigSHA,
-			OverridesSHA256:  canonicalSHA256(model.Overrides),
-			RequestOverrides: deepCopyStringMap(req.Overrides),
-		}
-		installOptions := append(slices.Clone(options), WithOrigin(origin))
-		installedModel, err := InstallModel(ctx, systemState, installName, &config, model.Overrides, downloadStatus, enforceScan, installOptions...)
+		installOptions := append(slices.Clone(options), WithOrigin(inst.Origin))
+		installedModel, err := InstallModel(ctx, systemState, inst.Name, &inst.Config, inst.Overrides, downloadStatus, enforceScan, installOptions...)
 		if err != nil {
 			return err
 		}

@@ -127,7 +127,7 @@ var _ = Describe("The digest an install records", func() {
 		current := func() string {
 			models, err := gallery.AvailableGalleryModels(galleries, systemState)
 			Expect(err).ToNot(HaveOccurred())
-			parent, resolved := gallery.InstalledEntry(models, sc.Origin.Gallery, sc.Origin.EntryName, sc.ResolvedVariant)
+			parent, resolved, _ := gallery.InstalledEntry(models, sc.Origin.Gallery, sc.Origin.EntryName, sc.ResolvedVariant)
 			Expect(parent).ToNot(BeNil())
 			digest, _, err := gallery.CurrentEntryDigest(context.TODO(), gallery.NewBaseConfigFetcher(), dir, parent, resolved)
 			Expect(err).ToNot(HaveOccurred())
@@ -144,7 +144,7 @@ var _ = Describe("The digest an install records", func() {
 		writeGallery(gallery.GalleryModel{Metadata: gallery.Metadata{Name: "other"}, Overrides: map[string]any{"backend": "x"}})
 		models, err := gallery.AvailableGalleryModels(galleries, systemState)
 		Expect(err).ToNot(HaveOccurred())
-		parent, _ := gallery.InstalledEntry(models, galleries[0].Name, "gone", "")
+		parent, _, _ := gallery.InstalledEntry(models, galleries[0].Name, "gone", "")
 		Expect(parent).To(BeNil())
 	})
 })

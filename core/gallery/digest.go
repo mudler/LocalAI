@@ -201,32 +201,37 @@ func ForgetGalleryIndexes() {
 }
 
 // InstalledEntry finds, in a gallery listing, the entry an installed model
-// came from and the build it resolved to. resolvedVariant is the variant the
-// gallery file recorded; when the entry no longer declares it, the entry
-// itself is returned as the build. It returns nil when the gallery no longer
-// lists the entry.
-func InstalledEntry(models []*GalleryModel, galleryName, entryName, resolvedVariant string) (parent, resolved *GalleryModel) {
+// came from and the build it resolved to, as an install target (for an entry
+// with variants, a copy named as the entry, the way the install resolved it).
+// resolvedVariant is the variant the gallery file recorded; when the entry no
+// longer declares it, the entry's own build is used. variant is the name of
+// the build, empty for an entry without variants. parent is nil when the
+// gallery no longer lists the entry.
+func InstalledEntry(models []*GalleryModel, galleryName, entryName, resolvedVariant string) (parent, resolved *GalleryModel, variant string) {
 	id := entryName
 	if galleryName != "" {
 		id = galleryName + "@" + entryName
 	}
 	parent = FindGalleryElement(models, id)
 	if parent == nil {
-		return nil, nil
+		return nil, nil, ""
 	}
-	resolved = parent
-	if parent.HasVariants() && resolvedVariant != "" && resolvedVariant != parent.Name {
+	if !parent.HasVariants() {
+		return parent, parent, ""
+	}
+	source, variant := parent, parent.Name
+	if resolvedVariant != "" && resolvedVariant != parent.Name {
 		for _, v := range parent.Variants {
 			if v.Model != resolvedVariant {
 				continue
 			}
 			if target := FindGalleryElement(models, v.Model); target != nil {
-				resolved = target
+				source, variant = target, v.Model
 			}
 			break
 		}
 	}
-	return parent, resolved
+	return parent, variantInstallTarget(parent, source), variant
 }
 
 // CurrentEntryDigest computes EntryDigest for an entry as the gallery lists it
@@ -242,4 +247,36 @@ func CurrentEntryDigest(ctx context.Context, fetch *BaseConfigFetcher, basePath 
 		baseSHA = sha
 	}
 	return EntryDigest(parent, resolved, baseSHA), baseSHA, nil
+}
+
+// PrepareReinstall resolves what installing the entry an installed model came
+// from would write now: the same install name, the same request overrides and
+// the same build (the variant the gallery file recorded, when the entry still
+// declares it). It returns nil when the gallery no longer lists the entry. It
+// fetches the base config but writes nothing.
+func PrepareReinstall(ctx context.Context, models []*GalleryModel, basePath, installName string, sc *ModelConfig) (*GalleryInstall, error) {
+	if sc == nil || sc.Origin == nil {
+		return nil, fmt.Errorf("model %q has no recorded origin", installName)
+	}
+	parent, resolved, variant := InstalledEntry(models, sc.Origin.Gallery, sc.Origin.EntryName, sc.ResolvedVariant)
+	if parent == nil {
+		return nil, nil
+	}
+	// Work on copies: the install merges the request overrides into the
+	// target in place, and the listing may be a cached one.
+	parentCopy := *parent
+	parentCopy.Overrides = deepCopyStringMap(parent.Overrides)
+	target := &parentCopy
+	var record *ModelConfig
+	if parent.HasVariants() {
+		target = resolved
+		record = &ModelConfig{EntryName: parent.Name, ResolvedVariant: variant, PinnedVariant: sc.PinnedVariant}
+	}
+	req := GalleryModel{Overrides: deepCopyStringMap(sc.Origin.RequestOverrides)}
+	req.Name = installName
+	inst, err := buildGalleryInstall(ctx, basePath, &parentCopy, target, record, req)
+	if err != nil {
+		return nil, err
+	}
+	return inst, nil
 }

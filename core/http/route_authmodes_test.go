@@ -47,7 +47,7 @@ func (s *authModesServer) routesUnderTest() []*echo.Route {
 	seen := map[string]bool{}
 	found := []*echo.Route{}
 	for _, r := range s.e.Routes() {
-		if !isChatsRoute(r.Path) && !isNotificationsRoute(r.Path) && !strings.HasPrefix(r.Path, "/api/addons") {
+		if !isChatsRoute(r.Path) && !isNotificationsRoute(r.Path) && !strings.HasPrefix(r.Path, "/api/addons") && !isModelUpdatesRoute(r.Method+" "+r.Path) {
 			continue
 		}
 		key := r.Method + " " + r.Path
@@ -72,6 +72,22 @@ func isChatsRoute(p string) bool {
 // isNotificationsRoute says whether a path belongs to the notification center,
 // which works with the chats on or off and has no feature of its own.
 func isNotificationsRoute(p string) bool { return strings.HasPrefix(p, "/api/notifications") }
+
+// modelUpdatesRoutes are the routes of the model update center. They are for
+// administrators only, like the backend update routes.
+var modelUpdatesRoutes = []string{
+	"GET /api/models/updates",
+	"POST /api/models/updates/check",
+}
+
+func isModelUpdatesRoute(methodPath string) bool {
+	for _, r := range modelUpdatesRoutes {
+		if r == methodPath {
+			return true
+		}
+	}
+	return false
+}
 
 func authModesConcretize(pattern string) string {
 	parts := strings.Split(pattern, "/")
@@ -203,7 +219,7 @@ var _ = Describe("Route auth modes", func() {
 			paths[r.Method+" "+r.Path] = true
 		}
 		Expect(len(paths)).To(BeNumerically(">", 100))
-		for _, want := range append([]string{"GET /api/chats", "POST /api/chats", "GET /api/addons/builtin", "GET /api/notifications", "GET /api/notifications/events", "POST /api/notifications/read"}, adminOnlyAddonRoutes...) {
+		for _, want := range append(append([]string{"GET /api/chats", "POST /api/chats", "GET /api/addons/builtin", "GET /api/notifications", "GET /api/notifications/events", "POST /api/notifications/read"}, adminOnlyAddonRoutes...), modelUpdatesRoutes...) {
 			Expect(paths).To(HaveKey(want))
 		}
 	})
@@ -406,6 +422,29 @@ var _ = Describe("Route auth modes", func() {
 				r, ok := byName[name]
 				Expect(ok).To(BeTrue(), name)
 				for _, cred := range []string{"alice", "alice-key", "carol"} {
+					if code := server.status(r, cred); code != http.StatusForbidden {
+						problems = append(problems, fmt.Sprintf("%s: %s got %d", name, cred, code))
+					}
+				}
+				for _, cred := range []string{"root", "root-key"} {
+					if code := server.status(r, cred); isDenied(code) {
+						problems = append(problems, fmt.Sprintf("%s: %s got %d", name, cred, code))
+					}
+				}
+			}
+			Expect(problems).To(BeEmpty())
+		})
+
+		It("keeps the model update routes from a user who is not an administrator", func() {
+			byName := map[string]*echo.Route{}
+			for _, r := range server.routesUnderTest() {
+				byName[r.Method+" "+r.Path] = r
+			}
+			problems := []string{}
+			for _, name := range modelUpdatesRoutes {
+				r, ok := byName[name]
+				Expect(ok).To(BeTrue(), name)
+				for _, cred := range []string{"alice", "alice-key", "carol", "carol-key"} {
 					if code := server.status(r, cred); code != http.StatusForbidden {
 						problems = append(problems, fmt.Sprintf("%s: %s got %d", name, cred, code))
 					}

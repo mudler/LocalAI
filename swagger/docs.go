@@ -14914,6 +14914,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/updates": {
+            "get": {
+                "description": "Every model installed from a gallery, with its state: up-to-date, update-available, edited (the update would overwrite keys a person changed; editedKeys lists them), unknown (reason says why), gone (no gallery lists the entry), held (the owner holds this version) or failed (the last upgrade was rolled back; upgrade has the error). needsPerson marks what the Updates page counts: models never update automatically. What the galleries offer is as of the last check; the hold flag, an edit and an upgrade show at once. Every frontend of a cluster gives the same answer.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "List the model updates",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/modelupdates.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/updates/check": {
+            "post": {
+                "description": "Reads every gallery index again (not the copies of the last hour), compares each installed gallery model with its entry, waits for the check (at most 60 seconds) and returns the new data. One frontend of a cluster checks at a time; a request that arrives while another check runs waits for that check. A call within 15 seconds of the last check is answered from it with throttled set. A failed check shows as an error in the state of the gallery source and keeps the previous list. Installs nothing.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Check for model updates now",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/modelupdates.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/vram-estimate": {
             "post": {
                 "description": "Estimates VRAM based on model weight files at multiple context sizes",
@@ -24686,6 +24720,179 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "sizeDisplay": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelupdates.FileChange": {
+            "type": "object",
+            "properties": {
+                "change": {
+                    "description": "Change is added, changed or removed.",
+                    "type": "string"
+                },
+                "checksum": {
+                    "description": "Checksum is false for a file the gallery lists without a sha256. The\nupgrade refuses to download weights without one.",
+                    "type": "boolean"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelupdates.Item": {
+            "type": "object",
+            "properties": {
+                "availableDigest": {
+                    "type": "string"
+                },
+                "changedFiles": {
+                    "description": "ChangedFiles are the files the update adds, replaces or retires.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelupdates.FileChange"
+                    }
+                },
+                "configOnly": {
+                    "description": "ConfigOnly is true when the update changes no file the upgrade must\ndownload: only the model config or the prompt templates.",
+                    "type": "boolean"
+                },
+                "editedKeys": {
+                    "description": "EditedKeys are the keys of the model config a person changed since the\ninstall, by dotted path. Conflict marks the ones the update also\nchanges.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelupdates.KeyEdit"
+                    }
+                },
+                "entryName": {
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error is the error behind a check-failed reason.",
+                    "type": "string"
+                },
+                "gallery": {
+                    "type": "string"
+                },
+                "held": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is \"model:\u003cname\u003e\".",
+                    "type": "string"
+                },
+                "installedDigest": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the installed model name.",
+                    "type": "string"
+                },
+                "needsPerson": {
+                    "description": "NeedsPerson is true for an update, an edited update and a failed\nupgrade. Models have no automatic update, so every update needs a\nperson; this is not the backend rule, where the automatic update\nremoves items from the digest.",
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "Reason says why the state is unknown.",
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "upgrade": {
+                    "description": "Upgrade is the last or the running upgrade of this model.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/modelupdates.UpgradeStatus"
+                        }
+                    ]
+                }
+            }
+        },
+        "modelupdates.KeyEdit": {
+            "type": "object",
+            "properties": {
+                "conflict": {
+                    "type": "boolean"
+                },
+                "gallery": {},
+                "installed": {
+                    "description": "Installed is the value the install wrote, Mine the value on disk, and\nGallery the value the update would write. A nil value means the key is\nabsent."
+                },
+                "key": {
+                    "type": "string"
+                },
+                "mine": {}
+            }
+        },
+        "modelupdates.Snapshot": {
+            "type": "object",
+            "properties": {
+                "checkedAt": {
+                    "description": "CheckedAt is the end of the last check; zero (omitted) before the\nfirst one.",
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelupdates.Item"
+                    }
+                },
+                "sources": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/backendupdates.Source"
+                    }
+                },
+                "throttled": {
+                    "description": "Throttled is set when a check-now call was answered from a check that\nended a few seconds before.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "modelupdates.UpgradeStatus": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "integer"
+                },
+                "configOnly": {
+                    "type": "boolean"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "fromDigest": {
+                    "type": "string"
+                },
+                "opId": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "removableOld": {
+                    "type": "boolean"
+                },
+                "retainedFiles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "running": {
+                    "type": "boolean"
+                },
+                "toDigest": {
+                    "type": "string"
+                },
+                "updatedAt": {
                     "type": "string"
                 }
             }
