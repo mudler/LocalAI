@@ -303,7 +303,7 @@ var _ = Describe("who is told about updates", func() {
 		Expect(ids).To(Equal([]string{studio.AnonymousPrincipal}))
 	})
 
-	It("writes nothing, and does not fail, while the chats are off", func() {
+	It("writes nothing, and does not fail, while there is no notification center", func() {
 		app := &Application{}
 		Expect(app.updateEmitter().Digest(ctx, backendupdates.Snapshot{})).To(Succeed())
 	})

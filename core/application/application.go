@@ -174,12 +174,12 @@ type Application struct {
 	faceRegistry         facerecognition.Registry
 	voiceRegistry        voicerecognition.Registry
 	voiceProfileStore    *voiceprofile.Store
-	studioStore          store.Store      // the studio loop's chats; see initStudioStore
-	studioStoreKind      string           // "gorm", "json" or "memory"
-	studioAgents         agents.Store     // saved agents; same kind as the chats store
-	studioNotify         notify.Store     // notifications; same kind as the chats store
-	studioPush           notify.PushStore // nil in memory-only mode: push needs somewhere to keep subscriptions
-	studioInbox          *notify.Service
+	studioStore          store.Store  // the studio loop's chats; see initStudioStore
+	studioStoreKind      string       // "gorm", "json" or "memory"
+	studioAgents         agents.Store // saved agents; same kind as the chats store
+	// notifier is the notification center. It starts with the application
+	// and does not depend on the chats; see initNotifications.
+	notifier *notify.Service
 	// studioWeb serves the built-in web tools of the chats.
 	studioWeb *studioWeb
 	// studioSelf lists the addresses of this server that a model's request
@@ -212,8 +212,8 @@ type Application struct {
 	studioMCPConns        *mcpconns.Service
 	studioConnectors      *studio.Connectors
 	studioConnectorsHook  atomic.Pointer[studio.Connectors] // the same manager, for the inbox hook that runs on other goroutines
-	studioPusher          *notify.Pusher
-	studioLocks           []*advisorylock.HeldLock // leader locks of the chat hosts, closed by Shutdown
+	notifyPusher          *notify.Pusher                    // browser push of the notifier; nil when there is nowhere to keep subscriptions
+	studioLocks           []*advisorylock.HeldLock          // leader locks of the chat hosts, closed by Shutdown
 	studioConnectorsStop  context.CancelFunc
 	studioProvider        *provider.Provider
 	studioService         *studio.Service
@@ -760,8 +760,8 @@ func (a *Application) Shutdown() error {
 		if a.studioLoops != nil {
 			a.studioLoops.Close()
 		}
-		if a.studioPusher != nil {
-			a.studioPusher.Close()
+		if a.notifyPusher != nil {
+			a.notifyPusher.Close()
 		}
 		a.closeStudioLocks() // after both hosts: a running host would take a released lock back
 		if a.studioHostExec != nil {

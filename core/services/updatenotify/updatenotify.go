@@ -65,8 +65,9 @@ const maxItems = 3
 
 // Emitter writes the items for every administrator.
 type Emitter struct {
-	// Inbox returns the inbox, or nil when the chats are off. It is read at each
-	// call because the inbox starts after the update checker.
+	// Inbox returns the inbox, or nil when the notification center could not
+	// start. It is read at each call because the inbox starts after the update
+	// checker is built. The chats do not matter: the inbox runs without them.
 	Inbox func() *notify.Service
 	// Admins returns the principals to tell: the active administrators, or the
 	// anonymous principal when authentication is off.
@@ -79,7 +80,7 @@ func (e *Emitter) targets(ctx context.Context) (*notify.Service, []string) {
 	}
 	svc := e.Inbox()
 	if svc == nil {
-		xlog.Debug("Update notifications skipped: the chats are off")
+		xlog.Debug("Update notifications skipped: there is no notification center")
 		return nil, nil
 	}
 	admins, err := e.Admins(ctx)
