@@ -21,11 +21,11 @@ import (
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
-	"github.com/mudler/LocalAI/core/services/p2psplit"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/signals"
+	"github.com/mudler/LocalAI/pkg/splitenv"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 )
@@ -330,12 +330,12 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		Join:     cfg.join,
 		NewHost:  cfg.splitHost,
 		OnLlama: func(addrs []string) {
-			if err := p2psplit.SetLlamaEnv(addrs); err != nil {
+			if err := splitenv.SetLlama(addrs); err != nil {
 				xlog.Error("Could not set the llama.cpp RPC servers", "error", err)
 			}
 		},
 		OnMLX: func(hostfile []string) {
-			if err := p2psplit.SetMLXEnv(dataDir, hostfile); err != nil {
+			if err := splitenv.SetMLX(dataDir, hostfile); err != nil {
 				xlog.Error("Could not write the MLX hostfile", "error", err)
 			}
 		},

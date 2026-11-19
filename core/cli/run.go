@@ -19,11 +19,11 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/http/tlsconf"
-	"github.com/mudler/LocalAI/core/services/p2psplit"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
+	"github.com/mudler/LocalAI/pkg/splitenv"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -490,14 +490,14 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithP2PBootstrapPeers(r.P2PBootstrap),
 		config.WithP2PIdentityPath(r.P2PIdentity),
 		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
-			if err := p2psplit.SetLlamaEnv(tunnels); err != nil {
+			if err := splitenv.SetLlama(tunnels); err != nil {
 				xlog.Error("failed to set the llama.cpp RPC servers", "error", err)
 				return
 			}
 			xlog.Debug("llama.cpp RPC servers", "value", tunnels)
 		}),
 		config.WithMLXTunnelCallback(func(tunnels []string) {
-			if err := p2psplit.SetMLXEnv(os.TempDir(), tunnels); err != nil {
+			if err := splitenv.SetMLX(os.TempDir(), tunnels); err != nil {
 				xlog.Error("failed to write the MLX hostfile", "error", err)
 				return
 			}

@@ -1,4 +1,8 @@
-package p2psplit
+// Package splitenv sets the environment variables that the split-model
+// engines read when a model loads. It changes the environment of the process,
+// so only the code that owns the process (the CLI command, the worker) may
+// call it: a service must not.
+package splitenv
 
 import (
 	"encoding/json"
@@ -9,30 +13,30 @@ import (
 
 // The environment variables that the engines read when a model loads.
 const (
-	// LlamaServersEnv lists the llama.cpp RPC servers, separated by commas.
-	LlamaServersEnv = "LLAMACPP_GRPC_SERVERS"
-	// MLXHostfileEnv is the path of the MLX ring hostfile of rank 0.
-	MLXHostfileEnv = "MLX_DISTRIBUTED_HOSTFILE"
+	// LlamaServers lists the llama.cpp RPC servers, separated by commas.
+	LlamaServers = "LLAMACPP_GRPC_SERVERS"
+	// MLXHostfile is the path of the MLX ring hostfile of rank 0.
+	MLXHostfile = "MLX_DISTRIBUTED_HOSTFILE"
 )
 
-// mlxHostfileName is the file that SetMLXEnv writes.
+// mlxHostfileName is the file that SetMLX writes.
 const mlxHostfileName = "localai_mlx_hostfile.json"
 
-// SetLlamaEnv sets LlamaServersEnv in the environment of this process, or
+// SetLlama sets LlamaServers in the environment of this process, or
 // unsets it with no address, so that llama.cpp does not read an empty list.
 // A backend process that starts afterwards inherits it.
-func SetLlamaEnv(addrs []string) error {
+func SetLlama(addrs []string) error {
 	if len(addrs) == 0 {
-		return os.Unsetenv(LlamaServersEnv)
+		return os.Unsetenv(LlamaServers)
 	}
-	return os.Setenv(LlamaServersEnv, strings.Join(addrs, ","))
+	return os.Setenv(LlamaServers, strings.Join(addrs, ","))
 }
 
-// SetMLXEnv writes the ring hostfile under dir and sets MLXHostfileEnv to it,
+// SetMLX writes the ring hostfile under dir and sets MLXHostfile to it,
 // or unsets it with no entry: MLX then runs on this machine alone.
-func SetMLXEnv(dir string, hostfile []string) error {
+func SetMLX(dir string, hostfile []string) error {
 	if len(hostfile) == 0 {
-		return os.Unsetenv(MLXHostfileEnv)
+		return os.Unsetenv(MLXHostfile)
 	}
 	data, err := json.Marshal(hostfile)
 	if err != nil {
@@ -45,5 +49,5 @@ func SetMLXEnv(dir string, hostfile []string) error {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return err
 	}
-	return os.Setenv(MLXHostfileEnv, path)
+	return os.Setenv(MLXHostfile, path)
 }
