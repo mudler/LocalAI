@@ -155,11 +155,12 @@ var _ = Describe("The process and the command line", Label("platform", "cli"), f
 			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + workDir}
 			var buf bytes.Buffer
 			cmd.Stdout, cmd.Stderr = &buf, &buf
-			cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+			cmd.SysProcAttr = &syscall.SysProcAttr{}
+			setProcessGroup(cmd.SysProcAttr)
 			Expect(cmd.Start()).To(Succeed())
 			done := make(chan error, 1)
 			go func() { done <- cmd.Wait() }()
-			DeferCleanup(func() { _ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) })
+			DeferCleanup(func() { _ = killProcessGroup(cmd.Process.Pid, syscall.SIGKILL) })
 			Eventually(func() string { return ansi.ReplaceAllString(buf.String(), "") }, 15*time.Second, 200*time.Millisecond).
 				Should(And(ContainSubstring("Starting agent worker"), ContainSubstring("Registration failed, retrying")))
 			select {
@@ -167,7 +168,7 @@ var _ = Describe("The process and the command line", Label("platform", "cli"), f
 				Fail(fmt.Sprintf("the worker exited by itself: %v\n%s", err, buf.String()))
 			default:
 			}
-			Expect(syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)).To(Succeed())
+			Expect(killProcessGroup(cmd.Process.Pid, syscall.SIGTERM)).To(Succeed())
 			select {
 			case <-done:
 			case <-time.After(20 * time.Second):

@@ -2,10 +2,12 @@ package utils
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	laudio "github.com/mudler/LocalAI/pkg/audio"
@@ -13,9 +15,74 @@ import (
 	"github.com/go-audio/wav"
 )
 
+// FFmpegPathEnv names the environment variable that sets the ffmpeg program
+// to use. When it is empty, LocalAI looks for ffmpeg on PATH.
+const FFmpegPathEnv = "LOCALAI_FFMPEG_PATH"
+
+// ErrFFmpegNotFound is returned when there is no ffmpeg program to run.
+var ErrFFmpegNotFound = errors.New("ffmpeg not found")
+
+// FFmpegPath returns the ffmpeg program that audio conversion runs: the value
+// of LOCALAI_FFMPEG_PATH, or else ffmpeg found on PATH (ffmpeg.exe on
+// Windows). The error wraps ErrFFmpegNotFound and tells how to install it.
+func FFmpegPath() (string, error) {
+	return findFFmpeg(runtime.GOOS, os.Getenv(FFmpegPathEnv), exec.LookPath)
+}
+
+func findFFmpeg(goos, override string, lookPath func(string) (string, error)) (string, error) {
+	if override != "" {
+		st, err := os.Stat(override)
+		if err != nil || st.IsDir() {
+			return "", fmt.Errorf("%w: %s is set to %q, which is not a file. %s", ErrFFmpegNotFound, FFmpegPathEnv, override, FFmpegInstallHint(goos))
+		}
+		return override, nil
+	}
+	p, err := lookPath("ffmpeg")
+	if err != nil {
+		return "", fmt.Errorf("%w on PATH: %s", ErrFFmpegNotFound, FFmpegInstallHint(goos))
+	}
+	return p, nil
+}
+
+// FFmpegInstallHint tells how to install ffmpeg on the operating system goos.
+func FFmpegInstallHint(goos string) string {
+	var how string
+	switch goos {
+	case "windows":
+		how = "Install it with \"winget install Gyan.FFmpeg\" or \"choco install ffmpeg\", or download a build and put the folder of ffmpeg.exe on PATH"
+	case "darwin":
+		how = "Install it with \"brew install ffmpeg\""
+	default:
+		how = "Install it with the package manager of your system, for example \"apt install ffmpeg\""
+	}
+	return how + ", or set " + FFmpegPathEnv + " to the full path of the program. Audio conversion, resampling and non-WAV uploads need it."
+}
+
+// ffmpegEnv is the environment of ffmpeg. It is empty, so no secret of the
+// server reaches the child. Windows programs fail to start sockets and other
+// system parts without SystemRoot, so that variable and the temp folders stay.
+func ffmpegEnv(goos string, environ []string) []string {
+	env := []string{}
+	if goos != "windows" {
+		return env
+	}
+	for _, kv := range environ {
+		name, _, _ := strings.Cut(kv, "=")
+		switch strings.ToUpper(name) {
+		case "SYSTEMROOT", "WINDIR", "TEMP", "TMP":
+			env = append(env, kv)
+		}
+	}
+	return env
+}
+
 func ffmpegCommand(args []string) (string, error) {
-	cmd := exec.Command("ffmpeg", args...) // Constrain this to ffmpeg to permit security scanner to see that the command is safe.
-	cmd.Env = []string{}
+	bin, err := FFmpegPath()
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.Command(bin, args...) // #nosec G204 -- the program is ffmpeg from PATH or the operator's LOCALAI_FFMPEG_PATH; the arguments are built by this file
+	cmd.Env = ffmpegEnv(runtime.GOOS, os.Environ())
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }

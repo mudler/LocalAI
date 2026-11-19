@@ -2,11 +2,30 @@
 .NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin backends/strata
 .NOTPARALLEL: backends/whisper-medusa
 .NOTPARALLEL: backends/funasr
+.NOTPARALLEL: backends/llama-cpp-windows backends/llama-cpp-windows-all backends/llama-cpp-windows-cpu backends/llama-cpp-windows-vulkan backends/llama-cpp-windows-cuda backends/llama-cpp-windows-rpc backends/llama-cpp-windows-fallback
+
+# Native GNU make for Windows (e.g. ezwinports) only behaves like the Unix
+# make when it can find sh.exe: otherwise recipe lines run under cmd.exe and
+# $(shell ...) degrades to bare CreateProcess, which breaks every POSIX
+# recipe and the uname/tput expansion below. Seed the exported PATH with the
+# sh directories from the standard Git-for-Windows / MSYS2 installs (missing
+# entries are harmless in a Windows PATH) and force SHELL to sh, mirroring
+# what CI does. Detection uses the cmd environment OS variable (Windows_NT);
+# OS is re-derived from uname further down. Nothing matches on
+# Linux/macOS/WSL, so the block is inert there.
+ifeq ($(findstring Windows,$(OS)),Windows)
+  export PATH := C:/Program Files/Git/usr/bin;$(if $(LOCALAPPDATA),$(LOCALAPPDATA)/Programs/Git/usr/bin,);C:/msys64/usr/bin;$(if $(LOCALAPPDATA),$(LOCALAPPDATA)/Programs/Git/usr/bin,);C:/msys64/mingw64/bin;$(PATH)
+  export SHELL := sh
+endif
 
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
-BINARY_NAME=local-ai
+# Windows builds get the .exe suffix so the artifact is runnable from cmd /
+# PowerShell (an extensionless PE needs a POSIX shell to launch it). OS is
+# assigned below via uname; this is a recursive = so the suffix is expanded
+# at use time, after OS exists. Empty on Linux/macOS, so nothing else changes.
+BINARY_NAME=local-ai$(if $(findstring NT,$(OS)),.exe)
 
 UBUNTU_VERSION?=2404
 UBUNTU_CODENAME?=noble
@@ -443,6 +462,17 @@ test-e2e: build-mock-backend build-cloud-proxy-backend build-localai-proxy-backe
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
+# Windows host smoke test: builds a real local-ai.exe and the mock-backend,
+# lays the mock backend into a --backends-path the way the gallery ships it
+# (run.sh for discovery + run.ps1 to launch), then boots local-ai.exe and
+# asserts a chat completion plus job-object process cleanup. The suite builds
+# both binaries itself into a temp dir (CGO_ENABLED=0) and skips entirely on
+# non-Windows hosts. To reuse pre-built binaries instead, pass LOCAL_AI_EXE
+# and MOCK_BACKEND_EXE to the ginkgo invocation.
+.PHONY: test-windows-smoke
+test-windows-smoke: protogen-go react-ui
+	go run github.com/onsi/ginkgo/v2/ginkgo -v ./tests/e2e/windows
+
 # `docker stop` returns as soon as the container exits, but Docker reaps a
 # `--rm` container asynchronously after that. The `docker rmi localai-tests` in
 # test-e2e then loses the race against the reaper and fails on a still
@@ -608,10 +638,18 @@ help: ## Show this help.
 .PHONY: protogen
 protogen: protogen-go
 
+# The win64 protoc zip ships bin/protoc.exe while the unix zips ship
+# bin/protoc. protogen-go invokes a bare ./protoc, and the protoc target must
+# stay up-to-date once the binary is in place, so on Windows we extract the
+# .exe and rename it to ./protoc (MSYS sh runs extensionless PE binaries).
+PROTOC_MEMBER := bin/protoc$(if $(findstring NT,$(OS)),.exe)
+
 protoc:
 	@OS_NAME=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
 	ARCH_NAME=$$(uname -m); \
-	if [ "$$OS_NAME" = "darwin" ]; then \
+	if echo "$$OS_NAME" | grep -qE 'mingw|msys|cygwin'; then \
+	  FILE=protoc-31.1-win64.zip; \
+	elif [ "$$OS_NAME" = "darwin" ]; then \
 	  if [ "$$ARCH_NAME" = "arm64" ]; then \
 	    FILE=protoc-31.1-osx-aarch_64.zip; \
 	  elif [ "$$ARCH_NAME" = "x86_64" ]; then \
@@ -638,20 +676,24 @@ protoc:
 	fi; \
 	URL=https://github.com/protocolbuffers/protobuf/releases/download/v31.1/$$FILE; \
 	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 $$URL -o protoc.zip && \
-	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
+	unzip -o -j -d $(CURDIR) protoc.zip $(PROTOC_MEMBER) && \
+	rm -f protoc.zip && \
+	[ ! -f ./protoc.exe ] || mv -f ./protoc.exe ./protoc
 
 .PHONY: protogen-go
 protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
 	# install-go-tools writes protoc-gen-go and protoc-gen-go-grpc into
-	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. protoc
-	# resolves its code-gen plugins via PATH, so without this prefix the
-	# generate step fails with "protoc-gen-go: program not found". Prepend
-	# GOPATH/bin so the freshly-installed plugins win without requiring a
-	# shell-profile change.
-	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. Point
+	# protoc at the plugins explicitly (--plugin) so discovery doesn't depend
+	# on PATH separator conventions (POSIX ':' vs Windows ';').
+	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+    --plugin=protoc-gen-go="$$(go env GOPATH)/bin/protoc-gen-go$(if $(findstring NT,$(OS)),.exe,)" \
+    --plugin=protoc-gen-go-grpc="$$(go env GOPATH)/bin/protoc-gen-go-grpc$(if $(findstring NT,$(OS)),.exe,)" \
     backend/backend.proto
-	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc -Ipkg/motion/proto --go_out=pkg/motion/proto --go_opt=paths=source_relative pkg/motion/proto/motion.proto
+	./protoc -Ipkg/motion/proto --go_out=pkg/motion/proto --go_opt=paths=source_relative \
+    --plugin=protoc-gen-go="$$(go env GOPATH)/bin/protoc-gen-go$(if $(findstring NT,$(OS)),.exe,)" \
+    pkg/motion/proto/motion.proto
 
 core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
 	$(GOCMD) generate ./core/config/...
@@ -1377,6 +1419,72 @@ backends/privacy-filter-darwin: build
 backends/audio-cpp-darwin: build
 	bash ./scripts/build/audio-cpp-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/audio-cpp.tar)"
+
+# Windows-specific backends (keep as explicit targets since they have special build logic).
+# Built on windows-latest under MSYS2 — see .github/workflows/backend_build_windows.yml.
+# Mirrors the Linux shape (`backends/%: docker-build-% docker-save-% build`) and
+# the darwin targets: the app is built first (`build`), then the backend image,
+# then it is installed. The build script still builds local-ai itself when it
+# is missing so the script also runs standalone outside make.
+# `ocifile://` hands the path straight to tarball.ImageFromPath, which on
+# Windows needs a drive-letter path — $(abspath) yields the MSYS /d/... form,
+# so it is converted via cygpath -m.
+# On a native Windows host (OS=Windows_NT) the recipe shell is Git for
+# Windows' sh, which cannot reach the UCRT64 toolchain, so the work is handed
+# to scripts/build/llama-cpp-windows.ps1: it locates MSYS2 (installing it via
+# winget with user confirmation on first use, then pacman-installing the
+# mingw-w64-ucrt toolchain) and runs the sh script under the real MSYS2 bash.
+# Under the msys2 CI shell OS is Windows_NT too, and the same PowerShell
+# dispatcher finds the setup-msys2 install through PATH.
+#
+# Variant targets (see scripts/build/llama-cpp-windows.sh, "Variant selection"):
+#   backends/llama-cpp-windows            default image: one main build with
+#                                         Vulkan support (CPU inference
+#                                         everywhere, GPU offload when a
+#                                         Vulkan driver is present)
+#   backends/llama-cpp-windows-all        everything the CI publishes:
+#                                         vulkan + rpc + fallback
+#   backends/llama-cpp-windows-cpu        CPU-only main build
+#   backends/llama-cpp-windows-vulkan     the vulkan main build alone
+#   backends/llama-cpp-windows-cuda       CUDA build (needs the NVIDIA
+#                                         toolkit + Visual Studio C++)
+#   backends/llama-cpp-windows-rpc        rpc companion build
+#   backends/llama-cpp-windows-fallback   static fallback build
+# The per-variant targets produce llama-cpp-<variant>.tar and install it under
+# its own image name so several variants can coexist as separate backends.
+# $(1)=variant set, $(2)=output tar (repo-relative), $(3)=image name
+llama-cpp-windows-build = $(if $(findstring NT,$(OS)),\
+  powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build/llama-cpp-windows.ps1 -Variants "$(1)" -OutputTar "./$(2)" -ImageName "$(3)",\
+  LLAMA_CPP_WINDOWS_VARIANTS="$(1)" OUTPUT_TAR="./$(2)" IMAGE_NAME="$(3)" bash ./scripts/build/llama-cpp-windows.sh)
+
+backends/llama-cpp-windows: build
+	$(call llama-cpp-windows-build,vulkan,backend-images/llama-cpp.tar,localai/llama-cpp-windows)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp.tar))"
+
+backends/llama-cpp-windows-all: build
+	$(call llama-cpp-windows-build,vulkan rpc fallback,backend-images/llama-cpp.tar,localai/llama-cpp-windows)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp.tar))"
+
+backends/llama-cpp-windows-cpu: build
+	$(call llama-cpp-windows-build,cpu,backend-images/llama-cpp-cpu.tar,localai/llama-cpp-windows-cpu)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-cpu.tar))"
+
+backends/llama-cpp-windows-vulkan: build
+	$(call llama-cpp-windows-build,vulkan,backend-images/llama-cpp-vulkan.tar,localai/llama-cpp-windows-vulkan)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-vulkan.tar))"
+
+backends/llama-cpp-windows-cuda: build
+	$(call llama-cpp-windows-build,cuda,backend-images/llama-cpp-cuda.tar,localai/llama-cpp-windows-cuda)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-cuda.tar))"
+
+backends/llama-cpp-windows-rpc: build
+	$(call llama-cpp-windows-build,rpc,backend-images/llama-cpp-rpc.tar,localai/llama-cpp-windows-rpc)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-rpc.tar))"
+
+backends/llama-cpp-windows-fallback: build
+	$(call llama-cpp-windows-build,fallback,backend-images/llama-cpp-fallback.tar,localai/llama-cpp-windows-fallback)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-fallback.tar))"
+
 
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh

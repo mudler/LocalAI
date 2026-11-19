@@ -101,6 +101,8 @@ import {
   withShowStatusBar,
   withWebuiPermissions,
 } from './configStore'
+import { serverBinaryName } from './platform'
+import { homeLayout, layoutNote, type LauncherLayout } from './paths'
 import { defaultLogsDir, LogHub, type LogLine } from './logs'
 import { initialNotice, reduceNotice, type NoticeEvent, type NoticeState, type SetupOutcome } from './sandboxNotice'
 import type { SandboxProbe } from './sandboxProbe'
@@ -108,7 +110,6 @@ import { InvalidAttachPattern, validateAttachPattern, type SandboxPlan } from '.
 import { prepareRemove, prepareSetup, runPlan, type Runner, type SetupResult } from './sandboxSetup'
 import { buildServerLaunch, needsRestart, type ServerLaunch } from './serverLaunch'
 import {
-  BINARY_NAME,
   execServerVersion,
   isActive,
   nodeInstallFs,
@@ -159,14 +160,16 @@ export type Emit = <C extends keyof EventContract>(channel: C, payload: EventCon
 export interface CoreDeps {
   /** Home directory; launcher.json, the binary and the default data folder live under <home>/.localai. */
   home: string
-  /** launcher.json; default <home>/.localai/launcher.json. */
+  /** Folders of the launcher and the default data folder (paths.ts). Default: <home>/.localai for all. */
+  layout?: LauncherLayout
+  /** launcher.json; default <launcher folder>/launcher.json. */
   configPath?: string
   launcherVersion: string
   /** Environment the server's environment is built from. */
   env: NodeJS.ProcessEnv
   /** undefined on a platform with no server build. */
   target: PlatformTarget | undefined
-  /** Test hook: run this file as the server instead of <home>/.localai/bin/local-ai. */
+  /** Test hook: run this file as the server instead of <home>/.localai/bin/local-ai (local-ai.exe on Windows). */
   serverBinOverride?: string
   /** Test hook: the server listens here instead of the configured address. */
   endpointOverride?: string
@@ -325,7 +328,9 @@ export class LauncherCore {
 
     this.d.trace?.('init-start')
     // 1. config
-    this.store = await ConfigStore.open({ home: this.d.home, path: this.d.configPath, log: launcherLog })
+    const layoutLine = layoutNote(this.layout())
+    if (layoutLine) launcherLog(`folders: ${layoutLine}`)
+    this.store = await ConfigStore.open({ home: this.d.home, layout: this.layout(), path: this.d.configPath, log: launcherLog })
     if (this.store.loaded.status === 'recovered') {
       this.configNotice = { status: 'recovered', reason: this.store.loaded.reason ?? 'config file could not be used' }
     }
@@ -339,7 +344,7 @@ export class LauncherCore {
 
     // 1b. secrets, then the move of old plain-text values out of launcher.json
     this.secrets = await SecretStore.open({
-      file: this.d.secretsPath ?? path.join(path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home)), SECRETS_FILE),
+      file: this.d.secretsPath ?? path.join(path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home, this.layout())), SECRETS_FILE),
       safeStorage: this.d.safeStorage,
       platform: this.d.platform,
       plaintextOptIn: secretsPlaintextFile(config),
@@ -369,7 +374,7 @@ export class LauncherCore {
 
     this.d.trace?.('step-folders')
     // 2. data folders, as the Go launcher created them at start
-    const data = dataPath(config, this.d.home)
+    const data = dataPath(config, this.d.home, this.layout())
     this.ensureFolders([config.models_path, config.backends_path, defaultLogsDir(data)], launcherLog)
 
     this.d.trace?.('step-logs')
@@ -826,8 +831,12 @@ export class LauncherCore {
     }
   }
 
+  private layout(): LauncherLayout {
+    return this.d.layout ?? homeLayout(this.d.home)
+  }
+
   private installPaths() {
-    const base = path.join(this.d.home, '.localai')
+    const base = this.layout().launcherDir
     return {
       binDir: this.d.serverBinOverride ? path.dirname(this.d.serverBinOverride) : path.join(base, 'bin'),
       metaDir: path.join(base, 'metadata'),
@@ -836,7 +845,7 @@ export class LauncherCore {
   }
 
   serverBinary(): string {
-    return this.d.serverBinOverride ?? path.join(this.installPaths().binDir, BINARY_NAME)
+    return this.d.serverBinOverride ?? path.join(this.installPaths().binDir, serverBinaryName(this.d.target))
   }
 
   private binaryInstalled(): boolean {
@@ -848,12 +857,12 @@ export class LauncherCore {
     const apiKey = this.secrets.get(API_KEY_SECRET)
     const env = this.userEnv()
     for (const v of [apiKey, ...Object.values(env)]) if (v && v.length >= REDACT_MIN_LENGTH) this.redactValues.add(v)
-    this.launch = buildServerLaunch(config, dataPath(config, this.d.home), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config))
+    this.launch = buildServerLaunch(config, dataPath(config, this.d.home, this.layout()), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config))
     this.supervisor = new ServerSupervisor({
       command: this.serverBinary(),
       args: this.launch.args,
       env: this.launch.env,
-      cwd: dataPath(config, this.d.home),
+      cwd: dataPath(config, this.d.home, this.layout()),
       healthUrl: this.launch.healthUrl,
       ...this.d.supervisorTuning,
     })
@@ -1398,15 +1407,20 @@ export class LauncherCore {
     return {
       vars: this.secrets.list(ENV_PREFIX).map((n) => {
         const name = n.slice(ENV_PREFIX.length)
-        return { name, ignored: envNameProblem(name) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
+        return { name, ignored: envNameProblem(name, this.envIgnoreCase()) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
       }),
       restartRequired: this.restartRequired(),
       storage: this.secrets.state(),
     }
   }
 
+  /** Windows: variable names have no case, so `Path` is the controlled PATH. */
+  private envIgnoreCase(): boolean {
+    return (this.d.platform ?? process.platform) === 'win32'
+  }
+
   async setEnvVar(name: string, value: string): Promise<EnvVarResult> {
-    const problem = envNameProblem(name)
+    const problem = envNameProblem(name, this.envIgnoreCase())
     if (problem) return { ok: false, reason: problem === 'format' ? 'name-format' : problem === 'length' ? 'name-length' : 'name-controlled' }
     if (value.length > MAX_ENV_VALUE) return { ok: false, reason: 'value-length' }
     if (!this.secrets.has(envSecret(name)) && this.secrets.list(ENV_PREFIX).length >= MAX_ENV_VARS) return { ok: false, reason: 'too-many' }

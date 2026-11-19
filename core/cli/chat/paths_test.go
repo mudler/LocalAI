@@ -55,6 +55,42 @@ var _ = Describe("Agent state directory", func() {
 		})
 	})
 
+	Describe("stateDir on Windows", func() {
+		noEnv := func(string) string { return "" }
+		standard := func() (string, error) { return `/AppData/Local/LocalAI`, nil }
+
+		It("uses the standard LocalAI folder", func() {
+			home := GinkgoT().TempDir()
+			dir, err := stateDir("", "windows", noEnv, func() (string, error) { return home, nil }, standard)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dir).To(Equal(filepath.Join(`/AppData/Local/LocalAI`, "chat")))
+		})
+
+		It("keeps the ~/.config folder of earlier releases when it exists", func() {
+			home := GinkgoT().TempDir()
+			legacy := filepath.Join(home, ".config", "localai", "chat")
+			Expect(os.MkdirAll(legacy, 0o700)).To(Succeed())
+			Expect(stateDir("", "windows", noEnv, func() (string, error) { return home, nil }, standard)).To(Equal(legacy))
+		})
+
+		It("still prefers XDG_CONFIG_HOME and the override", func() {
+			xdg := func(k string) string {
+				if k == "XDG_CONFIG_HOME" {
+					return "/xdg"
+				}
+				return ""
+			}
+			Expect(stateDir("", "windows", xdg, os.UserHomeDir, standard)).To(Equal(filepath.Join("/xdg", "localai", "chat")))
+			Expect(stateDir("/o", "windows", xdg, os.UserHomeDir, standard)).To(Equal("/o"))
+		})
+
+		It("keeps the Linux and macOS folder unchanged", func() {
+			home := GinkgoT().TempDir()
+			Expect(stateDir("", "linux", noEnv, func() (string, error) { return home, nil }, standard)).
+				To(Equal(filepath.Join(home, ".config", "localai", "chat")))
+		})
+	})
+
 	Describe("EnsureStateDir", func() {
 		It("creates the directory and seeds base_url on first run", func() {
 			dir := filepath.Join(GinkgoT().TempDir(), "chat")

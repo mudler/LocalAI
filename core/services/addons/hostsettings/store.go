@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
+	"github.com/mudler/xlog"
 )
 
 // Store serializes one owner's policy transactions. The parent directory is
@@ -35,7 +37,7 @@ func Open(path string, migration *Migration) (*Store, error) {
 	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
-	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600) // #nosec G304 -- caller supplies a fixed file in the guarded owner root, never a request path; reject symlinks.
+	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR|noFollowFlag, 0600) // #nosec G304 -- caller supplies a fixed file in the guarded owner root, never a request path; reject symlinks.
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +46,14 @@ func Open(path string, migration *Migration) (*Store, error) {
 	if err = lock.Chmod(0600); err != nil {
 		return fail(err)
 	}
-	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err = fsperm.RestrictIfPrivate(path+".lock", 0600); err != nil {
+		return fail(err)
+	}
+	if err = lockFile(lock); err != nil {
 		return fail(err)
 	}
 	s.persist = func(d document) (bool, error) { return persistFile(path, d) }
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0) // #nosec G304 -- same trusted owner-root file; NOFOLLOW plus mode/type checks below prevent file substitution.
+	f, err := os.OpenFile(path, os.O_RDONLY|noFollowFlag, 0) // #nosec G304 -- same trusted owner-root file; NOFOLLOW plus mode/type checks below prevent file substitution.
 	var d document
 	if os.IsNotExist(err) {
 		d, err = migrate(migration)
@@ -68,9 +73,18 @@ func Open(path string, migration *Migration) (*Store, error) {
 			_ = f.Close()
 			return fail(statErr)
 		}
-		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > maxDocumentBytes {
+		if !validFileMode(info.Mode()) || info.Size() > maxDocumentBytes {
 			_ = f.Close()
 			return fail(ErrInvalid)
+		}
+		// validFileMode has checked the mode on Linux and macOS. On Windows
+		// this makes a policy file of an older LocalAI version, which has the
+		// access control list of its folder, private to the current user.
+		if restricted, privErr := fsperm.RequirePrivate(path, info); privErr != nil {
+			_ = f.Close()
+			return fail(ErrInvalid)
+		} else if restricted {
+			xlog.Warn("Other users could change the add-on host policy file; it is now private to the current user", "path", path)
 		}
 		b, readErr := io.ReadAll(io.LimitReader(f, maxDocumentBytes+1))
 		closeErr := f.Close()
@@ -184,7 +198,7 @@ func (s *Store) Close() error {
 	if s.lock == nil {
 		return nil
 	}
-	err := errors.Join(syscall.Flock(int(s.lock.Fd()), syscall.LOCK_UN), s.lock.Close())
+	err := errors.Join(unlockFile(s.lock), s.lock.Close())
 	s.lock = nil
 	return err
 }
@@ -208,6 +222,12 @@ func persistFile(path string, d document) (bool, error) {
 		return false, err
 	}
 	defer func() { _ = os.Remove(f.Name()) }() // Best-effort removal; successful rename already removed this name.
+	// CreateTemp uses mode 0600; on Windows the file gets a private access
+	// control list instead, which the rename keeps.
+	if err = fsperm.RestrictIfPrivate(f.Name(), 0600); err != nil {
+		_ = f.Close()
+		return false, err
+	}
 	if _, err = f.Write(b); err == nil {
 		err = f.Sync()
 	}
@@ -218,7 +238,7 @@ func persistFile(path string, d document) (bool, error) {
 	if err = os.Rename(f.Name(), path); err != nil {
 		return false, err
 	}
-	if err = dir.Sync(); err != nil {
+	if err = syncDir(dir); err != nil {
 		return true, err
 	}
 	return true, nil

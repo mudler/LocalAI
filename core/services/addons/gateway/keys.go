@@ -17,6 +17,9 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
+	"github.com/mudler/xlog"
 )
 
 // Carrier identities of a split deployment. The owner identity is the same
@@ -63,6 +66,9 @@ func GenerateCarrierKeys(dir string, ownerHosts []string) error {
 		}
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	if err := fsperm.RestrictIfPrivate(dir, 0o700); err != nil {
 		return err
 	}
 	for _, name := range carrierKeyFiles {
@@ -161,6 +167,10 @@ func writeNewKeyFile(path string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	if err := fsperm.RestrictIfPrivate(path, 0o600); err != nil {
+		_ = f.Close()
+		return err
+	}
 	if _, err := f.Write(data); err != nil {
 		_ = f.Close()
 		return err
@@ -243,8 +253,15 @@ func readKeyFile(path string) ([]byte, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("%s must be a regular file", path)
 	}
-	if info.Mode().Perm()&0o077 != 0 {
-		return nil, fmt.Errorf("%s must have mode 0600 or less", path)
+	// On Windows, which has no mode bits, a key file from an older LocalAI
+	// version has the access control list of its folder: it is made private
+	// to the current user instead of refused.
+	restricted, err := fsperm.RequirePrivate(path, info)
+	if err != nil {
+		return nil, fmt.Errorf("%s must have mode 0600 or less: %w", path, err)
+	}
+	if restricted {
+		xlog.Warn("Other users could read an add-on key file; it is now private to the current user", "path", path)
 	}
 	return io.ReadAll(io.LimitReader(f, 1<<20))
 }

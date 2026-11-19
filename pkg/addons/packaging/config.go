@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // Constants of the package format. Anything that reads a package compares
@@ -37,11 +39,22 @@ const (
 
 var (
 	versionRE  = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(\.[0-9A-Za-z-]+)*)?$`)
-	platformRE = regexp.MustCompile(`^(linux|darwin)/(amd64|arm64)$`)
+	platformRE = regexp.MustCompile(`^((linux|darwin)/(amd64|arm64)|windows/amd64)$`)
 	addonRE    = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
 	shaRE      = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	digestRE   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 )
+
+// ExecutableFor is the file name of the executable of a package for
+// platform. A Windows package names it <executable>.exe: Windows has no
+// execute bit, and only the .exe extension makes a file a program there. The
+// platform matrix and the manifest template keep the plain name.
+func ExecutableFor(executable, platform string) string {
+	if strings.HasPrefix(platform, "windows/") {
+		return executable + ".exe"
+	}
+	return executable
+}
 
 // PlatformEntry is one row of the release platform matrix. A platform ships
 // only while Enabled is true, and it is enabled only after its native runtime
@@ -52,6 +65,40 @@ type PlatformEntry struct {
 	Runner      string   `yaml:"runner"`
 	NativeCheck string   `yaml:"native_check"`
 	Runtime     []string `yaml:"runtime"`
+	// Execution is empty for a native package. "wsl2" (only on
+	// windows/amd64) makes a Windows package whose executable and runtime
+	// files are those of linux/amd64: they run in WSL 2. It is build
+	// configuration; the package manifest gets it as
+	// osSettings.windows.execution (see ManifestOSSettings).
+	Execution string `yaml:"execution"`
+}
+
+// ManifestOSSettings is the osSettings block that the manifest of the row's
+// package must carry: nil for a native row.
+func (e PlatformEntry) ManifestOSSettings() *contract.OSSettings {
+	if e.Execution == "" {
+		return nil
+	}
+	return &contract.OSSettings{Windows: &contract.WindowsSettings{Execution: e.Execution}}
+}
+
+// BuildPlatform is the os/arch the executable and the runtime files of the
+// row are built for: linux/amd64 for a wsl2 row, the platform otherwise.
+func (e PlatformEntry) BuildPlatform() string {
+	if e.Execution == contract.ExecutionWSL2 {
+		return "linux/amd64"
+	}
+	return e.Platform
+}
+
+// ExecutableName is the file name of the executable in the package of the
+// row: the plain name of a Linux program for a wsl2 row, ExecutableFor
+// otherwise.
+func (e PlatformEntry) ExecutableName(executable string) string {
+	if e.Execution == contract.ExecutionWSL2 {
+		return executable
+	}
+	return ExecutableFor(executable, e.Platform)
 }
 
 // PlatformsFile is addons/<id>/package/platforms.yaml.
@@ -116,11 +163,14 @@ func loadPlatforms(file string) (*PlatformsFile, error) {
 			return nil, fmt.Errorf("platform matrix: duplicate platform %q", e.Platform)
 		}
 		seen[e.Platform] = true
+		if e.Execution != "" && (e.Execution != contract.ExecutionWSL2 || e.Platform != "windows/amd64") {
+			return nil, fmt.Errorf("platform matrix: execution %q is only valid as %q on windows/amd64", e.Execution, contract.ExecutionWSL2)
+		}
 		if e.Enabled && (e.Runner == "" || e.NativeCheck != NativeCheckKind) {
 			return nil, fmt.Errorf("platform matrix: enabled platform %q needs a runner and native_check %q", e.Platform, NativeCheckKind)
 		}
 		for _, r := range e.Runtime {
-			if !localPath(r) || r == "manifest.json" || r == p.Executable {
+			if !localPath(r) || r == "manifest.json" || r == p.Executable || r == e.ExecutableName(p.Executable) {
 				return nil, fmt.Errorf("platform matrix: invalid runtime file %q", r)
 			}
 		}

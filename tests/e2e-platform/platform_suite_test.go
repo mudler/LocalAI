@@ -236,7 +236,8 @@ func startInstance(o startOpts) *instance {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 	cmd.Stdout, cmd.Stderr = lf, lf
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	setProcessGroup(cmd.SysProcAttr)
 	Expect(cmd.Start()).To(Succeed())
 	in.cmd = cmd
 	go func() {
@@ -272,11 +273,11 @@ func (in *instance) stop() {
 		return
 	default:
 	}
-	_ = syscall.Kill(-in.cmd.Process.Pid, syscall.SIGTERM)
+	_ = killProcessGroup(in.cmd.Process.Pid, syscall.SIGTERM)
 	select {
 	case <-in.done:
 	case <-time.After(20 * time.Second):
-		_ = syscall.Kill(-in.cmd.Process.Pid, syscall.SIGKILL)
+		_ = killProcessGroup(in.cmd.Process.Pid, syscall.SIGKILL)
 		<-in.done
 	}
 }

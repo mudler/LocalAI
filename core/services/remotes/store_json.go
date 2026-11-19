@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/atomicfile"
+	"github.com/mudler/LocalAI/pkg/fsperm"
 	"github.com/mudler/xlog"
 )
 
@@ -52,11 +53,11 @@ func NewJSONStore(dir string) (Store, error) {
 	}
 	// MkdirAll keeps the mode of a directory that exists. The directory
 	// holds the sealing key, so it is closed to others whatever made it.
-	if st, err := os.Stat(dir); err == nil && st.Mode().Perm()&0o077 != 0 {
-		if err := os.Chmod(dir, 0o700); err != nil { // #nosec G302 -- directory mode: the owner needs the search bit
-			return nil, fmt.Errorf("remotes: the store directory can be read by others and its mode could not be set to 700: %w", err)
+	if fsperm.Check(dir) != nil {
+		if err := fsperm.Restrict(dir); err != nil {
+			return nil, fmt.Errorf("remotes: other users can open the store directory and it could not be made private: %w", err)
 		}
-		xlog.Warn("The remotes store directory could be read by others; its mode was set to 700", "dir", dir)
+		xlog.Warn("Other users could open the remotes store directory; it is now private", "dir", dir)
 	}
 	s.path = filepath.Join(dir, jsonFileName)
 	s.keyPath = filepath.Join(dir, jsonKeyName)
@@ -99,15 +100,14 @@ func (s *jsonStore) load() (map[string]record, error) {
 // its mode. The sealed values are useless without the key, but the file is
 // still not for others to read.
 func (s *jsonStore) fixFileMode() {
-	st, err := os.Stat(s.path)
-	if err != nil || st.Mode().Perm()&0o077 == 0 {
+	if fsperm.Check(s.path) == nil {
 		return
 	}
-	if err := os.Chmod(s.path, 0o600); err != nil {
-		xlog.Warn("The remotes file can be read by others and its mode could not be set to 600", "path", s.path, "error", err)
+	if err := fsperm.Restrict(s.path); err != nil {
+		xlog.Warn("Other users can open the remotes file and it could not be made private", "path", s.path, "error", err)
 		return
 	}
-	xlog.Warn("The remotes file could be read by others; its mode was set to 600", "path", s.path)
+	xlog.Warn("Other users could open the remotes file; it is now private", "path", s.path)
 }
 
 func (s *jsonStore) save(m map[string]record) error {
@@ -240,11 +240,11 @@ func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)
 		}
 		return append([]byte(nil), s.key...), nil
 	}
-	st, err := os.Stat(s.keyPath)
+	_, err := os.Stat(s.keyPath)
 	switch {
 	case err == nil:
-		if st.Mode().Perm()&0o077 != 0 {
-			return nil, errors.New("remotes: the key file can be read by others; run chmod 600 on it")
+		if err := checkKeyFile(s.keyPath); err != nil {
+			return nil, fmt.Errorf("remotes: the key file: %w", err)
 		}
 		k, err := os.ReadFile(s.keyPath)
 		if err != nil || len(k) != sealKeySize {
@@ -270,4 +270,15 @@ func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)
 		return nil, fmt.Errorf("remotes: write the key file: %w", err)
 	}
 	return k, nil
+}
+
+// checkKeyFile refuses a key file that other users can open. On Windows a key
+// file written before LocalAI set access control lists is made private
+// instead, because it only had the list of its folder.
+func checkKeyFile(path string) error {
+	restricted, err := fsperm.CheckOrRestrict(path)
+	if restricted {
+		xlog.Warn("Other users could open the remotes key file; it is now private", "path", path)
+	}
+	return err
 }

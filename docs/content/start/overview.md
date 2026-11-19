@@ -27,7 +27,7 @@ Your files and models stay on your machines. Features that call outside services
 
 ## Install
 
-The [quickstart]({{% relref "/start/quickstart" %}}) has the install script, the first model and the first chat. The script works on Linux and on Macs with Apple Silicon. For Windows, an Intel Mac or a GPU image, use a container:
+The [quickstart]({{% relref "/start/quickstart" %}}) has the install script, the first model and the first chat. The script works on Linux and on Macs with Apple Silicon. Windows has its own PowerShell script and a native binary, see [Install on Windows]({{% relref "/start/install/windows" %}}). For an Intel Mac or a GPU image, use a container:
 
 ```bash
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest

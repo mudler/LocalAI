@@ -24,7 +24,9 @@ local-ai
 
 The script installs the `local-ai` program and does not start it. The command `local-ai` starts the server with no model. You should see the log line `LocalAI is started and running` with the address `:8080`. If the script says the folder is not on your `PATH`, run the `export` line it prints.
 
-On Windows, on an Intel Mac, or when you prefer a container, use Docker instead:
+On Windows, use the PowerShell script `irm https://localai.io/install.ps1 | iex`. See [Install on Windows]({{% relref "/start/install/windows" %}}).
+
+On an Intel Mac, or when you prefer a container, use Docker instead:
 
 ```bash
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest

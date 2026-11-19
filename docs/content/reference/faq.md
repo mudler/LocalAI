@@ -37,11 +37,11 @@ The easiest way is the built-in model gallery: open the web interface at `http:/
 
 LocalAI stores downloaded models in the following locations by default:
 
-- **Command line**: `./models` (relative to current working directory)
+- **Command line**: `./models` (relative to current working directory) on Linux and macOS, `%LOCALAPPDATA%\LocalAI\models` on Windows
 - **Docker**: `/models` (inside the container, typically mounted to `./models` on host)
-- **Launcher application**: `~/.localai/models` (in your home directory)
+- **Launcher application**: `~/.localai/models` (in your home directory), `%LOCALAPPDATA%\LocalAI\models` on Windows
 
-You can customize the model storage location using the `LOCALAI_MODELS_PATH` environment variable or `--models-path` command line flag. This is useful if you want to store models outside your home directory for backup purposes or to avoid filling up your home directory with large model files.
+You can customize the model storage location using the `LOCALAI_MODELS_PATH` environment variable or `--models-path` command line flag. To move the models, backends, data and configuration folders at once, set `LOCALAI_BASE_PATH`. This is useful if you want to store models outside your home directory for backup purposes or to avoid filling up your home directory with large model files.
 
 ### How much storage space do models require?
 

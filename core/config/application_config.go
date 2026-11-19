@@ -60,6 +60,10 @@ type AddonConfig struct {
 	// a build that reads the backend gallery lists the library and leaves it
 	// off.
 	OfficialBackendLibrary bool
+	// WSLDistro is the WSL 2 distribution that runs the add-ons whose
+	// manifest has osSettings.windows.execution "wsl2" (Windows only). Empty is
+	// the default distribution of WSL.
+	WSLDistro string
 	// BackendMaxBytes bounds the compressed size of one backend image
 	// installed from a library; zero is 8 GiB. Add-ons keep their own limit.
 	BackendMaxBytes int64

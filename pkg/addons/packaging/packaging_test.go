@@ -125,7 +125,35 @@ var _ = Describe("package layout", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rec.Publishable).To(BeFalse())
 		_, err = p.build("windows/amd64", "1.2.3", exe("x"))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("not enabled")))
+		_, err = p.build("windows/arm64", "1.2.3", exe("x"), "--local-check")
+		Expect(err).To(MatchError(ContainSubstring("is not os/arch")))
+	})
+
+	It("names the executable of a Windows package with .exe", func() {
+		p := newProject(map[string][]string{amd: nil, "windows/amd64": nil})
+		dir := p.mustBuild("windows/amd64", "1.2.3", "windows bin")
+		Expect(p.verify(dir, "windows/amd64", "1.2.3")).To(Succeed())
+		dest := filepath.Join(GinkgoT().TempDir(), "out")
+		_, err := run("extract", "--config", p.config, "--layout", dir, "--platform", "windows/amd64", "--version", "1.2.3", "--dest", dest)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(filepath.Join(dest, "tables.exe")).To(BeARegularFile())
+		Expect(filepath.Join(dest, "tables")).NotTo(BeAnExistingFile())
+		b, err := os.ReadFile(filepath.Join(dest, "manifest.json"))
+		Expect(err).NotTo(HaveOccurred())
+		var m struct {
+			Executable, OS, Arch string
+		}
+		Expect(json.Unmarshal(b, &m)).To(Succeed())
+		Expect(m.Executable).To(Equal("tables.exe"))
+		Expect(m.OS).To(Equal("windows"))
+		Expect(m.Arch).To(Equal("amd64"))
+		// The other platforms keep the plain name.
+		linux := p.mustBuild(amd, "1.2.3", "linux bin")
+		dest = filepath.Join(GinkgoT().TempDir(), "out")
+		_, err = run("extract", "--config", p.config, "--layout", linux, "--platform", amd, "--version", "1.2.3", "--dest", dest)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(filepath.Join(dest, "tables")).To(BeARegularFile())
 	})
 
 	It("refuses an invalid version, an existing layout and an empty executable", func() {
@@ -349,13 +377,17 @@ var _ = Describe("platform matrix", func() {
 			head + "  - platform: linux/amd64\n    enabled: true\n",
 			head + "  - platform: linux/amd64\n    enabled: true\n    runner: r\n",
 			head + "  - platform: linux/amd64\n    enabled: false\n  - platform: linux/amd64\n    enabled: false\n",
-			head + "  - platform: windows/amd64\n    enabled: false\n",
+			head + "  - platform: windows/arm64\n    enabled: false\n",
 			head + "  - platform: linux/amd64\n    enabled: false\n    registry: quay.io/x\n",
 			head + "  - platform: linux/amd64\n    enabled: false\n    runtime: [../escape]\n",
 		} {
 			_, err := run("matrix", "--config", write(body))
 			Expect(err).To(HaveOccurred(), body)
 		}
+	})
+	It("refuses a runtime file named as the executable of a Windows package", func() {
+		_, err := run("matrix", "--config", write(head+"  - platform: windows/amd64\n    enabled: false\n    runtime: [tables.exe]\n"))
+		Expect(err).To(MatchError(ContainSubstring("invalid runtime file")))
 	})
 	It("prints the enabled platforms with their native runners", func() {
 		out, err := run("matrix", "--config", write(head+"  - platform: linux/arm64\n    enabled: true\n    runner: r2\n    native_check: executable-start\n  - platform: linux/amd64\n    enabled: true\n    runner: r1\n    native_check: executable-start\n  - platform: darwin/arm64\n    enabled: false\n"))

@@ -8,11 +8,12 @@ import (
 	"fmt"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,12 +23,6 @@ import (
 func main() {
 	if len(os.Args) != 2 || os.Args[1] != "--localai-addon-v1" {
 		os.Exit(2)
-	}
-	parent := os.NewFile(4, "startup")
-	d := json.NewDecoder(parent)
-	var startup addonruntime.Startup
-	if d.Decode(&startup) != nil {
-		os.Exit(3)
 	}
 	var config struct {
 		Mode string `json:"mode"`
@@ -40,6 +35,30 @@ func main() {
 	}
 	b, _ := os.ReadFile("fixture.json")
 	_ = json.Unmarshal(b, &config)
+	// "report-remote" and "report-silent" misbehave in the reported way of
+	// passing the channels: the first reports an address that is not
+	// loopback, the second never reports. Both must be refused by the owner.
+	if h := os.Getenv(contract.EndpointHandleEnv); h != "" && (config.Mode == "report-remote" || config.Mode == "report-silent") { //nolint:forbidigo // the fixture reads the handle the owner passes, as an add-on does
+		n, _ := strconv.ParseUint(h, 10, 64)
+		f := os.NewFile(uintptr(n), "endpoint")
+		if config.Mode == "report-remote" {
+			_, _ = io.WriteString(f, "192.0.2.1:80\n")
+			_ = f.Close()
+		}
+		time.Sleep(time.Minute)
+		os.Exit(9)
+	}
+	// The startup channel and the listener come as the owner passes them on
+	// this platform: descriptors 3 and 4, or named handles (Windows).
+	parent, e := protocol.StartupChannel()
+	if e != nil {
+		os.Exit(3)
+	}
+	d := json.NewDecoder(parent)
+	var startup addonruntime.Startup
+	if d.Decode(&startup) != nil {
+		os.Exit(3)
+	}
 	// The "orphan" mode ignores the closing of the startup channel, as a
 	// misbehaving add-on would: only the owner's ledger can then stop it.
 	if config.Mode != "orphan" {
@@ -76,10 +95,10 @@ func main() {
 	if config.Mode == "exit-start" {
 		os.Exit(4)
 	}
-	if config.Mode == "env-check" && (os.Getenv("LOCALAI_RUNTIME_TEST_SECRET") != "" || os.Getenv("HTTP_PROXY") != "" || len(os.Environ()) != 2) { //nolint:forbidigo // the fixture checks the exact environment the host gives a child
+	if config.Mode == "env-check" && (os.Getenv("LOCALAI_RUNTIME_TEST_SECRET") != "" || os.Getenv("HTTP_PROXY") != "" || !exactEnvironment()) { //nolint:forbidigo // the fixture checks the exact environment the host gives a child
 		os.Exit(5)
 	}
-	listener, e := net.FileListener(os.NewFile(3, "listener"))
+	listener, e := protocol.Listener()
 	if e != nil {
 		os.Exit(6)
 	}
@@ -260,6 +279,32 @@ func main() {
 	}
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: time.Second, ReadTimeout: 2 * time.Second, IdleTimeout: time.Second, MaxHeaderBytes: 16 << 10}
 	_ = server.Serve(listener)
+}
+
+// exactEnvironment reports whether the environment is LANG and TZ, plus only
+// what the owner adds to pass the channels as handles and, on Windows, the
+// system folder and the temporary folder.
+func exactEnvironment() bool {
+	allowed := map[string]bool{"LANG": true, "TZ": true, contract.StartupHandleEnv: true, contract.EndpointHandleEnv: true, contract.ChannelEnv: true}
+	if runtime.GOOS == "windows" {
+		for _, k := range []string{"SYSTEMROOT", "TMP", "TEMP"} {
+			allowed[k] = true
+		}
+	}
+	n := 0
+	for _, kv := range os.Environ() { //nolint:forbidigo // the fixture checks the exact environment the host gives a child
+		k, _, _ := strings.Cut(kv, "=")
+		if runtime.GOOS == "windows" {
+			k = strings.ToUpper(k) // Windows names are not case sensitive
+		}
+		if !allowed[k] {
+			return false
+		}
+		if k == "LANG" || k == "TZ" {
+			n++
+		}
+	}
+	return n == 2
 }
 
 // noteLine appends one line to a durable log. An empty path keeps nothing.

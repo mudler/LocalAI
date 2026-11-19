@@ -195,7 +195,7 @@ The frontend owns the job row, but the real work runs in a backend process on a 
 - The install request carries the operation id and the longest the load may run, as a duration, so a worker clock that is wrong changes nothing. The backend starts in its own process group.
 - The frontend renews the operation every few seconds and completes it when the load finishes. The worker kills the whole process group when no renewal arrives for 90 seconds, or when the deadline passes. A backend that already reports `READY` is never killed: a lost completion message must not destroy a model that serves.
 - A stop names the operation, the process key and, when known, the address and process instance. The worker refuses unless they all match its own records. There is no fallback to "any running backend". A stop for a load that already finished leaves the serving model alone.
-- A worker that is killed cannot stop its backends. It records each backend's process group in a small file under its data directory, and the next worker kills every group listed there before it serves (Linux; the start time of the leader guards against a recycled pid). A new incarnation, reported on the next heartbeat, then confirms the failed loads on that node. The worker also skips a gRPC port that something already listens on, and a readiness answer only counts while the worker's own backend process is alive.
+- A worker that is killed cannot stop its backends. It records each backend's process group in a small file under its data directory, and the next worker kills every group listed there before it serves (Linux and Windows; the start time of the leader guards against a recycled pid; Windows has no process groups, so there the worker kills the recorded process and the processes it started). A new incarnation, reported on the next heartbeat, then confirms the failed loads on that node. The worker also skips a gRPC port that something already listens on, and a readiness answer only counts while the worker's own backend process is alive.
 - If the worker answers a renewal with "unknown operation" three times in a row, the frontend fails the load at once instead of waiting for the load budget. The worker lost the operation, so the work is gone.
 
 When a load fails after remote work may have started (a timeout, a cancel, a lost lease), the owner stops the operation immediately. An acknowledged stop shortens the hold to the 15 second report window. A silent worker keeps the hold at the stop window (2.5 minutes), and the reconciler retries the stop on every pass until the worker answers or the window ends. Nothing needs manual cleanup.
@@ -563,6 +563,10 @@ required) and reports system-RAM figures as VRAM. Free VRAM therefore tracks
 from VRAM on every registration and heartbeat. On unified-memory nodes, the
 available RAM and available VRAM values should therefore track each other
 closely; on discrete-GPU nodes they can change independently.
+
+### Windows workers
+
+A worker can run natively on Windows (amd64). It serves the llama.cpp backend, the only backend with a Windows build. A model that the scheduler places on a Windows worker and that needs another backend fails on that node with "this backend has no Windows build", so use node labels to keep such models on Linux or macOS workers. The worker reports the GPU and VRAM through `nvidia-smi` for NVIDIA GPUs and through DirectX (DXGI) and the "GPU Adapter Memory" performance counters for other GPUs. The frontend and the workers can run on different operating systems. To run the worker as a Windows service and for the other limits, see [Distributed mode and workers on Windows]({{% relref "/start/install/windows#distributed-mode-and-workers-on-windows" %}}).
 
 ### CPU telemetry
 

@@ -7,7 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 func TestPlanReconcile(t *testing.T) {
@@ -100,6 +103,7 @@ func TestReconcileReplaysAfterALostResponse(t *testing.T) {
 }
 
 func TestAuditAppendsFsyncedLines(t *testing.T) {
+	g := NewWithT(t)
 	path := filepath.Join(t.TempDir(), "host-grants-audit.jsonl")
 	a, err := OpenAudit(path)
 	if err != nil {
@@ -146,19 +150,23 @@ func TestAuditAppendsFsyncedLines(t *testing.T) {
 	if !reflect.DeepEqual(events, []string{AuditGrant, AuditBlanketGrant, AuditRevoke}) {
 		t.Fatalf("%v", events)
 	}
-	if info, _ := os.Stat(path); info.Mode().Perm() != 0600 {
-		t.Fatalf("mode %v", info.Mode())
+	// POSIX permission bits are not enforceable on Windows, where the file
+	// is reported with the default 0666 mode regardless of chmod.
+	if runtime.GOOS != "windows" {
+		info, _ := os.Stat(path)
+		g.Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)), "mode %v", info.Mode())
 	}
 	var none *Audit
 	if none.Append(AuditEntry{Event: AuditGrant}) != nil || none.Close() != nil {
 		t.Error("a nil audit is a no-op")
 	}
-	link := filepath.Join(t.TempDir(), "link")
-	if err := os.Symlink(path, link); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := OpenAudit(link); err == nil {
-		t.Error("a symlink must be refused")
+	// A symlink to the audit file is refused. Creating symlinks on Windows
+	// needs privileges or Developer Mode, so the setup itself errors first.
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(t.TempDir(), "link")
+		g.Expect(os.Symlink(path, link)).To(Succeed())
+		_, err := OpenAudit(link)
+		g.Expect(err).To(HaveOccurred(), "a symlink must be refused")
 	}
 }
 

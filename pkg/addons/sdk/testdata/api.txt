@@ -10,6 +10,8 @@ protocol: var ErrForbidden error
 protocol: var ErrNotFound error
 protocol: func FromHostError(err error) error
 protocol: func Handler(startup protocol.Startup, rt contract.Runtime) http.Handler
+protocol: func InWSL() bool
+protocol: func Listener() (net.Listener, error)
 protocol: type OutputRequest struct
 protocol: field OutputRequest.Envelope contract.Envelope "json:\"envelope\""
 protocol: field OutputRequest.Handle string "json:\"handle\""
@@ -36,6 +38,7 @@ protocol: field Startup.HostCredential string "json:\"hostCredential,omitempty\"
 protocol: method (Startup) GoString() string
 protocol: method (Startup) LogValue() slog.Value
 protocol: method (Startup) String() string
+protocol: func StartupChannel() (*os.File, error)
 protocol: func StopWithParent(parent context.Context, rest io.Reader) (context.Context, context.CancelFunc)
 protocol: func ToolOf(env contract.Envelope) (string, error)
 protocol: func Upstream(status int, hint string, cause error) error

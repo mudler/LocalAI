@@ -16,7 +16,7 @@ type ChatCMD struct {
 	Model     string `short:"m" help:"Model to use. Defaults to the only model the server offers, or asks when there are several"`
 	Endpoint  string `env:"LOCALAI_CHAT_ENDPOINT" default:"http://127.0.0.1:8080" help:"LocalAI server endpoint. The /v1 path is added automatically when omitted"`
 	APIKey    string `env:"LOCALAI_API_KEY,API_KEY" help:"API key to use when the LocalAI server requires authentication"`
-	ConfigDir string `env:"LOCALAI_CHAT_CONFIG_DIR" help:"Directory holding the agent's config, plugins, and skills. Defaults to ~/.config/localai/chat" type:"path"`
+	ConfigDir string `env:"LOCALAI_CHAT_CONFIG_DIR" help:"Directory holding the agent's config, plugins, and skills. Defaults to ~/.config/localai/chat, or %LOCALAPPDATA%\\LocalAI\\chat on Windows" type:"path"`
 	TraceDir  string `env:"LOCALAI_CHAT_TRACE_DIR" help:"Write a session LLM trace (NDJSON) to this directory" type:"path"`
 
 	CLI    bool   `help:"Run in plain CLI mode instead of the full-screen interface"`

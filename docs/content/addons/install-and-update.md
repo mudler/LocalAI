@@ -67,9 +67,9 @@ On the first start, when the owner has no `sources.json` in the `addons` folder 
 LocalAI registers one library with the ID `official`. It is a YAML index of the
 first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Simple Office,
 Sandbox and Web, plus the other first-party add-ons including Google Drive and Gmail). The index has one entry for each enabled platform of each add-on, so an
-install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
-its own platform. The Sandbox add-on runs on Linux, and on macOS with Apple silicon through Virtualization.framework; its macOS platform is listed in the platform file and stays disabled until a macOS runner shows its native check passing. No add-on is built for Windows yet, so the
-official library lists nothing there.
+install on Linux (amd64 or arm64), on macOS (Apple silicon or Intel) and on Windows (amd64) finds the add-ons for
+its own platform. The Sandbox add-on runs on Linux, and on macOS with Apple silicon through Virtualization.framework. It has no package for macOS on Intel. Its Windows package runs the Linux add-on in WSL 2, and it stays disabled until a Windows runner with WSL shows its native check passing, so the
+official library has no Sandbox entry for Windows yet.
 
 Which index the library reads depends on the build:
 

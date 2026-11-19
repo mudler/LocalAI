@@ -66,10 +66,18 @@ missing repository input (`ADDON_OCI_REPOSITORY`). There is no default registry.
 The add-on repository is `quay.io/go-skynet/local-ai-addons`; every other
 backend image repository is refused.
 
-Every platform matrix lists four platforms: `linux/amd64` on `ubuntu-24.04`, `linux/arm64`
-on `ubuntu-24.04-arm`, `darwin/arm64` on `macos-15` and `darwin/amd64` on `macos-15-intel`.
-Voice, Face, fine-tuning, quantization, Studio and Talk enable all four. A test fails when a
-platform is enabled without a recorded check.
+Every platform matrix lists five platforms: `linux/amd64` on `ubuntu-24.04`, `linux/arm64`
+on `ubuntu-24.04-arm`, `darwin/arm64` on `macos-15`, `darwin/amd64` on `macos-15-intel` and
+`windows/amd64` on `windows-2025`. Every add-on except Sandbox enables all five. Sandbox
+enables only the Linux platforms. A test fails when a platform is enabled without a
+recorded check.
+
+A Windows package names its executable `<executable>.exe`: Windows has no execute bit,
+and only the `.exe` extension makes a file a program there. The build sets the name in
+the manifest of the Windows package, so `platforms.yaml` and the manifest template keep
+the plain name. The package job runs its steps with the bash of Git for Windows on the
+Windows runner. Tables links SQLite through cgo, so its Windows leg installs the MSYS2
+UCRT64 gcc and links the C runtime statically.
 
 A package that ships skills names their folder with `skills:` (for example
 `skills: addons/office/skills`). The build lays it at the package root as `skills/`,

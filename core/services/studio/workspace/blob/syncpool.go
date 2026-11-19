@@ -110,8 +110,13 @@ func (s *fsStore) publishBatch(ctx context.Context, staged []Staged) error {
 			return err
 		}
 		// See Publish: a rename replaces identical bytes, and a name is never
-		// removed after a sync failure.
+		// removed after a sync failure. On Windows, renaming over the
+		// existing read-only blob reports "Access is denied"; the blob is
+		// already in place, so nothing to do.
 		if err := os.Rename(t.path, final); err != nil {
+			if _, serr := os.Stat(final); serr == nil {
+				return nil
+			}
 			return err
 		}
 		dirs[filepath.Dir(final)] = struct{}{}

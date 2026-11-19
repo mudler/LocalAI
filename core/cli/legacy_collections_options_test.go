@@ -12,7 +12,7 @@ import (
 var _ = Describe("collections options and their legacy names", func() {
 	parse := func(args ...string) *RunCMD {
 		var r RunCMD
-		k, err := kong.New(&r, kong.Vars{"basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]", "generatedcontentpath": DefaultGeneratedContentPath(), "uploadpath": DefaultUploadPath()})
+		k, err := kong.New(&r, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends", "basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]", "generatedcontentpath": DefaultGeneratedContentPath(), "uploadpath": DefaultUploadPath()})
 		Expect(err).ToNot(HaveOccurred())
 		_, err = k.Parse(args)
 		Expect(err).ToNot(HaveOccurred())

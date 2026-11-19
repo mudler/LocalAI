@@ -4,8 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 // stateDirMode matches the mode nib uses for the same directory. The directory
@@ -20,14 +24,31 @@ const configFileMode = 0o600
 // skills. This is user-scoped rather than server-scoped: chat is a client that
 // may target a remote LocalAI, so it does not belong under LOCALAI_CONFIG_DIR.
 func StateDir(override string) (string, error) {
+	return stateDir(override, runtime.GOOS, os.Getenv, os.UserHomeDir, system.StandardDataDir)
+}
+
+func stateDir(override, goos string, getenv func(string) string, homeDir, standard func() (string, error)) (string, error) {
 	if override != "" {
 		return override, nil
 	}
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+	if xdg := getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, "localai", "chat"), nil
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
+	home, err := homeDir()
+	if goos == "windows" {
+		// Earlier releases used ~/.config on Windows too: keep that folder when
+		// it exists, so the saved config and its API key stay in use.
+		if err == nil && home != "" {
+			legacy := filepath.Join(home, ".config", "localai", "chat")
+			if st, serr := os.Stat(legacy); serr == nil && st.IsDir() {
+				return legacy, nil
+			}
+		}
+		if dir, serr := standard(); serr == nil {
+			return filepath.Join(dir, "chat"), nil
+		}
+	}
+	if err != nil || home == "" {
 		return "", fmt.Errorf("resolving home directory for the agent state dir: %w", err)
 	}
 	return filepath.Join(home, ".config", "localai", "chat"), nil
@@ -144,6 +165,10 @@ func writeConfigFile(path string, data []byte) error {
 	// so set the mode explicitly rather than inheriting whatever survived.
 	if err := os.Chmod(tmpPath, configFileMode); err != nil {
 		return fmt.Errorf("setting mode on %s: %w", tmpPath, err)
+	}
+	// Windows has no mode bits: the private mode becomes an access control list.
+	if err := fsperm.RestrictIfPrivate(tmpPath, configFileMode); err != nil {
+		return fmt.Errorf("setting access on %s: %w", tmpPath, err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
 		return fmt.Errorf("replacing %s: %w", path, err)

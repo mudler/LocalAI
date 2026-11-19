@@ -815,7 +815,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 			xlog.Warn("Remote model health check failed (possible timeout), keeping cached", "model", s, "error", err)
 			return m
 		}
-		if !process.IsAlive() {
+		if !ProcessAlive(process) {
 			xlog.Debug("GRPC Process is not responding", "model", s)
 			// stop and delete the process, this forces to re-load the model and re-create again the service
 			err := ml.deleteProcess(cTimeout, s, true)

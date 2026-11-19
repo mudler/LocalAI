@@ -39,13 +39,14 @@ require (
 	github.com/klippa-app/go-pdfium v1.19.2
 	github.com/labstack/echo/v4 v4.15.1
 	github.com/libp2p/go-libp2p v0.48.0
+	github.com/libp2p/go-yamux/v5 v5.1.0
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/mholt/archives v0.1.5
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/mudler/cogito v0.11.1-0.20261106211749-0fc4e5761794
 	github.com/mudler/edgevpn v0.34.0
-	github.com/mudler/go-processmanager v0.1.2-0.20260823202314-dfa0ed852db6
+	github.com/mudler/go-processmanager v0.2.0
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
 	github.com/mudler/nib v0.15.3-0.20261110074256-15b2af46c5d9
 	github.com/mudler/xlog v0.0.6
@@ -324,7 +325,6 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/jsonschema-go v0.4.2
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/libp2p/go-yamux/v5 v5.1.0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect

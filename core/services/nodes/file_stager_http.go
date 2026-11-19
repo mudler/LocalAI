@@ -793,7 +793,7 @@ func (h *HTTPFileStager) FetchRemote(ctx context.Context, nodeID, remotePath, lo
 	// relative key is already correct.
 	key := remotePath
 	if !strings.HasPrefix(remotePath, storage.ModelKeyPrefix) && !strings.HasPrefix(remotePath, storage.DataKeyPrefix) {
-		key = filepath.Base(remotePath)
+		key = remoteBase(remotePath)
 	}
 	return h.FetchRemoteByKey(ctx, nodeID, key, localDst)
 }

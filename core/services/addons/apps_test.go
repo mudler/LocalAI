@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
@@ -266,7 +265,11 @@ var _ = Describe("apps observation", func() {
 		// The replacement never becomes ready, so it stays starting until the
 		// readiness bound; the test then lets the next launch succeed.
 		Expect(os.WriteFile(filepath.Join(dir, "fixture.json"), []byte(`{"mode":"never-ready"}`), 0600)).To(Succeed())
-		Expect(syscall.Kill(old.PID, syscall.SIGKILL)).To(Succeed())
+		// An abrupt kill on every platform: os.FindProcess + Kill is the
+		// cross-platform form of SIGKILL (TerminateProcess on Windows).
+		p, e := os.FindProcess(old.PID)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(p.Kill()).To(Succeed())
 		Eventually(state, 3*time.Second, 5*time.Millisecond).Should(Equal("failed"), "the child died and the restart waits for its backoff")
 		Eventually(state, 3*time.Second, 5*time.Millisecond).Should(Equal("starting"))
 		Expect(os.WriteFile(filepath.Join(dir, "fixture.json"), []byte(`{"mode":"normal"}`), 0600)).To(Succeed())

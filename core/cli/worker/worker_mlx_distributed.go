@@ -20,6 +20,9 @@ type MLXDistributed struct {
 }
 
 func (r *MLXDistributed) Run(ctx *cliContext.Context) error {
+	if err := requireHostBackendBuild("mlx-distributed", "mlx-distributed"); err != nil {
+		return err
+	}
 	systemState, err := system.GetSystemState(
 		system.WithBackendPath(r.BackendsPath),
 		system.WithBackendSystemPath(r.BackendsSystemPath),

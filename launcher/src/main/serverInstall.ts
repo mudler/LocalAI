@@ -14,6 +14,7 @@ import path from 'node:path'
 import semver from 'semver'
 import { installAtomically } from './atomicInstall'
 import { parseChecksums, sha256File } from './checksum'
+import { executableFormat, minimalEnv, previousBinaryName, serverBinaryName, type ExecutableFormat } from './platform'
 import { decideUpdate, parseVersion } from './serverVersion'
 import { RateLimitError, type PlatformTarget, type ReleaseAsset, type ReleaseInfo, type UpdateProvider } from './updateProvider'
 import type { ServerState } from '../shared/types'
@@ -145,8 +146,8 @@ export interface InstallFs {
   /** Remove a file or directory; a missing path is not an error. */
   remove(p: string): Promise<void>
   sha256(p: string): Promise<string>
-  /** Validate, stage on the same file system, fsync and rename over `target`. */
-  installAtomically(source: string, target: string): Promise<void>
+  /** Validate (as an executable of `format`), stage on the same file system, fsync and rename over `target`. */
+  installAtomically(source: string, target: string, format?: ExecutableFormat): Promise<void>
 }
 
 const enoent = (e: unknown) => (e as NodeJS.ErrnoException)?.code === 'ENOENT'
@@ -188,7 +189,7 @@ export const nodeInstallFs: InstallFs = {
   rename: (a, b) => fsp.rename(a, b),
   remove: (p) => fsp.rm(p, { force: true, recursive: true }),
   sha256: sha256File,
-  installAtomically: async (s, t) => installAtomically(s, t),
+  installAtomically: async (s, t, format) => installAtomically(s, t, { format }),
 }
 
 export type ReleaseSource = UpdateProvider & {
@@ -199,7 +200,7 @@ export type ReleaseSource = UpdateProvider & {
 }
 
 export interface InstallPaths {
-  /** Holds `local-ai` and its rollback copy `local-ai.previous`. */
+  /** Holds `local-ai` and its rollback copy `local-ai.previous` (with `.exe` on Windows). */
   binDir: string
   /** Holds `installed-version.json`. */
   metaDir: string
@@ -234,8 +235,9 @@ export interface RunOptions {
   dev?: boolean
 }
 
-export const BINARY_NAME = 'local-ai'
-export const PREVIOUS_NAME = 'local-ai.previous'
+/** The binary name on Linux and macOS. Use serverBinaryName(target), which adds `.exe` on Windows. */
+export const BINARY_NAME = serverBinaryName()
+export const PREVIOUS_NAME = previousBinaryName()
 const META_NAME = 'installed-version.json'
 const PROGRESS_INTERVAL_MS = 100
 
@@ -295,7 +297,7 @@ export type InstallListener = (s: InstallState) => void
 /** `<binary> --version`, with a timeout. The default for `InstallDeps.runVersion`. */
 export function execServerVersion(binary: string, timeoutMs = 10_000): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(binary, ['--version'], { timeout: timeoutMs, env: { PATH: process.env.PATH ?? '' } }, (err, stdout, stderr) => {
+    execFile(binary, ['--version'], { timeout: timeoutMs, windowsHide: true, env: minimalEnv() }, (err, stdout, stderr) => {
       if (err) return reject(err)
       resolve(`${stdout}${stderr}`.trim())
     })
@@ -391,10 +393,13 @@ export class ServerInstaller {
   }
 
   private get target() {
-    return path.join(this.d.paths.binDir, BINARY_NAME)
+    return path.join(this.d.paths.binDir, serverBinaryName(this.d.target))
   }
   private get previous() {
-    return path.join(this.d.paths.binDir, PREVIOUS_NAME)
+    return path.join(this.d.paths.binDir, previousBinaryName(this.d.target))
+  }
+  private get format(): ExecutableFormat {
+    return executableFormat(this.d.target.os)
   }
   private get metaFile() {
     return path.join(this.d.paths.metaDir, META_NAME)
@@ -673,7 +678,7 @@ export class ServerInstaller {
         await this.d.fs.copyFile(this.target, tmp)
         await this.d.fs.rename(tmp, this.previous)
       }
-      await this.d.fs.installAtomically(dest, this.target)
+      await this.d.fs.installAtomically(dest, this.target, this.format)
     } catch (e) {
       await this.d.fs.remove(tmp).catch(() => {})
       if (wasRunning) await this.restartQuietly()
@@ -716,7 +721,7 @@ export class ServerInstaller {
   private async restore(installed: { exists: boolean; version?: string }, before: Meta, wasRunning: boolean): Promise<void> {
     this.dispatch({ type: 'rollback-start' })
     try {
-      if (installed.exists) await this.d.fs.installAtomically(this.previous, this.target)
+      if (installed.exists) await this.d.fs.installAtomically(this.previous, this.target, this.format)
       else await this.d.fs.remove(this.target)
     } catch (e) {
       throw new StepFail(classifyError(e, 'unknown'), `the new version failed and the previous one could not be restored: ${errMessage(e)}`)
@@ -741,7 +746,7 @@ export class ServerInstaller {
     const wasRunning = this.busy()
     if (wasRunning) await this.d.supervisor.stop()
     try {
-      await this.d.fs.installAtomically(this.previous, this.target)
+      await this.d.fs.installAtomically(this.previous, this.target, this.format)
     } catch (e) {
       if (wasRunning) await this.restartQuietly()
       throw new StepFail(classifyError(e, 'unknown'), `rollback failed: ${errMessage(e)}`)

@@ -1,4 +1,9 @@
+//go:build linux || darwin
+
 // SPDX-License-Identifier: MIT
+
+// The supervisor these specs drive is POSIX-only: the runtime ledger fails
+// closed on the other platforms.
 package runtime
 
 import (
