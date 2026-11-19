@@ -22,6 +22,8 @@ var p2pnetImports = []string{
 	"github.com/multiformats/...",
 	"github.com/mudler/xlog",
 	module + "/pkg/httpclient",
+	// The identity key is written with the atomic file write of the project.
+	module + "/pkg/atomicfile",
 }
 
 // libp2pImporters are the packages that may import libp2p. Everything else
