@@ -11892,7 +11892,7 @@
                 }
             },
             "put": {
-                "description": "off reaches nothing; registries the HTTPS hosts of the package registries; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.",
+                "description": "off reaches nothing; registries (shown as Custom) the HTTPS hosts of the package registries plus the administrator's extra registries and always-allowed hosts; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.",
                 "tags": [
                     "chats"
                 ],

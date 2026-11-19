@@ -20083,8 +20083,9 @@ paths:
       tags:
       - chats
     put:
-      description: 'off reaches nothing; registries the HTTPS hosts of the package
-        registries; all every public host. A preset above the administrator''s ceiling
+      description: 'off reaches nothing; registries (shown as Custom) the HTTPS hosts
+        of the package registries plus the administrator''s extra registries and always-allowed
+        hosts; all every public host. A preset above the administrator''s ceiling
         (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its
         parent: 409. It applies at the next connection of a command.'
       parameters:
@@ -28484,10 +28485,11 @@ paths:
         other server: limited to "models" when given, else every model this server
         lets a client key use, models added later too; "all_models": true asks for
         every model explicitly and is refused with a non-empty "models"), worker or
-        split. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY
-        gets 409. relays is "auto", "none" or a list of relay IDs. When a gated relay
-        is named, a single-use relay pass is registered on it; "relay.reason" says
-        why there is none. The link is shown once. Needs P2P mode share. Admin only.'
+        split. A remote invite needs a signed-in user account: the API key set with
+        LOCALAI_API_KEY gets 409. relays is "auto", "none" or a list of relay IDs.
+        When a gated relay is named, a single-use relay pass is registered on it;
+        "relay.reason" says why there is none. The link is shown once. Needs P2P mode
+        share. Admin only.'
       parameters:
       - description: Invite to create
         in: body
