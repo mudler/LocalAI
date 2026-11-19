@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyLive, toolStart, toolEnd, cardResult } from '../../src/utils/chatLive.js'
+import { emptyLive, NO_LIVE, toolStart, toolEnd, cardResult } from '../../src/utils/chatLive.js'
 import {
-  threadRows, placeProposals, streamingParts, toolLine, toolOutput, lastUserText, chatMarkdown, markdownFileName, menuChats,
+  threadRows, placeProposals, streamingParts, toolLine, toolOutput, lastUserText, chatMarkdown, markdownFileName, menuChats, liveAppRows,
 } from '../../src/utils/chatThread.js'
 
 const app = { server: 's', tool: 'clock', resource_uri: 'ui://c', visibility: ['model', 'app'] }
@@ -144,4 +144,37 @@ test('placeProposals: trigger cards and turns without cards are left alone', () 
     { seq: 3, role: 'assistant', text: 'ok' },
   ], emptyLive()))
   assert.deepEqual(forRow(rows[1]), ['p1'])
+})
+
+test('live app rows: a call with an app is a row of its own at the end', () => {
+  let live = toolStart(emptyLive(), { name: 'clock', summary: '' })
+  live = toolEnd(live, { name: 'clock', ok: true, seq: 3, app })
+  live = cardResult(live, 3, { ...app, input: {} })
+  const rows = liveAppRows([{ seq: 1, role: 'user', text: 'time?' }], live)
+  assert.deepEqual(rows.map((r) => r.kind), ['app'])
+  assert.equal(rows[0].key, 'tool-3')
+  assert.equal(rows[0].live, true)
+})
+
+test('live app rows: a call the transcript already holds is not repeated', () => {
+  let live = toolStart(emptyLive(), { name: 'clock', summary: '' })
+  live = toolEnd(live, { name: 'clock', ok: true, seq: 3, app })
+  live = cardResult(live, 3, { ...app, input: {} })
+  const rows = liveAppRows([
+    { seq: 1, role: 'user', text: 'time?' },
+    { seq: 2, role: 'reasoning', text: 'r' },
+    { seq: 3, role: 'tool', text: 'clock: now', app },
+  ], live)
+  assert.deepEqual(rows, [])
+})
+
+test('live app rows: the split matches threadRows for a live app', () => {
+  let live = toolStart(emptyLive(), { name: 'clock', summary: '' })
+  live = toolEnd(live, { name: 'clock', ok: true, seq: 3, app })
+  live = cardResult(live, 3, { ...app, input: {} })
+  const messages = [{ seq: 1, role: 'user', text: 'time?' }]
+  assert.deepEqual(
+    threadRows(messages, live).map((r) => ({ kind: r.kind, key: r.key })),
+    [...threadRows(messages, NO_LIVE), ...liveAppRows(messages, live)].map((r) => ({ kind: r.kind, key: r.key })),
+  )
 })

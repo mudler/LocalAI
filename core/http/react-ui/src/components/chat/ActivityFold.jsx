@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { renderMarkdown, highlightAll } from '../../utils/markdown'
 import { toolLine, toolOutput } from '../../utils/chatThread'
@@ -195,6 +195,9 @@ function gist(text) {
 // eslint-disable-next-line no-unused-vars
 function Reasoning({ text, live }) {
   const ref = useRef(null)
+  // The thinking stream grows a piece at a time: rendering it again for every
+  // render (the fold, the scroll) would parse the whole text each time.
+  const html = useMemo(() => renderMarkdown(text || ''), [text])
   useEffect(() => {
     if (!ref.current) return
     if (live) ref.current.scrollTop = ref.current.scrollHeight
@@ -204,7 +207,7 @@ function Reasoning({ text, live }) {
     <div
       ref={ref}
       className={`cx-think${live ? ' cx-think--live' : ''}`}
-      dangerouslySetInnerHTML={{ __html: renderMarkdown(text || '') }}
+      dangerouslySetInnerHTML={{ __html: html }}
     />
   )
 }

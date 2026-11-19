@@ -21,8 +21,10 @@ import { foldNotes, isConnectorChat } from '../utils/connectorChat'
 import { ConnectorHeader, HostNote, ThreadContext } from '../components/chat/ConnectorChat'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
-  threadRows, placeProposals, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
+  threadRows, liveAppRows, placeProposals, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
 } from '../utils/chatThread'
+import { NO_LIVE } from '../utils/chatLive'
+import { useThrottledValue } from '../hooks/useThrottledValue'
 import { withOptimistic } from '../utils/optimisticSend'
 import { chatFootState, showHint } from '../utils/chatFoot'
 import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
@@ -130,6 +132,11 @@ import './chats.css'
 const HEADER_PULLED = 2
 
 const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
+
+// The streamed answer is Markdown, and parsing and sanitising it costs the
+// whole text: 90 ms is below the eye's sense of lag and turns a token storm
+// into about eleven parses a second.
+const STREAM_MD_MS = 90
 
 // The navigation state of the empty chat. /app/chats without state is an
 // address and goes to Home (see ChatsRoute in router.jsx); the page keeps a
@@ -637,9 +644,14 @@ function ChatPage() {
     const block = codeBlocksOf(msg.text).find(b => b.code.trim() === text)
     return block ? { msg, block } : null
   }
+  // While a turn streams, React replaces the answer's HTML on every flush, so
+  // highlighting here would re-highlight the whole growing block for every
+  // piece. The blocks stay plain <pre><code> until the turn ends, then this
+  // effect runs once over the whole thread.
+  const running = chat.running
   useEffect(() => {
     const el = messagesRef.current
-    if (!el) return undefined
+    if (!el || running) return undefined
     let obs
     const labels = {
       copyLabel: t('actions.copy'),
@@ -660,7 +672,7 @@ function ChatPage() {
     obs = new MutationObserver(run)
     run()
     return () => obs.disconnect()
-  }, [activeId, t])
+  }, [activeId, t, running])
 
   // The Download and Open preview buttons of a code block.
   const openBlock = pane.openBlock
@@ -1010,7 +1022,14 @@ function ChatPage() {
     },
   }), [])
 
-  const rows = useMemo(() => foldNotes(placeProposals(threadRows(messages, chat.live), { streaming: chat.running })), [messages, chat.live, chat.running])
+  // The transcript is built once per messages change, and the live turn adds
+  // only its app rows: during a pure text stream `liveTools` does not change,
+  // so `rows` keeps its identity and the settled messages stop re-rendering.
+  const thread = useMemo(() => threadRows(messages, NO_LIVE), [messages])
+  const liveTools = chat.live.tools
+  const liveApps = useMemo(() => liveAppRows(messages, { text: '', reasoning: '', tools: liveTools }), [messages, liveTools])
+  const placed = useMemo(() => placeProposals([...thread, ...liveApps], { streaming: chat.running }), [thread, liveApps, chat.running])
+  const rows = useMemo(() => foldNotes(placed), [placed])
   // The cards of a turn that is still running go after the streaming text.
   const tailProposals = rows.length > 0 && rows[rows.length - 1].kind === 'proposals' ? rows[rows.length - 1] : null
   // Only the last answer can be answered again (the server cuts after the last
@@ -1066,6 +1085,12 @@ function ChatPage() {
   }
 
   const streaming = streamingParts(chat.live)
+  // The streamed Markdown is parsed and sanitised for the whole text on every
+  // render, and the text grows a piece at a time: the page shows it on the
+  // throttle, while the visibility of the turn follows the live values so it
+  // appears at the first piece.
+  const streamText = useThrottledValue(streaming.text, STREAM_MD_MS)
+  const streamReasoning = useThrottledValue(streaming.reasoning, STREAM_MD_MS)
   const sendLive = useCallback((text) => activeId && chat.send(activeId, text), [activeId, chat])
 
   const openFind = () => setFind(f => ({ ...f, open: true, token: f.token + 1 }))
@@ -1454,8 +1479,8 @@ function ChatPage() {
                   identity={shownIdentity}
                   model={model}
                   warm={modelWarm}
-                  content={streaming.text}
-                  reasoning={streaming.reasoning}
+                  content={streamText}
+                  reasoning={streamReasoning}
                   toolCalls={streaming.tools}
                   waiting={(loadProgress || !modelWarm) ? (
                     <LoadCard model={model} progress={loadProgress} />

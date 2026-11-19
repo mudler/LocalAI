@@ -16,7 +16,7 @@
 // transcript and in the live turn, so its frame is not reloaded when the turn
 // ends and the transcript takes the call over.
 
-import { conversationItems, toolKey } from './chatLive.js'
+import { conversationItems, NO_LIVE, toolKey } from './chatLive.js'
 import { messageParts } from './chatAttachments.js'
 import { fileSize } from './fileInfo.js'
 import { PROPOSAL_CARD, CHANGE_CARD } from './chatProposal.js'
@@ -84,6 +84,14 @@ export function threadRows(messages, live) {
   }
   flush('end')
   return rows
+}
+
+// The app rows the live turn adds (same shape `threadRows` pushes for `item.type === 'app'`).
+// Reuses `conversationItems` so the existing selection rules stay in one place.
+export function liveAppRows(messages, live) {
+  return conversationItems(messages || [], live || NO_LIVE)
+    .filter((item) => item.type === 'app')
+    .map((item) => ({ kind: 'app', key: item.key, live: true, tool: item.tool }))
 }
 
 const PROPOSAL_KINDS = new Set([PROPOSAL_CARD, CHANGE_CARD, CHANGE_PROPOSAL_CARD])

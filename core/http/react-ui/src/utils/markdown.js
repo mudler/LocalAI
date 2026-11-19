@@ -4,13 +4,9 @@ import hljs from './hljs'
 import { copyToClipboard } from './clipboard'
 import { iconHtml } from './iconHtml'
 
+// marked 15 has no `highlight` option: highlighting is done by highlightAll,
+// over the <pre><code> blocks of the rendered answer.
 marked.setOptions({
-  highlight(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value
-    }
-    return hljs.highlightAuto(code).value
-  },
   breaks: true,
   gfm: true,
 })
