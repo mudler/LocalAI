@@ -189,7 +189,16 @@ func (a *Application) RegisterAddonWorkspace(f *files.Service) error {
 	return hostops.RegisterWorkspace(a.addonHostOps.Broker, &hostops.WorkspaceHost{
 		Store:     f.Store(),
 		Principal: func(actor contract.Actor) string { return addonWorkspacePrincipal(a.authDB != nil)(actor) },
-		DataDir:   func(id string) string { return filepath.Join(root, id) },
+		// An add-on in WSL 2 keeps its data in the file system of its
+		// distribution; the supervisor knows the path this host reaches.
+		DataDir: func(id string) string {
+			if a.addonHostDataDir != nil {
+				if d := a.addonHostDataDir(id); d != "" {
+					return d
+				}
+			}
+			return filepath.Join(root, id)
+		},
 		// The chats service is built after the broker: it is looked up at
 		// each call. A chat's call gets the chat's access, so a chat whose
 		// agent has a folder reaches only that folder through an add-on;

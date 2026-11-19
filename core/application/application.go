@@ -142,6 +142,10 @@ type Application struct {
 	addonsProbe        addonsProbeState
 	modelsProbe        modelsProbeState
 
+	// addonHostDataDir gives the data directory of an add-on that is not
+	// under addonDataRoot (an add-on in WSL 2); nil or "" means the default.
+	addonHostDataDir func(id string) string
+
 	// libraryStore is the library sources file when no add-on owner runs here.
 	libraryStore   *catalog.Sources
 	libraryStoreMu sync.Mutex
@@ -1150,10 +1154,11 @@ func (a *Application) startAddons() error {
 		a.writeModelsProbe()
 		a.addonHostOps = a.newAddonHostOps(m, limits)
 		a.addonDataRoot = filepath.Join(c.Root, "data")
-		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
+		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps, WSL: addonWSL(c.WSLDistro)})
 		if err != nil {
 			return err
 		}
+		a.addonHostDataDir = supervisor.HostDataDir
 		if err = m.AttachRuntime(a.applicationConfig.Context, supervisor); err != nil {
 			_ = supervisor.Close(context.Background())
 			return err

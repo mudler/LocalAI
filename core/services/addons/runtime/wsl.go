@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/addons/wsl"
 )
 
 // WSL prepares the launch of an add-on whose manifest has execution "wsl2":
@@ -23,21 +24,15 @@ type WSL interface {
 	Prepare(ctx context.Context, pkg packages.PackageReceipt) (WSLLaunch, error)
 }
 
-// WSLLaunch is how to start one add-on in WSL 2.
-type WSLLaunch struct {
-	// Path and Args start the executable in the distribution, with the
-	// single argument --localai-addon-v1 (wsl.exe and its arguments).
-	Path string
-	Args []string
-	// Env is added to the fixed environment of Path. It must list the
-	// variables that cross into WSL (WSLENV), the channel mode among them.
-	Env []string
-	// DataDir is the private data directory of the add-on as the add-on sees
-	// it, and HostDataDir the same directory as this host sees it. The host
-	// operations that write files for the add-on use HostDataDir. Both are
-	// empty when the supervisor has no data root.
-	DataDir, HostDataDir string
-}
+// WSLLaunch is how to start one add-on in WSL 2: Path and Args start the
+// executable with the single argument --localai-addon-v1 (wsl.exe and its
+// arguments), Env is added to the fixed environment of Path and lists the
+// variables that cross into WSL (WSLENV), the channel mode among them.
+// DataDir is the private data directory as the add-on sees it, HostDataDir
+// the same directory as this host sees it; the host operations that write
+// files for the add-on use HostDataDir. Both are empty when the supervisor
+// has no data root. wsl.Launcher prepares it on Windows.
+type WSLLaunch = wsl.Launch
 
 // ErrNoWSL is the refusal of a package with execution "wsl2" on a host that
 // has no WSL support configured. It is an ErrRuntime.

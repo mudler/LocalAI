@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/addons/wsl"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -204,3 +206,42 @@ var _ = Describe("A package with execution wsl2", func() {
 })
 
 func wslSpecMode(s *Supervisor) { inWSL(s) }
+
+var _ = Describe("The WSL launcher with the supervisor (through a wsl.exe stand-in)", func() {
+	It("checks WSL, copies the package into the distribution, runs it there and gives it its data directory there", func() {
+		home := realTempDir()
+		shim := newShimWSL(func() string { return "" }).shim
+		run := func(ctx context.Context, exe string, args ...string) ([]byte, error) {
+			switch args[0] {
+			case "--status":
+				return nil, nil
+			case "--list":
+				return []byte("  NAME STATE VERSION\n* Test Running 2\n"), nil
+			}
+			if len(args) > 3 && args[3] == "/bin/sh" {
+				return []byte(home), nil
+			}
+			return exec.CommandContext(ctx, exe, args...).CombinedOutput()
+		}
+		launcher := wsl.New(wsl.Options{Exe: shim, Run: run, Env: []string{}, HostPath: func(_, p string) string { return p }})
+		l := contract.DefaultLimits()
+		l.ReadTimeout = 300 * time.Millisecond
+		l.ShutdownTimeout = 100 * time.Millisecond
+		s, e := NewSupervisor(Config{StateRoot: realTempDir(), DataRoot: filepath.Join(realTempDir(), "data"), Limits: l, ReadyTimeout: startBudget, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
+		s.wslSpec = launcher
+		p := fixture("graceful", service)
+		i, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		copied := filepath.Join(home, wsl.Base, "packages", "sample", "fixture")
+		Expect(filepath.Join(copied, "fixture")).To(BeARegularFile())
+		data := filepath.Join(home, wsl.Base, "data", "sample")
+		Eventually(filepath.Join(data, "fixture.probe"), 2*time.Second).Should(BeARegularFile())
+		Expect(s.HostDataDir("sample")).To(Equal(data))
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		// The add-on ran in its copy: that is where it closed.
+		Expect(filepath.Join(copied, "fixture.closed")).To(BeARegularFile())
+		Expect(filepath.Join(p.Directory, "fixture.closed")).NotTo(BeAnExistingFile())
+	})
+})
