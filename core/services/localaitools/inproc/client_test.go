@@ -257,6 +257,7 @@ var _ = Describe("inproc.Client model scheduling", func() {
 		Expect(created.NodeSelector).To(Equal(`{"gpu":"nvidia"}`))
 		Expect(created.RoutePolicy).To(Equal("prefix_cache"))
 		Expect(created.MinPrefixMatch).To(Equal(0.4))
+		Expect(created.UpgradeStrategy).To(Equal(nodes.UpgradeStrategyStopAndStart), "no strategy reads as the default")
 		Expect(schedulingJSONKeys(created)).ToNot(Or(
 			HaveKey("id"),
 			HaveKey("unsatisfiable_until"),
@@ -270,12 +271,21 @@ var _ = Describe("inproc.Client model scheduling", func() {
 		Expect(listed).To(HaveLen(1))
 		Expect(listed[0].ModelName).To(Equal("qwen"))
 
+		canary, err := c.SetScheduling(ctx, localaitools.SetSchedulingRequest{
+			ModelName: "qwen", MinReplicas: 1, MaxReplicas: 2, UpgradeStrategy: stringp(nodes.UpgradeStrategyCanary),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(canary.UpgradeStrategy).To(Equal(nodes.UpgradeStrategyCanary))
+		_, err = c.SetScheduling(ctx, localaitools.SetSchedulingRequest{ModelName: "qwen", UpgradeStrategy: stringp("rolling")})
+		Expect(err).To(MatchError(ContainSubstring("upgrade_strategy")))
+
 		updated, err := c.SetScheduling(ctx, localaitools.SetSchedulingRequest{
 			ModelName:   "qwen",
 			MinReplicas: 2,
 			MaxReplicas: 3,
 		})
 		Expect(err).ToNot(HaveOccurred())
+		Expect(updated.UpgradeStrategy).To(Equal(nodes.UpgradeStrategyCanary), "an omitted strategy is kept")
 		Expect(updated.MinReplicas).To(Equal(2))
 		Expect(updated.MaxReplicas).To(Equal(3))
 		Expect(updated.RoutePolicy).To(Equal("prefix_cache"))

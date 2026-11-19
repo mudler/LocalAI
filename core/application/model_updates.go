@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/updatenotify"
 	"github.com/mudler/xlog"
 )
@@ -49,6 +50,19 @@ func (a *Application) startModelUpdates() {
 		Instance:    options.Distributed.InstanceID,
 		Notifier:    modelUpgradeNotifier{em: a.updateEmitter()},
 	}
+	if ds := a.distributed; ds != nil && ds.Registry != nil {
+		upgrader.Runtime = newClusterRuntime(&modelRuntime{app: a}, ds.Registry, a.ModelLoader())
+		upgrader.StrategyNote = clusterStrategyNote(ds.Registry)
+		// With one shared models directory the workers load the frontend's
+		// files from it: there is nothing to move.
+		if !options.Distributed.SharedModels && ds.Nats != nil {
+			files := &nodes.UpgradeFiles{Nodes: ds.Registry, Sender: nodes.NATSModelFilePrefetcher{Bus: ds.Nats}}
+			if ds.FileMgr != nil && ds.FileMgr.IsConfigured() {
+				files.Objects = ds.FileMgr
+			}
+			upgrader.Workers = upgradeWorkers{files: files}
+		}
+	}
 	if gs := a.GalleryService(); gs != nil {
 		upgrader.BackendAvailable = func(name string) (bool, error) {
 			bm := gs.BackendManager()
@@ -58,6 +72,13 @@ func (a *Application) startModelUpdates() {
 			return bm.BackendAvailable(name)
 		}
 		gs.SetModelUpgrader(modelUpgraderOp{u: upgrader})
+	}
+	// The service is built below; it exists by the time a person changes a
+	// hold or an upgrade ends.
+	upgrader.Changed = func(string) {
+		if svc := a.modelUpdates; svc != nil {
+			svc.Notify(options.Context)
+		}
 	}
 	a.modelUpgrader = upgrader
 	policy := journalPolicy(options)

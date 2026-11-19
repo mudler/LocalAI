@@ -120,6 +120,31 @@ var _ = Describe("The old version and the hold", func() {
 		Expect(sidecar().Hold).To(BeFalse())
 	})
 
+	It("refreshes the digest notification at once when the hold changes", func() {
+		n := &recordingNotifier{}
+		svc := f.service(modelupdates.Options{Notifier: n})
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		svc.CheckNow(ctx)
+		Expect(n.calls[len(n.calls)-1]).To(HaveLen(1))
+		checks := n.count()
+
+		var changed []string
+		u.Changed = func(name string) {
+			changed = append(changed, name)
+			svc.Notify(ctx)
+		}
+		Expect(u.SetHold("tiny", true)).To(Succeed())
+		Expect(changed).To(Equal([]string{"tiny"}))
+		Expect(n.count()).To(Equal(checks+1), "no gallery check, only the digest")
+		Expect(n.calls[len(n.calls)-1]).To(BeEmpty(), "a held model needs nobody")
+
+		Expect(u.SetHold("tiny", true)).To(Succeed())
+		Expect(changed).To(HaveLen(1), "no change, no refresh")
+
+		Expect(u.SetHold("tiny", false)).To(Succeed())
+		Expect(n.calls[len(n.calls)-1]).To(HaveLen(1))
+	})
+
 	It("refuses a hold on a model without an origin, and while an upgrade runs", func() {
 		Expect(os.WriteFile(filepath.Join(f.dir, "old.yaml"), []byte("name: old\n"), 0600)).To(Succeed())
 		Expect(os.WriteFile(gallery.SidecarPath(f.dir, "old"), []byte("name: old\n"), 0600)).To(Succeed())

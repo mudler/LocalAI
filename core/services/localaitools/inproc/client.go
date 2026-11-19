@@ -776,11 +776,21 @@ func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetScheduli
 	absThr := 0
 	relThr := 0.0
 	minMatch := 0.0
+	var scorerWeights map[string]float64
+	upgradeStrategy := ""
 	if existing != nil {
 		routePolicy = existing.RoutePolicy
 		absThr = existing.BalanceAbsThreshold
 		relThr = existing.BalanceRelThreshold
 		minMatch = existing.MinPrefixMatch
+		scorerWeights = existing.ScorerWeights
+		upgradeStrategy = existing.UpgradeStrategy
+	}
+	if req.UpgradeStrategy != nil {
+		upgradeStrategy = *req.UpgradeStrategy
+	}
+	if !nodes.ValidUpgradeStrategy(upgradeStrategy) {
+		return nil, fmt.Errorf("upgrade_strategy must be %q or %q", nodes.UpgradeStrategyStopAndStart, nodes.UpgradeStrategyCanary)
 	}
 	if req.RoutePolicy != nil {
 		routePolicy = *req.RoutePolicy
@@ -837,6 +847,8 @@ func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetScheduli
 		BalanceAbsThreshold: absThr,
 		BalanceRelThreshold: relThr,
 		MinPrefixMatch:      minMatch,
+		ScorerWeights:       scorerWeights,
+		UpgradeStrategy:     upgradeStrategy,
 	}
 	if err := c.NodeRegistry.SetModelScheduling(ctx, config); err != nil {
 		return nil, err

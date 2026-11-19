@@ -25052,6 +25052,10 @@ const docTemplate = `{
                 "fromDigest": {
                     "type": "string"
                 },
+                "note": {
+                    "description": "Note says how the upgrade ran when that differs from what was asked\n(a canary strategy runs as stop and start until canary is available).",
+                    "type": "string"
+                },
                 "opId": {
                     "type": "string"
                 },

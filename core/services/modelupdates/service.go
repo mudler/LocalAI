@@ -216,13 +216,22 @@ func (s *Service) runCheck(ctx context.Context, fresh bool) error {
 	if err := writeCheckFile(s.modelsPath(), next); err != nil {
 		return fmt.Errorf("write %s: %w", CheckFileName, err)
 	}
-	if s.opts.Notifier != nil {
-		snap := s.Snapshot(ctx)
-		if err := s.opts.Notifier.ModelUpdates(ctx, NeedingPerson(snap.Items)); err != nil {
-			xlog.Warn("Could not write the model update notification", "error", err)
-		}
-	}
+	s.Notify(ctx)
 	return nil
+}
+
+// Notify writes the digest notification from the last check and the gallery
+// files as they are now, without reading the galleries. A hold or the end of
+// an upgrade changes which models need a person; this shows it at once. The
+// digest is set, not added, so a repeat writes the same notification.
+func (s *Service) Notify(ctx context.Context) {
+	if s.opts.Notifier == nil {
+		return
+	}
+	snap := s.Snapshot(ctx)
+	if err := s.opts.Notifier.ModelUpdates(ctx, NeedingPerson(snap.Items)); err != nil {
+		xlog.Warn("Could not write the model update notification", "error", err)
+	}
 }
 
 func (s *Service) checkModel(ctx context.Context, models []*gallery.GalleryModel, name string, sc *gallery.ModelConfig) checkResult {
@@ -458,6 +467,7 @@ func upgradeStatus(j *gallery.Journal) *UpgradeStatus {
 		Error: j.Error, Attempts: j.Attempts, ConfigOnly: j.ConfigOnly,
 		RetainedFiles: j.RetainedFiles, UpdatedAt: j.UpdatedAt, Running: !j.Terminal(),
 		RemovableOld: j.Phase == gallery.PhaseConfirmed && len(j.RetainedFiles) > 0,
+		Note:         j.Note,
 	}
 }
 

@@ -22,6 +22,7 @@ const (
 	verbModelUnload    controlVerb = "model.unload"
 	verbModelStop      controlVerb = "model.stop"
 	verbModelDelete    controlVerb = "model.delete"
+	verbModelPrefetch  controlVerb = "model.prefetch"
 	verbModelOp        controlVerb = "model.op"
 	verbNodeStop       controlVerb = "node.stop"
 	verbFilesEnsure    controlVerb = "files.ensure"

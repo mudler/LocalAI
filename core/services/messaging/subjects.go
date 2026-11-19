@@ -179,6 +179,12 @@ func SubjectNodeModelUnload(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.unload"
 }
 
+// SubjectNodeModelPrefetch asks a worker node to download, place or drop the
+// files of a model upgrade (workerctl.ModelPrefetchRequest).
+func SubjectNodeModelPrefetch(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.prefetch"
+}
+
 // SubjectNodeModelDelete tells a worker node to delete model files from disk.
 // Uses NATS request-reply.
 func SubjectNodeModelDelete(nodeID string) string {

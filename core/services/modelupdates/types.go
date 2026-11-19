@@ -159,4 +159,7 @@ type UpgradeStatus struct {
 	UpdatedAt     time.Time `json:"updatedAt,omitzero"`
 	Running       bool      `json:"running,omitempty"`
 	RemovableOld  bool      `json:"removableOld,omitempty"`
+	// Note says how the upgrade ran when that differs from what was asked
+	// (a canary strategy runs as stop and start until canary is available).
+	Note string `json:"note,omitempty"`
 }

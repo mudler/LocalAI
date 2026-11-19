@@ -1302,6 +1302,40 @@ All fields are optional and composable:
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
 
+### Upgrade strategy
+
+`upgrade_strategy` says how an upgrade of a gallery model (`POST /api/models/upgrade/{name}`)
+replaces the replicas that run it:
+
+| Value | What an upgrade does |
+|-------|----------------------|
+| `stop_and_start` (default) | Stops every replica on every node, switches the files and the config, then loads one replica of the new version as the load check. When the check fails, the old files and config come back and the old version loads again. The reconciler brings the model back to `min_replicas` afterwards. |
+| `canary` | Accepted and stored, but not available yet. The upgrade stops and starts the model, and the upgrade's status and `note` in `GET /api/models/updates` say so. |
+
+```bash
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "llama3", "upgrade_strategy": "stop_and_start"}'
+```
+
+An update that omits `upgrade_strategy` keeps the stored value. A model with no
+rule upgrades with `stop_and_start`. A standalone server has no rules and always
+stops and starts the model. The model is unavailable from the stop until the
+new version has loaded.
+
+**Each worker downloads its own files.** While the frontend downloads the new
+files of an upgrade, every worker that runs the model downloads them too
+(`model.prefetch`, a request on the node's control subjects) and checks each
+sha256. After the frontend switches its files, each worker puts its copy in
+place, and every other worker drops its old copy of the changed files, so its
+next load gets the new ones. With object storage, the frontend also deletes
+the changed keys, so the next load uploads the new file. A worker that cannot
+download a file (a wrong checksum, no route to the source, or an older worker
+that does not know the request) gets it from the frontend at its next load, as
+before; this never fails the upgrade. With `LOCALAI_DISTRIBUTED_SHARED_MODELS`
+the workers read the shared models directory and nothing is sent. A first
+install still sends the files from the frontend.
+
 ### Scheduling a model alias
 
 `model_name` accepts a [model alias]({{% relref "/models/model-aliases" %}}) as well as a
@@ -1359,7 +1393,7 @@ and overwrites the listed models (models not listed are left untouched).
 | `LOCALAI_MODEL_SCHEDULING_CONFIG` | Path to a YAML file with the same list |
 
 Entry fields: `model_name` (required), `node_selector` (a label map; **omit it to
-match every node**), and then **one of two replica modes** (they are mutually
+match every node**), the optional [`upgrade_strategy`](#upgrade-strategy), and then **one of two replica modes** (they are mutually
 exclusive):
 
 - **`replicas: all`** - static spread: place exactly **one replica on every

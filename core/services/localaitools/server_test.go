@@ -303,6 +303,7 @@ var _ = Describe("Argument validation", func() {
 		{"edit_model_config rejects empty patch", ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{}}, "patch is required"},
 		{"set_scheduling requires model_name", ToolSetScheduling, SetSchedulingRequest{}, "model_name is required"},
 		{"set_scheduling rejects invalid replica range", ToolSetScheduling, SetSchedulingRequest{ModelName: "qwen", MinReplicas: 3, MaxReplicas: 1}, "min_replicas must be <= max_replicas"},
+		{"set_scheduling rejects an unknown upgrade strategy", ToolSetScheduling, SetSchedulingRequest{ModelName: "qwen", UpgradeStrategy: new("rolling")}, "upgrade_strategy must be"},
 		{"delete_scheduling requires model_name", ToolDeleteScheduling, DeleteSchedulingRequest{}, "model_name is required"},
 		{"create_shared_folder requires a name", ToolCreateSharedFolder, CreateSharedFolderRequest{Name: " "}, "name is required"},
 		{"set_shared_folder_member rejects an unknown mode", ToolSetSharedFolderMember, SetSharedFolderMemberRequest{ID: 3, Member: "marta", Mode: "owner"}, "mode must be read or write"},

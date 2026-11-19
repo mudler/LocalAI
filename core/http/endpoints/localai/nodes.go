@@ -1155,6 +1155,11 @@ type SetSchedulingRequest struct {
 	BalanceRelThreshold *float64            `json:"balance_rel_threshold,omitempty"`
 	MinPrefixMatch      *float64            `json:"min_prefix_match,omitempty"`
 	ScorerWeights       *map[string]float64 `json:"scorer_weights,omitempty"`
+	// UpgradeStrategy is how an upgrade replaces the running replicas:
+	// "stop_and_start" (the default) or "canary". Canary is stored but not
+	// available yet, so an upgrade still stops and starts. Omitted on an
+	// update, the stored value is kept.
+	UpgradeStrategy *string `json:"upgrade_strategy,omitempty"`
 }
 
 // validateSchedulingRequest enforces the invariants of a scheduling config.
@@ -1186,6 +1191,9 @@ func validateSchedulingRequest(req SetSchedulingRequest, routePolicy string, abs
 		if err := prefixcache.ValidateScorerWeights(*req.ScorerWeights); err != nil {
 			return err
 		}
+	}
+	if req.UpgradeStrategy != nil && !nodes.ValidUpgradeStrategy(*req.UpgradeStrategy) {
+		return fmt.Errorf("upgrade_strategy must be %q or %q", nodes.UpgradeStrategyStopAndStart, nodes.UpgradeStrategyCanary)
 	}
 	return nil
 }
@@ -1224,12 +1232,17 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		relThr := 0.0
 		minMatch := 0.0
 		var scorerWeights map[string]float64
+		upgradeStrategy := ""
 		if existing != nil {
 			routePolicy = existing.RoutePolicy
 			absThr = existing.BalanceAbsThreshold
 			relThr = existing.BalanceRelThreshold
 			minMatch = existing.MinPrefixMatch
 			scorerWeights = existing.ScorerWeights
+			upgradeStrategy = existing.UpgradeStrategy
+		}
+		if req.UpgradeStrategy != nil {
+			upgradeStrategy = *req.UpgradeStrategy
 		}
 		if req.RoutePolicy != nil {
 			routePolicy = *req.RoutePolicy
@@ -1287,6 +1300,7 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 			BalanceRelThreshold: relThr,
 			MinPrefixMatch:      minMatch,
 			ScorerWeights:       scorerWeights,
+			UpgradeStrategy:     upgradeStrategy,
 		}
 		if err := registry.SetModelScheduling(ctx, config); err != nil {
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to set scheduling config"))

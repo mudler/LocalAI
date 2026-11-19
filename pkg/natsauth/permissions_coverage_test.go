@@ -64,6 +64,7 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 			messaging.SubjectNodeBackendList(nodeID),
 			messaging.SubjectNodeModelUnload(nodeID),
 			messaging.SubjectNodeModelDelete(nodeID),
+			messaging.SubjectNodeModelPrefetch(nodeID),
 			messaging.SubjectNodeStop(nodeID),
 			messaging.SubjectNodeFilesEnsure(nodeID),
 			messaging.SubjectNodeFilesStage(nodeID),

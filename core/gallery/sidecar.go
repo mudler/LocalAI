@@ -163,6 +163,9 @@ type Journal struct {
 	RetainedFiles []string `yaml:"retained_files,omitempty" json:"retained_files,omitempty"`
 	Error         string   `yaml:"error,omitempty" json:"error,omitempty"`
 	Attempts      int      `yaml:"attempts,omitempty" json:"attempts,omitempty"`
+	// Note is what a person should know about how the change ran, for
+	// example that the strategy asked for is not available yet.
+	Note string `yaml:"note,omitempty" json:"note,omitempty"`
 }
 
 // Terminal reports whether the journal is in a phase no process acts on.

@@ -30,6 +30,15 @@ var _ = Describe("ParseSchedulingSeed", func() {
 		Expect(configs[0].ScorerWeights).To(Equal(map[string]float64{"prefix_cache": 0.4}))
 	})
 
+	It("parses the upgrade strategy and rejects an unknown one", func() {
+		configs, err := ParseSchedulingSeed(`[{"model_name":"m","upgrade_strategy":"canary"}]`, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(configs[0].UpgradeStrategy).To(Equal(UpgradeStrategyCanary))
+
+		_, err = ParseSchedulingSeed(`[{"model_name":"m","upgrade_strategy":"rolling"}]`, "")
+		Expect(err).To(MatchError(ContainSubstring("upgrade_strategy")))
+	})
+
 	It("maps replicas: all to SpreadAll", func() {
 		configs, err := ParseSchedulingSeed(`[{"model_name":"m","replicas":"all"}]`, "")
 		Expect(err).ToNot(HaveOccurred())

@@ -195,6 +195,9 @@ type ModelSchedulingConfig struct {
 	// Shadowed reports that another rule already governs TargetModel, leaving
 	// this one with no effect.
 	Shadowed bool `json:"shadowed,omitempty"`
+	// UpgradeStrategy is how an upgrade replaces the running replicas:
+	// stop_and_start (the default) or canary (stored, not available yet).
+	UpgradeStrategy string `json:"upgrade_strategy,omitempty"`
 }
 
 // SetSchedulingRequest is the input for set_scheduling. It mirrors
@@ -210,6 +213,7 @@ type SetSchedulingRequest struct {
 	BalanceAbsThreshold *int              `json:"balance_abs_threshold,omitempty"    jsonschema:"Optional absolute imbalance threshold override. Omit to preserve the existing value on updates."`
 	BalanceRelThreshold *float64          `json:"balance_rel_threshold,omitempty"    jsonschema:"Optional relative imbalance threshold override. Omit to preserve the existing value on updates."`
 	MinPrefixMatch      *float64          `json:"min_prefix_match,omitempty"         jsonschema:"Optional minimum prefix match threshold override. Omit to preserve the existing value on updates."`
+	UpgradeStrategy     *string           `json:"upgrade_strategy,omitempty"         jsonschema:"How a model upgrade replaces running replicas: stop_and_start (default) or canary (stored, not available yet: upgrades stop and start). Omit to preserve the existing value."`
 }
 
 // DeleteSchedulingRequest identifies the model scheduling rule to remove.

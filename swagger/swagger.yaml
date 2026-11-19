@@ -4134,6 +4134,11 @@ definitions:
         type: string
       fromDigest:
         type: string
+      note:
+        description: |-
+          Note says how the upgrade ran when that differs from what was asked
+          (a canary strategy runs as stop and start until canary is available).
+        type: string
       opId:
         type: string
       phase:

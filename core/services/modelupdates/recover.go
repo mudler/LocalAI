@@ -50,6 +50,7 @@ func (u *Upgrader) recoverOne(ctx context.Context, name string, sc *gallery.Mode
 	xlog.Warn("Ending an interrupted model upgrade", "model", name, "phase", phase)
 	if !touchesFiles(phase) {
 		u.removeStaged(r)
+		u.discardOnWorkers(ctx, r, false)
 		return r.advance(EvInterrupted, func(j *gallery.Journal) {
 			j.Error = cause.Error()
 			j.Previous, j.To = nil, nil

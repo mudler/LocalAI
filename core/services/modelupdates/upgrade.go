@@ -38,6 +38,42 @@ type Runtime interface {
 	Load(ctx context.Context, name string) error
 }
 
+// WorkerFile is one file of an upgrade that the workers of a cluster download
+// for themselves: its path relative to the models directory, where it comes
+// from and its sha256. A file with no URI is one the new version no longer
+// has; the workers drop their copy.
+type WorkerFile struct {
+	Path   string
+	URI    string
+	SHA256 string
+}
+
+// Workers has each worker of a cluster download and verify its own copy of
+// the files of an upgrade, so a load does not send the files from the
+// frontend. The frontend still downloads its copy: it is the source of a load
+// on a worker that has none. Nil (standalone, or a cluster whose nodes share
+// one models directory) skips all three steps.
+type Workers interface {
+	// Stage asks the workers that run the model to download each file beside
+	// its place and verify it. It runs while the frontend downloads. A worker
+	// that cannot (a failed download, a wrong checksum, an older worker that
+	// does not know the request) is logged and gets the file from the
+	// frontend at its next load, so Stage never fails the upgrade.
+	Stage(ctx context.Context, name string, files []WorkerFile)
+	// Commit runs after the frontend switched its files and before the load
+	// check. Every worker puts the files it staged in place and drops its
+	// copy of the others, so its next load gets the new version. An error
+	// rolls the upgrade back.
+	Commit(ctx context.Context, name string, files []WorkerFile) error
+	// Discard drops the staged files. With evict it also drops the copies in
+	// place, so the next load sends the version the frontend has.
+	Discard(ctx context.Context, name string, files []WorkerFile, evict bool)
+}
+
+// CanaryNotAvailable is the note of an upgrade whose model asks for the
+// canary strategy, which a cluster does not run yet.
+const CanaryNotAvailable = "canary is not available yet; the upgrade stopped and started the model"
+
 // FS is the part of the filesystem an upgrade changes. Tests use one that
 // fails at a chosen step.
 type FS interface {
@@ -163,6 +199,16 @@ type Upgrader struct {
 	// Mutate runs fn while no edit of a model config runs in this process
 	// (config.ModelConfigLoader.WithModelConfigMutation). Nil runs fn.
 	Mutate func(fn func() error) error
+	// Workers moves the files onto the workers of a cluster. Nil skips it.
+	Workers Workers
+	// StrategyNote returns what a person should know about how the upgrade
+	// of the model replaces its running replicas, or "" (stop and start, as
+	// asked). Nil means stop and start.
+	StrategyNote func(ctx context.Context, name string) string
+	// Changed runs after a change that can alter which models need a person
+	// (a hold, the end of an upgrade), so the digest notification follows at
+	// once instead of at the next check. Nil does nothing.
+	Changed func(name string)
 	// Instance names this frontend in the journal.
 	Instance string
 	Notifier UpgradeNotifier
@@ -254,7 +300,11 @@ func (r *upgradeRun) advance(ev Event, change func(j *gallery.Journal)) error {
 	if err := gallery.WriteSidecar(r.u.modelsPath(), r.name, r.sc); err != nil {
 		return fmt.Errorf("write the upgrade journal: %w", err)
 	}
-	r.report(Progress{Phase: next, Message: phaseMessage(next)})
+	msg := phaseMessage(next)
+	if note := r.j().Note; note != "" && !r.j().Terminal() {
+		msg += " (" + note + ")"
+	}
+	r.report(Progress{Phase: next, Message: msg})
 	return nil
 }
 
@@ -455,6 +505,7 @@ func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 
 	err = u.drive(ctx, run, plan.Model.Backend, finalYAML)
 	u.notify(ctx, run, err)
+	u.changed(name)
 	return err
 }
 
@@ -546,17 +597,23 @@ func (u *Upgrader) path(rel string) string { return filepath.Join(u.modelsPath()
 func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, finalYAML []byte) error {
 	// preflight
 	if err := u.preflight(ctx, r, backend); err != nil {
-		return u.failBeforeCommit(r, err)
+		return u.failBeforeCommit(ctx, r, err)
 	}
 	if err := r.advance(EvOK, nil); err != nil { // -> staging
-		return u.failBeforeCommit(r, err)
+		return u.failBeforeCommit(ctx, r, err)
 	}
 	if err := u.stage(ctx, r); err != nil {
-		return u.failBeforeCommit(r, err)
+		return u.failBeforeCommit(ctx, r, err)
 	}
 	wasLoaded := u.Runtime != nil && u.Runtime.IsLoaded(r.name)
-	if err := r.advance(EvOK, func(j *gallery.Journal) { j.WasLoaded = wasLoaded }); err != nil { // -> unloading
-		return u.failBeforeCommit(r, err)
+	note := ""
+	if u.StrategyNote != nil {
+		if note = u.StrategyNote(ctx, r.name); note != "" {
+			xlog.Info("Model upgrade strategy", "model", r.name, "note", note)
+		}
+	}
+	if err := r.advance(EvOK, func(j *gallery.Journal) { j.WasLoaded, j.Note = wasLoaded, note }); err != nil { // -> unloading
+		return u.failBeforeCommit(ctx, r, err)
 	}
 	if r.j().WasLoaded {
 		if err := u.Runtime.Unload(ctx, r.name); err != nil {
@@ -568,6 +625,13 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 	}
 	if err := u.mutate(func() error { return u.commit(r, finalYAML) }); err != nil {
 		return u.rollback(ctx, r, err)
+	}
+	if u.Workers != nil {
+		if files := workerCommitList(r.j()); len(files) > 0 {
+			if err := u.Workers.Commit(ctx, r.name, files); err != nil {
+				return u.rollback(ctx, r, fmt.Errorf("place the new files on the workers: %w", err))
+			}
+		}
 	}
 	if err := r.advance(EvOK, func(j *gallery.Journal) { // -> loading
 		r.next.Upgrade = j
@@ -695,9 +759,57 @@ func (u *Upgrader) stage(ctx context.Context, r *upgradeRun) error {
 			return downloader.DownloadFilesWithContext(ctx, tasks, status)
 		}
 	}
-	return download(ctx, tasks, func(file, current, total string, percent float64) {
+	// The workers download their own copies while the frontend downloads
+	// its own: the frontend copy is the source of a load on a worker that
+	// could not.
+	var workers sync.WaitGroup
+	if u.Workers != nil {
+		if files := workerStageList(r.j()); len(files) > 0 {
+			workers.Go(func() { u.Workers.Stage(ctx, r.name, files) })
+		}
+	}
+	err := download(ctx, tasks, func(file, current, total string, percent float64) {
 		r.report(Progress{Phase: gallery.PhaseStaging, Message: phaseMessage(gallery.PhaseStaging), FileName: file, Current: current, Total: total, Percent: percent})
 	})
+	workers.Wait()
+	return err
+}
+
+// workerStageList is what the workers download: the new files that come
+// from a URI. Templates stay on the frontend, which renders them.
+func workerStageList(j *gallery.Journal) []WorkerFile {
+	var out []WorkerFile
+	for _, f := range j.Files {
+		if f.Next != "" && f.URI != "" && f.SHA256 != "" {
+			out = append(out, WorkerFile{Path: f.Path, URI: f.URI, SHA256: f.SHA256})
+		}
+	}
+	return out
+}
+
+// workerCommitList is every file whose copy on a worker the upgrade changes:
+// the downloaded files and the files the new version no longer has.
+func workerCommitList(j *gallery.Journal) []WorkerFile {
+	var out []WorkerFile
+	for _, f := range j.Files {
+		switch {
+		case f.Next != "" && f.URI != "":
+			out = append(out, WorkerFile{Path: f.Path, URI: f.URI, SHA256: f.SHA256})
+		case f.Retire:
+			out = append(out, WorkerFile{Path: f.Path})
+		}
+	}
+	return out
+}
+
+// discardOnWorkers drops what the upgrade put on the workers.
+func (u *Upgrader) discardOnWorkers(ctx context.Context, r *upgradeRun, evict bool) {
+	if u.Workers == nil || r.j() == nil {
+		return
+	}
+	if files := workerCommitList(r.j()); len(files) > 0 {
+		u.Workers.Discard(ctx, r.name, files, evict)
+	}
 }
 
 // commit swaps the files and writes the new config. Every step can run again
@@ -730,8 +842,9 @@ func (u *Upgrader) commit(r *upgradeRun, finalYAML []byte) error {
 
 // failBeforeCommit ends an upgrade that changed nothing: it removes the
 // staged files and records the failure.
-func (u *Upgrader) failBeforeCommit(r *upgradeRun, cause error) error {
+func (u *Upgrader) failBeforeCommit(ctx context.Context, r *upgradeRun, cause error) error {
 	u.removeStaged(r)
+	u.discardOnWorkers(context.WithoutCancel(ctx), r, false)
 	if err := r.advance(EvFailed, func(j *gallery.Journal) {
 		j.Error = cause.Error()
 		j.Previous, j.To = nil, nil
@@ -823,6 +936,9 @@ func (u *Upgrader) restore(ctx context.Context, r *upgradeRun) error {
 		return err
 	}
 	u.removeStaged(r)
+	// The workers may hold the new files in place: drop them, so the load of
+	// the old version below sends the old ones.
+	u.discardOnWorkers(ctx, r, true)
 	if prev := j.Previous; prev != nil && prev.HadSidecar {
 		data, err := base64.StdEncoding.DecodeString(prev.Sidecar)
 		var old gallery.ModelConfig

@@ -111,7 +111,18 @@ func (u *Upgrader) SetHold(name string, hold bool) error {
 		return nil
 	}
 	sc.Hold = hold
-	return gallery.WriteSidecar(u.modelsPath(), name, sc)
+	if err := gallery.WriteSidecar(u.modelsPath(), name, sc); err != nil {
+		return err
+	}
+	u.changed(name)
+	return nil
+}
+
+// changed tells Changed that what the model needs from a person may differ.
+func (u *Upgrader) changed(name string) {
+	if u.Changed != nil {
+		u.Changed(name)
+	}
 }
 
 // readUpgradable reads the gallery file of an installed model with a
