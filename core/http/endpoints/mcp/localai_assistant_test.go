@@ -18,7 +18,9 @@ import (
 
 // stubClient is the minimum LocalAIClient impl needed to exercise the holder.
 // It returns deterministic, non-zero values so we can assert tool dispatch.
-type stubClient struct{}
+// The embedded interface covers the methods these specs never call (a call
+// to one panics), so a new client method does not break the build here.
+type stubClient struct{ localaitools.LocalAIClient }
 
 func (stubClient) GallerySearch(_ context.Context, _ localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
 	return []gallery.Metadata{{Name: "stub", Gallery: config.Gallery{Name: "stub-gallery"}}}, nil
