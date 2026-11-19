@@ -183,13 +183,21 @@ func (e *ModelLoadsBlockedError) Error() string {
 // files: a load in that window would start the old version, and the load
 // check of the upgrade would then find it running. It does not stop a model
 // that runs; the caller does.
+//
+// A load that passed the check before the flag was set still runs and would
+// register the old version after the caller stopped it. BlockLoads therefore
+// waits for the loads in flight to end: every load holds the shared
+// operation lock of its model, and taking and releasing the exclusive lock
+// returns only when they are gone.
 func (ml *ModelLoader) BlockLoads(modelID string) {
 	ml.mu.Lock()
-	defer ml.mu.Unlock()
 	if ml.blockedLoads == nil {
 		ml.blockedLoads = map[string]bool{}
 	}
 	ml.blockedLoads[modelID] = true
+	ml.mu.Unlock()
+
+	ml.operations.acquire(modelID, true)()
 }
 
 // UnblockLoads ends BlockLoads. It does nothing for a model that is not

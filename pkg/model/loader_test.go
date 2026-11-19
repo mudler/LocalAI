@@ -564,6 +564,40 @@ var _ = Describe("ModelLoader", func() {
 			Expect(atomic.LoadInt32(&loads)).To(Equal(int32(2)))
 		})
 
+		It("waits for a load in flight, so the stop that follows sees its model", func() {
+			started := make(chan struct{})
+			release := make(chan struct{})
+			loaded := make(chan error, 1)
+			go func() {
+				_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+					close(started)
+					<-release
+					return model.NewModel(modelID, modelName, nil), nil
+				})
+				loaded <- err
+			}()
+			Eventually(started).Should(BeClosed())
+
+			blockReturned := make(chan struct{})
+			go func() {
+				modelLoader.BlockLoads("upgrading")
+				close(blockReturned)
+			}()
+			Consistently(blockReturned, 100*time.Millisecond).ShouldNot(BeClosed())
+
+			close(release)
+			Eventually(blockReturned).Should(BeClosed())
+			Expect(<-loaded).ToNot(HaveOccurred())
+			By("having the model registered when BlockLoads returns")
+			Expect(modelLoader.ListLoadedModels()).To(HaveLen(1))
+
+			_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("must not load")
+			})
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+		})
+
 		It("refuses a blocked model in distributed mode too", func() {
 			modelLoader.SetModelRouter(func(context.Context, string, string, string, string, string, *pb.ModelOptions, bool) (*model.Model, error) {
 				return nil, errors.New("must not route")
