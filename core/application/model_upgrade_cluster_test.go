@@ -18,9 +18,12 @@ import (
 type fakeReplicas struct {
 	running map[string][]nodes.BackendNode
 	err     error
+	// ctxErr is the state of the context of the last call.
+	ctxErr error
 }
 
-func (f *fakeReplicas) FindNodesWithModel(_ context.Context, name string) ([]nodes.BackendNode, error) {
+func (f *fakeReplicas) FindNodesWithModel(ctx context.Context, name string) ([]nodes.BackendNode, error) {
+	f.ctxErr = ctx.Err()
 	return f.running[name], f.err
 }
 
@@ -97,13 +100,20 @@ var _ = Describe("the stop-and-start runtime of a cluster", func() {
 	})
 
 	It("reads a model as loaded when a worker runs it, though this frontend does not", func() {
-		Expect(rt.IsLoaded("tiny")).To(BeTrue())
-		Expect(rt.IsLoaded("other")).To(BeFalse())
+		Expect(rt.IsLoaded(ctx, "tiny")).To(BeTrue())
+		Expect(rt.IsLoaded(ctx, "other")).To(BeFalse())
+	})
+
+	It("asks the registry with the context of the caller", func() {
+		cctx, cancel := context.WithCancel(ctx)
+		cancel()
+		Expect(rt.IsLoaded(cctx, "other")).To(BeFalse())
+		Expect(replicas.ctxErr).To(MatchError(context.Canceled), "a cancelled upgrade must stop the registry call")
 	})
 
 	It("reads a model as loaded when the registry cannot answer", func() {
 		replicas.err = errors.New("database down")
-		Expect(rt.IsLoaded("other")).To(BeTrue())
+		Expect(rt.IsLoaded(ctx, "other")).To(BeTrue())
 	})
 
 	It("stops every replica and checks that none is left", func() {

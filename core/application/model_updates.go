@@ -150,7 +150,7 @@ func (m modelUpgraderOp) UpgradeModel(ctx context.Context, opID, name string, op
 // canary later) plugs in here.
 type modelRuntime struct{ app *Application }
 
-func (r *modelRuntime) IsLoaded(name string) bool {
+func (r *modelRuntime) IsLoaded(_ context.Context, name string) bool {
 	for _, m := range r.app.ModelLoader().ListLoadedModels() {
 		if m.ID == name {
 			return true

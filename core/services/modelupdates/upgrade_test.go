@@ -75,7 +75,7 @@ func newRuntime(loaded ...string) *fakeRuntime {
 	return r
 }
 
-func (r *fakeRuntime) IsLoaded(name string) bool {
+func (r *fakeRuntime) IsLoaded(_ context.Context, name string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.loaded[name]
@@ -356,7 +356,7 @@ var _ = Describe("A model upgrade", func() {
 		Expect(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(HaveOccurred())
 		Expect(g.blocked).To(BeEmpty())
 		Expect(rt.calls).To(Equal([]string{"block", "unload", "reload", "unblock", "load", "block", "reload", "unblock", "load"}))
-		Expect(rt.IsLoaded("tiny")).To(BeTrue())
+		Expect(rt.IsLoaded(ctx, "tiny")).To(BeTrue())
 	})
 
 	It("ends failed, not stuck rolling back, when the journal write fails after the download", func() {
@@ -455,7 +455,7 @@ var _ = Describe("A model upgrade", func() {
 			Expect(j.Phase).To(Equal(gallery.PhaseRolledBack))
 			Expect(j.Error).ToNot(ContainSubstring("rollback did not complete"))
 			Expect(read("tiny.gguf")).To(Equal("v1"))
-			Expect(rt.IsLoaded("tiny")).To(BeTrue(), "the old version serves again")
+			Expect(rt.IsLoaded(ctx, "tiny")).To(BeTrue(), "the old version serves again")
 		})
 	})
 
@@ -492,7 +492,7 @@ var _ = Describe("A model upgrade", func() {
 			edited()
 			Expect(read("tiny.gguf")).To(Equal("v1"))
 			Expect(journal().Phase).To(Equal(gallery.PhaseRolledBack))
-			Expect(rt.IsLoaded("tiny")).To(BeTrue(), "the old version serves again")
+			Expect(rt.IsLoaded(ctx, "tiny")).To(BeTrue(), "the old version serves again")
 		})
 
 		It("does not undo an edit made after the switch when the new version fails to load", func() {
@@ -585,7 +585,7 @@ var _ = Describe("A model upgrade", func() {
 		Expect(sc.Origin.EntryDigest).To(Equal(oldDigest))
 		Expect(sc.Files[0].SHA256).To(Equal(gallery.SHA256Hex([]byte("v1"))))
 		Expect(rt.calls).To(Equal([]string{"unload", "reload", "load", "reload", "load"}))
-		Expect(rt.IsLoaded("tiny")).To(BeTrue(), "the old version was loaded again")
+		Expect(rt.IsLoaded(ctx, "tiny")).To(BeTrue(), "the old version was loaded again")
 		Expect(leftovers()).To(BeEmpty())
 		Expect(n.results).To(HaveLen(1))
 		Expect(n.results[0].Failed).To(BeTrue())
@@ -769,7 +769,7 @@ var _ = Describe("A model upgrade", func() {
 		Expect(read("tiny.yaml")).To(Equal(oldConfig))
 		Expect(read("tiny.gguf")).To(Equal("v1"))
 		Expect(journal().Phase).To(Equal(gallery.PhaseRolledBack))
-		Expect(rt.IsLoaded("tiny")).To(BeTrue())
+		Expect(rt.IsLoaded(ctx, "tiny")).To(BeTrue())
 	})
 
 	It("ends an upgrade a restart interrupted during the download as failed, with nothing changed", func() {

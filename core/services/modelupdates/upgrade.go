@@ -27,8 +27,9 @@ import (
 // of the upgrade (stop and start today, a canary later) is a Runtime: this
 // package only says when to unload, reload and load.
 type Runtime interface {
-	// IsLoaded reports whether the model runs now.
-	IsLoaded(name string) bool
+	// IsLoaded reports whether the model runs now. A cluster runtime asks
+	// its registry, so the call stops with ctx.
+	IsLoaded(ctx context.Context, name string) bool
 	// Unload stops the model.
 	Unload(ctx context.Context, name string) error
 	// Reload makes every frontend read the model config from disk again
@@ -704,7 +705,7 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 	if err := u.stage(ctx, r); err != nil {
 		return u.failBeforeCommit(ctx, r, err)
 	}
-	wasLoaded := u.Runtime != nil && u.Runtime.IsLoaded(r.name)
+	wasLoaded := u.Runtime != nil && u.Runtime.IsLoaded(ctx, r.name)
 	note := ""
 	if u.StrategyNote != nil {
 		if note = u.StrategyNote(ctx, r.name); note != "" {
@@ -826,7 +827,7 @@ func (u *Upgrader) unblockLoads(ctx context.Context, r *upgradeRun) error {
 
 // stopIfLoaded stops every instance of the model that runs.
 func (u *Upgrader) stopIfLoaded(ctx context.Context, name string) error {
-	if !u.Runtime.IsLoaded(name) {
+	if !u.Runtime.IsLoaded(ctx, name) {
 		return nil
 	}
 	return u.Runtime.Unload(ctx, name)
@@ -1129,7 +1130,7 @@ func (u *Upgrader) restore(ctx context.Context, r *upgradeRun) error {
 			xlog.Warn("Could not stop the loads of a model during a rollback", "model", r.name, "error", err)
 		}
 		defer func() { _ = u.unblockLoads(context.WithoutCancel(ctx), r) }()
-		if u.Runtime.IsLoaded(r.name) {
+		if u.Runtime.IsLoaded(ctx, r.name) {
 			if err := u.Runtime.Unload(ctx, r.name); err != nil {
 				xlog.Warn("Could not stop the new version during a rollback", "model", r.name, "error", err)
 			}

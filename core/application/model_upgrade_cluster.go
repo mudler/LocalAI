@@ -97,15 +97,15 @@ func (r *clusterRuntime) UnblockLoads(ctx context.Context, name string) error {
 	return err
 }
 
-func (r *clusterRuntime) IsLoaded(name string) bool {
+func (r *clusterRuntime) IsLoaded(ctx context.Context, name string) bool {
 	for _, m := range r.loader.ListLoadedModels() {
 		if m.ID == name {
 			return true
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), clusterRegistryTimeout)
+	rctx, cancel := context.WithTimeout(ctx, clusterRegistryTimeout)
 	defer cancel()
-	found, err := r.replicas.FindNodesWithModel(ctx, name)
+	found, err := r.replicas.FindNodesWithModel(rctx, name)
 	if err != nil {
 		// Not knowing is not "not loaded": stopping a model that was not
 		// running costs nothing, leaving one running on the old files does.
