@@ -26,7 +26,7 @@
     },
     "remote": {
       "title": "Remote",
-      "body": "LocalAI lain memakai semua model dari instans ini."
+      "body": "LocalAI lain memakai model dari instans ini, semuanya atau yang Anda pilih."
     },
     "worker": {
       "title": "Worker",
@@ -53,8 +53,8 @@
         "body": "Undangan perangkat memungkinkan perangkat menjangkau instans ini. Pengguna tetap masuk ke antarmuka web dengan akunnya sendiri."
       },
       "remote": {
-        "title": "Semua model, tidak lebih.",
-        "body": "LocalAI lain mendapat kunci API yang dapat memakai setiap model dari instans ini, juga model yang Anda tambahkan nanti. Model yang memiliki tools terpasang tidak termasuk. Kunci itu tidak menjangkau hal lain: tidak ada pengaturan, tidak ada berkas, tidak ada bagian lain dari API."
+        "title": "Hanya model, tidak lebih.",
+        "body": "LocalAI lain mendapat kunci API untuk model yang Anda pilih di bawah: semuanya, juga model yang Anda tambahkan nanti, atau sebuah daftar. Model yang memiliki tools terpasang tidak termasuk. Kunci itu tidak menjangkau hal lain: tidak ada pengaturan, tidak ada berkas, tidak ada bagian lain dari API."
       },
       "worker": {
         "title": "Node untuk klaster ini.",
@@ -68,6 +68,24 @@
       "worker": "gpu-box-5"
     },
     "labelHint": "Ditampilkan di Perangkat dan undangan.",
+    "models": {
+      "label": "Model",
+      "all": "Semua model",
+      "specific": "Pilih model",
+      "allHint": "Kunci dapat memakai setiap model dari instans ini, juga model yang Anda tambahkan nanti.",
+      "specificHint": "Kunci hanya dapat memakai model yang Anda centang. Model yang memiliki tools terpasang tidak dapat dibagikan.",
+      "loading": "Memuat model…",
+      "loadFailed": "Model tidak dapat dimuat.",
+      "retry": "Coba lagi",
+      "empty": "Instans ini belum punya model untuk dibagikan.",
+      "search": "Cari model",
+      "noMatch": "Tidak ada model yang cocok.",
+      "selected_one": "{{count}} model dipilih",
+      "selected_other": "{{count}} model dipilih",
+      "reason": {
+        "noModels": "Pilih setidaknya satu model, atau pilih Semua model."
+      }
+    },
     "expires": "Kedaluwarsa setelah",
     "singleUseHint": "Setiap undangan hanya berlaku sekali.",
     "nothingYet": "Tidak ada yang dibuat sampai Anda menekan Buat undangan.",
@@ -119,7 +137,11 @@
       "passNone": "Tidak ada",
       "public": "Alamat publik",
       "publicYes": "Ya",
-      "publicNo": "Tidak ada (di belakang NAT)"
+      "publicNo": "Tidak ada (di belakang NAT)",
+      "models": "Model",
+      "modelsAll": "Semua model",
+      "modelsSome_one": "{{count}} model",
+      "modelsSome_other": "{{count}} model"
     },
     "admission": {
       "title": "Hanya izin masuk P2P.",
@@ -393,5 +415,10 @@
       "noModels": "Belum ada instans yang punya model. Tambahkan remote dulu di Model, Remote.",
       "save": "Simpan"
     }
+  },
+  "grant": {
+    "all": "Semua model",
+    "some_one": "{{count}} model",
+    "some_other": "{{count}} model"
   }
 }

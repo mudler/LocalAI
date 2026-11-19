@@ -26,7 +26,7 @@
     },
     "remote": {
       "title": "Remote",
-      "body": "Another LocalAI uses all the models of this instance."
+      "body": "Another LocalAI uses the models of this instance, all or the ones you choose."
     },
     "worker": {
       "title": "Worker",
@@ -53,8 +53,8 @@
         "body": "A device invite lets the device reach this instance. The person still signs in to the web UI with their own account."
       },
       "remote": {
-        "title": "All models, nothing else.",
-        "body": "The other LocalAI gets an API key that can use every model of this instance, also the models you add later. Models with tools attached are left out. The key reaches nothing else: no settings, no files, no other part of the API."
+        "title": "Models only, nothing else.",
+        "body": "The other LocalAI gets an API key for the models you choose below: all of them, also the models you add later, or a list. Models with tools attached are left out. The key reaches nothing else: no settings, no files, no other part of the API."
       },
       "worker": {
         "title": "A node for this cluster.",
@@ -68,6 +68,24 @@
       "worker": "gpu-box-5"
     },
     "labelHint": "Shown in Devices and invites.",
+    "models": {
+      "label": "Models",
+      "all": "All models",
+      "specific": "Choose models",
+      "allHint": "The key can use every model of this instance, also the models you add later.",
+      "specificHint": "The key can use only the models you tick. A model with tools attached cannot be shared.",
+      "loading": "Loading models…",
+      "loadFailed": "The models could not be loaded.",
+      "retry": "Try again",
+      "empty": "This instance has no model to share yet.",
+      "search": "Search models",
+      "noMatch": "No model matches.",
+      "selected_one": "{{count}} model chosen",
+      "selected_other": "{{count}} models chosen",
+      "reason": {
+        "noModels": "Choose at least one model, or choose All models."
+      }
+    },
     "expires": "Expires after",
     "singleUseHint": "Each invite works once.",
     "nothingYet": "Nothing is made until you press Make invite.",
@@ -119,7 +137,11 @@
       "passNone": "None",
       "public": "Public address",
       "publicYes": "Yes",
-      "publicNo": "None (behind NAT)"
+      "publicNo": "None (behind NAT)",
+      "models": "Models",
+      "modelsAll": "All models",
+      "modelsSome_one": "{{count}} model",
+      "modelsSome_other": "{{count}} models"
     },
     "admission": {
       "title": "P2P admission only.",
@@ -393,5 +415,10 @@
       "noModels": "No instance has a model yet. Add a remote under Models, Remotes first.",
       "save": "Save"
     }
+  },
+  "grant": {
+    "all": "All models",
+    "some_one": "{{count}} model",
+    "some_other": "{{count}} models"
   }
 }

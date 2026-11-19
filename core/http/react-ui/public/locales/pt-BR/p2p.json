@@ -26,7 +26,7 @@
     },
     "remote": {
       "title": "Remoto",
-      "body": "Outro LocalAI usa todos os modelos desta instância."
+      "body": "Outro LocalAI usa os modelos desta instância, todos ou os que você escolher."
     },
     "worker": {
       "title": "Worker",
@@ -53,8 +53,8 @@
         "body": "Um convite de dispositivo permite que o dispositivo acesse esta instância. A pessoa continua entrando na interface web com a própria conta."
       },
       "remote": {
-        "title": "Todos os modelos, nada mais.",
-        "body": "O outro LocalAI recebe uma chave de API que pode usar cada modelo desta instância, inclusive os modelos que você adicionar depois. Modelos com ferramentas anexadas ficam de fora. A chave não alcança mais nada: nem configurações, nem arquivos, nem outra parte da API."
+        "title": "Só modelos, nada mais.",
+        "body": "O outro LocalAI recebe uma chave de API para os modelos que você escolher abaixo: todos, inclusive os que você adicionar depois, ou uma lista. Modelos com ferramentas anexadas ficam de fora. A chave não alcança mais nada: nem configurações, nem arquivos, nem outra parte da API."
       },
       "worker": {
         "title": "Um nó para este cluster.",
@@ -68,6 +68,24 @@
       "worker": "gpu-box-5"
     },
     "labelHint": "Exibido em Dispositivos e convites.",
+    "models": {
+      "label": "Modelos",
+      "all": "Todos os modelos",
+      "specific": "Escolher modelos",
+      "allHint": "A chave pode usar cada modelo desta instância, inclusive os modelos que você adicionar depois.",
+      "specificHint": "A chave só pode usar os modelos que você marcar. Um modelo com ferramentas anexadas não pode ser compartilhado.",
+      "loading": "Carregando modelos…",
+      "loadFailed": "Não foi possível carregar os modelos.",
+      "retry": "Tentar de novo",
+      "empty": "Esta instância ainda não tem modelo para compartilhar.",
+      "search": "Buscar modelos",
+      "noMatch": "Nenhum modelo corresponde.",
+      "selected_one": "{{count}} modelo escolhido",
+      "selected_other": "{{count}} modelos escolhidos",
+      "reason": {
+        "noModels": "Escolha pelo menos um modelo, ou escolha Todos os modelos."
+      }
+    },
     "expires": "Expira após",
     "singleUseHint": "Cada convite funciona uma vez.",
     "nothingYet": "Nada é criado até você clicar em Criar convite.",
@@ -119,7 +137,11 @@
       "passNone": "Nenhum",
       "public": "Endereço público",
       "publicYes": "Sim",
-      "publicNo": "Nenhum (atrás de NAT)"
+      "publicNo": "Nenhum (atrás de NAT)",
+      "models": "Modelos",
+      "modelsAll": "Todos os modelos",
+      "modelsSome_one": "{{count}} modelo",
+      "modelsSome_other": "{{count}} modelos"
     },
     "admission": {
       "title": "Somente admissão P2P.",
@@ -393,5 +415,10 @@
       "noModels": "Nenhuma instância tem um modelo ainda. Adicione primeiro um remoto em Modelos, Remotos.",
       "save": "Salvar"
     }
+  },
+  "grant": {
+    "all": "Todos os modelos",
+    "some_one": "{{count}} modelo",
+    "some_other": "{{count}} modelos"
   }
 }

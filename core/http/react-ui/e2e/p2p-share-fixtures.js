@@ -13,6 +13,9 @@ export const RELAY_ADDR = `/dns4/relay.example.org/udp/4001/quic-v1/p2p/${SERVER
 const ago = ms => new Date(Date.now() - ms).toISOString()
 const inSec = s => new Date(Date.now() + s * 1000).toISOString()
 
+// The models of the server, as GET /api/models/capabilities lists them.
+export const SHARE_MODELS = ['llama-3.2-3b', 'qwen3-8b', 'gemma-3-4b', 'mistral-7b']
+
 export function p2pStatus(mode = 'share', over = {}) {
   return {
     mode, enabled: mode !== 'off', running: mode !== 'off', peer_id: mode === 'off' ? undefined : SERVER_PEER,
@@ -24,7 +27,8 @@ export function p2pStatus(mode = 'share', over = {}) {
 export function pendingInviteRows() {
   return [
     { id: 'inv-1', kind: 'device', label: "Alex's laptop", created_at: ago(20_000), created_by: 'u1', expires_at: inSec(582), status: 'pending', relay_pass: 'relay.example.org' },
-    { id: 'inv-2', kind: 'remote', label: 'Branch LocalAI', created_at: ago(300_000), created_by: 'u1', expires_at: inSec(250), status: 'pending' },
+    { id: 'inv-2', kind: 'remote', label: 'Branch LocalAI', created_at: ago(300_000), created_by: 'u1', expires_at: inSec(250), status: 'pending', all_models: true },
+    { id: 'inv-3', kind: 'remote', label: 'Lab LocalAI', created_at: ago(120_000), created_by: 'u1', expires_at: inSec(400), status: 'pending', models: ['llama-3.2-3b', 'qwen3-8b'] },
     { id: 'inv-old', kind: 'device', label: 'Used one', created_at: ago(900_000), created_by: 'u1', expires_at: inSec(100), status: 'used', device_id: 'd-1' },
   ]
 }
@@ -32,7 +36,8 @@ export function pendingInviteRows() {
 export function deviceRows() {
   return [
     { id: 'd-1', kind: 'device', label: "Alex's laptop", peer_id: DEVICE_PEER, created_at: ago(3_600_000), last_seen_at: ago(120_000), status: 'active', online: true, path: { kind: 'direct', limited: false, rtt_ms: 12 } },
-    { id: 'd-2', kind: 'remote', label: 'Branch LocalAI', peer_id: REMOTE_PEER, created_at: ago(7_200_000), last_seen_at: ago(3_600_000), status: 'active', online: true, path: { kind: 'hole_punched', limited: false } },
+    { id: 'd-2', kind: 'remote', label: 'Branch LocalAI', peer_id: REMOTE_PEER, created_at: ago(7_200_000), last_seen_at: ago(3_600_000), status: 'active', online: true, all_models: true, path: { kind: 'hole_punched', limited: false } },
+    { id: 'd-6', kind: 'remote', label: 'Lab LocalAI', peer_id: '12D3KooWMm4sPqT4vX2mHcR8yLdQe5Gh6iKoPzWb8Jc', created_at: ago(5_000_000), last_seen_at: ago(600_000), status: 'active', online: true, models: ['llama-3.2-3b', 'qwen3-8b'], path: { kind: 'direct', limited: false } },
     { id: 'd-3', kind: 'device', label: "Sam's phone", peer_id: '12D3KooWQx8tR2vN6mHcR8yLdQe5Gh6iKoPzTz1', created_at: ago(9_000_000), last_seen_at: ago(300_000), status: 'active', online: true, path: { kind: 'relayed', relay_label: 'relay.example.org', limited: true, limit_bytes: 131072, limit_seconds: 120 } },
     { id: 'd-4', kind: 'device', label: 'Old tablet', peer_id: '12D3KooWTt5rN6mHcR8yLdQe5Gh6iKoPz5Rb', created_at: ago(900_000_000), last_seen_at: ago(259_200_000), status: 'active', online: false, path: { kind: 'none' } },
     { id: 'd-5', kind: 'device', label: 'Lost phone', peer_id: '12D3KooWZz9rN6mHcR8yLdQe5Gh6iKoPz7Kq', created_at: ago(900_000_000), status: 'revoked', online: false, path: { kind: 'none' } },
@@ -56,8 +61,9 @@ export function mintAnswer(body, over = {}) {
 // object merged into mintAnswer, or a function of the body). `redeemAfter`
 // turns the minted invite into a used one after that many invite reads, as
 // when the device redeems it while the dialog waits.
-export async function mockP2PShare(page, { mode = 'share', status = {}, invites = pendingInviteRows(), devices = deviceRows(), mint = {}, redeemAfter = 0, phrase = 'amber canal dune echo', fail = {} } = {}) {
+export async function mockP2PShare(page, { mode = 'share', status = {}, invites = pendingInviteRows(), devices = deviceRows(), mint = {}, models = SHARE_MODELS, redeemAfter = 0, phrase = 'amber canal dune echo', fail = {} } = {}) {
   const state = { invites: invites.map(i => structuredClone(i)), devices: devices.map(d => structuredClone(d)), calls: [], reads: 0 }
+  await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: models.map(id => ({ id, capabilities: ['FLAG_CHAT'] })) } }))
   await page.route('**/api/p2p/status', route => route.fulfill({ json: p2pStatus(mode, status) }))
   await page.route(/\/api\/p2p\/(invites|devices)(\/[^?]*)?(\?.*)?$/, async route => {
     const req = route.request()
@@ -71,7 +77,7 @@ export async function mockP2PShare(page, { mode = 'share', status = {}, invites 
     if (mode !== 'share') return route.fulfill({ status: 409, json: { error: { message: `P2P mode is "${mode}"` } } })
     if (path === '/invites' && method === 'POST') {
       const answer = typeof mint === 'function' ? mint(body) : mintAnswer(body, mint)
-      state.invites.push({ id: answer.id, kind: body.kind, label: body.label, created_at: new Date().toISOString(), created_by: 'u1', expires_at: answer.expires_at, status: 'pending', relay_pass: answer.relay?.pass ? answer.relay.label : undefined })
+      state.invites.push({ id: answer.id, kind: body.kind, label: body.label, created_at: new Date().toISOString(), created_by: 'u1', expires_at: answer.expires_at, status: 'pending', relay_pass: answer.relay?.pass ? answer.relay.label : undefined, models: body.models, all_models: body.all_models })
       return route.fulfill({ status: 201, json: answer })
     }
     if (path === '/invites' && method === 'GET') {
@@ -79,7 +85,7 @@ export async function mockP2PShare(page, { mode = 'share', status = {}, invites 
       const fresh = state.invites.find(i => i.id === 'inv-new')
       if (fresh && redeemAfter > 0 && state.reads >= redeemAfter && fresh.status === 'pending') {
         Object.assign(fresh, { status: 'used', device_id: 'd-new', device_peer_id: DEVICE_PEER, phrase })
-        state.devices.push({ id: 'd-new', kind: fresh.kind, label: fresh.label, peer_id: DEVICE_PEER, created_at: new Date().toISOString(), last_seen_at: new Date().toISOString(), status: 'active', online: true, path: { kind: 'direct', rtt_ms: 12 } })
+        state.devices.push({ id: 'd-new', kind: fresh.kind, label: fresh.label, peer_id: DEVICE_PEER, created_at: new Date().toISOString(), last_seen_at: new Date().toISOString(), status: 'active', online: true, models: fresh.models, all_models: fresh.all_models, path: { kind: 'direct', rtt_ms: 12 } })
       }
       return route.fulfill({ json: { invites: state.invites } })
     }

@@ -9,7 +9,7 @@ import ShareInstanceDialog from '../components/p2p/ShareInstanceDialog'
 import { Button, Callout, EmptyState, LoadError, Notice, SkeletonRows, StatusChip, useLoad } from '../components/ui'
 import { p2pNetApi } from '../utils/api'
 import {
-  clock, pathKey, pathTone, pendingInvites, relativeTime, secondsLeft, shortPeer, sortedDevices,
+  clock, modelGrant, pathKey, pathTone, pendingInvites, relativeTime, secondsLeft, shortPeer, sortedDevices,
 } from '../utils/p2p'
 import '../components/p2p/p2p.css'
 
@@ -152,6 +152,7 @@ function InvitesSection({ invites, now, onCancel, onShare }) {
                   <td>
                     <span className="p2p-cell-title">{inv.label || t(`kinds.${inv.kind}.title`, inv.kind)}</span>
                     <span className="p2p-cell-sub">{t(`kinds.${inv.kind}.title`, inv.kind)}</span>
+                    <ModelGrant row={inv} />
                     <span className="p2p-cell-sub dk-only-phone">{inv.relay_pass ? t('invites.passOn', { relay: inv.relay_pass }) : t('invites.passNone')}</span>
                   </td>
                   <td className="dk-hide-phone">{t(`kinds.${inv.kind}.title`, inv.kind)}</td>
@@ -217,6 +218,7 @@ function DevicesSection({ devices, onRevoke }) {
                     <td>
                       <span className="p2p-cell-title">{d.label || shortPeer(d.peer_id)}</span>
                       <span className="p2p-cell-sub">{t(`kinds.${d.kind}.title`, d.kind)}</span>
+                      <ModelGrant row={d} />
                     </td>
                     <td className="dk-hide-phone">{t(`kinds.${d.kind}.title`, d.kind)}</td>
                     <td className="dk-hide-phone dk-mono" title={d.peer_id}>{shortPeer(d.peer_id)}</td>
@@ -240,6 +242,19 @@ function DevicesSection({ devices, onRevoke }) {
         </div>
       )}
     </section>
+  )
+}
+
+// What a remote invite or device may use: "All models" or the number of
+// models, with the names in the title. Other kinds show nothing.
+function ModelGrant({ row }) {
+  const { t } = useTranslation('p2p')
+  const grant = modelGrant(row)
+  if (!grant) return null
+  return (
+    <span className="p2p-cell-sub" data-testid={`p2p-grant-${row.id}`} title={grant.all ? undefined : grant.names.join(', ')}>
+      {grant.all ? t('grant.all') : t('grant.some', { count: grant.names.length })}
+    </span>
   )
 }
 

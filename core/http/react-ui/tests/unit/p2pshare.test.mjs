@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  QR_KINDS, SHARE_KINDS, clock, inviteFailure, inviteProblem, inviteWarnings, multiaddrHost, parseInviteLink,
+  QR_KINDS, SHARE_KINDS, clock, mintBlockedReason, mintModelFields, modelGrant, inviteFailure, inviteProblem, inviteWarnings, multiaddrHost, parseInviteLink,
   pathKey, pathTone, pendingInvites, phraseWords, relativeTime, secondsLeft, shareKinds, shortPeer, sortedDevices,
 } from '../../src/utils/p2p.js'
 import { joinCommand, nodeRoute } from '../../src/utils/swarm.js'
@@ -143,4 +143,29 @@ test('p2p: the QR code of an invite link is a square with the finder patterns', 
   // The top-left finder pattern starts dark at the corner.
   assert.ok(d.startsWith('M0 0h1v1h-1z'))
   assert.equal(qrPath('a').size, 21)
+})
+
+test('p2p: a remote invite or device grants all models or a list; other kinds grant none', () => {
+  assert.deepEqual(modelGrant({ kind: 'remote', all_models: true }), { all: true, names: [] })
+  // An invite made before all_models existed has no list and grants every model.
+  assert.deepEqual(modelGrant({ kind: 'remote' }), { all: true, names: [] })
+  assert.deepEqual(modelGrant({ kind: 'remote', models: [] }), { all: true, names: [] })
+  assert.deepEqual(modelGrant({ kind: 'remote', models: ['a', 'b'] }), { all: false, names: ['a', 'b'] })
+  assert.equal(modelGrant({ kind: 'device' }), null)
+  assert.equal(modelGrant({ kind: 'worker', all_models: true }), null)
+  assert.equal(modelGrant(null), null)
+})
+
+test('p2p: the mint request sends all_models, or the chosen names, for a remote only', () => {
+  assert.deepEqual(mintModelFields('remote', 'all', new Set(['a'])), { all_models: true })
+  assert.deepEqual(mintModelFields('remote', 'specific', new Set(['a', 'b'])), { models: ['a', 'b'] })
+  assert.deepEqual(mintModelFields('device', 'specific', new Set(['a'])), {})
+  assert.deepEqual(mintModelFields('worker', 'all', new Set()), {})
+})
+
+test('p2p: Make invite is blocked for a remote limited to models with none chosen', () => {
+  assert.equal(mintBlockedReason('remote', 'specific', new Set()), 'noModels')
+  assert.equal(mintBlockedReason('remote', 'specific', new Set(['a'])), '')
+  assert.equal(mintBlockedReason('remote', 'all', new Set()), '')
+  assert.equal(mintBlockedReason('device', 'specific', new Set()), '')
 })

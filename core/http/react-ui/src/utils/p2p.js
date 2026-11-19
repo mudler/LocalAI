@@ -192,3 +192,27 @@ export function relativeTime(date, lang = 'en', now = Date.now()) {
   if (abs < 86400) return fmt.format(Math.round(diff / 3600), 'hour')
   return fmt.format(Math.round(diff / 86400), 'day')
 }
+
+// What a remote invite or device may use: { all: true } for every model, or
+// { all: false, names } for a list. A row with no list is every model, as the
+// server reads it. Device and worker rows grant no models and give null.
+export function modelGrant(row) {
+  if (!row || row.kind !== 'remote') return null
+  const names = Array.isArray(row.models) ? row.models.filter(Boolean) : []
+  if (row.all_models || names.length === 0) return { all: true, names: [] }
+  return { all: false, names }
+}
+
+// The models part of the mint request. "All models" is sent as an explicit
+// all_models; a list is sent as models. Other kinds carry neither.
+export function mintModelFields(kind, scope, picked) {
+  if (kind !== 'remote') return {}
+  if (scope === 'all') return { all_models: true }
+  return { models: [...picked] }
+}
+
+// The reason the Make invite button is off, or '' when it may be pressed: a
+// remote invite limited to chosen models needs at least one.
+export function mintBlockedReason(kind, scope, picked) {
+  return kind === 'remote' && scope === 'specific' && picked.size === 0 ? 'noModels' : ''
+}

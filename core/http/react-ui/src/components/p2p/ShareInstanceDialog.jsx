@@ -6,10 +6,11 @@ import Icon from '../Icon'
 import { Button, Callout, StatusChip } from '../ui'
 import Segmented from '../ui/Segmented'
 import QrCode from './QrCode'
+import ShareModelChoice from './ShareModelChoice'
 import { p2pNetApi } from '../../utils/api'
 import { copyToClipboard } from '../../utils/clipboard'
 import {
-  QR_KINDS, TTL_CHOICES, clock, shareKinds, inviteWarnings, phraseWords, secondsLeft, shortPeer,
+  QR_KINDS, TTL_CHOICES, clock, mintBlockedReason, mintModelFields, modelGrant, shareKinds, inviteWarnings, phraseWords, secondsLeft, shortPeer,
 } from '../../utils/p2p'
 import { P2P_SETTINGS_PATH } from './P2PTabs'
 import { useDistributedMode } from '../../hooks/useDistributedMode'
@@ -34,6 +35,9 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
   const { enabled: distributed } = useDistributedMode()
   const [label, setLabel] = useState('')
   const [ttl, setTtl] = useState(TTL_CHOICES[0].id)
+  // The models of a remote invite: every model, or the ones picked.
+  const [modelScope, setModelScope] = useState('all')
+  const [picked, setPicked] = useState(() => new Set())
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   // The server refused a remote invite: the caller has no user account.
@@ -47,10 +51,11 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
   const mint = async () => {
     setBusy('mint'); setError(''); setNeedsAccount(false)
     try {
+      const grant = mintModelFields(kind, modelScope, picked)
       const res = await p2pNetApi.mintInvite({
-        kind, label: label.trim(), ttl_seconds: Number(ttl), relays: 'auto',
+        kind, label: label.trim(), ttl_seconds: Number(ttl), relays: 'auto', ...grant,
       })
-      setMinted({ ...res, label: label.trim(), ttl: Number(ttl) })
+      setMinted({ ...res, label: label.trim(), ttl: Number(ttl), ...grant })
       setUsed(null)
       onChanged?.()
     } catch (err) {
@@ -118,6 +123,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
     }
   }
 
+  const blocked = mintBlockedReason(kind, modelScope, picked)
   const again = () => { setMinted(null); setUsed(null); setError('') }
 
   const name = minted?.label || (minted ? t(`kinds.${minted.kind}.title`) : '')
@@ -159,6 +165,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
 
   if (minted) {
     const warnings = inviteWarnings(minted)
+    const grant = modelGrant(minted)
     const expired = left === 0
     const qr = minted.qr && QR_KINDS.includes(minted.kind)
     const relay = minted.relay || {}
@@ -198,6 +205,15 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
               <dd><span className="dk-mono" data-testid="share-countdown">{clock(left)}</span> · {t('share.facts.singleUse')}</dd>
               <dt>{t('share.facts.serverPeer')}</dt>
               <dd className="dk-mono" title={status?.peer_id}>{shortPeer(status?.peer_id) || '-'}</dd>
+              {grant && (
+                <>
+                  <dt>{t('share.facts.models')}</dt>
+                  <dd data-testid="share-granted">
+                    {grant.all ? t('share.facts.modelsAll') : t('share.facts.modelsSome', { count: grant.names.length })}
+                    {!grant.all && <span className="p2p-grant dk-mono">{grant.names.join(', ')}</span>}
+                  </dd>
+                </>
+              )}
               <dt>{t('share.facts.relay')}</dt>
               <dd>{relayText}</dd>
               <dt>{t('share.facts.pass')}</dt>
@@ -241,7 +257,7 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
           <span className="p2p-foot__note">{t('share.nothingYet')}</span>
           <span className="p2p-foot__actions">
             <Button onClick={onClose} disabled={busy !== ''}>{t('share.cancel')}</Button>
-            <Button variant="primary" busy={busy === 'mint'} onClick={mint} data-testid="share-mint">{t('share.mint')}</Button>
+            <Button variant="primary" busy={busy === 'mint'} disabled={blocked !== ''} aria-describedby={blocked ? `${labelId}-models-reason` : undefined} onClick={mint} data-testid="share-mint">{t('share.mint')}</Button>
           </span>
         </div>
       )}
@@ -269,6 +285,9 @@ export default function ShareInstanceDialog({ status, onChanged, onClose, addToa
           <p className="dk-hint">{t('share.singleUseHint')}</p>
         </div>
       </div>
+      {kind === 'remote' && (
+        <ShareModelChoice scope={modelScope} onScope={setModelScope} picked={picked} onPicked={setPicked} reason={blocked} reasonId={`${labelId}-models-reason`} />
+      )}
       {needsAccount && (
         <Callout tone="warn" role="alert" title={t('share.needsAccount.title')} testId="share-needs-account">
           {t('share.needsAccount.body')}
