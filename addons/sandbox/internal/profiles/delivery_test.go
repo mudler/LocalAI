@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -271,9 +273,8 @@ func TestNoCacheMeansTheHostBackendAndNoPull(t *testing.T) {
 // authority of the call must outlive the longest wait, or the first command on
 // a machine with an empty image cache fails with no_live_operation.
 func TestActAuthorityOutlivesTheImageWait(t *testing.T) {
-	if contract.ActAuthorityLife <= profiles.DefaultWaitBudget+time.Minute {
-		t.Fatalf("the authority of an action call (%s) must outlive the pull wait (%s) and the command", contract.ActAuthorityLife, profiles.DefaultWaitBudget)
-	}
+	NewWithT(t).Expect(contract.ActAuthorityLife).To(BeNumerically(">", profiles.DefaultWaitBudget+time.Minute),
+		"the authority of an action call must outlive the pull wait and the command")
 }
 
 func TestSlowFirstPullIsWaitedFor(t *testing.T) {
@@ -282,7 +283,8 @@ func TestSlowFirstPullIsWaitedFor(t *testing.T) {
 	d := newDelivery(t, c, profiles.Images{"base": ref("base1")}, nil)
 	time.AfterFunc(300*time.Millisecond, func() { close(c.gate[ref("base1")]) })
 	got, err := d.Resolve(context.Background(), "base", false, profiles.Caps{})
-	if err != nil || got.Image != ref("base1") || got.Fallback {
-		t.Fatalf("choice = %+v, %v", got, err)
-	}
+	g := NewWithT(t)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(got.Image).To(Equal(ref("base1")))
+	g.Expect(got.Fallback).To(BeFalse())
 }
