@@ -175,19 +175,15 @@ jobs:
           # signatures, not just the list-level one.
           # Keyless signing calls Fulcio and Rekor, which fail now and then
           # (for example "getting Fulcio signer"). Retry a few times.
+          signed=false
           for attempt in 1 2 3 4; do
-            if cosign sign --yes --recursive \
+            cosign sign --yes --recursive \
               --new-bundle-format \
               --registry-referrers-mode=oci-1-1 \
-              "quay.io/go-skynet/local-ai-backends@${digest}"; then
-              break
-            fi
-            if [ "$attempt" = 4 ]; then
-              echo "::error::cosign sign failed after $attempt attempts"
-              exit 1
-            fi
-            sleep $((attempt * 20))
+              "quay.io/go-skynet/local-ai-backends@${digest}" && { signed=true; break; }
+            [ "$attempt" = 4 ] || sleep $((attempt * 20))
           done
+          [ "$signed" = true ] || { echo "::error::cosign sign failed after 4 attempts"; exit 1; }
 
       - name: Create manifest list and push (dockerhub)
         if: github.event_name != 'pull_request'
@@ -213,19 +209,15 @@ jobs:
           digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
           # Keyless signing calls Fulcio and Rekor, which fail now and then
           # (for example "getting Fulcio signer"). Retry a few times.
+          signed=false
           for attempt in 1 2 3 4; do
-            if cosign sign --yes --recursive \
+            cosign sign --yes --recursive \
               --new-bundle-format \
               --registry-referrers-mode=oci-1-1 \
-              "localai/localai-backends@${digest}"; then
-              break
-            fi
-            if [ "$attempt" = 4 ]; then
-              echo "::error::cosign sign failed after $attempt attempts"
-              exit 1
-            fi
-            sleep $((attempt * 20))
+              "localai/localai-backends@${digest}" && { signed=true; break; }
+            [ "$attempt" = 4 ] || sleep $((attempt * 20))
           done
+          [ "$signed" = true ] || { echo "::error::cosign sign failed after 4 attempts"; exit 1; }
 
       - name: Inspect manifest
         if: github.event_name != 'pull_request'
