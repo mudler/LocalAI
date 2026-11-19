@@ -63,7 +63,7 @@ export async function mockProjects(page, { projects = PROJECTS, chats = CHATS, m
     const model = decodeURIComponent(new URL(r.request().url()).pathname.split('/').at(-1))
     return json(r, { servers: model === 'qwen3-8b' ? [{ name: 'docs' }, { name: 'search' }] : [] })
   }))
-  await page.route('**/api/chats/notifications*', r => json(r, { notifications: [], unread: 0 }))
+  await page.route('**/api/notifications*', r => json(r, { notifications: [], unread: 0 }))
   await page.route('**/api/chats/agents*', r => json(r, { agents: [] }))
   await page.route('**/api/chats/connectors*', r => json(r, { connectors: [] }))
   await page.route('**/api/workspace/events*', r => r.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: ': ping\n\n' }))

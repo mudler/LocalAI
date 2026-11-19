@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
   badgeText, sourceOf, toneOf, iconOf, targetOf, reasonText, dayOf, groupByDay, filterItems,
-  hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf,
+  hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf, linkDisabled,
 } from '../../src/utils/inbox.js'
 
 const note = (extra = {}) => ({ id: 1, kind: 'run_ended', status: 'ok', title: 'T', body: '', link: '', read: false, created: '', ...extra })
@@ -42,6 +42,20 @@ test('inbox: only paths in the app are opened; a connector without one opens its
   assert.equal(targetOf(note({ link: '//example.com' })), '')
   assert.equal(targetOf(note({ source: 'connector', kind: 'needs_attention' })), '/app/chats/connectors')
   assert.equal(targetOf(note({ source: 'trigger', kind: 'needs_attention' })), '')
+})
+
+test('inbox: with the chats off a link into the chats opens nothing and says why', () => {
+  const chat = note({ link: '/app/chats/c1' })
+  assert.equal(targetOf(chat, false), '')
+  assert.equal(linkDisabled(chat, false), true)
+  assert.equal(linkDisabled(chat, true), false)
+  assert.equal(targetOf(note({ source: 'connector', kind: 'needs_attention' }), false), '')
+  assert.equal(linkDisabled(note({ source: 'connector', kind: 'needs_attention' }), false), true)
+  // A page that is not a chat page stays a link, and an item with no link is not "disabled".
+  assert.equal(targetOf(note({ link: '/app/updates?filter=ready' }), false), '/app/updates?filter=ready')
+  assert.equal(linkDisabled(note({ link: '/app/updates' }), false), false)
+  assert.equal(linkDisabled(note({ link: '' }), false), false)
+  assert.equal(targetOf(note({ link: '/app/chatsx' }), false), '/app/chatsx')
 })
 
 test('inbox: a reason starts with a capital', () => {

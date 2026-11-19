@@ -376,7 +376,9 @@
         "removed": "Removed {{name}}",
         "staged": "Staged {{name}}"
       }
-    }
+    },
+    "chatsOff": "Chats are off",
+    "emptyBodyNoChats": "Updates and finished operations appear here."
   },
   "connectorsPage": {
     "title": "Connections",

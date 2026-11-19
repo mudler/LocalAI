@@ -764,14 +764,15 @@ export const chatProvidersApi = {
   set: (slot, provider) => fetchJSON(`/api/chats/providers/${encodeURIComponent(slot)}`, { method: 'PUT', body: JSON.stringify({ provider }) }),
 }
 
-// The inbox: what ended while the user was elsewhere.
+// The notification center: updates, finished operations and what ended while the
+// user was elsewhere. It does not depend on the chats, so the paths are its own.
 export const chatNotificationsApi = {
-  list: (unread, limit = 50) => fetchJSON(`/api/chats/notifications${q({ unread: unread ? 1 : undefined, limit })}`),
-  read: (body) => postJSON('/api/chats/notifications/read', body),
-  remove: (ids) => fetchJSON('/api/chats/notifications', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+  list: (unread, limit = 50) => fetchJSON(`/api/notifications${q({ unread: unread ? 1 : undefined, limit })}`),
+  read: (body) => postJSON('/api/notifications/read', body),
+  remove: (ids) => fetchJSON('/api/notifications', { method: 'DELETE', body: JSON.stringify({ ids }) }),
   // Every notification of the user, or with readOnly only the read ones.
-  clear: (readOnly) => fetchJSON('/api/chats/notifications', { method: 'DELETE', body: JSON.stringify({ all: true, read_only: readOnly || undefined }) }),
-  eventsUrl: () => apiUrl('/api/chats/notifications/events'),
+  clear: (readOnly) => fetchJSON('/api/notifications', { method: 'DELETE', body: JSON.stringify({ all: true, read_only: readOnly || undefined }) }),
+  eventsUrl: () => apiUrl('/api/notifications/events'),
 }
 
 // What the conversion of the old chat, agents and skills did, for the viewer.
@@ -781,9 +782,9 @@ export const chatConversionApi = {
 
 // Browser push for the inbox.
 export const chatPushApi = {
-  key: () => fetchJSON('/api/chats/push/key'),
-  subscribe: (subscription) => postJSON('/api/chats/push/subscribe', subscription),
-  unsubscribe: (endpoint) => fetchJSON('/api/chats/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
+  key: () => fetchJSON('/api/notifications/push/key'),
+  subscribe: (subscription) => postJSON('/api/notifications/push/subscribe', subscription),
+  unsubscribe: (endpoint) => fetchJSON('/api/notifications/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
 }
 
 // Resources API

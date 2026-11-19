@@ -37,14 +37,26 @@ export function iconOf(n) {
   return SOURCE_ICON[source]
 }
 
+// Whether a path is a page of the chats: a chat, an agent, the connectors.
+// With the chats off these pages are not there.
+const CHATS_PATH = /^\/app\/chats(?:[/?#]|$)/
+
 // Where a click on the item goes: its own link, or for a connector with none
 // the page of the connectors, where it can be switched on again. Only paths
-// inside the app are followed.
-export function targetOf(n) {
+// inside the app are followed. With the chats off a link into the chats goes
+// nowhere (chatsOn false): the row stays in the list, read-only.
+export function targetOf(n, chatsOn = true) {
   const link = n?.link || ''
-  if (link.startsWith('/app/')) return link
-  if (sourceOf(n) === 'connector') return '/app/chats/connectors'
-  return ''
+  const target = link.startsWith('/app/') ? link : sourceOf(n) === 'connector' ? '/app/chats/connectors' : ''
+  if (!chatsOn && CHATS_PATH.test(target)) return ''
+  return target
+}
+
+// True when the item points into the chats and the chats are off, so the row
+// says why it opens nothing.
+export function linkDisabled(n, chatsOn = true) {
+  if (chatsOn) return false
+  return targetOf(n, true) !== '' && targetOf(n, false) === ''
 }
 
 // ---- Items that the UI words itself -----------------------------------------
@@ -171,8 +183,8 @@ export function hasUnreadFailure(items) {
 // go. Anyone else sees it once the inbox holds something, and keeps it for the
 // rest of the session (everHad) and while the panel is open, so clearing the
 // list does not take the button from under the person's hand. Nobody sees it
-// when the inbox is off (chats off, no chats feature, or the server says
-// there is none) or before the first answer.
+// when the inbox is off (the server says there is none, or the notification
+// center did not start) or before the first answer. The chats do not matter.
 export function entryVisible({ enabled, off, loaded, isAdmin, total, everHad, open }) {
   if (!enabled || off || !loaded) return false
   if (isAdmin) return true
@@ -180,8 +192,8 @@ export function entryVisible({ enabled, off, loaded, isAdmin, total, everHad, op
 }
 
 // The answers that say "no inbox here": 404 and 409 (the server keeps none) and
-// 403 (this person lacks the chats feature). The hook stops asking at once,
-// where any other failure is retried.
+// 403 (the server refuses this person). The hook stops asking at once, where
+// any other failure is retried.
 export function inboxOff(status) {
   return status === 403 || status === 404 || status === 409
 }

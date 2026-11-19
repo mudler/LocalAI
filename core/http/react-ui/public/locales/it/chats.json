@@ -792,7 +792,9 @@
         "removed": "{{name}} rimosso",
         "staged": "{{name}} trasferito"
       }
-    }
+    },
+    "chatsOff": "Le chat sono disattivate",
+    "emptyBodyNoChats": "Qui compaiono gli aggiornamenti e le operazioni concluse."
   },
   "change": {
     "loading": "Lettura della modifica del trigger...",

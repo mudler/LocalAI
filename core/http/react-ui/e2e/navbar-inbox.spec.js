@@ -5,7 +5,9 @@ import { MEMBER, statusFixture } from './access-fixtures.js'
 // The notification inbox in the app shell: one entry in the sidebar (an icon
 // with a corner badge on the rail, a bell in the header of a phone) that opens
 // one panel from any page. An administrator always has it, anyone else once
-// they have items, nobody when chats are off. The API and the stream are stubbed.
+// they have items, nobody when the server has no notification center. The
+// notification center does not depend on the chats. The API and the stream are
+// stubbed.
 
 const ago = (min) => new Date(Date.now() - min * 60_000).toISOString()
 
@@ -32,7 +34,7 @@ async function asMember(page, { chats = true } = {}) {
 // sidebar read the unread ones with a limit of their own).
 function countLists(page) {
   const seen = { lists: 0 }
-  page.on('request', (req) => { if (/\/api\/chats\/notifications\?.*limit=50/.test(req.url()) && req.method() === 'GET') seen.lists += 1 })
+  page.on('request', (req) => { if (/\/api\/notifications\?.*limit=50/.test(req.url()) && req.method() === 'GET') seen.lists += 1 })
   return seen
 }
 
@@ -91,9 +93,9 @@ test.describe('Navbar inbox: who sees it', () => {
     await expect(page.getByTestId('nav-inbox')).toBeVisible()
   })
 
-  test('nobody sees it when chats are off on the server, and the server is asked nothing more', async ({ page }) => {
+  test('nobody sees it when the server has no notification center, and the server is asked nothing more', async ({ page }) => {
     await stubInbox(page, rows())
-    await page.route('**/api/features', route => route.fulfill({ json: { chats: false } }))
+    await page.route('**/api/features', route => route.fulfill({ json: { chats: false, notifications: false } }))
     const seen = countLists(page)
     await page.goto('/app')
     await expect(page.locator('.sidebar-nav').first()).toBeVisible()
@@ -106,29 +108,39 @@ test.describe('Navbar inbox: who sees it', () => {
   test('a server that answers 409 has no inbox: no entry, no retry', async ({ page }) => {
     await stubInbox(page, rows())
     const seen = countLists(page)
-    await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ status: 409, json: { error: { message: 'chats are off' } } }))
+    await page.route(/\/api\/notifications(\?.*)?$/, route => route.fulfill({ status: 409, json: { error: { message: 'chats are off' } } }))
     await page.goto('/app')
     await expect.poll(() => seen.lists).toBeGreaterThan(0)
     await expect(page.getByTestId('nav-inbox')).toHaveCount(0)
   })
 
-  test('a person without the chats feature makes no request and has no stream', async ({ page }) => {
+  test('a server without the notifications key follows the chats, as before', async ({ page }) => {
     await stubInbox(page, rows())
-    await asMember(page, { chats: false })
+    await page.route('**/api/features', route => route.fulfill({ json: { chats: false } }))
     const seen = countLists(page)
     await page.goto('/app')
     await expect(page.locator('.sidebar-nav').first()).toBeVisible()
     await page.waitForTimeout(500)
     expect(seen.lists).toBe(0)
-    expect(await page.evaluate(() => window.__inboxStreams().opened)).toBe(0)
     await expect(page.getByTestId('nav-inbox')).toHaveCount(0)
+  })
+
+  test('a person without the chats feature keeps the inbox: it is the notification center, not the chats', async ({ page }) => {
+    await stubInbox(page, rows())
+    await page.route('**/api/features', route => route.fulfill({ json: { chats: true, notifications: true } }))
+    await asMember(page, { chats: false })
+    const seen = countLists(page)
+    await page.goto('/app')
+    await expect(page.getByTestId('nav-inbox')).toBeVisible()
+    expect(seen.lists).toBeGreaterThan(0)
+    expect(await page.evaluate(() => window.__inboxStreams().opened)).toBeGreaterThan(0)
   })
 
   test('a 403 means off: it is asked a time or two and then never again', async ({ page }) => {
     await stubInbox(page, rows())
     await asMember(page)
     const seen = countLists(page)
-    await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ status: 403, json: { error: { message: 'forbidden' } } }))
+    await page.route(/\/api\/notifications(\?.*)?$/, route => route.fulfill({ status: 403, json: { error: { message: 'forbidden' } } }))
     await page.goto('/app')
     await expect.poll(() => seen.lists).toBeGreaterThan(0)
     await page.waitForTimeout(500)

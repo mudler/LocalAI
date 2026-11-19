@@ -792,7 +792,9 @@
         "removed": "{{name}} entfernt",
         "staged": "{{name}} übertragen"
       }
-    }
+    },
+    "chatsOff": "Chats sind ausgeschaltet",
+    "emptyBodyNoChats": "Hier erscheinen Updates und abgeschlossene Vorgänge."
   },
   "change": {
     "loading": "Die Trigger-Änderung wird gelesen...",

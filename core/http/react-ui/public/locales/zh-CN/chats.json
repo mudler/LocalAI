@@ -792,7 +792,9 @@
         "removed": "已移除 {{name}}",
         "staged": "已传输 {{name}}"
       }
-    }
+    },
+    "chatsOff": "聊天会话已关闭",
+    "emptyBodyNoChats": "更新和已完成的操作会显示在这里。"
   },
   "change": {
     "loading": "正在读取触发器更改...",

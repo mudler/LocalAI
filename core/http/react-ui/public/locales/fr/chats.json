@@ -792,7 +792,9 @@
         "removed": "{{name}} supprimé",
         "staged": "{{name}} transféré"
       }
-    }
+    },
+    "chatsOff": "Les chats sont désactivés",
+    "emptyBodyNoChats": "Les mises à jour et les opérations terminées apparaissent ici."
   },
   "change": {
     "loading": "Lecture de la modification du déclencheur...",

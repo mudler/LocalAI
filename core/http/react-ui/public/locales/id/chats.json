@@ -792,7 +792,9 @@
         "removed": "{{name}} dihapus",
         "staged": "{{name}} ditransfer"
       }
-    }
+    },
+    "chatsOff": "Chats nonaktif",
+    "emptyBodyNoChats": "Pembaruan dan operasi yang selesai muncul di sini."
   },
   "change": {
     "loading": "Membaca perubahan pemicu...",

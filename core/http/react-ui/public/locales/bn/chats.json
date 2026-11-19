@@ -376,7 +376,9 @@
         "removed": "{{name}}সরানো হয়েছে",
         "staged": "মঞ্চস্থ {{name}}"
       }
-    }
+    },
+    "chatsOff": "চ্যাটস বন্ধ আছে",
+    "emptyBodyNoChats": "আপডেট এবং সম্পন্ন অপারেশন এখানে দেখা যাবে।"
   },
   "connectorsPage": {
     "title": "সংযোগসমূহ",

@@ -33,7 +33,7 @@ async function stub(page, state) {
   })
   await mockChat(page)
   const detail = (running) => ({ id: 'c1', title: 'Notes', model: 'qwen3-8b', kind: 'chat', created: AT, updated: AT, running, last_turn: running ? 'running' : 'done', pending: [] })
-  await page.route('**/api/chats/notifications/events', route => route.abort())
+  await page.route('**/api/notifications/events', route => route.abort())
   await page.route('**/api/chats/c1/events', route => route.abort())
   await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: state.messages } }))
   await page.route('**/api/chats/c1', route => route.fulfill({ json: detail(state.running) }))

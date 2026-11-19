@@ -792,7 +792,9 @@
         "removed": "{{name}} 제거됨",
         "staged": "{{name}} 전송됨"
       }
-    }
+    },
+    "chatsOff": "채팅 세션이 꺼져 있음",
+    "emptyBodyNoChats": "업데이트와 완료된 작업이 여기에 표시됩니다."
   },
   "change": {
     "loading": "트리거 변경 사항을 읽는 중...",
