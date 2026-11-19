@@ -234,11 +234,15 @@ func (n *Host) start(cfg Config, boot []peer.AddrInfo) error {
 	n.connectAll(boot)
 	n.connectAll(cfg.StaticRelays)
 	if cfg.MDNS {
+		// mDNS only finds peers on the local network, so a host that cannot
+		// start it still works. A host with no listen address, such as one in
+		// mode connect, has no address to announce and the start fails.
 		svc := mdns.NewMdnsService(n.h, mdnsServiceName, mdnsNotifee{n: n})
 		if err := svc.Start(); err != nil {
-			return fmt.Errorf("p2pnet: start mDNS: %w", err)
+			xlog.Warn("p2p: local network discovery (mDNS) is off", "error", err)
+		} else {
+			n.mdns = svc
 		}
-		n.mdns = svc
 	}
 	return nil
 }
