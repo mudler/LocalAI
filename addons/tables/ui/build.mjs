@@ -6,7 +6,7 @@
 // calls on the `h` of each factory: there is no JSX runtime import and no
 // React in the output (the host's React arrives through the SDK).
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { existsSync, mkdirSync, rmSync, writeFileSync, copyFileSync, readFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
@@ -66,7 +66,7 @@ function icon() {
 }
 
 export async function build() {
-  const { build: bundle } = await import(require.resolve('rolldown'))
+  const { build: bundle } = await import(pathToFileURL(require.resolve('rolldown')).href)
   rmSync(out, { recursive: true, force: true })
   mkdirSync(join(out, 'ui'), { recursive: true })
   await bundle({
