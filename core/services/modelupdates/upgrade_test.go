@@ -604,7 +604,7 @@ var _ = Describe("A model upgrade", func() {
 		e := tinyEntry(f, f.weights("tiny.gguf", "v1"))
 		e.Overrides["context_size"] = 4096
 		f.publish(e)
-		var unresolved *modelupdates.ErrUnresolvedConflicts
+		var unresolved *modelupdates.ErrNeedsChoices
 		Expect(errors.As(upgrader(nil).Upgrade(ctx, modelupdates.Request{Name: "tiny"}), &unresolved)).To(BeTrue())
 		Expect(journal()).To(BeNil())
 

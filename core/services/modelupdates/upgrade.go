@@ -439,7 +439,7 @@ func (r *upgradeRun) heartbeat(stop <-chan struct{}) {
 // when the upgrade is confirmed, failed or rolled back; the error says why it
 // did not complete. Errors returned before anything was written
 // (ErrNotUpgradable, ErrBusy, ErrUpToDate, ErrNothingFailed, *ErrRefused and
-// *ErrUnresolvedConflicts) leave no journal behind.
+// *ErrNeedsChoices) leave no journal behind.
 func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 	return u.relErr(u.upgrade(ctx, req))
 }
@@ -1299,14 +1299,6 @@ func (u *Upgrader) Validate(name string, retry bool) error {
 
 // ErrBadChoice is a choice that is neither ChoiceMine nor ChoiceGallery.
 var ErrBadChoice = errors.New("a choice must be " + ChoiceMine + " or " + ChoiceGallery)
-
-// ErrNeedsChoices refuses an upgrade whose update changes keys a person
-// edited and that has no choice for them.
-type ErrNeedsChoices struct{ Keys []string }
-
-func (e *ErrNeedsChoices) Error() string {
-	return "the update changes keys that were edited; choose " + ChoiceMine + " or " + ChoiceGallery + " for each: " + strings.Join(e.Keys, ", ")
-}
 
 // CheckRequest refuses at once an upgrade or a retry that cannot run, before
 // it is queued: a bad choice (ErrBadChoice), what Validate refuses, and an

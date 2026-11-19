@@ -141,19 +141,20 @@ func Conflicts(edits []KeyEdit) []string {
 	return out
 }
 
-// ErrUnresolvedConflicts is returned by MergeConfig when an edited key that
-// the update also changes has no choice.
-type ErrUnresolvedConflicts struct{ Keys []string }
+// ErrNeedsChoices refuses an upgrade whose update changes keys a person
+// edited and that has no choice for them. MergeConfig returns it when the
+// choices miss a key; CheckRequest returns it before the upgrade is queued.
+type ErrNeedsChoices struct{ Keys []string }
 
-func (e *ErrUnresolvedConflicts) Error() string {
-	return "the update changes keys that were edited, choose keep-mine or take-gallery for each: " + strings.Join(e.Keys, ", ")
+func (e *ErrNeedsChoices) Error() string {
+	return "the update changes keys that were edited; choose " + ChoiceMine + " or " + ChoiceGallery + " for each: " + strings.Join(e.Keys, ", ")
 }
 
 // MergeConfig builds the config an upgrade writes: the config the update
 // would write (planned), with the person's edits applied again. An edit the
 // update does not touch is kept. An edit the update also changes needs a
 // choice in choices (ChoiceMine or ChoiceGallery, by dotted key); without one
-// MergeConfig fails with *ErrUnresolvedConflicts and the upgrade does not
+// MergeConfig fails with *ErrNeedsChoices and the upgrade does not
 // start. Operator state (pinned, disabled) always keeps the value on disk.
 func MergeConfig(installed, mine, planned []byte, choices map[string]string) ([]byte, error) {
 	edits, err := DiffEdits(installed, mine, planned)
@@ -188,7 +189,7 @@ func MergeConfig(installed, mine, planned []byte, choices map[string]string) ([]
 		}
 	}
 	if len(unresolved) > 0 {
-		return nil, &ErrUnresolvedConflicts{Keys: unresolved}
+		return nil, &ErrNeedsChoices{Keys: unresolved}
 	}
 	for _, key := range modeladmin.OperatorStateKeys {
 		if v, ok := mineMap[key]; ok {

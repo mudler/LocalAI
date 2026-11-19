@@ -59,9 +59,10 @@ var _ = Describe("Edits of a model config", func() {
 
 		It("refuses a conflicting key without a choice", func() {
 			_, err := modelupdates.MergeConfig(installed, mine, planned, nil)
-			var unresolved *modelupdates.ErrUnresolvedConflicts
+			var unresolved *modelupdates.ErrNeedsChoices
 			Expect(errors.As(err, &unresolved)).To(BeTrue())
 			Expect(unresolved.Keys).To(Equal([]string{"context_size"}))
+			Expect(err.Error()).To(ContainSubstring("choose " + modelupdates.ChoiceMine + " or " + modelupdates.ChoiceGallery))
 		})
 
 		It("keeps mine, takes the gallery's new payload and the operator state", func() {
