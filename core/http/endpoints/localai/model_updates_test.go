@@ -1,0 +1,143 @@
+package localai_test
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"github.com/labstack/echo/v4"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/LocalAI/pkg/system"
+)
+
+type recordingModelUpgrader struct {
+	mu   sync.Mutex
+	opts []galleryop.ModelUpgradeOptions
+	done chan string
+}
+
+func (r *recordingModelUpgrader) UpgradeModel(_ context.Context, _, name string, opts galleryop.ModelUpgradeOptions, _ func(*galleryop.OpStatus)) error {
+	r.mu.Lock()
+	r.opts = append(r.opts, opts)
+	r.mu.Unlock()
+	r.done <- name
+	return nil
+}
+
+var _ = Describe("Model update routes", func() {
+	var (
+		e    *echo.Echo
+		dir  string
+		rec  *recordingModelUpgrader
+		deps ModelUpgradeDeps
+	)
+
+	do := func(method, path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, req)
+		return w
+	}
+	installed := func(name string, j *gallery.Journal) {
+		Expect(os.WriteFile(filepath.Join(dir, name+".yaml"), []byte("name: "+name+"\n"), 0600)).To(Succeed())
+		Expect(gallery.WriteSidecar(dir, name, &gallery.ModelConfig{Name: name, Version: gallery.SidecarVersion,
+			Origin: &gallery.Origin{Gallery: "g", EntryName: name, EntryDigest: "sha256:a"}, Upgrade: j})).To(Succeed())
+	}
+
+	BeforeEach(func() {
+		dir = GinkgoT().TempDir()
+		state, err := system.GetSystemState(system.WithModelPath(dir))
+		Expect(err).ToNot(HaveOccurred())
+		gs := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		rec = &recordingModelUpgrader{done: make(chan string, 2)}
+		gs.SetModelUpgrader(rec)
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		Expect(gs.Start(ctx, nil, nil)).To(Succeed())
+		up := &modelupdates.Upgrader{SystemState: state}
+		svc := modelupdates.New(modelupdates.Options{SystemState: state, ListGallery: func(context.Context, bool) ([]*gallery.GalleryModel, error) { return nil, nil }})
+		deps = ModelUpgradeDeps{Gallery: gs, Upgrader: func() *modelupdates.Upgrader { return up }, Updates: func() *modelupdates.Service { return svc }}
+		e = echo.New()
+		e.POST("/api/models/upgrade/:name", UpgradeModelEndpoint(deps))
+		e.POST("/api/models/:name/upgrade/retry", RetryModelUpgradeEndpoint(deps))
+		e.GET("/api/models/updates", ModelUpdatesEndpoint(func() ModelUpdatesProvider { return svc }))
+	})
+
+	It("queues an upgrade with its options and returns the operation", func() {
+		installed("tiny", nil)
+		w := do(http.MethodPost, "/api/models/upgrade/tiny", `{"config_only":true,"choices":{"context_size":"mine"}}`)
+		Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+		var resp schema.ModelUpgradeResponse
+		Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+		Expect(resp.ID).ToNot(BeEmpty())
+		Expect(resp.JobID).To(Equal(resp.ID))
+		Expect(resp.StatusURL).To(HaveSuffix("models/jobs/" + resp.ID))
+		Eventually(rec.done).Should(Receive(Equal("tiny")))
+		Expect(rec.opts[0]).To(Equal(galleryop.ModelUpgradeOptions{ConfigOnly: true, Choices: map[string]string{"context_size": "mine"}}))
+	})
+
+	It("answers 404 for a model that is not installed", func() {
+		Expect(do(http.MethodPost, "/api/models/upgrade/none", "").Code).To(Equal(http.StatusNotFound))
+	})
+
+	It("answers 422 for a model without a recorded origin", func() {
+		Expect(os.WriteFile(filepath.Join(dir, "old.yaml"), []byte("name: old\n"), 0600)).To(Succeed())
+		Expect(os.WriteFile(gallery.SidecarPath(dir, "old"), []byte("name: old\n"), 0600)).To(Succeed())
+		Expect(do(http.MethodPost, "/api/models/upgrade/old", "").Code).To(Equal(http.StatusUnprocessableEntity))
+	})
+
+	It("answers 409 while an upgrade runs, and to a retry with nothing to retry", func() {
+		installed("busy", &gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseStaging})
+		Expect(do(http.MethodPost, "/api/models/upgrade/busy", "").Code).To(Equal(http.StatusConflict))
+		installed("fine", nil)
+		Expect(do(http.MethodPost, "/api/models/fine/upgrade/retry", "").Code).To(Equal(http.StatusConflict))
+	})
+
+	It("rejects a choice that is neither mine nor gallery", func() {
+		installed("tiny", nil)
+		Expect(do(http.MethodPost, "/api/models/upgrade/tiny", `{"choices":{"k":"both"}}`).Code).To(Equal(http.StatusBadRequest))
+	})
+
+	It("queues a retry of a failed upgrade", func() {
+		installed("failed", &gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseRolledBack, Error: "load failed"})
+		Expect(do(http.MethodPost, "/api/models/failed/upgrade/retry", "").Code).To(Equal(http.StatusOK))
+		Eventually(rec.done).Should(Receive(Equal("failed")))
+		Expect(rec.opts[0].Retry).To(BeTrue())
+	})
+
+	It("answers 503 when no model gallery is configured", func() {
+		bare := echo.New()
+		bare.POST("/api/models/upgrade/:name", UpgradeModelEndpoint(ModelUpgradeDeps{}))
+		w := httptest.NewRecorder()
+		bare.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/models/upgrade/x", nil))
+		Expect(w.Code).To(Equal(http.StatusServiceUnavailable))
+	})
+
+	It("reports a disabled source without a model gallery", func() {
+		bare := echo.New()
+		bare.GET("/api/models/updates", ModelUpdatesEndpoint(func() ModelUpdatesProvider { return nil }))
+		w := httptest.NewRecorder()
+		bare.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/models/updates", nil))
+		var snap modelupdates.Snapshot
+		Expect(json.Unmarshal(w.Body.Bytes(), &snap)).To(Succeed())
+		Expect(snap.Sources[modelupdates.SourceGallery].State).To(Equal(backendupdates.StateDisabled))
+		Expect(snap.Items).To(BeEmpty())
+	})
+})

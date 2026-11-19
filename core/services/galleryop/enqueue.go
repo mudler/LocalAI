@@ -41,7 +41,7 @@ func (o *OpStatus) IsQueued() bool {
 // handler for the entire duration of the in-flight install (observed as a
 // request that never gets a response while /readyz stays green).
 func (g *GalleryService) EnqueueModelOp(op ManagementOp[gallery.GalleryModel, gallery.ModelConfig]) {
-	g.markQueued(op.ID, op.GalleryElementName, op.Delete, false)
+	g.markQueued(op.ID, op.GalleryElementName, op.Delete, op.Upgrade)
 	go func() {
 		select {
 		case g.ModelGalleryChannel <- op:

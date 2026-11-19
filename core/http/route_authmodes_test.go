@@ -78,6 +78,8 @@ func isNotificationsRoute(p string) bool { return strings.HasPrefix(p, "/api/not
 var modelUpdatesRoutes = []string{
 	"GET /api/models/updates",
 	"POST /api/models/updates/check",
+	"POST /api/models/upgrade/:name",
+	"POST /api/models/:name/upgrade/retry",
 }
 
 func isModelUpdatesRoute(methodPath string) bool {

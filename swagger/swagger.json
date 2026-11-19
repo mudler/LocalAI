@@ -14945,6 +14945,58 @@
                 }
             }
         },
+        "/api/models/upgrade/{name}": {
+            "post": {
+                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. Nothing upgrades without this request.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Upgrade a model to what its gallery entry installs now",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Installed model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Options",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not installed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "409": {
+                        "description": "Running, or edited keys need a choice",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "422": {
+                        "description": "Not installed from a gallery with a recorded origin",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/vram-estimate": {
             "post": {
                 "description": "Estimates VRAM based on model weight files at multiple context sizes",
@@ -15092,6 +15144,44 @@
                         "description": "The job table could not be read",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/{name}/upgrade/retry": {
+            "post": {
+                "description": "Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Retry a failed model upgrade",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Installed model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not installed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "409": {
+                        "description": "Nothing to retry, or an upgrade runs",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
                         }
                     }
                 }
@@ -35835,6 +35925,53 @@
                 },
                 "total_files": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ModelUpgradeError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ModelUpgradeRequest": {
+            "type": "object",
+            "properties": {
+                "choices": {
+                    "description": "Choices give, for each key a person edited that the update also\nchanges (the conflicts of GET /api/models/updates), \"mine\" to keep the\nedit or \"gallery\" to take the new value, by dotted key. The upgrade is\nrefused while a conflict has no choice.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "config_only": {
+                    "description": "ConfigOnly applies the new model config and prompt templates and\ndownloads nothing. It fails when the update needs new files.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ModelUpgradeResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "jobID": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status_url": {
+                    "type": "string"
                 }
             }
         },

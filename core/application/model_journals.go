@@ -5,6 +5,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/xlog"
 )
 
@@ -38,5 +39,15 @@ func recoverModelJournals(options *config.ApplicationConfig) {
 	}
 	if len(recovered) > 0 {
 		xlog.Info("Recovered interrupted model installs", "models", recovered)
+	}
+	// Nothing is loaded yet and the configs are read after this, so the
+	// recovery needs no runtime.
+	up := &modelupdates.Upgrader{SystemState: options.SystemState, Instance: options.Distributed.InstanceID}
+	ended, err := up.Recover(options.Context, journalPolicy(options))
+	if err != nil {
+		xlog.Warn("Could not end some interrupted model upgrades", "error", err)
+	}
+	if len(ended) > 0 {
+		xlog.Info("Ended interrupted model upgrades", "models", ended)
 	}
 }

@@ -62,8 +62,15 @@ type ManagementOp[T any, E any] struct {
 	// than quietly auto-selecting, so a typo cannot masquerade as a choice.
 	Variant string
 
-	// Upgrade is true if this is an upgrade operation (not a fresh install)
+	// Upgrade is true if this is an upgrade operation (not a fresh install).
+	// For a model, GalleryElementName is the installed model name and
+	// ModelUpgrade holds the options; the gallery service hands the op to
+	// its ModelUpgrader.
 	Upgrade bool
+
+	// ModelUpgrade are the options of a model upgrade. Nil means the
+	// defaults.
+	ModelUpgrade *ModelUpgradeOptions
 
 	// Force reinstalls a backend even when it is already installed and
 	// runnable. Without it a backend install op is idempotent — API clients
@@ -71,6 +78,16 @@ type ManagementOp[T any, E any] struct {
 	// artifact re-download each time. The UI's explicit "Reinstall backend"
 	// action sets it.
 	Force bool
+}
+
+// ModelUpgradeOptions are the options of a model upgrade operation.
+type ModelUpgradeOptions struct {
+	// ConfigOnly applies the model config and the prompt templates only.
+	ConfigOnly bool `json:"config_only,omitempty"`
+	// Choices are mine or gallery for each edited key the update changes.
+	Choices map[string]string `json:"choices,omitempty"`
+	// Retry runs a failed upgrade again.
+	Retry bool `json:"retry,omitempty"`
 }
 
 type OpStatus struct {

@@ -29,6 +29,9 @@ const (
 )
 
 func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gallery.ModelConfig], cl *config.ModelConfigLoader, systemState *system.SystemState) error {
+	if op.Upgrade && !op.Delete {
+		return g.modelUpgradeHandler(op)
+	}
 	if op.Delete && cl != nil {
 		return cl.WithModelConfigMutation(func() error {
 			return g.modelHandlerLocked(op, cl, systemState)
@@ -252,6 +255,52 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 			Cancellable:        false})
 
 	return incompleteDelete
+}
+
+// modelUpgradeHandler runs a model upgrade operation through the
+// ModelUpgrader. The upgrade reads and writes the model config itself, and
+// tells the frontends to read it again, so this handler does not reload.
+// The operation can be cancelled while it checks and downloads; once the
+// model is stopped it runs to the end (confirmed or rolled back).
+func (g *GalleryService) modelUpgradeHandler(op *ManagementOp[gallery.GalleryModel, gallery.ModelConfig]) error {
+	upgrader := g.getModelUpgrader()
+	if upgrader == nil {
+		return errors.New("model upgrades are not available on this server")
+	}
+	if g.galleryStore != nil && op.GalleryElementName != "" {
+		dup, err := g.galleryStore.FindDuplicate(op.GalleryElementName)
+		if err == nil && dup != nil && dup.ID != op.ID {
+			g.UpdateStatus(op.ID, &OpStatus{
+				Processed: true, Upgrade: true, GalleryElementName: op.GalleryElementName,
+				Message: fmt.Sprintf("already being processed by another instance (op %s)", dup.ID),
+			})
+			return nil
+		}
+	}
+	ctx := op.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	opts := ModelUpgradeOptions{}
+	if op.ModelUpgrade != nil {
+		opts = *op.ModelUpgrade
+	}
+	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("upgrading model: %s", op.GalleryElementName), Upgrade: true,
+		GalleryElementName: op.GalleryElementName, Cancellable: true})
+	err := upgrader.UpgradeModel(ctx, op.ID, op.GalleryElementName, opts, func(s *OpStatus) {
+		s.Upgrade = true
+		s.GalleryElementName = op.GalleryElementName
+		g.UpdateStatus(op.ID, s)
+	})
+	if err != nil {
+		if op.Context != nil && errors.Is(err, op.Context.Err()) {
+			g.UpdateStatus(op.ID, &OpStatus{Cancelled: true, Processed: true, Upgrade: true, Message: "cancelled", GalleryElementName: op.GalleryElementName})
+		}
+		return err
+	}
+	g.UpdateStatus(op.ID, &OpStatus{Processed: true, Upgrade: true, GalleryElementName: op.GalleryElementName,
+		Message: "completed", Progress: 100})
+	return nil
 }
 
 type savedModelConfigFile struct {

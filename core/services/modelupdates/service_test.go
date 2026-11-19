@@ -185,6 +185,8 @@ var _ = Describe("The model update check", func() {
 		Expect(it.State).To(Equal(modelupdates.StateEdited))
 		Expect(it.NeedsPerson).To(BeTrue())
 		Expect(it.EditedKeys).To(ConsistOf(modelupdates.KeyEdit{Key: "context_size", Installed: 2048, Mine: 8192, Gallery: 4096, Conflict: true}))
+		Expect(svc.MissingChoices("tiny", nil)).To(Equal([]string{"context_size"}))
+		Expect(svc.MissingChoices("tiny", map[string]string{"context_size": modelupdates.ChoiceGallery})).To(BeEmpty())
 	})
 
 	It("keeps an edit the update does not touch out of the conflicts", func() {

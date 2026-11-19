@@ -241,7 +241,7 @@ func (s *Service) checkModel(ctx context.Context, models []*gallery.GalleryModel
 	if digest == sc.Origin.EntryDigest {
 		return r
 	}
-	plan, err := PlanUpgrade(ctx, s.opts.SystemState, models, name, sc, gallery.WithoutArtifactBinding())
+	_, plan, err := PlanUpgrade(ctx, s.opts.SystemState, models, name, sc, gallery.WithoutArtifactBinding())
 	if err != nil {
 		r.Error = err.Error()
 		return r
@@ -252,20 +252,22 @@ func (s *Service) checkModel(ctx context.Context, models []*gallery.GalleryModel
 }
 
 // PlanUpgrade works out what reinstalling a model from its recorded origin
-// would write now, without writing anything.
-func PlanUpgrade(ctx context.Context, systemState *system.SystemState, models []*gallery.GalleryModel, name string, sc *gallery.ModelConfig, options ...gallery.InstallOption) (*gallery.InstallPlan, error) {
+// would write now, without writing anything (binding an artifact still
+// materializes it unless gallery.WithoutArtifactBinding is passed). The
+// install carries the new origin.
+func PlanUpgrade(ctx context.Context, systemState *system.SystemState, models []*gallery.GalleryModel, name string, sc *gallery.ModelConfig, options ...gallery.InstallOption) (*gallery.GalleryInstall, *gallery.InstallPlan, error) {
 	inst, err := gallery.PrepareReinstall(ctx, models, systemState.Model.ModelsPath, name, sc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if inst == nil {
-		return nil, ErrGone
+		return nil, nil, ErrGone
 	}
 	plan, err := gallery.PlanInstall(ctx, systemState, inst.Name, &inst.Config, inst.Overrides, false, options...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return plan, nil
+	return inst, plan, nil
 }
 
 // ErrGone is returned when no configured gallery lists the entry a model came
@@ -468,4 +470,25 @@ func NeedingPerson(items []Item) []Item {
 		}
 	}
 	return out
+}
+
+// MissingChoices returns the edited keys of a model that the last check found
+// the update would also change and that choices does not decide. It reads
+// the last check; the upgrade decides again on fresh data.
+func (s *Service) MissingChoices(name string, choices map[string]string) []string {
+	cf, err := readCheckFile(s.modelsPath())
+	if err != nil {
+		return nil
+	}
+	it, ok := s.item(name, cf)
+	if !ok {
+		return nil
+	}
+	var missing []string
+	for _, key := range Conflicts(it.EditedKeys) {
+		if c := choices[key]; c != ChoiceMine && c != ChoiceGallery {
+			missing = append(missing, key)
+		}
+	}
+	return missing
 }

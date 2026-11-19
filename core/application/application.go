@@ -271,6 +271,8 @@ type Application struct {
 	// modelUpdates is the update check of gallery models; nil without model
 	// galleries.
 	modelUpdates *modelupdates.Service
+	// modelUpgrader runs model upgrades; nil without model galleries.
+	modelUpgrader *modelupdates.Upgrader
 
 	// LocalAI Assistant in-process MCP server. nil until initialised in start() after galleryService, and
 	// when that initialisation fails.

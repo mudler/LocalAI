@@ -29,6 +29,8 @@ type GalleryService struct {
 	backendManager BackendManager
 	statuses       map[string]*OpStatus
 	cancellations  map[string]cancellationActions
+	// modelUpgrader runs model upgrade operations; nil until wired.
+	modelUpgrader ModelUpgrader
 
 	// backendScheduler runs backend operations; set by Start.
 	backendScheduler *opScheduler
@@ -700,8 +702,11 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
 					opType := "model_install"
-					if op.Delete {
+					switch {
+					case op.Delete:
 						opType = "model_delete"
+					case op.Upgrade:
+						opType = "model_upgrade"
 					}
 					if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
 						ID:                 op.ID,
@@ -927,6 +932,27 @@ func (g *GalleryService) Hydrate() error {
 	}
 	xlog.Info("Hydrated gallery service statuses from store", "count", len(ops))
 	return nil
+}
+
+// ModelUpgrader runs the upgrade of an installed model (modelupdates). It
+// reports each phase through progress and returns when the upgrade is
+// confirmed, rolled back or failed.
+type ModelUpgrader interface {
+	UpgradeModel(ctx context.Context, opID, name string, opts ModelUpgradeOptions, progress func(*OpStatus)) error
+}
+
+// SetModelUpgrader sets what runs model upgrade operations. Without one a
+// model upgrade operation fails.
+func (g *GalleryService) SetModelUpgrader(u ModelUpgrader) {
+	g.Lock()
+	defer g.Unlock()
+	g.modelUpgrader = u
+}
+
+func (g *GalleryService) getModelUpgrader() ModelUpgrader {
+	g.Lock()
+	defer g.Unlock()
+	return g.modelUpgrader
 }
 
 // SetOnOpFinished sets the OnOpFinished hook. It is safe while operations run.

@@ -2,11 +2,18 @@ package localai
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 )
 
@@ -58,4 +65,101 @@ func disabledModelUpdates() modelupdates.Snapshot {
 		}},
 		Items: []modelupdates.Item{},
 	}
+}
+
+// ModelUpgradeDeps are what the upgrade routes use. Each getter may return
+// nil when no model gallery is configured.
+type ModelUpgradeDeps struct {
+	Gallery  *galleryop.GalleryService
+	Upgrader func() *modelupdates.Upgrader
+	Updates  func() *modelupdates.Service
+}
+
+// UpgradeModelEndpoint queues the upgrade of an installed gallery model.
+// @Summary Upgrade a model to what its gallery entry installs now
+// @Description Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. Nothing upgrades without this request.
+// @Tags models
+// @Param name path string true "Installed model name"
+// @Param request body schema.ModelUpgradeRequest false "Options"
+// @Success 200 {object} schema.ModelUpgradeResponse "Operation"
+// @Failure 404 {object} schema.ModelUpgradeError "Not installed"
+// @Failure 409 {object} schema.ModelUpgradeError "Running, or edited keys need a choice"
+// @Failure 422 {object} schema.ModelUpgradeError "Not installed from a gallery with a recorded origin"
+// @Router /api/models/upgrade/{name} [post]
+func UpgradeModelEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
+	return func(c echo.Context) error { return queueModelUpgrade(c, d, false) }
+}
+
+// RetryModelUpgradeEndpoint queues a failed upgrade again.
+// @Summary Retry a failed model upgrade
+// @Description Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail.
+// @Tags models
+// @Param name path string true "Installed model name"
+// @Success 200 {object} schema.ModelUpgradeResponse "Operation"
+// @Failure 404 {object} schema.ModelUpgradeError "Not installed"
+// @Failure 409 {object} schema.ModelUpgradeError "Nothing to retry, or an upgrade runs"
+// @Router /api/models/{name}/upgrade/retry [post]
+func RetryModelUpgradeEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
+	return func(c echo.Context) error { return queueModelUpgrade(c, d, true) }
+}
+
+func modelUpgradeError(c echo.Context, err error) error {
+	status := http.StatusInternalServerError
+	switch {
+	case errors.Is(err, modelupdates.ErrNotFound):
+		status = http.StatusNotFound
+	case errors.Is(err, modelupdates.ErrNotUpgradable):
+		status = http.StatusUnprocessableEntity
+	case errors.Is(err, modelupdates.ErrBusy), errors.Is(err, modelupdates.ErrNothingFailed):
+		status = http.StatusConflict
+	}
+	return c.JSON(status, schema.ModelUpgradeError{Error: err.Error()})
+}
+
+func queueModelUpgrade(c echo.Context, d ModelUpgradeDeps, retry bool) error {
+	var up *modelupdates.Upgrader
+	if d.Upgrader != nil {
+		up = d.Upgrader()
+	}
+	if up == nil || d.Gallery == nil {
+		return c.JSON(http.StatusServiceUnavailable, schema.ModelUpgradeError{Error: "model upgrades are not available: no model gallery is configured"})
+	}
+	name := c.Param("name")
+	var req schema.ModelUpgradeRequest
+	if !retry && c.Request().ContentLength != 0 {
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, schema.ModelUpgradeError{Error: "invalid body: " + err.Error()})
+		}
+	}
+	for key, choice := range req.Choices {
+		if choice != modelupdates.ChoiceMine && choice != modelupdates.ChoiceGallery {
+			return c.JSON(http.StatusBadRequest, schema.ModelUpgradeError{Error: fmt.Sprintf("choice for %q must be %q or %q", key, modelupdates.ChoiceMine, modelupdates.ChoiceGallery)})
+		}
+	}
+	if err := up.Validate(name, retry); err != nil {
+		return modelUpgradeError(c, err)
+	}
+	if !retry && d.Updates != nil {
+		if svc := d.Updates(); svc != nil {
+			if missing := svc.MissingChoices(name, req.Choices); len(missing) > 0 {
+				return c.JSON(http.StatusConflict, schema.ModelUpgradeError{
+					Error: "the update changes keys that were edited; choose mine or gallery for each", Keys: missing,
+				})
+			}
+		}
+	}
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return err
+	}
+	uid := id.String()
+	ctx, cancel, pause := galleryop.NewUserCancellableContext(context.Background())
+	d.Gallery.StoreCancellationActions(uid, cancel, pause)
+	d.Gallery.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+		ID: uid, GalleryElementName: name, Upgrade: true, Context: ctx, CancelFunc: cancel, PauseFunc: pause,
+		ModelUpgrade: &galleryop.ModelUpgradeOptions{ConfigOnly: req.ConfigOnly, Choices: req.Choices, Retry: retry},
+	})
+	return c.JSON(http.StatusOK, schema.ModelUpgradeResponse{
+		ID: uid, JobID: uid, StatusURL: fmt.Sprintf("%smodels/jobs/%s", middleware.BaseURL(c), uid), Message: "Upgrade started",
+	})
 }
