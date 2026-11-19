@@ -113,10 +113,10 @@ $env:LOCALAI_BASE_PATH = 'D:\LocalAI'
 
 ## What is not available on Windows yet
 
-- The Sandbox add-on. It isolates commands with gVisor or a virtual machine, and neither is available on Windows, so there is no Windows package of it. Chat commands that need the Sandbox add-on are not available.
+- The Sandbox add-on in the library. On Windows it runs in WSL 2 (see [Sandbox add-on](#sandbox-add-on)), but its Windows package is not published yet. Until it is, chat commands that need the Sandbox add-on are not available.
 - The worker commands for backends without a Windows build: `local-ai worker mlx-distributed`, `p2p-mlx`, `vllm` and `ds4-distributed` stop at once with an error. See [Distributed mode and workers on Windows](#distributed-mode-and-workers-on-windows) for what works.
 - Backends other than llama.cpp.
-- The built-in bash tool of the chat. It needs a POSIX shell and process groups. It is not a fallback for the Sandbox add-on: on Windows the chat has no tool that runs commands.
+- The built-in bash tool of the chat. It needs a POSIX shell and process groups. It is not a fallback for the Sandbox add-on: without the Sandbox add-on, the chat has no tool that runs commands on Windows.
 
 ## Distributed mode and workers on Windows
 
@@ -244,9 +244,9 @@ resolve through the model gallery index instead.
 
 The chats' built-in bash needs a POSIX process group and shell, which
 Windows does not provide, so the command tool is unavailable (the reasoning
-and chat itself keep working). The Sandbox add-on, which runs commands on
-Linux and macOS, has no Windows package. LocalAI never runs a command of a
-chat on Windows without isolation.
+and chat itself keep working). On Windows, only the Sandbox add-on runs
+commands, in WSL 2 (see [Sandbox add-on](#sandbox-add-on)). LocalAI never
+runs a command of a chat on Windows without isolation.
 
 ### Add-ons on Windows
 
@@ -254,6 +254,97 @@ The add-on runtime runs on Windows as on Linux and macOS. Install add-ons from
 the **Add-ons** page. The library lists only the add-ons that have a Windows
 package. Each add-on runs as its own process (`<name>.exe`). When an add-on
 stops, or LocalAI exits, Windows also stops every process the add-on started.
+An add-on whose package says `"execution": "wsl2"` runs in WSL 2 instead
+(see [Sandbox add-on](#sandbox-add-on)).
+
+### Sandbox add-on
+
+The Sandbox add-on runs the commands of a chat in an isolated Linux guest
+(gVisor, or a virtual machine with KVM). Windows has neither, so on Windows
+the add-on runs in a WSL 2 distribution: its Windows package carries the
+Linux program, and LocalAI starts it with `wsl.exe`. Nothing of it runs on
+Windows itself.
+
+{{% callout style="note" %}}
+The Windows package of the Sandbox add-on is not in the library yet. It is
+published after its check passes on a Windows machine with WSL. This section
+describes how it works when it is.
+{{% /callout %}}
+
+**Requirements**
+
+- WSL 2. Install it with `wsl --install` in a terminal that runs as
+  administrator, then restart Windows. Update an old WSL with `wsl --update`.
+- A WSL 2 distribution, for example Ubuntu: `wsl --install -d Ubuntu`.
+  LocalAI uses the default distribution (`wsl --list --verbose` marks it with
+  `*`). To use another one, set `--addons-wsl-distro` (or
+  `LOCALAI_ADDONS_WSL_DISTRO`) to its name. A WSL 1 distribution is refused;
+  convert it with `wsl --set-version <name> 2`.
+- gVisor needs nothing more: the package carries `runsc`, and the WSL 2
+  kernel has user namespaces. KVM needs nested virtualization (Windows 11)
+  and access to `/dev/kvm` in the distribution. The **Sandbox** settings page
+  shows which backend works and why the others do not.
+
+**How it works**
+
+- LocalAI copies the add-on, once per version, into the home folder of the
+  default user of the distribution
+  (`~/.local/share/localai-addons/packages`). The data of the add-on (guest
+  images, sandboxes) stays there too (`~/.local/share/localai-addons/data`),
+  on the Linux file system. LocalAI reaches it as
+  `\\wsl.localhost\<distribution>\...`.
+- LocalAI talks to the add-on over the standard input and output of
+  `wsl.exe`, so it works with every WSL networking mode and needs no
+  firewall rule.
+- When LocalAI stops the add-on, or exits, `wsl.exe` stops, and the add-on
+  stops a few seconds later. LocalAI does not stop the distribution.
+
+**When it cannot run**
+
+If WSL 2 cannot run the add-on, the add-on does not start, and LocalAI runs
+nothing on Windows in its place. The log has the line "An add-on did not
+start", and the Tools menu of a chat says why the Sandbox cannot run
+commands, for example "WSL is not installed" or "uses WSL 1". Fix the cause
+and restart LocalAI.
+
+**Security**
+
+- The guest of a sandbox sees only its image and the files of the chat. It
+  has no network device: it reaches the network only through the proxy of
+  the add-on, which asks LocalAI about each connection. It cannot start
+  Windows programs.
+- The add-on process itself runs in the distribution as its default user. By
+  default WSL mounts the Windows drives under `/mnt` with your rights, and a
+  Linux program in WSL can start Windows programs. The add-on does not use
+  them, but LocalAI cannot stop a program in WSL from doing so. This is the
+  same trust as on Linux, where the add-on runs as the LocalAI user.
+- The host backend of the add-on, which runs commands with no isolation, is
+  off on Windows: in WSL its commands could reach your Windows files.
+- To limit what the distribution can reach, use a distribution only for
+  LocalAI and turn off the drive mounts and the start of Windows programs in
+  its `/etc/wsl.conf`:
+
+  ```ini
+  [automount]
+  enabled = false
+
+  [interop]
+  enabled = false
+  ```
+
+  Then run `wsl --terminate <name>` and set `--addons-wsl-distro` to it.
+- Other distributions run in the same WSL 2 virtual machine and share its
+  network. They can connect to the loopback ports of the add-on. Each
+  connection needs a credential that LocalAI makes for each start.
+
+**Limits**
+
+- Only the Sandbox add-on runs in WSL 2. Other add-ons that need Linux are
+  not available on Windows.
+- The files that a chat gives to a sandbox go through
+  `\\wsl.localhost`, which is slower than a local disk.
+- LocalAI cannot check that a Windows machine has WSL 2 before you install
+  the add-on. The install works; the add-on then says why it cannot start.
 
 ### Firewall
 
