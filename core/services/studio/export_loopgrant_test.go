@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
@@ -16,7 +17,7 @@ import (
 // binding says.
 func (s *Service) HoldSenderForTest(chat string, b connectors.Binding, senderID string, listed bool, now time.Time) {
 	subject := AccessSubject{SenderID: senderID, Allowlisted: true, Listed: listed}
-	g := turnGrant{Binding: b.ID, Kind: b.Kind, Senders: []string{senderID}}
+	g := turnGrant{Binding: b.ID, Kind: b.Kind, Senders: []string{senderID}, Paired: senderID != "" && b.IsPaired(senderID, now)}
 	for _, name := range contract.ConnectorCapabilityNames() {
 		if d := Authorize(b, nil, subject, name, now, Block{}); d.Allowed {
 			g.Caps = append(g.Caps, name)
@@ -67,4 +68,20 @@ func (h *Loops) ToolNamesForTest(ctx context.Context, user, conv string) []strin
 func (s *Service) TurnAllowForTest(chat, capability string) (bool, string) {
 	allow, _ := s.turnAllow(chat)
 	return allow(capability)
+}
+
+// StartWaitForTest calls wait_for in a chat with raw arguments, with no check
+// of the tool list.
+func (h *Loops) StartWaitForTest(ctx context.Context, user, conv, raw string) (string, error) {
+	return h.startWait(ctx, workspace.Actor{Principal: principal(user), ChatID: conv}, json.RawMessage(raw))
+}
+
+// GuardToolsForTest names what the note of the promise guard offers in a chat
+// now.
+func (s *Service) GuardToolsForTest(ctx context.Context, user, conv string) []string {
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
+	if err != nil {
+		return nil
+	}
+	return s.guardTools(ctx, rec)
 }
