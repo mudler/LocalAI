@@ -53,8 +53,8 @@ func (s *ConfigService) toggleState(ctx context.Context, name string, action Act
 		return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 	}
 	var result *ToggleResult
-	err := s.withMutationRollback([]string{configPath}, func() error {
-		if err := mutateYAMLBoolFlag(configPath, "disabled", action == ActionDisable); err != nil {
+	err := s.withMutationRollback([]string{configPath, sidecarPathFor(s.modelsPath(), name)}, func() error {
+		if err := mutateYAMLBoolFlag(configPath, name, "disabled", action == ActionDisable); err != nil {
 			return err
 		}
 		if err := s.Loader.LoadModelConfigsFromPath(s.modelsPath(), s.AppConfig.ToConfigLoaderOptions()...); err != nil {
@@ -85,7 +85,7 @@ func (s *ConfigService) toggleState(ctx context.Context, name string, action Act
 // mutateYAMLBoolFlag is a small helper shared by ToggleState and
 // TogglePinned: read the file as a generic map, set or remove a bool key,
 // write back. Setting `set=false` removes the key for a clean YAML.
-func mutateYAMLBoolFlag(path, key string, set bool) error {
+func mutateYAMLBoolFlag(path, modelName, key string, set bool) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read config: %w", err)
@@ -106,7 +106,7 @@ func mutateYAMLBoolFlag(path, key string, set bool) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
-	if err := writeFileAtomic(path, out, 0644); err != nil {
+	if err := writeModelConfig(path, modelName, out); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 	return nil

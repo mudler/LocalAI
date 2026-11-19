@@ -153,6 +153,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	} else if removed > 0 {
 		xlog.Info("Reaped abandoned artifact partials", "count", removed)
 	}
+	recoverModelJournals(options)
 	if options.GeneratedContentDir != "" {
 		err := os.MkdirAll(options.GeneratedContentDir, 0o750)
 		if err != nil {

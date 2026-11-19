@@ -20,6 +20,13 @@ type installOptions struct {
 	materializer        ArtifactMaterializer
 	variant             string
 	backendAvailability BackendAvailability
+	// origin, when set, is recorded in the gallery file (version 2).
+	origin *Origin
+	// instance names the frontend that writes the install journal.
+	instance string
+	// skipArtifactBinding makes PlanInstall leave the artifact unbound, so a
+	// check can plan without materializing anything.
+	skipArtifactBinding bool
 }
 
 type InstallOption func(*installOptions)
@@ -49,6 +56,29 @@ func WithArtifactMaterializer(materializer ArtifactMaterializer) InstallOption {
 func WithVariant(variant string) InstallOption {
 	return func(options *installOptions) {
 		options.variant = variant
+	}
+}
+
+// WithOrigin records the gallery entry an install comes from in its gallery
+// file.
+func WithOrigin(origin *Origin) InstallOption {
+	return func(options *installOptions) {
+		options.origin = origin
+	}
+}
+
+// WithInstance names the frontend that runs the install, for its journal.
+func WithInstance(instance string) InstallOption {
+	return func(options *installOptions) {
+		options.instance = instance
+	}
+}
+
+// WithoutArtifactBinding makes PlanInstall skip binding the primary artifact,
+// which would materialize it. The update check plans with it.
+func WithoutArtifactBinding() InstallOption {
+	return func(options *installOptions) {
+		options.skipArtifactBinding = true
 	}
 }
 
