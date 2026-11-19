@@ -93,11 +93,11 @@ var _ = Describe("utils/path tests", func() {
 
 	Describe("InTrustedRoot", func() {
 		It("accepts a strict descendant of the trusted root", func() {
-			Expect(InTrustedRoot("/srv/models/file", "/srv/models")).To(Succeed())
+			Expect(InTrustedRoot(filepath.FromSlash("/srv/models/file"), filepath.FromSlash("/srv/models"))).To(Succeed())
 		})
 
 		It("accepts a deeply nested descendant", func() {
-			Expect(InTrustedRoot("/srv/models/a/b/c/file", "/srv/models")).To(Succeed())
+			Expect(InTrustedRoot(filepath.FromSlash("/srv/models/a/b/c/file"), filepath.FromSlash("/srv/models"))).To(Succeed())
 		})
 
 		It("rejects the trusted root itself", func() {

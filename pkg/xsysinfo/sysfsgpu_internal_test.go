@@ -3,6 +3,7 @@ package xsysinfo
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,6 +13,11 @@ import (
 // does: card<N>/device is a symlink into the PCI device tree, named after
 // the card's BDF.
 func writeSysfsCard(root, card, bdf string, attrs map[string]string) {
+	if runtime.GOOS == "windows" {
+		// sysfs is a Linux interface and a PCI address holds colons, which
+		// Windows rejects in a file name.
+		Skip("sysfs fixtures cannot be created on Windows")
+	}
 	pciDir := filepath.Join(root, "..", "devices", "pci", bdf)
 	ExpectWithOffset(1, os.MkdirAll(pciDir, 0o755)).To(Succeed())
 	for name, value := range attrs {

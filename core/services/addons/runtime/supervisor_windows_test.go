@@ -97,7 +97,8 @@ var _ = Describe("The supervisor on Windows", func() {
 	})
 	It("restarts a crashed add-on", func() {
 		s := windowsSupervisor()
-		i, e := s.Start(context.Background(), windowsFixture("normal"), 1)
+		receipt := windowsFixture("normal")
+		i, e := s.Start(context.Background(), receipt, 1)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(i.process.cmd.Process.Kill()).To(Succeed())
 		Eventually(func() string {
@@ -107,6 +108,12 @@ var _ = Describe("The supervisor on Windows", func() {
 			}
 			return r[0].Incarnation
 		}, 10*time.Second).ShouldNot(Or(BeEmpty(), Equal(i.Incarnation)))
+		// Windows cannot delete the program of a running process, and the
+		// restarted one runs from the folder that the spec cleans up. Stop it
+		// and wait until the program can go.
+		Expect(s.Close(context.Background())).To(Succeed())
+		exe := filepath.Join(receipt.Directory, "fixture.exe")
+		Eventually(func() error { return os.Remove(exe) }, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 	It("starts only a .exe file", func() {
 		p := windowsFixture("normal")

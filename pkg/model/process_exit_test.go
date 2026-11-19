@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -14,6 +15,9 @@ import (
 
 var _ = Describe("backend process exit diagnostics", func() {
 	It("includes the exit code and final stderr line for an unexpected exit", func() {
+		if runtime.GOOS == "windows" {
+			Skip("the fixture backend is a shell script, which Windows cannot execute")
+		}
 		tmpDir := GinkgoT().TempDir()
 		backendTempRoot := filepath.Join(tmpDir, "backend-runtime")
 		GinkgoT().Setenv(backendTempDirEnv, backendTempRoot)
@@ -45,6 +49,9 @@ var _ = Describe("backend process exit diagnostics", func() {
 	})
 
 	It("stops listing a model whose backend exited on its own, but keeps a replacement", func() {
+		if runtime.GOOS == "windows" {
+			Skip("the fixture backend is a shell script, which Windows cannot execute")
+		}
 		tmpDir := GinkgoT().TempDir()
 		GinkgoT().Setenv(backendTempDirEnv, filepath.Join(tmpDir, "backend-runtime"))
 		backendPath := filepath.Join(tmpDir, "crashing-backend")

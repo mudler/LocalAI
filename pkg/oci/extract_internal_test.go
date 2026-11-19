@@ -147,6 +147,9 @@ var _ = Describe("OCI download staging", func() {
 		if os.Geteuid() == 0 {
 			Skip("permission bits do not restrict root")
 		}
+		if runtime.GOOS == "windows" {
+			Skip("a read-only directory does not block creating entries in it on Windows")
+		}
 		root := GinkgoT().TempDir()
 		// A read-only parent stands in for a container's root-owned "/",
 		// where the default staging directory resolves to /downloading.
