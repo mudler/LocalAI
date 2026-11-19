@@ -5,7 +5,7 @@ import { Button, Callout } from '../ui'
 import Icon from '../Icon'
 import { useWhen } from '../../hooks/useWhen'
 
-const SOURCE_KEYS = { gallery: 'gallery', library: 'library', addons: 'addons' }
+const SOURCE_KEYS = { gallery: 'gallery', library: 'library', addons: 'addons', models: 'models' }
 
 // The sentence of the strip, from headlineOf.
 function headlineText(h, t) {

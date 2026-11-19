@@ -116,7 +116,6 @@ export const modelsApi = {
   // Companion to estimate: the listing reports only has_variants, so the
   // description is fetched per entry, on demand.
   variants: (id) => fetchJSON(API_CONFIG.endpoints.modelVariants(id)),
-  getConfig: (id) => postJSON(API_CONFIG.endpoints.modelConfig(id), {}),
   getConfigJson: (name) => fetchJSON(API_CONFIG.endpoints.modelConfigJson(name)),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.modelJob(uid)),
   apply: (body) => postJSON(API_CONFIG.endpoints.modelsApply, body),
@@ -148,6 +147,16 @@ export const modelsApi = {
     body: JSON.stringify(patch),
   }),
   backendUsecases: () => fetchJSON('/api/backends/usecases'),
+  // The model read model of the Updates page. checkUpdatesNow reads the
+  // galleries again and waits for the check (at most 60 s).
+  updates: () => fetchJSON(API_CONFIG.endpoints.modelUpdates),
+  checkUpdatesNow: () => postJSON(API_CONFIG.endpoints.modelUpdatesCheck, {}),
+  // body: { config_only, choices: { key: 'mine' | 'gallery' } }. A 409 with
+  // `keys` in err.body names the edited keys that still need a choice.
+  upgrade: (name, body = {}) => postJSON(API_CONFIG.endpoints.modelUpgrade(name), body),
+  retryUpgrade: (name) => postJSON(API_CONFIG.endpoints.modelUpgradeRetry(name), {}),
+  removeOld: (name) => postJSON(API_CONFIG.endpoints.modelRemoveOld(name), {}),
+  setHold: (name, hold) => fetchJSON(API_CONFIG.endpoints.modelHold(name), { method: 'PUT', body: JSON.stringify({ hold: Boolean(hold) }) }),
 }
 
 // Remotes API (admin). A remote is another LocalAI, an
