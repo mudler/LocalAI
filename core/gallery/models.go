@@ -411,11 +411,22 @@ func InstallModelFromGallery(
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
 		var config ModelConfig
+		// The digest covers the gallery's payload only, so it is taken before
+		// the request's overrides are merged into model.Overrides below.
+		var resolvedForDigest *GalleryModel
+		if model != parent {
+			resolvedForDigest = &GalleryModel{Metadata: Metadata{URL: model.URL, AdditionalFiles: slices.Clone(model.AdditionalFiles)},
+				ConfigFile: deepCopyStringMap(model.ConfigFile), Overrides: deepCopyStringMap(model.Overrides)}
+		}
+		parentForDigest := *parent
+		parentForDigest.Overrides = deepCopyStringMap(parent.Overrides)
+		baseConfigSHA := ""
 
 		if len(model.URL) > 0 {
 			var err error
-			config, err = GetGalleryConfigFromURLWithContext[ModelConfig](ctx, model.URL, systemState.Model.ModelsPath)
+			config, baseConfigSHA, err = galleryConfigWithHash(ctx, model.URL, systemState.Model.ModelsPath)
 			if err != nil {
+				xlog.Error("failed to get gallery config for url", "error", err, "url", model.URL)
 				return err
 			}
 			config.Description = model.Description
@@ -490,10 +501,15 @@ func InstallModelFromGallery(
 			}
 		}
 
+		if resolvedForDigest == nil {
+			resolvedForDigest = &parentForDigest
+		}
 		origin := &Origin{
 			Gallery:          parent.Gallery.Name,
 			EntryName:        parent.Name,
 			ConfigURL:        model.URL,
+			EntryDigest:      EntryDigest(&parentForDigest, resolvedForDigest, baseConfigSHA),
+			BaseConfigSHA256: baseConfigSHA,
 			OverridesSHA256:  canonicalSHA256(model.Overrides),
 			RequestOverrides: deepCopyStringMap(req.Overrides),
 		}
