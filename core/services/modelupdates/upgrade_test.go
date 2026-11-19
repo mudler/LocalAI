@@ -705,6 +705,15 @@ var _ = Describe("A model upgrade", func() {
 		Expect(errors.As(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"}), &refused)).To(BeTrue())
 	})
 
+	It("counts the size of a local source in the disk check", func() {
+		u := upgrader(nil)
+		u.FreeSpace = func(string) (uint64, error) { return 1, nil }
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		var refused *modelupdates.ErrRefused
+		Expect(errors.As(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"}), &refused)).To(BeTrue())
+		Expect(refused.Reason).To(ContainSubstring("not enough free disk space"))
+	})
+
 	It("tells a refusal before the journal as a failed upgrade, once, from the upgrader", func() {
 		n := &upgradeNotifier{}
 		u := upgrader(nil)

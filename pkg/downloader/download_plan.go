@@ -21,6 +21,32 @@ type FileTask struct {
 	Options       []DownloadOption
 }
 
+// TotalSize adds up the size of the files of the tasks. complete is false
+// when the size of at least one file is unknown, and total then counts only
+// the files whose size is known. Callers that need an exact figure, like a
+// progress bar, check complete; callers that only need a lower bound, like a
+// free-space check, may use total alone.
+func TotalSize(ctx context.Context, tasks []FileTask) (total int64, complete bool) {
+	return TotalSizeFunc(ctx, tasks, func(ctx context.Context, u URI) (int64, error) {
+		return u.ContentLength(ctx)
+	})
+}
+
+// TotalSizeFunc is TotalSize with the size lookup of one file supplied by the
+// caller, for a lookup with its own time limit or a fake in a test.
+func TotalSizeFunc(ctx context.Context, tasks []FileTask, size func(context.Context, URI) (int64, error)) (total int64, complete bool) {
+	complete = true
+	for _, task := range tasks {
+		n, err := size(ctx, task.URI)
+		if err != nil || n < 0 {
+			complete = false
+			continue
+		}
+		total += n
+	}
+	return total, complete
+}
+
 // DownloadFilesWithContext executes a set of file downloads sequentially.
 // The helper centralizes the shared download path so callers only provide
 // source/destination metadata and any post-download hook they need.
@@ -50,17 +76,9 @@ func DownloadFilesWithConcurrency(ctx context.Context, tasks []FileTask, status 
 	var aggregateTotal int64
 	aggregateAvailable := status != nil && len(tasks) > 0
 	if aggregateAvailable {
-		for _, task := range tasks {
-			size, err := task.URI.ContentLength(ctx)
-			if err != nil || size < 0 {
-				aggregateAvailable = false
-				break
-			}
-			aggregateTotal += size
-		}
-	}
-	if aggregateTotal <= 0 {
-		aggregateAvailable = false
+		var complete bool
+		aggregateTotal, complete = TotalSize(ctx, tasks)
+		aggregateAvailable = complete && aggregateTotal > 0
 	}
 
 	if status != nil && concurrency > 1 && !aggregateAvailable {

@@ -853,14 +853,21 @@ func (u *Upgrader) preflight(ctx context.Context, r *upgradeRun, backend string)
 	if len(shared) > 0 {
 		return &ErrRefused{Reason: "the upgrade would replace files that other models use: " + strings.Join(shared, "; ")}
 	}
-	var need uint64
+	var tasks []downloader.FileTask
 	for _, f := range r.j().Files {
 		if f.Next == "" || f.Content != "" {
 			continue
 		}
-		if n := u.contentLength(ctx, f.URI); n > 0 {
-			need += uint64(n)
-		}
+		tasks = append(tasks, downloader.FileTask{URI: downloader.URI(f.URI)})
+	}
+	// An unknown size counts as zero: the check refuses only when the known
+	// sizes already exceed the free space.
+	total, _ := downloader.TotalSizeFunc(ctx, tasks, func(ctx context.Context, uri downloader.URI) (int64, error) {
+		return u.contentLength(ctx, string(uri)), nil
+	})
+	var need uint64
+	if total > 0 {
+		need = uint64(total)
 	}
 	if need > 0 {
 		free, err := u.freeSpace(u.modelsPath())
@@ -874,9 +881,6 @@ func (u *Upgrader) preflight(ctx context.Context, r *upgradeRun, backend string)
 func (u *Upgrader) contentLength(ctx context.Context, uri string) int64 {
 	if u.ContentLength != nil {
 		return u.ContentLength(ctx, uri)
-	}
-	if !downloader.URI(uri).LooksLikeHTTPURL() {
-		return 0
 	}
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
