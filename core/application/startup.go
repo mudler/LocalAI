@@ -857,7 +857,18 @@ func ensureAuthDBDirs(options *config.ApplicationConfig) error {
 func workspaceStartupCleanup(ctx context.Context, options *config.ApplicationConfig) (context.Context, func(*Application)) {
 	postgres := options.Auth.Enabled && (strings.HasPrefix(options.Auth.DatabaseURL, "postgres://") || strings.HasPrefix(options.Auth.DatabaseURL, "postgresql://"))
 	if options.Distributed.StorageURL == "" && !postgres {
-		return ctx, func(*Application) {}
+		// A failed start leaves no server to shut down, but the workspace index
+		// keeps its log file open. Windows cannot remove an open file, so it
+		// is released here rather than at process exit.
+		return ctx, func(a *Application) {
+			if a.studioTextIndexStop != nil {
+				a.studioTextIndexStop()
+			}
+			if a.studioFilesIndex != nil {
+				_ = a.studioFilesIndex.Close()
+				a.studioFilesIndex = nil
+			}
+		}
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	return ctx, func(a *Application) {

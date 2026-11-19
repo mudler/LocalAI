@@ -280,9 +280,13 @@ func (i *Installer) inspectStage(dir string) (contract.Manifest, *PackageIcon, [
 		assets = append(assets, u.Entry)
 		assets = append(assets, u.CSS...)
 	}
+	// A Windows process cannot read Unix mode bits back from disk. When it
+	// stages for another OS, which only a test does since the host OS is the
+	// running OS, the executable is taken from the manifest.
+	modeBitsUnreadable := goruntime.GOOS == "windows" && i.Host.OS != "windows"
 	for _, asset := range assets {
 		info, e := os.Lstat(filepath.Join(dir, filepath.FromSlash(asset)))
-		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && !runnable(goruntime.GOOS, info, asset, m.RunsInWSL())) {
+		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && !modeBitsUnreadable && !runnable(goruntime.GOOS, info, asset, m.RunsInWSL())) {
 			return contract.Manifest{}, nil, nil, ErrPackage
 		}
 	}
