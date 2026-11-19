@@ -351,11 +351,13 @@ func (s *Service) Redeem(ctx context.Context, from peer.ID, req RedeemRequest) (
 	if from == "" || req.V != linkVersion || len(req.Name) > maxLabelLen || !validLabel(req.Name) || len(req.Platform) > 64 || len(req.Code) > 64 {
 		return nil, ErrMalformed
 	}
-	if s.cfg.Limiter.Blocked(from, req.Source) {
+	// The attempt counts as a wrong code from here on. It is taken back when
+	// the code was right or the store failed for a reason of its own.
+	ok, refund := s.cfg.Limiter.Attempt(from, req.Source)
+	if !ok {
 		return nil, ErrRateLimited
 	}
 	if !validCodeFormat(NormalizeCode(req.Code)) {
-		s.cfg.Limiter.Fail(from, req.Source)
 		return nil, ErrInviteInvalid
 	}
 	var key *IssuedKey
@@ -380,11 +382,13 @@ func (s *Service) Redeem(ctx context.Context, from peer.ID, req RedeemRequest) (
 	}
 	inv, dev, err := s.st.Redeem(ctx, params)
 	if err != nil {
-		if errors.Is(err, ErrInviteInvalid) {
-			s.cfg.Limiter.Fail(from, req.Source)
+		if !errors.Is(err, ErrInviteInvalid) {
+			// A store error says nothing about the code.
+			refund()
 		}
 		return nil, err
 	}
+	refund()
 	return &RedeemResult{
 		Device: dev, Kind: dev.Kind, ClientKey: key,
 		Phrase: Phrase(s.cfg.ServerPeer, from, inv.ID),

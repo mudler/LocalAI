@@ -193,7 +193,10 @@ func (s *gormStore) Redeem(ctx context.Context, p RedeemParams) (Invite, Device,
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var row inviteRow
 		if err := tx.Where("code_hash = ?", hash).First(&row).Error; err != nil {
-			return ErrInviteInvalid
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrInviteInvalid
+			}
+			return fmt.Errorf("p2ppair: look up the invite: %w", err)
 		}
 		if !codeMatches(row.CodeHash, hash) {
 			return ErrInviteInvalid

@@ -11,13 +11,18 @@ import (
 // the source) so that a cluster can share the counts; NewLimiter is a
 // per-process default.
 type Limiter interface {
-	// Blocked reports whether a redeem attempt from this peer and source must
-	// be refused now. source is the network address that the caller saw
-	// (for a relayed connection, the relay's view of the dialer); it may be
-	// empty, which turns the per-source limit off.
-	Blocked(p peer.ID, source string) bool
-	// Fail records a wrong code from this peer and source.
-	Fail(p peer.ID, source string)
+	// Attempt checks and records one redeem attempt from this peer and source
+	// in one step, so that attempts at the same time cannot all pass a check
+	// before any of them is counted. It returns false when the attempt must be
+	// refused now; nothing is recorded then. Otherwise the attempt counts as a
+	// wrong code until the caller calls refund, which it does when the code
+	// was right or the failure was not the code's fault. refund is never nil
+	// and may be called once.
+	//
+	// source is the network address that the caller saw (for a relayed
+	// connection, the relay's view of the dialer); it may be empty, which
+	// turns the per-source limit off.
+	Attempt(p peer.ID, source string) (ok bool, refund func())
 }
 
 // Limits of the default limiter.
@@ -34,11 +39,17 @@ const (
 	SourceWindow = time.Minute
 )
 
+// maxTracked bounds the number of peers and of sources that the default
+// limiter remembers, so that wrong codes from many made-up peers cannot grow
+// its memory without end.
+const maxTracked = 10000
+
 type memLimiter struct {
-	mu      sync.Mutex
-	now     func() time.Time
-	peers   map[peer.ID][]time.Time
-	sources map[string][]time.Time
+	mu        sync.Mutex
+	now       func() time.Time
+	peers     map[peer.ID][]time.Time
+	sources   map[string][]time.Time
+	lastSweep time.Time
 }
 
 // NewLimiter returns an in-memory Limiter: 5 wrong codes per peer per hour
@@ -59,33 +70,79 @@ func prune(stamps []time.Time, now time.Time, window time.Duration) []time.Time 
 	return stamps[i:]
 }
 
-func (l *memLimiter) Blocked(p peer.ID, source string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	now := l.now()
-	l.peers[p] = prune(l.peers[p], now, PeerWindow)
-	if len(l.peers[p]) == 0 {
+// sweep forgets the peers and sources whose stamps all expired. It runs at
+// most once per SourceWindow, and at once when a map reaches maxTracked, in
+// which case it also drops arbitrary entries until the map has room.
+func (l *memLimiter) sweep(now time.Time) {
+	full := len(l.peers) >= maxTracked || len(l.sources) >= maxTracked
+	if !full && now.Sub(l.lastSweep) < SourceWindow {
+		return
+	}
+	l.lastSweep = now
+	for p, st := range l.peers {
+		if len(prune(st, now, PeerWindow)) == 0 {
+			delete(l.peers, p)
+		}
+	}
+	for src, st := range l.sources {
+		if len(prune(st, now, SourceWindow)) == 0 {
+			delete(l.sources, src)
+		}
+	}
+	for p := range l.peers {
+		if len(l.peers) < maxTracked {
+			break
+		}
 		delete(l.peers, p)
 	}
-	if len(l.peers[p]) >= MaxFailuresPerPeer {
-		return true
+	for src := range l.sources {
+		if len(l.sources) < maxTracked {
+			break
+		}
+		delete(l.sources, src)
 	}
-	if source == "" {
-		return false
-	}
-	l.sources[source] = prune(l.sources[source], now, SourceWindow)
-	if len(l.sources[source]) == 0 {
-		delete(l.sources, source)
-	}
-	return len(l.sources[source]) >= MaxFailuresPerSource
 }
 
-func (l *memLimiter) Fail(p peer.ID, source string) {
+// unrecord removes one stamp equal to t.
+func unrecord(stamps []time.Time, t time.Time) []time.Time {
+	for i := len(stamps) - 1; i >= 0; i-- {
+		if stamps[i].Equal(t) {
+			return append(stamps[:i:i], stamps[i+1:]...)
+		}
+	}
+	return stamps
+}
+
+func (l *memLimiter) Attempt(p peer.ID, source string) (bool, func()) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
-	l.peers[p] = append(prune(l.peers[p], now, PeerWindow), now)
+	l.sweep(now)
+	l.peers[p] = prune(l.peers[p], now, PeerWindow)
+	if len(l.peers[p]) >= MaxFailuresPerPeer {
+		return false, func() {}
+	}
 	if source != "" {
-		l.sources[source] = append(prune(l.sources[source], now, SourceWindow), now)
+		l.sources[source] = prune(l.sources[source], now, SourceWindow)
+		if len(l.sources[source]) >= MaxFailuresPerSource {
+			return false, func() {}
+		}
+	}
+	l.peers[p] = append(l.peers[p], now)
+	if source != "" {
+		l.sources[source] = append(l.sources[source], now)
+	}
+	var once sync.Once
+	return true, func() {
+		once.Do(func() {
+			l.mu.Lock()
+			defer l.mu.Unlock()
+			if st, ok := l.peers[p]; ok {
+				l.peers[p] = unrecord(st, now)
+			}
+			if st, ok := l.sources[source]; ok && source != "" {
+				l.sources[source] = unrecord(st, now)
+			}
+		})
 	}
 }

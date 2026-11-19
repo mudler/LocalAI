@@ -50,7 +50,9 @@ type Store interface {
 
 	// Redeem claims the invite for the code (single use, compare and set on
 	// used_at) and creates the device. Every failure to claim returns
-	// ErrInviteInvalid, whatever the reason. A peer that already has an active
+	// ErrInviteInvalid, whatever the reason. A failure of the store itself,
+	// such as a database error, is returned as it is, wrapped, and is never
+	// ErrInviteInvalid. A peer that already has an active
 	// device gets ErrPeerPaired and the invite stays unused.
 	Redeem(ctx context.Context, p RedeemParams) (Invite, Device, error)
 

@@ -154,21 +154,37 @@ var _ = Describe("the global limit of wrong codes", func() {
 		g := newGlobalLimiter(inner, 3, time.Minute)
 		g.now = func() time.Time { return now }
 		for range 3 {
-			Expect(g.Blocked("a", "")).To(BeFalse())
-			g.Fail("a", "")
+			ok, _ := g.Attempt("a", "")
+			Expect(ok).To(BeTrue())
 		}
-		Expect(g.Blocked("b", "")).To(BeTrue())
-		Expect(inner.fails).To(Equal(3))
+		ok, _ := g.Attempt("b", "")
+		Expect(ok).To(BeFalse())
+		Expect(inner.attempts).To(Equal(3))
 		now = now.Add(time.Minute)
-		Expect(g.Blocked("b", "")).To(BeFalse())
+		ok, _ = g.Attempt("b", "")
+		Expect(ok).To(BeTrue())
+	})
+
+	It("gives the attempt back with refund", func() {
+		inner := &countingLimiter{}
+		g := newGlobalLimiter(inner, 1, time.Minute)
+		ok, refund := g.Attempt("a", "")
+		Expect(ok).To(BeTrue())
+		refund()
+		refund()
+		Expect(inner.attempts).To(Equal(0))
+		ok, _ = g.Attempt("a", "")
+		Expect(ok).To(BeTrue())
 	})
 
 })
 
-type countingLimiter struct{ fails int }
+type countingLimiter struct{ attempts int }
 
-func (c *countingLimiter) Blocked(p2pnet.ID, string) bool { return false }
-func (c *countingLimiter) Fail(p2pnet.ID, string)         { c.fails++ }
+func (c *countingLimiter) Attempt(p2pnet.ID, string) (bool, func()) {
+	c.attempts++
+	return true, func() { c.attempts-- }
+}
 
 // transportListenAddrs are the TCP and UDP listen addresses of a host. The
 // relay transport always lists /p2p-circuit, which is not a socket.

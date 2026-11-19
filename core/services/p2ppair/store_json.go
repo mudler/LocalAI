@@ -19,6 +19,16 @@ import (
 	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
+const (
+	// inviteRetention is how long the JSON store keeps an invite that is no
+	// longer pending (used, canceled or expired), so that the file does not
+	// grow with every invite ever made.
+	inviteRetention = 30 * 24 * time.Hour
+	// touchInterval is the shortest time between two writes of the last-seen
+	// time of one device; every write rewrites the whole file.
+	touchInterval = time.Minute
+)
+
 // JSONFileName is the file that the JSON store keeps in its directory.
 const JSONFileName = "p2p-pairing.json"
 
@@ -122,8 +132,25 @@ func (s *jsonStore) CreateInvite(_ context.Context, inv Invite, code string) err
 			return errors.New("p2ppair: create invite: duplicate")
 		}
 	}
+	pruneInvites(f, inv.CreatedAt)
 	f.Invites[inv.ID] = inviteRecord{Invite: inv, CodeHash: hash}
 	return s.save(f)
+}
+
+// pruneInvites drops the invites that ended more than inviteRetention before now.
+func pruneInvites(f *jsonFile, now time.Time) {
+	for id, r := range f.Invites {
+		end := r.ExpiresAt
+		switch {
+		case r.UsedAt != nil:
+			end = *r.UsedAt
+		case r.CanceledAt != nil:
+			end = *r.CanceledAt
+		}
+		if now.Sub(end) > inviteRetention {
+			delete(f.Invites, id)
+		}
+	}
 }
 
 func (s *jsonStore) GetInvite(_ context.Context, id string) (Invite, error) {
@@ -337,6 +364,10 @@ func (s *jsonStore) TouchDevice(_ context.Context, p peer.ID, at time.Time, path
 	for id, d := range f.Devices {
 		if d.PeerID == p.String() && d.RevokedAt == nil {
 			t := at.UTC()
+			if d.LastSeenAt != nil && d.LastPath == path && t.Sub(*d.LastSeenAt) < touchInterval && !t.Before(*d.LastSeenAt) {
+				// The last-seen time is not worth a rewrite of the file.
+				return nil
+			}
 			d.LastSeenAt, d.LastPath = &t, path
 			f.Devices[id] = d
 			return s.save(f)

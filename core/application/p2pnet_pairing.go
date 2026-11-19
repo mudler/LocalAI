@@ -164,19 +164,38 @@ func (g *globalLimiter) prune(now time.Time) {
 	g.fails = g.fails[i:]
 }
 
-func (g *globalLimiter) Blocked(p p2pnet.ID, source string) bool {
-	g.mu.Lock()
-	g.prune(g.now())
-	full := len(g.fails) >= g.max
-	g.mu.Unlock()
-	return full || g.inner.Blocked(p, source)
-}
-
-func (g *globalLimiter) Fail(p p2pnet.ID, source string) {
+// Attempt counts the attempt against the cap of all peers, then against the
+// inner limiter, in one step. refund takes both back.
+func (g *globalLimiter) Attempt(p p2pnet.ID, source string) (bool, func()) {
 	g.mu.Lock()
 	now := g.now()
 	g.prune(now)
+	if len(g.fails) >= g.max {
+		g.mu.Unlock()
+		return false, func() {}
+	}
 	g.fails = append(g.fails, now)
 	g.mu.Unlock()
-	g.inner.Fail(p, source)
+	ok, innerRefund := g.inner.Attempt(p, source)
+	remove := func() {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		for i := len(g.fails) - 1; i >= 0; i-- {
+			if g.fails[i].Equal(now) {
+				g.fails = append(g.fails[:i:i], g.fails[i+1:]...)
+				return
+			}
+		}
+	}
+	if !ok {
+		remove()
+		return false, func() {}
+	}
+	var once sync.Once
+	return true, func() {
+		once.Do(func() {
+			remove()
+			innerRefund()
+		})
+	}
 }
