@@ -360,6 +360,15 @@ func (r *upgradeRun) advance(ev Event, change func(j *gallery.Journal)) error {
 	if err != nil {
 		return err
 	}
+	// A failed write must leave the journal in memory as it was on disk:
+	// the failure path then moves from the phase that really was written
+	// (to failed) and not from one that never was (to rolling-back, a phase
+	// nothing leaves until a restart).
+	oldSC, oldJournal := r.sc, *r.j()
+	var oldNextJournal *gallery.Journal
+	if r.next != nil {
+		oldNextJournal = r.next.Upgrade
+	}
 	r.j().Phase = next
 	r.j().UpdatedAt = r.u.now()
 	if change != nil {
@@ -369,6 +378,11 @@ func (r *upgradeRun) advance(ev Event, change func(j *gallery.Journal)) error {
 	// absolute path of the models directory in it.
 	r.j().Error = r.u.relText(r.j().Error)
 	if err := gallery.WriteSidecar(r.u.modelsPath(), r.name, r.sc); err != nil {
+		*oldSC.Upgrade = oldJournal
+		r.sc = oldSC
+		if r.next != nil {
+			r.next.Upgrade = oldNextJournal
+		}
 		return fmt.Errorf("write the upgrade journal: %w", err)
 	}
 	msg := phaseMessage(next)

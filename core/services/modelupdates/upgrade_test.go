@@ -236,6 +236,22 @@ func (c *crashFS) WriteFileAtomic(p string, d []byte) error {
 	return c.OSFS.WriteFileAtomic(p, d)
 }
 
+// healingFS runs heal once, on the first Remove, so a spec can break the
+// journal write during the download and let the failure path write it again.
+type healingFS struct {
+	modelupdates.OSFS
+	heal func()
+	done bool
+}
+
+func (h *healingFS) Remove(p string) error {
+	if !h.done {
+		h.done = true
+		h.heal()
+	}
+	return h.OSFS.Remove(p)
+}
+
 var _ = Describe("A model upgrade", func() {
 	var (
 		f   *fixture
@@ -341,6 +357,30 @@ var _ = Describe("A model upgrade", func() {
 		Expect(g.blocked).To(BeEmpty())
 		Expect(rt.calls).To(Equal([]string{"block", "unload", "reload", "unblock", "load", "block", "reload", "unblock", "load"}))
 		Expect(rt.IsLoaded("tiny")).To(BeTrue())
+	})
+
+	It("ends failed, not stuck rolling back, when the journal write fails after the download", func() {
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		path := gallery.SidecarPath(f.dir, "tiny")
+		saved, err := os.ReadFile(path)
+		Expect(err).ToNot(HaveOccurred())
+		fs := &healingFS{heal: func() {
+			Expect(os.Remove(path)).To(Succeed())
+			Expect(os.WriteFile(path, saved, 0600)).To(Succeed())
+		}}
+		u := upgrader(fs)
+		u.Download = func(_ context.Context, _ []downloader.FileTask, _ func(string, string, string, float64)) error {
+			// A directory in place of the journal makes the next write fail.
+			Expect(os.Remove(path)).To(Succeed())
+			Expect(os.Mkdir(path, 0700)).To(Succeed())
+			return nil
+		}
+		Expect(u.Upgrade(ctx, modelupdates.Request{OpID: "op", Name: "tiny"})).To(HaveOccurred())
+
+		j := journal()
+		Expect(j.Phase).To(Equal(gallery.PhaseFailed))
+		Expect(j.Terminal()).To(BeTrue())
+		Expect(read("tiny.gguf")).To(Equal("v1"))
 	})
 
 	Context("cancelled", func() {
