@@ -779,6 +779,28 @@
           "delete": "{{kind}} {{name}}: 제거 취소됨",
           "upgrade": "{{kind}} {{name}}: 업데이트 취소됨"
         }
+      },
+      "models": {
+        "available": {
+          "title_one": "모델 업데이트 {{count}}개",
+          "title_other": "모델 업데이트 {{count}}개"
+        },
+        "done": {
+          "title": "모델 {{name}} 업그레이드 완료",
+          "body": "{{from}}에서 {{to}}(으)로."
+        },
+        "failed": {
+          "title": "모델 {{name}}: 업그레이드 실패",
+          "rolledBack": "이전 버전을 복원했고 계속 서비스합니다. 이유: {{error}}",
+          "rolledBackPlain": "이전 버전을 복원했고 계속 서비스합니다.",
+          "kept": "이전 버전이 계속 서비스합니다. 이유: {{error}}",
+          "keptPlain": "이전 버전이 계속 서비스합니다."
+        },
+        "removed": {
+          "title": "모델 {{name}}: 이전 버전 제거됨",
+          "body_one": "이전 파일 {{count}}개를 삭제했습니다.",
+          "body_other": "이전 파일 {{count}}개를 삭제했습니다."
+        }
       }
     },
     "tabs": {

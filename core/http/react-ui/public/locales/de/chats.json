@@ -779,6 +779,28 @@
           "delete": "{{kind}} {{name}}: Entfernen abgebrochen",
           "upgrade": "{{kind}} {{name}}: Update abgebrochen"
         }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} Modell-Update verfügbar",
+          "title_other": "{{count}} Modell-Updates verfügbar"
+        },
+        "done": {
+          "title": "Modell {{name}} aktualisiert",
+          "body": "Von {{from}} auf {{to}}."
+        },
+        "failed": {
+          "title": "Modell {{name}}: das Upgrade ist fehlgeschlagen",
+          "rolledBack": "Die alte Version wurde wiederhergestellt und läuft weiter. Grund: {{error}}",
+          "rolledBackPlain": "Die alte Version wurde wiederhergestellt und läuft weiter.",
+          "kept": "Die alte Version läuft weiter. Grund: {{error}}",
+          "keptPlain": "Die alte Version läuft weiter."
+        },
+        "removed": {
+          "title": "Modell {{name}}: alte Version entfernt",
+          "body_one": "{{count}} alte Datei gelöscht.",
+          "body_other": "{{count}} alte Dateien gelöscht."
+        }
       }
     },
     "tabs": {

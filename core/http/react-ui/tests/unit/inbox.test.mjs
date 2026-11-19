@@ -225,3 +225,47 @@ test('inbox: an update item has the arrow icon, whatever its source', () => {
   assert.equal(iconOf(note({ code: 'updates.result', status: 'failed' })), 'arrow-up')
   assert.equal(iconOf(note({ source: 'trigger' })), 'bolt')
 })
+
+// ---- Model update items -----------------------------------------------------
+
+const D1 = 'sha256:1111111111111111aaaa'
+const D2 = 'sha256:2222222222222222bbbb'
+const modelNote = (code, params, extra = {}) => ({ id: 'n', code, title: 'stored', body: 'stored body', status: 'ok', params, ...extra })
+
+test('inbox: the model codes are worded from their params', async () => {
+  const t = await translator('en')
+  assert.deepEqual(textOf(modelNote('models.updateAvailable', { family: 'models', count: 2, names: ['qwen3-8b', 'whisper-1'] }), t), { title: '2 model updates available', body: 'qwen3-8b, whisper-1' })
+  assert.equal(textOf(modelNote('models.updateAvailable', { family: 'models', count: 1, names: ['a'] }), t).title, '1 model update available')
+  assert.deepEqual(textOf(modelNote('models.upgradeDone', { name: 'qwen3-8b', from: D1, to: D2 }), t), { title: 'Model qwen3-8b upgraded', body: 'From sha256:111111111111 to sha256:222222222222.' })
+  assert.deepEqual(
+    textOf(modelNote('models.upgradeFailed', { name: 'q', rolledBack: true, error: 'the model did not load' }, { status: 'failed' }), t),
+    { title: 'Model q: the upgrade failed', body: 'The old version was put back and keeps serving. Reason: the model did not load' },
+  )
+  assert.equal(textOf(modelNote('models.upgradeFailed', { name: 'q', rolledBack: false }, { body: '' }), t).body, 'The old version keeps serving.')
+  assert.deepEqual(textOf(modelNote('models.removedOld', { name: 'q', files: 3 }), t), { title: 'Model q: old version removed', body: '3 old files deleted.' })
+  // Params that do not fit show the stored text.
+  assert.deepEqual(textOf(modelNote('models.updateAvailable', { family: 'backends', count: 2 }), t), { title: 'stored', body: 'stored body' })
+  assert.deepEqual(textOf(modelNote('models.upgradeDone', {}), t), { title: 'stored', body: 'stored body' })
+  assert.deepEqual(textOf(modelNote('models.future', { name: 'x' }), t), { title: 'stored', body: 'stored body' })
+  assert.equal(iconOf(modelNote('models.upgradeDone', { name: 'q' })), 'check-circle')
+  assert.equal(iconOf(modelNote('models.upgradeFailed', { name: 'q' }, { status: 'failed' })), 'alert-circle')
+  assert.equal(iconOf(modelNote('models.removedOld', { name: 'q', files: 1 })), 'trash')
+  assert.equal(iconOf(modelNote('models.updateAvailable', { family: 'models', count: 1 })), 'arrow-up')
+})
+
+test('inbox: the model codes are worded in every language', async () => {
+  for (const l of LOCALES) {
+    const t = await translator(l)
+    const out = [
+      textOf(modelNote('models.updateAvailable', { family: 'models', count: 2, names: ['NAME'] }), t),
+      textOf(modelNote('models.upgradeDone', { name: 'NAME', from: D1, to: D2 }), t),
+      textOf(modelNote('models.upgradeFailed', { name: 'NAME', rolledBack: true, error: 'ERR' }), t),
+      textOf(modelNote('models.upgradeFailed', { name: 'NAME', rolledBack: false }, { body: '' }), t),
+      textOf(modelNote('models.removedOld', { name: 'NAME', files: 2 }), t),
+    ]
+    for (const o of out) {
+      assert.ok(o.title !== 'stored' && !o.title.includes('{{') && !o.body.includes('{{'), `${l}: ${JSON.stringify(o)}`)
+    }
+    assert.ok(out[2].body.includes('ERR'), l)
+  }
+})
