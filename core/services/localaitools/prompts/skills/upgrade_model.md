@@ -1,5 +1,5 @@
 ---
-description: Update, retry or hold a gallery model, remove its old files, or start tracking a model installed by an earlier release.
+description: Upgrade, retry, hold or adopt a model; remove its old files.
 ---
 # Skill: Upgrade a model
 

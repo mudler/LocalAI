@@ -11,8 +11,8 @@ import (
 func registerModelUpdateTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: ToolModelUpdates,
-		Description: "Model updates: each installed gallery model with its state (up-to-date, update-available, edited, unknown, gone, held, failed), edited keys, last upgrade and the gallery source state. " +
-			"action=list answers from the last check; action=check reads the galleries now and installs nothing. Models never update by themselves: take an update with upgrade_model.",
+		Description: "Installed gallery models with state (up-to-date, update-available, edited, unknown, gone, held, failed), edited keys, last upgrade and source state. " +
+			"action=list: last check; check: read the galleries now, installs nothing. Models never update by themselves: use upgrade_model.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		Action string `json:"action,omitempty" jsonschema:"list (default) or check."`
 	}) (*mcp.CallToolResult, any, error) {
@@ -40,7 +40,7 @@ func registerModelUpdateTools(s *mcp.Server, client LocalAIClient, opts Options)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolUpgradeModel,
-		Description: "Upgrade an installed gallery model (upgrade, config_only, retry), remove the old files a confirmed upgrade kept (remove_old), hold it at its version (hold, unhold), or track the updates of a model installed by an earlier release (adopt; gallery and entry when asked). Requires user confirmation per safety rule 1.",
+		Description: "Upgrade a gallery model (upgrade, config_only, retry), remove the old files a confirmed upgrade kept (remove_old), hold it at its version (hold, unhold), or track a model from an earlier release (adopt; gallery, entry when asked). Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args UpgradeModelRequest) (*mcp.CallToolResult, any, error) {
 		if args.Name == "" {
 			return errorResultf("name is required"), nil, nil
