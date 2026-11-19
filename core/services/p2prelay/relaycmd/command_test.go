@@ -18,6 +18,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/p2prelay"
 	"github.com/mudler/LocalAI/core/services/p2prelay/relaycmd"
+	"github.com/mudler/LocalAI/pkg/logsetup"
 )
 
 func TestRelayCmd(t *testing.T) {
@@ -91,9 +92,9 @@ var _ = Describe("relay command", func() {
 		ln, err := net.Listen("tcp", "127.0.0.1:0")
 		Expect(err).ToNot(HaveOccurred())
 		c := parse("--healthcheck", "--port", strconv.Itoa(ln.Addr().(*net.TCPAddr).Port))
-		Expect(c.Execute(context.Background(), relaycmd.LogSettings{})).To(Succeed())
+		Expect(c.Execute(context.Background())).To(Succeed())
 		Expect(ln.Close()).To(Succeed())
-		Expect(c.Execute(context.Background(), relaycmd.LogSettings{})).ToNot(Succeed())
+		Expect(c.Execute(context.Background())).ToNot(Succeed())
 	})
 
 	It("prints only the JSON banner on standard output with --json", func() {
@@ -103,7 +104,9 @@ var _ = Describe("relay command", func() {
 		stderr, stderrDone := capture(&os.Stderr)
 		ctx, cancel := context.WithCancel(context.Background())
 		errc := make(chan error, 1)
-		go func() { errc <- c.Execute(ctx, relaycmd.LogSettings{}) }()
+		// The entry point sends the logs to standard error when --json is set.
+		logsetup.SetLogger(logsetup.LogSettings{}, true)
+		go func() { errc <- c.Execute(ctx) }()
 		// The banner is written once the relay runs; give it time to log too.
 		time.Sleep(2 * time.Second)
 		cancel()
@@ -112,7 +115,7 @@ var _ = Describe("relay command", func() {
 		out, errOut := stdout(), stderr()
 		stdoutDone()
 		stderrDone()
-		relaycmd.SetLogger(relaycmd.LogSettings{}, false)
+		logsetup.SetLogger(logsetup.LogSettings{}, false)
 
 		Expect(err).ToNot(HaveOccurred())
 		lines := strings.Split(strings.TrimSpace(out), "\n")

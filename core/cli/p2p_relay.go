@@ -5,6 +5,7 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/services/p2prelay/relaycmd"
+	"github.com/mudler/LocalAI/pkg/logsetup"
 )
 
 // P2PRelayCMD runs a gated relay. It takes the flags of the small
@@ -14,5 +15,9 @@ type P2PRelayCMD struct {
 }
 
 func (c *P2PRelayCMD) Run(ctx *cliContext.Context) error {
-	return c.Execute(context.Background(), relaycmd.NewLogSettings(ctx.Debug, ctx.LogLevel, ctx.LogFormat, ctx.LogDedupLogs))
+	if c.JSON {
+		// Standard output carries only the JSON banner.
+		logsetup.SetLogger(logsetup.NewLogSettings(ctx.Debug, ctx.LogLevel, ctx.LogFormat, ctx.LogDedupLogs), true)
+	}
+	return c.Execute(context.Background())
 }

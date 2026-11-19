@@ -104,15 +104,13 @@ func (c *Command) Config() (p2prelay.RunConfig, error) {
 	return cfg, nil
 }
 
-// Execute runs the relay until ctx ends or the process gets SIGINT or SIGTERM. With
-// --json, standard output carries only the JSON banner line: every log line
-// goes to standard error.
-func (c *Command) Execute(ctx context.Context, logs LogSettings) error {
+// Execute runs the relay until ctx ends or the process gets SIGINT or SIGTERM.
+// With --json, standard output carries only the JSON banner line. Execute does
+// not change the process logger: the caller must send log lines to standard
+// error in that case (see logsetup.SetLogger).
+func (c *Command) Execute(ctx context.Context) error {
 	if c.Healthcheck {
 		return c.healthcheck()
-	}
-	if c.JSON {
-		SetLogger(logs, true)
 	}
 	cfg, err := c.Config()
 	if err != nil {

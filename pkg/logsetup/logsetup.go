@@ -1,4 +1,8 @@
-package relaycmd
+// Package logsetup installs the xlog process logger for a command entry point.
+// Only the code that owns the process (a main package or a CLI command) may
+// call it: a service shares its process with others and must not replace the
+// logger.
+package logsetup
 
 import (
 	"log/slog"

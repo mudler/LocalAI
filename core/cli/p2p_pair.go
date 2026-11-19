@@ -13,7 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
 	"github.com/mudler/LocalAI/core/services/p2ppair/pairclient"
-	"github.com/mudler/LocalAI/core/services/p2prelay/relaycmd"
+	"github.com/mudler/LocalAI/pkg/logsetup"
 )
 
 // P2PPairCMD redeems an invite on a device. It does not need a server of its
@@ -54,7 +54,7 @@ func (c *P2PPairCMD) identityPath() string {
 func (c *P2PPairCMD) Run(cctx *cliContext.Context) error {
 	if c.JSON {
 		// Standard output carries only the JSON result.
-		relaycmd.SetLogger(relaycmd.NewLogSettings(cctx.Debug, cctx.LogLevel, cctx.LogFormat, cctx.LogDedupLogs), true)
+		logsetup.SetLogger(logsetup.NewLogSettings(cctx.Debug, cctx.LogLevel, cctx.LogFormat, cctx.LogDedupLogs), true)
 	}
 	link, err := p2ppair.ParseLink(c.Invite)
 	if err != nil {
