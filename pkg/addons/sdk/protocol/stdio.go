@@ -55,7 +55,7 @@ var stdio struct {
 // is called and returns the same channel after.
 func openStdioOnce() (*stdioChannel, error) {
 	stdio.once.Do(func() {
-		conn, err := stdioConn()
+		conn, err := stdiomux.Stdio()
 		if err != nil {
 			stdio.err = err
 			return

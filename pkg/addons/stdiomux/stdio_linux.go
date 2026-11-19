@@ -1,21 +1,20 @@
 //go:build linux
 
 // SPDX-License-Identifier: MIT
-package protocol
+package stdiomux
 
 import (
 	"net"
 	"os"
 
 	"golang.org/x/sys/unix"
-
-	"github.com/mudler/LocalAI/pkg/addons/stdiomux"
 )
 
-// stdioConn takes descriptors 0 and 1 for the session. Descriptor 1 then
-// points at descriptor 2, so what the add-on prints on its standard output
-// goes to the log and never into the session; descriptor 0 reads nothing.
-func stdioConn() (net.Conn, error) {
+// Stdio takes descriptors 0 and 1 of this process for the add-on side of
+// the session. Descriptor 1 then points at descriptor 2, so what the add-on
+// prints on its standard output goes to the log and never into the session;
+// descriptor 0 reads nothing.
+func Stdio() (net.Conn, error) {
 	in, err := unix.Dup(0)
 	if err != nil {
 		return nil, err
@@ -44,5 +43,5 @@ func stdioConn() (net.Conn, error) {
 		_ = unix.Close(out)
 		return nil, err
 	}
-	return stdiomux.Conn(os.NewFile(uintptr(in), "stdin"), os.NewFile(uintptr(out), "stdout")), nil
+	return Conn(os.NewFile(uintptr(in), "stdin"), os.NewFile(uintptr(out), "stdout")), nil
 }

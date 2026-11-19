@@ -10,6 +10,7 @@ protocol: var ErrForbidden error
 protocol: var ErrNotFound error
 protocol: func FromHostError(err error) error
 protocol: func Handler(startup protocol.Startup, rt contract.Runtime) http.Handler
+protocol: func InWSL() bool
 protocol: func Listener() (net.Listener, error)
 protocol: type OutputRequest struct
 protocol: field OutputRequest.Envelope contract.Envelope "json:\"envelope\""
