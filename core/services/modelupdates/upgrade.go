@@ -355,12 +355,23 @@ func (r *upgradeRun) report(p Progress) {
 }
 
 // advance moves the journal to the next phase and writes the gallery file.
+// It tells the progress callback of the new phase after it released the lock
+// of the run: the callback is the caller's and may take its own locks.
 func (r *upgradeRun) advance(ev Event, change func(j *gallery.Journal)) error {
+	p, err := r.advanceLocked(ev, change)
+	if err != nil {
+		return err
+	}
+	r.report(p)
+	return nil
+}
+
+func (r *upgradeRun) advanceLocked(ev Event, change func(j *gallery.Journal)) (Progress, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	next, err := Transition(r.j().Phase, ev)
 	if err != nil {
-		return err
+		return Progress{}, err
 	}
 	// A failed write must leave the journal in memory as it was on disk:
 	// the failure path then moves from the phase that really was written
@@ -385,14 +396,13 @@ func (r *upgradeRun) advance(ev Event, change func(j *gallery.Journal)) error {
 		if r.next != nil {
 			r.next.Upgrade = oldNextJournal
 		}
-		return fmt.Errorf("write the upgrade journal: %w", err)
+		return Progress{}, fmt.Errorf("write the upgrade journal: %w", err)
 	}
 	msg := phaseMessage(next)
 	if note := r.j().Note; note != "" && !r.j().Terminal() {
 		msg += " (" + note + ")"
 	}
-	r.report(Progress{Phase: next, Message: msg})
-	return nil
+	return Progress{Phase: next, Message: msg}, nil
 }
 
 // write writes the gallery file as it is in memory. A journal that ended is
@@ -1168,23 +1178,39 @@ func (u *Upgrader) rollback(ctx context.Context, r *upgradeRun, cause error) err
 			return errors.Join(cause, err)
 		}
 	}
-	rbErr := u.restore(ctx, r)
+	rbErr, err := u.finishRollback(ctx, r, cause, "")
 	if rbErr != nil {
-		err := r.advance(EvFailed, func(j *gallery.Journal) {
-			j.Error = cause.Error() + "; the rollback did not complete: " + rbErr.Error()
-		})
 		return errors.Join(cause, rbErr, err)
 	}
-	if err := r.advance(EvOK, func(j *gallery.Journal) { // -> rolled-back
+	if err != nil {
+		return errors.Join(cause, err)
+	}
+	return cause
+}
+
+// finishRollback undoes the commit (restore) and ends the journal: rolled-back
+// when the undo worked, failed when it did not. The error of a rolled-back
+// journal is cause, then suffix when it is not empty, then the note about a
+// config edit that the rollback kept. restoreErr is the error of the undo;
+// advanceErr is the error of the journal write.
+func (u *Upgrader) finishRollback(ctx context.Context, r *upgradeRun, cause error, suffix string) (restoreErr, advanceErr error) {
+	if restoreErr = u.restore(ctx, r); restoreErr != nil {
+		advanceErr = r.advance(EvFailed, func(j *gallery.Journal) {
+			j.Error = cause.Error() + "; the rollback did not complete: " + restoreErr.Error()
+		})
+		return restoreErr, advanceErr
+	}
+	advanceErr = r.advance(EvOK, func(j *gallery.Journal) { // -> rolled-back
 		j.Error = cause.Error()
+		if suffix != "" {
+			j.Error += "; " + suffix
+		}
 		if r.keptConfig {
 			j.Error += "; " + keptConfigNote
 		}
 		j.Previous, j.To, j.Files = nil, nil, nil
-	}); err != nil {
-		return errors.Join(cause, err)
-	}
-	return cause
+	})
+	return nil, advanceErr
 }
 
 // restore is the undo of the commit. It can run again after a crash.

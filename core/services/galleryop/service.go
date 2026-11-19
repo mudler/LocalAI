@@ -478,7 +478,7 @@ func (g *GalleryService) stopOperation(id string, pause bool) error {
 	// ignores the cancel.
 	if status, ok := g.statuses[id]; ok && !status.Processed && !status.Cancellable {
 		g.Unlock()
-		return fmt.Errorf("operation %q cannot be %s now: %w", id, map[bool]string{true: "paused", false: "cancelled"}[pause], ErrNotCancellable)
+		return fmt.Errorf("operation %q cannot be %s now: %w", id, stopWord(pause), ErrNotCancellable)
 	}
 
 	actions, localExists := g.cancellations[id]
@@ -497,12 +497,12 @@ func (g *GalleryService) stopOperation(id string, pause bool) error {
 	if status, ok := g.statuses[id]; ok {
 		status.Cancelled = true
 		status.Processed = true
-		status.Message = map[bool]string{true: "paused", false: "cancelled"}[pause]
+		status.Message = stopWord(pause)
 	} else {
 		g.statuses[id] = &OpStatus{
 			Cancelled:   true,
 			Processed:   true,
-			Message:     map[bool]string{true: "paused", false: "cancelled"}[pause],
+			Message:     stopWord(pause),
 			Cancellable: false,
 		}
 	}
@@ -563,12 +563,12 @@ func (g *GalleryService) applyCancel(id string, pause bool) {
 		}
 		status.Cancelled = true
 		status.Processed = true
-		status.Message = map[bool]string{true: "paused", false: "cancelled"}[pause]
+		status.Message = stopWord(pause)
 	} else {
 		g.statuses[id] = &OpStatus{
 			Cancelled:   true,
 			Processed:   true,
-			Message:     map[bool]string{true: "paused", false: "cancelled"}[pause],
+			Message:     stopWord(pause),
 			Cancellable: false,
 		}
 	}
@@ -1059,4 +1059,12 @@ func (g *GalleryService) announceOp(id, name string, backend, deletion, upgrade 
 		return
 	}
 	go cb(res)
+}
+
+// stopWord is how an operation that ended on a stop reads: paused or cancelled.
+func stopWord(pause bool) string {
+	if pause {
+		return "paused"
+	}
+	return "cancelled"
 }

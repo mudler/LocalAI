@@ -36,12 +36,21 @@ func (n modelUpdateNotifier) ModelUpdates(ctx context.Context, items []modelupda
 // process lock is enough.
 func (a *Application) startModelUpdates() {
 	options := a.ApplicationConfig()
-	listGallery := func(_ context.Context, fresh bool) ([]*gallery.GalleryModel, error) {
+	listGallery := func(ctx context.Context, fresh bool) ([]*gallery.GalleryModel, error) {
+		// The listing has no context of its own: do not start it for a caller
+		// that has gone, and do not hand it to one that went meanwhile.
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if fresh {
 			gallery.ForgetGalleryIndexes()
 		}
 		// Read at each call: the galleries can change at runtime.
-		return gallery.AvailableGalleryModels(a.ApplicationConfig().Galleries, options.SystemState)
+		models, err := gallery.AvailableGalleryModels(a.ApplicationConfig().Galleries, options.SystemState)
+		if err == nil {
+			err = ctx.Err()
+		}
+		return models, err
 	}
 	var clusterRT *clusterRuntime
 	upgrader := &modelupdates.Upgrader{

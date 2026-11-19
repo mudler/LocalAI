@@ -63,18 +63,8 @@ func (u *Upgrader) recoverOne(ctx context.Context, name string, sc *gallery.Mode
 			return err
 		}
 	}
-	if err := u.restore(ctx, r); err != nil {
-		return errors.Join(err, r.advance(EvFailed, func(j *gallery.Journal) {
-			j.Error = cause.Error() + "; the rollback did not complete: " + err.Error()
-		}))
-	}
-	return r.advance(EvOK, func(j *gallery.Journal) {
-		j.Error = cause.Error() + "; the old version was put back"
-		if r.keptConfig {
-			j.Error += "; " + keptConfigNote
-		}
-		j.Previous, j.To, j.Files = nil, nil, nil
-	})
+	restoreErr, advanceErr := u.finishRollback(ctx, r, cause, "the old version was put back")
+	return errors.Join(restoreErr, advanceErr)
 }
 
 // RecoverAbandoned ends the installs and upgrades that a frontend left behind

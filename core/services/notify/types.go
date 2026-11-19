@@ -1,6 +1,12 @@
-// Package notify keeps the notifications of the chats: one row for each thing
-// that ended while its owner was elsewhere, such as a trigger run that finished
-// or failed. A notification belongs to one user.
+// Package notify keeps the inbox of a user: one row for each thing that
+// happened while its owner was elsewhere, such as a trigger run that ended, a
+// connector that needs the owner, or an update or an operation of LocalAI
+// itself. A notification belongs to one user.
+//
+// Most rows are plain: Add stores one and the store trims them by count and
+// age. A keyed row (Upsert) is the exception: a principal has one row for a
+// key, which is edited in place, and a set row (one with ids) is never
+// trimmed.
 //
 // Two stores exist: NewJSON (a file under a data directory, or memory) and
 // NewGORM (SQLite or PostgreSQL). notifytest.Run checks both. The Service adds

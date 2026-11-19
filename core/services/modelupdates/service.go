@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -328,7 +328,7 @@ func changedFiles(managed []gallery.ManagedFile, cfg *gallery.ModelConfig) []Fil
 	for _, m := range droppedManaged(managed, listed) {
 		out = append(out, FileChange{Path: m.Path, Role: m.Role, Change: ChangeRemoved, Checksum: m.SHA256 != ""})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	slices.SortFunc(out, func(a, b FileChange) int { return strings.Compare(a.Path, b.Path) })
 	return out
 }
 

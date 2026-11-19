@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -126,7 +125,7 @@ func DiffEdits(installed, mine, planned []byte) ([]KeyEdit, error) {
 		}
 		edits = append(edits, e)
 	}
-	sort.Slice(edits, func(i, j int) bool { return edits[i].Key < edits[j].Key })
+	slices.SortFunc(edits, func(a, b KeyEdit) int { return strings.Compare(a.Key, b.Key) })
 	return edits, nil
 }
 
