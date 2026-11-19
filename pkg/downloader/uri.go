@@ -281,6 +281,11 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 }
 
 func (u URI) FilenameFromUrl() (string, error) {
+	if u.LooksLikeMagnet() || u.LooksLikePirateFace() {
+		if f := torrentFilename(u); f != "" {
+			return f, nil
+		}
+	}
 	if f := filenameFromUrl(string(u)); f != "" {
 		return f, nil
 	}
@@ -319,7 +324,9 @@ func (u URI) LooksLikeURL() bool {
 		strings.HasPrefix(string(u), GithubURI) ||
 		strings.HasPrefix(string(u), OllamaPrefix) ||
 		strings.HasPrefix(string(u), OCIPrefix) ||
-		strings.HasPrefix(string(u), GithubURI2)
+		strings.HasPrefix(string(u), GithubURI2) ||
+		u.LooksLikeMagnet() ||
+		u.LooksLikePirateFace()
 }
 
 // hasLocalSource reports whether the URI names a local file to copy from
@@ -749,9 +756,16 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 				return nil
 			}
 		}
-	} else if !os.IsNotExist(err) || !(URI(url).LooksLikeHTTPURL() || uri.hasLocalSource()) {
+	} else if !os.IsNotExist(err) || !(URI(url).LooksLikeHTTPURL() || uri.hasLocalSource() || uri.LooksLikeTorrent()) {
 		// Error occurred while checking file existence
-		return fmt.Errorf("could not fetch %q: local file does not exist (%v) and %q is not a recognized downloadable URL (supported schemes: %s)", filePath, err, url, strings.Join([]string{HTTPPrefix, HTTPSPrefix, LocalPrefix, HuggingFacePrefix, HuggingFacePrefix1, OllamaPrefix, OCIPrefix, OCIFilePrefix, GithubURI2}, ", "))
+		return fmt.Errorf("could not fetch %q: local file does not exist (%v) and %q is not a recognized downloadable URL (supported schemes: %s)", filePath, err, url, strings.Join([]string{HTTPPrefix, HTTPSPrefix, LocalPrefix, HuggingFacePrefix, HuggingFacePrefix1, OllamaPrefix, OCIPrefix, OCIFilePrefix, GithubURI2, MagnetPrefix, PirateFacePrefix, TorrentFileSuffix}, ", "))
+	}
+
+	// Magnet links, pirateface:// shorthands and .torrent sources go through the
+	// BitTorrent engine. It writes the same .partial and renames it only after
+	// the checks pass, so the rest of this function does not apply.
+	if uri.LooksLikeTorrent() {
+		return uri.downloadTorrentFile(ctx, filePath, sha, fileN, total, downloadStatus, dopts, opts)
 	}
 
 	xlog.Info("Downloading", "url", url)

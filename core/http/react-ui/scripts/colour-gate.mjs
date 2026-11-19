@@ -10,8 +10,9 @@
  * gate fails when a file has more, and when the baseline lists more than the
  * file has, so the baseline can only shrink.
  *
- * Not scanned: src/vendor/ (generated kit), src/theme/ and
- * src/theme-localai.css (the palette itself), comments, and any line that
+ * Scanned: src/ and the UI kit package (packages/ui-kit).
+ * Not scanned: the vendored kit (packages/ui-kit/vendor/), src/theme/ and
+ * packages/ui-kit/themes/ (the palette itself), comments, and any line that
  * sets a mask (a mask only reads the alpha channel, so #000 is not a colour).
  * Allowed by name: the vendor colours in src/utils/format.js, which are the
  * logos of NVIDIA, AMD, Intel and Apple, not the product palette.
@@ -28,7 +29,7 @@ import { compare, formatBaseline, parseBaseline } from './ui-kit-gate.mjs'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE = join(ROOT, 'colour-baseline.txt')
 
-const EXEMPT = ['src/vendor/', 'src/theme/', 'src/theme-localai.css']
+const EXEMPT = ['packages/ui-kit/vendor/', 'packages/ui-kit/themes/', 'src/theme/']
 const ALLOWED_FILES = ['src/utils/format.js']
 
 // #rgb, #rrggbb, #rrggbbaa. Not after a word character, "&" (an HTML entity)
@@ -80,7 +81,8 @@ function walk(dir, out = []) {
 }
 
 function loadFiles() {
-  return walk(join(ROOT, 'src')).map(f => [relative(ROOT, f).split(sep).join('/'), readFileSync(f, 'utf8')])
+  return ['src', 'packages/ui-kit'].flatMap(dir => walk(join(ROOT, dir)))
+    .map(f => [relative(ROOT, f).split(sep).join('/'), readFileSync(f, 'utf8')])
 }
 
 const HINT = 'Use a role: var(--dk-accent), var(--color-error), color-mix(in srgb, var(--dk-text) 25%, transparent). A new colour belongs in the theme file, not in a page.'

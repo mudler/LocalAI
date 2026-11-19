@@ -87,15 +87,17 @@ func (o clientRouteOptions) addTLS(m map[string]any) map[string]any {
 
 func clientKeyJSON(k auth.UserAPIKey) map[string]any {
 	m := map[string]any{
-		"id":        k.ID,
-		"name":      k.Name,
-		"keyPrefix": k.KeyPrefix,
-		"features":  featureNames(k.Features),
-		"addons":    addonsOrEmpty(k.Addons),
-		"models":    modelsOrEmpty(k.Models),
-		"createdAt": k.CreatedAt,
-		"lastUsed":  k.LastUsed,
-		"disabled":  k.Disabled,
+		"id":          k.ID,
+		"name":        k.Name,
+		"keyPrefix":   k.KeyPrefix,
+		"features":    featureNames(k.Features),
+		"addons":      addonsOrEmpty(k.Addons),
+		"models":      modelsOrEmpty(k.Models),
+		"readFolders": foldersOrEmpty(k.ReadFolders),
+		"writeFolder": k.WriteFolder,
+		"createdAt":   k.CreatedAt,
+		"lastUsed":    k.LastUsed,
+		"disabled":    k.Disabled,
 	}
 	if k.ExpiresAt != nil {
 		m["expiresAt"] = k.ExpiresAt
@@ -234,8 +236,10 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		var body struct {
 			Name             string   `json:"name"`
 			Features         []string `json:"features"`
-			Addons           []string `json:"addons"` // ids of the add-ons the client may reach
-			Models           []string `json:"models"` // names of the models the client may use (client_inference)
+			Addons           []string `json:"addons"`      // ids of the add-ons the client may reach
+			Models           []string `json:"models"`      // names of the models the client may use (client_inference)
+			ReadFolders      []string `json:"readFolders"` // folders of the owner's workspace the client may read (client_folders)
+			WriteFolder      string   `json:"writeFolder"` // the one folder it may write (client_folders)
 			ExpiresInMinutes int      `json:"expiresInMinutes"`
 			KeyExpiresIn     string   `json:"keyExpiresIn"` // like "90d"; empty for no expiry
 		}
@@ -252,7 +256,7 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		}
 		code, rec, err := auth.CreatePairingCode(db, u.ID, strings.TrimSpace(body.Name), body.Features, body.Addons,
 			time.Duration(body.ExpiresInMinutes)*time.Minute, keyTTL, secret,
-			auth.WithModels(body.Models), auth.WithModelCheck(modelCheck))
+			auth.WithModels(body.Models), auth.WithModelCheck(modelCheck), auth.WithFolders(body.ReadFolders, body.WriteFolder))
 		switch {
 		case errors.Is(err, auth.ErrTooManyPairingCodes):
 			return c.JSON(http.StatusTooManyRequests, map[string]string{"error": err.Error()})
@@ -265,6 +269,7 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		return c.JSON(http.StatusCreated, ro.addTLS(map[string]any{
 			"id": rec.ID, "code": code, "name": rec.Name,
 			"features": featureNames(rec.Features), "addons": addonsOrEmpty(rec.Addons), "models": modelsOrEmpty(rec.Models),
+			"readFolders": foldersOrEmpty(rec.ReadFolders), "writeFolder": rec.WriteFolder,
 			"expiresAt": rec.ExpiresAt,
 		}))
 	}, adminMw)
@@ -282,6 +287,7 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		for _, r := range codes {
 			out = append(out, ro.addTLS(map[string]any{
 				"id": r.ID, "name": r.Name, "features": featureNames(r.Features), "addons": addonsOrEmpty(r.Addons), "models": modelsOrEmpty(r.Models),
+				"readFolders": foldersOrEmpty(r.ReadFolders), "writeFolder": r.WriteFolder,
 				"expiresAt": r.ExpiresAt, "createdAt": r.CreatedAt,
 			}))
 		}
@@ -316,23 +322,33 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		return c.JSON(http.StatusOK, map[string]any{"clients": out})
 	}, adminMw)
 
-	// Change the add-ons or the models of a paired client without pairing it
-	// again. A field that is absent stays as it is; one of the two is needed.
-	// Both are checked and written in one transaction.
+	// Change the add-ons, the models or the folder grant of a paired client
+	// without pairing it again. A field that is absent stays as it is; one of
+	// them is needed. They are checked and written in one transaction. The
+	// folder grant is the two fields readFolders and writeFolder; an empty list
+	// or an empty string takes the access away.
 	e.PUT(clientKeyPath, func(c echo.Context) error {
 		u, err := owner(c)
 		if u == nil {
 			return err
 		}
 		var body struct {
-			Addons []string `json:"addons"`
-			Models []string `json:"models"`
+			Addons      []string `json:"addons"`
+			Models      []string `json:"models"`
+			ReadFolders []string `json:"readFolders"`
+			WriteFolder *string  `json:"writeFolder"`
 		}
-		if err := c.Bind(&body); err != nil || (body.Addons == nil && body.Models == nil) {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "addons or models is required"})
+		if err := c.Bind(&body); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		}
+		folders := body.ReadFolders != nil || body.WriteFolder != nil
+		if body.Addons == nil && body.Models == nil && !folders {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "addons, models, readFolders or writeFolder is required"})
 		}
 		var addons auth.AddonList
 		var models auth.ModelList
+		var readFolders auth.FolderList
+		var writeFolder string
 		err = db.Transaction(func(tx *gorm.DB) error {
 			var err error
 			if body.Addons != nil {
@@ -341,7 +357,25 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 				}
 			}
 			if body.Models != nil {
-				models, err = auth.SetClientKeyModels(tx, c.Param("id"), u.ID, body.Models, modelCheck)
+				if models, err = auth.SetClientKeyModels(tx, c.Param("id"), u.ID, body.Models, modelCheck); err != nil {
+					return err
+				}
+			}
+			if folders {
+				// A field that is absent stays as it is, so the other half
+				// of the grant is read first.
+				var k auth.UserAPIKey
+				if err = tx.Where("id = ? AND user_id = ? AND kind = ?", c.Param("id"), u.ID, auth.KeyKindClient).First(&k).Error; err != nil {
+					return err
+				}
+				read, write := []string(k.ReadFolders), k.WriteFolder
+				if body.ReadFolders != nil {
+					read = body.ReadFolders
+				}
+				if body.WriteFolder != nil {
+					write = *body.WriteFolder
+				}
+				readFolders, writeFolder, err = auth.SetClientKeyFolders(tx, c.Param("id"), u.ID, read, write)
 			}
 			return err
 		})
@@ -359,6 +393,10 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		}
 		if body.Models != nil {
 			resp["models"] = modelsOrEmpty(models)
+		}
+		if folders {
+			resp["readFolders"] = foldersOrEmpty(readFolders)
+			resp["writeFolder"] = writeFolder
 		}
 		return c.JSON(http.StatusOK, resp)
 	}, adminMw)
@@ -422,6 +460,13 @@ func modelsOrEmpty(l auth.ModelList) []string {
 }
 
 func addonsOrEmpty(l auth.AddonList) []string {
+	if l == nil {
+		return []string{}
+	}
+	return []string(l)
+}
+
+func foldersOrEmpty(l auth.FolderList) []string {
 	if l == nil {
 		return []string{}
 	}

@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/mudler/LocalAI/addons/internal/atomicfile"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
 // Limits of the text a model may type.

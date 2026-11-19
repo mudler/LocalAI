@@ -46,6 +46,9 @@
       "deliveryChat": "Dieser Chat",
       "deliveryThread": "Dieser Thread",
       "deliveryChannel": "{{channel}}, oben im Kanal",
+      "deliveryChannelIn": "{{channel}} in {{connection}}, oben im Kanal",
+      "deliveryModeOnChange": "Nur wenn sich die Antwort vom vorigen Lauf unterscheidet.",
+      "deliveryModeOnProblem": "Nur wenn ein Lauf fehlschlägt. Ein Lauf, der gelingt, meldet nichts.",
       "stopLabel": "Zum Beenden",
       "when": "{{schedule}}, {{zone}}. Erster Lauf {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -149,6 +152,11 @@
       "testedAt": "Getestet {{when}}.",
       "errorTitle": "Der letzte Test konnte keine Verbindung herstellen.",
       "authTitle": "Der Server hat die Anmeldung abgelehnt.",
+      "output": "Letzte Ausgabe des Befehls",
+      "outputCopy": "Kopieren",
+      "outputCopied": "Kopiert",
+      "outputMore": "Alle {{count}} Zeilen anzeigen",
+      "outputLess": "Weniger anzeigen",
       "tools": "Werkzeuge",
       "toolsUnknown": "Testen Sie die Verbindung, um die Werkzeuge zu sehen.",
       "toolsNone": "Der Server bietet keine Werkzeuge.",
@@ -586,7 +594,9 @@
         "title": "Frühere Chats lesen",
         "description": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen. Ein Agent, der in einem Ordner arbeitet, liest nur die Chats seines eigenen Agenten."
       }
-    }
+    },
+    "fromProject": "Vom Projekt",
+    "fromProjectTitle": "Das Projekt hängt dieses Werkzeug an, daher ist es hier immer aktiv. Zum Abschalten löse es im Projekt."
   },
   "vision": {
     "describedBy": "Dieses Modell kann keine Bilder ansehen. Wähle ein anderes Modell, sonst beschreibt {{model}} das Bild.",
@@ -596,18 +606,19 @@
     "label": "Netzwerk",
     "preset": {
       "off": "Aus",
-      "registries": "Paket-Registries",
+      "registries": "Benutzerdefiniert",
       "all": "Alle öffentlichen Seiten"
     },
     "presetHint": {
       "off": "Befehle erreichen kein Netzwerk.",
-      "registries": "Befehle erreichen nur die Paket-Registries (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub-Releases).",
+      "registries": "Befehle erreichen die Paket-Registries (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub-Releases) und die Domains, die Ihr Administrator hinzugefügt hat.",
       "all": "Befehle erreichen jede öffentliche Seite."
     },
     "limited": "Von Ihrem Administrator begrenzt",
     "limitedBy": "Ihr Administrator erlaubt höchstens: {{limit}}.",
     "hostNetwork": "Befehle laufen auf diesem Rechner und nutzen dessen Netzwerk. Netzwerkgrenzen erfordern ein Add-on, das Befehle isoliert.",
     "panel": "Regeln und Anfragen ({{count}})",
+    "panelCustom": "Eigene Domains",
     "rules": "Regeln dieses Chats",
     "cards": "Anfragen dieses Chats",
     "ruleAllow": "Für diesen Chat erlaubt",
@@ -647,9 +658,13 @@
       "rowOff": "Aus: Der Administrator hat keinen Netzwerkzugriff erlaubt.",
       "runner": "dem Add-on, das die Befehle ausführt"
     },
-    "allowedHosts": "Von Ihrem Administrator immer erlaubt:",
     "allowedHostsOff": "Sie gelten, wenn das Netzwerk eingeschaltet ist.",
-    "allowedHostsNote": "{{count}} Hosts sind von Ihrem Administrator immer erlaubt.",
+    "allowedHostsNote": "Von Ihrem Administrator hinzugefügte Domains: {{count}}.",
+    "customDomains": "Benutzerdefiniert erreicht die Paket-Registries und diese Domains, die Ihr Administrator festlegt:",
+    "customEmpty": "Benutzerdefiniert erreicht nur die Paket-Registries. Ihr Administrator hat keine weiteren Domains hinzugefügt.",
+    "customLabel": "Eigene Domains",
+    "customEdit": "Domains bearbeiten",
+    "customAdmin": "Ein Administrator verwaltet diese Liste.",
     "limitNote": "Netzwerk dieses Chats. Der Administrator legt fest, was ein Chat höchstens erreichen darf.",
     "draftNote": "Der Chat startet mit dieser Einstellung. Der Administrator legt fest, was ein Chat höchstens erreichen darf; diese Grenze gilt.",
     "asksAbove": "Dieser Chat verlangt {{choice}}; das Limit des Administrators ist {{limit}}.",
@@ -884,6 +899,10 @@
       "ended": "beendet",
       "wait": "Wartet auf: {{wait}}"
     },
+    "report": {
+      "on_done": "Meldet bei Abschluss: {{channel}} · {{connection}}",
+      "on_problem": "Meldet bei einem Problem: {{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "Pausieren",
       "resume": "Fortsetzen",
@@ -1040,7 +1059,8 @@
       "user": "Alle deine Chats",
       "agent": "Agent {{agent}}",
       "agentAny": "Ein Agent",
-      "channel": "Diese Unterhaltung"
+      "channel": "Diese Unterhaltung",
+      "project": "Dieses Projekt"
     },
     "help": "Nichts wird gespeichert, bevor du bestätigst.",
     "row": {
@@ -1048,7 +1068,9 @@
       "target": "Datei",
       "source": "Von",
       "expires": "Läuft ab in",
-      "collection": "Sammlung"
+      "collection": "Sammlung",
+      "proposedBy": "Vorgeschlagen von",
+      "note": "Notiz"
     },
     "source": {
       "chat": "Ein Chat",
@@ -1123,6 +1145,17 @@
       "consent": "Die Aufnahme wird als Stimmprofil gespeichert, mit dem deine Chats sprechen können. Du kannst sie in der Stimmbibliothek löschen.",
       "consentAdmin": "Du bist Administrator, daher steht diese Stimme allen Nutzern dieses Servers zur Verfügung.",
       "confirm": "Die Person hat zugestimmt: Stimme speichern"
+    },
+    "fromOther": {
+      "title": "{{name}} hat eine Notiz für {{project}} vorgeschlagen",
+      "titleNoProject": "{{name}} hat eine Notiz vorgeschlagen",
+      "help": "Es wird nichts geschrieben, bevor Sie bestätigen. {{name}} hat dies in einem Chat vorgeschlagen, der dieses Projekt eingebunden hat.",
+      "by": "{{name}}, aus dem eigenen Chat",
+      "voided": "{{name}} kann dieses Projekt nicht mehr bearbeiten.",
+      "noteFor": "Eine Notiz für {{project}}",
+      "thisProject": "dieses Projekt",
+      "why": "Geben Sie das Projekt erneut mit Bearbeitungsrechten frei und bitten Sie dann erneut um die Notiz, falls Sie sie noch möchten.",
+      "nameHint": "Projektname aus dem Ordner übernommen"
     }
   },
   "proposalsPage": {

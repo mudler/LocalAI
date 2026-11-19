@@ -25,9 +25,16 @@ on:
         required: false
         default: '1'
         type: string
+# nosqlite and purego_utp: pkg/downloader needs them when cgo is on (see CONTRIBUTING.md, "Build tags").
+env:
+  GOFLAGS: -tags=nosqlite,purego_utp
+
 jobs:
   gallery-agent:
     if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -48,9 +55,17 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Create GitHub App token for PR commands
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-pull-requests: write
+
       - name: Process gallery-agent PR commands
         env:
-          GH_TOKEN: ${{ secrets.UPDATE_BOT_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
           SEARCH: 'gallery agent in:title'
         run: |
@@ -175,12 +190,21 @@ jobs:
             echo "summary_exists=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Create GitHub App token
+        id: app-token-pr
+        if: steps.check_changes.outputs.changes == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create Pull Request
         if: steps.check_changes.outputs.changes == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.UPDATE_BOT_TOKEN }}
-          push-to-fork: ci-forks/LocalAI
+          token: ${{ steps.app-token-pr.outputs.token }}
           commit-message: 'chore(model gallery): :robot: add new models via gallery agent'
           title: 'chore(model gallery): :robot: add ${{ steps.read_summary.outputs.models_added || 0 }} new models via gallery agent'
           # Branch has to be unique so PRs are not overriding each other

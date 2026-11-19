@@ -71,13 +71,29 @@ func (c *Carrier) apps(ctx context.Context, a contract.Actor) (apps.List, error)
 	return wire.list(), nil
 }
 
-// appsWire is the apps list between two replicas. The resource mapping of an
-// app is not part of the public apps API, so it travels beside the list.
+// appsWire is the apps list between two replicas. The fields of an app that the
+// public apps API leaves out (the resource mapping, the jobs tool, the provider
+// slots and the model-search source) travel beside the list. A field missing
+// here is lost on a frontend, which then acts as if the add-on did not declare it.
 type appsWire struct {
 	apps.List
 	Resources map[string]*contract.ResourceTools `json:"resources,omitempty"`
 	// Jobs is the jobs tool of each app that declares one (apps.App.JobsTool).
 	Jobs map[string]string `json:"jobs,omitempty"`
+	// Provides are the provider slots of each app that declares any.
+	Provides map[string][]contract.ProviderDeclaration `json:"provides,omitempty"`
+	// ModelSearch is the model-search source of each app that declares one.
+	ModelSearch map[string]*contract.ModelSearch `json:"modelSearch,omitempty"`
+	// ResourceSlots are the credential-slot words of each app that has them.
+	ResourceSlots map[string]resourceSlot `json:"resourceSlots,omitempty"`
+	// ResourceTexts are the translated resource nouns of each app that has them.
+	ResourceTexts map[string]map[string]contract.ResourceText `json:"resourceTexts,omitempty"`
+}
+
+// resourceSlot is apps.App.ResourceArgument and apps.App.ResourceLabel.
+type resourceSlot struct {
+	Argument string `json:"argument,omitempty"`
+	Label    string `json:"label,omitempty"`
 }
 
 func newAppsWire(list apps.List) appsWire {
@@ -95,6 +111,30 @@ func newAppsWire(list apps.List) appsWire {
 			}
 			w.Jobs[a.ID] = a.JobsTool
 		}
+		if len(a.Provides) > 0 {
+			if w.Provides == nil {
+				w.Provides = map[string][]contract.ProviderDeclaration{}
+			}
+			w.Provides[a.ID] = a.Provides
+		}
+		if a.ResourceArgument != "" || a.ResourceLabel != "" {
+			if w.ResourceSlots == nil {
+				w.ResourceSlots = map[string]resourceSlot{}
+			}
+			w.ResourceSlots[a.ID] = resourceSlot{Argument: a.ResourceArgument, Label: a.ResourceLabel}
+		}
+		if len(a.ResourceTexts) > 0 {
+			if w.ResourceTexts == nil {
+				w.ResourceTexts = map[string]map[string]contract.ResourceText{}
+			}
+			w.ResourceTexts[a.ID] = a.ResourceTexts
+		}
+		if a.ModelSearch != nil {
+			if w.ModelSearch == nil {
+				w.ModelSearch = map[string]*contract.ModelSearch{}
+			}
+			w.ModelSearch[a.ID] = a.ModelSearch
+		}
 	}
 	return w
 }
@@ -103,6 +143,11 @@ func (w appsWire) list() apps.List {
 	for i := range w.Apps {
 		w.Apps[i].Resources = w.Resources[w.Apps[i].ID]
 		w.Apps[i].JobsTool = w.Jobs[w.Apps[i].ID]
+		w.Apps[i].Provides = w.Provides[w.Apps[i].ID]
+		w.Apps[i].ModelSearch = w.ModelSearch[w.Apps[i].ID]
+		w.Apps[i].ResourceArgument = w.ResourceSlots[w.Apps[i].ID].Argument
+		w.Apps[i].ResourceLabel = w.ResourceSlots[w.Apps[i].ID].Label
+		w.Apps[i].ResourceTexts = w.ResourceTexts[w.Apps[i].ID]
 	}
 	return w.List
 }

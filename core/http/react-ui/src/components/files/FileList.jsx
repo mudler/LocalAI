@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import ActionMenu from '../ActionMenu'
 import { SharedByBadge } from '../share/ShareBadges'
@@ -94,6 +95,7 @@ function Row({ entry, view, selected, cursor, dropping, previewing, renaming, ct
   const menu = ctx.menuItems(entry)
   const mark = isDir ? ctx.agentMark?.(entry.path) : null
   const shared = isDir ? ctx.shareMark?.(entry.path) : null
+  const project = isDir ? ctx.projectMark?.(entry.path) : null
   const nameEl = renaming ? (
     <NameField
       initial={entry.name} current={entry.name} label={t('rename')} taken={taken} t={t}
@@ -138,6 +140,14 @@ function Row({ entry, view, selected, cursor, dropping, previewing, renaming, ct
             {nameEl}
             {isDir && entry.managed && <span className="ws-managed-tag" data-testid="ws-managed-tag">{t('managed.marker')}</span>}
             {shared && <SharedByBadge entry={{ role: 'owner', sharedWith: shared.sharedWith }} hideRole testId="ws-shared-mark" />}
+            {project && (
+              <Link
+                to={project.to} className="ws-project-link" data-testid="ws-project-link" title={t('projectMark.open', { name: project.name })}
+                aria-label={t('projectMark.open', { name: project.name })} tabIndex={-1} onClick={(e) => e.stopPropagation()}
+              >
+                <Icon name="folder" />{project.name}
+              </Link>
+            )}
             {isDir && mark && <span className="ws-agent-tag" data-testid="ws-agent-tag" title={mark.title} aria-label={mark.title}><Icon name="robot" />{mark.label}</span>}
           </span>
           {about && <span className="ws-row__about">{about}</span>}

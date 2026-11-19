@@ -35,6 +35,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -177,10 +178,12 @@ func (a *Application) initStudioService() {
 		FindUser:          a.studioFindUser(),
 		FolderDirectory:   a.studioFolderDirectory(),
 		SharedPagesOn:     func() bool { return !a.applicationConfig.DisableSharedPages },
+		UserPageSharesOn:  func() bool { return !a.applicationConfig.DisableUserPageShares },
 		PageAreaOn:        func() bool { return !a.applicationConfig.DisablePageArea },
 		Modalities:        a.studioModalities,
 		MCPContent:        studioMCPContent{a: a},
 		AgentOptions:      a.studioAgentOptions,
+		PreserveThinking:  a.studioPreserveThinking,
 		Persistent:        a.studioStoreKind != "memory",
 		Files:             a.StudioFiles(),
 		Media:             media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel).WithClient(a.studioMediaClient),
@@ -189,6 +192,7 @@ func (a *Application) initStudioService() {
 	if a.studioMCPConns != nil {
 		deps.MCPConnectors = a.studioMCPConns
 	}
+	deps.Projects = a.initStudioProjects()
 	// The built-in bash runs commands on this machine when no Sandbox serves
 	// bash. Its scratch folders are per process; the files are the truth.
 	// The hooks run in chat turns, which start only after svcRef is set; it
@@ -217,6 +221,13 @@ func (a *Application) initStudioService() {
 					return workspace.View{}, errStudioStarting
 				}
 				return svc.CommandView(ctx, act)
+			},
+			WorkDir: func(ctx context.Context, act workspace.Actor, create bool) string {
+				svc := svcRef.Load()
+				if svc == nil {
+					return ""
+				}
+				return svc.CommandWorkDir(ctx, act, create)
 			},
 		})
 		if r := a.studioHostExec.Unavailable(); r != "" {
@@ -432,6 +443,26 @@ func (a *Application) studioContextTokens(model string) int {
 		return 0
 	}
 	return corebackend.EffectiveRequestContextSize(cfg)
+}
+
+// studioPreserveThinking says whether a chat asks the model's chat template
+// to keep the reasoning of earlier turns. It does unless the model config sets
+// chat_template_kwargs.preserve_thinking to false. A model served by a remote
+// proxy is not asked: its upstream may refuse a field it does not know.
+func (a *Application) studioPreserveThinking(model string) bool {
+	cfg, ok := a.studioModelConfig(model)
+	if !ok || cfg.IsRemoteProxy() {
+		return false
+	}
+	if v, set := cfg.ChatTemplateKwargs["preserve_thinking"]; set {
+		switch t := v.(type) {
+		case bool:
+			return t
+		case string:
+			return t != "false" && t != "0"
+		}
+	}
+	return true
 }
 
 // studioModalities says which inputs a chat model takes natively, from its
@@ -879,4 +910,16 @@ func (a *Application) backgroundContext() context.Context {
 		return ctx
 	}
 	return context.Background()
+}
+
+// effectiveChat reads a chat record the way a turn sees it, with the tools its
+// project attaches switched on. A reader that decides what a chat may use calls
+// it and never reads the store directly: the raw record misses the attached
+// tools, so an add-on the project attached would be offered and then refused.
+func (a *Application) effectiveChat(ctx context.Context, principal, chatID string) (session.ChatRecord, error) {
+	if svc := a.StudioService(); svc != nil {
+		return svc.EffectiveChat(ctx, principal, chatID)
+	}
+	// Without the studio service no chat has a project to apply.
+	return a.studioStore.GetChat(ctx, principal, chatID) // raw read allowed here, see the source guard in the studio specs
 }

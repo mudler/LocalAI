@@ -855,6 +855,12 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) bool { return !o.DisableSharedPages },
 		func(o *ApplicationConfig, v bool) { o.DisableSharedPages = !v }),
 
+	// Pages that people share: stored as the negation, like shared pages.
+	field("user_page_shares_enabled",
+		func(s *RuntimeSettings) **bool { return &s.UserPageSharesEnabled },
+		func(o *ApplicationConfig) bool { return !o.DisableUserPageShares },
+		func(o *ApplicationConfig, v bool) { o.DisableUserPageShares = !v }),
+
 	// The page area of Home: stored as the negation, like shared pages.
 	field("home_page_area_enabled",
 		func(s *RuntimeSettings) **bool { return &s.HomePageAreaEnabled },

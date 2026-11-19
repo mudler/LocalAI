@@ -33,8 +33,9 @@ const (
 // A user file applies to every chat of the person. An agent file holds the
 // placeholder {agent} once and applies to the chats of one saved agent. A
 // channel file holds {channel} once and applies to the chats that one
-// connector conversation started. The host fills a placeholder from the chat,
-// never from the model.
+// connector conversation started. A project file holds {project} once and
+// applies to the chats of one project. The host fills a placeholder from the
+// chat, never from the model.
 type ContextFile struct {
 	Scope ChangeScope `json:"scope"`
 	// Path is relative to the user's home, under ContextFilesRoot, and ends
@@ -54,6 +55,8 @@ func placeholderOf(s ChangeScope) string {
 		return "{agent}"
 	case ScopeChannel:
 		return "{channel}"
+	case ScopeProject:
+		return "{project}"
 	}
 	return ""
 }
@@ -63,7 +66,7 @@ func (f ContextFile) validate() error {
 		return fmt.Errorf("context file %q: %s", f.Path, fmt.Sprintf(format, a...))
 	}
 	if !ValidChangeScope(string(f.Scope)) {
-		return bad("the scope must be user, agent or channel")
+		return bad("the scope must be user, agent, channel or project")
 	}
 	if f.Cap < 0 || f.Cap > MaxContextFileBytes {
 		return bad("the cap must be 0 to %d bytes", MaxContextFileBytes)

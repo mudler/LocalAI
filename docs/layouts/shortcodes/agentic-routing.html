@@ -6,7 +6,7 @@
   page they actually wanted.
 
   Call it with angle brackets. The list is built here as markdown and rendered
-  before it reaches the notice partial, which is what a percent-form `notice`
+  before it reaches the callout partial, which is what a percent-form `callout`
   does with its own inner content; handing the partial raw markdown instead
   leaves the asterisks on the page, because it drops its content into an HTML
   block that goldmark then declines to look inside.
@@ -21,22 +21,22 @@
   (dict
     "id" "terminal-agent"
     "title" "Terminal agent"
-    "ref" "features/terminal-agent"
+    "ref" "features/chats-and-agents/terminal-agent"
     "text" "an agent in your own shell. `local-ai chat` reads your files and runs commands on your machine, behind an approval gate you control.")
   (dict
     "id" "agents"
     "title" "Agents"
-    "ref" "features/agents"
+    "ref" "features/chats-and-agents/chats-agents"
     "text" "autonomous agents you build and run inside LocalAI, that reason, use tools, and act on their own.")
   (dict
     "id" "localai-assistant"
     "title" "LocalAI Assistant"
-    "ref" "features/localai-assistant"
+    "ref" "features/chats-and-agents/localai-assistant"
     "text" "an admin chat modality for administering LocalAI itself: install models, manage backends and edit configs by chatting.")
   (dict
     "id" "mcp"
     "title" "MCP"
-    "ref" "features/mcp"
+    "ref" "features/chats-and-agents/mcp"
     "text" "the Model Context Protocol itself, the way a model is handed external tools. It sits underneath the other three rather than beside them.")
 -}}
 
@@ -70,7 +70,7 @@
 {{- end -}}
 
 {{- $intro := "**Looking for something else?** LocalAI has four agentic surfaces that are easy to confuse:" -}}
-{{- partial "shortcodes/notice.html" (dict
+{{- partial "shortcodes/callout.html" (dict
   "page"    .Page
   "style"   "info"
   "content" (printf "%s\n\n%s\n" $intro (delimit $lines "\n") | markdownify)

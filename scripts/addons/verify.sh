@@ -74,8 +74,8 @@ if entry['kind'] == 'ginkgo':
     if not reports: sys.exit('empty report inventory')
     for report in reports: (root/report['path']).unlink(missing_ok=True)
 for command in entry['commands']:
-    if entry['kind'] == 'ginkgo' and (command[:3] != ['go', 'test', '-count=1'] or '-tags' not in command or 'auth' not in command):
-        sys.exit('Ginkgo command requires go test -count=1 -tags auth')
+    if entry['kind'] == 'ginkgo' and (command[:3] != ['go', 'test', '-count=1'] or '-tags' not in command or not any('auth' in str(c).split(',') for c in command)):
+        sys.exit('Ginkgo command requires go test -count=1 -tags auth,nosqlite,purego_utp')
     for line in run(command).splitlines():
         try: item = json.loads(line)
         except ValueError: continue
@@ -105,7 +105,7 @@ Expect(db.QueryRow("select value from readiness").Scan(&n)).To(Succeed()); Expec
 }) })
 ''')
     report = cache/'logs'/('ginkgo-'+str(time.time_ns())+'.json')
-    run(['go', 'test', '-count=1', '-p', '2', '-tags', 'auth', str(probe), '-ginkgo.json-report='+str(report)])
+    run(['go', 'test', '-count=1', '-p', '2', '-tags', 'auth,nosqlite,purego_utp', str(probe), '-ginkgo.json-report='+str(report)])
     ginkgo_report(report, ['sqlite transaction'])
     # OS-selected isolated port, bounded health wait, private server temporary data.
     with socket.socket() as sock:

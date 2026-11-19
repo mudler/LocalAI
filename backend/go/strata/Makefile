@@ -5,7 +5,7 @@ GOCMD=go
 # not compiled here. Upstream publishes ready-made engine packages for every
 # target it supports, and this Makefile fetches the one that matches the build
 # (BUILD_TYPE, CUDA_MAJOR_VERSION and the CPU architecture), checks it against a
-# pinned SHA-256 and unpacks it. See docs/content/features/strata.md.
+# pinned SHA-256 and unpacks it. See docs/content/models/engines/strata.md.
 #
 # Targets:
 #   strata   the Go binary only (what `make -C backend/go/strata` builds)
@@ -19,34 +19,51 @@ GOCMD=go
 # rewritten by .github/bump_strata.sh (the bump_deps.yaml job "bump-strata");
 # do not edit the values by hand. The bot matches `^NAME?=` lines.
 #
-# STRATA_VERSION       the upstream release tag
-# STRATA_COMMIT        the commit of that tag; the Python modules the backend
-#                      needs (tokenizer, chat template) are fetched at it
-# STRATA_ENGINE_VERSION the version in the engine package file names
-# STRATA_SHA256_<asset> SHA-256 of strata-engine-<version>-<asset>.tar.gz
-# STRATA_DSV41_ENGINE_VERSION, STRATA_DSV41_SHA256_<asset>
-#                      the same for the DeepSeek V4.1 engine package,
-#                      strata-dsv41-<version>-<asset>.tar.gz. Upstream ships it
-#                      for fewer targets than the Qwen engine (see below).
+# Upstream versions each platform on its own and does not attach every package
+# to every release, so each package carries its own release tag, version and
+# SHA-256. Packages of different versions and tags side by side are normal.
+#
+# STRATA_VERSION   the newest upstream release tag
+# STRATA_COMMIT    the commit of that tag; the Python modules the backend
+#                  needs (tokenizer, chat template) are fetched at it
+#
+# Per package of the engine (file strata-engine-...):
+#   STRATA_ENGINE_TAG_<pkg>      release the package is downloaded from
+#   STRATA_ENGINE_VERSION_<pkg>  the version in the package file name
+#   STRATA_ENGINE_SHA256_<pkg>   SHA-256 of the .tar.gz
+# The URL is $(STRATA_REPO)/releases/download/<TAG>/<file name>.
 # ---------------------------------------------------------------------------
-STRATA_VERSION?=v0.2.13
-STRATA_COMMIT?=d2f096475817d4666c364c820b0ca830f751cfc5
-STRATA_ENGINE_VERSION?=0.1.59
-STRATA_SHA256_linux_x86_64_cuda_cuda12?=4bf321cb0c2d7ff15fe221f22a29aeb8371f24fa77a4425c920eb01a520babbc
-STRATA_SHA256_linux_x86_64_cuda_cuda13?=42ab04fa3201e41bef5fac28c05f5c35c909419ec937d879b505bf1516742610
-STRATA_SHA256_linux_aarch64_cuda_cuda13?=b213d9b173aae99645fc5922d42276fa1ed17ac67f7b788c55c912ba49e148f1
-STRATA_SHA256_linux_x86_64_hip_rx9070?=de894c5df40ec13136e71bcbc972ff4200858a24b5e02fd07a46d907e3c848ad
-STRATA_SHA256_linux_x86_64_hip_rx7900?=9ba0e3e33a1dad14870df46d9fc70e7cd2e5d5690196c8e4b39cc3aa1b261059
-STRATA_SHA256_linux_x86_64_hip_rx6000?=9bfb3f8fb20bf4b5802a3bbc5d0494e759ab9f5a02a443d9e98f2cfb5b354dca
-STRATA_SHA256_linux_x86_64_hip_halo?=4c49974caad5e23bc5bff74cec3baa12c72c14e7958967a51db4c665be9191f9
-STRATA_SHA256_linux_x86_64_sycl?=8b2586ab57a2ad8df593d11dc6a3509620ca49fb352692ae0f7f4f7d014a7839
-STRATA_SHA256_macos_arm64_metal?=9d326745eaebf24248968c145908aca5616ad8562dbca9c3aa327164724a517d
+STRATA_VERSION?=v0.2.15
+STRATA_COMMIT?=c77572806996349b49995e4f98d41b5294d36a21
 
-STRATA_DSV41_ENGINE_VERSION?=0.1.59
-STRATA_DSV41_SHA256_linux_x86_64_cuda_cuda13?=4440a62b6aaf51d740f8c37fcc0e7b28cf79ba37aaa199a214b98067c5bf36ad
-STRATA_DSV41_SHA256_linux_aarch64_cuda_cuda13?=55f2607d4dc06311aafe335e8b84664c8eecc93376d8a1b59c806f298017749c
-STRATA_DSV41_SHA256_linux_x86_64_hip_rx9070?=fcc7b94f8274887b532a40e10817b58adf62ef7f2c9c32bb4b6317e224aa58d0
-STRATA_DSV41_SHA256_macos_arm64_metal?=2fcbd44259db297782b0bdf54065b65a3882a0f52723b12940fdff40b928013d
+# Qwen engine
+STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda12?=v0.2.14
+STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda12?=0.1.60
+STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda12?=a50a4d1efd7fbf0da03a0a2d4d91b0ac059d92579ae41f611e49bc9228262856
+STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda13?=v0.2.14
+STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda13?=0.1.60
+STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda13?=a72c194c8f6de96629ed53079b5e344ab81223d45667a53f6a6d79398895aa50
+STRATA_ENGINE_TAG_linux_aarch64_cuda_cuda13?=v0.2.15
+STRATA_ENGINE_VERSION_linux_aarch64_cuda_cuda13?=0.1.59
+STRATA_ENGINE_SHA256_linux_aarch64_cuda_cuda13?=b213d9b173aae99645fc5922d42276fa1ed17ac67f7b788c55c912ba49e148f1
+STRATA_ENGINE_TAG_linux_x86_64_hip_rx9070?=v0.2.14
+STRATA_ENGINE_VERSION_linux_x86_64_hip_rx9070?=0.1.60
+STRATA_ENGINE_SHA256_linux_x86_64_hip_rx9070?=4fc045afc0905cf1338b39c7bc9f940d2f4905a82330d9e07ab185215af77ad8
+STRATA_ENGINE_TAG_linux_x86_64_hip_rx7900?=v0.2.14
+STRATA_ENGINE_VERSION_linux_x86_64_hip_rx7900?=0.1.60
+STRATA_ENGINE_SHA256_linux_x86_64_hip_rx7900?=ff8093d4d48e85d10b9bc317cc4fd518961e011af6dc0097e9d6384bd04bab82
+STRATA_ENGINE_TAG_linux_x86_64_hip_rx6000?=v0.2.14
+STRATA_ENGINE_VERSION_linux_x86_64_hip_rx6000?=0.1.60
+STRATA_ENGINE_SHA256_linux_x86_64_hip_rx6000?=45b1e3aed1241e72594e9980cb07171d2b976c7e473940faaf007b9eb1cfbb51
+STRATA_ENGINE_TAG_linux_x86_64_hip_halo?=v0.2.14
+STRATA_ENGINE_VERSION_linux_x86_64_hip_halo?=0.1.60
+STRATA_ENGINE_SHA256_linux_x86_64_hip_halo?=cea2393ecea5e0f3b1ae90ba525d2db8a7f3ef2817dda184cfcfe6be8ddf081a
+STRATA_ENGINE_TAG_linux_x86_64_sycl?=v0.2.13
+STRATA_ENGINE_VERSION_linux_x86_64_sycl?=0.1.59
+STRATA_ENGINE_SHA256_linux_x86_64_sycl?=8b2586ab57a2ad8df593d11dc6a3509620ca49fb352692ae0f7f4f7d014a7839
+STRATA_ENGINE_TAG_macos_arm64_metal?=v0.2.14
+STRATA_ENGINE_VERSION_macos_arm64_metal?=0.1.60
+STRATA_ENGINE_SHA256_macos_arm64_metal?=31ce1cd98bef83938434c15fcc94c1768340037b8fe7f292ee82836db0ca074d
 
 STRATA_REPO?=https://github.com/Niko1221/Strata
 
@@ -80,7 +97,6 @@ ifeq ($(UNAME_S),Darwin)
   ifeq ($(UNAME_M),arm64)
     PBS_PLATFORM:=macos_arm64
     STRATA_PACKAGES:=macos_arm64_metal
-    STRATA_DSV41_PACKAGES:=macos_arm64_metal
   endif
 else ifeq ($(UNAME_S),Linux)
   ifeq ($(UNAME_M),x86_64)
@@ -94,13 +110,11 @@ else ifeq ($(UNAME_S),Linux)
         STRATA_PACKAGES:=linux_x86_64_cuda_cuda12
       else ifeq ($(CUDA_MAJOR_VERSION),13)
         STRATA_PACKAGES:=linux_x86_64_cuda_cuda13
-        STRATA_DSV41_PACKAGES:=linux_x86_64_cuda_cuda13
       endif
     else ifneq ($(filter aarch64 arm64,$(UNAME_M)),)
       # Upstream's arm64 package is built for the DGX Spark (sm_121, CUDA 13).
       ifeq ($(CUDA_MAJOR_VERSION),13)
         STRATA_PACKAGES:=linux_aarch64_cuda_cuda13
-        STRATA_DSV41_PACKAGES:=linux_aarch64_cuda_cuda13
       endif
     endif
   else ifeq ($(BUILD_TYPE),hipblas)
@@ -108,8 +122,6 @@ else ifeq ($(UNAME_S),Linux)
       # One package per GPU family; strata-engine picks the one that matches the
       # card at run time (RDNA4, RDNA3, RDNA2, Strix Halo).
       STRATA_PACKAGES:=linux_x86_64_hip_rx9070 linux_x86_64_hip_rx7900 linux_x86_64_hip_rx6000 linux_x86_64_hip_halo
-      # The DeepSeek engine has code for the RX 9070 / R9700 (gfx1200, gfx1201) only.
-      STRATA_DSV41_PACKAGES:=linux_x86_64_hip_rx9070
     endif
   else ifneq ($(filter sycl_f16 sycl_f32 intel,$(BUILD_TYPE)),)
     ifeq ($(UNAME_M),x86_64)
@@ -120,13 +132,8 @@ endif
 
 # Package key -> directory name inside the image (engines/<name>).
 engine_dir=$(patsubst linux_x86_64_cuda_%,%,$(patsubst linux_aarch64_cuda_%,%,$(patsubst linux_x86_64_hip_%,hip-%,$(patsubst linux_x86_64_sycl,sycl,$(patsubst macos_arm64_metal,metal,$(1))))))
-# Upstream publishes the DeepSeek engine for CUDA 13 (x86_64 and arm64), the
-# RX 9070 / R9700 family and Apple Silicon only. There is none for CUDA 12 or
-# Intel SYCL, and none for the other AMD families: those images carry the Qwen
-# engine alone, and a DeepSeek model fails to load there with a clear message.
-asset_dsv41=strata-dsv41-$(STRATA_DSV41_ENGINE_VERSION)-$(subst x86-64,x86_64,$(subst _,-,$(1))).tar.gz
 # Package key -> upstream file name: linux_x86_64_hip_halo -> linux-x86_64-hip-halo
-asset_name=strata-engine-$(STRATA_ENGINE_VERSION)-$(subst x86-64,x86_64,$(subst _,-,$(1))).tar.gz
+asset_name=strata-engine-$(STRATA_ENGINE_VERSION_$(1))-$(subst x86-64,x86_64,$(subst _,-,$(1))).tar.gz
 
 PBS_TRIPLE_linux_x86_64=x86_64-unknown-linux-gnu
 PBS_TRIPLE_linux_aarch64=aarch64-unknown-linux-gnu
@@ -137,22 +144,13 @@ SRC_DIR=sources/strata
 LLAMA_DIR=sources/llama.cpp
 STAMP=.stamp
 
-.PHONY: strata package-stub engine engine-packages engine-dsv41 engine-python engine-source build package test clean purge print-packages print-asset print-dsv41-packages print-dsv41-asset print-dsv41-sha256 check-pins
+.PHONY: strata package-stub engine engine-packages engine-python engine-source build package test clean purge print-packages print-asset check-pins
 
 strata:
 	CGO_ENABLED=0 $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o strata ./
 
 print-packages:
 	@echo "$(STRATA_PACKAGES)"
-
-print-dsv41-packages:
-	@echo "$(STRATA_DSV41_PACKAGES)"
-
-print-dsv41-asset:
-	@echo "$(call asset_dsv41,$(PKG))"
-
-print-dsv41-sha256:
-	@echo "$(STRATA_DSV41_SHA256_$(PKG))"
 
 print-asset:
 	@echo "$(call asset_name,$(PKG))"
@@ -163,12 +161,13 @@ print-asset:
 # make still runs recipe lines that mention $(MAKE) under -n.
 check-pins:
 	@fail=0; \
-	$(foreach v,$(filter STRATA_SHA256_% STRATA_DSV41_SHA256_% PBS_SHA256_%,$(.VARIABLES)),echo '$($(v))' | grep -Eq '^[0-9a-f]{64}$$' || { echo 'bad pin $(v)' >&2; fail=1; }; ) \
+	$(foreach v,$(filter STRATA_ENGINE_SHA256_%,$(.VARIABLES)),echo '$($(subst _SHA256_,_TAG_,$(v)))' | grep -Eq '^v[0-9][0-9.]*$$' || { echo 'bad or missing tag for $(v)' >&2; fail=1; }; echo '$($(subst _SHA256_,_VERSION_,$(v)))' | grep -Eq '^[0-9][0-9.]*$$' || { echo 'bad or missing version for $(v)' >&2; fail=1; }; ) \
+	$(foreach v,$(filter STRATA_ENGINE_SHA256_% PBS_SHA256_%,$(.VARIABLES)),echo '$($(v))' | grep -Eq '^[0-9a-f]{64}$$' || { echo 'bad pin $(v)' >&2; fail=1; }; ) \
 	echo "$(STRATA_COMMIT)" | grep -Eq '^[0-9a-f]{40}$$' || { echo "bad STRATA_COMMIT" >&2; fail=1; }; \
 	echo "$(LLAMA_CPP_COMMIT)" | grep -Eq '^[0-9a-f]{40}$$' || { echo "bad LLAMA_CPP_COMMIT" >&2; fail=1; }; \
 	exit $$fail
 
-engine: engine-packages engine-dsv41 engine-python engine-source
+engine: engine-packages engine-python engine-source
 
 # The upstream engine package(s) for this target, verified and unpacked into
 # engines/<name>/. Each archive is deleted after unpacking to keep the layer small.
@@ -179,17 +178,7 @@ engine-packages:
 	  exit 1; \
 	fi
 	@set -e; \
-	$(foreach pkg,$(STRATA_PACKAGES),sh ./fetch-engine.sh '$(call engine_dir,$(pkg))' '$(call asset_name,$(pkg))' '$(STRATA_SHA256_$(pkg))' '$(STRATA_REPO)/releases/download/$(STRATA_VERSION)' '$(STRATA_ENGINE_VERSION)'; )
-
-# The DeepSeek V4.1 engine package for this target, into engines-dsv41/<name>/.
-# Targets without one (see above) ship the Qwen engine only; that is not an error.
-engine-dsv41:
-	@if [ -z "$(STRATA_DSV41_PACKAGES)" ]; then \
-	  echo "==> no DeepSeek V4.1 engine package for BUILD_TYPE='$(BUILD_TYPE)' CUDA_MAJOR_VERSION='$(CUDA_MAJOR_VERSION)' on $(UNAME_S)/$(UNAME_M); this image runs the Qwen engine only"; \
-	  exit 0; \
-	fi
-	@set -e; \
-	$(foreach pkg,$(STRATA_DSV41_PACKAGES),sh ./fetch-engine.sh '$(call engine_dir,$(pkg))' '$(call asset_dsv41,$(pkg))' '$(STRATA_DSV41_SHA256_$(pkg))' '$(STRATA_REPO)/releases/download/$(STRATA_VERSION)' '$(STRATA_DSV41_ENGINE_VERSION)' engines-dsv41 strata-dsv41; )
+	$(foreach pkg,$(STRATA_PACKAGES),sh ./fetch-engine.sh '$(call engine_dir,$(pkg))' '$(call asset_name,$(pkg))' '$(STRATA_ENGINE_SHA256_$(pkg))' '$(STRATA_REPO)/releases/download/$(STRATA_ENGINE_TAG_$(pkg))' '$(STRATA_ENGINE_VERSION_$(pkg))'; )
 
 # Portable CPython plus the pinned, hash-checked packages the helper imports.
 engine-python:
@@ -209,18 +198,21 @@ engine-python:
 # hash is the integrity check): the three the tokenizer helper imports
 # (tools/strata_tokenizer.py, serve/frontend.py and the serve package marker),
 # the pack tools that build a model's pack from its GGUF files on the first
-# load (tools/iq_pack.py with gguf_reader.py and _paths.py), and the licence.
-# For DeepSeek V4.1 it also takes serve/dsml.py (the tool-call parser), the
-# V4.1 chat template of serve/fixtures and tools/dsv41/pack_gguf.py.
-# iq_pack.py reads gguf-py from third_party/llama.cpp/gguf-py under the Strata
-# tree, so that folder is fetched from llama.cpp at the commit Strata pins.
+# load (tools/iq_pack.py with gguf_reader.py and _paths.py, and the strata_gguf,
+# strata_quants and strata_quant_tables modules it uses as its GGUF library),
+# and the licence.
+# Strata v0.2.15 no longer carries any DeepSeek code (serve/dsml.py, the V4.1
+# chat template and tools/dsv41/pack_gguf.py are gone), so none is fetched.
+# Since v0.2.15 iq_pack.py uses strata_gguf by default. llama.cpp's gguf-py,
+# fetched at the commit Strata pins into third_party/llama.cpp/gguf-py under
+# the Strata tree, stays available as the STRATA_GGUF_PY alternative.
 engine-source:
 	@set -e; \
 	if [ -f strata-src/$(STAMP)-$(STRATA_COMMIT) ]; then echo "==> strata-src is up to date"; exit 0; fi; \
 	rm -rf $(SRC_DIR) strata-src; mkdir -p $(SRC_DIR) strata-src; \
 	cd $(SRC_DIR) && git init -q && git remote add origin $(STRATA_REPO) && \
 	git sparse-checkout init --no-cone && \
-	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /serve/__init__.py /serve/frontend.py /serve/dsml.py /serve/fixtures/deepseek41/chat_template.jinja /tools/dsv41/pack_gguf.py && \
+	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /tools/strata_gguf.py /tools/strata_quants.py /tools/strata_quant_tables.py /serve/__init__.py /serve/frontend.py && \
 	git fetch -q --depth 1 --filter=blob:none origin $(STRATA_COMMIT) && \
 	git checkout -q FETCH_HEAD; \
 	cd "$(CURDIR)"; \
@@ -231,14 +223,12 @@ engine-source:
 	git fetch -q --depth 1 --filter=blob:none origin $(LLAMA_CPP_COMMIT) && \
 	git checkout -q FETCH_HEAD; \
 	cd "$(CURDIR)"; \
-	mkdir -p strata-src/tools/dsv41 strata-src/serve/fixtures/deepseek41 strata-src/third_party/llama.cpp; \
+	mkdir -p strata-src/tools strata-src/serve strata-src/third_party/llama.cpp; \
 	cp $(SRC_DIR)/LICENSE strata-src/LICENSE; \
-	cp $(SRC_DIR)/tools/strata_tokenizer.py $(SRC_DIR)/tools/iq_pack.py $(SRC_DIR)/tools/gguf_reader.py $(SRC_DIR)/tools/_paths.py strata-src/tools/; \
+	cp $(SRC_DIR)/tools/strata_tokenizer.py $(SRC_DIR)/tools/iq_pack.py $(SRC_DIR)/tools/gguf_reader.py $(SRC_DIR)/tools/_paths.py $(SRC_DIR)/tools/strata_gguf.py $(SRC_DIR)/tools/strata_quants.py $(SRC_DIR)/tools/strata_quant_tables.py strata-src/tools/; \
 	cp -r $(LLAMA_DIR)/gguf-py strata-src/third_party/llama.cpp/gguf-py; \
 	cp $(LLAMA_DIR)/LICENSE strata-src/third_party/llama.cpp/LICENSE; \
-	cp $(SRC_DIR)/serve/__init__.py $(SRC_DIR)/serve/frontend.py $(SRC_DIR)/serve/dsml.py strata-src/serve/; \
-	cp $(SRC_DIR)/serve/fixtures/deepseek41/chat_template.jinja strata-src/serve/fixtures/deepseek41/; \
-	cp $(SRC_DIR)/tools/dsv41/pack_gguf.py strata-src/tools/dsv41/; \
+	cp $(SRC_DIR)/serve/__init__.py $(SRC_DIR)/serve/frontend.py strata-src/serve/; \
 	touch strata-src/$(STAMP)-$(STRATA_COMMIT)
 
 package:
@@ -260,4 +250,4 @@ clean:
 
 # Also drops everything fetched: engines, Python, sources and downloads.
 purge: clean
-	rm -rf engines engines-dsv41 python strata-src sources downloads
+	rm -rf engines python strata-src sources downloads

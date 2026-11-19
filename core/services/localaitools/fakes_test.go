@@ -3,6 +3,7 @@ package localaitools
 import (
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -25,6 +26,8 @@ type fakeClient struct {
 
 	// Per-method overrides. Tests set these.
 	gallerySearch         func(GallerySearchQuery) ([]gallery.Metadata, error)
+	searchModels          func(ModelSearchRequest) (*ModelSearchResponse, error)
+	inspectRemoteModel    func(RemoteModelRequest) (*RemoteModelInfo, error)
 	listInstalledModels   func(Capability) ([]InstalledModel, error)
 	listGalleries         func() ([]config.Gallery, error)
 	getJobStatus          func(string) (*JobStatus, error)
@@ -56,6 +59,7 @@ type fakeClient struct {
 	setBranding           func(SetBrandingRequest) (*Branding, error)
 	listVoiceProfiles     func() ([]VoiceProfile, error)
 	createVoiceProfile    func(CreateVoiceProfileRequest) (*VoiceProfile, error)
+	projects              func(ProjectsRequest) (*ProjectsResult, error)
 	deleteVoiceProfile    func(string) error
 	getUsageStats         func(UsageStatsQuery) (*UsageStats, error)
 	getPIIEvents          func(PIIEventsQuery) ([]PIIEvent, error)
@@ -91,6 +95,22 @@ func (f *fakeClient) recorded() []fakeCall {
 }
 
 var errNotConfigured = errors.New("fakeClient method not configured")
+
+func (f *fakeClient) SearchModels(_ context.Context, req ModelSearchRequest) (*ModelSearchResponse, error) {
+	f.record("SearchModels", req)
+	if f.searchModels != nil {
+		return f.searchModels(req)
+	}
+	return &ModelSearchResponse{}, nil
+}
+
+func (f *fakeClient) InspectRemoteModel(_ context.Context, req RemoteModelRequest) (*RemoteModelInfo, error) {
+	f.record("InspectRemoteModel", req)
+	if f.inspectRemoteModel != nil {
+		return f.inspectRemoteModel(req)
+	}
+	return &RemoteModelInfo{RepoFiles: &modelsearch.RepoFiles{}}, nil
+}
 
 func (f *fakeClient) GallerySearch(_ context.Context, q GallerySearchQuery) ([]gallery.Metadata, error) {
 	f.record("GallerySearch", q)
@@ -369,6 +389,14 @@ func (f *fakeClient) DeleteVoiceProfile(_ context.Context, id string) error {
 		return f.deleteVoiceProfile(id)
 	}
 	return nil
+}
+
+func (f *fakeClient) Projects(_ context.Context, req ProjectsRequest) (*ProjectsResult, error) {
+	f.record("Projects", req)
+	if f.projects != nil {
+		return f.projects(req)
+	}
+	return &ProjectsResult{}, nil
 }
 
 func (f *fakeClient) GetUsageStats(_ context.Context, q UsageStatsQuery) (*UsageStats, error) {

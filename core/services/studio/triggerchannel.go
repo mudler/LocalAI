@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -48,7 +49,7 @@ func (h *Triggers) channelLabel(ctx context.Context, t triggers.Trigger) string 
 	if t.Route.Target != triggers.TargetChannel || h.svc.connectors == nil {
 		return t.Route.Channel
 	}
-	if b, err := h.svc.connectors.o.Store.GetBinding(ctx, t.Route.Binding); err == nil {
+	if b, err := h.svc.connectors.o.Store.GetBinding(ctx, t.Route.ChannelBinding()); err == nil {
 		if ch, ok := b.FindChannel(t.Route.Channel); ok && ch.Label != "" {
 			return ch.Label
 		}
@@ -62,16 +63,25 @@ type DeliveryView struct {
 	Target string
 	// ChannelLabel is the name of the channel of TargetChannel.
 	ChannelLabel string
+	// ConnectionName is the name the owner gave the connection that the channel
+	// belongs to, for a trigger from Studio that reports to a connection; empty
+	// otherwise, and when the connection is gone.
+	ConnectionName string
 	// InThread is set when the origin is a thread.
 	InThread bool
+	// Mode is when a run reports: always, on_change or on_problem.
+	Mode string
 }
 
 // DeliveryOf says where the runs of a trigger report.
 func (h *Triggers) DeliveryOf(ctx context.Context, t triggers.Trigger) DeliveryView {
-	d := DeliveryView{Target: string(t.Route.TargetOrDefault())}
+	d := DeliveryView{Target: string(t.Route.TargetOrDefault()), Mode: t.Route.ModeOrDefault()}
 	switch t.Route.TargetOrDefault() {
 	case triggers.TargetChannel:
 		d.ChannelLabel = h.channelLabel(ctx, t)
+		if t.Route.Connection != "" {
+			d.ConnectionName = h.connectionName(ctx, t.Route.Connection)
+		}
 	case triggers.TargetOrigin:
 		d.InThread = t.Route.Thread != ""
 	}
@@ -92,9 +102,17 @@ func (h *Triggers) deliverChannel(ctx context.Context, t triggers.Trigger, body 
 	if c == nil {
 		return refuse("connectors are off")
 	}
-	b, err := c.o.Store.GetBinding(ctx, t.Route.Binding)
-	if err != nil || !b.Enabled {
+	// The binding of a trigger from Studio is the connection the owner chose;
+	// it must still be the owner's own, which the capability check below also
+	// enforces.
+	b, err := c.o.Store.GetBinding(ctx, t.Route.ChannelBinding())
+	if err != nil || !b.Enabled || b.Owner != principal(t.Owner) {
 		return refuse("the binding is off")
+	}
+	// The kind of the connection may have changed since the trigger was made
+	// (the add-on is gone, or now declares a service that only tools use).
+	if !c.canReceiveReports(ctx, b) {
+		return refuse("the connection cannot receive reports")
 	}
 	kind, _, terr := ChannelTarget(b, t.Route.Channel)
 	switch {
@@ -102,7 +120,7 @@ func (h *Triggers) deliverChannel(ctx context.Context, t triggers.Trigger, body 
 		return refuse("the channel is not listed")
 	case kind != SendChannel:
 		return refuse("the channel is not approved")
-	case !h.svc.allowCap(ctx, CapabilityRequest{Capability: contract.CapTalkbackChannels, Binding: t.Route.Binding, Owner: t.Owner, Agent: t.AgentID}):
+	case !h.svc.allowCap(ctx, CapabilityRequest{Capability: contract.CapTalkbackChannels, Binding: b.ID, Owner: t.Owner, Agent: t.AgentID}):
 		return refuse("capability off")
 	}
 	queued, err := c.Send(ctx, Outgoing{Binding: b.ID, Chat: t.Route.Channel, Text: body, Kind: SendDelivery, Capability: contract.CapTalkbackChannels,
@@ -154,10 +172,20 @@ func (h *Triggers) updateChannelsNote(ctx context.Context, c builtins.Chat) stri
 
 // checkChangedDelivery checks, as a proposal's delivery is checked, a change of
 // the delivery of the trigger target, and returns the patch with the channel as
-// an ID. Only a trigger that a messaging app proposed has a delivery.
-func (h *Triggers) checkChangedDelivery(ctx context.Context, c builtins.Chat, target triggers.Trigger, kind, mode, channel string) (*DeliveryPatch, error) {
+// an ID. A trigger that a messaging app proposed keeps its connection and may
+// change target, channel and mode. A trigger made in Studio may report to a
+// channel of a connection of the owner (connection), but only when a chat in
+// Studio asks: a chat of a messaging app never changes where a Studio trigger
+// reports.
+func (h *Triggers) checkChangedDelivery(ctx context.Context, c builtins.Chat, target triggers.Trigger, kind, mode, channel, connection string) (*DeliveryPatch, error) {
 	if !target.Route.FromConnector() {
-		return nil, errors.New("delivery is for a trigger that was proposed in a messaging app; the answer of this trigger goes to the Inbox")
+		if c.Origin == session.OriginConnector {
+			return nil, errors.New("delivery is for a trigger that was proposed in a messaging app; the answer of this trigger goes to the Inbox")
+		}
+		return h.checkStudioPatch(ctx, c, target, kind, mode, channel, connection)
+	}
+	if connection != "" {
+		return nil, errors.New("delivery.connection is for a trigger that was proposed in Studio; this one reports through the connection that proposed it")
 	}
 	if kind == "" && mode == "" && channel == "" {
 		return nil, errors.New("delivery needs a target, a mode or a channel")

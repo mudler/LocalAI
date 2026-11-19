@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import { Link } from 'react-router-dom'
@@ -6,6 +6,9 @@ import { failureView } from '../../utils/chatFailure'
 import { renderMarkdown } from '../../utils/markdown'
 import { escapeHtml } from './chatText'
 import { messageParts } from '../../utils/chatAttachments'
+import { chatFileTarget, spaceSafeLinks } from '../../utils/chatMedia'
+import { filesApi } from '../../utils/api'
+import { iconHtml } from '../../utils/iconHtml'
 // eslint-disable-next-line no-unused-vars
 import { InvokedChip } from './CommandCards'
 // eslint-disable-next-line no-unused-vars
@@ -22,12 +25,87 @@ import { AssistantAvatar } from '../wellknown/Identity'
 // eslint-disable-next-line no-unused-vars
 import ReadAloudButton from './ReadAloudButton'
 
+// The files of the chat that an answer's images and links name, made ready for
+// the page: a path of the model's sandbox or of the person's files becomes the
+// address that serves the file, and a link to a file opens it in the pane.
+// Anything else stays as written. Without a DOM the HTML is
+// returned as it is.
+function withChatFiles(html, files) {
+  if (!html || typeof DOMParser === 'undefined' || !/<(img|a)\s/i.test(html)) return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  for (const img of doc.querySelectorAll('img')) {
+    img.setAttribute('loading', 'lazy')
+    const target = chatFileTarget(img.getAttribute('src'), files)
+    if (!target) continue
+    img.setAttribute('src', filesApi.contentUrl(target.path, true))
+    img.setAttribute('data-chat-path', target.path)
+    if (!img.getAttribute('alt')) img.setAttribute('alt', target.name)
+  }
+  for (const a of doc.querySelectorAll('a[href]')) {
+    const target = chatFileTarget(a.getAttribute('href'), files)
+    if (!target || !target.known) continue
+    a.setAttribute('href', filesApi.contentUrl(target.path))
+    a.setAttribute('target', '_blank')
+    a.setAttribute('rel', 'noopener noreferrer')
+    a.setAttribute('data-chat-path', target.path)
+  }
+  return doc.body.innerHTML
+}
+
+// An image of an answer that does not load (the file is gone, not written yet,
+// or the model named a path that is not one) becomes a chip with its name, never
+// a broken-image icon. With the file known the chip opens the pane on it.
+function imageFallback(img, label) {
+  const path = img.getAttribute('data-chat-path')
+  const name = img.getAttribute('alt') || (path || img.getAttribute('src') || '').split('/').pop() || ''
+  const chip = document.createElement(path ? 'button' : 'span')
+  chip.className = 'cx-fchip cx-fchip--missing'
+  chip.setAttribute('data-testid', 'chat-image-fallback')
+  if (path) {
+    chip.setAttribute('type', 'button')
+    chip.setAttribute('data-chat-path', path)
+    chip.setAttribute('data-open-file', '1')
+  }
+  chip.innerHTML = iconHtml('image')
+  const nameEl = document.createElement('span')
+  nameEl.className = 'cx-fchip__name'
+  nameEl.textContent = name
+  chip.appendChild(nameEl)
+  if (path) {
+    const open = document.createElement('span')
+    open.className = 'cx-fchip__open'
+    open.textContent = label
+    chip.appendChild(open)
+  }
+  img.replaceWith(chip)
+}
+
 // Assistant prose. The HTML string is memoised, so React leaves the node alone
 // while the page re-renders for other reasons (polling, streaming elsewhere):
-// a text selection inside an answer survives.
+// a text selection inside an answer survives. files and onOpenFile tie its
+// images and links to the chat's files.
 // eslint-disable-next-line no-unused-vars
-function Prose({ html, className = '' }) {
-  return <div className={`cx-prose ${className}`} dangerouslySetInnerHTML={{ __html: html }} />
+function Prose({ html, className = '', files, onOpenFile }) {
+  const { t } = useTranslation('chat')
+  const ref = useRef(null)
+  const shown = useMemo(() => withChatFiles(html, files || []), [html, files])
+  // An error does not bubble: the capture phase sees the images of the HTML.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const onError = (e) => { if (e.target instanceof HTMLImageElement) imageFallback(e.target, t('preview.open')) }
+    el.addEventListener('error', onError, true)
+    // An image that failed before this listener was there.
+    el.querySelectorAll('img').forEach((img) => { if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) imageFallback(img, t('preview.open')) })
+    return () => el.removeEventListener('error', onError, true)
+  }, [shown, t])
+  const onClick = (e) => {
+    const hit = onOpenFile && e.target.closest?.('[data-chat-path]:not(img)')
+    if (!hit) return
+    e.preventDefault()
+    onOpenFile(hit.getAttribute('data-chat-path'))
+  }
+  return <div ref={ref} className={`cx-prose ${className}`} onClick={onClick} dangerouslySetInnerHTML={{ __html: shown }} />
 }
 
 // A turn that failed: the reason in plain words, what to do about it, a Retry
@@ -106,7 +184,7 @@ function Who({ model, warm, identity }) {
 // replaces your message and runs the chat again from it, Regenerate answers the
 // last message again, and Branch copies the chat up to the message into a new one.
 function ChatMessage({
-  msg, isLast, model, warm, busy, activityItems, proposalItems, actions, conversationId, canRegenerate, proposalTick, identity,
+  msg, isLast, model, warm, busy, activityItems, proposalItems, actions, conversationId, canRegenerate, proposalTick, identity, files, onOpenFile,
 }) {
   const { t } = useTranslation('chat')
   const isUser = msg.role === 'user'
@@ -140,7 +218,7 @@ function ChatMessage({
 
   const html = useMemo(() => {
     if (isUser || !text) return ''
-    return renderMarkdown(text)
+    return renderMarkdown(spaceSafeLinks(text))
   }, [isUser, text])
 
   const onKeyDown = (e) => {
@@ -218,7 +296,7 @@ function ChatMessage({
           )}
         </>
       ) : (
-        text && <Prose html={html} />
+        text && <Prose html={html} files={files} onOpenFile={onOpenFile} />
       )}
 
       {(proposalItems ?? activityItems) && <ActivityProposals items={proposalItems ?? activityItems} proposalTick={proposalTick} />}
@@ -273,14 +351,14 @@ export function ProposalsRow({ items, proposalTick }) {
 // The reply while it is still coming: the activity line, the prose so far with a
 // caret at its end, and, before anything has arrived, whatever the page says
 // the model is waiting for (a load card, or quiet dots).
-export function StreamingTurn({ model, warm, content, reasoning, toolCalls, waiting, identity }) {
-  const html = useMemo(() => (content ? renderMarkdown(content) : ''), [content])
+export function StreamingTurn({ model, warm, content, reasoning, toolCalls, waiting, identity, files, onOpenFile }) {
+  const html = useMemo(() => (content ? renderMarkdown(spaceSafeLinks(content)) : ''), [content])
   const idle = !content && !reasoning && toolCalls.length === 0
   return (
     <article className="cx-msg cx-msg--model" data-testid="chat-streaming" aria-busy="true">
       <Who model={model} warm={warm} identity={identity} />
       <StreamingActivity reasoning={reasoning} toolCalls={toolCalls} hasResponse={!!content} />
-      {content && <Prose html={html} className="cx-prose--live" />}
+      {content && <Prose html={html} className="cx-prose--live" files={files} onOpenFile={onOpenFile} />}
       {idle && waiting}
     </article>
   )

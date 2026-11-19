@@ -34,7 +34,7 @@ done
 # 2. Go: ginkgo specs of the declarations, reported as case lines.
 go_report="$cache/logs/host-slots-go.json"
 rm -f "$go_report"
-go test -count=1 -p 2 -tags auth ./tests/addons/hostslots -ginkgo.json-report="$go_report" >"$cache/logs/host-slots-go.log" 2>&1 || { tail -40 "$cache/logs/host-slots-go.log" >&2; exit 1; }
+go test -count=1 -p 2 -tags auth,nosqlite,purego_utp ./tests/addons/hostslots -ginkgo.json-report="$go_report" >"$cache/logs/host-slots-go.log" 2>&1 || { tail -40 "$cache/logs/host-slots-go.log" >&2; exit 1; }
 python3 -I - "$go_report" <<'PY'
 import json, sys
 for report in json.load(open(sys.argv[1])):
@@ -47,7 +47,7 @@ PY
 
 # 3. The real owner and the browser.
 fixture_exe="$cache/tmp/fixture-addon"
-go build -p 2 -tags auth -o "$fixture_exe" ./tests/addons/fixture/cmd
+go build -p 2 -tags auth,nosqlite,purego_utp -o "$fixture_exe" ./tests/addons/fixture/cmd
 port=$(python3 -I -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
 creds="$cache/logs/host-slots-credentials.json"
 rm -f "$creds"

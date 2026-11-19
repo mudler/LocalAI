@@ -217,7 +217,7 @@ func (i *Inference) DeleteVoiceProfile(ctx context.Context, id string) error {
 // call sends a request with any method to a route and returns the answer body.
 func (i *Inference) call(ctx context.Context, spec ClientToolSpec, method, route, contentType string, body []byte) ([]byte, error) {
 	if i == nil || i.Do == nil {
-		return nil, errors.New("voice profiles are not available on this server")
+		return nil, errors.New("this tool is not available on this server")
 	}
 	req, err := http.NewRequestWithContext(ctx, method, PlaceholderHost+route, bytes.NewReader(body))
 	if err != nil {
@@ -229,6 +229,9 @@ func (i *Inference) call(ctx context.Context, spec ClientToolSpec, method, route
 	data, _, err := i.roundTrip(req, spec, "")
 	var se *StatusError
 	if errors.As(err, &se) {
+		if spec.Tool == ToolProjects {
+			return nil, projectsStatus(se)
+		}
 		return nil, voiceProfileStatus(se)
 	}
 	return data, err

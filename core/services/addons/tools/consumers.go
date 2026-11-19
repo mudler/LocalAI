@@ -17,7 +17,7 @@ const (
 // product, and what it does with add-on tools. The list is executable: the
 // consumer matrix test scans the sources for the markers of tool discovery and
 // execution and fails for a file no entry names, so a new consumer cannot ship
-// without a decision. The same table is in docs/content/features/tables.md.
+// without a decision. The same table is in docs/content/addons/catalogue/work/tables.md.
 type Consumer struct {
 	// ID is the stable name used in the documentation table.
 	ID string
@@ -76,7 +76,7 @@ var Consumers = []Consumer{
 	{
 		ID:          "model-mcp-sessions",
 		Surface:     "MCP sessions built from a model's MCP configuration, cached by model name and shared by every user of the model",
-		Files:       []string{"core/http/endpoints/mcp/tools.go", "core/http/endpoints/mcp/executor.go"},
+		Files:       []string{"core/http/endpoints/mcp/tools.go", "core/http/endpoints/mcp/toolcache.go", "core/http/endpoints/mcp/executor.go"},
 		Decision:    Reject,
 		Reason:      "a shared session has no current-user state, so it cannot carry an actor",
 		Enforcement: "DiscoverMCPTools drops a tool in the add-on namespace; ExecuteMCPToolCall and ExecuteMCPToolCallRemote refuse it with ErrAddonToolsUnsupported",

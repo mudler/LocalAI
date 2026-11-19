@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { chatTriggersApi } from '../../utils/api'
 import { browserZone, formatNext } from '../../utils/chatTrigger'
-import { proposalEdit, proposalView, receiptWhen } from '../../utils/chatProposal'
+import { deliveryModeKey, proposalEdit, proposalView, receiptWhen } from '../../utils/chatProposal'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { widgetList } from '../../utils/wellKnown'
 import { plainSummary } from '../../utils/widgetTrigger'
@@ -50,7 +50,14 @@ function Plan({ p, t }) {
   const d = p.delivery || { target: 'inbox' }
   let delivery = t('proposal.plan.deliveryInbox')
   if (d.target === 'origin') delivery = t(d.in_thread ? 'proposal.plan.deliveryThread' : 'proposal.plan.deliveryChat')
-  else if (d.target === 'channel') delivery = t('proposal.plan.deliveryChannel', { channel: d.channel_label })
+  else if (d.target === 'channel') {
+    // A trigger proposed in Studio names the connection it reports to.
+    delivery = d.connection_name
+      ? t('proposal.plan.deliveryChannelIn', { channel: d.channel_label, connection: d.connection_name })
+      : t('proposal.plan.deliveryChannel', { channel: d.channel_label })
+  }
+  const mode = deliveryModeKey(d)
+  if (mode) delivery = `${delivery}. ${t(mode)}`
   const rows = [
     ['when', when],
     ['runsAs', p.model ? t('proposal.plan.runsAsModel', { model: p.model }) : t('proposal.plan.runsAs')],

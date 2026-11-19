@@ -40,6 +40,8 @@
     "agentHelp": "Obrolan ini memakai agen {{name}}: instruksinya dan hanya alat yang diizinkannya.",
     "editAgent": "Ubah agen",
     "deleteHelp": "Hapus obrolan ini dan pesannya secara permanen.",
+    "collections": "Koleksi",
+    "collectionsHelp": "Obrolan ini hanya dapat memakai koleksi ini.",
     "focusMode": "Mode fokus",
     "focusModeDesc": "Ciutkan sidebar dan rampingkan header saat percakapan aktif. Tekan Esc untuk memulihkan sementara; nonaktifkan ini untuk mempertahankan tata letak penuh.",
     "behaviour": "Perilaku",
@@ -214,7 +216,8 @@
       "from": "Dari",
       "to": "Sampai",
       "reset": "Atur ulang filter"
-    }
+    },
+    "clearShown": "Kosongkan yang ditampilkan"
   },
   "message": {
     "you": "Anda",
@@ -241,7 +244,8 @@
     "unavailable": "Tidak tersedia di obrolan ini",
     "toolCount_one": "{{count}} alat",
     "toolCount_other": "{{count}} alat",
-    "optionsOf": "Opsi {{name}}"
+    "optionsOf": "Opsi {{name}}",
+    "projectCollections": "Koleksi dari proyek: {{names}}."
   },
   "skills": {
     "label": "Keahlian",
@@ -267,7 +271,8 @@
     },
     "replacedBy": "Digantikan oleh {{name}}",
     "fallback_one": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
-    "fallback_other": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini."
+    "fallback_other": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
+    "fromProject": "Dari proyek"
   },
   "agent": {
     "label": "Agen",
@@ -800,7 +805,9 @@
     "missing": "Folder agen ini sudah tidak ada. Pilih folder lain di agen.",
     "startError": "Folder agen ini hilang, jadi chat tidak bisa dimulai. Pilih folder lain untuk agen.",
     "editAgent": "Edit agen",
-    "toolsMany": "File: hanya {{n}} folder: {{list}}. Folder bersama dan skill tetap bisa dibaca."
+    "toolsMany": "File: hanya {{n}} folder: {{list}}. Folder bersama dan skill tetap bisa dibaca.",
+    "projectPaused": "Agen ini dijeda karena proyeknya diarsipkan atau dihapus. Buka proyek dan pulihkan.",
+    "projectChanged": "Agen ini dijeda karena folder proyeknya berubah. Buka agen dan sambungkan ulang."
   },
   "origin": {
     "banner": "Percakapan ini dimulai oleh {{title}}.",
@@ -1025,5 +1032,11 @@
       "code": "Blok kode dilewati.",
       "table": "Tabel dilewati."
     }
+  },
+  "deleteShownDialog": {
+    "title": "Hapus obrolan yang ditampilkan",
+    "message_one": "Hapus {{count}} obrolan yang ditampilkan di {{project}}? Tindakan ini tidak dapat dibatalkan.",
+    "message_other": "Hapus {{count}} obrolan yang ditampilkan di {{project}}? Tindakan ini tidak dapat dibatalkan.",
+    "confirm": "Hapus yang ditampilkan"
   }
 }

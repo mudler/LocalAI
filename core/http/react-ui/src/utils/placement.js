@@ -203,7 +203,7 @@ export function placementFit({ mode, gpuBytes, allBytes, devices }) {
 //   estimate  async (layers | null) => bytes | null. null layers asks for every
 //             layer; a null result means the estimate is unavailable.
 //
-// The model's own layer count is not in the estimate, so the search runs over
+// The search does not use the model's own layer count, so it runs over
 // 1..max. Above the real count the estimate is flat, which is what makes a
 // plain bisection correct: it finds the last count at or under the limit.
 //

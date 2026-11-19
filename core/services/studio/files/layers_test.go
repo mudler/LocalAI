@@ -53,7 +53,7 @@ var _ = Describe("skill layers", func() {
 		adminPut(f, "/skills/review/SKILL.md", skillMD("review", "shared review"))
 		adminPut(f, "/skills/house-style/SKILL.md", skillMD("house-style", "shared style"))
 		userPut(f, "alice", "/.skills/notes/SKILL.md", skillMD("notes", "personal notes"))
-		userPut(f, "alice", "/Projects/Atlas/.skills/atlas/SKILL.md", skillMD("atlas", "folder skill"))
+		userPut(f, "alice", "/Work/Atlas/.skills/atlas/SKILL.md", skillMD("atlas", "folder skill"))
 		userPut(f, "alice", "/.skills/pdfs/SKILL.md", skillMD("pdfs", "personal pdfs"))
 
 		got := resolve(f, "alice")

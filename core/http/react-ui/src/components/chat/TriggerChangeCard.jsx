@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { chatTriggersApi } from '../../utils/api'
-import { changeValue, changeView } from '../../utils/chatProposal'
+import { changeValue, changeView, deliveryModeKey } from '../../utils/chatProposal'
 import Icon from '../Icon'
 import { Button } from '../ui'
 
@@ -16,6 +16,7 @@ function shown(field, trigger, t) {
   if (!v) return <span className="cx-change-card__none">{t('change.none')}</span>
   if (field === 'prompt' && v.length > 160) return `${v.slice(0, 160)}...`
   if (field === 'writes') return <code>{v}</code>
+  if (field === 'delivery' && deliveryModeKey(trigger.delivery)) return `${v}. ${t(deliveryModeKey(trigger.delivery))}`
   return v
 }
 

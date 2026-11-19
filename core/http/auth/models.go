@@ -69,7 +69,12 @@ type UserAPIKey struct {
 	// Models lists the models a client key may use, by name. Deny by default:
 	// a key with the client_inference feature and no entry uses no model.
 	Models ModelList `gorm:"type:text"`
-	User   User      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	// ReadFolders and WriteFolder are the folder grant of a client key
+	// (client_folders): folders of the owner's workspace the key may read, and
+	// the one it may write. Deny by default: empty means no access.
+	ReadFolders FolderList `gorm:"type:text"`
+	WriteFolder string     `gorm:"size:255"`
+	User        User       `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
 
 // IsPaused reports whether the key is paused at the given time.

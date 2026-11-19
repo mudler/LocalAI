@@ -158,7 +158,7 @@ func withJobTool(tools []session.Tool, job session.Tool) []session.Tool {
 // jobCheck is the sweep's question for a live job of this process: does
 // anything still allow it. It never ends a job on a doubt about the store.
 func (s *Service) jobCheck(ctx context.Context, in bgjob.Info) bgjob.EndReason {
-	rec, err := s.d.Store.GetChat(ctx, in.Owner, in.Chat)
+	rec, err := s.getChatEffective(ctx, in.Owner, in.Chat)
 	if errors.Is(err, session.ErrNotFound) {
 		return bgjob.EndChatDeleted
 	}
@@ -402,13 +402,13 @@ func (s *Service) runJob(ctx context.Context, a workspace.Actor, args json.RawMe
 	if sj, ok := jobSubjectFrom(ctx); ok {
 		a, via, sub = sj.child, sj.via, true
 	}
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return "", err
 	}
 	call := JobCall{Action: in.Action, Parent: rec.ParentID, ID: in.ID, Since: in.Since, MaxBytes: in.MaxBytes}
 	if sub {
-		if viaRec, err = s.d.Store.GetChat(ctx, via.Principal, via.ChatID); err != nil {
+		if viaRec, err = s.getChatEffective(ctx, via.Principal, via.ChatID); err != nil {
 			return "", err
 		}
 		call.Via = via.ChatID
@@ -670,7 +670,7 @@ func (b *hostJobBackend) Provider() string { return BuiltinProvider }
 
 func (b *hostJobBackend) EndChat(ctx context.Context, a workspace.Actor, reason bgjob.EndReason) error {
 	// The nodes that run the chat's jobs are in the stubs; ask each.
-	rec, err := b.s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := b.s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return err
 	}
@@ -692,7 +692,7 @@ func (b *hostJobBackend) EndChat(ctx context.Context, a workspace.Actor, reason 
 // hostOK says why the chat may not use the built-in bash now, or "": the
 // fence, the group switch, the files and the mode, as the tool builds with.
 func (b *hostJobBackend) hostOK(ctx context.Context, a workspace.Actor) string {
-	rec, err := b.s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := b.s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return "the chat cannot be read"
 	}

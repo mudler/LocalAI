@@ -148,3 +148,24 @@ var _ = Describe("a wait in the loops list", func() {
 		Expect(loopJSON(l).Kind).To(BeEmpty())
 	})
 })
+
+var _ = Describe("the report of a loop in the loops list", func() {
+	l := loops.Loop{ID: "l1", Owner: "alice", ChatID: "c1", Prompt: "Check it", State: loops.StateActive, Created: time.Now()}
+
+	It("is absent for a loop that reports nowhere", func() {
+		out := loopJSON(l)
+		Expect(out.Report).To(BeNil())
+		raw, err := json.Marshal(out)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring("report"))
+	})
+
+	It("gives the connection, the channel and the mode", func() {
+		l.Report = &loops.Report{Connection: "conn1", Channel: "G1", Mode: loops.ReportOnProblem}
+		out := loopJSON(l)
+		Expect(out.Report).NotTo(BeNil())
+		Expect(out.Report.Connection).To(Equal("conn1"))
+		Expect(out.Report.Channel).To(Equal("G1"))
+		Expect(out.Report.Mode).To(Equal("on_problem"))
+	})
+})

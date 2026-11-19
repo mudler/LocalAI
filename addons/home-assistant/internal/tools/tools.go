@@ -20,10 +20,10 @@ import (
 
 	"github.com/mudler/LocalAI/addons/home-assistant/internal/haapi"
 	"github.com/mudler/LocalAI/addons/home-assistant/internal/policy"
-	"github.com/mudler/LocalAI/addons/internal/idle"
 	"github.com/mudler/LocalAI/addons/internal/journal"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/idle"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The tools of the manifest.

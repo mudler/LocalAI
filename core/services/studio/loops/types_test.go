@@ -1,6 +1,7 @@
 package loops_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -22,6 +23,24 @@ var _ = Describe("Loop values", func() {
 			Expect(w.Describe()).NotTo(ContainSubstring("secret"), mode)
 			Expect(w.Describe()).To(ContainSubstring("script"), mode)
 			Expect(w.Clone().Script).To(Equal(w.Script))
+		}
+	})
+
+	It("checks the shape of a report", func() {
+		ok := loops.Report{Connection: "c1", Channel: "G1", Mode: loops.ReportOnDone}
+		Expect(ok.Validate()).To(Succeed())
+		Expect(loops.Loop{Report: &ok}.Reports(loops.ReportOnDone)).To(BeTrue())
+		Expect(loops.Loop{Report: &ok}.Reports(loops.ReportOnProblem)).To(BeFalse())
+		Expect(loops.Loop{}.Reports(loops.ReportOnDone)).To(BeFalse())
+		for _, bad := range []loops.Report{
+			{Connection: "c1", Channel: "G1"},
+			{Connection: "c1", Channel: "G1", Mode: loops.ReportNever},
+			{Channel: "G1", Mode: loops.ReportOnDone},
+			{Connection: "c1", Mode: loops.ReportOnDone},
+			{Connection: "c1\n", Channel: "G1", Mode: loops.ReportOnDone},
+			{Connection: strings.Repeat("a", 65), Channel: "G1", Mode: loops.ReportOnDone},
+		} {
+			Expect(bad.Validate()).To(MatchError(loops.ErrInvalid), "%+v", bad)
 		}
 	})
 

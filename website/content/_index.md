@@ -1,4 +1,4 @@
 ---
 title: "LocalAI"
-description: "LocalAI is the open source AI engine. Run any model, LLMs, vision, voice, image and video, on any hardware. No GPU required."
+description: "Run open models for chat, images, speech and video on your own machines. Your team gets chats, files and documents on top, and the assistant can write and run code."
 ---

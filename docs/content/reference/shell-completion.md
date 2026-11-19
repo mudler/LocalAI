@@ -1,11 +1,10 @@
 +++
 disableToc = false
-title = "Shell Completion"
-weight = 18
-url = "/reference/shell-completion/"
+title = "Shell completion"
+weight = 50
 +++
 
-LocalAI provides shell completion support for **bash**, **zsh**, and **fish** shells. Once installed, tab completion works for all CLI commands, subcommands, and flags.
+`local-ai` can print a completion script for bash, zsh and fish. Tab then completes commands, subcommands and flags.
 
 ## Generating Completion Scripts
 
@@ -27,10 +26,10 @@ Add the following to your `~/.bashrc`:
 source <(local-ai completion bash)
 ```
 
-Or install it system-wide:
+Or install it system-wide, which needs root:
 
 ```bash
-local-ai completion bash > /etc/bash_completion.d/local-ai
+local-ai completion bash | sudo tee /etc/bash_completion.d/local-ai > /dev/null
 ```
 
 ### Zsh
@@ -41,7 +40,7 @@ Add the following to your `~/.zshrc`:
 source <(local-ai completion zsh)
 ```
 
-Or install it to a completions directory:
+Or install it to a completions directory. The first folder of `fpath` can be read-only, so pick one you can write to:
 
 ```zsh
 local-ai completion zsh > "${fpath[1]}/_local-ai"
@@ -72,16 +71,14 @@ After installation, restart your shell or source your shell configuration file. 
 
 ```
 $ local-ai <TAB>
-run              backends         completion       explorer         models
-federated        sound-generation transcript       tts              util
 ```
 
-Tab completion also works for subcommands and flags:
+Tab lists the commands and then completes subcommands and flags:
 
 ```
 $ local-ai models <TAB>
-install  list
 
 $ local-ai run --<TAB>
---address          --backends-path    --context-size     --debug            ...
 ```
+
+Run `local-ai --help` for the commands of your build.

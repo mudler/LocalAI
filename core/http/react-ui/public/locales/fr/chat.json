@@ -36,6 +36,8 @@
     "agentHelp": "Ce chat utilise l'agent {{name}} : ses instructions et seulement les outils qu'il accorde.",
     "editAgent": "Modifier l'agent",
     "deleteHelp": "Supprimer définitivement ce chat et ses messages.",
+    "collections": "Collections",
+    "collectionsHelp": "Cette discussion ne peut utiliser que ces collections.",
     "sliderOf": "Curseur {{name}}",
     "reset": "Utiliser la valeur du modèle pour {{name}}",
     "hint": {
@@ -165,7 +167,8 @@
       "from": "Du",
       "to": "Au",
       "reset": "Réinitialiser les filtres"
-    }
+    },
+    "clearShown": "Vider les affichés"
   },
   "message": {
     "you": "Vous",
@@ -191,7 +194,8 @@
     "unavailable": "Indisponible dans ce chat",
     "toolCount_one": "{{count}} outil",
     "toolCount_other": "{{count}} outils",
-    "optionsOf": "Options de {{name}}"
+    "optionsOf": "Options de {{name}}",
+    "projectCollections": "Collections du projet : {{names}}."
   },
   "skills": {
     "label": "Compétences",
@@ -217,7 +221,8 @@
     },
     "replacedBy": "Remplacée par {{name}}",
     "fallback_one": "{{skills}} intégrée utilisée : la compétence du module {{name}} est désactivée ou ne tourne pas ici.",
-    "fallback_other": "{{skills}} intégrées utilisées : les compétences du module {{name}} sont désactivées ou ne tournent pas ici."
+    "fallback_other": "{{skills}} intégrées utilisées : les compétences du module {{name}} sont désactivées ou ne tournent pas ici.",
+    "fromProject": "Du projet"
   },
   "agent": {
     "label": "Agent",
@@ -716,7 +721,9 @@
     "missing": "Le dossier de cet agent n'existe plus. Choisissez un autre dossier dans l'agent.",
     "startError": "Le dossier de cet agent est manquant, le chat ne peut donc pas démarrer. Choisissez un autre dossier pour l'agent.",
     "editAgent": "Modifier l'agent",
-    "toolsMany": "Fichiers : seulement {{n}} dossiers : {{list}}. Les dossiers partagés et les skills restent lisibles."
+    "toolsMany": "Fichiers : seulement {{n}} dossiers : {{list}}. Les dossiers partagés et les skills restent lisibles.",
+    "projectPaused": "Cet agent est en pause, car son projet est archivé ou supprimé. Ouvrez le projet et restaurez-le.",
+    "projectChanged": "Cet agent est en pause, car les dossiers de son projet ont changé. Ouvrez l’agent et reconnectez-le."
   },
   "origin": {
     "banner": "Cette conversation a été démarrée par {{title}}.",
@@ -913,5 +920,11 @@
       "code": "Bloc de code omis.",
       "table": "Tableau omis."
     }
+  },
+  "deleteShownDialog": {
+    "title": "Supprimer les chats affichés",
+    "message_one": "Supprimer le chat affiché dans {{project}} ({{count}}) ? Cette action est irréversible.",
+    "message_other": "Supprimer les {{count}} chats affichés dans {{project}} ? Cette action est irréversible.",
+    "confirm": "Supprimer les affichés"
   }
 }

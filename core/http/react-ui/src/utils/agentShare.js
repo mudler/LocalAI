@@ -12,9 +12,11 @@ export const AGENT_ROLES = Object.freeze(['use', 'viewer'])
 
 const roleOf = (a) => a?.access?.role || ''
 
-// canShareAgent: the caller owns the agent and the server shares agents.
+// canShareAgent: the caller owns the agent and the server shares agents. An
+// agent created from a project stays in its project: the server refuses to
+// share it.
 export function canShareAgent(agent) {
-  return roleOf(agent) === 'owner' && agent.access.sharing === true
+  return roleOf(agent) === 'owner' && agent.access.sharing === true && !agent.project_id
 }
 
 // isSharedWithMe: the agent is another person's, shared with the caller.

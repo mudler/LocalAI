@@ -93,7 +93,7 @@ func (s *Service) openStream(k string) (release func(), err error) {
 // live events is filled the same way. An empty after gives the live events only.
 func (s *Service) EventsAfter(ctx context.Context, user, conv, after string) (<-chan session.Event, func(), error) {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
 		return nil, nil, err
 	}
 	k := key(p, conv)

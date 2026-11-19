@@ -19,7 +19,14 @@
     "deleteTitle": "Excluir «{{title}}»?",
     "deleteMessage": "A pasta {{folder}} vai para a Lixeira. Você pode restaurá-la em Arquivos.",
     "deleted": "{{title}} está na Lixeira.",
-    "deleteFailed": "A página não foi excluída: {{message}}"
+    "deleteFailed": "A página não foi excluída: {{message}}",
+    "share": "Compartilhar",
+    "shared": "Compartilhada",
+    "sharedWith_one": "Compartilhada com {{count}} pessoa",
+    "sharedWith_other": "Compartilhada com {{count}} pessoas",
+    "sharedEveryone": "Compartilhada com todos",
+    "someone": "alguém",
+    "othersEdit": "Outros podem editar"
   },
   "empty": {
     "text": "Uma página é uma pequena ferramenta, como um quadro de tarefas ou uma lista de leitura. Peça uma ao assistente em um chat ou comece com uma página pronta.",
@@ -48,12 +55,15 @@
       "notAllowed": "Ainda não permitida",
       "changed": "Mudou desde que você a permitiu",
       "allowed": "Permitida"
-    }
+    },
+    "userOff": "Desativada por um administrador.",
+    "stopFailed": "A página não foi parada: {{message}}"
   },
   "viewer": {
     "stopAllowing": "Deixar de permitir esta página",
     "authorChanged": "{{author}} mudou esta página. A versão que você permitiu continua rodando até você revisar a mudança.",
-    "sandboxShared": "Isolada. Roda como você, apenas em {{folder}}, e não acessa a rede."
+    "sandboxShared": "Isolada. Roda como você, apenas em {{folder}}, e não acessa a rede.",
+    "sandboxUser": "Em sandbox. Roda como você, só na própria pasta, e não acessa a rede."
   },
   "trust": {
     "title": "Abrir \"{{title}}\"?",
@@ -128,6 +138,26 @@
       "item": "Rodar no Início, nos espaços do app e no painel",
       "note": "Ela começa quando a tela aparece, sem um clique. Uma mudança do autor pede de novo.",
       "allow": "Permitir no Início, nos espaços e no painel"
+    },
+    "user": {
+      "desc": "Uma pessoa compartilhou esta página com você. As páginas rodam como você, então confira antes de rodar.",
+      "who": "Escrita por {{author}}. Não verificada por um administrador.",
+      "unchecked": "Não verificada por um administrador.",
+      "where": "Página compartilhada",
+      "readOnly": "Você só pode ver esta página, então ela não pode salvar as alterações.",
+      "chrome": "Página compartilhada. Ela não rodou.",
+      "blocked": "Você escolheu não rodá-la. Ela vem de {{author}}. Nada rodou e nada foi salvo.",
+      "files": "Ler e gravar arquivos na própria pasta"
+    },
+    "owner": {
+      "desc": "Outros podem editar esta página. As páginas rodam como você, então confira antes de rodar.",
+      "who": "Outros podem editar esta página. Confira antes de rodar.",
+      "changedWho": "Esta página mudou desde que você a permitiu.",
+      "where": "Sua página",
+      "warn": "Ela age como você dentro da própria pasta. Se alguém a mudar, você é consultado de novo.",
+      "changedWarn": "Se você permitir, esta versão roda toda vez que você a abrir, até alguém mudá-la de novo.",
+      "blocked": "Você escolheu não rodá-la. Outros podem editá-la. Nada rodou e nada foi salvo.",
+      "stale": "Esta página mudou. Confira de novo."
     }
   },
   "frame": {
@@ -182,5 +212,43 @@
     "sendLabel": "A página pede para enviar esta mensagem a este chat:",
     "saveFailed": "O painel não foi salvo: {{message}}",
     "openInDock": "Abrir no painel"
+  },
+  "share": {
+    "intro": "Escolha quem pode abrir esta página. A página continua onde está.",
+    "warning": "As pessoas com quem você compartilha executam o código desta página no navegador delas, com os próprios direitos, depois de permitirem. Elas são consultadas de novo quando você muda o código.",
+    "role": {
+      "view": "Ver",
+      "use": "Usar",
+      "edit": "Editar"
+    },
+    "roleHelp": {
+      "view": "Pode executar a página e ler seus dados. Não pode salvar.",
+      "use": "Pode executar a página e salvar dados nela. Não pode mudar o código.",
+      "edit": "Pode mudar tudo, inclusive o código."
+    },
+    "count": {
+      "people_one": "Compartilhada com {{count}} pessoa.",
+      "people_other": "Compartilhada com {{count}} pessoas.",
+      "everyone": "Compartilhada com todos.",
+      "everyoneAnd_one": "Compartilhada com todos e com {{count}} pessoa nomeada.",
+      "everyoneAnd_other": "Compartilhada com todos e com {{count}} pessoas nomeadas.",
+      "allowed_one": "{{count}} permitiu esta versão.",
+      "allowed_other": "{{count}} permitiram esta versão."
+    },
+    "offAdmin": "Um administrador desativou o compartilhamento de páginas. Você ainda pode parar de compartilhar com as pessoas abaixo.",
+    "lost": "Você não pode mais compartilhar esta página.",
+    "askAgain_one": "Você mudou o código. {{count}} pessoa será consultada de novo.",
+    "askAgain_other": "Você mudou o código. {{count}} pessoas serão consultadas de novo.",
+    "viewOnly": "Você pode ver esta página, mas não mudá-la",
+    "editNote": "Com Editar, esta página também abre para você pela etapa de permissão.",
+    "tile": {
+      "title": "Abra esta página para rodá-la",
+      "text": "Uma pessoa a compartilhou com você. Ela não roda na Home nem em um slot. Abra-a para rodar.",
+      "open": "Abrir a página",
+      "dock": "Uma pessoa compartilhou esta página com você. Abra-a em Páginas para rodá-la.",
+      "slot": "Abra {{title}} para rodá-la",
+      "textOwn": "Outros podem editá-la. Ela não roda na Home nem em um slot. Abra-a para rodar.",
+      "dockOwn": "Outros podem editar esta página. Abra-a em Páginas para rodá-la."
+    }
   }
 }

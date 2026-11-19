@@ -343,8 +343,16 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 			Expect(description).To(ContainSubstring(action))
 		}
 		// Every field the installed view emits is described in the feature docs.
-		page, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "docs", "content", "features", "addons.md"))
+		pages, err := filepath.Glob(filepath.Join("..", "..", "..", "..", "docs", "content", "addons", "contract-reference", "*.md"))
 		Expect(err).NotTo(HaveOccurred())
+		Expect(pages).NotTo(BeEmpty())
+		pages = append(pages, filepath.Join("..", "..", "..", "..", "docs", "content", "addons", "manage-addons.md"))
+		var page []byte
+		for _, name := range pages {
+			part, err := os.ReadFile(name)
+			Expect(err).NotTo(HaveOccurred())
+			page = append(page, part...)
+		}
 		full := apps.Installed{ID: "a", Title: "t", Description: "d", Icon: "i", Version: "1", Generation: 1, Enabled: true, State: "running", SourceID: "s", Channel: "c", Selection: "1", Verification: "sha256", Digest: "sha256:x",
 			Platform: apps.Platform{OS: "linux", Arch: "amd64"}, Compatibility: apps.Compatibility{Host: contract.VersionRange{Min: 1, Max: 1}, API: contract.VersionRange{Min: 1, Max: 1}, Protocol: contract.VersionRange{Min: 1, Max: 1}, DataFormat: contract.VersionRange{Min: 1, Max: 1}},
 			Tools: []string{"x"}, ToolCount: 1, HasUI: true, MainPage: "/m", LaunchMode: "always", Generations: 1, Restarts: 2, Storage: apps.Storage{Bytes: 1, Truncated: true}, Update: &apps.Update{Available: true, Version: "2", CheckedAt: "2026-01-01T00:00:00Z"}}

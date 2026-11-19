@@ -209,7 +209,7 @@ var _ = Describe("subagent", func() {
 		guest := workfiles.GuestFolder(folder)
 		Expect(h.TurnPrompt(kids[0].ID)).To(ContainSubstring(workfiles.Prompt))
 		Expect(h.TurnPrompt(kids[0].ID)).NotTo(ContainSubstring(guest), "the parent's title would make the prompt of every sub-agent differ")
-		Expect(strings.Join(h.SentRaw(kids[0].ID), "\n")).To(ContainSubstring(workfiles.Note(guest)))
+		Expect(strings.Join(h.SentRaw(kids[0].ID), "\n")).To(ContainSubstring(workfiles.NoteFolder(guest)))
 	})
 
 	It("a sub agent cannot spawn and gets the parents tools unless narrowed", func() {

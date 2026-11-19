@@ -84,9 +84,9 @@ test('the files pane lists what was attached and what the model wrote, live, and
   // A rename moves the chat folder: the pane and the API give the new path.
   const r = await page.request.patch(`/api/chats/${id}`, { data: { title: `Renamed ${stamp}` } })
   expect(r.ok()).toBe(true)
-  await expect(pane.locator('.cx-files__folder')).toContainText(`Renamed ${stamp}`, { timeout: 20_000 })
+  await expect(pane.locator('.cx-files__folder')).toContainText(`-renamed-${stamp}`, { timeout: 20_000 })
   const third = await api(page.request, `/api/chats/${id}/files`)
-  expect(byName(third.files, note).path).toContain(`Renamed ${stamp}/${note}`)
+  expect(byName(third.files, note).path).toContain(`-renamed-${stamp}/${note}`)
   expect(third.stale).toHaveLength(1)
   const download = await page.request.get(`/api/chats/files/content?path=${encodeURIComponent(byName(third.files, note).path)}`)
   expect(await download.text()).toBe('my notes for the files pane')

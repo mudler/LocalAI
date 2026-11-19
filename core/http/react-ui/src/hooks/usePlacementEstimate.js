@@ -33,9 +33,11 @@ export function readEstimate(model, contextSize, layers) {
         bytes,
         sizeBytes: Number(data.size_bytes) || 0,
         maxContext: Number(data.model_max_context) || 0,
-        // Not sent by the server today. Read when present, so a slider can use
-        // it the day the estimate reports the model's layer count.
+        // The model's layer count (block_count). Absent when the server could
+        // not read it from the model file.
         layerCount: Number(data.block_count) || 0,
+        // Experts of a mixture-of-experts model; absent for a dense model.
+        expertCount: Number(data.expert_count) || 0,
       }
     })
     .catch(() => { readings.delete(key); return null })
@@ -47,7 +49,8 @@ export function readEstimate(model, contextSize, layers) {
 //
 //   status   'idle' (nothing to estimate), 'loading' (first reading),
 //            'ready', or 'unavailable'.
-//   data     { gpuBytes, allBytes, parts, sizeBytes, maxContext, layerCount }
+//   data     { gpuBytes, allBytes, parts, sizeBytes, maxContext, layerCount,
+//              expertCount }
 //            once a reading exists. `parts` splits gpuBytes into the part that
 //            grows with context and the rest, or is null.
 //   refreshing  a newer reading is on its way and `data` is the previous one.
@@ -90,6 +93,7 @@ export function usePlacementEstimate({ model, contextSize, layers, enabled = tru
           sizeBytes: here.sizeBytes,
           maxContext: here.maxContext,
           layerCount: here.layerCount,
+          expertCount: here.expertCount,
         },
       })
     }, DEBOUNCE_MS)

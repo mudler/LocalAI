@@ -39,7 +39,7 @@ export async function iconNames() {
 
 // The icon ids of the host sprite.
 export function spriteNames() {
-  const sprite = readFileSync(join(hostUi, 'src/vendor/ui-kit/icons/sprite.svg'), 'utf8')
+  const sprite = readFileSync(join(hostUi, 'packages/ui-kit/vendor/icons/sprite.svg'), 'utf8')
   return new Set([...sprite.matchAll(/id="dk-icon-([a-z0-9-]+)"/g)].map((m) => m[1]))
 }
 

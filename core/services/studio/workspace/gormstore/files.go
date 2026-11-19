@@ -29,7 +29,7 @@ func (s *Workspace) precheckPut(ctx context.Context, q querier, a Actor, segs []
 			target = ex
 		}
 	}
-	return s.needWrite(ctx, q, a, target)
+	return s.needChange(ctx, q, a, target)
 }
 
 func (s *Workspace) Put(ctx context.Context, a Actor, p string, r io.Reader, o PutOptions) (Node, error) {
@@ -54,6 +54,9 @@ func (s *Workspace) Put(ctx context.Context, a Actor, p string, r io.Reader, o P
 	defer st.Close()
 	sum, size, err := st.Put(ctx, r, s.limit(o.MaxSize))
 	if err != nil {
+		return Node{}, err
+	}
+	if err := st.Flush(); err != nil {
 		return Node{}, err
 	}
 	w, err := s.beginWrite(ctx, a, title, ChangeUpload)

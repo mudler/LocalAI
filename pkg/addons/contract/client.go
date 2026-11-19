@@ -14,7 +14,7 @@ import (
 
 // A paired client is a program or box that the owner paired with an instance. An
 // add-on can serve it: the add-on declares routes under capabilities.client
-// (feature level 7), and the host forwards a request of a paired client to one
+// (feature level 7; a tail needs 8), and the host forwards a request of a paired client to one
 // of them over the loopback connection of the add-on. The host checks the
 // credential of the client, the route, the method, the size and the time; the
 // add-on only sees a ClientRequest with the identity of the client, never its
@@ -26,6 +26,13 @@ const (
 	// MaxClientPathBytes and MaxClientPathSegments bound a route path.
 	MaxClientPathBytes    = 128
 	MaxClientPathSegments = 6
+	// MaxClientTailPathBytes and MaxClientTailPathSegments bound the path of a
+	// request that matches a route with a wildcard tail ({name...}). A tail
+	// carries a path of the add-on's own (a file below a folder), which needs
+	// more room than the fixed routes. A declared route path keeps the limits
+	// above, and so does a request for a route without a tail.
+	MaxClientTailPathBytes    = 256
+	MaxClientTailPathSegments = 12
 	// DefaultClientBodyBytes is the request body a route takes unless it says
 	// otherwise; MaxClientBodyBytes is the most a route may ask for.
 	DefaultClientBodyBytes = 64 << 10
@@ -59,8 +66,12 @@ type ClientRoute struct {
 	// Method is GET, POST, PUT, PATCH or DELETE.
 	Method string `json:"method"`
 	// Path starts with a slash. A segment is lower case letters, digits, dash
-	// or underscore, or {name} for one variable segment. It has no dot, no
-	// percent escape and no empty segment, so it cannot climb out of the add-on.
+	// or underscore, or {name} for one variable segment. The last segment may
+	// be {name...}, which matches one or more segments and gives the add-on
+	// the matched part as one slash-joined parameter. The declared path has no
+	// dot, no percent escape and no empty segment. A tail value is checked
+	// segment by segment by the host (no dot segment, no escape), but the
+	// add-on must still validate it before it uses it as a path.
 	Path string `json:"path"`
 	// Stream makes the route a server-sent event stream. It must be a GET.
 	Stream bool `json:"stream,omitempty"`
@@ -75,6 +86,7 @@ var (
 	clientRouteID  = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 	clientSegment  = regexp.MustCompile(`^[a-z0-9_-]{1,32}$`)
 	clientVariable = regexp.MustCompile(`^\{[a-z][a-z0-9_]{0,31}\}$`)
+	clientTail     = regexp.MustCompile(`^\{[a-z][a-z0-9_]{0,31}\.\.\.\}$`)
 	// clientParamValue is what a variable segment may hold when a request
 	// arrives. It has no slash, no percent and no dot-only value.
 	clientParamValue = regexp.MustCompile(`^[A-Za-z0-9_.~:-]{1,128}$`)
@@ -137,8 +149,11 @@ func validateClient(d *ClientCapability, service bool) error {
 		shape := make([]string, len(segs))
 		for i, s := range segs {
 			shape[i] = s
-			if clientVariable.MatchString(s) {
+			switch {
+			case clientVariable.MatchString(s):
 				shape[i] = "{}"
+			case clientTail.MatchString(s):
+				shape[i] = "{...}"
 			}
 		}
 		key := r.Method + " /" + strings.Join(shape, "/")
@@ -169,14 +184,15 @@ func splitClientPath(p string) ([]string, error) {
 		return nil, fmt.Errorf("invalid client route path")
 	}
 	names := map[string]bool{}
-	for _, s := range segs {
+	for i, s := range segs {
 		switch {
 		case clientSegment.MatchString(s):
-		case clientVariable.MatchString(s):
-			if names[s] {
+		case clientVariable.MatchString(s), clientTail.MatchString(s) && i == len(segs)-1:
+			name := strings.TrimSuffix(s[1:len(s)-1], "...")
+			if names[name] {
 				return nil, fmt.Errorf("invalid client route path")
 			}
-			names[s] = true
+			names[name] = true
 		default:
 			return nil, fmt.Errorf("invalid client route path")
 		}
@@ -184,41 +200,49 @@ func splitClientPath(p string) ([]string, error) {
 	return segs, nil
 }
 
+// hasClientTail reports whether the last segment of a route is a wildcard tail.
+func hasClientTail(segs []string) bool {
+	return len(segs) > 0 && clientTail.MatchString(segs[len(segs)-1])
+}
+
 // MatchClientRoute finds the declared route for a request. path is the part
 // after the add-on id and must be exactly what the client sent: a path with a
 // percent escape, a dot segment, an empty segment, a backslash or a byte
 // outside printable ASCII matches nothing. A trailing slash is not ignored.
-// The result is false when no route matches the path; allowed is false when a
-// route matches the path with another method.
+// The result is false when no route matches the path; methodMismatch is true
+// when a route matches the path with another method.
+//
+// A route without a tail wins over a route with one, whatever their order in
+// the manifest. Among routes with a tail, the one with the longer fixed part
+// wins. A request for a route without a tail keeps MaxClientPathBytes and
+// MaxClientPathSegments; only a route with a tail takes the larger
+// MaxClientTailPath* limits.
 func MatchClientRoute(routes []ClientRoute, method, path string) (route ClientRoute, params map[string]string, found, methodMismatch bool) {
-	if path == "" || path[0] != '/' || len(path) > MaxClientPathBytes {
+	if path == "" || path[0] != '/' || len(path) > MaxClientTailPathBytes {
 		return
 	}
 	var segs []string
 	if path != "/" {
 		segs = strings.Split(path[1:], "/")
 	}
-	if len(segs) > MaxClientPathSegments {
+	if len(segs) > MaxClientTailPathSegments {
 		return
 	}
+	fixedOK := len(path) <= MaxClientPathBytes && len(segs) <= MaxClientPathSegments
+	bestLen := -1
 	for _, r := range routes {
 		rsegs, err := splitClientPath(r.Path)
-		if err != nil || len(rsegs) != len(segs) {
+		if err != nil {
 			continue
 		}
-		p := map[string]string{}
-		ok := true
-		for i, s := range rsegs {
-			if clientVariable.MatchString(s) {
-				if !clientParamValue.MatchString(segs[i]) || segs[i] == "." || segs[i] == ".." {
-					ok = false
-					break
-				}
-				p[s[1:len(s)-1]] = segs[i]
-			} else if s != segs[i] {
-				ok = false
-				break
-			}
+		var p map[string]string
+		var ok bool
+		tail := hasClientTail(rsegs)
+		switch {
+		case tail:
+			p, ok = matchClientTail(rsegs, segs)
+		case fixedOK && len(rsegs) == len(segs):
+			p, ok = matchClientFixed(rsegs, segs)
 		}
 		if !ok {
 			continue
@@ -227,9 +251,63 @@ func MatchClientRoute(routes []ClientRoute, method, path string) (route ClientRo
 			methodMismatch = true
 			continue
 		}
-		return r, p, true, false
+		if !tail {
+			return r, p, true, false
+		}
+		if len(rsegs) > bestLen {
+			route, params, bestLen = r, p, len(rsegs)
+		}
+	}
+	if bestLen >= 0 {
+		return route, params, true, false
 	}
 	return
+}
+
+// clientParamOK is the rule for the value of a variable segment, and for each
+// part of a tail.
+func clientParamOK(s string) bool {
+	return clientParamValue.MatchString(s) && s != "." && s != ".."
+}
+
+// matchClientFixed matches the segments of a request against a route of the
+// same length, without a tail.
+func matchClientFixed(rsegs, segs []string) (map[string]string, bool) {
+	p := map[string]string{}
+	for i, s := range rsegs {
+		if clientVariable.MatchString(s) {
+			if !clientParamOK(segs[i]) {
+				return nil, false
+			}
+			p[s[1:len(s)-1]] = segs[i]
+		} else if s != segs[i] {
+			return nil, false
+		}
+	}
+	return p, true
+}
+
+// matchClientTail matches a route whose last segment is {name...}. The tail
+// takes one or more segments, each of which follows the rule of a variable
+// segment, and its parameter is the segments joined with a slash.
+func matchClientTail(rsegs, segs []string) (map[string]string, bool) {
+	fixed := rsegs[:len(rsegs)-1]
+	if len(segs) <= len(fixed) {
+		return nil, false
+	}
+	p, ok := matchClientFixed(fixed, segs[:len(fixed)])
+	if !ok {
+		return nil, false
+	}
+	rest := segs[len(fixed):]
+	for _, s := range rest {
+		if !clientParamOK(s) {
+			return nil, false
+		}
+	}
+	last := rsegs[len(rsegs)-1]
+	p[strings.TrimSuffix(last[1:len(last)-1], "...")] = strings.Join(rest, "/")
+	return p, true
 }
 
 // ClientIdentity says which paired client made a request. It is the id and the

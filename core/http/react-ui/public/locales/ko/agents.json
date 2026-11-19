@@ -49,7 +49,8 @@
   "facts": {
     "addons": "Add-ons",
     "connector": "MCP connector",
-    "folder": "폴더"
+    "folder": "폴더",
+    "toolsNone": "애드온이나 MCP 서버 없음"
   },
   "agent": {
     "triggers": "Triggers",
@@ -147,7 +148,7 @@
     "networkHelp": "트리거나 커넥터가 이 에이전트를 실행하면 명령은 관리자가 정한 제한 안에서 이만큼의 네트워크에 연결됩니다. 실행 중에는 묻지 않으며, 범위 밖의 호스트는 차단됩니다. 이 에이전트로 시작하는 채팅도 이 값으로 시작합니다.",
     "networkPresets": {
       "off": "끔",
-      "registries": "패키지 레지스트리",
+      "registries": "사용자 지정",
       "all": "모든 공개 사이트"
     },
     "toolsSummary": "{{total}}개 중 {{on}}개 켜짐",
@@ -539,7 +540,8 @@
       "runMeta": "took {{time}}",
       "prompt": "What to do",
       "acts": "권한",
-      "runLimit": "Time limit"
+      "runLimit": "Time limit",
+      "project": "프로젝트"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -588,9 +590,27 @@
       "changed_other": "{{count}} changes",
       "watchNoFiles": "이 에이전트는 \"파일 없음\"이라서, 이 트리거의 실행은 파일이 도착했다는 것만 알 뿐 열 수 없습니다. 에디터에서 파일 접근을 허용하거나 다른 에이전트를 선택하세요.",
       "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
-      "runLimitPlaceholder": "default"
+      "runLimitPlaceholder": "default",
+      "agentInProject": "{{name}} (프로젝트 {{project}})",
+      "projectAgentHint": "이 에이전트는 프로젝트에 속합니다. 파일 트리거는 기본적으로 프로젝트 파일을 감시합니다.",
+      "folder": {
+        "choose": "폴더 선택",
+        "sub": "그 안의 폴더",
+        "subPlaceholder": "선택 사항: 그 안의 폴더",
+        "hint": "이 에이전트의 폴더 중 하나와, 원하면 그 안의 폴더입니다.",
+        "empty": "감시할 폴더를 선택하세요.",
+        "dots": "폴더 이름에 \"..\"를 넣을 수 없습니다.",
+        "outside": "이 에이전트는 자신의 폴더 안에 있는 폴더만 감시할 수 있습니다: {{folders}}.",
+        "noFolders": "이 에이전트에는 사용할 수 있는 폴더가 없습니다. 에이전트 설정에서 폴더를 선택하세요."
+      }
     },
-    "subtitle": "일정에 따라 또는 파일이 도착하면 에이전트를 시작합니다. 각 실행은 열어 볼 수 있는 채팅입니다."
+    "subtitle": "일정에 따라 또는 파일이 도착하면 에이전트를 시작합니다. 각 실행은 열어 볼 수 있는 채팅입니다.",
+    "projectFilter": {
+      "label": "프로젝트",
+      "all": "모든 프로젝트",
+      "none": "프로젝트 없음",
+      "empty": "이 선택에 해당하는 트리거가 없습니다."
+    }
   },
   "views": {
     "label": "에이전트 영역",
@@ -906,7 +926,9 @@
       "filesTitle": "모든 파일을 볼 수 있습니다.",
       "filesBody": "파일에서 열 수 있는 모든 것을 이 에이전트가 읽을 수 있습니다. 폴더로 제한할 수 있습니다.",
       "limit": "폴더로 제한",
-      "setupNext": "에이전트를 만들면 에이전트 페이지에 선택한 앱의 설정 단계가 표시됩니다."
+      "setupNext": "에이전트를 만들면 에이전트 페이지에 선택한 앱의 설정 단계가 표시됩니다.",
+      "project": "{{name}} 프로젝트에서 작업합니다.",
+      "projectUnnamed": "선택한 프로젝트에서 작업합니다."
     },
     "rail": {
       "title": "내 에이전트",
@@ -980,5 +1002,125 @@
     "asksTitle_one": "이 에이전트가 요청하는 항목 중 {{count}}개는 채팅 시작 시 꺼져 있습니다:",
     "asksTitle_other": "이 에이전트가 요청하는 항목 중 {{count}}개는 채팅 시작 시 꺼져 있습니다:",
     "asksHelp": "에이전트는 내 권한으로 실행됩니다. 에이전트와 공유한 사람을 신뢰할 때만 채팅에서 켜세요."
+  },
+  "project": {
+    "chip": "프로젝트: {{name}}",
+    "deleted": "삭제된 프로젝트",
+    "files": "프로젝트 파일",
+    "filesMode": "파일 모드",
+    "canEdit": "편집 가능",
+    "readOnly": "읽기 전용",
+    "filesHelp": "에이전트는 {{name}}의 파일 폴더에서만 작업합니다. 공유 폴더와 스킬은 계속 읽을 수 있습니다.",
+    "filesHelpNoName": "에이전트는 자신의 프로젝트 파일 폴더에서만 작업합니다. 공유 폴더와 스킬은 계속 읽을 수 있습니다.",
+    "memory": "프로젝트 메모리",
+    "memoryHelp": "에이전트는 \"Remember things in the project\" 권한이 있을 때만 프로젝트 메모리에 메모를 저장할 수 있습니다. 에이전트가 변경을 제안하면 사용자가 확인합니다. 권한이 없으면 메모리는 읽기 전용입니다.",
+    "limited": "프로젝트에서 제한함",
+    "noShare": "프로젝트 에이전트는 공유할 수 없습니다.",
+    "exportHelp": "내보내기는 에이전트 파일을 만듭니다. 프로젝트는 파일을 가져올 때 선택합니다.",
+    "paused": "프로젝트가 {{reason}} 상태여서 이 에이전트가 일시 중지되었습니다.",
+    "reason": {
+      "archived": "보관됨",
+      "deleted": "삭제됨",
+      "changed": "변경됨"
+    },
+    "fix": {
+      "archived": "프로젝트를 열어 복원하세요. 그 후 에이전트가 다시 작동합니다.",
+      "deleted": "프로젝트가 없습니다. 파일의 휴지통에서 복원하면 에이전트가 다시 작동합니다.",
+      "changed": "프로젝트 폴더가 교체, 이름 변경 또는 이동되었습니다. 에이전트를 다시 연결해 프로젝트 폴더와 이어 주세요.",
+      "deletedDetach": "프로젝트가 사라졌습니다. 에이전트를 다시 사용하려면 프로젝트에서 분리하거나, 파일의 휴지통에서 프로젝트를 복원하세요."
+    },
+    "openProject": "프로젝트 열기",
+    "reconnect": "다시 연결",
+    "reconnected": "{{name}}이(가) 프로젝트에 다시 연결되었습니다.",
+    "reconnectFailed": "에이전트를 다시 연결하지 못했습니다: {{message}}",
+    "unavailable": "사용할 수 없음",
+    "listReason": {
+      "archived": "프로젝트가 보관되었습니다.",
+      "deleted": "프로젝트가 삭제되었습니다.",
+      "changed": "프로젝트 폴더가 바뀌었습니다. 열어서 다시 연결하세요."
+    },
+    "fact": "프로젝트",
+    "memoryFact": "메모리",
+    "memoryReadOnly": "프로젝트 메모리, 읽기 전용",
+    "runsPaused": "프로젝트가 다시 활성화되면 실행이 재개됩니다."
+  },
+  "importProject": {
+    "title": "이 에이전트는 프로젝트에 속합니다",
+    "text": "넣을 위치를 선택하세요. 프로젝트 에이전트는 자신의 프로젝트 안에서만 작업합니다. 공유 폴더와 스킬은 계속 읽을 수 있습니다.",
+    "textNamed": "이 파일은 에이전트 \"{{agent}}\"용입니다. 넣을 위치를 선택하세요. 프로젝트 에이전트는 자신의 프로젝트 안에서만 작업합니다. 공유 폴더와 스킬은 계속 읽을 수 있습니다.",
+    "label": "프로젝트",
+    "choose": "프로젝트 선택",
+    "create": "'{{name}}' 프로젝트 만들기",
+    "createUnnamed": "이 에이전트를 위한 새 프로젝트 만들기",
+    "help": "활성 프로젝트만 표시됩니다.",
+    "createHelp": "{{name}} 프로젝트를 새로 만들고 에이전트를 추가합니다.",
+    "needsChoice": "이 에이전트를 가져오려면 프로젝트를 선택하거나 새로 만드세요.",
+    "cancel": "취소",
+    "import": "가져오기"
+  },
+  "projectField": {
+    "title": "프로젝트",
+    "leadNew": "에이전트를 프로젝트에 넣거나 단독으로 두세요.",
+    "leadEdit": "에이전트가 작업하는 프로젝트입니다. 옮기면 에이전트가 접근할 수 있는 범위가 달라집니다.",
+    "label": "프로젝트",
+    "none": "프로젝트 없음",
+    "choose": "프로젝트 선택",
+    "archivedName": "{{name}} (보관됨)",
+    "create": "새 프로젝트 만들기...",
+    "help": "프로젝트 에이전트는 자신의 프로젝트의 파일과 메모리에서만 작업합니다. 활성 프로젝트만 표시됩니다.",
+    "helpEdit": "다른 프로젝트나 프로젝트 없음을 고른 뒤 이동을 누르세요.",
+    "saveFirst": "에이전트를 옮기기 전에 변경 사항을 저장하거나 취소하세요."
+  },
+  "move": {
+    "open": "이동...",
+    "title": "{{name}}(으)로 이동",
+    "leaveTitle": "에이전트를 프로젝트에서 빼기",
+    "detachTitle": "프로젝트에서 분리",
+    "text": "{{agent}}은(는) {{name}}의 파일과 메모리에서만 작업합니다. 확인하기 전에 무엇이 바뀌는지 살펴보세요.",
+    "leaveText": "{{agent}}이(가) {{name}}에서 나갑니다. 유지할 파일을 고른 뒤 무엇이 바뀌는지 살펴보세요.",
+    "detachText": "이 에이전트의 프로젝트가 삭제되었습니다. 에이전트가 유지할 파일을 고른 뒤 분리하세요.",
+    "cancel": "취소",
+    "confirm": "에이전트 이동",
+    "detach": "프로젝트에서 분리",
+    "keepLabel": "에이전트가 유지할 파일",
+    "keepOne": "이 폴더만",
+    "keepAll": "내 모든 파일",
+    "keepAllHelp": "폴더가 없는 에이전트처럼 모든 파일에서 작업합니다.",
+    "keepNone": "선택한 폴더가 없습니다.",
+    "effectsTitle": "바뀌는 내용",
+    "pickFolder": "폴더를 선택하면 무엇이 바뀌는지 볼 수 있습니다.",
+    "checking": "확인 중...",
+    "effect": {
+      "chats_one": "이 에이전트의 채팅 {{count}}개는 읽을 수 있지만 새 메시지를 받지 않습니다. 계속하려면 새 채팅을 시작하세요.",
+      "chats_other": "이 에이전트의 채팅 {{count}}개는 읽을 수 있지만 새 메시지를 받지 않습니다. 계속하려면 새 채팅을 시작하세요.",
+      "loops_one": "해당 채팅의 루프 {{count}}개가 끝납니다.",
+      "loops_other": "해당 채팅의 루프 {{count}}개가 끝납니다.",
+      "triggers_one": "파일 트리거 {{count}}개가 새 폴더 밖의 폴더를 감시합니다: {{names}}.",
+      "triggers_other": "파일 트리거 {{count}}개가 새 폴더 밖의 폴더를 감시합니다: {{names}}.",
+      "shares_one": "이 에이전트는 {{count}}명과 공유되어 있습니다.",
+      "shares_other": "이 에이전트는 {{count}}명과 공유되어 있습니다.",
+      "proposals_one": "프로젝트 메모리에 대기 중인 메모 {{count}}개가 폐기됩니다.",
+      "proposals_other": "프로젝트 메모리에 대기 중인 메모 {{count}}개가 폐기됩니다.",
+      "dropped_one": "새 프로젝트의 제한으로 도구 {{count}}개가 빠집니다: {{names}}.",
+      "dropped_other": "새 프로젝트의 제한으로 도구 {{count}}개가 빠집니다: {{names}}.",
+      "grant": "프로젝트 메모리에 쓸 수 있는 권한이 제거됩니다. 에이전트 설정에서 다시 부여할 수 있습니다.",
+      "notes": "에이전트의 자체 메모는 비어 있는 상태로 시작합니다. 이전 메모는 내 파일의 Memory 아래 Moved agent notes에 남습니다.",
+      "foldersInto": "에이전트는 {{name}}의 파일 및 메모리 폴더에서만 작업합니다.",
+      "foldersOut": "에이전트는 더 이상 프로젝트에 속하지 않습니다.",
+      "attachedLost_one": "이전 프로젝트에 연결된 도구 {{count}}개가 더 이상 적용되지 않습니다: {{names}}.",
+      "attachedLost_other": "이전 프로젝트에 연결된 도구 {{count}}개가 더 이상 적용되지 않습니다: {{names}}.",
+      "attachedGained_one": "새 프로젝트에 연결된 도구 {{count}}개를 에이전트가 받습니다: {{names}}.",
+      "attachedGained_other": "새 프로젝트에 연결된 도구 {{count}}개를 에이전트가 받습니다: {{names}}.",
+      "projectSkills": "이전 프로젝트의 스킬은 더 이상 적용되지 않고 새 프로젝트의 스킬이 적용됩니다."
+    },
+    "blocked": {
+      "busy": "이 에이전트의 채팅이 턴을 실행 중입니다. 중지한 뒤 에이전트를 옮기세요."
+    },
+    "revoke_one": "공유 중지: 이 에이전트는 {{count}}명과 공유되어 있으며 프로젝트 에이전트는 공유할 수 없습니다.",
+    "revoke_other": "공유 중지: 이 에이전트는 {{count}}명과 공유되어 있으며 프로젝트 에이전트는 공유할 수 없습니다.",
+    "disable_one": "새 폴더 밖의 폴더를 감시하는 파일 트리거 {{count}}개를 끕니다({{names}}).",
+    "disable_other": "새 폴더 밖의 폴더를 감시하는 파일 트리거 {{count}}개를 끕니다({{names}}).",
+    "done": "{{name}}을(를) 새 프로젝트로 옮겼습니다.",
+    "doneOut": "{{name}}은(는) 더 이상 프로젝트에 속하지 않습니다."
   }
 }

@@ -9,11 +9,12 @@
   "api": {"min": 2, "max": 2},
   "protocol": {"min": 1, "max": 1},
   "dataFormat": {"min": 1, "max": 1},
-  "featureLevel": 7,
+  "featureLevel": 8,
   "capabilities": {
     "service": true,
     "hostOperations": {
-      "required": ["client.jobs.start", "client.jobs.get", "client.jobs.cancel"]
+      "required": ["client.jobs.start", "client.jobs.get", "client.jobs.cancel"],
+      "optional": ["client.workspace.list", "client.workspace.read", "client.workspace.write"]
     },
     "client": {
       "routes": [
@@ -21,6 +22,9 @@
         {"id": "start", "method": "POST", "path": "/jobs", "maxBodyBytes": 4096},
         {"id": "job", "method": "GET", "path": "/jobs/{id}"},
         {"id": "cancel", "method": "DELETE", "path": "/jobs/{id}"},
+        {"id": "files", "method": "GET", "path": "/files"},
+        {"id": "file", "method": "GET", "path": "/files/{path...}"},
+        {"id": "save", "method": "PUT", "path": "/files/{path...}", "maxBodyBytes": 262144},
         {"id": "events", "method": "GET", "path": "/events", "stream": true}
       ]
     }

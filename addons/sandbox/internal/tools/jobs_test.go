@@ -297,6 +297,23 @@ var _ = Describe("background jobs in the add-on", func() {
 		Expect(err).To(HaveOccurred(), "an argument the tool does not know is refused")
 	})
 
+	It("starts a job in the work folder the host named, with $WORK set", func() {
+		r := newJobsRig(time.Hour, time.Second)
+		const work = "/workspace/home/Chats/2026-10-18 Café · Q1/work"
+		_, err := r.st.Put(context.Background(), admin, "/users/alice/Chats/2026-10-18 Café · Q1/work/keep.txt", strings.NewReader("k"), workspace.PutOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		args := map[string]any{"verb": "start", "command": `basename "$PWD"; cd "$WORK" && ls`, sandbox.CallArgKey: map[string]any{"workDir": work}}
+		e := env(tools.ToolJob, "alice", "c1", args)
+		e.Request.OperationID = "jobopwork"
+		res, err := r.rt.Act(context.Background(), e)
+		Expect(err).NotTo(HaveOccurred())
+		var out contract.JobReply
+		Expect(json.Unmarshal(res.Payload, &out)).To(Succeed())
+		Expect(out.OK).To(BeTrue(), "%+v", out)
+		r.finished("alice", "c1", out.Job.ID)
+		Expect(r.job("alice", "c1", contract.JobArgs{Verb: contract.JobRead, ID: out.Job.ID}).Output).To(Equal("work\nkeep.txt\n"))
+	})
+
 	It("does not start a job for a check that must change no file", func() {
 		r := newJobsRig(time.Hour, time.Second)
 		args := map[string]any{"verb": "start", "command": "true", sandbox.CallArgKey: map[string]any{"readOnly": true}}

@@ -3,6 +3,7 @@ package proposals_test
 import (
 	"context"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,5 +65,25 @@ var _ = Describe("the GORM store on SQLite", func() {
 		got, err := second.Get(context.Background(), "u1", "p1")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Source.ID).To(Equal("b1"))
+	})
+
+	It("reads a row written before proposers existed as an own proposal", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
+		db := openSQLite(path)
+		// The table as an older version made it, without the new columns.
+		Expect(db.Exec(`CREATE TABLE studio_change_proposals (id text PRIMARY KEY, owner text, agent text, kind text, scope text,
+			target text, summary text, content text, base_hash text, source text, status text, rev integer, revert_rev integer,
+			created datetime, expires datetime, answered datetime, auto numeric NOT NULL DEFAULT false)`).Error).To(Succeed())
+		Expect(db.Exec(`INSERT INTO studio_change_proposals (id, owner, kind, scope, target, summary, content, source, status, created, expires)
+			VALUES ('old1', 'u1', 'memory', 'user', 'Memory/index.md', 's', 'c', '{}', 'pending', ?, ?)`, time.Now(), time.Now().Add(time.Hour)).Error).To(Succeed())
+		s, err := proposals.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		got, err := s.Get(context.Background(), "u1", "old1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Proposer).To(BeEmpty())
+		Expect(got.ProjectNode).To(BeZero())
+		// It counts as the owner's own proposal for the caps.
+		Expect(s.Create(context.Background(), proposalstest.Sample("new1", "u1", "", 0), proposals.Limits{MaxPending: 2})).To(Succeed())
+		Expect(s.Create(context.Background(), proposalstest.Sample("new2", "u1", "", 0), proposals.Limits{MaxPending: 2})).To(MatchError(proposals.ErrTooManyPending))
 	})
 })

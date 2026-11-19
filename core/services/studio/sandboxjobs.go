@@ -393,7 +393,7 @@ func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (Jo
 	// The add-on bounds the jobs of its process; the host bounds those of the
 	// chat and of the person. A stub can be stale (the add-on never reports
 	// an end), so the chat's own stubs are brought in step first.
-	rec, err := b.s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := b.s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return JobResult{}, err
 	}
@@ -426,7 +426,10 @@ func (b *addonJobs) start(ctx context.Context, a workspace.Actor, c JobCall) (Jo
 	} else if over {
 		return JobResult{Text: "Not started: " + (&bgjob.LimitError{Scope: bgjob.ScopeUser, Max: bgjob.PerUser}).Error() + "."}, nil
 	}
-	in, err := b.j.Start(ctx, b.scope(a), c.Command, c.Label)
+	// The job starts in the chat's work folder, as a foreground command does.
+	call, _ := contract.ExecutionCallFrom(ctx)
+	call.WorkDir = b.s.CommandWorkDir(ctx, a, true)
+	in, err := b.j.Start(contract.WithExecutionCall(ctx, call), b.scope(a), c.Command, c.Label)
 	if err != nil {
 		if t, ok := b.errText(err); ok {
 			return JobResult{Text: t}, nil
@@ -629,7 +632,7 @@ func (b *addonJobs) act(ctx context.Context, a workspace.Actor, c JobCall) (JobR
 // or "": the shell group of the chat was switched off. The approval of the
 // start covers the input; the add-on needs no card.
 func (b *addonJobs) sandboxOK(ctx context.Context, a workspace.Actor) string {
-	rec, err := b.s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := b.s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return "the chat cannot be read"
 	}

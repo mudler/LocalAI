@@ -90,23 +90,24 @@ test.describe('Chat send is optimistic', () => {
 
   test('a message that was not sent folds away without a jump of the thread', async ({ page }) => {
     await open(page, { post: 'fail' })
+    // The row leaves by a transition of its height, not by going at once. The
+    // fold is on the clock of the frames, so the size of a step between two
+    // frames depends on the speed of the machine: a busy one draws few
+    // frames and each carries a long step. The transition itself does not
+    // depend on it, so the test reads the transition and that the thread
+    // is at the bottom when it is over.
+    await page.evaluate(() => {
+      window.__folds = []
+      document.addEventListener('transitionrun', (e) => {
+        if (e.propertyName === 'height' && e.target.matches('.cx-msg[data-failed]')) window.__folds.push(e.elapsedTime)
+      }, true)
+    })
     await send(page, 'this one fails')
     await expect(page.getByTestId('chat-thread').getByText('this one fails')).toBeVisible({ timeout: 800 })
-    // The top of the last line of the history, in every frame, until after the failure.
-    const tops = await page.evaluate((ms) => new Promise(resolve => {
-      const last = [...document.querySelectorAll('[data-testid=chat-message]')].find(e => e.textContent.includes('Message 40.'))
-      const out = []
-      const t0 = performance.now()
-      const tick = () => {
-        out.push(last.getBoundingClientRect().top)
-        if (performance.now() - t0 < ms) requestAnimationFrame(tick); else resolve(out)
-      }
-      tick()
-    }), SLOW_MS + 800)
-    const steps = tops.slice(1).map((t, i) => Math.abs(t - tops[i]))
-    // It moves, by many small steps and not one: the row's 66 px fold over frames.
-    expect(Math.abs(tops[tops.length - 1] - tops[0])).toBeGreaterThan(40)
-    expect(Math.max(...steps)).toBeLessThan(40)
+    await expect(page.getByTestId('chat-thread').getByText('this one fails')).toHaveCount(0, { timeout: SLOW_MS + 3000 })
+    expect(await page.evaluate(() => window.__folds.length)).toBe(1)
+    // The thread is still at the bottom: the row left no space behind.
+    await expect.poll(() => gap(page)).toBeLessThan(5)
   })
 
   test('a message with a file keeps the file in the box when the send fails', async ({ page }) => {

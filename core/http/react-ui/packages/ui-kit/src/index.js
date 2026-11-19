@@ -1,0 +1,21 @@
+// The UI kit, from one import. React is its only dependency: link-like
+// controls take the app's router link as `linkComponent`, and every word a
+// control says arrives as a prop, with an English default. Usage: README.md.
+export { default as Button } from './Button.jsx'
+export { buttonClass, BUTTON_VARIANTS, BUTTON_SIZES } from './buttonClass.js'
+export { default as Callout } from './Callout.jsx'
+export { default as EmptyState } from './EmptyState.jsx'
+export { default as Icon, FALLBACK_ICON, ICON_IDS, hasIcon } from './Icon.jsx'
+export { default as LoadError } from './LoadError.jsx'
+export { errorMessage, LOAD_ERROR_LABELS } from './loadErrorModel.js'
+export { default as Mascot, POSES } from './Mascot.jsx'
+export { default as Notice } from './Notice.jsx'
+export { NOTICE_SEVERITIES, NOTICE_ICONS, noticeAction, noticeRole, noticeSeverity } from './noticeModel.js'
+export { default as Page } from './Page.jsx'
+export { default as SearchField } from './SearchField.jsx'
+export { default as Segmented } from './Segmented.jsx'
+export { default as Slider } from './Slider.jsx'
+export { sliderFill, sliderText, sliderValue } from './sliderModel.js'
+export { default as StatusChip } from './StatusChip.jsx'
+export { STATUS, STATUS_ALIASES, STATUS_WORDS, TONES, TONE_ICON, resolveStatus, legacyPillTone } from './status.js'
+export { default as Switch } from './Switch.jsx'

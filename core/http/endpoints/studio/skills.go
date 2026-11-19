@@ -37,28 +37,38 @@ func skillActor(c echo.Context, fc fileCall, layer skills.Layer) string {
 
 func parseLayer(s string) (skills.Layer, bool) {
 	switch skills.Layer(s) {
-	case skills.LayerPersonal, skills.LayerShared, skills.LayerAddon, skills.LayerBuiltin, skills.LayerAgent:
+	case skills.LayerPersonal, skills.LayerShared, skills.LayerAddon, skills.LayerBuiltin, skills.LayerAgent, skills.LayerProject:
 		return skills.Layer(s), true
 	}
 	return "", false
 }
 
+// editable says whether the caller may change skills of a layer. A skill of
+// the project layer is listed only to the owner of the project, who writes it.
 func editable(c echo.Context, l skills.Layer) bool {
-	return l == skills.LayerPersonal || (l == skills.LayerShared && isAdmin(c))
+	return l == skills.LayerPersonal || l == skills.LayerProject || (l == skills.LayerShared && isAdmin(c))
 }
+
+// projectBlockedNote is the note of a project skill list that is off.
+const projectBlockedNote = "project skills are off while this folder has other writers"
 
 // ListSkills lists the skills.
 // @Summary List your skills.
-// @Description Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied. A skill of the active memory provider says provider "memory" and locked: the host grants it to a chat that reads the notes, so an agent does not list it.
+// @Description Skills from every layer: .skills folders of your files, the skills of the chat's project (project), your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied. A skill of the active memory provider says provider "memory" and locked: the host grants it to a chat that reads the notes, so an agent does not list it.
 // @Tags chats
 // @Param chat query string false "a chat id, to apply its switches"
 // @Param agents query bool false "true: add the skills of your saved agents (layer agent), for the Skills page; ignored with chat"
+// @Param layer query string false "project: list only the skills of the project given in project"
+// @Param project query string false "a project's id, with layer=project"
 // @Success 200 {object} schema.ChatsSkillList "The skills"
 // @Router /api/chats/skills [get]
 func (h *Handlers) ListSkills(c echo.Context) error {
 	fc, ok := h.files(c)
 	if !ok {
 		return nil
+	}
+	if c.QueryParam("layer") == string(skills.LayerProject) {
+		return h.listProjectSkills(c, fc)
 	}
 	list, notes, err := h.svc.Skills(c.Request().Context(), userID(c), c.QueryParam("chat"))
 	if err != nil {
@@ -73,23 +83,56 @@ func (h *Handlers) ListSkills(c echo.Context) error {
 		}
 		list = append(list, more...)
 	}
+	return c.JSON(http.StatusOK, h.skillList(c, fc, list, notes))
+}
+
+// skillList is the response for a list of skills.
+func (h *Handlers) skillList(c echo.Context, fc fileCall, list []skills.Skill, notes []string) schema.ChatsSkillList {
 	out := schema.ChatsSkillList{Skills: make([]schema.ChatsSkill, 0, len(list)), Notes: notes}
 	for _, sk := range list {
 		out.Skills = append(out.Skills, schema.ChatsSkill{
 			ID: studiosvc.SkillID(sk), Name: sk.Name, Description: sk.Description, Layer: string(sk.Layer), Path: sk.GuestPath,
-			Addon: sk.Addon, AddonTitle: sk.AddonTitle, Agent: sk.Agent, AgentName: sk.AgentName,
+			Addon: sk.Addon, AddonTitle: sk.AddonTitle, Agent: sk.Agent, AgentName: sk.AgentName, Project: sk.Project,
 			Removable: sk.Layer == skills.LayerAgent, ShadowedBy: sk.ShadowedBy, Fallback: sk.Fallback,
 			Enabled: !sk.Off, Shadowed: string(sk.Shadowed), Invalid: sk.Invalid, Editable: editable(c, sk.Layer),
 			Provider: sk.Provider, Locked: sk.Locked,
 			New: sk.Layer == skills.LayerPersonal && fc.f.SkillIsNew(c.Request().Context(), fc.p, sk.Name),
 		})
 	}
+	return out
+}
+
+// listProjectSkills lists the skills of one project of the caller, for the
+// project page.
+func (h *Handlers) listProjectSkills(c echo.Context, fc fileCall) error {
+	list, blocked, err := h.svc.ProjectSkills(c.Request().Context(), userID(c), c.QueryParam("project"))
+	if err != nil {
+		return failProject(c, err)
+	}
+	var notes []string
+	if blocked {
+		notes = []string{projectBlockedNote}
+	}
+	out := h.skillList(c, fc, list, notes)
+	out.SkillsBlocked = blocked
 	return c.JSON(http.StatusOK, out)
+}
+
+// projectSkillDir resolves the project of a skill call to the folder name its
+// skills live under. It is the caller's own project: a project of another
+// person, shared or not, is not found. On failure it has written the response.
+func (h *Handlers) projectSkillDir(c echo.Context, id string, write bool) (string, bool) {
+	dir, err := h.svc.ProjectSkillDir(c.Request().Context(), userID(c), id, write)
+	if err != nil {
+		_ = failProject(c, err)
+		return "", false
+	}
+	return dir, true
 }
 
 // CreateSkill creates a skill.
 // @Summary Create a skill.
-// @Description A skill is a folder with a SKILL.md: a name, a one-line description and the procedure the model reads when a task matches. The personal layer is yours; the shared layer needs an administrator.
+// @Description A skill is a folder with a SKILL.md: a name, a one-line description and the procedure the model reads when a task matches. The personal layer is yours; the shared layer needs an administrator. The project layer (layer project, with project set to the project's id) holds the skills of one project of yours: its chats and agents get them, and only you write them. It is off while another person may write the project folder, and a write is then refused with 409.
 // @Tags chats
 // @Param request body schema.ChatsSkillWrite true "the skill"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill"
@@ -106,7 +149,10 @@ func (h *Handlers) CreateSkill(c echo.Context) error {
 	}
 	layer, ok := parseLayer(req.Layer)
 	if !ok || !writable(layer) {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "layer must be personal or shared")
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "layer must be personal, shared or project")
+	}
+	if layer == skills.LayerProject {
+		return h.writeProjectSkill(c, fc, req.Project, req.Name, req.Description, req.Body)
 	}
 	if err := fc.f.WriteSkill(c.Request().Context(), skillActor(c, fc, layer), layer, req.Name, req.Description, req.Body); err != nil {
 		return failFile(c, err)
@@ -117,8 +163,9 @@ func (h *Handlers) CreateSkill(c echo.Context) error {
 // GetSkill reads a skill.
 // @Summary Read a skill.
 // @Tags chats
-// @Param layer path string true "personal, shared, agent, addon or builtin"
+// @Param layer path string true "personal, shared, project, agent, addon or builtin"
 // @Param name path string true "the skill's name"
+// @Param project query string false "the project's ID, for the project layer"
 // @Param addon query string false "the add-on's ID, for the addon layer"
 // @Param agent query string false "the saved agent's ID, for the agent layer"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill with its text"
@@ -141,6 +188,13 @@ func (h *Handlers) GetSkill(c echo.Context) error {
 		}
 		return c.JSON(http.StatusOK, schema.ChatsSkillDetail{Name: name, Layer: string(layer), Description: desc, Body: body})
 	}
+	if layer == skills.LayerProject {
+		dir, ok := h.projectSkillDir(c, c.QueryParam("project"), false)
+		if !ok {
+			return nil
+		}
+		return h.projectSkillDetail(c, fc, dir, c.Param("name"))
+	}
 	if layer == skills.LayerAgent {
 		name := c.Param("name")
 		desc, body, err := fc.f.ReadAgentSkill(c.Request().Context(), fc.p, c.QueryParam("agent"), name)
@@ -153,7 +207,31 @@ func (h *Handlers) GetSkill(c echo.Context) error {
 }
 
 // writable reports a layer whose skills are changed through this API.
-func writable(l skills.Layer) bool { return l == skills.LayerPersonal || l == skills.LayerShared }
+func writable(l skills.Layer) bool {
+	return l == skills.LayerPersonal || l == skills.LayerShared || l == skills.LayerProject
+}
+
+// writeProjectSkill creates or replaces a skill of a project of the caller and
+// returns it. Only the owner writes the layer; an archived project and a
+// project folder that another person may write are refused.
+func (h *Handlers) writeProjectSkill(c echo.Context, fc fileCall, project, name, description, body string) error {
+	dir, ok := h.projectSkillDir(c, project, true)
+	if !ok {
+		return nil
+	}
+	if err := fc.f.WriteProjectSkill(c.Request().Context(), fc.p, dir, name, description, body); err != nil {
+		return failFile(c, err)
+	}
+	return h.projectSkillDetail(c, fc, dir, name)
+}
+
+func (h *Handlers) projectSkillDetail(c echo.Context, fc fileCall, dir, name string) error {
+	desc, body, err := fc.f.ReadProjectSkill(c.Request().Context(), fc.p, dir, name)
+	if err != nil {
+		return failFile(c, err)
+	}
+	return c.JSON(http.StatusOK, schema.ChatsSkillDetail{Name: name, Layer: string(skills.LayerProject), Description: desc, Body: body, Editable: true})
+}
 
 func (h *Handlers) skillDetail(c echo.Context, fc fileCall, layer skills.Layer, name string) error {
 	desc, body, err := fc.f.ReadSkill(c.Request().Context(), fc.p, layer, name)
@@ -166,8 +244,9 @@ func (h *Handlers) skillDetail(c echo.Context, fc fileCall, layer skills.Layer, 
 // UpdateSkill replaces a skill's description and text.
 // @Summary Change a skill.
 // @Tags chats
-// @Param layer path string true "personal or shared"
+// @Param layer path string true "personal, shared or project"
 // @Param name path string true "the skill's name"
+// @Param project query string false "the project's ID, for the project layer"
 // @Param request body schema.ChatsSkillUpdate true "the new description and body"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
@@ -179,11 +258,14 @@ func (h *Handlers) UpdateSkill(c echo.Context) error {
 	}
 	layer, ok := parseLayer(c.Param("layer"))
 	if !ok || !writable(layer) {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "layer must be personal or shared")
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "layer must be personal, shared or project")
 	}
 	var req schema.ChatsSkillUpdate
 	if err := c.Bind(&req); err != nil {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "description and body are required")
+	}
+	if layer == skills.LayerProject {
+		return h.writeProjectSkill(c, fc, c.QueryParam("project"), c.Param("name"), req.Description, req.Body)
 	}
 	if err := fc.f.WriteSkill(c.Request().Context(), skillActor(c, fc, layer), layer, c.Param("name"), req.Description, req.Body); err != nil {
 		return failFile(c, err)
@@ -193,9 +275,10 @@ func (h *Handlers) UpdateSkill(c echo.Context) error {
 
 // DeleteSkill moves a skill to the Trash.
 // @Summary Delete a skill.
-// @Description The skill's folder goes to the Trash of your files, where it can be restored. Shared skills need an administrator. A skill of the agent layer is deleted with the agent query parameter.
+// @Description The skill's folder goes to the Trash of your files, where it can be restored. Shared skills need an administrator. A skill of the agent layer is deleted with the agent query parameter, one of the project layer with the project query parameter.
 // @Tags chats
-// @Param layer path string true "personal, shared or agent"
+// @Param layer path string true "personal, shared, project or agent"
+// @Param project query string false "the project's ID, for the project layer"
 // @Param agent query string false "the saved agent's ID, for the agent layer"
 // @Param name path string true "the skill's name"
 // @Success 200 {object} map[string]bool "deleted"
@@ -213,8 +296,18 @@ func (h *Handlers) DeleteSkill(c echo.Context) error {
 		}
 		return c.JSON(http.StatusOK, map[string]bool{"deleted": true})
 	}
+	if ok && layer == skills.LayerProject {
+		dir, ok := h.projectSkillDir(c, c.QueryParam("project"), true)
+		if !ok {
+			return nil
+		}
+		if err := fc.f.DeleteProjectSkill(c.Request().Context(), fc.p, dir, c.Param("name")); err != nil {
+			return failFile(c, err)
+		}
+		return c.JSON(http.StatusOK, map[string]bool{"deleted": true})
+	}
 	if !ok || !writable(layer) {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "layer must be personal, shared or agent")
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "layer must be personal, shared, project or agent")
 	}
 	if err := fc.f.DeleteSkill(c.Request().Context(), skillActor(c, fc, layer), layer, c.Param("name")); err != nil {
 		return failFile(c, err)

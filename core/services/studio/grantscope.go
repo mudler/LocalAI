@@ -62,6 +62,8 @@ func (s *Service) grantUsable(ctx context.Context, user, grant string) bool {
 		return s.d.Agents != nil
 	case builtins.GrantHistoryRead:
 		return s.historyAvailable()
+	case builtins.GrantProjectMemoryWrite:
+		return s.d.Files.Available() && s.changes != nil && s.d.Projects != nil
 	}
 	return builtins.ValidGrant(grant)
 }
@@ -137,7 +139,7 @@ func (s *Service) checkAnyChangeGrant(ctx context.Context, user, agentID string,
 		return nil
 	}
 	for _, g := range s.AgentGrants(ctx, user, agentID) {
-		if s.changes.grantsAKind(g) {
+		if s.changes.grantsAKind(g) || g == builtins.GrantProjectMemoryWrite {
 			return nil
 		}
 	}

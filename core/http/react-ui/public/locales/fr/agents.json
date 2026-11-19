@@ -49,7 +49,8 @@
   "facts": {
     "addons": "Add-ons",
     "connector": "MCP connector",
-    "folder": "Dossier"
+    "folder": "Dossier",
+    "toolsNone": "Aucun add-on ni serveur MCP"
   },
   "agent": {
     "triggers": "Triggers",
@@ -147,7 +148,7 @@
     "networkHelp": "Quand un déclencheur ou un connecteur exécute cet agent, ses commandes atteignent cette part du réseau, dans la limite fixée par un administrateur. Une exécution ne demande jamais : un hôte hors de cette part est bloqué. Un chat que vous démarrez avec cet agent commence aussi ainsi.",
     "networkPresets": {
       "off": "Désactivé",
-      "registries": "Registres de paquets",
+      "registries": "Personnalisé",
       "all": "Tous les sites publics"
     },
     "toolsSummary": "{{on}} sur {{total}} activés",
@@ -539,7 +540,8 @@
       "runMeta": "took {{time}}",
       "prompt": "What to do",
       "acts": "Permissions",
-      "runLimit": "Time limit"
+      "runLimit": "Time limit",
+      "project": "Projet"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -588,9 +590,27 @@
       "changed_other": "{{count}} changes",
       "watchNoFiles": "Cet agent a « Aucun fichier » : une exécution de ce déclencheur apprend qu’un fichier est arrivé, mais ne peut pas l’ouvrir. Donnez-lui l’accès aux fichiers dans son éditeur, ou choisissez un autre agent.",
       "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
-      "runLimitPlaceholder": "default"
+      "runLimitPlaceholder": "default",
+      "agentInProject": "{{name}} (projet {{project}})",
+      "projectAgentHint": "Cet agent appartient au projet. Un déclencheur de fichier surveille par défaut les fichiers du projet.",
+      "folder": {
+        "choose": "Choisir un dossier",
+        "sub": "Dossier à l’intérieur",
+        "subPlaceholder": "Facultatif : un dossier à l’intérieur",
+        "hint": "Un des dossiers de cet agent et, si vous voulez, un dossier à l’intérieur.",
+        "empty": "Choisissez le dossier à surveiller.",
+        "dots": "Un nom de dossier ne peut pas contenir « .. ».",
+        "outside": "Cet agent ne peut surveiller que des dossiers à l’intérieur des siens : {{folders}}.",
+        "noFolders": "Cet agent n’a aucun dossier utilisable. Choisissez un dossier dans les réglages de l’agent."
+      }
     },
-    "subtitle": "Lancez un agent selon un horaire ou à l'arrivée d'un fichier. Chaque exécution est un chat que vous pouvez ouvrir."
+    "subtitle": "Lancez un agent selon un horaire ou à l'arrivée d'un fichier. Chaque exécution est un chat que vous pouvez ouvrir.",
+    "projectFilter": {
+      "label": "Projet",
+      "all": "Tous les projets",
+      "none": "Sans projet",
+      "empty": "Aucun déclencheur pour ce choix."
+    }
   },
   "views": {
     "label": "Espace des agents",
@@ -906,7 +926,9 @@
       "filesTitle": "Il peut voir tous vos fichiers.",
       "filesBody": "Tout ce que vous pouvez ouvrir dans Fichiers, cet agent peut le lire. Vous pouvez le limiter à des dossiers.",
       "limit": "Limiter à des dossiers",
-      "setupNext": "Après la création, la page de l'agent liste les étapes de configuration des applications choisies."
+      "setupNext": "Après la création, la page de l'agent liste les étapes de configuration des applications choisies.",
+      "project": "Travaille dans le projet {{name}}.",
+      "projectUnnamed": "Travaille dans le projet que vous avez choisi."
     },
     "rail": {
       "title": "Votre agent",
@@ -980,5 +1002,125 @@
     "asksTitle_one": "Cet agent demande {{count}} élément que votre chat n'a pas au départ :",
     "asksTitle_other": "Cet agent demande {{count}} éléments que votre chat n'a pas au départ :",
     "asksHelp": "Il s'exécute en votre nom. Activez-les dans le chat seulement si vous faites confiance à l'agent et à la personne qui l'a partagé."
+  },
+  "project": {
+    "chip": "Projet : {{name}}",
+    "deleted": "projet supprimé",
+    "files": "Fichiers du projet",
+    "filesMode": "Mode des fichiers",
+    "canEdit": "Peut modifier",
+    "readOnly": "Lecture seule",
+    "filesHelp": "L’agent travaille uniquement dans le dossier de fichiers de {{name}}. Les dossiers partagés et les skills restent lisibles.",
+    "filesHelpNoName": "L’agent travaille uniquement dans le dossier de fichiers de son projet. Les dossiers partagés et les skills restent lisibles.",
+    "memory": "Mémoire du projet",
+    "memoryHelp": "L’agent ne peut enregistrer une note dans la mémoire du projet qu’avec l’autorisation « Remember things in the project » : il propose une modification que vous confirmez. Sans cette autorisation, la mémoire est en lecture seule.",
+    "limited": "Limité par le projet",
+    "noShare": "Les agents de projet ne peuvent pas être partagés.",
+    "exportHelp": "L’export écrit un fichier d’agent. Le projet est choisi à l’import du fichier.",
+    "paused": "Cet agent est en pause, car son projet est {{reason}}.",
+    "reason": {
+      "archived": "archivé",
+      "deleted": "supprimé",
+      "changed": "modifié"
+    },
+    "fix": {
+      "archived": "Ouvrez le projet et restaurez-le. L’agent refonctionne ensuite.",
+      "deleted": "Le projet a disparu. Restaurez-le depuis la Corbeille dans Fichiers et l’agent refonctionnera.",
+      "changed": "Un dossier du projet a été remplacé, renommé ou déplacé. Reconnectez l’agent pour le relier de nouveau aux dossiers du projet.",
+      "deletedDetach": "Le projet n'existe plus. Détachez l'agent pour le réutiliser, ou restaurez le projet depuis la Corbeille dans Fichiers."
+    },
+    "openProject": "Ouvrir le projet",
+    "reconnect": "Reconnecter",
+    "reconnected": "{{name}} est de nouveau relié au projet.",
+    "reconnectFailed": "Impossible de reconnecter l’agent : {{message}}",
+    "unavailable": "Indisponible",
+    "listReason": {
+      "archived": "Son projet est archivé.",
+      "deleted": "Son projet a été supprimé.",
+      "changed": "Les dossiers de son projet ont changé. Ouvrez-le pour le reconnecter."
+    },
+    "fact": "Projet",
+    "memoryFact": "Mémoire",
+    "memoryReadOnly": "Mémoire du projet, lecture seule",
+    "runsPaused": "Les exécutions reprennent quand le projet est de nouveau actif."
+  },
+  "importProject": {
+    "title": "Cet agent appartient à un projet",
+    "text": "Choisissez où le placer. Les agents de projet travaillent uniquement dans leur projet. Les dossiers partagés et les skills restent lisibles.",
+    "textNamed": "Le fichier est celui de l’agent « {{agent}} ». Choisissez où le placer. Les agents de projet travaillent uniquement dans leur projet. Les dossiers partagés et les skills restent lisibles.",
+    "label": "Projet",
+    "choose": "Choisir un projet",
+    "create": "Créer un projet nommé « {{name}} »",
+    "createUnnamed": "Créer un nouveau projet pour cet agent",
+    "help": "Seuls vos projets actifs sont listés.",
+    "createHelp": "Un nouveau projet nommé {{name}} est créé et l’agent y est ajouté.",
+    "needsChoice": "Choisissez un projet, ou créez-en un, pour importer cet agent.",
+    "cancel": "Annuler",
+    "import": "Importer"
+  },
+  "projectField": {
+    "title": "Projet",
+    "leadNew": "Placez l'agent dans un projet, ou laissez-le seul.",
+    "leadEdit": "Le projet dans lequel l'agent travaille. Le déplacer change ce qu'il peut atteindre.",
+    "label": "Projet",
+    "none": "Aucun projet",
+    "choose": "Choisissez un projet",
+    "archivedName": "{{name}} (archivé)",
+    "create": "Créer un nouveau projet...",
+    "help": "Un agent de projet travaille uniquement dans les fichiers et la mémoire de son projet. Seuls vos projets actifs sont listés.",
+    "helpEdit": "Choisissez un autre projet, ou Aucun projet, puis cliquez sur Déplacer.",
+    "saveFirst": "Enregistrez ou annulez vos modifications avant de déplacer l'agent."
+  },
+  "move": {
+    "open": "Déplacer...",
+    "title": "Déplacer vers {{name}}",
+    "leaveTitle": "Sortir l'agent de son projet",
+    "detachTitle": "Détacher du projet",
+    "text": "{{agent}} travaillera uniquement dans les fichiers et la mémoire de {{name}}. Vérifiez ce qui change avant de confirmer.",
+    "leaveText": "{{agent}} quitte {{name}}. Choisissez les fichiers qu'il garde, puis vérifiez ce qui change.",
+    "detachText": "Le projet de cet agent a été supprimé. Choisissez les fichiers que l'agent garde, puis détachez-le.",
+    "cancel": "Annuler",
+    "confirm": "Déplacer l'agent",
+    "detach": "Détacher du projet",
+    "keepLabel": "Fichiers que l'agent garde",
+    "keepOne": "Ce dossier uniquement",
+    "keepAll": "Tous mes fichiers",
+    "keepAllHelp": "L'agent travaille sur tous vos fichiers, comme un agent sans dossier.",
+    "keepNone": "Aucun dossier choisi.",
+    "effectsTitle": "Ce qui change",
+    "pickFolder": "Choisissez un dossier pour voir ce qui change.",
+    "checking": "Vérification...",
+    "effect": {
+      "chats_one": "{{count}} conversation de cet agent reste lisible mais n'accepte plus de messages. Démarrez une nouvelle conversation pour continuer.",
+      "chats_other": "{{count}} conversations de cet agent restent lisibles mais n'acceptent plus de messages. Démarrez une nouvelle conversation pour continuer.",
+      "loops_one": "{{count}} boucle de ces conversations se termine.",
+      "loops_other": "{{count}} boucles de ces conversations se terminent.",
+      "triggers_one": "{{count}} déclencheur de fichiers surveille un dossier hors des nouveaux dossiers : {{names}}.",
+      "triggers_other": "{{count}} déclencheurs de fichiers surveillent un dossier hors des nouveaux dossiers : {{names}}.",
+      "shares_one": "L'agent est partagé avec {{count}} personne.",
+      "shares_other": "L'agent est partagé avec {{count}} personnes.",
+      "proposals_one": "{{count}} note en attente pour la mémoire du projet est abandonnée.",
+      "proposals_other": "{{count}} notes en attente pour la mémoire du projet sont abandonnées.",
+      "dropped_one": "Les limites du nouveau projet retirent {{count}} outil : {{names}}.",
+      "dropped_other": "Les limites du nouveau projet retirent {{count}} outils : {{names}}.",
+      "grant": "L'autorisation d'écrire dans la mémoire du projet est retirée. Vous pouvez la redonner dans les réglages de l'agent.",
+      "notes": "Les notes propres de l'agent repartent vides. Les anciennes notes restent dans vos fichiers, dans Memory sous Moved agent notes.",
+      "foldersInto": "L'agent travaille uniquement dans les dossiers de fichiers et de mémoire de {{name}}.",
+      "foldersOut": "L'agent n'appartient plus à un projet.",
+      "attachedLost_one": "L’ancien projet associait {{count}} outil qui ne s’applique plus : {{names}}.",
+      "attachedLost_other": "L’ancien projet associait {{count}} outils qui ne s’appliquent plus : {{names}}.",
+      "attachedGained_one": "Le nouveau projet associe {{count}} outil que l’agent reçoit : {{names}}.",
+      "attachedGained_other": "Le nouveau projet associe {{count}} outils que l’agent reçoit : {{names}}.",
+      "projectSkills": "Les compétences de l’ancien projet cessent de s’appliquer et celles du nouveau projet commencent."
+    },
+    "blocked": {
+      "busy": "Une conversation de cet agent exécute un tour. Arrêtez-la, puis déplacez l'agent."
+    },
+    "revoke_one": "Arrêter le partage : cet agent est partagé avec {{count}} personne et un agent de projet ne peut pas être partagé.",
+    "revoke_other": "Arrêter le partage : cet agent est partagé avec {{count}} personnes et un agent de projet ne peut pas être partagé.",
+    "disable_one": "Désactiver {{count}} déclencheur de fichiers qui surveille un dossier hors des nouveaux dossiers ({{names}}).",
+    "disable_other": "Désactiver {{count}} déclencheurs de fichiers qui surveillent un dossier hors des nouveaux dossiers ({{names}}).",
+    "done": "{{name}} a été déplacé vers son nouveau projet.",
+    "doneOut": "{{name}} n'appartient plus à un projet."
   }
 }

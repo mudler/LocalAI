@@ -19,9 +19,9 @@ import (
 	"slices"
 
 	"github.com/mudler/LocalAI/addons/gdrive/internal/driveapi"
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/internal/writeflow"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The read tools of the manifest.

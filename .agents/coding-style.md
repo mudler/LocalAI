@@ -76,10 +76,10 @@ This is enforced by `forbidigo` (see `.golangci.yml`): `http.DefaultClient` and 
 The project documentation is located in `docs/content`. When adding new features or changing existing functionality, it is crucial to update the documentation to reflect these changes. This helps users understand how to use the new capabilities and ensures the documentation stays relevant.
 
 - **Docs-with-code rule**: When you change user-facing behavior (API endpoints, CLI flags, config keys, or features), update the corresponding page under `docs/content/` in the SAME change, not as a follow-up. A user-facing change without a matching docs update is incomplete. The PR template carries a checklist item for this.
-- **Feature Documentation**: If you add a new feature (like a new backend or API endpoint), create a new markdown file in `docs/content/features/` explaining what it is, how to configure it, and how to use it.
+- **Feature Documentation**: If you add a new feature (like a new backend or API endpoint), create a new markdown file explaining what it is, how to configure it, and how to use it. Put it where the reader looks for it: `docs/content/features/` for a task you do in LocalAI, `docs/content/models/capabilities/` for what a kind of model does, `docs/content/models/engines/` for a backend with its own page, and `docs/content/addons/catalogue/` for an add-on. Add the page to the front door of its section.
 - **Configuration**: If you modify configuration options, update the relevant sections in `docs/content/`.
 - **Examples**: providing concrete examples (like YAML configuration blocks) is highly encouraged to help users get started quickly.
-- **Shortcodes**: Use `{{% notice note %}}`, `{{% notice tip %}}`, or `{{% notice warning %}}` for callout boxes. Do **not** use `{{% alert %}}` — that shortcode does not exist in this project's Hugo theme and will break the docs build.
+- **Shortcodes**: Use `{{% callout style="note" %}}`, `{{% callout style="tip" %}}`, `{{% callout style="warning" %}}` or `{{% callout style="info" %}}` for callout boxes, and close them with `{{% /callout %}}`. The `notice` shortcode is deprecated in the Relearn theme and prints a build warning. Give each `tab` a `title=` (the `name=` parameter is deprecated). Write `{{% relref "..." %}}` with `%`, not `<`. Do **not** use `{{% alert %}}`: that shortcode does not exist in this project's Hugo theme and breaks the docs build.
 
 ## React UI styling
 
@@ -121,6 +121,16 @@ The shared controls live in `core/http/react-ui/src/components/ui/` (read its
 `README.md`), with the form classes of the vendored kit (`dk-input`,
 `dk-select`, `dk-check`) and `src/components/SideSheet.jsx`. Every screen uses
 them. `/app/ui-catalog` shows each one with an example.
+
+Most controls, their CSS (`css/kit.css`), the icon set, the LocalAI palette
+and the vendored kit are in the UI kit package,
+`core/http/react-ui/packages/ui-kit/` (read its `README.md`). Other React apps
+in the repository import it. The package depends only on React: no router, no
+i18next, no import from `src/`. A link takes the app's router link as
+`linkComponent`, and words arrive as props with English defaults. In the web
+UI, import the controls from `components/ui`; its wrappers pass the router
+link and the translated words. `tests/unit/uikitpackage.test.mjs` checks these
+rules.
 
 - Use the kit for every button (`Button`), text input (`dk-input`), select
   (`dk-select`), switch (`Switch`), checkbox (`<input type="checkbox"
@@ -173,7 +183,8 @@ npm run lint:colours:write    # refresh colour-baseline.txt after you fixed some
 
 Use `var(--dk-accent)` and the other roles, or `color-mix(in srgb, var(--dk-text) 20%, transparent)`
 for a tint. The palette files, the vendored kit and the third-party vendor
-colours in `src/utils/format.js` are exempt. Do not add a line to
+colours in `src/utils/format.js` are exempt. The gates scan `packages/ui-kit` as well
+as `src`. Do not add a line to
 `colour-baseline.txt` to make a check pass.
 
 Before you finish UI work, run `npm run lint:ui-kit` and attach screenshots at

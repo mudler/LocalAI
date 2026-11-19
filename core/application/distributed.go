@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/distributed"
@@ -19,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -351,7 +353,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	var conflictResolver nodes.ConcurrencyConflictResolver
 	var pinnedResolver nodes.PinnedModelResolver
 	var modelFiles func(string) []string
+	var finalizeLoad func(context.Context, string, *pb.ModelOptions) error
 	if configLoader != nil {
+		// The key of a remote (and an inline proxy api_key) is put into the
+		// options only when a load is sent to a worker; the registry never
+		// stores it.
+		finalizeLoad = backend.LoadOptionsFinalizer(configLoader)
 		conflictResolver = configLoader
 		pinnedResolver = configLoader
 		if cfg.SystemState != nil {
@@ -399,7 +406,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		),
 		// Bounds the REQUEST, not the load: a caller out of budget gets 503 with
 		// live staging progress while the job keeps running underneath.
-		ModelLoadWait: cfg.Distributed.ModelLoadWait,
+		ModelLoadWait:        cfg.Distributed.ModelLoadWait,
+		LoadOptionsFinalizer: finalizeLoad,
 	})
 
 	// Wire staging-progress broadcasting so file-staging shows up on every

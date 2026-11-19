@@ -4,6 +4,7 @@ import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
 import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
+import { createPageSharesApi } from './pageSharesApi'
 import { reportUnauthorized } from './sessionEvents'
 
 const enc = encodeURIComponent
@@ -69,6 +70,27 @@ async function postJSON(endpoint, body, options = {}) {
 // Models API
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
+  // Remote sources (Hugging Face and the sources that add-ons provide). params
+  // come from remoteSearchParams().
+  search: (params, options) => fetchJSON(buildUrl(API_CONFIG.endpoints.modelsSearch, params), options),
+  // The installed sources with their filters, the person's enabled set, and
+  // the enabled IDs that no installed add-on provides.
+  searchSources: (options) => fetchJSON(API_CONFIG.endpoints.modelsSearchSources, options),
+  setSearchSources: (enabled) => fetchJSON(API_CONFIG.endpoints.modelsSearchSources, { method: 'PUT', body: JSON.stringify({ enabled }) }),
+  // What one search result offers: files grouped by quantization, licence,
+  // gated flag, description, the backend an import would pick.
+  remoteFiles: (uri, options) => fetchJSON(buildUrl(API_CONFIG.endpoints.modelsRemoteFiles, { uri }), options),
+  // The gallery estimate for a remote repository: one variant, and every
+  // variant in `variants`. file is the first file of a variant; omitted means
+  // the recommended one.
+  remoteEstimate: (uri, file, contexts, options) => fetchJSON(
+    buildUrl(API_CONFIG.endpoints.modelsRemoteEstimate, {
+      uri,
+      ...(file ? { file } : {}),
+      ...(contexts?.length ? { contexts: contexts.join(',') } : {}),
+    }),
+    options,
+  ),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
   listNativeCapabilities: () => fetchJSON('/v1/models/capabilities'),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
@@ -128,6 +150,22 @@ export const modelsApi = {
   backendUsecases: () => fetchJSON('/api/backends/usecases'),
 }
 
+// Remotes API (admin). A remote is another LocalAI, an
+// OpenAI-compatible service or Anthropic; each model it lists becomes an
+// ordinary model entry here. The key is write-only: no call returns it.
+export const remotesApi = {
+  // Checks the address and the key and lists the models. A failed check is an
+  // answer, not an error: { ok: false, step } with a 200.
+  test: (body) => postJSON(API_CONFIG.endpoints.remotesTest, body),
+  create: (body) => postJSON(API_CONFIG.endpoints.remotes, body),
+  list: () => fetchJSON(API_CONFIG.endpoints.remotes),
+  update: (id, body) => fetchJSON(API_CONFIG.endpoints.remote(id), { method: 'PATCH', body: JSON.stringify(body) }),
+  // entries: 'remove' deletes the models of the remote, 'keep' detaches them.
+  remove: (id, entries) => fetchJSON(buildUrl(API_CONFIG.endpoints.remote(id), { entries }), { method: 'DELETE' }),
+  refresh: (id) => postJSON(API_CONFIG.endpoints.remoteRefresh(id), {}),
+  adopt: (id, models) => postJSON(API_CONFIG.endpoints.remoteAdopt(id), { models }),
+}
+
 // Backends API
 export const backendsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.backends, params)),
@@ -153,9 +191,10 @@ export const chatsApi = {
   // the chat gets the LocalAI management tools (admin only, setting on).
   // switches are the drafted switches of a new chat (useChatSwitches): the
   // chat is stored with them.
-  create: (model, title, agentId, assistant, switches) => postJSON(API_CONFIG.endpoints.chats, {
+  create: (model, title, agentId, assistant, switches, projectId) => postJSON(API_CONFIG.endpoints.chats, {
     ...(model ? { model } : {}), ...(title ? { title } : {}), ...(agentId ? { agent_id: agentId } : {}),
     ...(assistant ? { assistant: true } : {}), ...(switches ? { switches } : {}),
+    ...(projectId ? { project_id: projectId } : {}),
   }),
   get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
@@ -344,6 +383,22 @@ export const pagesApi = {
     method: 'PUT', body: JSON.stringify({ path, content, ...(base ? { base } : {}) }),
   }),
   files: (name, dir) => fetchJSON(`${pageUrl(name)}/files${q({ dir })}`),
+  // A page that others may edit runs only after its owner allowed the version
+  // (the trust sheet): allow records it, stopAllowing takes it back.
+  allow: (name, hash, once = false) => fetchJSON(`${pageUrl(name)}/consent`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-LocalAI-Confirm': name }, body: JSON.stringify({ hash, ...(once ? { once: true } : {}) }) }),
+  stopAllowing: (name) => fetchJSON(`${pageUrl(name)}/consent`, { method: 'DELETE', headers: { 'X-LocalAI-Confirm': name } }),
+  // The bridge calls of such a page, which name the version that runs and,
+  // for a visit allowed once, the visit token. frame is {hash, token}.
+  frame: (name, frame) => {
+    const headers = frameHeaders(frame)
+    return {
+      read: (path) => fetchJSON(`${pageUrl(name)}/file${q({ path })}`, { headers }),
+      readImage: (path) => fetchJSON(`${pageUrl(name)}/file${q({ path, encoding: 'base64' })}`, { headers }),
+      write: (path, content, base) => fetchJSON(`${pageUrl(name)}/file`, { method: 'PUT', headers, body: JSON.stringify({ path, content, ...(base ? { base } : {}) }) }),
+      list: async (dir) => (await fetchJSON(`${pageUrl(name)}/files${q({ dir })}`, { headers })).entries || [],
+      send: (text, chatId, model) => fetchJSON(`${pageUrl(name)}/chat`, { method: 'POST', headers, body: JSON.stringify({ text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}) }) }),
+    }
+  },
   // chatId empty: the page's own chat; model is used when that chat is new.
   send: (name, text, chatId, model) => postJSON(`${pageUrl(name)}/chat`, {
     text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}),
@@ -422,11 +477,12 @@ function draftQuery(model, agentId, switches) {
   return s ? `?${s}` : ''
 }
 
-const refQuery = (ref) => (ref.addon ? `?addon=${enc2(ref.addon)}` : ref.agent ? `?agent=${enc2(ref.agent)}` : '')
+const refQuery = (ref) => (ref.addon ? `?addon=${enc2(ref.addon)}` : ref.agent ? `?agent=${enc2(ref.agent)}` : ref.project ? `?project=${enc2(ref.project)}` : '')
 export const chatSkillsApi = {
   // agents: also list the skills of your saved agents (the Skills page); a
   // chat's own list has the layer of its agent already.
-  list: (chat, { agents = false } = {}) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : agents ? '?agents=true' : ''}`),
+  // project: the skills of that project's own layer (layer=project&project=<id>).
+  list: (chat, { agents = false, project = '' } = {}) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : agents ? '?agents=true' : project ? `?layer=project&project=${enc2(project)}` : ''}`),
   // ref names the owner of a skill of the addon layer ({ addon }) or of the
   // agent layer ({ agent }): see skillRef in utils/chatSkills.js.
   get: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`),
@@ -439,7 +495,7 @@ export const chatSkillsApi = {
   },
   // The skill as a zip file in the Agent Skills layout, as a Blob.
   exportZip: async (name) => (await handleResponse(await fetch(apiUrl(`/api/chats/skills/personal/${enc2(name)}/export`)))).blob(),
-  update: (layer, name, body) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  update: (layer, name, body, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`, { method: 'PUT', body: JSON.stringify(body) }),
   remove: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`, { method: 'DELETE' }),
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/skills`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }
@@ -512,6 +568,42 @@ export const chatMCPConnectorsApi = {
   test: (id) => postJSON(`/api/chats/mcp-connectors/${enc2(id)}/test`, {}),
 }
 
+// Projects: a folder of files and memory with tool defaults and chats.
+// putMemory replaces one memory file; setChatProject moves a chat into a
+// project (null takes it out); setChatPulled sets the other projects it reads.
+export const chatProjectsApi = {
+  list: () => fetchJSON('/api/chats/projects'),
+  create: (body) => postJSON('/api/chats/projects', body),
+  get: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}`),
+  update: (id, body) => fetchJSON(`/api/chats/projects/${enc2(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  remove: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}`, { method: 'DELETE' }),
+  archive: (id) => postJSON(`/api/chats/projects/${enc2(id)}/archive`, {}),
+  restore: (id) => postJSON(`/api/chats/projects/${enc2(id)}/restore`, {}),
+  memory: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/memory`),
+  putMemory: (id, file, content) => fetchJSON(`/api/chats/projects/${enc2(id)}/memory/${enc2(file)}`, { method: 'PUT', body: JSON.stringify({ content }) }),
+  chats: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/chats`),
+  // The agents created from the project: { agents: [{ id, name, description,
+  // model, unavailable, files_mode, memory_write }] }.
+  agents: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/agents`),
+  // The messaging connections that answer as an agent of the project:
+  // { connections: [{ id, kind, name, agent_id, agent_name, enabled }] }. No token.
+  connections: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/connections`),
+  // The triggers of the project's agents: { triggers: [{ id, name, kind,
+  // agent_id, agent_name, schedule, folder, enabled, next }] }.
+  triggers: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/triggers`),
+  // The loops that have not ended, in chats of the project's agents: { loops: [{ id, chat_id, chat_title, prompt, state }] }.
+  loops: (id) => fetchJSON(`/api/chats/projects/${enc2(id)}/loops`),
+  // The projects other people share with you: { projects: [{ ref, name,
+  // description, status, mode, owner_name, error }] }. The ref is "s:<number>"
+  // and is the only identity; it is encoded in a path. sharedMemory is
+  // { index, files: [names] }.
+  shared: () => fetchJSON('/api/chats/projects/shared'),
+  sharedGet: (ref) => fetchJSON(`/api/chats/projects/shared/${enc2(ref)}`),
+  sharedMemory: (ref) => fetchJSON(`/api/chats/projects/shared/${enc2(ref)}/memory`),
+  setChatProject: (chat, projectId) => fetchJSON(`/api/chats/${enc2(chat)}/project`, { method: 'PUT', body: JSON.stringify({ project_id: projectId || '' }) }),
+  setChatPulled: (chat, projectIds) => fetchJSON(`/api/chats/${enc2(chat)}/projects`, { method: 'PUT', body: JSON.stringify({ project_ids: projectIds || [] }) }),
+}
+
 // The built-in tool groups (such as web), the MCP servers and the connectors of
 // a chat, with their switches. The add-ons have their own calls above.
 export const chatToolsApi = {
@@ -531,11 +623,17 @@ export const chatAgentsApi = {
   update: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   // memory says what to do with the agent's own notes: keep (the default) or delete.
   remove: (id, memory) => fetchJSON(`/api/chats/agents/${enc2(id)}${q({ memory })}`, { method: 'DELETE' }),
+  // Moves the agent to another project, or out of its project (project_id ''):
+  // the only way to change the project of a saved agent. With dry_run true the
+  // answer is the report of what the move touches and nothing is written.
+  moveProject: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}/project`, { method: 'PUT', body: JSON.stringify(body) }),
   // The agent file of the server (kind localai-agent). Import takes it, the
   // body of a create, or an export of the old agents; it always makes a new
   // agent and says in `warnings` what it changed.
   exportFile: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/export`),
-  importFile: (data) => postJSON('/api/chats/agents/import', data),
+  // params are query parameters: project_id or create_project=true map a file
+  // of a project agent to a project. The mapping is never part of the file.
+  importFile: (data, params) => postJSON(`/api/chats/agents/import${q(params || {})}`, data),
   // The builtin grants an agent can hold: { grants: [{ name, title, description, sensitive }] }.
   builtinGrants: () => fetchJSON('/api/chats/agents/builtin-grants'),
   // The resources of one add-on you may give an agent, with the add-on's own
@@ -1217,3 +1315,6 @@ export const diarizationApi = {
 // kindShareClient (components/share/shareClients.js) for the dialog.
 export const sharesApi = createSharesApi(addonsApi)
 export const folderSharesApi = createFolderSharesApi(addonsApi)
+
+// Sharing of one page of the person's own pages, with named people or everyone.
+export const pageSharesApi = createPageSharesApi(addonsApi)

@@ -19,7 +19,14 @@
     "deleteTitle": "Hapus “{{title}}”?",
     "deleteMessage": "Folder {{folder}} masuk ke Sampah. Kamu bisa memulihkannya dari File.",
     "deleted": "{{title}} ada di Sampah.",
-    "deleteFailed": "Halaman tidak dihapus: {{message}}"
+    "deleteFailed": "Halaman tidak dihapus: {{message}}",
+    "share": "Bagikan",
+    "shared": "Dibagikan",
+    "sharedWith_one": "Dibagikan ke {{count}} orang",
+    "sharedWith_other": "Dibagikan ke {{count}} orang",
+    "sharedEveryone": "Dibagikan ke semua orang",
+    "someone": "seseorang",
+    "othersEdit": "Orang lain dapat mengubah"
   },
   "empty": {
     "text": "Halaman adalah alat kecil, seperti papan tugas atau daftar bacaan. Minta satu ke asisten di chat, atau mulai dari halaman siap pakai.",
@@ -48,12 +55,15 @@
       "notAllowed": "Belum diizinkan",
       "changed": "Berubah sejak Anda mengizinkannya",
       "allowed": "Diizinkan"
-    }
+    },
+    "userOff": "Dimatikan oleh administrator.",
+    "stopFailed": "Halaman tidak dihentikan: {{message}}"
   },
   "viewer": {
     "stopAllowing": "Berhenti mengizinkan halaman ini",
     "authorChanged": "{{author}} mengubah halaman ini. Versi yang Anda izinkan tetap berjalan sampai Anda meninjau perubahannya.",
-    "sandboxShared": "Dalam sandbox. Berjalan sebagai Anda, hanya di {{folder}}, dan tidak dapat menjangkau jaringan."
+    "sandboxShared": "Dalam sandbox. Berjalan sebagai Anda, hanya di {{folder}}, dan tidak dapat menjangkau jaringan.",
+    "sandboxUser": "Dalam sandbox. Berjalan sebagai Anda, hanya di folder miliknya, dan tidak dapat mengakses jaringan."
   },
   "trust": {
     "title": "Buka \"{{title}}\"?",
@@ -128,6 +138,26 @@
       "item": "Berjalan di Beranda, di slot aplikasi, dan di dok",
       "note": "Halaman mulai saat layar tampil, tanpa klik. Perubahan oleh pembuatnya akan meminta izin lagi.",
       "allow": "Izinkan di Beranda, di slot, dan di dok"
+    },
+    "user": {
+      "desc": "Seseorang membagikan halaman ini kepada Anda. Halaman berjalan sebagai Anda, jadi periksa dulu sebelum dijalankan.",
+      "who": "Ditulis oleh {{author}}. Tidak diperiksa oleh administrator.",
+      "unchecked": "Tidak diperiksa oleh administrator.",
+      "where": "Halaman bersama",
+      "readOnly": "Anda hanya dapat melihat halaman ini, jadi halaman tidak dapat menyimpan perubahannya.",
+      "chrome": "Halaman bersama. Belum dijalankan.",
+      "blocked": "Anda memilih tidak menjalankannya. Halaman ini dari {{author}}. Tidak ada yang berjalan dan tidak ada yang disimpan.",
+      "files": "Membaca dan menulis file di folder miliknya"
+    },
+    "owner": {
+      "desc": "Orang lain dapat mengubah halaman ini. Halaman berjalan sebagai Anda, jadi periksa dulu sebelum dijalankan.",
+      "who": "Orang lain dapat mengubah halaman ini. Periksa sebelum dijalankan.",
+      "changedWho": "Halaman ini berubah sejak Anda mengizinkannya.",
+      "where": "Halaman Anda",
+      "warn": "Halaman bertindak sebagai Anda di dalam foldernya. Jika seseorang mengubahnya, Anda ditanya lagi.",
+      "changedWarn": "Jika Anda mengizinkannya, versi ini berjalan setiap kali dibuka, sampai seseorang mengubahnya lagi.",
+      "blocked": "Anda memilih tidak menjalankannya. Orang lain dapat mengubahnya. Tidak ada yang berjalan dan tidak ada yang disimpan.",
+      "stale": "Halaman ini berubah. Periksa lagi."
     }
   },
   "frame": {
@@ -182,5 +212,43 @@
     "sendLabel": "Halaman ini meminta untuk mengirim pesan ini ke obrolan ini:",
     "saveFailed": "Dok tidak disimpan: {{message}}",
     "openInDock": "Buka di dok"
+  },
+  "share": {
+    "intro": "Pilih siapa yang boleh membuka halaman ini. Halaman tetap di tempatnya.",
+    "warning": "Orang yang Anda beri akses menjalankan kode halaman ini di browser mereka, dengan hak mereka sendiri, setelah mereka mengizinkannya. Mereka ditanya lagi saat Anda mengubah kode.",
+    "role": {
+      "view": "Lihat",
+      "use": "Gunakan",
+      "edit": "Ubah"
+    },
+    "roleHelp": {
+      "view": "Dapat menjalankan halaman dan membaca datanya. Tidak dapat menyimpan.",
+      "use": "Dapat menjalankan halaman dan menyimpan data di dalamnya. Tidak dapat mengubah kodenya.",
+      "edit": "Dapat mengubah semuanya, termasuk kode."
+    },
+    "count": {
+      "people_one": "Dibagikan ke {{count}} orang.",
+      "people_other": "Dibagikan ke {{count}} orang.",
+      "everyone": "Dibagikan ke semua orang.",
+      "everyoneAnd_one": "Dibagikan ke semua orang dan {{count}} orang tertentu.",
+      "everyoneAnd_other": "Dibagikan ke semua orang dan {{count}} orang tertentu.",
+      "allowed_one": "{{count}} mengizinkan versi ini.",
+      "allowed_other": "{{count}} mengizinkan versi ini."
+    },
+    "offAdmin": "Administrator mematikan pembagian halaman. Anda tetap dapat berhenti berbagi dengan orang di bawah.",
+    "lost": "Anda tidak dapat lagi membagikan halaman ini.",
+    "askAgain_one": "Anda mengubah kode. {{count}} orang akan diminta mengizinkan lagi.",
+    "askAgain_other": "Anda mengubah kode. {{count}} orang akan diminta mengizinkan lagi.",
+    "viewOnly": "Anda dapat melihat halaman ini, tetapi tidak mengubahnya",
+    "editNote": "Dengan Ubah, halaman ini juga dibuka untuk Anda melalui langkah izin.",
+    "tile": {
+      "title": "Buka halaman ini untuk menjalankannya",
+      "text": "Seseorang membagikannya kepada Anda. Halaman ini tidak berjalan di Beranda atau di slot. Buka untuk menjalankannya.",
+      "open": "Buka halaman",
+      "dock": "Seseorang membagikan halaman ini kepada Anda. Buka dari Halaman untuk menjalankannya.",
+      "slot": "Buka {{title}} untuk menjalankannya",
+      "textOwn": "Orang lain dapat mengubahnya. Halaman ini tidak berjalan di Beranda atau di slot. Buka untuk menjalankannya.",
+      "dockOwn": "Orang lain dapat mengubah halaman ini. Buka dari Halaman untuk menjalankannya."
+    }
   }
 }

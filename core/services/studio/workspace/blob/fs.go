@@ -18,6 +18,10 @@ type fsStore struct {
 	root string
 	// fault is an instance-local test seam at publication boundaries.
 	fault func(string) error
+	// syncHook is an instance-local test seam: it sees every sync the store
+	// makes, as "barrier" (data of a batched blob, folder of a batch) or
+	// "full" (a sync that must reach the disk).
+	syncHook func(kind string)
 }
 
 // NewFS stores immutable blobs in a service-controlled directory. Shared
@@ -64,7 +68,27 @@ func (s *fsStore) stage(name string) error {
 	}
 	return nil
 }
-func (s *fsStore) syncDir(path string) error {
+
+// fullSync makes the bytes of f durable (F_FULLFSYNC on macOS).
+func (s *fsStore) fullSync(f *os.File) error {
+	if s.syncHook != nil {
+		s.syncHook("full")
+	}
+	return f.Sync()
+}
+
+// barrierSync orders the writes of f before later writes. See commitSync for
+// what makes the batch durable.
+func (s *fsStore) barrierSync(f *os.File) error {
+	if s.syncHook != nil {
+		s.syncHook("barrier")
+	}
+	return barrierSync(f)
+}
+
+func (s *fsStore) syncDir(path string) error { return s.syncDirWith(path, s.fullSync) }
+
+func (s *fsStore) syncDirWith(path string, sync func(*os.File) error) error {
 	if err := s.stage("directory sync"); err != nil {
 		return err
 	}
@@ -73,7 +97,25 @@ func (s *fsStore) syncDir(path string) error {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	return f.Sync()
+	return sync(f)
+}
+
+// commitSync is the one full sync of a batch. publishBatch calls it after the
+// last blob and folder is written and ordered with barrierSync, and before
+// the caller commits the index (the database row that names the blobs).
+//
+// Why one full sync covers the batch: a barrier sync pushes the dirty data of
+// its file (or the journal of its folder) to the drive and orders it before
+// every later write, so nothing the batch wrote is left in memory when
+// commitSync runs. F_FULLFSYNC then asks the drive to flush its whole write
+// cache to stable storage, not only the cache lines of its own descriptor, so
+// everything the barriers ordered becomes durable before it returns. The
+// index is written after that, so a durable index never names a blob that a
+// power cut can take away; a cut before it leaves only unreferenced blobs.
+// The same argument holds for the blob names: the renames are in the folder
+// journal that the barriers ordered ahead of this sync.
+func (s *fsStore) commitSync() error {
+	return s.syncDirWith(s.root, s.fullSync)
 }
 func (s *fsStore) mkdir(path string) error {
 	if err := s.safe(path); err != nil {
@@ -107,6 +149,14 @@ func (s *fsStore) Put(ctx context.Context, r io.Reader, max int64) (string, int6
 // Stage reads r into a durable temporary file. The slow part of an upload
 // happens here; Publish only renames.
 func (s *fsStore) Stage(ctx context.Context, r io.Reader, max int64) (Staged, error) {
+	return s.stageFile(ctx, r, max, nil)
+}
+
+// stageFile reads r into a temporary file. With sp nil the file is synced
+// before the call returns. With a pool, the sync and the close run on the
+// pool, in chunks, and the caller waits for the rest with sp.wait before it
+// publishes.
+func (s *fsStore) stageFile(ctx context.Context, r io.Reader, max int64, sp *syncPool) (Staged, error) {
 	tempDir := filepath.Join(s.root, "tmp")
 	if err := s.mkdir(tempDir); err != nil {
 		return nil, err
@@ -116,8 +166,12 @@ func (s *fsStore) Stage(ctx context.Context, r io.Reader, max int64) (Staged, er
 		return nil, err
 	}
 	st := &fsStaged{s: s, path: f.Name()}
+	handedOff := false
 	// Close and Sync are checked below; this cleanup is best-effort.
 	defer func() {
+		if handedOff {
+			return
+		}
 		_ = f.Close()
 		if err != nil {
 			st.Discard()
@@ -145,16 +199,38 @@ func (s *fsStore) Stage(ctx context.Context, r io.Reader, max int64) (Staged, er
 	if err = f.Chmod(0o400); err != nil {
 		return nil, err
 	}
-	if err = s.stage("file sync"); err != nil {
-		return nil, err
+	if sp != nil {
+		// The same descriptor is synced, not a new one: a write error that
+		// the kernel found earlier is reported to the descriptor that wrote.
+		handedOff = true
+		if err = sp.submit(func() error { return st.syncAndClose(f, true) }); err != nil {
+			st.Discard()
+			return nil, err
+		}
+		return st, nil
 	}
-	if err = f.Sync(); err != nil {
-		return nil, err
-	}
-	if err = f.Close(); err != nil {
+	if err = st.syncAndClose(f, false); err != nil {
 		return nil, err
 	}
 	return st, nil
+}
+
+// syncAndClose syncs the staged file and closes it. A batched file only gets a
+// barrier; the batch becomes durable at commitSync. A file on its own gets a
+// full sync.
+func (t *fsStaged) syncAndClose(f *os.File, batched bool) (err error) {
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
+	if err = t.s.stage("file sync"); err != nil {
+		return err
+	}
+	if batched {
+		return t.s.barrierSync(f)
+	}
+	return t.s.fullSync(f)
 }
 
 type fsStaged struct {

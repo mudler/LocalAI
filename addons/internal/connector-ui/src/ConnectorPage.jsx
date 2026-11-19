@@ -22,7 +22,7 @@ import { sharedOfKind, shareAvailable } from './share'
 import { getSdk } from '../../host-compat/src/runtime.js'
 import { changedParts, droppedActs, removedActs } from './access'
 import { basePath } from '../../host-compat/src/utils/basePath.js'
-import { DUPLICATE_CONFIRMATION, canSave, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, agentHeld, listEntries, senderLine } from './connector'
+import { DUPLICATE_CONFIRMATION, canSave, duplicateOther, duplicateRefusalName, isDuplicateRefusal, connectorForm, connectorPayload, emptyConnector, seedCapabilities, agentHeld, listEntries, senderLine } from './connector'
 import { loginPlan } from './login'
 import { registerConnectorLocales } from './i18n'
 import { chatNamesFrom, chatText, peopleFrom } from './people'
@@ -188,6 +188,9 @@ function ShareConnection({ share, s, onChanged, close }) {
  * @param {Function} [props.extraBody] the request fields they make: (form) => object
  * @param {Function} [props.extraForm] their values from a saved binding: (binding) => object
  * @param {Function} [props.extraValid] whether they allow saving: (form) => boolean
+ * @param {Function} [props.needsSaveStep] whether Save must first run the add-on's own step: (form) => boolean
+ * @param {Function} [props.SaveStep]  that step, drawn over the sheet ({ form, t, onProceed, onCancel }). onProceed(patch)
+ *                                     adds the fields of the patch to the form and saves it; onCancel saves nothing
  * @param {Function} [props.testExtra] more checks after the Test button: async (binding, t) => string
  * @param {Function} [props.RowInfo]   a line under a binding in the list ({ c, t })
  * @param {boolean} [props.canAdd]     false for a kind whose connections are made elsewhere: the page then edits
@@ -197,7 +200,7 @@ function ShareConnection({ share, s, onChanged, close }) {
  *                                     The add-on's text has `connect` (the button) and `defaultName`
  */
 export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
-  messaging: messagingProp = true, isChannelEntry: channelPredicate, mixedList = false, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo, canAdd = true, login = false }) {
+  messaging: messagingProp = true, isChannelEntry: channelPredicate, mixedList = false, ExtraFields, extraBody, extraForm, extraValid, needsSaveStep, SaveStep, testExtra, RowInfo, canAdd = true, login = false }) {
   const { t, i18n } = useTranslation([ns, 'connector'])
   const uiLanguage = i18n?.resolvedLanguage || i18n?.language || ''
   setApiLanguage(uiLanguage)
@@ -231,6 +234,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [toDelete, setToDelete] = useState(null)
   // The question after a save that would make this connection the same bot as another: { other }.
   const [dupAsk, setDupAsk] = useState(null)
+  // Whether the step of the add-on that comes before a save is open.
+  const [saveStepOpen, setSaveStepOpen] = useState(false)
   const [detailId, setDetailId] = useState('')
   const [rowBusy, setRowBusy] = useState({})
   const [testing, setTesting] = useState({})
@@ -336,6 +341,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     setSaveNotice(null)
     setPairedList(null)
     setDupAsk(null)
+    setSaveStepOpen(false)
     setAskDiscard(false)
     setFixedAgent(Boolean(opts.fixedAgent))
     setPresetChoice(opts.preset || null)
@@ -345,7 +351,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const openNew = (agentId = '') => {
     const picked = agentId && !toolOnly ? agents.find((a) => a.id === agentId && a.model) : null
     const held = agentHeld(picked || (!toolOnly && agents.length === 1 ? agents[0] : null))
-    const f = { ...emptyConnector(capabilities, held), ...(extraForm ? extraForm({}) : {}) }
+    const f = { ...emptyConnector(seedCapabilities(capabilities, { toolOnly, agentOptional, agentPicked: Boolean(picked) }), held), ...(extraForm ? extraForm({}) : {}) }
     openForm(picked ? { ...f, agent_id: picked.id } : f, { fixedAgent: Boolean(picked) })
   }
   const openEdit = (c, opts) => openForm(savedFormOf(c), opts)
@@ -455,9 +461,21 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
 
   // The server refuses a token that the platform refuses. After a save the
   // page tests the connection and names the bot the token belongs to.
-  const save = (e) => { e.preventDefault(); return doSave(false) }
+  const save = (e) => {
+    e.preventDefault()
+    if (needsSaveStep?.(form)) { setSaveStepOpen(true); return }
+    return doSave(false)
+  }
+  // The step of the add-on went on: its fields join the form, which is saved at once.
+  const proceedSaveStep = (patch) => {
+    setSaveStepOpen(false)
+    const next = { ...form, ...patch }
+    setForm(next)
+    return doSave(false, next)
+  }
   // confirmDuplicate answers the question of a save that makes the connection a twin of another.
-  const doSave = async (confirmDuplicate) => {
+  // f is the form to save when it is not the one in state yet.
+  const doSave = async (confirmDuplicate, f = form) => {
     setBusy(true)
     setFormError('')
     setTestFail(null)
@@ -466,14 +484,14 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     setSaveNotice(null)
     setDupAsk(null)
     try {
-      const token = tokenOf(form).trim()
-      const body = connectorPayload(form, kind, token, { ...extra(form), ...(confirmDuplicate ? { confirm_duplicate: DUPLICATE_CONFIRMATION } : {}) })
+      const token = tokenOf(f).trim()
+      const body = connectorPayload(f, kind, token, { ...extra(f), ...(confirmDuplicate ? { confirm_duplicate: DUPLICATE_CONFIRMATION } : {}) })
       // What the save changes, read from the form and the binding as they are now.
-      const before = form.id ? savedForm : null
-      const removed = removedActs(before, form)
-      const saved = form.id ? await connectorsApi.update(form.id, body) : await connectorsApi.create(body)
-      const wasNew = !form.id
-      const snapshot = form
+      const before = f.id ? savedForm : null
+      const removed = removedActs(before, f)
+      const saved = f.id ? await connectorsApi.update(f.id, body) : await connectorsApi.create(body)
+      const wasNew = !f.id
+      const snapshot = f
       const list = await load()
       // The triggers that held an act the connection no longer allows; a failed read only leaves the list out.
       const dropped = snapshot.id && removed.length > 0 ? droppedActs((await triggersApi.list().catch(() => null))?.triggers, snapshot.id, removed) : []
@@ -648,6 +666,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       {canShare && shared.length > 0 && <SharedConnections rows={shared} s={s} />}
       {share && canShare && <ShareConnection share={share} s={s} onChanged={load} close={() => setShare(null)} />}
       {form && <ConnectionSheet p={sheetProps} />}
+      {form && saveStepOpen && SaveStep && <SaveStep form={form} t={t} onProceed={proceedSaveStep} onCancel={() => setSaveStepOpen(false)} />}
       <ConfirmDialog
         open={askDiscard}
         title={s('conn.discard.title')}

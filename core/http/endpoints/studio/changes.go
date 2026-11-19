@@ -18,7 +18,7 @@ var changeRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "change not found", proposals.ErrNotFound),
 	verbatim(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadChange.Error()+": ", studiosvc.ErrBadChange),
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrChangeExpired, studiosvc.ErrChangeAnswered,
-		studiosvc.ErrTargetChanged, studiosvc.ErrNotApplied, studiosvc.ErrCannotRevert, studiosvc.ErrNothingToRevert),
+		studiosvc.ErrTargetChanged, studiosvc.ErrProposalVoid, studiosvc.ErrNotApplied, studiosvc.ErrCannotRevert, studiosvc.ErrNothingToRevert),
 	fixed(http.StatusConflict, typeFilesOff, "changes need files, which are off on this server", studiosvc.ErrChangesOff),
 }
 
@@ -75,7 +75,7 @@ func (h *Handlers) GetChange(c echo.Context) error {
 // @Param id path string true "the proposal"
 // @Success 200 {object} contract.ChangeProposal "The applied proposal"
 // @Failure 404 {object} schema.ErrorResponse "Not yours or unknown"
-// @Failure 409 {object} schema.ErrorResponse "Stale, expired or answered"
+// @Failure 409 {object} schema.ErrorResponse "Stale, expired, answered, or the person who proposed it can no longer edit the shared project"
 // @Router /api/chats/changes/{id}/confirm [post]
 func (h *Handlers) ConfirmChange(c echo.Context) error {
 	var body struct {

@@ -798,6 +798,13 @@ func (t *tracker) stale(ctx context.Context, a workspace.Actor) bool {
 
 type requestKey struct{}
 
+// WithRequest returns ctx with r as the request of the call, as the manager
+// does for a tool it runs. A caller that runs a tool without a manager (a
+// test) uses it to give the tool what the host decided for the call.
+func WithRequest(ctx context.Context, r Request) context.Context {
+	return context.WithValue(ctx, requestKey{}, r)
+}
+
 // RequestFrom returns the request of the call that ctx belongs to.
 func RequestFrom(ctx context.Context) (Request, bool) {
 	r, ok := ctx.Value(requestKey{}).(Request)

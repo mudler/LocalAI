@@ -7,6 +7,7 @@ The typed declarations remain additive strict v1 fields, not a new protocol vers
 - `capabilities.ui.homeCommands` names installed pages, never tools or install actions.
 - `capabilities.executionProvider` names execution tools and one declared UI-only read status tool.
 - `capabilities.hostOperations.required` and `.optional` request exact operation names, never grants.
+- `capabilities.modelSearch` (feature level 9, `modelsearch.go`) describes the source of an add-on that provides the `model-search` slot: its ID, title, sorts and typed filters. That slot has a set selection, not a pick-one choice.
 - `capabilities.provides` says which provider slots of the host the add-on serves (`providerslots.go`, `provider-slots.json`). A slot is a job the host does itself and lets an add-on do in its place; the person picks one provider. The manifest names the slot, the version it was written for, tools for the roles of the slot and typed properties. It is an optional key under `api` 2.
 - `capabilities.network` declares the egress policy of the commands an add-on runs (kind `egress-check`, a title, preset titles). It attaches the `network-policy` host control.
 
@@ -14,7 +15,7 @@ The typed declarations remain additive strict v1 fields, not a new protocol vers
 Administrator policy and request admission remain authoritative, including for optional operations.
 Status is advisory; an isolation report does not prove network enforcement or authorize execution.
 
-See [the addon guide](../../../docs/content/features/addons.md#optional-typed-manifest-extensions)
+See [the addon guide](../../../docs/content/addons/contract-reference/manifest-extensions/#optional-typed-manifest-extensions)
 for JSON examples, bounds, collision rules, lifecycle behavior, and policy migration.
 
 Typed owner observations currently support local-owner JSON selections only.
@@ -33,7 +34,7 @@ The set of fields is closed: only the title and the description of a declared ki
 Tool descriptions, schemas and skills are for the model and stay English. English is the manifest itself, so `en` is refused.
 Tags follow the same rule as the language maps, at most 16, and all translated text has at most `MaxI18nChars` characters.
 `NegotiateLanguage` picks the language of a request: the explicit one, else the `Accept-Language` header, else English.
-See [the addon guide](../../../docs/content/features/addons.md#translated-text).
+See [the addon guide](../../../docs/content/addons/contract-reference/manifest/#translated-text).
 
 ## Optional model actions
 
@@ -84,4 +85,4 @@ FLAG_UPSCALE FLAG_MOTION FLAG_FORECAST
 {"contextFiles":[{"scope":"user","path":"Memory/index.md"},{"scope":"agent","path":"Memory/agents/{agent}/index.md","cap":1024}]}
 ```
 
-Every path lies under `Memory/`, ends in `.md` and holds no parent segment. An agent path holds `{agent}` once and a channel path holds `{channel}` once; the host fills them from the chat, never from the model. `cap` lowers the 2 KiB index cap; it cannot raise it. The add-on declares and the host reads: the add-on gains no access to the files.
+Every path lies under `Memory/`, ends in `.md` and holds no parent segment. An agent path holds `{agent}` once, a channel path holds `{channel}` once and a project path holds `{project}` once; the host fills them from the chat, never from the model. `cap` lowers the 2 KiB index cap; it cannot raise it. The add-on declares and the host reads: the add-on gains no access to the files.

@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import BrandName from './BrandName'
 import ThemeToggle from './ThemeToggle'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
@@ -265,7 +266,7 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
             {branding.logoHorizontalUrl === DEFAULT_BRANDING.logoHorizontalUrl ? (
               <>
                 <img src={apiUrl(branding.logoUrl)} alt="" className="sidebar-logo-img sidebar-logo-img--tile" />
-                <span className="sidebar-wordmark">{branding.instanceName}</span>
+                <span className="sidebar-wordmark"><BrandName /></span>
               </>
             ) : (
               <img src={apiUrl(branding.logoHorizontalUrl)} alt={branding.instanceName} className="sidebar-logo-img" />

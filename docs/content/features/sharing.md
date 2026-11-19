@@ -1,19 +1,22 @@
 +++
-disableToc = false
-title = "Sharing resources"
-weight = 27
 url = "/features/sharing/"
+disableToc = false
+title = "Share with your team"
+weight = 4
+description = "Share folders, saved agents, collections and connections with other users, and choose what they may do."
+keywords = ["team","sharing","permissions","users"]
+devbuild = "feature"
 +++
 
-LocalAI keeps one record of who may use a shared resource. Add-on resources,
-such as a [Tables]({{%relref "features/tables" %}}) database, are shared through
+Share a folder, a saved agent, a collection or a connection with other people on your server, and choose what they may do. Each shared item has a list of people who may use it and what they may do. Add-on resources,
+such as a [Tables]({{%relref "/addons/catalogue/work/tables" %}}) database, are shared through
 the add-on routes. Other kinds of resources are shared through the routes on this
 page, with the same rules. A kind is a type of resource that a LocalAI service
 registers with the host, for example `example:note`.
 
-Sharing is never a tool. No MCP tool, model tool, agent or proposal can share,
-lower or revoke anything. The routes that change a grant accept only the owner's
-own browser session.
+No MCP tool, model tool, agent or proposal can share, lower or revoke anything.
+The routes that change a grant accept only the owner's own browser session. See
+[Users and sharing]({{%relref "/concepts/users-and-sharing" %}}).
 
 ## Roles
 
@@ -27,11 +30,11 @@ kind declares which roles it grants and, for each action, which roles may run it
 | Kind | Roles | What a role may do |
 |------|-------|--------------------|
 | Add-on resources | `viewer`, `editor` | `viewer` reads. `editor` reads and writes rows. Only the owner changes the schema, shares or deletes. |
-| Saved agents (`agent`) | `use`, `viewer` | `use` chats with the agent as yourself. `viewer` also reads the definition. Only the owner edits, deletes, exports or shares. See [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}). |
+| Saved agents (`agent`) | `use`, `viewer` | `use` chats with the agent as yourself. `viewer` also reads the definition. Only the owner edits, deletes, exports or shares. See [Share an agent]({{%relref "/features/chats-and-agents/chats-agents#share-an-agent" %}}). |
 | Other kinds | `use`, `manage` (or the subset the kind declares) | The kind decides. Usually `use` reads and runs the resource and `manage` also changes it. |
-| Folders of your home | `read`, `write` | `read` reads the folder and everything in it. `write` also changes and deletes there. Only the owner shares. See [Share a folder of your home]({{%relref "features/chats#share-a-folder-of-your-home" %}}). |
+| Folders of your home | `read`, `write` | `read` reads the folder and everything in it. `write` also changes and deletes there. Only the owner shares. See [Share a folder of your home]({{% relref "/features/files-and-documents/files-reference#share-a-folder-of-your-home" %}}). |
 
-A role is a set of actions, not a rank. LocalAI refuses to register a kind whose
+A role is a set of allowed actions. LocalAI refuses to register a kind whose
 table names a role that the kind does not grant. A role that is stored but not
 listed for an action is denied, and so is any role that LocalAI does not know.
 
@@ -115,7 +118,7 @@ collection keeps its record and its grants.
 All routes need an authenticated named account. They do not need the `addons`
 feature; a kind that names a feature needs that one (see [Features](#features)).
 The grants live in the policy store of the add-on owner (see
-[Addon contracts]({{%relref "features/addons" %}})), so the routes exist only while
+[Addon contracts]({{%relref "/addons/contract-reference" %}})), so the routes exist only while
 the add-on owner runs (`--addons-enabled`, on by default), and a frontend of a
 distributed deployment forwards each call to the owner.
 
@@ -200,14 +203,14 @@ the resource ID from the page of the resource, or from the route in the table.
 
 | Kind | What it is | Roles | `@everyone` | Feature | Resource ID from |
 |------|------------|-------|-------------|---------|------------------|
-| `connection` | A [connector binding]({{%relref "features/chats-connectors#sharing-a-connection" %}}) | `use` | No | `connectors` | `POST /api/chats/connectors/{id}/share` |
-| `collection` | A [collection]({{%relref "features/collections#sharing-a-collection" %}}) | `viewer`, `editor` | Yes | `collections` | `POST /api/collections/{name}/share` |
-| `agent` | A [saved agent]({{%relref "features/chats-agents#share-an-agent" %}}) | `use`, `viewer` | Yes | `agents` | `POST /api/chats/agents/{id}/share` |
+| `connection` | A [connector binding]({{% relref "/features/chat-apps/sharing#sharing-a-connection" %}}) | `use` | No | `connectors` | `POST /api/chats/connectors/{id}/share` |
+| `collection` | A [collection]({{%relref "/features/files-and-documents/collections#sharing-a-collection" %}}) | `viewer`, `editor` | Yes | `collections` | `POST /api/collections/{name}/share` |
+| `agent` | A [saved agent]({{%relref "/features/chats-and-agents/chats-agents#share-an-agent" %}}) | `use`, `viewer` | Yes | `agents` | `POST /api/chats/agents/{id}/share` |
 
 - **`connection`**: `use` lets the person's chats and agents run the tools of the
   binding's add-on with its credential. A chat of the person with a shared agent
   that names the binding uses it as described in
-  [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}}). The person sees the name and the state of
+  [Share an agent]({{%relref "/features/chats-and-agents/chats-agents#share-an-agent" %}}). The person sees the name and the state of
   the binding and never its token or settings; every other operation stays with the
   owner and answers `404` to the person. Messages to the bot still reach the owner's
   agent.
@@ -270,23 +273,25 @@ grantee's next file call on every frontend, because the file store checks the
 grants on every call. The chats of the grantee that run with the folder on the
 frontend that serves the change are stopped before the change answers; the other
 frontends get the request on the chat bus and stop theirs within seconds. Its
-grants are the workspace grants that the file store checks on every file call,
-so they stay in the workspace database, and the routes are under
+grants are the file grants that the file store checks on every file call,
+so they stay with the file store, and the routes are under
 `/api/chats/files/shares` (see [Share a folder of your
-home]({{%relref "features/chats#share-a-folder-of-your-home" %}})). Moving them
+home]({{% relref "/features/files-and-documents/files-reference#share-a-folder-of-your-home" %}})). Moving them
 into the policy store would put the add-on owner on the path of every file
 call. The user picker of a folder is the picker described in [API](#api), with the
 same rules and limits, but it answers on the frontend that serves the call, so its
 count of searches is kept per frontend.
 
 LocalAI reads some folders of a home with the owner's own authority: the skills
-(the `.skills` folder at the top of the home and every `.skills` folder below it),
+(the `.skills` folder at the top of the home, every `.skills` folder below it
+except under `Projects/`, and the `skills` folder of each project),
+the `attached` block of each `project.json`,
 the notes in `Memory/` and the context files of add-ons, the agent profiles and
 the persona in `LocalAI/`, and the pages in `pages/`. Two rules keep a grantee
 from writing the owner's instructions:
 
-- A person cannot share `LocalAI/`, `Chats/`, `Memory/`, `pages/` or a `.skills`
-  folder, or a folder inside one. A folder that holds a grant, on itself or on a
+- A person cannot share `LocalAI/`, `Chats/`, `Memory/`, `pages/`, a `.skills`
+  folder or the `skills` folder of a project, or a folder inside one. A folder that holds a grant, on itself or on a
   folder below it, cannot move into another home, out of a home, or into one of
   these folders: the move is refused with type `folder_shared`, also in an undo.
   A grant therefore never reaches another home, where its giver could not take
@@ -387,7 +392,7 @@ the badges are also in the UI catalog at `/app/ui-catalog`.
 | `allowEveryone` | `true` when the kind may be shared with `@everyone`. |
 | `resource` | `{ id, name }`. The name is in the title. |
 | `sharing` | `false` in local-owner mode. The dialog then shows that sharing is not available and makes no call. |
-| `references` | Optional. Other resources that this one uses, which the owner decides on before sharing: `[{ id, label, kind, options }]`, where `options` is a subset of `view`, `use` and `none`. The dialog does not add anyone until every row has a choice. The agents page takes the options from the server, which offers only the choices the referenced kind can grant (see [Share an agent]({{%relref "features/chats-agents#share-an-agent" %}})). |
+| `references` | Optional. Other resources that this one uses, which the owner decides on before sharing: `[{ id, label, kind, options }]`, where `options` is a subset of `view`, `use` and `none`. The dialog does not add anyone until every row has a choice. The agents page takes the options from the server, which offers only the choices the referenced kind can grant (see [Share an agent]({{%relref "/features/chats-and-agents/chats-agents#share-an-agent" %}})). |
 | `onShare` | With `references` only: called after each new grant, in the same step, with `{ principal, role, choices }`, where `choices` maps each reference ID to the chosen option. The page shares the referenced resources from there. |
 
 A reference row with no `options` (or only `none`) is shown read-only with the

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { Button, Callout, SearchField, SidePane, Switch } from '../ui'
 import { filterTools, mcpAddress, mcpTarget, sentence, testedWhen as when } from '../../utils/chatMCP'
-import { StateChip, ToolList } from './ConnectorBits'
+import { CommandOutput, StateChip, ToolList } from './ConnectorBits'
 
 // The details of one connector in the shared side pane (docked beside the list
 // from 1280 px, over the page below, a bottom sheet on a phone): its switch,
@@ -71,6 +71,7 @@ export default function ConnectorDetails({ c, state, check, testing, busy, onClo
               <span className="mcp-quiet" title={tested.exact}>{t('mcpPage.details.testedAt', { when: tested.label })}</span>
             </Callout>
           )}
+          {check && !check.ok && check.output && <CommandOutput text={check.output} />}
         </section>
 
         <section className="mcp-section" aria-labelledby="mcp-sec-tools">

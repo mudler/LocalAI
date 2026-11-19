@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
@@ -45,6 +46,7 @@ func (a *Application) initStudioStore() {
 		ps   notify.PushStore
 		cs   connectors.Store
 		ms   mcpconns.Store
+		pj   projects.Store
 		kind string
 		err  error
 	)
@@ -55,7 +57,9 @@ func (a *Application) initStudioStore() {
 				if nt, err = notify.NewGORM(a.authDB); err == nil {
 					if ps, err = notify.NewGORMPush(a.authDB); err == nil {
 						if cs, err = connectors.NewGORM(a.authDB); err == nil {
-							ms, err = mcpconns.NewGORM(a.authDB)
+							if ms, err = mcpconns.NewGORM(a.authDB); err == nil {
+								pj, err = projects.NewGORM(a.authDB)
+							}
 						}
 					}
 				}
@@ -69,7 +73,9 @@ func (a *Application) initStudioStore() {
 				if nt, err = notify.NewJSON(filepath.Join(dir, "notifications")); err == nil {
 					if ps, err = notify.NewJSONPush(filepath.Join(dir, "push")); err == nil {
 						if cs, err = connectors.NewJSON(filepath.Join(dir, "connectors")); err == nil {
-							ms, err = mcpconns.NewJSON(filepath.Join(dir, "mcp-connectors"))
+							if ms, err = mcpconns.NewJSON(filepath.Join(dir, "mcp-connectors")); err == nil {
+								pj, err = projects.NewJSON(filepath.Join(dir, "projects"))
+							}
 						}
 					}
 				}
@@ -81,7 +87,9 @@ func (a *Application) initStudioStore() {
 			if ag, err = agents.NewJSON(""); err == nil {
 				if nt, err = notify.NewJSON(""); err == nil {
 					if cs, err = connectors.NewJSON(""); err == nil {
-						ms, err = mcpconns.NewJSON("")
+						if ms, err = mcpconns.NewJSON(""); err == nil {
+							pj, err = projects.NewJSON("")
+						}
 					}
 				}
 			}
@@ -94,6 +102,7 @@ func (a *Application) initStudioStore() {
 	}
 	a.studioStore, a.studioAgents, a.studioNotify, a.studioPush, a.studioConnStore, a.studioStoreKind = s, ag, nt, ps, cs, kind
 	a.studioMCPStore = ms
+	a.studioProjectStore = pj
 	if err := a.initStudioTriggerStore(); err != nil {
 		xlog.Warn("Triggers disabled: failed to initialise their store", "error", err)
 	}

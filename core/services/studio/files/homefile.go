@@ -29,6 +29,27 @@ func (s *Service) ReadHome(ctx context.Context, principal, rel string, max int64
 	return text, true, nil
 }
 
+// ReadShared reads a text file at the workspace path abs as the person
+// principal, through the grants the person has and nothing else. It is for a
+// file in a folder that another person shared. A file that is missing, or that
+// the person may not read, gives ok false.
+func (s *Service) ReadShared(ctx context.Context, principal, abs string, max int64) (text string, ok bool, err error) {
+	if !s.Available() {
+		return "", false, ErrUnavailable
+	}
+	if !validPrincipal(principal) {
+		return "", false, workspace.ErrBadName
+	}
+	text, _, err = s.readText(ctx, s.Actor(principal), abs, max)
+	if errors.Is(err, workspace.ErrNotFound) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return text, true, nil
+}
+
 // WriteHome replaces a file in the home of principal as one change set with
 // the given title, and returns its revision, so the caller can undo it. It
 // writes as the user: it is for a change the user confirmed. The content may
@@ -128,4 +149,31 @@ func (s *Service) DeleteHome(ctx context.Context, principal, rel string) error {
 		return err
 	}
 	return nil
+}
+
+// MoveHome moves a file or folder of the home of principal to another place
+// in the same home, as the user, and makes the folders above the new place.
+// It is one change set, so one undo brings it back. A path that is not there
+// is reported as false and is not an error.
+func (s *Service) MoveHome(ctx context.Context, principal, fromRel, toRel string) (moved bool, err error) {
+	if !s.Available() {
+		return false, ErrUnavailable
+	}
+	from, err := s.Abs(principal, fromRel)
+	if err != nil {
+		return false, err
+	}
+	to, err := s.Abs(principal, toRel)
+	if err != nil {
+		return false, err
+	}
+	n, err := s.ws.Move(ctx, s.Actor(principal), from, to)
+	switch {
+	case errors.Is(err, workspace.ErrNotFound):
+		return false, nil
+	case err != nil && !errors.Is(err, workspace.ErrCommitted):
+		return false, err
+	}
+	s.Written(ctx, n, principal)
+	return true, nil
 }

@@ -92,7 +92,7 @@ If you have a `prepare.sh` doing the clone, delete it — the recipe belongs in 
 - CUDA 13 builds: Add after other CUDA 13 builds (e.g., after `gpu-nvidia-cuda-13-chatterbox`)
 
 **Additional build types you may need:**
-- ROCm/HIP: Use `build-type: 'hipblas'` with `base-image: "rocm/dev-ubuntu-24.04:7.2.1"`
+- ROCm/HIP: Use `build-type: 'hipblas'` with `base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"`. Python backends (`Dockerfile.python`) are the exception and stay on `rocm/dev-ubuntu-24.04:7.2.1` until PyTorch publishes ROCm 10.1 wheels; their GPU code comes from the ROCm torch wheel in `requirements-hipblas.txt`
 - Intel/SYCL: Use `build-type: 'intel'` or `build-type: 'sycl_f16'`/`sycl_f32` with `base-image: "intel/oneapi-basekit:2025.3.2-0-devel-ubuntu24.04"`
 - L4T (ARM): Use `build-type: 'l4t'` with `platforms: 'linux/arm64'` and `runs-on: 'ubuntu-24.04-arm'`
 
@@ -296,7 +296,7 @@ with each other, so size decides among them.
 
 A backend is not "added" until it is discoverable. Update the user-facing docs:
 
-- **`docs/content/features/backends.md`** - add the backend to the right
+- **`docs/content/models/backends.md`** - add the backend to the right
   category in the "LocalAI supports various types of backends" list (and add a
   new category if it introduces a new modality, e.g. sound classification).
 - If the backend introduces a **new API surface** (a new endpoint or a realtime
@@ -328,7 +328,7 @@ After adding a new backend, verify:
 - [ ] Follows the same pattern as similar backends (e.g., if it's a transcription backend, follow `faster-whisper` pattern)
 - [ ] **`Load` validates its input and refuses models it can't serve.** When a model config has no explicit `backend:`, the model loader greedily probes *every* installed backend with the model's name and binds to the first `Load` that succeeds — an accept-anything `Load` will capture arbitrary LLMs (issue #9287). Backends that load a real artefact get this for free (the load fails); backends with no artefact must gate on the name: `opus` accepts only its own name (or none), `local-store` requires the `store.NamespacePrefix` namespace marker sent by `core/backend/stores.go`.
 - [ ] **Gallery variant ranking considered**: if this backend should be preferred over another on some hardware, it is listed in `engineNamePreferenceRules` (NOT `backendBuildTagPreferenceRules`, NOT `servingFeaturePreferenceTokens`) in `pkg/system/capabilities.go`. A missing entry silently ranks it last and lets the next sort key decide.
-- [ ] Documented: added to the category list in `docs/content/features/backends.md` (and any new endpoint/realtime capability documented under `docs/content/`)
+- [ ] Documented: added to the category list in `docs/content/models/backends.md` (and any new endpoint/realtime capability documented under `docs/content/`)
 - [ ] If it is an in-house native C/C++/GGML engine, added to the maintained-engines table in the top-level `README.md`
 
 ## Bundling runtime shared libraries (`package.sh`)

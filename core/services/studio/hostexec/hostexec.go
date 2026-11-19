@@ -57,8 +57,8 @@ func ValidMode(m string) bool { return m == "" || m == ModeOff || m == ModeAsk |
 
 // Description is what the model is told about the built-in bash.
 const Description = "Run a shell script with bash directly on this machine, with no isolation. " +
-	"It starts in the user's home, inside a scratch folder: the same files as /workspace/home of the file tools, so a relative path such as report.docx is /workspace/home/report.docx for them; " +
-	"a shared folder is ../shared-<name> (/workspace/shared-<name> of the file tools). The /workspace paths do not exist here: use relative paths. " +
+	"The shell starts in $WORK, this chat's work folder (the user's home when the chat has none yet), inside a scratch folder: the same files as /workspace/home of the file tools; " +
+	"a shared folder is ../shared-<name> (/workspace/shared-<name> of the file tools). The /workspace paths do not exist here: use $WORK or relative paths. " + runner.QuoteRule + " " +
 	"What it changes in the home and the writable shared folders is saved to the user's files; anything else is lost. " +
 	"It can read what the server can read and reach the internet and the local network. " +
 	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800). " +
@@ -88,6 +88,12 @@ type Options struct {
 	// PerUser and Total bound the scratch folders (default 4 and 16), so at
 	// most PerUser commands of one user run at once.
 	PerUser, Total int
+	// WorkDir returns the guest path of the chat's work folder for a command
+	// of a (see studio.Service.CommandWorkDir): the shell starts there and gets
+	// it as $WORK. With create the folder is made first. "" means the chat has
+	// no folder yet, and the shell starts in the home with no $WORK. Nil: the
+	// same, for every chat.
+	WorkDir func(ctx context.Context, a workspace.Actor, create bool) string
 	// Geteuid is os.Geteuid; tests set it.
 	Geteuid func() int
 	// Instance is the node that runs the background jobs: it is recorded in
@@ -222,7 +228,9 @@ func (r *Runner) run(ctx context.Context, a workspace.Actor, args json.RawMessag
 	}
 	op := make([]byte, 8)
 	_, _ = rand.Read(op)
-	out, err := r.m.Run(ctx, runner.Request{User: a.Principal, Conversation: a.ChatID, Operation: "hx" + hex.EncodeToString(op), Tool: "bash", Args: args, Call: sandbox.CallOptions{ReadOnly: readOnly}})
+	// A check that must change no file starts in the folder only if it exists.
+	out, err := r.m.Run(ctx, runner.Request{User: a.Principal, Conversation: a.ChatID, Operation: "hx" + hex.EncodeToString(op), Tool: "bash", Args: args,
+		Call: sandbox.CallOptions{ReadOnly: readOnly, WorkDir: r.workDir(ctx, a, !readOnly)}})
 	if errors.Is(err, ErrScoped) {
 		return ScopedText, nil
 	}
@@ -251,6 +259,14 @@ func (r *Runner) actor(ctx context.Context, user, chat string) (workspace.Actor,
 		return workspace.Actor{}, ErrScoped
 	}
 	return a, nil
+}
+
+// workDir is the work folder of the chat of a, or "".
+func (r *Runner) workDir(ctx context.Context, a workspace.Actor, create bool) string {
+	if r.o.WorkDir == nil {
+		return ""
+	}
+	return r.o.WorkDir(ctx, a, create)
 }
 
 // audit records one call.

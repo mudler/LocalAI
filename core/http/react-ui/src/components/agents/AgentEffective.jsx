@@ -28,7 +28,7 @@ export default function AgentEffective({ lines, dirty, isEdit, hasConnections, o
               <span className={['allowed', 'info'].includes(l.state) ? 'sr-only' : 'aed-eff__state'}>{t(`create.eff.state.${l.state}`)}</span>{' '}
               <span>{t(`create.eff.${l.text}`, { ...l.vars, count: l.vars?.count, defaultValue: l.text })}</span>
               {l.vars?.more > 0 && <span className="aed-eff__more">{' '}{t('create.eff.more', { count: l.vars.more })}</span>}
-              {l.code && <code className="aed-eff__code">{l.code}</code>}
+              {l.code && l.code !== 'tool_unusable' && <code className="aed-eff__code">{l.code}</code>}
             </div>
             <div className="aed-eff__acts">
               {l.fix?.kind === 'link' && <Link className="aed-eff__link" to={l.fix.to} data-testid="agent-effective-fix">{t('create.eff.fixOpen')}</Link>}

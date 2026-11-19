@@ -31,6 +31,8 @@ import (
 type AddonProviderSet struct {
 	AddonID, Title, Description string
 	Provides                    []contract.ProviderDeclaration
+	// ModelSearch is the source the add-on declares for the model-search slot.
+	ModelSearch *contract.ModelSearch
 	// Running is true when the add-on can serve now: installed, enabled and
 	// running.
 	Running bool
@@ -191,6 +193,11 @@ func (s *Service) resolveSlot(ctx context.Context, user, slot string, legacy fun
 	if !ok {
 		return slotOff(out, ProviderUnreadable, "the slot is not known")
 	}
+	if desc.IsSet() {
+		// A set slot has no one provider that serves a chat. Its add-ons
+		// contribute through the host's own search, not through a pick.
+		return slotOff(out, ProviderChosenOff, "the slot takes a set of sources, not one provider")
+	}
 	out.Selected, out.Active = desc.Selection.Default, desc.Selection.Default
 	v, stored, err := s.storedProvider(ctx, user, slot)
 	if err != nil {
@@ -265,6 +272,11 @@ func isSlotAlias(slot, addonID string) bool {
 func (s *Service) ProviderSlots(ctx context.Context, user string) ([]SlotView, error) {
 	var out []SlotView
 	for _, desc := range contract.ProviderSlots() {
+		if desc.IsSet() {
+			// A set slot is chosen through its own route (the model search
+			// sources), not by picking one provider.
+			continue
+		}
 		v, err := s.slotView(ctx, user, desc)
 		if err != nil {
 			return nil, err
@@ -277,7 +289,7 @@ func (s *Service) ProviderSlots(ctx context.Context, user string) ([]SlotView, e
 // ProviderSlot is one slot, or ErrUnknownSlot.
 func (s *Service) ProviderSlot(ctx context.Context, user, slot string) (SlotView, error) {
 	desc, ok := contract.ProviderSlotByID(slot)
-	if !ok {
+	if !ok || desc.IsSet() {
 		return SlotView{}, ErrUnknownSlot
 	}
 	return s.slotView(ctx, user, desc)
@@ -332,7 +344,7 @@ func (s *Service) slotView(ctx context.Context, user string, desc contract.Provi
 // slot allows it); an add-on must declare the slot and run now.
 func (s *Service) SelectProvider(ctx context.Context, user, slot, id string) (SlotView, error) {
 	desc, ok := contract.ProviderSlotByID(slot)
-	if !ok {
+	if !ok || desc.IsSet() {
 		return SlotView{}, ErrUnknownSlot
 	}
 	id = desc.Canonical(id)

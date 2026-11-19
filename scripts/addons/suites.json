@@ -58,7 +58,7 @@
           "-p",
           "2",
           "-tags",
-          "auth",
+          "auth,nosqlite,purego_utp",
           "<temporary SQLite probe>",
           "-ginkgo.json-report=<unique report>"
         ],
@@ -106,7 +106,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./pkg/addons/contract",
         "-ginkgo.json-report=../../../.cache/addons/logs/contracts.json"
       ],
@@ -117,7 +117,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./pkg/addons/packaging",
         "-ginkgo.json-report=../../../.cache/addons/logs/contracts-packaging.json"
       ],
@@ -128,7 +128,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         ".",
         "-ginkgo.json-report=.cache/addons/logs/contracts-architecture.json"
       ]
@@ -158,6 +158,22 @@
           "a repeated variable",
           "a path that is too deep",
           "refuses more routes than the limit",
+          "needs feature level 8, and a level 7 host refuses the manifest with the newer-host reason",
+          "a tail that is not last",
+          "two tails",
+          "an upper case name",
+          "a tail with no name",
+          "two dots",
+          "a tail name used twice",
+          "the same shape twice",
+          "a tail path that is too deep",
+          "allows the same shape for another method, and a tail beside a literal and a variable route",
+          "matches one or more segments and joins them with a slash",
+          "needs at least one segment for the tail",
+          "lets a route without a tail win over a tail, whatever the order",
+          "decides precedence for each method: a literal route of another method does not shadow the tail",
+          "prefers the tail with the longer fixed part",
+          "takes a longer path for a tail than for a fixed route, within the tail limits",
           "matches a declared route and binds variables",
           "tells a wrong method from an unknown path",
           "dot segment as a variable",
@@ -785,7 +801,50 @@
           "a refusal with data",
           "a long refusal",
           "output on input",
-          "written too much"
+          "written too much",
+          "backslash",
+          "empty segment",
+          "trailing slash",
+          "space",
+          "tells a wrong method from an unknown path",
+          "percent escape",
+          "nul byte",
+          "non ascii",
+          "dot segment",
+          "dot dot",
+          "dot dot in the middle",
+          "dot at the end",
+          "dot dot at the end",
+          "encoded dot",
+          "a segment over 128 bytes",
+          "more segments than the tail limit",
+          "a path over the tail limit",
+          "is a set slot with Hugging Face as its built-in source",
+          "accepts a source with every filter type",
+          "needs feature level 9 and a host that has it",
+          "unknown filter type",
+          "too many filters",
+          "too many enum values",
+          "duplicate filter id",
+          "enum default outside its values",
+          "range with no span",
+          "filter id that no tool argument may use",
+          "filter id of a reserved argument",
+          "markup in a label",
+          "source id of the built-in provider",
+          "unknown sort",
+          "search tool not declared",
+          "search tool defined but absent from capabilities.tools",
+          "repeated sort",
+          "a filter value label with markup",
+          "search role missing",
+          "modelSearch without the slot",
+          "slot without modelSearch",
+          "translation of an unknown filter",
+          "takes the source properties hasVariants and p2p, which the host sends to the panel",
+          "takes translations of the title and the filters",
+          "refuses mode set on a slot that is pick-one by its descriptor",
+          "omits proposer and project_node for an own proposal and round-trips them for a shared one"
         ]
       },
       {
@@ -976,6 +1035,7 @@
           "has consistent package files for jellyfin",
           "has consistent package files for mail",
           "has consistent package files for pikvm",
+          "has consistent package files for pirateface-search",
           "has consistent package files for ssh",
           "writes the zip of a verified layout with a digest manifest and a sha256 file",
           "audits actual host calls and strict package contract for github",
@@ -985,6 +1045,7 @@
           "audits actual host calls and strict package contract for jellyfin",
           "audits actual host calls and strict package contract for mail",
           "audits actual host calls and strict package contract for pikvm",
+          "audits actual host calls and strict package contract for pirateface-search",
           "audits actual host calls and strict package contract for ssh",
           "lists every release platform with its runner",
           "enables a platform exactly when its native check is recorded",
@@ -1072,7 +1133,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/catalog",
         "-ginkgo.json-report=../../../../.cache/addons/logs/catalog.json"
       ]
@@ -1187,7 +1248,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/packages",
         "-ginkgo.json-report=../../../../.cache/addons/logs/packages.json"
       ]
@@ -1283,7 +1344,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons",
         "-ginkgo.json-report=../../../.cache/addons/logs/lifecycle.json"
       ]
@@ -1415,7 +1476,8 @@
       "reads again when the library lists another package for the same version",
       "does not wait behind a read of the same release that is in flight",
       "is a recent check once the owner has refreshed in the background, not unknown",
-      "refuses a candidate that needs a newer feature level, and offers one the host has"
+      "refuses a candidate that needs a newer feature level, and offers one the host has",
+      "installs a manifest that requests the client job operations once they are approved"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1429,7 +1491,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/runtime",
         "-ginkgo.json-report=../../../../.cache/addons/logs/runtime.json"
       ],
@@ -1440,9 +1502,9 @@
         "-p",
         "2",
         "-tags",
-        "auth",
-        "./addons/internal/protocol",
-        "-ginkgo.json-report=../../../.cache/addons/logs/runtime-protocol.json"
+        "auth,nosqlite,purego_utp",
+        "./pkg/addons/sdk/protocol",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/runtime-protocol.json"
       ]
     ],
     "report": ".cache/addons/logs/runtime.json",
@@ -1537,7 +1599,9 @@
           "keeps the start live after the call and ends it when an answer reports the job finished",
           "leases nothing for another tool, a refusal, a finished start, a bad answer or an add-on without jobs",
           "refuses a start, without sending it, when every lease place of the add-on is taken",
-          "gives the reserved place back when the start makes no job"
+          "gives the reserved place back when the start makes no job",
+          "is read for a GET route and apply for a route that changes things, and never act",
+          "builds the envelope of a stream with the read scope and refuses a caller that is not a client"
         ]
       },
       {
@@ -1595,7 +1659,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/gateway",
         "-ginkgo.json-report=../../../../.cache/addons/logs/gateway.json"
       ],
@@ -1606,7 +1670,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/http/endpoints/addons",
         "-ginkgo.json-report=../../../../.cache/addons/logs/gateway-http.json"
       ],
@@ -1617,7 +1681,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/application",
         "-ginkgo.focus=execution binding owner resolver|workspace operation declarations",
         "-ginkgo.json-report=../../.cache/addons/logs/gateway-owner-binding.json"
@@ -1629,7 +1693,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/studio/session",
         "-ginkgo.json-report=../../../../.cache/addons/logs/gateway-session-scope.json"
       ]
@@ -1902,7 +1966,9 @@
           "needs exactly one of data and error in an OAuth reply",
           "writes a decided refusal into the envelope and any other error as a typed error",
           "answers an unknown lifecycle operation with its own type, not as a denial",
-          "carries the jobs tool of an app, which the public apps API leaves out"
+          "carries the jobs tool of an app, which the public apps API leaves out",
+          "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
+          "carries the credential-slot words and the translated resource nouns of an app"
         ]
       },
       {
@@ -2139,6 +2205,23 @@
           "renames a folder name that has no folder yet",
           "renames a folder name that has no folder yet",
           "names no work folder when the product does not ask",
+          "keeps a folder made in the old style when the title changes",
+          "keeps a folder made in the old style when the title changes",
+          "a plain title",
+          "spaces become one dash",
+          "a middle dot separates words",
+          "punctuation is dropped",
+          "accents lose their mark",
+          "letters with no decomposition are spelled out",
+          "a slash is a separator",
+          "digits are kept",
+          "a title with no ASCII letter falls back",
+          "an empty title falls back",
+          "a title of punctuation falls back",
+          "uses the creation date in UTC",
+          "never holds a space, an upper-case letter or a character outside ASCII",
+          "stays inside the byte budget of a name, with room for a suffix",
+          "does not ask the hook again when a chat reopens for its next turn",
           "marks the working files of the chat's file list",
           "puts the kind of each file on the card of a call",
           "closes an idle chat and opens it again",
@@ -2263,7 +2346,15 @@
           "gives chats with different titles the same prompt and names each folder in its note",
           "gives chats with different titles the same prompt and names each folder in its note",
           "keeps the folder in the note when the product's note is at its limit",
-          "keeps the folder in the note when the product's note is at its limit"
+          "keeps the folder in the note when the product's note is at its limit",
+          "mounts the project and its memory read and write, and a pulled project read only",
+          "keeps the names unique against the other mounts",
+          "skips a project folder that is missing and still builds the view",
+          "does not pass a project folder inside the home through the shared-root skip",
+          "describes the project mounts in the prompt",
+          "tells the model not to change the memory of a shared project, also through the shared folder",
+          "describes a mount by the role it was asked for, never by its name",
+          "adds the notes of the view to the prompt"
         ]
       }
     ]
@@ -2278,7 +2369,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/policy",
         "-ginkgo.json-report=../../../../.cache/addons/logs/policy.json"
       ]
@@ -2558,7 +2649,17 @@
       "pikvm/type-text: waits for a person in propose mode",
       "pikvm/type-text: runs from a chat turn in Allow all, and the default is not Allow all",
       "keeps no hard approval on any write tool of these add-ons",
-      "refuses every write in off mode"
+      "refuses every write in off mode",
+      "returns a proposal that waits and runs nothing until a person confirms",
+      "still applies a tool without approval always at once",
+      "holds the proposal for a person, with the hold and the expiry on it",
+      "holds an overridable tool too, since only a credential can relax it",
+      "applies once when a person confirms, and a repeat sends nothing",
+      "never runs for a caller that is not a person, with or without the chat mark",
+      "does not let a person's browser confirm through a chat turn mark",
+      "does not let the messaging-chat mark confirm it, even for a credential that stands for a person",
+      "never runs a cancelled or an expired proposal",
+      "keeps today's behavior for a tool without approval always"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -2572,7 +2673,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/policy",
         "-ginkgo.json-report=../../../../.cache/addons/logs/proposals.json"
       ],
@@ -2583,7 +2684,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/http/endpoints/addons",
         "-ginkgo.json-report=../../../../.cache/addons/logs/proposals-http.json"
       ]
@@ -2867,7 +2968,17 @@
           "pikvm/type-text: waits for a person in propose mode",
           "pikvm/type-text: runs from a chat turn in Allow all, and the default is not Allow all",
           "keeps no hard approval on any write tool of these add-ons",
-          "refuses every write in off mode"
+          "refuses every write in off mode",
+          "holds the proposal for a person, with the hold and the expiry on it",
+          "holds an overridable tool too, since only a credential can relax it",
+          "applies once when a person confirms, and a repeat sends nothing",
+          "never runs for a caller that is not a person, with or without the chat mark",
+          "does not let a person's browser confirm through a chat turn mark",
+          "does not let the messaging-chat mark confirm it, even for a credential that stands for a person",
+          "never runs a cancelled or an expired proposal",
+          "keeps today's behavior for a tool without approval always",
+          "returns a proposal that waits and runs nothing until a person confirms",
+          "still applies a tool without approval always at once"
         ]
       },
       {
@@ -3064,7 +3175,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/artifacts",
         "-ginkgo.json-report=../../../../.cache/addons/logs/artifacts.json"
       ],
@@ -3075,7 +3186,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/gateway",
         "-ginkgo.json-report=../../../../.cache/addons/logs/artifacts-gateway.json"
       ],
@@ -3086,7 +3197,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/http/endpoints/addons",
         "-ginkgo.json-report=../../../../.cache/addons/logs/artifacts-http.json"
       ]
@@ -3401,7 +3512,9 @@
           "needs exactly one of data and error in an OAuth reply",
           "writes a decided refusal into the envelope and any other error as a typed error",
           "answers an unknown lifecycle operation with its own type, not as a denial",
-          "carries the jobs tool of an app, which the public apps API leaves out"
+          "carries the jobs tool of an app, which the public apps API leaves out",
+          "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
+          "carries the credential-slot words and the translated resource nouns of an app"
         ]
       },
       {
@@ -3598,7 +3711,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/apps",
         "-ginkgo.json-report=../../../../.cache/addons/logs/apps.json"
       ],
@@ -3609,7 +3722,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons",
         "-ginkgo.json-report=../../../.cache/addons/logs/apps-lifecycle.json"
       ],
@@ -3620,7 +3733,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/runtime",
         "-ginkgo.json-report=../../../../.cache/addons/logs/apps-runtime.json"
       ],
@@ -3631,7 +3744,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/http/endpoints/addons",
         "-ginkgo.json-report=../../../../.cache/addons/logs/apps-http.json"
       ]
@@ -3803,7 +3916,8 @@
           "reads again when the library lists another package for the same version",
           "does not wait behind a read of the same release that is in flight",
           "is a recent check once the owner has refreshed in the background, not unknown",
-          "refuses a candidate that needs a newer feature level, and offers one the host has"
+          "refuses a candidate that needs a newer feature level, and offers one the host has",
+          "installs a manifest that requests the client job operations once they are approved"
         ]
       },
       {
@@ -3896,7 +4010,9 @@
           "keeps the start live after the call and ends it when an answer reports the job finished",
           "leases nothing for another tool, a refusal, a finished start, a bad answer or an add-on without jobs",
           "refuses a start, without sending it, when every lease place of the add-on is taken",
-          "gives the reserved place back when the start makes no job"
+          "gives the reserved place back when the start makes no job",
+          "is read for a GET route and apply for a route that changes things, and never act",
+          "builds the envelope of a stream with the read scope and refuses a caller that is not a client"
         ]
       },
       {
@@ -4351,7 +4467,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./addons/tables/internal/store",
         "-ginkgo.json-report=../../../../.cache/addons/logs/tables-databases-store.json"
       ],
@@ -4362,7 +4478,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/tables",
         "-ginkgo.json-report=../../../.cache/addons/logs/tables-databases.json"
       ]
@@ -4510,7 +4626,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./addons/tables/internal/store",
         "-ginkgo.json-report=../../../../.cache/addons/logs/tables-schema-store.json"
       ],
@@ -4521,7 +4637,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/tables",
         "-ginkgo.json-report=../../../.cache/addons/logs/tables-schema.json"
       ]
@@ -4669,7 +4785,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./addons/tables/internal/store",
         "-ginkgo.json-report=../../../../.cache/addons/logs/tables-rows-store.json"
       ],
@@ -4680,7 +4796,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/tables",
         "-ginkgo.json-report=../../../.cache/addons/logs/tables-rows.json"
       ]
@@ -5029,7 +5145,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/tablesadmin",
         "-ginkgo.json-report=../../../.cache/addons/logs/tables-admin.json"
       ]
@@ -5526,6 +5642,8 @@
       "package.sh refuses a guest image that is not by digest",
       "package.sh refuses a sandbox release build without SANDBOX_GUEST_IMAGE",
       "package.sh stamps the sandbox executable with a guest image in a local check",
+      "package.sh signs the macOS sandbox executable with the virtualization entitlement",
+      "package.sh signs no other add-on",
       "go: packages all four document slots with the actual validator and no core fallback",
       "go: proves every source block and local reference without Git or network",
       "go: writes the zip of a verified layout with a digest manifest and a sha256 file",
@@ -5539,6 +5657,7 @@
       "go: audits actual host calls and strict package contract for mail",
       "go: audits actual host calls and strict package contract for office",
       "go: audits actual host calls and strict package contract for pikvm",
+      "go: audits actual host calls and strict package contract for pirateface-search",
       "go: audits actual host calls and strict package contract for ssh",
       "go: audits actual host calls and strict package contract for quantization",
       "go: audits actual host calls and strict package contract for sandbox",
@@ -5562,6 +5681,7 @@
       "go: has consistent package files for jellyfin",
       "go: has consistent package files for mail",
       "go: has consistent package files for pikvm",
+      "go: has consistent package files for pirateface-search",
       "go: has consistent package files for ssh",
       "go: changes the package digest when a translation changes, and the package still verifies",
       "go: refuses to build a package whose translation the host would refuse",
@@ -5787,7 +5907,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./core/services/addons/hostops",
         "-ginkgo.json-report=../../../../.cache/addons/logs/host-admission.json"
       ]
@@ -5960,7 +6080,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/mail",
         "-ginkgo.json-report=../../../.cache/addons/logs/mail-addon.json"
       ]
@@ -5984,7 +6104,7 @@
         "-p",
         "2",
         "-tags",
-        "auth",
+        "auth,nosqlite,purego_utp",
         "./tests/addons/oauth",
         "-ginkgo.json-report=../../../.cache/addons/logs/oauth.json"
       ]

@@ -46,6 +46,9 @@
       "deliveryChat": "此聊天",
       "deliveryThread": "此线程",
       "deliveryChannel": "{{channel}}，频道顶层",
+      "deliveryChannelIn": "{{connection}} 中的 {{channel}}，频道顶层",
+      "deliveryModeOnChange": "仅当答案与上一次运行不同时。",
+      "deliveryModeOnProblem": "仅当运行失败时。成功的运行不会报告任何内容。",
       "stopLabel": "如何停止",
       "when": "{{schedule}}，{{zone}}。首次运行 {{when}}。",
       "whenNoFirst": "{{schedule}}，{{zone}}。",
@@ -149,6 +152,11 @@
       "testedAt": "测试于{{when}}。",
       "errorTitle": "上次测试无法连接。",
       "authTitle": "服务器拒绝了登录。",
+      "output": "命令的最后输出",
+      "outputCopy": "复制",
+      "outputCopied": "已复制",
+      "outputMore": "显示全部 {{count}} 行",
+      "outputLess": "收起",
       "tools": "工具",
       "toolsUnknown": "测试连接后可查看工具。",
       "toolsNone": "服务器没有提供工具。",
@@ -586,7 +594,9 @@
         "title": "读取你以前的对话",
         "description": "允许模型搜索并读取你以前的对话。在某个文件夹中工作的智能体只能读取自己的对话。"
       }
-    }
+    },
+    "fromProject": "来自项目",
+    "fromProjectTitle": "此工具由项目附加，因此在这里始终开启。要关闭，请在项目中取消附加。"
   },
   "vision": {
     "describedBy": "此模型无法查看图片。请选择其他模型，否则图片将由 {{model}} 描述。",
@@ -596,18 +606,19 @@
     "label": "网络",
     "preset": {
       "off": "关闭",
-      "registries": "软件包仓库",
+      "registries": "自定义",
       "all": "所有公共网站"
     },
     "presetHint": {
       "off": "命令无法访问任何网络。",
-      "registries": "命令只能访问软件包仓库（PyPI、npm、Go、crates.io、RubyGems、Maven Central、GitHub 发布）。",
+      "registries": "命令可以访问软件包仓库（PyPI、npm、Go、crates.io、RubyGems、Maven Central、GitHub 发布）以及管理员添加的域名。",
       "all": "命令可以访问所有公共网站。"
     },
     "limited": "受管理员限制",
     "limitedBy": "管理员最多允许：{{limit}}。",
     "hostNetwork": "命令在这台机器上运行，并使用它的网络。网络限制需要可隔离命令的插件。",
     "panel": "规则和请求（{{count}}）",
+    "panelCustom": "自定义域名",
     "rules": "此聊天的规则",
     "cards": "此聊天的请求",
     "ruleAllow": "在此聊天中允许",
@@ -647,9 +658,13 @@
       "rowOff": "关闭：管理员尚未允许网络访问。",
       "runner": "运行命令的附加组件"
     },
-    "allowedHosts": "管理员始终允许：",
     "allowedHostsOff": "网络开启时生效。",
-    "allowedHostsNote": "管理员始终允许 {{count}} 个主机。",
+    "allowedHostsNote": "管理员添加的域名：{{count}} 个。",
+    "customDomains": "自定义可以访问软件包仓库和管理员设置的以下域名：",
+    "customEmpty": "自定义只能访问软件包仓库。管理员尚未添加其他域名。",
+    "customLabel": "自定义域名",
+    "customEdit": "编辑域名",
+    "customAdmin": "此列表由管理员管理。",
     "limitNote": "此对话的网络。管理员决定对话最多能访问的范围。",
     "draftNote": "聊天将以此设置开始。管理员决定聊天最多能访问的范围，该限制同样适用。",
     "asksAbove": "此对话请求“{{choice}}”；管理员的限制是“{{limit}}”。",
@@ -884,6 +899,10 @@
       "ended": "已结束",
       "wait": "正在等待：{{wait}}"
     },
+    "report": {
+      "on_done": "完成时通知：{{channel}} · {{connection}}",
+      "on_problem": "出现问题时通知：{{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "暂停",
       "resume": "继续",
@@ -1040,7 +1059,8 @@
       "user": "你的所有聊天",
       "agent": "智能体 {{agent}}",
       "agentAny": "一个智能体",
-      "channel": "此对话"
+      "channel": "此对话",
+      "project": "此项目"
     },
     "help": "确认之前不会保存任何内容。",
     "row": {
@@ -1048,7 +1068,9 @@
       "target": "文件",
       "source": "来源",
       "expires": "剩余时间",
-      "collection": "集合"
+      "collection": "集合",
+      "proposedBy": "提议者",
+      "note": "笔记"
     },
     "source": {
       "chat": "聊天",
@@ -1123,6 +1145,17 @@
       "consent": "录音将保存为语音档案，供你的聊天用来说话。你可以在语音库中删除它。",
       "consentAdmin": "你是管理员，因此该语音将对此服务器的所有用户可用。",
       "confirm": "说话人已同意：保存声音"
+    },
+    "fromOther": {
+      "title": "{{name}} 为 {{project}} 提议了一条笔记",
+      "titleNoProject": "{{name}} 提议了一条笔记",
+      "help": "在你确认之前不会写入任何内容。{{name}} 是在引入了此项目的聊天中提出的。",
+      "by": "{{name}}，来自其自己的聊天",
+      "voided": "{{name}} 已无法再编辑此项目。",
+      "noteFor": "{{project}} 的笔记",
+      "thisProject": "此项目",
+      "why": "请重新以编辑权限共享项目，如果仍然需要，再请对方重新提议这条笔记。",
+      "nameHint": "项目名称取自其文件夹"
     }
   },
   "proposalsPage": {

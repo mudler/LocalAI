@@ -61,6 +61,10 @@ import { setDockOpen } from '../utils/dock'
 import ShortcutsDialog from '../components/chat/ShortcutsDialog'
 // eslint-disable-next-line no-unused-vars
 import ChatSettingsSheet from '../components/chat/ChatSettingsSheet'
+import { MoreChip, ProjectChip, PulledChip } from '../components/projects/ProjectChip'
+import PulledProjects from '../components/projects/PulledProjects'
+import { useProjectList } from '../hooks/useProjectList'
+import { homeProject, pulledProjects } from '../utils/projects'
 import ReasoningChips from '../components/chat/ReasoningChips'
 import { settingsWithEffort } from '../utils/chatSettings'
 // eslint-disable-next-line no-unused-vars
@@ -84,6 +88,7 @@ import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 import { isStaleFailure, keptAbove } from '../utils/chatFailure'
 import { useAutoResume } from '../hooks/useAutoResume'
 import { isFolderMissingError } from '../utils/chatAgents'
+import { startRefusal } from '../utils/projectAgents'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from '../components/chat/CommandsConsentCard'
 import NetworkConsentCard from '../components/chat/NetworkConsentCard'
@@ -120,6 +125,9 @@ import { announceChats } from '../hooks/useRecentChats'
 import './chat.css'
 import './chats.css'
 
+// The most pulled projects the header draws as chips; the rest are one "+N".
+const HEADER_PULLED = 2
+
 const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
 
 // The navigation state of the empty chat. /app/chats without state is an
@@ -155,6 +163,7 @@ function ChatPage() {
   const { t: tc } = useTranslation('chats')
   const { t: tw } = useTranslation('workspace')
   const { t: tp } = useTranslation('pages')
+  const { t: tpj } = useTranslation('projects')
   // How the assistant shows itself (persona.json) and the text overrides of
   // ui.json: shared copies of the files, live through the change feed.
   const identity = useIdentity()
@@ -284,6 +293,13 @@ function ChatPage() {
   // error then offers to edit that agent.
   const [folderAgent, setFolderAgent] = useState('')
   const sayError = useCallback((e, fallback) => {
+    // The project of the agent is archived, deleted or has changed folders.
+    const paused = startRefusal(e)
+    if (paused) {
+      setFolderAgent('')
+      setLocalError(t(paused === 'changed' ? 'agentFolder.projectChanged' : 'agentFolder.projectPaused'))
+      return
+    }
     if (isFolderMissingError(e)) {
       setFolderAgent((activeId && activeChat?.agent_id) || agentId || '')
       setLocalError(t('agentFolder.startError'))
@@ -353,7 +369,7 @@ function ChatPage() {
   const pane = useChatPreviewPane({
     chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
     messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
-    blocked: pageDock.dock.open,
+    blocked: pageDock.dock.open, madeHere: chat.madeHere || arrival.handoff?.chat?.id || null, startedTurn: chat.startedTurn,
   })
   // The dock and the files pane share the right side, one at a time: the one
   // the person opens last takes it, and the other hides without being closed
@@ -372,6 +388,12 @@ function ChatPage() {
   const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
   const modelWarm = !!model && loadedIds.has(model)
   const title = activeChat?.title || tc('list.untitled')
+  // The project chips of the header: only a chat that has a project (or an open
+  // settings sheet) reads the list, so other chats cost no request.
+  const hasProjects = Boolean(activeChat?.project_id || activeChat?.pulled_projects?.length)
+  const projectList = useProjectList(Boolean(activeId) && (hasProjects || showSettings))
+  const homeProj = hasProjects ? homeProject(activeChat, projectList.projects) : null
+  const pulledProj = hasProjects ? pulledProjects(activeChat, projectList.projects, projectList.shared) : []
 
   // What the slash menu needs from this page (see utils/slashCommands.js); the
   // composer adds the skills, the agents, the models and the staged files.
@@ -726,7 +748,7 @@ function ChatPage() {
       chat.dropSending()
       if (typeof override !== 'string') drafts.restore(target, input.trim(), sending)
       if (drafts.isOpen(target)) sayError(e, tc('errors.send'))
-      else addToast(isFolderMissingError(e) ? t('agentFolder.startError') : (e.message || tc('errors.send')), 'error')
+      else addToast(isFolderMissingError(e) ? t('agentFolder.startError') : startRefusal(e) ? t(startRefusal(e) === 'changed' ? 'agentFolder.projectChanged' : 'agentFolder.projectPaused') : (e.message || tc('errors.send')), 'error')
     } finally {
       setBusy(false)
     }
@@ -1041,7 +1063,7 @@ function ChatPage() {
     if (!filesOn || row.kind !== 'msg' || row.msg.role !== 'assistant' || noteKeyByTurn.get(row.msg.turn) !== row.key) return null
     const list = turnFiles(chatFiles.files, row.msg.turn)
     if (list.length === 0) return null
-    return <FileChipRow key={`fc-${row.msg.turn}`} files={list} onOpen={openFile} />
+    return <FileChipRow key={`fc-${row.msg.turn}`} files={list} onOpen={openFile} text={row.msg.text} />
   }
 
   const streaming = streamingParts(chat.live)
@@ -1079,7 +1101,12 @@ function ChatPage() {
   // Creates the chat with the drafted switches, then gives it the reasoning
   // effort picked before it existed.
   const createWithDraft = async () => {
-    const id = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+    const id = await chat.createChat(draftModel, agentId, switches.draftSwitches(), composer.projectId)
+    // The shared projects picked in the composer are pulled into the new chat.
+    if (composer.pulledDraft?.length) {
+      try { await chat.setPulled(id, composer.pulledDraft) } catch (e) { addToast(tpj('toasts.pullFailed', { message: e.message }), 'warning') }
+      composer.setPulledDraft([])
+    }
     // The sandbox profile and the network picked before the chat existed.
     const profileError = await sandboxProfile.saveDraft(id)
     if (profileError) addToast(tc(`sandboxProfile.${profileError}`), 'error')
@@ -1313,6 +1340,13 @@ function ChatPage() {
           onSettings={() => setShowSettings(v => !v)}
           settingsOpen={showSettings}
           moreItems={moreItems}
+          chips={(homeProj || pulledProj.length > 0) && (
+            <div className="pjc-chips pjc-chips--head" data-testid="chat-project-chips">
+              {homeProj && <ProjectChip project={homeProj} />}
+              {pulledProj.slice(0, HEADER_PULLED).map(p => <PulledChip key={p.id} project={p} />)}
+              {pulledProj.length > HEADER_PULLED && <MoreChip count={pulledProj.length - HEADER_PULLED} onClick={() => setShowSettings(true)} />}
+            </div>
+          )}
           extra={(
             <>
               {activeId && chat.files.on && <FilesButton open={pane.open} count={chatFiles.files.length} onToggle={pane.toggle} />}
@@ -1321,6 +1355,14 @@ function ChatPage() {
             </>
           )}
         />
+
+        {(homeProj || pulledProj.length > 0) && (
+          <div className="pjc-chips pjc-strip">
+            {homeProj && <ProjectChip project={homeProj} testId={undefined} />}
+            {pulledProj.map(p => <PulledChip key={p.id} project={p} testId={undefined} />)}
+          </div>
+        )}
+        {pulledProj.length > 0 && <PulledProjects projects={pulledProj} onManage={() => setShowSettings(true)} onRetry={() => projectList.reload()} onRemove={(ids) => chat.setPulled(activeId, (activeChat.pulled_projects || []).filter(x => !ids.includes(x))).then(() => projectList.reload()).catch((e) => addToast(e.message, 'error'))} />}
 
         {find.open && (
           <FindBar
@@ -1392,6 +1434,8 @@ function ChatPage() {
                     activityItems={row.activity}
                     proposalItems={row.proposals}
                     actions={messageActions}
+                    files={chatFiles.files}
+                    onOpenFile={filesOn ? openFile : undefined}
                     conversationId={activeId}
                     canRegenerate={!chat.running && row.key === lastAnswerKey}
                     proposalTick={chat.ticks.proposals}
@@ -1406,6 +1450,8 @@ function ChatPage() {
 
               {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0) && (
                 <StreamingTurn
+                  files={chatFiles.files}
+                  onOpenFile={filesOn ? openFile : undefined}
                   identity={shownIdentity}
                   model={model}
                   warm={modelWarm}
@@ -1647,6 +1693,10 @@ function ChatPage() {
           onDelete={activeId ? () => { setShowSettings(false); promptDelete() } : undefined}
           onSaveSettings={activeId && activeChat?.kind !== 'subagent' ? (settings) => chat.update(activeId, { settings }) : undefined}
           onEffort={activeId && activeChat?.kind !== 'subagent' ? setEffort : undefined}
+          projectList={activeId && activeChat?.kind !== 'subagent' ? projectList : undefined}
+          running={chat.running}
+          onProject={async (projectId) => { const out = await chat.setProject(activeId, projectId); projectList.reload(); return out }}
+          onPulled={async (ids) => { const out = await chat.setPulled(activeId, ids); projectList.reload(); return out }}
           onClose={() => setShowSettings(false)}
         />
       )}

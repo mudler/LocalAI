@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -82,9 +83,12 @@ func childWhere(ctx context.Context, q querier, where string, args ...any) (node
 	return n, true, nil
 }
 
-// childByName finds a live child by its exact name.
+// childByName finds a live child by its exact name. The folded name is part
+// of the query because the live-name index is on it: with the exact name only,
+// the database reads every child of the folder for each lookup, so a commit of
+// n files in one folder costs n squared reads.
 func childByName(ctx context.Context, q querier, parent int64, name string) (nodeRow, bool, error) {
-	return childWhere(ctx, q, `parent_id = ? AND name = ? AND deleted = 0`, parent, name)
+	return childWhere(ctx, q, `parent_id = ? AND name_fold = ? AND name = ? AND deleted = 0`, parent, foldName(name), name)
 }
 
 // childByFold finds a live child whose name folds to the same value as name.
@@ -282,13 +286,28 @@ func (s *Workspace) grantMode(ctx context.Context, q querier, a Actor, id int64)
 			SELECT id, parent_id FROM studio_ws_nodes WHERE id = ?
 			UNION ALL
 			SELECT n.id, n.parent_id FROM studio_ws_nodes n JOIN up ON n.id = up.parent_id)
-		SELECT MAX(g.mode) FROM studio_ws_grants g JOIN up ON g.node_id = up.id
+		SELECT MAX(CASE g.mode WHEN `+fmt.Sprint(StoredMode(ModeRead))+` THEN `+fmt.Sprint(int(ModeRead))+`
+				WHEN `+fmt.Sprint(StoredMode(ModeData))+` THEN `+fmt.Sprint(int(ModeData))+`
+				WHEN `+fmt.Sprint(StoredMode(ModeWrite))+` THEN `+fmt.Sprint(int(ModeWrite))+` ELSE 0 END)
+		FROM studio_ws_grants g JOIN up ON g.node_id = up.id
 		WHERE g.principal IN (`+strings.Repeat(",?", len(ps))[1:]+`)`, args...).Scan(&m)
 	return Mode(m.Int64), err
 }
 
 // needWrite returns ErrNotFound without read access and ErrReadOnly without write access.
 func (s *Workspace) needWrite(ctx context.Context, q querier, a Actor, n nodeRow) error {
+	return s.need(ctx, q, a, n, ModeWrite)
+}
+
+// needChange returns ErrNotFound without read access and ErrReadOnly without
+// the right to change files: write access, or a data grant. A data grant is
+// narrowed to non-code files where the change is made (writer.apply), which
+// every change passes.
+func (s *Workspace) needChange(ctx context.Context, q querier, a Actor, n nodeRow) error {
+	return s.need(ctx, q, a, n, ModeData)
+}
+
+func (s *Workspace) need(ctx context.Context, q querier, a Actor, n nodeRow, want Mode) error {
 	if err := CheckFence(a); err != nil {
 		return err
 	}
@@ -299,13 +318,14 @@ func (s *Workspace) needWrite(ctx context.Context, q querier, a Actor, n nodeRow
 	if m < ModeRead {
 		return ErrNotFound
 	}
-	if m < ModeWrite {
+	if m < want {
 		return ErrReadOnly
 	}
 	return nil
 }
 
-// find resolves p for the actor. need is ModeRead or ModeWrite.
+// find resolves p for the actor. need is ModeRead, ModeData (the right to
+// change files) or ModeWrite.
 func (s *Workspace) find(ctx context.Context, q querier, a Actor, p string, need Mode) (nodeRow, error) {
 	if err := CheckFence(a); err != nil {
 		return nodeRow{}, err
@@ -321,7 +341,7 @@ func (s *Workspace) find(ctx context.Context, q querier, a Actor, p string, need
 	if m < ModeRead {
 		return nodeRow{}, ErrNotFound
 	}
-	if need == ModeWrite && m < ModeWrite {
+	if need > ModeRead && m < need {
 		return nodeRow{}, ErrReadOnly
 	}
 	return n, nil

@@ -1,0 +1,135 @@
+/* Sync note: this file is a copy of the LocalAI theme tokens (theme-localai.css).
+   The web interface and the website use the same file. Keep the copies identical.
+   Do not edit it here. After a change, run: python3 docs/tools/gen-theme-variants.py */
+/* LocalAI theme for the design kit roles. Generated from theme-localai.json by scripts/gen-theme.py: do not edit by hand.
+   Provisional until the team confirms the logo teal, the status colours and the series set.
+   Set data-theme="light" or data-theme="dark" on <html> to force a mode. */
+:root {
+  --brand-logo-teal: #005b69;
+  --brand-periwinkle: #7f8fd0;
+  --brand-periwinkle-deep: #4a5aa0;
+  --brand-yellow: #ffc93c;
+  --brand-orange: #ff8a2b;
+  --brand-ink: #232a52;
+  --brand-cream: #fff4dc;
+  --brand-sun: #ffe3a3;
+  --brand-dark: #0c1211;
+  --brand-lens-teal: #0ea595;
+  --brand-teal-bright: #6fd8ca;
+  --dk-canvas: #fff4dc;
+  --dk-inset: #f9e6bd;
+  --dk-card: #fffdf7;
+  --dk-hover: #f3dca8;
+  --dk-text: #232a52;
+  --dk-muted: #4d5478;
+  --dk-edge: #e6d9bd;
+  --dk-control-edge: #6c78b0;
+  --dk-accent: #4a5aa0;
+  --dk-on-accent: #ffffff;
+  --dk-accent-text: #3d4c93;
+  --dk-accent-wash: #dfe4f7;
+  --dk-ok: #1f7a4c;
+  --dk-on-ok: #ffffff;
+  --dk-ok-text: #1d6e46;
+  --dk-ok-wash: #dcefe3;
+  --dk-warn: #8c5400;
+  --dk-on-warn: #ffffff;
+  --dk-warn-text: #7a4a00;
+  --dk-warn-wash: #f8e6c4;
+  --dk-error: #b3261e;
+  --dk-on-error: #ffffff;
+  --dk-error-text: #a51d16;
+  --dk-error-wash: #f8dcd8;
+  --dk-inverse: #232a52;
+  --dk-on-inverse: #fff4dc;
+  --dk-scrim: rgb(35 42 82 / .38);
+  --dk-shadow-tint: 35 42 82;
+  --dk-shadow-k: 1;
+  --dk-series-1: #3a732c;
+  --dk-series-2: #6e519d;
+  --dk-series-3: #9a4729;
+  --dk-series-4: #006d93;
+  --dk-series-5: #c26e16;
+  --dk-series-6: #97386b;
+  --dk-grid: #e8dcc2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --dk-canvas: #0c1211;
+    --dk-inset: #080d0c;
+    --dk-card: #141c1b;
+    --dk-hover: #1f2a29;
+    --dk-text: #fff4dc;
+    --dk-muted: #b9bfd0;
+    --dk-edge: #27332f;
+    --dk-control-edge: #6f7fbd;
+    --dk-accent: #7f8fd0;
+    --dk-on-accent: #0c1211;
+    --dk-accent-text: #9aa8e0;
+    --dk-accent-wash: #1d2442;
+    --dk-ok: #7fd39b;
+    --dk-on-ok: #0c1211;
+    --dk-ok-text: #8fdcaa;
+    --dk-ok-wash: #14291f;
+    --dk-warn: #ffc93c;
+    --dk-on-warn: #0c1211;
+    --dk-warn-text: #ffd466;
+    --dk-warn-wash: #2b2410;
+    --dk-error: #ff9d92;
+    --dk-on-error: #0c1211;
+    --dk-error-text: #ffaea5;
+    --dk-error-wash: #33191a;
+    --dk-inverse: #fff4dc;
+    --dk-on-inverse: #0c1211;
+    --dk-scrim: rgb(0 0 0 / .62);
+    --dk-shadow-tint: 0 0 0;
+    --dk-shadow-k: 2.5;
+    --dk-series-1: #69a45c;
+    --dk-series-2: #9e80d1;
+    --dk-series-3: #d07758;
+    --dk-series-4: #299fcd;
+    --dk-series-5: #cf7b26;
+    --dk-series-6: #a54477;
+    --dk-grid: #222d2b;
+  }
+}
+
+:root[data-theme="dark"] {
+  --dk-canvas: #0c1211;
+  --dk-inset: #080d0c;
+  --dk-card: #141c1b;
+  --dk-hover: #1f2a29;
+  --dk-text: #fff4dc;
+  --dk-muted: #b9bfd0;
+  --dk-edge: #27332f;
+  --dk-control-edge: #6f7fbd;
+  --dk-accent: #7f8fd0;
+  --dk-on-accent: #0c1211;
+  --dk-accent-text: #9aa8e0;
+  --dk-accent-wash: #1d2442;
+  --dk-ok: #7fd39b;
+  --dk-on-ok: #0c1211;
+  --dk-ok-text: #8fdcaa;
+  --dk-ok-wash: #14291f;
+  --dk-warn: #ffc93c;
+  --dk-on-warn: #0c1211;
+  --dk-warn-text: #ffd466;
+  --dk-warn-wash: #2b2410;
+  --dk-error: #ff9d92;
+  --dk-on-error: #0c1211;
+  --dk-error-text: #ffaea5;
+  --dk-error-wash: #33191a;
+  --dk-inverse: #fff4dc;
+  --dk-on-inverse: #0c1211;
+  --dk-scrim: rgb(0 0 0 / .62);
+  --dk-shadow-tint: 0 0 0;
+  --dk-shadow-k: 2.5;
+  --dk-series-1: #69a45c;
+  --dk-series-2: #9e80d1;
+  --dk-series-3: #d07758;
+  --dk-series-4: #299fcd;
+  --dk-series-5: #cf7b26;
+  --dk-series-6: #a54477;
+  --dk-grid: #222d2b;
+}

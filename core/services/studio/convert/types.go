@@ -116,6 +116,11 @@ var ErrInvalid = errors.New("convert: the item is not valid")
 // then left for the next run.
 var ErrCollectionsUnavailable = errors.New("convert: the collections are not available")
 
+// ErrConnectorsUnavailable means a connector binding cannot be made now: the
+// connectors are off, or the add-on of the platform is not installed or not
+// running. The binding is made at a start where it is.
+var ErrConnectorsUnavailable = errors.New("convert: the connectors are not available")
+
 // AgentIn is a saved agent to make.
 type AgentIn struct {
 	Name, Description, Instructions, Model string
@@ -131,6 +136,15 @@ type MCPIn struct {
 	Name, Transport, URL, Token, Command string
 	Args                                 []string
 	Env                                  map[string]string
+}
+
+// ConnectorIn is a connector binding to make, switched off, for an agent that
+// is already saved. Token is a secret: the target seals it, and nothing in a
+// report holds it.
+type ConnectorIn struct {
+	Name, Kind, Token, AgentID string
+	// Allow lists the senders that may talk to the bot (chat IDs or @names).
+	Allow []string
 }
 
 // TriggerIn is a schedule trigger to make, switched off.
@@ -163,6 +177,8 @@ type Targets interface {
 	Collections(ctx context.Context, user string) ([]string, error)
 	// SaveAgent returns the new ID, or an error wrapping ErrNameTaken.
 	SaveAgent(ctx context.Context, user string, in AgentIn) (string, error)
+	// CreateTrigger returns an error wrapping ErrNameTaken when the user has a
+	// trigger with the name, or ErrInvalid.
 	CreateTrigger(ctx context.Context, user string, in TriggerIn) error
 	SkillExists(ctx context.Context, user string, shared bool, name string) (bool, error)
 	WriteSkill(ctx context.Context, user string, shared bool, name, description, body string) error
@@ -176,6 +192,10 @@ type Targets interface {
 	// CreateMCPConnector makes a switched-off connector of the user and returns
 	// its ID, or an error wrapping ErrNameTaken or ErrInvalid.
 	CreateMCPConnector(ctx context.Context, user string, in MCPIn) (string, error)
+	// CreateConnector makes a switched-off connector binding of the user and
+	// returns its ID, or an error wrapping ErrInvalid (for good) or
+	// ErrConnectorsUnavailable (it may pass).
+	CreateConnector(ctx context.Context, user string, in ConnectorIn) (string, error)
 }
 
 // SkillRec is a skill as a target stores it (used by tests of the targets).

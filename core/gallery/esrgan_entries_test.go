@@ -33,7 +33,7 @@ var _ = Describe("gallery/index.yaml ESRGAN entry", func() {
 
 		// Keep the copy-paste configuration in the documentation aligned with the
 		// installable entry, including YAML scalar types.
-		doc, err := os.ReadFile("../../docs/content/features/image-generation.md")
+		doc, err := os.ReadFile("../../docs/content/models/capabilities/vision/image-generation.md")
 		Expect(err).NotTo(HaveOccurred())
 		const start = "```yaml\nname: realesrgan-x4plus-anime-6b\n"
 		_, example, found := strings.Cut(string(doc), start)

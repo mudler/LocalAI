@@ -138,10 +138,11 @@ func (r *run) convertTask(ctx context.Context, t oldTask) {
 	if len(dropped) > 0 {
 		reason += "; dropped: " + strings.Join(dropped, ", ")
 	}
-	if err := r.tg.CreateTrigger(ctx, owner, TriggerIn{Name: t.name, Prompt: prompt, Model: t.model, Schedule: sched, TZ: r.src.Zone}); err != nil {
+	final, err := r.createTrigger(ctx, owner, TriggerIn{Name: t.name, Prompt: prompt, Model: t.model, Schedule: sched, TZ: r.src.Zone})
+	if err != nil {
 		r.refused(ctx, key, KindTrigger, t.user, t.name, err)
 		return
 	}
 	r.mark(ctx, key, "trigger")
-	r.add(KindTrigger, t.user, t.name, StatusConverted, reason)
+	r.add(KindTrigger, t.user, t.name, StatusConverted, renamed(t.name, final)+reason)
 }

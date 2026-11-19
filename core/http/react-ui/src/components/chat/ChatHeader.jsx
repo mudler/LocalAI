@@ -5,11 +5,11 @@ import ActionMenu from '../ActionMenu'
 import Icon from '../Icon'
 
 // The slim bar over the thread: the conversations list (Ctrl K), the chat's
-// name (click to rename), the inbox (extra), find,
+// name (click to rename), the project chips (chips), the inbox (extra), find,
 // settings and the rest.
 export default function ChatHeader({
   historyMenu, manageMode, name, onRename, renaming, setRenaming,
-  onFind, findOpen, onSettings, settingsOpen, moreItems, extra, canRename = true,
+  onFind, findOpen, onSettings, settingsOpen, moreItems, extra, chips, canRename = true,
 }) {
   const { t } = useTranslation('chat')
   const inputRef = useRef(null)
@@ -61,6 +61,7 @@ export default function ChatHeader({
             {name}
           </button>
         )}
+        {chips}
       </div>
 
       <div className="cx-hdr">

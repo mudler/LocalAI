@@ -25,6 +25,7 @@ type fakeHost struct {
 	ops    []string
 	opIDs  []string
 	fail   error
+	args   []string
 }
 
 func newFakeHost() *fakeHost { return &fakeHost{status: map[string]string{}} }
@@ -44,6 +45,10 @@ func (f *fakeHost) Do(_ context.Context, opID, op string, args, out any) error {
 		return f.fail
 	}
 	b, _ := json.Marshal(args)
+	if strings.HasPrefix(op, "client.workspace.") {
+		f.args = append(f.args, string(b))
+		return json.Unmarshal([]byte(`{"ok":true}`), out)
+	}
 	var a struct {
 		ID string `json:"id"`
 	}
@@ -113,12 +118,44 @@ var _ = Describe("the client example add-on", func() {
 		Expect(err).NotTo(HaveOccurred())
 		m, err := contract.ParseManifest(b)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(m.RequiredFeatureLevel()).To(Equal(uint64(7)))
+		Expect(m.RequiredFeatureLevel()).To(Equal(uint64(8)), "the file routes use a wildcard tail")
+		Expect(contract.ValidateManifest(m, contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, FeatureLevel: contract.HostFeatureLevel, OS: "linux", Arch: "amd64"})).To(Succeed())
 		ids := map[string]bool{}
 		for _, r := range m.Capabilities.Client.Routes {
 			ids[r.ID] = true
 		}
-		Expect(ids).To(Equal(map[string]bool{"ping": true, "start": true, "job": true, "cancel": true, "events": true}))
+		Expect(ids).To(Equal(map[string]bool{"ping": true, "start": true, "job": true, "cancel": true, "events": true, "files": true, "file": true, "save": true}))
+	})
+
+	Describe("the file routes", func() {
+		call := func(route, method string, params map[string]string, query map[string]string, body string) contract.ClientResponse {
+			out, err := rt.ClientCall(context.Background(), contract.ClientRequest{OperationID: "cl-op", RouteID: route, Method: method, Params: params, Query: query, Body: []byte(body), Client: client})
+			Expect(err).NotTo(HaveOccurred())
+			return out
+		}
+		It("hands the joined tail to the host operations, which check it against the grant", func() {
+			Expect(call("file", "GET", map[string]string{"path": "Notes/todo.md"}, nil, "").Status).To(Equal(200))
+			Expect(call("file", "GET", map[string]string{"path": "Notes"}, map[string]string{"list": "1"}, "").Status).To(Equal(200))
+			Expect(call("save", "PUT", map[string]string{"path": "box/a.md"}, nil, `{"content":"hi"}`).Status).To(Equal(200))
+			Expect(call("files", "GET", nil, nil, "").Status).To(Equal(200))
+			Expect(host.ops).To(Equal([]string{"client.workspace.read", "client.workspace.list", "client.workspace.write", "client.workspace.list"}))
+			Expect(host.args[0]).To(Equal(`{"path":"Notes/todo.md"}`))
+			Expect(host.args[2]).To(ContainSubstring(`"content":"hi"`))
+		})
+		It("validates the tail itself before it asks the host", func() {
+			for _, p := range []string{"", "../x.md", "a/../b.md", "a//b.md", `a\b.md`, ".hidden.md", "a/./b", "a/b/c/d/e/f/g/h/i/j.md"} {
+				Expect(call("file", "GET", map[string]string{"path": p}, nil, "").Status).To(Equal(400), p)
+				Expect(call("save", "PUT", map[string]string{"path": p}, nil, `{"content":"x"}`).Status).To(Equal(400), p)
+			}
+			Expect(host.ops).To(BeEmpty())
+			Expect(call("save", "PUT", map[string]string{"path": "a.md"}, nil, `{"content":"x","extra":1}`).Status).To(Equal(400))
+		})
+		It("turns a refusal of the host into an answer a client can act on", func() {
+			host.fail = &contract.HostError{Code: contract.HostNotFound}
+			Expect(call("file", "GET", map[string]string{"path": "a.md"}, nil, "").Status).To(Equal(404))
+			host.fail = &contract.HostError{Code: contract.HostBadRequest}
+			Expect(call("save", "PUT", map[string]string{"path": "a.md"}, nil, `{"content":"x"}`).Status).To(Equal(400))
+		})
 	})
 
 	Describe("the outbox", func() {

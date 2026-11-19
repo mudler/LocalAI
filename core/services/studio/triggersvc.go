@@ -45,6 +45,10 @@ const (
 	// trigger off: a person must choose a folder again.
 	reasonFolderMissing = "the agent's folder is missing"
 	reasonOutsideFolder = "the trigger's folder is not inside the agent's folder"
+	// reasonProjectUnavailable is the reason of a run of a project agent whose
+	// project is archived, deleted or broken. The run is skipped and the
+	// trigger stays as it is: it runs again when the project is back.
+	reasonProjectUnavailable = "paused: the agent's project is not available"
 )
 
 // TriggerOptions configures the trigger host.
@@ -336,7 +340,9 @@ func (h *Triggers) start(ctx context.Context, t triggers.Trigger, run triggers.R
 	if err != nil && ctx.Err() != nil && !errors.As(err, &skip) {
 		return "", ctx.Err() // the host stops: the Runner puts the run back
 	}
-	if err != nil && !(errors.As(err, &skip) && skip.Reason == reasonCapOff) {
+	// A run skipped for a capability that is off or a project that is not
+	// available is not told: it is an ordinary pause, not a failure.
+	if err != nil && !(errors.As(err, &skip) && (skip.Reason == reasonCapOff || skip.Reason == reasonProjectUnavailable)) {
 		h.tell(context.WithoutCancel(ctx), t, "", notify.KindRunFailed, notify.StatusFailed, t.Name+" did not run", err.Error())
 	}
 	return id, err
@@ -365,8 +371,14 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 			}
 			return "", errors.New(triggers.CutReason("could not read the agent: " + err.Error()))
 		}
-		if ag.HasFolder() {
+		if fencedAgent(ag) {
 			scope, err = h.svc.liveFolder(ctx, owner, ag)
+			if errors.Is(err, ErrProjectUnavailable) {
+				// Not switched off and not made up for: the run is skipped
+				// and the next one that falls due runs when the project is
+				// back.
+				return "", &triggers.SkipError{Reason: reasonProjectUnavailable}
+			}
 			if errors.Is(err, ErrAgentFolderMissing) {
 				h.switchOff(t, "its agent's folder is missing")
 				return "", &triggers.SkipError{Reason: reasonFolderMissing}
@@ -391,6 +403,10 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 	}
 	rec, err := h.svc.CreateAs(ctx, owner, CreateInput{Title: h.runTitle(t), Model: model, AgentID: t.AgentID},
 		Origin{Kind: session.OriginTrigger, ID: t.ID})
+	if errors.Is(err, ErrProjectUnavailable) {
+		// The project went away since the check above.
+		return "", &triggers.SkipError{Reason: reasonProjectUnavailable}
+	}
 	if err != nil {
 		return "", err
 	}
@@ -416,7 +432,7 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 		}
 		// The run acts with the connection that the chat which proposed it
 		// had selected, as it does for the other switches.
-		if src, gerr := h.svc.d.Store.GetChat(ctx, owner, t.SourceChatID); gerr == nil && len(src.Connections) > 0 {
+		if src, gerr := h.svc.getChatRaw(ctx, owner, t.SourceChatID); gerr == nil && len(src.Connections) > 0 {
 			if err := h.svc.d.Store.SetConnections(ctx, owner, rec.ID, src.Connections); err != nil {
 				return "", err
 			}
@@ -505,10 +521,13 @@ func (h *Triggers) checkFolder(ctx context.Context, t triggers.Trigger, scope *f
 
 // runSettings returns the model of a run and, for a trigger with no agent, the
 // switches (skills, add-ons, MCP) of the chat that proposed it, as they are now.
+// The switches are the stored ones: the run is a chat of no project, so the
+// tools that the project of the source chat attaches are not on there, and an
+// entry the user switched off must stay off.
 func (h *Triggers) runSettings(ctx context.Context, t triggers.Trigger) (model string, skillsOff, addonsOff, mcpOff []string, err error) {
 	model = t.Model
 	if t.AgentID == "" && t.SourceChatID != "" {
-		if src, gerr := h.svc.d.Store.GetChat(ctx, t.Owner, t.SourceChatID); gerr == nil {
+		if src, gerr := h.svc.getChatRaw(ctx, t.Owner, t.SourceChatID); gerr == nil {
 			skillsOff, addonsOff, mcpOff = src.SkillsOff, src.AddonsOff, src.McpOff
 			if model == "" {
 				model = src.Model

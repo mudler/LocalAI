@@ -418,7 +418,7 @@ func ParseImageParts(image string) (tag, repository, dstimage string) {
 		image = parts[0]
 		tag = parts[1]
 	}
-	if strings.Contains("/", image) {
+	if strings.Contains(image, "/") {
 		parts := strings.Split(image, "/")
 		repository = parts[0]
 		image = parts[1]

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -159,6 +160,80 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(hits).To(HaveLen(1))
 			Expect(hits[0].Name).To(Equal("qwen2.5-7b-instruct"))
 			Expect(containsTagExact(hits[0].Tags, "chat")).To(BeTrue())
+		})
+	})
+
+	Describe("SearchModels", func() {
+		It("sends the query and parses the response", func() {
+			var got url.Values
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.Path).To(Equal("/api/models/search"))
+				got = r.URL.Query()
+				_, _ = w.Write([]byte(`{"results":[{"provider":"pirateface","id":"o/r","title":"o/r","uri":"magnet:?xt=urn:btih:aa","seeders":3}],"providers":[{"name":"pirateface","ok":true,"count":1}]}`))
+			}))
+			defer srv.Close()
+			out, err := New(srv.URL, "").SearchModels(ctx, localaitools.ModelSearchRequest{Query: "a b", Providers: "pirateface", Limit: 5, Format: "any", Sort: "likes"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.Get("q")).To(Equal("a b"))
+			Expect(got.Get("providers")).To(Equal("pirateface"))
+			Expect(got.Get("limit")).To(Equal("5"))
+			Expect(got.Get("format")).To(Equal("any"))
+			Expect(got.Get("sort")).To(Equal("likes"))
+			Expect(out.Results).To(HaveLen(1))
+			Expect(out.Results[0].Seeders).To(Equal(int64(3)))
+			Expect(out.Providers[0].OK).To(BeTrue())
+		})
+	})
+
+	Describe("SearchModels with no query", func() {
+		It("sends sort=latest and an empty q", func() {
+			var got url.Values
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = r.URL.Query()
+				_, _ = w.Write([]byte(`{"results":[],"providers":[{"name":"pirateface","ok":true,"count":0,"unsupported":true}]}`))
+			}))
+			defer srv.Close()
+			out, err := New(srv.URL, "").SearchModels(ctx, localaitools.ModelSearchRequest{Sort: "latest"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.Get("sort")).To(Equal("latest"))
+			Expect(got.Get("q")).To(BeEmpty())
+			Expect(out.Providers[0].Unsupported).To(BeTrue())
+		})
+	})
+
+	Describe("InspectRemoteModel", func() {
+		It("reads the files and, when asked, the estimate", func() {
+			var paths []string
+			var est url.Values
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				paths = append(paths, r.URL.Path)
+				switch r.URL.Path {
+				case "/api/models/remote/files":
+					Expect(r.URL.Query().Get("uri")).To(Equal("huggingface://o/r"))
+					_, _ = w.Write([]byte(`{"provider":"huggingface","id":"o/r","uri":"huggingface://o/r","files":[],"variants":[{"quantization":"Q4_K_M","file":"a.gguf","files":["a.gguf"],"size_bytes":5}],"backend":"llama-cpp","size_known":true}`))
+				case "/api/models/remote/estimate":
+					est = r.URL.Query()
+					_, _ = w.Write([]byte(`{"sizeBytes":5,"estimates":{"4096":{"contextLength":4096,"vramBytes":9}},"approximate":true,"source":"file-size"}`))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+			c := New(srv.URL, "")
+
+			out, err := c.InspectRemoteModel(ctx, localaitools.RemoteModelRequest{URI: "huggingface://o/r"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Variants).To(HaveLen(1))
+			Expect(out.Backend).To(Equal("llama-cpp"))
+			Expect(out.Estimate).To(BeNil())
+			Expect(paths).To(Equal([]string{"/api/models/remote/files"}))
+
+			out, err = c.InspectRemoteModel(ctx, localaitools.RemoteModelRequest{URI: "huggingface://o/r", Estimate: true, File: "a.gguf", Contexts: "4096"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Estimate).ToNot(BeNil())
+			Expect(out.Estimate.Approximate).To(BeTrue())
+			Expect(est.Get("file")).To(Equal("a.gguf"))
+			Expect(est.Get("contexts")).To(Equal("4096"))
 		})
 	})
 

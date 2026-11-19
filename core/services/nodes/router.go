@@ -129,6 +129,15 @@ type SmartRouterOptions struct {
 	// caller, never the load: the job keeps running either way. Zero selects
 	// config.DefaultModelLoadWait; config.ModelLoadWaitUnbounded waits forever.
 	ModelLoadWait time.Duration
+	// LoadOptionsFinalizer, when set, completes a copy of the load options
+	// right before LoadModel is sent to a worker: for a fresh load and for a
+	// reconciler replay of stored options alike. It is how a secret (the key
+	// of a remote, an inline proxy api_key) reaches the worker without being
+	// stored in the registry: the stored options never hold
+	// Proxy.ApiKey, and the finalizer reads the current value at send time,
+	// so a rotated or removed key takes effect on the next load. An error
+	// fails the load before anything is sent. modelID is the tracking key.
+	LoadOptionsFinalizer func(ctx context.Context, modelID string, opts *pb.ModelOptions) error
 }
 
 // modelLoadStagingMargin is the slack ModelLoadCeilingFor adds on top of the
@@ -221,6 +230,9 @@ type SmartRouter struct {
 	// modelLoadWait bounds the REQUEST's wait for a running cold load, not the
 	// load itself (see SmartRouterOptions.ModelLoadWait).
 	modelLoadWait time.Duration
+	// finalizeLoad completes the options sent to a worker (see
+	// SmartRouterOptions.LoadOptionsFinalizer).
+	finalizeLoad func(ctx context.Context, modelID string, opts *pb.ModelOptions) error
 	// loadWaiters is one broadcast channel per model being cold-loaded, closed
 	// when the job reaches a terminal state. Same-model waiters all want the
 	// identical outcome, so they share one wait instead of queueing. See
@@ -287,6 +299,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		stagingStallWindow:   opts.StagingStallWindow,
 		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
 		modelLoadWait:        opts.ModelLoadWait,
+		finalizeLoad:         opts.LoadOptionsFinalizer,
 		loadWaiters:          map[string]*loadWaiter{},
 	}
 }
@@ -422,7 +435,9 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	effectiveOptionsHash := ""
 	if loadOpts != nil {
 		var err error
-		effectiveOptionsHash, err = config.EffectiveModelOptionsHash(loadOpts)
+		// Hash what is stored, not the secret: the hash must not change
+		// when a key rotates and must not be derived from a key.
+		effectiveOptionsHash, err = config.EffectiveModelOptionsHash(withoutProxyKey(loadOpts))
 		if err != nil {
 			return nil, fmt.Errorf("hashing effective model options: %w", err)
 		}
@@ -449,10 +464,15 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		// to cover the load phase before entering it.
 		extendLoadDeadline(ctx, loadTimeout+modelLoadStagingMargin)
 
+		sendOpts, err := r.optionsToSend(ctx, trackingKey, loadOpts)
+		if err != nil {
+			return nil, fmt.Errorf("preparing the load of model %s: %w", modelName, err)
+		}
+
 		loadCtx, cancel := context.WithTimeout(ctx, loadTimeout)
 		defer cancel()
 
-		res, err := client.LoadModel(loadCtx, loadOpts)
+		res, err := client.LoadModel(loadCtx, sendOpts)
 		if err != nil {
 			// A bare "context deadline exceeded" tells the operator nothing
 			// about which of the several budgets in a cold load ran out, and
@@ -497,8 +517,10 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// Writes both per-replica (NodeModel.model_opts_blob) for backward compat
 	// and per-model (ModelLoadInfo table) so the reconciler can recover after
 	// every replica row has been removed (Bug-1).
+	// The blob never holds Proxy.ApiKey: optionsToSend puts the current key
+	// back at send time, also when the reconciler replays this blob.
 	if modelOpts != nil {
-		if optsBlob, marshalErr := proto.Marshal(modelOpts); marshalErr == nil {
+		if optsBlob, marshalErr := proto.Marshal(withoutProxyKey(modelOpts)); marshalErr == nil {
 			if storeErr := r.setNodeModelLoadInfo(ctx, node.ID, trackingKey, replicaIndex, backendType, configRevision, optsBlob); storeErr != nil {
 				xlog.Warn("Failed to store model load info", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", storeErr)
 			}
@@ -509,6 +531,30 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	}
 
 	return &scheduleLoadResult{Node: node, Client: client, BackendAddr: backendAddr, ReplicaIndex: replicaIndex}, nil
+}
+
+// optionsToSend returns the options of one LoadModel call: a finalized copy
+// when a finalizer is set, else opts itself. The copy is never stored.
+func (r *SmartRouter) optionsToSend(ctx context.Context, trackingKey string, opts *pb.ModelOptions) (*pb.ModelOptions, error) {
+	if r.finalizeLoad == nil {
+		return opts, nil
+	}
+	out := proto.Clone(opts).(*pb.ModelOptions)
+	if err := r.finalizeLoad(ctx, trackingKey, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// withoutProxyKey returns opts, or a copy without Proxy.ApiKey when it has
+// one, so the key is neither stored in the registry nor hashed.
+func withoutProxyKey(opts *pb.ModelOptions) *pb.ModelOptions {
+	if opts == nil || opts.GetProxy().GetApiKey() == "" {
+		return opts
+	}
+	out := proto.Clone(opts).(*pb.ModelOptions)
+	out.Proxy.ApiKey = ""
+	return out
 }
 
 func (r *SmartRouter) cleanupStaleLoad(ctx context.Context, node *BackendNode, modelName string, replicaIndex int, address, revision, hash string) {
@@ -2054,7 +2100,14 @@ func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr s
 		defer closeClient(client)
 		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		ok, _ := client.HealthCheck(checkCtx)
+		ok, err := client.HealthCheck(checkCtx)
+		// A probe that only timed out means the backend is busy serving
+		// inference, not dead; a dead one fails fast with a connection error.
+		// Same rule as ModelLoader.checkIsLoaded.
+		if !ok && ctx.Err() == nil && errors.Is(checkCtx.Err(), context.DeadlineExceeded) &&
+			status.Code(err) != codes.Unavailable {
+			return true
+		}
 		return ok
 	})
 }

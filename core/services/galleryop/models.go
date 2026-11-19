@@ -136,11 +136,20 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 	}
 
 	var err error
+	var incompleteDelete error
 	configRevision := ""
 	if op.Delete {
 		configRevision = fmt.Sprintf("%x", sha256.Sum256([]byte("deleted\x00"+op.GalleryElementName)))
 		deleteStarted = true
 		err = g.modelManager.DeleteModel(op.GalleryElementName)
+		// The configuration is gone, so the model is no longer installed. Files
+		// that could not be removed are reported at the end; rolling back here
+		// would restore a configuration whose weights are already deleted.
+		var incomplete *gallery.IncompleteDeleteError
+		if errors.As(err, &incomplete) {
+			incompleteDelete = err
+			err = nil
+		}
 	} else {
 		if op.BackendAvailability == nil {
 			op.BackendAvailability = g.backendManager.BackendAvailable
@@ -242,7 +251,7 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 			Progress:           100,
 			Cancellable:        false})
 
-	return nil
+	return incompleteDelete
 }
 
 type savedModelConfigFile struct {

@@ -27,10 +27,5 @@ export function loadReducer(state, action) {
 }
 
 // The text of an error for a person: the server's own message when there is
-// one, without a generic prefix.
-export function errorMessage(error) {
-  if (!error) return ''
-  if (typeof error === 'string') return error
-  const nested = error?.error?.message || error?.body?.error?.message
-  return String(nested || error.message || '').trim()
-}
+// one, without a generic prefix. It lives in the UI kit, which LoadError uses.
+export { errorMessage } from '../../packages/ui-kit/src/loadErrorModel.js'

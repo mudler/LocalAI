@@ -6,6 +6,8 @@ on:
 jobs:
   bump-backends:
     if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -171,11 +173,19 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           rm -rfv ${{ matrix.variable }}_message.txt
           rm -rfv ${{ matrix.variable }}_commit.txt
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.UPDATE_BOT_TOKEN }}
-          push-to-fork: ci-forks/LocalAI
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: ':arrow_up: Update ${{ matrix.repository }}'
           title: 'chore: :arrow_up: Update ${{ matrix.repository }} to `${{ steps.bump.outputs.commit }}`'
           branch: "bump/${{ matrix.variable }}"
@@ -186,6 +196,8 @@ jobs:
     # CTranslate2's ROCm wheels are published as release assets, so the
     # faster-whisper hipblas install path pins the release tag used in the URL.
     if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -204,11 +216,19 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
           rm -rfv CTRANSLATE2_VERSION_message.txt CTRANSLATE2_VERSION_commit.txt
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.UPDATE_BOT_TOKEN }}
-          push-to-fork: ci-forks/LocalAI
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: ':arrow_up: Update OpenNMT/CTranslate2 ROCm wheel'
           title: 'chore: :arrow_up: Update OpenNMT/CTranslate2 ROCm wheel to `${{ steps.bump.outputs.commit }}`'
           branch: "update/CTRANSLATE2_VERSION"
@@ -221,6 +241,8 @@ jobs:
     # constraint. bump_deps.sh handles git-sha-in-Makefile only — this job
     # rewrites both values atomically when a new vLLM stable tag ships.
     if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -241,11 +263,19 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
           rm -rfv VLLM_VERSION_message.txt VLLM_VERSION_commit.txt
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.UPDATE_BOT_TOKEN }}
-          push-to-fork: ci-forks/LocalAI
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: ':arrow_up: Update vllm-project/vllm cu130 wheel'
           title: 'chore: :arrow_up: Update vllm-project/vllm cu130 wheel to `${{ steps.bump.outputs.commit }}`'
           branch: "bump/VLLM_VERSION"
@@ -259,6 +289,8 @@ jobs:
     # tracks vllm-project/vllm-metal and rewrites both atomically. Separate from
     # bump-vllm-wheel because darwin follows vllm-metal, not vllm/vllm latest.
     if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -279,11 +311,19 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
           rm -rfv VLLM_METAL_VERSION_message.txt VLLM_METAL_VERSION_commit.txt
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.UPDATE_BOT_TOKEN }}
-          push-to-fork: ci-forks/LocalAI
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: ':arrow_up: Update vllm-project/vllm-metal (darwin)'
           title: 'chore: :arrow_up: Update vllm-metal (darwin) to `${{ steps.bump.outputs.commit }}`'
           branch: "bump/VLLM_METAL_VERSION"
@@ -291,14 +331,18 @@ jobs:
           signoff: true
 
   bump-strata:
-    # The strata backend ships the engine packages Strata publishes with each
-    # release, so a bump moves the release tag, its commit, the engine version
-    # and every package SHA-256 together (see backend/go/strata/Makefile).
-    # bump_deps.sh handles one commit variable only. Releases, not main: the
-    # prebuilt engine and the Python modules must come from the same release.
+    # The strata backend ships the engine packages Strata publishes with its
+    # releases. Upstream versions each platform on its own and does not attach
+    # every package to every release, so every package is pinned with its own
+    # release tag, version and SHA-256 (see backend/go/strata/Makefile), and a
+    # bump takes each package from the newest release that has it. The newest
+    # release and its commit are pinned too: the Python modules come from it.
+    # bump_deps.sh handles one commit variable only. Releases, not main.
     # If a release changes Strata's Python requirements, regenerate
     # backend/go/strata/requirements.txt by hand in the bump PR.
     if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -308,6 +352,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash .github/bump_strata.sh Niko1221/Strata backend/go/strata/Makefile STRATA_VERSION
+          # The script exits 0 without writing these files when no pin changes.
+          # Open no pull request then.
+          if [ ! -s STRATA_VERSION_commit.txt ]; then
+            echo 'skipped=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           {
             echo 'message<<EOF'
             cat "STRATA_VERSION_message.txt"
@@ -319,11 +369,21 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
           rm -rfv STRATA_VERSION_message.txt STRATA_VERSION_commit.txt
+      - name: Create GitHub App token
+        if: steps.bump.outputs.skipped != 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create Pull Request
+        if: steps.bump.outputs.skipped != 'true'
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.UPDATE_BOT_TOKEN }}
-          push-to-fork: ci-forks/LocalAI
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: ':arrow_up: Update Niko1221/Strata'
           title: 'chore: :arrow_up: Update Niko1221/Strata to `${{ steps.bump.outputs.commit }}`'
           branch: "bump/STRATA_VERSION"

@@ -52,6 +52,20 @@ var _ = Describe("emptying the Trash", func() {
 		Expect(after).To(BeEmpty())
 	})
 
+	It("titles an entry with the path inside the home, never the home itself", func() {
+		f := newFiles()
+		Expect(f.EnsureHome(ctx, "alice")).To(Succeed())
+		abs, _ := f.Abs("alice", "/Docs/a.txt")
+		_, err := f.Store().Put(ctx, f.Actor("alice"), abs, strings.NewReader("data"), workspace.PutOptions{Overwrite: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.DeleteHome(ctx, "alice", "/Docs")).To(Succeed())
+		trash, err := f.Trash(ctx, "alice", 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(trash).To(HaveLen(1))
+		Expect(trash[0].Title).To(Equal("Delete /Docs"))
+		Expect(trash[0].Title).NotTo(ContainSubstring("alice"))
+	})
+
 	It("does not reach the Trash of another user or a revision it does not list", func() {
 		f := newFiles()
 		alice := newToolBox(f, "alice", "chat1")

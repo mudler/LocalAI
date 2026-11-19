@@ -67,6 +67,8 @@ func scopeWords(v hostmsg.Voice, s contract.ChangeScope) string {
 		return v.T("change.scope.agent")
 	case contract.ScopeChannel:
 		return v.T("change.scope.channel")
+	case contract.ScopeProject:
+		return v.T("change.scope.project")
 	}
 	return v.T("change.scope.all")
 }

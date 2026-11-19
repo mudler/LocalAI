@@ -39,6 +39,8 @@ const (
 	MaxListEntries  = 100
 	MaxEntryRunes   = 200
 	MaxModelRunes   = 200
+	// MaxProjectIDRunes is the longest project id an agent may name.
+	MaxProjectIDRunes = 128
 )
 
 // Agent is a saved agent. The four lists are exact grants: an empty list
@@ -101,6 +103,16 @@ type Agent struct {
 	// A profile the add-on does not have, or the user may not use, falls back
 	// at run time.
 	SandboxProfile string
+	// ProjectID is the project the agent belongs to, empty for an agent of
+	// no project. It is set when the agent is created and never changes: a
+	// store keeps what it is given, and the service refuses a write that
+	// changes it.
+	ProjectID string
+	// MovedAt is when the agent last moved to another project or out of its
+	// project (zero when it never did). The chats that were started before it,
+	// in the project the agent has left, take no new turn. A store keeps what it
+	// is given and only the move of the service sets it.
+	MovedAt time.Time
 	// Folders are the folders the agent works in, at most MaxFolders, in the
 	// order the person gave them. Each is kept by workspace node so a rename
 	// or a move of the folder is followed. No folder means the agent works on
@@ -262,6 +274,9 @@ func Validate(a Agent) error {
 	}
 	if utf8.RuneCountInString(a.Model) > MaxModelRunes {
 		return bad("the model name is longer than %d characters", MaxModelRunes)
+	}
+	if utf8.RuneCountInString(a.ProjectID) > MaxProjectIDRunes {
+		return bad("the project ID is longer than %d characters", MaxProjectIDRunes)
 	}
 	if !ValidMemory(a.Memory) {
 		return bad("memory must be own, mine_and_own, mine or none")

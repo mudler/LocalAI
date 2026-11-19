@@ -13,9 +13,11 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/mcptransport"
+	"github.com/mudler/LocalAI/pkg/stderrtail"
 	"github.com/mudler/LocalAI/pkg/web/safehttp"
 )
 
@@ -29,6 +31,8 @@ type conn struct {
 	cs     *mcp.ClientSession
 	cancel context.CancelFunc
 	tools  []*mcp.Tool
+	// tail holds the last output of a local command; nil for a remote server.
+	tail *stderrtail.Buffer
 }
 
 func (c *conn) close() {
@@ -99,8 +103,9 @@ func (s *Service) openConn(reqCtx context.Context, c Connector, sec Secrets) (*c
 	stop := context.AfterFunc(reqCtx, cancel)
 	defer stop()
 	var (
-		cs  *mcp.ClientSession
-		err error
+		cs   *mcp.ClientSession
+		err  error
+		tail *stderrtail.Buffer
 	)
 	switch c.Transport {
 	case TransportHTTP:
@@ -118,13 +123,15 @@ func (s *Service) openConn(reqCtx context.Context, c Connector, sec Secrets) (*c
 		// No shell: the command and its arguments go to the kernel as they are.
 		cmd := exec.CommandContext(ctx, c.Command, c.Args...) // #nosec G204 -- an administrator's own connector
 		cmd.Env = StdioEnv(sec.Env, os.Environ())             //nolint:forbidigo // stdio servers inherit a filtered copy of the process environment
+		tail = stderrtail.New(stderrtail.DefaultSize)
+		cmd.Stderr = tail
 		cs, err = connectCommand(ctx, cancel, cmd, s.o.ConnectTimeout)
 	default:
 		err = bad("unknown transport")
 	}
 	if err != nil {
 		cancel()
-		return nil, err
+		return nil, s.withCommandOutput(err, c, sec, tail, "start")
 	}
 	lctx, lcancel := context.WithTimeout(ctx, s.o.ConnectTimeout)
 	defer lcancel()
@@ -135,7 +142,7 @@ func (s *Service) openConn(reqCtx context.Context, c Connector, sec Secrets) (*c
 		if lerr != nil {
 			_ = cs.Close()
 			cancel()
-			return nil, lerr
+			return nil, s.withCommandOutput(lerr, c, sec, tail, "list the tools of")
 		}
 		tools = append(tools, res.Tools...)
 		if res.NextCursor == "" || len(tools) >= maxTools {
@@ -152,7 +159,29 @@ func (s *Service) openConn(reqCtx context.Context, c Connector, sec Secrets) (*c
 		_ = cs.Close()
 		return nil, reqCtx.Err()
 	}
-	return &conn{cs: cs, cancel: cancel, tools: tools}, nil
+	return &conn{cs: cs, cancel: cancel, tools: tools, tail: tail}, nil
+}
+
+// commandOutput is the recent output of a local command with the secrets of
+// the connector removed, or "" when there is none.
+func commandOutput(tail *stderrtail.Buffer, c Connector, sec Secrets) string {
+	if tail == nil {
+		return ""
+	}
+	tail.Settle(250 * time.Millisecond)
+	return redact(tail.Text(), c, sec)
+}
+
+// withCommandOutput attaches the output of a local command to err and logs
+// both. A remote connector has no tail and err comes back as it is. What
+// leaves is redacted; the command line is not logged because its arguments
+// may hold a secret.
+func (s *Service) withCommandOutput(err error, c Connector, sec Secrets, tail *stderrtail.Buffer, did string) error {
+	out := commandOutput(tail, c, sec)
+	if tail != nil {
+		xlog.Warn("An MCP connector command failed", "connector", c.Name, "action", did, "error", redact(err.Error(), c, sec), "command_output", out)
+	}
+	return stderrtail.Wrap(err, out)
 }
 
 func connectCommand(ctx context.Context, cancel context.CancelFunc, cmd *exec.Cmd, timeout time.Duration) (*mcp.ClientSession, error) {

@@ -1,0 +1,257 @@
+# Development builds of the Electron launcher (no update feed files):
+#
+# - push to master: AppImage amd64 and arm64, and the DMG (signed and
+#   notarized when the secrets are available), as workflow artifacts
+#   localai-launcher-dev-linux-amd64, -linux-arm64 and -macos-arm64, kept 14 days.
+#   When all builds pass, the same files are also attached to the rolling
+#   `dev-master` pre-release, next to the server binaries that
+#   master-dev-binary.yml publishes there. The publish job is the only job
+#   here with write access, and it never runs for pull requests or manual runs.
+# - pull request: the amd64 AppImage only, unsigned, no secrets, kept 7 days.
+# - manual run: build and smoke for validation, with an optional version.
+#   It keeps nothing.
+#
+# The version is <newest vX.Y.Z tag, patch + 1>-dev.<run number>, and a
+# development build never updates itself. Its files have "dev" in the name
+# (LocalAI-Launcher-dev-x86_64.AppImage, LocalAI-Launcher-dev.dmg), so they are
+# never mistaken for release files. See launcher/README.md.
+#
+# Repository variables (Settings > Variables), both optional:
+# - LAUNCHER_DEV_ARM64=false: no arm64 AppImage on master pushes. Each package
+#   is about 120 MB; use it when the Actions storage quota is tight.
+# - LAUNCHER_DEV_SIGN_MACOS=false: an unsigned dev DMG on master (the
+#   fallback when notarization is too slow or queues; testers then allow
+#   it once in System Settings, see the macOS install page).
+name: Launcher (Electron) dev build
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'launcher/**'
+      - 'core/http/react-ui/packages/ui-kit/**'
+      - 'core/http/react-ui/src/index.css'
+      - 'core/http/react-ui/src/theme.css'
+      - '.github/workflows/launcher-electron-build.yaml'
+      - '.github/workflows/launcher-electron-dev.yaml'
+      - '.github/workflows/launcher-electron-release.yaml'
+  pull_request:
+    paths:
+      - 'launcher/**'
+      - 'core/http/react-ui/packages/ui-kit/**'
+      - 'core/http/react-ui/src/index.css'
+      - 'core/http/react-ui/src/theme.css'
+      - '.github/workflows/launcher-electron-build.yaml'
+      - '.github/workflows/launcher-electron-dev.yaml'
+      - '.github/workflows/launcher-electron-release.yaml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Launcher version (semver). Empty means the development version.
+        type: string
+        default: ''
+      sign-macos:
+        description: Sign and notarize the macOS app
+        type: boolean
+        default: false
+
+# A newer pull request push supersedes the older build of that pull request.
+# Master builds and manual runs are never cancelled: a running master build
+# finishes and publishes, and a master run that is still waiting is replaced
+# by a newer one, so the newest push wins.
+concurrency:
+  group: launcher-electron-dev-${{ github.event_name }}-${{ github.event.pull_request.number || (github.event_name == 'workflow_dispatch' && github.run_id) || github.ref }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Development version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: launcher/scripts
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - id: version
+        env:
+          GIVEN: ${{ inputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          if [ -n "$GIVEN" ]; then
+            v=$(node launcher/scripts/version.mjs check "$GIVEN")
+          else
+            # The tags of the main repository, without a full clone.
+            v=$(git ls-remote --tags --refs "$REPO_URL" 'refs/tags/v*' | node launcher/scripts/version.mjs dev "$RUN_NUMBER")
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Launcher version $v"
+
+  # Pull requests: no secrets, read-only token, amd64 AppImage only.
+  pull-request:
+    name: Pull request build
+    if: github.event_name == 'pull_request'
+    needs: version
+    permissions:
+      contents: read
+    uses: ./.github/workflows/launcher-electron-build.yaml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      artifact-prefix: localai-launcher-dev
+      linux-arm64: false
+      macos: false
+      sign-macos: false
+      feed: false
+      upload: true
+      retention-days: 7
+
+  master:
+    name: Master build
+    if: github.event_name == 'push'
+    needs: version
+    permissions:
+      contents: read
+    uses: ./.github/workflows/launcher-electron-build.yaml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      artifact-prefix: localai-launcher-dev
+      linux-arm64: ${{ vars.LAUNCHER_DEV_ARM64 != 'false' }}
+      macos: true
+      sign-macos: ${{ vars.LAUNCHER_DEV_SIGN_MACOS != 'false' }}
+      feed: false
+      upload: true
+      retention-days: 14
+    secrets:
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+      MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+      MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+
+  # The only job with write access. It checks out no code and runs nothing
+  # from the repository: it downloads the artifacts of the master build,
+  # verifies the checksums and talks to the GitHub API.
+  #
+  # It never creates the release or moves the tag: master-dev-binary.yml owns
+  # those. It only adds files, and it only touches names that start with
+  # LocalAI-Launcher-dev. master-dev-binary.yml only replaces names that start
+  # with local-ai-master-, so the two workflows never touch the same asset and
+  # need no shared lock. This job has its own concurrency group so that two
+  # uploads never overlap, and a waiting job must not replace (or be replaced
+  # by) a pending server publish, which a shared group would allow.
+  publish:
+    name: Attach to the dev-master pre-release
+    if: github.event_name == 'push' && github.repository == 'mudler/LocalAI'
+    needs: master
+    runs-on: ubuntu-latest
+    concurrency:
+      group: launcher-dev-release-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: dev-master
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: localai-launcher-dev-*
+          merge-multiple: true
+          path: upload
+      - name: Check the files and the checksums
+        working-directory: upload
+        run: |
+          set -euo pipefail
+          ls -l
+          # Only packages and their checksums, never update feed files.
+          count=0
+          for f in ./*; do
+            case "${f#./}" in
+              LocalAI-Launcher-dev[-.]*AppImage|LocalAI-Launcher-dev[-.]*dmg) count=$((count + 1)) ;;
+              LocalAI-Launcher-dev[-.]*AppImage.sha256|LocalAI-Launcher-dev[-.]*dmg.sha256) ;;
+              *) echo "unexpected file in the launcher artifacts: ${f}" >&2; exit 1 ;;
+            esac
+          done
+          test "${count}" -ge 2
+          sha256sum --check --strict ./*.sha256
+      # The release is made by master-dev-binary.yml, which can still be
+      # running for this commit. Wait for it. Do not create it here.
+      - name: Wait for the release
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 40); do
+            if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+              exit 0
+            fi
+            echo "no ${RELEASE_TAG} release yet (attempt ${attempt}), waiting"
+            sleep 30
+          done
+          echo "the ${RELEASE_TAG} release does not exist; master-dev-binary.yml creates it" >&2
+          exit 1
+      # Same retry shape as master-dev-binary.yml. Names are stable, so --clobber
+      # replaces the files of the last build. Packages go first and checksums
+      # last, so a checksum never describes a file that is not there yet.
+      - name: Upload the packages
+        run: |
+          set -euo pipefail
+          upload() {
+            gh release upload "${RELEASE_TAG}" upload/*.AppImage upload/*.dmg --clobber
+            gh release upload "${RELEASE_TAG}" upload/*.sha256 --clobber
+          }
+          for attempt in 1 2 3 4 5; do
+            if upload; then
+              exit 0
+            fi
+            echo "attempt ${attempt} failed, retrying"
+            sleep $((attempt * 15))
+          done
+          echo "could not upload the launcher packages" >&2
+          exit 1
+      # A build without arm64 (LAUNCHER_DEV_ARM64=false) must not leave an
+      # older arm64 file behind. Only launcher dev names that this build did
+      # not make are removed. Server binaries never match.
+      - name: Remove stale launcher files
+        run: |
+          set -euo pipefail
+          gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' |
+            grep -E '^LocalAI-Launcher-dev[-.]' |
+            while read -r asset; do
+              if [ ! -e "upload/${asset}" ]; then
+                echo "removing stale ${asset}"
+                gh release delete-asset "${RELEASE_TAG}" "${asset}" --yes
+              fi
+            done
+
+  manual:
+    name: Manual validation build
+    if: github.event_name == 'workflow_dispatch'
+    needs: version
+    permissions:
+      contents: read
+    uses: ./.github/workflows/launcher-electron-build.yaml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      artifact-prefix: localai-launcher-manual
+      linux-arm64: true
+      macos: true
+      sign-macos: ${{ inputs.sign-macos }}
+      feed: false
+      upload: false
+    secrets:
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+      MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+      MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}

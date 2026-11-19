@@ -1,5 +1,3 @@
-//go:build linux
-
 // SPDX-License-Identifier: MIT
 package runtime
 

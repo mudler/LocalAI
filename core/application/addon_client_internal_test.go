@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"strings"
 	"unicode/utf8"
 
@@ -27,5 +28,12 @@ var _ = Describe("the view of a client job", func() {
 		out := clientJobView(studio.JobInfo{Result: "ok"})
 		Expect(out.Result).To(Equal("ok"))
 		Expect(out.Truncated).To(BeFalse())
+	})
+})
+
+var _ = Describe("client.list over a host without accounts", func() {
+	It("is refused when there is no auth store or the add-on is not installed", func() {
+		_, err := addonClientList{a: &Application{}}.List(context.Background(), "owner", "notes")
+		Expect(err).To(MatchError(hostops.ErrForbidden))
 	})
 })

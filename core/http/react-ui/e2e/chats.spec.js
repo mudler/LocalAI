@@ -84,7 +84,13 @@ test.describe('Chats against the real server', () => {
     await page.getByTestId('chat-file-input').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from('orbital mechanics notes') })
     await composer(page).fill('summarize the attachment')
     await page.getByRole('button', { name: 'Send' }).click()
-    await expect(log(page).locator('.cx-msg--user').first()).toContainText('summarize the attachment', { timeout: 20_000 })
+    // The message shows at once, before the server has it; the file reaches
+    // the workspace with the send, so wait until the message is confirmed
+    // (it loses data-sending) before leaving the page, and not just until
+    // it shows.
+    const sent = log(page).locator('.cx-msg--user').first()
+    await expect(sent).toContainText('summarize the attachment', { timeout: 20_000 })
+    await expect(sent).not.toHaveAttribute('data-sending', /.*/, { timeout: 20_000 })
     await expect(working(page)).toBeHidden({ timeout: 30_000 })
 
     await page.goto('/app/files')

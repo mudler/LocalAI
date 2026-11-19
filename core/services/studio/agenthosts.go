@@ -16,7 +16,8 @@ import (
 
 // agentScope returns the folder of the saved agent agentID of user p as it is
 // now: nil for no agent or an agent without a folder, ErrAgentFolderMissing
-// when the folder is missing or not chosen. The hosts that start a chat of an
+// when the folder is missing or not chosen, and ErrProjectUnavailable for an
+// agent of a project that is not available. The hosts that start a chat of an
 // agent by themselves (trigger runs, connectors) check it before they make
 // the chat or read a file for it.
 func (s *Service) agentScope(ctx context.Context, p, agentID string) (*folderScope, error) {
@@ -27,7 +28,7 @@ func (s *Service) agentScope(ctx context.Context, p, agentID string) (*folderSco
 	if err != nil {
 		return nil, err
 	}
-	if !ag.HasFolder() {
+	if !fencedAgent(ag) {
 		return nil, nil
 	}
 	return s.liveFolder(ctx, p, ag)

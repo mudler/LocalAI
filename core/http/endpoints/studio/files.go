@@ -53,6 +53,7 @@ var fileRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "not found", workspace.ErrNotFound, workspace.ErrReadOnly, workspace.ErrNotAdmin),
 	fixed(http.StatusForbidden, "forbidden", "only an administrator may change the shared skills", files.ErrNotAdmin),
 	verbatim(http.StatusBadRequest, typeInvalid, "", files.ErrBadSkill),
+	fixed(http.StatusConflict, typeConflict, "project skills are off while this folder has other writers", files.ErrProjectSkillsBlocked),
 	fixed(http.StatusBadRequest, typeInvalid, "the path has a name that is not allowed", workspace.ErrBadName),
 	fixed(http.StatusConflict, typeConflict, "something with that name exists already", workspace.ErrExists),
 	fixed(http.StatusRequestEntityTooLarge, typeInvalid, "the file is too large", workspace.ErrTooLarge),

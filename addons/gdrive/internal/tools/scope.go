@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/gdrive/internal/driveapi"
-	"github.com/mudler/LocalAI/addons/internal/argutil"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/argutil"
 )
 
 // Media types the add-on treats on their own.

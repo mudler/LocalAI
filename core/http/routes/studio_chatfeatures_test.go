@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -58,9 +59,9 @@ func (f *fakeLLM) last() map[string]any {
 }
 
 // workFolderNote matches the sentence of a turn's note that names the chat's
-// work folder (workfiles.Note); the folder name may hold a quote, so the match
-// ends at the folder's own name.
-var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"\. ?`)
+// work folder (workfiles.Note), with the shell hint after it; the folder name
+// may hold a quote, so the match ends at the folder's own name.
+var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"; file tools take that path\.(?: ` + regexp.QuoteMeta(workfiles.ShellHint) + `)? ?`)
 
 // withoutWorkFolderNote removes that sentence, and the empty note around it,
 // so a spec keys on the words of the person.
@@ -212,7 +213,7 @@ var _ = Describe("Chats per-chat settings", func() {
 	It("stores the settings on the chat and applies them to the next turn", func() {
 		id := s.create("alice")
 		rec := s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"settings": map[string]any{
-			"system_prompt": "ALWAYS-ANSWER-IN-HAIKU", "temperature": 0.25, "top_p": 0.5, "top_k": 7, "reasoning_effort": "low", "context_size": 8192,
+			"system_prompt": "ALWAYS-ANSWER-IN-HAIKU", "temperature": 0.25, "top_p": 0.5, "top_k": 7, "reasoning_effort": "low", "context_size": 16384,
 		}})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(rec)["settings"]).To(HaveKeyWithValue("top_k", BeNumerically("==", 7)))
@@ -693,6 +694,15 @@ func swaggerPaths() map[string]bool {
 // featureOfChatsRoute is the feature that gates a path under /api/chats: the
 // automation parts have their own, off by default; the rest is chats.
 func featureOfChatsRoute(path string) string {
+	// The three lists of a project show objects of another feature, so the
+	// route needs that feature too (the handler checks chats as well).
+	for tail, feature := range map[string]string{
+		"/agents": auth.FeatureAgents, "/connections": auth.FeatureConnectors, "/triggers": auth.FeatureTriggers,
+	} {
+		if strings.HasPrefix(path, "/api/chats/projects/:id") && strings.HasSuffix(path, tail) {
+			return feature
+		}
+	}
 	for prefix, feature := range map[string]string{
 		"/api/chats/agents":     auth.FeatureAgents,
 		"/api/chats/triggers":   auth.FeatureTriggers,

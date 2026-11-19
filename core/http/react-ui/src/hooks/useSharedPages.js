@@ -3,8 +3,10 @@ import { sharedPagesApi } from '../utils/api'
 
 // The pages of the user's shared folders, read once and shared by the sidebar
 // and the Pages screen. enabled is false when an administrator turned shared
-// pages off; the pages are still listed so the screen can say so.
-let state = { pages: [], enabled: true, loaded: false, error: '' }
+// pages off; the pages are still listed so the screen can say so. userSharesOn
+// is false when an administrator turned off the pages that users share from
+// their own homes: those pages (user_shared) are listed and do not open.
+let state = { pages: [], enabled: true, userSharesOn: true, loaded: false, error: '' }
 const subscribers = new Set()
 let inflight = null
 
@@ -16,7 +18,7 @@ function set(next) {
 export function refreshSharedPages() {
   if (inflight) return inflight
   inflight = sharedPagesApi.list()
-    .then(res => set({ pages: res.pages || [], enabled: res.enabled !== false, loaded: true, error: '' }))
+    .then(res => set({ pages: res.pages || [], enabled: res.enabled !== false, userSharesOn: res.user_shares_enabled !== false, loaded: true, error: '' }))
     .catch(e => set({ pages: [], loaded: true, error: e?.status === 403 || e?.status === 404 || e?.status === 409 ? '' : (e?.message || 'error') }))
     .finally(() => { inflight = null })
   return inflight

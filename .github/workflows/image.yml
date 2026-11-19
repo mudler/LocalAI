@@ -7,10 +7,17 @@
         - master
       tags:
         - '*'
+        - '!dev-master'
   
+  # A newer push to master cancels the in-flight master run, because the newer
+  # commit contains the older one and a full build takes about two hours. Build
+  # jobs push by digest only, and the merge jobs that publish tags do not run
+  # in a cancelled run, so a cancelled run publishes no partial manifest. A tag
+  # push keeps its own group (its SHA), so a release build is never cancelled
+  # by a master push.
   concurrency:
-    group: ci-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
-    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    group: ci-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref == 'refs/heads/master' && 'master') || github.sha }}-${{ github.repository }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
   
   jobs:
     # Decide once whether this push can change any image. Gallery metadata is
@@ -86,7 +93,7 @@
               platforms: 'linux/amd64'
               tag-latest: 'auto'
               tag-suffix: '-gpu-hipblas'
-              base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+              base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
               runs-on: 'ubuntu-latest'
               makeflags: "--jobs=3 --output-sync=target"
               ubuntu-version: '2404'

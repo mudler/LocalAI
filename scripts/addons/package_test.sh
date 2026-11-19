@@ -49,7 +49,7 @@ run_go() {
     shift
     report="$cache/logs/packaging-$name.json"
     rm -f "$report"
-    go test -count=1 -p 2 -tags auth "$@" -ginkgo.json-report="$report" >"$cache/logs/packaging-$name.log" 2>&1 || { tail -60 "$cache/logs/packaging-$name.log" >&2; exit 1; }
+    go test -count=1 -p 2 -tags auth,nosqlite,purego_utp "$@" -ginkgo.json-report="$report" >"$cache/logs/packaging-$name.log" 2>&1 || { tail -60 "$cache/logs/packaging-$name.log" >&2; exit 1; }
     go_cases "$report"
 }
 run_go specs ./pkg/addons/packaging
@@ -155,6 +155,41 @@ env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_MEDIA="registry.example/org/
 grep -F -- "-X main.profileImages=media=registry.example/org/sandbox-guest-media@$mdig" "$work/ldflags.log" >/dev/null || { echo 'FAIL: the profile images did not reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
 case_ok 'package.sh passes the media image to the linker'
 expect_fail 'package.sh refuses a media image that is not by digest' 'SANDBOX_GUEST_IMAGE_MEDIA must be' env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_MEDIA=registry.example/org/media:latest PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/badmedia" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime"
+: >"$work/ldflags.log"
+odig=sha256:$(printf '0123456789abcdef%.0s' 1 2 3 4)
+env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_MEDIA="registry.example/org/sandbox-guest-media@$mdig" SANDBOX_GUEST_IMAGE_OFFICE="registry.example/org/sandbox-guest-office@$odig" PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/withoffice" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+grep -F -- "-X main.profileImages=media=registry.example/org/sandbox-guest-media@$mdig,office=registry.example/org/sandbox-guest-office@$odig" "$work/ldflags.log" >/dev/null || { echo 'FAIL: the office image did not reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
+case_ok 'package.sh passes the office image to the linker next to the media image'
+: >"$work/ldflags.log"
+env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_OFFICE="registry.example/org/sandbox-guest-office@$odig" PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/onlyoffice" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+grep -F -- "-X main.profileImages=office=registry.example/org/sandbox-guest-office@$odig" "$work/ldflags.log" >/dev/null || { echo 'FAIL: the office image alone did not reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
+case_ok 'package.sh passes the office image without a media image'
+expect_fail 'package.sh refuses an office image that is not by digest' 'SANDBOX_GUEST_IMAGE_OFFICE must be' env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_OFFICE=registry.example/org/office:latest PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/badoffice" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime"
+# The macOS sandbox executable is signed with the virtualization entitlement.
+# Stand-ins for the two signers record their call and copy the file.
+mkdir "$work/signbin"
+cat >"$work/signbin/rcodesign" <<'STUB'
+#!/bin/sh
+# rcodesign sign --entitlements-xml-file <plist> <in> <out>
+echo "rcodesign $*" >>"$SIGN_LOG"
+cp "$4" "$5"
+STUB
+cat >"$work/signbin/codesign" <<'STUB'
+#!/bin/sh
+# codesign --force --sign - --entitlements <plist> <file>
+echo "codesign $*" >>"$SIGN_LOG"
+STUB
+chmod 755 "$work/signbin/rcodesign" "$work/signbin/codesign"
+export SIGN_LOG="$work/sign.log"
+: >"$work/sign.log"
+SANDBOX_GUEST_IMAGE="$good" PATH="$work/signbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/mac" --version 1.2.3 --platform darwin/arm64 --executable "$work/stub" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+grep -F -- 'addons/sandbox/package/entitlements.plist' "$work/sign.log" >/dev/null || { echo 'FAIL: the macOS sandbox executable was not signed with the entitlement' >&2; cat "$work/sign.log" >&2; exit 1; }
+grep -F 'com.apple.security.virtualization' addons/sandbox/package/entitlements.plist >/dev/null
+case_ok 'package.sh signs the macOS sandbox executable with the virtualization entitlement'
+: >"$work/sign.log"
+sh scripts/addons/package.sh --config addons/tables/package/platforms.yaml --layout "$work/mactab" --version 1.2.3 --platform darwin/arm64 --executable "$work/stub" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+! test -s "$work/sign.log" || { echo 'FAIL: another add-on was signed' >&2; exit 1; }
+case_ok 'package.sh signs no other add-on'
 expect_fail 'matrix fails closed while no platform is enabled' 'no enabled platform' "$tool" matrix --config "$work/disabled.yaml"
 expect_fail 'matrix fails closed without a file' 'platform matrix' "$tool" matrix --config "$work/absent.yaml"
 

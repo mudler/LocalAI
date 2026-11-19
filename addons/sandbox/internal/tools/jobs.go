@@ -18,10 +18,10 @@ import (
 
 	"github.com/mudler/xlog"
 
-	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The states, end reasons and unknown exit status the job tool reports
@@ -260,7 +260,9 @@ func (t *jobTable) start(ctx context.Context, user, conv, op string, call sandbo
 			// Before the process starts, so its first connection finds it.
 			stopEgress = t.egress.BeginJob(user, conv, op)
 		}
-		proc, err := sb.Exec(pctx, sandbox.Cmd{Args: []string{"bash", "-lc", a.Command}, Dir: runner.GuestHome, Stdin: pr, Stdout: j.ring, Stderr: j.ring})
+		// Like a foreground call, a job starts in the chat's work folder.
+		dir, env := sandbox.WorkStart(call.WorkDir, runner.GuestHome)
+		proc, err := sb.Exec(pctx, sandbox.Cmd{Args: []string{"bash", "-lc", a.Command}, Dir: dir, Env: env, Stdin: pr, Stdout: j.ring, Stderr: j.ring})
 		if err != nil {
 			kill()
 			_, _ = pw.Close(), pr.Close()

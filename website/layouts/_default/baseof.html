@@ -1,12 +1,11 @@
 <!doctype html>
 <html lang="en">
 {{ partial "head.html" . }}
-<body>
-  <div class="prog"><i id="pbar"></i></div>
-  <canvas id="field" aria-hidden="true"></canvas>
+<body{{ with .Params.bodyclass }} class="{{ . }}"{{ end }}>
+  <a class="skip" href="#main">Skip to content</a>
   {{ partial "nav.html" . }}
   {{ block "main" . }}{{ end }}
   {{ partial "footer.html" . }}
-  <script src="{{ "js/site.js" | relURL }}" defer></script>
+  <script src="{{ "js/main.js" | relURL }}" defer></script>
 </body>
 </html>

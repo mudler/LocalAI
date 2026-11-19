@@ -30,11 +30,15 @@ const SORTS = ['source', 'name', 'name-desc', 'used']
 const DENSITIES = ['comfortable', 'compact']
 const ROWS_PAGE = 60
 // The layers, nearest first: a skill of a nearer layer hides one of the same name.
-const LAYERS = ['personal', 'agent', 'folder', 'shared', 'addon', 'builtin']
+const LAYERS = ['project', 'personal', 'agent', 'folder', 'shared', 'addon', 'builtin']
 
 // Two add-ons may ship a skill of one name, so an add-on skill keys by its add-on too.
-// An agent skill keys by its agent: two agents may keep one name.
-const keyOf = (s) => (s.layer === 'addon' ? `addon/${s.addon}/${s.name}` : s.layer === 'agent' ? `agent/${s.agent}/${s.name}` : `${s.layer}/${s.name}`)
+// An agent skill keys by its agent, a project skill by its project: two may keep one name.
+const keyOf = (s) => (s.layer === 'addon' ? `addon/${s.addon}/${s.name}` : s.layer === 'agent' ? `agent/${s.agent}/${s.name}` : s.layer === 'project' ? `project/${s.project}/${s.name}` : `${s.layer}/${s.name}`)
+
+// The editor route of a skill. The Skills page lists no project skill (they belong to a
+// project and are edited on its page), so there is no project in the route.
+const editPath = (s) => `/app/skills/edit/${encodeURIComponent(s.layer)}/${encodeURIComponent(s.name)}`
 
 // The badge of a skill: the add-on's title for an add-on skill, else the layer.
 const badgeOf = (t, s) => (s.layer === 'addon' ? (s.addon_title || s.addon) : s.layer === 'agent' ? (s.agent_name || s.agent) : t(`layers.${s.layer}`))
@@ -194,7 +198,7 @@ export default function Skills() {
   // The quiet menu of a row: the same actions the open skill offers in its pane.
   const menuFor = (skill) => [
     ...(skill.layer === 'personal' && !skill.invalid ? [{ key: 'export', icon: 'download', label: t('actions.export'), onClick: () => exportSkill(skill) }] : []),
-    ...(skill.editable ? [{ key: 'edit', icon: 'edit', label: t('actions.edit'), onClick: () => navigate(`/app/skills/edit/${encodeURIComponent(skill.layer)}/${encodeURIComponent(skill.name)}`) }] : []),
+    ...(skill.editable ? [{ key: 'edit', icon: 'edit', label: t('actions.edit'), onClick: () => navigate(editPath(skill)) }] : []),
     ...(skill.editable || skill.removable ? [{ divider: true }, { key: 'delete', icon: 'trash', danger: true, label: t('actions.delete'), onClick: () => setToDelete(skill) }] : []),
   ]
   const importButton = (
@@ -397,7 +401,7 @@ export default function Skills() {
                 agents={facts.agents}
                 busy={busy}
                 onBack={() => select('')}
-                onEdit={(s) => navigate(`/app/skills/edit/${encodeURIComponent(s.layer)}/${encodeURIComponent(s.name)}`)}
+                onEdit={(s) => navigate(editPath(s))}
                 onDelete={setToDelete}
                 onExport={exportSkill}
                 onAdd={(agent) => addToAgent(selected, agent)}

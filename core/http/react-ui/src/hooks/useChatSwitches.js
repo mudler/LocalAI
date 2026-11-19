@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { chatAddonsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
 import { connectorRef, toolsCounts } from '../utils/chatMCP'
 import { offWith, withOn } from '../utils/chatSwitchRows'
 import { changedIds, offList, pickerSkills, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
+import { attachedCollections, markAddons, markConnectors, markServers, markSkills } from '../utils/projectAttached'
 import { commandsState, noticeIdentity } from '../utils/chatCommands'
 import { addonRowsCurrent, applyChoices, choicesFromTools, draftListSwitches, draftSwitches as switchesOf, emptyChoices, withChoice } from '../utils/chatDraftSwitches'
 
@@ -24,7 +25,11 @@ export { skillKey }
 // the new chat: the lists come from the draft endpoints, a switch changes only
 // the screen, and draftSwitches() gives the choices for the create request
 // (utils/chatDraftSwitches.js). Choices outlive a change of model or agent.
-export function useChatSwitches(chatId, filesOn, draft = null, actorSession = '') {
+//
+// attached: the lists the chat's project attaches (see utils/projectAttached.js).
+// The server turns those tools on for every turn; the rows show them on and
+// locked, marked as coming from the project.
+export function useChatSwitches(chatId, filesOn, draft = null, actorSession = '', attached = null) {
   const draftOn = !chatId && !!draft
   const draftModel = draft?.model || ''
   const draftAgent = draft?.agentId || ''
@@ -349,13 +354,20 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     refreshDraftCommands()
   }, [draftOn, refreshDraftCommands])
 
+  const shown = useMemo(() => ({
+    addons: markAddons(addons, attached),
+    servers: markServers(mcp.servers, attached),
+    connectors: markConnectors(mcp.connectors, attached),
+    skills: markSkills(skills, attached),
+  }), [addons, mcp.servers, mcp.connectors, skills, attached])
+
   return {
     draftSwitches, resetDraft, applyDraftTools, draft: draftOn, commandsRev,
     editsSinceApply: () => editsRef.current,
     // The draft lists have answered the last applyDraftTools (see answered).
     listsReady: answered.tools >= draftRev && answered.addons >= draftRev && answered.skills >= skillsRev,
-    addons, builtins, fallbacks, memory, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
-    counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
+    addons: shown.addons, builtins, fallbacks, memory, commands: commands.context === context ? commands : noCommands, servers: shown.servers, connectors: shown.connectors, skills: shown.skills, attachedCollections: attachedCollections(attached), replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
+    counts: toolsCounts({ builtins, addons: shown.addons, servers: shown.servers, connectors: shown.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn, setConnections,
   }
 }

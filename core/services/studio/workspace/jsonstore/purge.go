@@ -205,3 +205,91 @@ func (s *Store) blobsInUse(ctx context.Context, shas []string) (map[string]bool,
 	}
 	return want, nil, nil
 }
+
+// PruneVersions drops the oldest write rows of the file p. See workspace.Purger.
+func (s *Store) PruneVersions(ctx context.Context, a workspace.Actor, p string, keep int) (int, error) {
+	if keep < 1 {
+		return 0, workspace.ErrInvalid
+	}
+	dropped, freed, err := s.pruneLocked(ctx, a, p, keep)
+	if err != nil || len(freed) == 0 {
+		return dropped, err
+	}
+	// Outside the lock: the check of the blobs takes the read lock.
+	blob.Sweep{Store: s.blobs, Grace: blob.Grace(s.blobGrace), InUse: s.blobsInUse, Life: s.life}.
+		RemoveLater(context.Background(), freed)
+	return dropped, nil
+}
+
+func (s *Store) pruneLocked(ctx context.Context, a workspace.Actor, p string, keep int) (int, []string, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, nil, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	d := s.d
+	n, err := d.lookupPath(p)
+	if err != nil || n.Kind != workspace.KindFile {
+		return 0, nil, nil // missing or not a file; a bad path is missing too
+	}
+	if err := s.needWrite(d, a, n); err != nil {
+		return 0, nil, err
+	}
+	// Newest first. A write that shares its change set with another node
+	// stays, because dropping its row would change what an undo of that
+	// change set does to the other node.
+	drop := map[int64]bool{}
+	freed := map[string]struct{}{}
+	seen := 0
+	for _, ji := range slices.Backward(d.byNode[n.ID]) {
+		r := d.journal[ji]
+		if r.Op != workspace.OpWrite {
+			continue
+		}
+		seen++
+		if seen <= keep || len(d.byRev[r.Rev]) != 1 {
+			continue
+		}
+		drop[r.ID] = true
+		freed[r.Old.Blob], freed[r.New.Blob] = struct{}{}, struct{}{}
+	}
+	if len(drop) == 0 {
+		return 0, nil, nil
+	}
+
+	snap := d.snapshot()
+	touched := map[int64]bool{}
+	var rows []journalRow
+	for _, r := range snap.Journal {
+		if drop[r.ID] {
+			touched[r.Rev] = true
+			continue
+		}
+		r.ID = int64(len(rows)) + 1
+		rows = append(rows, r)
+	}
+	snap.Journal = rows
+	live := map[int64]bool{}
+	for _, r := range rows {
+		live[r.Rev] = true
+	}
+	var sets []changeRec
+	for _, c := range snap.Sets {
+		if touched[c.Rev] && !live[c.Rev] {
+			continue
+		}
+		sets = append(sets, c)
+	}
+	snap.Sets = sets
+	if s.dir != "" {
+		if err := s.writeSnapshot(snap); err != nil {
+			return 0, nil, err
+		}
+	}
+	nd := newData()
+	nd.restore(snap)
+	s.d = nd
+
+	delete(freed, "")
+	return len(drop), slices.Collect(maps.Keys(freed)), nil
+}

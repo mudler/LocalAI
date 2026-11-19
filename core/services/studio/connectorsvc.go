@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -261,7 +262,24 @@ func (c *Connectors) withState(ctx context.Context, i ConnectorInfo) ConnectorIn
 // tool-only may still hold them; the stored row is left alone and every reader
 // goes through here, so no migration is needed.
 func toolOnlyView(b connectors.Binding) connectors.Binding {
-	b.AgentID, b.Enabled, b.AcceptAny = "", false, false
+	b.Enabled, b.AcceptAny = false, false
+	return toolOnlyClean(b)
+}
+
+// toolOnlyClean clears what only makes sense when an agent answers: the agent,
+// the permissions, the allowlist, the notification chat, the talk-back
+// channels, the pairings and the trigger approval. A tool-only binding holds a
+// credential and its resource list; agents use it through their own
+// connection sets. The connector page of such a kind has no control for these
+// settings, so a request may still carry the defaults it seeds, and a row
+// saved before the kind was tool-only may hold them. Both are cleaned, so the
+// binding passes ValidateKind without an agent.
+func toolOnlyClean(b connectors.Binding) connectors.Binding {
+	b.AgentID = ""
+	b.Caps, b.Grants, b.WriteTickRemoved = nil, nil, false
+	b.Allow, b.AllowTrust = nil, nil
+	b.NotifyChat, b.Channels, b.Paired = "", nil, nil
+	b.Approval = connectors.Approval{}
 	return b
 }
 
@@ -451,14 +469,51 @@ func (c *Connectors) openToken(ctx context.Context, b connectors.Binding) (strin
 // checkAgent makes sure the agent is the owner's and names a model, because a
 // binding has no model of its own.
 func (c *Connectors) checkAgent(ctx context.Context, owner, agentID string) error {
+	_, err := c.usableAgent(ctx, owner, agentID)
+	return err
+}
+
+func (c *Connectors) usableAgent(ctx context.Context, owner, agentID string) (agents.Agent, error) {
 	ag, err := c.svc.Agent(ctx, owner, agentID)
+	if err != nil {
+		return ag, err
+	}
+	if strings.TrimSpace(ag.Model) == "" {
+		return ag, connectorBad("the agent %q needs a model: a connector has no model of its own", ag.Name)
+	}
+	return ag, nil
+}
+
+// checkReassign is checkAgentIfAny for a binding that already has an agent. A
+// binding belongs to the project of its agent, so it can only move to an agent
+// of the same project: a project connection stays in its project and a
+// connection outside projects does not reach into one. The first agent of a
+// binding, and an agent that was deleted, leave no project to keep.
+func (c *Connectors) checkReassign(ctx context.Context, owner, oldAgentID, agentID string) error {
+	if agentID == "" {
+		return nil
+	}
+	ag, err := c.usableAgent(ctx, owner, agentID)
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(ag.Model) == "" {
-		return connectorBad("the agent %q needs a model: a connector has no model of its own", ag.Name)
+	if oldAgentID == "" || oldAgentID == agentID {
+		return nil
 	}
-	return nil
+	old, err := c.svc.Agent(ctx, owner, oldAgentID)
+	if err != nil {
+		if isAgentMissing(err) {
+			return nil
+		}
+		return err
+	}
+	if old.ProjectID == ag.ProjectID {
+		return nil
+	}
+	if old.ProjectID != "" {
+		return connectorBad("a project connection can only use agents of its project")
+	}
+	return connectorBad("a connection that is not in a project cannot use a project agent")
 }
 
 // checkAgentIfAny is checkAgent for a binding that has an agent. The binding
@@ -504,7 +559,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 			return ConnectorInfo{}, err
 		}
 		// Agents choose the connection through their own sets: the binding has none.
-		b.AgentID, in.AgentID = "", ""
+		b, in.AgentID = toolOnlyClean(b), ""
 	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
@@ -634,7 +689,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		if err := connectors.ValidateToolOnly(b); err != nil {
 			return ConnectorInfo{}, err
 		}
-		b.AgentID, in.AgentID = "", ""
+		b, in.AgentID = toolOnlyClean(b), ""
 	}
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
@@ -654,7 +709,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	if err := c.checkTokenGuards(ctx, &old, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
-	if err := c.checkAgentIfAny(ctx, old.Owner, in.AgentID); err != nil {
+	if err := c.checkReassign(ctx, old.Owner, old.AgentID, in.AgentID); err != nil {
 		return ConnectorInfo{}, err
 	}
 	mine, err := c.o.Store.ListBindings(ctx, old.Owner)

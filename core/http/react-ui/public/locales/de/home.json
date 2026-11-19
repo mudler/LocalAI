@@ -82,13 +82,19 @@
       "step2Title": "Modell installieren",
       "step2Body": "Klicken Sie auf Installieren, um es automatisch herunterzuladen und zu konfigurieren.",
       "step3Title": "Chat starten",
-      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API."
+      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API.",
+      "step4Title": "Agents einrichten",
+      "step4Body": "Erstelle einen API-Schlüssel und verbinde dann einen Coding-Agent: {{agents}}. Die Anleitung trägt Adresse und Schlüssel für dich ein.",
+      "step5Title": "LocalAI mit einem Add-on erweitern",
+      "step5Body": "Add-ons bringen neue Fähigkeiten. Installiere sie aus der Bibliothek."
     },
     "browseGallery": "Modellgalerie durchsuchen",
     "importModel": "Modell importieren",
     "docs": "Dokumentation",
     "noModelsTitle": "Keine Modelle verfügbar",
-    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können."
+    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können.",
+    "connectAgents": "Coding-Agent verbinden",
+    "browseAddons": "Add-ons durchsuchen"
   },
   "connect": {
     "title": "Ein Endpunkt, jede API",
@@ -100,7 +106,8 @@
     "copied": "Kopiert",
     "browse": "Browse the API",
     "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "agentsLink": "Coding-Agent verbinden: API-Schlüssel erstellen und Konfiguration kopieren"
   },
   "jump": {
     "heading": "Jump back in",
@@ -191,5 +198,22 @@
     "installing": "Wird installiert",
     "installStarted": "{{model}} wird installiert…",
     "installFailed": "Installation fehlgeschlagen: {{message}}"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "Wo laufen Ihre Modelle?",
+      "local": "Auf diesem Rechner",
+      "remote": "Auf einem anderen Server oder Dienst",
+      "remoteIntro": "Verbinden Sie ein Modell, das schon anderswo läuft. Lokale Modelle können Sie später installieren.",
+      "remoteNote": "Für Remote-Modelle entfallen die Prüfungen zu empfohlenem Modell und Kontextgröße."
+    },
+    "step1Title": "Gegenstelle verbinden",
+    "step1Body": "Wählen Sie die Art und prüfen Sie, ob LocalAI sie erreicht.",
+    "step2Title": "Modelle wählen",
+    "step2Body": "Jedes gewählte Modell wird hier zu einem Modell.",
+    "done": "{{name}} verbunden. {{count}} Modell hinzugefügt.",
+    "done_other": "{{name}} verbunden. {{count}} Modelle hinzugefügt.",
+    "skipped": "{{count}} Modell wurde nicht hinzugefügt:",
+    "skipped_other": "{{count}} Modelle wurden nicht hinzugefügt:"
   }
 }

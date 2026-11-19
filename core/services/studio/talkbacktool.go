@@ -30,9 +30,11 @@ const sendMessageSchema = `{"type":"object","properties":{` +
 	`"thread":{"type":"string","description":"With channel: the ID of a thread in that channel, to answer in it."}},` +
 	`"required":["text"]}`
 
-// registerTalkbackTool registers send_message. The tool is for a chat that a
-// connector started, whose sender holds talkback.channels; the call checks the
-// capability that its target needs again.
+// registerTalkbackTool registers send_message. In a chat that a connector
+// started it is offered when the sender holds talkback.channels, and the call
+// checks the capability that its target needs again. In a chat in Studio, and
+// so in the runs of its loops, it is offered when the owner has a connection
+// that can receive messages (see studioSendTool).
 func (s *Service) registerTalkbackTool() error {
 	return s.builtins.Register(builtins.Tool{
 		ID: SendMessageName, Label: "Send a message", Description: sendMessageDescription, Unlisted: true,
@@ -43,7 +45,11 @@ func (s *Service) registerTalkbackTool() error {
 			switch {
 			case conns == nil:
 				return session.Tool{}, false, "connections to messaging apps are off on this server"
-			case c.Origin != session.OriginConnector || c.SubAgent:
+			case c.SubAgent:
+				return session.Tool{}, false, "only the agent of a messaging app connection writes there"
+			case c.Origin == "":
+				return s.studioSendTool(ctx, c)
+			case c.Origin != session.OriginConnector:
 				return session.Tool{}, false, "only the agent of a messaging app connection writes there"
 			}
 			desc := sendMessageDescription

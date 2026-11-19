@@ -11,7 +11,9 @@ import Icon from './Icon'
 //   foot                 buttons for the foot (primary action last)
 //   pending              true while the action runs: it cannot be dismissed
 //   closeLabel           accessible name of the close button
-export default function Dialog({ title, description, foot, onClose, role = 'dialog', pending = false, closeLabel = 'Close', testId, labelId = 'dialog-title', children }) {
+//   wide                 the kit's wide panel (720px) for a body with a lot to say
+//   bodyClass            an extra class on the scrolling body, for a dialog that styles its scroll area
+export default function Dialog({ title, description, foot, onClose, role = 'dialog', pending = false, closeLabel = 'Close', testId, labelId = 'dialog-title', wide = false, bodyClass = '', children }) {
   const ref = useRef(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
@@ -47,7 +49,7 @@ export default function Dialog({ title, description, foot, onClose, role = 'dial
   return createPortal(
     <div className="dk-veil" data-state="open" onMouseDown={() => { if (!pending) onClose() }}>
       <div
-        ref={ref} className="dk-dialog" role={role} aria-modal="true" aria-labelledby={labelId}
+        ref={ref} className={wide ? 'dk-dialog dk-dialog--wide' : 'dk-dialog'} role={role} aria-modal="true" aria-labelledby={labelId}
         data-state="open" data-testid={testId} onMouseDown={e => e.stopPropagation()}
       >
         <div className="dk-dialog-head">
@@ -59,7 +61,7 @@ export default function Dialog({ title, description, foot, onClose, role = 'dial
             <Icon name="close" />
           </button>
         </div>
-        <div className="dk-dialog-body">{children}</div>
+        <div className={bodyClass ? `dk-dialog-body ${bodyClass}` : 'dk-dialog-body'}>{children}</div>
         {foot && <div className="dk-dialog-foot">{foot}</div>}
       </div>
     </div>,

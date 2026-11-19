@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { chatAgentsApi } from '../utils/api'
+import { useProjectAttached } from './useProjectAttached'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useChatDrafts } from './useChatDrafts'
 import { useChatSwitches } from './useChatSwitches'
@@ -19,6 +20,8 @@ import { useModels } from './useModels'
 //   activeChat   the open chat's record ({ model, agent_id }), or null
 //   filesOn      files work on this server: attaching and the skills need it
 //   initialModel, initialAgent   the model and the agent a new chat starts on
+// projectId (setProjectId) is the project the new chat starts in; '' is none.
+// pulledDraft (setPulledDraft) are the refs of shared projects it pulls in.
 export function useChatComposer({ chatId = null, draftKey = '', userId, activeChat = null, filesOn = true, canAgents = false, initialModel = '', initialAgent = '' }) {
   const { user, sessionEpoch } = useAuth()
   const actorSession = JSON.stringify([user?.id ?? userId ?? null, sessionEpoch])
@@ -28,6 +31,10 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
   const { setFiles } = drafts
   const [draftModel, setDraftModel] = useState(initialModel)
   const [agentId, setAgentId] = useState(initialAgent)
+  // The project a new chat starts in: the draft's own, forgotten with it.
+  const [projectId, setProjectId] = useState('')
+  // The shared projects the new chat pulls in (refs), pulled once it exists.
+  const [pulledDraft, setPulledDraft] = useState([])
   const [agents, setAgents] = useState([])
   const { models, loading: modelsLoading } = useModels(CAP_CHAT)
 
@@ -41,7 +48,9 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
   const pickedAgent = agents.find((a) => a.id === (activeChat ? activeChat.agent_id : agentId))
   // The model of a new chat comes from the agent when it names one.
   const effectiveModel = activeChat ? activeChat.model : (pickedAgent?.model || draftModel)
-  const switches = useChatSwitches(chatId, filesOn, chatId ? null : { model: effectiveModel, agentId }, actorSession)
+  // What the chat's project attaches (the open chat's, or the project of the draft).
+  const attached = useProjectAttached(chatId ? activeChat?.project_id : projectId)
+  const switches = useChatSwitches(chatId, filesOn, chatId ? null : { model: effectiveModel, agentId }, actorSession, attached)
 
   // Files go to the server with the message that starts a turn and are saved
   // in the chat's folder of the workspace.
@@ -72,7 +81,7 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
   }, [filesOn, setFiles])
 
   return {
-    drafts, draftId, draftModel, setDraftModel, agentId, setAgentId, agents, pickedAgent, effectiveModel,
+    drafts, draftId, draftModel, setDraftModel, agentId, setAgentId, projectId, setProjectId, pulledDraft, setPulledDraft, agents, pickedAgent, effectiveModel,
     models, modelsLoading, switches, attach, paste,
   }
 }

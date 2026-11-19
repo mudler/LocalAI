@@ -1075,7 +1075,7 @@ func (s *studioAddons) AddonProviders(ctx context.Context, user string) ([]studi
 		if denied[a.AddonID] {
 			continue
 		}
-		out = append(out, studio.AddonProviderSet{AddonID: a.AddonID, Title: a.Title, Description: a.Description, Provides: a.Provides, Running: a.Running})
+		out = append(out, studio.AddonProviderSet{AddonID: a.AddonID, Title: a.Title, Description: a.Description, Provides: a.Provides, ModelSearch: a.ModelSearch, Running: a.Running})
 	}
 	return out, nil
 }
@@ -1468,7 +1468,7 @@ func sharedHold(hold func(context.Context, func(context.Context) error) error) f
 func (c credentialSource) connectionFor(ctx context.Context, user, addonID string) (string, error) {
 	override := gateway.ConnectionOverride(ctx)
 	if b, ok := hostops.BindingOf(ctx); ok && c.a.studioStore != nil {
-		rec, err := c.a.studioStore.GetChat(ctx, b.Principal, b.ChatID)
+		rec, err := c.a.effectiveChat(ctx, b.Principal, b.ChatID)
 		if err != nil || rec.Principal != b.Principal {
 			return "", &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
 		}

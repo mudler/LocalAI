@@ -1,5 +1,5 @@
 /* LocalAI theme bridge.
-   The palette lives in theme-localai.css as the kit's colour roles
+   The palette lives in packages/ui-kit/themes/localai.css as the kit's colour roles
    (--dk-*), for light and dark. This file keeps the app's own variable
    names (--color-*, --shadow-*) and points each one at a role, so every
    existing rule picks up the palette without being edited. The roles
@@ -79,6 +79,9 @@
   --color-modal-backdrop: var(--dk-scrim);
 
   --color-focus-ring: var(--dk-accent);
+  /* The "AI" of the product name: logo teal on light, brand yellow on dark.
+     Both clear 4.5:1 on the canvas, the inset and the card. */
+  --color-brand-ai: var(--brand-logo-teal);
   --color-eyebrow: var(--dk-accent-text);
 
   /* Data viz: roles where one fits, fixed hues for the rest (see the
@@ -338,7 +341,8 @@
 /* Dark: the kit's secondary button is an inset fill, darker than the canvas,
    with at most a hairline edge, so it almost disappears. Buttons use the card
    fill and this edge, at least 3:1 against the canvas and a card. The button
-   rules that read it are in components/ui/ui.css. */
+   rules that read it are in packages/ui-kit/css/kit.css. */
 [data-theme="dark"] {
+  --color-brand-ai: var(--brand-yellow);
   --ctl-edge-dark: color-mix(in srgb, var(--dk-control-edge) 70%, var(--dk-edge));
 }

@@ -183,3 +183,21 @@
   .ac-limit { grid-template-columns: minmax(0, 1fr) auto; }
   .ac-limit .dk-progress { grid-column: 1 / -1; order: 3; }
 }
+
+/* ---- Connect a coding agent (under the key list) -------------------------------- */
+.ak-connect { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; padding-top: var(--dk-space-4); border-top: 1px solid var(--dk-edge); }
+.ak-connect__head { display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.ak-connect__title { margin: 0; font: var(--dk-weight-semibold) var(--dk-text-15) / 1.3 var(--dk-font-body); }
+.ak-connect__pick { align-self: flex-start; max-width: 100%; }
+.ak-connect__fields { display: flex; flex-wrap: wrap; gap: var(--dk-space-3); }
+.ak-connect__fields .dk-field { flex: 1 1 220px; max-width: 320px; }
+.ak-connect__line { margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); overflow-wrap: anywhere; }
+.ak-connect__notes { margin: 0; padding-left: var(--dk-space-5); display: flex; flex-direction: column; gap: var(--dk-space-1); font-size: var(--dk-text-13); line-height: 1.5; color: var(--dk-muted); }
+.ak-connect__docs { align-self: flex-start; font-size: var(--dk-text-13); }
+.ak-cmd { position: relative; border-radius: var(--dk-radius-3); background: var(--dk-inset); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.ak-cmd__text { margin: 0; padding: var(--dk-space-4) 96px var(--dk-space-4) var(--dk-space-4); overflow-x: auto; font: 12.5px / 1.65 var(--dk-font-mono); color: var(--dk-text); white-space: pre; }
+.ak-cmd__text:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; border-radius: var(--dk-radius-3); }
+.ak-cmd__copy { position: absolute; top: var(--dk-space-2); right: var(--dk-space-2); }
+@media (max-width: 640px) {
+  .ak-cmd__text { padding-top: 48px; padding-right: var(--dk-space-4); }
+}

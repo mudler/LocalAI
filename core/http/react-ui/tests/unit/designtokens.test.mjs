@@ -69,21 +69,24 @@ test('a coarse pointer keeps 40px controls and reduced motion has a rule', () =>
   assert.match(index, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
-// Raw values outside the token files. theme.css defines the tokens; the
-// vendored kit is generated and is overridden, not edited.
+// Raw values outside the token files. theme.css and the kit's defaults.css
+// (a copy of its tokens) define the tokens; the vendored kit is generated and
+// is overridden, not edited. The kit package's own rules (css/kit.css) count.
+const kit = join(root, 'packages/ui-kit')
+const TOKEN_FILES = [join(src, 'theme.css'), join(kit, 'css/defaults.css')]
 function cssFiles(dir, out = []) {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) {
-      if (entry !== 'vendor') cssFiles(full, out)
-    } else if (entry.endsWith('.css') && full !== join(src, 'theme.css')) out.push(full)
+      if (entry !== 'vendor' && entry !== 'node_modules') cssFiles(full, out)
+    } else if (entry.endsWith('.css') && !TOKEN_FILES.includes(full)) out.push(full)
   }
   return out
 }
 
 function countLiterals() {
   const counts = { 'font-size': 0, 'border-radius': 0, '@keyframes': 0 }
-  for (const file of cssFiles(src)) {
+  for (const file of [...cssFiles(src), ...cssFiles(kit)]) {
     const css = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
     counts['font-size'] += (css.match(/font-size:\s*[0-9.]+(px|rem|em)\b/g) || []).length
     counts['border-radius'] += (css.match(/border-radius:[^;}]*\b[1-9][0-9.]*(px|rem)/g) || []).length

@@ -16,8 +16,52 @@ type Mode int
 const (
 	ModeNone Mode = iota
 	ModeRead
+	// ModeData is read access plus writes to data files: the holder may
+	// create, change, move and delete files and folders whose names are not
+	// code (see IsCodeFile), and nothing else. A store enforces it on every
+	// change, so it holds for the Files routes and the page bridge alike.
+	ModeData
 	ModeWrite
 )
+
+// The stored form of a mode. The numbers of read and write are the ones that
+// grants have always had, so existing grants keep their meaning. Data is
+// stored as a negative number: a server that does not know the mode yet, in
+// the middle of a rolling upgrade, reads it as no access instead of as write
+// access.
+const (
+	storedRead  = 1
+	storedWrite = 2
+	storedData  = -1
+)
+
+// StoredMode returns the number a store keeps for a grant mode. A mode that
+// cannot be granted returns 0.
+func StoredMode(m Mode) int {
+	switch m {
+	case ModeRead:
+		return storedRead
+	case ModeData:
+		return storedData
+	case ModeWrite:
+		return storedWrite
+	}
+	return 0
+}
+
+// ModeFromStored is the reverse of StoredMode. A number that is not a stored
+// mode is ModeNone.
+func ModeFromStored(v int) Mode {
+	switch v {
+	case storedRead:
+		return ModeRead
+	case storedData:
+		return ModeData
+	case storedWrite:
+		return ModeWrite
+	}
+	return ModeNone
+}
 
 // Actor is who makes a call: a principal, the groups it belongs to (both
 // opaque IDs from the host application), and an optional chat ID.
@@ -273,11 +317,29 @@ type Conflict struct {
 	Kept   string // path of the conflict copy, when the store kept one
 }
 
+// The roles of a mount that the layout prompt tells apart. A role is set by the
+// code that asks for the mount, never read back from the mount's name: a shared
+// folder that happens to be named like a project mount stays a shared folder.
+const (
+	RoleProjectFiles  = "project-files"
+	RoleProjectMemory = "project-memory"
+	RolePulledFiles   = "pulled-files"
+	RolePulledMemory  = "pulled-memory"
+	// The roles of the folders of a project that another user shares: the
+	// mount carries the sharer's display name in Label.
+	RoleSharedFiles  = "shared-project-files"
+	RoleSharedMemory = "shared-project-memory"
+)
+
 // MountRequest asks for one folder in a view.
 type MountRequest struct {
 	Path string // workspace path of the folder
 	At   string // one name: the folder's name inside the view
 	Mode Mode   // ModeRead or ModeWrite
+	Role string // what the folder is for, one of the Role constants, or ""
+	// Label is a display text for the prompt that goes with Role (the
+	// sharer's display name). It grants nothing and is never a path.
+	Label string
 }
 
 // Mount is one folder of a view.
@@ -286,6 +348,8 @@ type Mount struct {
 	At     string
 	Mode   Mode // at most the mode the actor has
 	NodeID int64
+	Role   string // the role the caller asked for, or ""
+	Label  string // the label the caller asked for, or ""
 }
 
 // View is the set of folders that one session sees.
@@ -296,6 +360,9 @@ type View struct {
 	// the fence does not reach them (the budget of a fence layer is limited).
 	// It is for the prompt and the editor; it grants nothing.
 	NotMounted int
+	// Notes are plain sentences for the prompt: what the product left out of
+	// this view for this turn. They grant nothing.
+	Notes []string
 }
 
 // HistoryQuery selects change sets for History.
@@ -429,6 +496,21 @@ type RootStore interface {
 type Grant struct {
 	Principal string
 	Mode      Mode
+	// Page is set on a grant that was made through GrantPage: the person who
+	// owns the folder shared it as a page. Only a store that implements
+	// PageGranter sets it.
+	Page bool
+}
+
+// PageGranter is a Store that can mark a grant as made through the page
+// routes. The mark is kept apart from the mode, so a general share of a
+// folder never carries it, and Grant clears it.
+type PageGranter interface {
+	// GrantPage is Grant with the page mark. Only the admin may call it.
+	GrantPage(ctx context.Context, admin Actor, principal, p string, m Mode) error
+	// PageShared reports whether the actor, or one of its groups, holds a
+	// grant with the page mark on the live folder p itself.
+	PageShared(ctx context.Context, a Actor, p string) (bool, error)
 }
 
 // GrantLister is a Store that lists the grants on one folder, so an
@@ -517,4 +599,14 @@ type Purger interface {
 	// PurgeAll erases every deleted node at or under the folder p, the same
 	// way. A deleted node that sits above p is not touched.
 	PurgeAll(ctx context.Context, a Actor, p string, dryRun bool) (PurgeResult, error)
+	// PruneVersions limits the history of the one file p to its newest keep
+	// writes and returns how many older writes it dropped. Each overwrite of
+	// a file keeps the old bytes for undo, so a file that is written in a loop
+	// would grow the store without bound. The live content, the create of the
+	// file, its moves and deletes, and the writes that share a change set with
+	// another node are kept, as are all other nodes. A dropped write can no
+	// longer be undone, and its bytes go once nothing else refers to them.
+	// keep must be at least 1. The actor needs write access to the file. A path
+	// that is missing or is a folder is a no-op.
+	PruneVersions(ctx context.Context, a Actor, p string, keep int) (int, error)
 }

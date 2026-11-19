@@ -46,9 +46,17 @@
     "check": "Periksa kunci host",
     "checking": "Memeriksa...",
     "trust": "Saya sudah membandingkan sidik jari ini dan memercayai host ini.",
-    "needed": "Periksa kunci host sebelum menyimpan.",
+    "needed": "Kunci host dibaca saat Anda menekan Simpan, dan Anda diminta memercayainya.",
     "unreachable": "Host tidak dapat dijangkau.",
     "failed": "Kunci host tidak dapat dibaca."
+  },
+  "hostKeyStep": {
+    "title": "Percayai host ini?",
+    "reading": "Membaca kunci host...",
+    "compare": "Bandingkan sidik jari ini dengan yang ditampilkan host. Percayai hanya jika keduanya sama.",
+    "confirm": "Percayai dan simpan",
+    "cancel": "Batal",
+    "retry": "Coba lagi"
   },
   "testOk": "Login tersimpan.",
   "checkFailed": "Tersimpan. Pemeriksaan login gagal: {{reason}}",
@@ -77,7 +85,7 @@
     "title": "Cara menyiapkan",
     "step1": "Buat pengguna di host khusus untuk LocalAI, dengan hak akses seperlunya saja.",
     "step2": "Buat pasangan kunci untuknya, atau pilih kata sandi. Tambahkan kunci publik ke authorized_keys pengguna itu.",
-    "step3": "Tulis host dan pengguna di sini, tekan Periksa kunci host, lalu bandingkan sidik jarinya.",
+    "step3": "Tulis host dan pengguna di sini. Saat Anda menekan Simpan, kunci host dibaca dan Anda membandingkan sidik jarinya.",
     "step4": "Biarkan mode pada Tanya dulu sampai Anda membaca batasan di halaman ini.",
     "fingerprint": "Sidik jari host terlihat dengan: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
   },

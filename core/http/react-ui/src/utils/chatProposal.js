@@ -87,6 +87,16 @@ export function changeView(res, err) {
   }
 }
 
+// The locale key that says, in plain words, when a run reports, for a delivery
+// whose mode is not the default; '' for the default (always), which needs no text.
+export function deliveryModeKey(delivery) {
+  switch (delivery?.mode) {
+    case 'on_change': return 'proposal.plan.deliveryModeOnChange'
+    case 'on_problem': return 'proposal.plan.deliveryModeOnProblem'
+    default: return ''
+  }
+}
+
 // The text of one field of a trigger, as the before/after rows show it. A
 // field the trigger leaves empty is ''; the card says "none" for it.
 export function changeValue(field, t) {
@@ -99,7 +109,7 @@ export function changeValue(field, t) {
     case 'widget': return t.plan?.widget || ''
     case 'estimated_tokens': return t.cost?.estimated_tokens ? String(t.cost.estimated_tokens) : ''
     case 'acts': return (t.acts || []).join(', ')
-    case 'delivery': return t.delivery ? [t.delivery.target, t.delivery.channel_label].filter(Boolean).join(' ') : ''
+    case 'delivery': return t.delivery ? [t.delivery.target, t.delivery.connection_name, t.delivery.channel_label].filter(Boolean).join(' ') : ''
     case 'agent': return t.agent_id || ''
     case 'daily_cap': return t.daily_cap ? String(t.daily_cap) : ''
     case 'run_limit': return t.run_limit || ''

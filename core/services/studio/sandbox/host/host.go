@@ -270,7 +270,8 @@ func (s *hostSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 	cmd := exec.Command(prog, noLogin(c.Args)[1:]...) // #nosec G204 -- the host backend runs the command of the user by design
 	cmd.Dir = filepath.Join(s.work(), filepath.FromSlash(rel))
 	// A fixed environment: nothing of the add-on's own reaches the command.
-	cmd.Env = append([]string{"PATH=" + commandPath, "HOME=" + s.home(), "LANG=C", "TZ=UTC"}, c.Env...)
+	// $WORK is a guest path; here the guest root is the work copy.
+	cmd.Env = append([]string{"PATH=" + commandPath, "HOME=" + s.home(), "LANG=C", "TZ=UTC"}, sandbox.MapWorkEnv(c.Env, s.work())...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = c.Stdin, c.Stdout, c.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.WaitDelay = 200 * time.Millisecond

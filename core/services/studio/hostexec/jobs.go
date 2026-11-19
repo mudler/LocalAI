@@ -108,6 +108,7 @@ func (r *Runner) StartJob(ctx context.Context, s JobSpec) (bgjob.Info, error) {
 	if s.Sandbox != "" {
 		conv = s.Sandbox
 	}
+	workDir := r.workDir(ctx, s.Actor, true)
 	req := runner.Request{User: s.Actor.Principal, Conversation: conv, Operation: "hj" + hex.EncodeToString(op), Tool: "job"}
 	// The job saves its files and gives its slot back once its process ended;
 	// the slot is known only after StartJob returns.
@@ -134,7 +135,8 @@ func (r *Runner) StartJob(ctx context.Context, s JobSpec) (bgjob.Info, error) {
 			// The lifetime ends the job with a polite signal first (the sweep), so
 			// the hard stop of the context comes one grace later.
 			pctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), r.jobs.Lifetime()+r.jobs.KillGrace())
-			proc, err := sb.Exec(pctx, sandbox.Cmd{Args: []string{"bash", "-lc", s.Command}, Dir: runner.GuestHome, Job: true, Stdin: job.Stdin(), Stdout: job.Output(), Stderr: job.Output()})
+			dir, env := sandbox.WorkStart(workDir, runner.GuestHome)
+			proc, err := sb.Exec(pctx, sandbox.Cmd{Args: []string{"bash", "-lc", s.Command}, Dir: dir, Env: env, Job: true, Stdin: job.Stdin(), Stdout: job.Output(), Stderr: job.Output()})
 			if err != nil {
 				cancel()
 				return nil, err

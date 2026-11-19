@@ -170,7 +170,13 @@ const defaultDeliveryKey = triggers.TargetInbox + "|" + triggers.ModeAlways + "|
 
 // deliveryKey is where the runs of a trigger report, as one comparable text.
 func deliveryKey(t triggers.Trigger) string {
-	return t.Route.TargetOrDefault() + "|" + t.Route.ModeOrDefault() + "|" + t.Route.Channel
+	k := t.Route.TargetOrDefault() + "|" + t.Route.ModeOrDefault() + "|" + t.Route.Channel
+	if t.Route.Connection != "" {
+		// Added only when set, so the fingerprint of a trigger made before the
+		// connection existed does not change.
+		k += "|" + t.Route.Connection
+	}
+	return k
 }
 
 // withDefinition returns dst with the definition of src: what a run does and
@@ -183,7 +189,7 @@ func withDefinition(dst, src triggers.Trigger) triggers.Trigger {
 	dst.RunLimit = src.RunLimit
 	dst.MinGap, dst.Reads, dst.Writes, dst.Widget, dst.EstTokens = src.MinGap, src.Reads, src.Writes, src.Widget, src.EstTokens
 	dst.Acts = src.Acts
-	if src.Route.FromConnector() {
+	if src.Route.FromConnector() || src.Route.Connection != "" || dst.Route.Connection != "" {
 		dst.Route = src.Route
 	}
 	return dst
@@ -248,11 +254,14 @@ type TriggerPatch struct {
 	Delivery *DeliveryPatch
 }
 
-// DeliveryPatch is a change of the delivery of a trigger that a messaging app
-// proposed. An empty Target or Mode stays as it is; Channel is the ID of an
+// DeliveryPatch is a change of the delivery of a trigger. An empty Target or Mode stays as it is; Channel is the ID of an
 // approved channel and is set with the target channel.
 type DeliveryPatch struct {
 	Target, Mode, Channel string
+	// Connection is the binding that a trigger made in Studio reports to; it
+	// is set with the target channel and checked against the owner's own
+	// bindings by the caller.
+	Connection string
 }
 
 func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput {
@@ -298,7 +307,7 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 		if d.Target != "" {
 			in.Route.Target = d.Target
 			if d.Target != triggers.TargetChannel {
-				in.Route.Channel = ""
+				in.Route.Channel, in.Route.Connection = "", ""
 			}
 		}
 		if d.Mode != "" {
@@ -306,6 +315,9 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 		}
 		if d.Channel != "" {
 			in.Route.Channel = d.Channel
+		}
+		if d.Connection != "" {
+			in.Route.Connection = d.Connection
 		}
 	}
 	return in
@@ -315,7 +327,7 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 // chat chatID. A change of the definition waits for the person's answer and
 // applied is false. A change that only switches the trigger off or on applies
 // at once, applied is true, and the person can undo it. It is checked as a
-// proposal is: a schedule that changes runs at most once an hour.
+// proposal is: a schedule that changes runs at most once every MinCadence.
 func (h *Triggers) ProposeChange(ctx context.Context, user, chatID string, target triggers.Trigger, p TriggerPatch) (rec triggers.Trigger, applied bool, err error) {
 	return h.proposeChange(ctx, user, chatID, target, p, nil)
 }
@@ -441,6 +453,11 @@ func (h *Triggers) switchByChange(ctx context.Context, user, chatID, id string, 
 	live, err := h.owned(ctx, user, id)
 	if err != nil {
 		return triggers.Trigger{}, err
+	}
+	if on && !live.Enabled {
+		if err := h.checkProjectAvailable(ctx, live.Owner, live.AgentID); err != nil {
+			return triggers.Trigger{}, err
+		}
 	}
 	t := live
 	t.Enabled = on
@@ -649,13 +666,23 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 	// change holds. A record made before the delivery was part of a change has
 	// no connector place and leaves the delivery as it is.
 	in.Route = live.Route
-	if rec.Route.FromConnector() {
-		in.Route.Target, in.Route.Mode, in.Route.Channel = rec.Route.Target, rec.Route.Mode, rec.Route.Channel
+	if rec.Route.FromConnector() || rec.Route.Connection != "" || live.Route.Connection != "" {
+		in.Route.Target, in.Route.Mode, in.Route.Channel, in.Route.Connection = rec.Route.Target, rec.Route.Mode, rec.Route.Channel, rec.Route.Connection
 	}
 	t, err := h.build(ctx, live.Owner, in)
 	if err != nil {
 		h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
 		return triggers.Trigger{}, err
+	}
+	// The person may answer a day after the change was asked for: the
+	// connection may be off since, or the channel no longer approved. Only a
+	// change that moves the destination is checked: a rename or a pause must
+	// stay possible when the connection is gone.
+	if !sameDestination(live.Route, t.Route) {
+		if err := h.checkLiveConnection(ctx, t); err != nil {
+			h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
+			return triggers.Trigger{}, err
+		}
 	}
 	t.ID = live.ID
 	t.Outcome, t.OutcomeAt, t.Touched = live.Outcome, live.OutcomeAt, live.Touched || live.Outcome != ""
@@ -760,6 +787,21 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
 	}
+	// An undo that brings back a different destination stores it only while
+	// the connection and the channel are still usable; otherwise the trigger
+	// stays as it is. An undo that leaves the destination alone is not checked.
+	if !sameDestination(live.Route, t.Route) {
+		if err := h.checkLiveConnection(ctx, t); err != nil {
+			return triggers.Trigger{}, err
+		}
+	}
+	// An undo that brings back a trigger that is on is a switch on: refused
+	// while the project of its agent is not available.
+	if t.Enabled && !live.Enabled {
+		if err := h.checkProjectAvailable(ctx, t.Owner, t.AgentID); err != nil {
+			return triggers.Trigger{}, err
+		}
+	}
 	at := h.o.Clock().UTC()
 	if err := h.claimChange(ctx, rec, triggers.OutcomeAccepted, triggers.OutcomeUndone, at); err != nil {
 		return triggers.Trigger{}, err
@@ -800,4 +842,10 @@ func changeNote(t triggers.Trigger, name string) string {
 		return fmt.Sprintf("the %s of %q undone by the user", t.Change.Op, name)
 	}
 	return ""
+}
+
+// sameDestination reports whether two routes report to the same place: the
+// same target, connection and channel. The mode does not count.
+func sameDestination(a, b triggers.Route) bool {
+	return a.TargetOrDefault() == b.TargetOrDefault() && a.Connection == b.Connection && a.Channel == b.Channel
 }

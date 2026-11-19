@@ -134,7 +134,7 @@ func (s *Service) profileRole(ctx context.Context, user string) string {
 // chat that started it.
 func (s *Service) chatForProfile(ctx context.Context, rec session.ChatRecord) session.ChatRecord {
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
-		if parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID); err == nil {
+		if parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID); err == nil {
 			return parent
 		}
 	}
@@ -191,7 +191,8 @@ func profileExecution(e *contract.ExecutionDescriptor, id string) *contract.Exec
 
 // withSandboxProfile gives the commands tool of a chat the note and the
 // description of the profile it runs, and makes every call carry the options
-// the host decided: the profile, the pin to the previous image and the caps.
+// the host decided: the profile, the pin to the previous image, the caps and
+// the chat's work folder.
 // The profile is chosen again at each call, so a switch applies to the next one.
 func (s *Service) withSandboxProfile(ctx context.Context, a workspace.Actor, rec session.ChatRecord, d AddonTool, t session.Tool) session.Tool {
 	id := contract.FallbackProfile
@@ -210,6 +211,21 @@ func (s *Service) withSandboxProfile(ctx context.Context, a workspace.Actor, rec
 		if prev, ok := contract.ExecutionCallFrom(ctx); ok && prev.ReadOnly {
 			opts.ReadOnly = true // the check of a wait must not change files
 		}
+		// A check starts where the model's own commands start, but never
+		// makes the folder.
+		opts.WorkDir = s.CommandWorkDir(ctx, a, !opts.ReadOnly)
+		return inner(contract.WithExecutionCall(ctx, opts), args)
+	}
+	return t
+}
+
+// withWorkDir makes every call of a commands tool without profiles carry the
+// chat's work folder, so the shell starts there (see CommandWorkDir).
+func (s *Service) withWorkDir(a workspace.Actor, t session.Tool) session.Tool {
+	inner := t.Run
+	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
+		opts, _ := contract.ExecutionCallFrom(ctx)
+		opts.WorkDir = s.CommandWorkDir(ctx, a, !opts.ReadOnly)
 		return inner(contract.WithExecutionCall(ctx, opts), args)
 	}
 	return t
@@ -217,7 +233,7 @@ func (s *Service) withSandboxProfile(ctx context.Context, a workspace.Actor, rec
 
 // callOptions decides the options of one call of the commands tool of a chat.
 func (s *Service) callOptions(ctx context.Context, user, chat string, d AddonTool) contract.ExecutionCall {
-	rec, err := s.d.Store.GetChat(ctx, user, chat)
+	rec, err := s.getChatEffective(ctx, user, chat)
 	pol, perr := s.sandboxPolicy(ctx)
 	if err != nil || perr != nil {
 		return contract.ExecutionCall{Profile: contract.FallbackProfile}
@@ -288,7 +304,7 @@ func infoOf(cat profileCatalog, pol sandboxpolicy.Policy, user, role string, st 
 // of another user is session.ErrNotFound.
 func (s *Service) SandboxProfiles(ctx context.Context, user, conv string) (SandboxProfileView, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return SandboxProfileView{}, err
 	}
@@ -328,7 +344,7 @@ func (s *Service) SandboxProfiles(ctx context.Context, user, conv string) (Sandb
 // files stay, running processes and installed packages are lost.
 func (s *Service) SetSandboxProfile(ctx context.Context, user, conv, profile string) error {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return err
 	}
@@ -401,7 +417,7 @@ func (s *Service) sandboxHint(a workspace.Actor) func(context.Context, skills.Sk
 		if sk.Sandbox == "" {
 			return ""
 		}
-		rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+		rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 		if err != nil {
 			return ""
 		}

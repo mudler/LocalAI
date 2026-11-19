@@ -51,7 +51,7 @@ The C++ backend Dockerfiles (`Dockerfile.{llama-cpp,ik-llama-cpp,turboquant}`) c
 | `base-grpc-cuda-13-amd64` | the above + CUDA 13.0 toolkit (Ubuntu 22.04 base) |
 | `base-grpc-cuda-13-arm64` | the above + CUDA 13.0 sbsa toolkit (Ubuntu 24.04 base) |
 | `base-grpc-l4t-cuda-12-arm64` | JetPack r36.4.0 base (CUDA preinstalled, `SKIP_DRIVERS=true`) + gRPC |
-| `base-grpc-rocm-amd64` | rocm/dev-ubuntu-24.04:7.2.1 base + hipblas/hipblaslt/rocblas + gRPC |
+| `base-grpc-rocm-amd64` | rocm/dev-ubuntu-24.04:10.1.0-full base (ROCm 10.1, `amdrocm-blas-dev10.1`) + gRPC |
 | `base-grpc-vulkan-amd64` / `base-grpc-vulkan-arm64` | Ubuntu 24.04 + Vulkan SDK 1.4.335 + gRPC |
 | `base-grpc-intel-amd64` | intel/oneapi-basekit:2025.3.2 base + gRPC |
 
@@ -164,7 +164,7 @@ The volume is real: 13 gallery-only PRs merged that week with 10 open at once, a
 
 Version-pin bumps dominate PR volume: 48 `update/*` PRs in the week to 2026-07-30, from 16 pins, each a two-line diff. Most edit nothing but one `backend/*/<name>/Makefile`.
 
-Neither of those two workflows can observe such a change. `make build` is `go build ./cmd/local-ai`, GoReleaser builds the same plus `./cmd/launcher`, and the core image's final stage ships only `entrypoint.sh`, `healthcheck.sh` and that binary. The per-backend trees are copied into the builder but nothing in them reaches the output.
+Neither of those two workflows can observe such a change. `make build` is `go build ./cmd/local-ai`, GoReleaser builds the same, and the core image's final stage ships only `entrypoint.sh`, `healthcheck.sh` and that binary. The per-backend trees are copied into the builder but nothing in them reaches the output.
 
 What still triggers a full run, because none of it lives under those prefixes:
 
@@ -335,8 +335,6 @@ concurrency:
 ### Image workflows are deliberately not cancelled
 
 `image.yml` and `backend.yml` keep the per-SHA group. Both decide what to build from the diff of one push (`event.before` to `sha`): the `changes` job in `image.yml`, `scripts/changed-backends.js` in `backend.yml`. If a queued run were replaced by a newer one, the newer run would only see its own diff. A code commit followed by a gallery-only commit would then build nothing. Do not add a pending-replacement group to them until the diff base is the last commit that was actually built.
-
-`generate_intel_image.yaml` pushes one fixed tag, so its group is `intel-cache-<event>-<repo>` with `cancel-in-progress: false`: a running build finishes, and a newer pending run replaces an older pending one.
 
 ## Self-warming, no separate populator
 

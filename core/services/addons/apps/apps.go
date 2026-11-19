@@ -244,6 +244,10 @@ type App struct {
 	// manifest. The host lists them for the person who picks a provider. It
 	// is not part of the apps API.
 	Provides []contract.ProviderDeclaration `json:"-"`
+	// ModelSearch is the model-search source the add-on declares, from the
+	// verified manifest. The host reads it to build its search; it is not part
+	// of the apps API.
+	ModelSearch *contract.ModelSearch `json:"-"`
 	// UserSettings are the per-person choices the add-on declares, from the
 	// verified manifest. The host keeps the answers; the add-on is not called.
 	UserSettings []contract.UserSetting `json:"userSettings,omitempty"`
@@ -421,6 +425,11 @@ func build(s Snapshot, admin bool) App {
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
 	a.ContextFiles = slices.Clone(m.Capabilities.ContextFiles)
 	a.Provides = slices.Clone(m.Capabilities.Provides)
+	if ms := m.Capabilities.ModelSearch; ms != nil {
+		c := *ms
+		c.Sorts, c.Filters = slices.Clone(ms.Sorts), slices.Clone(ms.Filters)
+		a.ModelSearch = &c
+	}
 	for _, us := range m.Capabilities.UserSettings {
 		us.Values = slices.Clone(us.Values)
 		a.UserSettings = append(a.UserSettings, us)

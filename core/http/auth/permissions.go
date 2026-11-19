@@ -56,7 +56,7 @@ const (
 	FeatureAgents = "agents"
 	// FeatureTriggers gates scheduled and file triggers: unattended runs.
 	FeatureTriggers = "triggers"
-	// FeatureConnectors gates chat connectors (Telegram bots): a public
+	// FeatureConnectors gates chat connectors (connectors to chat platforms): a public
 	// door to a saved agent.
 	FeatureConnectors = "connectors"
 	// FeatureMCPJobs gates the agent tasks and jobs API (/api/agent/...), the

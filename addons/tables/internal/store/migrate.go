@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/internal/atomicfile"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
 )
 
 // ErrIncompatibleFormat means the data on disk is in a format this executable

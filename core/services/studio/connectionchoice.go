@@ -69,7 +69,8 @@ func (s *Service) SetConnections(ctx context.Context, user, conv, addonID string
 	if !addonIDShape.MatchString(addonID) {
 		return fmt.Errorf("%w: %q", ErrBadAddonID, addonID)
 	}
-	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	// The stored record: the off list is written back below.
+	rec, err := s.getChatRaw(ctx, principal(user), conv)
 	if err != nil {
 		return err
 	}

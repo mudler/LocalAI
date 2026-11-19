@@ -19,7 +19,14 @@
     "deleteTitle": "„{{title}}“ löschen?",
     "deleteMessage": "Der Ordner {{folder}} kommt in den Papierkorb. Du kannst ihn in Dateien wiederherstellen.",
     "deleted": "{{title}} ist im Papierkorb.",
-    "deleteFailed": "Die Seite wurde nicht gelöscht: {{message}}"
+    "deleteFailed": "Die Seite wurde nicht gelöscht: {{message}}",
+    "share": "Teilen",
+    "shared": "Geteilt",
+    "sharedWith_one": "Mit {{count}} Person geteilt",
+    "sharedWith_other": "Mit {{count}} Personen geteilt",
+    "sharedEveryone": "Mit allen geteilt",
+    "someone": "jemand",
+    "othersEdit": "Andere können bearbeiten"
   },
   "empty": {
     "text": "Eine Seite ist ein kleines Werkzeug, etwa ein Aufgabenboard oder eine Leseliste. Bitte den Assistenten im Chat um eine oder starte mit einer fertigen Seite.",
@@ -48,12 +55,15 @@
       "notAllowed": "Noch nicht erlaubt",
       "changed": "Geändert, seit du sie erlaubt hast",
       "allowed": "Erlaubt"
-    }
+    },
+    "userOff": "Von einem Administrator ausgeschaltet.",
+    "stopFailed": "Die Seite wurde nicht gestoppt: {{message}}"
   },
   "viewer": {
     "stopAllowing": "Diese Seite nicht mehr erlauben",
     "authorChanged": "{{author}} hat diese Seite geändert. Die erlaubte Version läuft weiter, bis du die Änderung prüfst.",
-    "sandboxShared": "Abgeschottet. Läuft als du, nur in {{folder}}, und erreicht das Netzwerk nicht."
+    "sandboxShared": "Abgeschottet. Läuft als du, nur in {{folder}}, und erreicht das Netzwerk nicht.",
+    "sandboxUser": "Abgeschottet. Läuft als du, nur in ihrem eigenen Ordner, und hat keinen Netzwerkzugriff."
   },
   "trust": {
     "title": "„{{title}}“ öffnen?",
@@ -128,6 +138,26 @@
       "item": "Auf der Startseite, in den Slots der App und im Dock laufen",
       "note": "Sie startet, sobald der Bildschirm erscheint, ohne Klick. Eine Änderung durch die Autorin oder den Autor fragt erneut.",
       "allow": "Auf der Startseite, in Slots und im Dock erlauben"
+    },
+    "user": {
+      "desc": "Eine Person hat diese Seite mit dir geteilt. Seiten laufen als du, prüfe sie also, bevor sie läuft.",
+      "who": "Geschrieben von {{author}}. Nicht von einem Administrator geprüft.",
+      "unchecked": "Nicht von einem Administrator geprüft.",
+      "where": "Geteilte Seite",
+      "readOnly": "Du kannst diese Seite nur ansehen, sie kann ihre Änderungen also nicht speichern.",
+      "chrome": "Geteilte Seite. Sie wurde nicht ausgeführt.",
+      "blocked": "Du hast entschieden, sie nicht auszuführen. Sie stammt von {{author}}. Nichts darin wurde ausgeführt und nichts gespeichert.",
+      "files": "Dateien in ihrem eigenen Ordner lesen und schreiben"
+    },
+    "owner": {
+      "desc": "Andere können diese Seite bearbeiten. Seiten laufen als du, prüfe sie also, bevor sie läuft.",
+      "who": "Andere können diese Seite bearbeiten. Prüfe sie, bevor sie läuft.",
+      "changedWho": "Diese Seite hat sich geändert, seit du sie erlaubt hast.",
+      "where": "Deine Seite",
+      "warn": "Sie handelt als du in ihrem Ordner. Wenn jemand sie ändert, wirst du erneut gefragt.",
+      "changedWarn": "Wenn du es erlaubst, läuft diese Version bei jedem Öffnen, bis jemand sie wieder ändert.",
+      "blocked": "Du hast entschieden, sie nicht auszuführen. Andere können sie bearbeiten. Nichts darin wurde ausgeführt und nichts gespeichert.",
+      "stale": "Diese Seite hat sich geändert. Prüfe sie erneut."
     }
   },
   "frame": {
@@ -182,5 +212,43 @@
     "sendLabel": "Die Seite möchte diese Nachricht an diesen Chat senden:",
     "saveFailed": "Das Dock wurde nicht gespeichert: {{message}}",
     "openInDock": "Im Dock öffnen"
+  },
+  "share": {
+    "intro": "Wähle, wer diese Seite öffnen darf. Die Seite bleibt, wo sie ist.",
+    "warning": "Personen, mit denen du teilst, führen den Code dieser Seite in ihrem Browser aus, mit ihren eigenen Rechten, nachdem sie es erlaubt haben. Sie werden erneut gefragt, wenn du den Code änderst.",
+    "role": {
+      "view": "Ansehen",
+      "use": "Nutzen",
+      "edit": "Bearbeiten"
+    },
+    "roleHelp": {
+      "view": "Kann die Seite ausführen und ihre Daten lesen. Kann nicht speichern.",
+      "use": "Kann die Seite ausführen und Daten darin speichern. Kann den Code nicht ändern.",
+      "edit": "Kann alles ändern, auch den Code."
+    },
+    "count": {
+      "people_one": "Mit {{count}} Person geteilt.",
+      "people_other": "Mit {{count}} Personen geteilt.",
+      "everyone": "Mit allen geteilt.",
+      "everyoneAnd_one": "Mit allen und {{count}} namentlich genannten Person geteilt.",
+      "everyoneAnd_other": "Mit allen und {{count}} namentlich genannten Personen geteilt.",
+      "allowed_one": "{{count}} hat diese Version erlaubt.",
+      "allowed_other": "{{count}} haben diese Version erlaubt."
+    },
+    "offAdmin": "Ein Administrator hat das Teilen von Seiten ausgeschaltet. Du kannst das Teilen mit den Personen unten weiterhin beenden.",
+    "lost": "Du kannst diese Seite nicht mehr teilen.",
+    "askAgain_one": "Du hast den Code geändert. {{count}} Person wird erneut um Erlaubnis gefragt.",
+    "askAgain_other": "Du hast den Code geändert. {{count}} Personen werden erneut um Erlaubnis gefragt.",
+    "viewOnly": "Du kannst diese Seite ansehen, aber nicht ändern",
+    "editNote": "Mit „Bearbeiten“ öffnet sich diese Seite auch für dich über den Erlauben-Schritt.",
+    "tile": {
+      "title": "Öffne diese Seite, um sie auszuführen",
+      "text": "Eine Person hat sie mit dir geteilt. Sie läuft nicht auf der Startseite oder in einem Slot. Öffne sie, um sie auszuführen.",
+      "open": "Seite öffnen",
+      "dock": "Eine Person hat diese Seite mit dir geteilt. Öffne sie unter Seiten, um sie auszuführen.",
+      "slot": "Öffne {{title}}, um sie auszuführen",
+      "textOwn": "Andere können sie bearbeiten. Sie läuft nicht auf der Startseite oder in einem Slot. Öffne sie, um sie auszuführen.",
+      "dockOwn": "Andere können diese Seite bearbeiten. Öffne sie unter Seiten, um sie auszuführen."
+    }
   }
 }

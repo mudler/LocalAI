@@ -62,7 +62,7 @@ import { useOperations } from '../hooks/useOperations'
 import { useAddonHomeCommands } from '../addons/useAddonRegistry'
 import { projectHomeCommands } from '../addons/homeCommands'
 import { reservedNames, usableSkills } from '../utils/slashCommands'
-import { backendControlApi, chatsApi, modelsApi, systemApi, nodesApi } from '../utils/api'
+import { backendControlApi, chatProjectsApi, chatsApi, modelsApi, systemApi, nodesApi } from '../utils/api'
 import { addonsNotice } from '../utils/addonsNotice'
 import { greetingKey } from '../utils/greeting'
 import { resumeItems } from '../utils/homeConversations'
@@ -72,6 +72,7 @@ import Skeleton from '../components/Skeleton'
 import { Button, Callout, LoadError } from '../components/ui'
 import './home.css'
 import Icon from '../components/Icon'
+import { idsText, resultParts } from '../utils/remotes'
 
 const DOCS_URL = 'https://localai.io'
 const ADDONS_DOCS_URL = 'https://localai.io/features/addons/#turning-the-owner-on-or-off'
@@ -97,6 +98,7 @@ export default function Home() {
   const { t: tw } = useTranslation('workspace')
   const { t: tc } = useTranslation('chats')
   const { t: tch } = useTranslation('chat')
+  const { t: tpj } = useTranslation('projects')
   // How the assistant shows itself (persona.json, the headline of home.json)
   // and the text overrides of ui.json.
   const identity = useIdentity()
@@ -133,7 +135,7 @@ export default function Home() {
   const egress = useChatEgress(null, 0, { model: composer.draftModel, agentId: composer.agentId, profilesApply: Boolean(sandboxProfile.applies) })
   const { saveDraft: saveProfileDraft } = sandboxProfile
   const { saveDraft: saveNetworkDraft } = egress
-  const { drafts, effectiveModel: selectedModel, draftModel, agentId, switches } = composer
+  const { drafts, effectiveModel: selectedModel, draftModel, agentId, projectId, pulledDraft, switches } = composer
   const { text: message, setText: setMessage, files } = drafts
   // The reasoning effort picked before the chat exists; the new chat gets it
   // as a setting before the first message goes.
@@ -429,7 +431,16 @@ export default function Home() {
   // The new chat of Send and of Live: the chosen model, agent and drafted
   // switches, then the reasoning effort in its settings.
   const createChat = useCallback(async () => {
-    const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+    const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined, projectId || undefined)
+    // The shared projects picked in the composer are pulled into the new chat.
+    if (pulledDraft?.length) {
+      try {
+        await chatProjectsApi.setChatPulled(chat.id, pulledDraft)
+        chat.pulled_projects = pulledDraft
+      } catch (e) {
+        addToast(tpj('toasts.pullFailed', { message: e.message }), 'warning')
+      }
+    }
     const profileError = await saveProfileDraft(chat.id)
     if (profileError) addToast(tc(`sandboxProfile.${profileError}`), 'error')
     const networkError = await saveNetworkDraft(chat.id)
@@ -444,7 +455,7 @@ export default function Home() {
       }
     }
     return chat
-  }, [draftModel, agentId, draftEffort, switches, addToast, tch, tc, saveProfileDraft, saveNetworkDraft])
+  }, [draftModel, agentId, projectId, pulledDraft, draftEffort, switches, addToast, tpj, tch, tc, saveProfileDraft, saveNetworkDraft])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
     let text = (own ? message : override).trim()
@@ -978,6 +989,14 @@ export default function Home() {
               onInstallStarted={fetchSystemInfo}
               onGallery={() => navigate('/app/models')}
               onImport={() => navigate('/app/import-model')}
+              onRemoteDone={(result) => {
+                // The models exist now, so reading them again ends first run:
+                // the guide gives way to the page with its model picker.
+                const { created, skipped } = resultParts(result)
+                addToast?.(t('remoteSetup.done', { name: result?.remote?.name || '', count: created.length }), 'success')
+                if (skipped.length > 0) addToast?.(`${t('remoteSetup.skipped', { count: skipped.length })} ${idsText(skipped)}`, 'warning')
+                fetchSystemInfo()
+              }}
             />
           </div>
         )}

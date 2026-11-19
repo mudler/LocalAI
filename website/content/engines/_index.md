@@ -1,5 +1,5 @@
 ---
 title: "Engines"
-description: "Eighteen native C, C++ and Go engines written by the LocalAI team. No Python at inference, checked against the reference implementation in CI, and small enough to ship as one file."
+description: "C++ engines that the LocalAI team wrote for speech, vision, 3D and text. Each runs from a binary and a GGUF file with no Python."
 extracss: ["engines.css"]
 ---

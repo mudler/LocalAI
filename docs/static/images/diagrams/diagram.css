@@ -1,0 +1,145 @@
+/*
+ * Shared style of the LocalAI diagrams. Canvas: 1600 x 900 px.
+ * Tokens come from the LocalAI branding kit (tokens/theme-localai.css).
+ * Fonts are local files in ./fonts, so a render needs no network.
+ * Rules: ink text on cream, white cards, one teal box for the core,
+ * periwinkle connectors, one yellow marker per title, no offset shadows,
+ * text of 18 px or more, the llama only as the tile mark in a corner.
+ */
+@font-face { font-family: "Geist"; font-weight: 500; src: url("fonts/Geist-Medium.ttf"); }
+@font-face { font-family: "Geist"; font-weight: 700; src: url("fonts/Geist-Bold.ttf"); }
+@font-face { font-family: "Geist Mono"; font-weight: 400 700; src: url("fonts/geist-mono.woff2"); }
+
+:root {
+  --teal: #005b69;
+  --teal-dark: #0f3b42;
+  --on-teal: #fff4dc;
+  --yellow: #ffc93c;
+  --canvas: #fff4dc;
+  --inset: #f9e6bd;
+  --card: #fffdf7;
+  --text: #232a52;
+  --muted: #4d5478;
+  --edge: #e6d9bd;
+  --accent: #4a5aa0;
+  --accent-text: #3d4c93;
+  --accent-wash: #dfe4f7;
+  --warn: #8a4b00;
+  --warn-wash: #ffe9b8;
+  --shadow: 0 1px 2px rgb(35 42 82 / .06), 0 8px 24px rgb(35 42 82 / .08);
+  --f: "Geist", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+}
+:root[data-theme="dark"] {
+  --teal: #0f3b42;
+  --on-teal: #fff4dc;
+  --canvas: #0c1211;
+  --inset: #101817;
+  --card: #141c1b;
+  --text: #fff4dc;
+  --muted: #b9bfd0;
+  --edge: #27332f;
+  --accent: #7f8fd0;
+  --accent-text: #9aa8e0;
+  --accent-wash: #1d2442;
+  --warn: #ffc93c;
+  --warn-wash: #3a2f10;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 8px 24px rgb(0 0 0 / .35);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --teal: #0f3b42; --on-teal: #fff4dc; --canvas: #0c1211; --inset: #101817; --card: #141c1b;
+    --text: #fff4dc; --muted: #b9bfd0; --edge: #27332f; --accent: #7f8fd0; --accent-text: #9aa8e0;
+    --accent-wash: #1d2442; --warn: #ffc93c; --warn-wash: #3a2f10;
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 8px 24px rgb(0 0 0 / .35);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; }
+body { position: relative; background: var(--canvas); color: var(--text); font: 500 22px/1.25 var(--f); -webkit-font-smoothing: antialiased; }
+
+/* Header: kicker, title with one marker, tile mark in the corner */
+.k { position: absolute; left: 72px; top: 52px; margin: 0; font-size: 18px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-text); }
+h1 { position: absolute; left: 72px; top: 84px; margin: 0; font-size: 56px; line-height: 1.05; font-weight: 700; letter-spacing: -.03em; }
+.hl { position: relative; z-index: 0; white-space: nowrap; }
+.hl::after { content: ""; position: absolute; left: -.06em; right: -.06em; bottom: .04em; height: .34em; background: var(--yellow); z-index: -1; border-radius: 3px; }
+:root[data-theme="dark"] .hl { color: var(--yellow); }
+:root[data-theme="dark"] .hl::after { display: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hl { color: var(--yellow); } :root:not([data-theme="light"]) .hl::after { display: none; } }
+.mark { position: absolute; top: 52px; right: 72px; width: 64px; height: 64px; }
+
+/* Stage and footer */
+.stage { position: absolute; left: 72px; right: 72px; top: 196px; bottom: 100px; }
+.foot { position: absolute; left: 72px; right: 72px; bottom: 40px; font-size: 25px; color: var(--muted); }
+.foot b { color: var(--text); font-weight: 700; }
+
+.row > .fl { flex: 1; }
+.stage.c { display: flex; flex-direction: column; justify-content: center; }
+/* Layout helpers */
+.row { display: flex; align-items: center; gap: 0; }
+.col { display: flex; flex-direction: column; gap: 14px; }
+.grid { display: grid; gap: 14px; }
+.row > *, .col > *, .grid > * { min-width: 0; }
+.abs { position: absolute; }
+.fill { flex: 1; }
+.mid { align-items: center; }
+.cen { text-align: center; }
+
+/* Cards */
+.node { background: var(--card); border: 1.5px solid var(--edge); border-radius: 14px; padding: 14px 20px; box-shadow: var(--shadow); }
+.node b { white-space: nowrap; display: block; font-size: 32px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15; }
+.node span { display: block; font-size: 24px; color: var(--muted); margin-top: 3px; line-height: 1.25; }
+.node.sm b { font-size: 26px; }
+.node.rowline { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.node.rowline span { margin-top: 0; text-align: right; }
+.node.core { background: var(--teal); color: var(--on-teal); border-color: var(--teal); box-shadow: 0 20px 50px rgb(0 91 105 / .28); border-radius: 22px; }
+.node.core span { color: var(--on-teal); opacity: .85; }
+:root[data-theme="dark"] .node.core { border-color: #1d6470; box-shadow: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .node.core { border-color: #1d6470; box-shadow: none; } }
+.node.soft { background: var(--accent-wash); border-color: transparent; box-shadow: none; }
+.node.dash { background: transparent; border-style: dashed; box-shadow: none; }
+.node.dash b { color: var(--accent-text); }
+.node.warn { background: var(--warn-wash); border-color: transparent; box-shadow: none; }
+.node.warn b, .node.warn span { color: var(--text); }
+.node.off { opacity: .6; box-shadow: none; }
+.code { font-family: var(--mono); font-weight: 500; font-size: 22px; }
+.pill { display: inline-block; font-size: 22px; font-weight: 700; padding: 8px 16px; border-radius: 999px; background: var(--accent-wash); color: var(--accent-text); }
+.pill.teal { background: var(--teal); color: var(--on-teal); }
+.pill.warn { background: var(--warn-wash); color: var(--text); }
+
+/* Panel: a labelled group */
+.panel { border: 1.5px dashed var(--edge); border-radius: 18px; padding: 16px 18px 18px; background: var(--inset); }
+.panel > h3, .lab { margin: 0 0 12px 2px; font-size: 20px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.lab.acc { color: var(--accent-text); }
+
+/* Connectors. Horizontal .ar and vertical .ar.v: a dotted periwinkle line with a head.
+   data-l puts a label above the line (horizontal) or beside it (vertical). */
+.ar { position: relative; flex: none; width: 72px; height: 4px; align-self: center;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 7px, transparent 7px 14px); border-radius: 2px; }
+.ar::after { content: ""; position: absolute; right: -4px; top: -8px; border-left: 14px solid var(--accent); border-top: 10px solid transparent; border-bottom: 10px solid transparent; }
+.ar.v { width: 4px; height: 56px; align-self: center;
+  background: repeating-linear-gradient(180deg, var(--accent) 0 7px, transparent 7px 14px); }
+.ar.v::after { right: auto; left: -8px; top: auto; bottom: -4px; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 14px solid var(--accent); border-bottom: 0; }
+.ar.up::after { bottom: auto; top: -4px; border-top: 0; border-bottom: 14px solid var(--accent); }
+.ar.back::after { right: auto; left: -4px; border-left: 0; border-right: 14px solid var(--accent); }
+.ar[data-l]::before { content: attr(data-l); position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 20px; font-weight: 700; color: var(--accent-text); }
+.ar.v[data-l]::before { bottom: auto; left: 16px; top: 50%; transform: translateY(-50%); }
+svg.lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+svg.lines .ln { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 2 8; stroke-linecap: round; }
+svg.lines .hd { fill: var(--accent); stroke: none; }
+svg.lines text { font: 700 18px var(--f); fill: var(--accent-text); }
+
+/* Flow: a row of equal cards joined by arrows */
+.flow { display: flex; align-items: stretch; }
+.flow > .node { flex: 1; }
+.flow > .ar { width: 46px; margin: 0 5px; }
+.flow.tight > .ar { width: 34px; margin: 0 3px; }
+.flow .node.cen { text-align: center; }
+.rowlab { width: 190px; flex: none; align-self: center; font-size: 20px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-text); }
+.num { font-style: normal; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--accent-wash); color: var(--accent-text); font-weight: 700; font-size: 24px; }
+.status { display: inline-block; font-family: var(--mono); font-size: 25px; padding: 10px 16px; border-radius: 10px; background: var(--accent-wash); color: var(--accent-text); font-weight: 500; }
+.status.end { background: var(--teal); color: var(--on-teal); }
+.status.bad { background: var(--warn-wash); color: var(--text); }
+
+.flow.big > .node { padding: 30px 12px; } .flow.big > .node b { font-size: 34px; } .flow.big > .node span { font-size: 25px; }

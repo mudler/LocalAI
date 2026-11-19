@@ -619,6 +619,12 @@ func API(application *application.Application) (*echo.Echo, error) {
 		if err := application.RegisterAddonClientJobs(); err != nil {
 			return nil, err
 		}
+		if err := application.RegisterAddonClientList(); err != nil {
+			return nil, err
+		}
+		if err := application.RegisterAddonClientFolders(application.StudioFiles()); err != nil {
+			return nil, err
+		}
 		if err := application.RegisterAddonConnector(); err != nil {
 			return nil, err
 		}

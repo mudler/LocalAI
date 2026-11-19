@@ -48,12 +48,20 @@ var namedOnlyTools = map[string]bool{"list_collections": true, "search_collectio
 // has no collections or the user may not use them.
 //
 // A chat with an agent gets them only when the agent names collections, and
-// then they list and search those collections only. The second result names the
+// then they list and search those collections only. A chat can also be
+// restricted to some collections (ChatRecord.Collections); the tools then see
+// the intersection of the two lists. A collection outside the set is invisible
+// to the list and answers like an unknown one. The second result names the
 // granted collections the user does not have.
-func (s *Service) collectionTools(ctx context.Context, a workspace.Actor, sc *scope) ([]session.Tool, []string) {
+func (s *Service) collectionTools(ctx context.Context, a workspace.Actor, sc *scope, restrict []string) ([]session.Tool, []string) {
 	c := s.d.Collections
 	if c == nil || !c.Allowed(ctx, a.Principal) || (sc != nil && len(sc.collections) == 0) {
 		return nil, nil
+	}
+	only := set(restrict)
+	// visible says whether the chat may see a collection by name.
+	visible := func(n string) bool {
+		return (sc == nil || sc.collections[n]) && (len(only) == 0 || only[n])
 	}
 	var missing []string
 	if sc != nil {
@@ -77,9 +85,7 @@ func (s *Service) collectionTools(ctx context.Context, a workspace.Actor, sc *sc
 				if err != nil {
 					return "", fmt.Errorf("could not list collections: %w", err)
 				}
-				if sc != nil {
-					names = slices.DeleteFunc(slices.Clone(names), func(n string) bool { return !sc.collections[n] })
-				}
+				names = slices.DeleteFunc(slices.Clone(names), func(n string) bool { return !visible(n) })
 				if names == nil {
 					names = []string{}
 				}
@@ -112,7 +118,7 @@ func (s *Service) collectionTools(ctx context.Context, a workspace.Actor, sc *sc
 					limit = collectionDefaultHits
 				}
 				limit = min(limit, collectionMaxHits)
-				if sc != nil && !sc.collections[args.Collection] {
+				if !visible(args.Collection) {
 					return "", errors.New("collection not found")
 				}
 				hits, err := c.Search(ctx, a.Principal, args.Collection, args.Query, limit)
@@ -154,4 +160,19 @@ func collectionAnswer(hits []CollectionHit, limit int) string {
 	}
 	b, _ := json.Marshal(map[string]any{"results": out})
 	return string(b)
+}
+
+// collectionRefused is the refusal for a knowledge write to a collection that
+// the chat is restricted away from, in the words of an unknown collection. A
+// chat with no record has no restriction. Any other failure to read the chat
+// refuses too, so a limit never opens because of a read error.
+func (s *Service) collectionRefused(ctx context.Context, user, chatID, name string) error {
+	rec, err := s.getChatEffective(ctx, user, chatID)
+	if errors.Is(err, session.ErrNotFound) {
+		return nil
+	}
+	if err != nil || (len(rec.Collections) > 0 && !slices.Contains(rec.Collections, name)) {
+		return fmt.Errorf("there is no collection %q", name)
+	}
+	return nil
 }

@@ -24,7 +24,7 @@ var _ = Describe("typed execution status", func() {
 		active, readiness, isolation string
 		enforced                     bool
 	}{
-		{"gvisor", "available", "isolated", true}, {"kvm", "available", "isolated", true}, {"host", "available", "host", false}, {"", "unavailable", "unknown", false}, {"future", "unknown", "unknown", false},
+		{"gvisor", "available", "isolated", true}, {"kvm", "available", "isolated", true}, {"vz", "available", "isolated", true}, {"host", "available", "host", false}, {"", "unavailable", "unknown", false}, {"future", "unknown", "unknown", false},
 	} {
 		It(fmt.Sprintf("reports %s as %s with %s isolation", tc.active, tc.readiness, tc.isolation), func() {
 			r := New(nil, typedSettings{status: backends.Status{Active: tc.active}}, nil)

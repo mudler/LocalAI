@@ -404,15 +404,26 @@ func (c *Client) clientRoute(v contract.ClientRequest, stream bool) (contract.Cl
 
 // clientEnvelope is the host's record of a live client call. It never goes to
 // the add-on: it is what the host operations of the call are checked against.
-// The authority is a read scope, so the call can reach only the operations of
-// the client family (see the broker), and it lasts as long as the call.
-func (c *Client) clientEnvelope(actor contract.Actor, op string, life time.Duration) (contract.Envelope, error) {
+// The authority is a read scope (see below for the one exception), and the call
+// can reach only the operations of hostops.ClientCallOps. It lasts as long as
+// the call.
+//
+// A call on a route that changes things (any method but GET) gets the apply
+// scope, so that client.workspace.write can run for it. The broker still limits
+// a client call to the exact operations of hostops.ClientCallOps, so the apply
+// scope reaches that one operation and no other. A GET route and every stream
+// keep the read scope, and no client call gets the act scope.
+func (c *Client) clientEnvelope(actor contract.Actor, op string, life time.Duration, mutating bool) (contract.Envelope, error) {
 	if !strings.HasPrefix(actor.CredentialID, contract.ClientCredentialPrefix) || actor.UserID == "" {
 		return contract.Envelope{}, ErrNotSent
 	}
+	scope := "read"
+	if mutating {
+		scope = "apply"
+	}
 	return contract.Envelope{
 		Request:   contract.Request{AddonID: c.registration.AddonID, OperationID: op, Generation: c.registration.Generation, Action: "client", Arguments: json.RawMessage(`{}`)},
-		Authority: contract.Authority{Actor: actor, Scope: "read", ExpiresAt: time.Now().Add(life + time.Minute)},
+		Authority: contract.Authority{Actor: actor, Scope: scope, ExpiresAt: time.Now().Add(life + time.Minute)},
 	}, nil
 }
 
@@ -435,7 +446,7 @@ func (c *Client) ClientCallAs(ctx context.Context, actor contract.Actor, v contr
 	if v.OperationID, e = newClientOperationID(); e != nil {
 		return r, e
 	}
-	env, e := c.clientEnvelope(actor, v.OperationID, route.Timeout())
+	env, e := c.clientEnvelope(actor, v.OperationID, route.Timeout(), route.Method != http.MethodGet)
 	if e != nil {
 		return r, e
 	}
@@ -457,7 +468,7 @@ func (c *Client) ClientStreamAs(ctx context.Context, actor contract.Actor, v con
 	if v.OperationID, e = newClientOperationID(); e != nil {
 		return nil, e
 	}
-	env, e := c.clientEnvelope(actor, v.OperationID, contract.MaxClientStreamSeconds*time.Second)
+	env, e := c.clientEnvelope(actor, v.OperationID, contract.MaxClientStreamSeconds*time.Second, false)
 	if e != nil {
 		return nil, e
 	}

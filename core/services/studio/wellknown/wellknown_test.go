@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -851,6 +852,12 @@ var _ = Describe("the sidebar order of nav.json", func() {
 		}
 		Expect(json.Unmarshal(data, &top)).To(Succeed())
 		Expect(top.IDs).To(Equal(wellknown.NavBuiltinIDs))
+	})
+
+	It("lists Projects right after Files, so a nav.json written for it loads", func() {
+		i := slices.Index(wellknown.NavBuiltinIDs, "files")
+		Expect(i).To(BeNumerically(">=", 0))
+		Expect(wellknown.NavBuiltinIDs[i+1]).To(Equal("projects"))
 	})
 
 	It("has no way to name New chat, Chats, settings or the search", func() {

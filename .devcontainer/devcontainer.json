@@ -7,6 +7,10 @@
     "shutdownAction": "stopCompose",
     "customizations": {
         "vscode": {
+            "settings": {
+                "go.buildTags": "nosqlite,purego_utp",
+                "gopls": { "build.buildFlags": ["-tags=nosqlite,purego_utp"] }
+            },
             "extensions": [
                 "golang.go",
                 "ms-vscode.makefile-tools",

@@ -131,7 +131,7 @@ func (s *Service) limitWorkerRun(ctx context.Context, p, conv string) {
 	if s.d.RunLimit == nil {
 		return
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return
 	}

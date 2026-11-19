@@ -46,6 +46,9 @@
       "deliveryChat": "Obrolan ini",
       "deliveryThread": "Utas ini",
       "deliveryChannel": "{{channel}}, di tingkat atas kanal",
+      "deliveryChannelIn": "{{channel}} di {{connection}}, di tingkat atas kanal",
+      "deliveryModeOnChange": "Hanya jika jawabannya berbeda dari proses sebelumnya.",
+      "deliveryModeOnProblem": "Hanya jika sebuah proses gagal. Proses yang berhasil tidak melaporkan apa pun.",
       "stopLabel": "Untuk menghentikannya",
       "when": "{{schedule}}, {{zone}}. Jalan pertama {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -149,6 +152,11 @@
       "testedAt": "Diuji {{when}}.",
       "errorTitle": "Uji terakhir tidak dapat terhubung.",
       "authTitle": "Server menolak proses masuk.",
+      "output": "Keluaran terakhir dari perintah",
+      "outputCopy": "Salin",
+      "outputCopied": "Tersalin",
+      "outputMore": "Tampilkan semua {{count}} baris",
+      "outputLess": "Tampilkan lebih sedikit",
       "tools": "Alat",
       "toolsUnknown": "Uji koneksi untuk melihat alatnya.",
       "toolsNone": "Server tidak menawarkan alat.",
@@ -586,7 +594,9 @@
         "title": "Baca chat Anda sebelumnya",
         "description": "Memungkinkan model mencari dan membaca chat Anda sebelumnya. Agen yang bekerja di satu folder hanya membaca chat agennya sendiri."
       }
-    }
+    },
+    "fromProject": "Dari proyek",
+    "fromProjectTitle": "Proyek melampirkan alat ini, jadi selalu aktif di sini. Untuk mematikannya, lepaskan di proyek."
   },
   "vision": {
     "describedBy": "Model ini tidak dapat melihat gambar. Pilih model lain, atau gambar akan dijelaskan oleh {{model}}.",
@@ -596,18 +606,19 @@
     "label": "Jaringan",
     "preset": {
       "off": "Mati",
-      "registries": "Registri paket",
+      "registries": "Kustom",
       "all": "Semua situs publik"
     },
     "presetHint": {
       "off": "Perintah tidak menjangkau jaringan apa pun.",
-      "registries": "Perintah hanya menjangkau registri paket (PyPI, npm, Go, crates.io, RubyGems, Maven Central, rilis GitHub).",
+      "registries": "Perintah menjangkau registri paket (PyPI, npm, Go, crates.io, RubyGems, Maven Central, rilis GitHub) dan domain yang ditambahkan administrator Anda.",
       "all": "Perintah menjangkau semua situs publik."
     },
     "limited": "Dibatasi oleh administrator Anda",
     "limitedBy": "Administrator Anda mengizinkan paling banyak: {{limit}}.",
     "hostNetwork": "Perintah berjalan di mesin ini dan memakai jaringannya. Batas jaringan memerlukan add-on yang mengisolasi perintah.",
     "panel": "Aturan dan permintaan ({{count}})",
+    "panelCustom": "Domain kustom",
     "rules": "Aturan chat ini",
     "cards": "Permintaan chat ini",
     "ruleAllow": "Diizinkan untuk chat ini",
@@ -647,9 +658,13 @@
       "rowOff": "Mati: administrator belum mengizinkan akses jaringan.",
       "runner": "add-on yang menjalankan perintah"
     },
-    "allowedHosts": "Selalu diizinkan oleh administrator Anda:",
     "allowedHostsOff": "Berlaku saat jaringan aktif.",
-    "allowedHostsNote": "{{count}} host selalu diizinkan oleh administrator Anda.",
+    "allowedHostsNote": "Domain yang ditambahkan administrator Anda: {{count}}.",
+    "customDomains": "Kustom menjangkau registri paket dan domain berikut, yang ditentukan administrator Anda:",
+    "customEmpty": "Kustom hanya menjangkau registri paket. Administrator Anda belum menambahkan domain lain.",
+    "customLabel": "Domain kustom",
+    "customEdit": "Edit domain",
+    "customAdmin": "Administrator mengelola daftar ini.",
     "limitNote": "Jaringan chat ini. Administrator menetapkan batas maksimum yang dapat dijangkau sebuah chat.",
     "draftNote": "Obrolan dimulai dengan pengaturan ini. Administrator menetapkan batas jangkauan obrolan, dan batas itu berlaku.",
     "asksAbove": "Chat ini meminta {{choice}}; batas administrator adalah {{limit}}.",
@@ -884,6 +899,10 @@
       "ended": "selesai",
       "wait": "Menunggu: {{wait}}"
     },
+    "report": {
+      "on_done": "Melapor saat selesai: {{channel}} · {{connection}}",
+      "on_problem": "Melapor jika ada masalah: {{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "Jeda",
       "resume": "Lanjutkan",
@@ -1040,7 +1059,8 @@
       "user": "Semua obrolan Anda",
       "agent": "Agen {{agent}}",
       "agentAny": "Satu agen",
-      "channel": "Percakapan ini"
+      "channel": "Percakapan ini",
+      "project": "Proyek ini"
     },
     "help": "Tidak ada yang disimpan sampai Anda mengonfirmasi.",
     "row": {
@@ -1048,7 +1068,9 @@
       "target": "Berkas",
       "source": "Dari",
       "expires": "Kedaluwarsa dalam",
-      "collection": "Koleksi"
+      "collection": "Koleksi",
+      "proposedBy": "Diusulkan oleh",
+      "note": "Catatan"
     },
     "source": {
       "chat": "Obrolan",
@@ -1123,6 +1145,17 @@
       "consent": "Rekaman disimpan sebagai profil suara yang dapat dipakai chat Anda untuk berbicara. Anda dapat menghapusnya di pustaka Suara.",
       "consentAdmin": "Anda administrator, jadi suara ini tersedia untuk semua pengguna server ini.",
       "confirm": "Pembicara setuju: simpan suara"
+    },
+    "fromOther": {
+      "title": "{{name}} mengusulkan catatan untuk {{project}}",
+      "titleNoProject": "{{name}} mengusulkan catatan",
+      "help": "Tidak ada yang ditulis sampai Anda mengonfirmasi. {{name}} mengusulkannya dari obrolan yang menarik proyek ini.",
+      "by": "{{name}}, dari obrolannya sendiri",
+      "voided": "{{name}} tidak lagi dapat mengubah proyek ini.",
+      "noteFor": "Catatan untuk {{project}}",
+      "thisProject": "proyek ini",
+      "why": "Bagikan proyek lagi dengan akses ubah, lalu minta catatan itu lagi jika Anda masih menginginkannya.",
+      "nameHint": "Nama proyek diambil dari foldernya"
     }
   },
   "proposalsPage": {

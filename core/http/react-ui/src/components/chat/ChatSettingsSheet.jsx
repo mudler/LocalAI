@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import SideSheet from '../SideSheet'
 import { Button, Callout, Segmented, Slider, Switch } from '../ui'
+import ChatProjectSection from '../projects/ChatProjectSection'
 import { REASONING_EFFORTS, SETTING_RANGES, settingsBody, settingsChanged, settingsErrors, settingsForm } from '../../utils/chatSettings'
 
 // The chat in one sheet: how the page behaves, what the chat answers with (its
@@ -130,6 +131,7 @@ function AnswerSettings({ answer, onEffort }) {
 
 export default function ChatSettingsSheet({
   chat, agent, isAdmin, focusMode, onFocusMode, modelInfo, onEditConfig, onEditAgent, onDelete, onClose, onSaveSettings, onEffort,
+  projectList, running, onProject, onPulled,
 }) {
   const { t } = useTranslation('chat')
   const answer = useAnswerForm(chat.settings, onSaveSettings)
@@ -170,6 +172,20 @@ export default function ChatSettingsSheet({
       </section>
 
       {onSaveSettings && <AnswerSettings answer={answer} onEffort={onEffort} />}
+
+      {projectList && onProject && onPulled && (
+        <ChatProjectSection chat={chat} list={projectList} running={running} onProject={onProject} onPulled={onPulled} />
+      )}
+
+      {chat.collections?.length > 0 && (
+        <section className="cxs-sec" data-testid="chat-settings-collections">
+          <h3 className="cxs-sec__title">{t('settings.collections')}</h3>
+          <p className="dk-hint cxs-sec__lead">{t('settings.collectionsHelp')}</p>
+          <ul className="cxs-names">
+            {chat.collections.map(name => <li key={name}>{name}</li>)}
+          </ul>
+        </section>
+      )}
 
       {agent && (
         <section className="cxs-sec" data-testid="chat-agent-info">

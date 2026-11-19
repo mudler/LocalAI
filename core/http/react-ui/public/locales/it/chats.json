@@ -46,6 +46,9 @@
       "deliveryChat": "Questa chat",
       "deliveryThread": "Questo thread",
       "deliveryChannel": "{{channel}}, in cima al canale",
+      "deliveryChannelIn": "{{channel}} in {{connection}}, in cima al canale",
+      "deliveryModeOnChange": "Solo quando la risposta è diversa dall'esecuzione precedente.",
+      "deliveryModeOnProblem": "Solo quando un'esecuzione fallisce. Un'esecuzione riuscita non segnala nulla.",
       "stopLabel": "Per fermarlo",
       "when": "{{schedule}}, {{zone}}. Prima esecuzione {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -149,6 +152,11 @@
       "testedAt": "Provato {{when}}.",
       "errorTitle": "L'ultima prova non si è connessa.",
       "authTitle": "Il server ha rifiutato l'accesso.",
+      "output": "Ultimo output del comando",
+      "outputCopy": "Copia",
+      "outputCopied": "Copiato",
+      "outputMore": "Mostra tutte le {{count}} righe",
+      "outputLess": "Mostra meno",
       "tools": "Strumenti",
       "toolsUnknown": "Prova la connessione per vedere gli strumenti.",
       "toolsNone": "Il server non offre strumenti.",
@@ -586,7 +594,9 @@
         "title": "Leggere le tue chat precedenti",
         "description": "Permette al modello di cercare e leggere le tue chat precedenti. Un agente che lavora in una cartella legge solo le chat del proprio agente."
       }
-    }
+    },
+    "fromProject": "Dal progetto",
+    "fromProjectTitle": "Il progetto collega questo strumento, quindi qui è sempre attivo. Per disattivarlo, scollegalo nel progetto."
   },
   "vision": {
     "describedBy": "Questo modello non può guardare le immagini. Scegli un altro modello, oppure l'immagine sarà descritta da {{model}}.",
@@ -596,18 +606,19 @@
     "label": "Rete",
     "preset": {
       "off": "Disattivata",
-      "registries": "Registri di pacchetti",
+      "registries": "Personalizzato",
       "all": "Tutti i siti pubblici"
     },
     "presetHint": {
       "off": "I comandi non raggiungono nessuna rete.",
-      "registries": "I comandi raggiungono solo i registri di pacchetti (PyPI, npm, Go, crates.io, RubyGems, Maven Central, release di GitHub).",
+      "registries": "I comandi raggiungono i registri di pacchetti (PyPI, npm, Go, crates.io, RubyGems, Maven Central, release di GitHub) e i domini aggiunti dal tuo amministratore.",
       "all": "I comandi raggiungono ogni sito pubblico."
     },
     "limited": "Limitato dal tuo amministratore",
     "limitedBy": "Il tuo amministratore consente al massimo: {{limit}}.",
     "hostNetwork": "I comandi vengono eseguiti su questa macchina e usano la sua rete. I limiti di rete richiedono un componente che isoli i comandi.",
     "panel": "Regole e richieste ({{count}})",
+    "panelCustom": "Domini personalizzati",
     "rules": "Regole di questa chat",
     "cards": "Richieste di questa chat",
     "ruleAllow": "Consentito per questa chat",
@@ -647,9 +658,13 @@
       "rowOff": "Disattivata: l’amministratore non ha consentito l’accesso alla rete.",
       "runner": "l’add-on che esegue i comandi"
     },
-    "allowedHosts": "Sempre consentiti dal tuo amministratore:",
     "allowedHostsOff": "Valgono quando la rete è attiva.",
-    "allowedHostsNote": "{{count}} host sono sempre consentiti dal tuo amministratore.",
+    "allowedHostsNote": "Domini aggiunti dal tuo amministratore: {{count}}.",
+    "customDomains": "Personalizzato raggiunge i registri di pacchetti e questi domini, stabiliti dal tuo amministratore:",
+    "customEmpty": "Personalizzato raggiunge solo i registri di pacchetti. Il tuo amministratore non ha aggiunto altri domini.",
+    "customLabel": "Domini personalizzati",
+    "customEdit": "Modifica i domini",
+    "customAdmin": "Un amministratore gestisce questo elenco.",
     "limitNote": "Rete di questa chat. L’amministratore imposta il massimo che una chat può raggiungere.",
     "draftNote": "La chat parte con questa impostazione. L’amministratore fissa il massimo che una chat può raggiungere, e quel limite si applica.",
     "asksAbove": "Questa chat chiede {{choice}}; il limite dell’amministratore è {{limit}}.",
@@ -884,6 +899,10 @@
       "ended": "terminato",
       "wait": "In attesa di: {{wait}}"
     },
+    "report": {
+      "on_done": "Avvisa a fine lavoro: {{channel}} · {{connection}}",
+      "on_problem": "Avvisa se c'è un problema: {{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "Pausa",
       "resume": "Riprendi",
@@ -1040,7 +1059,8 @@
       "user": "Tutte le tue chat",
       "agent": "Agente {{agent}}",
       "agentAny": "Un agente",
-      "channel": "Questa conversazione"
+      "channel": "Questa conversazione",
+      "project": "Questo progetto"
     },
     "help": "Non viene salvato nulla finché non confermi.",
     "row": {
@@ -1048,7 +1068,9 @@
       "target": "File",
       "source": "Da",
       "expires": "Scade tra",
-      "collection": "Raccolta"
+      "collection": "Raccolta",
+      "proposedBy": "Proposto da",
+      "note": "Nota"
     },
     "source": {
       "chat": "Una chat",
@@ -1123,6 +1145,17 @@
       "consent": "La registrazione viene salvata come profilo vocale con cui le tue chat possono parlare. Puoi eliminarla nella libreria Voce.",
       "consentAdmin": "Sei un amministratore: questa voce sarà disponibile a tutti gli utenti di questo server.",
       "confirm": "Chi parla ha acconsentito: salva la voce"
+    },
+    "fromOther": {
+      "title": "{{name}} ha proposto una nota per {{project}}",
+      "titleNoProject": "{{name}} ha proposto una nota",
+      "help": "Non viene scritto nulla finché non confermi. {{name}} l'ha proposta da una chat che includeva questo progetto.",
+      "by": "{{name}}, dalla sua chat",
+      "voided": "{{name}} non può più modificare questo progetto.",
+      "noteFor": "Una nota per {{project}}",
+      "thisProject": "questo progetto",
+      "why": "Condividi di nuovo il progetto con accesso in modifica, poi chiedi di nuovo la nota se la vuoi ancora.",
+      "nameHint": "Nome del progetto preso dalla sua cartella"
     }
   },
   "proposalsPage": {

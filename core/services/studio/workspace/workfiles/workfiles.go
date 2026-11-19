@@ -148,12 +148,26 @@ func Stray(p string) bool {
 	return Kind(p) == Working && !inWorkFolder(segs)
 }
 
-// ToolHint ends the descriptions of bash and write_file. Tool descriptions
-// are the same for every chat, so it points at the prompt and the note of the
-// turn, which name the folder; with the steering off neither names one and the
-// hint is moot. The Sandbox add-on has 400 characters for its bash: keep this
-// short.
+// ToolHint ends the description of write_file. Tool descriptions are the same
+// for every chat, so it points at the prompt and the note of the turn, which
+// name the folder; with the steering off neither names one and the hint is
+// moot.
 const ToolHint = "Put helper scripts and temp files in the chat's work folder if the prompt or the note names one."
+
+// ShellHint is the part of a shell tool's description (and of the note of a
+// turn) that says where the shell starts and how to name paths in it. The
+// folder is named after the chat's title, which can hold spaces and
+// non-ASCII characters; a model that types such a name out by hand gets it
+// mangled or split by the shell and makes stray folders. The Sandbox add-on
+// has 400 characters for its bash: keep this short.
+const ShellHint = "The shell starts in $WORK, this chat's work folder. Use $WORK or relative paths instead of typing absolute paths. " +
+	"Quote every path with double quotes. Never type out a name with spaces or non-ASCII characters; take it from ls or a glob."
+
+// ShellHintShort is ShellHint in fewer characters, for a description with a
+// hard cap (the Sandbox add-on's bash has 400 characters in all). It says the
+// same four things.
+const ShellHintShort = "Starts in $WORK, the chat's work folder. Use $WORK or relative paths, not typed absolute ones. Double-quote every path. " +
+	"Never type a name with spaces or non-ASCII characters; take it from ls or a glob."
 
 // Prompt is the block of the system prompt that says what goes in the work
 // folder of a chat. It names no folder: the folder is named after the chat's
@@ -162,15 +176,24 @@ const ToolHint = "Put helper scripts and temp files in the chat's work folder if
 // system prompt) and would read the tool definitions again for each new chat.
 // Note names the folder in the note of every turn instead.
 const Prompt = "Working files: put scripts, helper code, intermediate data, logs, drafts and anything else the user did not ask for in this chat's work folder, " +
-	"which the note at the start of the user's message names (create it with mkdir -p when it is missing). " +
+	"which the note at the start of the user's message names. The shell starts there and $WORK holds it: use $WORK or relative paths, in double quotes, in shell commands. " +
 	"Save the deliverable the user asked for (the document, the spreadsheet, the image) where the user said, else in " + guestHome + "/, and nowhere else. " +
 	"Never create new top-level folders in the home for scripts. A command you run once needs no file: use python3 -c or a heredoc. " +
 	"Pages (" + guestHome + "/" + PagesDir + "/<name>/) and " + guestHome + "/" + SettingsDir + "/ are deliverables: keep them where they are."
 
 // Note is the line of a turn's note that names the work folder of a chat
-// (guest path, ending in "/"), for the chats whose prompt is Prompt.
+// (guest path, ending in "/"), for the chats whose prompt is Prompt. The path
+// stays literal because the file tools take guest paths; the shell gets it as
+// $WORK, and the line tells the model to use that there.
 func Note(guestFolder string) string {
-	return "This chat's work folder is \"" + guestFolder + "\"."
+	return NoteFolder(guestFolder) + " " + ShellHint
+}
+
+// NoteFolder is Note without ShellHint, for a turn whose note has little room:
+// the session cuts a sub-agent's note at 400 characters, and the prompt block
+// and the tool descriptions of a sub-agent already say how to name paths.
+func NoteFolder(guestFolder string) string {
+	return "This chat's work folder is \"" + guestFolder + "\"; file tools take that path."
 }
 
 // ScopedPrompt is Prompt for a chat whose agent has a folder: the work
@@ -183,7 +206,7 @@ func ScopedPrompt(homeWritable bool) string {
 		deliver = guestHome + "/ is read only: save the deliverable the user asked for (the document, the spreadsheet, the image) in " + guestChat + "/. "
 	}
 	return "Working files: put scripts, helper code, intermediate data, logs, drafts and anything else the user did not ask for in this chat's work folder, " +
-		ChatGuestFolder + " (create it with mkdir -p when it is missing). " + deliver +
+		ChatGuestFolder + ". The shell starts there and $WORK holds it: use $WORK or relative paths, in double quotes, in shell commands. " + deliver +
 		"Never create new top-level folders for scripts. A command you run once needs no file: use python3 -c or a heredoc."
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // ToolStep is one action of a scripted turn. Set one field.
@@ -300,14 +301,29 @@ const (
 // workFolderNote matches the sentence of a turn's note that names the chat's
 // work folder (workfiles.Note). Sent and the script leave it out, so a spec
 // keys on the words of the person whether the chat can save files or not.
-// The folder's name comes from the chat's title and may hold a quote, so the
-// match ends at the work folder's own name.
-var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"\. ?`)
+// The folder of a chat made before the slug names comes from its title and may
+// hold a quote, so the match ends at the work folder's own name. The rest of
+// the sentence is workfiles.ShellHint.
+var workFolderNote = regexp.MustCompile(`This chat's work folder is ".*?/work/"; file tools take that path\.(?: ` + regexp.QuoteMeta(workfiles.ShellHint) + `)? ?`)
 
 // withoutHostNotes removes the sentences of the note that the host adds on
 // its own (withoutDeniedNote, withoutWorkFolderNote).
 func withoutHostNotes(text string) string {
-	return withoutWorkFolderNote(withoutDeniedNote(withoutAbsentNote(text)))
+	return withoutWorkFolderNote(withoutDeniedNote(withoutAbsentNote(withoutFilesBlock(text))))
+}
+
+// withoutFilesBlock removes the list of the chat's files that a message
+// carries when the list changed (session.FilesOpen).
+func withoutFilesBlock(text string) string {
+	a := strings.Index(text, session.FilesOpen)
+	if a < 0 {
+		return text
+	}
+	b := strings.Index(text[a:], session.FilesClose)
+	if b < 0 {
+		return text
+	}
+	return text[:a] + strings.TrimPrefix(text[a+b+len(session.FilesClose):], "\n\n")
 }
 
 // AbsentNoteStart and AbsentNoteEnd bound the sentence that tells the model a

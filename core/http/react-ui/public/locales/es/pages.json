@@ -19,7 +19,14 @@
     "deleteTitle": "¿Eliminar «{{title}}»?",
     "deleteMessage": "La carpeta {{folder}} va a la papelera. Puedes restaurarla desde Archivos.",
     "deleted": "{{title}} está en la papelera.",
-    "deleteFailed": "La página no se eliminó: {{message}}"
+    "deleteFailed": "La página no se eliminó: {{message}}",
+    "share": "Compartir",
+    "shared": "Compartida",
+    "sharedWith_one": "Compartida con {{count}} persona",
+    "sharedWith_other": "Compartida con {{count}} personas",
+    "sharedEveryone": "Compartida con todos",
+    "someone": "alguien",
+    "othersEdit": "Otros pueden editar"
   },
   "empty": {
     "text": "Una página es una herramienta pequeña, como un tablero de tareas o una lista de lectura. Pídele una al asistente en un chat o empieza con una página lista.",
@@ -48,12 +55,15 @@
       "notAllowed": "Aún no permitida",
       "changed": "Cambió desde que la permitiste",
       "allowed": "Permitida"
-    }
+    },
+    "userOff": "Desactivada por un administrador.",
+    "stopFailed": "No se pudo detener la página: {{message}}"
   },
   "viewer": {
     "stopAllowing": "Dejar de permitir esta página",
     "authorChanged": "{{author}} cambió esta página. La versión que permitiste sigue en marcha hasta que revises el cambio.",
-    "sandboxShared": "Aislada. Se ejecuta como tú, solo en {{folder}}, y no puede acceder a la red."
+    "sandboxShared": "Aislada. Se ejecuta como tú, solo en {{folder}}, y no puede acceder a la red.",
+    "sandboxUser": "En un entorno aislado. Se ejecuta como tú, solo en su propia carpeta, y no puede acceder a la red."
   },
   "trust": {
     "title": "¿Abrir «{{title}}»?",
@@ -128,6 +138,26 @@
       "item": "Ejecutarse en Inicio, en las ranuras de la app y en el panel",
       "note": "Empieza cuando aparece la pantalla, sin un clic. Un cambio de su autor vuelve a preguntar.",
       "allow": "Permitir en Inicio, en ranuras y en el panel"
+    },
+    "user": {
+      "desc": "Una persona compartió esta página contigo. Las páginas se ejecutan como tú, así que revísala antes de ejecutarla.",
+      "who": "Escrita por {{author}}. No revisada por un administrador.",
+      "unchecked": "No revisada por un administrador.",
+      "where": "Página compartida",
+      "readOnly": "Solo puedes ver esta página, así que no puede guardar sus cambios.",
+      "chrome": "Página compartida. No se ha ejecutado.",
+      "blocked": "Elegiste no ejecutarla. Viene de {{author}}. Nada de ella se ejecutó y no se guardó nada.",
+      "files": "Leer y escribir archivos en su propia carpeta"
+    },
+    "owner": {
+      "desc": "Otros pueden editar esta página. Las páginas se ejecutan como tú, así que revísala antes de ejecutarla.",
+      "who": "Otros pueden editar esta página. Revísala antes de ejecutarla.",
+      "changedWho": "Esta página cambió desde que la permitiste.",
+      "where": "Tu página",
+      "warn": "Actúa como tú dentro de su carpeta. Si alguien la cambia, se te vuelve a preguntar.",
+      "changedWarn": "Si la permites, esta versión se ejecuta cada vez que la abras, hasta que alguien la cambie de nuevo.",
+      "blocked": "Elegiste no ejecutarla. Otros pueden editarla. Nada de ella se ejecutó y no se guardó nada.",
+      "stale": "Esta página cambió. Revísala de nuevo."
     }
   },
   "frame": {
@@ -182,5 +212,43 @@
     "sendLabel": "La página quiere enviar este mensaje a este chat:",
     "saveFailed": "El panel no se guardó: {{message}}",
     "openInDock": "Abrir en el panel"
+  },
+  "share": {
+    "intro": "Elige quién puede abrir esta página. La página se queda donde está.",
+    "warning": "Las personas con las que compartes ejecutan el código de esta página en su navegador, con sus propios permisos, después de permitirlo. Se les vuelve a preguntar cuando cambias el código.",
+    "role": {
+      "view": "Ver",
+      "use": "Usar",
+      "edit": "Editar"
+    },
+    "roleHelp": {
+      "view": "Puede ejecutar la página y leer sus datos. No puede guardar.",
+      "use": "Puede ejecutar la página y guardar datos en ella. No puede cambiar su código.",
+      "edit": "Puede cambiarlo todo, incluido el código."
+    },
+    "count": {
+      "people_one": "Compartida con {{count}} persona.",
+      "people_other": "Compartida con {{count}} personas.",
+      "everyone": "Compartida con todos.",
+      "everyoneAnd_one": "Compartida con todos y con {{count}} persona con nombre.",
+      "everyoneAnd_other": "Compartida con todos y con {{count}} personas con nombre.",
+      "allowed_one": "{{count}} permitió esta versión.",
+      "allowed_other": "{{count}} permitieron esta versión."
+    },
+    "offAdmin": "Un administrador desactivó el uso compartido de páginas. Aún puedes dejar de compartir con las personas de abajo.",
+    "lost": "Ya no puedes compartir esta página.",
+    "askAgain_one": "Cambiaste el código. Se pedirá permiso de nuevo a {{count}} persona.",
+    "askAgain_other": "Cambiaste el código. Se pedirá permiso de nuevo a {{count}} personas.",
+    "viewOnly": "Puedes ver esta página, pero no cambiarla",
+    "editNote": "Con Editar, esta página también se abre para ti mediante el paso de permiso.",
+    "tile": {
+      "title": "Abre esta página para ejecutarla",
+      "text": "Una persona la compartió contigo. No se ejecuta en Inicio ni en un slot. Ábrela para ejecutarla.",
+      "open": "Abrir la página",
+      "dock": "Una persona compartió esta página contigo. Ábrela desde Páginas para ejecutarla.",
+      "slot": "Abre {{title}} para ejecutarla",
+      "textOwn": "Otros pueden editarla. No se ejecuta en Inicio ni en un slot. Ábrela para ejecutarla.",
+      "dockOwn": "Otros pueden editar esta página. Ábrela desde Páginas para ejecutarla."
+    }
   }
 }

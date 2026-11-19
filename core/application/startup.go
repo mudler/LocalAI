@@ -394,7 +394,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			gs := application.galleryService
 			sys := options.SystemState
 			cfgLoaderOpts := options.ToConfigLoaderOptions()
-			modelRevisionLifecycle := modeladmin.NewDistributedModelRevisionLifecycle(distSvc.Registry, distSvc.ModelCleanup)
+			modelRevisionLifecycle := application.ModelRevisionLifecycle()
 			gs.SetModelRevisionLifecycle(modelRevisionLifecycle)
 			// Captured here, used after the model configs are loaded below: the
 			// resync reads the loader, which is still empty at this point.
@@ -605,6 +605,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 		}
 	}
+
+	// Remotes: the model configs are loaded and the distributed
+	// services exist, so the service can write entries and resolve keys. The
+	// refresh runs in the background and never delays startup.
+	application.startRemotes(options.Context)
 
 	// Start the failover scheduler: it syncs chains from config, runs
 	// liveness/recovery probes and dwell-based fail-back. Run is the only

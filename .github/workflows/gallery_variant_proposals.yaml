@@ -3,9 +3,15 @@ on:
   schedule:
     - cron: 0 4 * * 1
   workflow_dispatch:
+# nosqlite and purego_utp: pkg/downloader needs them when cgo is on (see CONTRIBUTING.md, "Build tags").
+env:
+  GOFLAGS: -tags=nosqlite,purego_utp
+
 jobs:
   variant_proposals:
     if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -60,12 +66,21 @@ jobs:
 
       # No body file means the proposer found nothing. Opening an empty pull
       # request every run is how a proposal job gets muted by its reviewers.
+      - name: Create GitHub App token
+        id: app-token
+        if: steps.propose.outputs.have_proposals == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create Pull Request
         if: steps.propose.outputs.have_proposals == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.UPDATE_BOT_TOKEN }}
-          push-to-fork: ci-forks/LocalAI
+          token: ${{ steps.app-token.outputs.token }}
           commit-message: 'chore(model-gallery): propose variant groupings'
           title: 'chore(model-gallery): propose variant groupings for review'
           branch: "propose/variant-groupings"

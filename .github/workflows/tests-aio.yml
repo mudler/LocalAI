@@ -24,8 +24,17 @@ on:
   push:
     branches:
       - master
+    # Ignore commits confined to files the end-to-end image never reads.
+    # GitHub documents that path filters are not evaluated for tag pushes. The
+    # nightly schedule and manual dispatch always run in full.
+    paths-ignore:
+      - 'docs/**'
+      - 'website/**'
+      - 'examples/**'
+      - '**/*.md'
     tags:
       - '*'
+      - '!dev-master'
 
 concurrency:
   group: ci-tests-aio-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}

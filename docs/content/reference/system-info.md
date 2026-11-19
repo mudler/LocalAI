@@ -1,11 +1,10 @@
 +++
 disableToc = false
-title = "System Info and Version"
-weight = 23
-url = "/reference/system-info/"
+title = "System and version endpoints"
+weight = 40
 +++
 
-LocalAI provides endpoints to inspect the running instance, including available backends, loaded models, and version information.
+Two endpoints show what the server runs: `/system` for backends and loaded models, `/version` for the build. `/system` is an administrator route. When authentication is on, send your key or session, for example `-H "Authorization: Bearer <your-key>"` with curl.
 
 ## System Information
 
@@ -39,10 +38,6 @@ Host-memory regions are excluded. The reading includes buffers attributed
 to the backend, without separating weights, KV cache, and other allocations.
 See the [kernel DRM accounting specification](https://docs.kernel.org/gpu/drm-usage-stats.html)
 for these counters.
-
-Kernels without `CONFIG_PROC_CHILDREN` are supported. When `/proc` does not
-provide per-thread `children` files, LocalAI finds child processes through
-the parent PIDs in `/proc/<pid>/stat`.
 
 The field is omitted when accounting is unavailable or incomplete. This
 includes external and distributed backends, macOS, proprietary NVIDIA
@@ -94,8 +89,8 @@ curl http://localhost:8080/system
 ```
 
 `cpu_percent` covers the time since the previous call to this endpoint, so a
-dashboard polling every few seconds gets a current reading. The WebUI's
-**Operate → This machine** page polls it every five seconds.
+dashboard polling every few seconds gets a current reading. The web interface's
+**This machine** tab polls it every five seconds. Find it under **Administration** in the sidebar, on the **Admin** page. In distributed mode, the **Swarm** tab replaces it.
 
 ---
 
@@ -122,12 +117,14 @@ curl http://localhost:8080/version
 
 ```json
 {
-  "version": "2.26.0 (a1b2c3d4)"
+  "version": "4.12.1 (a1b2c3d4)"
 }
 ```
 
-## Error Responses
+## Error responses
 
-| Status Code | Description                  |
-|-------------|------------------------------|
-| 500         | Internal server error        |
+| Status Code | Description                                          |
+|-------------|------------------------------------------------------|
+| 500         | Internal server error                                |
+
+When authentication is on, `/system` refuses a request that has no valid administrator credentials.

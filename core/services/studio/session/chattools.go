@@ -55,6 +55,29 @@ type TurnTools struct {
 	// harness. The product wraps it as data it does not trust. It is cut at
 	// MaxTurnContext bytes on a line boundary.
 	Context string
+	// Files lists the files of the conversation. The model reads it in front
+	// of the user's message of a turn when it differs from the list it read
+	// last, and not in the prompt: the list changes at most turns that write a
+	// file, and a changed prompt would make a backend with a prompt cache read
+	// the whole conversation again.
+	Files string
+}
+
+// noFilesNow tells the model that the files it read about are gone.
+const noFilesNow = "There are no files in this conversation now."
+
+// FilesOpen and FilesClose bound the list of files in front of a message.
+const (
+	FilesOpen  = "<conversation-files>\n"
+	FilesClose = "\n</conversation-files>"
+)
+
+// forgetFiles makes the next turn give the list of files again: the model's
+// context no longer holds the one it read.
+func (c *Chat) forgetFiles() {
+	c.hostMu.Lock()
+	c.filesSeen = ""
+	c.hostMu.Unlock()
 }
 
 // MaxTurnContext is how much of TurnTools.Context the model gets.
@@ -285,6 +308,14 @@ func (c *Chat) applyChatTools(ctx context.Context, message string) (note string,
 	if err == nil {
 		c.hostMu.Lock()
 		c.turnBlock = capContext(tt.Context)
+		if tt.Files != c.filesSeen {
+			files := tt.Files
+			if files == "" {
+				files = noFilesNow
+			}
+			c.turnBlock = strings.TrimSpace(FilesOpen + files + FilesClose + "\n\n" + c.turnBlock)
+			c.filesSeen = tt.Files
+		}
 		c.hostMu.Unlock()
 	}
 	var tools []Tool

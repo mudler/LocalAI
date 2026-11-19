@@ -49,6 +49,42 @@ var _ = Describe("the GORM store on SQLite", func() {
 		Expect(got.ScopedAgent).To(BeFalse())
 	})
 
+	It("reads a chat stored before the collections column as unrestricted", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
+		db := openSQLite(path)
+		first, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(first.CreateChat(context.Background(), session.ChatRecord{ID: "old", Principal: "alice", Title: "Old", Created: time.Now(), Updated: time.Now()})).To(Succeed())
+		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN collections").Error).To(Succeed())
+		second, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		got, err := second.GetChat(context.Background(), "alice", "old")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Collections).To(BeNil())
+		Expect(second.SetCollections(context.Background(), "alice", "old", []string{"a"})).To(Succeed())
+		got, _ = second.GetChat(context.Background(), "alice", "old")
+		Expect(got.Collections).To(Equal([]string{"a"}))
+	})
+
+	It("reads a chat stored before the project columns as in no project", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
+		db := openSQLite(path)
+		first, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(first.CreateChat(context.Background(), session.ChatRecord{ID: "old", Principal: "alice", Title: "Old", Created: time.Now(), Updated: time.Now()})).To(Succeed())
+		// The table as it was before the columns.
+		Expect(db.Exec("DROP INDEX idx_studio_chats_project_id").Error).To(Succeed())
+		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN project_id").Error).To(Succeed())
+		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN pulled_projects").Error).To(Succeed())
+		second, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		got, err := second.GetChat(context.Background(), "alice", "old")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ProjectID).To(BeEmpty())
+		Expect(got.PulledProjects).To(BeNil())
+		Expect(second.SetProject(context.Background(), "alice", "old", "p")).To(Succeed())
+	})
+
 	It("keeps the tool names of a sub-agent, and reads a chat stored before the column as having none", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
 		db := openSQLite(path)

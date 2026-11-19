@@ -61,7 +61,34 @@ import (
 // 9,700 to 9,900: the offset, limit and query arguments of list_models. They
 // let the model page through a long model list and search it by name; the
 // group measures 9,879 bytes.
-const clientBudgetBytes = 9900
+//
+// 9,900 to 10,600: the projects tool (657 bytes), ten actions in one flat
+// schema (list, get, create, update, archive, restore, delete,
+// set_chat_project, pull, unpull) that share one domain, the user's projects.
+// It is not a media tool and has no model: it is the way a client or an agent
+// manages projects without a person at the Projects page. Every action is an
+// action, not a tool, and the group measures 10,536 bytes. The tool search can
+// defer the group on a small window.
+//
+// 10,600 to 10,700: the actions connections, triggers and loops of the projects
+// tool (about 65 bytes: three names in the enum and in the argument text), the
+// three reads of what is bound to the agents of a project; the group measures
+// 10,647 bytes.
+//
+// 10,700 to 11,000: the actions memory, write_memory, chats and shared_get of
+// the projects tool (about 285 bytes: four names in the enum, the argument
+// text and the two arguments file and content). They close the gap between
+// the project routes and the tool: read and write the memory of a project,
+// list its chats, and read a shared project with its memory. They share the
+// one domain of the tool, so they are actions and not tools; the group
+// measures 10,986 bytes.
+//
+// 11,000 to 11,250: the attached argument of the projects tool (about 215
+// bytes: the name and a map of lists). It is what a project owns, in the shape
+// of its defaults, so the model can read and set the tools that its chats and
+// agents get; it shares the one domain of the tool; the group measures 11,202
+// bytes.
+const clientBudgetBytes = 11250
 
 var _ = Describe("Client tool surface", func() {
 	It("stays inside the byte budget of an always-sent group", func() {
@@ -90,7 +117,7 @@ var _ = Describe("Client tool surface", func() {
 		Expect(err).ToNot(HaveOccurred())
 		seen := 0
 		for _, t := range res.Tools {
-			if t.Name != ToolVoice && t.Name != ToolFace && t.Name != ToolVoiceProfile {
+			if t.Name != ToolVoice && t.Name != ToolFace && t.Name != ToolVoiceProfile && t.Name != ToolProjects {
 				continue
 			}
 			seen++
@@ -101,14 +128,57 @@ var _ = Describe("Client tool surface", func() {
 			Expect(m).ToNot(HaveKey("anyOf"), t.Name)
 			Expect(m["type"]).To(Equal("object"))
 			action := m["properties"].(map[string]any)["action"].(map[string]any)
-			if t.Name == ToolVoiceProfile {
+			switch t.Name {
+			case ToolVoiceProfile:
 				Expect(action["enum"]).To(ConsistOf("create", "list", "delete"))
-			} else {
+			case ToolProjects:
+				Expect(action["enum"]).To(ConsistOf("list", "get", "create", "update", "archive", "restore", "delete", "set_chat_project", "pull", "unpull", "agents", "connections", "triggers", "loops", "shared", "shared_get", "memory", "write_memory", "chats"))
+				// Sharing is never a tool: only the human session of the folder
+				// share API grants or revokes access.
+				for _, a := range action["enum"].([]any) {
+					Expect(a).NotTo(MatchRegexp(`^(share|unshare|grant|revoke|set_share|edit_share|share_project)$`), "no action may share a project")
+					Expect(a).To(BeElementOf("list", "get", "create", "update", "archive", "restore", "delete", "set_chat_project", "pull", "unpull", "agents", "connections", "triggers", "loops", "shared", "shared_get", "memory", "write_memory", "chats"))
+				}
+			default:
 				Expect(action["enum"]).To(ConsistOf("verify", "identify"))
 			}
 			Expect(m["required"]).To(ContainElement("action"))
 		}
-		Expect(seen).To(Equal(3))
+		Expect(seen).To(Equal(4))
+	})
+
+	It("keeps all fourteen projects actions on the MCP path: the in-chat gate is on the chat side only", func() {
+		for _, args := range []map[string]any{
+			{"action": "pull", "chat_id": "c", "project": "p"}, {"action": "unpull", "chat_id": "c", "project": "p"},
+			{"action": "set_chat_project", "chat_id": "c", "project": "p"}, {"action": "delete", "project": "p"},
+		} {
+			fc := &fakeClient{}
+			ctx, sess, done := connectInMemory(fc, Options{})
+			DeferCleanup(done)
+			res := callTool(ctx, sess, ToolProjects, args)
+			Expect(res.IsError).To(BeFalse(), resultText(res))
+			Expect(fc.recorded()).To(HaveLen(1))
+		}
+	})
+
+	It("keeps agents, and only the reading actions, in the read-only flavour", func() {
+		fc := &fakeClient{}
+		ctx, sess, done := connectInMemory(fc, Options{DisableMutating: true})
+		DeferCleanup(done)
+		res := callTool(ctx, sess, ToolProjects, map[string]any{"action": "agents", "project": "p"})
+		Expect(res.IsError).To(BeFalse(), resultText(res))
+		Expect(fc.recorded()).To(HaveLen(1))
+		for i, a := range []string{"connections", "triggers", "loops", "shared"} {
+			res = callTool(ctx, sess, ToolProjects, map[string]any{"action": a, "project": "p"})
+			Expect(res.IsError).To(BeFalse(), resultText(res))
+			Expect(fc.recorded()).To(HaveLen(i + 2))
+		}
+		res = callTool(ctx, sess, ToolProjects, map[string]any{"action": "delete", "project": "p"})
+		Expect(res.IsError).To(BeTrue())
+		Expect(fc.recorded()).To(HaveLen(5))
+		res = callTool(ctx, sess, ToolProjects, map[string]any{"action": "share", "project": "p"})
+		Expect(res.IsError).To(BeTrue())
+		Expect(fc.recorded()).To(HaveLen(5), "there is no action that shares a project")
 	})
 
 	It("has no edit_image, verify_* or identify_* tool any more", func() {
@@ -205,6 +275,25 @@ var _ = Describe("Client tool surface", func() {
 		Entry("voice_profile delete without id", ToolVoiceProfile, map[string]any{"action": "delete"}, "", `voice_profile: action "delete" needs id`),
 		Entry("voice_profile delete", ToolVoiceProfile, map[string]any{"action": "delete", "id": "abc"}, "DeleteVoiceProfile", ""),
 		Entry("voice_profile with a bad action", ToolVoiceProfile, map[string]any{"action": "update"}, "", "does not equal any of"),
+		Entry("projects list", ToolProjects, map[string]any{"action": "list"}, "Projects", ""),
+		Entry("projects get", ToolProjects, map[string]any{"action": "get", "project": "p1"}, "Projects", ""),
+		Entry("projects get without a project", ToolProjects, map[string]any{"action": "get"}, "", `projects: action "get" needs project`),
+		Entry("projects create", ToolProjects, map[string]any{"action": "create", "name": "Acme"}, "Projects", ""),
+		Entry("projects create without a name", ToolProjects, map[string]any{"action": "create"}, "", `projects: action "create" needs name`),
+		Entry("projects update", ToolProjects, map[string]any{"action": "update", "project": "p1", "name": "New"}, "Projects", ""),
+		Entry("projects update that clears the description", ToolProjects, map[string]any{"action": "update", "project": "p1", "description": ""}, "Projects", ""),
+		Entry("projects update with nothing to change", ToolProjects, map[string]any{"action": "update", "project": "p1"}, "", `projects: action "update" needs name, description or attached`),
+		Entry("projects archive", ToolProjects, map[string]any{"action": "archive", "project": "p1"}, "Projects", ""),
+		Entry("projects restore", ToolProjects, map[string]any{"action": "restore", "project": "p1"}, "Projects", ""),
+		Entry("projects delete", ToolProjects, map[string]any{"action": "delete", "project": "p1"}, "Projects", ""),
+		Entry("projects delete without a project", ToolProjects, map[string]any{"action": "delete"}, "", `projects: action "delete" needs project`),
+		Entry("projects set_chat_project", ToolProjects, map[string]any{"action": "set_chat_project", "chat_id": "c1", "project": "p1"}, "Projects", ""),
+		Entry("projects set_chat_project with no project takes the chat out", ToolProjects, map[string]any{"action": "set_chat_project", "chat_id": "c1"}, "Projects", ""),
+		Entry("projects set_chat_project without a chat", ToolProjects, map[string]any{"action": "set_chat_project", "project": "p1"}, "", `projects: action "set_chat_project" needs chat_id`),
+		Entry("projects pull", ToolProjects, map[string]any{"action": "pull", "chat_id": "c1", "project": "p1"}, "Projects", ""),
+		Entry("projects pull without a project", ToolProjects, map[string]any{"action": "pull", "chat_id": "c1"}, "", `projects: action "pull" needs project`),
+		Entry("projects unpull", ToolProjects, map[string]any{"action": "unpull", "chat_id": "c1", "project": "p1"}, "Projects", ""),
+		Entry("projects with a bad action", ToolProjects, map[string]any{"action": "purge"}, "", "does not equal any of"),
 		Entry("face with a bad action", ToolFace, map[string]any{"action": "x", "image": "a.png"}, "", "does not equal any of"),
 	)
 

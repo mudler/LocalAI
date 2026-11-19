@@ -17,6 +17,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/pkg/mcpapps"
+	"github.com/mudler/LocalAI/pkg/stderrtail"
 )
 
 // AnonymousOwner is the owner of a server without accounts.
@@ -80,6 +81,10 @@ type Probe struct {
 	// of Tools, so a person can see what a tool does before switching it on.
 	Details []ToolInfo
 	Error   string
+	// Output is what a local command wrote to its error stream before it
+	// failed, with secrets removed. It is empty for a remote server and when
+	// the command was silent. Error stays one sentence.
+	Output string
 }
 
 // ToolInfo is a tool as a connection test lists it.
@@ -497,7 +502,8 @@ func (s *Service) Test(ctx context.Context, user, id string) (Probe, error) {
 	}
 	cn, err := s.openConn(ctx, c, sec)
 	if err != nil {
-		return Probe{Error: redact(reason(err), c, sec)}, nil
+		msg, out := stderrtail.Split(err)
+		return Probe{Error: redact(reason(errors.New(msg)), c, sec), Output: redact(out, c, sec)}, nil
 	}
 	defer cn.close()
 	p := Probe{Tools: make([]string, 0, len(cn.tools)), Details: make([]ToolInfo, 0, len(cn.tools))}
@@ -712,7 +718,11 @@ func (s *Service) call(ctx context.Context, c Connector, se *session, name strin
 			return "", nil, fmt.Errorf("the tool %s of %s did not answer within %s", name, c.Name, s.o.CallTimeout)
 		}
 		sec, _ := s.open(ctx, c)
-		return "", nil, fmt.Errorf("the tool %s of %s failed: %s", name, c.Name, redact(err.Error(), c, sec))
+		out := commandOutput(se.conn.tail, c, sec)
+		if se.conn.tail != nil {
+			xlog.Warn("A tool of an MCP connector failed", "connector", c.Name, "tool", name, "error", redact(err.Error(), c, sec), "command_output", out)
+		}
+		return "", nil, stderrtail.Wrap(fmt.Errorf("the tool %s of %s failed: %s", name, c.Name, redact(err.Error(), c, sec)), out)
 	}
 	s.mu.Lock()
 	se.last = s.o.Clock()

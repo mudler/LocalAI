@@ -185,7 +185,7 @@ type ModelConfig struct {
 
 	// ConcurrencyGroups declares per-node mutual-exclusion groups: the model
 	// cannot be loaded alongside another model that shares any group name.
-	// See docs/content/advanced/vram-management.md for usage.
+	// See docs/content/models/vram-management.md for usage.
 	ConcurrencyGroups []string `yaml:"concurrency_groups,omitempty" json:"concurrency_groups,omitempty"`
 
 	Options   []string `yaml:"options,omitempty" json:"options,omitempty"`
@@ -323,6 +323,12 @@ type ProxyConfig struct {
 	// agentic/multi-turn workloads that re-send a large stable prefix.
 	// No effect for passthrough mode or non-Anthropic providers.
 	CachePrompt bool `yaml:"cache_prompt,omitempty" json:"cache_prompt,omitempty"`
+
+	// Remote is the id of a remote that owns this model.
+	// The key comes from the remote store when the model loads, so the
+	// config holds no credential. Mutually exclusive with APIKey, APIKeyEnv
+	// and APIKeyFile.
+	Remote string `yaml:"remote,omitempty" json:"remote,omitempty"`
 }
 
 // Proxy mode names. Validate() normalises an empty Mode to
@@ -359,6 +365,9 @@ func (p ProxyConfig) validateCredentialSources() error {
 	}
 	if sources > 1 {
 		return fmt.Errorf("proxy: api_key, api_key_env and api_key_file are mutually exclusive")
+	}
+	if sources > 0 && p.Remote != "" {
+		return fmt.Errorf("proxy: remote cannot be combined with api_key, api_key_env or api_key_file; the key comes from the remote")
 	}
 	return nil
 }
@@ -898,7 +907,8 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 	if c.PII.Enabled != nil {
 		return *c.PII.Enabled
 	}
-	return c.Backend == model.CloudProxyBackend
+	b, ok := RemoteBackendFor(c.Backend)
+	return ok && b.PIIDefault
 }
 
 // PIIDetectors returns the names of the token-classification models that
@@ -929,7 +939,7 @@ var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG
 // false naturally: HasUsecases short-circuits to false for any usecase a
 // declared score/token_classify model did not itself declare.
 func (c *ModelConfig) PIIFilterApplies() bool {
-	if c.Backend == model.CloudProxyBackend {
+	if b, ok := RemoteBackendFor(c.Backend); ok && b.PIIDefault {
 		return true
 	}
 	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)

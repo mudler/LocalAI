@@ -334,7 +334,8 @@ var _ = Describe("commands on this machine", func() {
 		t := e.r.Tool(e.a)
 		Expect(t.Name).To(Equal("bash"))
 		Expect(t.Description).To(And(ContainSubstring("no isolation"), ContainSubstring("internet")))
-		Expect(t.Description).To(And(ContainSubstring("It starts in the user's home"), ContainSubstring("use relative paths")))
+		Expect(t.Description).To(And(ContainSubstring("The shell starts in $WORK"), ContainSubstring("use $WORK or relative paths"),
+			ContainSubstring("Quote every path with double quotes"), ContainSubstring("take it from ls or a glob")))
 		Expect(string(t.Schema)).To(ContainSubstring(fmt.Sprintf(`"maximum":%d`, int(hostexec.MaxTimeout.Seconds()))))
 	})
 })

@@ -71,7 +71,7 @@ var _ = Describe("the built-in skills", func() {
 		for _, n := range []string{"localai-apps", "localai-workspace"} {
 			data, err := fs.ReadFile(builtinskills.FS(), n+"/SKILL.md")
 			Expect(err).NotTo(HaveOccurred(), n)
-			Expect(string(data)).To(ContainSubstring("the chat's work folder that the prompt or the note of the turn names (`/workspace/home/Chats/<chat>/work/`)"), n)
+			Expect(string(data)).To(ContainSubstring("the chat's work folder, `\"$WORK\"` in the shell (the file tools take the path the note names)"), n)
 		}
 	})
 
