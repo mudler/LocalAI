@@ -168,3 +168,9 @@ type sessionListener struct{ s *yamux.Session }
 func (l sessionListener) Accept() (net.Conn, error) { return l.s.Accept() }
 func (l sessionListener) Close() error              { return l.s.Close() }
 func (l sessionListener) Addr() net.Addr            { return l.s.LocalAddr() }
+
+// InWSL reports whether the owner runs this add-on in WSL 2 for a Windows
+// host: the channels come over the standard streams. An add-on uses it to
+// turn off what would act on the Windows computer through WSL, such as
+// running commands with no isolation.
+func InWSL() bool { return stdioMode() }
