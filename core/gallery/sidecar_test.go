@@ -257,6 +257,17 @@ var _ = Describe("Gallery file version 2", func() {
 			func(string, string, string, float64) {}, false, false, false, gallery.WithModelLock(free))).To(Succeed())
 	})
 
+	It("finds the sha256 the gallery files record for a model file", func() {
+		Expect(gallery.WriteSidecar(dir, "m", &gallery.ModelConfig{Name: "m", Version: gallery.SidecarVersion,
+			Managed: []gallery.ManagedFile{{Path: "sub/m.gguf", SHA256: "ABC", Role: gallery.RoleWeights}}})).To(Succeed())
+		Expect(gallery.WriteSidecar(dir, "legacy", &gallery.ModelConfig{Name: "legacy",
+			Managed: []gallery.ManagedFile{{Path: "legacy.gguf", SHA256: "def"}}})).To(Succeed())
+		Expect(gallery.ManagedFileSHA256(dir, filepath.Join(dir, "sub", "m.gguf"))).To(Equal("abc"))
+		Expect(gallery.ManagedFileSHA256(dir, filepath.Join(dir, "legacy.gguf"))).To(BeEmpty(), "only version 2 files are trusted")
+		Expect(gallery.ManagedFileSHA256(dir, filepath.Join(dir, "other.gguf"))).To(BeEmpty())
+		Expect(gallery.ManagedFileSHA256(dir, "/elsewhere/m.gguf")).To(BeEmpty())
+	})
+
 	It("recovers the install journal of one model", func() {
 		Expect(gallery.WriteSidecar(dir, "one", &gallery.ModelConfig{Name: "one", Version: gallery.SidecarVersion,
 			Upgrade: &gallery.Journal{Kind: gallery.JournalInstall, Phase: gallery.PhaseCommitting, Previous: &gallery.Previous{}}})).To(Succeed())

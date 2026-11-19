@@ -108,8 +108,8 @@ type fileStagingVerbs struct {
 
 // ensure downloads an object storage key into the local cache.
 func (v *fileStagingVerbs) ensure(ctx context.Context, req workerctl.FileEnsureRequest) workerctl.FileEnsureReply {
-	value, err, _ := v.ensureGroup.Do(req.Key, func() (any, error) {
-		return ensureWorkerFile(ctx, v.fm, v.capacity, req.Key)
+	value, err, _ := v.ensureGroup.Do(req.Key+"\x00"+req.SHA256, func() (any, error) {
+		return ensureWorkerFile(ctx, v.fm, v.capacity, req.Key, req.SHA256)
 	})
 	if err != nil {
 		xlog.Error("File ensure failed", "key", req.Key, "error", err)
@@ -331,7 +331,12 @@ type ephemeralStagingCapacity interface {
 	Release(path string) error
 }
 
-func ensureWorkerFile(ctx context.Context, fm *storage.FileManager, capacity *EphemeralCapacityGuard, key string) (string, error) {
+// ensureWorkerFile downloads key into the cache. sha, when set, is the sha256
+// the file must have; a cached copy with another one is downloaded again.
+func ensureWorkerFile(ctx context.Context, fm *storage.FileManager, capacity *EphemeralCapacityGuard, key, sha string) (string, error) {
+	if !strings.HasPrefix(key, "ephemeral/") {
+		return fm.DownloadVerified(ctx, key, sha)
+	}
 	if capacity == nil {
 		return fm.Download(ctx, key)
 	}

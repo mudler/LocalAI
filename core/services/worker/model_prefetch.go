@@ -99,6 +99,7 @@ func (p *modelPrefetcher) serve(ctx context.Context, req workerctl.ModelPrefetch
 			moved, err = p.commit(places)
 			if moved {
 				placed = append(placed, f.Filename)
+				p.recordVerified(req.ModelName, f)
 			}
 		case workerctl.PrefetchDiscard:
 			err = p.discard(places, req.Evict)
@@ -158,6 +159,19 @@ func (p *modelPrefetcher) commit(places []string) (moved bool, err error) {
 		}
 	}
 	return moved, nil
+}
+
+// recordVerified tells the object storage cache that the file placed in it
+// was verified against its sha256 at its download, so the next files.ensure
+// with that sha256 does not hash it again.
+func (p *modelPrefetcher) recordVerified(model string, f workerctl.ModelPrefetchFile) {
+	if p.cacheDir == "" || f.SHA256 == "" {
+		return
+	}
+	key := storage.ModelKey(model + "/" + filepath.ToSlash(filepath.FromSlash(f.Filename)))
+	if err := storage.RecordCacheSHA256(p.cacheDir, key, f.SHA256); err != nil {
+		xlog.Warn("Could not record the sha256 of a prefetched file", "model", model, "file", f.Filename, "error", err)
+	}
 }
 
 func (p *modelPrefetcher) discard(places []string, evict bool) error {

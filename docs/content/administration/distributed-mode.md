@@ -368,7 +368,7 @@ If a frontend stops during an install or an upgrade, another frontend ends the c
 
 At start, before the database is ready, a frontend ends only its own journals, and only when `LOCALAI_INSTANCE_ID` is set: a generated instance ID changes at every start, so no journal can be told apart as its own. Set `LOCALAI_INSTANCE_ID` to a stable value on each frontend to end its own interrupted changes before it loads the model configs.
 
-An upgrade replaces the replicas as the [upgrade strategy](#upgrade-strategy) of the model says, and each worker downloads its own files (see [Upgrade strategy](#upgrade-strategy)). In a mixed-version cluster, an older worker does not know `model.prefetch`. It does not fail the upgrade: it gets the new files from the frontend at its next load, as it did before. Upgrade the workers to get the worker-side download.
+An upgrade replaces the replicas as the [upgrade strategy](#upgrade-strategy) of the model says, and each worker downloads its own files (see [Upgrade strategy](#upgrade-strategy)). In a mixed-version cluster, an older worker does not know `model.prefetch`. It does not fail the upgrade: over HTTP staging it gets the new files from the frontend at its next load, as it did before. With object storage, an older worker keeps using the copy in its cache, which can be the old file under the same key; upgrade the workers before you upgrade models (see [Upgrade strategy](#upgrade-strategy)). Upgrade the workers to get the worker-side download.
 
 ### Watching Backend Installs
 
@@ -1352,10 +1352,15 @@ files of an upgrade, every worker that runs the model downloads them too
 sha256. After the frontend switches its files, each worker puts its copy in
 place, and every other worker drops its old copy of the changed files, so its
 next load gets the new ones. With object storage, the frontend also deletes
-the changed keys, so the next load uploads the new file. A worker that cannot
-download a file (a wrong checksum, no route to the source, or an older worker
-that does not know the request) gets it from the frontend at its next load, as
-before; this never fails the upgrade. With `LOCALAI_DISTRIBUTED_SHARED_MODELS`
+the changed keys, so the next load uploads the new file, and it sends the
+sha256 of each file that a gallery install manages with every load: a worker
+whose cached copy has another sha256 (it was offline, its commit timed out, or
+it was busy with another download) downloads the file again. A worker that
+cannot download a file (a wrong checksum or no route to the source) gets it
+from the frontend at its next load; this never fails the upgrade. An older
+worker that does not know `model.prefetch` gets the file from the frontend
+over HTTP staging; with object storage it ignores the sha256 and keeps the
+copy in its cache, so upgrade the workers before you upgrade models. With `LOCALAI_DISTRIBUTED_SHARED_MODELS`
 the workers read the shared models directory and nothing is sent. A first
 install still sends the files from the frontend.
 

@@ -22,6 +22,12 @@ import (
 type S3NATSFileStager struct {
 	fm   *storage.FileManager
 	nats messaging.MessagingClient
+	// ExpectedSHA256 returns the sha256 a staged file must have, or "" when
+	// it is not known. A worker downloads again a cached copy with another
+	// sha256: a model upgrade replaces a file under the same key, and a
+	// worker that did not take part in the upgrade still has the old copy.
+	// Nil sends none.
+	ExpectedSHA256 func(localPath string) string
 }
 
 // NewS3NATSFileStager creates a new S3+NATS file stager.
@@ -49,7 +55,11 @@ func (s *S3NATSFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, 
 
 	// Send NATS request-reply to backend
 	subject := messaging.SubjectNodeFilesEnsure(nodeID)
-	reply, err := controlRequestJSON[workerctl.FileEnsureRequest, workerctl.FileEnsureReply](s.nats, subject, workerctl.FileEnsureRequest{Key: key}, 10*time.Minute)
+	req := workerctl.FileEnsureRequest{Key: key}
+	if s.ExpectedSHA256 != nil {
+		req.SHA256 = s.ExpectedSHA256(localPath)
+	}
+	reply, err := controlRequestJSON[workerctl.FileEnsureRequest, workerctl.FileEnsureReply](s.nats, subject, req, 10*time.Minute)
 	if err != nil {
 		return "", err
 	}

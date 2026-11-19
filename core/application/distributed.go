@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -234,7 +235,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	workerHTTPDial := nodes.DirectWorkerNetDialer()
 	var fileStager nodes.FileStager
 	if cfg.Distributed.StorageURL != "" {
-		fileStager = nodes.NewS3NATSFileStager(fileMgr, natsClient)
+		s3Stager := nodes.NewS3NATSFileStager(fileMgr, natsClient)
+		s3Stager.ExpectedSHA256 = func(localPath string) string {
+			if cfg.SystemState == nil {
+				return ""
+			}
+			return gallery.ManagedFileSHA256(cfg.SystemState.Model.ModelsPath, localPath)
+		}
+		fileStager = s3Stager
 		xlog.Info("File stager initialized (S3+NATS)")
 	} else {
 		fileStager = nodes.NewHTTPFileStager(func(nodeID string) (string, error) {

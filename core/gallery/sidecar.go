@@ -235,6 +235,39 @@ func WriteSidecar(modelsPath, name string, c *ModelConfig) error {
 	return writeModelConfigAtomic(SidecarPath(modelsPath, name), data)
 }
 
+// ManagedFileSHA256 returns the sha256 that the gallery files of the installed
+// models record for the file at path (inside modelsPath), or "" when no
+// version 2 gallery file manages it. A cluster frontend sends it with each
+// staged file, so a worker can tell an old cached copy from the file the
+// model has now.
+func ManagedFileSHA256(modelsPath, path string) string {
+	rel, err := filepath.Rel(modelsPath, path)
+	if err != nil || !filepath.IsLocal(rel) {
+		return ""
+	}
+	rel = filepath.ToSlash(rel)
+	entries, err := os.ReadDir(modelsPath)
+	if err != nil {
+		return ""
+	}
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() || !strings.HasPrefix(n, "._gallery_") || !strings.HasSuffix(n, ".yaml") {
+			continue
+		}
+		sc, err := ReadSidecar(modelsPath, strings.TrimSuffix(strings.TrimPrefix(n, "._gallery_"), ".yaml"))
+		if err != nil || !sc.IsV2() {
+			continue
+		}
+		for _, m := range sc.Managed {
+			if filepath.ToSlash(m.Path) == rel && m.SHA256 != "" {
+				return strings.ToLower(m.SHA256)
+			}
+		}
+	}
+	return ""
+}
+
 // FileRole classifies a file the install owns by its name.
 func FileRole(filename string) string {
 	lower := strings.ToLower(filename)

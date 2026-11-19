@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
@@ -154,6 +155,34 @@ var _ = Describe("model.prefetch between a frontend and its workers", func() {
 		files.Discard(ctx, "tiny", want, true)
 		Expect(cachePlace("a")).ToNot(BeAnExistingFile())
 		Expect(objs.deleted).To(Equal([]string{"models/tiny/tiny.gguf", "models/tiny/tiny.gguf"}))
+	})
+
+	It("loads the new file on a worker that missed the commit, and trusts a prefetched copy without hashing it", func() {
+		worker("a", true)
+		newFiles([]string{"a"}, "a", "missed")
+		want := []workerctl.ModelPrefetchFile{{Filename: "tiny.gguf", URI: server.URL + "/tiny.gguf", SHA256: sumOf("v2")}}
+		Expect(files.Stage(ctx, "tiny", want)).To(BeEmpty())
+		Expect(files.Commit(ctx, "tiny", want)).To(Succeed())
+
+		By("using the prefetched copy at the next load of worker a")
+		store := &stagingObjectStore{payload: []byte("v2")}
+		fmA, err := storage.NewFileManager(store, filepath.Join(roots["a"], "cache"))
+		Expect(err).ToNot(HaveOccurred())
+		got, err := ensureWorkerFile(ctx, fmA, nil, "models/tiny/tiny.gguf", sumOf("v2"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal(cachePlace("a")))
+		Expect(store.getCalls).To(BeZero())
+
+		By("downloading again the old copy of a worker that never got the commit")
+		missed := filepath.Join(GinkgoT().TempDir(), "cache")
+		Expect(os.MkdirAll(filepath.Join(missed, "models", "tiny"), 0750)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(missed, "models", "tiny", "tiny.gguf"), []byte("v1"), 0600)).To(Succeed())
+		fmMissed, err := storage.NewFileManager(store, missed)
+		Expect(err).ToNot(HaveOccurred())
+		got, err = ensureWorkerFile(ctx, fmMissed, nil, "models/tiny/tiny.gguf", sumOf("v2"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(read(got)).To(Equal("v2"))
+		Expect(store.getCalls).To(Equal(1))
 	})
 
 	It("drops only the staged copy when an upgrade fails before its commit", func() {
