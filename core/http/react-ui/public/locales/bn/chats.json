@@ -342,6 +342,27 @@
           "library": "ব্যাকএন্ড লাইব্রেরি",
           "addons": "অতিরিক্ত উপাদান"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "মডেল",
+          "backend": "ব্যাকএন্ড"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} ইনস্টল হয়েছে",
+          "delete": "{{kind}} {{name}} সরানো হয়েছে",
+          "upgrade": "{{kind}} {{name}} আপগ্রেড হয়েছে"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: ইনস্টল ব্যর্থ হয়েছে",
+          "delete": "{{kind}} {{name}}: সরানো ব্যর্থ হয়েছে",
+          "upgrade": "{{kind}} {{name}}: আপগ্রেড ব্যর্থ হয়েছে"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: ইনস্টল বাতিল হয়েছে",
+          "delete": "{{kind}} {{name}}: সরানো বাতিল হয়েছে",
+          "upgrade": "{{kind}} {{name}}: আপগ্রেড বাতিল হয়েছে"
+        }
       }
     },
     "tabs": {

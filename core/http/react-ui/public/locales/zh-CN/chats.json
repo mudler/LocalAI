@@ -758,6 +758,27 @@
           "library": "后端资源库",
           "addons": "附加组件"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "模型",
+          "backend": "后端"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} 已安装",
+          "delete": "{{kind}} {{name}} 已移除",
+          "upgrade": "{{kind}} {{name}} 已升级"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: 安装失败",
+          "delete": "{{kind}} {{name}}: 移除失败",
+          "upgrade": "{{kind}} {{name}}: 升级失败"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: 安装已取消",
+          "delete": "{{kind}} {{name}}: 移除已取消",
+          "upgrade": "{{kind}} {{name}}: 升级已取消"
+        }
       }
     },
     "tabs": {

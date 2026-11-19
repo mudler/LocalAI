@@ -342,6 +342,27 @@
           "library": "backend library",
           "addons": "add-ons"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Model",
+          "backend": "Backend"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} installed",
+          "delete": "{{kind}} {{name}} removed",
+          "upgrade": "{{kind}} {{name}} upgraded"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: install failed",
+          "delete": "{{kind}} {{name}}: removal failed",
+          "upgrade": "{{kind}} {{name}}: upgrade failed"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: install cancelled",
+          "delete": "{{kind}} {{name}}: removal cancelled",
+          "upgrade": "{{kind}} {{name}}: upgrade cancelled"
+        }
       }
     },
     "tabs": {

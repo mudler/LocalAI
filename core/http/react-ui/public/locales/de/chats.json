@@ -758,6 +758,27 @@
           "library": "Backend-Bibliothek",
           "addons": "Add-ons"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Modell",
+          "backend": "Backend"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} installiert",
+          "delete": "{{kind}} {{name}} entfernt",
+          "upgrade": "{{kind}} {{name}} aktualisiert"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: Installation fehlgeschlagen",
+          "delete": "{{kind}} {{name}}: Entfernen fehlgeschlagen",
+          "upgrade": "{{kind}} {{name}}: Update fehlgeschlagen"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: Installation abgebrochen",
+          "delete": "{{kind}} {{name}}: Entfernen abgebrochen",
+          "upgrade": "{{kind}} {{name}}: Update abgebrochen"
+        }
       }
     },
     "tabs": {

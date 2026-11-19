@@ -31,6 +31,7 @@ export function toneOf(n) {
 const SOURCE_ICON = { trigger: 'bolt', connector: 'plug', system: 'info' }
 
 export function iconOf(n) {
+  if (n?.code === 'updates.opDone' || n?.code === 'updates.opFailed') return failed(n) ? 'alert-circle' : n.params?.outcome === 'cancelled' ? 'info' : 'check-circle'
   if (typeof n?.code === 'string' && n.code.startsWith('updates.')) return 'arrow-up'
   const source = sourceOf(n)
   if (source === 'connector' && failed(n)) return 'plug-off'
@@ -100,6 +101,18 @@ function resultText(t, p, n) {
   }
 }
 
+// The end of an install, removal or upgrade of a model or backend. The reason
+// of a failure stays the server's own words (the body).
+const OP_KINDS = ['model', 'backend']
+const OP_ACTIONS = ['install', 'delete', 'upgrade']
+
+function opText(t, n, p) {
+  const name = typeof p.name === 'string' ? p.name : ''
+  if (!name || !OP_KINDS.includes(p.kind) || !OP_ACTIONS.includes(p.action)) return null
+  const state = n.code === 'updates.opDone' ? 'done' : p.outcome === 'cancelled' ? 'cancelled' : 'failed'
+  return { title: t(`inbox.codes.op.${state}.${p.action}`, { kind: t(`inbox.codes.op.kind.${p.kind}`), name }), body: n.body }
+}
+
 // The title and body of a notification as the list shows them. Items without a
 // code, and codes or params that are not understood, show what the server stored.
 export function textOf(n, t) {
@@ -115,6 +128,8 @@ export function textOf(n, t) {
     }
   } else if (n.code === 'updates.result') {
     out = resultText(t, p, n)
+  } else if (n.code === 'updates.opDone' || n.code === 'updates.opFailed') {
+    out = opText(t, n, p)
   } else if (n.code === 'updates.checkFailed') {
     const sources = strings(p.sources).filter(x => ['gallery', 'library', 'addons'].includes(x))
     if (sources.length) {

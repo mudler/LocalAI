@@ -219,7 +219,7 @@ var _ = Describe("a credentials-only connector binding", func() {
 			raw, _ := st.GetBinding(ctx, b.ID)
 			raw.NotifyChat = "11"
 			Expect(st.PutBinding(ctx, raw)).To(Succeed())
-			r.conns.Forward(ctx, notify.Notification{Principal: alice, Title: "t", Body: "b"})
+			r.conns.Forward(ctx, notify.Notification{Principal: alice, Source: notify.SourceTrigger, Title: "t", Body: "b"})
 			Consistently(func() int { return len(r.bot.answers()) }, "300ms").Should(BeZero())
 		})
 		It("still gives its token to a tool call", func() {

@@ -758,6 +758,27 @@
           "library": "biblioteca de backends",
           "addons": "complementos"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Modelo",
+          "backend": "Backend"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} instalado",
+          "delete": "{{kind}} {{name}} removido",
+          "upgrade": "{{kind}} {{name}} atualizado"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: falha na instalação",
+          "delete": "{{kind}} {{name}}: falha na remoção",
+          "upgrade": "{{kind}} {{name}}: falha na atualização"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: instalação cancelada",
+          "delete": "{{kind}} {{name}}: remoção cancelada",
+          "upgrade": "{{kind}} {{name}}: atualização cancelada"
+        }
       }
     },
     "tabs": {

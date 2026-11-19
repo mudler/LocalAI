@@ -758,6 +758,27 @@
           "library": "pustaka backend",
           "addons": "add-on"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Model",
+          "backend": "Backend"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} terinstal",
+          "delete": "{{kind}} {{name}} dihapus",
+          "upgrade": "{{kind}} {{name}} diperbarui"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: instalasi gagal",
+          "delete": "{{kind}} {{name}}: penghapusan gagal",
+          "upgrade": "{{kind}} {{name}}: pembaruan gagal"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: instalasi dibatalkan",
+          "delete": "{{kind}} {{name}}: penghapusan dibatalkan",
+          "upgrade": "{{kind}} {{name}}: pembaruan dibatalkan"
+        }
       }
     },
     "tabs": {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/notify"
 )
 
@@ -82,4 +83,21 @@ func (a *Application) initNotifications() {
 	}
 	a.notifier = n
 	xlog.Debug("Notifications ready", "store", kind, "cluster", fan != nil)
+}
+
+// announceOperations tells the administrators when a model or backend
+// install, removal or upgrade they started reaches its end. The gallery
+// service fires the hook on the frontend that ran the operation, and the item
+// is keyed by the operation ID, so it is written once. Without a notification
+// center nothing is written.
+func (a *Application) announceOperations() {
+	if a.galleryService == nil {
+		return
+	}
+	em := a.updateEmitter()
+	a.galleryService.SetOnOpFinished(func(r galleryop.OpResult) {
+		if err := em.Operation(context.Background(), r); err != nil {
+			xlog.Warn("Could not write the notification of an operation", "operation", r.ID, "error", err)
+		}
+	})
 }

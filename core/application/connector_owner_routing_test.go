@@ -467,7 +467,7 @@ var _ = Describe("connector owner routing", func() {
 		before = len(source.requests())
 		nonleader.Sync(ctx)
 		Expect(source.requests()).To(HaveLen(before))
-		nonleader.Forward(ctx, notify.Notification{Principal: "named", Title: "Notice", Body: "Body"})
+		nonleader.Forward(ctx, notify.Notification{Principal: "named", Source: notify.SourceTrigger, Title: "Notice", Body: "Body"})
 		nonleader.Close()
 		Expect(source.requests()).To(HaveLen(before + 1))
 		Expect(source.requests()[before].Chat).To(Equal("C0123456"))

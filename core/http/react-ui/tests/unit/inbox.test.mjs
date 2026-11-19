@@ -161,6 +161,32 @@ test('inbox: a failed check names the sources', async () => {
   assert.match(out.body, /Could not check: backend gallery, backend library\./)
 })
 
+test('inbox: the end of an operation is worded for every action and outcome, in every language', async () => {
+  const en = await translator('en')
+  const op = (code, params, extra = {}) => note({ code, title: 'stored', body: 'download interrupted', params, ...extra })
+  assert.equal(textOf(op('updates.opDone', { kind: 'model', action: 'install', name: 'qwen3-8b' }), en).title, 'Model qwen3-8b installed')
+  assert.equal(textOf(op('updates.opDone', { kind: 'backend', action: 'upgrade', name: 'llama-cpp' }), en).title, 'Backend llama-cpp upgraded')
+  assert.equal(textOf(op('updates.opDone', { kind: 'model', action: 'delete', name: 'old' }), en).title, 'Model old removed')
+  const bad = textOf(op('updates.opFailed', { kind: 'backend', action: 'install', name: 'whisper', outcome: 'failed' }), en)
+  assert.deepEqual(bad, { title: 'Backend whisper: install failed', body: 'download interrupted' })
+  assert.equal(textOf(op('updates.opFailed', { kind: 'model', action: 'install', name: 'm', outcome: 'cancelled' }), en).title, 'Model m: install cancelled')
+  // Nonsense params show the stored text.
+  assert.equal(textOf(op('updates.opDone', { kind: 'thing', action: 'install', name: 'x' }), en).title, 'stored')
+  assert.equal(textOf(op('updates.opDone', { kind: 'model', action: 'install' }), en).title, 'stored')
+  for (const l of LOCALES) {
+    const t = await translator(l)
+    for (const action of ['install', 'delete', 'upgrade']) {
+      for (const [code, outcome] of [['updates.opDone'], ['updates.opFailed', 'failed'], ['updates.opFailed', 'cancelled']]) {
+        const title = textOf(op(code, { kind: 'model', action, name: 'NAME', outcome }), t).title
+        assert.ok(title.includes('NAME') && !title.includes('{{') && title !== 'stored', `${l} ${code} ${action}: ${title}`)
+      }
+    }
+  }
+  assert.equal(iconOf(op('updates.opDone', { kind: 'model', action: 'install', name: 'm' }, { status: 'ok' })), 'check-circle')
+  assert.equal(iconOf(op('updates.opFailed', { kind: 'model', action: 'install', name: 'm', outcome: 'failed' }, { status: 'failed' })), 'alert-circle')
+  assert.equal(iconOf(op('updates.opFailed', { kind: 'model', action: 'install', name: 'm', outcome: 'cancelled' }, { status: 'ok' })), 'info')
+})
+
 test('inbox: an unknown code, missing params or nonsense params show the stored text', async () => {
   const t = await translator('en')
   const stored = { title: 'stored title', body: 'stored body' }

@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/backendupdates"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/xlog"
 )
@@ -28,6 +29,11 @@ const (
 	CodeDigest      = "updates.digest"
 	CodeResult      = "updates.result"
 	CodeCheckFailed = "updates.checkFailed"
+	// CodeOpDone and CodeOpFailed tell the end of an install, removal or
+	// upgrade that an administrator started. A cancelled one is CodeOpFailed
+	// with the outcome "cancelled".
+	CodeOpDone   = "updates.opDone"
+	CodeOpFailed = "updates.opFailed"
 )
 
 // Keys of the rows. One digest and one failed-check row for each admin; one
@@ -36,6 +42,7 @@ const (
 	KeyDigest      = "updates.digest"
 	KeyCheckFailed = "updates.checkFailed"
 	keyResult      = "updates.result."
+	keyOp          = "updates.op."
 )
 
 // Links of the items: the Updates page on the list that shows what the item is
@@ -45,6 +52,7 @@ const (
 	LinkReady    = "/app/updates?filter=ready"
 	LinkNeedsYou = "/app/updates?filter=needs-you"
 	LinkPage     = "/app/updates"
+	LinkModels   = "/app/models"
 )
 
 // Families of the automatic update.
@@ -256,6 +264,53 @@ func (e *Emitter) Result(ctx context.Context, r Result) error {
 	}
 	if len(failed) > 0 {
 		n.Kind, n.Status, n.Link = notify.KindNeedsAttention, notify.StatusFailed, LinkNeedsYou
+	}
+	return e.upsertAll(ctx, n, notify.ModeOnce)
+}
+
+// Operation tells the administrators that an install, removal or upgrade of a
+// model or backend reached its end: completed, failed or cancelled. The item
+// is keyed by the operation ID and posted once for each administrator, so a
+// replayed report of the same operation is silent. An operation with no ID is
+// an automatic pass, which Result reports; it posts nothing here.
+func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
+	if op.ID == "" || op.Name == "" {
+		return nil
+	}
+	kind, link := "model", LinkModels
+	if op.Backend {
+		kind, link = "backend", LinkPage
+	}
+	action := "install"
+	switch {
+	case op.Deletion:
+		action = "delete"
+	case op.Upgrade:
+		action = "upgrade"
+	}
+	label := strings.ToUpper(kind[:1]) + kind[1:]
+	n := notify.Notification{
+		Key: keyOp + op.ID, Source: notify.SourceSystem, Kind: notify.KindRunEnded, Status: notify.StatusOK, Link: link,
+		Params: map[string]any{"kind": kind, "action": action, "name": op.Name},
+	}
+	switch op.Outcome {
+	case galleryop.OpCompleted:
+		n.Code = CodeOpDone
+		n.Title = label + " " + op.Name + " " + map[string]string{"install": "installed", "delete": "removed", "upgrade": "upgraded"}[action]
+	case galleryop.OpCancelled:
+		n.Code, n.Kind = CodeOpFailed, notify.KindNeedsAttention
+		n.Title = label + " " + op.Name + ": the " + action + " was cancelled"
+		n.Params["outcome"] = "cancelled"
+	case galleryop.OpFailed:
+		n.Code, n.Kind, n.Status = CodeOpFailed, notify.KindNeedsAttention, notify.StatusFailed
+		n.Title = label + " " + op.Name + ": the " + action + " failed"
+		n.Body = oneLine(op.Err, 200)
+		n.Params["outcome"] = "failed"
+		if n.Body != "" {
+			n.Params["error"] = n.Body
+		}
+	default:
+		return nil
 	}
 	return e.upsertAll(ctx, n, notify.ModeOnce)
 }

@@ -435,6 +435,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// The notification center needs the cluster message bus for its fan-out, so
 	// it starts after distributed wiring. It does not depend on the chats.
 	application.initNotifications()
+	application.announceOperations()
 	// The chats service needs the cluster message bus, so it starts after distributed wiring.
 	if err := application.initStudioFiles(); err != nil {
 		return nil, err

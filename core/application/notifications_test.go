@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/updatenotify"
 )
@@ -81,5 +82,20 @@ var _ = Describe("the notification center without the chats", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(list).To(HaveLen(1))
 		Expect(list[0].Code).To(Equal(updatenotify.CodeCheckFailed))
+	})
+
+	It("writes the end of a gallery operation, with the chats off, for the admin", func() {
+		app := newApp(&config.ApplicationConfig{})
+		app.galleryService = galleryop.NewGalleryService(app.applicationConfig, nil)
+		app.initNotifications()
+		app.announceOperations()
+		Expect(app.galleryService.OnOpFinished).NotTo(BeNil())
+		app.galleryService.OnOpFinished(galleryop.OpResult{ID: "op-1", Name: "qwen3-8b", Outcome: galleryop.OpCompleted})
+		app.galleryService.OnOpFinished(galleryop.OpResult{ID: "op-1", Name: "qwen3-8b", Outcome: galleryop.OpCompleted})
+		app.galleryService.OnOpFinished(galleryop.OpResult{Name: "llama-cpp", Backend: true, Outcome: galleryop.OpCompleted})
+		list, err := app.Notifier().List(ctx, "anonymous", false, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1), "one item for the operation, none for the automatic pass")
+		Expect(list[0].Code).To(Equal(updatenotify.CodeOpDone))
 	})
 })

@@ -52,6 +52,13 @@ type GalleryService struct {
 	// UpgradeChecker stays in sync.
 	OnBackendOpCompleted func()
 
+	// OnOpFinished is fired once on the frontend that ran a model or backend
+	// operation, when it reached a terminal state: completed, failed or
+	// cancelled. The Application wires it to the notification center. It runs
+	// off the worker goroutine, and never for an operation with no ID (the
+	// automatic update passes call the managers directly).
+	OnOpFinished func(OpResult)
+
 	// OnModelsChanged is fired on peer replicas when SOMEONE else publishes
 	// SubjectCacheInvalidateModels. The Application wires this to
 	// ModelConfigLoader.LoadModelConfigsFromPath so a chat completion that
@@ -714,6 +721,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 				if err != nil {
 					updateError(op.ID, err)
 				}
+				g.announceOp(op.ID, op.GalleryElementName, false, op.Delete, op.Upgrade, err)
 				g.removeCancellation(op.ID)
 			}
 		}
@@ -769,6 +777,8 @@ func (g *GalleryService) runBackendOp(op *ManagementOp[gallery.GalleryBackend, a
 		// callback doesn't stall the next queued operation.
 		go g.OnBackendOpCompleted()
 	}
+	// The backend handler renames the element when the install derived a name.
+	g.announceOp(op.ID, op.GalleryElementName, true, op.Delete, op.Upgrade, err)
 	g.removeCancellation(op.ID)
 }
 
@@ -917,4 +927,73 @@ func (g *GalleryService) Hydrate() error {
 	}
 	xlog.Info("Hydrated gallery service statuses from store", "count", len(ops))
 	return nil
+}
+
+// SetOnOpFinished sets the OnOpFinished hook. It is safe while operations run.
+func (g *GalleryService) SetOnOpFinished(f func(OpResult)) {
+	g.Lock()
+	defer g.Unlock()
+	g.OnOpFinished = f
+}
+
+// OpOutcome is how an operation ended.
+type OpOutcome string
+
+const (
+	OpCompleted OpOutcome = "completed"
+	OpFailed    OpOutcome = "failed"
+	OpCancelled OpOutcome = "cancelled"
+)
+
+// OpResult is what OnOpFinished reports.
+type OpResult struct {
+	ID       string
+	Name     string
+	Backend  bool // a backend operation; false for a model
+	Deletion bool
+	Upgrade  bool
+	Outcome  OpOutcome
+	// Err is the reason of a failure, as the operation reports it.
+	Err string
+}
+
+// announceOp reports the end of an operation to OnOpFinished. The final status
+// decides: a cancelled operation is cancelled whatever error it returned, one
+// that wrote "completed" is completed (a model removed with files left over
+// returns an error after that), and an error otherwise is a failure. An
+// operation that ended in none of these (another frontend already runs the
+// same element) says nothing.
+func (g *GalleryService) announceOp(id, name string, backend, deletion, upgrade bool, err error) {
+	if id == "" {
+		return
+	}
+	g.Lock()
+	cb := g.OnOpFinished
+	st := g.statuses[id]
+	var cancelled, completed bool
+	var statusErr error
+	if st != nil {
+		cancelled, completed, statusErr = st.Cancelled, st.Processed && st.Message == "completed" && st.Error == nil, st.Error
+	}
+	g.Unlock()
+	if cb == nil {
+		return
+	}
+	res := OpResult{ID: id, Name: name, Backend: backend, Deletion: deletion, Upgrade: upgrade}
+	switch {
+	case cancelled:
+		res.Outcome = OpCancelled
+	case completed:
+		res.Outcome = OpCompleted
+	case err != nil || statusErr != nil:
+		res.Outcome = OpFailed
+		if statusErr != nil {
+			res.Err = statusErr.Error()
+		} else {
+			res.Err = err.Error()
+		}
+	default:
+		return
+	}
+	go cb(res)
 }

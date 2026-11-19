@@ -758,6 +758,27 @@
           "library": "백엔드 라이브러리",
           "addons": "애드온"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "모델",
+          "backend": "백엔드"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} 설치됨",
+          "delete": "{{kind}} {{name}} 제거됨",
+          "upgrade": "{{kind}} {{name}} 업데이트됨"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: 설치 실패",
+          "delete": "{{kind}} {{name}}: 제거 실패",
+          "upgrade": "{{kind}} {{name}}: 업데이트 실패"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: 설치 취소됨",
+          "delete": "{{kind}} {{name}}: 제거 취소됨",
+          "upgrade": "{{kind}} {{name}}: 업데이트 취소됨"
+        }
       }
     },
     "tabs": {
