@@ -56,8 +56,9 @@
       "nodeTitle": "Nodo",
       "nodeLabel": "Assegna il worker a",
       "nodeSub": "I modelli che questo nodo carica usano il worker. Fissa il modello su questo nodo con una regola di posizionamento, così viene caricato lì. Puoi cambiare nodo più tardi nella pagina Nodi.",
-      "nodeNone": "Il cluster non ha ancora un nodo backend. Aggiungine prima uno, oppure assegna il worker a un nodo più tardi nella pagina Nodi.",
-      "nodeServer": "Questa istanza (in un cluster non esegue modelli)"
+      "nodeServer": "Questa istanza (in un cluster non esegue modelli)",
+      "nodePick": "Scegli un server di split",
+      "nodeOffline": "{{name}} (offline)"
     },
     "col": {
       "worker": "Worker",
@@ -108,7 +109,21 @@
     "thisServer": "Questa istanza",
     "nodeLabel": "Nodo di {{name}}",
     "unattachedTitle": "Questi worker non sono usati: assegnali a un nodo.",
-    "unattachedBody": "Assegnati a questa istanza: {{names}}. In un cluster i modelli girano sui nodi backend, non su questa istanza. Scegli un nodo per ciascuno."
+    "unattachedBody": "Assegnati a questa istanza: {{names}}. In un cluster i modelli girano sui nodi backend, non su questa istanza. Scegli un nodo per ciascuno.",
+    "noServerTitle": "Nessun worker è ancora un server di split.",
+    "noServerBody": "Un worker di split del modello si può collegare solo a un worker che è un server di split. Creane uno qui, oppure avvia il worker con --split-server.",
+    "offlineTitle": "Il nodo di un worker di split del modello è offline.",
+    "offlineBody": "{{names}} resta collegato e aspetta che il suo nodo torni. Nessuno lo sposta su un altro nodo.",
+    "relayRefusedTitle": "I tuoi relay non ammettono un nodo.",
+    "relayRefusedBody": "I worker raggiungono {{names}} solo in modo diretto o con hole punching: {{reason}}.",
+    "nextLoad": "Le modifiche ai worker di un nodo valgono dal prossimo modello che carica.",
+    "nodeOffline": "Nodo offline",
+    "relay": {
+      "admitted": "Relay: ammesso",
+      "refused": "Relay: rifiutato",
+      "pending": "Relay: in attesa",
+      "notNeeded": "Relay: non serve"
+    }
   },
   "nodes": {
     "retry": "Riprova"
@@ -169,5 +184,38 @@
   "inspector": {
     "route": "Percorso",
     "peer": "Peer ID"
+  },
+  "splitServer": {
+    "label": "Server di split",
+    "make": "Rendi server di split…",
+    "clear": "Non essere più server di split…",
+    "open": "Configura un server di split",
+    "title": "Configura un server di split",
+    "desc": "Un server di split è un worker che esegue i modelli con la memoria dei worker di split collegati a lui.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (server di split)",
+    "changesTitle": "Quando confermi, {{node}} diventa un server di split:",
+    "changes": {
+      "ports": "Apre porte P2P e avvia un host P2P per i suoi worker di split.",
+      "relay": "Questa istanza lo ammette sui relay protetti che gestisci, così i worker lo raggiungono attraverso di essi.",
+      "load": "I worker collegati servono al prossimo modello llama.cpp o MLX che carica. Un modello già caricato tiene i suoi worker finché non viene caricato di nuovo.",
+      "undo": "Puoi disattivarlo nella pagina Nodi. I suoi worker vengono allora scollegati."
+    },
+    "offline": "{{node}} è offline. I suoi worker aspettano che torni.",
+    "helpers": "Collega questi worker di split",
+    "noHelpers": "Nessun altro worker di split è ancora associato. Puoi collegare i worker più tardi.",
+    "moveFrom": "ora su {{node}}",
+    "noNodes": "Il cluster non ha ancora un worker di backend. Aggiungine uno prima.",
+    "cancel": "Annulla",
+    "confirm": "Rendi server di split e collega",
+    "confirmAttach": "Collega",
+    "clearTitle": "{{node}} non deve più essere un server di split?",
+    "clearBody": "Il suo host P2P si ferma, i tuoi relay smettono di ammetterlo e i suoi worker di split ({{count}}) vengono scollegati. Aspettano, senza nodo, finché non li colleghi di nuovo.",
+    "clearConfirm": "Non essere più server di split",
+    "clearing": "Arresto…",
+    "toast": {
+      "set": "{{node}} è un server di split. Worker collegati ora: {{count}}. Servono al prossimo modello che carica.",
+      "cleared": "{{node}} non è più un server di split. Worker scollegati: {{count}}."
+    }
   }
 }

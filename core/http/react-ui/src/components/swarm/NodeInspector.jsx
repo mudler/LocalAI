@@ -6,6 +6,7 @@ import { isDown, memoryOf, nodeRoute, nodeState, shortPeer } from '../../utils/s
 import { formatBytes, timeAgo } from '../nodes/nodeStatus'
 import Icon from '../Icon'
 import NodeRoute from './NodeRoute'
+import SplitServerSwitch from './SplitServerSwitch'
 
 function Tile({ label, value, note, level }) {
   return (
@@ -20,7 +21,7 @@ function Tile({ label, value, note, level }) {
 // One node at a glance, beside the roster (or in a sheet on a narrow screen):
 // its memory and CPU, the models it runs, the facts about it, and the actions
 // that apply to its state. The full page stays one link away.
-export default function NodeInspector({ node, rows, reasons, busy, onApprove, onDrain, onResume, onRemove }) {
+export default function NodeInspector({ node, nodes, rows, reasons, busy, onApprove, onDrain, onResume, onRemove, onChanged, addToast }) {
   const { t } = useTranslation('swarm')
   const state = nodeState(node)
   const memory = memoryOf(node)
@@ -39,6 +40,7 @@ export default function NodeInspector({ node, rows, reasons, busy, onApprove, on
       <div className="sw-insp__meta dk-mono">{[node.address, node.node_type || 'backend'].filter(Boolean).join(' · ')}</div>
       <div className="sw-insp__pills">
         <span className="sw-pill" data-level={state.level}>{t(`state.${state.key}`)}</span>
+        {node.split_server && <span className="sw-pill" data-level="info" data-testid="split-server-pill">{t('splitServer.label')}</span>}
         {(reasons || []).filter(reason => reason.startsWith('low')).map(reason => (
           <span key={reason} className="sw-pill" data-level="warn">{t(`attention.${reason}`)}</span>
         ))}
@@ -97,6 +99,7 @@ export default function NodeInspector({ node, rows, reasons, busy, onApprove, on
         {action === 'drain' && <button type="button" className="dk-btn dk-btn--secondary" disabled={busy} onClick={onDrain}><Icon name="pause" /> {t('actions.drain')}</button>}
         {action === 'resume' && <button type="button" className="dk-btn dk-btn--secondary" disabled={busy} onClick={onResume}><Icon name="play" /> {t('actions.resume')}</button>}
         <Link className="dk-btn dk-btn--secondary" to={`/app/nodes/${id}?tab=logs`}><Icon name="terminal" /> {t('inspector.logs')}</Link>
+        <SplitServerSwitch node={node} nodes={nodes} onChanged={onChanged} addToast={addToast} />
         <button type="button" className="dk-btn dk-btn--ghost sw-remove sw-insp__remove" disabled={busy} onClick={onRemove}>{t('actions.remove')}</button>
       </div>
       <Link className="dk-link sw-insp__open" to={`/app/nodes/${id}`}>{t('inspector.open')}</Link>

@@ -8,7 +8,8 @@ import { shortPeer } from '../../utils/p2p'
 import { Button, Callout, StatusChip, useLoad } from '../ui'
 import ConfirmDialog from '../ConfirmDialog'
 import RelayLimitsDialog from '../p2psettings/RelayLimitsDialog'
-import { cutLimits, limitsRelay, nodeChoices, pathOf, slowAction, stateOf, summarize, unattached } from './splitWorkersModel'
+import SplitServerSetup from './SplitServerSetup'
+import { cutLimits, limitsRelay, nodeChoices, pathOf, relayOf, slowAction, stateOf, summarize, unattached } from './splitWorkersModel'
 import './split.css'
 
 // The "Model-split workers" group of the Nodes page: machines that lend their
@@ -25,10 +26,14 @@ export default function SplitWorkers({ addToast }) {
   const [revoking, setRevoking] = useState(null)
   const [revokeBusy, setRevokeBusy] = useState(false)
   const [limitsOf, setLimitsOf] = useState(null)
+  const [setup, setSetup] = useState(false)
 
   if (split.status !== 'ready' || split.workers.length === 0) return null
   const sum = summarize(split.workers)
   const idle = unattached(split.workers, split.distributed)
+  const noServer = split.distributed && nodes.status === 'ready' && choices.length === 0
+  const waiting = split.workers.filter(w => w.node_id && w.node_offline)
+  const refused = split.workers.filter(w => relayOf(w)?.key === 'refused')
 
   const setSlow = async (worker, allow) => {
     setBusy(worker.id)
@@ -78,6 +83,24 @@ export default function SplitWorkers({ addToast }) {
         </h2>
         <p className="sw-note sw-note--quiet">{t(split.distributed ? 'split.noteCluster' : 'split.note')}</p>
       </div>
+      {noServer && (
+        <Callout
+          tone="warn" title={t('split.noServerTitle')} testId="split-no-server-callout"
+          actions={<Button size="sm" variant="primary" onClick={() => setSetup(true)} data-testid="split-setup-open">{t('splitServer.open')}</Button>}
+        >
+          {t('split.noServerBody')}
+        </Callout>
+      )}
+      {waiting.length > 0 && (
+        <Callout tone="warn" title={t('split.offlineTitle')} testId="split-offline-callout">
+          {t('split.offlineBody', { names: waiting.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
+        </Callout>
+      )}
+      {refused.length > 0 && (
+        <Callout tone="warn" title={t('split.relayRefusedTitle')} testId="split-relay-refused-callout">
+          {t('split.relayRefusedBody', { names: refused.map(w => w.node_name || w.node_id).filter((v, i, a) => a.indexOf(v) === i).join(', '), reason: relayOf(refused[0]).reason })}
+        </Callout>
+      )}
       {idle.length > 0 && (
         <Callout tone="warn" title={t('split.unattachedTitle')} testId="split-unattached-callout">
           {t('split.unattachedBody', { names: idle.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
@@ -128,12 +151,15 @@ export default function SplitWorkers({ addToast }) {
                           <NodePicker worker={worker} name={name} choices={choices} busy={busy === worker.id} onChange={attach} testId={`split-node-phone-${worker.id}`} />
                         </span>
                       )}
+                      {split.distributed && <span className="sw-split-phone sw-split-phone--chip"><NodeRelay worker={worker} testId={`split-relay-phone-${worker.id}`} /></span>}
+                      {worker.node_note && !worker.node_id && <span className="sw-hint" data-testid={`split-note-${worker.id}`}>{worker.node_note}</span>}
                       {worker.error && <span className="sw-hint">{worker.error}</span>}
                     </td>
                     <td className="dk-hide-phone">{t(`split.engine.${worker.engine === 'mlx' ? 'mlx' : 'llama'}`)}</td>
                     {split.distributed && (
                       <td className="dk-hide-phone">
                         <NodePicker worker={worker} name={name} choices={choices} busy={busy === worker.id} onChange={attach} testId={`split-node-${worker.id}`} />
+                        <NodeRelay worker={worker} testId={`split-relay-${worker.id}`} />
                       </td>
                     )}
                     <td className="dk-hide-phone"><PathChip worker={worker} /></td>
@@ -161,9 +187,21 @@ export default function SplitWorkers({ addToast }) {
         </div>
       </div>
       <div className="sw-split-foot">
-        <span className="sw-note sw-note--quiet">{t('split.memoryInUse', { memory: formatBytes(split.memory) })}</span>
-        <Button icon="plus" to="/app/nodes/add?join=shard">{t('split.addWorker')}</Button>
+        <span className="sw-note sw-note--quiet">
+          {t('split.memoryInUse', { memory: formatBytes(split.memory) })}
+          {split.distributed && ` ${t('split.nextLoad')}`}
+        </span>
+        <div className="sw-split-actions">
+          {split.distributed && !noServer && <Button onClick={() => setSetup(true)} data-testid="split-setup-open">{t('splitServer.open')}</Button>}
+          <Button icon="plus" to="/app/nodes/add?join=shard">{t('split.addWorker')}</Button>
+        </div>
       </div>
+      {setup && (
+        <SplitServerSetup
+          nodes={nodes.data} workers={split.workers} addToast={addToast}
+          onClose={() => setSetup(false)} onDone={() => { split.refetch(); nodes.reload() }}
+        />
+      )}
       {limitsOf && <RelayLimitsDialog relay={limitsOf} addToast={addToast} onSaved={split.refetch} onClose={() => setLimitsOf(null)} />}
       <ConfirmDialog
         open={Boolean(revoking)}
@@ -196,6 +234,22 @@ function NodePicker({ worker, name, choices, busy, onChange, testId }) {
       )}
       {choices.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
     </select>
+  )
+}
+
+// Whether the relays of this instance admit the node of a worker, and, for a
+// node that is offline, that the worker waits for it.
+// The reason of a refused node is in the callout above the table and in the
+// title of the chip.
+function NodeRelay({ worker, testId }) {
+  const { t } = useTranslation('swarm')
+  const relay = relayOf(worker)
+  if (!worker.node_id) return null
+  return (
+    <span className="sw-split-relay" data-testid={testId}>
+      {worker.node_offline && <StatusChip tone="warn" dot>{t('split.nodeOffline')}</StatusChip>}
+      {relay && <StatusChip tone={relay.tone} dot title={relay.reason || undefined}>{t(`split.relay.${relay.key}`)}</StatusChip>}
+    </span>
   )
 }
 

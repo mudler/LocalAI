@@ -56,8 +56,9 @@
       "nodeTitle": "Nodo",
       "nodeLabel": "Asignar el worker a",
       "nodeSub": "Los modelos que cargue este nodo usan el worker. Fija el modelo a este nodo con una regla de ubicación para que se cargue allí. Puedes cambiar el nodo más tarde en la página Nodos.",
-      "nodeNone": "El clúster aún no tiene ningún nodo de backend. Añade uno primero o asigna el worker a un nodo más tarde en la página Nodos.",
-      "nodeServer": "Esta instancia (en un clúster no ejecuta modelos)"
+      "nodeServer": "Esta instancia (en un clúster no ejecuta modelos)",
+      "nodePick": "Elige un servidor de división",
+      "nodeOffline": "{{name}} (desconectado)"
     },
     "col": {
       "worker": "Worker",
@@ -108,7 +109,21 @@
     "thisServer": "Esta instancia",
     "nodeLabel": "Nodo de {{name}}",
     "unattachedTitle": "Estos workers no se usan: asígnalos a un nodo.",
-    "unattachedBody": "Asignados a esta instancia: {{names}}. En un clúster los modelos se ejecutan en los nodos de backend, no en esta instancia. Elige un nodo para cada uno."
+    "unattachedBody": "Asignados a esta instancia: {{names}}. En un clúster los modelos se ejecutan en los nodos de backend, no en esta instancia. Elige un nodo para cada uno.",
+    "noServerTitle": "Ningún worker es todavía un servidor de división.",
+    "noServerBody": "Un worker de división del modelo solo se puede asociar a un worker que sea servidor de división. Crea uno aquí o inicia el worker con --split-server.",
+    "offlineTitle": "El nodo de un worker de división del modelo está desconectado.",
+    "offlineBody": "{{names}} sigue asociado y espera a que vuelva su nodo. Nada lo mueve a otro nodo.",
+    "relayRefusedTitle": "Tus relays no admiten un nodo.",
+    "relayRefusedBody": "Los workers llegan a {{names}} solo de forma directa o con hole punching: {{reason}}.",
+    "nextLoad": "Los cambios en los workers de un nodo se aplican al siguiente modelo que cargue.",
+    "nodeOffline": "Nodo desconectado",
+    "relay": {
+      "admitted": "Relay: admitido",
+      "refused": "Relay: rechazado",
+      "pending": "Relay: pendiente",
+      "notNeeded": "Relay: no hace falta"
+    }
   },
   "nodes": {
     "retry": "Reintentar"
@@ -169,5 +184,38 @@
   "inspector": {
     "route": "Ruta",
     "peer": "ID de par"
+  },
+  "splitServer": {
+    "label": "Servidor de división",
+    "make": "Convertir en servidor de división…",
+    "clear": "Dejar de ser servidor de división…",
+    "open": "Configurar un servidor de división",
+    "title": "Configurar un servidor de división",
+    "desc": "Un servidor de división es un worker que ejecuta modelos con la memoria de los workers de división asociados a él.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (servidor de división)",
+    "changesTitle": "Al confirmar, {{node}} pasa a ser servidor de división:",
+    "changes": {
+      "ports": "Abre puertos P2P e inicia un host P2P para sus workers de división.",
+      "relay": "Esta instancia lo admite en los relays protegidos que gestionas, para que los workers lleguen a él a través de ellos.",
+      "load": "Los workers asociados se usan en el siguiente modelo de llama.cpp o MLX que cargue. Un modelo ya cargado conserva sus workers hasta que se vuelva a cargar.",
+      "undo": "Puedes desactivarlo en la página Nodos. Sus workers se desasocian entonces."
+    },
+    "offline": "{{node}} está desconectado. Sus workers esperan a que vuelva.",
+    "helpers": "Asociar estos workers de división",
+    "noHelpers": "Todavía no hay otro worker de división emparejado. Puedes asociar workers más tarde.",
+    "moveFrom": "ahora en {{node}}",
+    "noNodes": "El clúster aún no tiene ningún worker de backend. Añade uno primero.",
+    "cancel": "Cancelar",
+    "confirm": "Convertir en servidor de división y asociar",
+    "confirmAttach": "Asociar",
+    "clearTitle": "¿{{node}} deja de ser servidor de división?",
+    "clearBody": "Su host P2P se detiene, tus relays dejan de admitirlo y sus workers de división ({{count}}) se desasocian. Esperan, sin nodo, hasta que los vuelvas a asociar.",
+    "clearConfirm": "Dejar de ser servidor de división",
+    "clearing": "Deteniendo…",
+    "toast": {
+      "set": "{{node}} es un servidor de división. Workers asociados ahora: {{count}}. Se usan en el siguiente modelo que cargue.",
+      "cleared": "{{node}} ya no es un servidor de división. Workers desasociados: {{count}}."
+    }
   }
 }

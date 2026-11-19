@@ -1313,6 +1313,13 @@ export const nodesApi = {
   resetMaxReplicasPerModel: (id) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
     method: 'DELETE',
   }),
+  // Declare a node a split server (it may serve model-split workers), or
+  // clear it, which detaches its workers. An explicit admin action only.
+  setSplitServer: (id, on) => fetchJSON(API_CONFIG.endpoints.nodeSplitServer(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ split_server: on }),
+  }),
   // Set a sticky admin override for the per-node VRAM allocation budget. The
   // value is a string ("80%" or "12GB"); resolution to a byte ceiling happens
   // server-side. Call resetVramBudget to clear the override entirely.

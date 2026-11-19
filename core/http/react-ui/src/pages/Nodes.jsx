@@ -215,6 +215,9 @@ export default function Nodes() {
   const inspector = inspected && (
     <NodeInspector
       node={inspected}
+      nodes={nodes}
+      onChanged={refetch}
+      addToast={addToast}
       rows={replicas.rows.filter(row => row.node_id === inspected.id)}
       reasons={reasons.get(inspected.id)}
       busy={oneBusy}

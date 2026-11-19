@@ -1,7 +1,13 @@
 // Fixtures for the model-split workers: the Nodes group and the "Model-split
 // worker" way of Add a node. Pure of Playwright imports so a script that is
 // not a test can use it too.
-import { GB } from './swarm-fixtures.js'
+import { GB, clusterNodes } from './swarm-fixtures.js'
+
+// The cluster of the Swarm fixtures with split servers: gpu-box-1 (healthy)
+// and gpu-box-2 (not answering) by default.
+export function splitServerNodes(ids = ['n-gpu1', 'n-gpu2']) {
+  return clusterNodes().map(n => (ids.includes(n.id) ? { ...n, split_server: true } : n))
+}
 
 export const PEER = '12D3KooWRk4eHq7vN2cYpTzS8mFJuX3aWbLdQe5Gh6iKoPzXk9'
 export const LINK = `localai://pair?v=1&k=split&p=${PEER}&c=S9QK2LWD8e&e=1794842400`

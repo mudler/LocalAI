@@ -56,8 +56,9 @@
       "nodeTitle": "Node",
       "nodeLabel": "Attach the worker to",
       "nodeSub": "Models that this node loads use the worker. Pin the model to the node with a placement rule, so that it loads there. You can change the node later on the Nodes page.",
-      "nodeNone": "The cluster has no backend node yet. Add one first, or attach the worker to a node later on the Nodes page.",
-      "nodeServer": "This instance (it runs no models in a cluster)"
+      "nodeServer": "This instance (it runs no models in a cluster)",
+      "nodePick": "Choose a split server",
+      "nodeOffline": "{{name}} (offline)"
     },
     "col": {
       "worker": "Worker",
@@ -108,7 +109,21 @@
     "thisServer": "This instance",
     "nodeLabel": "Node of {{name}}",
     "unattachedTitle": "These workers are not used: attach them to a node.",
-    "unattachedBody": "Attached to this instance: {{names}}. In a cluster the models run on the backend nodes, not on this instance. Choose a node for each of them."
+    "unattachedBody": "Attached to this instance: {{names}}. In a cluster the models run on the backend nodes, not on this instance. Choose a node for each of them.",
+    "noServerTitle": "No worker is a split server yet.",
+    "noServerBody": "A model-split worker can only be attached to a worker that is a split server. Make one here, or start the worker with --split-server.",
+    "offlineTitle": "The node of a model-split worker is offline.",
+    "offlineBody": "{{names}} stays attached and waits for its node to come back. Nothing moves it to another node.",
+    "relayRefusedTitle": "Your relays do not admit a node.",
+    "relayRefusedBody": "Workers reach {{names}} only directly or by hole punching: {{reason}}.",
+    "nextLoad": "Changes to the workers of a node apply to the next model it loads.",
+    "nodeOffline": "Node offline",
+    "relay": {
+      "admitted": "Relay: admitted",
+      "refused": "Relay: refused",
+      "pending": "Relay: pending",
+      "notNeeded": "Relay: not needed"
+    }
   },
   "state": {
     "healthy": "Healthy",
@@ -742,5 +757,38 @@
     },
     "limited": "Limited",
     "limitedHint": "The relay limits the data or the time of this connection. Model files do not go through it."
+  },
+  "splitServer": {
+    "label": "Split server",
+    "make": "Make split server…",
+    "clear": "Stop being a split server…",
+    "open": "Set up a split server",
+    "title": "Set up a split server",
+    "desc": "A split server is a worker that runs models with the memory of model-split workers attached to it.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (split server)",
+    "changesTitle": "When you confirm, {{node}} becomes a split server:",
+    "changes": {
+      "ports": "It opens P2P ports and starts a P2P host for its model-split workers.",
+      "relay": "This instance admits it on the gated relays that you run, so that workers can reach it through them.",
+      "load": "The workers attached to it are used for the next llama.cpp or MLX model it loads. A model that is loaded now keeps its workers until it is loaded again.",
+      "undo": "You can turn it off on the Nodes page. Its workers are then detached."
+    },
+    "offline": "{{node}} is offline. Its workers wait until it comes back.",
+    "helpers": "Attach these model-split workers",
+    "noHelpers": "No other model-split worker is paired yet. You can attach workers later.",
+    "moveFrom": "now on {{node}}",
+    "noNodes": "The cluster has no backend worker yet. Add one first.",
+    "cancel": "Cancel",
+    "confirm": "Make split server and attach",
+    "confirmAttach": "Attach",
+    "clearTitle": "Stop {{node}} being a split server?",
+    "clearBody": "Its P2P host stops, your relays stop admitting it, and its model-split workers ({{count}}) are detached. They wait, attached to no node, until you attach them again.",
+    "clearConfirm": "Stop being a split server",
+    "clearing": "Stopping…",
+    "toast": {
+      "set": "{{node}} is a split server. Workers attached now: {{count}}. They are used for the next model it loads.",
+      "cleared": "{{node}} is no longer a split server. Workers detached: {{count}}."
+    }
   }
 }
