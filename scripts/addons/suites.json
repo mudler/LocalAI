@@ -503,6 +503,8 @@
           "refuses too many roles or permissions, a bad role ID and a repeated role",
           "describes every capability, and never makes a sensitive one usual",
           "never grants a sensitive capability to a role",
+          "never grants a loop capability to a role, even one the kind lists",
+          "marks the loop capabilities binding-only, keeps waits usual and timers sensitive",
           "keeps only declared, distinct roles of a message",
           "needs a connector kind to hold the binding",
           "is refused with a bad kind, a repeated or extra slot or a bad argument name",
