@@ -596,3 +596,35 @@ type EgressEventsQuery struct {
 type SetChatEgressCeilingRequest struct {
 	Ceiling string `json:"ceiling" jsonschema:"The widest network preset any chat may use: off, registries or all."`
 }
+
+// The actions of upgrade_model.
+const (
+	UpgradeModelActionUpgrade    = "upgrade"
+	UpgradeModelActionConfigOnly = "config_only"
+	UpgradeModelActionRetry      = "retry"
+	UpgradeModelActionRemoveOld  = "remove_old"
+	UpgradeModelActionHold       = "hold"
+	UpgradeModelActionUnhold     = "unhold"
+)
+
+// UpgradeModelRequest is the input of upgrade_model. One flat schema for the
+// six actions; the handler checks what each action needs.
+type UpgradeModelRequest struct {
+	Action  string            `json:"action"            jsonschema:"upgrade, config_only, retry, remove_old, hold or unhold."`
+	Name    string            `json:"name"              jsonschema:"Installed model name (from model_updates)."`
+	Choices map[string]string `json:"choices,omitempty" jsonschema:"upgrade and config_only only: mine or gallery for each edited key the update also changes (editedKeys with conflict true in model_updates)."`
+}
+
+// ModelRemoveOldResult is what remove_old deleted (REST
+// schema.ModelRemoveOldResponse).
+type ModelRemoveOldResult struct {
+	Name    string   `json:"name"`
+	Removed []string `json:"removed"`
+}
+
+// ModelHoldResult is the hold of a model after hold or unhold (REST
+// schema.ModelHoldResponse).
+type ModelHoldResult struct {
+	Name string `json:"name"`
+	Hold bool   `json:"hold"`
+}

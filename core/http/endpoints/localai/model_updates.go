@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
@@ -131,34 +129,26 @@ func queueModelUpgrade(c echo.Context, d ModelUpgradeDeps, retry bool) error {
 			return c.JSON(http.StatusBadRequest, schema.ModelUpgradeError{Error: "invalid body: " + err.Error()})
 		}
 	}
-	for key, choice := range req.Choices {
-		if choice != modelupdates.ChoiceMine && choice != modelupdates.ChoiceGallery {
-			return c.JSON(http.StatusBadRequest, schema.ModelUpgradeError{Error: fmt.Sprintf("choice for %q must be %q or %q", key, modelupdates.ChoiceMine, modelupdates.ChoiceGallery)})
-		}
+	var svc *modelupdates.Service
+	if d.Updates != nil {
+		svc = d.Updates()
 	}
-	if err := up.Validate(name, retry); err != nil {
+	if err := modelupdates.CheckRequest(up, svc, name, retry, req.Choices); err != nil {
+		var needs *modelupdates.ErrNeedsChoices
+		switch {
+		case errors.Is(err, modelupdates.ErrBadChoice):
+			return c.JSON(http.StatusBadRequest, schema.ModelUpgradeError{Error: err.Error()})
+		case errors.As(err, &needs):
+			return c.JSON(http.StatusConflict, schema.ModelUpgradeError{
+				Error: "the update changes keys that were edited; choose mine or gallery for each", Keys: needs.Keys,
+			})
+		}
 		return modelUpgradeError(c, err)
 	}
-	if !retry && d.Updates != nil {
-		if svc := d.Updates(); svc != nil {
-			if missing := svc.MissingChoices(name, req.Choices); len(missing) > 0 {
-				return c.JSON(http.StatusConflict, schema.ModelUpgradeError{
-					Error: "the update changes keys that were edited; choose mine or gallery for each", Keys: missing,
-				})
-			}
-		}
-	}
-	id, err := uuid.NewUUID()
+	uid, err := d.Gallery.EnqueueModelUpgrade(name, galleryop.ModelUpgradeOptions{ConfigOnly: req.ConfigOnly, Choices: req.Choices, Retry: retry})
 	if err != nil {
 		return err
 	}
-	uid := id.String()
-	ctx, cancel, pause := galleryop.NewUserCancellableContext(context.Background())
-	d.Gallery.StoreCancellationActions(uid, cancel, pause)
-	d.Gallery.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
-		ID: uid, GalleryElementName: name, Upgrade: true, Context: ctx, CancelFunc: cancel, PauseFunc: pause,
-		ModelUpgrade: &galleryop.ModelUpgradeOptions{ConfigOnly: req.ConfigOnly, Choices: req.Choices, Retry: retry},
-	})
 	return c.JSON(http.StatusOK, schema.ModelUpgradeResponse{
 		ID: uid, JobID: uid, StatusURL: fmt.Sprintf("%smodels/jobs/%s", middleware.BaseURL(c), uid), Message: "Upgrade started",
 	})

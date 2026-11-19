@@ -947,6 +947,8 @@ func (a *Application) start() (startErr error) {
 		}
 		return a.upgradeChecker
 	}
+	assistantClient.ModelUpdatesService = a.ModelUpdates
+	assistantClient.ModelUpgrader = a.ModelUpgrader
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader
 	}

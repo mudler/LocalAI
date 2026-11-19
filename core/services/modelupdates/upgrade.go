@@ -1014,3 +1014,36 @@ func (u *Upgrader) Validate(name string, retry bool) error {
 	}
 	return nil
 }
+
+// ErrBadChoice is a choice that is neither ChoiceMine nor ChoiceGallery.
+var ErrBadChoice = errors.New("a choice must be " + ChoiceMine + " or " + ChoiceGallery)
+
+// ErrNeedsChoices refuses an upgrade whose update changes keys a person
+// edited and that has no choice for them.
+type ErrNeedsChoices struct{ Keys []string }
+
+func (e *ErrNeedsChoices) Error() string {
+	return "the update changes keys that were edited; choose " + ChoiceMine + " or " + ChoiceGallery + " for each: " + strings.Join(e.Keys, ", ")
+}
+
+// CheckRequest refuses at once an upgrade or a retry that cannot run, before
+// it is queued: a bad choice (ErrBadChoice), what Validate refuses, and an
+// upgrade without a choice for an edited key the update changes
+// (*ErrNeedsChoices, read from the last check of svc; nil svc skips it). The
+// REST route and the assistant both call it.
+func CheckRequest(up *Upgrader, svc *Service, name string, retry bool, choices map[string]string) error {
+	for key, choice := range choices {
+		if choice != ChoiceMine && choice != ChoiceGallery {
+			return fmt.Errorf("%w (key %q)", ErrBadChoice, key)
+		}
+	}
+	if err := up.Validate(name, retry); err != nil {
+		return err
+	}
+	if !retry && svc != nil {
+		if missing := svc.MissingChoices(name, choices); len(missing) > 0 {
+			return &ErrNeedsChoices{Keys: missing}
+		}
+	}
+	return nil
+}

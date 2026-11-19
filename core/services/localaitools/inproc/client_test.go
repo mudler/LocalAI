@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/system"
 	"gorm.io/driver/sqlite"
@@ -346,3 +347,46 @@ func (s *stubUpdates) CheckNow(context.Context) backendupdates.Snapshot {
 	s.checked++
 	return backendupdates.Snapshot{Items: []backendupdates.Item{}}
 }
+
+var _ = Describe("Model updates", func() {
+	It("says that model upgrades are off without a model gallery", func() {
+		c := &Client{}
+		_, err := c.ModelUpdates(context.Background())
+		Expect(err).To(MatchError(ContainSubstring("not available")))
+		_, err = c.UpgradeModel(context.Background(), "tiny", false, nil)
+		Expect(err).To(MatchError(ContainSubstring("not available")))
+		_, err = c.SetModelHold(context.Background(), "tiny", true)
+		Expect(err).To(MatchError(ContainSubstring("not available")))
+		_, err = c.RemoveOldModelVersion(context.Background(), "tiny")
+		Expect(err).To(MatchError(ContainSubstring("not available")))
+	})
+
+	It("refuses what the REST route refuses, before anything is queued", func() {
+		dir := GinkgoT().TempDir()
+		systemState, err := system.GetSystemState(system.WithModelPath(dir))
+		Expect(err).ToNot(HaveOccurred())
+		up := &modelupdates.Upgrader{SystemState: systemState}
+		svc := modelupdates.New(modelupdates.Options{SystemState: systemState})
+		c := &Client{
+			Gallery:             &galleryop.GalleryService{},
+			ModelUpgrader:       func() *modelupdates.Upgrader { return up },
+			ModelUpdatesService: func() *modelupdates.Service { return svc },
+		}
+		ctx := context.Background()
+
+		_, err = c.UpgradeModel(ctx, "missing", false, nil)
+		Expect(err).To(MatchError(modelupdates.ErrNotFound))
+		_, err = c.UpgradeModel(ctx, "missing", false, map[string]string{"k": "theirs"})
+		Expect(err).To(MatchError(modelupdates.ErrBadChoice))
+		_, err = c.RetryModelUpgrade(ctx, "missing")
+		Expect(err).To(MatchError(modelupdates.ErrNotFound))
+		_, err = c.SetModelHold(ctx, "missing", true)
+		Expect(err).To(MatchError(modelupdates.ErrNotFound))
+		_, err = c.UpgradeModel(ctx, "", false, nil)
+		Expect(err).To(MatchError(ContainSubstring("name is required")))
+
+		snap, err := c.ModelUpdates(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(snap.Items).To(BeEmpty())
+	})
+})
