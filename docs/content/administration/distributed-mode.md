@@ -355,6 +355,19 @@ no lock and installs after any check.
 
 The same frontend writes the update items of the inbox: the digest of the updates that need a person, the result of the pass and the notice of a check that keeps failing (see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})). The mode is single runner, on the same lock, so there is no new lock key. The items are rows of the shared database, and every frontend streams a new one to its clients through the bus; the browser push and the Telegram forward run on the frontend that stores the item, so they happen once in the cluster. Failover is safe: a new leader that finds the same updates changes nothing, because the items are keyed and an unchanged item is not written again. The count of failed passes that delays the failed-check notice is kept in the memory of the leader, so a new leader starts it again from zero. Add-on items are written by the add-on owner (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})). Limit: the two-frontend rules are tested with the in-process bus and a shared store; the lock itself needs PostgreSQL and is tested elsewhere.
 
+### Model updates in a cluster
+
+The [model update check and the upgrades]({{% relref "/models/model-updates" %}}) of gallery models work across frontends like this:
+
+- **The state lives in the shared models directory.** The frontends share that directory. Each model has its gallery file (`._gallery_<name>.yaml`) there, with where it came from, the hold flag and the journal of its last upgrade. The check writes its result to one file, `._model_updates.json`. Every frontend builds `GET /api/models/updates` from these files, so every frontend gives the same answer. There is no per-frontend list in memory. A hold or an edit shows at once; what the galleries offer is as of the last check.
+- **The check is single runner.** Every six hours the frontends compete for the advisory lock `KeyModelUpdateCheck`, and the one that holds it checks. A **Check now** that reaches a frontend while another one checks waits (at most 60 seconds) for that check's result file. A standalone server uses a lock of its own process.
+- **An upgrade runs on the frontend that took the operation.** That frontend holds the journal and touches it every 30 seconds. Another frontend touches the journal only when it is stale: not changed for 15 minutes. The frontend that runs the check also ends such upgrades, after each periodic check.
+- **The notifications** (the digest of the models that need you, the end of an upgrade, the removal of an old version) are rows of the shared notification store. The frontend that runs the check or the upgrade writes them. The digest is set, not added: when a hold or the end of an upgrade changes it on another frontend, that frontend writes the same digest again, so there is still one row for each administrator.
+
+If a frontend stops during an upgrade, its journal goes stale after 15 minutes. The frontend that runs the next check then ends the upgrade: before the model was stopped it removes the staged files and the upgrade ends `failed`; from the stop on it puts the old version back. A frontend that restarts ends its own interrupted upgrades at start.
+
+An upgrade replaces the replicas as the [upgrade strategy](#upgrade-strategy) of the model says, and each worker downloads its own files (see [Upgrade strategy](#upgrade-strategy)). In a mixed-version cluster, an older worker does not know `model.prefetch`. It does not fail the upgrade: it gets the new files from the frontend at its next load, as it did before. Upgrade the workers to get the worker-side download.
+
 ### Watching Backend Installs
 
 While a worker downloads a backend, the **Activity** tab of the notification
@@ -1305,7 +1318,7 @@ All fields are optional and composable:
 ### Upgrade strategy
 
 `upgrade_strategy` says how an upgrade of a gallery model (`POST /api/models/upgrade/{name}`)
-replaces the replicas that run it:
+replaces the replicas that run it (see [Model updates]({{% relref "/models/model-updates" %}}) for the upgrade itself):
 
 | Value | What an upgrade does |
 |-------|----------------------|

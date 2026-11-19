@@ -69,7 +69,7 @@ one item in the **Notifications** tab, for example `Model qwen3-4b installed` or
 each operation, by the frontend that ran it, and it is also pushed to a
 subscribed browser. It is not sent to a Telegram or Slack chat. The automatic
 update passes are not operations in this sense: they write their own result item
-(see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})).
+(see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})). A model upgrade writes its own end item (see [Model updates]({{% relref "/models/model-updates#where-you-see-it" %}})).
 
 The notification list does not depend on the chats: it works with the chats on
 or off. Only when the server has no notification center at all (its store could
