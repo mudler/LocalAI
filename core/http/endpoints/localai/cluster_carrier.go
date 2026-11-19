@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -69,9 +70,7 @@ func actor(c echo.Context) string {
 
 func carrierError(c echo.Context, status int, msg string, extra map[string]any) error {
 	body := map[string]any{"error": msg}
-	for k, v := range extra {
-		body[k] = v
-	}
+	maps.Copy(body, extra)
 	return c.JSON(status, body)
 }
 

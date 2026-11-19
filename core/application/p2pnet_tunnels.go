@@ -261,16 +261,10 @@ func (t *p2pTunnels) Pair(ctx context.Context, link string, allowOpenRelay bool)
 	if res.ClientKey == nil || res.ClientKey.Secret == "" {
 		return remotes.Pairing{}, &remotes.InvalidError{Message: "The server did not issue a key for this pairing. Ask for an invite to use the server as a remote."}
 	}
-	p := remotes.Pairing{Peer: l.Peer.String(), ServerName: res.Server.Name, Phrase: res.Phrase, Key: res.ClientKey.Secret}
-	for _, a := range l.Addrs {
-		p.Addrs = append(p.Addrs, a.String())
-	}
-	for _, r := range l.Relays {
-		for _, a := range r.Addrs {
-			p.Relays = append(p.Relays, a.String()+"/p2p/"+r.ID.String())
-		}
-	}
-	return p, nil
+	return remotes.Pairing{
+		Peer: l.Peer.String(), ServerName: res.Server.Name, Phrase: res.Phrase, Key: res.ClientKey.Secret,
+		Addrs: l.AddrStrings(), Relays: l.RelayAddrStrings(),
+	}, nil
 }
 
 // pairError turns a redeem failure into a message for a person. The cause

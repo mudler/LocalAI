@@ -21,7 +21,7 @@ func (a Addr) String() string { return a.Peer.String() }
 
 // Conn is a libp2p stream as a net.Conn. LocalAddr and RemoteAddr are Addr
 // values, so an http.Request served over a Conn has the peer ID as its
-// RemoteAddr (see PeerFromRemoteAddr). Deadlines work; an expired deadline
+// RemoteAddr (see DecodePeerID). Deadlines work; an expired deadline
 // returns a net.Error whose Timeout method reports true. CloseWrite closes
 // only the write side, and Reset aborts both sides.
 type Conn struct{ network.Stream }
@@ -41,16 +41,6 @@ func PeerOf(c net.Conn) (peer.ID, bool) {
 		return pc.Stream.Conn().RemotePeer(), true
 	}
 	return "", false
-}
-
-// PeerFromRemoteAddr parses the RemoteAddr of an http.Request served over
-// P2P. It returns false for any other address, such as a TCP client's.
-func PeerFromRemoteAddr(addr string) (peer.ID, bool) {
-	p, err := peer.Decode(addr)
-	if err != nil {
-		return "", false
-	}
-	return p, true
 }
 
 // Pipe copies data both ways between a and b until both directions end, and

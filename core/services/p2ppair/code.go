@@ -61,7 +61,7 @@ func validCodeFormat(n string) bool {
 	if len(n) != CodeLen {
 		return false
 	}
-	for i := 0; i < len(n); i++ {
+	for i := range len(n) {
 		if !strings.ContainsRune(codeAlphabet, rune(n[i])) {
 			return false
 		}

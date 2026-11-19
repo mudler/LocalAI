@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -245,14 +244,4 @@ func Message(fs []Finding) string {
 	}
 	lines = append(lines, "Remove them from your command line, environment files and runtime settings, and start again.")
 	return strings.Join(lines, "\n")
-}
-
-// Names returns the sorted names of the findings, for tests and logs.
-func Names(fs []Finding) []string {
-	out := make([]string, len(fs))
-	for i, f := range fs {
-		out[i] = f.Name
-	}
-	sort.Strings(out)
-	return out
 }

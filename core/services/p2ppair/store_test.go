@@ -105,7 +105,7 @@ func storeContract(newStore func() p2ppair.Store) {
 		Expect(s.CreateInvite(ctx, invite("a", time.Hour), testCode)).To(Succeed())
 		var wins, invalid atomic.Int32
 		var wg sync.WaitGroup
-		for i := 0; i < 16; i++ {
+		for i := range 16 {
 			wg.Add(1)
 			go func(i int) {
 				defer GinkgoRecover()

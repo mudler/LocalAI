@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"gorm.io/gorm"
@@ -216,9 +217,7 @@ func (r *Registry) ReportAvailability(ctx context.Context, id string, byCarrier 
 	if current.Availability != "" {
 		_ = json.Unmarshal([]byte(current.Availability), &merged)
 	}
-	for c, reason := range byCarrier {
-		merged[c] = reason
-	}
+	maps.Copy(merged, byCarrier)
 	raw, err := json.Marshal(merged)
 	if err != nil {
 		return fmt.Errorf("encoding availability of instance %q: %w", id, err)

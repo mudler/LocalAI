@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"gorm.io/gorm"
 
@@ -80,17 +79,6 @@ func parseCarriers(names []string) []cluster.Carrier {
 	return out
 }
 
-// truncateRunes cuts s to at most n bytes without splitting a character.
-func truncateRunes(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	for n > 0 && !utf8.RuneStart(s[n]) {
-		n--
-	}
-	return s[:n]
-}
-
 func joinCarriers(cs []cluster.Carrier) string {
 	out := make([]string, len(cs))
 	for i, c := range cs {
@@ -104,7 +92,7 @@ func splitCarriers(s string) []cluster.Carrier {
 		return nil
 	}
 	var out []cluster.Carrier
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		if c := cluster.Carrier(strings.TrimSpace(part)); c == cluster.CarrierNATS || c == cluster.CarrierTunnel {
 			out = append(out, c)
 		}
@@ -219,10 +207,8 @@ func (s *SwitchWorkers) AgentsAttached(ctx context.Context, c cluster.Carrier) (
 		if n.NodeType != NodeTypeAgent || n.Status == StatusPending || n.Status == StatusOffline || now.Sub(n.LastHeartbeat) > s.stale {
 			continue
 		}
-		for _, a := range s.attached(n) {
-			if a == c {
-				return true, nil
-			}
+		if slices.Contains(s.attached(n), c) {
+			return true, nil
 		}
 	}
 	return false, nil

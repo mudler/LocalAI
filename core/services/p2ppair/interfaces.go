@@ -2,7 +2,6 @@ package p2ppair
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	ma "github.com/multiformats/go-multiaddr"
@@ -34,11 +33,6 @@ type PassRequest struct {
 	TTL      time.Duration
 	Label    string
 }
-
-// ErrRelayUnreachable is what a PassRegistrar returns when it could not
-// reach the relay. Any other error is treated the same way by Mint; the
-// distinction is only in the reason it reports.
-var ErrRelayUnreachable = errors.New("p2ppair: the relay is unreachable")
 
 // PassRegistrar registers and cancels relay passes. The caller implements it
 // on top of the relay admin protocol.

@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -23,6 +24,16 @@ func SetClaimTimeout(d time.Duration) (restore func()) {
 // NewRelayWithTimeouts builds a relay with timeouts that a spec can reach.
 func NewRelayWithTimeouts(tunnels *Registry, header, open time.Duration) *Relay {
 	return newRelay(tunnels, header, open)
+}
+
+// ReadRelayRequest reads and parses the opening frame of a peer stream, as the
+// relay does when it accepts one.
+func ReadRelayRequest(r io.Reader) (nodeID, lane string, budget time.Duration, err error) {
+	payload, err := readFrame(r)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("reading a relay request: %w", err)
+	}
+	return parseRelayRequest(payload)
 }
 
 // RouteFailure exposes the classification of a failed dial to the specs.

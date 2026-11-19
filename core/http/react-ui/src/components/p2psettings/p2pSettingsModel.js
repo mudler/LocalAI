@@ -5,12 +5,6 @@
 
 export const MODES = ['off', 'connect', 'share']
 
-// The runtime settings this page reads and writes through /api/settings.
-export const P2P_SETTING_KEYS = [
-  'p2p_mode', 'p2p_public_dht', 'p2p_mdns', 'p2p_bootstrap_peers',
-  'p2p_relay_paired', 'p2p_relay_mode', 'p2p_relay_rate_limit',
-]
-
 export const RELAY_MODES = ['auto', 'on', 'off']
 
 // The defaults of `local-ai p2p relay` (core/services/p2prelay/relaycmd).

@@ -16,6 +16,15 @@ func TestRemovedOptions(t *testing.T) {
 	RunSpecs(t, "Removed options test suite")
 }
 
+// names returns the names of the findings.
+func names(fs []Finding) []string {
+	out := make([]string, len(fs))
+	for i, f := range fs {
+		out[i] = f.Name
+	}
+	return out
+}
+
 func env(m map[string]string) func(string) (string, bool) {
 	return func(k string) (string, bool) { v, ok := m[k]; return v, ok }
 }
@@ -57,7 +66,7 @@ var _ = Describe("Check", func() {
 	It("finds every removed flag, with and without a value", func() {
 		fs := Check(Input{Args: []string{"--p2p", "--p2p-token=abc", "--p2ptoken", "abc", "--p2p-network-id=n", "--peer-2-peer-network-id=n",
 			"--p2p-dht-interval=1", "--p2p-otp-interval=1", "--p2p-enable-limits=true", "--federated"}, Env: env(nil)})
-		Expect(Names(fs)).To(ConsistOf("--p2p", "--p2p-token", "--p2ptoken", "--p2p-network-id", "--peer-2-peer-network-id",
+		Expect(names(fs)).To(ConsistOf("--p2p", "--p2p-token", "--p2ptoken", "--p2p-network-id", "--peer-2-peer-network-id",
 			"--p2p-dht-interval", "--p2p-otp-interval", "--p2p-enable-limits", "--federated"))
 	})
 
@@ -73,7 +82,7 @@ var _ = Describe("Check", func() {
 			"LOCALAI_FEDERATED": "true", "FEDERATED": "true", "LOCALAI_P2P_LOGLEVEL": "debug", "LOCALAI_P2P_LIB_LOGLEVEL": "debug",
 			"LOCALAI_P2P_LISTEN_MADDRS": "x", "LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS": "x", "LOCALAI_P2P_MODE": "connect",
 		})})
-		Expect(Names(fs)).To(ConsistOf("LOCALAI_P2P", "P2P", "LOCALAI_P2P_TOKEN", "P2P_TOKEN", "LOCALAI_TOKEN", "TOKEN",
+		Expect(names(fs)).To(ConsistOf("LOCALAI_P2P", "P2P", "LOCALAI_P2P_TOKEN", "P2P_TOKEN", "LOCALAI_TOKEN", "TOKEN",
 			"LOCALAI_P2P_NETWORK_ID", "P2P_NETWORK_ID", "LOCALAI_P2P_DHT_INTERVAL", "LOCALAI_P2P_OTP_INTERVAL",
 			"LOCALAI_P2P_ENABLE_LIMITS", "LOCALAI_P2P_DISABLE_DHT", "LOCALAI_P2P_DHT_ANNOUNCE_MADDRS", "LOCALAI_FEDERATED", "FEDERATED",
 			"LOCALAI_P2P_LOGLEVEL", "LOCALAI_P2P_LIB_LOGLEVEL"))
@@ -94,7 +103,7 @@ var _ = Describe("Check", func() {
 		s := map[string]json.RawMessage{
 			"p2p_token": json.RawMessage(`"abc"`), "p2p_network_id": json.RawMessage(`"net"`), "federated": json.RawMessage(`true`),
 		}
-		Expect(Names(Check(Input{Settings: s}))).To(ConsistOf("p2p_token", "p2p_network_id", "federated"))
+		Expect(names(Check(Input{Settings: s}))).To(ConsistOf("p2p_token", "p2p_network_id", "federated"))
 		s = map[string]json.RawMessage{"p2p_token": json.RawMessage(`""`), "federated": json.RawMessage(`false`), "p2p_network_id": json.RawMessage(`null`)}
 		Expect(Check(Input{Settings: s})).To(BeEmpty())
 	})
@@ -114,7 +123,7 @@ var _ = Describe("ReadSettings", func() {
 		Expect(ReadSettings(dir)).To(BeNil())
 		Expect(ReadSettings("")).To(BeNil())
 		Expect(os.WriteFile(filepath.Join(dir, "runtime_settings.json"), []byte(`{"p2p_token":"x"}`), 0o600)).To(Succeed())
-		Expect(Names(Check(Input{Settings: ReadSettings(dir)}))).To(ConsistOf("p2p_token"))
+		Expect(names(Check(Input{Settings: ReadSettings(dir)}))).To(ConsistOf("p2p_token"))
 		Expect(os.WriteFile(filepath.Join(dir, "runtime_settings.json"), []byte(`{`), 0o600)).To(Succeed())
 		Expect(ReadSettings(dir)).To(BeNil())
 	})

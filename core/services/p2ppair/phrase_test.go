@@ -34,7 +34,7 @@ var _ = Describe("Phrase", func() {
 			devs[i] = newPeer().String()
 		}
 		seen := map[string]string{}
-		for i := 0; i < 20000; i++ {
+		for i := range 20000 {
 			id := fmt.Sprintf("invite-%d", i)
 			dev := devs[i%len(devs)]
 			p := p2ppair.Phrase(srv, mustDecode(dev), id)
@@ -47,8 +47,8 @@ var _ = Describe("Phrase", func() {
 	It("uses every word of the list at about the same rate", func() {
 		srv, dev := newPeer(), newPeer()
 		counts := map[string]int{}
-		for i := 0; i < 20000; i++ {
-			for _, w := range strings.Fields(p2ppair.Phrase(srv, dev, fmt.Sprint(i))) {
+		for i := range 20000 {
+			for w := range strings.FieldsSeq(p2ppair.Phrase(srv, dev, fmt.Sprint(i))) {
 				counts[w]++
 			}
 		}

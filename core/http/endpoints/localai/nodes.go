@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"sync"
@@ -520,9 +521,7 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, _ *gorm.DB, _ string, nat
 // worker that holds the tunnel and registers for NATS must not mint one.
 func attachCarrierCredential(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode, natsCfg natsauth.Config, row cluster.CarrierRow, haveCarrier bool, credFor cluster.Carrier, opts registerOptions) {
 	if haveCarrier {
-		for k, v := range carrierNews(row) {
-			response[k] = v
-		}
+		maps.Copy(response, carrierNews(row))
 		response["credential_for"] = credFor
 	}
 	if haveCarrier && credFor == cluster.CarrierTunnel {
@@ -764,9 +763,7 @@ func HeartbeatEndpoint(registry *nodes.NodeRegistry, options ...RegisterOption) 
 		}
 		response := map[string]any{"message": "heartbeat received"}
 		if row, ok := opts.activeCarrier(ctx); ok {
-			for k, v := range carrierNews(row) {
-				response[k] = v
-			}
+			maps.Copy(response, carrierNews(row))
 			if opts.nats != nil && opts.nats.ClientTLS() {
 				response["nats_client_tls"] = true
 			}

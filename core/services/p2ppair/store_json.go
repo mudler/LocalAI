@@ -1,13 +1,15 @@
 package p2ppair
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -94,12 +96,8 @@ func (s *jsonStore) load() (*jsonFile, error) {
 
 func cloneFile(f *jsonFile) *jsonFile {
 	c := newJSONFile()
-	for k, v := range f.Invites {
-		c.Invites[k] = v
-	}
-	for k, v := range f.Devices {
-		c.Devices[k] = v
-	}
+	maps.Copy(c.Invites, f.Invites)
+	maps.Copy(c.Devices, f.Devices)
 	return c
 }
 
@@ -121,7 +119,7 @@ func (s *jsonStore) CreateInvite(_ context.Context, inv Invite, code string) err
 	hash := hashCode(code, s.secret)
 	for id, r := range f.Invites {
 		if id == inv.ID || codeMatches(r.CodeHash, hash) {
-			return fmt.Errorf("p2ppair: create invite: duplicate")
+			return errors.New("p2ppair: create invite: duplicate")
 		}
 	}
 	f.Invites[inv.ID] = inviteRecord{Invite: inv, CodeHash: hash}
@@ -153,12 +151,7 @@ func (s *jsonStore) ListInvites(_ context.Context) ([]Invite, error) {
 	for _, r := range f.Invites {
 		out = append(out, r.Invite)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].CreatedAt.After(out[j].CreatedAt)
-		}
-		return out[i].ID < out[j].ID
-	})
+	slices.SortFunc(out, func(a, b Invite) int { return newestFirst(a.CreatedAt, b.CreatedAt, a.ID, b.ID) })
 	return out, nil
 }
 
@@ -261,12 +254,7 @@ func (s *jsonStore) ListDevices(_ context.Context) ([]Device, error) {
 	for _, d := range f.Devices {
 		out = append(out, d)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].CreatedAt.After(out[j].CreatedAt)
-		}
-		return out[i].ID < out[j].ID
-	})
+	slices.SortFunc(out, func(a, b Device) int { return newestFirst(a.CreatedAt, b.CreatedAt, a.ID, b.ID) })
 	return out, nil
 }
 
@@ -338,4 +326,9 @@ func (s *jsonStore) TouchDevice(_ context.Context, p peer.ID, at time.Time, path
 		}
 	}
 	return nil
+}
+
+// newestFirst orders records by creation time, newest first, and then by ID.
+func newestFirst(aCreated, bCreated time.Time, aID, bID string) int {
+	return cmp.Or(bCreated.Compare(aCreated), cmp.Compare(aID, bID))
 }

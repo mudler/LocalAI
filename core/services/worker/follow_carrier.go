@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math/rand/v2"
 	"slices"
 	"strings"
@@ -393,9 +394,7 @@ func (f *Follower) sendBeat(ctx context.Context) {
 	if f.o.Body != nil {
 		body = f.o.Body()
 	}
-	for k, v := range f.Report() {
-		body[k] = v
-	}
+	maps.Copy(body, f.Report())
 	reply, err := f.o.Heartbeat(ctx, body)
 	if err != nil {
 		xlog.Warn("Heartbeat failed", "error", err)

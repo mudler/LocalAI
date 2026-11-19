@@ -22,7 +22,7 @@ var ErrCredentialInURL = errors.New("the address must not carry a user name, a p
 // The NATS client accepts several servers in one string, separated by commas.
 // Each one is checked.
 func CheckNATSURL(raw string) error {
-	for _, one := range strings.Split(raw, ",") {
+	for one := range strings.SplitSeq(raw, ",") {
 		if err := checkOneNATSURL(strings.TrimSpace(one)); err != nil {
 			return err
 		}
