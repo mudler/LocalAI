@@ -76,6 +76,34 @@ test.describe('Model-split workers on the Nodes page', () => {
     await expect(page.getByTestId('split-limits-w-pub')).toHaveCount(0)
   })
 
+  test('in a cluster, shows the node of each worker, warns about one attached to no node, and attaches it', async ({ page }) => {
+    const workers = splitWorkers().map(w => (w.id === 'w-attic' ? { ...w, node_id: 'n-gpu1', node_name: 'gpu-box-1' } : w))
+    await mockSwarm(page)
+    const log = await mockSplit(page, { workers, distributed: true })
+    await page.goto('/app/nodes')
+    const group = page.getByTestId('split-workers')
+    await expect(group.getByText('Each one lends memory to the models of the node it is attached to.')).toBeVisible({ timeout: 15_000 })
+    await expect(group.getByRole('columnheader', { name: 'Attached to' })).toBeVisible()
+    await expect(page.getByTestId('split-node-w-attic')).toHaveValue('n-gpu1')
+    await expect(page.getByTestId('split-unattached-callout')).toContainText('mac-studio-2, old-rig')
+    // An agent node runs no models: it is not offered.
+    await expect(page.getByTestId('split-node-w-mac').locator('option')).toHaveText(['This instance', 'edge-cpu', 'gpu-box-1', 'gpu-box-2', 'gpu-box-3'])
+    await page.getByTestId('split-node-w-mac').selectOption('n-gpu2')
+    await expect.poll(() => log.find(e => e.method === 'PATCH')?.body).toEqual({ node_id: 'n-gpu2' })
+    await expect(page.getByTestId('split-unattached-callout')).not.toContainText('mac-studio-2')
+    await page.getByTestId('split-node-w-attic').selectOption('')
+    await expect.poll(() => log.filter(e => e.method === 'PATCH').at(-1)?.body).toEqual({ node_id: '' })
+  })
+
+  test('shows no node column on a single instance', async ({ page }) => {
+    await mockSwarm(page)
+    await mockSplit(page)
+    await page.goto('/app/nodes')
+    await expect(page.getByTestId('split-worker-w-attic')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('split-node-w-attic')).toHaveCount(0)
+    await expect(page.getByTestId('split-unattached-callout')).toHaveCount(0)
+  })
+
   test('shows no group when the server does not share over P2P', async ({ page }) => {
     await mockSwarm(page)
     await mockSplit(page, { mode: 'connect' })
@@ -95,7 +123,8 @@ test.describe('Add a node: model-split worker', () => {
     await page.getByTestId('split-engine-mlx').click()
     await page.getByTestId('split-name').fill('mac-studio-3')
     await page.getByTestId('split-mint').click()
-    await expect.poll(() => log.find(e => e.method === 'POST')?.body).toEqual({ kind: 'split', label: 'mac-studio-3', ttl_seconds: 600, labels: { engine: 'mlx' } })
+    // In a cluster the invite names a backend node: the first one by name.
+    await expect.poll(() => log.find(e => e.method === 'POST')?.body).toEqual({ kind: 'split', label: 'mac-studio-3', ttl_seconds: 600, labels: { engine: 'mlx', node: 'n-edge' } })
     await expect(page.getByTestId('split-invite-ready')).toContainText('Invite ready')
     const command = page.getByTestId('command-block').last()
     await expect(command).toContainText('local-ai worker mlx-distributed')
@@ -137,6 +166,32 @@ test.describe('Add a node: model-split worker', () => {
     await page.getByTestId('split-add-anyway').click()
     await expect.poll(() => log.find(e => e.method === 'PATCH')?.body).toEqual({ allow_slow_path: true })
     await expect(page.getByRole('heading', { name: 'The worker is in use' })).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('in a cluster, attaches the worker to the node chosen, or to this instance', async ({ page }) => {
+    await mockSwarm(page)
+    const log = await mockSplit(page)
+    await page.goto('/app/nodes/add?join=shard')
+    const node = page.getByTestId('split-add-node')
+    await expect(node).toHaveValue('n-edge', { timeout: 15_000 })
+    await expect(page.getByText('The model runs on the node you choose next.', { exact: false })).toBeVisible()
+    await node.selectOption('n-gpu1')
+    await page.getByTestId('split-mint').click()
+    await expect.poll(() => log.find(e => e.method === 'POST')?.body?.labels).toEqual({ engine: 'llama', node: 'n-gpu1' })
+    // A new node needs a new invite.
+    await node.selectOption('')
+    await expect(page.getByTestId('split-invite-ready')).toHaveCount(0)
+    await page.getByTestId('split-mint').click()
+    await expect.poll(() => log.filter(e => e.method === 'POST').at(-1)?.body?.labels).toEqual({ engine: 'llama' })
+  })
+
+  test('on a single instance, asks for no node', async ({ page }) => {
+    await mockSwarm(page, { nodes: null, features: {} })
+    const log = await mockSplit(page)
+    await page.goto('/app/nodes/add?join=shard')
+    await page.getByTestId('split-mint').click({ timeout: 15_000 })
+    await expect.poll(() => log.find(e => e.method === 'POST')?.body?.labels).toEqual({ engine: 'llama' })
+    await expect(page.getByTestId('split-add-node')).toHaveCount(0)
   })
 
   test('asks for P2P sharing first', async ({ page }) => {

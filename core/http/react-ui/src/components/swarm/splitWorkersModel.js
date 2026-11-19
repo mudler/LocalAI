@@ -2,7 +2,8 @@ import { limitParts } from '../p2psettings/p2pSettingsModel.js'
 
 // The model-split workers of the Nodes page and the "Model-split worker" way
 // of Add a node: llama.cpp RPC and MLX workers that lend their memory to
-// models that run on this server. No React here, so the unit tests read it.
+// models that run on this server or, in a cluster, on the backend node each
+// one is attached to. No React here, so the unit tests read it.
 
 export const ENGINES = ['llama', 'mlx']
 
@@ -96,4 +97,22 @@ export function splitCommand({ engine, link, flavor, option, dev }) {
   const flags = opt.dockerFlags ? `docker run --net host ${opt.dockerFlags} \\\n  ` : 'docker run --net host \\\n  '
   const tag = dev ? opt.devTag : opt.tag
   return `${flags}-v localai-${sub}:/p2p \\\n  -e LOCALAI_P2P_STATE_DIR=/p2p \\\n  --name local-ai-${sub} \\\n  localai/localai:${tag} worker ${sub} \\\n  --join "${invite}"`
+}
+
+// The nodes a worker can be attached to: the backend nodes (an agent node
+// runs no models), by name. Accepts the list of GET /api/nodes, or an object
+// that holds it.
+export function nodeChoices(nodes) {
+  const list = Array.isArray(nodes) ? nodes : Array.isArray(nodes?.nodes) ? nodes.nodes : []
+  return list
+    .filter(n => n && n.node_type !== 'agent')
+    .map(n => ({ id: n.id, name: n.name || n.id }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+// The workers that no model uses because they are attached to this instance
+// while the models run on the nodes of the cluster.
+export function unattached(workers, distributed) {
+  if (!distributed) return []
+  return (Array.isArray(workers) ? workers : []).filter(w => !w.node_id)
 }

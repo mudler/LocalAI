@@ -69,6 +69,8 @@ type p2pNet struct {
 	relayFactory func(relayManagerConfig) (relayManager, error)
 	// reloadInterval overrides p2pReloadInterval in tests.
 	reloadInterval time.Duration
+	// nodeRegistry overrides the node registry of distributed mode in tests.
+	nodeRegistry splitNodeRegistry
 }
 
 // p2pHandlers are the HTTP handlers served over P2P.

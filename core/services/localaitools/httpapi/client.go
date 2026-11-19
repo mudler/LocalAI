@@ -1194,6 +1194,15 @@ func (c *Client) SetP2PSplitSlowPath(ctx context.Context, id string, allow bool)
 	return &info, nil
 }
 
+func (c *Client) SetP2PSplitNode(ctx context.Context, id, nodeID string) (*localaitools.P2PSplitWorkerInfo, error) {
+	var w p2pSplitWire
+	if err := c.do(ctx, http.MethodPatch, routeP2PSplitWorkers+"/"+url.PathEscape(id), map[string]string{"node_id": nodeID}, &w); err != nil {
+		return nil, err
+	}
+	info := w.info()
+	return &info, nil
+}
+
 // ---- Shared folders ----
 
 func (c *Client) ListSharedFolders(ctx context.Context) ([]localaitools.SharedFolder, error) {

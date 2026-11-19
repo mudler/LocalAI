@@ -144,6 +144,7 @@ type registerOptions struct {
 	tunnels  TunnelDisconnector
 	nats     NATSHandover
 	workers  WorkerPeers
+	split    SplitNodes
 }
 
 // WorkerPeers says whether a peer of the P2P layer is a paired worker: a peer

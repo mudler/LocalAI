@@ -23,6 +23,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/p2psplit"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -316,11 +318,38 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 	go carriers.Run(shutdownCtx)
 
+	// Model-split workers attached to this node: the backends it starts read
+	// their addresses from the environment, as on a standalone server.
+	splitDone := make(chan struct{})
+	split := newSplitNode(splitConfig{
+		Sync: func(ctx context.Context, rep workerctl.SplitReport) (*workerctl.SplitAssignment, error) {
+			return regClient.SplitSync(ctx, nodeID, rep)
+		},
+		Interval: heartbeatInterval,
+		Join:     cfg.join,
+		NewHost:  cfg.splitHost,
+		OnLlama: func(addrs []string) {
+			if err := p2psplit.SetLlamaEnv(addrs); err != nil {
+				xlog.Error("Could not set the llama.cpp RPC servers", "error", err)
+			}
+		},
+		OnMLX: func(hostfile []string) {
+			if err := p2psplit.SetMLXEnv(dataDir, hostfile); err != nil {
+				xlog.Error("Could not write the MLX hostfile", "error", err)
+			}
+		},
+	})
+	go func() {
+		defer close(splitDone)
+		split.run(shutdownCtx)
+	}()
+
 	xlog.Info("Worker ready, waiting for backend.install events")
 	<-sigCh
 
 	xlog.Info("Shutting down worker")
 	shutdownCancel() // stop heartbeat loop immediately
+	<-splitDone
 	regClient.GracefulDeregister(nodeID)
 	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)

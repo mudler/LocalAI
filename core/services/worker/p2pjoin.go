@@ -60,7 +60,10 @@ type joinRecord struct {
 
 // p2pJoin is the P2P side of a worker that joined with an invite.
 type p2pJoin struct {
-	host   *p2pnet.Host
+	host *p2pnet.Host
+	// gate admits the frontend, and the model-split workers attached to
+	// this node.
+	gate   *p2pnet.Allowlist
 	server p2pnet.ID
 	dial   []p2pnet.DialOption
 }
@@ -111,19 +114,22 @@ func joinP2P(ctx context.Context, cfg *Config) (*p2pJoin, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, p2pJoinTimeout)
 	defer cancel()
+	gate := p2pnet.NewAllowlist(link.Peer)
 	h, err := p2pnet.New(ctx, p2pnet.Config{
 		IdentityPath:   identity,
+		ListenAddrs:    cfg.P2PListen,
 		PublicDHT:      true,
 		BootstrapPeers: boot,
 		MDNS:           true,
-		// The frontend may connect back for a hole punch. Nobody else may.
-		Gate:      p2pnet.NewAllowlist(link.Peer),
+		// The frontend may connect back for a hole punch. Nobody else may,
+		// except the model-split workers attached to this node.
+		Gate:      gate,
 		UserAgent: "localai-worker/" + internal.Version,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("starting the P2P host of the worker: %w", err)
 	}
-	j := &p2pJoin{host: h, server: link.Peer}
+	j := &p2pJoin{host: h, gate: gate, server: link.Peer}
 
 	if rec == nil {
 		name := cmp.Or(cfg.NodeName, hostname())

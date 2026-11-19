@@ -578,7 +578,7 @@ const heartbeatMaterialDelta = 256 << 20 // 256 MiB
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{})
+		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}, &NodeSplitReport{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
@@ -1030,6 +1030,9 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 		}
 		if err := tx.Where("id = ?", nodeID).Delete(&BackendNode{}).Error; err != nil {
 			return fmt.Errorf("deleting node %s: %w", nodeID, err)
+		}
+		if err := tx.Where("node_id = ?", nodeID).Delete(&NodeSplitReport{}).Error; err != nil {
+			return fmt.Errorf("deleting the split report of node %s: %w", nodeID, err)
 		}
 		// Clean up auto-provisioned auth user (cascades to API keys via FK)
 		if node.AuthUserID != "" {

@@ -915,10 +915,13 @@ export const federationApi = {
 }
 
 // Model-split workers: llama.cpp RPC and MLX workers that lend their memory to
-// models on this server. Answers 409 outside mode "share".
+// models on this server, or on the cluster node each is attached to. Answers
+// 409 outside mode "share".
 export const p2pSplitApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.p2pSplitWorkers),
   setSlowPath: (id, allow) => fetchJSON(API_CONFIG.endpoints.p2pSplitWorker(id), { method: 'PATCH', body: JSON.stringify({ allow_slow_path: allow }) }),
+  // nodeId '' attaches the worker to this instance.
+  setNode: (id, nodeId) => fetchJSON(API_CONFIG.endpoints.p2pSplitWorker(id), { method: 'PATCH', body: JSON.stringify({ node_id: nodeId }) }),
 }
 
 // Image generation

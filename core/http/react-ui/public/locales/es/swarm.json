@@ -48,7 +48,16 @@
       "slowBody": "{{name}} no tiene una ruta directa ni abierta con hole punching hacia esta instancia. Dividir el modelo funciona a través de tu relay, pero cada token lo espera. Abrir el puerto 4001 UDP y TCP en cualquiera de los dos lados puede dar más adelante una ruta directa.",
       "slowCut": "El relay cierra cada conexión tras {{limits}}: el modelo se detiene hasta que se vuelve a cargar. Sube o quita los límites para ir más tiempo.",
       "addAnyway": "Añadir de todos modos",
-      "notNow": "Ahora no"
+      "notNow": "Ahora no",
+      "engineSubNode": {
+        "llama": "El modelo se ejecuta en el nodo que elijas a continuación. El worker guarda algunas de sus capas en su propia memoria.",
+        "mlx": "El modelo se ejecuta en el nodo que elijas a continuación y en el worker, como rangos de un anillo MLX. Solo Apple Silicon."
+      },
+      "nodeTitle": "Nodo",
+      "nodeLabel": "Asignar el worker a",
+      "nodeSub": "Los modelos que cargue este nodo usan el worker. Fija el modelo a este nodo con una regla de ubicación para que se cargue allí. Puedes cambiar el nodo más tarde en la página Nodos.",
+      "nodeNone": "El clúster aún no tiene ningún nodo de backend. Añade uno primero o asigna el worker a un nodo más tarde en la página Nodos.",
+      "nodeServer": "Esta instancia (en un clúster no ejecuta modelos)"
     },
     "col": {
       "worker": "Worker",
@@ -56,7 +65,8 @@
       "path": "Ruta",
       "memory": "Memoria aportada",
       "status": "Estado",
-      "actions": "Acciones"
+      "actions": "Acciones",
+      "node": "Asignado a"
     },
     "engine": {
       "llama": "llama.cpp RPC",
@@ -90,8 +100,15 @@
     "toast": {
       "used": "{{name}} se usa a través del relay.",
       "stopped": "{{name}} ya no se usa a través del relay.",
-      "revoked": "{{name}} fue revocado."
-    }
+      "revoked": "{{name}} fue revocado.",
+      "attached": "{{name}} está asignado a {{node}}. Los modelos que {{node}} cargue a partir de ahora lo usan.",
+      "detached": "{{name}} está asignado a esta instancia."
+    },
+    "noteCluster": "No son nodos del clúster: sin backends y sin reglas de ubicación. Cada uno presta memoria a los modelos del nodo al que está asignado.",
+    "thisServer": "Esta instancia",
+    "nodeLabel": "Nodo de {{name}}",
+    "unattachedTitle": "Estos workers no se usan: asígnalos a un nodo.",
+    "unattachedBody": "Asignados a esta instancia: {{names}}. En un clúster los modelos se ejecutan en los nodos de backend, no en esta instancia. Elige un nodo para cada uno."
   },
   "nodes": {
     "retry": "Reintentar"

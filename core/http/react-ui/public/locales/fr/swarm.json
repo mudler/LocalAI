@@ -48,7 +48,16 @@
       "slowBody": "{{name}} n'a pas de chemin direct ou ouvert par hole punching vers cette instance. La répartition marche par votre relais, mais chaque token l'attend. Ouvrir le port 4001 UDP et TCP d'un des deux côtés peut donner plus tard un chemin direct.",
       "slowCut": "Le relais ferme chaque connexion après {{limits}} : le modèle s'arrête alors jusqu'à ce qu'il soit rechargé. Augmentez ou retirez les limites pour aller plus loin.",
       "addAnyway": "Ajouter quand même",
-      "notNow": "Pas maintenant"
+      "notNow": "Pas maintenant",
+      "engineSubNode": {
+        "llama": "Le modèle tourne sur le nœud que vous choisissez ensuite. Le worker garde certaines de ses couches dans sa propre mémoire.",
+        "mlx": "Le modèle tourne sur le nœud que vous choisissez ensuite et sur le worker, comme rangs d’un même anneau MLX. Apple Silicon uniquement."
+      },
+      "nodeTitle": "Nœud",
+      "nodeLabel": "Rattacher le worker à",
+      "nodeSub": "Les modèles que ce nœud charge utilisent le worker. Fixez le modèle sur ce nœud avec une règle de placement pour qu’il y soit chargé. Vous pourrez changer de nœud plus tard sur la page Nœuds.",
+      "nodeNone": "Le cluster n’a encore aucun nœud backend. Ajoutez-en un d’abord, ou rattachez le worker à un nœud plus tard sur la page Nœuds.",
+      "nodeServer": "Cette instance (elle n’exécute aucun modèle dans un cluster)"
     },
     "col": {
       "worker": "Worker",
@@ -56,7 +65,8 @@
       "path": "Chemin",
       "memory": "Mémoire apportée",
       "status": "État",
-      "actions": "Actions"
+      "actions": "Actions",
+      "node": "Rattaché à"
     },
     "engine": {
       "llama": "llama.cpp RPC",
@@ -90,8 +100,15 @@
     "toast": {
       "used": "{{name}} est utilisé par le relais.",
       "stopped": "{{name}} n'est plus utilisé par le relais.",
-      "revoked": "{{name}} a été révoqué."
-    }
+      "revoked": "{{name}} a été révoqué.",
+      "attached": "{{name}} est rattaché à {{node}}. Les modèles que {{node}} charge désormais l’utilisent.",
+      "detached": "{{name}} est rattaché à cette instance."
+    },
+    "noteCluster": "Ce ne sont pas des nœuds du cluster : ni backends ni règles de placement. Chacun prête sa mémoire aux modèles du nœud auquel il est rattaché.",
+    "thisServer": "Cette instance",
+    "nodeLabel": "Nœud de {{name}}",
+    "unattachedTitle": "Ces workers ne sont pas utilisés : rattachez-les à un nœud.",
+    "unattachedBody": "Rattachés à cette instance : {{names}}. Dans un cluster, les modèles tournent sur les nœuds backend, pas sur cette instance. Choisissez un nœud pour chacun."
   },
   "nodes": {
     "retry": "Réessayer"

@@ -1,23 +1,26 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { p2pNetApi, p2pSplitApi } from '../../utils/api'
+import { nodesApi, p2pNetApi, p2pSplitApi } from '../../utils/api'
 import { useSplitWorkers } from '../../hooks/useSplitWorkers'
 import { formatBytes } from '../../utils/format'
 import { shortPeer } from '../../utils/p2p'
-import { Button, Callout, StatusChip } from '../ui'
+import { Button, Callout, StatusChip, useLoad } from '../ui'
 import ConfirmDialog from '../ConfirmDialog'
 import RelayLimitsDialog from '../p2psettings/RelayLimitsDialog'
-import { cutLimits, limitsRelay, pathOf, slowAction, stateOf, summarize } from './splitWorkersModel'
+import { cutLimits, limitsRelay, nodeChoices, pathOf, slowAction, stateOf, summarize, unattached } from './splitWorkersModel'
 import './split.css'
 
 // The "Model-split workers" group of the Nodes page: machines that lend their
 // memory so one big model runs across machines. They are not cluster nodes:
 // no backends and no placement rules. A worker that only a relay reaches is
-// slow; the administrator chooses "Use anyway" or leaves it out.
+// slow; the administrator chooses "Use anyway" or leaves it out. In a cluster
+// each worker is attached to the backend node whose models it serves.
 export default function SplitWorkers({ addToast }) {
   const { t } = useTranslation('swarm')
   const split = useSplitWorkers()
+  const nodes = useLoad(() => (split.distributed ? nodesApi.list() : Promise.resolve([])), [split.distributed])
+  const choices = nodeChoices(nodes.data)
   const [busy, setBusy] = useState(null)
   const [revoking, setRevoking] = useState(null)
   const [revokeBusy, setRevokeBusy] = useState(false)
@@ -25,12 +28,27 @@ export default function SplitWorkers({ addToast }) {
 
   if (split.status !== 'ready' || split.workers.length === 0) return null
   const sum = summarize(split.workers)
+  const idle = unattached(split.workers, split.distributed)
 
   const setSlow = async (worker, allow) => {
     setBusy(worker.id)
     try {
       await p2pSplitApi.setSlowPath(worker.id, allow)
       addToast?.(t(allow ? 'split.toast.used' : 'split.toast.stopped', { name: worker.label || shortPeer(worker.peer_id) }), 'success')
+      await split.refetch()
+    } catch (error) {
+      addToast?.(error.message, 'error')
+    } finally {
+      setBusy(null)
+    }
+  }
+  const attach = async (worker, nodeId) => {
+    setBusy(worker.id)
+    const name = worker.label || shortPeer(worker.peer_id)
+    const node = choices.find(n => n.id === nodeId)?.name
+    try {
+      await p2pSplitApi.setNode(worker.id, nodeId)
+      addToast?.(nodeId ? t('split.toast.attached', { name, node }) : t('split.toast.detached', { name }), 'success')
       await split.refetch()
     } catch (error) {
       addToast?.(error.message, 'error')
@@ -58,8 +76,13 @@ export default function SplitWorkers({ addToast }) {
         <h2 className="sw-h2" id="sw-split-title">
           {t('split.title')} <span className="sw-count">{t('split.online', { online: sum.online, total: sum.total })}</span>
         </h2>
-        <p className="sw-note sw-note--quiet">{t('split.note')}</p>
+        <p className="sw-note sw-note--quiet">{t(split.distributed ? 'split.noteCluster' : 'split.note')}</p>
       </div>
+      {idle.length > 0 && (
+        <Callout tone="warn" title={t('split.unattachedTitle')} testId="split-unattached-callout">
+          {t('split.unattachedBody', { names: idle.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
+        </Callout>
+      )}
       {sum.slow.length > 0 && (
         <Callout title={t('split.slowTitle')} testId="split-slow-callout">
           {t('split.slowBody', { names: sum.slow.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
@@ -81,6 +104,7 @@ export default function SplitWorkers({ addToast }) {
               <tr>
                 <th scope="col">{t('split.col.worker')}</th>
                 <th scope="col" className="dk-hide-phone">{t('split.col.engine')}</th>
+                {split.distributed && <th scope="col" className="dk-hide-phone">{t('split.col.node')}</th>}
                 <th scope="col" className="dk-hide-phone">{t('split.col.path')}</th>
                 <th scope="col" className="dk-hide-phone">{t('split.col.memory')}</th>
                 <th scope="col" className="dk-hide-phone">{t('split.col.status')}</th>
@@ -99,9 +123,19 @@ export default function SplitWorkers({ addToast }) {
                       <span className="sw-hint sw-split-phone">{t(`split.engine.${worker.engine === 'mlx' ? 'mlx' : 'llama'}`)}</span>
                       <span className="sw-split-phone sw-split-phone--chip"><StatusChip tone={state.tone} dot>{t(`split.state.${state.key}`)}</StatusChip></span>
                       <span className="sw-split-phone sw-split-phone--chip"><PathChip worker={worker} /></span>
+                      {split.distributed && (
+                        <span className="sw-split-phone sw-split-phone--chip">
+                          <NodePicker worker={worker} name={name} choices={choices} busy={busy === worker.id} onChange={attach} testId={`split-node-phone-${worker.id}`} />
+                        </span>
+                      )}
                       {worker.error && <span className="sw-hint">{worker.error}</span>}
                     </td>
                     <td className="dk-hide-phone">{t(`split.engine.${worker.engine === 'mlx' ? 'mlx' : 'llama'}`)}</td>
+                    {split.distributed && (
+                      <td className="dk-hide-phone">
+                        <NodePicker worker={worker} name={name} choices={choices} busy={busy === worker.id} onChange={attach} testId={`split-node-${worker.id}`} />
+                      </td>
+                    )}
                     <td className="dk-hide-phone"><PathChip worker={worker} /></td>
                     <td className="dk-hide-phone">{worker.memory_bytes > 0 ? formatBytes(worker.memory_bytes) : <span className="sw-unknown">-</span>}</td>
                     <td className="dk-hide-phone"><StatusChip tone={state.tone} dot>{t(`split.state.${state.key}`)}</StatusChip></td>
@@ -143,6 +177,25 @@ export default function SplitWorkers({ addToast }) {
         onCancel={() => setRevoking(null)}
       />
     </section>
+  )
+}
+
+// The node a worker is attached to, as a choice: this instance, or a backend
+// node of the cluster. A node that left the list keeps its entry.
+function NodePicker({ worker, name, choices, busy, onChange, testId }) {
+  const { t } = useTranslation('swarm')
+  return (
+    <select
+      className="dk-select sw-split-node" value={worker.node_id || ''} disabled={busy}
+      aria-label={t('split.nodeLabel', { name })} onChange={event => onChange(worker, event.target.value)}
+      data-testid={testId}
+    >
+      <option value="">{t('split.thisServer')}</option>
+      {worker.node_id && !choices.some(n => n.id === worker.node_id) && (
+        <option value={worker.node_id}>{worker.node_name || worker.node_id}</option>
+      )}
+      {choices.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+    </select>
   )
 }
 

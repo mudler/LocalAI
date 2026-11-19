@@ -48,7 +48,16 @@
       "slowBody": "{{name}} tidak punya jalur langsung atau jalur hole punching ke instans ini. Pembagian model berjalan lewat relay Anda, tetapi setiap token menunggunya. Membuka port 4001 UDP dan TCP di salah satu sisi dapat memberi jalur langsung nanti.",
       "slowCut": "Relay mengakhiri setiap koneksi setelah {{limits}}: model lalu berhenti sampai dimuat ulang. Naikkan atau hapus batasnya agar berjalan lebih lama.",
       "addAnyway": "Tetap tambahkan",
-      "notNow": "Nanti saja"
+      "notNow": "Nanti saja",
+      "engineSubNode": {
+        "llama": "Model berjalan di node yang Anda pilih berikutnya. Worker menyimpan sebagian lapisannya di memorinya sendiri.",
+        "mlx": "Model berjalan di node yang Anda pilih berikutnya dan di worker, sebagai rank dalam satu ring MLX. Hanya Apple Silicon."
+      },
+      "nodeTitle": "Node",
+      "nodeLabel": "Pasang worker ke",
+      "nodeSub": "Model yang dimuat node ini memakai worker. Tetapkan model ke node ini dengan aturan penempatan agar dimuat di sana. Anda bisa mengganti node nanti di halaman Node.",
+      "nodeNone": "Kluster belum punya node backend. Tambahkan satu dulu, atau pasang worker ke sebuah node nanti di halaman Node.",
+      "nodeServer": "Instans ini (tidak menjalankan model dalam kluster)"
     },
     "col": {
       "worker": "Worker",
@@ -56,7 +65,8 @@
       "path": "Jalur",
       "memory": "Memori tambahan",
       "status": "Status",
-      "actions": "Tindakan"
+      "actions": "Tindakan",
+      "node": "Dipasang ke"
     },
     "engine": {
       "llama": "llama.cpp RPC",
@@ -90,8 +100,15 @@
     "toast": {
       "used": "{{name}} dipakai lewat relay.",
       "stopped": "{{name}} tidak lagi dipakai lewat relay.",
-      "revoked": "{{name}} sudah dicabut."
-    }
+      "revoked": "{{name}} sudah dicabut.",
+      "attached": "{{name}} dipasang ke {{node}}. Model yang dimuat {{node}} mulai sekarang memakainya.",
+      "detached": "{{name}} dipasang ke instans ini."
+    },
+    "noteCluster": "Bukan node kluster: tanpa backend dan tanpa aturan penempatan. Masing-masing meminjamkan memorinya untuk model di node tempat ia dipasang.",
+    "thisServer": "Instans ini",
+    "nodeLabel": "Node untuk {{name}}",
+    "unattachedTitle": "Worker ini tidak dipakai: pasang ke sebuah node.",
+    "unattachedBody": "Dipasang ke instans ini: {{names}}. Dalam kluster, model berjalan di node backend, bukan di instans ini. Pilih node untuk masing-masing."
   },
   "nodes": {
     "retry": "Coba lagi"

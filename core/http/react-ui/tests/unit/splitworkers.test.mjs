@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  arrivedSince, cutLimits, limitsRelay, pathOf, slowAction, splitCommand, stateOf, summarize,
+  arrivedSince, cutLimits, limitsRelay, nodeChoices, pathOf, slowAction, splitCommand, stateOf, summarize, unattached,
 } from '../../src/components/swarm/splitWorkersModel.js'
 
 const worker = (extra = {}) => ({ id: 'w', state: 'online', path: { kind: 'direct' }, allow_slow_path: false, ...extra })
@@ -77,4 +77,22 @@ test('split workers: a relay of the user that limits each connection is slow, wi
   assert.deepEqual(cutLimits(pub), [])
   assert.equal(limitsRelay(pub), null)
   assert.equal(slowAction(pub), null)
+})
+
+test('split workers: only backend nodes can hold a worker, by name', () => {
+  const nodes = [
+    { id: 'b', name: 'gpu-b', node_type: 'backend' },
+    { id: 'a', name: 'agent-1', node_type: 'agent' },
+    { id: 'c', name: 'gpu-a' },
+  ]
+  assert.deepEqual(nodeChoices(nodes), [{ id: 'c', name: 'gpu-a' }, { id: 'b', name: 'gpu-b' }])
+  assert.deepEqual(nodeChoices(null), [])
+  // The API answers an object with a nodes list on some versions.
+  assert.deepEqual(nodeChoices({ nodes: [{ id: 'x', name: 'x' }] }), [{ id: 'x', name: 'x' }])
+})
+
+test('split workers: in a cluster a worker attached to no node is not used', () => {
+  const list = [worker({ id: 'a', node_id: 'n1' }), worker({ id: 'b' }), worker({ id: 'c', node_id: '' })]
+  assert.deepEqual(unattached(list, true).map(w => w.id), ['b', 'c'])
+  assert.deepEqual(unattached(list, false), [], 'a standalone instance runs the models itself')
 })

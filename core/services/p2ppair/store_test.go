@@ -252,6 +252,26 @@ func storeContract(newStore func() p2ppair.Store) {
 		Expect(s.SetDeviceAllowSlowPath(ctx, "nope", true)).To(MatchError(p2ppair.ErrNotFound))
 	})
 
+	It("stores the node a split device is attached to", func() {
+		inv := invite("a", time.Hour)
+		inv.Kind = p2ppair.KindSplit
+		inv.Scope = p2ppair.Scope{Labels: map[string]string{p2ppair.NodeLabel: "node-1"}}
+		Expect(s.CreateInvite(ctx, inv, testCode)).To(Succeed())
+		_, dev, err := s.Redeem(ctx, redeemParams(testCode, "d1"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dev.NodeID).To(Equal("node-1"), "the invite names the first node")
+		d, _ := s.GetDevice(ctx, "d1")
+		Expect(d.NodeID).To(Equal("node-1"))
+		Expect(s.SetDeviceNode(ctx, "d1", "node-2")).To(Succeed())
+		devs, _ := s.ListDevices(ctx)
+		Expect(devs).To(HaveLen(1))
+		Expect(devs[0].NodeID).To(Equal("node-2"))
+		Expect(s.SetDeviceNode(ctx, "d1", "")).To(Succeed())
+		d, _ = s.GetDevice(ctx, "d1")
+		Expect(d.NodeID).To(BeEmpty(), "an empty node attaches the device to the server again")
+		Expect(s.SetDeviceNode(ctx, "nope", "node-1")).To(MatchError(p2ppair.ErrNotFound))
+	})
+
 	It("undoes the redeem when the key issuer fails", func() {
 		Expect(s.CreateInvite(ctx, invite("a", time.Hour), testCode)).To(Succeed())
 		rp := redeemParams(testCode, "d1")

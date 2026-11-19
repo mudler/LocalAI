@@ -38,7 +38,7 @@ export function splitWorkers() {
 
 // Answers the P2P routes these pages call. Registered after mockSwarm, so it
 // sees the P2P calls first and passes the rest on.
-export async function mockSplit(page, { mode = 'share', workers = splitWorkers(), invites = () => [], onPatch, log = [] } = {}) {
+export async function mockSplit(page, { mode = 'share', workers = splitWorkers(), invites = () => [], onPatch, log = [], distributed = false } = {}) {
   let current = workers
   await page.route('**/api/p2p/**', async route => {
     const request = route.request()
@@ -50,7 +50,7 @@ export async function mockSplit(page, { mode = 'share', workers = splitWorkers()
     }
     if (path === '/api/p2p/split-workers' && method === 'GET') {
       const list = typeof current === 'function' ? current() : current
-      return route.fulfill(json({ workers: list, memory_in_use: list.filter(w => w.state === 'online').reduce((sum, w) => sum + w.memory_bytes, 0) }))
+      return route.fulfill(json({ workers: list, distributed, memory_in_use: list.filter(w => w.state === 'online').reduce((sum, w) => sum + w.memory_bytes, 0) }))
     }
     const one = path.match(/^\/api\/p2p\/split-workers\/(.+)$/)
     if (one && method === 'PATCH') {
@@ -58,7 +58,10 @@ export async function mockSplit(page, { mode = 'share', workers = splitWorkers()
       log.push({ method, path, body })
       const id = decodeURIComponent(one[1])
       const list = typeof current === 'function' ? current() : current
-      const updated = list.map(w => (w.id === id ? { ...w, allow_slow_path: body.allow_slow_path, state: body.allow_slow_path ? 'online' : 'slow' } : w))
+      const change = w => ('node_id' in body
+        ? { ...w, node_id: body.node_id, node_name: body.node_id ? `node ${body.node_id}` : '' }
+        : { ...w, allow_slow_path: body.allow_slow_path, state: body.allow_slow_path ? 'online' : 'slow' })
+      const updated = list.map(w => (w.id === id ? change(w) : w))
       if (typeof current !== 'function') current = updated
       onPatch?.(id, body)
       return route.fulfill(json(updated.find(w => w.id === id)))

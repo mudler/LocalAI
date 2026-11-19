@@ -52,6 +52,8 @@ type deviceRow struct {
 	RevokedBy   string `gorm:"size:64"`
 	// AllowSlowPath is the "Use anyway" choice of a split worker.
 	AllowSlowPath bool `gorm:"not null;default:false"`
+	// NodeID is the backend node a split device is attached to.
+	NodeID string `gorm:"size:64"`
 }
 
 // TableName is the table of the devices.
@@ -112,6 +114,7 @@ func (r deviceRow) device() Device {
 		PeerID: r.PeerID, ClientKeyID: r.ClientKeyID, InviteID: r.InviteID,
 		CreatedAt: r.CreatedAt, LastSeenAt: r.LastSeenAt, LastPath: r.LastPath,
 		RevokedAt: r.RevokedAt, RevokedBy: r.RevokedBy, AllowSlowPath: r.AllowSlowPath,
+		NodeID: r.NodeID,
 	}
 	_ = json.Unmarshal([]byte(r.Scope), &d.Scope)
 	return d
@@ -123,7 +126,7 @@ func deviceToRow(d Device) deviceRow {
 		PeerID: d.PeerID, ClientKeyID: d.ClientKeyID, InviteID: d.InviteID,
 		Scope: marshalJSON(d.Scope), CreatedAt: d.CreatedAt, LastSeenAt: d.LastSeenAt,
 		LastPath: d.LastPath, RevokedAt: d.RevokedAt, RevokedBy: d.RevokedBy,
-		AllowSlowPath: d.AllowSlowPath,
+		AllowSlowPath: d.AllowSlowPath, NodeID: d.NodeID,
 	}
 }
 
@@ -214,6 +217,7 @@ func (s *gormStore) Redeem(ctx context.Context, p RedeemParams) (Invite, Device,
 		dev = Device{
 			ID: p.DeviceID, OwnerID: inv.OwnerID, Kind: inv.Kind, Label: label,
 			PeerID: p.Peer.String(), InviteID: inv.ID, Scope: inv.Scope, CreatedAt: now,
+			NodeID: inv.Scope.Labels[NodeLabel],
 		}
 		var active int64
 		if err := tx.Model(&deviceRow{}).Where("peer_id = ? AND revoked_at IS NULL", dev.PeerID).Count(&active).Error; err != nil {
@@ -291,6 +295,19 @@ func (s *gormStore) SetDeviceAllowSlowPath(ctx context.Context, id string, allow
 	// Update with a map: GORM skips a false bool in a struct update.
 	return s.db.WithContext(ctx).Model(&deviceRow{}).Where("id = ?", id).
 		Updates(map[string]any{"allow_slow_path": allow}).Error
+}
+
+func (s *gormStore) SetDeviceNode(ctx context.Context, id, node string) error {
+	var n int64
+	if err := s.db.WithContext(ctx).Model(&deviceRow{}).Where("id = ?", id).Count(&n).Error; err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	// Update with a map: GORM skips an empty string in a struct update.
+	return s.db.WithContext(ctx).Model(&deviceRow{}).Where("id = ?", id).
+		Updates(map[string]any{"node_id": node}).Error
 }
 
 func (s *gormStore) RevokeDevice(ctx context.Context, id, by string, now time.Time) (Device, error) {

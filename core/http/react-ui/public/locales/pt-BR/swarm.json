@@ -48,7 +48,16 @@
       "slowBody": "{{name}} não tem caminho direto nem aberto com hole punching até esta instância. A divisão funciona pelo seu relay, mas cada token espera por ele. Abrir a porta 4001 UDP e TCP em qualquer um dos lados pode dar um caminho direto depois.",
       "slowCut": "O relay encerra cada conexão após {{limits}}: o modelo então para até ser carregado de novo. Aumente ou remova os limites para ir mais longe.",
       "addAnyway": "Adicionar mesmo assim",
-      "notNow": "Agora não"
+      "notNow": "Agora não",
+      "engineSubNode": {
+        "llama": "O modelo roda no nó que você escolher a seguir. O worker guarda algumas das camadas na própria memória.",
+        "mlx": "O modelo roda no nó que você escolher a seguir e no worker, como ranks de um mesmo anel MLX. Somente Apple Silicon."
+      },
+      "nodeTitle": "Nó",
+      "nodeLabel": "Vincular o worker a",
+      "nodeSub": "Os modelos que este nó carregar usam o worker. Fixe o modelo neste nó com uma regra de alocação para que ele seja carregado lá. Você pode trocar o nó depois na página Nós.",
+      "nodeNone": "O cluster ainda não tem nenhum nó de backend. Adicione um primeiro ou vincule o worker a um nó depois na página Nós.",
+      "nodeServer": "Esta instância (em um cluster ela não roda modelos)"
     },
     "col": {
       "worker": "Worker",
@@ -56,7 +65,8 @@
       "path": "Caminho",
       "memory": "Memória somada",
       "status": "Status",
-      "actions": "Ações"
+      "actions": "Ações",
+      "node": "Vinculado a"
     },
     "engine": {
       "llama": "llama.cpp RPC",
@@ -90,8 +100,15 @@
     "toast": {
       "used": "{{name}} é usado pelo relay.",
       "stopped": "{{name}} não é mais usado pelo relay.",
-      "revoked": "{{name}} foi revogado."
-    }
+      "revoked": "{{name}} foi revogado.",
+      "attached": "{{name}} está vinculado a {{node}}. Os modelos que {{node}} carregar a partir de agora o usam.",
+      "detached": "{{name}} está vinculado a esta instância."
+    },
+    "noteCluster": "Não são nós do cluster: sem backends e sem regras de alocação. Cada um empresta memória aos modelos do nó ao qual está vinculado.",
+    "thisServer": "Esta instância",
+    "nodeLabel": "Nó de {{name}}",
+    "unattachedTitle": "Estes workers não estão em uso: vincule-os a um nó.",
+    "unattachedBody": "Vinculados a esta instância: {{names}}. Em um cluster os modelos rodam nos nós de backend, não nesta instância. Escolha um nó para cada um."
   },
   "nodes": {
     "retry": "Tentar novamente"

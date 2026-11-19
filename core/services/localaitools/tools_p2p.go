@@ -67,7 +67,7 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolListP2PSplitWorkers,
-		Description: "List the model-split workers (llama.cpp RPC and MLX) that lend their memory to models on this server, with their state (online, offline, slow, limited, refused), path and memory.",
+		Description: "List the model-split workers (llama.cpp RPC and MLX) that lend their memory to models on this server or on the backend node each is attached to (node_id, node_name), with their state (online, offline, slow, limited, refused), path and memory.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		ws, err := client.ListP2PSplitWorkers(ctx)
 		if err != nil {
@@ -99,6 +99,19 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		Allow bool   `json:"allow" jsonschema:"true to use the worker over the relay, false to stop"`
 	}) (*mcp.CallToolResult, any, error) {
 		w, err := client.SetP2PSplitSlowPath(ctx, args.ID, args.Allow)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(w), nil, nil
+	})
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolSetP2PSplitNode,
+		Description: "Attach a model-split worker to a backend node of the cluster (node_id from list_nodes), or to this server (node_id empty). The models that node loads afterwards shard across the worker; a model already loaded keeps its workers until it is loaded again. Say that the model should be pinned to the node with set_scheduling. Requires user confirmation per safety rule 1.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
+		ID     string `json:"id" jsonschema:"worker ID from list_p2p_split_workers"`
+		NodeID string `json:"node_id" jsonschema:"backend node ID, or empty for this server"`
+	}) (*mcp.CallToolResult, any, error) {
+		w, err := client.SetP2PSplitNode(ctx, args.ID, args.NodeID)
 		if err != nil {
 			return errorResult(err), nil, nil
 		}

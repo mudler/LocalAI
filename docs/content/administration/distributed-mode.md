@@ -462,7 +462,9 @@ The worker needs no NATS address. The frontend tells it which [carrier](#carrier
 | `--ephemeral-staging-min-free-bytes` | `LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES` | `0` (automatic) | Free filesystem space preserved while staging request inputs. Automatic mode uses the larger of 1 GiB and 5% of filesystem capacity. |
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(empty)* | Frontend URL for self-registration. Required unless `--join` is given |
 | `--join` | `LOCALAI_JOIN` | *(empty)* | Join the cluster over P2P with a worker invite link instead of `--register-to` and a registration token. See [Workers over P2P](#workers-over-p2p) |
-| `--p2p-identity` | `LOCALAI_P2P_IDENTITY` | `<models path>/../data/p2p/identity.key` | Key file of the P2P identity of a worker that joins with `--join`. Keep it: the frontend knows the worker by it |
+| `--p2p-identity` | `LOCALAI_P2P_IDENTITY` | `<models path>/../data/p2p/identity.key` | Key file of the P2P identity of the worker: of a worker that joins with `--join`, and of the host that [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) attached to this node connect to. Keep it: the frontend knows the worker by it |
+| `--p2p-listen` | `LOCALAI_P2P_LISTEN_MADDRS` | TCP and QUIC on every interface, random ports | Listen addresses of the P2P host of the worker. Model-split workers attached to this node connect to it; a fixed, open port gives them a direct path |
+| `--p2p-bootstrap` | `LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` | *(public bootstrap peers)* | Peers the P2P host connects to at start, addresses that end in `/p2p/<peer ID>` |
 | `--allow-open-relay` | `LOCALAI_ALLOW_OPEN_RELAY` | `false` | With `--join`: redeem an invite that names an open relay, which anyone can use |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
@@ -727,6 +729,7 @@ Used by workers themselves (registration, heartbeat, etc.). Authenticated via th
 | `POST` | `/api/node/:id/heartbeat` | Update heartbeat timestamp |
 | `POST` | `/api/node/:id/drain` | Mark self as draining |
 | `GET` | `/api/node/:id/models` | Query own loaded models |
+| `POST` | `/api/node/:id/split` | Report the P2P host and the [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) of the node; the answer lists the workers attached to it |
 | `DELETE` | `/api/node/:id` | Deregister self |
 
 ### `/api/nodes/` - Admin management

@@ -103,6 +103,21 @@ type Config struct {
 	// Ports keeps the loopback ports across managers, so a model loaded
 	// with an address keeps working when P2P restarts. Nil keeps none.
 	Ports *PortBook
+	// Elsewhere answers the hello of a peer that is not one of Devices. It
+	// returns false when the peer is no split worker, which refuses it for
+	// good. A frontend answers with the backend node a worker is attached
+	// to; a node answers Wait for a worker it does not have yet. Nil
+	// refuses every unknown peer.
+	Elsewhere func(ctx context.Context, p p2pnet.ID) (Move, bool)
+}
+
+// Move tells a worker where its control session belongs.
+type Move struct {
+	// Peer and Addrs reach the backend node that serves the worker.
+	Peer  p2pnet.ID
+	Addrs []string
+	// Wait, when Peer is empty, says why the worker must ask again later.
+	Wait string
 }
 
 // Manager runs the server side of model splitting: it accepts the control
@@ -644,7 +659,7 @@ func (m *Manager) serveControl(c net.Conn) {
 	}
 	d, ok := m.device(p)
 	if !ok {
-		_ = writeMsg(c, message{Type: msgRefused, V: protoVersion, Err: "this peer is not paired as a model-split worker: redeem a split invite first"})
+		m.elsewhere(c, p)
 		return
 	}
 	refusal := ""
@@ -694,6 +709,28 @@ func (m *Manager) serveControl(c net.Conn) {
 	}
 	m.dropSession(d.ID, sess)
 	xlog.Info("p2p split: worker disconnected", "worker", d.Label)
+}
+
+// elsewhere answers a peer that is not one of the devices: moved, wait, or
+// refused when it is no split worker at all.
+func (m *Manager) elsewhere(c net.Conn, p p2pnet.ID) {
+	var mv Move
+	ok := false
+	if m.cfg.Elsewhere != nil {
+		ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
+		mv, ok = m.cfg.Elsewhere(ctx, p)
+		cancel()
+	}
+	_ = c.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	switch {
+	case !ok:
+		_ = writeMsg(c, message{Type: msgRefused, V: protoVersion, Err: "this peer is not paired as a model-split worker: redeem a split invite first"})
+	case mv.Peer != "":
+		xlog.Debug("p2p split: sent a worker to its node", "worker", p.String(), "node", mv.Peer.String())
+		_ = writeMsg(c, message{Type: msgMoved, V: protoVersion, Peer: mv.Peer.String(), Addrs: mv.Addrs})
+	default:
+		_ = writeMsg(c, message{Type: msgWait, V: protoVersion, Err: mv.Wait})
+	}
 }
 
 func (m *Manager) dropSession(id string, sess *session) {

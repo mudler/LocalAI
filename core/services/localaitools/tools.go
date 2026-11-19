@@ -76,6 +76,7 @@ const (
 	// undrains federation groups (an action parameter).
 	ToolManageFederationGroup = "manage_federation_group"
 	ToolSetP2PSplitSlowPath   = "set_p2p_split_slow_path"
+	ToolSetP2PSplitNode       = "set_p2p_split_node"
 	ToolSetP2PRelayLimits     = "set_p2p_relay_limits"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
@@ -99,7 +100,8 @@ const (
 	ToolListP2PRelays     = "list_p2p_relays"
 	ToolGetP2PRelayLimits = "get_p2p_relay_limits"
 	// ToolListP2PSplitWorkers lists the model-split workers;
-	// set_p2p_split_slow_path is in the mutating block above.
+	// set_p2p_split_slow_path and set_p2p_split_node are in the mutating
+	// block above.
 	ToolListP2PSplitWorkers = "list_p2p_split_workers"
 
 	// ToolListFederation is read-only: the instances and the federation
@@ -148,5 +150,6 @@ var mutatingToolNames = []string{
 	ToolCancelP2PInvite,
 	ToolManageFederationGroup,
 	ToolSetP2PSplitSlowPath,
+	ToolSetP2PSplitNode,
 	ToolSetP2PRelayLimits,
 }

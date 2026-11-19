@@ -17,6 +17,7 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
@@ -351,4 +352,34 @@ func (c *RegistrationClient) GracefulDeregister(nodeID string) {
 	} else {
 		xlog.Info("Deregistered from frontend")
 	}
+}
+
+// SplitSync sends the split report of a node and returns the model-split
+// workers attached to it (POST /api/node/{id}/split). An error leaves the
+// caller with its last answer: the frontend may be down, or may not share
+// over P2P.
+func (c *RegistrationClient) SplitSync(ctx context.Context, nodeID string, rep workerctl.SplitReport) (*workerctl.SplitAssignment, error) {
+	body, err := json.Marshal(rep)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL()+"/api/node/"+nodeID+"/split", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("creating split report request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	c.setAuth(req)
+	resp, err := c.httpClient().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("split report refused with status %d", resp.StatusCode)
+	}
+	var out workerctl.SplitAssignment
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil {
+		return nil, fmt.Errorf("reading the split assignment: %w", err)
+	}
+	return &out, nil
 }

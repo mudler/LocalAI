@@ -48,7 +48,16 @@
       "slowBody": "{{name}} hat keinen direkten oder per Hole Punching geöffneten Pfad zu dieser Instanz. Das Aufteilen funktioniert über dein Relay, aber jedes Token wartet darauf. Wenn du UDP- und TCP-Port 4001 auf einer Seite öffnest, kann später ein direkter Pfad entstehen.",
       "slowCut": "Das Relay beendet jede Verbindung nach {{limits}}: das Modell hält dann an, bis es neu geladen wird. Erhöhe oder entferne die Limits, um länger zu laufen.",
       "addAnyway": "Trotzdem hinzufügen",
-      "notNow": "Nicht jetzt"
+      "notNow": "Nicht jetzt",
+      "engineSubNode": {
+        "llama": "Das Modell läuft auf dem Knoten, den du als Nächstes wählst. Der Worker hält einige seiner Schichten in seinem eigenen Speicher.",
+        "mlx": "Das Modell läuft auf dem Knoten, den du als Nächstes wählst, und auf dem Worker, als Ränge eines MLX-Rings. Nur Apple Silicon."
+      },
+      "nodeTitle": "Knoten",
+      "nodeLabel": "Worker zuordnen zu",
+      "nodeSub": "Modelle, die dieser Knoten lädt, nutzen den Worker. Lege das Modell mit einer Platzierungsregel auf diesen Knoten fest, damit es dort geladen wird. Den Knoten kannst du später auf der Seite Knoten ändern.",
+      "nodeNone": "Der Cluster hat noch keinen Backend-Knoten. Füge zuerst einen hinzu oder ordne den Worker später auf der Seite Knoten einem Knoten zu.",
+      "nodeServer": "Diese Instanz (sie führt in einem Cluster keine Modelle aus)"
     },
     "col": {
       "worker": "Worker",
@@ -56,7 +65,8 @@
       "path": "Pfad",
       "memory": "Zusätzlicher Speicher",
       "status": "Status",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "node": "Zugeordnet zu"
     },
     "engine": {
       "llama": "llama.cpp RPC",
@@ -90,8 +100,15 @@
     "toast": {
       "used": "{{name}} wird über das Relay genutzt.",
       "stopped": "{{name}} wird nicht mehr über das Relay genutzt.",
-      "revoked": "{{name}} wurde widerrufen."
-    }
+      "revoked": "{{name}} wurde widerrufen.",
+      "attached": "{{name}} ist {{node}} zugeordnet. Modelle, die {{node}} ab jetzt lädt, nutzen ihn.",
+      "detached": "{{name}} ist dieser Instanz zugeordnet."
+    },
+    "noteCluster": "Keine Cluster-Knoten: keine Backends und keine Platzierungsregeln. Jeder leiht den Modellen des Knotens, dem er zugeordnet ist, seinen Speicher.",
+    "thisServer": "Diese Instanz",
+    "nodeLabel": "Knoten von {{name}}",
+    "unattachedTitle": "Diese Worker werden nicht genutzt: Ordne sie einem Knoten zu.",
+    "unattachedBody": "Dieser Instanz zugeordnet: {{names}}. In einem Cluster laufen die Modelle auf den Backend-Knoten, nicht auf dieser Instanz. Wähle für jeden einen Knoten."
   },
   "nodes": {
     "retry": "Erneut versuchen"
