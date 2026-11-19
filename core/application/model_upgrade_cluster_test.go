@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -111,9 +112,9 @@ var _ = Describe("the stop-and-start runtime of a cluster", func() {
 		Expect(replicas.ctxErr).To(MatchError(context.Canceled), "a cancelled upgrade must stop the registry call")
 	})
 
-	It("reads a model as loaded when the registry cannot answer", func() {
+	It("does not read a model as loaded when the registry cannot answer", func() {
 		replicas.err = errors.New("database down")
-		Expect(rt.IsLoaded(ctx, "other")).To(BeTrue())
+		Expect(rt.IsLoaded(ctx, "other")).To(BeFalse())
 	})
 
 	It("stops every replica and checks that none is left", func() {
@@ -159,6 +160,50 @@ var _ = Describe("the stop-and-start runtime of a cluster", func() {
 		Expect(rt.BlockLoads(ctx, "tiny")).To(Succeed())
 		Expect(rt.UnblockLoads(ctx, "tiny")).To(MatchError(ContainSubstring("no config")))
 		Expect(loader.blocked).To(BeEmpty())
+	})
+
+	Context("a block left in the registry", func() {
+		var revs *fakeRevisions
+
+		BeforeEach(func() {
+			revs = &fakeRevisions{replicas: replicas, published: map[string]string{
+				"tiny": upgradeBlockRevision("tiny"), "other": "rev-other",
+			}}
+			rt.revisions = revs
+			rt.revisionOf = func(name string) (string, error) { return "rev-disk-" + name, nil }
+			rt.storedRevision = func(_ context.Context, name string) (string, error) {
+				rev, ok := revs.published[name]
+				if !ok {
+					return "", modeladmin.ErrNoStoredRevision
+				}
+				return rev, nil
+			}
+		})
+
+		It("is lifted for a model that no upgrade holds, and only for it", func() {
+			done := rt.RepublishBlocked(ctx, []string{"tiny", "other", "never-served"}, func(context.Context, string) (func(), error) {
+				return func() {}, nil
+			})
+			Expect(done).To(Equal([]string{"tiny"}))
+			Expect(revs.published["tiny"]).To(Equal("rev-disk-tiny"))
+			Expect(revs.published["other"]).To(Equal("rev-other"))
+		})
+
+		It("stays while another frontend holds the lock of the model", func() {
+			done := rt.RepublishBlocked(ctx, []string{"tiny"}, func(context.Context, string) (func(), error) {
+				return nil, gallery.ErrModelLocked
+			})
+			Expect(done).To(BeEmpty())
+			Expect(revs.published["tiny"]).To(Equal(upgradeBlockRevision("tiny")))
+		})
+
+		It("is lifted at a later pass when the publish failed", func() {
+			free := func(context.Context, string) (func(), error) { return func() {}, nil }
+			revs.err = errors.New("database down")
+			Expect(rt.RepublishBlocked(ctx, []string{"tiny"}, free)).To(BeEmpty())
+			revs.err = nil
+			Expect(rt.RepublishBlocked(ctx, []string{"tiny"}, free)).To(Equal([]string{"tiny"}))
+		})
 	})
 
 	It("fails when the shutdown fails", func() {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -61,6 +62,9 @@ type clusterRuntime struct {
 	// change (BlockLoads). Nil skips it.
 	revisions  revisionPublisher
 	revisionOf func(name string) (string, error)
+	// storedRevision reads the revision the registry holds for a model, or
+	// modeladmin.ErrNoStoredRevision. Nil turns RepublishBlocked off.
+	storedRevision func(ctx context.Context, name string) (string, error)
 }
 
 func newClusterRuntime(base *modelRuntime, replicas clusterReplicas, loader localModels) *clusterRuntime {
@@ -89,6 +93,47 @@ func (r *clusterRuntime) UnblockLoads(ctx context.Context, name string) error {
 	if r.revisions == nil || r.revisionOf == nil {
 		return nil
 	}
+	return r.publishDiskRevision(ctx, name)
+}
+
+// RepublishBlocked publishes the revision of the config on disk for every
+// model the registry still holds under its upgrade block revision while no
+// upgrade of it runs. An upgrade that ended without publishing (its frontend
+// stopped, or the publish failed) leaves the block in the registry, and
+// nothing else would lift it: every request for the model is refused. A model
+// is no longer upgrading when its lock is free; a nil lock (no cluster lock)
+// skips the check. It returns the models it republished.
+func (r *clusterRuntime) RepublishBlocked(ctx context.Context, names []string, lock gallery.ModelLock) []string {
+	if r.revisions == nil || r.revisionOf == nil || r.storedRevision == nil {
+		return nil
+	}
+	var done []string
+	for _, name := range names {
+		stored, err := r.storedRevision(ctx, name)
+		if err != nil || stored != upgradeBlockRevision(name) {
+			continue
+		}
+		release := func() {}
+		if lock != nil {
+			rel, err := lock(ctx, name)
+			if err != nil {
+				// Locked: an upgrade or an install of this model runs.
+				continue
+			}
+			release = rel
+		}
+		if err := r.publishDiskRevision(ctx, name); err != nil {
+			xlog.Warn("Could not lift the upgrade block of a model in the registry", "model", name, "error", err)
+		} else {
+			done = append(done, name)
+		}
+		release()
+	}
+	return done
+}
+
+// publishDiskRevision publishes the revision of the config on disk for a model.
+func (r *clusterRuntime) publishDiskRevision(ctx context.Context, name string) error {
 	revision, err := r.revisionOf(name)
 	if err != nil {
 		return fmt.Errorf("read the config revision: %w", err)
@@ -98,19 +143,18 @@ func (r *clusterRuntime) UnblockLoads(ctx context.Context, name string) error {
 }
 
 func (r *clusterRuntime) IsLoaded(ctx context.Context, name string) bool {
-	for _, m := range r.loader.ListLoadedModels() {
-		if m.ID == name {
-			return true
-		}
+	if isLoadedIn(r.loader.ListLoadedModels(), name) {
+		return true
 	}
 	rctx, cancel := context.WithTimeout(ctx, clusterRegistryTimeout)
 	defer cancel()
 	found, err := r.replicas.FindNodesWithModel(rctx, name)
 	if err != nil {
-		// Not knowing is not "not loaded": stopping a model that was not
-		// running costs nothing, leaving one running on the old files does.
-		xlog.Warn("Could not read where a model runs; treating it as loaded", "model", name, "error", err)
-		return true
+		// A model that runs on a worker is not seen here; the block that
+		// precedes the stop of an upgrade already stops every replica in the
+		// registry, and Unload checks that none is left.
+		xlog.Warn("Could not read where a model runs; treating it as not loaded", "model", name, "error", err)
+		return false
 	}
 	return len(found) > 0
 }

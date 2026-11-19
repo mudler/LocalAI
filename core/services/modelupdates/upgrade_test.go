@@ -161,6 +161,8 @@ func (r *fakeRuntime) request(name string, blocked bool) bool {
 type gatedRuntime struct {
 	*fakeRuntime
 	blocked map[string]bool
+	// unblockFails is how many calls of UnblockLoads fail.
+	unblockFails int
 }
 
 func (g *gatedRuntime) BlockLoads(_ context.Context, name string) error {
@@ -175,6 +177,10 @@ func (g *gatedRuntime) UnblockLoads(_ context.Context, name string) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.calls = append(g.calls, "unblock")
+	if g.unblockFails > 0 {
+		g.unblockFails--
+		return errors.New("registry unavailable")
+	}
 	delete(g.blocked, name)
 	return nil
 }
@@ -358,6 +364,23 @@ var _ = Describe("A model upgrade", func() {
 		Expect(g.blocked).To(BeEmpty())
 		Expect(rt.calls).To(Equal([]string{"block", "unload", "reload", "unblock", "load", "block", "reload", "unblock", "load"}))
 		Expect(rt.IsLoaded(ctx, "tiny")).To(BeTrue())
+	})
+
+	It("keeps the loads blocked when the gate cannot open, and opens it at the next try", func() {
+		g := &gatedRuntime{fakeRuntime: rt, blocked: map[string]bool{}, unblockFails: 1}
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		u := upgrader(nil)
+		u.Runtime = g
+		err := u.Upgrade(ctx, modelupdates.Request{Name: "tiny"})
+		Expect(err).To(MatchError(ContainSubstring("allow the loads of the model again")))
+		Expect(g.blocked).To(BeEmpty(), "the retry of the end of the upgrade opened the gate")
+		unblocks := 0
+		for _, c := range rt.calls {
+			if c == "unblock" {
+				unblocks++
+			}
+		}
+		Expect(unblocks).To(BeNumerically(">=", 2), "the failed call was not forgotten")
 	})
 
 	It("ends failed, not stuck rolling back, when the journal write fails after the download", func() {

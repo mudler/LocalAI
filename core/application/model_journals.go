@@ -61,7 +61,13 @@ func recoverModelJournals(options *config.ApplicationConfig) {
 		xlog.Info("Recovered interrupted model installs", "models", recovered)
 	}
 	// Nothing is loaded yet and the configs are read after this, so the
-	// recovery needs no runtime.
+	// recovery needs no runtime. It has no Workers either: a rollback of a
+	// journal in the committing or loading phase does not tell the workers
+	// to drop the new files they took at the commit. That is safe because a
+	// worker checks the sha256 of every file the frontend stages for a load
+	// (the S3 stager sends the sha256 of the file, the HTTP stager compares
+	// the hash of the file), and replaces a copy that differs, so the old
+	// files come back at the next load.
 	up := &modelupdates.Upgrader{SystemState: options.SystemState, Instance: options.Distributed.InstanceID}
 	ended, err := up.Recover(options.Context, journalPolicy(options))
 	if err != nil {
@@ -91,8 +97,9 @@ func modelLockFor(db *gorm.DB) gallery.ModelLock {
 }
 
 // runJournalRecovery ends, every journalRecoveryEvery, the installs and
-// upgrades whose frontend stopped. It returns when ctx ends.
-func runJournalRecovery(ctx context.Context, up *modelupdates.Upgrader) {
+// upgrades whose frontend stopped, then runs after (when set) for the work
+// that follows a pass. It returns when ctx ends.
+func runJournalRecovery(ctx context.Context, up *modelupdates.Upgrader, after func(context.Context)) {
 	t := time.NewTicker(journalRecoveryEvery)
 	defer t.Stop()
 	for {
@@ -100,6 +107,9 @@ func runJournalRecovery(ctx context.Context, up *modelupdates.Upgrader) {
 			xlog.Warn("Could not end some interrupted model changes", "error", err)
 		} else if len(names) > 0 {
 			xlog.Info("Ended interrupted model changes of a stopped frontend", "models", names)
+		}
+		if after != nil {
+			after(ctx)
 		}
 		select {
 		case <-ctx.Done():

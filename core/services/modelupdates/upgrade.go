@@ -848,17 +848,19 @@ func (u *Upgrader) blockLoads(ctx context.Context, r *upgradeRun) error {
 	return gate.BlockLoads(ctx, r.name)
 }
 
-// unblockLoads ends blockLoads. It runs once: a second call does nothing.
+// unblockLoads ends blockLoads. It does nothing once the loads are allowed
+// again. When the gate fails the run stays blocked, so the next call (the
+// deferred one at the end of the upgrade, or the next upgrade) tries again.
 func (u *Upgrader) unblockLoads(ctx context.Context, r *upgradeRun) error {
 	gate, ok := u.Runtime.(LoadGate)
 	if !ok || !r.blocked {
 		return nil
 	}
-	r.blocked = false
 	if err := gate.UnblockLoads(ctx, r.name); err != nil {
 		xlog.Warn("Could not allow the loads of a model again", "model", r.name, "error", err)
 		return err
 	}
+	r.blocked = false
 	return nil
 }
 

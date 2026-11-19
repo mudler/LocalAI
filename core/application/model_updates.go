@@ -14,6 +14,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/updatenotify"
+	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/xlog"
 )
 
 // modelUpdateNotifier writes the model digest through the update emitter.
@@ -41,6 +43,7 @@ func (a *Application) startModelUpdates() {
 		// Read at each call: the galleries can change at runtime.
 		return gallery.AvailableGalleryModels(a.ApplicationConfig().Galleries, options.SystemState)
 	}
+	var clusterRT *clusterRuntime
 	upgrader := &modelupdates.Upgrader{
 		SystemState: options.SystemState,
 		ListGallery: listGallery,
@@ -55,7 +58,9 @@ func (a *Application) startModelUpdates() {
 		crt.revisionOf = func(name string) (string, error) {
 			return a.ModelConfigLoader().RevisionFor(name, a.ApplicationConfig())
 		}
+		crt.storedRevision = ds.Registry.GetModelConfigRevision
 		upgrader.Runtime = crt
+		clusterRT = crt
 		upgrader.StrategyNote = clusterStrategyNote(ds.Registry)
 		// With one shared models directory the workers load the frontend's
 		// files from it: there is nothing to move.
@@ -107,7 +112,22 @@ func (a *Application) startModelUpdates() {
 	a.modelUpdates = modelupdates.New(opts)
 	go a.modelUpdates.Run(options.Context)
 	if upgrader.Lock != nil {
-		go runJournalRecovery(options.Context, upgrader)
+		var after func(context.Context)
+		if clusterRT != nil {
+			// A frontend that stopped during an upgrade leaves the block
+			// revision in the registry; lift it for the models nobody
+			// upgrades now.
+			after = func(ctx context.Context) {
+				var names []string
+				for _, c := range a.ModelConfigLoader().GetAllModelsConfigs() {
+					names = append(names, c.Name)
+				}
+				if done := clusterRT.RepublishBlocked(ctx, names, upgrader.Lock); len(done) > 0 {
+					xlog.Info("Lifted the upgrade block of models in the registry", "models", done)
+				}
+			}
+		}
+		go runJournalRecovery(options.Context, upgrader, after)
 	}
 }
 
@@ -151,12 +171,12 @@ func (m modelUpgraderOp) UpgradeModel(ctx context.Context, opID, name string, op
 type modelRuntime struct{ app *Application }
 
 func (r *modelRuntime) IsLoaded(_ context.Context, name string) bool {
-	for _, m := range r.app.ModelLoader().ListLoadedModels() {
-		if m.ID == name {
-			return true
-		}
-	}
-	return false
+	return isLoadedIn(r.app.ModelLoader().ListLoadedModels(), name)
+}
+
+// isLoadedIn reports whether a model of this process has the ID name.
+func isLoadedIn(models []*model.Model, name string) bool {
+	return slices.ContainsFunc(models, func(m *model.Model) bool { return m.ID == name })
 }
 
 func (r *modelRuntime) Unload(_ context.Context, name string) error {
