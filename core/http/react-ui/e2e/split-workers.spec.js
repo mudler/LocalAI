@@ -108,8 +108,10 @@ test.describe('Model-split workers on the Nodes page', () => {
     await expect(page.getByTestId('split-relay-w-attic')).toContainText('Relay: admitted', { timeout: 15_000 })
     await expect(page.getByTestId('split-relay-w-mac')).toContainText('Relay: refused')
     await expect(page.getByTestId('split-relay-w-mac')).toContainText('Node offline')
-    await expect(page.getByTestId('split-offline-callout')).toContainText('mac-studio-2')
+    // Two warnings apply (a node that is offline, a relay that refuses): the group shows the more important one.
     await expect(page.getByTestId('split-relay-refused-callout')).toContainText('gpu-box-2')
+    await expect(page.getByTestId('split-offline-callout')).toHaveCount(0)
+    await expect(page.getByTestId('split-workers').locator('.ui-callout')).toHaveCount(1)
     await expect(page.getByTestId('split-relay-refused-callout')).toContainText('at most 4 devices')
     await expect(page.getByTestId('split-note-w-old')).toContainText('no longer a split server')
     await expect(page.getByText('Changes to the workers of a node apply to the next model it loads.', { exact: false })).toBeVisible()

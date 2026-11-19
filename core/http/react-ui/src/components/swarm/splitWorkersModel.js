@@ -76,6 +76,18 @@ export function summarize(workers) {
   }
 }
 
+// The callouts of the group, the most important first. The group shows one at
+// a time: two stacked warnings push the table off a phone screen, and the
+// first one is the one to fix first. The state of each worker stays in the
+// table.
+export const CALLOUT_ORDER = ['noServer', 'refused', 'limited', 'cut', 'offline', 'unattached', 'slow']
+
+// The key of the callout to show: the first of CALLOUT_ORDER that is true in
+// `active` (an object of key to boolean), or null.
+export function topCallout(active) {
+  return CALLOUT_ORDER.find(key => active?.[key]) || null
+}
+
 // The workers that paired after the page opened (created_at after since, in
 // milliseconds), newest first: the Add a node flow waits for one of them.
 export function arrivedSince(workers, since) {

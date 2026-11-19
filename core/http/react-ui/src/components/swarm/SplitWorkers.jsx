@@ -9,7 +9,7 @@ import { Button, Callout, StatusChip, useLoad } from '../ui'
 import ConfirmDialog from '../ConfirmDialog'
 import RelayLimitsDialog from '../p2psettings/RelayLimitsDialog'
 import SplitServerSetup from './SplitServerSetup'
-import { cutLimits, limitsRelay, nodeChoices, pathOf, relayOf, slowAction, stateOf, summarize, unattached } from './splitWorkersModel'
+import { cutLimits, limitsRelay, nodeChoices, pathOf, relayOf, slowAction, stateOf, summarize, topCallout, unattached } from './splitWorkersModel'
 import './split.css'
 
 // The "Model-split workers" group of the Nodes page: machines that lend their
@@ -34,6 +34,7 @@ export default function SplitWorkers({ addToast }) {
   const noServer = split.distributed && nodes.status === 'ready' && choices.length === 0
   const waiting = split.workers.filter(w => w.node_id && w.node_offline)
   const refused = split.workers.filter(w => relayOf(w)?.key === 'refused')
+  const callout = topCallout({ noServer, refused: refused.length > 0, limited: sum.limited.length > 0, cut: sum.cut.length > 0, offline: waiting.length > 0, unattached: idle.length > 0, slow: sum.slow.length > 0 })
 
   const setSlow = async (worker, allow) => {
     setBusy(worker.id)
@@ -83,7 +84,7 @@ export default function SplitWorkers({ addToast }) {
         </h2>
         <p className="sw-note sw-note--quiet">{t(split.distributed ? 'split.noteCluster' : 'split.note')}</p>
       </div>
-      {noServer && (
+      {callout === 'noServer' && (
         <Callout
           tone="warn" title={t('split.noServerTitle')} testId="split-no-server-callout"
           actions={<Button size="sm" variant="primary" onClick={() => setSetup(true)} data-testid="split-setup-open">{t('splitServer.open')}</Button>}
@@ -91,33 +92,33 @@ export default function SplitWorkers({ addToast }) {
           {t('split.noServerBody')}
         </Callout>
       )}
-      {waiting.length > 0 && (
-        <Callout tone="warn" title={t('split.offlineTitle')} testId="split-offline-callout">
-          {t('split.offlineBody', { names: waiting.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
-        </Callout>
-      )}
-      {refused.length > 0 && (
+      {callout === 'refused' && (
         <Callout tone="warn" title={t('split.relayRefusedTitle')} testId="split-relay-refused-callout">
           {t('split.relayRefusedBody', { names: refused.map(w => w.node_name || w.node_id).filter((v, i, a) => a.indexOf(v) === i).join(', '), reason: relayOf(refused[0]).reason })}
         </Callout>
       )}
-      {idle.length > 0 && (
-        <Callout tone="warn" title={t('split.unattachedTitle')} testId="split-unattached-callout">
-          {t('split.unattachedBody', { names: idle.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
-        </Callout>
+      {callout === 'limited' && (
+        <Callout tone="warn" title={t('split.limitedTitle')} testId="split-limited-callout">{t('split.limitedBody')}</Callout>
       )}
-      {sum.slow.length > 0 && (
-        <Callout title={t('split.slowTitle')} testId="split-slow-callout">
-          {t('split.slowBody', { names: sum.slow.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
-        </Callout>
-      )}
-      {sum.cut.length > 0 && (
+      {callout === 'cut' && (
         <Callout tone="warn" title={t('split.cutTitle')} testId="split-cut-callout">
           {t('split.cutBody', { names: sum.cut.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
         </Callout>
       )}
-      {sum.limited.length > 0 && (
-        <Callout tone="warn" title={t('split.limitedTitle')} testId="split-limited-callout">{t('split.limitedBody')}</Callout>
+      {callout === 'offline' && (
+        <Callout tone="warn" title={t('split.offlineTitle')} testId="split-offline-callout">
+          {t('split.offlineBody', { names: waiting.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
+        </Callout>
+      )}
+      {callout === 'unattached' && (
+        <Callout tone="warn" title={t('split.unattachedTitle')} testId="split-unattached-callout">
+          {t('split.unattachedBody', { names: idle.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
+        </Callout>
+      )}
+      {callout === 'slow' && (
+        <Callout title={t('split.slowTitle')} testId="split-slow-callout">
+          {t('split.slowBody', { names: sum.slow.map(w => w.label || shortPeer(w.peer_id)).join(', ') })}
+        </Callout>
       )}
       <div className="dk-card sw-roster">
         <div className="dk-table-wrap">

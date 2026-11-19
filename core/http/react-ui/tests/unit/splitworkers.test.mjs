@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   arrivedSince, backendNodes, cutLimits, defaultSplitServer, limitsRelay, nodeChoices, pathOf, relayOf, slowAction, splitCommand,
-  stateOf, summarize, unattached,
+  stateOf, summarize, topCallout, unattached,
 } from '../../src/components/swarm/splitWorkersModel.js'
 
 const worker = (extra = {}) => ({ id: 'w', state: 'online', path: { kind: 'direct' }, allow_slow_path: false, ...extra })
@@ -116,4 +116,13 @@ test('split workers: in a cluster a worker attached to no node is not used', () 
   const list = [worker({ id: 'a', node_id: 'n1' }), worker({ id: 'b' }), worker({ id: 'c', node_id: '' })]
   assert.deepEqual(unattached(list, true).map(w => w.id), ['b', 'c'])
   assert.deepEqual(unattached(list, false), [], 'a standalone instance runs the models itself')
+})
+
+test('split workers: the group shows one callout, the most important of those that apply', () => {
+  assert.equal(topCallout({}), null)
+  assert.equal(topCallout({ slow: true }), 'slow')
+  assert.equal(topCallout({ slow: true, unattached: true, offline: true }), 'offline')
+  assert.equal(topCallout({ offline: true, refused: true }), 'refused')
+  assert.equal(topCallout({ cut: true, limited: true, slow: true }), 'limited')
+  assert.equal(topCallout({ noServer: true, refused: true, slow: true }), 'noServer')
 })
