@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // CheckFileName is the file in the models directory where the last check
@@ -64,18 +66,5 @@ func writeCheckFile(modelsPath string, f *checkFile) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(modelsPath, "."+CheckFileName+".tmp-*")
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	defer func() { _ = os.Remove(name) }()
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(name, checkFilePath(modelsPath))
+	return atomicfile.Write(checkFilePath(modelsPath), data, 0600)
 }

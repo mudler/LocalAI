@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -116,24 +117,7 @@ func (OSFS) Remove(path string) error {
 }
 func (OSFS) ReadFile(path string) ([]byte, error) { return os.ReadFile(path) }
 func (OSFS) WriteFileAtomic(path string, data []byte) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	defer func() { _ = os.Remove(name) }()
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Chmod(0644); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(name, path)
+	return atomicfile.Write(path, data, 0644)
 }
 
 // Progress is what an upgrade reports while it runs.

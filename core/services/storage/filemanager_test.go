@@ -375,3 +375,33 @@ var _ = Describe("A cached file with an expected sha256", func() {
 		Expect(store.getCalls.Load()).To(BeZero())
 	})
 })
+
+var _ = Describe("RecordCacheSHA256", func() {
+	It("records concurrent writers of one key without a collision or a leftover", func() {
+		dir := GinkgoT().TempDir()
+		key := "ephemeral/m/file.bin"
+		path := filepath.Join(dir, filepath.FromSlash(key))
+		Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+
+		var wg sync.WaitGroup
+		errs := make(chan error, 32)
+		for i := 0; i < 32; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				sum := sha256.Sum256([]byte{byte(i)})
+				errs <- RecordCacheSHA256(dir, key, hex.EncodeToString(sum[:]))
+			}(i)
+		}
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		entries, err := os.ReadDir(filepath.Join(dir, verifiedDir, "ephemeral", "m"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(entries).To(HaveLen(1), "only the record stays, no temporary file")
+	})
+})

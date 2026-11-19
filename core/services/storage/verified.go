@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/xlog"
 )
 
@@ -114,11 +115,7 @@ func (fm *FileManager) writeRecord(key string, info os.FileInfo, sum string) err
 		return err
 	}
 	line := sum + " " + strconv.FormatInt(info.Size(), 10) + " " + strconv.FormatInt(info.ModTime().UnixNano(), 10) + "\n"
-	tmp := rec + ".tmp"
-	if err := os.WriteFile(tmp, []byte(line), 0600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, rec)
+	return atomicfile.Write(rec, []byte(line), 0600)
 }
 
 func (fm *FileManager) evictVerified(key, localPath string) {
