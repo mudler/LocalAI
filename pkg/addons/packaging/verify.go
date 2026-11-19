@@ -204,6 +204,9 @@ func verifyLoaded(l *leg, rec *Receipt, platform, version string, cfg *Platforms
 	if err := contract.ValidateManifest(m, hostFor(platform)); err != nil {
 		return nil, fail("E_MANIFEST", "%v", err)
 	}
+	if m.Execution != entry.Execution {
+		return nil, fail("E_MANIFEST", "manifest execution %q, the platform matrix says %q", m.Execution, entry.Execution)
+	}
 
 	// Layer roles: executable, ui and skills when declared, manifest. Nothing
 	// else.
@@ -241,6 +244,9 @@ func verifyLoaded(l *leg, rec *Receipt, platform, version string, cfg *Platforms
 	}
 	if !exe.exec || len(exe.data) == 0 {
 		return nil, fail("E_MODE", "executable %q is empty or not executable", m.Executable)
+	}
+	if m.RunsInWSL() && !bytes.HasPrefix(exe.data, []byte("\x7fELF")) {
+		return nil, fail("E_ENTRYPOINT", "executable %q of a wsl2 package is not a Linux program", m.Executable)
 	}
 	allowed := map[string]string{m.Executable: roleExecutable, "manifest.json": roleManifest}
 	for _, r := range entry.Runtime {

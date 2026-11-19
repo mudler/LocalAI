@@ -282,7 +282,7 @@ func (i *Installer) inspectStage(dir string) (contract.Manifest, *PackageIcon, [
 	}
 	for _, asset := range assets {
 		info, e := os.Lstat(filepath.Join(dir, filepath.FromSlash(asset)))
-		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && !runnable(goruntime.GOOS, info, asset)) {
+		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && !runnable(goruntime.GOOS, info, asset, m.RunsInWSL())) {
 			return contract.Manifest{}, nil, nil, ErrPackage
 		}
 	}
@@ -482,8 +482,14 @@ func expectedImageDigest(pinned string, r catalog.Release, rt http.RoundTripper)
 // runnable reports whether the executable of a package can run on goos.
 // Windows has no execute bit: there the name must end in .exe, which is what
 // makes a file a program for Windows (a Windows package names its executable
-// so). Other systems need the owner execute bit.
-func runnable(goos string, info os.FileInfo, name string) bool {
+// so). Other systems need the owner execute bit. The executable of a
+// package that runs in WSL 2 is a Linux program that Windows does not run
+// itself: the copy in the distribution gets its execute bit, and the
+// supervisor checks that it is a Linux program at each launch.
+func runnable(goos string, info os.FileInfo, name string, inWSL bool) bool {
+	if inWSL {
+		return true
+	}
 	if goos == "windows" {
 		return strings.EqualFold(path.Ext(name), ".exe")
 	}

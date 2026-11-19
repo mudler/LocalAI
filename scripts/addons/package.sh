@@ -16,6 +16,8 @@
 # --executable is the built binary of the platform. Without it the script
 # builds the executable of the add-on for the platform of this host and refuses any
 # other platform: a package is never made from a binary of another platform.
+# A windows/amd64 row with "execution: wsl2" carries the linux/amd64 executable
+# and runtime files (they run in WSL 2), so it is built on a linux/amd64 host.
 # --local-check allows a platform that the platform matrix has not enabled yet;
 # the receipt then says publishable=false and the publish steps refuse it.
 #
@@ -96,6 +98,10 @@ for v in "$addon" "$exe_name"; do
     '' | *[!a-z0-9-]*) echo "package.sh: $config needs a plain addon and executable name" >&2; exit 2 ;;
     esac
 done
+# The executable and the runtime files are built for the build platform of
+# the row: linux/amd64 for a windows/amd64 row with execution wsl2, whose
+# Linux executable runs in WSL 2; the platform itself otherwise.
+build_platform=$("$tool" build-platform --config "$config" --platform "$platform")
 ldflags=
 if [ "$addon" = sandbox ] && [ -z "$addon_root" ]; then
     guest=${SANDBOX_GUEST_IMAGE-}
@@ -125,8 +131,8 @@ if [ "$addon" = sandbox ] && [ -z "$addon_root" ]; then
 fi
 if [ -z "$executable" ]; then
     host="$(go env GOOS)/$(go env GOARCH)"
-    [ "$platform" = "$host" ] || {
-        echo "package.sh: platform $platform is not this host ($host); pass the native --executable" >&2
+    [ "$build_platform" = "$host" ] || {
+        echo "package.sh: platform $platform needs an executable for $build_platform, which is not this host ($host); pass the native --executable" >&2
         exit 2
     }
     # Tables links a C library. The other add-ons are pure Go, so their
@@ -137,9 +143,9 @@ if [ -z "$executable" ]; then
     # package says so). A Windows cgo build links the C runtime statically,
     # so the executable needs no DLL of the build toolchain.
     out=$scratch/$exe_name
-    case "$platform" in windows/*) out=$out.exe ;; esac
+    case "$build_platform" in windows/*) out=$out.exe ;; esac
     static=
-    case "$platform:$cgo" in windows/*:1) static='-extldflags=-static' ;; esac
+    case "$build_platform:$cgo" in windows/*:1) static='-extldflags=-static' ;; esac
     if [ -n "$addon_root" ]; then
         # Pure Go unless the caller sets CGO_ENABLED.
         cgo=${CGO_ENABLED:-0}

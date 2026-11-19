@@ -80,7 +80,7 @@ func (r rawImage) Digest() (v1.Hash, error) {
 }
 func (r rawImage) Size() (int64, error) { return int64(len(r.raw)), nil }
 
-func stampManifest(template []byte, version, platform string) ([]byte, error) {
+func stampManifest(template []byte, version, platform, execution string) ([]byte, error) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(template, &m); err != nil {
 		return nil, fmt.Errorf("manifest template: %w", err)
@@ -90,8 +90,23 @@ func stampManifest(template []byte, version, platform string) ([]byte, error) {
 		b, _ := json.Marshal(v)
 		m[k] = b
 	}
+	// A package that runs in WSL 2 says so, at the feature level of the
+	// field, and keeps the plain name of its Linux executable.
+	if execution != "" {
+		b, _ := json.Marshal(execution)
+		m["execution"] = b
+		var level uint64
+		if raw, ok := m["featureLevel"]; ok {
+			if err := json.Unmarshal(raw, &level); err != nil {
+				return nil, fmt.Errorf("manifest template: featureLevel: %w", err)
+			}
+		}
+		if level < 10 {
+			m["featureLevel"] = json.RawMessage("10")
+		}
+	}
 	// A Windows package names its executable with .exe (see ExecutableFor).
-	if os_ == "windows" {
+	if os_ == "windows" && execution == "" {
 		var exe string
 		if err := json.Unmarshal(m["executable"], &exe); err != nil {
 			return nil, fmt.Errorf("manifest template: executable: %w", err)
@@ -164,7 +179,7 @@ func cmdBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := stampManifest(template, *version, *platform)
+	manifest, err := stampManifest(template, *version, *platform, entry.Execution)
 	if err != nil {
 		return err
 	}
@@ -175,7 +190,7 @@ func cmdBuild(args []string) error {
 	if err := contract.ValidateManifest(m, hostFor(*platform)); err != nil {
 		return fmt.Errorf("manifest: %w", err)
 	}
-	if m.ID != cfg.Addon || m.Executable != ExecutableFor(cfg.Executable, *platform) {
+	if m.ID != cfg.Addon || m.Executable != entry.ExecutableName(cfg.Executable) {
 		return errors.New("manifest id or executable differs from the platform matrix")
 	}
 	exeBytes, err := readRegular(*exe)
