@@ -73,6 +73,9 @@
 .p2p-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-1) var(--sp-4); margin: 0; font-size: var(--text-sm); }
 .p2p-facts dt { color: var(--dk-muted); }
 .p2p-facts dd { margin: 0; color: var(--dk-text); min-width: 0; overflow-wrap: anywhere; }
+/* A chip in a fact (the relay pass) wraps on a narrow screen instead of running past the dialog. */
+.p2p-facts .ui-chip { height: auto; min-height: 22px; max-width: 100%; padding-block: 3px; white-space: normal; line-height: 1.3; }
+.p2p-facts .ui-chip__label { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
 
 .p2p-phrase { display: grid; gap: var(--sp-2); justify-items: center; padding: var(--sp-4); border-radius: var(--dk-radius-2); background: var(--dk-inset); text-align: center; }
 .p2p-phrase__title { margin: 0; font-weight: 600; color: var(--dk-text); }
