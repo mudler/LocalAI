@@ -8,10 +8,6 @@ aliases:
 keywords: ["launcher", "desktop", "appimage", "dmg", "macos", "linux", "install", "update channel"]
 ---
 
-{{% callout style="warning" %}}
-The desktop app isn't in a release yet. The DMG and the AppImages ship with the next release. Until then, test builds are on the [dev-master pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master). Their file names have `dev` in them. See [Development builds for testers](#development-builds-for-testers). The file names below are the ones the release will use.
-{{% /callout %}}
-
 The desktop app installs, updates, starts and stops the LocalAI server on your computer and shows the web interface in its own window, with a thin status bar at the bottom. It also has pages for logs, settings and a Connect page that shows how other devices and apps reach the server.
 
 If you want to run LocalAI on a server, in a container or in a cluster, use the server install methods in the [install guide]({{% relref "/start/install" %}}) instead.
@@ -131,7 +127,7 @@ gh run list --repo mudler/LocalAI --workflow launcher-electron-dev.yaml --branch
 gh run download RUN_ID --repo mudler/LocalAI --name localai-launcher-dev-linux-amd64
 ```
 
-A development build has a version like `4.12.2-dev.42`. It never updates itself. To get a newer one, download it again. A development DMG is normally signed and notarized. If it is not, macOS stops the first start. Open **System Settings > Privacy & Security** and select **Open Anyway** next to the message about LocalAI Launcher.
+A development build has a version like `5.0.1-dev.42`. It never updates itself. To get a newer one, download it again. A development DMG is normally signed and notarized. If it is not, macOS stops the first start. Open **System Settings > Privacy & Security** and select **Open Anyway** next to the message about LocalAI Launcher.
 
 This is different from the Development update channel above, which updates the LocalAI server.
 

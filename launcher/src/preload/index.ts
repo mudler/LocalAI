@@ -73,6 +73,7 @@ const api: LauncherApi = {
   // window settings
   getWindowSettings: () => invoke('launcher:window:get'),
   setOpenInBrowser: (on) => invoke('launcher:window:set-open-in-browser', on),
+  setDesktopNotifications: (on) => invoke('launcher:window:set-desktop-notifications', on),
   // updates
   getUpdateInfo: () => invoke('launcher:updates:get'),
   setAutoCheck: (on) => invoke('launcher:updates:set-auto-check', on),

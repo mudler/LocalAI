@@ -119,6 +119,39 @@ test("a change to only package-gpu-libs.sh rebuilds every Linux image", () => {
   assert.deepEqual(filteredDarwin, []);
 });
 
+test("a change to only rocm-compat-links.sh rebuilds the hipblas images and nothing else", () => {
+  // The helper is bind-mounted into the Dockerfiles, so it sits outside every
+  // backend directory and the prefix match alone would rebuild nothing.
+  const withRocm = [
+    ...includes,
+    {
+      backend: "llama-cpp",
+      dockerfile: "./backend/Dockerfile.llama-cpp",
+      "tag-suffix": "-gpu-rocm-hipblas-llama-cpp",
+      "build-type": "hipblas",
+      "base-image": "rocm/dev-ubuntu-24.04:10.1.0-full",
+    },
+    {
+      backend: "whisper",
+      dockerfile: "./backend/Dockerfile.golang",
+      "tag-suffix": "-gpu-rocm-hipblas-whisper",
+      "build-type": "hipblas",
+      "base-image": "rocm/dev-ubuntu-24.04:10.1.0-full",
+    },
+  ];
+  const { filtered, filteredDarwin } = filterMatrix({
+    includes: withRocm,
+    includesDarwin,
+    changedFiles: [".docker/rocm-compat-links.sh"],
+  });
+
+  assert.deepEqual(
+    filtered.map(e => e["tag-suffix"]).sort(),
+    ["-gpu-rocm-hipblas-llama-cpp", "-gpu-rocm-hipblas-whisper"]
+  );
+  assert.deepEqual(filteredDarwin, []);
+});
+
 test("docs- and README-only changes never produce a matrix", () => {
   const { filtered, filteredDarwin, changedBackends } = run([
     "README.md",

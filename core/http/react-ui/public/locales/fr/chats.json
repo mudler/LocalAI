@@ -606,18 +606,19 @@
     "label": "Réseau",
     "preset": {
       "off": "Désactivé",
-      "registries": "Registres de paquets",
+      "registries": "Personnalisé",
       "all": "Tous les sites publics"
     },
     "presetHint": {
       "off": "Les commandes n’atteignent aucun réseau.",
-      "registries": "Les commandes n’atteignent que les registres de paquets (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versions GitHub).",
+      "registries": "Les commandes atteignent les registres de paquets (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versions GitHub) et les domaines ajoutés par votre administrateur.",
       "all": "Les commandes atteignent tous les sites publics."
     },
     "limited": "Limité par votre administrateur",
     "limitedBy": "Votre administrateur autorise au plus : {{limit}}.",
     "hostNetwork": "Les commandes s’exécutent sur cette machine et utilisent son réseau. Les limites réseau nécessitent un module qui isole les commandes.",
     "panel": "Règles et demandes ({{count}})",
+    "panelCustom": "Domaines personnalisés",
     "rules": "Règles de ce chat",
     "cards": "Demandes de ce chat",
     "ruleAllow": "Autorisé pour ce chat",
@@ -657,9 +658,13 @@
       "rowOff": "Désactivé : l’administrateur n’a pas autorisé l’accès au réseau.",
       "runner": "l’extension qui exécute les commandes"
     },
-    "allowedHosts": "Toujours autorisés par votre administrateur :",
     "allowedHostsOff": "Ils s’appliquent quand le réseau est activé.",
-    "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur.",
+    "allowedHostsNote": "Domaines ajoutés par votre administrateur : {{count}}.",
+    "customDomains": "Personnalisé atteint les registres de paquets et ces domaines, définis par votre administrateur :",
+    "customEmpty": "Personnalisé atteint seulement les registres de paquets. Votre administrateur n’a pas ajouté d’autres domaines.",
+    "customLabel": "Domaines personnalisés",
+    "customEdit": "Modifier les domaines",
+    "customAdmin": "Un administrateur gère cette liste.",
     "limitNote": "Réseau de cette conversation. L’administrateur fixe le maximum qu’une conversation peut atteindre.",
     "draftNote": "La conversation démarre avec ce réglage. L’administrateur fixe le maximum qu’une conversation peut atteindre, et cette limite s’applique.",
     "asksAbove": "Cette conversation demande {{choice}} ; la limite de l’administrateur est {{limit}}.",

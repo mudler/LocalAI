@@ -148,7 +148,7 @@
     "networkHelp": "Cuando un disparador o un conector ejecuta este agente, sus comandos llegan a esta parte de la red, hasta el límite que fijó un administrador. Una ejecución nunca pregunta: un host fuera de ella se bloquea. Un chat que inicias con este agente también empieza así.",
     "networkPresets": {
       "off": "Desactivada",
-      "registries": "Registros de paquetes",
+      "registries": "Personalizado",
       "all": "Todos los sitios públicos"
     },
     "toolsSummary": "{{on}} de {{total}} activas",

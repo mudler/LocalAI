@@ -85,7 +85,7 @@ cards:
 
 # The desktop app block of the download section. `released` is true once the release
 # that carries the new launcher is published and its files are the latest release files.
-# While it is false, the block shows no download buttons and says that test builds are on
-# the dev-master pre-release.
+# While it is false, the block shows buttons that open the dev-master pre-release and says
+# that the release build is coming. It has been true since 5.0.0.
 download:
-  released: false
+  released: true

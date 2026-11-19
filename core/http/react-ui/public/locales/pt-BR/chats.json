@@ -606,18 +606,19 @@
     "label": "Rede",
     "preset": {
       "off": "Desligada",
-      "registries": "Registros de pacotes",
+      "registries": "Personalizado",
       "all": "Todos os sites públicos"
     },
     "presetHint": {
       "off": "Os comandos não alcançam nenhuma rede.",
-      "registries": "Os comandos alcançam só os registros de pacotes (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versões do GitHub).",
+      "registries": "Os comandos alcançam os registros de pacotes (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versões do GitHub) e os domínios que seu administrador adicionou.",
       "all": "Os comandos alcançam qualquer site público."
     },
     "limited": "Limitado pelo seu administrador",
     "limitedBy": "Seu administrador permite no máximo: {{limit}}.",
     "hostNetwork": "Os comandos são executados nesta máquina e usam a rede dela. Os limites de rede exigem um complemento que isole os comandos.",
     "panel": "Regras e pedidos ({{count}})",
+    "panelCustom": "Domínios personalizados",
     "rules": "Regras deste chat",
     "cards": "Pedidos deste chat",
     "ruleAllow": "Permitido neste chat",
@@ -657,9 +658,13 @@
       "rowOff": "Desligada: o administrador não permitiu o acesso à rede.",
       "runner": "o complemento que executa os comandos"
     },
-    "allowedHosts": "Sempre permitidos pelo seu administrador:",
     "allowedHostsOff": "Eles valem quando a rede está ligada.",
-    "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador.",
+    "allowedHostsNote": "Domínios adicionados pelo seu administrador: {{count}}.",
+    "customDomains": "Personalizado alcança os registros de pacotes e estes domínios, definidos pelo seu administrador:",
+    "customEmpty": "Personalizado alcança só os registros de pacotes. Seu administrador não adicionou outros domínios.",
+    "customLabel": "Domínios personalizados",
+    "customEdit": "Editar domínios",
+    "customAdmin": "Um administrador gerencia esta lista.",
     "limitNote": "Rede deste chat. O administrador define o máximo que um chat pode alcançar.",
     "draftNote": "O chat começa com esta configuração. O administrador define o máximo que um chat pode alcançar, e esse limite se aplica.",
     "asksAbove": "Este chat pede {{choice}}; o limite do administrador é {{limit}}.",

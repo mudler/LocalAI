@@ -185,9 +185,11 @@ access]({{% relref "/addons/catalogue/work/sandbox-settings#network-access" %}})
 **Network** row in its Tools menu with three choices:
 
 - **Off**: commands reach nothing.
-- **Package registries**: commands reach the package registries only (PyPI,
-  npm, Go modules, crates.io, RubyGems, Maven Central and GitHub releases), so
-  `pip install`, `npm install`, `go get` and `cargo build` work.
+- **Custom**: commands reach the package registries (PyPI, npm, Go modules,
+  crates.io, RubyGems, Maven Central and GitHub releases), so `pip install`,
+  `npm install`, `go get` and `cargo build` work, and also the domains an
+  administrator added to the custom list. The list is empty until an
+  administrator adds domains.
 - **All public sites**: commands reach every public host.
 
 The highlighted choice is what applies: the lower of the choice of the chat and
@@ -208,12 +210,16 @@ administrator's default. A fork keeps the choice and the allow rules of the
 chat it copies. The choice and the rules live with the chat on the server,
 never in your files, so the code that runs in the Sandbox cannot change them.
 **Rules and requests** under the row lists the hosts this chat allowed or
-denied, with a button to remove each, and the requests that asked. When an
-administrator keeps a list of always-allowed hosts (`chats_egress_allowed_hosts`),
-the row says how many there are and the panel lists them, read only, under
-*Always allowed by your administrator*. They are reachable whenever the network
-of the chat is on (Package registries or All public sites), without a card; with
-the network off they wait until you turn it on.
+denied, with a button to remove each, and the requests that asked. The panel of the row shows the custom list under *Custom domains*: the
+administrator's extra registries (`chats_egress_extra_registries`) and
+always-allowed hosts (`chats_egress_allowed_hosts`), as written. A leading
+`*.` matches every descendant of a domain, and a bare `*` means every public
+destination on the allowed ports; both stay inside the limit and never reach
+private or metadata addresses. They are reachable whenever the network of the
+chat is on (Custom or All public sites), without a card; with the network off
+they wait until you turn it on. An administrator sees an **Edit domains** link
+that opens the network section of the Sandbox settings; anyone else is told
+that an administrator manages the list.
 
 The model knows that `curl`, `pip`, `npm` and `git` work in the Sandbox within this setting. It prefers `web_fetch` and `web_search` to read or search web pages when the chat has them, and uses `curl` for APIs, downloads and installs.
 

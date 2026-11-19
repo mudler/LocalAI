@@ -1,6 +1,6 @@
 ---
 title: "Install LocalAI"
-description: "Install LocalAI with the install script, a binary, a container or Kubernetes. The desktop app comes with the next release."
+description: "Install LocalAI with the install script, a binary, a container or Kubernetes. The desktop app is in the 5.0 release."
 icon: download
 weight: 40
 aliases:
@@ -8,7 +8,7 @@ aliases:
 keywords: ["install", "desktop", "launcher", "appimage", "script", "docker", "macos", "linux", "kubernetes", "setup"]
 ---
 
-Install the server with a script, a binary, a container or Helm. The desktop app, which installs and runs the server for you, comes with the next release.
+Install the server with a script, a binary, a container or Helm. The desktop app, which installs and runs the server for you, is in the 5.0 release.
 
 | You have | Use | Command or guide |
 |---|---|---|
@@ -54,7 +54,7 @@ Podman works the same way for the CPU image. For GPU images and persistent stora
 
 The desktop app installs, updates, starts and stops the LocalAI server on your computer and shows the web interface in a window. It can also connect to a LocalAI server that runs somewhere else.
 
-It isn't in a release yet. The DMG for a Mac with Apple Silicon and the AppImages for Linux (x86-64 and ARM64) ship with the next release. Test builds are on the [dev-master pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master). See [Desktop app]({{% relref "/start/install/desktop" %}}) for the steps, the first start, the update channels and troubleshooting.
+The 5.0 release has the DMG for a Mac with Apple Silicon and the AppImages for Linux (x86-64 and ARM64). Download them from the [latest release](https://github.com/mudler/LocalAI/releases/latest). See [Desktop app]({{% relref "/start/install/desktop" %}}) for the steps, the first start, the update channels and troubleshooting.
 
 ## Development builds
 

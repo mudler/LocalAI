@@ -148,7 +148,7 @@
     "networkHelp": "Quand un déclencheur ou un connecteur exécute cet agent, ses commandes atteignent cette part du réseau, dans la limite fixée par un administrateur. Une exécution ne demande jamais : un hôte hors de cette part est bloqué. Un chat que vous démarrez avec cet agent commence aussi ainsi.",
     "networkPresets": {
       "off": "Désactivé",
-      "registries": "Registres de paquets",
+      "registries": "Personnalisé",
       "all": "Tous les sites publics"
     },
     "toolsSummary": "{{on}} sur {{total}} activés",

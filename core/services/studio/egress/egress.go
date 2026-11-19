@@ -8,6 +8,7 @@
 package egress
 
 import (
+	"fmt"
 	"net/netip"
 	"slices"
 	"strings"
@@ -502,13 +503,47 @@ func Admits(s Settings, r Request, reg *Registries) bool {
 // preset. Without it the model is told to ask the user in its answer, since
 // no card can appear.
 func Describe(p Preset, reg *Registries, asks bool, name string) string {
+	return DescribeFor(Settings{}, p, reg, asks, name)
+}
+
+// maxNamedDomains caps the administrator's domains that Describe names.
+const maxNamedDomains = 20
+
+// ExtraDomains are the domains the registries preset reaches beyond the
+// built-in list: the administrator's extra registries, then the always-allowed
+// hosts, as written (wildcards included), without repeats.
+func (s Settings) ExtraDomains() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, h := range append(append([]string(nil), s.ExtraRegistries...), s.AllowedHostList()...) {
+		if h != "" && !seen[h] {
+			seen[h] = true
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// DescribeFor is Describe for the settings in force: under the registries
+// preset it also names the administrator's extra registries and always-allowed
+// hosts, which the chat reaches too.
+func DescribeFor(s Settings, p Preset, reg *Registries, asks bool, name string) string {
 	tail := " A blocked host asks the user; do not try to get around the proxy."
 	if !asks {
 		tail = " A blocked host is refused, and nothing asks the user; say which host you need in your answer, and do not try to get around the proxy."
 	}
 	switch normal(p) {
 	case PresetRegistries:
-		return "Network for commands: package registries only (" + strings.Join(reg.Titles(), ", ") + ")." + tail
+		extra := s.ExtraDomains()
+		if len(extra) == 0 {
+			return "Network for commands: package registries only (" + strings.Join(reg.Titles(), ", ") + ")." + tail
+		}
+		more := ""
+		if len(extra) > maxNamedDomains {
+			more = fmt.Sprintf(", and %d more", len(extra)-maxNamedDomains)
+			extra = extra[:maxNamedDomains]
+		}
+		return "Network for commands: package registries (" + strings.Join(reg.Titles(), ", ") + ") and the domains an administrator added (" + strings.Join(extra, ", ") + more + ")." + tail
 	case PresetAll:
 		return "Network for commands: all public sites, through the proxy that " + name + " sets." + tail
 	}
@@ -521,12 +556,18 @@ func Describe(p Preset, reg *Registries, asks bool, name string) string {
 // the line says not to retry one; only an administrator can change it. asks
 // and name are as for Describe, for the hosts inside the limit.
 func DescribeLimit(eff, ceiling Preset, reg *Registries, asks bool, name string) string {
+	return DescribeLimitFor(Settings{}, eff, ceiling, reg, asks, name)
+}
+
+// DescribeLimitFor is DescribeLimit for the settings in force, as DescribeFor
+// is for Describe.
+func DescribeLimitFor(s Settings, eff, ceiling Preset, reg *Registries, asks bool, name string) string {
 	const where = "An administrator can change it on the Settings tab of the add-on that runs the commands, on the Add-ons page."
 	if normal(ceiling) == PresetOff {
 		return "Network for commands: off. The server's setting for the " + name + " network does not allow any access, and no user approval changes that, so do not wait for one or retry a blocked request. " +
 			"Tell the user the network is off by the server's setting. " + where
 	}
-	return Describe(eff, reg, asks, name) + " The server's setting for the " + name + " network limits it; a host outside the limit is blocked by that setting, not by a missing approval, so do not retry it. Tell the user. " + where
+	return DescribeFor(s, eff, reg, asks, name) + " The server's setting for the " + name + " network limits it; a host outside the limit is blocked by that setting, not by a missing approval, so do not retry it. Tell the user. " + where
 }
 
 // Hint is the sentence after Describe in the turn's note: which tool to use

@@ -5,7 +5,7 @@ description: Read or change the network the chats' isolated commands may reach.
 
 Use this when the admin asks whether chats can install packages, what the commands of the chats reached on the network, or wants to open or close the network of the isolated commands.
 
-The commands a chat runs in the Sandbox reach the network only through a proxy. Each chat has a preset: `off` (nothing), `registries` (the package registries, such as PyPI, npm, Go modules, crates.io, RubyGems, Maven Central and GitHub releases) or `all` (every public host). The ceiling is the widest preset any chat may use. Commands that run directly on this machine (the built-in bash) are not covered: they have the network of the server.
+The commands a chat runs in the Sandbox reach the network only through a proxy. Each chat has a preset: `off` (nothing), `registries` (shown to users as Custom: the package registries, such as PyPI, npm, Go modules, crates.io, RubyGems, Maven Central and GitHub releases, plus the extra registries and always-allowed hosts the administrator listed) or `all` (every public host). The ceiling is the widest preset any chat may use. Commands that run directly on this machine (the built-in bash) are not covered: they have the network of the server.
 
 1. Call `get_chat_egress` first. Report the ceiling, the default of a new chat, whether an add-on runs commands, and the allowed and blocked requests of the last 24 hours.
 2. To see what commands reached or tried to reach, call `list_egress_events`. Filter by `verdict` `block` to explain why a package install failed, or by `host` or `user`. Summarise; do not paste every line.

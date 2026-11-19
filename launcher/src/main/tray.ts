@@ -3,7 +3,7 @@
 import { Tray, Menu, nativeImage, type MenuItemConstructorOptions } from 'electron'
 import { execFile } from 'node:child_process'
 import { trayMenuTemplate } from './menuModel'
-import { trayWasCreated } from './trayPolicy'
+import { trayWasCreated, unreadTooltip } from './trayPolicy'
 
 /** Asks the session bus whether a StatusNotifier host exists. undefined = could not tell. */
 function probeStatusNotifierHost(): Promise<boolean | undefined> {
@@ -33,6 +33,8 @@ export interface LauncherTray {
   tray: Tray
   /** Rebuilds the menu so its "Show status bar" item matches the saved choice. */
   setStatusBarVisible(visible: boolean): void
+  /** Shows the unread notification count in the tooltip (and beside the icon on macOS). */
+  setUnread(n: number): void
 }
 
 /** Returns the tray when one was created and has a host, else undefined. */
@@ -56,5 +58,12 @@ export async function createTray(h: TrayHandlers): Promise<LauncherTray | undefi
   t.setToolTip('LocalAI Launcher')
   setMenu(h.statusBarVisible)
   t.on('click', h.onShow)
-  return { tray: t, setStatusBarVisible: setMenu }
+  return {
+    tray: t,
+    setStatusBarVisible: setMenu,
+    setUnread: (n) => {
+      t.setToolTip(unreadTooltip(n))
+      if (process.platform === 'darwin') t.setTitle(n > 0 ? String(n) : '')
+    },
+  }
 }
