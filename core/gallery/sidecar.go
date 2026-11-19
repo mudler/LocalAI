@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -203,6 +204,25 @@ func SidecarPath(modelsPath, name string) string {
 	return filepath.Join(modelsPath, galleryFileName(strings.ReplaceAll(name, string(os.PathSeparator), "__")))
 }
 
+// SidecarNames lists, sorted, the models that have a gallery file in
+// modelsPath. It fails when the directory cannot be read.
+func SidecarNames(modelsPath string) ([]string, error) {
+	entries, err := os.ReadDir(modelsPath)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() || !strings.HasPrefix(n, "._gallery_") || !strings.HasSuffix(n, ".yaml") {
+			continue
+		}
+		names = append(names, strings.TrimSuffix(strings.TrimPrefix(n, "._gallery_"), ".yaml"))
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
 // ErrNoSidecar is returned by ReadSidecar when the model has no gallery file.
 var ErrNoSidecar = errors.New("the model has no gallery file")
 
@@ -246,16 +266,12 @@ func ManagedFileSHA256(modelsPath, path string) string {
 		return ""
 	}
 	rel = filepath.ToSlash(rel)
-	entries, err := os.ReadDir(modelsPath)
+	names, err := SidecarNames(modelsPath)
 	if err != nil {
 		return ""
 	}
-	for _, e := range entries {
-		n := e.Name()
-		if e.IsDir() || !strings.HasPrefix(n, "._gallery_") || !strings.HasSuffix(n, ".yaml") {
-			continue
-		}
-		sc, err := ReadSidecar(modelsPath, strings.TrimSuffix(strings.TrimPrefix(n, "._gallery_"), ".yaml"))
+	for _, name := range names {
+		sc, err := ReadSidecar(modelsPath, name)
 		if err != nil || !sc.IsV2() {
 			continue
 		}
@@ -282,15 +298,26 @@ func FileRole(filename string) string {
 	return RoleArtifact
 }
 
-// managedFiles lists the files an install owns: its downloads and its prompt
-// templates.
-func managedFiles(files []File, templates []PromptTemplate) []ManagedFile {
-	out := make([]ManagedFile, 0, len(files)+len(templates))
-	for _, f := range files {
-		out = append(out, ManagedFile{Path: f.Filename, SHA256: f.SHA256, URI: f.URI, Role: FileRole(f.Filename)})
+// ManagedFileOf is the record of a download an install owns.
+func ManagedFileOf(f File) ManagedFile {
+	return ManagedFile{Path: f.Filename, SHA256: f.SHA256, URI: f.URI, Role: FileRole(f.Filename)}
+}
+
+// ManagedTemplateOf is the record of a prompt template an install owns,
+// written next to the model as <name>.tmpl.
+func ManagedTemplateOf(t PromptTemplate) ManagedFile {
+	return ManagedFile{Path: t.Name + ".tmpl", SHA256: SHA256Hex([]byte(t.Content)), Role: RoleTemplate}
+}
+
+// ManagedFiles lists the files a gallery config makes an install own: its
+// downloads and its prompt templates.
+func ManagedFiles(cfg *ModelConfig) []ManagedFile {
+	out := make([]ManagedFile, 0, len(cfg.Files)+len(cfg.PromptTemplates))
+	for _, f := range cfg.Files {
+		out = append(out, ManagedFileOf(f))
 	}
-	for _, t := range templates {
-		out = append(out, ManagedFile{Path: t.Name + ".tmpl", SHA256: SHA256Hex([]byte(t.Content)), Role: RoleTemplate})
+	for _, t := range cfg.PromptTemplates {
+		out = append(out, ManagedTemplateOf(t))
 	}
 	return out
 }

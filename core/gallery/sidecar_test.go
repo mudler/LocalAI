@@ -315,3 +315,32 @@ var _ = Describe("Gallery file version 2", func() {
 		Expect(gallery.FileRole("tokenizer.json")).To(Equal(gallery.RoleArtifact))
 	})
 })
+
+var _ = Describe("SidecarNames and ManagedFiles", func() {
+	It("lists the models that have a gallery file, sorted, and nothing else", func() {
+		dir := GinkgoT().TempDir()
+		for _, n := range []string{"zeta", "alpha"} {
+			Expect(gallery.WriteSidecar(dir, n, &gallery.ModelConfig{Name: n, Version: gallery.SidecarVersion})).To(Succeed())
+		}
+		Expect(os.WriteFile(filepath.Join(dir, "alpha.yaml"), []byte("name: alpha\n"), 0600)).To(Succeed())
+		Expect(os.Mkdir(filepath.Join(dir, "._gallery_dir.yaml"), 0700)).To(Succeed())
+		names, err := gallery.SidecarNames(dir)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(names).To(Equal([]string{"alpha", "zeta"}))
+
+		_, err = gallery.SidecarNames(filepath.Join(dir, "missing"))
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("owns the downloads and the prompt templates of a config", func() {
+		cfg := &gallery.ModelConfig{
+			Files:           []gallery.File{{Filename: "m.gguf", SHA256: "ab", URI: "https://example.test/m.gguf"}},
+			PromptTemplates: []gallery.PromptTemplate{{Name: "chat", Content: "x"}},
+		}
+		got := gallery.ManagedFiles(cfg)
+		Expect(got).To(HaveLen(2))
+		Expect(got[0].Path).To(Equal("m.gguf"))
+		Expect(got[0].Role).To(Equal(gallery.RoleWeights))
+		Expect(got[1]).To(Equal(gallery.ManagedFile{Path: "chat.tmpl", SHA256: gallery.SHA256Hex([]byte("x")), Role: gallery.RoleTemplate}))
+	})
+})

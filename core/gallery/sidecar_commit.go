@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -46,7 +45,7 @@ func commitInstall(basePath string, plan *InstallPlan, origin *Origin, instance 
 	next := *plan.Gallery
 	next.clearSidecarState()
 	next.Version = SidecarVersion
-	next.Managed = managedFiles(next.Files, next.PromptTemplates)
+	next.Managed = ManagedFiles(&next)
 	next.Hold = prev.Hold
 	if prev.Upgrade != nil && prev.Upgrade.Kind == JournalUpgrade && prev.Upgrade.Terminal() && len(prev.Upgrade.RetainedFiles) > 0 {
 		next.Upgrade = prev.Upgrade
@@ -110,7 +109,7 @@ func commitInstall(basePath string, plan *InstallPlan, origin *Origin, instance 
 // is written without the journal. Otherwise the previous model config and
 // gallery file are put back, or removed when there were none.
 func RecoverInstallJournals(modelsPath string, act func(*Journal) bool) ([]string, error) {
-	entries, err := os.ReadDir(modelsPath)
+	names, err := SidecarNames(modelsPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
@@ -119,12 +118,7 @@ func RecoverInstallJournals(modelsPath string, act func(*Journal) bool) ([]strin
 	}
 	var recovered []string
 	var errs []error
-	for _, entry := range entries {
-		fname := entry.Name()
-		if entry.IsDir() || !strings.HasPrefix(fname, "._gallery_") || !strings.HasSuffix(fname, ".yaml") {
-			continue
-		}
-		name := strings.TrimSuffix(strings.TrimPrefix(fname, "._gallery_"), ".yaml")
+	for _, name := range names {
 		sc, err := ReadSidecar(modelsPath, name)
 		if err != nil || sc.Upgrade == nil || sc.Upgrade.Kind != JournalInstall {
 			continue

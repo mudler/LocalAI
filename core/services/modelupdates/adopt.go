@@ -159,7 +159,7 @@ func (u *Upgrader) Adopt(ctx context.Context, req AdoptRequest) (*AdoptResult, e
 
 	managed := sc.Managed
 	if len(managed) == 0 {
-		managed = managedOf(sc)
+		managed = gallery.ManagedFiles(sc)
 	}
 	origin := *inst.Origin
 	origin.InstalledAt = u.now()

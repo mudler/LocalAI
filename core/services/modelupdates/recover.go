@@ -22,7 +22,8 @@ import (
 func (u *Upgrader) Recover(ctx context.Context, act func(*gallery.Journal) bool) ([]string, error) {
 	var names []string
 	var errs []error
-	for _, name := range sidecarNames(u.modelsPath()) {
+	sidecars, _ := gallery.SidecarNames(u.modelsPath())
+	for _, name := range sidecars {
 		sc, err := gallery.ReadSidecar(u.modelsPath(), name)
 		if err != nil || sc.Upgrade == nil || sc.Upgrade.Kind != gallery.JournalUpgrade || sc.Upgrade.Terminal() {
 			continue
@@ -94,7 +95,8 @@ func (u *Upgrader) RecoverAbandoned(ctx context.Context, quiet time.Duration) ([
 	}
 	var names []string
 	var errs []error
-	for _, name := range sidecarNames(u.modelsPath()) {
+	sidecars, _ := gallery.SidecarNames(u.modelsPath())
+	for _, name := range sidecars {
 		sc, err := gallery.ReadSidecar(u.modelsPath(), name)
 		if err != nil || sc.Upgrade == nil || sc.Upgrade.Terminal() || !sc.Upgrade.Stale(u.now(), quiet) {
 			continue

@@ -542,7 +542,7 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 		}
 	}
 
-	to := &gallery.Previous{Origin: inst.Origin, ConfigSHA256: gallery.SHA256Hex(finalYAML), Managed: managedOf(plan.Gallery)}
+	to := &gallery.Previous{Origin: inst.Origin, ConfigSHA256: gallery.SHA256Hex(finalYAML), Managed: gallery.ManagedFiles(plan.Gallery)}
 	to.Origin.InstalledAt = u.now()
 	if plan.WriteConfig {
 		// What the gallery writes, without the person's edits: the next
@@ -628,10 +628,7 @@ func (u *Upgrader) relErr(err error) error {
 
 // stageList works out the files the upgrade downloads, writes or retires.
 func (u *Upgrader) stageList(sc *gallery.ModelConfig, cfg *gallery.ModelConfig) ([]gallery.StagedFile, error) {
-	old := map[string]gallery.ManagedFile{}
-	for _, m := range sc.Managed {
-		old[m.Path] = m
-	}
+	old := managedIndex(sc.Managed)
 	suffix := ".prev-" + digest8(sc.Origin.EntryDigest)
 	seen := map[string]bool{}
 	var out []gallery.StagedFile
@@ -643,7 +640,7 @@ func (u *Upgrader) stageList(sc *gallery.ModelConfig, cfg *gallery.ModelConfig) 
 		seen[f.Filename] = true
 		prev, known := old[f.Filename]
 		live := filepath.Join(u.modelsPath(), f.Filename)
-		if known && strings.EqualFold(prev.SHA256, f.SHA256) && prev.URI == f.URI && u.fs().Exists(live) {
+		if known && sameManaged(prev, gallery.ManagedFileOf(f)) && u.fs().Exists(live) {
 			continue
 		}
 		if !known && f.SHA256 == "" && u.fs().Exists(live) {
@@ -670,8 +667,9 @@ func (u *Upgrader) stageList(sc *gallery.ModelConfig, cfg *gallery.ModelConfig) 
 			return nil, &ErrRefused{Reason: fmt.Sprintf("the template %q is outside the models directory", path)}
 		}
 		seen[path] = true
-		sum := gallery.SHA256Hex([]byte(t.Content))
-		if prev, ok := old[path]; ok && prev.SHA256 == sum && u.fs().Exists(filepath.Join(u.modelsPath(), path)) {
+		cur := gallery.ManagedTemplateOf(t)
+		sum := cur.SHA256
+		if prev, ok := old[path]; ok && sameManaged(prev, cur) && u.fs().Exists(filepath.Join(u.modelsPath(), path)) {
 			continue
 		}
 		s := gallery.StagedFile{Path: path, Next: path + ".next", SHA256: sum, Role: gallery.RoleTemplate, Content: t.Content}
@@ -680,8 +678,8 @@ func (u *Upgrader) stageList(sc *gallery.ModelConfig, cfg *gallery.ModelConfig) 
 		}
 		out = append(out, s)
 	}
-	for _, m := range sc.Managed {
-		if seen[m.Path] || !u.fs().Exists(filepath.Join(u.modelsPath(), m.Path)) {
+	for _, m := range droppedManaged(sc.Managed, seen) {
+		if !u.fs().Exists(filepath.Join(u.modelsPath(), m.Path)) {
 			continue
 		}
 		out = append(out, gallery.StagedFile{Path: m.Path, Prev: m.Path + suffix, Role: m.Role, Retire: true})
@@ -695,17 +693,6 @@ func digest8(digest string) string {
 		return hex[:8]
 	}
 	return "old"
-}
-
-func managedOf(cfg *gallery.ModelConfig) []gallery.ManagedFile {
-	out := make([]gallery.ManagedFile, 0, len(cfg.Files)+len(cfg.PromptTemplates))
-	for _, f := range cfg.Files {
-		out = append(out, gallery.ManagedFile{Path: f.Filename, SHA256: f.SHA256, URI: f.URI, Role: gallery.FileRole(f.Filename)})
-	}
-	for _, t := range cfg.PromptTemplates {
-		out = append(out, gallery.ManagedFile{Path: t.Name + ".tmpl", SHA256: gallery.SHA256Hex([]byte(t.Content)), Role: gallery.RoleTemplate})
-	}
-	return out
 }
 
 func (u *Upgrader) path(rel string) string { return filepath.Join(u.modelsPath(), rel) }

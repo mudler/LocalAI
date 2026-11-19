@@ -203,7 +203,8 @@ func (s *Service) runCheck(ctx context.Context, fresh bool) error {
 		return listErr
 	}
 	next := &checkFile{CheckedAt: now, LastSuccessAt: now, Models: map[string]checkResult{}}
-	for _, name := range sidecarNames(s.modelsPath()) {
+	names, _ := gallery.SidecarNames(s.modelsPath())
+	for _, name := range names {
 		sc, err := gallery.ReadSidecar(s.modelsPath(), name)
 		if err != nil || !sc.IsV2() || sc.Origin == nil {
 			continue
@@ -280,42 +281,52 @@ func PlanUpgrade(ctx context.Context, systemState *system.SystemState, models []
 // from.
 var ErrGone = errors.New("no configured gallery lists the entry this model was installed from")
 
+// managedIndex maps the files a model owns by path.
+func managedIndex(managed []gallery.ManagedFile) map[string]gallery.ManagedFile {
+	out := make(map[string]gallery.ManagedFile, len(managed))
+	for _, m := range managed {
+		out[m.Path] = m
+	}
+	return out
+}
+
+// sameManaged is the one rule for "the update does not change this file":
+// the same checksum (hex, any case) and the same source. A template has no
+// source, so only its content hash counts.
+func sameManaged(prev, cur gallery.ManagedFile) bool {
+	return strings.EqualFold(prev.SHA256, cur.SHA256) && prev.URI == cur.URI
+}
+
+// droppedManaged returns the files a model owns whose path is not in listed,
+// the files a new version no longer lists.
+func droppedManaged(managed []gallery.ManagedFile, listed map[string]bool) []gallery.ManagedFile {
+	var out []gallery.ManagedFile
+	for _, m := range managed {
+		if !listed[m.Path] {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 // changedFiles compares the files a model owns with the files and templates
 // of a gallery config.
 func changedFiles(managed []gallery.ManagedFile, cfg *gallery.ModelConfig) []FileChange {
-	old := map[string]gallery.ManagedFile{}
-	for _, m := range managed {
-		old[m.Path] = m
-	}
-	seen := map[string]bool{}
+	old := managedIndex(managed)
+	listed := map[string]bool{}
 	var out []FileChange
-	for _, f := range cfg.Files {
-		seen[f.Filename] = true
-		role := gallery.FileRole(f.Filename)
-		prev, ok := old[f.Filename]
+	for _, cur := range gallery.ManagedFiles(cfg) {
+		listed[cur.Path] = true
+		prev, ok := old[cur.Path]
 		switch {
 		case !ok:
-			out = append(out, FileChange{Path: f.Filename, Role: role, Change: ChangeAdded, Checksum: f.SHA256 != ""})
-		case !strings.EqualFold(prev.SHA256, f.SHA256) || prev.URI != f.URI:
-			out = append(out, FileChange{Path: f.Filename, Role: role, Change: ChangeChanged, Checksum: f.SHA256 != ""})
+			out = append(out, FileChange{Path: cur.Path, Role: cur.Role, Change: ChangeAdded, Checksum: cur.SHA256 != ""})
+		case !sameManaged(prev, cur):
+			out = append(out, FileChange{Path: cur.Path, Role: cur.Role, Change: ChangeChanged, Checksum: cur.SHA256 != ""})
 		}
 	}
-	for _, t := range cfg.PromptTemplates {
-		path := t.Name + ".tmpl"
-		seen[path] = true
-		prev, ok := old[path]
-		sum := gallery.SHA256Hex([]byte(t.Content))
-		switch {
-		case !ok:
-			out = append(out, FileChange{Path: path, Role: gallery.RoleTemplate, Change: ChangeAdded, Checksum: true})
-		case prev.SHA256 != sum:
-			out = append(out, FileChange{Path: path, Role: gallery.RoleTemplate, Change: ChangeChanged, Checksum: true})
-		}
-	}
-	for _, m := range managed {
-		if !seen[m.Path] {
-			out = append(out, FileChange{Path: m.Path, Role: m.Role, Change: ChangeRemoved, Checksum: m.SHA256 != ""})
-		}
+	for _, m := range droppedManaged(managed, listed) {
+		out = append(out, FileChange{Path: m.Path, Role: m.Role, Change: ChangeRemoved, Checksum: m.SHA256 != ""})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out
@@ -332,24 +343,6 @@ func downloadsFiles(changes []FileChange) bool {
 	return false
 }
 
-// sidecarNames lists the models that have a gallery file.
-func sidecarNames(modelsPath string) []string {
-	entries, err := os.ReadDir(modelsPath)
-	if err != nil {
-		return nil
-	}
-	var names []string
-	for _, e := range entries {
-		n := e.Name()
-		if e.IsDir() || !strings.HasPrefix(n, "._gallery_") || !strings.HasSuffix(n, ".yaml") {
-			continue
-		}
-		names = append(names, strings.TrimSuffix(strings.TrimPrefix(n, "._gallery_"), ".yaml"))
-	}
-	sort.Strings(names)
-	return names
-}
-
 // Snapshot builds the read model from the gallery files and the check file as
 // they are now. The hold flag, an upgrade and an edit show at once; what the
 // gallery offers is as of the last check.
@@ -360,7 +353,8 @@ func (s *Service) Snapshot(_ context.Context) Snapshot {
 		cf = &checkFile{Models: map[string]checkResult{}}
 	}
 	snap := Snapshot{CheckedAt: cf.CheckedAt, Sources: map[string]backendupdates.Source{SourceGallery: source(cf)}, Items: []Item{}}
-	for _, name := range sidecarNames(s.modelsPath()) {
+	names, _ := gallery.SidecarNames(s.modelsPath())
+	for _, name := range names {
 		if it, ok := s.item(name, cf); ok {
 			switch it.State {
 			case StateUpdateAvailable, StateEdited, StateFailed:
