@@ -407,14 +407,15 @@ describe('what listens on a port, on Windows', () => {
 })
 
 describe('self-update of the Windows builds', () => {
-  const exe = 'C:\\Users\\u\\AppData\\Local\\Programs\\LocalAI Launcher\\local-ai-launcher.exe'
+  const exe = 'C:\\Users\\u\\AppData\\Local\\Programs\\localai-launcher\\local-ai-launcher.exe'
 
   it('treats a launcher without the installer next to it as the portable zip', () => {
-    const installed = (p: string) => p === `C:\\Users\\u\\AppData\\Local\\Programs\\LocalAI Launcher\\${NSIS_UNINSTALLER}`
+    const installed = (d: string) => (d === 'C:\\Users\\u\\AppData\\Local\\Programs\\localai-launcher' ? ['local-ai-launcher.exe', 'Uninstall localai-launcher.exe'] : [])
     expect(isPortableWindows('win32', exe, installed)).toBe(false)
-    expect(isPortableWindows('win32', exe, () => false)).toBe(true)
-    expect(isPortableWindows('linux', '/opt/x', () => false)).toBe(false)
-    expect(isPortableWindows('darwin', '/Applications/x', () => false)).toBe(false)
+    expect(isPortableWindows('win32', exe, () => ['local-ai-launcher.exe'])).toBe(true)
+    expect(isPortableWindows('linux', '/opt/x', () => [])).toBe(false)
+    expect(isPortableWindows('darwin', '/Applications/x', () => [])).toBe(false)
+    expect(NSIS_UNINSTALLER.test('Uninstall LocalAI Launcher.exe')).toBe(true)
   })
 
   it('turns self-update off in the portable zip, unless a test feed is set', () => {

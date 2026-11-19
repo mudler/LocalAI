@@ -469,8 +469,11 @@ jobs:
           }
           $exe = $found[0].FullName
           Write-Host "installed at $exe"
-          $un = Join-Path $found[0].DirectoryName 'Uninstall LocalAI Launcher.exe'
-          if (-not (Test-Path $un)) { throw "no uninstaller at $un" }
+          $dir = $found[0].DirectoryName
+          Get-ChildItem -Path $dir | ForEach-Object { Write-Host $_.Name }
+          # The uninstaller is named after the install folder, so match it.
+          $un = @(Get-ChildItem -Path $dir -Filter 'Uninstall*.exe' -File)
+          if ($un.Count -ne 1) { throw "expected one uninstaller in $dir, found $($un.Count)" }
           "APP_WIN=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Smoke-test the installed app
         working-directory: launcher
