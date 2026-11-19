@@ -3,8 +3,10 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -70,5 +72,56 @@ var _ = Describe("files.ensure with object storage", func() {
 		var req workerctl.FileEnsureRequest
 		Expect(json.Unmarshal(bus.payload, &req)).To(Succeed())
 		Expect(req).To(Equal(workerctl.FileEnsureRequest{Key: "models/tiny/tiny.gguf", SHA256: "abc"}))
+	})
+
+	It("replaces a stale object when the worker finds another sha256, and asks once more", func() {
+		dir := GinkgoT().TempDir()
+		store, err := storage.NewFilesystemStore(filepath.Join(dir, "store"))
+		Expect(err).ToNot(HaveOccurred())
+		fm, err := storage.NewFileManager(store, filepath.Join(dir, "cache"))
+		Expect(err).ToNot(HaveOccurred())
+		local := filepath.Join(dir, "tiny.gguf")
+		Expect(os.WriteFile(local, []byte("v2"), 0600)).To(Succeed())
+		key := "models/tiny/tiny.gguf"
+		Expect(store.Put(context.Background(), key, strings.NewReader("v1"))).To(Succeed())
+
+		stale := `{"error":"the object ` + key + ` ` + storage.SHA256MismatchText + ` abc"}`
+		bus := &releaseTestMessaging{replies: [][]byte{[]byte(stale), []byte(`{"local_path":"/cache/tiny.gguf"}`)}}
+		stager := NewS3NATSFileStager(fm, bus)
+		stager.ExpectedSHA256 = func(string) string { return "abc" }
+		path, err := stager.EnsureRemote(context.Background(), "node-a", local, key)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(path).To(Equal("/cache/tiny.gguf"))
+		Expect(bus.requestCount).To(Equal(2))
+		r, err := store.Get(context.Background(), key)
+		Expect(err).ToNot(HaveOccurred())
+		defer func() { _ = r.Close() }()
+		body, err := io.ReadAll(r)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(body)).To(Equal("v2"))
+	})
+
+	It("does not retry more than once, and not for another error", func() {
+		dir := GinkgoT().TempDir()
+		store, err := storage.NewFilesystemStore(filepath.Join(dir, "store"))
+		Expect(err).ToNot(HaveOccurred())
+		fm, err := storage.NewFileManager(store, filepath.Join(dir, "cache"))
+		Expect(err).ToNot(HaveOccurred())
+		local := filepath.Join(dir, "tiny.gguf")
+		Expect(os.WriteFile(local, []byte("v2"), 0600)).To(Succeed())
+		mismatch := []byte(`{"error":"x ` + storage.SHA256MismatchText + ` abc"}`)
+		bus := &releaseTestMessaging{replies: [][]byte{mismatch, mismatch, mismatch}}
+		stager := NewS3NATSFileStager(fm, bus)
+		stager.ExpectedSHA256 = func(string) string { return "abc" }
+		_, err = stager.EnsureRemote(context.Background(), "node-a", local, "models/tiny/tiny.gguf")
+		Expect(err).To(HaveOccurred())
+		Expect(bus.requestCount).To(Equal(2))
+
+		bus = &releaseTestMessaging{replies: [][]byte{[]byte(`{"error":"disk full"}`)}}
+		stager = NewS3NATSFileStager(fm, bus)
+		stager.ExpectedSHA256 = func(string) string { return "abc" }
+		_, err = stager.EnsureRemote(context.Background(), "node-a", local, "models/tiny/tiny.gguf")
+		Expect(err).To(MatchError(ContainSubstring("disk full")))
+		Expect(bus.requestCount).To(Equal(1))
 	})
 })

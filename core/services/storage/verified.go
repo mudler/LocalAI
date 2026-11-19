@@ -21,6 +21,12 @@ import (
 // so a directory model never sees the records among its own files.
 const verifiedDir = ".sha256"
 
+// SHA256MismatchText is in the error of a download whose object does not have
+// the expected sha256. The error crosses the control channel as text, so the
+// sender of the object finds it with strings.Contains and replaces a stale
+// object.
+const SHA256MismatchText = "does not have the expected sha256"
+
 // DownloadVerified is Download for a file whose sha256 the caller knows. A
 // cached copy with another sha256 (a model upgrade changed the file under the
 // same key while this node did not run it) is dropped and downloaded again,
@@ -54,7 +60,7 @@ func (fm *FileManager) DownloadVerified(ctx context.Context, key, sha string) (s
 	}
 	if !ok {
 		fm.evictVerified(key, localPath)
-		return "", fmt.Errorf("the object %s does not have the expected sha256 %s", key, sha)
+		return "", fmt.Errorf("the object %s "+SHA256MismatchText+" %s", key, sha)
 	}
 	return localPath, nil
 }
