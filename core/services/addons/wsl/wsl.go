@@ -31,6 +31,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf16"
 
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -77,9 +78,14 @@ type Launcher struct {
 	o    Options
 	mu   sync.Mutex
 	home map[string]string
-	// install serializes the copy of packages.
-	install sync.Mutex
+	// install holds the one copy of a package that may run at a time.
+	install chan struct{}
 }
+
+// copyBudget bounds one copy of a package into the distribution. The copy
+// goes on when the start that asked for it gives up, so a slow first copy
+// serves the next start.
+const copyBudget = 15 * time.Minute
 
 // New returns a launcher.
 func New(o Options) *Launcher {
@@ -103,7 +109,7 @@ func New(o Options) *Launcher {
 			}
 		}
 	}
-	return &Launcher{o: o, home: map[string]string{}}
+	return &Launcher{o: o, home: map[string]string{}, install: make(chan struct{}, 1)}
 }
 
 // UNCPath is the path by which Windows reaches linuxPath of a distribution.
@@ -311,8 +317,28 @@ const complete = ".localai-complete"
 // The files get the owner's execute bit, which a copy from Windows does not
 // carry, and the executable is read back and compared.
 func (l *Launcher) installPackage(ctx context.Context, distro string, pkg packages.PackageReceipt, pkgDir string) error {
-	l.install.Lock()
-	defer l.install.Unlock()
+	select {
+	case l.install <- struct{}{}:
+	case <-ctx.Done():
+		return fmt.Errorf("%w: a copy of the add-on into the distribution is still running; the add-on starts after it", ErrDistro)
+	}
+	done := make(chan error, 1)
+	go func() {
+		defer func() { <-l.install }()
+		bounded, cancel := context.WithTimeout(context.WithoutCancel(ctx), copyBudget)
+		defer cancel()
+		done <- l.copyPackage(bounded, distro, pkg, pkgDir)
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return fmt.Errorf("%w: the copy of the add-on into the distribution takes longer than a start may wait; it goes on, and the next start uses it", ErrDistro)
+	}
+}
+
+// copyPackage does the copy of installPackage.
+func (l *Launcher) copyPackage(ctx context.Context, distro string, pkg packages.PackageReceipt, pkgDir string) error {
 	hostDir := l.o.HostPath(distro, pkgDir)
 	if b, err := os.ReadFile(filepath.Join(hostDir, complete)); err == nil && string(b) == pkg.Digest { // #nosec G304 -- a path in the add-on folder of the distribution
 		return nil

@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 	"unicode/utf16"
 
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -42,11 +44,27 @@ type fakeWSL struct {
 	list            []byte
 	home            string
 	root            string
+	mu              sync.Mutex
 	calls           [][]string
 }
 
+// since returns the calls after the first n.
+func (f *fakeWSL) since(n int) [][]string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([][]string(nil), f.calls[n:]...)
+}
+
+func (f *fakeWSL) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.calls)
+}
+
 func (f *fakeWSL) run(_ context.Context, _ string, args ...string) ([]byte, error) {
+	f.mu.Lock()
 	f.calls = append(f.calls, args)
+	f.mu.Unlock()
 	switch {
 	case args[0] == "--status":
 		return nil, f.status
@@ -169,10 +187,10 @@ var _ = Describe("Preparing a launch", func() {
 		Expect(info.Mode().Perm() & 0o100).NotTo(BeZero())
 		Expect(filepath.Join(copied, "gvisor-bin", "runsc")).To(BeARegularFile())
 		// A second launch of the same digest copies nothing.
-		n := len(f.calls)
+		n := f.count()
 		_, err = l.Prepare(context.Background(), p)
 		Expect(err).NotTo(HaveOccurred())
-		for _, c := range f.calls[n:] {
+		for _, c := range f.since(n) {
 			Expect(c).NotTo(ContainElement("/bin/chmod"))
 		}
 		// A new version replaces the copy of the old one.
@@ -190,6 +208,31 @@ var _ = Describe("Preparing a launch", func() {
 		entries, _ := os.ReadDir(filepath.Join(f.root, "home", "user", ".local", "share", "localai-addons", "packages", "sandbox"))
 		Expect(entries).To(BeEmpty())
 	})
+	It("goes on with a copy that takes longer than the start may wait, and the next start uses it", func() {
+		f, l := newFake()
+		release := make(chan struct{})
+		run := l.o.Run
+		l.o.Run = func(ctx context.Context, exe string, args ...string) ([]byte, error) {
+			if len(args) > 3 && args[3] == "/bin/chmod" {
+				<-release
+			}
+			return run(ctx, exe, args...)
+		}
+		p := pkgOf("ffff")
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() { time.Sleep(50 * time.Millisecond); cancel() }()
+		_, err := l.Prepare(ctx, p)
+		Expect(err).To(MatchError(ContainSubstring("the next start uses it")))
+		close(release)
+		copied := filepath.Join(f.root, "home", "user", ".local", "share", "localai-addons", "packages", "sandbox", "ffff", complete)
+		Eventually(copied, 5*time.Second).Should(BeARegularFile())
+		n := f.count()
+		_, err = l.Prepare(context.Background(), p)
+		Expect(err).NotTo(HaveOccurred())
+		for _, c := range f.since(n) {
+			Expect(c).NotTo(ContainElement("/bin/chmod"))
+		}
+	})
 	It("refuses a home folder it cannot use", func() {
 		f, l := newFake()
 		f.home = "relative"
@@ -201,7 +244,7 @@ var _ = Describe("Preparing a launch", func() {
 		f.status = errors.New("not installed")
 		_, err := l.Prepare(context.Background(), pkgOf("eeee"))
 		Expect(err).To(MatchError(ErrNotInstalled))
-		for _, c := range f.calls {
+		for _, c := range f.since(0) {
 			Expect(c).NotTo(ContainElement("--exec"))
 		}
 	})
