@@ -38,6 +38,9 @@ type gate struct {
 	open bool
 
 	admins map[peer.ID]bool
+	// operators are the admins of the configuration (--admin). Only they may
+	// change the limits that every tenant of a shared relay runs with.
+	operators map[peer.ID]bool
 	// members maps a member to the admins that vouch for it, with the time
 	// its pending membership ends (zero: permanent).
 	members map[peer.ID]map[peer.ID]time.Time
@@ -67,6 +70,7 @@ func newGate(cfg *Config) (*gate, error) {
 		st:          st,
 		open:        cfg.Open,
 		admins:      map[peer.ID]bool{},
+		operators:   map[peer.ID]bool{},
 		maxPerSet:   cfg.MaxPeersPerAdmin,
 		maxPasses:   cfg.MaxPassesPerAdmin,
 		pendingTTL:  cfg.PendingTTL,
@@ -75,6 +79,7 @@ func newGate(cfg *Config) (*gate, error) {
 	}
 	for _, p := range cfg.Admins {
 		g.admins[p] = true
+		g.operators[p] = true
 	}
 	for _, s := range st.ClaimedAdmins {
 		p, err := peer.Decode(s)
@@ -154,6 +159,18 @@ func (g *gate) unclaimedLocked() bool { return !g.open && len(g.admins) == 0 }
 func (g *gate) isAdmin(p peer.ID) bool {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+	return g.admins[p]
+}
+
+// canSetLimits tells whether p may change the limits of the relay: an admin of
+// the configuration, or, when the configuration names none, the admin that
+// claimed the relay, who is then its only operator.
+func (g *gate) canSetLimits(p peer.ID) bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	if len(g.operators) > 0 {
+		return g.operators[p]
+	}
 	return g.admins[p]
 }
 
@@ -299,10 +316,10 @@ func (g *gate) apply(p peer.ID, req relayproto.Request, now time.Time) (relaypro
 		return fail("not an admin"), nil
 	}
 	key := p.String()
-	set := g.st.Admins[key]
-	if set == nil {
-		set = newAdminSet()
-	}
+	// The operation changes a copy, which replaces the set only after the
+	// state is saved, so a failed save leaves the memory as the disk is.
+	orig := g.st.Admins[key]
+	set := orig.clone()
 	var drop []peer.ID
 	changed := false
 	switch req.Op {
@@ -393,7 +410,13 @@ func (g *gate) apply(p peer.ID, req relayproto.Request, now time.Time) (relaypro
 		g.reindex()
 		if err := g.save(); err != nil {
 			xlog.Error("relay: cannot save the allowlist", "error", err)
-			return fail("state not saved: " + err.Error()), drop
+			if orig == nil {
+				delete(g.st.Admins, key)
+			} else {
+				g.st.Admins[key] = orig
+			}
+			g.reindex()
+			return fail("state not saved: " + err.Error()), nil
 		}
 		xlog.Info("relay: admin operation", "admin", p, "op", req.Op, "members", len(set.Peers), "seq", set.Seq, "revoked", len(drop))
 	}

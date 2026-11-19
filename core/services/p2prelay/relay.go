@@ -92,6 +92,9 @@ type Relay struct {
 
 	// limitsMu serialises changes of the limits.
 	limitsMu sync.Mutex
+	// lastRestart is when the circuit service last restarted for a change of
+	// the limits. limitsMu guards it.
+	lastRestart time.Time
 
 	mu     sync.Mutex
 	h      host.Host
@@ -256,6 +259,10 @@ func (r *Relay) Close() error {
 	h.RemoveStreamHandler(relayproto.AdminID)
 	h.RemoveStreamHandler(relayproto.PassID)
 	h.Network().StopNotify(r.notify)
+	if rel == nil {
+		// A failed restart of the circuit service left none.
+		return nil
+	}
 	return rel.Close()
 }
 

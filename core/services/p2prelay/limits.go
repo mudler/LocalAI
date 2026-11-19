@@ -22,6 +22,11 @@ import (
 // over a restart. Delete the file to go back to the flags.
 const limitsFile = "limits.json"
 
+// limitsRestartCooldown is the shortest time between two changes that restart
+// the circuit service. A restart drops the reservations and the connections of
+// every member, so an admin must not be able to repeat it in a loop.
+const limitsRestartCooldown = 30 * time.Second
+
 // maxLimitSeconds is the longest circuit time an admin may set: 100 years,
 // the value that stands for "no limit" inside the circuit service.
 const maxLimitSeconds = 100 * 365 * 24 * 3600
@@ -198,6 +203,10 @@ func (r *Relay) currentLimits() Limits {
 // connections of every peer but p so that they reserve again at once. p
 // reserves again by itself. The returned peers are the ones to disconnect.
 func (r *Relay) limitsOp(p peer.ID, patch *relayproto.LimitsPatch) (relayproto.Response, []peer.ID) {
+	if patch != nil && !r.gate.canSetLimits(p) {
+		xlog.Debug("relay: deny limits change", "peer", p, "reason", "not an operator")
+		return fail("only an operator of the relay can change the limits"), nil
+	}
 	r.limitsMu.Lock()
 	defer r.limitsMu.Unlock()
 
@@ -231,7 +240,15 @@ func (r *Relay) limitsOp(p peer.ID, patch *relayproto.LimitsPatch) (relayproto.R
 		resp.Limits = &rep
 		return resp, nil
 	}
-	if err := saveLimits(filepath.Join(r.cfg.DataDir, limitsFile), rep); err != nil {
+	restart := next.CircuitMaxBytes != old.CircuitMaxBytes || next.CircuitMaxDuration != old.CircuitMaxDuration
+	if restart {
+		if wait := limitsRestartCooldown - time.Since(r.lastRestart); !r.lastRestart.IsZero() && wait > 0 {
+			return fail(fmt.Sprintf("limits changed too recently, retry in %d seconds", int(wait/time.Second)+1)), nil
+		}
+	}
+	path := filepath.Join(r.cfg.DataDir, limitsFile)
+	prev, hadFile := readLimitsFile(path)
+	if err := saveLimits(path, rep); err != nil {
 		xlog.Error("relay: save limits", "error", err)
 		return fail("could not save the limits"), nil
 	}
@@ -240,16 +257,21 @@ func (r *Relay) limitsOp(p peer.ID, patch *relayproto.LimitsPatch) (relayproto.R
 	r.mu.Lock()
 	r.cfg.Limits = next
 	r.rl.setPerCircuit(next.RateLimit)
-	restart := next.CircuitMaxBytes != old.CircuitMaxBytes || next.CircuitMaxDuration != old.CircuitMaxDuration
 	if restart {
-		rel, err := r.restartCircuitServiceLocked()
+		rel, err := r.restartCircuitServiceLocked(old)
 		if err != nil {
-			// The saved limits take effect at the next start of the relay.
+			// Nothing of the change applies: the saved limits and the
+			// running ones go back to the old values.
 			xlog.Error("relay: restart the circuit service", "error", err)
-		} else {
-			r.relay = rel
-			drop = r.peersExceptLocked(p)
+			r.cfg.Limits = old
+			r.rl.setPerCircuit(old.RateLimit)
+			r.mu.Unlock()
+			restoreLimitsFile(path, prev, hadFile)
+			return fail("could not apply the limits"), nil
 		}
+		r.relay = rel
+		r.lastRestart = time.Now()
+		drop = r.peersExceptLocked(p)
 	}
 	r.mu.Unlock()
 	rep.Restarted = restart
@@ -260,12 +282,33 @@ func (r *Relay) limitsOp(p peer.ID, patch *relayproto.LimitsPatch) (relayproto.R
 }
 
 // restartCircuitServiceLocked replaces the circuit service with one that
-// runs with the current limits. The caller holds mu.
-func (r *Relay) restartCircuitServiceLocked() (*relayv2.Relay, error) {
-	if err := r.relay.Close(); err != nil {
-		return nil, err
+// runs with the current limits. The new service cannot start before the old
+// one is closed, because both register the same stream handlers on the host
+// and closing the old one removes them. When the new service does not start,
+// it starts again with the limits in old, so the relay is never left with a
+// closed service. The caller holds mu and sets r.cfg.Limits back to old on an
+// error.
+func (r *Relay) restartCircuitServiceLocked(old Limits) (*relayv2.Relay, error) {
+	if r.relay != nil {
+		if err := r.relay.Close(); err != nil {
+			xlog.Warn("relay: close the circuit service", "error", err)
+		}
 	}
-	return r.newCircuitRelayLocked()
+	rel, err := r.newCircuitRelayLocked()
+	if err == nil {
+		return rel, nil
+	}
+	next := r.cfg.Limits
+	r.cfg.Limits = old
+	rel, rerr := r.newCircuitRelayLocked()
+	r.cfg.Limits = next
+	if rerr != nil {
+		// No service runs now. Close skips the closed one.
+		r.relay = nil
+		return nil, fmt.Errorf("%w; the old limits did not start either: %v", err, rerr)
+	}
+	r.relay = rel
+	return nil, err
 }
 
 // peersExceptLocked returns the connected peers but p. The caller holds mu.
@@ -277,6 +320,26 @@ func (r *Relay) peersExceptLocked(p peer.ID) []peer.ID {
 		}
 	}
 	return out
+}
+
+// readLimitsFile returns the content of the saved limits and whether the file exists.
+func readLimitsFile(path string) ([]byte, bool) {
+	b, err := os.ReadFile(path)
+	return b, err == nil
+}
+
+// restoreLimitsFile puts the saved limits back as they were before a change
+// that did not apply.
+func restoreLimitsFile(path string, prev []byte, had bool) {
+	var err error
+	if had {
+		err = writeFileAtomic(path, prev)
+	} else if err = os.Remove(path); errors.Is(err, os.ErrNotExist) {
+		err = nil
+	}
+	if err != nil {
+		xlog.Error("relay: restore the saved limits", "error", err)
+	}
 }
 
 func saveLimits(path string, l relayproto.Limits) error {

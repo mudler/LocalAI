@@ -128,6 +128,16 @@ var _ = Describe("relay limits admin operation", func() {
 		Expect(setLimits(admin, r, nil).Limits.RateBPS).To(BeZero())
 	})
 
+	It("refuses a second change that restarts the circuit service within the cooldown", func() {
+		Expect(setLimits(admin, r, &relayproto.LimitsPatch{CircuitMaxBytes: i64(2 << 20)}).OK).To(BeTrue())
+		resp := setLimits(admin, r, &relayproto.LimitsPatch{CircuitMaxBytes: i64(3 << 20)})
+		Expect(resp.OK).To(BeFalse())
+		Expect(resp.Err).To(ContainSubstring("too recently"))
+		Expect(setLimits(admin, r, nil).Limits.CircuitMaxBytes).To(BeEquivalentTo(2 << 20))
+		// A change that does not restart is not held back.
+		Expect(setLimits(admin, r, &relayproto.LimitsPatch{RateBPS: i64(64 << 10)}).OK).To(BeTrue())
+	})
+
 	It("lets a circuit work again after the restart once the peers reserve", func() {
 		Expect(reserve(admin, r)).To(Succeed())
 		Expect(setLimits(admin, r, &relayproto.LimitsPatch{CircuitMaxBytes: i64(2 << 20)}).OK).To(BeTrue())

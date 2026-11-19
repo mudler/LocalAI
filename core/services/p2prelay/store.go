@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // stateFile is the name of the persisted state in Config.DataDir.
@@ -52,6 +55,24 @@ type adminSet struct {
 
 func newAdminSet() *adminSet {
 	return &adminSet{Peers: map[string]member{}, Passes: map[string]pass{}}
+}
+
+// clone returns a copy of s, or an empty set for nil, that shares nothing
+// with s.
+func (s *adminSet) clone() *adminSet {
+	if s == nil {
+		return newAdminSet()
+	}
+	c := *s
+	c.Peers = maps.Clone(s.Peers)
+	c.Passes = maps.Clone(s.Passes)
+	if c.Peers == nil {
+		c.Peers = map[string]member{}
+	}
+	if c.Passes == nil {
+		c.Passes = map[string]pass{}
+	}
+	return &c
 }
 
 // state is the content of allowlist.json.
@@ -102,30 +123,8 @@ func saveState(path string, st *state) error {
 // writeFileAtomic replaces path with b, with mode 0600, so a crash leaves
 // the old file or the new one.
 func writeFileAtomic(path string, b []byte) error {
-	name := filepath.Base(path)
-	f, err := os.CreateTemp(filepath.Dir(path), name+".*.tmp")
-	if err != nil {
-		return fmt.Errorf("p2prelay: save %s: %w", name, err)
-	}
-	tmp := f.Name()
-	defer func() { _ = os.Remove(tmp) }()
-	if err := f.Chmod(0o600); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("p2prelay: save %s: %w", name, err)
-	}
-	if _, err := f.Write(b); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("p2prelay: save %s: %w", name, err)
-	}
-	if err := f.Sync(); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("p2prelay: save %s: %w", name, err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("p2prelay: save %s: %w", name, err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		return fmt.Errorf("p2prelay: save %s: %w", name, err)
+	if err := atomicfile.Write(path, b, 0o600); err != nil {
+		return fmt.Errorf("p2prelay: save %s: %w", filepath.Base(path), err)
 	}
 	return nil
 }

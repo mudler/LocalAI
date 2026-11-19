@@ -106,6 +106,26 @@ var _ = Describe("gate", func() {
 		Expect(resp.Seq).To(BeEquivalentTo(5))
 	})
 
+	It("keeps the memory as the disk is when the state cannot be saved", func() {
+		m, n := newID(), newID()
+		Expect(op(relayproto.OpAdd, 1, m).OK).To(BeTrue())
+		g.path = filepath.Join(cfg.DataDir, "missing", stateFile)
+		resp, drop := g.apply(admin, relayproto.Request{Op: relayproto.OpReplace, Seq: 2, Peers: peers(n)}, now)
+		Expect(resp.OK).To(BeFalse())
+		Expect(drop).To(BeEmpty())
+		Expect(g.admitted(m)).To(BeTrue())
+		Expect(g.admitted(n)).To(BeFalse())
+		Expect(g.st.Admins[admin.String()].Seq).To(BeEquivalentTo(1))
+	})
+
+	It("lets only an operator change the limits", func() {
+		claimed := newID()
+		g.admins[claimed] = true
+		Expect(g.canSetLimits(admin)).To(BeTrue())
+		Expect(g.canSetLimits(claimed)).To(BeFalse())
+		Expect(g.canSetLimits(newID())).To(BeFalse())
+	})
+
 	It("drops the set of a peer that is no longer an admin at load", func() {
 		m := newID()
 		op(relayproto.OpAdd, 1, m)
