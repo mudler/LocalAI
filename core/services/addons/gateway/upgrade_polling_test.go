@@ -67,7 +67,7 @@ var _ = Describe("durable upgrade carrier polling", func() {
 		var accepted addons.OperationStatus
 		Expect(json.Unmarshal(out.Payload, &accepted)).To(Succeed())
 		Expect(accepted.Phase).To(Equal("accepted"))
-		Eventually(policy.entered).Should(BeClosed())
+		Eventually(policy.entered, 30*time.Second).Should(BeClosed())
 		// Work remains blocked beyond the old deadline while status reads succeed.
 		Consistently(func() string {
 			out, e := cs["front-b"].Dispatch(context.Background(), actor, contract.Request{AddonID: "sample", OperationID: "upgrade", Action: "operation-status", Arguments: []byte(`{}`)})
@@ -89,7 +89,11 @@ var _ = Describe("durable upgrade carrier polling", func() {
 			var status addons.OperationStatus
 			Expect(json.Unmarshal(out.Payload, &status)).To(Succeed())
 			return status.Phase
-		}).Should(Equal("completed"))
+			// After the backup is released the upgrade still installs and
+			// verifies files, which takes longer than the default one second
+			// on a slow disk (Windows runners). The wait ends as soon as the
+			// operation completes.
+		}, 60*time.Second, 50*time.Millisecond).Should(Equal("completed"))
 		st, e = manager.Status(context.Background(), "sample")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(st.Generation).To(Equal(uint64(2)))

@@ -20,7 +20,8 @@ ARG APT_PORTS_MIRROR=""
 # .docker/install-base-deps.sh (from-source path) or a prebuilt
 # quay.io/go-skynet/ci-cache:base-grpc-* image (CI path) — nothing GPU-specific
 # is hand-rolled here. BUILD_TYPE selects the engine backend in the Makefile:
-# "" = cpu, "cublas" -> -DPF_CUDA=ON, "vulkan" -> -DPF_VULKAN=ON.
+# "" = cpu, "cublas" -> -DPF_CUDA=ON, "vulkan" -> -DPF_VULKAN=ON,
+# "hipblas" -> -DGGML_HIP=ON (ROCm).
 
 # ============================================================================
 # Stage: builder-fromsource — self-contained build. Runs the same install
@@ -30,6 +31,9 @@ ARG APT_PORTS_MIRROR=""
 # ============================================================================
 FROM ${BASE_IMAGE} AS builder-fromsource
 ARG BUILD_TYPE
+# gfx targets for BUILD_TYPE=hipblas (the Makefile has a default list).
+ARG AMDGPU_TARGETS
+ENV AMDGPU_TARGETS=${AMDGPU_TARGETS}
 ARG CUDA_MAJOR_VERSION
 ARG CUDA_MINOR_VERSION
 ARG CMAKE_FROM_SOURCE=false
@@ -87,6 +91,9 @@ RUN --mount=type=cache,target=/root/.ccache,id=privacy-filter-ccache-${TARGETARC
 # ============================================================================
 FROM ${BUILDER_BASE_IMAGE} AS builder-prebuilt
 ARG BUILD_TYPE
+# gfx targets for BUILD_TYPE=hipblas (the Makefile has a default list).
+ARG AMDGPU_TARGETS
+ENV AMDGPU_TARGETS=${AMDGPU_TARGETS}
 ARG TARGETARCH
 ENV BUILD_TYPE=${BUILD_TYPE}
 # CUDA on PATH (a no-op for the cpu/vulkan base images).

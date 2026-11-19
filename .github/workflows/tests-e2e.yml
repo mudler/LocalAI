@@ -184,7 +184,17 @@ jobs:
       # plumbing itself (protogen-go, react-ui dist, the .exe suffix
       # handling) alongside the direct go build above.
       - name: Add GNU make
-        run: choco install make -y
+        run: |
+          # The Chocolatey feed answers 503 now and then, and choco can still
+          # exit with 0 then. Retry, and check the shim that the install makes.
+          $shim = Join-Path $env:ChocolateyInstall 'bin\make.exe'
+          foreach ($i in 1..5) {
+            choco install make -y
+            if (Test-Path $shim) { break }
+            Write-Host "make is not installed (try $i of 5)"
+            Start-Sleep -Seconds (10 * $i)
+          }
+          if (-not (Test-Path $shim)) { exit 1 }
       - name: Make build
         env:
           CGO_ENABLED: '0'
