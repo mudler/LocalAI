@@ -106,6 +106,7 @@ export const IPC = {
   // window settings
   getWindowSettings: 'launcher:window:get',
   setOpenInBrowser: 'launcher:window:set-open-in-browser',
+  setDesktopNotifications: 'launcher:window:set-desktop-notifications',
   // updates
   getUpdateInfo: 'launcher:updates:get',
   setAutoCheck: 'launcher:updates:set-auto-check',
@@ -188,6 +189,7 @@ export interface InvokeContract {
   'launcher:webui:reset-permissions': { args: []; result: void }
   'launcher:window:get': { args: []; result: WindowSettingsView }
   'launcher:window:set-open-in-browser': { args: [on: boolean]; result: WindowSettingsView }
+  'launcher:window:set-desktop-notifications': { args: [on: boolean]; result: WindowSettingsView }
   'launcher:updates:get': { args: []; result: UpdateInfoView }
   'launcher:updates:set-auto-check': { args: [on: boolean]; result: UpdateInfoView }
   'launcher:updates:set-channel': { args: [channel: UpdateChannelName, confirmed?: boolean]; result: SetChannelResult }
@@ -293,6 +295,7 @@ export const CHANNEL_KIND: { [C in Channel]: C extends InvokeChannel ? 'invoke' 
   'launcher:webui:reset-permissions': 'invoke',
   'launcher:window:get': 'invoke',
   'launcher:window:set-open-in-browser': 'invoke',
+  'launcher:window:set-desktop-notifications': 'invoke',
   'launcher:updates:get': 'invoke',
   'launcher:updates:set-auto-check': 'invoke',
   'launcher:updates:set-channel': 'invoke',

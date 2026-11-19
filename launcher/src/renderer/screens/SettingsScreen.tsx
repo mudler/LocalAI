@@ -160,6 +160,15 @@ export function SettingsScreen({
             })}
           </Field>
         )}
+        {b.setDesktopNotifications && data.windowSettings && (
+          <Field id={`${ids}-notifications`} name={S.settings.notifications} note={S.settings.notificationsNote}>
+            <span className="lnr-grow" />
+            {sw(`${ids}-notifications`, data.windowSettings.desktopNotifications, async (v) => {
+              const r = await b.setDesktopNotifications?.(v)
+              if (r) controls.setWindowSettings(r)
+            })}
+          </Field>
+        )}
         {b.resetWebuiPermissions && data.windowSettings && (
           <Field name={S.settings.permissions} note={S.settings.permissionsNote(origin)}>
             <span className="lnr-grow dk-small dk-muted">{S.settings.mediaChoice(data.windowSettings.media)}</span>

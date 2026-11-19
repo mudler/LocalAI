@@ -266,6 +266,8 @@ export const S = {
     showBarNote: 'The bar at the bottom of the window. It comes back by itself when something needs you.',
     browser: 'Open the WebUI in my browser instead',
     browserNote: 'This window then shows only the launcher screens.',
+    notifications: 'Desktop notifications',
+    notificationsNote: 'Show a notification when a server adds an item to your inbox, such as a finished run.',
     permissions: 'Reset permissions for this server',
     permissionsNote: (origin: string) => `Microphone, camera and clipboard choices for ${origin}`,
     noPermissions: 'Nothing allowed',
