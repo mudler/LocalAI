@@ -266,13 +266,53 @@ export function limitsFromReported(limits) {
   }
 }
 
-// defaultLimits is the form for "Reset to defaults".
-export function defaultLimits(open) {
-  return {
+// hasCeiling says whether the relay reported a ceiling for any limit. The
+// operator of the relay sets it with the relay's flags.
+export function hasCeiling(ceiling) {
+  const c = ceiling || {}
+  return (c.circuit_bytes || 0) > 0 || (c.circuit_seconds || 0) > 0 || (c.rate_bps || 0) > 0
+}
+
+// The ceiling of each field of the limits form, in the units of the API.
+const CEILING_KEYS = { dataGiB: 'circuit_bytes', minutes: 'circuit_seconds', kibps: 'rate_bps' }
+
+// limitsMaxText writes the ceiling of one field of the form (dataGiB,
+// minutes or kibps) in words, or an empty string when it has none.
+export function limitsMaxText(field, ceiling) {
+  const v = Number((ceiling || {})[CEILING_KEYS[field]]) || 0
+  if (v <= 0) return ''
+  return field === 'minutes' ? formatSeconds(v) : field === 'kibps' ? `${formatBytes(v)}/s` : formatBytes(v)
+}
+
+// limitsIssues checks the form against the ceiling before it is sent, as the
+// relay will: a value above the ceiling is 'above', and zero (no limit, or
+// noLimit as a whole) where there is a ceiling is 'required'. It returns the
+// issue of each field that has one.
+export function limitsIssues({ form, noLimit, ceiling }) {
+  const body = noLimit ? { circuit_bytes: 0, circuit_seconds: 0, rate_bps: 0 } : limitsPatch({ form })
+  const issues = {}
+  for (const [field, key] of Object.entries(CEILING_KEYS)) {
+    const max = Number((ceiling || {})[key]) || 0
+    if (max <= 0) continue
+    if (body[key] === 0) issues[field] = 'required'
+    else if (body[key] > max) issues[field] = 'above'
+  }
+  return issues
+}
+
+// defaultLimits is the form for "Reset to defaults". A default above the
+// ceiling of the relay becomes the ceiling.
+export function defaultLimits(open, ceiling) {
+  const f = {
     dataGiB: RELAY_DEFAULTS.circuitBytes / (1 << 30),
     minutes: RELAY_DEFAULTS.circuitSeconds / 60,
     kibps: open ? RELAY_DEFAULTS.openRateBPS / 1024 : 0,
   }
+  const c = limitsFromReported(ceiling)
+  for (const k of Object.keys(f)) {
+    if (c[k] > 0 && (f[k] === 0 || f[k] > c[k])) f[k] = c[k]
+  }
+  return f
 }
 
 function round2(n) {

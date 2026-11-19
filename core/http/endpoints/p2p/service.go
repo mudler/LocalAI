@@ -234,6 +234,11 @@ type RelayLimits struct {
 // RelayLimitsInfo is the answer of GET and PUT /api/p2p/relays/{id}/limits.
 type RelayLimitsInfo struct {
 	Limits RelayLimits `json:"limits"`
+	// Ceiling is the most a change may set for each limit; the operator of
+	// the relay sets it. Zero means no ceiling. With a ceiling a limit
+	// cannot be removed either: a value above it, or zero, is refused with
+	// an error that names the ceiling.
+	Ceiling RelayLimits `json:"ceiling"`
 	// CanChange is true when this server is an admin of a gated relay and
 	// may change the limits.
 	CanChange bool `json:"can_change"`

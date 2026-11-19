@@ -260,7 +260,16 @@
     "loadError": "Impossible de lire les limites du relais.",
     "readOnlyTitle": "Ce serveur ne peut pas modifier ces limites.",
     "readOnlyOpen": "Ce relais est ouvert et ce serveur n'en est pas l'administrateur. Définissez les limites là où le relais s'exécute, avec --circuit-max-bytes, --circuit-max-duration et --rate-limit.",
-    "readOnlyMember": "Ce serveur n'est pas administrateur de ce relais. Demandez à son administrateur, ou définissez les limites là où le relais s'exécute, avec --circuit-max-bytes, --circuit-max-duration et --rate-limit."
+    "readOnlyMember": "Ce serveur n'est pas administrateur de ce relais. Demandez à son administrateur, ou définissez les limites là où le relais s'exécute, avec --circuit-max-bytes, --circuit-max-duration et --rate-limit.",
+    "max": "Maximum : {{value}}",
+    "noMax": "Pas de maximum",
+    "ceilingTitle": "L'opérateur du relais a fixé des maximums.",
+    "ceilingBody": "L'opérateur de ce relais a fixé une borne supérieure pour chaque limite avec ses options de démarrage. Vous pouvez modifier une limite jusqu'à son maximum, pas au-delà, et vous ne pouvez pas supprimer une limite qui a un maximum.",
+    "issue": {
+      "above": "Au-dessus du maximum de {{max}}.",
+      "required": "Saisissez une valeur jusqu'à {{max}} : une limite avec maximum ne peut pas être supprimée."
+    },
+    "refusedTitle": "Le relais a refusé la modification."
   },
   "identity": {
     "title": "Identité",

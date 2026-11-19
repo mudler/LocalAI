@@ -208,8 +208,8 @@ test.describe('P2P settings: relays', () => {
     await expect(page.getByText('Limits saved on Office relay.')).toBeVisible()
   })
 
-  test('limits of a gated relay: No limit keeps its warning and saves zeros', async ({ page }) => {
-    const calls = await mockP2PSettings(page, { mode: 'share' })
+  test('limits of a gated relay without a ceiling: No limit keeps its warning and saves zeros', async ({ page }) => {
+    const calls = await mockP2PSettings(page, { mode: 'share', ceilings: {} })
     await page.goto(`${PAGE}?section=relays`)
     await ready(page)
     await page.locator('[data-relay="r-sync"]').getByTestId('relay-limits').click()
@@ -219,6 +219,45 @@ test.describe('P2P settings: relays', () => {
     await dialog.getByTestId('relay-limits-save').click()
     await expect(page.getByText('The relay restarted its circuit service', { exact: false })).toBeVisible()
     expect(calls.limits).toEqual([{ id: 'r-sync', circuit_bytes: 0, circuit_seconds: 0, rate_bps: 0 }])
+  })
+
+  test('limits of a relay with a ceiling: the maximum is shown, a value above it is not sent', async ({ page }) => {
+    const calls = await mockP2PSettings(page, { mode: 'share' })
+    await page.goto(`${PAGE}?section=relays`)
+    await ready(page)
+    await page.locator('[data-relay="r-sync"]').getByTestId('relay-limits').click()
+    const dialog = page.getByTestId('relay-limits-dialog')
+    await expect(dialog.getByTestId('relay-limits-ceiling')).toBeVisible()
+    await expect(dialog.getByTestId('relay-limit-dataGiB-max')).toHaveText('Maximum: 8 GiB')
+    await expect(dialog.getByTestId('relay-limit-minutes-max')).toHaveText('Maximum: 24 h')
+    await expect(dialog.getByTestId('relay-limit-kibps-max')).toHaveText('No maximum')
+    // A limit with a ceiling cannot be removed, so No limit is not offered.
+    await expect(dialog.getByRole('radio', { name: 'No limit' })).toHaveCount(0)
+    await expect(dialog.getByText('0 means no limit')).toHaveCount(0)
+
+    await dialog.locator('#relay-limit-dataGiB').fill('9')
+    await expect(dialog.getByTestId('relay-limit-dataGiB-issue')).toContainText('Above the maximum of 8 GiB.')
+    await expect(dialog.getByTestId('relay-limits-save')).toBeDisabled()
+    await dialog.locator('#relay-limit-dataGiB').fill('0')
+    await expect(dialog.getByTestId('relay-limit-dataGiB-issue')).toContainText('cannot be removed')
+    await expect(dialog.getByTestId('relay-limits-save')).toBeDisabled()
+    await dialog.locator('#relay-limit-dataGiB').fill('8')
+    await expect(dialog.getByTestId('relay-limit-dataGiB-issue')).toHaveCount(0)
+    await expect(dialog.getByTestId('relay-limits-save')).toBeEnabled()
+    expect(calls.limits).toEqual([])
+  })
+
+  test('limits of a relay: the error of the relay stays in the dialog', async ({ page }) => {
+    const calls = await mockP2PSettings(page, { mode: 'share', refuseLimits: 'the circuit data limit of 4 GiB is above the ceiling of 2 GiB set by the relay operator' })
+    await page.goto(`${PAGE}?section=relays`)
+    await ready(page)
+    await page.locator('[data-relay="r-sync"]').getByTestId('relay-limits').click()
+    const dialog = page.getByTestId('relay-limits-dialog')
+    await dialog.locator('#relay-limit-dataGiB').fill('4')
+    await dialog.getByTestId('relay-limits-save').click()
+    await expect(dialog.getByTestId('relay-limits-refused')).toContainText('above the ceiling of 2 GiB')
+    await expect(dialog).toBeVisible()
+    expect(calls.limits).toHaveLength(1)
   })
 
   test('limits of an open relay are shown and cannot be changed from here', async ({ page }) => {

@@ -28,6 +28,9 @@ type Command struct {
 	CircuitMaxBytes      int64         `default:"1073741824" help:"Data one circuit may carry in each direction, in bytes (0: no limit)"`
 	CircuitMaxDuration   time.Duration `default:"30m" help:"Time one circuit may stay open (0: no limit)"`
 	RateLimit            int64         `default:"-1" help:"Bandwidth limit per circuit, in bytes per second (0: no limit, with a warning; default: 64 KiB/s for an open relay, none otherwise)"`
+	MaxCircuitBytes      int64         `default:"8589934592" help:"Ceiling for the data limit per circuit that an admin may set from a server, in bytes (0: no ceiling). The limit flags must stay inside it, and an admin cannot remove a limit that has a ceiling"`
+	MaxCircuitDuration   time.Duration `default:"24h" help:"Ceiling for the time limit per circuit that an admin may set from a server (0: no ceiling)"`
+	MaxRateLimit         int64         `default:"0" help:"Ceiling for the bandwidth limit per circuit that an admin may set from a server, in bytes per second (0: no ceiling)"`
 	TotalRateLimit       int64         `default:"0" help:"Bandwidth limit for the whole relay, in bytes per second (0: no limit)"`
 	MaxCircuits          int           `default:"128" help:"Circuits the relay carries at once"`
 	MaxCircuitsPerPeer   int           `default:"16" help:"Circuits one peer may hold at once"`
@@ -78,6 +81,9 @@ func (c *Command) Config() (p2prelay.RunConfig, error) {
 	if c.RateLimit >= 0 {
 		// An explicit value wins, including 0, which removes the limit.
 		cfg.RateLimit = c.RateLimit
+	}
+	cfg.Ceiling = p2prelay.Ceiling{
+		CircuitMaxBytes: c.MaxCircuitBytes, CircuitMaxDuration: c.MaxCircuitDuration, RateLimit: c.MaxRateLimit,
 	}
 	cfg.TotalRateLimit = c.TotalRateLimit
 	cfg.MaxCircuits = c.MaxCircuits

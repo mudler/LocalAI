@@ -260,7 +260,16 @@
     "loadError": "无法从中继读取限制。",
     "readOnlyTitle": "此服务器无法更改这些限制。",
     "readOnlyOpen": "这是开放中继，且此服务器不是它的管理员。请在中继运行的位置用 --circuit-max-bytes、--circuit-max-duration 和 --rate-limit 设置限制。",
-    "readOnlyMember": "此服务器不是该中继的管理员。请联系其管理员，或在中继运行的位置用 --circuit-max-bytes、--circuit-max-duration 和 --rate-limit 设置限制。"
+    "readOnlyMember": "此服务器不是该中继的管理员。请联系其管理员，或在中继运行的位置用 --circuit-max-bytes、--circuit-max-duration 和 --rate-limit 设置限制。",
+    "max": "最大值：{{value}}",
+    "noMax": "无最大值",
+    "ceilingTitle": "中继运营者设置了最大值。",
+    "ceilingBody": "此中继的运营者通过启动参数为每项限制设置了上限。你可以把限制调到最大值，但不能超过，也不能移除设有最大值的限制。",
+    "issue": {
+      "above": "超过了 {{max}} 的最大值。",
+      "required": "请输入不超过 {{max}} 的值：设有最大值的限制不能移除。"
+    },
+    "refusedTitle": "中继拒绝了此更改。"
   },
   "identity": {
     "title": "身份",

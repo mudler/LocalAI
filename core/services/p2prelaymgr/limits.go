@@ -34,7 +34,10 @@ func (m *manager) Limits(ctx context.Context, id string) (LimitsInfo, error) {
 	e.mu.Lock()
 	e.relay.Limits = l
 	e.mu.Unlock()
-	return LimitsInfo{Limits: l, CanChange: resp.Admin && resp.Status.Mode == relayproto.ModeGated}, nil
+	return LimitsInfo{
+		Limits: l, Ceiling: ceilingOf(resp.Status.Ceiling),
+		CanChange: resp.Admin && resp.Status.Mode == relayproto.ModeGated,
+	}, nil
 }
 
 // SetLimits implements Manager.
@@ -85,11 +88,15 @@ func (m *manager) SetLimits(ctx context.Context, id string, patch LimitsPatch) (
 			m.log.Debug("reserve again after a limits change failed", "relay", id, "error", err)
 		}
 	}
-	return LimitsInfo{Limits: l, CanChange: true, Restarted: resp.Limits.Restarted}, nil
+	return LimitsInfo{Limits: l, Ceiling: ceilingOf(resp.Limits.Ceiling), CanChange: true, Restarted: resp.Limits.Restarted}, nil
 }
 
 func limitsOf(st *relayproto.Status) Limits {
 	return Limits{CircuitBytes: st.CircuitMaxBytes, CircuitSeconds: st.CircuitMaxSeconds, RateBPS: st.RateBPS}
+}
+
+func ceilingOf(c relayproto.LimitsCeiling) Limits {
+	return Limits{CircuitBytes: c.CircuitMaxBytes, CircuitSeconds: c.CircuitMaxSeconds, RateBPS: c.RateBPS}
 }
 
 // refused reports whether a failed status call means that the relay's gate

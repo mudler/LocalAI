@@ -32,6 +32,15 @@ const (
 	DefaultPendingTTL                 = 10 * time.Minute
 	DefaultStrangerTimeout            = 10 * time.Second
 
+	// DefaultCeilingCircuitMaxBytes and DefaultCeilingCircuitMaxDuration are
+	// the most data and time per circuit that an admin may set at runtime:
+	// eight times and 48 times the defaults. DefaultCeilingRateLimit is 0:
+	// no ceiling on the bandwidth, as a gated relay has no bandwidth limit by
+	// default.
+	DefaultCeilingCircuitMaxBytes    int64 = 8 << 30
+	DefaultCeilingCircuitMaxDuration       = 24 * time.Hour
+	DefaultCeilingRateLimit          int64 = 0
+
 	// MaxPassTTL is the longest lifetime of a relay pass.
 	MaxPassTTL = 30 * 24 * time.Hour
 )
@@ -113,6 +122,29 @@ func orMax(n int) int {
 	return n
 }
 
+// Ceiling is the highest value an admin may set for each per-circuit limit
+// with the limits admin operation. The operator sets it; an admin cannot
+// change it. For every field, zero means no ceiling. With a ceiling, an admin
+// cannot remove the limit either, because "no limit" is above any ceiling.
+type Ceiling struct {
+	// CircuitMaxBytes is the highest data limit per circuit and direction.
+	CircuitMaxBytes int64
+	// CircuitMaxDuration is the longest time limit per circuit.
+	CircuitMaxDuration time.Duration
+	// RateLimit is the highest bandwidth limit per circuit and direction, in
+	// bytes per second.
+	RateLimit int64
+}
+
+// DefaultCeiling returns the default ceiling.
+func DefaultCeiling() Ceiling {
+	return Ceiling{
+		CircuitMaxBytes:    DefaultCeilingCircuitMaxBytes,
+		CircuitMaxDuration: DefaultCeilingCircuitMaxDuration,
+		RateLimit:          DefaultCeilingRateLimit,
+	}
+}
+
 // Config configures a gated relay. Start from DefaultConfig: for the limits
 // in Limits and for MaxConnsPerIP, zero means no limit.
 type Config struct {
@@ -138,6 +170,9 @@ type Config struct {
 	AllowPrivateAddrs bool
 
 	Limits
+	// Ceiling bounds what an admin may set at runtime. The limits in Limits
+	// (the flags) and a saved limits.json must stay inside it.
+	Ceiling Ceiling
 	// MaxConnsPerIP is the number of connections from one IPv4 address or
 	// one IPv6 /56. Many devices can share one home or CGNAT address.
 	MaxConnsPerIP int
@@ -172,6 +207,7 @@ func DefaultConfig(open bool) Config {
 	c := Config{
 		Open:              open,
 		Limits:            DefaultLimits(),
+		Ceiling:           DefaultCeiling(),
 		MaxConnsPerIP:     DefaultMaxConnsPerIP,
 		ConnRatePerIP:     DefaultConnRatePerIP,
 		ConnBurstPerIP:    DefaultConnBurstPerIP,
@@ -193,6 +229,12 @@ func (c *Config) validate() error {
 		return errors.New("p2prelay: DataDir is required")
 	}
 	if err := c.Limits.validate(); err != nil {
+		return err
+	}
+	if err := c.Ceiling.validate(); err != nil {
+		return err
+	}
+	if err := c.Ceiling.checkStart(c.Limits); err != nil {
 		return err
 	}
 	if c.MaxConnsPerIP < 0 {

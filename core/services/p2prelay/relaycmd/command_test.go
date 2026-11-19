@@ -69,6 +69,24 @@ var _ = Describe("relay command", func() {
 		Expect(cfg.RateLimit).To(BeZero())
 	})
 
+	It("sets the ceiling of the limits an admin may set from the flags", func() {
+		cfg, err := parse().Config()
+		Expect(err).ToNot(HaveOccurred())
+		def := p2prelay.DefaultConfig(false)
+		Expect(cfg.Ceiling).To(Equal(def.Ceiling))
+		cfg, err = parse("--max-circuit-bytes=4194304", "--max-circuit-duration=1h", "--max-rate-limit=1048576").Config()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(cfg.Ceiling).To(Equal(p2prelay.Ceiling{CircuitMaxBytes: 4 << 20, CircuitMaxDuration: time.Hour, RateLimit: 1 << 20}))
+	})
+
+	It("refuses a limit flag above the ceiling flag when the relay starts", func() {
+		cfg, err := parse("--max-circuit-bytes=1048576").Config()
+		Expect(err).ToNot(HaveOccurred())
+		cfg.DataDir = GinkgoT().TempDir()
+		_, err = p2prelay.New(cfg.Config)
+		Expect(err).To(MatchError(ContainSubstring("ceiling")))
+	})
+
 	It("health check succeeds only while something listens on the port", func() {
 		ln, err := net.Listen("tcp", "127.0.0.1:0")
 		Expect(err).ToNot(HaveOccurred())

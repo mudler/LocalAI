@@ -70,6 +70,10 @@ type LimitsPatch struct {
 // server may change them.
 type LimitsInfo struct {
 	Limits Limits
+	// Ceiling is the most an admin may set for each limit. Zero means no
+	// ceiling. A value above it is refused with ErrInvalidLimits, and with a
+	// ceiling a limit cannot be removed.
+	Ceiling Limits
 	// CanChange is true when this server is an admin of a gated relay.
 	CanChange bool
 	// Restarted is set on the result of SetLimits when the relay restarted

@@ -113,3 +113,17 @@ var _ = Describe("Digest", func() {
 		Expect(relayproto.Digest(nil)).To(HaveLen(64))
 	})
 })
+
+var _ = Describe("limits ceiling", func() {
+	It("round-trips the ceiling of a limits response, zero meaning no ceiling", func() {
+		var buf bytes.Buffer
+		resp := relayproto.Response{V: 1, OK: true, Limits: &relayproto.Limits{
+			CircuitMaxBytes: 1, Ceiling: relayproto.LimitsCeiling{CircuitMaxBytes: 8, CircuitMaxSeconds: 9},
+		}}
+		Expect(relayproto.Write(&buf, resp)).To(Succeed())
+		var got relayproto.Response
+		Expect(relayproto.Read(&buf, &got)).To(Succeed())
+		Expect(got).To(Equal(resp))
+		Expect(got.Limits.Ceiling.RateBPS).To(BeZero())
+	})
+})

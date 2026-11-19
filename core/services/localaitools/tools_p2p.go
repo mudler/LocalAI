@@ -54,7 +54,7 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolGetP2PRelayLimits,
-		Description: "Read the limits of one P2P relay: the data, the time and the bandwidth of one circuit (zero means no limit), and whether this server may change them.",
+		Description: "Read the limits of one P2P relay: the data, the time and the bandwidth of one circuit (zero means no limit), the ceiling the relay operator set for each of them (zero means no ceiling), and whether this server may change them.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		ID string `json:"id" jsonschema:"relay ID from list_p2p_relays"`
 	}) (*mcp.CallToolResult, any, error) {
@@ -117,7 +117,7 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name: ToolSetP2PRelayLimits,
-		Description: "Change the data, time or bandwidth limit of one circuit on a P2P relay this server administers; a limit left out stays, zero removes it. A new bandwidth limit applies to the next circuit; a new data or time limit restarts the relay's circuit service, so its reservations drop and devices reserve again within moments. " +
+		Description: "Change the data, time or bandwidth limit of one circuit on a P2P relay this server administers; a limit left out stays, zero removes it. The relay operator sets a ceiling for each limit with relay flags: a value above it is refused with an error that names the ceiling, and with a ceiling a limit cannot be removed; read the ceiling with get_p2p_relay_limits first. A new bandwidth limit applies to the next circuit; a new data or time limit restarts the relay's circuit service, so its reservations drop and devices reserve again within moments. " +
 			"Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args SetP2PRelayLimitsRequest) (*mcp.CallToolResult, any, error) {
 		info, err := client.SetP2PRelayLimits(ctx, args.ID, args)

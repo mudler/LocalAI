@@ -260,7 +260,16 @@
     "loadError": "Tidak dapat membaca batas dari relay.",
     "readOnlyTitle": "Server ini tidak dapat mengubah batas ini.",
     "readOnlyOpen": "Ini relay terbuka dan server ini bukan adminnya. Atur batas di tempat relay berjalan, dengan --circuit-max-bytes, --circuit-max-duration, dan --rate-limit.",
-    "readOnlyMember": "Server ini bukan admin relay ini. Minta admin relay, atau atur batas di tempat relay berjalan, dengan --circuit-max-bytes, --circuit-max-duration, dan --rate-limit."
+    "readOnlyMember": "Server ini bukan admin relay ini. Minta admin relay, atau atur batas di tempat relay berjalan, dengan --circuit-max-bytes, --circuit-max-duration, dan --rate-limit.",
+    "max": "Maksimum: {{value}}",
+    "noMax": "Tanpa maksimum",
+    "ceilingTitle": "Operator relay menetapkan batas maksimum.",
+    "ceilingBody": "Operator relay ini menetapkan batas atas untuk setiap batas melalui opsi startnya. Anda dapat mengubah batas hingga maksimumnya, tidak lebih, dan Anda tidak dapat menghapus batas yang memiliki maksimum.",
+    "issue": {
+      "above": "Melebihi maksimum {{max}}.",
+      "required": "Masukkan nilai hingga {{max}}: batas yang memiliki maksimum tidak dapat dihapus."
+    },
+    "refusedTitle": "Relay menolak perubahan itu."
   },
   "identity": {
     "title": "Identitas",

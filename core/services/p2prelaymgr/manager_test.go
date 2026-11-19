@@ -404,6 +404,28 @@ var _ = Describe("Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(info.CanChange).To(BeTrue())
 			Expect(info.Limits.CircuitBytes).To(BeEquivalentTo(p2prelay.DefaultCircuitMaxBytes))
+			Expect(info.Ceiling).To(Equal(p2prelaymgr.Limits{
+				CircuitBytes:   p2prelay.DefaultCeilingCircuitMaxBytes,
+				CircuitSeconds: int64(p2prelay.DefaultCeilingCircuitMaxDuration / time.Second),
+				RateBPS:        p2prelay.DefaultCeilingRateLimit,
+			}))
+		})
+
+		It("refuses a value above the ceiling with an error that names it", func() {
+			cfg := gatedCfg(srv.host.ID())
+			cfg.Ceiling = p2prelay.Ceiling{CircuitMaxBytes: 4 << 20}
+			cfg.CircuitMaxBytes = 1 << 20
+			relay := newTestRelay(cfg)
+			m := srv.manager(nil, false)
+			r, err := m.Add(ctx10(), relay.addr(), "", "")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = m.SetLimits(ctx10(), r.ID, p2prelaymgr.LimitsPatch{CircuitBytes: i64(5 << 20)})
+			Expect(err).To(MatchError(p2prelaymgr.ErrInvalidLimits))
+			Expect(err.Error()).To(ContainSubstring("4 MiB"))
+			info, err := m.Limits(ctx10(), r.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.Limits.CircuitBytes).To(BeEquivalentTo(1 << 20))
+			Expect(info.Ceiling.CircuitBytes).To(BeEquivalentTo(4 << 20))
 		})
 
 		It("changes the limits, keeps the reservation and reports what the relay now runs", func() {

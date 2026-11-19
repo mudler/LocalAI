@@ -328,7 +328,7 @@ The token-based P2P mode, federation and the Explorer were removed. A server tha
 
 | Command | What it does |
 |---------|--------------|
-| `local-ai p2p relay` | Run a gated relay. Flags: `--admin` (repeatable, `$LOCALAI_RELAY_ADMINS`), `--data`, `--port`, `--listen`, `--public-ip`, `--announce`, `--open`, `--circuit-max-bytes`, `--circuit-max-duration`, `--rate-limit`, `--total-rate-limit`, `--max-circuits`, `--max-circuits-per-peer`, `--max-reservations`, `--max-reservations-per-ip`, `--max-conns-per-ip`, `--conn-rate-per-ip`, `--conn-burst-per-ip`, `--conn-rate-total`, `--conn-burst-total`, `--max-peers-per-admin`, `--allow-private-addrs`, `--reset-admins` |
+| `local-ai p2p relay` | Run a gated relay. Flags: `--admin` (repeatable, `$LOCALAI_RELAY_ADMINS`), `--data`, `--port`, `--listen`, `--public-ip`, `--announce`, `--open`, `--circuit-max-bytes`, `--circuit-max-duration`, `--rate-limit`, `--max-circuit-bytes`, `--max-circuit-duration`, `--max-rate-limit` (ceilings for the limits an admin may set at runtime), `--total-rate-limit`, `--max-circuits`, `--max-circuits-per-peer`, `--max-reservations`, `--max-reservations-per-ip`, `--max-conns-per-ip`, `--conn-rate-per-ip`, `--conn-burst-per-ip`, `--conn-rate-total`, `--conn-burst-total`, `--max-peers-per-admin`, `--allow-private-addrs`, `--reset-admins` |
 | `local-ai p2p relays add\|remove\|list\|check` | Manage the relays of a running server (`--target`, `--api-key`, `--json`) |
 | `local-ai p2p id` and `local-ai p2p status` | Show the peer ID, addresses, reachability and paths of a running server |
 | `local-ai p2p pair --invite <link>` | Redeem an invite on this machine |

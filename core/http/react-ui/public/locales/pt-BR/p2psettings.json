@@ -260,7 +260,16 @@
     "loadError": "Não foi possível ler os limites do relay.",
     "readOnlyTitle": "Este servidor não pode alterar estes limites.",
     "readOnlyOpen": "Este é um relay aberto e este servidor não é seu administrador. Defina os limites onde o relay roda, com --circuit-max-bytes, --circuit-max-duration e --rate-limit.",
-    "readOnlyMember": "Este servidor não é administrador deste relay. Peça ao administrador dele ou defina os limites onde o relay roda, com --circuit-max-bytes, --circuit-max-duration e --rate-limit."
+    "readOnlyMember": "Este servidor não é administrador deste relay. Peça ao administrador dele ou defina os limites onde o relay roda, com --circuit-max-bytes, --circuit-max-duration e --rate-limit.",
+    "max": "Máximo: {{value}}",
+    "noMax": "Sem máximo",
+    "ceilingTitle": "O operador do relay definiu máximos.",
+    "ceilingBody": "O operador deste relay definiu um teto para cada limite com as opções de inicialização. Você pode alterar um limite até o máximo, não acima dele, e não pode remover um limite que tem máximo.",
+    "issue": {
+      "above": "Acima do máximo de {{max}}.",
+      "required": "Informe um valor de até {{max}}: um limite com máximo não pode ser removido."
+    },
+    "refusedTitle": "O relay recusou a alteração."
   },
   "identity": {
     "title": "Identidade",

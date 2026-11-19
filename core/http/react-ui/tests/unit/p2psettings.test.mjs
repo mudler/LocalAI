@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ago, canAdd, defaultLimits, checkOutcome, formatBytes, formatSeconds, hasLimits, isRelayAddr, limitParts, limitsFromReported,
-  limitsPatch, modeChoices, normalizeMode, p2pSettingsFrom, parsePeerList, relayCommands, relayPass,
+  hasCeiling, limitsIssues, limitsMaxText, limitsPatch, modeChoices, normalizeMode, p2pSettingsFrom, parsePeerList, relayCommands, relayPass,
   relayHost, relayName, relayPeerID, relayTone, shortID, validLimits, wrongPeer,
 } from '../../src/components/p2psettings/p2pSettingsModel.js'
 
@@ -140,6 +140,9 @@ test('p2p settings: limits form and the body that saves it', () => {
   assert.deepEqual(limitsFromReported(undefined), { dataGiB: 0, minutes: 0, kibps: 0 })
   assert.deepEqual(defaultLimits(true), { dataGiB: 1, minutes: 30, kibps: 64 })
   assert.deepEqual(defaultLimits(false), { dataGiB: 1, minutes: 30, kibps: 0 })
+  // Reset never goes above the ceiling of the relay.
+  assert.deepEqual(defaultLimits(false, { circuit_bytes: 512 << 20, circuit_seconds: 600, rate_bps: 32768 }), { dataGiB: 0.5, minutes: 10, kibps: 32 })
+  assert.deepEqual(defaultLimits(true, { circuit_bytes: 8 << 30, circuit_seconds: 86400, rate_bps: 0 }), { dataGiB: 1, minutes: 30, kibps: 64 })
 
   assert.ok(validLimits({ dataGiB: '1', minutes: '0', kibps: '64' }))
   assert.ok(!validLimits({ dataGiB: '-1', minutes: '30', kibps: '64' }))
@@ -157,4 +160,28 @@ test('p2p settings: how long ago a relay was checked', () => {
   assert.deepEqual(ago('2026-11-17T11:58:00Z', now), { key: 'minutes', count: 2 })
   assert.deepEqual(ago('2026-11-17T09:00:00Z', now), { key: 'hours', count: 3 })
   assert.deepEqual(ago('2026-11-15T12:00:00Z', now), { key: 'days', count: 2 })
+})
+
+test('p2p settings: the ceiling of a relay and what it refuses', () => {
+  const ceiling = { circuit_bytes: 8 * 2 ** 30, circuit_seconds: 86400, rate_bps: 0 }
+  assert.ok(hasCeiling(ceiling))
+  assert.ok(!hasCeiling({ circuit_bytes: 0, circuit_seconds: 0, rate_bps: 0 }))
+  assert.ok(!hasCeiling(undefined))
+
+  assert.equal(limitsMaxText('dataGiB', ceiling), '8 GiB')
+  assert.equal(limitsMaxText('minutes', ceiling), '24 h')
+  assert.equal(limitsMaxText('kibps', ceiling), '')
+  assert.equal(limitsMaxText('kibps', { rate_bps: 1 << 20 }), '1 MiB/s')
+
+  const ok = { dataGiB: 8, minutes: 1440, kibps: 0 }
+  assert.deepEqual(limitsIssues({ form: ok, noLimit: false, ceiling }), {})
+  assert.deepEqual(limitsIssues({ form: { ...ok, dataGiB: 8.01 }, noLimit: false, ceiling }), { dataGiB: 'above' })
+  assert.deepEqual(limitsIssues({ form: { ...ok, minutes: 1441 }, noLimit: false, ceiling }), { minutes: 'above' })
+  // Zero removes a limit, which a ceiling does not allow.
+  assert.deepEqual(limitsIssues({ form: { ...ok, dataGiB: 0 }, noLimit: false, ceiling }), { dataGiB: 'required' })
+  assert.deepEqual(limitsIssues({ form: ok, noLimit: true, ceiling }), { dataGiB: 'required', minutes: 'required' })
+  // No ceiling: nothing is refused here.
+  assert.deepEqual(limitsIssues({ form: { dataGiB: 100, minutes: 0, kibps: 0 }, noLimit: false, ceiling: undefined }), {})
+  // A value equal to the ceiling in bytes is allowed although the form rounds it.
+  assert.deepEqual(limitsIssues({ form: { dataGiB: 0.5, minutes: 10, kibps: 32 }, noLimit: false, ceiling: { circuit_bytes: 512 << 20, circuit_seconds: 600, rate_bps: 32768 } }), {})
 })
