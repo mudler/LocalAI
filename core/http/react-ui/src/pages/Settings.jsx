@@ -24,7 +24,7 @@ import { LEGACY_NETWORK_HASH, addonSettingsAddress, legacySectionTarget } from '
 import { NETWORK_POLICY, TOOL_PROVIDERS, hasControl, ownedByControl } from '../addons/hostControls'
 import { formatBytes } from '../utils/format'
 import {
-  FIELDS, GROUPS, OLD_SECTIONS, FIELD_BY_KEY, getValue, setValue, isChanged, hasDefault, searchFields, normalizeLoaded,
+  FIELDS, GROUPS, OLD_SECTIONS, FIELD_BY_KEY, BLOCKS, getValue, setValue, isChanged, hasDefault, searchFields, normalizeLoaded, layoutFields,
 } from '../utils/settingsSchema'
 import {
   pendingChanges, visibleChanges, runChecks, payloadFor, historyEntries,
@@ -345,6 +345,7 @@ export default function Settings() {
   )
 
   let lastWas = null
+  let lastBlock = null
   return (
     <div className="page page--wide st-page" data-testid="settings-page">
       <UnsavedChangesGuard when={isDirty} />
@@ -433,11 +434,25 @@ export default function Settings() {
                 : <BuiltinToolsSection settings={settings} onChange={onChange} addonLinks={toolLinks} />)}
               {group === 'tools' && networkApps.length > 0 && <ControlledElsewhere apps={networkApps} />}
               <div className="st-list">
-                {groupFields.filter(f => f.custom !== group).map(f => {
-                  const head = group === 'agents' && f.was !== lastWas ? OLD_SECTIONS[f.was] : null
+                {layoutFields(groupFields.filter(f => f.custom !== group)).map(item => {
+                  if (item.advanced) {
+                    // The advanced limits of a block: closed unless one of
+                    // them differs from its default or waits to be applied.
+                    const open = item.advanced.some(f => isChanged(f, settings) || pendingKeys.has(f.key))
+                    return (
+                      <details key={`${item.block}-advanced`} className="st-advanced" open={open || undefined} data-testid={`settings-advanced-${item.block}`}>
+                        <summary className="st-advanced__summary">{BLOCKS[item.block]?.advanced || 'Advanced'}</summary>
+                        <div className="st-list">{item.advanced.map(f => <div key={f.key} className="st-item">{renderField(f, false)}</div>)}</div>
+                      </details>
+                    )
+                  }
+                  const f = item.field
+                  let head = group === 'agents' && f.was !== lastWas ? OLD_SECTIONS[f.was] : null
                   lastWas = f.was
+                  if (f.block && f.block !== lastBlock) head = BLOCKS[f.block]?.label || head
+                  lastBlock = f.block
                   return (
-                    <div key={f.key} className="st-item">
+                    <div key={f.key} className="st-item" data-block={f.block || undefined}>
                       {head && <h3 className="st-h3">{head}</h3>}
                       {renderField(f, false)}
                     </div>
