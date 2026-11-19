@@ -235,8 +235,8 @@ type Upgrader struct {
 	// frontends do not take it for an abandoned one. Zero uses 30 seconds.
 	Heartbeat time.Duration
 
-	mu      sync.Mutex
-	running map[string]bool
+	mu       sync.Mutex
+	releases map[string]func()
 }
 
 func (u *Upgrader) modelsPath() string { return u.SystemState.Model.ModelsPath }
@@ -262,23 +262,37 @@ func (u *Upgrader) mutate(fn func() error) error {
 	return u.Mutate(fn)
 }
 
+// claim takes the claim of the model for this process (gallery.TryClaimModel),
+// shared with the installs, which the upgrader does not run.
 func (u *Upgrader) claim(name string) bool {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if u.running == nil {
-		u.running = map[string]bool{}
-	}
-	if u.running[name] {
+	release, ok := gallery.TryClaimModel(name)
+	if !ok {
 		return false
 	}
-	u.running[name] = true
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.releases == nil {
+		u.releases = map[string]func(){}
+	}
+	u.releases[name] = release
 	return true
 }
 
 func (u *Upgrader) release(name string) {
 	u.mu.Lock()
-	defer u.mu.Unlock()
-	delete(u.running, name)
+	release := u.releases[name]
+	delete(u.releases, name)
+	u.mu.Unlock()
+	if release != nil {
+		release()
+	}
+}
+
+// writeSidecar writes the gallery file of a model under the short lock that
+// a config edit takes to record its hash.
+func (u *Upgrader) writeSidecar(name string, sc *gallery.ModelConfig) error {
+	defer gallery.LockSidecar(name)()
+	return gallery.WriteSidecar(u.modelsPath(), name, sc)
 }
 
 // acquire takes the process lock and the cluster-wide lock of the model, or
@@ -365,7 +379,7 @@ func (r *upgradeRun) advance(ev Event, change func(j *gallery.Journal)) error {
 	// The journal error is shown by the API and the notifications: no
 	// absolute path of the models directory in it.
 	r.j().Error = r.u.relText(r.j().Error)
-	if err := gallery.WriteSidecar(r.u.modelsPath(), r.name, r.sc); err != nil {
+	if err := r.u.writeSidecar(r.name, r.sc); err != nil {
 		*oldSC.Upgrade = oldJournal
 		r.sc = oldSC
 		if r.next != nil {
@@ -390,7 +404,7 @@ func (r *upgradeRun) write() error {
 		return nil
 	}
 	r.j().UpdatedAt = r.u.now()
-	return gallery.WriteSidecar(r.u.modelsPath(), r.name, r.sc)
+	return r.u.writeSidecar(r.name, r.sc)
 }
 
 func phaseMessage(phase string) string {
@@ -1103,7 +1117,7 @@ func (u *Upgrader) failBeforeCommit(ctx context.Context, r *upgradeRun, cause er
 		r.mu.Lock()
 		r.cancelled = true
 		r.sc.Upgrade = r.prevJournal
-		err := gallery.WriteSidecar(r.u.modelsPath(), r.name, r.sc)
+		err := r.u.writeSidecar(r.name, r.sc)
 		r.mu.Unlock()
 		if err != nil {
 			return errors.Join(ctx.Err(), err)

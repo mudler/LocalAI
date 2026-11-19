@@ -26,6 +26,9 @@ func commitInstall(basePath string, plan *InstallPlan, origin *Origin, instance 
 	name := plan.Name
 	configPath := filepath.Join(basePath, name+".yaml")
 	sidecarPath := SidecarPath(basePath, name)
+	// The read of the old gallery file and the writes that replace it are one
+	// step for a config edit that records its hash in the same file.
+	defer LockSidecar(name)()
 
 	prevSidecarBytes, prevSidecarErr := os.ReadFile(sidecarPath)
 	hadSidecar := prevSidecarErr == nil

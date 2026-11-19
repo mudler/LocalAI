@@ -914,6 +914,13 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		}
 		defer release()
 	}
+	// An upgrade, a hold or another install of the model in this process
+	// holds the claim: the commit would write over its gallery file.
+	releaseClaim, ok := TryClaimModel(plan.Name)
+	if !ok {
+		return nil, fmt.Errorf("write the model config: %w", ErrModelLocked)
+	}
+	defer releaseClaim()
 	if err := commitInstall(basePath, plan, installOptions.origin, installOptions.instance, time.Now()); err != nil {
 		return nil, err
 	}

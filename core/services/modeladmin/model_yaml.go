@@ -34,6 +34,7 @@ func writeModelConfig(path, modelName string, data []byte) error {
 }
 
 func recordConfigHash(modelsPath, modelName string, data []byte) {
+	defer gallery.LockSidecar(modelName)()
 	sc, err := gallery.ReadSidecar(modelsPath, modelName)
 	if errors.Is(err, gallery.ErrNoSidecar) {
 		return

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -37,6 +38,10 @@ func (u *Upgrader) RemoveOld(ctx context.Context, name string) ([]string, error)
 		return nil, err
 	}
 	defer unlock()
+	// The gallery file is read, changed and written as one step, so a config
+	// edit cannot record its hash in between and lose it.
+	unlockSidecar := sync.OnceFunc(gallery.LockSidecar(name))
+	defer unlockSidecar()
 	sc, err := u.readUpgradable(name)
 	if err != nil {
 		return nil, err
@@ -77,6 +82,7 @@ func (u *Upgrader) RemoveOld(ctx context.Context, name string) ([]string, error)
 	if err := gallery.WriteSidecar(u.modelsPath(), name, sc); err != nil {
 		errs = append(errs, err)
 	}
+	unlockSidecar()
 	if len(removed) > 0 {
 		if n, ok := u.Notifier.(RemovedOldNotifier); ok {
 			key := j.OpID
@@ -107,6 +113,7 @@ func (u *Upgrader) SetHold(ctx context.Context, name string, hold bool) error {
 		return err
 	}
 	defer unlock()
+	defer gallery.LockSidecar(name)()
 	sc, err := u.readUpgradable(name)
 	if err != nil {
 		return err

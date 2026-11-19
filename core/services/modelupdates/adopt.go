@@ -179,7 +179,7 @@ func (u *Upgrader) Adopt(ctx context.Context, req AdoptRequest) (*AdoptResult, e
 	}
 	next := *sc
 	next.Version, next.Origin, next.Managed, next.ConfigSHA256 = gallery.SidecarVersion, &origin, managed, gallery.SHA256Hex(disk)
-	if err := gallery.WriteSidecar(u.modelsPath(), name, &next); err != nil {
+	if err := u.writeSidecar(name, &next); err != nil {
 		return nil, u.relErr(err)
 	}
 	u.changed(name)

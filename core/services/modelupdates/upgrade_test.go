@@ -3,6 +3,7 @@ package modelupdates_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -781,6 +782,45 @@ var _ = Describe("A model upgrade", func() {
 		Expect(sc.ConfigSHA256).To(Equal(gallery.SHA256Hex([]byte(read("tiny.yaml")))))
 	})
 
+	It("does not lose an install commit to a hold written at the same time", func() {
+		u := upgrader(nil)
+		last := journalDigest(f)
+		for i := range 15 {
+			f.publish(tinyEntry(f, f.weights("tiny.gguf", fmt.Sprintf("round-%d", i))))
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				for k := range 30 {
+					err := u.SetHold(ctx, "tiny", k%2 == 0)
+					if err != nil && !errors.Is(err, modelupdates.ErrBusy) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+				}
+			}()
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				for {
+					err := gallery.InstallModelFromGallery(context.TODO(), f.galleries, nil, f.systemState, nil, f.galleries[0].Name+"@tiny",
+						gallery.GalleryModel{}, func(string, string, string, float64) {}, false, false, false)
+					if err == nil {
+						return
+					}
+					Expect(errors.Is(err, gallery.ErrModelLocked)).To(BeTrue(), "only a busy model may refuse an install: %v", err)
+				}
+			}()
+			wg.Wait()
+			now := journalDigest(f)
+			Expect(now).ToNot(Equal(last), "round %d: the hold wrote the gallery file of the old install over the new one", i)
+			last = now
+			sc, err := gallery.ReadSidecar(f.dir, "tiny")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sc.ConfigSHA256).To(Equal(gallery.SHA256Hex([]byte(read("tiny.yaml")))))
+		}
+	})
+
 	It("tells a refusal before the journal as a failed upgrade, once, from the upgrader", func() {
 		n := &upgradeNotifier{}
 		u := upgrader(nil)
@@ -924,4 +964,12 @@ func (m *phaseMaterializer) Ensure(_ context.Context, _ string, spec modelartifa
 		CacheKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 	}
 	return modelartifacts.Result{Spec: spec, RelativePath: ".artifacts/huggingface/key/snapshot"}, nil
+}
+
+// journalDigest is the entry digest the gallery file of the model "tiny"
+// records for its install.
+func journalDigest(f *fixture) string {
+	sc, err := gallery.ReadSidecar(f.dir, "tiny")
+	Expect(err).ToNot(HaveOccurred())
+	return sc.Origin.EntryDigest
 }
