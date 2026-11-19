@@ -207,6 +207,7 @@ export default function SettingField({ field, settings, onChange, assets, showWh
           {changed && <span className="st-tag" data-tone="changed">Changed</span>}
         </div>
         <p className="st-row__desc">{field.desc}</p>
+        {field.extra && <p className="st-row__desc st-row__extra" data-testid={`st-extra-${field.key}`}>{field.extra(settings)}</p>}
         <div className="st-row__meta">
           {showWhere && <span className="st-where">{where}{was && was !== where ? <> · was {was}</> : null}</span>}
           {showKey && !field.asset && <code className="st-key">{field.key}</code>}

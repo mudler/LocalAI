@@ -238,7 +238,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)))
 		// In a connector chat the wait needs the loops.wait capability of the
 		// sender, as wait_for does.
-		if s.loopAllowed(rec, contract.CapLoopsWait) {
+		if s.loopAllowed(ctx, rec, contract.CapLoopsWait) {
 			tools = append(tools, s.waitAgentsTool(a))
 		}
 	}

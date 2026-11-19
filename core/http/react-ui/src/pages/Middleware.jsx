@@ -8,6 +8,7 @@ import { settingsApi, modelsApi } from '../utils/api'
 import { cssVars } from '../utils/modelLedger'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Icon from '../components/Icon'
+import { readStored, writeStored } from '../utils/storage'
 import './traffic.css'
 
 // Middleware: what a request passes through, in the order the server runs it.
@@ -62,11 +63,11 @@ export default function Middleware() {
   // value restores it on a bare visit. "events" is the old name of the events
   // tab, which now sits under every step.
   const [searchParams, setSearchParams] = useSearchParams()
-  const stored = (() => { try { return localStorage.getItem('middleware-tab') } catch { return null } })()
+  const stored = readStored('middleware.tab', ['middleware-tab'])
   const wanted = searchParams.get('tab') || stored || 'filtering'
   const step = STEPS.includes(wanted) ? wanted : 'filtering'
   const selectStep = (id) => {
-    try { localStorage.setItem('middleware-tab', id) } catch { /* ignore */ }
+    writeStored('middleware.tab', id)
     setSearchParams({ tab: id })
   }
 

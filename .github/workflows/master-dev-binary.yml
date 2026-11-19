@@ -153,11 +153,23 @@ jobs:
         run: |
           set -euo pipefail
           # Move the tag to the built commit. Create it the first time.
+          # GITHUB_TOKEN cannot move a ref across a diff that touches
+          # .github/workflows (HTTP 403, no workflows permission). Then try to
+          # recreate the tag. If that fails too, keep going so the assets are
+          # still published, and fail the job at the end.
+          ref="repos/${GH_REPO}/git/refs"
           if gh api "repos/${GH_REPO}/git/ref/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
-            gh api --method PATCH "repos/${GH_REPO}/git/refs/tags/${RELEASE_TAG}" \
-              -f sha="${SHA}" -F force=true >/dev/null
+            if ! gh api --method PATCH "${ref}/tags/${RELEASE_TAG}" \
+                -f sha="${SHA}" -F force=true >/dev/null; then
+              echo "::warning::Tag update refused, recreating the tag"
+              gh api --method DELETE "${ref}/tags/${RELEASE_TAG}" || true
+              if ! gh api --method POST "${ref}" \
+                  -f ref="refs/tags/${RELEASE_TAG}" -f sha="${SHA}" >/dev/null; then
+                echo "TAG_MOVE_FAILED=1" >> "${GITHUB_ENV}"
+              fi
+            fi
           else
-            gh api --method POST "repos/${GH_REPO}/git/refs" \
+            gh api --method POST "${ref}" \
               -f ref="refs/tags/${RELEASE_TAG}" -f sha="${SHA}" >/dev/null
           fi
           # The commit message is data: it goes into a file, never into a shell word.
@@ -199,4 +211,9 @@ jobs:
             sleep $((attempt * 15))
           done
           echo "could not replace the release assets" >&2
+          exit 1
+      - name: Fail when the tag did not move
+        if: env.TAG_MOVE_FAILED == '1'
+        run: |
+          echo "::error::${RELEASE_TAG} still points at an older commit: GITHUB_TOKEN may not move it across workflow file changes. The assets were uploaded."
           exit 1

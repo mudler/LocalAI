@@ -31,7 +31,7 @@ export function initSelfUpdate(onStatus: (s: UpdaterStatus) => void, o: { includ
     packaged: app.isPackaged,
     version: app.getVersion(),
     feedUrl: process.env.LOCALAI_LAUNCHER_FEED_URL,
-    portable: isPortableWindows(process.platform, process.execPath, (p) => fs.existsSync(p)),
+    portable: isPortableWindows(process.platform, process.execPath, (d) => { try { return fs.readdirSync(d) } catch { return [] } }),
   })
   if (!gate.enabled) {
     if (gate.reason === 'dev-build') status = { phase: 'unsupported', message: 'development builds do not update themselves' }

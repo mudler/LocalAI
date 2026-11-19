@@ -69,11 +69,13 @@ var _ = BeforeSuite(func() {
 })
 
 // matrix writes a platform matrix that enables the platform of this host.
-func matrix() string {
+func matrix(extra ...string) string {
 	GinkgoHelper()
 	p := filepath.Join(GinkgoT().TempDir(), "platforms.yaml")
-	body := "schema: 1\naddon: tables\nexecutable: tables\nmanifest: addons/tables/manifest.json\nui: addons/tables/ui/dist\nskills: addons/tables/skills\nplatforms:\n" +
-		"  - platform: " + hostPlat + "\n    enabled: true\n    runner: native\n    native_check: executable-start\n"
+	body := "schema: 1\naddon: tables\nexecutable: tables\nmanifest: addons/tables/manifest.json\nui: addons/tables/ui/dist\nskills: addons/tables/skills\nplatforms:\n"
+	for _, plat := range append([]string{hostPlat}, extra...) {
+		body += "  - platform: " + plat + "\n    enabled: true\n    runner: native\n    native_check: executable-start\n"
+	}
 	Expect(os.WriteFile(p, []byte(body), 0o644)).To(Succeed())
 	return p
 }
@@ -290,19 +292,22 @@ var _ = Describe("first-party package", func() {
 
 	It("refuses a platform the matrix does not enable and a missing executable of another platform", func() {
 		// Tables enables every platform the tool accepts, so the refused
-		// platform is one the matrix never lists. The tool may refuse it in the
-		// format check or in the matrix check; both name the platform.
+		// platform is one the tool never accepts: windows is packaged for
+		// amd64 only. The tool may refuse it in the format check or in the
+		// matrix check; both name the platform.
 		layout := filepath.Join(GinkgoT().TempDir(), "leg")
-		out, err := packageSh("--layout", layout, "--version", "1.0.0", "--platform", "windows/amd64", "--executable", binary)
+		out, err := packageSh("--layout", layout, "--version", "1.0.0", "--platform", "windows/arm64", "--executable", binary)
 		Expect(err).To(HaveOccurred(), out)
-		Expect(out).To(ContainSubstring("windows/amd64"))
+		Expect(out).To(ContainSubstring("windows/arm64"))
 		Expect(out).To(Or(ContainSubstring("not enabled"), ContainSubstring("is not os/arch of"), ContainSubstring("not in the platform matrix")))
 		Expect(layout).NotTo(BeADirectory())
 		other := "linux/arm64"
 		if hostPlat == other {
 			other = "linux/amd64"
 		}
-		out, err = packageSh("--config", matrix(), "--layout", filepath.Join(GinkgoT().TempDir(), "x"), "--version", "1.0.0", "--platform", other)
+		// package.sh looks the platform up in the matrix before it compares it
+		// with the host, so the matrix lists the other platform too.
+		out, err = packageSh("--config", matrix(other), "--layout", filepath.Join(GinkgoT().TempDir(), "x"), "--version", "1.0.0", "--platform", other)
 		Expect(err).To(HaveOccurred(), out)
 		Expect(out).To(ContainSubstring("not this host"))
 	})

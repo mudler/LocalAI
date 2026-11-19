@@ -283,7 +283,7 @@ func (h *Loops) begin(ctx context.Context, user, conv string, in LoopInput, by *
 		return loops.Loop{}, ErrSubAgentReadOnly
 	case by == nil && rec.Origin != "", by != nil && !h.svc.loopOriginKnown(rec.Origin):
 		return loops.Loop{}, ErrLoopChat
-	case by != nil && !h.svc.loopAllowed(rec, loopCapability(by)):
+	case by != nil && !h.svc.loopAllowed(ctx, rec, loopCapability(by)):
 		// The tool is not offered to a sender without the capability, and this
 		// check stops a call that names it anyway.
 		return loops.Loop{}, ErrLoopSender
@@ -311,6 +311,7 @@ func (h *Loops) begin(ctx context.Context, user, conv string, in LoopInput, by *
 	switch {
 	case by != nil:
 		l.Report = by.report
+		l.Grant = h.svc.armedGrant(ctx, rec)
 		l.State, l.Next, l.Scheduled, l.Wait = loops.StateActive, now.Add(by.wait), true, loops.Cut(by.reason)
 		if by.watch != nil {
 			l.Interval, l.Next, l.Watch = by.wait, now, by.watch

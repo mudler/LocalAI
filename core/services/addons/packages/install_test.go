@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -418,7 +419,9 @@ var _ = Describe("package asset boundaries", func() {
 		Expect(e).NotTo(HaveOccurred())
 		i, r = fixture(archive([]*tar.Header{{Name: "ui/main.js", Mode: 0644}, {Name: "ui/style.css", Mode: 0644}}, b))
 		_, e = i.Stage(context.Background(), r, nil)
-		Expect(e).To(HaveOccurred())
+		if runtime.GOOS != "windows" { // Windows cannot read the execute bit of a Linux package back from disk
+			Expect(e).To(HaveOccurred())
+		}
 	})
 	It("does not allow remote verification policy to replace owner trust", func() {
 		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")

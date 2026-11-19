@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect, useRef, useCallback } from 'react'
+import { useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { apiUrl } from '../utils/basePath'
 import { AuthContext } from './authState'
 import { addonUpgrades } from '../utils/addonUpgrades'
@@ -19,9 +19,9 @@ export function AuthProvider({ children }) {
     const origin = authority.current
     return () => origin !== null && authority.current === origin
   }, [])
-  const invalidateAuthority = () => { if (authority.current !== null) authority.current = {} }
+  const invalidateAuthority = useCallback(() => { if (authority.current !== null) authority.current = {} }, [])
 
-  const fetchStatus = () => {
+  const fetchStatus = useCallback(() => {
     return fetch(apiUrl('/api/auth/status'))
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -37,20 +37,20 @@ export function AuthProvider({ children }) {
         invalidateAuthority()
         dispatch({ type: 'status-failed' })
       })
-  }
+  }, [dispatch, invalidateAuthority])
 
   useEffect(() => {
     authority.current = {}
     fetchStatus()
     return () => { authority.current = null }
-  }, [])
+  }, [fetchStatus])
 
   // While the server is unreachable, ask again with a growing wait.
   const retryNow = useCallback(() => {
     if (stateRef.current.status !== 'unreachable' || stateRef.current.retrying) return Promise.resolve()
     dispatch({ type: 'retry' })
     return fetchStatus()
-  }, [])
+  }, [dispatch, fetchStatus])
   useEffect(() => {
     if (state.status !== 'unreachable' || state.retrying) return undefined
     const timer = setTimeout(retryNow, retryDelay(state.failures))
@@ -80,7 +80,7 @@ export function AuthProvider({ children }) {
       .finally(() => { verifying.current = null })
   }), [])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     // Detach observers and remove stored identities before leaving this page.
     // An auth-state effect may never run when navigation unloads the app.
     let persistence
@@ -96,25 +96,28 @@ export function AuthProvider({ children }) {
     document.cookie = 'session=; path=/; max-age=-1'
     document.cookie = 'token=; path=/; max-age=-1'
     window.location.href = '/login'
-  }
+  }, [dispatch, invalidateAuthority])
 
-  const refresh = () => fetchStatus()
+  const refresh = useCallback(() => fetchStatus(), [fetchStatus])
 
   // An unreachable server has not said that auth is off.
   const noAuthRequired = !state.authEnabled && !state.staticApiKeyRequired && state.status !== 'unreachable'
 
-  const hasFeature = (name) => {
+  const hasFeature = useCallback((name) => {
     if (state.user?.role === 'admin' || noAuthRequired) return true
     return !!state.permissions[name]
-  }
+  }, [state.user, state.permissions, noAuthRequired])
 
-  const value = {
+  // One object while nothing changed, so a render of the provider does not
+  // render every consumer of the session.
+  const value = useMemo(() => ({
     // A local, non-secret epoch: even same-user authentication refreshes invalidate observations.
     sessionEpoch: state.sessionEpoch,
     captureSessionAuthority,
     loading: state.status === 'loading',
     // The session's state: loading, unreachable, anonymous, signed-in or expired.
     status: state.status,
+    stale: state.stale,
     unreachable: state.status === 'unreachable',
     retrying: state.retrying,
     retry: retryNow,
@@ -126,7 +129,7 @@ export function AuthProvider({ children }) {
     hasFeature,
     logout,
     refresh,
-  }
+  }), [state, noAuthRequired, captureSessionAuthority, retryNow, hasFeature, logout, refresh])
 
   return (
     <AuthContext.Provider value={value}>

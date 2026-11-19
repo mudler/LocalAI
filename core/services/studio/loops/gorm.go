@@ -33,6 +33,10 @@ type loopRow struct {
 	// ReportJSON is the destination of the report of a loop (Loop.Report);
 	// empty for a loop that reports nowhere.
 	ReportJSON string `gorm:"type:text"`
+	// GrantJSON is the list of capabilities that the arming sender held
+	// (Loop.Grant); empty for a loop with no grant and for rows written
+	// before the column existed (AutoMigrate adds it as NULL).
+	GrantJSON string `gorm:"type:text"`
 	// Rev is bumped by Update; the bump takes the row lock, so a second
 	// frontend's change waits for the first and then reads what it wrote.
 	Rev int64
@@ -88,6 +92,11 @@ func toRow(l Loop) loopRow {
 			r.ReportJSON = string(raw)
 		}
 	}
+	if len(l.Grant) > 0 {
+		if raw, err := json.Marshal(l.Grant); err == nil {
+			r.GrantJSON = string(raw)
+		}
+	}
 	if l.Watch != nil {
 		if raw, err := json.Marshal(l.Watch); err == nil {
 			r.WatchJSON = string(raw)
@@ -109,6 +118,12 @@ func (r loopRow) loop() Loop {
 		var rep Report
 		if json.Unmarshal([]byte(r.ReportJSON), &rep) == nil {
 			l.Report = &rep
+		}
+	}
+	if r.GrantJSON != "" {
+		var g []string
+		if json.Unmarshal([]byte(r.GrantJSON), &g) == nil {
+			l.Grant = g
 		}
 	}
 	if r.WatchJSON != "" {

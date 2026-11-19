@@ -59,7 +59,10 @@ test('session: retry only means something while unreachable', () => {
 
 test('session: a failed refresh does not sign out a signed-in person', () => {
   const s = run([SIGNED_IN])
-  assert.equal(sessionStep(s, { type: 'status-failed' }), s)
+  const failed = sessionStep(s, { type: 'status-failed' })
+  assert.equal(failed.status, 'signed-in')
+  assert.equal(failed.user, s.user)
+  assert.equal(failed.stale, true)
 })
 
 test('session: parallel 401s end the session once', () => {

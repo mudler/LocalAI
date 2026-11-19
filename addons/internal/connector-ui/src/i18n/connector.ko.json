@@ -287,6 +287,8 @@
   "ready.quiet_other": "설정할 항목 {{count}}개",
   "ready.quietDone": "더 설정할 항목이 없습니다",
   "matrix.title": "누가 무엇을 할 수 있는지",
+  "loops.title": "대기와 타이머",
+  "loops.help": "에이전트가 나중에 이 채팅에서 스스로 할 수 있는 일입니다. 이 설정은 봇에 속하며 역할에는 주어지지 않습니다.",
   "matrix.note": "스위치와 역할 체크박스는 직접 설정합니다. 나머지 셀은 현재 설정을 바탕으로 호스트가 메시지마다 실행하는 것과 같은 검사로 계산됩니다.",
   "matrix.capability": "권한",
   "matrix.pick": "보낸 사람 종류",

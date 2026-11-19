@@ -469,8 +469,11 @@ jobs:
           }
           $exe = $found[0].FullName
           Write-Host "installed at $exe"
-          $un = Join-Path $found[0].DirectoryName 'Uninstall LocalAI Launcher.exe'
-          if (-not (Test-Path $un)) { throw "no uninstaller at $un" }
+          $dir = $found[0].DirectoryName
+          Get-ChildItem -Path $dir | ForEach-Object { Write-Host $_.Name }
+          # The uninstaller is named after the install folder, so match it.
+          $un = @(Get-ChildItem -Path $dir -Filter 'Uninstall*.exe' -File)
+          if ($un.Count -ne 1) { throw "expected one uninstaller in $dir, found $($un.Count)" }
           "APP_WIN=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Smoke-test the installed app
         working-directory: launcher
@@ -479,6 +482,35 @@ jobs:
           SMOKE_FEED_FILE: release/latest.yml
           SMOKE_SELF_UPDATE: ${{ contains(inputs.version, '-dev.') && 'off' || 'check' }}
         run: bash scripts/smoke-packaged.sh "$(cygpath -u "$APP_WIN")"
+      # Evidence for a failed smoke: start the installed app with one part of
+      # the smoke test's environment at a time, to see which part kills it.
+      - name: Windows start diagnostics
+        if: failure()
+        working-directory: launcher/release
+        shell: pwsh
+        run: |
+          $env:ELECTRON_ENABLE_LOGGING = '1'
+          $env:ELECTRON_ENABLE_STACK_DUMPING = '1'
+          $scratch = Join-Path $env:RUNNER_TEMP 'diag'
+          New-Item -ItemType Directory -Force -Path "$scratch\home", "$scratch\tmp" | Out-Null
+          function Try-Start($label, [hashtable]$vars, [string[]]$appArgs) {
+            $saved = @{}
+            foreach ($k in $vars.Keys) { $saved[$k] = [Environment]::GetEnvironmentVariable($k); [Environment]::SetEnvironmentVariable($k, $vars[$k]) }
+            $out = "$scratch\out.txt"; $err = "$scratch\err.txt"
+            $a = @{ FilePath = $env:APP_WIN; PassThru = $true; RedirectStandardOutput = $out; RedirectStandardError = $err }
+            if ($appArgs) { $a.ArgumentList = $appArgs }
+            $p = Start-Process @a
+            Start-Sleep -Seconds 8
+            if ($p.HasExited) { Write-Host "[$label] EXITED with $($p.ExitCode)"; Get-Content $err -ErrorAction SilentlyContinue | Select-Object -First 6 } else { Write-Host "[$label] running after 8 s"; Stop-Process -Id $p.Id -Force }
+            foreach ($k in $vars.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k]) }
+          }
+          Try-Start 'plain, sandbox on' @{} $null
+          Try-Start 'USERPROFILE TEMP TMP' @{ USERPROFILE = "$scratch\home"; TEMP = "$scratch\tmp"; TMP = "$scratch\tmp" } $null
+          Try-Start 'signal file' @{ LOCALAI_LAUNCHER_SIGNAL_FILE = "$scratch\signal.txt" } $null
+          Try-Start 'HOME XDG TMPDIR posix' @{ HOME = '/d/diag/home'; XDG_CONFIG_HOME = '/d/diag/home/.config'; TMPDIR = '/d/diag/tmp' } $null
+          Try-Start 'endpoint' @{ LOCALAI_LAUNCHER_ENDPOINT = 'http://127.0.0.1:18082' } $null
+          Write-Host '=== from Git Bash, as the smoke test starts it'
+          & 'C:\Program Files\Git\bin\bash.exe' -c '"$APP_WIN" > "$RUNNER_TEMP/diag/bash.log" 2>&1 & p=$!; sleep 8; if kill -0 $p 2>/dev/null; then echo "[bash] running after 8 s"; kill $p; else wait $p; echo "[bash] EXITED with $?"; head -n 6 "$RUNNER_TEMP/diag/bash.log"; fi'
       - name: Choose the files to keep
         if: inputs.upload
         working-directory: launcher/release

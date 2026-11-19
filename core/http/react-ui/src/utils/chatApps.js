@@ -123,10 +123,12 @@ const INVALID = (what) => rpcError(-32602, `invalid params: ${what}`)
 //   onMessage(text)          the app suggests a message to send
 //   onOpenLink(url)          the app asks to open an address
 //   onSize(height)           the app wants another height (already bounded)
+//   theme                    the theme at the start; setTheme(theme) on the host sends a later one
 export function createHost({ post, input, result, callTool, onMessage, onOpenLink, onSize, theme = 'light' }) {
   let state = 'new' // new, initialized, closed
   let sentInput = false
   let inFlight = 0
+  let currentTheme = theme
 
   const reply = (id, res) => { if (state !== 'closed') post({ jsonrpc: '2.0', id, result: res }) }
   const fail = (id, err) => { if (state !== 'closed') post({ jsonrpc: '2.0', id, error: err }) }
@@ -139,7 +141,7 @@ export function createHost({ post, input, result, callTool, onMessage, onOpenLin
       hostInfo: { name: 'LocalAI', version: '1.0.0' },
       hostCapabilities: { openLinks: {}, serverTools: {}, message: { text: {} } },
       hostContext: {
-        theme,
+        theme: currentTheme,
         displayMode: 'inline',
         availableDisplayModes: ['inline'],
         containerDimensions: { maxHeight: MAX_HEIGHT },
@@ -216,6 +218,14 @@ export function createHost({ post, input, result, callTool, onMessage, onOpenLin
       } else {
         notification(data.method, data.params)
       }
+    },
+    // The host theme changed after the app started: tell the app, which keeps
+    // its state (the frame is not reloaded).
+    setTheme(next) {
+      const t = next === 'dark' ? 'dark' : 'light'
+      if (t === currentTheme) return
+      currentTheme = t
+      if (state === 'initialized') notify('ui/notifications/host-context-changed', { theme: t })
     },
     close() { state = 'closed' },
   }

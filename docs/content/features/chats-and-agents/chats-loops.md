@@ -47,14 +47,30 @@ stop it. Type `/loop` in the message box, or use the API.
   the bot: `start_loop`, `schedule_next` and `loop_done` need the capability
   `loops.start` and a verified (paired) sender, and `wait_for` and
   `wait_agents` need the capability `loops.wait` and a listed or paired
-  sender. `loops.wait` is on by default for new bots and is added once to
-  existing bots; `loops.start` is off until the owner ticks it, as for any
-  other capability (see [Chat apps and connections]({{% relref "/features/chat-apps" %}})).
+  sender. A wait on a command (`script`) needs a paired sender even then. On
+  the page of a bot the two capabilities are two switches, **Let the agent
+  wait for a change** (`loops.wait`) and **Let the agent run on a timer**
+  (`loops.start`). They belong to the bot alone: a role of the platform never
+  holds them, even when its kind lists them. `loops.wait` is on by default for
+  new bots and is added once to existing bots; `loops.start` is off until the
+  owner turns it on (see [Chat apps and connections]({{% relref "/features/chat-apps" %}})).
   A bot that accepts anyone gives neither to a sender who is not paired. The
   server checks the capability again when the model calls the tool. A loop in
   a chat that a trigger, a job, a page or a connector started ends after a fifth
-  of the run limit (20 runs by default). The runs of a loop have no sender, so
+  of the run limit, at least 1 (20 runs by default). The answer of `start_loop`
+  tells the model the limit of its loop, and Settings shows the number next to
+  the run limit. The runs of a loop have no sender, so
   a connector chat keeps `schedule_next` and `loop_done` while its loop runs.
+  The same holds for a wait: when the model arms a wait or loop in a connector chat, the
+  server stores the loop capabilities (`loops.wait`, `loops.start`) that the sender held
+  at that moment on the wait itself, and whether that sender was paired. The wake-up has no sender, so it continues the
+  sender who armed the wait: it is offered `wait_for` again if the sender held
+  `loops.wait`, and `start_loop` only if the sender held `loops.start`. A wait on a
+  command is allowed in the wake-up only if that sender was paired. Nothing else
+  is granted (`triggers.propose` and the other capabilities stay refused), the limits
+  still apply, and the stored capabilities end with the wait. A wait that was armed
+  before this change has none stored and behaves as before. This is shared state in the
+  loops store (the auth database), so any frontend that runs the wake-up sees it.
 - **Report to a messaging app.** `start_loop` takes an optional `report`
   object: `connection` (the ID of one of your connections), `channel` (a channel
   that you approved for it) and `mode`. `on_done` sends the summary that
@@ -121,7 +137,8 @@ stop it. Type `/loop` in the message box, or use the API.
     in one folder (only the Sandbox can serve that), or the chat is an
     unattended run without an agent. A sub-agent cannot arm a wait on a script.
     In a connector chat the sender needs the `loops.wait` capability, as for
-    other waits.
+    other waits, and must also be paired (verified): a listed sender who is not
+    paired can wait on a URL, a tool or a job, but not on a command.
   - **In the mode `ask` for the built-in bash**, only an administrator can arm
     a script wait. The administrator allows the whole command once, in a card,
     when the wait is armed; a command over 2000 bytes is refused. The checks
@@ -131,7 +148,9 @@ stop it. Type `/loop` in the message box, or use the API.
     The loops list, its API and the interface name the source `script` and show
     a generic line; the command is kept only in the store of the owner.
   - **Budget.** Checks of scripts have their own daily budget per user, apart
-    from the 200 model runs: 1500 checks a day (UTC), over all the user's waits.
+    from the 200 model runs: 1500 checks a day (UTC) by default, over all the
+    user's waits (`chats_loop_daily_script_checks`, 1 to 100000, in the
+    **Advanced** part of the loop settings).
     A check is charged before it runs. When the budget is used up, the wait ends
     and the model is woken with a text that says the condition is not known. A
     wait still ends after 2000 checks, and the limits per chat and per user
@@ -211,12 +230,19 @@ stop it. Type `/loop` in the message box, or use the API.
   another run keeps the chat busy at the due time, that run is skipped, and
   the loop waits for its next interval instead of piling runs up. A
   self-paced loop runs as soon as the chat is free.
-- **Limits.** A chat has at most 3 loops and a user at most 10
-  (`chats_loop_max_per_chat`, `chats_loop_max_per_user`; ended loops do not
-  count). A loop ends after 100 runs (`chats_loop_max_runs`). One user starts
-  at most 200 loop runs a day, over all loops (`chats_loop_daily_runs`, UTC
-  days); after that the loops wait for the next day. Checks of waits on a
-  script have a separate budget of 1500 a day per user. A loop pauses itself
+- **Limits.** Settings > Tools shows three limits first: the shortest
+  interval (`chats_loop_min_interval`, 1 minute; also the shortest check
+  interval of a wait), the loop runs one user may start in a day
+  (`chats_loop_daily_runs`, 200 over all loops, UTC days; after that the loops
+  wait for the next day; a wake-up of a wait counts as a run), and the loops
+  and waits one chat may have (`chats_loop_max_per_chat`, 3). Waits count
+  against the same limits as loops, so a chat with three waits cannot start a
+  loop. Under **Advanced** are the loops and waits one user may have
+  (`chats_loop_max_per_user`, 10), the runs after which a loop ends
+  (`chats_loop_max_runs`, 100; a fifth of it in a chat that a connector, a
+  trigger, a job or a page started) and the daily checks of waits on a script
+  (`chats_loop_daily_script_checks`, 1500 a day per user). Ended loops and
+  waits do not count. A loop pauses itself
   after 3 failed runs in a row; **Resume** starts it again. A run has a time
   limit of 15 minutes.
 - **Stop** removes a loop. It does not stop a run that goes on; the chat's

@@ -9,6 +9,8 @@
 //   signed-in    the status answered with a user
 //   expired      a signed-in person got a 401 from the API
 //
+// A failed refresh of a known session sets `stale`, cleared by the next answer.
+//
 // Events: status-ok {data}, status-failed, retry, unauthorized {url}, logout.
 // A step that changes nothing returns the same object, so callers can compare
 // by identity (a second 401 of a parallel burst is such a step).
@@ -25,6 +27,7 @@ export const initialSession = Object.freeze({
   failures: 0,
   retrying: false,
   ended: false,
+  stale: false,
 })
 
 // Wait before the next automatic retry, after `failures` failed reads.
@@ -60,12 +63,17 @@ export function sessionStep(state, event) {
         failures: 0,
         retrying: false,
         ended: false,
+        stale: false,
       }
     }
     case 'status-failed':
-      // A refresh that fails must not sign out someone who is signed in, and a
-      // late failure after logout is noise.
-      if (state.status === 'signed-in' || state.ended) return state
+      // A late failure after logout is noise. A refresh that fails after the
+      // server has answered once keeps the session as it was (nobody is signed
+      // out, auth is not guessed off) and only marks it stale: the app stays
+      // mounted and the shell says the status could not be refreshed. Only a
+      // first read that fails is unreachable.
+      if (state.ended) return state
+      if (state.status === 'signed-in' || state.status === 'anonymous') return state.stale ? state : { ...state, stale: true }
       return {
         ...state,
         status: 'unreachable',

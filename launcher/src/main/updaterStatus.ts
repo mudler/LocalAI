@@ -67,17 +67,21 @@ export function selfUpdateGate(o: { packaged: boolean; version: string; feedUrl?
   return feedUrl ? { enabled: true, feedUrl } : { enabled: true }
 }
 
-/** The uninstaller that the NSIS installer puts next to the launcher (electron-builder's default name). */
-export const NSIS_UNINSTALLER = 'Uninstall LocalAI Launcher.exe'
+/**
+ * The uninstaller that the NSIS installer puts next to the launcher. Its name
+ * follows the install folder name ("Uninstall <folder>.exe"), which is the
+ * package name for a per-user install, so match the pattern, not one name.
+ */
+export const NSIS_UNINSTALLER = /^Uninstall .+\.exe$/i
 
 /**
  * True for a Windows launcher that the installer did not install: the
  * portable zip, unpacked anywhere. Only an installed launcher can update
  * itself, because the update is the next installer. Other platforms: false.
  */
-export function isPortableWindows(platform: NodeJS.Platform, execPath: string, exists: (p: string) => boolean): boolean {
+export function isPortableWindows(platform: NodeJS.Platform, execPath: string, listDir: (dir: string) => string[]): boolean {
   if (platform !== 'win32') return false
-  return !exists(path.win32.join(path.win32.dirname(execPath), NSIS_UNINSTALLER))
+  return !listDir(path.win32.dirname(execPath)).some((f) => NSIS_UNINSTALLER.test(f))
 }
 
 /**

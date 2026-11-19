@@ -801,6 +801,14 @@ var runtimeSettingsFields = []fieldSpec{
 			o.ChatsLoopDailyRuns = v
 			o.chatsLimitsMu.Unlock()
 		}),
+	loopIntField("chats_loop_daily_script_checks", MaxChatsLoopDailyScriptChecks,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopDailyScriptChecks },
+		(*ApplicationConfig).EffectiveChatsLoopDailyScriptChecks,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsLoopDailyScriptChecks = v
+			o.chatsLimitsMu.Unlock()
+		}),
 
 	// The triggers of the chats: read at each use, so no restart.
 	withApply(fieldEq("chats_trigger_run_limit",

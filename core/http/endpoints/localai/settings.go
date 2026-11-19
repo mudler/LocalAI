@@ -539,6 +539,7 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 		{"chats_loop_max_per_chat", s.ChatsLoopMaxPerChat, config.MaxChatsLoopMaxPerChat},
 		{"chats_loop_max_per_user", s.ChatsLoopMaxPerUser, config.MaxChatsLoopMaxPerUser},
 		{"chats_loop_daily_runs", s.ChatsLoopDailyRuns, config.MaxChatsLoopDailyRuns},
+		{"chats_loop_daily_script_checks", s.ChatsLoopDailyScriptChecks, config.MaxChatsLoopDailyScriptChecks},
 	} {
 		if c.v != nil && (*c.v < 1 || *c.v > c.hi) {
 			return fmt.Sprintf("Invalid %s: use 1 to %d", c.name, c.hi)

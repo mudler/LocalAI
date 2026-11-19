@@ -106,6 +106,21 @@ export function usualCaps(capabilities) {
   return (capabilities || []).filter((c) => c.usual && !c.sensitive).map((c) => c.name)
 }
 
+// The capabilities that belong to the binding alone (the host marks them
+// binding_only): the waits and the timer. The page shows them as two switches
+// of their own, apart from the matrix, and never gives them to a role. The
+// wait comes first: it is the everyday one.
+const LOOP_ORDER = ['loops.wait', 'loops.start']
+export function loopCaps(capabilities) {
+  return (capabilities || []).filter((c) => c.binding_only)
+    .sort((a, b) => (LOOP_ORDER.indexOf(a.name) + 1 || 99) - (LOOP_ORDER.indexOf(b.name) + 1 || 99))
+}
+
+// The capabilities that the matrix shows: all but the binding-only ones.
+export function matrixCaps(capabilities) {
+  return (capabilities || []).filter((c) => !c.binding_only)
+}
+
 // The binding capabilities that are also grants of a saved agent. A sender can
 // only use one of them when the agent holds the grant too, so the presets only
 // tick what the agent holds. proposals.confirm, tools.write, loops.wait and
@@ -209,14 +224,14 @@ export function roleHas(form, role, cap) {
 // The caps that a kind can give to a role: listed by the kind, not sensitive,
 // and inside the ceiling the owner enabled.
 export function grantableFor(kind, caps) {
-  return (kind?.permissions || []).filter((p) => !p.sensitive && (caps || []).includes(p.name)).map((p) => p.name)
+  return (kind?.permissions || []).filter((p) => !p.sensitive && !p.binding_only && (caps || []).includes(p.name)).map((p) => p.name)
 }
 
-// The form after role was given or refused cap. A sensitive cap, or one that
+// The form after role was given or refused cap. A sensitive or binding-only cap, or one that
 // is not in the ceiling, is refused: the form is returned as it was. The host's
 // list says which caps are sensitive.
 export function setGrant(form, role, cap, on, capabilities = []) {
-  const sensitive = capabilities.some((c) => c.name === cap && c.sensitive)
+  const sensitive = capabilities.some((c) => c.name === cap && (c.sensitive || c.binding_only))
   if (on && (sensitive || !(form.caps || []).includes(cap))) return form
   const rest = (form.grants || []).filter((g) => g.role !== role)
   const mine = (form.grants || []).find((g) => g.role === role)?.caps || []

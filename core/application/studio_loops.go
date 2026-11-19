@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/loops"
@@ -41,13 +42,7 @@ func (a *Application) startStudioLoops(svc *studio.Service) {
 		return
 	}
 	cfg := a.applicationConfig
-	opts := studio.LoopOptions{Store: st, Limits: func() studio.LoopLimits {
-		return studio.LoopLimits{
-			MinInterval: cfg.EffectiveChatsLoopMinInterval(), MaxRuns: cfg.EffectiveChatsLoopMaxRuns(),
-			PerChat: cfg.EffectiveChatsLoopMaxPerChat(), PerUser: cfg.EffectiveChatsLoopMaxPerUser(),
-			DailyRuns: cfg.EffectiveChatsLoopDailyRuns(),
-		}
-	}}
+	opts := studio.LoopOptions{Store: st, Limits: func() studio.LoopLimits { return loopLimitsFrom(cfg) }}
 	if a.Distributed() != nil && a.authDB != nil {
 		opts.Lead = a.studioLeader(advisorylock.KeyChatsLoops, "Loops")
 	}
@@ -60,4 +55,14 @@ func (a *Application) startStudioLoops(svc *studio.Service) {
 	ctx, cancel := context.WithCancel(a.backgroundContext())
 	a.studioLoops, a.studioLoopsStop = host, cancel
 	go host.Run(ctx)
+}
+
+// loopLimitsFrom reads the loop settings as they apply now. The host calls it
+// at each use, so a change in Settings applies without a restart.
+func loopLimitsFrom(cfg *config.ApplicationConfig) studio.LoopLimits {
+	return studio.LoopLimits{
+		MinInterval: cfg.EffectiveChatsLoopMinInterval(), MaxRuns: cfg.EffectiveChatsLoopMaxRuns(),
+		PerChat: cfg.EffectiveChatsLoopMaxPerChat(), PerUser: cfg.EffectiveChatsLoopMaxPerUser(),
+		DailyRuns: cfg.EffectiveChatsLoopDailyRuns(), DailyScriptChecks: cfg.EffectiveChatsLoopDailyScriptChecks(),
+	}
 }
