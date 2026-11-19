@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
+	"github.com/mudler/LocalAI/core/services/p2ppair/pairclient"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -124,5 +125,50 @@ var _ = Describe("The flags of the frontend of a worker", func() {
 		link := &p2ppair.Link{V: 1, Kind: p2ppair.KindWorker, Peer: server.ID(), Code: "K7QF29MXAB", Expires: time.Now().Add(-time.Minute)}
 		_, err := joinP2P(context.Background(), &Config{Join: link.String(), P2PIdentity: filepath.Join(GinkgoT().TempDir(), "id.key")})
 		Expect(err).To(HaveOccurred())
+	})
+
+	Describe("with a record of the server", func() {
+		var (
+			dir, recPath string
+			server       *p2pnet.Host
+			old          *p2ppair.Link
+		)
+		BeforeEach(func() {
+			dir = GinkgoT().TempDir()
+			server = loopbackHostFor(p2pnet.NewAllowlist())
+			old = &p2ppair.Link{V: 1, Kind: p2ppair.KindWorker, Peer: server.ID(), Code: "K7QF29MXAB", Expires: time.Now().Add(time.Hour)}
+			recPath = filepath.Join(dir, "pairs", server.ID().String()+".json")
+		})
+
+		join := func(link *p2ppair.Link) (*p2pJoin, error) {
+			return joinP2P(context.Background(), &Config{Join: link.String(), P2PIdentity: filepath.Join(dir, "id.key")})
+		}
+
+		It("redeems a new invite of the same server again", func() {
+			Expect(writeJoinRecord(recPath, &joinRecord{ServerPeer: server.ID().String(), Invite: inviteHash(old)})).To(Succeed())
+			fresh := *old
+			fresh.Code, fresh.Expires = "N3QW57RTYZ", time.Now().Add(-time.Minute)
+			_, err := join(&fresh)
+			// The expiry check runs only on the way to a redeem.
+			Expect(err).To(MatchError(pairclient.ErrExpired))
+		})
+
+		It("does not redeem the invite of the record again", func() {
+			Expect(writeJoinRecord(recPath, &joinRecord{ServerPeer: server.ID().String(), Invite: inviteHash(old)})).To(Succeed())
+			expired := *old
+			expired.Expires = time.Now().Add(-time.Minute)
+			j, err := join(&expired)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(j.Close)
+		})
+
+		It("keeps using a record that has no invite hash", func() {
+			Expect(writeJoinRecord(recPath, &joinRecord{ServerPeer: server.ID().String()})).To(Succeed())
+			fresh := *old
+			fresh.Code, fresh.Expires = "N3QW57RTYZ", time.Now().Add(-time.Minute)
+			j, err := join(&fresh)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(j.Close)
+		})
 	})
 })

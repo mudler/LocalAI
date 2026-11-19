@@ -3,6 +3,8 @@ package worker
 import (
 	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/p2ppair/pairclient"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // A worker that joins with a worker invite (`local-ai worker --join <link>`)
@@ -56,6 +59,11 @@ type joinRecord struct {
 	DeviceID   string   `json:"device_id"`
 	Relays     []string `json:"relays,omitempty"`
 	Addrs      []string `json:"addrs,omitempty"`
+	// Invite is the hash of the code of the invite that was redeemed. A
+	// different invite for the same server, made after the device was
+	// revoked, is redeemed again. A record without it came from an older
+	// version and matches any invite.
+	Invite string `json:"invite,omitempty"`
 }
 
 // p2pJoin is the P2P side of a worker that joined with an invite.
@@ -77,9 +85,9 @@ func (c Config) identityPath() string {
 }
 
 // joinP2P starts the P2P host of the worker and redeems the invite, unless this
-// worker already joined the server that the invite names. A worker restarts
-// with the same command line, so a used invite whose server has a record is
-// not redeemed again.
+// worker already joined with this invite. A worker restarts with the same
+// command line, so a used invite that has a record is not redeemed again. A
+// new invite of the same server is redeemed: the old device may be revoked.
 func joinP2P(ctx context.Context, cfg *Config) (*p2pJoin, error) {
 	link, err := p2ppair.ParseLink(cfg.Join)
 	if err != nil {
@@ -94,7 +102,8 @@ func joinP2P(ctx context.Context, cfg *Config) (*p2pJoin, error) {
 	if err != nil {
 		return nil, err
 	}
-	if rec == nil {
+	redeem := rec == nil || (rec.Invite != "" && rec.Invite != inviteHash(link))
+	if redeem {
 		if link.Expired(time.Now()) {
 			return nil, pairclient.ErrExpired
 		}
@@ -103,13 +112,9 @@ func joinP2P(ctx context.Context, cfg *Config) (*p2pJoin, error) {
 		}
 	}
 
-	var boot []p2pnet.AddrInfo
-	for _, a := range cfg.P2PBootstrap {
-		ai, err := p2pnet.ParsePeerAddr(a)
-		if err != nil {
-			return nil, fmt.Errorf("--p2p-bootstrap: %w", err)
-		}
-		boot = append(boot, *ai)
+	boot, err := p2pnet.ParsePeerAddrs(cfg.P2PBootstrap)
+	if err != nil {
+		return nil, fmt.Errorf("--p2p-bootstrap: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, p2pJoinTimeout)
@@ -131,7 +136,7 @@ func joinP2P(ctx context.Context, cfg *Config) (*p2pJoin, error) {
 	}
 	j := &p2pJoin{host: h, gate: gate, server: link.Peer}
 
-	if rec == nil {
+	if redeem {
 		name := cmp.Or(cfg.NodeName, hostname())
 		out, err := pairclient.Redeem(ctx, h, link, pairclient.Request{Name: name, Platform: runtime.GOOS, AllowOpenRelay: cfg.AllowOpenRelay})
 		if err != nil {
@@ -168,8 +173,15 @@ func hostname() string {
 	return name
 }
 
+// inviteHash identifies an invite in the record without keeping its code.
+func inviteHash(link *p2ppair.Link) string {
+	sum := sha256.Sum256([]byte(link.Code))
+	return hex.EncodeToString(sum[:16])
+}
+
 func recordOf(link *p2ppair.Link, out *pairclient.Result) *joinRecord {
 	return &joinRecord{
+		Invite:     inviteHash(link),
 		ServerPeer: link.Peer.String(), ServerName: out.Server.Name, Kind: out.Kind, DeviceID: out.DeviceID,
 		Relays: link.RelayAddrStrings(), Addrs: link.AddrStrings(),
 	}
@@ -198,7 +210,7 @@ func writeJoinRecord(path string, rec *joinRecord) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0o600)
+	return atomicfile.Write(path, b, 0o600)
 }
 
 // FrontendURL is the URL that the worker registers with. Its host is the peer

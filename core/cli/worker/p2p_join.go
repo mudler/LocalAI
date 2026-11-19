@@ -96,13 +96,11 @@ func (f *P2PJoinFlags) join(ctx context.Context, stateDir string, engine string)
 		Gate:      p2pnet.NewAllowlist(link.Peer),
 		UserAgent: "localai-worker/" + internal.Version,
 	}
-	for _, b := range f.P2PBootstrap {
-		ai, err := p2pnet.ParsePeerAddr(b)
-		if err != nil {
-			return nil, fmt.Errorf("--p2p-bootstrap: %w", err)
-		}
-		cfg.BootstrapPeers = append(cfg.BootstrapPeers, *ai)
+	boot, err := p2pnet.ParsePeerAddrs(f.P2PBootstrap)
+	if err != nil {
+		return nil, fmt.Errorf("--p2p-bootstrap: %w", err)
 	}
+	cfg.BootstrapPeers = boot
 	// The worker keeps a reservation on the relays of the invite, so the
 	// server can reach it when it cannot dial it directly.
 	cfg.StaticRelays = link.Relays

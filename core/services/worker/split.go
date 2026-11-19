@@ -70,7 +70,12 @@ type splitNode struct {
 	// relays are the relays the own host keeps a reservation on, as the
 	// frontend named them.
 	relays []string
-	mgr    *p2psplit.Manager
+	// asked is the sorted list of relays the frontend named when the own host
+	// started. It is what a later answer is compared with: relays has only the
+	// addresses that parsed, so it differs from the answer when one is bad, and
+	// a comparison with it would restart the host at every heartbeat.
+	asked []string
+	mgr   *p2psplit.Manager
 	// allowed are the worker peers this node admits.
 	allowed map[p2pnet.ID]struct{}
 }
@@ -178,7 +183,7 @@ func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) erro
 	s.mu.Lock()
 	if !a.SplitServer {
 		m, h, own, allowed := s.mgr, s.host, s.ownHost, s.allowed
-		s.mgr, s.host, s.gate, s.ownHost, s.relays = nil, nil, nil, false, nil
+		s.mgr, s.host, s.gate, s.ownHost, s.relays, s.asked = nil, nil, nil, false, nil, nil
 		s.allowed = map[p2pnet.ID]struct{}{}
 		s.mu.Unlock()
 		if m != nil {
@@ -200,26 +205,36 @@ func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) erro
 		// The relays no longer admit the node: forget them, so that a later
 		// admission starts the host again instead of waiting out the dial
 		// backoff of a refused reservation.
-		s.relays = nil
+		s.relays, s.asked = nil, nil
 	}
-	if s.ownHost && s.host != nil && len(a.Relays) > 0 && !slices.Equal(s.relays, a.Relays) {
+	if s.ownHost && s.host != nil && len(a.Relays) > 0 && !slices.Equal(s.asked, sortedCopy(a.Relays)) {
 		// New relays: the frontend names a relay only once it admits the
 		// node, and a host reserves on the relays it started with, so start
 		// it again. The identity stays, and the workers come back at their
 		// next session.
 		xlog.Info("Starting the P2P host for model-split workers again with new relays", "relays", len(a.Relays))
-		if s.mgr != nil {
-			_ = s.mgr.Close()
-		}
-		_ = s.host.Close()
+		oldM, oldH := s.mgr, s.host
 		s.host, s.gate, s.mgr = nil, nil, nil
 		s.allowed = map[p2pnet.ID]struct{}{}
+		// Closing waits for connections to end, so it runs without the lock.
+		// Only this goroutine changes the fields, so the gap is safe.
+		s.mu.Unlock()
+		if oldM != nil {
+			_ = oldM.Close()
+		}
+		_ = oldH.Close()
+		s.mu.Lock()
 	}
 	if s.host == nil {
-		if err := s.startHostLocked(ctx, a.Relays); err != nil {
+		// Starting a host dials and listens, so it runs without the lock.
+		s.mu.Unlock()
+		st, err := s.startHost(ctx, a.Relays)
+		s.mu.Lock()
+		if err != nil {
 			s.mu.Unlock()
 			return err
 		}
+		s.host, s.gate, s.ownHost, s.relays, s.asked = st.host, st.gate, st.own, st.kept, st.asked
 	}
 	for p := range want {
 		if _, ok := s.allowed[p]; !ok {
@@ -263,15 +278,24 @@ func (s *splitNode) apply(ctx context.Context, a workerctl.SplitAssignment) erro
 	return nil
 }
 
-// startHostLocked takes the host of a node that joined over P2P, or starts
-// one of its own.
-func (s *splitNode) startHostLocked(ctx context.Context, relays []string) error {
+// startedHost is a host that startHost made or took.
+type startedHost struct {
+	host *p2pnet.Host
+	gate *p2pnet.Allowlist
+	// own tells that the node started the host and closes it.
+	own bool
+	// kept are the relays that parsed, asked is the sorted list as named.
+	kept, asked []string
+}
+
+// startHost takes the host of a node that joined over P2P, or starts one of
+// its own. It does not touch the fields of s.
+func (s *splitNode) startHost(ctx context.Context, relays []string) (startedHost, error) {
 	if s.cfg.Join != nil {
-		s.host, s.gate = s.cfg.Join.host, s.cfg.Join.gate
-		return nil
+		return startedHost{host: s.cfg.Join.host, gate: s.cfg.Join.gate}, nil
 	}
 	if s.cfg.NewHost == nil {
-		return errors.New("this node has no P2P host for model-split workers")
+		return startedHost{}, errors.New("this node has no P2P host for model-split workers")
 	}
 	var static []p2pnet.AddrInfo
 	var kept []string
@@ -287,11 +311,18 @@ func (s *splitNode) startHostLocked(ctx context.Context, relays []string) error 
 	gate := p2pnet.NewAllowlist()
 	h, err := s.cfg.NewHost(ctx, gate, static)
 	if err != nil {
-		return err
+		return startedHost{}, err
 	}
-	s.host, s.gate, s.ownHost, s.relays = h, gate, true, kept
 	xlog.Info("Started the P2P host for model-split workers", "peer", h.ID().String(), "relays", len(static))
-	return nil
+	return startedHost{host: h, gate: gate, own: true, kept: kept, asked: sortedCopy(relays)}, nil
+}
+
+// sortedCopy returns a sorted copy of l, so that two lists with the same
+// relays in another order compare equal.
+func sortedCopy(l []string) []string {
+	c := slices.Clone(l)
+	slices.Sort(c)
+	return c
 }
 
 // devices lists the attached workers for the manager.
@@ -337,13 +368,9 @@ func (s *splitNode) close() {
 
 // splitHost starts the P2P host of a node that registered with the token.
 func (c *Config) splitHost(ctx context.Context, gate *p2pnet.Allowlist, relays []p2pnet.AddrInfo) (*p2pnet.Host, error) {
-	var boot []p2pnet.AddrInfo
-	for _, a := range c.P2PBootstrap {
-		ai, err := p2pnet.ParsePeerAddr(a)
-		if err != nil {
-			return nil, err
-		}
-		boot = append(boot, *ai)
+	boot, err := p2pnet.ParsePeerAddrs(c.P2PBootstrap)
+	if err != nil {
+		return nil, err
 	}
 	return p2pnet.New(ctx, p2pnet.Config{
 		IdentityPath:   c.identityPath(),

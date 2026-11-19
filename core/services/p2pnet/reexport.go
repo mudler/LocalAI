@@ -67,6 +67,20 @@ func ParsePeerAddr(a string) (*AddrInfo, error) {
 	return ai, nil
 }
 
+// ParsePeerAddrs parses a list of multiaddrs that end in /p2p/<peer ID>, with
+// ParsePeerAddr, and stops at the first one that does not parse.
+func ParsePeerAddrs(addrs []string) ([]AddrInfo, error) {
+	out := make([]AddrInfo, 0, len(addrs))
+	for _, a := range addrs {
+		ai, err := ParsePeerAddr(a)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *ai)
+	}
+	return out, nil
+}
+
 // IsPublicAddr says whether a is a public IP address.
 func IsPublicAddr(a Multiaddr) bool { return manet.IsPublicAddr(a) }
 

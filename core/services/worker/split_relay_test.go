@@ -239,6 +239,40 @@ var _ = Describe("A token node reached by its split workers through a gated rela
 	})
 })
 
+var _ = Describe("A token node that is given a relay with a bad address", func() {
+	It("starts its host once and keeps it at every heartbeat", func() {
+		front := &splitFrontend{}
+		started := make(chan struct{}, 8)
+		node := newSplitNode(splitConfig{
+			Sync:     front.sync,
+			Interval: 100 * time.Millisecond,
+			NewHost: func(ctx context.Context, gate *p2pnet.Allowlist, relays []p2pnet.AddrInfo) (*p2pnet.Host, error) {
+				h, err := p2pnet.New(ctx, p2pnet.Config{
+					IdentityPath: filepath.Join(GinkgoT().TempDir(), "node.key"),
+					ListenAddrs:  []string{"/ip4/127.0.0.1/tcp/0"}, Gate: gate,
+				})
+				if err == nil {
+					started <- struct{}{}
+				}
+				return h, err
+			},
+			OnLlama: func([]string) {},
+			OnMLX:   func([]string) {},
+		})
+		relay := gatedRelay(splitTestHost(p2pnet.NewAllowlist()).ID())
+		front.set(func(f *splitFrontend) {
+			f.assign = workerctl.SplitAssignment{SplitServer: true, Relays: []string{relayAddr(relay), "not an address"}}
+		})
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() { defer close(done); node.run(ctx) }()
+		DeferCleanup(func() { cancel(); Eventually(done, 10*time.Second).Should(BeClosed()) })
+
+		Eventually(started, 10*time.Second).Should(Receive())
+		Consistently(started, 1500*time.Millisecond).ShouldNot(Receive(), "the host restarted although the relays did not change")
+	})
+})
+
 func dialCtx(d time.Duration) context.Context {
 	ctx, cancel := context.WithTimeout(context.Background(), d)
 	DeferCleanup(cancel)

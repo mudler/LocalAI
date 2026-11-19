@@ -255,7 +255,7 @@ func (n *p2pNet) startRuntime() (*p2pRuntime, config.P2PMode, error) {
 	if err != nil {
 		return nil, mode, err
 	}
-	boot, err := parsePeerAddrs(s.BootstrapPeers)
+	boot, err := p2pnet.ParsePeerAddrs(s.BootstrapPeers)
 	if err != nil {
 		return nil, mode, fmt.Errorf("p2p_bootstrap_peers: %w", err)
 	}
@@ -263,7 +263,7 @@ func (n *p2pNet) startRuntime() (*p2pRuntime, config.P2PMode, error) {
 	for _, r := range s.Relays {
 		relayAddrs = append(relayAddrs, r.Addr)
 	}
-	static, err := parsePeerAddrs(relayAddrs)
+	static, err := p2pnet.ParsePeerAddrs(relayAddrs)
 	if err != nil {
 		return nil, mode, fmt.Errorf("p2p_relays: %w", err)
 	}
@@ -309,18 +309,6 @@ func appContext(cfg *config.ApplicationConfig) context.Context {
 		return cfg.Context
 	}
 	return context.Background()
-}
-
-func parsePeerAddrs(addrs []string) ([]p2pnet.AddrInfo, error) {
-	var out []p2pnet.AddrInfo
-	for _, a := range addrs {
-		ai, err := p2pnet.ParsePeerAddr(a)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, *ai)
-	}
-	return out, nil
 }
 
 // startShare adds what mode share runs on top of the host.
