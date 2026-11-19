@@ -1117,12 +1117,20 @@ func (u *Upgrader) failBeforeCommit(ctx context.Context, r *upgradeRun, cause er
 	return cause
 }
 
+// removeStaged removes the files the staging phase left. keepPartial is for a
+// pause or a server shutdown: the next upgrade of the same version resumes
+// from what is there, so it keeps the partial downloads and the finished
+// files that carry a checksum, which the downloader verifies again before it
+// reuses them. A file without a checksum could not be verified and goes.
 func (u *Upgrader) removeStaged(r *upgradeRun, keepPartial bool) {
 	for _, f := range r.j().Files {
 		if f.Next == "" {
 			continue
 		}
-		paths := []string{u.path(f.Next)}
+		var paths []string
+		if !keepPartial || f.SHA256 == "" {
+			paths = append(paths, u.path(f.Next))
+		}
 		if !keepPartial {
 			paths = append(paths, u.path(f.Next)+".partial")
 		}

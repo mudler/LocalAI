@@ -426,6 +426,26 @@ var _ = Describe("A model upgrade", func() {
 			Expect(read("tiny.gguf")).To(Equal("v1"))
 		})
 
+		It("keeps a finished file on a pause, so the next upgrade does not download it again", func() {
+			first, second := f.weights("tiny.gguf", "v2"), f.weights("tiny-extra.gguf", "extra")
+			e := tinyEntry(f, first)
+			e.AdditionalFiles = append(e.AdditionalFiles, second)
+			f.publish(e)
+			cctx, _, pause := userCancellable(ctx)
+			u := upgrader(nil)
+			u.Download = func(c context.Context, tasks []downloader.FileTask, st func(string, string, string, float64)) error {
+				Expect(tasks).To(HaveLen(2))
+				Expect(os.WriteFile(tasks[0].Destination, []byte("v2"), 0600)).To(Succeed())
+				Expect(os.WriteFile(tasks[1].Destination+".partial", []byte("e"), 0600)).To(Succeed())
+				go pause()
+				<-c.Done()
+				return c.Err()
+			}
+			Expect(u.Upgrade(cctx, modelupdates.Request{Name: "tiny"})).To(HaveOccurred())
+			Expect(leftovers()).To(ConsistOf("tiny.gguf.next", "tiny-extra.gguf.next.partial"))
+			Expect(read("tiny.gguf.next")).To(Equal("v2"))
+		})
+
 		It("ends before the stop when the cancel came while the download finished", func() {
 			f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
 			cctx, cancel, _ := userCancellable(ctx)
