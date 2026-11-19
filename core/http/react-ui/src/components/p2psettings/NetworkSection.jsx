@@ -98,7 +98,9 @@ export default function NetworkSection({ settings, authEnabled, saving, onSave }
   const busy = Boolean(saving)
   const [peers, setPeers] = useState(settings.p2p_bootstrap_peers.join('\n'))
   const [rate, setRate] = useState(String(Math.round(settings.p2p_relay_rate_limit / 1024)))
-  useEffect(() => { setPeers(settings.p2p_bootstrap_peers.join('\n')) }, [settings.p2p_bootstrap_peers])
+  // Keyed on the content, not the array: every reload of the settings brings a new array, and that must not wipe what the person is typing.
+  const savedPeers = settings.p2p_bootstrap_peers.join('\n')
+  useEffect(() => { setPeers(savedPeers) }, [savedPeers])
   useEffect(() => { setRate(String(Math.round(settings.p2p_relay_rate_limit / 1024))) }, [settings.p2p_relay_rate_limit])
 
   const peerList = parsePeerList(peers)
