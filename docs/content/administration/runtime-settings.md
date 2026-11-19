@@ -180,9 +180,12 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
 - **Steps per goal** (`chats_goal_max_steps`, 1 to 10000, default 400, applies when a turn ends): how many rounds of tool calls all the turns of one goal may make together before the goal pauses.
 - **Loops of the chats** (apply at once; see [Loops]({{% relref "/features/chats-and-agents/chats-loops#loops-repeat-a-prompt-in-a-chat" %}})):
   - `chats_loop_min_interval` (a duration from `30s` to `24h`, default `1m`): the shortest interval of a loop, and the shortest wait a self-paced loop may ask for.
-  - `chats_loop_max_runs` (1 to 10000, default 100): the runs after which a loop ends.
-  - `chats_loop_max_per_chat` (1 to 20, default 3) and `chats_loop_max_per_user` (1 to 200, default 10): how many loops that are not ended one chat and one user may have.
-  - `chats_loop_daily_runs` (1 to 100000, default 200): how many loop runs one user may start in a UTC day, over all their loops. After that the loops wait for the next day.
+  - `chats_loop_daily_runs` (1 to 100000, default 200): how many loop runs one user may start in a UTC day, over all their loops. The wake-up of a wait counts as a run. After that the loops wait for the next day.
+  - `chats_loop_max_per_chat` (1 to 20, default 3): how many loops and waits that are not ended one chat may have. Waits count too.
+  - Under **Advanced** in Settings > Tools:
+    - `chats_loop_max_per_user` (1 to 200, default 10): how many loops and waits that are not ended one user may have, over all their chats.
+    - `chats_loop_max_runs` (1 to 10000, default 100): the runs after which a loop ends. In a chat that a connector, a trigger, a job or a page started, a loop ends after a fifth of this, at least 1 (20 with the default). The page shows that number under the field.
+    - `chats_loop_daily_script_checks` (1 to 100000, default 1500): how many checks of waits on a command one user may spend in a UTC day, over all their waits. A check starts a process and calls no model, so this budget is apart from `chats_loop_daily_runs`. When it is used up, the wait ends and the model is told that the condition is not known.
 - **Triggers of the chats** (apply at once; see [Triggers]({{%relref "/features/chats-and-agents/chats" %}})):
   - `chats_trigger_run_limit` (a duration from `1m` to `24h`, default `15m`): the longest one trigger run may take. A longer run is stopped and fails. A trigger can set a shorter time limit of its own (`run_limit`); this setting is the ceiling, so a trigger that asks for more runs at this one. A change applies to the runs that start after it and to the check of a run that is found running after a restart.
   - `chats_trigger_max_per_user` (1 to 1000, default 50): how many triggers a user may have. A user who has more keeps them but cannot add another.
