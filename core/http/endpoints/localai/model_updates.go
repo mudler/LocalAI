@@ -75,13 +75,13 @@ type ModelUpgradeDeps struct {
 
 // UpgradeModelEndpoint queues the upgrade of an installed gallery model.
 // @Summary Upgrade a model to what its gallery entry installs now
-// @Description Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. Nothing upgrades without this request.
+// @Description Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.
 // @Tags models
 // @Param name path string true "Installed model name"
 // @Param request body schema.ModelUpgradeRequest false "Options"
 // @Success 200 {object} schema.ModelUpgradeResponse "Operation"
 // @Failure 404 {object} schema.ModelUpgradeError "Not installed"
-// @Failure 409 {object} schema.ModelUpgradeError "Running, or edited keys need a choice"
+// @Failure 409 {object} schema.ModelUpgradeError "Running, held, or edited keys need a choice"
 // @Failure 422 {object} schema.ModelUpgradeError "Not installed from a gallery with a recorded origin"
 // @Router /api/models/upgrade/{name} [post]
 func UpgradeModelEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
@@ -90,12 +90,12 @@ func UpgradeModelEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
 
 // RetryModelUpgradeEndpoint queues a failed upgrade again.
 // @Summary Retry a failed model upgrade
-// @Description Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail.
+// @Description Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail or the model is held.
 // @Tags models
 // @Param name path string true "Installed model name"
 // @Success 200 {object} schema.ModelUpgradeResponse "Operation"
 // @Failure 404 {object} schema.ModelUpgradeError "Not installed"
-// @Failure 409 {object} schema.ModelUpgradeError "Nothing to retry, or an upgrade runs"
+// @Failure 409 {object} schema.ModelUpgradeError "Nothing to retry, held, or an upgrade runs"
 // @Router /api/models/{name}/upgrade/retry [post]
 func RetryModelUpgradeEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
 	return func(c echo.Context) error { return queueModelUpgrade(c, d, true) }
@@ -108,7 +108,7 @@ func modelUpgradeError(c echo.Context, err error) error {
 		status = http.StatusNotFound
 	case errors.Is(err, modelupdates.ErrNotUpgradable):
 		status = http.StatusUnprocessableEntity
-	case errors.Is(err, modelupdates.ErrBusy), errors.Is(err, modelupdates.ErrNothingFailed):
+	case errors.Is(err, modelupdates.ErrBusy), errors.Is(err, modelupdates.ErrNothingFailed), errors.Is(err, modelupdates.ErrHeld):
 		status = http.StatusConflict
 	}
 	return c.JSON(status, schema.ModelUpgradeError{Error: err.Error()})
@@ -209,7 +209,7 @@ func SetModelHoldEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, schema.ModelUpgradeError{Error: "invalid body: " + err.Error()})
 		}
 		name := c.Param("name")
-		if err := up.SetHold(name, req.Hold); err != nil {
+		if err := up.SetHold(c.Request().Context(), name, req.Hold); err != nil {
 			return modelUpgradeError(c, err)
 		}
 		return c.JSON(http.StatusOK, schema.ModelHoldResponse{Name: name, Hold: req.Hold})

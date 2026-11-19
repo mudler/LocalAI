@@ -388,5 +388,12 @@ var _ = Describe("Model updates", func() {
 		snap, err := c.ModelUpdates(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(snap.Items).To(BeEmpty())
+
+		By("refusing a held model, as the REST route does")
+		Expect(os.WriteFile(filepath.Join(dir, "held.yaml"), []byte("name: held\n"), 0600)).To(Succeed())
+		Expect(gallery.WriteSidecar(dir, "held", &gallery.ModelConfig{Name: "held", Version: gallery.SidecarVersion, Hold: true,
+			Origin: &gallery.Origin{Gallery: "g", EntryName: "held", EntryDigest: "sha256:a"}})).To(Succeed())
+		_, err = c.UpgradeModel(ctx, "held", false, nil)
+		Expect(err).To(MatchError(modelupdates.ErrHeld))
 	})
 })

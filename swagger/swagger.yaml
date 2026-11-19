@@ -26577,7 +26577,7 @@ paths:
     post:
       description: Runs the last upgrade of the model again, with its options and
         choices, toward what the gallery entry installs now. Refused with 409 when
-        the last upgrade did not fail.
+        the last upgrade did not fail or the model is held.
       parameters:
       - description: Installed model name
         in: path
@@ -26594,7 +26594,7 @@ paths:
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
         "409":
-          description: Nothing to retry, or an upgrade runs
+          description: Nothing to retry, held, or an upgrade runs
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
       summary: Retry a failed model upgrade
@@ -27006,7 +27006,8 @@ paths:
         (state failed, with the error and a retry). The old files are kept until removed
         with POST /api/models/{name}/remove-old. Keys a person edited are kept; an
         edited key the update also changes needs a choice in choices, or the request
-        is refused with 409 and the keys. Nothing upgrades without this request.
+        is refused with 409 and the keys. A held model is refused with 409; release
+        the hold first. Nothing upgrades without this request.
       parameters:
       - description: Installed model name
         in: path
@@ -27028,7 +27029,7 @@ paths:
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
         "409":
-          description: Running, or edited keys need a choice
+          description: Running, held, or edited keys need a choice
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
         "422":

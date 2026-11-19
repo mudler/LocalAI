@@ -183,6 +183,9 @@ var (
 	ErrUpToDate      = errors.New("the model is up to date")
 	ErrNothingFailed = errors.New("the last upgrade of this model did not fail; there is nothing to retry")
 	ErrNotFound      = errors.New("the model is not installed")
+	// ErrHeld refuses an upgrade or a retry of a held model. The server
+	// enforces the hold; the UI only hides the button.
+	ErrHeld = errors.New("the model is held at its installed version; release the hold before you upgrade it")
 	// ErrConfigChanged ends an upgrade whose model config was edited after
 	// the upgrade read it: the merged config would drop the edit. Nothing of
 	// the upgrade is applied and the edit stays; run the upgrade again.
@@ -450,6 +453,12 @@ func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 	prevJournal := sc.Upgrade
 	if prevJournal != nil && !prevJournal.Terminal() {
 		return ErrBusy
+	}
+	// Read under the model lock, which SetHold takes too: a hold set on any
+	// frontend before this point stops the upgrade, and none can be set
+	// until it ends.
+	if sc.Hold {
+		return ErrHeld
 	}
 	attempts := 1
 	if req.Retry {
@@ -1188,8 +1197,8 @@ func (u *Upgrader) notify(ctx context.Context, r *upgradeRun, err error) {
 }
 
 // Validate checks, without the galleries, that an upgrade (or a retry) of a
-// model can be queued: the model is installed with a recorded origin and no
-// upgrade of it runs. The upgrade itself checks again.
+// model can be queued: the model is installed with a recorded origin, is not
+// held, and no upgrade of it runs. The upgrade itself checks again.
 func (u *Upgrader) Validate(name string, retry bool) error {
 	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
 		return ErrNotFound
@@ -1210,6 +1219,9 @@ func (u *Upgrader) Validate(name string, retry bool) error {
 	j := sc.Upgrade
 	if j != nil && !j.Terminal() {
 		return ErrBusy
+	}
+	if sc.Hold {
+		return ErrHeld
 	}
 	if retry && (j == nil || j.Kind != gallery.JournalUpgrade || (j.Phase != gallery.PhaseFailed && j.Phase != gallery.PhaseRolledBack)) {
 		return ErrNothingFailed

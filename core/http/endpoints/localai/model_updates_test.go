@@ -110,6 +110,18 @@ var _ = Describe("Model update routes", func() {
 		Expect(do(http.MethodPost, "/api/models/fine/upgrade/retry", "").Code).To(Equal(http.StatusConflict))
 	})
 
+	It("answers 409 for a held model, to an upgrade and to a retry", func() {
+		installed("held", &gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseFailed})
+		sc, err := gallery.ReadSidecar(dir, "held")
+		Expect(err).ToNot(HaveOccurred())
+		sc.Hold = true
+		Expect(gallery.WriteSidecar(dir, "held", sc)).To(Succeed())
+		w := do(http.MethodPost, "/api/models/upgrade/held", "")
+		Expect(w.Code).To(Equal(http.StatusConflict))
+		Expect(w.Body.String()).To(ContainSubstring("release the hold"))
+		Expect(do(http.MethodPost, "/api/models/held/upgrade/retry", "").Code).To(Equal(http.StatusConflict))
+	})
+
 	It("rejects a choice that is neither mine nor gallery", func() {
 		installed("tiny", nil)
 		Expect(do(http.MethodPost, "/api/models/upgrade/tiny", `{"choices":{"k":"both"}}`).Code).To(Equal(http.StatusBadRequest))

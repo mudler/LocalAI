@@ -14977,7 +14977,7 @@ const docTemplate = `{
         },
         "/api/models/upgrade/{name}": {
             "post": {
-                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. Nothing upgrades without this request.",
+                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.",
                 "tags": [
                     "models"
                 ],
@@ -15013,7 +15013,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Running, or edited keys need a choice",
+                        "description": "Running, held, or edited keys need a choice",
                         "schema": {
                             "$ref": "#/definitions/schema.ModelUpgradeError"
                         }
@@ -15272,7 +15272,7 @@ const docTemplate = `{
         },
         "/api/models/{name}/upgrade/retry": {
             "post": {
-                "description": "Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail.",
+                "description": "Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail or the model is held.",
                 "tags": [
                     "models"
                 ],
@@ -15300,7 +15300,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Nothing to retry, or an upgrade runs",
+                        "description": "Nothing to retry, held, or an upgrade runs",
                         "schema": {
                             "$ref": "#/definitions/schema.ModelUpgradeError"
                         }

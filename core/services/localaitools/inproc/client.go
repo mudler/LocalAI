@@ -784,7 +784,7 @@ func (c *Client) RemoveOldModelVersion(ctx context.Context, name string) (*local
 	return &localaitools.ModelRemoveOldResult{Name: name, Removed: removed}, nil
 }
 
-func (c *Client) SetModelHold(_ context.Context, name string, hold bool) (*localaitools.ModelHoldResult, error) {
+func (c *Client) SetModelHold(ctx context.Context, name string, hold bool) (*localaitools.ModelHoldResult, error) {
 	if name == "" {
 		return nil, errors.New("name is required")
 	}
@@ -792,7 +792,7 @@ func (c *Client) SetModelHold(_ context.Context, name string, hold bool) (*local
 	if up == nil {
 		return nil, errModelUpgradesOff
 	}
-	if err := up.SetHold(name, hold); err != nil {
+	if err := up.SetHold(ctx, name, hold); err != nil {
 		return nil, err
 	}
 	return &localaitools.ModelHoldResult{Name: name, Hold: hold}, nil

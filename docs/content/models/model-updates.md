@@ -196,6 +196,13 @@ page) stops LocalAI from offering an update for that model. The state becomes
 the configuration and the loaded model stay as they are, and a reinstall keeps
 the hold. You cannot change a hold while an upgrade of the model runs.
 
+The server enforces the hold. An upgrade or a retry of a held model is refused,
+from the REST API (`409`, "release the hold before you upgrade it") and from
+the assistant, as well as in the web UI. An upgrade that was queued before the
+hold was set is refused when it starts. Release the hold, then upgrade. In a
+cluster, a hold and an upgrade of the same model take the same lock, so a hold
+set on one frontend is never lost to an upgrade on another.
+
 A hold is not a pin. A **pin** keeps a model loaded and out of the eviction
 list (see [VRAM and Memory Management]({{% relref "/models/vram-management" %}})).
 A hold only says "do not offer me an update". Both can be set on the same model.
@@ -272,7 +279,7 @@ Follow the job on `status_url` or on `/api/operations`. The route answers:
 | Status | Meaning |
 |--------|---------|
 | `404` | The model is not installed. |
-| `409` | An upgrade of this model runs, or edited keys need a choice. The second case lists the keys in `keys`. |
+| `409` | An upgrade of this model runs, the model is held, or edited keys need a choice. The last case lists the keys in `keys`. |
 | `422` | The model was not installed from a gallery with a recorded origin. |
 | `400` | A choice is not `mine` or `gallery`. |
 
@@ -280,7 +287,7 @@ A refusal of the preflight (no backend, no checksum, not enough disk) does not
 come from this call. It ends the operation with an error, and nothing changes.
 
 Retry a failed upgrade. The call has no body. It answers `409` when the last
-upgrade did not fail:
+upgrade did not fail, or when the model is held:
 
 ```bash
 curl -X POST http://localhost:8080/api/models/qwen3-4b/upgrade/retry

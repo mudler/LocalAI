@@ -102,7 +102,7 @@ var _ = Describe("The old version and the hold", func() {
 	It("holds a model in the gallery file only, through a reinstall", func() {
 		before, err := os.ReadFile(filepath.Join(f.dir, "tiny.yaml"))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(u.SetHold("tiny", true)).To(Succeed())
+		Expect(u.SetHold(ctx, "tiny", true)).To(Succeed())
 		Expect(sidecar().Hold).To(BeTrue())
 		after, err := os.ReadFile(filepath.Join(f.dir, "tiny.yaml"))
 		Expect(err).ToNot(HaveOccurred())
@@ -116,7 +116,7 @@ var _ = Describe("The old version and the hold", func() {
 		f.install("tiny")
 		Expect(sidecar().Hold).To(BeTrue(), "a reinstall keeps the hold")
 
-		Expect(u.SetHold("tiny", false)).To(Succeed())
+		Expect(u.SetHold(ctx, "tiny", false)).To(Succeed())
 		Expect(sidecar().Hold).To(BeFalse())
 	})
 
@@ -133,24 +133,46 @@ var _ = Describe("The old version and the hold", func() {
 			changed = append(changed, name)
 			svc.Notify(ctx)
 		}
-		Expect(u.SetHold("tiny", true)).To(Succeed())
+		Expect(u.SetHold(ctx, "tiny", true)).To(Succeed())
 		Expect(changed).To(Equal([]string{"tiny"}))
 		Expect(n.count()).To(Equal(checks+1), "no gallery check, only the digest")
 		Expect(n.calls[len(n.calls)-1]).To(BeEmpty(), "a held model needs nobody")
 
-		Expect(u.SetHold("tiny", true)).To(Succeed())
+		Expect(u.SetHold(ctx, "tiny", true)).To(Succeed())
 		Expect(changed).To(HaveLen(1), "no change, no refresh")
 
-		Expect(u.SetHold("tiny", false)).To(Succeed())
+		Expect(u.SetHold(ctx, "tiny", false)).To(Succeed())
 		Expect(n.calls[len(n.calls)-1]).To(HaveLen(1))
+	})
+
+	It("refuses to upgrade a held model, whoever asks", func() {
+		Expect(u.SetHold(ctx, "tiny", true)).To(Succeed())
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		Expect(u.Validate("tiny", false)).To(MatchError(modelupdates.ErrHeld))
+		Expect(modelupdates.CheckRequest(u, nil, "tiny", false, nil)).To(MatchError(modelupdates.ErrHeld))
+		Expect(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(MatchError(modelupdates.ErrHeld))
+		Expect(sidecar().Upgrade).To(BeNil(), "a refusal leaves no journal")
+		Expect(sidecar().Hold).To(BeTrue())
+	})
+
+	It("does not let a hold through while another frontend holds the model lock", func() {
+		locks := newClusterLocks()
+		u.Lock = locks.lockFor("a")
+		release, err := locks.lockFor("b")(ctx, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(u.SetHold(ctx, "tiny", true)).To(MatchError(modelupdates.ErrBusy))
+		Expect(sidecar().Hold).To(BeFalse())
+		release()
+		Expect(u.SetHold(ctx, "tiny", true)).To(Succeed())
+		Expect(locks.heldBy("tiny")).To(BeEmpty())
 	})
 
 	It("refuses a hold on a model without an origin, and while an upgrade runs", func() {
 		Expect(os.WriteFile(filepath.Join(f.dir, "old.yaml"), []byte("name: old\n"), 0600)).To(Succeed())
 		Expect(os.WriteFile(gallery.SidecarPath(f.dir, "old"), []byte("name: old\n"), 0600)).To(Succeed())
-		Expect(u.SetHold("old", true)).To(MatchError(modelupdates.ErrNotUpgradable))
-		Expect(u.SetHold("none", true)).To(MatchError(modelupdates.ErrNotFound))
+		Expect(u.SetHold(ctx, "old", true)).To(MatchError(modelupdates.ErrNotUpgradable))
+		Expect(u.SetHold(ctx, "none", true)).To(MatchError(modelupdates.ErrNotFound))
 		setJournal(&gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseStaging})
-		Expect(u.SetHold("tiny", true)).To(MatchError(modelupdates.ErrBusy))
+		Expect(u.SetHold(ctx, "tiny", true)).To(MatchError(modelupdates.ErrBusy))
 	})
 })

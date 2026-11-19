@@ -91,15 +91,18 @@ func (u *Upgrader) RemoveOld(ctx context.Context, name string) ([]string, error)
 // reported as held and offered no update. It writes the gallery file only:
 // the model config, its revision and the loaded model do not change, and a
 // reinstall keeps the flag. It refuses while an upgrade of the model runs,
-// which owns the gallery file until it ends.
-func (u *Upgrader) SetHold(name string, hold bool) error {
+// which owns the gallery file until it ends. It takes the model lock an
+// upgrade holds, so in a cluster a hold set on one frontend is never written
+// over by an upgrade on another.
+func (u *Upgrader) SetHold(ctx context.Context, name string, hold bool) error {
 	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
 		return ErrNotFound
 	}
-	if !u.claim(name) {
-		return ErrBusy
+	unlock, err := u.acquire(ctx, name)
+	if err != nil {
+		return err
 	}
-	defer u.release(name)
+	defer unlock()
 	sc, err := u.readUpgradable(name)
 	if err != nil {
 		return err
