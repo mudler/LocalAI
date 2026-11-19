@@ -482,6 +482,25 @@ jobs:
           SMOKE_FEED_FILE: release/latest.yml
           SMOKE_SELF_UPDATE: ${{ contains(inputs.version, '-dev.') && 'off' || 'check' }}
         run: bash scripts/smoke-packaged.sh "$(cygpath -u "$APP_WIN")"
+      # Evidence for a failed smoke: start the installed app and the unpacked
+      # zip build directly, with the real user profile, and show how each ends.
+      - name: Windows start diagnostics
+        if: failure()
+        working-directory: launcher/release
+        shell: pwsh
+        run: |
+          $env:ELECTRON_ENABLE_LOGGING = '1'
+          $env:ELECTRON_ENABLE_STACK_DUMPING = '1'
+          foreach ($exe in @($env:APP_WIN, (Resolve-Path 'win-unpacked/local-ai-launcher.exe').Path)) {
+            Write-Host "=== $exe"
+            $out = Join-Path $env:RUNNER_TEMP 'diag-out.txt'
+            $err = Join-Path $env:RUNNER_TEMP 'diag-err.txt'
+            $p = Start-Process -FilePath $exe -ArgumentList '--no-sandbox' -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            Start-Sleep -Seconds 15
+            if ($p.HasExited) { Write-Host "exited early with $($p.ExitCode)" } else { Write-Host 'still running after 15 s'; Stop-Process -Id $p.Id -Force }
+            Write-Host '--- stdout'; Get-Content $out -ErrorAction SilentlyContinue | Select-Object -First 40
+            Write-Host '--- stderr'; Get-Content $err -ErrorAction SilentlyContinue | Select-Object -First 40
+          }
       - name: Choose the files to keep
         if: inputs.upload
         working-directory: launcher/release
