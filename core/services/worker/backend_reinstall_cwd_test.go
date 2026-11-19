@@ -86,6 +86,7 @@ var _ = Describe("Backend reinstall must not poison later model loads", func() {
 
 	Describe("processMatchesBackend", func() {
 		It("refuses to reuse a process whose backend directory a reinstall replaced", func() {
+			skipOnWindows("a Windows process holds its working directory open, so a reinstall cannot leave it on a deleted inode")
 			s := newSupervisor()
 			reinstall()
 

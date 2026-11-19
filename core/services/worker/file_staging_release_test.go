@@ -87,6 +87,7 @@ func (m *releaseMessagingClient) Close()            {}
 
 var _ = Describe("Worker exact-key staging release", func() {
 	It("protects a startup-accounted HTTP cache hit through authenticated repeated probes", func() {
+		skipWithoutExactRemoval()
 		stagingDir := canonicalWorkerTempDir()
 		root := filepath.Join(stagingDir, "ephemeral")
 		key := "ephemeral/audio/request-id/input.wav"
@@ -220,6 +221,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("reserves S3 object size before download and releases it with the exact key", func() {
+		skipWithoutExactRemoval()
 		cacheDir := canonicalWorkerTempDir()
 		root := filepath.Join(cacheDir, "ephemeral")
 		store := &stagingObjectStore{payload: []byte("data")}
@@ -267,6 +269,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("removes only the exact cache file and upload sidecars", func() {
+		skipWithoutExactRemoval()
 		cacheDir := canonicalWorkerTempDir()
 		categoryDir := filepath.Join(cacheDir, "ephemeral", "request-id", "audio")
 		Expect(os.MkdirAll(categoryDir, 0750)).To(Succeed())
@@ -285,6 +288,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("succeeds for a missing file and prunes empty category and request directories", func() {
+		skipWithoutExactRemoval()
 		cacheDir := canonicalWorkerTempDir()
 		categoryDir := filepath.Join(cacheDir, "ephemeral", "request-id", "audio")
 		Expect(os.MkdirAll(categoryDir, 0750)).To(Succeed())
@@ -336,6 +340,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("registers an exact release handler", func() {
+		skipWithoutExactRemoval()
 		cacheDir := canonicalWorkerTempDir()
 		path := filepath.Join(cacheDir, "ephemeral", "request-id", "audio", "input.wav")
 		Expect(os.MkdirAll(filepath.Dir(path), 0750)).To(Succeed())
@@ -358,6 +363,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("releases a request batch through one worker message", func() {
+		skipWithoutExactRemoval()
 		cacheDir := canonicalWorkerTempDir()
 		keys := []string{
 			"ephemeral/audio/request-id/input.wav",

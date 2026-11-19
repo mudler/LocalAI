@@ -89,7 +89,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 			go func(index int) {
 				defer wait.Done()
 				<-start
-				results <- guard.Reserve(filepath.Join(root, string(rune('a'+index))), 1)
+				results <- guard.Reserve(filepath.Join(root, fmt.Sprintf("file-%d", index)), 1)
 			}(i)
 		}
 		close(start)

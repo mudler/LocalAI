@@ -3,10 +3,7 @@ package worker
 import (
 	"context"
 	"net"
-	"os"
 	"os/exec"
-	"strconv"
-	"syscall"
 
 	process "github.com/mudler/go-processmanager"
 	gogrpc "google.golang.org/grpc"
@@ -21,18 +18,6 @@ import (
 // liveness helpers all go through go-processmanager's pidfile, which Stop
 // deletes as part of releasing the handle, so they report "not alive" even if
 // the signal never landed. Only asking the kernel proves termination.
-func pidAlive(pid string) bool {
-	n, err := strconv.Atoi(pid)
-	if err != nil {
-		return false
-	}
-	proc, err := os.FindProcess(n)
-	if err != nil {
-		return false
-	}
-	return proc.Signal(syscall.Signal(0)) == nil
-}
-
 // hangingBackend is a real gRPC backend server whose Free handler never
 // returns. It models the production failure mode: 37 Python backends default to
 // PYTHON_GRPC_MAX_WORKERS=1, so while a LoadModel handler is wedged (e.g.
