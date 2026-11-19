@@ -365,6 +365,9 @@ func (r *upgradeRun) advance(ev Event, change func(j *gallery.Journal)) error {
 	if change != nil {
 		change(r.j())
 	}
+	// The journal error is shown by the API and the notifications: no
+	// absolute path of the models directory in it.
+	r.j().Error = r.u.relText(r.j().Error)
 	if err := gallery.WriteSidecar(r.u.modelsPath(), r.name, r.sc); err != nil {
 		return fmt.Errorf("write the upgrade journal: %w", err)
 	}
@@ -438,6 +441,10 @@ func (r *upgradeRun) heartbeat(stop <-chan struct{}) {
 // (ErrNotUpgradable, ErrBusy, ErrUpToDate, ErrNothingFailed, *ErrRefused and
 // *ErrUnresolvedConflicts) leave no journal behind.
 func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
+	return u.relErr(u.upgrade(ctx, req))
+}
+
+func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 	name := req.Name
 	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
 		return ErrNotFound
@@ -514,9 +521,11 @@ func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 		if sc.Origin.ConfigYAML != "" {
 			finalYAML, err = MergeConfig([]byte(sc.Origin.ConfigYAML), disk, plan.ConfigYAML, req.Choices)
 		} else {
-			// No record of what the install wrote: every key would read as
-			// an edit, so only the operator state carries over.
-			finalYAML, err = MergeConfig(plan.ConfigYAML, disk, plan.ConfigYAML, nil)
+			// No record of what the install wrote, so an edit cannot be told
+			// from what the old version wrote: the new config is the gallery's,
+			// and only the operator state (pinned, disabled) carries over. The
+			// disk config as "installed" makes no key an edit.
+			finalYAML, err = MergeConfig(disk, disk, plan.ConfigYAML, nil)
 		}
 		if err != nil {
 			return err
@@ -589,6 +598,40 @@ func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 	u.notify(context.WithoutCancel(ctx), run, err)
 	u.changed(name)
 	return err
+}
+
+// relText removes the models directory from a message, so that an error
+// shown by the API or a notification (a browser push included) names the
+// files relative to it.
+func (u *Upgrader) relText(msg string) string {
+	if msg == "" || u.SystemState == nil {
+		return msg
+	}
+	dir := filepath.Clean(u.modelsPath())
+	msg = strings.ReplaceAll(msg, dir+string(filepath.Separator), "")
+	return strings.ReplaceAll(msg, dir, "the models directory")
+}
+
+// pathlessError is an error whose message has no models directory path. It
+// unwraps to the original, so errors.Is and errors.As still see it.
+type pathlessError struct {
+	err error
+	msg string
+}
+
+func (e *pathlessError) Error() string { return e.msg }
+func (e *pathlessError) Unwrap() error { return e.err }
+
+// relErr is err with relText applied to its message.
+func (u *Upgrader) relErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := u.relText(err.Error())
+	if msg == err.Error() {
+		return err
+	}
+	return &pathlessError{err: err, msg: msg}
 }
 
 // stageList works out the files the upgrade downloads, writes or retires.
@@ -1214,7 +1257,7 @@ func (u *Upgrader) notify(ctx context.Context, r *upgradeRun, err error) {
 	if err != nil {
 		res.Failed = true
 		res.RolledBack = j.Phase == gallery.PhaseRolledBack
-		res.Err = err.Error()
+		res.Err = u.relText(err.Error())
 	}
 	if nerr := u.Notifier.ModelUpgradeResult(ctx, res); nerr != nil {
 		xlog.Warn("Could not write the model upgrade notification", "model", r.name, "error", nerr)

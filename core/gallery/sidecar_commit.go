@@ -141,6 +141,28 @@ func RecoverInstallJournals(modelsPath string, act func(*Journal) bool) ([]strin
 	return recovered, errors.Join(errs...)
 }
 
+// carriedUpgradeJournal is the finished upgrade journal of the gallery file an
+// install replaced, when it still lists old files a person may remove. The
+// install carries it over (commitInstall); a recovery that finishes the
+// install must too, or those files stay on disk with no way to remove them.
+func carriedUpgradeJournal(prev *Previous) *Journal {
+	if prev == nil || !prev.HadSidecar {
+		return nil
+	}
+	data, err := base64.StdEncoding.DecodeString(prev.Sidecar)
+	if err != nil {
+		return nil
+	}
+	var old ModelConfig
+	if yaml.Unmarshal(data, &old) != nil {
+		return nil
+	}
+	if j := old.Upgrade; j != nil && j.Kind == JournalUpgrade && j.Terminal() && len(j.RetainedFiles) > 0 {
+		return j
+	}
+	return nil
+}
+
 // RecoverInstallJournal finishes or undoes the interrupted install of one
 // model, as RecoverInstallJournals does. The caller holds the lock of the
 // model. It reports whether there was an install journal to recover.
@@ -157,7 +179,7 @@ func recoverInstall(modelsPath, name string, sc *ModelConfig) error {
 	configPath := filepath.Join(modelsPath, name+".yaml")
 	if data, err := os.ReadFile(configPath); err == nil && SHA256Hex(data) == j.ToConfigSHA256 {
 		finished := *sc
-		finished.Upgrade = nil
+		finished.Upgrade = carriedUpgradeJournal(j.Previous)
 		xlog.Info("Finishing an install that a restart interrupted", "model", name)
 		return WriteSidecar(modelsPath, name, &finished)
 	}

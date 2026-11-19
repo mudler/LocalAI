@@ -103,6 +103,11 @@ without asking. For an edit that the update also changes, you choose:
 
 The upgrade does not start while one of these keys has no choice.
 
+If the record of the model has no copy of the configuration that the install
+wrote, LocalAI cannot tell an edit from a value of the old version. The upgrade
+then writes the gallery's new configuration and keeps only the operator state
+(`pinned` and `disabled`) from the configuration on disk.
+
 ### Config-only upgrades
 
 When an update changes no model file (only the configuration or the prompt
@@ -286,6 +291,11 @@ Follow the job on `status_url` or on `/api/operations`. The route answers:
 | `409` | An upgrade of this model runs, the model is held, or edited keys need a choice. The last case lists the keys in `keys`. |
 | `422` | The model was not installed from a gallery with a recorded origin. |
 | `400` | A choice is not `mine` or `gallery`. |
+| `500` | An unexpected error. The answer does not repeat its text, which can name paths of the server; the server log has it. |
+
+Errors of an upgrade, in the API, in the record of the model and in the
+notifications (a browser push included), name files relative to the models
+directory, never by their full path.
 
 A refusal of the preflight (no backend, no checksum, not enough disk) does not
 come from this call. It ends the operation with an error, and nothing changes.

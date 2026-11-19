@@ -187,6 +187,23 @@ var _ = Describe("Gallery file version 2", func() {
 			Expect(sc.Origin.EntryName).To(Equal("done"))
 		})
 
+		It("keeps the old files of an earlier upgrade listed when it finishes a reinstall", func() {
+			newConfig := []byte("name: kept\nbackend: llama-cpp\n")
+			old := &gallery.ModelConfig{Name: "kept", Version: gallery.SidecarVersion,
+				Upgrade: &gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseConfirmed, RetainedFiles: []string{"kept.gguf.prev-12345678"}}}
+			oldBytes, err := yaml.Marshal(old)
+			Expect(err).ToNot(HaveOccurred())
+			journaled("kept", newConfig, &gallery.Previous{HadSidecar: true, Sidecar: base64.StdEncoding.EncodeToString(oldBytes)})
+			Expect(os.WriteFile(filepath.Join(dir, "kept.yaml"), newConfig, 0600)).To(Succeed())
+
+			_, err = gallery.RecoverInstallJournals(dir, nil)
+			Expect(err).ToNot(HaveOccurred())
+			sc, err := gallery.ReadSidecar(dir, "kept")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sc.Upgrade).ToNot(BeNil())
+			Expect(sc.Upgrade.RetainedFiles).To(ConsistOf("kept.gguf.prev-12345678"))
+		})
+
 		It("puts the previous config and gallery file back on a reinstall", func() {
 			oldConfig := []byte("name: re\nbackend: old\n")
 			oldSidecar := []byte("name: re\nentry_name: re\n")

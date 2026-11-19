@@ -88,7 +88,7 @@ func (u *Upgrader) RemoveOld(ctx context.Context, name string) ([]string, error)
 			}
 		}
 	}
-	return removed, errors.Join(errs...)
+	return removed, u.relErr(errors.Join(errs...))
 }
 
 // SetHold sets or clears the owner's hold of a model: a held model is

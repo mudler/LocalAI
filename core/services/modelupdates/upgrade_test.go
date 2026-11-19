@@ -486,6 +486,38 @@ var _ = Describe("A model upgrade", func() {
 		Expect(read("tiny.gguf")).To(Equal("v2"))
 	})
 
+	It("names the files relative to the models directory in its errors and its journal", func() {
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		u := upgrader(nil)
+		u.Download = func(_ context.Context, tasks []downloader.FileTask, _ func(string, string, string, float64)) error {
+			return &os.PathError{Op: "open", Path: tasks[0].Destination, Err: os.ErrPermission}
+		}
+		n := &upgradeNotifier{}
+		u.Notifier = n
+		err := u.Upgrade(ctx, modelupdates.Request{OpID: "op", Name: "tiny"})
+		Expect(err).To(MatchError(os.ErrPermission), "errors.Is still sees the cause")
+		Expect(err.Error()).To(ContainSubstring("open tiny.gguf.next"))
+		Expect(err.Error()).ToNot(ContainSubstring(f.dir))
+		Expect(journal().Error).ToNot(ContainSubstring(f.dir))
+		Expect(n.results[0].Err).ToNot(ContainSubstring(f.dir))
+	})
+
+	It("takes the gallery config, with only the operator state of the disk, when the install wrote no record of its config", func() {
+		sc, err := gallery.ReadSidecar(f.dir, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		sc.Origin.ConfigYAML = ""
+		Expect(gallery.WriteSidecar(f.dir, "tiny", sc)).To(Succeed())
+		patchDisk(f, "tiny", func(m map[string]any) { m["context_size"] = 8192; m["pinned"] = true })
+		e := tinyEntry(f, f.weights("tiny.gguf", "v1"))
+		e.Overrides["context_size"] = 4096
+		f.publish(e)
+		Expect(upgrader(nil).Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(Succeed())
+		m := map[string]any{}
+		Expect(yaml.Unmarshal([]byte(read("tiny.yaml")), &m)).To(Succeed())
+		Expect(m["context_size"]).To(Equal(4096), "the gallery's change applies")
+		Expect(m["pinned"]).To(BeTrue(), "the operator state carries over")
+	})
+
 	It("loads a model nobody had loaded for the check, then unloads it", func() {
 		rt = newRuntime()
 		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))

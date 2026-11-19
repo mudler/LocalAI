@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/xlog"
 )
 
 // ModelUpdatesProvider is the read model and the check of model updates
@@ -111,7 +112,14 @@ func modelUpgradeError(c echo.Context, err error) error {
 	case errors.Is(err, modelupdates.ErrBusy), errors.Is(err, modelupdates.ErrNothingFailed), errors.Is(err, modelupdates.ErrHeld):
 		status = http.StatusConflict
 	}
-	return c.JSON(status, schema.ModelUpgradeError{Error: err.Error()})
+	msg := err.Error()
+	if status == http.StatusInternalServerError {
+		// An unexpected error can carry server paths and internals: the
+		// answer says what failed, the log has the detail.
+		xlog.Error("Model update request failed", "error", err)
+		msg = "the request failed on the server; see the server log"
+	}
+	return c.JSON(status, schema.ModelUpgradeError{Error: msg})
 }
 
 func queueModelUpgrade(c echo.Context, d ModelUpgradeDeps, retry bool) error {

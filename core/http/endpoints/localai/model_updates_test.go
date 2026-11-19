@@ -122,6 +122,15 @@ var _ = Describe("Model update routes", func() {
 		Expect(do(http.MethodPost, "/api/models/held/upgrade/retry", "").Code).To(Equal(http.StatusConflict))
 	})
 
+	It("does not answer an unexpected error with its text, which can name server paths", func() {
+		Expect(os.WriteFile(filepath.Join(dir, "broken.yaml"), []byte("name: broken\n"), 0600)).To(Succeed())
+		Expect(os.WriteFile(gallery.SidecarPath(dir, "broken"), []byte("version: [\n"), 0600)).To(Succeed())
+		w := do(http.MethodPost, "/api/models/upgrade/broken", "")
+		Expect(w.Code).To(Equal(http.StatusInternalServerError))
+		Expect(w.Body.String()).ToNot(ContainSubstring(dir))
+		Expect(w.Body.String()).To(ContainSubstring("server log"))
+	})
+
 	It("rejects a choice that is neither mine nor gallery", func() {
 		installed("tiny", nil)
 		Expect(do(http.MethodPost, "/api/models/upgrade/tiny", `{"choices":{"k":"both"}}`).Code).To(Equal(http.StatusBadRequest))

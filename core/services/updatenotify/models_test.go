@@ -85,6 +85,21 @@ var _ = Describe("the model notifications", func() {
 		Expect(got[0].Status).ToNot(Equal(notify.StatusFailed))
 	})
 
+	It("names files, not server paths, in the error of an item", func() {
+		f := newFrontend(memStore(), nil, "admin")
+		Expect(f.em.ModelUpgradeResult(ctx, ModelUpgrade{OpID: "op-p", Name: "tiny", Failed: true,
+			Err: "open /var/lib/localai/models/tiny.gguf.next: no space left; see https://example.com/a/b"})).To(Succeed())
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-q", Name: "tiny", Outcome: galleryop.OpFailed,
+			Err: `rename C:\models\tiny.gguf: denied`})).To(Succeed())
+		var bodies []string
+		for _, n := range list(f, "admin") {
+			bodies = append(bodies, n.Body)
+		}
+		Expect(bodies).To(ConsistOf(
+			"open tiny.gguf.next: no space left; see https://example.com/a/b",
+			"rename tiny.gguf: denied"))
+	})
+
 	It("tells a removal of old files", func() {
 		f := newFrontend(memStore(), nil, "admin")
 		Expect(f.em.ModelRemovedOld(ctx, "op-1", "tiny", 2)).To(Succeed())

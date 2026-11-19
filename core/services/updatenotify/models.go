@@ -88,7 +88,7 @@ func (e *Emitter) ModelUpgradeResult(ctx context.Context, r ModelUpgrade) error 
 	if r.Failed {
 		n.Code, n.Kind, n.Status, n.Link = CodeModelUpgradeFailed, notify.KindNeedsAttention, notify.StatusFailed, LinkNeedsYou
 		n.Title = "Model " + r.Name + ": the upgrade failed"
-		n.Body = oneLine(r.Err, 200)
+		n.Body = errorLine(r.Err)
 		n.Params["rolledBack"] = r.RolledBack
 		if n.Body != "" {
 			n.Params["error"] = n.Body

@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -250,7 +251,7 @@ func (e *Emitter) Result(ctx context.Context, r Result) error {
 		if o.Err == "" {
 			return o.Name
 		}
-		return o.Name + " (" + oneLine(o.Err, 100) + ")"
+		return o.Name + " (" + oneLine(withoutPaths(o.Err), 100) + ")"
 	})
 	add(held, "held", "waiting for approval", "Waiting for your approval: ", func(o Outcome) string { return versions(o) })
 
@@ -310,7 +311,7 @@ func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
 	case galleryop.OpFailed:
 		n.Code, n.Kind, n.Status = CodeOpFailed, notify.KindNeedsAttention, notify.StatusFailed
 		n.Title = label + " " + op.Name + ": the " + action + " failed"
-		n.Body = oneLine(op.Err, 200)
+		n.Body = errorLine(op.Err)
 		n.Params["outcome"] = "failed"
 		if n.Body != "" {
 			n.Params["error"] = n.Body
@@ -331,6 +332,33 @@ func versions(o Outcome) string {
 	}
 	return o.Name
 }
+
+// absPath matches an absolute path (POSIX, or Windows with a drive letter)
+// and keeps its last element.
+var absPath = regexp.MustCompile(`(?:[A-Za-z]:)?(?:[\\/][^\s\\/:"'()]+)+[\\/]([^\s\\/:"'()]+)`)
+
+// withoutPaths replaces each absolute path in s by its file name. An error
+// text reaches the inbox and a browser push service, which must not learn
+// the layout of the server. A URL is left alone.
+func withoutPaths(s string) string {
+	var b strings.Builder
+	last := 0
+	for _, m := range absPath.FindAllStringSubmatchIndex(s, -1) {
+		start := m[0]
+		if start > 0 && (s[start-1] == ':' || s[start-1] == '/' || s[start-1] == '\\') {
+			continue // the path of a URL
+		}
+		b.WriteString(s[last:start])
+		b.WriteString(s[m[2]:m[3]])
+		last = m[1]
+	}
+	b.WriteString(s[last:])
+	return b.String()
+}
+
+// errorLine is the body of an item that tells a failure: one line, no
+// server paths.
+func errorLine(s string) string { return oneLine(withoutPaths(s), 200) }
 
 func oneLine(s string, max int) string {
 	s = strings.Join(strings.Fields(s), " ")
