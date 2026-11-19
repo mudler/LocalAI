@@ -142,6 +142,13 @@ type Manager struct {
 	mlx     []string
 	ctl     net.Listener
 	ring    net.Listener
+
+	// conns are the accepted connections that are open, so that Close can
+	// end the ones that wait for a hello or carry a ring stream. connMu
+	// guards them and closed; it is taken alone or last.
+	connMu sync.Mutex
+	conns  map[net.Conn]struct{}
+	closed bool
 }
 
 // worker is the live state of one device.
@@ -187,7 +194,7 @@ func NewManager(ctx context.Context, cfg Config) (*Manager, error) {
 	if cfg.Ports == nil {
 		cfg.Ports = NewPortBook()
 	}
-	m := &Manager{cfg: cfg, kick: make(chan struct{}, 1), devices: map[p2pnet.ID]Device{}, workers: map[string]*worker{}}
+	m := &Manager{cfg: cfg, kick: make(chan struct{}, 1), devices: map[p2pnet.ID]Device{}, workers: map[string]*worker{}, conns: map[net.Conn]struct{}{}}
 	m.ctx, m.cancel = context.WithCancel(ctx)
 	ctl, err := cfg.Host.Listen(ProtoControl, nil)
 	if err != nil {
@@ -202,8 +209,8 @@ func NewManager(ctx context.Context, cfg Config) (*Manager, error) {
 	}
 	m.ctl, m.ring = ctl, ring
 	m.Refresh()
-	serveListener(&m.wg, ctl, m.serveControl)
-	serveListener(&m.wg, ring, m.serveRing)
+	serveListener(&m.wg, ctl, m.tracked(m.serveControl))
+	serveListener(&m.wg, ring, m.tracked(m.serveRing))
 	m.wg.Go(m.loop)
 	return m, nil
 }
@@ -214,6 +221,7 @@ func (m *Manager) Close() error {
 	m.cancel()
 	_ = m.ctl.Close()
 	_ = m.ring.Close()
+	m.closeConns()
 	var closers []func()
 	m.mu.Lock()
 	for _, w := range m.workers {
@@ -234,6 +242,42 @@ func (m *Manager) Close() error {
 		m.cfg.OnMLX(nil)
 	}
 	return nil
+}
+
+// tracked wraps a connection handler so that Close can end its connection.
+func (m *Manager) tracked(fn func(net.Conn)) func(net.Conn) {
+	return func(c net.Conn) {
+		m.connMu.Lock()
+		if m.closed {
+			m.connMu.Unlock()
+			_ = c.Close()
+			return
+		}
+		m.conns[c] = struct{}{}
+		m.connMu.Unlock()
+		defer func() {
+			m.connMu.Lock()
+			delete(m.conns, c)
+			m.connMu.Unlock()
+		}()
+		fn(c)
+	}
+}
+
+// closeConns closes every open accepted connection and refuses new ones. A
+// handler that waits for a hello or pipes a ring stream does not watch the
+// context, so without this Close would wait for it in m.wg.Wait.
+func (m *Manager) closeConns() {
+	m.connMu.Lock()
+	m.closed = true
+	conns := make([]net.Conn, 0, len(m.conns))
+	for c := range m.conns {
+		conns = append(conns, c)
+	}
+	m.connMu.Unlock()
+	for _, c := range conns {
+		_ = c.Close()
+	}
 }
 
 // Refresh reloads the devices from the store and drops the sessions of the
@@ -377,7 +421,7 @@ func (m *Manager) evaluate() {
 		}
 		switch w.hello.Engine {
 		case EngineLlama:
-			if addr := m.llamaForwarderLocked(d, w, &closers); addr != "" {
+			if addr := m.llamaForwarderLocked(d, w); addr != "" {
 				llama = append(llama, addr)
 			}
 		case EngineMLX:
@@ -500,10 +544,13 @@ func decide(connected bool, refusal string, path p2pnet.Path, own, allowSlow boo
 // (see needFor), so a public relay never carries model layers even when the
 // path changes after this check. A forwarder whose need changed is replaced
 // on the same port.
-func (m *Manager) llamaForwarderLocked(d Device, w *worker, closers *[]func()) string {
+func (m *Manager) llamaForwarderLocked(d Device, w *worker) string {
 	need := needFor(w.own, d.AllowSlowPath)
 	if w.fwd != nil && w.fwdNeed != need {
-		m.detachLocked(w, closers)
+		// Closed at once and not after the unlock: the new forwarder binds the
+		// same port below. Closing a p2pnet.Forwarder never takes m.mu.
+		_ = w.fwd.Close()
+		w.fwd = nil
 	}
 	if w.fwd == nil {
 		f, err := m.forward(d, m.cfg.Ports.Get(d.ID), need)
