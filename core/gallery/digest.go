@@ -138,6 +138,9 @@ func newConfigHTTPClient(extra ...httpclient.Option) *http.Client {
 	return httpclient.NewWithTimeout(30*time.Second, opts...)
 }
 
+// maxGalleryConfigBytes is the size a fetched gallery config may have.
+const maxGalleryConfigBytes = 16 << 20
+
 type fetchedConfig struct {
 	etag string
 	body []byte
@@ -187,9 +190,14 @@ func (f *BaseConfigFetcher) Fetch(ctx context.Context, url, basePath string) ([]
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("fetch gallery config %q: status %d", url, resp.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	// Read one byte more than the limit: a config that long would be cut
+	// silently, and its digest would be the digest of a part.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxGalleryConfigBytes+1))
 	if err != nil {
 		return nil, "", fmt.Errorf("fetch gallery config %q: %w", url, err)
+	}
+	if int64(len(body)) > maxGalleryConfigBytes {
+		return nil, "", fmt.Errorf("fetch gallery config %q: larger than %d bytes", url, int64(maxGalleryConfigBytes))
 	}
 	if etag := resp.Header.Get("ETag"); etag != "" {
 		f.mu.Lock()

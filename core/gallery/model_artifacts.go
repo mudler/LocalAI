@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 
@@ -181,32 +179,4 @@ func bindPrimaryArtifact(ctx context.Context, modelsPath string, typed *config.M
 	}
 	configMap["artifacts"] = artifactValue
 	return true, nil
-}
-
-func writeModelConfigAtomic(fileName string, data []byte) error {
-	temporary, err := os.CreateTemp(filepath.Dir(fileName), ".model-config-*")
-	if err != nil {
-		return err
-	}
-	temporaryName := temporary.Name()
-	defer func() { _ = os.Remove(temporaryName) }()
-	if err := temporary.Chmod(0600); err != nil {
-		_ = temporary.Close()
-		return err
-	}
-	if _, err := temporary.Write(data); err != nil {
-		_ = temporary.Close()
-		return err
-	}
-	if err := temporary.Sync(); err != nil {
-		_ = temporary.Close()
-		return err
-	}
-	if err := temporary.Close(); err != nil {
-		return err
-	}
-	if err := os.Chmod(temporaryName, 0644); err != nil {
-		return err
-	}
-	return os.Rename(temporaryName, fileName)
 }

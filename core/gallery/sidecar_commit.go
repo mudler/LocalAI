@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/atomicfile"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
@@ -91,7 +93,7 @@ func commitInstall(basePath string, plan *InstallPlan, origin *Origin, instance 
 	if err := WriteSidecar(basePath, name, &journaled); err != nil {
 		return fmt.Errorf("write gallery file: %w", err)
 	}
-	if err := writeModelConfigAtomic(configPath, plan.ConfigYAML); err != nil {
+	if err := atomicfile.Write(configPath, plan.ConfigYAML, 0644); err != nil {
 		return fmt.Errorf("failed to atomically write updated config file: %w", err)
 	}
 	xlog.Debug("Written config file", "file", configPath)
@@ -190,19 +192,19 @@ func recoverInstall(modelsPath, name string, sc *ModelConfig) error {
 		if err != nil {
 			return fmt.Errorf("decode previous model config: %w", err)
 		}
-		if err := writeModelConfigAtomic(configPath, data); err != nil {
+		if err := atomicfile.Write(configPath, data, 0644); err != nil {
 			return err
 		}
-	} else if err := removeIfPresent(configPath); err != nil {
+	} else if err := utils.RemoveIfPresent(configPath); err != nil {
 		return err
 	}
 	sidecarPath := SidecarPath(modelsPath, name)
 	if !prev.HadSidecar {
-		return removeIfPresent(sidecarPath)
+		return utils.RemoveIfPresent(sidecarPath)
 	}
 	data, err := base64.StdEncoding.DecodeString(prev.Sidecar)
 	if err != nil {
 		return fmt.Errorf("decode previous gallery file: %w", err)
 	}
-	return writeModelConfigAtomic(sidecarPath, data)
+	return atomicfile.Write(sidecarPath, data, 0644)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -511,13 +511,17 @@ func buildGalleryInstall(ctx context.Context, basePath string, parent, model *Ga
 	if resolvedForDigest == nil {
 		resolvedForDigest = &parentForDigest
 	}
+	overridesSHA256, err := canonicalSHA256(model.Overrides)
+	if err != nil {
+		return nil, err
+	}
 	origin := &Origin{
 		Gallery:          parent.Gallery.Name,
 		EntryName:        parent.Name,
 		ConfigURL:        model.URL,
 		EntryDigest:      EntryDigest(&parentForDigest, resolvedForDigest, baseConfigSHA),
 		BaseConfigSHA256: baseConfigSHA,
-		OverridesSHA256:  canonicalSHA256(model.Overrides),
+		OverridesSHA256:  overridesSHA256,
 		RequestOverrides: deepCopyStringMap(req.Overrides),
 	}
 	return &GalleryInstall{Name: installName, Config: config, Overrides: model.Overrides, Origin: origin}, nil
@@ -894,7 +898,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to create parent directory for prompt template %q: %v", template.Name, err)
 		}
 		// Create and write file content
-		err = writeModelConfigAtomic(filePath, []byte(template.Content))
+		err = atomicfile.Write(filePath, []byte(template.Content), 0644)
 		if err != nil {
 			return nil, fmt.Errorf("failed to write prompt template %q: %v", template.Name, err)
 		}
@@ -966,6 +970,10 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 
 	// Galleryname is the name of the model in this case
 	dat, err := os.ReadFile(configFile)
+	if errors.Is(err, os.ErrNotExist) {
+		// A model config may also be named .yml.
+		dat, err = os.ReadFile(strings.TrimSuffix(configFile, ".yaml") + ".yml")
+	}
 	if err == nil {
 		modelConfig := &lconfig.ModelConfig{}
 
@@ -1038,14 +1046,6 @@ func (e *IncompleteDeleteError) Error() string {
 
 func (e *IncompleteDeleteError) Unwrap() []error { return e.Errs }
 
-// removeIfPresent removes a path and treats "already gone" as success.
-func removeIfPresent(path string) error {
-	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-	return nil
-}
-
 // DeleteModelFromSystem removes an installed model: its configuration, its
 // gallery metadata file and the files it declares that no other model uses.
 //
@@ -1114,7 +1114,7 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 	xlog.Debug("Files to remove", "files", filesToRemove)
 	xlog.Debug("All other files", "files", allOtherFiles)
 
-	if err := removeIfPresent(configFile); err != nil {
+	if err := utils.RemoveIfPresent(configFile); err != nil {
 		return fmt.Errorf("failed to remove model configuration %s: %w", configFile, err)
 	}
 
@@ -1127,7 +1127,7 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 			xlog.Debug("Skipping file because it is part of another model", "file", f)
 			continue
 		}
-		if e := removeIfPresent(f); e != nil {
+		if e := utils.RemoveIfPresent(f); e != nil {
 			xlog.Error("failed to remove file", "error", e, "file", f)
 			failures = append(failures, e)
 		}

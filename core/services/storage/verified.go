@@ -2,16 +2,14 @@ package storage
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/atomicfile"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/xlog"
 )
 
@@ -102,7 +100,7 @@ func (fm *FileManager) cachedMatches(key, localPath, sha string) (bool, error) {
 			}
 		}
 	}
-	sum, err := fileSHA256(localPath)
+	sum, err := downloader.CalculateSHA(localPath)
 	if err != nil {
 		return false, err
 	}
@@ -131,17 +129,4 @@ func (fm *FileManager) evictVerified(key, localPath string) {
 	if rec, err := fm.recordPath(key); err == nil {
 		_ = os.Remove(rec)
 	}
-}
-
-func fileSHA256(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = f.Close() }()
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }

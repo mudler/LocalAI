@@ -49,6 +49,26 @@ var _ = Describe("BaseConfigFetcher", func() {
 		Expect(notModified.Load()).To(Equal(int32(1)))
 	})
 
+	It("refuses a config over the size limit instead of cutting it", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(make([]byte, maxGalleryConfigBytes+1))
+		}))
+		DeferCleanup(srv.Close)
+		_, _, err := localFetcher().Fetch(context.TODO(), srv.URL+"/big.yaml", GinkgoT().TempDir())
+		Expect(err).To(MatchError(ContainSubstring("larger than")))
+	})
+
+	It("hashes no overrides as nothing, and fails on a value it cannot marshal", func() {
+		sum, err := canonicalSHA256(nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sum).To(BeEmpty())
+		sum, err = canonicalSHA256(map[string]any{"a": 1})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sum).ToNot(BeEmpty())
+		_, err = canonicalSHA256(map[string]any{"a": make(chan int)})
+		Expect(err).To(HaveOccurred())
+	})
+
 	It("refuses a private address unless the guard is replaced", func() {
 		var hits atomic.Int32
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { hits.Add(1) }))

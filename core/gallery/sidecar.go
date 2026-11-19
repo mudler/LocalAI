@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"gopkg.in/yaml.v3"
 )
@@ -252,7 +254,7 @@ func WriteSidecar(modelsPath, name string, c *ModelConfig) error {
 	if err != nil {
 		return fmt.Errorf("marshal gallery file: %w", err)
 	}
-	return writeModelConfigAtomic(SidecarPath(modelsPath, name), data)
+	return atomicfile.Write(SidecarPath(modelsPath, name), data, 0644)
 }
 
 // ManagedFileSHA256 returns the sha256 that the gallery files of the installed
@@ -260,6 +262,11 @@ func WriteSidecar(modelsPath, name string, c *ModelConfig) error {
 // version 2 gallery file manages it. A cluster frontend sends it with each
 // staged file, so a worker can tell an old cached copy from the file the
 // model has now.
+//
+// The caller knows the file, not the model it belongs to, so every gallery
+// file is a candidate. Each is parsed once: the parsed list of managed files
+// is kept with the size and modification time of the gallery file it came
+// from, and read again only when those change.
 func ManagedFileSHA256(modelsPath, path string) string {
 	rel, err := filepath.Rel(modelsPath, path)
 	if err != nil || !filepath.IsLocal(rel) {
@@ -271,17 +278,52 @@ func ManagedFileSHA256(modelsPath, path string) string {
 		return ""
 	}
 	for _, name := range names {
-		sc, err := ReadSidecar(modelsPath, name)
-		if err != nil || !sc.IsV2() {
-			continue
-		}
-		for _, m := range sc.Managed {
-			if filepath.ToSlash(m.Path) == rel && m.SHA256 != "" {
-				return strings.ToLower(m.SHA256)
-			}
+		if sum := managedSHA256Of(modelsPath, name)[rel]; sum != "" {
+			return sum
 		}
 	}
 	return ""
+}
+
+type managedSHA256Entry struct {
+	size    int64
+	modTime time.Time
+	sums    map[string]string // slash path -> lowercase sha256
+}
+
+var (
+	managedSHA256Mu    sync.Mutex
+	managedSHA256Cache = map[string]managedSHA256Entry{} // gallery file path -> entry
+)
+
+// managedSHA256Of is the checksums the version 2 gallery file of a model
+// records, by slash path. It is nil for a gallery file that is missing,
+// unreadable or not version 2.
+func managedSHA256Of(modelsPath, name string) map[string]string {
+	file := SidecarPath(modelsPath, name)
+	info, err := os.Stat(file)
+	if err != nil {
+		return nil
+	}
+	managedSHA256Mu.Lock()
+	cached, ok := managedSHA256Cache[file]
+	managedSHA256Mu.Unlock()
+	if ok && cached.size == info.Size() && cached.modTime.Equal(info.ModTime()) {
+		return cached.sums
+	}
+	var sums map[string]string
+	if sc, err := ReadSidecar(modelsPath, name); err == nil && sc.IsV2() {
+		sums = map[string]string{}
+		for _, m := range sc.Managed {
+			if m.SHA256 != "" {
+				sums[filepath.ToSlash(m.Path)] = strings.ToLower(m.SHA256)
+			}
+		}
+	}
+	managedSHA256Mu.Lock()
+	managedSHA256Cache[file] = managedSHA256Entry{size: info.Size(), modTime: info.ModTime(), sums: sums}
+	managedSHA256Mu.Unlock()
+	return sums
 }
 
 // FileRole classifies a file the install owns by its name.
@@ -324,19 +366,20 @@ func ManagedFiles(cfg *ModelConfig) []ManagedFile {
 
 // canonicalSHA256 hashes the canonical JSON of v (map keys sorted, which
 // encoding/json does). It returns "" for a nil or empty value, so "no
-// overrides" has one form.
-func canonicalSHA256(v any) string {
+// overrides" has one form. A value that cannot be marshalled is an error: a
+// digest of nothing would read as "no overrides" and hide a change.
+func canonicalSHA256(v any) (string, error) {
 	if v == nil {
-		return ""
+		return "", nil
 	}
 	if m, ok := v.(map[string]any); ok && len(m) == 0 {
-		return ""
+		return "", nil
 	}
 	data, err := json.Marshal(normalizeJSON(v))
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("hash the overrides: %w", err)
 	}
-	return SHA256Hex(data)
+	return SHA256Hex(data), nil
 }
 
 // normalizeJSON turns the map[any]any a YAML v2 decoder can produce into
