@@ -67,8 +67,8 @@ func startAddon(id string) *world { return startAddonFrom(id, "") }
 // the release process (package.sh and addonpkg extract), when packageDir is
 // set: its executable, runtime files and manifest are used as they are.
 func startAddonFrom(id, packageDir string) *world {
-	if goruntime.GOOS != "linux" {
-		Skip("the sandbox add-on is Linux only")
+	if goruntime.GOOS != "linux" && (goruntime.GOOS != "darwin" || goruntime.GOARCH != "arm64") {
+		Skip("the sandbox add-on runs on Linux and on macOS with Apple silicon only")
 	}
 	root := GinkgoT().TempDir()
 	bin := filepath.Join(root, "pkg", id)
@@ -170,6 +170,16 @@ func repoRoot() string {
 	return ""
 }
 
+// authorityLife is the life of a call's authority as the host gives it: an
+// action call may wait for the guest image pull of a first command, so it
+// lives as long as the host makes it live.
+func authorityLife(act bool) time.Duration {
+	if act {
+		return contract.ActAuthorityLife
+	}
+	return time.Minute
+}
+
 func (w *world) envelope(tool, user, conv string, args map[string]any, act bool) contract.Envelope {
 	w.opSeq++
 	if args == nil {
@@ -183,7 +193,7 @@ func (w *world) envelope(tool, user, conv string, args map[string]any, act bool)
 	}
 	return contract.Envelope{
 		Request:   contract.Request{AddonID: w.id, ResourceID: conv, OperationID: "t" + strings.Repeat("0", 10) + string(rune('a'+w.opSeq%26)) + string(rune('a'+w.opSeq/26)), Generation: w.gen, Action: action, Arguments: raw},
-		Authority: contract.Authority{Actor: contract.Actor{UserID: user, CredentialID: "chats", Mode: "named-user"}, Scope: scope, ExpiresAt: time.Now().Add(time.Minute)},
+		Authority: contract.Authority{Actor: contract.Actor{UserID: user, CredentialID: "chats", Mode: "named-user"}, Scope: scope, ExpiresAt: time.Now().Add(authorityLife(act))},
 	}
 }
 
