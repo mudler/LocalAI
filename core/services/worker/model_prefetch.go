@@ -11,6 +11,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
@@ -31,14 +33,37 @@ type modelPrefetcher struct {
 	// cacheDir is the object storage cache, or "" when the worker has none.
 	cacheDir string
 	download func(ctx context.Context, uri, dest, sha256 string) error
+	// validateURL refuses a URI the worker must not fetch. Nil allows every
+	// URI that passes the scheme check of stage.
+	validateURL func(uri string) error
 }
 
 func newModelPrefetcher(cfg *Config) *modelPrefetcher {
-	p := &modelPrefetcher{modelsPath: cfg.ModelsPath, download: downloadVerified}
+	p := &modelPrefetcher{modelsPath: cfg.ModelsPath, download: downloadVerified, validateURL: externalOnlyURL}
 	if cfg.StorageURL != "" {
 		p.cacheDir = filepath.Join(cfg.ModelsPath, "..", "cache")
 	}
 	return p
+}
+
+// externalOnlyURL applies to a plain http(s) URI the external-URL policy of
+// pkg/httpclient (httpclient.WithExternalOnly): the host must resolve to
+// public addresses only, so a gallery entry cannot make a worker fetch from
+// its own network or from a metadata service. Other schemes (huggingface://,
+// oci://) name fixed public services. The downloader follows redirects with
+// its own client, so only the first URL is checked here.
+func externalOnlyURL(uri string) error {
+	lower := strings.ToLower(uri)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return httpclient.ValidateExternalURL(uri)
+	}
+	return nil
+}
+
+// cacheKey is the object storage key under which a load stages the file of a
+// model, which is also the place of the file in the worker's cache.
+func cacheKey(model, filename string) string {
+	return storage.ModelKey(filepath.ToSlash(filepath.Join(model, filepath.FromSlash(filename))))
 }
 
 func downloadVerified(ctx context.Context, uri, dest, sha256 string) error {
@@ -69,7 +94,7 @@ func (p *modelPrefetcher) places(model, filename string) ([]string, error) {
 	if p.cacheDir == "" {
 		return []string{httpPlace}, nil
 	}
-	key := storage.ModelKey(filepath.ToSlash(filepath.Join(model, rel)))
+	key := cacheKey(model, filename)
 	cachePlace := filepath.Join(p.cacheDir, filepath.FromSlash(key))
 	return []string{cachePlace, httpPlace}, nil
 }
@@ -128,6 +153,11 @@ func (p *modelPrefetcher) stage(ctx context.Context, f workerctl.ModelPrefetchFi
 	if f.URI == "" || strings.HasPrefix(f.URI, "file://") || !strings.Contains(f.URI, "://") {
 		return fmt.Errorf("the worker does not download from %q", f.URI)
 	}
+	if p.validateURL != nil {
+		if err := p.validateURL(f.URI); err != nil {
+			return fmt.Errorf("the worker does not download from %q: %w", f.URI, err)
+		}
+	}
 	if err := os.MkdirAll(filepath.Dir(place), 0750); err != nil {
 		return err
 	}
@@ -150,11 +180,11 @@ func (p *modelPrefetcher) commit(places []string) (moved bool, err error) {
 			return false, err
 		}
 		moved = true
-	} else if err := removeIfPresent(places[0]); err != nil {
+	} else if err := utils.RemoveIfPresent(places[0]); err != nil {
 		return false, err
 	}
 	for _, other := range places[1:] {
-		if err := removeIfPresent(other); err != nil {
+		if err := utils.RemoveIfPresent(other); err != nil {
 			return moved, err
 		}
 	}
@@ -168,8 +198,7 @@ func (p *modelPrefetcher) recordVerified(model string, f workerctl.ModelPrefetch
 	if p.cacheDir == "" || f.SHA256 == "" {
 		return
 	}
-	key := storage.ModelKey(model + "/" + filepath.ToSlash(filepath.FromSlash(f.Filename)))
-	if err := storage.RecordCacheSHA256(p.cacheDir, key, f.SHA256); err != nil {
+	if err := storage.RecordCacheSHA256(p.cacheDir, cacheKey(model, f.Filename), f.SHA256); err != nil {
 		xlog.Warn("Could not record the sha256 of a prefetched file", "model", model, "file", f.Filename, "error", err)
 	}
 }
@@ -178,24 +207,18 @@ func (p *modelPrefetcher) discard(places []string, evict bool) error {
 	var errs []error
 	for _, place := range places {
 		for _, path := range []string{place + prefetchNext, place + prefetchNext + ".partial"} {
-			errs = append(errs, removeIfPresent(path))
+			errs = append(errs, utils.RemoveIfPresent(path))
 		}
 		if evict {
-			errs = append(errs, removeIfPresent(place))
+			errs = append(errs, utils.RemoveIfPresent(place))
 		}
 	}
 	return errors.Join(errs...)
 }
 
-func removeIfPresent(path string) error {
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return nil
-}
 
 func removeQuiet(path string) {
-	if err := removeIfPresent(path); err != nil {
+	if err := utils.RemoveIfPresent(path); err != nil {
 		xlog.Warn("Could not remove a staged file", "file", path, "error", err)
 	}
 }

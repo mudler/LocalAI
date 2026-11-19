@@ -64,7 +64,11 @@ var _ = Describe("model.prefetch between a frontend and its workers", func() {
 		if objectStorage {
 			cfg.StorageURL = "http://object-storage.invalid"
 		}
-		Expect(newModelPrefetcher(cfg).register(newNATSControlServer(bus, id))).To(Succeed())
+		p := newModelPrefetcher(cfg)
+		// The test server listens on the loopback address, which the guard
+		// of a real worker refuses.
+		p.validateURL = nil
+		Expect(p.register(newNATSControlServer(bus, id))).To(Succeed())
 	}
 	read := func(path string) string {
 		GinkgoHelper()
@@ -197,6 +201,20 @@ var _ = Describe("model.prefetch between a frontend and its workers", func() {
 		Expect(place("a") + ".next").ToNot(BeAnExistingFile())
 		Expect(read(place("a"))).To(Equal("v1"))
 		Expect(objs.deleted).To(BeEmpty())
+	})
+
+	It("refuses a plain http URI that points into the network of the worker", func() {
+		p := newModelPrefetcher(&Config{ModelsPath: GinkgoT().TempDir()})
+		for _, uri := range []string{server.URL + "/tiny.gguf", "http://localhost/tiny.gguf", "http://169.254.169.254/latest"} {
+			reply := p.serve(ctx, workerctl.ModelPrefetchRequest{Action: workerctl.PrefetchStage, ModelName: "tiny",
+				Files: []workerctl.ModelPrefetchFile{{Filename: "tiny.gguf", URI: uri, SHA256: sumOf("v2")}}})
+			Expect(reply.Success).To(BeFalse(), uri)
+			Expect(reply.Error).To(ContainSubstring("does not download"), uri)
+		}
+	})
+
+	It("uses one cache key for a file wherever it names it", func() {
+		Expect(cacheKey("tiny", "sub/tiny.gguf")).To(Equal(storage.ModelKey("tiny/sub/tiny.gguf")))
 	})
 
 	It("refuses paths outside the model directory and files it cannot verify", func() {
