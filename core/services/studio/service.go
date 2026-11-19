@@ -45,25 +45,18 @@ import (
 
 // AnonymousPrincipal is the owner of conversations when auth is off. The loop
 // needs a non-empty owner, so the empty user becomes this one.
-const AnonymousPrincipal = "anonymous"
-
-// ErrNoModel means a conversation was created without a model.
-var ErrNoModel = errors.New("studio: a conversation needs a model")
-
-// ErrAgentsOff means a chat named a saved agent but the service has no agent store.
-var ErrAgentsOff = errors.New("studio: saved agents are not available")
-
-// ErrPushOff means browser push is off: the server keeps nothing across a
-// restart, or it has no push service.
-var ErrPushOff = errors.New("studio: browser push is not available")
+const AnonymousPrincipal = notify.AnonymousPrincipal
 
 // ErrConnectorsOff means the service has no connector manager.
 var ErrConnectorsOff = errors.New("studio: " + msgConnectorsOff)
 
 const msgConnectorsOff = "connectors are not available"
 
-// ErrNotificationsOff means the service has no inbox.
-var ErrNotificationsOff = errors.New("studio: notifications are not available")
+// ErrNoModel means a conversation was created without a model.
+var ErrNoModel = errors.New("studio: a conversation needs a model")
+
+// ErrAgentsOff means a chat named a saved agent but the service has no agent store.
+var ErrAgentsOff = errors.New("studio: saved agents are not available")
 
 // ErrSubAgentReadOnly means a user tried to send to a sub-agent conversation.
 // It runs with the tools its parent chose, so only the parent starts it.

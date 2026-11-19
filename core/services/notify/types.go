@@ -49,6 +49,10 @@ const (
 // ErrNotFound means a push subscription does not exist.
 var ErrNotFound = errors.New("notify: not found")
 
+// AnonymousPrincipal owns the notifications when authentication is off: the
+// person at the keyboard is the only user, and a store needs a non-empty owner.
+const AnonymousPrincipal = "anonymous"
+
 // Notification is one row of the inbox.
 type Notification struct {
 	ID        int64  `json:"id"`

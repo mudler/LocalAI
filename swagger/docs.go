@@ -8102,9 +8102,9 @@ const docTemplate = `{
         },
         "/api/chats/notifications": {
             "get": {
-                "description": "The inbox: one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread and the total kept.",
+                "description": "The inbox: backend updates, finished operations, and one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread and the total kept. Works with the chats on or off; the same routes also answer under /api/chats/notifications while the chats are on.",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "List your notifications.",
                 "parameters": [
@@ -8133,7 +8133,7 @@ const docTemplate = `{
             "delete": {
                 "description": "Name the ids, or pass all to empty your inbox; with all, read_only keeps the unread ones. Only your own notifications are touched.",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Delete notifications.",
                 "parameters": [
@@ -8166,7 +8166,7 @@ const docTemplate = `{
         "/api/chats/notifications/count": {
             "get": {
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Count unread notifications.",
                 "responses": {
@@ -8181,12 +8181,12 @@ const docTemplate = `{
         },
         "/api/chats/notifications/events": {
             "get": {
-                "description": "Server-sent events: one notification event for each new inbox item, with the same fields as the list, and a notifications_changed event when notifications were read or deleted, so a client reads the list again. Live only; list the inbox for what came before.",
+                "description": "Server-sent events: one notification event for each new inbox item, with the same fields as the list, and a notifications_changed event when notifications were read or deleted, so a client reads the list again. Live only; list the inbox for what came before. In a cluster the events of every frontend reach every stream.",
                 "produces": [
                     "text/event-stream"
                 ],
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Stream your notifications.",
                 "responses": {
@@ -8203,7 +8203,7 @@ const docTemplate = `{
             "post": {
                 "description": "Name the ids, or pass all. Opening a chat marks its notifications read by itself.",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Mark notifications read.",
                 "parameters": [
@@ -9617,7 +9617,7 @@ const docTemplate = `{
             "get": {
                 "description": "The VAPID public key a browser needs to subscribe to push for your notifications. 409 when the server cannot keep subscriptions (no database and no data path).",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Get the browser push key.",
                 "responses": {
@@ -9634,7 +9634,7 @@ const docTemplate = `{
             "post": {
                 "description": "Pass the endpoint and keys of a browser PushSubscription. A notification is then pushed to that browser with its title and link only. The endpoint must be an https address on the public internet. At most 10 browsers per user; the oldest go first.",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Subscribe a browser to push.",
                 "parameters": [
@@ -9662,7 +9662,7 @@ const docTemplate = `{
             },
             "delete": {
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Unsubscribe a browser from push.",
                 "parameters": [
@@ -11895,7 +11895,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "off reaches nothing; registries the HTTPS hosts of the package registries; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.",
+                "description": "off reaches nothing; registries (shown as Custom) the HTTPS hosts of the package registries plus the administrator's extra registries and always-allowed hosts; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.",
                 "tags": [
                     "chats"
                 ],
@@ -15439,6 +15439,215 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications": {
+            "get": {
+                "description": "The inbox: backend updates, finished operations, and one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread and the total kept. Works with the chats on or off; the same routes also answer under /api/chats/notifications while the chats are on.",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "List your notifications.",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "only the unread ones",
+                        "name": "unread",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most items to return (default 50, at most 500)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The notifications",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationList"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Name the ids, or pass all to empty your inbox; with all, read_only keeps the unread ones. Only your own notifications are touched.",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Delete notifications.",
+                "parameters": [
+                    {
+                        "description": "ids, or all",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationsDelete"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The number still unread and how many were deleted",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationCount"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/count": {
+            "get": {
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Count unread notifications.",
+                "responses": {
+                    "200": {
+                        "description": "The number unread",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationCount"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/events": {
+            "get": {
+                "description": "Server-sent events: one notification event for each new inbox item, with the same fields as the list, and a notifications_changed event when notifications were read or deleted, so a client reads the list again. Live only; list the inbox for what came before. In a cluster the events of every frontend reach every stream.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Stream your notifications.",
+                "responses": {
+                    "200": {
+                        "description": "An event stream",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotification"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/push/key": {
+            "get": {
+                "description": "The VAPID public key a browser needs to subscribe to push for your notifications. 409 when the server cannot keep subscriptions (no database and no data path).",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Get the browser push key.",
+                "responses": {
+                    "200": {
+                        "description": "The key",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPushKey"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/push/subscribe": {
+            "post": {
+                "description": "Pass the endpoint and keys of a browser PushSubscription. A notification is then pushed to that browser with its title and link only. The endpoint must be an https address on the public internet. At most 10 browsers per user; the oldest go first.",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Subscribe a browser to push.",
+                "parameters": [
+                    {
+                        "description": "the browser's subscription",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPushSubscription"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Subscribed"
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Unsubscribe a browser from push.",
+                "parameters": [
+                    {
+                        "description": "the endpoint",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPushUnsubscribe"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Unsubscribed"
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/read": {
+            "post": {
+                "description": "Name the ids, or pass all. Opening a chat marks its notifications read by itself.",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Mark notifications read.",
+                "parameters": [
+                    {
+                        "description": "ids or all",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationsRead"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The number still unread",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationCount"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }

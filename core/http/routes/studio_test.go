@@ -207,6 +207,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 		ropts = studioRouteOptions(s)
 	}
 	routes.RegisterStudioRoutes(s.e, svc, models, auth.RequireAdmin(), ropts...)
+	routes.RegisterNotificationRoutes(s.e, nsvc, pusher, true)
 	return s
 }
 

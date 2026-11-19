@@ -41,12 +41,13 @@ type authModesServer struct {
 	creds map[string]authModesCredential
 }
 
-// routesUnderTest lists every chats and add-on route the server registers.
+// routesUnderTest lists every chats, notification and add-on route the server
+// registers.
 func (s *authModesServer) routesUnderTest() []*echo.Route {
 	seen := map[string]bool{}
 	found := []*echo.Route{}
 	for _, r := range s.e.Routes() {
-		if !isChatsRoute(r.Path) && !strings.HasPrefix(r.Path, "/api/addons") {
+		if !isChatsRoute(r.Path) && !isNotificationsRoute(r.Path) && !strings.HasPrefix(r.Path, "/api/addons") {
 			continue
 		}
 		key := r.Method + " " + r.Path
@@ -67,6 +68,10 @@ func (s *authModesServer) routesUnderTest() []*echo.Route {
 func isChatsRoute(p string) bool {
 	return strings.HasPrefix(p, "/api/chats") || strings.HasPrefix(p, "/api/workspace")
 }
+
+// isNotificationsRoute says whether a path belongs to the notification center,
+// which works with the chats on or off and has no feature of its own.
+func isNotificationsRoute(p string) bool { return strings.HasPrefix(p, "/api/notifications") }
 
 func authModesConcretize(pattern string) string {
 	parts := strings.Split(pattern, "/")
@@ -198,7 +203,7 @@ var _ = Describe("Route auth modes", func() {
 			paths[r.Method+" "+r.Path] = true
 		}
 		Expect(len(paths)).To(BeNumerically(">", 100))
-		for _, want := range append([]string{"GET /api/chats", "POST /api/chats", "GET /api/addons/builtin"}, adminOnlyAddonRoutes...) {
+		for _, want := range append([]string{"GET /api/chats", "POST /api/chats", "GET /api/addons/builtin", "GET /api/notifications", "GET /api/notifications/events", "POST /api/notifications/read"}, adminOnlyAddonRoutes...) {
 			Expect(paths).To(HaveKey(want))
 		}
 	})
@@ -298,7 +303,7 @@ var _ = Describe("Route auth modes", func() {
 			problems := []string{}
 			count := 0
 			for _, r := range server.routesUnderTest() {
-				if !isChatsRoute(r.Path) {
+				if !isChatsRoute(r.Path) && !isNotificationsRoute(r.Path) {
 					continue
 				}
 				count++
@@ -355,6 +360,24 @@ var _ = Describe("Route auth modes", func() {
 					}
 				}
 			}
+			Expect(problems).To(BeEmpty())
+		})
+
+		It("keeps the notification routes open to a user whose chats feature was revoked", func() {
+			problems := []string{}
+			seen := 0
+			for _, r := range server.routesUnderTest() {
+				if !isNotificationsRoute(r.Path) {
+					continue
+				}
+				seen++
+				for _, cred := range []string{"carol", "carol-key"} {
+					if code := server.status(r, cred); isDenied(code) {
+						problems = append(problems, fmt.Sprintf("%s %s: %s got %d", r.Method, r.Path, cred, code))
+					}
+				}
+			}
+			Expect(seen).To(BeNumerically(">=", 8), "the inbox and push routes")
 			Expect(problems).To(BeEmpty())
 		})
 

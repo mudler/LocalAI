@@ -806,6 +806,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	})
 
 	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application))
+	// The notification center works with the chats on or off.
+	routes.RegisterNotificationRoutes(e, application.Notifier(), application.NotifyPusher(), application.StudioService() != nil)
 
 	// The studio loop reaches the model through this router, in memory.
 	if sp := application.StudioProvider(); sp != nil {
