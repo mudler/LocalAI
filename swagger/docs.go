@@ -11895,7 +11895,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "off reaches nothing; registries the HTTPS hosts of the package registries; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.",
+                "description": "off reaches nothing; registries (shown as Custom) the HTTPS hosts of the package registries plus the administrator's extra registries and always-allowed hosts; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.",
                 "tags": [
                     "chats"
                 ],
@@ -27844,6 +27844,10 @@ const docTemplate = `{
         "schema.ChatsConnectorCapability": {
             "type": "object",
             "properties": {
+                "binding_only": {
+                    "description": "BindingOnly capabilities are never granted to a role, even when a kind\nlists them: the owner turns them on for the whole binding.",
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -28255,6 +28259,10 @@ const docTemplate = `{
         "schema.ChatsConnectorPermission": {
             "type": "object",
             "properties": {
+                "binding_only": {
+                    "description": "BindingOnly says that the listing grants nothing to a role: the\ncapability belongs to the binding alone.",
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
