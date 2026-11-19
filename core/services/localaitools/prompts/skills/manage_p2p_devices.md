@@ -1,5 +1,5 @@
 ---
-description: Revoke P2P devices, cancel invites, edit federation groups.
+description: Revoke P2P devices and invites, edit federation groups.
 ---
 # Skill: Manage P2P Devices, Invites And Federation
 
