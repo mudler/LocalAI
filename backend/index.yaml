@@ -2515,7 +2515,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14309,7 +14309,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14341,7 +14341,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14373,7 +14373,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14384,6 +14384,38 @@
   uri: quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-privacy-filter
   mirrors:
     - localai/localai-backends:latest-gpu-vulkan-privacy-filter
+- name: rocm-privacy-filter
+  alias: privacy-filter
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  description: |
+    Standalone GGML engine (privacy-filter.cpp) for the OpenMed privacy-filter
+    PII/NER token-classification model family. It runs the openai-privacy-filter
+    architecture (a gpt-oss-style sparse-MoE bidirectional token classifier) on
+    stock upstream GGML — no llama.cpp coupling and no Python — and serves the
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans) used by LocalAI's NER PII redaction tier.
+  urls:
+    - https://github.com/localai-org/privacy-filter.cpp
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - CPU
+    - GPU
+  capabilities:
+    amd: rocm-privacy-filter
+    default: cpu-privacy-filter
+    intel: vulkan-privacy-filter
+    metal: metal-privacy-filter
+    nvidia: vulkan-privacy-filter
+    nvidia-cuda-12: vulkan-privacy-filter
+    nvidia-cuda-13: cuda13-privacy-filter
+    vulkan: vulkan-privacy-filter
+  uri: quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-privacy-filter
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-privacy-filter
 - name: vulkan-privacy-filter-development
   alias: privacy-filter
   license: apache-2.0
@@ -14405,7 +14437,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14416,6 +14448,38 @@
   uri: quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-privacy-filter
   mirrors:
     - localai/localai-backends:master-gpu-vulkan-privacy-filter
+- name: rocm-privacy-filter-development
+  alias: privacy-filter
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  description: |
+    Standalone GGML engine (privacy-filter.cpp) for the OpenMed privacy-filter
+    PII/NER token-classification model family. It runs the openai-privacy-filter
+    architecture (a gpt-oss-style sparse-MoE bidirectional token classifier) on
+    stock upstream GGML — no llama.cpp coupling and no Python — and serves the
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans) used by LocalAI's NER PII redaction tier.
+  urls:
+    - https://github.com/localai-org/privacy-filter.cpp
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - CPU
+    - GPU
+  capabilities:
+    amd: rocm-privacy-filter
+    default: cpu-privacy-filter
+    intel: vulkan-privacy-filter
+    metal: metal-privacy-filter
+    nvidia: vulkan-privacy-filter
+    nvidia-cuda-12: vulkan-privacy-filter
+    nvidia-cuda-13: cuda13-privacy-filter
+    vulkan: vulkan-privacy-filter
+  uri: quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-privacy-filter
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-privacy-filter
 - name: metal-privacy-filter
   alias: privacy-filter
   license: apache-2.0
@@ -14437,7 +14501,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14469,7 +14533,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14501,7 +14565,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14533,7 +14597,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter

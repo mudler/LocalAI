@@ -3217,7 +3217,7 @@
   version: 0.0.0-latest
 - alias: privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21007,7 +21007,7 @@
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21047,7 +21047,7 @@
   arch: arm64
   artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21087,7 +21087,7 @@
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21127,7 +21127,7 @@
   arch: arm64
   artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21167,7 +21167,7 @@
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21205,9 +21205,49 @@
   version: 0.0.0-latest.bbc354a83620
 - alias: privacy-filter
   arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-privacy-filter
+  capabilities:
+    amd: rocm-privacy-filter
+    default: cpu-privacy-filter
+    intel: vulkan-privacy-filter
+    metal: metal-privacy-filter
+    nvidia: vulkan-privacy-filter
+    nvidia-cuda-12: vulkan-privacy-filter
+    nvidia-cuda-13: cuda13-privacy-filter
+    vulkan: vulkan-privacy-filter
+  channel: latest
+  description: |
+    Standalone GGML engine (privacy-filter.cpp) for the OpenMed privacy-filter
+    PII/NER token-classification model family. It runs the openai-privacy-filter
+    architecture (a gpt-oss-style sparse-MoE bidirectional token classifier) on
+    stock upstream GGML — no llama.cpp coupling and no Python — and serves the
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans) used by LocalAI's NER PII redaction tier.
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  id: rocm-privacy-filter
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-rocm-hipblas-privacy-filter
+  mutable: true
+  name: rocm-privacy-filter
+  os: linux
+  schemaVersion: 1
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - CPU
+    - GPU
+  urls:
+    - https://github.com/localai-org/privacy-filter.cpp
+  version: 0.0.0-latest
+- alias: privacy-filter
+  arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21244,10 +21284,50 @@
     - https://github.com/localai-org/privacy-filter.cpp
   version: 0.0.0-development
 - alias: privacy-filter
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-privacy-filter
+  capabilities:
+    amd: rocm-privacy-filter
+    default: cpu-privacy-filter
+    intel: vulkan-privacy-filter
+    metal: metal-privacy-filter
+    nvidia: vulkan-privacy-filter
+    nvidia-cuda-12: vulkan-privacy-filter
+    nvidia-cuda-13: cuda13-privacy-filter
+    vulkan: vulkan-privacy-filter
+  channel: development
+  description: |
+    Standalone GGML engine (privacy-filter.cpp) for the OpenMed privacy-filter
+    PII/NER token-classification model family. It runs the openai-privacy-filter
+    architecture (a gpt-oss-style sparse-MoE bidirectional token classifier) on
+    stock upstream GGML — no llama.cpp coupling and no Python — and serves the
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans) used by LocalAI's NER PII redaction tier.
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  id: rocm-privacy-filter-development
+  kind: backend
+  license: apache-2.0
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-rocm-hipblas-privacy-filter
+  mutable: true
+  name: rocm-privacy-filter-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - CPU
+    - GPU
+  urls:
+    - https://github.com/localai-org/privacy-filter.cpp
+  version: 0.0.0-development
+- alias: privacy-filter
   arch: arm64
   artifact: oci://quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21287,7 +21367,7 @@
   arch: arm64
   artifact: oci://quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21327,7 +21407,7 @@
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -21367,7 +21447,7 @@
   arch: amd64
   artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-privacy-filter
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter

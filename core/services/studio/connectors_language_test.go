@@ -114,6 +114,13 @@ var _ = Describe("the language of the host sentences in a chat", func() {
 		Expect(ask("LA-ABCDEFGH", 4)).To(Equal("Questo codice non è valido. Potrebbe essere scaduto o già usato. Chiedine uno nuovo."))
 	})
 
+	It("does not read a pairing code as a sentence", func() {
+		unpaired = true
+		setup(nil, nil)
+		// Read as text, this code scores as Spanish: "la" and "el".
+		Expect(ask("LA-EL2PJ7C9", 1)).To(HavePrefix("That code is not valid"))
+	})
+
 	It("keeps a fixed language whatever the sender writes", func() {
 		setup(ptr("de"), nil)
 		Expect(ask("Hello, can you help me with this file please?", 1)).To(Equal("ok"), "the model answers in its own words")
