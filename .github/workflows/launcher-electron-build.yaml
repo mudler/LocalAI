@@ -459,9 +459,17 @@ jobs:
         run: |
           $p = Start-Process -FilePath ".\$env:SETUP" -ArgumentList '/S' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "the installer failed with $($p.ExitCode)" }
-          $exe = Join-Path $env:LOCALAPPDATA 'Programs\LocalAI Launcher\local-ai-launcher.exe'
-          if (-not (Test-Path $exe)) { throw "no launcher at $exe" }
-          $un = Join-Path $env:LOCALAPPDATA 'Programs\LocalAI Launcher\Uninstall LocalAI Launcher.exe'
+          # A per-user one-click install goes to Programs\<package name>, not
+          # to the product name, so find the folder instead of assuming it.
+          $programs = Join-Path $env:LOCALAPPDATA 'Programs'
+          $found = @(Get-ChildItem -Path $programs -Filter 'local-ai-launcher.exe' -Recurse -File -ErrorAction SilentlyContinue)
+          if ($found.Count -ne 1) {
+            Get-ChildItem -Path $programs -Recurse -Depth 1 | ForEach-Object { Write-Host $_.FullName }
+            throw "expected one local-ai-launcher.exe under $programs, found $($found.Count)"
+          }
+          $exe = $found[0].FullName
+          Write-Host "installed at $exe"
+          $un = Join-Path $found[0].DirectoryName 'Uninstall LocalAI Launcher.exe'
           if (-not (Test-Path $un)) { throw "no uninstaller at $un" }
           "APP_WIN=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Smoke-test the installed app
