@@ -73,7 +73,7 @@ var wordList = [1024]string{
 	"thistle", "thread", "thumb", "tide", "tiger", "tile", "timber", "tin", "toast", "tomato", "tool", "torch", "tower", "toy", "trail",
 	"train", "tree", "tribe", "trout", "truck", "tulip", "tuna", "tundra", "tunnel", "turtle", "twig", "twin", "umbrella", "union",
 	"unit", "urban", "valley", "vase", "velour", "velvet", "vessel", "villa", "vine", "violet", "violin", "visit", "voice", "volcano",
-	"vote", "wagon", "walnut", "walrus", "water", "wave", "wax", "weasel", "web", "wedge", "whale", "wheat", "wheel", "whistle", "wide",
+	"vote", "wagon", "walnut", "walrus", "water", "wave", "wax", "weasel", "weave", "wedge", "whale", "wheat", "wheel", "whistle", "wide",
 	"willow", "wind", "window", "wing", "winter", "wire", "wise", "wolf", "wonder", "wood", "wool", "world", "worm", "yacht", "yard", "yarn",
 	"yellow", "yoga", "yogurt", "yonder", "zebra", "zero", "zest", "zinc", "zone", "zoom",
 }
