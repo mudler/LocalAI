@@ -3238,6 +3238,23 @@ include:
     dockerfile: "./backend/Dockerfile.privacy-filter"
     context: "./"
     ubuntu-version: '2404'
+  # ROCm: base-grpc-rocm-amd64 carries gRPC and ROCm, as for llama-cpp;
+  # BUILD_TYPE=hipblas -> -DGGML_HIP=ON with the ROCm clang (see the Makefile).
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
+    skip-drivers: 'false'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
   # audio-cpp: 0xShug0/audio.cpp, a multi-family ggml audio engine (TTS, ASR,
   # VAD, diarization, source separation, music generation).
   #
