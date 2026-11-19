@@ -15179,6 +15179,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/{name}/adopt": {
+            "post": {
+                "description": "A model installed before LocalAI recorded the origin of gallery installs shows as unknown in GET /api/models/updates. Adopt records the gallery entry it came from, the files it has and what the gallery would write as its config, so the next check compares it like any other model. The model config on disk is not changed: a key changed by hand reads as an edit. Without a body the entry is found by the model's names, and only when exactly one gallery lists it; otherwise the answer lists the candidates (gallery@entry) and the request must name the gallery (and the entry). Refused with 409 when the model already records its origin, an upgrade runs, or more than one gallery matches; with 422 when the model has no record of a gallery install or no gallery entry matches.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Track the updates of a model installed by an earlier release",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Installed model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Gallery and entry",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelAdoptRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Adopted",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelAdoptResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not installed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "409": {
+                        "description": "Already adopted, busy, or more than one candidate",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "422": {
+                        "description": "No record of a gallery install, or no candidate",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/{name}/hold": {
             "put": {
                 "description": "With hold true the model is reported as held and offered no update until the hold is cleared. Only the gallery file changes: the model config, its revision and the loaded model stay as they are, and a reinstall keeps the hold. Refused with 409 while an upgrade of the model runs.",
@@ -35878,6 +35930,37 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ModelAdoptRequest": {
+            "type": "object",
+            "properties": {
+                "entry": {
+                    "description": "Entry names the gallery entry, when it differs from the model's name.",
+                    "type": "string"
+                },
+                "gallery": {
+                    "description": "Gallery names the gallery the model came from.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelAdoptResponse": {
+            "type": "object",
+            "properties": {
+                "entry": {
+                    "type": "string"
+                },
+                "filesMatch": {
+                    "description": "FilesMatch is true when the model has the files the entry lists now;\nfalse means the next check offers an update.",
+                    "type": "boolean"
+                },
+                "gallery": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ModelCapabilities": {
             "type": "object",
             "properties": {
@@ -36090,6 +36173,12 @@ const docTemplate = `{
         "schema.ModelUpgradeError": {
             "type": "object",
             "properties": {
+                "candidates": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "error": {
                     "type": "string"
                 },

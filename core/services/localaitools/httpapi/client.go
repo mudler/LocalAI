@@ -619,6 +619,17 @@ func (c *Client) SetModelHold(ctx context.Context, name string, hold bool) (*loc
 	return &localaitools.ModelHoldResult{Name: resp.Name, Hold: resp.Hold}, nil
 }
 
+func (c *Client) AdoptModel(ctx context.Context, name, galleryName, entry string) (*localaitools.ModelAdoptResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	var resp schema.ModelAdoptResponse
+	if err := c.do(ctx, http.MethodPost, routeModelPath(name, "adopt"), schema.ModelAdoptRequest{Gallery: galleryName, Entry: entry}, &resp); err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelAdoptResult{Name: resp.Name, Gallery: resp.Gallery, Entry: resp.Entry, FilesMatch: resp.FilesMatch}, nil
+}
+
 // ---- System ----
 
 func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, error) {

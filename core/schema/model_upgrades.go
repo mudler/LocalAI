@@ -22,10 +22,32 @@ type ModelUpgradeResponse struct {
 }
 
 // ModelUpgradeError is the answer of a refused upgrade request. Keys lists
-// the edited keys that need a choice, for a 409.
+// the edited keys that need a choice, for a 409. Candidates lists the gallery
+// entries an adoption can take ("gallery@entry"), for a refused adoption.
 type ModelUpgradeError struct {
-	Error string   `json:"error"`
-	Keys  []string `json:"keys,omitempty"`
+	Error      string   `json:"error"`
+	Keys       []string `json:"keys,omitempty"`
+	Candidates []string `json:"candidates,omitempty"`
+}
+
+// ModelAdoptRequest is the optional body of POST /api/models/{name}/adopt.
+// Without it the entry is found by the model's names, and only when exactly
+// one gallery lists it.
+type ModelAdoptRequest struct {
+	// Gallery names the gallery the model came from.
+	Gallery string `json:"gallery,omitempty"`
+	// Entry names the gallery entry, when it differs from the model's name.
+	Entry string `json:"entry,omitempty"`
+}
+
+// ModelAdoptResponse is the answer of POST /api/models/{name}/adopt.
+type ModelAdoptResponse struct {
+	Name    string `json:"name"`
+	Gallery string `json:"gallery"`
+	Entry   string `json:"entry"`
+	// FilesMatch is true when the model has the files the entry lists now;
+	// false means the next check offers an update.
+	FilesMatch bool `json:"filesMatch"`
 }
 
 // ModelHoldRequest is the body of PUT /api/models/{name}/hold.

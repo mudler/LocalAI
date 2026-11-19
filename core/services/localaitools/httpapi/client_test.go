@@ -808,6 +808,8 @@ var _ = Describe("Model updates", func() {
 				_ = json.NewEncoder(w).Encode(map[string]any{"name": "tiny", "removed": []string{"tiny.gguf.prev-1"}})
 			case strings.HasSuffix(r.URL.Path, "/hold"):
 				_ = json.NewEncoder(w).Encode(map[string]any{"name": "tiny", "hold": body["hold"]})
+			case strings.HasSuffix(r.URL.Path, "/adopt"):
+				_ = json.NewEncoder(w).Encode(map[string]any{"name": "tiny", "gallery": body["gallery"], "entry": "tiny", "filesMatch": true})
 			default:
 				_ = json.NewEncoder(w).Encode(map[string]any{"id": "op-1", "jobID": "op-1", "status_url": "/models/jobs/op-1"})
 			}
@@ -834,12 +836,17 @@ var _ = Describe("Model updates", func() {
 		held, err := c.SetModelHold(ctx, "tiny", true)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(held.Hold).To(BeTrue())
+		adopted, err := c.AdoptModel(ctx, "tiny", "localai", "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(*adopted).To(Equal(localaitools.ModelAdoptResult{Name: "tiny", Gallery: "localai", Entry: "tiny", FilesMatch: true}))
 
 		Expect(seen).To(Equal([]string{
 			"GET /api/models/updates", "POST /api/models/updates/check",
 			"POST /api/models/upgrade/tiny", "POST /api/models/tiny/upgrade/retry",
 			"POST /api/models/tiny/remove-old", "PUT /api/models/tiny/hold",
+			"POST /api/models/tiny/adopt",
 		}))
+		Expect(bodies[6]).To(Equal(map[string]any{"gallery": "localai"}))
 		Expect(bodies[2]).To(Equal(map[string]any{"config_only": true, "choices": map[string]any{"context_size": "gallery"}}))
 		Expect(bodies[5]).To(Equal(map[string]any{"hold": true}))
 	})

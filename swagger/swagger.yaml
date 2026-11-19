@@ -12595,6 +12595,30 @@ definitions:
         description: texture flow sampling steps (backend default 12)
         type: integer
     type: object
+  schema.ModelAdoptRequest:
+    properties:
+      entry:
+        description: Entry names the gallery entry, when it differs from the model's
+          name.
+        type: string
+      gallery:
+        description: Gallery names the gallery the model came from.
+        type: string
+    type: object
+  schema.ModelAdoptResponse:
+    properties:
+      entry:
+        type: string
+      filesMatch:
+        description: |-
+          FilesMatch is true when the model has the files the entry lists now;
+          false means the next check offers an update.
+        type: boolean
+      gallery:
+        type: string
+      name:
+        type: string
+    type: object
   schema.ModelCapabilities:
     properties:
       capabilities:
@@ -12763,6 +12787,10 @@ definitions:
     type: object
   schema.ModelUpgradeError:
     properties:
+      candidates:
+        items:
+          type: string
+        type: array
       error:
         type: string
       keys:
@@ -26507,6 +26535,50 @@ paths:
       summary: Toggle model enabled/disabled status
       tags:
       - config
+  /api/models/{name}/adopt:
+    post:
+      description: 'A model installed before LocalAI recorded the origin of gallery
+        installs shows as unknown in GET /api/models/updates. Adopt records the gallery
+        entry it came from, the files it has and what the gallery would write as its
+        config, so the next check compares it like any other model. The model config
+        on disk is not changed: a key changed by hand reads as an edit. Without a
+        body the entry is found by the model''s names, and only when exactly one gallery
+        lists it; otherwise the answer lists the candidates (gallery@entry) and the
+        request must name the gallery (and the entry). Refused with 409 when the model
+        already records its origin, an upgrade runs, or more than one gallery matches;
+        with 422 when the model has no record of a gallery install or no gallery entry
+        matches.'
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Gallery and entry
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/schema.ModelAdoptRequest'
+      responses:
+        "200":
+          description: Adopted
+          schema:
+            $ref: '#/definitions/schema.ModelAdoptResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Already adopted, busy, or more than one candidate
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "422":
+          description: No record of a gallery install, or no candidate
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Track the updates of a model installed by an earlier release
+      tags:
+      - models
   /api/models/{name}/hold:
     put:
       description: 'With hold true the model is reported as held and offered no update

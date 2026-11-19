@@ -84,7 +84,7 @@ func routeModelUpgrade(name string) string {
 	return "/api/models/upgrade/" + url.PathEscape(name)
 }
 
-// routeModelPath is /api/models/{name}/{rest} (retry, remove-old, hold).
+// routeModelPath is /api/models/{name}/{rest} (retry, remove-old, hold, adopt).
 func routeModelPath(name, rest string) string {
 	return "/api/models/" + url.PathEscape(name) + "/" + rest
 }

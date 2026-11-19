@@ -231,3 +231,64 @@ var _ = Describe("The removed POST /api/models/config/{id}", func() {
 		Expect(body.Replacement).To(Equal("POST /api/models/upgrade/{name}"))
 	})
 })
+
+var _ = Describe("The adopt route", func() {
+	var (
+		e   *echo.Echo
+		dir string
+	)
+
+	do := func(path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, req)
+		return w
+	}
+	entry := func(galleryName string) *gallery.GalleryModel {
+		return &gallery.GalleryModel{
+			Metadata:  gallery.Metadata{Name: "tiny", Gallery: config.Gallery{Name: galleryName}},
+			Overrides: map[string]any{"backend": "llama-cpp", "parameters": map[string]any{"model": "tiny.gguf"}},
+		}
+	}
+
+	BeforeEach(func() {
+		dir = GinkgoT().TempDir()
+		state, err := system.GetSystemState(system.WithModelPath(dir))
+		Expect(err).ToNot(HaveOccurred())
+		listing := []*gallery.GalleryModel{entry("a"), entry("b")}
+		up := &modelupdates.Upgrader{SystemState: state, ListGallery: func(context.Context, bool) ([]*gallery.GalleryModel, error) { return listing, nil }}
+		e = echo.New()
+		e.POST("/api/models/:name/adopt", AdoptModelEndpoint(ModelUpgradeDeps{Upgrader: func() *modelupdates.Upgrader { return up }}))
+		Expect(os.WriteFile(filepath.Join(dir, "tiny.yaml"), []byte("name: tiny\nbackend: llama-cpp\n"), 0600)).To(Succeed())
+		Expect(gallery.WriteSidecar(dir, "tiny", &gallery.ModelConfig{Name: "tiny"})).To(Succeed())
+	})
+
+	It("lists the candidates, adopts from the gallery named, then answers 409", func() {
+		w := do("/api/models/tiny/adopt", "")
+		Expect(w.Code).To(Equal(http.StatusConflict), w.Body.String())
+		var refused schema.ModelUpgradeError
+		Expect(json.Unmarshal(w.Body.Bytes(), &refused)).To(Succeed())
+		Expect(refused.Candidates).To(ConsistOf("a@tiny", "b@tiny"))
+
+		w = do("/api/models/tiny/adopt", `{"gallery":"b"}`)
+		Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+		var resp schema.ModelAdoptResponse
+		Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+		Expect(resp).To(Equal(schema.ModelAdoptResponse{Name: "tiny", Gallery: "b", Entry: "tiny", FilesMatch: true}))
+		Expect(os.ReadFile(filepath.Join(dir, "tiny.yaml"))).To(Equal([]byte("name: tiny\nbackend: llama-cpp\n")))
+
+		Expect(do("/api/models/tiny/adopt", `{"gallery":"b"}`).Code).To(Equal(http.StatusConflict))
+	})
+
+	It("answers 422 with the candidates when the gallery named does not list it, and 404 when not installed", func() {
+		w := do("/api/models/tiny/adopt", `{"gallery":"c"}`)
+		Expect(w.Code).To(Equal(http.StatusUnprocessableEntity))
+		var refused schema.ModelUpgradeError
+		Expect(json.Unmarshal(w.Body.Bytes(), &refused)).To(Succeed())
+		Expect(refused.Candidates).To(ConsistOf("a@tiny", "b@tiny"))
+		Expect(do("/api/models/none/adopt", "").Code).To(Equal(http.StatusNotFound))
+	})
+})

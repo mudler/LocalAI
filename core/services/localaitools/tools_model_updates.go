@@ -40,13 +40,16 @@ func registerModelUpdateTools(s *mcp.Server, client LocalAIClient, opts Options)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolUpgradeModel,
-		Description: "Upgrade an installed gallery model (upgrade, config_only, retry), remove the old files a confirmed upgrade kept (remove_old), or hold it at its version (hold, unhold). Requires user confirmation per safety rule 1.",
+		Description: "Upgrade an installed gallery model (upgrade, config_only, retry), remove the old files a confirmed upgrade kept (remove_old), hold it at its version (hold, unhold), or track the updates of a model installed by an earlier release (adopt; gallery and entry when asked). Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args UpgradeModelRequest) (*mcp.CallToolResult, any, error) {
 		if args.Name == "" {
 			return errorResultf("name is required"), nil, nil
 		}
 		if len(args.Choices) > 0 && args.Action != UpgradeModelActionUpgrade && args.Action != UpgradeModelActionConfigOnly {
 			return errorResultf("choices apply only to upgrade and config_only"), nil, nil
+		}
+		if (args.Gallery != "" || args.Entry != "") && args.Action != UpgradeModelActionAdopt {
+			return errorResultf("gallery and entry apply only to adopt"), nil, nil
 		}
 		var (
 			out any
@@ -65,8 +68,10 @@ func registerModelUpdateTools(s *mcp.Server, client LocalAIClient, opts Options)
 			out, err = client.RemoveOldModelVersion(ctx, args.Name)
 		case UpgradeModelActionHold, UpgradeModelActionUnhold:
 			out, err = client.SetModelHold(ctx, args.Name, args.Action == UpgradeModelActionHold)
+		case UpgradeModelActionAdopt:
+			out, err = client.AdoptModel(ctx, args.Name, args.Gallery, args.Entry)
 		default:
-			return errorResultf("action must be one of upgrade, config_only, retry, remove_old, hold, unhold"), nil, nil
+			return errorResultf("action must be one of upgrade, config_only, retry, remove_old, hold, unhold, adopt"), nil, nil
 		}
 		if err != nil {
 			return errorResult(err), nil, nil

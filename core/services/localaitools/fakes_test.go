@@ -302,6 +302,11 @@ func (f *fakeClient) SetModelHold(_ context.Context, name string, hold bool) (*M
 	return &ModelHoldResult{Name: name, Hold: hold}, nil
 }
 
+func (f *fakeClient) AdoptModel(_ context.Context, name, galleryName, entry string) (*ModelAdoptResult, error) {
+	f.record("AdoptModel", map[string]any{"name": name, "gallery": galleryName, "entry": entry})
+	return &ModelAdoptResult{Name: name, Gallery: galleryName, Entry: entry}, nil
+}
+
 func (f *fakeClient) SystemInfo(_ context.Context) (*SystemInfo, error) {
 	f.record("SystemInfo", nil)
 	if f.systemInfo != nil {

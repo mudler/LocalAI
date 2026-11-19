@@ -105,6 +105,10 @@ type LocalAIClient interface {
 	RemoveOldModelVersion(ctx context.Context, name string) (*ModelRemoveOldResult, error)
 	// SetModelHold holds a model at its version, or releases it.
 	SetModelHold(ctx context.Context, name string, hold bool) (*ModelHoldResult, error)
+	// AdoptModel records the gallery origin of a model installed by an
+	// earlier release (state unknown, reason legacy). galleryName and entry
+	// are optional; a refusal lists the candidates.
+	AdoptModel(ctx context.Context, name, galleryName, entry string) (*ModelAdoptResult, error)
 
 	// ---- System ----
 	SystemInfo(ctx context.Context) (*SystemInfo, error)

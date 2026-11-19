@@ -45,8 +45,32 @@ Models page shows the same state on each model.
 | `failed` | The last upgrade did not complete. The old version serves. The row has the error and **Retry**. |
 
 A model that you installed with an earlier release has no record of its origin.
-It shows as `unknown` until you install it again from the gallery. The new
-install records the origin.
+It shows as `unknown` (reason `legacy-sidecar`) until you **adopt** it, or
+install it again from the gallery.
+
+### Adopting a model installed by an earlier release
+
+Adopt records the gallery entry a model came from, so that LocalAI checks its
+updates like those of a model installed now. It writes only the record of the
+model:
+
+- the gallery and the entry,
+- the files the model has, as its old record lists them,
+- what the gallery would write as the configuration of the model now.
+
+Adopt does not change the configuration on disk. A key that differs from what
+the gallery would write reads as an edit at the next check, so your changes
+stay protected by the [edited keys](#edited-keys) rules. A value that an older
+version of the entry wrote and that the entry changed since also reads as an
+edit; choose **Take the gallery's** for it at the upgrade.
+
+LocalAI finds the entry by the name of the model (and the entry name in its
+old record) in the configured galleries. It adopts only when exactly one
+gallery lists that entry. Otherwise the request is refused with the list of
+candidates (`gallery@entry`), and you send it again with the gallery, and the
+entry when its name differs from the model's. When the files of the model are
+not the files the entry lists now, the next check shows `update-available`.
+Adopt does not run a check: press **Check now** to see the new state.
 
 ## Checking
 
@@ -321,6 +345,20 @@ curl -X PUT http://localhost:8080/api/models/qwen3-4b/hold \
   -H "Content-Type: application/json" -d '{"hold": true}'
 ```
 
+Adopt a model that an earlier release installed. The body is optional; without
+it the entry is found by the model's name:
+
+```bash
+curl -X POST http://localhost:8080/api/models/qwen3-4b/adopt \
+  -H "Content-Type: application/json" -d '{"gallery": "localai"}'
+# {"name": "qwen3-4b", "gallery": "localai", "entry": "qwen3-4b", "filesMatch": true}
+```
+
+It answers `409` with `candidates` when more than one gallery lists the entry,
+when the model already records its origin, or while an upgrade of it runs, and
+`422` when the model has no record of a gallery install or no gallery lists the
+entry (with the `candidates` of other galleries, when there are some).
+
 ### The old rewrite route is gone
 
 `POST /api/models/config/{id}` used to rewrite a model configuration from its
@@ -337,8 +375,9 @@ can do the same from a chat:
 - `model_updates` lists the models and their states. With `action` `check` it
   reads the galleries now.
 - `upgrade_model` takes the `name` of a model and an `action`: `upgrade`,
-  `config_only`, `retry`, `remove_old`, `hold` or `unhold`. `choices` applies to
-  `upgrade` and `config_only`. The assistant asks you to confirm before it runs
+  `config_only`, `retry`, `remove_old`, `hold`, `unhold` or `adopt`. `choices`
+  applies to `upgrade` and `config_only`; `gallery` and `entry` apply to
+  `adopt`. The assistant asks you to confirm before it runs
   it.
 
 ## Model updates in a cluster

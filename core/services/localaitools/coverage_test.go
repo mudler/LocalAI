@@ -69,7 +69,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolInstallBackend:           "POST /backends/apply",
 	ToolInstallLibraryBackend:    "POST /backends/library/install",
 	ToolUpgradeBackend:           "POST /backends/upgrade/:name",
-	ToolUpgradeModel:             "POST /api/models/upgrade/:name (upgrade, config_only), POST /api/models/:name/upgrade/retry (retry), POST /api/models/:name/remove-old (remove_old), PUT /api/models/:name/hold (hold, unhold)",
+	ToolUpgradeModel:             "POST /api/models/upgrade/:name (upgrade, config_only), POST /api/models/:name/upgrade/retry (retry), POST /api/models/:name/remove-old (remove_old), PUT /api/models/:name/hold (hold, unhold), POST /api/models/:name/adopt (adopt)",
 	ToolToggleModelState:         "PUT /models/toggle-state/:name/:action",
 	ToolToggleModelPinned:        "PUT /models/toggle-pinned/:name/:action",
 	ToolSetBranding:              "POST /api/settings (instance_name, instance_tagline)",

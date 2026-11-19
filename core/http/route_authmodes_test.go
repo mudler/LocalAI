@@ -82,6 +82,7 @@ var modelUpdatesRoutes = []string{
 	"POST /api/models/:name/upgrade/retry",
 	"POST /api/models/:name/remove-old",
 	"PUT /api/models/:name/hold",
+	"POST /api/models/:name/adopt",
 	// Removed, answers 410 Gone for one release; still administrators only.
 	"POST /api/models/config/:id",
 }

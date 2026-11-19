@@ -605,14 +605,25 @@ const (
 	UpgradeModelActionRemoveOld  = "remove_old"
 	UpgradeModelActionHold       = "hold"
 	UpgradeModelActionUnhold     = "unhold"
+	UpgradeModelActionAdopt      = "adopt"
 )
 
 // UpgradeModelRequest is the input of upgrade_model. One flat schema for the
-// six actions; the handler checks what each action needs.
+// seven actions; the handler checks what each action needs.
 type UpgradeModelRequest struct {
-	Action  string            `json:"action"            jsonschema:"upgrade, config_only, retry, remove_old, hold or unhold."`
+	Action  string            `json:"action"            jsonschema:"upgrade, config_only, retry, remove_old, hold, unhold or adopt."`
 	Name    string            `json:"name"              jsonschema:"Installed model name (from model_updates)."`
 	Choices map[string]string `json:"choices,omitempty" jsonschema:"upgrade and config_only only: mine or gallery for each edited key the update also changes (editedKeys with conflict true in model_updates)."`
+	Gallery string            `json:"gallery,omitempty" jsonschema:"adopt only: the gallery the model came from, when more than one lists it."`
+	Entry   string            `json:"entry,omitempty"   jsonschema:"adopt only: the gallery entry, when it differs from the model name."`
+}
+
+// ModelAdoptResult is what adopt recorded (REST schema.ModelAdoptResponse).
+type ModelAdoptResult struct {
+	Name       string `json:"name"`
+	Gallery    string `json:"gallery"`
+	Entry      string `json:"entry"`
+	FilesMatch bool   `json:"filesMatch"`
 }
 
 // ModelRemoveOldResult is what remove_old deleted (REST

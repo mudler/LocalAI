@@ -359,6 +359,8 @@ var _ = Describe("Model updates", func() {
 		Expect(err).To(MatchError(ContainSubstring("not available")))
 		_, err = c.RemoveOldModelVersion(context.Background(), "tiny")
 		Expect(err).To(MatchError(ContainSubstring("not available")))
+		_, err = c.AdoptModel(context.Background(), "tiny", "", "")
+		Expect(err).To(MatchError(ContainSubstring("not available")))
 	})
 
 	It("refuses what the REST route refuses, before anything is queued", func() {
@@ -381,6 +383,8 @@ var _ = Describe("Model updates", func() {
 		_, err = c.RetryModelUpgrade(ctx, "missing")
 		Expect(err).To(MatchError(modelupdates.ErrNotFound))
 		_, err = c.SetModelHold(ctx, "missing", true)
+		Expect(err).To(MatchError(modelupdates.ErrNotFound))
+		_, err = c.AdoptModel(ctx, "missing", "", "")
 		Expect(err).To(MatchError(modelupdates.ErrNotFound))
 		_, err = c.UpgradeModel(ctx, "", false, nil)
 		Expect(err).To(MatchError(ContainSubstring("name is required")))

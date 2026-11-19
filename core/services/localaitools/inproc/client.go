@@ -784,6 +784,21 @@ func (c *Client) RemoveOldModelVersion(ctx context.Context, name string) (*local
 	return &localaitools.ModelRemoveOldResult{Name: name, Removed: removed}, nil
 }
 
+func (c *Client) AdoptModel(ctx context.Context, name, galleryName, entry string) (*localaitools.ModelAdoptResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	up := c.modelUpgrader()
+	if up == nil {
+		return nil, errModelUpgradesOff
+	}
+	res, err := up.Adopt(ctx, modelupdates.AdoptRequest{Name: name, Gallery: galleryName, Entry: entry})
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelAdoptResult{Name: res.Name, Gallery: res.Gallery, Entry: res.Entry, FilesMatch: res.FilesMatch}, nil
+}
+
 func (c *Client) SetModelHold(ctx context.Context, name string, hold bool) (*localaitools.ModelHoldResult, error) {
 	if name == "" {
 		return nil, errors.New("name is required")

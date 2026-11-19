@@ -224,6 +224,59 @@ func SetModelHoldEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
 	}
 }
 
+// AdoptModelEndpoint records the gallery origin of a model installed by an
+// earlier release.
+// @Summary Track the updates of a model installed by an earlier release
+// @Description A model installed before LocalAI recorded the origin of gallery installs shows as unknown in GET /api/models/updates. Adopt records the gallery entry it came from, the files it has and what the gallery would write as its config, so the next check compares it like any other model. The model config on disk is not changed: a key changed by hand reads as an edit. Without a body the entry is found by the model's names, and only when exactly one gallery lists it; otherwise the answer lists the candidates (gallery@entry) and the request must name the gallery (and the entry). Refused with 409 when the model already records its origin, an upgrade runs, or more than one gallery matches; with 422 when the model has no record of a gallery install or no gallery entry matches.
+// @Tags models
+// @Param name path string true "Installed model name"
+// @Param request body schema.ModelAdoptRequest false "Gallery and entry"
+// @Success 200 {object} schema.ModelAdoptResponse "Adopted"
+// @Failure 404 {object} schema.ModelUpgradeError "Not installed"
+// @Failure 409 {object} schema.ModelUpgradeError "Already adopted, busy, or more than one candidate"
+// @Failure 422 {object} schema.ModelUpgradeError "No record of a gallery install, or no candidate"
+// @Router /api/models/{name}/adopt [post]
+func AdoptModelEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		up := upgraderOf(d)
+		if up == nil {
+			return c.JSON(http.StatusServiceUnavailable, schema.ModelUpgradeError{Error: "model upgrades are not available: no model gallery is configured"})
+		}
+		var req schema.ModelAdoptRequest
+		if c.Request().ContentLength != 0 {
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.ModelUpgradeError{Error: "invalid body: " + err.Error()})
+			}
+		}
+		name := c.Param("name")
+		res, err := up.Adopt(c.Request().Context(), modelupdates.AdoptRequest{Name: name, Gallery: req.Gallery, Entry: req.Entry})
+		if err != nil {
+			var ambiguous *modelupdates.ErrAmbiguousEntry
+			var none *modelupdates.ErrNoCandidate
+			switch {
+			case errors.As(err, &ambiguous):
+				return c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: err.Error(), Candidates: candidateStrings(ambiguous.Candidates)})
+			case errors.As(err, &none):
+				return c.JSON(http.StatusUnprocessableEntity, schema.ModelUpgradeError{Error: err.Error(), Candidates: candidateStrings(none.Candidates)})
+			case errors.Is(err, modelupdates.ErrNoInstallRecord):
+				return c.JSON(http.StatusUnprocessableEntity, schema.ModelUpgradeError{Error: err.Error()})
+			case errors.Is(err, modelupdates.ErrAlreadyAdopted):
+				return c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: err.Error()})
+			}
+			return modelUpgradeError(c, err)
+		}
+		return c.JSON(http.StatusOK, schema.ModelAdoptResponse{Name: res.Name, Gallery: res.Gallery, Entry: res.Entry, FilesMatch: res.FilesMatch})
+	}
+}
+
+func candidateStrings(cs []modelupdates.AdoptCandidate) []string {
+	out := make([]string, len(cs))
+	for i, c := range cs {
+		out[i] = c.String()
+	}
+	return out
+}
+
 func upgraderOf(d ModelUpgradeDeps) *modelupdates.Upgrader {
 	if d.Upgrader == nil {
 		return nil

@@ -1,5 +1,5 @@
 ---
-description: Update, retry or hold a gallery model, or remove its old files.
+description: Update, retry or hold a gallery model, remove its old files, or start tracking a model installed by an earlier release.
 ---
 # Skill: Upgrade a model
 
@@ -12,3 +12,4 @@ Use this when the user asks whether a model has an update, to upgrade or update 
 5. Poll `get_job_status` with the returned `job_id` until done and report the outcome. On failure, quote the error and offer `action` `retry`.
 6. After a confirmed upgrade, say that the old files stay on disk until removed, and offer `action` `remove_old` (confirm first).
 7. To keep a model at its version, confirm, then call `action` `hold`; `unhold` releases it.
+8. A model in state `unknown` with reason `legacy-sidecar` was installed by an earlier release, which did not record its origin. Offer to track it: confirm, then call `action` `adopt`. Its config on disk does not change. If the answer lists candidates (`gallery@entry`), ask which one and call `adopt` again with `gallery` (and `entry`). Then run `model_updates` with `action` `check`.
