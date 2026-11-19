@@ -39,7 +39,7 @@ export default function SplitServerSwitch({ node, nodes, onChanged, addToast }) 
   return (
     <>
       {node.split_server
-        ? <Button size="sm" variant="ghost" onClick={() => setClearing(true)} data-testid="split-server-clear">{t('splitServer.clear')}</Button>
+        ? <Button size="sm" variant="secondary" onClick={() => setClearing(true)} data-testid="split-server-clear">{t('splitServer.clear')}</Button>
         : <Button size="sm" icon="plus" onClick={() => setSetup(true)} data-testid="split-server-make">{t('splitServer.make')}</Button>}
       {setup && (
         <SplitServerSetup
