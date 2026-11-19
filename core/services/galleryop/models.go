@@ -270,16 +270,10 @@ func (g *GalleryService) modelUpgradeHandler(op *ManagementOp[gallery.GalleryMod
 	if upgrader == nil {
 		return errors.New("model upgrades are not available on this server")
 	}
-	if g.galleryStore != nil && op.GalleryElementName != "" {
-		dup, err := g.galleryStore.FindDuplicate(op.GalleryElementName)
-		if err == nil && dup != nil && dup.ID != op.ID {
-			g.UpdateStatus(op.ID, &OpStatus{
-				Processed: true, Upgrade: true, GalleryElementName: op.GalleryElementName,
-				Message: fmt.Sprintf("already being processed by another instance (op %s)", dup.ID),
-			})
-			return nil
-		}
-	}
+	// No duplicate check on the operation records here: their 30-minute
+	// window let a second upgrade start beside a long download. The upgrader
+	// takes the per-model lock (an advisory lock in a cluster) and refuses a
+	// second upgrade of the model with ErrBusy, for as long as the first runs.
 	ctx := op.Context
 	if ctx == nil {
 		ctx = context.Background()

@@ -29,10 +29,14 @@ func (u *Upgrader) RemoveOld(ctx context.Context, name string) ([]string, error)
 	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
 		return nil, ErrNotFound
 	}
-	if !u.claim(name) {
-		return nil, ErrBusy
+	// The model lock an upgrade holds: in a cluster an upgrade on another
+	// frontend cannot start over the files this removes, nor this rewrite
+	// its gallery file.
+	unlock, err := u.acquire(ctx, name)
+	if err != nil {
+		return nil, err
 	}
-	defer u.release(name)
+	defer unlock()
 	sc, err := u.readUpgradable(name)
 	if err != nil {
 		return nil, err

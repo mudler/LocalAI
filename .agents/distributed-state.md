@@ -86,6 +86,13 @@ Examples:
   (`core/services/nodes/health.go`), via `TryWithLockCtx`.
 - Sticky: the failover prober (`core/application/failover_distributed.go`),
   via `HeldLock`.
+- Per key: a change of one gallery model (an upgrade, an install commit, a
+  hold, the removal of the old version) takes a `HeldLock` on
+  `KeyFromString("model-change:" + name)` for its length
+  (`core/application/model_journals.go`). Each frontend runs the recovery of
+  abandoned journals, and acts on a model only when it takes that lock, so
+  the lock both excludes a second change and tells a live journal from one
+  whose frontend died. Do not use the age of an operation record for this.
 
 A single runner may hand its work to another process and stay the runner. The
 chat hosts (triggers, connectors, jobs) keep their `HeldLock` on a frontend

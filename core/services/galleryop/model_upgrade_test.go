@@ -10,7 +10,9 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
 type fakeModelUpgrader struct {
@@ -68,6 +70,17 @@ var _ = Describe("A model upgrade operation", func() {
 		svc.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{ID: "op-2", GalleryElementName: "tiny", Upgrade: true})
 		Eventually(seen).Should(Receive(HaveField("Outcome", galleryop.OpFailed)))
 		Expect(svc.GetStatus("op-2").Error).To(MatchError(ContainSubstring("load failed")))
+	})
+
+	It("leaves the exclusion of an upgrade on another frontend to the upgrader, not to the age of an operation record", func() {
+		store, err := distributed.NewGalleryStore(testutil.SetupTestDB())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(store.Create(&distributed.GalleryOperationRecord{ID: "other", GalleryElementName: "tiny", OpType: "model_upgrade", Status: "downloading"})).To(Succeed())
+		svc.SetGalleryStore(store)
+		up.err = errors.New("an upgrade of this model is already running")
+		svc.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{ID: "op-4", GalleryElementName: "tiny", Upgrade: true})
+		Eventually(seen).Should(Receive(HaveField("Err", ContainSubstring("already running"))))
+		Expect(up.names).To(Equal([]string{"tiny"}), "the upgrader decided, with its model lock")
 	})
 
 	It("fails when no upgrader is wired", func() {

@@ -155,6 +155,21 @@ var _ = Describe("The old version and the hold", func() {
 		Expect(sidecar().Hold).To(BeTrue())
 	})
 
+	It("does not remove the old version while another frontend holds the model lock", func() {
+		upgrade()
+		locks := newClusterLocks()
+		u.Lock = locks.lockFor("a")
+		release, err := locks.lockFor("b")(ctx, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		_, err = u.RemoveOld(ctx, "tiny")
+		Expect(err).To(MatchError(modelupdates.ErrBusy))
+		Expect(sidecar().Upgrade.RetainedFiles).ToNot(BeEmpty())
+		release()
+		removed, err := u.RemoveOld(ctx, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(removed).ToNot(BeEmpty())
+	})
+
 	It("does not let a hold through while another frontend holds the model lock", func() {
 		locks := newClusterLocks()
 		u.Lock = locks.lockFor("a")
