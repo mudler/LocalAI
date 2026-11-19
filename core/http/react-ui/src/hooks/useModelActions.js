@@ -115,9 +115,9 @@ export function useModelActions({ addToast, afterAction }) {
 
   const reload = useCallback(() => runAction(
     'models',
-    t('lifecycle.actionNames.update'),
+    t('lifecycle.actionNames.reload'),
     modelsApi.reload,
-    t('lifecycle.toasts.updated'),
+    t('lifecycle.toasts.reloaded'),
   ), [runAction, t])
 
   return { pendingActions, actionErrors, confirmDialog, setConfirmDialog, load, stop, toggleState, togglePinned, remove, reload }

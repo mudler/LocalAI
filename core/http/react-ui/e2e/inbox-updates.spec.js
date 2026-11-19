@@ -144,4 +144,42 @@ test.describe('Inbox: update items', () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
   })
+
+  test('the model update items are worded from their params', async ({ page }) => {
+    const inbox = makeInbox(0)
+    inbox.rows = [
+      {
+        id: 14, kind: 'needs_attention', status: 'failed', source: 'system', code: 'models.upgradeFailed',
+        title: 'STORED', body: 'the model did not load', link: '/app/updates?filter=needs-you', read: false, created: ago(1),
+        params: { name: 'whisper-base', from: 'sha256:1a2b3c4d5e6f7a8b', to: 'sha256:9f8e7d6c5b4a3928', rolledBack: true, error: 'the model did not load' },
+      },
+      {
+        id: 13, kind: 'run_ended', status: 'ok', source: 'system', code: 'models.upgradeDone',
+        title: 'STORED', body: '', link: '/app/updates', read: false, created: ago(5),
+        params: { name: 'qwen3-8b', from: 'sha256:1a2b3c4d5e6f7a8b', to: 'sha256:9f8e7d6c5b4a3928' },
+      },
+      {
+        id: 12, kind: 'run_ended', status: 'ok', source: 'system', code: 'models.removedOld',
+        title: 'STORED', body: '', link: '/app/updates', read: true, created: ago(20),
+        params: { name: 'gemma-3', files: 2 },
+      },
+      {
+        id: 11, kind: 'needs_attention', status: 'ok', source: 'system', code: 'models.updateAvailable',
+        title: 'STORED', body: '', link: '/app/updates?filter=ready', read: false, created: ago(40),
+        params: { family: 'models', count: 2, names: ['qwen3-8b', 'llama-3.2-3b'] },
+      },
+    ]
+    await stubInbox(page, inbox)
+    await open(page)
+    await expect(itemOf(page, 14)).toContainText('Model whisper-base: the upgrade failed')
+    await expect(itemOf(page, 14)).toContainText('The old version was put back and keeps serving. Reason: the model did not load')
+    await expect(itemOf(page, 14)).toHaveClass(/is-failed/)
+    await expect(itemOf(page, 13)).toContainText('Model qwen3-8b upgraded')
+    await expect(itemOf(page, 13)).toContainText('From sha256:1a2b3c4d5e6f to sha256:9f8e7d6c5b4a.')
+    await expect(itemOf(page, 12)).toContainText('Model gemma-3: old version removed')
+    await expect(itemOf(page, 12)).toContainText('2 old files deleted.')
+    await expect(itemOf(page, 11)).toContainText('2 model updates available')
+    await expect(itemOf(page, 11)).toContainText('qwen3-8b, llama-3.2-3b')
+    await expect(panelOf(page)).not.toContainText('STORED')
+  })
 })

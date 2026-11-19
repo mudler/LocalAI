@@ -1,19 +1,23 @@
 // The rules of the Updates page and of the badges, as pure functions so the
 // node unit tests drive them without a browser.
 //
-// A row is one thing that can be updated: a gallery backend, a library backend
-// or an add-on. The three kinds come from three sources (the backend read model
-// of GET /api/backends/updates, the installed records of the add-on owner and
-// its host-access overview), and this module puts them in one shape:
+// A row is one thing that can be updated: a gallery backend, a library backend,
+// an add-on or a gallery model. The kinds come from four sources (the backend
+// read model of GET /api/backends/updates, the installed records of the add-on
+// owner and its host-access overview, and the model read model of
+// GET /api/models/updates, see utils/modelUpdates.js), and this module puts
+// them in one shape:
 //
-//   { id, kind: 'gallery'|'library'|'addon', name, from, to, state, ... }
+//   { id, kind: 'gallery'|'library'|'addon'|'model', name, from, to, state, ... }
 //
-// state is one of ready, updating, failed, held, blocked, current. A row has
-// exactly one state, and a group follows from it (groupOf).
+// state is one of ready, updating, failed, held, blocked, current, or for a
+// model one of the states that offer no update now (on-hold, unknown, gone,
+// cleanup). A row has exactly one state, and a group follows from it (groupOf).
 import { versionLabel, shortDigest, opForBackend } from './backendRows.js'
 import { updateView, upgradeAvailability } from '../components/addons/updateState.js'
+import { MODEL_OTHER_STATES } from './modelUpdates.js'
 
-export const GROUPS = ['needs', 'updating', 'ready', 'current']
+export const GROUPS = ['needs', 'updating', 'ready', 'current', 'other']
 export const FILTERS = ['all', 'ready', 'needs-you', 'updating', 'current']
 
 const NEEDS_ORDER = { failed: 0, held: 1, blocked: 2 }
@@ -25,7 +29,7 @@ export function groupOf(row) {
     case 'blocked': return 'needs'
     case 'updating': return 'updating'
     case 'ready': return 'ready'
-    default: return 'current'
+    default: return MODEL_OTHER_STATES.includes(row.state) ? 'other' : 'current'
   }
 }
 
@@ -190,7 +194,7 @@ export function sortRows(rows) {
 }
 
 export function groupRows(rows) {
-  const out = { needs: [], updating: [], ready: [], current: [] }
+  const out = { needs: [], updating: [], ready: [], current: [], other: [] }
   for (const row of sortRows(rows)) out[groupOf(row)].push(row)
   return out
 }
@@ -238,11 +242,14 @@ export function badgeOf(rows) {
   return { count: needing.length, failed: needing.some(r => r.state === 'failed') }
 }
 
-// The rows behind that number: backends and add-ons alike. Every page that
-// shows the count and then lists what it counts reads this, so the number and
-// the list cannot disagree.
+// The rows behind that number: backends, add-ons and models alike. Every page
+// that shows the count and then lists what it counts reads this, so the number
+// and the list cannot disagree. A model has no automatic update, so the read
+// model's needsPerson decides (an update, an edited update, a failed upgrade);
+// a held model does not count.
 export function needsPersonRows(rows) {
   return (rows || []).filter((row) => {
+    if (row.kind === 'model') return Boolean(row.needsPerson) && (row.state === 'ready' || row.state === 'failed')
     switch (row.state) {
       case 'failed':
       case 'held': return true
@@ -281,8 +288,10 @@ export function addonSource({ status, installed = [], error = '' } = {}) {
   return { state: 'ok', checkedAt: at }
 }
 
-// The sources in the order of the source line: gallery, library, add-ons.
-export function sourceViews(snapshot, addons) {
+// The sources in the order of the source line: gallery, library, add-ons,
+// model gallery. A server with no model gallery and no gallery model says
+// nothing about models.
+export function sourceViews(snapshot, addons, models = null) {
   const out = []
   if (snapshot && snapshot.sources) {
     for (const id of ['gallery', 'library']) {
@@ -291,7 +300,14 @@ export function sourceViews(snapshot, addons) {
     }
   }
   if (addons && !(addons.state === 'ok' && addons.empty)) out.push({ id: 'addons', ...addons })
+  if (models && models.state !== 'disabled') out.push({ id: 'models', ...models })
   return out
+}
+
+// Whether a row is an update to act on or follow: what the headline counts.
+export function isPending(row) {
+  const g = groupOf(row)
+  return g === 'needs' || g === 'updating' || g === 'ready'
 }
 
 // The one sentence of the strip. A claim of "no updates" needs every source
@@ -301,7 +317,7 @@ export function headlineOf({ rows, sources, loading = false, loadError = false }
   if (loading) return { kind: 'loading' }
   if (loadError) return { kind: 'loadError' }
   const live = sources.filter(s => s.state !== 'disabled')
-  const total = rows.filter(r => groupOf(r) !== 'current').length
+  const total = rows.filter(isPending).length
   if (total > 0) return { kind: 'updates', count: total }
   if (live.length === 0) return { kind: 'unavailable' }
   const failed = live.filter(s => s.state === 'failed')
@@ -324,7 +340,7 @@ export function breakdownOf(rows) {
 // The candidates of "Update all ready" in the shape of useBulkUpgrade. Only the
 // ready ones that can start take part; held and blocked rows never run.
 export function bulkItemsOf(rows) {
-  return sortRows(rows).filter(r => r.state === 'ready').map(r => ({
+  return sortRows(rows).filter(r => r.state === 'ready' && r.kind !== 'model').map(r => ({
     id: r.id,
     name: r.name,
     from: r.from,

@@ -31,6 +31,10 @@ export function toneOf(n) {
 const SOURCE_ICON = { trigger: 'bolt', connector: 'plug', system: 'info' }
 
 export function iconOf(n) {
+  if (n?.code === 'models.upgradeDone') return 'check-circle'
+  if (n?.code === 'models.upgradeFailed') return 'alert-circle'
+  if (n?.code === 'models.removedOld') return 'trash'
+  if (n?.code === 'models.updateAvailable') return 'arrow-up'
   if (n?.code === 'updates.opDone' || n?.code === 'updates.opFailed') return failed(n) ? 'alert-circle' : n.params?.outcome === 'cancelled' ? 'info' : 'check-circle'
   if (typeof n?.code === 'string' && n.code.startsWith('updates.')) return 'arrow-up'
   const source = sourceOf(n)
@@ -113,6 +117,53 @@ function opText(t, n, p) {
   return { title: t(`inbox.codes.op.${state}.${p.action}`, { kind: t(`inbox.codes.op.kind.${p.kind}`), name }), body: n.body }
 }
 
+// A digest of a model entry as the list shows it: "sha256:0123456789ab".
+function shortRef(v) {
+  const s = typeof v === 'string' ? v.trim() : ''
+  if (!s) return ''
+  const [algo, hex] = s.includes(':') ? s.split(':') : ['', s]
+  return hex ? `${algo ? `${algo}:` : ''}${hex.slice(0, 12)}` : ''
+}
+
+// The model update codes: the digest of the models with an update, the end of
+// one upgrade (done or failed, and whether it was rolled back) and the removal
+// of the old version an upgrade kept. A failure keeps the server's reason.
+function modelText(t, n, p) {
+  const name = typeof p.name === 'string' ? p.name : ''
+  switch (n.code) {
+    case 'models.updateAvailable': {
+      if (p.family !== 'models' || !count(p.count)) return null
+      const names = strings(p.names)
+      return {
+        title: t('inbox.codes.models.available.title', { count: p.count }),
+        body: names.length ? listWithMore(t, 'inbox.codes.digest', names, p.count) : n.body,
+      }
+    }
+    case 'models.upgradeDone': {
+      if (!name) return null
+      const from = shortRef(p.from)
+      const to = shortRef(p.to)
+      return { title: t('inbox.codes.models.done.title', { name }), body: from && to ? t('inbox.codes.models.done.body', { from, to }) : n.body }
+    }
+    case 'models.upgradeFailed': {
+      if (!name) return null
+      const reason = typeof p.error === 'string' && p.error ? p.error : (n.body || '')
+      const key = p.rolledBack === true ? 'rolledBack' : 'kept'
+      return {
+        title: t('inbox.codes.models.failed.title', { name }),
+        body: reason ? t(`inbox.codes.models.failed.${key}`, { error: reason }) : t(`inbox.codes.models.failed.${key}Plain`),
+      }
+    }
+    case 'models.removedOld': {
+      if (!name) return null
+      const files = Number.isInteger(p.files) && p.files >= 0 ? p.files : -1
+      return { title: t('inbox.codes.models.removed.title', { name }), body: files >= 0 ? t('inbox.codes.models.removed.body', { count: files }) : n.body }
+    }
+    default:
+      return null
+  }
+}
+
 // The title and body of a notification as the list shows them. Items without a
 // code, and codes or params that are not understood, show what the server stored.
 export function textOf(n, t) {
@@ -130,6 +181,8 @@ export function textOf(n, t) {
     out = resultText(t, p, n)
   } else if (n.code === 'updates.opDone' || n.code === 'updates.opFailed') {
     out = opText(t, n, p)
+  } else if (typeof n.code === 'string' && n.code.startsWith('models.')) {
+    out = modelText(t, n, p)
   } else if (n.code === 'updates.checkFailed') {
     const sources = strings(p.sources).filter(x => ['gallery', 'library', 'addons'].includes(x))
     if (sources.length) {

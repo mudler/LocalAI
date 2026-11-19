@@ -779,6 +779,28 @@
           "delete": "{{kind}} {{name}}: remoção cancelada",
           "upgrade": "{{kind}} {{name}}: atualização cancelada"
         }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} atualização de modelo disponível",
+          "title_other": "{{count}} atualizações de modelos disponíveis"
+        },
+        "done": {
+          "title": "Modelo {{name}} atualizado",
+          "body": "De {{from}} para {{to}}."
+        },
+        "failed": {
+          "title": "Modelo {{name}}: a atualização falhou",
+          "rolledBack": "A versão anterior foi restaurada e continua atendendo. Motivo: {{error}}",
+          "rolledBackPlain": "A versão anterior foi restaurada e continua atendendo.",
+          "kept": "A versão anterior continua atendendo. Motivo: {{error}}",
+          "keptPlain": "A versão anterior continua atendendo."
+        },
+        "removed": {
+          "title": "Modelo {{name}}: versão anterior removida",
+          "body_one": "{{count}} arquivo antigo apagado.",
+          "body_other": "{{count}} arquivos antigos apagados."
+        }
       }
     },
     "tabs": {
