@@ -253,7 +253,7 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 			Deletion:           op.Delete,
 			Processed:          true,
 			GalleryElementName: op.GalleryElementName,
-			Message:            "completed",
+			Message:            MessageCompleted,
 			Progress:           100,
 			Cancellable:        false})
 
@@ -296,7 +296,7 @@ func (g *GalleryService) modelUpgradeHandler(op *ManagementOp[gallery.GalleryMod
 		return err
 	}
 	g.UpdateStatus(op.ID, &OpStatus{Processed: true, Upgrade: true, GalleryElementName: op.GalleryElementName,
-		Message: "completed", Progress: 100})
+		Message: MessageCompleted, Progress: 100})
 	return nil
 }
 

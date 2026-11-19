@@ -1036,7 +1036,7 @@ func (g *GalleryService) announceOp(id, name string, backend, deletion, upgrade 
 	var cancelled, completed bool
 	var statusErr error
 	if st != nil {
-		cancelled, completed, statusErr = st.Cancelled, st.Processed && st.Message == "completed" && st.Error == nil, st.Error
+		cancelled, completed, statusErr = st.Cancelled, st.Processed && st.Message == MessageCompleted && st.Error == nil, st.Error
 	}
 	g.Unlock()
 	if cb == nil {

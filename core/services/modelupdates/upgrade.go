@@ -438,24 +438,35 @@ func (r *upgradeRun) heartbeat(stop <-chan struct{}) {
 // did not complete. Errors returned before anything was written
 // (ErrNotUpgradable, ErrBusy, ErrUpToDate, ErrNothingFailed, *ErrRefused and
 // *ErrNeedsChoices) leave no journal behind.
+//
+// The upgrader is the only writer of the notification of a completed or failed
+// upgrade, a refusal before the journal included. A cancel or a pause is told
+// by the operation.
 func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
-	return u.relErr(u.upgrade(ctx, req))
+	started, err := u.upgrade(ctx, req)
+	err = u.relErr(err)
+	if err != nil && !started {
+		u.notifyRefused(ctx, req, err)
+	}
+	return err
 }
 
-func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
+// upgrade runs the upgrade. started is true once the journal exists; from
+// then on upgrade has told how it ended (see notify).
+func (u *Upgrader) upgrade(ctx context.Context, req Request) (started bool, err error) {
 	name := req.Name
 	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
-		return ErrNotFound
+		return false, ErrNotFound
 	}
 	unlock, err := u.acquire(ctx, name)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer unlock()
 
 	sc, err := u.preconditions(name, req.Retry)
 	if err != nil {
-		return err
+		return false, err
 	}
 	prevJournal := sc.Upgrade
 	attempts := 1
@@ -474,23 +485,23 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 	// here would answer "up to date".
 	models, err := u.ListGallery(ctx, true)
 	if err != nil {
-		return fmt.Errorf("read the galleries: %w", err)
+		return false, fmt.Errorf("read the galleries: %w", err)
 	}
 	inst, plan, err := PlanUpgrade(ctx, u.SystemState, models, name, sc)
 	if err != nil {
 		if errors.Is(err, ErrGone) {
-			return &ErrRefused{Reason: err.Error()}
+			return false, &ErrRefused{Reason: err.Error()}
 		}
-		return err
+		return false, err
 	}
 	if inst.Origin.EntryDigest == sc.Origin.EntryDigest && !req.Retry {
-		return ErrUpToDate
+		return false, ErrUpToDate
 	}
 
 	configPath := filepath.Join(u.modelsPath(), name+".yaml")
 	disk, err := u.fs().ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("read the model config: %w", err)
+		return false, fmt.Errorf("read the model config: %w", err)
 	}
 	var finalYAML []byte
 	if plan.WriteConfig {
@@ -504,7 +515,7 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 			finalYAML, err = MergeConfig(disk, disk, plan.ConfigYAML, nil)
 		}
 		if err != nil {
-			return err
+			return false, err
 		}
 	} else {
 		finalYAML = disk
@@ -512,7 +523,7 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 
 	staged, err := u.stageList(sc, plan.Gallery)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if req.ConfigOnly {
 		var needs []string
@@ -522,7 +533,7 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 			}
 		}
 		if len(needs) > 0 {
-			return &ErrRefused{Reason: "a config-only upgrade cannot apply this update: it needs new files (" + strings.Join(needs, ", ") + ")"}
+			return false, &ErrRefused{Reason: "a config-only upgrade cannot apply this update: it needs new files (" + strings.Join(needs, ", ") + ")"}
 		}
 	}
 
@@ -538,7 +549,7 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 	oldSidecar.Upgrade = nil
 	oldSidecarYAML, err := yaml.Marshal(&oldSidecar)
 	if err != nil {
-		return err
+		return false, err
 	}
 	previous := &gallery.Previous{
 		Origin: sc.Origin, ConfigSHA256: sc.ConfigSHA256, Managed: sc.Managed,
@@ -564,7 +575,7 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 		Files: staged, To: to, Previous: previous, Attempts: attempts, RetainedFiles: carried,
 	}
 	if err := run.advance(EvStart, nil); err != nil {
-		return err
+		return false, err
 	}
 	stop := make(chan struct{})
 	go run.heartbeat(stop)
@@ -573,7 +584,7 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 	err = u.drive(ctx, run, plan.Model.Backend, finalYAML)
 	u.notify(context.WithoutCancel(ctx), run, err)
 	u.changed(name)
-	return err
+	return true, err
 }
 
 // relText removes the models directory from a message, so that an error
@@ -1209,6 +1220,18 @@ func (u *Upgrader) restore(ctx context.Context, r *upgradeRun) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// notifyRefused tells that an upgrade ended before it had a journal: a
+// refusal, an up-to-date model, a missing choice. A cancel is not told here.
+func (u *Upgrader) notifyRefused(ctx context.Context, req Request, err error) {
+	if u.Notifier == nil || req.OpID == "" || ctx.Err() != nil {
+		return
+	}
+	res := UpgradeResult{OpID: req.OpID, Name: req.Name, Failed: true, Err: u.relText(err.Error())}
+	if nerr := u.Notifier.ModelUpgradeResult(context.WithoutCancel(ctx), res); nerr != nil {
+		xlog.Warn("Could not write the model upgrade notification", "model", req.Name, "error", nerr)
+	}
 }
 
 func (u *Upgrader) notify(ctx context.Context, r *upgradeRun, err error) {

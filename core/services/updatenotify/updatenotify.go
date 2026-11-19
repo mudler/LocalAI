@@ -275,13 +275,16 @@ func (e *Emitter) Result(ctx context.Context, r Result) error {
 // replayed report of the same operation is silent. An operation with no ID is
 // an automatic pass, which Result reports; it posts nothing here.
 //
-// A model upgrade that reached its journal is told first by
-// ModelUpgradeResult (which says whether the old version was put back) under
-// the same key, so this write leaves that row as it is: one row per
-// operation. An upgrade that ended before it changed anything (up to date, a
-// refusal, a missing choice, a cancel) is told here.
+// A model upgrade that completed or failed is not written here: the upgrader
+// tells it through ModelUpgradeResult, the only producer of that row, with
+// the detail the operation does not have (whether the old version was put
+// back, the versions). A cancelled upgrade is told here, as the upgrader does
+// not tell a cancel.
 func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
 	if op.ID == "" || op.Name == "" {
+		return nil
+	}
+	if op.Upgrade && !op.Backend && op.Outcome != galleryop.OpCancelled {
 		return nil
 	}
 	kind, link := "model", LinkModels

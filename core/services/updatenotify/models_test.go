@@ -57,23 +57,27 @@ var _ = Describe("the model notifications", func() {
 		Expect(failed.Params).To(HaveKeyWithValue("error", "load failed"))
 	})
 
-	It("tells a model upgrade that ended before it started changing anything, as its operation", func() {
+	It("leaves the row of a completed or failed model upgrade to the upgrader", func() {
 		f := newFrontend(memStore(), nil, "admin")
 		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-9", Name: "tiny", Upgrade: true, Outcome: galleryop.OpFailed, Err: "the model is up to date"})).To(Succeed())
-		got := list(f, "admin")
-		Expect(got).To(HaveLen(1))
-		Expect(got[0].Code).To(Equal(CodeOpFailed))
-		Expect(got[0].Params).To(HaveKeyWithValue("action", "upgrade"))
-		Expect(got[0].Params).To(HaveKeyWithValue("error", "the model is up to date"))
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-10", Name: "tiny", Upgrade: true, Outcome: galleryop.OpCompleted})).To(Succeed())
+		Expect(list(f, "admin")).To(BeEmpty())
 	})
 
-	It("keeps the upgrade result as the one row of its operation", func() {
+	It("tells a backend upgrade as its operation", func() {
 		f := newFrontend(memStore(), nil, "admin")
-		Expect(f.em.ModelUpgradeResult(ctx, ModelUpgrade{OpID: "op-9", Name: "tiny", Failed: true, RolledBack: true, Err: "load failed"})).To(Succeed())
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-b", Name: "llama-cpp", Backend: true, Upgrade: true, Outcome: galleryop.OpFailed, Err: "x"})).To(Succeed())
+		Expect(list(f, "admin")).To(HaveLen(1))
+	})
+
+	It("writes one row for an upgrade whichever producer is late or fails", func() {
+		f := newFrontend(memStore(), nil, "admin")
 		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-9", Name: "tiny", Upgrade: true, Outcome: galleryop.OpFailed, Err: "load failed"})).To(Succeed())
+		Expect(f.em.ModelUpgradeResult(ctx, ModelUpgrade{OpID: "op-9", Name: "tiny", Failed: true, RolledBack: true, Err: "load failed"})).To(Succeed())
 		got := list(f, "admin")
 		Expect(got).To(HaveLen(1))
 		Expect(got[0].Code).To(Equal(CodeModelUpgradeFailed))
+		Expect(got[0].Params).To(HaveKeyWithValue("rolledBack", true))
 	})
 
 	It("tells a cancelled model upgrade as cancelled, not failed", func() {

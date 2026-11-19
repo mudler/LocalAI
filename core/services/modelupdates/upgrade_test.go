@@ -705,6 +705,18 @@ var _ = Describe("A model upgrade", func() {
 		Expect(errors.As(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"}), &refused)).To(BeTrue())
 	})
 
+	It("tells a refusal before the journal as a failed upgrade, once, from the upgrader", func() {
+		n := &upgradeNotifier{}
+		u := upgrader(nil)
+		u.Notifier = n
+		Expect(u.Upgrade(ctx, modelupdates.Request{OpID: "op", Name: "tiny"})).To(MatchError(modelupdates.ErrUpToDate))
+		Expect(n.results).To(HaveLen(1))
+		Expect(n.results[0].OpID).To(Equal("op"))
+		Expect(n.results[0].Failed).To(BeTrue())
+		Expect(n.results[0].RolledBack).To(BeFalse())
+		Expect(n.results[0].Err).To(ContainSubstring("up to date"))
+	})
+
 	It("says when there is nothing to upgrade, and refuses a second upgrade while one runs", func() {
 		Expect(upgrader(nil).Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(MatchError(modelupdates.ErrUpToDate))
 		Expect(upgrader(nil).Upgrade(ctx, modelupdates.Request{Name: "tiny", Retry: true})).To(MatchError(modelupdates.ErrNothingFailed))

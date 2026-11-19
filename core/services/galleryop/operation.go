@@ -95,6 +95,11 @@ type ModelUpgradeOptions struct {
 	Retry bool `json:"retry,omitempty"`
 }
 
+// MessageCompleted is the Message of the final status of an operation that
+// succeeded. The completion checks (the end-of-operation report, the eviction
+// of finished operations) compare with it, so every writer must use it.
+const MessageCompleted = "completed"
+
 type OpStatus struct {
 	Deletion bool `json:"deletion"` // Deletion is true if the operation is a deletion
 	// Upgrade is true if the operation re-installs a backend to move it to a
@@ -716,7 +721,7 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 		//     and the reconciler confirms the real outcome later — evicting it
 		//     would hide an install that may still fail.
 		if status != nil && status.Processed &&
-			((status.Progress == 100 && status.Message == "completed") || status.Cancelled) {
+			((status.Progress == 100 && status.Message == MessageCompleted) || status.Cancelled) {
 			evict = append(evict, v)
 			continue
 		}
