@@ -25,10 +25,10 @@ const (
 	MaxEndpointReport = 64
 )
 
-// A package with execution "wsl2" runs in WSL 2, where no handle of the owner
-// exists. The owner starts it through wsl.exe with ChannelEnv set to
-// ChannelStdio, and the standard input and output of the process carry one
-// multiplexed session (yamux):
+// A package with platform.windows.execution "wsl2" runs in WSL 2, where no
+// handle of the owner exists. The owner starts it through wsl.exe with
+// ChannelEnv set to ChannelStdio, and the standard input and output of the
+// process carry one multiplexed session (yamux):
 //
 //   - The first stream, opened by the owner, is the startup stream. The add-on
 //     writes its process ID as one decimal line (at most MaxStdioHello bytes,

@@ -48,11 +48,44 @@ const (
 // addon for as long as it is enabled. An absent mode means the same.
 const LaunchModeAlways = "always"
 
-// ExecutionWSL2 is the execution environment of a package that is installed
-// on a Windows host and whose executable, a linux/amd64 program, runs in a WSL
-// 2 distribution (feature level 10). The owner starts it through wsl.exe and
-// talks to it over its standard streams (see ChannelEnv).
+// ExecutionWSL2 is the value of platform.windows.execution for a package that
+// is installed on a Windows host and whose executable, a linux/amd64 program,
+// runs in a WSL 2 distribution (feature level 10). The owner starts it through
+// wsl.exe and talks to it over its standard streams (see ChannelEnv).
 const ExecutionWSL2 = "wsl2"
+
+// PlatformSettings holds the runtime settings that apply on one OS only. Each
+// key is an OS; the block of an OS other than the os of the manifest is
+// refused, so a setting never applies by accident on another OS. A host that
+// does not know the block refuses the manifest as it refuses any unknown field.
+type PlatformSettings struct {
+	Windows *WindowsSettings `json:"windows,omitempty"`
+}
+
+// WindowsSettings are the settings of a windows package.
+type WindowsSettings struct {
+	// Execution is the execution environment of the executable. The only
+	// value is ExecutionWSL2, and only for a windows/amd64 package.
+	Execution string `json:"execution"`
+}
+
+// validate refuses a block that sets nothing, the block of an OS other than
+// goos, and any value but wsl2 on windows/amd64.
+func (p *PlatformSettings) validate(goos, arch string) error {
+	if p == nil {
+		return nil
+	}
+	if p.Windows == nil {
+		return fmt.Errorf("platform sets no OS block")
+	}
+	if goos != "windows" {
+		return fmt.Errorf("platform.windows applies only to a windows package")
+	}
+	if p.Windows.Execution != ExecutionWSL2 || arch != "amd64" {
+		return fmt.Errorf("unsupported platform.windows.execution %q: only %q on windows/amd64", p.Windows.Execution, ExecutionWSL2)
+	}
+	return nil
+}
 
 // IconTypes maps the extensions an icon may have to their media type.
 var IconTypes = map[string]string{".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
@@ -100,7 +133,8 @@ func (r VersionRange) isHostAPI() bool {
 // Level 7: capabilities.client (routes that a paired client may call).
 // Level 8: a wildcard tail ({name...}) as the last segment of a client route.
 // Level 9: capabilities.modelSearch (a source of the model-search slot).
-// Level 10: execution "wsl2" (a Linux executable run in WSL 2 on Windows).
+// Level 10: platform (OS-specific runtime settings; platform.windows.execution
+// "wsl2" runs a Linux executable in WSL 2 on Windows).
 const HostFeatureLevel uint64 = 10
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
@@ -125,7 +159,9 @@ func (h HostCompatibility) EffectiveFeatureLevel() uint64 {
 }
 
 // RunsInWSL reports whether the executable of the package runs in WSL 2.
-func (m Manifest) RunsInWSL() bool { return m.Execution == ExecutionWSL2 }
+func (m Manifest) RunsInWSL() bool {
+	return m.Platform != nil && m.Platform.Windows != nil && m.Platform.Windows.Execution == ExecutionWSL2
+}
 
 // RequiredFeatureLevel is the level the manifest declares, 1 when it sets none.
 func (m Manifest) RequiredFeatureLevel() uint64 {
@@ -138,7 +174,7 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
-	if m.Execution != "" {
+	if m.Platform != nil {
 		return 10
 	}
 	if m.Capabilities.ModelSearch != nil {
@@ -215,15 +251,16 @@ type Manifest struct {
 	Executable    string `json:"executable"`
 	OS            string `json:"os"`
 	Arch          string `json:"arch"`
-	// Execution is absent for an executable that runs natively on OS and
-	// Arch. ExecutionWSL2 says that OS and Arch are those of the Windows host
-	// the package installs on, and the executable is a linux/amd64 program
-	// that runs in WSL 2 (feature level 10).
-	Execution  string       `json:"execution,omitempty"`
-	Host       VersionRange `json:"host"`
-	API        VersionRange `json:"api"`
-	Protocol   VersionRange `json:"protocol"`
-	DataFormat VersionRange `json:"dataFormat"`
+	// Platform is absent for an executable that runs natively on OS and Arch
+	// with no OS-specific setting (feature level 10). With
+	// platform.windows.execution "wsl2", OS and Arch are those of the Windows
+	// host the package installs on, and the executable is a linux/amd64
+	// program that runs in WSL 2.
+	Platform   *PlatformSettings `json:"platform,omitempty"`
+	Host       VersionRange      `json:"host"`
+	API        VersionRange      `json:"api"`
+	Protocol   VersionRange      `json:"protocol"`
+	DataFormat VersionRange      `json:"dataFormat"`
 	// FeatureLevel is the feature level the manifest needs from the host. It is
 	// optional and defaults to 1. A manifest that uses a field of a higher
 	// level must say so; a host with a lower level refuses it with a plain
@@ -562,8 +599,8 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if !namespace.MatchString(m.OS) || !namespace.MatchString(m.Arch) || m.OS != h.OS || m.Arch != h.Arch {
 		return fmt.Errorf("incompatible platform")
 	}
-	if m.Execution != "" && (m.Execution != ExecutionWSL2 || m.OS != "windows" || m.Arch != "amd64") {
-		return fmt.Errorf("unsupported execution %q: only %q on windows/amd64", m.Execution, ExecutionWSL2)
+	if err := m.Platform.validate(m.OS, m.Arch); err != nil {
+		return err
 	}
 	if !m.API.isHostAPI() {
 		return fmt.Errorf("the manifest must declare api {\"min\": %d, \"max\": %d}", HostAPIVersion, HostAPIVersion)

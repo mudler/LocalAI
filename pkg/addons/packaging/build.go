@@ -80,10 +80,15 @@ func (r rawImage) Digest() (v1.Hash, error) {
 }
 func (r rawImage) Size() (int64, error) { return int64(len(r.raw)), nil }
 
-func stampManifest(template []byte, version, platform, execution string) ([]byte, error) {
+func stampManifest(template []byte, version, platform string, settings *contract.PlatformSettings) ([]byte, error) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(template, &m); err != nil {
 		return nil, fmt.Errorf("manifest template: %w", err)
+	}
+	// The platform matrix is the only source of the OS-specific settings: a
+	// template that sets them would apply them to every platform.
+	if _, ok := m["platform"]; ok {
+		return nil, errors.New("manifest template: platform is set from the platform matrix, remove it from the template")
 	}
 	os_, arch, _ := strings.Cut(platform, "/")
 	for k, v := range map[string]string{"version": version, "os": os_, "arch": arch} {
@@ -91,10 +96,10 @@ func stampManifest(template []byte, version, platform, execution string) ([]byte
 		m[k] = b
 	}
 	// A package that runs in WSL 2 says so, at the feature level of the
-	// field, and keeps the plain name of its Linux executable.
-	if execution != "" {
-		b, _ := json.Marshal(execution)
-		m["execution"] = b
+	// block, and keeps the plain name of its Linux executable.
+	if settings != nil {
+		b, _ := json.Marshal(settings)
+		m["platform"] = b
 		var level uint64
 		if raw, ok := m["featureLevel"]; ok {
 			if err := json.Unmarshal(raw, &level); err != nil {
@@ -106,7 +111,7 @@ func stampManifest(template []byte, version, platform, execution string) ([]byte
 		}
 	}
 	// A Windows package names its executable with .exe (see ExecutableFor).
-	if os_ == "windows" && execution == "" {
+	if os_ == "windows" && settings == nil {
 		var exe string
 		if err := json.Unmarshal(m["executable"], &exe); err != nil {
 			return nil, fmt.Errorf("manifest template: executable: %w", err)
@@ -179,7 +184,7 @@ func cmdBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := stampManifest(template, *version, *platform, entry.Execution)
+	manifest, err := stampManifest(template, *version, *platform, entry.ManifestPlatform())
 	if err != nil {
 		return err
 	}

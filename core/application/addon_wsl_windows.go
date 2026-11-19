@@ -7,8 +7,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/wsl"
 )
 
-// addonWSL runs the add-ons whose manifest has execution "wsl2" in the WSL 2
-// distribution distro (empty: the default distribution).
+// addonWSL runs the add-ons whose manifest has platform.windows.execution
+// "wsl2" in the WSL 2 distribution distro (empty: the default distribution).
 func addonWSL(distro string) addonruntime.WSL {
 	return wsl.New(wsl.Options{Distro: distro})
 }

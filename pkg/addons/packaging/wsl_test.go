@@ -12,6 +12,8 @@ import (
 )
 
 var _ = Describe("A windows/amd64 row with execution wsl2", func() {
+	// manifestPath is the manifest template of a project.
+	manifestPath := func(p *project) string { return filepath.Join(p.root, "addons", "tables", "manifest.json") }
 	// wslProject marks the windows/amd64 row of a project wsl2.
 	wslProject := func(enabled map[string][]string) *project {
 		p := newProject(enabled)
@@ -41,7 +43,7 @@ var _ = Describe("A windows/amd64 row with execution wsl2", func() {
 		Expect(out).To(Equal("linux/arm64\n"))
 	})
 
-	It("makes a Windows package that carries the Linux executable and says execution wsl2 at feature level 10", func() {
+	It("makes a Windows package that carries the Linux executable and says platform.windows.execution wsl2 at feature level 10", func() {
 		p := wslProject(map[string][]string{"windows/amd64": nil})
 		dir, err := p.build("windows/amd64", "1.2.3", elf())
 		Expect(err).NotTo(HaveOccurred())
@@ -54,13 +56,16 @@ var _ = Describe("A windows/amd64 row with execution wsl2", func() {
 		b, err := os.ReadFile(filepath.Join(dest, "manifest.json"))
 		Expect(err).NotTo(HaveOccurred())
 		var m struct {
-			Executable, OS, Arch, Execution string
-			FeatureLevel                    uint64
+			Executable, OS, Arch string
+			FeatureLevel         uint64
+			Platform             json.RawMessage
+			Execution            *string
 		}
 		Expect(json.Unmarshal(b, &m)).To(Succeed())
 		Expect(m.Executable).To(Equal("tables"))
 		Expect(m.OS + "/" + m.Arch).To(Equal("windows/amd64"))
-		Expect(m.Execution).To(Equal("wsl2"))
+		Expect(m.Platform).To(MatchJSON(`{"windows":{"execution":"wsl2"}}`))
+		Expect(m.Execution).To(BeNil(), "no top-level execution field")
 		Expect(m.FeatureLevel).To(BeNumerically(">=", 10))
 	})
 
@@ -76,6 +81,30 @@ var _ = Describe("A windows/amd64 row with execution wsl2", func() {
 		dir := native.mustBuild("windows/amd64", "1.2.3", "windows bin")
 		p := wslProject(map[string][]string{"windows/amd64": nil})
 		expectCode(p.verify(dir, "windows/amd64", "1.2.3"), "E_MANIFEST")
+
+		// The other way: a wsl2 package checked against a native row.
+		dir, err := p.build("windows/amd64", "1.2.3", elf())
+		Expect(err).NotTo(HaveOccurred())
+		expectCode(native.verify(dir, "windows/amd64", "1.2.3"), "E_MANIFEST")
+	})
+
+	It("takes the platform block only from the row, never from the manifest template", func() {
+		for _, rows := range []func(map[string][]string) *project{newProject, wslProject} {
+			p := rows(map[string][]string{amd: nil, "windows/amd64": nil})
+			b, err := os.ReadFile(manifestPath(p))
+			Expect(err).NotTo(HaveOccurred())
+			var m map[string]any
+			Expect(json.Unmarshal(b, &m)).To(Succeed())
+			m["platform"] = map[string]any{"windows": map[string]any{"execution": "wsl2"}}
+			m["featureLevel"] = 10
+			b, err = json.Marshal(m)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(manifestPath(p), b, 0o644)).To(Succeed())
+			_, err = p.build("windows/amd64", "1.2.3", elf())
+			Expect(err).To(MatchError(ContainSubstring("platform")))
+			_, err = p.build(amd, "1.2.3", exe("linux bin"))
+			Expect(err).To(MatchError(ContainSubstring("platform")))
+		}
 	})
 
 	It("is refused on any other platform, and any other value", func() {

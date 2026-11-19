@@ -5,6 +5,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing/fstest"
@@ -204,8 +206,8 @@ func verifyLoaded(l *leg, rec *Receipt, platform, version string, cfg *Platforms
 	if err := contract.ValidateManifest(m, hostFor(platform)); err != nil {
 		return nil, fail("E_MANIFEST", "%v", err)
 	}
-	if m.Execution != entry.Execution {
-		return nil, fail("E_MANIFEST", "manifest execution %q, the platform matrix says %q", m.Execution, entry.Execution)
+	if want := entry.ManifestPlatform(); !reflect.DeepEqual(m.Platform, want) {
+		return nil, fail("E_MANIFEST", "manifest platform block %s, the platform matrix says %s", platformJSON(m.Platform), platformJSON(want))
 	}
 
 	// Layer roles: executable, ui and skills when declared, manifest. Nothing
@@ -415,4 +417,14 @@ func checkIcon(name string, b []byte) error {
 		return fail("E_UI", "icon %q does not have the signature of its type", name)
 	}
 	return nil
+}
+
+// platformJSON is the platform block as the manifest writes it, "absent" for
+// none.
+func platformJSON(p *contract.PlatformSettings) string {
+	if p == nil {
+		return "absent"
+	}
+	b, _ := json.Marshal(p)
+	return string(b)
 }

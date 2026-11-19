@@ -93,8 +93,8 @@ type Config struct {
 	// (stream "stdout") or error ("stderr"). Nil sends the lines to the LocalAI
 	// log with the add-on ID as a prefix.
 	Output func(addonID, stream, line string)
-	// WSL runs the add-ons whose manifest has execution "wsl2". Nil refuses
-	// them with ErrNoWSL; it is set only on Windows.
+	// WSL runs the add-ons whose manifest has platform.windows.execution
+	// "wsl2". Nil refuses them with ErrNoWSL; it is set only on Windows.
 	WSL WSL
 }
 

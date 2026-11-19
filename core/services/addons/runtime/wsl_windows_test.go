@@ -19,14 +19,15 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// wslPackage lays a package with execution wsl2 whose executable is the start
-// of a Linux program. The supervisor never runs it in these specs.
+// wslPackage lays a package with platform.windows.execution wsl2 whose
+// executable is the start of a Linux program. The supervisor never runs it in
+// these specs.
 func wslPackage() packages.PackageReceipt {
 	GinkgoHelper()
 	dir := GinkgoT().TempDir()
 	Expect(os.WriteFile(filepath.Join(dir, "fixture"), append([]byte{0x7f, 'E', 'L', 'F'}, make([]byte, 60)...), 0o700)).To(Succeed())
 	v := contract.VersionRange{Min: 1, Max: 1}
-	m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: "windows", Arch: "amd64", Execution: contract.ExecutionWSL2, FeatureLevel: 10, Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true}}
+	m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: "windows", Arch: "amd64", Platform: &contract.PlatformSettings{Windows: &contract.WindowsSettings{Execution: contract.ExecutionWSL2}}, FeatureLevel: 10, Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true}}
 	p := packages.PackageReceipt{Manifest: m, Directory: dir, Digest: "sha256:fixture"}
 	b, e := json.Marshal(p)
 	Expect(e).NotTo(HaveOccurred())
@@ -40,7 +41,7 @@ func (w refusingWSL) Prepare(context.Context, packages.PackageReceipt) (WSLLaunc
 	return WSLLaunch{}, w.err
 }
 
-var _ = Describe("A package with execution wsl2 on Windows", func() {
+var _ = Describe("A package with platform.windows.execution wsl2 on Windows", func() {
 	It("is refused with ErrNoWSL when this LocalAI has no WSL launcher", func() {
 		s := windowsSupervisor()
 		_, e := s.Start(context.Background(), wslPackage(), 1)
@@ -72,7 +73,7 @@ var _ = Describe("An add-on in a real WSL 2 distribution", func() {
 		Expect(e).NotTo(HaveOccurred(), string(out))
 		Expect(os.WriteFile(filepath.Join(dir, "fixture.json"), []byte(`{"mode":"graceful"}`), 0o600)).To(Succeed())
 		v := contract.VersionRange{Min: 1, Max: 1}
-		m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: "windows", Arch: "amd64", Execution: contract.ExecutionWSL2, FeatureLevel: 10, Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true}}
+		m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: "windows", Arch: "amd64", Platform: &contract.PlatformSettings{Windows: &contract.WindowsSettings{Execution: contract.ExecutionWSL2}}, FeatureLevel: 10, Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true}}
 		p := packages.PackageReceipt{Manifest: m, Directory: dir, Digest: "sha256:wsltest"}
 		b, e := json.Marshal(p)
 		Expect(e).NotTo(HaveOccurred())
