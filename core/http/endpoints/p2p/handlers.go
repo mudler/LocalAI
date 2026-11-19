@@ -102,7 +102,7 @@ func StatusEndpoint(svc Service) echo.HandlerFunc {
 // MintInviteEndpoint creates an invite.
 //
 //	@Summary	Create a P2P invite
-//	@Description	Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key for the other server: limited to "models" when given, else every model this server lets a client key use, models added later too), worker or split. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY gets 409. relays is "auto", "none" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; "relay.reason" says why there is none. The link is shown once. Needs P2P mode share. Admin only.
+//	@Description	Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key for the other server: limited to "models" when given, else every model this server lets a client key use, models added later too; "all_models": true asks for every model explicitly and is refused with a non-empty "models"), worker or split. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY gets 409. relays is "auto", "none" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; "relay.reason" says why there is none. The link is shown once. Needs P2P mode share. Admin only.
 //	@Tags		p2p
 //	@Accept		json
 //	@Produce	json

@@ -26,7 +26,7 @@
     },
     "remote": {
       "title": "Serveur distant",
-      "body": "Un autre LocalAI utilise tous les modèles de cette instance."
+      "body": "Un autre LocalAI utilise les modèles de cette instance, tous ou ceux que vous choisissez."
     },
     "worker": {
       "title": "Worker",
@@ -53,8 +53,8 @@
         "body": "Une invitation d'appareil permet à l'appareil de joindre cette instance. La personne se connecte quand même à l'interface web avec son propre compte."
       },
       "remote": {
-        "title": "Tous les modèles, rien d'autre.",
-        "body": "L'autre LocalAI reçoit une clé API qui peut utiliser chaque modèle de cette instance, y compris les modèles que vous ajoutez plus tard. Les modèles auxquels des outils sont attachés sont exclus. La clé n'atteint rien d'autre : ni les paramètres, ni les fichiers, ni une autre partie de l'API."
+        "title": "Les modèles seulement, rien d'autre.",
+        "body": "L'autre LocalAI reçoit une clé API pour les modèles que vous choisissez ci-dessous : tous, y compris ceux que vous ajoutez plus tard, ou une liste. Les modèles auxquels des outils sont attachés sont exclus. La clé n'atteint rien d'autre : ni les paramètres, ni les fichiers, ni une autre partie de l'API."
       },
       "worker": {
         "title": "Un nœud pour ce cluster.",
@@ -68,6 +68,24 @@
       "worker": "gpu-box-5"
     },
     "labelHint": "Affiché dans Appareils et invitations.",
+    "models": {
+      "label": "Modèles",
+      "all": "Tous les modèles",
+      "specific": "Choisir des modèles",
+      "allHint": "La clé peut utiliser chaque modèle de cette instance, y compris les modèles que vous ajoutez plus tard.",
+      "specificHint": "La clé ne peut utiliser que les modèles que vous cochez. Un modèle auquel des outils sont attachés ne peut pas être partagé.",
+      "loading": "Chargement des modèles…",
+      "loadFailed": "Les modèles n'ont pas pu être chargés.",
+      "retry": "Réessayer",
+      "empty": "Cette instance n'a pas encore de modèle à partager.",
+      "search": "Rechercher des modèles",
+      "noMatch": "Aucun modèle ne correspond.",
+      "selected_one": "{{count}} modèle choisi",
+      "selected_other": "{{count}} modèles choisis",
+      "reason": {
+        "noModels": "Choisissez au moins un modèle, ou choisissez Tous les modèles."
+      }
+    },
     "expires": "Expire après",
     "singleUseHint": "Chaque invitation ne fonctionne qu'une fois.",
     "nothingYet": "Rien n'est créé tant que vous n'appuyez pas sur Créer l'invitation.",
@@ -119,7 +137,11 @@
       "passNone": "Aucun",
       "public": "Adresse publique",
       "publicYes": "Oui",
-      "publicNo": "Aucune (derrière un NAT)"
+      "publicNo": "Aucune (derrière un NAT)",
+      "models": "Modèles",
+      "modelsAll": "Tous les modèles",
+      "modelsSome_one": "{{count}} modèle",
+      "modelsSome_other": "{{count}} modèles"
     },
     "admission": {
       "title": "Admission P2P uniquement.",
@@ -393,5 +415,10 @@
       "noModels": "Aucune instance n'a encore de modèle. Ajoutez d'abord un serveur distant dans Modèles, Serveurs distants.",
       "save": "Enregistrer"
     }
+  },
+  "grant": {
+    "all": "Tous les modèles",
+    "some_one": "{{count}} modèle",
+    "some_other": "{{count}} modèles"
   }
 }

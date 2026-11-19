@@ -770,6 +770,9 @@ type P2PDeviceInfo struct {
 	Path       string     `json:"path"`
 	RelayLabel string     `json:"relay,omitempty"`
 	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+	// Models and AllModels say what a remote device may use.
+	Models    []string `json:"models,omitempty"`
+	AllModels bool     `json:"all_models,omitempty"`
 }
 
 // P2PInviteInfo is the LLM-facing view of one invite. The link is never part
@@ -788,6 +791,10 @@ type P2PInviteInfo struct {
 	// RelayPass is the relay that holds the pass of the invite; empty when
 	// the link carries none.
 	RelayPass string `json:"relay_pass,omitempty"`
+	// Models and AllModels say what a remote invite grants: the names, or
+	// every model.
+	Models    []string `json:"models,omitempty"`
+	AllModels bool     `json:"all_models,omitempty"`
 }
 
 // P2PSplitWorkerInfo is the LLM-facing view of one model-split worker.

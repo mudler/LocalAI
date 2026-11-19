@@ -34,9 +34,14 @@ func (k Kind) Valid() bool {
 
 // Scope limits what the holder of an invite or device may use.
 type Scope struct {
-	Models   []string          `json:"models,omitempty"`
-	Features []string          `json:"features,omitempty"`
-	Labels   map[string]string `json:"labels,omitempty"`
+	// Models are the models a remote may use. With AllModels false and no
+	// list, a remote gets every model too (the rule before AllModels existed).
+	Models []string `json:"models,omitempty"`
+	// AllModels says that a remote may use every model, explicitly. It never
+	// goes with a list of models.
+	AllModels bool              `json:"all_models,omitempty"`
+	Features  []string          `json:"features,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
 }
 
 // InviteStatus is the state of an invite at one moment.

@@ -208,6 +208,62 @@ var _ = Describe("P2P layer in mode share", func() {
 		Expect(key.AllowsModel("other")).To(BeFalse())
 	})
 
+	It("grants every model on an explicit all_models invite and shows what each invite and device got", func() {
+		a, server := shareServer()
+		models := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(models, "shared.yaml"), []byte("name: shared\nbackend: llama-cpp\n"), 0o600)).To(Succeed())
+		a.backendLoader = config.NewModelConfigLoader(models)
+		Expect(a.backendLoader.LoadModelConfigsFromPath(models)).To(Succeed())
+		svc := a.P2P()
+		ctx := context.Background()
+		owner := &auth.User{ID: "owner-1", Name: "Owner", Email: "o@example.com", Role: auth.RoleAdmin, Status: auth.StatusActive, Provider: auth.ProviderLocal}
+		Expect(a.AuthDB().Create(owner).Error).To(Succeed())
+		none := p2papi.RelayChoice{Mode: "none"}
+
+		By("refusing all_models together with a list of models")
+		_, err := svc.MintInvite(ctx, owner.ID, p2papi.MintRequest{Kind: "remote", AllModels: true, Models: []string{"shared"}, Relays: none})
+		Expect(err).To(MatchError(p2papi.ErrInvalid))
+		Expect(err.Error()).To(ContainSubstring("all_models"))
+
+		By("giving the key of an explicit all_models invite every model")
+		m, err := svc.MintInvite(ctx, owner.ID, p2papi.MintRequest{Kind: "remote", Label: "everything", AllModels: true, Relays: none})
+		Expect(err).ToNot(HaveOccurred())
+		_, client := device(server)
+		status, out := redeemCode(client, server, codeOf(m.Link))
+		Expect(status).To(Equal(http.StatusOK))
+		var key auth.UserAPIKey
+		Expect(a.AuthDB().First(&key, "id = ?", out["client_key"].(map[string]any)["id"]).Error).To(Succeed())
+		Expect(key.AllModels).To(BeTrue())
+		Expect(key.Models).To(BeEmpty())
+
+		By("listing an invite with no list as all models, so old callers read the same")
+		legacy, err := svc.MintInvite(ctx, owner.ID, p2papi.MintRequest{Kind: "remote", Label: "legacy", Relays: none})
+		Expect(err).ToNot(HaveOccurred())
+		picked, err := svc.MintInvite(ctx, owner.ID, p2papi.MintRequest{Kind: "remote", Label: "picked", Models: []string{"shared"}, Relays: none})
+		Expect(err).ToNot(HaveOccurred())
+		dev, err := svc.MintInvite(ctx, owner.ID, p2papi.MintRequest{Kind: "device", Label: "phone", Relays: none})
+		Expect(err).ToNot(HaveOccurred())
+		invs, err := svc.ListInvites(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		byID := map[string]p2papi.InviteView{}
+		for _, i := range invs {
+			byID[i.ID] = i
+		}
+		Expect(byID[legacy.ID].AllModels).To(BeTrue())
+		Expect(byID[legacy.ID].Models).To(BeEmpty())
+		Expect(byID[picked.ID].AllModels).To(BeFalse())
+		Expect(byID[picked.ID].Models).To(Equal([]string{"shared"}))
+		Expect(byID[dev.ID].AllModels).To(BeFalse())
+		Expect(byID[dev.ID].Models).To(BeEmpty())
+
+		By("listing the device of the redeemed invite with the same grant")
+		devs, err := svc.ListDevices(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(devs).To(HaveLen(1))
+		Expect(devs[0].AllModels).To(BeTrue())
+		Expect(devs[0].Models).To(BeEmpty())
+	})
+
 	It("refuses a remote invite for an identity without a user account, and still makes device invites for it", func() {
 		a, server := shareServer()
 		svc := a.P2P()

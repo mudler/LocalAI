@@ -86,7 +86,10 @@ Sharing needs mode `share` (**Connect and share**). In another mode the
 
 1. Open **Swarm**, then **P2P**, then **Share this instance**.
 2. Choose what to share: a **device** (a launcher, a phone or a laptop) or a
-   **remote** (another LocalAI server that will use your models).
+   **remote** (another LocalAI server that will use your models). For a remote,
+   choose the **Models** it may use: **All models** (the default) or **Choose
+   models**, then tick the models. **Make invite** stays off until you tick at
+   least one model.
 3. Give it a label and choose how long the invite is valid: 10 minutes, 1 hour
    or 1 day. The default is 10 minutes. Each invite works once.
 4. Choose **Make invite**. Copy the link, or scan the QR code. QR codes exist for
@@ -116,10 +119,16 @@ match: revoke**, which revokes the device at once.
 
 A **device** invite gives access to the server only. The person still signs in as
 before. A **remote** invite also gives the other server an API key that reaches
-the models and nothing else. From the dialog, that key may use every model of
-this server that a client key may use (a model with tools attached is left
-out), also models you add later. With the API, `models` in
-`POST /api/p2p/invites` limits the key to the models it lists.
+the models and nothing else. With **All models**, that key may use every model
+of this server that a client key may use (a model with tools attached is left
+out), also models you add later. With **Choose models**, it may use only the
+models you ticked. A model that does not exist, or has tools attached, is
+refused when the invite is made. The invite and the **Devices and invites**
+page show what was granted: **All models** or the number of models, with the
+names in the tooltip. With the API, `all_models: true` in
+`POST /api/p2p/invites` grants every model and `models` limits the key to the
+models it lists; the two together get `400`. An invite with neither still
+grants every model, as before `all_models` existed.
 
 The key of a remote belongs to your user account, so a remote invite needs a
 signed-in user account. The API key set with `LOCALAI_API_KEY` (or
@@ -228,10 +237,10 @@ names the mode.
 | Route | What it does |
 |---|---|
 | `GET /api/p2p/status` | Mode, peer ID, addresses, reachability, relay reservations, whether the server relays for its devices, and the number of pending invites and devices. Works in every mode. |
-| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker` or `split`. `models` limits the key of a remote; without it the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
-| `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`, and `relay_pass`, the relay that holds the pass. A used invite also has `device_peer_id` and `phrase`, the confirmation phrase the device was shown. |
+| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, all_models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker` or `split`. `models` limits the key of a remote. `all_models: true` grants every model a client key may use, explicitly; it is refused (`400`) together with a non-empty `models`. With neither, the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
+| `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`, and `relay_pass`, the relay that holds the pass. A used invite also has `device_peer_id` and `phrase`, the confirmation phrase the device was shown. A remote invite has `all_models` or `models`, what it grants. |
 | `DELETE /api/p2p/invites/{id}` | Cancels a pending invite and its relay pass. |
-| `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. |
+| `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. A remote has `all_models` or `models`, what its key may use. |
 | `PATCH /api/p2p/devices/{id}` | Renames a device: `{label}`. |
 | `DELETE /api/p2p/devices/{id}` | Revokes a device. |
 | `GET`, `POST /api/p2p/relays` | Lists the relays, or adds one: `{addr, label, claim_code}`. |

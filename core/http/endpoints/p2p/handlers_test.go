@@ -127,6 +127,10 @@ var _ = Describe("P2P handlers", func() {
 		call(MintInviteEndpoint(svc), http.MethodPost, `{"kind":"device","relays":null}`, nil)
 		Expect(svc.mint.Relays).To(Equal(RelayChoice{Mode: "auto"}))
 
+		call(MintInviteEndpoint(svc), http.MethodPost, `{"kind":"remote","all_models":true}`, nil)
+		Expect(svc.mint.AllModels).To(BeTrue())
+		Expect(svc.mint.Models).To(BeEmpty())
+
 		// An absent field keeps the zero value, which the service reads as auto.
 		call(MintInviteEndpoint(svc), http.MethodPost, `{"kind":"device"}`, nil)
 		Expect(svc.mint.Relays).To(Equal(RelayChoice{}))

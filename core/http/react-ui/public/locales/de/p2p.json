@@ -26,7 +26,7 @@
     },
     "remote": {
       "title": "Gegenstelle",
-      "body": "Ein anderes LocalAI nutzt alle Modelle dieser Instanz."
+      "body": "Ein anderes LocalAI nutzt die Modelle dieser Instanz, alle oder die von Ihnen gewählten."
     },
     "worker": {
       "title": "Worker",
@@ -53,8 +53,8 @@
         "body": "Eine Geräteeinladung lässt das Gerät diese Instanz erreichen. Die Person meldet sich weiterhin mit ihrem eigenen Konto an der Weboberfläche an."
       },
       "remote": {
-        "title": "Alle Modelle, sonst nichts.",
-        "body": "Das andere LocalAI erhält einen API-Schlüssel, der jedes Modell dieser Instanz nutzen kann, auch Modelle, die Sie später hinzufügen. Modelle mit angehängten Werkzeugen sind ausgenommen. Der Schlüssel erreicht sonst nichts: keine Einstellungen, keine Dateien, keinen anderen Teil der API."
+        "title": "Nur Modelle, sonst nichts.",
+        "body": "Das andere LocalAI erhält einen API-Schlüssel für die Modelle, die Sie unten wählen: alle, auch Modelle, die Sie später hinzufügen, oder eine Liste. Modelle mit angehängten Werkzeugen sind ausgenommen. Der Schlüssel erreicht sonst nichts: keine Einstellungen, keine Dateien, keinen anderen Teil der API."
       },
       "worker": {
         "title": "Ein Knoten für diesen Cluster.",
@@ -68,6 +68,24 @@
       "worker": "gpu-box-5"
     },
     "labelHint": "Wird unter Geräte und Einladungen angezeigt.",
+    "models": {
+      "label": "Modelle",
+      "all": "Alle Modelle",
+      "specific": "Modelle auswählen",
+      "allHint": "Der Schlüssel kann jedes Modell dieser Instanz nutzen, auch Modelle, die Sie später hinzufügen.",
+      "specificHint": "Der Schlüssel kann nur die angehakten Modelle nutzen. Ein Modell mit angehängten Werkzeugen kann nicht geteilt werden.",
+      "loading": "Modelle werden geladen…",
+      "loadFailed": "Die Modelle konnten nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "empty": "Diese Instanz hat noch kein Modell zum Teilen.",
+      "search": "Modelle suchen",
+      "noMatch": "Kein Modell passt.",
+      "selected_one": "{{count}} Modell ausgewählt",
+      "selected_other": "{{count}} Modelle ausgewählt",
+      "reason": {
+        "noModels": "Wählen Sie mindestens ein Modell oder wählen Sie Alle Modelle."
+      }
+    },
     "expires": "Läuft ab nach",
     "singleUseHint": "Jede Einladung funktioniert nur einmal.",
     "nothingYet": "Es wird nichts erstellt, bis Sie auf Einladung erstellen klicken.",
@@ -119,7 +137,11 @@
       "passNone": "Keiner",
       "public": "Öffentliche Adresse",
       "publicYes": "Ja",
-      "publicNo": "Keine (hinter NAT)"
+      "publicNo": "Keine (hinter NAT)",
+      "models": "Modelle",
+      "modelsAll": "Alle Modelle",
+      "modelsSome_one": "{{count}} Modell",
+      "modelsSome_other": "{{count}} Modelle"
     },
     "admission": {
       "title": "Nur P2P-Zugang.",
@@ -393,5 +415,10 @@
       "noModels": "Noch keine Instanz hat ein Modell. Füge zuerst unter Modelle, Gegenstellen eine Gegenstelle hinzu.",
       "save": "Speichern"
     }
+  },
+  "grant": {
+    "all": "Alle Modelle",
+    "some_one": "{{count}} Modell",
+    "some_other": "{{count}} Modelle"
   }
 }

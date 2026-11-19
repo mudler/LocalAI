@@ -26,7 +26,7 @@
     },
     "remote": {
       "title": "远程",
-      "body": "另一台 LocalAI 使用此实例的所有模型。"
+      "body": "另一台 LocalAI 使用此实例的模型，可以是全部，也可以是你选择的模型。"
     },
     "worker": {
       "title": "Worker",
@@ -53,8 +53,8 @@
         "body": "设备邀请让设备可以访问此实例。用户仍需用自己的账号登录网页界面。"
       },
       "remote": {
-        "title": "所有模型，别无其他。",
-        "body": "另一台 LocalAI 会得到一个 API 密钥，可以使用此实例的每个模型，包括你以后添加的模型。附带工具的模型除外。该密钥不能访问其他任何内容：没有设置，没有文件，也没有 API 的其他部分。"
+        "title": "只有模型，别无其他。",
+        "body": "另一台 LocalAI 会得到一个 API 密钥，用于你在下面选择的模型：全部模型（包括你以后添加的模型），或一个列表。附带工具的模型除外。该密钥不能访问其他任何内容：没有设置，没有文件，也没有 API 的其他部分。"
       },
       "worker": {
         "title": "用于此集群的节点。",
@@ -68,6 +68,24 @@
       "worker": "gpu-box-5"
     },
     "labelHint": "显示在“设备和邀请”中。",
+    "models": {
+      "label": "模型",
+      "all": "所有模型",
+      "specific": "选择模型",
+      "allHint": "该密钥可以使用此实例的每个模型，包括你以后添加的模型。",
+      "specificHint": "该密钥只能使用你勾选的模型。附带工具的模型不能共享。",
+      "loading": "正在加载模型…",
+      "loadFailed": "无法加载模型。",
+      "retry": "重试",
+      "empty": "此实例还没有可共享的模型。",
+      "search": "搜索模型",
+      "noMatch": "没有匹配的模型。",
+      "selected_one": "已选择 {{count}} 个模型",
+      "selected_other": "已选择 {{count}} 个模型",
+      "reason": {
+        "noModels": "请至少选择一个模型，或选择所有模型。"
+      }
+    },
     "expires": "有效期",
     "singleUseHint": "每个邀请只能使用一次。",
     "nothingYet": "点击“生成邀请”之前不会创建任何内容。",
@@ -119,7 +137,11 @@
       "passNone": "无",
       "public": "公网地址",
       "publicYes": "有",
-      "publicNo": "无（位于 NAT 之后）"
+      "publicNo": "无（位于 NAT 之后）",
+      "models": "模型",
+      "modelsAll": "所有模型",
+      "modelsSome_one": "{{count}} 个模型",
+      "modelsSome_other": "{{count}} 个模型"
     },
     "admission": {
       "title": "仅 P2P 准入。",
@@ -393,5 +415,10 @@
       "noModels": "还没有实例拥有模型。请先在“模型 > 远程”中添加远程。",
       "save": "保存"
     }
+  },
+  "grant": {
+    "all": "所有模型",
+    "some_one": "{{count}} 个模型",
+    "some_other": "{{count}} 个模型"
   }
 }

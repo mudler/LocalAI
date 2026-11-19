@@ -87,11 +87,11 @@ func (i *clientKeyIssuer) Issue(_ context.Context, tx p2ppair.Tx, inv p2ppair.In
 	}
 	secret := i.app.ApplicationConfig().Auth.APIKeyHMACSecret
 	// A remote always uses models: the list of the invite limits them, and an
-	// invite without a list shares every model a client key may use, as the
-	// admin who shares the server means.
+	// invite with all_models or without a list shares every model a client key
+	// may use, as the admin who shares the server means.
 	features := []string{auth.FeatureClientSelf, auth.FeatureClientInference}
 	opts := []auth.PairingOption{auth.WithModelCheck(i.app.ModelConfigLoader().ClientModelProblem)}
-	if len(inv.Scope.Models) > 0 {
+	if len(inv.Scope.Models) > 0 && !inv.Scope.AllModels {
 		opts = append(opts, auth.WithModels(inv.Scope.Models))
 	} else {
 		opts = append(opts, auth.WithAllModels())
