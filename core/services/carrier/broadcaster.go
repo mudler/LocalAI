@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/xlog"
+
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
@@ -208,6 +210,10 @@ func (b *Broadcaster) Listen(next *Set) error {
 	return nil
 }
 
+// releaseWait is the longest Release waits for the publishes that run on the
+// set it detaches.
+var releaseWait = 10 * time.Second
+
 // Release detaches every subscription from old. It refuses the active set.
 // Releasing a set that is not attached does nothing.
 func (b *Broadcaster) Release(old *Set) error {
@@ -236,7 +242,15 @@ func (b *Broadcaster) Release(old *Set) error {
 	// A publish that loaded old before the pointer moved may still run on it.
 	// Its handlers are detached only when it is done, or the message is lost. A
 	// publish that starts now sees the flag and uses the current set.
+	// The wait is bounded: a publish that never ends would otherwise hold the
+	// release, the swapper and the shutdown for ever.
+	deadline := time.Now().Add(releaseWait)
 	for old.publishing.Load() != 0 {
+		if time.Now().After(deadline) {
+			xlog.Warn("A publish did not end before its carrier was released; detaching the subscriptions anyway",
+				"carrier", old.Name, "wait", releaseWait)
+			break
+		}
 		time.Sleep(time.Millisecond)
 	}
 

@@ -60,8 +60,15 @@ type SwapperOptions struct {
 	// Settle is how long a released set stays open, for the calls that took it
 	// just before the pointer and the window moved. Twice the interval when zero.
 	Settle time.Duration
-	Meter  metric.Meter
+	// BuildTimeout bounds one call of Build, DefaultBuildTimeout when zero. A
+	// build that hangs, on a dial for example, holds the lock of the swapper
+	// and so every poll and Close.
+	BuildTimeout time.Duration
+	Meter        metric.Meter
 }
+
+// DefaultBuildTimeout is the longest a carrier may take to build.
+const DefaultBuildTimeout = 45 * time.Second
 
 // Swapper is what a replica does in a change of carrier. It follows the row:
 //
@@ -91,6 +98,11 @@ type Swapper struct {
 	}
 	prepareSeen time.Time
 	closed      bool
+
+	// life ends when Close starts. Reconcile runs under it, so a call that
+	// hangs on a dial or on a report is cancelled and Close can take mu.
+	life     context.Context
+	stopLife context.CancelFunc
 
 	wake     chan struct{}
 	done     chan struct{}
@@ -122,11 +134,15 @@ func NewSwapper(o SwapperOptions) (*Swapper, error) {
 	if o.Settle <= 0 {
 		o.Settle = 2 * o.Interval
 	}
+	if o.BuildTimeout <= 0 {
+		o.BuildTimeout = DefaultBuildTimeout
+	}
 	s := &Swapper{
 		o:    o,
 		wake: make(chan struct{}, 1),
 		done: make(chan struct{}),
 	}
+	s.life, s.stopLife = context.WithCancel(context.Background())
 	s.registerMetrics()
 	return s, nil
 }
@@ -237,6 +253,12 @@ func (s *Swapper) Poll(ctx context.Context) error {
 
 // Reconcile acts on one reading of the row. Calls are serialised.
 func (s *Swapper) Reconcile(ctx context.Context, row cluster.CarrierRow) error {
+	// Close cancels s.life before it takes mu, so a Reconcile that waits on a
+	// dial or on a report does not make Close wait for it.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stop := context.AfterFunc(s.life, cancel)
+	defer stop()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -313,7 +335,9 @@ func (s *Swapper) attach(ctx context.Context, row cluster.CarrierRow, target clu
 			closeSet(s.dropListening(stale))
 		}
 	}
-	set, err := s.o.Build(ctx, row, target)
+	bctx, cancel := context.WithTimeout(ctx, s.o.BuildTimeout)
+	defer cancel()
+	set, err := s.o.Build(bctx, row, target)
 	if err != nil {
 		return nil, err
 	}
@@ -477,6 +501,7 @@ const closeGrace = 10 * time.Second
 // the background. The set in use is closed by whoever built it, after this
 // returns. It is safe to call more than once.
 func (s *Swapper) Close() {
+	s.stopLife()
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
