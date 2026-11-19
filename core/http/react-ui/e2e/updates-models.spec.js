@@ -70,7 +70,7 @@ test.describe('Updates page: models', () => {
     await expect(rowOf(page, 'phi-4').getByTestId('update-row-chip')).toContainText('Held')
     await expect(rowOf(page, 'phi-4')).toContainText('Held at this version. The gallery has a newer one.')
     await expect(rowOf(page, 'phi-4').getByRole('button', { name: 'Release the hold on phi-4' })).toBeVisible()
-    await expect(rowOf(page, 'old-model')).toContainText('Install it again from the gallery')
+    await expect(rowOf(page, 'old-model')).toContainText('Adopt it to get updates')
     await expect(rowOf(page, 'old-model').getByTestId('update-row-chip')).toContainText('Not known')
     await expect(rowOf(page, 'retired').getByTestId('update-row-chip')).toContainText('Not in the gallery')
     await expect(rowOf(page, 'gemma-3')).toContainText('The old version stays on disk (2 files)')

@@ -309,7 +309,7 @@
       "files_other": "{{count}} 个文件有变化。",
       "held": "已锁定在此版本。",
       "heldNewer": "已锁定在此版本。图库中有更新的版本。",
-      "legacy": "安装时 LocalAI 尚未记录模型来源。请从图库重新安装以获取更新。",
+      "legacy": "LocalAI 没有记录此模型的来源。采用它即可获取更新。你的配置不会改变。",
       "notChecked": "尚未检查。",
       "checkFailed": "检查无法读取图库条目：{{message}}",
       "unreadable": "无法读取模型文件：{{message}}",
@@ -325,7 +325,9 @@
       "hold": "锁定此版本",
       "release": "解除锁定",
       "releaseNamed": "解除 {{name}} 的锁定",
-      "more": "{{name}} 的更多操作"
+      "more": "{{name}} 的更多操作",
+      "adopt": "采用",
+      "adoptNamed": "采用 {{name}}"
     },
     "dialog": {
       "title": "升级 {{name}}？",
@@ -383,13 +385,25 @@
       "removed_one": "{{name}}：已删除 {{count}} 个旧文件。",
       "removed_other": "{{name}}：已删除 {{count}} 个旧文件。",
       "held": "{{name}} 已锁定在此版本。",
-      "released": "{{name}} 已解除锁定。"
+      "released": "{{name}} 已解除锁定。",
+      "adopted": "已从图库 {{gallery}} 采用 {{name}}。LocalAI 现在会检查其更新。",
+      "adoptedDiffers": "已从图库 {{gallery}} 采用 {{name}}。其文件与图库条目不同，因此会提供更新。",
+      "adoptedNoCheck": "已采用 {{name}}，但更新检查失败：{{message}}",
+      "adoptFailed": "无法采用 {{name}}：{{message}}"
     },
     "card": {
       "title": "更新",
       "current": "已是最新",
       "open": "打开更新",
       "holdHint": "在你关闭此项之前，不为该模型提供更新。"
+    },
+    "adopt": {
+      "title": "采用 {{name}}",
+      "intro": "有多个图库列出了此模型。请选择它来自的条目。",
+      "legend": "图库条目",
+      "gallery": "图库 {{gallery}}",
+      "after": "LocalAI 会记录该条目并检查其更新。你的配置不会改变。",
+      "failed": "无法采用：{{message}}"
     }
   }
 }

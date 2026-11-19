@@ -309,7 +309,7 @@
       "files_other": "{{count}} fichiers changent.",
       "held": "Bloqué sur cette version.",
       "heldNewer": "Bloqué sur cette version. La galerie en propose une plus récente.",
-      "legacy": "Installé avant que LocalAI n'enregistre l'origine des modèles. Installez-le à nouveau depuis la galerie pour recevoir les mises à jour.",
+      "legacy": "LocalAI n'a pas enregistré l'origine de ce modèle. Adoptez-le pour recevoir les mises à jour. Votre configuration ne change pas.",
       "notChecked": "Pas encore vérifié.",
       "checkFailed": "La vérification n'a pas pu lire l'entrée de la galerie : {{message}}",
       "unreadable": "Les fichiers du modèle sont illisibles : {{message}}",
@@ -325,7 +325,9 @@
       "hold": "Bloquer cette version",
       "release": "Débloquer",
       "releaseNamed": "Débloquer {{name}}",
-      "more": "Plus d'actions pour {{name}}"
+      "more": "Plus d'actions pour {{name}}",
+      "adopt": "Adopter",
+      "adoptNamed": "Adopter {{name}}"
     },
     "dialog": {
       "title": "Mettre à niveau {{name}} ?",
@@ -383,13 +385,25 @@
       "removed_one": "{{name}} : {{count}} ancien fichier supprimé.",
       "removed_other": "{{name}} : {{count}} anciens fichiers supprimés.",
       "held": "{{name}} est bloqué sur cette version.",
-      "released": "{{name}} n'est plus bloqué."
+      "released": "{{name}} n'est plus bloqué.",
+      "adopted": "{{name}} adopté depuis la galerie {{gallery}}. LocalAI vérifie maintenant ses mises à jour.",
+      "adoptedDiffers": "{{name}} adopté depuis la galerie {{gallery}}. Ses fichiers diffèrent de l'entrée de la galerie, donc une mise à jour est proposée.",
+      "adoptedNoCheck": "{{name}} adopté, mais la vérification des mises à jour a échoué : {{message}}",
+      "adoptFailed": "{{name}} n'a pas pu être adopté : {{message}}"
     },
     "card": {
       "title": "Mises à jour",
       "current": "À jour",
       "open": "Ouvrir les mises à jour",
       "holdHint": "Ne proposer aucune mise à jour pour ce modèle tant que cette option est activée."
+    },
+    "adopt": {
+      "title": "Adopter {{name}}",
+      "intro": "Plusieurs galeries listent ce modèle. Choisissez l'entrée dont il provient.",
+      "legend": "Entrées de la galerie",
+      "gallery": "Galerie {{gallery}}",
+      "after": "LocalAI enregistre l'entrée et vérifie ses mises à jour. Votre configuration ne change pas.",
+      "failed": "Adoption impossible : {{message}}"
     }
   }
 }

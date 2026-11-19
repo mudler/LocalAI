@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  canHold, conflictKeys, fileSummary, missingChoices, modelIndicator, modelRow, modelRows, modelRowsByName,
+  adoptBody, adoptCandidates, canAdopt, canHold, conflictKeys, fileSummary, missingChoices, modelIndicator, modelRow, modelRows, modelRowsByName,
   modelSource, opForModel, upgradeBody, valueText,
 } from '../../src/utils/modelUpdates.js'
 import {
@@ -163,4 +163,34 @@ test('models page: the indicator and the hold switch follow the row', () => {
   assert.equal(canHold(by.a), true)
   assert.equal(canHold(by.e), false, 'no recorded origin, no hold')
   assert.equal(canHold({ ...by.a, state: 'updating' }), false)
+})
+
+test('adopt: only a model with no recorded origin can be adopted', () => {
+  const row = (state, extra = {}) => modelRow(item('m', state, { availableDigest: '', ...extra }))
+  assert.equal(canAdopt(row('unknown', { reason: 'legacy-sidecar' })), true)
+  for (const reason of ['unreadable', 'not-checked', 'check-failed', '']) {
+    assert.equal(canAdopt(row('unknown', { reason })), false, reason)
+  }
+  for (const state of ['update-available', 'edited', 'failed', 'held', 'gone', 'up-to-date']) {
+    assert.equal(canAdopt(row(state, { reason: 'legacy-sidecar' })), false, state)
+  }
+  assert.equal(canAdopt(null), false)
+  assert.equal(canAdopt({ kind: 'gallery', state: 'unknown', reason: 'legacy-sidecar' }), false)
+})
+
+test('adopt: the candidates of a refusal split into gallery and entry', () => {
+  assert.deepEqual(adoptCandidates({ candidates: ['localai@qwen3-4b', 'community@qwen3-4b-instruct', 'localai@qwen3-4b', '', 7] }), [
+    { id: 'localai@qwen3-4b', gallery: 'localai', entry: 'qwen3-4b' },
+    { id: 'community@qwen3-4b-instruct', gallery: 'community', entry: 'qwen3-4b-instruct' },
+  ])
+  assert.deepEqual(adoptCandidates({ candidates: ['plain'] }), [{ id: 'plain', gallery: '', entry: 'plain' }])
+  assert.deepEqual(adoptCandidates({ candidates: ['a@b@c'] }), [{ id: 'a@b@c', gallery: 'a', entry: 'b@c' }])
+  assert.deepEqual(adoptCandidates({ error: 'x' }), [])
+  assert.deepEqual(adoptCandidates(null), [])
+})
+
+test('adopt: the body names the gallery and the entry only when picked', () => {
+  assert.deepEqual(adoptBody(null), {})
+  assert.deepEqual(adoptBody({ gallery: 'localai', entry: 'qwen3-4b' }), { gallery: 'localai', entry: 'qwen3-4b' })
+  assert.deepEqual(adoptBody({ gallery: '', entry: 'qwen3-4b' }), { entry: 'qwen3-4b' })
 })

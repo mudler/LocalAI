@@ -202,3 +202,35 @@ export function canHold(row) {
   if (row.state === 'unknown' && (row.reason === 'legacy-sidecar' || row.reason === 'unreadable')) return false
   return true
 }
+
+// Whether a model can be adopted: it was installed by a release that did not
+// record where it came from (unknown, reason legacy-sidecar).
+export function canAdopt(row) {
+  return Boolean(row && row.kind === 'model' && row.state === 'unknown' && row.reason === 'legacy-sidecar')
+}
+
+// The candidates of a refused adoption, from err.body.candidates
+// ("gallery@entry" each), as { id, gallery, entry }. A string with no "@" is
+// kept as an entry with no gallery name. Duplicates and blanks are dropped.
+export function adoptCandidates(body) {
+  const list = body && Array.isArray(body.candidates) ? body.candidates : []
+  const seen = new Set()
+  const out = []
+  for (const raw of list) {
+    if (typeof raw !== 'string' || !raw.trim() || seen.has(raw)) continue
+    seen.add(raw)
+    const at = raw.indexOf('@')
+    out.push(at < 0 ? { id: raw, gallery: '', entry: raw } : { id: raw, gallery: raw.slice(0, at), entry: raw.slice(at + 1) })
+  }
+  return out
+}
+
+// The body of POST /api/models/:name/adopt. Without a pick the server finds
+// the entry by itself; a pick names the gallery and the entry.
+export function adoptBody(pick) {
+  if (!pick) return {}
+  const body = {}
+  if (pick.gallery) body.gallery = pick.gallery
+  if (pick.entry) body.entry = pick.entry
+  return body
+}

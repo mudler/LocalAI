@@ -174,6 +174,7 @@ export async function mockUpdates(page, options = {}) {
     const refused = state.modelReply ? state.modelReply(action, name, body, state) : null
     if (refused) return route.fulfill({ status: refused.status, json: refused.json })
     if (action === 'remove-old') return route.fulfill({ json: { name, removed: ['old-1.gguf', 'old-2.gguf'] } })
+    if (action === 'adopt') return route.fulfill({ json: { name, gallery: body.gallery || 'localai', entry: body.entry || name, filesMatch: true } })
     if (action === 'hold') return route.fulfill({ json: { name, hold: Boolean(body.hold) } })
     return route.fulfill({ json: { id: `job-${name}`, jobID: `job-${name}`, status_url: `/models/jobs/job-${name}`, message: 'Upgrade started' } })
   }
@@ -181,6 +182,7 @@ export async function mockUpdates(page, options = {}) {
   await page.route(/\/api\/models\/[^/]+\/upgrade\/retry$/, modelAction('retry'))
   await page.route(/\/api\/models\/[^/]+\/remove-old$/, modelAction('remove-old'))
   await page.route(/\/api\/models\/[^/]+\/hold$/, modelAction('hold'))
+  await page.route(/\/api\/models\/[^/]+\/adopt$/, modelAction('adopt'))
   if (state.loaded) {
     await page.route('**/system', route => route.fulfill({ json: { backends: [], loaded_models: state.loaded } }))
   }

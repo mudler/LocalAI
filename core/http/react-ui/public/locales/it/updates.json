@@ -309,7 +309,7 @@
       "files_other": "Cambiano {{count}} file.",
       "held": "Bloccato su questa versione.",
       "heldNewer": "Bloccato su questa versione. La galleria ne ha una più recente.",
-      "legacy": "Installato prima che LocalAI registrasse da dove vengono i modelli. Installalo di nuovo dalla galleria per ricevere gli aggiornamenti.",
+      "legacy": "LocalAI non ha registrato da dove viene questo modello. Adottalo per ricevere gli aggiornamenti. La tua configurazione non cambia.",
       "notChecked": "Non ancora controllato.",
       "checkFailed": "Il controllo non ha potuto leggere la voce della galleria: {{message}}",
       "unreadable": "Non è stato possibile leggere i file del modello: {{message}}",
@@ -325,7 +325,9 @@
       "hold": "Blocca questa versione",
       "release": "Sblocca",
       "releaseNamed": "Sblocca {{name}}",
-      "more": "Altre azioni per {{name}}"
+      "more": "Altre azioni per {{name}}",
+      "adopt": "Adotta",
+      "adoptNamed": "Adotta {{name}}"
     },
     "dialog": {
       "title": "Aggiornare {{name}}?",
@@ -383,13 +385,25 @@
       "removed_one": "{{name}}: {{count}} file vecchio rimosso.",
       "removed_other": "{{name}}: {{count}} file vecchi rimossi.",
       "held": "{{name}} è bloccato su questa versione.",
-      "released": "{{name}} non è più bloccato."
+      "released": "{{name}} non è più bloccato.",
+      "adopted": "{{name}} adottato dalla galleria {{gallery}}. LocalAI ora ne controlla gli aggiornamenti.",
+      "adoptedDiffers": "{{name}} adottato dalla galleria {{gallery}}. I suoi file differiscono dalla voce della galleria, quindi viene proposto un aggiornamento.",
+      "adoptedNoCheck": "{{name}} adottato, ma il controllo degli aggiornamenti non è riuscito: {{message}}",
+      "adoptFailed": "Impossibile adottare {{name}}: {{message}}"
     },
     "card": {
       "title": "Aggiornamenti",
       "current": "Aggiornato",
       "open": "Apri Aggiornamenti",
       "holdHint": "Non proporre aggiornamenti per questo modello finché non disattivi questa opzione."
+    },
+    "adopt": {
+      "title": "Adotta {{name}}",
+      "intro": "Più gallerie elencano questo modello. Scegli la voce da cui viene.",
+      "legend": "Voci della galleria",
+      "gallery": "Galleria {{gallery}}",
+      "after": "LocalAI registra la voce e ne controlla gli aggiornamenti. La tua configurazione non cambia.",
+      "failed": "Impossibile adottare: {{message}}"
     }
   }
 }

@@ -156,6 +156,9 @@ export const modelsApi = {
   upgrade: (name, body = {}) => postJSON(API_CONFIG.endpoints.modelUpgrade(name), body),
   retryUpgrade: (name) => postJSON(API_CONFIG.endpoints.modelUpgradeRetry(name), {}),
   removeOld: (name) => postJSON(API_CONFIG.endpoints.modelRemoveOld(name), {}),
+  // body: {} or { gallery, entry }. A 409 with `candidates` ("gallery@entry")
+  // in err.body means more than one gallery lists the model. It runs no check.
+  adopt: (name, body = {}) => postJSON(API_CONFIG.endpoints.modelAdopt(name), body),
   setHold: (name, hold) => fetchJSON(API_CONFIG.endpoints.modelHold(name), { method: 'PUT', body: JSON.stringify({ hold: Boolean(hold) }) }),
 }
 

@@ -196,8 +196,73 @@ export default function ModelUpgradeDialog({ row, start, onClose }) {
   )
 }
 
+// The choice of an adoption that more than one gallery entry matches: the
+// server listed the candidates (gallery and entry). Nothing is recorded until
+// one is chosen and confirmed. `confirm(pick)` resolves, or rejects with the
+// API error, which the dialog shows.
+export function ModelAdoptDialog({ row, candidates, confirm, onClose }) {
+  const { t } = useTranslation('updates')
+  const [choice, setChoice] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+  const picked = candidates.find(c => c.id === choice)
+
+  const submit = async () => {
+    if (!picked || pending) return
+    setPending(true)
+    setError('')
+    try {
+      await confirm({ gallery: picked.gallery, entry: picked.entry })
+      onClose()
+    } catch (e) {
+      setError(t('model.adopt.failed', { message: (e && e.message) || t('row.noReason') }))
+      setPending(false)
+    }
+  }
+
+  const foot = (
+    <>
+      <Button data-autofocus onClick={onClose} disabled={pending} data-testid="model-adopt-cancel">{t('node.cancel')}</Button>
+      <Button variant="primary" icon="link" busy={pending} disabled={pending || !picked} onClick={submit} data-testid="model-adopt-confirm">
+        {t('model.action.adopt')}
+      </Button>
+    </>
+  )
+
+  return (
+    <Dialog
+      title={t('model.adopt.title', { name: row.name })}
+      description={t('model.adopt.intro')}
+      onClose={onClose}
+      closeLabel={t('dialog.close')}
+      role="alertdialog"
+      pending={pending}
+      testId="model-adopt-dialog"
+      labelId="model-adopt-title"
+      foot={foot}
+    >
+      <div className="mu-body">
+        <fieldset className="mu-adopt" disabled={pending}>
+          <legend className="mu-title">{t('model.adopt.legend', { count: candidates.length })}</legend>
+          {candidates.map(c => (
+            <label key={c.id} className="mu-adopt__opt" data-testid="model-adopt-option" data-candidate={c.id}>
+              <input type="radio" name="mu-adopt" value={c.id} checked={choice === c.id} onChange={() => setChoice(c.id)} />
+              <span className="mu-key__text">
+                <span className="mu-key__label">{c.entry}</span>
+                {c.gallery && <span className="mu-note">{t('model.adopt.gallery', { gallery: c.gallery })}</span>}
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <p className="mu-note">{t('model.adopt.after')}</p>
+        {error && <Callout tone="error" role="alert" testId="model-adopt-error">{error}</Callout>}
+      </div>
+    </Dialog>
+  )
+}
+
 // The dialogs of the model actions (useModelUpgradeActions): the upgrade
-// confirmation and the confirmation of "Remove old version", which deletes
+// confirmation, the adoption choice and the confirmation of "Remove old version", which deletes
 // files.
 export function ModelActionDialogs({ model }) {
   const { t } = useTranslation('updates')
@@ -205,6 +270,9 @@ export function ModelActionDialogs({ model }) {
   const rm = model.removing
   return (
     <>
+      {model.adopting && (
+        <ModelAdoptDialog key={model.adopting.row.id} row={model.adopting.row} candidates={model.adopting.candidates} confirm={model.confirmAdopt} onClose={model.closeAdopt} />
+      )}
       {row && <ModelUpgradeDialog key={row.id} row={row} start={(body) => model.start(row, body)} onClose={model.closeConfirm} />}
       <ConfirmDialog
         open={Boolean(rm)}

@@ -309,7 +309,7 @@
       "files_other": "{{count}} berkas berubah.",
       "held": "Ditahan di versi ini.",
       "heldNewer": "Ditahan di versi ini. Galeri punya versi yang lebih baru.",
-      "legacy": "Dipasang sebelum LocalAI mencatat asal model. Pasang lagi dari galeri untuk mendapat pembaruan.",
+      "legacy": "LocalAI tidak mencatat asal model ini. Adopsi model ini untuk mendapat pembaruan. Konfigurasi Anda tidak berubah.",
       "notChecked": "Belum diperiksa.",
       "checkFailed": "Pemeriksaan tidak bisa membaca entri galeri: {{message}}",
       "unreadable": "Berkas model tidak bisa dibaca: {{message}}",
@@ -325,7 +325,9 @@
       "hold": "Tahan versi ini",
       "release": "Lepas penahanan",
       "releaseNamed": "Lepas penahanan {{name}}",
-      "more": "Tindakan lain untuk {{name}}"
+      "more": "Tindakan lain untuk {{name}}",
+      "adopt": "Adopsi",
+      "adoptNamed": "Adopsi {{name}}"
     },
     "dialog": {
       "title": "Perbarui {{name}}?",
@@ -383,13 +385,25 @@
       "removed_one": "{{name}}: {{count}} berkas lama dihapus.",
       "removed_other": "{{name}}: {{count}} berkas lama dihapus.",
       "held": "{{name}} ditahan di versi ini.",
-      "released": "{{name}} tidak lagi ditahan."
+      "released": "{{name}} tidak lagi ditahan.",
+      "adopted": "{{name}} diadopsi dari galeri {{gallery}}. LocalAI kini memeriksa pembaruannya.",
+      "adoptedDiffers": "{{name}} diadopsi dari galeri {{gallery}}. Filenya berbeda dari entri galeri, jadi pembaruan ditawarkan.",
+      "adoptedNoCheck": "{{name}} diadopsi, tetapi pemeriksaan pembaruan gagal: {{message}}",
+      "adoptFailed": "{{name}} tidak dapat diadopsi: {{message}}"
     },
     "card": {
       "title": "Pembaruan",
       "current": "Terbaru",
       "open": "Buka Pembaruan",
       "holdHint": "Jangan tawarkan pembaruan untuk model ini sampai Anda mematikan ini."
+    },
+    "adopt": {
+      "title": "Adopsi {{name}}",
+      "intro": "Lebih dari satu galeri memuat model ini. Pilih entri asalnya.",
+      "legend": "Entri galeri",
+      "gallery": "Galeri {{gallery}}",
+      "after": "LocalAI mencatat entri itu dan memeriksa pembaruannya. Konfigurasi Anda tidak berubah.",
+      "failed": "Tidak dapat mengadopsi: {{message}}"
     }
   }
 }

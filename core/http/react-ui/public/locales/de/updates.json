@@ -309,7 +309,7 @@
       "files_other": "{{count}} Dateien ändern sich.",
       "held": "Auf dieser Version gehalten.",
       "heldNewer": "Auf dieser Version gehalten. Die Galerie hat eine neuere.",
-      "legacy": "Installiert, bevor LocalAI die Herkunft von Modellen speicherte. Installieren Sie es erneut aus der Galerie, um Updates zu erhalten.",
+      "legacy": "LocalAI hat nicht gespeichert, woher dieses Modell stammt. Übernehmen Sie es, um Updates zu erhalten. Ihre Konfiguration bleibt unverändert.",
       "notChecked": "Noch nicht geprüft.",
       "checkFailed": "Die Prüfung konnte den Galerie-Eintrag nicht lesen: {{message}}",
       "unreadable": "Die Modelldateien konnten nicht gelesen werden: {{message}}",
@@ -325,7 +325,9 @@
       "hold": "Diese Version halten",
       "release": "Nicht mehr halten",
       "releaseNamed": "{{name}} nicht mehr halten",
-      "more": "Weitere Aktionen für {{name}}"
+      "more": "Weitere Aktionen für {{name}}",
+      "adopt": "Übernehmen",
+      "adoptNamed": "{{name}} übernehmen"
     },
     "dialog": {
       "title": "{{name}} upgraden?",
@@ -383,13 +385,25 @@
       "removed_one": "{{name}}: {{count}} alte Datei entfernt.",
       "removed_other": "{{name}}: {{count}} alte Dateien entfernt.",
       "held": "{{name}} wird auf dieser Version gehalten.",
-      "released": "{{name}} wird nicht mehr gehalten."
+      "released": "{{name}} wird nicht mehr gehalten.",
+      "adopted": "{{name}} aus der Galerie {{gallery}} übernommen. LocalAI prüft es jetzt auf Updates.",
+      "adoptedDiffers": "{{name}} aus der Galerie {{gallery}} übernommen. Die Dateien weichen vom Galerie-Eintrag ab, daher wird ein Update angeboten.",
+      "adoptedNoCheck": "{{name}} übernommen, aber die Update-Prüfung ist fehlgeschlagen: {{message}}",
+      "adoptFailed": "{{name}} konnte nicht übernommen werden: {{message}}"
     },
     "card": {
       "title": "Updates",
       "current": "Aktuell",
       "open": "Updates öffnen",
       "holdHint": "Für dieses Modell kein Update anbieten, bis Sie dies ausschalten."
+    },
+    "adopt": {
+      "title": "{{name}} übernehmen",
+      "intro": "Mehrere Galerien führen dieses Modell. Wählen Sie den Eintrag, aus dem es stammt.",
+      "legend": "Galerie-Einträge",
+      "gallery": "Galerie {{gallery}}",
+      "after": "LocalAI speichert den Eintrag und prüft ihn auf Updates. Ihre Konfiguration bleibt unverändert.",
+      "failed": "Übernahme nicht möglich: {{message}}"
     }
   }
 }

@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, EmptyState, LoadError, Segmented, SkeletonRows } from '../components/ui'
 import PageHeader from '../components/PageHeader'
@@ -69,7 +69,8 @@ function UpdatesPage({ updates }) {
   const narrow = useNarrow()
   const actions = useUpdateActions({ updates })
   const { bulk } = actions
-  const model = useModelUpgradeActions({ readModels: updates.readModels })
+  const outlet = useOutletContext()
+  const model = useModelUpgradeActions({ readModels: updates.readModels, addToast: outlet && outlet.addToast })
 
   // The installed backends, for the ones that are known to be current. Read
   // again when a check answers.

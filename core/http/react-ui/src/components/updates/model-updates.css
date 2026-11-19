@@ -32,6 +32,13 @@
 .mu-key__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mu-key__label { font-size: var(--text-sm); }
 
+.mu-adopt { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.mu-adopt .mu-title { padding: 0; margin-bottom: var(--sp-1); }
+.mu-adopt__opt { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; padding: var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-md); cursor: pointer; }
+.mu-adopt__opt:has(input:checked) { border-color: var(--dk-accent); }
+.mu-adopt__opt input { margin-top: 3px; flex: none; }
+.mu-adopt__opt .mu-key__label { overflow-wrap: anywhere; }
+
 .mu-foot-note { margin-inline-end: auto; font-size: var(--text-xs); color: var(--dk-warn-text); align-self: center; }
 
 /* The update state of a model in the Models inspector. */

@@ -309,7 +309,7 @@
       "files_other": "파일 {{count}}개가 바뀝니다.",
       "held": "이 버전에 고정되어 있습니다.",
       "heldNewer": "이 버전에 고정되어 있습니다. 갤러리에 더 새로운 버전이 있습니다.",
-      "legacy": "LocalAI가 모델 출처를 기록하기 전에 설치되었습니다. 업데이트를 받으려면 갤러리에서 다시 설치하세요.",
+      "legacy": "LocalAI가 이 모델의 출처를 기록하지 않았습니다. 업데이트를 받으려면 등록하세요. 설정은 바뀌지 않습니다.",
       "notChecked": "아직 확인하지 않았습니다.",
       "checkFailed": "갤러리 항목을 읽지 못했습니다: {{message}}",
       "unreadable": "모델 파일을 읽지 못했습니다: {{message}}",
@@ -325,7 +325,9 @@
       "hold": "이 버전에 고정",
       "release": "고정 해제",
       "releaseNamed": "{{name}} 고정 해제",
-      "more": "{{name}} 작업 더 보기"
+      "more": "{{name}} 작업 더 보기",
+      "adopt": "등록",
+      "adoptNamed": "{{name}} 등록"
     },
     "dialog": {
       "title": "{{name}}을(를) 업그레이드할까요?",
@@ -383,13 +385,25 @@
       "removed_one": "{{name}}: 이전 파일 {{count}}개를 제거했습니다.",
       "removed_other": "{{name}}: 이전 파일 {{count}}개를 제거했습니다.",
       "held": "{{name}}을(를) 이 버전에 고정했습니다.",
-      "released": "{{name}} 고정을 해제했습니다."
+      "released": "{{name}} 고정을 해제했습니다.",
+      "adopted": "{{name}}을(를) 갤러리 {{gallery}}에서 등록했습니다. 이제 LocalAI가 업데이트를 확인합니다.",
+      "adoptedDiffers": "{{name}}을(를) 갤러리 {{gallery}}에서 등록했습니다. 파일이 갤러리 항목과 달라 업데이트가 제공됩니다.",
+      "adoptedNoCheck": "{{name}}을(를) 등록했지만 업데이트 확인에 실패했습니다: {{message}}",
+      "adoptFailed": "{{name}}을(를) 등록하지 못했습니다: {{message}}"
     },
     "card": {
       "title": "업데이트",
       "current": "최신",
       "open": "업데이트 열기",
       "holdHint": "이 설정을 끌 때까지 이 모델에 업데이트를 제안하지 않습니다."
+    },
+    "adopt": {
+      "title": "{{name}} 등록",
+      "intro": "이 모델을 목록에 둔 갤러리가 여러 개입니다. 모델의 출처 항목을 고르세요.",
+      "legend": "갤러리 항목",
+      "gallery": "갤러리 {{gallery}}",
+      "after": "LocalAI가 항목을 기록하고 업데이트를 확인합니다. 설정은 바뀌지 않습니다.",
+      "failed": "등록하지 못했습니다: {{message}}"
     }
   }
 }

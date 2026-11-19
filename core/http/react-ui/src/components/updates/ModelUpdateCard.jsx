@@ -2,7 +2,7 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, StatusChip, Switch } from '../ui'
-import { canHold } from '../../utils/modelUpdates'
+import { canAdopt, canHold } from '../../utils/modelUpdates'
 import { modelChip, useModelDetail } from './modelWords'
 import './model-updates.css'
 
@@ -41,6 +41,11 @@ export default function ModelUpdateCard({ row, model }) {
             <Button size="sm" variant="ghost" icon="trash" disabled={pending} onClick={() => model.actions.removeOld(row)} data-testid="model-card-remove-old">{t('model.action.removeOld')}</Button>
           )}
           <Button size="sm" variant="ghost" to="/app/updates">{t('model.card.open')}</Button>
+        </div>
+      )}
+      {canAdopt(row) && (
+        <div className="badge-row">
+          <Button size="sm" icon="link" busy={pending} disabled={pending} onClick={() => model.actions.adopt(row)} aria-label={t('model.action.adoptNamed', { name: row.name })} data-testid="model-card-adopt">{t('model.action.adopt')}</Button>
         </div>
       )}
       {holdable && (

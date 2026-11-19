@@ -309,7 +309,7 @@
       "files_other": "{{count}} files change.",
       "held": "Held at this version.",
       "heldNewer": "Held at this version. The gallery has a newer one.",
-      "legacy": "Installed before LocalAI recorded where models come from. Install it again from the gallery to get updates.",
+      "legacy": "LocalAI did not record where this model came from. Adopt it to get updates. Your config is not changed.",
       "notChecked": "Not checked yet.",
       "checkFailed": "The check could not read the gallery entry: {{message}}",
       "unreadable": "The model files could not be read: {{message}}",
@@ -325,7 +325,9 @@
       "hold": "Hold this version",
       "release": "Release hold",
       "releaseNamed": "Release the hold on {{name}}",
-      "more": "More actions for {{name}}"
+      "more": "More actions for {{name}}",
+      "adopt": "Adopt",
+      "adoptNamed": "Adopt {{name}}"
     },
     "dialog": {
       "title": "Upgrade {{name}}?",
@@ -383,13 +385,25 @@
       "removed_one": "{{name}}: {{count}} old file removed.",
       "removed_other": "{{name}}: {{count}} old files removed.",
       "held": "{{name}} is held at this version.",
-      "released": "{{name}} is no longer held."
+      "released": "{{name}} is no longer held.",
+      "adopted": "{{name}} adopted from gallery {{gallery}}. LocalAI now checks it for updates.",
+      "adoptedDiffers": "{{name}} adopted from gallery {{gallery}}. Its files differ from the gallery entry, so an update is offered.",
+      "adoptedNoCheck": "{{name}} adopted, but the update check failed: {{message}}",
+      "adoptFailed": "{{name}} could not be adopted: {{message}}"
     },
     "card": {
       "title": "Updates",
       "current": "Up to date",
       "open": "Open Updates",
       "holdHint": "Offer no update for this model until you turn this off."
+    },
+    "adopt": {
+      "title": "Adopt {{name}}",
+      "intro": "More than one gallery lists this model. Choose the entry it came from.",
+      "legend": "Gallery entries",
+      "gallery": "Gallery {{gallery}}",
+      "after": "LocalAI records the entry and checks it for updates. Your config is not changed.",
+      "failed": "Could not adopt: {{message}}"
     }
   }
 }

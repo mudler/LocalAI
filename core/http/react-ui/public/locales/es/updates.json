@@ -309,7 +309,7 @@
       "files_other": "Cambian {{count}} archivos.",
       "held": "Retenido en esta versión.",
       "heldNewer": "Retenido en esta versión. La galería tiene una más nueva.",
-      "legacy": "Instalado antes de que LocalAI registrara de dónde vienen los modelos. Instálalo otra vez desde la galería para recibir actualizaciones.",
+      "legacy": "LocalAI no registró de dónde viene este modelo. Adóptalo para recibir actualizaciones. Tu configuración no cambia.",
       "notChecked": "Aún no comprobado.",
       "checkFailed": "La comprobación no pudo leer la entrada de la galería: {{message}}",
       "unreadable": "No se pudieron leer los archivos del modelo: {{message}}",
@@ -325,7 +325,9 @@
       "hold": "Retener esta versión",
       "release": "Dejar de retener",
       "releaseNamed": "Dejar de retener {{name}}",
-      "more": "Más acciones para {{name}}"
+      "more": "Más acciones para {{name}}",
+      "adopt": "Adoptar",
+      "adoptNamed": "Adoptar {{name}}"
     },
     "dialog": {
       "title": "¿Actualizar {{name}}?",
@@ -383,13 +385,25 @@
       "removed_one": "{{name}}: se quitó {{count}} archivo anterior.",
       "removed_other": "{{name}}: se quitaron {{count}} archivos anteriores.",
       "held": "{{name}} queda retenido en esta versión.",
-      "released": "{{name}} ya no está retenido."
+      "released": "{{name}} ya no está retenido.",
+      "adopted": "{{name}} adoptado desde la galería {{gallery}}. LocalAI ahora comprueba sus actualizaciones.",
+      "adoptedDiffers": "{{name}} adoptado desde la galería {{gallery}}. Sus archivos difieren de la entrada de la galería, así que se ofrece una actualización.",
+      "adoptedNoCheck": "{{name}} adoptado, pero la comprobación de actualizaciones falló: {{message}}",
+      "adoptFailed": "No se pudo adoptar {{name}}: {{message}}"
     },
     "card": {
       "title": "Actualizaciones",
       "current": "Al día",
       "open": "Abrir Actualizaciones",
       "holdHint": "No ofrecer actualizaciones para este modelo hasta que desactives esto."
+    },
+    "adopt": {
+      "title": "Adoptar {{name}}",
+      "intro": "Más de una galería lista este modelo. Elige la entrada de la que viene.",
+      "legend": "Entradas de la galería",
+      "gallery": "Galería {{gallery}}",
+      "after": "LocalAI registra la entrada y comprueba sus actualizaciones. Tu configuración no cambia.",
+      "failed": "No se pudo adoptar: {{message}}"
     }
   }
 }

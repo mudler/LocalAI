@@ -24,6 +24,7 @@ export const API_CONFIG = {
     modelUpgrade: (name) => `/api/models/upgrade/${encodeURIComponent(name)}`,
     modelUpgradeRetry: (name) => `/api/models/${encodeURIComponent(name)}/upgrade/retry`,
     modelRemoveOld: (name) => `/api/models/${encodeURIComponent(name)}/remove-old`,
+    modelAdopt: (name) => `/api/models/${encodeURIComponent(name)}/adopt`,
     modelHold: (name) => `/api/models/${encodeURIComponent(name)}/hold`,
     modelConfigJson: (name) => `/api/models/config-json/${name}`,
     configMetadata: '/api/models/config-metadata',

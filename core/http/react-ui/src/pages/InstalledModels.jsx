@@ -147,7 +147,7 @@ export default function InstalledModels({
   const updatesOn = Boolean(updates && updates.enabled)
   const updateRows = updatesOn ? updates.rows : null
   const updateByName = useMemo(() => modelRowsByName(updateRows), [updateRows])
-  const modelUpgrade = useModelUpgradeActions({ readModels: updatesOn ? updates.readModels : null })
+  const modelUpgrade = useModelUpgradeActions({ readModels: updatesOn ? updates.readModels : null, addToast })
   const [loadedModelIds, setLoadedModelIds] = useState(() => new Set())
   const [aliasTargets, setAliasTargets] = useState({})
   const [distributedMode, setDistributedMode] = useState(false)

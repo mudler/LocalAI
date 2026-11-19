@@ -309,7 +309,7 @@
       "files_other": "{{count}} arquivos mudam.",
       "held": "Retido nesta versão.",
       "heldNewer": "Retido nesta versão. A galeria tem uma mais nova.",
-      "legacy": "Instalado antes de o LocalAI registrar de onde vêm os modelos. Instale de novo pela galeria para receber atualizações.",
+      "legacy": "O LocalAI não registrou de onde veio este modelo. Adote-o para receber atualizações. Sua configuração não muda.",
       "notChecked": "Ainda não verificado.",
       "checkFailed": "A verificação não conseguiu ler a entrada da galeria: {{message}}",
       "unreadable": "Não foi possível ler os arquivos do modelo: {{message}}",
@@ -325,7 +325,9 @@
       "hold": "Reter esta versão",
       "release": "Liberar retenção",
       "releaseNamed": "Liberar a retenção de {{name}}",
-      "more": "Mais ações para {{name}}"
+      "more": "Mais ações para {{name}}",
+      "adopt": "Adotar",
+      "adoptNamed": "Adotar {{name}}"
     },
     "dialog": {
       "title": "Atualizar {{name}}?",
@@ -383,13 +385,25 @@
       "removed_one": "{{name}}: {{count}} arquivo antigo removido.",
       "removed_other": "{{name}}: {{count}} arquivos antigos removidos.",
       "held": "{{name}} está retido nesta versão.",
-      "released": "{{name}} não está mais retido."
+      "released": "{{name}} não está mais retido.",
+      "adopted": "{{name}} adotado da galeria {{gallery}}. O LocalAI agora verifica suas atualizações.",
+      "adoptedDiffers": "{{name}} adotado da galeria {{gallery}}. Os arquivos diferem da entrada da galeria, então uma atualização é oferecida.",
+      "adoptedNoCheck": "{{name}} adotado, mas a verificação de atualizações falhou: {{message}}",
+      "adoptFailed": "Não foi possível adotar {{name}}: {{message}}"
     },
     "card": {
       "title": "Atualizações",
       "current": "Em dia",
       "open": "Abrir Atualizações",
       "holdHint": "Não oferecer atualizações para este modelo até você desligar isto."
+    },
+    "adopt": {
+      "title": "Adotar {{name}}",
+      "intro": "Mais de uma galeria lista este modelo. Escolha a entrada de onde ele veio.",
+      "legend": "Entradas da galeria",
+      "gallery": "Galeria {{gallery}}",
+      "after": "O LocalAI registra a entrada e verifica suas atualizações. Sua configuração não muda.",
+      "failed": "Não foi possível adotar: {{message}}"
     }
   }
 }

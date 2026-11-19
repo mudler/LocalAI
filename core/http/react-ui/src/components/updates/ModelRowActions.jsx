@@ -2,13 +2,13 @@
 import { useTranslation } from 'react-i18next'
 import { Button } from '../ui'
 import ActionMenu from '../ActionMenu'
-import { canHold } from '../../utils/modelUpdates'
+import { canAdopt, canHold } from '../../utils/modelUpdates'
 
 // The actions of a model row: one button for the next step (Upgrade, Retry,
-// Cancel, Remove old version or Release hold) and a menu with the rest. Every
+// Cancel, Remove old version, Release hold or Adopt) and a menu with the rest. Every
 // action is a click: nothing upgrades a model by itself.
 //
-// actions: { upgrade, retry, cancel, removeOld, setHold, pending(row) }
+// actions: { upgrade, retry, cancel, removeOld, setHold, adopt, pending(row) }
 export default function ModelRowActions({ row, actions, locked = false }) {
   const { t } = useTranslation('updates')
   if (!actions) return <div className="uc-row__acts" />
@@ -25,8 +25,18 @@ export default function ModelRowActions({ row, actions, locked = false }) {
     main = <Button size="sm" icon="trash" disabled={off} onClick={() => actions.removeOld(row)} aria-label={t('model.action.removeOldNamed', { name: row.name })} data-testid="model-remove-old">{t('model.action.removeOld')}</Button>
   } else if (row.state === 'on-hold') {
     main = <Button size="sm" icon="lock" busy={pending} disabled={off} onClick={() => actions.setHold(row, false)} aria-label={t('model.action.releaseNamed', { name: row.name })} data-testid="model-release">{t('model.action.release')}</Button>
+  } else if (canAdopt(row)) {
+    main = <Button size="sm" icon="link" busy={pending} disabled={off} onClick={() => actions.adopt(row)} aria-label={t('model.action.adoptNamed', { name: row.name })} data-testid="model-adopt">{t('model.action.adopt')}</Button>
   }
   const items = [
+    {
+      key: 'adopt',
+      icon: 'link',
+      label: t('model.action.adopt'),
+      hidden: !canAdopt(row),
+      disabled: off,
+      onClick: () => actions.adopt(row),
+    },
     {
       key: 'hold',
       icon: 'lock',
