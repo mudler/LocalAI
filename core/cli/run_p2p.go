@@ -10,19 +10,18 @@ import (
 )
 
 // checkRemovedOptions stops the server when an option of the removed P2P layer
-// or federation is still set in the environment or in the runtime settings.
-// main already checks the command line before parsing; this check also covers
-// what only exists after parsing, the settings file.
+// or federation is still set in the runtime settings. main already checks the
+// command line and the environment before parsing, so this one reads only what
+// exists after parsing, the settings file, and does not report the others twice.
 func (r *RunCMD) checkRemovedOptions() error {
 	found := removedoptions.Check(removedoptions.Input{
-		Args:     os.Args[1:],
-		Env:      os.LookupEnv,
 		Settings: removedoptions.ReadSettings(r.LocalaiConfigDir),
 	})
-	if len(found) == 0 {
+	msg := removedoptions.Message(found)
+	if msg == "" {
 		return nil
 	}
-	fmt.Fprintln(os.Stderr, removedoptions.Message(found))
+	fmt.Fprintln(os.Stderr, msg)
 	return ExitCodeError{Code: 1}
 }
 

@@ -39,8 +39,14 @@ func main() {
 
 	// The removed P2P options are checked before parsing: the parser would only
 	// say "unknown flag" and would ignore the environment variables.
-	if found := removedoptions.Check(removedoptions.Input{Args: os.Args[1:], Env: os.LookupEnv}); len(found) > 0 {
-		fmt.Fprintln(os.Stderr, removedoptions.Message(found))
+	// The runtime settings are checked later, by the run command, which knows
+	// where the settings file is.
+	found := removedoptions.Check(removedoptions.Input{Args: os.Args[1:], Env: os.LookupEnv})
+	if msg := removedoptions.Warning(found); msg != "" {
+		fmt.Fprintln(os.Stderr, msg)
+	}
+	if msg := removedoptions.Message(found); msg != "" {
+		fmt.Fprintln(os.Stderr, msg)
 		os.Exit(1)
 	}
 

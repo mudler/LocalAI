@@ -99,6 +99,38 @@ var _ = Describe("Check", func() {
 		Expect(Check(Input{Args: []string{"models", "list"}, Env: env(map[string]string{"TOKEN": "t", "P2P": "1"})})).To(BeEmpty())
 	})
 
+	It("only warns about the bare names that other programs may set", func() {
+		fs := Check(Input{Args: []string{"run"}, Env: env(map[string]string{"TOKEN": "hf_abc", "P2P": "banana", "TARGET_WORKER": "w"})})
+		Expect(names(fs)).To(ConsistOf("TOKEN", "P2P", "TARGET_WORKER"))
+		Expect(Fatal(fs)).To(BeEmpty())
+		Expect(Message(fs)).To(BeEmpty())
+		Expect(Warning(fs)).To(ContainSubstring("warning: environment variable TOKEN"))
+	})
+
+	It("ignores a bare boolean that is false and fails on one that is true", func() {
+		Expect(Check(Input{Env: env(map[string]string{"P2P": "false", "FEDERATED": "0"})})).To(BeEmpty())
+		fs := Check(Input{Env: env(map[string]string{"P2P": "true"})})
+		Expect(names(Fatal(fs))).To(ConsistOf("P2P"))
+	})
+
+	It("always fails on a name with the LOCALAI_ prefix", func() {
+		fs := Check(Input{Env: env(map[string]string{"LOCALAI_TOKEN": "x", "LOCALAI_P2P": "false"})})
+		Expect(names(Fatal(fs))).To(ConsistOf("LOCALAI_TOKEN", "LOCALAI_P2P"))
+	})
+
+	It("does not take the value of a flag for the command", func() {
+		// The value "models" of --backend must not turn `run` into a command
+		// that never reads the options, and a flag value before the command
+		// must not hide it.
+		Expect(Check(Input{Args: []string{"--address", ":8080", "models", "list"}, Env: env(map[string]string{"LOCALAI_P2P": "1"})})).To(BeEmpty())
+		fs := Check(Input{Args: []string{"--address", ":8080", "run", "--p2p"}, Env: env(nil)})
+		Expect(names(fs)).To(ConsistOf("--p2p"))
+		fs = Check(Input{Args: []string{"--models-path", "/data", "--p2p"}, Env: env(map[string]string{"LOCALAI_P2P": "1"})})
+		Expect(names(fs)).To(ConsistOf("--p2p", "LOCALAI_P2P"))
+		fs = Check(Input{Args: []string{"worker", "--register-to", "http://f", "p2p-mlx"}, Env: env(nil)})
+		Expect(names(fs)).To(ConsistOf("worker p2p-mlx"))
+	})
+
 	It("finds the settings that are still set and ignores the unset ones", func() {
 		s := map[string]json.RawMessage{
 			"p2p_token": json.RawMessage(`"abc"`), "p2p_network_id": json.RawMessage(`"net"`), "federated": json.RawMessage(`true`),
@@ -112,8 +144,9 @@ var _ = Describe("Check", func() {
 		fs := Check(Input{Args: []string{"--p2p"}, Env: env(map[string]string{"TOKEN": "t"})})
 		msg := Message(fs)
 		Expect(msg).To(ContainSubstring("flag --p2p was removed: use --p2p-mode"))
-		Expect(msg).To(ContainSubstring("environment variable TOKEN was removed: P2P tokens are gone"))
-		Expect(msg).To(ContainSubstring("invite created under Swarm, P2P"))
+		Expect(msg).ToNot(ContainSubstring("TOKEN"), "a bare TOKEN only warns")
+		Expect(Warning(fs)).To(ContainSubstring("environment variable TOKEN"))
+		Expect(Warning(fs)).To(ContainSubstring("invite created under Swarm, P2P"))
 	})
 })
 
