@@ -274,6 +274,9 @@ jobs:
           echo "$env:ProgramFiles\Git\usr\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
       - name: Install GNU Make
         run: choco install make -y
+      # The ffmpeg specs of pkg/utils run the real binary.
+      - name: Install ffmpeg
+        run: choco install ffmpeg -y --no-progress
       # The React UI is embedded at build time. An empty dist folder is enough
       # for the packages under test, so the UI build is skipped.
       - name: Generate protobuf code
