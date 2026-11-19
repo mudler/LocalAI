@@ -11,6 +11,7 @@ export const API_CONFIG = {
     models: '/api/models',
     installModel: (id) => `/api/models/install/${id}`,
     deleteModel: (id) => `/api/models/delete/${id}`,
+    modelsRecommended: '/api/models/recommended',
     modelEstimate: (id) => `/api/models/estimate/${id}`,
     modelVariants: (id) => `/api/models/variants/${id}`,
     modelConfig: (id) => `/api/models/config/${id}`,

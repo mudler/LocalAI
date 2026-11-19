@@ -421,3 +421,147 @@ test('on a phone the dock is a bottom sheet, and nothing scrolls sideways', asyn
   await expect(dock(page)).toHaveCount(0)
   await request.delete(`/api/chats/${id}`)
 })
+
+test('the + of the tabs always opens the page list for a new tab, and a page of the list opens and closes it', async ({ page, request }) => {
+  const id = await newChat(request)
+  try {
+    await page.goto(`/app/chats/${id}`)
+    const add = dock(page).getByTestId('dock-add')
+    const picker = dock(page).getByTestId('dock-picker')
+    const row = (name) => dock(page).locator(`[data-testid="dock-pick"][data-page="${name}"]`)
+
+    // A dock with no tab already shows the list: the + still answers, by
+    // keeping it and putting the focus on its first page.
+    await page.getByTestId('dock-toggle').click()
+    await expect(picker).toBeVisible()
+    await add.click()
+    await expect(picker).toBeVisible()
+    await expect(add).toHaveAttribute('aria-pressed', 'true')
+    await expect(dock(page).locator('[data-testid="dock-pick"]:focus')).toHaveCount(1)
+    await add.click()
+    await expect(picker).toBeVisible()
+
+    // Picking opens the page and closes the list.
+    await row(BOARD).click()
+    await expect(tabs(page)).toHaveCount(1)
+    await expect(picker).toHaveCount(0)
+    await expect(add).toHaveAttribute('aria-pressed', 'false')
+    await expect(dockFrame(page).locator('#count')).toHaveText('6')
+
+    // With a tab, the + opens the list over it; a second press keeps it.
+    await add.click()
+    await expect(picker).toBeVisible()
+    await expect(add).toHaveAttribute('aria-pressed', 'true')
+    await expect(tabs(page).first()).not.toHaveAttribute('data-active', 'true')
+    await add.click()
+    await expect(picker).toBeVisible()
+    await shot(page, 'dock-plus-picker')
+
+    // Escape, and the tab in front, go back to the page.
+    await page.keyboard.press('Escape')
+    await expect(picker).toHaveCount(0)
+    await expect(tabs(page).first()).toHaveAttribute('data-active', 'true')
+    await add.click()
+    await expect(picker).toBeVisible()
+    await tabs(page).first().getByRole('tab').click()
+    await expect(picker).toHaveCount(0)
+
+    // A second page: new tab in front, list closed.
+    await add.click()
+    await row(NOTES).click()
+    await expect(tabs(page)).toHaveCount(2)
+    await expect(picker).toHaveCount(0)
+    await expect(tabs(page).nth(1)).toHaveAttribute('data-active', 'true')
+    await expect.poll(async () => (await dockOf(request, id))?.tabs).toEqual([{ page: BOARD }, { page: NOTES }])
+
+    // A tab that closes while the list is open ends the request.
+    await add.click()
+    await expect(picker).toBeVisible()
+    await tabs(page).first().getByTestId('dock-tab-close').click()
+    await expect(tabs(page)).toHaveCount(1)
+    await expect(picker).toHaveCount(0)
+    await expect(add).toHaveAttribute('aria-pressed', 'false')
+  } finally {
+    await request.delete(`/api/chats/${id}`)
+  }
+})
+
+test('Files and Dock are two buttons of the header that share the right side, one panel at a time', async ({ page, request }) => {
+  await setTheme(page, 'light')
+  const id = await newChat(request)
+  try {
+    await page.goto(`/app/chats/${id}`)
+    const header = page.getByTestId('chat-header')
+    const filesBtn = header.getByTestId('chat-files-toggle')
+    const dockBtn = header.getByTestId('dock-toggle')
+    const filesPane = page.getByTestId('chat-files-pane')
+    await expect(filesBtn).toBeVisible()
+    // The Files button sits just before the Dock button, in the same style.
+    const [a, b] = [await filesBtn.boundingBox(), await dockBtn.boundingBox()]
+    expect(a.x + a.width).toBeLessThanOrEqual(b.x)
+    expect(Math.abs(a.height - b.height)).toBeLessThanOrEqual(1)
+    await expect(filesBtn).toHaveAttribute('aria-pressed', 'false')
+    await expect(filesBtn).toHaveAttribute('title', /Files in this chat/)
+    // The old entry in the message box is gone.
+    await expect(page.locator('.cx-dock').getByTestId('chat-files-toggle')).toHaveCount(0)
+
+    await filesBtn.click()
+    await expect(filesPane).toBeVisible()
+    await expect(filesBtn).toHaveAttribute('aria-pressed', 'true')
+    await shot(page, 'dock-files-header-files')
+
+    // The dock takes the side; the pane hides.
+    await dockBtn.click()
+    await expect(dock(page)).toBeVisible()
+    await expect(filesPane).toHaveCount(0)
+    await expect(filesBtn).toHaveAttribute('aria-pressed', 'false')
+    await expect(dockBtn).toHaveAttribute('aria-pressed', 'true')
+    await shot(page, 'dock-files-header-dock')
+
+    // Files takes it back; the dock hides, and its choice is kept with the chat.
+    await filesBtn.click()
+    await expect(filesPane).toBeVisible()
+    await expect(dock(page)).toHaveCount(0)
+    await expect(dockBtn).toHaveAttribute('aria-pressed', 'false')
+    await expect.poll(async () => (await dockOf(request, id))?.open).toBeFalsy()
+
+    // Ctrl+\ is still the dock's key, and it also gives the side back.
+    await page.keyboard.press('Control+Backslash')
+    await expect(dock(page)).toBeVisible()
+    await expect(filesPane).toHaveCount(0)
+    await page.keyboard.press('Control+Backslash')
+    await expect(dock(page)).toHaveCount(0)
+    await expect(filesPane).toHaveCount(0)
+
+    // Never two panels: the right side holds at most one.
+    await filesBtn.click()
+    await expect(page.locator('[data-testid="page-dock"], [data-testid="chat-files-pane"]')).toHaveCount(1)
+  } finally {
+    await request.delete(`/api/chats/${id}`)
+  }
+})
+
+test('a file the assistant writes never takes the side from an open dock: the Files count grows and the pane stays closed', async ({ page, request }) => {
+  await offerMockModel(page)
+  const id = await newChat(request, 'Report')
+  await request.put(`/api/chats/${id}/dock`, { data: { open: true, tabs: [{ page: BOARD }], active: 0 } })
+  const report = `/dock-files-${stamp}/report.md`
+  try {
+    await page.goto(`/app/chats/${id}`)
+    await expect(dockFrame(page).locator('#count')).toHaveText('6')
+    await composer(page).fill(`write a report ADDON_TOOL_CALL:write_file:${b64({ path: report, content: '# Report' })}`)
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.getByTestId('chat-files-count')).toHaveText('1', { timeout: 30_000 })
+    await expect(dock(page)).toBeVisible()
+    await expect(page.getByTestId('chat-files-pane')).toHaveCount(0)
+    await expect.poll(async () => (await api(request, `/api/chats/${id}`)).running, { timeout: 60_000 }).toBe(false)
+    expect(await dockOf(request, id)).toMatchObject({ open: true })
+    // Files is one press away, and takes the side.
+    await page.getByTestId('chat-files-toggle').click()
+    await expect(page.getByTestId('chat-files-pane').getByTestId('chat-files-created')).toContainText('report.md')
+    await expect(dock(page)).toHaveCount(0)
+  } finally {
+    await del(request, `/dock-files-${stamp}`)
+    await request.delete(`/api/chats/${id}`)
+  }
+})

@@ -6,8 +6,8 @@ import Icon from '../Icon'
 import Mascot from '../ui/Mascot'
 
 // Chat has nothing to talk to: no chat model is installed. Say so, offer the
-// way forward (the starter models for this hardware, the gallery, importing
-// your own) and leave the composer where it is, so what you typed stays.
+// way forward (the recommended model for this hardware, the gallery, importing
+// your own; a member sees the recommendation and is told to ask an administrator) and leave the composer where it is, so what you typed stays.
 export default function NoModelCard({ isAdmin, addToast, onInstallStarted }) {
   const { t } = useTranslation('chat')
   const navigate = useNavigate()
@@ -20,9 +20,9 @@ export default function NoModelCard({ isAdmin, addToast, onInstallStarted }) {
           <p>{isAdmin ? t('noModel.body') : t('noModel.bodyMember')}</p>
         </div>
       </div>
+      <StarterModels addToast={addToast} onInstallStarted={onInstallStarted} />
       {isAdmin && (
         <>
-          <StarterModels addToast={addToast} onInstallStarted={onInstallStarted} />
           <div className="cx-nomodel__acts">
             <button type="button" className="home-secondary home-secondary--sm" onClick={() => navigate('/app/models')}>
               <Icon name="store" /> {t('noModel.gallery')}

@@ -93,7 +93,8 @@
     "selectModel": "请选择一个模型",
     "copied": "已复制到剪贴板",
     "copyFailed": "无法复制到剪贴板",
-    "newChatForModel": "对话会保留其模型。已使用 {{model}} 开始新对话。"
+    "newChatForModel": "对话会保留其模型。已使用 {{model}} 开始新对话。",
+    "windowSet": "{{model}} 的上下文窗口现在是 {{window}} 个 token。"
   },
   "menu": {
     "trigger": "聊天",
@@ -337,8 +338,8 @@
   },
   "files": {
     "title": "此对话中的文件",
-    "chip": "文件",
-    "chipTitle": "此对话中的文件：你附加的文件，以及助手创建或修改的文件",
+    "button": "文件",
+    "buttonTitle": "此对话中的文件：你附加的文件，以及助手创建或修改的文件",
     "close": "关闭文件",
     "emptyTitle": "此对话中还没有文件",
     "emptyBody": "将文件拖到这里，即可附加到下一条消息。助手创建或修改的文件也会显示在这里。",

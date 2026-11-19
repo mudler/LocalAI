@@ -49,6 +49,7 @@
   "approval.default": "Bawaan: {{value}}.",
   "approval.summary": "Pemicu: {{mode}}",
   "approval.effect": "Usulan: {{mode}}",
+  "approval.effectChange": "Perubahan dan penghapusan: {{mode}}",
   "approval.limits": "Batas",
   "approval.acts.title": "Jalan boleh bertindak",
   "approval.acts.help": "Nonaktif: jalan dari pemicu yang dibuat di chat ini hanya membaca dan melapor. Aktif: jalan juga boleh melakukan apa yang Anda centang di bawah, dan hanya yang dimiliki agen.",

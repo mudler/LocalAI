@@ -93,7 +93,8 @@
     "selectModel": "Por favor selecciona un modelo",
     "copied": "Copiado al portapapeles",
     "copyFailed": "No se pudo copiar al portapapeles",
-    "newChatForModel": "Un chat conserva su modelo. Se inició un chat nuevo con {{model}}."
+    "newChatForModel": "Un chat conserva su modelo. Se inició un chat nuevo con {{model}}.",
+    "windowSet": "La ventana de contexto de {{model}} ahora es de {{window}} tokens."
   },
   "menu": {
     "trigger": "Chats",
@@ -337,8 +338,8 @@
   },
   "files": {
     "title": "Archivos de este chat",
-    "chip": "Archivos",
-    "chipTitle": "Archivos de este chat: lo que adjuntaste y lo que el asistente creó o cambió",
+    "button": "Archivos",
+    "buttonTitle": "Archivos de este chat: lo que adjuntaste y lo que el asistente creó o cambió",
     "close": "Cerrar archivos",
     "emptyTitle": "Todavía no hay archivos en este chat",
     "emptyBody": "Suelta archivos aquí para adjuntarlos a tu próximo mensaje. Los archivos que el asistente cree o cambie también aparecen aquí.",

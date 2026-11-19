@@ -124,7 +124,8 @@
     "copied": "Berhasil disalin ke papan klip",
     "copyFailed": "Gagal menyalin ke papan klip",
     "newChatForModel": "Obrolan mempertahankan modelnya. Obrolan baru dimulai dengan {{model}}.",
-    "chatCopied": "Obrolan disalin ke papan klip"
+    "chatCopied": "Obrolan disalin ke papan klip",
+    "windowSet": "Jendela konteks {{model}} sekarang {{window}} token."
   },
   "menu": {
     "trigger": "Obrolan",
@@ -419,8 +420,8 @@
   },
   "files": {
     "title": "File di obrolan ini",
-    "chip": "File",
-    "chipTitle": "File di obrolan ini: yang Anda lampirkan dan yang dibuat atau diubah asisten",
+    "button": "File",
+    "buttonTitle": "File di obrolan ini: yang Anda lampirkan dan yang dibuat atau diubah asisten",
     "close": "Tutup file",
     "emptyTitle": "Belum ada file di obrolan ini",
     "emptyBody": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya. File yang dibuat atau diubah asisten juga muncul di sini.",

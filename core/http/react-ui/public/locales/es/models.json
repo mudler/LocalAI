@@ -65,6 +65,8 @@
     "installing": "Instalando",
     "installStarted": "Instalando {{model}}…",
     "installFailed": "Error al instalar: {{message}}",
+    "window": "{{window}} de contexto",
+    "memory": "unos {{memory}} de memoria",
     "dismiss": "Descartar recomendaciones",
     "summary": "{{n}} modelos sugeridos",
     "bestFit": "Best fit",

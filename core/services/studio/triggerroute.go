@@ -72,6 +72,9 @@ func freshCode(all []triggers.Trigger, binding string) string {
 		if t.Route.Binding == binding && t.Route.Code != "" {
 			used[t.Route.Code] = true
 		}
+		if t.Change.Binding == binding && t.Change.Code != "" {
+			used[t.Change.Code] = true
+		}
 	}
 	for {
 		var b [codeLen]byte
@@ -197,6 +200,9 @@ func (h *Triggers) AnswerByPhrase(ctx context.Context, from PhraseFrom, verb, co
 	}
 	detail := byTextFrom(from.Sender)
 	for _, t := range all {
+		if t.IsChange() && t.Outcome == "" && t.Change.Binding == from.Binding && t.Change.Code == code {
+			return h.answerChange(ctx, from, t, verb, detail)
+		}
 		if t.Route.Binding != from.Binding || t.Route.Code != code {
 			continue
 		}

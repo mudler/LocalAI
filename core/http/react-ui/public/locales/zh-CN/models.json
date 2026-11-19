@@ -65,6 +65,8 @@
     "installing": "安装中",
     "installStarted": "正在安装 {{model}}…",
     "installFailed": "安装失败：{{message}}",
+    "window": "{{window}} 上下文",
+    "memory": "约占用 {{memory}} 内存",
     "dismiss": "关闭推荐",
     "summary": "已推荐 {{n}} 个模型",
     "bestFit": "Best fit",

@@ -49,6 +49,7 @@
   "approval.default": "Par défaut : {{value}}.",
   "approval.summary": "Déclencheurs : {{mode}}",
   "approval.effect": "Propositions : {{mode}}",
+  "approval.effectChange": "Modifications et suppressions : {{mode}}",
   "approval.limits": "Limites",
   "approval.acts.title": "Les exécutions peuvent agir",
   "approval.acts.help": "Désactivé : les exécutions d’un déclencheur créé depuis ce chat se contentent de lire et de rapporter. Activé : elles peuvent aussi faire ce que vous cochez ci-dessous, et seulement ce dont l’agent dispose.",

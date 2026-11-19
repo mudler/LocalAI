@@ -9,7 +9,7 @@ import (
 // Limits of the permissions of a connector kind.
 const (
 	MaxConnectorRoles       = 8
-	MaxConnectorPermissions = 15
+	MaxConnectorPermissions = 16
 	// MaxMessageRoles is how many role IDs one ConnectorMessage carries.
 	MaxMessageRoles = 8
 )
@@ -23,6 +23,12 @@ const (
 	CapFilesUpload      = "files.upload"
 	CapTriggersPropose  = "triggers.propose"
 	CapTriggersRun      = "triggers.run"
+	// CapTriggersChange lets the model of a connector chat change, pause,
+	// resume or delete a trigger of its agent, and withdraw a proposal. The
+	// approval of the connection decides whether the owner confirms each one
+	// or it applies at once. It is sensitive, so only a sender that the owner
+	// paired can use it, and it is off until the owner turns it on.
+	CapTriggersChange   = "triggers.change"
 	CapTalkbackChannels = "talkback.channels"
 	CapTalkbackNewChan  = "talkback.new_channel"
 	CapProfileWrite     = "profile.write"
@@ -55,6 +61,7 @@ var capabilities = map[string]bool{
 	CapFilesUpload:      false,
 	CapTriggersPropose:  false,
 	CapTriggersRun:      false,
+	CapTriggersChange:   true,
 	CapTalkbackChannels: false,
 	CapTalkbackNewChan:  true,
 	CapProfileWrite:     true,
@@ -102,6 +109,7 @@ var capabilityText = map[string][2]string{
 	CapMemoryWrite:      {"Save to memory", "The agent may remember what a sender asks it to remember."},
 	CapFilesUpload:      {"Receive files", "The agent may read files that senders attach to a message."},
 	CapTriggersPropose:  {"Propose triggers", "The agent may propose a timer or an event trigger when a sender asks for one."},
+	CapTriggersChange:   {"Change or delete triggers", "The agent may change, pause, resume or delete a trigger it made, and withdraw a proposal, when a sender asks. The approval mode of the connection decides whether you confirm each change or it applies at once. Only a verified person can use it, and it is off until you turn it on."},
 	CapTriggersRun:      {"Fire event triggers", "A message from a sender may start a run of an event trigger."},
 	CapTalkbackChannels: {"Post to other channels", "The agent may write to the channels listed under Place the bot may post when a sender asks, besides the chat it answers in. This does not decide whose messages the bot trusts."},
 	CapTalkbackNewChan:  {"Post to a new channel", "The agent may write to a place that is not on that list yet."},

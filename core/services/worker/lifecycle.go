@@ -419,9 +419,10 @@ func (s *backendSupervisor) unloadTargets(req workerctl.ModelUnloadRequest) []st
 }
 
 // unloadModel answers model.unload: call gRPC Free() to release GPU memory
-// without killing the backend process. A backend that answers Unimplemented
-// cannot free anything and may not survive a second LoadModel, so its process
-// is stopped instead.
+// without killing the backend process. A backend whose Free does not succeed
+// (Unimplemented, an error or a timeout) may still hold its model and may not
+// survive a second LoadModel, so its process is stopped instead. Every branch
+// logs what it did.
 //
 // The target is the address in the request, or else every replica of the model
 // the request names (see unloadTargets). There is no fallback to "any running
@@ -444,14 +445,32 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 		s.mu.Lock()
 		var target *backendProcess
 		var key string
+		stoppingAtAddr := false
 		for k, bp := range s.processes {
-			if bp.addr == addr && !bp.stopping {
-				target, key = bp, k
-				break
+			if bp.addr != addr {
+				continue
 			}
+			if bp.stopping {
+				stoppingAtAddr = true
+				continue
+			}
+			target, key = bp, k
+			break
 		}
-		if target == nil || (req.ProcessInstance != "" && target.instance != req.ProcessInstance) {
+		if target == nil {
 			s.mu.Unlock()
+			if stoppingAtAddr {
+				xlog.Info("model.unload target is already stopping; nothing to free", "model", req.ModelName, "addr", addr)
+			} else {
+				xlog.Info("model.unload target has no process in this worker; nothing to free", "model", req.ModelName, "addr", addr)
+			}
+			continue
+		}
+		if req.ProcessInstance != "" && target.instance != req.ProcessInstance {
+			current := target.instance
+			s.mu.Unlock()
+			xlog.Info("model.unload names an older process instance; leaving the current process running",
+				"model", req.ModelName, "addr", addr, "requestedInstance", req.ProcessInstance, "currentInstance", current)
 			continue
 		}
 		instance := target.instance
@@ -465,7 +484,9 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 		freeErr := client.Free(freeCtx)
 		cancel()
 		if freeErr != nil {
-			xlog.Warn("Free() failed during model.unload", "error", freeErr, "addr", addr)
+			xlog.Warn("Free() failed during model.unload", "error", freeErr, "addr", addr, "processKey", key)
+		} else {
+			xlog.Info("Free() succeeded during model.unload; process kept running", "addr", addr, "processKey", key)
 		}
 
 		// The process may have been replaced while Free() ran. Say so instead of
@@ -475,19 +496,26 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 		if !ok || current != target || current.instance != instance {
 			replaced = append(replaced, addr)
 			s.mu.Unlock()
+			xlog.Warn("Process was replaced while model.unload ran", "addr", addr, "processKey", key)
 			continue
 		}
 		s.mu.Unlock()
 
-		// A backend that does not implement Free cannot release its model, and
-		// a second LoadModel on the live process is not safe for all of them
-		// (llama-cpp aborts while it re-initializes its server context). Stop
-		// the process, so the next install starts a fresh one. Free was already
+		// A backend whose Free did not succeed may still hold its model, and a
+		// second LoadModel on that live process is not safe for all of them
+		// (llama-cpp aborts while it re-initializes its server context). This
+		// covers a backend with no Free (Unimplemented) and one whose Free
+		// failed or timed out: the model state is unknown, so the process must
+		// not stay reusable by the already-running path of the next install.
+		// Stop it, so that install starts a fresh process. Free was already
 		// attempted, so skip the courtesy call.
-		if status.Code(freeErr) == codes.Unimplemented {
-			xlog.Info("Backend has no Free(); stopping its process on model.unload", "addr", addr, "processKey", key)
+		if freeErr != nil {
+			xlog.Info("Stopping backend process after Free() did not succeed on model.unload",
+				"addr", addr, "processKey", key, "unimplemented", status.Code(freeErr) == codes.Unimplemented)
 			if err := s.stopBackendExactBP(key, target, true); err != nil {
 				xlog.Warn("Failed to stop backend process after model.unload", "error", err, "addr", addr)
+			} else {
+				xlog.Info("Stopped backend process after model.unload", "addr", addr, "processKey", key)
 			}
 		}
 	}

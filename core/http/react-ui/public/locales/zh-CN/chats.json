@@ -1479,5 +1479,28 @@
       "save": "保存",
       "loadError": "无法读取沙箱配置。"
     }
+  },
+  "harness": {
+    "title": "此模型的上下文窗口对聊天来说太小",
+    "admin": {
+      "reason": "当前为 {{window}} 个 token,聊天至少需要 {{minimum}} 个,建议 {{recommended}} 个。",
+      "checking": "正在检查 {{target}} 个 token 能否放进这台机器的内存…",
+      "fits": "{{target}} 个 token 能放进这台机器的内存(约 {{need}})。",
+      "fitsLess": "{{recommended}} 个 token 放不进这台机器的内存,{{target}} 个可以(约 {{need}})。",
+      "unknown": "无法估算所需的内存。",
+      "none": "这台机器的内存连 {{minimum}} 个 token 也放不下。请选择更小的模型。",
+      "fix": "将窗口设为 {{target}}"
+    },
+    "user": {
+      "reason": "当前为 {{window}} 个 token,聊天至少需要 {{minimum}} 个。",
+      "switch": "将此聊天切换到窗口更大的已安装模型。",
+      "askAdmin": "你可用的已安装模型中没有窗口足够大的。请让管理员调大窗口或安装其他模型。",
+      "use": "使用 {{model}}({{window}} 个 token)"
+    },
+    "chat": {
+      "title": "此聊天的上下文大小太小",
+      "reason": "此聊天的设置为 {{window}} 个 token,聊天至少需要 {{minimum}} 个。",
+      "fix": "使用模型的窗口"
+    }
   }
 }

@@ -1479,5 +1479,28 @@
       "save": "Speichern",
       "loadError": "Die Sandbox-Profile konnten nicht gelesen werden."
     }
+  },
+  "harness": {
+    "title": "Das Kontextfenster dieses Modells ist für den Chat zu klein",
+    "admin": {
+      "reason": "Es hat {{window}} Token, der Chat braucht mindestens {{minimum}}; besser sind {{recommended}}.",
+      "checking": "Es wird geprüft, ob {{target}} Token in den Speicher dieses Rechners passen …",
+      "fits": "{{target}} Token passen in den Speicher dieses Rechners (etwa {{need}}).",
+      "fitsLess": "{{recommended}} Token passen nicht in den Speicher dieses Rechners. {{target}} passen (etwa {{need}}).",
+      "unknown": "Der dafür nötige Speicher konnte nicht geschätzt werden.",
+      "none": "Nicht einmal {{minimum}} Token passen in den Speicher dieses Rechners. Wählen Sie ein kleineres Modell.",
+      "fix": "Fenster auf {{target}} setzen"
+    },
+    "user": {
+      "reason": "Es hat {{window}} Token, der Chat braucht mindestens {{minimum}}.",
+      "switch": "Wechseln Sie in diesem Chat zu einem installierten Modell mit größerem Fenster.",
+      "askAdmin": "Kein installiertes Modell, das Sie nutzen dürfen, hat ein ausreichend großes Fenster. Bitten Sie einen Administrator, es zu vergrößern oder ein anderes Modell zu installieren.",
+      "use": "{{model}} verwenden ({{window}} Token)"
+    },
+    "chat": {
+      "title": "Die Kontextgröße dieses Chats ist zu klein",
+      "reason": "Die Einstellung dieses Chats ist {{window}} Token, der Chat braucht mindestens {{minimum}}.",
+      "fix": "Fenster des Modells verwenden"
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useOutletContext, useSearchParams, useLocation } from 'react-router-dom'
 import YAML from 'yaml'
+import { isUnsetContextSize } from '../utils/contextDefaults'
 import { modelsApi } from '../utils/api'
 import { waitForImportJob as waitForJob } from '../utils/importJob'
 import { apiUrl } from '../utils/basePath'
@@ -320,7 +321,11 @@ export default function ModelEditor() {
     try {
       const patchFlat = {}
       for (const path of activeFieldPaths) {
-        if (path in values) patchFlat[path] = values[path]
+        if (!(path in values)) continue
+        // The LLM template starts context_size at 0, a placeholder. Saved as a
+        // value it would pin the window instead of letting the server size it.
+        if (path === 'context_size' && isCreateMode && isUnsetContextSize(values[path])) continue
+        patchFlat[path] = values[path]
       }
       if (!isCreateMode) {
         // Only a key the file had needs removing; one that was never there does not.
@@ -421,7 +426,9 @@ export default function ModelEditor() {
     if (!isCreateMode || tab !== 'yaml') return ''
     const patchFlat = {}
     for (const path of activeFieldPaths) {
-      if (path in values && values[path] !== '' && values[path] !== null) patchFlat[path] = values[path]
+      if (!(path in values) || values[path] === '' || values[path] === null) continue
+      if (path === 'context_size' && isUnsetContextSize(values[path])) continue
+      patchFlat[path] = values[path]
     }
     try {
       return YAML.stringify(unflattenConfig(patchFlat))

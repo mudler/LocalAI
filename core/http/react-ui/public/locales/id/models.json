@@ -66,6 +66,8 @@
     "installing": "Menginstal",
     "installStarted": "Menginstal {{model}}…",
     "installFailed": "Instalasi gagal: {{message}}",
+    "window": "konteks {{window}}",
+    "memory": "sekitar {{memory}} memori",
     "dismiss": "Tutup rekomendasi",
     "summary": "{{n}} model disarankan",
     "bestFit": "Best fit",

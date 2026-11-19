@@ -166,5 +166,15 @@
   "hold.undoable": "Le propriétaire peut l'annuler dans l'interface web.",
   "hold.not_undoable": "Impossible de l'annuler d'ici.",
   "hold.note_waiting": "En attente qu’une personne vérifiée confirme dans cette discussion : {title} (code {code}).",
-  "hold.note_expired": "Personne n'a confirmé à temps, il a donc été abandonné : {title}."
+  "hold.note_expired": "Personne n'a confirmé à temps, il a donc été abandonné : {title}.",
+  "trigchange.ask.update": "Modification proposée pour {name} : {fields}. Ensuite : {when}. Rien ne change tant que vous n'approuvez pas. Répondez \"confirmer {code}\" pour l'appliquer ou \"annuler {code}\" pour la laisser telle quelle, ici, sous 24 heures, ou ouvrez Studio.",
+  "trigchange.ask.delete": "Supprimer {name} ({when}) ? Il continue de tourner tant que vous n'approuvez pas. Répondez \"confirmer {code}\" pour le supprimer ou \"annuler {code}\" pour le garder, ici, sous 24 heures, ou ouvrez Studio.",
+  "trigchange.ask.pause": "Mettre {name} ({when}) en pause ? Il continue de tourner tant que vous n'approuvez pas. Répondez \"confirmer {code}\" pour le mettre en pause ou \"annuler {code}\" pour le laisser actif, ici, sous 24 heures, ou ouvrez Studio.",
+  "trigchange.ask.resume": "Reprendre {name} ({when}) ? Il reste en pause tant que vous n'approuvez pas. Répondez \"confirmer {code}\" pour le reprendre ou \"annuler {code}\" pour le laisser en pause, ici, sous 24 heures, ou ouvrez Studio.",
+  "trigchange.ask.withdraw": "Retirer la proposition {name} ? Elle reste en attente tant que vous n'approuvez pas. Répondez \"confirmer {code}\" pour la retirer ou \"annuler {code}\" pour la laisser en attente, ici, sous 24 heures, ou ouvrez Studio.",
+  "trigchange.done.update": "{name} modifié : {fields}. Maintenant : {when}.",
+  "trigchange.done.delete": "{name} supprimé.",
+  "trigchange.done.pause": "{name} est en pause. Il ne tourne pas tant qu'on ne le reprend pas.",
+  "trigchange.done.resume": "{name} repris : {when}.",
+  "trigchange.done.withdraw": "Proposition {name} retirée. Elle n'a jamais tourné."
 }

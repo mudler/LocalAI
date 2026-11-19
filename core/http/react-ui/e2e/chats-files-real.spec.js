@@ -36,8 +36,8 @@ test('the files pane lists what was attached and what the model wrote, live, and
   expect(attached.path).toMatch(/^\/Chats\//)
   expect(attached.guest_path).toBe(`/workspace/home${attached.path}`)
 
-  // The chip counts the files and opens the pane from the keyboard.
-  const chip = page.getByTestId('chat-files-chip')
+  // The Files button counts the files and opens the pane from the keyboard.
+  const chip = page.getByTestId('chat-files-toggle')
   await expect(page.getByTestId('chat-files-count')).toHaveText(String(first.length))
   await chip.focus()
   await page.keyboard.press('Enter')
@@ -103,7 +103,7 @@ test('a chat with no files teaches where files come from', async ({ page }) => {
   const id = await startChat(page, 'just talk')
   await settled(page, id)
   expect(await files(page, id)).toEqual([])
-  await page.getByTestId('chat-files-chip').click()
+  await page.getByTestId('chat-files-toggle').click()
   const empty = page.getByTestId('chat-files-empty')
   await expect(empty).toBeVisible()
   await expect(empty).toContainText('No files in this chat yet')

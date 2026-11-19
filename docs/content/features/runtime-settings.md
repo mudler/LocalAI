@@ -83,7 +83,7 @@ You can configure these settings via the web UI or through environment variables
 ### Performance Settings
 
 - **Threads**: Number of threads used for parallel computation (recommended: number of physical cores)
-- **Context Size**: Default context size for models (default: `512`)
+- **Context Size**: Context size for models that set no `context_size` of their own. A value in a model's configuration always wins, and so does any value you set here over the automatic size. Unset (the default), a model that can serve chats gets `32768` tokens, capped by what it was trained for and by the memory of the machine, and other models get at most `8192`. The chat needs at least `16384`: see [the context window a chat needs]({{% relref "features/chats#the-context-window-a-chat-needs" %}}).
 - **Concurrent Backend Operations**: How many backend installs, upgrades and deletes run at once. `1` runs them one after the other (default: `1`, minimum `1`). Operations on the same backend never overlap, whatever the value. Model operations run in their own queue and are not held up by backend operations. In distributed mode the same limit bounds how many nodes receive one operation at the same time. The limit is per frontend. A change applies to operations that start after the change
 - **Artifact Download Concurrency**: Maximum number of artifact files downloaded at once. `1` downloads sequentially (default: `1`)
 - **F16**: Enable GPU acceleration using 16-bit floating point

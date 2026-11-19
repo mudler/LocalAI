@@ -35,9 +35,9 @@ var _ = Describe("mandatory policy on session turns", func() {
 			return []studiotest.ToolStep{{Tool: "search", Args: `{}`}, {Say: "done"}}
 		}, func(d *studio.Deps) {
 			d.ToolPins = func(context.Context) (map[string]string, error) {
-				// Each service turn reopens its harness. Let priming finish so the
-				// outage is observed by the actual turn hook, not by Open.
-				if unavailable.Load() && outageReads.Add(1) > 1 {
+				// A chat that reopens for its next turn is not primed again, so
+				// the first read after the outage is the turn hook's.
+				if unavailable.Load() && outageReads.Add(1) > 0 {
 					return nil, fmt.Errorf("read owner: %w", ownerErr)
 				}
 				return nil, nil

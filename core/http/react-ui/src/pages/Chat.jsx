@@ -23,6 +23,7 @@ import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
   threadRows, placeProposals, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
 } from '../utils/chatThread'
+import { withOptimistic } from '../utils/optimisticSend'
 import { chatFootState, showHint } from '../utils/chatFoot'
 import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
 // eslint-disable-next-line no-unused-vars
@@ -53,7 +54,9 @@ import ChatHeader from '../components/chat/ChatHeader'
 import WorkspaceSlot from '../components/slots/WorkspaceSlot'
 import PageDock from '../components/dock/PageDock'
 import DockButton from '../components/dock/DockButton'
+import FilesButton from '../components/chat/FilesButton'
 import { usePageDock } from '../hooks/useChatDock'
+import { setDockOpen } from '../utils/dock'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsDialog from '../components/chat/ShortcutsDialog'
 // eslint-disable-next-line no-unused-vars
@@ -66,6 +69,7 @@ import FindBar from '../components/chat/FindBar'
 import LoadCard from '../components/chat/LoadCard'
 // eslint-disable-next-line no-unused-vars
 import ChatFoot from '../components/chat/ChatFoot'
+import HarnessBanner from '../components/chat/HarnessBanner'
 import GoalBar from '../components/chat/GoalBar'
 import GoalMarker from '../components/chat/GoalMarker'
 // eslint-disable-next-line no-unused-vars
@@ -349,9 +353,22 @@ function ChatPage() {
   const pane = useChatPreviewPane({
     chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
     messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
+    blocked: pageDock.dock.open,
   })
+  // The dock and the files pane share the right side, one at a time: the one
+  // the person opens last takes it, and the other hides without being closed
+  // for good. A result that arrives never takes the side from an open dock.
+  const dockIsOpen = pageDock.dock.open
+  const hidePane = pane.hide
+  // Only a change of the pane or of the dock acts, never a change of chat.
+  const dockUpdateRef = useRef(pageDock.update)
+  dockUpdateRef.current = pageDock.update
+  useEffect(() => { if (dockIsOpen) hidePane() }, [dockIsOpen, hidePane])
+  useEffect(() => {
+    if (pane.open) dockUpdateRef.current((d) => (d.open ? setDockOpen(d, false) : d))
+  }, [pane.open])
   const withArrival = arrival.messages
-  const messages = useMemo(() => withArrival(chat.messages, activeId), [withArrival, chat.messages, activeId])
+  const messages = useMemo(() => withOptimistic(withArrival(chat.messages, activeId), chat.sending, activeId), [withArrival, chat.messages, chat.sending, activeId])
   const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
   const modelWarm = !!model && loadedIds.has(model)
   const title = activeChat?.title || tc('list.untitled')
@@ -442,10 +459,25 @@ function ChatPage() {
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
+  // A new message scrolls down smoothly. What grows under a pinned thread (the
+  // card of a model that loads and its progress, the streamed answer, a message
+  // that settles) is followed at once, from the size of the thread itself, so
+  // nothing waits for a change of data to scroll.
   useEffect(() => {
     if (!stickToBottomRef.current) return
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, chat.live, chat.pending.length])
+  }, [messages.length, chat.pending.length])
+  useEffect(() => {
+    const el = messagesRef.current
+    const thread = el?.querySelector('.cx-thread')
+    if (!el || !thread || typeof ResizeObserver === 'undefined') return undefined
+    const follow = () => {
+      if (stickToBottomRef.current) el.scrollTop = el.scrollHeight
+    }
+    const ro = new ResizeObserver(follow)
+    ro.observe(thread)
+    return () => ro.disconnect()
+  }, [])
 
   // Switching chats snaps to the bottom and resets the focus-mode override.
   useEffect(() => {
@@ -538,6 +570,8 @@ function ChatPage() {
     root.querySelectorAll('mark.cx-hit').forEach((mark, i) => {
       if (i === find.index) {
         mark.setAttribute('data-cur', '')
+        // The reader chose where to look: the thread stops following the bottom.
+        stickToBottomRef.current = false
         mark.scrollIntoView({ block: 'center' })
       } else {
         mark.removeAttribute('data-cur')
@@ -557,6 +591,7 @@ function ChatPage() {
     const el = messagesRef.current?.querySelector(`[data-testid="chat-message"][data-index="${wantSeq}"]`)
     if (!el) return undefined
     jumpedRef.current = mark
+    stickToBottomRef.current = false
     el.scrollIntoView({ block: 'center' })
     el.focus({ preventScroll: true })
     // on, then off (the colour fades by a transition), then gone. Not cleared
@@ -671,6 +706,9 @@ function ChatPage() {
     if (typeof override !== 'string') drafts.clear(activeId)
     setLocalError('')
     let target = activeId
+    // The message shows now; the chat that a first message needs is created
+    // behind it (a message of an open chat is drawn by chat.send).
+    if (!target) chat.showSending(null, text, sending)
     try {
       if (!target) {
         setBusy(true)
@@ -685,6 +723,7 @@ function ChatPage() {
     } catch (e) {
       // Give the text and files back to the chat they were written in, unless
       // the user typed something else there. Another chat may be open by now.
+      chat.dropSending()
       if (typeof override !== 'string') drafts.restore(target, input.trim(), sending)
       if (drafts.isOpen(target)) sayError(e, tc('errors.send'))
       else addToast(isFolderMissingError(e) ? t('agentFolder.startError') : (e.message || tc('errors.send')), 'error')
@@ -884,6 +923,30 @@ function ChatPage() {
     },
   })
 
+  // The window of the chat's model is too small for the chat agent (the
+  // server's harness block). An administrator raises the window of the model;
+  // anyone else moves the chat to another model, or resets the chat's own
+  // context size setting.
+  const harnessModel = activeChat?.model || ''
+  const setModelWindow = async (value) => {
+    try {
+      await modelsApi.patchConfig(harnessModel, { context_size: value })
+      addToast(t('toasts.windowSet', { model: harnessModel, window: value }), 'success', 3000)
+      await chat.refreshChat(activeId)
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }
+  const resetChatWindow = async () => {
+    const rest = { ...(activeChat?.settings || {}) }
+    delete rest.context_size
+    try {
+      await chat.update(activeId, { settings: rest })
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }
+
   const promptDelete = () => activeChat && requestDelete({ id: activeChat.id, name: title })
 
   // Picking another model in a chat moves the chat to it from the next turn.
@@ -992,7 +1055,8 @@ function ChatPage() {
   }
   const stepFind = (delta) => setFind(f => (f.count === 0 ? f : { ...f, index: (f.index + delta + f.count) % f.count }))
 
-  const isEmpty = !activeId || (messages.length === 0 && !chat.running && !chat.loading)
+  // The first message of a new chat is drawn before the chat exists.
+  const isEmpty = messages.length === 0 && (!activeId || (!chat.running && !chat.loading))
   // An agent shared with you runs with your own access: before the first
   // message the chat says what of it you lack.
   const emptyAgentId = isEmpty ? ((activeId ? activeChat?.agent_id : agentId) || '') : ''
@@ -1040,22 +1104,6 @@ function ChatPage() {
   const composerChips = (
     <>
       {activeChat?.kind !== 'subagent' && <ReasoningChips effort={effortNow} onEffort={setEffort} openRef={effortRef} />}
-      {activeId && chat.files.on && (
-        <button
-          type="button"
-          className="home-chip cx-chip-toggle"
-          aria-pressed={pane.open}
-          aria-controls={pane.open ? 'chat-files-pane' : undefined}
-          onClick={pane.toggle}
-          title={t('files.chipTitle')}
-          data-testid="chat-files-chip"
-        >
-          <Icon name="paperclip" />
-          <span className="home-chip__text">{t('files.chip')}</span>
-          {/* Keyed by the number, so a new count rises into place. */}
-          {chatFiles.files.length > 0 && <span key={chatFiles.files.length} className="cx-files__count" data-testid="chat-files-count">{chatFiles.files.length}</span>}
-        </button>
-      )}
     </>
   )
 
@@ -1267,6 +1315,7 @@ function ChatPage() {
           moreItems={moreItems}
           extra={(
             <>
+              {activeId && chat.files.on && <FilesButton open={pane.open} count={chatFiles.files.length} onToggle={pane.toggle} />}
               {dockOn && <DockButton open={pageDock.dock.open} onToggle={pageDock.toggle} />}
               <WorkspaceSlot name="chatHeader" onTool={handleSend} onCommand={fillComposer} />
             </>
@@ -1420,6 +1469,16 @@ function ChatPage() {
           {/* The toast stack stays above the whole dock, so a toast never
               covers the shortcut row it talks about. */}
           <div className="cx-dock__in" data-toast-anchor="">
+            {activeId && (
+              <HarnessBanner
+                harness={chat.detail?.harness}
+                model={harnessModel}
+                models={chatModels}
+                onSetModelWindow={setModelWindow}
+                onSwitchModel={pickModel}
+                onResetChatWindow={resetChatWindow}
+              />
+            )}
             {!chat.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
             {!chat.files.on && <p className="cx-notice" role="note">{chat.files.reason || tc('attach.off')}</p>}
             {browserStores.length > 0 && (

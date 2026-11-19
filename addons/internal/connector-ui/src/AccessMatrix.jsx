@@ -14,7 +14,7 @@ import { FixButton } from './accessHooks'
 import { hasPairing, remainingChecks, sentenceCase } from './access'
 import { agentHas, agentHeld, grantableFor, roleHas, setCap, setGrant } from './connector'
 import { matrixColumns, matrixRows } from './matrix'
-import ApprovalOptions, { approvalEffect } from './ApprovalFields'
+import ApprovalOptions, { approvalEffect, changeEffect } from './ApprovalFields'
 
 const ICON = { yes: 'check-circle', asks: 'help-circle', no: 'close', waiting: 'clock', off: 'minus', unknown: 'minus' }
 
@@ -168,6 +168,9 @@ export default function AccessMatrix({ form, setForm, kindInfo, capabilities, pr
                   <tr key={`${r.key}:more`} className="cn-mx__disclosure" data-testid={`connector-matrix-disclosure-${r.key}`}>
                     <td colSpan={phone ? Math.min(3, columns.length + 1) : columns.length + 1}>
                       <Hint>{cap.description}{cap.sensitive ? ` ${s('perm.sensitiveHelp')}` : ''}</Hint>
+                      {r.cap === 'triggers.change' && form.approval && (
+                        <p className="cn-cap__effect" data-testid="connector-cap-effect-triggers.change">{changeEffect(form.approval, s)}</p>
+                      )}
                       {r.cap === 'triggers.propose' && form.approval && (<>
                         <p className="cn-cap__effect" data-testid="connector-cap-effect-triggers.propose">{approvalEffect(form.approval, s)}</p>
                         <ApprovalOptions form={form} setForm={setForm} s={s} off={!on} held={held} />

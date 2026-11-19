@@ -49,6 +49,7 @@
   "approval.default": "Default: {{value}}.",
   "approval.summary": "Triggers: {{mode}}",
   "approval.effect": "Proposals: {{mode}}",
+  "approval.effectChange": "Changes and deletes: {{mode}}",
   "approval.limits": "Limits",
   "approval.acts.title": "Runs may act",
   "approval.acts.help": "Off: the runs of a trigger made from this chat only read and report. On: they may also do what you tick below, and only what the agent has.",

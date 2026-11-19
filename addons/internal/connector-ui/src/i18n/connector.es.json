@@ -49,6 +49,7 @@
   "approval.default": "Por defecto: {{value}}.",
   "approval.summary": "Disparadores: {{mode}}",
   "approval.effect": "Propuestas: {{mode}}",
+  "approval.effectChange": "Cambios y borrados: {{mode}}",
   "approval.limits": "Límites",
   "approval.acts.title": "Las ejecuciones pueden actuar",
   "approval.acts.help": "Desactivado: las ejecuciones de un disparador creado desde este chat solo leen e informan. Activado: también pueden hacer lo que marques abajo, y solo lo que el agente tiene.",

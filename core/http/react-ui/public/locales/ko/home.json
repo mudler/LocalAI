@@ -153,5 +153,43 @@
     "add": "모델 추가",
     "remove": "{{name}} 제거",
     "clear": "지우기"
+  },
+  "starters": {
+    "title": "이 기기에 추천",
+    "tier": {
+      "cpu": "CPU 전용",
+      "gpu-small": "소형 GPU",
+      "gpu-mid": "중급 GPU",
+      "gpu-large": "대형 GPU"
+    },
+    "undetected": "하드웨어를 감지하지 못해 GPU가 없는 컴퓨터용 모델을 보여 드립니다.",
+    "cluster": "클러스터에서 가장 좋은 머신에 맞췄습니다.",
+    "nothingFits": "추천 모델 중 이 기기에 맞는 것이 없습니다. 가장 작은 모델이며, 느리게 동작하거나 로드되지 않을 수 있습니다.",
+    "facts": {
+      "size": "다운로드 {{size}}",
+      "window": "컨텍스트 {{window}}",
+      "memory": "메모리 약 {{memory}}"
+    },
+    "fit": {
+      "tight": "빠듯함",
+      "does_not_fit": "맞지 않음"
+    },
+    "reasons": {
+      "little_headroom": "들어가지만 여유 메모리가 거의 남지 않습니다.",
+      "below_chat_minimum": "채팅에 쓰기에는 컨텍스트 창이 너무 작습니다.",
+      "exceeds_memory": "이 기기가 가진 것보다 많은 메모리가 필요합니다.",
+      "estimate_unavailable": "메모리 사용량을 추정하지 못했습니다.",
+      "hardware_unknown": "하드웨어를 읽지 못해 적합 여부를 확인하지 않았습니다."
+    },
+    "more": "모델 더 보기",
+    "fewer": "모델 줄이기",
+    "askAdmin": "모델은 관리자만 설치할 수 있습니다. 관리자에게 이 중 하나를 설치해 달라고 요청하세요.",
+    "installModel": "{{model}} 설치",
+    "cpuNote": "GPU가 감지되지 않았습니다. 이 모델들은 프로세서에서도 빠르게 응답합니다.",
+    "gpuNote": "그래픽 카드에 맞고 전체 채팅을 위한 여유가 있는 모델을 골랐습니다.",
+    "install": "설치",
+    "installing": "설치 중",
+    "installStarted": "{{model}} 설치 중…",
+    "installFailed": "설치 실패: {{message}}"
   }
 }

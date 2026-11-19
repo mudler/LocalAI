@@ -347,6 +347,62 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, each row shows whether the estimated memory at the chosen context length fits, using a 95% headroom rule. A model that is too big for the GPU but would run from system RAM is marked as spilling to the CPU, with how much; a model too big for both is marked as over by the shortfall.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 
+## Recommended model for your machine
+
+On first run, when no model is installed, the Home page and the chat page offer
+one model for your machine, with the size of the download and the context window
+it will get, and two alternatives behind **More models**. Only an administrator
+can install it. Everyone else sees the same names and is told to ask an
+administrator.
+
+How the choice is made:
+
+- LocalAI reads the memory of the machine that runs models: the smallest GPU, or
+  system memory when there is no GPU. In a cluster it uses the best single node.
+  That puts the machine in a tier: `cpu` (no GPU), `gpu-small` (under 8 GB),
+  `gpu-mid` (8 GB up to 24 GB) or `gpu-large` (24 GB and more).
+- Each tier has a curated list of one default and two alternatives. All are chat
+  models with tool calling and a permissive licence. The list is the file
+  `gallery/recommended.yaml`, served next to the gallery index.
+- For each model on the list, LocalAI reads the GGUF header only (a few ranged
+  requests, never the weights) and works out the context window the loader would
+  pick on this machine: it aims at 32768 tokens and steps down to what fits, as
+  described for `context_size` in [model configuration]({{% relref "advanced/model-configuration" %}}).
+  The result is a verdict: `fits`, `tight` (for example a window under 24576, or
+  little free memory) or `does_not_fit` (the window would be under the 16384
+  tokens a chat needs, or the model needs more memory than the machine has).
+- Models that do not fit are left out. A model that fits comfortably comes before
+  one that only fits tightly. If nothing in the tier fits, LocalAI offers the
+  models of the smaller tiers, and if nothing fits at all it shows the smallest
+  model and says it does not fit.
+- When the hardware cannot be read, the page says so and shows the `cpu` tier
+  without a fit verdict.
+
+The install writes the fitted window into the model's configuration as an
+explicit `context_size`, so a model whose gallery entry sets a larger window
+(for example 262144 tokens) still loads on your machine. A `context_size` that
+you set is never changed by this.
+
+To change the outcome:
+
+- Install any other model from **Models**. The recommendation is a suggestion.
+- Edit `context_size` in the model's configuration at any time. See
+  [model configuration]({{% relref "advanced/model-configuration" %}}).
+- Change the list for everyone who uses your gallery: edit `recommended.yaml`
+  (schema `version: 1`, one list per tier, each with one `default` and two
+  `alternative` entries, each with the model's gallery `id`, a `name` and a
+  one-line `reason`) and serve it next to the gallery index. LocalAI reads it
+  from the same sources as the index, so no release is needed. If the file is
+  missing or not valid, or strict backend integrity is on, LocalAI uses a short
+  list built into the binary and logs why.
+
+API: `GET /api/models/recommended` answers for any signed-in user with the tier,
+the hardware that was read and a ranked list. Each entry has the gallery `id`, the
+`context_size` an install will use, `memory_bytes` at that window, `fit` and
+`fit_reasons`. To install one, call `POST /api/models/install/{id}?variant={id}&context_size={n}`
+(administrators only). The `variant` parameter pins the entry that was measured,
+so the install does not choose a larger build.
+
 ## EmbeddingGemma 2
 
 The `embeddinggemma-2` family serves text embeddings through `llama-cpp`.

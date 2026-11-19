@@ -65,6 +65,8 @@
     "installing": "Installation läuft",
     "installStarted": "{{model}} wird installiert…",
     "installFailed": "Installation fehlgeschlagen: {{message}}",
+    "window": "{{window}} Kontext",
+    "memory": "ca. {{memory}} Speicher",
     "dismiss": "Empfehlungen ausblenden",
     "summary": "{{n}} Modelle vorgeschlagen",
     "bestFit": "Best fit",

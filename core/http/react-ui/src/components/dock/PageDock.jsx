@@ -27,7 +27,13 @@ function usePageIndex() {
 }
 
 // The list of pages to open in an empty dock, or from the + of the tabs.
-function DockPicker({ index, onPick, docked, t }) {
+function DockPicker({ index, onPick, onCancel, docked, focusToken, t }) {
+  const rootRef = useRef(null)
+  // A + of the tabs moves the focus to the first page, so the list is seen
+  // and the keyboard is in it. An empty dock does not steal the focus.
+  useEffect(() => {
+    if (focusToken > 0) rootRef.current?.querySelector('.pd-pick__row')?.focus()
+  }, [focusToken])
   const row = (key, ref, p) => (
     <li key={key}>
       <button type="button" className="pd-pick__row" onClick={() => onPick(ref)} aria-current={docked.has(key) || undefined} data-testid="dock-pick" data-page={p.name}>
@@ -39,7 +45,10 @@ function DockPicker({ index, onPick, docked, t }) {
   )
   const none = index.own.length === 0 && index.shared.length === 0
   return (
-    <div className="pd-pick" data-testid="dock-picker">
+    <div
+      ref={rootRef} className="pd-pick" data-testid="dock-picker"
+      onKeyDown={(e) => { if (e.key === 'Escape' && onCancel) { e.preventDefault(); e.stopPropagation(); onCancel() } }}
+    >
       <h3 className="pd-pick__head">{t('dock.pickTitle')}</h3>
       {none && <p className="pd-pick__none">{t('dock.pickEmpty')}</p>}
       {index.own.length > 0 && (
@@ -86,6 +95,7 @@ export default function PageDock({ dock, update, chatId, onOpen, fresh, phone, o
   const frameRef = useRef(null)
   const [viewport, setViewport] = useState(() => window.innerWidth)
   const [picking, setPicking] = useState(false)
+  const [pickFocus, setPickFocus] = useState(0)
   const [full, setFull] = useState(false)
   const [seen, setSeen] = useState({}) // key -> {page, state} of the tab in front
   const [dragging, setDragging] = useState(false)
@@ -126,12 +136,29 @@ export default function PageDock({ dock, update, chatId, onOpen, fresh, phone, o
   const info = index.byKey.get(key)
   const front = seen[key]?.page || info
   const title = front?.title || tab?.page || ''
+  // The picker shows when asked for with the +, and always while the dock has
+  // no tab. The + only asks for it while the dock has a tab to go back to.
   const showPicker = picking || dock.tabs.length === 0
+
+  // A page opened or brought to the front from anywhere else (the assistant,
+  // the Pages list, a slot, another tab) or a tab closed ends the request:
+  // the picker must not stay over the page that just opened.
+  const tabsKey = `${dock.tabs.map(dockKey).join('|')}#${dock.active}`
+  useEffect(() => { setPicking(false) }, [tabsKey])
+  // A hidden dock forgets the request.
+  useEffect(() => { if (!dock.open) setPicking(false) }, [dock.open])
 
   const close = () => update((d) => setDockOpen(d, false))
   const pick = (ref) => {
     setPicking(false)
     onOpen(ref)
+  }
+  // The + always opens the picker for a new tab and puts the focus in it; it
+  // never toggles, so a second press cannot look like nothing happened. The
+  // tab in front, Escape or a page of the list end it.
+  const add = () => {
+    setPicking(true)
+    setPickFocus((n) => n + 1)
   }
   const onState = useCallback((s) => setSeen((m) => ({ ...m, [key]: s })), [key])
 
@@ -254,7 +281,7 @@ export default function PageDock({ dock, update, chatId, onOpen, fresh, phone, o
           })}
           <Button
             variant="ghost" size="sm" icon="plus" className="pd-add" aria-label={t('dock.add')} title={t('dock.add')}
-            aria-pressed={picking} onClick={() => setPicking((v) => !v)} data-testid="dock-add"
+            aria-pressed={showPicker} onClick={add} data-testid="dock-add"
           />
         </div>
         <span className="pd-bar__acts">
@@ -282,7 +309,7 @@ export default function PageDock({ dock, update, chatId, onOpen, fresh, phone, o
 
       {showPicker ? (
         <div className="pd-body pd-body--pick">
-          <DockPicker index={index} onPick={pick} docked={docked} t={t} />
+          <DockPicker index={index} onPick={pick} onCancel={dock.tabs.length > 0 ? () => setPicking(false) : undefined} docked={docked} focusToken={pickFocus} t={t} />
         </div>
       ) : (
         <DockFrame

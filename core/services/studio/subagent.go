@@ -111,7 +111,9 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The built-in tools no add-on serves: bash on this machine when the
 	// Sandbox does not serve it and the setting allows it.
-	built := s.builtinsFor(ctx, a, rec, sub)
+	bchat := s.builtinChat(ctx, a, rec, sub)
+	built := s.builtins.Build(ctx, bchat)
+	s.traceTriggerTools(rec, bchat, built)
 	tools = s.applyBuiltins(tools, built)
 	cmds = shellSwitched(s.withHostBash(cmds, tools), hidden)
 	// The file tools are the one file toolset of the chat. A sub-agent gets
@@ -255,9 +257,19 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// A tool the sender of a connector message may not use is not offered. The
 	// model hears why, so it tells the person what the owner can change
 	// instead of saying that it has no such tool.
-	if line := deniedToolsNote(rec, append(slices.Clone(built), heldAddons...)); line != "" {
+	// A turn without a trigger tool says so, and why, so that the model does
+	// not claim a reminder it could not set. The denied note keeps room for it.
+	absent := triggersAbsentNote(built)
+	reserve := 0
+	if absent != "" {
+		reserve = len(absent) + 1
+	}
+	if line := deniedToolsNoteReserve(rec, append(slices.Clone(built), heldAddons...), reserve); line != "" {
 		note = strings.TrimSpace(line + " " + note)
 		s.noteHeldBack(ctx, rec, line)
+	}
+	if absent != "" {
+		note = strings.TrimSpace(absent + " " + note)
 	}
 	// What the user did with the triggers this chat proposed: the tool result
 	// said they were waiting, so a later turn must hear how they ended.

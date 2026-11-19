@@ -83,7 +83,8 @@
     "dismiss": "Dismiss recommendations",
     "summary": "{{n}} models suggested",
     "bestFit": "Best fit",
-    "needs": "{{vram}} VRAM",
+    "window": "{{window}} context",
+    "memory": "about {{memory}} in use",
     "more": "{{count}} more that fit",
     "fewer": "Show fewer",
     "alternative": "Also fits"

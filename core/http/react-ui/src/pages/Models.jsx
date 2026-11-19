@@ -54,6 +54,7 @@ const ESTIMATE_CONCURRENCY = 4
 const CHART_HEIGHT = 96
 const CHART_LABEL_ROOM = 15
 
+// The first step is the server's estimate default (DEFAULT_ESTIMATE_CONTEXT_SIZE).
 const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
 const FITS_FILTER_STORAGE_KEY = 'localai-models-fits-filter'

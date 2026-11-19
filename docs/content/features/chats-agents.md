@@ -796,6 +796,36 @@ cluster apply the same rule (stateless per request).
 A trigger runs nothing for the time before it was saved or switched on. After
 downtime, a missed schedule runs once, not once for each missed time.
 
+### What the model is told, and what is recorded
+
+- **Timers.** In Studio, `when` takes a schedule text, `{"file_arrives_in": folder}` and
+  the timers `{"in": "2 hours"}`, `{"at": "18:00"}` and `{"at": "2026-11-15 09:00"}`,
+  which set a one-off trigger. A time of day is the next time it is that time; a date
+  and a time names the day, and one that is past or less than a minute away is refused.
+  The zone is `time_zone` (also read inside `when`, next to `at`), or the `timezone` in
+  `user.json`; without either, `at` is an error that says to pass one. The description of
+  `propose_trigger` and `update_trigger` gives today's date and your zone, so the model
+  does not work out a day, and it changes once a day.
+- **Proof in the result.** The result of `propose_trigger`, `update_trigger` and
+  `delete_trigger` ends with the state that was read back from the store after the write:
+  `ref`, `state` (`proposed`, `active`, `paused`, `deleted_pending`, `withdrawn`),
+  `active`, `now`, `next_run` (RFC 3339, from the schedule and the zone), when a proposal
+  lapses (`expires`) and `change: "pending"` while an update or a delete waits. The same
+  proposal made again says that it is the one that already waits.
+- **A turn without trigger tools.** When none of the four tools is offered in a turn (the
+  server runs no triggers, the chat switched the group off, a run nobody watches, a
+  sub-agent, a messaging chat without an agent or without the permission, or an account
+  without the feature), the note of the turn starts with one line that names the reason
+  and says not to claim a reminder or a schedule was set. A turn that has the tools gets
+  no such line.
+- **Trace.** Each turn logs one info line, `studio: trigger tools of the turn`, with the
+  chat, the origin, the agent, the tools offered, the reason for each one refused, whether
+  the sender held `triggers.propose` and `triggers.change`, and the approval mode of a
+  connection. Each call of a trigger tool logs `studio: trigger tool call` with the tool,
+  `ok`, the error text and the `ref`. A change from a messaging chat also logs
+  `studio: trigger change from a messaging chat` with the mode used. No line holds the
+  arguments or any message text.
+
 ### Proposals
 
 The four trigger tools (`propose_trigger`, `list_triggers`, `update_trigger`
@@ -888,6 +918,12 @@ exact name when only one trigger has that name.
   name, when it runs, whether it is on and its last run, with **Delete** and
   **Keep**.
 
+`list_triggers` also lists the proposals that still wait, with `state: "proposed"`
+(the other states are `active` and `paused`), and `include_prompt` works on one. A
+`delete_trigger` with the `ref` of a proposal that waits withdraws it at once;
+`update_trigger` on such a `ref` is an error that says to withdraw it and propose it
+again.
+
 The tool descriptions tell the model which change waits and which applies at
 once, so it does not say a change is made before you apply it. At the start of
 its next turn the model is told what you did with the changes it asked for in
@@ -919,8 +955,12 @@ most 10 changes wait at a time. Like the other trigger tools, these tools are
 offered only in a chat a person started: a trigger run, a connector run and a
 sub-agent never get them. A chat that a messaging app started gets `propose_trigger`
 and `list_triggers` when the connection holds `triggers.propose` and the agent holds
-the grant "Also propose from messaging apps"; `update_trigger` and `delete_trigger` stay in
-the app.
+the grant "Also propose from messaging apps". It gets `update_trigger` and
+`delete_trigger` only when the connection holds `triggers.change` (off by default,
+sensitive: only a paired sender can use it) and the sender of the message holds it;
+the approval mode of the connection then decides whether the owner confirms each
+change in the chat or it applies at once (see
+[Triggers from a connector chat]({{%relref "features/chats-connectors#triggers-from-a-connector-chat" %}})).
 
 ### Clusters
 

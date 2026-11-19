@@ -49,6 +49,7 @@
   "approval.default": "기본값: {{value}}.",
   "approval.summary": "트리거: {{mode}}",
   "approval.effect": "제안: {{mode}}",
+  "approval.effectChange": "변경과 삭제: {{mode}}",
   "approval.limits": "한도",
   "approval.acts.title": "실행이 할 수 있는 동작",
   "approval.acts.help": "꺼짐: 이 채팅에서 만든 트리거의 실행은 읽고 보고하기만 합니다. 켜짐: 아래에서 선택한 동작도 할 수 있으며, 에이전트가 가진 권한 범위에서만 가능합니다.",

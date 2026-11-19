@@ -166,5 +166,15 @@
   "hold.undoable": "El propietario puede deshacerlo en la interfaz web.",
   "hold.not_undoable": "No se puede deshacer desde aquí.",
   "hold.note_waiting": "Esperando a que una persona verificada confirme en este chat: {title} (código {code}).",
-  "hold.note_expired": "Nadie confirmó a tiempo, así que se descartó: {title}."
+  "hold.note_expired": "Nadie confirmó a tiempo, así que se descartó: {title}.",
+  "trigchange.ask.update": "Cambio propuesto para {name}: {fields}. Después: {when}. No cambia nada hasta que lo apruebes. Responde \"confirmar {code}\" para aplicarlo o \"cancelar {code}\" para dejarlo como está, aquí, en 24 horas, o abre Studio.",
+  "trigchange.ask.delete": "¿Borrar {name} ({when})? Sigue funcionando hasta que lo apruebes. Responde \"confirmar {code}\" para borrarlo o \"cancelar {code}\" para conservarlo, aquí, en 24 horas, o abre Studio.",
+  "trigchange.ask.pause": "¿Pausar {name} ({when})? Sigue funcionando hasta que lo apruebes. Responde \"confirmar {code}\" para pausarlo o \"cancelar {code}\" para dejarlo activo, aquí, en 24 horas, o abre Studio.",
+  "trigchange.ask.resume": "¿Reanudar {name} ({when})? Sigue en pausa hasta que lo apruebes. Responde \"confirmar {code}\" para reanudarlo o \"cancelar {code}\" para dejarlo en pausa, aquí, en 24 horas, o abre Studio.",
+  "trigchange.ask.withdraw": "¿Retirar la propuesta {name}? Sigue esperando hasta que lo apruebes. Responde \"confirmar {code}\" para retirarla o \"cancelar {code}\" para dejarla esperando, aquí, en 24 horas, o abre Studio.",
+  "trigchange.done.update": "{name} cambiado: {fields}. Ahora: {when}.",
+  "trigchange.done.delete": "{name} borrado.",
+  "trigchange.done.pause": "{name} en pausa. No se ejecuta hasta que se reanude.",
+  "trigchange.done.resume": "{name} reanudado: {when}.",
+  "trigchange.done.withdraw": "Propuesta {name} retirada. Nunca se ejecutó."
 }

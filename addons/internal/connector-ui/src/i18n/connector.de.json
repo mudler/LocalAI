@@ -49,6 +49,7 @@
   "approval.default": "Standard: {{value}}.",
   "approval.summary": "Trigger: {{mode}}",
   "approval.effect": "Vorschläge: {{mode}}",
+  "approval.effectChange": "Änderungen und Löschungen: {{mode}}",
   "approval.limits": "Limits",
   "approval.acts.title": "Läufe dürfen handeln",
   "approval.acts.help": "Aus: Die Läufe eines Triggers, der aus diesem Chat entsteht, lesen und berichten nur. An: Sie dürfen auch tun, was du unten ankreuzt, und nur das, was der Agent hat.",
