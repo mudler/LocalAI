@@ -92,17 +92,17 @@ func (u *Upgrader) Adopt(ctx context.Context, req AdoptRequest) (*AdoptResult, e
 	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
 		return nil, ErrNotFound
 	}
-	if !u.fs().Exists(u.path(name + ".yaml")) {
-		return nil, ErrNotFound
-	}
 	unlock, err := u.acquire(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	defer unlock()
-	sc, err := gallery.ReadSidecar(u.modelsPath(), name)
+	sc, err := u.readGalleryFile(name)
 	if errors.Is(err, gallery.ErrNoSidecar) {
 		return nil, ErrNoInstallRecord
+	}
+	if errors.Is(err, ErrNotFound) {
+		return nil, err
 	}
 	if err != nil {
 		return nil, u.relErr(err)

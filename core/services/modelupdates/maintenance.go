@@ -132,13 +132,23 @@ func (u *Upgrader) changed(name string) {
 	}
 }
 
-// readUpgradable reads the gallery file of an installed model with a
-// recorded origin.
-func (u *Upgrader) readUpgradable(name string) (*gallery.ModelConfig, error) {
+// readGalleryFile reads the gallery file of an installed model: the model
+// config must exist. A model without a gallery file gives gallery.ErrNoSidecar
+// as it is, because Adopt wants exactly that model.
+func (u *Upgrader) readGalleryFile(name string) (*gallery.ModelConfig, error) {
+	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
+		return nil, ErrNotFound
+	}
 	if !u.fs().Exists(u.path(name + ".yaml")) {
 		return nil, ErrNotFound
 	}
-	sc, err := gallery.ReadSidecar(u.modelsPath(), name)
+	return gallery.ReadSidecar(u.modelsPath(), name)
+}
+
+// readUpgradable reads the gallery file of an installed model with a
+// recorded origin.
+func (u *Upgrader) readUpgradable(name string) (*gallery.ModelConfig, error) {
+	sc, err := u.readGalleryFile(name)
 	if errors.Is(err, gallery.ErrNoSidecar) {
 		return nil, ErrNotUpgradable
 	}
@@ -147,6 +157,31 @@ func (u *Upgrader) readUpgradable(name string) (*gallery.ModelConfig, error) {
 	}
 	if !sc.IsV2() || sc.Origin == nil {
 		return nil, ErrNotUpgradable
+	}
+	return sc, nil
+}
+
+// preconditions reads the gallery file of a model an upgrade (or a retry)
+// would change and refuses what cannot run: no recorded origin, an upgrade
+// of it that runs, a hold, or a retry without a failed upgrade. Upgrade
+// calls it under the model lock; Validate calls it to refuse early.
+func (u *Upgrader) preconditions(name string, retry bool) (*gallery.ModelConfig, error) {
+	sc, err := u.readUpgradable(name)
+	if err != nil {
+		return nil, err
+	}
+	j := sc.Upgrade
+	if j != nil && !j.Terminal() {
+		return nil, ErrBusy
+	}
+	// Read under the model lock, which SetHold takes too: a hold set on any
+	// frontend before this point stops the upgrade, and none can be set
+	// until it ends.
+	if sc.Hold {
+		return nil, ErrHeld
+	}
+	if retry && (j == nil || j.Kind != gallery.JournalUpgrade || (j.Phase != gallery.PhaseFailed && j.Phase != gallery.PhaseRolledBack)) {
+		return nil, ErrNothingFailed
 	}
 	return sc, nil
 }

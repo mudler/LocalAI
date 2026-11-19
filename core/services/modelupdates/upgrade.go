@@ -469,35 +469,13 @@ func (u *Upgrader) upgrade(ctx context.Context, req Request) error {
 	}
 	defer unlock()
 
-	sc, err := gallery.ReadSidecar(u.modelsPath(), name)
-	if errors.Is(err, gallery.ErrNoSidecar) {
-		return ErrNotUpgradable
-	}
+	sc, err := u.preconditions(name, req.Retry)
 	if err != nil {
 		return err
 	}
-	if !sc.IsV2() || sc.Origin == nil {
-		return ErrNotUpgradable
-	}
-	if !u.fs().Exists(filepath.Join(u.modelsPath(), name+".yaml")) {
-		return ErrNotFound
-	}
 	prevJournal := sc.Upgrade
-	if prevJournal != nil && !prevJournal.Terminal() {
-		return ErrBusy
-	}
-	// Read under the model lock, which SetHold takes too: a hold set on any
-	// frontend before this point stops the upgrade, and none can be set
-	// until it ends.
-	if sc.Hold {
-		return ErrHeld
-	}
 	attempts := 1
 	if req.Retry {
-		if prevJournal == nil || prevJournal.Kind != gallery.JournalUpgrade ||
-			(prevJournal.Phase != gallery.PhaseFailed && prevJournal.Phase != gallery.PhaseRolledBack) {
-			return ErrNothingFailed
-		}
 		attempts = prevJournal.Attempts + 1
 		if req.Choices == nil {
 			req.Choices = prevJournal.Choices
@@ -1282,33 +1260,8 @@ func (u *Upgrader) notify(ctx context.Context, r *upgradeRun, err error) {
 // model can be queued: the model is installed with a recorded origin, is not
 // held, and no upgrade of it runs. The upgrade itself checks again.
 func (u *Upgrader) Validate(name string, retry bool) error {
-	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
-		return ErrNotFound
-	}
-	if !u.fs().Exists(u.path(name + ".yaml")) {
-		return ErrNotFound
-	}
-	sc, err := gallery.ReadSidecar(u.modelsPath(), name)
-	if errors.Is(err, gallery.ErrNoSidecar) {
-		return ErrNotUpgradable
-	}
-	if err != nil {
-		return err
-	}
-	if !sc.IsV2() || sc.Origin == nil {
-		return ErrNotUpgradable
-	}
-	j := sc.Upgrade
-	if j != nil && !j.Terminal() {
-		return ErrBusy
-	}
-	if sc.Hold {
-		return ErrHeld
-	}
-	if retry && (j == nil || j.Kind != gallery.JournalUpgrade || (j.Phase != gallery.PhaseFailed && j.Phase != gallery.PhaseRolledBack)) {
-		return ErrNothingFailed
-	}
-	return nil
+	_, err := u.preconditions(name, retry)
+	return err
 }
 
 // ErrBadChoice is a choice that is neither ChoiceMine nor ChoiceGallery.
