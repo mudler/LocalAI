@@ -124,9 +124,18 @@ type BaseConfigFetcher struct {
 	mu      sync.Mutex
 	entries map[string]fetchedConfig
 	client  *http.Client
-	// validate guards a url against SSRF. Tests replace it to reach a local
-	// server.
+	// validate guards a url against SSRF before the request. Tests replace it
+	// to reach a local server.
 	validate func(string) error
+}
+
+// newConfigHTTPClient builds the client of the fetcher. A gallery entry url
+// comes from outside, so the client resolves the host itself and refuses a
+// private target, on the first request and on every redirect hop. extra
+// options let a test reach a local server.
+func newConfigHTTPClient(extra ...httpclient.Option) *http.Client {
+	opts := append([]httpclient.Option{httpclient.WithFollowRedirects(), httpclient.WithExternalOnly()}, extra...)
+	return httpclient.NewWithTimeout(30*time.Second, opts...)
 }
 
 type fetchedConfig struct {
@@ -138,7 +147,7 @@ type fetchedConfig struct {
 func NewBaseConfigFetcher() *BaseConfigFetcher {
 	return &BaseConfigFetcher{
 		entries:  map[string]fetchedConfig{},
-		client:   httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects()),
+		client:   newConfigHTTPClient(),
 		validate: validateGalleryConfigURL,
 	}
 }
@@ -153,7 +162,7 @@ func (f *BaseConfigFetcher) Fetch(ctx context.Context, url, basePath string) ([]
 		}
 		return body, SHA256Hex(body), nil
 	}
-	if err := f.validate(url); err != nil {
+	if err := f.validate(resolved); err != nil {
 		return nil, "", err
 	}
 	f.mu.Lock()
