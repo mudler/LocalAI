@@ -9,6 +9,9 @@ import (
 type Item struct {
 	Type       string         `json:"type"`
 	Properties map[string]any `json:"properties"`
+	// Defs carries a schema's `$defs` so properties that use `$ref` still
+	// resolve once the item is re-marshalled for the grammar converter.
+	Defs map[string]any `json:"$defs,omitempty"`
 }
 
 type JSONFunctionStructure struct {

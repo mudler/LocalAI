@@ -484,6 +484,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				}
 				fs := &functions.JSONFunctionStructure{
 					AnyOf: []functions.Item{d.JsonSchema.Schema},
+					Defs:  d.JsonSchema.Schema.Defs,
 				}
 				g, err := fs.Grammar(config.FunctionsConfig.GrammarOptions()...)
 				if err == nil {
