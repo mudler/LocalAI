@@ -273,10 +273,30 @@ jobs:
         run: |
           echo "$env:ProgramFiles\Git\usr\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
       - name: Install GNU Make
-        run: choco install make -y
+        run: |
+          # The Chocolatey feed answers 503 now and then, and choco can still
+          # exit with 0 then. Retry, and check the shim that the install makes.
+          $shim = Join-Path $env:ChocolateyInstall 'bin\make.exe'
+          foreach ($i in 1..5) {
+            choco install make -y
+            if (Test-Path $shim) { break }
+            Write-Host "make is not installed (try $i of 5)"
+            Start-Sleep -Seconds (10 * $i)
+          }
+          if (-not (Test-Path $shim)) { exit 1 }
       # The ffmpeg specs of pkg/utils run the real binary.
       - name: Install ffmpeg
-        run: choco install ffmpeg -y --no-progress
+        run: |
+          # The Chocolatey feed answers 503 now and then, and choco can still
+          # exit with 0 then. Retry, and check the shim that the install makes.
+          $shim = Join-Path $env:ChocolateyInstall 'bin\ffmpeg.exe'
+          foreach ($i in 1..5) {
+            choco install ffmpeg -y --no-progress
+            if (Test-Path $shim) { break }
+            Write-Host "ffmpeg is not installed (try $i of 5)"
+            Start-Sleep -Seconds (10 * $i)
+          }
+          if (-not (Test-Path $shim)) { exit 1 }
       # The React UI is embedded at build time. An empty dist folder is enough
       # for the packages under test, so the UI build is skipped.
       - name: Generate protobuf code

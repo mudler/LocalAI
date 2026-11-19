@@ -23,12 +23,25 @@ CMAKE_ARGS ?= -DCMAKE_BUILD_TYPE=Release
 
 # GPU backends; the default (cpu) needs no extra flags. 'cublas' is LocalAI's
 # name for the CUDA build (matches llama-cpp / ds4), mapping to the engine's
-# GGML_CUDA path; 'vulkan' selects the ggml Vulkan backend.
+# GGML_CUDA path; 'vulkan' selects the ggml Vulkan backend; 'hipblas' the ggml
+# HIP backend (ROCm).
 ifeq ($(BUILD_TYPE),cublas)
     CMAKE_ARGS += -DPF_CUDA=ON
 endif
 ifeq ($(BUILD_TYPE),vulkan)
     CMAKE_ARGS += -DPF_VULKAN=ON
+endif
+# 'hipblas' builds the ggml HIP backend for AMD GPUs. The engine has no PF_HIP
+# switch; GGML_HIP reaches ggml directly through add_subdirectory(ggml). Use the
+# ROCm clang and forward the gfx targets, otherwise ggml falls back to a CPU-only
+# build without an error (the same trap as whisper/parakeet-cpp).
+ifeq ($(BUILD_TYPE),hipblas)
+    ROCM_HOME ?= /opt/rocm
+    ROCM_PATH ?= /opt/rocm
+    export CXX=$(ROCM_HOME)/llvm/bin/clang++
+    export CC=$(ROCM_HOME)/llvm/bin/clang
+    AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1153,gfx1200,gfx1201
+    CMAKE_ARGS += -DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS) -DGPU_TARGETS=$(AMDGPU_TARGETS)
 endif
 
 # Portable binaries for distribution: disable -march=native unless asked.
