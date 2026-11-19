@@ -2,6 +2,8 @@ package openai
 
 import (
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/functions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -37,5 +39,20 @@ var _ = Describe("selectMCPServers", func() {
 		cfg := &config.ModelConfig{}
 		cfg.MCP.Auto = true
 		Expect(selectMCPServers(cfg, nil, false, nil)).To(BeEmpty())
+	})
+})
+
+var _ = Describe("requestedToolNames", func() {
+	It("collects both explicit functions and OpenAI tools", func() {
+		input := &schema.OpenAIRequest{
+			Functions: []functions.Function{{Name: "legacy_tool"}},
+			Tools: []functions.Tool{
+				{Type: "function", Function: functions.Function{Name: "tool"}},
+			},
+		}
+		Expect(requestedToolNames(input)).To(Equal(map[string]struct{}{
+			"legacy_tool": {},
+			"tool":        {},
+		}))
 	})
 })

@@ -214,6 +214,28 @@ func applyAutoparserOverride(
 	return []schema.Choice{newChoice}
 }
 
+// requestedToolNames names the tools a request already carries, so server-side
+// MCP injection does not offer the same tool twice. When a host (e.g. studio)
+// executes the tools it sent, running the model-configured server copy as well
+// would duplicate the schema sent to the model and race the two executors.
+func requestedToolNames(input *schema.OpenAIRequest) map[string]struct{} {
+	out := map[string]struct{}{}
+	if input == nil {
+		return out
+	}
+	for _, fn := range input.Functions {
+		if fn.Name != "" {
+			out[fn.Name] = struct{}{}
+		}
+	}
+	for _, tool := range input.Tools {
+		if tool.Function.Name != "" {
+			out[tool.Function.Name] = struct{}{}
+		}
+	}
+	return out
+}
+
 // selectMCPServers returns the MCP servers a chat request enables: the ones
 // named in metadata.mcp_servers or, with mcp.auto, every configured server when
 // the request names none. mcp.auto exists because plain OpenAI clients cannot
@@ -368,6 +390,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			remote, stdio, mcpErr := config.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
 				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, config.MCPSessionKey(), remote, stdio, mcpServers)
+				if requested := requestedToolNames(input); len(requested) > 0 {
+					mcpExecutor = mcpTools.Only(mcpExecutor, func(name string) bool {
+						_, offered := requested[name]
+						return !offered
+					})
+				}
 
 				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
 				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.MCPSessionKey(), remote, stdio, mcpServers)
