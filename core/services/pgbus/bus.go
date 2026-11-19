@@ -470,10 +470,13 @@ func (b *Bus) Subscribe(subject string, handler func([]byte)) (messaging.Subscri
 	// a registration that was never made needs no undoing.
 	if first {
 		b.barrier("issue", "LISTEN")
-		if err := b.command("LISTEN " + pgx.Identifier{channel}.Sanitize()); err != nil {
+		if err := b.command("LISTEN "+pgx.Identifier{channel}.Sanitize(), channel, true); err != nil {
 			close(sub.stop)
 			return nil, err
 		}
+		// After the acknowledgement and before the registration: the window in
+		// which a lost connection used to come back without this channel.
+		b.barrier("listened", "LISTEN")
 	}
 
 	b.mu.Lock()
@@ -668,7 +671,7 @@ func (s *subscription) Unsubscribe() error {
 		close(s.stop)
 		if last && b.ctx.Err() == nil {
 			b.barrier("issue", "UNLISTEN")
-			err = b.command("UNLISTEN " + pgx.Identifier{s.channel}.Sanitize())
+			err = b.command("UNLISTEN "+pgx.Identifier{s.channel}.Sanitize(), s.channel, false)
 		}
 	})
 	return err

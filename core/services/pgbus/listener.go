@@ -72,8 +72,12 @@ const applicationNamePrefix = "localai_pgbus_"
 // goroutine waits in WaitForNotification most of the time, so registrations are
 // queued to it and are not run against the connection.
 type listenCmd struct {
-	sql  string
-	done chan error
+	sql string
+	// channel and listen say what the command does to the set of listened
+	// channels when it succeeds.
+	channel string
+	listen  bool
+	done    chan error
 }
 
 // inbound is a notification as it came off the connection, before it is decoded,
@@ -185,8 +189,8 @@ func ProbeListen(ctx context.Context, dsn string) error {
 // acknowledged. This holds when it issued nothing because the channel was
 // already listened: because of listenMu, the Subscribe that did issue the LISTEN
 // had its acknowledgement before this one could see its registration.
-func (b *Bus) command(sql string) error {
-	cmd := listenCmd{sql: sql, done: make(chan error, 1)}
+func (b *Bus) command(sql, channel string, listen bool) error {
+	cmd := listenCmd{sql: sql, channel: channel, listen: listen, done: make(chan error, 1)}
 	timeout := time.NewTimer(subscribeTimeout)
 	defer timeout.Stop()
 
@@ -218,6 +222,11 @@ func (b *Bus) command(sql string) error {
 // other publisher of the server.
 func (b *Bus) listen(conn *pgx.Conn) {
 	defer close(b.listenerDone)
+	// The channels this connection listens on. Only this goroutine reads and
+	// writes it, and a redial replays it. The replay cannot depend on
+	// b.subs: a subscriber registers there after its LISTEN was acknowledged,
+	// and a connection lost in between would come back without that channel.
+	listened := map[string]struct{}{}
 	defer func() {
 		b.connected.Store(false)
 		// A fresh context, because b.ctx is already cancelled when this runs and
@@ -236,6 +245,13 @@ func (b *Bus) listen(conn *pgx.Conn) {
 		select {
 		case cmd := <-b.cmds:
 			_, err := conn.Exec(b.ctx, cmd.sql)
+			if err == nil {
+				if cmd.listen {
+					listened[cmd.channel] = struct{}{}
+				} else {
+					delete(listened, cmd.channel)
+				}
+			}
 			cmd.done <- err
 			continue
 		default:
@@ -245,7 +261,7 @@ func (b *Bus) listen(conn *pgx.Conn) {
 		case pollStop:
 			return
 		case pollRedial:
-			replacement, ok := b.redial(conn)
+			replacement, ok := b.redial(conn, listened)
 			if !ok {
 				return
 			}
@@ -394,7 +410,7 @@ func (b *Bus) dispatch(ordered <-chan *pending, done chan<- struct{}) {
 // redial replaces a dead LISTEN connection and restores every registration on it.
 // Without the restore, the carrier comes back deaf, which looks like a deployment
 // where nobody publishes any more.
-func (b *Bus) redial(dead *pgx.Conn) (*pgx.Conn, bool) {
+func (b *Bus) redial(dead *pgx.Conn, listened map[string]struct{}) (*pgx.Conn, bool) {
 	b.connected.Store(false)
 	closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	_ = dead.Close(closeCtx)
@@ -407,7 +423,7 @@ func (b *Bus) redial(dead *pgx.Conn) (*pgx.Conn, bool) {
 		}
 		conn, err := b.dial(b.ctx)
 		if err == nil {
-			if err = b.relisten(conn); err == nil {
+			if err = b.relisten(conn, listened); err == nil {
 				b.connected.Store(true)
 				b.metrics.reconnect()
 				xlog.Info("Broadcast carrier reconnected")
@@ -433,21 +449,12 @@ func (b *Bus) redial(dead *pgx.Conn) (*pgx.Conn, bool) {
 	}
 }
 
-// relisten registers again every channel that still has a subscriber.
+// relisten registers again every channel that the connection listened on.
 //
 // A carrier that reconnected without this is connected and deaf, and no error and
 // no log line says so.
-func (b *Bus) relisten(conn *pgx.Conn) error {
-	b.mu.Lock()
-	channels := make([]string, 0, len(b.subs))
-	for channel, subs := range b.subs {
-		if len(subs) > 0 {
-			channels = append(channels, channel)
-		}
-	}
-	b.mu.Unlock()
-
-	for _, channel := range channels {
+func (b *Bus) relisten(conn *pgx.Conn, listened map[string]struct{}) error {
+	for channel := range listened {
 		if _, err := conn.Exec(b.ctx, "LISTEN "+pgx.Identifier{channel}.Sanitize()); err != nil {
 			return err
 		}

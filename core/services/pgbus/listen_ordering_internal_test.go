@@ -3,9 +3,12 @@ package pgbus
 import (
 	"context"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
@@ -21,7 +24,10 @@ import (
 // for it would pass by luck on a defect that leaves a whole subject root deaf
 // until the connection drops.
 var _ = Describe("ordering LISTEN and UNLISTEN on one root", func() {
-	var b *Bus
+	var (
+		b  *Bus
+		db *gorm.DB
+	)
 
 	newBus := func(cfg Config) *Bus {
 		GinkgoHelper()
@@ -32,7 +38,8 @@ var _ = Describe("ordering LISTEN and UNLISTEN on one root", func() {
 	}
 
 	BeforeEach(func() {
-		db, dsn := testutil.SetupTestDBWithDSN()
+		var dsn string
+		db, dsn = testutil.SetupTestDBWithDSN()
 		Expect(Migrate(context.Background(), db)).To(Succeed())
 		b = newBus(Config{DSN: dsn, DB: db})
 	})
@@ -92,6 +99,52 @@ var _ = Describe("ordering LISTEN and UNLISTEN on one root", func() {
 		// The consequence, stated as delivery: the root must not be deaf.
 		Expect(b.Publish("staging.race.arriving", map[string]string{"m": "after"})).To(Succeed())
 		Eventually(delivered).Should(Receive(MatchJSON(`{"m":"after"}`)))
+	})
+
+	It("listens again on a channel whose connection was lost before its subscriber registered", func() {
+		// The LISTEN is acknowledged, then the connection drops, then the
+		// subscriber registers. A replay that read the registrations would not
+		// know the channel and the carrier would come back deaf on it.
+		acked := make(chan struct{})
+		release := make(chan struct{})
+		var once sync.Once
+		DeferCleanup(func() { once.Do(func() { close(release) }) })
+		b.listenBarrier = func(stage, op string) {
+			if op == "LISTEN" && stage == "listened" {
+				close(acked)
+				<-release
+			}
+		}
+		reconnected := make(chan struct{}, 1)
+		b.OnReconnect(func() { reconnected <- struct{}{} })
+
+		delivered := make(chan []byte, 1)
+		subscribed := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			_, err := b.Subscribe("staging.window.channel", func(d []byte) { delivered <- d })
+			subscribed <- err
+		}()
+		Eventually(acked).Should(BeClosed())
+
+		var killed int64
+		Expect(db.Raw("SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE application_name = ?",
+			b.ApplicationName()).Scan(&killed).Error).To(Succeed())
+		Expect(killed).To(BeEquivalentTo(1))
+		Eventually(reconnected, 30*time.Second).Should(Receive())
+
+		once.Do(func() { close(release) })
+		Eventually(subscribed).Should(Receive(BeNil()))
+
+		Eventually(func() bool {
+			_ = b.Publish("staging.window.channel", map[string]string{"m": "after"})
+			select {
+			case <-delivered:
+				return true
+			default:
+				return false
+			}
+		}, 30*time.Second, 200*time.Millisecond).Should(BeTrue())
 	})
 
 	It("listens once for a root and stops listening when its last subscriber leaves", func() {
