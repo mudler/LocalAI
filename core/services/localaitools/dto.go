@@ -631,6 +631,9 @@ type ModelAdoptResult struct {
 type ModelRemoveOldResult struct {
 	Name    string   `json:"name"`
 	Removed []string `json:"removed"`
+	// Kept and Errors are set when only some files could be removed.
+	Kept   []string `json:"kept,omitempty"`
+	Errors []string `json:"errors,omitempty"`
 }
 
 // ModelHoldResult is the hold of a model after hold or unhold (REST

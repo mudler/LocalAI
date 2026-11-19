@@ -213,6 +213,33 @@ var _ = Describe("Model hold and old version routes", func() {
 		Expect(resp.Removed).To(Equal([]string{"tiny.gguf.prev-12345678"}))
 		Expect(do(http.MethodPost, "/api/models/tiny/remove-old", "").Code).To(Equal(http.StatusConflict))
 	})
+
+	It("tells what stayed when it removed only some of the old files", func() {
+		Expect(os.WriteFile(filepath.Join(dir, "shared.gguf.prev-12345678"), []byte("s"), 0600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "other.yaml"), []byte("name: other\nparameters:\n  model: shared.gguf.prev-12345678\n"), 0600)).To(Succeed())
+		Expect(gallery.WriteSidecar(dir, "tiny", &gallery.ModelConfig{Name: "tiny", Version: gallery.SidecarVersion,
+			Origin: &gallery.Origin{EntryName: "tiny", EntryDigest: "sha256:b"},
+			Upgrade: &gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseConfirmed,
+				RetainedFiles: []string{"tiny.gguf.prev-12345678", "shared.gguf.prev-12345678"}}})).To(Succeed())
+		w := do(http.MethodPost, "/api/models/tiny/remove-old", "")
+		Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())
+		var resp schema.ModelRemoveOldResponse
+		Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+		Expect(resp.Removed).To(Equal([]string{"tiny.gguf.prev-12345678"}))
+		Expect(resp.Kept).To(Equal([]string{"shared.gguf.prev-12345678"}))
+		Expect(resp.Errors).To(ConsistOf(ContainSubstring("used by other")))
+	})
+
+	It("answers a file that stayed with 409, and an unexpected error without its text", func() {
+		Expect(os.WriteFile(filepath.Join(dir, "other.yaml"), []byte("name: other\nparameters:\n  model: tiny.gguf.prev-12345678\n"), 0600)).To(Succeed())
+		Expect(do(http.MethodPost, "/api/models/tiny/remove-old", "").Code).To(Equal(http.StatusConflict))
+
+		Expect(os.Remove(filepath.Join(dir, "other.yaml"))).To(Succeed())
+		Expect(os.WriteFile(gallery.SidecarPath(dir, "tiny"), []byte("version: [unclosed\n"), 0600)).To(Succeed())
+		w := do(http.MethodPost, "/api/models/tiny/remove-old", "")
+		Expect(w.Code).To(Equal(http.StatusInternalServerError))
+		Expect(w.Body.String()).ToNot(ContainSubstring(dir))
+	})
 })
 
 var _ = Describe("The removed POST /api/models/config/{id}", func() {

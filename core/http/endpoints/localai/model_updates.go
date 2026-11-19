@@ -109,7 +109,7 @@ func modelUpgradeError(c echo.Context, err error) error {
 		status = http.StatusNotFound
 	case errors.Is(err, modelupdates.ErrNotUpgradable):
 		status = http.StatusUnprocessableEntity
-	case errors.Is(err, modelupdates.ErrBusy), errors.Is(err, modelupdates.ErrNothingFailed), errors.Is(err, modelupdates.ErrHeld):
+	case errors.Is(err, modelupdates.ErrBusy), errors.Is(err, modelupdates.ErrNothingFailed), errors.Is(err, modelupdates.ErrHeld), errors.Is(err, modelupdates.ErrNoOldVersion), errors.Is(err, modelupdates.ErrFilesKept):
 		status = http.StatusConflict
 	}
 	msg := err.Error()
@@ -123,10 +123,7 @@ func modelUpgradeError(c echo.Context, err error) error {
 }
 
 func queueModelUpgrade(c echo.Context, d ModelUpgradeDeps, retry bool) error {
-	var up *modelupdates.Upgrader
-	if d.Upgrader != nil {
-		up = d.Upgrader()
-	}
+	up := upgraderOf(d)
 	if up == nil || d.Gallery == nil {
 		return c.JSON(http.StatusServiceUnavailable, schema.ModelUpgradeError{Error: "model upgrades are not available: no model gallery is configured"})
 	}
@@ -178,20 +175,14 @@ func RemoveOldModelVersionEndpoint(d ModelUpgradeDeps) echo.HandlerFunc {
 			return c.JSON(http.StatusServiceUnavailable, schema.ModelUpgradeError{Error: "model upgrades are not available: no model gallery is configured"})
 		}
 		name := c.Param("name")
-		removed, err := up.RemoveOld(c.Request().Context(), name)
-		if err != nil && len(removed) == 0 {
-			if errors.Is(err, modelupdates.ErrNoOldVersion) {
-				return c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: err.Error()})
-			}
-			if errors.Is(err, modelupdates.ErrNotFound) || errors.Is(err, modelupdates.ErrNotUpgradable) || errors.Is(err, modelupdates.ErrBusy) {
-				return modelUpgradeError(c, err)
-			}
-			return c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: err.Error()})
+		res, err := up.RemoveOldVersion(c.Request().Context(), name)
+		if err != nil {
+			// A removal that deleted nothing: the known refusals keep their
+			// status, any other error is answered without its text, which can
+			// carry server paths.
+			return modelUpgradeError(c, err)
 		}
-		if removed == nil {
-			removed = []string{}
-		}
-		return c.JSON(http.StatusOK, schema.ModelRemoveOldResponse{Name: name, Removed: removed})
+		return c.JSON(http.StatusOK, schema.ModelRemoveOldResponse{Name: name, Removed: res.Removed, Kept: res.Kept, Errors: res.Errors})
 	}
 }
 

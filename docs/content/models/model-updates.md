@@ -338,6 +338,11 @@ curl -X POST http://localhost:8080/api/models/qwen3-4b/remove-old
 # {"name": "qwen3-4b", "removed": ["qwen3-4b-q4.gguf.prev-1a2b3c4d"]}
 ```
 
+When only some of the old files can be removed (a file that another model uses
+now stays), the call answers `200` and adds `kept`, the files still listed for
+a later removal, and `errors`, the reason for each. When none can be removed it
+answers `409`.
+
 Hold or release a model:
 
 ```bash

@@ -605,7 +605,7 @@ func (c *Client) RemoveOldModelVersion(ctx context.Context, name string) (*local
 	if err := c.do(ctx, http.MethodPost, routeModelPath(name, "remove-old"), nil, &resp); err != nil {
 		return nil, err
 	}
-	return &localaitools.ModelRemoveOldResult{Name: resp.Name, Removed: resp.Removed}, nil
+	return &localaitools.ModelRemoveOldResult{Name: resp.Name, Removed: resp.Removed, Kept: resp.Kept, Errors: resp.Errors}, nil
 }
 
 func (c *Client) SetModelHold(ctx context.Context, name string, hold bool) (*localaitools.ModelHoldResult, error) {

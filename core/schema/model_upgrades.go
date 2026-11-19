@@ -67,6 +67,11 @@ type ModelRemoveOldResponse struct {
 	// Removed are the old files that were deleted, relative to the models
 	// directory.
 	Removed []string `json:"removed"`
+	// Kept are the old files that stayed, listed for a later removal. Set
+	// when only some files could be removed.
+	Kept []string `json:"kept,omitempty"`
+	// Errors say why files stayed. Set when only some files could be removed.
+	Errors []string `json:"errors,omitempty"`
 }
 
 // RemovedRouteResponse is the answer of a route that was removed: 410 Gone

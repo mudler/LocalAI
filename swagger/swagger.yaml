@@ -12785,6 +12785,19 @@ definitions:
     type: object
   schema.ModelRemoveOldResponse:
     properties:
+      errors:
+        description: Errors say why files stayed. Set when only some files could
+          be removed.
+        items:
+          type: string
+        type: array
+      kept:
+        description: |-
+          Kept are the old files that stayed, listed for a later removal. Set
+          when only some files could be removed.
+        items:
+          type: string
+        type: array
       name:
         type: string
       removed:

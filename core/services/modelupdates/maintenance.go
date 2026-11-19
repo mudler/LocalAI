@@ -16,9 +16,44 @@ import (
 // is not confirmed or kept no files.
 var ErrNoOldVersion = errors.New("there is no old version to remove: the last upgrade of this model is not confirmed, or kept no files")
 
+// ErrFilesKept is the error of a removal that kept some old files: a file
+// another model uses, one outside the models directory, or one that could
+// not be deleted.
+var ErrFilesKept = errors.New("some old files were kept")
+
 // RemovedOldNotifier tells that the old files of an upgrade were removed.
 type RemovedOldNotifier interface {
 	ModelRemovedOld(ctx context.Context, key, name string, files int) error
+}
+
+// RemoveOldResult is what RemoveOldVersion did: the old files it deleted, the
+// ones it kept, and why it kept them. Paths are relative to the models
+// directory.
+type RemoveOldResult struct {
+	Removed []string `json:"removed"`
+	// Kept are the files still listed for a later removal.
+	Kept []string `json:"kept,omitempty"`
+	// Errors say why files were kept. Set only when something was removed:
+	// a removal that deleted nothing returns its error.
+	Errors []string `json:"errors,omitempty"`
+}
+
+// Partial reports that some files were removed and some were not.
+func (r RemoveOldResult) Partial() bool { return len(r.Removed) > 0 && len(r.Errors) > 0 }
+
+// RemoveOldVersion is RemoveOld with the outcome of a partial removal kept:
+// when some files were deleted and others stayed (a file another model uses),
+// it returns the result with Kept and Errors and no error. When nothing was
+// deleted and something failed, it returns that error.
+func (u *Upgrader) RemoveOldVersion(ctx context.Context, name string) (RemoveOldResult, error) {
+	res, err := u.removeOld(ctx, name)
+	if err != nil && len(res.Removed) == 0 {
+		return res, err
+	}
+	if res.Removed == nil {
+		res.Removed = []string{}
+	}
+	return res, nil
 }
 
 // RemoveOld deletes the files a confirmed upgrade kept (the old version). It
@@ -27,15 +62,20 @@ type RemovedOldNotifier interface {
 // now is not deleted: it stays listed, and the error names it. It returns the
 // removed files.
 func (u *Upgrader) RemoveOld(ctx context.Context, name string) ([]string, error) {
+	res, err := u.removeOld(ctx, name)
+	return res.Removed, err
+}
+
+func (u *Upgrader) removeOld(ctx context.Context, name string) (RemoveOldResult, error) {
 	if err := utils.VerifyPath(name+".yaml", u.modelsPath()); err != nil {
-		return nil, ErrNotFound
+		return RemoveOldResult{}, ErrNotFound
 	}
 	// The model lock an upgrade holds: in a cluster an upgrade on another
 	// frontend cannot start over the files this removes, nor this rewrite
 	// its gallery file.
 	unlock, err := u.acquire(ctx, name)
 	if err != nil {
-		return nil, err
+		return RemoveOldResult{}, err
 	}
 	defer unlock()
 	// The gallery file is read, changed and written as one step, so a config
@@ -44,17 +84,17 @@ func (u *Upgrader) RemoveOld(ctx context.Context, name string) ([]string, error)
 	defer unlockSidecar()
 	sc, err := u.readUpgradable(name)
 	if err != nil {
-		return nil, err
+		return RemoveOldResult{}, err
 	}
 	j := sc.Upgrade
 	if j == nil || !j.Terminal() {
 		if j != nil {
-			return nil, ErrBusy
+			return RemoveOldResult{}, ErrBusy
 		}
-		return nil, ErrNoOldVersion
+		return RemoveOldResult{}, ErrNoOldVersion
 	}
 	if j.Phase != gallery.PhaseConfirmed || len(j.RetainedFiles) == 0 {
-		return nil, ErrNoOldVersion
+		return RemoveOldResult{}, ErrNoOldVersion
 	}
 	inUse := gallery.FilesInUse(u.SystemState, name)
 	var removed, kept []string
@@ -94,7 +134,14 @@ func (u *Upgrader) RemoveOld(ctx context.Context, name string) ([]string, error)
 			}
 		}
 	}
-	return removed, u.relErr(errors.Join(errs...))
+	res := RemoveOldResult{Removed: removed, Kept: kept}
+	for _, e := range errs {
+		res.Errors = append(res.Errors, u.relText(e.Error()))
+	}
+	if len(errs) == 0 {
+		return res, nil
+	}
+	return res, u.relErr(fmt.Errorf("%w: %w", ErrFilesKept, errors.Join(errs...)))
 }
 
 // SetHold sets or clears the owner's hold of a model: a held model is

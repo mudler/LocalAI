@@ -36163,6 +36163,20 @@
         "schema.ModelRemoveOldResponse": {
             "type": "object",
             "properties": {
+                "errors": {
+                    "description": "Errors say why files stayed. Set when only some files could be removed.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "kept": {
+                    "description": "Kept are the old files that stayed, listed for a later removal. Set\nwhen only some files could be removed.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },

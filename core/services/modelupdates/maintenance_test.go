@@ -2,6 +2,7 @@ package modelupdates_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -91,6 +92,23 @@ var _ = Describe("The old version and the hold", func() {
 		Expect(removed).To(BeEmpty())
 		Expect(filepath.Join(f.dir, old)).To(BeAnExistingFile())
 		Expect(sidecar().Upgrade.RetainedFiles).To(Equal([]string{old}))
+	})
+
+	It("reports what it kept when it removed only some of the old files", func() {
+		Expect(os.WriteFile(filepath.Join(f.dir, "a.prev"), []byte("a"), 0600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(f.dir, "b.prev"), []byte("b"), 0600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(f.dir, "other.yaml"), []byte("name: other\nparameters:\n  model: b.prev\n"), 0600)).To(Succeed())
+		setJournal(&gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseConfirmed, RetainedFiles: []string{"a.prev", "b.prev"}})
+		res, err := u.RemoveOldVersion(ctx, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Removed).To(Equal([]string{"a.prev"}))
+		Expect(res.Kept).To(Equal([]string{"b.prev"}))
+		Expect(res.Errors).To(ConsistOf(ContainSubstring("b.prev is used by other")))
+		Expect(res.Partial()).To(BeTrue())
+		Expect(sidecar().Upgrade.RetainedFiles).To(Equal([]string{"b.prev"}))
+
+		_, err = u.RemoveOldVersion(ctx, "tiny")
+		Expect(errors.Is(err, modelupdates.ErrFilesKept)).To(BeTrue())
 	})
 
 	It("deletes the kept old files with the model", func() {

@@ -772,16 +772,13 @@ func (c *Client) RemoveOldModelVersion(ctx context.Context, name string) (*local
 	if up == nil {
 		return nil, errModelUpgradesOff
 	}
-	removed, err := up.RemoveOld(ctx, name)
-	if err != nil && len(removed) == 0 {
+	res, err := up.RemoveOldVersion(ctx, name)
+	if err != nil {
 		return nil, err
 	}
-	if removed == nil {
-		removed = []string{}
-	}
-	// Some files removed and some kept (shared): report what went, as the
-	// REST route does.
-	return &localaitools.ModelRemoveOldResult{Name: name, Removed: removed}, nil
+	// Some files removed and some kept (shared): report both, as the REST
+	// route does.
+	return &localaitools.ModelRemoveOldResult{Name: name, Removed: res.Removed, Kept: res.Kept, Errors: res.Errors}, nil
 }
 
 func (c *Client) AdoptModel(ctx context.Context, name, galleryName, entry string) (*localaitools.ModelAdoptResult, error) {
