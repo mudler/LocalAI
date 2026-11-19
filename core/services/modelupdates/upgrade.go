@@ -466,7 +466,10 @@ func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 		}
 	}
 
-	models, err := u.ListGallery(ctx, false)
+	// Fresh, not the per-process index cache: in a cluster the check that
+	// found the update may have run on another frontend, and a cached index
+	// here would answer "up to date".
+	models, err := u.ListGallery(ctx, true)
 	if err != nil {
 		return fmt.Errorf("read the galleries: %w", err)
 	}

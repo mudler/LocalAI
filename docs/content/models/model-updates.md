@@ -51,7 +51,8 @@ install records the origin.
 ## Checking
 
 LocalAI checks 30 seconds after the server starts and then every six hours. The
-interval is not a setting. A check reads the gallery indexes and compares each
+interval is not a setting. A check reads the gallery indexes again (it does not
+use the copy that LocalAI keeps in memory for up to an hour) and compares each
 tracked model with its entry. It installs nothing.
 
 **Check now** on the Updates page runs a check at once and waits for the
@@ -107,7 +108,9 @@ new configuration needs a file that is not on disk.
 
 ### What happens during an upgrade
 
-An upgrade runs as an operation, like an install. Its phases are:
+An upgrade runs as an operation, like an install. It reads the gallery indexes
+again when it starts, so it installs what the entry gives now, also on a
+frontend of a cluster that did not run the last check. Its phases are:
 
 1. **Preflight.** LocalAI checks that the backend the new version needs is
    installed, that no file to replace is used by another model, that the gallery

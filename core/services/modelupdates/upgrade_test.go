@@ -464,6 +464,24 @@ var _ = Describe("A model upgrade", func() {
 		})
 	})
 
+	It("reads the galleries again instead of a cached index another frontend may not have refreshed", func() {
+		stale, err := f.list(ctx, true)
+		Expect(err).ToNot(HaveOccurred())
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		u := upgrader(nil)
+		var fresh []bool
+		u.ListGallery = func(c context.Context, wantFresh bool) ([]*gallery.GalleryModel, error) {
+			fresh = append(fresh, wantFresh)
+			if !wantFresh {
+				return stale, nil
+			}
+			return f.list(c, true)
+		}
+		Expect(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(Succeed())
+		Expect(fresh).To(Equal([]bool{true}))
+		Expect(read("tiny.gguf")).To(Equal("v2"))
+	})
+
 	It("loads a model nobody had loaded for the check, then unloads it", func() {
 		rt = newRuntime()
 		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))

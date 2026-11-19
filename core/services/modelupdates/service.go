@@ -133,7 +133,10 @@ func (s *Service) Run(ctx context.Context) {
 
 func (s *Service) tick(ctx context.Context) {
 	_, err := s.opts.Lock(ctx, func() error {
-		if err := s.runCheck(ctx, false); err != nil {
+		// Fresh: the gallery index cache is per process and lives an hour,
+		// and in a cluster any frontend may run this check, so a cached index
+		// could hide an update another frontend's upgrade already sees.
+		if err := s.runCheck(ctx, true); err != nil {
 			xlog.Warn("Model update check failed", "error", err)
 		}
 		return nil

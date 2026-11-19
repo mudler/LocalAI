@@ -358,3 +358,21 @@ func patchDisk(f *fixture, name string, change func(map[string]any)) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(path, out, 0600)).To(Succeed())
 }
+
+var _ = Describe("The periodic model update check", func() {
+	It("reads the galleries fresh at each tick", func() {
+		f := newFixture()
+		fresh := make(chan bool, 4)
+		svc := f.service(modelupdates.Options{
+			Interval: time.Hour, InitialDelay: time.Millisecond,
+			ListGallery: func(c context.Context, wantFresh bool) ([]*gallery.GalleryModel, error) {
+				fresh <- wantFresh
+				return f.list(c, wantFresh)
+			},
+		})
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		go svc.Run(ctx)
+		Eventually(fresh).Should(Receive(BeTrue()))
+	})
+})
