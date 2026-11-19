@@ -29,8 +29,8 @@ local owner, so a client credential would add nothing and the routes answer
 
 | Route | Who | What it does |
 |---|---|---|
-| `POST /api/client/pairing-codes` | administrator | Makes a code. Body: `name`, `features` (a list of client features), `addons` (the ids of the add-ons the client may reach; see below), `models` (the names of the models the client may use; see below), `readFolders` and `writeFolder` (the folder grant, see [Folders of the owner](#folders-of-the-owner)), `expiresInMinutes`, `keyExpiresIn` (for example `90d`). Returns the code once. When LocalAI serves TLS, the answer also has `tlsFingerprint` and `tlsDigest` (see [TLS and the pinned certificate](#tls-and-the-pinned-certificate)). |
-| `GET /api/client/pairing-codes` | administrator | Lists the codes that are not used or expired, with the same `tlsFingerprint` and `tlsDigest` when TLS is on. |
+| `POST /api/client/pairing-codes` | administrator | Makes a code. Body: `name`, `features` (a list of client features), `addons` (the ids of the add-ons the client may reach; see below), `models` (the names of the models the client may use; see below), `allModels` (`true` to grant every model instead of a list; see below), `readFolders` and `writeFolder` (the folder grant, see [Folders of the owner](#folders-of-the-owner)), `expiresInMinutes`, `keyExpiresIn` (for example `90d`). Returns the code once. When LocalAI serves TLS, the answer also has `tlsFingerprint` and `tlsDigest` (see [TLS and the pinned certificate](#tls-and-the-pinned-certificate)). |
+| `GET /api/client/pairing-codes` | administrator | Lists the codes that are not used or expired, with `allModels` and the same `tlsFingerprint` and `tlsDigest` when TLS is on. |
 | `DELETE /api/client/pairing-codes/{id}` | administrator | Cancels a code. |
 | `POST /api/client/pair` | the client, no credential | Body: `code`, optional `name`. Returns the client key once. |
 | `GET /api/client/keys` | administrator | Lists the paired clients, with their features, their add-ons, their models and last use. `allModels` is `true` for a key that may use every model (see [Inference with a client key](#inference-with-a-client-key)). |
@@ -118,6 +118,15 @@ The key carries a list of model names, like the list of add-ons. The code
 carries it in `models` (at most 32 names). It is required when `client_inference`
 is in `features`, and it is refused when it is not. It is copied to the key when
 the client pairs, and the owner changes it with `PUT /api/client/keys/{id}`.
+
+To grant every model instead of a list, set `"allModels": true` in the body of
+`POST /api/client/pairing-codes` and give no `models`. The key then may use every
+model that passes the check (the model exists and has no tools attached),
+including models that are installed later. `allModels` needs `client_inference`.
+`allModels: true` together with a non-empty `models` list is refused with `400`.
+Without `allModels` the rule above stays: a code with `client_inference` and an
+empty or missing `models` list is refused with `400`. The answers that make and
+list a code show `allModels`.
 
 The rule is deny by default:
 
