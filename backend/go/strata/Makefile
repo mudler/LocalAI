@@ -201,6 +201,10 @@ engine-python:
 # load (tools/iq_pack.py with gguf_reader.py and _paths.py, and the strata_gguf,
 # strata_quants and strata_quant_tables modules it uses as its GGUF library),
 # and the licence.
+# From Strata v0.2.16 the Python sources are in the terminal/ folder of the
+# repository (terminal/tools, terminal/serve); before, they were at the top.
+# Both places are fetched and the files are copied from the one that exists,
+# to the same tools/ and serve/ folders of strata-src.
 # Strata v0.2.15 no longer carries any DeepSeek code (serve/dsml.py, the V4.1
 # chat template and tools/dsv41/pack_gguf.py are gone), so none is fetched.
 # Since v0.2.15 iq_pack.py uses strata_gguf by default. llama.cpp's gguf-py,
@@ -212,7 +216,7 @@ engine-source:
 	rm -rf $(SRC_DIR) strata-src; mkdir -p $(SRC_DIR) strata-src; \
 	cd $(SRC_DIR) && git init -q && git remote add origin $(STRATA_REPO) && \
 	git sparse-checkout init --no-cone && \
-	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /tools/strata_gguf.py /tools/strata_quants.py /tools/strata_quant_tables.py /serve/__init__.py /serve/frontend.py && \
+	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /tools/strata_gguf.py /tools/strata_quants.py /tools/strata_quant_tables.py /serve/__init__.py /serve/frontend.py /terminal/tools/strata_tokenizer.py /terminal/tools/iq_pack.py /terminal/tools/gguf_reader.py /terminal/tools/_paths.py /terminal/tools/strata_gguf.py /terminal/tools/strata_quants.py /terminal/tools/strata_quant_tables.py /terminal/serve/__init__.py /terminal/serve/frontend.py && \
 	git fetch -q --depth 1 --filter=blob:none origin $(STRATA_COMMIT) && \
 	git checkout -q FETCH_HEAD; \
 	cd "$(CURDIR)"; \
@@ -225,10 +229,11 @@ engine-source:
 	cd "$(CURDIR)"; \
 	mkdir -p strata-src/tools strata-src/serve strata-src/third_party/llama.cpp; \
 	cp $(SRC_DIR)/LICENSE strata-src/LICENSE; \
-	cp $(SRC_DIR)/tools/strata_tokenizer.py $(SRC_DIR)/tools/iq_pack.py $(SRC_DIR)/tools/gguf_reader.py $(SRC_DIR)/tools/_paths.py $(SRC_DIR)/tools/strata_gguf.py $(SRC_DIR)/tools/strata_quants.py $(SRC_DIR)/tools/strata_quant_tables.py strata-src/tools/; \
+	PYSRC=$(SRC_DIR); [ -d $(SRC_DIR)/terminal/tools ] && PYSRC=$(SRC_DIR)/terminal; \
+	cp $$PYSRC/tools/strata_tokenizer.py $$PYSRC/tools/iq_pack.py $$PYSRC/tools/gguf_reader.py $$PYSRC/tools/_paths.py $$PYSRC/tools/strata_gguf.py $$PYSRC/tools/strata_quants.py $$PYSRC/tools/strata_quant_tables.py strata-src/tools/; \
 	cp -r $(LLAMA_DIR)/gguf-py strata-src/third_party/llama.cpp/gguf-py; \
 	cp $(LLAMA_DIR)/LICENSE strata-src/third_party/llama.cpp/LICENSE; \
-	cp $(SRC_DIR)/serve/__init__.py $(SRC_DIR)/serve/frontend.py strata-src/serve/; \
+	cp $$PYSRC/serve/__init__.py $$PYSRC/serve/frontend.py strata-src/serve/; \
 	touch strata-src/$(STAMP)-$(STRATA_COMMIT)
 
 package:

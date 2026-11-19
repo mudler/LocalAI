@@ -111,7 +111,13 @@ var _ = Describe("Diagnostics CLI", Serial, func() {
 
 var _ = Describe("Diagnostics inline startup", Serial, func() {
 	fixture := func() *RunCMD {
-		dir := GinkgoT().TempDir()
+		dir, err := os.MkdirTemp("", "diagnostics-startup")
+		Expect(err).NotTo(HaveOccurred())
+		// The startup that failed may leave a background writer that still
+		// holds a file for a moment; Windows refuses to remove a file in use.
+		DeferCleanup(func() {
+			Eventually(func() error { return os.RemoveAll(dir) }, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+		})
 		return &RunCMD{
 			PprofAddress: diagnostics.DefaultOptions().Address,
 			ModelsPath:   filepath.Join(dir, "models"), BackendsPath: filepath.Join(dir, "backends"),
