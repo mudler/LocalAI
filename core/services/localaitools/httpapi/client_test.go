@@ -834,12 +834,12 @@ var _ = Describe("P2P", func() {
 				_ = json.NewEncoder(w).Encode(map[string]any{"mode": "share", "running": true, "devices": 2, "relay_service": map[string]any{"running": true}})
 			case "/api/p2p/devices":
 				_ = json.NewEncoder(w).Encode(map[string]any{"devices": []map[string]any{
-					{"id": "d1", "label": "laptop", "status": "active", "online": true, "path": map[string]any{"kind": "relayed", "relay_label": "home"}},
+					{"id": "d1", "label": "laptop", "status": "active", "online": true, "all_models": true, "path": map[string]any{"kind": "relayed", "relay_label": "home"}},
 				}})
 			case "/api/p2p/invites":
 				_ = json.NewEncoder(w).Encode(map[string]any{"invites": []map[string]any{
-					{"id": "i1", "status": "pending", "relay_pass": "home"},
-					{"id": "i2", "status": "used", "phrase": "amber canal dune echo"},
+					{"id": "i1", "status": "pending", "relay_pass": "home", "models": []string{"a", "b"}},
+					{"id": "i2", "status": "used", "phrase": "amber canal dune echo", "all_models": true},
 				}})
 			case "/api/p2p/relays":
 				_ = json.NewEncoder(w).Encode(map[string]any{"relays": []map[string]any{{"id": "r1", "state": "in_sync"}}})
@@ -859,12 +859,15 @@ var _ = Describe("P2P", func() {
 
 		devs, err := c.ListP2PDevices(ctx)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(devs).To(ConsistOf(localaitools.P2PDeviceInfo{ID: "d1", Label: "laptop", Status: "active", Online: true, Path: "relayed", RelayLabel: "home"}))
+		Expect(devs).To(ConsistOf(localaitools.P2PDeviceInfo{ID: "d1", Label: "laptop", Status: "active", Online: true, AllModels: true, Path: "relayed", RelayLabel: "home"}))
 
 		invs, err := c.ListP2PInvites(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(invs[0].Status).To(Equal("pending"))
 		Expect(invs[0].RelayPass).To(Equal("home"))
+		Expect(invs[0].Models).To(Equal([]string{"a", "b"}))
+		Expect(invs[0].AllModels).To(BeFalse())
+		Expect(invs[1].AllModels).To(BeTrue())
 		Expect(invs[1].Phrase).To(Equal("amber canal dune echo"))
 
 		rs, err := c.ListP2PRelays(ctx)

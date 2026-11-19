@@ -24,7 +24,7 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolListP2PDevices,
-		Description: "List the devices paired over P2P and how each one is connected now.",
+		Description: "List the devices paired over P2P and how each one is connected now. A remote device has all_models, or the models it may use.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		devs, err := client.ListP2PDevices(ctx)
 		if err != nil {
@@ -34,7 +34,7 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolListP2PInvites,
-		Description: "List the P2P invites and their state (pending, used, expired, canceled), without the links.",
+		Description: "List the P2P invites and their state (pending, used, expired, canceled), without the links. A remote invite has all_models, or the models it grants.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		invs, err := client.ListP2PInvites(ctx)
 		if err != nil {

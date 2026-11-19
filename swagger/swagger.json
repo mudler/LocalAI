@@ -16103,7 +16103,7 @@
                 }
             },
             "post": {
-                "description": "Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key for the other server: limited to \"models\" when given, else every model this server lets a client key use, models added later too), worker or split. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY gets 409. relays is \"auto\", \"none\" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; \"relay.reason\" says why there is none. The link is shown once. Needs P2P mode share. Admin only.",
+                "description": "Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key for the other server: limited to \"models\" when given, else every model this server lets a client key use, models added later too; \"all_models\": true asks for every model explicitly and is refused with a non-empty \"models\"), worker or split. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY gets 409. relays is \"auto\", \"none\" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; \"relay.reason\" says why there is none. The link is shown once. Needs P2P mode share. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -26322,6 +26322,10 @@
         "p2p.DeviceView": {
             "type": "object",
             "properties": {
+                "all_models": {
+                    "description": "AllModels is true for a remote device that may use every model.",
+                    "type": "boolean"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -26336,6 +26340,13 @@
                 },
                 "last_seen_at": {
                     "type": "string"
+                },
+                "models": {
+                    "description": "Models are the models a remote device is limited to.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "online": {
                     "description": "Online is true while the device is connected.",
@@ -26367,6 +26378,10 @@
         "p2p.InviteView": {
             "type": "object",
             "properties": {
+                "all_models": {
+                    "description": "AllModels is true for a remote invite that grants every model, also\nfor one made without a list.",
+                    "type": "boolean"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -26392,6 +26407,13 @@
                 "label": {
                     "type": "string"
                 },
+                "models": {
+                    "description": "Models are the models a remote invite is limited to. Device and worker\ninvites carry none.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "phrase": {
                     "description": "Phrase is the confirmation phrase of a used invite: the words the\ndevice was shown when it redeemed. The admin compares them.",
                     "type": "string"
@@ -26409,6 +26431,10 @@
         "p2p.MintRequest": {
             "type": "object",
             "properties": {
+                "all_models": {
+                    "description": "AllModels grants a remote invite every model this server lets a client\nkey use, models added later too. It is refused with a non-empty models.",
+                    "type": "boolean"
+                },
                 "allow_open_relay": {
                     "description": "AllowOpenRelay lets the invite name an open relay.",
                     "type": "boolean"
@@ -26433,7 +26459,7 @@
                     }
                 },
                 "models": {
-                    "description": "Models limits a remote invite to these models.",
+                    "description": "Models limits a remote invite to these models. An empty list means\nevery model, as before all_models existed.",
                     "type": "array",
                     "items": {
                         "type": "string"

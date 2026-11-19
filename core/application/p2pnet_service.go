@@ -120,6 +120,9 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 	if req.TTLSeconds < 0 || time.Duration(req.TTLSeconds)*time.Second > p2ppair.MaxTTL {
 		return p2papi.MintResult{}, fmt.Errorf("%w: ttl_seconds must be between 0 and %d", p2papi.ErrInvalid, int(p2ppair.MaxTTL.Seconds()))
 	}
+	if req.AllModels && len(req.Models) > 0 {
+		return p2papi.MintResult{}, fmt.Errorf("%w: all_models cannot go with a list of models", p2papi.ErrInvalid)
+	}
 	if p2ppair.Kind(req.Kind) == p2ppair.KindRemote {
 		if err := s.n.app.checkRemoteMint(ctx, by, req.Models); err != nil {
 			return p2papi.MintResult{}, err
@@ -133,7 +136,7 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 	mr := p2ppair.MintRequest{
 		OwnerID: by, CreatedBy: by, Kind: p2ppair.Kind(req.Kind), Label: req.Label,
 		TTL:            time.Duration(req.TTLSeconds) * time.Second,
-		Scope:          p2ppair.Scope{Models: req.Models, Features: req.Features, Labels: req.Labels},
+		Scope:          p2ppair.Scope{Models: req.Models, AllModels: req.AllModels, Features: req.Features, Labels: req.Labels},
 		AllowOpenRelay: req.AllowOpenRelay,
 	}
 	switch req.Relays.Mode {
@@ -181,6 +184,7 @@ func (s p2pService) ListInvites(ctx context.Context) ([]p2papi.InviteView, error
 			ID: i.ID, Kind: string(i.Kind), Label: i.Label, CreatedAt: i.CreatedAt, CreatedBy: i.CreatedBy,
 			ExpiresAt: i.ExpiresAt, Status: string(i.Status(now)), DeviceID: i.DeviceID,
 		}
+		v.Models, v.AllModels = modelGrant(i.Kind, i.Scope)
 		if i.PassRelayID != "" {
 			v.RelayPass = relays[i.PassRelayID]
 			if v.RelayPass == "" {
@@ -231,6 +235,7 @@ func (s p2pService) ListDevices(ctx context.Context) ([]p2papi.DeviceView, error
 			ID: d.ID, Kind: string(d.Kind), Label: d.Label, PeerID: d.PeerID, CreatedAt: d.CreatedAt,
 			LastSeenAt: d.LastSeenAt, Status: string(d.Status()), Path: p2papi.PathView{Kind: string(p2pnet.PathNone)},
 		}
+		v.Models, v.AllModels = modelGrant(d.Kind, d.Scope)
 		if d.LastPath != "" {
 			v.Path.Kind = d.LastPath
 		}
@@ -243,6 +248,19 @@ func (s p2pService) ListDevices(ctx context.Context) ([]p2papi.DeviceView, error
 		out = append(out, v)
 	}
 	return out, nil
+}
+
+// modelGrant reads what a remote invite or device grants: its list, or every
+// model. An old invite with no list grants every model, so it reads the same
+// as one made with all_models. Other kinds grant no models.
+func modelGrant(kind p2ppair.Kind, s p2ppair.Scope) (models []string, all bool) {
+	if kind != p2ppair.KindRemote {
+		return nil, false
+	}
+	if len(s.Models) > 0 {
+		return s.Models, false
+	}
+	return nil, true
 }
 
 func pathView(p p2pnet.Path, labels map[string]string) p2papi.PathView {

@@ -83,10 +83,14 @@ type MintRequest struct {
 	Label string `json:"label"`
 	// TTLSeconds is the life of the invite: 600 when zero, at most 86400.
 	TTLSeconds int `json:"ttl_seconds"`
-	// Models limits a remote invite to these models.
-	Models   []string          `json:"models,omitempty"`
-	Features []string          `json:"features,omitempty"`
-	Labels   map[string]string `json:"labels,omitempty"`
+	// Models limits a remote invite to these models. An empty list means
+	// every model, as before all_models existed.
+	Models []string `json:"models,omitempty"`
+	// AllModels grants a remote invite every model this server lets a client
+	// key use, models added later too. It is refused with a non-empty models.
+	AllModels bool              `json:"all_models,omitempty"`
+	Features  []string          `json:"features,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
 	// Relays is "auto", "none" or a list of relay IDs.
 	Relays RelayChoice `json:"relays" swaggertype:"string" example:"auto"`
 	// AllowOpenRelay lets the invite name an open relay.
@@ -177,6 +181,12 @@ type InviteView struct {
 	// RelayPass is the label of the relay that holds the pass of the invite;
 	// empty when the link carries no pass.
 	RelayPass string `json:"relay_pass,omitempty"`
+	// Models are the models a remote invite is limited to. Device and worker
+	// invites carry none.
+	Models []string `json:"models,omitempty"`
+	// AllModels is true for a remote invite that grants every model, also
+	// for one made without a list.
+	AllModels bool `json:"all_models,omitempty"`
 }
 
 // DeviceView is one device in GET /api/p2p/devices.
@@ -192,6 +202,10 @@ type DeviceView struct {
 	// Online is true while the device is connected.
 	Online bool     `json:"online"`
 	Path   PathView `json:"path"`
+	// Models are the models a remote device is limited to.
+	Models []string `json:"models,omitempty"`
+	// AllModels is true for a remote device that may use every model.
+	AllModels bool `json:"all_models,omitempty"`
 }
 
 // PathView says how a device reaches the server.
