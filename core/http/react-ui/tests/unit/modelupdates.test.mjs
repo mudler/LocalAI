@@ -60,6 +60,10 @@ test('model rows: a running upgrade follows the operation and its phase, cancell
   // A backend operation of the same name is not the model's.
   assert.equal(modelRow(it, [op('staging', { isBackend: true })]).state, 'ready')
   assert.equal(opForModel([op('staging', { isDeletion: true })], 'qwen'), null)
+  // An install of the same name is not an upgrade of the row.
+  assert.equal(opForModel([op('staging', { taskType: 'installation' })], 'qwen'), null)
+  assert.equal(modelRow(it, [op('staging', { taskType: 'installation' })]).state, 'ready')
+  assert.equal(opForModel([op('staging', { taskType: 'installation' }), op('loading')], 'qwen').phase, 'loading')
   // The journal alone says running when the list has not shown it yet.
   const journal = modelRow({ ...it, upgrade: { phase: 'committing', running: true, opId: 'j2' } })
   assert.equal(journal.state, 'updating')
@@ -85,7 +89,7 @@ test('model rows: models always need a person, the hold does not count, and the 
   assert.deepEqual(need.map(r => r.name).sort(), ['a', 'b', 'c'])
   assert.deepEqual(badgeOf(rows), { count: 3, failed: true })
   // Running upgrades are followed, not counted.
-  const running = modelRows({ items: [item('a', 'update-available')] }, { operations: [{ name: 'a', jobID: 'j', isBackend: false, phase: 'staging' }] })
+  const running = modelRows({ items: [item('a', 'update-available')] }, { operations: [{ name: 'a', jobID: 'j', isBackend: false, taskType: 'upgrade', phase: 'staging' }] })
   assert.equal(badgeOf(running).count, 0)
   // Update ready never runs a model.
   assert.deepEqual(bulkItemsOf(rows), [])

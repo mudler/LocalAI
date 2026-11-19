@@ -32,11 +32,12 @@ export const MODEL_OTHER_STATES = ['on-hold', 'unknown', 'gone', 'cleanup']
 
 const UNKNOWN_REASONS = ['legacy-sidecar', 'unreadable', 'not-checked', 'check-failed']
 
-// The operation of a model upgrade in /api/operations: not a backend, not a
-// deletion, named after the model.
+// The operation of a model upgrade in /api/operations: an upgrade (taskType
+// 'upgrade'), not a backend, not a deletion, named after the model. An install
+// of the same name is not an upgrade, so it does not make the row "updating".
 export function opForModel(operations, name) {
   if (!Array.isArray(operations) || !name) return null
-  return operations.find(op => !op.isBackend && !op.isDeletion && (op.name === name || op.id === name)) || null
+  return operations.find(op => op.taskType === 'upgrade' && !op.isBackend && !op.isDeletion && (op.name === name || op.id === name)) || null
 }
 
 // The keys a person edited that the update also changes: each needs a choice.
