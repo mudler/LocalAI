@@ -55,6 +55,15 @@ stop it. Type `/loop` in the message box, or use the API.
   a chat that a trigger, a job, a page or a connector started ends after a fifth
   of the run limit (20 runs by default). The runs of a loop have no sender, so
   a connector chat keeps `schedule_next` and `loop_done` while its loop runs.
+  The same holds for a wait: when the model arms a wait or loop in a connector chat, the
+  server stores the loop capabilities (`loops.wait`, `loops.start`) that the sender held
+  at that moment on the wait itself. The wake-up has no sender, so it continues the
+  sender who armed the wait: it is offered `wait_for` again if the sender held
+  `loops.wait`, and `start_loop` only if the sender held `loops.start`. Nothing else
+  is granted (`triggers.propose` and the other capabilities stay refused), the limits
+  still apply, and the stored capabilities end with the wait. A wait that was armed
+  before this change has none stored and behaves as before. This is shared state in the
+  loops store (the auth database), so any frontend that runs the wake-up sees it.
 - **Report to a messaging app.** `start_loop` takes an optional `report`
   object: `connection` (the ID of one of your connections), `channel` (a channel
   that you approved for it) and `mode`. `on_done` sends the summary that

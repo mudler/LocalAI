@@ -106,6 +106,25 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(got.Report).To(BeNil())
 	})
 
+	It("keeps the grant of a loop through Add, Update and Get and reads a row with none", func() {
+		l := sample("g1", "u1", "c1", 0)
+		l.Grant = []string{"loops.wait"}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "g1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Grant).To(Equal([]string{"loops.wait"}))
+		got, err = s.Update(ctx, "g1", func(c *loops.Loop) error {
+			c.Reason = "x"
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Grant).To(Equal([]string{"loops.wait"}), "an update that does not touch the grant keeps it")
+		plain := sample("g2", "u1", "c1", 1)
+		Expect(s.Add(ctx, plain, loops.Limits{})).To(Succeed())
+		got, _ = s.Get(ctx, "g2")
+		Expect(got.Grant).To(BeEmpty())
+	})
+
 	It("keeps the job fields of a wait through Add, Update and Get", func() {
 		l := sample("j1", "u1", "c1", 0)
 		l.Watch = &loops.Watch{Job: "job-ab12cd", JobLabel: "build", Node: "addon:sandbox@3", Mode: loops.UntilStall, Idle: 10 * time.Minute,
