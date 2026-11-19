@@ -38,6 +38,22 @@ type Runtime interface {
 	Load(ctx context.Context, name string) error
 }
 
+// LoadGate is a Runtime that can refuse the loads of a model while its files
+// change. Between stopping the model and switching its files, a request (or,
+// in a cluster, the reconciler keeping min_replicas) would otherwise start the
+// old version again; for a change of the weights alone the config, and so its
+// revision, stays the same, nothing would stop that process, and the load
+// check would confirm the old version. Standalone it is the model loader; in a
+// cluster it also holds the model's revision in the node registry, so every
+// frontend and the reconciler refuse the model until UnblockLoads.
+type LoadGate interface {
+	BlockLoads(ctx context.Context, name string) error
+	// UnblockLoads ends BlockLoads. It runs after the new (or, in a
+	// rollback, the old) config was read again, so the loads it lets through
+	// start the version now on disk.
+	UnblockLoads(ctx context.Context, name string) error
+}
+
 // WorkerFile is one file of an upgrade that the workers of a cluster download
 // for themselves: its path relative to the models directory, where it comes
 // from and its sha256. A file with no URI is one the new version no longer
@@ -274,6 +290,8 @@ type upgradeRun struct {
 	next *gallery.ModelConfig
 	mu   sync.Mutex
 	req  Request
+	// blocked is true while the loads of the model are refused (LoadGate).
+	blocked bool
 }
 
 func (r *upgradeRun) j() *gallery.Journal { return r.sc.Upgrade }
@@ -615,6 +633,12 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 	if err := r.advance(EvOK, func(j *gallery.Journal) { j.WasLoaded, j.Note = wasLoaded, note }); err != nil { // -> unloading
 		return u.failBeforeCommit(ctx, r, err)
 	}
+	// From here on the loads of the model are refused until the new config
+	// is read, and whatever path the upgrade takes it lets them through again.
+	defer func() { _ = u.unblockLoads(context.WithoutCancel(ctx), r) }()
+	if err := u.blockLoads(ctx, r); err != nil {
+		return u.rollback(ctx, r, fmt.Errorf("stop the loads of the model: %w", err))
+	}
 	if r.j().WasLoaded {
 		if err := u.Runtime.Unload(ctx, r.name); err != nil {
 			return u.rollback(ctx, r, fmt.Errorf("stop the model: %w", err))
@@ -643,6 +667,17 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 		if err := u.Runtime.Reload(ctx, r.name); err != nil {
 			return u.rollback(ctx, r, fmt.Errorf("read the new config: %w", err))
 		}
+		// Whatever runs now started before the files changed: a load that
+		// was already in flight when the loads were blocked, or one a
+		// runtime without a LoadGate let through. The config revision does
+		// not tell (a change of the weights alone keeps it), so stop it
+		// without asking: the load check below must start the new files.
+		if err := u.stopIfLoaded(ctx, r.name); err != nil {
+			return u.rollback(ctx, r, fmt.Errorf("stop the old version: %w", err))
+		}
+		if err := u.unblockLoads(ctx, r); err != nil {
+			return u.rollback(ctx, r, fmt.Errorf("allow the loads of the model again: %w", err))
+		}
 		if err := u.Runtime.Load(ctx, r.name); err != nil {
 			return u.rollback(ctx, r, fmt.Errorf("load the new version: %w", err))
 		}
@@ -664,6 +699,39 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 		j.Error = ""
 		j.Previous, j.To, j.Files = nil, nil, nil
 	})
+}
+
+// blockLoads refuses the loads of the model while its files change, when the
+// runtime can (LoadGate).
+func (u *Upgrader) blockLoads(ctx context.Context, r *upgradeRun) error {
+	gate, ok := u.Runtime.(LoadGate)
+	if !ok || r.blocked {
+		return nil
+	}
+	r.blocked = true
+	return gate.BlockLoads(ctx, r.name)
+}
+
+// unblockLoads ends blockLoads. It runs once: a second call does nothing.
+func (u *Upgrader) unblockLoads(ctx context.Context, r *upgradeRun) error {
+	gate, ok := u.Runtime.(LoadGate)
+	if !ok || !r.blocked {
+		return nil
+	}
+	r.blocked = false
+	if err := gate.UnblockLoads(ctx, r.name); err != nil {
+		xlog.Warn("Could not allow the loads of a model again", "model", r.name, "error", err)
+		return err
+	}
+	return nil
+}
+
+// stopIfLoaded stops every instance of the model that runs.
+func (u *Upgrader) stopIfLoaded(ctx context.Context, name string) error {
+	if !u.Runtime.IsLoaded(name) {
+		return nil
+	}
+	return u.Runtime.Unload(ctx, name)
 }
 
 func (u *Upgrader) preflight(ctx context.Context, r *upgradeRun, backend string) error {
@@ -896,9 +964,15 @@ func (u *Upgrader) rollback(ctx context.Context, r *upgradeRun, cause error) err
 // restore is the undo of the commit. It can run again after a crash.
 func (u *Upgrader) restore(ctx context.Context, r *upgradeRun) error {
 	j := r.j()
-	if u.Runtime != nil && u.Runtime.IsLoaded(r.name) {
-		if err := u.Runtime.Unload(ctx, r.name); err != nil {
-			xlog.Warn("Could not stop the new version during a rollback", "model", r.name, "error", err)
+	if u.Runtime != nil {
+		if err := u.blockLoads(ctx, r); err != nil {
+			xlog.Warn("Could not stop the loads of a model during a rollback", "model", r.name, "error", err)
+		}
+		defer func() { _ = u.unblockLoads(context.WithoutCancel(ctx), r) }()
+		if u.Runtime.IsLoaded(r.name) {
+			if err := u.Runtime.Unload(ctx, r.name); err != nil {
+				xlog.Warn("Could not stop the new version during a rollback", "model", r.name, "error", err)
+			}
 		}
 	}
 	var errs []error
@@ -960,9 +1034,16 @@ func (u *Upgrader) restore(ctx context.Context, r *upgradeRun) error {
 	if u.Runtime != nil {
 		if err := u.Runtime.Reload(ctx, r.name); err != nil {
 			errs = append(errs, fmt.Errorf("read the old config: %w", err))
-		} else if j.WasLoaded {
-			if err := u.Runtime.Load(ctx, r.name); err != nil {
-				errs = append(errs, fmt.Errorf("load the old version: %w", err))
+		} else {
+			if err := u.stopIfLoaded(ctx, r.name); err != nil {
+				xlog.Warn("Could not stop the new version during a rollback", "model", r.name, "error", err)
+			}
+			if err := u.unblockLoads(ctx, r); err != nil {
+				errs = append(errs, err)
+			} else if j.WasLoaded {
+				if err := u.Runtime.Load(ctx, r.name); err != nil {
+					errs = append(errs, fmt.Errorf("load the old version: %w", err))
+				}
 			}
 		}
 	}

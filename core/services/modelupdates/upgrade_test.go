@@ -52,13 +52,17 @@ var _ = Describe("The upgrade state machine", func() {
 	}
 })
 
-// fakeRuntime records the calls and fails the loads it is told to fail.
+// fakeRuntime records the calls and fails the loads it is told to fail. Like
+// the model loader, a load of a model that runs does nothing. With dir set, a
+// load reads the model's weights, so a spec can tell which version runs.
 type fakeRuntime struct {
 	mu        sync.Mutex
 	loaded    map[string]bool
 	calls     []string
 	loadFails int
 	reloadErr error
+	dir       string
+	version   map[string]string
 }
 
 func newRuntime(loaded ...string) *fakeRuntime {
@@ -98,8 +102,84 @@ func (r *fakeRuntime) Load(_ context.Context, name string) error {
 		r.loadFails--
 		return errors.New("the backend could not load the model")
 	}
+	if !r.loaded[name] {
+		r.readVersion(name)
+	}
 	r.loaded[name] = true
 	return nil
+}
+
+func (r *fakeRuntime) readVersion(name string) {
+	if r.dir == "" {
+		return
+	}
+	data, err := os.ReadFile(filepath.Join(r.dir, name+".gguf"))
+	Expect(err).ToNot(HaveOccurred())
+	if r.version == nil {
+		r.version = map[string]string{}
+	}
+	r.version[name] = string(data)
+}
+
+// request is a request for the model that arrives while the upgrade runs: it
+// loads the model when it does not run. It returns false when the model's
+// loads are blocked.
+func (r *fakeRuntime) request(name string, blocked bool) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if blocked {
+		return false
+	}
+	if !r.loaded[name] {
+		r.readVersion(name)
+		r.loaded[name] = true
+	}
+	return true
+}
+
+// gatedRuntime is a fakeRuntime that can refuse the loads of a model.
+type gatedRuntime struct {
+	*fakeRuntime
+	blocked map[string]bool
+}
+
+func (g *gatedRuntime) BlockLoads(_ context.Context, name string) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.calls = append(g.calls, "block")
+	g.blocked[name] = true
+	return nil
+}
+
+func (g *gatedRuntime) UnblockLoads(_ context.Context, name string) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.calls = append(g.calls, "unblock")
+	delete(g.blocked, name)
+	return nil
+}
+
+func (g *gatedRuntime) request(name string) bool {
+	g.mu.Lock()
+	blocked := g.blocked[name]
+	g.mu.Unlock()
+	return g.fakeRuntime.request(name, blocked)
+}
+
+// windowFS calls during at the first rename of the commit: the moment the
+// model is stopped and its files are about to change.
+type windowFS struct {
+	modelupdates.OSFS
+	during func()
+	done   bool
+}
+
+func (w *windowFS) Rename(a, b string) error {
+	if !w.done {
+		w.done = true
+		w.during()
+	}
+	return w.OSFS.Rename(a, b)
 }
 
 // crashFS is the real filesystem that stops the process (a panic the spec
@@ -204,6 +284,44 @@ var _ = Describe("A model upgrade", func() {
 
 		svc := f.service(modelupdates.Options{})
 		Expect(itemOf(svc.CheckNow(ctx), "tiny").State).To(Equal(modelupdates.StateUpToDate))
+	})
+
+	It("does not confirm the old version that a request loaded while the files changed", func() {
+		rt.dir = f.dir
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		var during bool
+		fs := &windowFS{during: func() { during = rt.request("tiny", false) }}
+		Expect(upgrader(fs).Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(Succeed())
+		Expect(during).To(BeTrue(), "the request loaded the old version during the switch")
+		Expect(rt.version["tiny"]).To(Equal("v2"), "the load check ran on the new weights")
+		Expect(rt.calls).To(Equal([]string{"unload", "reload", "unload", "load"}))
+	})
+
+	It("refuses the loads of the model while the files change, when the runtime can", func() {
+		g := &gatedRuntime{fakeRuntime: rt, blocked: map[string]bool{}}
+		rt.dir = f.dir
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		var during bool
+		fs := &windowFS{during: func() { during = g.request("tiny") }}
+		u := upgrader(fs)
+		u.Runtime = g
+		Expect(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(Succeed())
+		Expect(during).To(BeFalse(), "the request was refused")
+		Expect(rt.version["tiny"]).To(Equal("v2"))
+		Expect(rt.calls).To(Equal([]string{"block", "unload", "reload", "unblock", "load"}))
+		Expect(g.blocked).To(BeEmpty())
+	})
+
+	It("lets the loads through again after a rollback", func() {
+		g := &gatedRuntime{fakeRuntime: rt, blocked: map[string]bool{}}
+		rt.loadFails = 1
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		u := upgrader(nil)
+		u.Runtime = g
+		Expect(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(HaveOccurred())
+		Expect(g.blocked).To(BeEmpty())
+		Expect(rt.calls).To(Equal([]string{"block", "unload", "reload", "unblock", "load", "block", "reload", "unblock", "load"}))
+		Expect(rt.IsLoaded("tiny")).To(BeTrue())
 	})
 
 	It("loads a model nobody had loaded for the check, then unloads it", func() {

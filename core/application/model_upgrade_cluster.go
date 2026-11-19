@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -22,7 +23,23 @@ type clusterReplicas interface {
 type localModels interface {
 	ShutdownModel(modelName string) error
 	ListLoadedModels() []*model.Model
+	BlockLoads(modelID string)
+	UnblockLoads(modelID string)
 }
+
+// revisionPublisher publishes the config revision of a model to the node
+// registry (modeladmin.ModelRevisionLifecycle). Every replica of another
+// revision is stopped, and a request or the reconciler can load the model only
+// with the published revision.
+type revisionPublisher interface {
+	ApplyConfigRevisions(ctx context.Context, transitions []modeladmin.ModelRevisionTransition) (int, error)
+}
+
+// upgradeBlockRevision is the revision a model has in the node registry while
+// an upgrade switches its files. No config has it, so publishing it stops every
+// replica, and every frontend and the reconciler refuse to load the model
+// until the upgrade publishes the revision of the config on disk again.
+func upgradeBlockRevision(name string) string { return "model-upgrade:" + name }
 
 const clusterRegistryTimeout = 10 * time.Second
 
@@ -30,17 +47,54 @@ const clusterRegistryTimeout = 10 * time.Second
 // workers, which the frontend's model loader does not list, so "loaded" is
 // read from the node registry. Unload stops every replica on every node (the
 // loader's shutdown reaches them through the remote unloader) and checks that
-// none is left. Reload advances the config revision, which also stops a
-// replica the reconciler started in the meantime, and Load routes one load of
-// the new revision to a worker: that is the load check.
+// none is left. BlockLoads holds the model in the registry under a revision no
+// config has, so no request and no reconciler pass can start the old version
+// while the files change; UnblockLoads publishes the revision of the new
+// config, and Load routes one load of it to a worker: that is the load check.
+// The revision of a change of the weights alone does not move, so the block,
+// not a revision change, is what keeps the old version from coming back.
 type clusterRuntime struct {
 	*modelRuntime
 	replicas clusterReplicas
 	loader   localModels
+	// revisions and revisionOf hold the model in the registry while its files
+	// change (BlockLoads). Nil skips it.
+	revisions  revisionPublisher
+	revisionOf func(name string) (string, error)
 }
 
 func newClusterRuntime(base *modelRuntime, replicas clusterReplicas, loader localModels) *clusterRuntime {
 	return &clusterRuntime{modelRuntime: base, replicas: replicas, loader: loader}
+}
+
+// BlockLoads refuses the loads of the model on this frontend and, through the
+// registry, on every frontend and in the reconciler, and stops every replica.
+func (r *clusterRuntime) BlockLoads(ctx context.Context, name string) error {
+	r.loader.BlockLoads(name)
+	if r.revisions == nil {
+		return nil
+	}
+	if _, err := r.revisions.ApplyConfigRevisions(ctx, []modeladmin.ModelRevisionTransition{{ModelName: name, ConfigRevision: upgradeBlockRevision(name)}}); err != nil {
+		r.loader.UnblockLoads(name)
+		return err
+	}
+	return nil
+}
+
+// UnblockLoads publishes the revision of the config on disk again, which also
+// stops any replica of another revision, and lets this frontend load the
+// model.
+func (r *clusterRuntime) UnblockLoads(ctx context.Context, name string) error {
+	defer r.loader.UnblockLoads(name)
+	if r.revisions == nil || r.revisionOf == nil {
+		return nil
+	}
+	revision, err := r.revisionOf(name)
+	if err != nil {
+		return fmt.Errorf("read the config revision: %w", err)
+	}
+	_, err = r.revisions.ApplyConfigRevisions(ctx, []modeladmin.ModelRevisionTransition{{ModelName: name, ConfigRevision: revision}})
+	return err
 }
 
 func (r *clusterRuntime) IsLoaded(name string) bool {

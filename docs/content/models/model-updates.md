@@ -117,13 +117,19 @@ An upgrade runs as an operation, like an install. Its phases are:
 2. **Staging.** The new files download next to the old ones under a `.next`
    name, and LocalAI checks each sha256. The model keeps running on the old
    version.
-3. **Unloading.** If the model is loaded, it stops. From here until the load
-   check ends, requests to the model wait or fail.
+3. **Unloading.** LocalAI refuses every new load of the model, and if the
+   model is loaded, it stops. From here until the new version can load, a
+   request to the model is answered `503` with a `Retry-After` header. A
+   request cannot start the old version again while the files change.
 4. **Committing.** LocalAI keeps each old file as `<file>.prev-<digest8>`
    (`digest8` is the first eight characters of the old digest), moves the new
    files into place and writes the new configuration.
-5. **Loading.** The new version loads, as a check. A model that was not loaded
-   before the upgrade is stopped again after the check.
+5. **Loading.** LocalAI reads the new configuration, stops any instance of the
+   model that still runs (for example a load that was already starting when
+   the upgrade stopped the model), and allows loads again. Then the new version
+   loads, as a check. A change of the weights alone does not change the
+   configuration, so this stop does not depend on it. A model that was not
+   loaded before the upgrade is stopped again after the check.
 6. **Confirmed.** The upgrade is done.
 
 You can cancel an upgrade only in the first two phases. After the model stops,

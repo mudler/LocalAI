@@ -1336,6 +1336,14 @@ rule upgrades with `stop_and_start`. A standalone server has no rules and always
 stops and starts the model. The model is unavailable from the stop until the
 new version has loaded.
 
+During the switch, the frontend that runs the upgrade publishes a placeholder
+revision of the model in the node registry. This stops every replica, and no
+frontend and no reconciler pass can load the model until the frontend
+publishes the revision of the new configuration. The same happens when a change
+of the weights leaves the configuration, and so its revision, as it was: an old
+replica cannot survive the upgrade and pass the load check in place of the new
+version.
+
 **Each worker downloads its own files.** While the frontend downloads the new
 files of an upgrade, every worker that runs the model downloads them too
 (`model.prefetch`, a request on the node's control subjects) and checks each

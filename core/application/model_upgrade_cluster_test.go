@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -28,6 +29,7 @@ type fakeLoader struct {
 	shutdownErr error
 	stopAll     bool
 	shutdowns   int
+	blocked     map[string]bool
 }
 
 func (f *fakeLoader) ShutdownModel(name string) error {
@@ -39,6 +41,34 @@ func (f *fakeLoader) ShutdownModel(name string) error {
 }
 
 func (f *fakeLoader) ListLoadedModels() []*model.Model { return nil }
+
+func (f *fakeLoader) BlockLoads(name string) {
+	if f.blocked == nil {
+		f.blocked = map[string]bool{}
+	}
+	f.blocked[name] = true
+}
+
+func (f *fakeLoader) UnblockLoads(name string) { delete(f.blocked, name) }
+
+// fakeRevisions is the registry's view of the config revisions: publishing a
+// revision stops the replicas of any other.
+type fakeRevisions struct {
+	replicas  *fakeReplicas
+	published map[string]string
+	err       error
+}
+
+func (f *fakeRevisions) ApplyConfigRevisions(_ context.Context, transitions []modeladmin.ModelRevisionTransition) (int, error) {
+	if f.err != nil {
+		return 0, f.err
+	}
+	for _, t := range transitions {
+		f.published[t.ModelName] = t.ConfigRevision
+		delete(f.replicas.running, t.ModelName)
+	}
+	return 0, nil
+}
 
 type fakeRules struct {
 	rule *nodes.ModelSchedulingConfig
@@ -89,6 +119,36 @@ var _ = Describe("the stop-and-start runtime of a cluster", func() {
 	It("fails when a replica is still running, so the upgrade rolls back", func() {
 		loader.stopAll = false
 		Expect(rt.Unload(ctx, "tiny")).To(MatchError(ContainSubstring("worker-a")))
+	})
+
+	It("holds the model in the registry while the files change, then publishes the new revision", func() {
+		revs := &fakeRevisions{replicas: replicas, published: map[string]string{"tiny": "rev-old"}}
+		rt.revisions = revs
+		rt.revisionOf = func(string) (string, error) { return "rev-old", nil }
+
+		Expect(rt.BlockLoads(ctx, "tiny")).To(Succeed())
+		Expect(revs.published["tiny"]).To(Equal(upgradeBlockRevision("tiny")))
+		Expect(replicas.running["tiny"]).To(BeEmpty(), "every replica stopped")
+		Expect(loader.blocked["tiny"]).To(BeTrue())
+
+		By("publishing the revision on disk again, though it did not change")
+		Expect(rt.UnblockLoads(ctx, "tiny")).To(Succeed())
+		Expect(revs.published["tiny"]).To(Equal("rev-old"))
+		Expect(loader.blocked).To(BeEmpty())
+	})
+
+	It("does not block this frontend when the registry refuses the block", func() {
+		rt.revisions = &fakeRevisions{replicas: replicas, published: map[string]string{}, err: errors.New("database down")}
+		Expect(rt.BlockLoads(ctx, "tiny")).To(MatchError(ContainSubstring("database down")))
+		Expect(loader.blocked).To(BeEmpty())
+	})
+
+	It("lets this frontend load again when the config revision cannot be read", func() {
+		rt.revisions = &fakeRevisions{replicas: replicas, published: map[string]string{}}
+		rt.revisionOf = func(string) (string, error) { return "", errors.New("no config") }
+		Expect(rt.BlockLoads(ctx, "tiny")).To(Succeed())
+		Expect(rt.UnblockLoads(ctx, "tiny")).To(MatchError(ContainSubstring("no config")))
+		Expect(loader.blocked).To(BeEmpty())
 	})
 
 	It("fails when the shutdown fails", func() {

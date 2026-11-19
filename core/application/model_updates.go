@@ -51,7 +51,12 @@ func (a *Application) startModelUpdates() {
 		Notifier:    modelUpgradeNotifier{em: a.updateEmitter()},
 	}
 	if ds := a.distributed; ds != nil && ds.Registry != nil {
-		upgrader.Runtime = newClusterRuntime(&modelRuntime{app: a}, ds.Registry, a.ModelLoader())
+		crt := newClusterRuntime(&modelRuntime{app: a}, ds.Registry, a.ModelLoader())
+		crt.revisions = a.ModelRevisionLifecycle()
+		crt.revisionOf = func(name string) (string, error) {
+			return a.ModelConfigLoader().RevisionFor(name, a.ApplicationConfig())
+		}
+		upgrader.Runtime = crt
 		upgrader.StrategyNote = clusterStrategyNote(ds.Registry)
 		// With one shared models directory the workers load the frontend's
 		// files from it: there is nothing to move.
@@ -140,10 +145,9 @@ func (m modelUpgraderOp) UpgradeModel(ctx context.Context, opID, name string, op
 
 // modelRuntime is the upgrade's view of the model runtime: stop and start.
 // Standalone the model loader runs the model in this process. In distributed
-// mode the loader routes the load to a worker through the SmartRouter, and
-// Reload advances the config revision, which retires the replicas of the old
-// one; the strategy of a cluster upgrade (stop and start, a canary later)
-// plugs in here.
+// mode the loader routes the load to a worker through the SmartRouter
+// (clusterRuntime); the strategy of a cluster upgrade (stop and start, a
+// canary later) plugs in here.
 type modelRuntime struct{ app *Application }
 
 func (r *modelRuntime) IsLoaded(name string) bool {
@@ -157,6 +161,18 @@ func (r *modelRuntime) IsLoaded(name string) bool {
 
 func (r *modelRuntime) Unload(_ context.Context, name string) error {
 	return r.app.ModelLoader().ShutdownModel(name)
+}
+
+// BlockLoads refuses the loads of the model in this process while the upgrade
+// switches its files.
+func (r *modelRuntime) BlockLoads(_ context.Context, name string) error {
+	r.app.ModelLoader().BlockLoads(name)
+	return nil
+}
+
+func (r *modelRuntime) UnblockLoads(_ context.Context, name string) error {
+	r.app.ModelLoader().UnblockLoads(name)
+	return nil
 }
 
 func (r *modelRuntime) Reload(ctx context.Context, name string) error {
