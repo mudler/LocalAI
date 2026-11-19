@@ -118,6 +118,10 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.PUT("/:id/max-replicas-per-model", localai.UpdateMaxReplicasPerModelEndpoint(registry))
 	admin.DELETE("/:id/max-replicas-per-model", localai.ResetMaxReplicasPerModelEndpoint(registry))
 
+	// Split server declaration: the node may serve model-split workers.
+	admin.PUT("/:id/split-server", localai.SetSplitServerEndpoint(registry, options...))
+	admin.DELETE("/:id/split-server", localai.ResetSplitServerEndpoint(registry))
+
 	// Per-node VRAM allocation budget. PUT sets a sticky admin override that
 	// survives worker restarts; DELETE clears it so the worker's reported
 	// budget takes over again at the next re-registration.

@@ -56,8 +56,9 @@
       "nodeTitle": "Nœud",
       "nodeLabel": "Rattacher le worker à",
       "nodeSub": "Les modèles que ce nœud charge utilisent le worker. Fixez le modèle sur ce nœud avec une règle de placement pour qu’il y soit chargé. Vous pourrez changer de nœud plus tard sur la page Nœuds.",
-      "nodeNone": "Le cluster n’a encore aucun nœud backend. Ajoutez-en un d’abord, ou rattachez le worker à un nœud plus tard sur la page Nœuds.",
-      "nodeServer": "Cette instance (elle n’exécute aucun modèle dans un cluster)"
+      "nodeServer": "Cette instance (elle n’exécute aucun modèle dans un cluster)",
+      "nodePick": "Choisir un serveur de découpage",
+      "nodeOffline": "{{name}} (hors ligne)"
     },
     "col": {
       "worker": "Worker",
@@ -108,7 +109,21 @@
     "thisServer": "Cette instance",
     "nodeLabel": "Nœud de {{name}}",
     "unattachedTitle": "Ces workers ne sont pas utilisés : rattachez-les à un nœud.",
-    "unattachedBody": "Rattachés à cette instance : {{names}}. Dans un cluster, les modèles tournent sur les nœuds backend, pas sur cette instance. Choisissez un nœud pour chacun."
+    "unattachedBody": "Rattachés à cette instance : {{names}}. Dans un cluster, les modèles tournent sur les nœuds backend, pas sur cette instance. Choisissez un nœud pour chacun.",
+    "noServerTitle": "Aucun worker n’est encore un serveur de découpage.",
+    "noServerBody": "Un worker de découpage de modèle ne peut être rattaché qu’à un worker qui est un serveur de découpage. Créez-en un ici, ou démarrez le worker avec --split-server.",
+    "offlineTitle": "Le nœud d’un worker de découpage de modèle est hors ligne.",
+    "offlineBody": "{{names}} reste rattaché et attend le retour de son nœud. Rien ne le déplace vers un autre nœud.",
+    "relayRefusedTitle": "Vos relais n’admettent pas un nœud.",
+    "relayRefusedBody": "Les workers n’atteignent {{names}} qu’en direct ou par hole punching : {{reason}}.",
+    "nextLoad": "Les changements des workers d’un nœud s’appliquent au prochain modèle qu’il charge.",
+    "nodeOffline": "Nœud hors ligne",
+    "relay": {
+      "admitted": "Relais : admis",
+      "refused": "Relais : refusé",
+      "pending": "Relais : en attente",
+      "notNeeded": "Relais : inutile"
+    }
   },
   "nodes": {
     "retry": "Réessayer"
@@ -169,5 +184,38 @@
   "inspector": {
     "route": "Route",
     "peer": "ID de pair"
+  },
+  "splitServer": {
+    "label": "Serveur de découpage",
+    "make": "En faire un serveur de découpage…",
+    "clear": "Ne plus être serveur de découpage…",
+    "open": "Configurer un serveur de découpage",
+    "title": "Configurer un serveur de découpage",
+    "desc": "Un serveur de découpage est un worker qui exécute des modèles avec la mémoire des workers de découpage rattachés à lui.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (serveur de découpage)",
+    "changesTitle": "Quand vous confirmez, {{node}} devient un serveur de découpage :",
+    "changes": {
+      "ports": "Il ouvre des ports P2P et démarre un hôte P2P pour ses workers de découpage.",
+      "relay": "Cette instance l’admet sur les relais protégés que vous gérez, pour que les workers l’atteignent par eux.",
+      "load": "Les workers rattachés servent au prochain modèle llama.cpp ou MLX qu’il charge. Un modèle déjà chargé garde ses workers jusqu’à son prochain chargement.",
+      "undo": "Vous pouvez le désactiver sur la page Nœuds. Ses workers sont alors détachés."
+    },
+    "offline": "{{node}} est hors ligne. Ses workers attendent son retour.",
+    "helpers": "Rattacher ces workers de découpage",
+    "noHelpers": "Aucun autre worker de découpage n’est encore appairé. Vous pourrez rattacher des workers plus tard.",
+    "moveFrom": "actuellement sur {{node}}",
+    "noNodes": "Le cluster n’a encore aucun worker de backend. Ajoutez-en un d’abord.",
+    "cancel": "Annuler",
+    "confirm": "En faire un serveur de découpage et rattacher",
+    "confirmAttach": "Rattacher",
+    "clearTitle": "{{node}} ne doit plus être serveur de découpage ?",
+    "clearBody": "Son hôte P2P s’arrête, vos relais cessent de l’admettre et ses workers de découpage ({{count}}) sont détachés. Ils attendent, sans nœud, jusqu’à ce que vous les rattachiez.",
+    "clearConfirm": "Ne plus être serveur de découpage",
+    "clearing": "Arrêt…",
+    "toast": {
+      "set": "{{node}} est un serveur de découpage. Workers rattachés : {{count}}. Ils servent au prochain modèle qu’il charge.",
+      "cleared": "{{node}} n’est plus un serveur de découpage. Workers détachés : {{count}}."
+    }
   }
 }

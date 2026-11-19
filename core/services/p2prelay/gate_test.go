@@ -84,6 +84,8 @@ var _ = Describe("gate", func() {
 		g.maxPerSet = 2
 		resp := op(relayproto.OpAdd, 1, newID(), newID(), newID())
 		Expect(resp.Err).To(ContainSubstring("too many peers"))
+		Expect(resp.MaxPeers).To(Equal(2), "the admin learns the size it must fit")
+		Expect(op(relayproto.OpStatus, 0).MaxPeers).To(Equal(2))
 	})
 
 	It("refuses operations of a peer that is not an admin", func() {

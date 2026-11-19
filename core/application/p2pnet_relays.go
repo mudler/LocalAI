@@ -27,6 +27,11 @@ type relayManager interface {
 	Registrar() p2ppair.PassRegistrar
 	PeerAdded(peer string)
 	PeerRemoved(peer string)
+	// Resync brings every relay in line with the paired devices and the node
+	// peers, in the background.
+	Resync()
+	// NodeAdmission is the state of a node peer on each relay.
+	NodeAdmission(peer string) []p2papi.SplitRelayAdmission
 	Start(ctx context.Context) error
 	Close() error
 }
@@ -40,6 +45,9 @@ type relayManagerConfig struct {
 	SaveRelays func([]config.P2PRelay) error
 	// PairedPeers lists the peer IDs of the active devices.
 	PairedPeers func() []string
+	// NodePeers lists the peer IDs of the split hosts of the backend nodes
+	// that registered with the registration token and serve split workers.
+	NodePeers func() []string
 }
 
 // Relays implements p2ppair.RelaySource: the relays an invite may name, gated

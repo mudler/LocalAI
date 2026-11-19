@@ -41,6 +41,7 @@
 .sw-pill[data-level="ok"] { background: var(--dk-ok-wash); color: var(--dk-ok-text); }
 .sw-pill[data-level="warn"] { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .sw-pill[data-level="error"] { background: var(--dk-error-wash); color: var(--dk-error-text); }
+.sw-pill[data-level="info"] { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
 
 /* ---- Roster and inspector ------------------------------------------------------ */
 

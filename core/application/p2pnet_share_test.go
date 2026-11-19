@@ -315,6 +315,10 @@ func (f *fakeRelays) RegisterPass(context.Context, p2ppair.PassRequest) (string,
 	return "PASS", nil
 }
 func (f *fakeRelays) CancelPass(context.Context, p2ppair.Relay, string) error { return nil }
+func (f *fakeRelays) Resync()                                                 {}
+func (f *fakeRelays) NodeAdmission(string) []p2papi.SplitRelayAdmission {
+	return nil
+}
 func (f *fakeRelays) PeerAdded(p string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

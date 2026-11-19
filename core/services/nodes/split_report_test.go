@@ -58,6 +58,65 @@ var _ = Describe("Split worker reports of the nodes", func() {
 		Expect(all[n.ID].Report.Workers).To(HaveLen(1))
 	})
 
+	It("pins the split host of a node to the first peer that reports it, until the node registers again", func() {
+		n := &BackendNode{Name: "gpu-pin", NodeType: NodeTypeBackend}
+		Expect(reg.Register(ctx, n, true)).To(Succeed())
+		Expect(reg.PinSplitPeer(ctx, n.ID, "peer-a")).To(Succeed())
+		Expect(reg.PinSplitPeer(ctx, n.ID, "peer-a")).To(Succeed(), "the same peer again is fine")
+		Expect(reg.SetSplitReport(ctx, n.ID, workerctl.SplitReport{PeerID: "peer-a"})).To(Succeed())
+
+		// Another caller with the registration token cannot move the node to
+		// its own peer, through this frontend or another one.
+		Expect(reg.PinSplitPeer(ctx, n.ID, "peer-b")).To(MatchError(ErrSplitPeerPinned))
+		other, err := NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(other.PinSplitPeer(ctx, n.ID, "peer-b")).To(MatchError(ErrSplitPeerPinned))
+		got, ok, err := reg.SplitReport(ctx, n.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(got.PinnedPeer).To(Equal("peer-a"))
+		Expect(got.Report.PeerID).To(Equal("peer-a"))
+
+		// A node that registers again (it restarted, maybe with a new key)
+		// may bind a new peer.
+		again := &BackendNode{Name: "gpu-pin", NodeType: NodeTypeBackend}
+		Expect(reg.Register(ctx, again, true)).To(Succeed())
+		Expect(again.ID).To(Equal(n.ID))
+		Expect(reg.PinSplitPeer(ctx, n.ID, "peer-b")).To(Succeed())
+		got, _, err = reg.SplitReport(ctx, n.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.PinnedPeer).To(Equal("peer-b"))
+	})
+
+	It("stores the split server declaration of the worker, and keeps the admin's choice over the start flag", func() {
+		n := &BackendNode{Name: "gpu-decl", NodeType: NodeTypeBackend, SplitServer: true}
+		Expect(reg.Register(ctx, n, true)).To(Succeed())
+		got, err := reg.Get(ctx, n.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.SplitServer).To(BeTrue(), "the start flag declares the worker")
+
+		// A restart without the flag clears it while the admin has not chosen.
+		Expect(reg.Register(ctx, &BackendNode{Name: "gpu-decl", NodeType: NodeTypeBackend}, true)).To(Succeed())
+		got, _ = reg.Get(ctx, n.ID)
+		Expect(got.SplitServer).To(BeFalse())
+
+		// The admin declares it; a restart without the flag keeps that.
+		Expect(reg.SetSplitServer(ctx, n.ID, true)).To(Succeed())
+		Expect(reg.Register(ctx, &BackendNode{Name: "gpu-decl", NodeType: NodeTypeBackend}, true)).To(Succeed())
+		got, _ = reg.Get(ctx, n.ID)
+		Expect(got.SplitServer).To(BeTrue())
+		Expect(got.SplitServerManuallySet).To(BeTrue())
+
+		// Reset hands the choice back to the flag at the next registration.
+		Expect(reg.ResetSplitServer(ctx, n.ID)).To(Succeed())
+		Expect(reg.Register(ctx, &BackendNode{Name: "gpu-decl", NodeType: NodeTypeBackend}, true)).To(Succeed())
+		got, _ = reg.Get(ctx, n.ID)
+		Expect(got.SplitServer).To(BeFalse())
+		Expect(got.SplitServerManuallySet).To(BeFalse())
+
+		Expect(reg.SetSplitServer(ctx, "nope", true)).To(MatchError(ContainSubstring("not found")))
+	})
+
 	It("drops the report of a node that is removed", func() {
 		n := &BackendNode{Name: "gpu-2", NodeType: NodeTypeBackend}
 		Expect(reg.Register(ctx, n, true)).To(Succeed())

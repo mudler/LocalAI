@@ -116,6 +116,7 @@ type server struct {
 
 	mu     sync.Mutex
 	paired []string
+	nodes  []string
 }
 
 func newServer() *server {
@@ -140,6 +141,28 @@ func (s *server) setPaired(ids ...string) {
 	s.paired = ids
 }
 
+func (s *server) nodePeers() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.nodes...)
+}
+
+func (s *server) setNodes(ids ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.nodes = ids
+}
+
+// seq returns the sequence number of the admin set of s on the relay: it
+// changes with every write to the set.
+func (s *server) seq(relayID string) int64 {
+	rid, err := peer.Decode(relayID)
+	Expect(err).ToNot(HaveOccurred())
+	resp, err := relayproto.Call(ctx10(), s.host.Libp2p(), rid, relayproto.Request{Op: relayproto.OpStatus})
+	Expect(err).ToNot(HaveOccurred())
+	return resp.Seq
+}
+
 func randomPeer() string {
 	k, _, err := crypto.GenerateEd25519Key(nil)
 	Expect(err).ToNot(HaveOccurred())
@@ -150,7 +173,7 @@ func randomPeer() string {
 
 // manager builds a manager for s. fast makes the loop tick quickly.
 func (s *server) manager(store p2prelaymgr.Store, fast bool) p2prelaymgr.Manager {
-	cfg := p2prelaymgr.Config{Host: s.host, Store: store, PairedPeers: s.pairedPeers}
+	cfg := p2prelaymgr.Config{Host: s.host, Store: store, PairedPeers: s.pairedPeers, NodePeers: s.nodePeers}
 	if fast {
 		cfg.Tick, cfg.SyncInterval, cfg.Retry = 100*time.Millisecond, 300*time.Millisecond, 100*time.Millisecond
 	}

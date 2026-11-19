@@ -473,7 +473,12 @@ func (s *Service) SetAllowSlowPath(ctx context.Context, id string, allow bool) e
 // SetSplitNode attaches a split device to a backend node, or to this server
 // with an empty node.
 func (s *Service) SetSplitNode(ctx context.Context, id, node string) error {
-	return s.st.SetDeviceNode(ctx, id, node)
+	return s.st.SetDeviceNode(ctx, id, node, "")
+}
+
+// DetachSplitNode attaches a split device to no node and records why.
+func (s *Service) DetachSplitNode(ctx context.Context, id, note string) error {
+	return s.st.SetDeviceNode(ctx, id, "", note)
 }
 
 // Touch records that an active device was seen now, and by which path.

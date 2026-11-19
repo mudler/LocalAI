@@ -122,7 +122,7 @@ var _ = Describe("Model-split workers attached to a backend node", func() {
 		node = newSplitNode(splitConfig{
 			Sync:     front.sync,
 			Interval: 200 * time.Millisecond,
-			NewHost: func(_ context.Context, gate *p2pnet.Allowlist) (*p2pnet.Host, error) {
+			NewHost: func(_ context.Context, gate *p2pnet.Allowlist, _ []p2pnet.AddrInfo) (*p2pnet.Host, error) {
 				h := splitTestHost(gate)
 				hostCh <- h
 				return h, nil
@@ -136,16 +136,33 @@ var _ = Describe("Model-split workers attached to a backend node", func() {
 		DeferCleanup(func() { cancel(); Eventually(done, 10*time.Second).Should(BeClosed()) })
 	})
 
-	It("runs no host while no worker is attached", func() {
+	It("runs no host while it is not a split server, even when the frontend sends workers", func() {
+		front.set(func(f *splitFrontend) {
+			f.assign = workerctl.SplitAssignment{Workers: []workerctl.SplitAssigned{
+				{DeviceID: "d1", PeerID: splitTestHost(p2pnet.NewAllowlist()).ID().String(), Engine: "llama"},
+			}}
+		})
 		Consistently(hostCh, time.Second).ShouldNot(Receive())
 		Expect(front.report().PeerID).To(BeEmpty())
+		Expect(llama.get()).To(BeEmpty())
+	})
+
+	It("starts its host as soon as it is declared, before any worker is attached, and stops it when the declaration is cleared", func() {
+		front.set(func(f *splitFrontend) { f.assign = workerctl.SplitAssignment{SplitServer: true} })
+		var h *p2pnet.Host
+		Eventually(hostCh, 10*time.Second).Should(Receive(&h))
+		Eventually(func() string { return front.report().PeerID }, 5*time.Second).Should(Equal(h.ID().String()))
+
+		front.set(func(f *splitFrontend) { f.assign = workerctl.SplitAssignment{} })
+		Eventually(func() string { return front.report().PeerID }, 5*time.Second).Should(BeEmpty(), "no host, nothing to report")
+		Eventually(func() int { return len(h.Libp2p().Network().ListenAddresses()) }, 5*time.Second).Should(BeZero(), "the host is closed")
 	})
 
 	It("starts its host for the first worker, serves it, reports it, and lets it go", func() {
 		workerGate := p2pnet.NewAllowlist()
 		worker := splitTestHost(workerGate)
 		front.set(func(f *splitFrontend) {
-			f.assign = workerctl.SplitAssignment{Workers: []workerctl.SplitAssigned{
+			f.assign = workerctl.SplitAssignment{SplitServer: true, Workers: []workerctl.SplitAssigned{
 				{DeviceID: "d1", Label: "attic", PeerID: worker.ID().String(), Engine: "llama", CreatedAt: time.Now()},
 			}}
 		})
@@ -179,8 +196,8 @@ var _ = Describe("Model-split workers attached to a backend node", func() {
 		front.set(func(f *splitFrontend) { f.fail = true })
 		Consistently(llama.get, time.Second).Should(HaveLen(1))
 
-		// The administrator detaches the worker.
-		front.set(func(f *splitFrontend) { f.fail = false; f.assign = workerctl.SplitAssignment{} })
+		// The administrator detaches the worker; the node stays a split server.
+		front.set(func(f *splitFrontend) { f.fail = false; f.assign = workerctl.SplitAssignment{SplitServer: true} })
 		Eventually(llama.get, 10*time.Second).Should(BeEmpty())
 		Expect(h.Gate().(*p2pnet.Allowlist).Allowed(worker.ID())).To(BeFalse(), "the node stops admitting a worker that left")
 		Eventually(func() []workerctl.SplitWorkerReport { return front.report().Workers }, 5*time.Second).Should(BeEmpty())
@@ -189,8 +206,9 @@ var _ = Describe("Model-split workers attached to a backend node", func() {
 	It("reads the slow-path choice and the relays of the frontend from the answer", func() {
 		front.set(func(f *splitFrontend) {
 			f.assign = workerctl.SplitAssignment{
-				Workers:   []workerctl.SplitAssigned{{DeviceID: "d1", PeerID: splitTestHost(p2pnet.NewAllowlist()).ID().String(), Engine: "mlx", AllowSlowPath: true}},
-				OwnRelays: []string{"12D3KooWRelay"},
+				SplitServer: true,
+				Workers:     []workerctl.SplitAssigned{{DeviceID: "d1", PeerID: splitTestHost(p2pnet.NewAllowlist()).ID().String(), Engine: "mlx", AllowSlowPath: true}},
+				OwnRelays:   []string{"12D3KooWRelay"},
 			}
 		})
 		Eventually(hostCh, 10*time.Second).Should(Receive())

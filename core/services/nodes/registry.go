@@ -121,6 +121,16 @@ type BackendNode struct {
 	// words. A worker that predates carrier switching reports neither.
 	Follow      string `gorm:"column:follow;size:64" json:"follow,omitempty"`
 	FollowError string `gorm:"column:follow_error;size:255" json:"follow_error,omitempty"`
+	// SplitServer is set when the node is a split server: it may serve
+	// model-split workers (llama.cpp RPC and MLX helpers). A worker becomes
+	// one only by a choice of its operator (the worker's --split-server flag,
+	// sent at registration) or of the admin (the Nodes page, REST or MCP).
+	// Only a split server runs the P2P host for split workers, accepts them
+	// and is admitted on the relays for them.
+	SplitServer bool `gorm:"column:split_server;default:false" json:"split_server"`
+	// SplitServerManuallySet marks SplitServer as the admin's choice, which a
+	// re-registration does not overwrite (see MaxReplicasPerModelManuallySet).
+	SplitServerManuallySet bool `gorm:"column:split_server_manually_set;default:false" json:"split_server_manually_set,omitempty"`
 	// PeerID is the P2P peer ID of a worker that joined with a worker invite.
 	// The node is pinned to it: registration, the node routes and the tunnel
 	// accept such a node only from that peer, over P2P. Empty for a node that
@@ -685,6 +695,11 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		}
 		// Re-registration (node restart): preserve ID, respect approval history
 		node.ID = existing.ID
+		// A node that registers again may bind its split host to a new peer,
+		// for example after it lost its key.
+		if err := unpinSplitPeer(r.db.WithContext(ctx), existing.ID); err != nil {
+			return err
+		}
 		if autoApprove || existing.Status != StatusPending {
 			// Auto-approve enabled, or node was previously approved — restore healthy
 			node.Status = StatusHealthy
@@ -703,6 +718,11 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 			// scheduler will actually use.
 			node.MaxReplicasPerModel = existing.MaxReplicasPerModel
 			node.MaxReplicasPerModelManuallySet = true
+		}
+		if existing.SplitServerManuallySet {
+			updateDB = updateDB.Omit("split_server", "split_server_manually_set")
+			node.SplitServer = existing.SplitServer
+			node.SplitServerManuallySet = true
 		}
 		// Preserve an admin-set VRAM budget across worker re-registration;
 		// otherwise the worker-reported budget (wired in a later task) wins.
@@ -733,6 +753,14 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 					ColAvailableVRAM:   node.AvailableVRAM,
 				}).Error; err != nil {
 				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
+			}
+		}
+		// The start flag of the worker decides while the admin has not: write
+		// it even when false, which Updates(struct) above skips.
+		if !existing.SplitServerManuallySet {
+			if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+				Update("split_server", node.SplitServer).Error; err != nil {
+				return fmt.Errorf("recording the split server declaration of node %s: %w", node.Name, err)
 			}
 		}
 		// Force-write the disk columns. Updates(struct) above zero-skips, and a
@@ -2734,6 +2762,34 @@ func (r *NodeRegistry) ResetMaxReplicasPerModel(ctx context.Context, nodeID stri
 		Update("max_replicas_per_model_manually_set", false)
 	if res.Error != nil {
 		return fmt.Errorf("clearing max_replicas_per_model override on %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
+}
+
+// SetSplitServer declares a node a split server, or clears the declaration,
+// as the admin's choice: a re-registration keeps it until ResetSplitServer.
+func (r *NodeRegistry) SetSplitServer(ctx context.Context, nodeID string, on bool) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{"split_server": on, "split_server_manually_set": true})
+	if res.Error != nil {
+		return fmt.Errorf("updating the split server declaration of %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
+}
+
+// ResetSplitServer hands the split server declaration back to the start flag
+// of the worker: the next registration sets it. The current value stays.
+func (r *NodeRegistry) ResetSplitServer(ctx context.Context, nodeID string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Update("split_server_manually_set", false)
+	if res.Error != nil {
+		return fmt.Errorf("resetting the split server declaration of %s: %w", nodeID, res.Error)
 	}
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("node %s not found", nodeID)

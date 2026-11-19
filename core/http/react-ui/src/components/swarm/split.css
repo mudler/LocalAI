@@ -17,3 +17,9 @@
 .sw-split-node-field { display: flex; flex-direction: column; gap: var(--dk-space-1); max-width: 360px; }
 .sw-split-invite__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); font-size: var(--dk-text-12); color: var(--dk-muted); }
 .sw-split-found { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-3); padding: var(--dk-space-3) var(--dk-space-4); border-radius: var(--dk-radius-2); background: var(--dk-inset); }
+.sw-split-relay { display: flex; align-items: flex-start; flex-direction: column; gap: var(--dk-space-1); margin-top: var(--dk-space-1); }
+.sw-split-setup { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.sw-split-setup__list { margin: 0; padding-left: var(--dk-space-5); display: flex; flex-direction: column; gap: var(--dk-space-1); font-size: var(--dk-text-13); color: var(--dk-text); }
+.sw-split-setup__changes { padding: var(--dk-space-3); border-radius: var(--dk-radius-2); background: var(--dk-inset); }
+.sw-split-setup__helpers { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-2); min-width: 0; }
+.sw-split-setup__helper { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); font-size: var(--dk-text-13); }

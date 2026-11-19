@@ -10,7 +10,11 @@ import { P2P_SETTINGS_PATH } from '../p2p/P2PTabs'
 import { Button, Callout, Segmented, StatusChip, useLoad } from '../ui'
 import CommandBlock from './CommandBlock'
 import RelayLimitsDialog from '../p2psettings/RelayLimitsDialog'
-import { ENGINES, cutLimits, limitsRelay, nodeChoices, pathOf, splitCommand, stateOf } from './splitWorkersModel'
+import SplitServerSetup from './SplitServerSetup'
+import { ENGINES, cutLimits, defaultSplitServer, limitsRelay, nodeChoices, pathOf, splitCommand, stateOf } from './splitWorkersModel'
+
+// The value of the node choice that keeps the worker on this instance.
+const THIS_SERVER = '__server'
 import './split.css'
 
 // The life of a model-split invite: long enough to set up the worker.
@@ -30,8 +34,9 @@ export default function AddSplitWorker({ Step, first, addToast }) {
   const status = useLoad(() => p2pNetApi.status(), [])
   const sharing = status.status === 'ready' && status.data?.mode === 'share'
   // GET /api/nodes answers only in a cluster.
-  const cluster = useLoad(() => nodesApi.list().then(list => ({ nodes: nodeChoices(list) })).catch(() => ({ nodes: null })), [])
+  const cluster = useLoad(() => nodesApi.list().then(list => ({ raw: list, nodes: nodeChoices(list) })).catch(() => ({ nodes: null })), [])
   const nodes = cluster.data?.nodes || null
+  const [setup, setSetup] = useState(false)
   const [node, setNode] = useState('')
   const [engine, setEngine] = useState('llama')
   const [name, setName] = useState('')
@@ -42,20 +47,24 @@ export default function AddSplitWorker({ Step, first, addToast }) {
   const [flavor, setFlavor] = useState('docker')
   const chosenRef = useRef(false)
   const hardware = useImageSelector('cpu')
-  // In a cluster the first backend node is the default: this instance runs
-  // no models there.
+  // In a cluster the only online split server is the default: this instance
+  // runs no models there. With several, the administrator picks one.
   useEffect(() => {
-    if (nodes?.length && !chosenRef.current) {
+    if (nodes && !chosenRef.current) {
       chosenRef.current = true
-      setNode(nodes[0].id)
+      setNode(defaultSplitServer(cluster.data?.raw))
     }
-  }, [nodes])
+  }, [nodes, cluster.data])
+  const mustPick = Boolean(nodes?.length) && node === ''
+  const chosenNode = nodes?.find(n => n.id === node)
 
   const mint = async () => {
     setMinting(true)
     setError('')
     try {
-      const labels = node ? { engine, node } : { engine }
+      // An explicit empty node keeps the worker on this instance; no node
+      // lets the server choose its only split server.
+      const labels = node === THIS_SERVER ? { engine, node: '' } : node ? { engine, node } : { engine }
       const res = await p2pNetApi.mintInvite({ kind: 'split', label: name.trim(), ttl_seconds: INVITE_TTL, labels })
       setInvite(res)
       setUsed(false)
@@ -103,11 +112,28 @@ export default function AddSplitWorker({ Step, first, addToast }) {
           <label className="sw-split-node-field">
             <span className="dk-label">{t('split.add.nodeLabel')}</span>
             <select className="dk-select" value={node} onChange={event => chooseNode(event.target.value)} data-testid="split-add-node">
-              {nodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-              <option value="">{t('split.add.nodeServer')}</option>
+              {mustPick && <option value="" disabled>{t('split.add.nodePick')}</option>}
+              {nodes.map(n => <option key={n.id} value={n.id}>{n.online ? n.name : t('split.add.nodeOffline', { name: n.name })}</option>)}
+              <option value={THIS_SERVER}>{t('split.add.nodeServer')}</option>
             </select>
           </label>
-          <p className="sw-note sw-note--quiet">{t(nodes.length ? 'split.add.nodeSub' : 'split.add.nodeNone')}</p>
+          {nodes.length === 0
+            ? (
+              <Callout
+                tone="warn" title={t('split.noServerTitle')} testId="split-add-no-server"
+                actions={<Button size="sm" variant="primary" onClick={() => setSetup(true)} data-testid="split-add-setup">{t('splitServer.open')}</Button>}
+              >
+                {t('split.noServerBody')}
+              </Callout>
+            )
+            : <p className="sw-note sw-note--quiet">{t('split.add.nodeSub')}</p>}
+          {chosenNode && !chosenNode.online && <Callout tone="warn">{t('splitServer.offline', { node: chosenNode.name })}</Callout>}
+          {setup && (
+            <SplitServerSetup
+              nodes={cluster.data?.raw} workers={[]} addToast={addToast}
+              onClose={() => setSetup(false)} onDone={() => { chosenRef.current = false; cluster.reload() }}
+            />
+          )}
         </Step>
       )}
 
@@ -122,7 +148,7 @@ export default function AddSplitWorker({ Step, first, addToast }) {
                   onChange={event => setName(event.target.value)} data-testid="split-name"
                 />
               </label>
-              <Button variant="primary" busy={minting} onClick={mint} data-testid="split-mint">{t('split.add.mint')}</Button>
+              <Button variant="primary" busy={minting} disabled={mustPick} onClick={mint} data-testid="split-mint">{t('split.add.mint')}</Button>
             </div>
           )}
           {invite && <InviteLine invite={invite} used={used} />}

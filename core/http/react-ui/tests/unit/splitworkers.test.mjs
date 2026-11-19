@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  arrivedSince, cutLimits, limitsRelay, nodeChoices, pathOf, slowAction, splitCommand, stateOf, summarize, unattached,
+  arrivedSince, backendNodes, cutLimits, defaultSplitServer, limitsRelay, nodeChoices, pathOf, relayOf, slowAction, splitCommand,
+  stateOf, summarize, unattached,
 } from '../../src/components/swarm/splitWorkersModel.js'
 
 const worker = (extra = {}) => ({ id: 'w', state: 'online', path: { kind: 'direct' }, allow_slow_path: false, ...extra })
@@ -79,16 +80,36 @@ test('split workers: a relay of the user that limits each connection is slow, wi
   assert.equal(slowAction(pub), null)
 })
 
-test('split workers: only backend nodes can hold a worker, by name', () => {
+test('split workers: only split servers can hold a worker, by name', () => {
   const nodes = [
-    { id: 'b', name: 'gpu-b', node_type: 'backend' },
-    { id: 'a', name: 'agent-1', node_type: 'agent' },
-    { id: 'c', name: 'gpu-a' },
+    { id: 'b', name: 'gpu-b', node_type: 'backend', split_server: true, status: 'healthy' },
+    { id: 'a', name: 'agent-1', node_type: 'agent', split_server: true },
+    { id: 'c', name: 'gpu-a', split_server: true, status: 'offline' },
+    { id: 'd', name: 'plain', node_type: 'backend', status: 'healthy' },
   ]
-  assert.deepEqual(nodeChoices(nodes), [{ id: 'c', name: 'gpu-a' }, { id: 'b', name: 'gpu-b' }])
+  assert.deepEqual(nodeChoices(nodes), [{ id: 'c', name: 'gpu-a', online: false }, { id: 'b', name: 'gpu-b', online: true }])
   assert.deepEqual(nodeChoices(null), [])
   // The API answers an object with a nodes list on some versions.
-  assert.deepEqual(nodeChoices({ nodes: [{ id: 'x', name: 'x' }] }), [{ id: 'x', name: 'x' }])
+  assert.deepEqual(nodeChoices({ nodes: [{ id: 'x', name: 'x', split_server: true, status: 'healthy' }] }), [{ id: 'x', name: 'x', online: true }])
+  // Every backend node can be made a split server.
+  assert.deepEqual(backendNodes(nodes).map(n => [n.id, n.splitServer]), [['c', true], ['b', true], ['d', false]])
+})
+
+test('split workers: a new worker goes to the only online split server, else the admin picks', () => {
+  const s = (id, status = 'healthy') => ({ id, name: id, split_server: true, status })
+  assert.equal(defaultSplitServer([]), '')
+  assert.equal(defaultSplitServer([s('a'), { id: 'p', name: 'p', status: 'healthy' }]), 'a')
+  assert.equal(defaultSplitServer([s('a'), s('b')]), '', 'two split servers: the admin picks')
+  assert.equal(defaultSplitServer([s('a'), s('b', 'offline')]), 'a', 'an offline one does not count')
+})
+
+test('split workers: the relay admission of the node has a tone', () => {
+  assert.deepEqual(relayOf({ node_id: 'n', node_relay: { state: 'admitted' } }), { key: 'admitted', tone: 'ok', reason: '' })
+  assert.deepEqual(relayOf({ node_id: 'n', node_relay: { state: 'refused', reason: 'full' } }), { key: 'refused', tone: 'error', reason: 'full' })
+  assert.equal(relayOf({ node_id: 'n', node_relay: { state: 'pending' } }).tone, 'warn')
+  assert.equal(relayOf({ node_id: 'n', node_relay: { state: 'not_needed' } }).key, 'notNeeded')
+  assert.equal(relayOf({ node_id: '' }), null, 'a worker attached to no node has no node relay')
+  assert.equal(relayOf({ node_id: 'n' }), null)
 })
 
 test('split workers: in a cluster a worker attached to no node is not used', () => {

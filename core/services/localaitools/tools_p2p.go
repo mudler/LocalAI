@@ -118,6 +118,22 @@ func registerP2PTools(s *mcp.Server, client LocalAIClient, opts Options) {
 		return jsonResult(w), nil, nil
 	})
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        ToolSetNodeSplitServer,
+		Description: "Declare a backend node a split server (split_server=true) so that model-split workers can be attached to it, or clear the declaration. A split server opens P2P ports, is admitted on the user's gated relays, and its attached workers join the next model it loads. Clearing it detaches its workers (they wait, attached to no node), removes its relay admission and stops its P2P host. Say exactly this to the user before you call it. Requires user confirmation per safety rule 1.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
+		NodeID      string `json:"node_id" jsonschema:"backend node ID from list_nodes"`
+		SplitServer bool   `json:"split_server" jsonschema:"true to declare the node a split server, false to clear it"`
+	}) (*mcp.CallToolResult, any, error) {
+		if args.NodeID == "" {
+			return errorResultf("node_id is required"), nil, nil
+		}
+		r, err := client.SetNodeSplitServer(ctx, args.NodeID, args.SplitServer)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(r), nil, nil
+	})
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolCancelP2PInvite,
 		Description: "Cancel a pending P2P invite so its link no longer works. Requires user confirmation per safety rule 1.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {

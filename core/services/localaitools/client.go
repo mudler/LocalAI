@@ -224,6 +224,9 @@ type LocalAIClient interface {
 	// SetP2PSplitNode attaches a split worker to a backend node of the
 	// cluster, or to this server with an empty node ID.
 	SetP2PSplitNode(ctx context.Context, id, nodeID string) (*P2PSplitWorkerInfo, error)
+	// SetNodeSplitServer declares a backend node a split server, or clears
+	// the declaration, which detaches its split workers.
+	SetNodeSplitServer(ctx context.Context, nodeID string, on bool) (*NodeSplitServer, error)
 
 	// ---- Failover chains ----
 	// ListFailoverChains reports every configured failover chain, its

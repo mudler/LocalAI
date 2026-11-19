@@ -122,6 +122,10 @@ type Device struct {
 	// memory to; empty means the server that paired it. A split invite may
 	// name the first node in its NodeLabel label.
 	NodeID string `json:"node_id,omitempty"`
+	// NodeNote says why a split device is attached to no node any more, for
+	// example because its node stopped being a split server. Attaching the
+	// device clears it.
+	NodeNote string `json:"node_note,omitempty"`
 }
 
 // NodeLabel is the scope label of a split invite that names the backend node

@@ -185,6 +185,39 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		})
 	})
 
+	Describe("model-split workers and split servers", func() {
+		It("reads the relay admission of the node of a worker, and declares a split server", func() {
+			var body map[string]any
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/p2p/split-workers":
+					_, _ = w.Write([]byte(`{"workers":[{"id":"w1","label":"attic","engine":"llama","state":"offline","path":{"kind":"none"},"node_id":"n1","node_name":"gpu-1","node_offline":true,"node_relay":{"state":"refused","reason":"the relay is full"}},{"id":"w2","node_note":"gpu-2 is no longer a split server","path":{"kind":"none"}}]}`))
+				case "/api/nodes/n1/split-server":
+					Expect(r.Method).To(Equal(http.MethodPut))
+					Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+					_, _ = w.Write([]byte(`{"split_server":false,"detached":2}`))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+			c := New(srv.URL, "")
+			ws, err := c.ListP2PSplitWorkers(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ws).To(HaveLen(2))
+			Expect(ws[0].NodeRelay).To(Equal("refused"))
+			Expect(ws[0].NodeRelayReason).To(Equal("the relay is full"))
+			Expect(ws[0].NodeOffline).To(BeTrue())
+			Expect(ws[1].NodeNote).To(ContainSubstring("no longer a split server"))
+
+			r, err := c.SetNodeSplitServer(ctx, "n1", false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(body).To(HaveKeyWithValue("split_server", false))
+			Expect(r.Detached).To(Equal(2))
+			Expect(r.NodeID).To(Equal("n1"))
+		})
+	})
+
 	Describe("SearchModels with no query", func() {
 		It("sends sort=latest and an empty q", func() {
 			var got url.Values

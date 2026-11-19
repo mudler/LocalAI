@@ -178,7 +178,7 @@ var _ = Describe("model-split workers in mode share", func() {
 		reg, err := nodes.NewNodeRegistry(ndb)
 		Expect(err).ToNot(HaveOccurred())
 		ctx := context.Background()
-		gpu := &nodes.BackendNode{Name: "gpu-1", NodeType: nodes.NodeTypeBackend}
+		gpu := &nodes.BackendNode{Name: "gpu-1", NodeType: nodes.NodeTypeBackend, SplitServer: true}
 		Expect(reg.Register(ctx, gpu, true)).To(Succeed())
 		agentNode := &nodes.BackendNode{Name: "agent-1", NodeType: nodes.NodeTypeAgent}
 		Expect(reg.Register(ctx, agentNode, true)).To(Succeed())

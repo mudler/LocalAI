@@ -132,6 +132,11 @@ type Client struct {
 	// P2PSplit backs the model-split worker tools. nil makes them report
 	// that P2P is not available.
 	P2PSplit p2papi.SplitService
+	// SplitDetacher detaches the split workers of a node whose split server
+	// declaration was cleared. nil leaves it to the next reload.
+	SplitDetacher interface {
+		DetachSplitWorkers(ctx context.Context, nodeID string) (int, error)
+	}
 
 	// SharedFolders backs the shared folder tools. It is read at each call,
 	// because the chats start after the assistant; nil or a nil service makes
@@ -871,6 +876,29 @@ func (c *Client) DeleteScheduling(ctx context.Context, modelName string) error {
 		return errors.New("model scheduling is only available in distributed mode")
 	}
 	return c.NodeRegistry.DeleteModelScheduling(ctx, modelName)
+}
+
+func (c *Client) SetNodeSplitServer(ctx context.Context, nodeID string, on bool) (*localaitools.NodeSplitServer, error) {
+	if c.NodeRegistry == nil {
+		return nil, errors.New("split servers are only available in distributed mode")
+	}
+	n, err := c.NodeRegistry.Get(ctx, nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("node %s not found", nodeID)
+	}
+	if n.NodeType == nodes.NodeTypeAgent {
+		return nil, errors.New("an agent node runs no models, so it cannot be a split server")
+	}
+	if err := c.NodeRegistry.SetSplitServer(ctx, nodeID, on); err != nil {
+		return nil, err
+	}
+	out := &localaitools.NodeSplitServer{NodeID: nodeID, SplitServer: on}
+	if !on && c.SplitDetacher != nil {
+		if out.Detached, err = c.SplitDetacher.DetachSplitWorkers(ctx, nodeID); err != nil {
+			return out, err
+		}
+	}
+	return out, nil
 }
 
 func (c *Client) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
@@ -1747,11 +1775,16 @@ func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*loc
 }
 
 func splitInfo(w p2papi.SplitWorkerView) localaitools.P2PSplitWorkerInfo {
-	return localaitools.P2PSplitWorkerInfo{
+	info := localaitools.P2PSplitWorkerInfo{
 		ID: w.ID, Label: w.Label, Engine: w.Engine, State: w.State, Error: w.Error,
 		AllowSlowPath: w.AllowSlowPath, Path: w.Path.Kind, RelayLabel: w.Path.RelayLabel, RelayID: w.RelayID,
 		OwnRelay: w.OwnRelay, MemoryBytes: w.MemoryBytes, NodeID: w.NodeID, NodeName: w.NodeName,
+		NodeOffline: w.NodeOffline, NodeNote: w.NodeNote,
 	}
+	if w.NodeRelay != nil {
+		info.NodeRelay, info.NodeRelayReason = w.NodeRelay.State, w.NodeRelay.Reason
+	}
+	return info
 }
 
 func (c *Client) ListP2PSplitWorkers(ctx context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {

@@ -164,6 +164,12 @@ export async function mockSwarm(page, {
         return route.fulfill(json({ message: 'ok' }))
       }
       if (rest?.startsWith('labels') || rest === 'max-replicas-per-model' || rest === 'vram-budget') { record(); return route.fulfill(json({})) }
+      if (rest === 'split-server' && method === 'PUT') {
+        record()
+        const on = request.postDataJSON().split_server
+        found && (found.split_server = on)
+        return route.fulfill(json({ split_server: on, detached: on ? 0 : 1 }))
+      }
     }
 
     if (path === '/api/aliases') return route.fulfill(json(aliases))

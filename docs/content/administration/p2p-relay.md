@@ -145,7 +145,7 @@ states:
 
 | State | Meaning |
 |---|---|
-| In sync | The relay knows this server as admin and has the same paired devices. |
+| In sync | The relay knows this server as admin and has the same paired devices, and the backend nodes that fit. |
 | Out of sync | The lists differ. Choose **Sync now**. |
 | Open | The relay is open. See below. |
 | Unclaimed | The relay has no admin. Claim it with the code. |
@@ -156,6 +156,23 @@ states:
 The server keeps the relay up to date. It sends the full list when it connects,
 and a change each time you pair or revoke a device. It compares the lists every
 minute.
+
+## Backend nodes that serve split workers
+
+In a cluster, a backend node that registered with the registration token is not
+a paired device. When it is a split server with
+[model-split workers]({{% relref "/administration/p2p-model-split" %}}#relays-for-the-nodes)
+attached, the server adds the P2P host of the node to its list on the relay,
+after the paired devices, so that the workers can reach the node through the
+relay. The server removes it when the node is deleted, stops being a split
+server, loses its last worker or registers with a registration token that is no
+longer valid.
+
+The paired devices always come first. When the list does not fit in
+`--max-peers-per-admin`, nodes are left out and the **Model-split workers**
+group on the **Nodes** page says **Relay: refused** with the reason. Raise the
+option where the relay runs to make room. The relay tells its admins this
+limit in the `max_peers` field of its answers.
 
 ## Admins and shared relays
 

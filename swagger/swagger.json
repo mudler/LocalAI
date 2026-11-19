@@ -15824,6 +15824,98 @@
                 }
             }
         },
+        "/api/nodes/{id}/split-server": {
+            "put": {
+                "description": "A split server is a backend node that serves model-split workers (llama.cpp RPC and MLX helpers): it runs a P2P host with open ports, the frontends admit it on the gated relays they administer, and the helpers attached to it join the next model it loads. A node becomes one only by this admin action or by the --split-server flag of the worker; the admin's choice wins over the flag until DELETE. Clearing it detaches the split workers of the node (they wait, attached to no node, with a warning), removes its relay admission and stops its P2P host at its next exchange. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Declare a node a split server, or clear it",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Declaration",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.SetSplitServerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.SetSplitServerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "agent node, or no split_server field",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Clears the admin's choice: the next registration of the worker sets the declaration from its --split-server flag. The current value stays until then. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Hand the split server declaration back to the worker flag",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/{id}/vram-budget": {
             "put": {
                 "tags": [
@@ -25624,6 +25716,27 @@
                 }
             }
         },
+        "localai.SetSplitServerRequest": {
+            "type": "object",
+            "properties": {
+                "split_server": {
+                    "description": "SplitServer declares the node a split server, or clears it.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "localai.SetSplitServerResponse": {
+            "type": "object",
+            "properties": {
+                "detached": {
+                    "description": "Detached is the number of split workers that were attached to the node\nand are now attached to no node.",
+                    "type": "integer"
+                },
+                "split_server": {
+                    "type": "boolean"
+                }
+            }
+        },
         "localai.TTSModelVoices": {
             "type": "object",
             "properties": {
@@ -26777,6 +26890,43 @@
                 }
             }
         },
+        "p2p.SplitNodeRelay": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "relays": {
+                    "description": "Relays is the state on each gated relay that this server administers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.SplitRelayAdmission"
+                    }
+                },
+                "state": {
+                    "description": "State is admitted, refused, pending or not_needed.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.SplitRelayAdmission": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "relay_id": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is admitted, refused or pending.",
+                    "type": "string"
+                }
+            }
+        },
         "p2p.SplitWorkerList": {
             "type": "object",
             "properties": {
@@ -26857,6 +27007,22 @@
                 },
                 "node_name": {
                     "type": "string"
+                },
+                "node_note": {
+                    "description": "NodeNote says why a worker attached to no node was detached, for\nexample because its node stopped being a split server.",
+                    "type": "string"
+                },
+                "node_offline": {
+                    "description": "NodeOffline is true when the node of NodeID is offline: the worker\nstays attached and waits for it; nothing moves it.",
+                    "type": "boolean"
+                },
+                "node_relay": {
+                    "description": "NodeRelay says whether the gated relays of this server admit the node\nof NodeID, so that the worker can reach it through them when no direct\nor hole-punched path works. Set only for a worker attached to a node.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/p2p.SplitNodeRelay"
+                        }
+                    ]
                 },
                 "own_relay": {
                     "description": "OwnRelay is true when that relay is a gated relay this server\nadministers: its limits can change. With a data or time limit the\nrelay ends each connection at the limit, also after allow_slow_path.",

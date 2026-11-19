@@ -99,15 +99,54 @@ export function splitCommand({ engine, link, flavor, option, dev }) {
   return `${flags}-v localai-${sub}:/p2p \\\n  -e LOCALAI_P2P_STATE_DIR=/p2p \\\n  --name local-ai-${sub} \\\n  localai/localai:${tag} worker ${sub} \\\n  --join "${invite}"`
 }
 
-// The nodes a worker can be attached to: the backend nodes (an agent node
-// runs no models), by name. Accepts the list of GET /api/nodes, or an object
-// that holds it.
-export function nodeChoices(nodes) {
-  const list = Array.isArray(nodes) ? nodes : Array.isArray(nodes?.nodes) ? nodes.nodes : []
-  return list
+function nodeList(nodes) {
+  return Array.isArray(nodes) ? nodes : Array.isArray(nodes?.nodes) ? nodes.nodes : []
+}
+
+// A node takes work while it is healthy or draining.
+function online(node) {
+  return node.status === 'healthy' || node.status === 'draining'
+}
+
+// The backend nodes of the cluster (an agent node runs no models), by name,
+// with their split server declaration: the nodes the admin can make a split
+// server. Accepts the list of GET /api/nodes, or an object that holds it.
+export function backendNodes(nodes) {
+  return nodeList(nodes)
     .filter(n => n && n.node_type !== 'agent')
-    .map(n => ({ id: n.id, name: n.name || n.id }))
+    .map(n => ({ id: n.id, name: n.name || n.id, splitServer: Boolean(n.split_server), online: online(n) }))
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+// The nodes a worker can be attached to: the split servers, by name. A node
+// becomes one only by an explicit choice (its start flag, or the admin).
+export function nodeChoices(nodes) {
+  return backendNodes(nodes)
+    .filter(n => n.splitServer)
+    .map(({ id, name, online }) => ({ id, name, online }))
+}
+
+// The node a new worker attaches to by default: the only online split
+// server. With none or several, '' and the admin picks.
+export function defaultSplitServer(nodes) {
+  const found = nodeChoices(nodes).filter(n => n.online)
+  return found.length === 1 ? found[0].id : ''
+}
+
+// The tone and i18n key (swarm:split.relay.<key>) of the relay admission of
+// the node a worker is attached to; null for a worker attached to no node.
+const RELAY = {
+  admitted: ['admitted', 'ok'],
+  refused: ['refused', 'error'],
+  pending: ['pending', 'warn'],
+  not_needed: ['notNeeded', 'idle'],
+}
+
+export function relayOf(worker) {
+  const r = worker?.node_id ? worker.node_relay : null
+  if (!r || !RELAY[r.state]) return null
+  const [key, tone] = RELAY[r.state]
+  return { key, tone, reason: r.reason || '' }
 }
 
 // The workers that no model uses because they are attached to this instance

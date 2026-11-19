@@ -9,7 +9,7 @@ import (
 // Relay states. They are what the interface shows as the badge of a relay.
 const (
 	// StateInSync: this server is an admin of the relay and the relay holds
-	// exactly its paired set.
+	// exactly its paired set, and the node peers that fit.
 	StateInSync = "in_sync"
 	// StateOutOfSync: this server is an admin but the relay's set differs and
 	// has not been repaired yet.
@@ -102,6 +102,31 @@ type Relay struct {
 	CheckedAt time.Time
 }
 
+// Admission states of a node peer on one relay (see Manager.NodeAdmission).
+const (
+	// AdmissionAdmitted: the relay holds the peer in this server's list.
+	AdmissionAdmitted = "admitted"
+	// AdmissionRefused: the peer does not fit in the list the relay allows
+	// this server; the paired devices come first.
+	AdmissionRefused = "refused"
+	// AdmissionPending: the server has not brought the relay in line yet, or
+	// cannot reach it.
+	AdmissionPending = "pending"
+	// AdmissionSkipped: this server does not keep the list of the relay (an
+	// open relay, or a relay it is not an admin of).
+	AdmissionSkipped = "skipped"
+)
+
+// Admission is the state of a node peer on one relay.
+type Admission struct {
+	RelayID string
+	Label   string
+	// State is one of the Admission constants.
+	State string
+	// Reason is a short text for people; empty when admitted.
+	Reason string
+}
+
 // Check is the result of Manager.Check, step by step.
 type Check struct {
 	Connected bool
@@ -142,6 +167,13 @@ type Manager interface {
 	// at once; the manager retries until the relay takes the change.
 	PeerAdded(peer string)
 	PeerRemoved(peer string)
+	// Resync compares the list of every relay with the paired set and the
+	// node peers, and repairs it, in the background. A relay whose list is
+	// already right gets no write. Call it when the node peers change.
+	Resync()
+	// NodeAdmission reports, relay by relay, whether the relays admit a node
+	// peer. It is empty for a peer that Config.NodePeers does not list.
+	NodeAdmission(peer string) []Admission
 	// Start runs the reconnect loop: a full push on every connect and a
 	// digest comparison every minute. It returns at once.
 	Start(ctx context.Context) error

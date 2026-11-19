@@ -56,8 +56,9 @@
       "nodeTitle": "节点",
       "nodeLabel": "把工作节点关联到",
       "nodeSub": "该节点加载的模型会使用这个工作节点。请用放置规则把模型固定到该节点，让它在那里加载。之后可以在“节点”页面更换节点。",
-      "nodeNone": "集群中还没有后端节点。请先添加一个，或稍后在“节点”页面把工作节点关联到某个节点。",
-      "nodeServer": "本实例（在集群中不运行模型）"
+      "nodeServer": "本实例（在集群中不运行模型）",
+      "nodePick": "选择拆分服务器",
+      "nodeOffline": "{{name}}（离线）"
     },
     "col": {
       "worker": "工作节点",
@@ -108,7 +109,21 @@
     "thisServer": "本实例",
     "nodeLabel": "{{name}} 的节点",
     "unattachedTitle": "这些工作节点未被使用：请把它们关联到一个节点。",
-    "unattachedBody": "关联在本实例上：{{names}}。在集群中，模型运行在后端节点上，而不是本实例上。请为每个工作节点选择一个节点。"
+    "unattachedBody": "关联在本实例上：{{names}}。在集群中，模型运行在后端节点上，而不是本实例上。请为每个工作节点选择一个节点。",
+    "noServerTitle": "还没有工作节点被设为拆分服务器。",
+    "noServerBody": "模型拆分工作节点只能挂到拆分服务器上。可以在这里设置一个，或用 --split-server 启动工作节点。",
+    "offlineTitle": "某个模型拆分工作节点所在的节点已离线。",
+    "offlineBody": "{{names}} 保持挂载，等待其节点恢复。不会自动转到其他节点。",
+    "relayRefusedTitle": "你的中继未接纳某个节点。",
+    "relayRefusedBody": "工作节点只能直连或通过打洞到达 {{names}}：{{reason}}。",
+    "nextLoad": "对节点工作节点的更改从它下次加载的模型开始生效。",
+    "nodeOffline": "节点离线",
+    "relay": {
+      "admitted": "中继：已接纳",
+      "refused": "中继：被拒绝",
+      "pending": "中继：等待中",
+      "notNeeded": "中继：不需要"
+    }
   },
   "nodes": {
     "retry": "重试"
@@ -169,5 +184,38 @@
   "inspector": {
     "route": "路由",
     "peer": "对等节点 ID"
+  },
+  "splitServer": {
+    "label": "拆分服务器",
+    "make": "设为拆分服务器…",
+    "clear": "取消拆分服务器…",
+    "open": "设置拆分服务器",
+    "title": "设置拆分服务器",
+    "desc": "拆分服务器是借助挂在它上面的模型拆分工作节点的内存来运行模型的工作节点。",
+    "node": "工作节点",
+    "nodeDeclared": "{{name}}（拆分服务器）",
+    "changesTitle": "确认后，{{node}} 将成为拆分服务器：",
+    "changes": {
+      "ports": "它会打开 P2P 端口，并为其模型拆分工作节点启动 P2P 主机。",
+      "relay": "本实例会在你运行的受控中继上接纳它，让工作节点可以经由中继到达它。",
+      "load": "挂载的工作节点用于它下次加载的 llama.cpp 或 MLX 模型。当前已加载的模型在重新加载前保留原有工作节点。",
+      "undo": "可以在“节点”页面关闭它，届时其工作节点会被卸下。"
+    },
+    "offline": "{{node}} 已离线。其工作节点会等待它恢复。",
+    "helpers": "挂载这些模型拆分工作节点",
+    "noHelpers": "还没有其他已配对的模型拆分工作节点。可以稍后再挂载。",
+    "moveFrom": "当前在 {{node}}",
+    "noNodes": "集群还没有后端工作节点。请先添加一个。",
+    "cancel": "取消",
+    "confirm": "设为拆分服务器并挂载",
+    "confirmAttach": "挂载",
+    "clearTitle": "取消 {{node}} 的拆分服务器身份？",
+    "clearBody": "它的 P2P 主机会停止，你的中继不再接纳它，它的模型拆分工作节点（{{count}} 个）会被卸下，在你重新挂载前不属于任何节点。",
+    "clearConfirm": "取消拆分服务器",
+    "clearing": "正在停止…",
+    "toast": {
+      "set": "{{node}} 已是拆分服务器。当前挂载的工作节点：{{count}} 个，将用于它下次加载的模型。",
+      "cleared": "{{node}} 已不再是拆分服务器。卸下的工作节点：{{count}} 个。"
+    }
   }
 }

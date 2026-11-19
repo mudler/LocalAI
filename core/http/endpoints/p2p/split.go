@@ -55,11 +55,57 @@ type SplitWorkerView struct {
 	// attached worker are what the node last reported.
 	NodeID   string `json:"node_id,omitempty"`
 	NodeName string `json:"node_name,omitempty"`
+	// NodeOffline is true when the node of NodeID is offline: the worker
+	// stays attached and waits for it; nothing moves it.
+	NodeOffline bool `json:"node_offline,omitempty"`
+	// NodeNote says why a worker attached to no node was detached, for
+	// example because its node stopped being a split server.
+	NodeNote string `json:"node_note,omitempty"`
+	// NodeRelay says whether the gated relays of this server admit the node
+	// of NodeID, so that the worker can reach it through them when no direct
+	// or hole-punched path works. Set only for a worker attached to a node.
+	NodeRelay *SplitNodeRelay `json:"node_relay,omitempty"`
 	// Rank is the MLX rank of the worker; zero when not in the ring.
 	Rank           int        `json:"rank,omitempty"`
 	ConnectedSince *time.Time `json:"connected_since,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	LastSeenAt     *time.Time `json:"last_seen_at,omitempty"`
+}
+
+// States of SplitNodeRelay.
+const (
+	// NodeRelayAdmitted: at least one gated relay of this server admits the
+	// node.
+	NodeRelayAdmitted = "admitted"
+	// NodeRelayRefused: the node is not admitted, and will not be until
+	// something changes (a relay is full, the node is not approved, or its
+	// registration token is no longer valid). Reason says which.
+	NodeRelayRefused = "refused"
+	// NodeRelayPending: the node is not admitted yet: it has not reported its
+	// host, it is offline, or the relays are not in sync yet.
+	NodeRelayPending = "pending"
+	// NodeRelayNotNeeded: the node joined over P2P and the relays admit it
+	// as a paired device, or this server administers no gated relay.
+	NodeRelayNotNeeded = "not_needed"
+)
+
+// SplitNodeRelay is the relay admission of the backend node of a split
+// worker.
+type SplitNodeRelay struct {
+	// State is admitted, refused, pending or not_needed.
+	State  string `json:"state"`
+	Reason string `json:"reason,omitempty"`
+	// Relays is the state on each gated relay that this server administers.
+	Relays []SplitRelayAdmission `json:"relays,omitempty"`
+}
+
+// SplitRelayAdmission is the admission of a node on one relay.
+type SplitRelayAdmission struct {
+	RelayID string `json:"relay_id"`
+	Label   string `json:"label,omitempty"`
+	// State is admitted, refused or pending.
+	State  string `json:"state"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // SplitWorkerList is the answer of GET /api/p2p/split-workers.

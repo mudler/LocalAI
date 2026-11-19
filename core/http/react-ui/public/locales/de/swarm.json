@@ -56,8 +56,9 @@
       "nodeTitle": "Knoten",
       "nodeLabel": "Worker zuordnen zu",
       "nodeSub": "Modelle, die dieser Knoten lädt, nutzen den Worker. Lege das Modell mit einer Platzierungsregel auf diesen Knoten fest, damit es dort geladen wird. Den Knoten kannst du später auf der Seite Knoten ändern.",
-      "nodeNone": "Der Cluster hat noch keinen Backend-Knoten. Füge zuerst einen hinzu oder ordne den Worker später auf der Seite Knoten einem Knoten zu.",
-      "nodeServer": "Diese Instanz (sie führt in einem Cluster keine Modelle aus)"
+      "nodeServer": "Diese Instanz (sie führt in einem Cluster keine Modelle aus)",
+      "nodePick": "Split-Server wählen",
+      "nodeOffline": "{{name}} (offline)"
     },
     "col": {
       "worker": "Worker",
@@ -108,7 +109,21 @@
     "thisServer": "Diese Instanz",
     "nodeLabel": "Knoten von {{name}}",
     "unattachedTitle": "Diese Worker werden nicht genutzt: Ordne sie einem Knoten zu.",
-    "unattachedBody": "Dieser Instanz zugeordnet: {{names}}. In einem Cluster laufen die Modelle auf den Backend-Knoten, nicht auf dieser Instanz. Wähle für jeden einen Knoten."
+    "unattachedBody": "Dieser Instanz zugeordnet: {{names}}. In einem Cluster laufen die Modelle auf den Backend-Knoten, nicht auf dieser Instanz. Wähle für jeden einen Knoten.",
+    "noServerTitle": "Noch kein Worker ist ein Split-Server.",
+    "noServerBody": "Ein Modell-Split-Worker kann nur an einen Worker gehängt werden, der ein Split-Server ist. Richte hier einen ein oder starte den Worker mit --split-server.",
+    "offlineTitle": "Der Knoten eines Modell-Split-Workers ist offline.",
+    "offlineBody": "{{names}} bleibt angehängt und wartet, bis sein Knoten zurück ist. Nichts verschiebt ihn auf einen anderen Knoten.",
+    "relayRefusedTitle": "Deine Relays lassen einen Knoten nicht zu.",
+    "relayRefusedBody": "Worker erreichen {{names}} nur direkt oder per Hole Punching: {{reason}}.",
+    "nextLoad": "Änderungen an den Workern eines Knotens gelten ab dem nächsten Modell, das er lädt.",
+    "nodeOffline": "Knoten offline",
+    "relay": {
+      "admitted": "Relay: zugelassen",
+      "refused": "Relay: abgelehnt",
+      "pending": "Relay: ausstehend",
+      "notNeeded": "Relay: nicht nötig"
+    }
   },
   "nodes": {
     "retry": "Erneut versuchen"
@@ -169,5 +184,38 @@
   "inspector": {
     "route": "Route",
     "peer": "Peer-ID"
+  },
+  "splitServer": {
+    "label": "Split-Server",
+    "make": "Zum Split-Server machen…",
+    "clear": "Kein Split-Server mehr…",
+    "open": "Split-Server einrichten",
+    "title": "Split-Server einrichten",
+    "desc": "Ein Split-Server ist ein Worker, der Modelle mit dem Speicher der an ihn gehängten Modell-Split-Worker ausführt.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (Split-Server)",
+    "changesTitle": "Wenn du bestätigst, wird {{node}} ein Split-Server:",
+    "changes": {
+      "ports": "Er öffnet P2P-Ports und startet einen P2P-Host für seine Modell-Split-Worker.",
+      "relay": "Diese Instanz lässt ihn auf den geschützten Relays zu, die du betreibst, damit Worker ihn darüber erreichen.",
+      "load": "Die angehängten Worker werden für das nächste llama.cpp- oder MLX-Modell genutzt, das er lädt. Ein jetzt geladenes Modell behält seine Worker, bis es neu geladen wird.",
+      "undo": "Du kannst es auf der Seite Knoten ausschalten. Seine Worker werden dann abgehängt."
+    },
+    "offline": "{{node}} ist offline. Seine Worker warten, bis er zurück ist.",
+    "helpers": "Diese Modell-Split-Worker anhängen",
+    "noHelpers": "Noch kein anderer Modell-Split-Worker ist gekoppelt. Du kannst Worker später anhängen.",
+    "moveFrom": "jetzt auf {{node}}",
+    "noNodes": "Der Cluster hat noch keinen Backend-Worker. Füge zuerst einen hinzu.",
+    "cancel": "Abbrechen",
+    "confirm": "Zum Split-Server machen und anhängen",
+    "confirmAttach": "Anhängen",
+    "clearTitle": "{{node}} soll kein Split-Server mehr sein?",
+    "clearBody": "Sein P2P-Host stoppt, deine Relays lassen ihn nicht mehr zu, und seine Modell-Split-Worker ({{count}}) werden abgehängt. Sie warten ohne Knoten, bis du sie wieder anhängst.",
+    "clearConfirm": "Kein Split-Server mehr",
+    "clearing": "Wird gestoppt…",
+    "toast": {
+      "set": "{{node}} ist ein Split-Server. Jetzt angehängte Worker: {{count}}. Sie werden für das nächste geladene Modell genutzt.",
+      "cleared": "{{node}} ist kein Split-Server mehr. Abgehängte Worker: {{count}}."
+    }
   }
 }
