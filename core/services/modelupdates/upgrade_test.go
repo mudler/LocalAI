@@ -63,6 +63,8 @@ type fakeRuntime struct {
 	reloadErr error
 	dir       string
 	version   map[string]string
+	// beforeUnload and beforeLoad run once, at the next unload or load.
+	beforeUnload, beforeLoad func()
 }
 
 func newRuntime(loaded ...string) *fakeRuntime {
@@ -83,6 +85,10 @@ func (r *fakeRuntime) Unload(ctx context.Context, name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "unload")
+	if hook := r.beforeUnload; hook != nil {
+		r.beforeUnload = nil
+		hook()
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -104,6 +110,10 @@ func (r *fakeRuntime) Load(ctx context.Context, name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "load")
+	if hook := r.beforeLoad; hook != nil {
+		r.beforeLoad = nil
+		hook()
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -402,6 +412,55 @@ var _ = Describe("A model upgrade", func() {
 			Expect(j.Error).ToNot(ContainSubstring("rollback did not complete"))
 			Expect(read("tiny.gguf")).To(Equal("v1"))
 			Expect(rt.IsLoaded("tiny")).To(BeTrue(), "the old version serves again")
+		})
+	})
+
+	Context("with the model config edited while it runs", func() {
+		edit := func() { patchDisk(f, "tiny", func(m map[string]any) { m["context_size"] = 1234 }) }
+		edited := func() {
+			GinkgoHelper()
+			m := map[string]any{}
+			Expect(yaml.Unmarshal([]byte(read("tiny.yaml")), &m)).To(Succeed())
+			Expect(m["context_size"]).To(Equal(1234), "the edit is kept")
+		}
+
+		It("ends during the download with the edit kept and the model untouched", func() {
+			f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+			u := upgrader(nil)
+			u.Download = func(c context.Context, tasks []downloader.FileTask, st func(string, string, string, float64)) error {
+				edit()
+				return downloader.DownloadFilesWithContext(c, tasks, st)
+			}
+			Expect(u.Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(MatchError(modelupdates.ErrConfigChanged))
+			edited()
+			Expect(read("tiny.gguf")).To(Equal("v1"))
+			Expect(journal().Phase).To(Equal(gallery.PhaseFailed))
+			Expect(rt.calls).To(BeEmpty(), "the model never stopped")
+			sc, err := gallery.ReadSidecar(f.dir, "tiny")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sc.ConfigSHA256).To(Equal(gallery.SHA256Hex([]byte(read("tiny.yaml")))))
+		})
+
+		It("refuses the switch when the edit lands after the stop, and keeps the edit", func() {
+			f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+			rt.beforeUnload = edit
+			Expect(upgrader(nil).Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(MatchError(modelupdates.ErrConfigChanged))
+			edited()
+			Expect(read("tiny.gguf")).To(Equal("v1"))
+			Expect(journal().Phase).To(Equal(gallery.PhaseRolledBack))
+			Expect(rt.IsLoaded("tiny")).To(BeTrue(), "the old version serves again")
+		})
+
+		It("does not undo an edit made after the switch when the new version fails to load", func() {
+			f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+			rt.loadFails = 1
+			rt.beforeLoad = edit
+			Expect(upgrader(nil).Upgrade(ctx, modelupdates.Request{Name: "tiny"})).To(MatchError(ContainSubstring("could not load")))
+			edited()
+			Expect(read("tiny.gguf")).To(Equal("v1"), "the old files are back")
+			j := journal()
+			Expect(j.Phase).To(Equal(gallery.PhaseRolledBack))
+			Expect(j.Error).To(ContainSubstring("kept that edit"))
 		})
 	})
 

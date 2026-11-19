@@ -183,6 +183,10 @@ var (
 	ErrUpToDate      = errors.New("the model is up to date")
 	ErrNothingFailed = errors.New("the last upgrade of this model did not fail; there is nothing to retry")
 	ErrNotFound      = errors.New("the model is not installed")
+	// ErrConfigChanged ends an upgrade whose model config was edited after
+	// the upgrade read it: the merged config would drop the edit. Nothing of
+	// the upgrade is applied and the edit stays; run the upgrade again.
+	ErrConfigChanged = errors.New("the model config was edited while the upgrade ran; the upgrade was not applied and the edit was kept, run the upgrade again")
 )
 
 // ErrRefused is a preflight refusal: the upgrade did not start changing
@@ -322,6 +326,12 @@ type upgradeRun struct {
 	req  Request
 	// blocked is true while the loads of the model are refused (LoadGate).
 	blocked bool
+	// planConfigSHA256 is the hash of the model config the upgrade merged
+	// its new config from. A different config at the switch is a newer edit.
+	planConfigSHA256 string
+	// keptConfig is set by a rollback that left a config edited after the
+	// switch in place instead of the old config.
+	keptConfig bool
 }
 
 func (r *upgradeRun) j() *gallery.Journal { return r.sc.Upgrade }
@@ -531,7 +541,7 @@ func (u *Upgrader) Upgrade(ctx context.Context, req Request) error {
 	// version 2 fields set here, never taken from a base config.
 	next := *plan.Gallery
 	next.Version, next.Origin, next.ConfigSHA256, next.Managed, next.Hold = gallery.SidecarVersion, to.Origin, to.ConfigSHA256, to.Managed, sc.Hold
-	run := &upgradeRun{u: u, name: name, sc: sc, req: req, next: &next}
+	run := &upgradeRun{u: u, name: name, sc: sc, req: req, next: &next, planConfigSHA256: gallery.SHA256Hex(disk)}
 	var carried []string
 	if prevJournal != nil {
 		// Old files of an earlier upgrade that nobody removed yet stay
@@ -671,6 +681,11 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 	if err := ctx.Err(); err != nil {
 		return u.failBeforeCommit(ctx, r, err)
 	}
+	// A config edited during the download ends the upgrade before the model
+	// stops; the commit checks again for an edit in the short window after.
+	if err := u.checkConfigUnchanged(r); err != nil {
+		return u.failBeforeCommit(ctx, r, err)
+	}
 	ctx = context.WithoutCancel(ctx)
 	if err := r.advance(EvOK, func(j *gallery.Journal) { j.WasLoaded, j.Note = wasLoaded, note }); err != nil { // -> unloading
 		return u.failBeforeCommit(ctx, r, err)
@@ -736,6 +751,7 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 			retained = append(retained, f.Prev)
 		}
 	}
+	u.syncConfigHash(r)
 	return r.advance(EvOK, func(j *gallery.Journal) { // -> confirmed
 		j.RetainedFiles = append(j.RetainedFiles, retained...)
 		j.Error = ""
@@ -925,6 +941,11 @@ func (u *Upgrader) discardOnWorkers(ctx context.Context, r *upgradeRun, evict bo
 // commit swaps the files and writes the new config. Every step can run again
 // after a crash: a rename whose source is gone was done.
 func (u *Upgrader) commit(r *upgradeRun, finalYAML []byte) error {
+	// Under the config mutation lock: an edit in this process cannot land
+	// between this check and the write below.
+	if err := u.checkConfigUnchanged(r); err != nil {
+		return err
+	}
 	fs := u.fs()
 	for _, f := range r.j().Files {
 		if f.Prev == "" {
@@ -950,6 +971,39 @@ func (u *Upgrader) commit(r *upgradeRun, finalYAML []byte) error {
 	return nil
 }
 
+// keptConfigNote is added to the error of a rollback that left in place a
+// config edited after the switch.
+const keptConfigNote = "the model config was edited after the switch to the new version; the rollback kept that edit and put back the old files"
+
+// checkConfigUnchanged returns ErrConfigChanged when the model config on disk
+// is not the one the upgrade merged its new config from.
+func (u *Upgrader) checkConfigUnchanged(r *upgradeRun) error {
+	if r.planConfigSHA256 == "" {
+		return nil
+	}
+	data, err := u.fs().ReadFile(u.path(r.name + ".yaml"))
+	if err != nil {
+		return fmt.Errorf("read the model config: %w", err)
+	}
+	if gallery.SHA256Hex(data) != r.planConfigSHA256 {
+		return ErrConfigChanged
+	}
+	return nil
+}
+
+// syncConfigHash records in the gallery file the hash of the config now on
+// disk. An edit during the upgrade recorded its own hash, which the journal
+// writes of the upgrade then replaced from memory.
+func (u *Upgrader) syncConfigHash(r *upgradeRun) {
+	data, err := u.fs().ReadFile(u.path(r.name + ".yaml"))
+	if err != nil {
+		return
+	}
+	r.mu.Lock()
+	r.sc.ConfigSHA256 = gallery.SHA256Hex(data)
+	r.mu.Unlock()
+}
+
 // failBeforeCommit ends an upgrade that changed nothing: it removes the
 // staged files and records the failure.
 func (u *Upgrader) failBeforeCommit(ctx context.Context, r *upgradeRun, cause error) error {
@@ -957,6 +1011,7 @@ func (u *Upgrader) failBeforeCommit(ctx context.Context, r *upgradeRun, cause er
 	// upgrade of the same version resumes them; a cancel removes them.
 	u.removeStaged(r, ctx.Err() != nil && !errors.Is(context.Cause(ctx), downloader.ErrUserCancelled))
 	u.discardOnWorkers(context.WithoutCancel(ctx), r, false)
+	u.syncConfigHash(r)
 	if err := r.advance(EvFailed, func(j *gallery.Journal) {
 		j.Error = cause.Error()
 		j.Previous, j.To = nil, nil
@@ -1002,6 +1057,9 @@ func (u *Upgrader) rollback(ctx context.Context, r *upgradeRun, cause error) err
 	}
 	if err := r.advance(EvOK, func(j *gallery.Journal) { // -> rolled-back
 		j.Error = cause.Error()
+		if r.keptConfig {
+			j.Error += "; " + keptConfigNote
+		}
 		j.Previous, j.To, j.Files = nil, nil, nil
 	}); err != nil {
 		return errors.Join(cause, err)
@@ -1027,12 +1085,23 @@ func (u *Upgrader) restore(ctx context.Context, r *upgradeRun) error {
 	err := u.mutate(func() error {
 		fs := u.fs()
 		if prev := j.Previous; prev != nil && prev.HadConfig {
-			data, err := base64.StdEncoding.DecodeString(prev.ConfigYAML)
-			if err != nil {
-				return fmt.Errorf("decode the old config: %w", err)
-			}
-			if err := fs.WriteFileAtomic(u.path(r.name+".yaml"), data); err != nil {
-				return fmt.Errorf("restore the old config: %w", err)
+			// The rule for a config edited during the upgrade: the old config
+			// goes back only over the config the commit wrote. Any other
+			// config on disk is the old one (the commit did not reach it) or
+			// an edit made after the switch, which a rollback must not undo;
+			// the journal says it was kept.
+			current, readErr := fs.ReadFile(u.path(r.name + ".yaml"))
+			if readErr == nil && j.ToConfigSHA256 != "" && gallery.SHA256Hex(current) != j.ToConfigSHA256 {
+				old, _ := base64.StdEncoding.DecodeString(prev.ConfigYAML)
+				r.keptConfig = gallery.SHA256Hex(current) != gallery.SHA256Hex(old)
+			} else {
+				data, err := base64.StdEncoding.DecodeString(prev.ConfigYAML)
+				if err != nil {
+					return fmt.Errorf("decode the old config: %w", err)
+				}
+				if err := fs.WriteFileAtomic(u.path(r.name+".yaml"), data); err != nil {
+					return fmt.Errorf("restore the old config: %w", err)
+				}
 			}
 		}
 		for _, f := range j.Files {
@@ -1076,6 +1145,7 @@ func (u *Upgrader) restore(ctx context.Context, r *upgradeRun) error {
 			r.mu.Unlock()
 		}
 	}
+	u.syncConfigHash(r)
 	if err := r.write(); err != nil {
 		errs = append(errs, err)
 	}

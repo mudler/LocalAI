@@ -69,6 +69,9 @@ func (u *Upgrader) recoverOne(ctx context.Context, name string, sc *gallery.Mode
 	}
 	return r.advance(EvOK, func(j *gallery.Journal) {
 		j.Error = cause.Error() + "; the old version was put back"
+		if r.keptConfig {
+			j.Error += "; " + keptConfigNote
+		}
 		j.Previous, j.To, j.Files = nil, nil, nil
 	})
 }

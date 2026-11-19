@@ -146,6 +146,21 @@ If the server stops during an upgrade, it ends the upgrade at the next start
 Before the unloading phase it removes the staged files and the upgrade ends
 `failed`. From the unloading phase on, it puts the old version back.
 
+### An edit during an upgrade
+
+The upgrade merges the new configuration with your configuration when it
+starts. If you save a change to the model configuration while the upgrade
+runs, LocalAI does not overwrite it:
+
+- An edit before the switch (during the download, or between the stop and the
+  switch) ends the upgrade with the error "the model config was edited while
+  the upgrade ran". Nothing of the upgrade is applied and your edit stays. If
+  the model was stopped, the old version loads again. Run the upgrade again to
+  merge your edit with the update.
+- An edit after the switch, while the new version loads, is kept if the load
+  fails and the upgrade rolls back: the old files come back, but the
+  configuration stays as you saved it, and the error of the upgrade says so.
+
 ### A failed load and the rollback
 
 If the new version does not load, LocalAI puts the old version back: the old
@@ -191,8 +206,6 @@ A hold only says "do not offer me an update". Both can be set on the same model.
   Hugging Face repository) is not part of the staged files. An upgrade does not
   keep the old snapshot, does not roll it back, and **Remove old version** does
   not delete it.
-- The upgrade reads your model configuration when it starts. A change that you
-  save while the upgrade is staging is overwritten when it switches.
 - An upgrade is refused when the new version needs a backend that is not
   installed. Install the backend first.
 - The new weights need a sha256 in the gallery entry. Without one, the upgrade
