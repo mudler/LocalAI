@@ -440,6 +440,10 @@ func (g *GalleryService) failStaleStatus(id string) {
 	})
 }
 
+// ErrNotCancellable refuses a cancel or a pause of an operation whose status
+// says it cannot stop now.
+var ErrNotCancellable = errors.New("the operation can no longer be stopped")
+
 // CancelOperation cancels an in-progress operation by its ID.
 //
 // In distributed mode the UI's cancel click may land on a different replica
@@ -464,6 +468,14 @@ func (g *GalleryService) stopOperation(id string, pause bool) error {
 	if status, ok := g.statuses[id]; ok && status.Cancelled {
 		g.Unlock()
 		return fmt.Errorf("operation %q is already cancelled", id)
+	}
+	// A running operation says when a stop would leave a half-done change:
+	// a removal, or a model upgrade once the model is stopped. Refuse it
+	// here, before the context is cancelled, instead of hoping the handler
+	// ignores the cancel.
+	if status, ok := g.statuses[id]; ok && !status.Processed && !status.Cancellable {
+		g.Unlock()
+		return fmt.Errorf("operation %q cannot be %s now: %w", id, map[bool]string{true: "paused", false: "cancelled"}[pause], ErrNotCancellable)
 	}
 
 	actions, localExists := g.cancellations[id]
@@ -530,6 +542,13 @@ func (g *GalleryService) stopOperation(id string, pause bool) error {
 // already cancelled this op locally treats the inbound event as a no-op.
 func (g *GalleryService) applyCancel(id string, pause bool) {
 	g.Lock()
+	if status, ok := g.statuses[id]; ok && !status.Processed && !status.Cancellable {
+		// The peer that published the cancel checked an older status; this
+		// replica runs the operation and knows it can no longer stop.
+		g.Unlock()
+		xlog.Warn("Ignoring a cancel of an operation that can no longer be stopped", "op_id", id)
+		return
+	}
 	actions, hasCancel := g.cancellations[id]
 	if hasCancel {
 		delete(g.cancellations, id)

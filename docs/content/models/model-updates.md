@@ -132,8 +132,13 @@ An upgrade runs as an operation, like an install. Its phases are:
    loaded before the upgrade is stopped again after the check.
 6. **Confirmed.** The upgrade is done.
 
-You can cancel an upgrade only in the first two phases. After the model stops,
-the upgrade runs to its end.
+You can cancel or pause an upgrade only in the first two phases. After the
+model stops, the upgrade runs to its end (confirmed or rolled back), and
+LocalAI refuses a cancel or a pause: `POST /api/operations/{id}/cancel` and
+`/pause` answer `400` with the reason. A cancel removes the partial downloads.
+A pause keeps them, so the next upgrade to the same version resumes them. If
+the gallery changed in between, the resumed file fails its checksum and the
+upgrade fails; run it again.
 
 If the server stops during an upgrade, it ends the upgrade at the next start.
 Before the unloading phase it removes the staged files and the upgrade ends

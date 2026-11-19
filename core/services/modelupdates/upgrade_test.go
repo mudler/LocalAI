@@ -79,25 +79,34 @@ func (r *fakeRuntime) IsLoaded(name string) bool {
 	return r.loaded[name]
 }
 
-func (r *fakeRuntime) Unload(_ context.Context, name string) error {
+func (r *fakeRuntime) Unload(ctx context.Context, name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "unload")
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	r.loaded[name] = false
 	return nil
 }
 
-func (r *fakeRuntime) Reload(context.Context, string) error {
+func (r *fakeRuntime) Reload(ctx context.Context, _ string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "reload")
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return r.reloadErr
 }
 
-func (r *fakeRuntime) Load(_ context.Context, name string) error {
+func (r *fakeRuntime) Load(ctx context.Context, name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, "load")
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if r.loadFails > 0 {
 		r.loadFails--
 		return errors.New("the backend could not load the model")
@@ -322,6 +331,78 @@ var _ = Describe("A model upgrade", func() {
 		Expect(g.blocked).To(BeEmpty())
 		Expect(rt.calls).To(Equal([]string{"block", "unload", "reload", "unblock", "load", "block", "reload", "unblock", "load"}))
 		Expect(rt.IsLoaded("tiny")).To(BeTrue())
+	})
+
+	Context("cancelled", func() {
+		// halfDownload writes part of each file, then waits for the cancel.
+		halfDownload := func(ctx context.Context, tasks []downloader.FileTask, _ func(string, string, string, float64)) error {
+			for _, t := range tasks {
+				Expect(os.WriteFile(t.Destination+".partial", []byte("v"), 0600)).To(Succeed())
+			}
+			<-ctx.Done()
+			return ctx.Err()
+		}
+
+		It("ends during the download with nothing changed, and drops the partial files", func() {
+			f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+			cctx, cancel, _ := userCancellable(ctx)
+			u := upgrader(nil)
+			u.Download = func(c context.Context, tasks []downloader.FileTask, st func(string, string, string, float64)) error {
+				go cancel()
+				return halfDownload(c, tasks, st)
+			}
+			err := u.Upgrade(cctx, modelupdates.Request{Name: "tiny"})
+			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+			Expect(read("tiny.gguf")).To(Equal("v1"))
+			Expect(rt.calls).To(BeEmpty(), "the model never stopped")
+			Expect(leftovers()).To(BeEmpty())
+		})
+
+		It("keeps the partial files on a pause, so the next upgrade resumes them", func() {
+			f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+			cctx, _, pause := userCancellable(ctx)
+			u := upgrader(nil)
+			u.Download = func(c context.Context, tasks []downloader.FileTask, st func(string, string, string, float64)) error {
+				go pause()
+				return halfDownload(c, tasks, st)
+			}
+			Expect(u.Upgrade(cctx, modelupdates.Request{Name: "tiny"})).To(HaveOccurred())
+			Expect(leftovers()).To(ConsistOf("tiny.gguf.next.partial"))
+			Expect(read("tiny.gguf")).To(Equal("v1"))
+		})
+
+		It("ends before the stop when the cancel came while the download finished", func() {
+			f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+			cctx, cancel, _ := userCancellable(ctx)
+			u := upgrader(nil)
+			var reported []string
+			u.Download = func(c context.Context, tasks []downloader.FileTask, st func(string, string, string, float64)) error {
+				err := downloader.DownloadFilesWithContext(c, tasks, st)
+				cancel()
+				return err
+			}
+			err := u.Upgrade(cctx, modelupdates.Request{Name: "tiny", Progress: func(p modelupdates.Progress) { reported = append(reported, p.Phase) }})
+			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+			Expect(rt.calls).To(BeEmpty())
+			Expect(read("tiny.gguf")).To(Equal("v1"))
+			Expect(journal().Phase).To(Equal(gallery.PhaseFailed))
+			Expect(reported).To(ContainElement(gallery.PhaseUnloading), "the status said it could no longer be cancelled")
+		})
+
+		It("runs to its end once the model stopped, and the rollback still loads the old version", func() {
+			rt.loadFails = 1
+			f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+			cctx, cancel, _ := userCancellable(ctx)
+			fs := &windowFS{during: cancel}
+			err := upgrader(fs).Upgrade(cctx, modelupdates.Request{Name: "tiny"})
+			Expect(err).To(MatchError(ContainSubstring("could not load")))
+			Expect(errors.Is(err, context.Canceled)).To(BeFalse())
+			j := journal()
+			Expect(j.Phase).To(Equal(gallery.PhaseRolledBack))
+			Expect(j.Error).ToNot(ContainSubstring("rollback did not complete"))
+			Expect(read("tiny.gguf")).To(Equal("v1"))
+			Expect(rt.IsLoaded("tiny")).To(BeTrue(), "the old version serves again")
+		})
 	})
 
 	It("loads a model nobody had loaded for the check, then unloads it", func() {
@@ -573,6 +654,13 @@ var _ = Describe("A model upgrade", func() {
 		Expect(read(sc.Upgrade.RetainedFiles[0])).To(Equal("{{.Input}}"))
 	})
 })
+
+// userCancellable is the context of a gallery operation: cancel removes the
+// partial downloads, pause keeps them.
+func userCancellable(parent context.Context) (context.Context, context.CancelFunc, context.CancelFunc) {
+	ctx, cancel := context.WithCancelCause(parent)
+	return ctx, func() { cancel(downloader.ErrUserCancelled) }, func() { cancel(context.Canceled) }
+}
 
 type upgradeNotifier struct{ results []modelupdates.UpgradeResult }
 

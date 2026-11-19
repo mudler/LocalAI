@@ -23,10 +23,38 @@ type ModelFilePrefetcher interface {
 // NATSModelFilePrefetcher is the NATS carrier of model.prefetch.
 type NATSModelFilePrefetcher struct{ Bus messaging.MessagingClient }
 
-// PrefetchModelFiles sends the request and waits for the worker's answer. A
-// refusal of the worker is the reply's Error with a nil error.
-func (p NATSModelFilePrefetcher) PrefetchModelFiles(_ context.Context, nodeID string, req workerctl.ModelPrefetchRequest, timeout time.Duration) (*workerctl.ModelPrefetchReply, error) {
-	return controlRequestJSON[workerctl.ModelPrefetchRequest, workerctl.ModelPrefetchReply](p.Bus, messaging.SubjectNodeModelPrefetch(nodeID), req, timeout)
+// PrefetchModelFiles sends the request and waits for the worker's answer, or
+// until ctx ends: a stage can take hours, and a cancelled upgrade must not
+// wait for it. A refusal of the worker is the reply's Error with a nil error.
+func (p NATSModelFilePrefetcher) PrefetchModelFiles(ctx context.Context, nodeID string, req workerctl.ModelPrefetchRequest, timeout time.Duration) (*workerctl.ModelPrefetchReply, error) {
+	return controlRequestJSONContext[workerctl.ModelPrefetchRequest, workerctl.ModelPrefetchReply](ctx, p.Bus, messaging.SubjectNodeModelPrefetch(nodeID), req, timeout)
+}
+
+// controlRequestJSONContext is controlRequestJSON that returns when ctx ends.
+// The bus request has no context, so it runs on until its own timeout (capped
+// by the deadline of ctx) and its answer is dropped.
+func controlRequestJSONContext[Req, Reply any](ctx context.Context, bus messaging.MessagingClient, subject string, req Req, timeout time.Duration) (*Reply, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout = min(timeout, time.Until(deadline))
+	}
+	type result struct {
+		reply *Reply
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		reply, err := controlRequestJSON[Req, Reply](bus, subject, req, timeout)
+		done <- result{reply, err}
+	}()
+	select {
+	case res := <-done:
+		return res.reply, res.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 // UpgradeFileNodes is the part of the registry the upgrade file steps read.

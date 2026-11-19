@@ -49,7 +49,7 @@ func (u *Upgrader) recoverOne(ctx context.Context, name string, sc *gallery.Mode
 	cause := fmt.Errorf("the upgrade was interrupted in the %s phase (a restart or a stopped frontend)", phase)
 	xlog.Warn("Ending an interrupted model upgrade", "model", name, "phase", phase)
 	if !touchesFiles(phase) {
-		u.removeStaged(r)
+		u.removeStaged(r, false)
 		u.discardOnWorkers(ctx, r, false)
 		return r.advance(EvInterrupted, func(j *gallery.Journal) {
 			j.Error = cause.Error()

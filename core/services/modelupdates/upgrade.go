@@ -630,6 +630,17 @@ func (u *Upgrader) drive(ctx context.Context, r *upgradeRun, backend string, fin
 			xlog.Info("Model upgrade strategy", "model", r.name, "note", note)
 		}
 	}
+	// The stop is the point of no return: from here on the upgrade ends
+	// confirmed or rolled back, never half done. The status says first that
+	// it can no longer be cancelled, so a cancel that arrives after this
+	// report is refused; one that arrived before it ends the upgrade now,
+	// with nothing changed. The rest runs on a context a cancel does not
+	// reach, so the rollback cannot fail on it.
+	r.report(Progress{Phase: gallery.PhaseUnloading, Message: phaseMessage(gallery.PhaseUnloading)})
+	if err := ctx.Err(); err != nil {
+		return u.failBeforeCommit(ctx, r, err)
+	}
+	ctx = context.WithoutCancel(ctx)
 	if err := r.advance(EvOK, func(j *gallery.Journal) { j.WasLoaded, j.Note = wasLoaded, note }); err != nil { // -> unloading
 		return u.failBeforeCommit(ctx, r, err)
 	}
@@ -911,7 +922,9 @@ func (u *Upgrader) commit(r *upgradeRun, finalYAML []byte) error {
 // failBeforeCommit ends an upgrade that changed nothing: it removes the
 // staged files and records the failure.
 func (u *Upgrader) failBeforeCommit(ctx context.Context, r *upgradeRun, cause error) error {
-	u.removeStaged(r)
+	// A pause (or a server shutdown) keeps the partial downloads, so the next
+	// upgrade of the same version resumes them; a cancel removes them.
+	u.removeStaged(r, ctx.Err() != nil && !errors.Is(context.Cause(ctx), downloader.ErrUserCancelled))
 	u.discardOnWorkers(context.WithoutCancel(ctx), r, false)
 	if err := r.advance(EvFailed, func(j *gallery.Journal) {
 		j.Error = cause.Error()
@@ -922,12 +935,16 @@ func (u *Upgrader) failBeforeCommit(ctx context.Context, r *upgradeRun, cause er
 	return cause
 }
 
-func (u *Upgrader) removeStaged(r *upgradeRun) {
+func (u *Upgrader) removeStaged(r *upgradeRun, keepPartial bool) {
 	for _, f := range r.j().Files {
 		if f.Next == "" {
 			continue
 		}
-		for _, p := range []string{u.path(f.Next), u.path(f.Next) + ".partial"} {
+		paths := []string{u.path(f.Next)}
+		if !keepPartial {
+			paths = append(paths, u.path(f.Next)+".partial")
+		}
+		for _, p := range paths {
 			if err := u.fs().Remove(p); err != nil {
 				xlog.Warn("Could not remove a staged file", "file", p, "error", err)
 			}
@@ -1009,7 +1026,7 @@ func (u *Upgrader) restore(ctx context.Context, r *upgradeRun) error {
 	if err != nil {
 		return err
 	}
-	u.removeStaged(r)
+	u.removeStaged(r, false)
 	// The workers may hold the new files in place: drop them, so the load of
 	// the old version below sends the old ones.
 	u.discardOnWorkers(ctx, r, true)

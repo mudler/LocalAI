@@ -1357,6 +1357,11 @@ before; this never fails the upgrade. With `LOCALAI_DISTRIBUTED_SHARED_MODELS`
 the workers read the shared models directory and nothing is sent. A first
 install still sends the files from the frontend.
 
+A cancel of the upgrade during the download returns at once: the frontend does
+not wait for the workers. A worker that is still downloading finishes that
+download in the background, and its staged copy stays beside the model file
+until the next upgrade of the model replaces it.
+
 ### Scheduling a model alias
 
 `model_name` accepts a [model alias]({{% relref "/models/model-aliases" %}}) as well as a
