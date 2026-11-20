@@ -158,6 +158,22 @@ jobs:
           SMOKE_DIR: ${{ runner.temp }}/smoke
           SMOKE_SELF_UPDATE: ${{ contains(inputs.version, '-dev.') && 'off' || 'check' }}
         run: bash scripts/smoke-packaged.sh "release/$APPIMAGE" --appimage-extract-and-run
+      # The x64 AppImage must also start on a host without glibc. The build
+      # step bundled the loader and the libraries (scripts/portable-linux);
+      # here the same smoke runs inside Alpine, a musl system that has no
+      # /lib64/ld-linux-x86-64.so.2. The kernel is the runner's.
+      - name: Check the portable layout and smoke-test on a musl host
+        if: matrix.arch == 'amd64'
+        working-directory: launcher
+        env:
+          SMOKE_DIR: ${{ runner.temp }}/smoke-musl
+          SMOKE_PORT: '18091'
+          SMOKE_SELF_UPDATE: ${{ contains(inputs.version, '-dev.') && 'off' || 'check' }}
+        run: |
+          bash scripts/portable-linux/check-image.sh "release/$APPIMAGE"
+          docker build -t localai-launcher-musl-smoke -f scripts/portable-linux/musl-smoke.Dockerfile scripts/portable-linux
+          SMOKE_CONTAINER_IMAGE=localai-launcher-musl-smoke \
+            bash scripts/smoke-packaged.sh "release/$APPIMAGE" --appimage-extract-and-run
       - name: Choose the files to keep
         if: inputs.upload
         working-directory: launcher/release
