@@ -22,10 +22,11 @@ never pushes, tags, signs or logs in.
 
 Add `--config addons/<id>/package/platforms.yaml` to package another add-on. The script
 reads the add-on name, the executable and the UI directory from that file and, without
-`--executable`, builds `./addons/<id>/cmd/<executable>` for the host platform. Tables is
-built with `CGO_ENABLED=1`. The other add-ons are pure Go and are built with
-`CGO_ENABLED=0`, so their executables need no C toolchain on any platform. The default
-configuration is the one of Tables.
+`--executable`, builds `./addons/<id>/cmd/<executable>` for the host platform. Every
+add-on is pure Go and is built with `CGO_ENABLED=0`, so its executable is static and
+needs no C toolchain and no C library on any platform. This includes Tables, which
+stores its data with a pure-Go SQLite driver, so it also starts on musl hosts. The
+default configuration is the one of Tables.
 
 | Part | Value |
 |---|---|
@@ -76,8 +77,7 @@ A Windows package names its executable `<executable>.exe`: Windows has no execut
 and only the `.exe` extension makes a file a program there. The build sets the name in
 the manifest of the Windows package, so `platforms.yaml` and the manifest template keep
 the plain name. The package job runs its steps with the bash of Git for Windows on the
-Windows runner. Tables links SQLite through cgo, so its Windows leg installs the MSYS2
-UCRT64 gcc and links the C runtime statically.
+Windows runner.
 
 A package that ships skills names their folder with `skills:` (for example
 `skills: addons/office/skills`). The build lays it at the package root as `skills/`,

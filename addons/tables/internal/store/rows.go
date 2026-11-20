@@ -15,8 +15,8 @@ import (
 	"strconv"
 	"strings"
 
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // Row mutation kinds.
@@ -176,8 +176,8 @@ func rowError(err error, tbl *catalogTable) error {
 	if err = capacityError(err); errors.Is(err, ErrCapacity) {
 		return err
 	}
-	var se sqlite3.Error
-	if errors.As(err, &se) && se.Code == sqlite3.ErrConstraint {
+	code := sqliteCode(err)
+	if code&0xff == sqlite3.SQLITE_CONSTRAINT {
 		label := ""
 		if m := constraintColumn.FindStringSubmatch(err.Error()); m != nil {
 			for _, c := range tbl.cols {
@@ -186,10 +186,10 @@ func rowError(err error, tbl *catalogTable) error {
 				}
 			}
 		}
-		switch se.ExtendedCode {
-		case sqlite3.ErrConstraintUnique:
+		switch code {
+		case sqlite3.SQLITE_CONSTRAINT_UNIQUE:
 			return fmt.Errorf("%w: the value of column %q is already used by another row", ErrRowConstraint, label)
-		case sqlite3.ErrConstraintNotNull:
+		case sqlite3.SQLITE_CONSTRAINT_NOTNULL:
 			return fmt.Errorf("%w: column %q is required", ErrRowConstraint, label)
 		}
 		return fmt.Errorf("%w: a column rule failed", ErrRowConstraint)

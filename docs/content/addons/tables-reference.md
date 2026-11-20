@@ -21,7 +21,7 @@ available. The Tables pages (the native UI) are described in
 
 Tables is a separate executable under `addons/tables`. It is not linked into
 the LocalAI server, and nothing of it runs unless an administrator installs
-and enables the addon. It reuses the root Go module and needs CGO for SQLite.
+and enables the addon. It reuses the root Go module. It stores its data with a pure-Go SQLite driver, so it builds with `CGO_ENABLED=0` and runs on glibc and musl hosts.
 
 ```
 go build ./addons/tables/...

@@ -17,7 +17,7 @@ import (
 // metaOf reads one tables_meta value straight from the database file.
 func metaOf(dir, id, key string) (string, bool) {
 	GinkgoHelper()
-	db, e := sql.Open("sqlite3", filepath.Join(dir, "databases", id+".db"))
+	db, e := sql.Open("sqlite", filepath.Join(dir, "databases", id+".db"))
 	Expect(e).NotTo(HaveOccurred())
 	defer func() { _ = db.Close() }()
 	var v string

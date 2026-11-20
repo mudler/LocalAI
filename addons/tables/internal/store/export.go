@@ -14,8 +14,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	sqlite "modernc.org/sqlite"
 )
 
 // Finite limits of one CSV export. A store option lowers them; none raises a
@@ -63,8 +63,8 @@ func (s *Store) openReader(id string) (*sql.DB, error) {
 		return nil, ErrUnsafePath
 	}
 	esc := strings.NewReplacer("%", "%25", "?", "%3f", "#", "%23").Replace(s.path(id))
-	d := fmt.Sprintf("file:%s?mode=rw&_busy_timeout=%d&_foreign_keys=on&_journal_mode=WAL&_query_only=true&_txlock=deferred", esc, s.opts.BusyTimeout.Milliseconds())
-	db := sql.OpenDB(capConnector{dsn: d, drv: &sqlite3.SQLiteDriver{}, maxPages: s.opts.MaxPages})
+	d := fmt.Sprintf("file:%s?mode=rw&_txlock=deferred&_pragma=busy_timeout(%d)&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=query_only(1)", esc, s.opts.BusyTimeout.Milliseconds())
+	db := sql.OpenDB(capConnector{dsn: d, drv: &sqlite.Driver{}, maxPages: s.opts.MaxPages})
 	db.SetMaxOpenConns(1)
 	db.SetConnMaxLifetime(0)
 	return db, nil

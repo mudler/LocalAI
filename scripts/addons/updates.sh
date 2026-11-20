@@ -74,7 +74,7 @@ run_go routes ./core/http/endpoints/addons -ginkgo.focus='update routes'
 # for a host this one is not.
 node "$pkg/build.mjs" >"$cache/logs/updates-build.log" 2>&1 || { cat "$cache/logs/updates-build.log" >&2; exit 1; }
 tables_exe="$cache/tmp/updates-exe"
-CGO_ENABLED=1 go build -p 2 -o "$tables_exe" ./addons/tables/cmd/tables
+CGO_ENABLED=0 go build -p 2 -o "$tables_exe" ./addons/tables/cmd/tables
 fixture_dir="$cache/tmp/updates-fixture"
 rm -rf "$fixture_dir"
 mkdir -p "$fixture_dir"

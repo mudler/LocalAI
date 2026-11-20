@@ -135,17 +135,13 @@ if [ -z "$executable" ]; then
         echo "package.sh: platform $platform needs an executable for $build_platform, which is not this host ($host); pass the native --executable" >&2
         exit 2
     }
-    # Tables links a C library. The other add-ons are pure Go, so their
-    # executable needs no C toolchain on any platform.
+    # Every add-on is pure Go, so its executable is static and needs no C
+    # toolchain or C library (glibc or musl) on any platform.
     cgo=0
-    [ "$addon" != tables ] || cgo=1
     # A Windows executable is named <name>.exe (the manifest of a Windows
-    # package says so). A Windows cgo build links the C runtime statically,
-    # so the executable needs no DLL of the build toolchain.
+    # package says so).
     out=$scratch/$exe_name
     case "$build_platform" in windows/*) out=$out.exe ;; esac
-    static=
-    case "$build_platform:$cgo" in windows/*:1) static='-extldflags=-static' ;; esac
     if [ -n "$addon_root" ]; then
         # Pure Go unless the caller sets CGO_ENABLED.
         cgo=${CGO_ENABLED:-0}
@@ -156,8 +152,6 @@ if [ -z "$executable" ]; then
         (cd "$addon_root" && CGO_ENABLED=$cgo go build -trimpath -o "$out" "./cmd/$exe_name")
     elif [ -n "$ldflags" ]; then
         CGO_ENABLED=$cgo go build -trimpath -ldflags "$ldflags" -o "$out" "./addons/$addon/cmd/$exe_name"
-    elif [ -n "$static" ]; then
-        CGO_ENABLED=$cgo go build -trimpath -ldflags "$static" -o "$out" "./addons/$addon/cmd/$exe_name"
     else
         CGO_ENABLED=$cgo go build -trimpath -o "$out" "./addons/$addon/cmd/$exe_name"
     fi
