@@ -52,5 +52,5 @@ const (
 	KeyRemotesRefresh int64 = 118
 	// KeyCarrierSwitch elects the one frontend that makes the next move of a
 	// change of carrier.
-	KeyCarrierSwitch int64 = 119
+	KeyCarrierSwitch int64 = 120
 )
