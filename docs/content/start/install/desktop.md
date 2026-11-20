@@ -33,13 +33,15 @@ chmod +x LocalAI-Launcher-x86_64.AppImage
 ./LocalAI-Launcher-x86_64.AppImage
 ```
 
-You can also start the file from your file manager. The file is large (about 120 MB), because it contains Electron and Chromium. It needs the libraries of a normal desktop (X11 or Wayland).
+You can also start the file from your file manager. The file is large (about 140 MB), because it contains Electron and Chromium. It needs the libraries of a normal desktop (X11 or Wayland).
 
-An AppImage needs FUSE 2 to mount itself. Ubuntu 24.04 and later do not install it by default. Install it with `sudo apt install libfuse2t64` (Ubuntu 24.04 and later) or `sudo apt install libfuse2` (Ubuntu 22.04). If you cannot install FUSE 2, start the AppImage with this option. It extracts the image to a temporary folder and runs it from there:
+An AppImage mounts itself with FUSE. The x86_64 file carries its own FUSE support, so it does not need the `libfuse2` package. It does need the FUSE kernel module and the `fusermount` (or `fusermount3`) program of your distribution. If FUSE is not available, start the AppImage with this option. It extracts the image to a temporary folder and runs it from there:
 
 ```bash
 ./LocalAI-Launcher-x86_64.AppImage --appimage-extract-and-run
 ```
+
+The x86_64 AppImage also starts on Linux systems that do not use glibc, such as Alpine and other musl-based distributions. It carries its own glibc and libraries for that case. The system needs `bash`, and the app uses software rendering there. The launcher keeps a small private folder (the loader) in `$XDG_RUNTIME_DIR`, in `~/.cache` or in `/tmp`, and runs from it.
 
 ### Sandbox on Ubuntu 24.04 and later
 
@@ -192,7 +194,7 @@ To remove the app, delete the AppImage file on Linux, or drag LocalAI Launcher f
 
 ### The AppImage does not start
 
-If you see an error about FUSE or `libfuse.so.2`, install `libfuse2` (`libfuse2t64` on Ubuntu 24.04 and later), or run the file with `--appimage-extract-and-run` as shown above. Check that the file is executable: `chmod +x LocalAI-Launcher-x86_64.AppImage`.
+If you see an error about FUSE, install `fuse3` (or `fuse`) so that `fusermount` is available, or run the file with `--appimage-extract-and-run` as shown above. An AppImage from an earlier release needs `libfuse2` (`libfuse2t64` on Ubuntu 24.04 and later). Check that the file is executable: `chmod +x LocalAI-Launcher-x86_64.AppImage`.
 
 ### Windows asks about the firewall
 
