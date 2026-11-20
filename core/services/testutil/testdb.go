@@ -46,7 +46,11 @@ func SetupTestDBWithDSN() (*gorm.DB, string) {
 			wait.ForLog("database system is ready to accept connections").WithOccurrence(2)),
 	)
 	Expect(err).ToNot(HaveOccurred())
-	DeferCleanup(func() { pgC.Terminate(context.Background()) })
+	DeferCleanup(func() {
+		if err := pgC.Terminate(context.Background()); err != nil {
+			GinkgoWriter.Printf("terminating the test PostgreSQL container: %v\n", err)
+		}
+	})
 	connStr, err := pgC.ConnectionString(ctx, "sslmode=disable")
 	Expect(err).ToNot(HaveOccurred())
 	db, err := gorm.Open(postgres.Open(connStr), &gorm.Config{
