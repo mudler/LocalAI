@@ -385,7 +385,7 @@ func (r *Runtime) prepare(ctx context.Context, env contract.Envelope) (write, ca
 	if err != nil {
 		return w, call{}, err
 	}
-	return w, call{r: r, ctx: ctx, token: env.Request.Credential, key: env.Request.ResourceKey}, nil
+	return w, call{r: r, ctx: ghapi.WithTool(ctx, w.tool), token: env.Request.Credential, key: env.Request.ResourceKey}, nil
 }
 
 // Preview checks a write and describes it. It changes nothing.

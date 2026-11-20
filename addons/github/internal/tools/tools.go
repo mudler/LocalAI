@@ -133,7 +133,7 @@ func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		return contract.Result{}, bad("no tool")
 	}
 	delete(args, "tool")
-	call := call{r: r, ctx: ctx, token: env.Request.Credential, key: env.Request.ResourceKey}
+	call := call{r: r, ctx: ghapi.WithTool(ctx, tool), token: env.Request.Credential, key: env.Request.ResourceKey}
 	if call.token == "" {
 		return contract.Result{}, bad("no token for this call")
 	}
