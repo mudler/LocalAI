@@ -82232,3 +82232,200 @@
       model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: olala-v1.0-mini-7a1b-q5-k-m
+  description: |
+    Olala v1.0 mini 7A1B by OVHai LLM: a 6.8B-parameter hybrid model (Mamba3 state space layers
+    with mixture-of-experts, about 1B active parameters) with a 32768 token context, 36 languages,
+    reasoning with four effort levels and tool calling. This build is 5-bit (Q5_K_M), about 6.0 GB, the smallest file with no measured quality loss. For x86 CPU and Apple Silicon.
+    It runs only on the olala backend, which builds the OVHai llama.cpp fork: upstream llama.cpp
+    cannot load the olala architecture. Context is at most 32768 and is shared by parallel
+    requests. The chat template takes a reasoning effort of disabled, low, medium (default) or high.
+    Do not quantize this model with generic recipes: they can produce NaN.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF
+    - https://github.com/OVHai-LLM/llama.cpp
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62cd7b157a036fc9941bb688/d22dF7Bz4v-4LTxgLYALu.jpeg
+  tags:
+    - llm
+    - gguf
+    - chat
+    - reasoning
+    - tools
+    - moe
+    - mamba
+    - multilingual
+    - cpu
+  files:
+    - filename: olala/models/Olala-v1.0-mini-7A1B-q5_k_m.gguf
+      sha256: ed353d2632c406be9ca2022b35e4c13049d6f8f7390b1c1bb61d6a7d6b971860
+      uri: huggingface://OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF/Olala-v1.0-mini-7A1B-q5_k_m.gguf
+  overrides:
+    backend: olala
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    name: olala-v1.0-mini-7a1b-q5-k-m
+    options:
+      - use_jinja:true
+    parameters:
+      model: olala/models/Olala-v1.0-mini-7A1B-q5_k_m.gguf
+      temperature: 0.8
+      top_k: 40
+      top_p: 0.9
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: olala-v1.0-mini-7a1b-q6-k
+  description: |
+    Olala v1.0 mini 7A1B by OVHai LLM: a 6.8B-parameter hybrid model (Mamba3 state space layers
+    with mixture-of-experts, about 1B active parameters) with a 32768 token context, 36 languages,
+    reasoning with four effort levels and tool calling. This build is 6-bit (Q6_K), about 6.3 GB. For x86 CPU and Apple Silicon.
+    It runs only on the olala backend, which builds the OVHai llama.cpp fork: upstream llama.cpp
+    cannot load the olala architecture. Context is at most 32768 and is shared by parallel
+    requests. The chat template takes a reasoning effort of disabled, low, medium (default) or high.
+    Do not quantize this model with generic recipes: they can produce NaN.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF
+    - https://github.com/OVHai-LLM/llama.cpp
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62cd7b157a036fc9941bb688/d22dF7Bz4v-4LTxgLYALu.jpeg
+  tags:
+    - llm
+    - gguf
+    - chat
+    - reasoning
+    - tools
+    - moe
+    - mamba
+    - multilingual
+    - cpu
+  files:
+    - filename: olala/models/Olala-v1.0-mini-7A1B-q6_k.gguf
+      sha256: 58a2b658158290687a431705c3c256c1331580ad4e8e99db55d03a8131d223c8
+      uri: huggingface://OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF/Olala-v1.0-mini-7A1B-q6_k.gguf
+  overrides:
+    backend: olala
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    name: olala-v1.0-mini-7a1b-q6-k
+    options:
+      - use_jinja:true
+    parameters:
+      model: olala/models/Olala-v1.0-mini-7A1B-q6_k.gguf
+      temperature: 0.8
+      top_k: 40
+      top_p: 0.9
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: olala-v1.0-mini-7a1b-q8-0
+  description: |
+    Olala v1.0 mini 7A1B by OVHai LLM: a 6.8B-parameter hybrid model (Mamba3 state space layers
+    with mixture-of-experts, about 1B active parameters) with a 32768 token context, 36 languages,
+    reasoning with four effort levels and tool calling. This build is 8-bit (q8_0-safe2), about 6.9 GB. For x86 CPU.
+    It runs only on the olala backend, which builds the OVHai llama.cpp fork: upstream llama.cpp
+    cannot load the olala architecture. Context is at most 32768 and is shared by parallel
+    requests. The chat template takes a reasoning effort of disabled, low, medium (default) or high.
+    Do not quantize this model with generic recipes: they can produce NaN.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF
+    - https://github.com/OVHai-LLM/llama.cpp
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62cd7b157a036fc9941bb688/d22dF7Bz4v-4LTxgLYALu.jpeg
+  tags:
+    - llm
+    - gguf
+    - chat
+    - reasoning
+    - tools
+    - moe
+    - mamba
+    - multilingual
+    - cpu
+  files:
+    - filename: olala/models/Olala-v1.0-mini-7A1B-q8_0-safe2.gguf
+      sha256: 0bb4560fa6800b41d16a15507ad1843ca17c0849ce0cc989bca337dcf55136d7
+      uri: huggingface://OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF/Olala-v1.0-mini-7A1B-q8_0-safe2.gguf
+  overrides:
+    backend: olala
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    name: olala-v1.0-mini-7a1b-q8-0
+    options:
+      - use_jinja:true
+    parameters:
+      model: olala/models/Olala-v1.0-mini-7A1B-q8_0-safe2.gguf
+      temperature: 0.8
+      top_k: 40
+      top_p: 0.9
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: olala-v1.0-mini-7a1b-bf16
+  description: |
+    Olala v1.0 mini 7A1B by OVHai LLM: a 6.8B-parameter hybrid model (Mamba3 state space layers
+    with mixture-of-experts, about 1B active parameters) with a 32768 token context, 36 languages,
+    reasoning with four effort levels and tool calling. This build is BF16 (16-bit), about 13.6 GB. Use this file on an NVIDIA GPU: the quantized files can produce NaN on GPU backends.
+    It runs only on the olala backend, which builds the OVHai llama.cpp fork: upstream llama.cpp
+    cannot load the olala architecture. Context is at most 32768 and is shared by parallel
+    requests. The chat template takes a reasoning effort of disabled, low, medium (default) or high.
+    Do not quantize this model with generic recipes: they can produce NaN.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF
+    - https://github.com/OVHai-LLM/llama.cpp
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62cd7b157a036fc9941bb688/d22dF7Bz4v-4LTxgLYALu.jpeg
+  tags:
+    - llm
+    - gguf
+    - chat
+    - reasoning
+    - tools
+    - moe
+    - mamba
+    - multilingual
+    - gpu
+    - cpu
+  files:
+    - filename: olala/models/Olala-v1.0-mini-7A1B-bf16.gguf
+      sha256: b266da8e292fb502b161ef0af413242f40c3d5736ebbcb5153fbf9c16bef5747
+      uri: huggingface://OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF/Olala-v1.0-mini-7A1B-bf16.gguf
+  overrides:
+    backend: olala
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    name: olala-v1.0-mini-7a1b-bf16
+    options:
+      - use_jinja:true
+    parameters:
+      model: olala/models/Olala-v1.0-mini-7A1B-bf16.gguf
+      temperature: 0.8
+      top_k: 40
+      top_p: 0.9
+    template:
+      use_tokenizer_template: true
