@@ -2,14 +2,16 @@ package storage
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/atomicfile"
-	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/xlog"
 )
 
@@ -102,7 +104,7 @@ func (fm *FileManager) cachedMatches(key, localPath, sha string) (bool, error) {
 			}
 		}
 	}
-	sum, err := downloader.CalculateSHA(localPath)
+	sum, err := fileSHA256(localPath)
 	if err != nil {
 		return false, err
 	}
@@ -110,6 +112,23 @@ func (fm *FileManager) cachedMatches(key, localPath, sha string) (bool, error) {
 		xlog.Warn("Could not record the sha256 of a cached file", "key", key, "error", err)
 	}
 	return sum == sha, nil
+}
+
+// fileSHA256 returns the hex sha256 of the file at path. It is here, not a call
+// to pkg/downloader, because that package needs the BitTorrent build tags when
+// cgo is on, and every program that imports this one would need them too (the
+// add-on fixtures are built without them).
+func fileSHA256(path string) (string, error) {
+	f, err := os.Open(path) // #nosec G304 -- path is a cached file the caller found under the cache directory
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func (fm *FileManager) writeRecord(key string, info os.FileInfo, sum string) error {
