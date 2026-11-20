@@ -660,6 +660,33 @@ page that saves after each change it sees, from starting runs in a loop: at
 most one run a minute and 24 a day by default. An `AGENTS.md` file in a folder, or above it, is added to the first
 message as rules for the run. Treat it as text from whoever can write there.
 
+### Where a trigger reports
+
+The answer of a run goes to the Inbox by default. A trigger that a messaging
+app proposed, or that you set to report to a connection, can send the answer to
+a chat or a channel of that connection instead. The Triggers page and the page
+of each trigger say where the runs report, under **Reports to**:
+
+| Shown | Meaning |
+|---|---|
+| Inbox | The default. The answer goes to your Inbox. |
+| Channel *name*, with the connection and its service | The answer is posted at the top of a channel you approved for that connection. |
+| Chat *id*, with the connection and its service | The answer goes to the chat (or thread) of the messaging app where the trigger was proposed. The chat is shortened. |
+
+The page also says when a run reports if that is not every run: only when the
+answer changes, or only when a run fails. It never shows a token or a whole
+chat address.
+
+A warning, with words and not only a colour, appears when the destination
+cannot receive a report now: the connection is off, deleted or unavailable (its
+add-on does not run), the channel is no longer approved, or the connection may
+not write there. Until you fix it, the report goes to the Inbox. The page links
+to the connections page. The same fields are in `delivery` of the trigger in
+`GET /api/chats/triggers`: `target`, `channel_label`, `channel_ref`,
+`chat_ref`, `connection_name`, `connection_kind`, `connection_kind_title`,
+`state` (`ok`, `off`, `gone`, `unavailable`, `no_channel`, `blocked`) and
+`mode`.
+
 ### What a run gets
 
 - **Its message.** The first message is the prompt of the trigger, the folder
