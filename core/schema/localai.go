@@ -619,10 +619,11 @@ type KnownBackend struct {
 	AutoDetect  bool   `json:"auto_detect"`
 	Description string `json:"description,omitempty"`
 	// Installed is true when the backend is currently present on disk — i.e. it
-	// appears in gallery.ListSystemBackends(systemState). Importer-registered or
-	// curated pref-only backends default to false unless they also show up on
-	// disk. The import form uses this to warn users that submitting an import
-	// may trigger an automatic backend download.
+	// appears in gallery.ListSystemBackends(systemState) — or, in distributed
+	// mode, on any worker node. Importer-registered or curated pref-only
+	// backends default to false unless they are installed somewhere. The import
+	// form uses this to warn users that submitting an import may trigger an
+	// automatic backend download.
 	Installed bool `json:"installed"`
 }
 
