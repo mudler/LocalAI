@@ -149,6 +149,7 @@ var defaultImporters = []Importer{
 	&Trellis2CppImporter{},
 	&GemXCppImporter{},
 	&KimodoCppImporter{},
+	&SkinTokensCppImporter{},
 	&ACEStepImporter{},
 	// LongCat repositories carry generic Diffusers metadata, so this exact
 	// owner/repo matcher must run before DiffuserImporter.

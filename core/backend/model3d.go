@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"maps"
 	"time"
 
@@ -26,7 +27,11 @@ type Model3DGenerationOptions struct {
 }
 
 func Model3DGeneration(options Model3DGenerationOptions, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() error, error) {
-	opts := ModelOptions(modelConfig, appConfig)
+	return Model3DGenerationContext(appConfig.Context, options, loader, modelConfig, appConfig)
+}
+
+func Model3DGenerationContext(ctx context.Context, options Model3DGenerationOptions, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() error, error) {
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
@@ -35,7 +40,7 @@ func Model3DGeneration(options Model3DGenerationOptions, loader *model.ModelLoad
 
 	fn := func() error {
 		_, err := inferenceModel.Generate3D(
-			appConfig.Context,
+			ctx,
 			&proto.Generate3DRequest{
 				Src:          options.Image,
 				Dst:          options.Destination,
@@ -57,11 +62,12 @@ func Model3DGeneration(options Model3DGenerationOptions, loader *model.ModelLoad
 		traceType := trace.BackendTrace3DGeneration
 		traceSummary := "3d: " + options.Quality
 		traceData := map[string]any{}
-		if options.Params["operation"] == "print_remesh" {
+		if options.Params["operation"] == "print_remesh" || options.Params["operation"] == "remesh" {
 			traceType = trace.BackendTrace3DRemesh
 			traceSummary = "3d: remesh"
 			traceData["detail_percent"] = options.Params["detail_percent"]
 			traceData["has_mesh"] = options.Image != ""
+			traceData["parameters"] = maps.Clone(options.Params)
 		} else {
 			traceData = map[string]any{
 				"seed":          options.Seed,

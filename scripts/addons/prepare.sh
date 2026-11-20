@@ -40,6 +40,10 @@ if [ "$mode" = --prepare ] || [ "$mode" = --prepare-build ]; then
     go mod download
     space
     (cd core/http/react-ui && npm ci --no-audit --no-fund)
+    for lock in addons/*/ui/package-lock.json; do
+        [ -f "$lock" ] || continue
+        (cd "$(dirname "$lock")" && npm ci --no-audit --no-fund)
+    done
     # Explicit setup only: the lockfile-pinned local CLI selects the browser
     # revision. Never use npx or install host OS packages here.
     # A producer that only compiles fixtures needs no browser. Test consumers

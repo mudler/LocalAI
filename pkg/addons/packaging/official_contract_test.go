@@ -22,11 +22,12 @@ import (
 // This audit records calls, including the mutation/undo wrappers' operation
 // arguments. It is intentionally independent of deployment prefix grants.
 var officialRequests = map[string]contract.HostOperations{
-	"fine-tuning":  {Required: strings.Fields("finetune.checkpoints finetune.dataset finetune.export finetune.get finetune.list finetune.start finetune.stop")},
-	"quantization": {Required: strings.Fields("quantize.get quantize.import quantize.list quantize.start quantize.stop")},
-	"office":       {Required: strings.Fields("workspace.export workspace.import")},
-	"sandbox":      {Required: strings.Fields("workspace.changes workspace.commit workspace.materialize"), Optional: strings.Fields("egress.audit egress.check workspace.admin")},
-	"web":          {Optional: []string{"workspace.admin"}},
+	"asset-pipeline": {Required: strings.Fields("pipeline.read pipeline.apply pipeline.upload")},
+	"fine-tuning":    {Required: strings.Fields("finetune.checkpoints finetune.dataset finetune.export finetune.get finetune.list finetune.start finetune.stop")},
+	"quantization":   {Required: strings.Fields("quantize.get quantize.import quantize.list quantize.start quantize.stop")},
+	"office":         {Required: strings.Fields("workspace.export workspace.import")},
+	"sandbox":        {Required: strings.Fields("workspace.changes workspace.commit workspace.materialize"), Optional: strings.Fields("egress.audit egress.check workspace.admin")},
+	"web":            {Optional: []string{"workspace.admin"}},
 	// The policy of the add-on can be changed by an administrator only; the host answers who is one.
 	"home-assistant": {Optional: []string{"workspace.admin"}},
 	// The per-device switches of the add-on can be changed by an administrator only.

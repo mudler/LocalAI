@@ -84,6 +84,8 @@ type BackendLoadEvent struct {
 }
 
 type ModelLoader struct {
+	leaseMu                  sync.Mutex
+	leases                   map[string]*modelLease
 	ModelPath                string
 	mu                       sync.Mutex
 	store                    ModelStore

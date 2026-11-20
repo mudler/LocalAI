@@ -59,6 +59,7 @@ var _ = Describe("LoadModelEndpoint (/backend/load)", func() {
 
 		app = echo.New()
 		app.POST("/backend/load", LoadModelEndpoint(configLoader, modelLoader, appConfig))
+		app.POST("/backend/leases/:id/release", ReleaseModelLeaseEndpoint(modelLoader))
 	})
 
 	AfterEach(func() {
@@ -69,6 +70,18 @@ var _ = Describe("LoadModelEndpoint (/backend/load)", func() {
 		rec := post(`{}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
 		Expect(decode(rec).Message).To(ContainSubstring("model is required"))
+	})
+
+	It("returns a releasable lease after a failed preload", func() {
+		writeConfig("solo", "name: solo\n")
+		rec := post(`{"model":"solo","lease":true}`)
+		Expect(rec.Code).To(Equal(http.StatusInternalServerError))
+		resp := decode(rec)
+		Expect(resp.LeaseID).NotTo(BeEmpty())
+		Expect(resp.LeaseExpires).NotTo(BeNil())
+		out := httptest.NewRecorder()
+		app.ServeHTTP(out, httptest.NewRequest(http.MethodPost, "/backend/leases/"+resp.LeaseID+"/release", nil))
+		Expect(out.Code).To(Equal(http.StatusOK))
 	})
 
 	It("reports a load failure for a regular model with nothing loaded", func() {

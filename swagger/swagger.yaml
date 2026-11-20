@@ -3633,6 +3633,15 @@ definitions:
       timestamp:
         type: string
     type: object
+  model.LeaseRelease:
+    properties:
+      model:
+        type: string
+      reason:
+        type: string
+      state:
+        type: string
+    type: object
   modeladmin.VRAMRequest:
     properties:
       context_size:
@@ -12538,11 +12547,17 @@ definitions:
     type: object
   schema.ModelLoadRequest:
     properties:
+      lease:
+        type: boolean
       model:
         type: string
     type: object
   schema.ModelLoadResponse:
     properties:
+      lease_expires:
+        type: string
+      lease_id:
+        type: string
       loaded:
         description: |-
           Loaded lists the model names actually resident in memory after the call.
@@ -28085,6 +28100,33 @@ paths:
       summary: Bidirectional realtime audio transform over WebSocket.
       tags:
       - audio
+  /backend/leases/{id}/release:
+    post:
+      description: Best-effort cleanup of local models loaded by this lease. Busy,
+        pinned, shared and distributed models are retained. Requires the same administrator
+        who acquired the lease.
+      parameters:
+      - description: Lease ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.LeaseRelease'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Release a model preload lease
+      tags:
+      - monitoring
   /backend/load:
     post:
       consumes:

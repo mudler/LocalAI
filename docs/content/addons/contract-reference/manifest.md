@@ -555,7 +555,7 @@ implementation defaults, not immutable product requirements.
 | Batch size / query depth / query rows | 100 / 8 / 1000 |
 | Query result bytes | 1 MiB |
 | Proposal expiry / artifact expiry | 5 min / 1 hour |
-| Single artifact / aggregate artifact quota | 100 MiB / 1 GiB (a stored artifact is at most 64 MiB, the relay bound) |
+| Single artifact / aggregate artifact quota | 512 MiB / 1 GiB (the single-file bound also applies to relay downloads) |
 | Artifact count / concurrency | 100 / 4 |
 
 Initial backoff cannot exceed maximum; single artifact cannot exceed quota;

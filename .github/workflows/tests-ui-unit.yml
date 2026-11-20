@@ -43,5 +43,11 @@ jobs:
       # node_modules.
       - name: Install the host UI dependencies
         run: npm ci --no-audit --no-fund --prefix core/http/react-ui
+      - name: Install pinned add-on UI dependencies
+        run: |
+          for lock in addons/*/ui/package-lock.json; do
+            [ -f "$lock" ] || continue
+            npm ci --no-audit --no-fund --prefix "$(dirname "$lock")"
+          done
       - name: Run the UI unit checks
         run: make test-ui-unit

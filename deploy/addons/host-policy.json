@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "grants": {
+    "asset-pipeline": ["pipeline."],
     "fine-tuning": ["finetune."],
     "quantization": ["quantize."],
     "sandbox": ["workspace.", "egress."],

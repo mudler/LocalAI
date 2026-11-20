@@ -457,6 +457,18 @@ var BackendCapabilities = map[string]BackendCapability{
 	},
 
 	// --- 3D generation backends ---
+	"meshremesh": {
+		GRPCMethods:      []GRPCMethod{MethodGenerate3D},
+		PossibleUsecases: []string{Usecase3D},
+		DefaultUsecases:  []string{Usecase3D},
+		Description:      "Model-free CPU surface wrapping, quad-dominant remeshing and material projection",
+	},
+	"skintokenscpp": {
+		GRPCMethods:      []GRPCMethod{MethodAnimate3D},
+		PossibleUsecases: []string{Usecase3DAnimation},
+		DefaultUsecases:  []string{Usecase3DAnimation},
+		Description:      "SkinTokens native rigging, learned skinning weights and compatible SOMA30 motion retargeting",
+	},
 	"gemxcpp": {GRPCMethods: []GRPCMethod{MethodMotionStream}, PossibleUsecases: []string{UsecaseMotion}, DefaultUsecases: []string{UsecaseMotion}, Description: "GEM-X live human motion on CPU/Vulkan; SOMA-77 and SMPL-24 pose streams"},
 	"kimodocpp": {
 		GRPCMethods:      []GRPCMethod{MethodAnimate3D},
