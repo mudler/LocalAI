@@ -70,6 +70,26 @@ test('provider: parallel 401s end the session once, after the status route confi
   p.h.unmount()
 })
 
+test('provider: a 401 ends a static API key session once the status route confirms it', async () => {
+  // The key was rotated, or its cookie lapsed, with the tab open. Staying
+  // signed in kept isAdmin true and the operations poller at 401 every second.
+  let signedIn = true
+  const p = await provider(() => ok({ authEnabled: false, staticApiKeyRequired: true, user: signedIn ? { id: 'legacy-api-key', role: 'admin' } : null }))
+  let auth = await p.settle()
+  assert.equal(auth.status, 'signed-in')
+  assert.equal(auth.isAdmin, true)
+  signedIn = false
+  events.reportUnauthorized('/api/operations')
+  await p.settle()
+  await p.settle()
+  auth = await p.settle()
+  assert.equal(auth.status, 'expired')
+  assert.equal(auth.user, null)
+  assert.equal(auth.isAdmin, false)
+  assert.equal(p.calls.length, 2)
+  p.h.unmount()
+})
+
 test('provider: a 401 that the status route does not confirm leaves the session alone', async () => {
   const p = await provider(() => ok({ authEnabled: true, user: { id: 'u', role: 'user' } }))
   await p.settle()
