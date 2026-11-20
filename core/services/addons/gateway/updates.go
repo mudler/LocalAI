@@ -25,11 +25,24 @@ const (
 	// ActionUpdateUpgrade is the explicit upgrade of an add-on to the
 	// candidate the caller checked.
 	ActionUpdateUpgrade = "update-upgrade"
+	// ActionUpdateQueue records the explicit upgrade for the host's
+	// operation queue, with the checks of update-upgrade, and runs nothing.
+	ActionUpdateQueue = "update-queue"
+	// ActionUpdateRunQueued runs an upgrade that update-queue recorded, and
+	// ActionUpdateDropQueued drops one that has not started. The host's
+	// operation queue sends them, for the administrator who queued it.
+	ActionUpdateRunQueued  = "update-run-queued"
+	ActionUpdateDropQueued = "update-drop-queued"
 )
 
 // UpdateAction reports whether an action belongs to the update management.
+// The generic dispatch route refuses all of them but the status read.
 func UpdateAction(a string) bool {
-	return a == ActionUpdateStatus || a == ActionUpdateCheck || a == ActionUpdateUpgrade
+	switch a {
+	case ActionUpdateStatus, ActionUpdateCheck, ActionUpdateUpgrade, ActionUpdateQueue, ActionUpdateRunQueued, ActionUpdateDropQueued:
+		return true
+	}
+	return false
 }
 
 // UpdateFailure is the typed refusal the owner puts in the result of an
@@ -93,7 +106,7 @@ func (g *Gateway) updateAction(ctx context.Context, actor contract.Actor, reques
 			return contract.Result{}, ErrForbidden
 		}
 		data, err = g.Manager.CheckUpdates(ctx, actor, id)
-	case ActionUpdateUpgrade:
+	case ActionUpdateUpgrade, ActionUpdateQueue:
 		var args struct {
 			ExpectedDigest  string `json:"expectedDigest"`
 			CandidateDigest string `json:"candidateDigest"`
@@ -107,7 +120,21 @@ func (g *Gateway) updateAction(ctx context.Context, actor contract.Actor, reques
 			err = addons.ErrConflict
 			break
 		}
-		data, err = g.Manager.SubmitUpgrade(ctx, actor, cmd)
+		if request.Action == ActionUpdateQueue {
+			data, err = g.Manager.AcceptUpgrade(ctx, actor, cmd)
+		} else {
+			data, err = g.Manager.SubmitUpgrade(ctx, actor, cmd)
+		}
+	case ActionUpdateRunQueued, ActionUpdateDropQueued:
+		var args struct{}
+		if decode(bytes.NewReader(request.Arguments), &args) != nil || request.OperationID == "" {
+			return contract.Result{}, ErrForbidden
+		}
+		if request.Action == ActionUpdateRunQueued {
+			data, err = g.Manager.RunAccepted(ctx, actor, request.OperationID)
+		} else {
+			data, err = g.Manager.DropAccepted(ctx, actor, request.OperationID)
+		}
 	default:
 		return contract.Result{}, ErrForbidden
 	}

@@ -128,7 +128,11 @@ type Manager struct {
 	upgradeActive, upgradeClosing bool
 	// opMu serializes Submit and Reconcile as whole operations, so mu can be
 	// released around a slow fetch without letting another operation in.
-	opMu                    sync.Mutex
+	opMu sync.Mutex
+	// stageMu keeps Reconcile from cleaning the stage folder while a host
+	// access preview stages a package. A preview holds it for reading and
+	// never opMu, so a slow preview download does not hold back an install.
+	stageMu                 sync.RWMutex
 	toolCache               map[string]toolDeclaration
 	config                  OwnerConfig
 	catalog                 catalog.Catalog
@@ -575,6 +579,11 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		op.Status.Stage = m.journal.Operations[cmd.OperationID].Status.Stage
 		op.Status.Phase = string(lifecycleFailed)
 		op.Status.FailureCode = "upgrade_failed"
+		if ctx.Err() != nil {
+			// A fetch stopped by a cancel reports a fetch error, not the
+			// cancel; the context says what happened.
+			op.Status.FailureCode = "interrupted"
+		}
 		for _, c := range cause {
 			if errors.Is(c, context.Canceled) || errors.Is(c, context.DeadlineExceeded) {
 				op.Status.FailureCode = "interrupted"
@@ -644,6 +653,8 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if e := m.upgradeStage(cmd.OperationID, stagePreparing); e != nil {
 				return op.Status, e
 			}
+			report := installProgressFrom(ctx)
+			report(InstallProgress{Phase: InstallPhaseResolving, Cancellable: true})
 			m.mu.Unlock()
 			fromFile := cmd.SourceID == zipformat.SourceID
 			var staged packages.StagedPackage
@@ -659,7 +670,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 					r, resolveErr = m.resolveRelease(ctx, cmd)
 				}
 				if resolveErr == nil {
-					staged, stageErr = m.installer.Stage(ctx, r, nil)
+					staged, stageErr = m.installer.Stage(ctx, r, stageProgress(report))
 				}
 			}
 			m.mu.Lock()
@@ -740,12 +751,14 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 					}
 				}
 				if cmd.Action == "upgrade" {
+					report(InstallProgress{Phase: InstallPhaseStarting})
 					return m.upgradeWithRecovery(ctx, cmd, op, &next, staged, fail)
 				}
 			}
 			if e = m.upgradeStage(cmd.OperationID, stageCommitting); e != nil {
 				return op.Status, e
 			}
+			report(InstallProgress{Phase: InstallPhaseCommitting})
 			receipt, e = m.installer.Commit(ctx, staged)
 			if e != nil {
 				return fail(&FailureCause{Code: CauseInstallStorage, detail: fmt.Errorf("commit: %w", e)})
@@ -772,6 +785,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if e := m.upgradeStage(cmd.OperationID, stageStarting); e != nil {
 				return op.Status, e
 			}
+			installProgressFrom(ctx)(InstallProgress{Phase: InstallPhaseStarting})
 			if e := m.startCandidate(ctx, cmd.AddonID, m.journal.Addons[cmd.AddonID], receipt, next.Generation); e != nil {
 				if ctx.Err() != nil {
 					// The caller went away, which says nothing about the
@@ -920,7 +934,12 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 		return e
 	}
 	m.uncertain = false
-	if e := m.cleanStages(); e != nil {
+	// A preview stages under stageMu only, so it does not wait for an
+	// install; the stage folder is cleaned only when no preview stages.
+	m.stageMu.Lock()
+	e := m.cleanStages()
+	m.stageMu.Unlock()
+	if e != nil {
 		return e
 	}
 	for id, op := range m.journal.Operations {
@@ -1007,7 +1026,6 @@ func syncPackage(root string) error {
 	}
 	return nil
 }
-
 
 // AttachRuntime is owner-only. Durable reconciliation precedes process execution.
 func (m *Manager) AttachRuntime(ctx context.Context, s *addonruntime.Supervisor) error {

@@ -31,6 +31,57 @@ a version. The category comes from what the library says the add-on gives:
 tools, a page, or the id of a first-party add-on. The filter narrows the page
 of results that is on screen.
 
+### The install queue
+
+Installs from a library run in the background, in the order you queued them.
+They share the queue and the limit of backend operations (**Concurrent Backend
+Operations** in the runtime settings), and the add-on owner installs one add-on
+at a time. You can queue several add-ons at once:
+
+1. In **Find add-ons**, tick **Add to queue** on each add-on to install, then
+   choose **Review and queue**. For one add-on, choose **Install**.
+2. Review the host access of each add-on and accept it (**Accept and next**, or
+   **Skip** to leave one out). Nothing is queued until you finish the last one. When the library lists
+   the host operations of the package, the list shows at once. When it does not,
+   the server downloads the package to read it first.
+3. The add-ons go to the queue. Each row shows the step (queued, resolving,
+   verifying, downloading, checking, committing), a progress bar with the bytes
+   downloaded, and **Cancel** while the install can still stop.
+
+The queue does not turn an add-on on. When its install ends, the add-on shows in
+**My add-ons** as off: turn it on there. The notification center tells you when
+an install ends, fails, or needs you.
+
+Each install is an operation of the server, like a model or backend install, so
+it also shows in the operations list of the other pages. Cancel works while the
+install waits and while it downloads; the server removes what it had downloaded.
+Once the package is being written, the install can no longer stop.
+
+The server checks the package again when it installs it. If the verified
+package asks for host access that you did not review, the server installs and
+grants nothing, and the row asks you to review the add-on again. A failed
+install offers **Retry**, which asks for the host access review again, and
+**Dismiss**.
+
+The queue is not kept across a restart of the server. An install that is queued
+or running when the server stops is recorded as interrupted, and is never
+started again by itself: queue it again.
+
+With several frontends, each frontend runs the installs that were queued
+through it, and the add-on owner still runs one add-on operation at a time. The
+rows show on every frontend. The download progress in bytes shows only when the
+frontend and the add-on owner are the same process; otherwise the row shows the
+step only.
+
+An install from a file (see [Install from a file](#install-from-a-file)) does not
+use the queue. It runs while the dialog is open.
+
+The API is `POST /api/addons/host-grants/queue`, which takes the same approval
+as `POST /api/addons/host-grants/install` for each add-on and answers with the
+job ID of each install. Like every change of host access, it accepts only the
+administrator's own browser session. Read the progress with `GET /api/operations`
+(the rows with `isAddon`) and cancel with `POST /api/operations/{jobID}/cancel`.
+
 ### Add-on icons
 
 Every add-on has an icon. The page picks it in this order:
@@ -127,8 +178,9 @@ To get them on a new install:
 1. Sign in as an administrator (with authentication off, you already are one) and open
    **Add-ons**, then **Find add-ons**. The list is the official library for this machine's
    operating system and architecture.
-2. Pick the add-on and choose **Install and turn on**. The install checks the signature
-   against the library policy before anything runs. Studio is the usual first one: it holds the
+2. Pick the add-on and choose **Install**. The add-on goes to the install queue (see
+   [The install queue](#the-install-queue)). The install checks the signature
+   against the library policy before anything runs. When it ends, turn the add-on on. Studio is the usual first one: it holds the
    image, video, 3D, speech, sound and audio tools.
 3. The add-on then appears in **My add-ons**. Use **Show in sidebar** to pin it.
 
@@ -228,7 +280,7 @@ Compare the sha256 with the `.sha256` file that came with the zip, or with
 On the Add-ons page, an administrator selects **Install from file** and picks
 the zip. The server checks the file and shows the install dialog. Then:
 
-- A new add-on is installed and turned on, as for a library add-on.
+- A new add-on is installed and turned on.
 - A file with the same ID as an installed add-on and a higher version is an
   upgrade. It goes through the same generations, backup, migration and recovery
   as every upgrade. It does not change whether the add-on is on or off.

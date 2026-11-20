@@ -1532,7 +1532,20 @@
       "is a recent check once the owner has refreshed in the background, not unknown",
       "refuses a candidate that needs a newer feature level, and offers one the host has",
       "installs a manifest that requests the client job operations once they are approved",
-      "gives the reason for people of a refused launch, and nothing for any other failure"
+      "gives the reason for people of a refused launch, and nothing for any other failure",
+      "answers the host access of a release from its index hint without a download",
+      "stages the package for the host access of a release without an index hint",
+      "records an approved install, runs it later through the lifecycle path and leaves the add-on off",
+      "holds a queued install whose verified manifest asks for more than the reviewed index hint",
+      "holds the plain install of an approval reviewed from the index hint the same way",
+      "binds an unpinned approval to the reviewed operations only",
+      "drops a queued install that is cancelled before it runs and frees the add-on",
+      "stops a running install when its context is cancelled and leaves no stage behind",
+      "fails a queued install as interrupted after a restart, so it never runs unasked",
+      "refuses what the queue cannot take: no approval, a local file, an installed add-on, another administrator's run",
+      "records a pinned upgrade for the queue, runs it later and keeps the last good generation until then",
+      "refuses at the run an upgrade whose candidate changed while it waited, and changes nothing",
+      "drops a queued upgrade cancelled before it runs, so the add-on can be upgraded again"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -2247,7 +2260,13 @@
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
           "keeps the add-on resource routes behind the add-ons feature",
           "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature",
-          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate"
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate",
+          "refuses a queue request that is not the administrator's own browser session",
+          "queues several approved installs, runs them one at a time and lets a queued one be cancelled",
+          "answers a refused item without stopping the others",
+          "turns an approval the package outgrew into an install that needs a new review",
+          "reports the download in bytes and percent",
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
         ]
       },
       {
@@ -3257,7 +3276,13 @@
           "lets people who may not use add-ons share a kind, find each other and be granted",
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
           "keeps the add-on resource routes behind the add-ons feature",
-          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate"
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate",
+          "refuses a queue request that is not the administrator's own browser session",
+          "queues several approved installs, runs them one at a time and lets a queued one be cancelled",
+          "answers a refused item without stopping the others",
+          "turns an approval the package outgrew into an install that needs a new review",
+          "reports the download in bytes and percent",
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
         ]
       }
     ]
@@ -3793,7 +3818,13 @@
           "lets people who may not use add-ons share a kind, find each other and be granted",
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
           "keeps the add-on resource routes behind the add-ons feature",
-          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate"
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate",
+          "refuses a queue request that is not the administrator's own browser session",
+          "queues several approved installs, runs them one at a time and lets a queued one be cancelled",
+          "answers a refused item without stopping the others",
+          "turns an approval the package outgrew into an install that needs a new review",
+          "reports the download in bytes and percent",
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
         ]
       }
     ]
@@ -4015,7 +4046,20 @@
           "is a recent check once the owner has refreshed in the background, not unknown",
           "refuses a candidate that needs a newer feature level, and offers one the host has",
           "installs a manifest that requests the client job operations once they are approved",
-          "gives the reason for people of a refused launch, and nothing for any other failure"
+          "gives the reason for people of a refused launch, and nothing for any other failure",
+          "answers the host access of a release from its index hint without a download",
+          "stages the package for the host access of a release without an index hint",
+          "records an approved install, runs it later through the lifecycle path and leaves the add-on off",
+          "holds a queued install whose verified manifest asks for more than the reviewed index hint",
+          "holds the plain install of an approval reviewed from the index hint the same way",
+          "binds an unpinned approval to the reviewed operations only",
+          "drops a queued install that is cancelled before it runs and frees the add-on",
+          "stops a running install when its context is cancelled and leaves no stage behind",
+          "fails a queued install as interrupted after a restart, so it never runs unasked",
+          "refuses what the queue cannot take: no approval, a local file, an installed add-on, another administrator's run",
+          "records a pinned upgrade for the queue, runs it later and keeps the last good generation until then",
+          "refuses at the run an upgrade whose candidate changed while it waited, and changes nothing",
+          "drops a queued upgrade cancelled before it runs, so the add-on can be upgraded again"
         ]
       },
       {
@@ -4321,7 +4365,13 @@
           "lets people who may not use add-ons share a kind, find each other and be granted",
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
           "keeps the add-on resource routes behind the add-ons feature",
-          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature"
+          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature",
+          "refuses a queue request that is not the administrator's own browser session",
+          "queues several approved installs, runs them one at a time and lets a queued one be cancelled",
+          "answers a refused item without stopping the others",
+          "turns an approval the package outgrew into an install that needs a new review",
+          "reports the download in bytes and percent",
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
         ]
       }
     ]
@@ -4367,8 +4417,7 @@
       "apps: a viewer without the add-ons feature never requests the list",
       "browse: searches the libraries, pages and shows trust and platform facts",
       "browse: a failing library is named in a notice and does not hide the others",
-      "browse: Install and turn on asks once, installs and turns the add-on on",
-      "browse: a failed turn on keeps the install, says why in the dialog and can be tried again",
+      "browse: Install asks once and queues the add-on, which is installed but not turned on",
       "browse: an add-on that is installed but off offers Turn on and nothing else",
       "installed: health is separate from enabled and the details show trust, compatibility and storage",
       "installed: an update is shown only from the owner update field and upgrade sends that version",
@@ -5965,7 +6014,8 @@
       "updates: on a narrow screen the check is reachable and runs from the keyboard",
       "go: ends the checks in flight when it is closed and refuses new ones",
       "go: always names the candidate digest of an update, so the upgrade has something to pin",
-      "go: keeps a stale cached notice readable while a plain check says the update is gone"
+      "go: keeps a stale cached notice readable while a plain check says the update is gone",
+      "go: queues the upgrade on the operation queue, answers its job at once and runs it in the background"
     ]
   },
   "tables-acceptance": {

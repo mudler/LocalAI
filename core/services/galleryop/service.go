@@ -1053,7 +1053,12 @@ type OpResult struct {
 	Backend  bool // a backend operation; false for a model
 	Deletion bool
 	Upgrade  bool
-	Outcome  OpOutcome
+	// Addon is an add-on install or upgrade; Backend is false then.
+	Addon bool
+	// NeedsApproval is a failed add-on install that waits for the
+	// administrator to review its host access again.
+	NeedsApproval bool
+	Outcome       OpOutcome
 	// Err is the reason of a failure, as the operation reports it.
 	Err string
 }

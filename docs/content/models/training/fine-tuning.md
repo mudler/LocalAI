@@ -223,7 +223,7 @@ A user needs the fine-tuning permission. Without it, the page says the account c
 
 ### Fine-tuning is an add-on
 
-The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/fine-tuning/jobs` and can be shown in the sidebar. 
+The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install**, then turns it on in My add-ons. Once it is on, it opens from My add-ons at `/app/addons/fine-tuning/jobs` and can be shown in the sidebar.
 
 Open the canonical add-on page from My add-ons. Historical standalone links are not registered.
 
