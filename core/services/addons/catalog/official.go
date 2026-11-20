@@ -26,6 +26,21 @@ const (
 	officialSignerPrefix = "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@"
 )
 
+// ReleaseAssetHosts are the hosts a library index or an archive download may
+// be redirected to. GitHub answers a release asset URL
+// (github.com/<owner>/<repo>/releases/download/<tag>/<file>) with a 302 to a
+// short-lived signed URL on its object store, so the official index of a
+// release cannot be read without following that hop. Only these https hosts
+// are followed, and the content keeps its own trust anchor: the signature
+// policy and the pinned digests of the entries. It is a variable so a test can
+// add an address it serves.
+var ReleaseAssetHosts = []string{
+	"github.com",
+	"raw.githubusercontent.com",
+	"objects.githubusercontent.com",
+	"release-assets.githubusercontent.com",
+}
+
 // releaseVersionRE matches the version of a tagged build: v<semver>. The
 // output of git describe for a commit after a tag (v1.2.3-14-gabc1234) does not
 // match, so such a build reads the development library.
