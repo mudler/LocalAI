@@ -1063,5 +1063,28 @@
       "off": "Desactivada",
       "attention": "Falta configurarla"
     }
+  },
+  "queue": {
+    "title": "Cola de instalación",
+    "select": "Añadir a la cola",
+    "selectNamed": "Añadir {{name}} a la cola de instalación",
+    "inQueue": "En cola",
+    "selectionLabel": "Complementos seleccionados para instalar",
+    "selected": "Seleccionados: {{count}}",
+    "reviewPicked": "Revisar y poner en cola",
+    "clear": "Quitar selección",
+    "position": "Complemento {{number}} de {{total}}.",
+    "batchNote": "No se pone nada en cola hasta que termines con el último.",
+    "confirmBody": "La versión {{version}} de la fuente {{library}} se añade a la cola de instalación. Se descarga en segundo plano y se comprueba antes de instalarla. No se activa.",
+    "add": "Añadir a la cola",
+    "acceptNext": "Aceptar y siguiente",
+    "acceptLast": "Aceptar y poner todo en cola",
+    "skip": "Omitir",
+    "unpinned": "Esta entrada de desarrollo no está fijada a un paquete. Instala lo que la fuente sirva ahora.",
+    "reviewTitle": "Revisión necesaria.",
+    "reviewBody": "El paquete pide más acceso al host del que aprobaste. Revisa la lista otra vez antes de instalarlo.",
+    "refused": "{{name}} no se puso en cola. {{reason}}",
+    "noAnswer": "El servidor no respondió sobre este complemento.",
+    "notInLibrary": "Este complemento ya no está en tus bibliotecas."
   }
 }

@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
 import { Button, Page, PageHeader } from '../components/ui'
@@ -10,6 +10,9 @@ import BrowseView from '../components/addons/BrowseView'
 import LibrariesView from '../components/addons/LibrariesView'
 import HostAccessView from '../components/addons/HostAccessView'
 import InstallFromFile from '../components/addons/InstallFromFile'
+import InstallDialog from '../components/addons/InstallDialog'
+import AddonQueue from '../components/addons/AddonQueue'
+import { useInstallQueue } from '../components/addons/useInstallQueue'
 import { useHostGrants } from '../components/addons/useHostGrants'
 import { pendingApprovals } from '../components/addons/hostGrantsState'
 import { resolveManage, resolveTab, visibleTabs } from '../components/addons/addonState'
@@ -39,6 +42,29 @@ export default function Addons() {
   // the list of add-ons shows the same banners.
   const grants = useHostGrants({ enabled: Boolean(isAdmin) })
   const waiting = grants.data ? pendingApprovals(grants.data).length : 0
+  // The installs of the background queue and the dialog that reviews them.
+  // They live on the page, not on a tab: the rows stay in view while the
+  // person moves between the tabs.
+  const queue = useInstallQueue({ adapter: addonsCatalog })
+  const [installed, setInstalled] = useState({})
+  useEffect(() => {
+    if (!queue.current) return undefined
+    const ctl = new AbortController()
+    addonsApi.installed(ctl.signal)
+      .then(list => setInstalled(Object.fromEntries(list.map(a => [a.id, a]))))
+      .catch(() => {})
+    return () => ctl.abort()
+  }, [queue.current, queue.tick]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A link to review one add-on again (from the Activity page): open its
+  // review and drop the parameter so a reload does not ask twice.
+  const reviewId = params.get('review')
+  const reviewing = useRef('')
+  useEffect(() => {
+    if (!isAdmin || !reviewId || reviewing.current === reviewId) return
+    reviewing.current = reviewId
+    setParams(prev => { const out = new URLSearchParams(prev); out.delete('review'); return out }, { replace: true })
+    queue.reviewId(reviewId)
+  }, [isAdmin, reviewId, queue, setParams])
 
   const select = useCallback((next) => {
     setParams(prev => {
@@ -105,12 +131,26 @@ export default function Addons() {
         </div>
       )}
 
+      {isAdmin && <AddonQueue queue={queue} />}
+
       <div role="tabpanel" id={`ad-panel-${tab}`} aria-labelledby={tabs.length > 1 ? `ad-tab-${tab}` : undefined} aria-label={tabs.length > 1 ? undefined : t('tabs.apps')} className="ad-panel">
-        {tab === 'apps' && <AppsView key={listKey} api={addonsApi} adapter={addonsCatalog} onSummary={setSummary} grants={grants} />}
-        {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} />}
+        {tab === 'apps' && <AppsView key={`${listKey}:${queue.tick}`} api={addonsApi} adapter={addonsCatalog} onSummary={setSummary} grants={grants} queue={queue} />}
+        {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} queue={queue} />}
         {tab === 'libraries' && <LibrariesView adapter={addonsCatalog} />}
         {tab === 'access' && <HostAccessView grants={grants} />}
       </div>
+      {isAdmin && (
+        <InstallDialog
+          entry={queue.current}
+          installed={installed}
+          batch={queue.batch}
+          review={queue.review}
+          sending={queue.sending}
+          onAccept={queue.accept}
+          onSkip={queue.skip}
+          onClose={queue.close}
+        />
+      )}
     </Page>
   )
 }

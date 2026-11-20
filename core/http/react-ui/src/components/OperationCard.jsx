@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { formatBytes } from '../utils/format'
 import { cssVars } from '../utils/modelLedger'
 import Icon from './Icon'
+import { Button } from './ui'
+import { isAddonInstallOp, needsApproval } from '../utils/addonQueue'
 
 const phaseKeys = {
   resolving: 'activity.phase.resolving',
@@ -32,8 +34,12 @@ function formatEta(seconds) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
 }
 
-export default function OperationCard({ operation, onCancel, onPause, onDismiss, onRetry, cancelling = false }) {
-  const { t } = useTranslation('operate')
+// `onReview` is the page's answer to an add-on install that stopped because the
+// verified package asked for more host access than the administrator reviewed:
+// the card then says "needs your review" and offers Review instead of Retry.
+export default function OperationCard({ operation, onCancel, onPause, onDismiss, onRetry, onReview, cancelling = false }) {
+  // updates: the queued text is the one the Updates page shows for a queued row.
+  const { t } = useTranslation(['operate', 'updates'])
   const nodes = Array.isArray(operation.nodes) ? operation.nodes : []
   // Holds only what the user chose. The default has to stay a live
   // expression: an operation appears in /api/operations as soon as it is
@@ -43,6 +49,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   const listId = useId()
 
   const failed = Boolean(operation.error)
+  const review = failed && isAddonInstallOp(operation) && needsApproval(operation)
   const name = operation.name || operation.id
   const kind = operation.isAddon ? t('activity.kind.addon') : operation.isBackend ? t('activity.kind.backend') : t('activity.kind.model')
 
@@ -51,7 +58,10 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   // deletion has no phase, no bytes and no nodes to tell them apart.
   let icon
   let verb
-  if (failed) {
+  if (review) {
+    icon = <Icon name="shield" className="operation-card__icon operation-card__icon--warn" />
+    verb = t('activity.verb.needsReview')
+  } else if (failed) {
     icon = <Icon name="alert-circle" className="operation-card__icon operation-card__icon--error" />
     // The failure phrase has to name the work that actually failed. A removal
     // or a staging job reported as a failed install describes the opposite of
@@ -62,7 +72,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
     else verb = t('activity.verb.failed', { kind })
   } else if (operation.isQueued) {
     icon = <Icon name="clock" className="operation-card__icon" />
-    verb = t('activity.verb.queued')
+    verb = t('row.queued', { ns: 'updates' })
   } else if (operation.taskType === 'staging') {
     icon = <Icon name="cloud-upload" className="operation-card__icon operation-card__icon--staging" />
     verb = t('activity.verb.staging')
@@ -80,7 +90,8 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   const byteLabel = Number.isFinite(operation.currentBytes) && Number.isFinite(operation.totalBytes) && operation.totalBytes > 0
     ? `${formatBytes(operation.currentBytes)} / ${formatBytes(operation.totalBytes)}`
     : ''
-  const phaseKey = operation.isAddon ? `activity.addonStage.${operation.stage || operation.phase}` : phaseKeys[operation.phase]
+  // A queued operation has not started: the verb says all there is.
+  const phaseKey = operation.isQueued ? '' : operation.isAddon ? `activity.addonStage.${operation.stage || operation.phase}` : phaseKeys[operation.phase]
   const etaLabel = formatEta(operation.etaSeconds)
   const rateLabel = Number.isFinite(operation.bytesPerSecond) && operation.bytesPerSecond > 0
     ? `${formatBytes(operation.bytesPerSecond)}/s`
@@ -89,6 +100,9 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   // stopped where it broke and a queued one has not moved, so neither has a
   // bar worth drawing.
   const showProgress = !failed && !operation.isQueued && operation.progress > 0
+  // A queued one draws an empty bar, as the Updates page does: it is in line,
+  // and only a running operation shows progress.
+  const queued = !failed && Boolean(operation.isQueued)
   // A cancel waiting in its undo window takes the buttons away: pressing Cancel
   // twice would only end the window early.
   const canCancel = operation.cancellable && !failed && !cancelling
@@ -97,7 +111,8 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   // Retrying means reconstructing an install call out of the operation, which
   // is page knowledge. The card offers the button only when the page handed it
   // a handler, so the control can never be present with nothing behind it.
-  const canRetry = failed && typeof onRetry === 'function'
+  const canRetry = failed && !review && typeof onRetry === 'function'
+  const canReview = review && typeof onReview === 'function'
 
   // One node needs no disclosure: the single row is the whole story, and a
   // count-less string would render "Show 1 nodes".
@@ -107,8 +122,10 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
 
   return (
     <div
-      className={`operation-card${failed ? ' operation-card--error' : ''}${cancelling ? ' operation-card--cancelling' : ''}`}
+      className={`operation-card${failed && !review ? ' operation-card--error' : ''}${review ? ' operation-card--review' : ''}${cancelling ? ' operation-card--cancelling' : ''}`}
       data-testid="operation-card"
+      data-job={operation.jobID}
+      data-state={review ? 'review' : failed ? 'failed' : operation.isQueued ? 'queued' : 'running'}
     >
       <div className="operation-card__main">
         {icon}
@@ -127,7 +144,8 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
             {operation.isAddon && operation.fromVersion && operation.toVersion && <span>{operation.fromVersion} to {operation.toVersion}</span>}
             {operation.nodeName && <span>{t('activity.toNode', { node: operation.nodeName })}</span>}
             {cancelling && <span>{t('activity.cancelling')}</span>}
-            {failed && <span className="operation-card__error" title={operation.error}>{operation.isAddon && operation.failureCode ? t(`activity.addonFailure.${operation.failureCode}`, { defaultValue: operation.error }) : operation.error}</span>}
+            {review && <span className="operation-card__review" data-testid="operation-review-note">{t('activity.addonNeedsReview')}</span>}
+            {failed && !review && <span className="operation-card__error" title={operation.error}>{operation.isAddon && operation.failureCode ? t(`activity.addonFailure.${operation.failureCode}`, { defaultValue: operation.error }) : operation.error}</span>}
             {!failed && phaseKey && <span>{t(phaseKey)}</span>}
             {/* Phases and byte counters exist only on the managed-artifact
                 path, so a legacy files: gallery model and every backend
@@ -138,7 +156,6 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
             {!failed && !phaseKey && !operation.isQueued && operation.message && (
               <span className="operation-card__message" title={operation.message}>{operation.message}</span>
             )}
-            {!failed && operation.isQueued && <span>{t('activity.waitingForInstaller')}</span>}
             {!failed && byteLabel && (
               <span className="operation-card__bytes">
                 {byteLabel}{rateLabel && ` · ${rateLabel}`}
@@ -147,16 +164,17 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
             {!failed && etaLabel && <span className="operation-card__bytes">{t('activity.timeLeft', { value: etaLabel })}</span>}
           </div>
 
-          {showProgress && (
+          {(showProgress || queued) && (
             <div
               className="operation-card__track"
               role="progressbar"
-              aria-valuenow={Math.round(operation.progress)}
+              aria-valuenow={queued ? 0 : Math.round(operation.progress)}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label={t('activity.progressLabel', { name })}
+              data-queued={queued ? '' : undefined}
             >
-              <span className="operation-card__fill" style={cssVars({ '--op-w': `${operation.progress}%` })} />
+              {showProgress && <span className="operation-card__fill" style={cssVars({ '--op-w': `${operation.progress}%` })} />}
             </div>
           )}
         </div>
@@ -194,6 +212,17 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
             >
               {t('activity.retry')}
             </button>
+          )}
+          {canReview && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onReview(operation)}
+              aria-label={t('activity.reviewLabel', { name })}
+              data-testid="operation-review"
+            >
+              {t('activity.review')}
+            </Button>
           )}
           {failed && (
             <button

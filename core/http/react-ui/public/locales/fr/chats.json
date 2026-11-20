@@ -762,7 +762,8 @@
       "op": {
         "kind": {
           "model": "Modèle",
-          "backend": "Backend"
+          "backend": "Backend",
+          "addon": "Module"
         },
         "done": {
           "install": "{{kind}} {{name}} installé",
@@ -778,6 +779,9 @@
           "install": "{{kind}} {{name}}: installation annulée",
           "delete": "{{kind}} {{name}}: suppression annulée",
           "upgrade": "{{kind}} {{name}}: mise à jour annulée"
+        },
+        "needsReview": {
+          "install": "Le module {{name}} doit être vérifié pour être installé"
         }
       },
       "models": {

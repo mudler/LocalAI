@@ -1063,5 +1063,28 @@
       "off": "Desligada",
       "attention": "Precisa de configuração"
     }
+  },
+  "queue": {
+    "title": "Fila de instalação",
+    "select": "Adicionar à fila",
+    "selectNamed": "Adicionar {{name}} à fila de instalação",
+    "inQueue": "Na fila",
+    "selectionLabel": "Complementos selecionados para instalar",
+    "selected": "Selecionados: {{count}}",
+    "reviewPicked": "Revisar e enfileirar",
+    "clear": "Limpar",
+    "position": "Complemento {{number}} de {{total}}.",
+    "batchNote": "Nada entra na fila até você terminar o último.",
+    "confirmBody": "A versão {{version}} da fonte {{library}} é adicionada à fila de instalação. Ela é baixada em segundo plano e verificada antes de ser instalada. Ela não é ativada.",
+    "add": "Adicionar à fila",
+    "acceptNext": "Aceitar e seguir",
+    "acceptLast": "Aceitar e enfileirar tudo",
+    "skip": "Pular",
+    "unpinned": "Esta entrada de desenvolvimento não está presa a um pacote. Ela instala o que a fonte serve agora.",
+    "reviewTitle": "Revisão necessária.",
+    "reviewBody": "O pacote pede mais acesso ao host do que você aprovou. Confira a lista de novo antes da instalação.",
+    "refused": "{{name}} não entrou na fila. {{reason}}",
+    "noAnswer": "O servidor não respondeu sobre este complemento.",
+    "notInLibrary": "Este complemento não está mais nas suas bibliotecas."
   }
 }

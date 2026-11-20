@@ -226,7 +226,8 @@
       "failedRemoval": "Couldn't remove {{kind}}",
       "failedStaging": "Couldn't stage model",
       "upgrading": "Updating {{kind}}",
-      "failedUpgrade": "Couldn't update {{kind}}"
+      "failedUpgrade": "Couldn't update {{kind}}",
+      "needsReview": "Needs your review"
     },
     "phase": {
       "resolving": "Resolving files",
@@ -289,13 +290,23 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "Queued",
+      "starting": "Starting",
+      "resolving": "Resolving the package",
+      "verifying": "Verifying signature and digest",
+      "downloading": "Downloading",
+      "checking": "Checking the package",
+      "committing": "Finalizing"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
       "interrupted": "Update interrupted by owner shutdown or restart. It was not replayed.",
       "recovery_required": "Update interrupted. Data recovery is required before this add-on can run."
-    }
+    },
+    "addonNeedsReview": "The package asks for more host access than you approved.",
+    "review": "Review",
+    "reviewLabel": "Review {{name}}"
   },
   "backends": {
     "title": "Backend Management",

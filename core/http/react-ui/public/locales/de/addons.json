@@ -1063,5 +1063,28 @@
       "off": "Aus",
       "attention": "Einrichtung nötig"
     }
+  },
+  "queue": {
+    "title": "Installationswarteschlange",
+    "select": "Zur Warteschlange hinzufügen",
+    "selectNamed": "{{name}} zur Installationswarteschlange hinzufügen",
+    "inQueue": "In der Warteschlange",
+    "selectionLabel": "Für die Installation ausgewählte Add-ons",
+    "selected": "Ausgewählt: {{count}}",
+    "reviewPicked": "Prüfen und einreihen",
+    "clear": "Leeren",
+    "position": "Add-on {{number}} von {{total}}.",
+    "batchNote": "Es wird nichts eingereiht, bis du das letzte geprüft hast.",
+    "confirmBody": "Version {{version}} aus der Quelle {{library}} kommt in die Installationswarteschlange. Sie wird im Hintergrund geladen und vor der Installation geprüft. Sie wird nicht eingeschaltet.",
+    "add": "Zur Warteschlange hinzufügen",
+    "acceptNext": "Annehmen und weiter",
+    "acceptLast": "Annehmen und alle einreihen",
+    "skip": "Überspringen",
+    "unpinned": "Dieser Entwicklungseintrag ist nicht an ein Paket gebunden. Es wird installiert, was die Quelle gerade liefert.",
+    "reviewTitle": "Prüfung nötig.",
+    "reviewBody": "Das Paket verlangt mehr Host-Zugriff, als du genehmigt hast. Prüfe die Liste noch einmal, bevor es installiert wird.",
+    "refused": "{{name}} wurde nicht eingereiht. {{reason}}",
+    "noAnswer": "Der Server hat dazu nicht geantwortet.",
+    "notInLibrary": "Dieses Add-on ist in deinen Bibliotheken nicht mehr vorhanden."
   }
 }

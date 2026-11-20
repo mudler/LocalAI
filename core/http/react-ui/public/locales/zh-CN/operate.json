@@ -38,7 +38,8 @@
     },
     "verb": {
       "upgrading": "正在更新{{kind}}",
-      "failedUpgrade": "无法更新{{kind}}"
+      "failedUpgrade": "无法更新{{kind}}",
+      "needsReview": "需要你检查"
     },
     "filter": {
       "addons": "插件"
@@ -61,7 +62,14 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "队列中",
+      "starting": "正在启动",
+      "resolving": "正在解析包",
+      "verifying": "正在验证签名和摘要",
+      "downloading": "正在下载",
+      "checking": "正在检查包",
+      "committing": "正在完成"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
@@ -87,6 +95,9 @@
       "committing": "正在完成",
       "persisting": "正在保存配置"
     },
-    "retryFailed": "重试失败：{{message}}"
+    "retryFailed": "重试失败：{{message}}",
+    "addonNeedsReview": "该包请求的主机访问权限超出你批准的范围。",
+    "review": "检查",
+    "reviewLabel": "检查 {{name}}"
   }
 }

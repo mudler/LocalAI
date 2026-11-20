@@ -37,6 +37,8 @@ export function normalizeOperation(payload) {
     failureCode: p.failureCode || '',
     generation: Number(p.Generation ?? p.generation ?? 0),
     runtimeState: p.runtimeState || '',
+    // The job of /api/operations that carries an upgrade waiting in the queue.
+    jobId: p.jobId || p.JobID || '',
   }
 }
 
@@ -187,9 +189,11 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
       },
       // Starts the install and follows the job to its end. onStatus gets every
       // status of the job. It resolves with the final status and throws an
-      // AddonsError for a refusal of the request or a failed job.
+      // AddonsError for a refusal of the request or a failed job. `signal`
+      // ends the following only: the request that starts the job is sent
+      // whatever the page does next, so one click never needs the page open.
       async install({ sourceId, name, version }, signal, { onStatus, pollMs = 500 } = {}) {
-        const job = await call('/backends/library/install', { method: 'POST', body: { sourceId, name, version }, signal })
+        const job = await call('/backends/library/install', { method: 'POST', body: { sourceId, name, version } })
         const id = job && job.id
         if (!id) return job
         for (;;) {

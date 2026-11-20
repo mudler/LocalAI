@@ -70,6 +70,27 @@ export async function stubAddonRoutes(page) {
   await page.context().route('**/api/addons/host-grants', route => route.fulfill({ json: { revision: 1, addons: [] } }))
 }
 
+// The preview and queue routes a library install goes through: the preview
+// answers from the index with no host operation, and a queue request installs
+// the add-ons it names without turning them on, as the owner does. Returns the
+// queue requests the page sent.
+export async function stubInstallQueue(page, state) {
+  const sent = []
+  await page.route('**/api/addons/host-grants/preview', route => {
+    const body = JSON.parse(route.request().postData() || '{}')
+    return route.fulfill({ json: { digest: `sha256:${'c'.repeat(64)}`, version: body.version, revision: 1, nonce: `nonce-${body.addonId}`, official: true, fromIndex: true, requested: { required: [], optional: [] }, ops: [] } })
+  })
+  await page.route('**/api/addons/host-grants/queue', route => {
+    const body = JSON.parse(route.request().postData() || '{}')
+    sent.push({ body, confirm: route.request().headers()['x-localai-confirm'] })
+    for (const item of body.items) {
+      state.installed.push(installedAddon({ id: item.addonId, title: item.addonId, enabled: false, state: 'stopped', generation: 1, version: item.version }))
+    }
+    return route.fulfill({ json: { items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, jobId: `job-${i.operationId}` })) } })
+  })
+  return sent
+}
+
 // The owner's host settings policy (core/services/addons/hostsettings.Policy),
 // in the exact shape host-settings-read answers. Keys of `over` that are not
 // policy fields (other runtime settings) are ignored.

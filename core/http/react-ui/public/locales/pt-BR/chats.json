@@ -762,7 +762,8 @@
       "op": {
         "kind": {
           "model": "Modelo",
-          "backend": "Backend"
+          "backend": "Backend",
+          "addon": "Complemento"
         },
         "done": {
           "install": "{{kind}} {{name}} instalado",
@@ -778,6 +779,9 @@
           "install": "{{kind}} {{name}}: instalação cancelada",
           "delete": "{{kind}} {{name}}: remoção cancelada",
           "upgrade": "{{kind}} {{name}}: atualização cancelada"
+        },
+        "needsReview": {
+          "install": "O complemento {{name}} precisa da sua revisão para ser instalado"
         }
       },
       "models": {

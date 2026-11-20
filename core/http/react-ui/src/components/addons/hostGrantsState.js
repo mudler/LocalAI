@@ -74,7 +74,12 @@ export function normalizePreview(payload) {
   const ops = (Array.isArray(p.ops) ? p.ops : []).map(o => normalizeOp(o, requested))
   const blockedRequired = list(p.blockedRequired)
   return {
+    // "unpinned" is the digest of a mutable development entry. It is sent back
+    // as it is; the dialog says the package is not pinned.
     digest: typeof p.digest === 'string' ? p.digest : '',
+    // The library index listed the operations, so the owner answered without
+    // downloading the package.
+    fromIndex: p.fromIndex === true,
     version: typeof p.version === 'string' ? p.version : '',
     revision: Number(p.revision) || 0,
     nonce: typeof p.nonce === 'string' ? p.nonce : '',

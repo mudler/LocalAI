@@ -14,6 +14,8 @@ import HostAccessList from './HostAccessList'
 import { useHostPreview } from './useHostPreview'
 import { approvalBody, hostErrorKey, installBlock, needsStep } from './hostGrantsState'
 import { fileAction, fileGate } from './fileInstall'
+import { batchPosition } from '../../utils/addonQueue'
+import { newOperationId } from '../catalog/catalogState'
 
 // The built-in chat tools that the entry replaces and that an installed add-on
 // already replaces: only one of them can serve the tool, so the dialog says so
@@ -28,12 +30,18 @@ export function shadowConflicts(entry, installed) {
   return out
 }
 
-// The one dialog of Install and turn on. It asks once, then stays open and
-// shows the two steps while they run: the install, then the turn on. It ends
-// on the result, or on the reason a step failed with a way to try again.
-export default function InstallDialog({ entry, flow, actions, onClose, installed = {} }) {
+// The dialog of an install. For a library entry it is the review of the host
+// access: the person ticks what the add-on may do and accepts, and the install
+// is queued and runs in the background (`onAccept`). With `batch` it is one
+// step of several add-ons reviewed one after another, each with its own ticks.
+// For a file (a package nothing lists) there is no queue: it asks once, then
+// stays open and shows the two steps while they run, the install and the turn
+// on, and ends on the result or on the reason a step failed with a way to try
+// again.
+export default function InstallDialog({ entry, flow, actions, onClose, installed = {}, batch, onAccept, onSkip, review = false, sending = false }) {
   const { t } = useTranslation('addons')
   const ref = useRef(null)
+  const queued = typeof onAccept === 'function'
   const step = flow ? flow.step : 'ask'
   const running = step === 'install' || step === 'turn-on'
   const closeRef = useRef(onClose)
@@ -47,9 +55,17 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
   // own facts and, for an older version, ticks a box first.
   const local = entry ? entry.local : undefined
   const [downgrade, setDowngrade] = useState(false)
+  const open = Boolean(entry)
+
+  // A new add-on of a batch is a new question: the person lands on the dialog
+  // again, not on a button that is gone.
+  const stepKey = entry ? entry.key : ''
+  useEffect(() => {
+    if (stepKey) ref.current?.focus()
+  }, [stepKey])
 
   useEffect(() => {
-    if (!entry) return undefined
+    if (!open) return undefined
     const opener = document.activeElement
     const layer = pushLayer()
     const dialog = ref.current
@@ -74,13 +90,18 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
       layer.pop()
       if (opener && opener !== document.body && document.contains(opener)) opener.focus?.()
     }
-  }, [entry])
+  }, [open])
 
   if (!entry) return null
   const showHost = host.status === 'ready' && needsStep(host.preview)
   const block = showHost ? installBlock(host.preview) : null
   const gate = local ? fileGate(local, { downgradeTicked: downgrade, locked: Boolean(host.preview && host.preview.locked) }) : { allowed: true }
   const start = () => {
+    if (queued) {
+      // Every library install carries the approval of its own preview, with or
+      // without host operations: the queue refuses an install without one.
+      return onAccept(approvalBody(host.preview, host.ticked, { operationId: newOperationId(), action: 'install', sourceId: entry.sourceId, addonId: entry.id, version: entry.version }))
+    }
     if (local) {
       // A file installs only with the approval of this dialog, with or without
       // host operations: the owner refuses a file install that has none.
@@ -99,19 +120,25 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
     if (id === 'install') return step === 'install' ? 'active' : step === 'failed' && flow.failedStep === 'install' ? 'failed' : 'done'
     return step === 'turn-on' ? 'active' : step === 'failed' && flow.failedStep === 'turn-on' ? 'failed' : 'pending'
   }
+  const place = batchPosition(batch)
+  const several = queued && place.total > 1
   const reason = step === 'failed' ? describeOutcome(flow.outcome, t, flow.error) : ''
   return (
     <div className="confirm-dialog-backdrop" onClick={running ? undefined : onClose}>
-      <div ref={ref} className="confirm-dialog ad-dialog" role="alertdialog" aria-modal="true" aria-labelledby="install-dialog-title" data-testid="install-dialog" data-running={running ? 'true' : 'false'} data-step={step} onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} className="confirm-dialog ad-dialog" role="alertdialog" aria-modal="true" aria-labelledby="install-dialog-title" tabIndex={-1} data-testid="install-dialog" data-running={running ? 'true' : 'false'} data-step={step} onClick={(e) => e.stopPropagation()}>
         <div className="confirm-dialog-header">
-          <span id="install-dialog-title" className="confirm-dialog-title">{local ? t(local.installed ? 'file.upgradeTitle' : 'file.installTitle', { name: entry.title }) : t('flow.confirmTitle', { name: entry.title })}</span>
+          <span id="install-dialog-title" className="confirm-dialog-title">{local ? t(local.installed ? 'file.upgradeTitle' : 'file.installTitle', { name: entry.title }) : queued ? t('browse.confirmTitle', { name: entry.title }) : t('flow.confirmTitle', { name: entry.title })}</span>
         </div>
         <div className="confirm-dialog-body ad-confirm">
           {step === 'ask' && (
             <>
+              {several && <p className="ad-quiet" data-testid="install-position">{t('queue.position', { number: place.number, total: place.total })} {t('queue.batchNote')}</p>}
+              {queued && review && (
+                <Callout tone="warn" testId="install-review-again" title={t('queue.reviewTitle')}>{t('queue.reviewBody')}</Callout>
+              )}
               {local
                 ? <p>{t(local.installed ? 'file.confirmBodyUpgrade' : 'file.confirmBody', { version: local.version, name: local.name })}</p>
-                : <p>{t('flow.confirmBody', { version: entry.version, library: entry.sourceId })}</p>}
+                : <p>{t(queued ? 'queue.confirmBody' : 'flow.confirmBody', { version: entry.version, library: entry.sourceId })}</p>}
               {local && (
                 <Callout tone="warn" testId="install-unsigned" title={t('file.unsignedTitle')}>
                   {t('file.unsignedNotice')}
@@ -153,6 +180,10 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                   {t('hostAccess.previewFailed')}
                 </Callout>
               )}
+              {queued && host.status === 'ready' && host.preview.digest === 'unpinned' && (
+                <Callout tone="warn" testId="install-unpinned">{t('queue.unpinned')}</Callout>
+              )}
+              {queued && host.status === 'ready' && !needsStep(host.preview) && <p className="ad-quiet" data-testid="install-asks-nothing">{t('hostAccess.asksNothing')}</p>}
               {showHost && (
                 <section className="ad-hostaccess" aria-labelledby="install-host-title" data-testid="install-host-access">
                   <h3 id="install-host-title" className="ad-hostaccess__title">{t('hostAccess.stepTitle')}</h3>
@@ -178,7 +209,7 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                 </dl>
               ) : (
                 <dl className="dk-kv">
-                  <dt>{t('trust.digest')}</dt><dd className="dk-mono">{shortDigest(entry.digest)}</dd>
+                  <dt>{t('trust.digest')}</dt><dd className="dk-mono">{shortDigest(host.preview && host.preview.digest === 'unpinned' ? 'unpinned' : entry.digest)}</dd>
                   <dt>{t('trust.verification')}</dt><dd>{entry.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}</dd>
                 </dl>
               )}
@@ -214,7 +245,8 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
         </div>
         <div className="confirm-dialog-actions">
           {step === 'ask' && <Button onClick={onClose}>{t('catalog.cancel')}</Button>}
-          {step === 'ask' && <Button variant="primary" onClick={start} disabled={host.status === 'loading' || (Boolean(local) && host.status !== 'ready') || Boolean(block) || !gate.allowed} data-testid="install-confirm">{local && local.installed ? t('file.upgradeAction', { version: local.version }) : t('flow.installAndTurnOn')}</Button>}
+          {step === 'ask' && several && <Button variant="ghost" onClick={onSkip} disabled={sending} data-testid="install-skip">{t('queue.skip')}</Button>}
+          {step === 'ask' && <Button variant="primary" onClick={start} busy={sending} disabled={sending || host.status === 'loading' || ((Boolean(local) || queued) && host.status !== 'ready') || Boolean(block) || !gate.allowed} data-testid="install-confirm">{local && local.installed ? t('file.upgradeAction', { version: local.version }) : queued ? t(several && !place.last ? 'queue.acceptNext' : several ? 'queue.acceptLast' : 'queue.add') : t('flow.installAndTurnOn')}</Button>}
           {running && <Button variant="primary" icon="download" busy disabled>{step === 'install' ? t('flow.installing', { name: entry.title }) : t('flow.turningOn', { name: entry.title })}</Button>}
           {step === 'failed' && <Button onClick={onClose}>{t('catalog.close')}</Button>}
           {step === 'failed' && !actions.unknown[entry.id] && <Button variant="primary" icon="refresh" onClick={retry}>{t('catalog.retry')}</Button>}

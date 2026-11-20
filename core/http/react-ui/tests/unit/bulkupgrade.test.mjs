@@ -108,22 +108,21 @@ test('bulk upgrade: runConcurrent starts every item at once and a failure does n
   assert.deepEqual(summarize(end), { total: 3, done: 2, failed: 1, skipped: 0, queued: 0, upgrading: 0 })
 })
 
-test('bulk upgrade: runConcurrent keeps items of one lane in order', async () => {
+test('bulk upgrade: runConcurrent calls every runOne before the first one ends, so every request is sent at the click', async () => {
   const run = beginRun(null, items, new Set(['a', 'c', 'd']))
   const calls = []
-  let active = 0
-  let overlap = false
-  await runConcurrent(run, async (item) => {
-    if (item.id !== 'd') {
-      active += 1
-      if (active > 1) overlap = true
-    }
-    calls.push(item.id)
-    await new Promise(r => setTimeout(r, 3))
-    if (item.id !== 'd') active -= 1
-    return { ok: true }
-  }, { laneOf: (item) => (item.id === 'd' ? 'other' : 'shared') })
-  assert.deepEqual(calls.filter(c => c !== 'd'), ['a', 'c'])
-  assert.equal(overlap, false)
-  assert.ok(calls.indexOf('d') < 2, 'the other lane started with the first')
+  const final = runConcurrent(run, (item) => { calls.push(item.id); return new Promise(r => setTimeout(() => r({ ok: true }), 3)) })
+  // Nothing was awaited: the three calls happened synchronously.
+  assert.deepEqual(calls, ['a', 'c', 'd'])
+  assert.equal((await final).phase, 'finished')
+})
+
+test('bulk upgrade: an aborted signal skips what was not started, and started items are not touched', async () => {
+  const run = beginRun(null, items, new Set(['a', 'c']))
+  const ctl = new AbortController()
+  ctl.abort()
+  const calls = []
+  const end = await runConcurrent(run, async (item) => { calls.push(item.id); return { ok: true } }, { signal: ctl.signal })
+  assert.deepEqual(calls, [])
+  assert.equal(summarize(end).skipped, 2)
 })
