@@ -1,3 +1,5 @@
+//go:build !windows
+
 // SPDX-License-Identifier: MIT
 
 // Package cluster builds the foundation acceptance fixture: one add-on owner
@@ -290,3 +292,4 @@ func (c *Config) Carrier(name string) (*gateway.CarrierConfig, error) {
 		Certificate: pair, Roots: roots, Pins: pins, SigningKey: ed25519.PrivateKey(signRaw), VerificationKeys: keys,
 	}, nil
 }
+

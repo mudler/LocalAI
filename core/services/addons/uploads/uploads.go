@@ -20,6 +20,8 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
 )
 
 var (
@@ -104,7 +106,12 @@ func (s *Store) dir() (string, error) {
 		return "", err
 	}
 	info, err := os.Lstat(s.Root)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return "", errors.New("uploads: root must be a private directory")
+	}
+	// Windows has no mode bits: RequirePrivate checks the Unix mode there and
+	// makes the folder private to the user on Windows.
+	if _, err := fsperm.RequirePrivate(s.Root, info); err != nil {
 		return "", errors.New("uploads: root must be a private directory")
 	}
 	return s.Root, nil

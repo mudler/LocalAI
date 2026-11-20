@@ -65,18 +65,25 @@ add-on.
   the capability is not sensitive: a listed or paired sender holds it, and it is on by
   default (in the usual set, and added to existing bindings once). A wait can also
   run a shell command for each check (`script`); it needs a chat that can run
-  commands, so a connector chat needs an agent, and the model shows the sender the
+  commands, so a connector chat needs an agent, and it needs a paired sender even
+  though a listed sender holds `loops.wait`. The model shows the sender the
   command it armed (see [Chats]({{% relref "/features/chats-and-agents/chats" %}})). `loops.start`
   lets the model start a loop (`start_loop`, then `schedule_next` and `loop_done`).
   Each run of a loop is a model call that nobody asked for at that moment, so the
   capability is sensitive: only a paired sender holds it, and a bot that accepts
   anyone never gives it to an unpaired sender. `loops.start` is off by default and never part of a
-  preset: the owner ticks it. A loop that a connector chat started ends after a fifth of
-  the run limit, as a loop of a trigger does. See [Loops]({{% relref "/features/chats-and-agents/chats-loops#loops-repeat-a-prompt-in-a-chat" %}}).
+  preset: the owner turns it on. A loop that a connector chat started ends after a fifth of
+  the run limit, as a loop of a trigger does. The connection page shows the two
+  as switches of their own, **Let the agent wait for a change** and **Let the agent
+  run on a timer**, apart from the table of who can do what. Both belong to the
+  bot alone: a role never holds them, even when the kind lists them (the kind
+  list marks them `binding_only`). Waits count against the loops and waits a chat
+  and a user may have. See [Loops]({{% relref "/features/chats-and-agents/chats-loops#loops-repeat-a-prompt-in-a-chat" %}}).
 - **Roles and grants** (`grants`). An add-on can declare roles, such as the admins of
   a workspace, and report the roles of each sender. You map a role to capabilities
   with `grants: [{"role", "caps"}]`. A grant is within `caps`, within what the kind
-  lists as `permissions`, and never a sensitive capability. The kind list
+  lists as `permissions`, and never a sensitive or a binding-only capability
+  (`loops.wait`, `loops.start`). The kind list
   (`GET /api/chats/connectors/kinds`) shows each kind's `roles` and `permissions`.
 - **Pairing.** Only a sender you pair may use the sensitive capabilities. Ask for a code
   with `POST /api/chats/connectors/<id>/pairing`; send it as a direct message to the

@@ -25,6 +25,7 @@ const (
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
 	vulkan            = "vulkan"
+	windows           = "windows"
 
 	nvidiaCuda13    = "nvidia-cuda-13"
 	nvidiaCuda12    = "nvidia-cuda-12"
@@ -36,15 +37,16 @@ const (
 	defaultRunFile       = "/run/localai/capability"
 
 	// Backend detection tokens (private)
-	backendTokenDarwin = "darwin"
-	backendTokenMLX    = "mlx"
-	backendTokenMetal  = "metal"
-	backendTokenL4T    = "l4t"
-	backendTokenCUDA   = "cuda"
-	backendTokenROCM   = "rocm"
-	backendTokenHIP    = "hip"
-	backendTokenSYCL   = "sycl"
-	backendTokenCPU    = "cpu"
+	backendTokenDarwin  = "darwin"
+	backendTokenMLX     = "mlx"
+	backendTokenMetal   = "metal"
+	backendTokenL4T     = "l4t"
+	backendTokenCUDA    = "cuda"
+	backendTokenROCM    = "rocm"
+	backendTokenHIP     = "hip"
+	backendTokenSYCL    = "sycl"
+	backendTokenCPU     = "cpu"
+	backendTokenWindows = "windows"
 
 	// Engine names (private). Unlike the tokens above these are whole backend
 	// identities as a gallery entry's `backend:` field spells them, not build
@@ -117,6 +119,9 @@ var backendBuildTagPreferenceRules = []backendPreferenceRule{
 	{metal, []string{backendTokenMetal, backendTokenCPU}},
 	{darwinX86, []string{darwinX86, backendTokenCPU}},
 	{vulkan, []string{vulkan, backendTokenCPU}},
+	// Windows ships native windows/amd64 backend builds; prefer them over the
+	// Linux CPU builds, which cannot run on a Windows host.
+	{windows, []string{backendTokenWindows, backendTokenCPU}},
 }
 
 // defaultBackendBuildTagTokens is what a host with no matching rule prefers.
@@ -184,6 +189,11 @@ var engineNamePreferenceRules = []backendPreferenceRule{
 	// IsBackendCompatible admits any darwin-tokened engine on this capability
 	// and will not drop it.
 	{darwinX86, []string{engineLlamaCpp, engineVLLM, engineSGLang}},
+	// A Windows host runs exactly the native llama.cpp build; vLLM and SGLang
+	// do not publish windows/amd64 images, so ranking them above llama.cpp
+	// (or even equal to it) could auto-select an engine a Windows host cannot
+	// run whenever a variant set is offered.
+	{windows, []string{engineLlamaCpp}},
 }
 
 // defaultEnginePreferenceTokens is empty on purpose. It is now only reached by
@@ -321,6 +331,14 @@ func PickCapability(reportedCapability string, capMap map[string]string) string 
 		return reportedCapability
 	}
 
+	// A Windows host can only run a native Windows build. Falling back to the
+	// "default" or "cpu" entry would pick a Linux image, so report the missing
+	// key and let the caller treat the meta backend as having no target.
+	if reportedCapability == windows {
+		xlog.Debug("No Windows target in the meta backend", "capMap", capMap)
+		return reportedCapability
+	}
+
 	// Fall back to the explicit "default" catch-all, then to "cpu". The cpu
 	// fallback matters for meta backends that only enumerate GPU variants +
 	// cpu (e.g. vllm maps nvidia/amd/intel/cpu but not default): on a
@@ -381,6 +399,15 @@ func (s *SystemState) getSystemCapabilities() string {
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
 		xlog.Info("Using darwin-x86 capability (amd64 on mac)", "env", capabilityEnv)
 		s.systemCapabilities = darwinX86
+		return s.systemCapabilities
+	}
+
+	// Windows backends are published as native windows/amd64 OCI images, so a
+	// Windows host gets its own capability to select them deterministically
+	// instead of falling through to "default" and racing the Linux CPU builds.
+	if runtime.GOOS == "windows" {
+		xlog.Info("Using windows capability", "env", capabilityEnv)
+		s.systemCapabilities = windows
 		return s.systemCapabilities
 	}
 
@@ -496,6 +523,13 @@ func (s *SystemState) IsBackendCompatible(name, uri string) bool {
 	combined := strings.ToLower(name + " " + uri)
 	capability := s.getSystemCapabilities()
 
+	// A Windows host runs only native Windows builds. Every other backend is a
+	// Linux or macOS image, so the "CPU backends are always compatible" rule at
+	// the end of this function must not apply to it.
+	if capability == windows {
+		return strings.Contains(combined, backendTokenWindows)
+	}
+
 	// Check for darwin/macOS-specific backends (mlx, metal, darwin)
 	isDarwinBackend := strings.Contains(combined, backendTokenDarwin) ||
 		strings.Contains(combined, backendTokenMLX) ||
@@ -503,6 +537,11 @@ func (s *SystemState) IsBackendCompatible(name, uri string) bool {
 	if isDarwinBackend {
 		// Darwin backends require the system to be running on darwin with metal or darwin-x86 capability
 		return capability == metal || capability == darwinX86
+	}
+
+	// A Windows build is not usable on any other host.
+	if strings.Contains(combined, backendTokenWindows) {
+		return false
 	}
 
 	// Check for NVIDIA L4T-specific backends (arm64 Linux with NVIDIA GPU)

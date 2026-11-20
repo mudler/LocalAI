@@ -22,6 +22,9 @@ func SetupTestDB() *gorm.DB {
 	if runtime.GOOS == "darwin" {
 		Skip("testcontainers requires Docker, not available on macOS CI")
 	}
+	if runtime.GOOS == "windows" {
+		Skip("testcontainers requires Docker, not available on Windows CI")
+	}
 	ctx := context.Background()
 	pgC, err := tcpostgres.Run(ctx, "postgres:16",
 		tcpostgres.WithDatabase("testdb"),

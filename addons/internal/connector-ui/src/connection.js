@@ -3,7 +3,7 @@
 // No React, so a node test drives it. Nothing here decides what a sender may
 // do: a preset only sets the ceiling (caps) the way "Reset to the usual set"
 // always did, and the host works out what follows from it.
-import { agentHeld, duplicateOther, usualFor, withUsualCaps } from './connector.js'
+import { agentHeld, duplicateOther, loopCaps, matrixCaps, usualFor, withUsualCaps } from './connector.js'
 
 // ---- The state of a connection ----------------------------------------------
 
@@ -107,11 +107,14 @@ export const PRESETS = ['answer', 'standard', 'custom']
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x))
 
 // The preset that describes a form now: no permission is 'answer', exactly the
-// usual set for the agent is 'standard', anything else is 'custom'.
+// usual set for the agent is 'standard', anything else is 'custom'. The two
+// loop switches (binding-only) do not count: they are set apart from the
+// matrix, and turning one does not move the form to Custom.
 export function presetOf(form, capabilities, agent) {
-  const caps = form?.caps || []
+  const loop = new Set(loopCaps(capabilities).map((c) => c.name))
+  const caps = (form?.caps || []).filter((x) => !loop.has(x))
   if (caps.length === 0 && (form?.grants || []).length === 0) return 'answer'
-  const usual = usualFor(capabilities, agentHeld(agent)).caps
+  const usual = usualFor(capabilities, agentHeld(agent)).caps.filter((x) => !loop.has(x))
   return sameSet(caps, usual) && (form?.grants || []).every((g) => g.caps.every((x) => usual.includes(x))) ? 'standard' : 'custom'
 }
 
@@ -127,5 +130,5 @@ export function applyPreset(form, preset, capabilities, agent) {
 // the order of the host's list, to say in words what it gives.
 export function standardTitles(capabilities, agent) {
   const caps = usualFor(capabilities, agentHeld(agent)).caps
-  return (capabilities || []).filter((c) => caps.includes(c.name)).map((c) => c.title)
+  return matrixCaps(capabilities).filter((c) => caps.includes(c.name)).map((c) => c.title)
 }

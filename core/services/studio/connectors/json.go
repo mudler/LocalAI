@@ -3,7 +3,6 @@ package connectors
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +12,8 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/atomicfile"
+	"github.com/mudler/LocalAI/pkg/fsperm"
+	"github.com/mudler/xlog"
 )
 
 // jsonStore keeps everything in memory and, with a directory, in connectors.json
@@ -272,11 +273,17 @@ func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)
 		return append([]byte(nil), s.key...), nil
 	}
 	if s.keyPath != "" {
-		st, err := os.Stat(s.keyPath)
+		_, err := os.Stat(s.keyPath)
 		switch {
 		case err == nil:
-			if st.Mode().Perm()&0o077 != 0 {
-				return nil, errors.New("connectors: the key file can be read by others; run chmod 600 on it")
+			// On Windows a key file written before LocalAI set access
+			// control lists is made private instead of refused.
+			restricted, err := fsperm.CheckOrRestrict(s.keyPath)
+			if err != nil {
+				return nil, fmt.Errorf("connectors: the key file: %w", err)
+			}
+			if restricted {
+				xlog.Warn("Other users could open the connectors key file; it is now private", "path", s.keyPath)
 			}
 			k, err := os.ReadFile(s.keyPath)
 			if err != nil || len(k) != KeySize {
@@ -293,7 +300,7 @@ func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)
 		return nil, err
 	}
 	if s.keyPath != "" {
-		if err := os.WriteFile(s.keyPath, k, 0o600); err != nil {
+		if err := fsperm.WriteFile(s.keyPath, k, 0o600); err != nil {
 			return nil, err
 		}
 	}

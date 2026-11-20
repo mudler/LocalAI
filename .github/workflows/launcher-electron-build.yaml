@@ -1,5 +1,5 @@
-# Builds, checks and smoke-tests the Electron launcher (launcher/), then keeps
-# the packages as workflow artifacts. Called by launcher-electron-release.yaml
+# Builds, checks and smoke-tests the Electron launcher (launcher/) for Linux,
+# macOS and Windows, then keeps the packages as workflow artifacts. Called by launcher-electron-release.yaml
 # (tags) and launcher-electron-dev.yaml (master, pull requests, manual runs).
 # It never writes to a release: the release workflow has a separate upload job.
 # See launcher/README.md, "Packaging and CI".
@@ -13,7 +13,7 @@ on:
         type: string
         required: true
       artifact-prefix:
-        description: Prefix of the artifact names (<prefix>-linux-amd64, -linux-arm64, -macos-arm64)
+        description: Prefix of the artifact names (<prefix>-linux-amd64, -linux-arm64, -macos-arm64, -windows-amd64)
         type: string
         required: true
       linux-arm64:
@@ -22,16 +22,19 @@ on:
       macos:
         type: boolean
         default: true
+      windows:
+        type: boolean
+        default: true
       sign-macos:
         description: Sign and notarize the macOS app and the DMG. Without the secrets, the build is unsigned and says so, unless require-signing is set.
         type: boolean
         default: false
       require-signing:
-        description: Release builds. The job fails when a signing or notarization secret is missing, so it never makes an unsigned DMG. Needs sign-macos.
+        description: Release builds. The job fails when a macOS signing or notarization secret is missing, so it never makes an unsigned DMG. Needs sign-macos. Windows signing is never required (see the windows job).
         type: boolean
         default: false
       feed:
-        description: Keep the update feed files (latest-*.yml), blockmaps and the macOS zip. Releases only.
+        description: Keep the update feed files (latest-*.yml, latest.yml), blockmaps and the macOS zip. Releases only.
         type: boolean
         default: false
       upload:
@@ -51,6 +54,12 @@ on:
       MACOS_NOTARY_KEY_ID:
         required: false
       MACOS_NOTARY_ISSUER_ID:
+        required: false
+      # A code signing certificate for Windows: a base64 .pfx file and its
+      # password. Optional: without them the Windows build is unsigned.
+      WINDOWS_CERTIFICATE:
+        required: false
+      WINDOWS_CERTIFICATE_PWD:
         required: false
 
 permissions:
@@ -351,6 +360,175 @@ jobs:
         if: inputs.upload
         with:
           name: ${{ inputs.artifact-prefix }}-macos-arm64
+          path: launcher/keep/
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
+
+  windows:
+    name: Installer and zip x64 (Windows)
+    if: inputs.windows
+    # x64 only: the release has no windows/arm64 server.
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: launcher/package-lock.json
+      # The full unit suite runs in the Linux and macOS jobs: much of it
+      # starts POSIX process groups and reads /proc or ps. Here: the type check,
+      # the Windows tests with fakes, and the tests that need a Windows host.
+      - name: Install, type-check and unit-test
+        working-directory: launcher
+        run: |
+          npm ci
+          npm run typecheck
+          npx vitest run test/windows.test.ts test/windowsHost.test.ts test/builderConfig.test.ts
+      # Signing is optional for Windows. With both secrets, electron-builder
+      # signs the app, the installer and the uninstaller with signtool and a
+      # timestamp. Without them the build is unsigned and says so: SmartScreen
+      # then warns on the first start (see the Windows install page).
+      - name: Prepare signing
+        id: signing
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}
+        run: |
+          if [ -n "$WINDOWS_CERTIFICATE" ] && [ -n "$WINDOWS_CERTIFICATE_PWD" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PWD are not both available. The Windows installer is not signed."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build the installer and the zip
+        working-directory: launcher
+        env:
+          SIGNED: ${{ steps.signing.outputs.signed }}
+          WIN_CSC_LINK: ${{ steps.signing.outputs.signed == 'true' && secrets.WINDOWS_CERTIFICATE || '' }}
+          WIN_CSC_KEY_PASSWORD: ${{ steps.signing.outputs.signed == 'true' && secrets.WINDOWS_CERTIFICATE_PWD || '' }}
+        run: |
+          args=()
+          if [ "$SIGNED" != true ]; then
+            # Never pick a certificate from the runner's store.
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
+          fi
+          if [[ "$LAUNCHER_VERSION" == *-dev.* ]]; then
+            args+=("-c.nsis.artifactName=LocalAI-Launcher-dev-Setup-\${arch}.\${ext}")
+            args+=("-c.win.artifactName=LocalAI-Launcher-dev-win-\${arch}.\${ext}")
+          fi
+          npm run build
+          npx electron-builder --win nsis zip --x64 --publish never \
+            "-c.extraMetadata.version=$LAUNCHER_VERSION" "${args[@]}"
+          ls -l release
+      - name: Check the signatures
+        if: steps.signing.outputs.signed == 'true'
+        working-directory: launcher/release
+        shell: pwsh
+        run: |
+          foreach ($f in @((Get-ChildItem -Filter '*Setup*.exe').FullName, (Resolve-Path 'win-unpacked/local-ai-launcher.exe').Path)) {
+            $sig = Get-AuthenticodeSignature -FilePath $f
+            Write-Host "$f : $($sig.Status) $($sig.SignerCertificate.Subject)"
+            if ($sig.Status -ne 'Valid') { throw "$f is not validly signed" }
+          }
+      - name: Write the checksums
+        working-directory: launcher/release
+        run: |
+          setup=$(ls ./*Setup*.exe); zip=$(ls ./*-win-*.zip)
+          [ "$(echo "$setup" | wc -l)" -eq 1 ] || { echo "expected one installer, got: $setup"; exit 1; }
+          setup=$(basename "$setup"); zip=$(basename "$zip")
+          sha256sum "$setup" > "$setup.sha256"
+          sha256sum "$zip" > "$zip.sha256"
+          cat ./*.sha256
+          grep -q "^version: $LAUNCHER_VERSION$" latest.yml
+          grep -q "^path: $setup$" latest.yml
+          { echo "SETUP=$setup"; echo "WINZIP=$zip"; } >> "$GITHUB_ENV"
+      # Install as a user does (a silent per-user install), then run the
+      # smoke on the installed app.
+      - name: Install the launcher
+        working-directory: launcher/release
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath ".\$env:SETUP" -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "the installer failed with $($p.ExitCode)" }
+          # A per-user one-click install goes to Programs\<package name>, not
+          # to the product name, so find the folder instead of assuming it.
+          $programs = Join-Path $env:LOCALAPPDATA 'Programs'
+          $found = @(Get-ChildItem -Path $programs -Filter 'local-ai-launcher.exe' -Recurse -File -ErrorAction SilentlyContinue)
+          if ($found.Count -ne 1) {
+            Get-ChildItem -Path $programs -Recurse -Depth 1 | ForEach-Object { Write-Host $_.FullName }
+            throw "expected one local-ai-launcher.exe under $programs, found $($found.Count)"
+          }
+          $exe = $found[0].FullName
+          Write-Host "installed at $exe"
+          $dir = $found[0].DirectoryName
+          Get-ChildItem -Path $dir | ForEach-Object { Write-Host $_.Name }
+          # The uninstaller is named after the install folder, so match it.
+          $un = @(Get-ChildItem -Path $dir -Filter 'Uninstall*.exe' -File)
+          if ($un.Count -ne 1) { throw "expected one uninstaller in $dir, found $($un.Count)" }
+          "APP_WIN=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Smoke-test the installed app
+        working-directory: launcher
+        env:
+          SMOKE_DIR: ${{ runner.temp }}/smoke
+          SMOKE_FEED_FILE: release/latest.yml
+          SMOKE_SELF_UPDATE: ${{ contains(inputs.version, '-dev.') && 'off' || 'check' }}
+        run: bash scripts/smoke-packaged.sh "$(cygpath -u "$APP_WIN")"
+      # Evidence for a failed smoke: start the installed app with one part of
+      # the smoke test's environment at a time, to see which part kills it.
+      - name: Windows start diagnostics
+        if: failure()
+        working-directory: launcher/release
+        shell: pwsh
+        run: |
+          $env:ELECTRON_ENABLE_LOGGING = '1'
+          $env:ELECTRON_ENABLE_STACK_DUMPING = '1'
+          $scratch = Join-Path $env:RUNNER_TEMP 'diag'
+          New-Item -ItemType Directory -Force -Path "$scratch\home", "$scratch\tmp" | Out-Null
+          function Try-Start($label, [hashtable]$vars, [string[]]$appArgs) {
+            $saved = @{}
+            foreach ($k in $vars.Keys) { $saved[$k] = [Environment]::GetEnvironmentVariable($k); [Environment]::SetEnvironmentVariable($k, $vars[$k]) }
+            $out = "$scratch\out.txt"; $err = "$scratch\err.txt"
+            $a = @{ FilePath = $env:APP_WIN; PassThru = $true; RedirectStandardOutput = $out; RedirectStandardError = $err }
+            if ($appArgs) { $a.ArgumentList = $appArgs }
+            $p = Start-Process @a
+            Start-Sleep -Seconds 8
+            if ($p.HasExited) { Write-Host "[$label] EXITED with $($p.ExitCode)"; Get-Content $err -ErrorAction SilentlyContinue | Select-Object -First 6 } else { Write-Host "[$label] running after 8 s"; Stop-Process -Id $p.Id -Force }
+            foreach ($k in $vars.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k]) }
+          }
+          Try-Start 'plain, sandbox on' @{} $null
+          Try-Start 'USERPROFILE TEMP TMP' @{ USERPROFILE = "$scratch\home"; TEMP = "$scratch\tmp"; TMP = "$scratch\tmp" } $null
+          Try-Start 'signal file' @{ LOCALAI_LAUNCHER_SIGNAL_FILE = "$scratch\signal.txt" } $null
+          Try-Start 'HOME XDG TMPDIR posix' @{ HOME = '/d/diag/home'; XDG_CONFIG_HOME = '/d/diag/home/.config'; TMPDIR = '/d/diag/tmp' } $null
+          Try-Start 'endpoint' @{ LOCALAI_LAUNCHER_ENDPOINT = 'http://127.0.0.1:18082' } $null
+          Write-Host '=== from Git Bash, as the smoke test starts it'
+          & 'C:\Program Files\Git\bin\bash.exe' -c '"$APP_WIN" > "$RUNNER_TEMP/diag/bash.log" 2>&1 & p=$!; sleep 8; if kill -0 $p 2>/dev/null; then echo "[bash] running after 8 s"; kill $p; else wait $p; echo "[bash] EXITED with $?"; head -n 6 "$RUNNER_TEMP/diag/bash.log"; fi'
+      - name: Choose the files to keep
+        if: inputs.upload
+        working-directory: launcher/release
+        env:
+          FEED: ${{ inputs.feed }}
+        run: |
+          mkdir -p ../keep
+          cp "$SETUP" "$SETUP.sha256" "$WINZIP" "$WINZIP.sha256" ../keep/
+          if [ "$FEED" = true ]; then
+            # The updater downloads the installer that latest.yml names.
+            cp latest.yml ../keep/
+            cp "$SETUP.blockmap" ../keep/ 2>/dev/null || true
+          fi
+          ls -l ../keep
+      - uses: actions/upload-artifact@v7
+        if: inputs.upload
+        with:
+          name: ${{ inputs.artifact-prefix }}-windows-amd64
           path: launcher/keep/
           if-no-files-found: error
           retention-days: ${{ inputs.retention-days }}

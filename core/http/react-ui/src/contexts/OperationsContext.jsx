@@ -104,13 +104,31 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
 
   useEffect(() => {
     if (!isAdmin) return
-    fetchOperations()
-    intervalRef.current = setInterval(fetchOperations, pollInterval)
-    return () => {
+    // Nobody sees the operations of a hidden tab: the timer stops while it
+    // is hidden and one read catches up when it is shown again.
+    const stop = () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
         intervalRef.current = null
       }
+    }
+    const start = () => {
+      if (!intervalRef.current) intervalRef.current = setInterval(fetchOperations, pollInterval)
+    }
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop()
+      } else {
+        fetchOperations()
+        start()
+      }
+    }
+    fetchOperations()
+    if (!document.hidden) start()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [fetchOperations, pollInterval, isAdmin])
 
@@ -163,7 +181,7 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
     return withEta
   }, [operations])
 
-  const value = {
+  const value = useMemo(() => ({
     operations: operationsWithEta,
     loading,
     error,
@@ -175,7 +193,7 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
     pauseOperation,
     dismissFailedOp,
     refetch: fetchOperations,
-  }
+  }), [operationsWithEta, loading, error, history, historyLoading, fetchHistory, clearHistory, cancelOperation, pauseOperation, dismissFailedOp, fetchOperations])
 
   return <OperationsContext.Provider value={value}>{children}</OperationsContext.Provider>
 }

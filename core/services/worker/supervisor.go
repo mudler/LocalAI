@@ -535,7 +535,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 			s.mu.Unlock()
 			return "", fmt.Errorf("backend %s is stopping", backend)
 		}
-		if bp.proc != nil && bp.proc.IsAlive() {
+		if bp.proc != nil && model.ProcessAlive(bp.proc) {
 			s.mu.Unlock()
 			return bp.addr, nil
 		}
@@ -610,7 +610,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		// An answer only counts when the process this worker started is still
 		// alive. A child that lost the bind to an orphan exits at once, and the
 		// orphan's answer is not its own.
-		if ok && !proc.IsAlive() {
+		if ok && !model.ProcessAlive(proc) {
 			ok = false
 		}
 		if ok {
@@ -630,7 +630,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		cancel()
 
 		// Check if the process died (e.g. OOM, CUDA error, missing libs)
-		if !proc.IsAlive() {
+		if !model.ProcessAlive(proc) {
 			stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
 			xlog.Warn("Backend process died during startup", "backend", backend, "healthError", lastHealthErr, "stderr", stderrTail)
 			s.releaseBackendStart(backend, bp)
@@ -1089,7 +1089,7 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 	if current, exists := s.processes[key]; !exists || current != bp {
 		return nil
 	}
-	if stopErr != nil && bp.proc.IsAlive() {
+	if stopErr != nil && model.ProcessAlive(bp.proc) {
 		bp.stopping = false
 		return fmt.Errorf("stopping backend process %s: %w", key, stopErr)
 	}
@@ -1143,7 +1143,7 @@ func (s *backendSupervisor) isRunning(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, key := range keys {
-		if bp, ok := s.processes[key]; ok && bp.proc != nil && bp.proc.IsAlive() {
+		if bp, ok := s.processes[key]; ok && bp.proc != nil && model.ProcessAlive(bp.proc) {
 			return true
 		}
 	}

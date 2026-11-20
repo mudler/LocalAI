@@ -70,6 +70,20 @@
 .st-row__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
 .st-row__label { font: var(--dk-weight-semibold) var(--dk-text-15) / 1.3 var(--dk-font-body); color: var(--dk-text); }
 .st-row__desc { margin: 0; max-width: 72ch; font-size: var(--dk-text-13); line-height: 1.5; color: var(--dk-muted); }
+.st-row__extra { margin-top: var(--dk-space-1); color: var(--dk-text); }
+
+/* ---- Advanced limits of a block (a disclosure after its other fields) ----- */
+.st-advanced { margin-top: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-2); background: var(--dk-card); }
+.st-advanced__summary {
+  display: flex; align-items: center; gap: var(--dk-space-2); min-height: var(--ctl-h, 36px); padding: var(--dk-space-2) var(--dk-space-4);
+  cursor: pointer; list-style: none; font: var(--dk-weight-semibold) var(--dk-text-13) / 1.3 var(--dk-font-body); color: var(--dk-text);
+}
+.st-advanced__summary::-webkit-details-marker { display: none; }
+.st-advanced__summary::before { content: "\203A"; display: inline-block; width: 1em; text-align: center; color: var(--dk-muted); transition: transform .15s ease; }
+.st-advanced[open] > .st-advanced__summary::before { transform: rotate(90deg); }
+.st-advanced__summary:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: var(--dk-radius-2); }
+.st-advanced > .st-list { padding: 0 var(--dk-space-4) var(--dk-space-2); border-top: 1px solid var(--dk-edge); }
+@media (prefers-reduced-motion: reduce) { .st-advanced__summary::before { transition: none; } }
 .st-row__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-1) var(--dk-space-3); margin-top: 2px; font-size: var(--dk-text-12); color: var(--dk-muted); }
 .st-key { font: var(--dk-text-12) / 1.4 var(--dk-font-mono); color: var(--dk-muted); overflow-wrap: anywhere; }
 .st-where { color: var(--dk-muted); }

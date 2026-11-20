@@ -31,7 +31,7 @@ type Config struct {
 
 	PreferDevelopmentBackends bool   `env:"LOCALAI_PREFER_DEV_BACKENDS,PREFER_DEV_BACKENDS" default:"false" help:"Prefer compatible installed development aliases and development downloads (worker-local; restart to apply)" group:"server"`
 	BackendsPath              string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends" group:"server"`
-	BackendsSystemPath        string `env:"LOCALAI_BACKENDS_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends" group:"server"`
+	BackendsSystemPath        string `env:"LOCALAI_BACKENDS_SYSTEM_PATH" type:"path" default:"${backendssystempath}" help:"Path containing system backends" group:"server"`
 	BackendGalleries          string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"server" default:"${backends}"`
 	Galleries                 string `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of model galleries (used to resolve --prefetch-models on boot)" group:"server" default:"${galleries}"`
 	ModelsPath                string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models" group:"server"`

@@ -12,6 +12,7 @@ import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { normalizeAddress } from './network'
+import { homeLayout, type LauncherLayout } from './paths'
 
 /** The keys the Go launcher wrote, with the same names and the same order. */
 export interface LauncherConfig {
@@ -46,6 +47,8 @@ export interface ConfigOptions {
   path?: string
   /** Home directory used for defaults. Default: os.homedir(). */
   home?: string
+  /** Folders for defaults (paths.ts). Default: <home>/.localai for all. */
+  layout?: LauncherLayout
   /** Receives key names and outcomes only. */
   log?: ConfigLog
   now?: () => Date
@@ -64,18 +67,18 @@ export interface LoadResult {
   invalidKeys: string[]
 }
 
-export function defaultConfigPath(home: string = os.homedir()): string {
-  return path.join(home, '.localai', 'launcher.json')
+export function defaultConfigPath(home: string = os.homedir(), layout: LauncherLayout = homeLayout(home)): string {
+  return path.join(layout.launcherDir, 'launcher.json')
 }
 
-/** Port of Launcher.GetDataPath: the parent of the models folder, else <home>/.localai. */
-export function dataPath(config: Pick<LauncherConfig, 'models_path'> | undefined, home: string = os.homedir()): string {
+/** Port of Launcher.GetDataPath: the parent of the models folder, else the default data folder. */
+export function dataPath(config: Pick<LauncherConfig, 'models_path'> | undefined, home: string = os.homedir(), layout: LauncherLayout = homeLayout(home)): string {
   if (config && config.models_path) return path.dirname(config.models_path)
-  return path.join(home, '.localai')
+  return layout.dataDir
 }
 
-export function defaultConfig(home: string = os.homedir()): LauncherConfig {
-  return migrate({}, { home }).config
+export function defaultConfig(home: string = os.homedir(), layout?: LauncherLayout): LauncherConfig {
+  return migrate({}, { home, layout }).config
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -92,8 +95,9 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
  * A value of the wrong type falls back to the default and is named in
  * `invalidKeys`.
  */
-export function migrate(raw: unknown, opts: { home?: string } = {}): { config: LauncherConfig; invalidKeys: string[] } {
+export function migrate(raw: unknown, opts: { home?: string; layout?: LauncherLayout } = {}): { config: LauncherConfig; invalidKeys: string[] } {
   const home = opts.home ?? os.homedir()
+  const layout = opts.layout ?? homeLayout(home)
   const src = isObject(raw) ? raw : {}
   const invalid: string[] = []
 
@@ -133,8 +137,8 @@ export function migrate(raw: unknown, opts: { home?: string } = {}): { config: L
 
   return {
     config: {
-      models_path: str('models_path', path.join(home, '.localai', 'models')),
-      backends_path: str('backends_path', path.join(home, '.localai', 'backends')),
+      models_path: str('models_path', path.join(layout.dataDir, 'models')),
+      backends_path: str('backends_path', path.join(layout.dataDir, 'backends')),
       address: normalizeAddress(str('address', '127.0.0.1:8080')),
       auto_start_server: bool('auto_start_server', true),
       start_on_boot: bool('start_on_boot', false),
@@ -166,7 +170,7 @@ export function serializeConfig(config: LauncherConfig): string {
 }
 
 function resolvePath(opts: ConfigOptions): string {
-  return opts.path ?? defaultConfigPath(opts.home)
+  return opts.path ?? defaultConfigPath(opts.home, opts.layout)
 }
 
 function pad(n: number): string {
@@ -188,13 +192,13 @@ export async function loadConfig(opts: ConfigOptions = {}): Promise<LoadResult> 
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
       log('config: no file, using defaults')
-      return { config: defaultConfig(opts.home), status: 'missing', invalidKeys: [] }
+      return { config: defaultConfig(opts.home, opts.layout), status: 'missing', invalidKeys: [] }
     }
     // Unreadable (permissions, a directory). Do not move it: report and use defaults.
     const code = (e as NodeJS.ErrnoException).code ?? 'error'
     log(`config: cannot read file (${code}), using defaults`)
     return {
-      config: defaultConfig(opts.home),
+      config: defaultConfig(opts.home, opts.layout),
       status: 'recovered',
       reason: `config file could not be read (${code})`,
       invalidKeys: [],
@@ -222,7 +226,7 @@ export async function loadConfig(opts: ConfigOptions = {}): Promise<LoadResult> 
     }
     log(`config: ${reason}, ${moved ? 'moved aside' : 'left in place'}, using defaults`)
     return {
-      config: defaultConfig(opts.home),
+      config: defaultConfig(opts.home, opts.layout),
       status: 'recovered',
       reason,
       backupPath: moved ? backupPath : undefined,
@@ -230,7 +234,7 @@ export async function loadConfig(opts: ConfigOptions = {}): Promise<LoadResult> 
     }
   }
 
-  const { config, invalidKeys } = migrate(parsed, { home: opts.home })
+  const { config, invalidKeys } = migrate(parsed, { home: opts.home, layout: opts.layout })
   const present = Object.keys(parsed as Record<string, unknown>)
   log(`config: loaded keys [${present.join(', ')}]`)
   if (invalidKeys.length) log(`config: wrong type, default used for [${invalidKeys.join(', ')}]`)

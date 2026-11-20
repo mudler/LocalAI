@@ -1,4 +1,5 @@
 // Turns electron-updater events into one status shape. No Electron import.
+import path from 'node:path'
 import type { UpdaterStatus } from '../shared/types'
 
 export type RawUpdaterEvent =
@@ -47,7 +48,7 @@ export function launcherUpdateAction(s: UpdaterStatus): LauncherUpdateAction {
 
 export type SelfUpdateGate =
   | { enabled: true; feedUrl?: string }
-  | { enabled: false; reason: 'unpackaged' | 'dev-build' }
+  | { enabled: false; reason: 'unpackaged' | 'dev-build' | 'portable' }
 
 /** A development build from master: `<version>-dev.<run number>` (see the release flow). */
 const DEV_BUILD = /-dev\.\d+(?:[.+]|$)/
@@ -55,13 +56,32 @@ const DEV_BUILD = /-dev\.\d+(?:[.+]|$)/
 /**
  * Whether the launcher updates itself. Off in a run from source. Off in a
  * development build, which must never take a stable release from the
- * feed, unless a test feed is set (`LOCALAI_LAUNCHER_FEED_URL`).
+ * feed, and in the portable Windows zip, which has no installer to update
+ * it, unless a test feed is set (`LOCALAI_LAUNCHER_FEED_URL`).
  */
-export function selfUpdateGate(o: { packaged: boolean; version: string; feedUrl?: string }): SelfUpdateGate {
+export function selfUpdateGate(o: { packaged: boolean; version: string; feedUrl?: string; portable?: boolean }): SelfUpdateGate {
   if (!o.packaged) return { enabled: false, reason: 'unpackaged' }
   const feedUrl = o.feedUrl || undefined
   if (DEV_BUILD.test(o.version)) return feedUrl ? { enabled: true, feedUrl } : { enabled: false, reason: 'dev-build' }
+  if (o.portable) return feedUrl ? { enabled: true, feedUrl } : { enabled: false, reason: 'portable' }
   return feedUrl ? { enabled: true, feedUrl } : { enabled: true }
+}
+
+/**
+ * The uninstaller that the NSIS installer puts next to the launcher. Its name
+ * follows the install folder name ("Uninstall <folder>.exe"), which is the
+ * package name for a per-user install, so match the pattern, not one name.
+ */
+export const NSIS_UNINSTALLER = /^Uninstall .+\.exe$/i
+
+/**
+ * True for a Windows launcher that the installer did not install: the
+ * portable zip, unpacked anywhere. Only an installed launcher can update
+ * itself, because the update is the next installer. Other platforms: false.
+ */
+export function isPortableWindows(platform: NodeJS.Platform, execPath: string, listDir: (dir: string) => string[]): boolean {
+  if (platform !== 'win32') return false
+  return !listDir(path.win32.dirname(execPath)).some((f) => NSIS_UNINSTALLER.test(f))
 }
 
 /**

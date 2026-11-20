@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -53,7 +54,9 @@ var _ = Describe("carrier key set", func() {
 		dir := generate()
 		info, e := os.Stat(dir)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o700)))
+		if runtime.GOOS != "windows" { // Windows has no permission bits
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o700)))
+		}
 		entries, e := os.ReadDir(dir)
 		Expect(e).NotTo(HaveOccurred())
 		var names []string
@@ -61,7 +64,9 @@ var _ = Describe("carrier key set", func() {
 			names = append(names, entry.Name())
 			fi, e := entry.Info()
 			Expect(e).NotTo(HaveOccurred())
-			Expect(fi.Mode().Perm()).To(Equal(os.FileMode(0o600)), entry.Name())
+			if runtime.GOOS != "windows" { // Windows has no permission bits
+				Expect(fi.Mode().Perm()).To(Equal(os.FileMode(0o600)), entry.Name())
+			}
 		}
 		Expect(names).To(ConsistOf("ca.pem", "owner.pem", "owner.key", "frontend.pem", "frontend.key", "frontend-sign.key", "frontend-sign.pub"))
 	})
@@ -116,6 +121,9 @@ var _ = Describe("carrier key set", func() {
 	})
 
 	It("refuses a key file with group or other access", func() {
+		if runtime.GOOS == "windows" {
+			Skip("Windows has no group or other permission bits to set")
+		}
 		dir := generate()
 		Expect(os.Chmod(filepath.Join(dir, "owner.key"), 0o644)).To(Succeed())
 		_, e := LoadCarrierConfig(dir, "owner", "https://owner.example:8443")

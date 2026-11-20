@@ -18,7 +18,9 @@ import { menuBarVisible } from './menuModel'
 import { createTray, type LauncherTray } from './tray'
 import { decideClose, shouldStartVisible } from './trayPolicy'
 import { checkForLauncherUpdate, getUpdaterStatus, initSelfUpdate, installLauncherUpdate, setLauncherPrereleases } from './selfUpdate'
-import { GithubReleasesProvider, RedirectFirstProvider, type PlatformTarget } from './updateProvider'
+import { GithubReleasesProvider, RedirectFirstProvider } from './updateProvider'
+import { platformTarget } from './platform'
+import { resolveLayout } from './paths'
 import { findFreePort, hardwareSummary, portProcess } from './hostTools'
 import { externalUrl, partitionForOrigin } from './webuiPolicy'
 import { WebuiHost } from './webuiView'
@@ -59,12 +61,6 @@ let confirming = false
 let core: LauncherCore | undefined
 let notifier: DesktopNotifier | undefined
 let unreadCount = 0
-
-function platformTarget(): PlatformTarget | undefined {
-  const os = process.platform === 'linux' ? 'linux' : process.platform === 'darwin' ? 'darwin' : undefined
-  const arch = process.arch === 'x64' ? 'amd64' : process.arch === 'arm64' ? 'arm64' : undefined
-  return os && arch ? { os, arch } : undefined
-}
 
 /** Sends an event to the shell view only. The status bar choice also updates both menus; WebUI state changes the layout. */
 function emit<C extends EventChannel>(channel: C, payload: EventContract[C]): void {
@@ -413,6 +409,11 @@ function registerIpc(c: LauncherCore) {
   }
 }
 
+// Windows groups the taskbar button, the tray and notifications by this id.
+// It must match the appId of the installer (electron-builder.yml), which puts
+// the same id on the Start menu shortcut.
+if (process.platform === 'win32') app.setAppUserModelId('io.localai.launcher')
+
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
@@ -427,9 +428,10 @@ if (!gotLock) {
     const repo = 'LocalAI'
     core = new LauncherCore({
       home: os.homedir(),
+      layout: resolveLayout({ platform: process.platform, env: process.env, home: os.homedir(), exists: (p) => fs.existsSync(p) }),
       launcherVersion: app.getVersion(),
       env: process.env,
-      target: platformTarget(),
+      target: platformTarget(process.platform, process.arch),
       serverBinOverride: process.env.LOCALAI_LAUNCHER_SERVER_BIN,
       endpointOverride: process.env.LOCALAI_LAUNCHER_ENDPOINT,
       provider: new RedirectFirstProvider({ owner, repo }, new GithubReleasesProvider({ owner, repo }), (m) => core?.log(m, 'warn')),
@@ -496,7 +498,7 @@ if (!gotLock) {
     core.setStartedHidden(!shouldStartVisible(trayCreated, startHiddenRequested()))
     signal(`pid=${process.pid}`)
     signal(`tray=${trayCreated}`)
-    signal(`launcher-env-stripped-for-child=${Object.keys(process.env).filter(isStrippedVar).join(',')}`)
+    signal(`launcher-env-stripped-for-child=${Object.keys(process.env).filter((k) => isStrippedVar(k)).join(',')}`)
     signal(`sandbox=${!app.commandLine.hasSwitch('no-sandbox')}`)
     initSelfUpdate(
       (s) => {

@@ -3,6 +3,7 @@ package safefile_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +18,10 @@ var _ = Describe("ReadRegularAt", func() {
 		data, mode, err := safefile.ReadRegularAt(dir, "model.yaml")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(data).To(Equal([]byte("safe")))
-		Expect(mode).To(Equal(os.FileMode(0o640)))
+		if runtime.GOOS != "windows" {
+			// Windows has no group or other permission bits to report.
+			Expect(mode).To(Equal(os.FileMode(0o640)))
+		}
 	})
 
 	It("rejects symbolic links", func() {

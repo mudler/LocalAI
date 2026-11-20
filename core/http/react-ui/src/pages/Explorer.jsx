@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { keepIfSame } from '../utils/sameData'
+import { usePolling } from '../hooks/usePolling'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
@@ -181,18 +183,15 @@ export default function Explorer() {
         return
       }
       const data = await response.json()
-      setNetworks(sortNetworks(Array.isArray(data) ? data : []))
+      const next = sortNetworks(Array.isArray(data) ? data : [])
+      setNetworks(prev => keepIfSame(prev, next))
       setState('ready')
     } catch {
       setState(prev => (prev === 'ready' ? prev : 'error'))
     }
   }, [])
 
-  useEffect(() => {
-    load()
-    const timer = setInterval(load, POLL_MS)
-    return () => clearInterval(timer)
-  }, [load])
+  usePolling(load, POLL_MS)
 
   const listed = () => {
     setSheet(null)

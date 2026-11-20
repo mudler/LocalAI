@@ -35,7 +35,20 @@ fi
 # and fall back to slower paths. Point at the architecture folder when the bundle
 # carries exactly one and nothing at the top level; otherwise keep the directory.
 rocm_tensile_dir() {
-	local dir="$1"
+	local dir="$1" f v a
+	# ROCm 10 ships TensileLibrary data for many architectures: older ones at the
+	# top level, newer ones in per-architecture folders (library/gfx1151/...), and
+	# several of those. Take the folder of the GPU in this machine when the bundle
+	# carries one; the KFD topology names it (gfx_target_version 110501 -> gfx1151).
+	for f in "${ROCM_KFD_TOPOLOGY:-/sys/class/kfd/kfd/topology/nodes}"/*/properties; do
+		v=$(awk '$1=="gfx_target_version"{print $2}' "$f" 2>/dev/null)
+		[ -n "$v" ] && [ "$v" != 0 ] || continue
+		a=$(printf 'gfx%d%x%x' $((v / 10000)) $((v / 100 % 100)) $((v % 100)))
+		if [ -n "$(find "$dir/$a" -maxdepth 1 -type f -print -quit 2>/dev/null)" ]; then
+			echo "$dir/$a"
+			return
+		fi
+	done
 	if [ -z "$(find "$dir" -maxdepth 1 -type f -print -quit)" ]; then
 		set -- "$dir"/gfx*/
 		if [ "$#" -eq 1 ] && [ -d "$1" ]; then

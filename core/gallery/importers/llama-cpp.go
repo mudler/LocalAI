@@ -3,6 +3,7 @@ package importers
 import (
 	"context"
 	"encoding/json"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -259,10 +260,10 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		// Emit the model group first so cfg.Files[0] is the model — callers
 		// and tests rely on the model file preceding any mmproj companion.
 		if modelGroup != nil {
-			appendShardGroup(&cfg, *modelGroup, filepath.Join("llama-cpp", "models", name))
+			appendShardGroup(&cfg, *modelGroup, path.Join("llama-cpp", "models", name))
 		}
 		if group := pickPreferredGroup(mmprojGroups, mmprojQuantsList); group != nil {
-			appendShardGroup(&cfg, *group, filepath.Join("llama-cpp", "mmproj", name))
+			appendShardGroup(&cfg, *group, path.Join("llama-cpp", "mmproj", name))
 		}
 
 		// Find first mmproj file and configure it in the config file
@@ -560,7 +561,7 @@ func resolveHTTPProbe(uri string) string {
 // don't produce duplicates.
 func appendShardGroup(cfg *gallery.ModelConfig, group hfapi.ShardGroup, dest string) {
 	for _, f := range group.Files {
-		target := filepath.Join(dest, filepath.Base(f.Path))
+		target := path.Join(dest, filepath.Base(f.Path))
 		duplicate := false
 		for _, existing := range cfg.Files {
 			if existing.Filename == target {

@@ -198,7 +198,7 @@ func (v *fileStagingVerbs) listDir(_ context.Context, req workerctl.FileListDirR
 			if err != nil {
 				return err
 			}
-			files = append(files, rel)
+			files = append(files, filepath.ToSlash(rel))
 		}
 		return nil
 	}); err != nil {

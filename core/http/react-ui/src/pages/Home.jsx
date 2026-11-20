@@ -58,6 +58,7 @@ import { useWellKnown } from '../hooks/useWellKnown'
 import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
+import { keepIfSame } from '../utils/sameData'
 import { useOperations } from '../hooks/useOperations'
 import { useAddonHomeCommands } from '../addons/useAddonRegistry'
 import { projectHomeCommands } from '../addons/homeCommands'
@@ -370,15 +371,16 @@ export default function Home() {
           healthy: n.status === 'healthy',
         }
       })
-      setClusterData({
+      const next = {
         totalMem: isGPU ? totalVRAM : totalRAM,
         usedMem: isGPU ? usedVRAM : usedRAM,
         isGPU,
         healthyCount,
         totalCount,
         nodes: perNode,
-      })
-    } catch { setClusterData(null) }
+      }
+      setClusterData(prev => keepIfSame(prev, next))
+    } catch { /* one failed poll keeps the last good value on screen */ }
   }, [])
   usePolling(fetchCluster, 5000, { enabled: distributedMode })
 

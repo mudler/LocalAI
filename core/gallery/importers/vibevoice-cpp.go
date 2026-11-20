@@ -2,6 +2,7 @@ package importers
 
 import (
 	"encoding/json"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -142,7 +143,7 @@ func (i *VibeVoiceCppImporter) Import(details Details) (gallery.ModelConfig, err
 	// quants) don't collide on disk. Options[] paths are emitted relative to
 	// opts.ModelPath, which the backend resolves against the LocalAI models
 	// root in govibevoicecpp.go:resolvePath.
-	relDir := filepath.Join("vibevoice-cpp", name)
+	relDir := path.Join("vibevoice-cpp", name)
 
 	var primary []hfapi.ModelFile
 	switch role {
@@ -167,9 +168,9 @@ func (i *VibeVoiceCppImporter) Import(details Details) (gallery.ModelConfig, err
 			BasicModelRequest: schema.BasicModelRequest{Model: name + ".gguf"},
 		}
 		if role == "asr" {
-			modelConfig.Options = []string{"type=asr", "tokenizer=" + filepath.Join(relDir, "tokenizer.gguf")}
+			modelConfig.Options = []string{"type=asr", "tokenizer=" + path.Join(relDir, "tokenizer.gguf")}
 		} else {
-			modelConfig.Options = []string{"tokenizer=" + filepath.Join(relDir, "tokenizer.gguf")}
+			modelConfig.Options = []string{"tokenizer=" + path.Join(relDir, "tokenizer.gguf")}
 		}
 		data, err := yaml.Marshal(modelConfig)
 		if err != nil {
@@ -179,7 +180,7 @@ func (i *VibeVoiceCppImporter) Import(details Details) (gallery.ModelConfig, err
 		return cfg, nil
 	}
 
-	modelTarget := filepath.Join(relDir, filepath.Base(chosen.Path))
+	modelTarget := path.Join(relDir, filepath.Base(chosen.Path))
 	cfg.Files = append(cfg.Files, gallery.File{
 		URI:      chosen.URL,
 		Filename: modelTarget,
@@ -196,7 +197,7 @@ func (i *VibeVoiceCppImporter) Import(details Details) (gallery.ModelConfig, err
 		options = append(options, "type=asr")
 	}
 	if tok, ok := findFile(files, "tokenizer.gguf"); ok {
-		tokTarget := filepath.Join(relDir, "tokenizer.gguf")
+		tokTarget := path.Join(relDir, "tokenizer.gguf")
 		cfg.Files = append(cfg.Files, gallery.File{
 			URI:      tok.URL,
 			Filename: tokTarget,
@@ -209,7 +210,7 @@ func (i *VibeVoiceCppImporter) Import(details Details) (gallery.ModelConfig, err
 	// a reference voice to clone from. ASR doesn't use voice prompts.
 	if role != "asr" {
 		if voice, ok := pickVoicePrompt(files, stringPref(preferencesMap, "voice")); ok {
-			voiceTarget := filepath.Join(relDir, filepath.Base(voice.Path))
+			voiceTarget := path.Join(relDir, filepath.Base(voice.Path))
 			cfg.Files = append(cfg.Files, gallery.File{
 				URI:      voice.URL,
 				Filename: voiceTarget,

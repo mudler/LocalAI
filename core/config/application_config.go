@@ -60,6 +60,10 @@ type AddonConfig struct {
 	// a build that reads the backend gallery lists the library and leaves it
 	// off.
 	OfficialBackendLibrary bool
+	// WSLDistro is the WSL 2 distribution that runs the add-ons whose
+	// manifest has osSettings.windows.execution "wsl2" (Windows only). Empty is
+	// the default distribution of WSL.
+	WSLDistro string
 	// BackendMaxBytes bounds the compressed size of one backend image
 	// installed from a library; zero is 8 GiB. Add-ons keep their own limit.
 	BackendMaxBytes int64
@@ -482,12 +486,17 @@ type ApplicationConfig struct {
 	// The limits of the loops of the chats (a prompt a chat repeats by
 	// itself). Zero means the default. Runtime-settable via /api/settings
 	// (chats_loop_min_interval, chats_loop_max_runs, chats_loop_max_per_chat,
-	// chats_loop_max_per_user, chats_loop_daily_runs); read at each use.
+	// chats_loop_max_per_user, chats_loop_daily_runs,
+	// chats_loop_daily_script_checks); read at each use.
 	ChatsLoopMinInterval time.Duration
 	ChatsLoopMaxRuns     int
 	ChatsLoopMaxPerChat  int
 	ChatsLoopMaxPerUser  int
 	ChatsLoopDailyRuns   int
+	// ChatsLoopDailyScriptChecks is the number of checks of waits on a
+	// command one owner may spend in a UTC day. It is a budget apart from
+	// ChatsLoopDailyRuns: a check starts a process and calls no model.
+	ChatsLoopDailyScriptChecks int
 
 	// The limits of the triggers of the chats. Zero means the default.
 	// Runtime-settable via /api/settings (chats_trigger_run_limit,
@@ -1710,6 +1719,9 @@ const (
 	MaxChatsLoopMaxPerUser      = 200
 	DefaultChatsLoopDailyRuns   = 200
 	MaxChatsLoopDailyRuns       = 100000
+	// The same as loops.DefaultDailyScriptChecks and loops.MaxDailyScriptChecks.
+	DefaultChatsLoopDailyScriptChecks = 1500
+	MaxChatsLoopDailyScriptChecks     = 100000
 )
 
 // EffectiveChatsLoopMinInterval is chats_loop_min_interval as it applies now.
@@ -1756,6 +1768,14 @@ func (o *ApplicationConfig) EffectiveChatsLoopDailyRuns() int {
 	o.chatsLimitsMu.RLock()
 	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopDailyRuns, MaxChatsLoopDailyRuns, DefaultChatsLoopDailyRuns)
+}
+
+// EffectiveChatsLoopDailyScriptChecks is chats_loop_daily_script_checks as it
+// applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopDailyScriptChecks() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
+	return inRange(o.ChatsLoopDailyScriptChecks, MaxChatsLoopDailyScriptChecks, DefaultChatsLoopDailyScriptChecks)
 }
 
 // Bounds and defaults of the trigger settings of the chats.

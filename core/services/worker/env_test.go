@@ -70,6 +70,7 @@ func (envTestBackend) Free(context.Context, *pb.HealthMessage) (*pb.Result, erro
 
 var _ = Describe("Worker model environment", func() {
 	It("serializes concurrent serveInstall requests for the exact slot across backend names", func() {
+		skipOnWindows("the fixture backends are shell scripts, which Windows cannot execute")
 		root := GinkgoT().TempDir()
 		exe, err := os.Executable()
 		Expect(err).NotTo(HaveOccurred())
@@ -137,6 +138,7 @@ var _ = Describe("Worker model environment", func() {
 	})
 
 	It("passes isolated snapshots to real children and restarts on replacement and removal", func() {
+		skipOnWindows("the fixture backend is a shell script, which Windows cannot execute")
 		root := GinkgoT().TempDir()
 		exe, err := os.Executable()
 		Expect(err).NotTo(HaveOccurred())

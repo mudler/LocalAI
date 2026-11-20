@@ -47,6 +47,7 @@ import { useAuth } from '../context/AuthContext'
 import KindLibraries from '../components/catalog/KindLibraries'
 // eslint-disable-next-line no-unused-vars
 import RemoteNotice from '../components/models/RemoteNotice'
+import { readStored, writeStored } from '../utils/storage'
 import { sourceText } from '../utils/modelSearch'
 import SourceFilters from '../components/models/SourceFilters'
 import SourcesPanel from '../components/models/SourcesPanel'
@@ -73,9 +74,12 @@ const CHART_LABEL_ROOM = 15
 // The first step is the server's estimate default (DEFAULT_ESTIMATE_CONTEXT_SIZE).
 const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
-const FITS_FILTER_STORAGE_KEY = 'localai-models-fits-filter'
-const COLLAPSE_VARIANTS_STORAGE_KEY = 'localai-models-collapse-variants-filter'
-const DENSITY_STORAGE_KEY = 'localai-models-density'
+const FITS_FILTER_STORAGE_KEY = 'models.fits-filter'
+const COLLAPSE_VARIANTS_STORAGE_KEY = 'models.collapse-variants'
+const DENSITY_STORAGE_KEY = 'models.density'
+// The keys of earlier builds, carried over on the first read.
+const OLD_KEYS = { [FITS_FILTER_STORAGE_KEY]: ['localai-models-fits-filter'], [COLLAPSE_VARIANTS_STORAGE_KEY]: ['localai-models-collapse-variants-filter'], [DENSITY_STORAGE_KEY]: ['localai-models-density'] }
+const readPref = (key) => readStored(key, OLD_KEYS[key])
 // The deduplicated gallery is what a user asking "what can I install" wants, so
 // that is the default. The control exists for the other job: browsing every
 // build the gallery holds, which the collapsed view makes impossible however
@@ -93,22 +97,14 @@ const VARIANT_DETAIL_SEARCH_ITEMS = 100
 // rather than that anyone picked a view, and honouring them would pin a
 // visitor to a default they never chose.
 const readCollapseVariantsPreference = () => {
-  try {
-    const stored = localStorage.getItem(COLLAPSE_VARIANTS_STORAGE_KEY)
-    if (stored === 'on') return true
-    if (stored === 'off') return false
-    return COLLAPSE_VARIANTS_DEFAULT
-  } catch {
-    return COLLAPSE_VARIANTS_DEFAULT
-  }
+  const stored = readPref(COLLAPSE_VARIANTS_STORAGE_KEY)
+  if (stored === 'on') return true
+  if (stored === 'off') return false
+  return COLLAPSE_VARIANTS_DEFAULT
 }
 
 const readDensity = () => {
-  try {
-    return localStorage.getItem(DENSITY_STORAGE_KEY) === 'compact' ? 'compact' : 'comfortable'
-  } catch {
-    return 'comfortable'
-  }
+  return readPref(DENSITY_STORAGE_KEY) === 'compact' ? 'compact' : 'comfortable'
 }
 
 const FILTERS = [
@@ -315,11 +311,7 @@ export default function Models() {
   // its description, licence, tags, links and files become reachable.
   const [variantDetails, setVariantDetails] = useState({})
   const [fitsFilter, setFitsFilter] = useState(() => {
-    try {
-      return localStorage.getItem(FITS_FILTER_STORAGE_KEY) === '1'
-    } catch {
-      return false
-    }
+    return readPref(FITS_FILTER_STORAGE_KEY) === '1'
   })
   // Collapses the listing to one row per model by hiding the individual builds
   // another entry already offers as variants. Server-side, unlike fitsFilter,
@@ -677,27 +669,15 @@ export default function Models() {
   }
 
   useEffect(() => {
-    try {
-      localStorage.setItem(FITS_FILTER_STORAGE_KEY, fitsFilter ? '1' : '0')
-    } catch {
-      // Ignore storage errors (e.g., private browsing restrictions).
-    }
+    writeStored(FITS_FILTER_STORAGE_KEY, fitsFilter ? '1' : '0')
   }, [fitsFilter])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(COLLAPSE_VARIANTS_STORAGE_KEY, collapseVariants ? 'on' : 'off')
-    } catch {
-      // Ignore storage errors (e.g., private browsing restrictions).
-    }
+    writeStored(COLLAPSE_VARIANTS_STORAGE_KEY, collapseVariants ? 'on' : 'off')
   }, [collapseVariants])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(DENSITY_STORAGE_KEY, density)
-    } catch {
-      // Ignore storage errors.
-    }
+    writeStored(DENSITY_STORAGE_KEY, density)
   }, [density])
 
   const { counts: facetCounts, stale: facetsStale } = useFacetCounts({

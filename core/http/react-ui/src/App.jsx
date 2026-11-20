@@ -19,8 +19,7 @@ import { apiUrl } from './utils/basePath'
 import { InboxProvider } from './contexts/InboxContext'
 import { UpdatesProvider } from './contexts/UpdatesContext'
 import { MobileInboxButton } from './components/inbox/InboxTriggers'
-
-const COLLAPSED_KEY = 'localai_sidebar_collapsed'
+import { readSidebarCollapsed } from './utils/sidebarState'
 
 // The page wrapper is keyed so its transition replays on navigation. Within a
 // hub, collapse the key to the hub id so the layout (and its tab bar)
@@ -47,9 +46,8 @@ function pageTransitionKey(pathname) {
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
-  })
+  // Read once; the Sidebar owns the stored value and announces changes.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed)
   const { toasts, addToast, removeToast, dropToast } = useToast()
   const [version, setVersion] = useState('')
   // The server's feature switches, read once for the sidebar and the inbox.
