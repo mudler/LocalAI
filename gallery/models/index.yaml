@@ -100837,3 +100837,74 @@
         model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
       template:
         use_tokenizer_template: true
+- kind: model
+  id: olala-v1.0-mini-7a1b
+  name: olala-v1.0-mini-7a1b
+  version: 0.0.0-gallery.82ebf09b2304
+  description: |
+    AI Endpoints
+    Playground
+    Technical Report
+
+    # Olala-v1.0-mini-7A1B
+
+    Olala-v1.0-mini-7A1B is a **small reasoning model for chat, instruction following and tool use**, built on our hybrid
+    Mamba-3 / attention mixture-of-experts architecture.
+
+      - **Made in Europe, open by design:** designed in France by OVHai LLM (OVHcloud group), trained on three
+    European supercomputers (JUPITER, Jean Zay and MeluXina) on 12.8T tokens of public datasets and our own synthetic data, and released with open weights under
+    Apache 2.0.
+      - **Efficient:** about 1B active parameters per token, and only 7 of its 36 layers keep a KV cache. It runs on
+    a laptop.
+      - **Reasoning and agentic:** it thinks before it answers, with four reasoning-effort levels, and was trained with
+    reinforcement learning to call tools and to search over many turns.
+
+    Find more information in our technical report.
+
+    ## Model details
+
+    The Olala-v1.0-mini family includes a base model, the SFT checkpoint, this post-trained model and two specialized
+    models.
+
+    Model
+    Description
+
+    Olala-v1.0-mini-7A1B-base
+    Pre-trained base model (12.8T tokens)
+
+    Olala-v1.0-mini-7A1B-SFT
+    After supervised fine-tuning, before RL
+
+    ...
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF
+  tags:
+    - llm
+    - gguf
+    - reasoning
+  icon: https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B/resolve/main/assets/ovhai-llm-logo.svg
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/Olala-v1.0-mini-7A1B-q8_0-safe2/Olala-v1.0-mini-7A1B-q8_0-safe2.gguf
+        sha256: 0bb4560fa6800b41d16a15507ad1843ca17c0849ce0cc989bca337dcf55136d7
+        uri: https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF/resolve/main/Olala-v1.0-mini-7A1B-q8_0-safe2.gguf
+    overrides:
+      backend: llama-cpp
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        model: llama-cpp/models/Olala-v1.0-mini-7A1B-q8_0-safe2/Olala-v1.0-mini-7A1B-q8_0-safe2.gguf
+      template:
+        use_tokenizer_template: true
