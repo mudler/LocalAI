@@ -38,7 +38,8 @@
     },
     "verb": {
       "upgrading": "Aggiornamento {{kind}}",
-      "failedUpgrade": "Impossibile aggiornare {{kind}}"
+      "failedUpgrade": "Impossibile aggiornare {{kind}}",
+      "needsReview": "Serve il tuo controllo"
     },
     "filter": {
       "addons": "Add-on"
@@ -61,7 +62,14 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "In coda",
+      "starting": "Avvio",
+      "resolving": "Risoluzione del pacchetto",
+      "verifying": "Verifica di firma e digest",
+      "downloading": "Download in corso",
+      "checking": "Controllo del pacchetto",
+      "committing": "Completamento"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
@@ -87,6 +95,9 @@
       "committing": "Finalizzazione",
       "persisting": "Salvataggio della configurazione"
     },
-    "retryFailed": "Nuovo tentativo non riuscito: {{message}}"
+    "retryFailed": "Nuovo tentativo non riuscito: {{message}}",
+    "addonNeedsReview": "Il pacchetto chiede più accesso all'host di quello che hai approvato.",
+    "review": "Controlla",
+    "reviewLabel": "Controlla {{name}}"
   }
 }

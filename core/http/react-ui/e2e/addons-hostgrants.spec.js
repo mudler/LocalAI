@@ -82,6 +82,14 @@ async function mockHostGrants(page, appsState, options = {}) {
       state.overview.revision += 1
       return json({ payload: { OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: 1 } })
     }
+    if (path === '/queue') {
+      // A library install is queued and runs in the background. The stand-in
+      // answers one job per item, or the refusal of the owner for each.
+      if (state.failInstall) return json({ items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, error: { type: state.failInstall, code: 409, message: state.failInstall } })) })
+      for (const i of body.items) appsState.installed.push(installedAddon({ id: i.addonId, title: i.addonId, enabled: false, state: 'stopped', generation: 1, version: i.version }))
+      state.overview.revision += 1
+      return json({ items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, jobId: `job-${i.operationId}` })) })
+    }
     if (path === '/blanket') {
       state.overview.blanket = { ...state.overview.blanket, mode: body.mode, includeOptional: body.includeOptional, revision: state.overview.blanket.revision + 1 }
       state.overview.revision += 1
@@ -146,13 +154,16 @@ test.describe('Host access: install dialog', () => {
     await shoot(page, 'install-dialog')
     await row('egress.check').getByRole('switch').click()
     await dialog.getByTestId('install-confirm').click()
-    await expect(dialog.getByTestId('flow-steps')).toBeVisible()
-    await expect.poll(() => host.log.filter(l => l.path === '/install').length).toBe(1)
-    const sent = host.log.find(l => l.path === '/install')
-    expect(sent.body.approve).toEqual({ digest: PREVIEW.digest, ops: ['workspace.materialize', 'egress.check'], revision: 7, nonce: 'nonce-1' })
-    expect(sent.body).toMatchObject({ action: 'install', addonId: 'notes', sourceId: 'main', version: '1.0.0' })
-    expect(sent.confirm).toBe(`notes@${PREVIEW.digest}`)
-    // The plain install route was not used for this add-on.
+    // The install is queued, not run in the dialog: the dialog closes.
+    await expect(page.getByTestId('install-dialog')).toHaveCount(0)
+    await expect.poll(() => host.log.filter(l => l.path === '/queue').length).toBe(1)
+    const sent = host.log.find(l => l.path === '/queue')
+    expect(sent.body.items).toHaveLength(1)
+    expect(sent.body.items[0].approve).toEqual({ digest: PREVIEW.digest, ops: ['workspace.materialize', 'egress.check'], revision: 7, nonce: 'nonce-1' })
+    expect(sent.body.items[0]).toMatchObject({ addonId: 'notes', sourceId: 'main', version: '1.0.0' })
+    expect(sent.confirm).toBe('queue')
+    // Neither the install route nor the plain install was used for this add-on.
+    expect(host.log.filter(l => l.path === '/install')).toHaveLength(0)
     expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(0)
   })
 
@@ -230,7 +241,9 @@ test.describe('Host access: install dialog', () => {
     await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
     const dialog = page.getByTestId('install-dialog')
     await dialog.getByTestId('install-confirm').click()
-    await expect(dialog.getByTestId('install-dialog-failed')).toContainText('The package changed since you looked at it.')
+    // The owner refuses the item: the page says so and claims nothing as installed.
+    await expect(page.getByTestId('queue-refused')).toContainText('The package changed since you looked at it.')
+    await expect(page.getByTestId('entry-queued')).toHaveCount(0)
   })
 })
 

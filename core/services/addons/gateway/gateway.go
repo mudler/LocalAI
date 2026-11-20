@@ -170,7 +170,7 @@ func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, reque
 		return g.hostSettingsAction(ctx, actor, request)
 	case "catalog-search", "catalog-details", "catalog-sources", "catalog-source-save", "catalog-source-refresh", "addons-installed":
 		return g.management(ctx, actor, request)
-	case ActionUpdateStatus, ActionUpdateCheck, ActionUpdateUpgrade:
+	case ActionUpdateStatus, ActionUpdateCheck, ActionUpdateUpgrade, ActionUpdateQueue, ActionUpdateRunQueued, ActionUpdateDropQueued:
 		return g.updateAction(ctx, actor, request)
 	case ActionRecoveryStatus, ActionRecoveryBackup, ActionRecoveryVerify, ActionRecoveryRestore, ActionRecoveryDeleteBackup, ActionRecoveryPrune, ActionRecoveryPurge:
 		return g.recoveryAction(ctx, actor, request)

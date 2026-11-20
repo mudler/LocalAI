@@ -807,7 +807,7 @@ func parseRocmSMIMemInfoCSV(output string) []GPUMemoryInfo {
 			gttTotal, gttUsed = scaleRocmMemIfMB(gttTotal, gttUsed)
 		}
 
-		gpus = append(gpus, amdGPUMemoryInfo(parseAMDDeviceIndex(parts[0]),
+		gpus = append(gpus, amdGPUMemoryInfo(parseAMDDeviceIndex(parts[0]), amdDefaultName,
 			vramTotal, vramUsed, gttTotal, gttUsed))
 	}
 
@@ -816,7 +816,7 @@ func parseRocmSMIMemInfoCSV(output string) []GPUMemoryInfo {
 
 // amdGPUMemoryInfo builds the report for one AMD GPU, folding GTT into
 // the totals when the sizes match a shared-memory APU (#12058).
-func amdGPUMemoryInfo(index int, vramTotal, vramUsed, gttTotal, gttUsed uint64) GPUMemoryInfo {
+func amdGPUMemoryInfo(index int, name string, vramTotal, vramUsed, gttTotal, gttUsed uint64) GPUMemoryInfo {
 	totalBytes, usedBytes := vramTotal, vramUsed
 	if amdSharedMemoryAPU(vramTotal, gttTotal) {
 		totalBytes = vramTotal + gttTotal
@@ -837,7 +837,7 @@ func amdGPUMemoryInfo(index int, vramTotal, vramUsed, gttTotal, gttUsed uint64) 
 
 	return GPUMemoryInfo{
 		Index:        index,
-		Name:         "AMD GPU",
+		Name:         name,
 		Vendor:       VendorAMD,
 		TotalVRAM:    totalBytes,
 		UsedVRAM:     usedBytes,

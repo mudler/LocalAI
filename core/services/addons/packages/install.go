@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -30,9 +31,37 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
+// Progress is one report of a Stage. Phase is "verifying" (the signature),
+// "download" (Bytes of Total read so far; Total is zero when the size is not
+// known) and "verified" (Bytes is the size of the extracted tree).
 type Progress struct {
 	Phase string
 	Bytes int64
+	Total int64
+}
+
+// progressInterval bounds how often a download reports its bytes, so a fast
+// local registry does not flood the caller with one report per read.
+const progressInterval = 250 * time.Millisecond
+
+// progressReader reports the bytes read through it. done is the count of the
+// layers read before this one, so the report covers the whole package.
+type progressReader struct {
+	r           io.Reader
+	done, total int64
+	read        int64
+	last        time.Time
+	report      func(Progress)
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	p.read += int64(n)
+	if now := time.Now(); n > 0 && now.Sub(p.last) >= progressInterval {
+		p.last = now
+		p.report(Progress{Phase: "download", Bytes: p.done + p.read, Total: p.total})
+	}
+	return n, err
 }
 
 // Root must be a private owner-controlled directory, never addon-writable data.
@@ -127,8 +156,9 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			_ = os.RemoveAll(dir)
 		}
 	}()
+	report := func(Progress) {}
 	if progress != nil {
-		progress(Progress{Phase: "download"})
+		report = progress
 	}
 	x := &extraction{seen: map[string]bool{}}
 	verification := "sha256"
@@ -140,6 +170,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		pinned := ref.Context().Digest(r.Digest).Name()
 		transport := boundTransport{ctx: ctx, base: httpclient.New().Transport, allowLoopbackHTTP: r.AllowLoopbackHTTP}
 		if r.Policy.RequireSignature {
+			report(Progress{Phase: "verifying"})
 			verifier, e := cosignverify.NewVerifier(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport)
 			if i.SignatureTrust != nil {
 				verifier, e = cosignverify.NewVerifierWithTrustedMaterial(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport, i.SignatureTrust)
@@ -172,13 +203,21 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if e != nil || len(layers) > i.fileLimit() {
 			return out, ErrPackage
 		}
-		var downloaded int64
-		for _, layer := range layers {
+		// The sizes are read first so every report carries the total.
+		var total int64
+		sizes := make([]int64, len(layers))
+		for n, layer := range layers {
 			size, e := layer.Size()
-			if e != nil || size < 0 || size > i.byteLimit()-downloaded {
+			if e != nil || size < 0 || size > i.byteLimit()-total {
 				return out, ErrPackage
 			}
-			downloaded += size
+			sizes[n] = size
+			total += size
+		}
+		report(Progress{Phase: "download", Total: total})
+		var downloaded int64
+		for n, layer := range layers {
+			size := sizes[n]
 			h, e := layer.Digest()
 			if e != nil || h.Algorithm != "sha256" {
 				return out, ErrPackage
@@ -187,8 +226,10 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			if e != nil {
 				return out, ErrPackage
 			}
-			f, e := i.download(ctx, rc, h.String(), root)
+			f, e := i.download(ctx, &progressReader{r: rc, done: downloaded, total: total, report: report}, h.String(), root)
 			_ = rc.Close()
+			downloaded += size
+			report(Progress{Phase: "download", Bytes: downloaded, Total: total})
 			if e != nil {
 				return out, e
 			}
@@ -231,9 +272,14 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if resp.StatusCode != 200 {
 			return out, ErrPackage
 		}
-		f, e := i.download(ctx, resp.Body, r.Digest, root)
+		total := max(resp.ContentLength, 0)
+		report(Progress{Phase: "download", Total: total})
+		f, e := i.download(ctx, &progressReader{r: resp.Body, total: total, report: report}, r.Digest, root)
 		if e != nil {
 			return out, e
+		}
+		if fi, e := f.Stat(); e == nil {
+			report(Progress{Phase: "download", Bytes: fi.Size(), Total: max(total, fi.Size())})
 		}
 		defer func() { _ = os.Remove(f.Name()) }()
 		defer func() { _ = f.Close() }()
@@ -256,9 +302,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if e = ctx.Err(); e != nil {
 		return out, e
 	}
-	if progress != nil {
-		progress(Progress{Phase: "verified", Bytes: x.bytes})
-	}
+	report(Progress{Phase: "verified", Bytes: x.bytes})
 	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Manifest: m, Icon: icon, Skills: skillFiles}}}, nil
 }
 

@@ -6,6 +6,7 @@ import { isRetryable, useOperationActions } from '../../hooks/useOperationAction
 import { CANCEL_UNDO_MS, useUndoableCancel } from '../../hooks/useUndoableCancel'
 import { relativeDate } from '../../utils/fileBrowser'
 import { cssVars } from '../../utils/modelLedger'
+import { isAddonInstallOp } from '../../utils/addonQueue'
 import {
   canCancel, detailOf, failedTitleOf, nameOf, reasonOf, recentRecords, recentTitle, splitOps, titleOf, verbOf,
 } from '../../utils/opsActivity'
@@ -69,7 +70,7 @@ function RunningRow({ op, t, cancelling, onCancel }) {
 // One failed operation, pinned until it is dismissed: what failed, why, and
 // the two things a person can do. Retry is drawn only where there is a call
 // behind it (an install or an upgrade; not a removal or a staging job).
-function FailedRow({ op, t, onRetry, onDismiss }) {
+function FailedRow({ op, t, onRetry, onDismiss, onReview }) {
   const name = nameOf(op)
   const reason = reasonOf(op, t)
   return (
@@ -80,6 +81,15 @@ function FailedRow({ op, t, onRetry, onDismiss }) {
         {reason && <span className="nx-op__reason" title={reason}>{reason}</span>}
       </span>
       <span className="nx-op__acts">
+        {isAddonInstallOp(op) && (
+          <Button
+            size="sm" icon="shield" to={`/app/addons?review=${encodeURIComponent(op.name)}`} data-testid="inbox-op-review"
+            aria-label={t('activity.reviewLabel', { ns: 'operate', name })}
+            onClick={onReview}
+          >
+            {t('activity.review', { ns: 'operate' })}
+          </Button>
+        )}
         {isRetryable(op) && (
           <Button
             size="sm" icon="refresh" data-testid="inbox-op-retry"
@@ -142,7 +152,7 @@ export default function ActivityTab({ onClose }) {
         <section className="nx-group" aria-labelledby="nx-ops-failed">
           <h3 id="nx-ops-failed" className="nx-day nx-day--error">{t('inbox.ops.needsAttention')}</h3>
           <ul className="nx-list">
-            {failed.map((op) => <FailedRow key={op.jobID || op.id} op={op} t={t} onRetry={onRetry} onDismiss={dismiss} />)}
+            {failed.map((op) => <FailedRow key={op.jobID || op.id} op={op} t={t} onRetry={onRetry} onDismiss={dismiss} onReview={() => onClose(false)} />)}
           </ul>
         </section>
       )}

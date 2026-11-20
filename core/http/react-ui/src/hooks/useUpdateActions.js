@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { backendsApi } from '../utils/api'
+import { backendsApi, operationsApi } from '../utils/api'
 import { addonsApi, addonsCatalog } from '../utils/addonsClient'
 import { addonUpgrades } from '../utils/addonUpgrades'
 import { useOperations } from './useOperations'
@@ -92,7 +92,13 @@ export function useUpdateActions({ updates }) {
         setLocal(row.id, { phase: 'running', message: '', progress: 0 })
         res = await runGalleryRow({
           row,
-          start: async (r) => { const out = await backendsApi.upgrade(r.name); return out && (out.jobID || out.uuid) },
+          start: async (r) => {
+            const out = await backendsApi.upgrade(r.name)
+            const jobID = out && (out.jobID || out.uuid)
+            // Known at once, so Cancel works before the list shows the job.
+            if (jobID) setLocal(row.id, { phase: 'running', message: '', progress: 0, jobID })
+            return jobID
+          },
           getOperations: () => opsRef.current,
           recheck,
           signal: stop,
@@ -155,15 +161,29 @@ export function useUpdateActions({ updates }) {
   }, [runRow])
 
   const cancel = useCallback((row) => {
-    if (row.kind === 'addon') addonUpgrades.cancel(row.jobID)
-    else if (row.jobID) cancelOperation(row.jobID)
+    // An add-on upgrade the store follows is cancelled on the server by its
+    // job; one only the server lists (another tab) by its own id.
+    if (row.kind === 'addon') {
+      if (!addonUpgrades.cancel(row.jobID, (id) => operationsApi.cancel(id)) && row.jobID && !String(row.jobID).startsWith('addon:')) cancelOperation(row.jobID)
+    } else if (row.jobID) cancelOperation(row.jobID)
   }, [cancelOperation])
+
+  // Cancels every row of the run that has not ended. A queued job is dropped
+  // by the server, a running one stops at its next check; the others go on.
+  const cancelRun = useCallback((run) => {
+    if (!run) return
+    for (const id of run.order) {
+      if (!run.status[id] || run.status[id].phase !== 'upgrading') continue
+      const row = rows.find(r => r.id === id)
+      if (row) cancel(row)
+    }
+  }, [rows, cancel])
 
   const check = useCallback((row) => { if (row.record) addonUpgrade.check(row.record) }, [addonUpgrade])
   const checking = useCallback((row) => addonUpgrade.checks[row.addonId]?.phase === 'working', [addonUpgrade.checks])
 
   return {
-    rows, bulk, busy, update, retry, cancel, check, checking,
+    rows, bulk, busy, update, retry, cancel, cancelRun, check, checking,
     review, setReview, addonActions, confirmApi, announcement,
   }
 }

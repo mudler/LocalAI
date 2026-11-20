@@ -142,6 +142,7 @@
     },
     "updatingPhase": "Memperbarui: {{phase}}",
     "updatingPlain": "Memperbarui",
+    "queued": "Dalam antrean, menunggu slot kosong",
     "addonConfirm": "Perlu konfirmasi Anda di peramban ini",
     "nodesAction": "Node",
     "nodesNamed": "Tampilkan node {{name}}",
@@ -152,6 +153,7 @@
     "running": "Memperbarui {{current}} dari {{total}}",
     "summary": "{{done}} diperbarui, {{failed}} gagal, {{skipped}} dilewati",
     "details": "Detail",
+    "cancelAll": "Batalkan semua",
     "retryFailed": "Coba lagi yang gagal ({{count}})",
     "dismiss": "Tutup"
   },

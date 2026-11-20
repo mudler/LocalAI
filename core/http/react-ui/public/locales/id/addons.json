@@ -1063,5 +1063,28 @@
       "off": "Mati",
       "attention": "Perlu disiapkan"
     }
+  },
+  "queue": {
+    "title": "Antrean instalasi",
+    "select": "Tambahkan ke antrean",
+    "selectNamed": "Tambahkan {{name}} ke antrean instalasi",
+    "inQueue": "Dalam antrean",
+    "selectionLabel": "Add-on yang dipilih untuk dipasang",
+    "selected": "Dipilih: {{count}}",
+    "reviewPicked": "Tinjau dan antrekan",
+    "clear": "Hapus pilihan",
+    "position": "Add-on {{number}} dari {{total}}.",
+    "batchNote": "Tidak ada yang diantrekan sampai Anda selesai dengan yang terakhir.",
+    "confirmBody": "Versi {{version}} dari sumber {{library}} ditambahkan ke antrean instalasi. Paket diunduh di latar belakang dan diperiksa sebelum dipasang. Paket tidak diaktifkan.",
+    "add": "Tambahkan ke antrean",
+    "acceptNext": "Setujui dan lanjut",
+    "acceptLast": "Setujui dan antrekan semua",
+    "skip": "Lewati",
+    "unpinned": "Entri pengembangan ini tidak terkunci ke satu paket. Yang dipasang adalah apa pun yang disajikan sumber saat ini.",
+    "reviewTitle": "Perlu ditinjau.",
+    "reviewBody": "Paket meminta akses host lebih banyak daripada yang Anda setujui. Periksa daftarnya lagi sebelum dipasang.",
+    "refused": "{{name}} tidak diantrekan. {{reason}}",
+    "noAnswer": "Server tidak memberi jawaban untuk add-on ini.",
+    "notInLibrary": "Add-on ini tidak ada lagi di pustaka Anda."
   }
 }

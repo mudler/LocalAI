@@ -142,6 +142,7 @@
     },
     "updatingPhase": "Atualizando: {{phase}}",
     "updatingPlain": "Atualizando",
+    "queued": "Na fila, aguardando uma vaga livre",
     "addonConfirm": "Precisa da sua confirmação neste navegador",
     "nodesAction": "Nós",
     "nodesNamed": "Mostrar os nós de {{name}}",
@@ -152,6 +153,7 @@
     "running": "Atualizando {{current}} de {{total}}",
     "summary": "{{done}} atualizadas, {{failed}} com falha, {{skipped}} ignoradas",
     "details": "Detalhes",
+    "cancelAll": "Cancelar tudo",
     "retryFailed": "Tentar as falhas de novo ({{count}})",
     "dismiss": "Dispensar"
   },

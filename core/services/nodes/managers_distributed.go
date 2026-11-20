@@ -186,8 +186,8 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 	}
 
 	// Nodes are independent, so they are served in parallel, up to the
-	// max_concurrent_backend_operations setting. With the default of 1 they are
-	// visited one after the other, as before. Each result goes to its own slot.
+	// max_concurrent_backend_operations setting. With a limit of 1 they are
+	// visited one after the other. Each result goes to its own slot.
 	statuses := make([]NodeOpStatus, len(targets))
 	limit := d.fanOutLimit()
 	sem := make(chan struct{}, limit)

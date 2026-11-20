@@ -142,6 +142,7 @@
     },
     "updatingPhase": "Updating: {{phase}}",
     "updatingPlain": "Updating",
+    "queued": "Queued, waiting for a free slot",
     "addonConfirm": "Needs your confirmation in this browser",
     "nodesAction": "Nodes",
     "nodesNamed": "Show the nodes of {{name}}",
@@ -152,6 +153,7 @@
     "running": "Updating {{current}} of {{total}}",
     "summary": "{{done}} updated, {{failed}} failed, {{skipped}} skipped",
     "details": "Details",
+    "cancelAll": "Cancel all",
     "retryFailed": "Retry failed ({{count}})",
     "dismiss": "Dismiss"
   },

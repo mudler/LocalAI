@@ -762,7 +762,8 @@
       "op": {
         "kind": {
           "model": "模型",
-          "backend": "后端"
+          "backend": "后端",
+          "addon": "附加组件"
         },
         "done": {
           "install": "{{kind}} {{name}} 已安装",
@@ -778,6 +779,9 @@
           "install": "{{kind}} {{name}}: 安装已取消",
           "delete": "{{kind}} {{name}}: 移除已取消",
           "upgrade": "{{kind}} {{name}}: 升级已取消"
+        },
+        "needsReview": {
+          "install": "附加组件 {{name}} 需要你检查后才能安装"
         }
       },
       "models": {

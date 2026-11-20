@@ -50,7 +50,9 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 		out.Binding = t.Route.Binding
 	}
 	d := host.DeliveryOf(ctx, t)
-	out.Delivery = schema.ChatsTriggerDelivery{Target: d.Target, ChannelLabel: d.ChannelLabel, ConnectionName: d.ConnectionName, InThread: d.InThread, Mode: d.Mode}
+	out.Delivery = schema.ChatsTriggerDelivery{Target: d.Target, ChannelLabel: d.ChannelLabel, ConnectionName: d.ConnectionName, InThread: d.InThread, Mode: d.Mode,
+		ChannelRef: d.ChannelRef, ChatRef: d.ChatRef, ConnectionID: d.ConnectionID, ConnectionKind: d.ConnectionKind,
+		ConnectionKindTitle: d.ConnectionKindTitle, ConnectionAddon: d.ConnectionAddon, State: d.State}
 	if t.Kind == triggers.KindFile {
 		out.MinGapSeconds = int(t.GapOrDefault() / time.Second)
 	}

@@ -142,6 +142,7 @@
     },
     "updatingPhase": "Mise à jour : {{phase}}",
     "updatingPlain": "Mise à jour",
+    "queued": "En file d'attente, en attente d'une place libre",
     "addonConfirm": "Demande votre confirmation dans ce navigateur",
     "nodesAction": "Nœuds",
     "nodesNamed": "Afficher les nœuds de {{name}}",
@@ -152,6 +153,7 @@
     "running": "Mise à jour {{current}} sur {{total}}",
     "summary": "{{done}} mises à jour, {{failed}} en échec, {{skipped}} ignorées",
     "details": "Détails",
+    "cancelAll": "Tout annuler",
     "retryFailed": "Réessayer les échecs ({{count}})",
     "dismiss": "Fermer"
   },

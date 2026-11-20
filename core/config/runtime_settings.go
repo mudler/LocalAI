@@ -40,6 +40,7 @@ type RuntimeSettings struct {
 	ArtifactDownloadConcurrency *int `json:"artifact_download_concurrency,omitempty"`
 
 	MaxConcurrentBackendOperations *int `json:"max_concurrent_backend_operations,omitempty"`
+	MaxConcurrentModelOperations   *int `json:"max_concurrent_model_operations,omitempty"`
 
 	VRAMBudget           *string `json:"vram_budget,omitempty"` // Cap VRAM for allocation ("80%" or "12GB"; "" = no cap)
 	F16                  *bool   `json:"f16,omitempty"`

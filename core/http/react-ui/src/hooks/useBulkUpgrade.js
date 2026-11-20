@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  beginRun, failedIds, initialSelection, runSequential, selectAllItems, summarize, toggleItem,
+  beginRun, failedIds, initialSelection, runConcurrent, selectAllItems, summarize, toggleItem,
 } from '../utils/bulkUpgrade'
 
-// The "upgrade all" run of a page. The run lives here, in the page, not in the
+// The "upgrade all" run of a page. Every item is submitted at once; the server
+// queues and runs them, so the page follows them and nothing waits for the
+// item before it. The run lives here, in the page, not in the
 // dialog: closing the dialog never cancels it and the page can still show the
 // progress. `items` are the candidates ({ id, name, from, to, startable,
 // reason }); `runOne(item, signal)` upgrades one and resolves { ok, message }.
@@ -33,7 +35,7 @@ export function useBulkUpgrade({ items, runOne }) {
     if (!next) return false
     runRef.current = next
     setRun(next)
-    runSequential(next, (item, signal) => runOneRef.current(item, signal), {
+    runConcurrent(next, (item, signal) => runOneRef.current(item, signal), {
       signal: abort.current.signal,
       onUpdate: (r) => { runRef.current = r; setRun(r) },
     })

@@ -34,6 +34,9 @@ import {
   scheduleText, triggerForm, triggerPayload,
 } from '../utils/chatTrigger'
 import { ActsEditor, ActsSummary } from '../components/TriggerActs'
+// eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
+import ReportsTo from '../components/agents/ReportsTo'
+import { useAddonIcons } from '../hooks/useAddonIcons'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, LoadError, Page, PageHeader, SkeletonRows, Switch } from '../components/ui'
@@ -62,6 +65,7 @@ function TaskView({ id }) {
   const [task, setTask] = useState(null)
   const [jobs, setJobs] = useState([])
   const { agents, projects } = useAgentProjects()
+  const icons = useAddonIcons()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [missing, setMissing] = useState(false)
@@ -193,6 +197,8 @@ function TaskView({ id }) {
             {task.kind === 'file' ? t('jobs.task.watches', { folder: task.folder }) : task.summary}
             {task.next_run && !off ? <span className="ag-muted"> · {t('chats:triggersPage.next', { time: formatNext(task.next_run, task.time_zone) })}</span> : null}
           </dd>
+          <dt>{t('jobs.reports.label')}</dt>
+          <dd data-testid="task-reports"><ReportsTo trigger={task} icons={icons} /></dd>
           <dt>{t('jobs.task.acts')}</dt>
           <dd data-testid="task-acts"><ActsSummary trigger={task} /></dd>
           <dt>{t('jobs.task.cap')}</dt>

@@ -196,6 +196,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				message = "Operation queued"
 			}
 
+			// An add-on install of the install queue: its key names the add-on.
+			addonID, isAddon := galleryop.ParseAddonOpKey(galleryID)
+
 			// Determine if it's a model or backend
 			// First check if it was explicitly marked as a backend operation
 			isBackend := opcache.IsBackendOp(galleryID)
@@ -204,7 +207,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// backend-vs-model, and a GPU-only backend installed on a worker is
 			// still a backend op even when this host cannot run it. The
 			// capability-filtered listing misclassified those as model ops.
-			if !isBackend {
+			if !isBackend && !isAddon {
 				backends, _ := gallery.AvailableBackendsUnfiltered(appConfig.BackendGalleries, appConfig.SystemState)
 				for _, b := range backends {
 					backendID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
@@ -228,7 +231,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 			// Extract display name (remove repo prefix if exists)
 			displayName := galleryID
-			if strings.Contains(galleryID, "@") {
+			if isAddon {
+				displayName = addonID
+			} else if strings.Contains(galleryID, "@") {
 				parts := strings.Split(galleryID, "@")
 				if len(parts) > 1 {
 					displayName = parts[1]
@@ -249,6 +254,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"taskType":    taskType,
 				"isDeletion":  isDeletion,
 				"isBackend":   isBackend,
+				"isAddon":     isAddon,
 				"isQueued":    isQueued,
 				"cancellable": isCancellable,
 				"message":     message,
@@ -270,6 +276,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			}
 			if status != nil && status.Error != nil {
 				opData["error"] = status.Error.Error()
+				if isAddon && galleryop.IsAddonAttention(status.Error) {
+					// The install waits for a new review of its host access.
+					opData["needsApproval"] = true
+				}
 			}
 			// Expose the per-node breakdown when the Phase 4 progress sink
 			// has populated OpStatus.Nodes (distributed backend installs).

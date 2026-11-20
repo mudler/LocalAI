@@ -1067,5 +1067,28 @@
       "off": "Désactivée",
       "attention": "À configurer"
     }
+  },
+  "queue": {
+    "title": "File d'installation",
+    "select": "Ajouter à la file",
+    "selectNamed": "Ajouter {{name}} à la file d'installation",
+    "inQueue": "Dans la file",
+    "selectionLabel": "Modules complémentaires sélectionnés pour l'installation",
+    "selected": "Sélectionnés : {{count}}",
+    "reviewPicked": "Vérifier et mettre en file",
+    "clear": "Effacer",
+    "position": "Module {{number}} sur {{total}}.",
+    "batchNote": "Rien n'est mis en file avant la fin du dernier.",
+    "confirmBody": "La version {{version}} de la source {{library}} est ajoutée à la file d'installation. Elle est téléchargée en arrière-plan et vérifiée avant l'installation. Elle n'est pas activée.",
+    "add": "Ajouter à la file",
+    "acceptNext": "Accepter et suivant",
+    "acceptLast": "Accepter et tout mettre en file",
+    "skip": "Passer",
+    "unpinned": "Cette entrée de développement n'est pas liée à un paquet précis. Elle installe ce que la source sert à cet instant.",
+    "reviewTitle": "Vérification requise.",
+    "reviewBody": "Le paquet demande plus d'accès à l'hôte que vous n'en avez approuvé. Vérifiez à nouveau la liste avant l'installation.",
+    "refused": "{{name}} n'a pas été mis en file. {{reason}}",
+    "noAnswer": "Le serveur n'a pas répondu pour celui-ci.",
+    "notInLibrary": "Ce module n'est plus dans vos bibliothèques."
   }
 }

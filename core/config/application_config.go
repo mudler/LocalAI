@@ -166,6 +166,12 @@ type ApplicationConfig struct {
 	// other goroutines, since a runtime settings change can land at any time.
 	liveMaxBackendOps atomic.Int64
 
+	// MaxConcurrentModelOperations bounds how many model install, upgrade and
+	// delete operations run at once. Always >= 1. Operations on the same
+	// model never overlap.
+	MaxConcurrentModelOperations int
+	liveMaxModelOps              atomic.Int64
+
 	F16                          bool
 	Debug                        bool
 	LogClient                    bool
@@ -637,7 +643,8 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		VRAMPersistentCache:         true,
 		ArtifactDownloadConcurrency: modelartifacts.DefaultDownloadConcurrency,
 
-		MaxConcurrentBackendOperations: 1,
+		MaxConcurrentBackendOperations: 2,
+		MaxConcurrentModelOperations:   DefaultMaxConcurrentModelOperations,
 
 		LRUEvictionMaxRetries:    30,               // Default: 30 retries
 		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
@@ -665,6 +672,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		oo(opt)
 	}
 	opt.SetMaxConcurrentBackendOperations(opt.MaxConcurrentBackendOperations)
+	opt.SetMaxConcurrentModelOperations(opt.MaxConcurrentModelOperations)
 	opt.selectionState()
 	return opt
 }
@@ -1023,6 +1031,38 @@ func WithModelArtifactMaterializer(materializer ArtifactMaterializer) AppOption 
 			o.ModelArtifactMaterializer = materializer
 		}
 	}
+}
+
+// DefaultMaxConcurrentModelOperations is how many model operations run at
+// once unless the setting says otherwise. Two lets an upgrade or install run
+// beside a long download without a burst of parallel downloads.
+const DefaultMaxConcurrentModelOperations = 2
+
+// WithMaxConcurrentModelOperations sets how many model operations run at
+// once. Values below 1 fall back to 1.
+func WithMaxConcurrentModelOperations(n int) AppOption {
+	return func(o *ApplicationConfig) { o.SetMaxConcurrentModelOperations(n) }
+}
+
+// SetMaxConcurrentModelOperations stores the limit, clamped to at least 1.
+func (o *ApplicationConfig) SetMaxConcurrentModelOperations(n int) {
+	if n < 1 {
+		n = 1
+	}
+	o.MaxConcurrentModelOperations = n
+	o.liveMaxModelOps.Store(int64(n))
+}
+
+// ModelOperationLimit returns how many model operations may run at once.
+// It is safe to call while a runtime settings change is applied.
+func (o *ApplicationConfig) ModelOperationLimit() int {
+	if n := o.liveMaxModelOps.Load(); n >= 1 {
+		return int(n)
+	}
+	if o.MaxConcurrentModelOperations >= 1 {
+		return o.MaxConcurrentModelOperations
+	}
+	return 1
 }
 
 // WithMaxConcurrentBackendOperations sets how many backend operations run at

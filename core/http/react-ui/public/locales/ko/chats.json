@@ -762,7 +762,8 @@
       "op": {
         "kind": {
           "model": "모델",
-          "backend": "백엔드"
+          "backend": "백엔드",
+          "addon": "애드온"
         },
         "done": {
           "install": "{{kind}} {{name}} 설치됨",
@@ -778,6 +779,9 @@
           "install": "{{kind}} {{name}}: 설치 취소됨",
           "delete": "{{kind}} {{name}}: 제거 취소됨",
           "upgrade": "{{kind}} {{name}}: 업데이트 취소됨"
+        },
+        "needsReview": {
+          "install": "애드온 {{name}} 설치에 검토가 필요합니다"
         }
       },
       "models": {

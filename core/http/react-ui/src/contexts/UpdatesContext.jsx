@@ -8,6 +8,7 @@ import { localizeRecord } from '../components/addons/addonState'
 import { newOperationId } from '../components/catalog/catalogState'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
+import { liveWithServer } from '../utils/addonUpgradeRows'
 import { useAddonUpgrades } from '../hooks/useAddonUpgrades'
 import { useAuth } from '../context/AuthContext'
 import { FEATURE_ADDONS } from '../utils/capabilities'
@@ -44,7 +45,9 @@ export function UpdatesProvider({ children, features, pollInterval = POLL_INTERV
   const { i18n } = useTranslation()
   const { operations } = useOperations()
   const upgrades = useAddonUpgrades()
-  const live = upgrades.live
+  // The upgrades this browser follows, with what the server says of the same
+  // jobs, and the ones only the server lists (started in another tab).
+  const live = useMemo(() => liveWithServer(upgrades.live, operations), [upgrades.live, operations])
   const addonsOn = Boolean(isAdmin && features && features.addons !== false && hasFeature(FEATURE_ADDONS))
   const featuresKnown = features != null
 

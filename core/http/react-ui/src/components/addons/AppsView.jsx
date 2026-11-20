@@ -45,7 +45,7 @@ const NO_RECORDS = {}
 // add-ons"; the stored copy stands in for the list, marked stale.
 const browserStore = () => { try { return globalThis.sessionStorage || null } catch { return null } }
 
-export default function AppsView({ api, adapter, onSummary, grants }) {
+export default function AppsView({ api, adapter, onSummary, grants, queue }) {
   const { t, i18n } = useTranslation('addons')
   const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
@@ -340,7 +340,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
             </div>
           )}
           {view === 'first-run' ? (
-            <FirstRun adapter={adapter} actions={actions} />
+            <FirstRun adapter={adapter} queue={queue} />
           ) : view === 'no-match' ? (
             <EmptyState
               variant="no-results"

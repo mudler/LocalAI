@@ -26,7 +26,22 @@ const (
 	HostGrantsBlanket     = "blanket"
 	HostGrantsDeny        = "deny"
 	HostGrantsDenyPreview = "deny-preview"
+	// HostGrantsQueue records an approved install for the host's operation
+	// queue. It is a write of the administrator's own browser session, like
+	// HostGrantsInstall, and consumes the preview nonce at once.
+	HostGrantsQueue = "queue"
+	// HostGrantsRunQueued and HostGrantsDropQueued run and drop an install
+	// that HostGrantsQueue recorded. The host's queue calls them, not a
+	// person: they carry no approval of their own and can only act on the
+	// one a browser session recorded, for the same administrator.
+	HostGrantsRunQueued  = "run-queued"
+	HostGrantsDropQueued = "drop-queued"
 )
+
+// UnpinnedDigest is the digest of a preview whose index entry names no digest
+// (a mutable entry reviewed from the index hint). The approval is then bound
+// to the reviewed operations; see addons.HostApproval.
+const UnpinnedDigest = "unpinned"
 
 // CallHostGrants is the capability of an owner that serves the host grants
 // calls. A frontend asks for it before it forwards, so an older owner is
@@ -50,7 +65,7 @@ func (c HostGrantsCall) wireAction() string { return "hostgrants-" + c.Op }
 
 func (c HostGrantsCall) write() bool {
 	switch c.Op {
-	case HostGrantsInstall, HostGrantsEdit, HostGrantsRevoke, HostGrantsBlanket, HostGrantsDeny:
+	case HostGrantsInstall, HostGrantsEdit, HostGrantsRevoke, HostGrantsBlanket, HostGrantsDeny, HostGrantsQueue:
 		return true
 	}
 	return false
@@ -63,7 +78,8 @@ func (c HostGrantsCall) valid() bool {
 	switch c.Op {
 	case HostGrantsRead, HostGrantsPreview, HostGrantsDenyPreview:
 		return c.OperationID == ""
-	case HostGrantsInstall, HostGrantsEdit, HostGrantsRevoke, HostGrantsBlanket, HostGrantsDeny:
+	case HostGrantsInstall, HostGrantsEdit, HostGrantsRevoke, HostGrantsBlanket, HostGrantsDeny,
+		HostGrantsQueue, HostGrantsRunQueued, HostGrantsDropQueued:
 		return c.OperationID != "" && len(c.OperationID) <= 128
 	}
 	return false
@@ -191,6 +207,11 @@ type HostApproval struct {
 	Ops      []string
 	Revision uint64
 	Nonce    string
+	// FromIndex, Reviewed and Unpinned come from the owner's record of the
+	// preview, never from the request: see addons.HostApproval.
+	FromIndex bool
+	Reviewed  []string
+	Unpinned  bool
 }
 
 // ReleaseAccess is what the verified, staged package of a release asks for.
@@ -205,6 +226,9 @@ type ReleaseAccess struct {
 	// Installed is true when the add-on is installed already, so the release
 	// would be an upgrade.
 	Installed bool
+	// FromIndex says the answer is the index hint, with no download;
+	// Unpinned says the index names no digest. See addons.HostAccessRelease.
+	FromIndex, Unpinned bool
 }
 
 // PendingUpgrade is a candidate release that waits for approval.
@@ -251,6 +275,19 @@ type HostAccessManager interface {
 	SubmitWithApproval(ctx context.Context, actor contract.Actor, cmd addons.LifecycleCommand, approval HostApproval) (addons.OperationStatus, error)
 }
 
+// HostAccessQueue is what the owner service needs from the add-on manager for
+// the installs of the host's operation queue. A manager without it refuses
+// HostGrantsQueue as unavailable.
+type HostAccessQueue interface {
+	// AcceptWithApproval records the install with the approval for a later
+	// run. It changes no add-on.
+	AcceptWithApproval(ctx context.Context, actor contract.Actor, cmd addons.LifecycleCommand, approval HostApproval) (addons.OperationStatus, error)
+	// RunAccepted runs a recorded install; DropAccepted drops one that has not
+	// started.
+	RunAccepted(ctx context.Context, actor contract.Actor, operationID string) (addons.OperationStatus, error)
+	DropAccepted(ctx context.Context, actor contract.Actor, operationID string) (addons.OperationStatus, error)
+}
+
 // Wire shapes. Field names are the API of the routes.
 
 // HostGrantsPreviewRequest is the body of POST /api/addons/host-grants/preview.
@@ -283,6 +320,23 @@ type HostGrantsInstallRequest struct {
 	// the installed one. Only a sourceId of local-file reads it.
 	Downgrade bool              `json:"downgrade,omitempty"`
 	Approve   HostGrantsApprove `json:"approve"`
+}
+
+// HostGrantsQueueRequest is one install of the body of
+// POST /api/addons/host-grants/queue: what HostGrantsInstallRequest carries
+// for an install. It only takes an install from a library.
+type HostGrantsQueueRequest struct {
+	OperationID string            `json:"operationId"`
+	SourceID    string            `json:"sourceId"`
+	AddonID     string            `json:"addonId"`
+	Version     string            `json:"version"`
+	Approve     HostGrantsApprove `json:"approve"`
+}
+
+// HostGrantsQueuedRequest is the body of HostGrantsRunQueued and
+// HostGrantsDropQueued.
+type HostGrantsQueuedRequest struct {
+	OperationID string `json:"operationId"`
 }
 
 // HostGrantsEditRequest is the body of PUT /api/addons/host-grants/{addonId}.
@@ -442,6 +496,10 @@ type HostGrantsPreviewView struct {
 	LockedReason string             `json:"lockedReason,omitempty"`
 	Blanket      HostBlanketPreview `json:"blanket"`
 	NonceExpiry  string             `json:"nonceExpiresAt"`
+	// FromIndex is true when the requested operations come from the library
+	// index, with no download. The install then holds the add-on, and asks
+	// again, when its verified manifest requests anything not listed here.
+	FromIndex bool `json:"fromIndex,omitempty"`
 }
 
 // HostGrantsAddonResult is the response of an edit.

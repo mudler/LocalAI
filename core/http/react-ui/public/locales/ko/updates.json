@@ -142,6 +142,7 @@
     },
     "updatingPhase": "업데이트 중: {{phase}}",
     "updatingPlain": "업데이트 중",
+    "queued": "대기 중, 빈 자리를 기다리는 중",
     "addonConfirm": "이 브라우저에서 확인이 필요합니다",
     "nodesAction": "노드",
     "nodesNamed": "{{name}}의 노드 보기",
@@ -152,6 +153,7 @@
     "running": "{{total}}개 중 {{current}}번째 업데이트 중",
     "summary": "{{done}}개 완료, {{failed}}개 실패, {{skipped}}개 건너뜀",
     "details": "자세히",
+    "cancelAll": "모두 취소",
     "retryFailed": "실패한 항목 다시 시도 ({{count}})",
     "dismiss": "닫기"
   },

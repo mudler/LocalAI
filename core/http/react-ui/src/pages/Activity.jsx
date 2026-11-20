@@ -1,9 +1,10 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useOutletContext } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useActivityFeed } from '../hooks/useActivityFeed'
 import { useOperationActions, isRetryable } from '../hooks/useOperationActions'
+import { isAddonInstallOp } from '../utils/addonQueue'
 import { CANCEL_UNDO_MS, useUndoableCancel } from '../hooks/useUndoableCancel'
 import { backendsApi, modelsApi } from '../utils/api'
 import PageHeader from '../components/PageHeader'
@@ -81,6 +82,10 @@ export default function Activity() {
   const addToast = outlet?.addToast
   const { operations, history, fetchHistory, clearHistory, cancelOperation, pauseOperation } = useActivityFeed()
   const { retry, dismiss } = useOperationActions(addToast)
+  const navigate = useNavigate()
+  // An add-on install is reviewed again on the Add-ons page, where its host
+  // access is shown; the link opens that review.
+  const reviewAddon = useCallback((op) => navigate(`/app/addons?review=${encodeURIComponent(op.name)}`), [navigate])
 
   const [filter, setFilter] = useState('all')
 
@@ -192,6 +197,7 @@ export default function Activity() {
                 operation={op}
                 onDismiss={dismiss}
                 onRetry={isRetryable(op) ? retry : undefined}
+                onReview={isAddonInstallOp(op) ? reviewAddon : undefined}
               />
             ))}
           </div>

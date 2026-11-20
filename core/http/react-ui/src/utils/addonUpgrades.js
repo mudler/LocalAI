@@ -12,13 +12,15 @@ import { createActionBook, effectOutcome } from '../components/addons/actionBook
 import { runLifecycle, settleOperation } from '../components/addons/lifecycleFlow.js'
 import { updateErrorKey, updateView, upgradeBody } from '../components/addons/updateState.js'
 import { AddonsError } from './addonsApi.js'
+import { endedAsCancelled, upgradeStatusFields } from './addonUpgradeRows.js'
 
 // How far along an operation phase is, for the progress bar. The owner reports
 // phases, not percentages.
 const PHASE_PROGRESS = {}
 const MAX_RECORDS = 50
 const POLL_MS = 2000
-const POLL_ATTEMPTS = 300
+// An upgrade can wait on the shared queue behind others: follow it for an hour.
+const POLL_ATTEMPTS = 1800
 
 export function phaseProgress(phase) {
   return PHASE_PROGRESS[phase] || 0
@@ -32,6 +34,8 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
   const listeners = new Set()
   const controllers = new Map()
   const cancelled = new Set()
+  // Upgrades whose cancel this browser asked of the server.
+  const cancelRequested = new Set()
   // The wait of each followed upgrade, so "check now" can end it early.
   const wakers = new Map()
   const sleepOf = (jobID) => sleep || wakeableSleep(jobID)
@@ -51,7 +55,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
 
   const emit = (next) => {
     snapshot = next
-    if (storage && scope) { try { storage.setItem(`addon-upgrades:${scope}`, JSON.stringify(next.live.map(({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration }) => ({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration })))) } catch { /* unavailable storage only loses observer recovery */ } }
+    if (storage && scope) { try { storage.setItem(`addon-upgrades:${scope}`, JSON.stringify(next.live.map(({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration, galleryJobId }) => ({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration, galleryJobId })))) } catch { /* unavailable storage only loses observer recovery */ } }
     for (const listener of listeners) listener()
   }
   const patch = (jobID, fields) => {
@@ -61,11 +65,17 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     const live = snapshot.live.filter(op => op.jobID !== jobID)
     emit({ live, records: [{ ...record, jobID, finishedAt: new Date(now()).toISOString() }, ...snapshot.records].slice(0, MAX_RECORDS) })
   }
+  // What an owner status says about the entry: queued while it waits on the
+  // shared queue, the job to cancel it by, and whether it can still be stopped.
+  const applyStatus = (jobID, status) => {
+    const prev = snapshot.live.find(op => op.jobID === jobID)
+    if (prev && status && status.phase) patch(jobID, upgradeStatusFields(status, prev))
+  }
   const trackPhases = (api, jobID) => ({
     ...api,
     async operationStatus(...args) {
       const status = await api.operationStatus(...args)
-      if (status && status.phase) patch(jobID, { phase: status.phase, stage: status.stage, failureCode: status.failureCode, message: status.stage || status.phase, progress: 0 })
+      applyStatus(jobID, status)
       return status
     },
   })
@@ -190,7 +200,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
             submit: () => {
               const body = upgradeBody(addon, operationId)
               if (!body) return Promise.reject(new AddonsError({ kind: 'invalid' }))
-              return api.updates.upgrade(addon.id, body, signal)
+              return api.updates.upgrade(addon.id, body, signal).then((status) => { applyStatus(jobID, status); return status })
             },
           })
           outcome = out.outcome
@@ -245,6 +255,13 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         settle(jobID, { ...op, outcome: 'completed', state: undefined })
         return { ok: true, outcome, message: '' }
       }
+      // Cancelled while it waited, or stopped after this browser asked: not a failure.
+      const failed = snapshot.live.find(o => o.jobID === jobID)
+      if (failed && endedAsCancelled(failed.failureCode, { requested: cancelRequested.has(jobID) })) {
+        cancelRequested.delete(jobID)
+        settle(jobID, { ...failed, outcome: 'cancelled', state: undefined })
+        return { ok: false, outcome: 'cancelled', message: 'canceled' }
+      }
       const errorKey = outcome === 'not_applied' ? 'operation_conflict' : 'upgrade_failed'
       patch(jobID, { state: 'failed', cancellable: false, unknown: false, error: errorKey, errorKey, operationId })
       return { ok: false, outcome, message: errorKey }
@@ -285,9 +302,23 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       return true
     },
 
-    cancel(jobID) {
+    // `remote(galleryJobId)` cancels the job on the server (it works while the
+    // upgrade waits and while it downloads); the follow goes on and reads how
+    // the owner ended it. Without a known job the follow is only aborted.
+    cancel(jobID, remote) {
+      const op = snapshot.live.find(o => o.jobID === jobID)
+      if (!op || !op.cancellable) return false
+      if (op.galleryJobId && typeof remote === 'function') {
+        cancelRequested.add(jobID)
+        patch(jobID, { state: 'cancelling', cancellable: false })
+        new Promise((resolve) => resolve(remote(op.galleryJobId))).catch(() => {
+          cancelRequested.delete(jobID)
+          if (snapshot.live.find(o => o.jobID === jobID)?.state === 'cancelling') patch(jobID, { state: 'running', cancellable: true })
+        })
+        return true
+      }
       const controller = controllers.get(jobID)
-      if (!controller || !snapshot.live.find(op => op.jobID === jobID)?.cancellable) return false
+      if (!controller) return false
       cancelled.add(jobID)
       patch(jobID, { state: 'cancelling', cancellable: false })
       controller.abort()

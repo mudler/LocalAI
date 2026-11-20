@@ -142,6 +142,7 @@
     },
     "updatingPhase": "In aggiornamento: {{phase}}",
     "updatingPlain": "In aggiornamento",
+    "queued": "In coda, in attesa di uno slot libero",
     "addonConfirm": "Richiede la tua conferma in questo browser",
     "nodesAction": "Nodi",
     "nodesNamed": "Mostra i nodi di {{name}}",
@@ -152,6 +153,7 @@
     "running": "Aggiornamento {{current}} di {{total}}",
     "summary": "{{done}} aggiornati, {{failed}} falliti, {{skipped}} saltati",
     "details": "Dettagli",
+    "cancelAll": "Annulla tutto",
     "retryFailed": "Riprova i falliti ({{count}})",
     "dismiss": "Chiudi"
   },

@@ -87,6 +87,15 @@ type nonceRecord struct {
 	bind    string
 	expires time.Time
 	usedBy  string
+	// review is what the preview showed when it came from the index hint.
+	review previewReview
+}
+
+// previewReview is what an index-hint preview showed, kept with its nonce so
+// the install is held to it (see addons.HostApproval.FromIndex).
+type previewReview struct {
+	fromIndex, unpinned bool
+	reviewed            []string
 }
 
 type nonceStore struct {
@@ -104,7 +113,7 @@ func (s *nonceStore) purge() {
 	}
 }
 
-func (s *nonceStore) issue(bind string) (string, time.Time, error) {
+func (s *nonceStore) issue(bind string, review previewReview) (string, time.Time, error) {
 	n, err := randtoken.Hex(16)
 	if err != nil {
 		return "", time.Time{}, ErrUnavailable
@@ -122,25 +131,25 @@ func (s *nonceStore) issue(bind string) (string, time.Time, error) {
 		delete(s.m, oldest)
 	}
 	exp := s.now().Add(nonceLife)
-	s.m[n] = &nonceRecord{bind: bind, expires: exp}
+	s.m[n] = &nonceRecord{bind: bind, expires: exp, review: review}
 	return n, exp, nil
 }
 
 // consume uses the nonce once for the operation. The same operation may
 // present it again (a replay of the same request).
-func (s *nonceStore) consume(nonce, bind, opID string) (replay, ok bool) {
+func (s *nonceStore) consume(nonce, bind, opID string) (replay, ok bool, review previewReview) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.purge()
 	r, found := s.m[nonce]
 	if !found || r.bind != bind {
-		return false, false
+		return false, false, previewReview{}
 	}
 	if r.usedBy != "" {
-		return true, r.usedBy == opID
+		return true, r.usedBy == opID, r.review
 	}
 	r.usedBy = opID
-	return false, true
+	return false, true, r.review
 }
 
 func nonceBind(a contract.Actor, addonID, digest string, revision uint64) string {
@@ -188,6 +197,18 @@ func (o *HostGrantsOwner) Serve(ctx context.Context, a contract.Actor, call Host
 			return nil, hgErr(400, HostGrantsInvalidRequest, "The request cannot be carried out as given")
 		}
 		out, err = o.install(ctx, a, r)
+	case HostGrantsQueue:
+		var r HostGrantsQueueRequest
+		if !strictBody(call.Body, &r) || r.OperationID != call.OperationID {
+			return nil, hgErr(400, HostGrantsInvalidRequest, "The request cannot be carried out as given")
+		}
+		out, err = o.queue(ctx, a, r)
+	case HostGrantsRunQueued, HostGrantsDropQueued:
+		var r HostGrantsQueuedRequest
+		if !strictBody(call.Body, &r) || r.OperationID != call.OperationID {
+			return nil, hgErr(400, HostGrantsInvalidRequest, "The request cannot be carried out as given")
+		}
+		out, err = o.queued(ctx, a, call.Op, r)
 	case HostGrantsEdit:
 		var r HostGrantsEditRequest
 		if !strictBody(call.Body, &r) || r.OperationID != call.OperationID {
@@ -466,7 +487,11 @@ func (o *HostGrantsOwner) preview(ctx context.Context, a contract.Actor, r HostG
 		req[x] = true
 	}
 	hint := doc.Hints[rel.AddonID]
-	v := HostGrantsPreviewView{AddonID: rel.AddonID, Title: rel.Title, Digest: rel.Digest, Version: rel.Version, Installed: rel.Installed,
+	digest := rel.Digest
+	if rel.Unpinned {
+		digest = UnpinnedDigest
+	}
+	v := HostGrantsPreviewView{AddonID: rel.AddonID, Title: rel.Title, Digest: digest, Version: rel.Version, Installed: rel.Installed,
 		Official: rel.Official, Revision: doc.Revision, Ops: []HostOpView{}, BlockedReq: xslices.NonNil(plan.BlockedRequired), Added: []string{},
 		Requested: HostRequested{Required: xslices.NonNil(sorted(rel.Required)), Optional: xslices.NonNil(sorted(rel.Optional))}}
 	v.Locked, v.LockedReason = o.cfg.Locked, o.lockedReason()
@@ -494,7 +519,12 @@ func (o *HostGrantsOwner) preview(ctx context.Context, a contract.Actor, r HostG
 	v.CanInstall = onlyGrantableMissing(plan, rel.Required)
 	b := o.cfg.Floor.EvaluateBlanket(doc, c, o.cfg.BlanketOverride, hostgrants.BlanketInput{AddonID: rel.AddonID, Official: rel.Official, Required: rel.Required, Optional: rel.Optional})
 	v.Blanket = HostBlanketPreview{Applies: b.Applies && len(b.Plan.BlockedRequired) == 0, Revision: b.Revision}
-	nonce, exp, err := o.nonces.issue(nonceBind(a, rel.AddonID, rel.Digest, doc.Revision))
+	var review previewReview
+	if rel.FromIndex {
+		review = previewReview{fromIndex: true, unpinned: rel.Unpinned, reviewed: declared}
+		v.FromIndex = true
+	}
+	nonce, exp, err := o.nonces.issue(nonceBind(a, rel.AddonID, v.Digest, doc.Revision), review)
 	if err != nil {
 		return HostGrantsPreviewView{}, err
 	}
@@ -532,32 +562,95 @@ func (o *HostGrantsOwner) install(ctx context.Context, a contract.Actor, r HostG
 			return nil, o.invalid()
 		}
 	}
-	doc, err := o.cfg.Store.Snapshot(ctx)
+	approval, err := o.approval(ctx, a, r.AddonID, r.OperationID, r.Approve)
 	if err != nil {
 		return nil, err
 	}
-	bind := nonceBind(a, r.AddonID, r.Approve.Digest, r.Approve.Revision)
-	replay, ok := o.nonces.consume(r.Approve.Nonce, bind, r.OperationID)
-	switch {
-	case replay && ok:
-		// The same operation again: the manager answers from its record.
-	case replay:
-		return nil, hgErr(409, HostGrantsApprovalStale, "The approval was used for another operation; review the package again")
-	case r.Approve.Revision != doc.Revision:
-		// The nonce is used up only when it matched; a stale revision leaves
-		// the dialog to reload.
-		return nil, hgErr(409, HostGrantsRevisionConflict, "Host access changed since you loaded it; reload and repeat the action")
-	case !ok:
-		return nil, hgErr(409, HostGrantsApprovalStale, "The approval expired or does not match; review the package again")
-	}
 	cmd := addons.LifecycleCommand{OperationID: r.OperationID, AddonID: r.AddonID, Action: r.Action, SourceID: r.SourceID, Version: r.Version,
 		ExpectedDigest: r.ExpectedDigest, CandidateDigest: r.CandidateDigest, Downgrade: r.Downgrade && r.SourceID == zipformat.SourceID}
-	st, err := o.cfg.Manager.SubmitWithApproval(ctx, a, cmd, HostApproval{Digest: r.Approve.Digest, Ops: slices.Clone(r.Approve.Ops), Revision: r.Approve.Revision, Nonce: r.Approve.Nonce})
+	st, err := o.cfg.Manager.SubmitWithApproval(ctx, a, cmd, approval)
 	if err != nil {
 		return nil, err
 	}
 	if o.cfg.AfterChange != nil {
 		o.cfg.AfterChange([]string{r.AddonID})
+	}
+	return st, nil
+}
+
+// approval checks the approval of an install against the preview nonce and
+// the revision of the grants, and returns it with what the preview showed. The
+// nonce is used up by the operation ID; the same operation may present it again.
+func (o *HostGrantsOwner) approval(ctx context.Context, a contract.Actor, addonID, operationID string, ap HostGrantsApprove) (HostApproval, error) {
+	doc, err := o.cfg.Store.Snapshot(ctx)
+	if err != nil {
+		return HostApproval{}, err
+	}
+	bind := nonceBind(a, addonID, ap.Digest, ap.Revision)
+	replay, ok, review := o.nonces.consume(ap.Nonce, bind, operationID)
+	switch {
+	case replay && ok:
+		// The same operation again: the manager answers from its record.
+	case replay:
+		return HostApproval{}, hgErr(409, HostGrantsApprovalStale, "The approval was used for another operation; review the package again")
+	case ap.Revision != doc.Revision:
+		// The nonce is used up only when it matched; a stale revision leaves
+		// the dialog to reload.
+		return HostApproval{}, hgErr(409, HostGrantsRevisionConflict, "Host access changed since you loaded it; reload and repeat the action")
+	case !ok:
+		return HostApproval{}, hgErr(409, HostGrantsApprovalStale, "The approval expired or does not match; review the package again")
+	}
+	out := HostApproval{Digest: ap.Digest, Ops: slices.Clone(ap.Ops), Revision: ap.Revision, Nonce: ap.Nonce,
+		FromIndex: review.fromIndex, Unpinned: review.unpinned, Reviewed: slices.Clone(review.reviewed)}
+	if out.FromIndex && out.Reviewed == nil {
+		out.Reviewed = []string{}
+	}
+	return out, nil
+}
+
+// queue records an approved install for the host's operation queue. It
+// checks the approval now, while the nonce is valid, and records it on the
+// accepted operation. The grants revision is not held to it at the run: the
+// installs ahead in the queue change the grants, and the run checks the
+// verified manifest and the deny rules again instead.
+func (o *HostGrantsOwner) queue(ctx context.Context, a contract.Actor, r HostGrantsQueueRequest) (any, error) {
+	if !contract.ValidAddonID(r.AddonID) || r.SourceID == "" || r.SourceID == zipformat.SourceID || len(r.SourceID) > 64 || len(r.Version) > 128 ||
+		!validDigest(r.Approve.Digest) || r.Approve.Nonce == "" || len(r.Approve.Nonce) > 128 || len(r.Approve.Ops) > hostgrants.MaxOpsPerAddon {
+		return nil, o.invalid()
+	}
+	for _, op := range r.Approve.Ops {
+		if !hostgrants.ValidDenyEntry(op) || strings.HasSuffix(op, ".") || op == "*" {
+			return nil, o.invalid()
+		}
+	}
+	q, ok := o.cfg.Manager.(HostAccessQueue)
+	if !ok {
+		return nil, ErrUnavailable
+	}
+	approval, err := o.approval(ctx, a, r.AddonID, r.OperationID, r.Approve)
+	if err != nil {
+		return nil, err
+	}
+	approval.Revision = 0
+	cmd := addons.LifecycleCommand{OperationID: r.OperationID, AddonID: r.AddonID, Action: "install", SourceID: r.SourceID, Version: r.Version}
+	return q.AcceptWithApproval(ctx, a, cmd, approval)
+}
+
+// queued runs or drops an install that queue recorded.
+func (o *HostGrantsOwner) queued(ctx context.Context, a contract.Actor, op string, r HostGrantsQueuedRequest) (any, error) {
+	q, ok := o.cfg.Manager.(HostAccessQueue)
+	if !ok {
+		return nil, ErrUnavailable
+	}
+	if op == HostGrantsDropQueued {
+		return q.DropAccepted(ctx, a, r.OperationID)
+	}
+	st, err := q.RunAccepted(ctx, a, r.OperationID)
+	if err != nil {
+		return nil, err
+	}
+	if o.cfg.AfterChange != nil {
+		o.cfg.AfterChange([]string{st.AddonID})
 	}
 	return st, nil
 }

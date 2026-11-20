@@ -112,7 +112,9 @@ export const FIELDS = [
   { key: 'artifact_download_concurrency', group: 'speed', was: 'performance', kind: 'int', label: 'Artifact Download Concurrency',
     desc: 'Maximum artifact files downloaded at once. 1 downloads one after the other.', default: 1, min: 1 },
   { key: 'max_concurrent_backend_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent backend operations',
-    desc: 'Backend installs, updates and deletes that run at once. 1 runs them one after the other. Operations on the same backend never overlap.', default: 1, min: 1 },
+    desc: 'How many backend installs, upgrades and deletes run at once. The default is 2; 1 runs them one after the other. Operations on the same backend never overlap.', default: 2, min: 1 },
+  { key: 'max_concurrent_model_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent model operations',
+    desc: 'How many model installs, upgrades and deletes run at once. The default is 2; 1 runs them one after the other. Operations on the same model never overlap.', default: 2, min: 1 },
   { key: 'f16', group: 'speed', was: 'performance', kind: 'bool', label: 'F16 precision',
     desc: 'Use 16-bit floating point for reduced memory use.', default: false },
 

@@ -57,6 +57,10 @@ test('model rows: a running upgrade follows the operation and its phase, cancell
   assert.equal(modelRow(it, [op('unloading')]).cancellable, false)
   assert.equal(modelRow(it, [op('loading')]).cancellable, false)
   assert.equal(modelRow(it, [op('', { isQueued: true })]).phase, 'queued')
+  // A queued upgrade has no progress to show, whatever the operation reports.
+  assert.equal(modelRow(it, [op('', { isQueued: true })]).queued, true)
+  assert.equal(modelRow(it, [op('', { isQueued: true })]).progress, 0)
+  assert.equal(modelRow(it, [op('staging')]).queued, false)
   // A backend operation of the same name is not the model's.
   assert.equal(modelRow(it, [op('staging', { isBackend: true })]).state, 'ready')
   assert.equal(opForModel([op('staging', { isDeletion: true })], 'qwen'), null)

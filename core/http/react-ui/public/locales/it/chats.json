@@ -762,7 +762,8 @@
       "op": {
         "kind": {
           "model": "Modello",
-          "backend": "Backend"
+          "backend": "Backend",
+          "addon": "Componente aggiuntivo"
         },
         "done": {
           "install": "{{kind}} {{name}} installato",
@@ -778,6 +779,9 @@
           "install": "{{kind}} {{name}}: installazione annullata",
           "delete": "{{kind}} {{name}}: rimozione annullata",
           "upgrade": "{{kind}} {{name}}: aggiornamento annullato"
+        },
+        "needsReview": {
+          "install": "Il componente aggiuntivo {{name}} richiede il tuo controllo per essere installato"
         }
       },
       "models": {

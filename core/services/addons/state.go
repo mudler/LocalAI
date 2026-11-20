@@ -75,6 +75,17 @@ type HostApproval struct {
 	Ops      []string
 	Revision uint64
 	Nonce    string `json:"-"`
+	// FromIndex says the administrator reviewed the host operations that the
+	// library index lists for the release, not those of a staged package.
+	// Reviewed is that list. The owner sets both from its own record of the
+	// preview, never from a request. The install then refuses, as stale, a
+	// verified manifest that requests an operation outside Reviewed, so the
+	// administrator is asked again and nothing is granted silently.
+	FromIndex bool     `json:",omitempty"`
+	Reviewed  []string `json:",omitempty"`
+	// Unpinned says the index gave no digest (a mutable entry), so the
+	// approval is bound to Reviewed only. It is valid only with FromIndex.
+	Unpinned bool `json:",omitempty"`
 }
 
 // same reports whether two commands are the same request, for the replay of an
@@ -88,7 +99,8 @@ func (c LifecycleCommand) same(o LifecycleCommand) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
-	return a.Digest == b.Digest && a.Revision == b.Revision && slices.Equal(a.Ops, b.Ops)
+	return a.Digest == b.Digest && a.Revision == b.Revision && slices.Equal(a.Ops, b.Ops) &&
+		a.FromIndex == b.FromIndex && a.Unpinned == b.Unpinned && slices.Equal(a.Reviewed, b.Reviewed)
 }
 
 type OperationStatus struct {

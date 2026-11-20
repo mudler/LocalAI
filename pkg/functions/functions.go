@@ -14,7 +14,7 @@ const (
 type Function struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
-	Strict      bool           `json:"strict"`
+	Strict      bool           `json:"strict,omitempty"`
 	Parameters  map[string]any `json:"parameters"`
 }
 type Functions []Function

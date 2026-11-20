@@ -38,7 +38,8 @@
     },
     "verb": {
       "upgrading": "Actualizando {{kind}}",
-      "failedUpgrade": "No se pudo actualizar {{kind}}"
+      "failedUpgrade": "No se pudo actualizar {{kind}}",
+      "needsReview": "Necesita tu revisión"
     },
     "filter": {
       "addons": "Complementos"
@@ -61,7 +62,14 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "En cola",
+      "starting": "Iniciando",
+      "resolving": "Resolviendo el paquete",
+      "verifying": "Verificando firma y digest",
+      "downloading": "Descargando",
+      "checking": "Comprobando el paquete",
+      "committing": "Finalizando"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
@@ -87,6 +95,9 @@
       "committing": "Finalizando",
       "persisting": "Guardando la configuración"
     },
-    "retryFailed": "Error al reintentar: {{message}}"
+    "retryFailed": "Error al reintentar: {{message}}",
+    "addonNeedsReview": "El paquete pide más acceso al host del que aprobaste.",
+    "review": "Revisar",
+    "reviewLabel": "Revisar {{name}}"
   }
 }

@@ -762,7 +762,8 @@
       "op": {
         "kind": {
           "model": "Model",
-          "backend": "Backend"
+          "backend": "Backend",
+          "addon": "Add-on"
         },
         "done": {
           "install": "{{kind}} {{name}} terinstal",
@@ -778,6 +779,9 @@
           "install": "{{kind}} {{name}}: instalasi dibatalkan",
           "delete": "{{kind}} {{name}}: penghapusan dibatalkan",
           "upgrade": "{{kind}} {{name}}: pembaruan dibatalkan"
+        },
+        "needsReview": {
+          "install": "Add-on {{name}} perlu ditinjau agar bisa dipasang"
         }
       },
       "models": {
