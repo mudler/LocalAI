@@ -33501,6 +33501,26 @@ const docTemplate = `{
                 "channel_label": {
                     "type": "string"
                 },
+                "channel_ref": {
+                    "description": "ChannelRef and ChatRef are the channel ID (target channel) or the chat\n(target origin), shortened: never a whole ID.",
+                    "type": "string"
+                },
+                "chat_ref": {
+                    "type": "string"
+                },
+                "connection_addon": {
+                    "type": "string"
+                },
+                "connection_id": {
+                    "description": "ConnectionID, ConnectionKind, ConnectionKindTitle and ConnectionAddon\nsay which connection the channel or chat belongs to and which service it\nis. ConnectionID is empty when the connection is gone.",
+                    "type": "string"
+                },
+                "connection_kind": {
+                    "type": "string"
+                },
+                "connection_kind_title": {
+                    "type": "string"
+                },
                 "connection_name": {
                     "description": "ConnectionName is the name the owner gave the connection of the channel,\nfor a trigger that was proposed in Studio and reports there.",
                     "type": "string"
@@ -33510,6 +33530,10 @@ const docTemplate = `{
                 },
                 "mode": {
                     "description": "Mode is when a run reports: always (the default), on_change (only when\nthe answer differs from the run before) or on_problem (only when a run\nfails).",
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State says whether the destination can receive a report now: ok, off\n(the connection is switched off), gone (deleted), unavailable (its\nadd-on does not run or it cannot receive reports), no_channel (the\nchannel is not listed and approved any more) or blocked (the owner does\nnot let the connection write there). Empty for the inbox.",
                     "type": "string"
                 },
                 "target": {

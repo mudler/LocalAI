@@ -10864,6 +10864,25 @@ definitions:
     properties:
       channel_label:
         type: string
+      channel_ref:
+        description: |-
+          ChannelRef and ChatRef are the channel ID (target channel) or the chat
+          (target origin), shortened: never a whole ID.
+        type: string
+      chat_ref:
+        type: string
+      connection_addon:
+        type: string
+      connection_id:
+        description: |-
+          ConnectionID, ConnectionKind, ConnectionKindTitle and ConnectionAddon
+          say which connection the channel or chat belongs to and which service it
+          is. ConnectionID is empty when the connection is gone.
+        type: string
+      connection_kind:
+        type: string
+      connection_kind_title:
+        type: string
       connection_name:
         description: |-
           ConnectionName is the name the owner gave the connection of the channel,
@@ -10876,6 +10895,14 @@ definitions:
           Mode is when a run reports: always (the default), on_change (only when
           the answer differs from the run before) or on_problem (only when a run
           fails).
+        type: string
+      state:
+        description: |-
+          State says whether the destination can receive a report now: ok, off
+          (the connection is switched off), gone (deleted), unavailable (its
+          add-on does not run or it cannot receive reports), no_channel (the
+          channel is not listed and approved any more) or blocked (the owner does
+          not let the connection write there). Empty for the inbox.
         type: string
       target:
         type: string

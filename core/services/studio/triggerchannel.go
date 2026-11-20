@@ -57,33 +57,112 @@ func (h *Triggers) channelLabel(ctx context.Context, t triggers.Trigger) string 
 	return t.Route.Channel
 }
 
-// DeliveryView is where the answer of a trigger goes, for a screen.
+// Delivery states: whether the destination of a trigger can receive a report
+// now. Empty for the Inbox, which is always there.
+const (
+	DeliveryOK = "ok"
+	// DeliveryOff: the connection is switched off.
+	DeliveryOff = "off"
+	// DeliveryGone: the connection was deleted, or is not the owner's.
+	DeliveryGone = "gone"
+	// DeliveryUnavailable: the add-on of the connection does not run, or the
+	// connection cannot receive reports.
+	DeliveryUnavailable = "unavailable"
+	// DeliveryNoChannel: the channel is no longer listed and approved.
+	DeliveryNoChannel = "no_channel"
+	// DeliveryBlocked: the owner does not let the connection write there.
+	DeliveryBlocked = "blocked"
+)
+
+// DeliveryView is where the answer of a trigger goes, for a screen. It holds
+// no credential and no full chat ID.
 type DeliveryView struct {
 	// Target is the inbox, origin or channel target of the trigger.
 	Target string
 	// ChannelLabel is the name of the channel of TargetChannel.
 	ChannelLabel string
-	// ConnectionName is the name the owner gave the connection that the channel
-	// belongs to, for a trigger from Studio that reports to a connection; empty
-	// otherwise, and when the connection is gone.
+	// ChannelRef is the channel ID of TargetChannel, shortened.
+	ChannelRef string
+	// ChatRef is the chat of TargetOrigin, shortened.
+	ChatRef string
+	// ConnectionName is the name the owner gave the connection that the
+	// channel or chat belongs to; empty when the connection is gone.
 	ConnectionName string
+	// ConnectionKind, ConnectionKindTitle and ConnectionAddon say which
+	// service the connection is (for the icon and the name).
+	ConnectionKind      string
+	ConnectionKindTitle string
+	ConnectionAddon     string
+	// ConnectionID lets a screen link to the connection.
+	ConnectionID string
+	// State says whether the destination can receive a report now (see the
+	// Delivery constants); empty for the Inbox.
+	State string
 	// InThread is set when the origin is a thread.
 	InThread bool
 	// Mode is when a run reports: always, on_change or on_problem.
 	Mode string
 }
 
+// shortRef shortens a chat or channel ID of a messaging app, so a screen never
+// shows a whole one.
+func shortRef(s string) string {
+	r := []rune(s)
+	if len(r) <= 8 {
+		return s
+	}
+	return string(r[:3]) + "…" + string(r[len(r)-3:])
+}
+
 // DeliveryOf says where the runs of a trigger report.
 func (h *Triggers) DeliveryOf(ctx context.Context, t triggers.Trigger) DeliveryView {
 	d := DeliveryView{Target: string(t.Route.TargetOrDefault()), Mode: t.Route.ModeOrDefault()}
+	var bindingID string
 	switch t.Route.TargetOrDefault() {
 	case triggers.TargetChannel:
 		d.ChannelLabel = h.channelLabel(ctx, t)
-		if t.Route.Connection != "" {
-			d.ConnectionName = h.connectionName(ctx, t.Route.Connection)
-		}
+		d.ChannelRef = shortRef(t.Route.Channel)
+		bindingID = t.Route.ChannelBinding()
 	case triggers.TargetOrigin:
 		d.InThread = t.Route.Thread != ""
+		d.ChatRef = shortRef(t.Route.Chat)
+		bindingID = t.Route.Binding
+	default:
+		return d
+	}
+	d.ConnectionID = bindingID
+	d.State = DeliveryGone
+	c := h.svc.connectors
+	if c == nil || bindingID == "" {
+		return d
+	}
+	b, err := c.o.Store.GetBinding(ctx, bindingID)
+	if err != nil || b.Owner != principal(t.Owner) {
+		d.ConnectionID = ""
+		return d
+	}
+	d.ConnectionName, d.ConnectionKind, d.ConnectionAddon = b.Name, b.Kind, b.AddonID
+	k := c.kindOf(ctx, b)
+	if k != nil {
+		d.ConnectionKindTitle = k.Title
+	}
+	switch {
+	case !b.Enabled:
+		d.State = DeliveryOff
+	case !c.canReceiveReports(ctx, b):
+		d.State = DeliveryUnavailable
+	case d.Target == triggers.TargetChannel:
+		kind, _, terr := ChannelTarget(b, t.Route.Channel)
+		switch {
+		case terr != nil || kind != SendChannel:
+			d.State = DeliveryNoChannel
+		case !h.svc.allowCap(ctx, CapabilityRequest{Capability: contract.CapTalkbackChannels, Binding: b.ID, Owner: t.Owner, Agent: t.AgentID}):
+			d.State = DeliveryBlocked
+		default:
+			d.State = DeliveryOK
+		}
+	default:
+		d.State = DeliveryOK
 	}
 	return d
 }

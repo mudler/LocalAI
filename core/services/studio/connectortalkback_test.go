@@ -496,7 +496,11 @@ var _ = Describe("talk-back from a connector chat", func() {
 			for _, text := range fake.texts(chatID, thread) {
 				Expect(text).NotTo(ContainSubstring("result is 42"))
 			}
-			Expect(r.host.DeliveryOf(ctx, t)).To(Equal(studio.DeliveryView{Target: triggers.TargetChannel, ChannelLabel: "General", Mode: triggers.ModeAlways}))
+			d := r.host.DeliveryOf(ctx, t)
+			Expect(d.Target).To(Equal(triggers.TargetChannel))
+			Expect(d.ChannelLabel).To(Equal("General"))
+			Expect(d.ConnectionName).To(Equal(b.Name))
+			Expect(d.State).To(Equal(studio.DeliveryOK))
 		})
 
 		It("goes to the Inbox when the capability is off at delivery time", func() {
