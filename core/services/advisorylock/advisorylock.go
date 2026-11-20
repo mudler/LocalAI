@@ -107,14 +107,14 @@ func TryWithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error
 // KeyFromUUID converts a UUID (as [16]byte) to a lock key via FNV-1a hashing.
 func KeyFromUUID(b [16]byte) int64 {
 	h := fnv.New64a()
-	h.Write(b[:])
+	_, _ = h.Write(b[:]) // hash.Hash.Write never returns an error
 	return int64(h.Sum64()>>1) | 0x100000000
 }
 
 // KeyFromString converts an arbitrary string to an advisory lock key via FNV-1a hashing.
 func KeyFromString(s string) int64 {
 	h := fnv.New64a()
-	h.Write([]byte(s))
+	_, _ = h.Write([]byte(s)) // hash.Hash.Write never returns an error
 	return int64(h.Sum64()>>1) | 0x100000000
 }
 
