@@ -89,6 +89,15 @@ and signer of the running build into `sources.json`. After an upgrade, the next 
 the `official` library to the index and signer of the new build; a library that you pointed at
 another URL is left as it is.
 
+GitHub answers a release asset URL with a redirect to a short-lived URL on its object
+store. LocalAI follows a redirect of a library index or of an archive download only to an
+https URL on a GitHub download host (`github.com`, `raw.githubusercontent.com`,
+`objects.githubusercontent.com`, `release-assets.githubusercontent.com`), at most five
+times, and never to an address on a private network. It does not send the credential of
+the library to the redirect host. Any other redirect fails the refresh, and the server log
+names the reason. The content keeps its own checks: the signature policy of the library and
+the digest of each entry.
+
 The index has the same format as the other libraries (see
 [Catalog document and limits]({{% relref "/addons/contract-reference/packages-and-runtime#catalog-document-and-limits" %}})). A package that the named
 workflow run did not build and sign is refused at install.

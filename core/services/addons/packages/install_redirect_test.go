@@ -4,7 +4,9 @@ package packages
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -127,5 +129,60 @@ var _ = Describe("OCI blob redirects", func() {
 		_, e := i.Stage(context.Background(), r, nil)
 		Expect(e).To(HaveOccurred())
 		Expect(rr.cdnHits.Load()).To(BeZero())
+	})
+})
+
+var _ = Describe("archive behind a release download redirect", func() {
+	// A TEST-NET literal stands in for the object store GitHub redirects a
+	// release asset to: it needs no DNS and passes the public address check.
+	const assetHost = "203.0.113.2"
+	var assetHits atomic.Int64
+
+	serveAsset := func(body []byte) {
+		assetHits.Store(0)
+		asset := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			assetHits.Add(1)
+			_, _ = w.Write(body)
+		}))
+		DeferCleanup(asset.Close)
+		archiveTransport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // test server certificate
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				if addr == assetHost+":443" {
+					addr = asset.Listener.Addr().String()
+				}
+				return (&net.Dialer{}).DialContext(ctx, network, addr)
+			},
+		}
+		orig := catalog.ReleaseAssetHosts
+		catalog.ReleaseAssetHosts = append(append([]string{}, orig...), assetHost)
+		DeferCleanup(func() { archiveTransport, catalog.ReleaseAssetHosts = nil, orig })
+	}
+	stage := func(data []byte) error {
+		download := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "https://"+assetHost+"/release-asset/1", http.StatusFound)
+		}))
+		DeferCleanup(download.Close)
+		i, r := fixture(data, func(r *catalog.Release, _ *catalog.Source) { r.Artifact = download.URL + "/package.tar" })
+		_, e := i.Stage(context.Background(), r, nil)
+		return e
+	}
+	manifest := func() []byte {
+		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		return archive(nil, m)
+	}
+
+	It("follows the redirect to an allowed https host", func() {
+		data := manifest()
+		serveAsset(data)
+		Expect(stage(data)).To(Succeed())
+		Expect(assetHits.Load()).To(Equal(int64(1)))
+	})
+	It("still checks the pinned digest of the redirected bytes", func() {
+		data := manifest()
+		serveAsset([]byte("not the archive"))
+		Expect(stage(data)).NotTo(Succeed())
+		Expect(assetHits.Load()).To(Equal(int64(1)))
 	})
 })
