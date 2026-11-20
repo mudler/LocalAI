@@ -686,8 +686,16 @@ cd "$GRPC_DIR/grpc_build"
 # NOT a link-order problem; see the WIN32_LEAN_AND_MEAN/_WIN32_WINNT comment
 # above - those symbols were missing from the archive entirely.) The same
 # applies to shared links.
+# Pin the C++ standard to the one the grpc-server consumer uses (17, set in
+# backend/cpp/llama-cpp/CMakeLists.txt). abseil pins its options.h to the
+# standard of the compiler default at configure time: GCC 16 defaults to
+# gnu++20, which bakes ABSL_OPTION_USE_STD_ORDERING=1 into the installed
+# headers, and a C++17 consumer then fails with "'partial_ordering' has not
+# been declared in 'std'". Building gRPC as C++17 keeps both sides in step.
 cmake -G "Unix Makefiles" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_STANDARD=17 \
+  -DCMAKE_CXX_STANDARD_REQUIRED=ON \
   -DCMAKE_C_COMPILER=gcc \
   -DCMAKE_CXX_COMPILER=g++ \
   -DCMAKE_C_FLAGS="-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x600" \
