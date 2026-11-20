@@ -186,9 +186,11 @@ jobs:
         # build + rpc + fallback); the single-variant default lives in the
         # `make backends/llama-cpp-windows` target. The target depends on
         # `build` (mirroring backends/% on Linux), and the msys2 shell resets
-        # PATH, so the Go toolchain resolved above is prepended here.
+        # PATH, so the Go toolchain resolved above is prepended here. The root
+        # is a Windows path (C:\...); cygpath turns it into the POSIX form that
+        # a colon-separated msys2 PATH needs, or `go` is not found.
         run: |
-          export PATH="$GO_TOOLCHAIN_ROOT/bin:$PATH"
+          export PATH="$(cygpath -u "$GO_TOOLCHAIN_ROOT")/bin:$PATH"
           make backends/llama-cpp-windows-all
 
       - name: ccache stats
