@@ -275,6 +275,20 @@ func mcpAutoPermitted(c echo.Context, appConfig *config.ApplicationConfig, authD
 	return auth.HasFeatureAccess(authDB, auth.GetUser(c), auth.FeatureMCP)
 }
 
+// dropOfferedTools hides from exec the tools the request already carries, so
+// they are neither discovered, recognised nor executed server-side. A request
+// that offers no tools gets exec back unchanged.
+func dropOfferedTools(exec mcpTools.ToolExecutor, input *schema.OpenAIRequest) mcpTools.ToolExecutor {
+	requested := requestedToolNames(input)
+	if len(requested) == 0 {
+		return exec
+	}
+	return mcpTools.Only(exec, func(name string) bool {
+		_, offered := requested[name]
+		return !offered
+	})
+}
+
 // ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
 // @Summary Generate a chat completions for a given prompt and model.
 // @Tags inference
@@ -390,12 +404,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			remote, stdio, mcpErr := config.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
 				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, config.MCPSessionKey(), remote, stdio, mcpServers)
-				if requested := requestedToolNames(input); len(requested) > 0 {
-					mcpExecutor = mcpTools.Only(mcpExecutor, func(name string) bool {
-						_, offered := requested[name]
-						return !offered
-					})
-				}
+				mcpExecutor = dropOfferedTools(mcpExecutor, input)
 
 				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
 				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.MCPSessionKey(), remote, stdio, mcpServers)
