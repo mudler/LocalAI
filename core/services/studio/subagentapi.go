@@ -24,7 +24,7 @@ func (s *Service) SubAgentLimit() int { return maxBackgroundChildren }
 // their state. It reads the store, so it shows runs started on any frontend.
 func (s *Service) SubAgents(ctx context.Context, user, parent string) ([]SubAgent, error) {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, parent); err != nil {
+	if _, err := s.getChatEffective(ctx, p, parent); err != nil {
 		return nil, err
 	}
 	kids, err := s.d.Store.ListChildren(ctx, p, parent)
@@ -49,7 +49,7 @@ func (s *Service) SubAgents(ctx context.Context, user, parent string) ([]SubAgen
 
 // subAgent returns the child if it is a sub-agent run of parent, else ErrNotFound.
 func (s *Service) subAgent(ctx context.Context, p, parent, child string) (session.ChatRecord, error) {
-	rec, err := s.d.Store.GetChat(ctx, p, child)
+	rec, err := s.getChatEffective(ctx, p, child)
 	if err != nil {
 		return session.ChatRecord{}, err
 	}

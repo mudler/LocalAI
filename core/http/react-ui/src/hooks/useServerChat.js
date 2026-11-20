@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { chatsApi, chatLoopsApi } from '../utils/api'
+import { chatsApi, chatLoopsApi, chatProjectsApi } from '../utils/api'
 import { eventPayload, retryDelay, resumeUrl } from '../utils/streamRetry'
 import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted, consentAsk } from '../utils/chatLive'
 import { notifyTurnEnd } from './useWorkspaceFeed'
@@ -384,9 +384,9 @@ export function useServerChat({ seed = null } = {}) {
   }, [refreshList, closeStream, connect, refreshChat])
 
   // switches are the drafted switches of the new chat (useChatSwitches).
-  const createChat = useCallback(async (model, agentId, switches) => {
+  const createChat = useCallback(async (model, agentId, switches, projectId) => {
     setError('')
-    const created = await chatsApi.create(model, undefined, agentId, false, switches || undefined)
+    const created = await chatsApi.create(model, undefined, agentId, false, switches || undefined, projectId || undefined)
     setMadeHere(created.id)
     await refreshList()
     return created.id
@@ -506,6 +506,21 @@ export function useServerChat({ seed = null } = {}) {
     return out
   }, [refreshList])
 
+  // Moves a chat into a project (or out, with '') and sets the other projects
+  // it reads. Both answer the chat and 409 while a turn runs; the error goes
+  // to the caller, which shows it by the control.
+  const adopt = useCallback(async (id, out) => {
+    // The server leaves an empty project_id and pulled_projects out, so a
+    // merge alone would keep the old values.
+    const next = { ...out, project_id: out?.project_id || '', pulled_projects: out?.pulled_projects || [] }
+    if (activeRef.current === id) setDetail(d => (d ? { ...d, ...next } : d))
+    // The change is applied; a failed list refresh must not report it as failed.
+    try { await refreshList() } catch { /* the list catches up on the next poll */ }
+    return next
+  }, [refreshList])
+  const setProject = useCallback(async (id, projectId) => adopt(id, await chatProjectsApi.setChatProject(id, projectId)), [adopt])
+  const setPulled = useCallback(async (id, projectIds) => adopt(id, await chatProjectsApi.setChatPulled(id, projectIds)), [adopt])
+
   // Renaming answers 409 while a turn runs; the error shows like any other.
   const rename = useCallback(async (id, title) => {
     setError('')
@@ -595,7 +610,7 @@ export function useServerChat({ seed = null } = {}) {
     // reload shows the card again. Null when none waits.
     hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '', job: !!detail.host_consent.job } : null,
     sending, showSending, dropSending,
-    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, stopJob, remove, rename, update, regenerate, resume, editMessage, refreshList, compact, clear,
+    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, stopJob, remove, rename, update, setProject, setPulled, regenerate, resume, editMessage, refreshList, compact, clear,
     setGoal, clearGoal, resumeGoal, pauseGoal,
     clearError: () => setError(''),
   }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +32,11 @@ var _ = Describe("official library default", func() {
 		Expect(list[0].ID).To(Equal(OfficialLibraryID))
 		info, e := os.Stat(s.path)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0600)))
+		// POSIX permission bits are not enforceable on Windows, where the file
+		// is reported with the default 0666 mode regardless of chmod.
+		if runtime.GOOS != "windows" {
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0600)))
+		}
 		reloaded, e := NewSources(s.path, checker, CredentialResolver{})
 		Expect(e).NotTo(HaveOccurred())
 		Expect(reloaded.sources).To(HaveKey(OfficialLibraryID))

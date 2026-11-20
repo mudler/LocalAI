@@ -167,7 +167,7 @@ func (s *Service) historyCall(ctx context.Context, c builtins.Chat) (historyCall
 	if !s.historyAvailable() {
 		return historyCaller{}, errHistoryNoStore
 	}
-	rec, err := s.d.Store.GetChat(ctx, c.Actor.Principal, c.Actor.ChatID)
+	rec, err := s.getChatEffective(ctx, c.Actor.Principal, c.Actor.ChatID)
 	if err != nil {
 		return historyCaller{}, err
 	}
@@ -200,7 +200,7 @@ func (s *Service) agentIsFenced(ctx context.Context, rec session.ChatRecord, c b
 	if errors.Is(err, agents.ErrNotFound) {
 		return rec.ScopedAgent
 	}
-	return err != nil || ag.HasFolder()
+	return err != nil || fencedAgent(ag)
 }
 
 type searchChatsArgs struct {
@@ -315,7 +315,7 @@ func (s *Service) readChatTool(ctx context.Context, c builtins.Chat, raw json.Ra
 	}
 	// Every reason a chat may not be read gives the same answer, so the model
 	// cannot learn which chats exist.
-	rec, err := s.d.Store.GetChat(ctx, h.rec.Principal, strings.TrimSpace(a.ChatID))
+	rec, err := s.getChatEffective(ctx, h.rec.Principal, strings.TrimSpace(a.ChatID))
 	switch {
 	case err != nil && !errors.Is(err, session.ErrNotFound):
 		return "", err

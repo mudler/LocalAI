@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -83,15 +84,23 @@ var _ = Describe("Worker file staging verbs over NATS", func() {
 	)
 
 	It("allocates a temp file even when the body is malformed", func() {
-		got := reply(messaging.SubjectNodeFilesTemp, malformedBody)
-		Expect(got).To(MatchRegexp(`^\{"local_path":"` + filepath.Join(cacheDir, "staging-tmp") + `/localai-staging-[0-9]+\.tmp"\}$`))
+		var got struct {
+			LocalPath string `json:"local_path"`
+		}
+		Expect(json.Unmarshal([]byte(reply(messaging.SubjectNodeFilesTemp, malformedBody)), &got)).To(Succeed())
+		Expect(filepath.Dir(got.LocalPath)).To(Equal(filepath.Join(cacheDir, "staging-tmp")))
+		Expect(filepath.Base(got.LocalPath)).To(MatchRegexp(`^localai-staging-[0-9]+\.tmp$`))
 	})
 
 	It("answers a temp dir failure with its error", func() {
 		tmpDir := filepath.Join(cacheDir, "staging-tmp")
 		Expect(os.WriteFile(tmpDir, []byte("x"), 0640)).To(Succeed())
-		Expect(reply(messaging.SubjectNodeFilesTemp, `{}`)).To(Equal(
-			fmt.Sprintf(`{"error":"creating temp dir: mkdir %s: not a directory"}`, tmpDir)))
+		var got struct {
+			Error string `json:"error"`
+		}
+		Expect(json.Unmarshal([]byte(reply(messaging.SubjectNodeFilesTemp, `{}`)), &got)).To(Succeed())
+		// The tail of the message is the OS wording of the failure.
+		Expect(got.Error).To(HavePrefix("creating temp dir: mkdir " + tmpDir + ": "))
 	})
 
 	It("ensures a cached key and answers its local path", func() {
@@ -142,8 +151,12 @@ var _ = Describe("Worker file staging verbs over NATS", func() {
 
 	It("answers a listing failure with its error", func() {
 		missing := filepath.Join(cacheDir, "missing")
-		Expect(reply(messaging.SubjectNodeFilesListDir, `{"key_prefix":"missing"}`)).To(Equal(
-			fmt.Sprintf(`{"error":"lstat %s: no such file or directory"}`, missing)))
+		var got struct {
+			Error string `json:"error"`
+		}
+		Expect(json.Unmarshal([]byte(reply(messaging.SubjectNodeFilesListDir, `{"key_prefix":"missing"}`)), &got)).To(Succeed())
+		// The failing call and its wording are the OS's: lstat on Unix.
+		Expect(got.Error).To(ContainSubstring(missing))
 	})
 
 	It("answers a successful release with an empty object", func() {

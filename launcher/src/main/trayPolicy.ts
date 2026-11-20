@@ -19,6 +19,11 @@ export function decideClose(f: TrayFacts): CloseAction {
   return f.serverRunning ? 'confirm-quit' : 'quit'
 }
 
+/** The tray tooltip, with the unread notification count when there is one. */
+export function unreadTooltip(unread: number): string {
+  return unread > 0 ? `LocalAI Launcher (${unread} unread)` : 'LocalAI Launcher'
+}
+
 /** With a tray the window may start hidden when the user asked for it; without one it never does. */
 export function shouldStartVisible(trayCreated: boolean, startHidden: boolean): boolean {
   return !(trayCreated && startHidden)

@@ -34,6 +34,8 @@
     "agentHelp": "이 채팅은 에이전트 {{name}}의 지침과 허용된 도구만으로 실행됩니다.",
     "editAgent": "에이전트 편집",
     "deleteHelp": "이 채팅과 메시지를 영구히 삭제합니다.",
+    "collections": "컬렉션",
+    "collectionsHelp": "이 채팅은 이 컬렉션만 사용할 수 있습니다.",
     "sliderOf": "{{name}} 슬라이더",
     "reset": "{{name}}에 모델 기본값 사용",
     "hint": {
@@ -167,7 +169,8 @@
       "from": "시작",
       "to": "종료",
       "reset": "필터 초기화"
-    }
+    },
+    "clearShown": "표시된 항목 비우기"
   },
   "message": {
     "you": "You",
@@ -193,7 +196,8 @@
     "unavailable": "이 채팅에서 사용할 수 없음",
     "toolCount_one": "도구 {{count}}개",
     "toolCount_other": "도구 {{count}}개",
-    "optionsOf": "{{name}} 옵션"
+    "optionsOf": "{{name}} 옵션",
+    "projectCollections": "프로젝트의 컬렉션: {{names}}."
   },
   "skills": {
     "label": "스킬",
@@ -219,7 +223,8 @@
     },
     "replacedBy": "{{name}}(으)로 대체됨",
     "fallback_one": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",
-    "fallback_other": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다."
+    "fallback_other": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",
+    "fromProject": "프로젝트에서"
   },
   "agent": {
     "label": "에이전트",
@@ -718,7 +723,9 @@
     "missing": "이 에이전트의 폴더가 더 이상 없습니다. 에이전트에서 다른 폴더를 선택하세요.",
     "startError": "이 에이전트의 폴더가 없어 채팅을 시작할 수 없습니다. 에이전트에 다른 폴더를 선택하세요.",
     "editAgent": "에이전트 편집",
-    "toolsMany": "파일: 폴더 {{n}}개만: {{list}}. 공유 폴더와 스킬은 계속 읽을 수 있습니다."
+    "toolsMany": "파일: 폴더 {{n}}개만: {{list}}. 공유 폴더와 스킬은 계속 읽을 수 있습니다.",
+    "projectPaused": "프로젝트가 보관되었거나 삭제되어 이 에이전트가 일시 중지되었습니다. 프로젝트를 열어 복원하세요.",
+    "projectChanged": "프로젝트 폴더가 바뀌어 이 에이전트가 일시 중지되었습니다. 에이전트를 열어 다시 연결하세요."
   },
   "origin": {
     "banner": "이 대화는 {{title}}에서 시작되었습니다.",
@@ -913,5 +920,11 @@
       "code": "코드 블록 생략.",
       "table": "표 생략."
     }
+  },
+  "deleteShownDialog": {
+    "title": "표시된 채팅 삭제",
+    "message_one": "{{project}}에 표시된 채팅 {{count}}개를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "message_other": "{{project}}에 표시된 채팅 {{count}}개를 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "confirm": "표시된 항목 삭제"
   }
 }

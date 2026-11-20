@@ -34,6 +34,8 @@
     "agentHelp": "Questa chat usa l'agente {{name}}: le sue istruzioni e solo gli strumenti che concede.",
     "editAgent": "Modifica agente",
     "deleteHelp": "Elimina questa chat e i suoi messaggi in modo definitivo.",
+    "collections": "Raccolte",
+    "collectionsHelp": "Questa chat può usare solo queste raccolte.",
     "sliderOf": "Cursore {{name}}",
     "reset": "Usa il valore del modello per {{name}}",
     "hint": {
@@ -167,7 +169,8 @@
       "from": "Dal",
       "to": "Al",
       "reset": "Azzera i filtri"
-    }
+    },
+    "clearShown": "Svuota le mostrate"
   },
   "message": {
     "you": "You",
@@ -193,7 +196,8 @@
     "unavailable": "Non disponibile in questa chat",
     "toolCount_one": "{{count}} strumento",
     "toolCount_other": "{{count}} strumenti",
-    "optionsOf": "Opzioni di {{name}}"
+    "optionsOf": "Opzioni di {{name}}",
+    "projectCollections": "Raccolte del progetto: {{names}}."
   },
   "skills": {
     "label": "Skill",
@@ -219,7 +223,8 @@
     },
     "replacedBy": "Sostituita da {{name}}",
     "fallback_one": "{{skills}} integrata in uso: la skill del componente {{name}} è disattivata o non in esecuzione qui.",
-    "fallback_other": "{{skills}} integrate in uso: le skill del componente {{name}} sono disattivate o non in esecuzione qui."
+    "fallback_other": "{{skills}} integrate in uso: le skill del componente {{name}} sono disattivate o non in esecuzione qui.",
+    "fromProject": "Dal progetto"
   },
   "agent": {
     "label": "Agente",
@@ -718,7 +723,9 @@
     "missing": "La cartella di questo agente non esiste più. Scegli un'altra cartella nell'agente.",
     "startError": "La cartella di questo agente manca, quindi la chat non può partire. Scegli un'altra cartella per l'agente.",
     "editAgent": "Modifica agente",
-    "toolsMany": "File: solo {{n}} cartelle: {{list}}. Le cartelle condivise e le skill restano leggibili."
+    "toolsMany": "File: solo {{n}} cartelle: {{list}}. Le cartelle condivise e le skill restano leggibili.",
+    "projectPaused": "Questo agente è in pausa perché il suo progetto è archiviato o eliminato. Apri il progetto e ripristinalo.",
+    "projectChanged": "Questo agente è in pausa perché le cartelle del suo progetto sono cambiate. Apri l’agente e ricollegalo."
   },
   "origin": {
     "banner": "Questa conversazione è stata avviata da {{title}}.",
@@ -915,5 +922,11 @@
       "code": "Blocco di codice omesso.",
       "table": "Tabella omessa."
     }
+  },
+  "deleteShownDialog": {
+    "title": "Elimina le chat mostrate",
+    "message_one": "Eliminare la chat mostrata in {{project}} ({{count}})? Non si può annullare.",
+    "message_other": "Eliminare le {{count}} chat mostrate in {{project}}? Non si può annullare.",
+    "confirm": "Elimina le mostrate"
   }
 }

@@ -32,6 +32,12 @@ ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
 ARG CUDA_MINOR_VERSION=0
 ARG SKIP_DRIVERS=false
+# ROCm packages installed when BUILD_TYPE=hipblas. The default matches the
+# ROCm 10.1 repository (stable.repo.amd.com/rocm/core) configured in the
+# rocm/dev-ubuntu-24.04:10.1.0-full base image; amdrocm-blas-dev10.1 carries
+# the hipBLAS, rocBLAS and hipBLASLt headers. A build on ROCm 7.x overrides
+# this together with BASE_IMAGE: "hipblas-dev hipblaslt-dev rocblas-dev".
+ARG ROCM_PACKAGES="amdrocm-blas-dev10.1"
 ARG TARGETARCH
 ARG TARGETVARIANT
 ENV BUILD_TYPE=${BUILD_TYPE}
@@ -159,10 +165,7 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
-        apt-get install -y --no-install-recommends \
-            hipblas-dev \
-            hipblaslt-dev \
-            rocblas-dev && \
+        apt-get install -y --no-install-recommends ${ROCM_PACKAGES} && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         echo "amd" > /run/localai/capability && \
@@ -171,8 +174,12 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         ldconfig \
     ; fi
 
-RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
-    ln -s /opt/rocm-**/lib/llvm/lib/libomp.so /usr/lib/libomp.so \
+# ROCm 7.x and 10.x lay out /opt/rocm differently (10.x: /opt/rocm/core-<ver>/,
+# no /opt/rocm/llvm). The script links /usr/lib/libomp.so and /opt/rocm/llvm
+# for both layouts; see the comment at its top.
+RUN --mount=type=bind,source=.docker/rocm-compat-links.sh,target=/usr/local/sbin/rocm-compat-links \
+    if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        sh /usr/local/sbin/rocm-compat-links \
     ; fi
 
 # ROCm's bundled libdrm_amdgpu is built with a hardcoded fallback lookup path

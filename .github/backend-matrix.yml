@@ -11,6 +11,8 @@
 #               CUDA / ROCm / SYCL / Vulkan variants).
 #   - macOS  -> the `includeDarwin:` matrix (Apple Silicon / arm64; Metal where
 #               the engine supports it, otherwise a native arm64 CPU build).
+#   - Windows -> the `includeWindows:` matrix (x86_64 / amd64; native builds
+#               under MSYS2, no WSL/Docker — see backend_build_windows.yml).
 #
 # New backends must target EVERY OS they can build for, not just Linux. A backend
 # listed only under `include:` is silently unavailable on macOS even when its code
@@ -24,6 +26,12 @@
 # `metal:` capability + `metal-<backend>` image entries, a `run.sh` Darwin/DYLD
 # branch for C/C++ backends, and the inferBackendPathDarwin case in
 # scripts/lib/backend-filter.mjs so the path filter actually builds it).
+#
+# Windows builds are bespoke for now: every entry builds via a per-backend make
+# target + MSYS2 build script (see scripts/build/llama-cpp-windows.sh), the
+# index.yaml `windows:` capability + `windows-<backend>` image entries, a
+# run-windows launcher next to run.sh, and the inferBackendPathWindows case in
+# scripts/lib/backend-filter.mjs.
 
 # Linux matrix (consumed by backend-jobs).
 include:
@@ -2242,6 +2250,10 @@ include:
     context: "./"
     ubuntu-version: '2404'
   # hipblas builds
+  # ROCm base: rocm/dev-ubuntu-24.04:10.1.0-full for every hipblas entry except
+  # the Python backends (Dockerfile.python), which stay on 7.2.1. Their GPU code
+  # comes from the ROCm PyTorch wheels pinned in requirements-hipblas.txt
+  # (download.pytorch.org/whl/rocm7.0), and PyTorch has no ROCm 10.1 wheels yet.
   - build-type: 'hipblas'
     cuda-major-version: ""
     cuda-minor-version: ""
@@ -2263,7 +2275,7 @@ include:
     tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     skip-drivers: 'false'
     backend: "llama-cpp"
     dockerfile: "./backend/Dockerfile.llama-cpp"
@@ -2277,7 +2289,7 @@ include:
     tag-suffix: '-gpu-rocm-hipblas-bonsai'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     skip-drivers: 'false'
     backend: "bonsai"
     dockerfile: "./backend/Dockerfile.bonsai"
@@ -3226,6 +3238,23 @@ include:
     dockerfile: "./backend/Dockerfile.privacy-filter"
     context: "./"
     ubuntu-version: '2404'
+  # ROCm: base-grpc-rocm-amd64 carries gRPC and ROCm, as for llama-cpp;
+  # BUILD_TYPE=hipblas -> -DGGML_HIP=ON with the ROCm clang (see the Makefile).
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-privacy-filter'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
+    skip-drivers: 'false'
+    backend: "privacy-filter"
+    dockerfile: "./backend/Dockerfile.privacy-filter"
+    context: "./"
+    ubuntu-version: '2404'
   # audio-cpp: 0xShug0/audio.cpp, a multi-family ggml audio engine (TTS, ASR,
   # VAD, diarization, source separation, music generation).
   #
@@ -3247,7 +3276,7 @@ include:
   # consumed. Same reason CUDA needs its toolkit in base-image rather than in a
   # builder image: this is the ds4 shape, not the llama-cpp one.
   #
-  # ROCm uses upstream's HIP backend and the project-wide ROCm 7.2.1 base. No
+  # ROCm uses upstream's HIP backend and the project-wide ROCm 10.1 base. No
   # CUDA arm64 or L4T entry: upstream documents and validates CUDA on x86 only.
   # Darwin/Metal is in the includeDarwin matrix below, built by
   # scripts/build/audio-cpp-darwin.sh.
@@ -3325,7 +3354,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-audio-cpp'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     skip-drivers: 'false'
     backend: "audio-cpp"
     dockerfile: "./backend/Dockerfile.audio-cpp"
@@ -3928,7 +3957,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-stablediffusion-ggml'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     skip-drivers: 'false'
     backend: "stablediffusion-ggml"
     dockerfile: "./backend/Dockerfile.golang"
@@ -4278,7 +4307,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-whisper'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "whisper"
@@ -4291,7 +4320,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-crispasr'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "crispasr"
@@ -4429,7 +4458,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-parakeet-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "parakeet-cpp"
@@ -4618,7 +4647,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-moss-transcribe-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "moss-transcribe-cpp"
@@ -4766,7 +4795,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-ced'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "ced"
@@ -4914,7 +4943,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-voice-detect'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "voice-detect"
@@ -5062,7 +5091,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-face-detect'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "face-detect"
@@ -5171,7 +5200,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-acestep-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "acestep-cpp"
@@ -5596,7 +5625,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-qwen3-tts-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "qwen3-tts-cpp"
@@ -5609,7 +5638,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-moss-tts-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "moss-tts-cpp"
@@ -5622,7 +5651,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-magpie-tts-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "magpie-tts-cpp"
@@ -5635,7 +5664,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-omnivoice-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "omnivoice-cpp"
@@ -5800,7 +5829,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-vibevoice-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+    base-image: "rocm/dev-ubuntu-24.04:10.1.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "vibevoice-cpp"
@@ -6921,4 +6950,12 @@ includeDarwin:
   - backend: "strata"
     tag-suffix: "-metal-darwin-arm64-strata"
     build-type: "metal"
+    lang: "go"
+
+# Windows matrix (consumed by backend-jobs-windows).
+# Native windows/amd64 builds under MSYS2 — no WSL, no Docker. Each entry builds
+# via a bespoke make target + scripts/build/<backend>-windows.sh.
+includeWindows:
+  - backend: "llama-cpp"
+    tag-suffix: "-windows-amd64-llama-cpp"
     lang: "go"

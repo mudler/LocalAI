@@ -266,7 +266,7 @@ export const FIELDS = [
   // stores '' (or 0) for a setting never set and reads it as the default, so
   // that value is not "changed" and a select or number shows the default.
   { key: 'chats_egress_ceiling', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Command network limit', fallback: 'off', emptyIsDefault: true,
-    desc: 'The widest network any chat\'s isolated commands may use: off, the package registries only, or every public host. A chat chooses up to this. Commands on this machine are not covered: they have the network of the server.',
+    desc: 'The widest network any chat\'s isolated commands may use: off, Custom (the package registries plus the extra registries and always allowed hosts below), or every public host. A chat chooses up to this. Commands on this machine are not covered: they have the network of the server.',
     default: 'off', apply: 'live' },
   { key: 'chats_egress_default', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Command network of a new chat', fallback: 'off', emptyIsDefault: true,
     desc: 'The network preset a new chat starts with, capped by the limit above.',
@@ -275,10 +275,10 @@ export const FIELDS = [
     desc: 'The ports isolated commands may reach, comma separated. 22 and 25 are always refused.',
     placeholder: '80,443', default: '80,443', apply: 'live' },
   { key: 'chats_egress_extra_registries', group: 'tools', was: 'chats', kind: 'text', label: 'Extra package registries',
-    desc: 'Exact host names added to the package registries list, comma separated, for example an internal mirror. They count as registries, so they need a chat on the Package registries choice (HTTPS only). To allow a host for any request, use Always allowed hosts. No patterns.',
+    desc: 'Exact host names added to the package registries list, comma separated, for example an internal mirror. They count as registries, so they need a chat on the Custom choice (HTTPS only), and chats see them in their Custom list. To allow a host for any request, use Always allowed hosts. No patterns.',
     placeholder: 'pypi.mirror.example.org', default: '', apply: 'live' },
   { key: 'chats_egress_allowed_hosts', group: 'tools', was: 'chats', kind: 'hosts', max: 64, label: 'Always allowed hosts',
-    desc: 'Exact hosts, *.domain (descendants only, not the apex), or * (public destinations only), optionally with :port. Wildcards obey the network ceiling, allowed ports and private-address guard even when private access is enabled. Extra package registries still require exact names. The owner validates every change.',
+    desc: 'Exact hosts, *.domain (descendants only, not the apex), or * (public destinations only), optionally with :port. Wildcards obey the network ceiling, allowed ports and private-address guard even when private access is enabled. Extra package registries still require exact names. Chats on the Custom choice see this list. The owner validates every change.',
     placeholder: 'api.example.org', default: '', apply: 'live' },
   // The step limit of a chat turn (core/config/runtime_settings_registry.go;
   // read when a turn starts, so live). A model's agent.max_iterations wins.
@@ -293,23 +293,6 @@ export const FIELDS = [
   { key: 'chats_goal_max_steps', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per goal',
     desc: 'How many rounds of tool calls all the turns of one goal may make together before the goal pauses (1 to 10000).',
     placeholder: '400', default: 400, min: 1, max: 10000, apply: 'live' },
-  // The loops of the chats (core/config/runtime_settings_registry.go; read at
-  // each use, so live).
-  { key: 'chats_loop_min_interval', group: 'tools', was: 'chats', kind: 'duration', label: 'Shortest loop interval',
-    desc: 'How often a loop of a chat may run at most, for example 1m. It is also the shortest wait a loop that sets its own pace may ask for. From 30s to 24h.',
-    placeholder: '1m', default: '1m', apply: 'live' },
-  { key: 'chats_loop_max_runs', group: 'tools', was: 'chats', kind: 'int', label: 'Runs per loop',
-    desc: 'A loop ends by itself after this many runs (1 to 10000).',
-    placeholder: '100', default: 100, min: 1, max: 10000, apply: 'live' },
-  { key: 'chats_loop_max_per_chat', group: 'tools', was: 'chats', kind: 'int', label: 'Loops per chat',
-    desc: 'How many loops one chat may have at once (1 to 20). Loops that ended do not count.',
-    placeholder: '3', default: 3, min: 1, max: 20, apply: 'live' },
-  { key: 'chats_loop_max_per_user', group: 'tools', was: 'chats', kind: 'int', label: 'Loops per user',
-    desc: 'How many loops one user may have at once, over all their chats (1 to 200).',
-    placeholder: '10', default: 10, min: 1, max: 200, apply: 'live' },
-  { key: 'chats_loop_daily_runs', group: 'tools', was: 'chats', kind: 'int', label: 'Loop runs per day',
-    desc: 'How many loop runs one user may start in a day (UTC), over all their loops. After that the loops wait for the next day.',
-    placeholder: '200', default: 200, min: 1, max: 100000, apply: 'live' },
   // The triggers of the chats (core/config/runtime_settings_registry.go; read
   // at each use, so live).
   { key: 'chats_trigger_run_limit', group: 'tools', was: 'chats', kind: 'duration', label: 'Trigger run time limit',
@@ -324,6 +307,33 @@ export const FIELDS = [
   { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Command audit retention',
     desc: 'How many days the audit of the network requests of isolated commands and the audit of the commands run on this machine keep a line, from 1 to 365.',
     default: 30, fallback: 30, emptyIsDefault: true, min: 1, max: 365, unit: 'days', apply: 'live' },
+  // The loops of the chats (core/config/runtime_settings_registry.go; read at
+  // each use, so live). Three limits show first; the rest sit under the
+  // block's Advanced disclosure (see layoutFields). Waits count as loops.
+  { key: 'chats_loop_min_interval', group: 'tools', was: 'chats', block: 'loops', kind: 'duration', label: 'Shortest interval',
+    desc: 'How often a loop may run at most, and how often a wait may check, for example 1m. It is also the shortest wait a loop that sets its own pace may ask for. From 30s to 24h.',
+    placeholder: '1m', default: '1m', apply: 'live' },
+  { key: 'chats_loop_daily_runs', group: 'tools', was: 'chats', block: 'loops', kind: 'int', label: 'Loop runs per day',
+    desc: 'How many loop runs one user may start in a day (UTC), over all their loops. The wake-up of a wait counts as a run. After that the loops wait for the next day.',
+    placeholder: '200', default: 200, min: 1, max: 100000, apply: 'live' },
+  { key: 'chats_loop_max_per_chat', group: 'tools', was: 'chats', block: 'loops', kind: 'int', label: 'Loops and waits per chat',
+    desc: 'How many loops and waits one chat may have at once (1 to 20). Waits count too. Loops and waits that ended do not count.',
+    placeholder: '3', default: 3, min: 1, max: 20, apply: 'live' },
+  { key: 'chats_loop_max_per_user', group: 'tools', was: 'chats', block: 'loops', advanced: true, kind: 'int', label: 'Loops and waits per user',
+    desc: 'How many loops and waits one user may have at once, over all their chats (1 to 200).',
+    placeholder: '10', default: 10, min: 1, max: 200, apply: 'live' },
+  { key: 'chats_loop_max_runs', group: 'tools', was: 'chats', block: 'loops', advanced: true, kind: 'int', label: 'Runs per loop',
+    desc: 'A loop ends by itself after this many runs (1 to 10000). In a chat of a messaging app, a trigger, a job or a page, a loop ends after a fifth of this, at least 1.',
+    extra: (settings) => {
+      const v = Number(getValue(FIELD_BY_KEY.chats_loop_max_runs, settings))
+      const n = v >= 1 ? v : 100
+      const times = (x) => (x === 1 ? 'once' : `${x} times`)
+      return `With ${n}: a loop in your own chat runs at most ${times(n)}, and in a chat of a messaging app, a trigger, a job or a page at most ${times(systemLoopRuns(n))}.`
+    },
+    placeholder: '100', default: 100, min: 1, max: 10000, apply: 'live' },
+  { key: 'chats_loop_daily_script_checks', group: 'tools', was: 'chats', block: 'loops', advanced: true, kind: 'int', label: 'Command checks per day',
+    desc: 'How many checks of waits that run a command one user may spend in a day (UTC), over all their waits (1 to 100000). A check runs the command and calls no model. When the budget is used up, the wait ends and the model is told.',
+    placeholder: '1500', default: 1500, min: 1, max: 100000, apply: 'live' },
   { key: 'chats_egress_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Isolated commands may reach private networks',
     desc: 'Let a host that an administrator allowed reach addresses inside your network. A preset alone never does; the metadata and server addresses stay refused.',
     default: false, fallback: false, apply: 'live', custom: 'tools' },
@@ -550,6 +560,53 @@ export function groupOf(id) { return GROUPS.find(g => g.id === id) }
 
 // Fields matching every word of the query, by name, description, wire key, the
 // group, the old section name, and the current value of a short text.
+// The run limit of a loop in a chat of a messaging app, a trigger, a job or a
+// page: a fifth of chats_loop_max_runs, at least 1 (maxRunsFor in
+// core/services/studio/looptools.go).
+export function systemLoopRuns(maxRuns) {
+  const n = Number(maxRuns) || 0
+  return Math.max(1, Math.floor(n / 5))
+}
+
+// The blocks of related fields inside a group. A block has a heading, and
+// its advanced fields go in a disclosure right after its other fields.
+export const BLOCKS = {
+  loops: { label: 'Loops and waits', advanced: 'Advanced loop limits' },
+}
+
+// The order a group draws its fields in: each field as { field }, and after
+// the last plain field of a block, its advanced fields as
+// { block, advanced: [fields] }. A block with no plain field still gets its
+// disclosure, where its first field would be.
+export function layoutFields(fields) {
+  const out = []
+  const advancedOf = new Map()
+  for (const f of fields) {
+    if (f.block && f.advanced) {
+      if (!advancedOf.has(f.block)) advancedOf.set(f.block, [])
+      advancedOf.get(f.block).push(f)
+    }
+  }
+  const lastPlain = new Map()
+  fields.forEach((f, i) => { if (f.block && !f.advanced) lastPlain.set(f.block, i) })
+  const placed = new Set()
+  fields.forEach((f, i) => {
+    if (f.block && f.advanced) {
+      if (!lastPlain.has(f.block) && !placed.has(f.block)) {
+        out.push({ block: f.block, advanced: advancedOf.get(f.block) })
+        placed.add(f.block)
+      }
+      return
+    }
+    out.push({ field: f })
+    if (f.block && lastPlain.get(f.block) === i && advancedOf.has(f.block)) {
+      out.push({ block: f.block, advanced: advancedOf.get(f.block) })
+      placed.add(f.block)
+    }
+  })
+  return out
+}
+
 export function searchFields(query, settings) {
   const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return []

@@ -378,7 +378,7 @@ func setupErrors(obj map[string]any) []string {
 // list: an id that is not here is ignored by the sidebar, so a file written
 // for a newer or an older version still loads. New chat, Chats, the settings
 // entries and the search are not here on purpose: nav.json cannot touch them.
-var NavBuiltinIDs = []string{"home", "files", "pages", "agents", "connections", "memory", "skills", "models", "addons"}
+var NavBuiltinIDs = []string{"home", "files", "projects", "pages", "agents", "connections", "memory", "skills", "models", "addons"}
 
 // NavAlwaysShown are the built-in entries nav.json can move and rename but not
 // hide: Home is where a chat starts. The UI keeps the same list
@@ -698,7 +698,7 @@ func itemURLErrors(obj map[string]any) []string {
 }
 
 // The in-app paths an item may link to: the screens a person reads.
-var appPrefixes = []string{"chat", "chats", "files", "pages", "agents", "skills", "triggers", "collections", "models", "account", "addons"}
+var appPrefixes = []string{"chat", "chats", "files", "projects", "pages", "agents", "skills", "triggers", "collections", "models", "account", "addons"}
 
 // ItemURLOK says whether u may be the url of a widget item. It is the rule of
 // the schema in code, for the error message and the tests.

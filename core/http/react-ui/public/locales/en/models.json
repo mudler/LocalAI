@@ -873,6 +873,8 @@
       "pirateface": "Pirate Face"
     },
     "p2p": "p2p",
+    "originGallery": "Gallery",
+    "originOnline": "Online",
     "sourcesButton": "Sources",
     "sourcesTitle": "Search sources",
     "sourcesClose": "Close",

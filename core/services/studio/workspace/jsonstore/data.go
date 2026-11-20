@@ -71,11 +71,14 @@ type grantKey struct {
 	Node      int64
 }
 
-// grantRec is a grant as stored. Mode 0 removes the grant.
+// grantRec is a grant as stored. Mode is the stored number of the mode (see
+// workspace.StoredMode); 0 removes the grant. Page marks a grant made through
+// the page routes.
 type grantRec struct {
-	Principal string         `json:"principal"`
-	Node      int64          `json:"node"`
-	Mode      workspace.Mode `json:"mode"`
+	Principal string `json:"principal"`
+	Node      int64  `json:"node"`
+	Mode      int    `json:"mode"`
+	Page      bool   `json:"page,omitempty"`
 }
 
 type liveKey struct {
@@ -100,6 +103,7 @@ type data struct {
 	kids    map[int64]map[int64]struct{} // parent to the IDs of its children in any state
 	live    map[liveKey]int64            // the live child of a folder by folded name
 	grants  map[grantKey]workspace.Mode
+	pages   map[grantKey]bool // the grants made through the page routes
 	journal []journalRow
 	byRev   map[int64][]int // journal positions by revision
 	byNode  map[int64][]int // journal positions by node
@@ -115,12 +119,31 @@ type data struct {
 	dirty   map[int64]struct{}
 }
 
+// putGrant applies a stored grant: a mode that is not a stored mode, the 0 of
+// a revoke included, removes it.
+func (d *data) putGrant(g grantRec) {
+	k := grantKey{g.Principal, g.Node}
+	m := workspace.ModeFromStored(g.Mode)
+	if m == workspace.ModeNone {
+		delete(d.grants, k)
+		delete(d.pages, k)
+		return
+	}
+	d.grants[k] = m
+	if g.Page {
+		d.pages[k] = true
+	} else {
+		delete(d.pages, k)
+	}
+}
+
 func newData() *data {
 	d := &data{
 		nodes:  map[int64]*nodeRow{},
 		kids:   map[int64]map[int64]struct{}{},
 		live:   map[liveKey]int64{},
 		grants: map[grantKey]workspace.Mode{},
+		pages:  map[grantKey]bool{},
 		byRev:  map[int64][]int{},
 		byNode: map[int64][]int{},
 		byNew:  map[int64][]int{},

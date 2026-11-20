@@ -74,6 +74,15 @@ var capabilities = map[string]bool{
 	CapLoopsStart:       true,
 }
 
+// bindingOnly are the capabilities that only the owner's switch on the binding
+// gives: a role never holds them, even when the kind lists them. The loop
+// capabilities are here because a loop or a wait outlives the turn that armed
+// it, so who may arm one is a choice about the bot, not about a role.
+var bindingOnly = map[string]bool{CapLoopsWait: true, CapLoopsStart: true}
+
+// BindingOnlyCapability reports whether name is never granted to a role.
+func BindingOnlyCapability(name string) bool { return bindingOnly[name] }
+
 // KnownCapability reports whether name is in the closed list of capabilities.
 func KnownCapability(name string) bool { _, ok := capabilities[name]; return ok }
 
@@ -100,6 +109,9 @@ type CapabilityInfo struct {
 	// Usual marks the capabilities that a settings page turns on with its
 	// one-click preset. A sensitive capability is never usual.
 	Usual bool `json:"usual"`
+	// BindingOnly marks the capabilities that a role never holds: the owner
+	// turns them on for the whole bot with a switch.
+	BindingOnly bool `json:"binding_only,omitempty"`
 }
 
 // capabilityText is the title and description of each capability. Titles are
@@ -119,8 +131,8 @@ var capabilityText = map[string][2]string{
 	CapDashboardWrite:   {"Write the dashboard", "The agent may change the dashboard."},
 	CapKnowledgeWrite:   {"Add to knowledge", "The agent may propose a text for a collection of the Knowledge. The owner confirms each one."},
 	CapToolsWrite:       {"Let people who are not verified change things with add-on tools", "An add-on tool may change something outside LocalAI or in your own data. Verified people already use the write tools of the add-ons the agent is connected to; the write mode of the connection still applies. Turn this on to let listed people who are not verified use them too, and to let verified people use the write tools of add-ons that have no connection. People let in only through a channel, or by a bot that accepts anyone, do not get them, unless a role grants it. The one exception is an add-on that keeps your own data, such as Calendar or Contacts: with this on, everyone the bot lets in can change that data."},
-	CapLoopsWait:        {"Let the agent wait for a change", "The agent may wait for a source to change, or for its sub-agents to finish, and then answer in the same chat. A wait is checked by code and costs no model call until it ends."},
-	CapLoopsStart:       {"Let the agent run on a timer", "The agent may start a loop in the chat: it comes back by itself, as often as the server limits allow, and each run is a model call. Only a verified person can use it. A loop started this way ends sooner than the same loop in your own chat. It is off until you turn it on."},
+	CapLoopsWait:        {"Let the agent wait for a change", "The agent may wait for a page, a tool, a job or its sub-agents, and then answer in the same chat. A wait is checked by code and costs no model call until it ends. A wait that runs a command needs a verified person. Waits count against the loops and waits a chat may have."},
+	CapLoopsStart:       {"Let the agent run on a timer", "The agent may start a loop in the chat: it comes back by itself, as often as the server limits allow, and each run is a model call. Only a verified person can use it. A loop started this way ends after a fifth of the runs that the server allows a loop. It is off until you turn it on."},
 }
 
 // usualCapabilities are what an owner normally allows on a new binding: the
@@ -151,7 +163,7 @@ func ConnectorCapabilities() []CapabilityInfo {
 	out := make([]CapabilityInfo, 0, len(names))
 	for _, n := range names {
 		text := capabilityText[n]
-		out = append(out, CapabilityInfo{Name: n, Title: text[0], Description: text[1], Sensitive: capabilities[n], Usual: usualCapabilities[n] && !capabilities[n]})
+		out = append(out, CapabilityInfo{Name: n, Title: text[0], Description: text[1], Sensitive: capabilities[n], Usual: usualCapabilities[n] && !capabilities[n], BindingOnly: bindingOnly[n]})
 	}
 	return out
 }
@@ -196,9 +208,10 @@ func (k ConnectorKind) Role(id string) (ConnectorRole, bool) {
 }
 
 // Grantable reports whether the kind lists the capability and the capability
-// may go to a role: it is known and not sensitive.
+// may go to a role: it is known, not sensitive and not binding-only. A kind
+// may still list a binding-only capability; the listing grants nothing.
 func (k ConnectorKind) Grantable(capability string) bool {
-	return KnownCapability(capability) && !SensitiveCapability(capability) && slices.Contains(k.Permissions, capability)
+	return KnownCapability(capability) && !SensitiveCapability(capability) && !BindingOnlyCapability(capability) && slices.Contains(k.Permissions, capability)
 }
 
 // FilterRoles keeps the role IDs of a message that the kind declares, without

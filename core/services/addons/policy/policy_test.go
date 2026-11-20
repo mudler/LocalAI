@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	goruntime "runtime"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -315,7 +316,10 @@ var _ = Describe("modes", func() {
 		Expect(dir).NotTo(HavePrefix(packages))
 		info, err := os.Stat(filepath.Join(dir, fileName))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		// Windows has no POSIX bits; a 0600 file reports 0666 there.
+		if goruntime.GOOS != "windows" {
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		}
 		backup := filepath.Join(GinkgoT().TempDir(), "copy.json")
 		Expect(g.store.Backup(backup)).To(Succeed())
 		Expect(g.store.Backup(backup)).NotTo(Succeed())

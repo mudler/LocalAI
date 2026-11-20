@@ -64,7 +64,7 @@ func (t *Trust) State(ctx context.Context, principal string, p Page) (Review, er
 	case !ok:
 		return Review{State: StateNone}, nil
 	case c.Hash == p.Hash:
-		return Review{State: StateAllowed, Allowed: &c, Embed: c.Embed}, nil
+		return Review{State: StateAllowed, Allowed: &c, Embed: c.Embed && !p.UserShared && !p.OthersCanEdit}, nil
 	}
 	return Review{State: StateChanged, Allowed: &c}, nil
 }
@@ -81,18 +81,48 @@ func (t *Trust) Allow(ctx context.Context, principal string, folderID int64, nam
 // that also lets it run on Home and in the slots of the app (ui.json slots).
 // There a page starts as soon as the screen shows, without a click, so the
 // viewer says yes to that apart from opening the page. A changed page needs a
-// new consent, as for Allow.
+// new consent, as for Allow. A page that a person shared is never allowed
+// there (ErrNoEmbed): the code of a stranger does not start by itself.
 func (t *Trust) AllowEmbed(ctx context.Context, principal string, folderID int64, name, hash string) (Consent, error) {
 	return t.allow(ctx, principal, folderID, name, hash, false, true)
 }
 
+// source reads the page a consent is about, with its HTML.
+type source func(ctx context.Context) (Page, string, error)
+
+func (t *Trust) shared(principal string, folderID int64, name string) source {
+	return func(ctx context.Context) (Page, string, error) {
+		return t.pages.SharedSource(ctx, principal, folderID, name)
+	}
+}
+
+func (t *Trust) own(principal, name string) source {
+	return func(ctx context.Context) (Page, string, error) {
+		l, err := t.pages.own(ctx, principal, name)
+		if err != nil {
+			return Page{}, "", err
+		}
+		if !l.guarded {
+			return Page{}, "", ErrNotFound // an own page that nobody else may write needs no consent
+		}
+		return t.pages.Source(ctx, principal, name)
+	}
+}
+
 func (t *Trust) allow(ctx context.Context, principal string, folderID int64, name, hash string, once, embed bool) (Consent, error) {
-	p, html, err := t.pages.SharedSource(ctx, principal, folderID, name)
+	return t.allowFrom(ctx, principal, t.shared(principal, folderID, name), hash, once, embed)
+}
+
+func (t *Trust) allowFrom(ctx context.Context, principal string, src source, hash string, once, embed bool) (Consent, error) {
+	p, html, err := src(ctx)
 	if err != nil {
 		return Consent{}, err
 	}
 	if hash == "" || hash != p.Hash {
 		return Consent{}, ErrChanged
+	}
+	if embed && (p.UserShared || p.OthersCanEdit) {
+		return Consent{}, ErrNoEmbed
 	}
 	now := t.now().UTC()
 	c := Consent{Principal: principal, PageID: p.PageID, Folder: p.Folder, Name: p.Name, Hash: p.Hash, Kind: ConsentAlways,
@@ -110,7 +140,9 @@ func (t *Trust) allow(ctx context.Context, principal string, folderID int64, nam
 		if err != nil {
 			return Consent{}, err
 		}
-		c.Embed = ok && prev.Embed && prev.Hash == p.Hash
+		// Never for a page that a person shared or that others can edit, even
+		// if a consent with embed is stored for it.
+		c.Embed = ok && prev.Embed && prev.Hash == p.Hash && !p.UserShared && !p.OthersCanEdit
 	}
 	ev := ConsentEvent{Principal: principal, PageID: p.PageID, Folder: p.Folder, Name: p.Name, Hash: p.Hash, Action: action, At: now}
 	if err := t.store.Put(ctx, c, ev); err != nil {
@@ -120,10 +152,35 @@ func (t *Trust) allow(ctx context.Context, principal string, folderID int64, nam
 	return c, nil
 }
 
+// ConsentStates returns, for each principal, whether it allowed the version
+// hash of the page pageID: StateNone, StateAllowed or StateChanged.
+func (t *Trust) ConsentStates(ctx context.Context, pageID int64, hash string, principals []string) (map[string]string, error) {
+	out := make(map[string]string, len(principals))
+	for _, p := range principals {
+		c, ok, err := t.store.Always(ctx, p, pageID)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case !ok:
+			out[p] = StateNone
+		case c.Hash == hash:
+			out[p] = StateAllowed
+		default:
+			out[p] = StateChanged
+		}
+	}
+	return out, nil
+}
+
 // Revoke removes the viewer's consents to a shared page. The page's open
 // frames stop at their next call of the bridge.
 func (t *Trust) Revoke(ctx context.Context, principal string, folderID int64, name string) error {
-	p, err := t.pages.GetShared(ctx, principal, folderID, name)
+	return t.revokeFrom(ctx, principal, t.shared(principal, folderID, name))
+}
+
+func (t *Trust) revokeFrom(ctx context.Context, principal string, src source) error {
+	p, _, err := src(ctx)
 	if err != nil {
 		return err
 	}
@@ -143,6 +200,49 @@ func (t *Trust) Revoke(ctx context.Context, principal string, folderID int64, na
 func (t *Trust) Check(ctx context.Context, principal string, folderID int64, name, hash, token string) error {
 	_, err := t.check(ctx, principal, folderID, name, hash, token)
 	return err
+}
+
+// OwnAllow records the owner's consent to the version hash of an own page that
+// another account may write (Page.OthersCanEdit). Such a page never gets the
+// consent for Home and the slots (ErrNoEmbed).
+func (t *Trust) OwnAllow(ctx context.Context, principal, name, hash string, once, embed bool) (Consent, error) {
+	return t.allowFrom(ctx, principal, t.own(principal, name), hash, once, embed)
+}
+
+// OwnRevoke removes the owner's consents to such a page.
+func (t *Trust) OwnRevoke(ctx context.Context, principal, name string) error {
+	return t.revokeFrom(ctx, principal, t.own(principal, name))
+}
+
+// OwnCheck is Check for a page of the owner that others may write.
+func (t *Trust) OwnCheck(ctx context.Context, principal, name, hash, token string) error {
+	_, err := t.checkPage(ctx, principal, t.ownPage(principal, name), hash, token)
+	return err
+}
+
+// OwnCheckRead is CheckRead for a page of the owner that others may write.
+func (t *Trust) OwnCheckRead(ctx context.Context, principal, name, hash, token, rel string) error {
+	p, err := t.checkPage(ctx, principal, t.ownPage(principal, name), hash, token)
+	if err != nil {
+		return err
+	}
+	if p.Hash != hash && isCode(p, rel) {
+		return ErrCodeChanged
+	}
+	return nil
+}
+
+func (t *Trust) ownPage(principal, name string) func(context.Context) (Page, error) {
+	return func(ctx context.Context) (Page, error) {
+		l, err := t.pages.own(ctx, principal, name)
+		if err != nil {
+			return Page{}, err
+		}
+		if !l.guarded {
+			return Page{}, ErrNotFound
+		}
+		return t.pages.Get(ctx, principal, name)
+	}
 }
 
 // CheckRead is Check for a read of the file rel. The code of the page
@@ -174,7 +274,13 @@ func isCode(p Page, rel string) bool {
 }
 
 func (t *Trust) check(ctx context.Context, principal string, folderID int64, name, hash, token string) (Page, error) {
-	p, err := t.pages.GetShared(ctx, principal, folderID, name)
+	return t.checkPage(ctx, principal, func(ctx context.Context) (Page, error) {
+		return t.pages.GetShared(ctx, principal, folderID, name)
+	}, hash, token)
+}
+
+func (t *Trust) checkPage(ctx context.Context, principal string, get func(context.Context) (Page, error), hash, token string) (Page, error) {
+	p, err := get(ctx)
 	if err != nil {
 		return Page{}, err
 	}

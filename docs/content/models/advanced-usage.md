@@ -203,7 +203,8 @@ Any settings being provided by an Environment Variable can also be provided from
 - localai.env within the current directory
 - localai.env within the home directory
 - .config/localai.env within the home directory
-- /etc/localai.env
+- /etc/localai.env (Linux and macOS)
+- `%LOCALAPPDATA%\LocalAI\localai.env`, then `%ProgramData%\LocalAI\localai.env` (Windows, in place of /etc/localai.env)
 
 Environment variables within files earlier in the list will take precedence over environment variables defined in files later in the list.
 

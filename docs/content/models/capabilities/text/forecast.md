@@ -2,14 +2,13 @@
 disableToc = false
 title = "Time-Series Forecasting"
 weight = 70
+devbuild = "feature"
 aliases = ["/features/forecast/"]
 +++
 
 LocalAI forecasts numeric time series with [timestral.cpp](https://github.com/mudler/timestral.cpp), a C++/ggml port of Mistral's Timestral models. You send one or more series, with optional covariates, to `POST /v1/forecast` and get quantile trajectories for the next steps.
 
-A forecast model is not a chat model. It has its own usecase, `forecast`, and does not appear in the chat model picker. It shows in the gallery filter and in the `/v1/models` capability list.
-
-> **Licence.** The Timestral weights use Mistral's Modified MIT licence. You may not use them if the global consolidated monthly revenue of your company (or your employer) exceeded USD 20 million in the preceding month, unless you get a commercial licence from Mistral AI. The restriction covers derivatives, so it also applies to the GGUF conversions in the gallery. Each gallery entry installs the licence text next to the weights. The timestral.cpp code is MIT.
+A forecast model has its own usecase, `forecast`. It does not appear in the chat model picker. It shows in the gallery filter and in the `/v1/models` capability list.
 
 ## Models
 
@@ -24,11 +23,13 @@ A forecast model is not a chat model. It has its own usecase, `forecast`, and do
 local-ai models install timestral-28m
 ```
 
+The weights have a licence limit. Read the licence below before you use them.
+
 The default build is F32. Install the F16 entry, for example `timestral-28m-f16`, for a build of about half the size. Quantized builds below F16 are not offered yet.
 
 The engine runs on the CPU only. It is slower than the PyTorch reference at long context lengths, so keep the context short where you can and allow a long request timeout.
 
-How much memory each build needs has not been measured yet, so the gallery sets no size.
+The gallery lists no memory size for these models.
 
 ## Request
 
@@ -124,8 +125,12 @@ options:
 
 `threads` sets the number of CPU threads for each forecast.
 
-The library is not reentrant, so LocalAI runs one forecast at a time for each loaded model.
+A loaded model handles one forecast at a time.
+
+## Licence
+
+> **Licence.** The Timestral weights use Mistral's Modified MIT licence. You may not use them if the global consolidated monthly revenue of your company (or your employer) exceeded USD 20 million in the preceding month, unless you get a commercial licence from Mistral AI. The restriction covers derivatives, so it also applies to the GGUF conversions in the gallery. Each gallery entry installs the licence text next to the weights. The timestral.cpp code is MIT.
 
 ## Platforms
 
-The backend image is built for Linux on amd64 and arm64. A build for Apple silicon is wired into the build matrix, but it has not been built or tested yet.
+The backend image is built for Linux on amd64 and arm64. Apple silicon is not supported yet.

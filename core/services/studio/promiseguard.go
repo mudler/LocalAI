@@ -11,7 +11,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
-	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // The promise guard. A model that ends its turn with "I will check in a
@@ -68,9 +67,8 @@ func (s *Service) guardArmed(ctx context.Context, rec session.ChatRecord) bool {
 	return err != nil || len(pend) > 0
 }
 
-// guardNote is the note for the model. canArm says whether the chat has the
-// tools to arm something; a connector chat has none, so the note only asks
-// for a plain answer.
+// guardNote is the note for the model. tools names what the chat has to arm
+// something (guardTools); with none, the note only asks for a plain answer.
 func guardNote(sentence string, tools []string) string {
 	said := fmt.Sprintf("Your last answer promises something for later: %q. ", truncate(sentence, 200))
 	if len(tools) == 0 {
@@ -82,20 +80,28 @@ func guardNote(sentence string, tools []string) string {
 		"Then say in one or two short sentences what you did. Do not promise it again without arming it.)"
 }
 
-// guardTools names the tools that the chat really has for keeping a promise.
-// A connector chat has only the loop tools that its sender holds the
-// capability for, and no sub-agent: its messages can come from strangers.
+// guardTools names the tools that the chat really has for keeping a promise:
+// the loop tools that loopTools offers now (the same loopOffer), and
+// spawn_agent outside a connector chat, whose messages can come from
+// strangers. A wait on a command is named only where one may be armed.
 func (s *Service) guardTools(ctx context.Context, rec session.ChatRecord) []string {
 	if !s.loopOriginKnown(rec.Origin) {
 		return nil
 	}
 	var out []string
 	if s.loops != nil {
-		if s.loopAllowed(rec, contract.CapLoopsStart) {
-			out = append(out, startLoopName+" (a check that needs your judgement each time)")
-		}
-		if s.loopAllowed(rec, contract.CapLoopsWait) {
-			out = append(out, waitForName+" (watch a tool, a URL or a command with no model call until it changes)")
+		list, err := s.loops.o.Store.ListChat(ctx, rec.Principal, rec.ID)
+		if err == nil {
+			o := s.loopOfferIn(rec, list)
+			if o.start {
+				out = append(out, startLoopName+" (a check that needs your judgement each time)")
+			}
+			switch {
+			case o.script:
+				out = append(out, waitForName+" (watch a tool, a URL, a job or a command with no model call until it changes)")
+			case o.wait:
+				out = append(out, waitForName+" (watch a tool, a URL or a job with no model call until it changes)")
+			}
 		}
 	}
 	if rec.Origin == session.OriginConnector {
@@ -118,7 +124,7 @@ func (s *Service) promiseGuard(ctx context.Context, p, conv, final string) (bool
 	if !ok {
 		return false, nil
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil || rec.Kind == session.KindSubAgent {
 		return false, err
 	}

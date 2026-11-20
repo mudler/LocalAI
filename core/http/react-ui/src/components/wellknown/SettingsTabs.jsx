@@ -77,12 +77,17 @@ export function AboutYouTab() {
 // saving puts the saved look back.
 export function AppearanceTab() {
   const { t } = useTranslation('workspace')
-  const { setTheme } = useTheme()
+  const { previewTheme } = useTheme()
   const saved = useRef({})
 
-  useEffect(() => () => applyAppearance(saved.current, setTheme), [setTheme])
-  const onChange = useCallback((v) => applyAppearance(v, setTheme), [setTheme])
-  const onSaved = useCallback((doc) => { saved.current = doc.data }, [])
+  // The theme of an unsaved change is only shown (previewTheme): it is never
+  // kept, and leaving the tab puts the real one back.
+  useEffect(() => () => {
+    previewTheme(null)
+    applyAppearance(saved.current)
+  }, [previewTheme])
+  const onChange = useCallback((v) => applyAppearance(v, previewTheme), [previewTheme])
+  const onSaved = useCallback((doc) => { saved.current = doc.data; previewTheme(null) }, [previewTheme])
   const prefill = useCallback((doc) => { saved.current = doc.data; return { values: {}, notes: {} } }, [])
 
   return (

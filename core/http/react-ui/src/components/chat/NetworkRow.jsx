@@ -1,15 +1,17 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useId, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Button from '../ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { AdminHint, CardAnswerButtons } from './NetworkConsentCard'
-import { askedAboveLimit, cardAnswers, ceilingKind, cardStateKey, hostPort, networkMode, presetChoices, presetLabel, sortedCards } from '../../utils/chatEgress'
+import { askedAboveLimit, cardAnswers, ceilingKind, cardStateKey, customDomains, hostPort, networkMode, presetChoices, presetLabel, sortedCards } from '../../utils/chatEgress'
+import { addonSettingsAddress, NETWORK_SECTION } from '../../utils/addonSettings'
 import './network.css'
 
 // The Network row of the chat's Tools menu: how much of the network the
-// chat's isolated commands may reach (off, the package registries, all public
-// sites), up to the administrator's limit, and the panel with the chat's
+// chat's isolated commands may reach (off, the custom list of package
+// registries and the administrator's domains, all public sites), up to the administrator's limit, and the panel with the chat's
 // rules and the cards that asked. Commands that run on this machine have the
 // server's network: the row is a line that says so.
 export default function NetworkRow({ egress }) {
@@ -28,8 +30,11 @@ export default function NetworkRow({ egress }) {
   const choices = presetChoices(egress)
   const kind = ceilingKind(egress)
   const asked = askedAboveLimit(egress)
-  const hosts = egress.allowed_hosts || []
+  const hosts = customDomains(egress)
   const items = egress.rules.length + egress.cards.length + hosts.length
+  // The Custom list is part of the panel, so the panel is there whenever a
+  // limit above Off lets a chat choose Custom, even with the list empty.
+  const showPanel = items > 0 || kind !== 'off'
   return (
     <div className="chat-network" data-testid="chat-network">
       <div className="chat-network__head">
@@ -66,9 +71,9 @@ export default function NetworkRow({ egress }) {
       {hosts.length > 0 && egress.effective && egress.effective !== 'off' && (
         <p className="chat-network__note" data-testid="chat-network-allowed-note">{t('egress.allowedHostsNote', { count: hosts.length })}</p>
       )}
-      {items > 0 && (
+      {showPanel && (
         <button type="button" className="chat-network__toggle" aria-expanded={open} onClick={() => setOpen(v => !v)} data-testid="chat-network-panel-toggle">
-          {t('egress.panel', { count: items })}
+          {egress.rules.length + egress.cards.length > 0 ? t('egress.panel', { count: egress.rules.length + egress.cards.length }) : t('egress.panelCustom')}
         </button>
       )}
       {open && <NetworkPanel egress={egress} />}
@@ -81,24 +86,30 @@ export default function NetworkRow({ egress }) {
 function NetworkPanel({ egress }) {
   const { t } = useTranslation('chats')
   const { isAdmin } = useAuth()
-  const hosts = egress.allowed_hosts || []
+  const hosts = customDomains(egress)
+  const addon = egress.addon || ''
   return (
     <div className="chat-network__panel" data-testid="chat-network-panel">
-      {hosts.length > 0 && (
-        <div className="chat-network__allowed" data-testid="chat-network-allowed">
-          <p className="chat-network__note">
-            {t('egress.allowedHosts')}
-            {(!egress.effective || egress.effective === 'off') && <> {t('egress.allowedHostsOff')}</>}
-          </p>
-          <ul className="chat-network__list" aria-label={t('egress.allowedHosts')}>
+      <div className="chat-network__allowed" data-testid="chat-network-allowed">
+        <p className="chat-network__note">
+          {t(hosts.length > 0 ? 'egress.customDomains' : 'egress.customEmpty')}
+          {hosts.length > 0 && (!egress.effective || egress.effective === 'off') && <> {t('egress.allowedHostsOff')}</>}
+        </p>
+        {hosts.length > 0 && (
+          <ul className="chat-network__list" aria-label={t('egress.customLabel')}>
             {hosts.map(h => (
               <li key={h} className="chat-network__item" data-testid="chat-network-allowed-host">
                 <code className="chat-network__host">{h}</code>
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+        {isAdmin ? (
+          addon && <p className="chat-network__note"><Link to={addonSettingsAddress(addon, NETWORK_SECTION)} data-testid="chat-network-edit-domains">{t('egress.customEdit')}</Link></p>
+        ) : (
+          <p className="chat-network__note" data-testid="chat-network-custom-admin">{t('egress.customAdmin')}</p>
+        )}
+      </div>
       {egress.rules.length > 0 && (
         <ul className="chat-network__list" aria-label={t('egress.rules')}>
           {egress.rules.map(r => (

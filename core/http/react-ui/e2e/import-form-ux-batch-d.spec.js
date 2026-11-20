@@ -38,6 +38,8 @@ async function clearFormStorage(page) {
     try {
       window.localStorage.removeItem('import-form-tab')
       window.localStorage.removeItem('import-form-options')
+      window.localStorage.removeItem('localai.import.tab')
+      window.localStorage.removeItem('localai.import.options')
     } catch {
       // ignore
     }

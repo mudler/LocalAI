@@ -1,0 +1,1045 @@
+{
+  "lifecycle": {
+    "supporting": "এই মেশিনের জন্য উপযুক্ত একটি মডেল খুঁজে বের করুন, সেটি ইনস্টল করুন, এবং আপনার কাছে থাকা মডেলগুলোর যত্ন নিন।",
+    "title": "মডেলসমূহ",
+    "navLabel": "মডেলের জীবনচক্র",
+    "views": {
+      "explore": "অন্বেষণ করুন",
+      "installed": "ইনস্টল করা হয়েছে"
+    },
+    "filters": {
+      "motion": "চলন ধারণ",
+      "all": "সব",
+      "running": "দৌড়ানো",
+      "idle": "অচল",
+      "disabled": "অক্ষম",
+      "pinned": "পিন করা হয়েছে",
+      "distributed": "বিতরণকৃত"
+    },
+    "installed": {
+      "searchPlaceholder": "ইনস্টল করা মডেলগুলি অনুসন্ধান করুন",
+      "count": "{{shown}} এর {{total}}",
+      "backToAll": "ইনস্টল করা সমস্ত মডেল",
+      "eyebrow": "এই হোস্টে ইনস্টল করা হয়েছে",
+      "summary": "{{count}} মডেলগুলি সেবা দিতে প্রস্তুত।",
+      "summaryHint": "রuntime অবস্থা এবং নিয়ন্ত্রণগুলি পরিদর্শন করার জন্য একটি মডেল নির্বাচন করুন।",
+      "filterLabel": "রাজ্য অনুযায়ী ফিল্টার করুন",
+      "storageSummary": "{{total}} ডিস্কে · {{shared}} মডেল জুড়ে ভাগ করা",
+      "storageMissing": "{{count}} রেফারেন্স অনুপস্থিত"
+    },
+    "states": {
+      "running": "দৌড়ানো",
+      "idle": "অচল",
+      "disabled": "অক্ষম",
+      "working": "কাজ করছে…"
+    },
+    "actions": {
+      "load": "লোড",
+      "loading": "লোড হচ্ছে…",
+      "stop": "থামো",
+      "update": "আপডেট",
+      "updating": "আপডেট হচ্ছে…",
+      "enable": "মডেল সক্ষম করুন",
+      "disable": "মডেল নিষ্ক্রিয় করুন",
+      "pin": "পিন (অকেজো আনলোড প্রতিরোধ)",
+      "unpin": "আনপিন (আইডল আনলোড অনুমোদন করুন)",
+      "edit": "কনফিগারেশন সম্পাদনা করুন",
+      "logs": "ব্যাকএন্ড লগস",
+      "delete": "মডেল মুছুন",
+      "forModel": "{{model}}-এর জন্য পদক্ষেপ",
+      "open": "খুলুন {{useCase}}",
+      "manageInstallation": "ইনস্টলেশন পরিচালনা করুন"
+    },
+    "actionNames": {
+      "load": "লোড",
+      "stop": "থামো",
+      "enable": "সক্ষম করুন",
+      "disable": "অক্ষম করুন",
+      "pin": "পিন",
+      "unpin": "আনপিন করুন",
+      "delete": "মুছুন",
+      "update": "আপডেট"
+    },
+    "toasts": {
+      "loaded": "লোড হচ্ছে {{model}}",
+      "stopped": "থামানো হয়েছে {{model}}",
+      "enabled": "সক্ষম {{model}}",
+      "disabled": "অক্ষম {{model}}",
+      "pinned": "পিন করা হয়েছে {{model}}",
+      "unpinned": "আনপিন করা হয়েছে {{model}}",
+      "deleted": "মুছে ফেলা হয়েছে {{model}}",
+      "updated": "মডেলগুলো আপডেট করা হয়েছে"
+    },
+    "confirm": {
+      "stopTitle": "স্টপ মডেল",
+      "stopMessage": "স্টপ মডেল {{model}}?",
+      "deleteTitle": "মডেল মুছুন",
+      "deleteMessage": "মডেল {{model}}মুছুন? এটি আর পূর্বাবস্থায় ফেরানো যাবে না।"
+    },
+    "errors": {
+      "action": "Could not {{action}} {{model}}: {{message}}",
+      "loadList": "ইনস্টল করা মডেলগুলো লোড করা যায়নি: {{message}}"
+    },
+    "detail": {
+      "title": "বিবরণ",
+      "state": "রাজ্য",
+      "backend": "ব্যাকএন্ড",
+      "auto": "স্বয়ংক্রিয়",
+      "pinned": "পিন করা হয়েছে",
+      "yes": "হ্যাঁ",
+      "description": "বিবরণ",
+      "noDescription": "এই মডেলের জন্য কোনো গ্যালারি বিবরণ উপলব্ধ নেই।",
+      "license": "লাইসেন্স",
+      "tags": "ট্যাগসমূহ",
+      "links": "লিঙ্কসমূহ",
+      "distributed": "বিতরণকৃত",
+      "source": "উৎস",
+      "files": "ফাইলসমূহ",
+      "fileCount": "{{count}} file",
+      "fileCount_other": "{{count}} files",
+      "size": "ডিস্কে আকার",
+      "sharesFiles": "সাথে শেয়ার করে",
+      "sharedBytes": "{{size}} অন্যান্য মডেলগুলির সাথে শেয়ার করা হয়েছে",
+      "storageFiles": "ডিস্কের ফাইলসমূহ",
+      "missingFiles": "অপলব্ধ ফাইলসমূহ",
+      "missingCount": "{{count}} উল্লেখিত ফাইল অনুপস্থিত",
+      "missingCount_other": "{{count}} উল্লেখিত ফাইলগুলি অনুপস্থিত",
+      "adopted": "গ্রহণ করা হয়েছে",
+      "adoptedHint": "একজন কর্মীর উপর আবিষ্কৃত হয়েছে কিন্তু স্থানীয়ভাবে কনফিগার করা হয়নি। এটিকে স্থায়ী করতে কনফিগারেশন সংরক্ষণ করুন।",
+      "alias": "উপনাম → {{target}}",
+      "aliasTitle": "উপনাম → {{target}}",
+      "chain": "চেইন → {{target}}",
+      "chainTitle": "ফেইলওভার চেইন → {{target}}"
+    },
+    "open": {
+      "title": "খোলা",
+      "chat": "চ্যাট",
+      "completion": "সম্পূর্ণতা",
+      "image": "ছবি",
+      "video": "ভিডিও",
+      "tts": "TTS",
+      "transcribe": "লিপিবদ্ধ করুন",
+      "sound": "শব্দ",
+      "face": "মুখ",
+      "voice": "কণ্ঠ",
+      "embeddings": "এমবেডিংসমূহ",
+      "rerank": "পুনরায় র‌্যাঙ্ক করুন",
+      "vad": "বিকল্প শিরোনাম",
+      "score": "স্কোর",
+      "decisions": "সিদ্ধান্তসমূহ"
+    },
+    "empty": {
+      "title": "এখনও কোনো মডেল ইনস্টল করা হয়নি",
+      "text": "শুরু করতে গ্যালারি অন্বেষণ করুন বা একটি মডেল আমদানি করুন।",
+      "explore": "মডেলগুলো অন্বেষণ করুন",
+      "import": "আমদানি মডেল",
+      "noMatches": "এই ফিল্টারগুলির সাথে কোনো ইনস্টল করা মডেল মেলে না।",
+      "clear": "ফিল্টারগুলো পরিষ্কার করুন"
+    }
+  },
+  "title": "মডেলসমূহ",
+  "subtitle": "গ্যালারি থেকে এআই মডেলগুলো ব্রাউজ করুন এবং ইনস্টল করুন।",
+  "models": "মডেলসমূহ",
+  "storage": {
+    "searchPlaceholder": "ফাইল বা মডেল অনুযায়ী ফিল্টার করুন…",
+    "columns": {
+      "file": "ফাইল",
+      "size": "আকার",
+      "status": "অবস্থা",
+      "models": "ব্যবহৃত দ্বারা"
+    },
+    "status": {
+      "missing": "অভাবিত",
+      "shared": "{{count}}দ্বারা শেয়ার করা হয়েছে"
+    },
+    "empty": "কোনো রেফারেন্সকৃত ফাইল নেই।"
+  },
+  "recommended": {
+    "title": "এই মেশিনের জন্য সেরা",
+    "cpuNote": "কোনো GPU সনাক্ত হয়নি - ছোট মডেল যা CPU-এ প্রতিক্রিয়াশীল থাকে।",
+    "gpuNote": "আপনার উপলব্ধ VRAM-এ মানানসই আকার, প্রাসঙ্গিকতার জন্য পর্যাপ্ত স্থানসহ।",
+    "install": "ইনস্টল",
+    "installing": "ইনস্টল করা হচ্ছে",
+    "installStarted": "{{model}}ইনস্টল করা হচ্ছে …",
+    "installFailed": "ইনস্টলেশন ব্যর্থ হয়েছে: {{message}}",
+    "dismiss": "সুझाভনিগুলো বাতিল করুন",
+    "summary": "{{n}} মডেলগুলি প্রস্তাবিত",
+    "bestFit": "সর্বাধিক উপযুক্ত",
+    "window": "{{window}} প্রসঙ্গ",
+    "memory": "প্রায় {{memory}} ব্যবহারে",
+    "more": "{{count}} আরও বেশি মানানসই",
+    "fewer": "কম দেখান",
+    "alternative": "এছাড়াও ফিট করে"
+  },
+  "stats": {
+    "available": "উপলব্ধ",
+    "installed": "ইনস্টল করা হয়েছে"
+  },
+  "actions": {
+    "addModel": "মডেল যোগ করুন",
+    "importModel": "আমদানি মডেল",
+    "install": "ইনস্টল",
+    "reinstall": "পুনরায় ইনস্টল করুন",
+    "delete": "মুছুন"
+  },
+  "filters": {
+    "sheetDone": "মডেলগুলো দেখান",
+    "sheetTitle": "ফিল্টারসমূহ",
+    "sheetButtonCount": "ফিল্টারসমূহ ({{count}})",
+    "sheetButton": "ফিল্টারসমূহ",
+    "motion": "চলন ধারণ",
+    "forecast": "ভবিষ্যদ্বাণী",
+    "all": "সব",
+    "llm": "চ্যাট",
+    "image": "ছবি",
+    "video": "ভিডিও",
+    "threed": "3D",
+    "threedAnimation": "৩ডি অ্যানিমেশন",
+    "multimodal": "বহুমোডাল",
+    "vision": "দৃষ্টিভঙ্গি",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "ডায়েরাইজেশন",
+    "soundClassification": "সাউন্ড ট্যাগিং",
+    "soundGen": "শব্দ",
+    "audioTransform": "অডিও এফএক্স",
+    "realtimeAudio": "রিয়েলটাইম অডিও",
+    "embedding": "এমবেডিংসমূহ",
+    "rerank": "পুনরায় র‌্যাঙ্ক করুন",
+    "detection": "শনাক্তকরণ",
+    "vad": "বিকল্প শিরোনাম",
+    "ner": "এনইআর",
+    "fitsGpu": "GPU-এ ফিট করে",
+    "fitsMemory": "মেমোরিতে ফিট করে",
+    "collapseVariants": "প্রতি মডেল একটি সারি",
+    "allBackends": "সমস্ত ব্যাকএন্ড",
+    "searchBackends": "ব্যাকএন্ড অনুসন্ধান...",
+    "contextSize": "প্রসঙ্গ:",
+    "useCaseLabel": "ব্যবহারের ক্ষেত্রে ফিল্টার করুন",
+    "unavailableForBackend": "নির্বাচিত ব্যাকএন্ডের জন্য উপলব্ধ নয়",
+    "someSelected": "{{count}} নির্বাচিত",
+    "refineLabel": "পরিশোধন করুন"
+  },
+  "search": {
+    "placeholder": "মডেল অনুসন্ধান...",
+    "clearFilters": "ফিল্টারগুলো পরিষ্কার করুন"
+  },
+  "table": {
+    "modelName": "মডেলের নাম",
+    "description": "বিবরণ",
+    "backend": "ব্যাকএন্ড",
+    "sizeVram": "আকার / VRAM",
+    "status": "অবস্থা",
+    "actions": "ক্রিয়া",
+    "size": "আকার: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "ফিট করে",
+    "mayNotFit": "মিলতে নাও পারে",
+    "trustRemoteCode": "ট্রাস্ট রিমোট কোড",
+    "installing": "ইনস্টল করা হচ্ছে",
+    "installingPct": "ইনস্টল করা · {{percent}}%",
+    "installed": "ইনস্টল করা হয়েছে",
+    "notInstalled": "ইনস্টল করা হয়নি"
+  },
+  "detail": {
+    "description": "বিবরণ",
+    "gallery": "গ্যালারি",
+    "backend": "ব্যাকএন্ড",
+    "size": "আকার",
+    "vram": "VRAM",
+    "license": "লাইসেন্স",
+    "tags": "ট্যাগসমূহ",
+    "links": "লিঙ্কসমূহ",
+    "warning": "সতর্কবার্তা",
+    "files": "ফাইলসমূহ",
+    "fitsGpu": "GPU-এ ফিট করে",
+    "mayNotFitGpu": "GPU-এ ফিট নাও হতে পারে",
+    "requiresTrustRemoteCode": "ট্রাস্ট রিমোট কোডের প্রয়োজন",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "filename": "ফাইলের নাম",
+    "uri": "ইউআরআই",
+    "sha256": "এসএইচএ২৫৬",
+    "backToAll": "সমস্ত মডেল",
+    "vramAt": "VRAM-এ {{context}}",
+    "memoryAt": "{{context}}-এ মেমোরি",
+    "headroom": "মাথার ফাঁকা জায়গা",
+    "headroomOn": "{{node}}-এ হেডরুম"
+  },
+  "empty": {
+    "title": "কোনও মডেল পাওয়া যায়নি",
+    "withFilters": "আপনার বর্তমান অনুসন্ধান বা ফিল্টারগুলির সাথে কোনো মডেল মেলে না।",
+    "library": "লাইব্রেরি {{name}}-এর এই পৃষ্ঠায় কোনো মডেল নেই।",
+    "collapsedVariantsHint": "অন্য কোনো এন্ট্রি ইতিমধ্যেই যে বিকল্প বিল্ডগুলো অফার করে, সেগুলো লুকানো আছে। সেগুলো অন্তর্ভুক্ত করতে \"প্রতি মডেল এক সারি\" বন্ধ করুন।",
+    "noFilters": "মডেল গ্যালারিটি ফাঁকা।"
+  },
+  "deleteDialog": {
+    "title": "মডেল মুছুন",
+    "message": "মডেল {{model}}মুছুন?",
+    "confirm": "মোছুন {{model}}",
+    "deletingToast": "{{model}}মুছে ফেলা ..."
+  },
+  "errors": {
+    "loadFailed": "মডেল লোড করতে ব্যর্থ: {{message}}",
+    "installFailed": "ইনস্টল করতে ব্যর্থ: {{message}}",
+    "deleteFailed": "মোছতে ব্যর্থ: {{message}}"
+  },
+  "selector": {
+    "loading": "মডেলগুলো লোড হচ্ছে...",
+    "selectModel": "মডেল নির্বাচন করুন...",
+    "searchPlaceholder": "মডেল অনুসন্ধান...",
+    "noModels": "কোনও মডেল উপলব্ধ নেই"
+  },
+  "variants": {
+    "title": "রূপভেদসমূহ",
+    "chooseVariant": "একটি ভেরিয়েন্ট নির্বাচন করুন",
+    "auto": "স্বয়ংক্রিয়",
+    "autoSelected": "স্বয়ং-নির্বাচিত",
+    "base": "বেস বিল্ড",
+    "doesNotFit": "ফিট করে না",
+    "unknownSize": "অজানা আকার",
+    "unknownBackend": "অজানা ব্যাকএন্ড",
+    "loading": "ভ্যারিয়েন্ট লোড হচ্ছে...",
+    "installVariant": "{{variant}}ইনস্টল করুন",
+    "quantizationTitle": "ওজনের ফরম্যাট",
+    "unknownQuantization": "অজানা ফরম্যাট",
+    "showDetails": "{{variant}}-এর সম্পূর্ণ বিবরণ দেখান",
+    "hideDetails": "{{variant}}-এর সম্পূর্ণ বিবরণ লুকান",
+    "detailsLoading": "বিস্তারিত লোড হচ্ছে...",
+    "detailsUnavailable": "{{variant}}-এর বিবরণ লোড করা যায়নি।",
+    "features": {
+      "dflash": "দ্রুততর: ডিফ্ল্যাশ",
+      "mtp": "দ্রুততর: MTP"
+    }
+  },
+  "rail": {
+    "sortLabel": "মডেলগুলো সাজান",
+    "downloadingPct": "ডাউনলোড হচ্ছে {{percent}}%",
+    "tooLarge": "{{size}} · খুব বড়",
+    "fitsSize": "{{size}} · fits",
+    "previousPage": "পূর্ববর্তী পৃষ্ঠা",
+    "nextPage": "পরবর্তী পৃষ্ঠা",
+    "showingCount": "{{shown}} এর {{total}}",
+    "sizing": "আকার নির্ধারণ…"
+  },
+  "groups": {
+    "text": "পাঠ্য ও যুক্তি",
+    "vision": "দৃষ্টিভঙ্গি",
+    "audio": "বক্তৃতা ও অডিও",
+    "visual": "ছবি এবং ভিডিও",
+    "other": "বাকি সবকিছু"
+  },
+  "chart": {
+    "title": "প্রসঙ্গের দৈর্ঘ্য অনুযায়ীVRAM",
+    "titleRam": "প্রসঙ্গ দৈর্ঘ্য অনুযায়ী মেমোরি",
+    "available": "{{vram}} উপলব্ধ",
+    "barTitle": "{{context}} context needs {{vram}}",
+    "fitsEverywhere": "এই হোস্টে প্রতিটি প্রসঙ্গ দৈর্ঘ্যে চলে।",
+    "fitsNowhere": "এই হোস্টে কোনো প্রসঙ্গ দৈর্ঘ্যে ফিট হবে না।",
+    "fitsUpTo": "{{context}} প্রসঙ্গ পর্যন্ত মানায়।"
+  },
+  "shelves": {
+    "hostLabel": "আপনার হোস্ট",
+    "heroWithGpu": "{{vram}} এর GPU স্মৃতি, {{count}} গ্যালারিতে মডেল।",
+    "heroNoGpu": "গ্যালারিতে{{count}} মডেলগুলো।",
+    "heroHint": "বামে যেকোনো কিছু নির্বাচন করুন, এর আকার, বিভিন্ন ভেরিয়েন্ট এবং এখানে চলবে কিনা দেখতে।",
+    "browsing": "ব্রাউজিং",
+    "pickHint": "মডেলের বিবরণ দেখতে একটি মডেল নির্বাচন করুন।",
+    "heroWithRam": "{{ram}} of system memory, {{count}} models in the gallery.",
+    "heroWithCluster": "{{vram}} on {{node}}, the largest of {{nodes}} nodes, {{count}} models in the gallery.",
+    "heroWithNode": "গ্যালারিতে{{vram}}, {{node}}এবং {{count}} মডেলগুলো।",
+    "byUseCase": "অথবা একটি ব্যবহারের ক্ষেত্রে শুরু করুন",
+    "pickText": "চ্যাট, যুক্তি, এমবেডিং",
+    "pickVision": "ছবি এবং নথি পড়ুন",
+    "pickAudio": "ইনপুটের ভাষণ এবং আউটপুটের ভাষণ",
+    "pickVisual": "ছবি এবং ভিডিও তৈরি করুন"
+  },
+  "failover": {
+    "title": "ফেইলওভার চেইন",
+    "servedBy": "দ্বারা পরিবেশিত",
+    "changed": "পরিবর্তিত {{time}}",
+    "pinnedTo": "{{target}}-এ পিন করা হয়েছে",
+    "warm": "উষ্ণ",
+    "never": "কখনই না",
+    "states": {
+      "primary": "প্রাথমিক",
+      "fallback": "ব্যাকআপ",
+      "degraded": "ক্ষয়প্রাপ্ত",
+      "healthy": "সুস্থ",
+      "down": "নিচে",
+      "recovering": "সেরে উঠা",
+      "missing": "অপলব্ধ"
+    },
+    "kinds": {
+      "local": "স্থানীয়",
+      "remote": "দূরবর্তী"
+    },
+    "columns": {
+      "target": "লক্ষ্য",
+      "kind": "দয়ালু",
+      "warm": "উষ্ণ",
+      "health": "স্বাস্থ্য",
+      "lastProbe": "শেষ প্রোব",
+      "lastError": "শেষ ত্রুটি",
+      "actions": "ক্রিয়া"
+    },
+    "actions": {
+      "pin": "পিন",
+      "pinning": "পিনিং…",
+      "unpin": "আনপিন করুন",
+      "unpinning": "আনপিনিং…"
+    },
+    "confirm": {
+      "pinTitle": "পিন {{target}}?",
+      "pinMessage": "Only {{target}} serves {{chain}} until you unpin it. Automatic failover stops for this chain.",
+      "unpinTitle": "আনপিন {{chain}}?",
+      "unpinMessage": "{{chain}} স্বয়ংক্রিয় ফেইলওভারে ফিরে যায়।"
+    },
+    "errors": {
+      "pin": "পিন ব্যর্থ হয়েছে: {{error}}",
+      "unpin": "আনপিন ব্যর্থ হয়েছে: {{error}}"
+    },
+    "overview": {
+      "title": "ফেইলওভার চেইনসমূহ",
+      "subtitle": "লাইভ হেলথ এবং প্রতিটি ফেইলওভার চেইনের সক্রিয় লক্ষ্য।",
+      "columns": {
+        "chain": "শৃঙ্খল",
+        "state": "রাজ্য",
+        "active": "সক্রিয় লক্ষ্য",
+        "targets": "লক্ষ্যসমূহ",
+        "changed": "পরিবর্তিত"
+      },
+      "empty": {
+        "title": "এখনও কোনো ফেইলওভার চেইন নেই",
+        "text": "অসুস্থ টার্গেটগুলো স্বয়ংক্রিয়ভাবে এড়িয়ে চলার জন্য একটি ফেইলওভার চেইন যোগ করুন।",
+        "cta": "একটি ফেইলওভার চেইন তৈরি করুন"
+      }
+    }
+  },
+  "ledger": {
+    "caption": "{{context}} প্রসঙ্গে আকার ও মানের গ্যালারি মডেলসমূহ",
+    "selected": "নির্বাচিত",
+    "inspector": "মডেলের বিবরণ",
+    "closeInspector": "বিবরণ বন্ধ করুন",
+    "builds": "কয়েকটি বিল্ড",
+    "retry": "পুনরায় চেষ্টা করুন",
+    "retryNamed": "{{model}}পুনরায় ইনস্টল করার চেষ্টা করুন",
+    "installNamed": "{{model}}ইনস্টল করুন",
+    "failedInstall": "ইনস্টলেশন ব্যর্থ হয়েছে: {{message}}",
+    "sizeUnknownTitle": "গ্যালারি এই মডেলটি তালিকাভুক্ত করে না, তাই ডিস্কে এর আকার জানা নেই।",
+    "sizeEstimateTitle": "গ্যালারির ফাইলের আকার থেকে অনুমান করা হয়েছে। ডিস্কে থাকা আকার পড়া যায়নি।",
+    "sizeOnDiskTitle": "ডিস্কে{{exact}}",
+    "sharedSize": "{{size}} shared",
+    "sharedSizeTitle": "এই মডেলের ফাইলগুলির{{size}} অংশটি {{models}}-তেও ব্যবহৃত হয়। এই মডেলটি সরিয়ে ফেললে সেগুলি ডিস্কে থেকে যায়।",
+    "columns": {
+      "size": "আকার",
+      "fit": "{{context}}-এ ফিট"
+    },
+    "density": {
+      "label": "সারি ঘনত্ব",
+      "comfortable": "আरामদায়ক সারি",
+      "compact": "সংকুচিত সারি"
+    },
+    "basis": {
+      "gpu": "ফিট {{memory}}-এর GPU মেমোরির বিরুদ্ধে পরিমাপ করা হয়।",
+      "ram": "কোনও GPU পাওয়া যায়নি। ফিট {{memory}} মেমোরির বিরুদ্ধে পরিমাপ করা হয়।",
+      "cluster": "ফিট {{memory}}-এর বিরুদ্ধে {{node}}-এ পরিমাপ করা হয়।"
+    },
+    "fit": {
+      "free": "{{amount}} free",
+      "spill": "+{{amount}} on CPU",
+      "over": "{{amount}} over",
+      "noEstimate": "কোনও অনুমান নেই",
+      "fitsTitle": "Needs {{need}} at {{context}} context. Fits, with {{amount}} to spare.",
+      "spillTitle": "Needs {{need}} at {{context}} context. {{amount}} would run on the CPU.",
+      "overTitle": "Needs {{need}} at {{context}} context. It is {{amount}} more than this host has."
+    },
+    "summary": {
+      "title": "এই মেশিনে ফিট করুন",
+      "onNode": " সবচেয়ে বড় নোডে",
+      "fits": "Needs {{need}} at {{context}} context. It fits, with {{free}} to spare.",
+      "spill": "Needs {{need}} at {{context}} context. {{cpu}} would run on the CPU, which is slower.",
+      "overGpu": "Needs {{need}} at {{context}} context. That is {{over}} more than GPU memory and RAM have free together.",
+      "overRam": "Needs {{need}} at {{context}} context. That is {{over}} more than this host has.",
+      "gpu": "GPU",
+      "ram": "RAM"
+    },
+    "offline": {
+      "title": "গ্যালারিতে পৌঁছানো যাচ্ছে না।",
+      "stale": "শেষের তালিকা দেখাচ্ছে। ইনস্টল করতে সংযোগের প্রয়োজন। ({{message}})",
+      "empty": "{{message}}",
+      "emptyTitle": "দেখানোর কোনো তালিকা নেই",
+      "emptyText": "গ্যালারিতে পৌঁছানো যায়নি। সংযোগ পরীক্ষা করুন, তারপর পুনরায় চেষ্টা করুন।"
+    },
+    "hostOnly": {
+      "gpu": "{{memory}} এর GPU স্মৃতি",
+      "ram": "স্মৃতির{{memory}}, GPUনয়",
+      "none": "এই যন্ত্র"
+    },
+    "emptyGalleryHint": "গ্যালারিতে কোনো মডেল নেই। এর কনফিগারেশন থেকে একটি মডেল যোগ করুন অথবা উপরের বোতামগুলি ব্যবহার করে একটি মডেল আমদানি করুন।",
+    "keys": {
+      "search": "অনুসন্ধান",
+      "move": "সরে যাও",
+      "install": "ইনস্টল",
+      "density": "ঘনত্ব",
+      "close": "বন্ধ করুন"
+    }
+  },
+  "disk": {
+    "free": "{{amount}} free",
+    "low": "ডিস্ক কম",
+    "lowShort": "ডিস্ক কম",
+    "stripAria": "মডেল ডিস্ক: {{free}}, {{total}}থেকে মুক্ত। {{low}}, ক্লিনআপ পর্যালোচনা খুলুন।",
+    "leaves": "{{size}} ডাউনলোড, {{amount}} ফ্রি রেখে যায়",
+    "notEnough": "{{size}} download. The disk has {{amount}} less than that free.",
+    "freeUp": "স্থান খালি করুন"
+  },
+  "cleanup": {
+    "title": "ডিস্ক এবং পরিষ্কার-পরিচ্ছন্নতা",
+    "desc": "{{free}} free of {{total}}. Models take {{models}}.",
+    "close": "বন্ধ করুন",
+    "meterAria": "ডিস্ক: {{other}} অন্যান্য ফাইল, {{models}} মডেল, {{free}} ফ্রি",
+    "legend": {
+      "other": "অন্যান্য",
+      "models": "মডেলসমূহ",
+      "frees": "বিনামূল্যে",
+      "free": "বিনামূল্যে"
+    },
+    "noUsage": {
+      "title": "ব্যবহারের ইতিহাস এখনও রেকর্ড করা হয়নি।",
+      "text": "মডেলগুলোকে LocalAI যা দেখতে পারে তার ভিত্তিতে র‌্যাঙ্ক করা হয়: কোনোটি লোডেড, পিন করা বা কোনো এজেন্ট, টাস্ক, ফেলওভার চেইন বা অ্যালিয়াস দ্বারা ব্যবহৃত হচ্ছে কিনা, এর অন্য কোনো বিল্ড ইনস্টল আছে কিনা, এবং গ্যালারি তা আবার ডাউনলোড করতে পারবে কিনা।"
+    },
+    "sizes": {
+      "disk": "আকারগুলো হল প্রতিটি মডেল ডিস্কে যে পরিমাণ স্থান ব্যবহার করে। অন্য কোনো ইনস্টলকৃত মডেলও যে ফাইলটি ব্যবহার করে, সেটি বাদ দেওয়া হয়, কারণ একটি মডেল সরানোর সময় সেটি রেখে যায়।",
+      "estimate": "ডিস্কের সাইজ পড়া যায়নি, তাই গ্যালারির ফাইলগুলোর সাইজ থেকে অনুমান করা হয়েছে। গ্যালারিতে তালিকাভুক্ত নয় এমন কোনো মডেলের সাইজ নেই।"
+    },
+    "sharedWith": "Shares {{size}} with {{models}}. Those files stay on disk unless that model goes too.",
+    "missing": {
+      "note": "কনফিগারেশন পয়েন্টগুলো ডিস্কে নেই এমন ফাইলগুলোর দিকে নির্দেশ করছে: {{models}}। ডাউনলোড হয়তো শেষ হয়নি, অথবা ফাইলগুলো ম্যানুয়ালি মুছে ফেলা হয়েছে।",
+      "item": "কনফিগ পয়েন্টটি ডিস্কে নেই এমন {{count}} ফাইলের দিকে নির্দেশ করছে।",
+      "item_other": "কনফিগ পয়েন্টগুলি ডিস্কে নেই এমন {{count}} ফাইলগুলির দিকে নির্দেশ করে।"
+    },
+    "unverified": "কিছু এজেন্ট বা টাস্ক পড়া যায়নি, তাই কিছুই নিরাপদ হিসেবে চিহ্নিত করা হয়নি। পরে আবার চেষ্টা করুন।",
+    "count_one": "{{count}} model",
+    "count_other": "{{count}} models",
+    "selectAll": "সব নির্বাচন করুন",
+    "clearGroup": "স্বচ্ছ",
+    "selectModel": "{{model}}নির্বাচন করুন",
+    "sizeUnknown": "আকার অজানা",
+    "checkingBuilds": "ইনস্টল করা বিল্ডগুলো পরীক্ষা করা",
+    "tier": {
+      "safe": {
+        "title": "সরিয়ে ফেলা নিরাপদ",
+        "hint": "একই মডেলের আরেকটি বিল্ড ইনস্টল করা আছে, এবং কেউই এটি ব্যবহার করে না।"
+      },
+      "probably": {
+        "title": "সম্ভবত নিরাপদ",
+        "hint": "বন্ধ এবং ব্যবহার করা হয়নি। গ্যালারি সেগুলো আবার ডাউনলোড করতে পারে।"
+      },
+      "call": {
+        "title": "আপনার কল",
+        "hint": "এগুলো কেউ ব্যবহার করে না এবং কোনোটিই লোড করা নেই। LocalAI বলতে পারে না আপনি এগুলো শেষবার কখন ব্যবহার করেছিলেন, তাই সিদ্ধান্ত আপনার।"
+      }
+    },
+    "reason": {
+      "duplicate": "আরেকটি বিল্ড ইনস্টল করা হয়েছে: {{keep}}। LocalAI এই হোস্টে সেটিই বেছে নেবে।",
+      "disabledGallery": "অক্ষম এবং অপ্রয়োজনীয়। পুনরায় ডাউনলোড করা যাবে।",
+      "disabledLocal": "অক্ষম এবং অপ্রয়োজনীয়। গ্যালারিতে নেই, তাই এটি আর ডাউনলোড করা যাবে না।",
+      "idleGallery": "লোড করা হয়নি এবং কোনো কিছু দ্বারা ব্যবহার করা হচ্ছে না। পুনরায় ডাউনলোড করা যাবে।",
+      "idleLocal": "লোড করা হয়নি এবং কোনো কিছু দ্বারা ব্যবহার করা হচ্ছে না। গ্যালারিতে নেই, তাই এটি আর ডাউনলোড করা যাবে না।",
+      "unverified": "এজেন্ট বা টাস্কগুলো যাচাই করা যায়নি।",
+      "running": "এখন লোড হচ্ছে।",
+      "pinned": "পিন করা হয়েছে।",
+      "usedBy": "{{by}}দ্বারা ব্যবহৃত।"
+    },
+    "ref": {
+      "agent": "এজেন্ট \"{{name}}\"",
+      "task": "কাজ \"{{name}}\"",
+      "chain": "ফেইলওভার চেইন \"{{name}}\"",
+      "alias": "উপনাম \"{{name}}\""
+    },
+    "protected": {
+      "title": "সুরক্ষিত",
+      "never": "কখনও প্রস্তাব করেনি"
+    },
+    "empty": {
+      "title": "মুক্ত করার কিছুই নেই",
+      "text": "প্রতিটি ইনস্টলকৃত মডেল লোড করা, পিন করা বা ব্যবহারের মধ্যে আছে, অথবা কোনোটিই ইনস্টল করা নেই।"
+    },
+    "effect": {
+      "none": "কিছুই নির্বাচিত নয়",
+      "couldFree": "{{count}} models could free up to {{amount}}.",
+      "couldFreeUnknown": "{{count}} মডেলগুলো সরানো হতে পারে। তাদের আকার জানা নেই।",
+      "selected_one": "{{count}} মডেল নির্বাচিত",
+      "selected_other": "{{count}} মডেলগুলি নির্বাচিত",
+      "frees": "ফ্রিএস {{freed}}। {{after}} ফ্রি পর, {{now}}থেকে উপরে।",
+      "freesNoDisk": "Frees {{freed}}.",
+      "unknown_one": "{{count}} এর আকার অজানা এবং এটি গণনা করা হয় না।",
+      "unknown_other": "{{count}} আকার অজানা এবং গণনা করা হয় না।",
+      "pending": "একটি অপসারণ অপেক্ষায় রয়েছে। এটি বাতিল করুন অথবা শেষ হওয়া পর্যন্ত অপেক্ষা করুন।"
+    },
+    "clear": "স্বচ্ছ",
+    "pickSafe_one": "নিরাপদটি নির্বাচন করুন",
+    "pickSafe_other": "{{count}} নিরাপদগুলো নির্বাচন করুন",
+    "remove_one": "{{count}} মডেলটি সরান",
+    "remove_other": "{{count}} মডেলগুলি সরান",
+    "confirm": {
+      "title_one": "{{count}} মডেলটি সরান?",
+      "title_other": "{{count}} মডেলগুলো সরান?",
+      "caption": "সরানোর মডেলসমূহ, কারণ এবং তাদের আকার",
+      "effect": "এটি {{freed}}-কে মুক্ত করে। আপনার কাছে {{after}} মুক্ত থাকবে, যা {{now}}থেকে উপরে উঠবে।",
+      "effectNoDisk": "এটি {{freed}}-কে মুক্ত করে।",
+      "unknownSizes_one": "{{count}} মডেলের কোনো পরিচিত আকার নেই এবং এটি গণনা করা হয় না।",
+      "unknownSizes_other": "{{count}} মডেলগুলির কোনো পরিচিত আকার নেই এবং এগুলি গণনা করা হয় না।",
+      "none": "সরানোর জন্য আর কিছুই নেই",
+      "close": "বন্ধ করুন",
+      "dropped": "বাদ দেওয়া হয়েছে, কারণ এগুলো এখন ব্যবহার হচ্ছে: {{names}}",
+      "checked": "এখনই পরীক্ষা করেছি। কোনো লোডেড মডেল, পিন করা মডেল, এজেন্ট, টাস্ক, ফেইলওভার চেইন বা এলিয়াস এগুলো ব্যবহার করে না।",
+      "hold": "এখনো কিছুই মুছে ফেলা হয়নি। ফাইলগুলো {{seconds}} সেকেন্ডের জন্য রাখা হয় যাতে আপনি তা বাতিল করতে পারেন। এরপর সেগুলো ডিস্ক থেকে মুছে ফেলা হয়। সেগুলো আবার ডাউনলোড করতে সময় লাগে।"
+    },
+    "undo": "বাতিল করুন",
+    "toasts": {
+      "undoMessage_one": "{{count}} মডেলটি সরানো হয়েছে। {{amount}} মুক্ত হয় যখন undo সময় {{seconds}} s-এ শেষ হয়।",
+      "undoMessage_other": "{{count}} মডেলগুলো সরানো হয়েছে। {{amount}} মুক্ত হয় যখন undo সময় {{seconds}} s-এ শেষ হয়।",
+      "removing_one": "{{count}} মডেল মুছে ফেলা হচ্ছে...",
+      "removing_other": "{{count}} মডেলগুলি মুছে ফেলা হচ্ছে...",
+      "removed_one": "মুছে ফেলা {{count}} মডেল।",
+      "removed_other": "মুছে ফেলা {{count}} মডেলগুলি।",
+      "failed": "{{model}}মুছে ফেলা যায়নি: {{message}}",
+      "skipped": "মোছা হয়নি, কারণ এদিকে সেগুলো লোড হয়েছে: {{models}}",
+      "abandoned_one": "আপনি পৃষ্ঠাটি ছেড়ে চলে গেছেন, তাই {{count}} মডেল মুছে ফেলা হয়নি।",
+      "abandoned_other": "আপনি পৃষ্ঠাটি ছেড়ে চলে গেছেন, তাই {{count}} মডেলগুলি মুছে ফেলা হয়নি।"
+    }
+  },
+  "page": {
+    "back": "মডেলসমূহ",
+    "openDetails": "বিস্তারিত দেখুন",
+    "openFor": "{{model}}-এর বিবরণ খুলুন",
+    "loading": "মডেল লোড হচ্ছে",
+    "chooseBuild": "একটি বিল্ড নির্বাচন করুন",
+    "installBuild": "{{build}}ইনস্টল করুন",
+    "walk": {
+      "label": "এই তালিকায় থাকা মডেলগুলি",
+      "previous": "পূর্ববর্তী মডেল",
+      "next": "পরবর্তী মডেল",
+      "position": "{{index}} এর {{total}}"
+    },
+    "keys": {
+      "walk": "পূর্ববর্তী এবং পরবর্তী মডেল",
+      "tabs": "বিভাগসমূহ",
+      "back": "তালিকায় ফিরে যান"
+    },
+    "tabs": {
+      "label": "এই মডেলের অংশসমূহ",
+      "overview": "অবলোকন",
+      "fit": "ফিট এবং মেমোরি",
+      "variants": "ভ্যারিয়েন্ট এবং ফাইলসমূহ",
+      "usage": "ব্যবহার এবং ইতিহাস",
+      "config": "সংরক্ষণাবলি",
+      "logs": "লগসমূহ"
+    },
+    "primary": {
+      "running": "এখন চলছে",
+      "idle": "লোড হয়নি। প্রথমবার ব্যবহারে লোড হবে।",
+      "disabled": "বন্ধ করা হয়েছে। এটি ব্যবহার করার জন্য চালু করুন।"
+    },
+    "install": {
+      "title": "{{build}}ইনস্টল করা হচ্ছে",
+      "bytes": "{{done}} এর {{total}}",
+      "eta": "প্রায় {{time}} বামে",
+      "seconds": "{{count}} s",
+      "minutes": "{{count}} min",
+      "cancel": "বাতিল করুন"
+    },
+    "missing": {
+      "title": "{{id}}নামে কোনো মডেল নেই।",
+      "text": "এই সার্ভারে বা গ্যালারিতে সেই নামের কোনো মডেল নেই। এটি হয়তো মুছে ফেলা হয়েছে বা নাম পরিবর্তন করা হয়েছে।",
+      "closest": "সবচেয়ে কাছের মিল",
+      "back": "মডেলগুলোতে ফিরে যান"
+    },
+    "offline": {
+      "installDisabled": "গ্যালারি দরকার",
+      "text": "ইনস্টল করতে সংযোগ প্রয়োজন। এটি পরীক্ষা করুন, তারপর আবার চেষ্টা করুন।",
+      "installedOnly": "ইনস্টল করা মডেল সম্পর্কে এই সার্ভার যা জানে তা দেখাচ্ছে।"
+    },
+    "answer": {
+      "label": "এক নজরে",
+      "fit": "এই মেশিনে ফিট করুন",
+      "does": "এটি কী করে",
+      "install": "ইনস্টল",
+      "state": "রাজ্য",
+      "fitLoading": "অनुমান পড়া...",
+      "fitNone": "এই মডেলের জন্য এখনও কোনো অনুমান নেই।",
+      "opensIn": "{{useCases}}-এ খোলে।",
+      "opensAfter": "ইনস্টল করার পর এটি সংশ্লিষ্ট পৃষ্ঠায় খোলে।",
+      "installing": "ইনস্টল করা হচ্ছে",
+      "installingPct": "ইনস্টল করা হচ্ছে {{percent}}%",
+      "installingNote": "আপনি এই পৃষ্ঠা ছেড়ে গেলেও ডাউনলোড চলতে থাকবে।",
+      "failed": "ইনস্টলেশন ব্যর্থ হয়েছে",
+      "notInstalled": "ইনস্টল করা হয়নি",
+      "notInstalledNote": "ব্যবহার করার জন্য এটি ইনস্টল করুন।",
+      "leaves": "মডেলের ডিস্কে Leaves {{amount}} বিনামূল্যে।",
+      "runningNote": "মেমোরিতে লোড হয়েছে এবং প্রস্তুত।",
+      "idleNote": "ইনস্টল করা হয়েছে। এটি প্রথমবার ব্যবহার করার সময় লোড হয়, অথবা এখনই লোড করুন।",
+      "disabledNote": "বন্ধ করা হয়েছে। এটি ব্যবহার করার জন্য চালু করুন।"
+    },
+    "overview": {
+      "about": "সম্পর্কে",
+      "glance": "এক নজরে ফিট",
+      "status": "অবস্থা এবং ব্যবহার",
+      "maxContext": "সর্বোচ্চ প্রসঙ্গ",
+      "tokens": "{{size}} tokens"
+    },
+    "usedBy": {
+      "title": "ব্যবহৃত দ্বারা",
+      "loading": "এজেন্ট, টাস্ক, চেইন এবং এলিয়াস খুঁজছি...",
+      "none": "কোনও এজেন্ট, টাস্ক, ফেইলোভার চেইন বা এলিয়াস এই মডেলটিকে নামকরণ করে না।",
+      "unknown": "কিছুই পাওয়া যায়নি, তবে প্রতিটি লুকআপ পড়া যায়নি, তাই এটি অসম্পূর্ণ হতে পারে।",
+      "partial": "প্রতিটি লুকআপ পড়া সম্ভব হয়নি, তাই এই তালিকাটি অসম্পূর্ণ হতে পারে।",
+      "kind": {
+        "agent": "এজেন্ট",
+        "task": "টাস্ক",
+        "chain": "শৃঙ্খল",
+        "alias": "অন্য নাম"
+      }
+    },
+    "fit": {
+      "fitsGpu": "GPU-এ ফিট করে",
+      "fitsMemory": "মেমোরিতে ফিট করে",
+      "spill": "ঝরন CPU-এ",
+      "over": "ফিট করে না",
+      "fitsText": "{{need}} needed of {{free}} usable at {{context}} context. {{spare}} to spare.",
+      "build": "নির্মাণ করুন",
+      "context": "প্রসঙ্গ",
+      "weights": "ওজন এবং কর্ম মেমরি",
+      "poolGpu": "GPU, {{memory}}",
+      "poolRam": "System memory, {{memory}}",
+      "barAria": "{{pool}}: this model needs {{need}}. The tick marks the {{limit}} this page lets a model use.",
+      "limitNote": "ফিট মেমোরির {{percent}} শতাংশ পর্যন্ত গ্রহণ করে, যা তালিকার একই সীমা।",
+      "chartTitle": "প্রসঙ্গের আকার অনুযায়ী প্রয়োজনীয় মেমরি ({{build}})",
+      "chartTitleRam": "প্রসঙ্গের আকার অনুযায়ী প্রয়োজনীয় সিস্টেম মেমরি ({{build}})",
+      "limitLabel": "{{memory}} ব্যবহারযোগ্য {{pool}}",
+      "gpuMemory": "GPU memory",
+      "systemMemory": "সিস্টেম মেমোরি",
+      "dataTable": "তথ্য সারণি",
+      "needs": "প্রয়োজন",
+      "verdict": "ফলাফল",
+      "tableFits": "ফিট করে",
+      "tableOver": "ফিট করে না",
+      "flat": "এই মডেলের জন্য প্রসঙ্গের আকারের সাথে মেমরি বৃদ্ধি পায় না, তাই কোনো চার্ট নেই।",
+      "footnote": "আনুমানিক মানগুলো মডেল ফাইল এবং এই মেশিনের মেমোরি থেকে আসে। ভিন্ন বিল্ড বা প্রসঙ্গের আকার বারগুলো পরিবর্তন করে।",
+      "loading": "অनुমান পড়া",
+      "noMachine": "এই যন্ত্রের মেমোরি পড়া যায়নি, তাই কোনো সিদ্ধান্ত নেই।",
+      "unavailableTitle": "কোনও অনুমান নেই",
+      "unavailableText": "অनुমানের জন্য মডেলের ফাইলগুলো প্রয়োজন, এবং গ্যালারিতে এই বিল্ডের জন্য কোনো ফাইলই তালিকাভুক্ত নেই।",
+      "unavailableInstalled": "সার্ভার এই মডেলের ফাইলগুলো পড়তে পারেনি। সেগুলো হয়তো অনুপস্থিত, এখনও ডাউনলোড হচ্ছে, অথবা এমন ফরম্যাটে রয়েছে যা অনুমানটি সমর্থন করে না।"
+    },
+    "variants": {
+      "caption": "এই মডেলের নির্মাণ, আকার ও মানানসইতা",
+      "build": "নির্মাণ করুন",
+      "chosen": "নির্বাচিত বিল্ড",
+      "choose": "{{build}} বিল্ড ব্যবহার করুন",
+      "fit": "ফিট",
+      "fitAt": "{{context}} প্রসঙ্গে ফিট দেখানো হয়েছে।",
+      "fitsGpu": "GPU-এ ফিট করে",
+      "fitsMemory": "মেমোরিতে ফিট করে",
+      "fitsServer": "ফিট করে",
+      "spill": "+{{amount}} GB on CPU",
+      "over": "{{amount}} GB over",
+      "single": "এই মডেলের একটি বিল্ড আছে।",
+      "error": "বিল্ড তালিকা পড়া যায়নি।",
+      "noFiles": "গ্যালারি এই বিল্ডের জন্য কোনো ফাইল তালিকাভুক্ত করে না।",
+      "filesCaption": "{{build}}-এর ফাইলসমূহ",
+      "source": "উৎস",
+      "status": "অবস্থা",
+      "notDownloaded": "ডাউনলোড করা হয়নি",
+      "onDisk": "ডিস্কে",
+      "downloading": "ডাউনলোড হচ্ছে {{percent}}%"
+    },
+    "files": {
+      "title": "ডিস্কের ফাইলসমূহ",
+      "view": "ফাইলগুলো দেখুন",
+      "caption": "{{model}} ডিস্কে যে ফাইলগুলো ব্যবহার করে, সেগুলোর আকার ও অবস্থা সহ",
+      "total": "{{size}} ফাইলে {{count}}",
+      "total_other": "{{size}} in {{count}} files",
+      "sharedWith": "এছাড়াও ব্যবহৃত হয়",
+      "sharedNote": "অন্য একটি ইনস্টল করা মডেল যে ফাইলটি ব্যবহার করে, তা এই মডেলটি সরানোর পরও ডিস্কে থেকে যায়।",
+      "missing": "কনফিগারেশন এমন ফাইলগুলোকে নির্দেশ করছে যা ডিস্কে নেই। ডাউনলোড হয়তো শেষ হয়নি, অথবা ফাইলগুলো ম্যানুয়ালি মুছে ফেলা হয়েছে।",
+      "unavailable": "ডিস্কে থাকা আকার শুধুমাত্র অ্যাডমিনদের দেখানো হয়, অন্যথায় সার্ভার তা পড়তে পারবে না।"
+    },
+    "usage": {
+      "title": "ব্যবহার, শেষ ৩০ দিন",
+      "emptyTitle": "ব্যবহারের ইতিহাস এখনও রেকর্ড করা হয়নি।",
+      "emptyText": "LocalAI প্রতিটি মডেলের অনুরোধ, সময়কাল বা পরিবর্তনের গণনা রাখে না, তাই চার্ট করার মতো কিছুই নেই। যখন সার্ভার সেগুলো রেকর্ড করে, তখন সেগুলো এখানে প্রদর্শিত হয়।",
+      "missingLabel": "এখানে কী প্রদর্শিত হবে",
+      "notRecorded": "রেকর্ড করা হয়নি",
+      "missing": {
+        "requests": {
+          "name": "প্রতিদিন অনুরোধ",
+          "why": "সার্ভার প্রতিটি মডেলের অনুরোধের সংখ্যা রাখে না।"
+        },
+        "ttft": {
+          "name": "প্রথম টোকেন পাওয়ার সময়",
+          "why": "সার্ভার প্রতিটি মডেলের জন্য কোনো সময়সীমা সংরক্ষণ করে না।"
+        },
+        "loads": {
+          "name": "লোড এবং স্টপ",
+          "why": "সার্ভার কখন একটি মডেল লোড করা হয়েছিল তার কোনো ইতিহাস রাখে না।"
+        },
+        "changes": {
+          "name": "কনফিগারেশন পরিবর্তনসমূহ",
+          "why": "সার্ভার কোনো মডেলের ফাইলে করা সম্পাদনার কোনো লগ রাখে না।"
+        }
+      },
+      "known": "সার্ভার এখন কী জানে",
+      "count": {
+        "agent_one": "{{count}} agent",
+        "agent_other": "{{count}} agents",
+        "task_one": "{{count}} task",
+        "task_other": "{{count}} tasks",
+        "chain_one": "{{count}} ফেইলওভার চেইন",
+        "chain_other": "{{count}} ফেইলওভার চেইনসমূহ",
+        "alias_one": "{{count}} alias",
+        "alias_other": "{{count}} ছদ্মনামসমূহ"
+      }
+    },
+    "config": {
+      "fullEditor": "সম্পূর্ণ এডিটর খুলুন",
+      "thisModel": "এই মডেল",
+      "generated": "সংরক্ষণ করার পর কনফিগারেশন ফাইল",
+      "save": "পরিবর্তন সংরক্ষণ করুন",
+      "saving": "সংরক্ষণ হচ্ছে...",
+      "savedLabel": "সঞ্চিত",
+      "saved": "প্ল্যাসমেন্ট সংরক্ষিত",
+      "saveFailed": "সঞ্চয় ব্যর্থ হয়েছে: {{message}}",
+      "loading": "কনফিগারেশন পড়া",
+      "loadFailed": "কনফিগারেশন পড়তে পারল না: {{message}}",
+      "appliesNext": "এই মডেলটি লোড করা হয়েছে। পরিবর্তনগুলি পরেরবার লোড করার সময় প্রয়োগ হবে।"
+    },
+    "logs": {
+      "note": "ব্যাকএন্ড প্রক্রিয়ার আউটপুট",
+      "fullPage": "এই মডেলটি হোস্ট করা নোডে লগগুলো খুলুন।"
+    }
+  },
+  "placement": {
+    "title": "স্থান নির্ধারণ",
+    "runOn": "এই মডেলটি চালান",
+    "modes": {
+      "cpu": "শুধুমাত্রCPU",
+      "auto": "স্বয়ংক্রিয়",
+      "custom": "কাস্টম",
+      "autoWrites": "কিছুই লেখে না"
+    },
+    "autoHint": "gpu_layers stays unset. LocalAI then asks for every layer on the GPU, and the llama.cpp engine lowers that to what fits. Other engines read an unset value as their own default.",
+    "noGpu": "কোনও GPU পাওয়া যায়নি, তাই এই মডেলটি CPU-এ চলে।",
+    "noMachine": "এই যন্ত্রের মেমোরি পড়া যায়নি, তাই মেমোরি ভিউ নেই।",
+    "layers": "GPU layers",
+    "layersAll": "সব",
+    "allLayers": "সমস্ত স্তর",
+    "sliderValue": "{{count}} এর {{total}} স্তরসমূহ GPU এর উপর",
+    "noSlider": "এই মডেলের স্তরের সংখ্যা রিপোর্ট করা হয়নি, তাই কোনো স্লাইডার নেই। একটি সংখ্যা লিখুন, অথবা 'সমস্ত স্তর' ব্যবহার করুন, যা {{all}}লেখে।",
+    "context": "প্রসঙ্গের আকার",
+    "contextTokens": "টোকেনে প্রসঙ্গের আকার",
+    "contextHint": "নীচের বারগুলিতে কেভি ক্যাশ ফিড করে।",
+    "contextUnset": "সেট করা হয়নি। অনুমানটি {{context}}ব্যবহার করে।",
+    "split": {
+      "title": "জিপিইউ জুড়ে বিভক্ত",
+      "byFree": "মুক্ত মেমোরির ভিত্তিতে ভাগ করুন",
+      "share": "GPU {{index}} share",
+      "sliderLabel": "প্রথম GPU-এ শেয়ার করুন",
+      "main": "মূল GPU",
+      "gpu": "GPU {{index}}"
+    },
+    "memory": "স্মৃতি",
+    "weights": "{{size}} ডিস্কে ওজনের। {{context}} প্রসঙ্গে মেমোরি দেখানো হয়েছে।",
+    "noBars": "এই পছন্দের জন্য আঁকার কিছু নেই।",
+    "cluster": "এই সার্ভার মডেলগুলোকে অন্য মেশিনে নির্ধারণ করে, তাই এই মেশিনের ডিভাইসগুলো বলে না মডেলটি কোথায় চলবে। প্রতি ডিভাইসে অনুমান দেখানো হয় না।",
+    "estimateLoading": "অनुমান পড়া",
+    "unavailable": {
+      "title": "অनुমান উপলব্ধ নেই",
+      "text": "LocalAI মডেল ফাইলটি পড়তে পারেনি, তাই এটি বলতে পারছে না এই সেটিংটির জন্য কত মেমরি প্রয়োজন। ফাইলটি হয়তো এখনও ডাউনলোড হচ্ছে, অথবা এটি এমন একটি ফরম্যাটে থাকতে পারে যা অনুমানটি অন্তর্ভুক্ত করে না।",
+      "retry": "পুনরায় অনুমান করুন"
+    },
+    "bar": {
+      "gpu": "GPU, {{name}}",
+      "gpuNamed": "GPU {{index}}, {{name}}",
+      "ram": "সিস্টেম মেমোরি",
+      "freeAfter": "{{amount}} মুক্ত হওয়ার পর",
+      "over": "{{amount}} over",
+      "aria": "{{name}}: {{parts}}, {{capacity}}থেকে"
+    },
+    "legend": {
+      "other": "অন্যান্য অ্যাপস",
+      "model": "এই মডেল",
+      "weights": "ওজন এবং কর্ম মেমরি",
+      "kv": "প্রসঙ্গ (কেভি ক্যাশ)"
+    },
+    "fit": {
+      "fits": {
+        "title": "GPU-এ ফিট করে",
+        "text": "{{gpu}} on the GPU, of {{free}} usable. This is the fastest setting."
+      },
+      "spill": {
+        "title": "ঝরন CPU-এ",
+        "text": "The GPU holds {{gpu}} and about {{cpu}} stays in system memory. Slower than all layers on the GPU."
+      },
+      "trimmed": {
+        "title": "সবগুলোই ফিট হবে না",
+        "text": "সব স্তরে {{allNeed}} প্রয়োজন, কিন্তু {{free}} ব্যবহারযোগ্য। llama.cpp ইঞ্জিন লোড সময়ে স্তরের সংখ্যা কমিয়ে দেয়, তাই মডেলের কিছু অংশ CPU-এ চলে, যা ধীর।"
+      },
+      "toomany": {
+        "title": "GPU-এর জন্য অনেক বেশি স্তর",
+        "text": "এটি {{need}}-এ GPU-এর প্রয়োজন, যা {{free}} ব্যবহারযোগ্য। llama.cpp ইঞ্জিন লোড সময় এটিকে কমিয়ে দেয় যদি না fit বন্ধ করা হয়, এবং অন্যান্য ইঞ্জিন লোড করতে ব্যর্থ হতে পারে। স্তর বা প্রসঙ্গ কমিয়ে দিন।"
+      },
+      "cpu": {
+        "title": "শুধুমাত্র CPU-এ চলে",
+        "text": "Uses {{need}} of {{ramFree}} free system memory. Slower than on a GPU."
+      },
+      "cpu-over": {
+        "title": "পর্যাপ্ত মেমোরি নেই",
+        "text": "প্রয়োজন {{need}}, কিন্তু সিস্টেম মেমোরির শুধুমাত্র {{ramFree}} অংশই ফাঁকা আছে।"
+      },
+      "nogpu": {
+        "title": "কোনও GPU পাওয়া যায়নি",
+        "text": "এই মডেলটি CPU-এ চলে এবং {{ramFree}}-এর {{need}} ফ্রি সিস্টেম মেমোরি ব্যবহার করে। GPU-এর তুলনায় এটি ধীর।"
+      },
+      "nogpu-over": {
+        "title": "পর্যাপ্ত মেমোরি নেই",
+        "text": "কোনও GPU পাওয়া যায়নি। {{need}} প্রয়োজন, কিন্তু সিস্টেম মেমোরির শুধুমাত্র {{ramFree}} অংশই ফাঁকা আছে।"
+      },
+      "spill-over": {
+        "title": "পর্যাপ্ত মেমোরি নেই",
+        "text": "GPU-এ {{gpu}}রয়েছে, এবং অন্য {{cpu}} সিস্টেম মেমরিতে থাকবে, যেখানে {{ramFree}} ফাঁকা রয়েছে।"
+      },
+      "trimmed-over": {
+        "title": "পর্যাপ্ত মেমোরি নেই",
+        "text": "সব স্তরের জন্য {{allNeed}} প্রয়োজন, কিন্তু GPU মেমোরির {{free}} ব্যবহারযোগ্য, এবং বাকি {{cpu}} সিস্টেম মেমোরির {{ramFree}} মুক্ত পরিমাণের চেয়ে বেশি।"
+      }
+    },
+    "fitForMe": "আমার জন্য এটা ফিট করো",
+    "fitApplied": {
+      "all": "সব স্তরে সেট করুন। সবকিছু মানানসই হবে।",
+      "layers": "Set to {{count}} layers on the GPU."
+    },
+    "fitFailed": {
+      "none": "Not even one layer fits in {{free}}. Lower the context size, or run on the CPU.",
+      "flat": "এই মডেলের লেয়ার সংখ্যা পরিবর্তন হলেও অনুমান অপরিবর্তিত থাকে, এবং এটি {{need}}-এর বিরুদ্ধে {{free}} ব্যবহারযোগ্য। প্রসঙ্গের আকার কমান।",
+      "unavailable": "অनुমানটি পড়া যায়নি, তাই কোনো স্তরের সংখ্যা নির্বাচন করা যায়নি।"
+    },
+    "undo": "বাতিল করুন",
+    "moe": {
+      "title": "বিশেষজ্ঞ (শিক্ষা মন্ত্রণালয়)",
+      "keepOn": "বিশেষজ্ঞদের রাখুন",
+      "modes": {
+        "gpu": "GPU",
+        "some": "CPU-এ কিছু স্তর",
+        "all": "সবই CPU-এ"
+      },
+      "autoHint": "অটো-ফিট স্বয়ংক্রিয়ভাবে বিশেষজ্ঞদের সিস্টেম মেমরিতে স্থানান্তর করতে পারে। এখানে স্পষ্টভাবে একটি পছন্দ এটিকে অগ্রাহ্য করে।",
+      "layers": "CPU-এ বিশেষজ্ঞদের স্তরসমূহ",
+      "sliderValue": "Experts of the first {{count}} of {{total}} layers on the CPU",
+      "sliderShort": "{{count}} এর {{total}}",
+      "noSlider": "এই মডেলের স্তরের সংখ্যা রিপোর্ট করা হয়নি, তাই কোনো স্লাইডার নেই। স্তরের সংখ্যা লিখুন।",
+      "cache": "বিশেষজ্ঞ ক্যাশ",
+      "cacheOff": "বন্ধ",
+      "cacheMib": "MiB-এ বিশেষজ্ঞ ক্যাশে",
+      "cachePlaceholder": "মাইন্ড দ্য বগস",
+      "cacheHint": "এটি সিস্টেম মেমরিতে বিশেষজ্ঞদের জন্য GPU-এ একটি ক্যাশ। এটি GPU মেমরি নেয়। খুব ছোট একটি ক্যাশ বারবার মেমরি অ্যাক্সেস করে। পরীক্ষামূলক।",
+      "elsewhere": "বিশেষ অবস্থান অপশন তালিকার ({{entries}}) অন্যান্য এন্ট্রি দ্বারা নির্ধারিত হয়। এগুলো সম্পূর্ণ এডিটরে পরিবর্তন করুন। এই বিভাগ এগুলো যেমন আছে তেমনই রেখে দেয়।",
+      "estimateNote": "এই অনুমানে বিশেষজ্ঞের প্লেসমেন্ট অন্তর্ভুক্ত নেই।"
+    }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "ডাকাত মুখ"
+    },
+    "p2p": "p2p",
+    "sourcesButton": "সূত্রসমূহ",
+    "sourcesTitle": "উৎস অনুসন্ধান করুন",
+    "sourcesClose": "বন্ধ করুন",
+    "sourcesHelp": "মডেল অনুসন্ধান কোন উৎসগুলো জিজ্ঞাসা করবে তা নির্বাচন করুন। Hugging Face অন্তর্নির্মিত। অন্যান্য উৎস অ্যাড-অন থেকে আসে।",
+    "sourcesError": "নির্বাচন সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+    "sourceBuiltin": "নির্মিত",
+    "sourceAddon": "একটি অ্যাড-অন থেকে",
+    "sourceNotInstalled": "অ্যাড-অন ইনস্টল করা হয়নি",
+    "missingHint": "{{sources}} চালু আছে, কিন্তু এর অ্যাড-অন ইনস্টল করা নেই।",
+    "missingInstall": "অ্যাড-অনটি ইনস্টল করুন",
+    "noSources": "কোনও উৎস চালু নেই, তাই কিছুই অনুসন্ধান হয় না।",
+    "dropped_one": "{{count}} ফলাফল বাদ দেওয়া হয়েছে",
+    "dropped_other": "{{count}} ফলাফলগুলো বাদ দেওয়া হয়েছে",
+    "heading": "{{source}}থেকে",
+    "latestHeading": "{{source}}-এ সর্বশেষ তথ্য",
+    "placeholder": "খুঁজুন {{source}}",
+    "resultCount_one": "{{count}} result",
+    "resultCount_other": "{{count}} results",
+    "downloads": "ডাউনলোড",
+    "seeds_one": "{{count}} seed",
+    "seeds_other": "{{count}} seeds",
+    "gated": "নিয়ন্ত্রিত",
+    "ggufOnly": "শুধুমাত্রGGUF",
+    "hint": {
+      "title": "খুঁজুন {{source}}",
+      "text": "সার্চ বক্সে একটি মডেলের নাম টাইপ করুন। ফলাফল সরাসরি উৎস থেকে আসে, আপনার লাইব্রেরি থেকে নয়।"
+    },
+    "failed": {
+      "title": "{{source}} উত্তর দেয়নি",
+      "text": "অনুসন্ধান ব্যর্থ হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।",
+      "stale": "এগুলোই শেষ ফলাফল। {{message}}"
+    },
+    "none": {
+      "title": "{{source}}-এ কিছুই পাওয়া যায়নি।",
+      "text": "অন্য কোনো নাম চেষ্টা করুন।",
+      "gguf": "Nothing found in GGUF format. Turn off GGUF only to widen the search.",
+      "fits": "প্রতিটি ফলাফল এই মেশিনের জন্য খুব বড়। সেগুলো দেখতে fits ফিল্টার বন্ধ করুন।"
+    },
+    "loadMore": "আরো লোড করুন",
+    "noLatest": "{{source}} তার নতুনতম মডেলগুলো তালিকাভুক্ত করে না। মডেলগুলো দেখতে নামের মাধ্যমে অনুসন্ধান করুন।",
+    "chooseBuild": "নির্মাণ নির্বাচন করুন {{variant}}",
+    "recommended": "সুপারিশকৃত",
+    "fits": "ফিট করে",
+    "spill": "ঝরন CPU-এ",
+    "over": "খুব বড়",
+    "installed": "{{model}} ইনস্টল করা হয়েছে।",
+    "ambiguous": "এই মডেলটি চালানোর জন্য একাধিক ব্যাকএন্ড থাকতে পারে। একটি বেছে নিতে 'মডেল আমদানি' ব্যবহার করুন।",
+    "gatedTitle": "প্রবেশ গেট দ্বারা সীমাবদ্ধ।",
+    "gatedBody": "এই রিপোজিটরিতে Hugging Face-এর অনুমোদন প্রয়োজন, তাই LocalAI এখান থেকে এটি ইনস্টল করতে পারবে না।",
+    "gatedP2p": "এই মডেলটি Hugging Face-এ গেট করা হয়েছে। টরেন্টের জন্য কোনো টোকেন প্রয়োজন নেই, তবে মডেলের লাইসেন্স শর্তাবলী প্রযোজ্য থাকবে।",
+    "gatedHfInstall": "Hugging Face-এ গেট করা হয়েছে: এটি অনুমোদনের প্রয়োজন, তাই এখানে থেকে ইনস্টল করা যাবে না।",
+    "sizesUnknown": "কোনও ফাইলের আকার পাওয়া যায়নি। Hugging Face এই সংগ্রহস্থল তালিকাভুক্ত করে না, তাই ফিট অনুমান করা যায় না।",
+    "importError": "এই ফাইলগুলির সাথে কোনো ব্যাকএন্ড মেলে না।",
+    "importErrorBody": "ইনস্টলেশন এখনও ব্যর্থ হতে পারে। ব্যাকএন্ড নির্বাচন করতে মডেল আমদানি ব্যবহার করুন।",
+    "approximate": "আনুমানিক মানানসই। মডেল হেডার পড়া যায়নি, তাই মেমরি হল ফাইলের আকার প্লাস প্রাসঙ্গিক ক্ষেত্রে একটি সাধারণ নিয়ম।",
+    "noEstimate": "কোনো আকার জানা নেই, তাই এই মডেলের জন্য কোনো ফিট অনুমান নেই।",
+    "files": {
+      "failed": {
+        "title": "ফাইলের তালিকা পড়তে পারল না",
+        "body": "উৎসটি উত্তর দেয়নি। আবার চেষ্টা করুন।"
+      },
+      "rateLimited": {
+        "title": "উৎস ধীরগতিতে চলতে বলেছে।",
+        "body": "অতিরিক্ত অনুরোধ। এক মিনিট অপেক্ষা করুন এবং আবার চেষ্টা করুন।"
+      },
+      "notFound": {
+        "title": "রিপোজিটরি পাওয়া যায়নি",
+        "body": "এটি ব্যক্তিগত, সরানো হয়েছে বা এই উৎসটিতে তালিকাভুক্ত নেই।"
+      }
+    },
+    "originGallery": "গ্যালারি",
+    "originOnline": "অনলাইন"
+  },
+  "remotes": {
+    "tab": "রিমোট",
+    "filter": "দূরবর্তী",
+    "unavailable": "উপরের অংশে অনুপলব্ধ",
+    "rowMark": "দূরবর্তী মডেল",
+    "sizeRemote": "দূরবর্তী",
+    "connectButton": "রিমোট সংযুক্ত করুন",
+    "sheetTitle": "রিমোট সংযুক্ত করুন",
+    "sheetDescription": "অন্য সার্ভার বা সার্ভিসে চলমান মডেলগুলো যোগ করুন।",
+    "toastDone": "সংযুক্ত {{name}}। যোগ করা হয়েছে {{count}} মডেল।",
+    "toastDone_other": "সংযুক্ত {{name}}। যোগ করা হয়েছে {{count}} মডেলগুলি।",
+    "toastSkipped": "{{count}} মডেলটি যুক্ত করা হয়নি।",
+    "toastSkipped_other": "{{count}} মডেলগুলো যোগ করা হয়নি।"
+  }
+}

@@ -5,17 +5,14 @@ weight = 60
 aliases = ["/features/home-assistant/"]
 +++
 
-In the current development builds, this add-on is in the development channel of the add-on library, so it can change.
-
 ## At a glance
 
 | Topic | Detail |
 |---|---|
 | What it adds | Tools to read a smart home: find entities, read a state, look at a history. If you allow it, switch things such as a light or a thermostat, within limits you set. |
-| Who installs it | An administrator, from **Add-ons**, **Find add-ons**, with **Install and turn on**. With authentication off, you are the administrator. |
-| Who turns it on | A person needs the `addons` feature. It is off by default for new users on a server with accounts. The person switches the add-on on for a chat in the **Tools** menu. A saved agent uses it only when you name it in the agent. A person adds a connection: one Home Assistant address and one long-lived access token. |
+| Needs | A connection with one Home Assistant address and one long-lived access token. |
 
-The Home Assistant add-on lets your [chats]({{% relref "/features/chats-and-agents/chats" %}}) and [saved agents]({{% relref "/features/chats-and-agents/chats-agents" %}}) read your smart home: find entities, read a state, look at a history, list what is unavailable. If you allow it, they can also switch things, such as a light or a thermostat. You set the limits. The add-on never operates a lock, an alarm, a garage door or a siren, whatever you choose.
+Ask your [chats]({{% relref "/features/chats-and-agents/chats" %}}) and [saved agents]({{% relref "/features/chats-and-agents/chats-agents" %}}) about your smart home: find entities, read a state, look at a history, list what is unavailable. If you allow it, they can also switch things, such as a light or a thermostat. You set the limits. The add-on never operates a lock, an alarm, a garage door or a siren, whatever you choose.
 
 A chat can answer questions such as:
 
@@ -25,20 +22,20 @@ A chat can answer questions such as:
 
 ## Set it up
 
-1. Install the **Home Assistant** add-on from the add-on gallery and open its page.
+1. Install the **Home Assistant** add-on from **Find add-ons** and open its page.
 2. In Home Assistant, open your profile (your name at the bottom of the sidebar), then the **Security** tab. Under **Long-lived access tokens**, choose **Create token**, name it (for example `LocalAI`) and copy it. Home Assistant shows it once.
    The token has the rights of the user that made it. If you can, make it with a user that sees only what you want to share.
 3. On the add-on page, choose **New Home Assistant connection**. Paste the token and write the address you use to open Home Assistant in a browser, for example `https://homeassistant.local:8123`. Press **Test**: the row shows the Home Assistant version if the address and the token work.
 4. Leave the **write mode** on **Read only** until you have read the limits on this page.
 
-One connection is one home: one token and one address. For a second home, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats" %}}#the-connections-of-an-add-on)). With two or more enabled, the model names the connection in each call.
+One connection is one home: one token and one address. For a second home, add a second connection. A chat uses the connections you enable for it in the **Tools** menu (see [The connections of an add-on]({{% relref "/features/chats-and-agents/chats-commands#the-connections-of-an-add-on" %}})). With two or more enabled, the model names the connection in each call.
 
 ### How the address is kept
 
-The address is not a secret, so it is not stored with the token. The connection lists it as its one allowed resource, the same list the GitHub add-on uses for repositories. Every tool takes an `instance` argument. LocalAI compares it with the address on the connection before the add-on is called and refuses any other, so a model cannot send the token to another host. The add-on talks only to that address:
+LocalAI keeps the address separate from the token. Every tool takes an `instance` argument, and LocalAI refuses any call that names a different address, so a model can't send the token elsewhere. The add-on talks only to that address:
 
 - The address is `https`. Plain `http` is accepted only for an address on your own network (a private IP address, a single-word name, or a name ending in `.local`, `.lan`, `.home`, `.internal` or `.home.arpa`).
-- A reply that redirects is an error. The token is never sent to another host.
+- If Home Assistant answers with a redirect, the call fails. The token is never sent to another host.
 - The token goes in the `Authorization` header and nowhere else. It is not in a log, an error or a result.
 
 ### A self-signed certificate
@@ -138,15 +135,12 @@ A connection has a **write mode**, which the host enforces before the add-on is 
 
 `call-physical-service` is always confirmed, even in the last mode. A proposal for it expires after 15 minutes, a quiet one after two hours. Changing the limits after a preview makes an old proposal stale: it is rejected and nothing is sent.
 
-Home Assistant has no idempotency key. The add-on notes an operation before it sends it and never sends one twice. If the connection breaks after the call left, the result is "unknown", and you decide what to do.
+Home Assistant has no idempotency key. The add-on records an operation before it sends it and never sends one twice. If the connection breaks after the call left, the result is "unknown", and you decide what to do.
 
-## Install notes
+## Limits
 
-- The add-on asks the host, through the `workspace.admin` operation, whether the person who saves the limits is an administrator. The shipped host policy (`deploy/addons/host-policy.json`) grants it. Without that grant, the limits can be read and not changed.
-- The limits are kept in `policy.json` in the add-on's data folder. A file that cannot be read, or that names a service that is never available, is refused as a whole: the tools stop working until an administrator saves the limits again. They do not fall back to something wider.
+- Only an administrator can change the limits. Other users can read them.
+- The limits are kept in `policy.json` in the data folder of the add-on. If that file can't be read, or it names a service that is never available, the tools stop working until an administrator saves the limits again. They don't fall back to something wider.
 - The add-on runs one process for the server, so every frontend of a cluster reads the same limits.
-- It is a Linux and macOS add-on, like the other tool add-ons.
-
-## Not verified without a real instance
-
-The tests run against a fake Home Assistant that speaks the REST API. The fake answers the fixed templates of the add-on (areas and labels) by their shape, so a real instance can still differ: area and label questions use `POST /api/template` with fixed templates and no text from a model. If an area question fails on your Home Assistant, `list-areas` says so and the area exclusion refuses to guess.
+- It runs on Linux and macOS, like the other tool add-ons.
+- The add-on is tested against a simulated Home Assistant. Area and label questions use a fixed template call. If an area question fails on your instance, `list-areas` says so and the area exclusion refuses to guess.

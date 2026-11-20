@@ -8,24 +8,33 @@ import (
 // The API words of a mode. The REST endpoints and the assistant's tools share
 // them, so both answer with the same JSON.
 const (
-	ModeRead  = "read"
+	ModeRead = "read"
+	// ModeData is the grant of a page that its owner lets people use: read,
+	// and save data files. Only the page routes give it.
+	ModeData  = "data"
 	ModeWrite = "write"
 )
 
 // ModeName returns the API word of a mode.
 func ModeName(m workspace.Mode) string {
-	if m >= workspace.ModeWrite {
+	switch {
+	case m >= workspace.ModeWrite:
 		return ModeWrite
+	case m == workspace.ModeData:
+		return ModeData
 	}
 	return ModeRead
 }
 
 // ParseMode reads the API word of a mode. Any other word is ModeNone, which
-// SetMember refuses with ErrBadMode.
+// SetMember refuses with ErrBadMode. The folder routes refuse data too: only
+// the page routes grant it.
 func ParseMode(s string) workspace.Mode {
 	switch s {
 	case ModeRead:
 		return workspace.ModeRead
+	case ModeData:
+		return workspace.ModeData
 	case ModeWrite:
 		return workspace.ModeWrite
 	}

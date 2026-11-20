@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { chatAgentsApi, chatConnectorsApi, chatTriggersApi } from '../utils/api'
+import { chatAgentsApi, chatConnectorsApi, chatProjectsApi, chatTriggersApi } from '../utils/api'
+import { filesModeOf, unavailableReason } from '../utils/projectAgents'
 import { bindingsOfAgent } from '../utils/chatConnectors'
 import { agentInfo } from '../utils/agentInfo'
 import { downloadAgentFile } from '../utils/agentFiles'
@@ -19,14 +20,17 @@ import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows 
 // eslint-disable-next-line no-unused-vars
 import AgentSetupCard from '../components/agents/AgentSetupCard'
 import { useAgentDelete } from '../components/agents/useAgentDelete'
+// eslint-disable-next-line no-unused-vars
+import AgentMoveDialog from '../components/agents/AgentMoveDialog'
 import { firstLine } from '../utils/agentRuns'
-import { filesOff, folderState } from '../utils/chatAgents'
+import { agentPayload, filesOff, folderState } from '../utils/chatAgents'
 import { agentShareEntry, canShareAgent, isSharedWithMe } from '../utils/agentShare'
 // eslint-disable-next-line no-unused-vars
 import { SharedByBadge } from '../components/share/ShareBadges'
 // eslint-disable-next-line no-unused-vars
 import { AgentNeedsList, AgentShareDialog } from '../components/agents/AgentShare'
 import './agents.css'
+import '../components/agents/agentparts.css'
 
 // The chip tone of each state of a binding.
 const BINDING_TONE = { ok: 'ok', off: 'idle', attention: 'warn' }
@@ -53,6 +57,14 @@ export default function AgentPage() {
   const [error, setError] = useState(null)
   const [showAll, setShowAll] = useState(false)
   const [sharing, setSharing] = useState(false)
+  // The project of an agent made from one: null while unknown or when the
+  // read failed (the feature is off), gone when the server says 404.
+  const [project, setProject] = useState(null)
+  const [projectGone, setProjectGone] = useState(false)
+  const [foldersChanged, setFoldersChanged] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
+  // The dialog that takes the agent out of a project that was deleted.
+  const [detaching, setDetaching] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +74,20 @@ export default function AgentPage() {
       if (!found) { setMissing(true); return }
       setAgent(found)
       setMissing(false)
+      if (found.project_id) {
+        try {
+          const p = await chatProjectsApi.get(found.project_id)
+          setProject(p)
+          setProjectGone(false)
+          if (p.status === 'active') {
+            const rows = await chatProjectsApi.agents(found.project_id).then(r => r.agents || []).catch(() => [])
+            setFoldersChanged(Boolean(rows.find(r => r.id === found.id)?.unavailable))
+          }
+        } catch (err) {
+          setProjectGone(err?.status === 404)
+          setProject(null)
+        }
+      }
       // The server's run history holds the chats you had with the agent and
       // the ones its triggers and connectors started.
       // The triggers and connectors of an agent shared with you are the
@@ -95,10 +121,26 @@ export default function AgentPage() {
 
   const info = useMemo(() => agentInfo(agent), [agent])
   const runs = useMemo(() => chats.map(runOfChat).sort((a, b) => b.startedAt - a.startedAt), [chats])
+  const pausedReason = agent?.project_id && (project || projectGone) ? unavailableReason(project, foldersChanged, projectGone) : ''
   const state = runs.some(r => recordStatus(r) === 'running') ? 'running' : 'ready'
 
   // Delete waits out its Undo window; the list it returns to hides the agent.
   const agentDelete = useAgentDelete({ addToast, t })
+  // Saves the agent again with no folder list and no project: the server then
+  // links the two folders of the project again.
+  const reconnect = async () => {
+    setReconnecting(true)
+    try {
+      await chatAgentsApi.update(agent.id, agentPayload(agent))
+      addToast(t('project.reconnected', { name: agent.name }), 'success')
+      setFoldersChanged(false)
+      await load()
+    } catch (err) {
+      addToast(t('project.reconnectFailed', { message: err.message }), 'error')
+    } finally {
+      setReconnecting(false)
+    }
+  }
   const remove = (a) => agentDelete.ask(a, () => navigate('/app/agents'))
 
   const back = <Link className="ag-back" to="/app/agents"><Icon name="arrow-left" /> {t('agent.back')}</Link>
@@ -145,8 +187,8 @@ export default function AgentPage() {
           supporting={info.description || undefined}
           actions={(
             <div className="ag-bar__acts">
-              <StatusMark status={state} />
-              <Button variant="primary" icon="chat" onClick={() => navigate('/app/chats', { state: { agentId: agent.id } })} data-testid="agent-chat">
+              {pausedReason ? <StatusChip tone="warn" icon="alert-circle" label={t('project.unavailable')} testId="agent-unavailable-chip" /> : <StatusMark status={state} />}
+              <Button variant="primary" icon="chat" disabled={Boolean(pausedReason)} onClick={() => navigate('/app/chats', { state: { agentId: agent.id } })} data-testid="agent-chat">
                 {t('actions.chat')}
               </Button>
               {!guest && <Button icon="edit" to={agentPath(agent.id, '/edit')}>{t('actions.edit')}</Button>}
@@ -171,9 +213,23 @@ export default function AgentPage() {
           </div>
         )}
 
+        {pausedReason && (
+          <Callout
+            tone="warn" testId="agent-paused"
+            title={t('project.paused', { reason: t(`project.reason.${pausedReason}`) })}
+            actions={pausedReason === 'changed'
+              ? <Button size="sm" icon="refresh" busy={reconnecting} onClick={reconnect} data-testid="agent-reconnect">{t('project.reconnect')}</Button>
+              : pausedReason === 'deleted' && !project
+                ? <Button size="sm" icon="close-circle" onClick={() => setDetaching(true)} data-testid="agent-detach">{t('move.detach')}</Button>
+                : <Button size="sm" iconEnd="arrow-right" to={project ? `/app/projects/${encodeURIComponent(project.id)}` : '/app/projects'} data-testid="agent-open-project">{t('project.openProject')}</Button>}
+          >
+            {t(pausedReason === 'deleted' && !project ? 'project.fix.deletedDetach' : `project.fix.${pausedReason}`)}
+          </Callout>
+        )}
+        {agent.project_id && !guest && <p className="ag-note" data-testid="agent-no-share">{t('project.noShare')}</p>}
         <AgentSetupCard agent={agent} kinds={connectorData.kinds} bindings={connectorData.items} />
         {error && <LoadError title={t('load.agentStale')} error={error} onRetry={load} />}
-        {!guest && !filesOff(agent) && (folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
+        {!guest && !agent.project_id && !filesOff(agent) && (folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
           <Callout
             tone="warn" testId="agent-folder-warning"
             actions={<Button size="sm" icon="folder" to={agentPath(agent.id, '/edit')}>{t('folder.chooseOther')}</Button>}
@@ -184,8 +240,18 @@ export default function AgentPage() {
 
         <dl className="ag-facts" data-testid="agent-facts">
           <dt>{t('facts.model')}</dt>
-          <dd className="ag-facts__model">{info.model || <span className="ag-muted">{t('facts.noModel')}</span>}</dd>
-          {!guest && (
+          <dd className="ag-facts__model">{info.model || <span className="ag-muted">{t('meta.anyModel')}</span>}</dd>
+          {agent.project_id && !guest && (
+            <>
+              <dt>{t('project.fact')}</dt>
+              <dd><Chip to={project ? `/app/projects/${encodeURIComponent(project.id)}` : undefined} icon="layers" testId="agent-project-chip">{project?.name || t('project.deleted')}</Chip></dd>
+              <dt>{t('facts.folder')}</dt>
+              <dd><Chip icon={filesModeOf(agent) === 'read' ? 'eye' : 'edit'}>{t(filesModeOf(agent) === 'read' ? 'project.readOnly' : 'project.canEdit')}</Chip></dd>
+              <dt>{t('project.memoryFact')}</dt>
+              <dd><Chip icon="lock">{t('project.memoryReadOnly')}</Chip></dd>
+            </>
+          )}
+          {!agent.project_id && !guest && (
             <>
               <dt>{t('facts.folder')}</dt>
               <dd><FolderChip agent={agent} all /></dd>
@@ -203,7 +269,7 @@ export default function AgentPage() {
                 {info.mcp.map(x => <Chip key={`mcp-${x}`} mono>{`mcp: ${x}`}</Chip>)}
                 {info.connectors.map(x => <Chip key={`conn-${x}`} to="/app/mcp-connectors" icon="plug">{t('facts.connector')}</Chip>)}
               </>
-              : <span className="ag-muted">{t('chips.none')}</span>}
+              : <span className="ag-muted">{t('facts.toolsNone')}</span>}
           </dd>
           <dt>{t('facts.memory')}</dt>
           <dd><LibraryChips info={info} kind="memory" /></dd>
@@ -307,11 +373,24 @@ export default function AgentPage() {
               {showAll ? t('agent.showFewer') : t('agent.showOlder', { count: runs.length - STRIP_LENGTH })}
             </Button></div>
           )}
+          {pausedReason && <p className="ag-note" data-testid="agent-runs-paused">{t('project.runsPaused')}</p>}
           <p className="ag-note ag-note--gap">{t('record.where')}</p>
         </section>
       </div>
 
       {agentDelete.dialog}
+      {detaching && (
+        <AgentMoveDialog
+          agent={agent} target={null} from={project} detach
+          onCancel={() => setDetaching(false)}
+          onDone={() => {
+            addToast(t('move.doneOut', { name: agent.name }), 'success')
+            setDetaching(false)
+            setProject(null); setProjectGone(false)
+            load()
+          }}
+        />
+      )}
       {sharing && <AgentShareDialog agent={agent} close={() => setSharing(false)} onChanged={load} addToast={addToast} />}
     </Page>
   )

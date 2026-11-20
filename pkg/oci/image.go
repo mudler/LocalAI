@@ -418,7 +418,7 @@ func ParseImageParts(image string) (tag, repository, dstimage string) {
 		image = parts[0]
 		tag = parts[1]
 	}
-	if strings.Contains("/", image) {
+	if strings.Contains(image, "/") {
 		parts := strings.Split(image, "/")
 		repository = parts[0]
 		image = parts[1]
@@ -714,13 +714,26 @@ var (
 // mounts). Such filesystems surface ENOTSUP/EOPNOTSUPP, or EPERM in some
 // configurations; the error text is also matched because containerd wraps the
 // syscall error into a formatted string.
+//
+// On Windows a user without the "Create symbolic links" privilege (no
+// administrator rights and no Developer Mode) gets ERROR_PRIVILEGE_NOT_HELD
+// from os.Symlink. The links are then copied in place too.
 func isLinkUnsupportedError(err error) bool {
 	if errors.Is(err, syscall.ENOTSUP) || errors.Is(err, syscall.EOPNOTSUPP) || errors.Is(err, syscall.EPERM) {
 		return true
 	}
+	var errno syscall.Errno
+	if runtime.GOOS == "windows" && errors.As(err, &errno) && errno == errorPrivilegeNotHeld {
+		return true
+	}
 	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "operation not supported") || strings.Contains(msg, "operation not permitted")
+	return strings.Contains(msg, "operation not supported") || strings.Contains(msg, "operation not permitted") ||
+		strings.Contains(msg, "a required privilege is not held")
 }
+
+// errorPrivilegeNotHeld is the Windows error ERROR_PRIVILEGE_NOT_HELD. It is
+// a number here because the syscall package names it on no system.
+const errorPrivilegeNotHeld = syscall.Errno(1314)
 
 // cleanDirContents removes the entries inside dir without removing dir itself,
 // preserving the directory (and its permissions) the caller created.

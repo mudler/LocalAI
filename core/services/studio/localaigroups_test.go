@@ -32,6 +32,8 @@ type fakeClientTools struct {
 	calls  []string
 	// voice records the voice_profile calls: "check", "consent" or "plain".
 	voice []string
+	// projectArgs records the arguments of each projects call.
+	projectArgs []string
 }
 
 func newFakeClientTools() *fakeClientTools {
@@ -98,12 +100,28 @@ func (f *fakeClientTools) ExecuteTool(ctx context.Context, name, args string) (s
 		f.voice = append(f.voice, "refused")
 		return localaitools.ErrConsentNeeded.Error(), nil
 	}
+	if name == localaitools.ToolProjects {
+		f.projectArgs = append(f.projectArgs, args)
+		var in localaitools.ProjectsToolInput
+		_ = json.Unmarshal([]byte(args), &in)
+		if in.Action == localaitools.ActionGet {
+			// The project already attaches a connector and a skill.
+			return `{"project":{"id":"p1","name":"Acme","slug":"acme","status":"active","attached":{"connectors":["mail"],"skills":["old"]}}}`, nil
+		}
+		// The shape of the real tool: the JSON of the result, one project.
+		return `{"projects":[{"id":"p1","name":"Acme","slug":"acme","status":"active"}]}`, nil
+	}
 	return "made", nil
 }
 func (f *fakeClientTools) voiceCalls() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.voice)
+}
+func (f *fakeClientTools) projectCalls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.projectArgs)
 }
 func (f *fakeClientTools) callCount() int {
 	f.mu.Lock()

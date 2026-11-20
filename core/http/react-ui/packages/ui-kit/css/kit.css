@@ -244,6 +244,7 @@
 .ui-mascot--sm { height: 72px; }
 .ui-mascot--md { height: 112px; }
 .ui-mascot--lg { height: 160px; }
+.ui-mascot--badge { height: 104px; }
 .ui-empty__mascot { align-self: center; }
 @media (max-width: 480px) {
   .ui-empty__mascot { display: none; }

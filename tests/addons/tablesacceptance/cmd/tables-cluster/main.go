@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+//go:build !windows
+
 // Command tables-cluster runs the acceptance fixture for the browser checks:
 // one owner and two forwarding frontends over the real carrier, a local
 // catalog that serves the packaged Tables, and Tables installed and enabled

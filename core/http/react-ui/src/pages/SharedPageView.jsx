@@ -11,13 +11,15 @@ import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, sharedPagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import { readLastModel } from '../utils/lastModel'
-import { isPageName } from '../utils/pages'
+import { authorOf, isPageName } from '../utils/pages'
 import { folderLabel, refreshSharedPages } from '../hooks/useSharedPages'
 import { SendAsk } from './PageView'
 import './pages.css'
 
 const MAX_ASKS = 3
 const POLL = 30_000
+// The error types that say an administrator turned sharing off.
+const OFF_TYPES = new Set(['shared_pages_off', 'sharing_disabled', 'user_page_shares_off'])
 let nextAsk = 0
 
 // The pill of the strip for each state of the consent (mockups 12, 13, 14).
@@ -73,7 +75,7 @@ export default function SharedPageView() {
       return res
     } catch (e) {
       if (quiet) return null
-      if (e?.body?.error?.type === 'shared_pages_off') setStatus('off')
+      if (OFF_TYPES.has(e?.body?.error?.type)) setStatus('off')
       else setStatus(e?.status === 404 || e?.status === 400 ? 'notfound' : 'error')
       setError(e?.message || '')
       return null
@@ -156,18 +158,29 @@ export default function SharedPageView() {
 
   const onRefused = useCallback((e) => {
     setRun(null)
-    setStopped(e?.body?.error?.type === 'shared_pages_off' ? 'off' : 'refused')
+    setStopped(OFF_TYPES.has(e?.body?.error?.type) ? 'off' : 'refused')
     setDeclined(true)
     load({ quiet: true })
   }, [load])
 
   const frame = run ? { hash: run.hash, token: run.token } : null
+  // A read or write of a page that is no longer shared with you answers 404,
+  // like a file that is not there. The host cannot tell them apart from the
+  // answer, so it asks for the page itself: when that is gone too, the page
+  // lost its grant (a revoke) and the frame stops at this call.
+  const watch = useCallback((call) => call.catch(async (e) => {
+    if (e?.status === 404) {
+      const gone = await sharedPagesApi.get(folder, name).then(() => false, (g) => g?.status === 404)
+      if (gone) setTimeout(() => onRefused(e), 0)
+    }
+    throw e
+  }), [folder, name, onRefused])
   const files = useMemo(() => (frame ? {
-    read: (path) => sharedPagesApi.read(folder, name, frame, path),
-    readImage: (path) => sharedPagesApi.readImage(folder, name, frame, path),
-    write: (path, content, base) => sharedPagesApi.write(folder, name, frame, path, content, base),
-    list: async (dir) => (await sharedPagesApi.files(folder, name, frame, dir)).entries || [],
-  } : null), [folder, name, frame?.hash, frame?.token]) // eslint-disable-line react-hooks/exhaustive-deps
+    read: (path) => watch(sharedPagesApi.read(folder, name, frame, path)),
+    readImage: (path) => watch(sharedPagesApi.readImage(folder, name, frame, path)),
+    write: (path, content, base) => watch(sharedPagesApi.write(folder, name, frame, path, content, base)),
+    list: async (dir) => (await watch(sharedPagesApi.files(folder, name, frame, dir))).entries || [],
+  } : null), [folder, name, frame?.hash, frame?.token, watch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onPageSend = useCallback((text) => new Promise((resolve, reject) => {
     if (asksRef.current.filter((a) => a.status !== 'sent').length >= MAX_ASKS) {
@@ -211,8 +224,11 @@ export default function SharedPageView() {
   }
 
   const page = (run?.page) || src?.page
-  const author = page ? (page.author_name || page.author_id) : ''
+  const author = page ? authorOf(page, t('trust.someone')) : ''
   const folderText = page ? folderLabel(page.folder) : ''
+  const userShared = page?.user_shared === true
+  // A page that a person shared shows no path: the folder is theirs.
+  const inPath = `${folderText}/pages/${name}`
   let pill = 'notYet'
   if (run) pill = run.token ? 'once' : 'allowed'
   else if (src?.consent?.state === 'changed') pill = 'changed'
@@ -226,7 +242,7 @@ export default function SharedPageView() {
         <span className="icon-chip tone-primary pg-strip__chip"><Icon name="users" /></span>
         <div className="pg-strip__id">
           <h1 className="pg-strip__title">{page?.title || name}</h1>
-          <code className="pg-strip__path">{folderText}/pages/{name}</code>
+          {!userShared && <code className="pg-strip__path">{inPath}</code>}
         </div>
         {page && (
           <div className="pg-strip__pills">
@@ -234,6 +250,12 @@ export default function SharedPageView() {
               <Icon name={PILL[pill].icon} /> {pillText}
             </span>
             <span className="pg-pill pg-pill--plain" data-testid="shared-author"><Icon name="user" /> {t('trust.from', { author })}</span>
+            {page.user_shared === true && ['view', 'use', 'edit'].includes(page.role) && (
+              <span className="pg-pill" data-testid="shared-role">{t(`share.role.${page.role}`)}</span>
+            )}
+            {page.user_shared === true && page.role === 'view' && (
+              <span className="pg-pill pg-pill--plain" data-testid="shared-view-only"><Icon name="eye" /> {t('share.viewOnly')}</span>
+            )}
             {run && <span className="pg-pill" title={t('view.runsAsYouHint')}><Icon name="user" /> {t('view.runsAsYou')}</span>}
           </div>
         )}
@@ -284,7 +306,7 @@ export default function SharedPageView() {
 
       <section className="pg-stage" aria-label={t('view.frameTitle', { title: page?.title || name })}>
         <div className="pg-stage__bar">
-          <Icon name="lock" /> {run ? t('viewer.sandboxShared', { folder: `${folderText}/pages/${name}` }) : t('trust.frame.chrome', { folder: folderText })}
+          <Icon name="lock" /> {run ? (userShared ? t('viewer.sandboxUser') : t('viewer.sandboxShared', { folder: inPath })) : (userShared ? t('trust.user.chrome') : t('trust.frame.chrome', { folder: folderText }))}
         </div>
         {status === 'loading' || !src ? (
           <div className="pg-stage__state" role="status"><Icon name="spinner" spin /> {t('view.loading')}</div>
@@ -313,7 +335,7 @@ export default function SharedPageView() {
             <span className="pg-blocked__icon" aria-hidden="true"><Icon name="lock" /></span>
             <h2 className="pg-blocked__title">{declined ? t('trust.blocked.title') : t('trust.waiting.title')}</h2>
             <p className="pg-blocked__body">
-              {stopped ? t(`trust.stopped.${stopped}`) : declined ? t('trust.blocked.body', { author, folder: folderText }) : t('trust.waiting.body')}
+              {stopped ? t(`trust.stopped.${stopped}`) : declined ? (userShared ? t('trust.user.blocked', { author }) : t('trust.blocked.body', { author, folder: folderText })) : t('trust.waiting.body')}
             </p>
             {stopped !== 'off' && (
               <div className="pg-blocked__acts">

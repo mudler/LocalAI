@@ -627,6 +627,103 @@ func Run(newStore New) {
 		Expect(flags).To(Equal(map[string]bool{"plain": true, "sc1": false}), "ListChats carries the flag")
 	})
 
+	It("round-trips ProjectID and PulledProjects and lists the chats of a project", func() {
+		s := newStore()
+		chat(s, "plain", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "plain")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.ProjectID).To(BeEmpty(), "a chat stored without a project")
+		Expect(rec.PulledProjects).To(BeEmpty())
+
+		in := session.ChatRecord{ID: "p1", Principal: "alice", Title: "In", Created: t0, Updated: t0.Add(2 * time.Minute), ProjectID: "proj1", PulledProjects: []string{"x", "y"}}
+		Expect(s.CreateChat(ctx(), in)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "p1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ProjectID).To(Equal("proj1"), "CreateChat writes the project")
+		Expect(got.PulledProjects).To(Equal([]string{"x", "y"}))
+
+		// A stale copy of the record, as the loop saves it, must not clear
+		// the membership.
+		stale := got
+		stale.ProjectID, stale.PulledProjects, stale.Title, stale.Updated = "", nil, "Renamed", t0.Add(3*time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "p1")
+		Expect(got.ProjectID).To(Equal("proj1"), "UpdateChat leaves the project alone")
+		Expect(got.PulledProjects).To(Equal([]string{"x", "y"}), "UpdateChat leaves the pulled list alone")
+		Expect(got.Title).To(Equal("Renamed"))
+
+		Expect(s.SetProject(ctx(), "alice", "plain", "proj1")).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.ProjectID).To(Equal("proj1"))
+		Expect(s.SetPulledProjects(ctx(), "alice", "plain", []string{"z"})).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.PulledProjects).To(Equal([]string{"z"}))
+
+		chat(s, "other", "alice")
+		Expect(s.SetProject(ctx(), "alice", "other", "proj2")).To(Succeed())
+		Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "bobs", Principal: "bob", Title: "B", Created: t0, Updated: t0, ProjectID: "proj1"})).To(Succeed())
+
+		list, err := s.ListChatsInProject(ctx(), "alice", "proj1", 0)
+		Expect(err).NotTo(HaveOccurred())
+		ids := []string{}
+		for _, r := range list {
+			ids = append(ids, r.ID)
+		}
+		Expect(ids).To(Equal([]string{"p1", "plain"}), "this principal and this project only, newest first")
+		list, err = s.ListChatsInProject(ctx(), "alice", "proj1", 1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1), "limit")
+		list, err = s.ListChatsInProject(ctx(), "alice", "nope", 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(BeEmpty())
+
+		Expect(s.SetProject(ctx(), "alice", "plain", "")).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.ProjectID).To(BeEmpty(), "an empty ID clears the project")
+		Expect(s.SetPulledProjects(ctx(), "alice", "plain", nil)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.PulledProjects).To(BeEmpty())
+
+		Expect(s.SetProject(ctx(), "bob", "p1", "x")).To(MatchError(session.ErrNotFound), "another principal's SetProject")
+		Expect(s.SetPulledProjects(ctx(), "bob", "p1", []string{"x"})).To(MatchError(session.ErrNotFound))
+		Expect(s.SetProject(ctx(), "alice", "missing", "x")).To(MatchError(session.ErrNotFound))
+	})
+
+	It("round-trips Collections, isolates principals and keeps it through a stale UpdateChat", func() {
+		s := newStore()
+		t0 := time.Date(2026, 11, 14, 9, 0, 0, 0, time.UTC)
+		chat(s, "plain", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "plain")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Collections).To(BeEmpty())
+
+		in := session.ChatRecord{ID: "c1", Principal: "alice", Title: "In", Created: t0, Updated: t0, Collections: []string{"a", "b"}}
+		Expect(s.CreateChat(ctx(), in)).To(Succeed())
+		in.Collections[0] = "mutated"
+		got, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Collections).To(Equal([]string{"a", "b"}))
+
+		stale := got
+		stale.Collections, stale.Title, stale.Updated = nil, "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(got.Title).To(Equal("Renamed"))
+		Expect(got.Collections).To(Equal([]string{"a", "b"}), "UpdateChat leaves Collections alone")
+
+		Expect(s.SetCollections(ctx(), "alice", "plain", []string{"z"})).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.Collections).To(Equal([]string{"z"}))
+		Expect(s.SetCollections(ctx(), "alice", "plain", nil)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.Collections).To(BeEmpty())
+
+		Expect(s.SetCollections(ctx(), "bob", "c1", []string{"x"})).To(MatchError(session.ErrNotFound))
+		Expect(s.SetCollections(ctx(), "alice", "missing", []string{"x"})).To(MatchError(session.ErrNotFound))
+		got, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(got.Collections).To(Equal([]string{"a", "b"}), "another principal changed nothing")
+	})
+
 	It("pending messages are taken once, in send order", func() {
 		s := newStore()
 		chat(s, "c1", "alice")

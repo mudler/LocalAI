@@ -106,6 +106,94 @@ test.describe('model search sources', () => {
     await shot(page, 'failed-source')
   })
 
+  test('no gallery match but online results: one results view, no empty state', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1500 })
+    await mockLedger(page)
+    await mockSources(page, { sources: [HF_SOURCE, PEER_SOURCE], enabled: ['huggingface', 'peer'] })
+    await page.goto('/app/models')
+    await page.getByTestId('models-search').fill('zzz-no-such-gallery-model')
+    await expect(page.locator('[data-entity="huggingface:acme/Tiny-GGUF"]')).toBeVisible()
+    await expect(page.locator('[data-entity="peer:acme/Peer-7B"]')).toBeVisible()
+    await expect(page.getByTestId('gallery-empty')).toHaveCount(0)
+    // One list: no per-source heading rows, each row names its origin.
+    await expect(page.getByTestId('discover-section-heading')).toHaveCount(0)
+    await expect(page.getByTestId('discover-rail')).toHaveCount(1)
+    await expect(page.locator('[data-entity="huggingface:acme/Tiny-GGUF"] [data-testid="row-origin"]')).toHaveText('Hugging Face')
+    await expect(page.locator('[data-entity="peer:acme/Peer-7B"] [data-testid="row-origin"]')).toHaveText('Peer Index')
+    // Arrow keys walk the mixed list from one source into the next.
+    await page.locator('[data-entity="huggingface:acme/Big-GGUF"]').focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(page.locator('[data-entity="peer:acme/Peer-7B"]')).toBeFocused()
+    await shot(page, 'no-gallery-match-online-results')
+  })
+
+  test('gallery matches come first in the same list, marked as gallery rows', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1500 })
+    await mockLedger(page)
+    await mockSources(page, { sources: [HF_SOURCE, PEER_SOURCE], enabled: ['huggingface', 'peer'] })
+    await page.goto('/app/models')
+    await page.getByTestId('models-search').fill('qwen')
+    await expect(page.locator('[data-entity="huggingface:acme/Tiny-GGUF"]')).toBeVisible()
+    await expect(page.getByTestId('discover-section-heading')).toHaveCount(0)
+    const origins = await page.getByTestId('row-origin').evaluateAll(els => els.map(e => e.getAttribute('data-origin')))
+    expect(origins).toContain('gallery')
+    expect(origins.indexOf('online')).toBeGreaterThan(origins.lastIndexOf('gallery'))
+    await shot(page, 'gallery-and-online-mixed')
+  })
+
+  test('online-only results: the All chip and the counter count the rows of the list', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1500 })
+    await mockLedger(page)
+    await mockSources(page, { sources: [HF_SOURCE, PEER_SOURCE], enabled: ['huggingface', 'peer'] })
+    await page.goto('/app/models')
+    await page.getByTestId('models-search').fill('zzz-no-such-gallery-model')
+    await expect(page.locator('[data-entity="peer:acme/Peer-7B"]')).toBeVisible()
+    // Two rows from each online source, none from the gallery.
+    await expect(page.getByTestId('row-origin')).toHaveCount(4)
+    await expect(page.getByTestId('facet-all').locator('.ledger-facet__count')).toHaveText('4')
+    await expect(page.locator('.models-tabsrow__count')).toHaveText('4 of 4')
+    await shot(page, 'counters-online-only')
+  })
+
+  test('mixed results: the counters add the online rows to the gallery matches', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1500 })
+    await mockLedger(page)
+    await mockSources(page, { sources: [HF_SOURCE, PEER_SOURCE], enabled: ['huggingface', 'peer'] })
+    await page.goto('/app/models')
+    await page.getByTestId('models-search').fill('qwen')
+    await expect(page.locator('[data-entity="peer:acme/Peer-7B"]')).toBeVisible()
+    const rows = await page.getByTestId('row-origin').count()
+    const gallery = await page.locator('[data-testid="row-origin"][data-origin="gallery"]').count()
+    expect(gallery).toBeGreaterThan(0)
+    // Every gallery match is on the first page here, so the list length is the count.
+    await expect(page.getByTestId('facet-all').locator('.ledger-facet__count')).toHaveText(String(rows))
+    await expect(page.locator('.models-tabsrow__count')).toHaveText(`${rows} of ${rows}`)
+  })
+
+  test('the counters do not count online rows that are still loading', async ({ page }) => {
+    await mockLedger(page)
+    await mockSources(page, { sources: [HF_SOURCE], enabled: ['huggingface'] })
+    await page.route(/\/api\/models\/search\?/, async route => {
+      await new Promise(r => setTimeout(r, 1500))
+      return route.fulfill({ json: { results: [HF('acme/Tiny-GGUF')], providers: [{ name: 'huggingface', title: 'Hugging Face', ok: true, count: 1 }] } })
+    })
+    await page.goto('/app/models')
+    await page.getByTestId('models-search').fill('zzz-no-such-gallery-model')
+    await expect(page.locator('.models-tabsrow__count')).toHaveText('0 of 0')
+    await expect(page.locator('.models-tabsrow__count')).toHaveText('1 of 1')
+    await expect(page.getByTestId('facet-all').locator('.ledger-facet__count')).toHaveText('1')
+  })
+
+  test('no match anywhere: the empty state shows and the table is gone', async ({ page }) => {
+    await mockLedger(page)
+    await mockSources(page, { sources: [HF_SOURCE], enabled: ['huggingface'] })
+    await page.route(/\/api\/models\/search\?/, route => route.fulfill({ json: { results: [], providers: [{ name: 'huggingface', title: 'Hugging Face', ok: true, count: 0 }] } }))
+    await page.goto('/app/models')
+    await page.getByTestId('models-search').fill('zzz-no-such-gallery-model')
+    await expect(page.getByTestId('gallery-empty')).toBeVisible()
+    await shot(page, 'no-match-anywhere')
+  })
+
   test('an installed add-on source is on with no action, and the panel shows it on', async ({ page }) => {
     await mockLedger(page)
     const seen = await mockSources(page, { sources: [HF_SOURCE, PEER_SOURCE], enabled: ['huggingface', 'peer'] })

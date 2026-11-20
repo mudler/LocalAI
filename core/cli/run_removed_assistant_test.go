@@ -16,7 +16,7 @@ var _ = Describe("the removed LocalAI Assistant switch", Serial, func() {
 			cliContext.Context `embed:""`
 			Run                RunCMD `cmd:"" default:"withargs"`
 		}{}
-		p, err := kong.New(&command, kong.Vars{
+		p, err := kong.New(&command, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends",
 			"basepath":             kong.ExpandPath("."),
 			"generatedcontentpath": DefaultGeneratedContentPath(),
 			"uploadpath":           DefaultUploadPath(),

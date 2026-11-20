@@ -1,12 +1,12 @@
 +++
 title = "Testing add-ons"
 toc = true
-description = "Prepare and verify the toolchain for focused addon tests."
+description = "Prepare and verify the toolchain for focused add-on tests."
 weight = 50
 aliases = ["/development/addon-testing/"]
 +++
 
-The addon verification scripts separate explicit dependency setup from offline checks.
+The add-on verification scripts separate explicit dependency setup from offline checks.
 Run all commands from the repository root. `scripts/addons/suites.json` lists the available suites and their exact case inventories.
 For typed extensions, run `contracts`, `apps`, `runtime`, `gateway`, and `host-slots`.
 The `contracts` suite includes all official package manifests and generic architecture guards. It runs `./pkg/addons/contract`,
@@ -194,7 +194,7 @@ The scripts keep caches and transient results under `.cache/addons`:
 Do not commit caches, generated distributions, or test binaries.
 Keep the command and required-case inventory in `scripts/addons/suites.json` synchronized with the runner.
 Add future suites only when their actual tests and commands exist.
-A successful prerequisite gate demonstrates readiness, not acceptance of addon functionality that has no tests yet.
+A successful prerequisite gate demonstrates readiness, not acceptance of add-on functionality that has no tests yet.
 
 ## Gateway verification
 
@@ -202,7 +202,7 @@ Run `sh scripts/addons/verify.sh gateway` for the owner carrier and real-auth HT
 The inventory lists each report separately and requires their exact combined case count.
 Missing reports, skipped cases, empty reports, and unsuccessful child commands fail the gate.
 The tests use local certificate authorities, pinned mTLS peers, two receiving frontends,
-and a real SQLite identity database. No external identity service or addon port is exposed.
+and a real SQLite identity database. No external identity service or add-on port is exposed.
 
 The disconnect fixture consumes the POST envelope before waiting for cancellation.
 Leaving that body unread prevents the HTTP/1 server from observing disconnect while
@@ -573,6 +573,9 @@ sh scripts/addons/sandbox_smoke.sh --layout "$SANDBOX_DOCUMENT_LAYOUT" --require
 This smoke runs the generated PDF fixture checker through the real Sandbox command route.
 It requires gVisor or KVM; an unavailable runtime is a failure, not evidence of helper execution.
 The checker lives at `/usr/local/lib/localai/document-skills/check-document-skills.py` in the guest.
+It also runs the `pptx` guard on a good and a collapsed deck and checks that the render and recalc helpers are installed.
+The image sources have their own tests, which need no image: `python3 addons/sandbox/images/guest/pptx_guard_test.py` and `sh addons/sandbox/images/guest/render_test.sh` (the render and recalc helpers with a stand-in LibreOffice).
+The build of the `office` image converts a real deck, a real document and a workbook with a formula and no cached value with `soffice` (`check-office-convert`, `check-office-docx`, `check-office-xlsx`) and looks for the fonts (`check-office-fonts`).
 A stand-in image reference from `--local-check` cannot establish guest execution.
 
 Run the focused UI checks with Node 22 and a dedicated server built from the current tree:
@@ -657,8 +660,8 @@ The canonical-address fixture audit includes audio-transform, chats-switches-rea
 chrome-audit, diarization-profiles, media-history, navigation, no-edge-rails,
 page-render-smoke, sound-expansion, every studio spec, talk, taste-polish,
 threed-animation, threed-gen and addon-navigation. Existing cases remain;
-standalone addon addresses become declared fixture pages, and selected models
-travel as query values. Addon-local navigation adapter coverage stays in place.
+standalone add-on addresses become declared fixture pages, and selected models
+travel as query values. Add-on-local navigation adapter coverage stays in place.
 
 The execution-status viewer defaults to `viewer.html`. Use `-o /path/to/viewer.html`
 to choose an output location explicitly; it does not read environment variables.

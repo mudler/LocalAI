@@ -1,6 +1,6 @@
 ---
 name: pptx
-description: Work with Microsoft PowerPoint `.pptx` files using the installed `paper-pptx` distribution, which imports as `pptx` and extends `python-pptx` with inspection, guarded edits, composition, diffs, and package-preserving saves.
+description: Work with Microsoft PowerPoint `.pptx` files using the installed `paper-pptx` distribution, which imports as `pptx` and extends `python-pptx` with inspection, guarded edits, composition, diffs, and package-preserving saves. To build a deck, switch to the `office` sandbox profile, which can render every slide to an image.
 requires: [exec]
 ---
 
@@ -40,6 +40,30 @@ Precise ZIP/OOXML work is still available when it is genuinely narrower than obj
 
 Saving is refused while a `batch()` block is open, so close the block before writing.
 
-## Not available here
+## Build and check a deck
 
-Rendering a file to PDF or to images needs LibreOffice, which is not installed here. You cannot check how the file looks. Check it by opening it again with the library and reading back what you wrote, and tell the user that the look was not checked.
+You cannot see a deck by reading its code. Build it in the `office` sandbox profile, which has LibreOffice Impress and fonts, and look at every slide before you say it is done.
+
+1. **Switch first.** Call `sandbox_profile` with action `use` and profile `office` before you write anything. Switching restarts the sandbox: the files stay, but installed packages and running processes are lost. So switch before you build, and build the whole deck in `office`. If the switch fails or `office` is not listed, say so and tell the user that the look of the deck was not checked.
+2. **Give sizes in EMU, not in bare numbers.** python-pptx reads a plain number as EMU (914400 per inch), so `add_textbox(0.5, 1.0, 4.0, 2.0)` makes a box of about 0.004 inch: the deck opens, and every shape is a dot. Use the guard helper for every position and size:
+
+   ```python
+   import sys
+   sys.path.insert(0, "/usr/local/lib/localai/document-skills/pptx")
+   from pptx_guard import inch, check
+
+   slide.shapes.add_textbox(inch(0.5), inch(1.0), inch(4.0), inch(2.0))
+   ...
+   prs.save(path)
+   check(path)   # raises with one line for each problem
+   ```
+
+   `check` fails when a shape is narrower or shorter than 0.2 inch (lines excepted), is outside the slide, or holds text that does not fit its box. Fix every line it prints, then run it again. It also works from the shell: `python3 /usr/local/lib/localai/document-skills/pptx/pptx_guard.py deck.pptx`. It is an estimate made without a renderer: a clean result does not prove that the deck looks good. The text check measures with the named font, or with the installed font of the same metrics (Carlito for Calibri, Caladea for Cambria, Liberation for Arial and Times New Roman). It treats a size that the file does not set as 18 pt.
+3. **Render and look.** `sh /usr/local/lib/localai/document-skills/pptx/render.sh deck.pptx [outdir] [dpi]` converts the deck to a PDF with LibreOffice and writes `slide-<n>.png` for each slide (default folder: the deck's name plus `-render`, default 80 dpi). It prints the paths. It stops after 180 seconds (`RENDER_TIMEOUT` changes that). Open **every** PNG with the file reader and look at it. Check that text is not cut off or overlapping, that nothing is outside the slide, that the contrast is readable and that the slides are not empty. Fix what you see, and render again.
+4. **Say what you checked.** Tell the user how many slides you looked at. The render is LibreOffice's, not PowerPoint's: spacing can differ a little. If you could not render, say that the look was not checked. Never write that a deck looks fine when you did not look at its images.
+
+If `render.sh` says that `soffice` is not installed, the sandbox is not in the `office` profile: switch, then build and render again, because installed packages were lost.
+
+## Other tools
+
+The `office` profile has no ffmpeg, sox or ImageMagick. Without LibreOffice (profile `base` or `media`) you can still use `pptx_guard`, but you cannot render, so you cannot check the look: read the deck back with the library and tell the user that the look was not checked.

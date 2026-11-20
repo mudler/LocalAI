@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -120,6 +121,9 @@ var _ = Describe("OfferToStart", func() {
 		// Without cmd.WaitDelay, cmd.Wait blocks on the copy goroutine, exited
 		// never closes, and the readiness wait runs out the full budget instead
 		// of reporting that the server died.
+		if runtime.GOOS == "windows" {
+			Skip("the stand-in server is a shell script, which Windows cannot execute")
+		}
 		sh, lookErr := exec.LookPath("sh")
 		if lookErr != nil {
 			Skip("no 'sh' binary on PATH to stand in for a server with a lingering child")

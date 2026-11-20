@@ -87,7 +87,7 @@ test.describe('Chat MCP connectors', () => {
     const empty = page.getByTestId('mcp-empty')
     await expect(empty.getByRole('heading', { name: 'No connectors yet' })).toBeVisible()
     await expect(empty).toContainText('Tokens and headers stored encrypted')
-    await expect(empty.getByRole('link', { name: 'How MCP works' })).toHaveAttribute('href', /features\/chats-connectors\/#mcp-servers/)
+    await expect(empty.getByRole('link', { name: 'How MCP works' })).toHaveAttribute('href', /features\/chats-connectors\/mcp-servers\//)
     // The empty state carries the primary action, so the header does not.
     await expect(page.getByTestId('mcp-add')).toHaveCount(1)
     await expect(page.getByRole('tablist')).toHaveCount(0)
@@ -273,6 +273,52 @@ test.describe('Chat MCP connectors', () => {
     await page.keyboard.press('Escape')
     await expect(pane).toHaveCount(0)
     await expect(page).not.toHaveURL(/detail=/)
+  })
+
+  test('a local command that failed shows what it wrote, apart from the one-line reason, folded when long, with a copy button', async ({ page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {})
+    const local = { id: 'm9', name: 'Local tools', transport: 'stdio', command: 'my-server', args: ['--stdio'], has_env: true, enabled: true }
+    const short = 'fatal: missing API_KEY'
+    const long = Array.from({ length: 12 }, (_, i) => `line ${i + 1} of the startup log`).join('\n')
+    const a = api(page, [local], { tests: { m9: { ok: false, tools: [], error: 'startup failed: calling "initialize": EOF', output: short } } })
+    await a.install()
+    await page.goto('/app/mcp-connectors')
+    await row(page, 'Local tools').locator('.ad-tile__open').click()
+    const pane = page.getByTestId('mcp-details')
+    await expect(pane.getByTestId('mcp-output')).toHaveCount(0)
+    await pane.getByTestId('mcp-details-test').click()
+
+    // The row line and the callout keep the one sentence. The output is apart.
+    await expect(row(page, 'Local tools').getByTestId('mcp-row-line')).toHaveText('Startup failed: calling "initialize": EOF.')
+    await expect(pane.getByTestId('mcp-details-error')).not.toContainText('fatal: missing')
+    const out = pane.getByTestId('mcp-output')
+    await expect(out).toContainText('Last output from the command')
+    await expect(out.getByTestId('mcp-output-text')).toHaveText(short)
+    // A short output has nothing to fold.
+    await expect(out.getByTestId('mcp-output-toggle')).toHaveCount(0)
+
+    // A long one is folded to about eight lines until it is opened.
+    a.s.tests.m9 = { ok: false, tools: [], error: 'startup failed: calling "initialize": EOF', output: long }
+    await pane.getByTestId('mcp-details-test').click()
+    const text = out.getByTestId('mcp-output-text')
+    await expect(text).toContainText('line 12 of the startup log')
+    const folded = await text.evaluate(el => el.scrollHeight > el.clientHeight)
+    expect(folded).toBe(true)
+    const toggle = out.getByTestId('mcp-output-toggle')
+    await expect(toggle).toHaveText('Show all 12 lines')
+    await toggle.click()
+    await expect(toggle).toHaveText('Show less')
+    expect(await text.evaluate(el => el.scrollHeight <= el.clientHeight)).toBe(true)
+
+    // Copy puts the whole text on the clipboard.
+    await out.getByTestId('mcp-output-copy').click()
+    await expect(out.getByTestId('mcp-output-copy')).toHaveText('Copied')
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(long)
+
+    // A good test clears it.
+    a.s.tests.m9 = OK
+    await pane.getByTestId('mcp-details-test').click()
+    await expect(pane.getByTestId('mcp-output')).toHaveCount(0)
   })
 
   test('the row switch applies at once and rolls back when the server refuses', async ({ page }) => {

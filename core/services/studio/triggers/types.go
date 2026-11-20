@@ -205,6 +205,12 @@ type Route struct {
 	Mode   string `json:",omitempty"`
 	// Channel is the channel of TargetChannel, as the owner listed it.
 	Channel string `json:",omitempty"`
+	// Connection is the binding that a trigger proposed in Studio reports to
+	// with TargetChannel. It is not a place the trigger came from: Binding
+	// stays empty, so the trigger is not a connector trigger and none of the
+	// rules of one (code, hourly limit, run gate) apply to it. A route has
+	// Binding or Connection, never both.
+	Connection string `json:",omitempty"`
 	// Auto says that the trigger was made without asking, under the approval
 	// mode of its binding; Until is when such a recurring trigger is removed
 	// (zero: never). ReadOnly says that the proposal declared that its runs
@@ -217,6 +223,16 @@ type Route struct {
 
 // FromConnector says whether a connector chat proposed the trigger.
 func (r Route) FromConnector() bool { return r.Binding != "" }
+
+// ChannelBinding is the binding whose channel TargetChannel writes in: the
+// binding of the connector chat that proposed the trigger, or else the
+// connection that the owner chose in Studio.
+func (r Route) ChannelBinding() string {
+	if r.Binding != "" {
+		return r.Binding
+	}
+	return r.Connection
+}
 
 // TargetOrDefault gives Target, or TargetInbox when it is empty.
 func (r Route) TargetOrDefault() string {
@@ -243,8 +259,8 @@ func (r Route) Validate() error {
 			return errors.New("a run can report to the chat of the proposal only when a connector chat proposed it")
 		}
 	case TargetChannel:
-		if r.Binding == "" || r.Channel == "" {
-			return errors.New("a run can report to a channel only when a connector chat proposed it and names the channel")
+		if r.ChannelBinding() == "" || r.Channel == "" {
+			return errors.New("a run can report to a channel only when it names the connection and the channel")
 		}
 	default:
 		return fmt.Errorf("delivery target must be %q, %q or %q", TargetInbox, TargetOrigin, TargetChannel)
@@ -254,7 +270,13 @@ func (r Route) Validate() error {
 	default:
 		return fmt.Errorf("delivery mode must be %q, %q or %q", ModeAlways, ModeOnChange, ModeOnProblem)
 	}
-	for _, v := range []string{r.Binding, r.Chat, r.Thread, r.Code, r.Channel} {
+	if r.Binding != "" && r.Connection != "" {
+		return errors.New("a trigger reports to the connection that proposed it or to one the owner chose, not both")
+	}
+	if r.Connection != "" && r.Target != TargetChannel {
+		return errors.New("a connection goes with the delivery target channel")
+	}
+	for _, v := range []string{r.Binding, r.Chat, r.Thread, r.Code, r.Channel, r.Connection} {
 		if len(v) > MaxRefBytes || hasControl(v, false) {
 			return errors.New("the connector place of a trigger is too long or has control characters")
 		}

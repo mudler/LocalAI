@@ -83,7 +83,7 @@ var _ = Describe("changing the delivery and the acts of a trigger", func() {
 	It("refuses a delivery for a trigger that no messaging app proposed", func() {
 		setup(two)
 		plain := r.schedule(studio.TriggerInput{Name: "Plain", Prompt: "p"})
-		res := c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"target":"inbox"}}`, studio.TriggerRef(plain.ID)))
+		res := c.call(r.trigRig, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"delivery":{"target":"origin"}}`, studio.TriggerRef(plain.ID)))
 		Expect(res.Err).To(MatchError(ContainSubstring("messaging app")))
 	})
 

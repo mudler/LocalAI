@@ -44,6 +44,8 @@ var _ = Describe("start_loop", func() {
 		Expect(res).To(HaveLen(1))
 		Expect(res[0].Err).To(BeNil())
 		Expect(res[0].Out).To(ContainSubstring("first run is in 2m"))
+		Expect(res[0].Out).To(ContainSubstring("at most 100 runs"), "the run limit is in the answer")
+		Expect(res[0].Out).NotTo(ContainSubstring("fifth"), "a person's own chat has the whole limit")
 
 		list, err := r.host.List(ctx, alice, chat)
 		Expect(err).NotTo(HaveOccurred())

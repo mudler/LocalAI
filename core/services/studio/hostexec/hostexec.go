@@ -144,7 +144,11 @@ func New(o Options) *Runner {
 	}})
 	if err != nil {
 		if errors.Is(err, sandbox.ErrUnsupported) {
-			r.reason = "LocalAI runs as root, and commands must not run on the server as root"
+			// The backend error already names the actual reason (no POSIX
+			// process group on Windows, root on a host where Geteuid was not
+			// injected). Reporting the root message here made Windows hosts
+			// blame permissions for what is a platform limitation.
+			r.reason = "the built-in bash cannot run on this machine: " + err.Error()
 		} else {
 			r.reason = "the scratch folder cannot be made: " + err.Error()
 		}

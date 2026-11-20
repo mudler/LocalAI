@@ -1,29 +1,43 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { keepIfSame } from '../utils/sameData'
+import { usePolling } from '../hooks/usePolling'
 // eslint-disable-next-line no-unused-vars
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { chatAgentsApi, chatsApi } from '../utils/api'
+import { chatAgentsApi, chatProjectsApi, chatsApi } from '../utils/api'
 // eslint-disable-next-line no-unused-vars
 import ActionMenu from '../components/ActionMenu'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SearchField, SkeletonRows, StatusChip } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
-import { AgentViews, FolderChip, RunStrip, RecordLine, agentPath } from '../components/agents/AgentBits'
+import { AgentViews, Chip, FolderChip, RunStrip, RecordLine, agentPath } from '../components/agents/AgentBits'
 import { usePendingAgentDeletes } from '../components/agents/agentUndo'
 import { useAgentDelete } from '../components/agents/useAgentDelete'
 import { agentInfo } from '../utils/agentInfo'
 import { outcomeLine, recordStatus, runOfChat } from '../utils/agentRuns'
 import { AGENT_TEMPLATES } from '../utils/agentConfigTools'
 import { downloadAgentFile, importAgentFile } from '../utils/agentFiles'
+import { agentIsUnavailable, importParams, projectRequiredOf } from '../utils/projectAgents'
 import { agentShareEntry, canShareAgent, isSharedWithMe } from '../utils/agentShare'
 // eslint-disable-next-line no-unused-vars
 import { SharedByBadge } from '../components/share/ShareBadges'
 // eslint-disable-next-line no-unused-vars
 import { AgentShareDialog } from '../components/agents/AgentShare'
+// eslint-disable-next-line no-unused-vars
+import AgentImportProject from '../components/agents/AgentImportProject'
 import './agents.css'
+import '../components/agents/agentparts.css'
 
 const DAY = 24 * 60 * 60 * 1000
+
+// The name of the agent in a file, for the import dialog; '' when unreadable.
+function agentNameOf(text) {
+  try {
+    const data = JSON.parse(text)
+    return String(data?.agent?.name || data?.name || '')
+  } catch { return '' }
+}
 
 export default function Agents() {
   const { addToast } = useOutletContext()
@@ -37,7 +51,22 @@ export default function Agents() {
   const [search, setSearch] = useState('')
   // The agent whose Share dialog is open, or null.
   const [sharing, setSharing] = useState(null)
+  // The projects by id, for the project chip of an agent made from one; null
+  // while unknown or when the projects feature is off, which shows no chip.
+  const [projectsById, setProjectsById] = useState(null)
+  // The server's `unavailable` flag of each project agent, by agent id.
+  const [flags, setFlags] = useState({})
+  // The file of a project agent waiting for the person to choose a project.
+  const [pendingImport, setPendingImport] = useState(null)
+  const [importing, setImporting] = useState(false)
   const deleting = usePendingAgentDeletes()
+  useEffect(() => {
+    let live = true
+    chatProjectsApi.list()
+      .then(r => { if (live) setProjectsById(Object.fromEntries((r.projects || []).map(p => [p.id, p]))) })
+      .catch(() => {})
+    return () => { live = false }
+  }, [])
   // The starter agents of the server; null until read, [] when it has none.
   const [templates, setTemplates] = useState(null)
   useEffect(() => {
@@ -52,8 +81,16 @@ export default function Agents() {
         chatAgentsApi.list(),
         chatsApi.list(200).catch(() => ({ conversations: [] })),
       ])
-      setAgents(list.agents || [])
-      setChats(convs.conversations || [])
+      setAgents(prev => keepIfSame(prev, list.agents || []))
+      // Project agents: the flag says a project folder was replaced, which the
+      // list of agents alone does not tell. A failed read leaves the flags.
+      const ids = [...new Set((list.agents || []).map(a => a.project_id).filter(Boolean))]
+      if (ids.length) {
+        const rows = await Promise.all(ids.map(id => chatProjectsApi.agents(id).then(r => r.agents || []).catch(() => null)))
+        const next = Object.fromEntries(rows.flatMap(r => (r || []).map(x => [x.id, x.unavailable])))
+        setFlags(prev => keepIfSame(prev, next))
+      }
+      setChats(prev => keepIfSame(prev, convs.conversations || []))
       setOff('')
       setError(null)
       setLoaded(true)
@@ -63,19 +100,17 @@ export default function Agents() {
     }
   }, [])
 
-  useEffect(() => {
-    load()
-    const interval = setInterval(load, 5000)
-    return () => clearInterval(interval)
-  }, [load])
+  // Pauses while the tab is hidden.
+  usePolling(load, 5000)
 
   // The runs of an agent are the chats that ran with it, newest first. An
   // agent waiting out its Undo window is already gone from the list.
   const rows = useMemo(() => agents.filter(a => !deleting.has(a.id)).map(a => ({
     ...a,
     info: agentInfo(a),
+    paused: agentIsUnavailable(a, projectsById, flags),
     runs: chats.filter(c => c.agent_id === a.id && c.kind !== 'subagent').map(runOfChat).sort((x, y) => y.startedAt - x.startedAt),
-  })), [agents, chats, deleting])
+  })), [agents, chats, deleting, projectsById, flags])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -108,18 +143,33 @@ export default function Agents() {
   const handleExport = (agent) => downloadAgentFile(agent, addToast, t)
 
   // The server makes the new agent; the page opens it and says what changed.
-  const handleImport = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
+  const finishImport = async (text, params) => {
     try {
-      const { agent, warnings, dropped } = await importAgentFile(await file.text())
+      const { agent, warnings, dropped } = await importAgentFile(text, params)
+      setPendingImport(null)
       const notes = [...warnings, ...(dropped.length ? [t('toasts.importDropped', { fields: dropped.join(', ') })] : [])]
       addToast(notes.length ? t('toasts.importedWith', { name: agent.name, notes: notes.join(' ') }) : t('toasts.imported', { name: agent.name }), notes.length ? 'warning' : 'success', 6000)
       navigate(agentPath(agent.id))
     } catch (err) {
+      // A file of a project agent asks which project it goes to. The same
+      // text is sent again with the choice; the file is never changed.
+      const needs = projectRequiredOf(err)
+      if (needs && !params) { setPendingImport({ text, name: needs.name, agent: agentNameOf(text) }); return }
+      setPendingImport(null)
       addToast(t('toasts.parseFailed', { message: err.message }), 'error')
     }
+  }
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    await finishImport(await file.text(), undefined)
+  }
+
+  const chooseProject = async (choice) => {
+    setImporting(true)
+    try { await finishImport(pendingImport.text, importParams(choice)) } finally { setImporting(false) }
   }
 
   const startFromTemplate = async (tpl) => {
@@ -243,7 +293,7 @@ export default function Agents() {
               />
             ) : (
               <ul className="ag-list" data-testid="agents-list">
-                {filtered.map(agent => <AgentRow key={agent.id} agent={agent} t={t} navigate={navigate} onExport={handleExport} onDelete={handleDelete} onShare={setSharing} />)}
+                {filtered.map(agent => <AgentRow key={agent.id} agent={agent} projects={projectsById} t={t} navigate={navigate} onExport={handleExport} onDelete={handleDelete} onShare={setSharing} />)}
               </ul>
             )}
             <p className="ag-note ag-note--gap">{t('record.where')}</p>
@@ -251,6 +301,7 @@ export default function Agents() {
         </div>
       )}
       {agentDelete.dialog}
+      {pendingImport && <AgentImportProject name={pendingImport.name} agent={pendingImport.agent} busy={importing} onImport={chooseProject} onCancel={() => setPendingImport(null)} />}
       {sharing && <AgentShareDialog agent={sharing} close={() => setSharing(null)} onChanged={load} addToast={addToast} />}
     </Page>
   )
@@ -274,7 +325,7 @@ function rowMenu(agent, { t, navigate, onExport, onDelete, onShare }) {
 // One agent: a tile, its name and line, what it may use, how its runs went,
 // and Chat. The rest is in the menu.
 // eslint-disable-next-line no-unused-vars
-function AgentRow({ agent, t, navigate, onExport, onDelete, onShare }) {
+function AgentRow({ agent, projects, t, navigate, onExport, onDelete, onShare }) {
   const { info, runs } = agent
   const shareEntry = agentShareEntry(agent)
   const running = runs.some(r => recordStatus(r) === 'running')
@@ -292,14 +343,18 @@ function AgentRow({ agent, t, navigate, onExport, onDelete, onShare }) {
           {info.model
             ? <span className="ag-mono" title={t('facts.model')}>{info.model}</span>
             : <span>{t('meta.anyModel')}</span>}
-          <FolderChip agent={agent} meta />
+          {agent.project_id
+            ? <ProjectBits agent={agent} projects={projects} paused={agent.paused} t={t} />
+            : <FolderChip agent={agent} meta />}
           {info.tools.length > 0 && <span><Icon name="puzzle" />{t('meta.addons', { count: info.tools.length })}</span>}
           {info.memory.map(m => <Link key={`m-${m}`} to="/app/collections"><Icon name="database" />{m}</Link>)}
           {info.skills.map(s => <Link key={`s-${s}`} to="/app/skills"><Icon name="sparkles" />{s}</Link>)}
         </span>
       </div>
       <div className="ag-row__record">
-        {runs.length === 0 ? (
+        {agent.paused ? (
+          <span className="ag-reason" data-testid="agent-paused-reason"><Icon name="warning" />{t(`project.listReason.${agent.paused}`)}</span>
+        ) : runs.length === 0 ? (
           <StatusChip status="no-runs" />
         ) : (
           <>
@@ -311,7 +366,7 @@ function AgentRow({ agent, t, navigate, onExport, onDelete, onShare }) {
         )}
       </div>
       <div className="ag-row__end">
-        <Button size="sm" icon="chat" className="ag-row__chat" onClick={() => navigate('/app/chats', { state: { agentId: agent.id } })}>
+        <Button size="sm" icon="chat" className="ag-row__chat" disabled={Boolean(agent.paused)} onClick={() => navigate('/app/chats', { state: { agentId: agent.id } })}>
           {t('actions.chat')}
         </Button>
         <ActionMenu
@@ -320,5 +375,22 @@ function AgentRow({ agent, t, navigate, onExport, onDelete, onShare }) {
         />
       </div>
     </li>
+  )
+}
+
+// The project of an agent made from one: a chip that opens the project, and
+// Unavailable while the agent cannot start. Nothing is drawn when the projects
+// are not known (the feature is off), so a failed read never shows an error.
+// eslint-disable-next-line no-unused-vars
+function ProjectBits({ agent, projects, paused, t }) {
+  if (!projects) return null
+  const project = projects[agent.project_id]
+  return (
+    <>
+      <Chip to={project ? `/app/projects/${encodeURIComponent(project.id)}` : undefined} icon="layers" testId="agent-project-chip">
+        {t('project.chip', { name: project?.name || t('project.deleted') })}
+      </Chip>
+      {paused && <Chip icon="alert-circle" warn testId="agent-unavailable-chip">{t('project.unavailable')}</Chip>}
+    </>
   )
 }

@@ -7,32 +7,39 @@ extern "C" {
 
 // Opaque ESRGAN context. Run returns 0, or argument/decode/inference/output/write
 // errors (1..5); all image allocations remain native.
+// Parameter holders owned by the glue. Upstream's generation options are opaque,
+// so the values are collected here and applied by gen_image() and gen_video(),
+// which take ownership of the holder they receive.
+typedef struct gosd_tiling_t gosd_tiling_t;
+typedef struct gosd_img_gen_params_t gosd_img_gen_params_t;
+typedef struct gosd_vid_gen_params_t gosd_vid_gen_params_t;
+
 void* gosd_upscaler_create(const char* path, bool direct, int threads, int tile_size, const char* backend, const char* params_backend);
 int gosd_upscaler_scale(void* handle);
 int gosd_upscaler_run(void* handle, const char* src, const char* dst, int scale);
 void gosd_upscaler_destroy(void* handle);
 
-void sd_tiling_params_set_enabled(sd_tiling_params_t *params, bool enabled);
-void sd_tiling_params_set_tile_sizes(sd_tiling_params_t *params, int tile_size_w, int tile_size_h);
-void sd_tiling_params_set_rel_sizes(sd_tiling_params_t *params, float rel_size_w, float rel_size_h);
-void sd_tiling_params_set_target_overlap(sd_tiling_params_t *params, float target_overlap);
-sd_tiling_params_t* sd_img_gen_params_get_vae_tiling_params(sd_img_gen_params_t *params);
+void sd_tiling_params_set_enabled(gosd_tiling_t *params, bool enabled);
+void sd_tiling_params_set_tile_sizes(gosd_tiling_t *params, int tile_size_w, int tile_size_h);
+void sd_tiling_params_set_rel_sizes(gosd_tiling_t *params, float rel_size_w, float rel_size_h);
+void sd_tiling_params_set_target_overlap(gosd_tiling_t *params, float target_overlap);
+gosd_tiling_t* sd_img_gen_params_get_vae_tiling_params(gosd_img_gen_params_t *params);
 
-sd_img_gen_params_t* sd_img_gen_params_new(void);
-void sd_img_gen_params_set_prompts(sd_img_gen_params_t *params, const char *prompt, const char *negative_prompt);
-void sd_img_gen_params_set_dimensions(sd_img_gen_params_t *params, int width, int height);
-void sd_img_gen_params_set_seed(sd_img_gen_params_t *params, int64_t seed);
-void sd_img_gen_params_set_custom_sigmas(sd_img_gen_params_t *params, float *sigmas, int count);
+gosd_img_gen_params_t* sd_img_gen_params_new(void);
+void sd_img_gen_params_set_prompts(gosd_img_gen_params_t *params, const char *prompt, const char *negative_prompt);
+void sd_img_gen_params_set_dimensions(gosd_img_gen_params_t *params, int width, int height);
+void sd_img_gen_params_set_seed(gosd_img_gen_params_t *params, int64_t seed);
+void sd_img_gen_params_set_custom_sigmas(gosd_img_gen_params_t *params, float *sigmas, int count);
 
 int load_model(const char *model, char *model_path, char* options[], int threads, int diffusionModel);
-int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count);
+int gen_image(gosd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count);
 
-sd_vid_gen_params_t* sd_vid_gen_params_new(void);
-void sd_vid_gen_params_set_prompts(sd_vid_gen_params_t *params, const char *prompt, const char *negative_prompt);
-void sd_vid_gen_params_set_dimensions(sd_vid_gen_params_t *params, int width, int height);
-void sd_vid_gen_params_set_seed(sd_vid_gen_params_t *params, int64_t seed);
-void sd_vid_gen_params_set_video_frames(sd_vid_gen_params_t *params, int n);
-int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image, char *ref_images, char *ref_videos, char *ref_audios);
+gosd_vid_gen_params_t* sd_vid_gen_params_new(void);
+void sd_vid_gen_params_set_prompts(gosd_vid_gen_params_t *params, const char *prompt, const char *negative_prompt);
+void sd_vid_gen_params_set_dimensions(gosd_vid_gen_params_t *params, int width, int height);
+void sd_vid_gen_params_set_seed(gosd_vid_gen_params_t *params, int64_t seed);
+void sd_vid_gen_params_set_video_frames(gosd_vid_gen_params_t *params, int n);
+int gen_video(gosd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image, char *ref_images, char *ref_videos, char *ref_audios);
 #ifdef __cplusplus
 }
 #endif

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -55,7 +56,7 @@ var _ = Describe("credentials file", Serial, func() {
 		It("fails on an invalid file and names it", func() {
 			p := filepath.Join(GinkgoT().TempDir(), "credentials.yaml")
 			Expect(os.WriteFile(p, []byte("- match: ghcr.io\n"), 0o600)).To(Succeed())
-			Expect(LoadCredentials(p)).To(MatchError(ContainSubstring(p)))
+			Expect(LoadCredentials(p)).To(MatchError(ContainSubstring(strconv.Quote(p))))
 			Expect(credentials.Default()).To(BeNil())
 		})
 

@@ -287,6 +287,8 @@
   "ready.quiet_other": "{{count}} things to set",
   "ready.quietDone": "Nothing left to set",
   "matrix.title": "Who can do what",
+  "loops.title": "Waits and timers",
+  "loops.help": "What the agent may do later in this chat by itself. These belong to the bot: a role never gets them.",
   "matrix.note": "The switches and the role boxes are yours to set. Every other cell is worked out from your settings as they are now, by the same check the host runs for each message.",
   "matrix.capability": "Permission",
   "matrix.pick": "Kind of sender",

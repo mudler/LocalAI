@@ -26,6 +26,15 @@ type ChatsCreateRequest struct {
 	// new chat drafts them. They are stored with the chat: the chat never
 	// exists without them. A bad entry refuses the whole request.
 	Switches *ChatsSwitches `json:"switches,omitempty"`
+	// ProjectID starts the chat in one of your projects. The project's
+	// defaults set the switches the request leaves unset. An unknown or
+	// archived project refuses the request.
+	ProjectID string `json:"project_id,omitempty"`
+	// Collections restricts the chat to these collections of yours: it can
+	// list and search only them. Empty means all of your collections. A name
+	// you have no collection of matches nothing. At most 100 names, each
+	// 1 to 200 characters. It overrides the project's default list.
+	Collections []string `json:"collections,omitempty"`
 }
 
 // ChatsSwitches are the switches of a chat, each list in the form its own
@@ -60,6 +69,9 @@ type ChatsAgent struct {
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
 	Network string `json:"network"`
+	// ProjectID is the project the agent belongs to, absent for an agent of no
+	// project. It is set when the agent is created and cannot change.
+	ProjectID string `json:"project_id,omitempty" example:"3f2a9c"`
 	// SandboxProfile is the sandbox profile of the agent's unattended runs and
 	// the starting profile of its chats (GET /api/chats/sandbox-profiles lists
 	// them). Empty: the administrator's default. A profile the Sandbox does
@@ -253,6 +265,11 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
+	// ProjectID makes the agent a project agent. It is read on create only: it
+	// must be one of your own active projects (404 for an unknown or foreign
+	// one, 400 for an archived one). A write to an existing agent may leave it
+	// out or repeat the stored value; a different value is 400.
+	ProjectID string `json:"project_id,omitempty"`
 	// SandboxProfile is the sandbox profile of the agent (see ChatsAgent).
 	// A profile ID, or empty for the default; a value that is not a profile ID
 	// is 400.
@@ -299,6 +316,20 @@ type ChatsAgentWrite struct {
 	// the agent has; "folders": [] clears them. Where a folder is inside
 	// another one, it gets the outer folder's mode.
 	Folders []ChatsAgentFolderWrite `json:"folders,omitempty"`
+	// ProjectRef is set in an export file (version 5) of a project agent: the
+	// project of the exporting server, used only as a hint for the name to
+	// offer. An import never takes the project from it. A write to
+	// POST /api/chats/agents ignores it.
+	ProjectRef *ChatsAgentProjectRef `json:"projectRef,omitempty"`
+}
+
+// ChatsAgentProjectRef names the project an exported project agent came from.
+// It is a hint: the importer chooses one of their own projects, or has one
+// made from the name.
+type ChatsAgentProjectRef struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name"`
+	Slug string `json:"slug,omitempty"`
 }
 
 // ChatsAgentList is the response of the agent list endpoint.
@@ -320,9 +351,17 @@ type ChatsConversation struct {
 	Origin   string `json:"origin,omitempty"`
 	OriginID string `json:"origin_id,omitempty"`
 	// Assistant is true for a chat that has the LocalAI management tools.
-	Assistant bool      `json:"assistant,omitempty"`
-	Created   time.Time `json:"created"`
-	Updated   time.Time `json:"updated"`
+	Assistant bool `json:"assistant,omitempty"`
+	// ProjectID is the project the chat belongs to; PulledProjects are the
+	// other projects it reads from. ProjectID can name a project that was
+	// deleted since; read that as no project.
+	ProjectID      string   `json:"project_id,omitempty"`
+	PulledProjects []string `json:"pulled_projects,omitempty"`
+	// Collections is the restriction of the chat's collection tools: only
+	// these collections. Absent means all of the user's collections.
+	Collections []string  `json:"collections,omitempty"`
+	Created     time.Time `json:"created"`
+	Updated     time.Time `json:"updated"`
 	// Running is true while a turn runs. LastTurn is how the last finished turn
 	// ended: done, stopped, failed, interrupted, or paused (the tool loop
 	// reached its step limit; send a message to go on).
@@ -520,6 +559,26 @@ type ChatsLoop struct {
 	LastRun *time.Time `json:"last_run,omitempty"`
 	// Watch is set when Kind is "wait": what it watches and how the checks go.
 	Watch *ChatsWait `json:"watch,omitempty"`
+	// Report is set when the loop tells you in a messaging app how it ended.
+	// A loop with no report sends nothing.
+	Report *ChatsLoopReport `json:"report,omitempty"`
+}
+
+// ChatsLoopReport is where a loop reports and when. The model sets it with
+// start_loop, only for a connection of yours and a channel that you approved
+// for it; the destination is checked again each time the loop reports.
+type ChatsLoopReport struct {
+	// Connection is the id of the connection, and ConnectionName the name you
+	// gave it; empty when the connection is gone.
+	Connection     string `json:"connection"`
+	ConnectionName string `json:"connection_name,omitempty"`
+	// Channel is the id of the channel, and ChannelLabel its name; empty when
+	// the channel has none or is gone.
+	Channel      string `json:"channel"`
+	ChannelLabel string `json:"channel_label,omitempty"`
+	// Mode is on_done (the summary of a finished loop) or on_problem (a run
+	// fails, the loop stops at a limit, or the system stops it).
+	Mode string `json:"mode"`
 }
 
 // ChatsWait is the state of a wait, in fields a client can show as they are.
@@ -1170,7 +1229,8 @@ type ChatsSkill struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Layer is where it comes from: folder (a .skills folder of your files),
-	// agent (a saved agent proposed it), personal, shared, addon (an installed
+	// project (the skills folder of a project), agent (a saved agent proposed
+	// it), personal, shared, addon (an installed
 	// add-on ships it) or builtin.
 	Layer string `json:"layer"`
 	// Addon and AddonTitle name the add-on that provides a skill of the addon
@@ -1181,6 +1241,9 @@ type ChatsSkill struct {
 	// layer: the agent proposed it and the owner confirmed it.
 	Agent     string `json:"agent,omitempty"`
 	AgentName string `json:"agent_name,omitempty"`
+	// Project is the folder name of the project that owns a skill of the
+	// project layer.
+	Project string `json:"project,omitempty"`
 	// Removable is true when the skill can be deleted from the Skills page
 	// although it cannot be edited there (a skill of the agent layer).
 	Removable bool `json:"removable,omitempty"`
@@ -1218,11 +1281,16 @@ type ChatsSkillList struct {
 	Skills []ChatsSkill `json:"skills"`
 	// Notes say what could not be read or searched.
 	Notes []string `json:"notes,omitempty"`
+	// SkillsBlocked is true when the list is for a project (layer=project) and
+	// its skills are off because another person may write the project folder.
+	SkillsBlocked bool `json:"skills_blocked,omitempty"`
 }
 
 // ChatsSkillWrite creates a skill.
 type ChatsSkillWrite struct {
-	Layer       string `json:"layer"` // personal or shared
+	Layer string `json:"layer"` // personal, shared or project
+	// Project is the project's ID, for the project layer.
+	Project     string `json:"project,omitempty"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Body        string `json:"body"`
@@ -1621,7 +1689,14 @@ type ChatsTrigger struct {
 type ChatsTriggerDelivery struct {
 	Target       string `json:"target"`
 	ChannelLabel string `json:"channel_label,omitempty"`
-	InThread     bool   `json:"in_thread,omitempty"`
+	// ConnectionName is the name the owner gave the connection of the channel,
+	// for a trigger that was proposed in Studio and reports there.
+	ConnectionName string `json:"connection_name,omitempty"`
+	InThread       bool   `json:"in_thread,omitempty"`
+	// Mode is when a run reports: always (the default), on_change (only when
+	// the answer differs from the run before) or on_problem (only when a run
+	// fails).
+	Mode string `json:"mode,omitempty"`
 }
 
 // ChatsTriggerProposal is a trigger a chat proposed and what became of it.
@@ -2143,6 +2218,9 @@ type ChatsConnectorCapability struct {
 	Sensitive bool `json:"sensitive"`
 	// Usual capabilities are what a one-click preset turns on.
 	Usual bool `json:"usual"`
+	// BindingOnly capabilities are never granted to a role, even when a kind
+	// lists them: the owner turns them on for the whole binding.
+	BindingOnly bool `json:"binding_only,omitempty"`
 	// Language is the language of localized_title and localized_description:
 	// the one the request asked for (lang, else Accept-Language) among the
 	// translated ones. Absent for English and for a language with no
@@ -2157,6 +2235,9 @@ type ChatsConnectorCapability struct {
 type ChatsConnectorPermission struct {
 	Name      string `json:"name"`
 	Sensitive bool   `json:"sensitive"`
+	// BindingOnly says that the listing grants nothing to a role: the
+	// capability belongs to the binding alone.
+	BindingOnly bool `json:"binding_only,omitempty"`
 }
 
 // ChatsConnectorFiles are the file limits of a binding or of a kind, for both
@@ -2670,6 +2751,10 @@ type ChatsMCPConnectorTest struct {
 	// order of tools.
 	ToolDetails []ChatsMCPConnectorTool `json:"tool_details"`
 	Error       string                  `json:"error,omitempty"`
+	// Output is what a local command wrote to its error stream before it
+	// failed, with secrets removed. It is absent for a remote server and for
+	// a silent command.
+	Output string `json:"output,omitempty"`
 }
 
 // ChatsMCPConnectorTool is one tool of an MCP connector.

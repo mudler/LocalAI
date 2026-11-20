@@ -286,3 +286,13 @@ div.aj-group > .aj-group__title { margin-bottom: 0; }
 .aj-sec__head--stack .aj-sum { font-size: var(--fs-small); line-height: var(--lh-small); }
 .aj-task__when { color: var(--dk-text); }
 .aj-preview--doc { padding: var(--sp-4); font-size: var(--fs-body); line-height: var(--lh-body); }
+
+/* The folder of a file trigger of an agent inside a fence: one of its folders, then a subfolder. */
+.aj-fence__row { display: flex; gap: var(--sp-2); align-items: stretch; min-width: 0; }
+.aj-fence__base { flex: 1 1 55%; min-width: 0; }
+.aj-fence__sub { flex: 1 1 45%; min-width: 0; }
+.aj-agent-project { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.aj-toolbar--projects { margin-bottom: var(--sp-2); }
+@media (max-width: 639px) {
+  .aj-fence__row { flex-direction: column; }
+}

@@ -3,10 +3,11 @@
 <header class="pagehead"><div class="shell">
   <p class="kicker">Download</p>
   <h1>Pick how you <span class="hl">install</span>.</h1>
-  <p class="lede">LocalAI is one binary or one container. Choose what fits your machine.</p>
+  <p class="lede">Download the desktop app for macOS or Linux, or install the server as one binary, one container or a Helm chart. The server runs on a CPU, so it does not need a GPU.</p>
 </div></header>
 <section><div class="shell duo top-start">
   <div>
+    {{ partial "download-app.html" . }}
     <h2 class="sec-h">Install methods</h2>
     <ul class="list">
       <li><b>Script</b> for Linux, and for macOS on Apple Silicon. It fetches the latest release binary.</li>

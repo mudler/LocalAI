@@ -46,9 +46,17 @@
     "check": "Check host key",
     "checking": "Checking...",
     "trust": "I compared this fingerprint and trust this host.",
-    "needed": "Check the host key before you save.",
+    "needed": "The host key is read when you press Save, and you are asked to trust it.",
     "unreachable": "The host could not be reached.",
     "failed": "The host key could not be read."
+  },
+  "hostKeyStep": {
+    "title": "Trust this host?",
+    "reading": "Reading the host key...",
+    "compare": "Compare this fingerprint with the one the host shows. Trust it only if they match.",
+    "confirm": "Trust and save",
+    "cancel": "Cancel",
+    "retry": "Retry"
   },
   "testOk": "The login is saved.",
   "checkFailed": "Saved. The login check failed: {{reason}}",
@@ -77,7 +85,7 @@
     "title": "How to set it up",
     "step1": "Make a user on the host just for LocalAI, with only the rights the task needs.",
     "step2": "Make a key pair for it, or choose a password. Add the public key to the authorized_keys of that user.",
-    "step3": "Write the host and the user here, press Check host key and compare the fingerprint.",
+    "step3": "Write the host and the user here. When you press Save, the host key is read and you compare its fingerprint.",
     "step4": "Leave the mode on Asks you first until you have read the limits on this page.",
     "fingerprint": "The fingerprint of the host shows with: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
   },

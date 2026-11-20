@@ -208,7 +208,7 @@ func (s *Workspace) purge(ctx context.Context, a Actor, dryRun bool, pick func(q
 	}
 	delete(freed, "")
 
-	for _, table := range []string{"studio_ws_grants", "studio_ws_journal"} {
+	for _, table := range []string{"studio_ws_page_grants", "studio_ws_grants", "studio_ws_journal"} {
 		err := chunks(ids, func(part []int64) error {
 			_, err := t.ExecContext(ctx, `DELETE FROM `+table+` WHERE node_id IN (`+inList(len(part))+`)`, idArgs(part)...)
 			return err

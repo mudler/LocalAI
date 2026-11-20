@@ -41,6 +41,12 @@ type agentRow struct {
 	Memory string `gorm:"size:16"`
 	// MemorySave came later: empty uses the person's setting.
 	MemorySave string `gorm:"size:16"`
+	// ProjectID came later: the default fills the rows of agents made before,
+	// which belong to no project, so AutoMigrate is its migration.
+	ProjectID string `gorm:"index;size:128;not null;default:''"`
+	// MovedAtNano came later: the time of the last move to another project, in
+	// Unix nanoseconds, 0 for an agent that never moved.
+	MovedAtNano int64 `gorm:"not null;default:0"`
 	// FolderID and FolderMode came after the table existed: the defaults
 	// fill the rows of agents made before, which have no folder, so
 	// AutoMigrate is their migration.
@@ -151,7 +157,10 @@ func listFromJSON(s string) ([]string, error) {
 
 func (r agentRow) agent(folders []folderRow) (Agent, error) {
 	a := Agent{ID: r.ID, Principal: r.Principal, Name: r.Name, Description: r.Description,
-		Instructions: r.Instructions, Model: r.Model, Network: r.Network, SandboxProfile: r.SandboxProfile, Memory: r.Memory, MemorySave: r.MemorySave, FolderID: r.FolderID, FolderMode: r.FolderMode, ShareRef: r.ShareRef, Created: r.Created, Updated: r.Updated}
+		Instructions: r.Instructions, Model: r.Model, Network: r.Network, SandboxProfile: r.SandboxProfile, Memory: r.Memory, MemorySave: r.MemorySave, ProjectID: r.ProjectID, FolderID: r.FolderID, FolderMode: r.FolderMode, ShareRef: r.ShareRef, Created: r.Created, Updated: r.Updated}
+	if r.MovedAtNano != 0 {
+		a.MovedAt = time.Unix(0, r.MovedAtNano).UTC()
+	}
 	for _, f := range folders {
 		a.Folders = append(a.Folders, AgentFolder{Node: f.Node, Mode: f.Mode})
 	}
@@ -240,10 +249,13 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 		row := agentRow{ID: a.ID, Principal: a.Principal, NameKey: NameKey(a.Name), Name: a.Name,
 			Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 			MCPServers: listJSON(a.MCPServers), Addons: listJSON(a.Addons),
-			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network, SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave,
+			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network, SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave, ProjectID: a.ProjectID,
 			FolderID: a.FolderID, FolderMode: a.FolderMode, BuiltinsOff: listJSON(a.BuiltinsOff), BuiltinsOn: listJSON(a.BuiltinsOn), Builtins: listJSON(a.Builtins),
 			Connections: connectionsJSON(a.Connections), Resources: resourcesJSON(a.Resources),
 			Created: a.Created, Updated: a.Updated}
+		if !a.MovedAt.IsZero() {
+			row.MovedAtNano = a.MovedAt.UnixNano()
+		}
 		if exists {
 			row.Created, row.ShareRef = old.Created, old.ShareRef
 			err = tx.Save(&row).Error

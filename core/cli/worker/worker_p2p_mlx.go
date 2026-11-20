@@ -24,6 +24,9 @@ type P2PMLX struct {
 }
 
 func (r *P2PMLX) Run(ctx *cliContext.Context) error {
+	if err := requireHostBackendBuild("p2p-mlx", "mlx-distributed"); err != nil {
+		return err
+	}
 	if r.Token == "" {
 		return fmt.Errorf("token is required")
 	}

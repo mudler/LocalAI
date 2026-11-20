@@ -118,6 +118,20 @@ type ChatRecord struct {
 	// it alone, like the switches, so a stale copy of the record cannot clear
 	// it. Chats stored before the field read as false.
 	ScopedAgent bool
+	// ProjectID is the project this chat belongs to ("" for none). It can
+	// name a project that was deleted since; readers treat that as no
+	// project. CreateChat writes it and the store's SetProject changes it;
+	// UpdateChat leaves it alone, like the switches, so a stale copy of the
+	// record cannot clear it. Chats stored before the field read as "".
+	ProjectID string
+	// PulledProjects are the other projects whose files the chat reads, set
+	// by the store's SetPulledProjects and kept the way ProjectID is.
+	PulledProjects []string
+	// Collections restricts the collection tools of the chat: empty means all
+	// of the user's collections, non-empty means only those names. CreateChat
+	// writes it and the store's SetCollections changes it; UpdateChat leaves
+	// it alone, like the switches. Chats stored before the field read as nil.
+	Collections []string
 	// AllowedTools holds the names of the tools the parent gave a sub-agent
 	// that is not a saved agent. It is set by CreateChat and does not change.
 	// The tools are rebuilt from the names at each turn, limited to what the

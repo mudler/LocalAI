@@ -1,13 +1,13 @@
 +++
-title = "Operate overview"
+title = "Admin overview"
 weight = 20
 aliases = ["/operations/overview/"]
-description = "The Operate console: one page that shows if anything is wrong with your LocalAI instance."
+description = "The Status page of the Admin section shows if anything is wrong with your LocalAI instance."
 keywords = ["operate","admin","monitoring"]
 +++
 
-`/app/operate` is the front door to the Operate console. It answers one
-question — is anything wrong — without you having to open four other pages.
+**Admin → Status** (`/app/operate`) is the front door to the Admin section. It answers one
+question, is anything wrong, without you having to open four other pages.
 
 The page opens with one sentence: **Everything is running.**, **2 things need
 you.** or, when nothing needs a decision but a row has something to read,
@@ -49,11 +49,11 @@ the model loads it again.
 
 Under the rows, a bar shows the memory in use now. **LocalAI keeps no memory
 history**, so the chart under the bar is drawn from readings the page took
-itself, one with each Operate summary poll (every 15 seconds), while Operate is
+itself, one with each summary poll (every 15 seconds), while the Status page is
 open. It starts with the second reading, keeps at most 240 readings (about an
-hour), and is labelled "Since you opened Operate". The axis starts at zero, the
+hour), and is labelled "Since you opened Status". The axis starts at zero, the
 capacity is a labelled line, and a data table sits behind the chart. Leaving
-Operate empties it. Temperature and power are not shown because the resources
+the Status page empties it. Temperature and power are not shown because the resources
 endpoint does not report them.
 
 ## Running now
@@ -86,8 +86,7 @@ curl http://localhost:8080/api/traces/summary?hours=24 \
 ```
 
 `hours` defaults to 24 and is capped at 168. Only 5xx responses and transport
-errors count as failures — a 4xx is the caller getting it wrong, not the
-installation being unhealthy. `p95_ms` is a nearest-rank percentile, not the
+errors count as failures. A 4xx means the caller got the request wrong, so it says nothing about the installation. `p95_ms` is a nearest-rank percentile, not the
 slowest request. The endpoint exists so a dashboard wanting three numbers does
 not fetch the whole trace list to count it. An installation that has recorded
 nothing says so rather than showing zeroes dressed as telemetry. The row opens
@@ -98,7 +97,7 @@ load failures to read.
 
 ## This machine
 
-On a single-node install, **Operate → This machine** (`/app/nodes`) shows the
+On a single-node install, **Admin → This machine** (`/app/nodes`) shows the
 host and everything loaded on it:
 
 - **GPU memory** as one bar, with what is free and a note that the next model
@@ -127,9 +126,9 @@ route becomes the Nodes page and the **This machine** tab gives way to the
 **Swarm** tab.
 
 Models and backends no longer live under a nested Host page. Use **Models →
-Installed** for model runtime and configuration actions, and **Operate →
-Backends → Installed** for installed backend actions. The overview links into
-the canonical Operate sections rather than duplicating those inventories.
+Installed** for model runtime and configuration actions, and **Admin →
+Runtime → Backends** (Installed view) for installed backend actions. The overview links into
+those pages rather than duplicating their inventories.
 
 Old `/app/manage` bookmarks remain supported. They redirect with replace
 semantics to the matching Installed Models or Installed Backends view while
@@ -137,12 +136,12 @@ preserving legacy search, filter, selection, variant, and development flags.
 
 ## The tab bar
 
-Operate has one row of tabs above the page: **Status** (this overview),
+The Admin section has one row of tabs above the page: **Status** (this overview),
 **This machine**, **Swarm** (only with distributed mode on), **Runtime**,
-**Traffic** and **Settings**. A tab that holds several pages shows a second row
+**Updates**, **Traffic** and **Settings**. A tab that holds several pages shows a second row
 of links under the bar: Runtime holds Backends, Activity, Logs and (on a single
-install) Failover; Traffic holds Usage, Traces and Middleware; Settings holds
-Settings and Users (with authentication on); Swarm holds Nodes, Placement rules,
+install) Failover; Traffic holds Overview, Usage, Models, GPU and host, Traces, Middleware and Prometheus; Settings holds
+Settings, Users and keys (with authentication on) and Chats of all users (with Chats on); Swarm holds Nodes, Placement rules,
 Failover and P2P. Adding a node opens from the Nodes page. Every page keeps its
 own URL, and a page such as a node detail keeps its tab highlighted. On a phone
 the bar scrolls sideways. The **API** link at the end of the bar opens the
@@ -153,6 +152,6 @@ on Runtime, the healthy node count on Swarm, running models on This machine, the
 attention count on Status and the error count on Traffic. Host capacity lives on
 the overview instead of appearing as a separate destination.
 
-Those values are **orientation, not an alarm**. The bar only exists on Operate
+Those values are **orientation, not an alarm**. The bar only exists on Admin
 routes, so anything urgent also appears in the Needs you row and on the
 operations badge attached to the sidebar entry, which is always visible.

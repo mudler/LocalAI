@@ -24,6 +24,12 @@ export default function SkillEdit() {
   const { t } = useTranslation('skills')
   const { isAdmin } = useAuth()
   const isNew = !name
+  // A skill of a project lives in the project folder: the route names the
+  // project, and Save and Back return to the Skills tab of that project.
+  const projectId = search.get('project') || ''
+  const forProject = Boolean(projectId) && (isNew ? search.get('layer') === 'project' : layerParam === 'project')
+  const ref = forProject ? { project: projectId } : {}
+  const home = forProject ? `/app/projects/${encodeURIComponent(projectId)}?tab=skills` : '/app/skills'
 
   const [loading, setLoading] = useState(!isNew)
   const [loadError, setLoadError] = useState(null)
@@ -31,14 +37,14 @@ export default function SkillEdit() {
   const [saving, setSaving] = useState(false)
   const [editable, setEditable] = useState(true)
   const [form, setForm] = useState({
-    layer: search.get('layer') === 'shared' && isAdmin ? 'shared' : 'personal',
+    layer: forProject ? 'project' : search.get('layer') === 'shared' && isAdmin ? 'shared' : 'personal',
     name: '', description: '', body: '',
   })
 
   useEffect(() => {
     if (isNew) return undefined
     let live = true
-    chatSkillsApi.get(layerParam, name)
+    chatSkillsApi.get(layerParam, name, ref)
       .then(d => {
         if (!live) return
         setForm({ layer: d.layer, name: d.name, description: d.description || '', body: d.body || '' })
@@ -48,7 +54,7 @@ export default function SkillEdit() {
       .catch(err => { if (live) setLoadError(err) })
       .finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [isNew, layerParam, name, attempt])
+  }, [isNew, layerParam, name, attempt, projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -59,13 +65,13 @@ export default function SkillEdit() {
     setSaving(true)
     try {
       if (isNew) {
-        await chatSkillsApi.create({ layer: form.layer, name: form.name.trim(), description: form.description, body: form.body })
+        await chatSkillsApi.create({ layer: form.layer, ...(forProject ? { project: projectId } : {}), name: form.name.trim(), description: form.description, body: form.body })
         addToast(t('edit.created'), 'success')
       } else {
-        await chatSkillsApi.update(form.layer, form.name, { description: form.description, body: form.body })
+        await chatSkillsApi.update(form.layer, form.name, { description: form.description, body: form.body, ...(forProject ? { project: projectId } : {}) }, ref)
         addToast(t('edit.updated'), 'success')
       }
-      navigate('/app/skills')
+      navigate(home)
     } catch (err) {
       addToast(err.message || t('edit.saveFailed'), 'error')
     } finally {
@@ -73,7 +79,7 @@ export default function SkillEdit() {
     }
   }
 
-  const back = <Link className="ag-back" to="/app/skills"><Icon name="arrow-left" /> {t('edit.back')}</Link>
+  const back = <Link className="ag-back" to={home}><Icon name="arrow-left" /> {t('edit.back')}</Link>
 
   if (loading || loadError) {
     return (
@@ -102,7 +108,7 @@ export default function SkillEdit() {
         <fieldset className="lib-edit__set" disabled={!editable}>
           <section className="dk-card lib-edit__card">
             <h2>{t('edit.basic')}</h2>
-            {isNew && isAdmin && (
+            {isNew && isAdmin && !forProject && (
               <div className="lib-edit__field">
                 <label className="dk-label" htmlFor="skill-layer">{t('edit.layer')}</label>
                 <span className="dk-select-wrap">
@@ -114,7 +120,7 @@ export default function SkillEdit() {
                 <p className="lib-edit__hint">{t('edit.layerHelp')}</p>
               </div>
             )}
-            {!isNew && (
+            {(!isNew || forProject) && (
               <div className="lib-edit__field">
                 <span className="dk-label">{t('edit.layer')}</span>
                 <p className="lib-fine" data-testid="skill-edit-layer">{t(`layers.${form.layer}`)}</p>
@@ -174,7 +180,7 @@ export default function SkillEdit() {
         </fieldset>
 
         <div className="lib-edit__bar">
-          <Button variant="ghost" onClick={() => navigate('/app/skills')}>{t('edit.cancel')}</Button>
+          <Button variant="ghost" onClick={() => navigate(home)}>{t('edit.cancel')}</Button>
           {editable && (
             <Button type="submit" variant="primary" icon="save" busy={saving}>{isNew ? t('edit.create') : t('edit.save')}</Button>
           )}

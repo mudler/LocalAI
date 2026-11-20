@@ -92,6 +92,9 @@ const Pages = page('pages', () => import('./pages/Pages'))
 const PageView = page(null, () => import('./pages/PageView'))
 const SharedPageView = page(null, () => import('./pages/SharedPageView'))
 const Agents = page('agents', () => import('./pages/Agents'))
+const Projects = page('projects', () => import('./pages/Projects'))
+const ProjectPage = page('projects', () => import('./pages/ProjectPage'))
+const SharedProjectPage = page('projects', () => import('./pages/SharedProjectPage'))
 const AgentCreate = page(null, () => import('./pages/AgentCreate'))
 const AgentPage = page(null, () => import('./pages/AgentPage'))
 const Skills = page('skills', () => import('./pages/Skills'))
@@ -276,6 +279,9 @@ const appChildren = [
   { path: 'pages', element: <Feature feature="chats"><Feature feature="pages"><Pages /></Feature></Feature> },
   { path: 'pages/:name', element: <Feature feature="chats"><Feature feature="pages"><PageView /></Feature></Feature> },
   { path: 'pages/shared/:folder/:name', element: <Feature feature="chats"><Feature feature="pages"><SharedPageView /></Feature></Feature> },
+  { path: 'projects', element: <Feature feature="chats"><Projects /></Feature> },
+  { path: 'projects/shared/:ref', element: <Feature feature="chats"><SharedProjectPage /></Feature> },
+  { path: 'projects/:id', element: <Feature feature="chats"><ProjectPage /></Feature> },
   { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:id/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },

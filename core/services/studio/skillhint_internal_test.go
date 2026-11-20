@@ -7,6 +7,7 @@ import (
 	"testing/fstest"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -47,5 +48,46 @@ var _ = Describe("skill hints on failed reads", func() {
 			_, err := tool.Run(ctx, json.RawMessage(`{"path":"/workspace/home/.skills/nope/SKILL.md"}`))
 			Expect(err).To(MatchError("not found"), "an unknown skill gets no suggestion")
 		}
+	})
+})
+
+var _ = Describe("skill place hint on writes", func() {
+	var skillActor workspace.Actor
+	BeforeEach(func() { _, f := newSkillService(&skillBroker{}); skillActor = f.Actor("alice") })
+	ok := func(context.Context, json.RawMessage) (string, error) { return "written", nil }
+	run := func(svc *Service, name, args string) string {
+		tools := svc.skillHintTools(skillActor, []session.Tool{{Name: name, Run: ok}})
+		out, err := tools[0].Run(context.Background(), json.RawMessage(args))
+		Expect(err).NotTo(HaveOccurred())
+		return out
+	}
+
+	It("tells the model that a SKILL.md outside a skills folder is not loaded, and where it goes", func() {
+		svc, _ := newSkillService(&skillBroker{})
+		// The path gemma4 wrote in 7 of 8 runs: the dot of .skills dropped.
+		out := run(svc, "write_file", `{"path":"/workspace/home/skills/rechnung-pruefen/SKILL.md","content":"x"}`)
+		Expect(out).To(HavePrefix("written\n\nNote: /workspace/home/skills/rechnung-pruefen/SKILL.md is not in a .skills folder"))
+		Expect(out).To(ContainSubstring("/workspace/home/.skills/rechnung-pruefen/SKILL.md: move it there with move_file."))
+		out = run(svc, "move_file", `{"from":"/workspace/home/a.md","to":"/workspace/home/wochenbericht/SKILL.md"}`)
+		Expect(out).To(ContainSubstring("/workspace/home/.skills/wochenbericht/SKILL.md"))
+	})
+
+	It("leaves a SKILL.md in a skills folder, other files and failed calls alone", func() {
+		svc, _ := newSkillService(&skillBroker{})
+		for _, args := range []string{
+			`{"path":"/workspace/home/.skills/mine/SKILL.md"}`,
+			`{"path":"/workspace/shared-Reports/.skills/monthly-report/SKILL.md"}`,
+			`{"path":"/workspace/home/.skills/mine/reference/SKILL.md"}`,
+			`{"path":"/workspace/home/skills/notes.md"}`,
+			`{"path":"SKILL.md"}`,
+			`{"path":"/workspace/home/Projects/acme/skills/kickoff/SKILL.md"}`,
+			`{"path":"/workspace/home/LocalAI/agents/a1/skills/triage/SKILL.md"}`,
+		} {
+			Expect(run(svc, "write_file", args)).To(Equal("written"), args)
+		}
+		fail := func(context.Context, json.RawMessage) (string, error) { return "", errors.New("denied") }
+		tools := svc.skillHintTools(skillActor, []session.Tool{{Name: "write_file", Run: fail}})
+		_, err := tools[0].Run(context.Background(), json.RawMessage(`{"path":"/workspace/home/skills/x/SKILL.md"}`))
+		Expect(err).To(MatchError("denied"))
 	})
 })

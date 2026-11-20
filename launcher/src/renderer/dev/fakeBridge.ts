@@ -303,13 +303,17 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     connectRemote: (id) => rec('connectRemote', { ok: true as const, view: servers() } as SwitchResult, id),
     reloadWebui: () => rec('reloadWebui', webui()),
     resetWebuiPermissions: () => {
-      s.windowSettings = { openInBrowser: s.windowSettings?.openInBrowser ?? false, anyRemembered: false }
+      s.windowSettings = { openInBrowser: s.windowSettings?.openInBrowser ?? false, desktopNotifications: s.windowSettings?.desktopNotifications ?? true, anyRemembered: false }
       return rec('resetWebuiPermissions', undefined)
     },
-    getWindowSettings: () => rec('getWindowSettings', s.windowSettings ?? { openInBrowser: false, anyRemembered: false }),
+    getWindowSettings: () => rec('getWindowSettings', s.windowSettings ?? { openInBrowser: false, desktopNotifications: true, anyRemembered: false }),
     setOpenInBrowser: (on) => {
-      s.windowSettings = { ...(s.windowSettings ?? { anyRemembered: false }), openInBrowser: on }
+      s.windowSettings = { ...(s.windowSettings ?? { desktopNotifications: true, anyRemembered: false }), openInBrowser: on }
       return rec('setOpenInBrowser', s.windowSettings, on)
+    },
+    setDesktopNotifications: (on) => {
+      s.windowSettings = { ...(s.windowSettings ?? { openInBrowser: false, anyRemembered: false }), desktopNotifications: on }
+      return rec('setDesktopNotifications', s.windowSettings, on)
     },
     getUpdateInfo: () => rec('getUpdateInfo', info()),
     setAutoCheck: (on) => rec('setAutoCheck', { ...info(), autoCheck: on }, on),

@@ -50,6 +50,8 @@ func RunStoreSuite(newStore NewStore) {
 	describePurge(newStore)
 	describeFence(newStore)
 	describeNodeByID(newStore)
+	describeDataMode(newStore)
+	describePageGrants(newStore)
 }
 
 // Ctx returns the context the suite uses.

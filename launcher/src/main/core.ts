@@ -88,7 +88,9 @@ import {
   autoCheckUpdates,
   ConfigStore,
   lastUpdateCheck,
+  desktopNotifications,
   openWebuiInBrowser,
+  withDesktopNotifications,
   sandboxNoticeDismissedVersion,
   secretsPlaintextFile,
   showStatusBar,
@@ -99,6 +101,8 @@ import {
   withShowStatusBar,
   withWebuiPermissions,
 } from './configStore'
+import { serverBinaryName } from './platform'
+import { homeLayout, layoutNote, type LauncherLayout } from './paths'
 import { defaultLogsDir, LogHub, type LogLine } from './logs'
 import { initialNotice, reduceNotice, type NoticeEvent, type NoticeState, type SetupOutcome } from './sandboxNotice'
 import type { SandboxProbe } from './sandboxProbe'
@@ -106,7 +110,6 @@ import { InvalidAttachPattern, validateAttachPattern, type SandboxPlan } from '.
 import { prepareRemove, prepareSetup, runPlan, type Runner, type SetupResult } from './sandboxSetup'
 import { buildServerLaunch, needsRestart, type ServerLaunch } from './serverLaunch'
 import {
-  BINARY_NAME,
   execServerVersion,
   isActive,
   nodeInstallFs,
@@ -118,6 +121,7 @@ import { applySettings, checkDataFolder, toSettings, type FolderProbe } from './
 import { ServerSupervisor, type SupervisorOptions } from './supervisor'
 import { releasePageUrl, type PlatformTarget } from './updateProvider'
 import { chatUrl } from './models'
+import { resolveLink, type NotifyTarget } from './notifications'
 import type { LoginItemResult } from './loginItem'
 import { WebuiModel, type WebuiEffect, type WebuiEvent, type WebuiInputs } from './webuiState'
 import { RemoteMonitor, REMOTE_RETRY_MS } from './remoteMonitor'
@@ -156,14 +160,16 @@ export type Emit = <C extends keyof EventContract>(channel: C, payload: EventCon
 export interface CoreDeps {
   /** Home directory; launcher.json, the binary and the default data folder live under <home>/.localai. */
   home: string
-  /** launcher.json; default <home>/.localai/launcher.json. */
+  /** Folders of the launcher and the default data folder (paths.ts). Default: <home>/.localai for all. */
+  layout?: LauncherLayout
+  /** launcher.json; default <launcher folder>/launcher.json. */
   configPath?: string
   launcherVersion: string
   /** Environment the server's environment is built from. */
   env: NodeJS.ProcessEnv
   /** undefined on a platform with no server build. */
   target: PlatformTarget | undefined
-  /** Test hook: run this file as the server instead of <home>/.localai/bin/local-ai. */
+  /** Test hook: run this file as the server instead of <home>/.localai/bin/local-ai (local-ai.exe on Windows). */
   serverBinOverride?: string
   /** Test hook: the server listens here instead of the configured address. */
   endpointOverride?: string
@@ -199,6 +205,8 @@ export interface CoreDeps {
   loginItem?: (enabled: boolean) => LoginItemResult
   /** Electron's safeStorage. Missing means no secure storage: secrets stay in memory unless the user opts in. */
   safeStorage?: SafeStorageLike
+  /** Milestones of init(), for the packaged-build smoke test. Not for users. */
+  trace?: (milestone: string) => void
   /** secrets.json; default: next to launcher.json. */
   secretsPath?: string
   /** Default: process.platform. Decides whether the Linux fallback of safeStorage counts. */
@@ -211,6 +219,10 @@ export interface CoreDeps {
    * server's launch values are rebuilt.
    */
   webuiCredential?: (origin: string, key: string | undefined) => Promise<void>
+  /** Called when the servers to watch for notifications may have changed (see notificationTargets). */
+  notificationTargetsChanged?: () => void
+  /** A `fetch` that signs in to a remote server with the cookies of its WebUI session. */
+  remoteFetch?: (origin: string) => typeof fetch
   /** Random bytes for keys and plan ids. Default: the OS CSPRNG. */
   randomBytes?: (n: number) => Buffer
   /** Milliseconds since the epoch, for the reveal limit and plan expiry. */
@@ -314,11 +326,15 @@ export class LauncherCore {
   async init(): Promise<void> {
     const launcherLog = (m: string) => (this.hub ? this.hub.write('launcher', m) : this.early.push(m))
 
+    this.d.trace?.('init-start')
     // 1. config
-    this.store = await ConfigStore.open({ home: this.d.home, path: this.d.configPath, log: launcherLog })
+    const layoutLine = layoutNote(this.layout())
+    if (layoutLine) launcherLog(`folders: ${layoutLine}`)
+    this.store = await ConfigStore.open({ home: this.d.home, layout: this.layout(), path: this.d.configPath, log: launcherLog })
     if (this.store.loaded.status === 'recovered') {
       this.configNotice = { status: 'recovered', reason: this.store.loaded.reason ?? 'config file could not be used' }
     }
+    this.d.trace?.('config-opened')
     // 1a. the old "last server chosen in Connect" moves into the server list, once
     const idGen = () => newRemoteId((n) => this.random(n))
     if (migrateRemoteUrl(this.store.get(), idGen).changed) {
@@ -328,14 +344,16 @@ export class LauncherCore {
 
     // 1b. secrets, then the move of old plain-text values out of launcher.json
     this.secrets = await SecretStore.open({
-      file: this.d.secretsPath ?? path.join(path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home)), SECRETS_FILE),
+      file: this.d.secretsPath ?? path.join(path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home, this.layout())), SECRETS_FILE),
       safeStorage: this.d.safeStorage,
       platform: this.d.platform,
       plaintextOptIn: secretsPlaintextFile(config),
       log: launcherLog,
     })
     launcherLog(`secrets: ${this.secrets.backend()}`)
+    this.d.trace?.('secrets-opened')
     await this.migrateSecrets(launcherLog)
+    this.d.trace?.('secrets-migrated')
     config = this.store.get()
     // The server never listens on the network without a key. Without a keyring
     // the key lives only for a session while the address is saved, and an old
@@ -354,16 +372,19 @@ export class LauncherCore {
       )
     }
 
+    this.d.trace?.('step-folders')
     // 2. data folders, as the Go launcher created them at start
-    const data = dataPath(config, this.d.home)
+    const data = dataPath(config, this.d.home, this.layout())
     this.ensureFolders([config.models_path, config.backends_path, defaultLogsDir(data)], launcherLog)
 
+    this.d.trace?.('step-logs')
     // 3. logs
     this.hub = new LogHub({ dir: defaultLogsDir(data) })
     for (const m of this.early.splice(0)) this.hub.write('launcher', m)
     this.hub.subscribe((l) => this.queueLog(l))
     this.hub.write('launcher', `launcher ${this.d.launcherVersion} starting`)
 
+    this.d.trace?.('step-sandbox')
     // 4. sandbox
     try {
       this.attachPattern = this.d.sandboxAttachPattern ? validateAttachPattern(this.d.sandboxAttachPattern) : undefined
@@ -380,9 +401,11 @@ export class LauncherCore {
       dismissedVersion: sandboxNoticeDismissedVersion(config),
     })
 
+    this.d.trace?.('step-supervisor')
     // 5. supervisor
     this.buildSupervisor(config)
 
+    this.d.trace?.('step-installer')
     // 6. installer
     const paths = this.installPaths()
     const core = this // the getter below must read the current supervisor, which a settings change replaces
@@ -425,10 +448,12 @@ export class LauncherCore {
       this.webuiInputs({ installActive: this.installActive(), serverUpdate: this.serverUpdateOffered() })
     })
 
+    this.d.trace?.('step-webui-model')
     // 7. WebUI view model
     this.webui = new WebuiModel(this.currentWebuiInputs())
     void this.installer.installedVersion().then((v) => (this.localVersion = v)).catch(() => undefined)
 
+    this.d.trace?.('step-default-server')
     // 8. the default server: a remote opens at once, and the local server is not touched
     this.monitor = new RemoteMonitor({
       probe: (origin) => this.checkOrigin(origin),
@@ -442,11 +467,18 @@ export class LauncherCore {
       now: () => this.nowMs(),
       retryMs: this.d.remoteRetryMs ?? REMOTE_RETRY_MS,
     })
-    const first = remotes(config).find((r) => r.id === defaultTarget(config))
-    if (first) {
-      launcherLog('servers: a remote server is the default; the local server is not used')
-      this.openRemote(first)
-    }
+    if (remotes(config).some((r) => r.id === defaultTarget(config))) launcherLog('servers: a remote server is the default; the local server is not used')
+  }
+
+  /**
+   * Opens the default server when it is a remote one. The shell calls this once
+   * its window exists, like autoStart(): the 'show' effect is dropped when there
+   * is no window yet, and the model would then think the view is up.
+   */
+  openDefaultRemote(): void {
+    const c = this.store.get()
+    const r = remotes(c).find((x) => x.id === defaultTarget(c))
+    if (r) this.openRemote(r)
   }
 
   // ---- servers -------------------------------------------------------------------
@@ -523,6 +555,7 @@ export class LauncherCore {
 
   private emitServers(): void {
     this.d.emit('launcher:servers:event', this.serversView())
+    this.d.notificationTargetsChanged?.()
   }
 
   /** Shows a saved server in the window and watches it. */
@@ -798,8 +831,12 @@ export class LauncherCore {
     }
   }
 
+  private layout(): LauncherLayout {
+    return this.d.layout ?? homeLayout(this.d.home)
+  }
+
   private installPaths() {
-    const base = path.join(this.d.home, '.localai')
+    const base = this.layout().launcherDir
     return {
       binDir: this.d.serverBinOverride ? path.dirname(this.d.serverBinOverride) : path.join(base, 'bin'),
       metaDir: path.join(base, 'metadata'),
@@ -808,7 +845,7 @@ export class LauncherCore {
   }
 
   serverBinary(): string {
-    return this.d.serverBinOverride ?? path.join(this.installPaths().binDir, BINARY_NAME)
+    return this.d.serverBinOverride ?? path.join(this.installPaths().binDir, serverBinaryName(this.d.target))
   }
 
   private binaryInstalled(): boolean {
@@ -820,12 +857,12 @@ export class LauncherCore {
     const apiKey = this.secrets.get(API_KEY_SECRET)
     const env = this.userEnv()
     for (const v of [apiKey, ...Object.values(env)]) if (v && v.length >= REDACT_MIN_LENGTH) this.redactValues.add(v)
-    this.launch = buildServerLaunch(config, dataPath(config, this.d.home), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config))
+    this.launch = buildServerLaunch(config, dataPath(config, this.d.home, this.layout()), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config))
     this.supervisor = new ServerSupervisor({
       command: this.serverBinary(),
       args: this.launch.args,
       env: this.launch.env,
-      cwd: dataPath(config, this.d.home),
+      cwd: dataPath(config, this.d.home, this.layout()),
       healthUrl: this.launch.healthUrl,
       ...this.d.supervisorTuning,
     })
@@ -835,6 +872,7 @@ export class LauncherCore {
       if (s.state !== 'starting') this.serverLines.flush((l) => this.hub.write('server', this.redact(l)))
       this.hub.write('launcher', `server ${s.state}${s.detail ? `: ${this.redact(s.detail)}` : ''}`, s.state === 'failed' ? 'error' : 'info')
       this.d.emit('launcher:server:event', this.snapshot())
+      this.d.notificationTargetsChanged?.()
     })
     this.supervisor.on('log', (chunk: string) => this.serverLines.push(chunk, (l) => this.hub.write('server', this.redact(l))))
     this.launchStale = false
@@ -1369,15 +1407,20 @@ export class LauncherCore {
     return {
       vars: this.secrets.list(ENV_PREFIX).map((n) => {
         const name = n.slice(ENV_PREFIX.length)
-        return { name, ignored: envNameProblem(name) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
+        return { name, ignored: envNameProblem(name, this.envIgnoreCase()) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
       }),
       restartRequired: this.restartRequired(),
       storage: this.secrets.state(),
     }
   }
 
+  /** Windows: variable names have no case, so `Path` is the controlled PATH. */
+  private envIgnoreCase(): boolean {
+    return (this.d.platform ?? process.platform) === 'win32'
+  }
+
   async setEnvVar(name: string, value: string): Promise<EnvVarResult> {
-    const problem = envNameProblem(name)
+    const problem = envNameProblem(name, this.envIgnoreCase())
     if (problem) return { ok: false, reason: problem === 'format' ? 'name-format' : problem === 'length' ? 'name-length' : 'name-controlled' }
     if (value.length > MAX_ENV_VALUE) return { ok: false, reason: 'value-length' }
     if (!this.secrets.has(envSecret(name)) && this.secrets.list(ENV_PREFIX).length >= MAX_ENV_VARS) return { ok: false, reason: 'too-many' }
@@ -1630,6 +1673,7 @@ export class LauncherCore {
     const store = webuiPermissions(c)
     return {
       openInBrowser: openWebuiInBrowser(c),
+      desktopNotifications: desktopNotifications(c),
       media: recall(store, this.localOrigin(), 'media'),
       anyRemembered: Object.keys(store).length > 0,
     }
@@ -1638,6 +1682,53 @@ export class LauncherCore {
   async setOpenInBrowser(on: boolean): Promise<WindowSettingsView> {
     await this.saveSettings({ openWebuiInBrowser: on })
     return this.windowSettings()
+  }
+
+  async setDesktopNotifications(on: boolean): Promise<WindowSettingsView> {
+    await this.store.update((c) => withDesktopNotifications(c, on))
+    this.hub.write('launcher', `desktop notifications ${on ? 'on' : 'off'}`)
+    this.d.notificationTargetsChanged?.()
+    return this.windowSettings()
+  }
+
+  /**
+   * The servers whose notification inbox the launcher watches: the local
+   * server while it runs, and every saved remote server. `all` is the number
+   * of configured servers; the notifier puts the server name in a title when
+   * it is more than one. The local server signs in with the API key, a remote
+   * one with the cookies of its WebUI session.
+   */
+  notificationTargets(): { enabled: boolean; targets: NotifyTarget[]; all: number } {
+    const c = this.store.get()
+    const list = remotes(c)
+    const targets: NotifyTarget[] = []
+    if (this.supervisor?.state === 'ready') {
+      targets.push({
+        id: LOCAL_TARGET,
+        name: 'This computer',
+        origin: this.localOrigin(),
+        headers: (): Record<string, string> => {
+          const key = this.secrets.get(API_KEY_SECRET)
+          return key ? { authorization: `Bearer ${key}` } : {}
+        },
+      })
+    }
+    for (const r of list) targets.push({ id: r.id, name: r.name, origin: r.url, ...(this.d.remoteFetch ? { fetch: this.d.remoteFetch(r.url) } : {}) })
+    return { enabled: desktopNotifications(c), targets, all: 1 + list.length }
+  }
+
+  /**
+   * A click on a notification: shows the notification's page. The link is an
+   * in-app path of the server that sent it and is checked again here; the
+   * view model decides where it opens (the window for the server on show, the
+   * system browser for another one).
+   */
+  openNotificationLink(targetId: string, link: string): boolean {
+    const t = this.notificationTargets().targets.find((x) => x.id === targetId)
+    const url = t ? resolveLink(t.origin, link) : undefined
+    if (!url) return false
+    this.webuiDispatch({ type: 'deep-link', url })
+    return true
   }
 
   permissionStore(): PermissionStore {

@@ -87,6 +87,7 @@ var _ = Describe("Benchmark command", func() {
 			Expect(body["max_tokens"]).To(Equal(float64(128)))
 			Expect(body["messages"]).To(Equal([]any{map[string]any{"role": "user", "content": "hello"}}))
 			models = append(models, body["model"].(string))
+			time.Sleep(20 * time.Millisecond) // the Windows clock may be too coarse to time an instant reply
 			_, _ = fmt.Fprintf(w, `{"choices":[{}],"usage":{"prompt_tokens":5,"completion_tokens":%d}}`, len(models))
 		}))
 		defer server.Close()
@@ -115,7 +116,10 @@ var _ = Describe("Benchmark command", func() {
 		Expect(*first.CompletionTokensPerSecond).To(BeNumerically("~", 5/(first.Samples[0].LatencySeconds+first.Samples[1].LatencySeconds), 0.001))
 	})
 	DescribeTable("preserves missing and zero usage", func(usage string, available bool) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = fmt.Fprint(w, `{"choices":[{}]`+usage+`}`) }))
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(20 * time.Millisecond) // the Windows clock may be too coarse to time an instant reply
+			_, _ = fmt.Fprint(w, `{"choices":[{}]`+usage+`}`)
+		}))
 		defer server.Close()
 		cmd.Endpoint = server.URL
 		cmd.Warmup = 0

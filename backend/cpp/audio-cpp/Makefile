@@ -9,7 +9,7 @@
 # recipe is a make target (not a prepare.sh) so 'make purge && make' is a clean
 # rebuild and so the bump bot can see the pin.
 
-AUDIO_CPP_VERSION?=a292a9e36e6dea2b22a788c87affbd604646a6d1
+AUDIO_CPP_VERSION?=4de392e03f9fce78bc54154dabea898dde180c84
 AUDIO_CPP_REPO?=https://github.com/0xShug0/audio.cpp
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -82,7 +82,7 @@ else ifeq ($(BUILD_TYPE),hipblas)
     ROCM_PATH ?= /opt/rocm
     export CXX=$(ROCM_HOME)/llvm/bin/clang++
     export CC=$(ROCM_HOME)/llvm/bin/clang
-    AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+    AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1153,gfx1200,gfx1201
     # audio.cpp forwards GPU_TARGETS to CMake's semicolon-delimited HIP list.
     comma := ,
     HIP_TARGETS := $(subst $(comma),;,$(AMDGPU_TARGETS))

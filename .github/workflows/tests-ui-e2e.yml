@@ -49,6 +49,10 @@ on:
       - 'Makefile'
       - 'scripts/**'
       - '.github/actions/**'
+  # A manual run is grouped by commit and never cancelled by a master push (see
+  # the concurrency policy above): the suite takes close to an hour, and a busy
+  # master cancels every push run before it ends.
+  workflow_dispatch:
 
 concurrency:
   group: ci-tests-ui-e2e-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}

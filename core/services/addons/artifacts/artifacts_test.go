@@ -363,6 +363,12 @@ func files(dir string) []string {
 	var out []string
 	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 		if err == nil && !d.IsDir() {
+			// The lock file is byte-range-locked while a store holds it; on
+			// Windows that makes even same-process reads fail. It is a
+			// sentinel, not data: skip it.
+			if strings.HasSuffix(d.Name(), lockName) {
+				return nil
+			}
 			out = append(out, p)
 		}
 		return nil
@@ -420,12 +426,18 @@ var _ = Describe("private artifact ingestion", func() {
 		for _, d := range []string{root, filepath.Join(root, blobDir), filepath.Join(root, stagingDir), filepath.Join(root, metaDir)} {
 			info, err := os.Stat(d)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o700)), d)
+			// Windows has no POSIX bits; a 0700 dir reports 0777 there.
+			if runtime.GOOS != "windows" {
+				Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o700)), d)
+			}
 		}
 		for _, p := range files(root) {
 			info, err := os.Stat(p)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(info.Mode().Perm()&0o077).To(BeZero(), p)
+			// Windows has no POSIX bits; a 0600 file reports 0666 there.
+			if runtime.GOOS != "windows" {
+				Expect(info.Mode().Perm()&0o077).To(BeZero(), p)
+			}
 		}
 		staged := f.stagedFiles()
 		Expect(staged).To(HaveLen(1))
@@ -1589,7 +1601,10 @@ var _ = Describe("artifact safety helpers", func() {
 		Expect(keys).To(Equal([]string{id}))
 		info, err := os.Stat(filepath.Join(root, blobDir, id))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		// Windows has no POSIX bits; a 0600 file reports 0666 there.
+		if runtime.GOOS != "windows" {
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		}
 		// Keys that are not host identifiers never reach the file system.
 		for _, key := range []string{"../x", "a/b", "", id + "/..", "A" + strings.Repeat("5", 32), "a" + strings.Repeat("5", 31)} {
 			Expect(s.Put(ctx, key, strings.NewReader("x"))).To(MatchError(ErrNotFound), key)

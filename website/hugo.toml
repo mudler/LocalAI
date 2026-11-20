@@ -13,7 +13,7 @@ disableKinds = ['sitemap']
 # See .github/workflows/gh-pages.yml.
 
 [params]
-  description = 'Your own AI, on your own hardware. LocalAI runs open models, works on your files, makes Office documents and answers in your chat apps. Free and open source.'
+  description = 'Your own AI, on your own hardware. Run open models for chat, images, speech and video on your own machines. Your team gets chats, files and documents on top, and the assistant can write and run code.'
   author = 'Ettore Di Giacinto'
   docsURL = '/docs/'
   github = 'https://github.com/mudler/LocalAI'

@@ -4,6 +4,7 @@ import { modelMCPServersApi } from '../utils/api'
 import { filesChoiceOf, withFilesChoice } from '../utils/chatAgents'
 import { activePreset, PRESET_KEYS, presetPatch, snapshot } from '../utils/agentPresets'
 import { accountsAfter, addonSwitch, mcpRows, mcpUnknown, resourcesAfter } from '../utils/agentUses'
+import { limitedTools } from '../utils/projectAgents'
 import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 
 // What the agent form does with the tool lists of useAgentTools: the capability
@@ -14,7 +15,7 @@ import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 //   form, setForm, updateField   the form state of the page
 //   tools                        the result of useAgentTools(form, updateField)
 //   initialFolders               the folder rows as read (none for a new agent)
-export function useAgentAbilities({ form, setForm, updateField, tools, initialFolders }) {
+export function useAgentAbilities({ form, setForm, updateField, tools, initialFolders, project = null }) {
   const { t } = useTranslation('agents')
   // What a level or template just filled in, with the values to go back to.
   const [applied, setApplied] = useState(null)
@@ -102,7 +103,10 @@ export function useAgentAbilities({ form, setForm, updateField, tools, initialFo
 
   // The MCP servers: what the host defines, and what the agent holds that it does not.
   const mcp = splitAgentMCP(form.mcp_servers)
-  const mcpList = mcpRows({ connectors: tools.connectors, servers: modelServers, stored: mcp.servers, checkable: !!form.model && modelServers.length > 0 })
+  // A project with a list of MCP servers offers only those; a server the
+  // agent holds that is outside the list stays as an unknown row to remove.
+  const offeredServers = limitedTools(project, { servers: modelServers }).servers
+  const mcpList = mcpRows({ connectors: tools.connectors, servers: offeredServers, stored: mcp.servers, checkable: !!form.model && modelServers.length > 0 })
   const unknownMcp = mcpUnknown(mcpList)
   const setMcp = (r, on) => {
     if (r.ref.startsWith('connector:')) { tools.toggleMCP(r.ref, on); return }

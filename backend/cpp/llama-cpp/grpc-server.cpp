@@ -58,6 +58,14 @@
 #define LOCALAI_HAS_SERVER_REALTIME 1
 #include "server-realtime.cpp"
 #endif
+// server-slot-sched.cpp defines server_prompt_cache and server_slot_sched,
+// which upstream moved out of server-task.cpp. server-context.cpp calls into
+// them, so their definitions must be part of this translation unit or the
+// link fails with "undefined reference to server_prompt_cache::update()".
+// __has_include keeps the source compatible with older pins and forks.
+#if __has_include("server-slot-sched.cpp")
+#include "server-slot-sched.cpp"
+#endif
 #include "server-context.cpp"
 
 // LocalAI

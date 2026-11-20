@@ -1,6 +1,6 @@
 // Runs electron-updater's own GitHub provider against a fake HTTP executor, to
 // record which URLs it requests. No network. The deep import avoids loading Electron.
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { HttpError } from 'builder-util-runtime'
 import semver from 'semver'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -47,6 +47,17 @@ function run(opts: { ymlPresent: boolean }) {
 }
 
 describe('electron-updater GitHub provider (public repository)', () => {
+  // electron-updater names the channel file after process.arch (latest-linux-arm64.yml
+  // on arm64). The fixture serves the x64 name, so pin the architecture: the test
+  // then passes on an arm64 machine as well.
+  const realArch = Object.getOwnPropertyDescriptor(process, 'arch')
+  beforeAll(() => {
+    Object.defineProperty(process, 'arch', { value: 'x64', configurable: true })
+  })
+  afterAll(() => {
+    if (realArch) Object.defineProperty(process, 'arch', realArch)
+  })
+
   it('finds the release through github.com web endpoints, not the REST API, and needs no token', async () => {
     const { provider, requests } = run({ ymlPresent: true })
     const info = await provider.getLatestVersion()

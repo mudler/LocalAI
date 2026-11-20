@@ -71,7 +71,7 @@ and an administrator with nothing to show, sees no entry; use the Activity page.
 
 ## The Activity page
 
-**Operate → Activity** (`/app/activity`). The page has up to three sections,
+**Admin → Activity** (`/app/activity`). The page has up to three sections,
 each shown only when it has something in it.
 
 ### In progress
@@ -195,7 +195,7 @@ serving the page.
 
 ## The sidebar count
 
-The **Operate** entry in the sidebar carries a badge whenever something is in
+The **Admin** entry in the sidebar carries a badge whenever something is in
 flight, showing how many operations are running or queued. If any failure is
 waiting to be acknowledged, the badge turns red and counts the failures
 instead, so the number always reports the thing that most wants your attention.

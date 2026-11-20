@@ -34,6 +34,8 @@
     "agentHelp": "Este chat usa o agente {{name}}: as instruções dele e só as ferramentas que ele concede.",
     "editAgent": "Editar agente",
     "deleteHelp": "Apagar este chat e as mensagens dele para sempre.",
+    "collections": "Coleções",
+    "collectionsHelp": "Este chat só pode usar estas coleções.",
     "sliderOf": "Controle deslizante de {{name}}",
     "reset": "Usar o valor do modelo para {{name}}",
     "hint": {
@@ -170,7 +172,8 @@
       "from": "De",
       "to": "Até",
       "reset": "Limpar filtros"
-    }
+    },
+    "clearShown": "Limpar os exibidos"
   },
   "message": {
     "you": "Você",
@@ -196,7 +199,8 @@
     "unavailable": "Indisponível neste chat",
     "toolCount_one": "{{count}} ferramenta",
     "toolCount_other": "{{count}} ferramentas",
-    "optionsOf": "Opções de {{name}}"
+    "optionsOf": "Opções de {{name}}",
+    "projectCollections": "Coleções do projeto: {{names}}."
   },
   "skills": {
     "label": "Habilidades",
@@ -222,7 +226,8 @@
     },
     "replacedBy": "Substituída por {{name}}",
     "fallback_one": "{{skills}} integrada em uso: a habilidade própria do complemento {{name}} está desligada ou não está em execução aqui.",
-    "fallback_other": "{{skills}} integradas em uso: as habilidades próprias do complemento {{name}} estão desligadas ou não estão em execução aqui."
+    "fallback_other": "{{skills}} integradas em uso: as habilidades próprias do complemento {{name}} estão desligadas ou não estão em execução aqui.",
+    "fromProject": "Do projeto"
   },
   "agent": {
     "label": "Agente",
@@ -721,7 +726,9 @@
     "missing": "A pasta deste agente não existe mais. Escolha outra pasta no agente.",
     "startError": "A pasta deste agente está ausente, então o chat não pode começar. Escolha outra pasta para o agente.",
     "editAgent": "Editar agente",
-    "toolsMany": "Arquivos: apenas {{n}} pastas: {{list}}. Pastas compartilhadas e skills continuam legíveis."
+    "toolsMany": "Arquivos: apenas {{n}} pastas: {{list}}. Pastas compartilhadas e skills continuam legíveis.",
+    "projectPaused": "Este agente está pausado porque o projeto dele está arquivado ou excluído. Abra o projeto e restaure-o.",
+    "projectChanged": "Este agente está pausado porque as pastas do projeto dele mudaram. Abra o agente e reconecte-o."
   },
   "origin": {
     "banner": "Esta conversa foi iniciada por {{title}}.",
@@ -918,5 +925,11 @@
       "code": "Bloco de código omitido.",
       "table": "Tabela omitida."
     }
+  },
+  "deleteShownDialog": {
+    "title": "Excluir os chats exibidos",
+    "message_one": "Excluir o chat exibido em {{project}} ({{count}})? Isso não pode ser desfeito.",
+    "message_other": "Excluir os {{count}} chats exibidos em {{project}}? Isso não pode ser desfeito.",
+    "confirm": "Excluir os exibidos"
   }
 }

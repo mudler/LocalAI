@@ -1,4 +1,9 @@
+//go:build linux || darwin
+
 // SPDX-License-Identifier: MIT
+
+// The supervisor these specs drive is POSIX-only: the runtime ledger fails
+// closed on the other platforms.
 package runtime
 
 import (
@@ -16,10 +21,6 @@ import (
 	"strings"
 	"time"
 )
-
-func envelope(scope string) contract.Envelope {
-	return contract.Envelope{Request: contract.Request{AddonID: "sample", Generation: 1, OperationID: "operation", Action: "read", Arguments: json.RawMessage(`{"actor":"not-authority"}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "alice", CredentialID: "key", Mode: "named-user"}, Scope: scope, ExpiresAt: time.Now().Add(time.Minute)}}
-}
 
 var _ = Describe("Authenticated runtime client", func() {
 	It("authenticates every request and separates trusted authority from model arguments", func() {

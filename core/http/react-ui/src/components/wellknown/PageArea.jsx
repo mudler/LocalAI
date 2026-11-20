@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import Icon from '../Icon'
 import PageFrame from '../PageFrame'
 import PageLinkAsk from '../PageLinkAsk'
+import { authorOf } from '../../utils/pages'
 import TrustSheet, { SourceSheet } from '../pages/TrustSheet'
 import { Button, Callout, StatusChip } from '../ui'
 import { usePageLinks } from '../../hooks/usePageLinks'
@@ -174,12 +175,21 @@ function AreaPage({ pageRef: ref, wk, onRemoved, listed }) {
     )
   } else if (view.view === 'loading') {
     body = <div className="skeleton skeleton--block wk-area__fill" role="status" aria-label={t('wellKnown.home.area.loading')} data-testid="page-area-loading" />
+  } else if (view.view === 'allow' && tile.openOnly) {
+    body = (
+      <div className="wk-area__calm" data-testid="page-area-open-only">
+        <Icon name="lock" className="wk-area__calm-icon" />
+        <p className="wk-area__calm-title">{tp('share.tile.title')}</p>
+        <p className="wk-area__calm-text">{tp(tile.ownEdit ? 'share.tile.textOwn' : 'share.tile.text')}</p>
+        <Button variant="primary" size="sm" to={tilePagePath(ref)} data-testid="page-area-open-page">{tp('share.tile.open')}</Button>
+      </div>
+    )
   } else if (view.view === 'allow') {
     body = (
       <div className="wk-area__calm" data-testid="page-area-allow">
         <Icon name="lock" className="wk-area__calm-icon" />
         <p className="wk-area__calm-title">{t(read.consent === 'changed' ? 'wellKnown.home.page.changed' : 'wellKnown.home.page.notAllowed')}</p>
-        <p className="wk-area__calm-text">{t('wellKnown.home.page.allowHint', { author: page?.author_name || page?.author_id || '' })}</p>
+        <p className="wk-area__calm-text">{t('wellKnown.home.page.allowHint', { author: authorOf(page, '') })}</p>
         <Button variant="primary" size="sm" icon="shield" onClick={tile.openSheet} data-testid="page-area-allow-open">{t('wellKnown.home.page.allow')}</Button>
       </div>
     )
@@ -230,7 +240,7 @@ function AreaPage({ pageRef: ref, wk, onRemoved, listed }) {
         {page && (
           <span className="wk-area__pills">
             <StatusChip tone="accent" icon={shared ? 'users' : by === 'assistant' ? 'sparkles' : 'user'} testId="page-area-origin">
-              {shared ? t('wellKnown.home.area.byAuthor', { author: page.author_name || page.author_id || '' }) : t(`wellKnown.home.area.by.${by}`)}
+              {shared ? t('wellKnown.home.area.byAuthor', { author: authorOf(page, '') }) : t(`wellKnown.home.area.by.${by}`)}
             </StatusChip>
             <StatusChip tone="idle" icon="user" title={t('wellKnown.home.area.runsAsYouHint')} testId="page-area-runs-as-you">{t('wellKnown.home.area.runsAsYou')}</StatusChip>
           </span>

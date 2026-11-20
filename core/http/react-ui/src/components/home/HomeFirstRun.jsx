@@ -1,6 +1,8 @@
 import { Suspense, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
+import { useBranding, isDefaultBranding } from '../../contexts/BrandingContext'
+import Mascot from '../ui/Mascot'
 import { useHubAuth } from '../hub/useHubAuth'
 // eslint-disable-next-line no-unused-vars
 import StarterModels from '../StarterModels'
@@ -37,6 +39,8 @@ export const CODING_AGENTS = 'Codex, Claude Code, opencode, Hermes Agent, nib, p
 export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, onImport, onRemoteDone }) {
   const { t } = useTranslation('home')
   const { authEnabled, hasFeature, isAdmin } = useAuth()
+  const branding = useBranding()
+  const showMascot = isDefaultBranding(branding)
   const [where, setWhere] = useState('local')
   const whereId = useId()
   const remote = useRemoteConnect({ onDone: onRemoteDone })
@@ -78,7 +82,8 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
       )}
       {remoteMode ? (
         <>
-          <li className="home-step" data-state="now" aria-current="step" data-testid="home-step-connect">
+          <li className={`home-step${showMascot ? ' home-step--lead' : ''}`} data-state="now" aria-current="step" data-testid="home-step-connect">
+            {showMascot && <Mascot pose="circle" size="badge" className="home-step__mascot" />}
             <span className="home-step__num" aria-hidden="true">1</span>
             <div className="home-step__main">
               <b>{t('remoteSetup.step1Title')}</b>
@@ -100,7 +105,8 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
           </li>
         </>
       ) : (<>
-      <li className="home-step" data-state="now" aria-current="step">
+      <li className={`home-step${showMascot ? ' home-step--lead' : ''}`} data-state="now" aria-current="step">
+        {showMascot && <Mascot pose="circle" size="badge" className="home-step__mascot" />}
         <span className="home-step__num" aria-hidden="true">1</span>
         <div className="home-step__main">
           <b>{t('wizard.steps.step1Title')}</b>

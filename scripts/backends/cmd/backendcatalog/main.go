@@ -154,6 +154,10 @@ func guessPlatform(uri string) (string, string) {
 	switch {
 	case strings.Contains(uri, "-darwin-arm64-"):
 		return "darwin", "arm64"
+	case strings.Contains(uri, "-windows-arm64-"):
+		return "windows", "arm64"
+	case strings.Contains(uri, "-windows-"):
+		return "windows", "amd64"
 	case strings.Contains(uri, "-arm64-"):
 		return "linux", "arm64"
 	}

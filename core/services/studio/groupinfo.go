@@ -38,6 +38,11 @@ func (s *Service) describeGroups() {
 			Description: "The model can list your collections and search them for the passages that match a question.",
 			WhenOff:     "The model cannot read your collections.",
 		},
+		builtins.GroupProjects: {
+			Title:       "Projects",
+			Description: "The model can list your active projects, so it can name one when you ask about it.",
+			WhenOff:     "The model cannot see your projects.",
+		},
 		builtins.GroupSubAgents: {
 			Title:       "Sub-agents",
 			Description: "The model can start a sub-agent that works on one task with the same switches as this chat and reports back.",

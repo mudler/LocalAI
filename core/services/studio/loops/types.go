@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -125,7 +126,74 @@ type Loop struct {
 	// when the condition holds, the source fails or the deadline passes.
 	// Treat it as immutable: change it by copying (Watch.Clone).
 	Watch *Watch `json:"watch,omitempty"`
+	// Report is where the loop tells the owner how it ended, in a channel of
+	// one of the owner's connections. Nil means nothing is sent. The host
+	// checks the destination when the loop starts and again at each delivery;
+	// the package only stores it. Treat it as immutable.
+	Report *Report `json:"report,omitempty"`
+	// Grant holds the loop capabilities (loops.wait, loops.start) that the
+	// sender of the connector turn held when the model armed this loop or
+	// wait. The run of the loop has no sender, so the host reads it to offer
+	// the same tools again in that run. It is set by the host only, is never
+	// shown by the API and dies with the loop. Empty means no grant: a run
+	// then holds nothing. Besides the capabilities it may hold GrantPaired.
+	// Treat it as immutable.
+	Grant []string `json:"grant,omitempty"`
 }
+
+// GrantPaired in Loop.Grant says that the sender who armed the loop was
+// paired with the bot. It is not a capability: a run reads it only to allow a
+// wait on a command, which needs a paired sender in a connector chat.
+const GrantPaired = "sender.paired"
+
+// When a loop reports to its destination.
+const (
+	// ReportOnDone reports the summary that the model gives to loop_done.
+	ReportOnDone = "on_done"
+	// ReportOnProblem reports a run that fails, a loop that stops at a limit
+	// and a loop that the system stops.
+	ReportOnProblem = "on_problem"
+	// ReportNever sends nothing. It is the value of a loop with no report; a
+	// loop never stores it.
+	ReportNever = "never"
+)
+
+// Report is the destination of the report of a loop: a connection of the
+// owner and one of the channels that the owner approved for it, and when the
+// loop reports.
+type Report struct {
+	Connection string `json:"connection"`
+	Channel    string `json:"channel"`
+	// Mode is ReportOnDone or ReportOnProblem.
+	Mode string `json:"mode"`
+}
+
+// maxReportRef bounds the connection and the channel of a Report: the width of
+// the references of the connector stores.
+const maxReportRef = 64
+
+// Validate checks the shape of a Report. Whether the connection is the owner's
+// and the channel is approved is for the host to check.
+func (r Report) Validate() error {
+	switch r.Mode {
+	case ReportOnDone, ReportOnProblem:
+	default:
+		return fmt.Errorf("%w: the report mode must be %q, %q or %q", ErrInvalid, ReportOnDone, ReportOnProblem, ReportNever)
+	}
+	if r.Connection == "" || r.Channel == "" {
+		return fmt.Errorf("%w: a report names a connection and a channel", ErrInvalid)
+	}
+	for _, v := range []string{r.Connection, r.Channel} {
+		if len(v) > maxReportRef || strings.ContainsFunc(v, unicode.IsControl) {
+			return fmt.Errorf("%w: the connection or the channel of a report is too long or has control characters", ErrInvalid)
+		}
+	}
+	return nil
+}
+
+// Reports says whether the loop tells the owner about an end of kind mode: the
+// loop has a report and its mode is mode.
+func (l Loop) Reports(mode string) bool { return l.Report != nil && l.Report.Mode == mode }
 
 // Kinds of condition a Watch waits for.
 const (

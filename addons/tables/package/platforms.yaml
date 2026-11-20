@@ -37,3 +37,7 @@ platforms:
     enabled: true
     runner: macos-15-intel
     native_check: executable-start
+  - platform: windows/amd64
+    enabled: true
+    runner: windows-2025
+    native_check: executable-start

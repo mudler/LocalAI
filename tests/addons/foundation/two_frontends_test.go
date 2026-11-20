@@ -1,3 +1,5 @@
+//go:build !windows
+
 // SPDX-License-Identifier: MIT
 package foundation_test
 

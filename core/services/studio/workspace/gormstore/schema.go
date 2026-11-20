@@ -68,6 +68,14 @@ func ddl(d dialect) []string {
 			mode      INTEGER NOT NULL,
 			PRIMARY KEY (principal, node_id)
 		)`,
+		// A grant that the owner of a page made through the page routes. It
+		// is a table of its own, so that a database made before it needs no
+		// change to a table that older servers read.
+		`CREATE TABLE IF NOT EXISTS studio_ws_page_grants (
+			principal TEXT NOT NULL,
+			node_id   BIGINT NOT NULL REFERENCES studio_ws_nodes(id),
+			PRIMARY KEY (principal, node_id)
+		)`,
 	}
 }
 

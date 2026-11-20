@@ -94,7 +94,7 @@ func actorBuilds(fset *token.FileSet, f *ast.File) map[string][]string {
 // of its own would see more than the turn's access: the home of a scoped
 // chat. viewBuilds finds, in the same folders:
 //   - a call of BuildView or SkillLayerMounts;
-//   - a call of NewAccess, UserAccess, ScopedAccess or PersonAccess;
+//   - a call of NewAccess, UserAccess, UserAccessProjects, ScopedAccess or PersonAccess;
 //   - a call X.View(ctx, actor, mounts) with three arguments: a store's View.
 //     (session.Access.View takes none.)
 var viewAllowlist = map[string]string{
@@ -123,7 +123,7 @@ func viewBuilds(fset *token.FileSet, f *ast.File) map[string][]string {
 		switch {
 		case name == "BuildView" || name == "SkillLayerMounts":
 			return name
-		case name == "NewAccess" || name == "UserAccess" || name == "ScopedAccess" || name == "PersonAccess":
+		case name == "NewAccess" || name == "UserAccess" || name == "UserAccessProjects" || name == "ScopedAccess" || name == "PersonAccess":
 			return name
 		case name == "View" && len(x.Args) == 3:
 			return "a store's View"

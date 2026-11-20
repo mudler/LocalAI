@@ -287,6 +287,8 @@
   "ready.quiet_other": "{{count}} Sachen einzustellen",
   "ready.quietDone": "Nichts mehr einzustellen",
   "matrix.title": "Wer was darf",
+  "loops.title": "Warten und Timer",
+  "loops.help": "Was der Agent später in diesem Chat von selbst tun darf. Das gehört zum Bot: Eine Rolle bekommt es nie.",
   "matrix.note": "Die Schalter und die Rollenfelder stellst du selbst ein. Jede andere Zelle wird aus deinen aktuellen Einstellungen berechnet, mit derselben Prüfung, die der Host bei jeder Nachricht ausführt.",
   "matrix.capability": "Berechtigung",
   "matrix.pick": "Art des Absenders",

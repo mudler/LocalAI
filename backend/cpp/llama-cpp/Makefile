@@ -1,5 +1,5 @@
 
-LLAMA_VERSION?=8ca5a8008b57aa39f2601546c0d07912045080a5
+LLAMA_VERSION?=78e05298f0d68abff41d08d79fa7469264b2aff0
 LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 
 CMAKE_ARGS?=
@@ -41,7 +41,7 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_PATH ?= /opt/rocm
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
-	AMDGPU_TARGETS?=gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+	AMDGPU_TARGETS?=gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1153,gfx1200,gfx1201
 ifeq ($(strip $(AMDGPU_TARGETS)),)
 $(error AMDGPU_TARGETS is empty — set it to a comma-separated list of gfx targets e.g. gfx1100,gfx1101)
 endif

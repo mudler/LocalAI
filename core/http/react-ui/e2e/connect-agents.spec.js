@@ -115,7 +115,7 @@ test.describe('First run steps for agents and add-ons', () => {
     await firstRun(page)
     const step = page.getByTestId('home-step-addons')
     await expect(step).toContainText('Extend LocalAI with an add-on')
-    await expect(step).toContainText('Sandbox, Telegram')
+    await expect(step).toContainText('Install them from the library')
     await expect(page.getByTestId('home-step-addons-link')).toHaveAttribute('href', '/app/addons')
   })
 

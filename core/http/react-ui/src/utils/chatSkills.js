@@ -58,6 +58,7 @@ export function pickerSkills(list) {
 export function skillRef(s) {
   if (s.layer === 'addon' && s.addon) return { addon: s.addon }
   if (s.layer === 'agent' && s.agent) return { agent: s.agent }
+  if (s.layer === 'project' && s.project) return { project: s.project }
   return {}
 }
 

@@ -7,6 +7,6 @@ weight = 120
 aliases = ["/features/model-tools/"]
 +++
 
-Fine-tune and quantize models.
+Fine-tune a model on your data, then quantize it to a smaller file.
 
 {{% pages description="true" display="tree" orderby="weight" %}}

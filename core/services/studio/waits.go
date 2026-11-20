@@ -42,7 +42,7 @@ const waitForName = "wait_for"
 const waitForDescription = "Wait for something to happen without spending a model call on each check: the server checks for you and wakes you once. " +
 	"Use it when you tell the person that you will wait until a download or a job is done, or until a page or a tool's output changes. " +
 	"The source is one of: tool (a read-only tool of this chat, for example one that lists downloads, with fixed arguments), url (a page, read like web_fetch), script (a shell command that the server runs for each check, in the same place as bash and with no model call; it changes no file, and a command that exits with a non-zero status is a result, not a failure) or job (the id of a background job of this chat that job start returned). " +
-	"until is change (the output differs from the first check; the default), match (the output matches the regular expression pattern; for a job, the output it wrote since the last check), json_equals (the JSON field of the output equals the value), exit_zero (a script exits with status 0), exit (a job has ended; the default for a job) or stall (a job still runs but wrote no output for idle seconds). " +
+	"until is change (the output differs from the first check; the default), match (the output matches the regular expression pattern, tested on the whole output; for a job, the output it wrote since the last check; \".*\" can run across the entries of a list, so for JSON output use json_equals or a pattern bound to one entry), json_equals (the JSON field of the output equals the value), exit_zero (a script exits with status 0), exit (a job has ended; the default for a job) or stall (a job still runs but wrote no output for idle seconds). " +
 	"You are woken when the condition holds, when the source fails max_errors checks in a row, or when timeout passes; the wake-up text says plainly when the condition was NOT met. " +
 	"then is what to do when you are woken. The person sees the wait and can stop it."
 
@@ -54,7 +54,7 @@ const waitForSchema = `{"type":"object","properties":{` +
 	`"job":{"type":"string","description":"The id of a background job of this chat, instead of a tool, a URL or a script."},` +
 	`"until":{"type":"string","enum":["change","match","json_equals","exit_zero","exit","stall"],"description":"change (default), match, json_equals, exit_zero (a script exits with status 0), exit (a job ended; the default for a job) or stall (a job wrote no output for idle seconds)."},` +
 	`"idle":{"type":"integer","minimum":60,"maximum":3600,"description":"For stall: seconds without output from the job before you are woken. Default 600."},` +
-	`"pattern":{"type":"string","description":"For match: a regular expression the output must match."},` +
+	`"pattern":{"type":"string","description":"For match: a regular expression tested on the whole output. .* can cross entries of a list; for JSON use json_equals."},` +
 	`"field":{"type":"string","description":"For json_equals: the field of the JSON output, with dots for depth and numbers for list items, such as items.0.status."},` +
 	`"equals":{"description":"For json_equals: the value the field must equal, such as \"done\"."},` +
 	`"every":{"type":"string","description":"How often to check, such as 1m or 5m. At least the minimum the server allows."},` +
@@ -137,7 +137,7 @@ func (s *Service) pollTool(ctx context.Context, p, chat, name string) (session.T
 	if loopControlNames[name] || !pollableName(name) {
 		return session.Tool{}, fmt.Errorf("the tool %q cannot be polled: only a tool that reads (its name says list, get, search, status and so on) can", name)
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, chat)
+	rec, err := s.getChatEffective(ctx, p, chat)
 	if err != nil {
 		return session.Tool{}, err
 	}
@@ -180,7 +180,7 @@ func (s *Service) pollURL(ctx context.Context, p, chat, raw string, strictJSON b
 	if w == nil || !w.Enabled(webFetchName) {
 		return "", errors.New("web_fetch is switched off on this server")
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, chat)
+	rec, err := s.getChatEffective(ctx, p, chat)
 	if err != nil {
 		return "", err
 	}
@@ -492,8 +492,12 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 	case w.Job != "":
 		// Resolved and validated below, with the condition.
 	case w.Script != "":
-		// Whether this chat can run it is checked after the other arguments
-		// and the repeat of a wait (armScript).
+		// Who may arm it is checked now. Whether this chat can run it is
+		// checked after the other arguments and the repeat of a wait
+		// (armScript).
+		if !h.scriptWaitAllowed(ctx, a) {
+			return "", fmt.Errorf("no wait was started: %w", errScriptNeedsPairing)
+		}
 	case w.Tool != "":
 		if len(args.Arguments) > 0 && string(args.Arguments) != "null" {
 			if !json.Valid(args.Arguments) || args.Arguments[0] != '{' {
@@ -513,7 +517,7 @@ func (h *Loops) startWait(ctx context.Context, a workspace.Actor, raw json.RawMe
 		if wb := h.svc.d.Web; wb == nil || !wb.Enabled(webFetchName) {
 			return "", errors.New("web_fetch is switched off on this server, so a URL cannot be polled")
 		}
-		if rec, err := h.svc.d.Store.GetChat(ctx, a.Principal, a.ChatID); err != nil {
+		if rec, err := h.svc.getChatEffective(ctx, a.Principal, a.ChatID); err != nil {
 			return "", err
 		} else if h.svc.hiddenFor(ctx, rec)[webFetchName] {
 			return "", errors.New("web_fetch is switched off in this chat, so a URL cannot be polled")
@@ -630,6 +634,10 @@ func (h *Loops) waitStarted(w *loops.Watch, every, timeout time.Duration, asked 
 		w.Describe(), loops.ShortDuration(every), loops.ShortDuration(timeout), w.MaxErrors)
 	if d, err := time.ParseDuration(strings.TrimSpace(asked)); err == nil && d != every {
 		out += fmt.Sprintf(" The interval was set to %s: it must be from %s to 24h.", loops.ShortDuration(every), loops.ShortDuration(lim.MinInterval))
+	}
+	if w.Mode == loops.UntilMatch {
+		out += " The pattern is tested on the whole output, and .* can run across the entries of a list. For JSON output, json_equals on one field is safer. " +
+			"If this wait ends after its first check, verify the match before you tell the person it is done."
 	}
 	if w.Script != "" {
 		// The person sees the command here, in the turn where it was armed:

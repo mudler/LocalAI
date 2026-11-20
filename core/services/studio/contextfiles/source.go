@@ -34,14 +34,17 @@ type Scope string
 // The scopes. A user source applies to every chat of the user. An agent source
 // applies to the chats of one saved agent. A channel source applies to the
 // chats that one external channel (a binding of a messaging app, say) started.
+// A project source applies to the chats of one project.
 const (
 	ScopeUser    Scope = "user"
+	ScopeProject Scope = "project"
 	ScopeAgent   Scope = "agent"
 	ScopeChannel Scope = "channel"
 )
 
-// scopeOrder is the order of the blocks of a turn: the widest scope first.
-var scopeOrder = []Scope{ScopeUser, ScopeAgent, ScopeChannel}
+// scopeOrder is the order of the blocks of a turn: the widest scope first. The
+// notes of the project come right after the person's own.
+var scopeOrder = []Scope{ScopeUser, ScopeProject, ScopeAgent, ScopeChannel}
 
 // ErrInvalidSource wraps the reason a registry refuses a source.
 var ErrInvalidSource = errors.New("contextfiles: invalid source")
@@ -53,7 +56,8 @@ type Source struct {
 	// Scope says which chats the source applies to.
 	Scope Scope
 	// Path is the index file, relative to the user's home. An agent source
-	// holds {agent} and a channel source holds {channel}; the host fills them
+	// holds {agent}, a channel source holds {channel} and a project source
+	// holds {project}; the host fills them
 	// from the chat, never from the model. The file ends in .md.
 	Path string
 	// Cap is the most bytes of the index the prompt carries. Zero means
@@ -92,7 +96,7 @@ func (s Source) validate() error {
 	if p == "" || len(p) > maxPathLen || strings.HasPrefix(p, "/") || !strings.HasSuffix(p, ".md") {
 		return bad("the path must be a relative .md path of at most %d bytes", maxPathLen)
 	}
-	want := map[Scope]string{ScopeUser: "", ScopeAgent: "{agent}", ScopeChannel: "{channel}"}[s.Scope]
+	want := map[Scope]string{ScopeUser: "", ScopeProject: "{project}", ScopeAgent: "{agent}", ScopeChannel: "{channel}"}[s.Scope]
 	found := placeholder.FindAllString(p, -1)
 	switch {
 	case want == "" && len(found) > 0:

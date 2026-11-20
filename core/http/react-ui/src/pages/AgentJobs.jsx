@@ -1,8 +1,13 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { Fragment, useState, useEffect, useCallback, useMemo } from 'react'
+import { Fragment, useState, useCallback, useMemo } from 'react'
+import { keepIfSame } from '../utils/sameData'
+import { usePolling } from '../hooks/usePolling'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { chatAgentsApi, chatTriggersApi } from '../utils/api'
+import { chatTriggersApi } from '../utils/api'
+import { useAgentProjects } from '../hooks/useAgentProjects'
+import { ProjectChip } from '../components/projects/ProjectChip'
+import { filterByProject, projectOfTrigger, projectsWithTriggers } from '../utils/triggerProjects'
 import { browserZone } from '../utils/chatTrigger'
 import {
   failingTasks, groupByDay, jobDurationMs, jobOfRun, jobsOf, statusCounts, weekSummary,
@@ -54,12 +59,13 @@ export default function AgentJobs() {
   const [tasks, setTasks] = useState([])
   const [jobs, setJobs] = useState([])
   const [proposals, setProposals] = useState([])
-  const [agents, setAgents] = useState([])
+  const { agents, projects } = useAgentProjects()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [off, setOff] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [taskFilter, setTaskFilter] = useState('all')
+  const [projectFilter, setProjectFilter] = useState('all')
   const [expanded, setExpanded] = useState(() => new Set())
   const [limit, setLimit] = useState(PAGE)
   const [toDelete, setToDelete] = useState(null)
@@ -68,12 +74,14 @@ export default function AgentJobs() {
     try {
       const [list, props] = await Promise.all([chatTriggersApi.list(), chatTriggersApi.proposals().catch(() => ({ triggers: [] }))])
       const triggers = list.triggers || []
-      setTasks(triggers)
-      setProposals(props.triggers || [])
+      setTasks(prev => keepIfSame(prev, triggers))
+      setProposals(prev => keepIfSame(prev, props.triggers || []))
       setOff('')
       // The runs of every trigger make the history: the server keeps them per trigger.
-      const runs = await Promise.all(triggers.map(x => chatTriggersApi.runs(x.id).then(r => (r.runs || []).map(run => jobOfRun(run, x.id))).catch(() => [])))
-      setJobs(runs.flat())
+      // A failed read of one trigger's runs fails the poll (said in the page,
+      // rows kept) instead of showing that trigger as having no runs.
+      const runs = await Promise.all(triggers.map(x => chatTriggersApi.runs(x.id).then(r => (r.runs || []).map(run => jobOfRun(run, x.id)))))
+      setJobs(prev => keepIfSame(prev, runs.flat()))
       setError(null)
     } catch (err) {
       // Said in the page; a failed poll keeps the rows already on screen.
@@ -84,16 +92,10 @@ export default function AgentJobs() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, 5000)
-    return () => clearInterval(interval)
-  }, [fetchData])
+  // Pauses while the tab is hidden.
+  usePolling(fetchData, 5000)
 
   // Names of the agents, for the line under a trigger. Best effort.
-  useEffect(() => {
-    chatAgentsApi.list().then(r => setAgents(r.agents || [])).catch(() => {})
-  }, [])
   const agentName = (id) => agents.find(a => a.id === id)?.name || ''
 
   const nameOf = useMemo(() => {
@@ -136,12 +138,20 @@ export default function AgentJobs() {
     return next
   })
 
+  // The project filter narrows the triggers and, with them, the history.
+  const projectOptions = useMemo(() => projectsWithTriggers(tasks, agents, projects), [tasks, agents, projects])
+  const shownTasks = useMemo(() => filterByProject(tasks, agents, projectFilter), [tasks, agents, projectFilter])
+  const shownIds = useMemo(() => new Set(shownTasks.map(x => x.id)), [shownTasks])
+  // A filter that names a project with no trigger now (the last one was deleted) must not hide everything.
+  const projectFiltered = projectFilter !== 'all'
+  const byProject = projectFiltered ? jobs.filter(j => shownIds.has(j.task_id)) : jobs
+
   // History: by trigger first, so the status counts follow the trigger chosen.
-  const byTask = taskFilter === 'all' ? jobs : jobs.filter(j => j.task_id === taskFilter)
+  const byTask = taskFilter === 'all' ? byProject : byProject.filter(j => j.task_id === taskFilter)
   const counts = statusCounts(byTask)
   const shown = statusFilter === 'all' ? byTask : byTask.filter(j => j.status === statusFilter)
   const visibleGroups = groupByDay(shown.slice(0, limit))
-  const filtered = statusFilter !== 'all' || taskFilter !== 'all'
+  const filtered = statusFilter !== 'all' || taskFilter !== 'all' || projectFiltered
 
   const emptyTasks = !loading && !error && tasks.length === 0 && proposals.length === 0
   // On an empty page the empty state carries the primary action.
@@ -215,11 +225,33 @@ export default function AgentJobs() {
                 {tasks.length === 0 ? (
                   <p className="ag-note">{t('jobs.tasks.noneYet')}</p>
                 ) : (
+                  <>
+                  {(projectOptions.length > 0 || projectFiltered) && (
+                    <div className="aj-toolbar aj-toolbar--projects">
+                      <span className="dk-select-wrap aj-taskfilter">
+                        <select className="dk-select" value={projectFilter} onChange={(e) => { setProjectFilter(e.target.value); setTaskFilter('all') }} aria-label={t('jobs.projectFilter.label')} data-testid="jobs-project-filter">
+                          <option value="all">{t('jobs.projectFilter.all')}</option>
+                          {projectOptions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          <option value="none">{t('jobs.projectFilter.none')}</option>
+                        </select>
+                      </span>
+                    </div>
+                  )}
+                  {shownTasks.length === 0 && (
+                    <EmptyState
+                      testId="jobs-project-empty"
+                      level={3}
+                      variant="no-results"
+                      title={t('jobs.projectFilter.empty')}
+                      actions={<Button variant="ghost" size="sm" onClick={() => setProjectFilter('all')}>{t('jobs.history.clearFilters')}</Button>}
+                    />
+                  )}
                   <ul className="ag-list aj-tasks" data-testid="jobs-tasks" aria-label={t('jobs.tasks.caption')}>
-                    {tasks.map(task => (
+                    {shownTasks.map(task => (
                       <TriggerRow
                         key={task.id}
                         task={task}
+                        project={projectOfTrigger(task, agents, projects)}
                         jobs={jobsOf(jobs, task.id)}
                         agent={agentName(task.agent_id)}
                         onToggle={() => toggleEnabled(task)}
@@ -230,13 +262,14 @@ export default function AgentJobs() {
                       />
                     ))}
                   </ul>
+                  </>
                 )}
               </section>
 
               <section className="aj-sec" aria-labelledby="aj-hist-h">
                 <div className="aj-sec__head aj-sec__head--stack">
                   <h2 className="ag-h2" id="aj-hist-h">{t('jobs.history.title')}</h2>
-                  <WeekSentence jobs={jobs} tasks={tasks} />
+                  <WeekSentence jobs={byProject} tasks={shownTasks} />
                 </div>
                 <div className="aj-toolbar">
                   <Segmented
@@ -248,7 +281,7 @@ export default function AgentJobs() {
                   <span className="dk-select-wrap aj-taskfilter">
                     <select className="dk-select" value={taskFilter} onChange={(e) => setTaskFilter(e.target.value)} aria-label={t('jobs.history.filterTask')}>
                       <option value="all">{t('jobs.history.allTasks')}</option>
-                      {tasks.map(task => <option key={task.id} value={task.id}>{task.name || task.id}</option>)}
+                      {shownTasks.map(task => <option key={task.id} value={task.id}>{task.name || task.id}</option>)}
                     </select>
                   </span>
                 </div>
@@ -261,7 +294,7 @@ export default function AgentJobs() {
                     title={filtered ? t('jobs.history.emptyFiltered') : t('jobs.history.emptyTitle')}
                     body={filtered ? undefined : t('jobs.history.emptyText')}
                     actions={filtered && (
-                      <Button variant="ghost" size="sm" onClick={() => { setStatusFilter('all'); setTaskFilter('all') }}>
+                      <Button variant="ghost" size="sm" onClick={() => { setStatusFilter('all'); setTaskFilter('all'); setProjectFilter('all') }}>
                         {t('jobs.history.clearFilters')}
                       </Button>
                     )}
@@ -344,7 +377,7 @@ function JobDetail({ job, t }) {
 // it and when it runs in words, how its last runs went, and on/off, Run now
 // and a menu. The words of the schedule are the server's ("Every weekday at
 // 08:00").
-function TriggerRow({ task, jobs, agent, onToggle, onRun, onOpen, onEdit, onDelete }) {
+function TriggerRow({ task, project, jobs, agent, onToggle, onRun, onOpen, onEdit, onDelete }) {
   const { t } = useTranslation('agents')
   const last = jobs[0]
   const off = !task.enabled
@@ -362,6 +395,7 @@ function TriggerRow({ task, jobs, agent, onToggle, onRun, onOpen, onEdit, onDele
             : <span className="ag-mono"><Icon name="cube" />{task.model || t('jobs.tasks.noAgent')}</span>}
           {!off && Date.parse(task.next_run || '') > Date.now() && <span><Icon name="calendar" />{t('jobs.tasks.next')} <RelTime iso={task.next_run} /></span>}
           {off && <span>{t('jobs.task.disabled')}</span>}
+          {project && <ProjectChip project={project} testId="trigger-project" />}
           <ReadOnlyTag trigger={task} />
         </span>
       </div>

@@ -12,7 +12,8 @@ type Options struct {
 	// DisableMutating omits all tools that change server state. Used by the
 	// "--read-only" flavour of the standalone stdio CLI. It also omits the client
 	// tools that write files, spend compute to make something, or create or
-	// delete data (generate_*, speak, embed, voice_profile create and delete).
+	// delete data (generate_*, speak, embed, voice_profile create and delete, and
+	// every projects action except list and get).
 	DisableMutating bool
 
 	// DisableClientFiles omits the client tools that read or write files

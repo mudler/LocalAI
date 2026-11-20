@@ -747,7 +747,9 @@
         "title": "Read your earlier chats",
         "description": "Lets the model search and read your earlier chats. An agent that works in a folder reads only the chats of its own."
       }
-    }
+    },
+    "fromProject": "From project",
+    "fromProjectTitle": "The project attaches this tool, so it is always on here. To turn it off, detach it in the project."
   },
   "mcpPage": {
     "title": "MCP connectors",
@@ -831,6 +833,11 @@
       "testedAt": "Tested {{when}}.",
       "errorTitle": "The last test could not connect.",
       "authTitle": "The server refused the sign-in.",
+      "output": "Last output from the command",
+      "outputCopy": "Copy",
+      "outputCopied": "Copied",
+      "outputMore": "Show all {{count}} lines",
+      "outputLess": "Show less",
       "tools": "Tools",
       "toolsUnknown": "Test the connection to see the tools.",
       "toolsNone": "The server offers no tools.",
@@ -998,6 +1005,9 @@
       "deliveryChat": "This chat",
       "deliveryThread": "This thread",
       "deliveryChannel": "{{channel}}, at the top of the channel",
+      "deliveryChannelIn": "{{channel}} in {{connection}}, at the top of the channel",
+      "deliveryModeOnChange": "Only when the answer differs from the run before.",
+      "deliveryModeOnProblem": "Only when a run fails. A run that works reports nothing.",
       "stopLabel": "To stop it",
       "when": "{{schedule}}, {{zone}}. First run {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -1043,18 +1053,19 @@
     "label": "Network",
     "preset": {
       "off": "Off",
-      "registries": "Package registries",
+      "registries": "Custom",
       "all": "All public sites"
     },
     "presetHint": {
       "off": "Commands reach no network.",
-      "registries": "Commands reach the package registries only (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub releases).",
+      "registries": "Commands reach the package registries (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub releases) and the domains your administrator added.",
       "all": "Commands reach every public site."
     },
     "limited": "Limited by your administrator",
     "limitedBy": "Your administrator allows at most: {{limit}}.",
     "hostNetwork": "Commands run on this machine and use its network. Network limits need an add-on that isolates commands.",
     "panel": "Rules and requests ({{count}})",
+    "panelCustom": "Custom domains",
     "rules": "Rules of this chat",
     "cards": "Requests of this chat",
     "ruleAllow": "Allowed for this chat",
@@ -1094,9 +1105,13 @@
       "rowOff": "Off: the administrator has not allowed network access.",
       "runner": "the add-on that runs commands"
     },
-    "allowedHosts": "Always allowed by your administrator:",
     "allowedHostsOff": "They apply when the network is on.",
-    "allowedHostsNote": "{{count}} hosts are always allowed by your administrator.",
+    "allowedHostsNote": "Custom domains added by your administrator: {{count}}.",
+    "customDomains": "Custom reaches the package registries and these domains, set by your administrator:",
+    "customEmpty": "Custom reaches the package registries only. Your administrator has not added other domains.",
+    "customLabel": "Custom domains",
+    "customEdit": "Edit domains",
+    "customAdmin": "An administrator manages this list.",
     "limitNote": "This chat’s network. The administrator sets the most a chat can reach.",
     "draftNote": "The chat starts with this setting. The administrator sets the most a chat can reach, and that limit applies.",
     "asksAbove": "This chat asks for {{choice}}; the administrator limit is {{limit}}.",
@@ -1207,6 +1222,10 @@
       "next": "next at {{time}}",
       "ended": "ended",
       "wait": "Waiting for: {{wait}}"
+    },
+    "report": {
+      "on_done": "Reports when done: {{channel}} · {{connection}}",
+      "on_problem": "Reports on a problem: {{channel}} · {{connection}}"
     },
     "actions": {
       "pause": "Pause",
@@ -1364,7 +1383,8 @@
       "user": "All your chats",
       "agent": "Agent {{agent}}",
       "agentAny": "One agent",
-      "channel": "This conversation"
+      "channel": "This conversation",
+      "project": "This project"
     },
     "help": "Nothing is saved until you confirm.",
     "row": {
@@ -1372,7 +1392,9 @@
       "target": "File",
       "source": "From",
       "expires": "Expires in",
-      "collection": "Collection"
+      "collection": "Collection",
+      "proposedBy": "Proposed by",
+      "note": "Note"
     },
     "source": {
       "chat": "A chat",
@@ -1447,6 +1469,17 @@
       "consent": "The recording is saved as a voice profile that your chats can speak with. You can delete it in the Voice library.",
       "consentAdmin": "You are an administrator, so this voice becomes available to all users of this server.",
       "confirm": "The speaker agreed: save the voice"
+    },
+    "fromOther": {
+      "title": "{{name}} proposed a note for {{project}}",
+      "titleNoProject": "{{name}} proposed a note",
+      "help": "Nothing is written until you confirm. {{name}} proposed this from a chat that pulled in this project.",
+      "by": "{{name}}, from their own chat",
+      "voided": "{{name}} can no longer edit this project.",
+      "noteFor": "A note for {{project}}",
+      "thisProject": "this project",
+      "why": "Share the project with edit access again, then ask for the note again if you still want it.",
+      "nameHint": "Project name taken from its folder"
     }
   },
   "proposalsPage": {

@@ -6,7 +6,7 @@ weight = 30
 devbuild = "addon"
 +++
 
-LocalAI can run with no accounts or with accounts. This page explains what changes, and how sharing works.
+Without accounts, anyone who reaches the server is an admin. With accounts, each person has a login, a role and their own files.
 
 ## Without accounts
 
@@ -33,7 +33,7 @@ Administrators always have every feature. To change a user, open **Settings > Us
 
 ## What is yours
 
-Each user has their own files, chats, saved agents, pages and add-on connections. Nobody else sees them. An administrator can read the saved agents, triggers and connectors of every user, switch them off and delete them, but not run them as that user.
+Each user has their own files, chats, saved agents, pages and add-on connections. Other users do not see them. An administrator can read the saved agents, triggers and connectors of every user, switch them off and delete them, but not run them as that user.
 
 ## Sharing
 

@@ -107,7 +107,7 @@ func (s *Service) GoalLimits() (turns, steps int) {
 
 // Goal returns the goal of a chat, or nil.
 func (s *Service) Goal(ctx context.Context, user, conv string) (*session.Goal, error) {
-	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func cleanGoal(text string) (string, error) {
 // a turn starts on it at once; with one running, the goal applies when it ends.
 func (s *Service) SetGoal(ctx context.Context, user, conv, text string) (prev, cur *session.Goal, err error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -161,7 +161,7 @@ func (s *Service) SetGoal(ctx context.Context, user, conv, text string) (prev, c
 // none). A running turn goes on, and nothing follows it.
 func (s *Service) ClearGoal(ctx context.Context, user, conv string) (*session.Goal, error) {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
 		return nil, err
 	}
 	var prev *session.Goal
@@ -188,7 +188,7 @@ func (s *Service) ClearGoal(ctx context.Context, user, conv string) (*session.Go
 // turn running (its frontend stopped between two turns) starts one as well.
 func (s *Service) ResumeGoal(ctx context.Context, user, conv string) (*session.Goal, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (s *Service) kickGoal(ctx context.Context, p, conv string, prompt func(stri
 // frontends, or a frontend and a person's message, never start two. The
 // caller holds the lock of the chat.
 func (s *Service) continueGoal(ctx context.Context, p, conv string, prompt func(string) string) (bool, error) {
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return false, err
 	}
@@ -339,7 +339,7 @@ func (s *Service) pauseGoal(ctx context.Context, p, conv, by string) {
 // count, and a turn that was stopped, failed or cut short pauses the goal. A
 // turn that ended by itself leaves it active, and the caller goes on.
 func (s *Service) settleGoal(ctx context.Context, p, conv string, status store.TurnStatus, steps int) {
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil || !goalActive(rec) {
 		return
 	}
@@ -381,7 +381,7 @@ func (s *Service) settleGoal(ctx context.Context, p, conv string, status store.T
 // goalLine adds a goal line to the transcript. A failure costs the line only.
 func (s *Service) goalLine(ctx context.Context, p, conv, kind, text string) {
 	turn := 0
-	if rec, err := s.d.Store.GetChat(ctx, p, conv); err == nil {
+	if rec, err := s.getChatEffective(ctx, p, conv); err == nil {
 		turn = rec.Turns
 	}
 	if _, err := s.d.Store.AppendEntry(ctx, conv, session.Entry{Turn: turn, Role: session.RoleGoal, Note: kind, Text: text}); err != nil {

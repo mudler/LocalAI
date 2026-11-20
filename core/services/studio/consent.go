@@ -80,7 +80,7 @@ func (s *Service) liveEgress(st egress.ChatState, info store.TurnInfo) (view egr
 // the built-in bash is cleared (an answer to it gets ErrHostExecExpired). run names the turn; empty ends the cards of
 // any turn, as at the start of a new turn, when none of them has a waiter.
 func (s *Service) expireConsents(ctx context.Context, p, conv, run string) {
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return
 	}

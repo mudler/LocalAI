@@ -6,19 +6,18 @@ weight = 1
 type = "chapter"
 aliases = ["/getting-started/"]
 description = "Install LocalAI, run a model and build a first agent."
-devbuild = "feature"
 +++
 
-This section takes you from a fresh install to a working chat, a working API call and your first agent. Follow the pages in order the first time.
+In about five minutes you can chat with a model and call it from curl. A saved agent takes a few more.
 
 {{% callout style="tip" %}}
-On Linux and macOS, install LocalAI with the script `curl -sSL https://localai.io/install.sh | sh`. Use Docker on Windows or when you prefer a container. On a desktop, you can use the [desktop app]({{% relref "/start/install/desktop" %}}) instead. See the [install guide]({{% relref "/start/install" %}}).
+The [quickstart]({{% relref "/start/quickstart" %}}) has the install command. Other ways to install are in the [install guide]({{% relref "/start/install" %}}).
 {{% /callout %}}
 
 ## The path
 
-1. [Quickstart]({{% relref "/start/quickstart" %}}): start LocalAI, install a model and get a first chat reply in the web interface and from the API.
-2. [Install]({{% relref "/start/install" %}}): every way to install LocalAI, one page per platform.
+1. [Quickstart]({{% relref "/start/quickstart" %}}): install, chat in the browser and call the API.
+2. [Other ways to install]({{% relref "/start/install" %}}): script, binary, container, Kubernetes and desktop app.
 3. [Set up models]({{% relref "/models/setting-up-models" %}}): install models from the gallery, Hugging Face, OCI images or local files.
 4. [Try it out]({{% relref "/start/try-it-out" %}}): copy-paste examples for the OpenAI-compatible endpoints.
 5. [Customize a model]({{% relref "/start/customize-model" %}}): edit the model configuration and the prompt template.

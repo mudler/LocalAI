@@ -19,7 +19,14 @@
     "deleteTitle": "Eliminare «{{title}}»?",
     "deleteMessage": "La cartella {{folder}} va nel Cestino. Puoi ripristinarla da File.",
     "deleted": "{{title}} è nel Cestino.",
-    "deleteFailed": "La pagina non è stata eliminata: {{message}}"
+    "deleteFailed": "La pagina non è stata eliminata: {{message}}",
+    "share": "Condividi",
+    "shared": "Condivisa",
+    "sharedWith_one": "Condivisa con {{count}} persona",
+    "sharedWith_other": "Condivisa con {{count}} persone",
+    "sharedEveryone": "Condivisa con tutti",
+    "someone": "qualcuno",
+    "othersEdit": "Altri possono modificare"
   },
   "empty": {
     "text": "Una pagina è un piccolo strumento, come una bacheca delle attività o una lista di lettura. Chiedine una all'assistente in una chat, oppure parti da una pagina pronta.",
@@ -48,12 +55,15 @@
       "notAllowed": "Non ancora consentita",
       "changed": "Cambiata da quando l'hai consentita",
       "allowed": "Consentita"
-    }
+    },
+    "userOff": "Disattivata da un amministratore.",
+    "stopFailed": "La pagina non è stata fermata: {{message}}"
   },
   "viewer": {
     "stopAllowing": "Non consentire più questa pagina",
     "authorChanged": "{{author}} ha cambiato questa pagina. La versione che hai consentito continua finché non esamini la modifica.",
-    "sandboxShared": "Isolata. Viene eseguita come te, solo in {{folder}}, e non raggiunge la rete."
+    "sandboxShared": "Isolata. Viene eseguita come te, solo in {{folder}}, e non raggiunge la rete.",
+    "sandboxUser": "In una sandbox. Viene eseguita come te, solo nella propria cartella, e non può raggiungere la rete."
   },
   "trust": {
     "title": "Aprire \"{{title}}\"?",
@@ -128,6 +138,26 @@
       "item": "Funzionare nella Home, negli slot dell'app e nel pannello",
       "note": "Parte quando appare lo schermo, senza un clic. Una modifica del suo autore chiede di nuovo.",
       "allow": "Consenti nella Home, negli slot e nel pannello"
+    },
+    "user": {
+      "desc": "Una persona ha condiviso questa pagina con te. Le pagine vengono eseguite come te: controllala prima che parta.",
+      "who": "Scritta da {{author}}. Non controllata da un amministratore.",
+      "unchecked": "Non controllata da un amministratore.",
+      "where": "Pagina condivisa",
+      "readOnly": "Puoi solo guardare questa pagina, quindi non può salvare le sue modifiche.",
+      "chrome": "Pagina condivisa. Non è stata eseguita.",
+      "blocked": "Hai scelto di non eseguirla. Viene da {{author}}. Nulla è stato eseguito e nulla è stato salvato.",
+      "files": "Leggere e scrivere file nella propria cartella"
+    },
+    "owner": {
+      "desc": "Altri possono modificare questa pagina. Le pagine vengono eseguite come te: controllala prima che parta.",
+      "who": "Altri possono modificare questa pagina. Controllala prima che parta.",
+      "changedWho": "Questa pagina è cambiata da quando l’hai consentita.",
+      "where": "La tua pagina",
+      "warn": "Agisce come te nella sua cartella. Se qualcuno la cambia, ti viene chiesto di nuovo.",
+      "changedWarn": "Se la consenti, questa versione viene eseguita a ogni apertura, finché qualcuno non la cambia di nuovo.",
+      "blocked": "Hai scelto di non eseguirla. Altri possono modificarla. Nulla è stato eseguito e nulla è stato salvato.",
+      "stale": "Questa pagina è cambiata. Controllala di nuovo."
     }
   },
   "frame": {
@@ -182,5 +212,43 @@
     "sendLabel": "La pagina chiede di inviare questo messaggio a questa chat:",
     "saveFailed": "Il pannello non è stato salvato: {{message}}",
     "openInDock": "Apri nel pannello"
+  },
+  "share": {
+    "intro": "Scegli chi può aprire questa pagina. La pagina resta dove si trova.",
+    "warning": "Le persone con cui condividi eseguono il codice di questa pagina nel loro browser, con i propri diritti, dopo averlo consentito. Viene chiesto di nuovo quando cambi il codice.",
+    "role": {
+      "view": "Vedere",
+      "use": "Usare",
+      "edit": "Modificare"
+    },
+    "roleHelp": {
+      "view": "Può eseguire la pagina e leggerne i dati. Non può salvare.",
+      "use": "Può eseguire la pagina e salvarvi dati. Non può cambiarne il codice.",
+      "edit": "Può cambiare tutto, compreso il codice."
+    },
+    "count": {
+      "people_one": "Condivisa con {{count}} persona.",
+      "people_other": "Condivisa con {{count}} persone.",
+      "everyone": "Condivisa con tutti.",
+      "everyoneAnd_one": "Condivisa con tutti e con {{count}} persona indicata.",
+      "everyoneAnd_other": "Condivisa con tutti e con {{count}} persone indicate.",
+      "allowed_one": "{{count}} ha consentito questa versione.",
+      "allowed_other": "{{count}} hanno consentito questa versione."
+    },
+    "offAdmin": "Un amministratore ha disattivato la condivisione delle pagine. Puoi ancora interrompere la condivisione con le persone qui sotto.",
+    "lost": "Non puoi più condividere questa pagina.",
+    "askAgain_one": "Hai cambiato il codice. A {{count}} persona verrà chiesto di consentire di nuovo.",
+    "askAgain_other": "Hai cambiato il codice. A {{count}} persone verrà chiesto di consentire di nuovo.",
+    "viewOnly": "Puoi guardare questa pagina, ma non cambiarla",
+    "editNote": "Con Modificare, questa pagina si apre anche per te tramite il passaggio di consenso.",
+    "tile": {
+      "title": "Apri questa pagina per eseguirla",
+      "text": "Una persona l’ha condivisa con te. Non viene eseguita nella Home né in uno slot. Aprila per eseguirla.",
+      "open": "Apri la pagina",
+      "dock": "Una persona ha condiviso questa pagina con te. Aprila da Pagine per eseguirla.",
+      "slot": "Apri {{title}} per eseguirla",
+      "textOwn": "Altri possono modificarla. Non viene eseguita nella Home né in uno slot. Aprila per eseguirla.",
+      "dockOwn": "Altri possono modificare questa pagina. Aprila da Pagine per eseguirla."
+    }
   }
 }

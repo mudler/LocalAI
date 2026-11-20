@@ -1,6 +1,7 @@
 // Where releases come from. No Electron import.
 import http from 'node:http'
 import https from 'node:https'
+import { exeSuffix, type PlatformTarget } from './platform'
 import { DEV_CHECKSUMS_FALLBACK, DEV_RELEASE_TAG, devAssetName, devChecksumName, parseDevBuild, type DevBuild } from './devFeed'
 
 export interface ReleaseAsset {
@@ -18,9 +19,15 @@ export interface ReleaseInfo {
   build?: DevBuild
 }
 
-export interface PlatformTarget {
-  os: 'linux' | 'darwin'
-  arch: 'amd64' | 'arm64'
+export type { PlatformTarget } from './platform'
+
+/**
+ * The release asset of the server binary, as GoReleaser names it
+ * (.goreleaser.yaml, `formats: [binary]`): local-ai-v<version>-<os>-<arch>,
+ * with `.exe` for Windows.
+ */
+export function serverAssetName(version: string, t: PlatformTarget): string {
+  return `local-ai-v${version}-${t.os}-${t.arch}${exeSuffix(t)}`
 }
 
 export interface UpdateProvider {
@@ -128,8 +135,7 @@ export class GithubReleasesProvider implements UpdateProvider {
 
   resolveAsset(release: ReleaseInfo, t: PlatformTarget): ReleaseAsset | undefined {
     if (release.build) return release.assets.find((a) => a.name === devAssetName(t))
-    // Release naming: local-ai-v<version>-<os>-<arch>
-    const want = `local-ai-v${release.version}-${t.os}-${t.arch}`
+    const want = serverAssetName(release.version, t)
     return release.assets.find((a) => a.name === want)
   }
 
@@ -159,6 +165,8 @@ const ALL_TARGETS: PlatformTarget[] = [
   { os: 'linux', arch: 'arm64' },
   { os: 'darwin', arch: 'amd64' },
   { os: 'darwin', arch: 'arm64' },
+  // The release has no windows/arm64 server build.
+  { os: 'windows', arch: 'amd64' },
 ]
 
 function getRedirect(url: string, headers: Record<string, string>): Promise<{ status: number; location?: string }> {
@@ -194,7 +202,7 @@ export async function resolveLatestByRedirect(o: RedirectOptions): Promise<Relea
   const version = tag.replace(/^v/, '')
   const dl = `${web}/${o.owner}/${o.repo}/releases/download/${encodeURIComponent(tag)}`
   const assets: ReleaseAsset[] = (o.targets ?? ALL_TARGETS).map((t) => {
-    const name = `local-ai-v${version}-${t.os}-${t.arch}`
+    const name = serverAssetName(version, t)
     return { name, url: `${dl}/${name}` }
   })
   const sums = `LocalAI-${tag}-checksums.txt`

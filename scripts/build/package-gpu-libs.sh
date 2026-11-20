@@ -146,8 +146,12 @@ is_core_lib() {
 # Used to make a bundled GPU driver self-contained: e.g. the Mesa Vulkan ICDs
 # pull in libdrm, libexpat and (for RADV/lavapipe) libLLVM, none of which the
 # runtime base image is guaranteed to have. Core libc-family deps are skipped.
+# Optional $2: extra library directories (colon-separated) put in front of
+# LD_LIBRARY_PATH for ldd only, for deps the build image's loader cannot find
+# on its own (see rocm_dep_search_path).
 copy_elf_deps() {
     local elf="$1"
+    local search="${2:-}"
     [ -e "$elf" ] || return 0
     command -v ldd >/dev/null 2>&1 || return 0
 
@@ -158,7 +162,12 @@ copy_elf_deps() {
             continue
         fi
         copy_lib "$dep"
-    done < <(ldd "$elf" 2>/dev/null | awk '/=>/ && $3 ~ /^\// {print $3}')
+    done < <(
+        if [ -n "$search" ]; then
+            LD_LIBRARY_PATH="$search${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ldd "$elf" 2>/dev/null
+        else
+            ldd "$elf" 2>/dev/null
+        fi | awk '/=>/ && $3 ~ /^\// {print $3}')
 }
 
 # Sweep the transitive shared-library dependencies of everything already
@@ -171,8 +180,10 @@ copy_elf_deps() {
 # object file"). ldd resolves the full recursive closure, so a single pass over
 # the already-bundled libs is enough; core libc-family deps are skipped via
 # copy_elf_deps/is_core_lib so we never shadow the loader's own libc/libstdc++.
+# Optional $2 is passed to copy_elf_deps as its extra search path.
 sweep_transitive_deps() {
     local dir="${1:-$TARGET_LIB_DIR}"
+    local search="${2:-}"
     command -v ldd >/dev/null 2>&1 || return 0
 
     # Snapshot the current set first: copy_elf_deps adds files as it runs, and
@@ -189,7 +200,7 @@ sweep_transitive_deps() {
         [ -e "$lib" ] || continue
         # Skip symlinks: their real target is in the snapshot and gets swept.
         [ -L "$lib" ] && continue
-        copy_elf_deps "$lib"
+        copy_elf_deps "$lib" "$search"
     done
 }
 
@@ -612,6 +623,47 @@ copy_rocm_data_dir() {
     fi
 }
 
+# Extra directories the transitive sweep must search on a ROCm 10.x install.
+#
+# ROCm 10.x (TheRock packages, e.g. rocm/dev-ubuntu-24.04:10.1.0-full) does not
+# register its library directories with the dynamic loader: there is no
+# /etc/ld.so.conf.d entry and no LD_LIBRARY_PATH. Its libraries find each other
+# through DT_RPATH instead, $ORIGIN/rocm_sysdeps/lib:$ORIGIN/llvm/lib:$ORIGIN
+# (plus $ORIGIN/host-math/lib on the math libraries). The sweep runs ldd on the
+# COPIES in the target lib dir, where $ORIGIN is the target dir, so every
+# dependency the allowlist did not copy (librocm_kpack, librocprofiler-register,
+# liborigami, librocm_sysdeps_*, libLLVM, libclang-cpp) came back "not found",
+# was skipped, and the backend's package validation then failed on them.
+#
+# The lib/rocm_sysdeps/lib directory only exists in that layout, so it is the
+# marker: ROCm 7.x installs get an empty result and the sweep is unchanged
+# there. Prints a colon-separated list (possibly empty). The ROCm roots default
+# to /opt/rocm{,-*} and can be overridden with ROCM_BASE_DIRS, as in
+# copy_rocm_data_dir.
+rocm_dep_search_path() {
+    local rocm_dirs
+    if [ -n "${ROCM_BASE_DIRS:-}" ]; then
+        # shellcheck disable=SC2206  # word-splitting is the point
+        rocm_dirs=(${ROCM_BASE_DIRS})
+    else
+        rocm_dirs=(/opt/rocm /opt/rocm-*)
+    fi
+
+    local out="" rocm_base lib_subdir lib_dir sub
+    for rocm_base in "${rocm_dirs[@]}"; do
+        for lib_subdir in lib lib64; do
+            lib_dir="$rocm_base/$lib_subdir"
+            [ -d "$lib_dir/rocm_sysdeps/lib" ] || continue
+            for sub in "" /rocm_sysdeps/lib /llvm/lib /host-math/lib; do
+                if [ -d "$lib_dir$sub" ]; then
+                    out="${out:+$out:}$lib_dir$sub"
+                fi
+            done
+        done
+    done
+    printf '%s' "$out"
+}
+
 # Package AMD ROCm/HIPBlas libraries
 package_rocm_libs() {
     echo "Packaging ROCm/HIPBlas libraries for BUILD_TYPE=${BUILD_TYPE}..."
@@ -677,7 +729,8 @@ package_rocm_libs() {
 
     # Pull in transitive deps the allowlist misses (librocprofiler-register.so.0,
     # libnuma, libdrm_amdgpu, ...) so the backend is self-contained. See #10537.
-    sweep_transitive_deps "$TARGET_LIB_DIR"
+    # On ROCm 10.x those deps are only reachable through the extra search path.
+    sweep_transitive_deps "$TARGET_LIB_DIR" "$(rocm_dep_search_path)"
 
     echo "ROCm libraries packaged successfully"
 }
@@ -964,6 +1017,7 @@ export -f is_core_lib
 export -f copy_elf_deps
 export -f sweep_transitive_deps
 export -f copy_rocm_data_dir
+export -f rocm_dep_search_path
 export -f cudnn_family_state
 export -f cudnn_is_referenced
 export -f complete_cudnn_family

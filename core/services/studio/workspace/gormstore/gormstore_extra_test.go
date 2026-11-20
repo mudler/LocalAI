@@ -47,6 +47,41 @@ var _ = Describe("The SQLite store beyond the contract", func() {
 		})
 	}
 
+	// A database that has grants of read and write gets the mode data and the
+	// page mark without any change to them: read is 1 and write is 2 as they
+	// always were, and data is stored as a number that a server without the
+	// mode reads as no access.
+	It("keeps the stored numbers of read and write and stores data apart from them", func() {
+		dir := GinkgoT().TempDir()
+		blobs, err := blob.NewFS(filepath.Join(dir, "blobs"))
+		Expect(err).ToNot(HaveOccurred())
+		db, err := auth.OpenSQLiteFile(filepath.Join(dir, "ws.db"))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() {
+			if raw, err := db.DB(); err == nil {
+				_ = raw.Close()
+			}
+		})
+		s, err := gormstore.New(db, blobs, gormstore.Options{Admin: wstest.Admin})
+		Expect(err).ToNot(HaveOccurred())
+		ctx := context.Background()
+		wstest.MustPut(s, wstest.AdminActor, "/page/index.html", "x")
+		Expect(s.Grant(ctx, wstest.AdminActor, "r", "/page", workspace.ModeRead)).To(Succeed())
+		Expect(s.Grant(ctx, wstest.AdminActor, "w", "/page", workspace.ModeWrite)).To(Succeed())
+		Expect(s.GrantPage(ctx, wstest.AdminActor, "d", "/page", workspace.ModeData)).To(Succeed())
+		modes := map[string]int{}
+		rows, err := db.Raw(`SELECT principal, mode FROM studio_ws_grants`).Rows()
+		Expect(err).ToNot(HaveOccurred())
+		for rows.Next() {
+			var p string
+			var m int
+			Expect(rows.Scan(&p, &m)).To(Succeed())
+			modes[p] = m
+		}
+		Expect(rows.Close()).To(Succeed())
+		Expect(modes).To(Equal(map[string]int{"r": 1, "w": 2, "d": -1}))
+	})
+
 	// A purge on one frontend is seen by the other at once: they share the
 	// database, so there is nothing to broadcast.
 	It("a purge on one frontend is seen by the other", func() {

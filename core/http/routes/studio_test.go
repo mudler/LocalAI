@@ -52,6 +52,12 @@ type studioServer struct {
 	// db is the account database; conns the connector manager.
 	db    *gorm.DB
 	conns *studio.Connectors
+	// agents is the saved-agent store behind svc, for specs that seed an agent the API would refuse.
+	agents agents.Store
+	// connStore, trigStore and loopStore are the stores of the connectors, triggers and loops, for specs that seed a row the API would refuse.
+	connStore connectors.Store
+	trigStore triggers.Store
+	loopStore loops.Store
 }
 
 // studioSharedDB and studioSharedConnStore, when set, are the account
@@ -166,7 +172,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	DeferCleanup(conns.Close)
 	DeferCleanup(host.Close)
 
-	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc, store: st, db: db, conns: conns}
+	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc, store: st, db: db, conns: conns, agents: ag, connStore: cs, trigStore: ts, loopStore: lstore}
 	for _, id := range []string{"alice", "bob", "carol", "dave", "root"} {
 		role := auth.RoleUser
 		if id == "root" {

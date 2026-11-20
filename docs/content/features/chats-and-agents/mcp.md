@@ -145,7 +145,7 @@ Behaviour:
 - The environment variables are read by the process that connects to the MCP server. In distributed mode that is the agent worker, so set them there.
 - Sessions and cached tokens are keyed by the server configuration, not by the value of an environment variable. After you rotate a secret that is referenced by `client_secret_env` (or `client_id_env`), restart the process that connects to the MCP server so it picks up the new value.
 
-Servers configured with a static `token` behave exactly as before.
+Servers configured with a static `token` don't use the OAuth settings.
 
 #### STDIO Servers (`stdio`)
 Configure local command-based MCP servers:
@@ -153,6 +153,8 @@ Configure local command-based MCP servers:
 - **`command`**: The executable command to run
 - **`args`**: Array of command-line arguments
 - **`env`**: Environment variables (optional)
+
+If a stdio server fails to start, to answer or to run a tool, LocalAI adds the last 4 KB of its error stream to the error, after a line `command output:`, and to the server log. The first line of the error does not change. The values you set in `env` are replaced with `***` first.
 
 #### Automatic activation (`auto`)
 
@@ -655,7 +657,7 @@ mcp:
 > The chats no longer connect to MCP servers from the browser. This section
 > describes the browser-side connection that the add-on host still offers to
 > add-ons. For the chats, define the server as a connector (it is stored per user
-> and connects from the server): see [Chats connectors]({{% relref "/features/chat-apps" %}}#mcp-servers).
+> and connects from the server): see [Chats connectors]({{% relref "/features/chat-apps/mcp-servers#mcp-servers" %}}).
 > A server on your own computer or a private network is refused unless an
 > administrator allows private addresses.
 

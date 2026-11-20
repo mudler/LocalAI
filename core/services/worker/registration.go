@@ -241,8 +241,8 @@ func (cfg *Config) registrationBody() map[string]any {
 
 // heartbeatBody returns the current VRAM/RAM stats for heartbeat payloads.
 //
-// When aggregate VRAM usage is unknown (no GPU, or temporary detection
-// failure), we deliberately OMIT available_vram so the frontend keeps its
+// When aggregate VRAM usage is unknown (no GPU, a temporary detection
+// failure, or a GPU whose memory in use the OS does not report), we deliberately OMIT available_vram so the frontend keeps its
 // last good value — overwriting with 0 makes the UI show the node as "fully
 // used", while reporting total-as-available lies to the scheduler about
 // free capacity.
@@ -251,7 +251,7 @@ func (cfg *Config) heartbeatBody() map[string]any {
 	// so that every load operation of the previous process ended.
 	body := map[string]any{"worker_incarnation": workerIncarnation}
 	aggregate := getGPUAggregateInfo()
-	if aggregate.TotalVRAM > 0 {
+	if aggregate.TotalVRAM > 0 && !aggregate.UsageUnknown {
 		body["available_vram"] = aggregate.FreeVRAM
 	}
 

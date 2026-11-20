@@ -42,6 +42,7 @@
     "audioTransform": "音频变换",
     "faceRecognition": "人脸识别",
     "voiceRecognition": "语音识别",
+    "projects": "项目",
     "agents": "智能体",
     "skills": "技能",
     "memory": "知识库",

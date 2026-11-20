@@ -17,7 +17,7 @@
         "3063c1cc575d196e1b7e32171336918a64f50345130edf909685b3b3084af4be",
         "e4b3a1010aa7bec81caea03fa56a36c2c0ce1756e351c7886b2a51d98f1696bc"
       ],
-      "output_sha256": "e04d2e3c666de28c551aed68b4ff5580717fbcfd645e751e5f40eaa7e2e69528",
+      "output_sha256": "d0fcf908cfb04ca6cc0e953fbaf197d19f31e1ea1b6009f6de129c483c303ce6",
       "file": "docx/SKILL.md",
       "anchor": "source-ed2eda34b2b47223"
     },
@@ -3362,7 +3362,7 @@
         "4e9b382bb42774f8b9e2412a273e11542dac7855814ec9b2aa3df0660a73e65b",
         "e4b3a1010aa7bec81caea03fa56a36c2c0ce1756e351c7886b2a51d98f1696bc"
       ],
-      "output_sha256": "e8b5a455960640513c6cceffbe07881a34ab1366beea2ebff2d71b047b596545",
+      "output_sha256": "b1190a309ed6a3b8267d7610fe7d2e71eb3d7dd2aeac988db7025c73d8859c68",
       "file": "pptx/SKILL.md",
       "anchor": "source-d90478c6a44a44a1"
     },
@@ -7651,7 +7651,7 @@
         "70f9b8631799df1e83ca08ef527b13c180396a4f4f8af6a2adbe513d762eac10",
         "b4e8e1292ca7044d1af33a17cb442ca9c84966669ff57993695aa92115eeefeb"
       ],
-      "output_sha256": "db38057650e17bbaf0226e622fdf1ff41cb1fed833d72634e1fe5cafd94aebd4",
+      "output_sha256": "c6727740aa90f9cfb1740c789d08eea1ca7347ceb81fd26ad9c8e94369ed9fb0",
       "file": "xlsx/SKILL.md",
       "anchor": "source-a2556aa7ac0d6dc1"
     },
@@ -15411,7 +15411,7 @@
         "b32c939dd2fe30204c7156c1421cada373816c1b48957be964199d191f5649b5",
         "b0791be71d883114dd1bdc927e252e0bb7a071d82e420fc1e94c21d21b435b94"
       ],
-      "output_sha256": "e91f10c234f0f5dc9ace7f9eb96dd89bc6cee425266125a64412ec8f3d124167",
+      "output_sha256": "c0598c53ce9331f4602009f8907a3f27d4c053a6fa4d573416ac22fc24836790",
       "file": "xlsx/references/paper-api.md",
       "anchor": "source-1d5d2fa5f7f8302a"
     }

@@ -590,6 +590,16 @@ var _ = Describe("InstallModelFromGallery with variant entries", func() {
 		Expect(filepath.Join(tempdir, "qwen3-8b-q4.yaml")).ToNot(BeAnExistingFile())
 	})
 
+	It("accepts the entry's own name as the pin when the entry declares no variants", func() {
+		// The first-run recommendation always sends the entry's own id as the
+		// pin, so what installs is the build whose memory was estimated. For a
+		// single-build entry that pin is already satisfied and must not fail.
+		newGallery(entry("qwen3-8b-q4", "base-backend"))
+
+		Expect(install("qwen3-8b-q4", gallery.GalleryModel{}, gallery.WithVariant("qwen3-8b-q4"))).To(Succeed())
+		Expect(installedBackend("qwen3-8b-q4")).To(Equal("base-backend"))
+	})
+
 	It("records a pin and honors it on a plain reinstall", func() {
 		// The upgrade declares a size and the base does not, so auto-selection
 		// genuinely prefers the upgrade here. Without that the second install

@@ -282,6 +282,121 @@
                   ]
                 }
               ]
+            },
+            {
+              "id": "office",
+              "title": "Office",
+              "description": "Base plus LibreOffice Impress, Writer and Calc and fonts to render presentations and documents to images and to recalculate workbooks.",
+              "cpus": 2,
+              "memoryMiB": 4096,
+              "diskMiB": 20480,
+              "tools": [
+                {
+                  "name": "python3",
+                  "detail": "pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow",
+                  "check": [
+                    "python3 --version"
+                  ]
+                },
+                {
+                  "name": "pip",
+                  "check": [
+                    "pip --version"
+                  ]
+                },
+                {
+                  "name": "jq",
+                  "check": [
+                    "jq --version"
+                  ]
+                },
+                {
+                  "name": "ripgrep",
+                  "detail": "rg",
+                  "check": [
+                    "rg --version"
+                  ]
+                },
+                {
+                  "name": "sqlite3",
+                  "check": [
+                    "sqlite3 --version"
+                  ]
+                },
+                {
+                  "name": "zip",
+                  "check": [
+                    "zip -v"
+                  ]
+                },
+                {
+                  "name": "unzip",
+                  "check": [
+                    "unzip -v"
+                  ]
+                },
+                {
+                  "name": "file",
+                  "check": [
+                    "file --version"
+                  ]
+                },
+                {
+                  "name": "tree",
+                  "check": [
+                    "tree --version"
+                  ]
+                },
+                {
+                  "name": "poppler",
+                  "detail": "pdftotext, pdftoppm",
+                  "check": [
+                    "pdftotext -v",
+                    "pdftoppm -v"
+                  ]
+                },
+                {
+                  "name": "git",
+                  "check": [
+                    "git --version"
+                  ]
+                },
+                {
+                  "name": "curl",
+                  "check": [
+                    "curl --version"
+                  ]
+                },
+                {
+                  "name": "LibreOffice Impress",
+                  "detail": "soffice, renders .pptx to PDF",
+                  "check": [
+                    "soffice --version",
+                    "check-office-convert"
+                  ]
+                },
+                {
+                  "name": "LibreOffice Writer",
+                  "detail": "soffice, renders .docx to PDF",
+                  "check": [
+                    "check-office-docx"
+                  ]
+                },
+                {
+                  "name": "LibreOffice Calc",
+                  "detail": "soffice, recalculates .xlsx and renders it to PDF",
+                  "check": [
+                    "check-office-xlsx"
+                  ]
+                },
+                {
+                  "name": "fonts",
+                  "detail": "DejaVu, Liberation, Carlito (as Calibri), Caladea (as Cambria)",
+                  "check": [
+                    "check-office-fonts"
+                  ]
+                }
+              ]
             }
           ]
         }

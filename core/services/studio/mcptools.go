@@ -12,7 +12,7 @@ import (
 
 // reservedToolNames are the names the service owns. A tool from another source
 // cannot take one, so the model always gets the real thing.
-var reservedToolNames = map[string]bool{"spawn_agent": true, proposeTriggerName: true, listTriggersName: true, startLoopName: true, waitForName: true, waitAgentsName: true,
+var reservedToolNames = map[string]bool{"spawn_agent": true, proposeTriggerName: true, listTriggersName: true, updateTriggerName: true, deleteTriggerName: true, listConnectionsName: true, startLoopName: true, waitForName: true, waitAgentsName: true,
 	webSearchName: true, webFetchName: true, listAgentsName: true,
 	toolSearchName: true, toolDescribeName: true, toolCallName: true}
 
@@ -30,7 +30,7 @@ func (s *Service) hostTools(ctx context.Context, a workspace.Actor) ([]session.T
 // apart (conns, already gated), so that a turn can put them behind the tool
 // search, and with the grants that could not be used and the add-ons held back.
 func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) (tools, conns []session.Tool, missing []string, held []builtins.Built, err error) {
-	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -54,7 +54,7 @@ func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) (tools
 	}
 	tools, missing = append(tools, dropHidden(t, hidden)...), append(missing, m...)
 	if !hidden[collectionToolNames[0]] {
-		t, m = s.collectionTools(ctx, a, sc)
+		t, m = s.collectionTools(ctx, a, sc, rec.Collections)
 		tools, missing = append(tools, t...), append(missing, m...)
 	}
 	t, conns, m = s.mcpTools(ctx, a, rec, sc, tools)

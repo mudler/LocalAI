@@ -23,6 +23,7 @@ import type {
   WebuiTarget,
   WebuiViewState,
 } from '../shared/types'
+import { isServerOrigin } from './webuiPolicy'
 
 export interface WebuiInputs {
   server: ServerState
@@ -160,7 +161,13 @@ export class WebuiModel {
         this.remoteStatus = this.remote ? e.status : null
         break
       case 'deep-link': {
-        if (this.placement !== 'embedded' || this.remote || this.inputs.workerMode) {
+        // A page of the remote server on show opens in the window; any other remote page opens in the browser.
+        if (this.placement === 'embedded' && this.remote && !this.inputs.workerMode && this.view?.origin === this.remote.origin && isServerOrigin(e.url, this.remote.origin)) {
+          this.screen = null
+          fx.push({ kind: 'navigate', url: e.url })
+          return [...this.reconcile(), ...fx]
+        }
+        if (this.placement !== 'embedded' || this.remote || this.inputs.workerMode || !isServerOrigin(e.url, this.inputs.localOrigin)) {
           fx.push({ kind: 'open-browser', url: e.url })
           return fx
         }

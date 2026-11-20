@@ -159,15 +159,37 @@ export const extraBody = (form) => {
   return { resources: address ? [address] : [], write_mode: writeModeOf(form.write_mode) }
 }
 
-// Whether the form may be saved: a user, a host, and a host key the person
-// trusts. A change of user or host on a saved connection needs the secret
-// again, because the old one belongs to the old user, and the key must be
-// checked again for a new host.
+// Whether the form may be saved: a user and a host. The host key is not
+// needed yet: when none is trusted, Save reads it and asks first (see
+// needsHostKeyStep). A change of user or host on a saved connection needs the
+// secret again, because the old one belongs to the old user.
 export const extraValid = (form) => {
   if (!form.user || userProblem(form.user) || !form.host_text || hostProblem(form.host_text)) return false
-  if (!normalizePin(form.pin_text) || !form.pin_ok) return false
   return !needsSecretAgain(form)
 }
+
+// Whether Save must first read the host key and ask the person to trust it:
+// no key is pinned, or the person has not trusted the one that is. A saved
+// connection with the same user and host keeps its trusted key and saves at once.
+export const needsHostKeyStep = (form) => !(normalizePin(form.pin_text) && form.pin_ok)
+
+// Reads the host key of an address with the add-on's scan-host-key tool; read
+// is the SDK's api.read. No secret is sent: the scan stops at the key. The
+// answer is { pin, type } or { error }, where error is the key of the text to
+// show.
+export async function scanHostKey(read, address) {
+  try {
+    const res = await read({ arguments: { tool: 'scan-host-key', address } })
+    const pin = normalizePin(res?.data?.pin)
+    if (!pin) return { error: 'hostKey.failed' }
+    return { pin, type: String(res?.data?.keyType || '') }
+  } catch (e) {
+    return { error: checkFailure(e) === 'unreachable' ? 'hostKey.unreachable' : 'hostKey.failed' }
+  }
+}
+
+// The form fields that pin a scanned key and trust it.
+export const trustedKey = (scan) => ({ pin_text: scan.pin, pin_ok: true, pin_type: scan.type })
 
 // Whether the saved secret no longer fits the form: the person changed the
 // user or the host and typed no new secret.

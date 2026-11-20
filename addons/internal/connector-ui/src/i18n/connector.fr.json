@@ -287,6 +287,8 @@
   "ready.quiet_other": "{{count}} points à régler",
   "ready.quietDone": "Rien à régler",
   "matrix.title": "Qui peut faire quoi",
+  "loops.title": "Attentes et minuteries",
+  "loops.help": "Ce que l'agent peut faire plus tard dans cette conversation, de lui-même. Cela appartient au bot : un rôle ne le reçoit jamais.",
   "matrix.note": "Les interrupteurs et les cases des rôles sont à vous de régler. Toutes les autres cellules sont calculées à partir de vos réglages actuels, par la même vérification que l'hôte fait à chaque message.",
   "matrix.capability": "Autorisation",
   "matrix.pick": "Type d’expéditeur",

@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import BrandName from './BrandName'
 import ThemeToggle from './ThemeToggle'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
@@ -28,9 +29,8 @@ import { useNavConfig, useNavLinks } from '../hooks/useNavConfig'
 import { sections as navSections, entryLabel } from '../utils/nav'
 import { useUiString } from './wellknown/Identity'
 import WorkspaceSlot from './slots/WorkspaceSlot'
+import { readSidebarCollapsed, writeSidebarCollapsed, readSidebarSections, writeSidebarSections } from '../utils/sidebarState'
 
-const COLLAPSED_KEY = 'localai_sidebar_collapsed'
-const SECTIONS_KEY = 'localai_sidebar_sections'
 
 // The sidebar has two layouts. The primary layout shows Home, Files, Agents,
 // MCP connectors, Memory, Models and Add-ons (the entry for the add-ons
@@ -83,7 +83,7 @@ function loadSectionState() {
   // is persisted. Stored values override the defaults so a saved collapse wins.
   const defaults = Object.fromEntries(sections.map(s => [s.id, true]))
   try {
-    const stored = localStorage.getItem(SECTIONS_KEY)
+    const stored = readSidebarSections()
     return stored ? { ...defaults, ...JSON.parse(stored) } : defaults
   } catch (_) {
     return defaults
@@ -91,7 +91,7 @@ function loadSectionState() {
 }
 
 function saveSectionState(state) {
-  try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(state)) } catch (_) { /* ignore */ }
+  writeSidebarSections(state)
 }
 
 // features is the answer of /api/features, read once by App (the inbox needs it
@@ -101,9 +101,7 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
   // The user's own text for a few entries (ui.json strings).
   const uiString = useUiString()
   const features = featuresProp || {}
-  const [collapsed, setCollapsed] = useState(() => {
-    try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
-  })
+  const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const [openSections, setOpenSections] = useState(loadSectionState)
   const { isAdmin, authEnabled, user, logout, hasFeature } = useAuth()
   const { operations } = useOperations()
@@ -158,7 +156,7 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
     // synchronous sidebar-collapse dispatch re-entered setState from the
     // listeners mid-update, so the toggle silently no-op'd in dev builds.
     const next = !collapsed
-    try { localStorage.setItem(COLLAPSED_KEY, String(next)) } catch (_) { /* ignore */ }
+    writeSidebarCollapsed(next)
     setCollapsed(next)
     window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: next } }))
   }
@@ -265,7 +263,7 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
             {branding.logoHorizontalUrl === DEFAULT_BRANDING.logoHorizontalUrl ? (
               <>
                 <img src={apiUrl(branding.logoUrl)} alt="" className="sidebar-logo-img sidebar-logo-img--tile" />
-                <span className="sidebar-wordmark">{branding.instanceName}</span>
+                <span className="sidebar-wordmark"><BrandName /></span>
               </>
             ) : (
               <img src={apiUrl(branding.logoHorizontalUrl)} alt={branding.instanceName} className="sidebar-logo-img" />

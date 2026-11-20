@@ -1,3 +1,5 @@
+import { readSidebarCollapsed } from '../utils/sidebarState'
+
 // What shows while code or data for a screen is still on its way. The shell
 // comes first: a cold start draws the sidebar and the page frame at once and
 // puts skeletons where the content will be, never a blank window with a
@@ -34,17 +36,13 @@ function PagePlaceholder() {
   )
 }
 
-function sidebarCollapsed() {
-  try { return localStorage.getItem('localai_sidebar_collapsed') === 'true' } catch { return false }
-}
-
 // The boot screen: the app shell before the translations and the session
 // have loaded. It draws the sidebar column (collapsed if the person left it
 // so), the phone header, and the content placeholder, so the first paint
 // already has the layout of the app. `embedded` keeps it in the flow, for the
 // component catalog.
 export function ShellFallback({ embedded = false }) {
-  const collapsed = sidebarCollapsed()
+  const collapsed = readSidebarCollapsed()
   return (
     <div
       className={`app-shell-fallback${collapsed ? ' is-collapsed' : ''}${embedded ? ' is-embedded' : ''}`}

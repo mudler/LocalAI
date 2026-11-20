@@ -13,7 +13,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -21,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/credentials"
+	"github.com/mudler/LocalAI/pkg/fsperm"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
@@ -107,7 +110,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		return out, e
 	}
 	info, e := os.Lstat(root)
-	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0077 != 0 {
+	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return out, ErrPackage
+	}
+	// On Windows, which has no mode bits, the folder is made private to the
+	// current user (a new folder has the access control list of its parent).
+	if _, e = fsperm.RequirePrivate(root, info); e != nil {
 		return out, ErrPackage
 	}
 	dir, e := os.MkdirTemp(root, "stage-")
@@ -272,9 +280,13 @@ func (i *Installer) inspectStage(dir string) (contract.Manifest, *PackageIcon, [
 		assets = append(assets, u.Entry)
 		assets = append(assets, u.CSS...)
 	}
+	// A Windows process cannot read Unix mode bits back from disk. When it
+	// stages for another OS, which only a test does since the host OS is the
+	// running OS, the executable is taken from the manifest.
+	modeBitsUnreadable := goruntime.GOOS == "windows" && i.Host.OS != "windows"
 	for _, asset := range assets {
 		info, e := os.Lstat(filepath.Join(dir, filepath.FromSlash(asset)))
-		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && info.Mode()&0100 == 0) {
+		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && !modeBitsUnreadable && !runnable(goruntime.GOOS, info, asset, m.RunsInWSL())) {
 			return contract.Manifest{}, nil, nil, ErrPackage
 		}
 	}
@@ -469,4 +481,21 @@ func expectedImageDigest(pinned string, r catalog.Release, rt http.RoundTripper)
 		}
 	}
 	return "", ErrPackage
+}
+
+// runnable reports whether the executable of a package can run on goos.
+// Windows has no execute bit: there the name must end in .exe, which is what
+// makes a file a program for Windows (a Windows package names its executable
+// so). Other systems need the owner execute bit. The executable of a
+// package that runs in WSL 2 is a Linux program that Windows does not run
+// itself: the copy in the distribution gets its execute bit, and the
+// supervisor checks that it is a Linux program at each launch.
+func runnable(goos string, info os.FileInfo, name string, inWSL bool) bool {
+	if inWSL {
+		return true
+	}
+	if goos == "windows" {
+		return strings.EqualFold(path.Ext(name), ".exe")
+	}
+	return info.Mode()&0100 != 0
 }

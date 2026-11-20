@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isVoiceProfile, KNOWN_KINDS, previewLines, sourceOfProposal, targetPath, timeLeft, voiceProfileFields,
+  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isVoiceProfile, KNOWN_KINDS, KNOWN_SCOPES, previewLines, sourceOfProposal, targetPath, timeLeft, voiceProfileFields,
 } from '../../src/utils/changeProposal.js'
 import { diffLines, diffStats, splitLines, withContext } from '../../src/utils/lineDiff.js'
 import { allFiles, groupKind, indexFits, indexUse } from '../../src/utils/memoryFiles.js'
@@ -205,9 +205,20 @@ test('voice library: the name hint no longer says only admins make profiles', as
   const { readFileSync, readdirSync } = await import('node:fs')
   const dir = new URL('../../../../../addons/voice/ui/src/i18n/', import.meta.url)
   const files = readdirSync(dir).filter(f => f.startsWith('voice.') && f.endsWith('.json'))
-  assert.equal(files.length, 9)
+  assert.equal(files.length, 10)
   for (const f of files) {
     const body = JSON.parse(readFileSync(new URL(f, dir), 'utf8'))['voiceCreate.sections.details.body']
     assert.ok(body && !/admins|administrators|amministratori|administradores|administrateurs/i.test(body), f)
+  }
+})
+
+test('change proposals: the project scope has a card label in every locale', async () => {
+  const { readFileSync } = await import('node:fs')
+  assert.ok(KNOWN_SCOPES.includes('project'))
+  for (const lang of ['de', 'en', 'es', 'fr', 'id', 'it', 'ko', 'pt-BR', 'zh-CN']) {
+    const chats = JSON.parse(readFileSync(new URL(`../../public/locales/${lang}/chats.json`, import.meta.url), 'utf8'))
+    for (const scope of KNOWN_SCOPES) {
+      assert.ok(chats.changes.scope[scope], `${lang}: changes.scope.${scope}`)
+    }
   }
 })
