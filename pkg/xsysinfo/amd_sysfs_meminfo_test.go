@@ -1,6 +1,8 @@
 package xsysinfo
 
 import (
+	"bytes"
+	"compress/gzip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -204,5 +206,120 @@ VkPhysicalDeviceProperties:
 		Expect(devs).To(Equal([]vulkanDevice{{
 			name: "AMD Radeon RX 7900 XTX (RADV NAVI31)", vendorID: 0x1002, busAddr: "0000:03:00.0",
 		}}))
+	})
+})
+
+var _ = Describe("AMD sysfs GPU names from pci.ids", func() {
+	var root, idsFile string
+
+	const fakeIDs = `# list of known PCI ids
+# comment line
+
+1000  Broadcom
+	1586  Not An AMD Device
+1002  Advanced Micro Devices, Inc. [AMD/ATI]
+	1586  Strix Halo [Radeon Graphics / Radeon 8050S Graphics / Radeon 8060S Graphics]
+		2014 801d  Subsystem line that must be skipped
+	744c  Navi 31 [Radeon RX 7900 XT/7900 XTX/7900 GRE/7900M]
+	7777  Plain Chip
+	9999  AMD Instinct Fake
+1003  Next Vendor
+	abcd  Wrong Vendor Device
+`
+
+	BeforeEach(func() {
+		root = filepath.Join(GinkgoT().TempDir(), "class", "drm")
+		Expect(os.MkdirAll(root, 0o755)).To(Succeed())
+		idsFile = filepath.Join(GinkgoT().TempDir(), "pci.ids")
+		Expect(os.WriteFile(idsFile, []byte(fakeIDs), 0o644)).To(Succeed())
+		origIDs, origVulkan := pciIDsPaths, listVulkanDevices
+		DeferCleanup(func() { pciIDsPaths, listVulkanDevices = origIDs, origVulkan })
+		pciIDsPaths = []string{idsFile}
+		listVulkanDevices = func() []vulkanDevice { return nil }
+	})
+
+	card := func(device, product string) {
+		attrs := map[string]string{
+			"vendor":              "0x1002\n",
+			"device":              device + "\n",
+			"mem_info_vram_total": "536870912\n",
+			"mem_info_vram_used":  "240300032\n",
+		}
+		if product != "" {
+			attrs["product_name"] = product + "\n"
+		}
+		writeSysfsCard(root, "card0", "0000:c5:00.0", attrs)
+	}
+
+	name := func() string {
+		got := readAMDSysfsGPUMemory(root)
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].TotalVRAM).To(Equal(uint64(536870912)))
+		Expect(got[0].UsedVRAM).To(Equal(uint64(240300032)))
+		return got[0].Name
+	}
+
+	It("keeps the bracketed marketing text", func() {
+		card("0x1586", "")
+		Expect(name()).To(Equal("AMD Radeon Graphics / Radeon 8050S Graphics / Radeon 8060S Graphics"))
+	})
+
+	It("uses the bare name, prefixed, when there are no brackets", func() {
+		card("0x7777", "")
+		Expect(name()).To(Equal("AMD Plain Chip"))
+	})
+
+	It("does not double an existing AMD prefix", func() {
+		card("0x9999", "")
+		Expect(name()).To(Equal("AMD Instinct Fake"))
+	})
+
+	It("falls back when the device is absent from the AMD block", func() {
+		card("0xabcd", "")
+		Expect(name()).To(Equal("AMD GPU 0"))
+	})
+
+	It("falls back when the vendor is absent", func() {
+		Expect(os.WriteFile(idsFile, []byte("1000  Broadcom\n\t1586  X\n"), 0o644)).To(Succeed())
+		card("0x1586", "")
+		Expect(name()).To(Equal("AMD GPU 0"))
+	})
+
+	It("falls back silently when no pci.ids file exists", func() {
+		pciIDsPaths = []string{filepath.Join(filepath.Dir(idsFile), "missing")}
+		card("0x1586", "")
+		Expect(name()).To(Equal("AMD GPU 0"))
+	})
+
+	It("does not read a subsystem line as a device", func() {
+		Expect(os.WriteFile(idsFile, []byte("1002  AMD\n\t1111  Real\n\t\t1586  Sub Only\n"), 0o644)).To(Succeed())
+		card("0x1586", "")
+		Expect(name()).To(Equal("AMD GPU 0"))
+	})
+
+	It("reads a gzipped database", func() {
+		gz := filepath.Join(filepath.Dir(idsFile), "pci.ids.gz")
+		var buf bytes.Buffer
+		zw := gzip.NewWriter(&buf)
+		_, err := zw.Write([]byte(fakeIDs))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(zw.Close()).To(Succeed())
+		Expect(os.WriteFile(gz, buf.Bytes(), 0o644)).To(Succeed())
+		pciIDsPaths = []string{gz}
+		card("0x7777", "")
+		Expect(name()).To(Equal("AMD Plain Chip"))
+	})
+
+	It("lets product_name win over pci.ids", func() {
+		card("0x1586", "Board Name")
+		Expect(name()).To(Equal("Board Name"))
+	})
+
+	It("lets a Vulkan name win over pci.ids", func() {
+		card("0x1586", "")
+		listVulkanDevices = func() []vulkanDevice {
+			return []vulkanDevice{{name: "Vulkan Name", vendorID: 0x1002, busAddr: "0000:c5:00.0"}}
+		}
+		Expect(name()).To(Equal("Vulkan Name"))
 	})
 })

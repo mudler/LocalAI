@@ -2,6 +2,7 @@ package xsysinfo
 
 import (
 	"bufio"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -254,6 +255,14 @@ func readAMDSysfsGPUMemory(root string) []GPUMemoryInfo {
 		for i, name := range matchVulkanAMDNames(addrs, listVulkanDevices()) {
 			unnamed[i].name = name
 		}
+		for _, c := range unnamed {
+			if c.name != "" {
+				continue
+			}
+			if id, ok := readSysfsHexUint(filepath.Join(root, c.Card, "device", "device")); ok {
+				c.name = lookupAMDPCIName(id)
+			}
+		}
 	}
 
 	gpus := make([]GPUMemoryInfo, 0, len(cards))
@@ -388,6 +397,95 @@ func matchVulkanAMDNames(addrs []string, devices []vulkanDevice) []string {
 		}
 	}
 	return names
+}
+
+// pciIDsPaths are the places a pci.ids database is installed. It is a
+// variable so tests can point it at a fake file.
+var pciIDsPaths = []string{
+	"/usr/share/hwdata/pci.ids",
+	"/usr/share/misc/pci.ids",
+	"/usr/share/pci.ids",
+	"/usr/share/hwdata/pci.ids.gz",
+	"/usr/share/misc/pci.ids.gz",
+	"/usr/share/pci.ids.gz",
+}
+
+// lookupAMDPCIName returns the pci.ids name of an AMD (ATI, 0x1002)
+// device, or "" when no database or entry exists. Unlike ghw it never
+// fails the caller: a missing database just means no name.
+func lookupAMDPCIName(deviceID uint64) string {
+	for _, path := range pciIDsPaths {
+		// #nosec G304 -- fixed system paths, or a temp file under test.
+		f, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+		var r io.Reader = f
+		if strings.HasSuffix(path, ".gz") {
+			zr, err := gzip.NewReader(f)
+			if err != nil {
+				_ = f.Close()
+				continue
+			}
+			r = zr
+		}
+		name := scanPCIIDsDevice(r, 0x1002, deviceID)
+		_ = f.Close()
+		if name != "" {
+			return amdMarketingName(name)
+		}
+	}
+	return ""
+}
+
+// scanPCIIDsDevice streams a pci.ids file and returns the device name
+// for the vendor/device pair, stopping at the match or at the end of the
+// vendor's block. Format: "vvvv  Vendor" at column 0, "\tdddd  Device"
+// with one tab, and subsystem lines with two tabs, which are skipped.
+func scanPCIIDsDevice(r io.Reader, vendor, device uint64) string {
+	scanner := bufio.NewScanner(r)
+	inVendor := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" || line[0] == '#' {
+			continue
+		}
+		if line[0] != '\t' {
+			if inVendor {
+				return ""
+			}
+			id, _, _ := strings.Cut(line, " ")
+			if v, ok := parseHexUint(id); ok && len(id) == 4 && v == vendor {
+				inVendor = true
+			}
+			continue
+		}
+		if !inVendor || strings.HasPrefix(line, "\t\t") {
+			continue
+		}
+		id, name, _ := strings.Cut(strings.TrimPrefix(line, "\t"), " ")
+		if v, ok := parseHexUint(id); ok && len(id) == 4 && v == device {
+			return strings.TrimSpace(name)
+		}
+	}
+	return ""
+}
+
+// amdMarketingName turns a pci.ids device name such as
+// "Strix Halo [Radeon Graphics / Radeon 8060S Graphics]" into the
+// bracketed marketing text when present, prefixed with "AMD " unless it
+// already names the vendor.
+func amdMarketingName(name string) string {
+	if start := strings.LastIndex(name, "["); start >= 0 && strings.HasSuffix(name, "]") {
+		if inner := strings.TrimSpace(name[start+1 : len(name)-1]); inner != "" {
+			name = inner
+		}
+	}
+	upper := strings.ToUpper(name)
+	if strings.HasPrefix(upper, "AMD") || strings.HasPrefix(upper, "ADVANCED MICRO DEVICES") {
+		return name
+	}
+	return "AMD " + name
 }
 
 // pciAddress returns the PCI address a sysfs device directory resolves
