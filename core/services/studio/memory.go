@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
@@ -324,9 +325,10 @@ func (s *Service) personalNotesOpen(rec session.ChatRecord) bool {
 	return paired
 }
 
-// withoutPersonalNotes drops the user and agent index files of the notes from
-// a list of sources, for the ids that serve the notes. The channel files and
-// the sources of other add-ons stay.
+// withoutPersonalNotes drops the user, project and agent index files of the
+// notes from a list of sources, for the ids that serve the notes. The channel
+// files and the sources of other add-ons stay. The project notes are shared
+// with the owner's other chats, so a sender who is not paired reads none.
 func withoutPersonalNotes(sources []contextfiles.Source, ids ...string) []contextfiles.Source {
 	return slices.DeleteFunc(slices.Clone(sources), func(src contextfiles.Source) bool {
 		return src.Scope != contextfiles.ScopeChannel && slices.Contains(ids, src.ID)
@@ -334,15 +336,20 @@ func withoutPersonalNotes(sources []contextfiles.Source, ids ...string) []contex
 }
 
 // agentMemory is the choice of notes of a saved agent: one of the agents.Memory
-// values, or empty for a chat without an agent, an agent that cannot be read
-// and an agent saved before the choice ("as before").
+// values, or empty for a chat without an agent, an agent that is not there and
+// an agent saved before the choice ("as before"). An agent that cannot be run
+// (its project is not available, or a store read fails) gets the most
+// restrictive choice, None: it reads and saves nothing.
 func (s *Service) agentMemory(ctx context.Context, user, agentID string) string {
 	if agentID == "" || s.d.Agents == nil {
 		return ""
 	}
 	ag, err := s.chatAgent(ctx, user, agentID)
-	if err != nil {
+	switch {
+	case errors.Is(err, agents.ErrNotFound):
 		return ""
+	case err != nil:
+		return agents.MemoryNone
 	}
 	return ag.Memory
 }
@@ -366,6 +373,8 @@ func (s *Service) agentMemorySave(ctx context.Context, user, agentID string) str
 // the agent reads. The notes of a messaging conversation stay with every
 // choice but None: they belong to the chat, and a conversation outside a
 // messaging app has none. Empty (as before) and Mine and its own read all.
+// The project index is not in this list: projectSourcesFor adds it for a chat
+// that has a home project, and honours None the same way.
 func memorySourcesFor(all []contextfiles.Source, choice string) []contextfiles.Source {
 	var keep func(contextfiles.Scope) bool
 	switch choice {
@@ -479,7 +488,7 @@ func (s *Service) memoryProviderSkills(ctx context.Context, user string) ([]stri
 // the Memory add-on) still proposes, as before: the grant decides that.
 func (s *Service) memoryWritable(ctx context.Context, c builtins.Chat) bool {
 	rec := session.ChatRecord{Principal: c.Actor.Principal, ID: c.Actor.ChatID}
-	if got, err := s.d.Store.GetChat(ctx, c.Actor.Principal, c.Actor.ChatID); err == nil {
+	if got, err := s.getChatEffective(ctx, c.Actor.Principal, c.Actor.ChatID); err == nil {
 		rec = got
 	}
 	legacy := legacyMemoryOf(s.addonContextSets(ctx, c.Actor.Principal))

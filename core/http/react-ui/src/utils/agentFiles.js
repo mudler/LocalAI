@@ -34,9 +34,11 @@ export function agentImportBody(data) {
 
 // Imports a file: { agent, notes } where notes are the server's warnings and
 // the old fields that were not imported.
-export async function importAgentFile(text) {
+// params are the query parameters of a project mapping (see importParams): the
+// same file is sent again with them, never changed.
+export async function importAgentFile(text, params) {
   const parsed = agentImportBody(JSON.parse(text))
   if (!parsed) throw new Error('not an agent file')
-  const res = await chatAgentsApi.importFile(parsed.body)
+  const res = await chatAgentsApi.importFile(parsed.body, params)
   return { agent: res.agent, warnings: res.warnings || [], dropped: parsed.dropped }
 }

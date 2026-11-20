@@ -18,7 +18,7 @@ var _ = Describe("development backend preference", func() {
 		cmd := struct {
 			Worker WorkerCMD `cmd:""`
 		}{}
-		parser, err := kong.New(&cmd, kong.Vars{"basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]"})
+		parser, err := kong.New(&cmd, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends", "basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]"})
 		Expect(err).NotTo(HaveOccurred())
 		_, err = parser.Parse(append([]string{"worker", "--nats-url=nats://example.invalid:4222", "--register-to=http://example.invalid:8080"}, args...))
 		Expect(err).NotTo(HaveOccurred())

@@ -132,13 +132,16 @@ type RuntimeSettings struct {
 	ChatsGoalMaxSteps *int `json:"chats_goal_max_steps,omitempty"`
 	// The loops of the chats: the shortest interval (a duration, 30s to 24h,
 	// default 1m), the runs after which a loop ends (default 100), the loops
-	// one chat and one user may have (defaults 3 and 10), and the loop runs
-	// one user may start in a UTC day (default 200). Read at each use.
-	ChatsLoopMinInterval *string `json:"chats_loop_min_interval,omitempty"`
-	ChatsLoopMaxRuns     *int    `json:"chats_loop_max_runs,omitempty"`
-	ChatsLoopMaxPerChat  *int    `json:"chats_loop_max_per_chat,omitempty"`
-	ChatsLoopMaxPerUser  *int    `json:"chats_loop_max_per_user,omitempty"`
-	ChatsLoopDailyRuns   *int    `json:"chats_loop_daily_runs,omitempty"`
+	// and waits one chat and one user may have (defaults 3 and 10), the loop
+	// runs one user may start in a UTC day (default 200), and the checks of
+	// waits on a command one user may spend in a UTC day (1 to 100000,
+	// default 1500). Read at each use.
+	ChatsLoopMinInterval       *string `json:"chats_loop_min_interval,omitempty"`
+	ChatsLoopMaxRuns           *int    `json:"chats_loop_max_runs,omitempty"`
+	ChatsLoopMaxPerChat        *int    `json:"chats_loop_max_per_chat,omitempty"`
+	ChatsLoopMaxPerUser        *int    `json:"chats_loop_max_per_user,omitempty"`
+	ChatsLoopDailyRuns         *int    `json:"chats_loop_daily_runs,omitempty"`
+	ChatsLoopDailyScriptChecks *int    `json:"chats_loop_daily_script_checks,omitempty"`
 	// The triggers of the chats: the longest one run may take (a duration,
 	// 1m to 24h, default 15m), the triggers one user may have (1 to 1000,
 	// default 50) and the highest daily limit one trigger may have (1 to 1000,
@@ -173,6 +176,12 @@ type RuntimeSettings struct {
 	// Pages of shared folders — read live by the pages handlers on every
 	// request, so switching them off stops open pages at their next call.
 	SharedPagesEnabled *bool `json:"shared_pages_enabled,omitempty"` // negation of DisableSharedPages
+
+	// Pages that people share from their own homes — read live on every
+	// request, like the pages of shared folders. Off: nobody can share a
+	// page, the pages already shared do not open and their owners can still
+	// take them back.
+	UserPageSharesEnabled *bool `json:"user_page_shares_enabled,omitempty"` // negation of DisableUserPageShares
 
 	// The page area of Home: a page of the user's workspace that fills the
 	// area below the composer. Read live on every list of pages, so switching

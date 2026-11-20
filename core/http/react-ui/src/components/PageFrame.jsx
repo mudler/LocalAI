@@ -66,6 +66,12 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
   modeNow.current = { mode, size }
   const sentMode = useRef(null)
   const builtMode = useRef(null)
+  // The theme goes the same way: the document is built with the theme of the
+  // moment and never again for a new one (that would reload the page and lose
+  // its state); a later change goes to the live frame as a 'theme' event.
+  const themeNow = useRef(theme)
+  themeNow.current = theme
+  const builtTheme = useRef(null)
 
   const { t } = useTranslation('pages')
   const [build, setBuild] = useState(0)
@@ -84,7 +90,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     }
   }
   const guarded = (call) => call().catch((e) => {
-    if (e?.status === 403 && /page_not_allowed|shared_pages_off/.test(e?.body?.error?.type || '')) {
+    if (e?.status === 403 && /page_not_allowed|shared_pages_off|user_page_shares_off/.test(e?.body?.error?.type || '')) {
       setTimeout(() => handlers.current.onRefused?.(e), 0)
     }
     throw e
@@ -108,8 +114,8 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
   }, [base, build, needsFiles, files]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The same object while the page is the same, so the document below is
-  // built again only when the page, its files or the theme change, never for
-  // a new mode or size: those go to the page as an event.
+  // built again only when the page or its files change, never for a new theme,
+  // mode or size: those go to the page as an event.
   const plainDoc = useMemo(() => plain(html), [html])
   const ready = !needsFiles ? plainDoc : assets?.base === base ? assets.result : null
   const srcDoc = useMemo(() => {
@@ -120,11 +126,12 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
       : failed.length ? t('frame.filesFailed', { files: failed.slice(0, 5).join(', '), count: failed.length }) : ''
     const m = { ...modeNow.current }
     builtMode.current = m
+    builtTheme.current = themeNow.current
     return buildPageSrcdoc(ready.html, {
-      name: page.name, title: page.title, theme, head: ready.head, modules: ready.modules,
+      name: page.name, title: page.title, theme: themeNow.current, head: ready.head, modules: ready.modules,
       notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode: m.mode, size: m.size, colors: noticeColours(), beat: budget,
     })
-  }, [ready, page.name, page.title, theme, t, budget])
+  }, [ready, page.name, page.title, t, budget])
 
   useImperativeHandle(ref, () => ({
     emit: (event, data) => {
@@ -155,6 +162,11 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     live.current.host.emit('mode', { mode, size })
   }, [mode, size])
 
+  // A change of theme after the load goes to the page as an event.
+  useEffect(() => {
+    live.current.host?.emit('theme', { theme })
+  }, [theme])
+
   useEffect(() => shut, [])
 
   // The page hears when it goes out of sight and back: the tab is hidden, or
@@ -178,7 +190,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
 
   const onLoad = () => {
     const frame = frameRef.current
-    // A new document (the page changed, or the theme) starts the count again.
+    // A new document (the page changed) starts the count again.
     if (live.current.doc !== srcDoc) {
       live.current.doc = srcDoc
       live.current.loads = 0
@@ -243,6 +255,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     const built = builtMode.current || modeNow.current
     sentMode.current = { ...modeNow.current }
     if (built.mode !== modeNow.current.mode || built.size !== modeNow.current.size) host.emit('mode', modeNow.current)
+    if (builtTheme.current !== themeNow.current) host.emit('theme', { theme: themeNow.current })
     // The frame's origin is opaque, so "*" is the only target that reaches it;
     // the port is what carries the trust, and only this frame gets it.
     frame?.contentWindow?.postMessage({ type: 'localai:init' }, '*', [channel.port2])

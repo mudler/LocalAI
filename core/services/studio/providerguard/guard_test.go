@@ -87,11 +87,10 @@ var allowed = []entry{
 	{"pkg/addons/packaging/catalog.go", "GitHub Actions OIDC issuer", "release signing: GitHub Actions is the build system"},
 	{"pkg/addons/packaging/channel.go", "GitHub event name", "release tooling: GitHub Actions is the build system"},
 	{"pkg/addons/packaging/registry.go", "GitHub event name", "release tooling: GitHub Actions is the build system"},
-	{"docs/content/reference/binaries.md", "GitHub", "release downloads: the service"},
 	{"docs/content/reference/cli-reference.md", "GitHub OAuth", "the options of the GitHub OAuth login"},
 	{"docs/content/models/private-sources.md", "GitHub", "private gallery sources on the service"},
+	{"docs/content/start/install/_index.md", "GitHub", "the install script reads the latest release from the service: GitHub, not the add-on"},
 	{"docs/content/start/install/linux.md", "GitHub Releases", "release downloads: the service"},
-	{"docs/content/start/install/macos.md", "GitHub releases", "release downloads: the service"},
 	{"docs/content/models/setting-up-models.md", "GitHub", "release downloads: the service"},
 	{"docs/content/start/customize-model.md", "GitHub", "the github:// source of a model configuration: the service"},
 	{"docs/content/administration/troubleshooting.md", "GitHub", "the issue tracker of the project: the service"},
@@ -99,8 +98,6 @@ var allowed = []entry{
 	// Chat platforms named as examples of what a connector carries. The
 	// platform is a third-party service; the add-on is not named as one.
 	{"core/cli/run.go", "Telegram, Slack", "help text that gives chat platforms as examples"},
-	{"core/http/auth/features.go", "Telegram bots", "the name of a feature permission; the platform is the content"},
-	{ui + "components/users/UsersPanel.jsx", "Telegram bots", "the name of a feature permission; the platform is the content"},
 	{"core/services/addons/tools/consumers.go", "such as Telegram", "an example of a chat platform in a note for add-on authors"},
 	{locales, "connectorsPage.noAddonHint", "a chat platform as an example of what a connector add-on carries"},
 	{"docs/content/reference/cli-reference.md", "(Telegram, Slack)", "help text that gives chat platforms as examples"},

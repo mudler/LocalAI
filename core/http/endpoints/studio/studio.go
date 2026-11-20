@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -61,7 +62,7 @@ type Handlers struct {
 func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 	h := &Handlers{svc: svc, models: models, previews: newPreviewCache()}
 	if svc != nil {
-		h.pages = pages.New(svc.Files(), pages.WithErrorStore(svc.PageErrors()))
+		h.pages = pages.New(svc.Files(), pages.WithErrorStore(svc.PageErrors()), pages.WithUserShares(svc.UserPageSharesOn))
 		store := svc.PageConsents()
 		if store == nil {
 			store, _ = pages.NewJSONConsents("")
@@ -118,6 +119,10 @@ var chatRules = []errRule{
 	fixed(http.StatusTooManyRequests, "rate_limit_error", "too many open event streams on this chat; close one first", studiosvc.ErrTooManyStreams),
 	fixed(http.StatusConflict, "agent_folder_limit", "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again.", studiosvc.ErrAgentFolderLimit),
 	fixed(http.StatusConflict, "agent_folder_missing", "The folder of this agent is missing. Choose a folder in the agent's settings.", studiosvc.ErrAgentFolderMissing),
+	fixed(http.StatusConflict, "project_folders_changed", studiosvc.ProjectFoldersChangedText, studiosvc.ErrProjectFoldersChanged),
+	fixed(http.StatusConflict, "agent_moved", studiosvc.AgentMovedText, studiosvc.ErrAgentMoved),
+	verbatim(http.StatusConflict, "agent_move_blocked", "studio: ", studiosvc.ErrMoveBlocked),
+	fixed(http.StatusConflict, "project_unavailable", studiosvc.ProjectUnavailableText, studiosvc.ErrProjectUnavailable),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToRegenerate, studiosvc.ErrNotUserMessage,
 		studiosvc.ErrInvalidSettings, studiosvc.ErrBadImport, session.ErrInvalid),
 	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrBadSkillName, studiosvc.ErrBadAddonID, studiosvc.ErrBadConnection, studiosvc.ErrBadMCPSwitch, studiosvc.ErrBadBuiltinGroup),
@@ -159,6 +164,7 @@ var chatRules = []errRule{
 	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrGoalText),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", session.ErrInvalidDock),
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrDockNotAllowed),
+	fixed(http.StatusNotFound, typeNotFound, "project not found", projects.ErrNotFound),
 }
 
 // failFor maps a service error to a response.
@@ -190,6 +196,7 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 	return schema.ChatsConversation{
 		ID: rec.ID, Title: rec.Title, Model: rec.Model, Kind: rec.Kind, ParentID: rec.ParentID,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
+		ProjectID: rec.ProjectID, PulledProjects: rec.PulledProjects, Collections: rec.Collections,
 		Created: rec.Created, Updated: rec.Updated, Running: info.Running, LastTurn: string(info.Last),
 		WillResume: info.WillResume, ResumeAttempts: info.ResumeAttempts,
 		Settings: settingsJSON(rec.Settings),
@@ -271,7 +278,7 @@ func (h *Handlers) Create(c echo.Context) error {
 		}
 	}
 	user := userID(c)
-	in := studiosvc.CreateInput{Title: req.Title, Model: req.Model, AgentID: req.AgentID, Assistant: req.Assistant}
+	in := studiosvc.CreateInput{Title: req.Title, Model: req.Model, AgentID: req.AgentID, Assistant: req.Assistant, ProjectID: req.ProjectID, Collections: req.Collections}
 	if sw := req.Switches; sw != nil {
 		in.Switches = studiosvc.Switches{AddonsOff: sw.AddonsOff, McpOff: sw.McpOff, BuiltinsOff: sw.BuiltinsOff, BuiltinsOn: sw.BuiltinsOn, SkillsOff: sw.SkillsOff, Connections: sw.Connections}
 	}
@@ -364,7 +371,7 @@ func (h *Handlers) Get(c echo.Context) error {
 		if err != nil {
 			return failFor(c, err)
 		}
-		out.Loops = loopsJSON(list)
+		out.Loops = loopsJSON(c.Request().Context(), host, list)
 	}
 	out.Jobs = h.jobsOf(c, user, id)
 	return c.JSON(http.StatusOK, out)

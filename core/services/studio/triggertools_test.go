@@ -289,6 +289,8 @@ var _ = Describe("triggertools: the Home widget of a trigger", func() {
 
 var _ = Describe("triggertools: the Triggers switch group", func() {
 	four := []string{"propose_trigger", "list_triggers", "update_trigger", "delete_trigger"}
+	// The panel also lists list_connections, which a chat gets only when the server runs connections.
+	panel := append(append([]string{}, four...), "list_connections")
 	say := func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }
 
 	triggersGroup := func(p studio.ToolsPanel) (studio.BuiltinGroup, bool) {
@@ -320,7 +322,7 @@ var _ = Describe("triggertools: the Triggers switch group", func() {
 		Expect(ok).To(BeTrue(), "panel = %+v", p.Builtins)
 		Expect(g.Off).To(BeTrue())
 		Expect(g.OptIn).To(BeFalse())
-		Expect(g.Tools).To(Equal(four))
+		Expect(g.Tools).To(Equal(panel))
 
 		Expect(r.svc.SetBuiltinsOff(ctx, alice, id, nil)).To(Succeed())
 		sent(r.svc, alice, id, "three")
@@ -337,7 +339,7 @@ var _ = Describe("triggertools: the Triggers switch group", func() {
 		g, ok := triggersGroup(p)
 		Expect(ok).To(BeTrue(), "panel = %+v", p.Builtins)
 		Expect(g).To(MatchFields(IgnoreExtras, Fields{"Off": BeFalse(), "Usable": BeTrue(), "Reason": BeEmpty(), "Provider": Equal("builtin")}))
-		Expect(g.Tools).To(Equal(four))
+		Expect(g.Tools).To(Equal(panel))
 
 		d, err := r.svc.DraftTools(ctx, alice, "m", "")
 		Expect(err).NotTo(HaveOccurred())

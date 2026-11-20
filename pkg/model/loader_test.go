@@ -57,6 +57,15 @@ func (b *lifecycleBackend) Free(ctx context.Context) error {
 	}
 }
 
+// touch creates an empty file and closes it: Windows cannot delete a file that
+// is still open.
+func touch(path string) {
+	GinkgoHelper()
+	f, err := os.Create(path)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(f.Close()).To(Succeed())
+}
+
 var _ = Describe("ModelLoader", func() {
 	var (
 		modelLoader *model.ModelLoader
@@ -66,8 +75,7 @@ var _ = Describe("ModelLoader", func() {
 
 	BeforeEach(func() {
 		// Setup the model loader with a test directory
-		modelPath = "/tmp/test_model_path"
-		os.Mkdir(modelPath, 0755)
+		modelPath = GinkgoT().TempDir()
 
 		systemState, err := system.GetSystemState(
 			system.WithModelPath(modelPath),
@@ -92,7 +100,7 @@ var _ = Describe("ModelLoader", func() {
 	Context("ExistsInModelPath", func() {
 		It("should return true if a file exists in the model path", func() {
 			testFile := filepath.Join(modelPath, "test.model")
-			os.Create(testFile)
+			touch(testFile)
 			Expect(modelLoader.ExistsInModelPath("test.model")).To(BeTrue())
 		})
 
@@ -103,9 +111,9 @@ var _ = Describe("ModelLoader", func() {
 
 	Context("ListFilesInModelPath", func() {
 		It("should list all valid model files in the model path", func() {
-			os.Create(filepath.Join(modelPath, "test.model"))
-			os.Create(filepath.Join(modelPath, "model.gguf"))
-			os.Create(filepath.Join(modelPath, "README.md"))
+			touch(filepath.Join(modelPath, "test.model"))
+			touch(filepath.Join(modelPath, "model.gguf"))
+			touch(filepath.Join(modelPath, "README.md"))
 
 			files, err := modelLoader.ListFilesInModelPath()
 			Expect(err).To(BeNil())
@@ -115,10 +123,10 @@ var _ = Describe("ModelLoader", func() {
 		})
 
 		It("should skip archives and checksum files", func() {
-			os.Create(filepath.Join(modelPath, "test.model"))
-			os.Create(filepath.Join(modelPath, "voice.tar.bz2"))
-			os.Create(filepath.Join(modelPath, "voice.tar.bz2.sha256"))
-			os.Create(filepath.Join(modelPath, "VOICE.SHA256"))
+			touch(filepath.Join(modelPath, "test.model"))
+			touch(filepath.Join(modelPath, "voice.tar.bz2"))
+			touch(filepath.Join(modelPath, "voice.tar.bz2.sha256"))
+			touch(filepath.Join(modelPath, "VOICE.SHA256"))
 
 			files, err := modelLoader.ListFilesInModelPath()
 			Expect(err).To(BeNil())

@@ -385,7 +385,7 @@ The backend needs the profile APIs from merged upstream commit
 Installing the model weights alone does not update an older backend.
 
 1. Open **Models → Explore** and search for `parakeet-cpp-nemotron-3-diarization-asr-speakers`.
-2. Select **Install** and wait for installation to complete. Check **Operate → Activity** for progress or errors.
+2. Select **Install** and wait for installation to complete. Check **Admin → Activity** for progress or errors.
 3. Open **Studio → Diarization** (or `/app/diarization`). Select that model and upload your recording.
 
 Obtain the speaker's consent before enrollment. To remember a speaker from that recording:
@@ -452,7 +452,7 @@ curl --fail-with-body "$LOCALAI/models/apply" \
   -d '{"id":"localai@parakeet-cpp-nemotron-3-diarization-asr-speakers"}'
 ```
 
-Installation is asynchronous. Wait for successful completion in **Operate → Activity** before continuing.
+Installation is asynchronous. Wait for successful completion in **Admin → Activity** before continuing.
 API clients can query the returned job `status` URL; see the [model gallery API]({{% relref "/models" %}}).
 
 {{% callout style="warning" %}}

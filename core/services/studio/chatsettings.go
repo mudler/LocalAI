@@ -64,7 +64,7 @@ type UpdateInput struct {
 // the record: with a turn running it is ErrChatBusy.
 func (s *Service) Update(ctx context.Context, user, conv string, in UpdateInput) (session.ChatRecord, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
@@ -111,7 +111,7 @@ func (s *Service) Update(ctx context.Context, user, conv string, in UpdateInput)
 			return session.ChatRecord{}, err
 		}
 	}
-	return s.d.Store.GetChat(ctx, p, conv)
+	return s.getChatEffective(ctx, p, conv)
 }
 
 // rename gives the chat a new title. With a workspace the chat's folder is
@@ -153,7 +153,7 @@ func (s *Service) withClaim(ctx context.Context, p, conv string, f func(session.
 		}
 		return err
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err == nil {
 		err = f(rec)
 	}

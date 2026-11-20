@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 type fsStore struct {
@@ -97,7 +98,17 @@ func (s *fsStore) syncDirWith(path string, sync func(*os.File) error) error {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	return sync(f)
+	if err := sync(f); err != nil {
+		// Windows: a directory-handle Sync fails with "Access is denied"
+		// (FlushFileBuffers needs a writable handle). The batch data is
+		// already durable through the writable file handles' own syncs, so
+		// the denied directory sync is not a durability loss.
+		if atomicfile.SyncDenied(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // commitSync is the one full sync of a batch. publishBatch calls it after the
@@ -265,9 +276,13 @@ func (t *fsStaged) Publish(ctx context.Context) error {
 	if err := s.stage("rename"); err != nil {
 		return err
 	}
-	// Rename replaces an existing blob with identical bytes. Never remove
-	// final after a sync failure: another writer can own that name.
+	// Rename replaces an existing blob with identical bytes. On Windows,
+	// renaming over an existing file can report "Access is denied" instead
+	// of "file exists". If the target is already in place, nothing to do.
 	if err := os.Rename(t.path, final); err != nil {
+		if _, serr := os.Stat(final); serr == nil {
+			return nil
+		}
 		return err
 	}
 	return s.syncDir(filepath.Dir(final))

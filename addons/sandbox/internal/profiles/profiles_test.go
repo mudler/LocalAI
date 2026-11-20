@@ -23,9 +23,9 @@ func TestDeclaredProfilesAreValidAndNested(t *testing.T) {
 			}
 		}
 	}
-	// media is base plus more: a profile never has fewer tools than the one
-	// it extends.
-	for _, pair := range [][2]string{{profiles.Base, profiles.Media}} {
+	// media and office are base plus more: a profile never has fewer tools
+	// than the one it extends.
+	for _, pair := range [][2]string{{profiles.Base, profiles.Media}, {profiles.Base, profiles.Office}} {
 		for name := range have[pair[0]] {
 			if !have[pair[1]][name] {
 				t.Errorf("%s lacks %s, which %s has", pair[1], name, pair[0])
@@ -36,6 +36,36 @@ func TestDeclaredProfilesAreValidAndNested(t *testing.T) {
 		if !have[profiles.Media][want] || have[profiles.Base][want] {
 			t.Errorf("%s must be in media and not in base", want)
 		}
+	}
+}
+
+func TestOfficeProfileAddsTheRenderToolsOnly(t *testing.T) {
+	have := map[string]map[string]bool{}
+	var office contract.ExecutionProfile
+	for _, p := range profiles.Declared() {
+		have[p.ID] = map[string]bool{}
+		for _, tl := range p.Tools {
+			have[p.ID][tl.Name] = true
+		}
+		if p.ID == profiles.Office {
+			office = p
+		}
+	}
+	if office.ID == "" {
+		t.Fatal("no office profile")
+	}
+	for _, want := range []string{"LibreOffice Impress", "LibreOffice Writer", "LibreOffice Calc", "fonts"} {
+		if !have[profiles.Office][want] || have[profiles.Base][want] || have[profiles.Media][want] {
+			t.Errorf("%s must be in office only", want)
+		}
+	}
+	for _, media := range []string{"ffmpeg", "sox", "ImageMagick", "rsvg-convert"} {
+		if have[profiles.Office][media] {
+			t.Errorf("office must not carry %s: it is built on base, not on media", media)
+		}
+	}
+	if office.CPUs <= 0 || office.MemoryMiB <= 0 || office.DiskMiB <= 0 {
+		t.Errorf("office has no limits: %+v", office)
 	}
 }
 

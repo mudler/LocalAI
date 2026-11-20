@@ -8,32 +8,33 @@ keywords = ["settings","runtime","admin"]
 devbuild = "feature"
 +++
 
-LocalAI provides a web-based interface for managing application settings at runtime. These settings can be configured through the web UI and are automatically persisted to a configuration file, allowing changes to take effect immediately without requiring a restart.
+Change settings in the web interface and they apply without a restart. LocalAI saves them to `runtime_settings.json`.
 
 ## Accessing Runtime Settings
 
-Open **Operate → Settings** in the web UI (`/app/settings`). The page lists every setting below under eight groups by intent, and keeps your edits in a pending bar until you apply them.
+Open **Admin → Settings** in the web UI (`/app/settings`). The page lists every setting below under nine groups, and keeps your edits in a pending bar until you apply them.
 
 ### Groups
 
-The groups reorganise the fields the page used to show under fifteen sections. The mapping:
+| Group | Settings it holds |
+|---|---|
+| Models in memory | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, GPU memory budget |
+| Speed and defaults | Default threads, default context size, artifact download concurrency, F16 |
+| Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists |
+| Access and security | CORS and allowed origins, CSRF protection, shared API keys, whether MCP connectors may reach private networks |
+| Debugging and traces | Verbose debug logging, API traces and their limits, backend logging |
+| Chats and collections | The collections service (Knowledge in the sidebar), the helper models of the chats, the response store TTL, shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "/features/pages-and-home/pages" %}})), the pages that people share (`user_page_shares_enabled`), the page area of Home (`home_page_area_enabled`), the offers from the assistant |
+| Tools | The built-in chat tools (web search, web pages, LocalAI client and admin tools), commands on this machine and their network limits, limits for steps, goals, loops and triggers |
+| Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check |
+| Look and feel | Instance name, tagline, the three logos |
 
-| Group | Settings it holds | Used to be under |
-|---|---|---|
-| Models in memory | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, GPU memory budget | Watchdog, Memory Reclaimer, Backend Management, Performance |
-| Speed and defaults | Default threads, default context size, artifact download concurrency, F16 | Performance |
-| Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists | Backend Management, Galleries |
-| Access and security | CORS and allowed origins, CSRF protection, shared API keys | API & CORS, API Keys |
-| Debugging and traces | Verbose debug logging, API traces and their limits, backend logging | Performance, Tracing |
-| Chats and responses | The collections (knowledge base) service, the helper models of the chats, MCP connector addresses, the LocalAI Assistant (the switch for the admin assistant chat that starts from Home; see [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-assistant" %}})), shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "/features/pages-and-home/pages" %}})), the page area of Home (`home_page_area_enabled`), the response store TTL | Collections, Chats, LocalAI Assistant, Open Responses |
-| Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check | P2P Network, Distributed |
-| Look and feel | Instance name, tagline, the three logos | Branding |
+With the default name "LocalAI", the sidebar, the sign-in page and the mobile title draw "AI" in the brand colour, and the first-run guide on Home shows the LocalAI llama beside step 1. When you set your own instance name or logo, the name is plain text, your logo is used as before, and the llama is not shown.
 
-Search at the top of the page matches a setting's name, description and key, the group, and the old section name, so a search for "Watchdog" still finds the watchdog settings and each result says where it used to be.
+Search at the top of the page matches a setting's name, description and key, and the group. It also matches the name of the section a setting used to be under, so a search for "Watchdog" still finds the watchdog settings. Each result says where the setting used to be.
 
-`/app/settings?group=<id>` opens a group (`memory`, `speed`, `backends`, `access`, `debug`, `agents`, `tools`, `swarm`, `look` or `addons`), and a hash after it brings a block of the group into view: `#settings-builtin-tools` (the built-in chat tools) on the Tools group. The old address of the command network, `/app/settings?group=tools#settings-egress`, opens the Settings tab of the add-on that holds it now (see below), or the Tools group when no add-on does.
+`/app/settings?group=<id>` opens a group (`memory`, `speed`, `backends`, `access`, `debug`, `agents`, `tools`, `swarm` or `look`, plus `addons` when an add-on has settings), and a hash after it brings a block of the group into view: `#settings-builtin-tools` (the built-in chat tools) on the Tools group. The old address of the command network, `/app/settings?group=tools#settings-egress`, opens the Settings tab of the add-on that holds it now (see below), or the Tools group when no add-on does.
 
-The settings of an add-on are not on this page: each add-on keeps them on the **Settings** tab of its details on the Add-ons page. When at least one add-on has settings, an **Add-ons** group at the end of the list names those add-ons, each with a link to its Settings tab. See [Host slots]({{%relref "/addons/contract-reference#host-slots" %}}). An add-on can also ask LocalAI to draw some of LocalAI's own settings on that tab, with a [host control]({{%relref "/addons/contract-reference#host-controls" %}}). The rule: this page keeps the settings of the features that exist without any add-on (the commands on this machine, the built-in web tools), and points to the add-on where an add-on serves them; the settings that exist only for an add-on are on its tab. The Sandbox network below is one: with the Sandbox installed, the Tools group shows a row that links to its Settings tab, and neither the group nor the search lists those settings. A built-in tool row that an add-on with the `tool-providers` control serves links to that add-on's tab.
+The settings of an add-on are not on this page: each add-on keeps them on the **Settings** tab of its details on the Add-ons page. When at least one add-on has settings, an **Add-ons** group at the end of the list names those add-ons, each with a link to its Settings tab. See [Host slots]({{% relref "/addons/contract-reference/apps-and-pages#host-slots" %}}). An add-on can also ask LocalAI to draw some of LocalAI's own settings on that tab, with a [host control]({{% relref "/addons/contract-reference/apps-and-pages#host-controls" %}}). The rule: this page keeps the settings of the features that exist without any add-on (the commands on this machine, the built-in web tools), and points to the add-on where an add-on serves them; the settings that exist only for an add-on are on its tab. The Sandbox network below is one: with the Sandbox installed, the Tools group shows a row that links to its Settings tab, and neither the group nor the search lists those settings. A built-in tool row that an add-on with the `tool-providers` control serves links to that add-on's tab.
 
 ### Editing, applying and undoing
 
@@ -43,7 +44,7 @@ Edits are not sent as you type. A bar at the bottom of the page counts them and 
 
 A setting shows **Changed** and its built-in default, with a **Reset** link, only when the default is known (the defaults of the `local-ai run` flags). Settings without a stated default, such as threads and the context size, never show the marker. An environment variable or flag can change the value the server starts with, so the marker compares with the built-in default, not with the startup value.
 
-A row says **Applies now** when the save handler applies the setting immediately (the watchdog and the memory reclaimer restart with the new values; so does the P2P stack when its settings change), and **Needs restart** for most collections settings. A setting without either note is saved, and the code does not say when it takes effect.
+A row says **Applies now** when the save handler applies the setting immediately (the watchdog and the memory reclaimer restart with the new values; so does the P2P stack when its settings change), and **Needs restart** for most collections settings. If a row shows neither note, restart LocalAI to be sure the setting is in use.
 
 **History** lists the settings you applied from this browser, newest first, up to the last 50. LocalAI keeps no settings log of its own, so changes made elsewhere do not appear, and a secret (the P2P token, shared API keys, the collections database URL) is listed as changed without its value. **Revert** puts the old value back as an edit.
 
@@ -86,10 +87,10 @@ You can configure these settings via the web UI or through environment variables
 ### Performance Settings
 
 - **Threads**: Number of threads used for parallel computation (recommended: number of physical cores)
-- **Context Size**: Context size for models that set no `context_size` of their own. A value in a model's configuration always wins, and so does any value you set here over the automatic size. Unset (the default), a model that can serve chats gets `32768` tokens, capped by what it was trained for and by the memory of the machine, and other models get at most `8192`. The chat needs at least `16384`: see [the context window a chat needs]({{% relref "/features/chats-and-agents/chats#the-context-window-a-chat-needs" %}}).
+- **Context Size**: Context size for models that set no `context_size` of their own. A value in a model's configuration always wins, and so does any value you set here over the automatic size. Unset (the default), a model that can serve chats gets `32768` tokens, capped by what it was trained for and by the memory of the machine, and other models get at most `8192`. The chat needs at least `16384`: see [the context window a chat needs]({{% relref "/features/chats-and-agents/chats-long-conversations#the-context-window-a-chat-needs" %}}).
 - **Concurrent Backend Operations**: How many backend installs, upgrades and deletes run at once. `1` runs them one after the other (default: `1`, minimum `1`). Operations on the same backend never overlap, whatever the value. Model operations run in their own queue and are not held up by backend operations. In distributed mode the same limit bounds how many nodes receive one operation at the same time. The limit is per frontend. A change applies to operations that start after the change
 - **Artifact Download Concurrency**: Maximum number of artifact files downloaded at once. `1` downloads sequentially (default: `1`)
-- **F16**: Enable GPU acceleration using 16-bit floating point
+- **F16**: Default to 16-bit float (f16) memory and KV cache for models whose config does not set f16
 - **VRAM Budget**: Cap on VRAM used for model allocation (for example `80%` or `12GB`; empty means no cap). See [VRAM Management]({{%relref "/models/vram-management" %}})
 
 ### Debug and Logging
@@ -140,29 +141,31 @@ Configure the collections (the knowledge base) and the models the [chats]({{%rel
 - **Collection DB Path**: Custom path for the collections database
 - **Shared pages** (`shared_pages_enabled`, default on): lets users open the [pages]({{%relref "/features/pages-and-home/pages" %}}) of the shared folders they have access to. Each user still allows each page before it runs. It applies at once: off, the pages are listed but do not open, and an open shared page stops at its next action. Start with `LOCALAI_DISABLE_SHARED_PAGES=true` to have it off from the start.
 
+- **Pages that people share** (`user_page_shares_enabled`, default on): lets users share one of their own [pages]({{%relref "/features/pages-and-home/pages#share-a-page" %}}) with other accounts. It is separate from **Shared pages**, which covers the folders that an administrator shares. It applies at once. When it is off, nobody can share a page or search for people to share with (`409 sharing_disabled`), the pages that people already shared are listed as turned off and do not open, and an open page stops at its next action. Owners can still take their shares back, and the files are kept. Start with `LOCALAI_DISABLE_USER_PAGE_SHARES=true` to have it off from the start.
+
 - **Page area on Home** (`home_page_area_enabled`, default on): lets users show one of their [pages]({{%relref "/features/pages-and-home/pages" %}}) below the composer on Home (`pageArea` in `home.json`). It applies at once: off, Home ignores `pageArea` and the area says an administrator turned it off. The files and pages are kept. Start with `LOCALAI_DISABLE_PAGE_AREA=true` to have it off from the start.
 
 ### Tools
 
 The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tools`: `bash`, `web_search`, `web_fetch`, `list_agents` and the two LocalAI groups (`localai_client`, `localai_admin`). An add-on may replace each of the first three. Each row says who serves the tool now (built-in, or an add-on) and has its switch:
 
-- **Commands on this machine** (`chats_host_exec`, `off`, `ask` or `on`, applies at once; `LOCALAI_CHATS_HOST_EXEC`): who gets the chats' built-in `bash` when no Sandbox add-on serves `bash`. It runs commands directly on this machine **with no isolation and with its network**: they can read what LocalAI can read and reach the internet, your network and the LocalAI API. `ask` gives it to administrators, and each command waits for their yes in the chat; `on` gives it to every user with no card. Empty is the default: `off` with accounts, `ask` without. Every command is audited. See [Commands on this machine]({{%relref "/features/chats-and-agents/chats#commands-on-this-machine" %}}).
+- **Commands on this machine** (`chats_host_exec`, `off`, `ask` or `on`, applies at once; `LOCALAI_CHATS_HOST_EXEC`): who gets the chats' built-in `bash` when no Sandbox add-on serves `bash`. It runs commands directly on this machine **with no isolation and with its network**: they can read what LocalAI can read and reach the internet, your network and the LocalAI API. `ask` gives it to administrators, and each command waits for their yes in the chat; `on` gives it to every user with no card. Empty is the default: `off` with accounts, `ask` without. Every command is audited. See [Commands on this machine]({{% relref "/features/chats-and-agents/chats-commands#commands-on-this-machine" %}}).
 - **Web search** (`chats_web_search`, default on, applies at the next turn; its row in the tab) and **Read web pages** (`chats_web_fetch`, default on; its row in the tab): offer the built-in `web_search` and `web_fetch` tools to chats. See [Web search and web pages in chats]({{%relref "/features/chats-and-agents/web" %}}).
-- **LocalAI client tools** (`chats_localai_client`, default on, applies at the next turn; its row in the tab) and **LocalAI admin tools** (`chats_localai_admin`, default on; its row in the tab): offer the chats the [LocalAI Assistant's tool groups]({{%relref "/features/chats-and-agents/localai-assistant#tool-groups" %}}). The client group runs inference for every user within their permissions; the admin group manages this server and is for administrators, who switch it on per chat or per saved agent. If the deprecated `LOCALAI_DISABLE_ASSISTANT` variable or `--disable-local-ai-assistant` flag is set, the admin group stays off and this setting cannot turn it on until you remove them.
-- **Load LocalAI tools on demand** (`chats_tool_search`, `auto`, `on` or `off`, default `auto`, applies at the next turn): send the model `tool_search`, `tool_describe` and `tool_call` in place of the two LocalAI tool groups. `auto` does it when the schemas of the groups reach a tenth of the model's context window, `on` always, `off` never. With `on`, the tools of the user's MCP connectors load on demand as well. See [Tool search]({{%relref "/features/chats-and-agents/localai-assistant#tool-search" %}}).
-- **Saved agents in chats** (`chats_saved_agents`, default on, applies at the next turn; its row in the tab): let a chat list your saved agents (`list_agents`) and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the `agents` feature. See [Saved agents as sub-agents]({{%relref "/features/chats-and-agents/chats#saved-agents-as-sub-agents" %}}).
-- **Work folder for helper files** (`chats_work_folder`, default on, applies at the next turn): name each chat's work folder (`Chats/<chat>/work/`) at every turn, start every shell in it with its path in `$WORK`, so the scripts, logs and drafts the model makes go there and not next to your files, and add a one-line nudge when a helper file is saved elsewhere. Off: no steering; the Files pane of a chat still shows working files apart. See [Working files and the work folder]({{%relref "/features/chats-and-agents/chats#working-files-and-the-work-folder" %}}).
-- **Search inside documents** (`chats_index_files`, default on, applies at once): read the text of PDF, Word, Excel and PowerPoint files when they are uploaded or written, so file search and the chats' `search_files` find a document by what it says. Off: nothing new is read, and text read before is still used for files that did not change. See [Search inside documents]({{%relref "/features/chats-and-agents/chats#search-inside-documents" %}}).
+- **LocalAI client tools** (`chats_localai_client`, default on, applies at the next turn; its row in the tab) and **LocalAI admin tools** (`chats_localai_admin`, default on; its row in the tab): offer the chats the [LocalAI Assistant's tool groups]({{% relref "/features/chats-and-agents/localai-client-tools#tool-groups" %}}). The client group runs inference for every user within their permissions; the admin group manages this server and is for administrators, who switch it on per chat or per saved agent. If the deprecated `LOCALAI_DISABLE_ASSISTANT` variable or `--disable-local-ai-assistant` flag is set, the admin group stays off and this setting cannot turn it on until you remove them.
+- **Load LocalAI tools on demand** (`chats_tool_search`, `auto`, `on` or `off`, default `auto`, applies at the next turn): send the model `tool_search`, `tool_describe` and `tool_call` in place of the two LocalAI tool groups. `auto` does it when the schemas of the groups reach a tenth of the model's context window, `on` always, `off` never. With `on`, the tools of the user's MCP connectors load on demand as well. See [Tool search]({{% relref "/features/chats-and-agents/localai-client-tools#tool-search" %}}).
+- **Saved agents in chats** (`chats_saved_agents`, default on, applies at the next turn; its row in the tab): let a chat list your saved agents (`list_agents`) and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the `agents` feature. See [Saved agents as sub-agents]({{% relref "/features/chats-and-agents/chats-sub-agents#saved-agents-as-sub-agents" %}}).
+- **Work folder for helper files** (`chats_work_folder`, default on, applies at the next turn): name each chat's work folder (`Chats/<chat>/work/`) at every turn, start every shell in it with its path in `$WORK`, so the scripts, logs and drafts the model makes go there and not next to your files, and add a one-line nudge when a helper file is saved elsewhere. Off: no steering; the Files pane of a chat still shows working files apart. See [Working files and the work folder]({{% relref "/features/chats-and-agents/chats-files#working-files-and-the-work-folder" %}}).
+- **Search inside documents** (`chats_index_files`, default on, applies at once): read the text of PDF, Word, Excel and PowerPoint files when they are uploaded or written, so file search and the chats' `search_files` find a document by what it says. Off: nothing new is read, and text read before is still used for files that did not change. See [Search inside documents]({{% relref "/features/files-and-documents/files-reference#search-inside-documents" %}}).
 - **Text kept per document** (`chats_index_max_text_bytes`, default `2097152`, 65536 to 16777216, applies at once): the most text the index keeps for one document. Text past it is not searched; `read_file` in a chat still reads the whole document.
 - **Extract: most bytes per archive** (`chats_extract_max_bytes`, default `1073741824`, 1048576 to 68719476736, applies at once): the most data one archive may expand to when a user chooses **Extract here** on the Files page. It is counted on the bytes that are really read. An archive over the limit is refused and nothing is written.
 - **Extract: most entries per archive** (`chats_extract_max_entries`, default `20000`, 1 to 1000000, applies at once): the most files and folders one archive may have. An archive over the limit is refused and nothing is written.
-- **Extract: allow 7z and RAR** (`chats_extract_7z_rar`, default off, applies at once): let **Extract here** open 7z and RAR archives. Their readers run in the server and cannot limit their memory, so a crafted file can stop the server. Turn it on only when you trust the users who can upload files. See [Extract an archive]({{% relref "/features/chats-and-agents/chats" %}}#extract-an-archive).
+- **Extract: allow 7z and RAR** (`chats_extract_7z_rar`, default off, applies at once): let **Extract here** open 7z and RAR archives. Their readers run in the server and cannot limit their memory, so a crafted file can stop the server. Turn it on only when you trust the users who can upload files. See [Extract an archive]({{% relref "/features/files-and-documents/files-reference#extract-an-archive" %}}).
 - **SearXNG instance** (`chats_web_searxng_url`, default empty): the address of your SearXNG instance. With no provider order set, `web_search` then uses SearXNG alone. The instance must allow the JSON format.
 - **Search providers** (`chats_web_search_providers`, default empty): the providers of `web_search` in the order they are tried, comma separated: `searxng`, `duckduckgo`, `brave_html`, `bing_html`. Leave one out to never use it. Empty: `searxng` when an instance is set, else `duckduckgo,brave_html,bing_html`. An unknown name is refused. **Test search** on the `web_search` row says what each provider did (ok, challenged by a bot check, blocked, no results). See [Search providers]({{%relref "/features/chats-and-agents/web#search-providers" %}}).
 - **Web pages may be on private networks** (`chats_web_allow_private`, default off): let `web_fetch` reach addresses inside your network. The cloud metadata addresses stay refused. Turn it on only if you trust every user of chats.
 - **Ports for web pages** (`chats_web_ports`, default `80,443`): the ports `web_fetch` may use, comma separated. A value that is not a list of ports is refused.
-- **Command network** (applies at the next connection of a command; an allow the proxy cached lives at most 30 seconds). The commands a chat runs in isolation reach the network only through the proxy of the add-on that runs them, and these settings bound it. They are on the Settings tab of the add-on that runs the commands (its `network-policy` host control), not on this page; `chats_egress_audit_days` is on both, since it also keeps the audit of the commands on this machine. They do not apply to commands on this machine (`chats_host_exec`), which have the network of the server. See [Network access]({{%relref "/addons/contract-reference#network-access" %}}).
-  - `chats_egress_ceiling` (`off`, `registries` or `all`, default `off`): the widest preset any chat may use. `registries` admits the package registries only; `all` admits every public host. A chat chooses its own preset up to this.
+- **Command network** (applies at the next connection of a command; an allow the proxy cached lives at most 30 seconds). The commands a chat runs in isolation reach the network only through the proxy of the add-on that runs them, and these settings bound it. They are on the Settings tab of the add-on that runs the commands (its `network-policy` host control), not on this page; `chats_egress_audit_days` is on both, since it also keeps the audit of the commands on this machine. They do not apply to commands on this machine (`chats_host_exec`), which have the network of the server. See [Network access]({{% relref "/addons/catalogue/work/sandbox-settings#network-access" %}}).
+  - `chats_egress_ceiling` (`off`, `registries` or `all`, default `off`): the widest preset any chat may use. `registries` (called Custom in the chat's Network row) admits the package registries and the hosts of `chats_egress_extra_registries` and `chats_egress_allowed_hosts`; `all` admits every public host. A chat chooses its own preset up to this.
   - `chats_egress_default` (`off`, `registries` or `all`, default `off`): the preset a new chat starts with, capped by the ceiling.
   - `chats_egress_allow_private` (default off): let a host that an administrator allowed, by a rule or a card answer, reach addresses inside your network. A preset alone never does, and the cloud metadata addresses and the server's own addresses stay refused. Turning it on needs `chats_egress_private_confirm` in the same request, with the phrase *I understand that commands can reach my private network*; the phrase is not stored. The add-on's Settings tab asks for it. With add-ons enabled the add-on owner checks the same phrase, so a direct `host-settings-update` call needs `chats_egress_private_confirm` in its patch too.
   - `chats_egress_ports` (default `80,443`): the ports a command may reach, comma separated. Ports 22 and 25 are refused.
@@ -172,25 +175,28 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
   - Settings > Tools and `POST /api/settings` refuse a bad value of `chats_egress_ports`, `chats_egress_extra_registries` or `chats_egress_allowed_hosts` with the reason, and a runtime settings file with one keeps the value in force. A bad value that reaches a frontend another way (a hand edit, a value a newer version reads more strictly) neither empties nor widens the list: the frontend keeps the last valid value it used and logs a warning once. A frontend that never saw a valid value uses the default (no hosts, ports `80,443`). The last valid value is kept in the memory of each frontend.
   - `chats_egress_audit_days` (1 to 365, default 30): how long the audit of the network requests, and the audit of the commands run on this machine (`chats_host_exec`), keep a line. A value of 0 means a setting never set, and the page shows 30 days.
 - **Jobs from a paired client** (`client_jobs_allow_all_tools`, default off, applies to jobs that already run; set it with `POST /api/settings` or in the runtime settings file, because Settings > Tools has no control for it and it has no environment variable): a job that an add-on starts for a [paired client]({{%relref "/addons/addon-clients" %}}) reads and reports only. Turn this on to let such jobs use the write and act tools that the agent of their task is set up with, as an ordinary job of that task may. It never gives a grant the agent does not hold. It does not change jobs that people or triggers start.
-- **Steps per chat turn** (`chats_max_iterations`, 1 to 500, default 40, applies at the next turn): how many rounds of tool calls the model may make in one chat turn before it must answer. This covers chats, saved agents, triggers and connector turns. A turn that reaches the limit shows as **Paused** with a **Continue** button (see [The status line]({{%relref "/features/chats-and-agents/chats#the-status-line" %}})). A model whose configuration sets `agent.max_iterations` uses its own limit.
-- **Automatic turns per goal** (`chats_goal_max_turns`, 1 to 200, default 20, applies when a turn ends): how many turns a chat with a goal may start by itself before the goal pauses. Resuming the goal starts a new count (see [Goals]({{%relref "/features/chats-and-agents/chats#goals" %}})).
+- **Steps per chat turn** (`chats_max_iterations`, 1 to 500, default 40, applies at the next turn): how many rounds of tool calls the model may make in one chat turn before it must answer. This covers chats, saved agents, triggers and connector turns. A turn that reaches the limit shows as **Paused** with a **Continue** button (see [The status line]({{% relref "/features/chats-and-agents/chats-api#the-status-line" %}})). A model whose configuration sets `agent.max_iterations` uses its own limit.
+- **Automatic turns per goal** (`chats_goal_max_turns`, 1 to 200, default 20, applies when a turn ends): how many turns a chat with a goal may start by itself before the goal pauses. Resuming the goal starts a new count (see [Goals]({{% relref "/features/chats-and-agents/chats-goals#goals" %}})).
 - **Steps per goal** (`chats_goal_max_steps`, 1 to 10000, default 400, applies when a turn ends): how many rounds of tool calls all the turns of one goal may make together before the goal pauses.
-- **Loops of the chats** (apply at once; see [Loops]({{%relref "/features/chats-and-agents/chats#loops-repeat-a-prompt-in-a-chat" %}})):
+- **Loops of the chats** (apply at once; see [Loops]({{% relref "/features/chats-and-agents/chats-loops#loops-repeat-a-prompt-in-a-chat" %}})):
   - `chats_loop_min_interval` (a duration from `30s` to `24h`, default `1m`): the shortest interval of a loop, and the shortest wait a self-paced loop may ask for.
-  - `chats_loop_max_runs` (1 to 10000, default 100): the runs after which a loop ends.
-  - `chats_loop_max_per_chat` (1 to 20, default 3) and `chats_loop_max_per_user` (1 to 200, default 10): how many loops that are not ended one chat and one user may have.
-  - `chats_loop_daily_runs` (1 to 100000, default 200): how many loop runs one user may start in a UTC day, over all their loops. After that the loops wait for the next day.
+  - `chats_loop_daily_runs` (1 to 100000, default 200): how many loop runs one user may start in a UTC day, over all their loops. The wake-up of a wait counts as a run. After that the loops wait for the next day.
+  - `chats_loop_max_per_chat` (1 to 20, default 3): how many loops and waits that are not ended one chat may have. Waits count too.
+  - Under **Advanced** in Settings > Tools:
+    - `chats_loop_max_per_user` (1 to 200, default 10): how many loops and waits that are not ended one user may have, over all their chats.
+    - `chats_loop_max_runs` (1 to 10000, default 100): the runs after which a loop ends. In a chat that a connector, a trigger, a job or a page started, a loop ends after a fifth of this, at least 1 (20 with the default). The page shows that number under the field.
+    - `chats_loop_daily_script_checks` (1 to 100000, default 1500): how many checks of waits on a command one user may spend in a UTC day, over all their waits. A check starts a process and calls no model, so this budget is apart from `chats_loop_daily_runs`. When it is used up, the wait ends and the model is told that the condition is not known.
 - **Triggers of the chats** (apply at once; see [Triggers]({{%relref "/features/chats-and-agents/chats" %}})):
   - `chats_trigger_run_limit` (a duration from `1m` to `24h`, default `15m`): the longest one trigger run may take. A longer run is stopped and fails. A trigger can set a shorter time limit of its own (`run_limit`); this setting is the ceiling, so a trigger that asks for more runs at this one. A change applies to the runs that start after it and to the check of a run that is found running after a restart.
   - `chats_trigger_max_per_user` (1 to 1000, default 50): how many triggers a user may have. A user who has more keeps them but cannot add another.
   - `chats_trigger_max_daily_cap` (1 to 1000, default 1000): the highest daily limit one trigger may have. A trigger with a higher limit runs at this one.
-- **Add-ons that replace a built-in tool** (`chats_tool_providers`, a map such as `{"bash": "sandbox", "xlsx": "office"}`, applies at once): when several add-ons replace one tool, the one that serves it. The keys are the replaceable tools (`bash`, `web_search`, `web_fetch`) and the replaceable built-in skills (`xlsx`, `docx`, `pptx`, `pdf`). A chosen add-on that cannot serve a chat (stopped, off for the chat) leaves the name to the built-in, not to another add-on. With none chosen, the add-on installed first serves (ties go by add-on ID), and the tab marks it as the default and says that you should choose. See [Tools that replace a built-in tool]({{%relref "/addons/contract-reference#tools-that-replace-a-built-in-tool" %}}).
+- **Add-ons that replace a built-in tool** (`chats_tool_providers`, a map such as `{"bash": "sandbox", "xlsx": "office"}`, applies at once): when several add-ons replace one tool, the one that serves it. The keys are the replaceable tools (`bash`, `web_search`, `web_fetch`) and the replaceable built-in skills (`xlsx`, `docx`, `pptx`, `pdf`). A chosen add-on that cannot serve a chat (stopped, off for the chat) leaves the name to the built-in, not to another add-on. With none chosen, the add-on installed first serves (ties go by add-on ID), and the tab marks it as the default and says that you should choose. See [Tools that replace a built-in tool]({{% relref "/addons/contract-reference/owner-forwarding#tools-that-replace-a-built-in-tool" %}}).
 
 > **Note:** Most collection settings require a restart to take effect. The settings of the removed agent pool, agent jobs and agent hub (`agent_job_retention_days`, `agent_pool_enable_logs`, `agent_pool_agent_hub_url` and the like) are ignored when found in `runtime_settings.json`.
 
 ## Configuration Persistence
 
-All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
+All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`, where `BASEPATH` is the current folder on Linux and macOS, `%LOCALAPPDATA%\LocalAI` on Windows, or `LOCALAI_BASE_PATH` when it is set). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
 
 ## Settings Precedence
 
@@ -213,7 +219,7 @@ The same rule is applied identically in all three places where settings can chan
 
 ## Example Configuration
 
-The `runtime_settings.json` file follows this structure:
+The `runtime_settings.json` file follows this structure. The `galleries` and `backend_galleries` entries are the built-in defaults, including the signature check (`artifact_verification`). If you copy the example, keep that block, or the gallery index is no longer verified. `"csrf": false` means the disable flag is off, so CSRF protection is on.
 
 ```json
 {
@@ -241,15 +247,29 @@ The `runtime_settings.json` file follows this structure:
   "galleries": [
     {
       "url": "https://index.localai.io/models",
-      "mirrors": ["github:mudler/LocalAI/gallery/index.yaml@master"],
-      "name": "localai"
+      "mirrors": [
+        "github:mudler/LocalAI/gallery/index.yaml@master",
+        "oci://quay.io/go-skynet/local-ai-backends:gallery-models"
+      ],
+      "name": "localai",
+      "artifact_verification": {
+        "issuer": "https://token.actions.githubusercontent.com",
+        "identity": "https://github.com/mudler/LocalAI/.github/workflows/gallery_publish.yml@refs/heads/master"
+      }
     }
   ],
   "backend_galleries": [
     {
       "url": "https://index.localai.io/backends",
-      "mirrors": ["github:mudler/LocalAI/backend/index.yaml@master"],
-      "name": "localai"
+      "mirrors": [
+        "github:mudler/LocalAI/backend/index.yaml@master",
+        "oci://quay.io/go-skynet/local-ai-backends:gallery-backends"
+      ],
+      "name": "localai",
+      "artifact_verification": {
+        "issuer": "https://token.actions.githubusercontent.com",
+        "identity": "https://github.com/mudler/LocalAI/.github/workflows/gallery_publish.yml@refs/heads/master"
+      }
     }
   ],
   "autoload_galleries": true,
@@ -289,7 +309,6 @@ Changes to these files are automatically detected and applied without requiring 
 
 4. **Secure API Keys**: API keys are sensitive information. Ensure proper file permissions on configuration files (they should be readable only by the LocalAI process).
 
-5. **Test Changes**: Some settings (like watchdog timeouts) may require testing to find optimal values for your specific use case.
 
 ## Troubleshooting
 

@@ -29,7 +29,7 @@ GPU recommendations require a memory estimate within 95% of the detected model m
 3. Browse or search the available models
 4. Click "Install" on any model you want
 5. Wait for installation to complete. Progress appears in the strip at the top
-   of the app, and **Operate → Activity** shows every install in flight, plus
+   of the app, and **Admin → Activity** shows every install in flight, plus
    what failed and what finished (see [Activity]({{% relref "/administration/activity" %}}))
 
 For more details, refer to the [Gallery Documentation]({{% relref "/models" %}}).
@@ -57,23 +57,23 @@ local-ai models install llama-3.2-1b-instruct:q4_k_m
 local-ai run llama-3.2-1b-instruct:q4_k_m
 ```
 
-To run models available in the LocalAI gallery, you can use the model name as the URI. For example, to run LocalAI with the Qwen3 4B model, execute:
+To run models available in the LocalAI gallery, you can use the model name as the URI. For example, to run LocalAI with the Gemma 4 E2B model, execute:
 
 ```bash
-local-ai run qwen3-4b
+local-ai run gemma-4-e2b-it-qat-q4_0
 ```
 
 To install only the model, use:
 
 ```bash
-local-ai models install qwen3-4b
+local-ai models install gemma-4-e2b-it-qat-q4_0
 ```
 
 Note: The galleries available in LocalAI can be customized to point to a different URL or a local directory. For more information on how to setup your own gallery, see the [Gallery Documentation]({{% relref "/models" %}}).
 
 ### Browse Online
 
-Visit [models.localai.io](https://models.localai.io) to browse all available models in your browser.
+Open the **Models** page of the web interface (for example `http://localhost:8080`) to browse all available models in your browser. You can also run `local-ai models list`, or read the [gallery index](https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml) on GitHub.
 
 On a phone, the model page wraps build descriptions in the **Variants** table
 to keep the fit status and install buttons visible.
@@ -118,7 +118,7 @@ An HTTPS URL can point to a web page rather than model weights.
 Leaving the backend on auto-detect lets LocalAI choose from the source.
 Selecting a backend sends an explicit backend preference in the previewed request. If more
 than one installed backend can serve the detected modality, the page says so
-and offers the candidates inline — picking one resubmits the import.
+and offers the candidates inline. Picking one resubmits the import.
 
 Repositories under `mlx-community` are imported with the native MLX backend.
 LocalAI uses Hugging Face's pipeline metadata to select `mlx-vlm` for
@@ -172,7 +172,7 @@ file in both cases.
 
 The same split applies to the API behind the page: `POST /models/import`
 answers a queued import with a job id and a status URL to poll
-(`/models/jobs/{id}` — the same shape gallery installs use), and a
+(`/models/jobs/{id}`; the same shape gallery installs use), and a
 download-free import with a plain success response.
 
 If you cancel a queued import, the import page and model editor report the
@@ -211,7 +211,7 @@ local-ai run oci://localai/phi-2:latest
 ```
 
 {{% callout style="note" %}}
-On every model download — Ollama and OCI registries, the model gallery, and plain HTTP(S) file URLs alike — LocalAI identifies itself with a `LocalAI/<version> (<os>; <arch>)` `User-Agent` header (for example `LocalAI/v3.2.1 (linux; amd64)`) so registry and gallery operators can attribute usage to LocalAI. Builds from source that carry no stamped version send `LocalAI (<os>; <arch>)` instead.
+On every model download (Ollama and OCI registries, the model gallery, and plain HTTP(S) file URLs alike) LocalAI identifies itself with a `LocalAI/<version> (<os>; <arch>)` `User-Agent` header (for example `LocalAI/v3.2.1 (linux; amd64)`) so registry and gallery operators can attribute usage to LocalAI. Builds from source that carry no stamped version send `LocalAI (<os>; <arch>)` instead.
 {{% /callout %}}
 
 ### Run Models via URI

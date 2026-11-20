@@ -3,6 +3,7 @@ package chat
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,6 +37,9 @@ var _ = Describe("Agent state directory", func() {
 		})
 
 		It("falls back to ~/.config/localai/chat", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows keeps the state in the standard data folder; the stateDir on Windows specs cover it")
+			}
 			tmp := GinkgoT().TempDir()
 			GinkgoT().Setenv("XDG_CONFIG_HOME", "")
 			GinkgoT().Setenv("HOME", tmp)
@@ -43,6 +47,9 @@ var _ = Describe("Agent state directory", func() {
 		})
 
 		It("fails when neither XDG_CONFIG_HOME nor a home directory is resolvable", func() {
+			if runtime.GOOS == "windows" {
+				Skip("on Windows the standard data folder is used when there is no home directory")
+			}
 			GinkgoT().Setenv("XDG_CONFIG_HOME", "")
 			GinkgoT().Setenv("HOME", "")
 
@@ -52,6 +59,42 @@ var _ = Describe("Agent state directory", func() {
 			// No silent fallback to a relative path: writing an API key into the
 			// working directory would be worse than refusing.
 			Expect(dir).To(BeEmpty())
+		})
+	})
+
+	Describe("stateDir on Windows", func() {
+		noEnv := func(string) string { return "" }
+		standard := func() (string, error) { return `/AppData/Local/LocalAI`, nil }
+
+		It("uses the standard LocalAI folder", func() {
+			home := GinkgoT().TempDir()
+			dir, err := stateDir("", "windows", noEnv, func() (string, error) { return home, nil }, standard)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(dir).To(Equal(filepath.Join(`/AppData/Local/LocalAI`, "chat")))
+		})
+
+		It("keeps the ~/.config folder of earlier releases when it exists", func() {
+			home := GinkgoT().TempDir()
+			legacy := filepath.Join(home, ".config", "localai", "chat")
+			Expect(os.MkdirAll(legacy, 0o700)).To(Succeed())
+			Expect(stateDir("", "windows", noEnv, func() (string, error) { return home, nil }, standard)).To(Equal(legacy))
+		})
+
+		It("still prefers XDG_CONFIG_HOME and the override", func() {
+			xdg := func(k string) string {
+				if k == "XDG_CONFIG_HOME" {
+					return "/xdg"
+				}
+				return ""
+			}
+			Expect(stateDir("", "windows", xdg, os.UserHomeDir, standard)).To(Equal(filepath.Join("/xdg", "localai", "chat")))
+			Expect(stateDir("/o", "windows", xdg, os.UserHomeDir, standard)).To(Equal("/o"))
+		})
+
+		It("keeps the Linux and macOS folder unchanged", func() {
+			home := GinkgoT().TempDir()
+			Expect(stateDir("", "linux", noEnv, func() (string, error) { return home, nil }, standard)).
+				To(Equal(filepath.Join(home, ".config", "localai", "chat")))
 		})
 	})
 
@@ -76,11 +119,15 @@ var _ = Describe("Agent state directory", func() {
 			// load-bearing, not cosmetic.
 			config, err := os.Stat(ConfigPath(dir))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(config.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+			if runtime.GOOS != "windows" { // Windows has no permission bits; the folder ACL applies
+				Expect(config.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+			}
 
 			state, err := os.Stat(dir)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(state.Mode().Perm()).To(Equal(os.FileMode(0o700)))
+			if runtime.GOOS != "windows" {
+				Expect(state.Mode().Perm()).To(Equal(os.FileMode(0o700)))
+			}
 		})
 
 		It("leaves an existing config byte-for-byte untouched", func() {
@@ -159,7 +206,9 @@ var _ = Describe("Agent state directory", func() {
 
 			info, err := os.Stat(ConfigPath(dir))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+			if runtime.GOOS != "windows" { // Windows has no permission bits; the folder ACL applies
+				Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+			}
 
 			// The atomic write stages through a sibling temp file; it must not
 			// survive a successful write.

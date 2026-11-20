@@ -13,7 +13,10 @@
     <source src="{{ printf "media/%s.webm" . | relURL }}" type="video/webm">
     <source src="{{ printf "media/%s.mp4" . | relURL }}" type="video/mp4">
   </video>
-{{- else }}
+{{- else }}{{ if .shot }}
+  <img class="shot shot--lt" src="{{ printf "media/%s-light.webp" .shot | relURL }}" width="1400" height="{{ if eq .shot "projects-overview" }}875{{ else }}900{{ end }}" loading="lazy" alt="{{ .alt }}">
+  <img class="shot shot--dk" src="{{ printf "media/%s-dark.webp" .shot | relURL }}" width="1400" height="{{ if eq .shot "projects-overview" }}875{{ else }}900{{ end }}" loading="lazy" alt="" aria-hidden="true">
+{{ else }}
   {{ partial (printf "illus/%s.html" .kind) . }}
-{{- end }}
+{{ end }}{{- end }}
 </figure>

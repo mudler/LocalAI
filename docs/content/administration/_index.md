@@ -7,7 +7,7 @@ icon = "manage_accounts"
 aliases = ["/operations/"]
 +++
 
-These pages are for the person who runs a LocalAI instance: users and access, settings, monitoring, proxies, distributed mode and troubleshooting.
+Set up users and API keys, change settings without a restart, watch traffic, and run several machines.
 
 ## Access and settings
 
@@ -17,7 +17,7 @@ These pages are for the person who runs a LocalAI instance: users and access, se
 
 ## Watch what the instance does
 
-- [Operate overview]({{% relref "/administration/overview" %}}): where to look first.
+- [Admin overview]({{% relref "/administration/overview" %}}): where to look first.
 - [Traffic]({{% relref "/administration/traffic" %}}): usage, failed requests, models, GPU and host.
 - [Activity]({{% relref "/administration/activity" %}}): watch, cancel and retry installs.
 - [Backend monitor]({{% relref "/administration/backend-monitor" %}}): list, pre-load and stop running backends.

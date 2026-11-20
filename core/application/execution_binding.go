@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -47,7 +48,7 @@ func (a *Application) resolveExecutionBindingWithTools(ctx context.Context, acto
 	if err != nil {
 		return empty, err
 	}
-	rec, err := a.studioStore.GetChat(ctx, principal, claim.ConversationID)
+	rec, err := a.effectiveChat(ctx, principal, claim.ConversationID)
 	if err != nil || rec.Principal != principal || rec.ID != claim.ConversationID {
 		return empty, gateway.ErrForbidden
 	}
@@ -59,6 +60,17 @@ func (a *Application) resolveExecutionBindingWithTools(ctx context.Context, acto
 		ag, err := a.studioAgents.Get(ctx, principal, rec.AgentID)
 		if err != nil || ag.Principal != principal {
 			return empty, gateway.ErrForbidden
+		}
+		// A project agent, and a sub-agent working in a project, hold only the
+		// add-ons the project allows.
+		if ag.ProjectID != "" || rec.Kind == session.KindSubAgent {
+			svc := a.StudioService()
+			if svc == nil {
+				return empty, gateway.ErrUnavailable
+			}
+			if ag, err = svc.CappedAgentForChat(ctx, rec, ag); err != nil {
+				return empty, gateway.ErrForbidden
+			}
 		}
 		grants = ag.Addons
 	}

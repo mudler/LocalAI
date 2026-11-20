@@ -1,17 +1,23 @@
-# Development builds of the Electron launcher, kept as workflow artifacts
-# (not attached to any release, no update feed files):
+# Development builds of the Electron launcher (no update feed files):
 #
-# - push to master: AppImage amd64 and arm64, and the DMG (signed and
-#   notarized when the secrets are available), as
-#   localai-launcher-dev-linux-amd64, -linux-arm64 and -macos-arm64, kept 14 days.
+# - push to master: AppImage amd64 and arm64, the DMG (signed and notarized
+#   when the secrets are available), and the Windows installer and zip
+#   (signed when the Windows secrets are available), as workflow artifacts
+#   localai-launcher-dev-linux-amd64, -linux-arm64, -macos-arm64 and
+#   -windows-amd64, kept 14 days.
+#   When all builds pass, the same files are also attached to the rolling
+#   `dev-master` pre-release, next to the server binaries that
+#   master-dev-binary.yml publishes there. The publish job is the only job
+#   here with write access, and it never runs for pull requests or manual runs.
 # - pull request: the amd64 AppImage only, unsigned, no secrets, kept 7 days.
 # - manual run: build and smoke for validation, with an optional version.
 #   It keeps nothing.
 #
 # The version is <newest vX.Y.Z tag, patch + 1>-dev.<run number>, and a
 # development build never updates itself. Its files have "dev" in the name
-# (LocalAI-Launcher-dev-x86_64.AppImage, LocalAI-Launcher-dev.dmg), so they are
-# never mistaken for release files. See launcher/README.md.
+# (LocalAI-Launcher-dev-x86_64.AppImage, LocalAI-Launcher-dev.dmg,
+# LocalAI-Launcher-dev-Setup-x64.exe, LocalAI-Launcher-dev-win-x64.zip), so
+# they are never mistaken for release files. See launcher/README.md.
 #
 # Repository variables (Settings > Variables), both optional:
 # - LAUNCHER_DEV_ARM64=false: no arm64 AppImage on master pushes. Each package
@@ -53,12 +59,13 @@ on:
         type: boolean
         default: false
 
-# A newer push to the same branch or pull request supersedes the older build
-# (master builds included: each one is a complete package). Manual runs are
-# never cancelled.
+# A newer pull request push supersedes the older build of that pull request.
+# Master builds and manual runs are never cancelled: a running master build
+# finishes and publishes, and a master run that is still waiting is replaced
+# by a newer one, so the newest push wins.
 concurrency:
   group: launcher-electron-dev-${{ github.event_name }}-${{ github.event.pull_request.number || (github.event_name == 'workflow_dispatch' && github.run_id) || github.ref }}-${{ github.repository }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -107,6 +114,7 @@ jobs:
       artifact-prefix: localai-launcher-dev
       linux-arm64: false
       macos: false
+      windows: false
       sign-macos: false
       feed: false
       upload: true
@@ -124,6 +132,7 @@ jobs:
       artifact-prefix: localai-launcher-dev
       linux-arm64: ${{ vars.LAUNCHER_DEV_ARM64 != 'false' }}
       macos: true
+      windows: true
       sign-macos: ${{ vars.LAUNCHER_DEV_SIGN_MACOS != 'false' }}
       feed: false
       upload: true
@@ -134,6 +143,105 @@ jobs:
       MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
       MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
       MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}
+
+  # The only job with write access. It checks out no code and runs nothing
+  # from the repository: it downloads the artifacts of the master build,
+  # verifies the checksums and talks to the GitHub API.
+  #
+  # It never creates the release or moves the tag: master-dev-binary.yml owns
+  # those. It only adds files, and it only touches names that start with
+  # LocalAI-Launcher-dev. master-dev-binary.yml only replaces names that start
+  # with local-ai-master-, so the two workflows never touch the same asset and
+  # need no shared lock. This job has its own concurrency group so that two
+  # uploads never overlap, and a waiting job must not replace (or be replaced
+  # by) a pending server publish, which a shared group would allow.
+  publish:
+    name: Attach to the dev-master pre-release
+    if: github.event_name == 'push' && github.repository == 'mudler/LocalAI'
+    needs: master
+    runs-on: ubuntu-latest
+    concurrency:
+      group: launcher-dev-release-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: dev-master
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: localai-launcher-dev-*
+          merge-multiple: true
+          path: upload
+      - name: Check the files and the checksums
+        working-directory: upload
+        run: |
+          set -euo pipefail
+          ls -l
+          # Only packages and their checksums, never update feed files.
+          count=0
+          for f in ./*; do
+            case "${f#./}" in
+              LocalAI-Launcher-dev[-.]*AppImage|LocalAI-Launcher-dev[-.]*dmg|LocalAI-Launcher-dev-*.exe|LocalAI-Launcher-dev-*.zip) count=$((count + 1)) ;;
+              LocalAI-Launcher-dev[-.]*AppImage.sha256|LocalAI-Launcher-dev[-.]*dmg.sha256|LocalAI-Launcher-dev-*.exe.sha256|LocalAI-Launcher-dev-*.zip.sha256) ;;
+              *) echo "unexpected file in the launcher artifacts: ${f}" >&2; exit 1 ;;
+            esac
+          done
+          test "${count}" -ge 2
+          sha256sum --check --strict ./*.sha256
+      # The release is made by master-dev-binary.yml, which can still be
+      # running for this commit. Wait for it. Do not create it here.
+      - name: Wait for the release
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 40); do
+            if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+              exit 0
+            fi
+            echo "no ${RELEASE_TAG} release yet (attempt ${attempt}), waiting"
+            sleep 30
+          done
+          echo "the ${RELEASE_TAG} release does not exist; master-dev-binary.yml creates it" >&2
+          exit 1
+      # Same retry shape as master-dev-binary.yml. Names are stable, so --clobber
+      # replaces the files of the last build. Packages go first and checksums
+      # last, so a checksum never describes a file that is not there yet.
+      - name: Upload the packages
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(upload/*.AppImage upload/*.dmg upload/*.exe upload/*.zip)
+          upload() {
+            gh release upload "${RELEASE_TAG}" "${packages[@]}" --clobber
+            gh release upload "${RELEASE_TAG}" upload/*.sha256 --clobber
+          }
+          for attempt in 1 2 3 4 5; do
+            if upload; then
+              exit 0
+            fi
+            echo "attempt ${attempt} failed, retrying"
+            sleep $((attempt * 15))
+          done
+          echo "could not upload the launcher packages" >&2
+          exit 1
+      # A build without arm64 (LAUNCHER_DEV_ARM64=false) must not leave an
+      # older arm64 file behind. Only launcher dev names that this build did
+      # not make are removed. Server binaries never match.
+      - name: Remove stale launcher files
+        run: |
+          set -euo pipefail
+          gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' |
+            grep -E '^LocalAI-Launcher-dev[-.]' |
+            while read -r asset; do
+              if [ ! -e "upload/${asset}" ]; then
+                echo "removing stale ${asset}"
+                gh release delete-asset "${RELEASE_TAG}" "${asset}" --yes
+              fi
+            done
 
   manual:
     name: Manual validation build
@@ -147,6 +255,7 @@ jobs:
       artifact-prefix: localai-launcher-manual
       linux-arm64: true
       macos: true
+      windows: true
       sign-macos: ${{ inputs.sign-macos }}
       feed: false
       upload: false
@@ -156,3 +265,5 @@ jobs:
       MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
       MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
       MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}

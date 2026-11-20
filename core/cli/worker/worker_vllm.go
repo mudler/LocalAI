@@ -62,6 +62,9 @@ type VLLMDistributed struct {
 }
 
 func (r *VLLMDistributed) Run(ctx *cliContext.Context) error {
+	if err := requireHostBackendBuild("vllm", "vllm"); err != nil {
+		return err
+	}
 	// Rank 0 is the head: it must serve the OpenAI API. --headless
 	// disables that, so the combination is operator error and would
 	// silently produce a cluster that can't accept requests.
@@ -215,7 +218,9 @@ func (r *VLLMDistributed) registrationBody() map[string]any {
 func (r *VLLMDistributed) heartbeatBody() map[string]any {
 	body := map[string]any{}
 	aggregate := xsysinfo.GetGPUAggregateInfo()
-	if aggregate.TotalVRAM > 0 {
+	// An unknown usage is omitted, like an unknown total: the frontend keeps
+	// its last value.
+	if aggregate.TotalVRAM > 0 && !aggregate.UsageUnknown {
 		body["available_vram"] = aggregate.FreeVRAM
 	}
 	return body

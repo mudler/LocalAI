@@ -42,6 +42,7 @@
     "audioTransform": "Audio Transform",
     "faceRecognition": "Face Recognition",
     "voiceRecognition": "Voice Recognition",
+    "projects": "Projects",
     "agents": "Agents",
     "skills": "Skills",
     "memory": "Knowledge",

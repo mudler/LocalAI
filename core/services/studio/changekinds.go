@@ -62,7 +62,7 @@ var skillKind = proposals.Kind{
 			}
 			return files.AgentSkillsDir(a.Agent) + "/" + a.Target + "/" + skills.SkillFile, nil
 		}
-		return "", fmt.Errorf("%w: a skill is for the user (personal) or for this agent, not for a channel", proposals.ErrBadTarget)
+		return "", fmt.Errorf("%w: a skill is for the user (personal) or for this agent, not for a channel or a project", proposals.ErrBadTarget)
 	},
 	Check: func(in proposals.CheckInput) error {
 		name, _, err := skills.Parse([]byte(in.Content))

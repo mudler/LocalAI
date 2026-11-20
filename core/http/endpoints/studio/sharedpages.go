@@ -15,7 +15,8 @@ import (
 )
 
 // The shared pages endpoints serve the pages of the folders an administrator
-// shared with the caller. A shared page runs as the caller, so the UI runs it
+// shared with the caller, and the pages that other people shared from their own
+// homes (see pageshares.go). A shared page runs as the caller, so the UI runs it
 // only after the caller allowed that version, and every call of its bridge
 // says which version runs (X-LocalAI-Page-Hash) and, for a visit allowed once,
 // the visit (X-LocalAI-Page-Visit). The server checks that consent on every
@@ -59,6 +60,18 @@ func (h *Handlers) sharedJSON(c echo.Context, p pages.Page, consent string) sche
 	}
 	out.AuthorID, out.AuthorName = p.AuthorID, h.svc.UserName(c.Request().Context(), p.AuthorID)
 	out.Folder, out.FolderID, out.Writable, out.Hash, out.MetaSize, out.Consent = p.Folder, p.FolderID, p.Writable, p.Hash, p.MetaSize, consent
+	if p.UserShared {
+		// The folder of the page is the owner's page folder: its path would
+		// name the owner's account.
+		out.Folder, out.Path = "", ""
+		// The writer of the code is the owner or another grantee: the name
+		// says who, and the account ID of someone else stays on the server.
+		if p.AuthorID != userID(c) {
+			out.AuthorID = ""
+		}
+		out.UserShared, out.Role, out.TurnedOff = true, p.Role, p.TurnedOff
+		out.OwnerName = h.svc.UserName(c.Request().Context(), p.OwnerID)
+	}
 	out.CodeFiles = append([]string{}, p.CodeFiles...)
 	return out
 }
@@ -76,7 +89,7 @@ func (h *Handlers) bridgeCheck(c echo.Context, fc fileCall, folder int64, name s
 
 // ListSharedPages lists the pages of the caller's shared folders.
 // @Summary List the pages of your shared folders.
-// @Description A shared folder is a folder outside your home that an administrator gave you access to. Its pages are the folders pages/<name>/ with an index.html. Each page has its folder, its author (the account that last wrote index.html), the hash of its code and your consent: none, allowed (this version) or changed (you allowed an earlier one). enabled is false when an administrator turned shared pages off.
+// @Description A shared folder is a folder outside your home that an administrator gave you access to. Its pages are the folders pages/<name>/ with an index.html. A page that another person shared from their own home is listed too: it has user_shared set (no administrator checked it), the role view, use or edit, and owner_name, and it has no folder or path. Each page has its author (the account that last wrote index.html), the hash of its code and your consent: none, allowed (this version) or changed (you allowed an earlier one). enabled is false when an administrator turned shared pages off. user_shares_enabled is false when an administrator turned off the pages that people share: those pages have turned_off set, are listed and do not open.
 // @Tags pages
 // @Success 200 {object} schema.PagesSharedList "The pages, by folder and name"
 // @Failure 403 {object} schema.ErrorResponse "The pages feature is off for your account"
@@ -91,8 +104,13 @@ func (h *Handlers) ListSharedPages(c echo.Context) error {
 	if err != nil {
 		return failPage(c, err)
 	}
-	out := schema.PagesSharedList{Enabled: h.svc.SharedPagesOn(), Pages: make([]schema.PagesPage, 0, len(list))}
+	out := schema.PagesSharedList{Enabled: h.svc.SharedPagesOn(), UserSharesEnabled: h.svc.UserPageSharesOn(), Pages: make([]schema.PagesPage, 0, len(list))}
 	for _, p := range list {
+		if p.TurnedOff {
+			// Listed, not opened: it has no version to judge.
+			out.Pages = append(out.Pages, h.sharedJSON(c, p, pages.StateNone))
+			continue
+		}
 		rev, err := h.trust.State(ctx, fc.p, p)
 		if err != nil {
 			return failPage(c, err)
@@ -109,7 +127,7 @@ func (h *Handlers) ListSharedPages(c echo.Context) error {
 // @Param folder path integer true "shared folder id (folder_id of the list)"
 // @Param name path string true "page name"
 // @Success 200 {object} schema.PagesSharedSource "The page, its HTML and your consent"
-// @Failure 403 {object} schema.ErrorResponse "Shared pages are off on this server"
+// @Failure 403 {object} schema.ErrorResponse "Shared pages are off on this server, or type user_page_shares_off: an administrator turned off the pages that people share"
 // @Failure 404 {object} schema.ErrorResponse "No such page, or no access to its folder"
 // @Router /api/chats/shared-pages/{folder}/{name} [get]
 func (h *Handlers) GetSharedPage(c echo.Context) error {
@@ -141,7 +159,7 @@ func (h *Handlers) GetSharedPage(c echo.Context) error {
 
 // AllowSharedPage records your consent to a version of a shared page.
 // @Summary Allow a version of a shared page to run.
-// @Description hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. embed is a lasting consent that also lets the version run on Home and in the slots of ui.json, where it starts without a click; it cannot go with once (400). A lasting consent to the same version keeps embed. Each consent and revoke is audited.
+// @Description hash is the hash you reviewed; a page that changed since is refused with 409. once allows one visit: the answer has a token that the bridge calls of that visit send. embed is a lasting consent that also lets the version run on Home and in the slots of ui.json, where it starts without a click; it cannot go with once (400), and a page that a person shared (user_shared) never gets it (400). A lasting consent to the same version keeps embed. Each consent and revoke is audited.
 // @Tags pages
 // @Param folder path integer true "shared folder id"
 // @Param name path string true "page name"
@@ -280,7 +298,7 @@ func (h *Handlers) ReadSharedPageFile(c echo.Context) error {
 
 // WriteSharedPageFile writes a text file of a shared page.
 // @Summary Write a text file of a shared page (bridge files.write).
-// @Description With your own grant on the folder: a read grant is refused with 403. A page writes data files only: code and document files (.js .mjs .cjs .css .html .htm .svg .xml .xhtml .wasm, index, page.json) are refused with 403.
+// @Description With your own grant on the folder: a read grant (role view) is refused with 403. A page writes data files only: code and document files (.js .mjs .cjs .css .html .htm .svg .xml .xhtml .wasm, index, page.json and the code_files of the page) are refused with 403, whatever the grant. With the role use or edit the write goes into the owner's page folder, so everybody who has the page sees it; two writes to the same file: the last one wins, unless base is the version you read.
 // @Tags pages
 // @Param folder path integer true "shared folder id"
 // @Param name path string true "page name"
@@ -371,6 +389,9 @@ func (h *Handlers) SendFromSharedPage(c echo.Context) error {
 		return failFor(c, err)
 	}
 	from := strings.TrimPrefix(page.Folder, "/") + "/pages/" + page.Name
+	if page.UserShared {
+		from = "a page that " + h.svc.UserName(ctx, page.OwnerID) + " shared with you"
+	}
 	res, err := h.svc.Send(ctx, user, rec.ID, "From the shared page \""+page.Title+"\" ("+from+"):\n\n"+text)
 	if err != nil {
 		return failFor(c, err)

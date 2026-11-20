@@ -1139,6 +1139,8 @@ button.cx-step__head:hover,
 .cxs-field { margin-bottom: var(--sp-4); }
 .cxs-row { display: flex; align-items: center; gap: var(--sp-4); }
 .cxs-row__text { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.cxs-names { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.cxs-names li { padding: 2px var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-sm); font: var(--fs-small)/var(--lh-small) var(--font-mono); overflow-wrap: anywhere; }
 .cxs-facts { display: grid; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
 .cxs-facts div { display: flex; justify-content: space-between; gap: var(--sp-4); font-size: var(--fs-small); }
 .cxs-facts dt { color: var(--dk-muted); }
@@ -1430,6 +1432,9 @@ button.cx-step__head:hover,
 .cx-loop__name { flex: none; color: var(--dk-text); font-weight: 600; }
 .cx-loop__meta { min-width: 0; overflow: hidden; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .cx-loop__why { flex: 1 1 100%; order: 3; color: var(--dk-muted); }
+/* Where the loop tells the person how it ended: always on its own line, so a
+   loop that reports to a messaging app is never silent about it. */
+.cx-loop__report { flex: 1 1 100%; order: 4; display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--dk-muted); }
 .cx-loop__acts { display: flex; flex: none; gap: var(--sp-3); }
 /* A wait: a loop whose check is code. Same card as a loop chip, but it says
    what it waits for, how the checks go and, when it ends, how. The tone only

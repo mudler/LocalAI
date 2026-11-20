@@ -155,6 +155,16 @@ env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_MEDIA="registry.example/org/
 grep -F -- "-X main.profileImages=media=registry.example/org/sandbox-guest-media@$mdig" "$work/ldflags.log" >/dev/null || { echo 'FAIL: the profile images did not reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
 case_ok 'package.sh passes the media image to the linker'
 expect_fail 'package.sh refuses a media image that is not by digest' 'SANDBOX_GUEST_IMAGE_MEDIA must be' env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_MEDIA=registry.example/org/media:latest PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/badmedia" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime"
+: >"$work/ldflags.log"
+odig=sha256:$(printf '0123456789abcdef%.0s' 1 2 3 4)
+env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_MEDIA="registry.example/org/sandbox-guest-media@$mdig" SANDBOX_GUEST_IMAGE_OFFICE="registry.example/org/sandbox-guest-office@$odig" PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/withoffice" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+grep -F -- "-X main.profileImages=media=registry.example/org/sandbox-guest-media@$mdig,office=registry.example/org/sandbox-guest-office@$odig" "$work/ldflags.log" >/dev/null || { echo 'FAIL: the office image did not reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
+case_ok 'package.sh passes the office image to the linker next to the media image'
+: >"$work/ldflags.log"
+env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_OFFICE="registry.example/org/sandbox-guest-office@$odig" PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/onlyoffice" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+grep -F -- "-X main.profileImages=office=registry.example/org/sandbox-guest-office@$odig" "$work/ldflags.log" >/dev/null || { echo 'FAIL: the office image alone did not reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
+case_ok 'package.sh passes the office image without a media image'
+expect_fail 'package.sh refuses an office image that is not by digest' 'SANDBOX_GUEST_IMAGE_OFFICE must be' env SANDBOX_GUEST_IMAGE="$good" SANDBOX_GUEST_IMAGE_OFFICE=registry.example/org/office:latest PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/badoffice" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime"
 # The macOS sandbox executable is signed with the virtualization entitlement.
 # Stand-ins for the two signers record their call and copy the file.
 mkdir "$work/signbin"

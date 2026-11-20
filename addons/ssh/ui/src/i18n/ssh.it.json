@@ -46,9 +46,17 @@
     "check": "Controlla la chiave dell'host",
     "checking": "Controllo...",
     "trust": "Ho confrontato questa impronta e mi fido di questo host.",
-    "needed": "Controlla la chiave dell'host prima di salvare.",
+    "needed": "La chiave dell'host viene letta quando premi Salva e ti viene chiesto di fidarti.",
     "unreachable": "Impossibile raggiungere l'host.",
     "failed": "Impossibile leggere la chiave dell'host."
+  },
+  "hostKeyStep": {
+    "title": "Ti fidi di questo host?",
+    "reading": "Lettura della chiave dell'host...",
+    "compare": "Confronta questa impronta con quella mostrata dall'host. Fidati solo se coincidono.",
+    "confirm": "Fidati e salva",
+    "cancel": "Annulla",
+    "retry": "Riprova"
   },
   "testOk": "L'accesso è salvato.",
   "checkFailed": "Salvato. Il controllo dell'accesso è fallito: {{reason}}",
@@ -77,7 +85,7 @@
     "title": "Come configurarlo",
     "step1": "Crea sull'host un utente solo per LocalAI, con i soli permessi che servono.",
     "step2": "Crea una coppia di chiavi per lui, oppure scegli una password. Aggiungi la chiave pubblica ad authorized_keys di quell'utente.",
-    "step3": "Scrivi qui host e utente, premi Controlla la chiave dell'host e confronta l'impronta.",
+    "step3": "Scrivi qui host e utente. Quando premi Salva, la chiave dell'host viene letta e ne confronti l'impronta.",
     "step4": "Lascia la modalità su Chiede prima finché non hai letto i limiti di questa pagina.",
     "fingerprint": "L'impronta dell'host si vede con: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
   },

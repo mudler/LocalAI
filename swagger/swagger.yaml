@@ -1050,11 +1050,13 @@ definitions:
   contextfiles.Scope:
     enum:
     - user
+    - project
     - agent
     - channel
     type: string
     x-enum-varnames:
     - ScopeUser
+    - ScopeProject
     - ScopeAgent
     - ScopeChannel
   contract.ChangeKind:
@@ -1101,6 +1103,21 @@ definitions:
         $ref: '#/definitions/contract.ChangeKind'
       owner:
         type: string
+      project_node:
+        description: |-
+          ProjectNode is the identity of the shared project folder a proposal with
+          a Proposer is for. The host checks again, when the Owner confirms, that
+          the Proposer still has write access to that folder. Zero otherwise.
+        type: integer
+      proposer:
+        description: |-
+          Proposer is the person who made the proposal when it is not the Owner:
+          someone a project is shared with, who proposes a note for it. Owner is
+          still the person whose home the change writes and the only one who can
+          confirm. A host that stores the record keeps the account here; a host
+          that sends it to the Owner shows a display name instead, never an
+          account. Empty for a proposal the Owner's own chat made.
+        type: string
       rev:
         description: |-
           Rev is the workspace change set that applying wrote; RevertRev the one
@@ -1134,11 +1151,13 @@ definitions:
     - user
     - agent
     - channel
+    - project
     type: string
     x-enum-varnames:
     - ScopeUser
     - ScopeAgent
     - ScopeChannel
+    - ScopeProject
   contract.ChangeSource:
     properties:
       chat:
@@ -5201,6 +5220,12 @@ definitions:
           unattended runs: off (the default), registries or all, capped by the
           administrator's ceiling.
         type: string
+      project_id:
+        description: |-
+          ProjectID is the project the agent belongs to, absent for an agent of no
+          project. It is set when the agent is created and cannot change.
+        example: 3f2a9c
+        type: string
       resources:
         allOf:
         - $ref: '#/definitions/resourcesets.Sets'
@@ -5358,6 +5383,160 @@ definitions:
           $ref: '#/definitions/schema.ChatsAgent'
         type: array
     type: object
+  schema.ChatsAgentMove:
+    properties:
+      disable_triggers:
+        description: |-
+          DisableTriggers switches off the file triggers whose folder is outside
+          the new folders, in place of refusing the move.
+        type: boolean
+      dry_run:
+        description: DryRun reports what the move would do and writes nothing.
+        type: boolean
+      files_mode:
+        description: |-
+          FilesMode is read or write (the default): how the agent uses the files
+          folder of the new project.
+        type: string
+      folders:
+        description: |-
+          Folders are the folders the agent keeps when it leaves a project. They
+          are required then, unless WholeHome is true.
+        items:
+          $ref: '#/definitions/schema.ChatsAgentFolderWrite'
+        type: array
+      project_id:
+        description: |-
+          ProjectID is an active project of yours, or empty to take the agent out
+          of its project.
+        type: string
+      revoke_shares:
+        description: |-
+          RevokeShares removes the grants of a shared agent so that it can enter a
+          project.
+        type: boolean
+      whole_home:
+        description: WholeHome lets an agent that leaves a project work on all your
+          files.
+        type: boolean
+    type: object
+  schema.ChatsAgentMoveAttached:
+    properties:
+      addons:
+        items:
+          type: string
+        type: array
+      collections:
+        items:
+          type: string
+        type: array
+      connectors:
+        items:
+          type: string
+        type: array
+      mcp_servers:
+        items:
+          type: string
+        type: array
+      skills:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsAgentMoveReport:
+    properties:
+      attached_new:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentMoveAttached'
+        description: |-
+          AttachedNew is what the new project attaches: the agent gets it on every
+          run after the move.
+      attached_old:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentMoveAttached'
+        description: |-
+          AttachedOld is what the old project attached and the new one does not.
+          It stops applying to the agent.
+      blockers:
+        description: |-
+          Blockers lists why the move cannot be done as asked: busy, shared or
+          triggers_outside.
+        items:
+          type: string
+        type: array
+      chats:
+        description: |-
+          Chats is the number of chats of the agent that stop taking turns, and
+          Loops the number of their loops that end.
+        type: integer
+      dropped_tools:
+        $ref: '#/definitions/schema.ChatsAgentMoveTools'
+      dry_run:
+        type: boolean
+      from:
+        type: string
+      loops:
+        type: integer
+      memory_grant_dropped:
+        type: boolean
+      moved:
+        description: Moved is true when the agent was moved.
+        type: boolean
+      project_skills_switch:
+        description: |-
+          ProjectSkillsSwitch is true when the agent's project skills change: the
+          skills of the old project stop and those of the new project start. It is
+          false when neither project has a skill in its own layer.
+        type: boolean
+      proposals:
+        description: |-
+          Proposals is the number of waiting project notes of the agent that are
+          voided.
+        type: integer
+      shares:
+        description: Shares is the number of people the agent is shared with.
+        type: integer
+      to:
+        type: string
+      triggers_outside:
+        description: |-
+          TriggersOutside are the file triggers that watch a folder outside the
+          new folders.
+        items:
+          $ref: '#/definitions/schema.ChatsAgentMoveTrigger'
+        type: array
+      warnings:
+        description: Warnings lists steps after the move that did not finish.
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsAgentMoveTools:
+    properties:
+      addons:
+        items:
+          type: string
+        type: array
+      collections:
+        items:
+          type: string
+        type: array
+      mcp_servers:
+        items:
+          type: string
+        type: array
+      skills:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsAgentMoveTrigger:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   schema.ChatsAgentNeed:
     properties:
       kind:
@@ -5387,6 +5566,32 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsAgentNeed'
         type: array
+    type: object
+  schema.ChatsAgentProjectRef:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  schema.ChatsAgentProjectRequired:
+    properties:
+      error:
+        $ref: '#/definitions/schema.ChatsAgentProjectRequiredError'
+    type: object
+  schema.ChatsAgentProjectRequiredError:
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+      project_name:
+        type: string
+      type:
+        example: project_required
+        type: string
     type: object
   schema.ChatsAgentReference:
     properties:
@@ -5639,6 +5844,21 @@ definitions:
         type: string
       network:
         type: string
+      project_id:
+        description: |-
+          ProjectID makes the agent a project agent. It is read on create only: it
+          must be one of your own active projects (404 for an unknown or foreign
+          one, 400 for an archived one). A write to an existing agent may leave it
+          out or repeat the stored value; a different value is 400.
+        type: string
+      projectRef:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentProjectRef'
+        description: |-
+          ProjectRef is set in an export file (version 5) of a project agent: the
+          project of the exporting server, used only as a hint for the name to
+          offer. An import never takes the project from it. A write to
+          POST /api/chats/agents ignores it.
       resources:
         allOf:
         - $ref: '#/definitions/resourcesets.Sets'
@@ -6005,6 +6225,18 @@ definitions:
       snippet:
         description: Snippet is the matching text with a little around it.
         type: string
+    type: object
+  schema.ChatsChatProject:
+    properties:
+      project_id:
+        type: string
+    type: object
+  schema.ChatsChatPulledProjects:
+    properties:
+      project_ids:
+        items:
+          type: string
+        type: array
     type: object
   schema.ChatsChatSearchResponse:
     properties:
@@ -6586,6 +6818,11 @@ definitions:
     type: object
   schema.ChatsConnectorCapability:
     properties:
+      binding_only:
+        description: |-
+          BindingOnly capabilities are never granted to a role, even when a kind
+          lists them: the owner turns them on for the whole binding.
+        type: boolean
       description:
         type: string
       language:
@@ -6941,6 +7178,11 @@ definitions:
     type: object
   schema.ChatsConnectorPermission:
     properties:
+      binding_only:
+        description: |-
+          BindingOnly says that the listing grants nothing to a role: the
+          capability belongs to the binding alone.
+        type: boolean
       name:
         type: string
       sensitive:
@@ -7241,6 +7483,13 @@ definitions:
         description: Assistant is true for a chat that has the LocalAI management
           tools.
         type: boolean
+      collections:
+        description: |-
+          Collections is the restriction of the chat's collection tools: only
+          these collections. Absent means all of the user's collections.
+        items:
+          type: string
+        type: array
       created:
         type: string
       dock:
@@ -7280,6 +7529,16 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      project_id:
+        description: |-
+          ProjectID is the project the chat belongs to; PulledProjects are the
+          other projects it reads from. ProjectID can name a project that was
+          deleted since; read that as no project.
+        type: string
+      pulled_projects:
+        items:
+          type: string
+        type: array
       resume_attempts:
         type: integer
       running:
@@ -7315,6 +7574,13 @@ definitions:
         description: Assistant is true for a chat that has the LocalAI management
           tools.
         type: boolean
+      collections:
+        description: |-
+          Collections is the restriction of the chat's collection tools: only
+          these collections. Absent means all of the user's collections.
+        items:
+          type: string
+        type: array
       created:
         type: string
       dock:
@@ -7376,6 +7642,16 @@ definitions:
         description: |-
           Place is set on a chat that a messaging connection started, when the
           connection kept where it lives.
+      project_id:
+        description: |-
+          ProjectID is the project the chat belongs to; PulledProjects are the
+          other projects it reads from. ProjectID can name a project that was
+          deleted since; read that as no project.
+        type: string
+      pulled_projects:
+        items:
+          type: string
+        type: array
       resume_attempts:
         type: integer
       running:
@@ -7480,9 +7756,24 @@ definitions:
           models and backends, change settings). It needs an administrator and the
           assistant setting on, and it cannot be combined with AgentID.
         type: boolean
+      collections:
+        description: |-
+          Collections restricts the chat to these collections of yours: it can
+          list and search only them. Empty means all of your collections. A name
+          you have no collection of matches nothing. At most 100 names, each
+          1 to 200 characters. It overrides the project's default list.
+        items:
+          type: string
+        type: array
       model:
         description: Model is the model the conversation talks to. It cannot change
           later.
+        type: string
+      project_id:
+        description: |-
+          ProjectID starts the chat in one of your projects. The project's
+          defaults set the switches the request leaves unset. An unknown or
+          archived project refuses the request.
         type: string
       switches:
         allOf:
@@ -8347,6 +8638,12 @@ definitions:
       reason:
         description: Reason says why the loop is paused or ended, or why it waits.
         type: string
+      report:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsLoopReport'
+        description: |-
+          Report is set when the loop tells you in a messaging app how it ended.
+          A loop with no report sends nothing.
       running:
         description: Running is true while a run of the loop goes on in the chat.
         type: boolean
@@ -8382,6 +8679,28 @@ definitions:
         type: string
       run:
         type: integer
+    type: object
+  schema.ChatsLoopReport:
+    properties:
+      channel:
+        description: |-
+          Channel is the id of the channel, and ChannelLabel its name; empty when
+          the channel has none or is gone.
+        type: string
+      channel_label:
+        type: string
+      connection:
+        description: |-
+          Connection is the id of the connection, and ConnectionName the name you
+          gave it; empty when the connection is gone.
+        type: string
+      connection_name:
+        type: string
+      mode:
+        description: |-
+          Mode is on_done (the summary of a finished loop) or on_problem (a run
+          fails, the loop stops at a limit, or the system stops it).
+        type: string
     type: object
   schema.ChatsLoopRequest:
     properties:
@@ -8494,6 +8813,12 @@ definitions:
         type: string
       ok:
         type: boolean
+      output:
+        description: |-
+          Output is what a local command wrote to its error stream before it
+          failed, with secrets removed. It is absent for a remote server and for
+          a silent command.
+        type: string
       tool_details:
         description: |-
           ToolDetails is each tool with the description its server gives, in the
@@ -9088,6 +9413,230 @@ definitions:
       thread:
         type: boolean
     type: object
+  schema.ChatsProject:
+    properties:
+      agent_count:
+        description: AgentCount is the number of saved agents that belong to the project.
+        type: integer
+      attached:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsProjectDefaults'
+        description: |-
+          Attached lists the tools the project holds. Every chat and agent of the
+          project has them on, with no per-chat step, on each turn, and a chat
+          cannot switch them off. Defaults stay the limit: an attached entry
+          outside a non-empty limit is refused on write. The list is empty while
+          AttachedBlocked is true.
+      attached_blocked:
+        description: |-
+          AttachedBlocked is true when the project file holds an attached block
+          that is ignored because another person may write the project folder (a
+          share with write access). The skills of the project have the same rule
+          (SkillsBlocked).
+        type: boolean
+      chat_count:
+        description: ChatCount is the number of chats in the project, counted up to
+          500.
+        type: integer
+      defaults:
+        $ref: '#/definitions/schema.ChatsProjectDefaults'
+      description:
+        type: string
+      error:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      skills_blocked:
+        description: |-
+          SkillsBlocked is true when the project's own skills are off because
+          another person may write the project folder (a share with write access).
+          It is set on a read of one project; the list leaves it out.
+        type: boolean
+      slug:
+        description: Slug is the name of the project's folder under Projects/ in the
+          caller's files.
+        type: string
+      status:
+        description: Status is active, archived or broken. Error says why a project
+          is broken.
+        type: string
+      updated:
+        type: string
+    type: object
+  schema.ChatsProjectAgent:
+    properties:
+      description:
+        type: string
+      files_mode:
+        description: 'FilesMode is read or write: how the agent uses the files of
+          the project.'
+        type: string
+      id:
+        type: string
+      memory_write:
+        description: MemoryWrite is true when the agent holds the grant project.memory.write.
+        type: boolean
+      model:
+        type: string
+      name:
+        type: string
+      unavailable:
+        description: |-
+          Unavailable is true while the agent cannot start: its project is
+          archived, deleted or broken, or its folders changed.
+        type: boolean
+    type: object
+  schema.ChatsProjectAgentList:
+    properties:
+      agents:
+        items:
+          $ref: '#/definitions/schema.ChatsProjectAgent'
+        type: array
+    type: object
+  schema.ChatsProjectConnection:
+    properties:
+      agent_id:
+        type: string
+      agent_name:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: string
+      kind:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.ChatsProjectConnectionList:
+    properties:
+      connections:
+        items:
+          $ref: '#/definitions/schema.ChatsProjectConnection'
+        type: array
+    type: object
+  schema.ChatsProjectDefaults:
+    properties:
+      addons:
+        items:
+          type: string
+        type: array
+      collections:
+        items:
+          type: string
+        type: array
+      connectors:
+        items:
+          type: string
+        type: array
+      mcp_servers:
+        items:
+          type: string
+        type: array
+      skills:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsProjectList:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/schema.ChatsProject'
+        type: array
+    type: object
+  schema.ChatsProjectLoop:
+    properties:
+      chat_id:
+        type: string
+      chat_title:
+        type: string
+      id:
+        type: string
+      prompt:
+        type: string
+      state:
+        type: string
+    type: object
+  schema.ChatsProjectLoopList:
+    properties:
+      loops:
+        items:
+          $ref: '#/definitions/schema.ChatsProjectLoop'
+        type: array
+    type: object
+  schema.ChatsProjectMemory:
+    properties:
+      files:
+        items:
+          $ref: '#/definitions/schema.ChatsProjectMemoryFile'
+        type: array
+      index:
+        type: string
+    type: object
+  schema.ChatsProjectMemoryFile:
+    properties:
+      modified:
+        type: string
+      name:
+        type: string
+      size:
+        type: integer
+    type: object
+  schema.ChatsProjectMemoryWrite:
+    properties:
+      content:
+        type: string
+    type: object
+  schema.ChatsProjectTrigger:
+    properties:
+      agent_id:
+        type: string
+      agent_name:
+        type: string
+      enabled:
+        type: boolean
+      folder:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      name:
+        type: string
+      next:
+        description: |-
+          Next is when a schedule trigger runs next. It is absent for a trigger
+          that is off, a file trigger, or a schedule with no later time.
+        type: string
+      proposed:
+        description: |-
+          Proposed is always false for now: a trigger that a model proposed and
+          you have not confirmed is not listed. The field keeps the shape stable.
+        type: boolean
+      schedule:
+        type: string
+    type: object
+  schema.ChatsProjectTriggerList:
+    properties:
+      triggers:
+        items:
+          $ref: '#/definitions/schema.ChatsProjectTrigger'
+        type: array
+    type: object
+  schema.ChatsProjectWrite:
+    properties:
+      attached:
+        $ref: '#/definitions/schema.ChatsProjectDefaults'
+      defaults:
+        $ref: '#/definitions/schema.ChatsProjectDefaults'
+      description:
+        type: string
+      name:
+        type: string
+    type: object
   schema.ChatsProvider:
     properties:
       available:
@@ -9516,6 +10065,56 @@ definitions:
         description: 'Role is always use: a binding is never shared with everyone.'
         type: string
     type: object
+  schema.ChatsSharedProject:
+    properties:
+      description:
+        type: string
+      error:
+        description: Error says why a broken project cannot be read.
+        type: string
+      mode:
+        description: 'Mode is what you may do in the project folder: "read" or "write".'
+        enum:
+        - read
+        - write
+        type: string
+      name:
+        type: string
+      owner_name:
+        description: OwnerName is the display name of the owner.
+        type: string
+      ref:
+        description: |-
+          Ref names the project in the other shared-project routes and in the
+          list a chat pulls from.
+        example: s:12
+        type: string
+      status:
+        description: |-
+          Status is "active", "archived" or "broken". An archived or broken
+          project is listed but is not available.
+        enum:
+        - active
+        - archived
+        - broken
+        type: string
+    type: object
+  schema.ChatsSharedProjectList:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/schema.ChatsSharedProject'
+        type: array
+    type: object
+  schema.ChatsSharedProjectMemory:
+    properties:
+      files:
+        items:
+          type: string
+        type: array
+      index:
+        type: string
+    type: object
   schema.ChatsSkill:
     properties:
       addon:
@@ -9557,7 +10156,8 @@ definitions:
       layer:
         description: |-
           Layer is where it comes from: folder (a .skills folder of your files),
-          agent (a saved agent proposed it), personal, shared, addon (an installed
+          project (the skills folder of a project), agent (a saved agent proposed
+          it), personal, shared, addon (an installed
           add-on ships it) or builtin.
         type: string
       locked:
@@ -9571,6 +10171,11 @@ definitions:
         type: boolean
       path:
         description: Path is the path of its SKILL.md as the model sees it.
+        type: string
+      project:
+        description: |-
+          Project is the folder name of the project that owns a skill of the
+          project layer.
         type: string
       provider:
         description: |-
@@ -9646,6 +10251,11 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsSkill'
         type: array
+      skills_blocked:
+        description: |-
+          SkillsBlocked is true when the list is for a project (layer=project) and
+          its skills are off because another person may write the project folder.
+        type: boolean
     type: object
   schema.ChatsSkillSwitches:
     properties:
@@ -9668,9 +10278,12 @@ definitions:
       description:
         type: string
       layer:
-        description: personal or shared
+        description: personal, shared or project
         type: string
       name:
+        type: string
+      project:
+        description: Project is the project's ID, for the project layer.
         type: string
     type: object
   schema.ChatsSubAgent:
@@ -10104,8 +10717,19 @@ definitions:
     properties:
       channel_label:
         type: string
+      connection_name:
+        description: |-
+          ConnectionName is the name the owner gave the connection of the channel,
+          for a trigger that was proposed in Studio and reports there.
+        type: string
       in_thread:
         type: boolean
+      mode:
+        description: |-
+          Mode is when a run reports: always (the default), on_change (only when
+          the answer differs from the run before) or on_problem (only when a run
+          fails).
+        type: string
       target:
         type: string
     type: object
@@ -12763,6 +13387,39 @@ definitions:
       redacted_text:
         type: string
     type: object
+  schema.PageShareGrant:
+    properties:
+      consent:
+        type: string
+      displayName:
+        type: string
+      role:
+        type: string
+      userId:
+        type: string
+    type: object
+  schema.PageShareList:
+    properties:
+      allowedCount:
+        type: integer
+      enabled:
+        type: boolean
+      grants:
+        items:
+          $ref: '#/definitions/schema.PageShareGrant'
+        type: array
+      hash:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.PageShareRequest:
+    properties:
+      principal:
+        type: string
+      role:
+        type: string
+    type: object
   schema.PagesChatRequest:
     properties:
       chat_id:
@@ -12963,10 +13620,36 @@ definitions:
         type: integer
       name:
         type: string
+      others_can_edit:
+        description: |-
+          OthersCanEdit is set on one of your own pages that another account may
+          edit (an edit grant). Its code can change without you, so it runs for you
+          only after you allow its version, as a shared page does: hash, code_files,
+          meta_size and consent (none, allowed, changed) are set, the bridge calls
+          carry X-LocalAI-Page-Hash, PUT and DELETE /api/chats/pages/{name}/consent
+          allow and revoke, and the page never runs on Home, in a slot or in the
+          dock by itself (embed is refused with 400).
+        type: boolean
+      owner_name:
+        type: string
       path:
         description: 'inside the home: /pages/<name>'
         type: string
       rev:
+        type: integer
+      role:
+        type: string
+      shared_allowed:
+        description: |-
+          SharedAllowed is, on the page you read with GET /api/chats/pages/{name},
+          how many of the named accounts it is shared with allowed its current
+          version, so that the page can say how many will be asked again. The page
+          then also has hash, the version they allowed or not.
+        type: integer
+      shared_with:
+        description: |-
+          SharedWith is, on one of your own pages, how many accounts you shared it
+          with (everyone counts as one).
         type: integer
       size:
         type: integer
@@ -12977,12 +13660,26 @@ definitions:
         type: string
       title:
         type: string
+      turned_off:
+        type: boolean
       updated_at:
         description: UpdatedAt and UpdatedBy are the last change to anything in the
           folder.
         type: string
       updated_by:
         type: string
+      user_shared:
+        description: |-
+          A page that a person shared from their own home (not an administrator's
+          shared folder) has user_shared set: no administrator checked it, and the
+          trust sheet says who wrote it. role is what you may do with it: view
+          (run it and read its data), use (also save data through it) or edit
+          (also change its code). owner_name is the person whose home
+          holds it; author_name is who last wrote its index.html. turned_off is set
+          when an administrator turned such pages off: the page is listed and does
+          not open. Such a page has no folder and no path, which would name the
+          owner's account.
+        type: boolean
       widget:
         allOf:
         - $ref: '#/definitions/schema.PagesWidget'
@@ -13001,6 +13698,12 @@ definitions:
         items:
           $ref: '#/definitions/schema.PagesPage'
         type: array
+      user_shares_enabled:
+        description: |-
+          UserSharesEnabled is false when an administrator turned off the pages
+          that people share from their own homes: those pages have turned_off
+          set, are listed and do not open.
+        type: boolean
     type: object
   schema.PagesSharedSource:
     properties:
@@ -13015,8 +13718,15 @@ definitions:
     type: object
   schema.PagesSource:
     properties:
+      consent:
+        $ref: '#/definitions/schema.PagesConsent'
       html:
         type: string
+      lines:
+        description: |-
+          Lines and Consent are set when others_can_edit is true: your consent to
+          the version of this page, in the shape of the shared pages.
+        type: integer
       page:
         $ref: '#/definitions/schema.PagesPage'
     type: object
@@ -18393,8 +19103,9 @@ paths:
       tags:
       - chats
     put:
-      description: 'off reaches nothing; registries the HTTPS hosts of the package
-        registries; all every public host. A preset above the administrator''s ceiling
+      description: 'off reaches nothing; registries (shown as Custom) the HTTPS hosts
+        of the package registries plus the administrator''s extra registries and always-allowed
+        hosts; all every public host. A preset above the administrator''s ceiling
         (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its
         parent: 409. It applies at the next connection of a command.'
       parameters:
@@ -19328,6 +20039,83 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Edit a message that waits for the model.
+      tags:
+      - chats
+  /api/chats/{id}/project:
+    put:
+      description: 'project_id is the project''s id; an empty one takes the chat out
+        of its project. The chat must be idle (409 otherwise). The tool switches of
+        the chat stay as they are: the defaults of a project apply to new chats only.
+        An archived project takes no chats (400).'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the project
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsChatProject'
+      responses:
+        "200":
+          description: The chat
+          schema:
+            $ref: '#/definitions/schema.ChatsConversation'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such chat or project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The chat is running, or projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Put a chat in a project.
+      tags:
+      - chats
+  /api/chats/{id}/projects:
+    put:
+      description: The list replaces the earlier one. At most 8 projects, none twice,
+        none the chat's own project, each an active project of yours. An empty list
+        clears it. A pulled project is mounted read only at its pulled-* path for
+        the chat's turns; note that your home is still mounted read and write in an
+        ordinary chat.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the projects
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsChatPulledProjects'
+      responses:
+        "200":
+          description: The chat
+          schema:
+            $ref: '#/definitions/schema.ChatsConversation'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such chat or project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Set the projects a chat pulls in.
       tags:
       - chats
   /api/chats/{id}/regenerate:
@@ -20297,7 +21085,11 @@ paths:
   /api/chats/agents/{id}/export:
     get:
       description: 'Returns the definition as a JSON file (version, kind localai-agent,
-        agent). It holds no ID, owner or time. An agent with one folder is version
+        agent). It holds no ID, owner or time. An agent of a project is version 5:
+        it carries projectRef (id, name and slug of the project it was made in, a
+        hint only) and folders as the project-relative paths files (with its mode)
+        and memory (read); it holds no node ID and no path of your files, and a server
+        that knows only versions up to 4 refuses it. An agent with one folder is version
         2 and carries folder {path, mode}; an agent with several is version 3 and
         carries folders [{path, mode}], the folder''s home-relative path now (empty
         when the folder is missing, not chosen, or outside your home, even if readable);
@@ -20347,6 +21139,59 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: List what an agent needs and whether you have it.
+      tags:
+      - chats
+  /api/chats/agents/{id}/project:
+    put:
+      description: 'The one way to change the project of an agent: a normal save (PUT
+        /api/chats/agents/{id}) refuses a changed project. project_id is an active
+        project of yours, or empty to leave the project. Into a project the agent
+        gets the project''s files folder (files_mode read or write, write by default)
+        and the memory folder at read; the grant to write the project''s memory is
+        removed, and its waiting project notes are voided. Out of a project, folders
+        (or whole_home true) are required, so the agent never gets all your files
+        by accident. The agent''s own notes start empty: the old ones are moved to
+        Memory/Moved agent notes in your files, not deleted. Chats the agent already
+        has keep their history but take no new turn (the answer is 409 agent_moved:
+        start a new chat), and their loops end. The move is refused with 409 agent_move_blocked
+        while a chat of the agent runs a turn, while the agent is shared and enters
+        a project (revoke_shares true removes the grants), or while an enabled file
+        trigger watches a folder outside the new folders (disable_triggers true switches
+        it off). The answer also lists what the new project attaches (attached_new),
+        what the old project attached and the new one does not (attached_old, these
+        stop applying), and project_skills_switch, true when the skills of the old
+        project stop and those of the new one start. With dry_run true nothing is
+        written and the answer lists what the move touches, including the blockers.'
+      parameters:
+      - description: the agent's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the target project and the options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsAgentMove'
+      responses:
+        "200":
+          description: What the move did, or would do
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentMoveReport'
+        "400":
+          description: The target or the folders are not valid, or the target is archived
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such agent or project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The move is blocked (agent_move_blocked)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Move a saved agent to another project, or out of its project.
       tags:
       - chats
   /api/chats/agents/{id}/references:
@@ -20419,6 +21264,10 @@ paths:
           description: The sharing ID
           schema:
             $ref: '#/definitions/schema.ChatsAgentShareRef'
+        "400":
+          description: The agent belongs to a project; project agents cannot be shared
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "403":
           description: The agent is shared with you, not yours
           schema:
@@ -20486,14 +21335,26 @@ paths:
       consumes:
       - application/json
       - multipart/form-data
-      description: 'Send the export file (version 1, 2 for an agent with a folder,
-        or 3 for an agent with several) as the JSON body, or as the file field of
-        a multipart form. A bare agent definition (the body of POST /api/chats/agents)
-        is accepted too. The agent is always new: a name you already use gets a number,
-        and a model this server does not have, or you may not use, is dropped with
-        a warning. A folder is looked up by its path in your files; when you have
-        no such folder the agent keeps the mode without a folder (folder state unset)
-        and does not start until you choose one, and a warning says so.'
+      description: 'Send the export file (version 1 to 5) as the JSON body, or as
+        the file field of a multipart form. A bare agent definition (the body of POST
+        /api/chats/agents) is accepted too, but not one that carries project_id or
+        projectRef (400). A version 5 file is a project agent: send project_id (one
+        of your own active projects: 404 for an unknown or another person''s, 400
+        for an archived one) or create_project true (a project is made from the name
+        in the file) as query parameters, or as form fields of a multipart import;
+        never inside the file, whose own project fields are ignored. The query string
+        wins over a form field, and create_project is the value of that one parameter.
+        Without either the answer is 409 with the error type project_required and
+        the project''s name in project_name. The agent is made a project agent of
+        that project with its files and memory folders; the file''s files entry only
+        chooses the files mode (read or write), memory is always read, and a project
+        id inside the file''s agent is ignored. With project_id, a file of an older
+        version is imported as a project agent too, its folders ignored with a warning.
+        The agent is always new: a name you already use gets a number, and a model
+        this server does not have, or you may not use, is dropped with a warning.
+        A folder is looked up by its path in your files; when you have no such folder
+        the agent keeps the mode without a folder (folder state unset) and does not
+        start until you choose one, and a warning says so.'
       parameters:
       - description: the agent file
         in: body
@@ -20505,11 +21366,26 @@ paths:
         in: formData
         name: file
         type: file
+      - description: one of your own active projects to make the agent a project agent
+          of
+        in: query
+        name: project_id
+        type: string
+      - description: make a project from the project name in the file and put the
+          agent in it
+        in: query
+        name: create_project
+        type: boolean
       responses:
         "201":
           description: The new agent and what the import changed
           schema:
             $ref: '#/definitions/schema.ChatsAgentImportResult'
+        "409":
+          description: The file is a project agent and no project was chosen (error
+            type project_required)
+          schema:
+            $ref: '#/definitions/schema.ChatsAgentProjectRequired'
       summary: Import a saved agent.
       tags:
       - chats
@@ -20614,7 +21490,8 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
-          description: Stale, expired or answered
+          description: Stale, expired, answered, or the person who proposed it can
+            no longer edit the shared project
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Confirm a proposed change.
@@ -20789,7 +21666,10 @@ paths:
       description: 'The body replaces every field except the token, which is kept
         unless the request has a new one, and send_files, reply_language and inbound_media,
         which are kept when absent. A new token is checked with the platform: a token
-        that the platform refuses is a 400 and nothing is saved.'
+        that the platform refuses is a 400 and nothing is saved. A binding that has
+        an agent can only move to an agent of the same project: the connection of
+        a project agent stays in its project, and a connection outside projects cannot
+        use a project agent (400).'
       parameters:
       - description: the binding's id
         in: path
@@ -22135,7 +23015,8 @@ paths:
         credential checks as a chat, and lists the tools, with the description each
         one has in tool_details. It works for a connector that is switched off. A
         server that cannot be used is a 200 with ok false and the reason, which never
-        holds a header value.
+        holds a header value. When a local command fails, output holds the last text
+        it wrote to its error stream, with secrets removed.
       parameters:
       - description: the connector's id
         in: path
@@ -22494,6 +23375,74 @@ paths:
       summary: Send a message from a page to a chat (bridge chat.send).
       tags:
       - pages
+  /api/chats/pages/{name}/consent:
+    delete:
+      description: Its open frames stop at their next bridge call; the next open shows
+        the trust sheet again. Accepted only from your own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent
+        or MCP marker).
+      parameters:
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Revoked
+        "403":
+          description: 'Type not_human_surface: not your own browser session'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Stop allowing your own page that others can edit.
+      tags:
+      - pages
+    put:
+      description: 'Only for a page with others_can_edit: someone else may change
+        its code, so it runs for you only after you allow its hash, as a shared page
+        does. hash is the hash you reviewed; a page that changed since is refused
+        with 409. once allows one visit and returns a token for the bridge calls of
+        that visit. embed is refused with 400: such a page never runs on Home, in
+        a slot or in the dock by itself. A page nobody else may edit needs no consent
+        and answers 404. Accepted only from your own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent
+        or MCP marker).'
+      parameters:
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: the version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PagesConsentRequest'
+      responses:
+        "200":
+          description: The consent
+          schema:
+            $ref: '#/definitions/schema.PagesConsentResponse'
+        "400":
+          description: embed was asked for
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: 'Type not_human_surface: not your own browser session'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such page, or it needs no consent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The page changed while you were reviewing it
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Allow a version of your own page that others can edit to run.
+      tags:
+      - pages
   /api/chats/pages/{name}/errors:
     post:
       description: 'The UI calls this for an error that the script of the caller''s
@@ -22642,6 +23591,646 @@ paths:
       summary: List a folder of a page (bridge files.list).
       tags:
       - pages
+  /api/chats/pages/{name}/shares:
+    get:
+      description: 'Each grant has the account ID (or @everyone), the display name
+        (empty for @everyone), the role view, use or edit, and, for a named account,
+        whether it allowed the current version of the page (consent: none, allowed
+        or changed). allowedCount is how many named accounts allowed the current version.
+        enabled is false when an administrator turned off the pages that people share:
+        the list still works and you can still take a share back. Accepted only from
+        your own browser session (same-origin fetch, X-LocalAI-Confirm equal to the
+        page name, no API key, no tool, agent or MCP marker). A page that is not yours
+        and a page that does not exist get the same 403. No MCP tool maps to this
+        route.'
+      parameters:
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The grants
+          schema:
+            $ref: '#/definitions/schema.PageShareList'
+        "403":
+          description: Not your own browser session, a page you cannot share, or no
+            such page
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: 'Type sharing_disabled: pages cannot be shared on this server'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List who a page of your home is shared with (owner, UI only).
+      tags:
+      - pages
+    put:
+      description: 'principal is the account ID that the user picker returned, an
+        active named account, or @everyone for every account, the ones created later
+        too. role is view (run the page and read its data), use (also save data files
+        through the page) or edit (also change its code, in Files and in the page).
+        edit is for named accounts only: @everyone with edit gets 400. The page stays
+        where it is, in your home, and everybody sees the same data. People run the
+        page''s code in their own browser with their own rights, after they allow
+        that version; a change of the code asks them again. A page that people share
+        never runs on Home or in a slot by itself. Lowering a role or removing a grant
+        drops the consent of that account and holds from its next call of the page
+        on every frontend. Accepted only from your own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent
+        or MCP marker). Safe to repeat. A page that is not yours and a page that does
+        not exist get the same 403. No MCP tool maps to this route: sharing is never
+        a tool.'
+      parameters:
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: The account and the role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PageShareRequest'
+      responses:
+        "200":
+          description: The grants after the change
+          schema:
+            $ref: '#/definitions/schema.PageShareList'
+        "400":
+          description: A role that is not view, use or edit, edit for @everyone, or
+            a principal that is not an active account
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not your own browser session, a page you cannot share, or no
+            such page
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled (pages cannot be shared here, or an administrator
+            turned page sharing off), or a limit
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Share a page of your home, or change the role (owner, UI only).
+      tags:
+      - pages
+  /api/chats/pages/{name}/shares/{principal}:
+    delete:
+      description: Removes the grant of the principal, an account ID or @everyone,
+        and drops the consent of that account. A person's own grant and the grant
+        to everyone are separate. The grantee loses the page at their next call of
+        it on every frontend, and the page they have open stops at that call. What
+        they saved in the page's folder stays. It works while an administrator keeps
+        page sharing off. Accepted only from your own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the page name, no API key, no tool, agent
+        or MCP marker). Safe to repeat. No MCP tool maps to this route.
+      parameters:
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Account ID, or @everyone
+        in: path
+        name: principal
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The grants after the change
+          schema:
+            $ref: '#/definitions/schema.PageShareList'
+        "403":
+          description: Not your own browser session, a page you cannot share, or no
+            such page
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: 'Type sharing_disabled: pages cannot be shared on this server'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Stop sharing a page of your home (owner, UI only).
+      tags:
+      - pages
+  /api/chats/pages/shares/search:
+    get:
+      description: 'The same picker as the other kinds of sharing: active named accounts
+        by a prefix of the display name, 3 to 64 characters, at most 20 results, never
+        you. A prefix of an address finds nobody; an account without a display name
+        is found by its whole address only and comes back with an empty display name.
+        Each result is an account ID and a display name and nothing else. Each person
+        may search 20 times at once and then once every 2 seconds; a search over that
+        rate answers 429 rate_limited. Accepted only from your own browser session
+        (same-origin fetch, X-LocalAI-Confirm equal to the word pages, no API key,
+        no tool, agent or MCP marker). No MCP tool maps to this route.'
+      parameters:
+      - description: Display name prefix, or a whole address
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: At most this many results, up to 20
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Matching people
+          schema:
+            $ref: '#/definitions/schema.FolderShareUserList'
+        "400":
+          description: The search text is not 3 to 64 characters
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not your own browser session
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Type sharing_disabled (pages cannot be shared here, or an administrator
+            turned page sharing off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "429":
+          description: 'Type rate_limited: too many searches'
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Search the people you can share a page with (owner, UI only).
+      tags:
+      - pages
+  /api/chats/projects:
+    get:
+      description: A project is a folder under Projects/ in your files, with a manifest,
+        a memory and defaults that its chats start with. The list is read from the
+        folders, so a project you added or edited by hand shows up. chat_count counts
+        up to 500 chats; agent_count is the number of your agents that belong to the
+        project. Another user's projects are never listed.
+      responses:
+        "200":
+          description: Your projects, sorted by name
+          schema:
+            $ref: '#/definitions/schema.ChatsProjectList'
+        "409":
+          description: Projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List your projects.
+      tags:
+      - chats
+    post:
+      description: Makes the folder Projects/<slug> in your files with its manifest
+        and an empty memory, as one change set that one undo removes. The slug comes
+        from the name and is unique among your projects, so two projects can share
+        a name but not a folder name.
+      parameters:
+      - description: the project
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsProjectWrite'
+      responses:
+        "201":
+          description: The project
+          schema:
+            $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The name is taken, or projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a project.
+      tags:
+      - chats
+  /api/chats/projects/{id}:
+    delete:
+      description: Removes the project folder, with its files and memory, as one change
+        set that one undo restores. Chats that belonged to it stay and read as having
+        no project.
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a project.
+      tags:
+      - chats
+    get:
+      description: 'skills_blocked is true when the project''s own skills (the skills
+        folder of the project) are off because another person may write the project
+        folder. attached_blocked is true for the same reason when the project file
+        holds an attached block: the block is ignored and attached comes back empty.'
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The project
+          schema:
+            $ref: '#/definitions/schema.ChatsProject'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read a project.
+      tags:
+      - chats
+    patch:
+      description: 'A field that is left out keeps its value. The folder keeps its
+        name. The defaults are five lists: skills, add-ons, connectors, MCP servers
+        and collections. For each list, a non-empty value means a new chat in the
+        project has only those on; an empty or missing list is no override. Defaults
+        apply to new chats only; the agents of the project are also limited by them.
+        Attached is five lists of the same shape: the tools the project holds. Every
+        chat of the project, new or old, and every agent of it has them on at each
+        turn, with no per-chat step. A chat cannot switch an attached tool off; detach
+        it from the project. The tools are the owner''s own, so a person the project
+        is shared with never gets them, and a chat that starts from a messaging connection
+        gets only the attached skills and collections. The attached block is ignored
+        while another person may write the project folder (attached_blocked on a read).
+        A non-empty defaults list is a limit, and an attached entry outside it, an
+        empty or malformed entry, or a connector in the MCP list is refused with a
+        400 that names the tool and the limit.'
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsProjectWrite'
+      responses:
+        "200":
+          description: The project
+          schema:
+            $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The project changed while it was saved
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Change a project.
+      tags:
+      - chats
+  /api/chats/projects/{id}/agents:
+    get:
+      description: 'Your saved agents that were created from this project, sorted
+        by name, as brief rows: id, name, description, model, files_mode (read or
+        write), memory_write (the agent holds the grant project.memory.write) and
+        unavailable. An agent is unavailable while its project is archived, deleted
+        or broken, or its folders changed; it works again after a restore or a new
+        save. The list works for an archived project too.'
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The agents of the project
+          schema:
+            $ref: '#/definitions/schema.ChatsProjectAgentList'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the agents of a project.
+      tags:
+      - chats
+  /api/chats/projects/{id}/archive:
+    post:
+      description: An archived project keeps its folder and takes no new chats.
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The project
+          schema:
+            $ref: '#/definitions/schema.ChatsProject'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The project changed while it was saved
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Archive a project.
+      tags:
+      - chats
+  /api/chats/projects/{id}/chats:
+    get:
+      description: Your chats whose project is this one, newest first. limit defaults
+        to 50 and is at most 200.
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: most chats to return
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The chats
+          schema:
+            $ref: '#/definitions/schema.ChatsConversationList'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the chats of a project.
+      tags:
+      - chats
+  /api/chats/projects/{id}/connections:
+    get:
+      description: 'Your messaging connections that are bound to an agent of this
+        project, as brief rows: id, kind, name, agent_id, agent_name and enabled.
+        A token or a list of senders never appears. The list works for an archived
+        project too.'
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The connections
+          schema:
+            $ref: '#/definitions/schema.ChatsProjectConnectionList'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the messaging connections of a project.
+      tags:
+      - chats
+  /api/chats/projects/{id}/loops:
+    get:
+      description: 'Your loops that have not ended, in chats that use an agent of
+        this project (a loop that ended is history and is left out), as brief rows:
+        id, chat_id, chat_title, prompt (cut to 200 characters) and state. While the
+        project is archived its loops skip their runs; state does not change. The
+        list works for an archived project too.'
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The loops
+          schema:
+            $ref: '#/definitions/schema.ChatsProjectLoopList'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the loops of a project.
+      tags:
+      - chats
+  /api/chats/projects/{id}/memory:
+    get:
+      description: Returns the text of index.md and the topic files next to it. The
+        memory is the folder memory/ of the project.
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The index and the topic files
+          schema:
+            $ref: '#/definitions/schema.ChatsProjectMemory'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read the memory of a project.
+      tags:
+      - chats
+  /api/chats/projects/{id}/memory/{file}:
+    put:
+      description: 'This is your own edit, so it is written as you, as one change
+        set that undo restores. file is a name such as index.md or food.md: lowercase
+        letters, digits, dot, dash and underscore, ending in .md, at most 64 characters.
+        The content is at most 16 KiB, the same as a note the model proposes. The
+        edit is accepted for an archived project too.'
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the file name, for example index.md
+        in: path
+        name: file
+        required: true
+        type: string
+      - description: the new content
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsProjectMemoryWrite'
+      responses:
+        "204":
+          description: Written
+        "400":
+          description: The file name or the body is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: The content is too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Write a memory file of a project.
+      tags:
+      - chats
+  /api/chats/projects/{id}/restore:
+    post:
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The project
+          schema:
+            $ref: '#/definitions/schema.ChatsProject'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The project changed while it was saved
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Restore an archived project.
+      tags:
+      - chats
+  /api/chats/projects/{id}/triggers:
+    get:
+      description: 'Your triggers that run an agent of this project, as brief rows:
+        id, name, kind, agent_id, agent_name, schedule, folder, enabled, proposed
+        and next (the next run of an enabled schedule trigger). While the project
+        is archived its agents do not start, so its triggers skip their runs; enabled
+        does not change. The list works for an archived project too.'
+      parameters:
+      - description: the project's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The triggers
+          schema:
+            $ref: '#/definitions/schema.ChatsProjectTriggerList'
+        "404":
+          description: No such project, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the triggers of a project.
+      tags:
+      - chats
+  /api/chats/projects/shared:
+    get:
+      description: 'The projects of other people whose folder was shared with you,
+        or with everyone, sorted by name. ref is the only identity: use it in the
+        other shared-project routes and in the list a chat pulls from. mode is read
+        or write. An archived or broken project is listed with its status and is not
+        available. The list is read from the grants on every call, so a revoked share
+        is gone at once. The owner''s account, paths and tool lists never appear.'
+      responses:
+        "200":
+          description: The projects shared with you
+          schema:
+            $ref: '#/definitions/schema.ChatsSharedProjectList'
+        "409":
+          description: Projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the projects shared with you.
+      tags:
+      - chats
+  /api/chats/projects/shared/{ref}:
+    get:
+      description: ref is the reference from the list ("s:12"; the colon may be sent
+        as %3A). A project that is not shared with you, and one that does not exist,
+        give the same 404.
+      parameters:
+      - description: the reference of the shared project
+        in: path
+        name: ref
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The project
+          schema:
+            $ref: '#/definitions/schema.ChatsSharedProject'
+        "404":
+          description: No such project, or it is not shared with you
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read a project shared with you.
+      tags:
+      - chats
+  /api/chats/projects/shared/{ref}/memory:
+    get:
+      description: Returns the text of index.md and the names of the topic files next
+        to it, read as you through your own grant. It is read only. With a write grant
+        a note is proposed in a chat and confirmed by the owner; with a read grant
+        nothing can be proposed. An archived or broken project, a project that is
+        not shared with you and an unknown one give the same 404.
+      parameters:
+      - description: the reference of the shared project
+        in: path
+        name: ref
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The index and the topic files
+          schema:
+            $ref: '#/definitions/schema.ChatsSharedProjectMemory'
+        "404":
+          description: No such project, or it is not shared with you
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Projects are not available (projects_off)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read the memory of a project shared with you.
+      tags:
+      - chats
   /api/chats/providers:
     get:
       description: 'A provider slot is a job the host does itself and lets an add-on
@@ -22894,10 +24483,14 @@ paths:
     get:
       description: 'A shared folder is a folder outside your home that an administrator
         gave you access to. Its pages are the folders pages/<name>/ with an index.html.
-        Each page has its folder, its author (the account that last wrote index.html),
-        the hash of its code and your consent: none, allowed (this version) or changed
-        (you allowed an earlier one). enabled is false when an administrator turned
-        shared pages off.'
+        A page that another person shared from their own home is listed too: it has
+        user_shared set (no administrator checked it), the role view, use or edit,
+        and owner_name, and it has no folder or path. Each page has its author (the
+        account that last wrote index.html), the hash of its code and your consent:
+        none, allowed (this version) or changed (you allowed an earlier one). enabled
+        is false when an administrator turned shared pages off. user_shares_enabled
+        is false when an administrator turned off the pages that people share: those
+        pages have turned_off set, are listed and do not open.'
       responses:
         "200":
           description: The pages, by folder and name
@@ -22932,7 +24525,8 @@ paths:
           schema:
             $ref: '#/definitions/schema.PagesSharedSource'
         "403":
-          description: Shared pages are off on this server
+          description: 'Shared pages are off on this server, or type user_page_shares_off:
+            an administrator turned off the pages that people share'
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -23005,8 +24599,9 @@ paths:
         with 409. once allows one visit: the answer has a token that the bridge calls
         of that visit send. embed is a lasting consent that also lets the version
         run on Home and in the slots of ui.json, where it starts without a click;
-        it cannot go with once (400). A lasting consent to the same version keeps
-        embed. Each consent and revoke is audited.'
+        it cannot go with once (400), and a page that a person shared (user_shared)
+        never gets it (400). A lasting consent to the same version keeps embed. Each
+        consent and revoke is audited.'
       parameters:
       - description: shared folder id
         in: path
@@ -23079,10 +24674,13 @@ paths:
       tags:
       - pages
     put:
-      description: 'With your own grant on the folder: a read grant is refused with
-        403. A page writes data files only: code and document files (.js .mjs .cjs
-        .css .html .htm .svg .xml .xhtml .wasm, index, page.json) are refused with
-        403.'
+      description: 'With your own grant on the folder: a read grant (role view) is
+        refused with 403. A page writes data files only: code and document files (.js
+        .mjs .cjs .css .html .htm .svg .xml .xhtml .wasm, index, page.json and the
+        code_files of the page) are refused with 403, whatever the grant. With the
+        role use or edit the write goes into the owner''s page folder, so everybody
+        who has the page sees it; two writes to the same file: the last one wins,
+        unless base is the version you read.'
       parameters:
       - description: shared folder id
         in: path
@@ -23145,14 +24743,14 @@ paths:
       - pages
   /api/chats/skills:
     get:
-      description: 'Skills from every layer: .skills folders of your files, your personal
-        skills, the shared ones, the ones of the add-ons you may use now (addon, with
-        the add-on in addon and addon_title) and the built-in ones. A chat with a
-        saved agent also lists the skills of that agent (agent). The nearest wins;
-        a skill that another overrides says so in shadowed. With chat set, the chat''s
-        switches are applied. A skill of the active memory provider says provider
-        "memory" and locked: the host grants it to a chat that reads the notes, so
-        an agent does not list it.'
+      description: 'Skills from every layer: .skills folders of your files, the skills
+        of the chat''s project (project), your personal skills, the shared ones, the
+        ones of the add-ons you may use now (addon, with the add-on in addon and addon_title)
+        and the built-in ones. A chat with a saved agent also lists the skills of
+        that agent (agent). The nearest wins; a skill that another overrides says
+        so in shadowed. With chat set, the chat''s switches are applied. A skill of
+        the active memory provider says provider "memory" and locked: the host grants
+        it to a chat that reads the notes, so an agent does not list it.'
       parameters:
       - description: a chat id, to apply its switches
         in: query
@@ -23163,6 +24761,14 @@ paths:
         in: query
         name: agents
         type: boolean
+      - description: 'project: list only the skills of the project given in project'
+        in: query
+        name: layer
+        type: string
+      - description: a project's id, with layer=project
+        in: query
+        name: project
+        type: string
       responses:
         "200":
           description: The skills
@@ -23174,7 +24780,11 @@ paths:
     post:
       description: 'A skill is a folder with a SKILL.md: a name, a one-line description
         and the procedure the model reads when a task matches. The personal layer
-        is yours; the shared layer needs an administrator.'
+        is yours; the shared layer needs an administrator. The project layer (layer
+        project, with project set to the project''s id) holds the skills of one project
+        of yours: its chats and agents get them, and only you write them. It is off
+        while another person may write the project folder, and a write is then refused
+        with 409.'
       parameters:
       - description: the skill
         in: body
@@ -23198,12 +24808,17 @@ paths:
     delete:
       description: The skill's folder goes to the Trash of your files, where it can
         be restored. Shared skills need an administrator. A skill of the agent layer
-        is deleted with the agent query parameter.
+        is deleted with the agent query parameter, one of the project layer with the
+        project query parameter.
       parameters:
-      - description: personal, shared or agent
+      - description: personal, shared, project or agent
         in: path
         name: layer
         required: true
+        type: string
+      - description: the project's ID, for the project layer
+        in: query
+        name: project
         type: string
       - description: the saved agent's ID, for the agent layer
         in: query
@@ -23230,7 +24845,7 @@ paths:
       - chats
     get:
       parameters:
-      - description: personal, shared, agent, addon or builtin
+      - description: personal, shared, project, agent, addon or builtin
         in: path
         name: layer
         required: true
@@ -23239,6 +24854,10 @@ paths:
         in: path
         name: name
         required: true
+        type: string
+      - description: the project's ID, for the project layer
+        in: query
+        name: project
         type: string
       - description: the add-on's ID, for the addon layer
         in: query
@@ -23262,7 +24881,7 @@ paths:
       - chats
     put:
       parameters:
-      - description: personal or shared
+      - description: personal, shared or project
         in: path
         name: layer
         required: true
@@ -23271,6 +24890,10 @@ paths:
         in: path
         name: name
         required: true
+        type: string
+      - description: the project's ID, for the project layer
+        in: query
+        name: project
         type: string
       - description: the new description and body
         in: body
@@ -24937,11 +26560,11 @@ paths:
         plus one status per source, so a source that is down does not fail the search.
         Without `providers` the sources are the caller''s enabled set (every source
         the caller can see that they did not turn off; see /api/models/search/sources).
-        A source can come from an add-on that provides the model-search slot. `filters.<source>.<id>=value` sets a
-        filter that the source declares in `sources` of the answer; an unknown filter
-        or a value that does not fit its type gives a 400 that names the filter. Each
-        result''s `uri` can be passed to POST /models/import-uri. Results also say
-        whether an installed model already comes from the repository (`installed`,
+        A source can come from an add-on that provides the model-search slot. `filters.<source>.<id>=value`
+        sets a filter that the source declares in `sources` of the answer; an unknown
+        filter or a value that does not fit its type gives a 400 that names the filter.
+        Each result''s `uri` can be passed to POST /models/import-uri. Results also
+        say whether an installed model already comes from the repository (`installed`,
         `installed_name`), the backend an import would likely pick (`backend`, a hint
         derived from the tags) and whether the repository likely has several quantizations
         (`has_variants`). Use /api/models/remote/files for the exact files, sizes
@@ -24992,10 +26615,10 @@ paths:
       - models
   /api/models/search/sources:
     get:
-      description: 'Lists the sources that are installed (Hugging Face, and every add-on
-        that provides the model-search slot and that the caller can see) with their
-        titles, sorts and filters, and the enabled set of the caller: every source
-        they can see that they did not turn off, so a source from a newly installed
+      description: 'Lists the sources that are installed (Hugging Face, and every
+        add-on that provides the model-search slot and that the caller can see) with
+        their titles, sorts and filters, and the enabled set of the caller: every
+        source they can see that they did not turn off, so a source from a newly installed
         add-on is on with no action. `missing` is kept for older clients and is always
         empty.'
       responses:

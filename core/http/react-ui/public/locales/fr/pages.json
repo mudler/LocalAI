@@ -19,7 +19,14 @@
     "deleteTitle": "Supprimer « {{title}} » ?",
     "deleteMessage": "Le dossier {{folder}} va dans la corbeille. Vous pouvez le restaurer depuis Fichiers.",
     "deleted": "{{title}} est dans la corbeille.",
-    "deleteFailed": "La page n’a pas été supprimée : {{message}}"
+    "deleteFailed": "La page n’a pas été supprimée : {{message}}",
+    "share": "Partager",
+    "shared": "Partagée",
+    "sharedWith_one": "Partagée avec {{count}} personne",
+    "sharedWith_other": "Partagée avec {{count}} personnes",
+    "sharedEveryone": "Partagée avec tout le monde",
+    "someone": "quelqu’un",
+    "othersEdit": "D’autres peuvent modifier"
   },
   "empty": {
     "text": "Une page est un petit outil, comme un tableau de tâches ou une liste de lecture. Demandez-en une à l’assistant dans un chat, ou partez d’une page prête.",
@@ -48,12 +55,15 @@
       "notAllowed": "Pas encore autorisée",
       "changed": "Modifiée depuis votre autorisation",
       "allowed": "Autorisée"
-    }
+    },
+    "userOff": "Désactivée par un administrateur.",
+    "stopFailed": "La page n'a pas été arrêtée : {{message}}"
   },
   "viewer": {
     "stopAllowing": "Ne plus autoriser cette page",
     "authorChanged": "{{author}} a modifié cette page. La version autorisée continue jusqu’à ce que vous examiniez la modification.",
-    "sandboxShared": "Isolée. S’exécute en votre nom, uniquement dans {{folder}}, sans accès au réseau."
+    "sandboxShared": "Isolée. S’exécute en votre nom, uniquement dans {{folder}}, sans accès au réseau.",
+    "sandboxUser": "Dans un bac à sable. S’exécute en votre nom, dans son propre dossier uniquement, sans accès au réseau."
   },
   "trust": {
     "title": "Ouvrir « {{title}} » ?",
@@ -128,6 +138,26 @@
       "item": "S'exécuter sur l'accueil, dans les emplacements de l'app et dans le volet",
       "note": "Elle démarre à l'affichage de l'écran, sans clic. Une modification de son auteur redemande l'accord.",
       "allow": "Autoriser sur l'accueil, dans les emplacements et dans le volet"
+    },
+    "user": {
+      "desc": "Une personne a partagé cette page avec vous. Les pages s’exécutent en votre nom : vérifiez-la avant de la lancer.",
+      "who": "Écrite par {{author}}. Non vérifiée par un administrateur.",
+      "unchecked": "Non vérifiée par un administrateur.",
+      "where": "Page partagée",
+      "readOnly": "Vous ne pouvez que regarder cette page, elle ne peut donc pas enregistrer ses changements.",
+      "chrome": "Page partagée. Elle ne s’est pas exécutée.",
+      "blocked": "Vous avez choisi de ne pas l’exécuter. Elle vient de {{author}}. Rien ne s’est exécuté et rien n’a été enregistré.",
+      "files": "Lire et écrire des fichiers dans son propre dossier"
+    },
+    "owner": {
+      "desc": "D’autres peuvent modifier cette page. Les pages s’exécutent en votre nom : vérifiez-la avant de la lancer.",
+      "who": "D’autres peuvent modifier cette page. Vérifiez-la avant de la lancer.",
+      "changedWho": "Cette page a changé depuis que vous l’avez autorisée.",
+      "where": "Votre page",
+      "warn": "Elle agit en votre nom dans son dossier. Si quelqu’un la modifie, on vous redemande.",
+      "changedWarn": "Si vous l’autorisez, cette version s’exécute à chaque ouverture, jusqu’à ce que quelqu’un la modifie de nouveau.",
+      "blocked": "Vous avez choisi de ne pas l’exécuter. D’autres peuvent la modifier. Rien ne s’est exécuté et rien n’a été enregistré.",
+      "stale": "Cette page a changé. Vérifiez-la de nouveau."
     }
   },
   "frame": {
@@ -182,5 +212,43 @@
     "sendLabel": "La page demande d'envoyer ce message à cette discussion :",
     "saveFailed": "Le volet n'a pas été enregistré : {{message}}",
     "openInDock": "Ouvrir dans le volet"
+  },
+  "share": {
+    "intro": "Choisissez qui peut ouvrir cette page. La page reste où elle est.",
+    "warning": "Les personnes avec qui vous partagez exécutent le code de cette page dans leur navigateur, avec leurs propres droits, après l'avoir autorisé. Elles sont sollicitées de nouveau quand vous modifiez le code.",
+    "role": {
+      "view": "Voir",
+      "use": "Utiliser",
+      "edit": "Modifier"
+    },
+    "roleHelp": {
+      "view": "Peut exécuter la page et lire ses données. Ne peut pas enregistrer.",
+      "use": "Peut exécuter la page et y enregistrer des données. Ne peut pas modifier son code.",
+      "edit": "Peut tout modifier, y compris le code."
+    },
+    "count": {
+      "people_one": "Partagée avec {{count}} personne.",
+      "people_other": "Partagée avec {{count}} personnes.",
+      "everyone": "Partagée avec tout le monde.",
+      "everyoneAnd_one": "Partagée avec tout le monde et {{count}} personne nommée.",
+      "everyoneAnd_other": "Partagée avec tout le monde et {{count}} personnes nommées.",
+      "allowed_one": "{{count}} a autorisé cette version.",
+      "allowed_other": "{{count}} ont autorisé cette version."
+    },
+    "offAdmin": "Un administrateur a désactivé le partage de pages. Vous pouvez toujours arrêter le partage avec les personnes ci-dessous.",
+    "lost": "Vous ne pouvez plus partager cette page.",
+    "askAgain_one": "Vous avez modifié le code. {{count}} personne devra l’autoriser de nouveau.",
+    "askAgain_other": "Vous avez modifié le code. {{count}} personnes devront l’autoriser de nouveau.",
+    "viewOnly": "Vous pouvez regarder cette page, pas la modifier",
+    "editNote": "Avec Modifier, cette page s’ouvre aussi pour vous par l’étape d’autorisation.",
+    "tile": {
+      "title": "Ouvrez cette page pour l’exécuter",
+      "text": "Une personne l’a partagée avec vous. Elle ne s’exécute pas sur l’accueil ni dans un emplacement. Ouvrez-la pour l’exécuter.",
+      "open": "Ouvrir la page",
+      "dock": "Une personne a partagé cette page avec vous. Ouvrez-la depuis Pages pour l’exécuter.",
+      "slot": "Ouvrez {{title}} pour l’exécuter",
+      "textOwn": "D’autres peuvent la modifier. Elle ne s’exécute pas sur l’accueil ni dans un emplacement. Ouvrez-la pour l’exécuter.",
+      "dockOwn": "D’autres peuvent modifier cette page. Ouvrez-la depuis Pages pour l’exécuter."
+    }
   }
 }

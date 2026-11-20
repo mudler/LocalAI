@@ -300,3 +300,7 @@ func (c *Client) CreateVoiceProfile(ctx context.Context, req localaitools.Create
 func (c *Client) DeleteVoiceProfile(ctx context.Context, id string) error {
 	return c.inference(ctx).DeleteVoiceProfile(ctx, id)
 }
+
+func (c *Client) Projects(ctx context.Context, req localaitools.ProjectsRequest) (*localaitools.ProjectsResult, error) {
+	return c.inference(ctx).Projects(ctx, req)
+}

@@ -8,9 +8,7 @@
 #                                kernel driver reports
 # STRATA_ENGINE_VARIANT=<name> forces one.
 #
-# strata-dsv41-engine runs this script for the DeepSeek V4.1 engine: the
-# packages are in engines-dsv41/<name>/ and the program is strata-dsv41.
-# STRATA_ENGINES_DIR and STRATA_ENGINE_BIN select them. Unsupported hardware stops here with
+# STRATA_ENGINES_DIR and STRATA_ENGINE_BIN select another folder and program. Unsupported hardware stops here with
 # a one-line reason on stderr, which the backend shows in its load error.
 set -eu
 

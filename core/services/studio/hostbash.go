@@ -258,7 +258,7 @@ func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command st
 	s.bus.Publish(k, session.Event{Kind: session.KindHostExecConsent, IDs: []string{id}, Text: command})
 	decision := ""
 	if s.waitConsent(ctx, wake, hostExecWait, func() bool {
-		rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+		rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
 		if err != nil {
 			return false
 		}
@@ -344,7 +344,7 @@ func (s *Service) setHostConsent(ctx context.Context, a workspace.Actor, c *sess
 // another user is session.ErrNotFound.
 func (s *Service) HostExecDecide(ctx context.Context, user, conv, id, decision string) error {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return err
 	}

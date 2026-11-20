@@ -68,6 +68,7 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	if a.MemorySave == agents.MemorySaveUseMine {
 		a.MemorySave = ""
 	}
+	keepProject := a.ProjectID == ""
 	grants, err := cleanGrants(a.Builtins, false)
 	if err != nil {
 		return agents.Agent{}, fmt.Errorf("%w: %w", agents.ErrInvalid, err)
@@ -84,10 +85,7 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		return agents.Agent{}, err
 	}
 	a.Resources = resourcesets.Normalize(a.Resources)
-	if err := s.checkConnections(ctx, p, a.Connections); err != nil {
-		return agents.Agent{}, err
-	}
-	if err := s.checkMCPServers(ctx, p, a); err != nil {
+	if err := s.checkReferences(ctx, p, a); err != nil {
 		return agents.Agent{}, err
 	}
 	a.BuiltinsOff, a.BuiltinsOn = s.agentGroups(a.BuiltinsOff, false), s.agentGroups(a.BuiltinsOn, true)
@@ -97,6 +95,16 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		}
 	}
 	a.Principal, a.Name = p, trimName(a.Name)
+	if a.ID == "" && a.ProjectID != "" {
+		// A project agent is made in a project of its owner that takes new work.
+		if _, err := s.usableProject(ctx, user, a.ProjectID); err != nil {
+			if errors.Is(err, session.ErrInvalid) {
+				err = fmt.Errorf("%w: %w", agents.ErrInvalid, err)
+			}
+			return agents.Agent{}, err
+		}
+	}
+	replacing := a.ID != ""
 	now := time.Now().UTC()
 	a.Updated = now
 	if a.ID == "" {
@@ -106,6 +114,15 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		if err != nil {
 			return agents.Agent{}, s.ownerOnly(ctx, user, a.ID, err)
 		}
+		// The project is set at creation: a write may repeat it or leave it
+		// out, never change or add one.
+		if keepProject {
+			a.ProjectID = old.ProjectID
+		} else if a.ProjectID != old.ProjectID {
+			return agents.Agent{}, fmt.Errorf("%w: the project of an agent cannot be changed", agents.ErrInvalid)
+		}
+		// Only a move changes the time of the last move.
+		a.MovedAt = old.MovedAt
 		if folders == nil {
 			a.Folders, a.FolderID, a.FolderMode = old.Folders, old.FolderID, old.FolderMode
 		}
@@ -136,6 +153,15 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 			a.MemorySave = old.MemorySave
 		}
 	}
+	// A project agent is fenced to its project: the project must take agents
+	// now, and the folders it keeps are the project's files and memory folders.
+	if a.ProjectID != "" {
+		fenced, err := s.checkProjectAgent(ctx, a, folders == nil && replacing)
+		if err != nil {
+			return agents.Agent{}, projectUnavailableErr(err)
+		}
+		a = fenced
+	}
 	// The grant saved_agents is the opt-in group of the same name: the chats of
 	// the agent start with it on.
 	if slices.Contains(a.Builtins, builtins.GrantSavedAgents) && s.builtins.IsGroup(builtins.GroupSavedAgents) && !slices.Contains(a.BuiltinsOn, builtins.GroupSavedAgents) {
@@ -149,6 +175,33 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		return agents.Agent{}, err
 	}
 	return s.d.Agents.Get(ctx, p, a.ID)
+}
+
+// checkReferences is the part of a save that judges what the agent names: its
+// connections and its MCP servers.
+func (s *Service) checkReferences(ctx context.Context, p string, a agents.Agent) error {
+	if err := s.checkConnections(ctx, p, a.Connections); err != nil {
+		return err
+	}
+	return s.checkMCPServers(ctx, p, a)
+}
+
+// CheckImportedAgent runs the definition checks of a save on an agent that
+// came from a file, without saving it, so that a caller can refuse before it
+// makes anything else (a project) for the import. The folders and the name
+// are not judged here: they are chosen and renamed by the import itself.
+func (s *Service) CheckImportedAgent(ctx context.Context, user string, a agents.Agent) error {
+	if s.d.Agents == nil {
+		return ErrAgentsOff
+	}
+	a.Builtins, _ = cleanGrants(a.Builtins, true)
+	if a.MemorySave == agents.MemorySaveUseMine {
+		a.MemorySave = ""
+	}
+	if err := agents.Validate(a); err != nil {
+		return err
+	}
+	return s.checkReferences(ctx, principal(user), a)
 }
 
 // Agent returns a saved agent of the user.
@@ -283,11 +336,18 @@ func (s *Service) ImportAgent(ctx context.Context, user string, a agents.Agent, 
 // ImportAgentFolders is ImportAgent for a file that lists several folders. A
 // folder that is not found in the importing user's files stays in the list as
 // a row that is not chosen, so the person can see which one to fix.
+//
+// For a project agent (a.ProjectID set by the caller from the request, never
+// from the file) the folders are the project-relative entries of the file:
+// see ProjectImportFilesMode. The agent gets the project's own two folders.
 func (s *Service) ImportAgentFolders(ctx context.Context, user string, a agents.Agent, folders []AgentFolderWrite) (agents.Agent, error) {
 	a.ID, a.FolderID, a.FolderMode, a.Folders = "", 0, "", nil
 	// A file from a server that has more grants still imports; the grants
 	// this server does not declare are dropped.
 	a.Builtins, _ = cleanGrants(a.Builtins, true)
+	if a.ProjectID != "" {
+		return s.importProjectAgent(ctx, user, a, folders)
+	}
 	if len(folders) > agents.MaxFolders {
 		return agents.Agent{}, folderRefused("an agent may have at most %d folders", agents.MaxFolders)
 	}
@@ -328,6 +388,37 @@ func (s *Service) ImportAgentFolders(ctx context.Context, user string, a agents.
 		}
 	}
 	a.Folders = list
+	return s.saveRenamed(ctx, user, a)
+}
+
+// importProjectAgent saves an imported agent as a project agent. The project
+// must be one of the user's own that takes new work; the folders are the
+// project's files and memory folders, the files one at the mode the file
+// chose. The save goes through SaveAgent, so every rule of a project agent
+// applies.
+func (s *Service) importProjectAgent(ctx context.Context, user string, a agents.Agent, folders []AgentFolderWrite) (agents.Agent, error) {
+	a.Principal = principal(user)
+	if _, err := s.usableProject(ctx, user, a.ProjectID); err != nil {
+		if errors.Is(err, session.ErrInvalid) {
+			err = fmt.Errorf("%w: %w", agents.ErrInvalid, err)
+		}
+		return agents.Agent{}, err
+	}
+	f, err := s.fenceOfAgent(ctx, a)
+	if err != nil {
+		return agents.Agent{}, projectUnavailableErr(err)
+	}
+	mode, _, err := ProjectImportFilesMode(folders)
+	if err != nil {
+		return agents.Agent{}, err
+	}
+	a.Folders = projectFolders(f, mode)
+	return s.saveRenamed(ctx, user, a)
+}
+
+// saveRenamed saves an imported agent as a new one: a name the user already
+// has gets " (2)", " (3)" and so on, up to maxImportRenames names.
+func (s *Service) saveRenamed(ctx context.Context, user string, a agents.Agent) (agents.Agent, error) {
 	name := trimName(a.Name)
 	for n := 1; n <= maxImportRenames; n++ {
 		a.Name = name
@@ -340,6 +431,40 @@ func (s *Service) ImportAgentFolders(ctx context.Context, user string, a agents.
 		}
 	}
 	return agents.Agent{}, agents.ErrNameTaken
+}
+
+// ProjectImportFilesMode reads the folder entries of an agent file for an
+// import into a project. The entries are project-relative: files (or a path
+// below it) chooses the files mode; memory is always read and needs no entry.
+// A file without folder entries gets the files mode write, the default of a
+// project agent. Otherwise the files mode is write only when a files entry
+// says write and none says read: an entry that is only memory, or that says
+// read, gives read, so a file never widens access. An entry that is neither
+// files nor memory (such as a path of the exporter's files) is ignored, and
+// the warnings say how many. A mode that is not read or write is refused, as
+// for any other folder.
+func ProjectImportFilesMode(folders []AgentFolderWrite) (mode string, warnings []string, err error) {
+	write, read, ignored := false, false, 0
+	for _, f := range folders {
+		if f.Mode != agents.FolderRead && f.Mode != agents.FolderWrite {
+			return "", nil, folderRefused("the mode must be read or write")
+		}
+		rel := strings.Trim(f.Path, "/")
+		switch {
+		case rel == "files" || strings.HasPrefix(rel, "files/"):
+			write, read = write || f.Mode == agents.FolderWrite, read || f.Mode == agents.FolderRead
+		case rel == "memory" || strings.HasPrefix(rel, "memory/"):
+		default:
+			ignored++
+		}
+	}
+	if ignored > 0 {
+		warnings = append(warnings, fmt.Sprintf("%d folder entries of the file are not folders of the project and were ignored. The agent works in the files and memory of its project.", ignored))
+	}
+	if len(folders) == 0 || (write && !read) {
+		return agents.FolderWrite, warnings, nil
+	}
+	return agents.FolderRead, warnings, nil
 }
 
 // maxImportRenames is how many names an import tries before it gives up.

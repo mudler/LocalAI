@@ -49,7 +49,8 @@
   "facts": {
     "addons": "Add-ons",
     "connector": "MCP connector",
-    "folder": "Pasta"
+    "folder": "Pasta",
+    "toolsNone": "Nenhum add-on ou servidor MCP"
   },
   "agent": {
     "triggers": "Triggers",
@@ -147,7 +148,7 @@
     "networkHelp": "Quando um gatilho ou um conector roda este agente, os comandos dele alcançam esta parte da rede, até o limite definido por um administrador. Uma execução nunca pergunta: um host fora dela é bloqueado. Um chat que você inicia com este agente também começa assim.",
     "networkPresets": {
       "off": "Desligada",
-      "registries": "Registros de pacotes",
+      "registries": "Personalizado",
       "all": "Todos os sites públicos"
     },
     "toolsSummary": "{{on}} de {{total}} ligadas",
@@ -539,7 +540,8 @@
       "runMeta": "took {{time}}",
       "prompt": "What to do",
       "acts": "Permissões",
-      "runLimit": "Time limit"
+      "runLimit": "Time limit",
+      "project": "Projeto"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -588,9 +590,27 @@
       "changed_other": "{{count}} changes",
       "watchNoFiles": "Este agente está em \"Nenhum arquivo\": uma execução deste gatilho fica sabendo que chegou um arquivo, mas não consegue abri-lo. Dê acesso a arquivos no editor do agente ou escolha outro agente.",
       "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
-      "runLimitPlaceholder": "default"
+      "runLimitPlaceholder": "default",
+      "agentInProject": "{{name}} (projeto {{project}})",
+      "projectAgentHint": "Este agente pertence ao projeto. Um gatilho de arquivo observa os arquivos do projeto por padrão.",
+      "folder": {
+        "choose": "Escolha uma pasta",
+        "sub": "Pasta dentro dela",
+        "subPlaceholder": "Opcional: uma pasta dentro dela",
+        "hint": "Uma das pastas deste agente e, se quiser, uma pasta dentro dela.",
+        "empty": "Escolha a pasta a observar.",
+        "dots": "O nome de uma pasta não pode conter \"..\".",
+        "outside": "Este agente só pode observar pastas dentro das suas: {{folders}}.",
+        "noFolders": "Este agente não tem nenhuma pasta utilizável. Escolha uma pasta nas configurações do agente."
+      }
     },
-    "subtitle": "Inicie um agente por agenda ou quando um arquivo chegar. Cada execução é um chat que você pode abrir."
+    "subtitle": "Inicie um agente por agenda ou quando um arquivo chegar. Cada execução é um chat que você pode abrir.",
+    "projectFilter": {
+      "label": "Projeto",
+      "all": "Todos os projetos",
+      "none": "Sem projeto",
+      "empty": "Nenhum gatilho para esta escolha."
+    }
   },
   "views": {
     "label": "Área de agentes",
@@ -906,7 +926,9 @@
       "filesTitle": "Ele pode ver todos os seus arquivos.",
       "filesBody": "Tudo o que você pode abrir em Arquivos, este agente pode ler. Você pode limitá-lo a pastas.",
       "limit": "Limitar a pastas",
-      "setupNext": "Depois de criar o agente, a página dele lista os passos de configuração dos apps escolhidos."
+      "setupNext": "Depois de criar o agente, a página dele lista os passos de configuração dos apps escolhidos.",
+      "project": "Trabalha no projeto {{name}}.",
+      "projectUnnamed": "Trabalha no projeto que você escolheu."
     },
     "rail": {
       "title": "Seu agente",
@@ -980,5 +1002,125 @@
     "asksTitle_one": "Este agente pede {{count}} item com o qual seu chat não começa:",
     "asksTitle_other": "Este agente pede {{count}} itens com os quais seu chat não começa:",
     "asksHelp": "Ele roda como você. Ligue-os no chat só se você confiar no agente e na pessoa que o compartilhou."
+  },
+  "project": {
+    "chip": "Projeto: {{name}}",
+    "deleted": "projeto excluído",
+    "files": "Arquivos do projeto",
+    "filesMode": "Modo dos arquivos",
+    "canEdit": "Pode editar",
+    "readOnly": "Somente leitura",
+    "filesHelp": "O agente trabalha apenas na pasta de arquivos de {{name}}. As pastas compartilhadas e as skills continuam legíveis.",
+    "filesHelpNoName": "O agente trabalha apenas na pasta de arquivos do seu projeto. As pastas compartilhadas e as skills continuam legíveis.",
+    "memory": "Memória do projeto",
+    "memoryHelp": "O agente só pode salvar uma nota na memória do projeto com a permissão \"Remember things in the project\": ele propõe uma alteração que você confirma. Sem a permissão, a memória é somente leitura.",
+    "limited": "Limitado pelo projeto",
+    "noShare": "Agentes de projeto não podem ser compartilhados.",
+    "exportHelp": "A exportação gera um arquivo de agente. O projeto é escolhido quando o arquivo é importado.",
+    "paused": "Este agente está pausado porque o projeto dele está {{reason}}.",
+    "reason": {
+      "archived": "arquivado",
+      "deleted": "excluído",
+      "changed": "alterado"
+    },
+    "fix": {
+      "archived": "Abra o projeto e restaure-o. Depois disso o agente volta a funcionar.",
+      "deleted": "O projeto não existe mais. Restaure-o pela Lixeira em Arquivos e o agente volta a funcionar.",
+      "changed": "Uma pasta do projeto foi substituída, renomeada ou movida. Reconecte o agente para ligá-lo de novo às pastas do projeto.",
+      "deletedDetach": "O projeto não existe mais. Desvincule o agente para usá-lo de novo, ou restaure o projeto pela Lixeira em Arquivos."
+    },
+    "openProject": "Abrir projeto",
+    "reconnect": "Reconectar",
+    "reconnected": "{{name}} voltou a ficar conectado ao projeto.",
+    "reconnectFailed": "Não foi possível reconectar o agente: {{message}}",
+    "unavailable": "Indisponível",
+    "listReason": {
+      "archived": "O projeto dele está arquivado.",
+      "deleted": "O projeto dele foi excluído.",
+      "changed": "As pastas do projeto dele mudaram. Abra-o para reconectar."
+    },
+    "fact": "Projeto",
+    "memoryFact": "Memória",
+    "memoryReadOnly": "Memória do projeto, somente leitura",
+    "runsPaused": "As execuções voltam quando o projeto estiver ativo de novo."
+  },
+  "importProject": {
+    "title": "Este agente pertence a um projeto",
+    "text": "Escolha onde colocá-lo. Agentes de projeto trabalham apenas dentro do seu projeto. As pastas compartilhadas e as skills continuam legíveis.",
+    "textNamed": "O arquivo é do agente \"{{agent}}\". Escolha onde colocá-lo. Agentes de projeto trabalham apenas dentro do seu projeto. As pastas compartilhadas e as skills continuam legíveis.",
+    "label": "Projeto",
+    "choose": "Escolha um projeto",
+    "create": "Criar um projeto chamado '{{name}}'",
+    "createUnnamed": "Criar um novo projeto para este agente",
+    "help": "Apenas seus projetos ativos são listados.",
+    "createHelp": "Um novo projeto chamado {{name}} é criado e o agente é adicionado a ele.",
+    "needsChoice": "Escolha um projeto, ou crie um, para importar este agente.",
+    "cancel": "Cancelar",
+    "import": "Importar"
+  },
+  "projectField": {
+    "title": "Projeto",
+    "leadNew": "Coloque o agente em um projeto ou deixe-o sozinho.",
+    "leadEdit": "O projeto em que o agente trabalha. Movê-lo muda o que ele pode acessar.",
+    "label": "Projeto",
+    "none": "Nenhum projeto",
+    "choose": "Escolha um projeto",
+    "archivedName": "{{name}} (arquivado)",
+    "create": "Criar um novo projeto...",
+    "help": "Um agente de projeto trabalha apenas nos arquivos e na memória do seu projeto. Apenas seus projetos ativos são listados.",
+    "helpEdit": "Escolha outro projeto, ou Nenhum projeto, e clique em Mover.",
+    "saveFirst": "Salve ou descarte suas alterações antes de mover o agente."
+  },
+  "move": {
+    "open": "Mover...",
+    "title": "Mover para {{name}}",
+    "leaveTitle": "Tirar o agente do projeto",
+    "detachTitle": "Desvincular do projeto",
+    "text": "{{agent}} trabalhará apenas nos arquivos e na memória de {{name}}. Confira o que muda antes de confirmar.",
+    "leaveText": "{{agent}} sai de {{name}}. Escolha os arquivos que ele mantém e confira o que muda.",
+    "detachText": "O projeto deste agente foi excluído. Escolha os arquivos que o agente mantém e depois desvincule-o.",
+    "cancel": "Cancelar",
+    "confirm": "Mover agente",
+    "detach": "Desvincular do projeto",
+    "keepLabel": "Arquivos que o agente mantém",
+    "keepOne": "Somente esta pasta",
+    "keepAll": "Todos os meus arquivos",
+    "keepAllHelp": "O agente trabalha com todos os seus arquivos, como um agente sem pasta.",
+    "keepNone": "Nenhuma pasta escolhida.",
+    "effectsTitle": "O que muda",
+    "pickFolder": "Escolha uma pasta para ver o que muda.",
+    "checking": "Verificando...",
+    "effect": {
+      "chats_one": "{{count}} chat deste agente continua legível, mas não recebe novas mensagens. Inicie um novo chat para continuar.",
+      "chats_other": "{{count}} chats deste agente continuam legíveis, mas não recebem novas mensagens. Inicie um novo chat para continuar.",
+      "loops_one": "{{count}} loop nesses chats termina.",
+      "loops_other": "{{count}} loops nesses chats terminam.",
+      "triggers_one": "{{count}} gatilho de arquivos observa uma pasta fora das novas pastas: {{names}}.",
+      "triggers_other": "{{count}} gatilhos de arquivos observam uma pasta fora das novas pastas: {{names}}.",
+      "shares_one": "O agente está compartilhado com {{count}} pessoa.",
+      "shares_other": "O agente está compartilhado com {{count}} pessoas.",
+      "proposals_one": "{{count}} nota em espera para a memória do projeto é descartada.",
+      "proposals_other": "{{count}} notas em espera para a memória do projeto são descartadas.",
+      "dropped_one": "Os limites do novo projeto removem {{count}} ferramenta: {{names}}.",
+      "dropped_other": "Os limites do novo projeto removem {{count}} ferramentas: {{names}}.",
+      "grant": "A permissão para escrever na memória do projeto é removida. Você pode concedê-la de novo nas configurações do agente.",
+      "notes": "As notas próprias do agente começam vazias. As notas antigas ficam nos seus arquivos, em Memory, em Moved agent notes.",
+      "foldersInto": "O agente trabalha apenas nas pastas de arquivos e de memória de {{name}}.",
+      "foldersOut": "O agente não pertence mais a um projeto.",
+      "attachedLost_one": "O projeto antigo anexava {{count}} ferramenta que deixa de valer: {{names}}.",
+      "attachedLost_other": "O projeto antigo anexava {{count}} ferramentas que deixam de valer: {{names}}.",
+      "attachedGained_one": "O novo projeto anexa {{count}} ferramenta que o agente recebe: {{names}}.",
+      "attachedGained_other": "O novo projeto anexa {{count}} ferramentas que o agente recebe: {{names}}.",
+      "projectSkills": "As habilidades do projeto antigo deixam de valer e as do novo projeto passam a valer."
+    },
+    "blocked": {
+      "busy": "Um chat deste agente está executando um turno. Pare-o e depois mova o agente."
+    },
+    "revoke_one": "Parar de compartilhar: este agente está compartilhado com {{count}} pessoa e um agente de projeto não pode ser compartilhado.",
+    "revoke_other": "Parar de compartilhar: este agente está compartilhado com {{count}} pessoas e um agente de projeto não pode ser compartilhado.",
+    "disable_one": "Desligar {{count}} gatilho de arquivos que observa uma pasta fora das novas pastas ({{names}}).",
+    "disable_other": "Desligar {{count}} gatilhos de arquivos que observam uma pasta fora das novas pastas ({{names}}).",
+    "done": "{{name}} foi movido para o novo projeto.",
+    "doneOut": "{{name}} não pertence mais a um projeto."
   }
 }

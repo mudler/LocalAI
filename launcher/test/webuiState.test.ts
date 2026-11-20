@@ -133,6 +133,22 @@ describe('WebuiModel: deep links', () => {
     expect(m.dispatch({ type: 'deep-link', url })).toEqual([{ kind: 'open-browser', url }])
   })
 
+  it('opens a page of another origin in the browser, never in the local view', () => {
+    const { m } = ready()
+    const url = `${REMOTE}/app/chats/1`
+    expect(m.dispatch({ type: 'deep-link', url })).toEqual([{ kind: 'open-browser', url }])
+  })
+
+  it('navigates the view of the remote server on show for a page of that server only', () => {
+    const { m } = ready()
+    m.dispatch({ type: 'connect', origin: REMOTE, host: 'remote.example.test' })
+    m.dispatch({ type: 'view-loaded' })
+    const url = `${REMOTE}/app/chats/1`
+    expect(m.dispatch({ type: 'deep-link', url })).toContainEqual({ kind: 'navigate', url })
+    const other = `${LOCAL}/app/chats/1`
+    expect(m.dispatch({ type: 'deep-link', url: other })).toEqual([{ kind: 'open-browser', url: other }])
+  })
+
   it('does nothing while the server is not ready and there is no view', () => {
     const m = new WebuiModel(inputs())
     expect(m.dispatch({ type: 'deep-link', url: `${LOCAL}/app?model=x` })).toEqual([])

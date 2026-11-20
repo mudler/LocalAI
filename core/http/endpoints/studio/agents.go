@@ -77,7 +77,7 @@ func agentOut(a agents.Agent) schema.ChatsAgent {
 	}
 	return schema.ChatsAgent{ID: a.ID, Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 		MCPServers: nz(a.MCPServers), Addons: nz(a.Addons), Collections: nz(a.Collections), Skills: nz(a.Skills),
-		Network: networkOf(a.Network), SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave, BuiltinsOff: nz(a.BuiltinsOff), BuiltinsOn: nz(a.BuiltinsOn), Builtins: nz(a.Builtins), Connections: a.Connections, Resources: a.Resources, Created: a.Created, Updated: a.Updated}
+		Network: networkOf(a.Network), SandboxProfile: a.SandboxProfile, Memory: a.Memory, MemorySave: a.MemorySave, ProjectID: a.ProjectID, BuiltinsOff: nz(a.BuiltinsOff), BuiltinsOn: nz(a.BuiltinsOn), Builtins: nz(a.Builtins), Connections: a.Connections, Resources: a.Resources, Created: a.Created, Updated: a.Updated}
 }
 
 // agentIn reads the body. A model the user may not use is refused here, so a
@@ -100,7 +100,7 @@ func (h *Handlers) agentIn(c echo.Context) (a agents.Agent, folders *[]studiosvc
 		}
 	}
 	return agents.Agent{Name: req.Name, Description: req.Description, Instructions: req.Instructions, Model: req.Model,
-			MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills, Network: req.Network, SandboxProfile: req.SandboxProfile, Memory: req.Memory, MemorySave: req.MemorySave,
+			MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills, Network: req.Network, SandboxProfile: req.SandboxProfile, Memory: req.Memory, MemorySave: req.MemorySave, ProjectID: req.ProjectID,
 			BuiltinsOff: req.BuiltinsOff, BuiltinsOn: req.BuiltinsOn, Builtins: req.Builtins, Connections: req.Connections, Resources: req.Resources},
 		foldersIn(req), true, nil
 }
@@ -115,11 +115,13 @@ func networkOf(n string) string {
 }
 
 // accessOut is the caller's access to an agent as the API shows it.
-func (h *Handlers) accessOut(acc studiosvc.AgentAccess) *schema.ChatsAgentAccess {
+// A project agent cannot be shared, so Sharing is false for it whatever the
+// server can do.
+func (h *Handlers) accessOut(acc studiosvc.AgentAccess, a agents.Agent) *schema.ChatsAgentAccess {
 	out := &schema.ChatsAgentAccess{Role: acc.Role, Owner: acc.OwnerName, Everyone: acc.Everyone}
 	if acc.Owner() {
 		n := acc.SharedWith
-		out.SharedWith, out.ShareID, out.Sharing = &n, acc.ShareRef, h.svc.AgentSharingAvailable()
+		out.SharedWith, out.ShareID, out.Sharing = &n, acc.ShareRef, h.svc.AgentSharingAvailable() && a.ProjectID == ""
 	}
 	return out
 }
@@ -129,12 +131,12 @@ func (h *Handlers) accessOut(acc studiosvc.AgentAccess) *schema.ChatsAgentAccess
 // connections, resources, folders or sharing record: those name things of
 // the owner, and the caller runs the agent with their own.
 func (h *Handlers) sharedOut(a agents.Agent, acc studiosvc.AgentAccess) schema.ChatsAgent {
-	a.Connections, a.Resources, a.Folders, a.FolderID, a.FolderMode, a.ShareRef = nil, nil, nil, 0, "", ""
+	a.Connections, a.Resources, a.Folders, a.FolderID, a.FolderMode, a.ShareRef, a.ProjectID = nil, nil, nil, 0, "", "", ""
 	if acc.Role != studiosvc.AgentRoleView {
 		a = agents.Agent{ID: a.ID, Name: a.Name, Description: a.Description, Model: a.Model, Created: a.Created, Updated: a.Updated}
 	}
 	out := agentOut(a)
-	out.Access = h.accessOut(acc)
+	out.Access = h.accessOut(acc, a)
 	return out
 }
 
@@ -164,7 +166,7 @@ func (h *Handlers) ListAgents(c echo.Context) error {
 		}
 		o := agentOut(e.Agent)
 		h.addFolders(c, &o, e.Agent, rows[e.Agent.ID])
-		o.Access = h.accessOut(e.Access)
+		o.Access = h.accessOut(e.Access, e.Agent)
 		out.Agents = append(out.Agents, o)
 	}
 	return c.JSON(http.StatusOK, out)
@@ -176,6 +178,7 @@ func (h *Handlers) ListAgents(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Success 200 {object} schema.ChatsAgentShareRef "The sharing ID"
+// @Failure 400 {object} schema.ErrorResponse "The agent belongs to a project; project agents cannot be shared"
 // @Failure 403 {object} schema.ErrorResponse "The agent is shared with you, not yours"
 // @Failure 404 {object} schema.ErrorResponse "No such agent"
 // @Failure 409 {object} schema.ErrorResponse "Agents cannot be shared on this server"
@@ -270,7 +273,7 @@ func (h *Handlers) GetAgent(c echo.Context) error {
 		return c.JSON(http.StatusOK, h.sharedOut(a, acc))
 	}
 	out := h.agentFull(c, a)
-	out.Access = h.accessOut(acc)
+	out.Access = h.accessOut(acc, a)
 	return c.JSON(http.StatusOK, out)
 }
 

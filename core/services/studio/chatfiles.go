@@ -34,7 +34,7 @@ type ChatFiles struct {
 // their current paths. Another user's conversation is session.ErrNotFound.
 func (s *Service) ChatFiles(ctx context.Context, user, conv string) (ChatFiles, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return ChatFiles{}, err
 	}
@@ -126,7 +126,7 @@ func (s *Service) ResolveAttachments(ctx context.Context, user, conv string, ent
 	)
 	if s.d.Files.Available() {
 		ws = s.d.Files.Store()
-		if rec, err := s.d.Store.GetChat(ctx, p, conv); err == nil && rec.Folder != "" {
+		if rec, err := s.getChatEffective(ctx, p, conv); err == nil && rec.Folder != "" {
 			folder = session.ChatsPath(p) + "/" + rec.Folder
 		}
 	}

@@ -113,3 +113,47 @@
 .aed-try__form { display: grid; gap: var(--sp-2); min-width: 0; }
 .aed-try__form .textarea { width: 100%; max-width: 100%; box-sizing: border-box; }
 .aed-try__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+
+/* The Files section of an agent created from a project: two fixed folders. */
+.ag-pfolders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.ag-pfolder { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; padding: var(--sp-4); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card); }
+.ag-pfolder p { margin: 0; }
+.ag-pfolder__title { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font: 600 var(--fs-body)/var(--lh-body) var(--font-sans); }
+.ag-pfolder__title .lai-icon, .ag-pfolder__fixed .lai-icon { width: 15px; height: 15px; flex: none; }
+.ag-pfolder__fixed { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-body); }
+.ag-limit { display: inline-flex; align-items: center; gap: var(--sp-1); margin: 0; color: var(--dk-accent-text); font-size: var(--fs-small); }
+.ag-limit .lai-icon { width: 13px; height: 13px; flex: none; }
+.ag-project-chip { margin-top: var(--sp-1); }
+@media (max-width: 720px) { .ag-pfolders { grid-template-columns: minmax(0, 1fr); } }
+
+/* The project choice of an agent import. */
+.ag-import-error { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) 0 0; color: var(--dk-error); font-size: var(--fs-small); }
+.ag-import-error .lai-icon { width: 14px; height: 14px; flex: none; }
+.ag-reason { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--dk-warn-text); font-size: var(--fs-small); max-width: 28ch; }
+.ag-reason .lai-icon { width: 14px; height: 14px; flex: none; }
+
+/* The move dialog of an agent (AgentMoveDialog) and the Project card of the
+   editor. */
+.ag-move-scroll {
+  /* The body of the move dialog can be taller than the window. Its scroll bar
+     is always drawn, the content never touches its edge, and a soft shade at the
+     top and the bottom says there is more, so a line is not cut without a cue. */
+  overflow-y: scroll; scrollbar-width: thin; scrollbar-gutter: stable;
+  scrollbar-color: var(--dk-muted) transparent;
+  border-block: 1px solid var(--dk-edge);
+  background:
+    linear-gradient(var(--dk-card) 30%, transparent) top / 100% 28px no-repeat local,
+    linear-gradient(transparent, var(--dk-card) 70%) bottom / 100% 28px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--dk-text) 16%, transparent), transparent) top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--dk-text) 16%, transparent), transparent) bottom / 100% 10px no-repeat scroll;
+}
+.ag-move-scroll::-webkit-scrollbar { width: 8px; }
+.ag-move-scroll::-webkit-scrollbar-thumb { background: var(--dk-muted); border-radius: var(--radius-full); }
+.ag-move { display: grid; gap: var(--sp-4); min-width: 0; }
+.ag-move__keep, .ag-move__effects { display: grid; gap: var(--sp-2); min-width: 0; }
+.ag-move__folder { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); min-width: 0; }
+.ag-move__list { display: grid; gap: var(--sp-1); margin: 0; padding-left: var(--sp-5); min-width: 0; overflow-wrap: anywhere; }
+.ag-move__switch { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; overflow-wrap: anywhere; }
+.ag-projcard { display: grid; gap: var(--sp-3); min-width: 0; }
+.ag-projcard__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-3); min-width: 0; }
+.ag-projcard__row .dk-field { flex: 1 1 240px; min-width: 0; }

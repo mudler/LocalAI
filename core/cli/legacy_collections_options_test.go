@@ -12,7 +12,7 @@ import (
 var _ = Describe("collections options and their legacy names", func() {
 	parse := func(args ...string) *RunCMD {
 		var r RunCMD
-		k, err := kong.New(&r, kong.Vars{"basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]", "generatedcontentpath": DefaultGeneratedContentPath(), "uploadpath": DefaultUploadPath()})
+		k, err := kong.New(&r, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends", "basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]", "generatedcontentpath": DefaultGeneratedContentPath(), "uploadpath": DefaultUploadPath()})
 		Expect(err).ToNot(HaveOccurred())
 		_, err = k.Parse(args)
 		Expect(err).ToNot(HaveOccurred())
@@ -99,10 +99,11 @@ var _ = Describe("collections options and their legacy names", func() {
 		Expect(r.DataPath).To(Equal(NoDataPath), "kong keeps the dash")
 		r.normalizeDataPath()
 		Expect(r.DataPath).To(BeEmpty())
-		other := parse("--data-path=/somewhere")
+		somewhere := GinkgoT().TempDir() // kong makes the path absolute, which "/somewhere" is not on Windows
+		other := parse("--data-path=" + somewhere)
 		other.normalizeDataPath()
-		Expect(other.DataPath).To(Equal("/somewhere"))
-		Expect(parse("--data-path=/somewhere", "--data-path="+NoDataPath).DataPath).To(Equal(NoDataPath), "the last one wins")
+		Expect(other.DataPath).To(Equal(somewhere))
+		Expect(parse("--data-path="+somewhere, "--data-path="+NoDataPath).DataPath).To(Equal(NoDataPath), "the last one wins")
 	})
 
 	It("lets the new name win when both are set", func() {

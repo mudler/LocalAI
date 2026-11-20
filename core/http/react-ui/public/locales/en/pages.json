@@ -34,7 +34,14 @@
     "deleteTitle": "Delete \"{{title}}\"?",
     "deleteMessage": "The folder {{folder}} goes to the Trash. You can restore it from Files.",
     "deleted": "{{title}} is in the Trash.",
-    "deleteFailed": "The page was not deleted: {{message}}"
+    "deleteFailed": "The page was not deleted: {{message}}",
+    "share": "Share",
+    "shared": "Shared",
+    "sharedWith_one": "Shared with {{count}} person",
+    "sharedWith_other": "Shared with {{count}} people",
+    "sharedEveryone": "Shared with everyone",
+    "someone": "someone",
+    "othersEdit": "Others can edit"
   },
   "empty": {
     "title": "No pages yet",
@@ -99,12 +106,15 @@
       "notAllowed": "Not allowed yet",
       "changed": "Changed since you allowed it",
       "allowed": "Allowed"
-    }
+    },
+    "userOff": "Turned off by an administrator.",
+    "stopFailed": "The page was not stopped: {{message}}"
   },
   "viewer": {
     "stopAllowing": "Stop allowing this page",
     "authorChanged": "{{author}} changed this page. The version you allowed keeps running until you review the change.",
-    "sandboxShared": "Sandboxed. Runs as you, in {{folder}} only, and cannot reach the network."
+    "sandboxShared": "Sandboxed. Runs as you, in {{folder}} only, and cannot reach the network.",
+    "sandboxUser": "Sandboxed. Runs as you, in its own folder only, and cannot reach the network."
   },
   "trust": {
     "title": "Open \"{{title}}\"?",
@@ -179,6 +189,26 @@
       "item": "Run on Home, in the slots of the app and in the dock",
       "note": "It starts when the screen shows, without a click. A change by its author asks again.",
       "allow": "Allow on Home, in slots and in the dock"
+    },
+    "user": {
+      "desc": "A person shared this page with you. Pages run as you, so check it before it runs.",
+      "who": "Written by {{author}}. Not checked by an administrator.",
+      "unchecked": "Not checked by an administrator.",
+      "where": "Shared page",
+      "readOnly": "You can only look at this page, so it cannot save its changes.",
+      "chrome": "Shared page. It has not run.",
+      "blocked": "You chose not to run it. It comes from {{author}}. Nothing in it has run, and nothing was saved.",
+      "files": "Read and write files in its own folder"
+    },
+    "owner": {
+      "desc": "Others can edit this page. Pages run as you, so check it before it runs.",
+      "who": "Others can edit this page. Check it before it runs.",
+      "changedWho": "This page changed since you allowed it.",
+      "where": "Your page",
+      "warn": "It acts as you inside its folder. If someone changes it, you are asked again.",
+      "changedWarn": "If you allow it, this version runs each time you open it, until someone changes it again.",
+      "blocked": "You chose not to run it. Others can edit it. Nothing in it has run, and nothing was saved.",
+      "stale": "This page changed. Review it again."
     }
   },
   "frame": {
@@ -227,5 +257,43 @@
     "sendLabel": "The page asks to send this message to this chat:",
     "saveFailed": "The dock was not saved: {{message}}",
     "openInDock": "Open in dock"
+  },
+  "share": {
+    "intro": "Choose who can open this page. The page stays where it is.",
+    "warning": "People you share with run this page's code in their browser, with their own rights, after they allow it. They are asked again when you change the code.",
+    "role": {
+      "view": "View",
+      "use": "Use",
+      "edit": "Edit"
+    },
+    "roleHelp": {
+      "view": "Can run the page and read its data. Cannot save.",
+      "use": "Can run the page and save data in it. Cannot change its code.",
+      "edit": "Can change everything, including the code."
+    },
+    "count": {
+      "people_one": "Shared with {{count}} person.",
+      "people_other": "Shared with {{count}} people.",
+      "everyone": "Shared with everyone.",
+      "everyoneAnd_one": "Shared with everyone and {{count}} named person.",
+      "everyoneAnd_other": "Shared with everyone and {{count}} named people.",
+      "allowed_one": "{{count}} allowed this version.",
+      "allowed_other": "{{count}} allowed this version."
+    },
+    "offAdmin": "An administrator turned off sharing of pages. You can still stop sharing with the people below.",
+    "lost": "You can no longer share this page.",
+    "askAgain_one": "You changed the code. {{count}} person will be asked to allow it again.",
+    "askAgain_other": "You changed the code. {{count}} people will be asked to allow it again.",
+    "viewOnly": "You can look at this page, not change it",
+    "editNote": "With Edit, this page opens through the allow step for you too.",
+    "tile": {
+      "title": "Open this page to run it",
+      "text": "A person shared it with you. It does not run on Home or in a slot. Open it to run it.",
+      "open": "Open the page",
+      "dock": "A person shared this page with you. Open it from Pages to run it.",
+      "slot": "Open {{title}} to run it",
+      "textOwn": "Others can edit it. It does not run on Home or in a slot. Open it to run it.",
+      "dockOwn": "Others can edit this page. Open it from Pages to run it."
+    }
   }
 }

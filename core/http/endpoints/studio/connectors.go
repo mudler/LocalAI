@@ -160,7 +160,7 @@ func tokenGuardsOut(gs []contract.TokenGuard) []schema.ChatsConnectorTokenGuard 
 func permissionsOut(k contract.ConnectorKind) []schema.ChatsConnectorPermission {
 	var out []schema.ChatsConnectorPermission
 	for _, p := range k.Permissions {
-		out = append(out, schema.ChatsConnectorPermission{Name: p, Sensitive: contract.SensitiveCapability(p)})
+		out = append(out, schema.ChatsConnectorPermission{Name: p, Sensitive: contract.SensitiveCapability(p), BindingOnly: contract.BindingOnlyCapability(p)})
 	}
 	return out
 }
@@ -369,7 +369,7 @@ func (h *Handlers) GetConnector(c echo.Context) error {
 
 // UpdateConnector replaces a binding.
 // @Summary Replace a connector binding.
-// @Description The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved.
+// @Description The body replaces every field except the token, which is kept unless the request has a new one, and send_files, reply_language and inbound_media, which are kept when absent. A new token is checked with the platform: a token that the platform refuses is a 400 and nothing is saved. A binding that has an agent can only move to an agent of the same project: the connection of a project agent stays in its project, and a connection outside projects cannot use a project agent (400).
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Param request body schema.ChatsConnectorWrite true "the binding"
@@ -653,7 +653,7 @@ func (h *Handlers) RemoveConnectorPaired(c echo.Context) error {
 // capabilityOut adds the title and description in the negotiated language
 // beside the English ones.
 func capabilityOut(ci contract.CapabilityInfo, lang string) schema.ChatsConnectorCapability {
-	out := schema.ChatsConnectorCapability{Name: ci.Name, Title: ci.Title, Description: ci.Description, Sensitive: ci.Sensitive, Usual: ci.Usual}
+	out := schema.ChatsConnectorCapability{Name: ci.Name, Title: ci.Title, Description: ci.Description, Sensitive: ci.Sensitive, Usual: ci.Usual, BindingOnly: ci.BindingOnly}
 	if lang == "" {
 		return out
 	}

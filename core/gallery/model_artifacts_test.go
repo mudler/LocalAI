@@ -67,7 +67,7 @@ unknown_extension:
 		Expect(err).NotTo(HaveOccurred())
 		Expect(fake.seen).To(HaveLen(1))
 		Expect(installed.Model).To(Equal("owner/repo"))
-		Expect(installed.ModelFileName()).To(Equal(fake.result.RelativePath))
+		Expect(installed.ModelFileName()).To(Equal(filepath.FromSlash(fake.result.RelativePath)))
 
 		data, err := os.ReadFile(filepath.Join(modelsPath, "managed.yaml"))
 		Expect(err).NotTo(HaveOccurred())

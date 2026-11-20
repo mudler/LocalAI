@@ -868,6 +868,9 @@ func (c *Connectors) addonToolHoldsWith(ctx context.Context, b connectors.Bindin
 		return nil, nil
 	}
 	ag, err := c.svc.d.Agents.Get(ctx, principal(b.Owner), b.AgentID)
+	if err == nil {
+		ag, err = c.svc.runtimeAgentVia(ctx, principal(b.Owner), ag, true)
+	}
 	if err != nil {
 		return nil, nil
 	}

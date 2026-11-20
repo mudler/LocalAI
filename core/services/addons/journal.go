@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 type journalOperation struct {
@@ -51,7 +52,7 @@ func durableWrite(path string, b []byte) error {
 		return e
 	}
 	defer func() { _ = d.Close() }()
-	return d.Sync()
+	return atomicfile.SyncDirTolerant(d)
 }
 func (m *Manager) persist(phase string) error {
 	err := m.persistJournal(phase)

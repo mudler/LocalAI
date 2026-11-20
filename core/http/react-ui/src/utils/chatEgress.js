@@ -85,6 +85,16 @@ export function draftPresetToSave(res, choice) {
   return aboveCeiling(choice, res?.ceiling || 'off') ? '' : choice
 }
 
+// The domains the Custom choice reaches beyond the built-in package
+// registries, as the administrator wrote them: the extra registries, then the
+// always-allowed hosts (patterns such as *.example.com or * stay as written).
+// Both are existing settings; the server sends them with the chat's network.
+export function customDomains(egress) {
+  const extra = (egress?.registries || []).filter(r => r?.id === 'extra').flatMap(r => r.hosts || [])
+  const seen = new Set()
+  return [...extra, ...(egress?.allowed_hosts || [])].filter(h => h && !seen.has(h) && seen.add(h))
+}
+
 export const hostPort = (c) => `${c.host}:${c.port}`
 
 // The cards of a chat, newest first, with the pending ones before the others.

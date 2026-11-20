@@ -102,7 +102,7 @@ export function fixture(name: FixtureName, now = Date.now()): FakeState {
   switch (name) {
     case 'ready': // 1, with the menu open
     case 'logs': // 7
-      return baseState({ logs: LOGS, windowSettings: { openInBrowser: false, anyRemembered: false } })
+      return baseState({ logs: LOGS, windowSettings: { openInBrowser: false, desktopNotifications: true, anyRemembered: false } })
     case 'ready-update': // 2
       return baseState({ install: updateOffer })
     case 'install': // 3
@@ -146,7 +146,7 @@ export function fixture(name: FixtureName, now = Date.now()): FakeState {
         sandbox: restricted('dismissed'),
         info: { version: '4.1.3', packaged: true, trayActive: true, sandboxed: false },
         updateInfo: { checkedAt: now - 10 * 60000, autoCheck: true, previousVersion: '4.1.2', channel: 'stable', devConfirmed: false, remoteDefault: false },
-        windowSettings: { openInBrowser: false, media: 'allow', anyRemembered: true },
+        windowSettings: { openInBrowser: false, desktopNotifications: true, media: 'allow', anyRemembered: true },
       })
     case 'connect': // 9
       return baseState({

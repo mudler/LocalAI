@@ -1,23 +1,22 @@
 ---
 title: "Pages and widgets"
-weight: 7
-card: "Ask for a small page and pin it to Home."
-headline: 'Ask for a page. Pin it to <span class="hl">Home</span>.'
-lede: "The assistant proposes a small page. You confirm it. Home shows it as a tile, next to widgets that show your data."
+weight: 9
+card: "Ask for a small page. The assistant builds it in your files."
+headline: 'Ask for a small page, such as a task <span class="hl">board</span>.'
+lede: "Describe a small page. The assistant drafts it, and it's saved in your files when you confirm."
 docs: "/docs/features/pages/"
 dev: true
 icon: "home"
-illus: "home"
+illus: "files"
 # demo: a name under static/media/ (<name>.mp4, .webm, .jpg) swaps the illustration for a muted loop.
 demo: ""
 points:
-  - "The assistant proposes a page from a sentence. The page is created only after you confirm."
   - "A page is saved in your home folder, under pages."
-  - "A page can show as a tile on Home: small, medium or large. Home takes up to three page tiles."
-  - "Data widgets show a list, a number with a note, a sparkline or your recent chats. Home takes up to twelve widgets."
+  - "Data widgets show a list, a number with a note or your recent chats. Home takes up to twelve widgets."
   - "Add, remove and reorder widgets on Home. Each person has their own Home."
 notes:
   - "Pages are off for ordinary users until an admin turns them on. Admins always have them. Pages also need Chats."
   - "Widgets read data from JSON files. A page has no network access."
-  - "Home has no resize control. The size comes from the page."
+films:
+  - {name: "pages", title: "Pages.", caption: "Ask for a task board in one sentence. The assistant writes the page, saves it in Files, and opens it beside the chat. Undo removes it.", seconds: 42}
 ---

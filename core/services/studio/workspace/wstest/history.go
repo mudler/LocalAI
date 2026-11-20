@@ -40,6 +40,20 @@ func mustUndo(s workspace.Store, rev int64) workspace.ChangeSet {
 
 func describeHistory(newStore NewStore) {
 	Describe("History", func() {
+		It("records the principal and the chat of the author of a change set", func() {
+			// The file triggers tell the owner's changes from a grantee's by
+			// this record, so every store must keep it.
+			s := newStore()
+			chat := AdminActor
+			chat.ChatID = "chat-1"
+			MustPut(s, AdminActor, "/d/a.txt", "a")
+			MustPut(s, chat, "/d/b.txt", "b")
+			sets, err := s.ChangesSince(Ctx(), AdminActor, 0, 10)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sets).To(HaveLen(2))
+			Expect([]string{sets[0].Actor, sets[0].ChatID}).To(Equal([]string{AdminActor.Principal, ""}))
+			Expect([]string{sets[1].Actor, sets[1].ChatID}).To(Equal([]string{AdminActor.Principal, "chat-1"}))
+		})
 		It("undo a create", func() {
 			s := newStore()
 			cs := commit(s, AdminActor, func(tx workspace.Tx) error { return putIn(tx, "/d/a.txt", "a") })

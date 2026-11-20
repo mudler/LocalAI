@@ -7,20 +7,33 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
+
+// SourceError marks a failure to read what a change would replace: the cause
+// is on the owner's side, not in the content of the proposal. Its text is the
+// text of the cause.
+type SourceError struct{ Err error }
+
+func (e *SourceError) Error() string { return e.Err.Error() }
+func (e *SourceError) Unwrap() error { return e.Err }
 
 // ErrBadTarget means a proposal names a place its kind does not allow.
 var ErrBadTarget = errors.New("proposals: this target is not allowed")
 
 // Aim is where a proposal wants to write, as the model and the chat gave it.
 type Aim struct {
-	Scope  contract.ChangeScope
-	Agent  string // the saved agent of the chat, "" for a plain chat
-	Target string // the name the model gave
-	Source contract.ChangeSource
+	Scope contract.ChangeScope
+	Agent string // the saved agent of the chat, "" for a plain chat
+	// Project is the folder name of the project the chat belongs to, "" for a
+	// chat outside any project. The host sets it from the chat, never the model.
+	Project string
+	Target  string // the name the model gave
+	Source  contract.ChangeSource
 }
 
 // Kind says how one kind of change maps to a file in the home of the owner
@@ -170,6 +183,28 @@ var (
 // IDSafe reports whether s can name a saved agent or a binding inside a path.
 func IDSafe(s string) bool { return idSafe.MatchString(s) }
 
+// TopicFile reports whether s is a valid name for a memory file, such as
+// index.md or food.md.
+func TopicFile(s string) bool { return topicFile.MatchString(s) }
+
+// ProjectMemoryDir is the memory folder of a project, relative to the home,
+// from the folder name of the project.
+func ProjectMemoryDir(project string) string { return "Projects/" + project + "/memory" }
+
+// ProjectOfPath is the folder name of the project whose memory a path inside
+// the home names, or "" when the path is not a project memory file.
+func ProjectOfPath(rel string) string {
+	rest, ok := strings.CutPrefix(rel, "Projects/")
+	if !ok {
+		return ""
+	}
+	name, tail, ok := strings.Cut(rest, "/memory/")
+	if !ok || !idSafe.MatchString(name) || strings.Contains(tail, "/") {
+		return ""
+	}
+	return name
+}
+
 // ChannelDir names the memory folder of one connector conversation: the
 // binding and a short hash of the host chat. It uses no platform name.
 func ChannelDir(s contract.ChangeSource) string {
@@ -180,6 +215,21 @@ func ChannelDir(s contract.ChangeSource) string {
 var memoryKind = Kind{
 	Name:  contract.ChangeMemory,
 	Grant: contract.CapMemoryWrite,
+	// A project note is written only while the project folder is there, so a
+	// confirmation cannot bring back the folder of a deleted project.
+	Check: func(in CheckInput) error {
+		if in.Aim.Scope != contract.ScopeProject || in.Read == nil {
+			return nil
+		}
+		_, ok, err := in.Read("Projects/" + in.Aim.Project + "/" + projects.ManifestFile)
+		switch {
+		case err != nil:
+			return &SourceError{Err: fmt.Errorf("cannot read the project: %v", err)}
+		case !ok:
+			return &SourceError{Err: errors.New("the project of this chat is gone")}
+		}
+		return nil
+	},
 	Path: func(a Aim) (string, error) {
 		if !topicFile.MatchString(a.Target) {
 			return "", fmt.Errorf("%w: a memory target is a file name such as index.md or food.md", ErrBadTarget)
@@ -197,6 +247,11 @@ var memoryKind = Kind{
 				return "", fmt.Errorf("%w: channel memory needs a chat that came from a connector", ErrBadTarget)
 			}
 			return "Memory/channels/" + ChannelDir(a.Source) + "/" + a.Target, nil
+		case contract.ScopeProject:
+			if !idSafe.MatchString(a.Project) {
+				return "", fmt.Errorf("%w: project memory needs a chat that belongs to a project", ErrBadTarget)
+			}
+			return ProjectMemoryDir(a.Project) + "/" + a.Target, nil
 		}
 		return "", fmt.Errorf("%w: unknown scope %q", ErrBadTarget, a.Scope)
 	},

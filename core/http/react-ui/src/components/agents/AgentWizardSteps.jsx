@@ -9,6 +9,8 @@ import AgentTemplates from './AgentTemplates'
 import AgentPresets, { AppliedNotice } from './AgentPresets'
 import AgentFiles from './AgentFiles'
 import AgentUsesPanel from './AgentUsesPanel'
+import AgentProjectField from './AgentProjectField'
+import AgentProjectFiles from './AgentProjectFiles'
 import { AGENT_TEMPLATES } from '../../utils/agentConfigTools'
 import { CAP_CHAT } from '../../utils/capabilities'
 import { needsLine } from '../../utils/agentWizard'
@@ -17,7 +19,7 @@ import { describeChatModel } from '../../utils/describeModel'
 // The four steps of the new-agent wizard. Each is a plain section: the page
 // owns the form, the step and the apps that were wanted.
 
-export function PurposeStep({ form, updateField, picked, onTemplate, models, modelsLoading }) {
+export function PurposeStep({ form, updateField, picked, onTemplate, models, modelsLoading, projects, projectId, onProject }) {
   const { t } = useTranslation(['agents', 'home'])
   const [choosing, setChoosing] = useState(Boolean(form.model))
   return (
@@ -62,11 +64,12 @@ export function PurposeStep({ form, updateField, picked, onTemplate, models, mod
           </p>
         )}
       </div>
+      {projects && <AgentProjectField list={projects} value={projectId} onChange={onProject} id="aw-project" />}
     </>
   )
 }
 
-export function AbilitiesStep({ form, updateField, tools, toolGroups, ab, pristine, templateLevel }) {
+export function AbilitiesStep({ form, updateField, tools, toolGroups, ab, pristine, templateLevel, project }) {
   const { t } = useTranslation('agents')
   const [fine, setFine] = useState(false)
   return (
@@ -86,7 +89,9 @@ export function AbilitiesStep({ form, updateField, tools, toolGroups, ab, pristi
       </div>
       <section className="aw-block" aria-labelledby="aw-files-h" id="aw-files" tabIndex={-1} data-testid="wizard-files">
         <h3 className="ag-h3" id="aw-files-h">{t('wizard.abilities.files')}</h3>
-        <AgentFiles form={form} updateField={updateField} abilities={ab} savedConfig={null} isEdit={false} />
+        {project
+          ? <AgentProjectFiles project={project} mode={form.project_files_mode} onMode={(m) => updateField('project_files_mode', m)} />
+          : <AgentFiles form={form} updateField={updateField} abilities={ab} savedConfig={null} isEdit={false} />}
       </section>
       <details className="aw-fine" open={fine} onToggle={(e) => setFine(e.currentTarget.open)} data-testid="wizard-fine">
         <summary>{t('wizard.abilities.fine')}</summary>
@@ -145,7 +150,7 @@ export function WhereStep({ groups, icons, ready, wanted, onToggle }) {
   )
 }
 
-export function ReviewStep({ form, filesChoice, levelName, chosen, onLimit, modelName }) {
+export function ReviewStep({ form, filesChoice, levelName, chosen, onLimit, modelName, projectName }) {
   const { t } = useTranslation('agents')
   return (
     <>
@@ -154,6 +159,7 @@ export function ReviewStep({ form, filesChoice, levelName, chosen, onLimit, mode
         <li><span className="aw-checks__ok" aria-hidden="true">&#10003;</span>{t('wizard.review.tools', { level: levelName })}</li>
         <li><span className="aw-checks__ok" aria-hidden="true">&#10003;</span>{modelName ? t('wizard.review.modelFixed', { model: modelName }) : t('wizard.review.modelEach')}</li>
         {chosen.length > 0 && <li><span className="aw-checks__ok" aria-hidden="true">&#10003;</span>{t('wizard.review.apps', { count: chosen.length })}</li>}
+        {filesChoice === 'project' && <li data-testid="wizard-review-project"><span className="aw-checks__ok" aria-hidden="true">&#10003;</span>{projectName ? t('wizard.review.project', { name: projectName }) : t('wizard.review.projectUnnamed')}</li>}
       </ul>
       {filesChoice === 'all' && (
         <Callout

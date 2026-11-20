@@ -10,6 +10,7 @@ import (
 	nethttp "net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -64,6 +65,7 @@ type RunCMD struct {
 	AddonsBackendLibrary         bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the backend library on the first start, when the add-on owner has no sources.json yet. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. Turn it off to read the backend gallery only" group:"addons"`
 	OfficialLibraries            bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of add-ons, backends and models. Off: they stay in the list, shown as off, and are not read. Sources you added are not affected. Also a runtime setting (official_libraries)" group:"addons"`
 	AddonsBackendMaxBytes        int64  `name:"addons-backend-max-bytes" env:"LOCALAI_ADDONS_BACKEND_MAX_BYTES" default:"8589934592" help:"Largest compressed size, in bytes, of a backend image installed from a library. Add-ons keep their own limit of 512 MiB" group:"addons"`
+	AddonsWSLDistro              string `name:"addons-wsl-distro" env:"LOCALAI_ADDONS_WSL_DISTRO" help:"Windows only: the WSL 2 distribution that runs the add-ons whose package runs in WSL 2 (osSettings.windows.execution wsl2). Empty uses the default distribution of WSL" group:"addons"`
 	Pprof                        bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
 	PprofAddress                 string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
 	PprofMutexProfileFraction    int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
@@ -85,7 +87,7 @@ type RunCMD struct {
 	WebRTCICEInterfaces         []string `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
 	WebRTCUDPPort               int      `env:"LOCALAI_WEBRTC_UDP_PORT" help:"Shared UDP port for /v1/realtime WebRTC ICE traffic. Publish this port as UDP and allow it through the firewall." group:"api" name:"web-rtc-udp-port"`
 	BackendsPath                string   `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
-	BackendsSystemPath          string   `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
+	BackendsSystemPath          string   `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"${backendssystempath}" help:"Path containing system backends used for inferencing" group:"backends"`
 	ModelsPath                  string   `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 	DownloadStagingPath         string   `env:"LOCALAI_DOWNLOAD_STAGING_PATH,DOWNLOAD_STAGING_PATH" type:"path" default:"${basepath}/downloading" help:"Path where in-flight downloads are staged before extraction" group:"storage"`
 	ArtifactDownloadConcurrency int      `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
@@ -113,7 +115,7 @@ type RunCMD struct {
 	Models                    []string `env:"LOCALAI_MODELS,MODELS" help:"A List of model configuration URLs to load" group:"models"`
 	PreloadModelsConfig       string   `env:"LOCALAI_PRELOAD_MODELS_CONFIG,PRELOAD_MODELS_CONFIG" help:"A List of models to apply at startup. Path to a YAML config file" group:"models"`
 
-	F16         bool `name:"f16" env:"LOCALAI_F16,F16" help:"Enable GPU acceleration" group:"performance"`
+	F16         bool `name:"f16" env:"LOCALAI_F16,F16" help:"Default to 16-bit float (f16) memory and KV cache for models whose config does not set f16" group:"performance"`
 	Threads     int  `env:"LOCALAI_THREADS,THREADS" short:"t" help:"Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested" group:"performance"`
 	ContextSize int  `env:"LOCALAI_CONTEXT_SIZE,CONTEXT_SIZE" help:"Default context size for models" group:"performance"`
 
@@ -169,7 +171,7 @@ type RunCMD struct {
 	MachineTag                         string        `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
 	LoadToMemory                       []string      `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
 	EnableTracing                      bool          `env:"LOCALAI_ENABLE_TRACING,ENABLE_TRACING" help:"Enable API tracing" group:"api"`
-	MaxConcurrentBackendRequests       int           `env:"LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS,MAX_CONCURRENT_BACKEND_REQUESTS" default:"1024" help:"Maximum number of concurrent backend inference operations. Excess inference requests receive HTTP 503; UI and administrative endpoints remain available." group:"backends"`
+	MaxConcurrentBackendRequests       int           `env:"LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS,MAX_CONCURRENT_BACKEND_REQUESTS" default:"1024" help:"Maximum number of concurrent backend inference operations. Excess inference requests receive HTTP 429 with a Retry-After header; UI and administrative endpoints remain available." group:"backends"`
 	TracingMaxItems                    int           `env:"LOCALAI_TRACING_MAX_ITEMS" default:"1024" help:"Maximum number of traces to keep" group:"api"`
 	TracingMaxBodyBytes                int           `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
 	OpenResponsesStoreTTL              string        `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
@@ -177,10 +179,11 @@ type RunCMD struct {
 	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
-	DisableSharedPages bool   `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
-	DisablePageArea    bool   `env:"LOCALAI_DISABLE_PAGE_AREA" default:"false" help:"Turn off the page area of Home for all users (it can be switched on again in the runtime settings)" group:"assistant"`
-	ChatsHostExec      string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
-	ChatsAutoResume    bool   `env:"LOCALAI_CHATS_AUTO_RESUME" default:"false" help:"Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. Off: a person, or the page, resumes it" group:"assistant"`
+	DisableSharedPages    bool   `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
+	DisableUserPageShares bool   `env:"LOCALAI_DISABLE_USER_PAGE_SHARES" default:"false" help:"Turn off the pages that people share from their own homes (they can be switched on again in the runtime settings)" group:"assistant"`
+	DisablePageArea       bool   `env:"LOCALAI_DISABLE_PAGE_AREA" default:"false" help:"Turn off the page area of Home for all users (it can be switched on again in the runtime settings)" group:"assistant"`
+	ChatsHostExec         string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
+	ChatsAutoResume       bool   `env:"LOCALAI_CHATS_AUTO_RESUME" default:"false" help:"Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. Off: a person, or the page, resumes it" group:"assistant"`
 
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
@@ -289,7 +292,7 @@ type RunCMD struct {
 // once a stale root-owned /tmp/generated is left behind). Scoping to the current
 // UID gives each account its own tree so they never collide.
 func userScopedTempDir() string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("localai-%d", os.Getuid()))
+	return filepath.Join(os.TempDir(), system.UserScopedName())
 }
 
 // DefaultGeneratedContentPath returns the default location for backend-generated
@@ -392,6 +395,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		}()
 	}
 
+	warnLongPaths(runtime.GOOS, []namedPath{
+		{"--models-path", r.ModelsPath}, {"--backends-path", r.BackendsPath},
+		{"--data-path", r.DataPath}, {"--download-staging-path", r.DownloadStagingPath},
+	})
 	os.MkdirAll(r.BackendsPath, 0750)
 	os.MkdirAll(r.ModelsPath, 0750)
 
@@ -756,6 +763,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if r.DisableSharedPages {
 		opts = append(opts, config.WithDisableSharedPages(true))
 	}
+	if r.DisableUserPageShares {
+		opts = append(opts, config.WithDisableUserPageShares(true))
+	}
 	if r.DisablePageArea {
 		opts = append(opts, config.WithDisablePageArea(true))
 	}
@@ -807,6 +817,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		addonCfg.OfficialLibrary = r.AddonsOfficialLibrary
 		addonCfg.OfficialBackendLibrary = r.AddonsBackendLibrary
 		addonCfg.BackendMaxBytes = r.AddonsBackendMaxBytes
+		addonCfg.WSLDistro = r.AddonsWSLDistro
 		opts = append(opts, config.WithAddons(addonCfg))
 	} else if addonCfg.Frontend {
 		// Add-ons are off, but the role still forbids owner state.

@@ -411,15 +411,19 @@ func Serve(ctx context.Context, l net.Listener, startup Startup, rt contract.Run
 }
 
 // Run is the whole behaviour of an add-on executable: the owner starts it with
-// "--localai-addon-v1", descriptor 3 is a bound loopback listener and
-// descriptor 4 carries the startup object. The factory builds the runtime
-// from that object, so a runtime can use the host fields of it. It returns the
-// process exit code.
+// "--localai-addon-v1" and hands it a loopback listener and the startup
+// channel (see Listener and StartupChannel). The factory builds the runtime
+// from the startup object, so a runtime can use the host fields of it. It
+// returns the process exit code.
 func Run(args []string, factory func(Startup) contract.Runtime) int {
 	if len(args) != 2 || args[1] != "--localai-addon-v1" {
 		return 2
 	}
-	startup, rest, err := ReadStartup(os.NewFile(4, "startup"))
+	channel, err := StartupChannel()
+	if err != nil {
+		return 3
+	}
+	startup, rest, err := ReadStartup(channel)
 	if err != nil || !filepath.IsAbs(startup.DataDir) {
 		return 3
 	}
@@ -441,7 +445,7 @@ func Run(args []string, factory func(Startup) contract.Runtime) int {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 	go func() { <-sig; stop() }()
-	listener, err := net.FileListener(os.NewFile(3, "listener"))
+	listener, err := Listener()
 	if err != nil {
 		return 6
 	}

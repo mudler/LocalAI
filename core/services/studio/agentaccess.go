@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -91,7 +92,7 @@ func userChatActor(p, conv string) workspace.Actor {
 // package (command runners, add-on host operations). The chat of another user
 // is session.ErrNotFound.
 func (s *Service) ChatAccess(ctx context.Context, user, conv string) (session.Access, error) {
-	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
 	if err != nil {
 		return session.Access{}, err
 	}
@@ -115,8 +116,11 @@ func (s *Service) chatAccess(ctx context.Context, rec session.ChatRecord) (sessi
 		return session.Access{}, err
 	}
 	if len(scopes) == 0 {
-		return s.mgr.UserAccess(ctx, base)
+		mounts, notes := s.projectMounts(ctx, rec)
+		return s.mgr.UserAccessProjects(ctx, base, mounts, notes)
 	}
+	// A fenced chat gets no project mounts: a project agent has the folders of
+	// its project in its fence, and its prompt names the project (projectNotes).
 	readOnly, _, err := s.scopedRoots(ctx, base, scopes)
 	if err != nil {
 		return session.Access{}, err
@@ -140,7 +144,7 @@ func (s *Service) chatAccess(ctx context.Context, rec session.ChatRecord) (sessi
 	if !work.chatOnly {
 		primary, extra = work.primary().path, work.extraPaths()
 	}
-	x, err := s.mgr.ScopedAccessFolders(ctx, actor, primary, extra, chatDir.Path)
+	x, err := s.mgr.ScopedAccessNotes(ctx, actor, primary, extra, chatDir.Path, s.projectNotes(ctx, rec, work, func() bool { return s.chatProjectScopeOpen(ctx, rec) }))
 	if errors.Is(err, session.ErrNoHome) || errors.Is(err, workspace.ErrNotFound) {
 		// The folder went away since it was checked, or a sub-agent's folder
 		// is outside its parent's.
@@ -170,7 +174,7 @@ func (s *Service) chatActorFor(ctx context.Context, rec session.ChatRecord) work
 		return base.Fenced()
 	}
 	var chatNode int64
-	if hrec, herr := s.d.Store.GetChat(ctx, rec.Principal, holder); herr == nil && hrec.Folder != "" {
+	if hrec, herr := s.getChatEffective(ctx, rec.Principal, holder); herr == nil && hrec.Folder != "" {
 		owner := base
 		owner.ChatID = ""
 		if n, serr := s.d.Files.Store().Stat(ctx, owner, session.ChatsPath(rec.Principal)+"/"+hrec.Folder); serr == nil {
@@ -241,7 +245,10 @@ func (s *Service) scopedRoots(ctx context.Context, base workspace.Actor, scopes 
 // readOnlyRoots lists the folders a scoped chat may read besides its own: the
 // skill layers and the folders shared with the user, all read only (the
 // shared folders' grants may allow more; a scoped chat never writes there).
-// A folder that is missing or unreadable is left out. Enumeration failures
+// A project that another user shares with the user, a folder inside one, and a
+// folder that holds such projects are left out (isSharedProjectRoot): a
+// fenced agent never sees them. A folder that is missing or unreadable is left
+// out. Enumeration failures
 // refuse access rather than silently omitting shared folders.
 //
 // A fence layer holds at most workspace.MaxFenceRoots roots: the chat folder,
@@ -272,6 +279,13 @@ func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor, reser
 	}
 	var cand []workspace.Node
 	for _, r := range shared {
+		// A project that another user shares is never in a fence: the
+		// agent of a project or a folder, and its sub-agents, work inside
+		// their own folder. The project reaches a chat only as a pulled
+		// mount of an unscoped chat (projectMounts), never through a fence.
+		if isSharedProjectRoot(r.Path, owner.Principal) {
+			continue
+		}
 		if n, ok := stat(r.Path); ok {
 			cand = append(cand, n)
 		}
@@ -292,6 +306,15 @@ func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor, reser
 		held = append(held, n.Path)
 	}
 	return out, dropped, nil
+}
+
+// isSharedProjectRoot says whether a shared folder root of viewer reaches the
+// projects of another user: it is a project folder of another user or inside
+// one (a deeper grant on its files), or a folder that holds projects. The
+// shape rule is the one of projects.ParseProjectPath, which the resolver of
+// shared projects uses too.
+func isSharedProjectRoot(path, viewer string) bool {
+	return projects.CoversOtherProjects(path, viewer)
 }
 
 // skillRoots are the skill layers that exist, read only, and their paths.
@@ -330,7 +353,7 @@ func (s *Service) chatScopes(ctx context.Context, rec session.ChatRecord, record
 	var scopes []*folderScope
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
 		holder = rec.ParentID
-		parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+		parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
 		switch {
 		case errors.Is(err, session.ErrNotFound):
 			// The parent is gone: nothing is known of its folder.
@@ -395,7 +418,7 @@ func (s *Service) agentFolderScope(ctx context.Context, rec session.ChatRecord, 
 	var ag agents.Agent
 	err := agents.ErrNotFound
 	if s.d.Agents != nil {
-		ag, err = s.chatAgent(ctx, rec.Principal, rec.AgentID)
+		ag, err = s.storedChatAgent(ctx, rec.Principal, rec.AgentID)
 	}
 	switch {
 	case errors.Is(err, agents.ErrNotFound):
@@ -409,29 +432,50 @@ func (s *Service) agentFolderScope(ctx context.Context, rec session.ChatRecord, 
 		// Without the agent nothing says whether it has a folder.
 		return nil, fmt.Errorf("studio: read the chat's agent: %w", err)
 	}
+	// A chat that was started before its agent moved to another project keeps
+	// its record but takes no new turn: its history belongs to the old fence.
+	if movedChat(rec, ag) {
+		return nil, ErrAgentMoved
+	}
 	// An agent saved with No files (the files group off) is scoped to its
 	// chat's own folder, whatever folders it still holds: they are ignored,
 	// so a missing one cannot block the chat either.
 	noFiles := slices.Contains(ag.BuiltinsOff, builtins.GroupFiles)
 	if record {
-		if err := s.markScoped(ctx, rec, ag.HasFolder() || noFiles); err != nil {
+		if err := s.markScoped(ctx, rec, fencedAgent(ag) || noFiles); err != nil {
 			return nil, err
 		}
 	}
 	if noFiles {
+		// The folders are ignored, but a project agent still starts only
+		// while its project is available.
+		if ag.ProjectID != "" {
+			if principal(ag.Principal) != principal(rec.Principal) {
+				return nil, ErrProjectUnavailable
+			}
+			if _, err := s.projectOfAgent(ctx, ag); err != nil {
+				return nil, err
+			}
+		}
 		return &folderScope{chatOnly: true}, nil
 	}
-	if !ag.HasFolder() {
+	if !fencedAgent(ag) {
 		return nil, nil
 	}
 	return s.liveFolder(ctx, rec.Principal, ag)
 }
 
 // liveFolder returns the folders of an agent that has some, or
-// ErrAgentFolderMissing when one is not chosen, deleted or unreadable. The
+// ErrAgentFolderMissing when one is not chosen, deleted or unreadable, and
+// ErrProjectUnavailable for an agent of a project that is not available. The
 // error names the row, so the person knows which folder to fix. The limits of
 // the list are checked again here: a store may hold an older shape.
 func (s *Service) liveFolder(ctx context.Context, p string, ag agents.Agent) (*folderScope, error) {
+	if ag.ProjectID != "" {
+		// A project agent has the two folders of its project and nothing
+		// else; the project is checked at every turn.
+		return s.liveProjectFolder(ctx, p, ag)
+	}
 	list := ag.FolderList()
 	if err := agents.ValidateFolders(list); err != nil {
 		return nil, err

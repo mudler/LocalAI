@@ -72,7 +72,7 @@ func (w *writer) checkParentWrite(n nodeRow) error {
 }
 
 func (w *writer) move(from, to string) (nodeRow, error) {
-	src, err := w.s.find(w.d, w.actor, from, workspace.ModeWrite)
+	src, err := w.s.find(w.d, w.actor, from, workspace.ModeData)
 	if err != nil {
 		return nodeRow{}, err
 	}
@@ -102,7 +102,7 @@ func (w *writer) deleteNode(n nodeRow) error {
 }
 
 func (w *writer) delete(p string) error {
-	n, err := w.s.find(w.d, w.actor, p, workspace.ModeWrite)
+	n, err := w.s.find(w.d, w.actor, p, workspace.ModeData)
 	if err != nil {
 		return err
 	}

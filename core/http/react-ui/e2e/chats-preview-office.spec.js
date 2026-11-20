@@ -82,6 +82,10 @@ test('a long sheet shows its first rows and says how many there are (the header 
 })
 
 test('a presentation is drawn on a canvas, one slide at a time', async ({ page }) => {
+  // When the drawing fails the pane falls back to text: print why, or CI shows only the missing slide count.
+  page.on('console', (m) => { if (m.type() === 'warning' || m.type() === 'error') console.log(`[page ${m.type()}] ${m.text()}`) })
+  page.on('pageerror', (e) => console.log(`[page error] ${e.message}`))
+  page.on('requestfailed', (r) => console.log(`[request failed] ${r.url()} ${r.failure()?.errorText}`))
   const pane = await openFile(page, 'deck.pptx')
   const count = pane.getByTestId('preview-slide-count')
   await expect(count).toHaveText('Slide 1 of 3')

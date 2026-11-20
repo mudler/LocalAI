@@ -65,6 +65,16 @@ export function loopEvery(t, seconds, short = false) {
   return t(`loops.${short ? 'unitShort' : 'unit'}.${unit}`, { count })
 }
 
+// reportLine says where a loop reports and when, in the names the owner gave
+// to the connection and the channel (the ids when a name is gone): "Reports
+// when done: General · Team chat". It is empty for a loop that reports nowhere,
+// which is every loop the model did not give a report.
+export function reportLine(t, loop) {
+  const r = loop && loop.report
+  if (!r || (r.mode !== 'on_done' && r.mode !== 'on_problem')) return ''
+  return t(`loops.report.${r.mode}`, { channel: r.channel_label || r.channel, connection: r.connection_name || r.connection })
+}
+
 // Loops the chip area shows, in order: active and paused first, then the ended
 // ones. A pending loop shows as its confirmation card instead.
 export function chipLoops(loops) {

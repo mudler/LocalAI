@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { CAP_CHAT } from '../../utils/capabilities'
@@ -11,12 +11,16 @@ import { gbLabel, gbNumber } from '../../utils/modelLedger'
 import { useModelFit } from '../../hooks/useModelFit'
 import { useCommandsNotice } from '../../hooks/useCommandsNotice'
 import { SAVED_AGENTS, SUBAGENTS, useToolGroups } from '../../hooks/useToolGroups'
+import Icon from '../Icon'
 import { useChatGrants } from '../../hooks/useBuiltinGrants'
 import { fillStyle, hostMemory, memoryFigure } from '../home/memory'
 import HomeComposer from '../home/HomeComposer'
 import ModelPicker from '../ModelPicker'
 import AddonSlot from '../../addons/AddonSlot'
 import AgentPicker from './AgentPicker'
+import ProjectPicker from '../projects/ProjectPicker'
+import '../projects/projectchat.css'
+import { useProjectList } from '../../hooks/useProjectList'
 import SkillsMenu from './SkillsMenu'
 import SwitchMenu from './SwitchMenu'
 import VisionNotice from './VisionNotice'
@@ -24,7 +28,7 @@ import { MemoryChip, MemoryLine } from './MemoryNotice'
 import { memoryOff, MEMORY_GROUP } from '../../utils/memoryState'
 import { ChatToolsControls } from '../../addons/hostControlComponents'
 import AgentFolderChip from './AgentFolderChip'
-import { agentFolderLine } from '../../utils/chatAgents'
+import { agentFolderLine, folderState } from '../../utils/chatAgents'
 import { CommandsChip, CommandsNotice } from './CommandsNotice'
 import { useUserCommands } from '../../hooks/useUserCommands'
 import { ToolFallbacks } from './ToolFallbacks'
@@ -80,9 +84,18 @@ export default function ChatComposer({
 }) {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
+  const { t: tp } = useTranslation('projects')
   const { isAdmin, user } = useAuth()
-  const { drafts, draftId, switches, models, modelsLoading, pickedAgent, effectiveModel, agents, agentId, setAgentId, setDraftModel, attach, paste } = composer
+  const { drafts, draftId, switches, models, modelsLoading, pickedAgent, effectiveModel, agents, agentId, setAgentId, projectId, setProjectId, pulledDraft, setPulledDraft, setDraftModel, attach, paste } = composer
   const { text, files, setText, setFiles } = drafts
+  // The project chip belongs to a chat that does not exist yet.
+  const projectList = useProjectList(!chatId && !!setProjectId)
+  // A chat of an agent that has a folder works only in that folder: it has no
+  // project, so the chip is replaced by a disabled one that says why.
+  const fencedAgent = folderState(pickedAgent) !== 'none'
+  useEffect(() => { if (fencedAgent && projectId && setProjectId) setProjectId('') }, [fencedAgent, projectId, setProjectId])
+  useEffect(() => { if (fencedAgent && pulledDraft?.length && setPulledDraft) setPulledDraft([]) }, [fencedAgent, pulledDraft, setPulledDraft])
+  const startProject = !chatId && projectId && !fencedAgent ? (projectList.projects || []).find(p => p.id === projectId) : null
 
   const [fitOpenCount, setFitOpenCount] = useState(0)
   const modelNames = useMemo(() => models.map(m => m.id), [models])
@@ -151,8 +164,8 @@ export default function ChatComposer({
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')}
         note={chatId ? t('tools.note') : t('tools.draftNote')}
         groups={toolGroups} error={switches.error} testId="chat-tools"
-        notice={scopeLine || commands.info || network || profiles || switches.fallbacks.length > 0 || memoryIsOff
-          ? <><MemoryLine memory={switches.memory} builtins={switches.builtins} />{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}{profiles ? <SandboxProfileRow view={sandboxProfile} /> : null}</>
+        notice={scopeLine || commands.info || network || profiles || switches.fallbacks.length > 0 || memoryIsOff || (switches.attachedCollections || []).length > 0
+          ? <><MemoryLine memory={switches.memory} builtins={switches.builtins} />{(switches.attachedCollections || []).length > 0 ? <p className="cmd-notice__line" data-testid="chat-tools-project-collections">{t('tools.projectCollections', { names: (switches.attachedCollections || []).join(', ') })}</p> : null}{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}{profiles ? <SandboxProfileRow view={sandboxProfile} /> : null}</>
           : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="chat-tools-manage">{tc('tools.manage')}</Button>
@@ -250,6 +263,12 @@ export default function ChatComposer({
           <>
             <AgentPicker agents={agents} value={activeChat ? activeChat.agent_id : agentId} onChange={setAgentId} readOnly={!!chatId} />
             <AgentFolderChip agent={pickedAgent} />
+            {!chatId && setProjectId && !fencedAgent && <ProjectPicker list={projectList} value={projectId || ''} onChange={setProjectId} pulled={pulledDraft} onPulled={setPulledDraft} />}
+            {!chatId && setProjectId && fencedAgent && projectList.status === 'ready' && (
+              <span className="home-chip" aria-disabled="true" title={tp('composer.fencedHint')} data-testid="project-picker-fenced">
+                <Icon name="layers" /> <span className="home-chip__text">{tp('composer.fencedLabel')}</span>
+              </span>
+            )}
             {chips}
           </>
         )}
@@ -265,6 +284,12 @@ export default function ChatComposer({
         onClearFiles={() => setFiles([])}
         {...rest}
       />
+      {startProject && (
+        <p className="pjc-start" data-testid="project-start-note">
+          <Icon name="layers" />
+          <span>{tp('composer.startNote', { name: startProject.name })}</span>
+        </p>
+      )}
     </>
   )
 }

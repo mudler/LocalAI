@@ -188,7 +188,7 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 		if t.Model == "" {
 			t.Model = ag.Model
 		}
-		if ag.HasFolder() {
+		if fencedAgent(ag) {
 			if scope, err = h.svc.liveFolder(ctx, owner, ag); err != nil {
 				return t, scopeErr(err)
 			}
@@ -215,7 +215,7 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 		t.Folder = abs
 	}
 	if t.Model == "" && t.SourceChatID != "" {
-		if src, err := h.svc.d.Store.GetChat(ctx, owner, t.SourceChatID); err == nil {
+		if src, err := h.svc.getChatEffective(ctx, owner, t.SourceChatID); err == nil {
 			t.Model = src.Model
 		}
 	}
@@ -239,6 +239,12 @@ var errOutsideFolder = bad("the trigger's folder must be inside the agent's fold
 func scopeErr(err error) error {
 	if errors.Is(err, ErrAgentFolderMissing) {
 		return bad("the agent's folder is missing: choose a folder in the agent's settings")
+	}
+	if errors.Is(err, ErrProjectFoldersChanged) {
+		return bad("%s", ProjectFoldersChangedText)
+	}
+	if errors.Is(err, ErrProjectUnavailable) {
+		return bad("%s", ProjectUnavailableText)
 	}
 	return err
 }
@@ -336,6 +342,11 @@ func (h *Triggers) SetTriggerEnabled(ctx context.Context, user, id string, on bo
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
+	if on && !old.Enabled {
+		if err := h.checkProjectAvailable(ctx, old.Owner, old.AgentID); err != nil {
+			return triggers.Trigger{}, err
+		}
+	}
 	t := old
 	t.Enabled = on
 	t.Touched = old.Touched || old.Outcome != ""
@@ -345,6 +356,33 @@ func (h *Triggers) SetTriggerEnabled(ctx context.Context, user, id string, on bo
 	}
 	h.Notify()
 	return t, nil
+}
+
+// checkProjectAvailable refuses to switch on a trigger of a project agent
+// while its project is archived, gone or has changed folders. A trigger of no
+// agent, of a plain agent or of a deleted agent is not checked here: the run
+// says what is wrong. An agent that cannot be read now (anything but "not
+// found") is not shown to be a plain one, so the switch on is refused and the
+// person tries again.
+func (h *Triggers) checkProjectAvailable(ctx context.Context, owner, agentID string) error {
+	if agentID == "" {
+		return nil
+	}
+	ag, err := h.svc.ownAgent(ctx, owner, agentID)
+	switch {
+	case errors.Is(err, agents.ErrNotFound), errors.Is(err, ErrAgentNotOwner), errors.Is(err, ErrAgentsOff):
+		// No agent of this owner, so no project of this owner either.
+		return nil
+	case err != nil:
+		h.svc.log.Warn("studio: the agent of a trigger could not be read", "agent", agentID, "error", err)
+		return bad("the agent could not be read now, so the trigger was not switched on. Try again in a moment")
+	case ag.ProjectID == "":
+		return nil
+	}
+	if _, err := h.svc.liveFolder(ctx, owner, ag); err != nil {
+		return scopeErr(err)
+	}
+	return nil
 }
 
 // GetTrigger returns a trigger of the user.
@@ -435,7 +473,8 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 		// A model that proposes the same thing again, in this chat or the next,
 		// gets the proposal that waits.
 		if m.Name == t.Name && m.Prompt == t.Prompt && m.Kind == t.Kind && m.Schedule == t.Schedule &&
-			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) {
+			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) &&
+			((m.Route.FromConnector() && t.Route.FromConnector()) || deliveryKey(m) == deliveryKey(t)) {
 			return m, false, nil
 		}
 		pending++
@@ -555,6 +594,9 @@ func (h *Triggers) confirm(ctx context.Context, user, id, tz string, mod func(*t
 	}
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
+	}
+	if err := h.checkLiveConnection(ctx, t); err != nil {
+		return triggers.Trigger{}, err
 	}
 	// A folder that was readable when it was proposed may be gone now, and
 	// the agent's folder may have moved or gone since.

@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/addons/skilltree"
@@ -159,7 +160,9 @@ var _ = Describe("package skills", func() {
 	It("refuses links, executable files and special entries", func() {
 		refuse(both, good(), "symlink", &tar.Header{Name: "skills/sample/references/link.md", Typeflag: tar.TypeSymlink, Linkname: "sheets.md", Mode: 0777})
 		refuse(both, good(), "hard link", &tar.Header{Name: "skills/sample/references/hard.md", Typeflag: tar.TypeLink, Linkname: "skills/sample/references/sheets.md", Mode: 0644})
-		refuse(both, good(), "exec bit", &tar.Header{Name: "skills/sample/references/run.md", Mode: 0755})
+		if runtime.GOOS != "windows" { // the check reads the mode from disk, which Windows does not keep
+			refuse(both, good(), "exec bit", &tar.Header{Name: "skills/sample/references/run.md", Mode: 0755})
+		}
 	})
 
 	It("refuses scripts and other file types", func() {

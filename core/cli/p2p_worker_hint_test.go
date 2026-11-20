@@ -17,7 +17,7 @@ var _ = Describe("p2p worker hint", func() {
 		// are the ones cmd/local-ai/main.go supplies; the tags cannot be
 		// resolved without them.
 		app := CLI
-		k, err := kong.New(&app, kong.Vars{
+		k, err := kong.New(&app, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends",
 			"basepath":             kong.ExpandPath("."),
 			"generatedcontentpath": DefaultGeneratedContentPath(),
 			"uploadpath":           DefaultUploadPath(),
@@ -45,7 +45,7 @@ var _ = Describe("P2P limits CLI boundary", func() {
 			mlx := worker.P2PMLX{}
 			explorer := ExplorerCMD{}
 			for _, entry := range []any{&run, &rpc, &mlx, &explorer} {
-				parser, err := kong.New(entry, kong.Vars{"basepath": ".", "generatedcontentpath": ".", "uploadpath": ".", "galleries": config.DefaultGalleriesJSON, "backends": config.DefaultBackendGalleriesJSON, "version": "test"})
+				parser, err := kong.New(entry, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends", "basepath": ".", "generatedcontentpath": ".", "uploadpath": ".", "galleries": config.DefaultGalleriesJSON, "backends": config.DefaultBackendGalleriesJSON, "version": "test"})
 				Expect(err).NotTo(HaveOccurred())
 				_, err = parser.Parse(nil)
 				Expect(err).NotTo(HaveOccurred())
@@ -68,7 +68,7 @@ var _ = Describe("P2P limits CLI boundary", func() {
 			"mlx": &mlx.P2PEnableLimits, "explorer": &explorer.P2PEnableLimits,
 		}
 		for name, entry := range map[string]any{"run": &run, "rpc": &rpc, "mlx": &mlx, "explorer": &explorer} {
-			parser, err := kong.New(entry, kong.Vars{"basepath": ".", "generatedcontentpath": ".", "uploadpath": ".", "galleries": config.DefaultGalleriesJSON, "backends": config.DefaultBackendGalleriesJSON, "version": "test"})
+			parser, err := kong.New(entry, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends", "basepath": ".", "generatedcontentpath": ".", "uploadpath": ".", "galleries": config.DefaultGalleriesJSON, "backends": config.DefaultBackendGalleriesJSON, "version": "test"})
 			Expect(err).NotTo(HaveOccurred())
 			_, err = parser.Parse([]string{"--p2p-enable-limits=true"})
 			Expect(err).NotTo(HaveOccurred(), name)

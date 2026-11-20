@@ -18,14 +18,15 @@ export default function GalleryLoader() {
   const [fade, setFade] = useState(true)
 
   useEffect(() => {
+    let swap = null
     const interval = setInterval(() => {
       setFade(false)
-      setTimeout(() => {
+      swap = setTimeout(() => {
         setIdx(prev => (prev + 1) % LOADING_PHRASES.length)
         setFade(true)
       }, 300)
     }, 2800)
-    return () => clearInterval(interval)
+    return () => { clearInterval(interval); clearTimeout(swap) }
   }, [])
 
   const phrase = LOADING_PHRASES[idx]

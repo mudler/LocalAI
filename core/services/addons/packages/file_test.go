@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -125,7 +126,9 @@ var _ = Describe("local file packages", func() {
 		Expect(e).NotTo(HaveOccurred())
 		info, e := os.Stat(filepath.Join(out.Directory, "bin/sample"))
 		Expect(e).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o500)))
+		if runtime.GOOS != "windows" { // Windows has no execute bit and reports a read-only file as 0444
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o500)))
+		}
 		Expect(filepath.Join(out.Directory, zipformat.ManifestName)).NotTo(BeAnExistingFile())
 		Expect(filepath.Join(out.Directory, "receipt.json")).To(BeAnExistingFile())
 	})

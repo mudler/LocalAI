@@ -8,12 +8,9 @@ token ids and the rendered prompt match what the Strata server would produce:
 
 Usage: python3 -c <this script> <strata_root> <pack_dir> [family]
 
-family is "deepseek41" for DeepSeek V4.1-Flash, anything else (or none) for the Qwen models. For DeepSeek the
-helper switches Strata's frontend to that family the way Strata's own server does (serve.frontend.use_family: the
-reasoning-effort words, 1..100 included), renders the model's V4.1 chat template (serve.dsml.pick_template: the
-pack's own template, the same bytes as DeepSeek's encoding.py, unless the pack carries the older spelling of the
-tool-call block), writes a forced tool call in DSML, and reads the model's DSML tool calls with
-serve.dsml.DsmlOutputParser. The tokenizer is the one the pack names (pre-tokenizer "deepseek3").
+family "deepseek41" is refused: Strata dropped its DeepSeek V4.1 code (serve.dsml and the V4.1 template)
+in v0.2.15, so the helper cannot render that model's prompts or read its tool calls. Any other family
+(or none) is the Qwen path.
 
 Requests (one JSON object per line) and replies:
 
@@ -69,10 +66,6 @@ def build_prompt(tk, template, req):
     if kind == "none":
         tools = None
     force = frontend.forced_call(choice, tools) if tools else None
-    if force and FAMILY == "deepseek41":
-        from serve import dsml  # noqa: E402
-
-        force = dsml.to_dsml_force(force)
     if force:
         # The engine has no grammar. A forced call is written into the prompt, which only works without thinking.
         kwargs["enable_thinking"] = False
@@ -91,6 +84,8 @@ def build_prompt(tk, template, req):
 
 
 def load(strata_root, pack, family=""):
+    if family == "deepseek41":
+        raise RuntimeError("the DeepSeek V4.1 family is not supported by this Strata version (its DeepSeek code was removed upstream)")
     root = pathlib.Path(strata_root)
     sys.path.insert(0, str(root))
     sys.path.insert(0, str(root / "tools"))
@@ -112,15 +107,6 @@ def load(strata_root, pack, family=""):
 
     template = None
     tpl = tdir / "chat_template.jinja"
-    if family == "deepseek41":
-        from serve import dsml, frontend  # noqa: E402
-
-        frontend.use_family(family)
-        # A pack whose template spells the call block the V4-Flash way gets the V4.1 one: the model would
-        # read one spelling in the prompt and write another.
-        tpl, swapped = dsml.pick_template(tpl)
-        if swapped:
-            print("strata helper: the pack's chat template is not the V4.1 one; using the V4.1 template", file=sys.stderr, flush=True)
     if tpl.exists():
         from serve import frontend  # noqa: E402
 
@@ -161,12 +147,7 @@ def main():
             elif op == "parser_new":
                 from serve import frontend  # noqa: E402
 
-                parser_cls = frontend.OutputParser
-                if FAMILY == "deepseek41":
-                    from serve import dsml  # noqa: E402
-
-                    parser_cls = dsml.DsmlOutputParser
-                parser = parser_cls(thinking=bool(req.get("thinking", True)), tools=req.get("tools") or None,
+                parser = frontend.OutputParser(thinking=bool(req.get("thinking", True)), tools=req.get("tools") or None,
                                                stream_tools=True, recover=True)
                 PARSERS[req["id"]] = parser
                 opening = req.get("opening") or ""

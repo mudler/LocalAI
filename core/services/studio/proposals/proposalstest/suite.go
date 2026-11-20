@@ -153,6 +153,76 @@ func Run(newStore NewStore) {
 		one, _ := s.Events(ctx, "u1", 1)
 		Expect(one).To(HaveLen(1))
 	})
+
+	// shared returns a pending proposal that proposer made for owner, for the
+	// project folder node.
+	shared := func(id, owner, proposer, agent string, node int64, age time.Duration) contract.ChangeProposal {
+		p := Sample(id, owner, agent, age)
+		p.Scope, p.Target, p.Proposer, p.ProjectNode = contract.ScopeProject, "Projects/atlas/memory/a.md", proposer, node
+		return p
+	}
+	plim := proposals.Limits{MaxPending: contract.MaxPendingChanges, MaxPendingProject: contract.MaxPendingPerProject,
+		PerWindow: contract.MaxChangesPerHour, Window: time.Hour}
+
+	It("keeps the proposer and the project node of a proposal made for another person", func() {
+		s := newStore()
+		Expect(s.Create(ctx, shared("p1", "owner", "grantee", "", 42, 0), plim)).To(Succeed())
+		got, err := s.Get(ctx, "owner", "p1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Proposer).To(Equal("grantee"))
+		Expect(got.ProjectNode).To(BeEquivalentTo(42))
+		own := Sample("p2", "owner", "", 0)
+		Expect(s.Create(ctx, own, plim)).To(Succeed())
+		got, _ = s.Get(ctx, "owner", "p2")
+		Expect(got.Proposer).To(BeEmpty())
+		Expect(got.ProjectNode).To(BeZero())
+	})
+
+	It("counts the caps of a proposal made for another person on the proposer", func() {
+		s := newStore()
+		for i := range contract.MaxPendingChanges {
+			// A project per proposal and one agent each keep the other caps out.
+			Expect(s.Create(ctx, shared(fmt.Sprintf("p%d", i), fmt.Sprintf("o%d", i), "g1", fmt.Sprintf("a%d", i), int64(100+i), 0), plim)).To(Succeed())
+		}
+		Expect(s.Create(ctx, shared("over", "o99", "g1", "a99", 999, 0), plim)).To(MatchError(proposals.ErrTooManyPending))
+		Expect(s.Create(ctx, shared("other", "o99", "g2", "a99", 999, 0), plim)).To(Succeed(), "another proposer has a queue of their own")
+	})
+
+	It("limits the proposals of one proposer in an hour", func() {
+		s := newStore()
+		for i := range contract.MaxChangesPerHour {
+			id := fmt.Sprintf("p%d", i)
+			Expect(s.Create(ctx, shared(id, "owner", "g1", "", 42, time.Duration(i)*time.Minute), plim)).To(Succeed())
+			_, _ = s.Settle(ctx, "owner", id, contract.ProposalPending, contract.ProposalDismissed, t0, 0)
+		}
+		Expect(s.Create(ctx, shared("over", "owner", "g1", "", 42, 10*time.Minute), plim)).To(MatchError(proposals.ErrRateLimited))
+		Expect(s.Create(ctx, shared("other", "owner", "g2", "", 42, 10*time.Minute), plim)).To(Succeed())
+	})
+
+	It("charges nothing of the owner's own queue to a proposal made by another person", func() {
+		s := newStore()
+		for i := range contract.MaxPendingChanges {
+			Expect(s.Create(ctx, shared(fmt.Sprintf("p%d", i), "owner", fmt.Sprintf("g%d", i), "", int64(1+i%2), 0), proposals.Limits{MaxPending: 10})).To(Succeed())
+		}
+		Expect(s.Create(ctx, Sample("own", "owner", "", 0), plim)).To(Succeed(), "the pending cap of the owner is the owner's own proposals")
+		for i := range contract.MaxChangesPerHour - 1 {
+			Expect(s.Create(ctx, Sample(fmt.Sprintf("own%d", i), "owner", "", time.Duration(i)*time.Minute), plim)).To(Succeed())
+		}
+	})
+
+	It("caps the proposals of others waiting for one project of one owner", func() {
+		s := newStore()
+		for i := range contract.MaxPendingPerProject {
+			Expect(s.Create(ctx, shared(fmt.Sprintf("p%d", i), "owner", fmt.Sprintf("g%d", i), "", 42, 0), plim)).To(Succeed())
+		}
+		Expect(s.Create(ctx, shared("over", "owner", "gx", "", 42, 0), plim)).To(MatchError(proposals.ErrTooManyForProject))
+		Expect(s.Create(ctx, shared("elsewhere", "owner", "gx", "", 43, 0), plim)).To(Succeed(), "another project")
+		Expect(s.Create(ctx, shared("another-owner", "owner2", "gx", "", 42, 0), plim)).To(Succeed(), "another owner")
+		Expect(s.Create(ctx, Sample("own", "owner", "", 0), plim)).To(Succeed(), "the owner's own notes are not capped by it")
+		ok, _ := s.Settle(ctx, "owner", "p0", contract.ProposalPending, contract.ProposalDismissed, t0, 0)
+		Expect(ok).To(BeTrue())
+		Expect(s.Create(ctx, shared("again", "owner", "gy", "", 42, 0), plim)).To(Succeed(), "an answered proposal frees a place")
+	})
 }
 
 func ids(l []contract.ChangeProposal) []string {

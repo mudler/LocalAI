@@ -801,6 +801,14 @@ var runtimeSettingsFields = []fieldSpec{
 			o.ChatsLoopDailyRuns = v
 			o.chatsLimitsMu.Unlock()
 		}),
+	loopIntField("chats_loop_daily_script_checks", MaxChatsLoopDailyScriptChecks,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopDailyScriptChecks },
+		(*ApplicationConfig).EffectiveChatsLoopDailyScriptChecks,
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsLoopDailyScriptChecks = v
+			o.chatsLimitsMu.Unlock()
+		}),
 
 	// The triggers of the chats: read at each use, so no restart.
 	withApply(fieldEq("chats_trigger_run_limit",
@@ -854,6 +862,12 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.SharedPagesEnabled },
 		func(o *ApplicationConfig) bool { return !o.DisableSharedPages },
 		func(o *ApplicationConfig, v bool) { o.DisableSharedPages = !v }),
+
+	// Pages that people share: stored as the negation, like shared pages.
+	field("user_page_shares_enabled",
+		func(s *RuntimeSettings) **bool { return &s.UserPageSharesEnabled },
+		func(o *ApplicationConfig) bool { return !o.DisableUserPageShares },
+		func(o *ApplicationConfig, v bool) { o.DisableUserPageShares = !v }),
 
 	// The page area of Home: stored as the negation, like shared pages.
 	field("home_page_area_enabled",

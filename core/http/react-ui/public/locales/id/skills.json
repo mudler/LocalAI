@@ -55,7 +55,8 @@
     "builtin": "Built-in",
     "folder": "Workspace",
     "addon": "Add-on",
-    "agent": "Agen"
+    "agent": "Agen",
+    "project": "Proyek"
   },
   "pane": {
     "loading": "Loading...",

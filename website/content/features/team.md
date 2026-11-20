@@ -1,8 +1,8 @@
 ---
 title: "Team"
-weight: 5
+weight: 7
 card: "One server, a login for each person, and admin control."
-headline: 'One server. Your whole <span class="hl">team</span>.'
+headline: 'A login for each <span class="hl">person</span>.'
 lede: "Each person has a login and their own chats. An admin chooses what each person can use."
 docs: "/docs/concepts/users-and-sharing/"
 dev: true
@@ -13,8 +13,7 @@ demo: ""
 points:
   - "Each person logs in and has their own chats."
   - "An admin turns features on or off for each person."
-  - "Shared folders give the team files in common. Read or edit, set by an admin."
+  - "An admin can make a shared folder and choose who reads it and who edits it."
 notes:
-  - "Admins can read all chats."
   - "There are two roles: admin and user."
 ---

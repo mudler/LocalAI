@@ -14,6 +14,7 @@ import { pagesApi, sharedPagesApi } from '../../utils/api'
 import { CAP_CHAT } from '../../utils/capabilities'
 import { readLastModel } from '../../utils/lastModel'
 import { liveFrames } from '../../utils/liveFrames'
+import { tilePagePath } from '../../utils/pageTiles'
 
 let nextFrame = 0
 // The messages a docked page may have waiting for the person at once.
@@ -145,6 +146,14 @@ const DockFrame = forwardRef(function DockFrame({ tabRef, title, chatId, visible
       <div className="pd-state" role="alert" data-testid="dock-error">
         <span>{t('dock.error')}</span>
         <Button size="sm" onClick={() => tile.load()}>{t('retry')}</Button>
+      </div>
+    )
+  } else if (!runnable && tile.openOnly) {
+    body = (
+      <div className="pd-state" data-testid="dock-open-only">
+        <Icon name="lock" className="pd-state__icon" />
+        <span>{t(tile.ownEdit ? 'share.tile.dockOwn' : 'share.tile.dock')}</span>
+        <Button size="sm" variant="primary" to={tilePagePath(tabRef)} data-testid="dock-open-page">{t('share.tile.open')}</Button>
       </div>
     )
   } else if (!runnable) {

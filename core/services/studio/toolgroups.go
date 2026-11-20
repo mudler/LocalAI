@@ -109,7 +109,7 @@ func (s *Service) registerToolGroups() error {
 // agent of its parent.
 func (s *Service) switchesOf(ctx context.Context, rec session.ChatRecord) (off, on []string) {
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
-		parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
+		parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
 		if err == nil {
 			return mergeGroups(slices.Clone(parent.BuiltinsOff), s.agentOff(ctx, parent)), parent.BuiltinsOn
 		}

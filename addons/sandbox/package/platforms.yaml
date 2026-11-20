@@ -4,9 +4,19 @@
 # in a Virtualization.framework guest on macOS with Apple silicon. The macOS
 # package carries no runtime file: package.sh signs its executable with the
 # virtualization entitlement (package/entitlements.plist), and
-# fetch-runtime.sh fetches nothing for it. The macOS platforms stay disabled
-# until a macOS runner shows the native check passing (see the rule below);
-# darwin/amd64 never gets a guest, because the backend needs Apple silicon.
+# fetch-runtime.sh fetches nothing for it. darwin/arm64 is enabled: its leg
+# builds, signs and checks the executable natively on a macOS runner, where
+# package.sh signs with codesign. darwin/amd64 never gets a guest, because the
+# backend needs Apple silicon, so it stays disabled.
+# None of the backends runs on Windows itself (gVisor, Cloud Hypervisor with
+# KVM and Virtualization.framework do not exist there, and the unsafe host
+# backend needs a POSIX shell and process groups). The windows/amd64 package
+# runs the Linux add-on in WSL 2 instead ("execution: wsl2" on the row; the
+# packager writes it to the manifest as osSettings.windows.execution): it carries
+# the linux/amd64 executable and runtime files, and package.sh builds it on a
+# linux/amd64 host. Its native check starts the executable through wsl.exe,
+# so it needs a Windows runner with WSL. It stays disabled until such a runner
+# shows the check passing.
 # The Linux packages carry the runsc of package/runsc.json, the gvisor-profile tool, and
 # the Cloud Hypervisor and virtiofsd of package/kvm.json (virtiofsd on amd64
 # only: upstream publishes no static arm64 build). fetch-runtime.sh puts them
@@ -61,10 +71,25 @@ platforms:
       - gvisor-bin/runsc-fd-parking
       - gvisor-bin/runsc-metric-server
   - platform: darwin/arm64
-    enabled: false
+    enabled: true
     runner: macos-15
     native_check: executable-start
   - platform: darwin/amd64
     enabled: false
     runner: macos-15-intel
     native_check: executable-start
+  - platform: windows/amd64
+    enabled: false
+    runner: windows-2025
+    native_check: executable-start
+    execution: wsl2
+    runtime:
+      - runsc
+      - gvisor-profile
+      - cloud-hypervisor
+      - virtiofsd
+      - gvisor-bin/checkpointgofer
+      - gvisor-bin/gvisor-sentry-prewarmer
+      - gvisor-bin/gvisor_sentry
+      - gvisor-bin/runsc-fd-parking
+      - gvisor-bin/runsc-metric-server

@@ -9,19 +9,11 @@ keywords = ["office", "word", "docx", "excel", "xlsx", "powerpoint", "pptx", "pd
 devbuild = "addon"
 +++
 
-A chat can make and edit Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`) and PDF files. There are two ways. Both are add-ons from the add-on library. Neither is built in. LocalAI has no built-in fallback when none is installed.
+A chat can make and edit Word (`.docx`), Excel (`.xlsx`), PowerPoint (`.pptx`) and PDF files. Two add-ons can do this: Simple Office and Sandbox. Install one from the add-on library. Without one of them, a chat can't make these files.
 
-| | Simple Office | Sandbox |
-|---|---|---|
-| What it is | An add-on with document tools | An add-on that runs Python in an isolated runtime |
-| Needs a VM or gVisor | No | Yes |
-| Makes | `.docx` and `.pdf` from Markdown, `.xlsx` from CSV, `.pptx`, and edits files | Any document that a Python library can write |
-| Control over layout | Basic | Full, with the libraries in the guest image |
-| Platforms | Linux and macOS | Linux |
+Use Simple Office when you want a quick document and your host can't run a sandbox. Use the [Sandbox]({{% relref "/addons/catalogue/work/sandbox" %}}) when you need charts, exact layout or a conversion.
 
-Use Simple Office when you want a quick document and your host cannot run a sandbox. Use the [Sandbox]({{% relref "/addons/catalogue/work/sandbox" %}}) when you need charts, exact layout or a conversion. In the current development builds, both add-ons are in the development channel of the library.
-
-The two add-ons work on their own. LocalAI does not route between them and does not change the choice for you.
+The two add-ons work on their own. LocalAI doesn't pick one for you. For the document skills, see [With the Sandbox](#with-the-sandbox).
 
 ## Simple Office
 
@@ -46,7 +38,7 @@ Use a `.pdf` path with `create-pdf`. Both formats support:
 - bold and italic text
 - simple rectangular tables
 
-Code is literal text. LocalAI does not run it. Links show their label and are not fetched. The tools refuse raw HTML, images and other unsupported parts with an error. They use no network, no file inclusion, no macros, no shell commands and no outside converters.
+Simple Office only writes text, lists and tables. It runs no code, fetches no links and refuses raw HTML and images with an error.
 
 ### Make a one-sheet workbook from CSV
 
@@ -95,11 +87,24 @@ Give the optional `template` to build the deck on the design of a `.pptx` or `.p
 
 The PDF tool supports Latin-1 characters only. It refuses other characters before it saves a file. A failed call saves no file.
 
-All paths are in your own workspace. Chat folder rules and read-only access still apply. A path with the wrong extension is refused with a message that quotes the path as received, so the model can see what it sent. A path wrapped in quotes, such as `"/plan.pptx"` with the quotes, also gets the hint to remove them. The quotes are not stripped, because a file name may contain quotes. `create-docx`, `create-pdf` and `create-xlsx` no longer accept the old `blocks` and `sheets` arguments. Use `markdown` or `csv`. For the tool contract, see the [add-on contract reference]({{% relref "/addons/contract-reference#simple-office" %}}).
+All paths are in your own files. Chat folder rules and read-only access still apply. A path with the wrong extension is refused with a message that quotes the path as received, so the model can see what it sent. A path wrapped in quotes, such as `"/plan.pptx"` with the quotes, also gets the hint to remove them. The quotes are not stripped, because a file name may contain quotes.
+
+`create-docx` and `create-pdf` take `markdown`. `create-xlsx` takes `csv`.
+
+For the tool contract, see the [add-on contract reference]({{% relref "/addons/contract-reference/first-party-packages#simple-office" %}}).
 
 ## With the Sandbox
 
-When the Sandbox is installed and isolated commands work, the `docx`, `xlsx`, `pdf` and `pptx` skills give the model Python procedures. You must switch the Sandbox on for the chat, and a saved agent must be granted the add-on. See [Document skills]({{% relref "/features/chats-and-agents/chats#document-skills" %}}). If both add-ons can serve a skill name, the choice in **Settings > Tools** decides. Without a choice, the one installed first serves it.
+When the Sandbox is installed and isolated commands work, the `docx`, `xlsx`, `pdf` and `pptx` skills give the model Python procedures. You must switch the Sandbox on for the chat, and a saved agent must be granted the add-on. See [Document skills]({{% relref "/features/chats-and-agents/chats-skills#document-skills" %}}). If both add-ons can serve a skill name, the choice in **Settings > Tools** decides. Without a choice, the one installed first serves it.
+
+## Which one?
+
+| | Simple Office | Sandbox |
+|---|---|---|
+| What it is | An add-on with document tools | An add-on that runs Python in an isolated runtime |
+| Makes | `.docx` and `.pdf` from Markdown, `.xlsx` from CSV, `.pptx`, and edits files | Any document that a Python library can write |
+| Control over layout | Basic | Full, with the libraries in the guest image |
+| Platform | Linux | See the [Sandbox]({{% relref "/addons/catalogue/work/sandbox" %}}) page |
 
 ## Preview
 

@@ -1,5 +1,7 @@
 package localaitools
 
+import "fmt"
+
 // DTOs of the client tools: the inference operations that any user may run
 // within their own permissions. File arguments are references that the
 // FileStore resolves (a path in the user's files, or a data URL); a file
@@ -349,6 +351,29 @@ const (
 	ActionDelete   = "delete"
 )
 
+// Actions of the projects tool, besides list, create and delete above.
+const (
+	ActionGet            = "get"
+	ActionUpdate         = "update"
+	ActionArchive        = "archive"
+	ActionRestore        = "restore"
+	ActionSetChatProject = "set_chat_project"
+	ActionPull           = "pull"
+	ActionUnpull         = "unpull"
+	ActionAgents         = "agents"
+	ActionConnections    = "connections"
+	ActionTriggers       = "triggers"
+	ActionLoops          = "loops"
+	ActionShared         = "shared"
+	// memory reads the memory of a project, write_memory writes one file of
+	// it, chats lists its chats. shared_get reads a project that someone
+	// shared with its memory (project is its ref).
+	ActionMemory      = "memory"
+	ActionWriteMemory = "write_memory"
+	ActionChats       = "chats"
+	ActionSharedGet   = "shared_get"
+)
+
 // VoiceToolInput is the input of the voice tool. One flat object: the action
 // says which fields count, and the handler checks them.
 type VoiceToolInput struct {
@@ -444,4 +469,188 @@ type ModelList struct {
 	// Hint names the next call when more models remain, and says what to do
 	// when the list is empty.
 	Hint string `json:"hint,omitempty"`
+}
+
+// ProjectsToolInput is the input of the projects tool. One flat object: the
+// action says which fields count, and the handler checks them.
+type ProjectsToolInput struct {
+	Action  string `json:"action"                jsonschema:"Needs: get, agents, connections, triggers, loops, chats, memory, archive, restore, delete, update: project; create: name; set_chat_project, pull, unpull: chat_id, project; write_memory: project, file, content; shared_get: project (a ref from shared)."`
+	Project string `json:"project,omitempty"     jsonschema:"Project id; a ref for shared_get."`
+	Name    string `json:"name,omitempty"`
+	// Description is a pointer so that update can clear it: "" is sent, absent is left alone.
+	Description *string `json:"description,omitempty"`
+	ChatID      string  `json:"chat_id,omitempty"`
+	File        string  `json:"file,omitempty"        jsonschema:"Such as food.md; write_memory."`
+	Content     *string `json:"content,omitempty"     jsonschema:"Whole new text, up to 16 KiB; write_memory."`
+	// Attached is the attached block of the project: the tools its chats and agents get on. It replaces the block, except in a chat, where the entries are added and none is removed.
+	Attached map[string][]string `json:"attached,omitempty"    jsonschema:"create, update: lists skills, addons, connectors, mcp_servers, collections; replaces the block."`
+}
+
+// ProjectAttached is what a project attaches, in the shape of the defaults of
+// the project: five lists of names. Chats and agents of the project get these
+// tools on and granted.
+type ProjectAttached struct {
+	Skills      []string `json:"skills,omitempty"`
+	Addons      []string `json:"addons,omitempty"`
+	Connectors  []string `json:"connectors,omitempty"`
+	MCPServers  []string `json:"mcp_servers,omitempty"`
+	Collections []string `json:"collections,omitempty"`
+}
+
+// ProjectAttachedFromMap reads the attached argument of the tool. A key that
+// is not one of the five lists is an error, so a typo is not dropped.
+func ProjectAttachedFromMap(m map[string][]string) (*ProjectAttached, error) {
+	if m == nil {
+		return nil, nil
+	}
+	var a ProjectAttached
+	for k, v := range m {
+		switch k {
+		case "skills":
+			a.Skills = v
+		case "addons":
+			a.Addons = v
+		case "connectors":
+			a.Connectors = v
+		case "mcp_servers":
+			a.MCPServers = v
+		case "collections":
+			a.Collections = v
+		default:
+			return nil, fmt.Errorf("projects: attached has no list %q (use skills, addons, connectors, mcp_servers, collections)", k)
+		}
+	}
+	return &a, nil
+}
+
+// HoldsCredentials says the block attaches a kind of tool that can hold
+// credentials: a connector, an add-on or an MCP server.
+func (a *ProjectAttached) HoldsCredentials() bool {
+	return a != nil && (len(a.Connectors) > 0 || len(a.Addons) > 0 || len(a.MCPServers) > 0)
+}
+
+// ProjectsRequest is what the client sends for one action of the projects
+// tool. The shared code maps it to the project routes of the acting user.
+type ProjectsRequest struct {
+	Action      string
+	Project     string
+	Name        string
+	Description *string
+	ChatID      string
+	File        string
+	Content     *string
+	Attached    *ProjectAttached
+}
+
+// ProjectInfo is one project as the tool shows it. The defaults of a project
+// (the limit) stay out: they name skills, add-ons and servers the model does
+// not need. What the project attaches is shown, so the model can answer what
+// the project gives its chats.
+type ProjectInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Description string `json:"description,omitempty"`
+	Status      string `json:"status"`
+	ChatCount   int    `json:"chat_count,omitempty"`
+	AgentCount  int    `json:"agent_count,omitempty"`
+	// Attached is what the project attaches.
+	Attached ProjectAttached `json:"attached"`
+}
+
+// SharedProjectInfo is one project of another person that is shared with the
+// caller, as the shared action shows it. ref is what pull takes as project.
+// Never the owner's account, a path or the manifest id.
+type SharedProjectInfo struct {
+	Ref       string `json:"ref"`
+	Name      string `json:"name"`
+	Mode      string `json:"mode"`
+	Status    string `json:"status"`
+	OwnerName string `json:"owner_name"`
+}
+
+// ProjectAgentInfo is one agent of a project as the agents action shows it:
+// a brief row, never the instructions or the lists of the agent.
+type ProjectAgentInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Model       string `json:"model,omitempty"`
+	Unavailable bool   `json:"unavailable,omitempty"`
+	FilesMode   string `json:"files_mode,omitempty"`
+	MemoryWrite bool   `json:"memory_write,omitempty"`
+}
+
+// ProjectConnectionInfo is a messaging connection of a project agent, as the
+// connections action shows it: never a token or a sender list.
+type ProjectConnectionInfo struct {
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	AgentID   string `json:"agent_id"`
+	AgentName string `json:"agent_name,omitempty"`
+	Enabled   bool   `json:"enabled,omitempty"`
+}
+
+// ProjectTriggerInfo is a trigger of a project agent. Next is the next run of
+// a schedule trigger, when it has one.
+type ProjectTriggerInfo struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	AgentName string `json:"agent_name,omitempty"`
+	Schedule  string `json:"schedule,omitempty"`
+	Folder    string `json:"folder,omitempty"`
+	Enabled   bool   `json:"enabled,omitempty"`
+	Next      string `json:"next,omitempty"`
+}
+
+// ProjectLoopInfo is a loop in a chat of a project agent; Prompt is cut short.
+type ProjectLoopInfo struct {
+	ID        string `json:"id"`
+	ChatID    string `json:"chat_id"`
+	ChatTitle string `json:"chat_title,omitempty"`
+	Prompt    string `json:"prompt,omitempty"`
+	State     string `json:"state"`
+}
+
+// ProjectMemoryInfo is the memory of a project: the text of index.md and the
+// names of the topic files next to it. Size and time stay out.
+type ProjectMemoryInfo struct {
+	Index string   `json:"index"`
+	Files []string `json:"files"`
+}
+
+// ProjectChatInfo is one chat of a project as the chats action shows it: a
+// brief row, never a message.
+type ProjectChatInfo struct {
+	ID      string `json:"id"`
+	Title   string `json:"title,omitempty"`
+	AgentID string `json:"agent_id,omitempty"`
+	Updated string `json:"updated,omitempty"`
+}
+
+// ProjectChat is the project part of a chat after set_chat_project, pull or unpull.
+type ProjectChat struct {
+	ID             string   `json:"id"`
+	ProjectID      string   `json:"project_id,omitempty"`
+	PulledProjects []string `json:"pulled_projects,omitempty"`
+}
+
+// ProjectsResult is the answer of the projects tool: the member that fits the
+// action is set.
+type ProjectsResult struct {
+	Projects    []ProjectInfo           `json:"projects,omitempty"`
+	Project     *ProjectInfo            `json:"project,omitempty"`
+	Agents      []ProjectAgentInfo      `json:"agents,omitempty"`
+	Connections []ProjectConnectionInfo `json:"connections,omitempty"`
+	Triggers    []ProjectTriggerInfo    `json:"triggers,omitempty"`
+	Loops       []ProjectLoopInfo       `json:"loops,omitempty"`
+	Shared      []SharedProjectInfo     `json:"shared,omitempty"`
+	SharedOne   *SharedProjectInfo      `json:"shared_project,omitempty"`
+	Memory      *ProjectMemoryInfo      `json:"memory,omitempty"`
+	Chats       []ProjectChatInfo       `json:"chats,omitempty"`
+	Written     string                  `json:"written,omitempty"`
+	Chat        *ProjectChat            `json:"chat,omitempty"`
+	Deleted     bool                    `json:"deleted,omitempty"`
 }

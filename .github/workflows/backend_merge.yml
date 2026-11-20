@@ -173,10 +173,17 @@ jobs:
           # too — clients that resolve a tag to a platform-specific
           # manifest before checking signatures need the per-arch
           # signatures, not just the list-level one.
-          cosign sign --yes --recursive \
-            --new-bundle-format \
-            --registry-referrers-mode=oci-1-1 \
-            "quay.io/go-skynet/local-ai-backends@${digest}"
+          # Keyless signing calls Fulcio and Rekor, which fail now and then
+          # (for example "getting Fulcio signer"). Retry a few times.
+          signed=false
+          for attempt in 1 2 3 4; do
+            cosign sign --yes --recursive \
+              --new-bundle-format \
+              --registry-referrers-mode=oci-1-1 \
+              "quay.io/go-skynet/local-ai-backends@${digest}" && { signed=true; break; }
+            [ "$attempt" = 4 ] || sleep $((attempt * 20))
+          done
+          [ "$signed" = true ] || { echo "::error::cosign sign failed after 4 attempts"; exit 1; }
 
       - name: Create manifest list and push (dockerhub)
         if: github.event_name != 'pull_request'
@@ -200,10 +207,17 @@ jobs:
             .tags | map(select(startswith("localai/"))) | .[0]
           ' <<< "$DOCKER_METADATA_OUTPUT_JSON")
           digest=$(docker buildx imagetools inspect "$first_tag" --format '{{.Manifest.Digest}}')
-          cosign sign --yes --recursive \
-            --new-bundle-format \
-            --registry-referrers-mode=oci-1-1 \
-            "localai/localai-backends@${digest}"
+          # Keyless signing calls Fulcio and Rekor, which fail now and then
+          # (for example "getting Fulcio signer"). Retry a few times.
+          signed=false
+          for attempt in 1 2 3 4; do
+            cosign sign --yes --recursive \
+              --new-bundle-format \
+              --registry-referrers-mode=oci-1-1 \
+              "localai/localai-backends@${digest}" && { signed=true; break; }
+            [ "$attempt" = 4 ] || sleep $((attempt * 20))
+          done
+          [ "$signed" = true ] || { echo "::error::cosign sign failed after 4 attempts"; exit 1; }
 
       - name: Inspect manifest
         if: github.event_name != 'pull_request'

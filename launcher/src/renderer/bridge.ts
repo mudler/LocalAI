@@ -47,7 +47,7 @@ export interface BridgeExtras {
 export const OPTIONAL_API = [
   'getWebui', 'onWebui', 'setShellScreen', 'setOverlay', 'setInsets', 'openWebuiInBrowser', 'connectRemote',
   'backToLocal', 'reloadWebui', 'resetWebuiPermissions',
-  'getWindowSettings', 'setOpenInBrowser',
+  'getWindowSettings', 'setOpenInBrowser', 'setDesktopNotifications',
   'getUpdateInfo', 'setAutoCheck', 'setUpdateChannel', 'backToStable',
   'getServers', 'onServers', 'onOpenSwitcher', 'testServer', 'addServer', 'updateServer', 'removeServer', 'setDefaultServer', 'cancelSwitch', 'retryRemote', 'setKeepLocalRunning',
   'openReleaseNotes', 'getInstallDetails', 'installLauncherUpdate', 'relaunch',

@@ -11,7 +11,7 @@ The model gallery is a curated collection of models configurations for [LocalAI]
 
 To see what the models can do, such as text, speech, images and video, see [What models can do]({{% relref "/models/capabilities" %}}). For engines with their own page, see [Engines]({{% relref "/models/engines" %}}). To fine-tune or quantize a model, see [Train and quantize]({{% relref "/models/training" %}}).
 
-A list of the models available can also be browsed at [the Public LocalAI Gallery](https://models.localai.io).
+You can browse the available models on the **Models** page of the web interface, list them with `local-ai models list`, or read the [gallery index](https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml) on GitHub.
 
 LocalAI to ease out installations of models provide a way to preload models on start and downloading and installing them in runtime. You can install models manually by copying them over the `models` directory, or use the API or the Web interface to configure, download and verify the model assets for you. 
 
@@ -132,7 +132,7 @@ is installed). The tabs are:
   chart. The same tab lists the files the model uses on disk, with their size,
   the other models that use them, and any file the configuration names that is
   not on disk (see [Disk and cleanup](#disk-and-cleanup)). Configuration holds the [Placement]({{% relref "/models/model-configuration" %}}#placement)
-  section. Logs is the backend log viewer of the Operate section.
+  section. Logs is the backend log viewer of the Admin section.
 
 The page reads the same lists as the table, so it works for a model the gallery
 does not list (it has no variants or files tab) and for a gallery model that is
@@ -404,7 +404,7 @@ Query parameters:
 - `filters.<source>.<id>`: the value of a filter that one source declares, for example `filters.example.kind=any`. The `sources` list in the answer gives each source's filters (type, label, values, range). An unknown filter, or a value that does not fit its type, gives a 400 error that names the filter.
 - `sort`: `downloads` (default), `likes`, `updated`, `trending` or `latest`. Only Hugging Face can sort; a source that cannot keeps its own order. `latest` lists the newest models first (Hugging Face sorts by creation date) and is the only sort that works with no `q`. A source that cannot list its newest models is not called: its status says `"unsupported": true` and it has no results. Pirate Face is one of them, because its public pages have no sorted list outside `/api`, which its `robots.txt` disallows.
 
-A source can come from an add-on that provides the `model-search` slot (see [Model search sources]({{% relref "/addons/contract-reference" %}}#model-search-sources)). Every source you can see is on until you turn it off, so a source from a newly installed add-on is searched with no action. `GET /api/models/search/sources` returns the installed sources with their filters and your enabled set. `missing` is always empty and stays in the answer for older clients. `PUT /api/models/search/sources` with `{"enabled": ["huggingface", "<source id>"]}` changes the set at once, with no restart. The server stores what you left out, as the sources you turned off. A source you turned off stays off when its add-on is removed and installed again. An empty set searches nothing. Each status in `providers` has a `title` and a `dropped` count: the rows that the host refused because of an unknown URI scheme or a field over its size cap.
+A source can come from an add-on that provides the `model-search` slot (see [Model search sources]({{% relref "/addons/contract-reference/host-operations#model-search-sources" %}})). Every source you can see is on until you turn it off, so a source from a newly installed add-on is searched with no action. `GET /api/models/search/sources` returns the installed sources with their filters and your enabled set. `missing` is always empty and stays in the answer for older clients. `PUT /api/models/search/sources` with `{"enabled": ["huggingface", "<source id>"]}` changes the set at once, with no restart. The server stores what you left out, as the sources you turned off. A source you turned off stays off when its add-on is removed and installed again. An empty set searches nothing. Each status in `providers` has a `title` and a `dropped` count: the rows that the host refused because of an unknown URI scheme or a field over its size cap.
 
 The endpoint is for administrators, like the import endpoints. Results also say whether an installed model already comes from the repository (`installed`, `installed_name`), the backend an import would likely pick (`backend`, a hint derived from the tags) and whether the repository likely has several quantizations (`has_variants`). Pass the `uri` of a result to `POST /models/import-uri` to install it. A `pirateface://` uri only imports on a LocalAI version that can download over BitTorrent. The server keeps answers for five minutes in memory, so a repeated search does not call the provider again. Hugging Face allows 500 unauthenticated requests per five minutes. Gated models are listed with `gated: true`; you still need access on Hugging Face to download them. The Assistant can run the same search with the `search_models` tool.
 
@@ -611,13 +611,13 @@ The tests in `core/gallery` run the same checks on every entry of the real libra
 
 A gallery entry can declare a `mirrors` list of alternative locations for the same index file. Mirrors exist for availability, not for load balancing: LocalAI always prefers the `url`, and only falls back to the mirrors, in the order you listed them, when the one before it cannot be fetched. If the primary works, the mirrors are never contacted.
 
-Mirrors accept any URI the gallery loader understands — `https://`, `github:`, `huggingface://` (also `hf://` and `hf.co/`), `pirateface://`, `magnet:`, `.torrent` files (see [Download over BitTorrent]({{% relref "/models/setting-up-models" %}}#download-over-bittorrent)), `file://`, and `oci://` — and the same rules apply to them as to a primary URL, so a `file://` mirror must still live inside your models directory.
+Mirrors accept any URI the gallery loader understands (`https://`, `github:`, `huggingface://` (also `hf://` and `hf.co/`), `pirateface://`, `magnet:`, `.torrent` files (see [Download over BitTorrent]({{% relref "/models/setting-up-models" %}}#download-over-bittorrent)), `file://`, and `oci://`) and the same rules apply to them as to a primary URL, so a `file://` mirror must still live inside your models directory.
 
 ```json
 GALLERIES=[{"name":"localai", "url":"https://example.org/gallery/index.yaml", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]
 ```
 
-Each attempt is bounded by a 120 second timeout, and a source that fails — a connection error, a timeout, or an HTTP error status such as 404 or 502 — is skipped for the next 10 minutes so a dead host is not re-dialled on every gallery listing. A source that answers is usable again immediately, and a request you cancel yourself is not counted against it. If every source happens to be inside that 10 minute window, LocalAI tries them all anyway rather than refuse to serve the gallery.
+Each attempt is bounded by a 120 second timeout, and a source that fails (a connection error, a timeout, or an HTTP error status such as 404 or 502) is skipped for the next 10 minutes so a dead host is not re-dialled on every gallery listing. A source that answers is usable again immediately, and a request you cancel yourself is not counted against it. If every source happens to be inside that 10 minute window, LocalAI tries them all anyway rather than refuse to serve the gallery.
 
 {{% callout style="warning" %}}
 **Neither mirrors nor the offline cache cover a `.ref` URL.** If a gallery's `url` ends in `.ref`, that reference file is fetched and resolved to the real index location *before* mirrors or the cached copy are consulted, and a failure to fetch it fails the gallery outright. That includes the offline case: a `.ref` gallery fails when the network is gone even if it has been fetched successfully before. Mirrors are alternates for the index, not for the reference that points at it. If you want mirror coverage or offline listings, point `url` directly at the index file.
@@ -629,13 +629,13 @@ A library source carries the same list. Set it in the **Manage libraries** panel
 
 ## Offline gallery listings
 
-Every successful gallery fetch is written to a cache directory alongside your models directory (`<MODELS_PATH>/../cache/gallery/`), one file per gallery URL. If nothing can serve the index — the primary and every mirror failed, there is no network at all, the host is airgapped — LocalAI serves that last successfully fetched copy instead of failing the listing, and logs a warning saying it did so. This applies to every gallery whose `url` points directly at an index file, with or without `mirrors` — but not to a `.ref` URL, which is resolved before the cache is consulted (see the warning above).
+Every successful gallery fetch is written to a cache directory alongside your models directory (`<MODELS_PATH>/../cache/gallery/`), one file per gallery URL. If nothing can serve the index, the primary and every mirror failed, there is no network at all, the host is airgapped, LocalAI serves that last successfully fetched copy instead of failing the listing, and logs a warning saying it did so. This applies to every gallery whose `url` points directly at an index file, with or without `mirrors`, but not to a `.ref` URL, which is resolved before the cache is consulted (see the warning above).
 
 Only a response that actually parses as a gallery index is stored. A captive portal, a proxy or a CDN can answer an index request with HTTP 200 and an HTML error page; caching that would replace a working offline copy with something no listing can read. An empty index is rejected for the same reason, so the previous copy survives.
 
 Entries served this way may be stale: the copy is only as fresh as the last time the gallery could be reached, so models added or changed upstream since then will not show up, and an entry may point at a file that has since moved. A listing served from disk is a degraded mode, not a substitute for a reachable gallery.
 
-The copy is deliberately kept out of the models directory itself, where LocalAI reads a `.yaml` file as an installed model's configuration. Deleting the cache directory is safe — the next successful fetch recreates it — and a machine that has never reached a gallery has nothing cached, so its first listing still fails.
+The copy is deliberately kept out of the models directory itself, where LocalAI reads a `.yaml` file as an installed model's configuration. Deleting the cache directory is safe (the next successful fetch recreates it) and a machine that has never reached a gallery has nothing cached, so its first listing still fails.
 
 ## Galleries published as OCI artifacts
 
@@ -815,7 +815,7 @@ carries a `variants` list, and installing it normally lets LocalAI choose:
 
 - variants whose backend cannot run on this machine are dropped;
 - variants that do not fit the available memory are dropped. That budget is
-  VRAM on a discrete-GPU host, and system RAM otherwise — including on
+  VRAM on a discrete-GPU host, and system RAM otherwise, including on
   unified-memory machines such as Apple Silicon, where the GPU shares system
   RAM and reports no separate VRAM pool;
 - the entry's own build is never dropped. It competes with whatever survived
@@ -989,12 +989,12 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
    }' 
 ```
 
-An example that installs `qwen3-4b` from the LocalAI gallery:
+An example that installs `gemma-4-e2b-it-qat-q4_0` from the LocalAI gallery:
 
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "id": "localai@qwen3-4b"
+     "id": "localai@gemma-4-e2b-it-qat-q4_0"
    }'
 ```
 
@@ -1082,7 +1082,7 @@ For example, to install a model as `gpt-3.5-turbo`:
 ```bash
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-      "id": "localai@qwen3-4b",
+      "id": "localai@gemma-4-e2b-it-qat-q4_0",
       "name": "gpt-3.5-turbo"
    }' 
 ```

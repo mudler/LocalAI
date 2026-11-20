@@ -80,6 +80,33 @@ var _ = Describe("the roles and permissions of a connector kind", func() {
 		Expect(kind().Grantable(CapFilesUpload)).To(BeFalse(), "not listed by the kind")
 	})
 
+	It("never grants a loop capability to a role, even one the kind lists", func() {
+		// A kind may list them (validation accepts any known name), but they
+		// belong to the binding alone, like the switches of the settings page.
+		kind().Permissions = []string{CapLoopsWait, CapLoopsStart, CapMemoryWrite}
+		Expect(ValidateManifest(m, host())).To(Succeed())
+		Expect(kind().Grantable(CapLoopsWait)).To(BeFalse())
+		Expect(kind().Grantable(CapLoopsStart)).To(BeFalse())
+		Expect(kind().Grantable(CapMemoryWrite)).To(BeTrue())
+		Expect(BindingOnlyCapability(CapLoopsWait)).To(BeTrue())
+		Expect(BindingOnlyCapability(CapLoopsStart)).To(BeTrue())
+		Expect(BindingOnlyCapability(CapMemoryWrite)).To(BeFalse())
+	})
+
+	It("marks the loop capabilities binding-only, keeps waits usual and timers sensitive", func() {
+		for _, c := range ConnectorCapabilities() {
+			Expect(c.BindingOnly).To(Equal(BindingOnlyCapability(c.Name)), c.Name)
+			switch c.Name {
+			case CapLoopsWait:
+				Expect([]bool{c.Usual, c.Sensitive}).To(Equal([]bool{true, false}))
+				Expect(c.Description).To(ContainSubstring("command"), "the text says that a wait on a command needs a verified person")
+			case CapLoopsStart:
+				Expect([]bool{c.Usual, c.Sensitive}).To(Equal([]bool{false, true}))
+				Expect(c.Description).To(ContainSubstring("fifth"), "the text says how much sooner the loop ends")
+			}
+		}
+	})
+
 	It("keeps only declared, distinct roles of a message", func() {
 		kind().Roles = []ConnectorRole{{ID: "admin", Title: "Admin"}}
 		Expect(kind().FilterRoles([]string{"admin", "root", "admin"})).To(Equal([]string{"admin"}))

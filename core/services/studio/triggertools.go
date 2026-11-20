@@ -81,7 +81,12 @@ const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites, such as data/inbox.json."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$","description":"The id of the Home widget in home.json that shows the file."},` +
 	`"acts":{"type":"array","maxItems":8,"items":{"type":"string","enum":["act.files","act.addons","act.send","act.spend"]},"description":"What a run may do when nobody is present: act.files writes files in the agent's folders, act.addons uses the actions of its add-ons, act.send sends messages beyond the delivery target, act.spend uses paid or external tools and the network. Leave it out for a run that only reads and reports. Only what your agent holds; the person sees the list on the proposal before they confirm, and nothing can widen it afterwards."},` +
-	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000,"description":"About how many tokens one run uses, prompt and answer."}},` +
+	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000,"description":"About how many tokens one run uses, prompt and answer."},` +
+	`"delivery":{"type":"object","description":"Where the answer of each run goes. Default: the user's Inbox. Leave it out unless the user asks for the answer in a messaging connection.","properties":{` +
+	`"target":{"type":"string","enum":["inbox","channel"],"description":"inbox: the user's Inbox. channel: a channel of a connection, at the top and not in a thread; needs connection and channel."},` +
+	`"connection":{"type":"string","description":"With target channel: the id of a connection from list_connections that can receive reports."},` +
+	`"channel":{"type":"string","description":"With target channel: the name or the id of one of the approved channels of that connection."},` +
+	`"mode":{"type":"string","enum":["always","on_change","on_problem"],"description":"always: every run. on_change: only when the answer differs from the run before. on_problem: only when a run fails."}}}},` +
 	`"required":["name","prompt","when"]}`
 
 // proposeTriggerConnectorSchema is the schema of propose_trigger in a chat of
@@ -139,7 +144,7 @@ const updateTriggerDescription = "Change a trigger of the user, named by its ref
 	"A change that only pauses or resumes applies at once, and the user can undo it on the card in the chat: then say that it is paused or resumed. " +
 	"Any other change does nothing by itself: a card shows the user the fields before and after, and nothing changes until they press Apply, so never say that the change is made until they do. " +
 	"This holds for acts and delivery too: a change that widens acts, or moves the answers to another place, is applied only when the user presses Apply on the card. " +
-	"acts is the whole list that the trigger should have, within what the agent holds; delivery is only for a trigger that was proposed in a messaging app. " +
+	"acts is the whole list that the trigger should have, within what the agent holds; delivery moves the answers to a channel of a connection (from list_connections) or back to the Inbox. " +
 	"The same rules as propose_trigger apply: the prompt must stand alone and must not ask the run to print JSON; when is a schedule text or {\"file_arrives_in\": folder}; a schedule runs at most once every 5 minutes, and writes is a path inside the user's files. " + triggerFilesNote
 
 const updateTriggerSchema = `{"type":"object","properties":{` +
@@ -159,8 +164,9 @@ const updateTriggerSchema = `{"type":"object","properties":{` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$"},` +
 	`"acts":{"type":"array","maxItems":8,"items":{"type":"string","enum":["act.files","act.addons","act.send","act.spend"]},"description":"The full list of what a run may do when nobody is present; it replaces the list the trigger has, and [] takes every act away. Only what the agent holds, and for a trigger from a messaging app only what the owner allows for that connection. The change waits for the person on the card."},` +
-	`"delivery":{"type":"object","description":"Where the answer of each run goes. Only for a trigger that was proposed in a messaging app.","properties":{` +
-	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in the chat and thread where the trigger was proposed, inbox in the owner's Inbox, channel in an approved channel itself, at the top and not in a thread."},` +
+	`"delivery":{"type":"object","description":"Where the answer of each run goes.","properties":{` +
+	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in the chat and thread where a messaging app proposed the trigger, inbox in the owner's Inbox, channel in an approved channel itself, at the top and not in a thread."},` +
+	`"connection":{"type":"string","description":"In a chat in Studio, with target channel: the id of a connection from list_connections that can receive reports."},` +
 	`"channel":{"type":"string","description":"With target channel: the name or the ID of one of the approved channels."},` +
 	`"mode":{"type":"string","enum":["always","on_change","on_problem"],"description":"always: every run. on_change: only when the answer differs from the run before. on_problem: only when a run fails."}}},` +
 	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000}},` +
@@ -172,7 +178,7 @@ const deleteTriggerDescription = "Ask to delete a trigger of the user, named by 
 
 const deleteTriggerSchema = `{"type":"object","properties":{"ref":{"type":"string","minLength":1,"description":"The ref of the trigger, from list_triggers."}},"required":["ref"]}`
 
-// registerTriggerTools adds the four trigger tools to the registry of built-in
+// registerTriggerTools adds the five trigger tools to the registry of built-in
 // tools, as one switch group: a chat started by a person has them until it
 // switches the group off. A run that a trigger or a connector started never
 // gets them, and neither does a sub-agent. The operator's start-up switch
@@ -209,6 +215,12 @@ func (s *Service) registerTriggerTools() error {
 					return h.deleteTool(ctx, a, c, raw)
 				}
 			}},
+		{listConnectionsName, "List connections", listConnectionsDescription, listConnectionsSchema, true,
+			func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
+				return func(ctx context.Context, _ json.RawMessage) (string, error) {
+					return h.listConnectionsTool(ctx, c)
+				}
+			}},
 	}
 	for _, d := range defs {
 		err := s.builtins.Register(builtins.Tool{
@@ -231,6 +243,16 @@ func (s *Service) registerTriggerTools() error {
 					return session.Tool{}, false, err.Error()
 				}
 				desc, schema := d.desc, d.schema
+				if d.id == listConnectionsName {
+					// It is for the owner in Studio: a chat of a messaging app is open
+					// to more people and never sees the other connections.
+					switch {
+					case connector:
+						return session.Tool{}, false, "connections are listed only in a chat in Studio"
+					case s.connectors == nil:
+						return session.Tool{}, false, "connections to messaging apps are off on this server"
+					}
+				}
 				if connector {
 					// A chat of a messaging app proposes and lists. A change or a
 					// delete follows the approval of the connection (see
@@ -266,7 +288,7 @@ func (s *Service) registerTriggerTools() error {
 						desc += h.updateChannelsNote(ctx, c)
 					}
 					if d.id == proposeTriggerName || d.id == updateTriggerName {
-						desc += h.todayNote(ctx, c.Actor.Principal)
+						desc += h.destinationNote(ctx) + h.todayNote(ctx, c.Actor.Principal)
 					}
 				}
 				return session.Tool{Description: desc, Schema: json.RawMessage(schema), Run: s.tracedTriggerRun(d.id, c, d.run(h, c.Actor, c))}, true, ""
@@ -460,6 +482,8 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 			Target  string `json:"target"`
 			Mode    string `json:"mode"`
 			Channel string `json:"channel"`
+			// Connection is for a chat in Studio only.
+			Connection string `json:"connection"`
 		} `json:"delivery"`
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
@@ -501,6 +525,9 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 			return "", err
 		}
 		if d := args.Delivery; d != nil {
+			if d.Connection != "" {
+				return "", errors.New("delivery.connection is for a chat in Studio; here delivery goes through this connection")
+			}
 			in.Route.Target, in.Route.Mode = d.Target, d.Mode
 			if d.Target == triggers.TargetChannel {
 				id, err := h.checkChannelTarget(ctx, c, d.Channel)
@@ -524,8 +551,12 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 				in.Route.Target = triggers.TargetOrigin
 			}
 		}
-	} else if args.Delivery != nil {
-		return "", errors.New("delivery is for a chat in a messaging app; the answer of a run goes to the Inbox")
+	} else if d := args.Delivery; d != nil {
+		// A chat in Studio may name a connection of the owner; every check of a
+		// channel runs now, while the person is there to hear the reason.
+		if in.Route, err = h.checkStudioDelivery(ctx, c, studioDeliveryArgs{Target: d.Target, Connection: d.Connection, Channel: d.Channel, Mode: d.Mode}); err != nil {
+			return "", err
+		}
 	}
 	var dropped DroppedActs
 	var may []string
@@ -691,6 +722,8 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins
 			Target  string `json:"target"`
 			Mode    string `json:"mode"`
 			Channel string `json:"channel"`
+			// Connection is for a chat in Studio only.
+			Connection string `json:"connection"`
 		} `json:"delivery"`
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
@@ -725,7 +758,7 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, c builtins
 		p.Acts = &acts
 	}
 	if d := args.Delivery; d != nil {
-		if p.Delivery, err = h.checkChangedDelivery(ctx, c, target, d.Target, d.Mode, d.Channel); err != nil {
+		if p.Delivery, err = h.checkChangedDelivery(ctx, c, target, d.Target, d.Mode, d.Channel, d.Connection); err != nil {
 			return "", toolErr(err)
 		}
 	}

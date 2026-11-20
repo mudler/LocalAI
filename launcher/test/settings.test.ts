@@ -72,7 +72,12 @@ describe('server launch', () => {
     const l = buildServerLaunch(c, '/d', { PATH: '/usr/bin', APPIMAGE: '/x.AppImage', ELECTRON_RUN_AS_NODE: '1', LD_LIBRARY_PATH: '/tmp/.mount/usr/lib' }, undefined, {
       env: { LOCALAI_THREADS: '4' },
     })
-    expect(l.env).toEqual({ PATH: '/usr/bin', LOCALAI_THREADS: '4' })
+    expect(l.env).toEqual({ PATH: '/usr/bin', LOCALAI_THREADS: '4', LOCALAI_BASE_PATH: '/d' })
+  })
+
+  it('sets the server base folder to the data folder, over an inherited or user value', () => {
+    const l = buildServerLaunch(c, '/d', { LOCALAI_BASE_PATH: '/elsewhere' }, undefined, { env: { LOCALAI_BASE_PATH: '/user' } })
+    expect(l.env.LOCALAI_BASE_PATH).toBe('/d')
   })
 
   it('reaches a wildcard address on the loopback address', () => {

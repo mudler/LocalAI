@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
@@ -48,19 +47,30 @@ func findLLamaCPPBackend(galleries string, systemState *system.SystemState, requ
 			xlog.Error("llama-cpp backend not found, failed to install it", "error", err)
 			return "", err
 		}
+		// List again: the entry read before the install is empty, and its
+		// directory would resolve to the current directory.
+		backends, err = gallery.ListSystemBackends(systemState)
+		if err != nil {
+			return "", err
+		}
+		if backend, ok = backends.Get(llamaCPPGalleryName); !ok {
+			return "", errors.New("llama-cpp backend not found after install")
+		}
 	}
-	backendPath := filepath.Dir(backend.RunFile)
+	return llamaCPPRPCServerPath(backend.RunFile)
+}
 
-	if backendPath == "" {
+// llamaCPPRPCServerPath returns the RPC server executable next to the run
+// file of the llama-cpp backend. On Windows the file has the .exe suffix.
+func llamaCPPRPCServerPath(runFile string) (string, error) {
+	if runFile == "" {
 		return "", errors.New("llama-cpp backend not found, install it first")
 	}
-
-	grpcProcess := filepath.Join(
-		backendPath,
-		llamaCPPRPCBinaryName,
-	)
-
-	return grpcProcess, nil
+	rpcServer := filepath.Join(filepath.Dir(runFile), hostExecutableName(llamaCPPRPCBinaryName))
+	if _, err := os.Stat(rpcServer); err != nil {
+		return "", fmt.Errorf("the installed llama-cpp backend has no %s: install a llama-cpp build that includes the RPC server: %w", filepath.Base(rpcServer), err)
+	}
+	return rpcServer, nil
 }
 
 func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
@@ -82,12 +92,7 @@ func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	args := strings.Split(r.ExtraLLamaCPPArgs, " ")
+	args := append([]string{grpcProcess}, strings.Fields(r.ExtraLLamaCPPArgs)...)
 
-	args = append([]string{grpcProcess}, args...)
-
-	return syscall.Exec(
-		grpcProcess,
-		args,
-		os.Environ())
+	return execBackend(grpcProcess, args, os.Environ())
 }

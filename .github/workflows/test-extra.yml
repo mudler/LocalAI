@@ -9,6 +9,13 @@ name: 'Tests extras backends'
 
 on:
   pull_request:
+    # No backend test reads these paths, so a pull request confined to them
+    # has nothing to test.
+    paths-ignore:
+      - 'docs/**'
+      - 'website/**'
+      - 'examples/**'
+      - '**/*.md'
   push:
     branches:
       - master

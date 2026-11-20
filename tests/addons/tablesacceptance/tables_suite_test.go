@@ -1,3 +1,5 @@
+//go:build !windows
+
 // SPDX-License-Identifier: MIT
 
 // Package tablesacceptance_test is the end-to-end acceptance of the Tables

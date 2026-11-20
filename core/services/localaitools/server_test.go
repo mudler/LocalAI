@@ -104,7 +104,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListFailoverChains,
 	// The read-only flavour keeps the client tools that only analyse or list.
 	ToolTranscribeAudio, ToolDescribeImage, ToolDetect, ToolRerank,
-	ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels,
+	ToolVoice, ToolFace, ToolVoiceProfile, ToolListModels, ToolProjects,
 )
 
 // clientWriterTools are the client tools the read-only flavour leaves out: they

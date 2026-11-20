@@ -30,6 +30,13 @@ type loopRow struct {
 	LastRun    time.Time
 	// WatchJSON is the state of a wait (Loop.Watch); empty for a loop.
 	WatchJSON string `gorm:"type:text"`
+	// ReportJSON is the destination of the report of a loop (Loop.Report);
+	// empty for a loop that reports nowhere.
+	ReportJSON string `gorm:"type:text"`
+	// GrantJSON is the list of capabilities that the arming sender held
+	// (Loop.Grant); empty for a loop with no grant and for rows written
+	// before the column existed (AutoMigrate adds it as NULL).
+	GrantJSON string `gorm:"type:text"`
 	// Rev is bumped by Update; the bump takes the row lock, so a second
 	// frontend's change waits for the first and then reads what it wrote.
 	Rev int64
@@ -80,6 +87,16 @@ func utc(t time.Time) time.Time {
 
 func toRow(l Loop) loopRow {
 	r := toRowBase(l)
+	if l.Report != nil {
+		if raw, err := json.Marshal(l.Report); err == nil {
+			r.ReportJSON = string(raw)
+		}
+	}
+	if len(l.Grant) > 0 {
+		if raw, err := json.Marshal(l.Grant); err == nil {
+			r.GrantJSON = string(raw)
+		}
+	}
 	if l.Watch != nil {
 		if raw, err := json.Marshal(l.Watch); err == nil {
 			r.WatchJSON = string(raw)
@@ -97,6 +114,18 @@ func toRowBase(l Loop) loopRow {
 
 func (r loopRow) loop() Loop {
 	l := r.loopBase()
+	if r.ReportJSON != "" {
+		var rep Report
+		if json.Unmarshal([]byte(r.ReportJSON), &rep) == nil {
+			l.Report = &rep
+		}
+	}
+	if r.GrantJSON != "" {
+		var g []string
+		if json.Unmarshal([]byte(r.GrantJSON), &g) == nil {
+			l.Grant = g
+		}
+	}
 	if r.WatchJSON != "" {
 		var w Watch
 		if json.Unmarshal([]byte(r.WatchJSON), &w) == nil {

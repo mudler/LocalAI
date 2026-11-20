@@ -3,7 +3,7 @@ import { useCallback, useContext, useEffect, useId, useMemo, useState } from 're
 import { Link } from 'react-router-dom'
 import { agentCollectionsApi, chatChangesApi, filesApi } from '../../utils/api'
 import {
-  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isVoiceProfile, KNOWN_KINDS, KNOWN_SCOPES, previewLines, scopeOfProposal, sourceOfProposal,
+  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, estimatePassages, KNOWLEDGE_MAX_BYTES, knowledgeEntryText, isVoiceProfile, KNOWN_KINDS, KNOWN_SCOPES, previewLines, proposalProject, proposalProposer, scopeOfProposal, sourceOfProposal,
   targetPath, timeLeft, voiceProfileFields, writesElsewhere,
 } from '../../utils/changeProposal'
 import { diffLines, diffStats, withContext } from '../../utils/lineDiff'
@@ -193,7 +193,10 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
     // A 409 means the proposal moved on (stale, expired, answered elsewhere):
     // the card then says so in its own words. Any other failure leaves the
     // proposal waiting, with the reason; a write that failed is one of them.
-    if (failure && !(failure.status === 409 && v.kind !== 'pending' && v.kind !== 'applied')) {
+    // A proposal from another person that was voided (they can no longer edit
+    // the project) keeps the server's words under its receipt.
+    const fromOther = failure?.status === 409 && proposalProposer(v.proposal) !== ''
+    if (failure && (fromOther || !(failure.status === 409 && v.kind !== 'pending' && v.kind !== 'applied'))) {
       const reason = failure.message.replace(/^studio: /, '').replace(/[.\s]+$/, '')
       setError(failure.status === 409 ? reason : t('changes.failed', { message: reason }))
     }
@@ -219,6 +222,10 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
 
   const p = view.proposal
   const target = p.target || ''
+  // The person who proposed it, for a note another person made for this
+  // person's project (a display name, never an account).
+  const proposer = proposalProposer(p)
+  const projectName = proposalProject(p)
   const voice = isVoiceProfile(p)
   const knowledge = writesElsewhere(p) && !voice
   // A knowledge change belongs to the person and names a collection, not a file.
@@ -229,6 +236,10 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
     ['kind', t('changes.row.kind'), kindName(p, t)],
     ['target', t('changes.row.collection'), <code key="c">{target}</code>],
     ['source', t('changes.row.source'), sourceName(p, t)],
+  ] : proposer ? [
+    ['kind', t('changes.row.kind'), `${kindName(p, t)} · ${scopeName(p, t)}`],
+    ['target', t('changes.row.target'), <code key="c">{target}</code>],
+    ['source', t('changes.row.proposedBy'), t('changes.fromOther.by', { name: proposer })],
   ] : [
     ['kind', t('changes.row.kind'), `${kindName(p, t)} · ${scopeName(p, t)}`],
     ['target', t('changes.row.target'), <code key="c">{target}</code>],
@@ -258,12 +269,19 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
   if (view.kind !== 'pending') {
     // Quiet receipts: reverted, dismissed, expired and stale. The last two
     // offer to ask the assistant again, where there is a chat to ask.
-    const again = (view.kind === 'expired' || view.kind === 'stale') && sendToChat
+    // The assistant of another person cannot be asked from here, so a note
+    // from another person has no Ask again.
+    const again = (view.kind === 'expired' || view.kind === 'stale') && sendToChat && !proposer
+    const voided = view.kind === 'stale' && proposer !== ''
     return wrap(
       <div className="cx-receipt cx-receipt--quiet" data-testid={tid} data-state={view.kind} data-kind={p.kind}>
         <div className="cx-receipt__main">
-          <p className="cx-receipt__line"><b>{t(`changes.receipt.${view.kind}`)}</b> <span data-testid="change-summary">{p.summary}</span></p>
-          {(view.kind === 'expired' || view.kind === 'stale') && <p className="cx-help" data-testid="change-why">{t(`changes.why.${view.kind}`)}</p>}
+          <p className="cx-receipt__line">
+            <b>{t(`changes.receipt.${view.kind}`)}</b>{' '}
+            {voided && <span data-testid="change-voided">{t('changes.fromOther.voided', { name: proposer })}{' '}</span>}
+            <span data-testid="change-summary">{voided ? t('changes.fromOther.noteFor', { project: projectName || t('changes.fromOther.thisProject') }) : p.summary}</span>
+          </p>
+          {(view.kind === 'expired' || view.kind === 'stale') && <p className="cx-help" data-testid="change-why">{t(voided ? 'changes.fromOther.why' : `changes.why.${view.kind}`)}</p>}
           {alert}
         </div>
         {again && (
@@ -282,10 +300,11 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
   return wrap(
     <div className="cx-proposal cp-card" data-testid={tid} data-state="pending" data-kind={p.kind} aria-labelledby={`${uid}-h`}>
       <div className="cx-proposal__head">
-        <b id={`${uid}-h`} data-testid="change-summary">{p.summary}</b>
+        <b id={`${uid}-h`} data-testid="change-summary" title={proposer && !p.project ? t('changes.fromOther.nameHint') : undefined}>{proposer ? t(projectName ? 'changes.fromOther.title' : 'changes.fromOther.titleNoProject', { name: proposer, project: projectName }) : p.summary}</b>
       </div>
-      <p className="cx-help">{t('changes.help')}</p>
+      <p className="cx-help">{proposer ? t('changes.fromOther.help', { name: proposer }) : t('changes.help')}</p>
       <dl className="cx-plan" data-testid="change-rows">
+        {proposer && p.summary && <div className="cx-plan__row" data-row="note"><dt>{t('changes.row.note')}</dt><dd data-testid="change-note">{p.summary}</dd></div>}
         {meta.map(([key, label, value]) => (
           <div className="cx-plan__row" key={key} data-row={key}><dt>{label}</dt><dd>{value}</dd></div>
         ))}

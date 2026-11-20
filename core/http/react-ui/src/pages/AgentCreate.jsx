@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 // eslint-disable-next-line no-unused-vars
-import { Link, useParams, useNavigate, useLocation, useOutletContext } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { agentCollectionsApi, chatAgentsApi } from '../utils/api'
+import { agentCollectionsApi, chatAgentsApi, chatProjectsApi } from '../utils/api'
 import { useAgentTools } from '../hooks/useAgentTools'
 import { useModels } from '../hooks/useModels'
 import { useToolGroups } from '../hooks/useToolGroups'
@@ -11,7 +11,8 @@ import { useMemorySettings } from '../hooks/useMemorySettings'
 import { useAgentAccess } from '../hooks/useAgentAccess'
 import { effectiveLines, flatRows, blockedCount } from '../utils/agentEffective'
 import { diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { agentPayload, emptyAgent, filesChoiceOf, folderRows, folderState, foldersUnchosen, memoryChoiceOf, memoryLevelOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice, withMemoryLevel } from '../utils/chatAgents'
+import { addEntry, agentPayload, emptyAgent, filesChoiceOf, folderRows, folderState, foldersUnchosen, memoryChoiceOf, memoryLevelOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, removeEntry, withMemoryChoice, withMemoryLevel } from '../utils/chatAgents'
+import { ceilingOf, filesModeOf, limitedTools, projectAgentFolders, unavailableReason } from '../utils/projectAgents'
 import { snapshot } from '../utils/agentPresets'
 import { addonNow, memorySkillsState } from '../utils/agentUses'
 import { modelCaps } from '../utils/modelCaps'
@@ -48,8 +49,19 @@ import AgentUsesPanel from '../components/agents/AgentUsesPanel'
 // eslint-disable-next-line no-unused-vars
 import AgentFiles from '../components/agents/AgentFiles'
 // eslint-disable-next-line no-unused-vars
+import AgentProjectFiles from '../components/agents/AgentProjectFiles'
+// eslint-disable-next-line no-unused-vars
+import { Chip } from '../components/agents/AgentBits'
+// eslint-disable-next-line no-unused-vars
+import { SwitchRow } from '../components/chat/SwitchList'
+// eslint-disable-next-line no-unused-vars
 import AgentWizard from './AgentWizard'
 import { useAgentAbilities } from '../hooks/useAgentAbilities'
+import { useActiveProjects } from '../hooks/useActiveProjects'
+// eslint-disable-next-line no-unused-vars
+import AgentProjectField from '../components/agents/AgentProjectField'
+// eslint-disable-next-line no-unused-vars
+import AgentMoveDialog from '../components/agents/AgentMoveDialog'
 // eslint-disable-next-line no-unused-vars
 import AgentMemorySkills, { memorySkillFrom } from '../components/agents/AgentMemorySkills'
 // eslint-disable-next-line no-unused-vars
@@ -93,7 +105,10 @@ const SUMMARY_FIELDS = {
 export default function AgentCreate() {
   const { id } = useParams()
   const location = useLocation()
-  if (!id && !location.state?.importedConfig) return <AgentWizard />
+  const [search] = useSearchParams()
+  // An agent made from a project opens the full editor, where its two fixed
+  // folders and the project's tool limits are drawn.
+  if (!id && !location.state?.importedConfig && !search.get('project')) return <AgentWizard />
   return <AgentEditor />
 }
 
@@ -106,6 +121,23 @@ function AgentEditor() {
   const { t } = useTranslation(['agents', 'library', 'chats', 'home'])
   const isEdit = !!id
   const imported = location.state?.importedConfig || null
+  const [search] = useSearchParams()
+  // The project of the agent: from the address on create, from the saved
+  // agent on edit. The project is read with the agent; one that is gone
+  // leaves projectGone set, and the agent paused.
+  const [projectId, setProjectId] = useState(isEdit ? '' : (search.get('project') || ''))
+  const [project, setProject] = useState(null)
+  const [projectGone, setProjectGone] = useState(false)
+  // The server's flag for the saved agent: its project folders were replaced.
+  const [foldersChanged, setFoldersChanged] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
+  const projectAgent = Boolean(projectId)
+  // The Project field: the list of projects, and the move dialog of a saved
+  // agent. moveTo is the project the person picked ('' for none) while it
+  // differs from the agent's own; null when nothing is picked.
+  const projectsList = useActiveProjects()
+  const [moveTo, setMoveTo] = useState(null)
+  const [moving, setMoving] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -143,12 +175,31 @@ function AgentEditor() {
         // A new agent starts with the default choice of notes. An agent that
         // is read or imported keeps what it has: none means "as before".
         let initialForm = newAgent()
+        let pid = isEdit ? '' : (search.get('project') || '')
         if (isEdit) {
           const agent = await chatAgentsApi.get(id)
           initialForm = { ...emptyAgent(), ...agent, memory: memoryChoiceOf(agent), memory_save: memorySaveOf(agent), folders: folderRows(agent) }
           setSavedConfig(agent)
+          if (agent.project_id) { pid = agent.project_id; setProjectId(pid) }
         } else if (imported) {
           initialForm = { ...emptyAgent(), ...imported.agent, memory: memoryChoiceOf(imported.agent), memory_save: memorySaveOf(imported.agent), folders: folderRows(imported.agent) }
+        }
+        if (pid) {
+          let p = null
+          try {
+            p = await chatProjectsApi.get(pid)
+            setProjectGone(false)
+          } catch (err) {
+            // A saved agent whose project is gone still opens, paused.
+            if (!(isEdit && err?.status === 404)) throw err
+            setProjectGone(true)
+          }
+          setProject(p)
+          initialForm = { ...initialForm, project_files_mode: isEdit ? filesModeOf(initialForm) : 'write' }
+          if (isEdit && p?.status === 'active') {
+            const rows = await chatProjectsApi.agents(pid).then(r => r.agents || []).catch(() => [])
+            setFoldersChanged(Boolean(rows.find(r => r.id === id)?.unavailable))
+          }
         }
         initialFormRef.current = initialForm
         setForm(initialForm)
@@ -161,13 +212,24 @@ function AgentEditor() {
       }
     }
     init()
-  }, [id, isEdit, imported, attempt])
+  }, [id, isEdit, imported, attempt, search])
 
   const updateField = useCallback((name, value) => setForm(prev => ({ ...prev, [name]: value })), [])
 
+  // A new agent takes the project of the field: the project is read for the
+  // folders and the limits, and the files mode starts at write.
+  const pickNewProject = useCallback((pid, picked) => {
+    setProjectId(pid)
+    setProjectGone(false)
+    updateField('project_files_mode', 'write')
+    if (!pid) { setProject(null); return }
+    setProject(picked || null)
+    chatProjectsApi.get(pid).then(setProject).catch(() => {})
+  }, [updateField])
+
   // The Tools and Skills lists are the ones the Tools menu of a chat draws
   // (SwitchPanel), with the agent's grants and switches applied to them.
-  const tools = useAgentTools(form, updateField)
+  const tools = useAgentTools(form, updateField, project)
   // The person's own memory switch, read only here: an agent cannot widen it.
   const memoryUser = useMemorySettings()
   const toolGroups = useToolGroups(tools, { commandState: false, forAgent: true })
@@ -179,12 +241,27 @@ function AgentEditor() {
   // The folders as saved: a save sends `folders` only when the form changed
   // them, so untouched folders are kept, also a missing one.
   const initialFolders = useMemo(() => (isEdit ? folderRows(savedConfig) : []), [isEdit, savedConfig])
-  const ab = useAgentAbilities({ form, setForm, updateField, tools, initialFolders })
+  const ab = useAgentAbilities({ form, setForm, updateField, tools, initialFolders, project })
   const { applied, setApplied, undoApplied, filesChoice } = ab
-  const payload = useMemo(() => agentPayload(form, { initialFolders }), [form, initialFolders])
+  // A project agent never sends folders of its own. The server fills the two
+  // project folders on create (files at write) and keeps them on a save, so
+  // `folders` is sent only as those two roots, and only for a files mode that
+  // differs from the stored one. `project_id` goes on create only.
+  const storedMode = isEdit ? filesModeOf(savedConfig) : 'write'
+  const buildPayload = useCallback((f) => {
+    if (!projectAgent) return agentPayload(f, { initialFolders })
+    const body = agentPayload(f)
+    const folders = project ? projectAgentFolders(project, f.project_files_mode || 'write', storedMode) : undefined
+    if (folders) body.folders = folders
+    if (!isEdit) body.project_id = projectId
+    return body
+  }, [projectAgent, project, projectId, isEdit, storedMode, initialFolders])
+  const payload = useMemo(() => buildPayload(form), [form, buildPayload])
+  const limits = useMemo(() => limitedTools(project, {}).limited, [project])
+  const pausedReason = isEdit && projectAgent ? unavailableReason(project, foldersChanged, projectGone) : ''
   // A folder row was added or changed and has no folder chosen.
   // With No files the rows do not count: the server ignores them.
-  const folderUnchosen = filesChoiceOf(form) !== 'none' && foldersUnchosen(initialFolders, form.folders)
+  const folderUnchosen = !projectAgent && filesChoiceOf(form) !== 'none' && foldersUnchosen(initialFolders, form.folders)
 
   // Adding the first grant to an agent that had none turns off what it did
   // by default on its messaging connections. Say so, and offer the fix.
@@ -196,6 +273,22 @@ function AgentEditor() {
     if (!el) return
     el.scrollIntoView({ block: 'center' })
     el.focus({ preventScroll: true })
+  }
+
+  // Saves the agent again with no folder list and no project: the server then
+  // links the two folders of the project again.
+  const reconnect = async () => {
+    setReconnecting(true)
+    try {
+      await chatAgentsApi.update(id, agentPayload(savedConfig))
+      addToast(t('project.reconnected', { name: savedConfig.name }), 'success')
+      setLoading(true)
+      setAttempt(n => n + 1)
+    } catch (err) {
+      addToast(t('project.reconnectFailed', { message: err.message }), 'error')
+    } finally {
+      setReconnecting(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -290,7 +383,7 @@ function AgentEditor() {
   }
 
   const dirty = initialFormRef.current != null &&
-    (JSON.stringify(payload) !== JSON.stringify(agentPayload(initialFormRef.current)) || folderUnchosen)
+    (JSON.stringify(payload) !== JSON.stringify(projectAgent ? buildPayload(initialFormRef.current) : agentPayload(initialFormRef.current)) || folderUnchosen)
 
   const leave = () => navigate(isEdit ? `/app/agents/${encodeURIComponent(id)}` : '/app/agents')
 
@@ -359,6 +452,7 @@ function AgentEditor() {
   // What the Files fold says when closed, and whether it needs the person.
   function folderFold() {
     const rows = form.folders || []
+    if (projectAgent) return { summary: t(form.project_files_mode === 'read' ? 'project.readOnly' : 'project.canEdit'), state: 'ready' }
     if (filesChoice === 'none') return { summary: t('folder.none'), state: 'ready' }
     if (!rows.length) return { summary: t('folder.all'), state: 'ready' }
     const open = rows.find(r => !r.path)
@@ -480,6 +574,20 @@ function AgentEditor() {
           </AgentMemoryChoice>
         )
       case 'MemorySettings':
+        if (limits.collections) {
+          return (
+            <>
+              <p className="ag-note">{t('create.collectionsHelp')}</p>
+              <LimitNote t={t} />
+              <div className="ag-switches" data-testid="agent-collections">
+                {ceilingOf(project, 'collections').map(name => (
+                  <SwitchRow key={name} name={name} checked={form.collections.includes(name)} testId="agent-collection-row"
+                    onChange={(on) => updateField('collections', on ? addEntry(form.collections, name) : removeEntry(form.collections, name))} />
+                ))}
+              </div>
+            </>
+          )
+        }
         return (
           <>
             <p className="ag-note">{t('create.collectionsHelp')}</p>
@@ -491,6 +599,7 @@ function AgentEditor() {
         return (
           <>
             <p className="ag-note">{t('create.skillsHelp')}</p>
+            {limits.skills && <LimitNote t={t} />}
             <div className="ag-switches" data-testid="agent-skills-panel">
               <SkillsPanel
  skills={allSkillRowsShown} replaced={tools.replacedSkills} onSet={tools.setSkillsOn} error={tools.skillsError}
@@ -513,6 +622,7 @@ function AgentEditor() {
               <>
                 <AppliedNotice applied={applied?.kind === 'preset' ? applied : null} onUndo={undoApplied} onKeep={() => setApplied(null)} testId="agent-preset-applied" />
                 <p className="ag-note">{t('create.toolsHelp')}</p>
+                {(limits.addons || limits.mcp_servers || limits.connectors) && <LimitNote t={t} />}
                 {memoryUser.settings && memoryUser.settings.enabled === false && (
                   <Callout tone="info" icon="eye-off" testId="agent-memory-off">
                     {t('create.memoryOffUser')}{' '}<Link className="cs-link" to="/app/account?tab=memory">{t('create.memoryOffFix')}</Link>
@@ -532,12 +642,14 @@ function AgentEditor() {
           />
         )
       case 'Files':
+        if (projectAgent) return <AgentProjectFiles project={project} mode={form.project_files_mode} onMode={(m) => updateField('project_files_mode', m)} />
         return <AgentFiles form={form} updateField={updateField} abilities={ab} savedConfig={savedConfig} isEdit={isEdit} />
       case 'export':
         return (
           <>
-            <p className="ag-note">{t('create.exportHelp')}</p>
-            {savedConfig?.folder?.path && <p className="ag-note ag-note--bottom" data-testid="agent-export-folder">{folderRows(savedConfig).length > 1 ? t('folder.exportNoteMany', { n: folderRows(savedConfig).length }) : t('folder.exportNote', { path: shownPath(savedConfig.folder.path) })}</p>}
+            {projectAgent && <Callout tone="info" icon="lock" testId="agent-share-note">{t('project.noShare')}</Callout>}
+            <p className="ag-note">{projectAgent ? t('project.exportHelp') : t('create.exportHelp')}</p>
+            {!projectAgent && savedConfig?.folder?.path && <p className="ag-note ag-note--bottom" data-testid="agent-export-folder">{folderRows(savedConfig).length > 1 ? t('folder.exportNoteMany', { n: folderRows(savedConfig).length }) : t('folder.exportNote', { path: shownPath(savedConfig.folder.path) })}</p>}
             <Button icon="download" onClick={() => downloadAgentFile(savedConfig, addToast, t)}>
               {t('create.exportButton')}
             </Button>
@@ -586,6 +698,11 @@ function AgentEditor() {
               <h1 className="aed-bar__name" data-empty={headName ? undefined : ''}>{headName || t('create.header.unnamed')}</h1>
               <p className="aed-bar__sub">{isEdit ? t('create.header.modeEdit') : imported ? t('create.titleImport') : t('create.header.modeCreate')}</p>
               <p className="aed-bar__sub aed-bar__sub--status" aria-hidden="true" data-dirty={dirty || undefined}>{status}</p>
+              {projectAgent && (
+                <div className="ag-project-chip">
+                  <Chip to={`/app/projects/${encodeURIComponent(projectId)}`} icon="layers" testId="agent-project-chip">{t('project.chip', { name: project?.name || t('project.deleted') })}</Chip>
+                </div>
+              )}
             </div>
           </div>
           <div className="aed-bar__acts">
@@ -595,7 +712,7 @@ function AgentEditor() {
               {t('create.preview')}
               {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
             </Button>
-            <Button icon="flask" onClick={() => setTryOpen(true)} data-testid="agent-try-open">{t('create.try.open')}</Button>
+            <Button icon="flask" disabled={Boolean(pausedReason)} onClick={() => setTryOpen(true)} data-testid="agent-try-open">{t('create.try.open')}</Button>
             <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
             {isEdit && savedConfig && (
               <ActionMenu
@@ -630,6 +747,46 @@ function AgentEditor() {
           </nav>
 
           <div className="aed-main">
+            {pausedReason && (
+              <Callout
+                tone="warn" testId="agent-paused"
+                title={t('project.paused', { reason: t(`project.reason.${pausedReason}`) })}
+                actions={pausedReason === 'changed'
+                  ? <Button size="sm" icon="refresh" busy={reconnecting} onClick={reconnect} data-testid="agent-reconnect">{t('project.reconnect')}</Button>
+                  : pausedReason === 'deleted' && !project
+                    ? <Button size="sm" icon="close-circle" onClick={() => setMoving(true)} data-testid="agent-detach">{t('move.detach')}</Button>
+                    : <Button size="sm" iconEnd="arrow-right" to={project ? `/app/projects/${encodeURIComponent(projectId)}` : '/app/projects'} data-testid="agent-open-project">{t('project.openProject')}</Button>}
+              >
+                {t(pausedReason === 'deleted' && !project ? 'project.fix.deletedDetach' : `project.fix.${pausedReason}`)}
+              </Callout>
+            )}
+            <section className="aed-card" aria-labelledby="aed-project-h" data-testid="agent-project-card">
+              <div className="aed-card__head">
+                <h2 id="aed-project-h" className="aed-card__title">{t('projectField.title')}</h2>
+                <p className="aed-card__lead">{t(isEdit ? 'projectField.leadEdit' : 'projectField.leadNew')}</p>
+              </div>
+              <div className="aed-card__body ag-projcard">
+                {isEdit ? (
+                  <>
+                    <div className="ag-projcard__row">
+                      <AgentProjectField
+                        list={projectsList} value={moveTo ?? projectId} id="ag-project"
+                        disabled={projectGone && !projectsList.ready}
+                        onChange={(pid) => setMoveTo(pid === projectId ? null : pid)}
+                        help={t('projectField.helpEdit')}
+                      />
+                      <Button
+                        icon="arrow-right" disabled={moveTo === null || dirty} onClick={() => setMoving(true)}
+                        data-testid="agent-project-move"
+                      >{t('move.open')}</Button>
+                    </div>
+                    {moveTo !== null && dirty && <p className="ag-note" data-testid="agent-project-dirty">{t('projectField.saveFirst')}</p>}
+                  </>
+                ) : (
+                  <AgentProjectField list={projectsList} value={projectId} id="ag-project" onChange={pickNewProject} />
+                )}
+              </div>
+            </section>
             {imported && (
               <div className="ag-import-note" role="note" data-testid="agent-import-note">
                 <p>{imported.legacy ? t('create.importLegacy') : t('create.importNew')}</p>
@@ -684,6 +841,21 @@ function AgentEditor() {
         </div>
       </form>
 
+      {moving && (
+        <AgentMoveDialog
+          agent={{ id, name: savedConfig?.name || form.name }}
+          target={moveTo ? projectsList.all.find(p => p.id === moveTo) || { id: moveTo, name: '' } : null}
+          from={project}
+          detach={moveTo === null && pausedReason === 'deleted'}
+          onCancel={() => setMoving(false)}
+          onDone={(r) => {
+            addToast(t(r.to ? 'move.done' : 'move.doneOut', { name: savedConfig?.name || form.name }), 'success')
+            setMoving(false); setMoveTo(null); setProject(null); setProjectGone(false); setProjectId('')
+            setLoading(true); setAttempt(n => n + 1)
+          }}
+        />
+      )}
+
       {tryOpen && <AgentTryIt form={form} tools={tools} models={chatModels} onClose={() => setTryOpen(false)} />}
 
       {previewOpen && (
@@ -700,6 +872,12 @@ function AgentEditor() {
       )}
     </Page>
   )
+}
+
+// "Limited by the project": the list below holds only what the project allows.
+// eslint-disable-next-line no-unused-vars
+function LimitNote({ t }) {
+  return <p className="ag-limit" data-testid="agent-limited"><Icon name="lock" />{t('project.limited')}</p>
 }
 
 // The config as it will be saved, and what differs from the saved agent.

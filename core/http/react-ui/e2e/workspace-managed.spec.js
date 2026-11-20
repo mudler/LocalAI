@@ -20,7 +20,15 @@ const SETTINGS = [
   { path: '/LocalAI/ui.json', name: 'ui.json', kind: 'file', size: 30, version: 1, managed: 'localai' },
 ]
 
-async function stubFiles(page) {
+// The home with Projects/ and the folders of two projects in it. The server
+// labels Projects/ only: the folders inside it are the user's own.
+const PROJECTS_ROW = { path: '/Projects', name: 'Projects', kind: 'dir', size: 0, version: 1, managed: 'projects' }
+const PROJECT_FOLDERS = [
+  { path: '/Projects/client-site', name: 'client-site', kind: 'dir', size: 0, version: 1 },
+  { path: '/Projects/orphan', name: 'orphan', kind: 'dir', size: 0, version: 1 },
+]
+
+async function stubFiles(page, { withProjects = false } = {}) {
   const calls = []
   await page.route(/\/api\/chats\/files\/trash(\?.*)?$/, route => route.fulfill({ json: { entries: [] } }))
   await page.route(/\/api\/chats\/files\/move(\?.*)?$/, route => {
@@ -34,7 +42,9 @@ async function stubFiles(page) {
       calls.push(['delete', path])
       return route.fulfill({ json: {} })
     }
-    return route.fulfill({ json: { path, entries: path === '/LocalAI' ? SETTINGS : HOME } })
+    if (path === '/Projects') return route.fulfill({ json: { path, entries: PROJECT_FOLDERS } })
+    const home = withProjects ? [...HOME, PROJECTS_ROW] : HOME
+    return route.fulfill({ json: { path, entries: path === '/LocalAI' ? SETTINGS : home } })
   })
   return calls
 }
@@ -149,5 +159,50 @@ test.describe('Files: the folders LocalAI manages', () => {
     await page.getByRole('menuitem', { name: 'Move to Trash' }).click()
     await expect.poll(() => calls.at(-1)).toEqual(['delete', '/report.txt'])
     await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  })
+  test('labels Projects/ as managed, in the order after Chats, with its own page and a description', async ({ page }) => {
+    await stubFiles(page, { withProjects: true })
+    await page.goto('/app/files')
+    const managed = page.getByTestId('ws-managed').getByTestId('ws-row')
+    await expect(managed.nth(1)).toContainText('Chats')
+    await expect(managed.nth(2)).toContainText('Projects')
+    await expect(managed.nth(2)).toContainText('managed by LocalAI')
+    await expect(managed.nth(2)).toContainText('Your projects. Each folder is one project.')
+    await managed.nth(2).getByRole('button', { name: 'More actions for Projects' }).click()
+    await page.getByRole('menuitem', { name: 'Open Projects' }).click()
+    await expect(page).toHaveURL(/\/app\/projects$/)
+  })
+
+  test('asks before the Projects root goes to the Trash and says what every project loses', async ({ page }) => {
+    const calls = await stubFiles(page, { withProjects: true })
+    await page.goto('/app/files')
+    const row = page.getByTestId('ws-managed').getByTestId('ws-row').filter({ hasText: 'Your projects' })
+    await row.getByRole('button', { name: 'More actions for Projects' }).click()
+    await page.getByRole('menuitem', { name: 'Move to Trash' }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Move Projects to the Trash?')
+    await expect(dialog).toContainText('Every project loses its files and memory')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    expect(calls).toEqual([])
+    await row.getByRole('button', { name: 'More actions for Projects' }).click()
+    await page.getByRole('menuitem', { name: 'Move to Trash' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Move to Trash' }).click()
+    await expect.poll(() => calls).toEqual([['delete', '/Projects']])
+  })
+
+  test('inside Projects/ a folder shows the project name and links to the project page', async ({ page }) => {
+    await stubFiles(page, { withProjects: true })
+    await page.route(/\/api\/chats\/projects(\?.*)?$/, route => route.fulfill({
+      json: { projects: [{ id: 'p1', name: 'Client site redesign', slug: 'client-site', status: 'active' }] },
+    }))
+    await page.goto('/app/files?path=/Projects')
+    const named = page.getByTestId('ws-row').filter({ hasText: 'client-site' })
+    const link = named.getByTestId('ws-project-link')
+    await expect(link).toHaveText('Client site redesign')
+    await expect(link).toHaveAttribute('href', '/app/projects/p1')
+    await expect(page.getByTestId('ws-row').filter({ hasText: 'orphan' }).getByTestId('ws-project-link')).toHaveCount(0)
+    await expect(page.getByTestId('ws-managed-tag')).toHaveCount(0)
+    await link.click()
+    await expect(page).toHaveURL(/\/app\/projects\/p1$/)
   })
 })

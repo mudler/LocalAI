@@ -36,6 +36,9 @@ const (
 	typePageNotAllowed = "page_not_allowed"
 	// typeSharedPagesOff: an administrator switched the shared pages off.
 	typeSharedPagesOff = "shared_pages_off"
+	// typeUserSharesOff: an administrator switched off the pages that people
+	// share from their own homes.
+	typeUserSharesOff = "user_page_shares_off"
 )
 
 // errRule is one row of an error table: the errors that match (errors.Is), the

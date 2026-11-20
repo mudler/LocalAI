@@ -156,6 +156,14 @@ var _ = Describe("folders an owner shares from their home", func() {
 		Expect(owned[0].Members).To(HaveLen(1))
 	})
 
+	It("still shares a project folder, although the Files page labels Projects/", func() {
+		mkdir("u-marta", "/users/u-marta/Projects")
+		id := mkdir("u-marta", "/users/u-marta/Projects/alpha")
+		got, err := svc.OwnSetMember(ctx, marta, id, "u-sara", workspace.ModeRead)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Path).To(Equal("/Projects/alpha"))
+	})
+
 	It("takes a revoke and a lowering at the grantee's next call and reports the lost access", func() {
 		id := mkdir("u-marta", "/users/u-marta/Projects")
 		Expect(put("u-marta", "/users/u-marta/Projects/a.txt", "a")).To(Succeed())
@@ -427,13 +435,13 @@ var _ = Describe("folders an owner shares from their home", func() {
 		Expect(err).NotTo(HaveOccurred(), "once it is not shared, it moves")
 	})
 
-	It("does not run a page that a grantee wrote as the owner's own page", func() {
+	It("does not run a page that a grantee may write as the owner's own page, without a consent", func() {
 		admin := workspace.Actor{Principal: files.AdminPrincipal}
 		Expect(put("u-marta", "/users/u-marta/pages/mine/index.html", "<p>mine</p>")).To(Succeed())
 		Expect(put("u-marta", "/users/u-marta/pages/notes/index.html", "<p>notes</p>")).To(Succeed())
 		mkdir("u-marta", "/users/u-marta/pages/evil")
-		// pages/ cannot be shared any more; a grant from before must still
-		// not make a grantee's page the owner's.
+		// A grant that an administrator made on a page, or one from before
+		// the page routes: the page is still the owner's, but it is guarded.
 		Expect(f.Store().Grant(ctx, admin, "u-sara", "/users/u-marta/pages/evil", workspace.ModeWrite)).To(Succeed())
 		Expect(f.Store().Grant(ctx, admin, "u-sara", "/users/u-marta/pages/notes", workspace.ModeRead)).To(Succeed())
 		Expect(put("u-sara", "/users/u-marta/pages/evil/index.html", "<script>/* grantee code */</script>")).To(Succeed())
@@ -441,20 +449,22 @@ var _ = Describe("folders an owner shares from their home", func() {
 		ps := pages.New(f)
 		list, err := ps.List(ctx, "u-marta")
 		Expect(err).NotTo(HaveOccurred())
-		var names []string
+		got := map[string]bool{}
 		for _, p := range list {
-			names = append(names, p.Name)
+			got[p.Name] = p.OthersCanEdit
 		}
-		Expect(names).To(Equal([]string{"mine", "notes"}), "a read grant keeps the owner's page")
-		_, err = ps.Get(ctx, "u-marta", "evil")
-		Expect(err).To(MatchError(pages.ErrNotFound))
-		_, _, err = ps.Source(ctx, "u-marta", "evil")
-		Expect(err).To(MatchError(pages.ErrNotFound))
-		_, err = ps.Read(ctx, "u-marta", "evil", "index.html")
-		Expect(err).To(MatchError(pages.ErrNotFound))
-		p, err := ps.Get(ctx, "u-marta", "mine")
+		Expect(got).To(Equal(map[string]bool{"evil": true, "mine": false, "notes": false}), "a read grant keeps the owner's page as it was")
+		p, err := ps.Get(ctx, "u-marta", "evil")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.OthersCanEdit).To(BeTrue())
+		Expect(p.Hash).NotTo(BeEmpty())
+		guarded, err := ps.Guarded(ctx, "u-marta", "evil")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(guarded).To(BeTrue())
+		p, err = ps.Get(ctx, "u-marta", "mine")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(p.Author).To(Equal(pages.AuthorYou))
+		Expect(p.OthersCanEdit).To(BeFalse())
 	})
 
 	It("says sharing is off without an account directory", func() {

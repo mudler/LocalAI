@@ -2,6 +2,8 @@
 package auth_test
 
 import (
+	"strings"
+
 	. "github.com/mudler/LocalAI/core/http/auth"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -50,8 +52,10 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/agents/:id/share",
 			"GET /api/chats/agents/:id/references",
 			"GET /api/chats/agents/:id/needs",
+			"GET /api/chats/projects/:id/agents",
 			"GET /api/chats/agents/:id",
 			"PUT /api/chats/agents/:id",
+			"PUT /api/chats/agents/:id/project",
 			"DELETE /api/chats/agents/:id",
 		))
 		Expect(AgentFeatures).To(ContainElement(FeatureAgents))
@@ -75,6 +79,7 @@ var _ = Describe("Chats feature registration", func() {
 			}
 		}
 		Expect(routes).To(ConsistOf(
+			"GET /api/chats/projects/:id/triggers",
 			"GET /api/chats/triggers",
 			"POST /api/chats/triggers",
 			"GET /api/chats/triggers/preview",
@@ -118,6 +123,7 @@ var _ = Describe("Chats feature registration", func() {
 			}
 		}
 		Expect(routes).To(ConsistOf(
+			"GET /api/chats/projects/:id/connections",
 			"GET /api/chats/connectors",
 			"GET /api/chats/connectors/kinds",
 			"POST /api/chats/connectors",
@@ -181,6 +187,24 @@ var _ = Describe("Chats feature registration", func() {
 			if r.Feature == FeatureChats {
 				Expect(r.Pattern).NotTo(MatchRegexp(`/api/chats/(agents|triggers|connectors)(/|$)`), r.Method+" "+r.Pattern)
 			}
+		}
+	})
+
+	It("gates the shared project routes with the chats feature, read only", func() {
+		want := map[string]bool{"GET /api/chats/projects/shared": false, "GET /api/chats/projects/shared/:ref": false,
+			"GET /api/chats/projects/shared/:ref/memory": false}
+		for _, r := range RouteFeatureRegistry {
+			key := r.Method + " " + r.Pattern
+			if _, ok := want[key]; ok {
+				Expect(r.Feature).To(Equal(FeatureChats), key)
+				want[key] = true
+			}
+			if strings.Contains(r.Pattern, "projects/shared") {
+				Expect(r.Method).To(Equal("GET"), key)
+			}
+		}
+		for k, seen := range want {
+			Expect(seen).To(BeTrue(), k)
 		}
 	})
 

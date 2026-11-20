@@ -46,9 +46,17 @@
     "check": "Verificar chave do host",
     "checking": "Verificando...",
     "trust": "Comparei esta impressão digital e confio neste host.",
-    "needed": "Verifique a chave do host antes de salvar.",
+    "needed": "A chave do host é lida quando você clica em Salvar, e você é perguntado se confia nela.",
     "unreachable": "Não foi possível alcançar o host.",
     "failed": "Não foi possível ler a chave do host."
+  },
+  "hostKeyStep": {
+    "title": "Confiar neste host?",
+    "reading": "Lendo a chave do host...",
+    "compare": "Compare esta impressão digital com a que o host mostra. Confie somente se forem iguais.",
+    "confirm": "Confiar e salvar",
+    "cancel": "Cancelar",
+    "retry": "Tentar novamente"
   },
   "testOk": "O login está salvo.",
   "checkFailed": "Salvo. A verificação do login falhou: {{reason}}",
@@ -77,7 +85,7 @@
     "title": "Como configurar",
     "step1": "Crie no host um usuário só para o LocalAI, com apenas as permissões necessárias.",
     "step2": "Crie um par de chaves para ele, ou escolha uma senha. Adicione a chave pública ao authorized_keys desse usuário.",
-    "step3": "Escreva aqui o host e o usuário, clique em Verificar chave do host e compare a impressão digital.",
+    "step3": "Escreva aqui o host e o usuário. Ao clicar em Salvar, a chave do host é lida e você compara a impressão digital dela.",
     "step4": "Deixe o modo em Pergunta antes até ler os limites desta página.",
     "fingerprint": "A impressão digital do host aparece com: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub"
   },

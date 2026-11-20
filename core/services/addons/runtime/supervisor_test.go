@@ -1,4 +1,11 @@
+//go:build linux || darwin
+
 // SPDX-License-Identifier: MIT
+
+// These supervisor specs are POSIX-only: they use process groups, `sleep` and
+// symlinked state roots. supervisor_windows_test.go checks the supervisor on
+// Windows, and reported_test.go runs the Windows way of passing the channels
+// here.
 package runtime
 
 import (
@@ -16,7 +23,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
@@ -26,35 +32,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestRuntime(t *testing.T) {
-	if root := os.Getenv("ADDON_OWNER_HELPER"); root != "" {
-		b, e := os.ReadFile(os.Getenv("ADDON_HELPER_RECEIPT"))
-		if e != nil {
-			os.Exit(20)
-		}
-		var p packages.PackageReceipt
-		if json.Unmarshal(b, &p) != nil {
-			os.Exit(21)
-		}
-		c := Config{Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second}
-		setStateRoot(&c, root)
-		s, e := NewSupervisor(c)
-		if e != nil {
-			os.Exit(22)
-		}
-		i, e := s.Start(context.Background(), p, 1)
-		if e != nil {
-			os.Exit(23)
-		}
-		if os.WriteFile(filepath.Join(root, "helper-pid"), []byte(strconv.Itoa(i.PID)), 0600) != nil {
-			os.Exit(24)
-		}
-		select {}
-	}
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Addon runtime")
-}
-
 // realTempDir is a temporary directory with no symlink in its path. The
 // supervisor refuses a symlinked state root or package directory, and the
 // temporary directory of macOS (/var) is one.
@@ -63,8 +40,6 @@ func realTempDir() string {
 	Expect(e).NotTo(HaveOccurred())
 	return d
 }
-
-func setStateRoot(c *Config, root string) { c.StateRoot = root }
 
 var binary string
 var _ = BeforeSuite(func() {
@@ -97,8 +72,23 @@ func supervisor() *Supervisor {
 	l.BackoffAttempts = 2
 	s, e := NewSupervisor(Config{StateRoot: realTempDir(), Limits: l, ReadyTimeout: startBudget, StableHealth: time.Second})
 	Expect(e).NotTo(HaveOccurred())
+	// ADDON_RUNTIME_REPORTED=1 runs every spec in the way Windows passes the
+	// channels (named handles, endpoint reported by the child).
+	specMode(s)
 	DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 	return s
+}
+
+// specMode applies the way of running add-ons that the environment selects:
+// ADDON_RUNTIME_REPORTED=1 is the way of Windows, ADDON_RUNTIME_WSL=1 the way
+// of an add-on in WSL 2 (through a wsl.exe stand-in, Linux only).
+func specMode(s *Supervisor) {
+	if os.Getenv("ADDON_RUNTIME_REPORTED") == "1" {
+		s.reportEndpoint = true
+	}
+	if os.Getenv("ADDON_RUNTIME_WSL") == "1" {
+		wslSpecMode(s)
+	}
 }
 
 var service = contract.Capabilities{Service: true}
@@ -124,6 +114,9 @@ var _ = Describe("Stopping an add-on", func() {
 
 var _ = Describe("Add-on output", func() {
 	It("goes to the log line by line with the add-on ID and a cap per line", func() {
+		if os.Getenv("ADDON_RUNTIME_WSL") == "1" {
+			Skip("the standard output of an add-on in WSL carries the session (see wsl_test.go)")
+		}
 		var mu sync.Mutex
 		var got []string
 		s := supervisor()
@@ -625,6 +618,7 @@ var _ = Describe("Addon data directory", func() {
 		l.ShutdownTimeout = 100 * time.Millisecond
 		s, e := NewSupervisor(Config{StateRoot: realTempDir(), DataRoot: dataRoot, Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second})
 		Expect(e).NotTo(HaveOccurred())
+		specMode(s)
 		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 		return s
 	}
@@ -704,6 +698,7 @@ var _ = Describe("Addon data directory", func() {
 		}})).To(Succeed())
 		s, e := NewSupervisor(Config{StateRoot: realTempDir(), Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second, HostOps: &HostOps{Broker: b, InFlight: in, Authority: auth}})
 		Expect(e).NotTo(HaveOccurred())
+		specMode(s)
 		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 		return s, in
 	}

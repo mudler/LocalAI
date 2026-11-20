@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -311,6 +312,9 @@ var _ = Describe("prepare", func() {
 	// reparented to init.
 	Describe("shutdown signals", func() {
 		It("ends the session when the terminal goes away", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows has no SIGHUP to deliver to the process")
+			}
 			ctx, stop := shutdownContext(context.Background())
 			defer stop()
 

@@ -99,7 +99,8 @@
     "record": "Record",
     "addons": "Add-ons",
     "connector": "MCP connector",
-    "folder": "Folder"
+    "folder": "Folder",
+    "toolsNone": "No add-ons or MCP servers"
   },
   "chips": {
     "none": "None",
@@ -257,7 +258,7 @@
     "networkHelp": "When a trigger or a connector runs this agent, its commands reach this much of the network, up to the limit an administrator set. A run never asks: a host outside it is blocked. A chat you start with this agent starts with it too.",
     "networkPresets": {
       "off": "Off",
-      "registries": "Package registries",
+      "registries": "Custom",
       "all": "All public sites"
     },
     "toolsSummary": "{{on}} of {{total}} on",
@@ -744,7 +745,8 @@
       "cap": "Most runs a day",
       "watches": "Watches the folder {{folder}}",
       "acts": "Permissions",
-      "runLimit": "Time limit"
+      "runLimit": "Time limit",
+      "project": "Project"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -811,10 +813,28 @@
       "capHint": "The most chats this trigger may start in one day. Empty uses the default.",
       "watchNoFiles": "This agent has No files, so a run of this trigger is told that a file arrived but cannot open it. Give the agent file access in its editor, or choose another agent.",
       "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
-      "runLimitPlaceholder": "default"
+      "runLimitPlaceholder": "default",
+      "agentInProject": "{{name}} (project {{project}})",
+      "projectAgentHint": "This agent belongs to the project. A file trigger watches the project files by default.",
+      "folder": {
+        "choose": "Choose a folder",
+        "sub": "Folder inside it",
+        "subPlaceholder": "Optional: a folder inside it",
+        "hint": "One of the folders of this agent, and optionally a folder inside it.",
+        "empty": "Choose the folder to watch.",
+        "dots": "A folder name cannot contain \"..\".",
+        "outside": "This agent can only watch folders inside its own: {{folders}}.",
+        "noFolders": "This agent has no folder it can use. Choose a folder in the settings of the agent."
+      }
     },
     "actionFailed": "The action failed: {{message}}",
-    "subtitle": "Start an agent on a schedule or when a file arrives. Every run is a chat you can open."
+    "subtitle": "Start an agent on a schedule or when a file arrives. Every run is a chat you can open.",
+    "projectFilter": {
+      "label": "Project",
+      "all": "All projects",
+      "none": "No project",
+      "empty": "No triggers for this choice."
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -1135,7 +1155,9 @@
       "filesTitle": "It can see all your files.",
       "filesBody": "Anything you can open in Files, this agent can read. You can limit it to folders.",
       "limit": "Limit to folders",
-      "setupNext": "After you create the agent, its page lists the setup steps for the apps you chose."
+      "setupNext": "After you create the agent, its page lists the setup steps for the apps you chose.",
+      "project": "Works in the project {{name}}.",
+      "projectUnnamed": "Works in the project you chose."
     },
     "rail": {
       "title": "Your agent",
@@ -1209,5 +1231,125 @@
     "asksTitle_one": "This agent asks for {{count}} thing your chat starts without:",
     "asksTitle_other": "This agent asks for {{count}} things your chat starts without:",
     "asksHelp": "It runs as you. Turn them on in the chat only if you trust the agent and the person who shared it."
+  },
+  "project": {
+    "chip": "Project: {{name}}",
+    "deleted": "deleted project",
+    "files": "Project files",
+    "filesMode": "Files mode",
+    "canEdit": "Can edit",
+    "readOnly": "Read only",
+    "filesHelp": "The agent works only in the files folder of {{name}}. Shared folders and skills stay readable.",
+    "filesHelpNoName": "The agent works only in the files folder of its project. Shared folders and skills stay readable.",
+    "memory": "Project memory",
+    "memoryHelp": "The agent can save a note to the project memory only with the grant \"Remember things in the project\": it proposes a change and you confirm it. Without the grant, memory is read only.",
+    "limited": "Limited by the project",
+    "noShare": "Project agents cannot be shared.",
+    "exportHelp": "Export writes an agent file. Choosing a project happens when the file is imported.",
+    "paused": "This agent is paused because its project is {{reason}}.",
+    "reason": {
+      "archived": "archived",
+      "deleted": "deleted",
+      "changed": "changed"
+    },
+    "fix": {
+      "archived": "Open the project and restore it. The agent works again after that.",
+      "deleted": "The project is gone. Restore it from the Trash in Files, and the agent works again.",
+      "changed": "A project folder was replaced, renamed or moved. Reconnect the agent to link it to the project folders again.",
+      "deletedDetach": "The project is gone. Detach the agent from it to use the agent again, or restore the project from the Trash in Files."
+    },
+    "openProject": "Open project",
+    "reconnect": "Reconnect",
+    "reconnected": "{{name}} is connected to the project again.",
+    "reconnectFailed": "Could not reconnect the agent: {{message}}",
+    "unavailable": "Unavailable",
+    "listReason": {
+      "archived": "Its project is archived.",
+      "deleted": "Its project was deleted.",
+      "changed": "Its project folders changed. Open it to reconnect."
+    },
+    "fact": "Project",
+    "memoryFact": "Memory",
+    "memoryReadOnly": "Project memory, read only",
+    "runsPaused": "Runs resume when the project is active again."
+  },
+  "importProject": {
+    "title": "This agent belongs to a project",
+    "text": "Choose where to put it. Project agents work only inside their project. Shared folders and skills stay readable.",
+    "textNamed": "The file is for the agent \"{{agent}}\". Choose where to put it. Project agents work only inside their project. Shared folders and skills stay readable.",
+    "label": "Project",
+    "choose": "Choose a project",
+    "create": "Create a project named '{{name}}'",
+    "createUnnamed": "Create a new project for this agent",
+    "help": "Only your active projects are listed.",
+    "createHelp": "A new project named {{name}} is made, and the agent is added to it.",
+    "needsChoice": "Choose a project, or create one, to import this agent.",
+    "cancel": "Cancel",
+    "import": "Import"
+  },
+  "projectField": {
+    "title": "Project",
+    "leadNew": "Put the agent in a project, or leave it on its own.",
+    "leadEdit": "The project the agent works in. Moving it changes what it can reach.",
+    "label": "Project",
+    "none": "No project",
+    "choose": "Choose a project",
+    "archivedName": "{{name}} (archived)",
+    "create": "Create a new project...",
+    "help": "A project agent works only in the files and memory of its project. Only your active projects are listed.",
+    "helpEdit": "Pick another project, or No project, then choose Move.",
+    "saveFirst": "Save or discard your changes before you move the agent."
+  },
+  "move": {
+    "open": "Move...",
+    "title": "Move to {{name}}",
+    "leaveTitle": "Take the agent out of its project",
+    "detachTitle": "Detach from the project",
+    "text": "{{agent}} will work only in the files and memory of {{name}}. Check what changes before you confirm.",
+    "leaveText": "{{agent}} leaves {{name}}. Choose the files it keeps, then check what changes.",
+    "detachText": "The project of this agent was deleted. Choose the files the agent keeps, then detach it.",
+    "cancel": "Cancel",
+    "confirm": "Move agent",
+    "detach": "Detach from project",
+    "keepLabel": "Files the agent keeps",
+    "keepOne": "Only this folder",
+    "keepAll": "All my files",
+    "keepAllHelp": "The agent works on all your files, as an agent with no folder does.",
+    "keepNone": "No folder chosen.",
+    "effectsTitle": "What changes",
+    "pickFolder": "Choose a folder to see what changes.",
+    "checking": "Checking...",
+    "effect": {
+      "chats_one": "{{count}} chat of this agent stays readable but takes no new messages. Start a new chat to go on.",
+      "chats_other": "{{count}} chats of this agent stay readable but take no new messages. Start a new chat to go on.",
+      "loops_one": "{{count}} loop in those chats ends.",
+      "loops_other": "{{count}} loops in those chats end.",
+      "triggers_one": "{{count}} file trigger watches a folder outside the new folders: {{names}}.",
+      "triggers_other": "{{count}} file triggers watch a folder outside the new folders: {{names}}.",
+      "shares_one": "The agent is shared with {{count}} person.",
+      "shares_other": "The agent is shared with {{count}} people.",
+      "proposals_one": "{{count}} waiting note for the project memory is discarded.",
+      "proposals_other": "{{count}} waiting notes for the project memory are discarded.",
+      "dropped_one": "The limits of the new project take away {{count}} tool: {{names}}.",
+      "dropped_other": "The limits of the new project take away {{count}} tools: {{names}}.",
+      "grant": "The permission to write the project memory is removed. You can grant it again in the agent's settings.",
+      "notes": "The agent's own notes start empty. The old notes stay in your files, in Memory under Moved agent notes.",
+      "foldersInto": "The agent works only in the files and memory folders of {{name}}.",
+      "foldersOut": "The agent no longer belongs to a project.",
+      "attachedLost_one": "The old project attached {{count}} tool that no longer applies: {{names}}.",
+      "attachedLost_other": "The old project attached {{count}} tools that no longer apply: {{names}}.",
+      "attachedGained_one": "The new project attaches {{count}} tool that the agent gets: {{names}}.",
+      "attachedGained_other": "The new project attaches {{count}} tools that the agent gets: {{names}}.",
+      "projectSkills": "The skills of the old project stop applying, and those of the new project start."
+    },
+    "blocked": {
+      "busy": "A chat of this agent is running a turn. Stop it, then move the agent."
+    },
+    "revoke_one": "Stop sharing: this agent is shared with {{count}} person, and a project agent cannot be shared.",
+    "revoke_other": "Stop sharing: this agent is shared with {{count}} people, and a project agent cannot be shared.",
+    "disable_one": "Switch off {{count}} file trigger that watches a folder outside the new folders ({{names}}).",
+    "disable_other": "Switch off {{count}} file triggers that watch a folder outside the new folders ({{names}}).",
+    "done": "{{name}} moved to its new project.",
+    "doneOut": "{{name}} no longer belongs to a project."
   }
 }

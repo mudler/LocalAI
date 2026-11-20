@@ -147,7 +147,11 @@ test.describe('Layout', () => {
   test('on a phone the section nav stays under the header while the page scrolls', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 800 })
     await open(page, '/app/agents/a1/edit')
+    // The sections fill in as the draft, the tools and the models arrive, and a
+    // page that is still short cannot scroll to 1400: wait until it can.
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeGreaterThan(1400)
     await page.evaluate(() => window.scrollTo(0, 1400))
+    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(1400)
     await page.waitForTimeout(200)
     const box = async (sel) => page.locator(sel).evaluate(el => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom } })
     const bar = await box('.aed-bar')

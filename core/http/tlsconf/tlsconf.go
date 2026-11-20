@@ -27,6 +27,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
 )
 
 const (
@@ -256,6 +258,10 @@ func writeAtomic(path string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	if err := tmp.Close(); err != nil {
+		return err
+	}
+	// Windows has no mode bits: the private key gets an access control list.
+	if err := fsperm.RestrictIfPrivate(tmp.Name(), mode); err != nil {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)

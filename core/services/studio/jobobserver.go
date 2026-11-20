@@ -25,7 +25,7 @@ var _ bgjob.Observer = jobObserver{}
 // stub finds the job of a chat. A chat or a job that is not there is
 // bgjob.ErrUnknown: the wait on it ends as gone.
 func (o jobObserver) stub(ctx context.Context, owner, chat, id string) (session.JobStub, error) {
-	rec, err := o.s.d.Store.GetChat(ctx, owner, chat)
+	rec, err := o.s.getChatEffective(ctx, owner, chat)
 	if errors.Is(err, session.ErrNotFound) {
 		return session.JobStub{}, bgjob.ErrUnknown
 	}
@@ -105,7 +105,7 @@ func (o jobObserver) Observe(ctx context.Context, req bgjob.ObserveRequest) (bgj
 }
 
 func (o jobObserver) List(ctx context.Context, owner, chat string) ([]bgjob.Info, error) {
-	rec, err := o.s.d.Store.GetChat(ctx, owner, chat)
+	rec, err := o.s.getChatEffective(ctx, owner, chat)
 	if errors.Is(err, session.ErrNotFound) {
 		return nil, nil
 	}

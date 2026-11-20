@@ -49,7 +49,8 @@
   "facts": {
     "addons": "Add-ons",
     "connector": "MCP connector",
-    "folder": "Folder"
+    "folder": "Folder",
+    "toolsNone": "Tanpa add-on atau server MCP"
   },
   "agent": {
     "triggers": "Triggers",
@@ -147,7 +148,7 @@
     "networkHelp": "Saat pemicu atau konektor menjalankan agen ini, perintahnya menjangkau jaringan sejauh ini, sampai batas yang diatur administrator. Proses tidak pernah bertanya: host di luarnya diblokir. Chat yang Anda mulai dengan agen ini juga dimulai dengan ini.",
     "networkPresets": {
       "off": "Mati",
-      "registries": "Registri paket",
+      "registries": "Kustom",
       "all": "Semua situs publik"
     },
     "toolsSummary": "{{on}} dari {{total}} aktif",
@@ -539,7 +540,8 @@
       "runMeta": "took {{time}}",
       "prompt": "What to do",
       "acts": "Izin",
-      "runLimit": "Time limit"
+      "runLimit": "Time limit",
+      "project": "Proyek"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -588,9 +590,27 @@
       "changed_other": "{{count}} changes",
       "watchNoFiles": "Agen ini diatur \"Tanpa file\": satu eksekusi pemicu ini diberi tahu bahwa ada file masuk, tetapi tidak dapat membukanya. Beri agen akses file di editornya, atau pilih agen lain.",
       "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
-      "runLimitPlaceholder": "default"
+      "runLimitPlaceholder": "default",
+      "agentInProject": "{{name}} (proyek {{project}})",
+      "projectAgentHint": "Agen ini milik proyek. Pemicu berkas memantau berkas proyek secara bawaan.",
+      "folder": {
+        "choose": "Pilih folder",
+        "sub": "Folder di dalamnya",
+        "subPlaceholder": "Opsional: folder di dalamnya",
+        "hint": "Salah satu folder agen ini, dan bila perlu folder di dalamnya.",
+        "empty": "Pilih folder yang dipantau.",
+        "dots": "Nama folder tidak boleh berisi \"..\".",
+        "outside": "Agen ini hanya dapat memantau folder di dalam foldernya sendiri: {{folders}}.",
+        "noFolders": "Agen ini tidak punya folder yang dapat dipakai. Pilih folder di pengaturan agen."
+      }
     },
-    "subtitle": "Jalankan agen sesuai jadwal atau saat sebuah file tiba. Setiap jalan adalah chat yang bisa Anda buka."
+    "subtitle": "Jalankan agen sesuai jadwal atau saat sebuah file tiba. Setiap jalan adalah chat yang bisa Anda buka.",
+    "projectFilter": {
+      "label": "Proyek",
+      "all": "Semua proyek",
+      "none": "Tanpa proyek",
+      "empty": "Tidak ada pemicu untuk pilihan ini."
+    }
   },
   "views": {
     "label": "Area agen",
@@ -906,7 +926,9 @@
       "filesTitle": "Agen dapat melihat semua file Anda.",
       "filesBody": "Semua yang bisa Anda buka di File dapat dibaca agen ini. Anda bisa membatasinya ke folder.",
       "limit": "Batasi ke folder",
-      "setupNext": "Setelah agen dibuat, halamannya mencantumkan langkah penyiapan untuk aplikasi yang Anda pilih."
+      "setupNext": "Setelah agen dibuat, halamannya mencantumkan langkah penyiapan untuk aplikasi yang Anda pilih.",
+      "project": "Bekerja di proyek {{name}}.",
+      "projectUnnamed": "Bekerja di proyek yang Anda pilih."
     },
     "rail": {
       "title": "Agen Anda",
@@ -980,5 +1002,125 @@
     "asksTitle_one": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
     "asksTitle_other": "Agen ini meminta {{count}} hal yang tidak ada saat chat Anda dimulai:",
     "asksHelp": "Agen berjalan sebagai Anda. Nyalakan di chat hanya jika Anda memercayai agen dan orang yang membagikannya."
+  },
+  "project": {
+    "chip": "Proyek: {{name}}",
+    "deleted": "proyek dihapus",
+    "files": "File proyek",
+    "filesMode": "Mode file",
+    "canEdit": "Bisa mengubah",
+    "readOnly": "Hanya baca",
+    "filesHelp": "Agen hanya bekerja di folder file {{name}}. Folder bersama dan skill tetap bisa dibaca.",
+    "filesHelpNoName": "Agen hanya bekerja di folder file proyeknya. Folder bersama dan skill tetap bisa dibaca.",
+    "memory": "Memori proyek",
+    "memoryHelp": "Agen hanya dapat menyimpan catatan ke memori proyek dengan izin \"Remember things in the project\": agen mengusulkan perubahan yang Anda konfirmasi. Tanpa izin ini, memori hanya bisa dibaca.",
+    "limited": "Dibatasi oleh proyek",
+    "noShare": "Agen proyek tidak bisa dibagikan.",
+    "exportHelp": "Ekspor menulis file agen. Proyek dipilih saat file diimpor.",
+    "paused": "Agen ini dijeda karena proyeknya {{reason}}.",
+    "reason": {
+      "archived": "diarsipkan",
+      "deleted": "dihapus",
+      "changed": "berubah"
+    },
+    "fix": {
+      "archived": "Buka proyek dan pulihkan. Setelah itu agen bekerja lagi.",
+      "deleted": "Proyeknya hilang. Pulihkan dari Sampah di Berkas, lalu agen bekerja lagi.",
+      "changed": "Folder proyek diganti, diubah namanya, atau dipindahkan. Sambungkan ulang agen agar tertaut lagi ke folder proyek.",
+      "deletedDetach": "Proyek sudah tidak ada. Lepaskan agen darinya untuk memakainya lagi, atau pulihkan proyek dari Sampah di Berkas."
+    },
+    "openProject": "Buka proyek",
+    "reconnect": "Sambungkan ulang",
+    "reconnected": "{{name}} tersambung lagi ke proyek.",
+    "reconnectFailed": "Tidak bisa menyambungkan ulang agen: {{message}}",
+    "unavailable": "Tidak tersedia",
+    "listReason": {
+      "archived": "Proyeknya diarsipkan.",
+      "deleted": "Proyeknya dihapus.",
+      "changed": "Folder proyeknya berubah. Buka agen untuk menyambungkan ulang."
+    },
+    "fact": "Proyek",
+    "memoryFact": "Memori",
+    "memoryReadOnly": "Memori proyek, hanya baca",
+    "runsPaused": "Proses berjalan lagi saat proyek aktif kembali."
+  },
+  "importProject": {
+    "title": "Agen ini milik sebuah proyek",
+    "text": "Pilih tempatnya. Agen proyek hanya bekerja di dalam proyeknya. Folder bersama dan skill tetap bisa dibaca.",
+    "textNamed": "File ini untuk agen \"{{agent}}\". Pilih tempatnya. Agen proyek hanya bekerja di dalam proyeknya. Folder bersama dan skill tetap bisa dibaca.",
+    "label": "Proyek",
+    "choose": "Pilih proyek",
+    "create": "Buat proyek bernama '{{name}}'",
+    "createUnnamed": "Buat proyek baru untuk agen ini",
+    "help": "Hanya proyek aktif Anda yang ditampilkan.",
+    "createHelp": "Proyek baru bernama {{name}} dibuat dan agen ditambahkan ke dalamnya.",
+    "needsChoice": "Pilih proyek, atau buat satu, untuk mengimpor agen ini.",
+    "cancel": "Batal",
+    "import": "Impor"
+  },
+  "projectField": {
+    "title": "Proyek",
+    "leadNew": "Tempatkan agen di sebuah proyek, atau biarkan berdiri sendiri.",
+    "leadEdit": "Proyek tempat agen bekerja. Memindahkannya mengubah apa yang dapat dijangkau agen.",
+    "label": "Proyek",
+    "none": "Tanpa proyek",
+    "choose": "Pilih proyek",
+    "archivedName": "{{name}} (diarsipkan)",
+    "create": "Buat proyek baru...",
+    "help": "Agen proyek hanya bekerja di berkas dan memori proyeknya. Hanya proyek aktif Anda yang ditampilkan.",
+    "helpEdit": "Pilih proyek lain, atau Tanpa proyek, lalu pilih Pindahkan.",
+    "saveFirst": "Simpan atau buang perubahan Anda sebelum memindahkan agen."
+  },
+  "move": {
+    "open": "Pindahkan...",
+    "title": "Pindahkan ke {{name}}",
+    "leaveTitle": "Keluarkan agen dari proyeknya",
+    "detachTitle": "Lepaskan dari proyek",
+    "text": "{{agent}} hanya akan bekerja di berkas dan memori {{name}}. Periksa apa yang berubah sebelum mengonfirmasi.",
+    "leaveText": "{{agent}} keluar dari {{name}}. Pilih berkas yang dipertahankan, lalu periksa apa yang berubah.",
+    "detachText": "Proyek agen ini telah dihapus. Pilih berkas yang dipertahankan agen, lalu lepaskan.",
+    "cancel": "Batal",
+    "confirm": "Pindahkan agen",
+    "detach": "Lepaskan dari proyek",
+    "keepLabel": "Berkas yang dipertahankan agen",
+    "keepOne": "Hanya folder ini",
+    "keepAll": "Semua berkas saya",
+    "keepAllHelp": "Agen bekerja pada semua berkas Anda, seperti agen tanpa folder.",
+    "keepNone": "Belum ada folder yang dipilih.",
+    "effectsTitle": "Apa yang berubah",
+    "pickFolder": "Pilih folder untuk melihat apa yang berubah.",
+    "checking": "Memeriksa...",
+    "effect": {
+      "chats_one": "{{count}} obrolan agen ini tetap dapat dibaca tetapi tidak menerima pesan baru. Mulai obrolan baru untuk melanjutkan.",
+      "chats_other": "{{count}} obrolan agen ini tetap dapat dibaca tetapi tidak menerima pesan baru. Mulai obrolan baru untuk melanjutkan.",
+      "loops_one": "{{count}} loop di obrolan itu berakhir.",
+      "loops_other": "{{count}} loop di obrolan itu berakhir.",
+      "triggers_one": "{{count}} pemicu berkas memantau folder di luar folder baru: {{names}}.",
+      "triggers_other": "{{count}} pemicu berkas memantau folder di luar folder baru: {{names}}.",
+      "shares_one": "Agen dibagikan kepada {{count}} orang.",
+      "shares_other": "Agen dibagikan kepada {{count}} orang.",
+      "proposals_one": "{{count}} catatan yang menunggu untuk memori proyek dibuang.",
+      "proposals_other": "{{count}} catatan yang menunggu untuk memori proyek dibuang.",
+      "dropped_one": "Batas proyek baru menghapus {{count}} alat: {{names}}.",
+      "dropped_other": "Batas proyek baru menghapus {{count}} alat: {{names}}.",
+      "grant": "Izin menulis ke memori proyek dicabut. Anda dapat memberikannya lagi di pengaturan agen.",
+      "notes": "Catatan milik agen dimulai kosong. Catatan lama tetap ada di berkas Anda, di Memory pada Moved agent notes.",
+      "foldersInto": "Agen hanya bekerja di folder berkas dan memori {{name}}.",
+      "foldersOut": "Agen tidak lagi termasuk dalam proyek.",
+      "attachedLost_one": "Proyek lama melampirkan {{count}} alat yang tidak berlaku lagi: {{names}}.",
+      "attachedLost_other": "Proyek lama melampirkan {{count}} alat yang tidak berlaku lagi: {{names}}.",
+      "attachedGained_one": "Proyek baru melampirkan {{count}} alat yang diterima agen: {{names}}.",
+      "attachedGained_other": "Proyek baru melampirkan {{count}} alat yang diterima agen: {{names}}.",
+      "projectSkills": "Skill proyek lama tidak berlaku lagi, dan skill proyek baru mulai berlaku."
+    },
+    "blocked": {
+      "busy": "Sebuah obrolan agen ini sedang menjalankan giliran. Hentikan, lalu pindahkan agen."
+    },
+    "revoke_one": "Hentikan berbagi: agen ini dibagikan kepada {{count}} orang, dan agen proyek tidak dapat dibagikan.",
+    "revoke_other": "Hentikan berbagi: agen ini dibagikan kepada {{count}} orang, dan agen proyek tidak dapat dibagikan.",
+    "disable_one": "Matikan {{count}} pemicu berkas yang memantau folder di luar folder baru ({{names}}).",
+    "disable_other": "Matikan {{count}} pemicu berkas yang memantau folder di luar folder baru ({{names}}).",
+    "done": "{{name}} dipindahkan ke proyek barunya.",
+    "doneOut": "{{name}} tidak lagi termasuk dalam proyek."
   }
 }

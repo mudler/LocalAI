@@ -26,7 +26,7 @@ var _ = Describe("development backend preference", func() {
 			GinkgoT().Setenv(env, value)
 		}
 		cfg := Config{}
-		parser, err := kong.New(&cfg, kong.Vars{"basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]"})
+		parser, err := kong.New(&cfg, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends", "basepath": GinkgoT().TempDir(), "galleries": "[]", "backends": "[]"})
 		Expect(err).NotTo(HaveOccurred())
 		_, err = parser.Parse(append([]string{"--nats-url=nats://example.invalid:4222", "--register-to=http://example.invalid:8080"}, args...))
 		Expect(err).NotTo(HaveOccurred())

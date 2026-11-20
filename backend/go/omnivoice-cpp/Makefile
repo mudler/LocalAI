@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # omnivoice.cpp version
 OMNIVOICE_REPO?=https://github.com/ServeurpersoCom/omnivoice.cpp
-OMNIVOICE_VERSION?=dbfc792d6fbe0cc3a776817f56de35a3744d7594
+OMNIVOICE_VERSION?=a650381a67905fd6ad08b323ed026b042a07b623
 SO_TARGET?=libgomnivoicecpp.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -30,7 +30,7 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_PATH ?= /opt/rocm
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
-	AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+	AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1153,gfx1200,gfx1201
 	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=ON

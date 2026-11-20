@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  chipLoops, findLoop, intervalParts, looksLikeInterval, parseLoopCommand, pendingLoops, shortId,
+  chipLoops, findLoop, intervalParts, looksLikeInterval, parseLoopCommand, pendingLoops, reportLine, shortId,
 } from '../../src/utils/chatLoops.js'
 
 test('an interval is digits with s, m or h', () => {
@@ -72,4 +72,22 @@ test('/loop offers list and stop, and after stop the loops of the chat', async (
   assert.ok(!availableCommands('chat', { hasChat: false }).some(c => c.id === 'loop'))
   assert.ok(!availableCommands('home', {}).some(c => c.id === 'loop'))
   assert.equal(slashQuery('/loop st', cmds).mode, 'args')
+})
+
+test('a loop with a report says where it reports and when, in the names of the owner', () => {
+  // The stub keeps the key and the values, so the test sees what the page asks for.
+  const t = (key, v) => `${key}|${v.channel}|${v.connection}`
+  const base = { id: 'l1', report: { connection: 'c1', connection_name: 'Team chat', channel: 'G1', channel_label: 'General', mode: 'on_done' } }
+  assert.equal(reportLine(t, base), 'loops.report.on_done|General|Team chat')
+  assert.equal(reportLine(t, { ...base, report: { ...base.report, mode: 'on_problem' } }), 'loops.report.on_problem|General|Team chat')
+  // A name that is gone falls back to the id, so the line never reads blank.
+  assert.equal(reportLine(t, { id: 'l1', report: { connection: 'c1', channel: 'G1', mode: 'on_done' } }), 'loops.report.on_done|G1|c1')
+})
+
+test('a loop with no report, or one that sends nothing, shows no line', () => {
+  const t = () => 'x'
+  assert.equal(reportLine(t, { id: 'l1' }), '')
+  assert.equal(reportLine(t, { id: 'l1', report: null }), '')
+  assert.equal(reportLine(t, { id: 'l1', report: { connection: 'c1', channel: 'G1', mode: 'never' } }), '')
+  assert.equal(reportLine(t, undefined), '')
 })

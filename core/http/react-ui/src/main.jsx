@@ -30,21 +30,22 @@ function BootFallback() {
   return <ShellFallback />
 }
 
-// BrandingProvider sits outside AuthProvider so the login screen — which
+// ThemeProvider sits inside AuthProvider because the theme is kept per
+// account. BrandingProvider sits outside AuthProvider so the login screen — which
 // renders before authentication completes — can pick up the configured
 // instance name and logo from the public /api/branding endpoint.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Suspense fallback={<BootFallback />}>
-      <ThemeProvider>
-        <BrandingProvider>
-          <AuthProvider>
+      <BrandingProvider>
+        <AuthProvider>
+          <ThemeProvider>
             <OperationsProvider>
               <RouterProvider router={router} />
             </OperationsProvider>
-          </AuthProvider>
-        </BrandingProvider>
-      </ThemeProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </BrandingProvider>
     </Suspense>
   </StrictMode>,
 )

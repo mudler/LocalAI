@@ -6,6 +6,7 @@ import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import Icon from '../../../internal/host-compat/src/components/Icon'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
+import ConfirmDialog from '../../../internal/host-compat/src/components/ConfirmDialog'
 import { Check, Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
 import { pageLocale } from '../../../internal/connector-ui/src/connector'
 import en from './i18n/ssh.en.json'
@@ -18,7 +19,7 @@ import id from './i18n/ssh.id.json'
 import ko from './i18n/ssh.ko.json'
 import pt from './i18n/ssh.pt-BR.json'
 import ProposalCard from './ProposalCard'
-import { checkFailure, checkItem, credentialProblem, extraBody, extraForm, extraValid, fingerprintOfPin, followName, hostProblem, METHODS, methodOf, needsSecretAgain, normalizePin, sshSecret, targetKey, userProblem, WRITE_MODES, writeModeOf, addressOf } from './ssh'
+import { checkFailure, checkItem, credentialProblem, extraBody, extraForm, extraValid, fingerprintOfPin, followName, hostProblem, METHODS, methodOf, needsHostKeyStep, needsSecretAgain, normalizePin, scanHostKey, sshSecret, targetKey, trustedKey, userProblem, WRITE_MODES, writeModeOf, addressOf } from './ssh'
 import { finishTest, resultOf, startTest, subscribe } from './results'
 import './ssh.css'
 
@@ -60,22 +61,22 @@ function SshCredential({ form, setForm, t }) {
 
 // Reads the host key of the address and shows it. Nothing secret is sent: the
 // check stops at the key. The person compares the fingerprint with the one the
-// machine shows and trusts it; the connection then accepts only that key.
+// machine shows and trusts it; the connection then accepts only that key. The
+// check is optional: Save reads the key and asks (see HostKeyStep) when the
+// person did not.
 function HostKey({ form, setForm, t }) {
   const [scan, setScan] = useState({ busy: false, error: '' })
   const address = addressOf(form.user, form.host_text, '')
   const pin = normalizePin(form.pin_text)
   const run = async () => {
     setScan({ busy: true, error: '' })
-    try {
-      const res = await getSdk().api.read({ arguments: { tool: 'scan-host-key', address } })
-      const got = normalizePin(res?.data?.pin)
-      if (!got) throw new Error('no key')
-      setForm({ ...form, pin_text: got, pin_ok: false, pin_type: String(res?.data?.keyType || '') })
-      setScan({ busy: false, error: '' })
-    } catch (e) {
-      setScan({ busy: false, error: checkFailure(e) === 'unreachable' ? 'hostKey.unreachable' : 'hostKey.failed' })
+    const got = await scanHostKey(getSdk().api.read, address)
+    if (got.error) {
+      setScan({ busy: false, error: got.error })
+      return
     }
+    setForm({ ...form, pin_text: got.pin, pin_ok: false, pin_type: got.type })
+    setScan({ busy: false, error: '' })
   }
   return (
     <div className="ssh-hostkey" data-testid="ssh-hostkey">
@@ -95,6 +96,52 @@ function HostKey({ form, setForm, t }) {
       )}
       {!pin && <Notice tone="info" role="note" testId="ssh-hostkey-needed">{t('hostKey.needed')}</Notice>}
     </div>
+  )
+}
+
+// The step that Save runs when no host key is trusted yet. It reads the key of
+// the host (no secret is sent) and asks the person to trust it. Trust and save
+// pins the key and goes on with the save; Cancel saves nothing. When the host
+// cannot be reached or the key cannot be read, the step says so and offers
+// Retry.
+function HostKeyStep({ form, t, onProceed, onCancel }) {
+  const address = addressOf(form.user, form.host_text, '')
+  const [round, setRound] = useState(0)
+  const [scan, setScan] = useState({ busy: true, error: '', found: null })
+  useEffect(() => {
+    let live = true
+    setScan({ busy: true, error: '', found: null })
+    scanHostKey(getSdk().api.read, address).then((got) => {
+      if (live) setScan(got.error ? { busy: false, error: got.error, found: null } : { busy: false, error: '', found: got })
+    })
+    return () => { live = false }
+  }, [address, round])
+  const { busy, error, found } = scan
+  const message = (
+    <div className="ssh-step" data-testid="ssh-hostkey-step">
+      <p className="ssh-step__host">{address}</p>
+      {busy && <p role="status" aria-busy="true" data-testid="ssh-step-reading">{t('hostKeyStep.reading')}</p>}
+      {error && <p role="alert" data-testid="ssh-step-error">{t(error)}</p>}
+      {found && (
+        <>
+          <code className="ssh-hostkey__print" data-testid="ssh-step-print">{found.type ? `${found.type} ` : ''}{fingerprintOfPin(found.pin)}</code>
+          <p>{t('hostKeyStep.compare')}</p>
+          <p className="cn-muted">{t('setup.fingerprint')}</p>
+        </>
+      )}
+    </div>
+  )
+  return (
+    <ConfirmDialog
+      open
+      title={t('hostKeyStep.title')}
+      message={message}
+      confirmLabel={error ? t('hostKeyStep.retry') : busy ? t('hostKeyStep.reading') : t('hostKeyStep.confirm')}
+      confirmDisabled={busy}
+      cancelLabel={t('hostKeyStep.cancel')}
+      onConfirm={() => (error ? setRound((n) => n + 1) : onProceed(trustedKey(found)))}
+      onCancel={onCancel}
+    />
   )
 }
 
@@ -240,7 +287,7 @@ export function createSsh() {
     return (
       <RouteProvider value={{ page, path: path || '', search: search || '' }}>
         <ConnectorPage kind="ssh" ns="ssh" testId="ssh-page" TokenFields={SshCredential} tokenOf={sshSecret} messaging={false}
-          ExtraFields={SshFields} extraBody={extraBody} extraForm={extraForm} extraValid={extraValid} testExtra={testExtra}
+          ExtraFields={SshFields} extraBody={extraBody} extraForm={extraForm} extraValid={extraValid} needsSaveStep={needsHostKeyStep} SaveStep={HostKeyStep} testExtra={testExtra}
           Help={Help} RowInfo={RowInfo} />
       </RouteProvider>
     )

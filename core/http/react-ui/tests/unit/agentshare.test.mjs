@@ -17,6 +17,7 @@ test('agent share: who may share, and the badge entry of a row', () => {
   assert.equal(canShareAgent(own), true)
   assert.equal(canShareAgent(ownOff), false, 'local-owner mode or no policy: no Share action')
   assert.equal(canShareAgent(shared), false)
+  assert.equal(canShareAgent({ ...own, project_id: 'p1' }), false, 'a project agent stays in its project')
   assert.equal(canShareAgent({ id: 'old' }), false, 'a server without sharing sends no access')
   assert.equal(isSharedWithMe(shared), true)
   assert.equal(isSharedWithMe(own), false)

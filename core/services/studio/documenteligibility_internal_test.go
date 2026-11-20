@@ -144,7 +144,7 @@ var _ = Describe("document provider matrix", func() {
 		}
 		ctx, closeScope := svc.executionScope(ctx, "alice", "c1")
 		defer closeScope()
-		list, _, _, err := svc.chatSkillSet(ctx, "alice", nil, off, sc, command)
+		list, _, _, err := svc.chatSkillSet(ctx, "alice", session.ChatRecord{}, nil, off, sc, command)
 		Expect(err).NotTo(HaveOccurred())
 		usable := skills.Usable(list)
 		if want == "" {
@@ -371,7 +371,7 @@ var _ = Describe("document provider matrix", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(skills.Usable(slash)) > 0).To(Equal(want))
 			command := documentCommands(svc, ctx, "alice", rec, nil)
-			index, _, _, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, command, nil)
+			index, _, _, _, err := svc.skillTurn(ctx, "alice", session.ChatRecord{}, nil, nil, nil, command, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.Contains(index, "docx")).To(Equal(want))
 			body, err := tools[0].Run(ctx, args)
@@ -426,6 +426,6 @@ func documentCommands(s *Service, ctx context.Context, p string, rec session.Cha
 func chatSkillNotes(svc *Service, ctx context.Context, off []string, command Commands) ([]skills.Skill, []string, error) {
 	ctx, closeScope := svc.executionScope(ctx, "alice", "c1")
 	defer closeScope()
-	list, notes, _, err := svc.chatSkillSet(ctx, "alice", nil, off, nil, command)
+	list, notes, _, err := svc.chatSkillSet(ctx, "alice", session.ChatRecord{}, nil, off, nil, command)
 	return list, notes, err
 }

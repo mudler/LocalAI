@@ -35,6 +35,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -177,6 +178,7 @@ func (a *Application) initStudioService() {
 		FindUser:          a.studioFindUser(),
 		FolderDirectory:   a.studioFolderDirectory(),
 		SharedPagesOn:     func() bool { return !a.applicationConfig.DisableSharedPages },
+		UserPageSharesOn:  func() bool { return !a.applicationConfig.DisableUserPageShares },
 		PageAreaOn:        func() bool { return !a.applicationConfig.DisablePageArea },
 		Modalities:        a.studioModalities,
 		MCPContent:        studioMCPContent{a: a},
@@ -190,6 +192,7 @@ func (a *Application) initStudioService() {
 	if a.studioMCPConns != nil {
 		deps.MCPConnectors = a.studioMCPConns
 	}
+	deps.Projects = a.initStudioProjects()
 	// The built-in bash runs commands on this machine when no Sandbox serves
 	// bash. Its scratch folders are per process; the files are the truth.
 	// The hooks run in chat turns, which start only after svcRef is set; it
@@ -907,4 +910,16 @@ func (a *Application) backgroundContext() context.Context {
 		return ctx
 	}
 	return context.Background()
+}
+
+// effectiveChat reads a chat record the way a turn sees it, with the tools its
+// project attaches switched on. A reader that decides what a chat may use calls
+// it and never reads the store directly: the raw record misses the attached
+// tools, so an add-on the project attached would be offered and then refused.
+func (a *Application) effectiveChat(ctx context.Context, principal, chatID string) (session.ChatRecord, error) {
+	if svc := a.StudioService(); svc != nil {
+		return svc.EffectiveChat(ctx, principal, chatID)
+	}
+	// Without the studio service no chat has a project to apply.
+	return a.studioStore.GetChat(ctx, principal, chatID) // raw read allowed here, see the source guard in the studio specs
 }

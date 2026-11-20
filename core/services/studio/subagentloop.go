@@ -80,7 +80,7 @@ func (s *Service) holdForLoop(ctx context.Context, p, conv string, status store.
 // the sub-agent was stopped, when it had any.
 func (s *Service) endChildLoops(ctx context.Context, p, conv string) {
 	// The jobs of a stopped sub-agent end with it.
-	if rec, err := s.d.Store.GetChat(ctx, p, conv); err == nil {
+	if rec, err := s.getChatEffective(ctx, p, conv); err == nil {
 		s.endAgentJobs(context.WithoutCancel(ctx), rec, bgjob.EndAgentEnded)
 	}
 	h := s.loops

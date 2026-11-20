@@ -161,6 +161,34 @@ var _ = Describe("The JSON store", func() {
 		Expect(wstest.MustRead(second, wstest.AdminActor, "/Docs/kept.txt")).To(Equal("still here"), "after the undo, kept.txt")
 	})
 
+	// The mode data and the page mark are part of the grant that the log
+	// keeps; read and write keep the numbers they always had.
+	It("data grants and the page mark survive reopening the folder", func() {
+		dir := GinkgoT().TempDir()
+		ctx := context.Background()
+		first := openStore(dir, jsonstore.Options{})
+		wstest.MustPut(first, wstest.AdminActor, "/Docs/index.html", "<p>x</p>")
+		Expect(first.GrantPage(ctx, wstest.AdminActor, "user:alice", "/Docs", workspace.ModeData)).To(Succeed())
+		Expect(first.Grant(ctx, wstest.AdminActor, "user:bob", "/Docs", workspace.ModeWrite)).To(Succeed())
+		Expect(first.Close()).To(Succeed())
+
+		second := openStore(dir, jsonstore.Options{})
+		got, err := second.Grants(ctx, wstest.AdminActor, "/Docs")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(ConsistOf(
+			workspace.Grant{Principal: "user:alice", Mode: workspace.ModeData, Page: true},
+			workspace.Grant{Principal: "user:bob", Mode: workspace.ModeWrite}))
+		_, err = second.Put(ctx, wstest.Alice, "/Docs/index.html", strings.NewReader("x"), workspace.PutOptions{Overwrite: true})
+		Expect(err).To(MatchError(workspace.ErrReadOnly), "the data grant still narrows the writes")
+		Expect(second.Revoke(ctx, wstest.AdminActor, "user:alice", "/Docs")).To(Succeed())
+		Expect(second.Close()).To(Succeed())
+
+		third := openStore(dir, jsonstore.Options{})
+		got, err = third.Grants(ctx, wstest.AdminActor, "/Docs")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(ConsistOf(workspace.Grant{Principal: "user:bob", Mode: workspace.ModeWrite}))
+	})
+
 	// A crash can cut the last record of the log. The store drops that record,
 	// keeps a copy of the damaged log, and opens with everything before it.
 	It("a torn last record is dropped", func() {

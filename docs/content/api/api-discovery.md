@@ -131,7 +131,7 @@ Returns a compact list of instruction areas:
 | `model-management` | Browse the gallery, install, delete, and manage models and backends |
 | `config-management` | Discover, read, and modify model configuration fields with VRAM estimation |
 | `monitoring` | System metrics, backend status, API and backend traces, backend process logs, and system information |
-| `mcp` | Model Context Protocol — tool-augmented chat with MCP servers |
+| `mcp` | Model Context Protocol: tool-augmented chat with MCP servers |
 | `video` | Video generation from text prompts with optional image or audio conditioning |
 | `3d` | 3D mesh generation, remeshing, and animation (binary glTF / GLB) |
 | `forecast` | Time-series forecasting: quantile trajectories for numeric series, with optional covariates |

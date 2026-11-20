@@ -60,6 +60,10 @@ export function tileState(read, { widget = true } = {}) {
   const p = read.page
   if (!p) return 'missing'
   if (widget && !p.widget) return 'noWidget'
+  // A page that a person shared, and an own page that others may edit, never
+  // run on their own: they are opened, and the owner or viewer allows each
+  // version there.
+  if (p.user_shared === true || p.others_can_edit === true) return 'needsAllow'
   if (p.source === 'shared' && (read.consent !== 'allowed' || read.embed !== true)) return 'needsAllow'
   return 'ready'
 }

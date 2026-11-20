@@ -1043,8 +1043,14 @@ var _ = Describe("the LocalAI client tools of the chats, end to end", func() {
 		// was 8,900; the later arguments added about 340 more), and grew from 6,600 with the media tool arguments (see
 		// the comment of clientBudgetBytes). It reads 8,370 bytes with
 		// upscale_image and transform_audio, up from 8,050. It reads 8,598 bytes
-		// with the offset, limit and query arguments of list_models.
-		const compactBudget, clientBudget = 4700, 8650
+		// with the offset, limit and query arguments of list_models. It reads 9,212
+		// bytes with the projects tool (ten actions in one flat schema). It reads 9,260
+		// bytes with the agents action (the action name in the enum and the argument text). It reads 9,323
+		// bytes with the connections, triggers and loops actions (three more names).
+		// It reads 9,662 bytes with the memory, write_memory, chats and
+		// shared_get actions and the file and content arguments of projects. It reads
+		// 9,878 bytes with the attached argument of projects (216 bytes).
+		const compactBudget, clientBudget = 4700, 9900
 
 		It("keeps an administrator's turn under the admin budgets and the client group under its own", func() {
 			r := newE2ERig(scriptCall)

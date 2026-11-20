@@ -46,6 +46,9 @@
       "deliveryChat": "Cette conversation",
       "deliveryThread": "Ce fil",
       "deliveryChannel": "{{channel}}, au premier niveau du canal",
+      "deliveryChannelIn": "{{channel}} dans {{connection}}, au premier niveau du canal",
+      "deliveryModeOnChange": "Seulement quand la réponse diffère de l'exécution précédente.",
+      "deliveryModeOnProblem": "Seulement quand une exécution échoue. Une exécution réussie ne signale rien.",
       "stopLabel": "Pour l’arrêter",
       "when": "{{schedule}}, {{zone}}. Première exécution {{when}}.",
       "whenNoFirst": "{{schedule}}, {{zone}}.",
@@ -149,6 +152,11 @@
       "testedAt": "Testé {{when}}.",
       "errorTitle": "Le dernier test n'a pas pu se connecter.",
       "authTitle": "Le serveur a refusé la connexion.",
+      "output": "Dernière sortie de la commande",
+      "outputCopy": "Copier",
+      "outputCopied": "Copié",
+      "outputMore": "Afficher les {{count}} lignes",
+      "outputLess": "Afficher moins",
       "tools": "Outils",
       "toolsUnknown": "Testez la connexion pour voir les outils.",
       "toolsNone": "Le serveur ne propose aucun outil.",
@@ -586,7 +594,9 @@
         "title": "Lire tes anciens chats",
         "description": "Permet au modèle de rechercher et de lire tes anciens chats. Un agent qui travaille dans un dossier ne lit que les chats de son propre agent."
       }
-    }
+    },
+    "fromProject": "Du projet",
+    "fromProjectTitle": "Le projet associe cet outil, il est donc toujours actif ici. Pour le désactiver, dissociez-le dans le projet."
   },
   "vision": {
     "describedBy": "Ce modèle ne peut pas regarder les images. Choisissez un autre modèle, sinon l'image sera décrite par {{model}}.",
@@ -596,18 +606,19 @@
     "label": "Réseau",
     "preset": {
       "off": "Désactivé",
-      "registries": "Registres de paquets",
+      "registries": "Personnalisé",
       "all": "Tous les sites publics"
     },
     "presetHint": {
       "off": "Les commandes n’atteignent aucun réseau.",
-      "registries": "Les commandes n’atteignent que les registres de paquets (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versions GitHub).",
+      "registries": "Les commandes atteignent les registres de paquets (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versions GitHub) et les domaines ajoutés par votre administrateur.",
       "all": "Les commandes atteignent tous les sites publics."
     },
     "limited": "Limité par votre administrateur",
     "limitedBy": "Votre administrateur autorise au plus : {{limit}}.",
     "hostNetwork": "Les commandes s’exécutent sur cette machine et utilisent son réseau. Les limites réseau nécessitent un module qui isole les commandes.",
     "panel": "Règles et demandes ({{count}})",
+    "panelCustom": "Domaines personnalisés",
     "rules": "Règles de ce chat",
     "cards": "Demandes de ce chat",
     "ruleAllow": "Autorisé pour ce chat",
@@ -647,9 +658,13 @@
       "rowOff": "Désactivé : l’administrateur n’a pas autorisé l’accès au réseau.",
       "runner": "l’extension qui exécute les commandes"
     },
-    "allowedHosts": "Toujours autorisés par votre administrateur :",
     "allowedHostsOff": "Ils s’appliquent quand le réseau est activé.",
-    "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur.",
+    "allowedHostsNote": "Domaines ajoutés par votre administrateur : {{count}}.",
+    "customDomains": "Personnalisé atteint les registres de paquets et ces domaines, définis par votre administrateur :",
+    "customEmpty": "Personnalisé atteint seulement les registres de paquets. Votre administrateur n’a pas ajouté d’autres domaines.",
+    "customLabel": "Domaines personnalisés",
+    "customEdit": "Modifier les domaines",
+    "customAdmin": "Un administrateur gère cette liste.",
     "limitNote": "Réseau de cette conversation. L’administrateur fixe le maximum qu’une conversation peut atteindre.",
     "draftNote": "La conversation démarre avec ce réglage. L’administrateur fixe le maximum qu’une conversation peut atteindre, et cette limite s’applique.",
     "asksAbove": "Cette conversation demande {{choice}} ; la limite de l’administrateur est {{limit}}.",
@@ -884,6 +899,10 @@
       "ended": "terminée",
       "wait": "En attente de : {{wait}}"
     },
+    "report": {
+      "on_done": "Prévient à la fin : {{channel}} · {{connection}}",
+      "on_problem": "Prévient en cas de problème : {{channel}} · {{connection}}"
+    },
     "actions": {
       "pause": "Pause",
       "resume": "Reprendre",
@@ -1040,7 +1059,8 @@
       "user": "Toutes vos conversations",
       "agent": "Agent {{agent}}",
       "agentAny": "Un agent",
-      "channel": "Cette conversation"
+      "channel": "Cette conversation",
+      "project": "Ce projet"
     },
     "help": "Rien n'est enregistré avant votre confirmation.",
     "row": {
@@ -1048,7 +1068,9 @@
       "target": "Fichier",
       "source": "De",
       "expires": "Expire dans",
-      "collection": "Collection"
+      "collection": "Collection",
+      "proposedBy": "Proposé par",
+      "note": "Note"
     },
     "source": {
       "chat": "Une conversation",
@@ -1123,6 +1145,17 @@
       "consent": "L'enregistrement est conservé comme profil vocal avec lequel vos conversations peuvent parler. Vous pouvez le supprimer dans la bibliothèque Voix.",
       "consentAdmin": "Vous êtes administrateur : cette voix sera disponible pour tous les utilisateurs de ce serveur.",
       "confirm": "La personne a donné son accord : enregistrer la voix"
+    },
+    "fromOther": {
+      "title": "{{name}} a proposé une note pour {{project}}",
+      "titleNoProject": "{{name}} a proposé une note",
+      "help": "Rien n'est écrit tant que vous n'avez pas confirmé. {{name}} l'a proposé depuis une discussion qui a intégré ce projet.",
+      "by": "{{name}}, depuis sa propre discussion",
+      "voided": "{{name}} ne peut plus modifier ce projet.",
+      "noteFor": "Une note pour {{project}}",
+      "thisProject": "ce projet",
+      "why": "Partagez de nouveau le projet avec le droit de modifier, puis redemandez la note si vous la voulez encore.",
+      "nameHint": "Nom du projet tiré de son dossier"
     }
   },
   "proposalsPage": {

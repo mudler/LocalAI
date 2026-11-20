@@ -34,6 +34,8 @@
     "agentHelp": "此对话使用智能体 {{name}}：它的指令以及它授予的工具。",
     "editAgent": "编辑智能体",
     "deleteHelp": "永久删除此对话及其消息。",
+    "collections": "集合",
+    "collectionsHelp": "此聊天只能使用这些集合。",
     "sliderOf": "{{name}}滑块",
     "reset": "使用模型的默认{{name}}",
     "hint": {
@@ -167,7 +169,8 @@
       "from": "从",
       "to": "到",
       "reset": "重置筛选"
-    }
+    },
+    "clearShown": "清除显示的"
   },
   "message": {
     "you": "You",
@@ -193,7 +196,8 @@
     "unavailable": "此对话中不可用",
     "toolCount_one": "{{count}} 个工具",
     "toolCount_other": "{{count}} 个工具",
-    "optionsOf": "{{name}}的选项"
+    "optionsOf": "{{name}}的选项",
+    "projectCollections": "来自项目的集合：{{names}}。"
   },
   "skills": {
     "label": "技能",
@@ -219,7 +223,8 @@
     },
     "replacedBy": "已被 {{name}} 替换",
     "fallback_one": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
-    "fallback_other": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。"
+    "fallback_other": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
+    "fromProject": "来自项目"
   },
   "agent": {
     "label": "智能体",
@@ -718,7 +723,9 @@
     "missing": "此智能体的文件夹已不存在。请在智能体中选择其他文件夹。",
     "startError": "此智能体的文件夹缺失，因此无法开始对话。请为智能体选择其他文件夹。",
     "editAgent": "编辑智能体",
-    "toolsMany": "文件：仅限 {{n}} 个文件夹：{{list}}。共享文件夹和技能仍可读取。"
+    "toolsMany": "文件：仅限 {{n}} 个文件夹：{{list}}。共享文件夹和技能仍可读取。",
+    "projectPaused": "此智能体已暂停，因为它的项目已归档或被删除。请打开项目并恢复。",
+    "projectChanged": "此智能体已暂停，因为它的项目文件夹已更改。请打开智能体并重新连接。"
   },
   "origin": {
     "banner": "此对话由{{title}}发起。",
@@ -913,5 +920,11 @@
       "code": "代码块已省略。",
       "table": "表格已省略。"
     }
+  },
+  "deleteShownDialog": {
+    "title": "删除显示的对话",
+    "message_one": "删除 {{project}} 中显示的 {{count}} 个对话？此操作无法撤销。",
+    "message_other": "删除 {{project}} 中显示的 {{count}} 个对话？此操作无法撤销。",
+    "confirm": "删除显示的"
   }
 }

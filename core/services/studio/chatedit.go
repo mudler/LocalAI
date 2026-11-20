@@ -106,7 +106,7 @@ func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult
 // answer the same failure twice.
 func (s *Service) Resume(ctx context.Context, user, conv string) (SendResult, error) {
 	p := principal(user)
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return SendResult{}, err
 	}
@@ -170,7 +170,7 @@ func (s *Service) EditAndRerun(ctx context.Context, user, conv string, seq int64
 // turn, all under one turn claim so that nothing starts between the cut and
 // the turn.
 func (s *Service) rerun(ctx context.Context, p, conv string, pick func([]session.Entry) (keep int64, msg session.Message, err error)) (SendResult, error) {
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return SendResult{}, err
 	}
@@ -243,7 +243,7 @@ func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.E
 			kept = append(kept, e)
 		}
 	}
-	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	rec, err := s.getChatEffective(ctx, p, conv)
 	if err != nil {
 		return session.Message{}, err
 	}
@@ -260,8 +260,16 @@ func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.E
 // pending messages; the next message starts it.
 func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title string) (session.ChatRecord, error) {
 	p := principal(user)
-	src, err := s.d.Store.GetChat(ctx, p, conv)
+	// The stored record: the fork copies what the chat chose, never the tools
+	// its project attaches (the fork reads those from the project itself).
+	src, err := s.getChatRaw(ctx, p, conv)
 	if err != nil {
+		return session.ChatRecord{}, err
+	}
+	// A chat of a project agent is not copied while its project is not
+	// available: the copy would be a chat of that agent made without the check
+	// every new chat of it gets.
+	if _, _, err := s.chatScopes(ctx, src, false); errors.Is(err, ErrProjectUnavailable) {
 		return session.ChatRecord{}, err
 	}
 	entries, err := s.d.Store.Entries(ctx, conv, 0, 0)
@@ -285,6 +293,25 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 		ID: newID(), Principal: p, Title: title, Created: now, Updated: now, Kind: session.KindChat,
 		Model: src.Model, AgentID: src.AgentID, Assistant: src.Assistant, Settings: src.Settings,
 		Egress: forkEgress(src.Egress),
+		// The fork of a fenced chat is fenced: the mark keeps it from the
+		// whole home if its agent is deleted later.
+		ScopedAgent: src.ScopedAgent || s.chatFenced(ctx, src),
+		// A limit, not a link: the fork keeps it whatever the project says.
+		Collections: slices.Clone(src.Collections),
+	}
+	// The fork stays in the project of its source and reads the same pulled
+	// projects, unless the source is fenced: a stale project of a fenced chat
+	// is not carried on.
+	if !s.chatFenced(ctx, src) {
+		rec.ProjectID = src.ProjectID
+		rec.PulledProjects = slices.Clone(src.PulledProjects)
+	} else if pag, ok, err := s.projectAgentOf(ctx, src); err != nil {
+		return session.ChatRecord{}, err
+	} else if ok && pag.ID == src.AgentID {
+		// The chat of a project agent belongs to the project of its agent,
+		// from the record of the agent and never from the record of the
+		// source, so the fork is listed and counted with the project.
+		rec.ProjectID = pag.ProjectID
 	}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		return session.ChatRecord{}, err
@@ -324,5 +351,5 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
 		return fail(err)
 	}
-	return s.d.Store.GetChat(ctx, p, rec.ID)
+	return s.getChatEffective(ctx, p, rec.ID)
 }

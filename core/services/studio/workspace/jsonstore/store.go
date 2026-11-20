@@ -32,11 +32,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sync"
 	"time"
 
 	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
@@ -320,7 +323,7 @@ func (d *data) restore(snap snapshot) {
 		d.addSet(snap.Sets[i])
 	}
 	for _, g := range snap.Grants {
-		d.grants[grantKey{g.Principal, g.Node}] = g.Mode
+		d.putGrant(g)
 	}
 }
 
@@ -366,11 +369,7 @@ func (d *data) apply(rec record) {
 		d.addSet(*rec.Set)
 	}
 	for _, g := range rec.Grants {
-		if g.Mode == workspace.ModeNone {
-			delete(d.grants, grantKey{g.Principal, g.Node})
-			continue
-		}
-		d.grants[grantKey{g.Principal, g.Node}] = g.Mode
+		d.putGrant(g)
 	}
 }
 
@@ -453,7 +452,15 @@ func (s *Store) writeSnapshot(snap snapshot) error {
 		return err
 	}
 	if err := s.log.Truncate(0); err != nil {
-		return err
+		// On Windows, truncating a log file that is open by another handle
+		// fails with "Access is denied". The snapshot has already been
+		// written and the directory synced, so truncation is non-critical:
+		// the log will be replayed on next open (the snapshot covers it).
+		if runtime.GOOS == "windows" {
+			xlog.Warn("workspace: could not truncate log", "error", err)
+		} else {
+			return err
+		}
 	}
 	s.logSize = 0
 	return nil
@@ -465,10 +472,7 @@ func syncDir(dir string) error {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	if err := f.Sync(); err != nil && !errors.Is(err, os.ErrInvalid) {
-		return err
-	}
-	return nil
+	return atomicfile.SyncDirTolerant(f)
 }
 
 func (d *data) snapshot() snapshot {
@@ -481,7 +485,7 @@ func (d *data) snapshot() snapshot {
 		snap.Sets = append(snap.Sets, *d.sets[rev])
 	}
 	for k, m := range d.grants {
-		snap.Grants = append(snap.Grants, grantRec{Principal: k.Principal, Node: k.Node, Mode: m})
+		snap.Grants = append(snap.Grants, grantRec{Principal: k.Principal, Node: k.Node, Mode: workspace.StoredMode(m), Page: d.pages[k]})
 	}
 	slices.SortFunc(snap.Grants, func(a, b grantRec) int {
 		return cmp.Or(cmp.Compare(a.Node, b.Node), cmp.Compare(a.Principal, b.Principal))

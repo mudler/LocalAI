@@ -53,7 +53,8 @@ var clientSkipped = map[string]bool{"describe_image": true, "transcribe_audio": 
 var clientToolNames = func() map[string]bool {
 	out := map[string]bool{}
 	for _, t := range localaitools.ClientTools {
-		if !clientSkipped[t.Tool] && t.Tool != localaitools.ToolListModels {
+		// projects manages data and spends no compute: guardProjects limits it.
+		if !clientSkipped[t.Tool] && t.Tool != localaitools.ToolListModels && t.Tool != localaitools.ToolProjects {
 			out[t.Tool] = true
 		}
 	}
@@ -349,7 +350,7 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.
 			if ts, err := s.toolsOf(ctx, rec.ID, exec); err != nil {
 				s.log.Warn("studio: the LocalAI client tools are unavailable", "chat", rec.ID, "error", err)
 			} else {
-				add(builtins.GroupLocalAIClient, guardMessagingRegistry(s.guardVoiceProfile(ts, chat, exec), chat))
+				add(builtins.GroupLocalAIClient, guardProjects(guardMessagingRegistry(s.guardVoiceProfile(ts, chat, exec), chat), chat, s.chatFenced(ctx, rec), func(ctx context.Context) string { return s.ownProjectID(ctx, rec) }))
 			}
 		}
 	}

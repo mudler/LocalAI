@@ -137,3 +137,12 @@ var _ = Describe("StagingKeyMapper", func() {
 		})
 	})
 })
+
+var _ = Describe("StagingKeyMapper key separators", func() {
+	It("always builds keys with forward slashes", func() {
+		m := nodes.StagingKeyMapper{TrackingKey: "my-model", FrontendModelsDir: filepath.Join("base", "models")}
+		key := m.Key(filepath.Join("base", "models", "sub", "file.gguf"))
+		Expect(key).To(Equal("models/my-model/sub/file.gguf"))
+		Expect(key).ToNot(ContainSubstring(`\`))
+	})
+})

@@ -2,8 +2,10 @@ package studio
 
 import (
 	"context"
+	"errors"
 	"slices"
 
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/resourcesets"
@@ -174,8 +176,17 @@ func resourcesSwitch(s *Service) CapabilitySwitch {
 			return Block{}
 		}
 		ag, err := s.d.Agents.Get(ctx, principal(b.Owner), b.AgentID)
-		if err != nil {
+		if err == nil {
+			ag, err = s.runtimeAgentVia(ctx, principal(b.Owner), ag, true)
+		}
+		if errors.Is(err, agents.ErrNotFound) {
 			return Block{} // the grants switch reports an agent it cannot read
+		}
+		if err != nil {
+			// Any other error (an unavailable project, a store failure) is
+			// refused at run time, so the status says so too.
+			return Block{Code: CodeAgentUnavailable, Reason: "the agent of this bot cannot be read",
+				Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID}}
 		}
 		defs, err := s.d.AddonTools.Tools(ctx, principal(b.Owner))
 		if err != nil {

@@ -1,15 +1,25 @@
 #!/bin/bash
-# Bump the Strata pins in backend/go/strata/Makefile to the latest release.
+# Bump the Strata pins in backend/go/strata/Makefile.
 #
 # The strata backend does not build the engine. It fetches the engine packages
-# upstream publishes with each release, so a bump has to move several values
-# together: the release tag, the commit of that tag (the Python modules come from
-# it), the engine package version, and the SHA-256 of every package. bump_deps.sh
-# only handles one commit variable, hence this script.
+# upstream publishes with its releases. Upstream versions each platform on its
+# own and does not attach every package to every release, so the Makefile pins
+# every package separately: its release tag, its version and its SHA-256. This
+# script moves those pins, plus STRATA_VERSION and STRATA_COMMIT (the newest
+# release and its commit; the Python modules come from it). bump_deps.sh only
+# handles one commit variable, hence this script.
 #
-# Each package's SHA-256 comes from the release's SHA256SUMS.txt and must equal
-# the digest GitHub computed for the uploaded asset. The pull request this opens
-# is the review step; nothing is trusted after that except those pins.
+# For each package the script takes the newest release that contains it. Mixed
+# versions and tags across packages are normal. A package that is in no release
+# keeps its pin and raises a warning.
+#
+# Each package's SHA-256 comes from the SHA256SUMS.txt of the release the
+# package is taken from and must equal the digest GitHub computed for the
+# uploaded asset. Both checks are hard errors. The pull request this opens is
+# the review step; nothing is trusted after that except those pins.
+#
+# When nothing changes the script writes no output file, and the workflow opens
+# no pull request.
 set -xe
 
 source "$(dirname "${BASH_SOURCE[0]}")/gh_curl.sh"
@@ -23,88 +33,138 @@ if [ -z "$REPO" ] || [ -z "$FILE" ] || [ -z "$VAR" ]; then
     exit 1
 fi
 
-RELEASE=$(gh_curl -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/$REPO/releases/latest")
-TAG=$(echo "$RELEASE" | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
 
-# The commit the tag points at (the API resolves annotated tags).
+# Newest first. Drafts and pre-releases are not candidates.
+gh_curl -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/$REPO/releases?per_page=30" > "$WORK/releases.json"
+
+# Step 1: for every package pinned in the Makefile, the newest release that
+# contains it. Writes plan.tsv (family, package, tag, version, asset name,
+# GitHub digest) and tags.txt (the releases the SHA256SUMS.txt files are needed
+# for). The first line of tags.txt is the newest release.
+python3 -I - "$FILE" "$WORK" <<'PY'
+import json, re, sys
+
+makefile, work = sys.argv[1:3]
+releases = [r for r in json.load(open(f"{work}/releases.json"))
+            if not r.get("draft") and not r.get("prerelease")]
+if not releases:
+    sys.exit("Refusing to bump: no release found")
+
+text = open(makefile).read()
+families = {"ENGINE": "strata-engine"}
+plan, tags = [], [releases[0]["tag_name"]]
+for fam, prefix in families.items():
+    for pkg in re.findall(rf"^STRATA_{fam}_SHA256_([a-z0-9_]+)\?=", text, re.M):
+        # linux_x86_64_cuda_cuda12 -> linux-x86_64-cuda-cuda12
+        suffix = pkg.replace("_", "-").replace("x86-64", "x86_64")
+        pat = re.compile(rf"^{prefix}-([0-9][0-9.]*)-{re.escape(suffix)}\.tar\.gz$")
+        found = None
+        for i, rel in enumerate(releases):
+            hits = [(a["name"], pat.match(a["name"]).group(1), a.get("digest") or "")
+                    for a in rel.get("assets", []) if pat.match(a["name"])]
+            if len(hits) > 1:
+                sys.exit(f"Refusing to bump: {rel['tag_name']} has several {prefix} packages for {suffix}")
+            if hits:
+                found = (rel["tag_name"], i, *hits[0])
+                break
+        if not found:
+            print(f"::warning title=Strata package not found::no release contains a {prefix} package for {suffix}; its pin is unchanged")
+            continue
+        tag, idx, name, ver, digest = found
+        if idx > 0:
+            print(f"::notice title=Strata package from an older release::{name} is not in {releases[0]['tag_name']}; taking it from {tag}")
+        plan.append("\t".join([fam, pkg, tag, ver, name, digest.removeprefix("sha256:")]))
+        if tag not in tags:
+            tags.append(tag)
+open(f"{work}/plan.tsv", "w").write("\n".join(plan) + ("\n" if plan else ""))
+open(f"{work}/tags.txt", "w").write("\n".join(tags) + "\n")
+PY
+
+LATEST=$(head -n1 "$WORK/tags.txt")
+
+# The commit the newest tag points at (the API resolves annotated tags).
 COMMIT=$(gh_curl -H "Accept: application/vnd.github.VERSION.sha" \
-    "https://api.github.com/repos/$REPO/commits/$TAG" || true)
+    "https://api.github.com/repos/$REPO/commits/$LATEST" || true)
 if ! [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
-    echo "Refusing to bump: expected a 40-char commit SHA for $REPO@$TAG, got: $COMMIT" >&2
+    echo "Refusing to bump: expected a 40-char commit SHA for $REPO@$LATEST, got: $COMMIT" >&2
     exit 1
 fi
 
-SUMS=$(gh_curl -L "https://github.com/$REPO/releases/download/$TAG/SHA256SUMS.txt")
+# The checksum file of every release a package comes from.
+mkdir -p "$WORK/sums"
+while read -r tag; do
+    gh_curl -L "https://github.com/$REPO/releases/download/$tag/SHA256SUMS.txt" > "$WORK/sums/$tag"
+done < "$WORK/tags.txt"
 
-set +e
-CURRENT_TAG="$(grep -m1 "^STRATA_VERSION?=" "$FILE" | cut -d'=' -f2)"
-set -e
+# Step 2: verify every package, then rewrite the Makefile in one go, so a failed
+# check never leaves a half-rewritten file. Writes message.txt when something
+# changed.
+python3 -I - "$FILE" "$WORK" "$REPO" "$LATEST" "$COMMIT" <<'PY'
+import os, re, sys
 
-# Work out the new engine version and the new sums into a temporary list first,
-# so a half-finished run never leaves a half-rewritten Makefile.
-NEW_ENGINE_VERSION=""
-NEW_DSV41_VERSION=""
-PINS=$(mktemp)
+makefile, work, repo, latest, commit = sys.argv[1:6]
+text = open(makefile).read()
+orig = text
 
-# pin_packages <variable prefix> <asset prefix> <version variable name>
-# Reads the Makefile variables <prefix><key>, finds the matching asset in the
-# release and appends "<variable> <sha256>" to $PINS. The version found in the
-# asset names goes to the variable named by the third argument.
-pin_packages() {
-    local prefix=$1 asset=$2 verref=$3 var key suffix line sum name ver digest
-    for var in $(grep -oE "^${prefix}[a-z0-9_]+" "$FILE"); do
-        key="${var#"$prefix"}"
-        # linux_x86_64_cuda_cuda12 -> linux-x86_64-cuda-cuda12
-        suffix=$(echo "$key" | sed -e 's/x86_64/X8664/' -e 's/_/-/g' -e 's/X8664/x86_64/')
-        line=$(echo "$SUMS" | grep -E "  ${asset}-[0-9.]+-${suffix}\.tar\.gz\$" || true)
-        if [ "$(echo "$line" | grep -c .)" != "1" ]; then
-            echo "Refusing to bump: $TAG has no single ${asset} package for $suffix" >&2
-            exit 1
-        fi
-        sum=$(echo "$line" | cut -d' ' -f1)
-        name=$(echo "$line" | awk '{print $2}')
-        ver=$(echo "$name" | sed -E "s/^${asset}-([0-9.]+)-.*/\1/")
-        if [ -n "${!verref}" ] && [ "${!verref}" != "$ver" ]; then
-            echo "Refusing to bump: ${asset} packages of $TAG disagree on the version (${!verref}, $ver)" >&2
-            exit 1
-        fi
-        printf -v "$verref" '%s' "$ver"
-        # GitHub's own digest for the uploaded asset must agree with SHA256SUMS.txt.
-        digest=$(echo "$RELEASE" | python3 -c "
-import json, sys
-name = sys.argv[1]
-for a in json.load(sys.stdin)['assets']:
-    if a['name'] == name:
-        print((a.get('digest') or '').removeprefix('sha256:'))
-" "$name")
-        if [ "$digest" != "$sum" ]; then
-            echo "Refusing to bump: SHA256SUMS.txt and the GitHub asset digest disagree for $name ($sum vs '$digest')" >&2
-            exit 1
-        fi
-        echo "$var $sum" >> "$PINS"
-    done
-}
+def get(name):
+    m = re.search(rf"^{name}\?=(.*)$", text, re.M)
+    return m.group(1).strip() if m else None
 
-pin_packages STRATA_SHA256_ strata-engine NEW_ENGINE_VERSION
-pin_packages STRATA_DSV41_SHA256_ strata-dsv41 NEW_DSV41_VERSION
+def put(name, value):
+    global text
+    text, n = re.subn(rf"^{name}\?=.*$", lambda _: f"{name}?={value}", text, flags=re.M)
+    if n != 1:
+        sys.exit(f"Could not find {name} in {makefile}")
 
-# Every value is checked; now rewrite them all. A no-op rewrite is safe:
-# peter-evans/create-pull-request opens no PR when the tree is clean.
-sed -i "$FILE" \
-    -e "s/^STRATA_VERSION?=.*/STRATA_VERSION?=$TAG/" \
-    -e "s/^STRATA_COMMIT?=.*/STRATA_COMMIT?=$COMMIT/" \
-    -e "s/^STRATA_ENGINE_VERSION?=.*/STRATA_ENGINE_VERSION?=$NEW_ENGINE_VERSION/" \
-    -e "s/^STRATA_DSV41_ENGINE_VERSION?=.*/STRATA_DSV41_ENGINE_VERSION?=$NEW_DSV41_VERSION/"
-while read -r var sum; do
-    sed -i "$FILE" -e "s/^$var?=.*/$var?=$sum/"
-done < "$PINS"
-rm -f "$PINS"
+sums = {}
+for tag in os.listdir(f"{work}/sums"):
+    sums[tag] = open(f"{work}/sums/{tag}").read().splitlines()
 
-if [ -z "$CURRENT_TAG" ]; then
-    echo "Could not find STRATA_VERSION in $FILE."
+changes = []
+for row in open(f"{work}/plan.tsv").read().splitlines():
+    fam, pkg, tag, ver, name, digest = row.split("\t")
+    lines = [l for l in sums[tag] if re.fullmatch(rf"[0-9a-f]{{64}}  {re.escape(name)}", l)]
+    if len(lines) != 1:
+        sys.exit(f"Refusing to bump: SHA256SUMS.txt of {tag} has {len(lines)} entries for {name}")
+    sha = lines[0].split()[0]
+    # GitHub's own digest for the uploaded asset must agree with SHA256SUMS.txt.
+    if digest != sha:
+        sys.exit(f"Refusing to bump: SHA256SUMS.txt and the GitHub asset digest disagree for {name} ({sha} vs '{digest}')")
+    old = (get(f"STRATA_{fam}_TAG_{pkg}"), get(f"STRATA_{fam}_VERSION_{pkg}"), get(f"STRATA_{fam}_SHA256_{pkg}"))
+    if old != (tag, ver, sha):
+        label = "engine"
+        changes.append(f"- {label} `{pkg}`: {old[0]} / {old[1]} -> {tag} / {ver}")
+        put(f"STRATA_{fam}_TAG_{pkg}", tag)
+        put(f"STRATA_{fam}_VERSION_{pkg}", ver)
+        put(f"STRATA_{fam}_SHA256_{pkg}", sha)
+
+current_tag = get("STRATA_VERSION")
+put("STRATA_VERSION", latest)
+put("STRATA_COMMIT", commit)
+
+if text == orig:
+    print("Strata pins are up to date; nothing to do")
+    sys.exit(0)
+
+open(makefile, "w").write(text)
+msg = [f"Changes: https://github.com/{repo}/compare/{current_tag}...{latest}", ""]
+msg.append(f"Newest release: {latest} ({commit}). The Python modules are fetched at that commit.")
+msg.append("")
+if changes:
+    msg.append("Packages are pinned one by one; each comes from the newest release that has it, so tags and versions can differ between packages.")
+    msg.append("")
+    msg += changes
+else:
+    msg.append("No package pin changed.")
+open(f"{work}/message.txt", "w").write("\n".join(msg) + "\n")
+PY
+
+if [ ! -s "$WORK/message.txt" ]; then
     exit 0
 fi
 
-echo "Changes: https://github.com/$REPO/compare/${CURRENT_TAG}...${TAG}" >> "${VAR}_message.txt"
-echo "${TAG} (${COMMIT})" >> "${VAR}_commit.txt"
+cp "$WORK/message.txt" "${VAR}_message.txt"
+echo "${LATEST} (${COMMIT})" > "${VAR}_commit.txt"

@@ -1,9 +1,9 @@
 ---
 title: "Office"
-weight: 3
-card: "Make Word, Excel, PDF and PowerPoint files from one sentence."
-headline: 'A sentence becomes your <span class="hl">documents</span>.'
-lede: "Type what you need. LocalAI makes real Word, Excel, PDF and PowerPoint files and saves them in Files."
+weight: 5
+card: "Make Word, Excel, PowerPoint and PDF files from a chat."
+headline: 'Make Word, Excel, PowerPoint and PDF <span class="hl">files</span>.'
+lede: "Describe the document. LocalAI saves a Word, Excel, PowerPoint or PDF file in Files."
 docs: "/docs/features/office/"
 dev: true
 icon: "office"
@@ -13,8 +13,10 @@ demo: ""
 points:
   - "Make Word (docx), Excel (xlsx), PDF and PowerPoint (pptx) files."
   - "Read those files back into the chat."
-  - "Files are saved in your Files, with a preview in the chat."
+  - "The file goes to Files and shows as a preview in the chat."
 notes:
   - "Office is an add-on. An admin installs it."
   - "LocalAI makes and reads PDF files. It does not edit them."
+films:
+  - {name: "office", title: "Office.", caption: "Ask for a project plan in plain words. One chat makes a Word file, a spreadsheet, a PDF and a slide deck, and saves all four in Files.", seconds: 45}
 ---

@@ -121,7 +121,7 @@ describe('the screen the state asks for', () => {
     expect(baseScreen(input('stopped', { worker }))).toBe('worker')
   })
   it('shows the browser screen when the WebUI opens in the browser', () => {
-    expect(baseScreen(input('ready', { windowSettings: { openInBrowser: true, anyRemembered: false } }))).toBe('browser')
+    expect(baseScreen(input('ready', { windowSettings: { openInBrowser: true, desktopNotifications: true, anyRemembered: false } }))).toBe('browser')
   })
 })
 

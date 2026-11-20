@@ -9,7 +9,7 @@ import type { EventContract } from '../src/shared/ipc'
 import { LauncherCore, NETWORK_PLAN_TTL_MS, REDACTED, type CoreDeps } from '../src/main/core'
 import { SAFE_STORAGE_PROBE, type SafeStorageLike } from '../src/main/secretStore'
 import type { SandboxProbe } from '../src/main/sandboxProbe'
-import { FAKE_SERVER, freePort, tmpDir } from './helpers'
+import { commandLine, FAKE_SERVER, freePort, tmpDir } from './helpers'
 import { FakeProvider, TARGET } from './serverInstallHarness'
 
 type Ev = { [C in keyof EventContract]: { channel: C; payload: EventContract[C] } }[keyof EventContract]
@@ -354,7 +354,7 @@ describe('a secret value never leaks', () => {
     // Not on the command line: the launch args and the server's real command line.
     const argsLine = core.queryLogs({ source: 'server' }).find((l) => l.text.startsWith('args: '))!.text
     const pids = JSON.parse(fs.readFileSync(pidsFile, 'utf8')) as { server: number }
-    const cmdline = fs.readFileSync(`/proc/${pids.server}/cmdline`, 'utf8')
+    const cmdline = commandLine(pids.server)
     for (const text of [argsLine, cmdline]) {
       expect(text).not.toContain(key)
       expect(text).not.toContain(TOKEN)

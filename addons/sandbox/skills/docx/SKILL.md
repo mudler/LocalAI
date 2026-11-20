@@ -38,6 +38,13 @@ Precise ZIP/OOXML work is still available when it is genuinely the narrowest ope
 
 `Document.save()` uses ordinary serialization. `docx.package.patch_save()` retains the original bytes of unchanged package parts and returns change evidence.
 
-## Not available here
+## Build and check a document
 
-Rendering a file to PDF or to images needs LibreOffice, which is not installed here. You cannot check how the file looks. Check it by opening it again with the library and reading back what you wrote, and tell the user that the look was not checked.
+You cannot see a document by reading its code. Build it in the `office` sandbox profile, which has LibreOffice Writer and fonts, and look at every page before you say it is done.
+
+1. **Switch first.** Call `sandbox_profile` with action `use` and profile `office` before you write anything. Switching restarts the sandbox: the files stay, but installed packages and running processes are lost. So switch before you build, and build the whole document in `office`. If the switch fails or `office` is not listed, say so and tell the user that the look of the document was not checked.
+2. **Build it** with the library, as above, and save it.
+3. **Render and look.** `sh /usr/local/lib/localai/document-skills/docx/render.sh document.docx [outdir] [dpi]` converts the document to a PDF with LibreOffice and writes `page-<n>.png` for each page (default folder: the document's name plus `-render`, default 80 dpi). It prints the paths. It stops after 180 seconds (`RENDER_TIMEOUT` changes that). Open **every** PNG with the file reader and look at it. Check that text is not cut off or overlapping, that tables and images fit the page, that headings, lists and page breaks are where you meant them to be, and that no page is empty by accident. Fix what you see, and render again.
+4. **Say what you checked.** Tell the user how many pages you looked at. The render is LibreOffice's, not Word's: fonts, spacing and page breaks can differ a little (Carlito and Caladea stand in for Calibri and Cambria with the same metrics). If you could not render, say that the look was not checked. Never write that a document looks fine when you did not look at its pages.
+
+If `render.sh` says that `soffice` is not installed, the sandbox is not in the `office` profile: switch, then build and render again, because installed packages were lost.

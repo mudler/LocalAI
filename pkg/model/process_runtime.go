@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/gofrs/flock"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 )
 
@@ -39,7 +40,7 @@ func backendRuntimeRoot() string {
 	// Always append a LocalAI- and user-specific namespace. Even if an operator
 	// points the configurable base at /tmp, the sweeper never inspects unrelated
 	// process-* directories in that shared parent.
-	return filepath.Join(base, fmt.Sprintf("localai-%d", os.Getuid()), "backend-runtime")
+	return filepath.Join(base, system.UserScopedName(), "backend-runtime")
 }
 
 func newBackendProcessRuntime() (*backendProcessRuntime, error) {

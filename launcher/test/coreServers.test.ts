@@ -104,6 +104,7 @@ describe('a remote default: the local server is not touched', () => {
   it('opens a remote default at once, and never starts, checks or installs the local server', async () => {
     const r = await rig({ remotes: [REMOTE], default_target: REMOTE.id, auto_start_server: true })
     await r.core.init()
+    r.core.openDefaultRemote()
     expect(r.core.webuiState().target).toMatchObject({ kind: 'remote', host: 'office.example.com' })
     expect(r.effects).toEqual([{ kind: 'show', origin: 'https://office.example.com', url: 'https://office.example.com/app' }])
     await r.core.autoStart()
@@ -114,6 +115,26 @@ describe('a remote default: the local server is not touched', () => {
     r.core.installServer({})
     await r.core.installIdle()
     expect(r.provider.lookups).toBe(0)
+  })
+
+  it('does not open the remote default during init, before the shell has a window to show it in', async () => {
+    const r = await rig({ remotes: [REMOTE], default_target: REMOTE.id })
+    await r.core.init()
+    // An effect emitted now has no window to land in and is lost, while the model would count the view as up.
+    expect(r.effects).toEqual([])
+    expect(r.probes).toEqual([])
+    r.core.openDefaultRemote()
+    expect(r.effects).toEqual([{ kind: 'show', origin: 'https://office.example.com', url: 'https://office.example.com/app' }])
+    await until(() => r.probes.length > 0)
+    expect(r.probes).toEqual(['https://office.example.com'])
+  })
+
+  it('openDefaultRemote does nothing when this computer is the default', async () => {
+    const r = await rig({ remotes: [REMOTE] })
+    await r.core.init()
+    r.core.openDefaultRemote()
+    expect(r.effects).toEqual([])
+    expect(r.probes).toEqual([])
   })
 
   it('"keep local running" gives the local server its normal rules back', async () => {
@@ -329,6 +350,7 @@ describe('a remote default that does not answer', () => {
     const r = await rig({ remotes: [REMOTE], default_target: REMOTE.id })
     r.results.set(REMOTE.url, { status: 'unreachable', reason: 'timeout' })
     await r.core.init()
+    r.core.openDefaultRemote()
     await until(() => r.core.webuiState().remote !== null)
     expect(r.core.webuiState()).toMatchObject({ layout: 'shell-only', home: 'shell-only', remote: { kind: 'unreachable', reason: 'timed out' } })
     expect(r.effects.map((e) => e.kind)).toEqual(['show', 'close'])
@@ -346,6 +368,7 @@ describe('a remote default that does not answer', () => {
     const r = await rig({ remotes: [REMOTE], default_target: REMOTE.id }, { remoteRetryMs: 60_000 })
     r.results.set(REMOTE.url, { status: 'unreachable', reason: 'refused' })
     await r.core.init()
+    r.core.openDefaultRemote()
     await until(() => r.core.webuiState().remote !== null)
     r.results.delete(REMOTE.url)
     await r.core.retryRemote()
@@ -424,5 +447,54 @@ describe('the update channel', () => {
     expect(fs.readFileSync(r.binary + '.previous').equals(devBin)).toBe(true)
     expect(await r.core.updateInfo()).toMatchObject({ channel: 'stable', previousVersion: 'abc1234' })
     expect(cfg(r).update_channel).toBe('stable')
+  })
+})
+
+describe('desktop notifications', () => {
+  it('are on by default, and the choice is saved and passed on', async () => {
+    let changed = 0
+    const r = await rig({}, { notificationTargetsChanged: () => void changed++ })
+    await r.core.init()
+    expect(r.core.windowSettings().desktopNotifications).toBe(true)
+    expect(r.core.notificationTargets().enabled).toBe(true)
+    expect(await r.core.setDesktopNotifications(false)).toMatchObject({ desktopNotifications: false })
+    expect(cfg(r).desktop_notifications).toBe(false)
+    expect(r.core.notificationTargets().enabled).toBe(false)
+    expect(changed).toBeGreaterThan(0)
+    expect(await r.core.setDesktopNotifications(true)).toMatchObject({ desktopNotifications: true })
+    expect(r.core.notificationTargets().enabled).toBe(true)
+  })
+
+  it('watch the local server only while it runs, and every saved remote server', async () => {
+    const r = await rig({ remotes: [REMOTE, REMOTE2] })
+    await r.core.init()
+    let t = r.core.notificationTargets()
+    expect(t.all).toBe(3)
+    expect(t.targets.map((x) => x.id)).toEqual([REMOTE.id, REMOTE2.id])
+    await r.core.startServer()
+    await until(() => r.core.snapshot().state === 'ready')
+    t = r.core.notificationTargets()
+    expect(t.targets.map((x) => [x.id, x.origin])).toEqual([['local', r.local], [REMOTE.id, REMOTE.url], [REMOTE2.id, REMOTE2.url]])
+    await r.core.removeServer(REMOTE.id)
+    expect(r.core.notificationTargets().targets.map((x) => x.id)).toEqual(['local', REMOTE2.id])
+    expect(r.core.notificationTargets().all).toBe(2)
+  })
+
+  it('open the page of a notification only when the link stays on the server', async () => {
+    const r = await rig({ remotes: [REMOTE] })
+    await r.core.init()
+    await r.core.startServer()
+    await until(() => r.core.snapshot().state === 'ready')
+    r.effects.length = 0
+    expect(r.core.openNotificationLink('local', '/app/chats/1')).toBe(true)
+    expect(r.core.openNotificationLink('local', 'https://evil.example.test/')).toBe(false)
+    expect(r.core.openNotificationLink('local', '//evil.example.test/')).toBe(false)
+    expect(r.core.openNotificationLink('nobody', '/app')).toBe(false)
+    // A remote server that is not on show opens in the browser, never in the local view.
+    expect(r.core.openNotificationLink(REMOTE.id, '/app/chats/2')).toBe(true)
+    expect(r.effects).toEqual([
+      { kind: 'navigate', url: `${r.local}/app/chats/1` },
+      { kind: 'open-browser', url: `${REMOTE.url}/app/chats/2` },
+    ])
   })
 })

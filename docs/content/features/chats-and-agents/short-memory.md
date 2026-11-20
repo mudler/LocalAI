@@ -1,47 +1,18 @@
 ---
 url: "/features/short-memory/"
-title: "Short memory"
+title: "Memory"
 weight: 40
 devbuild: feature
 ---
 
 Memory is built into LocalAI. It gives your chats a few notes about you. The model reads
 the note that matches a request before it answers, and by default it saves a new note only
-after you confirm it. You can change that in your account settings. Nothing needs to be
-installed.
+after you confirm it. For example, tell it "I use metric units" and it asks to save that.
+You can change this in your account settings. Nothing needs to be installed.
 
 It is for the facts that change what a good answer is: where you live, what you eat, the
 language and units you use, how you want answers. It is not a store for large documents.
 Use [Knowledge]({{% relref "/features/files-and-documents/collections" %}}) to search many files.
-
-## How it works
-
-Each turn, the host puts an index of your notes in the prompt, under a fixed header that
-asks the model to read the matching topic before it answers. The notes are wrapped as data
-you saved, never as instructions. The index is a list of lines
-such as `- home: lives in Rome -> home.md`. The model opens a topic with the `context_read`
-tool. Two built-in skills, `memory` and `memory-check-own-files`, tell the
-model to consult memory for almost every request and to say what it can and cannot read.
-The server grants these skills itself, in the same turns that read your notes. A saved
-agent does not list them in its Skills, and an agent saved before this existed gets them
-too. They are not granted when the agent's memory choice is **None**, when memory is off,
-when the chat is private, or to a sender in a messaging app who is not paired (that sender
-gets none of your personal notes). When an add-on serves the notes, the skills of that
-add-on are granted in their place. The skill list marks them with `provider: "memory"` and
-`locked: true`.
-While you have no notes, nothing is added to the prompt.
-
-There are three kinds of notes, each in the Memory folder of your files. The **Memory** tab
-lists them in tabs: yours, one for each saved agent, and **Deleted agents**.
-
-| Kind | File | Applies to |
-|---|---|---|
-| Yours | `Memory/index.md` | every chat |
-| One saved agent | `Memory/agents/<agent>/index.md` | the chats of that agent |
-| One conversation | `Memory/channels/<binding>-<hash>/index.md` | one conversation that came from a messaging app |
-
-An index has at most 40 lines and 2 KiB. All indexes of a turn together have at most 6 KiB.
-The details of a topic sit in a file next to the index.
 
 ## Turn memory off
 
@@ -58,7 +29,7 @@ When memory is off:
 - Your notes stay where they are. You can still read, edit, export and delete them on the
   **Memory** tab while memory is off.
 
-The narrowest level wins, and a wider level never overrides a narrower one:
+The most private setting wins. The chat beats the agent, the agent beats your account setting, and your setting beats the server:
 
 1. **This chat** is private (see below).
 2. **The agent** of the chat turns memory off in its **Tools** list.
@@ -71,9 +42,9 @@ settings" as a read-only line.
 
 ### Choose the provider
 
-Built-in memory is the default. At the top of the **Memory** tab, **Memory provider**
+Built-in memory is the default. At the top of the **Memory** tab, **Provider**
 lists the providers you can pick: **Built-in**, **Off**, and every installed add-on that
-says it can serve memory (see [Provider slots]({{% relref "/addons/contract-reference" %}}#provider-slots)). One
+says it can serve memory (see [Provider slots]({{% relref "/addons/contract-reference/host-operations#provider-slots" %}})). One
 serves at a time. When you pick an add-on, its index files, skills and memory tools
 replace the built-in ones, and the built-in provider does not read or save notes. Your
 existing notes stay where they are.
@@ -142,7 +113,7 @@ and the server keeps it.
 ### Which rule applies
 
 Several settings can have a say on one note. The strictest wins, in this order:
-`auto` is the loosest, then `ask`, then `always`, then `never`. One function combines them.
+`auto` is the loosest, then `ask`, then `always`, then `never`.
 
 | Rule | Who sets it | What it can do |
 |---|---|---|
@@ -167,7 +138,7 @@ These rules hold whatever you choose:
   the chat** answers there with `yes` or `no`, within 24 hours. `undo` takes a saved note
   back for 30 minutes. Another sender, or one without that permission, cannot answer: the
   note waits in Studio for you. See
-  [Confirming a change in the chat]({{% relref "/features/chat-apps" %}}#confirming-a-change-in-the-chat).
+  [Confirming a change in the chat]({{% relref "/features/chat-apps/actions#confirming-a-change-in-the-chat" %}}).
 - A saved agent cannot widen your choice. If you choose to be asked, it asks, even when
   you let it write to memory.
 - A reply saves at most 5 notes at once. A long note, or one that looks like it holds a
@@ -207,6 +178,34 @@ This holds for the built-in notes and for an add-on that serves the notes. If no
 known for the turn, it counts as unpaired. The connection page shows it as the line
 `notes.read` of each kind of sender.
 
+## How it works
+
+Each turn, LocalAI puts an index of your notes in the prompt and asks the model to read the
+matching topic before it answers. It marks your notes as user data, so a note can't give the
+model orders. The index is a list of lines such as `- home: lives in Rome -> home.md`. The model opens a topic with the `context_read`
+tool. Two built-in skills, `memory` and `memory-check-own-files`, tell the
+model to consult memory for almost every request and to say what it can and cannot read.
+The server grants these skills itself, in the same turns that read your notes. A saved
+agent does not list them in its Skills, and an agent that was saved earlier gets them
+too. They are not granted when the agent's memory choice is **None**, when memory is off,
+when the chat is private, or to a sender in a messaging app who is not paired (that sender
+gets none of your personal notes). When an add-on serves the notes, the skills of that
+add-on are granted in their place. The skill list marks them with `provider: "memory"` and
+`locked: true`.
+While you have no notes, nothing is added to the prompt.
+
+There are three kinds of notes, each in the Memory folder of your files. The **Memory** tab
+lists them in tabs: yours, one for each saved agent, and **Deleted agents**.
+
+| Kind | File | Applies to |
+|---|---|---|
+| Yours | `Memory/index.md` | every chat |
+| One saved agent | `Memory/agents/<agent>/index.md` | the chats of that agent |
+| One conversation | `Memory/channels/<binding>-<hash>/index.md` | one conversation that came from a messaging app |
+
+An index has at most 40 lines and 2 KiB. All indexes of a turn together have at most 6 KiB.
+The details of a topic sit in a file next to the index.
+
 ## Memory for each agent
 
 A saved agent has its own choice of notes. You set it in the agent form, in the
@@ -221,8 +220,7 @@ The section has two controls. The first says how much the agent does with notes:
 | **Reads notes** | Reads notes, never saves | `memory` is not `none`, without the right `memory.write` |
 | **Reads and saves notes** (new agents) | Reads notes and saves new ones | `memory` is not `none`, with the right `memory.write` |
 
-No new field is stored: the form reads the level from `memory` and `memory.write`, so an
-agent keeps exactly what it has. Switching a level changes both fields together and offers
+The form reads the level from `memory` and `memory.write`. Switching a level changes both fields together and offers
 an Undo. The second control, whose notes (the table below), shows while memory is not Off.
 The save level of your settings and the agent's own save rule apply only to an agent that
 saves notes. The memory skills show as locked rows, on while memory is on, in the Memory
@@ -251,7 +249,7 @@ How it works:
   in your settings" and the chat says which level is off.
 - **Sub-agents** get no notes and cannot save. **Triggers and other runs that start by
   themselves** read per the choice and cannot save.
-- **A chat without an agent** reads your notes and saves to them, as before.
+- **A chat without an agent** reads your notes and saves to them.
 - **Existing agents** are not changed: they show **As before** in the form, with a way to
   pick one of the clearer choices. An agent that never had the field keeps reading and
   saving exactly as it did. A `PUT` that does not send `memory` keeps the stored choice.
@@ -260,7 +258,7 @@ How it works:
   in [In messaging apps](#in-messaging-apps): the conversation first, the agent's own notes
   only after a paired sender confirms.
 - **The agent's save rule.** Under **When it wants to save a note** the form offers **Use my
-  setting** (the default, with your current level and a link to **Settings > Memory**),
+  setting** (the default, with your current level and a link to your **Memory** settings),
   **Save it and tell me**, **Always confirm** and **Never**. **Always confirm** and **Never**
   are only ever stricter than your level. **Save it and tell me** (`auto`) makes this one
   agent save each note at once and tell you in the chat, with an **Undo**, even when your
@@ -307,10 +305,10 @@ stop memory and never chose otherwise, memory stays off for you.
 
 The host serves memory itself. An add-on that wants to serve it in place of the built-in
 provider declares `capabilities.provides` with the slot `memory`; the person picks it in
-**Memory provider**. See [Provider slots]({{% relref "/addons/contract-reference" %}}#provider-slots). A provider can also supply the notes of each turn, an export and a forget, and the host
+**Provider** on the **Memory** tab. See [Provider slots]({{% relref "/addons/contract-reference/host-operations#provider-slots" %}}). A provider can also supply the notes of each turn, an export and a forget, and the host
 checks its writes against your save level; see
-[What the host does itself with a provider]({{% relref "/addons/contract-reference" %}}#what-the-host-does-itself-with-a-provider).
+[What the host does itself with a provider]({{% relref "/addons/contract-reference/host-operations#what-the-host-does-itself-with-a-provider" %}}).
 The add-on `memory` is an alias of the built-in provider: it stays valid and harmless. An add-on
 can still declare `capabilities.contextFiles` for its own index files;
-see [Context files]({{% relref "/addons/contract-reference" %}}#context-files). A skill named `memory` or
+see [Context files]({{% relref "/addons/contract-reference/connectors-and-chats#context-files" %}}). A skill named `memory` or
 `memory-check-own-files` is reserved for the built-in ones.

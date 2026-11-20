@@ -13,6 +13,7 @@ prepare-sources
 /backend-images
 /result.yaml
 protoc
+protoc.exe
 
 *.log
 
@@ -25,6 +26,7 @@ go-bert
 # LocalAI build binary
 LocalAI
 /local-ai
+/local-ai.exe
 # Root-level build artifacts when running `go build ./...` against
 # Go backend packages whose main lives under backend/go/.
 /cloud-proxy

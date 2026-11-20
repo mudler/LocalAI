@@ -10,9 +10,14 @@
 
 export const SETTINGS_VIEW = 'settings'
 
-export function addonSettingsAddress(addonId) {
-  return `/app/addons?detail=${encodeURIComponent(addonId)}&view=${SETTINGS_VIEW}`
+export function addonSettingsAddress(addonId, section = '') {
+  const base = `/app/addons?detail=${encodeURIComponent(addonId)}&view=${SETTINGS_VIEW}`
+  return section ? `${base}&section=${encodeURIComponent(section)}` : base
 }
+
+// The section of the Settings tab to scroll to (the section query parameter),
+// such as 'network' for the network-policy control.
+export const NETWORK_SECTION = 'network'
 
 // The old address of the network block of the Settings page. It opens the
 // Settings tab of the add-on that draws the network-policy control now.

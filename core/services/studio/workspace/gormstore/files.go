@@ -29,7 +29,7 @@ func (s *Workspace) precheckPut(ctx context.Context, q querier, a Actor, segs []
 			target = ex
 		}
 	}
-	return s.needWrite(ctx, q, a, target)
+	return s.needChange(ctx, q, a, target)
 }
 
 func (s *Workspace) Put(ctx context.Context, a Actor, p string, r io.Reader, o PutOptions) (Node, error) {

@@ -3,8 +3,6 @@ package server
 
 import (
 	"context"
-	"net"
-	"os"
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/addons/tables/internal/store"
@@ -23,13 +21,18 @@ type Hooks struct {
 }
 
 // Run is the whole behaviour of the Tables executable: the owner starts it
-// with "--localai-addon-v1", descriptor 3 is a bound loopback listener and
-// descriptor 4 carries the startup object. It returns the process exit code.
+// with "--localai-addon-v1" and hands it a loopback listener and the startup
+// channel (see protocol.Listener and protocol.StartupChannel). It returns the
+// process exit code.
 func Run(args []string, hooks Hooks) int {
 	if len(args) != 2 || args[1] != "--localai-addon-v1" {
 		return 2
 	}
-	startup, rest, err := protocol.ReadStartup(os.NewFile(4, "startup"))
+	channel, err := protocol.StartupChannel()
+	if err != nil {
+		return 3
+	}
+	startup, rest, err := protocol.ReadStartup(channel)
 	if err != nil || !filepath.IsAbs(startup.DataDir) {
 		return 3
 	}
@@ -37,7 +40,7 @@ func Run(args []string, hooks Hooks) int {
 	// and Run returns, so the store is closed by its defer.
 	ctx, stop := protocol.StopWithParent(context.Background(), rest)
 	defer stop()
-	listener, err := net.FileListener(os.NewFile(3, "listener"))
+	listener, err := protocol.Listener()
 	if err != nil {
 		return 6
 	}

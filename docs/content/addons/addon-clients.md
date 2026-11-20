@@ -13,9 +13,9 @@ the key can do two things:
 - **Inference.** The client calls the standard OpenAI-style API with its own key,
   for the models that the owner chose. See [Inference with a client
   key](#inference-with-a-client-key).
-- **Add-on calls.** The client talks to an [add-on](/features/addons/) that the
-  owner installed. The rest of this page is for people who write that add-on. It
-  describes the routes of the client, the event stream and the host operations.
+- **Add-on calls.** The client talks to an [add-on]({{% relref "/addons" %}}) that the
+  owner installed. Add-on authors need the routes of the client, the event stream
+  and the host operations, which this page describes below.
 
 For add-on calls, the add-on does the work. LocalAI checks who the client is, what
 it may reach and how much it may send, and forwards the request.
@@ -308,7 +308,7 @@ and watches at most 8 jobs for each client.
 ## Host operations for jobs
 
 A job of a client runs a **task** that the owner saved (see
-[Agent tasks and jobs](/features/agent-jobs/)). The add-on names the task and
+[Agent tasks and jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}})). The add-on names the task and
 fills its parameters. It cannot send a prompt of its own.
 
 | Operation | Arguments | Result |

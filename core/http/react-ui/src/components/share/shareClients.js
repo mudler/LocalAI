@@ -34,6 +34,18 @@ export function folderShareClient(api, folderId) {
   })
 }
 
+// pageShareClient is the client of one page of the person's own pages, over
+// /api/chats/pages/{name}/shares (pageSharesApi in utils/api.js). Its roles are
+// view, use and edit.
+export function pageShareClient(api, name) {
+  return Object.freeze({
+    grants: (options) => api.grants(name, options),
+    setGrant: (principal, role, options) => api.setGrant(name, principal, role, options),
+    revoke: (principal, options) => api.revokeGrant(name, principal, options),
+    searchUsers: (query, options) => api.searchUsers(name, query, { limit: SEARCH_LIMIT, ...(options || {}) }),
+  })
+}
+
 // addonShareClient is the client of an add-on resource, over the SDK's
 // sdk.resources, which binds every call to the add-on and its generation.
 export function addonShareClient(resources, resourceId) {

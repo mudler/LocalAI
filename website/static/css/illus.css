@@ -73,3 +73,10 @@
 .addon p { margin: 0; font-size: .82rem; color: var(--dk-muted); line-height: 1.4; }
 .addon .chip { margin-top: .3rem; }
 @media (max-width: 480px) { .addgrid, .tiles { grid-template-columns: 1fr; } .tbl > div { grid-template-columns: 1.4fr repeat(3, .8fr); padding-inline: .6rem; } .msg { max-width: 92%; } }
+
+/* a real screenshot in a demo slot, one for each theme */
+.shot { width: 100%; height: auto; border: 1px solid var(--dk-edge); border-radius: 18px; box-shadow: var(--shadow); background: var(--dk-card); }
+.shot--dk { display: none; }
+:root[data-theme="dark"] .shot--lt { display: none; } :root[data-theme="dark"] .shot--dk { display: block; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .shot--lt { display: none; } :root:not([data-theme="light"]) .shot--dk { display: block; } }
+.demo-slot:has(.shot) { max-width: 760px; }

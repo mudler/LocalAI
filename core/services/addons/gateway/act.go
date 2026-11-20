@@ -85,7 +85,7 @@ func (g *Gateway) actLocal(ctx context.Context, a contract.Actor, r contract.Req
 		}
 		// The authority outlives the longest call and no longer.
 		out, e = runtime.Act(ctx, contract.Envelope{Request: r, Authority: contract.Authority{
-			Actor: a, Scope: "act", ExpiresAt: time.Now().Add(contract.ActTimeout + time.Minute)}})
+			Actor: a, Scope: "act", ExpiresAt: time.Now().Add(contract.ActAuthorityLife)}})
 		if errors.Is(e, addonruntime.ErrNotSent) {
 			return ErrNotSent
 		}

@@ -116,6 +116,43 @@ var _ = Describe("the LocalAI groups in a messaging chat", func() {
 		}
 	})
 
+	It("refuses every action of projects in a messaging chat, with a plain error", func() {
+		for _, args := range []string{`{"action":"list"}`, `{"action":"get","project":"p1"}`, `{"action":"delete","project":"p1"}`,
+			`{"action":"pull","chat_id":"c1","project":"p1"}`} {
+			res, calls := run(session.OriginConnector, localaitools.ToolProjects, args)
+			Expect(res.Err).To(MatchError(ContainSubstring("not available in a messaging chat")), args)
+			Expect(calls).To(BeZero(), args)
+		}
+	})
+
+	It("lets a run that starts by itself list projects, shows it only its own, and refuses every change", func() {
+		// The agent of this run belongs to no project: it sees none, and cannot
+		// read the detail of one by its id.
+		res, calls := run(session.OriginTrigger, localaitools.ToolProjects, `{"action":"list"}`)
+		Expect(res.Err).NotTo(HaveOccurred())
+		Expect(calls).To(Equal(1))
+		Expect(res.Out).NotTo(ContainSubstring("Acme"))
+		res, calls = run(session.OriginTrigger, localaitools.ToolProjects, `{"action":"get","project":"p1"}`)
+		Expect(res.Err).To(MatchError(ContainSubstring("only the project this chat works for")))
+		Expect(calls).To(BeZero())
+		for _, c := range []struct {
+			args string
+			ok   bool
+		}{
+			{`{"action":"create","name":"x"}`, false}, {`{"action":"delete","project":"p1"}`, false},
+			{`{"action":"pull","chat_id":"c1","project":"p1"}`, false}, {`{"action":"set_chat_project","chat_id":"c1"}`, false},
+		} {
+			res, calls := run(session.OriginTrigger, localaitools.ToolProjects, c.args)
+			if c.ok {
+				Expect(res.Err).NotTo(HaveOccurred(), c.args)
+				Expect(calls).To(Equal(1), c.args)
+				continue
+			}
+			Expect(res.Err).To(MatchError(ContainSubstring("nobody watches")), c.args)
+			Expect(calls).To(BeZero(), c.args)
+		}
+	})
+
 	It("leaves verify, list and the other client tools available in a messaging chat", func() {
 		for _, c := range []struct{ tool, args string }{
 			{localaitools.ToolVoice, `{"action":"verify","audio":"a.wav","audio2":"b.wav"}`},

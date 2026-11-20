@@ -8,6 +8,9 @@ on:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    env:
+      WINDOWS_SIGN_PFX: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_SIGN_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -29,6 +32,12 @@ jobs:
       # library (official-backends, gallery/backends/index.yaml).
       - name: Cut the default backend source over to the library
         run: echo "LOCALAI_BACKEND_SOURCE=library" >> "$GITHUB_ENV"
+      # Optional Authenticode signing of the Windows server binary. The step
+      # and the signing hook do nothing unless the WINDOWS_CERTIFICATE secret
+      # (base64 of a PFX file) is set. See scripts/sign-windows.sh.
+      - name: Install osslsigncode
+        if: ${{ env.WINDOWS_SIGN_PFX != '' }}
+        run: sudo apt-get update && sudo apt-get install -y osslsigncode
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
@@ -41,6 +50,21 @@ jobs:
           MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
           MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
           MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      # The release must carry the Windows server binary and list it in the
+      # checksum file, which install.ps1 needs.
+      - name: Check the Windows asset is in the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          asset="local-ai-${TAG}-windows-amd64.exe"
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$asset" ||
+            { echo "::error::release $TAG has no asset $asset"; exit 1; }
+          gh release download "$TAG" --pattern '*-checksums.txt' --output - |
+            grep -Eq "[[:space:]]\*?${asset//./\\.}\$" ||
+            { echo "::error::the checksum file of $TAG has no line for $asset"; exit 1; }
   # The desktop launcher (Electron) and its update feed. Every release carries
   # them: installed launchers read the feed from the newest release. The macOS
   # app is always signed and notarized: a missing secret fails this job.
@@ -57,3 +81,5 @@ jobs:
       MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
       MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
       MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}

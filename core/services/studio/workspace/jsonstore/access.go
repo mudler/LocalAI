@@ -38,19 +38,32 @@ func (d *data) isLive(id int64) bool {
 // needWrite returns ErrNotFound without read access and ErrReadOnly without
 // write access.
 func (s *Store) needWrite(d *data, a workspace.Actor, n nodeRow) error {
+	return s.need(d, a, n, workspace.ModeWrite)
+}
+
+// needChange returns ErrNotFound without read access and ErrReadOnly without
+// the right to change files: write access, or a data grant. A data grant is
+// narrowed to non-code files where the change is made (writer.apply), which
+// every change passes.
+func (s *Store) needChange(d *data, a workspace.Actor, n nodeRow) error {
+	return s.need(d, a, n, workspace.ModeData)
+}
+
+func (s *Store) need(d *data, a workspace.Actor, n nodeRow, want workspace.Mode) error {
 	if err := workspace.CheckFence(a); err != nil {
 		return err
 	}
 	switch m := s.access(d, a, n.ID); {
 	case m < workspace.ModeRead:
 		return workspace.ErrNotFound
-	case m < workspace.ModeWrite:
+	case m < want:
 		return workspace.ErrReadOnly
 	}
 	return nil
 }
 
-// find resolves p for the actor. need is ModeRead or ModeWrite.
+// find resolves p for the actor. need is ModeRead, ModeData (the right to
+// change files) or ModeWrite.
 func (s *Store) find(d *data, a workspace.Actor, p string, need workspace.Mode) (nodeRow, error) {
 	if err := workspace.CheckFence(a); err != nil {
 		return nodeRow{}, err
@@ -63,7 +76,7 @@ func (s *Store) find(d *data, a workspace.Actor, p string, need workspace.Mode) 
 	if m < workspace.ModeRead {
 		return nodeRow{}, workspace.ErrNotFound
 	}
-	if need == workspace.ModeWrite && m < workspace.ModeWrite {
+	if need > workspace.ModeRead && m < need {
 		return nodeRow{}, workspace.ErrReadOnly
 	}
 	return n, nil

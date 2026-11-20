@@ -18,10 +18,13 @@ import { menuBarVisible } from './menuModel'
 import { createTray, type LauncherTray } from './tray'
 import { decideClose, shouldStartVisible } from './trayPolicy'
 import { checkForLauncherUpdate, getUpdaterStatus, initSelfUpdate, installLauncherUpdate, setLauncherPrereleases } from './selfUpdate'
-import { GithubReleasesProvider, RedirectFirstProvider, type PlatformTarget } from './updateProvider'
+import { GithubReleasesProvider, RedirectFirstProvider } from './updateProvider'
+import { platformTarget } from './platform'
+import { resolveLayout } from './paths'
 import { findFreePort, hardwareSummary, portProcess } from './hostTools'
 import { externalUrl, partitionForOrigin } from './webuiPolicy'
 import { WebuiHost } from './webuiView'
+import { DesktopNotifier } from './notifyGlue'
 import { WebuiCredentials } from './webuiCredential'
 import { computeLayout, dimWanted, MIN_SIZE, orderChanged, type Layout, type ViewName } from './windowLayout'
 import { DimLayer } from './dimView'
@@ -56,12 +59,8 @@ let trayCreated = false
 let quitRequested = false
 let confirming = false
 let core: LauncherCore | undefined
-
-function platformTarget(): PlatformTarget | undefined {
-  const os = process.platform === 'linux' ? 'linux' : process.platform === 'darwin' ? 'darwin' : undefined
-  const arch = process.arch === 'x64' ? 'amd64' : process.arch === 'arm64' ? 'arm64' : undefined
-  return os && arch ? { os, arch } : undefined
-}
+let notifier: DesktopNotifier | undefined
+let unreadCount = 0
 
 /** Sends an event to the shell view only. The status bar choice also updates both menus; WebUI state changes the layout. */
 function emit<C extends EventChannel>(channel: C, payload: EventContract[C]): void {
@@ -283,6 +282,7 @@ function createWindow() {
 async function shutdown(code = 0) {
   if (quitRequested) return
   quitRequested = true
+  notifier?.stop()
   try {
     await core?.shutdown()
   } finally {
@@ -409,6 +409,11 @@ function registerIpc(c: LauncherCore) {
   }
 }
 
+// Windows groups the taskbar button, the tray and notifications by this id.
+// It must match the appId of the installer (electron-builder.yml), which puts
+// the same id on the Start menu shortcut.
+if (process.platform === 'win32') app.setAppUserModelId('io.localai.launcher')
+
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
@@ -418,13 +423,15 @@ if (!gotLock) {
     win?.focus()
   })
   app.whenReady().then(async () => {
+    signal('ready')
     const owner = 'mudler'
     const repo = 'LocalAI'
     core = new LauncherCore({
       home: os.homedir(),
+      layout: resolveLayout({ platform: process.platform, env: process.env, home: os.homedir(), exists: (p) => fs.existsSync(p) }),
       launcherVersion: app.getVersion(),
       env: process.env,
-      target: platformTarget(),
+      target: platformTarget(process.platform, process.arch),
       serverBinOverride: process.env.LOCALAI_LAUNCHER_SERVER_BIN,
       endpointOverride: process.env.LOCALAI_LAUNCHER_ENDPOINT,
       provider: new RedirectFirstProvider({ owner, repo }, new GithubReleasesProvider({ owner, repo }), (m) => core?.log(m, 'warn')),
@@ -442,8 +449,14 @@ if (!gotLock) {
       loginItem: setLoginItem,
       onIncludePrereleases: setLauncherPrereleases,
       safeStorage,
+      trace: (m) => signal(`init ${m}`),
       networkInterfaces: () => os.networkInterfaces(),
       webuiCredential,
+      notificationTargetsChanged: () => notifier?.sync(),
+      remoteFetch: (origin) => {
+        const ses = session.fromPartition(partitionForOrigin(origin))
+        return ((input: string | URL | Request, init?: RequestInit) => ses.fetch(input as string, init)) as typeof fetch
+      },
     })
     await core.init()
     core.syncLoginItem()
@@ -464,11 +477,28 @@ if (!gotLock) {
       onQuit: () => void shutdown(),
     })
     trayCreated = tray !== undefined
+    tray?.setUnread(unreadCount)
+    notifier = new DesktopNotifier({
+      core: () => core,
+      windowFocused: () => !!win && !win.isDestroyed() && win.isVisible() && win.isFocused(),
+      currentUrl: () => webui?.currentUrl(),
+      showWindow: () => {
+        win?.show()
+        win?.focus()
+      },
+      onUnread: (n) => {
+        unreadCount = n
+        tray?.setUnread(n)
+      },
+      log: (m, level) => core?.log(m, level),
+      signal,
+    })
+    notifier.sync()
     // A hidden start never opens the browser by itself ("open in browser" waits for a user action).
     core.setStartedHidden(!shouldStartVisible(trayCreated, startHiddenRequested()))
     signal(`pid=${process.pid}`)
     signal(`tray=${trayCreated}`)
-    signal(`launcher-env-stripped-for-child=${Object.keys(process.env).filter(isStrippedVar).join(',')}`)
+    signal(`launcher-env-stripped-for-child=${Object.keys(process.env).filter((k) => isStrippedVar(k)).join(',')}`)
     signal(`sandbox=${!app.commandLine.hasSwitch('no-sandbox')}`)
     initSelfUpdate(
       (s) => {
@@ -478,6 +508,7 @@ if (!gotLock) {
       { includePrereleases: core.channelIsRc() },
     )
     createWindow()
+    core.openDefaultRemote()
     void core.autoStart()
     // Packaged builds check by themselves (the server once a day), unless the user turned it off.
     if (app.isPackaged) {

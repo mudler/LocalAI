@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { checkFailure, checkItem, checkLine, composeServerKey, defaultName, extraBody, extraForm, extraValid, followName, isPlainHttp, jellyfinSecret, normalizePin, serverIssue, splitServerKey, tokenProblem, WRITE_MODES, writeModeOf } from '../src/server.js'
-import { canSave, connectorPayload, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
+import { canSave, connectorPayload, emptyConnector, seedCapabilities } from '../../../internal/connector-ui/src/connector.js'
 import en from '../src/i18n/jellyfin.en.json' with { type: 'json' }
 
 const PIN = 'ab'.repeat(32)
@@ -106,4 +106,27 @@ test('jellyfin: every word the page asks for exists', () => {
     assert.ok(en[key], key)
   }
   assert.match(en.limits, /cannot delete/)
+})
+
+const HOST_CAPS = [{ name: 'chat.read', usual: true }, { name: 'tools.read', usual: true }, { name: 'tools.write', usual: false }]
+
+test('jellyfin: a new connection of a tool-only kind is seeded with no permission', () => {
+  assert.deepEqual(emptyConnector(HOST_CAPS).caps, ['chat.read', 'tools.read'], 'a kind with an agent gets the usual set')
+  const seed = seedCapabilities(HOST_CAPS, { toolOnly: true })
+  assert.equal(seed, null)
+  assert.deepEqual(emptyConnector(seed).caps, [])
+  assert.equal(seedCapabilities(HOST_CAPS, { agentOptional: true }), null, 'an agent-optional kind starts with no agent and no permission')
+  assert.equal(seedCapabilities(HOST_CAPS, { agentOptional: true, agentPicked: true }), HOST_CAPS, 'unless the page picked an agent')
+  assert.equal(seedCapabilities(HOST_CAPS, {}), HOST_CAPS)
+})
+
+test('jellyfin: a save with no agent sends no permission, even when the form holds some', () => {
+  const form = { ...emptyConnector(HOST_CAPS), name: 'Home', token: 'k', grants: [{ role: 'owner', caps: ['tools.read'] }] }
+  const body = connectorPayload(form, 'jellyfin')
+  assert.equal(body.agent_id, '')
+  assert.deepEqual(body.caps, [])
+  assert.deepEqual(body.grants, [])
+  const withAgent = connectorPayload({ ...form, agent_id: 'a' }, 'jellyfin')
+  assert.deepEqual(withAgent.caps, ['chat.read', 'tools.read'], 'an agent keeps its permissions')
+  assert.deepEqual(withAgent.grants, [{ role: 'owner', caps: ['tools.read'] }])
 })

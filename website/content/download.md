@@ -1,5 +1,5 @@
 ---
 title: "Download"
-description: "Install LocalAI with a script, the desktop app, Docker, Kubernetes or from source."
+description: "Download the LocalAI desktop app for macOS (DMG) and Linux (AppImage), or install the server with a script, Docker, Kubernetes or from source."
 layout: "download"
 ---

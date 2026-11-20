@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/mudler/xlog"
@@ -18,6 +16,8 @@ import (
 // the OOM killer) nothing stops them: they keep their port and their GPU
 // memory, and a restarted worker has no record of them. The ledger is that
 // record. A restarted worker kills every group it lists before it serves.
+// Windows has no process groups: there the worker kills the listed process and
+// its descendants (see process_ledger_windows.go).
 //
 // An entry is the leader's pid and its start time. The start time is what keeps
 // a recycled pid from being mistaken for a backend. A nil ledger does nothing.
@@ -96,7 +96,7 @@ func (l *processLedger) sweepStale() int {
 		}
 		// Without the leader's start time at the time it was recorded, there is no
 		// way to tell the process apart from an unrelated one that reused the pid
-		// (the start time is only readable on Linux). Such an entry is never
+		// (the start time is readable on Linux and Windows only). Such an entry is never
 		// killed.
 		if e.StartTime == "" {
 			continue
@@ -160,30 +160,10 @@ func (l *processLedger) flushLocked() {
 }
 
 // startTimesReadable reports whether this system can tell a process's start
-// time (Linux, through /proc).
+// time (Linux through /proc, Windows through GetProcessTimes).
 func startTimesReadable() bool { return readStartTime(os.Getpid()) != "" }
 
-// procStartTime returns a process's start time as the kernel reports it, or ""
-// when it cannot be read: the process is gone, or there is no /proc (the sweep
-// is Linux only; elsewhere an entry is never killed).
+// readStartTime returns a process's start time as the OS reports it, or ""
+// when it cannot be read: the process is gone, or the platform has no source
+// for it (macOS and the BSDs have no /proc, so there an entry is never killed).
 var readStartTime = procStartTime
-
-func procStartTime(pid int) string {
-	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
-	if err != nil {
-		return ""
-	}
-	// The command name is in parentheses and may hold spaces; the fields after
-	// the last ')' are space separated and start at field 3. Field 22 is the
-	// start time.
-	s := string(data)
-	i := strings.LastIndex(s, ")")
-	if i < 0 {
-		return ""
-	}
-	fields := strings.Fields(s[i+1:])
-	if len(fields) < 20 {
-		return ""
-	}
-	return fields[19]
-}

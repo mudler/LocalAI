@@ -226,6 +226,25 @@ var _ = Describe("Route", func() {
 		Expect(Route{Target: "elsewhere"}.Validate()).NotTo(Succeed())
 		Expect(Route{Mode: "sometimes"}.Validate()).NotTo(Succeed())
 	})
+	It("lets a run report to a channel of a connection chosen in Studio, without a connector chat", func() {
+		r := Route{Connection: "b1", Channel: "G1", Target: TargetChannel, Mode: ModeOnChange}
+		Expect(r.Validate()).To(Succeed())
+		Expect(r.FromConnector()).To(BeFalse(), "the connection is a destination, not a place the trigger came from")
+		Expect(r.ChannelBinding()).To(Equal("b1"))
+		Expect(Route{Binding: "b2", Connection: "", Channel: "G1", Target: TargetChannel}.ChannelBinding()).To(Equal("b2"))
+	})
+	It("still refuses the origin without a connector chat, even with a connection", func() {
+		Expect(Route{Connection: "b1", Target: TargetOrigin}.Validate()).NotTo(Succeed())
+	})
+	It("refuses a channel that names no connection or no channel", func() {
+		Expect(Route{Target: TargetChannel, Channel: "G1"}.Validate()).NotTo(Succeed())
+		Expect(Route{Target: TargetChannel, Connection: "b1"}.Validate()).NotTo(Succeed())
+	})
+	It("refuses a connection that is not the target channel, or that comes with a connector place", func() {
+		Expect(Route{Connection: "b1", Target: TargetInbox}.Validate()).NotTo(Succeed())
+		Expect(Route{Connection: "b1"}.Validate()).NotTo(Succeed())
+		Expect(Route{Binding: "b2", Connection: "b1", Channel: "G1", Target: TargetChannel}.Validate()).NotTo(Succeed())
+	})
 	It("expires a waiting proposal that has a time, and no other", func() {
 		now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
 		p := Trigger{Proposed: true, Route: Route{Expires: now.Add(time.Hour)}}

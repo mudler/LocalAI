@@ -49,7 +49,8 @@
   "facts": {
     "addons": "Add-ons",
     "connector": "MCP connector",
-    "folder": "文件夹"
+    "folder": "文件夹",
+    "toolsNone": "没有扩展或 MCP 服务器"
   },
   "agent": {
     "triggers": "Triggers",
@@ -147,7 +148,7 @@
     "networkHelp": "当触发器或连接器运行此代理时，其命令可访问的网络范围，不超过管理员设置的限制。运行时从不询问：范围外的主机会被阻止。用此代理开始的聊天也以此开始。",
     "networkPresets": {
       "off": "关闭",
-      "registries": "软件包仓库",
+      "registries": "自定义",
       "all": "所有公共网站"
     },
     "toolsSummary": "{{total}} 项中开启 {{on}} 项",
@@ -539,7 +540,8 @@
       "runMeta": "took {{time}}",
       "prompt": "What to do",
       "acts": "权限",
-      "runLimit": "Time limit"
+      "runLimit": "Time limit",
+      "project": "项目"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -588,9 +590,27 @@
       "changed_other": "{{count}} changes",
       "watchNoFiles": "此智能体设置为“无文件”，此触发器的运行只会得知有文件到达，却无法打开。请在其编辑器中授予文件访问权限，或选择其他智能体。",
       "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
-      "runLimitPlaceholder": "default"
+      "runLimitPlaceholder": "default",
+      "agentInProject": "{{name}}（项目 {{project}}）",
+      "projectAgentHint": "此智能体属于该项目。文件触发器默认监视项目文件。",
+      "folder": {
+        "choose": "选择文件夹",
+        "sub": "其中的文件夹",
+        "subPlaceholder": "可选：其中的文件夹",
+        "hint": "此智能体的文件夹之一，也可以是其中的子文件夹。",
+        "empty": "请选择要监视的文件夹。",
+        "dots": "文件夹名称不能包含“..”。",
+        "outside": "此智能体只能监视其自身文件夹内的文件夹：{{folders}}。",
+        "noFolders": "此智能体没有可用的文件夹。请在智能体设置中选择文件夹。"
+      }
     },
-    "subtitle": "按计划或在文件到达时启动智能体。每次运行都是一个可以打开的聊天。"
+    "subtitle": "按计划或在文件到达时启动智能体。每次运行都是一个可以打开的聊天。",
+    "projectFilter": {
+      "label": "项目",
+      "all": "所有项目",
+      "none": "无项目",
+      "empty": "此选择下没有触发器。"
+    }
   },
   "views": {
     "label": "智能体区域",
@@ -906,7 +926,9 @@
       "filesTitle": "它可以查看你的所有文件。",
       "filesBody": "你在“文件”中能打开的内容，此智能体都能读取。你可以将其限制在某些文件夹。",
       "limit": "限制为文件夹",
-      "setupNext": "创建智能体后，其页面会列出所选应用的设置步骤。"
+      "setupNext": "创建智能体后，其页面会列出所选应用的设置步骤。",
+      "project": "在项目 {{name}} 中工作。",
+      "projectUnnamed": "在你选择的项目中工作。"
     },
     "rail": {
       "title": "你的智能体",
@@ -980,5 +1002,125 @@
     "asksTitle_one": "此智能体请求 {{count}} 项你的聊天开始时没有的内容：",
     "asksTitle_other": "此智能体请求 {{count}} 项你的聊天开始时没有的内容：",
     "asksHelp": "它以你的身份运行。只有在你信任此智能体和分享它的人时，才在聊天中打开它们。"
+  },
+  "project": {
+    "chip": "项目：{{name}}",
+    "deleted": "已删除的项目",
+    "files": "项目文件",
+    "filesMode": "文件模式",
+    "canEdit": "可编辑",
+    "readOnly": "只读",
+    "filesHelp": "智能体只在 {{name}} 的文件文件夹中工作。 共享文件夹和技能仍可读取。",
+    "filesHelpNoName": "智能体只在其项目的文件文件夹中工作。 共享文件夹和技能仍可读取。",
+    "memory": "项目记忆",
+    "memoryHelp": "只有拥有“Remember things in the project”权限时，智能体才能把笔记保存到项目记忆：它提出更改，由你确认。没有该权限时，记忆为只读。",
+    "limited": "受项目限制",
+    "noShare": "项目智能体不能共享。",
+    "exportHelp": "导出会生成智能体文件。导入文件时再选择项目。",
+    "paused": "此智能体已暂停，因为它的项目{{reason}}。",
+    "reason": {
+      "archived": "已归档",
+      "deleted": "已被删除",
+      "changed": "已更改"
+    },
+    "fix": {
+      "archived": "打开项目并恢复它，之后智能体会恢复工作。",
+      "deleted": "项目已不存在。在“文件”的回收站中恢复它，智能体就会恢复工作。",
+      "changed": "项目文件夹被替换、重命名或移动了。重新连接智能体，使其再次关联项目文件夹。",
+      "deletedDetach": "项目已不存在。将智能体与其分离即可再次使用，或从“文件”的回收站恢复项目。"
+    },
+    "openProject": "打开项目",
+    "reconnect": "重新连接",
+    "reconnected": "{{name}} 已重新连接到项目。",
+    "reconnectFailed": "无法重新连接智能体：{{message}}",
+    "unavailable": "不可用",
+    "listReason": {
+      "archived": "它的项目已归档。",
+      "deleted": "它的项目已被删除。",
+      "changed": "它的项目文件夹已更改。打开它以重新连接。"
+    },
+    "fact": "项目",
+    "memoryFact": "记忆",
+    "memoryReadOnly": "项目记忆，只读",
+    "runsPaused": "项目重新启用后，运行会继续。"
+  },
+  "importProject": {
+    "title": "此智能体属于一个项目",
+    "text": "选择放到哪里。项目智能体只在其项目内工作。 共享文件夹和技能仍可读取。",
+    "textNamed": "此文件属于智能体“{{agent}}”。选择放到哪里。项目智能体只在其项目内工作。 共享文件夹和技能仍可读取。",
+    "label": "项目",
+    "choose": "选择项目",
+    "create": "创建名为“{{name}}”的项目",
+    "createUnnamed": "为此智能体创建新项目",
+    "help": "只列出你的活跃项目。",
+    "createHelp": "将创建名为 {{name}} 的新项目，并把智能体添加进去。",
+    "needsChoice": "请选择一个项目，或新建一个，才能导入此智能体。",
+    "cancel": "取消",
+    "import": "导入"
+  },
+  "projectField": {
+    "title": "项目",
+    "leadNew": "把智能体放进一个项目，或让它独立存在。",
+    "leadEdit": "智能体工作所在的项目。移动它会改变它能访问的内容。",
+    "label": "项目",
+    "none": "无项目",
+    "choose": "选择项目",
+    "archivedName": "{{name}}（已归档）",
+    "create": "新建项目...",
+    "help": "项目智能体只在其项目的文件和记忆中工作。只列出你的活动项目。",
+    "helpEdit": "选择另一个项目或“无项目”，然后点击“移动”。",
+    "saveFirst": "移动智能体之前，请先保存或放弃你的更改。"
+  },
+  "move": {
+    "open": "移动...",
+    "title": "移动到 {{name}}",
+    "leaveTitle": "将智能体移出项目",
+    "detachTitle": "与项目分离",
+    "text": "{{agent}} 将只在 {{name}} 的文件和记忆中工作。确认前请检查会有什么变化。",
+    "leaveText": "{{agent}} 将离开 {{name}}。选择它保留的文件，然后检查会有什么变化。",
+    "detachText": "此智能体的项目已被删除。选择智能体保留的文件，然后将其分离。",
+    "cancel": "取消",
+    "confirm": "移动智能体",
+    "detach": "与项目分离",
+    "keepLabel": "智能体保留的文件",
+    "keepOne": "仅此文件夹",
+    "keepAll": "我的所有文件",
+    "keepAllHelp": "智能体可使用你的所有文件，就像没有文件夹限制的智能体一样。",
+    "keepNone": "尚未选择文件夹。",
+    "effectsTitle": "会有什么变化",
+    "pickFolder": "选择一个文件夹以查看会有什么变化。",
+    "checking": "正在检查...",
+    "effect": {
+      "chats_one": "此智能体的 {{count}} 个聊天仍可阅读，但不再接收新消息。请新建聊天以继续。",
+      "chats_other": "此智能体的 {{count}} 个聊天仍可阅读，但不再接收新消息。请新建聊天以继续。",
+      "loops_one": "这些聊天中的 {{count}} 个循环将结束。",
+      "loops_other": "这些聊天中的 {{count}} 个循环将结束。",
+      "triggers_one": "{{count}} 个文件触发器监视新文件夹之外的文件夹：{{names}}。",
+      "triggers_other": "{{count}} 个文件触发器监视新文件夹之外的文件夹：{{names}}。",
+      "shares_one": "该智能体已与 {{count}} 人共享。",
+      "shares_other": "该智能体已与 {{count}} 人共享。",
+      "proposals_one": "{{count}} 条等待写入项目记忆的笔记将被丢弃。",
+      "proposals_other": "{{count}} 条等待写入项目记忆的笔记将被丢弃。",
+      "dropped_one": "新项目的限制会移除 {{count}} 个工具：{{names}}。",
+      "dropped_other": "新项目的限制会移除 {{count}} 个工具：{{names}}。",
+      "grant": "写入项目记忆的权限将被移除。你可以在智能体设置中重新授予。",
+      "notes": "智能体自己的笔记将从空白开始。旧笔记仍保留在你的文件中，位于 Memory 下的 Moved agent notes。",
+      "foldersInto": "智能体只在 {{name}} 的文件和记忆文件夹中工作。",
+      "foldersOut": "智能体不再属于任何项目。",
+      "attachedLost_one": "旧项目附加的 {{count}} 个工具不再适用：{{names}}。",
+      "attachedLost_other": "旧项目附加的 {{count}} 个工具不再适用：{{names}}。",
+      "attachedGained_one": "新项目附加的 {{count}} 个工具会提供给智能体：{{names}}。",
+      "attachedGained_other": "新项目附加的 {{count}} 个工具会提供给智能体：{{names}}。",
+      "projectSkills": "旧项目的技能不再适用，新项目的技能开始适用。"
+    },
+    "blocked": {
+      "busy": "此智能体的一个聊天正在运行。请先停止它，再移动智能体。"
+    },
+    "revoke_one": "停止共享：此智能体已与 {{count}} 人共享，而项目智能体不能共享。",
+    "revoke_other": "停止共享：此智能体已与 {{count}} 人共享，而项目智能体不能共享。",
+    "disable_one": "关闭 {{count}} 个监视新文件夹之外文件夹的文件触发器（{{names}}）。",
+    "disable_other": "关闭 {{count}} 个监视新文件夹之外文件夹的文件触发器（{{names}}）。",
+    "done": "{{name}} 已移动到新项目。",
+    "doneOut": "{{name}} 不再属于任何项目。"
   }
 }
