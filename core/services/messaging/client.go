@@ -330,8 +330,12 @@ func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn != nil {
-		c.conn.Drain()
-		c.conn.FlushTimeout(5 * time.Second)
+		if err := c.conn.Drain(); err != nil {
+			xlog.Warn("NATS drain failed on close", "error", err)
+		}
+		if err := c.conn.FlushTimeout(5 * time.Second); err != nil {
+			xlog.Warn("NATS flush failed on close", "error", err)
+		}
 	}
 }
 
