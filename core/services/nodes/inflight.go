@@ -80,7 +80,9 @@ func (c *InFlightTrackingClient) track(ctx context.Context) func() {
 	return func() {
 		decCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		c.registry.DecrementInFlight(decCtx, c.nodeID, c.modelName, c.replicaIndex)
+		if err := c.registry.DecrementInFlight(decCtx, c.nodeID, c.modelName, c.replicaIndex); err != nil {
+			xlog.Warn("Failed to decrement in-flight counter", "node", c.nodeID, "model", c.modelName, "error", err)
+		}
 		// Release the initial reservation after the first inference call completes
 		if c.onFirstComplete != nil {
 			c.firstOnce.Do(c.onFirstComplete)

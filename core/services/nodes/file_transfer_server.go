@@ -435,7 +435,7 @@ func handleHead(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, d
 	// X-Target-SHA256 and skip emitting X-Content-SHA256 (which would otherwise
 	// be the hash of just the bytes received so far — misleading for clients
 	// trying to decide whether the file is "the right one").
-	if target, err := os.ReadFile(filePath + targetSidecarSuffix); err == nil {
+	if target, err := os.ReadFile(filePath + targetSidecarSuffix); err == nil { // #nosec G304 -- filePath is validated by validatePathInDir against the target directory in the handler
 		t := strings.TrimSpace(string(target))
 		if len(t) == 64 {
 			w.Header().Set(HeaderTargetSHA256, t)
@@ -693,7 +693,7 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 	// Reset any in-progress resumable state.
 	_ = os.Remove(dstPath + targetSidecarSuffix)
 
-	f, err := os.Create(dstPath)
+	f, err := os.Create(dstPath) // #nosec G304 -- dstPath is validated by validatePathInDir against the target directory in the handler
 	if err != nil {
 		http.Error(w, fmt.Sprintf("creating file: %v", err), http.StatusInternalServerError)
 		return
@@ -722,8 +722,8 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 		}
 	}
 	if err != nil {
-		os.Remove(dstPath)
-		os.Remove(dstPath + hashSidecarSuffix)
+		_ = os.Remove(dstPath)                     // best-effort cleanup of the failed upload
+		_ = os.Remove(dstPath + hashSidecarSuffix) // the upload error is what gets reported
 		xlog.Error("File upload failed", "key", key, "bytesReceived", n, "contentLength", r.ContentLength, "remote", r.RemoteAddr, "error", err)
 		http.Error(w, fmt.Sprintf("writing file: %v", err), uploadWriteStatus(err))
 		return
@@ -738,7 +738,7 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 		return
 	}
 
-	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(hashHex), 0640); err != nil {
+	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(hashHex), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 		xlog.Warn("Failed to write hash sidecar", "path", dstPath+hashSidecarSuffix, "error", err)
 	}
 
@@ -779,11 +779,11 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 		if expectedFinalHash != "" {
 			// Compare the client's declared target hash against either an
 			// in-progress target sidecar OR the completed-file sidecar.
-			if t, err := os.ReadFile(targetSidecar); err == nil {
+			if t, err := os.ReadFile(targetSidecar); err == nil { // #nosec G304 -- targetSidecar is dstPath plus a fixed suffix; dstPath is validated by validatePathInDir against the target directory in the handler
 				if strings.EqualFold(strings.TrimSpace(string(t)), expectedFinalHash) {
 					sameFile = true
 				}
-			} else if h, err := os.ReadFile(dstPath + hashSidecarSuffix); err == nil {
+			} else if h, err := os.ReadFile(dstPath + hashSidecarSuffix); err == nil { // #nosec G304 -- dstPath is validated by validatePathInDir against the target directory in the handler
 				if strings.EqualFold(strings.TrimSpace(string(h)), expectedFinalHash) {
 					sameFile = true
 				}
@@ -810,7 +810,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	// Cross-attempt consistency: if there's an in-progress target sidecar with
 	// a different hash than what's now being claimed, force a restart.
 	if expectedFinalHash != "" && cr.start > 0 {
-		prev, _ := os.ReadFile(targetSidecar)
+		prev, _ := os.ReadFile(targetSidecar) // #nosec G304 -- targetSidecar is dstPath plus a fixed suffix; dstPath is validated by validatePathInDir against the target directory in the handler
 		prevHash := strings.TrimSpace(string(prev))
 		if prevHash != "" && !strings.EqualFold(prevHash, expectedFinalHash) {
 			_ = os.Remove(dstPath)
@@ -832,7 +832,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	}
 
 	// Open the file in append mode (create if missing).
-	f, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
+	f, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640) // #nosec G302 G304 -- dstPath is validated by validatePathInDir against the target directory in the handler; group-readable so the backend can load the staged file
 	if err != nil {
 		http.Error(w, fmt.Sprintf("opening dst: %v", err), http.StatusInternalServerError)
 		return
@@ -854,7 +854,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	// Persist the declared expected hash so subsequent chunks can be
 	// cross-checked.
 	if expectedFinalHash != "" {
-		if err := os.WriteFile(targetSidecar, []byte(expectedFinalHash), 0640); err != nil {
+		if err := os.WriteFile(targetSidecar, []byte(expectedFinalHash), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 			xlog.Warn("Failed to write target hash sidecar", "path", targetSidecar, "error", err)
 		}
 	}
@@ -914,7 +914,7 @@ func finalizeRangeUpload(w http.ResponseWriter, dstPath, key string, size int64,
 		return
 	}
 
-	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(finalHash), 0640); err != nil {
+	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(finalHash), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 		xlog.Warn("Failed to write hash sidecar", "path", dstPath+hashSidecarSuffix, "error", err)
 	}
 	// Clear the in-progress sidecar — upload is committed.
@@ -940,7 +940,7 @@ func computeAndCacheHash(filePath string) (string, error) {
 	}
 
 	if sidecarStat, err := os.Stat(sidecar); err == nil && !sidecarStat.ModTime().Before(fileStat.ModTime()) {
-		if data, err := os.ReadFile(sidecar); err == nil {
+		if data, err := os.ReadFile(sidecar); err == nil { // #nosec G304 -- sidecar is filePath plus a fixed suffix; filePath comes from the staging key handlers, which validate it
 			h := strings.TrimSpace(string(data))
 			if len(h) == 64 { // valid hex-encoded SHA-256
 				return h, nil
@@ -953,7 +953,7 @@ func computeAndCacheHash(filePath string) (string, error) {
 		return "", err
 	}
 
-	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil {
+	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 		xlog.Warn("Failed to write hash sidecar", "path", sidecar, "error", err)
 	}
 	return hashHex, nil
@@ -975,7 +975,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDi
 		return
 	}
 
-	f, err := os.Open(srcPath)
+	f, err := os.Open(srcPath) // #nosec G304 -- srcPath is validated by validatePathInDir against the target directory just above
 	if err != nil {
 		if os.IsNotExist(err) {
 			http.Error(w, "file not found", http.StatusNotFound)
@@ -1015,7 +1015,9 @@ func handleAllocTemp(w http.ResponseWriter, r *http.Request, stagingDir string) 
 		return
 	}
 	localPath := f.Name()
-	f.Close()
+	if err := f.Close(); err != nil {
+		xlog.Warn("Failed to close temp file", "path", localPath, "error", err)
+	}
 
 	xlog.Debug("HTTP allocated temp file", "path", localPath)
 
@@ -1047,7 +1049,9 @@ func handleListDir(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir
 	}
 
 	var files []string
-	filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
+	// The callback skips unreadable entries and never returns an error, so
+	// the walk result carries nothing to handle.
+	_ = filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -1278,7 +1282,9 @@ func registerBackendLogHandlers(mux *http.ServeMux, token string, logStore *mode
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(logStore.ListModels())
+		if err := json.NewEncoder(w).Encode(logStore.ListModels()); err != nil {
+			xlog.Warn("Failed to encode backend-logs model list", "error", err)
+		}
 	})
 
 	mux.HandleFunc("/v1/backend-logs/", func(w http.ResponseWriter, r *http.Request) {
@@ -1309,7 +1315,9 @@ func registerBackendLogHandlers(mux *http.ServeMux, token string, logStore *mode
 		// REST: return buffered lines
 		modelID, _ := url.PathUnescape(rest)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(logStore.GetLines(modelID))
+		if err := json.NewEncoder(w).Encode(logStore.GetLines(modelID)); err != nil {
+			xlog.Warn("Failed to encode backend-logs lines", "model", modelID, "error", err)
+		}
 	})
 }
 
@@ -1325,10 +1333,12 @@ func handleBackendLogsWS(w http.ResponseWriter, r *http.Request, logStore *model
 	defer ws.Close()
 
 	ws.SetReadLimit(4096)
-	ws.SetReadDeadline(time.Now().Add(90 * time.Second))
+	if err := ws.SetReadDeadline(time.Now().Add(90 * time.Second)); err != nil {
+		xlog.Debug("Failed to set backend-logs read deadline", "error", err)
+		return
+	}
 	ws.SetPongHandler(func(string) error {
-		ws.SetReadDeadline(time.Now().Add(90 * time.Second))
-		return nil
+		return ws.SetReadDeadline(time.Now().Add(90 * time.Second))
 	})
 
 	conn := &backendLogsWSConn{Conn: ws}
@@ -1397,7 +1407,9 @@ type backendLogsWSConn struct {
 func (c *backendLogsWSConn) writeJSON(v any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	if err := c.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		return fmt.Errorf("set write deadline: %w", err)
+	}
 	data, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("marshal error: %w", err)
@@ -1408,6 +1420,8 @@ func (c *backendLogsWSConn) writeJSON(v any) error {
 func (c *backendLogsWSConn) writePing() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	if err := c.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		return fmt.Errorf("set write deadline: %w", err)
+	}
 	return c.Conn.WriteMessage(websocket.PingMessage, nil)
 }

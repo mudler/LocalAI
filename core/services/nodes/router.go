@@ -2209,7 +2209,7 @@ func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, repl
 
 func closeClient(client grpc.Backend) {
 	if closer, ok := client.(io.Closer); ok {
-		closer.Close()
+		_ = closer.Close() // the client is being discarded; a close error changes nothing
 	}
 }
 
@@ -2224,7 +2224,9 @@ func (r *SmartRouter) UnloadModel(ctx context.Context, nodeID, modelName string)
 	if err := r.unloader.StopBackend(nodeID, modelName); err != nil {
 		return fmt.Errorf("failed to stop backend on node %s: %w", nodeID, err)
 	}
-	r.registry.RemoveAllNodeModelReplicas(ctx, nodeID, modelName)
+	if err := r.registry.RemoveAllNodeModelReplicas(ctx, nodeID, modelName); err != nil {
+		xlog.Warn("Failed to remove node model replicas after stop", "node", nodeID, "model", modelName, "error", err)
+	}
 	return nil
 }
 

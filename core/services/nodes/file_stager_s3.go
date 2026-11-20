@@ -119,7 +119,9 @@ func (s *S3FileStager) fetchRemoteWithKey(ctx context.Context, nodeID, remotePat
 
 	// Cleanup ephemeral key
 	if cleanup {
-		s.fm.Delete(ctx, key)
+		if err := s.fm.Delete(ctx, key); err != nil {
+			xlog.Warn("Failed to delete ephemeral staging key", "key", key, "error", err)
+		}
 	}
 
 	return nil

@@ -417,7 +417,7 @@ func (h *HTTPFileStager) doUpload(ctx, outerCtx context.Context, client *http.Cl
 		startOffset = 0
 	}
 
-	f, err := os.Open(localPath)
+	f, err := os.Open(localPath) // #nosec G304 -- localPath is the file the frontend is staging to a worker, chosen by its own caller, never a request value
 	if err != nil {
 		return "", fmt.Errorf("opening local file %s: %w", localPath, err)
 	}
@@ -678,7 +678,7 @@ const hashChunkSize = 1 << 20
 // proved the worker was serving, and the absolute cap still bounds the whole
 // hold regardless.
 func hashFileWithActivity(ctx context.Context, path string) (string, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- path is the local file the frontend is staging, chosen by its own caller, never a request value
 	if err != nil {
 		return "", err
 	}
@@ -723,7 +723,7 @@ func hashLocalCached(ctx context.Context, path string) (string, error) {
 		return "", err
 	}
 	if sidecarStat, err := os.Stat(sidecar); err == nil && !sidecarStat.ModTime().Before(fileStat.ModTime()) {
-		if data, err := os.ReadFile(sidecar); err == nil {
+		if data, err := os.ReadFile(sidecar); err == nil { // #nosec G304 -- sidecar is the staged file's own path plus a fixed suffix
 			cached := strings.TrimSpace(string(data))
 			if len(cached) == 64 {
 				return cached, nil
@@ -735,7 +735,7 @@ func hashLocalCached(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil {
+	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 		xlog.Warn("Failed to write hash sidecar", "path", sidecar, "error", err)
 	}
 	return hashHex, nil
@@ -861,7 +861,7 @@ func (h *HTTPFileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, loca
 		return fmt.Errorf("download from node %s failed with status %d: %s", nodeID, resp.StatusCode, string(body))
 	}
 
-	f, err := os.Create(localDst)
+	f, err := os.Create(localDst) // #nosec G304 -- localDst is the destination chosen by the frontend's own caller, never a request value
 	if err != nil {
 		return fmt.Errorf("creating local file %s: %w", localDst, err)
 	}
@@ -881,7 +881,7 @@ func (h *HTTPFileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, loca
 
 	written, err := io.Copy(f, src)
 	if err != nil {
-		os.Remove(localDst)
+		_ = os.Remove(localDst) // best-effort cleanup of the partial file; the write error is what gets reported
 		return fmt.Errorf("writing to %s: %w", localDst, err)
 	}
 

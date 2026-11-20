@@ -272,7 +272,9 @@ func (d *DistributedBackendManager) applyToNode(ctx context.Context, node Backen
 
 	if errors.Is(applyErr, ErrNoRoute) {
 		xlog.Warn("No route to node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
-		d.registry.MarkUnhealthy(ctx, node.ID)
+		if err := d.registry.MarkUnhealthy(ctx, node.ID); err != nil {
+			xlog.Warn("Failed to mark node unhealthy", "node", node.Name, "nodeID", node.ID, "error", err)
+		}
 	}
 	if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
 		_ = d.registry.RecordPendingBackendOpFailure(ctx, id, errMsg)
@@ -388,7 +390,9 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 		if err != nil {
 			if errors.Is(err, ErrNoRoute) {
 				xlog.Warn("No route to node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
-				d.registry.MarkUnhealthy(context.Background(), node.ID)
+				if err := d.registry.MarkUnhealthy(context.Background(), node.ID); err != nil {
+					xlog.Warn("Failed to mark node unhealthy", "node", node.Name, "nodeID", node.ID, "error", err)
+				}
 				continue
 			}
 			xlog.Warn("Failed to list backends on worker", "node", node.Name, "error", err)

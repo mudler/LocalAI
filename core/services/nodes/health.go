@@ -270,7 +270,9 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 					xlog.Error("Failed to mark stale node offline", "node", node.Name, "error", err)
 				}
 			} else {
-				hm.registry.MarkUnhealthy(ctx, node.ID)
+				if err := hm.registry.MarkUnhealthy(ctx, node.ID); err != nil {
+					xlog.Error("Failed to mark unreachable node unhealthy", "node", node.Name, "error", err)
+				}
 			}
 			continue
 		}
@@ -343,7 +345,7 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				// backend. It is not a miss, and it does not clear a streak either.
 				transportFailed := !ok && grpc.TransportFailureOf(mClient) != nil
 				if closer, ok := mClient.(io.Closer); ok {
-					closer.Close()
+					_ = closer.Close() // probe connection is discarded; a close error changes nothing
 				}
 				if transportFailed {
 					xlog.Debug("Model backend probe could not reach the backend, not counting it",
