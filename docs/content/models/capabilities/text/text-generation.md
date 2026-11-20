@@ -900,6 +900,34 @@ The `cache_type_k` / `cache_type_v` fields map to llama.cpp's `-ctk` / `-ctv` fl
 - [Tracked branch: `feature/turboquant-kv-cache`](https://github.com/TheTom/llama-cpp-turboquant/tree/feature/turboquant-kv-cache)
 
 
+### olala (llama.cpp fork for the Olala models)
+
+[OVHai-LLM/llama.cpp](https://github.com/OVHai-LLM/llama.cpp) is a `llama.cpp` fork (MIT) that adds the `olala` architecture, a Mamba3 hybrid mixture-of-experts. Upstream `llama.cpp` cannot load these models, so they run on this separate backend. It shares the gRPC server sources with the stock `llama-cpp` backend, which stays unchanged.
+
+The backend is pinned to a fork commit. Models of the [Olala v1.0 mini 7A1B](https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF) family are in the model gallery (`olala-v1.0-mini-7a1b-*`).
+
+#### Notes
+
+- Use the `bf16` file on GPU. Quantized weights on GPU backends can produce NaN. The Q5_K_M, Q6_K and q8_0-safe2 files are for CPU.
+- Do not quantize the model with a generic recipe: it can produce NaN. Use the files published by the model authors.
+- The context size is at most 32768 and is shared by parallel requests. The model cannot shift its context, so a prompt longer than the context fails.
+- The chat template takes a `reasoning_effort` of `disabled`, `low`, `medium` (default) or `high`. Set it per request with `reasoning_effort`, or per model with `reasoning_effort:` in the model YAML. The model card recommends `temperature: 0.8`, `top_p: 0.9` and `top_k: 40`.
+- The reasoning text and tool calls come back in the usual `reasoning_content` and `tool_calls` fields.
+- This build ships for Linux x86-64 (CPU and NVIDIA CUDA 12). Other platforms are not built yet.
+
+#### Setup
+
+```bash
+local-ai backends install olala
+local-ai models install olala-v1.0-mini-7a1b-q5-k-m
+```
+
+#### Reference
+
+- [OVHai-LLM/llama.cpp](https://github.com/OVHai-LLM/llama.cpp), branch `olala-master`
+- [Olala-v1.0-mini-7A1B-GGUF](https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF)
+
+
 ### vLLM
 
 [vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference.
