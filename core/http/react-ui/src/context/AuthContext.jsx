@@ -2,7 +2,7 @@ import { useContext, useState, useEffect, useRef, useCallback, useMemo } from 'r
 import { apiUrl } from '../utils/basePath'
 import { AuthContext } from './authState'
 import { addonUpgrades } from '../utils/addonUpgrades'
-import { initialSession, sessionStep, retryDelay, isSessionExempt } from '../utils/authSession'
+import { initialSession, sessionStep, retryDelay, isSessionExempt, signInRequired } from '../utils/authSession'
 import { setUnauthorizedHandler } from '../utils/sessionEvents'
 
 export function AuthProvider({ children }) {
@@ -64,11 +64,11 @@ export function AuthProvider({ children }) {
   const verifying = useRef(null)
   useEffect(() => setUnauthorizedHandler((url) => {
     const s = stateRef.current
-    if (s.status !== 'signed-in' || !s.authEnabled || isSessionExempt(url) || verifying.current) return
+    if (s.status !== 'signed-in' || !signInRequired(s) || isSessionExempt(url) || verifying.current) return
     verifying.current = fetch(apiUrl('/api/auth/status'))
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
-        if (data && !data.user && data.authEnabled) {
+        if (data && !data.user && signInRequired(data)) {
           invalidateAuthority()
           let persistence
           try { persistence = window.sessionStorage } catch { /* storage blocked */ }
