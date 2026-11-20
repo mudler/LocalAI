@@ -1269,7 +1269,13 @@
       "rejects translations that the manifest would refuse",
       "reads the feature level an entry requires, and an entry without it needs none",
       "is true only for the official ID at an address the shipped library has used",
-      "is false for an entry of another library, even when the index claims otherwise"
+      "is false for an entry of another library, even when the index claims otherwise",
+      "a host not on the list",
+      "a loopback address",
+      "does not send the library credential to the redirect host",
+      "follows the redirect to an allowed https host and reads the index",
+      "lists the object-store host GitHub redirects release downloads to",
+      "plain http to an allowed host"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -1368,7 +1374,9 @@
       "refuses a package that needs a newer feature level, from the entry and from the manifest",
       "needs the owner execute bit on Linux and macOS",
       "takes the Linux program of a package that runs in WSL 2 on Windows, without .exe",
-      "needs the .exe extension on Windows, which has no execute bit"
+      "needs the .exe extension on Windows, which has no execute bit",
+      "follows the redirect to an allowed https host",
+      "still checks the pinned digest of the redirected bytes"
     ],
     "report": ".cache/addons/logs/packages.json"
   },
