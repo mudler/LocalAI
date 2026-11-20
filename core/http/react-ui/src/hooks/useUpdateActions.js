@@ -92,7 +92,13 @@ export function useUpdateActions({ updates }) {
         setLocal(row.id, { phase: 'running', message: '', progress: 0 })
         res = await runGalleryRow({
           row,
-          start: async (r) => { const out = await backendsApi.upgrade(r.name); return out && (out.jobID || out.uuid) },
+          start: async (r) => {
+            const out = await backendsApi.upgrade(r.name)
+            const jobID = out && (out.jobID || out.uuid)
+            // Known at once, so Cancel works before the list shows the job.
+            if (jobID) setLocal(row.id, { phase: 'running', message: '', progress: 0, jobID })
+            return jobID
+          },
           getOperations: () => opsRef.current,
           recheck,
           signal: stop,
@@ -124,6 +130,9 @@ export function useUpdateActions({ updates }) {
   const bulkItems = useMemo(() => bulkItemsOf(rows), [rows])
   const bulk = useBulkUpgrade({
     items: bulkItems,
+    // The add-ons share one upgrade store, so they go one after another; the
+    // rest overlap and the server limits how many run.
+    laneOf: (item) => (item.row && item.row.kind === 'addon' ? 'addon' : item.id),
     runOne: async (item, signal) => {
       const out = await runRow(item.row, signal)
       return out.ok ? { ok: true } : { ok: false, message: out.message }
@@ -159,11 +168,22 @@ export function useUpdateActions({ updates }) {
     else if (row.jobID) cancelOperation(row.jobID)
   }, [cancelOperation])
 
+  // Cancels every row of the run that has not ended. A queued job is dropped
+  // by the server, a running one stops at its next check; the others go on.
+  const cancelRun = useCallback((run) => {
+    if (!run) return
+    for (const id of run.order) {
+      if (!run.status[id] || run.status[id].phase !== 'upgrading') continue
+      const row = rows.find(r => r.id === id)
+      if (row) cancel(row)
+    }
+  }, [rows, cancel])
+
   const check = useCallback((row) => { if (row.record) addonUpgrade.check(row.record) }, [addonUpgrade])
   const checking = useCallback((row) => addonUpgrade.checks[row.addonId]?.phase === 'working', [addonUpgrade.checks])
 
   return {
-    rows, bulk, busy, update, retry, cancel, check, checking,
+    rows, bulk, busy, update, retry, cancel, cancelRun, check, checking,
     review, setReview, addonActions, confirmApi, announcement,
   }
 }

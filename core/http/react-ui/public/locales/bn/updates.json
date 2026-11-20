@@ -152,6 +152,7 @@
     "running": "Updating {{current}} of {{total}}",
     "summary": "{{done}} আপডেট হয়েছে, {{failed}} ব্যর্থ হয়েছে, {{skipped}} এড়িয়ে গেছে",
     "details": "বিবরণ",
+    "cancelAll": "সব বাতিল করুন",
     "retryFailed": "পুনরায় চেষ্টা ব্যর্থ হয়েছে ({{count}})",
     "dismiss": "বাতিল করুন"
   },

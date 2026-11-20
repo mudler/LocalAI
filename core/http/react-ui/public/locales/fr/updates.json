@@ -152,6 +152,7 @@
     "running": "Mise à jour {{current}} sur {{total}}",
     "summary": "{{done}} mises à jour, {{failed}} en échec, {{skipped}} ignorées",
     "details": "Détails",
+    "cancelAll": "Tout annuler",
     "retryFailed": "Réessayer les échecs ({{count}})",
     "dismiss": "Fermer"
   },

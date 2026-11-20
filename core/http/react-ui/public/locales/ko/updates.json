@@ -152,6 +152,7 @@
     "running": "{{total}}개 중 {{current}}번째 업데이트 중",
     "summary": "{{done}}개 완료, {{failed}}개 실패, {{skipped}}개 건너뜀",
     "details": "자세히",
+    "cancelAll": "모두 취소",
     "retryFailed": "실패한 항목 다시 시도 ({{count}})",
     "dismiss": "닫기"
   },

@@ -152,6 +152,7 @@
     "running": "正在更新第 {{current}} 项,共 {{total}} 项",
     "summary": "已更新 {{done}} 项,失败 {{failed}} 项,跳过 {{skipped}} 项",
     "details": "详情",
+    "cancelAll": "全部取消",
     "retryFailed": "重试失败项({{count}})",
     "dismiss": "关闭"
   },

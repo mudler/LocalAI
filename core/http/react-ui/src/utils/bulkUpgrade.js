@@ -93,3 +93,46 @@ export async function runSequential(run, runOne, { signal, onUpdate } = {}) {
   push({ ...cur, phase: 'finished' })
   return cur
 }
+
+// Starts every item at once. The server queues the work and runs it in a
+// bounded pool, so the page only submits and follows; it does not pace the
+// items. Items with the same lane (`laneOf(item)`) still run one after
+// another, for work that must not overlap (the add-ons share one upgrade
+// store). A failure of one item does not touch the others. Resolves the final
+// run once every item ended; `onUpdate` gets every new state.
+export async function runConcurrent(run, runOne, { signal, onUpdate, laneOf } = {}) {
+  let cur = run
+  const push = (next) => { cur = next; if (onUpdate) onUpdate(cur) }
+  const lanes = new Map()
+  for (const id of run.order) {
+    const item = run.items.find(i => i.id === id)
+    const lane = laneOf ? laneOf(item) : id
+    if (!lanes.has(lane)) lanes.set(lane, [])
+    lanes.get(lane).push(item)
+  }
+  const one = async (item) => {
+    if (signal && signal.aborted) {
+      push(mark(cur, item.id, { phase: 'skipped' }))
+      return
+    }
+    push(mark(cur, item.id, { phase: 'upgrading' }))
+    let phase = 'done'
+    let message = ''
+    try {
+      const out = await runOne(item, signal)
+      if (!out || !out.ok) {
+        phase = out && out.skipped ? 'skipped' : 'failed'
+        message = (out && out.message) || ''
+      }
+    } catch (e) {
+      phase = 'failed'
+      message = e && e.message ? String(e.message) : ''
+    }
+    push(mark(cur, item.id, { phase, message }))
+  }
+  await Promise.all([...lanes.values()].map(async (items) => {
+    for (const item of items) await one(item)
+  }))
+  push({ ...cur, phase: 'finished' })
+  return cur
+}
