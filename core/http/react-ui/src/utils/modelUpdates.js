@@ -131,7 +131,8 @@ export function modelRow(it, operations = []) {
       ...row,
       state: 'updating',
       phase,
-      progress: op && op.progress > 0 ? Math.min(100, Math.round(op.progress)) : 0,
+      queued: phase === 'queued',
+      progress: op && !op.isQueued && op.progress > 0 ? Math.min(100, Math.round(op.progress)) : 0,
       jobID: op ? op.jobID : (up && up.opId) || '',
       cancellable: Boolean(op && op.cancellable && CANCELLABLE_PHASES.includes(phase)),
     }

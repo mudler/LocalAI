@@ -142,6 +142,7 @@
     },
     "updatingPhase": "আপডেট হচ্ছে: {{phase}}",
     "updatingPlain": "আপডেট হচ্ছে",
+    "queued": "সারিতে আছে, ফাঁকা স্লটের অপেক্ষায়",
     "addonConfirm": "এই ব্রাউজারে আপনার নিশ্চিতকরণ প্রয়োজন।",
     "nodesAction": "নোডসমূহ",
     "nodesNamed": "{{name}}-এর নোডগুলো দেখান",

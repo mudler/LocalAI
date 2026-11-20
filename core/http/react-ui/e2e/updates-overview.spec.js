@@ -323,6 +323,24 @@ test.describe('Updates page: one update, done only when it is done', () => {
     await expect(rowOf(page, 'llama-cpp')).toContainText('The update could not start')
   })
 
+  test('a queued update shows an empty bar and says it waits; a running one shows its progress', async ({ page }) => {
+    await mockOperate(page)
+    await mockUpdates(page, {
+      snapshot: snapshotOf([galleryItem('piper', '1', '2'), galleryItem('whisper', '1', '2')]),
+      operations: [runningOp('whisper'), runningOp('piper', { isQueued: true, progress: 40, message: 'queued' })],
+    })
+    await page.goto('/app/updates')
+    const queued = rowOf(page, 'piper')
+    await expect(queued).toContainText('Queued, waiting for a free slot')
+    await expect(queued.getByRole('progressbar')).toHaveAttribute('data-queued', '')
+    await expect(queued.getByRole('progressbar')).not.toHaveAttribute('data-indeterminate', '')
+    await expect(queued.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+    await expect(queued.locator('.dk-progress-bar')).toHaveCSS('width', '0px')
+    const running = rowOf(page, 'whisper')
+    await expect(running.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '62')
+    await expect(running).not.toContainText('Queued, waiting')
+  })
+
   test('Cancel on an updating row cancels its operation', async ({ page }) => {
     await mockOperate(page)
     await mockUpdates(page, { snapshot: snapshotOf([galleryItem('piper', '1', '2')]), operations: [runningOp('piper')] })
