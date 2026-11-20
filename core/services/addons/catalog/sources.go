@@ -520,6 +520,7 @@ func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, 
 	result := RefreshResult{SourceID: sourceID, CheckedAt: time.Now().UTC(), LastSuccess: old.result.LastSuccess}
 	releases, skipped, e := s.fetch(ctx, src)
 	if e != nil {
+		xlog.Warn("library refresh failed", "source", sourceID, "error", e)
 		s.cache[sourceID] = cached{result: result, failed: true}
 		if errors.Is(e, ErrCredential) {
 			return result, e
@@ -537,6 +538,11 @@ func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, 
 	s.cache[sourceID] = cached{releases: releases, result: result}
 	return result, nil
 }
+
+// indexTransport replaces the transport of the index fetch in tests, so a
+// redirect to an allowed host can be served in process. Nil in production.
+var indexTransport http.RoundTripper
+
 func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult, error) {
 	req, e := http.NewRequestWithContext(ctx, http.MethodGet, src.URL, nil)
 	if e != nil {
@@ -553,13 +559,23 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 			return nil, IndexResult{}, fmt.Errorf("%w: %w", ErrRefresh, ErrCredential)
 		}
 	}
-	response, e := httpclient.NewWithTimeout(30 * time.Second).Do(req)
+	opts := []httpclient.Option{httpclient.WithRedirectHosts(ReleaseAssetHosts...)}
+	if indexTransport != nil {
+		opts = append(opts, httpclient.WithTransport(indexTransport))
+	}
+	response, e := httpclient.NewWithTimeout(30*time.Second, opts...).Do(req)
 	if e != nil {
-		return nil, IndexResult{}, ErrRefresh
+		// The URL of a *url.Error is the last hop, which for a release
+		// asset is a signed URL; the cause alone says what went wrong.
+		var ue *url.Error
+		if errors.As(e, &ue) {
+			e = ue.Err
+		}
+		return nil, IndexResult{}, fmt.Errorf("%w: %w", ErrRefresh, e)
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
-		return nil, IndexResult{}, ErrRefresh
+		return nil, IndexResult{}, fmt.Errorf("%w: the library answered HTTP %d", ErrRefresh, response.StatusCode)
 	}
 	data, e := io.ReadAll(io.LimitReader(response.Body, MaxIndexBytes+1))
 	if e != nil || len(data) > MaxIndexBytes {

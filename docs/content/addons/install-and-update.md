@@ -89,6 +89,15 @@ and signer of the running build into `sources.json`. After an upgrade, the next 
 the `official` library to the index and signer of the new build; a library that you pointed at
 another URL is left as it is.
 
+GitHub answers a release asset URL with a redirect to a short-lived URL on its object
+store. LocalAI follows a redirect of a library index or of an archive download only to an
+https URL on a GitHub download host (`github.com`, `raw.githubusercontent.com`,
+`objects.githubusercontent.com`, `release-assets.githubusercontent.com`), at most five
+times, and never to an address on a private network. It does not send the credential of
+the library to the redirect host. Any other redirect fails the refresh, and the server log
+names the reason. The content keeps its own checks: the signature policy of the library and
+the digest of each entry.
+
 The index has the same format as the other libraries (see
 [Catalog document and limits]({{% relref "/addons/contract-reference/packages-and-runtime#catalog-document-and-limits" %}})). A package that the named
 workflow run did not build and sign is refused at install.
@@ -338,8 +347,8 @@ dist/addons/web-0.1.0-linux-amd64.zip.sha256
 | `ADDON_EXECUTABLE` | A built executable to pack, instead of building one. Use it with one platform. A relative path is relative to the directory where you start `make`. |
 | `ADDONS_ZIP_DIR` | The output folder. |
 
-The build needs Go and Node.js, as `package.sh` does; the Tables add-on also
-needs a C toolchain. Without `ADDON`, the Sandbox add-on is skipped unless
+The build needs Go and Node.js, as `package.sh` does. No add-on needs a C
+toolchain. Without `ADDON`, the Sandbox add-on is skipped unless
 `SANDBOX_GUEST_IMAGE` is set, because its executable needs the reference of its
 guest image (see `scripts/addons/package.sh`). The same layout gives the same
 zip bytes, so you can rebuild a file and compare the sha256.

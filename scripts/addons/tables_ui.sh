@@ -55,7 +55,7 @@ go_cases "$report"
 # 3. The real owner, the real Tables executable, the built package.
 node "$pkg/build.mjs" >"$cache/logs/tables-ui-build.log" 2>&1 || { cat "$cache/logs/tables-ui-build.log" >&2; exit 1; }
 tables_exe="$cache/tmp/tables-ui-exe"
-CGO_ENABLED=1 go build -p 2 -o "$tables_exe" ./addons/tables/cmd/tables
+CGO_ENABLED=0 go build -p 2 -o "$tables_exe" ./addons/tables/cmd/tables
 fixture_dir="$cache/tmp/tables-ui-fixture"
 rm -rf "$fixture_dir"
 mkdir -p "$fixture_dir/tables" "$fixture_dir/tables-next"

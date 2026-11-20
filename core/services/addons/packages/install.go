@@ -216,7 +216,14 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if e != nil {
 			return out, ErrPackage
 		}
-		resp, e := httpclient.New().Do(req)
+		// The archive is pinned by its SHA256, so a redirect changes where
+		// the bytes come from and never what is accepted; only the release
+		// download hosts are followed (see catalog.ReleaseAssetHosts).
+		opts := []httpclient.Option{httpclient.WithRedirectHosts(catalog.ReleaseAssetHosts...)}
+		if archiveTransport != nil {
+			opts = append(opts, httpclient.WithTransport(archiveTransport))
+		}
+		resp, e := httpclient.New(opts...).Do(req)
 		if e != nil {
 			return out, ErrPackage
 		}
@@ -375,6 +382,10 @@ func (i *Installer) download(ctx context.Context, r io.Reader, digest, root stri
 // registry credential is never sent to the target. Any other redirect is
 // refused, so credentials cannot follow to another origin. The caller still
 // verifies the digest of the bytes it receives.
+// archiveTransport replaces the transport of an archive download in tests, so
+// a redirect to an allowed host can be served in process. Nil in production.
+var archiveTransport http.RoundTripper
+
 type boundTransport struct {
 	ctx               context.Context
 	base              http.RoundTripper
