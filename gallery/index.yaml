@@ -82232,3 +82232,80 @@
       model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: hy4-flash
+  description: |
+    中文&nbsp;｜&nbsp;English
+
+    [](#license)
+    &nbsp;&nbsp;
+    [](https://huggingface.co/tencent/Hy4-flash)
+    &nbsp;&nbsp;
+    [](https://modelscope.cn/models/Tencent-Hunyuan/Hy4-flash)
+    &nbsp;&nbsp;
+    [](https://ai.gitcode.com/tencent_hunyuan/Hy4-flash)
+
+    Official Website&nbsp;&nbsp;|&nbsp;&nbsp;
+    GitHub&nbsp;&nbsp;|&nbsp;&nbsp;
+    GGUF
+
+    ## Table of Contents
+
+      - Model Introduction
+      - Pretrained model capability
+      - Practicality and Cost Efficiency
+      - Optimization Approach
+      - Task Performance and Cost
+      - User Blind Evaluation
+      - Appendix: Benchmark results
+      - News
+      - Model Links
+      - Quickstart
+      - Transformers
+      - OpenAI-compatible API
+      - Deployment
+      - DFly2 for Speculative Decoding
+      - Quantization
+      - Inference Frameworks
+      - vLLM
+      - SGLang
+      - Finetuning
+      - License
+      - Contact Us
+
+    ## Model Introduction
+
+    **Hy4 flash** is our most cost-effective Hy model to date, featuring 220B total parameters (including 64B Engram parameters) with just 12B active parameters per token. It natively accepts text and image inputs, generates text, and supports a context window of up to 1M tokens.
+
+    ...
+  urls:
+    - https://huggingface.co/AngelSlim/Hy4-flash-GGUF
+  icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/pipeline-cat-chonk.jpeg
+  tags:
+    - llm
+    - gguf
+  files:
+    - filename: llama-cpp/models/Hy4-flash-Q4_K_M/Hy4-flash-Q4_K_M-00001-of-00002.gguf
+      sha256: d6f76e5620f949bb50b23d0104786a4d091c487b6bee331facbeb996445ebe14
+      uri: https://huggingface.co/AngelSlim/Hy4-flash-GGUF/resolve/main/Hy4-flash-Q4_K_M-00001-of-00002.gguf
+    - filename: llama-cpp/models/Hy4-flash-Q4_K_M/Hy4-flash-Q4_K_M-00002-of-00002.gguf
+      sha256: ecd6a0ecd7f258b1ee9211bf566261ae33efc1743ad40f58cb5004cf7b051839
+      uri: https://huggingface.co/AngelSlim/Hy4-flash-GGUF/resolve/main/Hy4-flash-Q4_K_M-00002-of-00002.gguf
+    - filename: llama-cpp/mmproj/Hy4-flash-Q4_K_M/mmproj-Hy4-flash-bf16.gguf
+      sha256: 8c33a48ef57480abf4854126964058a2015b5da3b773b14c847c995cf8899bda
+      uri: https://huggingface.co/AngelSlim/Hy4-flash-GGUF/resolve/main/mmproj-Hy4-flash-bf16.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Hy4-flash-Q4_K_M/mmproj-Hy4-flash-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Hy4-flash-Q4_K_M/Hy4-flash-Q4_K_M-00001-of-00002.gguf
+    template:
+      use_tokenizer_template: true
