@@ -126,6 +126,9 @@ The chat page (`/app/chats/<id>`) shows one chat.
   again from it, **Regenerate** (the last answer) answers again, and
   **Branch** copies the chat up to that message into a new chat. The keys are
   `E`, `R` and `B` on a focused message.
+- **Times** show when each message of yours and each reply was written: under
+  your message, and at the end of the line above a reply. Hover the time for
+  the full date. A message that is still being sent shows no time.
 - **More** exports the chat as Markdown or JSON and imports a JSON export as a
   new chat.
 - **Under the message box** the foot shows the context meter and the speed of

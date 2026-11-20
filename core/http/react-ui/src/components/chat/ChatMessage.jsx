@@ -197,10 +197,23 @@ export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry, auto, onS
   )
 }
 
+// The time a message was written, from the transcript line's At. A line without
+// a usable time (a message still being sent, or the Go zero time) shows nothing.
+function MessageTime({ at, className }) {
+  const { i18n } = useTranslation('chat')
+  const when = at ? new Date(at) : null
+  if (!when || Number.isNaN(when.getTime()) || when.getTime() < Date.UTC(2000, 0, 1)) return null
+  return (
+    <time className={className} dateTime={when.toISOString()} title={when.toLocaleString(i18n.language)} data-testid="message-time">
+      {when.toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}
+    </time>
+  )
+}
+
 // Who is the line above a reply: whether the model is loaded and its name.
 // With an identity (the name or the picture of persona.json) it shows the
-// assistant first and the model after it, smaller.
-function Who({ model, warm, identity }) {
+// assistant first and the model after it, smaller. The time of the reply ends it.
+function Who({ model, warm, identity, at }) {
   const named = identity && (identity.name || identity.avatar)
   return (
     <div className="cx-who">
@@ -208,6 +221,7 @@ function Who({ model, warm, identity }) {
       {named && <AssistantAvatar avatar={identity.avatar} name={identity.name} size="xs" testId="chat-assistant-avatar" />}
       {named && identity.name && <b className="cx-who__name" data-testid="chat-assistant-name">{identity.name}</b>}
       {model && (named ? <span className="cx-who__model">{model}</span> : <b>{model}</b>)}
+      <MessageTime at={at} className="cx-who__time" />
     </div>
   )
 }
@@ -291,7 +305,7 @@ function ChatMessage({
       onKeyDown={onKeyDown}
       aria-label={isUser ? t('message.you') : (identity?.name || model || t('message.assistant'))}
     >
-      {isAssistant && <Who model={model} warm={warm} identity={identity} />}
+      {isAssistant && <Who model={model} warm={warm} identity={identity} at={msg.at} />}
       {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} withProposals={false} />}
 
       {isUser && draft !== null ? (
@@ -329,6 +343,7 @@ function ChatMessage({
               {text && <div className="cx-text" dangerouslySetInnerHTML={{ __html: escapeHtml(text) }} />}
             </div>
           )}
+          <MessageTime at={msg.at} className="cx-msg__time" />
         </>
       ) : (
         text && <Prose html={html} files={files} onOpenFile={onOpenFile} />
