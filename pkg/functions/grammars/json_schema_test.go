@@ -606,6 +606,53 @@ var _ = Describe("JSON schema property ordering (issue #10052)", func() {
 	})
 })
 
+var _ = Describe("JSON schema collection and string bounds", func() {
+	It("enforces bounded strings and enum arrays", func() {
+		schema := `{
+			"type": "object",
+			"properties": {
+				"arrival_cues": {
+					"type": "array",
+					"minItems": 1,
+					"maxItems": 4,
+					"items": {"type": "string", "enum": ["animal", "carried_items"]}
+				},
+				"spoken_line": {"type": "string", "minLength": 2, "maxLength": 120}
+			}
+		}`
+
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(grammar).To(ContainSubstring(`root-arrival-cues ::= "[" space root-arrival-cues-item ("," space root-arrival-cues-item){0,3} "]" space`))
+		Expect(grammar).To(ContainSubstring(`root-spoken-line ::= "\"" char{2,120} "\"" space`))
+	})
+
+	It("supports empty bounded arrays", func() {
+		schema := `{"type":"array","maxItems":0,"items":{"type":"string"}}`
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(grammar).To(ContainSubstring(`root ::= "[" space "]" space`))
+	})
+
+	It("retains unbounded array behavior when no bounds are supplied", func() {
+		schema := `{"type":"array","items":{"type":"string"}}`
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(grammar).To(ContainSubstring(`root ::= "[" space (string ("," space string)*)? "]" space`))
+	})
+
+	DescribeTable("rejects invalid schema bounds",
+		func(schema, message string) {
+			_, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+			Expect(err).To(MatchError(ContainSubstring(message)))
+		},
+		Entry("negative", `{"type":"array","minItems":-1,"items":{"type":"string"}}`, "minItems must be an integer"),
+		Entry("fractional", `{"type":"string","maxLength":1.5}`, "maxLength must be an integer"),
+		Entry("inverted", `{"type":"array","minItems":5,"maxItems":4,"items":{"type":"string"}}`, "minItems cannot exceed maxItems"),
+		Entry("parser limit", `{"type":"string","maxLength":2001}`, "maxLength must be an integer between 0 and 2000"),
+	)
+})
+
 var _ = Describe("JSON schema grammar cyclic $ref handling", func() {
 	// A client-supplied grammar_json_functions schema with a cyclic $ref used to
 	// recurse until the goroutine stack overflowed, crashing the whole process

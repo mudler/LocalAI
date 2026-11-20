@@ -10,6 +10,8 @@ var (
 		"boolean": `("true" | "false") space`,
 		"number":  `("-"? ([0-9] | [1-9] [0-9]*)) ("." [0-9]+)? ([eE] [-+]? [0-9]+)? space`,
 		"integer": `("-"? ([0-9] | [1-9] [0-9]*)) space`,
+		"char": `[^"\\\x7F\x00-\x1F] |
+			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])`,
 		"string": `"\"" (
 			[^"\\] |
 			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
