@@ -54,6 +54,7 @@ const (
 	LinkNeedsYou = "/app/updates?filter=needs-you"
 	LinkPage     = "/app/updates"
 	LinkModels   = "/app/models"
+	LinkAddons   = "/app/addons"
 )
 
 // Families of the automatic update.
@@ -284,11 +285,14 @@ func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
 	if op.ID == "" || op.Name == "" {
 		return nil
 	}
-	if op.Upgrade && !op.Backend && op.Outcome != galleryop.OpCancelled {
+	if op.Upgrade && !op.Backend && !op.Addon && op.Outcome != galleryop.OpCancelled {
 		return nil
 	}
 	kind, link := "model", LinkModels
-	if op.Backend {
+	switch {
+	case op.Addon:
+		kind, link = "addon", LinkAddons
+	case op.Backend:
 		kind, link = "backend", LinkPage
 	}
 	action := "install"
@@ -299,6 +303,9 @@ func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
 		action = "upgrade"
 	}
 	label := strings.ToUpper(kind[:1]) + kind[1:]
+	if op.Addon {
+		label = "Add-on"
+	}
 	n := notify.Notification{
 		Key: keyOp + op.ID, Source: notify.SourceSystem, Kind: notify.KindRunEnded, Status: notify.StatusOK, Link: link,
 		Params: map[string]any{"kind": kind, "action": action, "name": op.Name},
@@ -316,6 +323,10 @@ func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
 		n.Title = label + " " + op.Name + ": the " + action + " failed"
 		n.Body = errorLine(op.Err)
 		n.Params["outcome"] = "failed"
+		if op.NeedsApproval {
+			// The install waits for a new review of its host access.
+			n.Params["needsApproval"] = true
+		}
 		if n.Body != "" {
 			n.Params["error"] = n.Body
 		}

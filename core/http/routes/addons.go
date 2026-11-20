@@ -8,13 +8,20 @@ import (
 	endpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	httpMiddleware "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"gorm.io/gorm"
 )
 
 // RegisterAddonRoutes registers the routes over the gateway of a. The caller
 // passes the instance gate (middleware.RequireAddonsFeature(a)); app.go does.
-func RegisterAddonRoutes(e *echo.Echo, a *application.Application, gate ...echo.MiddlewareFunc) {
-	registerAddonRoutes(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), a.StudioSelectionGuard(), gate...)
+// opcache lists the queued add-on installs in /api/operations; nil (the web UI
+// is off) queues them without listing them there.
+func RegisterAddonRoutes(e *echo.Echo, a *application.Application, opcache *galleryop.OpCache, gate ...echo.MiddlewareFunc) {
+	var queue []endpoints.Option
+	if gs := a.GalleryService(); gs != nil {
+		queue = append(queue, endpoints.WithOperationQueue(gs, opcache))
+	}
+	registerAddonRoutes(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), a.StudioSelectionGuard(), queue, gate...)
 }
 
 // RegisterAddonRoutesFor registers the addon routes over one gateway. A
@@ -23,10 +30,10 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application, gate ...echo.
 // (middleware.RequireAddonsFeature) runs first and the per-user permission
 // after it.
 func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, gate ...echo.MiddlewareFunc) {
-	registerAddonRoutes(e, gw, db, ownership, nil, gate...)
+	registerAddonRoutes(e, gw, db, ownership, nil, nil, gate...)
 }
 
-func registerAddonRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, guard endpoints.SelectionGuard, gate ...echo.MiddlewareFunc) {
+func registerAddonRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownership string, guard endpoints.SelectionGuard, queue []endpoints.Option, gate ...echo.MiddlewareFunc) {
 	group := e.Group("/api/addons", append(gate, auth.RequireFeature(db, auth.FeatureAddons), auth.CSRFMiddleware(), endpoints.BrowserProtection())...)
 	mode := endpoints.WithOwnership(ownership)
 	var selection []endpoints.Option
@@ -119,6 +126,10 @@ func registerAddonRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownersh
 	group.GET("/host-grants", endpoints.GetHostGrants(gw, db, mode))
 	group.POST("/host-grants/preview", endpoints.PreviewHostGrants(gw, db, mode))
 	group.POST("/host-grants/install", endpoints.InstallWithHostGrants(gw, db, mode))
+	// The install queue: the approved installs run in the background, one at a
+	// time, as operations of /api/operations (cancel there). Same browser
+	// session rule as host-grants/install; never a tool.
+	group.POST("/host-grants/queue", endpoints.QueueWithHostGrants(gw, db, append([]endpoints.Option{mode}, queue...)...))
 	group.PUT("/host-grants/blanket", endpoints.SetHostGrantsBlanket(gw, db, mode))
 	group.PUT("/host-grants/deny", endpoints.SetHostGrantsDeny(gw, db, mode))
 	group.PUT("/host-grants/:addonId", endpoints.EditHostGrants(gw, db, mode))

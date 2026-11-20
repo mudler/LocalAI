@@ -256,7 +256,7 @@ func (m *Manager) approvedGrant(ctx context.Context, cmd LifecycleCommand, r pac
 		}
 	}
 	if cmd.Approval != nil {
-		if cmd.Approval.Digest != r.Digest {
+		if !approvalMatches(*cmd.Approval, r) {
 			return nil, "", &ApprovalStaleError{Digest: r.Digest, Summary: s}
 		}
 		if store != nil {
@@ -278,6 +278,30 @@ func (m *Manager) approvedGrant(ctx context.Context, cmd LifecycleCommand, r pac
 		return nil, "", refusal
 	}
 	return grant, blanket, nil
+}
+
+// approvalMatches reports whether an approval covers the verified package: the
+// digest the administrator saw, and for an approval reviewed from the index
+// hint, a manifest that requests nothing outside the reviewed operations. An
+// index that lists fewer operations than the package requests is never a
+// grant of the rest.
+func approvalMatches(a HostApproval, r packages.PackageReceipt) bool {
+	if a.Unpinned && !a.FromIndex {
+		return false
+	}
+	if !a.Unpinned && a.Digest != r.Digest {
+		return false
+	}
+	if !a.FromIndex {
+		return true
+	}
+	required, optional := declared(r)
+	for _, op := range append(required, optional...) {
+		if !slices.Contains(a.Reviewed, op) {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *Manager) stageGrants(ctx context.Context, cmd LifecycleCommand, actor contract.Actor, r packages.PackageReceipt, next Status, grant []string, blanket string) error {

@@ -58,7 +58,7 @@ var _ = Describe("Add-on navigation routes with real authentication", func() {
 		e = echo.New()
 		e.Use(auth.Middleware(gdb, app.ApplicationConfig()))
 		// The order of app.go: the feature group first, then the navigation routes.
-		routes.RegisterAddonRoutes(e, app)
+		routes.RegisterAddonRoutes(e, app, nil)
 		Expect(routes.RegisterAddonNavigationRoutes(e, app)).To(Succeed())
 	})
 	gdbOf := func(a *application.Application) *gorm.DB { return a.AuthDB() }

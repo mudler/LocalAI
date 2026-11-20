@@ -750,6 +750,9 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 // source answered.
 func operationDisplayName(key string) (name, nodeID string) {
 	name = key
+	if id, ok := ParseAddonOpKey(key); ok {
+		return id, ""
+	}
 	if id, backend, ok := ParseNodeScopedKey(key); ok {
 		nodeID = id
 		name = backend

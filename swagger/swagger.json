@@ -1220,6 +1220,64 @@
                 }
             }
         },
+        "/api/addons/host-grants/queue": {
+            "post": {
+                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to \"queue\"). API keys, bearer tokens, MCP sessions and tool calls are refused with 403 not_human_surface. Each item carries what host-grants/install carries for an install from a library: the release, and the approval of its preview (digest, ticked operations, grants revision and the preview nonce). The owner checks each approval now and records it; the install then runs in the background, in order, on the queue of backend operations and within its limit, as an operation of /api/operations (the owner installs one add-on at a time), with its phase and its downloaded bytes. Cancel it there (POST /api/operations/{jobID}/cancel) while it waits or downloads. The install never turns the add-on on. When the verified package asks for host access that the preview did not show, the install stops and asks for a new review (the operation fails and a notification says so); nothing is granted. Items are answered one by one: a refused item carries the error of host-grants/install and does not stop the others. Queued installs that have not finished when the owner restarts are failed with the code interrupted.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Queue add-on installs with the host access the administrator approved (browser session)",
+                "parameters": [
+                    {
+                        "description": "Installs to queue",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.HostGrantsQueueBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "One answer per item",
+                        "schema": {
+                            "$ref": "#/definitions/addons.HostGrantsQueueResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface (not_human_surface) or administration denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the operation queue are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/host-grants/{addonId}": {
             "put": {
                 "description": "Administrators only, from their own browser session (X-LocalAI-Confirm equal to the add-on ID). operationId is optional (the host makes one); send your own to make a retry the same change. ops is the full set the add-on keeps: operations left out are revoked, new ones must be declared by the installed manifest, registered by the host and not denied (403 blocked_by_policy). Grants made by the policy file or flags are not editable here. keep names held blanket grants to relabel as the administrator's own. revision is the revision the caller read; a stale one is 409 revision_conflict. Takes effect for the next call of the add-on with no restart.",
@@ -3395,7 +3453,7 @@
         },
         "/api/addons/{id}/upgrade": {
             "post": {
-                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to the operationId). The only action that applies an update. It carries the digest of the installed package the caller saw (expectedDigest) and the digest of the candidate the check resolved (candidateDigest). The owner re-resolves the library the add-on came from and refuses, before it records anything, an installed package that is not the expected one (409 stale_installed), a candidate that is not the one it resolves now (409 candidate_changed), an incompatible candidate (409 incompatible), a rewritten immutable version (409 integrity_error) and the same transition under another operation ID (409 upgrade_conflict). It never changes the library or the channel. The upgrade then follows the lifecycle of an add-on: the candidate is staged and verified, the data is backed up and migrated when the add-on has any, and the new generation is published only when it starts. A failure or cancellation keeps the last good generation or leaves an explicit recovery state; the previous installation is never deleted. Repeating the operationId returns the recorded result and never runs again; after outcome_unknown read operation-status with the same operationId. No MCP tool maps to this route.",
+                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to the operationId). The only action that applies an update. With the operation queue (the normal server) the upgrade is recorded and answered at once in the accepted phase, with jobId, the operation of /api/operations that runs it in the background on the queue of backend operations; cancel it there while it waits or downloads. It carries the digest of the installed package the caller saw (expectedDigest) and the digest of the candidate the check resolved (candidateDigest). The owner re-resolves the library the add-on came from and refuses, before it records anything, an installed package that is not the expected one (409 stale_installed), a candidate that is not the one it resolves now (409 candidate_changed), an incompatible candidate (409 incompatible), a rewritten immutable version (409 integrity_error) and the same transition under another operation ID (409 upgrade_conflict). It never changes the library or the channel. The upgrade then follows the lifecycle of an add-on: the candidate is staged and verified, the data is backed up and migrated when the add-on has any, and the new generation is published only when it starts. A failure or cancellation keeps the last good generation or leaves an explicit recovery state; the previous installation is never deleted. Repeating the operationId returns the recorded result and never runs again; after outcome_unknown read operation-status with the same operationId. No MCP tool maps to this route.",
                 "consumes": [
                     "application/json"
                 ],
@@ -20006,6 +20064,45 @@
                 }
             }
         },
+        "addons.HostGrantsQueueBody": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.HostGrantsQueueRequest"
+                    }
+                }
+            }
+        },
+        "addons.HostGrantsQueueItem": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string"
+                },
+                "error": {
+                    "$ref": "#/definitions/addons.AddonError"
+                },
+                "jobId": {
+                    "type": "string"
+                },
+                "operationId": {
+                    "type": "string"
+                }
+            }
+        },
+        "addons.HostGrantsQueueResult": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/addons.HostGrantsQueueItem"
+                    }
+                }
+            }
+        },
         "addons.OperationStatus": {
             "type": "object",
             "properties": {
@@ -23061,6 +23158,10 @@
                 "digest": {
                     "type": "string"
                 },
+                "fromIndex": {
+                    "description": "FromIndex is true when the requested operations come from the library\nindex, with no download. The install then holds the add-on, and asks\nagain, when its verified manifest requests anything not listed here.",
+                    "type": "boolean"
+                },
                 "installed": {
                     "type": "boolean"
                 },
@@ -23092,6 +23193,26 @@
                     "type": "integer"
                 },
                 "title": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "gateway.HostGrantsQueueRequest": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string"
+                },
+                "approve": {
+                    "$ref": "#/definitions/gateway.HostGrantsApprove"
+                },
+                "operationId": {
+                    "type": "string"
+                },
+                "sourceId": {
                     "type": "string"
                 },
                 "version": {

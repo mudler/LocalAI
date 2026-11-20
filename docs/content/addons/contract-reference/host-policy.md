@@ -115,7 +115,7 @@ The owner never grants what the verified package does not declare. A grant is al
 
 ### The install step
 
-When the manifest of an add-on declares host operations, the install dialog shows a **Host access** step before **Install and turn on**. It lists each operation with a short title, one sentence and a risk word (reads, changes data, network, runs jobs), grouped by family.
+When the manifest of an add-on declares host operations, the install dialog shows a **Host access** step before **Add to queue**. It lists each operation with a short title, one sentence and a risk word (reads, changes data, network, runs jobs), grouped by family.
 
 - **Required** operations are on and cannot be turned off. The add-on does not run without them.
 - **Optional** operations are off. The add-on runs without them, with fewer features. Turn on the ones you want.
@@ -123,7 +123,9 @@ When the manifest of an add-on declares host operations, the install dialog show
 - An operation that the deployment already allows says so and needs no choice.
 - An operation that this LocalAI does not support says "Not supported by this LocalAI".
 
-For add-ons of the official library the required operations are already on and you still click **Install and turn on**. For an add-on of another library the warning below names the library it comes from. The list is read from the package that the owner verifies, not from the library listing, and the owner checks it again when it installs.
+For add-ons of the official library the required operations are already on and you still confirm the install. For an add-on of another library the warning below names the library it comes from.
+
+Where the list comes from: when the library entry lists the host operations of its package (the `hostOperations` field of the index), the dialog shows that list at once, with no download. Otherwise the owner downloads and verifies the package to read its manifest, and the dialog says that it is checking the package. The library list is a hint and grants nothing. When the owner installs, it verifies the package and compares its manifest with the operations the dialog showed. If the manifest asks for an operation that was not in the list, the owner installs nothing, grants nothing and fails the install with `approval_stale`, so that you review it again. For a pinned entry the approval is also bound to the digest of the package; a development entry with a moving tag has no digest in the library, and its approval is bound to the operations you reviewed.
 
 ### Add-ons from another library
 

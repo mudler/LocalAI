@@ -605,24 +605,48 @@ func (h hostAccessManager) PreviewHostAccess(ctx context.Context, sourceID, addo
 		return gateway.ReleaseAccess{}, err
 	}
 	return gateway.ReleaseAccess{AddonID: r.AddonID, Title: r.Title, Version: r.Version, Digest: r.Digest, Official: r.Official,
-		Required: r.Required, Optional: r.Optional, Installed: r.Installed}, nil
+		Required: r.Required, Optional: r.Optional, Installed: r.Installed, FromIndex: r.FromIndex, Unpinned: r.Unpinned}, nil
+}
+
+func managerApproval(ap gateway.HostApproval) *addons.HostApproval {
+	return &addons.HostApproval{Digest: ap.Digest, Ops: ap.Ops, Revision: ap.Revision, Nonce: ap.Nonce,
+		FromIndex: ap.FromIndex, Reviewed: ap.Reviewed, Unpinned: ap.Unpinned}
 }
 
 func (h hostAccessManager) SubmitWithApproval(ctx context.Context, actor contract.Actor, cmd addons.LifecycleCommand, ap gateway.HostApproval) (addons.OperationStatus, error) {
-	cmd.Approval = &addons.HostApproval{Digest: ap.Digest, Ops: ap.Ops, Revision: ap.Revision, Nonce: ap.Nonce}
+	cmd.Approval = managerApproval(ap)
 	st, err := h.m.Submit(ctx, actor, cmd)
-	// The owner service types its refusals by these errors.
+	return st, typeApprovalError(err)
+}
+
+func (h hostAccessManager) AcceptWithApproval(ctx context.Context, actor contract.Actor, cmd addons.LifecycleCommand, ap gateway.HostApproval) (addons.OperationStatus, error) {
+	cmd.Approval = managerApproval(ap)
+	return h.m.AcceptInstall(ctx, actor, cmd)
+}
+
+func (h hostAccessManager) RunAccepted(ctx context.Context, actor contract.Actor, operationID string) (addons.OperationStatus, error) {
+	st, err := h.m.RunAccepted(ctx, actor, operationID)
+	return st, typeApprovalError(err)
+}
+
+func (h hostAccessManager) DropAccepted(ctx context.Context, actor contract.Actor, operationID string) (addons.OperationStatus, error) {
+	return h.m.DropAccepted(ctx, actor, operationID)
+}
+
+// typeApprovalError maps the refusals of an install with an approval to the
+// errors the owner service types for the routes.
+func typeApprovalError(err error) error {
 	var stale *addons.ApprovalStaleError
 	var refusal *addons.HostRequirementsRefusal
 	switch {
 	case errors.As(err, &stale):
-		return st, gateway.ErrApprovalStale
+		return gateway.ErrApprovalStale
 	case errors.As(err, &refusal) && refusal.Blocked():
-		return st, gateway.ErrBlockedByPolicy
+		return gateway.ErrBlockedByPolicy
 	case errors.As(err, &refusal):
-		return st, gateway.ErrApprovalRequired
+		return gateway.ErrApprovalRequired
 	}
-	return st, err
+	return err
 }
 
 // wireHostGrantsOwner gives the gateway of the owner the host access routes.

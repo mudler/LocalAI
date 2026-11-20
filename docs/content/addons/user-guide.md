@@ -25,8 +25,9 @@ An add-on runs as the operating system user that runs LocalAI. Nothing confines 
 
 1. Sign in as an administrator and open **Add-ons**.
 2. Choose **Find add-ons**. The list is the library for this operating system and architecture. Which add-ons you see depends on your build (see [The library, sources and channels](#the-library-sources-and-channels)).
-3. Pick an add-on and choose **Install and turn on**.
-4. The dialog lists what the add-on may do on the host. Confirm it there.
+3. Pick an add-on and choose **Install**. To install several, tick **Add to queue** on each card, then choose **Review and queue**.
+4. The dialog lists what the add-on may do on the host. Accept it there. The add-on goes to the install queue, which downloads and installs it in the background and shows its progress.
+5. When the install ends, turn the add-on on in **My add-ons**. The install never turns it on.
 
 The install checks the package digest and the signature against the policy of the library before anything runs. The add-on then shows in **My add-ons**. Use **Show in sidebar** to pin it.
 

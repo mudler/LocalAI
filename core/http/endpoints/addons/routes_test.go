@@ -54,7 +54,7 @@ var _ = Describe("registered addon routes with real authentication", func() {
 		Expect(gdb.Create(&auth.UserPermission{ID: uuid.NewString(), UserID: "granted", Permissions: auth.PermissionMap{auth.FeatureAddons: true}}).Error).To(Succeed())
 		e = echo.New()
 		e.Use(auth.Middleware(gdb, app.ApplicationConfig()))
-		routes.RegisterAddonRoutes(e, app)
+		routes.RegisterAddonRoutes(e, app, nil)
 	})
 	call := func(path, action string, mutate func(*http.Request)) *httptest.ResponseRecorder {
 		body := `{"addonId":"sample","operationId":"op","generation":1,"action":"` + action + `","arguments":{}}`
@@ -155,6 +155,9 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			// issues its nonce. Browser session only, except the preview.
 			"POST /api/addons/host-grants/preview": true,
 			"POST /api/addons/host-grants/install": true,
+			// The install queue: approved installs that run in the background.
+			// Browser session only, like the install.
+			"POST /api/addons/host-grants/queue": true,
 			// Install from a file: staging a zip on the owner. It runs nothing.
 			"POST /api/addons/files": true,
 		}))
@@ -343,7 +346,7 @@ var _ = Describe("explicit local-owner mode on the registered routes", func() {
 		Expect(err).NotTo(HaveOccurred())
 		e := echo.New()
 		e.Use(auth.Middleware(app.AuthDB(), app.ApplicationConfig()))
-		routes.RegisterAddonRoutes(e, app)
+		routes.RegisterAddonRoutes(e, app, nil)
 		return e, app
 	}
 	post := func(e *echo.Echo, action string, mutate func(*http.Request)) int {

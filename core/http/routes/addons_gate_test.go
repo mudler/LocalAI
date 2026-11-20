@@ -70,7 +70,7 @@ var _ = Describe("Routes behind the addons gate", func() {
 		app := newApp()
 		e := echo.New()
 		gate := httpMiddleware.RequireAddonsFeature(app)
-		routes.RegisterAddonRoutes(e, app, gate)
+		routes.RegisterAddonRoutes(e, app, nil, gate)
 		Expect(routes.RegisterAddonNavigationRoutes(e, app, gate)).To(Succeed())
 		for _, p := range []string{"/api/addons/apps", "/api/addons/builtin", "/api/addons/pins", "/api/addons/does-not-exist"} {
 			w := get(e, p)
@@ -98,7 +98,7 @@ var _ = Describe("Routes behind the addons gate", func() {
 		}))
 		e := echo.New()
 		gate := httpMiddleware.RequireAddonsFeature(app)
-		routes.RegisterAddonRoutes(e, app, gate)
+		routes.RegisterAddonRoutes(e, app, nil, gate)
 		Expect(routes.RegisterAddonNavigationRoutes(e, app, gate)).To(Succeed())
 		Expect(get(e, "/api/addons/builtin").Code).To(Equal(http.StatusOK))
 	})
