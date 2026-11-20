@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -73,6 +74,42 @@ func llamaCPPRPCServerPath(runFile string) (string, error) {
 	return rpcServer, nil
 }
 
+// llamaCPPRPCCommand returns the program, argv and environment that start
+// the RPC server the way the backend's run.sh starts its other binaries: on
+// Linux, with the backend's lib/ first on LD_LIBRARY_PATH and through the
+// bundled lib/ld.so when there is one. GPU builds keep their runtime
+// libraries there (libcudart for CUDA), so started directly they fail to load.
+func llamaCPPRPCCommand(goos, rpcServer string, args, env []string) (string, []string, []string) {
+	direct := append([]string{rpcServer}, args...)
+	if goos != "linux" {
+		return rpcServer, direct, env
+	}
+	libDir := filepath.Join(filepath.Dir(rpcServer), "lib")
+	if info, err := os.Stat(libDir); err != nil || !info.IsDir() {
+		return rpcServer, direct, env
+	}
+
+	const key = "LD_LIBRARY_PATH="
+	paths := []string{libDir}
+	merged := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if value, ok := strings.CutPrefix(entry, key); ok {
+			if value != "" {
+				paths = append(paths, value)
+			}
+		} else {
+			merged = append(merged, entry)
+		}
+	}
+	merged = append(merged, key+strings.Join(paths, ":"))
+
+	loader := filepath.Join(libDir, "ld.so")
+	if _, err := os.Stat(loader); err == nil {
+		return loader, append([]string{loader}, direct...), merged
+	}
+	return rpcServer, direct, merged
+}
+
 func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 
 	if len(os.Args) < 4 {
@@ -92,7 +129,6 @@ func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	args := append([]string{grpcProcess}, strings.Fields(r.ExtraLLamaCPPArgs)...)
-
-	return execBackend(grpcProcess, args, os.Environ())
+	path, argv, env := llamaCPPRPCCommand(runtime.GOOS, grpcProcess, strings.Fields(r.ExtraLLamaCPPArgs), os.Environ())
+	return execBackend(path, argv, env)
 }
