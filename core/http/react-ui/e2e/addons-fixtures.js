@@ -215,10 +215,16 @@ export async function mockAddons(page, options = {}) {
     const args = body.arguments || {}
     switch (body.action) {
       case 'catalog-search': {
-        let list = state.releases.filter(r => (!args.sourceId || r.sourceId === args.sourceId) && (!args.text || (r.name + r.addonId + r.description).toLowerCase().includes(args.text.toLowerCase())))
+        // Like the owner: a source whose last fetch failed is reported on its
+        // own and left out of the list; only a request that names it fails.
+        const broken = state.sources.filter(src => src.enabled && src.refresh?.failed)
+        if (args.sourceId && broken.some(src => src.id === args.sourceId)) return route.fulfill(fail(503, 'library_unavailable'))
+        const skipped = new Set(broken.map(src => src.id))
+        let list = state.releases.filter(r => !skipped.has(r.sourceId) && (!args.sourceId || r.sourceId === args.sourceId) && (!args.text || (r.name + r.addonId + r.description).toLowerCase().includes(args.text.toLowerCase())))
         const total = list.length
         list = list.slice(args.offset || 0, (args.offset || 0) + (args.limit || 50))
-        return route.fulfill(ok({ releases: list, total }))
+        const failed = args.sourceId ? [] : broken.map(src => ({ sourceId: src.id, name: src.name, error: src.refresh.error || '', lastSuccess: src.refresh.lastSuccess }))
+        return route.fulfill(ok({ releases: list, total, ...(failed.length ? { failed } : {}) }))
       }
       case 'catalog-details': {
         const r = state.releases.find(x => x.addonId === body.addonId && x.version === args.version && x.sourceId === args.sourceId)

@@ -231,7 +231,7 @@ writes keep the operation identity and outcome-unknown rule of the lifecycle act
 
 | Action | Kind | Arguments | Payload |
 |---|---|---|---|
-| `catalog-search` | read | `text`, `kind` (`addon` by default, `backend` or `all`), `sourceId`, `offset`, `limit` (at most 100) | `{releases, total}`; only releases for the owner's configured target platform are listed, and `total` counts that set |
+| `catalog-search` | read | `text`, `kind` (`addon` by default, `backend` or `all`), `sourceId`, `offset`, `limit` (at most 100) | `{releases, total, failed}`; only releases for the owner's configured target platform are listed, and `total` counts that set. `failed` is present when a library could not be read (see below) |
 | `catalog-details` | read | request `addonId`; `sourceId`, `version` | `{release, installed}`; `installed` is `null` or `{version, generation, enabled}` |
 | `catalog-sources` | read | none | `{sources}`; each source has `refresh` once the owner fetched it |
 | `addons-installed` | read | none | `{addons}`, the installed view below |
@@ -250,7 +250,16 @@ A refresh is a write because it makes the owner fetch a remote document. A libra
 disabled, unreachable or invalid answers 503 with `outcome_unknown` and the original
 operation ID, like any other write whose result cannot be proved; the `refresh` object of
 `catalog-sources` says what the owner last learned (`checkedAt`, `lastSuccess`, `count`,
-`failed`).
+`failed`, and `error`, the reason the last fetch failed).
+
+One library that fails does not empty the list. `catalog-search` without a `sourceId`
+answers with the releases of every library that loaded, and `failed` names each library
+that did not: `{sourceId, name, error, lastSuccess}` (`lastSuccess` is absent when the
+library never loaded). A library that was never fetched yet is left out without a report.
+The releases of a failed library are not listed, because the owner cannot resolve or
+install them until the next good refresh. A request that names the failing library
+(`catalog-search` with its `sourceId`, `catalog-details`) answers with the refresh error, and
+so does a search when every library failed.
 
 ### Installed view
 

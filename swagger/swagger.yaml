@@ -953,10 +953,17 @@ definitions:
         type: string
       count:
         type: integer
+      error:
+        description: |-
+          Error is why the latest fetch failed, as the owner log says it. It is
+          empty when the fetch worked. LastSuccess says when the library last
+          loaded, if it ever did.
+        type: string
       failed:
         description: |-
           Failed is true when the latest fetch failed; the previous releases are
-          not served in that case.
+          not served in that case. Other libraries are not affected: a listing
+          still answers with what they loaded and names this one in Page.Failed.
         type: boolean
       lastSuccess:
         type: string

@@ -416,6 +416,26 @@ test.describe('Add-ons: browse', () => {
     await shoot(page, 'browse')
   })
 
+  test('browse: a failing library is named in a notice and does not hide the others', async ({ page }) => {
+    await signIn(page, ADMIN)
+    const good = { id: 'main', name: 'Main', url: 'https://catalog.example/releases.json', enabled: true, policy: { requireSignature: false }, refresh: { checkedAt: new Date().toISOString(), lastSuccess: new Date().toISOString(), count: 2, failed: false } }
+    const broken = { id: 'team', name: 'Team', url: 'https://team.example/releases.json', enabled: true, policy: { requireSignature: false }, refresh: { checkedAt: new Date().toISOString(), lastSuccess: '0001-01-01T00:00:00Z', count: 0, failed: true, error: 'catalog refresh failed: the library answered HTTP 404' } }
+    const state = await mockAddons(page, { sources: [good, broken], releases: [release('notes'), release('tables'), release('mail', { sourceId: 'team' })] })
+    await page.goto('/app/addons?tab=browse')
+    // The entries of the library that loaded are listed.
+    await expect(page.locator('.cat-item')).toHaveCount(2)
+    await expect(page.locator('.cat-item', { hasText: 'Mail' })).toHaveCount(0)
+    const notice = page.getByTestId('failed-libraries')
+    await expect(notice).toContainText('A library could not be read.')
+    await expect(notice.locator('[data-source="team"]')).toContainText('Team: catalog refresh failed: the library answered HTTP 404')
+    await shoot(page, 'browse-failed-library')
+    // A request that names the failing library answers with its error.
+    await page.getByRole('group', { name: 'Libraries' }).getByRole('button', { name: 'Team' }).click()
+    await expect(page.getByRole('alert')).toBeVisible()
+    await expect(page.getByTestId('failed-libraries')).toHaveCount(0)
+    expect(state.log.dispatch.filter(d => d.action === 'catalog-search').at(-1).arguments.sourceId).toBe('team')
+  })
+
   test('browse: Install and turn on asks once, installs and turns the add-on on', async ({ page }) => {
     await signIn(page, ADMIN)
     const state = await mockAddons(page, { installed: [], releases: [release('tables', { name: 'Tables', description: 'Spreadsheets.', ui: { mainPage: '/app/addons/tables/home' } })] })
@@ -669,6 +689,24 @@ test.describe('Add-ons: libraries', () => {
     await tab(page, 'Installed').click()
     await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]')).toBeVisible()
     expect(state.installed).toHaveLength(1)
+  })
+
+  test('libraries: a failed library shows its error and the last good refresh on its own row', async ({ page }) => {
+    await signIn(page, ADMIN)
+    const checkedAt = new Date().toISOString()
+    const stale = { id: 'team', name: 'Team', url: 'https://team.example/releases.json', enabled: true, policy: { requireSignature: false }, refresh: { checkedAt, lastSuccess: '2026-11-01T10:00:00Z', count: 0, failed: true, error: 'catalog refresh failed: the library answered HTTP 502' } }
+    const never = { id: 'broken', name: 'Broken', url: 'https://broken.example/releases.json', enabled: true, policy: { requireSignature: false }, refresh: { checkedAt, lastSuccess: '0001-01-01T00:00:00Z', count: 0, failed: true, error: 'catalog refresh failed: the library answered HTTP 404' } }
+    const fine = { id: 'main', name: 'Main', url: 'https://catalog.example/releases.json', enabled: true, policy: { requireSignature: false }, refresh: { checkedAt, lastSuccess: checkedAt, count: 2, failed: false } }
+    await mockAddons(page, { sources: [fine, stale, never] })
+    await page.goto('/app/addons?tab=libraries')
+    await expect(page.locator('[data-source="team"]').getByTestId('source-error')).toHaveText('catalog refresh failed: the library answered HTTP 502')
+    await expect(page.locator('[data-source="team"]').getByTestId('source-last-good')).toContainText('Last loaded')
+    await expect(page.locator('[data-source="broken"]').getByTestId('source-error')).toHaveText('catalog refresh failed: the library answered HTTP 404')
+    await expect(page.locator('[data-source="broken"]').getByTestId('source-last-good')).toHaveText('Never loaded')
+    // The library that loaded shows no error, and the others stay usable.
+    await expect(page.locator('[data-source="main"]').getByTestId('source-error')).toHaveCount(0)
+    await expect(page.locator('[data-source="main"]').getByRole('button', { name: 'Refresh' })).toBeEnabled()
+    await shoot(page, 'libraries-failed')
   })
 
   test('libraries: a refresh reports its result and a failed fetch is shown as failed', async ({ page }) => {
