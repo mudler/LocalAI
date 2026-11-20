@@ -166,6 +166,13 @@ type Release struct {
 	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say),
 	// from the manifest's skill definitions, for the same warning. A hint.
 	SkillShadows []string `json:"skillShadows,omitempty"`
+	// HostOperations repeats the host operations the manifest of the package
+	// requests, so the install dialog can show them without a download. Nil
+	// means the index gives no hint (an older index); an empty value means the
+	// package requests none. It is a hint, never authority: the install
+	// compares the verified manifest with what the administrator accepted and
+	// holds the add-on when the manifest asks for more.
+	HostOperations *contract.HostOperations `json:"hostOperations,omitempty"`
 
 	// The fields below describe a backend and are refused on any other kind.
 	// They carry what the backend gallery carries beyond the image, so the
