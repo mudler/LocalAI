@@ -37,6 +37,8 @@ type GalleryService struct {
 
 	// backendScheduler runs backend operations; set by Start.
 	backendScheduler *opScheduler
+	// modelScheduler runs model operations; set by Start.
+	modelScheduler *opScheduler
 
 	// Distributed mode (nil when not in distributed mode).
 	// natsClient is a messaging.Broadcaster (Publisher + Subscribe)
@@ -708,11 +710,25 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 		}
 	}()
 
+	// Model operations (install, delete, upgrade) go through their own
+	// scheduler, like backend operations. A single serial loop made an
+	// upgrade wait for every upgrade before it. Operations on the same model
+	// still run one at a time.
+	modelSched := newOpScheduler(func() int { return g.maxConcurrentModelOps() })
+	g.modelScheduler = modelSched
+
 	go func() {
+		ticker := time.NewTicker(schedulerPollInterval)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-c.Done():
+				modelSched.abandonAll()
 				return
+			case <-ticker.C:
+				if modelSched.hasPending() {
+					modelSched.kick()
+				}
 			case op := <-g.ModelGalleryChannel:
 				// Create context if not provided
 				if op.Context == nil {
@@ -721,40 +737,62 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 				} else if op.CancelFunc != nil {
 					g.storeCancellation(op.ID, op.CancelFunc, op.PauseFunc)
 				}
-				// Create DB record for distributed tracking
-				if g.galleryStore != nil {
-					opType := "model_install"
-					switch {
-					case op.Delete:
-						opType = "model_delete"
-					case op.Upgrade:
-						opType = "model_upgrade"
-					}
-					if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
-						ID:                 op.ID,
-						GalleryElementName: op.GalleryElementName,
-						OpType:             opType,
-						Status:             "pending",
-						// Create runs at dequeue, so this is the running-phase
-						// value: a running delete is not cancellable, an install
-						// is. The queued phase before this point is cancellable
-						// either way (see markQueued).
-						Cancellable: !op.Delete,
-					}); err != nil {
-						xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)
-					}
-				}
-				err := runOpHandler(func() error { return g.modelHandler(&op, cl, systemState) })
-				if err != nil {
-					updateError(op.ID, err)
-				}
-				g.announceOp(op.ID, op.GalleryElementName, false, op.Delete, op.Upgrade, err)
-				g.removeCancellation(op.ID)
+				modelSched.submit(&opTask{
+					key: backendOpKey(op.GalleryElementName, ""),
+					ctx: op.Context,
+					run: func() { g.runModelOp(&op, cl, systemState, updateError) },
+					abandon: func() {
+						g.abandonQueued(op.ID, op.GalleryElementName)
+						g.removeCancellation(op.ID)
+					},
+				})
 			}
 		}
 	}()
 
 	return nil
+}
+
+// maxConcurrentModelOps is the number of model operations allowed to run at
+// once. It follows the runtime setting.
+func (g *GalleryService) maxConcurrentModelOps() int {
+	if g.appConfig == nil {
+		return 1
+	}
+	return g.appConfig.ModelOperationLimit()
+}
+
+// runModelOp runs one model operation once the scheduler gives it a slot.
+func (g *GalleryService) runModelOp(op *ManagementOp[gallery.GalleryModel, gallery.ModelConfig], cl *config.ModelConfigLoader, systemState *system.SystemState, updateError func(string, error)) {
+	// Create DB record for distributed tracking
+	if g.galleryStore != nil {
+		opType := "model_install"
+		switch {
+		case op.Delete:
+			opType = "model_delete"
+		case op.Upgrade:
+			opType = "model_upgrade"
+		}
+		if err := g.galleryStore.Create(&distributed.GalleryOperationRecord{
+			ID:                 op.ID,
+			GalleryElementName: op.GalleryElementName,
+			OpType:             opType,
+			Status:             "pending",
+			// Create runs at dequeue, so this is the running-phase
+			// value: a running delete is not cancellable, an install
+			// is. The queued phase before this point is cancellable
+			// either way (see markQueued).
+			Cancellable: !op.Delete,
+		}); err != nil {
+			xlog.Warn("Failed to create gallery operation record", "op_id", op.ID, "error", err)
+		}
+	}
+	err := runOpHandler(func() error { return g.modelHandler(op, cl, systemState) })
+	if err != nil {
+		updateError(op.ID, err)
+	}
+	g.announceOp(op.ID, op.GalleryElementName, false, op.Delete, op.Upgrade, err)
+	g.removeCancellation(op.ID)
 }
 
 // maxConcurrentBackendOps is the number of backend operations allowed to run
