@@ -12793,8 +12793,8 @@ definitions:
   schema.ModelRemoveOldResponse:
     properties:
       errors:
-        description: Errors say why files stayed. Set when only some files could
-          be removed.
+        description: Errors say why files stayed. Set when only some files could be
+          removed.
         items:
           type: string
         type: array
