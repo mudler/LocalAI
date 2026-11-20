@@ -133,6 +133,22 @@ func (c *splitCluster) hostIDs() []peer.ID {
 	return []peer.ID{ra.host.ID(), rb.host.ID()}
 }
 
+// addRelayAndWait adds a relay to a and waits for the host restart that the
+// change starts. The restart runs after AddRelay answers, and it closes the
+// host and starts another on a new port: a test that read the host address
+// before it would dial a closed port.
+func addRelayAndWait(ctx context.Context, a *Application, addr, label string) p2papi.Relay {
+	GinkgoHelper()
+	before, _ := a.p2p().runtime()
+	r, err := a.P2P().AddRelay(ctx, addr, label, "")
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() bool {
+		rt, _ := a.p2p().runtime()
+		return rt != nil && rt != before
+	}, 10*time.Second).Should(BeTrue(), "the host restarts for the new relay")
+	return r
+}
+
 // pairSplitWorker pairs a split worker through frontend a with an invite
 // that names node, and returns its device ID.
 func (c *splitCluster) pairSplitWorker(node string) string {
@@ -273,8 +289,7 @@ var _ = Describe("relay admission of the backend nodes that serve split workers"
 		Expect(c.reg.Register(ctx, gpu, true)).To(Succeed())
 		relay := startGatedRelay(0, c.hostIDs()...)
 		for _, a := range []*Application{c.a, c.b} {
-			r, err := a.P2P().AddRelay(ctx, relay, "home", "")
-			Expect(err).ToNot(HaveOccurred())
+			r := addRelayAndWait(ctx, a, relay, "home")
 			Expect(r.State).To(Equal("in_sync"))
 		}
 		dev := c.pairSplitWorker(gpu.ID)
@@ -366,8 +381,7 @@ var _ = Describe("relay admission of the backend nodes that serve split workers"
 
 		By("refusing the node on a relay whose list is full of paired devices")
 		relay := startGatedRelay(1, c.hostIDs()...)
-		_, err := c.a.P2P().AddRelay(ctx, relay, "small", "")
-		Expect(err).ToNot(HaveOccurred())
+		addRelayAndWait(ctx, c.a, relay, "small")
 		c.report(gpu.ID, mustPinned(c, gpu.ID))
 		Eventually(nodeRelayState(c.a, dev), 10*time.Second).Should(Equal(p2papi.NodeRelayRefused))
 		r := nodeRelayOf(c.a, dev)
@@ -410,8 +424,7 @@ var _ = Describe("relay admission of the backend nodes that serve split workers"
 		gpu := &nodes.BackendNode{Name: "gpu-1", NodeType: nodes.NodeTypeBackend, TokenHash: tokenHash("tok"), SplitServer: true}
 		Expect(c.reg.Register(ctx, gpu, true)).To(Succeed())
 		relay := startGatedRelay(0, c.hostIDs()...)
-		_, err := c.a.P2P().AddRelay(ctx, relay, "home", "")
-		Expect(err).ToNot(HaveOccurred())
+		addRelayAndWait(ctx, c.a, relay, "home")
 		dev := c.pairSplitWorker(gpu.ID)
 		nodePeer := newPeerID()
 		c.report(gpu.ID, nodePeer)
