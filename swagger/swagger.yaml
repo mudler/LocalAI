@@ -4023,6 +4023,146 @@ definitions:
       sizeDisplay:
         type: string
     type: object
+  modelupdates.FileChange:
+    properties:
+      change:
+        description: Change is added, changed or removed.
+        type: string
+      checksum:
+        description: |-
+          Checksum is false for a file the gallery lists without a sha256. The
+          upgrade refuses to download weights without one.
+        type: boolean
+      path:
+        type: string
+      role:
+        type: string
+    type: object
+  modelupdates.Item:
+    properties:
+      availableDigest:
+        type: string
+      changedFiles:
+        description: ChangedFiles are the files the update adds, replaces or retires.
+        items:
+          $ref: '#/definitions/modelupdates.FileChange'
+        type: array
+      configOnly:
+        description: |-
+          ConfigOnly is true when the update changes no file the upgrade must
+          download: only the model config or the prompt templates.
+        type: boolean
+      editedKeys:
+        description: |-
+          EditedKeys are the keys of the model config a person changed since the
+          install, by dotted path. Conflict marks the ones the update also
+          changes.
+        items:
+          $ref: '#/definitions/modelupdates.KeyEdit'
+        type: array
+      entryName:
+        type: string
+      error:
+        description: Error is the error behind a check-failed reason.
+        type: string
+      gallery:
+        type: string
+      held:
+        type: boolean
+      id:
+        description: ID is "model:<name>".
+        type: string
+      installedDigest:
+        type: string
+      kind:
+        type: string
+      name:
+        description: Name is the installed model name.
+        type: string
+      needsPerson:
+        description: |-
+          NeedsPerson is true for an update, an edited update and a failed
+          upgrade. Models have no automatic update, so every update needs a
+          person; this is not the backend rule, where the automatic update
+          removes items from the digest.
+        type: boolean
+      reason:
+        description: Reason says why the state is unknown.
+        type: string
+      state:
+        type: string
+      upgrade:
+        allOf:
+        - $ref: '#/definitions/modelupdates.UpgradeStatus'
+        description: Upgrade is the last or the running upgrade of this model.
+    type: object
+  modelupdates.KeyEdit:
+    properties:
+      conflict:
+        type: boolean
+      gallery: {}
+      installed:
+        description: |-
+          Installed is the value the install wrote, Mine the value on disk, and
+          Gallery the value the update would write. A nil value means the key is
+          absent.
+      key:
+        type: string
+      mine: {}
+    type: object
+  modelupdates.Snapshot:
+    properties:
+      checkedAt:
+        description: |-
+          CheckedAt is the end of the last check; zero (omitted) before the
+          first one.
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/modelupdates.Item'
+        type: array
+      sources:
+        additionalProperties:
+          $ref: '#/definitions/backendupdates.Source'
+        type: object
+      throttled:
+        description: |-
+          Throttled is set when a check-now call was answered from a check that
+          ended a few seconds before.
+        type: boolean
+    type: object
+  modelupdates.UpgradeStatus:
+    properties:
+      attempts:
+        type: integer
+      configOnly:
+        type: boolean
+      error:
+        type: string
+      fromDigest:
+        type: string
+      note:
+        description: |-
+          Note says how the upgrade ran when that differs from what was asked
+          (a canary strategy runs as stop and start until canary is available).
+        type: string
+      opId:
+        type: string
+      phase:
+        type: string
+      removableOld:
+        type: boolean
+      retainedFiles:
+        items:
+          type: string
+        type: array
+      running:
+        type: boolean
+      toDigest:
+        type: string
+      updatedAt:
+        type: string
+    type: object
   nodes.NodeModel:
     properties:
       address:
@@ -12472,6 +12612,30 @@ definitions:
         description: texture flow sampling steps (backend default 12)
         type: integer
     type: object
+  schema.ModelAdoptRequest:
+    properties:
+      entry:
+        description: Entry names the gallery entry, when it differs from the model's
+          name.
+        type: string
+      gallery:
+        description: Gallery names the gallery the model came from.
+        type: string
+    type: object
+  schema.ModelAdoptResponse:
+    properties:
+      entry:
+        type: string
+      filesMatch:
+        description: |-
+          FilesMatch is true when the model has the files the entry lists now;
+          false means the next check offers an update.
+        type: boolean
+      gallery:
+        type: string
+      name:
+        type: string
+    type: object
   schema.ModelCapabilities:
     properties:
       capabilities:
@@ -12523,6 +12687,18 @@ definitions:
           $ref: '#/definitions/schema.ModelCapabilities'
         type: array
       object:
+        type: string
+    type: object
+  schema.ModelHoldRequest:
+    properties:
+      hold:
+        type: boolean
+    type: object
+  schema.ModelHoldResponse:
+    properties:
+      hold:
+        type: boolean
+      name:
         type: string
     type: object
   schema.ModelLoadCancelRequest:
@@ -12613,6 +12789,72 @@ definitions:
         type: integer
       total_files:
         type: integer
+    type: object
+  schema.ModelRemoveOldResponse:
+    properties:
+      errors:
+        description: Errors say why files stayed. Set when only some files could
+          be removed.
+        items:
+          type: string
+        type: array
+      kept:
+        description: |-
+          Kept are the old files that stayed, listed for a later removal. Set
+          when only some files could be removed.
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      removed:
+        description: |-
+          Removed are the old files that were deleted, relative to the models
+          directory.
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ModelUpgradeError:
+    properties:
+      candidates:
+        items:
+          type: string
+        type: array
+      error:
+        type: string
+      keys:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ModelUpgradeRequest:
+    properties:
+      choices:
+        additionalProperties:
+          type: string
+        description: |-
+          Choices give, for each key a person edited that the update also
+          changes (the conflicts of GET /api/models/updates), "mine" to keep the
+          edit or "gallery" to take the new value, by dotted key. The upgrade is
+          refused while a conflict has no choice.
+        type: object
+      config_only:
+        description: |-
+          ConfigOnly applies the new model config and prompt templates and
+          downloads nothing. It fails when the update needs new files.
+        type: boolean
+    type: object
+  schema.ModelUpgradeResponse:
+    properties:
+      id:
+        type: string
+      jobID:
+        type: string
+      message:
+        type: string
+      status_url:
+        type: string
     type: object
   schema.ModelsDataResponse:
     properties:
@@ -13781,6 +14023,13 @@ definitions:
       content:
         type: string
       path:
+        type: string
+    type: object
+  schema.RemovedRouteResponse:
+    properties:
+      error:
+        type: string
+      replacement:
         type: string
     type: object
   schema.RouterCorpusAddRequest:
@@ -23129,11 +23378,13 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Delete notifications.
       tags:
-      - chats
+      - notifications
     get:
-      description: 'The inbox: one item for each run of a trigger that finished, failed
-        or needs you. Newest first. It also returns the number unread and the total
-        kept.'
+      description: 'The inbox: backend updates, finished operations, and one item
+        for each run of a trigger that finished, failed or needs you. Newest first.
+        It also returns the number unread and the total kept. Works with the chats
+        on or off; the same routes also answer under /api/chats/notifications while
+        the chats are on.'
       parameters:
       - description: only the unread ones
         in: query
@@ -23150,7 +23401,7 @@ paths:
             $ref: '#/definitions/schema.ChatsNotificationList'
       summary: List your notifications.
       tags:
-      - chats
+      - notifications
   /api/chats/notifications/count:
     get:
       responses:
@@ -23160,13 +23411,14 @@ paths:
             $ref: '#/definitions/schema.ChatsNotificationCount'
       summary: Count unread notifications.
       tags:
-      - chats
+      - notifications
   /api/chats/notifications/events:
     get:
       description: 'Server-sent events: one notification event for each new inbox
         item, with the same fields as the list, and a notifications_changed event
         when notifications were read or deleted, so a client reads the list again.
-        Live only; list the inbox for what came before.'
+        Live only; list the inbox for what came before. In a cluster the events of
+        every frontend reach every stream.'
       produces:
       - text/event-stream
       responses:
@@ -23176,7 +23428,7 @@ paths:
             $ref: '#/definitions/schema.ChatsNotification'
       summary: Stream your notifications.
       tags:
-      - chats
+      - notifications
   /api/chats/notifications/read:
     post:
       description: Name the ids, or pass all. Opening a chat marks its notifications
@@ -23199,7 +23451,7 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Mark notifications read.
       tags:
-      - chats
+      - notifications
   /api/chats/page-starters:
     get:
       responses:
@@ -24268,7 +24520,7 @@ paths:
             $ref: '#/definitions/schema.ChatsPushKey'
       summary: Get the browser push key.
       tags:
-      - chats
+      - notifications
   /api/chats/push/subscribe:
     delete:
       parameters:
@@ -24287,7 +24539,7 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Unsubscribe a browser from push.
       tags:
-      - chats
+      - notifications
     post:
       description: Pass the endpoint and keys of a browser PushSubscription. A notification
         is then pushed to that browser with its title and link only. The endpoint
@@ -24309,7 +24561,7 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Subscribe a browser to push.
       tags:
-      - chats
+      - notifications
   /api/chats/sandbox-profiles:
     get:
       description: The profiles of the Sandbox add-on that runs your commands, whether
@@ -26313,6 +26565,143 @@ paths:
       summary: Toggle model enabled/disabled status
       tags:
       - config
+  /api/models/{name}/adopt:
+    post:
+      description: 'A model installed before LocalAI recorded the origin of gallery
+        installs shows as unknown in GET /api/models/updates. Adopt records the gallery
+        entry it came from, the files it has and what the gallery would write as its
+        config, so the next check compares it like any other model. The model config
+        on disk is not changed: a key changed by hand reads as an edit. Without a
+        body the entry is found by the model''s names, and only when exactly one gallery
+        lists it; otherwise the answer lists the candidates (gallery@entry) and the
+        request must name the gallery (and the entry). Refused with 409 when the model
+        already records its origin, an upgrade runs, or more than one gallery matches;
+        with 422 when the model has no record of a gallery install or no gallery entry
+        matches.'
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Gallery and entry
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/schema.ModelAdoptRequest'
+      responses:
+        "200":
+          description: Adopted
+          schema:
+            $ref: '#/definitions/schema.ModelAdoptResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Already adopted, busy, or more than one candidate
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "422":
+          description: No record of a gallery install, or no candidate
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Track the updates of a model installed by an earlier release
+      tags:
+      - models
+  /api/models/{name}/hold:
+    put:
+      description: 'With hold true the model is reported as held and offered no update
+        until the hold is cleared. Only the gallery file changes: the model config,
+        its revision and the loaded model stay as they are, and a reinstall keeps
+        the hold. Refused with 409 while an upgrade of the model runs.'
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Hold or release
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelHoldRequest'
+      responses:
+        "200":
+          description: The hold
+          schema:
+            $ref: '#/definitions/schema.ModelHoldResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: An upgrade runs
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "422":
+          description: Not installed from a gallery with a recorded origin
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Hold a model at its installed version
+      tags:
+      - models
+  /api/models/{name}/remove-old:
+    post:
+      description: Deletes the old files that the last upgrade of the model kept (retainedFiles
+        of GET /api/models/updates). Only after a confirmed upgrade; refused with
+        409 while an upgrade runs or when there is nothing to remove. A kept file
+        that another model now uses is not deleted. The model config does not change.
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Removed files
+          schema:
+            $ref: '#/definitions/schema.ModelRemoveOldResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Nothing to remove, an upgrade runs, or a file is shared
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Remove the old version of an upgraded model
+      tags:
+      - models
+  /api/models/{name}/upgrade/retry:
+    post:
+      description: Runs the last upgrade of the model again, with its options and
+        choices, toward what the gallery entry installs now. Refused with 409 when
+        the last upgrade did not fail or the model is held.
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Operation
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Nothing to retry, held, or an upgrade runs
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Retry a failed model upgrade
+      tags:
+      - models
   /api/models/config-json/{name}:
     patch:
       consumes:
@@ -26378,6 +26767,26 @@ paths:
       summary: Get dynamic autocomplete values for a config field
       tags:
       - config
+  /api/models/config/{id}:
+    post:
+      deprecated: true
+      description: Removed. Always answers 410 Gone with a Link header to POST /api/models/upgrade/{name};
+        use that route with config_only true to apply the gallery config of an installed
+        model. This answer stays for one release, then the route goes away.
+      parameters:
+      - description: Gallery model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "410":
+          description: Removed
+          schema:
+            $ref: '#/definitions/schema.RemovedRouteResponse'
+      summary: 'Removed: rewrite a model config from the gallery'
+      tags:
+      - models
   /api/models/recommended:
     get:
       description: Returns the curated models for the hardware tier of the machine,
@@ -26654,6 +27063,84 @@ paths:
       summary: Toggle model pinned status
       tags:
       - config
+  /api/models/updates:
+    get:
+      description: 'Every model installed from a gallery, with its state: up-to-date,
+        update-available, edited (the update would overwrite keys a person changed;
+        editedKeys lists them), unknown (reason says why), gone (no gallery lists
+        the entry), held (the owner holds this version) or failed (the last upgrade
+        was rolled back; upgrade has the error). needsPerson marks what the Updates
+        page counts: models never update automatically. What the galleries offer is
+        as of the last check; the hold flag, an edit and an upgrade show at once.
+        Every frontend of a cluster gives the same answer.'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/modelupdates.Snapshot'
+      summary: List the model updates
+      tags:
+      - models
+  /api/models/updates/check:
+    post:
+      description: Reads every gallery index again (not the copies of the last hour),
+        compares each installed gallery model with its entry, waits for the check
+        (at most 60 seconds) and returns the new data. One frontend of a cluster checks
+        at a time; a request that arrives while another check runs waits for that
+        check. A call within 15 seconds of the last check is answered from it with
+        throttled set. A failed check shows as an error in the state of the gallery
+        source and keeps the previous list. Installs nothing.
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/modelupdates.Snapshot'
+      summary: Check for model updates now
+      tags:
+      - models
+  /api/models/upgrade/{name}:
+    post:
+      description: Queues an upgrade and returns its operation; follow it on status_url
+        or /api/operations. The upgrade checks the backend, the free disk and the
+        files other models share, downloads the changed files beside the old ones
+        and verifies their sha256, stops the model, switches the files and the config,
+        and loads the new version as a check. A failed load puts the old version back
+        (state failed, with the error and a retry). The old files are kept until removed
+        with POST /api/models/{name}/remove-old. Keys a person edited are kept; an
+        edited key the update also changes needs a choice in choices, or the request
+        is refused with 409 and the keys. A held model is refused with 409; release
+        the hold first. Nothing upgrades without this request.
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Options
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/schema.ModelUpgradeRequest'
+      responses:
+        "200":
+          description: Operation
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Running, held, or edited keys need a choice
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "422":
+          description: Not installed from a gallery with a recorded origin
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Upgrade a model to what its gallery entry installs now
+      tags:
+      - models
   /api/models/vram-estimate:
     post:
       consumes:
@@ -26891,6 +27378,156 @@ paths:
       summary: List all loaded models cluster-wide
       tags:
       - Nodes
+  /api/notifications:
+    delete:
+      description: Name the ids, or pass all to empty your inbox; with all, read_only
+        keeps the unread ones. Only your own notifications are touched.
+      parameters:
+      - description: ids, or all
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsNotificationsDelete'
+      responses:
+        "200":
+          description: The number still unread and how many were deleted
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationCount'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete notifications.
+      tags:
+      - notifications
+    get:
+      description: 'The inbox: backend updates, finished operations, and one item
+        for each run of a trigger that finished, failed or needs you. Newest first.
+        It also returns the number unread and the total kept. Works with the chats
+        on or off; the same routes also answer under /api/chats/notifications while
+        the chats are on.'
+      parameters:
+      - description: only the unread ones
+        in: query
+        name: unread
+        type: boolean
+      - description: most items to return (default 50, at most 500)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The notifications
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationList'
+      summary: List your notifications.
+      tags:
+      - notifications
+  /api/notifications/count:
+    get:
+      responses:
+        "200":
+          description: The number unread
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationCount'
+      summary: Count unread notifications.
+      tags:
+      - notifications
+  /api/notifications/events:
+    get:
+      description: 'Server-sent events: one notification event for each new inbox
+        item, with the same fields as the list, and a notifications_changed event
+        when notifications were read or deleted, so a client reads the list again.
+        Live only; list the inbox for what came before. In a cluster the events of
+        every frontend reach every stream.'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: An event stream
+          schema:
+            $ref: '#/definitions/schema.ChatsNotification'
+      summary: Stream your notifications.
+      tags:
+      - notifications
+  /api/notifications/push/key:
+    get:
+      description: The VAPID public key a browser needs to subscribe to push for your
+        notifications. 409 when the server cannot keep subscriptions (no database
+        and no data path).
+      responses:
+        "200":
+          description: The key
+          schema:
+            $ref: '#/definitions/schema.ChatsPushKey'
+      summary: Get the browser push key.
+      tags:
+      - notifications
+  /api/notifications/push/subscribe:
+    delete:
+      parameters:
+      - description: the endpoint
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsPushUnsubscribe'
+      responses:
+        "204":
+          description: Unsubscribed
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Unsubscribe a browser from push.
+      tags:
+      - notifications
+    post:
+      description: Pass the endpoint and keys of a browser PushSubscription. A notification
+        is then pushed to that browser with its title and link only. The endpoint
+        must be an https address on the public internet. At most 10 browsers per user;
+        the oldest go first.
+      parameters:
+      - description: the browser's subscription
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsPushSubscription'
+      responses:
+        "204":
+          description: Subscribed
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Subscribe a browser to push.
+      tags:
+      - notifications
+  /api/notifications/read:
+    post:
+      description: Name the ids, or pass all. Opening a chat marks its notifications
+        read by itself.
+      parameters:
+      - description: ids or all
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsNotificationsRead'
+      responses:
+        "200":
+          description: The number still unread
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationCount'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Mark notifications read.
+      tags:
+      - notifications
   /api/p2p:
     get:
       responses:

@@ -53,7 +53,7 @@ const toolLine = {
 async function stub(page, { resource, calls = [], sent = [] } = {}) {
   await mockChat(page)
   await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }))
-  await page.route('**/api/chats/notifications/events', route => route.abort())
+  await page.route('**/api/notifications/events', route => route.abort())
   await page.route('**/api/chats/c1/events', route => route.abort())
   await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, (route) => {
     if (route.request().method() === 'POST') {

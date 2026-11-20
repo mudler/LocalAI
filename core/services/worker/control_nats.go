@@ -40,6 +40,8 @@ func (n *natsControlServer) subject(v controlVerb) (string, error) {
 		return messaging.SubjectNodeModelOp(n.nodeID), nil
 	case verbModelDelete:
 		return messaging.SubjectNodeModelDelete(n.nodeID), nil
+	case verbModelPrefetch:
+		return messaging.SubjectNodeModelPrefetch(n.nodeID), nil
 	case verbNodeStop:
 		return messaging.SubjectNodeStop(n.nodeID), nil
 	case verbFilesEnsure:

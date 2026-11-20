@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/studio"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/natsauth"
 
@@ -64,6 +64,7 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 			messaging.SubjectNodeBackendList(nodeID),
 			messaging.SubjectNodeModelUnload(nodeID),
 			messaging.SubjectNodeModelDelete(nodeID),
+			messaging.SubjectNodeModelPrefetch(nodeID),
 			messaging.SubjectNodeStop(nodeID),
 			messaging.SubjectNodeFilesEnsure(nodeID),
 			messaging.SubjectNodeFilesStage(nodeID),

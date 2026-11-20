@@ -19,6 +19,7 @@ const (
 	ToolListKnownBackends         = "list_known_backends"
 	ToolListBackendLibraryUpdates = "list_backend_library_updates"
 	ToolBackendUpdates            = "backend_updates"
+	ToolModelUpdates              = "model_updates"
 	ToolSystemInfo                = "system_info"
 	ToolListNodes                 = "list_nodes"
 	ToolListScheduling            = "list_scheduling"
@@ -48,6 +49,7 @@ const (
 	ToolLoadModel                = "load_model"
 	ToolInstallBackend           = "install_backend"
 	ToolUpgradeBackend           = "upgrade_backend"
+	ToolUpgradeModel             = "upgrade_model"
 	ToolInstallLibraryBackend    = "install_library_backend"
 	ToolToggleModelState         = "toggle_model_state"
 	ToolToggleModelPinned        = "toggle_model_pinned"
@@ -98,6 +100,7 @@ var mutatingToolNames = []string{
 	ToolLoadModel,
 	ToolInstallBackend,
 	ToolUpgradeBackend,
+	ToolUpgradeModel,
 	ToolInstallLibraryBackend,
 	ToolToggleModelState,
 	ToolToggleModelPinned,

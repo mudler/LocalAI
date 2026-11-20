@@ -1878,7 +1878,7 @@ test-i18n:
 ## "PostgreSQL"; the focus selects them. The packages are listed one by one
 ## because -ginkgo.focus is an error for a test binary that has no Ginkgo.
 POSTGRES_STORE_PKGS = ./core/services/studio/agents ./core/services/studio/connectors \
-	./core/services/studio/notify ./core/services/studio/store ./core/services/studio/triggers \
+	./core/services/notify ./core/services/studio/store ./core/services/studio/triggers \
 	./core/services/studio/workspace/gormstore ./core/services/studio/jobs ./core/services/studio/projects ./core/http/auth
 test-postgres:
 	@test -n "$$LOCALAI_TEST_POSTGRES_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL is not set; point it at a database the tests may wipe' >&2; exit 1; }

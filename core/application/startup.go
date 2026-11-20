@@ -153,6 +153,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	} else if removed > 0 {
 		xlog.Info("Reaped abandoned artifact partials", "count", removed)
 	}
+	recoverModelJournals(options)
 	if options.GeneratedContentDir != "" {
 		err := os.MkdirAll(options.GeneratedContentDir, 0o750)
 		if err != nil {
@@ -432,6 +433,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
+	// The notification center needs the cluster message bus for its fan-out, so
+	// it starts after distributed wiring. It does not depend on the chats.
+	application.initNotifications()
+	application.announceOperations()
 	// The chats service needs the cluster message bus, so it starts after distributed wiring.
 	if err := application.initStudioFiles(); err != nil {
 		return nil, err
@@ -511,6 +516,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 		uc.SetAnnouncer(application.updateEmitter())
 		go uc.Run(options.Context)
+	}
+
+	// The update check of gallery models: single-runner, never installs.
+	if len(options.Galleries) > 0 {
+		application.startModelUpdates()
 	}
 
 	// Wire gallery generation counter into VRAM caches so they invalidate

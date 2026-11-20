@@ -103,6 +103,15 @@ uses `2048`, while `shieldstral-1.0-3b` and `shieldstral-1.0-3b-q8` use `32768`.
 Restart LocalAI after editing so it reads the repaired configuration and reloads
 the model. You do not need to download the weights again.
 
+To take the configuration the gallery entry has now, upgrade the model (see [Model updates]({{% relref "/models/model-updates" %}})) with
+only its configuration: `POST /api/models/upgrade/{name}` with
+`{"config_only": true}`. The upgrade keeps the keys you edited unless you choose
+the gallery's value, stops the model, loads the new configuration as a check,
+and puts the old one back when the check fails. The older
+`POST /api/models/config/{id}`, which rewrote the configuration at once, was
+removed: it answers `410 Gone` with a `Link` header to the upgrade route for one
+release.
+
 ### A model's own page
 
 Every model also has a page of its own at `/app/models/<name>`, so it can be

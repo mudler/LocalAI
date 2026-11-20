@@ -19,13 +19,13 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	studioendpoint "github.com/mudler/LocalAI/core/http/endpoints/studio"
 	"github.com/mudler/LocalAI/core/http/routes"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/loops"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -207,6 +207,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 		ropts = studioRouteOptions(s)
 	}
 	routes.RegisterStudioRoutes(s.e, svc, models, auth.RequireAdmin(), ropts...)
+	routes.RegisterNotificationRoutes(s.e, nsvc, pusher, true)
 	return s
 }
 

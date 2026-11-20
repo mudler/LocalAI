@@ -529,6 +529,13 @@ It returns per-model sizes with the shared portion split out, the
 file-to-models relation, and missing references. Files in the models directory
 that no configuration references are not included.
 
+### Update a Model
+
+LocalAI checks every six hours whether the gallery entry of an installed model
+changed, and tells you on the **Updates** page and in the notification center.
+It never upgrades a model by itself. See [Model Updates]({{% relref "/models/model-updates" %}})
+for the states, the upgrade steps and the rollback.
+
 ### Remove Models
 
 Simply delete the model file and configuration from your models directory:

@@ -159,7 +159,7 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 			Deletion:           op.Delete,
 			Processed:          true,
 			GalleryElementName: op.GalleryElementName,
-			Message:            "completed",
+			Message:            MessageCompleted,
 			Progress:           100,
 			Cancellable:        false})
 	return nil

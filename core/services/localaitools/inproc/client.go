@@ -28,6 +28,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
@@ -69,6 +70,11 @@ type Client struct {
 	// none. It is read at each call because the checker starts after the
 	// client is built.
 	UpdatesChecker func() BackendUpdatesSource
+	// ModelUpdatesService and ModelUpgrader return the model update check and the
+	// runner of model upgrades, or nil when no model gallery is configured.
+	// They are read at each call: both start after the client is built.
+	ModelUpdatesService func() *modelupdates.Service
+	ModelUpgrader       func() *modelupdates.Upgrader
 
 	// FallbackUser is the identity of a call whose context carries no user
 	// (see localaitools.WithUser), and only when SingleUser is set. With
@@ -698,6 +704,112 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 	return id.String(), nil
 }
 
+// ---- Model updates ----
+
+var errModelUpgradesOff = errors.New("model upgrades are not available: no model gallery is configured")
+
+func (c *Client) modelUpdates() *modelupdates.Service {
+	if c.ModelUpdatesService == nil {
+		return nil
+	}
+	return c.ModelUpdatesService()
+}
+
+func (c *Client) modelUpgrader() *modelupdates.Upgrader {
+	if c.ModelUpgrader == nil {
+		return nil
+	}
+	return c.ModelUpgrader()
+}
+
+func (c *Client) ModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error) {
+	svc := c.modelUpdates()
+	if svc == nil {
+		return nil, errModelUpgradesOff
+	}
+	snap := svc.Snapshot(ctx)
+	return &snap, nil
+}
+
+func (c *Client) CheckModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error) {
+	svc := c.modelUpdates()
+	if svc == nil {
+		return nil, errModelUpgradesOff
+	}
+	snap := svc.CheckNow(ctx)
+	return &snap, nil
+}
+
+// queueModelUpgrade refuses what the REST route refuses (the same
+// modelupdates.CheckRequest) and queues the operation the same way.
+func (c *Client) queueModelUpgrade(name string, opts galleryop.ModelUpgradeOptions) (string, error) {
+	if name == "" {
+		return "", errors.New("name is required")
+	}
+	up := c.modelUpgrader()
+	if up == nil || c.Gallery == nil {
+		return "", errModelUpgradesOff
+	}
+	if err := modelupdates.CheckRequest(up, c.modelUpdates(), name, opts.Retry, opts.Choices); err != nil {
+		return "", err
+	}
+	return c.Gallery.EnqueueModelUpgrade(name, opts)
+}
+
+func (c *Client) UpgradeModel(_ context.Context, name string, configOnly bool, choices map[string]string) (string, error) {
+	return c.queueModelUpgrade(name, galleryop.ModelUpgradeOptions{ConfigOnly: configOnly, Choices: choices})
+}
+
+func (c *Client) RetryModelUpgrade(_ context.Context, name string) (string, error) {
+	return c.queueModelUpgrade(name, galleryop.ModelUpgradeOptions{Retry: true})
+}
+
+func (c *Client) RemoveOldModelVersion(ctx context.Context, name string) (*localaitools.ModelRemoveOldResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	up := c.modelUpgrader()
+	if up == nil {
+		return nil, errModelUpgradesOff
+	}
+	res, err := up.RemoveOldVersion(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	// Some files removed and some kept (shared): report both, as the REST
+	// route does.
+	return &localaitools.ModelRemoveOldResult{Name: name, Removed: res.Removed, Kept: res.Kept, Errors: res.Errors}, nil
+}
+
+func (c *Client) AdoptModel(ctx context.Context, name, galleryName, entry string) (*localaitools.ModelAdoptResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	up := c.modelUpgrader()
+	if up == nil {
+		return nil, errModelUpgradesOff
+	}
+	res, err := up.Adopt(ctx, modelupdates.AdoptRequest{Name: name, Gallery: galleryName, Entry: entry})
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelAdoptResult{Name: res.Name, Gallery: res.Gallery, Entry: res.Entry, FilesMatch: res.FilesMatch}, nil
+}
+
+func (c *Client) SetModelHold(ctx context.Context, name string, hold bool) (*localaitools.ModelHoldResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	up := c.modelUpgrader()
+	if up == nil {
+		return nil, errModelUpgradesOff
+	}
+	if err := up.SetHold(ctx, name, hold); err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelHoldResult{Name: name, Hold: hold}, nil
+}
+
 // ---- System ----
 
 func (c *Client) SystemInfo(_ context.Context) (*localaitools.SystemInfo, error) {
@@ -776,11 +888,21 @@ func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetScheduli
 	absThr := 0
 	relThr := 0.0
 	minMatch := 0.0
+	var scorerWeights map[string]float64
+	upgradeStrategy := ""
 	if existing != nil {
 		routePolicy = existing.RoutePolicy
 		absThr = existing.BalanceAbsThreshold
 		relThr = existing.BalanceRelThreshold
 		minMatch = existing.MinPrefixMatch
+		scorerWeights = existing.ScorerWeights
+		upgradeStrategy = existing.UpgradeStrategy
+	}
+	if req.UpgradeStrategy != nil {
+		upgradeStrategy = *req.UpgradeStrategy
+	}
+	if !nodes.ValidUpgradeStrategy(upgradeStrategy) {
+		return nil, fmt.Errorf("upgrade_strategy must be %q or %q", nodes.UpgradeStrategyStopAndStart, nodes.UpgradeStrategyCanary)
 	}
 	if req.RoutePolicy != nil {
 		routePolicy = *req.RoutePolicy
@@ -837,6 +959,8 @@ func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetScheduli
 		BalanceAbsThreshold: absThr,
 		BalanceRelThreshold: relThr,
 		MinPrefixMatch:      minMatch,
+		ScorerWeights:       scorerWeights,
+		UpgradeStrategy:     upgradeStrategy,
 	}
 	if err := c.NodeRegistry.SetModelScheduling(ctx, config); err != nil {
 		return nil, err

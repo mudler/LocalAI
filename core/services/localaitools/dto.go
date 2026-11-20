@@ -195,6 +195,9 @@ type ModelSchedulingConfig struct {
 	// Shadowed reports that another rule already governs TargetModel, leaving
 	// this one with no effect.
 	Shadowed bool `json:"shadowed,omitempty"`
+	// UpgradeStrategy is how an upgrade replaces the running replicas:
+	// stop_and_start (the default) or canary (stored, not available yet).
+	UpgradeStrategy string `json:"upgrade_strategy,omitempty"`
 }
 
 // SetSchedulingRequest is the input for set_scheduling. It mirrors
@@ -210,6 +213,7 @@ type SetSchedulingRequest struct {
 	BalanceAbsThreshold *int              `json:"balance_abs_threshold,omitempty"    jsonschema:"Optional absolute imbalance threshold override. Omit to preserve the existing value on updates."`
 	BalanceRelThreshold *float64          `json:"balance_rel_threshold,omitempty"    jsonschema:"Optional relative imbalance threshold override. Omit to preserve the existing value on updates."`
 	MinPrefixMatch      *float64          `json:"min_prefix_match,omitempty"         jsonschema:"Optional minimum prefix match threshold override. Omit to preserve the existing value on updates."`
+	UpgradeStrategy     *string           `json:"upgrade_strategy,omitempty"         jsonschema:"How a model upgrade replaces running replicas: stop_and_start (default) or canary (stored, not available yet: upgrades stop and start). Omit to preserve the existing value."`
 }
 
 // DeleteSchedulingRequest identifies the model scheduling rule to remove.
@@ -591,4 +595,50 @@ type EgressEventsQuery struct {
 // SetChatEgressCeilingRequest is the input for set_chat_egress_ceiling.
 type SetChatEgressCeilingRequest struct {
 	Ceiling string `json:"ceiling" jsonschema:"The widest network preset any chat may use: off, registries or all."`
+}
+
+// The actions of upgrade_model.
+const (
+	UpgradeModelActionUpgrade    = "upgrade"
+	UpgradeModelActionConfigOnly = "config_only"
+	UpgradeModelActionRetry      = "retry"
+	UpgradeModelActionRemoveOld  = "remove_old"
+	UpgradeModelActionHold       = "hold"
+	UpgradeModelActionUnhold     = "unhold"
+	UpgradeModelActionAdopt      = "adopt"
+)
+
+// UpgradeModelRequest is the input of upgrade_model. One flat schema for the
+// seven actions; the handler checks what each action needs.
+type UpgradeModelRequest struct {
+	Action  string            `json:"action"            jsonschema:"upgrade, config_only, retry, remove_old, hold, unhold or adopt."`
+	Name    string            `json:"name"              jsonschema:"Installed model name (from model_updates)."`
+	Choices map[string]string `json:"choices,omitempty" jsonschema:"upgrade and config_only only: mine or gallery for each edited key the update also changes (editedKeys with conflict true in model_updates)."`
+	Gallery string            `json:"gallery,omitempty" jsonschema:"adopt only: the gallery the model came from, when more than one lists it."`
+	Entry   string            `json:"entry,omitempty"   jsonschema:"adopt only: the gallery entry, when it differs from the model name."`
+}
+
+// ModelAdoptResult is what adopt recorded (REST schema.ModelAdoptResponse).
+type ModelAdoptResult struct {
+	Name       string `json:"name"`
+	Gallery    string `json:"gallery"`
+	Entry      string `json:"entry"`
+	FilesMatch bool   `json:"filesMatch"`
+}
+
+// ModelRemoveOldResult is what remove_old deleted (REST
+// schema.ModelRemoveOldResponse).
+type ModelRemoveOldResult struct {
+	Name    string   `json:"name"`
+	Removed []string `json:"removed"`
+	// Kept and Errors are set when only some files could be removed.
+	Kept   []string `json:"kept,omitempty"`
+	Errors []string `json:"errors,omitempty"`
+}
+
+// ModelHoldResult is the hold of a model after hold or unhold (REST
+// schema.ModelHoldResponse).
+type ModelHoldResult struct {
+	Name string `json:"name"`
+	Hold bool   `json:"hold"`
 }

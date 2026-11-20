@@ -355,6 +355,21 @@ no lock and installs after any check.
 
 The same frontend writes the update items of the inbox: the digest of the updates that need a person, the result of the pass and the notice of a check that keeps failing (see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})). The mode is single runner, on the same lock, so there is no new lock key. The items are rows of the shared database, and every frontend streams a new one to its clients through the bus; the browser push and the Telegram forward run on the frontend that stores the item, so they happen once in the cluster. Failover is safe: a new leader that finds the same updates changes nothing, because the items are keyed and an unchanged item is not written again. The count of failed passes that delays the failed-check notice is kept in the memory of the leader, so a new leader starts it again from zero. Add-on items are written by the add-on owner (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})). Limit: the two-frontend rules are tested with the in-process bus and a shared store; the lock itself needs PostgreSQL and is tested elsewhere.
 
+### Model updates in a cluster
+
+The [model update check and the upgrades]({{% relref "/models/model-updates" %}}) of gallery models work across frontends like this:
+
+- **The state lives in the shared models directory.** The frontends share that directory. Each model has its gallery file (`._gallery_<name>.yaml`) there, with where it came from, the hold flag and the journal of its last upgrade. The check writes its result to one file, `._model_updates.json`. Every frontend builds `GET /api/models/updates` from these files, so every frontend gives the same answer. There is no per-frontend list in memory. A hold or an edit shows at once; what the galleries offer is as of the last check.
+- **The check is single runner.** Every six hours the frontends compete for the advisory lock `KeyModelUpdateCheck`, and the one that holds it checks. A **Check now** that reaches a frontend while another one checks waits (at most 60 seconds) for that check's result file. A standalone server uses a lock of its own process.
+- **An upgrade runs on the frontend that took the operation.** That frontend holds a PostgreSQL advisory lock of the model for the whole upgrade, and touches the journal every 30 seconds. An install holds the same lock while it writes the config and the gallery file, and a hold or **Remove old version** holds it while it runs. A second upgrade of the same model, on any frontend, is refused as busy for as long as the first runs, however long its download takes. The lock is the proof that the frontend still runs: the database frees it when the session of a dead frontend ends (about 30 seconds). Mode: single runner per model, through that lock.
+- **The notifications** (the digest of the models that need you, the end of an upgrade, the removal of an old version) are rows of the shared notification store. The frontend that runs the check or the upgrade writes them. The digest is set, not added: when a hold or the end of an upgrade changes it on another frontend, that frontend writes the same digest again, so there is still one row for each administrator.
+
+If a frontend stops during an install or an upgrade, another frontend ends the change within about three minutes. Every frontend looks once a minute for a running journal whose model lock it can take and that was not touched for 90 seconds; it never touches a journal whose lock another frontend holds. An install is finished (the new config is on disk) or undone. An upgrade that had not stopped the model removes its staged files and ends `failed`; from the stop on, the old version is put back and loaded again if it was loaded. Every frontend then reads the config again.
+
+At start, before the database is ready, a frontend ends only its own journals, and only when `LOCALAI_INSTANCE_ID` is set: a generated instance ID changes at every start, so no journal can be told apart as its own. Set `LOCALAI_INSTANCE_ID` to a stable value on each frontend to end its own interrupted changes before it loads the model configs.
+
+An upgrade replaces the replicas as the [upgrade strategy](#upgrade-strategy) of the model says, and each worker downloads its own files (see [Upgrade strategy](#upgrade-strategy)). In a mixed-version cluster, an older worker does not know `model.prefetch`. It does not fail the upgrade: over HTTP staging it gets the new files from the frontend at its next load, as it did before. With object storage, an older worker keeps using the copy in its cache, which can be the old file under the same key; upgrade the workers before you upgrade models (see [Upgrade strategy](#upgrade-strategy)). Upgrade the workers to get the worker-side download.
+
 ### Watching Backend Installs
 
 While a worker downloads a backend, the **Activity** tab of the notification
@@ -1042,6 +1057,7 @@ How it works:
 
 - The frontends keep the trigger runner, the connectors and the job host, each on the frontend that holds its leader lock. When one of them starts a turn, the frontend sends the start over NATS (`chats.start`, queue group `chat-workers`). One chat worker takes it, claims the turn in the database and runs it. It replies whether the turn started or whether the message waits behind a running turn.
 - The turn's live events and a stop travel on the same subjects as between two frontends, so a user who watches the chat sees it through any frontend, and a stop or a run limit reaches the worker.
+- The notification center runs in every process, a chat worker included, on the same store. A notification stored by one process reaches the streams of every frontend over the message bus. Its state is shared (rows in the database) and live-only on the bus; see [Storage and clusters]({{% relref "/features/chats-and-agents/chats-agents#storage-and-clusters" %}}).
 - A message that a person sends to the chat while the worker runs it waits in the database, and the worker gives it to the model at its next request.
 - When no chat worker listens, the frontend runs the turn itself. When a chat worker does not answer in time, or refuses the start, the run fails: the worker may have started the turn, and running it again could send the message twice. The time a start may take is `LOCALAI_CHAT_START_TIMEOUT` (default `30s`). Raise it when a slow database makes starts time out, and set the same value on the frontends and the chat workers.
 - The frontend that watches a job or a trigger run stops it at its limit (`LOCALAI_MCP_CI_JOB_TIMEOUT` for a job). If that frontend is gone, the chat worker stops the turn one minute after the same limit, so it cannot run on without a bound. The same bound applies to the next turn that the worker starts from messages that arrived after the last model request. Set `LOCALAI_MCP_CI_JOB_TIMEOUT` to the same value on the frontends and the chat workers.
@@ -1301,6 +1317,58 @@ All fields are optional and composable:
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
 
+### Upgrade strategy
+
+`upgrade_strategy` says how an upgrade of a gallery model (`POST /api/models/upgrade/{name}`)
+replaces the replicas that run it (see [Model updates]({{% relref "/models/model-updates" %}}) for the upgrade itself):
+
+| Value | What an upgrade does |
+|-------|----------------------|
+| `stop_and_start` (default) | Stops every replica on every node, switches the files and the config, then loads one replica of the new version as the load check. When the check fails, the old files and config come back and the old version loads again. The reconciler brings the model back to `min_replicas` afterwards. |
+| `canary` | Accepted and stored, but not available yet. The upgrade stops and starts the model, and the upgrade's status and `note` in `GET /api/models/updates` say so. |
+
+```bash
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "llama3", "upgrade_strategy": "stop_and_start"}'
+```
+
+An update that omits `upgrade_strategy` keeps the stored value. A model with no
+rule upgrades with `stop_and_start`. A standalone server has no rules and always
+stops and starts the model. The model is unavailable from the stop until the
+new version has loaded.
+
+During the switch, the frontend that runs the upgrade publishes a placeholder
+revision of the model in the node registry. This stops every replica, and no
+frontend and no reconciler pass can load the model until the frontend
+publishes the revision of the new configuration. The same happens when a change
+of the weights leaves the configuration, and so its revision, as it was: an old
+replica cannot survive the upgrade and pass the load check in place of the new
+version.
+
+**Each worker downloads its own files.** While the frontend downloads the new
+files of an upgrade, every worker that runs the model downloads them too
+(`model.prefetch`, a request on the node's control subjects) and checks each
+sha256. After the frontend switches its files, each worker puts its copy in
+place, and every other worker drops its old copy of the changed files, so its
+next load gets the new ones. With object storage, the frontend also deletes
+the changed keys, so the next load uploads the new file, and it sends the
+sha256 of each file that a gallery install manages with every load: a worker
+whose cached copy has another sha256 (it was offline, its commit timed out, or
+it was busy with another download) downloads the file again. A worker that
+cannot download a file (a wrong checksum or no route to the source) gets it
+from the frontend at its next load; this never fails the upgrade. An older
+worker that does not know `model.prefetch` gets the file from the frontend
+over HTTP staging; with object storage it ignores the sha256 and keeps the
+copy in its cache, so upgrade the workers before you upgrade models. With `LOCALAI_DISTRIBUTED_SHARED_MODELS`
+the workers read the shared models directory and nothing is sent. A first
+install still sends the files from the frontend.
+
+A cancel of the upgrade during the download returns at once: the frontend does
+not wait for the workers. A worker that is still downloading finishes that
+download in the background, and its staged copy stays beside the model file
+until the next upgrade of the model replaces it.
+
 ### Scheduling a model alias
 
 `model_name` accepts a [model alias]({{% relref "/models/model-aliases" %}}) as well as a
@@ -1358,7 +1426,7 @@ and overwrites the listed models (models not listed are left untouched).
 | `LOCALAI_MODEL_SCHEDULING_CONFIG` | Path to a YAML file with the same list |
 
 Entry fields: `model_name` (required), `node_selector` (a label map; **omit it to
-match every node**), and then **one of two replica modes** (they are mutually
+match every node**), the optional [`upgrade_strategy`](#upgrade-strategy), and then **one of two replica modes** (they are mutually
 exclusive):
 
 - **`replicas: all`** - static spread: place exactly **one replica on every

@@ -32,7 +32,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -99,13 +98,11 @@ func (a *Application) initStudioService() {
 		a.studioTempDir, stateDir = dir, dir
 	}
 	var bus studio.Bus
-	var fan notify.Fanout
 	var replay studio.ReplayCarrier
 	var jobs bgjob.Carrier
 	instance := ""
 	if d := a.Distributed(); d != nil && d.Nats != nil {
 		bus = studio.NewBroadcastBus(d.Nats, nil)
-		fan = notify.NewBroadcastFanout(d.Nats, nil)
 		// A client whose event stream reconnects to another frontend gets the
 		// events it missed from the process that runs the turn.
 		replay = studio.NewReplayCarrier(d.Nats, nil)
@@ -113,23 +110,6 @@ func (a *Application) initStudioService() {
 		// background job on the node that runs it.
 		jobs = studio.NewJobCarrier(d.Nats, nil)
 		instance = a.applicationConfig.Distributed.InstanceID
-	}
-	inbox := notify.NewService(notify.Options{Store: a.studioNotify, Fanout: fan})
-	a.studioInbox = inbox
-	// A notification of a run goes to the Telegram chat of a binding too. The
-	// connector manager is set later, so the hook looks it up when it runs.
-	inbox.OnAdd(func(n notify.Notification) {
-		if c := a.studioConnectorsHook.Load(); c != nil {
-			c.Forward(context.Background(), n)
-		}
-	})
-	var pusher *notify.Pusher
-	if a.studioPush != nil {
-		pusher = notify.NewPusher(notify.PusherOptions{Store: a.studioPush})
-		// The frontend that stores a notification pushes it, so a notification
-		// is pushed once in a cluster.
-		inbox.OnAdd(pusher.SendAsync)
-		a.studioPusher = pusher
 	}
 	a.initStudioMCPConnectors()
 	a.studioWeb = newStudioWeb(a.applicationConfig, a.serverSelf())
@@ -156,8 +136,8 @@ func (a *Application) initStudioService() {
 		// shared through this process, which fails closed.
 		AgentShares:       studio.PolicyAgentShares{Policy: a.AddonPolicy, Forward: a.addonSharingForward},
 		ReferenceShares:   a.studioReferenceShares,
-		Notify:            inbox,
-		Push:              pusher,
+		Notify:            a.notifier,
+		Push:              a.notifyPusher,
 		AddonTools:        lateStudioAddons{a},
 		SandboxJobs:       studio.NewSandboxJobs(lateStudioAddons{a}, sandboxJobAudit(a.studioHostExecAudit)),
 		Assistant:         studioAssistant{a},

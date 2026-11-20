@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { backendsApi } from '../utils/api'
+import { backendsApi, modelsApi } from '../utils/api'
 import { addonsApi, hostGrantsApi } from '../utils/addonsClient'
 import { createHostSettingsClient } from '../utils/hostSettingsClient'
 import { normalizeOverview } from '../components/addons/hostGrantsState'
@@ -12,6 +12,7 @@ import { useAddonUpgrades } from '../hooks/useAddonUpgrades'
 import { useAuth } from '../context/AuthContext'
 import { FEATURE_ADDONS } from '../utils/capabilities'
 import { addonRows, addonSource, backendRows, badgeOf, sourceViews } from '../utils/updates'
+import { modelRows, modelSource } from '../utils/modelUpdates'
 
 // What is out of date on this server, read once for the whole shell: the tab of
 // Updates, the badge of the Operate item and the page itself read this and
@@ -22,7 +23,9 @@ import { addonRows, addonSource, backendRows, badgeOf, sourceViews } from '../ut
 //   - GET /api/backends/updates, the cached read model (no registry call),
 //   - the installed add-ons and the host-access overview of the add-on owner,
 //   - the owner's automatic-update setting for add-ons,
-// the last three only when this server has add-ons for this person. An
+//   - GET /api/models/updates, the model read model (the last check's
+//     result plus the hold flags and the upgrade journals, read from disk),
+// the add-on ones only when this server has add-ons for this person. An
 // operation that leaves /api/operations is the one moment the answer can have
 // changed, so the model is read again then.
 //
@@ -47,6 +50,7 @@ export function UpdatesProvider({ children, features, pollInterval = POLL_INTERV
 
   const [backend, setBackend] = useState({ status: 'loading', snapshot: null, error: null })
   const [addons, setAddons] = useState({ status: 'loading', installed: [], grants: null, auto: false, error: '' })
+  const [models, setModels] = useState({ status: 'loading', snapshot: null, error: null })
   const [checking, setChecking] = useState(false)
   const [lastCheck, setLastCheck] = useState(null)
   const alive = useRef(true)
@@ -58,6 +62,17 @@ export function UpdatesProvider({ children, features, pollInterval = POLL_INTERV
       if (alive.current) setBackend({ status: 'ready', snapshot, error: null })
     } catch (error) {
       if (alive.current) setBackend(prev => ({ status: prev.snapshot ? 'ready' : 'error', snapshot: prev.snapshot, error, stale: Boolean(prev.snapshot) }))
+    }
+  }, [])
+
+  // A failed read keeps the last answer: a model that had an update still has
+  // one.
+  const readModels = useCallback(async () => {
+    try {
+      const snapshot = await modelsApi.updates()
+      if (alive.current) setModels({ status: 'ready', snapshot, error: null })
+    } catch (error) {
+      if (alive.current) setModels(prev => ({ status: prev.snapshot ? 'ready' : 'error', snapshot: prev.snapshot, error }))
     }
   }, [])
 
@@ -79,7 +94,7 @@ export function UpdatesProvider({ children, features, pollInterval = POLL_INTERV
     })
   }, [addonsOn])
 
-  const tick = useCallback(async () => { await Promise.all([readBackend(), readAddons()]) }, [readBackend, readAddons])
+  const tick = useCallback(async () => { await Promise.all([readBackend(), readAddons(), readModels()]) }, [readBackend, readAddons, readModels])
   // The add-on gate depends on /api/features, so the first tick waits for it.
   const { refetch } = usePolling(tick, pollInterval, { enabled: Boolean(isAdmin) && featuresKnown })
 
@@ -111,13 +126,15 @@ export function UpdatesProvider({ children, features, pollInterval = POLL_INTERV
   const rows = useMemo(() => [
     ...backendRows(backend.snapshot, { operations, auto: autoBackends }),
     ...addonRows({ installed, grants: addons.grants, live, auto: addons.auto, isAdmin }),
-  ], [backend.snapshot, operations, autoBackends, installed, addons.grants, addons.auto, live, isAdmin])
+    ...modelRows(models.snapshot, { operations }),
+  ], [backend.snapshot, operations, autoBackends, installed, addons.grants, addons.auto, live, isAdmin, models.snapshot])
 
   const addonSourceView = useMemo(
     () => addonSource({ status: addonsOn ? addons.status : 'off', installed, error: addons.error }),
     [addonsOn, addons.status, installed, addons.error],
   )
-  const sources = useMemo(() => sourceViews(backend.snapshot, addonSourceView), [backend.snapshot, addonSourceView])
+  const modelSourceView = useMemo(() => modelSource(models.snapshot, models.status), [models.snapshot, models.status])
+  const sources = useMemo(() => sourceViews(backend.snapshot, addonSourceView, modelSourceView), [backend.snapshot, addonSourceView, modelSourceView])
   const badge = useMemo(() => badgeOf(rows), [rows])
 
   // A real check of the backend sources only, used to confirm that an update
@@ -138,13 +155,28 @@ export function UpdatesProvider({ children, features, pollInterval = POLL_INTERV
     let throttled = false
     let addonFailed = 0
     try {
-      try {
-        const snapshot = await backendsApi.checkUpdatesNow()
-        throttled = Boolean(snapshot && snapshot.throttled)
-        if (alive.current) setBackend({ status: 'ready', snapshot, error: null })
-      } catch (error) {
-        if (alive.current) setBackend(prev => ({ status: prev.snapshot ? 'ready' : 'error', snapshot: prev.snapshot, error, stale: Boolean(prev.snapshot) }))
-      }
+      // The backend and the model checks are the server's own and run at
+      // the same time.
+      await Promise.all([
+        (async () => {
+          try {
+            const snapshot = await backendsApi.checkUpdatesNow()
+            throttled = throttled || Boolean(snapshot && snapshot.throttled)
+            if (alive.current) setBackend({ status: 'ready', snapshot, error: null })
+          } catch (error) {
+            if (alive.current) setBackend(prev => ({ status: prev.snapshot ? 'ready' : 'error', snapshot: prev.snapshot, error, stale: Boolean(prev.snapshot) }))
+          }
+        })(),
+        (async () => {
+          try {
+            const snapshot = await modelsApi.checkUpdatesNow()
+            throttled = throttled || Boolean(snapshot && snapshot.throttled)
+            if (alive.current) setModels({ status: 'ready', snapshot, error: null })
+          } catch (error) {
+            if (alive.current) setModels(prev => ({ status: prev.snapshot ? 'ready' : 'error', snapshot: prev.snapshot, error }))
+          }
+        })(),
+      ])
       if (addonsOn) {
         for (const rec of addons.installed) {
           try {
@@ -166,6 +198,7 @@ export function UpdatesProvider({ children, features, pollInterval = POLL_INTERV
     enabled: true,
     backend,
     addons: { ...addons, installed, on: addonsOn },
+    models,
     snapshot: backend.snapshot,
     loading: backend.status === 'loading' || (addonsOn && addons.status === 'loading'),
     loadError: backend.status === 'error',
@@ -178,9 +211,10 @@ export function UpdatesProvider({ children, features, pollInterval = POLL_INTERV
     refresh: refetch,
     readBackend,
     readAddons,
+    readModels,
     recheck,
     checkNow,
-  }), [backend, addons, installed, addonsOn, rows, sources, badge, checking, lastCheck, autoBackends, refetch, readBackend, readAddons, recheck, checkNow])
+  }), [backend, addons, installed, addonsOn, models, rows, sources, badge, checking, lastCheck, autoBackends, refetch, readBackend, readAddons, readModels, recheck, checkNow])
 
   if (!isAdmin) {
     return <UpdatesContext.Provider value={DISABLED}>{children}</UpdatesContext.Provider>

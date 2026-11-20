@@ -2,14 +2,14 @@ package gallery
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 type ArtifactMaterializer interface {
@@ -20,6 +20,15 @@ type installOptions struct {
 	materializer        ArtifactMaterializer
 	variant             string
 	backendAvailability BackendAvailability
+	// origin, when set, is recorded in the gallery file (version 2).
+	origin *Origin
+	// instance names the frontend that writes the install journal.
+	instance string
+	// modelLock, when set, is taken around the commit of the install.
+	modelLock ModelLock
+	// skipArtifactBinding makes PlanInstall leave the artifact unbound, so a
+	// check can plan without materializing anything.
+	skipArtifactBinding bool
 }
 
 type InstallOption func(*installOptions)
@@ -50,6 +59,79 @@ func WithVariant(variant string) InstallOption {
 	return func(options *installOptions) {
 		options.variant = variant
 	}
+}
+
+// WithOrigin records the gallery entry an install comes from in its gallery
+// file.
+func WithOrigin(origin *Origin) InstallOption {
+	return func(options *installOptions) {
+		options.origin = origin
+	}
+}
+
+// ModelLock takes the cluster-wide lock of one installed model without
+// waiting, for a change of its config and gallery file (an install commit, an
+// upgrade, a hold, the removal of an old version). It returns ErrModelLocked
+// when another holder has it; release frees it. While a frontend holds it, the
+// journal of the model is live: another frontend takes the lock before it
+// finishes or undoes an abandoned journal, so it never touches a running one.
+type ModelLock func(ctx context.Context, name string) (release func(), err error)
+
+// ErrModelLocked is returned by a ModelLock that another holder has.
+var ErrModelLocked = errors.New("another change of this model is running")
+
+// WithModelLock takes lock around the commit of the install. A busy lock
+// fails the install before it writes the config.
+func WithModelLock(lock ModelLock) InstallOption {
+	return func(options *installOptions) {
+		options.modelLock = lock
+	}
+}
+
+// WithInstance names the frontend that runs the install, for its journal.
+func WithInstance(instance string) InstallOption {
+	return func(options *installOptions) {
+		options.instance = instance
+	}
+}
+
+// WithoutArtifactBinding makes PlanInstall skip binding the primary artifact,
+// which would materialize it. The update check plans with it.
+func WithoutArtifactBinding() InstallOption {
+	return func(options *installOptions) {
+		options.skipArtifactBinding = true
+	}
+}
+
+// BindPlanArtifact binds the primary artifact of a plan made with
+// WithoutArtifactBinding: it materializes the artifact and rewrites the plan
+// config with the resolved spec. It reports whether the config changed. A
+// plan of an entry that lists files, writes no config or has no artifact is
+// left as it is.
+func BindPlanArtifact(ctx context.Context, systemState *system.SystemState, plan *InstallPlan, options ...InstallOption) (bool, error) {
+	if plan == nil || !plan.WriteConfig || len(plan.Gallery.Files) > 0 {
+		return false, nil
+	}
+	installOptions := applyInstallOptions(options...)
+	basePath := systemState.Model.ModelsPath
+	spec, inferred, ok, err := plan.Model.PrimaryArtifactSpec(basePath)
+	if err != nil || !ok {
+		return false, err
+	}
+	var configMap map[string]any
+	if err := yaml.Unmarshal(plan.ConfigYAML, &configMap); err != nil {
+		return false, err
+	}
+	applied, err := bindPrimaryArtifact(ctx, basePath, &plan.Model, configMap, installOptions.materializer, spec, inferred)
+	if err != nil || !applied {
+		return false, err
+	}
+	out, err := yaml.Marshal(configMap)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal config with the bound artifact: %w", err)
+	}
+	plan.ConfigYAML = out
+	return true, nil
 }
 
 func applyInstallOptions(options ...InstallOption) installOptions {
@@ -97,32 +179,4 @@ func bindPrimaryArtifact(ctx context.Context, modelsPath string, typed *config.M
 	}
 	configMap["artifacts"] = artifactValue
 	return true, nil
-}
-
-func writeModelConfigAtomic(fileName string, data []byte) error {
-	temporary, err := os.CreateTemp(filepath.Dir(fileName), ".model-config-*")
-	if err != nil {
-		return err
-	}
-	temporaryName := temporary.Name()
-	defer func() { _ = os.Remove(temporaryName) }()
-	if err := temporary.Chmod(0600); err != nil {
-		_ = temporary.Close()
-		return err
-	}
-	if _, err := temporary.Write(data); err != nil {
-		_ = temporary.Close()
-		return err
-	}
-	if err := temporary.Sync(); err != nil {
-		_ = temporary.Close()
-		return err
-	}
-	if err := temporary.Close(); err != nil {
-		return err
-	}
-	if err := os.Chmod(temporaryName, 0644); err != nil {
-		return err
-	}
-	return os.Rename(temporaryName, fileName)
 }

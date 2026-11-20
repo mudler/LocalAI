@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -104,12 +105,20 @@ type fileStagingVerbs struct {
 	// ensureGroup lives as long as the verbs so concurrent ensures of one key
 	// share a single download and a single capacity reservation.
 	ensureGroup singleflight.Group
+	// keyLocks serializes the ensures of one key whose sha256 differ. They
+	// share one cached path, and each drops a copy with another sha256, so
+	// running them at once would have each evict the file the other had just
+	// downloaded.
+	keyLocks sync.Map // key -> *sync.Mutex
 }
 
 // ensure downloads an object storage key into the local cache.
 func (v *fileStagingVerbs) ensure(ctx context.Context, req workerctl.FileEnsureRequest) workerctl.FileEnsureReply {
-	value, err, _ := v.ensureGroup.Do(req.Key, func() (any, error) {
-		return ensureWorkerFile(ctx, v.fm, v.capacity, req.Key)
+	value, err, _ := v.ensureGroup.Do(req.Key+"\x00"+req.SHA256, func() (any, error) {
+		mu, _ := v.keyLocks.LoadOrStore(req.Key, &sync.Mutex{})
+		mu.(*sync.Mutex).Lock()
+		defer mu.(*sync.Mutex).Unlock()
+		return ensureWorkerFile(ctx, v.fm, v.capacity, req.Key, req.SHA256)
 	})
 	if err != nil {
 		xlog.Error("File ensure failed", "key", req.Key, "error", err)
@@ -331,7 +340,12 @@ type ephemeralStagingCapacity interface {
 	Release(path string) error
 }
 
-func ensureWorkerFile(ctx context.Context, fm *storage.FileManager, capacity *EphemeralCapacityGuard, key string) (string, error) {
+// ensureWorkerFile downloads key into the cache. sha, when set, is the sha256
+// the file must have; a cached copy with another one is downloaded again.
+func ensureWorkerFile(ctx context.Context, fm *storage.FileManager, capacity *EphemeralCapacityGuard, key, sha string) (string, error) {
+	if !strings.HasPrefix(key, "ephemeral/") {
+		return fm.DownloadVerified(ctx, key, sha)
+	}
 	if capacity == nil {
 		return fm.Download(ctx, key)
 	}

@@ -3,6 +3,8 @@ package storage
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"os"
 	"path/filepath"
@@ -308,5 +310,98 @@ var _ = Describe("FileManager", func() {
 			Expect(errB).ToNot(HaveOccurred())
 			Expect(store.getCalls.Load()).To(BeNumerically("==", 2))
 		})
+	})
+})
+
+var _ = Describe("A cached file with an expected sha256", func() {
+	sum := func(s string) string {
+		h := sha256.Sum256([]byte(s))
+		return hex.EncodeToString(h[:])
+	}
+
+	It("downloads again a cached copy of an older version of the file", func() {
+		store := newMockObjectStore(0)
+		fm, err := NewFileManager(store, GinkgoT().TempDir())
+		Expect(err).ToNot(HaveOccurred())
+		key := ModelKey("tiny/tiny.gguf")
+		store.data[key] = []byte("v1")
+		_, err = fm.Download(context.Background(), key)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("the frontend replacing the object, as an upgrade does")
+		store.data[key] = []byte("v2")
+		stale, err := fm.Download(context.Background(), key)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.ReadFile(stale)).To(Equal([]byte("v1")), "without a sha256 the cached copy is used as it is")
+
+		p, err := fm.DownloadVerified(context.Background(), key, sum("v2"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.ReadFile(p)).To(Equal([]byte("v2")))
+		Expect(store.getCalls.Load()).To(Equal(int64(2)))
+
+		By("trusting the record of a copy that did not change")
+		p, err = fm.DownloadVerified(context.Background(), key, sum("v2"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.ReadFile(p)).To(Equal([]byte("v2")))
+		Expect(store.getCalls.Load()).To(Equal(int64(2)))
+	})
+
+	It("fails when the object itself has another sha256, and keeps no copy", func() {
+		store := newMockObjectStore(0)
+		dir := GinkgoT().TempDir()
+		fm, err := NewFileManager(store, dir)
+		Expect(err).ToNot(HaveOccurred())
+		key := ModelKey("tiny/tiny.gguf")
+		store.data[key] = []byte("v1")
+		_, err = fm.DownloadVerified(context.Background(), key, sum("v2"))
+		Expect(err).To(MatchError(ContainSubstring("expected sha256")))
+		Expect(fm.CacheExists(key)).To(BeFalse())
+	})
+
+	It("uses a copy a worker verified itself without hashing it", func() {
+		store := newMockObjectStore(0)
+		dir := GinkgoT().TempDir()
+		fm, err := NewFileManager(store, dir)
+		Expect(err).ToNot(HaveOccurred())
+		key := ModelKey("tiny/tiny.gguf")
+		p, err := fm.CachePath(key)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.MkdirAll(filepath.Dir(p), 0750)).To(Succeed())
+		Expect(os.WriteFile(p, []byte("v2"), 0600)).To(Succeed())
+		Expect(RecordCacheSHA256(dir, key, sum("v2"))).To(Succeed())
+		got, err := fm.DownloadVerified(context.Background(), key, sum("v2"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal(p))
+		Expect(store.getCalls.Load()).To(BeZero())
+	})
+})
+
+var _ = Describe("RecordCacheSHA256", func() {
+	It("records concurrent writers of one key without a collision or a leftover", func() {
+		dir := GinkgoT().TempDir()
+		key := "ephemeral/m/file.bin"
+		path := filepath.Join(dir, filepath.FromSlash(key))
+		Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+
+		var wg sync.WaitGroup
+		errs := make(chan error, 32)
+		for i := 0; i < 32; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				sum := sha256.Sum256([]byte{byte(i)})
+				errs <- RecordCacheSHA256(dir, key, hex.EncodeToString(sum[:]))
+			}(i)
+		}
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		entries, err := os.ReadDir(filepath.Join(dir, verifiedDir, "ephemeral", "m"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(entries).To(HaveLen(1), "only the record stays, no temporary file")
 	})
 })

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -22,6 +23,12 @@ import (
 type S3NATSFileStager struct {
 	fm   *storage.FileManager
 	nats messaging.MessagingClient
+	// ExpectedSHA256 returns the sha256 a staged file must have, or "" when
+	// it is not known. A worker downloads again a cached copy with another
+	// sha256: a model upgrade replaces a file under the same key, and a
+	// worker that did not take part in the upgrade still has the old copy.
+	// Nil sends none.
+	ExpectedSHA256 func(localPath string) string
 }
 
 // NewS3NATSFileStager creates a new S3+NATS file stager.
@@ -32,33 +39,60 @@ func NewS3NATSFileStager(fm *storage.FileManager, nats messaging.MessagingClient
 // EnsureRemote uploads a local file to S3 (if not already there) and sends
 // a NATS request-reply to the backend node to download it locally.
 func (s *S3NATSFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, key string) (string, error) {
-	// Upload to S3 if not already present
-	exists, _ := s.fm.Exists(ctx, key)
-	if !exists {
-		// Wrap with progress reporting if a staging callback is available
-		var progressFn storage.UploadProgressFunc
-		if cb := StagingProgressFromContext(ctx); cb != nil {
-			progressFn = func(fileName string, bytesWritten, totalBytes int64) {
-				cb(fileName, bytesWritten, totalBytes)
+	expected := ""
+	if s.ExpectedSHA256 != nil {
+		expected = s.ExpectedSHA256(localPath)
+	}
+	// An object already under the key may be a stale one (an earlier version
+	// of the file, uploaded before a model upgrade). The worker refuses it
+	// with a sha256 mismatch; replace the object and ask once more.
+	for attempt := 0; ; attempt++ {
+		if err := s.upload(ctx, localPath, key, attempt > 0); err != nil {
+			return "", err
+		}
+		reply, err := s.ensure(nodeID, key, expected)
+		if err != nil {
+			return "", err
+		}
+		if reply.Error != "" {
+			if attempt == 0 && expected != "" && strings.Contains(reply.Error, storage.SHA256MismatchText) {
+				xlog.Info("The object in S3 is stale; uploading the file again", "nodeID", nodeID, "key", key)
+				continue
 			}
+			return "", fmt.Errorf("backend ensure failed: %s", reply.Error)
 		}
-		if err := s.fm.UploadWithProgress(ctx, key, localPath, progressFn); err != nil {
-			return "", fmt.Errorf("uploading %s to S3: %w", localPath, err)
+		xlog.Debug("File ensured on remote node", "nodeID", nodeID, "key", key, "remotePath", reply.LocalPath)
+		return reply.LocalPath, nil
+	}
+}
+
+// upload puts the file under key in S3 when no object is there. With replace
+// it drops the object first.
+func (s *S3NATSFileStager) upload(ctx context.Context, localPath, key string, replace bool) error {
+	if replace {
+		if err := s.fm.Delete(ctx, key); err != nil {
+			return fmt.Errorf("removing the stale object %s from S3: %w", key, err)
+		}
+	} else if exists, _ := s.fm.Exists(ctx, key); exists {
+		return nil
+	}
+	// Wrap with progress reporting if a staging callback is available
+	var progressFn storage.UploadProgressFunc
+	if cb := StagingProgressFromContext(ctx); cb != nil {
+		progressFn = func(fileName string, bytesWritten, totalBytes int64) {
+			cb(fileName, bytesWritten, totalBytes)
 		}
 	}
+	if err := s.fm.UploadWithProgress(ctx, key, localPath, progressFn); err != nil {
+		return fmt.Errorf("uploading %s to S3: %w", localPath, err)
+	}
+	return nil
+}
 
-	// Send NATS request-reply to backend
+// ensure sends the NATS request-reply that makes the node download the file.
+func (s *S3NATSFileStager) ensure(nodeID, key, sha string) (*workerctl.FileEnsureReply, error) {
 	subject := messaging.SubjectNodeFilesEnsure(nodeID)
-	reply, err := controlRequestJSON[workerctl.FileEnsureRequest, workerctl.FileEnsureReply](s.nats, subject, workerctl.FileEnsureRequest{Key: key}, 10*time.Minute)
-	if err != nil {
-		return "", err
-	}
-	if reply.Error != "" {
-		return "", fmt.Errorf("backend ensure failed: %s", reply.Error)
-	}
-
-	xlog.Debug("File ensured on remote node", "nodeID", nodeID, "key", key, "remotePath", reply.LocalPath)
-	return reply.LocalPath, nil
+	return controlRequestJSON[workerctl.FileEnsureRequest, workerctl.FileEnsureReply](s.nats, subject, workerctl.FileEnsureRequest{Key: key, SHA256: sha}, 10*time.Minute)
 }
 
 // FetchRemote tells the backend to upload a file to S3, then downloads it locally.

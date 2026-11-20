@@ -11,6 +11,7 @@ import (
 	"time"
 
 	grpcPkg "github.com/mudler/LocalAI/pkg/grpc"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -536,6 +537,77 @@ var _ = Describe("ModelLoader", func() {
 			// Settings are updated - we can verify through behavior if needed
 			// For now, just verify the call doesn't panic
 			Expect(modelLoader).ToNot(BeNil())
+		})
+	})
+
+	Context("Blocked loads", func() {
+		It("refuses every load of a blocked model until it is unblocked", func() {
+			var loads int32
+			loader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				atomic.AddInt32(&loads, 1)
+				return model.NewModel(modelID, modelName, nil), nil
+			}
+			modelLoader.BlockLoads("upgrading")
+			_, err := modelLoader.LoadModel("upgrading", "test.model", loader)
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+			Expect(blocked.ModelID).To(Equal("upgrading"))
+			Expect(atomic.LoadInt32(&loads)).To(BeZero())
+
+			By("leaving the other models alone")
+			_, err = modelLoader.LoadModel("other", "test.model", loader)
+			Expect(err).ToNot(HaveOccurred())
+
+			modelLoader.UnblockLoads("upgrading")
+			_, err = modelLoader.LoadModel("upgrading", "test.model", loader)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(atomic.LoadInt32(&loads)).To(Equal(int32(2)))
+		})
+
+		It("waits for a load in flight, so the stop that follows sees its model", func() {
+			started := make(chan struct{})
+			release := make(chan struct{})
+			loaded := make(chan error, 1)
+			go func() {
+				_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+					close(started)
+					<-release
+					return model.NewModel(modelID, modelName, nil), nil
+				})
+				loaded <- err
+			}()
+			Eventually(started).Should(BeClosed())
+
+			blockReturned := make(chan struct{})
+			go func() {
+				modelLoader.BlockLoads("upgrading")
+				close(blockReturned)
+			}()
+			Consistently(blockReturned, 100*time.Millisecond).ShouldNot(BeClosed())
+
+			close(release)
+			Eventually(blockReturned).Should(BeClosed())
+			Expect(<-loaded).ToNot(HaveOccurred())
+			By("having the model registered when BlockLoads returns")
+			Expect(modelLoader.ListLoadedModels()).To(HaveLen(1))
+
+			_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("must not load")
+			})
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+		})
+
+		It("refuses a blocked model in distributed mode too", func() {
+			modelLoader.SetModelRouter(func(context.Context, string, string, string, string, string, *pb.ModelOptions, bool) (*model.Model, error) {
+				return nil, errors.New("must not route")
+			})
+			modelLoader.BlockLoads("upgrading")
+			_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("must not load")
+			})
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
 		})
 	})
 

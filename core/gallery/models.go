@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 
 	"dario.cat/mergo"
 	lconfig "github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
@@ -71,6 +71,33 @@ type ModelConfig struct {
 	EntryName       string `yaml:"entry_name,omitempty"`
 	ResolvedVariant string `yaml:"resolved_variant,omitempty"`
 	PinnedVariant   string `yaml:"pinned_variant,omitempty"`
+
+	// The fields below are the version 2 gallery file (see SidecarVersion).
+	// They are written by InstallModel and the upgrade, never read from a
+	// gallery's base config.
+
+	Version int     `yaml:"version,omitempty"`
+	Origin  *Origin `yaml:"origin,omitempty"`
+	// ConfigSHA256 is the hash of the model config as LocalAI last wrote it,
+	// by an install, an upgrade or an edit. A config on disk with another hash
+	// was changed outside LocalAI.
+	ConfigSHA256 string        `yaml:"config_sha256,omitempty"`
+	Managed      []ManagedFile `yaml:"managed,omitempty"`
+	// Hold is the owner's "hold this version" flag: the update check reports
+	// the model as held and offers no update. A reinstall keeps it.
+	Hold    bool     `yaml:"hold,omitempty"`
+	Upgrade *Journal `yaml:"upgrade,omitempty"`
+}
+
+// clearSidecarState drops the version 2 fields, which a gallery base config
+// must never set.
+func (c *ModelConfig) clearSidecarState() {
+	c.Version = 0
+	c.Origin = nil
+	c.ConfigSHA256 = ""
+	c.Managed = nil
+	c.Hold = false
+	c.Upgrade = nil
 }
 
 type File struct {
@@ -229,6 +256,12 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 		source = FindGalleryElement(models, selected.Variant.Model)
 	}
 
+	return variantInstallTarget(entry, source), selected.Variant, nil
+}
+
+// variantInstallTarget returns source (the entry itself or one of its
+// variants) as a concrete install target named and presented as entry.
+func variantInstallTarget(entry, source *GalleryModel) *GalleryModel {
 	resolved := *source
 	resolved.Name = entry.Name
 	resolved.Description = entry.Description
@@ -258,7 +291,7 @@ func ResolveVariant(models []*GalleryModel, entry *GalleryModel, env ResolveEnv,
 	resolved.URLs = slices.Clone(entry.URLs)
 	resolved.Tags = slices.Clone(entry.Tags)
 
-	return &resolved, selected.Variant, nil
+	return &resolved
 }
 
 // HostResolveEnv describes this machine to variant selection.
@@ -370,6 +403,130 @@ func deepCopyYAMLValue(v any) any {
 	}
 }
 
+// GalleryInstall is a gallery entry resolved into what InstallModel takes: the
+// installed name, the gallery config, the overrides and the origin to record.
+type GalleryInstall struct {
+	Name      string
+	Config    ModelConfig
+	Overrides map[string]any
+	Origin    *Origin
+}
+
+// buildGalleryInstall fetches the base config of the build to install (model,
+// which is parent itself or the variant it resolved to) and merges the entry
+// and the request into what InstallModel takes. record carries the variant
+// resolution, nil for an entry without variants.
+func buildGalleryInstall(ctx context.Context, basePath string, parent, model *GalleryModel, record *ModelConfig, req GalleryModel) (*GalleryInstall, error) {
+	var config ModelConfig
+	// The digest covers the gallery's payload only, so it is taken before
+	// the request's overrides are merged into model.Overrides below.
+	var resolvedForDigest *GalleryModel
+	if model != parent {
+		resolvedForDigest = &GalleryModel{Metadata: Metadata{URL: model.URL, AdditionalFiles: slices.Clone(model.AdditionalFiles)},
+			ConfigFile: deepCopyStringMap(model.ConfigFile), Overrides: deepCopyStringMap(model.Overrides)}
+	}
+	parentForDigest := *parent
+	parentForDigest.Overrides = deepCopyStringMap(parent.Overrides)
+	baseConfigSHA := ""
+
+	if len(model.URL) > 0 {
+		var err error
+		config, baseConfigSHA, err = galleryConfigWithHash(ctx, model.URL, basePath)
+		if err != nil {
+			xlog.Error("failed to get gallery config for url", "error", err, "url", model.URL)
+			return nil, err
+		}
+		config.Description = model.Description
+		config.License = model.License
+	} else if len(model.ConfigFile) > 0 {
+		// TODO: is this worse than using the override method with a blank cfg yaml?
+		reYamlConfig, err := yaml.Marshal(model.ConfigFile)
+		if err != nil {
+			return nil, err
+		}
+		config = ModelConfig{
+			ConfigFile:  string(reYamlConfig),
+			Description: model.Description,
+			License:     model.License,
+			Name:        model.Name,
+			Files:       make([]File, 0), // Real values get added below, must be blank
+			// URLs are deliberately not seeded here: they are appended once
+			// below for both branches, and seeding them too would write every
+			// URL twice into the persisted gallery file.
+			// Prompt Template Skipped for now - I expect in this mode that they will be delivered as files.
+		}
+	} else {
+		// An entry that names no base config describes itself entirely
+		// through overrides: and files:, so the base is simply empty.
+		//
+		// This is what the several hundred entries pointing at
+		// gallery/virtual.yaml were already getting. That stub carries only
+		// a name, a description and a license, all three of which are
+		// overwritten from the gallery entry a few lines up, and overrides
+		// reach InstallModel as a separate argument rather than being merged
+		// into the fetched config. So the fetch bought nothing beyond a
+		// round trip to GitHub on every install, and an author who omits the
+		// key is asking for exactly the same thing.
+		if !model.installsSomething(req) {
+			return nil, fmt.Errorf("gallery model %q installs nothing: it declares no url, no config_file, no overrides and no files", model.Name)
+		}
+		config = ModelConfig{
+			Description: model.Description,
+			License:     model.License,
+			Name:        model.Name,
+			Files:       make([]File, 0), // Real values get added below, must be blank
+			// URLs are appended once below for every branch, as in the
+			// config_file case above.
+		}
+	}
+
+	if record != nil {
+		config.EntryName = record.EntryName
+		config.ResolvedVariant = record.ResolvedVariant
+		config.PinnedVariant = record.PinnedVariant
+		// The variant's own name would otherwise be persisted here, which
+		// contradicts the whole point of variants: the model is known by
+		// the entry's stable name regardless of which variant backs it.
+		config.Name = record.EntryName
+	}
+
+	installName := model.Name
+	if req.Name != "" {
+		installName = req.Name
+	}
+
+	// Copy the model configuration from the request schema
+	config.URLs = append(config.URLs, model.URLs...)
+	config.Icon = model.Icon
+	config.Files = append(config.Files, req.AdditionalFiles...)
+	config.Files = append(config.Files, model.AdditionalFiles...)
+
+	// TODO model.Overrides could be merged with user overrides (not defined yet)
+	if req.Overrides != nil {
+		if err := mergo.Merge(&model.Overrides, req.Overrides, mergo.WithOverride); err != nil {
+			return nil, err
+		}
+	}
+
+	if resolvedForDigest == nil {
+		resolvedForDigest = &parentForDigest
+	}
+	overridesSHA256, err := canonicalSHA256(model.Overrides)
+	if err != nil {
+		return nil, err
+	}
+	origin := &Origin{
+		Gallery:          parent.Gallery.Name,
+		EntryName:        parent.Name,
+		ConfigURL:        model.URL,
+		EntryDigest:      EntryDigest(&parentForDigest, resolvedForDigest, baseConfigSHA),
+		BaseConfigSHA256: baseConfigSHA,
+		OverridesSHA256:  overridesSHA256,
+		RequestOverrides: deepCopyStringMap(req.Overrides),
+	}
+	return &GalleryInstall{Name: installName, Config: config, Overrides: model.Overrides, Origin: origin}, nil
+}
+
 // Installs a model from the gallery
 func InstallModelFromGallery(
 	ctx context.Context,
@@ -380,90 +537,15 @@ func InstallModelFromGallery(
 
 	installOpts := applyInstallOptions(options...)
 
-	applyModel := func(model *GalleryModel, record *ModelConfig) error {
+	applyModel := func(parent, model *GalleryModel, record *ModelConfig) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
-		var config ModelConfig
-
-		if len(model.URL) > 0 {
-			var err error
-			config, err = GetGalleryConfigFromURLWithContext[ModelConfig](ctx, model.URL, systemState.Model.ModelsPath)
-			if err != nil {
-				return err
-			}
-			config.Description = model.Description
-			config.License = model.License
-		} else if len(model.ConfigFile) > 0 {
-			// TODO: is this worse than using the override method with a blank cfg yaml?
-			reYamlConfig, err := yaml.Marshal(model.ConfigFile)
-			if err != nil {
-				return err
-			}
-			config = ModelConfig{
-				ConfigFile:  string(reYamlConfig),
-				Description: model.Description,
-				License:     model.License,
-				Name:        model.Name,
-				Files:       make([]File, 0), // Real values get added below, must be blank
-				// URLs are deliberately not seeded here: they are appended once
-				// below for both branches, and seeding them too would write every
-				// URL twice into the persisted gallery file.
-				// Prompt Template Skipped for now - I expect in this mode that they will be delivered as files.
-			}
-		} else {
-			// An entry that names no base config describes itself entirely
-			// through overrides: and files:, so the base is simply empty.
-			//
-			// This is what the several hundred entries pointing at
-			// gallery/virtual.yaml were already getting. That stub carries only
-			// a name, a description and a license, all three of which are
-			// overwritten from the gallery entry a few lines up, and overrides
-			// reach InstallModel as a separate argument rather than being merged
-			// into the fetched config. So the fetch bought nothing beyond a
-			// round trip to GitHub on every install, and an author who omits the
-			// key is asking for exactly the same thing.
-			if !model.installsSomething(req) {
-				return fmt.Errorf("gallery model %q installs nothing: it declares no url, no config_file, no overrides and no files", model.Name)
-			}
-			config = ModelConfig{
-				Description: model.Description,
-				License:     model.License,
-				Name:        model.Name,
-				Files:       make([]File, 0), // Real values get added below, must be blank
-				// URLs are appended once below for every branch, as in the
-				// config_file case above.
-			}
+		inst, err := buildGalleryInstall(ctx, systemState.Model.ModelsPath, parent, model, record, req)
+		if err != nil {
+			return err
 		}
-
-		if record != nil {
-			config.EntryName = record.EntryName
-			config.ResolvedVariant = record.ResolvedVariant
-			config.PinnedVariant = record.PinnedVariant
-			// The variant's own name would otherwise be persisted here, which
-			// contradicts the whole point of variants: the model is known by
-			// the entry's stable name regardless of which variant backs it.
-			config.Name = record.EntryName
-		}
-
-		installName := model.Name
-		if req.Name != "" {
-			installName = req.Name
-		}
-
-		// Copy the model configuration from the request schema
-		config.URLs = append(config.URLs, model.URLs...)
-		config.Icon = model.Icon
-		config.Files = append(config.Files, req.AdditionalFiles...)
-		config.Files = append(config.Files, model.AdditionalFiles...)
-
-		// TODO model.Overrides could be merged with user overrides (not defined yet)
-		if req.Overrides != nil {
-			if err := mergo.Merge(&model.Overrides, req.Overrides, mergo.WithOverride); err != nil {
-				return err
-			}
-		}
-
-		installedModel, err := InstallModel(ctx, systemState, installName, &config, model.Overrides, downloadStatus, enforceScan, options...)
+		installOptions := append(slices.Clone(options), WithOrigin(inst.Origin))
+		installedModel, err := InstallModel(ctx, systemState, inst.Name, &inst.Config, inst.Overrides, downloadStatus, enforceScan, installOptions...)
 		if err != nil {
 			return err
 		}
@@ -501,7 +583,7 @@ func InstallModelFromGallery(
 		if installOpts.variant != "" && installOpts.variant != model.Name {
 			return fmt.Errorf("%w: %q was requested but model %q declares no variants", ErrPinNotFound, installOpts.variant, model.Name)
 		}
-		return applyModel(model, nil)
+		return applyModel(model, model, nil)
 	}
 
 	pin := installOpts.variant
@@ -557,22 +639,43 @@ func InstallModelFromGallery(
 		"model", model.Name, "variant", variant.Model,
 		"available_memory", env.AvailableMemory, "pinned", pin != "")
 
-	return applyModel(resolved, &ModelConfig{
+	return applyModel(model, resolved, &ModelConfig{
 		EntryName:       model.Name,
 		ResolvedVariant: variant.Model,
 		PinnedVariant:   pin,
 	})
 }
 
-func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, galleryConfig *ModelConfig, configOverrides map[string]any, downloadStatus func(string, string, string, float64), enforceScan bool, options ...InstallOption) (*lconfig.ModelConfig, error) {
+// InstallPlan is what an install writes, worked out before anything is
+// downloaded or written. The upgrade uses it to stage a new version beside the
+// installed one.
+type InstallPlan struct {
+	// Name is the installed model name.
+	Name string
+	// WriteConfig is false when the install writes no model config (an entry
+	// with no base config and no overrides).
+	WriteConfig bool
+	ConfigYAML  []byte
+	Model       lconfig.ModelConfig
+	// Gallery is the gallery config the plan was made from: its files and
+	// prompt templates are what the install downloads and writes.
+	Gallery *ModelConfig
+}
+
+// PlanInstall works out the model config an install would write: the gallery
+// config merged with the overrides, the inference defaults and the bound
+// artifact. It validates the config and checks the backend when installs of
+// backends are off. It writes nothing, except that binding an artifact
+// materializes it (WithoutArtifactBinding skips that).
+func PlanInstall(ctx context.Context, systemState *system.SystemState, nameOverride string, galleryConfig *ModelConfig, configOverrides map[string]any, enforceScan bool, options ...InstallOption) (*InstallPlan, error) {
 	installOptions := applyInstallOptions(options...)
+	return planInstall(ctx, systemState, nameOverride, galleryConfig, configOverrides, enforceScan, installOptions)
+}
+
+func planInstall(ctx context.Context, systemState *system.SystemState, nameOverride string, galleryConfig *ModelConfig, configOverrides map[string]any, enforceScan bool, installOptions installOptions) (*InstallPlan, error) {
 	config := galleryConfig
 	basePath := systemState.Model.ModelsPath
-	// Create base path if it doesn't exist
-	err := os.MkdirAll(basePath, 0750)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create base path: %v", err)
-	}
+	var err error
 
 	if len(configOverrides) > 0 {
 		xlog.Debug("Config overrides", "overrides", configOverrides)
@@ -588,7 +691,6 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 	}
 
 	modelConfig := lconfig.ModelConfig{}
-	configFilePath := filepath.Join(basePath, name+".yaml")
 	var updatedConfigYAML []byte
 	writeConfig := len(configOverrides) != 0 || len(config.ConfigFile) != 0
 
@@ -690,7 +792,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			}
 		}
 
-		if len(config.Files) == 0 {
+		if len(config.Files) == 0 && !installOptions.skipArtifactBinding {
 			artifactSpec, inferred, hasArtifact, err := modelConfig.PrimaryArtifactSpec(basePath)
 			if err != nil {
 				return nil, err
@@ -721,6 +823,28 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			}
 		}
 	}
+
+	return &InstallPlan{Name: name, WriteConfig: writeConfig, ConfigYAML: updatedConfigYAML, Model: modelConfig, Gallery: config}, nil
+}
+
+// InstallModel installs a model from a gallery config: it downloads the files,
+// writes the prompt templates, the model config and the gallery file. The
+// gallery file and the model config are written with a journal in between (see
+// commitInstall), so a crash between the two writes is undone or finished by
+// RecoverInstallJournals.
+func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, galleryConfig *ModelConfig, configOverrides map[string]any, downloadStatus func(string, string, string, float64), enforceScan bool, options ...InstallOption) (*lconfig.ModelConfig, error) {
+	installOptions := applyInstallOptions(options...)
+	basePath := systemState.Model.ModelsPath
+	// Create base path if it doesn't exist
+	if err := os.MkdirAll(basePath, 0750); err != nil {
+		return nil, fmt.Errorf("failed to create base path: %v", err)
+	}
+	plan, err := planInstall(ctx, systemState, nameOverride, galleryConfig, configOverrides, enforceScan, installOptions)
+	if err != nil {
+		return nil, err
+	}
+	config := plan.Gallery
+	modelConfig := plan.Model
 
 	// Download files and verify their SHA
 	tasks := make([]downloader.FileTask, 0, len(config.Files))
@@ -774,7 +898,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to create parent directory for prompt template %q: %v", template.Name, err)
 		}
 		// Create and write file content
-		err = os.WriteFile(filePath, []byte(template.Content), 0644)
+		err = atomicfile.Write(filePath, []byte(template.Content), 0644)
 		if err != nil {
 			return nil, fmt.Errorf("failed to write prompt template %q: %v", template.Name, err)
 		}
@@ -782,29 +906,29 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		xlog.Debug("Prompt template written", "template", template.Name)
 	}
 
-	if writeConfig {
-		if len(modelConfig.Artifacts) > 0 {
-			modelartifacts.ReportProgress(ctx, modelartifacts.ProgressEvent{
-				Phase: modelartifacts.PhasePersisting, Artifact: modelConfig.Artifacts[0].Name,
-			})
-		}
-		if err := writeModelConfigAtomic(configFilePath, updatedConfigYAML); err != nil {
-			return nil, fmt.Errorf("failed to atomically write updated config file: %w", err)
-		}
-
-		xlog.Debug("Written config file", "file", configFilePath)
+	if plan.WriteConfig && len(modelConfig.Artifacts) > 0 {
+		modelartifacts.ReportProgress(ctx, modelartifacts.ProgressEvent{
+			Phase: modelartifacts.PhasePersisting, Artifact: modelConfig.Artifacts[0].Name,
+		})
 	}
-
-	// Save the model gallery file for further reference
-	modelFile := filepath.Join(basePath, galleryFileName(name))
-	data, err := yaml.Marshal(config)
-	if err != nil {
+	if installOptions.modelLock != nil {
+		release, err := installOptions.modelLock(ctx, plan.Name)
+		if err != nil {
+			return nil, fmt.Errorf("write the model config: %w", err)
+		}
+		defer release()
+	}
+	// An upgrade, a hold or another install of the model in this process
+	// holds the claim: the commit would write over its gallery file.
+	releaseClaim, ok := TryClaimModel(plan.Name)
+	if !ok {
+		return nil, fmt.Errorf("write the model config: %w", ErrModelLocked)
+	}
+	defer releaseClaim()
+	if err := commitInstall(basePath, plan, installOptions.origin, installOptions.instance, time.Now()); err != nil {
 		return nil, err
 	}
-
-	xlog.Debug("Written gallery file", "file", modelFile)
-
-	return &modelConfig, os.WriteFile(modelFile, data, 0644)
+	return &modelConfig, nil
 }
 
 func galleryFileName(name string) string {
@@ -846,6 +970,10 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 
 	// Galleryname is the name of the model in this case
 	dat, err := os.ReadFile(configFile)
+	if errors.Is(err, os.ErrNotExist) {
+		// A model config may also be named .yml.
+		dat, err = os.ReadFile(strings.TrimSuffix(configFile, ".yaml") + ".yml")
+	}
 	if err == nil {
 		modelConfig := &lconfig.ModelConfig{}
 
@@ -865,6 +993,16 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 	// read the model config
 	galleryconfig, err := ReadConfigFile[ModelConfig](galleryFile)
 	if err == nil && galleryconfig != nil {
+		// The old files a confirmed upgrade kept belong to the model too: a
+		// deletion removes them instead of leaving them on disk.
+		if galleryconfig.Upgrade != nil {
+			for _, f := range galleryconfig.Upgrade.RetainedFiles {
+				if err := utils.VerifyPath(f, systemState.Model.ModelsPath); err != nil {
+					return allFiles, fmt.Errorf("failed to verify path %s: %w", f, err)
+				}
+				allFiles = append(allFiles, filepath.Join(systemState.Model.ModelsPath, f))
+			}
+		}
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(systemState.Model.ModelsPath, f.Filename)
 			if err := utils.VerifyPath(f.Filename, systemState.Model.ModelsPath); err != nil {
@@ -907,14 +1045,6 @@ func (e *IncompleteDeleteError) Error() string {
 }
 
 func (e *IncompleteDeleteError) Unwrap() []error { return e.Errs }
-
-// removeIfPresent removes a path and treats "already gone" as success.
-func removeIfPresent(path string) error {
-	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-	return nil
-}
 
 // DeleteModelFromSystem removes an installed model: its configuration, its
 // gallery metadata file and the files it declares that no other model uses.
@@ -984,7 +1114,7 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 	xlog.Debug("Files to remove", "files", filesToRemove)
 	xlog.Debug("All other files", "files", allOtherFiles)
 
-	if err := removeIfPresent(configFile); err != nil {
+	if err := utils.RemoveIfPresent(configFile); err != nil {
 		return fmt.Errorf("failed to remove model configuration %s: %w", configFile, err)
 	}
 
@@ -997,7 +1127,7 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 			xlog.Debug("Skipping file because it is part of another model", "file", f)
 			continue
 		}
-		if e := removeIfPresent(f); e != nil {
+		if e := utils.RemoveIfPresent(f); e != nil {
 			xlog.Error("failed to remove file", "error", e, "file", f)
 			failures = append(failures, e)
 		}

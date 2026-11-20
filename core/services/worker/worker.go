@@ -269,6 +269,11 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
 	}
 
+	if err := newModelPrefetcher(cfg).register(control); err != nil {
+		nodes.ShutdownFileTransferServer(httpServer)
+		return fmt.Errorf("subscribing to model.prefetch: %w", err)
+	}
+
 	// Serve the file staging verbs only when S3 is configured
 	if cfg.StorageURL != "" {
 		if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {

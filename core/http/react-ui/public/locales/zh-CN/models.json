@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "update": {"update": "有可用更新", "edited": "有可用更新，需要你做选择", "updating": "正在升级", "failed": "升级失败", "held": "已锁定在此版本"},
     "supporting": "找到适合这台机器的模型并安装，管理已有的模型。",
     "title": "Models",
     "navLabel": "Model lifecycle",
@@ -15,17 +16,17 @@
     },
     "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
     "actions": {
-      "load": "Load", "loading": "Loading…", "stop": "Stop", "update": "Update", "updating": "Updating…",
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "reload": "重新加载", "reloading": "正在重新加载…",
       "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
       "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
       "delete": "Delete model", "forModel": "Actions for {{model}}",
       "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
     },
-    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "update": "update" },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "reload": "重新加载" },
     "toasts": {
       "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
       "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
-      "deleted": "Deleted {{model}}", "updated": "Models updated"
+      "deleted": "Deleted {{model}}", "reloaded": "已重新加载模型配置"
     },
     "confirm": {
       "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",

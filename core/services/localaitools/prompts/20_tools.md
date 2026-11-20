@@ -12,6 +12,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_backends` — List installed backends.
 - `list_backend_library_updates` — List installed library backends that have a newer build in their library. Read-only. To take one, confirm, then call `install_library_backend` with the listed `sourceId`, `name` and `version`.
 - `backend_updates` — Gallery and library backends that have a newer build, with when each source was last checked and whether it failed. `action` is `list` (cached, default) or `check` (contacts the registries and waits). Never say there are no updates while a source failed or was never checked. To take one, confirm, then call `upgrade_backend` or `install_library_backend`.
+- `model_updates` — Installed gallery models by state: `update-available`, `edited` (with the changed keys), `held`, `failed`, `gone`, `unknown`. `action` `list` (last check, default) or `check` (reads the galleries now). Never automatic.
 - `list_known_backends` — List backends available to install from configured backend galleries.
 - `get_job_status` — Poll the status of an install/delete/upgrade job by id.
 - `get_model_config` — Read the YAML/JSON config of an installed model.
@@ -43,6 +44,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `install_backend` — Install a backend. Fails with "backend installation is disabled" on servers that manage backends outside LocalAI; report that rather than retrying.
 - `install_library_backend` — Install a backend from an add-on library entry by `source_id`, `name` and `version`. The call returns when the install is done, with no job id. The backend gallery is not changed.
 - `upgrade_backend` — Upgrade an installed backend by name. Same refusal as `install_backend` on such servers.
+- `upgrade_model` — One `action` on a gallery model: `upgrade`, `config_only`, `retry`, `remove_old`, `hold`, `unhold`, `adopt`. An upgrade is a job: poll `get_job_status`.
 - `edit_model_config` — Patch (deep-merge) JSON into an installed model's config.
 - `reload_models` — Reload all model configs from disk.
 - `cancel_model_load` — Cancel one distributed load by the exact job_id from load-status. `stopping` means pending, not proof the work stopped.

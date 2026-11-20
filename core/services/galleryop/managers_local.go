@@ -18,6 +18,8 @@ type LocalModelManager struct {
 	automaticallyInstallBackend bool
 	requireBackendIntegrity     bool
 	artifactMaterializer        config.ArtifactMaterializer
+	// instance names this frontend in the install journal of a gallery file.
+	instance string
 }
 
 // NewLocalModelManager creates a LocalModelManager from the application config.
@@ -29,6 +31,7 @@ func NewLocalModelManager(appConfig *config.ApplicationConfig, ml *model.ModelLo
 		automaticallyInstallBackend: appConfig.AutoloadBackendGalleries,
 		requireBackendIntegrity:     appConfig.RequireBackendIntegrity,
 		artifactMaterializer:        appConfig.ModelArtifactMaterializer,
+		instance:                    appConfig.Distributed.InstanceID,
 	}
 }
 
@@ -52,7 +55,9 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 		installedModel, err := gallery.InstallModel(ctx, m.systemState, op.GalleryElement.Name,
 			op.GalleryElement, op.Req.Overrides, progressCb, m.enforcePredownloadScans,
 			gallery.WithArtifactMaterializer(m.artifactMaterializer),
-			gallery.WithBackendAvailability(op.BackendAvailability))
+			gallery.WithBackendAvailability(op.BackendAvailability),
+			gallery.WithInstance(m.instance),
+			gallery.WithModelLock(op.ModelLock))
 		if err != nil {
 			return err
 		}
@@ -66,6 +71,8 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 		opts := []gallery.InstallOption{
 			gallery.WithArtifactMaterializer(m.artifactMaterializer),
 			gallery.WithBackendAvailability(op.BackendAvailability),
+			gallery.WithInstance(m.instance),
+			gallery.WithModelLock(op.ModelLock),
 		}
 		if op.Variant != "" {
 			opts = append(opts, gallery.WithVariant(op.Variant))
@@ -78,7 +85,8 @@ func (m *LocalModelManager) InstallModel(ctx context.Context, op *ManagementOp[g
 		return installModelFromRemoteConfig(ctx, m.systemState, m.modelLoader, op.Req,
 			progressCb, m.enforcePredownloadScans, m.automaticallyInstallBackend, op.BackendGalleries, m.requireBackendIntegrity,
 			gallery.WithArtifactMaterializer(m.artifactMaterializer),
-			gallery.WithBackendAvailability(op.BackendAvailability))
+			gallery.WithBackendAvailability(op.BackendAvailability),
+			gallery.WithModelLock(op.ModelLock))
 	}
 }
 

@@ -46,8 +46,10 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	localaiInproc "github.com/mudler/LocalAI/core/services/localaitools/inproc"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/routing/admission"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
@@ -64,7 +66,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
@@ -174,12 +175,12 @@ type Application struct {
 	faceRegistry         facerecognition.Registry
 	voiceRegistry        voicerecognition.Registry
 	voiceProfileStore    *voiceprofile.Store
-	studioStore          store.Store      // the studio loop's chats; see initStudioStore
-	studioStoreKind      string           // "gorm", "json" or "memory"
-	studioAgents         agents.Store     // saved agents; same kind as the chats store
-	studioNotify         notify.Store     // notifications; same kind as the chats store
-	studioPush           notify.PushStore // nil in memory-only mode: push needs somewhere to keep subscriptions
-	studioInbox          *notify.Service
+	studioStore          store.Store  // the studio loop's chats; see initStudioStore
+	studioStoreKind      string       // "gorm", "json" or "memory"
+	studioAgents         agents.Store // saved agents; same kind as the chats store
+	// notifier is the notification center. It starts with the application
+	// and does not depend on the chats; see initNotifications.
+	notifier *notify.Service
 	// studioWeb serves the built-in web tools of the chats.
 	studioWeb *studioWeb
 	// studioSelf lists the addresses of this server that a model's request
@@ -212,8 +213,8 @@ type Application struct {
 	studioMCPConns        *mcpconns.Service
 	studioConnectors      *studio.Connectors
 	studioConnectorsHook  atomic.Pointer[studio.Connectors] // the same manager, for the inbox hook that runs on other goroutines
-	studioPusher          *notify.Pusher
-	studioLocks           []*advisorylock.HeldLock // leader locks of the chat hosts, closed by Shutdown
+	notifyPusher          *notify.Pusher                    // browser push of the notifier; nil when there is nowhere to keep subscriptions
+	studioLocks           []*advisorylock.HeldLock          // leader locks of the chat hosts, closed by Shutdown
 	studioConnectorsStop  context.CancelFunc
 	studioProvider        *provider.Provider
 	studioService         *studio.Service
@@ -267,6 +268,11 @@ type Application struct {
 
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
+	// modelUpdates is the update check of gallery models; nil without model
+	// galleries.
+	modelUpdates *modelupdates.Service
+	// modelUpgrader runs model upgrades; nil without model galleries.
+	modelUpgrader *modelupdates.Upgrader
 
 	// LocalAI Assistant in-process MCP server. nil until initialised in start() after galleryService, and
 	// when that initialisation fails.
@@ -425,6 +431,12 @@ func (a *Application) TemplatesEvaluator() *templates.Evaluator {
 
 func (a *Application) GalleryService() *galleryop.GalleryService {
 	return a.galleryService
+}
+
+// ModelUpdates returns the update check of gallery models, or nil when no
+// model gallery is configured.
+func (a *Application) ModelUpdates() *modelupdates.Service {
+	return a.modelUpdates
 }
 
 func (a *Application) UpgradeChecker() *UpgradeChecker {
@@ -760,8 +772,8 @@ func (a *Application) Shutdown() error {
 		if a.studioLoops != nil {
 			a.studioLoops.Close()
 		}
-		if a.studioPusher != nil {
-			a.studioPusher.Close()
+		if a.notifyPusher != nil {
+			a.notifyPusher.Close()
 		}
 		a.closeStudioLocks() // after both hosts: a running host would take a released lock back
 		if a.studioHostExec != nil {
@@ -935,6 +947,8 @@ func (a *Application) start() (startErr error) {
 		}
 		return a.upgradeChecker
 	}
+	assistantClient.ModelUpdatesService = a.ModelUpdates
+	assistantClient.ModelUpgrader = a.ModelUpgrader
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader
 	}

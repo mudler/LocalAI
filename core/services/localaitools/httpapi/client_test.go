@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -785,5 +786,78 @@ var _ = Describe("Backend updates", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.Items[0].Name).To(Equal("llama-cpp"))
 		Expect(seen).To(Equal([]string{"GET /backends/updates", "POST /backends/updates/check"}))
+	})
+})
+
+var _ = Describe("Model updates", func() {
+	It("reads, checks and changes model upgrades through the REST routes", func() {
+		var seen []string
+		var bodies []map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			seen = append(seen, r.Method+" "+r.URL.Path)
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			bodies = append(bodies, body)
+			switch {
+			case strings.HasPrefix(r.URL.Path, "/api/models/updates"):
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"sources": map[string]any{"gallery": map[string]any{"state": "ok"}},
+					"items":   []map[string]any{{"id": "model:tiny", "kind": "model", "name": "tiny", "state": "update-available"}},
+				})
+			case strings.HasSuffix(r.URL.Path, "/remove-old"):
+				_ = json.NewEncoder(w).Encode(map[string]any{"name": "tiny", "removed": []string{"tiny.gguf.prev-1"}})
+			case strings.HasSuffix(r.URL.Path, "/hold"):
+				_ = json.NewEncoder(w).Encode(map[string]any{"name": "tiny", "hold": body["hold"]})
+			case strings.HasSuffix(r.URL.Path, "/adopt"):
+				_ = json.NewEncoder(w).Encode(map[string]any{"name": "tiny", "gallery": body["gallery"], "entry": "tiny", "filesMatch": true})
+			default:
+				_ = json.NewEncoder(w).Encode(map[string]any{"id": "op-1", "jobID": "op-1", "status_url": "/models/jobs/op-1"})
+			}
+		}))
+		DeferCleanup(srv.Close)
+
+		ctx := context.Background()
+		c := New(srv.URL, "")
+		snap, err := c.ModelUpdates(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(snap.Items).To(HaveLen(1))
+		_, err = c.CheckModelUpdates(ctx)
+		Expect(err).ToNot(HaveOccurred())
+
+		job, err := c.UpgradeModel(ctx, "tiny", true, map[string]string{"context_size": "gallery"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(job).To(Equal("op-1"))
+		job, err = c.RetryModelUpgrade(ctx, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(job).To(Equal("op-1"))
+		removed, err := c.RemoveOldModelVersion(ctx, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(removed.Removed).To(ConsistOf("tiny.gguf.prev-1"))
+		held, err := c.SetModelHold(ctx, "tiny", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(held.Hold).To(BeTrue())
+		adopted, err := c.AdoptModel(ctx, "tiny", "localai", "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(*adopted).To(Equal(localaitools.ModelAdoptResult{Name: "tiny", Gallery: "localai", Entry: "tiny", FilesMatch: true}))
+
+		Expect(seen).To(Equal([]string{
+			"GET /api/models/updates", "POST /api/models/updates/check",
+			"POST /api/models/upgrade/tiny", "POST /api/models/tiny/upgrade/retry",
+			"POST /api/models/tiny/remove-old", "PUT /api/models/tiny/hold",
+			"POST /api/models/tiny/adopt",
+		}))
+		Expect(bodies[6]).To(Equal(map[string]any{"gallery": "localai"}))
+		Expect(bodies[2]).To(Equal(map[string]any{"config_only": true, "choices": map[string]any{"context_size": "gallery"}}))
+		Expect(bodies[5]).To(Equal(map[string]any{"hold": true}))
+	})
+
+	It("surfaces the edited keys of a refused upgrade", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": "the update changes keys that were edited", "keys": []string{"context_size"}})
+		}))
+		DeferCleanup(srv.Close)
+		_, err := New(srv.URL, "").UpgradeModel(context.Background(), "tiny", false, nil)
+		Expect(err).To(MatchError(ContainSubstring("context_size")))
 	})
 })

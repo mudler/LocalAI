@@ -116,6 +116,21 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 	return http.StatusServiceUnavailable
 }
 
+// modelUpgradeRetryAfter is the Retry-After of a load refused while the model
+// is upgraded: the switch of the files takes seconds, not minutes.
+const modelUpgradeRetryAfter = "10"
+
+// applyModelLoadsBlocked maps a load refused during a model upgrade to 503 with
+// a Retry-After header: the model comes back once its files are switched.
+func applyModelLoadsBlocked(err error, code int, c echo.Context) int {
+	var blocked *model.ModelLoadsBlockedError
+	if !errors.As(err, &blocked) {
+		return code
+	}
+	c.Response().Header().Set("Retry-After", modelUpgradeRetryAfter)
+	return http.StatusServiceUnavailable
+}
+
 func applyBackendAdmission(err error, code int, c echo.Context) int {
 	var capacityErr *corebackend.BackendAdmissionError
 	if !errors.As(err, &capacityErr) {
@@ -262,6 +277,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 				code = he.Code
 			}
 			code = applyModelLoadCooldown(err, code, c)
+			code = applyModelLoadsBlocked(err, code, c)
 			code = applyBackendAdmission(err, code, c)
 			code = applyNoAvailableNodes(err, code)
 
@@ -297,6 +313,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 				code = he.Code
 			}
 			code = applyModelLoadCooldown(err, code, c)
+			code = applyModelLoadsBlocked(err, code, c)
 			code = applyBackendAdmission(err, code, c)
 			// Opaque errors deliberately withhold the body, so a still-loading
 			// model gets the status and Retry-After but no progress detail.
@@ -806,6 +823,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	})
 
 	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application))
+	// The notification center works with the chats on or off.
+	routes.RegisterNotificationRoutes(e, application.Notifier(), application.NotifyPusher(), application.StudioService() != nil)
 
 	// The studio loop reaches the model through this router, in memory.
 	if sp := application.StudioProvider(); sp != nil {

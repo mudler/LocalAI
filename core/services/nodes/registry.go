@@ -241,6 +241,10 @@ type ModelSchedulingConfig struct {
 	BalanceRelThreshold float64            `gorm:"column:balance_rel_threshold;default:0" json:"balance_rel_threshold,omitempty"`
 	MinPrefixMatch      float64            `gorm:"column:min_prefix_match;default:0" json:"min_prefix_match,omitempty"`
 	ScorerWeights       map[string]float64 `gorm:"column:routing_scorer_weights;serializer:json" json:"scorer_weights,omitempty"`
+	// UpgradeStrategy is how an upgrade of the model replaces its running
+	// replicas (UpgradeStrategyStopAndStart, UpgradeStrategyCanary). Empty
+	// means stop and start.
+	UpgradeStrategy string `gorm:"column:upgrade_strategy;size:32" json:"upgrade_strategy,omitempty"`
 	// UnsatisfiableUntil is set by the reconciler when no candidate node has
 	// free capacity for this model; while in the future, the reconciler skips
 	// scale-up attempts for this model. Cleared on cluster events that could
@@ -279,6 +283,37 @@ type ModelSchedulingConfig struct {
 	// already has a rule, and an inert rule the operator cannot see is worse
 	// than one that is labelled.
 	Shadowed bool `gorm:"-" json:"shadowed,omitempty"`
+}
+
+// The upgrade strategies of a model in a cluster.
+const (
+	// UpgradeStrategyStopAndStart stops every replica, switches the files and
+	// the config, and loads the new version as the load check. It is the
+	// default, and the only strategy a standalone server has.
+	UpgradeStrategyStopAndStart = "stop_and_start"
+	// UpgradeStrategyCanary loads one replica of the new version next to the
+	// old ones and replaces the others after its check. It is accepted and
+	// stored, but not available yet: an upgrade stops and starts.
+	UpgradeStrategyCanary = "canary"
+)
+
+// ValidUpgradeStrategy reports whether s is a strategy a rule may store. The
+// empty string means the default.
+func ValidUpgradeStrategy(s string) bool {
+	switch s {
+	case "", UpgradeStrategyStopAndStart, UpgradeStrategyCanary:
+		return true
+	}
+	return false
+}
+
+// EffectiveUpgradeStrategy is the strategy the rule asks for, with the
+// default for an empty value.
+func (c ModelSchedulingConfig) EffectiveUpgradeStrategy() string {
+	if c.UpgradeStrategy == "" {
+		return UpgradeStrategyStopAndStart
+	}
+	return c.UpgradeStrategy
 }
 
 // Target returns the model this rule governs. It falls back to ModelName when
@@ -2380,7 +2415,7 @@ func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSche
 			DoUpdates: clause.AssignmentColumns([]string{
 				"node_selector", "min_replicas", "max_replicas", "spread_all",
 				"route_policy", "balance_abs_threshold", "balance_rel_threshold", "min_prefix_match",
-				"routing_scorer_weights", "target_model", "updated_at",
+				"routing_scorer_weights", "upgrade_strategy", "target_model", "updated_at",
 			}),
 		}).
 		Create(config).Error
