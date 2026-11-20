@@ -12,6 +12,10 @@
 
 export const emptyLive = () => ({ text: '', reasoning: '', tools: [] })
 
+// A live turn with no content — callers can build their transcript rows from it
+// alone and keep identity (the empty turn is a stable sentinel).
+export const NO_LIVE = Object.freeze({ text: '', reasoning: '', tools: Object.freeze([]) })
+
 // The key of a tool call, in the live turn and in the transcript.
 export const toolKey = (seq) => `tool-${seq}`
 

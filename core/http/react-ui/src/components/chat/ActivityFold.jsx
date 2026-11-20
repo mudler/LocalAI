@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { renderMarkdown, highlightAll } from '../../utils/markdown'
 import { toolLine, toolOutput } from '../../utils/chatThread'
@@ -9,6 +9,8 @@ import ChangeProposalCard from './ChangeProposalCard'
 import { toolLabel, formatDuration, runTimes } from '../../utils/toolLabels'
 import Icon from '../Icon'
 import { openChatFile } from './chatActions'
+// eslint-disable-next-line no-unused-vars
+import StreamingMarkdown from './StreamingMarkdown'
 // eslint-disable-next-line no-unused-vars
 import ChangeNote from './ChangeNote'
 // eslint-disable-next-line no-unused-vars
@@ -195,18 +197,26 @@ function gist(text) {
 // eslint-disable-next-line no-unused-vars
 function Reasoning({ text, live }) {
   const ref = useRef(null)
+  // The thinking stream grows a piece at a time: parsing the whole text on
+  // every flush is the cost this avoids. While live the segmenter keeps the
+  // work proportional to the trailing block; the full parse and the highlight
+  // happen once, when it settles.
+  const html = useMemo(() => (live ? '' : renderMarkdown(text || '')), [text, live])
   useEffect(() => {
     if (!ref.current) return
     if (live) ref.current.scrollTop = ref.current.scrollHeight
     else highlightAll(ref.current)
   }, [text, live])
-  return (
-    <div
-      ref={ref}
-      className={`cx-think${live ? ' cx-think--live' : ''}`}
-      dangerouslySetInnerHTML={{ __html: renderMarkdown(text || '') }}
-    />
-  )
+  if (live) {
+    return (
+      <div ref={ref} className="cx-think cx-think--live">
+        <StreamingMarkdown text={text || ''} />
+      </div>
+    )
+  }
+  // Settled text keeps today's path exactly: the html on the fold itself, so
+  // the fold's direct-child spacing still applies to its blocks.
+  return <div ref={ref} className="cx-think" dangerouslySetInnerHTML={{ __html: html }} />
 }
 
 // A reasoning line of the transcript or of the live turn.
