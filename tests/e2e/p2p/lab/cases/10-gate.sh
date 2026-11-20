@@ -33,10 +33,13 @@ case_paired_relayed_50mib() {
 
 register revoke_live_circuit "revoking a device closes its live circuit and blocks the reconnect"
 case_revoke_live_circuit() {
-  gated
+  # The transfer must outlast the revoke on a fast runner: 4000 MiB takes
+  # about 45 s at 90 MB/s, the revoke comes at 12 s. The circuit byte limit
+  # sits above it so that only the revoke can cut the stream.
+  gated --circuit-max-bytes 8589934592 --circuit-max-duration 30m
   serve b SRV "$CLI" --revoke-after 12s --revoke-relay-only
-  local out total=943718400 got
-  out=$(dial a CLI "$SRV" --mb 900 --timeout 60s | tee "$CASE_LOGS/transfer.log")
+  local out total=4194304000 got
+  out=$(dial a CLI "$SRV" --mb 4000 --timeout 90s | tee "$CASE_LOGS/transfer.log")
   got=$(transfer_bytes "$out")
   expect_true "the transfer was cut before the end (${got:-0} of $total bytes)" test "${got:-0}" -lt "$total"
   expect_true "some data flowed before the revoke" test "${got:-0}" -gt 0

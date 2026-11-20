@@ -32,10 +32,12 @@ case_no_punch_symmetric() {
 
 register revoke_server "a revoke by the server closes the live stream, the relay drops the peer and it cannot come back"
 case_revoke_server() {
-  gated
+  # Same sizing as revoke_live_circuit: the revoke at 12 s must land inside
+  # the transfer, and the circuit byte limit must not end it first.
+  gated --circuit-max-bytes 8589934592 --circuit-max-duration 30m
   serve b SRV "$CLI" --revoke-after 12s
-  local out total=943718400 got
-  out=$(dial a CLI "$SRV" --mb 900 --timeout 60s | tee "$CASE_LOGS/transfer.log")
+  local out total=4194304000 got
+  out=$(dial a CLI "$SRV" --mb 4000 --timeout 90s | tee "$CASE_LOGS/transfer.log")
   got=$(transfer_bytes "$out")
   expect_true "the transfer was cut before the end (${got:-0} of $total bytes)" test "${got:-0}" -lt "$total"
   expect_true "some data flowed before the revoke" test "${got:-0}" -gt 0
