@@ -283,6 +283,8 @@ curl -X DELETE http://localhost:8080/api/auth/admin/invites/<invite-id> \
   -H "Authorization: Bearer <admin-key>"
 ```
 
+An invite records the account that created it, so creating one needs an admin account's session or API key. A legacy `LOCALAI_API_KEY` has no account and gets `403`; it can still list and revoke invites.
+
 Share the invite URL (`/invite/<code>`) with the user. The link is shown once, when you create it: the invite list keeps only the first characters of the code, so a link you did not copy can only be revoked and made again. When the user opens it, the registration form is pre-filled with the invite code. LocalAI validates the code only when the user submits registration. Invite codes are single-use - once consumed, they cannot be reused. Expired or used invites are rejected.
 
 For GitHub OAuth, the invite code is passed as a query parameter to the login URL (`/api/auth/github/login?invite_code=<code>`) and stored in a cookie during the OAuth flow.
