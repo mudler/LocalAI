@@ -38,7 +38,8 @@
     },
     "verb": {
       "upgrading": "{{kind}} 업데이트 중",
-      "failedUpgrade": "{{kind}}을(를) 업데이트할 수 없습니다"
+      "failedUpgrade": "{{kind}}을(를) 업데이트할 수 없습니다",
+      "needsReview": "검토 필요"
     },
     "filter": {
       "addons": "애드온"
@@ -61,7 +62,14 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "대기 중",
+      "starting": "시작 중",
+      "resolving": "패키지 확인 중",
+      "verifying": "서명과 다이제스트 검증 중",
+      "downloading": "다운로드 중",
+      "checking": "패키지 검사 중",
+      "committing": "마무리 중"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
@@ -87,6 +95,9 @@
       "committing": "마무리 중",
       "persisting": "구성 저장 중"
     },
-    "retryFailed": "다시 시도 실패: {{message}}"
+    "retryFailed": "다시 시도 실패: {{message}}",
+    "addonNeedsReview": "패키지가 승인한 것보다 많은 호스트 접근을 요구합니다.",
+    "review": "검토",
+    "reviewLabel": "{{name}} 검토"
   }
 }

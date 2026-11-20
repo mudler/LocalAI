@@ -1063,5 +1063,28 @@
       "off": "已关闭",
       "attention": "需要设置"
     }
+  },
+  "queue": {
+    "title": "安装队列",
+    "select": "加入队列",
+    "selectNamed": "将 {{name}} 加入安装队列",
+    "inQueue": "队列中",
+    "selectionLabel": "已选择安装的附加组件",
+    "selected": "已选择：{{count}}",
+    "reviewPicked": "检查并加入队列",
+    "clear": "清除",
+    "position": "第 {{number}} 个，共 {{total}} 个附加组件。",
+    "batchNote": "检查完最后一个之前，不会有任何内容加入队列。",
+    "confirmBody": "来自源 {{library}} 的 {{version}} 版会加入安装队列。它在后台下载，安装前会先校验，且不会被启用。",
+    "add": "加入队列",
+    "acceptNext": "接受并继续",
+    "acceptLast": "接受并全部加入队列",
+    "skip": "跳过",
+    "unpinned": "此开发条目未固定到某个包，将安装源当前提供的内容。",
+    "reviewTitle": "需要检查。",
+    "reviewBody": "该包请求的主机访问权限超出你批准的范围。安装前请再检查一遍列表。",
+    "refused": "{{name}} 未加入队列。{{reason}}",
+    "noAnswer": "服务器没有对它作出回应。",
+    "notInLibrary": "你的库中已没有这个附加组件。"
   }
 }

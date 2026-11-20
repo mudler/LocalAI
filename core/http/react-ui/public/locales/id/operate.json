@@ -38,7 +38,8 @@
     },
     "verb": {
       "upgrading": "Memperbarui {{kind}}",
-      "failedUpgrade": "Tidak dapat memperbarui {{kind}}"
+      "failedUpgrade": "Tidak dapat memperbarui {{kind}}",
+      "needsReview": "Perlu ditinjau"
     },
     "filter": {
       "addons": "Add-on"
@@ -61,7 +62,14 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "Dalam antrean",
+      "starting": "Memulai",
+      "resolving": "Menyelesaikan paket",
+      "verifying": "Memverifikasi tanda tangan dan digest",
+      "downloading": "Mengunduh",
+      "checking": "Memeriksa paket",
+      "committing": "Menyelesaikan"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
@@ -87,6 +95,9 @@
       "committing": "Menyelesaikan",
       "persisting": "Menyimpan konfigurasi"
     },
-    "retryFailed": "Percobaan ulang gagal: {{message}}"
+    "retryFailed": "Percobaan ulang gagal: {{message}}",
+    "addonNeedsReview": "Paket meminta akses host lebih banyak daripada yang Anda setujui.",
+    "review": "Tinjau",
+    "reviewLabel": "Tinjau {{name}}"
   }
 }

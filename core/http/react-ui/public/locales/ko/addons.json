@@ -1063,5 +1063,28 @@
       "off": "꺼짐",
       "attention": "설정 필요"
     }
+  },
+  "queue": {
+    "title": "설치 대기열",
+    "select": "대기열에 추가",
+    "selectNamed": "{{name}}을(를) 설치 대기열에 추가",
+    "inQueue": "대기 중",
+    "selectionLabel": "설치하려고 선택한 애드온",
+    "selected": "선택됨: {{count}}",
+    "reviewPicked": "검토 후 대기열에 추가",
+    "clear": "선택 해제",
+    "position": "애드온 {{number}} / {{total}}.",
+    "batchNote": "마지막 항목까지 마치기 전에는 아무것도 대기열에 들어가지 않습니다.",
+    "confirmBody": "소스 {{library}}의 버전 {{version}}을(를) 설치 대기열에 추가합니다. 백그라운드에서 다운로드하고 설치 전에 검증합니다. 켜지지는 않습니다.",
+    "add": "대기열에 추가",
+    "acceptNext": "수락하고 다음",
+    "acceptLast": "수락하고 모두 대기열에 추가",
+    "skip": "건너뛰기",
+    "unpinned": "이 개발용 항목은 특정 패키지에 고정되어 있지 않습니다. 소스가 지금 제공하는 것을 그대로 설치합니다.",
+    "reviewTitle": "검토가 필요합니다.",
+    "reviewBody": "패키지가 승인한 것보다 많은 호스트 접근을 요구합니다. 설치 전에 목록을 다시 확인하세요.",
+    "refused": "{{name}}을(를) 대기열에 추가하지 못했습니다. {{reason}}",
+    "noAnswer": "서버가 이 애드온에 응답하지 않았습니다.",
+    "notInLibrary": "이 애드온은 더 이상 라이브러리에 없습니다."
   }
 }

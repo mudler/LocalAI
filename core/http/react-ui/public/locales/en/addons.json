@@ -1063,5 +1063,28 @@
       "off": "Off",
       "attention": "Needs setup"
     }
+  },
+  "queue": {
+    "title": "Install queue",
+    "select": "Add to queue",
+    "selectNamed": "Add {{name}} to the install queue",
+    "inQueue": "In queue",
+    "selectionLabel": "Add-ons selected for install",
+    "selected": "Selected: {{count}}",
+    "reviewPicked": "Review and queue",
+    "clear": "Clear",
+    "position": "Add-on {{number}} of {{total}}.",
+    "batchNote": "Nothing is queued until you finish the last one.",
+    "confirmBody": "Version {{version}} from the source {{library}} is added to the install queue. It downloads in the background and is checked before it is installed. It is not turned on.",
+    "add": "Add to queue",
+    "acceptNext": "Accept and next",
+    "acceptLast": "Accept and queue all",
+    "skip": "Skip",
+    "unpinned": "This development entry is not pinned to one package. It installs whatever the source serves now.",
+    "reviewTitle": "Review needed.",
+    "reviewBody": "The package asks for more host access than you approved. Check the list again before it is installed.",
+    "refused": "{{name}} was not queued. {{reason}}",
+    "noAnswer": "The server gave no answer for it.",
+    "notInLibrary": "This add-on is no longer in your libraries."
   }
 }

@@ -107,13 +107,18 @@ function resultText(t, p, n) {
 
 // The end of an install, removal or upgrade of a model or backend. The reason
 // of a failure stays the server's own words (the body).
-const OP_KINDS = ['model', 'backend']
+const OP_KINDS = ['model', 'backend', 'addon']
 const OP_ACTIONS = ['install', 'delete', 'upgrade']
 
 function opText(t, n, p) {
   const name = typeof p.name === 'string' ? p.name : ''
   if (!name || !OP_KINDS.includes(p.kind) || !OP_ACTIONS.includes(p.action)) return null
   const state = n.code === 'updates.opDone' ? 'done' : p.outcome === 'cancelled' ? 'cancelled' : 'failed'
+  // An add-on whose package asked for more host access than was reviewed did
+  // not fail in a way a retry fixes: it waits for a new review.
+  if (state === 'failed' && p.kind === 'addon' && p.action === 'install' && p.needsApproval === true) {
+    return { title: t('inbox.codes.op.needsReview.install', { name }), body: n.body }
+  }
   return { title: t(`inbox.codes.op.${state}.${p.action}`, { kind: t(`inbox.codes.op.kind.${p.kind}`), name }), body: n.body }
 }
 

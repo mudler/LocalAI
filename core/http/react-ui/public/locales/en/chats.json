@@ -346,7 +346,8 @@
       "op": {
         "kind": {
           "model": "Model",
-          "backend": "Backend"
+          "backend": "Backend",
+          "addon": "Add-on"
         },
         "done": {
           "install": "{{kind}} {{name}} installed",
@@ -362,6 +363,9 @@
           "install": "{{kind}} {{name}}: install cancelled",
           "delete": "{{kind}} {{name}}: removal cancelled",
           "upgrade": "{{kind}} {{name}}: upgrade cancelled"
+        },
+        "needsReview": {
+          "install": "Add-on {{name}} needs your review to install"
         }
       },
       "models": {

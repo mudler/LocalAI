@@ -535,3 +535,12 @@
 .ad-hostlist .swl-row__name, .ad-host-card .swl-row__name { white-space: normal; overflow: visible; text-overflow: clip; }
 .ad-host-card .swl-row__src, .ad-hostlist .swl-row__src { white-space: normal; text-align: right; max-width: 40%; }
 .ad-dialog .confirm-dialog-body { padding: 2px; margin-inline: -2px; }
+
+/* The install queue: rows of the background installs above the tabs, and the
+   bar of the add-ons ticked for one review. */
+.ad-queue { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.ad-queue__title { margin: 0; font-size: var(--fs-body); font-weight: 600; }
+.ad-queue__count { color: var(--dk-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.ad-select { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-small); color: var(--dk-muted); cursor: pointer; }
+.ad-selbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-md); background: var(--dk-inset); }
+.ad-selbar__text { margin-right: auto; font-size: var(--fs-small); }

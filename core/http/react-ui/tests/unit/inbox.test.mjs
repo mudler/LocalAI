@@ -269,3 +269,20 @@ test('inbox: the model codes are worded in every language', async () => {
     assert.ok(out[2].body.includes('ERR'), l)
   }
 })
+
+test('inbox: an add-on install is worded, and one that needs a new review says so, in every language', async () => {
+  const en = await translator('en')
+  const op = (code, params) => note({ code, title: 'stored', body: 'the add-on needs your approval again', params })
+  assert.equal(textOf(op('updates.opDone', { kind: 'addon', action: 'install', name: 'notes' }), en).title, 'Add-on notes installed')
+  assert.equal(textOf(op('updates.opFailed', { kind: 'addon', action: 'install', name: 'notes', outcome: 'failed' }), en).title, 'Add-on notes: install failed')
+  const review = textOf(op('updates.opFailed', { kind: 'addon', action: 'install', name: 'notes', outcome: 'failed', needsApproval: true }), en)
+  assert.deepEqual(review, { title: 'Add-on notes needs your review to install', body: 'the add-on needs your approval again' })
+  // The flag only matters for a failure, not for a model or a cancel.
+  assert.equal(textOf(op('updates.opFailed', { kind: 'model', action: 'install', name: 'm', outcome: 'failed', needsApproval: true }), en).title, 'Model m: install failed')
+  assert.equal(textOf(op('updates.opFailed', { kind: 'addon', action: 'install', name: 'notes', outcome: 'cancelled', needsApproval: true }), en).title, 'Add-on notes: install cancelled')
+  for (const l of LOCALES) {
+    const t = await translator(l)
+    const title = textOf(op('updates.opFailed', { kind: 'addon', action: 'install', name: 'NAME', outcome: 'failed', needsApproval: true }), t).title
+    assert.ok(title.includes('NAME') && !title.includes('{{') && title !== 'stored', `${l}: ${title}`)
+  }
+})

@@ -5,6 +5,7 @@
 // word one operation differently) and `chats` (the few strings that exist only
 // in the inbox). `t` is a translator that can reach both.
 import { formatBytes } from './format.js'
+import { isAddonInstallOp, needsApproval } from './addonQueue.js'
 
 // How many finished operations "Recent" lists, and how long one stays there.
 export const RECENT_MAX = 5
@@ -95,6 +96,7 @@ export function failedTitleOf(op, t) {
 // The reason a failed operation gives. An add-on failure carries a code the
 // UI words itself; anything else is the server's own text.
 export function reasonOf(op, t) {
+  if (isAddonInstallOp(op) && needsApproval(op)) return t('activity.addonNeedsReview', OP)
   if (op?.isAddon && op.failureCode) return t(`activity.addonFailure.${op.failureCode}`, { ...OP, defaultValue: op.error })
   return op?.error || ''
 }
@@ -130,6 +132,19 @@ export function detailOf(op, t) {
   }
   if (Number.isFinite(op?.bytesPerSecond) && op.bytesPerSecond > 0) parts.push(`${formatBytes(op.bytesPerSecond)}/s`)
   return parts.join(' · ')
+}
+
+// Retry means "do this again": install, or upgrade for an upgrade. A failed
+// deletion would need the delete endpoint and a staging operation is driven by
+// the router, so neither is retryable. A queued add-on install is retried from
+// the Add-ons page, where its host access is reviewed again: there is no
+// install call to repeat from a list of operations.
+export function canRetryOp(op) {
+  if (isAddonInstallOp(op)) return false
+  // An upgrade of another tab or of before a reload has no entry in this
+  // browser's store, which is what a retry of an add-on goes through.
+  if (op?.isAddon && !String(op.jobID).startsWith('addon:')) return false
+  return Boolean(op?.error) && !op.isDeletion && op.taskType !== 'staging'
 }
 
 // Cancel is offered while the operation can still be called off. An

@@ -762,7 +762,8 @@
       "op": {
         "kind": {
           "model": "Modell",
-          "backend": "Backend"
+          "backend": "Backend",
+          "addon": "Add-on"
         },
         "done": {
           "install": "{{kind}} {{name}} installiert",
@@ -778,6 +779,9 @@
           "install": "{{kind}} {{name}}: Installation abgebrochen",
           "delete": "{{kind}} {{name}}: Entfernen abgebrochen",
           "upgrade": "{{kind}} {{name}}: Update abgebrochen"
+        },
+        "needsReview": {
+          "install": "Add-on {{name}} braucht deine Prüfung für die Installation"
         }
       },
       "models": {

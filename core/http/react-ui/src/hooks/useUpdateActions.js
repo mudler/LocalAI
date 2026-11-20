@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { backendsApi } from '../utils/api'
+import { backendsApi, operationsApi } from '../utils/api'
 import { addonsApi, addonsCatalog } from '../utils/addonsClient'
 import { addonUpgrades } from '../utils/addonUpgrades'
 import { useOperations } from './useOperations'
@@ -130,9 +130,6 @@ export function useUpdateActions({ updates }) {
   const bulkItems = useMemo(() => bulkItemsOf(rows), [rows])
   const bulk = useBulkUpgrade({
     items: bulkItems,
-    // The add-ons share one upgrade store, so they go one after another; the
-    // rest overlap and the server limits how many run.
-    laneOf: (item) => (item.row && item.row.kind === 'addon' ? 'addon' : item.id),
     runOne: async (item, signal) => {
       const out = await runRow(item.row, signal)
       return out.ok ? { ok: true } : { ok: false, message: out.message }
@@ -164,8 +161,11 @@ export function useUpdateActions({ updates }) {
   }, [runRow])
 
   const cancel = useCallback((row) => {
-    if (row.kind === 'addon') addonUpgrades.cancel(row.jobID)
-    else if (row.jobID) cancelOperation(row.jobID)
+    // An add-on upgrade the store follows is cancelled on the server by its
+    // job; one only the server lists (another tab) by its own id.
+    if (row.kind === 'addon') {
+      if (!addonUpgrades.cancel(row.jobID, (id) => operationsApi.cancel(id)) && row.jobID && !String(row.jobID).startsWith('addon:')) cancelOperation(row.jobID)
+    } else if (row.jobID) cancelOperation(row.jobID)
   }, [cancelOperation])
 
   // Cancels every row of the run that has not ended. A queued job is dropped

@@ -1063,5 +1063,28 @@
       "off": "Spenta",
       "attention": "Da configurare"
     }
+  },
+  "queue": {
+    "title": "Coda di installazione",
+    "select": "Aggiungi alla coda",
+    "selectNamed": "Aggiungi {{name}} alla coda di installazione",
+    "inQueue": "In coda",
+    "selectionLabel": "Componenti aggiuntivi selezionati per l'installazione",
+    "selected": "Selezionati: {{count}}",
+    "reviewPicked": "Controlla e metti in coda",
+    "clear": "Deseleziona",
+    "position": "Componente aggiuntivo {{number}} di {{total}}.",
+    "batchNote": "Non viene messo in coda nulla finché non finisci l'ultimo.",
+    "confirmBody": "La versione {{version}} dalla fonte {{library}} viene aggiunta alla coda di installazione. Si scarica in background e viene controllata prima dell'installazione. Non viene attivata.",
+    "add": "Aggiungi alla coda",
+    "acceptNext": "Accetta e continua",
+    "acceptLast": "Accetta e metti tutto in coda",
+    "skip": "Salta",
+    "unpinned": "Questa voce di sviluppo non è legata a un pacchetto preciso. Installa ciò che la fonte offre in questo momento.",
+    "reviewTitle": "Serve un controllo.",
+    "reviewBody": "Il pacchetto chiede più accesso all'host di quello che hai approvato. Controlla di nuovo l'elenco prima dell'installazione.",
+    "refused": "{{name}} non è stato messo in coda. {{reason}}",
+    "noAnswer": "Il server non ha risposto per questo componente aggiuntivo.",
+    "notInLibrary": "Questo componente aggiuntivo non è più nelle tue librerie."
   }
 }

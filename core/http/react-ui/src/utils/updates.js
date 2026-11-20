@@ -133,7 +133,7 @@ export function addonRows({ installed = [], grants = null, live = [], auto = fal
     }
     const hold = held.get(rec.id)
     if (op && (op.state === 'running' || op.state === 'cancelling')) {
-      rows.push({ ...base, state: 'updating', progress: 0, queued: (op.stage || op.phase) === 'queued', phase: op.stage || op.phase || '', jobID: op.jobID, cancellable: Boolean(op.cancellable), startable: false })
+      rows.push({ ...base, state: 'updating', progress: op.progress || 0, queued: (op.stage || op.phase) === 'queued', phase: op.stage || op.phase || '', jobID: op.jobID, cancellable: Boolean(op.cancellable), startable: false })
     } else if (op && op.state === 'failed') {
       rows.push({ ...base, state: 'failed', error: op.errorKey || 'unavailable', errorKey: op.errorKey || 'unavailable', jobID: op.jobID, startable: false })
     } else if (hold) {
