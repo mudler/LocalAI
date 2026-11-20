@@ -27,8 +27,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	sqlite "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 var (
@@ -218,7 +219,7 @@ func privateFile(path string) error {
 
 func dsn(path string, busy time.Duration, sync, journal string) string {
 	esc := strings.NewReplacer("%", "%25", "?", "%3f", "#", "%23").Replace(path)
-	return fmt.Sprintf("file:%s?mode=rw&_busy_timeout=%d&_foreign_keys=on&_journal_mode=%s&_synchronous=%s&_txlock=immediate", esc, busy.Milliseconds(), journal, sync)
+	return fmt.Sprintf("file:%s?mode=rw&_txlock=immediate&_pragma=busy_timeout(%d)&_pragma=foreign_keys(1)&_pragma=journal_mode(%s)&_pragma=synchronous(%s)", esc, busy.Milliseconds(), journal, sync)
 }
 
 // capConnector opens every connection with PRAGMA max_page_count applied.
@@ -226,7 +227,7 @@ func dsn(path string, busy time.Duration, sync, journal string) string {
 // leave every later connection unbounded.
 type capConnector struct {
 	dsn      string
-	drv      *sqlite3.SQLiteDriver
+	drv      *sqlite.Driver
 	maxPages int
 }
 
@@ -240,7 +241,7 @@ func (c capConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		_ = conn.Close()
 		return nil, errors.New("sqlite driver cannot set the size cap")
 	}
-	// PRAGMA max_page_count returns a row; Exec on this driver discards it.
+	// PRAGMA max_page_count returns a row; Exec discards it.
 	if _, err = ex.ExecContext(ctx, fmt.Sprintf("PRAGMA max_page_count=%d", c.maxPages), nil); err != nil {
 		_ = conn.Close()
 		return nil, err
@@ -252,18 +253,27 @@ func (c capConnector) Driver() driver.Driver { return c.drv }
 
 // capacityError types the SQLite "database is full" failure.
 func capacityError(err error) error {
-	var se sqlite3.Error
-	if errors.As(err, &se) && se.Code == sqlite3.ErrFull {
+	if sqliteCode(err)&0xff == sqlite3.SQLITE_FULL {
 		return fmt.Errorf("%w: %v", ErrCapacity, err)
 	}
 	return err
+}
+
+// sqliteCode returns the extended SQLite result code of err, or 0 when err is
+// not a SQLite error. The low byte is the primary code.
+func sqliteCode(err error) int {
+	var se *sqlite.Error
+	if errors.As(err, &se) {
+		return se.Code()
+	}
+	return 0
 }
 
 func openSQLite(path string, busy time.Duration, sync, journal string, maxPages int) (*sql.DB, error) {
 	if maxPages <= 0 {
 		maxPages = MaxPages
 	}
-	db := sql.OpenDB(capConnector{dsn: dsn(path, busy, sync, journal), drv: &sqlite3.SQLiteDriver{}, maxPages: maxPages})
+	db := sql.OpenDB(capConnector{dsn: dsn(path, busy, sync, journal), drv: &sqlite.Driver{}, maxPages: maxPages})
 	// One connection: statements of one operation share a transaction scope
 	// and the pool can never exceed the per-file lock budget.
 	db.SetMaxOpenConns(1)

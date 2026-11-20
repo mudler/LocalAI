@@ -347,8 +347,8 @@ dist/addons/web-0.1.0-linux-amd64.zip.sha256
 | `ADDON_EXECUTABLE` | A built executable to pack, instead of building one. Use it with one platform. A relative path is relative to the directory where you start `make`. |
 | `ADDONS_ZIP_DIR` | The output folder. |
 
-The build needs Go and Node.js, as `package.sh` does; the Tables add-on also
-needs a C toolchain. Without `ADDON`, the Sandbox add-on is skipped unless
+The build needs Go and Node.js, as `package.sh` does. No add-on needs a C
+toolchain. Without `ADDON`, the Sandbox add-on is skipped unless
 `SANDBOX_GUEST_IMAGE` is set, because its executable needs the reference of its
 guest image (see `scripts/addons/package.sh`). The same layout gives the same
 zip bytes, so you can rebuild a file and compare the sha256.

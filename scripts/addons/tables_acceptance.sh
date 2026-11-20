@@ -66,7 +66,7 @@ trap 'exit 143' HUP INT TERM
 # The binaries are built here, never taken from an earlier build: the server
 # embeds the UI build and every other part of the fixture.
 go build -p 2 -tags auth,nosqlite,purego_utp -o "$work/ui-test-server" ./tests/e2e-ui
-CGO_ENABLED=1 go build -p 2 -trimpath -o "$work/tables" ./addons/tables/cmd/tables
+CGO_ENABLED=0 go build -p 2 -trimpath -o "$work/tables" ./addons/tables/cmd/tables
 go build -p 2 -tags auth,nosqlite,purego_utp -o "$work/tables-cluster" ./tests/addons/tablesacceptance/cmd/tables-cluster
 
 evidence="$cache/tables-acceptance-evidence.json"
