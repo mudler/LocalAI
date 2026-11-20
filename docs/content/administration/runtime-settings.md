@@ -236,6 +236,7 @@ The `runtime_settings.json` file follows this structure. The `galleries` and `ba
   "context_size": 2048,
   "artifact_download_concurrency": 4,
   "max_concurrent_backend_operations": 2,
+  "max_concurrent_model_operations": 2,
   "f16": false,
   "debug": false,
   "cors": true,
