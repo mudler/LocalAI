@@ -7,6 +7,7 @@
 .cat-search { flex: 1 1 260px; min-width: 0; }
 .cat-chips { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
 
+.cat-failed { margin: var(--dk-space-1) 0 0; padding-left: var(--dk-space-4); overflow-wrap: anywhere; }
 .cat-count { margin: 0; min-height: 1.2em; font-size: var(--dk-text-13); color: var(--dk-muted); }
 
 .cat-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--dk-edge); }

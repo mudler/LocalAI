@@ -68,6 +68,8 @@ func natsSubject(nodeID, verb string) string {
 		return messaging.SubjectNodeModelOp(nodeID)
 	case workerctl.VerbModelDelete:
 		return messaging.SubjectNodeModelDelete(nodeID)
+	case workerctl.VerbModelPrefetch:
+		return messaging.SubjectNodeModelPrefetch(nodeID)
 	case workerctl.VerbFilesEnsure:
 		return messaging.SubjectNodeFilesEnsure(nodeID)
 	case workerctl.VerbFilesStage:

@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "update": {"update": "Mise à jour disponible", "edited": "Mise à jour disponible, vos choix sont nécessaires", "updating": "Mise à niveau en cours", "failed": "Échec de la mise à niveau", "held": "Bloqué sur cette version"},
     "supporting": "Trouvez un modèle adapté à cette machine, installez-le et gérez ceux que vous avez.",
     "title": "Modèles",
     "navLabel": "Cycle de vie des modèles",
@@ -33,8 +34,8 @@
       "load": "Charger",
       "loading": "Chargement…",
       "stop": "Arrêter",
-      "update": "Mettre à jour",
-      "updating": "Mise à jour…",
+      "reload": "Recharger",
+      "reloading": "Rechargement…",
       "enable": "Activer le modèle",
       "disable": "Désactiver le modèle",
       "pin": "Épingler (empêche le déchargement automatique)",
@@ -54,7 +55,7 @@
       "pin": "épingler",
       "unpin": "désépingler",
       "delete": "supprimer",
-      "update": "mettre à jour"
+      "reload": "recharger"
     },
     "toasts": {
       "loaded": "{{model}} chargé",
@@ -64,7 +65,7 @@
       "pinned": "{{model}} épinglé",
       "unpinned": "{{model}} désépinglé",
       "deleted": "{{model}} supprimé",
-      "updated": "Modèles mis à jour"
+      "reloaded": "Configurations des modèles rechargées"
     },
     "confirm": {
       "stopTitle": "Arrêter le modèle",

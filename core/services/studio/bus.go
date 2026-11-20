@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
-	"github.com/mudler/LocalAI/core/services/studio/fanout"
+	"github.com/mudler/LocalAI/core/services/notify/fanout"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 

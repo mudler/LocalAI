@@ -94,7 +94,7 @@ var _ = Describe("Subject rules", func() {
 			messaging.SubjectNodeBackendInstall(id), messaging.SubjectNodeBackendUpgrade(id),
 			messaging.SubjectNodeBackendList(id), messaging.SubjectNodeBackendStop(id),
 			messaging.SubjectNodeModelStop(id), messaging.SubjectNodeModelOp(id), messaging.SubjectNodeBackendDelete(id),
-			messaging.SubjectNodeModelUnload(id), messaging.SubjectNodeModelDelete(id),
+			messaging.SubjectNodeModelUnload(id), messaging.SubjectNodeModelDelete(id), messaging.SubjectNodeModelPrefetch(id),
 			messaging.SubjectNodeModelsRunning(id), messaging.SubjectNodeStop(id),
 			messaging.SubjectNodeFilesEnsure(id), messaging.SubjectNodeFilesStage(id),
 			messaging.SubjectNodeFilesRelease(id), messaging.SubjectNodeFilesTemp(id),

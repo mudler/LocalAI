@@ -376,6 +376,36 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(cfg.MinPrefixMatch).To(BeNumerically("~", 0.4, 1e-9), "omitted min_prefix_match must be preserved")
 		})
 
+		It("stores the upgrade strategy and keeps it when a later update omits it", func() {
+			ctx := context.Background()
+
+			rec := postScheduling(`{"model_name":"strategy-model","upgrade_strategy":"canary"}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var got nodes.ModelSchedulingConfig
+			Expect(json.Unmarshal(rec.Body.Bytes(), &got)).To(Succeed())
+			Expect(got.UpgradeStrategy).To(Equal(nodes.UpgradeStrategyCanary))
+
+			rec = postScheduling(`{"model_name":"strategy-model","min_replicas":2}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			cfg, err := registry.GetModelScheduling(ctx, "strategy-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.MinReplicas).To(Equal(2))
+			Expect(cfg.UpgradeStrategy).To(Equal(nodes.UpgradeStrategyCanary), "an omitted upgrade_strategy must be preserved")
+
+			rec = postScheduling(`{"model_name":"strategy-model","upgrade_strategy":"stop_and_start"}`)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			cfg, err = registry.GetModelScheduling(ctx, "strategy-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.EffectiveUpgradeStrategy()).To(Equal(nodes.UpgradeStrategyStopAndStart))
+		})
+
+		It("returns 400 for an unknown upgrade_strategy", func() {
+			rec := postScheduling(`{"model_name":"bad-strategy","upgrade_strategy":"blue_green"}`)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+			Expect(rec.Body.String()).To(ContainSubstring("upgrade_strategy"))
+		})
+
 		It("updates a prefix-cache field when it is explicitly provided", func() {
 			ctx := context.Background()
 

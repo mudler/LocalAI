@@ -3,6 +3,7 @@ package carrier
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync/atomic"
 	"time"
@@ -376,4 +377,20 @@ func (h *Agents) ExecuteMCPTool(ctx context.Context, req mcpRemote.MCPToolReques
 
 func (h *Agents) DiscoverMCPTools(ctx context.Context, req mcpRemote.MCPDiscoveryRequest) (*mcpRemote.MCPDiscoveryResponse, error) {
 	return h.pick(ctx).Agents.DiscoverMCPTools(ctx, req)
+}
+
+var _ nodes.ModelFilePrefetcher = (*Commands)(nil)
+
+// PrefetchModelFiles sends model.prefetch on the set that the node uses. A set
+// whose commands cannot send it is a route that does not exist.
+func (h *Commands) PrefetchModelFiles(ctx context.Context, nodeID string, req workerctl.ModelPrefetchRequest, timeout time.Duration) (*workerctl.ModelPrefetchReply, error) {
+	s, err := h.pick(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	p, ok := s.Commands.(nodes.ModelFilePrefetcher)
+	if !ok {
+		return nil, fmt.Errorf("%w: the %s carrier does not send model.prefetch", nodes.ErrNoRoute, s.Name)
+	}
+	return p.PrefetchModelFiles(ctx, nodeID, req, timeout)
 }

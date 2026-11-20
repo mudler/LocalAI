@@ -17,7 +17,7 @@ administrator always has all of them:
 
 | Feature | Default for a user | What it allows |
 |---|---|---|
-| `chats` | on | Chats, files, skills, notifications, push, your MCP connectors. A chat needs no more. |
+| `chats` | on | Chats, files, skills, your MCP connectors. A chat needs no more. The notification center does not need it: see [Inbox]({{% relref "/features/chats-and-agents/chats-agents#inbox" %}}). |
 | `agents` | off | Saved agents (`/api/chats/agents`) and starting a chat with one. |
 | `triggers` | off | Scheduled and file triggers (`/api/chats/triggers`): runs that start by themselves. |
 | `connectors` | off | Telegram and Slack bindings (`/api/chats/connectors`): a public door to one of your agents. |
@@ -67,7 +67,7 @@ what runs (`chats`, `agents`, `triggers`, `connectors`).
 
 | Setting | Default | Effect |
 |---|---|---|
-| `LOCALAI_DISABLE_CHATS` | `false` | Turns off the chats: the `/api/chats` API, saved agents, triggers, connectors, notifications and the agent jobs (`/api/chats/*`, `/api/workspace/*` and `/api/agent/*` answer `404` with the type `chats_off`). The files workspace of the add-ons is not affected. |
+| `LOCALAI_DISABLE_CHATS` | `false` | Turns off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent jobs (`/api/chats/*`, `/api/workspace/*` and `/api/agent/*` answer `404` with the type `chats_off`). The files workspace of the add-ons is not affected. The notification center (the bell, update and operation notices, browser push) keeps running on `/api/notifications`; a notification that points into a chat stays in the list and opens nothing. |
 | `LOCALAI_DISABLE_TRIGGERS` | `false` | Turns off the trigger runner. Trigger routes answer `409 triggers_off`. |
 | `LOCALAI_DISABLE_CONNECTORS` | `false` | Turns off the connector bots. Connector routes answer `409 connectors_off`. |
 | `LOCALAI_DISABLE_CONNECTOR_TALKBACK` | `false` | Turns off `send_message` and the reports of triggers to a channel for every connector binding. |

@@ -5,7 +5,6 @@ import "os"
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -1247,57 +1246,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 
-	app.POST("/api/models/config/:id", func(c echo.Context) error {
-		galleryID := c.Param("id")
-		// URL decode the gallery ID
-		galleryID, err := url.QueryUnescape(galleryID)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]any{
-				"error": "invalid model ID",
-			})
-		}
-		xlog.Debug("API job submitted to get config", "galleryID", galleryID)
-
-		models, err := gallery.AvailableGalleryModelsCached(appConfig.Galleries, appConfig.SystemState)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"error": err.Error(),
-			})
-		}
-
-		model := gallery.FindGalleryElement(models, galleryID)
-		if model == nil {
-			return c.JSON(http.StatusNotFound, map[string]any{
-				"error": "model not found",
-			})
-		}
-
-		config, err := gallery.GetGalleryConfigFromURL[gallery.ModelConfig](model.URL, appConfig.SystemState.Model.ModelsPath)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"error": err.Error(),
-			})
-		}
-
-		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false,
-			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer),
-			gallery.WithBackendAvailability(galleryService.BackendManager().BackendAvailable))
-		if err != nil {
-			if errors.Is(err, gallery.ErrBackendInstallDisabled) {
-				return c.JSON(http.StatusConflict, map[string]any{
-					"error": err.Error(),
-					"code":  "backend_not_installed",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"error": err.Error(),
-			})
-		}
-
-		return c.JSON(200, map[string]any{
-			"message": "Configuration file saved",
-		})
-	}, adminMiddleware)
+	// Removed: it rewrote a config synchronously, outside the queue. It
+	// answers 410 Gone for one release, pointing at the upgrade route.
+	app.POST("/api/models/config/:id", localai.RemovedModelConfigEndpoint(), adminMiddleware)
 
 	// Get installed model config as JSON (used by frontend for MCP detection, etc.)
 	app.GET("/api/models/config-json/:name", func(c echo.Context) error {

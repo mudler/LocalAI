@@ -31,6 +31,11 @@ import {
 } from '../utils/capabilities'
 import Icon from '../components/Icon'
 import { remoteIndex, remoteSubline } from '../utils/remotes'
+import { useUpdates } from '../contexts/UpdatesContext'
+import { modelIndicator, modelRowsByName } from '../utils/modelUpdates'
+import { useModelUpgradeActions } from '../hooks/useModelUpgradeActions'
+import ModelUpdateCard from '../components/updates/ModelUpdateCard'
+import { ModelActionDialogs } from '../components/updates/ModelUpgradeDialog'
 
 const USE_CASES = [
   { cap: CAP_CHAT, labelKey: 'chat', route: id => `/app/chats?model=${encodeURIComponent(id)}` },
@@ -136,6 +141,13 @@ export default function InstalledModels({
   const { enrichModel } = useGalleryEnrichment()
   const { operations } = useOperations()
   const { byName: failoverChains } = useFailoverChains()
+  // The update state of the gallery models, from the shell's one poll
+  // (administrators only; null or disabled for anyone else).
+  const updates = useUpdates()
+  const updatesOn = Boolean(updates && updates.enabled)
+  const updateRows = updatesOn ? updates.rows : null
+  const updateByName = useMemo(() => modelRowsByName(updateRows), [updateRows])
+  const modelUpgrade = useModelUpgradeActions({ readModels: updatesOn ? updates.readModels : null, addToast })
   const [loadedModelIds, setLoadedModelIds] = useState(() => new Set())
   const [aliasTargets, setAliasTargets] = useState({})
   const [distributedMode, setDistributedMode] = useState(false)
@@ -501,6 +513,8 @@ export default function InstalledModels({
           </div>
         )}
 
+        {updateByName[selectedModel.id] && <ModelUpdateCard row={updateByName[selectedModel.id]} model={modelUpgrade} />}
+
         <InstalledModelDetail
           model={selectedModel}
           enriched={enriched}
@@ -552,7 +566,7 @@ export default function InstalledModels({
             </div>
             <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={handleReload} disabled={pendingActions.has('models')}>
               <Icon name={pendingActions.has('models') ? 'spinner' : 'refresh'} spin={Boolean(pendingActions.has('models'))} />
-              {pendingActions.has('models') ? t('lifecycle.actions.updating') : t('lifecycle.actions.update')}
+              {pendingActions.has('models') ? t('lifecycle.actions.reloading') : t('lifecycle.actions.reload')}
             </button>
           </div>
         </div>
@@ -674,6 +688,9 @@ export default function InstalledModels({
                                 <span className="ledger-name__text">{model.id}</span>
                                 {model.remote && <RowMark icon="cloud" label={t('remotes.rowMark')} />}
                                 {model.pinned && <RowMark icon="pin" label={t('lifecycle.detail.pinned')} />}
+                                {modelIndicator(updateByName[model.id]) && (
+                                  <RowMark icon={modelIndicator(updateByName[model.id]).icon} label={t(`lifecycle.update.${modelIndicator(updateByName[model.id]).key}`)} />
+                                )}
                                 {aliasTargets[model.id] && <RowMark icon="swap" label={t('lifecycle.detail.alias', { target: aliasTargets[model.id] })} />}
                                 {chain && <RowMark icon="shuffle" label={t('lifecycle.detail.chain', { target: chain.active })} />}
                                 {Array.isArray(model.loaded_on) && model.loaded_on.length > 0 && distributedMode && (
@@ -744,6 +761,7 @@ export default function InstalledModels({
         onConfirm={confirmDialog?.onConfirm}
         onCancel={() => setConfirmDialog(null)}
       />
+      {updatesOn && <ModelActionDialogs model={modelUpgrade} />}
     </>
   )
 }

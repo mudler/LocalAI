@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -553,6 +554,80 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 		return "", err
 	}
 	return resp.ID, nil
+}
+
+// ---- Model updates ----
+
+func (c *Client) ModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error) {
+	var out modelupdates.Snapshot
+	if err := c.do(ctx, http.MethodGet, routeModelsUpdates, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) CheckModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error) {
+	var out modelupdates.Snapshot
+	if err := c.do(ctx, http.MethodPost, routeModelsUpdatesCheck, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) UpgradeModel(ctx context.Context, name string, configOnly bool, choices map[string]string) (string, error) {
+	if name == "" {
+		return "", errors.New("name is required")
+	}
+	var resp schema.ModelUpgradeResponse
+	body := schema.ModelUpgradeRequest{ConfigOnly: configOnly, Choices: choices}
+	if err := c.do(ctx, http.MethodPost, routeModelUpgrade(name), body, &resp); err != nil {
+		return "", err
+	}
+	return resp.JobID, nil
+}
+
+func (c *Client) RetryModelUpgrade(ctx context.Context, name string) (string, error) {
+	if name == "" {
+		return "", errors.New("name is required")
+	}
+	var resp schema.ModelUpgradeResponse
+	if err := c.do(ctx, http.MethodPost, routeModelPath(name, "upgrade/retry"), nil, &resp); err != nil {
+		return "", err
+	}
+	return resp.JobID, nil
+}
+
+func (c *Client) RemoveOldModelVersion(ctx context.Context, name string) (*localaitools.ModelRemoveOldResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	var resp schema.ModelRemoveOldResponse
+	if err := c.do(ctx, http.MethodPost, routeModelPath(name, "remove-old"), nil, &resp); err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelRemoveOldResult{Name: resp.Name, Removed: resp.Removed, Kept: resp.Kept, Errors: resp.Errors}, nil
+}
+
+func (c *Client) SetModelHold(ctx context.Context, name string, hold bool) (*localaitools.ModelHoldResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	var resp schema.ModelHoldResponse
+	if err := c.do(ctx, http.MethodPut, routeModelPath(name, "hold"), schema.ModelHoldRequest{Hold: hold}, &resp); err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelHoldResult{Name: resp.Name, Hold: resp.Hold}, nil
+}
+
+func (c *Client) AdoptModel(ctx context.Context, name, galleryName, entry string) (*localaitools.ModelAdoptResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	var resp schema.ModelAdoptResponse
+	if err := c.do(ctx, http.MethodPost, routeModelPath(name, "adopt"), schema.ModelAdoptRequest{Gallery: galleryName, Entry: entry}, &resp); err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelAdoptResult{Name: resp.Name, Gallery: resp.Gallery, Entry: resp.Entry, FilesMatch: resp.FilesMatch}, nil
 }
 
 // ---- System ----

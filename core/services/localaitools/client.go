@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
 
@@ -86,6 +87,28 @@ type LocalAIClient interface {
 	// returns when the install is done.
 	InstallLibraryBackend(ctx context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error)
 	UpgradeBackend(ctx context.Context, name string) (jobID string, err error)
+
+	// ---- Model updates ----
+	// ModelUpdates returns the installed gallery models with their update
+	// state, as of the last check. It contacts no gallery.
+	ModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error)
+	// CheckModelUpdates reads the galleries now, waits for the check and
+	// returns the new data. It installs nothing.
+	CheckModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error)
+	// UpgradeModel queues the upgrade of an installed gallery model. With
+	// configOnly it applies the config and templates only. choices give mine
+	// or gallery for each edited key the update changes.
+	UpgradeModel(ctx context.Context, name string, configOnly bool, choices map[string]string) (jobID string, err error)
+	// RetryModelUpgrade queues the last, failed upgrade of a model again.
+	RetryModelUpgrade(ctx context.Context, name string) (jobID string, err error)
+	// RemoveOldModelVersion deletes the files the last confirmed upgrade kept.
+	RemoveOldModelVersion(ctx context.Context, name string) (*ModelRemoveOldResult, error)
+	// SetModelHold holds a model at its version, or releases it.
+	SetModelHold(ctx context.Context, name string, hold bool) (*ModelHoldResult, error)
+	// AdoptModel records the gallery origin of a model installed by an
+	// earlier release (state unknown, reason legacy). galleryName and entry
+	// are optional; a refusal lists the candidates.
+	AdoptModel(ctx context.Context, name, galleryName, entry string) (*ModelAdoptResult, error)
 
 	// ---- System ----
 	SystemInfo(ctx context.Context) (*SystemInfo, error)

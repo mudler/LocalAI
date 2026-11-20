@@ -44,8 +44,8 @@ export async function mockOriginChats(page, { person = PERSON, automated = AUTOM
   await page.route(/\/api\/chats\/connectors(\?.*)?$/, route => route.fulfill({ json: { connectors: CONNECTORS } }))
   await page.route('**/api/chats/connectors/kinds', route => route.fulfill({ json: { kinds: KINDS } }))
   await page.route(/\/api\/chats\/triggers(\?.*)?$/, route => route.fulfill({ json: { triggers: TRIGGERS } }))
-  await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications, unread: notifications.length, total: notifications.length } }))
-  await page.route('**/api/chats/notifications/events', route => route.abort())
+  await page.route(/\/api\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications, unread: notifications.length, total: notifications.length } }))
+  await page.route('**/api/notifications/events', route => route.abort())
   await page.route(/\/api\/chats\/search(\?.*)?$/, (route) => {
     const q = (new URL(route.request().url()).searchParams.get('q') || '').toLowerCase()
     const hits = [...person, ...automated].filter(c => c.title.toLowerCase().includes(q)).map(c => ({ chat: c, in_title: true }))

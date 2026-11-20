@@ -25,6 +25,7 @@ const (
 	VerbModelUnload    = "model.unload"
 	VerbModelStop      = "model.stop"
 	VerbModelDelete    = "model.delete"
+	VerbModelPrefetch  = "model.prefetch"
 	VerbModelOp        = "model.op"
 	VerbNodeStop       = "node.stop"
 	VerbFilesEnsure    = "files.ensure"
@@ -41,7 +42,7 @@ func AllVerbs() []string {
 	return []string{
 		VerbBackendInstall, VerbBackendUpgrade, VerbBackendStop, VerbBackendDelete,
 		VerbBackendList, VerbModelsRunning, VerbModelUnload, VerbModelStop,
-		VerbModelDelete, VerbModelOp, VerbNodeStop,
+		VerbModelDelete, VerbModelPrefetch, VerbModelOp, VerbNodeStop,
 		VerbFilesEnsure, VerbFilesStage, VerbFilesTemp, VerbFilesListDir, VerbFilesRelease,
 	}
 }

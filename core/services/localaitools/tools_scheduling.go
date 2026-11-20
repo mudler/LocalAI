@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/mudler/LocalAI/core/services/nodes"
 )
 
 func registerSchedulingTools(s *mcp.Server, client LocalAIClient, opts Options) {
@@ -54,6 +56,9 @@ func registerSchedulingTools(s *mcp.Server, client LocalAIClient, opts Options) 
 		}
 		if args.MaxReplicas > 0 && args.MinReplicas > args.MaxReplicas {
 			return errorResultf("min_replicas must be <= max_replicas"), nil, nil
+		}
+		if args.UpgradeStrategy != nil && !nodes.ValidUpgradeStrategy(*args.UpgradeStrategy) {
+			return errorResultf("upgrade_strategy must be %q or %q", nodes.UpgradeStrategyStopAndStart, nodes.UpgradeStrategyCanary), nil, nil
 		}
 		config, err := client.SetScheduling(ctx, args)
 		if err != nil {

@@ -408,6 +408,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Token:          cfg.Distributed.RegistrationToken,
 		S3Staging:      cfg.Distributed.StorageURL != "",
 		FileManager:    fileMgr,
+		ExpectedSHA256: managedFileSHA256(cfg),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("building the routes of the tunnel: %w", err)

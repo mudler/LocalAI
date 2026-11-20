@@ -315,7 +315,15 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
       // Backends belong to the Backends page. The request asks for add-ons
       // only; an entry that still says it is a backend is dropped here too.
       const releases = (Array.isArray(payload?.releases) ? payload.releases : []).filter(r => !r.kind || r.kind === 'addon')
-      return { entries: releases.map(toEntry), total: Number(payload?.total) || 0, offset }
+      // The libraries the owner could not read. The entries of the others are
+      // in the page; each failed one says why, and when it last loaded.
+      const failed = (Array.isArray(payload?.failed) ? payload.failed : []).map(f => ({
+        sourceId: String(f?.sourceId || ''),
+        name: String(f?.name || f?.sourceId || ''),
+        error: String(f?.error || ''),
+        lastSuccess: f?.lastSuccess || '',
+      }))
+      return { entries: releases.map(toEntry), total: Number(payload?.total) || 0, offset, failed }
     },
     async details(key, signal) {
       const [sourceId, addonId, version] = String(key).split('/')

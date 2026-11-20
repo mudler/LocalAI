@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -231,6 +232,7 @@ func (rt *carrierRuntime) buildNATS(ctx context.Context, row cluster.CarrierRow,
 		Token:          d.RegistrationToken,
 		S3Staging:      d.StorageURL != "",
 		FileManager:    rt.fileMgr,
+		ExpectedSHA256: managedFileSHA256(rt.cfg),
 		HTTPAddrFor: func(nodeID string) (string, error) {
 			node, err := rt.registry.Get(context.Background(), nodeID)
 			if err != nil {
@@ -276,6 +278,7 @@ func (rt *carrierRuntime) buildTunnel(ctx context.Context, row cluster.CarrierRo
 		Token:          d.RegistrationToken,
 		S3Staging:      d.StorageURL != "",
 		FileManager:    rt.fileMgr,
+		ExpectedSHA256: managedFileSHA256(rt.cfg),
 		Self:           rt.instanceID,
 		Peers:          rt.peerPool,
 		Replies:        rt.replies,
@@ -425,4 +428,16 @@ func (w workCounts) InFlight(ctx context.Context) (cluster.InFlight, error) {
 		return cluster.InFlight{}, fmt.Errorf("counting the models that load: %w", err)
 	}
 	return cluster.InFlight{Loads: int(loads)}, nil
+}
+
+// managedFileSHA256 returns the sha256 that the gallery recorded for a model
+// file, so that the S3 stager makes a worker replace a cached copy that a
+// model upgrade changed. It returns "" for a file the gallery does not manage.
+func managedFileSHA256(cfg *config.ApplicationConfig) func(localPath string) string {
+	return func(localPath string) string {
+		if cfg.SystemState == nil {
+			return ""
+		}
+		return gallery.ManagedFileSHA256(cfg.SystemState.Model.ModelsPath, localPath)
+	}
 }

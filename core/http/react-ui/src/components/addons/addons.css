@@ -394,6 +394,7 @@
 .cat-source__url { margin: 2px 0 0; font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-muted); overflow-wrap: anywhere; word-break: break-all; }
 .cat-source__conflict { display: flex; align-items: flex-start; gap: var(--sp-2); margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--dk-warn-text); overflow-wrap: anywhere; }
 .cat-source__conflict .lai-icon { flex: none; margin-top: 2px; }
+.cat-source__conflict--error { color: var(--dk-error-text); }
 .cat-source[data-state="removed"] .cat-source__title, .cat-source[data-state="removed"] .cat-source__url { text-decoration: line-through; color: var(--dk-muted); }
 .cat-source[data-state="suspended"] .cat-source__title { color: var(--dk-muted); }
 .cat-source__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }

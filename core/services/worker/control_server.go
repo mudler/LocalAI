@@ -23,6 +23,7 @@ const (
 	verbModelUnload    controlVerb = workerctl.VerbModelUnload
 	verbModelStop      controlVerb = workerctl.VerbModelStop
 	verbModelDelete    controlVerb = workerctl.VerbModelDelete
+	verbModelPrefetch  controlVerb = workerctl.VerbModelPrefetch
 	verbModelOp        controlVerb = workerctl.VerbModelOp
 	verbNodeStop       controlVerb = workerctl.VerbNodeStop
 	verbFilesEnsure    controlVerb = workerctl.VerbFilesEnsure

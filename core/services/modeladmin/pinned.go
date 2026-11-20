@@ -32,7 +32,7 @@ func (s *ConfigService) TogglePinned(_ context.Context, name string, action Acti
 	if err := utils.VerifyResolvedPath(configPath, s.modelsPath()); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 	}
-	if err := mutateYAMLBoolFlag(configPath, "pinned", action == ActionPin); err != nil {
+	if err := mutateYAMLBoolFlag(configPath, name, "pinned", action == ActionPin); err != nil {
 		return nil, err
 	}
 	if err := s.Loader.LoadModelConfigsFromPath(s.modelsPath(), s.AppConfig.ToConfigLoaderOptions()...); err != nil {

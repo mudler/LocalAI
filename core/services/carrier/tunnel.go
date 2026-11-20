@@ -47,6 +47,9 @@ type TunnelOptions struct {
 	// FileManager is the shared store, and it is required with S3Staging.
 	S3Staging   bool
 	FileManager *storage.FileManager
+	// ExpectedSHA256 gives the S3 stager the sha256 a staged file must have
+	// (nodes.S3FileStager.ExpectedSHA256). Nil sends none.
+	ExpectedSHA256 func(localPath string) string
 
 	// Self, Peers and Replies give the set request and reply between replicas:
 	// Self is the id of this replica, Peers sends a request to another one, and
@@ -131,7 +134,9 @@ func newTunnelRoutes(o TunnelOptions) (*Set, *nodes.ControlClient, error) {
 		}
 		// The bytes go through the object store, and only the verbs go through
 		// the tunnel, so the lane of the files is not needed.
-		files = nodes.NewS3TunnelFileStager(o.FileManager, control)
+		s3 := nodes.NewS3TunnelFileStager(o.FileManager, control)
+		s3.ExpectedSHA256 = o.ExpectedSHA256
+		files = s3
 	} else {
 		stager := nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
 			// The host is never dialled: the dialer opens a stream on the tunnel of

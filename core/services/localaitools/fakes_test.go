@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
 
@@ -269,6 +270,41 @@ func (f *fakeClient) UpgradeBackend(_ context.Context, name string) (string, err
 		return f.upgradeBackend(name)
 	}
 	return "", errNotConfigured
+}
+
+func (f *fakeClient) ModelUpdates(_ context.Context) (*modelupdates.Snapshot, error) {
+	f.record("ModelUpdates", nil)
+	return &modelupdates.Snapshot{Items: []modelupdates.Item{}}, nil
+}
+
+func (f *fakeClient) CheckModelUpdates(_ context.Context) (*modelupdates.Snapshot, error) {
+	f.record("CheckModelUpdates", nil)
+	return &modelupdates.Snapshot{Items: []modelupdates.Item{}}, nil
+}
+
+func (f *fakeClient) UpgradeModel(_ context.Context, name string, configOnly bool, choices map[string]string) (string, error) {
+	f.record("UpgradeModel", map[string]any{"name": name, "config_only": configOnly, "choices": choices})
+	return "job-model", nil
+}
+
+func (f *fakeClient) RetryModelUpgrade(_ context.Context, name string) (string, error) {
+	f.record("RetryModelUpgrade", name)
+	return "job-retry", nil
+}
+
+func (f *fakeClient) RemoveOldModelVersion(_ context.Context, name string) (*ModelRemoveOldResult, error) {
+	f.record("RemoveOldModelVersion", name)
+	return &ModelRemoveOldResult{Name: name, Removed: []string{}}, nil
+}
+
+func (f *fakeClient) SetModelHold(_ context.Context, name string, hold bool) (*ModelHoldResult, error) {
+	f.record("SetModelHold", map[string]any{"name": name, "hold": hold})
+	return &ModelHoldResult{Name: name, Hold: hold}, nil
+}
+
+func (f *fakeClient) AdoptModel(_ context.Context, name, galleryName, entry string) (*ModelAdoptResult, error) {
+	f.record("AdoptModel", map[string]any{"name": name, "gallery": galleryName, "entry": entry})
+	return &ModelAdoptResult{Name: name, Gallery: galleryName, Entry: entry}, nil
 }
 
 func (f *fakeClient) SystemInfo(_ context.Context) (*SystemInfo, error) {

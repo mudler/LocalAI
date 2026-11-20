@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 var _ = Describe("InstalledModelFiles", func() {
@@ -49,5 +50,16 @@ files:
 
 	It("returns nothing for a model that was not installed from a gallery", func() {
 		Expect(gallery.InstalledModelFiles(modelsPath, "handwritten")).To(BeEmpty())
+	})
+})
+
+var _ = Describe("FilesInUse", func() {
+	It("counts the model file of a config named .yml", func() {
+		dir := GinkgoT().TempDir()
+		state, err := system.GetSystemState(system.WithModelPath(dir))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(dir, "other.yml"), []byte("name: other\nparameters:\n  model: shared.gguf\n"), 0o644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "shared.gguf"), []byte("w"), 0o644)).To(Succeed())
+		Expect(gallery.FilesInUse(state, "tiny")).To(HaveKeyWithValue("shared.gguf", []string{"other"}))
 	})
 })

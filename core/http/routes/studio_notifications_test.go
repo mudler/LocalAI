@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/notify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

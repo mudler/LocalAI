@@ -373,6 +373,16 @@ runs every carrier in `loadOperationCarriers` against it. Whether a worker
 names operations is the worker's own report (`BackendInstallReply.ReportsOperations`),
 not a property of the carrier.
 
+`model.prefetch` (`workerctl.ModelPrefetchRequest`, actions `stage`, `commit`,
+`discard`) is outside `NodeCommandSender`: `nodes.ModelFilePrefetcher` sends it
+(`nodeControl.PrefetchModelFiles` on either link, `carrier.Commands` routes it to
+the set of the node) and `nodes.UpgradeFiles` drives it for a model upgrade, so a
+worker downloads and verifies its own files. An older worker does not serve it
+(`ErrNoRoute`, also for a 404 on the HTTP link); the upgrade logs that and the
+worker gets the files from the frontend at its next load. Nothing on that path
+fails the upgrade except a failed object storage delete at commit. The worker
+runs its requests one at a time on every carrier.
+
 Worker half: each verb is a `controlVerb`, named by the constants of
 `core/services/workerctl` (`workerctl.AllVerbs` lists them). A handler is typed
 with `unary`, `withProgress` or `noReply` and registered with `handle` (one

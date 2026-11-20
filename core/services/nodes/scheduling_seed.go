@@ -75,6 +75,7 @@ type SeedSchedulingEntry struct {
 	BalanceRelThreshold float64            `json:"balance_rel_threshold,omitempty" yaml:"balance_rel_threshold,omitempty"`
 	MinPrefixMatch      float64            `json:"min_prefix_match,omitempty" yaml:"min_prefix_match,omitempty"`
 	ScorerWeights       map[string]float64 `json:"scorer_weights,omitempty" yaml:"scorer_weights,omitempty"`
+	UpgradeStrategy     string             `json:"upgrade_strategy,omitempty" yaml:"upgrade_strategy,omitempty"`
 }
 
 // spread reports whether this entry requests spread-to-all-matching-nodes mode,
@@ -108,6 +109,9 @@ func ValidateSeedEntry(e SeedSchedulingEntry) error {
 	if err := prefixcache.ValidateScorerWeights(e.ScorerWeights); err != nil {
 		return fmt.Errorf("%w (model %q)", err, e.ModelName)
 	}
+	if !ValidUpgradeStrategy(e.UpgradeStrategy) {
+		return fmt.Errorf("upgrade_strategy must be %q or %q (model %q)", UpgradeStrategyStopAndStart, UpgradeStrategyCanary, e.ModelName)
+	}
 	return nil
 }
 
@@ -131,6 +135,7 @@ func (e SeedSchedulingEntry) toConfig() (ModelSchedulingConfig, error) {
 		BalanceRelThreshold: e.BalanceRelThreshold,
 		MinPrefixMatch:      e.MinPrefixMatch,
 		ScorerWeights:       e.ScorerWeights,
+		UpgradeStrategy:     e.UpgradeStrategy,
 	}, nil
 }
 

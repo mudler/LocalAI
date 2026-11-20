@@ -55,6 +55,7 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	registerModelTools(srv, client, opts)
 	registerAliasTools(srv, client, opts)
 	registerBackendTools(srv, client, opts)
+	registerModelUpdateTools(srv, client, opts)
 	registerConfigTools(srv, client, opts)
 	registerSystemTools(srv, client, opts)
 	registerSchedulingTools(srv, client, opts)

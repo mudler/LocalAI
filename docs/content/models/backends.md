@@ -95,8 +95,9 @@ Each open row displays:
 ## The Updates page
 
 **Admin → Updates** (`/app/updates`) is the one place that answers "what is
-out of date, and what is changing". It is for administrators. It lists three
-kinds of things: backends of the gallery, backends of a library, and add-ons.
+out of date, and what is changing". It is for administrators. It lists backends of the gallery, backends of a library, add-ons and, in their
+own rows, the installed gallery models whose entry changed (see [Model
+updates]({{% relref "/models/model-updates" %}}); models never take part in **Update N ready**).
 
 At the top, one sentence says how many updates there are and how many are ready,
 updating or need you. Under it a line for each source (the backend gallery, the
@@ -170,7 +171,7 @@ shows the count above, so the two numbers differ while an operation has failed.
 
 ## Updates in the inbox
 
-Administrators get updates in the [inbox]({{% relref "/features/chats-and-agents/chats-agents#inbox" %}}) (the **Notifications** entry in the sidebar), so they see them on any page and, through browser push and a Telegram chat, away from the browser. Three kinds of item exist. Every one has a `code` and `params`, so the app words it in your language. Every one is for administrators only (when authentication is off, for the one local user). With the chats off there are none.
+Administrators get updates in the [inbox]({{% relref "/features/chats-and-agents/chats-agents#inbox" %}}) (the **Notifications** entry in the sidebar), so they see them on any page and, through browser push and a Telegram chat, away from the browser. Four kinds of item exist. Every one has a `code` and `params`, so the app words it in your language. Every one is for administrators only (when authentication is off, for the one local user). They work with the chats on or off, and they never go to a Telegram or Slack chat: only the runs of your triggers and connectors do.
 
 - **The digest**, "N backend updates available". It counts the backend updates (gallery and library) that need a person: the same updates the badge of the Updates tab counts for backends. It does not count a backend that **Update backends automatically** covers, so with that setting on there is no digest, and a stored digest is removed. With the setting off, every update that the last check found is counted, and a server that refuses backend installs counts none. There is one digest for each administrator, kept up to date in place:
   - the first update creates it;
@@ -179,7 +180,8 @@ Administrators get updates in the [inbox]({{% relref "/features/chats-and-agents
   - when you delete it, it is hidden, not forgotten. It stays hidden while the updates are the same or fewer, and it comes back, unread, for the next new update;
   - when none is left it is removed. A later update is then new again.
   The digest changes only when every source that can be checked answered in that pass. A failed check does not turn "unknown" into "all done".
-- **The result of an automatic pass**, "Backends: 2 updated automatically, 1 failed". When the automatic update installed or failed to install something, the pass writes one item, with the counts and the names. A pass that did nothing writes nothing. The item is a failure (red) when anything failed, and then it links to the updates that need you. A report is written once: the same failure of the same release at the next pass (the pass retries every six hours) does not write it again, also after you deleted the first item. A different release, or a different set of outcomes, is a new item. Add-ons write their own item in their own pass (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})).
+- **The result of an automatic pass**, "Backends: 2 updated automatically, 1 failed". When the automatic update installed or failed to install something, the pass writes one item, with the counts and the names. A pass that did nothing writes nothing. The item is a failure (red) when anything failed, and then it links to the updates that need you. A report is written once: the same failure of the same release at the next pass (the pass retries every six hours) does not write it again, also after you deleted the first item. A different release, or a different set of outcomes, is a new item. Gallery models write their own items (see [Model updates]({{% relref "/models/model-updates#where-you-see-it" %}})). Add-ons write their own item in their own pass (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})).
+- **The end of an operation**, "Model qwen3-4b installed" or "Backend whisper: install failed". When an install, removal or upgrade that an administrator started completes, fails or is cancelled, the frontend that ran it writes one item for each administrator (code `updates.opDone`, or `updates.opFailed` with the outcome `failed` or `cancelled`). It is a once item keyed by the operation, so it is written once. A failure carries the reason. Model items open the Models page, backend items the Updates page.
 - **The failed check**, "The update check failed". When the automatic check of the backend gallery or the backend library fails in two passes in a row (more than half a day), one item names the sources. It is removed when the check works again, and written again only if a source fails again for two passes. The Updates page shows the same failure on its source line at once.
 
 Each item opens the Updates page on the list it is about: the digest opens **Ready**, a result with a failure or a held update opens **Needs you**.

@@ -49,6 +49,48 @@ type ModelDeleteReply struct {
 	Error   string `json:"error,omitempty"`
 }
 
+// The actions of a model.prefetch control request.
+const (
+	// PrefetchStage downloads each file to <place>.next on the worker and
+	// verifies its sha256. The copy in place is not touched.
+	PrefetchStage = "stage"
+	// PrefetchCommit moves each staged file into its place. A file with no
+	// staged copy has its copy in place removed, so the next load of the
+	// model sends the frontend's file.
+	PrefetchCommit = "commit"
+	// PrefetchDiscard removes the staged files and, with Evict, the copies in
+	// place too.
+	PrefetchDiscard = "discard"
+)
+
+// ModelPrefetchFile is one file of a model.prefetch request. Filename is the
+// path relative to the frontend models directory, with "/" separators. The
+// worker keeps it under the model's directory, where a load stages it.
+type ModelPrefetchFile struct {
+	Filename string `json:"filename"`
+	URI      string `json:"uri,omitempty"`
+	SHA256   string `json:"sha256,omitempty"`
+}
+
+// ModelPrefetchRequest asks a worker to download, place or drop the files of
+// a model upgrade. It carries the resolved files, not a gallery entry, so a
+// worker needs no gallery access. ModelName is the name the router stages the
+// model under (its tracking key).
+type ModelPrefetchRequest struct {
+	Action    string              `json:"action"`
+	ModelName string              `json:"model_name"`
+	Files     []ModelPrefetchFile `json:"files"`
+	Evict     bool                `json:"evict,omitempty"`
+}
+
+// ModelPrefetchReply is the answer to a model.prefetch request. Placed lists
+// the files the worker now holds in place (commit) or staged (stage).
+type ModelPrefetchReply struct {
+	Success bool     `json:"success"`
+	Error   string   `json:"error,omitempty"`
+	Placed  []string `json:"placed,omitempty"`
+}
+
 // ModelsRunningRequest is the payload for a models.running control request.
 type ModelsRunningRequest struct{}
 

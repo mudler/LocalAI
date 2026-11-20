@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -129,6 +130,28 @@ var _ = Describe("Worker exact-key staging release", func() {
 		Expect(remotePath).NotTo(BeAnExistingFile())
 	})
 
+	It("downloads a model file again when its cached copy has another sha256 than the frontend expects", func() {
+		cacheDir := canonicalWorkerTempDir()
+		key := "models/tiny/tiny.gguf"
+		cachePath := filepath.Join(cacheDir, filepath.FromSlash(key))
+		Expect(os.MkdirAll(filepath.Dir(cachePath), 0o750)).To(Succeed())
+		Expect(os.WriteFile(cachePath, []byte("v1"), 0o600)).To(Succeed())
+		store := &stagingObjectStore{payload: []byte("v2")}
+		fm, err := storage.NewFileManager(store, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("using the cached copy when the frontend sends no sha256 (an older frontend)")
+		localPath, err := ensureWorkerFile(context.Background(), fm, nil, key, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.ReadFile(localPath)).To(Equal([]byte("v1")))
+
+		v2 := sha256.Sum256([]byte("v2"))
+		localPath, err = ensureWorkerFile(context.Background(), fm, nil, key, hex.EncodeToString(v2[:]))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.ReadFile(localPath)).To(Equal([]byte("v2")))
+		Expect(store.getCalls).To(Equal(1))
+	})
+
 	It("claims a startup-scanned cache hit against stale recovery until release", func() {
 		cacheDir := canonicalWorkerTempDir()
 		root := filepath.Join(cacheDir, "ephemeral")
@@ -146,7 +169,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 		fm, err := storage.NewFileManager(store, cacheDir)
 		Expect(err).NotTo(HaveOccurred())
 
-		localPath, err := ensureWorkerFile(context.Background(), fm, guard, key)
+		localPath, err := ensureWorkerFile(context.Background(), fm, guard, key, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(localPath).To(Equal(cachePath))
 		Expect(store.getCalls).To(BeZero())
@@ -189,7 +212,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		for range 2 {
-			localPath, ensureErr := ensureWorkerFile(context.Background(), fm, guard, key)
+			localPath, ensureErr := ensureWorkerFile(context.Background(), fm, guard, key, "")
 			Expect(ensureErr).NotTo(HaveOccurred())
 			Expect(localPath).To(Equal(cachePath))
 		}
@@ -212,7 +235,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 		fm, err := storage.NewFileManager(&stagingObjectStore{}, cacheDir)
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = ensureWorkerFile(context.Background(), fm, guard, key)
+		_, err = ensureWorkerFile(context.Background(), fm, guard, key, "")
 		var capacityErr *EphemeralCapacityError
 		Expect(errors.As(err, &capacityErr)).To(BeTrue())
 		Expect(capacityErr.RequestedBytes).To(Equal(int64(3)))
@@ -231,7 +254,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 		Expect(err).NotTo(HaveOccurred())
 		key := "ephemeral/audio/request-id/input.wav"
 
-		localPath, err := ensureWorkerFile(context.Background(), fm, guard, key)
+		localPath, err := ensureWorkerFile(context.Background(), fm, guard, key, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(localPath).To(BeAnExistingFile())
 		Expect(store.getCalls).To(Equal(1))
@@ -249,7 +272,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 		guard, err := NewEphemeralCapacityGuard([]string{filepath.Join(cacheDir, "ephemeral")}, 4, 0)
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = ensureWorkerFile(context.Background(), fm, guard, "ephemeral/audio/request-id/input.wav")
+		_, err = ensureWorkerFile(context.Background(), fm, guard, "ephemeral/audio/request-id/input.wav", "")
 		Expect(err).To(HaveOccurred())
 		Expect(store.getCalls).To(BeZero())
 	})
@@ -263,7 +286,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 4, 0)
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = ensureWorkerFile(context.Background(), fm, guard, "ephemeral/audio/request-id/input.wav")
+		_, err = ensureWorkerFile(context.Background(), fm, guard, "ephemeral/audio/request-id/input.wav", "")
 		Expect(err).To(MatchError(ContainSubstring("download failed")))
 		Expect(guard.Reserve(filepath.Join(root, "audio", "replacement", "input.wav"), 4)).To(Succeed())
 	})

@@ -38,6 +38,9 @@ type NATSOptions struct {
 	S3Staging bool
 	// FileManager is the object storage client of the S3 stager.
 	FileManager *storage.FileManager
+	// ExpectedSHA256 gives the S3 stager the sha256 a staged file must have
+	// (nodes.S3FileStager.ExpectedSHA256). Nil sends none.
+	ExpectedSHA256 func(localPath string) string
 	// HTTPAddrFor returns the address of a worker's file transfer server, for
 	// the HTTP stager.
 	HTTPAddrFor func(nodeID string) (string, error)
@@ -59,7 +62,9 @@ func NewNATSSet(o NATSOptions) (*Set, error) {
 
 	var files FileCarrier
 	if o.S3Staging {
-		files = nodes.NewS3NATSFileStager(o.FileManager, o.Client)
+		s3 := nodes.NewS3NATSFileStager(o.FileManager, o.Client)
+		s3.ExpectedSHA256 = o.ExpectedSHA256
+		files = s3
 	} else {
 		files = nodes.NewHTTPFileStager(o.HTTPAddrFor, o.Token, dial)
 	}

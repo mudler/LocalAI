@@ -21,7 +21,6 @@ const (
 	typeAuthz        = "authorization_error"
 	typeFilesOff     = "files_off"
 	typeAgentsOff    = "agents_off"
-	typeNotifyOff    = "notifications_off"
 	typeTriggersOff  = "triggers_off"
 	typeConnectorOff = "connectors_off"
 	// typeNotConnected and typeReconnectNeeded: an OAuth connection has no

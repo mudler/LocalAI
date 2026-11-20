@@ -1,0 +1,55 @@
+/* Model upgrade dialog and the model parts of the Updates and Models pages.
+   Prefix mu-. Tokens only. */
+
+.mu-body { display: flex; flex-direction: column; gap: var(--sp-4); }
+.mu-body .ui-callout { margin: 0; }
+.mu-section { display: flex; flex-direction: column; gap: var(--sp-2); }
+.mu-title { margin: 0; font-size: var(--text-sm); font-weight: var(--font-weight-semibold); }
+.mu-count { margin-inline-start: var(--sp-1); color: var(--dk-muted); font-weight: var(--font-weight-regular); font-size: var(--text-xs); }
+.mu-note { margin: 0; font-size: var(--text-sm); color: var(--dk-muted); overflow-wrap: anywhere; }
+.mu-none { color: var(--dk-muted); }
+/* Ligatures off: a template value such as <|user|> must read as typed. */
+.mu-value, .mu-file__path, .mu-key__name code { font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; font-variant-ligatures: none; }
+
+.mu-files { list-style: none; margin: 0; padding: 0; border: 1px solid var(--dk-edge); border-radius: var(--r-md); max-height: min(30vh, 16rem); overflow-y: auto; }
+.mu-file { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-1) var(--sp-3); padding: var(--sp-2) var(--sp-3); }
+.mu-file + .mu-file { border-top: 1px solid var(--dk-edge); }
+.mu-file__path { min-width: 0; flex: 1 1 200px; color: var(--dk-text); }
+.mu-file__meta { font-size: var(--text-xs); color: var(--dk-muted); }
+.mu-file[data-change="removed"] .mu-file__path { text-decoration: line-through; color: var(--dk-muted); }
+
+.mu-check { display: flex; align-items: flex-start; gap: var(--sp-2); font-size: var(--text-sm); cursor: pointer; }
+.mu-check > span { display: flex; flex-direction: column; gap: 2px; }
+.mu-check__hint { color: var(--dk-muted); font-size: var(--text-xs); }
+
+.mu-keys { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.mu-key { border: 1px solid var(--dk-edge); border-radius: var(--r-md); padding: var(--sp-3); }
+.mu-key:not([data-chosen]) { border-color: color-mix(in srgb, var(--dk-warn-text) 45%, var(--dk-edge)); }
+.mu-key__set { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2) var(--sp-4); }
+.mu-key__name { grid-column: 1 / -1; padding: 0; margin-bottom: var(--sp-1); font-weight: var(--font-weight-semibold); }
+.mu-key__opt { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; cursor: pointer; }
+.mu-key__opt input { margin-top: 3px; flex: none; }
+.mu-key__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mu-key__label { font-size: var(--text-sm); }
+
+.mu-adopt { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.mu-adopt .mu-title { padding: 0; margin-bottom: var(--sp-1); }
+.mu-adopt__opt { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; padding: var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-md); cursor: pointer; }
+.mu-adopt__opt:has(input:checked) { border-color: var(--dk-accent); }
+.mu-adopt__opt input { margin-top: 3px; flex: none; }
+.mu-adopt__opt .mu-key__label { overflow-wrap: anywhere; }
+
+.mu-foot-note { margin-inline-end: auto; font-size: var(--text-xs); color: var(--dk-warn-text); align-self: center; }
+
+/* The update state of a model in the Models inspector. */
+.mu-model { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-md); }
+.mu-model__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.mu-model__line { margin: 0; font-size: var(--text-sm); color: var(--dk-muted); overflow-wrap: anywhere; }
+.mu-model__hold { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); font-size: var(--text-sm); }
+.mu-model__hold-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mu-model__hint { font-size: var(--text-xs); color: var(--dk-muted); }
+
+@media (max-width: 639px) {
+  .mu-key__set { grid-template-columns: minmax(0, 1fr); }
+  .mu-foot-note { flex: 1 1 100%; }
+}

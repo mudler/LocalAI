@@ -303,9 +303,15 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// The watchdog stops load operations the controller no longer renews.
 	go supervisor.runOperationWatchdog(shutdownCtx)
 
+	// One prefetcher for every control server, so its requests run one at a
+	// time whichever carrier delivers them.
+	prefetcher := newModelPrefetcher(cfg)
 	registerVerbs = func(control controlServer) error {
 		if err := supervisor.registerLifecycleVerbs(control); err != nil {
 			return fmt.Errorf("serving the worker lifecycle verbs: %w", err)
+		}
+		if err := prefetcher.register(control); err != nil {
+			return fmt.Errorf("serving model.prefetch: %w", err)
 		}
 		// Serve the file staging verbs only when S3 is configured
 		if cfg.StorageURL != "" {

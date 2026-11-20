@@ -158,9 +158,9 @@ export async function installAgents(page, {
     if (!files[path]) return err(route, 404, 'not found')
     return route.fulfill({ json: { path, entries: files[path] } })
   })
-  await page.route('**/api/chats/notifications/events', route => route.abort())
-  await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0 } }))
-  await page.route('**/api/chats/push/**', route => err(route, 409, 'push off'))
+  await page.route('**/api/notifications/events', route => route.abort())
+  await page.route(/\/api\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0 } }))
+  await page.route('**/api/notifications/push/**', route => err(route, 409, 'push off'))
 
   // Agents.
   await page.route(/\/api\/chats\/agents\/[^/?]+$/, route => {
