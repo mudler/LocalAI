@@ -100,6 +100,8 @@ const POLICY = {
 //   onModelCheck() returns the model read model a check answers (counted in modelChecks)
 //   modelCalls    every model action the page sent: { action, name, body }
 //   modelReply(action, name, body) returns { status, json } to refuse one
+//   onModelAction(action, name, body, state) changes the answers once an action was accepted;
+//                 set state there, not before the click, or a refresh in between redraws the row
 //   loaded        the loaded models GET /system lists (for the dialog)
 export async function mockUpdates(page, options = {}) {
   const state = {
@@ -108,6 +110,7 @@ export async function mockUpdates(page, options = {}) {
     modelCalls: [],
     modelChecks: 0,
     modelReply: null,
+    onModelAction: null,
     loaded: null,
     snapshot: snapshotOf([]),
     updatesStatus: 200,
@@ -173,6 +176,7 @@ export async function mockUpdates(page, options = {}) {
     state.modelCalls.push({ action, name, body })
     const refused = state.modelReply ? state.modelReply(action, name, body, state) : null
     if (refused) return route.fulfill({ status: refused.status, json: refused.json })
+    if (state.onModelAction) state.onModelAction(action, name, body, state)
     if (action === 'remove-old') return route.fulfill({ json: { name, removed: ['old-1.gguf', 'old-2.gguf'] } })
     if (action === 'adopt') return route.fulfill({ json: { name, gallery: body.gallery || 'localai', entry: body.entry || name, filesMatch: true } })
     if (action === 'hold') return route.fulfill({ json: { name, hold: Boolean(body.hold) } })

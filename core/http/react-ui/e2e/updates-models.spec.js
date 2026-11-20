@@ -189,8 +189,13 @@ test.describe('Updates page: models', () => {
     const row = rowOf(page, 'whisper-base')
     await expect(row).toContainText('The upgrade failed: not enough disk space: 3 GB needed. The old version keeps serving.')
     await expect(row.getByTestId('update-row-chip')).toHaveClass(/ui-chip--error/)
-    state.models = modelSnapshotOf([modelItem('whisper-base', 'update-available')])
-    state.operations = [modelOp('whisper-base', 'preflight')]
+    // The server changes when it takes the retry. Changing it before the click
+    // lets a refresh in between redraw the row, and the click finds it gone.
+    state.onModelAction = (action, _name, _body, s) => {
+      if (action !== 'retry') return
+      s.models = modelSnapshotOf([modelItem('whisper-base', 'update-available')])
+      s.operations = [modelOp('whisper-base', 'preflight')]
+    }
     await row.getByRole('button', { name: 'Retry whisper-base' }).click()
     await expect.poll(() => state.modelCalls.map(c => `${c.action}:${c.name}`)).toEqual(['retry:whisper-base'])
     await expect(row).toHaveAttribute('data-state', 'updating')
@@ -217,14 +222,14 @@ test.describe('Updates page: models', () => {
     await expect(page.getByTestId('operate-updates-badge')).toContainText('1')
     const row = rowOf(page, 'qwen3-8b')
     await row.getByRole('button', { name: 'More actions for qwen3-8b' }).click()
-    state.models = modelSnapshotOf([modelItem('qwen3-8b', 'held', { held: true })])
+    state.onModelAction = (_action, _name, _body, s) => { s.models = modelSnapshotOf([modelItem('qwen3-8b', 'held', { held: true })]) }
     await page.getByRole('menuitem', { name: 'Hold this version' }).click()
     await expect.poll(() => state.modelCalls).toEqual([{ action: 'hold', name: 'qwen3-8b', body: { hold: true } }])
     await expect(row).toHaveAttribute('data-state', 'on-hold')
     await expect(page.getByTestId('operate-updates-badge')).toHaveCount(0)
     await expect(page.getByTestId('updates-check-result')).toHaveText('qwen3-8b is held at this version.')
 
-    state.models = modelSnapshotOf([modelItem('qwen3-8b', 'update-available', { availableDigest: DIGEST_B })])
+    state.onModelAction = (_action, _name, _body, s) => { s.models = modelSnapshotOf([modelItem('qwen3-8b', 'update-available', { availableDigest: DIGEST_B })]) }
     await row.getByRole('button', { name: 'Release the hold on qwen3-8b' }).click()
     await expect.poll(() => state.modelCalls.length).toBe(2)
     expect(state.modelCalls[1]).toEqual({ action: 'hold', name: 'qwen3-8b', body: { hold: false } })
