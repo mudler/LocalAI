@@ -152,6 +152,7 @@
     "running": "Atualizando {{current}} de {{total}}",
     "summary": "{{done}} atualizadas, {{failed}} com falha, {{skipped}} ignoradas",
     "details": "Detalhes",
+    "cancelAll": "Cancelar tudo",
     "retryFailed": "Tentar as falhas de novo ({{count}})",
     "dismiss": "Dispensar"
   },

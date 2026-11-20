@@ -152,6 +152,7 @@
     "running": "Updating {{current}} of {{total}}",
     "summary": "{{done}} updated, {{failed}} failed, {{skipped}} skipped",
     "details": "Details",
+    "cancelAll": "Cancel all",
     "retryFailed": "Retry failed ({{count}})",
     "dismiss": "Dismiss"
   },

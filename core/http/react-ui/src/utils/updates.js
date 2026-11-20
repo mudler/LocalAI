@@ -91,7 +91,7 @@ export function applyLocal(rows, local) {
     const mine = local[row.id]
     if (!mine || row.state === 'updating') return row
     if (mine.phase === 'running' && (row.state === 'ready' || row.state === 'failed')) {
-      return { ...row, state: 'updating', progress: mine.progress || 0, phase: mine.message || '', cancellable: false, startable: false }
+      return { ...row, state: 'updating', progress: mine.progress || 0, phase: mine.message || '', jobID: mine.jobID || row.jobID, cancellable: Boolean(mine.jobID), startable: false }
     }
     if (mine.phase === 'failed' && row.state === 'ready') {
       return { ...row, state: 'failed', error: mine.message || '', startable: false }

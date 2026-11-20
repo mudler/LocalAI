@@ -90,7 +90,7 @@ of the last good check.
 - The **Updates page** (**Admin → Updates**) has a row for each model that
   needs you or is changing. Held models, `unknown` and `gone` models, and
   models that still keep an old version, are in the group **Other models**.
-  Models never take part in **Update N ready**: you upgrade them one at a time.
+  Models never take part in **Update N ready**: you upgrade them one at a time, each after its own confirmation. Upgrades you start are queued on the server and run in the background, so you can close the page. Upgrades of different models run in parallel, up to `--max-concurrent-model-operations` (default 2, also a runtime setting); the rest wait as queued and can be cancelled. Operations on one model never overlap. **Update N ready** (backends, libraries and add-ons) submits every row at once the same way, with `--max-concurrent-backend-operations` (default 2) as its limit, and its **Cancel all** button cancels the rows that have not finished.
 - The **notification center** gets three kinds of item for administrators. They
   work with the chats on or off, and they are not sent to a Telegram or Slack
   chat.

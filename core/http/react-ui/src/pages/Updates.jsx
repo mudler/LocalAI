@@ -152,7 +152,7 @@ function UpdatesPage({ updates }) {
   // the one live region of the page.
   const { summary, running } = bulk
   let result = ''
-  if (running) result = t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + 1, summary.total), total: summary.total })
+  if (running) result = t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + summary.upgrading, summary.total), total: summary.total })
   else if (bulk.run) result = t('bulk.summary', summary)
   else if (model.announcement || actions.announcement) result = model.announcement || actions.announcement
   else if (updates.lastCheck && !updates.checking) {
@@ -177,7 +177,7 @@ function UpdatesPage({ updates }) {
         data-testid="updates-update-ready"
       >
         {running
-          ? t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + 1, summary.total), total: summary.total })
+          ? t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + summary.upgrading, summary.total), total: summary.total })
           : t('bulk.start', { count: bulk.selected.size })}
       </Button>
     </span>
@@ -189,6 +189,7 @@ function UpdatesPage({ updates }) {
       {!running && bulk.failed.length > 0 && (
         <Button size="sm" icon="refresh" onClick={bulk.retry} data-testid="updates-retry-failed">{t('bulk.retryFailed', { count: bulk.failed.length })}</Button>
       )}
+      {running && <Button size="sm" variant="ghost" icon="close" onClick={() => actions.cancelRun(bulk.run)} data-testid="updates-cancel-run">{t('bulk.cancelAll')}</Button>}
       {!running && <Button size="sm" variant="ghost" onClick={bulk.reset}>{t('bulk.dismiss')}</Button>}
     </div>
   ) : null

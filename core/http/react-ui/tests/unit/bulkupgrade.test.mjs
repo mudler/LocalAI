@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  initialSelection, toggleItem, selectAllItems, beginRun, summarize, failedIds, runSequential, canStart,
+  initialSelection, toggleItem, selectAllItems, beginRun, summarize, failedIds, runSequential, runConcurrent, canStart,
 } from '../../src/utils/bulkUpgrade.js'
 
 const items = [
@@ -88,4 +88,42 @@ test('bulk upgrade: an item is upgrading, not done, until its runOne resolves', 
   const end = await finished
   assert.equal(end.status.a.phase, 'done')
   assert.equal(summarize(end).done, 1)
+})
+
+test('bulk upgrade: runConcurrent starts every item at once and a failure does not stop the others', async () => {
+  const run = beginRun(null, items, new Set(['a', 'c', 'd']))
+  const started = []
+  const gates = {}
+  const final = runConcurrent(run, (item) => new Promise((resolve) => {
+    started.push(item.id)
+    gates[item.id] = resolve
+  }))
+  await new Promise(resolve => setTimeout(resolve, 5))
+  assert.deepEqual(started, ['a', 'c', 'd'], 'nothing waits for the item before it')
+  gates.c({ ok: false, message: 'x' })
+  gates.a({ ok: true })
+  gates.d({ ok: true })
+  const end = await final
+  assert.equal(end.phase, 'finished')
+  assert.deepEqual(summarize(end), { total: 3, done: 2, failed: 1, skipped: 0, queued: 0, upgrading: 0 })
+})
+
+test('bulk upgrade: runConcurrent keeps items of one lane in order', async () => {
+  const run = beginRun(null, items, new Set(['a', 'c', 'd']))
+  const calls = []
+  let active = 0
+  let overlap = false
+  await runConcurrent(run, async (item) => {
+    if (item.id !== 'd') {
+      active += 1
+      if (active > 1) overlap = true
+    }
+    calls.push(item.id)
+    await new Promise(r => setTimeout(r, 3))
+    if (item.id !== 'd') active -= 1
+    return { ok: true }
+  }, { laneOf: (item) => (item.id === 'd' ? 'other' : 'shared') })
+  assert.deepEqual(calls.filter(c => c !== 'd'), ['a', 'c'])
+  assert.equal(overlap, false)
+  assert.ok(calls.indexOf('d') < 2, 'the other lane started with the first')
 })
