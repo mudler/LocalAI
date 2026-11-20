@@ -181,6 +181,158 @@ var _ = Describe("private catalogs", func() {
 	})
 })
 
+var _ = Describe("a failing library", func() {
+	other := func(id string) Release { r := release(); r.ID = id; r.Name = id; return r }
+	good := func(releases ...Release) *httptest.Server {
+		return library(func(w http.ResponseWriter, _ *http.Request) { _ = WriteIndex(w, releases) })
+	}
+	down := func() *httptest.Server {
+		return library(func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "nope", http.StatusNotFound) })
+	}
+	cat := func(s *Sources) Catalog { return Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"} }
+
+	It("does not hide the entries of the libraries that loaded", func() {
+		s := setup()
+		save(s, "up", good(other("tables")).URL)
+		save(s, "broken", down().URL)
+		_, e := s.Refresh(ctx, "up")
+		Expect(e).NotTo(HaveOccurred())
+		_, e = s.Refresh(ctx, "broken")
+		Expect(e).To(MatchError(ErrRefresh))
+
+		page, e := cat(s).Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Total).To(Equal(1))
+		Expect(page.Releases[0].SourceID).To(Equal("up"))
+		Expect(page.Failed).To(HaveLen(1))
+		Expect(page.Failed[0].SourceID).To(Equal("broken"))
+		Expect(page.Failed[0].Name).To(Equal("broken"))
+		Expect(page.Failed[0].Error).To(ContainSubstring("HTTP 404"))
+		Expect(page.Failed[0].LastSuccess.IsZero()).To(BeTrue())
+	})
+	It("reports when a library last loaded", func() {
+		fail := false
+		server := library(func(w http.ResponseWriter, _ *http.Request) {
+			if fail {
+				http.Error(w, "nope", http.StatusBadGateway)
+				return
+			}
+			_ = WriteIndex(w, []Release{other("tables")})
+		})
+		s := setup()
+		save(s, "flaky", server.URL)
+		save(s, "up", good(other("mail")).URL)
+		for _, id := range []string{"flaky", "up"} {
+			_, e := s.Refresh(ctx, id)
+			Expect(e).NotTo(HaveOccurred())
+		}
+		fail = true
+		_, e := s.Refresh(ctx, "flaky")
+		Expect(e).To(MatchError(ErrRefresh))
+
+		page, e := cat(s).Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Failed).To(HaveLen(1))
+		Expect(page.Failed[0].LastSuccess.IsZero()).To(BeFalse())
+		// The entries of a failed library are not served: they could not be
+		// resolved or installed, and a listed entry must be installable.
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Releases[0].ID).To(Equal("mail"))
+	})
+	It("does not block the others while its first refresh is pending", func() {
+		s := setup()
+		save(s, "up", good(other("tables")).URL)
+		save(s, "pending", "https://example.org")
+		_, e := s.Refresh(ctx, "up")
+		Expect(e).NotTo(HaveOccurred())
+
+		page, e := cat(s).Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Failed).To(BeEmpty())
+	})
+	It("answers a request that names it with the refresh error", func() {
+		s := setup()
+		save(s, "up", good(other("tables")).URL)
+		save(s, "broken", down().URL)
+		save(s, "pending", "https://example.org")
+		_, e := s.Refresh(ctx, "up")
+		Expect(e).NotTo(HaveOccurred())
+		_, e = s.Refresh(ctx, "broken")
+		Expect(e).To(HaveOccurred())
+
+		_, e = cat(s).Search(ctx, Query{SourceID: "broken"})
+		Expect(e).To(MatchError(ErrRefresh))
+		_, e = cat(s).Search(ctx, Query{SourceID: "pending"})
+		Expect(e).To(MatchError(ErrUnavailable))
+		_, e = cat(s).Resolve(ctx, "broken", "tables", "1.0.0")
+		Expect(e).To(MatchError(ErrRefresh))
+		_, e = cat(s).Releases(ctx, "broken", "tables")
+		Expect(e).To(MatchError(ErrRefresh))
+		page, e := cat(s).Search(ctx, Query{SourceID: "up"})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Failed).To(BeEmpty())
+	})
+	It("answers with the refresh error when every library failed", func() {
+		s := setup()
+		save(s, "one", down().URL)
+		save(s, "two", down().URL)
+		for _, id := range []string{"one", "two"} {
+			_, e := s.Refresh(ctx, id)
+			Expect(e).To(HaveOccurred())
+		}
+		_, e := cat(s).Search(ctx, Query{})
+		Expect(e).To(MatchError(ErrRefresh))
+	})
+	It("answers as unavailable when nothing has been read yet", func() {
+		s := setup()
+		save(s, "pending", "https://example.org")
+		_, e := cat(s).Search(ctx, Query{})
+		Expect(e).To(MatchError(ErrUnavailable))
+	})
+	It("says why in the status of the library, and clears it after a good refresh", func() {
+		s := setup()
+		save(s, "broken", down().URL)
+		_, e := s.Refresh(ctx, "broken")
+		Expect(e).To(HaveOccurred())
+		views, e := s.Views(ctx, admin)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(views).To(HaveLen(1))
+		Expect(views[0].Refresh.Failed).To(BeTrue())
+		Expect(views[0].Refresh.Error).To(ContainSubstring("HTTP 404"))
+		state, ok := s.State("broken")
+		Expect(ok).To(BeTrue())
+		Expect(state.Error).To(Equal(views[0].Refresh.Error))
+
+		save(s, "broken", good(other("tables")).URL)
+		_, e = s.Refresh(ctx, "broken")
+		Expect(e).NotTo(HaveOccurred())
+		state, _ = s.State("broken")
+		Expect(state.Failed).To(BeFalse())
+		Expect(state.Error).To(BeEmpty())
+	})
+	It("names the cause of an index it cannot read", func() {
+		s := setup()
+		save(s, "junk", library(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"secret":"value"}`)) }).URL)
+		_, e := s.Refresh(ctx, "junk")
+		Expect(e).To(MatchError(ErrRefresh))
+		state, _ := s.State("junk")
+		Expect(state.Error).To(ContainSubstring("not a valid library index"))
+		Expect(state.Error).NotTo(ContainSubstring("secret"))
+	})
+	It("refreshes the libraries after a failing one at startup", func() {
+		s := setup()
+		save(s, "a-broken", down().URL)
+		save(s, "b-up", good(other("tables")).URL)
+		Expect(s.RefreshEnabled(ctx)).To(MatchError(ErrRefresh))
+		page, e := cat(s).Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Failed).To(HaveLen(1))
+	})
+})
+
 var _ = Describe("target platform resolution", func() {
 	It("resolves the host platform from a multi platform catalog", func() {
 		host := release()

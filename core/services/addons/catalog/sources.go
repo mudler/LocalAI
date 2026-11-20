@@ -99,8 +99,13 @@ type RefreshState struct {
 	Skipped      int      `json:"skipped,omitempty"`
 	SkippedKinds []string `json:"skippedKinds,omitempty"`
 	// Failed is true when the latest fetch failed; the previous releases are
-	// not served in that case.
+	// not served in that case. Other libraries are not affected: a listing
+	// still answers with what they loaded and names this one in Page.Failed.
 	Failed bool `json:"failed"`
+	// Error is why the latest fetch failed, as the owner log says it. It is
+	// empty when the fetch worked. LastSuccess says when the library last
+	// loaded, if it ever did.
+	Error string `json:"error,omitempty"`
 }
 
 // SourceView is a library as the management view shows it: the configuration
@@ -114,6 +119,17 @@ type cached struct {
 	releases []Release
 	result   RefreshResult
 	failed   bool
+	// err is the text of the failed fetch, kept for the status of the source.
+	err string
+}
+
+// maxRefreshErrorChars bounds the error text kept for one source, so a server
+// that answers with a long message cannot grow the status.
+const maxRefreshErrorChars = 300
+
+// state is the observation of the fetch that the management view shows.
+func (c cached) state() RefreshState {
+	return RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Skipped: c.result.Skipped, SkippedKinds: c.result.SkippedKinds, Failed: c.failed, Error: c.err}
 }
 
 // Sources is designated-owner state, not a replica-local fallback. Configuration
@@ -297,7 +313,8 @@ func (s *Sources) Views(ctx context.Context, actor contract.Actor) ([]SourceView
 	for _, src := range list {
 		v := SourceView{Source: src}
 		if c, ok := s.cache[src.ID]; ok {
-			v.Refresh = &RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Skipped: c.result.Skipped, SkippedKinds: c.result.SkippedKinds, Failed: c.failed}
+			st := c.state()
+			v.Refresh = &st
 		}
 		out = append(out, v)
 	}
@@ -322,7 +339,7 @@ func (s *Sources) State(sourceID string) (RefreshState, bool) {
 	if !ok {
 		return RefreshState{}, false
 	}
-	return RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Skipped: c.result.Skipped, SkippedKinds: c.result.SkippedKinds, Failed: c.failed}, true
+	return c.state(), true
 }
 
 // Get returns a value copy only after authoritative administrator validation.
@@ -521,7 +538,11 @@ func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, 
 	releases, skipped, e := s.fetch(ctx, src)
 	if e != nil {
 		xlog.Warn("library refresh failed", "source", sourceID, "error", e)
-		s.cache[sourceID] = cached{result: result, failed: true}
+		text := e.Error()
+		if r := []rune(text); len(r) > maxRefreshErrorChars {
+			text = string(r[:maxRefreshErrorChars]) + "..."
+		}
+		s.cache[sourceID] = cached{result: result, failed: true, err: text}
 		if errors.Is(e, ErrCredential) {
 			return result, e
 		}
@@ -546,7 +567,7 @@ var indexTransport http.RoundTripper
 func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult, error) {
 	req, e := http.NewRequestWithContext(ctx, http.MethodGet, src.URL, nil)
 	if e != nil {
-		return nil, IndexResult{}, ErrRefresh
+		return nil, IndexResult{}, fmt.Errorf("%w: the library address is not valid", ErrRefresh)
 	}
 	if src.AuthReference != "" {
 		c, e := s.credentials.Resolve(ctx, src.AuthReference, src.URL)
@@ -579,18 +600,18 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 	}
 	data, e := io.ReadAll(io.LimitReader(response.Body, MaxIndexBytes+1))
 	if e != nil || len(data) > MaxIndexBytes {
-		return nil, IndexResult{}, ErrRefresh
+		return nil, IndexResult{}, fmt.Errorf("%w: the index could not be read in full or is too large", ErrRefresh)
 	}
 	indexed, e := ReadIndex(data, ReadableKinds...)
 	releases := indexed.Releases
 	if e != nil || releases == nil {
-		return nil, IndexResult{}, ErrRefresh
+		return nil, IndexResult{}, fmt.Errorf("%w: the answer is not a valid library index", ErrRefresh)
 	}
 	seen := map[string]bool{}
 	for i := range releases {
 		r := &releases[i]
 		if !validFetchedRelease(*r, src.AllowLoopbackHTTP) || !validKindFields(*r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) || !validEntryTools(*r) {
-			return nil, IndexResult{}, ErrRefresh
+			return nil, IndexResult{}, fmt.Errorf("%w: the index has an entry that is not valid", ErrRefresh)
 		}
 		r.Selection = ""
 		r.SourceID = src.ID
@@ -600,7 +621,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		r.Policy = src.Policy
 		key := releaseKey(*r)
 		if seen[key] {
-			return nil, IndexResult{}, ErrRefresh
+			return nil, IndexResult{}, fmt.Errorf("%w: the index lists an entry twice", ErrRefresh)
 		}
 		seen[key] = true
 	}
@@ -707,13 +728,19 @@ func (s *Sources) RefreshEnabled(ctx context.Context) error {
 	}
 	s.mu.Unlock()
 	sort.Strings(ids)
+	// A library that fails must not stop the ones after it: each keeps its own
+	// state, and the listing serves every library that loaded.
+	var failed []error
 	for _, id := range ids {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		if _, err := s.Refresh(ctx, id); err != nil {
-			return fmt.Errorf("refresh addon source %s: %w", id, err)
+			failed = append(failed, fmt.Errorf("refresh addon source %s: %w", id, err))
 		}
 	}
-	return ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return errors.Join(failed...)
 }

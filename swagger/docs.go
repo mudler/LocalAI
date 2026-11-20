@@ -20536,8 +20536,12 @@ const docTemplate = `{
                 "count": {
                     "type": "integer"
                 },
+                "error": {
+                    "description": "Error is why the latest fetch failed, as the owner log says it. It is\nempty when the fetch worked. LastSuccess says when the library last\nloaded, if it ever did.",
+                    "type": "string"
+                },
                 "failed": {
-                    "description": "Failed is true when the latest fetch failed; the previous releases are\nnot served in that case.",
+                    "description": "Failed is true when the latest fetch failed; the previous releases are\nnot served in that case. Other libraries are not affected: a listing\nstill answers with what they loaded and names this one in Page.Failed.",
                     "type": "boolean"
                 },
                 "lastSuccess": {
