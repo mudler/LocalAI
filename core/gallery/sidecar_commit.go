@@ -32,6 +32,9 @@ func commitInstall(basePath string, plan *InstallPlan, origin *Origin, instance 
 	// step for a config edit that records its hash in the same file.
 	defer LockSidecar(name)()
 
+	// #nosec G304 -- sidecarPath is SidecarPath of the plan name, which the
+	// planner checked with VerifyPath against basePath; SidecarPath also turns
+	// a path separator in the name into "__".
 	prevSidecarBytes, prevSidecarErr := os.ReadFile(sidecarPath)
 	hadSidecar := prevSidecarErr == nil
 	if prevSidecarErr != nil && !errors.Is(prevSidecarErr, os.ErrNotExist) {
@@ -78,6 +81,8 @@ func commitInstall(basePath string, plan *InstallPlan, origin *Origin, instance 
 	if hadSidecar {
 		previous.Sidecar = base64.StdEncoding.EncodeToString(prevSidecarBytes)
 	}
+	// #nosec G304 -- configPath is the model config of the plan name, which the
+	// planner checked with VerifyPath against basePath.
 	if data, err := os.ReadFile(configPath); err == nil {
 		previous.HadConfig = true
 		previous.ConfigYAML = base64.StdEncoding.EncodeToString(data)
@@ -176,6 +181,8 @@ func RecoverInstallJournal(modelsPath, name string) (bool, error) {
 func recoverInstall(modelsPath, name string, sc *ModelConfig) error {
 	j := sc.Upgrade
 	configPath := filepath.Join(modelsPath, name+".yaml")
+	// #nosec G304 -- name comes from SidecarNames (a file name found in
+	// modelsPath) or from a caller that checked it with VerifyPath.
 	if data, err := os.ReadFile(configPath); err == nil && SHA256Hex(data) == j.ToConfigSHA256 {
 		finished := *sc
 		finished.Upgrade = carriedUpgradeJournal(j.Previous)

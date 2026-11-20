@@ -93,6 +93,8 @@ func (fm *FileManager) cachedMatches(key, localPath, sha string) (bool, error) {
 		return false, err
 	}
 	if rec, err := fm.recordPath(key); err == nil {
+		// #nosec G304 -- rec is the record path of recordPath, which cachePath
+		// confines to the cache directory (a key that escapes it is an error).
 		if data, err := os.ReadFile(rec); err == nil {
 			fields := strings.Fields(string(data))
 			if len(fields) == 3 && fields[1] == strconv.FormatInt(info.Size(), 10) && fields[2] == strconv.FormatInt(info.ModTime().UnixNano(), 10) {

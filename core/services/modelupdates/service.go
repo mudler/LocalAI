@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
 
@@ -431,6 +432,11 @@ func (s *Service) item(name string, cf *checkFile) (Item, bool) {
 	if sc.Origin.ConfigYAML == "" {
 		return it, true
 	}
+	if err := utils.VerifyPath(name+".yaml", s.modelsPath()); err != nil {
+		it.State, it.Reason, it.Error = StateUnknown, ReasonUnreadable, err.Error()
+		return it, true
+	}
+	// #nosec G304 -- name was checked against the models directory just above.
 	disk, err := os.ReadFile(filepath.Join(s.modelsPath(), name+".yaml"))
 	if err != nil {
 		it.State, it.Reason, it.Error = StateUnknown, ReasonUnreadable, err.Error()

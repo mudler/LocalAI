@@ -116,7 +116,12 @@ func (OSFS) Remove(path string) error {
 	}
 	return nil
 }
-func (OSFS) ReadFile(path string) ([]byte, error) { return os.ReadFile(path) }
+
+// ReadFile reads path. The caller passes a path it has checked with VerifyPath
+// against the models directory.
+func (OSFS) ReadFile(path string) ([]byte, error) {
+	return os.ReadFile(path) // #nosec G304 -- see above: callers verify the path against the models directory
+}
 func (OSFS) WriteFileAtomic(path string, data []byte) error {
 	return atomicfile.Write(path, data, 0644)
 }
