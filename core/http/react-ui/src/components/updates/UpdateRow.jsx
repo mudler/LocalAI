@@ -45,6 +45,7 @@ function useDetail(row) {
       if (row.blocked === 'incompatible') return { tone: 'warn', text: `${t('row.blocked.incompatible', { version: row.to })}${row.reasons && row.reasons.length ? ` ${row.reasons.map(r => ta(`updates.reason.${r}`)).join('; ')}.` : ''}` }
       return { tone: 'warn', text: t('row.blocked.integrity') }
     case 'updating':
+      if (row.queued) return { tone: 'muted', text: t('row.queued') }
       return { tone: 'accent', text: row.phase ? t('row.updatingPhase', { phase: row.phase }) : t('row.updatingPlain') }
     case 'ready':
       if (row.needsCheck) return { tone: 'muted', text: reasonText(row.availability, ta) }
@@ -120,9 +121,10 @@ export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, 
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={row.progress || 0}
-            data-indeterminate={row.progress > 0 ? undefined : ''}
+            data-queued={row.queued ? '' : undefined}
+            data-indeterminate={row.queued || row.progress > 0 ? undefined : ''}
           >
-            <span className="dk-progress-bar" style={row.progress > 0 ? cssVars({ '--dk-value': `${row.progress}%` }) : undefined} />
+            <span className="dk-progress-bar" style={!row.queued && row.progress > 0 ? cssVars({ '--dk-value': `${row.progress}%` }) : undefined} />
           </span>
         )}
       </div>

@@ -142,6 +142,7 @@
     },
     "updatingPhase": "Wird aktualisiert: {{phase}}",
     "updatingPlain": "Wird aktualisiert",
+    "queued": "In der Warteschlange, wartet auf einen freien Platz",
     "addonConfirm": "Braucht Ihre Bestätigung in diesem Browser",
     "nodesAction": "Knoten",
     "nodesNamed": "Knoten von {{name}} anzeigen",

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { backendRows } from '../../src/utils/updates.js'
 import {
   classifyUpdate, entryUpdateNote, updateView, upgradeBody, updateErrorKey, formatWhen, UPDATE_TYPES, UPDATE_STATES,
 } from '../../src/components/addons/updateState.js'
@@ -129,4 +130,16 @@ test('updates: a release that needs a newer LocalAI is incompatible with the rea
       assert.ok(text && text === d.errors.needsNewerHost, `${lang} says ${outcome} for needs_newer_host with its own words`)
     }
   }
+})
+
+test('updates: a queued backend update is updating with no progress, a running one keeps its progress', () => {
+  const snapshot = { sources: { gallery: { state: 'ok' } }, items: [{ id: 'gallery:whisper', kind: 'gallery', name: 'whisper', installedVersion: '1', availableVersion: '2' }] }
+  const op = (extra) => ({ id: 'whisper', name: 'whisper', fullName: 'whisper', jobID: 'j', isBackend: true, isDeletion: false, taskType: 'upgrade', cancellable: true, ...extra })
+  const queued = backendRows(snapshot, { operations: [op({ isQueued: true, progress: 40 })] })[0]
+  assert.equal(queued.state, 'updating')
+  assert.equal(queued.queued, true)
+  assert.equal(queued.progress, 0)
+  const running = backendRows(snapshot, { operations: [op({ isQueued: false, progress: 40 })] })[0]
+  assert.equal(running.queued, false)
+  assert.equal(running.progress, 40)
 })

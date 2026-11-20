@@ -142,6 +142,7 @@
     },
     "updatingPhase": "업데이트 중: {{phase}}",
     "updatingPlain": "업데이트 중",
+    "queued": "대기 중, 빈 자리를 기다리는 중",
     "addonConfirm": "이 브라우저에서 확인이 필요합니다",
     "nodesAction": "노드",
     "nodesNamed": "{{name}}의 노드 보기",

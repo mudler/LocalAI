@@ -378,7 +378,7 @@ function RunningBody({ t, running, loaded, distributed, ready, refresh, addToast
                 <strong className="op-item__title dk-mono">{op.name || op.id}</strong>
                 <span className="op-item__detail">
                   {op.isQueued ? t('running.queued') : op.isDeletion ? t('running.removing') : t('running.installing')}
-                  {op.progress > 0 && ` · ${Math.round(op.progress)}%`}
+                  {!op.isQueued && op.progress > 0 && ` · ${Math.round(op.progress)}%`}
                 </span>
               </div>
             </li>

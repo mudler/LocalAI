@@ -72,7 +72,7 @@ export function backendRows(snapshot, { operations = [], auto = false } = {}) {
     }
     const op = opForBackend(operations, it.name)
     if (op && !op.error && !op.isDeletion) {
-      return { ...row, state: 'updating', progress: op.progress > 0 ? Math.min(100, Math.round(op.progress)) : 0, phase: op.isQueued ? 'queued' : (op.message || op.phase || ''), jobID: op.jobID, cancellable: Boolean(op.cancellable) }
+      return { ...row, state: 'updating', progress: op.isQueued ? 0 : (op.progress > 0 ? Math.min(100, Math.round(op.progress)) : 0), queued: Boolean(op.isQueued), phase: op.isQueued ? 'queued' : (op.message || op.phase || ''), jobID: op.jobID, cancellable: Boolean(op.cancellable) }
     }
     if (op && op.error) return { ...row, state: 'failed', error: String(op.error), jobID: op.jobID, startable: false }
     if (snapshot.installsDisabled) return { ...row, state: 'blocked', blocked: 'installsDisabled', startable: false }
@@ -133,7 +133,7 @@ export function addonRows({ installed = [], grants = null, live = [], auto = fal
     }
     const hold = held.get(rec.id)
     if (op && (op.state === 'running' || op.state === 'cancelling')) {
-      rows.push({ ...base, state: 'updating', progress: 0, phase: op.stage || op.phase || '', jobID: op.jobID, cancellable: Boolean(op.cancellable), startable: false })
+      rows.push({ ...base, state: 'updating', progress: 0, queued: (op.stage || op.phase) === 'queued', phase: op.stage || op.phase || '', jobID: op.jobID, cancellable: Boolean(op.cancellable), startable: false })
     } else if (op && op.state === 'failed') {
       rows.push({ ...base, state: 'failed', error: op.errorKey || 'unavailable', errorKey: op.errorKey || 'unavailable', jobID: op.jobID, startable: false })
     } else if (hold) {

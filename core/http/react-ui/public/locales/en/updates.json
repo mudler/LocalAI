@@ -142,6 +142,7 @@
     },
     "updatingPhase": "Updating: {{phase}}",
     "updatingPlain": "Updating",
+    "queued": "Queued, waiting for a free slot",
     "addonConfirm": "Needs your confirmation in this browser",
     "nodesAction": "Nodes",
     "nodesNamed": "Show the nodes of {{name}}",

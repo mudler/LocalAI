@@ -142,6 +142,7 @@
     },
     "updatingPhase": "In aggiornamento: {{phase}}",
     "updatingPlain": "In aggiornamento",
+    "queued": "In coda, in attesa di uno slot libero",
     "addonConfirm": "Richiede la tua conferma in questo browser",
     "nodesAction": "Nodi",
     "nodesNamed": "Mostra i nodi di {{name}}",

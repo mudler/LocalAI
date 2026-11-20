@@ -142,6 +142,7 @@
     },
     "updatingPhase": "Memperbarui: {{phase}}",
     "updatingPlain": "Memperbarui",
+    "queued": "Dalam antrean, menunggu slot kosong",
     "addonConfirm": "Perlu konfirmasi Anda di peramban ini",
     "nodesAction": "Node",
     "nodesNamed": "Tampilkan node {{name}}",

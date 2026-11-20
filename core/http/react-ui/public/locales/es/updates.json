@@ -142,6 +142,7 @@
     },
     "updatingPhase": "Actualizando: {{phase}}",
     "updatingPlain": "Actualizando",
+    "queued": "En cola, esperando un hueco libre",
     "addonConfirm": "Necesita tu confirmación en este navegador",
     "nodesAction": "Nodos",
     "nodesNamed": "Mostrar los nodos de {{name}}",

@@ -142,6 +142,7 @@
     },
     "updatingPhase": "Atualizando: {{phase}}",
     "updatingPlain": "Atualizando",
+    "queued": "Na fila, aguardando uma vaga livre",
     "addonConfirm": "Precisa da sua confirmação neste navegador",
     "nodesAction": "Nós",
     "nodesNamed": "Mostrar os nós de {{name}}",

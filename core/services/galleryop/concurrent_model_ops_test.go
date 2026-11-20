@@ -164,8 +164,11 @@ var _ = Describe("concurrent model operations", func() {
 
 	It("keeps one model serialized while others run", func() {
 		start(4)
+		// Admission is asynchronous: wait for each start so the order is known.
 		first, _ := svc.EnqueueModelUpgrade("alpha", galleryop.ModelUpgradeOptions{})
+		Eventually(up.Started, "5s", "10ms").Should(HaveLen(1))
 		second, _ := svc.EnqueueModelUpgrade("alpha", galleryop.ModelUpgradeOptions{})
+		Eventually(func() bool { return svc.GetStatus(second).IsQueued() }, "5s", "10ms").Should(BeTrue())
 		other, _ := svc.EnqueueModelUpgrade("beta", galleryop.ModelUpgradeOptions{})
 
 		Eventually(up.Started, "5s", "10ms").Should(ConsistOf("alpha", "beta"))

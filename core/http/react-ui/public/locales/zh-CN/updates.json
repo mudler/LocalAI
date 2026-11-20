@@ -142,6 +142,7 @@
     },
     "updatingPhase": "更新中:{{phase}}",
     "updatingPlain": "更新中",
+    "queued": "已排队,等待空闲名额",
     "addonConfirm": "需要你在此浏览器中确认",
     "nodesAction": "节点",
     "nodesNamed": "显示 {{name}} 的节点",
