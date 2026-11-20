@@ -193,9 +193,9 @@ func (c *webrtcTestClient) drainUntilEvent(eventType string, timeout time.Durati
 	return nil
 }
 
-// sendSineWave encodes a sine wave to Opus and sends it over the audio track.
-// This is a simplified version that sends raw PCM wrapped as Opus-compatible
-// media samples. In a real client the Opus encoder would be used.
+// sendSilence sends Opus silence frames over the audio track.
+// It emits minimal valid Opus DTX/silence frames (CELT-only, no VAD, 20ms)
+// instead of encoded audio. In a real client the Opus encoder would be used.
 func (c *webrtcTestClient) sendSilence(durationMs int) {
 	// Send silence as zero-filled PCM samples via track.
 	// We use 20ms Opus frames at 48kHz.
