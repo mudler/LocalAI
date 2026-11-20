@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -343,7 +344,10 @@ var _ = Describe("local-ai p2p pair", func() {
 		rec := filepath.Join(dir, "p2p", "pairs", server.ID().String()+".json")
 		st, err := os.Stat(rec)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		if runtime.GOOS != "windows" {
+			// Windows has no owner-only file mode to check.
+			Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		}
 		_, err = p2pnet.IdentityPeerID(filepath.Join(dir, "p2p", "identity.key"))
 		Expect(err).ToNot(HaveOccurred())
 	})

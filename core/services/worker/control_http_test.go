@@ -463,7 +463,12 @@ var _ = Describe("Worker file staging verbs over HTTP", func() {
 
 	It("allocates a temp file in the cache", func() {
 		got := post(workerctl.VerbFilesTemp, `{}`)
-		Expect(got).To(MatchRegexp(`^\{"local_path":"` + filepath.Join(cacheDir, "staging-tmp") + `/localai-staging-[0-9]+\.tmp"\}$`))
+		var resp struct {
+			LocalPath string `json:"local_path"`
+		}
+		Expect(json.Unmarshal([]byte(got), &resp)).To(Succeed())
+		Expect(filepath.Dir(resp.LocalPath)).To(Equal(filepath.Join(cacheDir, "staging-tmp")))
+		Expect(filepath.Base(resp.LocalPath)).To(MatchRegexp(`^localai-staging-[0-9]+\.tmp$`))
 	})
 
 	It("lets a download that two callers share end when the first caller leaves", func() {

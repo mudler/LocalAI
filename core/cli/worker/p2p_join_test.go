@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -49,6 +50,11 @@ var _ = Describe("joining a model-split worker over P2P", func() {
 
 	It("needs a hostfile and a rank without --join", func() {
 		r := &MLXDistributed{Rank: -1}
+		if runtime.GOOS == "windows" {
+			// The command refuses to start here, before it checks the options.
+			Expect(r.Run(&cliContext.Context{})).To(MatchError(ContainSubstring("not available on Windows")))
+			return
+		}
 		Expect(r.Run(&cliContext.Context{})).To(MatchError(ContainSubstring("--join")))
 	})
 })
