@@ -42,7 +42,7 @@ func ParseAddrInfo(s string) (peer.AddrInfo, error) {
 // LoadOrCreateIdentity it never creates the file: a missing file is an error
 // that wraps fs.ErrNotExist.
 func IdentityPeerID(path string) (peer.ID, error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) // #nosec G304 -- path is the identity file the operator chose, not a request value
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("p2pnet: no identity at %s: %w", path, err)
 	}

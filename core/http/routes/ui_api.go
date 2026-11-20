@@ -1359,7 +1359,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		configData, err := os.ReadFile(modelConfigFile)
+		configData, err := os.ReadFile(modelConfigFile) // #nosec G304 -- modelConfigFile is resolved under the models directory by the loader
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": "failed to read configuration file: " + err.Error(),

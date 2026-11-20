@@ -188,7 +188,7 @@ func recordOf(link *p2ppair.Link, out *pairclient.Result) *joinRecord {
 }
 
 func readJoinRecord(path string) (*joinRecord, error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) // #nosec G304 -- path is the worker's own join record under its state directory
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}

@@ -20,7 +20,7 @@ func Phrase(serverPeer, devicePeer peer.ID, inviteID string) string {
 	h := sha256.New()
 	for _, part := range []string{serverPeer.String(), devicePeer.String(), inviteID} {
 		var n [4]byte
-		n[0], n[1], n[2], n[3] = byte(len(part)>>24), byte(len(part)>>16), byte(len(part)>>8), byte(len(part))
+		n[0], n[1], n[2], n[3] = byte(len(part)>>24), byte(len(part)>>16), byte(len(part)>>8), byte(len(part)) // #nosec G115 -- the parts are peer IDs and an invite ID, far below 4 GiB, and the shifts keep one byte each
 		h.Write(n[:])
 		h.Write([]byte(part))
 	}

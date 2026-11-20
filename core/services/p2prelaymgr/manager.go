@@ -303,7 +303,7 @@ func (m *manager) Start(ctx context.Context) error {
 		return errors.New("p2prelaymgr: already started")
 	}
 	m.started = true
-	m.ctx, m.cancel = context.WithCancel(m.life)
+	m.ctx, m.cancel = context.WithCancel(m.life) // #nosec G118 -- m.cancel is kept on the manager and Stop calls it
 	stopAfter := context.AfterFunc(ctx, m.cancel)
 	m.wg.Go(func() {
 		<-m.ctx.Done()

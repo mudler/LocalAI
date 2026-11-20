@@ -26,7 +26,7 @@ const (
 	// AdminID is the protocol of the admin requests.
 	AdminID protocol.ID = "/localai/relay-admin/1"
 	// PassID is the protocol on which a stranger presents a relay pass.
-	PassID protocol.ID = "/localai/relay-pass/1"
+	PassID protocol.ID = "/localai/relay-pass/1" // #nosec G101 -- a protocol name, not a credential
 
 	// Version is the value of the "v" field of every message.
 	Version = 1

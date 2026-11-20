@@ -288,7 +288,7 @@ func ReadSettings(dir string) map[string]json.RawMessage {
 	if dir == "" {
 		return nil
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "runtime_settings.json"))
+	data, err := os.ReadFile(filepath.Join(dir, "runtime_settings.json")) // #nosec G304 -- dir is the data directory the operator set, not a request value
 	if err != nil {
 		return nil
 	}

@@ -29,7 +29,7 @@ func LoadOrCreateIdentity(path string) (crypto.PrivKey, error) {
 	if path == "" {
 		return nil, errors.New("p2pnet: identity path is empty")
 	}
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) // #nosec G304 -- path is the identity file the operator chose, not a request value
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return writeNewIdentity(path)
@@ -62,7 +62,7 @@ func RegenerateIdentity(path string) (crypto.PrivKey, error) {
 		return nil, fmt.Errorf("p2pnet: create identity directory: %w", err)
 	}
 	prev := path + ".prev"
-	if old, err := os.ReadFile(path); err == nil {
+	if old, err := os.ReadFile(path); err == nil { // #nosec G304 -- path is the identity file the operator chose, not a request value
 		if _, err := os.Stat(prev); err == nil {
 			older := fmt.Sprintf("%s.%d", prev, time.Now().Unix())
 			if err := os.Rename(prev, older); err != nil {

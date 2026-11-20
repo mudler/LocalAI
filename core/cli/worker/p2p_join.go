@@ -145,7 +145,7 @@ func (f *P2PJoinFlags) join(ctx context.Context, stateDir string, engine string)
 }
 
 func readJoinRecord(dir string) (*joinRecord, error) {
-	b, err := os.ReadFile(filepath.Join(dir, joinRecordFile))
+	b, err := os.ReadFile(filepath.Join(dir, joinRecordFile)) // #nosec G304 -- dir is the worker's own state directory and the file name is a constant
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}

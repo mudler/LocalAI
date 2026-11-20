@@ -84,7 +84,7 @@ type state struct {
 
 func loadState(path string) (state, error) {
 	st := state{Version: stateVersion, Admins: map[string]*adminSet{}}
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) // #nosec G304 -- path is the relay's own state file
 	if errors.Is(err, fs.ErrNotExist) {
 		return st, nil
 	}

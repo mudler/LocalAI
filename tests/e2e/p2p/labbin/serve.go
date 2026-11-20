@@ -235,7 +235,8 @@ func (s *server) serveHTTP() error {
 	mux := appHandler()
 	mux.HandleFunc("POST /api/p2p/redeem", s.redeem)
 	srv := &http.Server{
-		Handler: mux,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
 			if p, ok := p2pnet.PeerOf(c); ok {
 				return context.WithValue(ctx, peerKey{}, p)

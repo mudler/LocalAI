@@ -211,7 +211,7 @@ func (n *Host) start(cfg Config, boot []peer.AddrInfo) error {
 	n.sub = sub
 	n.wg.Go(func() {
 		for e := range sub.Out() {
-			n.reach.Store(int32(e.(event.EvtLocalReachabilityChanged).Reachability))
+			n.reach.Store(int32(e.(event.EvtLocalReachabilityChanged).Reachability)) // #nosec G115 -- Reachability is a small enum, so the value fits in an int32
 		}
 	})
 	n.h.Network().Notify(&network.NotifyBundle{DisconnectedF: func(nw network.Network, c network.Conn) {

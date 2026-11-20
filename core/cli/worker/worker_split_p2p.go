@@ -54,7 +54,7 @@ func (r *LLamaCPP) runP2P() error {
 		args = append(args, strings.Fields(r.ExtraLLamaCPPArgs)...)
 	}
 	go superviseProcess(ctx, "llama-cpp-rpc-server", func(ctx context.Context) *exec.Cmd {
-		return exec.CommandContext(ctx, rpcServer, args...)
+		return exec.CommandContext(ctx, rpcServer, args...) // #nosec G204 -- rpcServer is the installed backend binary and args are built from validated flags, with no shell
 	})
 
 	agent, err := p2psplit.NewAgent(p2psplit.AgentConfig{
@@ -141,7 +141,7 @@ func startMLXRank(ctx context.Context, backendPath string, a p2psplit.Assignment
 	args := []string{"--worker", "--backend", "ring", "--hostfile", a.Hostfile, "--rank", strconv.Itoa(a.Rank)}
 	go superviseProcess(pctx, fmt.Sprintf("mlx-distributed rank %d", a.Rank), func(ctx context.Context) *exec.Cmd {
 		cmd := buildMLXCommand(backendPath, args...)
-		return exec.CommandContext(ctx, cmd.Path, cmd.Args[1:]...)
+		return exec.CommandContext(ctx, cmd.Path, cmd.Args[1:]...) // #nosec G204 -- the path is the installed backend binary and args are built here, with no shell
 	})
 	return cancel
 }

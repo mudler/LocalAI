@@ -138,7 +138,7 @@ func (c Ceiling) clamp(l Limits) (Limits, []string) {
 // applyStoredLimits replaces the per-circuit limits of cfg with the stored ones.
 func applyStoredLimits(cfg *Config) error {
 	path := filepath.Join(cfg.DataDir, limitsFile)
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) // #nosec G304 -- the file is under the relay data directory and its name is a constant
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
@@ -324,7 +324,7 @@ func (r *Relay) peersExceptLocked(p peer.ID) []peer.ID {
 
 // readLimitsFile returns the content of the saved limits and whether the file exists.
 func readLimitsFile(path string) ([]byte, bool) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) // #nosec G304 -- path comes from the relay's own data directory
 	return b, err == nil
 }
 
