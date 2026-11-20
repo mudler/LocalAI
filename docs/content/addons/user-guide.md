@@ -43,6 +43,8 @@ LocalAI registers one library, `official`, on the first start. Which index it re
 
 The **Sources** tab shows all libraries. An administrator can add another library, turn one off or remove it. When two libraries list the same add-on, a library that you added wins over a default. Two that you added conflict, and LocalAI refuses to install that add-on until you resolve it.
 
+A library that cannot be read does not hide the others. **Find add-ons** lists the add-ons of every library that loaded and shows a notice with the name and the reason of each library that failed. The **Sources** tab shows the same reason on the row of that library, and the time of its last good refresh. Fix the address or the credential, then choose **Refresh** on the row. The add-ons of a library that failed are not listed until it loads again.
+
 ## Install from a file
 
 Choose **Install from file** and pick a zip. Nothing signs a local file, so LocalAI cannot tell who made it. The dialog shows the checksum, the version and the permissions the add-on asks for, and the note "Local file, unsigned". You can check a file first with `local-ai addons inspect <file>`.
@@ -66,6 +68,7 @@ When a newer version is in the library, the row shows **Update**. An upgrade sta
 | A strip at the top says an add-on failed to start | Choose **Set up** or open **Details**. The reason is there. Other add-ons keep running. |
 | "This add-on needs a newer LocalAI" | The add-on needs a feature that your version does not have. Update LocalAI. |
 | Install from file is refused with `locked_by_deployment` | Sign-in is off or the grants are locked. Turn on sign-in, or set `--addon-host-ui-grants-without-auth` knowingly. |
+| A notice says a library could not be read | The reason is on its row in the **Sources** tab. Check the address and the credential, then choose **Refresh**. The other libraries keep working. |
 | No add-ons in the list | Check that the official library is on, that `--addons-enabled` is not false, and that the server can reach the network. |
 
 For the full specification, see the [contract reference]({{% relref "/addons/contract-reference" %}}).
