@@ -1273,9 +1273,6 @@ export const failoverApi = {
 // when the preflight refuses, and 409 when a change is already under way.
 export const clusterApi = {
   carrier: () => fetchJSON(API_CONFIG.endpoints.clusterCarrier),
-  dryRun: (target) => postJSON(API_CONFIG.endpoints.clusterCarrier, { target, dry_run: true }),
-  switchCarrier: (target, force = false) => postJSON(API_CONFIG.endpoints.clusterCarrier, { target, force }),
-  abort: () => postJSON(API_CONFIG.endpoints.clusterCarrier, { abort: true }),
   settings: () => fetchJSON(API_CONFIG.endpoints.clusterSettings),
   saveSettings: (settings) => fetchJSON(API_CONFIG.endpoints.clusterSettings, {
     method: 'PUT',

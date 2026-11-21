@@ -14,7 +14,7 @@ import (
 func registerClusterTools(s *mcp.Server, client LocalAIClient) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolGetClusterCarrier,
-		Description: "Read which transport a distributed cluster uses (NATS or the database tunnel), the state and epoch of a change, the live frontends and the workers that cannot follow a change. Read-only. Returns distributed=false when this server is not distributed.",
+		Description: "Read the broadcast bus a distributed cluster uses between its frontends (nats for NATS, tunnel for PostgreSQL with WebSocket workers; workers never connect to PostgreSQL), the state and epoch of a change, the live frontends and the workers that cannot follow a change. Read-only. Returns distributed=false when this server is not distributed.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		status, err := client.GetClusterCarrier(ctx)
 		if err != nil {

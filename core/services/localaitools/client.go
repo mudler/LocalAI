@@ -215,8 +215,8 @@ type LocalAIClient interface {
 	ClearRouterCorpus(ctx context.Context, routerModel string) (*RouterCorpusClearResult, error)
 
 	// ---- Distributed carrier ----
-	// GetClusterCarrier reports which transport the cluster uses (NATS or the
-	// database tunnel), the state of a change, the frontends and the workers
+	// GetClusterCarrier reports the broadcast bus the cluster uses between its
+	// frontends (NATS or PostgreSQL), the state of a change, the frontends and the workers
 	// that cannot follow a change. It never changes anything.
 	GetClusterCarrier(ctx context.Context) (*ClusterCarrierStatus, error)
 

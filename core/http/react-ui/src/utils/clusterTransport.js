@@ -1,37 +1,25 @@
 // Helpers for the cluster transport panel. They read the report that
-// GET /api/cluster/carrier and a dry run return.
+// GET /api/cluster/carrier returns. The API keeps the values `nats` and
+// `tunnel`; the panel words them for what they are.
 
-export const CARRIERS = ['nats', 'tunnel']
-
-export const CARRIER_LABELS = {
+// The broadcast bus the frontends share. `tunnel` is PostgreSQL LISTEN/NOTIFY.
+const BUS_LABELS = {
   nats: 'NATS',
-  tunnel: 'Database tunnel',
+  tunnel: 'PostgreSQL',
 }
 
-export function carrierLabel(carrier) {
-  return CARRIER_LABELS[carrier] || carrier || 'unknown'
+export function busLabel(carrier) {
+  return BUS_LABELS[carrier] || carrier || 'unknown'
 }
 
-export function otherCarrier(carrier) {
-  return carrier === 'tunnel' ? 'nats' : 'tunnel'
+// How a worker attaches to a frontend. `tunnel` is the outbound websocket.
+const ROUTE_LABELS = {
+  nats: 'NATS',
+  tunnel: 'WebSocket',
 }
 
-// A worker that reports no capabilities predates carrier switching. A worker
-// that can follow both carriers has an address of its own (dual-capable). A
-// worker that follows only the tunnel makes outbound connections only.
-export function workerProfile(worker) {
-  const follow = Array.isArray(worker?.follow) ? worker.follow : []
-  if (follow.length === 0) return 'legacy'
-  if (follow.includes('nats') && follow.includes('tunnel')) return 'dual'
-  if (follow.includes('tunnel')) return 'tunnel-only'
-  return 'nats-only'
-}
-
-export const PROFILE_LABELS = {
-  legacy: 'Legacy (NATS only)',
-  dual: 'Dual-capable',
-  'tunnel-only': 'Tunnel-only',
-  'nats-only': 'NATS only',
+export function routeLabel(route) {
+  return ROUTE_LABELS[route] || route || 'unknown'
 }
 
 // A replica is ready for the epoch in flight when it reported that epoch and
@@ -57,27 +45,4 @@ export function stateLabel(report) {
   if (!report) return ''
   if (report.state === 'stable' && Number(report.drain_remaining_ns) > 0) return 'draining'
   return report.state
-}
-
-// A dry run may be forced when every blocker says so.
-export function canForce(report) {
-  const blockers = report?.blockers || []
-  return blockers.length > 0 && blockers.every(b => b.forceable)
-}
-
-// Says whether a worker can follow a change to the other carrier, and why not.
-// A worker that reported why it cannot follow gives that reason. A worker that
-// predates carrier switching reports nothing and stays on NATS, so it cannot
-// follow a change to the tunnel, and the text says so. A worker whose
-// capabilities leave out the other carrier cannot follow either.
-export function followStatus(worker, active) {
-  if (worker?.follow_error) return { ok: false, text: worker.follow_error }
-  const target = otherCarrier(active)
-  if (workerProfile(worker) === 'legacy') {
-    return { ok: false, text: 'Cannot follow: predates carrier switching, stays on NATS' }
-  }
-  if (!worker.follow.includes(target) && !(worker.attached || []).includes(target)) {
-    return { ok: false, text: `Cannot follow a change to ${carrierLabel(target)}` }
-  }
-  return { ok: true, text: 'ok' }
 }

@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { canForce, followStatus, formatCountdown, otherCarrier, replicaReady, stateLabel, workerProfile } from './clusterTransport.js'
+import { busLabel, formatCountdown, replicaReady, routeLabel, stateLabel } from './clusterTransport.js'
 
-test('workerProfile classifies by the carriers a worker can follow', () => {
-  assert.equal(workerProfile({ follow: ['nats', 'tunnel'] }), 'dual')
-  assert.equal(workerProfile({ follow: ['tunnel'] }), 'tunnel-only')
-  assert.equal(workerProfile({ follow: ['nats'] }), 'nats-only')
-  assert.equal(workerProfile({}), 'legacy')
+test('busLabel and routeLabel word the API values', () => {
+  assert.equal(busLabel('nats'), 'NATS')
+  assert.equal(busLabel('tunnel'), 'PostgreSQL')
+  assert.equal(busLabel(undefined), 'unknown')
+  assert.equal(routeLabel('nats'), 'NATS')
+  assert.equal(routeLabel('tunnel'), 'WebSocket')
+  assert.equal(routeLabel('p2p'), 'p2p')
 })
 
 test('replicaReady needs the epoch in flight and no reason', () => {
@@ -27,32 +29,4 @@ test('stateLabel reports draining after a commit', () => {
   assert.equal(stateLabel({ state: 'stable', drain_remaining_ns: 5e9 }), 'draining')
   assert.equal(stateLabel({ state: 'stable' }), 'stable')
   assert.equal(stateLabel({ state: 'prepare' }), 'prepare')
-})
-
-test('canForce needs blockers and all of them forceable', () => {
-  assert.equal(canForce({ blockers: [] }), false)
-  assert.equal(canForce({ blockers: [{ forceable: true }, { forceable: false }] }), false)
-  assert.equal(canForce({ blockers: [{ forceable: true }] }), true)
-  assert.equal(otherCarrier('nats'), 'tunnel')
-})
-
-test('followStatus says whether a worker can follow a change to the other carrier', () => {
-  const dual = { follow: ['nats', 'tunnel'], attached: ['nats'] }
-  assert.deepEqual(followStatus(dual, 'nats'), { ok: true, text: 'ok' })
-
-  const legacy = { attached: [] }
-  assert.equal(followStatus(legacy, 'nats').ok, false)
-  assert.match(followStatus(legacy, 'nats').text, /predates carrier switching/)
-
-  const natsOnly = { follow: ['nats'], attached: ['nats'] }
-  assert.equal(followStatus(natsOnly, 'nats').ok, false)
-  assert.match(followStatus(natsOnly, 'nats').text, /Database tunnel/)
-
-  const tunnelOnly = { follow: ['tunnel'], attached: ['tunnel'] }
-  assert.equal(followStatus(tunnelOnly, 'tunnel').ok, false)
-  assert.match(followStatus(tunnelOnly, 'tunnel').text, /NATS/)
-  assert.deepEqual(followStatus(tunnelOnly, 'nats'), { ok: true, text: 'ok' })
-
-  const reported = { follow: ['tunnel'], attached: ['tunnel'], follow_error: 'no routable address' }
-  assert.deepEqual(followStatus(reported, 'tunnel'), { ok: false, text: 'no routable address' })
 })

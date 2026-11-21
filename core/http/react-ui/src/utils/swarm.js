@@ -276,6 +276,6 @@ export function shortPeer(id) {
   return s.length > 16 ? `${s.slice(0, 10)}…${s.slice(-4)}` : s
 }
 
-// NATS is optional: a cluster with only PostgreSQL uses the database tunnel,
-// and NATS can be added and switched to later from the Nodes page.
+// NATS is optional: a cluster with only PostgreSQL uses PostgreSQL as the
+// broadcast bus between frontends. Workers never connect to PostgreSQL.
 export const DISTRIBUTED_COMMAND = 'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db"'

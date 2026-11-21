@@ -22,8 +22,8 @@ const carrierPath = "/api/cluster/carrier"
 
 // CarrierCommand groups the commands about the carrier.
 type CarrierCommand struct {
-	Status StatusCommand `cmd:"" default:"withargs" help:"Show the active carrier, the state of a change, the replicas and the workers"`
-	Switch SwitchCommand `cmd:"" help:"Change the carrier of the cluster, or check what would block the change (--dry-run)"`
+	Status StatusCommand `cmd:"" default:"withargs" help:"Show the active carrier (the broadcast bus between frontends), the state of a change, the replicas and the workers"`
+	Switch SwitchCommand `cmd:"" help:"Advanced: change the carrier of the cluster, or check what would block the change (--dry-run)"`
 	Abort  AbortCommand  `cmd:"" help:"Abort a change that is being prepared"`
 }
 
@@ -34,7 +34,7 @@ type StatusCommand struct {
 
 // SwitchCommand changes the carrier.
 type SwitchCommand struct {
-	To     string `required:"" enum:"nats,tunnel" help:"Carrier to change to [${enum}]."`
+	To     string `required:"" enum:"nats,tunnel" help:"Carrier to change to [${enum}]. nats: NATS is the broadcast bus between frontends. tunnel: PostgreSQL is the bus and workers attach over WebSocket. Workers never connect to PostgreSQL."`
 	DryRun bool   `name:"dry-run" help:"Run the preflight and change nothing. It lists what would block the change."`
 	Force  bool   `help:"Go ahead although some workers cannot follow or some replicas are not ready. Those workers become unroutable until they are fixed."`
 	Yes    bool   `help:"Confirm that the replicas that are listed are all the frontends of the cluster, and that all run this release. Without it the command asks, and a command with no terminal refuses."`

@@ -3,12 +3,12 @@ disableToc = false
 title = "Distributed Mode"
 weight = 130
 aliases = ["/features/distributed-mode/"]
-description = "Run several LocalAI frontends and worker nodes with PostgreSQL, and NATS or the database tunnel."
+description = "Run several LocalAI frontends and worker nodes with PostgreSQL. Workers attach over NATS, WebSocket or P2P."
 keywords = ["distributed","cluster","nodes","scale","nats","tunnel","carrier"]
 devbuild = "install"
 +++
 
-Distributed mode scales LocalAI across several machines. **PostgreSQL** holds the state and the node registry. A **carrier** moves the control traffic between the frontends and the workers. Unlike [P2P]({{% relref "/administration/p2p" %}}) and [federation]({{% relref "/administration/federation" %}}), distributed mode is for production deployments and Kubernetes. It gives you central management, health monitoring, and deterministic routing.
+Distributed mode scales LocalAI across several machines. **PostgreSQL** holds the state and the node registry. Each worker attaches to the frontends over **NATS**, a **WebSocket** tunnel or **P2P**, and the frontends reach it by the route it has. A **broadcast bus**, NATS or PostgreSQL, carries messages between the frontends. Unlike [P2P]({{% relref "/administration/p2p" %}}) and [federation]({{% relref "/administration/federation" %}}), distributed mode is for production deployments and Kubernetes. It gives you central management, health monitoring, and deterministic routing.
 
 {{% callout style="note" %}}
 Distributed mode needs authentication and a **PostgreSQL** database. SQLite is not supported, because the node registry, the job store, and the other distributed state are PostgreSQL tables.
@@ -16,11 +16,11 @@ Distributed mode needs authentication and a **PostgreSQL** database. SQLite is n
 
 ## Architecture Overview
 
-{{< diagram "distributed-mode-arch" "Distributed mode: clients reach a load balancer, then stateless frontends with a SmartRouter, then generic workers that each run one gRPC process per loaded model. The frontends and the workers share PostgreSQL, one active carrier (NATS or the database tunnel) and optional S3." >}}
+{{< diagram "distributed-mode-arch" "Distributed mode: clients reach a load balancer, then stateless frontends with a SmartRouter, then generic workers that each run one gRPC process per loaded model. The frontends and the workers share PostgreSQL, a broadcast bus (NATS or PostgreSQL) and optional S3. Workers attach over NATS, WebSocket or P2P and never connect to PostgreSQL." >}}
 
-**Frontends** are stateless LocalAI instances. They receive API requests and route them to worker nodes with the **SmartRouter**. All frontends share state through PostgreSQL and talk to the workers through the active carrier.
+**Frontends** are stateless LocalAI instances. They receive API requests and route them to worker nodes with the **SmartRouter**. All frontends share state through PostgreSQL and reach each worker by the route it attached over (NATS, WebSocket or P2P).
 
-**Workers** are generic processes that register themselves with a frontend. A worker has no fixed backend type. When a request arrives, the SmartRouter tells the worker to install the backend it needs, over the active carrier.
+**Workers** are generic processes that register themselves with a frontend. A worker has no fixed backend type. When a request arrives, the SmartRouter tells the worker to install the backend it needs, over the route the worker attached over.
 
 ### Scheduling Algorithm
 
@@ -38,47 +38,52 @@ The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 
 Each model gets its own gRPC backend process, so one worker can serve several models at once (for example a chat model and an embedding model).
 
-## Carriers
+## How workers attach, and the broadcast bus
 
-The control traffic between frontends and workers goes over one **carrier**. There are two:
+A worker attaches to the frontends by one **route**. The frontend reaches the worker by the route it has:
 
-| Carrier | What it is | What you need |
-|---------|------------|---------------|
-| `nats` | A NATS broker. Frontends publish broadcasts and send control requests through it. Frontends and [chat workers](#chat-workers) also use it for request and reply between each other (the chat start, the replay of chat events, the background jobs of a turn). | A NATS server, reachable from the frontends and the workers. |
-| `tunnel` | The database. Broadcasts use PostgreSQL `LISTEN`/`NOTIFY` (a bus named *pgbus*). Each worker opens an outbound websocket tunnel to a frontend (`/api/cluster/connect`), and control requests and gRPC calls travel through it. Request and reply between frontends and [chat workers](#chat-workers) goes over the peer link between them: see [Chats on the `tunnel` carrier](#chats-on-the-tunnel-carrier). | PostgreSQL only. Workers need no inbound port. |
+| Route | What it is | What you need |
+|-------|------------|---------------|
+| **NATS** (`nats`) | A NATS broker. Frontends send control requests to the worker through it. Frontends and [chat workers](#chat-workers) also use it for request and reply between each other (the chat start, the replay of chat events, the background jobs of a turn). | A NATS server, reachable from the frontends and the workers. |
+| **WebSocket** (`tunnel`) | The worker opens an outbound websocket tunnel to a frontend (`/api/cluster/connect`), and control requests and gRPC calls travel through it. Request and reply between frontends and [chat workers](#chat-workers) goes over the peer link between them: see [Chats over the WebSocket tunnel](#chats-over-the-websocket-tunnel). | Nothing beyond the frontend. Workers need no inbound port. |
+| **P2P** | The same tunnel, over a libp2p stream. See [Workers over P2P](#workers-over-p2p). | A P2P invite. |
 
-**Exactly one carrier is active at a time.** There is no setting that you pass at boot. The active carrier is a row in the database, and an admin can change it while the cluster runs, with no restart. The two carriers are never used together as a steady state. During a change, both stay attached for a short time so that work in progress can finish. See [Switching the carrier](#switching-the-carrier).
+**Workers never connect to PostgreSQL.** A worker dials a frontend (or NATS) and nothing else. Only the frontends use PostgreSQL, for the shared state and the node registry, and as a **broadcast bus**: the channel on which a frontend tells the other frontends about job progress, gallery updates and cache hints.
+
+The broadcast bus between the frontends is **NATS** or **PostgreSQL** (`LISTEN`/`NOTIFY`, a bus named *pgbus*). The cluster setting selects it, with the values `nats` and `tunnel` (the API and the CLI keep these names; `tunnel` means PostgreSQL as the bus and WebSocket as the route that new workers use). There is no flag that you pass at boot: the setting is a row in the database, and the first frontend writes it (see below). Today one bus is active at a time. The setting also decides which route a worker is told to use when it registers: NATS on `nats`, WebSocket on `tunnel`. A worker that joined over P2P keeps its P2P tunnel in both cases.
+
+Changing the setting is an advanced operation of the admin API and the `local-ai cluster` command. The Nodes page of the WebUI shows the active bus, the frontends and the workers, and it saves the NATS address, but it has no control to change the bus. See [Switching the carrier](#switching-the-carrier).
 
 ### How a deployment starts
 
 The first frontend that starts writes the row:
 
-- A **new deployment with only PostgreSQL** (no NATS URL in the flags and none stored) starts on `tunnel`.
-- An **existing deployment with a NATS URL** (`--nats-url` or `LOCALAI_NATS_URL`) starts on `nats`. Nothing changes for it: the subjects, the payloads, the queue groups, and the direct gRPC connections stay as they were.
+- A **new deployment with only PostgreSQL** (no NATS URL in the flags and none stored) starts on `tunnel`: PostgreSQL is the broadcast bus and workers attach over WebSocket.
+- An **existing deployment with a NATS URL** (`--nats-url` or `LOCALAI_NATS_URL`) starts on `nats`: NATS is the broadcast bus and workers attach over NATS. Nothing changes for it: the subjects, the payloads, the queue groups, and the direct gRPC connections stay as they were.
 
 Later frontends read the row and follow it. A frontend never uses its own flags to override the row. If its `--nats-url` names another server than the stored one, it refuses to start and names both addresses.
 
 A frontend that finds a cluster on NATS but has no NATS address fails to start and tells you to set `--nats-url`. A NATS server that is down when a frontend starts does not stop the start: the frontend keeps retrying to connect.
 
-### Choose a carrier
+### Choose a setting
 
 - Use `tunnel` for a self-hosted cluster with PostgreSQL only. It has fewer parts to run and workers behind NAT or a firewall need no open port. See [Operational limits](#operational-limits) for the numbers.
 - Use `nats` for large clusters, many frontends, high-rate or large broadcasts, and fast queue pickup.
 
-You can start on one and change to the other later.
+You can start on one and change to the other later with the admin API or the CLI.
 
 ### Workers that hold only a tunnel
 
-A worker that [joined over P2P](#workers-over-p2p) holds a tunnel and nothing else, whichever carrier is active. A cluster on `nats` reaches such a worker through its tunnel: for each call the frontend takes NATS when the worker is attached to NATS, then the tunnel. A worker holds one tunnel, over a websocket or over P2P, so the order between the two kinds of tunnel never comes into play. The same rule reaches a worker that could not follow a change to NATS. The health monitor does not demote a worker that is attached to the tunnel while NATS is active, because it is reachable.
+A worker that [joined over P2P](#workers-over-p2p) holds a tunnel and nothing else, whichever setting is active. A cluster on `nats` reaches such a worker through its tunnel: for each call the frontend takes NATS when the worker is attached to NATS, then the tunnel. A worker holds one tunnel, over a websocket or over P2P, so the order between the two kinds of tunnel never comes into play. The same rule reaches a worker that could not follow a change to NATS. The health monitor does not demote a worker that is attached to the tunnel while NATS is active, because it is reachable.
 
 The Nodes page shows the route of each node: **NATS**, **WebSocket** (the tunnel over a websocket) or **P2P**, and for P2P the path (direct, hole-punched or relayed, and *limited* when the relay limits the data or the time of a connection).
 
 ## Prerequisites
 
-- **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the carrier row, and the shared state. On the `tunnel` carrier it is also the message bus, so size it for that (see [Operational limits](#operational-limits)).
-- A **NATS** server, only if you want the `nats` carrier. A deployment can start without one and add it later.
+- **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the cluster setting row, and the shared state. On the `tunnel` setting it is also the broadcast bus between the frontends, so size it for that (see [Operational limits](#operational-limits)).
+- A **NATS** server, only if you want the `nats` setting. A deployment can start without one and add it later.
 - All services must be reachable from each other, through the network or the configured URLs.
-- On the `tunnel` carrier, a session-level `LISTEN` connection to PostgreSQL. A connection pooler in *transaction* mode (for example PgBouncer in its default mode) breaks `LISTEN`. Point the frontends directly at PostgreSQL, or use a session-mode pool.
+- On the `tunnel` setting (PostgreSQL as the broadcast bus), a session-level `LISTEN` connection to PostgreSQL. A connection pooler in *transaction* mode (for example PgBouncer in its default mode) breaks `LISTEN`. Point the frontends directly at PostgreSQL, or use a session-mode pool.
 
 ## Quick Start with Docker Compose
 
@@ -90,7 +95,7 @@ docker compose -f docker-compose.distributed.yaml up
 
 This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. The frontend has a NATS URL, so the cluster starts on `nats`. When you send an inference request, the SmartRouter installs the needed backend on the worker and loads the model. See the file for GPU support, shared volumes, and more workers.
 
-To try the `tunnel` carrier, remove the `nats` service, the `depends_on` entries that name it, and every `LOCALAI_NATS_URL` line from the file. The cluster then starts on `tunnel`, and the worker needs only `LOCALAI_REGISTER_TO` and the registration token. The frontend sends chat starts to the chat worker over the peer link (see [Chats on the `tunnel` carrier](#chats-on-the-tunnel-carrier)).
+To try PostgreSQL as the broadcast bus (the `tunnel` setting), remove the `nats` service, the `depends_on` entries that name it, and every `LOCALAI_NATS_URL` line from the file. The cluster then starts on `tunnel`, the worker attaches over WebSocket, and it needs only `LOCALAI_REGISTER_TO` and the registration token. The frontend sends chat starts to the chat worker over the peer link (see [Chats over the WebSocket tunnel](#chats-over-the-websocket-tunnel)).
 
 {{% callout style="tip" %}}
 The compose file starts PostgreSQL, NATS, [Garage](https://garagehq.deuxfleurs.fr/) as S3-compatible object storage (with a one-shot step that creates its bucket and access key), a frontend, a model worker, an agent worker and a [chat worker](#chat-workers). The frontend and the chat worker store the chat files in Garage, and the frontend sends unattended chat turns to the chat worker. Its credentials are examples: change them, and the `rpc_secret` in `examples/distributed/garage.toml`, for anything beyond a local test.
@@ -109,10 +114,10 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--peer-address` | `LOCALAI_PEER_ADDRESS` | *(found from the route to the database)* | `host:port` at which the other frontends dial this one. A frontend publishes it so that a replica that does not hold the connection of a worker can reach the replica that does. Set it when the address found from the route to the database is not the one the other frontends should use. The link carries the credential of the replica and every request that it relays, so by default it is clear text. Use `--peer-tls` when the replicas sit behind TLS. |
 | `--peer-tls` | `LOCALAI_PEER_TLS` | `false` | Dial the other frontends over `wss` and not `ws`. Every frontend must then be reachable over TLS at the address it publishes with `--peer-address`, for example behind a reverse proxy that terminates TLS. A frontend that serves the API over TLS itself (`--tls-cert`, `--tls-self-signed`) dials `wss` without this flag. LocalAI warns at start-up when it publishes an address that is not on the local host and the link is clear text. |
 | `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | *(system roots)* | PEM file with the certificate authority that signs the certificate of the other frontends. Use it with a private CA. See [Peer link](#peer-link). |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL (e.g., `nats://localhost:4222`). Optional. With a URL, a new cluster starts on the `nats` carrier. Without one, it starts on the `tunnel` carrier. The URL is copied into the `nats.url` cluster setting. See [Carriers](#carriers). |
-| `--carrier-prepare-timeout` | `LOCALAI_CARRIER_PREPARE_TIMEOUT` | `1m` | How long a change of carrier waits for every frontend to be ready before it is aborted. The stored cluster setting wins. |
+| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL (e.g., `nats://localhost:4222`). Optional. With a URL, a new cluster starts on `nats`. Without one, it starts on `tunnel` (PostgreSQL as the broadcast bus). The URL is copied into the `nats.url` cluster setting. See [Carriers](#carriers). |
+| `--carrier-prepare-timeout` | `LOCALAI_CARRIER_PREPARE_TIMEOUT` | `1m` | How long a change of the broadcast bus waits for every frontend to be ready before it is aborted. The stored cluster setting wins. |
 | `--carrier-transition-window` | `LOCALAI_CARRIER_TRANSITION_WINDOW` | `2m` | How long a change waits for every frontend to confirm the commit. |
-| `--carrier-max-drain` | `LOCALAI_CARRIER_MAX_DRAIN` | `15m` | How long the previous carrier stays attached after a change. See [Switching the carrier](#switching-the-carrier). |
+| `--carrier-max-drain` | `LOCALAI_CARRIER_MAX_DRAIN` | `15m` | How long the previous bus stays attached after a change. See [Switching the carrier](#switching-the-carrier). |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
@@ -464,7 +469,7 @@ local-ai worker \
   --registration-token changeme
 ```
 
-The worker needs no NATS address. The frontend tells it which [carrier](#carriers) is active and gives it the credential for it. Add `--addr` to make the worker [dual-capable](#worker-profiles).
+The worker needs no NATS address. The frontend tells it which route to use and gives it the credential for it. Add `--addr` to make the worker [dual-capable](#worker-profiles).
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
@@ -487,7 +492,7 @@ The worker needs no NATS address. The frontend tells it which [carrier](#carrier
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | Optional override of the NATS address that the frontend hands over. A deployment on the `tunnel` carrier needs none. |
+| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | Optional override of the NATS address that the frontend hands over. A deployment on the `tunnel` setting needs none. |
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
 | `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |
 | `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | `false` | Require NATS JWT+seed (from registration or env) |
@@ -1157,14 +1162,14 @@ What stays on the frontends:
 - Sub-agents follow their parent: the sub-agents of a turn that runs on a chat worker run on that worker.
 
 
-### Chats on the `tunnel` carrier
+### Chats over the WebSocket tunnel
 
-A chat start, the replay of the events of a turn to a client that reconnected to another frontend, and the background jobs of a turn that runs on another node are request and reply between processes. On `tunnel` they go over the peer link between the two processes (`/api/cluster/peer`), the link that already carries the requests for a worker whose tunnel another frontend holds. Every frontend and chat worker needs a peer address that the others can reach: it is found at start, and `LOCALAI_PEER_ADDRESS` sets it when the one found is wrong.
+A chat start, the replay of the events of a turn to a client that reconnected to another frontend, and the background jobs of a turn that runs on another node are request and reply between processes. On the `tunnel` setting they go over the peer link between the two processes (`/api/cluster/peer`), the link that already carries the requests for a worker whose tunnel another frontend holds. Every frontend and chat worker needs a peer address that the others can reach: it is found at start, and `LOCALAI_PEER_ADDRESS` sets it when the one found is wrong.
 
 - A chat start goes to a live chat worker that the frontend picks from the node list. When that worker cannot be reached, or is full, the frontend tries another one (up to three). Each try may spend only its share of `LOCALAI_CHAT_START_TIMEOUT` to reach its worker, so a worker that does not answer leaves time for the others. When the start has been sent and no answer comes back, the run fails and nothing is retried: the worker may have started the turn, and a second start could send the message twice. When no chat worker can be reached, the frontend runs the turn itself, as it does when none is live.
 - The replay asks the frontend that runs the turn and waits up to 2 seconds. On a slow link that also carries large model file transfers to a worker, the answer can take longer, and the client then reads the transcript instead of the missed events.
-- A turn reaches a background job on another node. When that node does not answer, the tool call says so and the job stays as it is. A job is marked lost only when its node does not know the job. On `tunnel` a node that does not answer is never taken as a node that left the cluster, because a live frontend whose heartbeats stall for a while looks the same, so the job of a node that left stays listed as running.
-- Chat events, notifications and stops are broadcasts, and they work on both carriers.
+- A turn reaches a background job on another node. When that node does not answer, the tool call says so and the job stays as it is. A job is marked lost only when its node does not know the job. On the `tunnel` setting a node that does not answer is never taken as a node that left the cluster, because a live frontend whose heartbeats stall for a while looks the same, so the job of a node that left stays listed as running.
+- Chat events, notifications and stops are broadcasts, and they work on both settings.
 
 ## MCP in Distributed Mode
 
@@ -1626,7 +1631,9 @@ Notes:
 
 ## Switching the carrier
 
-An admin changes the carrier with a **dry run** first and a **change** second. The same operation is in the Nodes page of the WebUI (the *Cluster transport* panel), in the `local-ai cluster` command, and in the admin API.
+_Advanced. This is an operation of the admin API and the `local-ai cluster` command. The WebUI does not offer it._
+
+An admin changes the carrier with a **dry run** first and a **change** second. It is in the `local-ai cluster` command and in the admin API. The *Cluster transport* panel of the Nodes page shows the result (the active broadcast bus, the frontends and the workers) and saves the NATS address, but it has no control to change the bus. Here, "carrier" is the API name of the setting: `nats` (NATS as the bus) or `tunnel` (PostgreSQL as the bus, WebSocket for new workers).
 
 {{% callout style="warning" %}}
 Upgrade **all** frontends to a release that has carrier switching before you change the carrier for the first time. A frontend of an older release writes no row and cannot be detected. The preflight cannot see it, and it would not follow the change. See [Rolling upgrades](#rolling-upgrades-and-rollback).
@@ -1732,7 +1739,7 @@ The LocalAI Assistant has a read-only `get_cluster_carrier` tool. It has no tool
 
 ## Workers and carriers
 
-A worker does not choose the carrier. At registration, the frontend tells the worker which carrier is active and gives it the credential for that carrier. The worker needs only `--register-to` and the registration token. `--nats-url` on a worker is an optional override.
+A worker does not choose its route. At registration, the frontend tells the worker which route to use (NATS on `nats`, WebSocket on `tunnel`) and gives it the credential for it. A worker never connects to PostgreSQL. The worker needs only `--register-to` and the registration token. `--nats-url` on a worker is an optional override.
 
 The worker then follows the cluster. Every heartbeat reply carries the active carrier, the epoch, and the state. When a change starts, the worker registers again (the same call it makes at boot), receives the credential for the target, waits a random time of up to 10 seconds so that a large fleet does not connect at the same instant, and attaches to the target. It keeps the old carrier open until the cluster releases it and nothing runs on it. The **backend processes keep running**: a switch moves the control channel only, so a loaded model is not reloaded. The follow delay can be tuned with `LOCALAI_FOLLOW_MAX_DELAY` (default `10s`).
 
@@ -1844,7 +1851,7 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 
 **Does saving a NATS URL move my cluster to NATS?** No. It makes NATS available and checks that it can be reached. A change is a separate step.
 
-**Can both carriers run together?** Not as a steady state. They overlap only during a change, for the drain time.
+**Can both buses run together?** Not yet. The broadcast bus between the frontends is NATS or PostgreSQL, one at a time. They overlap only during a change, for the drain time. Workers are different: a P2P worker or a WebSocket worker can be reached while the cluster is on `nats` (see [Workers that hold only a tunnel](#workers-that-hold-only-a-tunnel)).
 
 **Do I need to restart anything to change the carrier?** No. Not the frontends, not the workers, and not the backends.
 
@@ -1852,7 +1859,7 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 
 **Do I still need `--nats-url` on workers?** No. A worker learns the address from the frontend. Set it only to override the address.
 
-**What if I never use NATS?** Run PostgreSQL only. The cluster starts on the tunnel.
+**What if I never use NATS?** Run PostgreSQL only. The cluster starts on `tunnel`: PostgreSQL is the broadcast bus between the frontends and workers attach over WebSocket. Workers still never connect to PostgreSQL.
 
 **Why can my tunnel-only worker not follow to NATS?** It has no address that the frontends can dial, and its backends listen on loopback. Restart it with `--addr`.
 
@@ -1885,7 +1892,7 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 
 **The frontend log says it cannot reach NATS, or the NATS URL is refused:**
 - Saving a NATS URL (`PUT /api/cluster/settings`) is refused with `422` when the serving frontend cannot reach the server with its own credentials. Check the address, the TLS files (`--nats-tlsca`, `--nats-tls-cert`, `--nats-tls-key`), and the JWT credentials on that frontend.
-- A frontend that is on the NATS carrier and loses the server stays up and keeps retrying. NATS workers become unroutable (nothing is reaped). You can change to the `tunnel` carrier from the dashboard if PostgreSQL is healthy: the dry run lists any NATS-only worker that cannot follow.
+- A frontend that is on the NATS carrier and loses the server stays up and keeps retrying. NATS workers become unroutable (nothing is reaped). You can change to the `tunnel` setting with `local-ai cluster carrier switch` or the admin API if PostgreSQL is healthy: the dry run lists any NATS-only worker that cannot follow.
 
 **NATS connection errors:**
 - Confirm NATS is running and reachable (`nats-server --signal ldm` or check port 4222)

@@ -202,7 +202,7 @@ export default function Nodes() {
           <p className="sw-note">{t('first.sub')}</p>
         </header>
         <AddNodeFlow nodes={nodes} single={false} addToast={addToast} onApproved={refetch} />
-        <ClusterTransport addToast={addToast} />
+        <ClusterTransport />
         <SplitWorkers addToast={addToast} />
       </div>
     )
@@ -237,7 +237,7 @@ export default function Nodes() {
       )}
 
       <FleetHero summary={fleet} running={runningCount} attention={attentionCount} />
-      <ClusterTransport addToast={addToast} />
+      <ClusterTransport />
 
       <div className="sw-bar">
         <div className="dk-segmented" role="radiogroup" aria-label={t('nodes.view')}>

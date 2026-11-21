@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { clusterApi } from '../../utils/api'
-import {
-  CARRIERS, PROFILE_LABELS, canForce, carrierLabel, formatCountdown, otherCarrier,
-  followStatus, replicaReady, stateLabel, workerProfile,
-} from '../../utils/clusterTransport'
-import ConfirmDialog from '../ConfirmDialog'
-import Icon from '../Icon'
-import Modal from '../Modal'
-import { Button, Segmented } from '../ui'
+import { busLabel, formatCountdown, replicaReady, routeLabel, stateLabel } from '../../utils/clusterTransport'
+import { Button } from '../ui'
 
 const POLL_IDLE_MS = 5000
 const POLL_BUSY_MS = 2000
@@ -43,164 +37,22 @@ function ReplicaList({ replicas, report, label }) {
   )
 }
 
-function WorkerTable({ workers, active }) {
+function WorkerTable({ workers }) {
   if (!workers || workers.length === 0) return <p className="text-note">No worker is registered.</p>
   return (
     <div className="transport-table-wrap">
-      <table className="transport-table" aria-label="Workers by carrier">
-        <thead><tr><th>Worker</th><th>Profile</th><th>Attached to</th><th>Follow status</th></tr></thead>
+      <table className="transport-table" aria-label="Workers by route">
+        <thead><tr><th>Worker</th><th>Attached over</th></tr></thead>
         <tbody>
           {workers.map(worker => (
             <tr key={worker.id} data-testid="transport-worker">
               <td>{worker.name || worker.id}</td>
-              <td>{PROFILE_LABELS[workerProfile(worker)]}</td>
-              <td>{(worker.attached || []).length ? worker.attached.map(carrierLabel).join(' + ') : 'not reported'}</td>
-              <td>{(() => {
-                const status = followStatus(worker, active)
-                return status.ok
-                  ? <span className="text-note">{status.text}</span>
-                  : <span className="transport-error" role="status">{status.text}</span>
-              })()}</td>
+              <td>{(worker.attached || []).length ? worker.attached.map(routeLabel).join(' + ') : 'not reported'}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-  )
-}
-
-function BlockerList({ blockers }) {
-  return (
-    <ul className="transport-blockers" aria-label="Blockers">
-      {blockers.map((blocker, index) => (
-        <li key={`${blocker.kind}-${blocker.id || index}`} data-testid="transport-blocker">
-          <strong>{blocker.kind}{blocker.id ? ` ${blocker.id}` : ''}</strong>
-          <span>{blocker.reason}</span>
-          {blocker.forceable && <span className="badge badge-warning">can be forced</span>}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function SwitchDialog({ report, onClose, onStarted, addToast }) {
-  const [target, setTarget] = useState(otherCarrier(report.active))
-  const [dry, setDry] = useState(null)
-  const [dryError, setDryError] = useState('')
-  const [running, setRunning] = useState(false)
-  const [confirmed, setConfirmed] = useState(false)
-  const [force, setForce] = useState(false)
-  const [confirmForce, setConfirmForce] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState('')
-
-  const resetResult = () => { setDry(null); setDryError(''); setConfirmed(false); setForce(false); setSubmitError('') }
-  const pickTarget = value => { setTarget(value); resetResult() }
-
-  const runDry = async () => {
-    setRunning(true)
-    resetResult()
-    try {
-      setDry(await clusterApi.dryRun(target))
-    } catch (error) {
-      setDryError(error.message || 'The dry run failed')
-    } finally {
-      setRunning(false)
-    }
-  }
-
-  const blockers = dry?.blockers || []
-  const blocked = blockers.length > 0
-  const forceable = canForce(dry)
-  const sameCarrier = target === report.active
-  const mayStart = !!dry && confirmed && !sameCarrier && (!blocked || (force && forceable))
-
-  const start = async () => {
-    setSubmitting(true)
-    setSubmitError('')
-    try {
-      const answer = await clusterApi.switchCarrier(target, force)
-      addToast(`Change to ${carrierLabel(target)} started (epoch ${answer.epoch}).`, 'success')
-      onStarted()
-      onClose()
-    } catch (error) {
-      const refused = error?.body?.blockers
-      setSubmitError(Array.isArray(refused) && refused.length
-        ? `${error.message}: ${refused.map(b => b.reason).join('; ')}`
-        : (error.message || 'The request failed'))
-    } finally {
-      setSubmitting(false)
-      setConfirmForce(false)
-    }
-  }
-
-  const onPrimary = () => { if (force) setConfirmForce(true); else start() }
-  const forcedNodes = blockers.filter(b => b.kind === 'worker').length
-
-  return (
-    <>
-      <Modal onClose={submitting ? () => {} : onClose} maxWidth="680px" ariaLabel="Switch cluster transport">
-        <div className="transport-dialog">
-          <h3 className="panel-title"><Icon name="swap" />Switch cluster transport</h3>
-          <p className="text-base text-secondary">Run a dry run first. It changes nothing and lists what would block the change.</p>
-
-          <Segmented mode="radio" label="Target carrier" className="transport-dialog__targets"
-            value={target} onChange={pickTarget}
-            options={CARRIERS.map(value => ({
-              id: value,
-              label: `${carrierLabel(value)}${value === report.active ? ' (active)' : ''}`,
-              disabled: running || submitting,
-            }))} />
-          {sameCarrier && <p className="text-note" role="status">{carrierLabel(target)} is the active carrier already.</p>}
-
-          <div className="transport-dialog__actions">
-            <Button size="sm" onClick={runDry} disabled={running || submitting || sameCarrier}>
-              {running ? 'Checking…' : 'Dry run'}
-            </Button>
-          </div>
-          {dryError && <p className="transport-error" role="alert">{dryError}</p>}
-
-          {dry && (
-            <div className="transport-dialog__result" aria-live="polite">
-              <p className={dry.ok ? 'transport-ok' : 'transport-error'} data-testid="transport-dry-verdict">
-                {dry.ok ? `Nothing blocks a change to ${carrierLabel(target)}.` : `${blockers.length} blocker${blockers.length === 1 ? '' : 's'} for a change to ${carrierLabel(target)}.`}
-              </p>
-              {blocked && <BlockerList blockers={blockers} />}
-              {(dry.warnings || []).map(w => <p key={w} className="text-note">{w}</p>)}
-              {dry.in_flight && (
-                <p className="text-note">In flight: {dry.in_flight.loads} loading model(s). They finish where they started.</p>
-              )}
-              <p className="form-label">Live frontend replicas</p>
-              <ReplicaList replicas={dry.replicas} report={report} label="Live replicas" />
-              <label className="checkbox-row">
-                <input type="checkbox" className="dk-check" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />
-                I confirm these are all the frontends and all are upgraded
-              </label>
-              {blocked && (
-                forceable
-                  ? <label className="checkbox-row">
-                      <input type="checkbox" className="dk-check" checked={force} onChange={event => setForce(event.target.checked)} />
-                      Force the change past the blockers above
-                    </label>
-                  : <p className="text-note">At least one blocker cannot be forced.</p>
-              )}
-            </div>
-          )}
-          {submitError && <p className="transport-error" role="alert">{submitError}</p>}
-
-          <div className="transport-dialog__footer">
-            <Button size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
-            <Button size="sm" variant={force ? 'danger' : 'primary'} disabled={!mayStart || submitting} onClick={onPrimary}>
-              {submitting ? 'Starting…' : force ? `Force switch to ${carrierLabel(target)}` : `Switch to ${carrierLabel(target)}`}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-      <ConfirmDialog open={confirmForce} danger title="Force the change?"
-        message={`A forced change goes ahead without the replicas and workers that are listed as blockers.${forcedNodes ? ` ${forcedNodes} worker(s) cannot follow and become unroutable until they are restarted or fixed. They are not removed.` : ''}`}
-        confirmLabel="Force the change" pendingLabel="Starting…" pending={submitting}
-        onConfirm={start} onCancel={() => setConfirmForce(false)} />
-    </>
   )
 }
 
@@ -228,8 +80,8 @@ function NatsSettings({ settings, onSaved }) {
       setResult({
         ok: true,
         text: answer?.nats?.reachable
-          ? 'Saved. This frontend reaches the NATS server. The active carrier did not change.'
-          : 'Saved. The active carrier did not change.',
+          ? 'Saved. This frontend reaches the NATS server. The broadcast bus did not change.'
+          : 'Saved. The broadcast bus did not change.',
       })
       onSaved()
     } catch (error) {
@@ -242,7 +94,7 @@ function NatsSettings({ settings, onSaved }) {
   return (
     <form className="transport-settings" onSubmit={save} aria-label="NATS settings">
       <p className="form-label">NATS settings</p>
-      <p className="text-note">Saving makes NATS available and checks that this frontend reaches it. It does not switch the cluster.</p>
+      <p className="text-note">Saving makes NATS available and checks that this frontend reaches it. It does not change the broadcast bus.</p>
       <label className="transport-field">
         <span>NATS URL</span>
         <input className="input input-mono" aria-label="NATS URL" placeholder="nats://nats:4222" value={natsUrl}
@@ -261,15 +113,14 @@ function NatsSettings({ settings, onSaved }) {
   )
 }
 
-// ClusterTransport shows which carrier the cluster uses and lets an admin
-// change it. It renders nothing when the cluster routes are not available.
-export default function ClusterTransport({ addToast }) {
+// ClusterTransport shows the broadcast bus the frontends share, the frontends
+// and workers behind it, and the NATS address settings. It is read-only apart
+// from the NATS settings: changing the bus is an API and CLI operation. It
+// renders nothing when the cluster routes are not available.
+export default function ClusterTransport() {
   const [report, setReport] = useState(null)
   const [available, setAvailable] = useState(true)
   const [loadError, setLoadError] = useState('')
-  const [showSwitch, setShowSwitch] = useState(false)
-  const [confirmAbort, setConfirmAbort] = useState(false)
-  const [aborting, setAborting] = useState(false)
   const [fetchedAt, setFetchedAt] = useState(0)
   const [now, setNow] = useState(Date.now())
 
@@ -300,20 +151,6 @@ export default function ClusterTransport({ addToast }) {
     return () => clearInterval(tick)
   }, [draining])
 
-  const abort = async () => {
-    setAborting(true)
-    try {
-      await clusterApi.abort()
-      addToast('The change was aborted. The previous carrier stays active.', 'success')
-      await load()
-    } catch (error) {
-      addToast(`Could not abort: ${error.message}`, 'error')
-    } finally {
-      setAborting(false)
-      setConfirmAbort(false)
-    }
-  }
-
   if (!available) return null
   if (!report) {
     return loadError ? <section className="card pad-lg mb-lg transport-panel" aria-label="Cluster transport"><p className="transport-error" role="alert">{loadError}</p></section> : null
@@ -321,26 +158,22 @@ export default function ClusterTransport({ addToast }) {
 
   const label = stateLabel(report)
   const remainingNs = draining ? Math.max(0, Number(report.drain_remaining_ns) - (now - fetchedAt) * 1e6) : 0
-  const other = otherCarrier(report.active)
   const target = report.row?.target
 
   return (
     <section className="card pad-lg mb-lg transport-panel" aria-label="Cluster transport" data-testid="cluster-transport">
       <div className="transport-head">
         <div>
-          <span className="fleet-kicker">Cluster transport</span>
+          <span className="fleet-kicker">Broadcast bus between frontends</span>
           <div className="transport-head__line">
-            <strong className="transport-head__carrier" data-testid="transport-active">{carrierLabel(report.active)}</strong>
+            <strong className="transport-head__carrier" data-testid="transport-active">{busLabel(report.active)}</strong>
             <span className={`badge ${stateTone(label)}`} data-testid="transport-state">{label}</span>
             <span className="text-note" data-testid="transport-epoch">epoch {report.epoch}</span>
           </div>
-          {busy && target && <p className="text-note" role="status">Changing to {carrierLabel(target)}: {report.state === 'prepare' ? 'every frontend builds the new carrier and reports ready' : 'the new carrier is active, frontends are confirming'}.</p>}
-          {draining && <p className="text-note" role="status" data-testid="transport-drain">Draining {carrierLabel(report.row?.draining || other)}: {formatCountdown(remainingNs)} left. Work that started there finishes there; what is left is cut afterwards.</p>}
+          <p className="text-note">Each worker attaches over NATS, WebSocket or P2P. Workers never connect to PostgreSQL; only the frontends use it as a bus.</p>
+          {busy && target && <p className="text-note" role="status">A change to {busLabel(target)} is in progress: {report.state === 'prepare' ? 'every frontend builds the new bus and reports ready' : 'the new bus is active, frontends are confirming'}.</p>}
+          {draining && <p className="text-note" role="status" data-testid="transport-drain">Draining {busLabel(report.row?.draining)}: {formatCountdown(remainingNs)} left. Work that started there finishes there; what is left is cut afterwards.</p>}
           {loadError && <p className="transport-error" role="alert">{loadError}</p>}
-        </div>
-        <div className="transport-head__actions">
-          {report.state === 'prepare' && <Button size="sm" variant="danger" onClick={() => setConfirmAbort(true)} disabled={aborting}>Abort change</Button>}
-          <Button size="sm" variant="primary" onClick={() => setShowSwitch(true)} disabled={busy}>Switch to {carrierLabel(other)}…</Button>
         </div>
       </div>
 
@@ -351,17 +184,11 @@ export default function ClusterTransport({ addToast }) {
         </div>
         <div>
           <p className="form-label">Workers</p>
-          <WorkerTable workers={report.workers} active={report.active} />
+          <WorkerTable workers={report.workers} />
         </div>
       </div>
 
       <NatsSettings settings={report.settings} onSaved={load} />
-
-      {showSwitch && <SwitchDialog report={report} onClose={() => setShowSwitch(false)} onStarted={load} addToast={addToast} />}
-      <ConfirmDialog open={confirmAbort} danger title="Abort the change?"
-        message={`The cluster stays on ${carrierLabel(report.active)}. Nothing moves.`}
-        confirmLabel="Abort the change" pendingLabel="Aborting…" pending={aborting}
-        onConfirm={abort} onCancel={() => setConfirmAbort(false)} />
     </section>
   )
 }
