@@ -575,11 +575,26 @@ in an old config is listed as "Not passed".
 
 Channels: `launcher:network:get`, `:plan`, `:set-exposed`,
 `launcher:api-key:regenerate`, `:reveal`, `:copy`, `:dismiss-notice`, `launcher:env:get`, `:set`,
-`:delete` and `launcher:secrets:state`, each behind the sender check and the
+`:delete`, `launcher:secrets:state` and `launcher:registry-credentials:{list,save,remove,test}`, each behind the sender check and the
 input checks. `test/coreSecrets.test.ts` proves with the fake server that a
 value reaches the server by its environment and not by its arguments, its
 `/proc` command line, the logs, the config file, the secrets file as plain
 text, or anything the renderer gets without asking.
+
+### Registry credentials
+
+Settings, Advanced, "Registry credentials" keeps rules (a registry, Basic or
+Bearer token, and a user name for Basic) used when the server pulls add-ons,
+backends and models from private registries. The launcher keeps the rule
+metadata in `launcher.json` and each secret only in the secret store. Before
+the server starts it writes a generated `registry-credentials.yaml` next to
+`launcher.json` (mode 0600) that holds the rules and the names of environment
+variables, never the secrets; the secrets reach the
+server only through those environment variables and set `LOCALAI_CREDENTIALS_FILE`
+to that file. While rules exist they replace the `credentials.yaml` of the data
+folder, and a `LOCALAI_CREDENTIALS_FILE` set by the user turns the rules off.
+The server reads the file once at start, so a change needs a restart. The
+renderer never receives a secret, and Test shows only a result label.
 
 ## Sandbox on Linux
 
