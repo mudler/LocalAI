@@ -455,6 +455,7 @@ curl 'http://localhost:8080/api/models/remote/files?uri=huggingface://acme/Tiny-
 - `preference` is the value for `preferences.quantizations` on `POST /models/import-uri` that selects exactly that variant.
 - `installed` and `installed_name` say that an installed model was made from this repository.
 - `gated` is reported as is. For Pirate Face it is also true when the site shows no magnet link, which is what a gated licence looks like there.
+- For `ollama://name[:tag]` uris (a bare name is `library/name`, the default tag is `latest`) the file list comes from the manifest of the Ollama registry. The model layer is the one `gguf` file and the only variant, named after the tag. A vision projector layer is listed as a file of kind `mmproj` and is not part of the variant. Template, parameter, licence and system layers are not listed. The registry gives sizes and digests but no licence or description.
 - For `pirateface://` uris the file list comes from the Pirate Face index, which has no sizes. The sizes come from the Hugging Face commit the torrent mirrors. When Hugging Face does not know the repository, `size_known` is false and the sizes are 0.
 
 `GET /api/models/remote/estimate?uri=...&file=...&contexts=4096,8192` returns the same answer as `GET /api/models/estimate/{id}` for a gallery model, for one variant (`file` is the variant's first file; the default is the recommended variant):
