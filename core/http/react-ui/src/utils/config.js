@@ -207,7 +207,6 @@ export const API_CONFIG = {
     nodeMaxReplicasPerModel: (id) => `/api/nodes/${id}/max-replicas-per-model`,
     nodeVramBudget: (id) => `/api/nodes/${id}/vram-budget`,
     nodeSplitServer: (id) => `/api/nodes/${id}/split-server`,
-    clusterCarrier: '/api/cluster/carrier',
     clusterSettings: '/api/cluster/settings',
     nodesScheduling: '/api/nodes/scheduling',
     nodesModels: '/api/nodes/models',

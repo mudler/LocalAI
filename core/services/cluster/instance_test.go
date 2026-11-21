@@ -36,7 +36,7 @@ var _ = Describe("Instance registry", func() {
 	})
 
 	It("registers an instance and reads it back", func() {
-		Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
+		Expect(reg.Register(ctx, "inst-a", "v1")).To(Succeed())
 
 		live, err := liveInstances(ctx, db, time.Minute)
 		Expect(err).ToNot(HaveOccurred())
@@ -48,14 +48,14 @@ var _ = Describe("Instance registry", func() {
 	It("preserves long development build versions", func() {
 		version := "v4.10.0-183-g46c57bf3d (" + strings.Repeat("a", 40) + ")"
 		Expect(len(version)).To(BeNumerically(">", 64))
-		Expect(reg.Register(ctx, "inst-dev", version, 0, "")).To(Succeed())
+		Expect(reg.Register(ctx, "inst-dev", version)).To(Succeed())
 
 		Expect(get("inst-dev").Version).To(Equal(version))
 	})
 
 	It("registering the same id again updates the row and does not duplicate it", func() {
-		Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
-		Expect(reg.Register(ctx, "inst-a", "v2", 0, "")).To(Succeed())
+		Expect(reg.Register(ctx, "inst-a", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "inst-a", "v2")).To(Succeed())
 
 		live, err := liveInstances(ctx, db, time.Hour)
 		Expect(err).ToNot(HaveOccurred())
@@ -64,7 +64,7 @@ var _ = Describe("Instance registry", func() {
 	})
 
 	It("excludes instances whose heartbeat has aged out", func() {
-		Expect(reg.Register(ctx, "stale", "v1", 0, "")).To(Succeed())
+		Expect(reg.Register(ctx, "stale", "v1")).To(Succeed())
 		// Age the row directly. A spec does not sleep.
 		Expect(db.Model(&cluster.Instance{}).Where("id = ?", "stale").
 			Update("last_seen", gorm.Expr("now() - interval '10 minutes'")).Error).To(Succeed())
@@ -75,7 +75,7 @@ var _ = Describe("Instance registry", func() {
 	})
 
 	It("brings a stale instance back with a heartbeat", func() {
-		Expect(reg.Register(ctx, "revive", "v1", 0, "")).To(Succeed())
+		Expect(reg.Register(ctx, "revive", "v1")).To(Succeed())
 		Expect(db.Model(&cluster.Instance{}).Where("id = ?", "revive").
 			Update("last_seen", gorm.Expr("now() - interval '10 minutes'")).Error).To(Succeed())
 		Expect(reg.Heartbeat(ctx, "revive")).To(Succeed())
@@ -92,56 +92,27 @@ var _ = Describe("Instance registry", func() {
 		Expect(live).To(BeEmpty())
 	})
 
-	Describe("readiness for a carrier change", func() {
-		It("starts at epoch zero with no reason", func() {
-			Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
+	Describe("the migration", func() {
+		It("drops the carrier row table and the readiness columns of the change of carrier, and keeps the rows", func() {
+			// A database written before the change of carrier was removed.
+			Expect(db.Exec(`CREATE TABLE cluster_carrier (id bigint PRIMARY KEY, active varchar(16))`).Error).To(Succeed())
+			Expect(db.Exec(`ALTER TABLE instances
+				ADD COLUMN ready_epoch bigint NOT NULL DEFAULT 0,
+				ADD COLUMN ready_reason varchar(512) NOT NULL DEFAULT '',
+				ADD COLUMN availability text NOT NULL DEFAULT '',
+				ADD COLUMN availability_at timestamptz`).Error).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "v1")).To(Succeed())
 
-			got := get("inst-a")
-			Expect(got.ReadyEpoch).To(BeZero())
-			Expect(got.ReadyReason).To(BeEmpty())
-		})
+			Expect(cluster.Migrate(ctx, db)).To(Succeed())
 
-		It("records the epoch a replica is ready for", func() {
-			Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
-
-			Expect(reg.ReportReady(ctx, "inst-a", 7, "")).To(Succeed())
-
-			got := get("inst-a")
-			Expect(got.ReadyEpoch).To(Equal(int64(7)))
-			Expect(got.ReadyReason).To(BeEmpty())
-		})
-
-		It("records why a replica could not build the carrier", func() {
-			Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
-
-			Expect(reg.ReportReady(ctx, "inst-a", 7, "cannot listen on the database")).To(Succeed())
-
-			Expect(get("inst-a").ReadyReason).To(Equal("cannot listen on the database"))
-		})
-
-		It("counts a report as a heartbeat", func() {
-			Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
-			Expect(db.Model(&cluster.Instance{}).Where("id = ?", "inst-a").
-				Update("last_seen", gorm.Expr("now() - interval '10 minutes'")).Error).To(Succeed())
-
-			Expect(reg.ReportReady(ctx, "inst-a", 2, "")).To(Succeed())
-
-			live, err := liveInstances(ctx, db, time.Minute)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(live).To(HaveLen(1))
-		})
-
-		It("refuses a report from a replica that is not registered", func() {
-			Expect(reg.ReportReady(ctx, "ghost", 2, "")).To(MatchError(cluster.ErrInstanceNotFound))
-		})
-
-		It("is not changed by a heartbeat", func() {
-			Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
-			Expect(reg.ReportReady(ctx, "inst-a", 5, "")).To(Succeed())
-
-			Expect(reg.Heartbeat(ctx, "inst-a")).To(Succeed())
-
-			Expect(get("inst-a").ReadyEpoch).To(Equal(int64(5)))
+			m := db.Migrator()
+			Expect(m.HasTable("cluster_carrier")).To(BeFalse())
+			for _, col := range []string{"ready_epoch", "ready_reason", "availability", "availability_at"} {
+				Expect(m.HasColumn(&cluster.Instance{}, col)).To(BeFalse(), col)
+			}
+			Expect(get("inst-a").Version).To(Equal("v1"))
+			// A second run finds nothing to drop.
+			Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		})
 	})
 })

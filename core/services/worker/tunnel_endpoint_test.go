@@ -52,7 +52,7 @@ var _ = Describe("Worker tunnel against the connect endpoint", func() {
 		db := testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR = cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-a", "test")).To(Succeed())
 		nodeReg, err := nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 		registry = tunnel.NewRegistry(clusterR, "replica-a")

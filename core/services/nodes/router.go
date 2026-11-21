@@ -773,7 +773,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	if err != nil {
 		return nil, err
 	}
-	// A node that cannot be reached on the active carrier is not asked for a
+	// A node that this frontend cannot reach on any route is not asked for a
 	// replica, so that its recorded address is never dialled.
 	if candidateNodeIDs, err = r.narrowByRoutable(ctx, trackingKey, candidateNodeIDs); err != nil {
 		return nil, err

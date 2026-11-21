@@ -46,7 +46,7 @@ var _ = Describe("Presence", func() {
 		db = testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg = cluster.NewRegistry(db)
-		Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
+		Expect(reg.Register(ctx, "inst-a", "v1")).To(Succeed())
 	})
 
 	It("reports unknown for a node with no connection row", func() {

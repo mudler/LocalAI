@@ -19,8 +19,8 @@
 // worker-facing seams forward each call through the route table; the
 // broadcaster holder picks a bus for each publish.
 //
-// This package names interfaces only. The code that builds the routes and the
-// sets is the one place that names a transport (see nats.go and tunnel.go).
+// This package names interfaces only. The code that builds the routes is the
+// one place that names a transport (see nats.go and tunnel.go).
 package carrier
 
 import (
@@ -28,7 +28,6 @@ import (
 	"fmt"
 
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes"
 )
 
@@ -83,64 +82,4 @@ func (r *WorkerRoute) Validate() error {
 		}
 	}
 	return nil
-}
-
-// Set is one carrier of the cluster carrier row: the worker route that it
-// brings. The change of carrier (Swapper) moves it. Broadcasts never follow the
-// row: they go over the buses of the holder. Request and reply between
-// processes never follow it either: they go over the peer link (NewPeerReplies).
-// Worker calls do not follow the row: the route table holds the worker route of
-// a set while the set is in use or drains (RouteTable.Attach).
-//
-// The Set, the carrier row and the change of carrier are removed with the
-// switch (step 8 of the hybrid carriers work). Build a set completely and call
-// Validate before storing it where holders can see it.
-type Set struct {
-	// Name is the carrier this set belongs to.
-	Name cluster.Carrier
-	// Epoch is the epoch of the cluster row the set was built for.
-	Epoch int64
-	// NATSURL is the address of the NATS server that a NATS set was built from,
-	// as the row of the cluster named it. A set that was built from another
-	// address is not the set that the row asks for. Empty for the tunnel.
-	NATSURL string
-
-	// WorkerRoute is the route to the workers that this carrier brings. A
-	// tunnel set may share the route that the table pins (TunnelOptions.Routes),
-	// and its Close then leaves that route open.
-	*WorkerRoute
-
-	// Close releases the carrier's connections. It may be nil.
-	Close func()
-}
-
-// Validate reports the first member that is missing.
-func (s *Set) Validate() error {
-	if s == nil {
-		return errors.New("carrier set is nil")
-	}
-	if s.Name != cluster.CarrierNATS && s.Name != cluster.CarrierTunnel {
-		return fmt.Errorf("%w: %q", cluster.ErrInvalidCarrier, s.Name)
-	}
-	if s.WorkerRoute == nil {
-		return fmt.Errorf("carrier set %q has no worker route", s.Name)
-	}
-	if err := s.WorkerRoute.Validate(); err != nil {
-		return fmt.Errorf("carrier set %q: %w", s.Name, err)
-	}
-	if s.Kind != routeKindOf(s.Name) {
-		return fmt.Errorf("carrier set %q brings a %s route", s.Name, s.Kind)
-	}
-	if s.Agents == nil {
-		return fmt.Errorf("carrier set %q has no Agents", s.Name)
-	}
-	return nil
-}
-
-// routeKindOf is the kind of the route that a carrier brings.
-func routeKindOf(c cluster.Carrier) nodes.RouteKind {
-	if c == cluster.CarrierTunnel {
-		return nodes.RouteTunnel
-	}
-	return nodes.RouteDirect
 }

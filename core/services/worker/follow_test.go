@@ -60,7 +60,7 @@ var _ = Describe("A worker that attaches to a tunnel at run time", func() {
 		db := testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR := cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-a", "test")).To(Succeed())
 		nodeReg, err := nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 		registry = tunnel.NewRegistry(clusterR, "replica-a")

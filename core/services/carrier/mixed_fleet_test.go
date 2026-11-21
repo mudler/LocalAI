@@ -57,10 +57,10 @@ var _ = Describe("A mixed fleet through the route table", func() {
 		return n.ID
 	}
 
-	report := func(nodeID string, c cluster.Carrier, t nodes.TunnelRoute) {
+	report := func(nodeID string, c string, t nodes.TunnelRoute) {
 		GinkgoHelper()
-		Expect(nodeReg.SetCarrierReport(ctx, nodeID, nodes.CarrierReport{
-			Attached: []cluster.Carrier{c}, Follow: []cluster.Carrier{c}, Tunnel: t,
+		Expect(nodeReg.SetRouteReport(ctx, nodeID, nodes.RouteReport{
+			Attached: []string{c}, Follow: []string{c}, Tunnel: t,
 		})).To(Succeed())
 	}
 
@@ -124,14 +124,14 @@ var _ = Describe("A mixed fleet through the route table", func() {
 			}
 			return nodes.RoutesOf(n), nil
 		})
-		table.Pin(a.set.WorkerRoute)
-		table.Attach(direct)
+		table.Pin(a.set)
+		table.Pin(direct)
 	})
 
 	It("reaches a NATS worker, a websocket worker and a P2P worker at once, each on its own route", func() {
 		// The NATS worker: it advertises an address and answers on the bus.
 		natsID := register("nats-w", grpcAddr, "")
-		report(natsID, cluster.CarrierNATS, nodes.TunnelRoute{})
+		report(natsID, nodes.RouteNATS, nodes.TunnelRoute{})
 		_, err := bus.SubscribeReply(messaging.SubjectNodeModelOp(natsID), func(data []byte, reply func([]byte)) {
 			var req workerctl.OperationRequest
 			_ = json.Unmarshal(data, &req)
@@ -144,7 +144,7 @@ var _ = Describe("A mixed fleet through the route table", func() {
 		// The websocket worker: no address, a tunnel to the replica.
 		wsID := register("ws-w", "", "")
 		Expect(nodeReg.SetTunnelTokenHash(ctx, wsID, hashOf(workerToken))).To(Succeed())
-		report(wsID, cluster.CarrierTunnel, nodes.TunnelRoute{Transport: nodes.TunnelWebSocket})
+		report(wsID, nodes.RouteTunnelID, nodes.TunnelRoute{Transport: nodes.TunnelWebSocket})
 		ws, err := worker.StartTunnel(ctx, worker.TunnelConfig{
 			FrontendURL: a.url, NodeID: wsID, Token: func() string { return workerToken }, Services: services(),
 		})
@@ -155,7 +155,7 @@ var _ = Describe("A mixed fleet through the route table", func() {
 		// than the websocket and land in the same tunnel registry. The admission
 		// of the P2P door has its own specs; here its stream is a pipe.
 		p2pID := register("p2p-w", "", "12D3KooWExamplePeerOfTheP2PWorker")
-		report(p2pID, cluster.CarrierTunnel, nodes.TunnelRoute{Transport: nodes.TunnelP2P, Path: "direct"})
+		report(p2pID, nodes.RouteTunnelID, nodes.TunnelRoute{Transport: nodes.TunnelP2P, Path: "direct"})
 		p2p, err := worker.StartTunnel(ctx, worker.TunnelConfig{
 			FrontendURL: a.url, NodeID: p2pID, Token: func() string { return workerToken }, Services: services(),
 			Dial: func(ctx context.Context, lane tunnel.Lane, nodeID, _ string) (net.Conn, error) {
@@ -201,7 +201,7 @@ var _ = Describe("A mixed fleet through the route table", func() {
 
 	It("does not reach a P2P worker whose tunnel is gone, and never sends it to NATS", func() {
 		p2pID := register("p2p-gone", "", "12D3KooWExamplePeerOfTheP2PWorker")
-		report(p2pID, cluster.CarrierTunnel, nodes.TunnelRoute{Transport: nodes.TunnelP2P, Path: "relayed", Limited: true})
+		report(p2pID, nodes.RouteTunnelID, nodes.TunnelRoute{Transport: nodes.TunnelP2P, Path: "relayed", Limited: true})
 		_, err := carrier.NewCommands(table).OperationControl(p2pID, workerctl.OperationRequest{Renew: []string{"op"}})
 		Expect(err).To(MatchError(nodes.ErrNoRoute))
 		Expect(natsOps.Load()).To(BeZero())
@@ -312,7 +312,7 @@ var _ = Describe("A mixed fleet of real workers", func() {
 
 	BeforeEach(func() {
 		var err error
-		natsURL, err = startSwitchNATS()
+		natsURL, err = startTestNATS()
 		if err != nil {
 			if os.Getenv("CI") != "" && runtime.GOOS != "darwin" {
 				Fail("testcontainers requires Docker and CI is set: " + err.Error())
@@ -332,7 +332,7 @@ var _ = Describe("A mixed fleet of real workers", func() {
 		// the application mounts them.
 		e := echo.New()
 		e.GET(tunnel.ConnectPath, clusterapi.ConnectHandler(nodeReg, a.tunnels))
-		opts := []localai.RegisterOption{localai.WithTunnelDisconnector(a.tunnels), localai.WithNATSHandover(rigNATS{url: natsURL})}
+		opts := []localai.RegisterOption{localai.WithTunnelDisconnector(a.tunnels), localai.WithNATSHandover(testHandover{url: natsURL})}
 		e.POST("/api/node/register", localai.RegisterNodeEndpoint(nodeReg, registrationToken, true, nil, "", natsauth.Config{}, opts...))
 		e.POST("/api/node/:id/heartbeat", localai.HeartbeatEndpoint(nodeReg, opts...))
 		srv := httptest.NewServer(e)
@@ -355,8 +355,8 @@ var _ = Describe("A mixed fleet of real workers", func() {
 			}
 			return nodes.RoutesOf(n), nil
 		})
-		table.Pin(a.set.WorkerRoute)
-		table.Attach(direct)
+		table.Pin(a.set)
+		table.Pin(direct)
 		commands, clients = carrier.NewCommands(table), carrier.NewClients(table)
 	})
 

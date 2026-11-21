@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/carrier"
-	"github.com/mudler/LocalAI/core/services/cluster"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -39,8 +38,6 @@ func (r *recorder) seen() []string {
 // fakeCommands is a nodes.NodeControl that only records the call.
 type fakeCommands struct {
 	recorder
-	// closed, when set, makes the calls that a spec hammers fail once the set is closed.
-	closed interface{ Load() bool }
 }
 
 var _ nodes.NodeControl = (*fakeCommands)(nil)
@@ -70,9 +67,6 @@ func (f *fakeCommands) UnloadModelOnNode(string, string) error {
 	return nil
 }
 func (f *fakeCommands) PingNode(string) error {
-	if f.closed != nil && f.closed.Load() {
-		return errUsedAfterClose
-	}
 	f.rec("PingNode")
 	return nil
 }
@@ -210,9 +204,9 @@ func (f *fakeAgents) DiscoverMCPTools(context.Context, mcpRemote.MCPDiscoveryReq
 	return &mcpRemote.MCPDiscoveryResponse{}, nil
 }
 
-// fakeCarrier is one complete carrier set with every member recorded.
+// fakeCarrier is one complete worker route with every member recorded.
 type fakeCarrier struct {
-	set      *carrier.Set
+	set      *carrier.WorkerRoute
 	bus      *testutil.FakeBus
 	commands *fakeCommands
 	files    *fakeFiles
@@ -221,9 +215,8 @@ type fakeCarrier struct {
 	dialed   *recorder
 }
 
-// newFakeCarrier builds a set named name. The two sets of a spec share a
-// carrier name only when the spec says so.
-func newFakeCarrier(name cluster.Carrier, epoch int64) *fakeCarrier {
+// newFakeCarrier builds a worker route of the given kind.
+func newFakeCarrier(kind nodes.RouteKind) *fakeCarrier {
 	f := &fakeCarrier{
 		bus:      testutil.NewFakeBus(),
 		commands: &fakeCommands{},
@@ -232,32 +225,24 @@ func newFakeCarrier(name cluster.Carrier, epoch int64) *fakeCarrier {
 		agents:   &fakeAgents{},
 		dialed:   &recorder{},
 	}
-	kind := nodes.RouteDirect
-	if name == cluster.CarrierTunnel {
-		kind = nodes.RouteTunnel
-	}
-	f.set = &carrier.Set{
-		Name:  name,
-		Epoch: epoch,
-		WorkerRoute: &carrier.WorkerRoute{
-			Kind:     kind,
-			Commands: f.commands,
-			Files:    f.files,
-			Clients:  f.clients,
-			Dialer: func(nodeID string) func(context.Context, string, string) (net.Conn, error) {
-				return func(context.Context, string, string) (net.Conn, error) {
-					f.dialed.rec("dial:" + nodeID)
-					return nil, nil
-				}
-			},
-			Agents: f.agents,
+	f.set = &carrier.WorkerRoute{
+		Kind:     kind,
+		Commands: f.commands,
+		Files:    f.files,
+		Clients:  f.clients,
+		Dialer: func(nodeID string) func(context.Context, string, string) (net.Conn, error) {
+			return func(context.Context, string, string) (net.Conn, error) {
+				f.dialed.rec("dial:" + nodeID)
+				return nil, nil
+			}
 		},
+		Agents: f.agents,
 	}
 	return f
 }
 
 // route returns the worker route of the fake carrier.
-func (f *fakeCarrier) route() *carrier.WorkerRoute { return f.set.WorkerRoute }
+func (f *fakeCarrier) route() *carrier.WorkerRoute { return f.set }
 
 // tableOf returns a route table over the routes of the fake carriers. routes
 // gives the routes of each node; a node that it does not name has every route.
@@ -272,9 +257,15 @@ func tableOf(routes map[string][]nodes.Route, carriers ...*fakeCarrier) *carrier
 			return r, nil
 		}
 	}
+	return tableFrom(of, carriers...)
+}
+
+// tableFrom returns a route table that reads the routes of each node from of
+// and holds the routes of the fake carriers.
+func tableFrom(of carrier.RouteSource, carriers ...*fakeCarrier) *carrier.RouteTable {
 	t := carrier.NewRouteTable(of)
 	for _, c := range carriers {
-		t.Attach(c.route())
+		t.Pin(c.route())
 	}
 	return t
 }

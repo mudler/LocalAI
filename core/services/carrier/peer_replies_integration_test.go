@@ -61,7 +61,7 @@ var _ = Describe("Request and reply between replicas over the peer link, end to 
 		b = startReplica(ctx, "replica-b", db, dsn, clusterR, nodeReg)
 		c = startReplica(ctx, "replica-c", db, dsn, clusterR, nodeReg)
 		// A replica that is in the deployment and does not answer.
-		Expect(clusterR.RegisterPeer(ctx, "replica-dead", "test", 0, "", "127.0.0.1:1", cluster.NewPeerCredential().Hash())).To(Succeed())
+		Expect(clusterR.RegisterPeer(ctx, "replica-dead", "test", "127.0.0.1:1", cluster.NewPeerCredential().Hash())).To(Succeed())
 	})
 
 	setMembers := func(ids ...string) {

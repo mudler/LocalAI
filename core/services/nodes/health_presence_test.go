@@ -189,10 +189,10 @@ var _ = Describe("The health monitor and the connection rows of a real cluster",
 
 		node := &BackendNode{Name: "w1", NodeType: NodeTypeBackend}
 		Expect(reg.Register(ctx, node, true)).To(Succeed())
-		Expect(reg.SetCarrierReport(ctx, node.ID, CarrierReport{
-			Attached: []cluster.Carrier{cluster.CarrierTunnel}, Follow: []cluster.Carrier{cluster.CarrierTunnel},
+		Expect(reg.SetRouteReport(ctx, node.ID, RouteReport{
+			Attached: []string{RouteTunnelID}, Follow: []string{RouteTunnelID},
 		})).To(Succeed())
-		Expect(clusterR.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-a", "test")).To(Succeed())
 
 		hm := NewHealthMonitor(reg, nil, 15*time.Second, time.Hour, "", false)
 		hm.UsePresence(clusterR, time.Minute)

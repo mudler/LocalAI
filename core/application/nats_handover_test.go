@@ -18,7 +18,7 @@ var _ = Describe("What workers are told about NATS", func() {
 		ctx      context.Context
 		settings *cluster.SettingsStore
 		cfg      *config.ApplicationConfig
-		rt       *carrierRuntime
+		rt       *natsRuntime
 	)
 
 	BeforeEach(func() {
@@ -27,7 +27,7 @@ var _ = Describe("What workers are told about NATS", func() {
 		settings, err = cluster.NewSettingsStore(testutil.SetupTestDB())
 		Expect(err).ToNot(HaveOccurred())
 		cfg = &config.ApplicationConfig{Distributed: config.DistributedConfig{NatsURL: "nats://frontend-flag:4222"}}
-		rt = &carrierRuntime{cfg: cfg, settings: settings}
+		rt = &natsRuntime{cfg: cfg, settings: settings}
 	})
 
 	It("is the address for workers when one is stored", func() {

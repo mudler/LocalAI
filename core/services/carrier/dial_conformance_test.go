@@ -60,7 +60,7 @@ var _ = Describe("WorkerNetDialerFor conformance", func() {
 	harnesses := map[string]func() dialHarness{
 		"the direct dialer of the NATS carrier": func() dialHarness {
 			lis := echoService()
-			set, err := carrier.NewNATSSet(carrier.NATSOptions{
+			set, err := carrier.NewNATSRoutes(carrier.NATSOptions{
 				Client: &closingBus{FakeBus: testutil.NewFakeBus()}, Registry: noModels{},
 				HTTPAddrFor: func(string) (string, error) { return lis.Addr().String(), nil },
 			})
@@ -87,13 +87,13 @@ var _ = Describe("WorkerNetDialerFor conformance", func() {
 		},
 		"the route table, for a node on the tunnel through the replica that does not hold it": func() dialHarness {
 			fx := newDialFixture(echoService())
-			table := mixedTable(unusableRoute(nodes.RouteDirect), fx.other.set.WorkerRoute,
+			table := mixedTable(unusableRoute(nodes.RouteDirect), fx.other.set,
 				map[string][]nodes.Route{fx.nodeID: tunnelOnly, "a-node-that-no-worker-holds": tunnelOnly})
 			return dialHarness{dial: tableDialer(table, fx.nodeID), unrouted: tableDialer(table, "a-node-that-no-worker-holds"), routesMissing: true}
 		},
 		"the route table, for a node with both routes whose direct route finds no route": func() dialHarness {
 			fx := newDialFixture(echoService())
-			table := mixedTable(noRouteRoute(), fx.owner.set.WorkerRoute,
+			table := mixedTable(noRouteRoute(), fx.owner.set,
 				map[string][]nodes.Route{fx.nodeID: both, "a-node-that-no-worker-holds": both})
 			return dialHarness{dial: tableDialer(table, fx.nodeID), unrouted: tableDialer(table, "a-node-that-no-worker-holds"), routesMissing: true}
 		},
@@ -233,8 +233,8 @@ func mixedTable(direct, tun *carrier.WorkerRoute, routes map[string][]nodes.Rout
 	t := carrier.NewRouteTable(func(_ context.Context, nodeID string) ([]nodes.Route, error) {
 		return routes[nodeID], nil
 	})
-	t.Attach(direct)
-	t.Attach(tun)
+	t.Pin(direct)
+	t.Pin(tun)
 	return t
 }
 
@@ -269,8 +269,8 @@ func noRouteRoute() *carrier.WorkerRoute {
 }
 
 var _ = Describe("Forgetting a node", func() {
-	It("is offered by the NATS set for its HTTP stager, and not by the one for shared storage", func() {
-		natsSet, err := carrier.NewNATSSet(carrier.NATSOptions{
+	It("is offered by the direct route for its HTTP stager, and not by the one for shared storage", func() {
+		natsSet, err := carrier.NewNATSRoutes(carrier.NATSOptions{
 			Client: &closingBus{FakeBus: testutil.NewFakeBus()}, Registry: noModels{},
 			HTTPAddrFor: func(string) (string, error) { return "127.0.0.1:1", nil },
 		})
@@ -278,7 +278,7 @@ var _ = Describe("Forgetting a node", func() {
 		Expect(natsSet.ForgetNode).ToNot(BeNil())
 		natsSet.ForgetNode("n")
 
-		s3Set, err := carrier.NewNATSSet(carrier.NATSOptions{
+		s3Set, err := carrier.NewNATSRoutes(carrier.NATSOptions{
 			Client: &closingBus{FakeBus: testutil.NewFakeBus()}, Registry: noModels{}, S3Staging: true,
 		})
 		Expect(err).ToNot(HaveOccurred())

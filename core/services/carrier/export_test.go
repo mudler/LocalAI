@@ -13,3 +13,11 @@ func (b *Broadcaster) ListenBus(m *Bus) error { return b.listen(m) }
 
 // ReleaseBus detaches every subscription from a bus.
 func (b *Broadcaster) ReleaseBus(m *Bus) error { return b.release(m) }
+
+// DropCache forgets the routes read for every node, as the time-to-live of the
+// cache does.
+func (t *RouteTable) DropCache() {
+	t.mu.Lock()
+	clear(t.cache)
+	t.mu.Unlock()
+}

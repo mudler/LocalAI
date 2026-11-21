@@ -79,7 +79,7 @@ var _ = Describe("The tunnel over P2P", func() {
 		db := testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR := cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-a", "test")).To(Succeed())
 		var err error
 		nodeReg, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())

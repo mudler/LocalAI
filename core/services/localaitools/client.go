@@ -214,12 +214,7 @@ type LocalAIClient interface {
 	// index.
 	ClearRouterCorpus(ctx context.Context, routerModel string) (*RouterCorpusClearResult, error)
 
-	// ---- Distributed carrier ----
-	// GetClusterCarrier reports the broadcast bus the cluster uses between its
-	// frontends (NATS or PostgreSQL), the state of a change, the frontends and the workers
-	// that cannot follow a change. It never changes anything.
-	GetClusterCarrier(ctx context.Context) (*ClusterCarrierStatus, error)
-
+	// ---- Distributed carrier weights ----
 	// GetCarrierWeights reads the weights that break a tie between equally fit
 	// nodes reached over NATS, WebSocket or P2P.
 	GetCarrierWeights(ctx context.Context) (*CarrierWeightsInfo, error)

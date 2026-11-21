@@ -33,7 +33,7 @@ var _ = Describe("ConnectedAmong", func() {
 	// live registers a replica that is heartbeating now.
 	live := func(id string) {
 		GinkgoHelper()
-		Expect(reg.Register(ctx, id, "v1", 0, "")).To(Succeed())
+		Expect(reg.Register(ctx, id, "v1")).To(Succeed())
 	}
 
 	// kill stops a replica heartbeating, WITHOUT stamping a departure on the

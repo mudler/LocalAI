@@ -57,7 +57,6 @@ var toolToHTTPRoute = map[string]string{
 	ToolGetChatEgress:             "GET /api/chats/admin/egress",
 	ToolListEgressEvents:          "GET /api/chats/admin/egress/events",
 	ToolListFailoverChains:        "GET /api/failover",
-	ToolGetClusterCarrier:         "GET /api/cluster/carrier",
 	ToolGetCarrierWeights:         "GET /api/cluster/settings (carrier_weights)",
 	ToolGetP2PStatus:              "GET /api/p2p/status",
 	ToolListP2PDevices:            "GET /api/p2p/devices",

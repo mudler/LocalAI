@@ -5,8 +5,10 @@ them must not name NATS, and a new transport is a new implementation of them.
 The fan-out seam has two buses: `core/services/pgbus`, which uses PostgreSQL
 LISTEN and NOTIFY and which every frontend and chat worker has, and NATS when
 the cluster has a NATS server. A process listens on both and publishes each
-broadcast on one (see "The broadcast buses"). Every other seam has one carrier:
-NATS, the tunnel, or a direct dial for the gRPC and HTTP connections to a worker. Only the carrier files import
+broadcast on one (see "The broadcast buses"). The seams to a worker have one
+implementation for each kind of route: NATS for the verbs with a direct dial for
+the gRPC and HTTP connections, or the tunnel. Request and reply between the
+frontends and the chat workers go over the peer link. Only the carrier files import
 the NATS libraries (`core/services/messaging/client.go`, `tls.go`,
 `core/services/nodes/control_nats.go` and `pkg/natsauth`). Only the pgbus package
 imports `github.com/jackc/pgx`, and only `core/services/carrier/pgbus.go` imports
@@ -31,7 +33,7 @@ Request and reply payloads of the control verbs live in
 `core/services/workerctl`, so the frontend half, the worker half and any
 carrier share one wire format without importing each other.
 
-## Holders and the carrier row
+## Holders and the route table
 
 Code above the seams does not hold a carrier. It holds a forwarding holder from
 `core/services/carrier`, one per seam: `Broadcaster`, `Commands`
@@ -45,11 +47,11 @@ The seams split in two:
   `tunnel` (`carrier.NewTunnelRoutes`: the tunnel of the worker, over a
   websocket or over P2P).
 - The broadcaster holder (`carrier.Broadcaster`) is what the frontends and chat
-  workers broadcast on. It listens on the buses of the process and does not
-  follow the carrier row. Workers never use it.
+  workers broadcast on. It listens on the buses of the process. Workers never
+  use it.
 - Request and reply between those processes go over the peer link
   (`carrier.NewPeerReplies`, a `messaging.ProcessReplies`), on every
-  deployment, and do not follow the row either.
+  deployment.
 
 `Commands`, `Files`, `Clients`, the dialer and `Agents` take a
 `carrier.RouteTable`. It holds one route of each kind and reads the routes of a
@@ -79,25 +81,22 @@ first route it is, through `nodes.ScopedFanout`; a node whose routes cannot be
 read goes to the first route. A fan-out does not move a node to its next route,
 because the scoped verb does not say which node failed and how.
 
-The tunnel route is built once at start (`carrier.NewTunnelRoutes`) and pinned
-in the table (`RouteTable.Pin`). The direct route is the one of the NATS set.
-
-A `carrier.Set` is one carrier of the cluster carrier row: the `WorkerRoute` it
-brings. No broadcast, no request between processes and no worker call reads the
-`atomic.Pointer[carrier.Set]` of the row. A NATS set built for the address of
-the NATS bus shares the connection of the bus (`NATSOptions.Shared`), and its
-`Close` leaves it open. Build a set completely and call `Validate` before you store
-it. `carrier.NewNATSSet` and `carrier.NewTunnelSet` are the places that build a
-set; a tunnel set brings the pinned tunnel route (`TunnelOptions.Routes`) and its
-`Close` leaves that route open. The set, the pointer and the carrier row go away
-with the change of carrier.
+A frontend builds its routes once at start and pins them in the table
+(`RouteTable.Pin`), one of each kind, for as long as it runs: the tunnel route
+(`carrier.NewTunnelRoutes`) on every frontend, and the direct route
+(`carrier.NewNATSRoutes`) when the cluster has a NATS server. The direct route
+shares the connection of the NATS bus (`NATSOptions.Shared`), and its `Close`
+leaves it open. A frontend without NATS holds the tunnel route only, so a node
+that holds NATS only has no route from it (`nodes.ErrNoRoute`). There is no
+cluster-wide carrier: nothing moves a route in or out of the table while the
+frontend runs. A new NATS address is read at the next start.
 
 `NodeControl` is the whole control surface a route gives the frontend:
 `NodeCommandSender`, the process lister, the three unload interfaces the model
 loader reads by type assertion, and the install timeout, model file deletion and
 forced install that the managers and the reconciler call. Take it, not a
 concrete sender. The `Files` holder implements `RequestFileReleaser` because
-`FileStagingClient` looks for it, and `carrier.FileCarrier` makes every set
+`FileStagingClient` looks for it, and `carrier.FileCarrier` makes every route
 provide it.
 
 ### The broadcast buses
@@ -113,8 +112,10 @@ still reaches the others; it does not hear what they publish on NATS, so
 `Broadcaster.Unready` (wrapping `carrier.ErrBusUnreachable`) is set and
 `/readyz` answers 503 (`DistributedServices.Unready`,
 `Application.Unavailable`). The bus is chosen from the configuration (the
-setting `nats.url`, else `--nats-url`, read at start) and the connection, never
-from the carrier row; a new NATS address needs a restart.
+setting `nats.url`, else `--nats-url`, read at start) and the connection; a new
+NATS address needs a restart. The admin API reports the bus of the frontend
+that answers from that frontend's own connection (`carrier.BusState`, the `bus`
+of `GET /api/cluster/settings`), never from a row.
 
 The holder keeps a registry of every subscription, because a subscription
 lives on one bus (`listen`, `release`; the export of the tests calls them
@@ -129,117 +130,23 @@ a peer move between the buses runs no hook; the periodic `Reconcile` of
 `Fanout.Bus` returns it as a bus. Every frontend and chat worker opens it once at
 start, on every setting, and the holder's `Close` frees it.
 
-The active carrier is one row of table `cluster_carrier`
-(`cluster.CarrierStore`). Each transition is a compare-and-set on its epoch. At
-startup a replica reads the row, or inserts it if it is absent, and builds the
-set the row names (`carrierRuntime.build` in `core/application`: `NewNATSSet` or
-`NewTunnelSet`). A replica whose row names a carrier it does not implement fails
-to start. It never falls back to another carrier, and its own flags never
-override the row.
+### The NATS address
 
-The row is seeded by the first replica that starts: NATS when it has a NATS URL
-(the flag `--nats-url`, or a URL stored in the cluster settings), the tunnel
-otherwise. `--nats-url` means what it always meant for a deployment on NATS, and
-it is no longer required: a deployment with only PostgreSQL runs on the tunnel.
-
-The address is stored before the row, so a replica that finds a row for NATS also
-finds the address. A replica with no flag and no stored address does not seed the
-tunnel into a cluster that has NATS: when a worker or a replica is registered, or
-the row names NATS, its start fails and says to set `--nats-url`.
-
-The flag is copied into the cluster setting `nats.url` when none is stored, without
-its user name, password and query string. A flag that names another server than the
-stored address stops the start and names both: the stored address is what every
+`application.adoptNATSURL` runs at start. The flag `--nats-url` is copied into
+the cluster setting `nats.url` when none is stored, without its user name,
+password and query string. A flag that names another server than the stored
+address stops the start and names both: the stored address is what every
 replica uses, and the operator who moves a broker stores the new address
-(`PUT /api/cluster/settings`) and restarts. A replica whose flag names the stored
-server dials the flag, because that is where it keeps its own credential. A NATS URL
-that points at a server which is not up does not stop the start:
-`messaging.New` retries on a failed connect, so a frontend can start before its
-broker. A URL it cannot parse does.
-
-The row of a change to NATS carries the address (`cluster_carrier.nats_url`), copied
-from the setting when the admin requests the change. While the change is under
-way every replica builds from the row, and a prepared set built from another
-address is dropped and built again. The setting itself can be written only when no
-change is under way and this replica reaches the server at the new address.
-
-## Changing the carrier
-
-An admin changes the carrier of a running cluster with `POST /api/cluster/carrier`
-(`{"target": "nats"|"tunnel", "dry_run": bool, "force": bool}`, or `{"abort": true}`).
-`GET /api/cluster/carrier` reports the state. Both routes, and
-`GET`/`PUT /api/cluster/settings`, answer to an admin only; the prefix
-`/api/cluster/` is not public, and only the exact connect and peer paths skip the
-global authentication. Saving a NATS URL stores it and checks that the serving
-replica reaches it. It does not change the carrier.
-
-The row has a state, and every move is a compare-and-set on the epoch:
-
-| State | Meaning | Who moves it on |
-|---|---|---|
-| `stable` | One carrier is active. A previous carrier may still be attached (`draining`, `draining_until`). | the admin starts a change |
-| `prepare` | Every replica builds the target. New calls stay on the old carrier. | the leader, when every live replica reported ready for this epoch |
-| `commit` | The target is active. Every replica sends its new calls on it and confirms with the epoch of the commit. | the leader, when every live replica confirmed |
-| `stable` | The old carrier drains for `max_drain`. | the leader, at `draining_until` |
-
-`cluster.Switch` holds the protocol and keeps no state outside the row and the
-`instances` table, so a leader that dies between two moves is replaced by one that
-reads the same row. The leader is whichever replica holds the advisory lock
-`KeyCarrierSwitch` at a tick (`advisorylock.RunLeaderLoop`). Every timeout is
-measured on the clock of the database (`CarrierStore.DBNow` and the change stamp),
-never on the clock of a replica. A replica that cannot build the target reports
-the reason, and the leader aborts naming it. A replica that is late for the prepare
-timeout aborts the change, or is left behind by a forced one. `abort` is accepted
-only in `prepare`: after the commit the target is the active carrier, and going
-back is a change like any other.
-
-The preflight (also the dry run) lists: the live replicas with their versions (old
-frontends write no row and cannot be detected, so the admin confirms that the list
-is complete, and every frontend must be upgraded before the first change); whether
-each replica could build the target (`instances.availability`, written by the
-replica when a dry run asks for it); every worker that does not hold the route of the target
-(`nodes.SwitchWorkers`: the `follow` column holds the routes the worker was
-given; a node that reports none is read as on NATS); and the work in flight. A
-blocker can be forced. A forced change commits without a replica that is not ready,
-and names it in the note of the row.
-
-`carrier.Swapper` is what a replica does. It polls the row every two seconds with a
-jitter, and a hint on `state.carrier` makes it look at once; the poll decides. In
-`prepare` it builds the target and reports ready for the epoch. In `commit` it
-stores the set, so that new calls use it, and confirms. In `stable` with a drain
-it does nothing: the old set stays attached. When the leader ends the drain it
-detaches the route of the old set and closes the set after a settle time, so that
-a call that took the set just before the switch can end. The broadcasts and the
-requests between processes never move, so it runs no reconnect hook. A
-replica that polls late, restarts or joins during a change acts on the row alone.
-
-Worker calls do not follow the row. The swapper attaches the worker route of a
-set to the route table (`RouteTable.Attach`) before the set becomes active, and
-detaches it when the set is released (`RouteTable.Detach`, which puts the
-pinned route of that kind back). While a NATS set is active or drains, the table
-holds the direct route, so a worker that holds NATS only is reached until the
-drain ends, and a worker that holds the tunnel is reached there. A call that is running is never moved, so an install, a stream or a load
-renewal ends on the route it began on. The health monitor does not read the
-swapper or the row (see "Health of a node").
-
-The model loads, installs and MCP calls that were started before the change finish
-where they began; whatever is still running
-at `max_drain` is failed by the reaper, and a load whose lease is not renewed is
-killed by the watchdog of the worker, as it is for a dead owner (`#12524`).
-
-A worker that holds a tunnel has no address and binds its backends to loopback. The
-NATS set therefore builds its clients with `nodes.NewGuardedDirectClientFactory`:
-for a worker that registered no address, a loopback address is not dialled, and the
-client reports a failure of the transport, which no code that decides whether a
-backend is dead reads as an answer. A forced change to NATS cannot make the health
-monitor or the reconciler reap a model that runs.
+(`PUT /api/cluster/settings`) and restarts. A replica whose flag names the
+stored server dials the flag, because that is where it keeps its own
+credential. A NATS URL that points at a server which is not up does not stop
+the start: `messaging.New` retries on a failed connect, so a frontend can start
+before its broker. A URL it cannot parse does. The setting can be written only
+when the replica that serves the request reaches the server at the new address.
 
 The cluster settings (`cluster.SettingsStore`, table `cluster_settings`) hold what
-every replica must read the same way: `nats.url`, `nats.worker_url` and the waits
-of a change (`switch.prepare_timeout`, `switch.transition_window`,
-`switch.max_drain`; defaults 1m, 2m and 15m; the flags
-`--carrier-prepare-timeout`, `--carrier-transition-window` and `--carrier-max-drain`
-are the fallback). The runtime settings of the application are a file of one
+every replica must read the same way: `nats.url`, `nats.worker_url` and the
+carrier weights. The runtime settings of the application are a file of one
 process and cannot carry them. Credentials are never stored there: an address
 with a user name, a password or a query string is refused on write, and every view
 and log line drops them.
@@ -386,8 +293,7 @@ and reply between the frontends and the chat workers. The peer link is the one
 transport for them on every deployment, NATS included:
 `DistributedServices.Replies` is a `messaging.ProcessReplies` built once at start
 by `carrier.NewPeerReplies` (`SubscribeReply`, `RequestInstance`,
-`RequestQueue`). It does not follow the carrier row and has no per-carrier
-branch. There is no broker, so the asking process names the process that
+`RequestQueue`). It has no per-carrier branch. There is no broker, so the asking process names the process that
 answers: the replay and the job asks name the instance of the owner
 (`RequestInstance`), and the chat start names a queue (`RequestQueue`). A request
 goes over the peer link to the process it names (`tunnel.PeerPool.Request`), and
@@ -462,8 +368,8 @@ not a property of the carrier.
 
 `model.prefetch` (`workerctl.ModelPrefetchRequest`, actions `stage`, `commit`,
 `discard`) is outside `NodeCommandSender`: `nodes.ModelFilePrefetcher` sends it
-(`nodeControl.PrefetchModelFiles` on either link, `carrier.Commands` routes it to
-the set of the node) and `nodes.UpgradeFiles` drives it for a model upgrade, so a
+(`nodeControl.PrefetchModelFiles` on either link, `carrier.Commands` routes it on
+the routes of the node) and `nodes.UpgradeFiles` drives it for a model upgrade, so a
 worker downloads and verifies its own files. An older worker does not serve it
 (`ErrNoRoute`, also for a 404 on the HTTP link); the upgrade logs that and the
 worker gets the files from the frontend at its next load. Nothing on that path
@@ -629,7 +535,7 @@ back to the lane of model calls. The file stager asks for it.
   `messaging.ErrUnservedSubject`, so a subscription that it accepted is
   servable by every carrier and `Listen` never fails for the subject. Control
   traffic (the `nodes` and `mcp` roots) does not go through the holder: it uses
-  the request and reply clients of the set.
+  the request and reply clients of the worker routes.
 - Wildcards: only a whole single token `*`, never the root. `>` is refused with
   `messaging.ErrUnsupportedWildcard`.
 - Delivery is at-most-once. Anything that must survive a gap belongs in a table.
@@ -651,10 +557,10 @@ back to the lane of model calls. The file stager asks for it.
 database. Table `instances` has one row for each live frontend replica
 (`Registry`, kept fresh by `Membership`, which every replica runs). The
 database clock stamps `last_seen`, and `instanceIsLive` is the one predicate
-for "alive". The row also holds the epoch of the carrier row for which the
-replica has built a carrier (`ReadyEpoch`) and the reason when it could not
-(`ReadyReason`). Table `node_connections` records which live replica holds the
-connection of a worker. `Registry.Claim` takes a new epoch from a sequence for
+for "alive". `cluster.Migrate` also drops what an older release left there: the
+table `cluster_carrier` and the readiness columns of `instances`; the node
+registry drops `backend_nodes.attached_epoch`. Table `node_connections` records
+which live replica holds the connection of a worker. `Registry.Claim` takes a new epoch from a sequence for
 every claim, and `Release` needs both the owner and the epoch, so a replica that
 lost a worker cannot clear the claim of the one that won it. Epochs are unique, and
 they are not ordered: a claim that inserts after a `Release` can draw a number
@@ -730,21 +636,16 @@ carrier.
 - Every heartbeat carries `routes` (the routes the worker was given),
   `attached` (the routes it holds and is connected on), `route_error` (why each
   other route is not held) and, with a tunnel, `tunnel_transport`,
-  `tunnel_path` and `tunnel_limited`. `HeartbeatUpdate.CarrierReport` stores
-  them in `attached`, `follow`, `follow_error` and the tunnel columns, which
-  `nodes.RoutesOf` reads. A heartbeat is skipped while no route is connected.
-- The heartbeat answer carries nothing about a carrier. The change of carrier
-  (`cluster.Switch`, `carrier.Swapper`) moves the frontends only. Its preflight
-  reads the `follow` column as the routes a worker can be reached on; a worker
-  whose routes do not include the target is a blocker. That reading and the
-  `attached_epoch` column (always 0 now) go with the change of carrier (step 8
-  of the hybrid carriers work).
+  `tunnel_path` and `tunnel_limited`. `HeartbeatUpdate.RouteReport` reads them,
+  and `NodeRegistry.SetRouteReport` stores them in `attached`, `follow`,
+  `follow_error` and the tunnel columns, which `nodes.RoutesOf` and
+  `nodes.RouteJudge` read. A heartbeat is skipped while no route is connected.
+- The heartbeat answer carries nothing about a carrier.
 
 ## Workers that hold only a tunnel
 
 The route table reaches a worker that holds the tunnel and not NATS through the
-tunnel route, whatever the carrier row says: the route is pinned on every
-replica. A worker holds one tunnel, over a websocket or over P2P, so the two
+tunnel route: the route is pinned on every replica. A worker holds one tunnel, over a websocket or over P2P, so the two
 kinds never compete. The health monitor judges such a worker by its tunnel,
 see "Health of a node". The router places a model on it by the routes of the node, see below.
 A worker over P2P is tunnel-only. An agent worker over P2P is not supported.
@@ -762,14 +663,13 @@ so a node is schedulable whatever the other nodes use. A node with no route is
 skipped, and no row changes. A limited relay is still a route. The router takes
 no option for this. Ties between equally fit nodes are broken by the carrier
 weights (see the cluster settings above). The holders route each call by the
-same list (see "Holders and the carrier row").
+same list (see "Holders and the route table").
 
 ## Health of a node
 
 `nodes.RouteJudge` says, for each route of a node, if it is live
 (`nodes.RouteState`: `live`, `reconnecting` or `down`, with a reason). It reads
-the node row and, for the tunnel, `Registry.Presence`. It never reads the
-carrier row, and keeps no state, so every replica gives the same answer for the
+the node row and, for the tunnel, `Registry.Presence`. It keeps no state, so every replica gives the same answer for the
 same rows. The node list (`GET /api/nodes`, `GET /api/nodes/:id`, option
 `localai.WithRouteStates`) and the MCP tool `list_nodes` show its answer as
 `route_state` (`routes` in the tool).
@@ -808,10 +708,10 @@ replica). A replica that has not seen the node for more than three check
 intervals starts the grace again, so a route that came back meanwhile is not
 missed; this only delays a demotion.
 
-## Open items for a second carrier
+## Open items
 
-- A worker that registers an address and holds a tunnel (a worker that can use
-  either carrier) is reached by the backend-logs proxy through the host that its
+- A worker that registers an address and holds a tunnel (a worker that holds
+  both routes) is reached by the backend-logs proxy through the host that its
   address names, and the proxy of the environment is used for it. Only a worker
   without an address skips the proxy.
 - A chat worker (`local-ai run` with `LOCALAI_CHAT_WORKER`) connects as a

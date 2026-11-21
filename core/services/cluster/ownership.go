@@ -107,7 +107,37 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 	if err := db.WithContext(ctx).AutoMigrate(&Instance{}, &NodeConnection{}); err != nil {
 		return fmt.Errorf("migrating cluster tables: %w", err)
 	}
+	if err := dropCarrierSwitchSchema(ctx, db); err != nil {
+		return err
+	}
 	return ensureEpochSequence(ctx, db)
+}
+
+// removedInstanceColumns are the columns of the instances table that the old
+// change of carrier wrote: the epoch a replica was ready for, why it was not,
+// and which carriers it could build. Nothing reads them.
+var removedInstanceColumns = []string{"ready_epoch", "ready_reason", "availability", "availability_at"}
+
+// dropCarrierSwitchSchema removes what the old change of carrier left in a
+// database: the table of the carrier row and the readiness columns of the
+// instances table. A database that never had them is left as it is. It uses
+// the migrator of gorm, so it runs on PostgreSQL and on SQLite.
+func dropCarrierSwitchSchema(ctx context.Context, db *gorm.DB) error {
+	m := db.WithContext(ctx).Migrator()
+	if m.HasTable("cluster_carrier") {
+		if err := m.DropTable("cluster_carrier"); err != nil {
+			return fmt.Errorf("dropping table cluster_carrier: %w", err)
+		}
+	}
+	for _, col := range removedInstanceColumns {
+		if !m.HasColumn(&Instance{}, col) {
+			continue
+		}
+		if err := m.DropColumn(&Instance{}, col); err != nil {
+			return fmt.Errorf("dropping column instances.%s: %w", col, err)
+		}
+	}
+	return nil
 }
 
 // ensureEpochSequence creates the sequence Claim draws epochs from. It lives

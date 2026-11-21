@@ -1,15 +1,22 @@
-// Helpers for the cluster transport panel. They read the report that
-// GET /api/cluster/carrier returns. The API keeps the values `nats` and
-// `tunnel`; the panel words them for what they are.
+// Helpers for the cluster transport panel. They read GET /api/cluster/settings
+// (the broadcast bus of the frontend that answers, and the live frontends) and
+// the route state of each node in GET /api/nodes.
 
-// The broadcast bus the frontends share. `tunnel` is PostgreSQL LISTEN/NOTIFY.
-const BUS_LABELS = {
-  nats: 'NATS',
-  tunnel: 'PostgreSQL',
+// The broadcast bus the frontend publishes on now, from the `bus` of the
+// settings: NATS while it reaches the NATS server, PostgreSQL otherwise.
+export function busLabel(bus) {
+  if (bus?.bus === 'nats') return 'NATS connected'
+  if (bus?.bus === 'postgres') return 'PostgreSQL'
+  return 'unknown'
 }
 
-export function busLabel(carrier) {
-  return BUS_LABELS[carrier] || carrier || 'unknown'
+// A note under the bus when NATS is configured and this frontend does not
+// reach it, or empty.
+export function busNote(bus) {
+  if (bus?.nats_configured && !bus?.nats_connected) {
+    return 'NATS is configured, but this frontend does not reach it. It broadcasts over PostgreSQL and is not ready until NATS is back.'
+  }
+  return ''
 }
 
 // How a worker attaches to a frontend. `tunnel` is the outbound websocket.
@@ -22,29 +29,9 @@ export function routeLabel(route) {
   return ROUTE_LABELS[route] || route || 'unknown'
 }
 
-// A replica is ready for the epoch in flight when it reported that epoch and
-// gave no reason why not. Outside a change there is nothing to wait for.
-export function replicaReady(replica, report) {
-  if (!replica) return false
-  if (replica.ready_reason) return false
-  if (report?.state === 'stable') return true
-  return Number(replica.ready_epoch) >= Number(report?.epoch)
-}
-
-// The server sends durations in nanoseconds. Returns "m:ss" or "h:mm:ss".
-export function formatCountdown(ns) {
-  const total = Math.max(0, Math.ceil(Number(ns || 0) / 1e9))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  const two = n => String(n).padStart(2, '0')
-  return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`
-}
-
-export function stateLabel(report) {
-  if (!report) return ''
-  if (report.state === 'stable' && Number(report.drain_remaining_ns) > 0) return 'draining'
-  return report.state
+// The routes a node reported it holds, from the `attached` column of the node.
+export function attachedRoutes(node) {
+  return String(node?.attached || '').split(',').map(r => r.trim()).filter(Boolean)
 }
 
 // The routes of a worker to show, from the route_state of its node in

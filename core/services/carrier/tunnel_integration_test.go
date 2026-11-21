@@ -190,8 +190,7 @@ type replica struct {
 	sessions *tunnel.PeerSessions
 	pool     *tunnel.PeerPool
 	replies  *tunnel.Replies
-	set      *carrier.Set
-	active   *atomic.Pointer[carrier.Set]
+	set      *carrier.WorkerRoute
 	routes   *carrier.RouteTable
 
 	commands *carrier.Commands
@@ -202,7 +201,7 @@ type replica struct {
 	// rr is request and reply with the other replicas over the peer link.
 	rr messaging.ProcessReplies
 
-	// selector picks the agent workers, as the set does for the agent control.
+	// selector picks the agent workers, as the tunnel route does for the agent control.
 	selector *nodes.AgentSelector
 	// stopHeartbeat ends the heartbeat of the row of this replica, as the death
 	// of its process does.
@@ -210,7 +209,7 @@ type replica struct {
 }
 
 // startReplica starts one frontend: its own tunnel registry, peer link, relay and
-// carrier set, behind its own HTTP server, over the database that all replicas
+// tunnel route, behind its own HTTP server, over the database that all replicas
 // share.
 func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clusterR *cluster.Registry, nodeReg *nodes.NodeRegistry, tweak ...func(*carrier.TunnelOptions)) *replica {
 	GinkgoHelper()
@@ -229,7 +228,7 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	srv := httptest.NewServer(e)
 	DeferCleanup(srv.Close)
 	r.url = srv.URL
-	Expect(clusterR.RegisterPeer(ctx, id, "test", 0, "", strings.TrimPrefix(srv.URL, "http://"), cred.Hash())).To(Succeed())
+	Expect(clusterR.RegisterPeer(ctx, id, "test", strings.TrimPrefix(srv.URL, "http://"), cred.Hash())).To(Succeed())
 
 	// The row of the replica stays live while its process lives.
 	beat, stop := context.WithCancel(ctx)
@@ -243,7 +242,7 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 			case <-beat.Done():
 				return
 			case <-t.C:
-				_ = clusterR.Register(beat, id, "test", 0, "")
+				_ = clusterR.Register(beat, id, "test")
 			}
 		}
 	}()
@@ -251,7 +250,6 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	floor, _ := pgbusFloor(ctx, db, dsn)
 	r.selector = nodes.NewAgentSelector(nodeReg, clusterR, id)
 	options := carrier.TunnelOptions{
-		Epoch:          1,
 		Dialer:         tunnel.NewWorkerDialer(r.tunnels, r.pool),
 		AgentSelector:  r.selector,
 		Registry:       nodeReg,
@@ -262,16 +260,14 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	for _, t := range tweak {
 		t(&options)
 	}
-	set, err := carrier.NewTunnelSet(options)
+	set, err := carrier.NewTunnelRoutes(options)
 	Expect(err).ToNot(HaveOccurred())
 	r.set = set
-	r.active = &atomic.Pointer[carrier.Set]{}
-	r.active.Store(set)
 	// The worker of these specs sends no heartbeat, so it reports no route: the
 	// table tries every route it holds, which is the tunnel alone. The mixed
 	// fleet spec reads the routes from the rows.
 	r.routes = carrier.NewRouteTable(nil)
-	r.routes.Pin(set.WorkerRoute)
+	r.routes.Pin(set)
 	r.commands = carrier.NewCommands(r.routes)
 	r.files = carrier.NewFiles(r.routes)
 	r.clients = carrier.NewClients(r.routes)
@@ -617,12 +613,12 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 			return percentile(samples), elapsed
 		}
 
-		// The transfer on the bulk lane, as the set does it.
+		// The transfer on the bulk lane, as the route does it.
 		bulkP95, bulkTime := probeDuring(func() error {
 			_, err := a.files.EnsureRemote(ctx, nodeID, src, "models/big.bin")
 			return err
 		})
-		// The same transfer on the lane of the probe, which is what the set
+		// The same transfer on the lane of the probe, which is what the route
 		// would do if it fell back. The comparison is between two runs on the
 		// same machine, so a loaded runner moves both.
 		shared := nodes.NewHTTPFileStager(func(id string) (string, error) { return nodes.WorkerHTTPHost(id, ""), nil }, registrationToken, a.set.Dialer)
@@ -660,7 +656,7 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 		Expect(a.commands.PingNode(nodeID)).To(Succeed())
 	})
 
-	It("stages a file through shared object storage, with only the verbs on the tunnel, when the set is built for it", func() {
+	It("stages a file through shared object storage, with only the verbs on the tunnel, when the route is built for it", func() {
 		store, err := storage.NewFilesystemStore(GinkgoT().TempDir())
 		Expect(err).ToNot(HaveOccurred())
 		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
@@ -684,21 +680,26 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 		Expect(filepath.Join(stagingDir, "models", "s3", "x.bin")).ToNot(BeAnExistingFile(), "no bytes went over the tunnel")
 	})
 
-	It("refuses to build a set that lacks a member of this carrier", func() {
+	It("refuses to build a route that lacks a member of the tunnel", func() {
 		whole := carrier.TunnelOptions{
 			Dialer:        tunnel.NewWorkerDialer(a.tunnels, a.pool),
 			AgentSelector: a.selector,
 		}
 		for name, mutate := range map[string]func(*carrier.TunnelOptions){
 			"no dialer":                  func(o *carrier.TunnelOptions) { o.Dialer = nil },
-			"no agent selector":          func(o *carrier.TunnelOptions) { o.AgentSelector = nil },
 			"S3 staging with no manager": func(o *carrier.TunnelOptions) { o.S3Staging = true },
 		} {
 			o := whole
 			mutate(&o)
-			_, err := carrier.NewTunnelSet(o)
+			_, err := carrier.NewTunnelRoutes(o)
 			Expect(err).To(HaveOccurred(), name)
 		}
+		// The agent RPC is optional: a route without a selector has none.
+		o := whole
+		o.AgentSelector = nil
+		r, err := carrier.NewTunnelRoutes(o)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.Agents).To(BeNil())
 	})
 
 	It("carries broadcasts between the replicas through the holders", func() {

@@ -111,10 +111,7 @@ type BackendNode struct {
 	Commit string `gorm:"column:commit;size:64" json:"commit,omitempty"`
 	// Attached lists the routes ("nats", "tunnel") that the worker reported it
 	// holds and is connected on, separated by commas. nodes.RoutesOf reads it.
-	// AttachedEpoch is no longer reported and stays 0; the column goes with the
-	// change of carrier (step 8 of the hybrid carriers work).
-	Attached      string `gorm:"column:attached;size:64" json:"attached,omitempty"`
-	AttachedEpoch int64  `gorm:"column:attached_epoch;default:0" json:"attached_epoch,omitempty"`
+	Attached string `gorm:"column:attached;size:64" json:"attached,omitempty"`
 	// Follow lists the routes the operator gave the worker, separated by commas,
 	// and FollowError is why some of them are not held, in the words of the
 	// worker. A node that never sent a heartbeat has neither.
@@ -631,7 +628,10 @@ const heartbeatMaterialDelta = 256 << 20 // 256 MiB
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}, &NodeSplitReport{})
+		if err := db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}, &NodeSplitReport{}); err != nil {
+			return err
+		}
+		return dropRemovedNodeColumns(db)
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
@@ -682,6 +682,26 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 		db:          db,
 		hbLastWrite: make(map[string]heartbeatSnapshot),
 	}, nil
+}
+
+// removedNodeColumns are columns of backend_nodes that nothing reads any more:
+// attached_epoch was the epoch of the old change of carrier that a worker had
+// followed.
+var removedNodeColumns = []string{"attached_epoch"}
+
+// dropRemovedNodeColumns drops the removedNodeColumns that a database still
+// has. It uses the migrator of gorm, so it runs on PostgreSQL and on SQLite.
+func dropRemovedNodeColumns(db *gorm.DB) error {
+	m := db.Migrator()
+	for _, col := range removedNodeColumns {
+		if !m.HasColumn(&BackendNode{}, col) {
+			continue
+		}
+		if err := m.DropColumn(&BackendNode{}, col); err != nil {
+			return fmt.Errorf("dropping column backend_nodes.%s: %w", col, err)
+		}
+	}
+	return nil
 }
 
 // resolveVRAMBudgetBytes turns a budget string into an absolute byte ceiling
@@ -1288,16 +1308,16 @@ type HeartbeatUpdate struct {
 	TunnelLimited   bool   `json:"tunnel_limited,omitempty"`
 }
 
-// CarrierReport returns the route report of a heartbeat, and false when the
+// RouteReport returns the route report of a heartbeat, and false when the
 // worker sent none. The routes the worker was given are stored in the follow
 // column, and why some are not held in follow_error.
-func (u HeartbeatUpdate) CarrierReport() (CarrierReport, bool) {
+func (u HeartbeatUpdate) RouteReport() (RouteReport, bool) {
 	if len(u.Routes) == 0 {
-		return CarrierReport{}, false
+		return RouteReport{}, false
 	}
-	return CarrierReport{
-		Attached:    parseCarriers(u.Attached),
-		Follow:      parseCarriers(u.Routes),
+	return RouteReport{
+		Attached:    parseRoutes(u.Attached),
+		Follow:      parseRoutes(u.Routes),
 		FollowError: utils.TruncateUTF8(u.RouteError, followErrorMax),
 		Tunnel:      parseTunnelRoute(u.TunnelTransport, u.TunnelPath, u.TunnelLimited),
 	}, true
