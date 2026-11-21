@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -24,6 +25,10 @@ type LLamaCPP struct {
 
 const (
 	llamaCPPRPCBinaryName = "llama-cpp-rpc-server"
+	// llamaCPPBinaryEnv is the variable the backend's run.sh reads to run a
+	// different binary than the one it would pick. A run.sh without it
+	// ignores the request and starts the gRPC server.
+	llamaCPPBinaryEnv = "LLAMACPP_BINARY"
 	llamaCPPGalleryName   = "llama-cpp"
 )
 
@@ -58,7 +63,12 @@ func findLLamaCPPBackend(galleries string, systemState *system.SystemState, requ
 			return "", errors.New("llama-cpp backend not found after install")
 		}
 	}
-	return llamaCPPRPCServerPath(backend.RunFile)
+	// Fail early when the RPC server is not part of the install, then hand
+	// back the run file: llamaCPPRPCStart decides how to start it.
+	if _, err := llamaCPPRPCServerPath(backend.RunFile); err != nil {
+		return "", err
+	}
+	return backend.RunFile, nil
 }
 
 // llamaCPPRPCServerPath returns the RPC server executable next to the run
@@ -110,6 +120,46 @@ func llamaCPPRPCCommand(goos, rpcServer string, args, env []string) (string, []s
 	return rpcServer, direct, merged
 }
 
+// llamaCPPRunShSelectsBinary reports whether the run.sh at path lets the
+// caller choose the binary through LLAMACPP_BINARY. Backends installed before
+// that option existed do not, and would start the gRPC server with RPC
+// arguments.
+func llamaCPPRunShSelectsBinary(path string) bool {
+	if filepath.Base(path) != "run.sh" {
+		return false
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return bytes.Contains(content, []byte(llamaCPPBinaryEnv))
+}
+
+// llamaCPPRPCStart returns the program, argv and environment that start the
+// RPC server of the llama-cpp backend whose run file is runFile.
+//
+// On Linux, when the backend's run.sh can run another binary, the server is
+// started through it: run.sh then sets up the library path, the GPU runtime
+// variables and the bundled loader, so nothing of that is repeated here.
+// Otherwise (an older backend, Windows, macOS) the server is started with
+// llamaCPPRPCCommand. macOS is left on the direct start because it has never
+// gone through run.sh and nothing here tests it.
+func llamaCPPRPCStart(goos, runFile string, args, env []string) (string, []string, []string) {
+	rpcServer := filepath.Join(filepath.Dir(runFile), executableName(goos, llamaCPPRPCBinaryName))
+	if goos != "linux" || !llamaCPPRunShSelectsBinary(runFile) {
+		return llamaCPPRPCCommand(goos, rpcServer, args, env)
+	}
+
+	merged := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if !strings.HasPrefix(entry, llamaCPPBinaryEnv+"=") {
+			merged = append(merged, entry)
+		}
+	}
+	merged = append(merged, llamaCPPBinaryEnv+"="+llamaCPPRPCBinaryName)
+	return runFile, append([]string{runFile}, args...), merged
+}
+
 func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 
 	if len(os.Args) < 4 {
@@ -129,6 +179,6 @@ func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	path, argv, env := llamaCPPRPCCommand(runtime.GOOS, grpcProcess, strings.Fields(r.ExtraLLamaCPPArgs), os.Environ())
+	path, argv, env := llamaCPPRPCStart(runtime.GOOS, grpcProcess, strings.Fields(r.ExtraLLamaCPPArgs), os.Environ())
 	return execBackend(path, argv, env)
 }

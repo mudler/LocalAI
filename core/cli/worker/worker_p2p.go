@@ -90,7 +90,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 				args := append([]string{"--host", address, "--port", fmt.Sprint(port)}, extraArgs...)
 				xlog.Debug("Starting llama-cpp-rpc-server", "address", address, "port", port, "args", args, "argCount", len(args))
 
-				path, argv, env := llamaCPPRPCCommand(runtime.GOOS, grpcProcess, args, os.Environ())
+				path, argv, env := llamaCPPRPCStart(runtime.GOOS, grpcProcess, args, os.Environ())
 				cmd := exec.Command(path, argv[1:]...)
 				cmd.Env = env
 
