@@ -19,6 +19,8 @@ const (
 	OllamaMediaTypeModel     = "application/vnd.ollama.image.model"
 	OllamaMediaTypeProjector = "application/vnd.ollama.image.projector"
 	OllamaMediaTypeParams    = "application/vnd.ollama.image.params"
+	// OllamaMediaTypeTensor marks one tensor of a model stored as safetensors.
+	OllamaMediaTypeTensor = "application/vnd.ollama.image.tensor"
 )
 
 // OllamaLayerProjector is the layer selector that makes OllamaFetchModel
@@ -197,6 +199,11 @@ func ollamaLayerForSelector(manifest *Manifest, image string) (string, error) {
 		return "", fmt.Errorf("ollama model %q: unknown layer %q", OllamaDisplayName(image), layer)
 	}
 	digest := manifest.layerDigest(mediaType)
+	if digest == "" && mediaType == OllamaMediaTypeModel && manifest.layerDigest(OllamaMediaTypeTensor) != "" {
+		// MLX, nvfp4 and mxfp8 tags are stored as safetensors tensors, one
+		// layer per tensor, with no single weights file.
+		return "", fmt.Errorf("ollama model %q is stored as safetensors/MLX tensors, is not a GGUF file and cannot run with llama.cpp: choose a GGUF tag of the same model", OllamaDisplayName(image))
+	}
 	if digest == "" {
 		return "", fmt.Errorf("ollama model %q has no %s", OllamaDisplayName(image), what)
 	}

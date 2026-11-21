@@ -17,6 +17,20 @@ var (
 	paramsDoc = []byte(`{"repeat_penalty":1,"stop":["<|im_start|>","<|im_end|>"],"temperature":0.6,"top_k":20,"top_p":0.95}`)
 )
 
+// tensorModel is shaped like an MLX or nvfp4 tag: tensor and json layers, a
+// license and params, and no model layer.
+func tensorModel() ollamatest.Model {
+	return ollamatest.Model{Layers: []ollamatest.Layer{
+		{MediaType: "application/vnd.ollama.image.tensor", Data: []byte("tensor-1")},
+		{MediaType: "application/vnd.ollama.image.tensor", Data: []byte("tensor-2")},
+		{MediaType: "application/vnd.ollama.image.tensor", Data: []byte("tensor-3")},
+		{MediaType: "application/vnd.ollama.image.json", Data: []byte(`{"a":1}`)},
+		{MediaType: "application/vnd.ollama.image.json", Data: []byte(`{"b":2}`)},
+		{MediaType: "application/vnd.ollama.image.license", Data: []byte("license text")},
+		{MediaType: OllamaMediaTypeParams, Data: paramsDoc},
+	}}
+}
+
 func textModel() ollamatest.Model {
 	return ollamatest.Model{Layers: []ollamatest.Layer{
 		{MediaType: OllamaMediaTypeModel, Data: ggufBytes},
@@ -74,6 +88,18 @@ var _ = Describe("Ollama registry", func() {
 			Expect(err).To(MatchError(ContainSubstring(`"qwen3:8b"`)))
 			Expect(err).To(MatchError(ContainSubstring("no model layer")))
 			Expect(digest).To(BeEmpty())
+		})
+
+		It("explains that a tensor-only model is not a GGUF file", func() {
+			reg.Add("library/qwen3.8:27b-mlx", tensorModel())
+			digest, err := OllamaModelBlob("qwen3.8:27b-mlx")
+			Expect(digest).To(BeEmpty())
+			Expect(err).To(MatchError(ContainSubstring(`"qwen3.8:27b-mlx"`)))
+			Expect(err).To(MatchError(ContainSubstring("safetensors/MLX tensors")))
+			Expect(err).To(MatchError(ContainSubstring("not a GGUF file")))
+			Expect(err).To(MatchError(ContainSubstring("llama.cpp")))
+			Expect(err).To(MatchError(ContainSubstring("choose a GGUF tag")))
+			Expect(err).NotTo(MatchError(ContainSubstring("no model layer")))
 		})
 
 		It("names a user namespace in the error", func() {
@@ -217,6 +243,17 @@ var _ = Describe("Ollama registry", func() {
 			reg.Add("library/odd:1b", m)
 			_, err := OllamaDescribeModel(context.Background(), "odd:1b")
 			Expect(err).To(MatchError(ContainSubstring("this model is not a GGUF file")))
+		})
+
+		It("refuses a tensor-only model before any download", func() {
+			reg.Add("library/qwen3.8:27b-nvfp4", tensorModel())
+			_, err := OllamaDescribeModel(context.Background(), "qwen3.8:27b-nvfp4")
+			Expect(err).To(MatchError(ContainSubstring(`"qwen3.8:27b-nvfp4"`)))
+			Expect(err).To(MatchError(ContainSubstring("safetensors/MLX tensors")))
+			Expect(err).To(MatchError(ContainSubstring("choose a GGUF tag")))
+			for _, p := range reg.Paths() {
+				Expect(p).NotTo(ContainSubstring("/blobs/"))
+			}
 		})
 
 		It("works without a params layer", func() {

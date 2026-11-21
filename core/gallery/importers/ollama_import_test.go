@@ -166,6 +166,19 @@ var _ = Describe("Ollama import", func() {
 			Expect(err).To(MatchError(ContainSubstring("no model layer")))
 		})
 
+		It("explains that an MLX tag is stored as tensors", func() {
+			reg.Add("library/qwen3.8:27b-mlx", ollamatest.Model{Layers: []ollamatest.Layer{
+				{MediaType: "application/vnd.ollama.image.tensor", Data: []byte("t1")},
+				{MediaType: "application/vnd.ollama.image.tensor", Data: []byte("t2")},
+				{MediaType: "application/vnd.ollama.image.json", Data: []byte("{}")},
+				{MediaType: oci.OllamaMediaTypeParams, Data: []byte(`{}`)},
+			}})
+			_, err := importers.DiscoverModelConfig("ollama://qwen3.8:27b-mlx", nil)
+			Expect(err).To(MatchError(ContainSubstring(`"qwen3.8:27b-mlx"`)))
+			Expect(err).To(MatchError(ContainSubstring("safetensors/MLX tensors")))
+			Expect(err).To(MatchError(ContainSubstring("choose a GGUF tag")))
+		})
+
 		It("refuses a model that is not a GGUF file", func() {
 			m := qwenStyle(qwenParams)
 			m.Layers[0].Data = []byte("<html>hello</html>")
