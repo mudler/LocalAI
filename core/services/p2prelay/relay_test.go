@@ -289,6 +289,12 @@ var _ = Describe("relay pass", func() {
 		mint(code, 600)
 		Expect(usePass(stranger, code)).To(Succeed())
 
+		// Keep a second pass pending. With none pending the gater drops a
+		// stranger at the handshake, and the error is then a transport error
+		// whose text depends on timing (a read or a write failure). A pending
+		// pass lets each try reach the pass stream and get the same answer.
+		mint("other-code", 600)
+
 		replay := usePass(newPeer(), code)
 		Expect(replay).To(HaveOccurred())
 		unknown := usePass(newPeer(), "not-a-code-at-all")
