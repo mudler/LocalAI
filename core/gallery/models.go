@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -873,11 +874,12 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			}
 		}
 		tasks = append(tasks, downloader.FileTask{
-			URI:         downloader.URI(file.URI),
-			Destination: filePath,
-			SHA256:      file.SHA256,
-			FileIndex:   i,
-			TotalFiles:  len(config.Files),
+			URI:           downloader.URI(file.URI),
+			Destination:   filePath,
+			SHA256:        file.SHA256,
+			FileIndex:     i,
+			TotalFiles:    len(config.Files),
+			AfterDownload: checkOCIModelFile(file),
 		})
 	}
 	if err := downloader.DownloadFilesWithContext(ctx, tasks, downloadStatus); err != nil {
@@ -1232,4 +1234,24 @@ func ClusterResolveEnv(ctx context.Context, systemState *system.SystemState, ava
 	}
 
 	return env
+}
+
+// checkOCIModelFile returns the post-download check for a file that comes from
+// an OCI registry and is named as a GGUF model: the file must start with the
+// GGUF magic bytes, otherwise it is removed and the install fails with a clear
+// error. Any other file gets no check. An OCI image that was extracted into a
+// directory has no single file to check and passes.
+func checkOCIModelFile(file File) func(string) error {
+	if !downloader.URI(file.URI).LooksLikeOCI() || !strings.HasSuffix(strings.ToLower(file.Filename), ".gguf") {
+		return nil
+	}
+	return func(path string) error {
+		if fi, err := os.Stat(path); err == nil && fi.IsDir() {
+			return nil
+		}
+		if err := oci.CheckGGUF(path); err != nil {
+			return fmt.Errorf("installing %s: %w", file.URI, err)
+		}
+		return nil
+	}
 }
