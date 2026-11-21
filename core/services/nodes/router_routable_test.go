@@ -7,37 +7,40 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
-// After a change of carrier a worker may hold none of the active carrier and be
-// unable to follow. A frontend dials a replica by an address, and the backend of
-// such a worker listens on its own loopback address only. The router must not
-// dial it: the refused connection is a failed request, not an answer about the
-// backend.
-var _ = Describe("Routing after the carrier changed", func() {
+// The cluster is hybrid: each worker attaches the way its operator chose, and the
+// router asks the node for its routes (RoutesOf), never the cluster for a carrier.
+// A frontend dials a replica by an address, and the backend of a worker with no
+// route listens on its own loopback address only, so the router must not dial it:
+// the refused connection is a failed request, not an answer about the backend.
+var _ = Describe("Routing by the routes of a node", func() {
 	var (
 		reg    *fakeModelRouter
-		active cluster.Carrier
 		router *SmartRouter
 		dual   BackendNode
 		tunnel BackendNode
 		legacy BackendNode
+		p2p    BackendNode
+		p2pOff BackendNode
 	)
 
 	BeforeEach(func() {
 		dual = BackendNode{ID: "dual", Name: "dual", Address: "10.0.0.1:50051", Status: StatusHealthy,
 			Attached: "nats", Follow: "nats,tunnel"}
 		tunnel = BackendNode{ID: "tunnel", Name: "tunnel", Status: StatusHealthy,
-			Attached: "tunnel", Follow: "tunnel", FollowError: "no routable address: it cannot follow a change to NATS"}
+			Attached: "tunnel", Follow: "tunnel", FollowError: "no routable address: it cannot follow a change to NATS",
+			TunnelTransport: TunnelWebSocket}
 		legacy = BackendNode{ID: "legacy", Name: "legacy", Address: "10.0.0.3:50051", Status: StatusHealthy}
-		active = cluster.CarrierNATS
+		p2p = BackendNode{ID: "p2p", Name: "p2p", Status: StatusHealthy, PeerID: "peer-a",
+			Attached: "tunnel", Follow: "tunnel", TunnelTransport: TunnelP2P, TunnelPath: "relayed", TunnelLimited: true}
+		p2pOff = BackendNode{ID: "p2p-off", Name: "p2p-off", Status: StatusHealthy, PeerID: "peer-b",
+			Follow: "tunnel", TunnelTransport: TunnelP2P}
 		reg = &fakeModelRouter{}
 		router = NewSmartRouter(reg, SmartRouterOptions{
 			ClientFactory: &stubClientFactory{client: &stubBackend{healthResult: true}},
-			ActiveCarrier: func() cluster.Carrier { return active },
 		})
 	})
 
@@ -45,41 +48,53 @@ var _ = Describe("Routing after the carrier changed", func() {
 		return router.Route(context.Background(), "m", "models/m.gguf", "llama-cpp", "", nil, false)
 	}
 
-	DescribeTable("says which nodes can be reached on the active carrier",
-		func(n *BackendNode, on cluster.Carrier, want bool) {
-			Expect(NodeRoutableOn(n, on)).To(Equal(want))
+	DescribeTable("lists the routes of a node",
+		func(n *BackendNode, want []Route) {
+			Expect(RoutesOf(n)).To(Equal(want))
 		},
-		Entry("a worker attached to the active carrier", &BackendNode{Attached: "nats", Follow: "nats,tunnel"}, cluster.CarrierNATS, true),
-		Entry("a worker that predates carrier switching, on NATS", &BackendNode{}, cluster.CarrierNATS, true),
-		Entry("a worker that predates carrier switching, on the tunnel", &BackendNode{}, cluster.CarrierTunnel, false),
-		Entry("a worker that is between carriers and can follow", &BackendNode{Follow: "nats,tunnel"}, cluster.CarrierTunnel, true),
-		Entry("a tunnel-only worker that could not follow NATS", &BackendNode{Attached: "tunnel", Follow: "tunnel", FollowError: "no address"}, cluster.CarrierNATS, false),
-		Entry("a worker that cannot follow and reports why", &BackendNode{Attached: "nats", Follow: "nats,tunnel", FollowError: "tunnel refused"}, cluster.CarrierTunnel, false),
+		Entry("a worker on NATS with an address", &BackendNode{Address: "h:1", Attached: "nats", Follow: "nats,tunnel"},
+			[]Route{{Kind: RouteDirect}}),
+		Entry("a worker that predates carrier switching", &BackendNode{Address: "h:1"}, []Route{{Kind: RouteDirect}}),
+		Entry("a worker on NATS with no address", &BackendNode{Attached: "nats", Follow: "nats"}, nil),
+		Entry("a worker that is attached to nothing", &BackendNode{Address: "h:1", Follow: "nats,tunnel"}, nil),
+		Entry("a websocket tunnel worker", &BackendNode{Attached: "tunnel", Follow: "tunnel", TunnelTransport: TunnelWebSocket},
+			[]Route{{Kind: RouteTunnel, Transport: TunnelWebSocket}}),
+		Entry("a P2P worker on a relayed path", &BackendNode{PeerID: "p", Address: "h:1", Attached: "tunnel", Follow: "tunnel",
+			TunnelTransport: TunnelP2P, TunnelPath: "relayed", TunnelLimited: true},
+			[]Route{{Kind: RouteTunnel, Transport: TunnelP2P, Path: "relayed", Limited: true}}),
+		Entry("a P2P worker never has a direct route", &BackendNode{PeerID: "p", Address: "h:1", Attached: "nats,tunnel", Follow: "nats,tunnel",
+			TunnelTransport: TunnelP2P, TunnelPath: "direct"},
+			[]Route{{Kind: RouteTunnel, Transport: TunnelP2P, Path: "direct"}}),
+		Entry("a P2P worker with no live tunnel", &BackendNode{PeerID: "p", Follow: "tunnel"}, nil),
+		Entry("a worker that holds both", &BackendNode{Address: "h:1", Attached: "nats,tunnel", Follow: "nats,tunnel", TunnelTransport: TunnelWebSocket},
+			[]Route{{Kind: RouteDirect}, {Kind: RouteTunnel, Transport: TunnelWebSocket}}),
 	)
 
-	DescribeTable("says which nodes a frontend with the routes of the tunnel can reach",
-		func(n *BackendNode, on cluster.Carrier, want bool) {
-			Expect(NodeReachableOn(n, on, true)).To(Equal(want))
-			Expect(NodeReachableOn(n, on, false)).To(Equal(NodeRoutableOn(n, on)))
-		},
-		Entry("a tunnel-only worker while NATS is active", &BackendNode{Attached: "tunnel", Follow: "tunnel", FollowError: "joined over P2P"}, cluster.CarrierNATS, true),
-		Entry("a worker on NATS", &BackendNode{Attached: "nats", Follow: "nats,tunnel"}, cluster.CarrierNATS, true),
-		Entry("a worker attached to nothing", &BackendNode{Follow: "tunnel", FollowError: "down"}, cluster.CarrierNATS, false),
-		Entry("a worker on NATS only while the tunnel is active", &BackendNode{Attached: "nats", Follow: "nats", FollowError: "no frontend URL"}, cluster.CarrierTunnel, false),
-	)
-
-	It("places a model on a tunnel-only worker when the frontend keeps the routes of the tunnel", func() {
-		router = NewSmartRouter(reg, SmartRouterOptions{
-			ClientFactory: &stubClientFactory{client: &stubBackend{healthResult: true}},
-			ActiveCarrier: func() cluster.Carrier { return active },
-			TunnelRoutes:  true,
-		})
-		reg.findBySelectorNodes = []BackendNode{tunnel, dual}
+	It("schedules a NATS worker, a websocket tunnel worker and a P2P worker at once", func() {
+		reg.findBySelectorNodes = []BackendNode{dual, tunnel, p2p}
 		reg.findAndLockErr = errors.New("not loaded")
-		reg.findIdleNode = &tunnel
+		reg.findIdleNode = &dual
 		_, _ = route()
 		Expect(reg.findAndLockCandidates).ToNot(BeEmpty())
-		Expect(reg.findAndLockCandidates[0]).To(BeNil(), "no node is skipped")
+		for _, c := range reg.findAndLockCandidates {
+			Expect(c).To(BeNil(), "no node is skipped, so the set stays 'any healthy node'")
+		}
+	})
+
+	It("keeps a node with a limited relay schedulable", func() {
+		reg.findBySelectorNodes = []BackendNode{p2p, p2pOff}
+		reg.findAndLockErr = errors.New("not loaded")
+		reg.findIdleFromSetNode = &p2p
+		_, _ = route()
+		Expect(reg.findAndLockCandidates[0]).To(Equal([]string{"p2p"}))
+	})
+
+	It("leaves out a P2P worker that has no live tunnel", func() {
+		reg.findBySelectorNodes = []BackendNode{p2pOff, dual, tunnel}
+		reg.findAndLockErr = errors.New("not loaded")
+		reg.findIdleFromSetNode = &dual
+		_, _ = route()
+		Expect(reg.findAndLockCandidates[0]).To(ConsistOf("dual", "tunnel"))
 	})
 
 	It("leaves the candidates alone when every node can be reached", func() {
@@ -94,7 +109,7 @@ var _ = Describe("Routing after the carrier changed", func() {
 	})
 
 	It("does not look for a loaded replica on a node that cannot be reached", func() {
-		reg.findBySelectorNodes = []BackendNode{tunnel, dual}
+		reg.findBySelectorNodes = []BackendNode{p2pOff, dual}
 		reg.findAndLockErr = errors.New("not loaded")
 		reg.findIdleFromSetNode = &dual
 		reg.findVRAMFromSetNode = &dual
@@ -104,7 +119,7 @@ var _ = Describe("Routing after the carrier changed", func() {
 	})
 
 	It("does not load a model onto a node that cannot be reached", func() {
-		reg.findBySelectorNodes = []BackendNode{tunnel, dual}
+		reg.findBySelectorNodes = []BackendNode{p2pOff, dual}
 		reg.findAndLockErr = errors.New("not loaded")
 		reg.findIdleFromSetNode = &dual
 		reg.findVRAMFromSetNode = &dual
@@ -112,42 +127,21 @@ var _ = Describe("Routing after the carrier changed", func() {
 		_, _ = route()
 		Expect(reg.idleFromSetCandidates).ToNot(BeEmpty())
 		for _, ids := range reg.idleFromSetCandidates {
-			Expect(ids).ToNot(ContainElement("tunnel"))
+			Expect(ids).ToNot(ContainElement("p2p-off"))
 		}
 	})
 
 	It("answers with a clear 'no available nodes' and keeps every row when no node can be reached", func() {
-		reg.findBySelectorNodes = []BackendNode{tunnel}
+		reg.findBySelectorNodes = []BackendNode{p2pOff}
 		_, err := route()
 		Expect(err).To(MatchError(ErrNoAvailableNodes))
-		Expect(err.Error()).To(ContainSubstring("nats"))
-		Expect(err.Error()).To(ContainSubstring("can be reached on the nats carrier"))
+		Expect(err.Error()).To(ContainSubstring("has a usable route"))
 		Expect(reg.findAndLockCandidates).To(BeEmpty(), "no replica was picked, so none was dialled")
 		Expect(reg.removeCalls).To(BeEmpty(), "an unreachable node loses no row")
 		Expect(reg.decrementCalls).To(BeEmpty())
 		Expect(reg.markedUnhealthy).To(BeEmpty())
 	})
 
-	It("follows the active carrier when it changes", func() {
-		reg.findBySelectorNodes = []BackendNode{tunnel, legacy}
-		active = cluster.CarrierTunnel
-		reg.findAndLockErr = errors.New("not loaded")
-		reg.findIdleFromSetNode = &tunnel
-		_, _ = route()
-		Expect(reg.findAndLockCandidates[0]).To(Equal([]string{"tunnel"}), "the legacy worker has no tunnel")
-	})
-
-	It("does nothing when no carrier is given, as before", func() {
-		router = NewSmartRouter(reg, SmartRouterOptions{ClientFactory: &stubClientFactory{client: &stubBackend{healthResult: true}}})
-		reg.findBySelectorNodes = []BackendNode{tunnel}
-		reg.findAndLockErr = errors.New("not loaded")
-		reg.findIdleNode = &tunnel
-		_, _ = route()
-		Expect(reg.findAndLockCandidates).ToNot(BeEmpty())
-		for _, c := range reg.findAndLockCandidates {
-			Expect(c).To(BeNil())
-		}
-	})
 })
 
 var _ grpc.Backend = (*stubBackend)(nil)

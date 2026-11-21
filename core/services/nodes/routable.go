@@ -11,36 +11,62 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// NodeRoutableOn says whether a frontend can reach the worker of n on the carrier
-// c. A worker is reached on c when it is attached to c. A worker that is between
-// carriers, and can follow c, is reached soon enough. A worker that cannot follow
-// c, for example one that has no address and holds only the tunnel while the
-// cluster is on NATS, is not: the recorded address of its backend is a loopback
-// address of the worker, and a dial to it from a frontend is refused.
-//
-// A worker that reports no capabilities predates carrier switching: it is on NATS
-// and cannot follow.
-func NodeRoutableOn(n *BackendNode, c cluster.Carrier) bool {
-	follow := splitCarriers(n.Follow)
-	attached := splitCarriers(n.Attached)
-	if len(follow) == 0 {
-		attached = []cluster.Carrier{cluster.CarrierNATS}
-	}
-	if slices.Contains(attached, c) {
-		return true
-	}
-	return slices.Contains(follow, c) && n.FollowError == ""
+// RouteKind is a way a frontend reaches a worker.
+type RouteKind string
+
+const (
+	// RouteDirect is NATS for control and a direct dial of the worker address
+	// for data. It needs a worker attached to NATS that advertises an address a
+	// frontend can dial.
+	RouteDirect RouteKind = "direct"
+	// RouteTunnel is the door that the worker holds open to a frontend, over a
+	// websocket or over P2P. The worker needs no address and never talks to NATS.
+	RouteTunnel RouteKind = "tunnel"
+)
+
+// Route is one usable way to reach a node. Transport, Path and Limited describe a
+// tunnel route as the worker reported it, and are zero for a direct route. They
+// are kept for the policies that choose between equally fit nodes.
+type Route struct {
+	Kind      RouteKind
+	Transport string
+	Path      string
+	Limited   bool
 }
 
-// NodeReachableOn is NodeRoutableOn for a frontend that also keeps the routes of
-// the tunnel while NATS is active (carrier.Window.UseTunnelRoutes): there a
-// worker that is attached to the tunnel is reached through it, whatever it can
-// follow.
-func NodeReachableOn(n *BackendNode, c cluster.Carrier, tunnelRoutes bool) bool {
-	if NodeRoutableOn(n, c) {
-		return true
+// RoutesOf returns the usable routes of a node, from what the worker reported and
+// what is stored about it. The cluster has no active carrier: every worker
+// attaches the way its operator chose, so the router asks the node, not the
+// cluster. The list is empty when the node cannot be reached at all.
+//
+//   - direct: the worker is attached to NATS and has an address that a frontend can
+//     dial. A worker that reports no carrier capabilities predates carrier
+//     switching and counts as attached to NATS. A worker that joined over P2P never
+//     has it.
+//   - tunnel: the worker is attached to the tunnel. Transport, path and limited
+//     come from its report.
+//
+// A worker that holds both has both routes, direct first.
+func RoutesOf(n *BackendNode) []Route {
+	attached := splitCarriers(n.Attached)
+	if n.Follow == "" {
+		attached = []cluster.Carrier{cluster.CarrierNATS}
 	}
-	return tunnelRoutes && c == cluster.CarrierNATS && slices.Contains(splitCarriers(n.Attached), cluster.CarrierTunnel)
+	var routes []Route
+	if slices.Contains(attached, cluster.CarrierNATS) && n.Address != "" && !isP2PNode(n) {
+		routes = append(routes, Route{Kind: RouteDirect})
+	}
+	if slices.Contains(attached, cluster.CarrierTunnel) {
+		t := parseTunnelRoute(n.TunnelTransport, n.TunnelPath, n.TunnelLimited)
+		routes = append(routes, Route{Kind: RouteTunnel, Transport: t.Transport, Path: t.Path, Limited: t.Limited})
+	}
+	return routes
+}
+
+// isP2PNode says that the worker joined over P2P: it holds a peer pin or reports
+// a P2P tunnel. Such a worker is reached through its tunnel only.
+func isP2PNode(n *BackendNode) bool {
+	return n.PeerID != "" || n.TunnelTransport == TunnelP2P
 }
 
 // unroutableTTL is how long the router keeps its answer about which nodes can be
@@ -51,25 +77,17 @@ const unroutableTTL = 2 * time.Second
 type unroutableCache struct {
 	mu      sync.Mutex
 	at      time.Time
-	carrier cluster.Carrier
 	healthy []string
 	bad     map[string]struct{}
 }
 
-// narrowByRoutable removes from candidates the nodes that cannot be reached on
-// the active carrier. A nil set means any healthy node, and stays nil while every
-// node can be reached. When no node is left it returns ErrNoAvailableNodes with
-// the cause, so the request is answered with 503 and not with a failed dial. It
+// narrowByRoutable removes from candidates the nodes that have no usable route
+// (RoutesOf). A nil set means any healthy node, and stays nil while every node
+// has a route. When no node is left it returns ErrNoAvailableNodes with the
+// cause, so the request is answered with 503 and not with a failed dial. It
 // changes no row: a node that cannot be reached for now is not a node that is gone.
 func (r *SmartRouter) narrowByRoutable(ctx context.Context, modelID string, candidates []string) ([]string, error) {
-	if r.activeCarrier == nil {
-		return candidates, nil
-	}
-	active := r.activeCarrier()
-	if active == "" {
-		return candidates, nil
-	}
-	healthy, bad, ok := r.unroutableNodes(ctx, active)
+	healthy, bad, ok := r.unroutableNodes(ctx)
 	if !ok || len(bad) == 0 {
 		return candidates, nil
 	}
@@ -90,17 +108,17 @@ func (r *SmartRouter) narrowByRoutable(ctx context.Context, modelID string, cand
 		return candidates, nil
 	}
 	if len(keep) == 0 {
-		return nil, fmt.Errorf("no node that can serve %s can be reached on the %s carrier: %d worker(s) are attached to another carrier and cannot follow it: %w",
-			modelID, active, skipped, ErrNoAvailableNodes)
+		return nil, fmt.Errorf("no node that can serve %s has a usable route: %d worker(s) have no direct address on NATS and no live tunnel: %w",
+			modelID, skipped, ErrNoAvailableNodes)
 	}
 	return keep, nil
 }
 
-func (r *SmartRouter) unroutableNodes(ctx context.Context, active cluster.Carrier) (healthy []string, bad map[string]struct{}, ok bool) {
+func (r *SmartRouter) unroutableNodes(ctx context.Context) (healthy []string, bad map[string]struct{}, ok bool) {
 	c := &r.unroutable
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.bad != nil && c.carrier == active && time.Since(c.at) < unroutableTTL {
+	if c.bad != nil && time.Since(c.at) < unroutableTTL {
 		return c.healthy, c.bad, true
 	}
 	nodes, err := r.registry.FindNodesBySelector(ctx, nil)
@@ -112,10 +130,10 @@ func (r *SmartRouter) unroutableNodes(ctx context.Context, active cluster.Carrie
 	c.bad = map[string]struct{}{}
 	for i := range nodes {
 		c.healthy = append(c.healthy, nodes[i].ID)
-		if !NodeReachableOn(&nodes[i], active, r.tunnelRoutes) {
+		if len(RoutesOf(&nodes[i])) == 0 {
 			c.bad[nodes[i].ID] = struct{}{}
 		}
 	}
-	c.at, c.carrier = time.Now(), active
+	c.at = time.Now()
 	return c.healthy, c.bad, true
 }

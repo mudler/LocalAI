@@ -660,11 +660,24 @@ NATS goes through the tunnel while NATS is active. The order is NATS, then the
 tunnel; a worker holds one tunnel, over a websocket or over P2P, so the two
 kinds never compete. The attachment comes from the heartbeat report, as in a
 change, and is cached for a second. `HealthMonitor.UseTunnelRoutes` stops the
-demotion of such a worker, and `SmartRouterOptions.TunnelRoutes` lets the router
-place a model on it (`nodes.NodeReachableOn`). A worker over P2P is tunnel-only: it never attaches
+demotion of such a worker. The router places a model on it by the routes of the
+node, see below. A worker over P2P is tunnel-only: it never attaches
 to NATS, and its `follow_error` says so (`joinedOverP2P`) for as long as the
 cluster runs on NATS. The agent RPC is not routed this way: an agent worker
 over P2P is not supported.
+
+## Routes of a node
+
+The router does not know a carrier. `nodes.RoutesOf(node)` returns the usable
+routes of one node from the columns the worker reported: `direct` (NATS control
+and a direct dial of the address; the worker is attached to NATS, or reports no
+capabilities, and has an address; never for a worker that joined over P2P) and
+`tunnel` (the worker is attached to the tunnel; transport, path and limited are
+attributes of the route). `SmartRouter.narrowByRoutable` keeps the nodes with at
+least one route, so a node is schedulable whatever the other nodes use. A node
+with no route is skipped, and no row changes. A limited relay is still a route.
+The router takes no option for this. Ties between equally fit nodes are not
+broken by route yet.
 
 ## Open items for a second carrier
 
