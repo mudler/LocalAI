@@ -141,6 +141,23 @@ export type LoginItemView =
   | { status: 'unavailable'; reason: 'not-appimage' | 'platform' }
   | { status: 'failed'; reason: string }
 
+// ---- registry credentials ---------------------------------------------------
+
+export type RegistryCredentialKind = 'basic' | 'bearer'
+
+/** One rule: which registry it applies to and how to sign in. The secret is not part of it. */
+export interface RegistryCredentialRule {
+  id: string
+  /** Host with an optional port and path, optional http(s):// in front. */
+  match: string
+  kind: RegistryCredentialKind
+  /** Basic only. */
+  username?: string
+}
+
+/** What the renderer sees: the rule and whether a secret is stored. Never the secret. */
+export type RegistryCredentialView = RegistryCredentialRule & { secretSet: boolean }
+
 // ---- secrets, network exposure, environment variables -----------------------
 
 /**
