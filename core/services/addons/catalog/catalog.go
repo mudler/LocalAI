@@ -130,6 +130,11 @@ type Release struct {
 	// another address does not qualify. It is the library half of the test; the
 	// receipt of an installed package adds the signature.
 	Official bool `json:"official"`
+	// Signer is stamped with the source, never read from remote metadata: the
+	// signer identity an administrator pinned, set only for an entry of a
+	// source that requires a signature and is not the official library. It
+	// lets the UI say who vouches for a package that LocalAI did not review.
+	Signer string `json:"signer,omitempty"`
 	// ID is the identifier of the entry for every kind, the same field the
 	// shared envelope uses. For a backend it is the backend name, which is also
 	// its directory name.

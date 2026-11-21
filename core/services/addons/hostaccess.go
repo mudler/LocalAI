@@ -119,7 +119,9 @@ func (m *Manager) HostAccessInstalled(ctx context.Context) ([]HostAccessInstalle
 type HostAccessRelease struct {
 	AddonID, Title, Version, Digest string
 	Official, Installed             bool
-	Required, Optional              []string
+	// Signer is who signed the package, for a source that is not official.
+	Signer             string
+	Required, Optional []string
 	// FromIndex says the answer comes from the host operations the library
 	// index lists, with no download. Unpinned says the index gives no digest
 	// (a mutable entry), so Digest is empty. See HostApproval.FromIndex.
@@ -281,7 +283,7 @@ func indexHint(r catalog.Release) (HostAccessRelease, bool) {
 		return HostAccessRelease{}, false
 	}
 	out := HostAccessRelease{AddonID: r.ID, Title: r.ID, Version: r.Version, FromIndex: true,
-		Official: r.Official && r.Policy.RequireSignature,
+		Official: r.Official && r.Policy.RequireSignature, Signer: r.Signer,
 		Required: slices.Clone(r.HostOperations.Required), Optional: slices.Clone(r.HostOperations.Optional)}
 	if r.Mutable {
 		out.Unpinned = true
@@ -311,7 +313,7 @@ func (m *Manager) stagePreview(ctx context.Context, r catalog.Release) (HostAcce
 		return HostAccessRelease{}, e
 	}
 	out := HostAccessRelease{AddonID: rc.Manifest.ID, Title: rc.Manifest.ID, Version: rc.Manifest.Version, Digest: rc.Digest,
-		Official: OfficialReceipt(rc)}
+		Official: OfficialReceipt(rc), Signer: rc.Signer}
 	if u := rc.Manifest.Capabilities.UI; u != nil && u.Title != nil && u.Title.Default() != "" {
 		out.Title = u.Title.Default()
 	}

@@ -267,9 +267,26 @@ var _ = Describe("apps list", func() {
 			Expect(byID[id].Admin.Official).To(BeFalse(), id)
 		}
 		Expect(byID["other"].Admin.SourceID).To(Equal("community"))
+		Expect(byID["signed"].Admin.Signer).To(BeEmpty(), "the official library has its own label")
 		for _, a := range Build(snaps, false) {
 			Expect(a.Admin).To(BeNil())
 		}
+	})
+	It("shows the signer of an add-on only when the receipt says the signature was checked", func() {
+		from := func(id, verification, signer string) Snapshot {
+			s := snapshot(id, true, "running", nil, "q")
+			s.Receipt.SourceID, s.Receipt.SourceURL, s.Receipt.Verification, s.Receipt.Signer = "community", "oci://registry.example/libs/x:latest", verification, signer
+			return s
+		}
+		byID := map[string]App{}
+		for _, a := range Build([]Snapshot{from("signed", "sha256+sigstore", "signer@registry.example"), from("plain", "sha256", "signer@registry.example")}, true) {
+			byID[a.ID] = a
+		}
+		Expect(byID["signed"].Admin.Signer).To(Equal("signer@registry.example"))
+		Expect(byID["plain"].Admin.Signer).To(BeEmpty())
+		raw, err := json.Marshal(byID["plain"])
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring("signer"))
 	})
 	It("draws the network policy for a declared capability, with the declared title, and for no other add-on", func() {
 		declared := func(id, title string, grants ...string) Snapshot {

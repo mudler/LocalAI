@@ -637,6 +637,8 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		r.SourceID = src.ID
 		r.SourceURL = src.URL
 		r.Official = IsOfficialSource(src.ID, src.URL)
+		// An index may carry any value here, so the stamp always overwrites it.
+		r.Signer = pinnedSigner(src)
 		r.AllowLoopbackHTTP = src.AllowLoopbackHTTP
 		r.Policy = src.Policy
 		key := releaseKey(*r)
@@ -646,6 +648,17 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		seen[key] = true
 	}
 	return releases, indexed, nil
+}
+
+// pinnedSigner is the signer identity to show for the entries of a source: the
+// identity an administrator pinned, when the source requires a signature and
+// is not the official library. The official library has its own label, and a
+// source with no pinned identity (a pattern, or no policy) has nothing to name.
+func pinnedSigner(src Source) string {
+	if !src.Policy.RequireSignature || IsOfficialSource(src.ID, src.URL) {
+		return ""
+	}
+	return src.Policy.Identity
 }
 
 // backendNamePattern is a backend name: it is also a directory name, so it

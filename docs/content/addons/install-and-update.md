@@ -540,6 +540,12 @@ identity is an exact string. If you write a regular expression, LocalAI stores i
 literal text, and it will not match any signer, because patterns are not accepted for
 add-on libraries.
 
+The install dialog still warns about an add-on that is not from the official library.
+For an add-on of a library with a pinned signer, the notice reads "Signed by
+`<identity>`. Not reviewed by LocalAI." and names that identity. It is the identity you
+pinned. LocalAI records it when the package is verified, and the catalog never takes it
+from the library index. The install confirmation stays.
+
 ## Backends in the library
 
 A library lists more than add-ons. Every entry has one schema and an optional `kind`

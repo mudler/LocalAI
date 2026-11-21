@@ -4,6 +4,7 @@ package catalog
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -126,6 +127,38 @@ var _ = Describe("oci:// libraries", func() {
 		_, err := s.Refresh(ctx, "lib")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s.cache["lib"].releases[0].Policy).To(Equal(signedPolicy))
+	})
+
+	It("stamps the pinned signer on a signed source and on no other", func() {
+		stubLibraryVerifier(func(context.Context, VerificationPolicy, string) error { return nil })
+		url := pushLibrary(srv.URL, "libs/pinned", LibraryArtifactType, libraryIndexBody())
+		saveOCI(url, signedPolicy)
+		_, err := s.Refresh(ctx, "lib")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.cache["lib"].releases[0].Signer).To(Equal("signer@registry.example"))
+		raw, err := json.Marshal(s.cache["lib"].releases[0])
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"signer":"signer@registry.example"`))
+
+		// A source with no policy names nobody.
+		saveOCI(url, VerificationPolicy{})
+		_, err = s.Refresh(ctx, "lib")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.cache["lib"].releases[0].Signer).To(BeEmpty())
+		raw, err = json.Marshal(s.cache["lib"].releases[0])
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring("signer"))
+	})
+
+	It("ignores a signer that the index claims for itself", func() {
+		// The index is a YAML list: add the field to its first entry.
+		body := strings.Replace(libraryIndexBody(), "- ", "- signer: someone@registry.example\n  ", 1)
+		Expect(body).To(ContainSubstring("someone@registry.example"))
+		url := pushLibrary(srv.URL, "libs/claimed", LibraryArtifactType, body)
+		saveOCI(url, VerificationPolicy{})
+		_, err := s.Refresh(ctx, "lib")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.cache["lib"].releases[0].Signer).To(BeEmpty())
 	})
 
 	It("refuses a bad signature, caches nothing and serves no older copy afterwards", func() {

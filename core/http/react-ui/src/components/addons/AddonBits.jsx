@@ -96,9 +96,12 @@ export function VersionText({ version }) {
 }
 
 // The warning for an add-on that does not come from the official library.
-// See untrustedSource for when it shows.
-export function UntrustedNotice({ library, testId = 'untrusted-source' }) {
+// See untrustedSource for when it shows. When the library pins a signer (see
+// signedBy) the notice says who signed it and that LocalAI did not review it;
+// the warning still applies, so the install confirmation stays.
+export function UntrustedNotice({ library, signer = '', testId = 'untrusted-source' }) {
   const { t } = useTranslation('addons')
+  if (signer) return <Callout tone="warn" testId={testId} data-signer={signer}>{t('hostAccess.signedNotReviewed', { signer })}</Callout>
   return <Callout tone="warn" testId={testId}>{t('hostAccess.notOfficialWarning', { library })}</Callout>
 }
 
