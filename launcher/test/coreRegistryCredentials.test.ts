@@ -5,6 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { LauncherCore, REDACTED, type CoreDeps } from '../src/main/core'
+import type { SupervisorHandle } from '../src/main/serverInstall'
 import { CREDENTIALS_FILE_NAME } from '../src/main/credentialsFile'
 import { type SafeStorageLike } from '../src/main/secretStore'
 import type { SandboxProbe } from '../src/main/sandboxProbe'
@@ -113,6 +114,17 @@ describe('registry credential actions of the core', () => {
     await own.init()
     expect(own.registryCredentialsView().userOverride).toBe(true)
   })
+
+  it('lists a LOCALAI_CREDENTIALS_FILE kept from an older version as passed, not ignored', async () => {
+    const home = tmpDir('core-reg-old-')
+    fs.mkdirSync(path.join(home, '.localai'), { recursive: true })
+    fs.writeFileSync(path.join(home, '.localai', 'launcher.json'), JSON.stringify({ environment_vars: { LOCALAI_CREDENTIALS_FILE: '/own/credentials.yaml', PATH: '/x' } }), { mode: 0o600 })
+    const core = makeCore(home)
+    await core.init()
+    const vars = core.envVarsView().vars
+    expect(vars.find((v) => v.name === 'LOCALAI_CREDENTIALS_FILE')).toMatchObject({ ignored: false })
+    expect(core.registryCredentialsView().userOverride).toBe(true)
+  })
 })
 
 describe('registry credentials in the core', () => {
@@ -163,6 +175,39 @@ describe('registry credentials in the core', () => {
     await core.restartServer()
     await until(() => core.snapshot().state === 'ready' && serverEnv().LOCALAI_CREDENTIALS_FILE === null)
     expect(serverEnv().LOCALAI_LAUNCHER_CRED_1).toBeNull()
+  })
+
+  it('the installer restart after the last rule was removed does not name the removed file', async () => {
+    const { core, file, serverEnv } = await setup()
+    const rules = core.registryCredentialRules()
+    const { id } = (await rules.save({ match: 'registry.example', kind: 'bearer', secret: SECRET_ONE })) as { id: string }
+    await core.startServer()
+    await until(() => core.snapshot().state === 'ready' && serverEnv().LOCALAI_CREDENTIALS_FILE === file)
+
+    await core.removeRegistryCredential(id)
+    expect(fs.existsSync(file)).toBe(false)
+    // What an update or a rollback does: stop, then start through the installer's handle.
+    const handle = (core as unknown as { installer: { d: { supervisor: SupervisorHandle } } }).installer.d.supervisor
+    await handle.stop()
+    await handle.start()
+    expect(handle.state).toBe('ready')
+    const env = serverEnv()
+    expect(env.LOCALAI_CREDENTIALS_FILE === null || fs.existsSync(env.LOCALAI_CREDENTIALS_FILE)).toBe(true)
+    expect(env.LOCALAI_CREDENTIALS_FILE).toBeNull()
+    expect(env.LOCALAI_LAUNCHER_CRED_1).toBeNull()
+  })
+
+  it('the installer restart after a rule was added while running uses the new file', async () => {
+    const { core, file, serverEnv } = await setup()
+    await core.startServer()
+    await until(() => core.snapshot().state === 'ready')
+    expect(serverEnv().LOCALAI_CREDENTIALS_FILE).toBeNull()
+    await core.saveRegistryCredential({ match: 'registry.example', kind: 'bearer', secret: SECRET_ONE })
+    const handle = (core as unknown as { installer: { d: { supervisor: SupervisorHandle } } }).installer.d.supervisor
+    await handle.stop()
+    await handle.start()
+    expect(serverEnv()).toMatchObject({ LOCALAI_CREDENTIALS_FILE: file, LOCALAI_LAUNCHER_CRED_1: SECRET_ONE })
+    expect(core.registryCredentialsView().restartRequired).toBe(false)
   })
 
   it('a restart that did not go through startServer first still sees a changed rule', async () => {

@@ -34,12 +34,17 @@ export interface RegistryCredentialsLaunch {
  * explicitly. Names have no case on Windows.
  */
 export function userCredentialsFile(processEnv: NodeJS.ProcessEnv, userEnv: Record<string, string> = {}, platform: NodeJS.Platform = process.platform): string | undefined {
-  const same = (k: string) => (platform === 'win32' ? k.toUpperCase() === CREDENTIALS_FILE_ENV : k === CREDENTIALS_FILE_ENV)
+  const same = (k: string) => isCredentialsFileName(k, platform)
   let found: string | undefined
   for (const src of [processEnv, userEnv]) {
     for (const [k, v] of Object.entries(src)) if (same(k) && v !== undefined && v !== '') found = v
   }
   return found
+}
+
+/** True when `name` is LOCALAI_CREDENTIALS_FILE (in any case on Windows). */
+export function isCredentialsFileName(name: string, platform: NodeJS.Platform = process.platform): boolean {
+  return platform === 'win32' ? name.toUpperCase() === CREDENTIALS_FILE_ENV : name === CREDENTIALS_FILE_ENV
 }
 
 /**

@@ -115,7 +115,7 @@ import { initialNotice, reduceNotice, type NoticeEvent, type NoticeState, type S
 import type { SandboxProbe } from './sandboxProbe'
 import { InvalidAttachPattern, validateAttachPattern, type SandboxPlan } from './sandboxProfile'
 import { prepareRemove, prepareSetup, runPlan, type Runner, type SetupResult } from './sandboxSetup'
-import { buildServerLaunch, needsRestart, userCredentialsFile, type RegistryCredentialsLaunch, type ServerLaunch } from './serverLaunch'
+import { buildServerLaunch, isCredentialsFileName, needsRestart, userCredentialsFile, type RegistryCredentialsLaunch, type ServerLaunch } from './serverLaunch'
 import { CREDENTIALS_FILE_NAME, prepareRegistryCredentials } from './credentialsFile'
 import { RegistryCredentials } from './registryCredentials'
 import { probeRegistry } from './registryProbe'
@@ -434,11 +434,17 @@ export class LauncherCore {
     // 6. installer
     const paths = this.installPaths()
     const core = this // the getter below must read the current supervisor, which a settings change replaces
+    // The installer restarts the server after an update or a rollback. That start
+    // goes through prepareStart too, so it never uses a launch whose credentials
+    // file was removed or rewritten while the server ran.
     const handle: SupervisorHandle = {
       get state() {
         return core.supervisor.state
       },
-      start: () => this.supervisor.start(),
+      start: async () => {
+        await this.prepareStart()
+        await this.supervisor.start()
+      },
       stop: () => this.supervisor.stop(),
     }
     this.installer = new ServerInstaller({
@@ -821,8 +827,7 @@ export class LauncherCore {
   private async openLocal(): Promise<void> {
     this.monitor.stop()
     this.webuiDispatch({ type: 'back-to-local' })
-    if (await this.refreshRegistryCredentials()) this.launchStale = true
-    if (this.launchStale) this.buildSupervisor(this.store.get())
+    await this.prepareStart()
     await this.startServer()
   }
 
@@ -994,7 +999,9 @@ export class LauncherCore {
    *
    * The server reads the file once, at its start, so removing the file while
    * a server runs does not affect it. A missing file named by the variable is
-   * a startup error, which is why no start ever points at a removed file.
+   * a startup error. The launch of a running server can therefore name a file
+   * that is gone; every start goes through prepareStart, which refreshes the
+   * file and rebuilds such a launch first.
    */
   private async refreshRegistryCredentials(): Promise<boolean> {
     const dir = path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home, this.layout()))
@@ -1216,14 +1223,22 @@ export class LauncherCore {
     }
   }
 
+  /**
+   * Run before every start of the supervisor, and the only way to one: the
+   * rules may have changed since the launch was built, and a stale launch may
+   * name a credentials file that was removed.
+   */
+  private async prepareStart(): Promise<void> {
+    if (await this.refreshRegistryCredentials()) this.launchStale = true
+    if (this.launchStale) this.buildSupervisor(this.store.get())
+  }
+
   /** Starts the server and returns once it is starting; readiness comes as events. */
   async startServer(): Promise<void> {
     if (!this.localManaged()) return
     if (!this.binaryInstalled() || this.installActive()) return
     if (this.serverRunning()) return
-    // The rules may have changed since the launch was built.
-    if (await this.refreshRegistryCredentials()) this.launchStale = true
-    if (this.launchStale) this.buildSupervisor(this.store.get())
+    await this.prepareStart()
     void this.supervisor.start()
   }
 
@@ -1626,7 +1641,10 @@ export class LauncherCore {
     return {
       vars: this.secrets.list(ENV_PREFIX).map((n) => {
         const name = n.slice(ENV_PREFIX.length)
-        return { name, ignored: envNameProblem(name, this.envIgnoreCase()) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
+        // A LOCALAI_CREDENTIALS_FILE set by an older version is controlled, but it is
+        // passed on (see userCredentialsFile) and turns the registry rules off.
+        const passed = isCredentialsFileName(name, this.d.platform ?? process.platform)
+        return { name, ignored: !passed && envNameProblem(name, this.envIgnoreCase()) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
       }),
       restartRequired: this.restartRequired(),
       storage: this.secrets.state(),
