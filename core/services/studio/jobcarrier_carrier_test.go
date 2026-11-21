@@ -24,10 +24,15 @@ var _ = Describe("a job ask over a carrier that cannot carry it", func() {
 	It("does not mark the job of a node that is still there lost", func() {
 		st, err := store.NewJSON("")
 		Expect(err).NotTo(HaveOccurred())
-		// A set with fan-out and no request and reply between processes.
+		// A set with no request and reply between processes.
 		active := &atomic.Pointer[carrier.Set]{}
-		active.Store(&carrier.Set{Name: cluster.CarrierTunnel, Fabric: carrier.Fabric{Broadcaster: testutil.NewFakeBus()}})
-		jobs := studio.NewJobCarrier(carrier.NewBroadcaster(active), nil)
+		active.Store(&carrier.Set{Name: cluster.CarrierTunnel})
+		bus := testutil.NewFakeBus()
+		holder, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{
+			Floor: &carrier.Bus{Name: carrier.BusPostgres, Broadcaster: bus}, Sets: active,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		jobs := studio.NewJobCarrier(holder, nil)
 		clk := &tclock{t: time.Now()}
 		files := newFiles()
 		mk := func(instance string) jobChat {

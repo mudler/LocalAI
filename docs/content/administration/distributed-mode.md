@@ -8,7 +8,7 @@ keywords = ["distributed","cluster","nodes","scale","nats","tunnel","carrier"]
 devbuild = "install"
 +++
 
-Distributed mode scales LocalAI across several machines. **PostgreSQL** holds the state and the node registry. Each worker attaches to the frontends over **NATS**, a **WebSocket** tunnel or **P2P**, and the frontends reach it by the route it has. A **broadcast bus**, NATS or PostgreSQL, carries messages between the frontends. Unlike [P2P]({{% relref "/administration/p2p" %}}) and [federation]({{% relref "/administration/federation" %}}), distributed mode is for production deployments and Kubernetes. It gives you central management, health monitoring, and deterministic routing.
+Distributed mode scales LocalAI across several machines. **PostgreSQL** holds the state and the node registry. Each worker attaches to the frontends over **NATS**, a **WebSocket** tunnel or **P2P**, and the frontends reach it by the route it has. The frontends broadcast messages to each other over PostgreSQL, and over NATS as well when the cluster has a NATS server. Unlike [P2P]({{% relref "/administration/p2p" %}}) and [federation]({{% relref "/administration/federation" %}}), distributed mode is for production deployments and Kubernetes. It gives you central management, health monitoring, and deterministic routing.
 
 {{% callout style="note" %}}
 Distributed mode needs authentication and a **PostgreSQL** database. SQLite is not supported, because the node registry, the job store, and the other distributed state are PostgreSQL tables.
@@ -49,27 +49,42 @@ A worker attaches to the frontends by one **route**. The frontend reaches the wo
 | **WebSocket** (`tunnel`) | The worker opens an outbound websocket tunnel to a frontend (`/api/cluster/connect`), and control requests and gRPC calls travel through it. Request and reply between frontends and [chat workers](#chat-workers) goes over the peer link between them: see [Chats over the WebSocket tunnel](#chats-over-the-websocket-tunnel). | Nothing beyond the frontend. Workers need no inbound port. |
 | **P2P** | The same tunnel, over a libp2p stream. See [Workers over P2P](#workers-over-p2p). | A P2P invite. |
 
-**Workers never connect to PostgreSQL.** A worker dials a frontend (or NATS) and nothing else. Only the frontends use PostgreSQL, for the shared state and the node registry, and as a **broadcast bus**: the channel on which a frontend tells the other frontends about job progress, gallery updates and cache hints.
+**Workers never connect to PostgreSQL.** A worker dials a frontend (or NATS) and nothing else. Only the frontends and the [chat workers](#chat-workers) use PostgreSQL, for the shared state and the node registry, and as a **broadcast bus**: the channel on which a frontend tells the other frontends about job progress, gallery updates and cache hints.
 
-The broadcast bus between the frontends is **NATS** or **PostgreSQL** (`LISTEN`/`NOTIFY`, a bus named *pgbus*). The cluster setting selects it, with the values `nats` and `tunnel` (the API and the CLI keep these names; `tunnel` means PostgreSQL as the bus and WebSocket as the route that new workers use). There is no flag that you pass at boot: the setting is a row in the database, and the first frontend writes it (see below). Today one bus is active at a time. The setting also decides which route a worker is told to use when it registers: NATS on `nats`, WebSocket on `tunnel`. A worker that joined over P2P keeps its P2P tunnel in both cases.
+### The broadcast buses
 
-Changing the setting is an advanced operation of the admin API and the `local-ai cluster` command. The Nodes page of the WebUI shows the active bus, the frontends and the workers, and it saves the NATS address, but it has no control to change the bus. See [Switching the carrier](#switching-the-carrier).
+The frontends and the chat workers broadcast to each other over two buses:
+
+- **PostgreSQL** (`LISTEN`/`NOTIFY`, a bus named *pgbus*). Every frontend and chat worker always listens on it.
+- **NATS**, when the cluster has a NATS server (the `nats.url` cluster setting, or `--nats-url`). Every frontend and chat worker that has it listens on it too.
+
+Each broadcast goes on exactly one bus: on NATS when the cluster has a NATS server and the process that publishes is connected to it, on PostgreSQL otherwise. A message is never sent twice, so no subscriber sees it twice. Because every process listens on PostgreSQL, a process that lost NATS still reaches all the others.
+
+A process that has a NATS server configured and cannot reach it does not hear what the other processes publish on NATS. It keeps listening and publishing on PostgreSQL, and its `/readyz` answers `503` with the status `unavailable` and the reason, so a load balancer stops sending it traffic. When NATS is back, it publishes on NATS again and `/readyz` answers `200`. Messages that cross a change of bus are not ordered, so the shared state of the process (the replicated maps and the failover state) reads its tables again when the bus changes and when a bus reconnects. A NATS server that is down when a frontend starts does not stop the start: the frontend keeps retrying to connect and is not ready until it is connected.
+
+The bus does not depend on the cluster setting below. A change of the setting does not move the broadcasts.
+
+### The cluster setting
+
+The cluster setting has the values `nats` and `tunnel` (the API and the CLI keep these names). There is no flag that you pass at boot: the setting is a row in the database, and the first frontend writes it (see below). It decides which route a worker is told to use when it registers: NATS on `nats`, WebSocket on `tunnel`. A worker that joined over P2P keeps its P2P tunnel in both cases. It also decides how the frontends and the chat workers send requests to each other (see [Chat workers](#chat-workers)).
+
+Changing the setting is an advanced operation of the admin API and the `local-ai cluster` command. The Nodes page of the WebUI shows the setting, the frontends and the workers, and it saves the NATS address, but it has no control to change the setting. See [Switching the carrier](#switching-the-carrier).
 
 ### How a deployment starts
 
 The first frontend that starts writes the row:
 
-- A **new deployment with only PostgreSQL** (no NATS URL in the flags and none stored) starts on `tunnel`: PostgreSQL is the broadcast bus and workers attach over WebSocket.
-- An **existing deployment with a NATS URL** (`--nats-url` or `LOCALAI_NATS_URL`) starts on `nats`: NATS is the broadcast bus and workers attach over NATS. Nothing changes for it: the subjects, the payloads, the queue groups, and the direct gRPC connections stay as they were.
+- A **new deployment with only PostgreSQL** (no NATS URL in the flags and none stored) starts on `tunnel`: PostgreSQL is the only broadcast bus and workers attach over WebSocket.
+- A **deployment with a NATS URL** (`--nats-url` or `LOCALAI_NATS_URL`) starts on `nats`: broadcasts go over NATS while it is reachable, and workers attach over NATS.
 
 Later frontends read the row and follow it. A frontend never uses its own flags to override the row. If its `--nats-url` names another server than the stored one, it refuses to start and names both addresses.
 
-A frontend that finds a cluster on NATS but has no NATS address fails to start and tells you to set `--nats-url`. A NATS server that is down when a frontend starts does not stop the start: the frontend keeps retrying to connect.
+A frontend that finds a cluster on NATS but has no NATS address fails to start and tells you to set `--nats-url`. A NATS server that is down when a frontend starts does not stop the start: the frontend keeps retrying to connect, and it is not ready until it is connected.
 
 ### Choose a setting
 
 - Use `tunnel` for a self-hosted cluster with PostgreSQL only. It has fewer parts to run and workers behind NAT or a firewall need no open port. See [Operational limits](#operational-limits) for the numbers.
-- Use `nats` for large clusters, many frontends, high-rate or large broadcasts, and fast queue pickup.
+- Use `nats` for large clusters, many frontends, and high-rate or large broadcasts.
 
 You can start on one and change to the other later with the admin API or the CLI.
 
@@ -83,10 +98,10 @@ The Nodes page shows the route of each node: **NATS**, **WebSocket** (the tunnel
 
 ## Prerequisites
 
-- **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the cluster setting row, and the shared state. On the `tunnel` setting it is also the broadcast bus between the frontends, so size it for that (see [Operational limits](#operational-limits)).
-- A **NATS** server, only if you want the `nats` setting. A deployment can start without one and add it later.
+- **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the cluster setting row, and the shared state. It is also a broadcast bus between the frontends, and the only one without NATS, so size it for that (see [Operational limits](#operational-limits)).
+- A **NATS** server, only if you want the `nats` setting or NATS for the broadcasts. A deployment can start without one and add it later.
 - All services must be reachable from each other, through the network or the configured URLs.
-- On the `tunnel` setting (PostgreSQL as the broadcast bus), a session-level `LISTEN` connection to PostgreSQL. A connection pooler in *transaction* mode (for example PgBouncer in its default mode) breaks `LISTEN`. Point the frontends directly at PostgreSQL, or use a session-mode pool.
+- A session-level `LISTEN` connection from every frontend and chat worker to PostgreSQL, on every setting. A connection pooler in *transaction* mode (for example PgBouncer in its default mode) breaks `LISTEN`, and a frontend then fails to start. Point the frontends directly at PostgreSQL, or use a session-mode pool.
 
 ## Quick Start with Docker Compose
 
@@ -117,7 +132,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--peer-address` | `LOCALAI_PEER_ADDRESS` | *(found from the route to the database)* | `host:port` at which the other frontends dial this one. A frontend publishes it so that a replica that does not hold the connection of a worker can reach the replica that does. Set it when the address found from the route to the database is not the one the other frontends should use. The link carries the credential of the replica and every request that it relays, so by default it is clear text. Use `--peer-tls` when the replicas sit behind TLS. |
 | `--peer-tls` | `LOCALAI_PEER_TLS` | `false` | Dial the other frontends over `wss` and not `ws`. Every frontend must then be reachable over TLS at the address it publishes with `--peer-address`, for example behind a reverse proxy that terminates TLS. A frontend that serves the API over TLS itself (`--tls-cert`, `--tls-self-signed`) dials `wss` without this flag. LocalAI warns at start-up when it publishes an address that is not on the local host and the link is clear text. |
 | `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | *(system roots)* | PEM file with the certificate authority that signs the certificate of the other frontends. Use it with a private CA. See [Peer link](#peer-link). |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL (e.g., `nats://localhost:4222`). Optional. With a URL, a new cluster starts on `nats`. Without one, it starts on `tunnel` (PostgreSQL as the broadcast bus). The URL is copied into the `nats.url` cluster setting. See [Carriers](#carriers). |
+| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL (e.g., `nats://localhost:4222`). Optional. With a URL, a new cluster starts on `nats`. Without one, it starts on `tunnel` (PostgreSQL as the broadcast bus). The URL is copied into the `nats.url` cluster setting. See [How workers attach, and the broadcast bus](#how-workers-attach-and-the-broadcast-bus). |
 | `--carrier-prepare-timeout` | `LOCALAI_CARRIER_PREPARE_TIMEOUT` | `1m` | How long a change of the broadcast bus waits for every frontend to be ready before it is aborted. The stored cluster setting wins. |
 | `--carrier-transition-window` | `LOCALAI_CARRIER_TRANSITION_WINDOW` | `2m` | How long a change waits for every frontend to confirm the commit. |
 | `--carrier-max-drain` | `LOCALAI_CARRIER_MAX_DRAIN` | `15m` | How long the previous bus stays attached after a change. See [Switching the carrier](#switching-the-carrier). |
@@ -1636,7 +1651,7 @@ Notes:
 
 _Advanced. This is an operation of the admin API and the `local-ai cluster` command. The WebUI does not offer it._
 
-An admin changes the carrier with a **dry run** first and a **change** second. It is in the `local-ai cluster` command and in the admin API. The *Cluster transport* panel of the Nodes page shows the result (the active broadcast bus, the frontends and the workers) and saves the NATS address, but it has no control to change the bus. Here, "carrier" is the API name of the setting: `nats` (NATS as the bus) or `tunnel` (PostgreSQL as the bus, WebSocket for new workers).
+An admin changes the carrier with a **dry run** first and a **change** second. It is in the `local-ai cluster` command and in the admin API. The *Cluster transport* panel of the Nodes page shows the result (the setting, the frontends and the workers) and saves the NATS address, but it has no control to change the setting. Here, "carrier" is the API name of the setting: `nats` (NATS for new workers) or `tunnel` (WebSocket for new workers). A change does not move the broadcasts: they go over NATS while it is reachable and over PostgreSQL otherwise, on both settings (see [The broadcast buses](#the-broadcast-buses)).
 
 {{% callout style="warning" %}}
 Upgrade **all** frontends to a release that has carrier switching before you change the carrier for the first time. A frontend of an older release writes no row and cannot be detected. The preflight cannot see it, and it would not follow the change. See [Rolling upgrades](#rolling-upgrades-and-rollback).
@@ -1687,8 +1702,8 @@ A change goes through these states:
 | State | What happens |
 |-------|--------------|
 | `stable` | One carrier is active. |
-| `prepare` | Every frontend builds the target carrier and listens on it. Publishing and new calls still use the old carrier. The leader waits until every live frontend reports ready. |
-| `commit` | The target is the active carrier. Every frontend publishes and sends new calls on it and confirms. |
+| `prepare` | Every frontend builds the target carrier and listens on it. New calls still use the old carrier. The leader waits until every live frontend reports ready. |
+| `commit` | The target is the active carrier. Every frontend sends new calls on it and confirms. |
 | `stable` (draining) | The old carrier stays attached for the **drain time**. Then it is released. |
 
 Waits, all measured on the clock of the database:
@@ -1713,7 +1728,7 @@ No request is cut by the commit.
 | File transfers | Finish on their connection. New ones use the new carrier. |
 | MCP tool calls to agent workers | A call finishes on the carrier that carried it. New calls go to an agent worker on NATS while NATS is active or drains, else to one that holds a tunnel. |
 | Chat starts, chat replay and background jobs of a turn | A request finishes on the carrier that carried it. New requests use the new carrier. |
-| Broadcasts (progress, cache hints, state deltas) | Frontends listen on both carriers from `prepare` and publish on one. Order can skew by about one poll interval (2 s) around the commit. Each frontend then reloads its shared state once, so a lost delta is repaired. |
+| Broadcasts (progress, cache hints, state deltas) | Not touched. They go over NATS while it is reachable and over PostgreSQL otherwise, before, during and after the change. |
 
 **After the drain** (`max_drain`, default 15 minutes) the old carrier is released. Work that still runs only on it is cut, for example a backend install that takes longer than the drain. Raise `max_drain` before you change the carrier if you run long installs.
 
@@ -1888,7 +1903,7 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 - **Tunnel latency.** A tunnel adds about 0.1 ms per call. Token streaming runs at the same rate as a direct connection.
 - **Large transfers.** A bulk transfer used to delay small calls on the same tunnel session (head-of-line blocking). Bulk data now uses its own lane of the tunnel, so inference calls are not held behind a model upload.
 - **Cost of one tunnel session.** About 46 KB of heap and 6 goroutines (both ends together). With 64 KiB websocket buffers it is about 306 KB. 200 workers cost a frontend a few megabytes.
-- **Database connections.** The `tunnel` carrier holds one `LISTEN` connection per frontend. A change from NATS to the tunnel adds one per frontend for the length of the change.
+- **Database connections.** Every frontend and chat worker holds one `LISTEN` connection, on both settings, and a change adds none.
 - **Reconnects.** At a change, each worker waits a random time of up to 10 seconds. With 200 workers that is about 20 connects per second.
 - **Not measured.** The duration of a change with many workers, the reconnect storm at scale, PostgreSQL on another host, behind a pooler, with many frontends, and TLS on the websocket.
 
@@ -1896,7 +1911,7 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 
 **Does saving a NATS URL move my cluster to NATS?** No. It makes NATS available and checks that it can be reached. A change is a separate step.
 
-**Can both buses run together?** Not yet. The broadcast bus between the frontends is NATS or PostgreSQL, one at a time. They overlap only during a change, for the drain time. Workers are different: a P2P worker or a WebSocket worker can be reached while the cluster is on `nats` (see [Workers that hold only a tunnel](#workers-that-hold-only-a-tunnel)).
+**Can both buses run together?** Yes. Every frontend and chat worker listens on PostgreSQL, and on NATS too when the cluster has a NATS server. Each broadcast goes on one of them (see [The broadcast buses](#the-broadcast-buses)). Workers are a separate matter: a P2P worker or a WebSocket worker can be reached while the cluster is on `nats` (see [Workers that hold only a tunnel](#workers-that-hold-only-a-tunnel)).
 
 **Do I need to restart anything to change the carrier?** No. Not the frontends, not the workers, and not the backends.
 
@@ -1904,7 +1919,7 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 
 **Do I still need `--nats-url` on workers?** No. A worker learns the address from the frontend. Set it only to override the address.
 
-**What if I never use NATS?** Run PostgreSQL only. The cluster starts on `tunnel`: PostgreSQL is the broadcast bus between the frontends and workers attach over WebSocket. Workers still never connect to PostgreSQL.
+**What if I never use NATS?** Run PostgreSQL only. The cluster starts on `tunnel`: PostgreSQL is the only broadcast bus between the frontends and workers attach over WebSocket. Workers still never connect to PostgreSQL.
 
 **Why can my tunnel-only worker not follow to NATS?** It has no address that the frontends can dial, and its backends listen on loopback. Restart it with `--addr`.
 

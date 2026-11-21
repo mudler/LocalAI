@@ -98,11 +98,12 @@ is the full number. The add-on cards, the Find add-ons tab and the details panel
 A release may also carry `hostOperations`, with `required` and `optional` lists: the host
 operations that the manifest requests in `capabilities.hostOperations`, sorted. The UI shows
 them before install, so a person does not need to download the package. The release index
-(`addons-index.yaml`) carries the field for every add-on entry, and `hostOperations: {}` means
-the manifest requests none. The development index does not carry it yet: a host that predates
-the field refuses an index with an unknown field, and every development host reads that file.
+(`addons-index.yaml`) and the development index (`gallery/addons/index.yaml`) carry the field
+for every add-on entry, and `hostOperations: {}` means the manifest requests none. A host that
+predates the field (before commit `f36dd6a5d`) refuses an index with an unknown field, so a
+development or master build older than that commit lists no add-ons until it updates.
 `addonpkg catalog` and `addonpkg catalog-tools` write the field only when they get
-`--host-operations-in-index`, and `catalog.sh` passes it for the release channel. An entry
+`--host-operations-in-index`, and `catalog.sh` passes it for both channels. An entry
 without the field has no hint. The field is a hint like `ui`: the install checks the verified
 manifest in the package, and the request there decides what the add-on asks for.
 

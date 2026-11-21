@@ -2,13 +2,16 @@ package carrier_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -214,9 +217,8 @@ func newFakeCarrier(name cluster.Carrier, epoch int64) *fakeCarrier {
 		kind = nodes.RouteTunnel
 	}
 	f.set = &carrier.Set{
-		Name:   name,
-		Epoch:  epoch,
-		Fabric: carrier.Fabric{Broadcaster: f.bus, OnReconnect: f.bus.OnReconnect},
+		Name:  name,
+		Epoch: epoch,
 		WorkerRoute: &carrier.WorkerRoute{
 			Kind:     kind,
 			Commands: f.commands,
@@ -255,4 +257,102 @@ func tableOf(routes map[string][]nodes.Route, carriers ...*fakeCarrier) *carrier
 		t.Attach(c.route())
 	}
 	return t
+}
+
+// holderOver returns a broadcaster holder whose request and reply follow cur,
+// over a floor of its own and no primary bus.
+func holderOver(cur *atomic.Pointer[carrier.Set]) *carrier.Broadcaster {
+	h, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: fakeFloor(testutil.NewFakeBus()), Sets: cur})
+	if err != nil {
+		panic(err)
+	}
+	return h
+}
+
+// fakeFloor is a PostgreSQL bus over a fake.
+func fakeFloor(bus *testutil.FakeBus) *carrier.Bus {
+	return &carrier.Bus{Name: carrier.BusPostgres, Broadcaster: bus, OnReconnect: bus.OnReconnect}
+}
+
+// errNATSDown is what a gated bus answers to a publish while it is down.
+var errNATSDown = errors.New("nats: connection is down")
+
+// gatedBus is the view that one process has of a shared NATS server: while the
+// process does not reach the server it neither publishes nor hears anything on
+// it. The server itself (bus) keeps working for the other processes.
+type gatedBus struct {
+	bus *testutil.FakeBus
+	up  atomic.Bool
+	mu  sync.Mutex
+	cbs []func()
+}
+
+func newGatedBus(bus *testutil.FakeBus) *gatedBus {
+	g := &gatedBus{bus: bus}
+	g.up.Store(true)
+	return g
+}
+
+func (g *gatedBus) Publish(subject string, data any) error {
+	if !g.up.Load() {
+		return errNATSDown
+	}
+	return g.bus.Publish(subject, data)
+}
+
+func (g *gatedBus) Subscribe(subject string, handler func([]byte)) (messaging.Subscription, error) {
+	return g.bus.Subscribe(subject, func(b []byte) {
+		if g.up.Load() {
+			handler(b)
+		}
+	})
+}
+
+// OnReconnect registers cb to run when the process reaches the server again.
+func (g *gatedBus) OnReconnect(cb func()) {
+	g.mu.Lock()
+	g.cbs = append(g.cbs, cb)
+	g.mu.Unlock()
+}
+
+// down makes the process lose the server.
+func (g *gatedBus) down() { g.up.Store(false) }
+
+// back makes the process reach the server again and runs its reconnect
+// callbacks, as the NATS client does.
+func (g *gatedBus) back() {
+	g.up.Store(true)
+	g.mu.Lock()
+	cbs := append([]func(){}, g.cbs...)
+	g.mu.Unlock()
+	for _, cb := range cbs {
+		cb()
+	}
+}
+
+// natsBus is the NATS bus of a process over its view of the server.
+func (g *gatedBus) natsBus() *carrier.Bus {
+	return &carrier.Bus{Name: carrier.BusNATS, Broadcaster: g, OnReconnect: g.OnReconnect, Connected: g.up.Load}
+}
+
+// frontend is one process of a two-frontend spec: its holder over a shared
+// PostgreSQL bus and its own view of a shared NATS server.
+type frontend struct {
+	h    *carrier.Broadcaster
+	nats *gatedBus
+}
+
+func newFrontend(pg, nats *testutil.FakeBus) *frontend {
+	f := &frontend{}
+	var primary *carrier.Bus
+	if nats != nil {
+		f.nats = newGatedBus(nats)
+		primary = f.nats.natsBus()
+	}
+	h, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: fakeFloor(pg), Primary: primary})
+	if err != nil {
+		panic(err)
+	}
+	f.h = h
+	return f
 }

@@ -60,6 +60,7 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
+  hostOperations: {}
 - id: "calendar"
   name: Calendar
   description: "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect."
@@ -110,6 +111,7 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
+  hostOperations: {}
 - id: "calendar"
   name: Calendar
   description: "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect."
@@ -160,6 +162,7 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
+  hostOperations: {}
 - id: "calendar"
   name: Calendar
   description: "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect."
@@ -210,6 +213,7 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
+  hostOperations: {}
 - id: "calendar"
   name: Calendar
   description: "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect."
@@ -260,6 +264,7 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
+  hostOperations: {}
 - id: "contacts"
   name: Contacts
   description: "Your agents look up and keep your address book: Marco's number, Anna's email, a birthday. It lives inside LocalAI, with no account to connect."
@@ -309,6 +314,7 @@
     - "ui-contact-update"
     - "ui-contact-delete"
     - "contacts-export"
+  hostOperations: {}
 - id: "contacts"
   name: Contacts
   description: "Your agents look up and keep your address book: Marco's number, Anna's email, a birthday. It lives inside LocalAI, with no account to connect."
@@ -358,6 +364,7 @@
     - "ui-contact-update"
     - "ui-contact-delete"
     - "contacts-export"
+  hostOperations: {}
 - id: "contacts"
   name: Contacts
   description: "Your agents look up and keep your address book: Marco's number, Anna's email, a birthday. It lives inside LocalAI, with no account to connect."
@@ -407,6 +414,7 @@
     - "ui-contact-update"
     - "ui-contact-delete"
     - "contacts-export"
+  hostOperations: {}
 - id: "contacts"
   name: Contacts
   description: "Your agents look up and keep your address book: Marco's number, Anna's email, a birthday. It lives inside LocalAI, with no account to connect."
@@ -456,6 +464,7 @@
     - "ui-contact-update"
     - "ui-contact-delete"
     - "contacts-export"
+  hostOperations: {}
 - id: "contacts"
   name: Contacts
   description: "Your agents look up and keep your address book: Marco's number, Anna's email, a birthday. It lives inside LocalAI, with no account to connect."
@@ -505,6 +514,7 @@
     - "ui-contact-update"
     - "ui-contact-delete"
     - "contacts-export"
+  hostOperations: {}
 - id: "discord"
   name: Discord
   description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
@@ -541,6 +551,10 @@
       "ko": "저장한 에이전트 중 하나에 Discord 봇을 연결하여 사람들이 Discord에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Discord a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Discord."
       "zh-CN": "将 Discord 机器人绑定到你保存的某个智能体，让大家可以在 Discord 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "discord"
   name: Discord
   description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
@@ -577,6 +591,10 @@
       "ko": "저장한 에이전트 중 하나에 Discord 봇을 연결하여 사람들이 Discord에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Discord a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Discord."
       "zh-CN": "将 Discord 机器人绑定到你保存的某个智能体，让大家可以在 Discord 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "discord"
   name: Discord
   description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
@@ -613,6 +631,10 @@
       "ko": "저장한 에이전트 중 하나에 Discord 봇을 연결하여 사람들이 Discord에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Discord a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Discord."
       "zh-CN": "将 Discord 机器人绑定到你保存的某个智能体，让大家可以在 Discord 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "discord"
   name: Discord
   description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
@@ -649,6 +671,10 @@
       "ko": "저장한 에이전트 중 하나에 Discord 봇을 연결하여 사람들이 Discord에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Discord a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Discord."
       "zh-CN": "将 Discord 机器人绑定到你保存的某个智能体，让大家可以在 Discord 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "discord"
   name: Discord
   description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
@@ -685,6 +711,10 @@
       "ko": "저장한 에이전트 중 하나에 Discord 봇을 연결하여 사람들이 Discord에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Discord a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Discord."
       "zh-CN": "将 Discord 机器人绑定到你保存的某个智能体，让大家可以在 Discord 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "face"
   name: Face
   description: "Find out whose face is in a photo, or whether two photos show the same person."
@@ -721,6 +751,7 @@
       "ko": "사진 속 얼굴이 누구인지, 또는 두 사진이 같은 사람인지 확인합니다."
       "pt-BR": "Descubra de quem é o rosto em uma foto, ou se duas fotos mostram a mesma pessoa."
       "zh-CN": "找出照片中的人是谁，或判断两张照片是否是同一个人。"
+  hostOperations: {}
 - id: "face"
   name: Face
   description: "Find out whose face is in a photo, or whether two photos show the same person."
@@ -757,6 +788,7 @@
       "ko": "사진 속 얼굴이 누구인지, 또는 두 사진이 같은 사람인지 확인합니다."
       "pt-BR": "Descubra de quem é o rosto em uma foto, ou se duas fotos mostram a mesma pessoa."
       "zh-CN": "找出照片中的人是谁，或判断两张照片是否是同一个人。"
+  hostOperations: {}
 - id: "face"
   name: Face
   description: "Find out whose face is in a photo, or whether two photos show the same person."
@@ -793,6 +825,7 @@
       "ko": "사진 속 얼굴이 누구인지, 또는 두 사진이 같은 사람인지 확인합니다."
       "pt-BR": "Descubra de quem é o rosto em uma foto, ou se duas fotos mostram a mesma pessoa."
       "zh-CN": "找出照片中的人是谁，或判断两张照片是否是同一个人。"
+  hostOperations: {}
 - id: "face"
   name: Face
   description: "Find out whose face is in a photo, or whether two photos show the same person."
@@ -829,6 +862,7 @@
       "ko": "사진 속 얼굴이 누구인지, 또는 두 사진이 같은 사람인지 확인합니다."
       "pt-BR": "Descubra de quem é o rosto em uma foto, ou se duas fotos mostram a mesma pessoa."
       "zh-CN": "找出照片中的人是谁，或判断两张照片是否是同一个人。"
+  hostOperations: {}
 - id: "face"
   name: Face
   description: "Find out whose face is in a photo, or whether two photos show the same person."
@@ -865,6 +899,7 @@
       "ko": "사진 속 얼굴이 누구인지, 또는 두 사진이 같은 사람인지 확인합니다."
       "pt-BR": "Descubra de quem é o rosto em uma foto, ou se duas fotos mostram a mesma pessoa."
       "zh-CN": "找出照片中的人是谁，或判断两张照片是否是同一个人。"
+  hostOperations: {}
 - id: "fine-tuning"
   name: Fine-tuning
   description: "Train an adapter on your own data, then export it as a model you can chat with."
@@ -911,6 +946,15 @@
     - "fine-tune-checkpoints"
     - "fine-tune-stop"
     - "fine-tune-export"
+  hostOperations:
+    required:
+      - "finetune.checkpoints"
+      - "finetune.dataset"
+      - "finetune.export"
+      - "finetune.get"
+      - "finetune.list"
+      - "finetune.start"
+      - "finetune.stop"
 - id: "fine-tuning"
   name: Fine-tuning
   description: "Train an adapter on your own data, then export it as a model you can chat with."
@@ -957,6 +1001,15 @@
     - "fine-tune-checkpoints"
     - "fine-tune-stop"
     - "fine-tune-export"
+  hostOperations:
+    required:
+      - "finetune.checkpoints"
+      - "finetune.dataset"
+      - "finetune.export"
+      - "finetune.get"
+      - "finetune.list"
+      - "finetune.start"
+      - "finetune.stop"
 - id: "fine-tuning"
   name: Fine-tuning
   description: "Train an adapter on your own data, then export it as a model you can chat with."
@@ -1003,6 +1056,15 @@
     - "fine-tune-checkpoints"
     - "fine-tune-stop"
     - "fine-tune-export"
+  hostOperations:
+    required:
+      - "finetune.checkpoints"
+      - "finetune.dataset"
+      - "finetune.export"
+      - "finetune.get"
+      - "finetune.list"
+      - "finetune.start"
+      - "finetune.stop"
 - id: "fine-tuning"
   name: Fine-tuning
   description: "Train an adapter on your own data, then export it as a model you can chat with."
@@ -1049,6 +1111,15 @@
     - "fine-tune-checkpoints"
     - "fine-tune-stop"
     - "fine-tune-export"
+  hostOperations:
+    required:
+      - "finetune.checkpoints"
+      - "finetune.dataset"
+      - "finetune.export"
+      - "finetune.get"
+      - "finetune.list"
+      - "finetune.start"
+      - "finetune.stop"
 - id: "fine-tuning"
   name: Fine-tuning
   description: "Train an adapter on your own data, then export it as a model you can chat with."
@@ -1095,6 +1166,15 @@
     - "fine-tune-checkpoints"
     - "fine-tune-stop"
     - "fine-tune-export"
+  hostOperations:
+    required:
+      - "finetune.checkpoints"
+      - "finetune.dataset"
+      - "finetune.export"
+      - "finetune.get"
+      - "finetune.list"
+      - "finetune.start"
+      - "finetune.stop"
 - id: "gdrive"
   name: Google Drive
   description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
@@ -1141,6 +1221,7 @@
     - "update-file"
     - "move-file"
     - "trash-file"
+  hostOperations: {}
 - id: "gdrive"
   name: Google Drive
   description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
@@ -1187,6 +1268,7 @@
     - "update-file"
     - "move-file"
     - "trash-file"
+  hostOperations: {}
 - id: "gdrive"
   name: Google Drive
   description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
@@ -1233,6 +1315,7 @@
     - "update-file"
     - "move-file"
     - "trash-file"
+  hostOperations: {}
 - id: "gdrive"
   name: Google Drive
   description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
@@ -1279,6 +1362,7 @@
     - "update-file"
     - "move-file"
     - "trash-file"
+  hostOperations: {}
 - id: "gdrive"
   name: Google Drive
   description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
@@ -1325,6 +1409,7 @@
     - "update-file"
     - "move-file"
     - "trash-file"
+  hostOperations: {}
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."
@@ -1378,6 +1463,7 @@
     - "edit-issue"
     - "add-labels"
     - "review-comment-pr"
+  hostOperations: {}
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."
@@ -1431,6 +1517,7 @@
     - "edit-issue"
     - "add-labels"
     - "review-comment-pr"
+  hostOperations: {}
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."
@@ -1484,6 +1571,7 @@
     - "edit-issue"
     - "add-labels"
     - "review-comment-pr"
+  hostOperations: {}
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."
@@ -1537,6 +1625,7 @@
     - "edit-issue"
     - "add-labels"
     - "review-comment-pr"
+  hostOperations: {}
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."
@@ -1590,6 +1679,7 @@
     - "edit-issue"
     - "add-labels"
     - "review-comment-pr"
+  hostOperations: {}
 - id: "gmail"
   name: Gmail
   description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
@@ -1635,6 +1725,7 @@
     - "read-attachment"
     - "create-draft"
     - "send-draft"
+  hostOperations: {}
 - id: "gmail"
   name: Gmail
   description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
@@ -1680,6 +1771,7 @@
     - "read-attachment"
     - "create-draft"
     - "send-draft"
+  hostOperations: {}
 - id: "gmail"
   name: Gmail
   description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
@@ -1725,6 +1817,7 @@
     - "read-attachment"
     - "create-draft"
     - "send-draft"
+  hostOperations: {}
 - id: "gmail"
   name: Gmail
   description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
@@ -1770,6 +1863,7 @@
     - "read-attachment"
     - "create-draft"
     - "send-draft"
+  hostOperations: {}
 - id: "gmail"
   name: Gmail
   description: "Let your agents read your mail, and save drafts and send them with your approval if you allow it. Choose the labels they may reach."
@@ -1815,6 +1909,7 @@
     - "read-attachment"
     - "create-draft"
     - "send-draft"
+  hostOperations: {}
 - id: "home-assistant"
   name: Home Assistant
   description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
@@ -1864,6 +1959,9 @@
     - "call-physical-service"
     - "get-policy"
     - "set-policy"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "home-assistant"
   name: Home Assistant
   description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
@@ -1913,6 +2011,9 @@
     - "call-physical-service"
     - "get-policy"
     - "set-policy"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "home-assistant"
   name: Home Assistant
   description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
@@ -1962,6 +2063,9 @@
     - "call-physical-service"
     - "get-policy"
     - "set-policy"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "home-assistant"
   name: Home Assistant
   description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
@@ -2011,6 +2115,9 @@
     - "call-physical-service"
     - "get-policy"
     - "set-policy"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "home-assistant"
   name: Home Assistant
   description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
@@ -2060,6 +2167,9 @@
     - "call-physical-service"
     - "get-policy"
     - "set-policy"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "jellyfin"
   name: Jellyfin
   description: "Let your agents search your Jellyfin library, see what is playing, and remote control players if you allow it."
@@ -2114,6 +2224,7 @@
     - "mark-played"
     - "set-favorite"
     - "add-to-playlist"
+  hostOperations: {}
 - id: "jellyfin"
   name: Jellyfin
   description: "Let your agents search your Jellyfin library, see what is playing, and remote control players if you allow it."
@@ -2168,6 +2279,7 @@
     - "mark-played"
     - "set-favorite"
     - "add-to-playlist"
+  hostOperations: {}
 - id: "jellyfin"
   name: Jellyfin
   description: "Let your agents search your Jellyfin library, see what is playing, and remote control players if you allow it."
@@ -2222,6 +2334,7 @@
     - "mark-played"
     - "set-favorite"
     - "add-to-playlist"
+  hostOperations: {}
 - id: "jellyfin"
   name: Jellyfin
   description: "Let your agents search your Jellyfin library, see what is playing, and remote control players if you allow it."
@@ -2276,6 +2389,7 @@
     - "mark-played"
     - "set-favorite"
     - "add-to-playlist"
+  hostOperations: {}
 - id: "jellyfin"
   name: Jellyfin
   description: "Let your agents search your Jellyfin library, see what is playing, and remote control players if you allow it."
@@ -2330,6 +2444,7 @@
     - "mark-played"
     - "set-favorite"
     - "add-to-playlist"
+  hostOperations: {}
 - id: "mail"
   name: Mail
   description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
@@ -2376,6 +2491,7 @@
     - "check"
     - "send-message"
     - "save-draft"
+  hostOperations: {}
 - id: "mail"
   name: Mail
   description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
@@ -2422,6 +2538,7 @@
     - "check"
     - "send-message"
     - "save-draft"
+  hostOperations: {}
 - id: "mail"
   name: Mail
   description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
@@ -2468,6 +2585,7 @@
     - "check"
     - "send-message"
     - "save-draft"
+  hostOperations: {}
 - id: "mail"
   name: Mail
   description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
@@ -2514,6 +2632,7 @@
     - "check"
     - "send-message"
     - "save-draft"
+  hostOperations: {}
 - id: "mail"
   name: Mail
   description: "Let your agents read your mailbox over IMAP, and write mail over SMTP if you allow it. Works with any provider."
@@ -2560,6 +2679,7 @@
     - "check"
     - "send-message"
     - "save-draft"
+  hostOperations: {}
 - id: "office"
   name: Simple Office
   description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
@@ -2614,6 +2734,10 @@
     - "docx"
     - "pptx"
     - "pdf"
+  hostOperations:
+    required:
+      - "workspace.export"
+      - "workspace.import"
 - id: "office"
   name: Simple Office
   description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
@@ -2668,6 +2792,10 @@
     - "docx"
     - "pptx"
     - "pdf"
+  hostOperations:
+    required:
+      - "workspace.export"
+      - "workspace.import"
 - id: "office"
   name: Simple Office
   description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
@@ -2722,6 +2850,10 @@
     - "docx"
     - "pptx"
     - "pdf"
+  hostOperations:
+    required:
+      - "workspace.export"
+      - "workspace.import"
 - id: "office"
   name: Simple Office
   description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
@@ -2776,6 +2908,10 @@
     - "docx"
     - "pptx"
     - "pdf"
+  hostOperations:
+    required:
+      - "workspace.export"
+      - "workspace.import"
 - id: "office"
   name: Simple Office
   description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
@@ -2830,6 +2966,10 @@
     - "docx"
     - "pptx"
     - "pdf"
+  hostOperations:
+    required:
+      - "workspace.export"
+      - "workspace.import"
 - id: "pikvm"
   name: PiKVM
   description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
@@ -2876,6 +3016,9 @@
     - "send-key"
     - "get-settings"
     - "set-settings"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "pikvm"
   name: PiKVM
   description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
@@ -2922,6 +3065,9 @@
     - "send-key"
     - "get-settings"
     - "set-settings"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "pikvm"
   name: PiKVM
   description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
@@ -2968,6 +3114,9 @@
     - "send-key"
     - "get-settings"
     - "set-settings"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "pikvm"
   name: PiKVM
   description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
@@ -3014,6 +3163,9 @@
     - "send-key"
     - "get-settings"
     - "set-settings"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "pikvm"
   name: PiKVM
   description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, asking you to confirm each time unless you say otherwise."
@@ -3060,6 +3212,9 @@
     - "send-key"
     - "get-settings"
     - "set-settings"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "pirateface-search"
   name: Pirate Face search
   description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
@@ -3081,6 +3236,7 @@
   toolCount: 1
   tools:
     - "search"
+  hostOperations: {}
 - id: "pirateface-search"
   name: Pirate Face search
   description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
@@ -3102,6 +3258,7 @@
   toolCount: 1
   tools:
     - "search"
+  hostOperations: {}
 - id: "pirateface-search"
   name: Pirate Face search
   description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
@@ -3123,6 +3280,7 @@
   toolCount: 1
   tools:
     - "search"
+  hostOperations: {}
 - id: "pirateface-search"
   name: Pirate Face search
   description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
@@ -3144,6 +3302,7 @@
   toolCount: 1
   tools:
     - "search"
+  hostOperations: {}
 - id: "pirateface-search"
   name: Pirate Face search
   description: "Adds Pirate Face as a source of the model search. Models are shared as torrents; they install through the pirateface:// scheme."
@@ -3165,6 +3324,7 @@
   toolCount: 1
   tools:
     - "search"
+  hostOperations: {}
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
@@ -3209,6 +3369,13 @@
     - "quantize-status"
     - "quantize-stop"
     - "quantize-import"
+  hostOperations:
+    required:
+      - "quantize.get"
+      - "quantize.import"
+      - "quantize.list"
+      - "quantize.start"
+      - "quantize.stop"
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
@@ -3253,6 +3420,13 @@
     - "quantize-status"
     - "quantize-stop"
     - "quantize-import"
+  hostOperations:
+    required:
+      - "quantize.get"
+      - "quantize.import"
+      - "quantize.list"
+      - "quantize.start"
+      - "quantize.stop"
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
@@ -3297,6 +3471,13 @@
     - "quantize-status"
     - "quantize-stop"
     - "quantize-import"
+  hostOperations:
+    required:
+      - "quantize.get"
+      - "quantize.import"
+      - "quantize.list"
+      - "quantize.start"
+      - "quantize.stop"
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
@@ -3341,6 +3522,13 @@
     - "quantize-status"
     - "quantize-stop"
     - "quantize-import"
+  hostOperations:
+    required:
+      - "quantize.get"
+      - "quantize.import"
+      - "quantize.list"
+      - "quantize.start"
+      - "quantize.stop"
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
@@ -3385,6 +3573,13 @@
     - "quantize-status"
     - "quantize-stop"
     - "quantize-import"
+  hostOperations:
+    required:
+      - "quantize.get"
+      - "quantize.import"
+      - "quantize.list"
+      - "quantize.start"
+      - "quantize.stop"
 - id: "sandbox"
   name: Sandbox
   description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
@@ -3436,6 +3631,15 @@
     - "pptx"
     - "pdf"
     - "xlsx"
+  hostOperations:
+    required:
+      - "workspace.changes"
+      - "workspace.commit"
+      - "workspace.materialize"
+    optional:
+      - "egress.audit"
+      - "egress.check"
+      - "workspace.admin"
 - id: "sandbox"
   name: Sandbox
   description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
@@ -3487,6 +3691,15 @@
     - "pptx"
     - "pdf"
     - "xlsx"
+  hostOperations:
+    required:
+      - "workspace.changes"
+      - "workspace.commit"
+      - "workspace.materialize"
+    optional:
+      - "egress.audit"
+      - "egress.check"
+      - "workspace.admin"
 - id: "sandbox"
   name: Sandbox
   description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
@@ -3538,6 +3751,15 @@
     - "pptx"
     - "pdf"
     - "xlsx"
+  hostOperations:
+    required:
+      - "workspace.changes"
+      - "workspace.commit"
+      - "workspace.materialize"
+    optional:
+      - "egress.audit"
+      - "egress.check"
+      - "workspace.admin"
 - id: "slack"
   name: Slack
   description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
@@ -3574,6 +3796,10 @@
       "ko": "저장한 에이전트 중 하나에 Slack 앱을 연결하여 사람들이 Slack에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um app do Slack a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Slack."
       "zh-CN": "将 Slack 应用绑定到你保存的某个智能体，让大家可以在 Slack 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "slack"
   name: Slack
   description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
@@ -3610,6 +3836,10 @@
       "ko": "저장한 에이전트 중 하나에 Slack 앱을 연결하여 사람들이 Slack에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um app do Slack a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Slack."
       "zh-CN": "将 Slack 应用绑定到你保存的某个智能体，让大家可以在 Slack 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "slack"
   name: Slack
   description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
@@ -3646,6 +3876,10 @@
       "ko": "저장한 에이전트 중 하나에 Slack 앱을 연결하여 사람들이 Slack에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um app do Slack a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Slack."
       "zh-CN": "将 Slack 应用绑定到你保存的某个智能体，让大家可以在 Slack 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "slack"
   name: Slack
   description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
@@ -3682,6 +3916,10 @@
       "ko": "저장한 에이전트 중 하나에 Slack 앱을 연결하여 사람들이 Slack에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um app do Slack a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Slack."
       "zh-CN": "将 Slack 应用绑定到你保存的某个智能体，让大家可以在 Slack 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "slack"
   name: Slack
   description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
@@ -3718,6 +3956,10 @@
       "ko": "저장한 에이전트 중 하나에 Slack 앱을 연결하여 사람들이 Slack에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um app do Slack a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Slack."
       "zh-CN": "将 Slack 应用绑定到你保存的某个智能体，让大家可以在 Slack 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "ssh"
   name: SSH
   description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
@@ -3759,6 +4001,7 @@
     - "get-info"
     - "run"
     - "scan-host-key"
+  hostOperations: {}
 - id: "ssh"
   name: SSH
   description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
@@ -3800,6 +4043,7 @@
     - "get-info"
     - "run"
     - "scan-host-key"
+  hostOperations: {}
 - id: "ssh"
   name: SSH
   description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
@@ -3841,6 +4085,7 @@
     - "get-info"
     - "run"
     - "scan-host-key"
+  hostOperations: {}
 - id: "ssh"
   name: SSH
   description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
@@ -3882,6 +4127,7 @@
     - "get-info"
     - "run"
     - "scan-host-key"
+  hostOperations: {}
 - id: "ssh"
   name: SSH
   description: "Let your chats and agents run commands on a remote machine over SSH, asking you to confirm each one unless you say otherwise."
@@ -3923,6 +4169,7 @@
     - "get-info"
     - "run"
     - "scan-host-key"
+  hostOperations: {}
 - id: "studio"
   name: Studio
   description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
@@ -3959,6 +4206,7 @@
       "ko": "설치한 모델로 이미지, 비디오, 3D 모델, 음성, 소리, 변환된 오디오를 만들고 결과물을 보관합니다."
       "pt-BR": "Crie imagens, vídeo, modelos 3D, fala, som e áudio transformado com os modelos que você instalou, e guarde o que criar."
       "zh-CN": "用你已安装的模型生成图像、视频、3D 模型、语音、声音和转换后的音频，并保存你的作品。"
+  hostOperations: {}
 - id: "studio"
   name: Studio
   description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
@@ -3995,6 +4243,7 @@
       "ko": "설치한 모델로 이미지, 비디오, 3D 모델, 음성, 소리, 변환된 오디오를 만들고 결과물을 보관합니다."
       "pt-BR": "Crie imagens, vídeo, modelos 3D, fala, som e áudio transformado com os modelos que você instalou, e guarde o que criar."
       "zh-CN": "用你已安装的模型生成图像、视频、3D 模型、语音、声音和转换后的音频，并保存你的作品。"
+  hostOperations: {}
 - id: "studio"
   name: Studio
   description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
@@ -4031,6 +4280,7 @@
       "ko": "설치한 모델로 이미지, 비디오, 3D 모델, 음성, 소리, 변환된 오디오를 만들고 결과물을 보관합니다."
       "pt-BR": "Crie imagens, vídeo, modelos 3D, fala, som e áudio transformado com os modelos que você instalou, e guarde o que criar."
       "zh-CN": "用你已安装的模型生成图像、视频、3D 模型、语音、声音和转换后的音频，并保存你的作品。"
+  hostOperations: {}
 - id: "studio"
   name: Studio
   description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
@@ -4067,6 +4317,7 @@
       "ko": "설치한 모델로 이미지, 비디오, 3D 모델, 음성, 소리, 변환된 오디오를 만들고 결과물을 보관합니다."
       "pt-BR": "Crie imagens, vídeo, modelos 3D, fala, som e áudio transformado com os modelos que você instalou, e guarde o que criar."
       "zh-CN": "用你已安装的模型生成图像、视频、3D 模型、语音、声音和转换后的音频，并保存你的作品。"
+  hostOperations: {}
 - id: "studio"
   name: Studio
   description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
@@ -4103,6 +4354,7 @@
       "ko": "설치한 모델로 이미지, 비디오, 3D 모델, 음성, 소리, 변환된 오디오를 만들고 결과물을 보관합니다."
       "pt-BR": "Crie imagens, vídeo, modelos 3D, fala, som e áudio transformado com os modelos que você instalou, e guarde o que criar."
       "zh-CN": "用你已安装的模型生成图像、视频、3D 模型、语音、声音和转换后的音频，并保存你的作品。"
+  hostOperations: {}
 - id: "tables"
   name: Tables
   description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
@@ -4157,6 +4409,7 @@
     - "rows-insert"
     - "rows-update"
     - "rows-delete"
+  hostOperations: {}
 - id: "tables"
   name: Tables
   description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
@@ -4211,6 +4464,7 @@
     - "rows-insert"
     - "rows-update"
     - "rows-delete"
+  hostOperations: {}
 - id: "tables"
   name: Tables
   description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
@@ -4265,6 +4519,7 @@
     - "rows-insert"
     - "rows-update"
     - "rows-delete"
+  hostOperations: {}
 - id: "tables"
   name: Tables
   description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
@@ -4319,6 +4574,7 @@
     - "rows-insert"
     - "rows-update"
     - "rows-delete"
+  hostOperations: {}
 - id: "tables"
   name: Tables
   description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
@@ -4373,6 +4629,7 @@
     - "rows-insert"
     - "rows-update"
     - "rows-delete"
+  hostOperations: {}
 - id: "talk"
   name: Talk
   description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
@@ -4409,6 +4666,7 @@
       "ko": "모델과 음성으로 대화합니다. 내 목소리가 입력되고 답변은 음성으로 들려줍니다."
       "pt-BR": "Tenha uma conversa falada com um modelo: sua voz entra e a resposta é falada de volta."
       "zh-CN": "与模型进行语音对话：你说话输入，回答以语音读出。"
+  hostOperations: {}
 - id: "talk"
   name: Talk
   description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
@@ -4445,6 +4703,7 @@
       "ko": "모델과 음성으로 대화합니다. 내 목소리가 입력되고 답변은 음성으로 들려줍니다."
       "pt-BR": "Tenha uma conversa falada com um modelo: sua voz entra e a resposta é falada de volta."
       "zh-CN": "与模型进行语音对话：你说话输入，回答以语音读出。"
+  hostOperations: {}
 - id: "talk"
   name: Talk
   description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
@@ -4481,6 +4740,7 @@
       "ko": "모델과 음성으로 대화합니다. 내 목소리가 입력되고 답변은 음성으로 들려줍니다."
       "pt-BR": "Tenha uma conversa falada com um modelo: sua voz entra e a resposta é falada de volta."
       "zh-CN": "与模型进行语音对话：你说话输入，回答以语音读出。"
+  hostOperations: {}
 - id: "talk"
   name: Talk
   description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
@@ -4517,6 +4777,7 @@
       "ko": "모델과 음성으로 대화합니다. 내 목소리가 입력되고 답변은 음성으로 들려줍니다."
       "pt-BR": "Tenha uma conversa falada com um modelo: sua voz entra e a resposta é falada de volta."
       "zh-CN": "与模型进行语音对话：你说话输入，回答以语音读出。"
+  hostOperations: {}
 - id: "talk"
   name: Talk
   description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
@@ -4553,6 +4814,7 @@
       "ko": "모델과 음성으로 대화합니다. 내 목소리가 입력되고 답변은 음성으로 들려줍니다."
       "pt-BR": "Tenha uma conversa falada com um modelo: sua voz entra e a resposta é falada de volta."
       "zh-CN": "与模型进行语音对话：你说话输入，回答以语音读出。"
+  hostOperations: {}
 - id: "telegram"
   name: Telegram
   description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
@@ -4589,6 +4851,10 @@
       "ko": "저장한 에이전트 중 하나에 Telegram 봇을 연결하여 사람들이 Telegram에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Telegram a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Telegram."
       "zh-CN": "将 Telegram 机器人绑定到你保存的某个智能体，让大家可以在 Telegram 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "telegram"
   name: Telegram
   description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
@@ -4625,6 +4891,10 @@
       "ko": "저장한 에이전트 중 하나에 Telegram 봇을 연결하여 사람들이 Telegram에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Telegram a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Telegram."
       "zh-CN": "将 Telegram 机器人绑定到你保存的某个智能体，让大家可以在 Telegram 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "telegram"
   name: Telegram
   description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
@@ -4661,6 +4931,10 @@
       "ko": "저장한 에이전트 중 하나에 Telegram 봇을 연결하여 사람들이 Telegram에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Telegram a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Telegram."
       "zh-CN": "将 Telegram 机器人绑定到你保存的某个智能体，让大家可以在 Telegram 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "telegram"
   name: Telegram
   description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
@@ -4697,6 +4971,10 @@
       "ko": "저장한 에이전트 중 하나에 Telegram 봇을 연결하여 사람들이 Telegram에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Telegram a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Telegram."
       "zh-CN": "将 Telegram 机器人绑定到你保存的某个智能体，让大家可以在 Telegram 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "telegram"
   name: Telegram
   description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
@@ -4733,6 +5011,10 @@
       "ko": "저장한 에이전트 중 하나에 Telegram 봇을 연결하여 사람들이 Telegram에서 대화할 수 있게 합니다."
       "pt-BR": "Vincule um bot do Telegram a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Telegram."
       "zh-CN": "将 Telegram 机器人绑定到你保存的某个智能体，让大家可以在 Telegram 中与它对话。"
+  hostOperations:
+    optional:
+      - "connector.file.get"
+      - "connector.file.put"
 - id: "voice"
   name: Voice
   description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
@@ -4769,6 +5051,7 @@
       "ko": "말하는 사람을 인식하고, 음성 합성에서 사용할 수 있는 목소리를 보관하며, 그 목소리로 텍스트를 읽습니다."
       "pt-BR": "Reconheça quem está falando, guarde as vozes que a síntese de fala pode usar e fale textos com elas."
       "zh-CN": "识别说话的人，管理语音合成可用的声音，并用这些声音朗读文本。"
+  hostOperations: {}
 - id: "voice"
   name: Voice
   description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
@@ -4805,6 +5088,7 @@
       "ko": "말하는 사람을 인식하고, 음성 합성에서 사용할 수 있는 목소리를 보관하며, 그 목소리로 텍스트를 읽습니다."
       "pt-BR": "Reconheça quem está falando, guarde as vozes que a síntese de fala pode usar e fale textos com elas."
       "zh-CN": "识别说话的人，管理语音合成可用的声音，并用这些声音朗读文本。"
+  hostOperations: {}
 - id: "voice"
   name: Voice
   description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
@@ -4841,6 +5125,7 @@
       "ko": "말하는 사람을 인식하고, 음성 합성에서 사용할 수 있는 목소리를 보관하며, 그 목소리로 텍스트를 읽습니다."
       "pt-BR": "Reconheça quem está falando, guarde as vozes que a síntese de fala pode usar e fale textos com elas."
       "zh-CN": "识别说话的人，管理语音合成可用的声音，并用这些声音朗读文本。"
+  hostOperations: {}
 - id: "voice"
   name: Voice
   description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
@@ -4877,6 +5162,7 @@
       "ko": "말하는 사람을 인식하고, 음성 합성에서 사용할 수 있는 목소리를 보관하며, 그 목소리로 텍스트를 읽습니다."
       "pt-BR": "Reconheça quem está falando, guarde as vozes que a síntese de fala pode usar e fale textos com elas."
       "zh-CN": "识别说话的人，管理语音合成可用的声音，并用这些声音朗读文本。"
+  hostOperations: {}
 - id: "voice"
   name: Voice
   description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
@@ -4913,6 +5199,7 @@
       "ko": "말하는 사람을 인식하고, 음성 합성에서 사용할 수 있는 목소리를 보관하며, 그 목소리로 텍스트를 읽습니다."
       "pt-BR": "Reconheça quem está falando, guarde as vozes que a síntese de fala pode usar e fale textos com elas."
       "zh-CN": "识别说话的人，管理语音合成可用的声音，并用这些声音朗读文本。"
+  hostOperations: {}
 - id: "web"
   name: Web
   description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
@@ -4959,6 +5246,9 @@
   shadows:
     - "web_search"
     - "web_fetch"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "web"
   name: Web
   description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
@@ -5005,6 +5295,9 @@
   shadows:
     - "web_search"
     - "web_fetch"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "web"
   name: Web
   description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
@@ -5051,6 +5344,9 @@
   shadows:
     - "web_search"
     - "web_fetch"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "web"
   name: Web
   description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
@@ -5097,6 +5393,9 @@
   shadows:
     - "web_search"
     - "web_fetch"
+  hostOperations:
+    optional:
+      - "workspace.admin"
 - id: "web"
   name: Web
   description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
@@ -5143,3 +5442,6 @@
   shadows:
     - "web_search"
     - "web_fetch"
+  hostOperations:
+    optional:
+      - "workspace.admin"

@@ -30,7 +30,7 @@ var _ = Describe("Broadcaster holder, request and reply", func() {
 		tun = newFakeCarrier(cluster.CarrierTunnel, 2)
 		cur = atomic.Pointer[carrier.Set]{}
 		cur.Store(nats.set)
-		h = carrier.NewBroadcaster(&cur)
+		h = holderOver(&cur)
 	})
 
 	echo := func(prefix string) func([]byte, func([]byte)) {
@@ -71,7 +71,7 @@ var _ = Describe("Broadcaster holder, request and reply", func() {
 
 	It("keeps a reply subscription across a change of carrier, and serves it only where the carrier has request and reply", func() {
 		cur.Store(tun.set)
-		h2 := carrier.NewBroadcaster(&cur)
+		h2 := holderOver(&cur)
 		sub, err := h2.SubscribeReply("chats.replay.r1", echo("held:"))
 		Expect(err).ToNot(HaveOccurred())
 

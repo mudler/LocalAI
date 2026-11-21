@@ -25,19 +25,24 @@ type PgbusOptions struct {
 	Meter metric.Meter
 }
 
-// Fanout is the fan-out member of a Set for a carrier that has no NATS server:
-// the broadcaster, the reconnect hook the holder reads and the close. The other
-// members of the set come from the other parts of the carrier.
+// Fanout is the PostgreSQL bus: the broadcaster, the reconnect hook the holder
+// reads, the count of lost broadcasts and the close. Every frontend and chat
+// worker holds one, because it is the floor of the broadcaster holder.
 type Fanout struct {
 	// Broadcaster delivers through LISTEN and NOTIFY.
 	Broadcaster messaging.Broadcaster
 	// OnReconnect registers a callback that runs after the LISTEN connection was
-	// found again. It is the OnReconnect of the Set.
+	// found again.
 	OnReconnect func(func())
 	// Dropped reports how many broadcasts this replica received and lost.
 	Dropped func() uint64
-	// Close ends the LISTEN connection. It is the Close of the Set.
+	// Close ends the LISTEN connection.
 	Close func()
+}
+
+// Bus returns the fan-out as the floor of the broadcaster holder.
+func (f *Fanout) Bus() *Bus {
+	return &Bus{Name: BusPostgres, Broadcaster: f.Broadcaster, OnReconnect: f.OnReconnect, Close: f.Close}
 }
 
 // ProbeListen reports why a LISTEN connection to the database cannot be opened
@@ -51,11 +56,10 @@ func ProbeListen(ctx context.Context, dsn string) error {
 
 // NewPgbusFanout opens the LISTEN connection and returns the fan-out member.
 //
-// It is the one place that opens the connection. A deployment whose active
-// carrier is NATS does not call it until a change of carrier asks for it, so it
-// holds no LISTEN session, and it closes the member after the drain, so it holds
-// none again. A LISTEN session needs a direct connection to the database, or a
-// pooler in session mode.
+// It is the one place that opens the connection. Every frontend and chat worker
+// calls it once at start, whatever else the cluster has, and closes it when it
+// stops. A LISTEN session needs a direct connection to the database, or a pooler
+// in session mode.
 func NewPgbusFanout(ctx context.Context, o PgbusOptions) (*Fanout, error) {
 	if o.DB == nil {
 		return nil, errors.New("pgbus fan-out needs a database handle")

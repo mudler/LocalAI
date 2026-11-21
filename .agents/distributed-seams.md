@@ -2,9 +2,11 @@
 
 Distributed mode talks to other processes through a few interfaces. Code above
 them must not name NATS, and a new transport is a new implementation of them.
-Today the fan-out seam has two carriers: NATS, and `core/services/pgbus`, which
-uses PostgreSQL LISTEN and NOTIFY. Every other seam has one: NATS, or a direct
-dial for the gRPC and HTTP connections to a worker. Only the carrier files import
+The fan-out seam has two buses: `core/services/pgbus`, which uses PostgreSQL
+LISTEN and NOTIFY and which every frontend and chat worker has, and NATS when
+the cluster has a NATS server. A process listens on both and publishes each
+broadcast on one (see "The broadcast buses"). Every other seam has one carrier:
+NATS, the tunnel, or a direct dial for the gRPC and HTTP connections to a worker. Only the carrier files import
 the NATS libraries (`core/services/messaging/client.go`, `tls.go`,
 `core/services/nodes/control_nats.go` and `pkg/natsauth`). Only the pgbus package
 imports `github.com/jackc/pgx`, and only `core/services/carrier/pgbus.go` imports
@@ -16,7 +18,7 @@ files to that spec.
 
 | Seam | Interface | Lives in | Today |
 |---|---|---|---|
-| Fan-out | `messaging.Broadcaster` | `core/services/messaging` | NATS client |
+| Fan-out | `messaging.Broadcaster` | `core/services/messaging` | `carrier.Broadcaster` over the pgbus bus and the NATS client |
 | Control verbs, frontend half | `nodes.NodeCommandSender`, `nodes.FileStager` | `core/services/nodes` | `RemoteUnloaderAdapter` over NATS request/reply and `TunnelControl` over the HTTP control plane of a worker; `S3FileStager` over either (`NewS3NATSFileStager`, `NewS3TunnelFileStager`); `HTTPFileStager` over HTTP |
 | Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer`, `httpControlServer` |
 | Agent RPC, frontend half | `AgentControl` (package `mcp`) | `core/http/endpoints/mcp` | `nodes.NATSAgentControl`, `nodes.AgentControlClient` (tunnel) |
@@ -42,9 +44,10 @@ The seams split in two:
   (`carrier.NewNATSRoutes`: NATS for the verbs, a direct dial for the data) or
   `tunnel` (`carrier.NewTunnelRoutes`: the tunnel of the worker, over a
   websocket or over P2P).
-- `carrier.Fabric` is what the processes of the cluster use among themselves:
-  `Broadcaster`, `Replies` (request and reply) and `OnReconnect`. Workers never
-  use it.
+- The broadcaster holder (`carrier.Broadcaster`) is what the frontends and chat
+  workers broadcast on. It listens on the buses of the process and does not
+  follow the carrier row. Workers never use it. Request and reply between those
+  processes still go to the `Replies` of the set that the row names.
 
 `Commands`, `Files`, `Clients`, the dialer and `Agents` take a
 `carrier.RouteTable`. It holds one route of each kind and reads the routes of a
@@ -73,10 +76,12 @@ because the scoped verb does not say which node failed and how.
 The tunnel route is built once at start (`carrier.NewTunnelRoutes`) and pinned
 in the table (`RouteTable.Pin`). The direct route is the one of the NATS set.
 
-A `carrier.Set` is one carrier of the cluster carrier row: a `Fabric` and the
+A `carrier.Set` is one carrier of the cluster carrier row: its `Replies` and the
 `WorkerRoute` it brings. The broadcaster holder loads an
-`atomic.Pointer[carrier.Set]` once per call and uses its `Fabric`. No worker call
-reads that pointer. Build a set completely and call `Validate` before you store
+`atomic.Pointer[carrier.Set]` once per request and uses its `Replies`. No
+broadcast and no worker call reads that pointer. A NATS set built for the address
+of the NATS bus shares the connection of the bus (`NATSOptions.Shared`), and its
+`Close` leaves it open. Build a set completely and call `Validate` before you store
 it. `carrier.NewNATSSet` and `carrier.NewTunnelSet` are the places that build a
 set; a tunnel set brings the pinned tunnel route (`TunnelOptions.Routes`) and its
 `Close` leaves that route open. The set, the pointer and the carrier row go away
@@ -90,21 +95,39 @@ concrete sender. The `Files` holder implements `RequestFileReleaser` because
 `FileStagingClient` looks for it, and `carrier.FileCarrier` makes every set
 provide it.
 
-`carrier.Broadcaster` also keeps a registry of every subscription, because a
-subscription lives on one carrier. A swap is `Listen(next)` (each handler now
-listens on both carriers), then a store of `next` in the pointer (publishes go
-to `next`), then `Release(old)`. No message is published on two carriers.
-`Release(old)` waits for the publishes that still run on `old` before it drops
-the handlers there, so a publish that loaded `old` just before the store is not
-lost.
-`NotifyReconnect` runs the reconnect hooks that `syncstate` and the failover
-sync register, because messages across the flip are not ordered.
+### The broadcast buses
 
-`carrier.NewPgbusFanout` builds the fan-out member of a set for the pgbus
-carrier. It opens the LISTEN connection when it is called and not before, so a
-deployment on NATS holds no LISTEN session until a change of carrier asks for
-one, and `Close` frees it. The set still needs the other members from the other
-parts of that carrier before `Validate` accepts it.
+`carrier.Broadcaster` is built with `BroadcasterOptions`: a `Floor` bus (pgbus,
+required) and a `Primary` bus (NATS, nil when no NATS server is configured).
+A `carrier.Bus` is a name, a broadcaster, a reconnect hook, `Connected` and
+`Close`. The holder listens on both buses. `Publish` goes to the primary when
+`Connected` says this process reaches it, and to the floor otherwise. A
+broadcast is never published on two buses, so there is no dedup and no change to
+the wire format. Every process listens on the floor, so a process without NATS
+still reaches the others; it does not hear what they publish on NATS, so
+`Broadcaster.Unready` (wrapping `carrier.ErrBusUnreachable`) is set and
+`/readyz` answers 503 (`DistributedServices.Unready`,
+`Application.Unavailable`). The bus is chosen from the configuration (the
+setting `nats.url`, else `--nats-url`, read at start) and the connection, never
+from the carrier row; a new NATS address needs a restart.
+
+The holder keeps a registry of every subscription, because a subscription
+lives on one bus (`listen`, `release`; the export of the tests calls them
+`ListenBus` and `ReleaseBus`). A change of the publish bus runs
+`NotifyReconnect` once, as the reconnect of a bus does: messages across two buses
+are not ordered, so `syncstate` and the failover sync read their tables again.
+The change is seen on the next publish. A process that stays connected and hears
+a peer move between the buses runs no hook; the periodic `Reconcile` of
+`syncstate` repairs that.
+
+`Listen(set)` and `Release(set)` move the reply subscriptions to the request and
+reply of a set, as the change of carrier asks. A set member of the registry
+carries no broadcast. They go with request and reply on the peer link (step 5)
+and the change of carrier (step 8).
+
+`carrier.NewPgbusFanout` opens the LISTEN connection of the floor, and
+`Fanout.Bus` returns it as a bus. Every frontend and chat worker opens it once at
+start, on every setting, and the holder's `Close` frees it.
 
 The active carrier is one row of table `cluster_carrier`
 (`cluster.CarrierStore`). Each transition is a compare-and-set on its epoch. At
@@ -155,8 +178,8 @@ The row has a state, and every move is a compare-and-set on the epoch:
 | State | Meaning | Who moves it on |
 |---|---|---|
 | `stable` | One carrier is active. A previous carrier may still be attached (`draining`, `draining_until`). | the admin starts a change |
-| `prepare` | Every replica builds the target and listens on it. Publishing stays on the old carrier. | the leader, when every live replica reported ready for this epoch |
-| `commit` | The target is active. Every replica publishes on it and confirms with the epoch of the commit. | the leader, when every live replica confirmed |
+| `prepare` | Every replica builds the target and listens on it. Requests stay on the old carrier. | the leader, when every live replica reported ready for this epoch |
+| `commit` | The target is active. Every replica sends its requests and new calls on it and confirms with the epoch of the commit. | the leader, when every live replica confirmed |
 | `stable` | The old carrier drains for `max_drain`. | the leader, at `draining_until` |
 
 `cluster.Switch` holds the protocol and keeps no state outside the row and the
@@ -182,12 +205,13 @@ and names it in the note of the row.
 
 `carrier.Swapper` is what a replica does. It polls the row every two seconds with a
 jitter, and a hint on `state.carrier` makes it look at once; the poll decides. In
-`prepare` it builds the target, attaches every subscription to it
+`prepare` it builds the target, attaches every reply subscription to it
 (`Broadcaster.Listen`) and reports ready for the epoch. In `commit` it stores the
-set, so that publishes and new calls use it, and confirms. In `stable` with a drain
+set, so that requests and new calls use it, and confirms. In `stable` with a drain
 it does nothing: the old set stays attached. When the leader ends the drain it stops
-listening on the old set, runs the reconnect hooks once, and closes the set after a
-settle time, so that a call that took the set just before the switch can end. A
+listening on the old set and closes the set after a settle time, so that a call
+that took the set just before the switch can end. The broadcasts never move, so it
+runs no reconnect hook. A
 replica that polls late, restarts or joins during a change acts on the row alone.
 
 Worker calls do not follow the row. The swapper attaches the worker route of a

@@ -35,7 +35,7 @@ var _ = Describe("a swapper whose build hangs", func() {
 		row = cluster.CarrierRow{Active: cluster.CarrierTunnel, State: cluster.StateStable, Epoch: 2}
 		started = make(chan struct{}, 1)
 		s, err := carrier.NewSwapper(carrier.SwapperOptions{
-			Cur: &cur, Bus: carrier.NewBroadcaster(&cur), Rows: staticRows{row}, Ready: nopReady{},
+			Cur: &cur, Bus: holderOver(&cur), Rows: staticRows{row}, Ready: nopReady{},
 			Build: func(ctx context.Context, _ cluster.CarrierRow, _ cluster.Carrier) (*carrier.Set, error) {
 				started <- struct{}{}
 				<-ctx.Done()
@@ -66,23 +66,5 @@ var _ = Describe("a swapper whose build hangs", func() {
 		go func() { done <- s.Reconcile(context.Background(), row) }()
 		Eventually(started).Should(Receive())
 		Eventually(done, 5*time.Second).Should(Receive())
-	})
-})
-
-var _ = Describe("releasing a set with a publish that does not end", func() {
-	It("stops waiting for the publish after the deadline", func() {
-		restore := carrier.SetReleaseWait(100 * time.Millisecond)
-		DeferCleanup(restore)
-		var cur atomic.Pointer[carrier.Set]
-		cur.Store(newFakeCarrier(cluster.CarrierNATS, 1).set)
-		bus := carrier.NewBroadcaster(&cur)
-		other := newFakeCarrier(cluster.CarrierTunnel, 2).set
-		Expect(bus.Listen(other)).To(Succeed())
-		done := other.HoldPublish()
-		DeferCleanup(done)
-
-		released := make(chan error, 1)
-		go func() { released <- bus.Release(other) }()
-		Eventually(released, 5*time.Second).Should(Receive(Succeed()))
 	})
 })

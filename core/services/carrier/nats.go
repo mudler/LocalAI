@@ -50,10 +50,14 @@ type NATSOptions struct {
 	// dialled on a loopback address, which would name a port on the frontend and
 	// make a healthy backend look dead. Without it every address is dialled.
 	NodeHasAddress func(nodeID string) (bool, error)
+
+	// Shared says that the connection belongs to the caller: the NATS bus of the
+	// broadcaster holder uses it too. Close then leaves it open.
+	Shared bool
 }
 
-// NewNATSSet builds the set of seam implementations that run over NATS: the
-// Fabric on the NATS connection, and the direct route (NewNATSRoutes).
+// NewNATSSet builds the set of seam implementations that run over NATS: request
+// and reply on the NATS connection, and the direct route (NewNATSRoutes).
 func NewNATSSet(o NATSOptions) (*Set, error) {
 	route, err := NewNATSRoutes(o)
 	if err != nil {
@@ -62,7 +66,7 @@ func NewNATSSet(o NATSOptions) (*Set, error) {
 	set := &Set{
 		Name:        cluster.CarrierNATS,
 		Epoch:       o.Epoch,
-		Fabric:      Fabric{Broadcaster: o.Client, OnReconnect: o.Client.OnReconnect, Replies: o.Client},
+		Replies:     o.Client,
 		WorkerRoute: route,
 		Close:       route.Close,
 	}
@@ -74,7 +78,7 @@ func NewNATSSet(o NATSOptions) (*Set, error) {
 
 // NewNATSRoutes builds the direct route: the control verbs and the agent RPC
 // over NATS, and the gRPC and HTTP connections by a direct dial of the address
-// of the worker. Close closes the NATS connection.
+// of the worker. Close closes the NATS connection, unless o.Shared.
 func NewNATSRoutes(o NATSOptions) (*WorkerRoute, error) {
 	if o.Client == nil {
 		return nil, fmt.Errorf("NATS set needs a connection")
@@ -102,7 +106,9 @@ func NewNATSRoutes(o NATSOptions) (*WorkerRoute, error) {
 		Clients:  clients,
 		Dialer:   dial,
 		Agents:   nodes.NewNATSAgentControl(o.Client),
-		Close:    o.Client.Close,
+	}
+	if !o.Shared {
+		route.Close = o.Client.Close
 	}
 	// The HTTP stager keeps one client for each node, and nothing else ever drops
 	// it.

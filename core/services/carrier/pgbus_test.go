@@ -2,7 +2,6 @@ package carrier_test
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -10,7 +9,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/carrier"
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging/messagingtest"
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
@@ -24,22 +22,35 @@ func listeners(db *gorm.DB) int64 {
 	return n
 }
 
-// pgbusSet is a set of the tunnel carrier with the pgbus fan-out. The other
-// members are fakes: later changes provide them.
-func pgbusSet(ctx context.Context, db *gorm.DB, dsn string, epoch int64) (*carrier.Set, *carrier.Fanout) {
+// pgbusFloor opens a pgbus fan-out on the database and returns it as the floor
+// of a holder.
+func pgbusFloor(ctx context.Context, db *gorm.DB, dsn string) (*carrier.Bus, *carrier.Fanout) {
 	GinkgoHelper()
 	fan, err := carrier.NewPgbusFanout(ctx, carrier.PgbusOptions{DB: db, DSN: dsn})
 	Expect(err).ToNot(HaveOccurred())
 	DeferCleanup(fan.Close)
-	set := newFakeCarrier(cluster.CarrierTunnel, epoch).set
-	set.Broadcaster = fan.Broadcaster
-	set.OnReconnect = fan.OnReconnect
-	set.Close = fan.Close
-	Expect(set.Validate()).To(Succeed())
-	return set, fan
+	return fan.Bus(), fan
 }
 
-var _ = Describe("The pgbus fan-out of the tunnel carrier", func() {
+// pgbusHolder is a holder over a pgbus floor and, when nats is set, a primary
+// bus over the process's own view of that fake NATS server.
+func pgbusHolder(ctx context.Context, db *gorm.DB, dsn string, nats *testutil.FakeBus) (*carrier.Broadcaster, *gatedBus, *carrier.Fanout) {
+	GinkgoHelper()
+	floor, fan := pgbusFloor(ctx, db, dsn)
+	var (
+		gate    *gatedBus
+		primary *carrier.Bus
+	)
+	if nats != nil {
+		gate = newGatedBus(nats)
+		primary = gate.natsBus()
+	}
+	h, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: floor, Primary: primary})
+	Expect(err).ToNot(HaveOccurred())
+	return h, gate, fan
+}
+
+var _ = Describe("The pgbus fan-out", func() {
 	var (
 		db  *gorm.DB
 		dsn string
@@ -52,7 +63,6 @@ var _ = Describe("The pgbus fan-out of the tunnel carrier", func() {
 	})
 
 	It("opens no connection until it is built, and none after it is closed", func() {
-		// A deployment on NATS builds nothing, so it holds no LISTEN session.
 		Expect(listeners(db)).To(BeZero())
 
 		fan, err := carrier.NewPgbusFanout(ctx, carrier.PgbusOptions{DB: db, DSN: dsn})
@@ -77,62 +87,32 @@ var _ = Describe("The pgbus fan-out of the tunnel carrier", func() {
 		Expect(listeners(db)).To(BeZero())
 	})
 
-	It("builds a valid set of the tunnel carrier", func() {
-		set, _ := pgbusSet(ctx, db, dsn, 4)
-		Expect(set.Name).To(Equal(cluster.CarrierTunnel))
-		Expect(set.Epoch).To(Equal(int64(4)))
-	})
+	Describe("as the floor of the holder", func() {
+		It("carries the broadcasts of a frontend that lost NATS to one that has it, once", func() {
+			nats := testutil.NewFakeBus()
+			a, aNATS, _ := pgbusHolder(ctx, db, dsn, nats)
+			b, _, _ := pgbusHolder(ctx, db, dsn, nats)
+			got := make(chan []byte, 8)
+			_, err := b.Subscribe("staging.j1.result", func(raw []byte) { got <- raw })
+			Expect(err).ToNot(HaveOccurred())
 
-	Describe("behind the holder", func() {
-		It("receives, after a swap, what a peer publishes, and keeps what was subscribed before", func() {
-			// Two replicas. Each starts on its own fake NATS carrier, with a
-			// subscription made before the swap. Each swaps to a pgbus set on
-			// the same database, in the order the switch uses.
-			type replica struct {
-				holder *carrier.Broadcaster
-				cur    *atomic.Pointer[carrier.Set]
-				first  *carrier.Set
-				next   *carrier.Set
-				got    chan []byte
-			}
-			build := func() *replica {
-				r := &replica{cur: &atomic.Pointer[carrier.Set]{}, got: make(chan []byte, 8)}
-				r.first = newFakeCarrier(cluster.CarrierNATS, 1).set
-				r.cur.Store(r.first)
-				r.holder = carrier.NewBroadcaster(r.cur)
-				_, err := r.holder.Subscribe("staging.j1.result", func(b []byte) { r.got <- b })
-				Expect(err).ToNot(HaveOccurred())
-				r.next, _ = pgbusSet(ctx, db, dsn, 2)
-				return r
-			}
-			a, b := build(), build()
+			Expect(a.Publish("staging.j1.result", "over-nats")).To(Succeed())
+			Eventually(got, 10*time.Second).Should(Receive(Equal([]byte(`"over-nats"`))))
 
-			// prepare: both listen on both carriers.
-			Expect(a.holder.Listen(a.next)).To(Succeed())
-			Expect(b.holder.Listen(b.next)).To(Succeed())
-			// commit: a publishes on the new carrier, b has not seen it yet.
-			a.cur.Store(a.next)
-			Expect(a.holder.Publish("staging.j1.result", "from-a")).To(Succeed())
-			Eventually(b.got, 10*time.Second).Should(Receive(Equal([]byte(`"from-a"`))))
-			Eventually(a.got, 10*time.Second).Should(Receive(Equal([]byte(`"from-a"`))))
+			aNATS.down()
+			Expect(a.Unready()).To(MatchError(carrier.ErrBusUnreachable))
+			Expect(a.Publish("staging.j1.result", "over-pg")).To(Succeed())
+			Eventually(got, 10*time.Second).Should(Receive(Equal([]byte(`"over-pg"`))))
 
-			// b flips and publishes on the new carrier too. a still hears it.
-			b.cur.Store(b.next)
-			Expect(b.holder.Publish("staging.j1.result", "from-b")).To(Succeed())
-			Eventually(a.got, 10*time.Second).Should(Receive(Equal([]byte(`"from-b"`))))
-
-			// stable: the old carriers are released and the subscription lives on.
-			Expect(a.holder.Release(a.first)).To(Succeed())
-			Expect(b.holder.Release(b.first)).To(Succeed())
-			Expect(a.holder.Publish("staging.j1.result", "after")).To(Succeed())
-			Eventually(b.got, 10*time.Second).Should(Receive(Equal([]byte(`"after"`))))
+			aNATS.back()
+			Expect(a.Unready()).To(Succeed())
+			Expect(a.Publish("staging.j1.result", "over-nats-again")).To(Succeed())
+			Eventually(got, 10*time.Second).Should(Receive(Equal([]byte(`"over-nats-again"`))))
+			Consistently(got, 300*time.Millisecond).ShouldNot(Receive(), "no message twice")
 		})
 
 		It("runs the reconnect hooks of the holder when the LISTEN connection is lost and found again", func() {
-			cur := &atomic.Pointer[carrier.Set]{}
-			set, _ := pgbusSet(ctx, db, dsn, 1)
-			cur.Store(set)
-			holder := carrier.NewBroadcaster(cur)
+			holder, _, _ := pgbusHolder(ctx, db, dsn, nil)
 			called := make(chan struct{}, 4)
 			holder.OnReconnect(func() { called <- struct{}{} })
 			_, err := holder.Subscribe("staging.j2.result", func([]byte) {})
@@ -144,24 +124,13 @@ var _ = Describe("The pgbus fan-out of the tunnel carrier", func() {
 		})
 	})
 
-	// The suite that every carrier passes, run on holders that were swapped from
-	// a NATS set to a pgbus set, over two replicas.
-	Describe("Broadcaster conformance on holders swapped to pgbus", func() {
+	// The suite that every carrier passes, run on two holders whose only bus is
+	// pgbus on one database.
+	Describe("Broadcaster conformance on holders over pgbus", func() {
 		messagingtest.RunBroadcasterConformance(func() messagingtest.Carrier {
 			pgDB, pgDSN := testutil.SetupTestDBWithDSN()
-			swapped := func() (*carrier.Broadcaster, *carrier.Fanout) {
-				var cur atomic.Pointer[carrier.Set]
-				first := newFakeCarrier(cluster.CarrierNATS, 1).set
-				cur.Store(first)
-				h := carrier.NewBroadcaster(&cur)
-				next, fan := pgbusSet(context.Background(), pgDB, pgDSN, 2)
-				Expect(h.Listen(next)).To(Succeed())
-				cur.Store(next)
-				Expect(h.Release(first)).To(Succeed())
-				return h, fan
-			}
-			h1, f1 := swapped()
-			h2, f2 := swapped()
+			h1, _, f1 := pgbusHolder(context.Background(), pgDB, pgDSN, nil)
+			h2, _, f2 := pgbusHolder(context.Background(), pgDB, pgDSN, nil)
 			return messagingtest.Carrier{
 				Bus: h1, Peer: h2,
 				Dropped: func() uint64 { return f1.Dropped() + f2.Dropped() },
