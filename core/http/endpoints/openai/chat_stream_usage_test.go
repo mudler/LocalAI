@@ -3,11 +3,13 @@ package openai
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -328,7 +330,7 @@ var _ = Describe("streaming workers surface final TokenUsage (issue #9927)", fun
 			done := drainResponses(responses)
 			var textContent string
 
-			actual, err := processStreamWithTools("none", "prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0, &textContent)
+			actual, err := processStreamWithTools("none", false, "prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0, &textContent)
 			<-done
 
 			Expect(err).ToNot(HaveOccurred())
@@ -351,7 +353,7 @@ var _ = Describe("streaming workers surface final TokenUsage (issue #9927)", fun
 			done := drainResponses(responses)
 			var textContent string
 
-			actual, err := processStreamWithTools("none", "prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0, &textContent)
+			actual, err := processStreamWithTools("none", false, "prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0, &textContent)
 			<-done
 
 			Expect(err).ToNot(HaveOccurred())
@@ -359,4 +361,140 @@ var _ = Describe("streaming workers surface final TokenUsage (issue #9927)", fun
 			Expect(actual.TimingTokenGeneration).To(Equal(1.5))
 		})
 	})
+})
+
+var _ = Describe("strict tool streaming", func() {
+	var origInference modelInferenceFunc
+	BeforeEach(func() { origInference = backend.ModelInferenceFunc })
+	AfterEach(func() { backend.ModelInferenceFunc = origInference })
+
+	DescribeTable("classifies content before emitting it",
+		func(tokens []string, deltaMode string, strict bool, wantContent, wantReasoning string, wantCall bool) {
+			var deltas []*pb.ChatDelta
+			if strings.HasPrefix(deltaMode, "content") {
+				for _, token := range tokens {
+					deltas = append(deltas, &pb.ChatDelta{Content: token})
+				}
+			} else if deltaMode == "native" {
+				deltas = []*pb.ChatDelta{
+					{ReasoningContent: "checking"},
+					{ToolCalls: []*pb.ToolCallDelta{{Index: 0, Id: "call-native", Name: "exec", Arguments: `{"cmd":`}}},
+					{ToolCalls: []*pb.ToolCallDelta{{Index: 0, Arguments: `"date"}`}}},
+				}
+			}
+			attempts := 0
+			backend.ModelInferenceFunc = func(
+				ctx context.Context, s string, messages schema.Messages,
+				images, videos, audios []string,
+				loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader,
+				o *config.ApplicationConfig,
+				tokenCallback func(string, backend.TokenUsage) bool,
+				tools, toolChoice string, logprobs, topLogprobs *int,
+				logitBias map[string]float64, metadata map[string]string,
+			) (func() (backend.LLMResponse, error), error) {
+				return func() (backend.LLMResponse, error) {
+					attempts++
+					for i, token := range tokens {
+						usage := backend.TokenUsage{}
+						if len(deltas) > 0 {
+							usage.ChatDeltas = deltas[i : i+1]
+						}
+						if deltaMode == "content-only" {
+							token = ""
+						}
+						tokenCallback(token, usage)
+					}
+					response := strings.Join(tokens, "")
+					if deltaMode == "content-only" {
+						response = ""
+					}
+					return backend.LLMResponse{
+						Response: response, ChatDeltas: deltas,
+						Usage: backend.TokenUsage{Prompt: 18, Completion: 213},
+					}, nil
+				}, nil
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			req := &schema.OpenAIRequest{Context: ctx, Cancel: cancel}
+			req.Model = "test-model"
+			cfg := &config.ModelConfig{}
+			disableReasoning := wantReasoning == ""
+			cfg.ReasoningConfig.DisableReasoning = &disableReasoning
+			if strict && wantCall {
+				// Exercise deferred content capture as well as the token callback.
+				cfg.FunctionsConfig.CaptureLLMResult = []string{`(?s)^(.*)$`}
+			}
+			responses := make(chan schema.OpenAIResponse)
+			var chunks []schema.OpenAIResponse
+			done := make(chan struct{})
+			go func() {
+				for chunk := range responses {
+					chunks = append(chunks, chunk)
+				}
+				close(done)
+			}()
+			var textContent string
+			usage, err := processStreamWithTools("none", strict, "prompt", req, cfg, nil, config.NewApplicationConfig(), nil, responses, "req-1", 0, &textContent)
+			<-done
+			Expect(err).NotTo(HaveOccurred())
+			Expect(attempts).To(Equal(1))
+			Expect(usage.Prompt).To(Equal(18))
+			Expect(usage.Completion).To(Equal(213))
+			var content, reasoning, name, args, callID string
+			nameChunks := 0
+			for _, chunk := range chunks {
+				for _, choice := range chunk.Choices {
+					delta := choice.Delta
+					if delta.Content != nil {
+						if wantCall {
+							Expect(*(delta.Content.(*string))).To(BeEmpty())
+						}
+						content += *(delta.Content.(*string))
+					}
+					if delta.Reasoning != nil {
+						Expect(delta.ToolCalls).To(BeEmpty())
+						reasoning += *delta.Reasoning
+					}
+					for _, call := range delta.ToolCalls {
+						Expect(call.Index).To(Equal(0))
+						if call.ID != "" {
+							callID = call.ID
+						}
+						if call.FunctionCall.Name != "" {
+							nameChunks++
+						}
+						name += call.FunctionCall.Name
+						args += call.FunctionCall.Arguments
+					}
+				}
+			}
+			Expect(content).To(Equal(wantContent))
+			Expect(reasoning).To(Equal(wantReasoning))
+			if wantCall {
+				Expect(nameChunks).To(Equal(1))
+				Expect(name).To(Equal("exec"))
+				Expect(args).To(MatchJSON(`{"cmd":"date"}`))
+				Expect(callID).NotTo(BeEmpty())
+				if deltaMode == "native" {
+					Expect(callID).To(Equal("call-native"))
+				}
+			} else {
+				Expect(nameChunks).To(BeZero())
+			}
+		},
+		Entry("raw fragments", []string{`{"arg`, `uments":{"cmd":"da`, `te"},"na`, `me":"ex`, `ec"}`}, "", true, "", "", true),
+		Entry("content-only ChatDelta fragments", []string{`{"arg`, `uments":{"cmd":"da`, `te"},"na`, `me":"ex`, `ec"}`}, "content", true, "", "", true),
+		Entry("single raw chunk", []string{`{"arguments":{"cmd":"date"},"name":"exec"}`}, "", true, "", "", true),
+		Entry("single content-only ChatDelta", []string{`{"arguments":{"cmd":"date"},"name":"exec"}`}, "content", true, "", "", true),
+		Entry("ChatDelta tool JSON without raw content", []string{`{"arguments":{"cmd":"date"},"name":"exec"}`}, "content-only", true, "", "", true),
+		Entry("ChatDelta text without raw content", []string{"hello", " there"}, "content-only", true, "hello there", "", false),
+		Entry("native tool deltas without raw content", []string{"", "", ""}, "native", true, "", "checking", true),
+		Entry("strict text fallback", []string{"hello", " there"}, "", true, "hello there", "", false),
+		Entry("strict ChatDelta text fallback", []string{"hello", " there"}, "content", true, "hello there", "", false),
+		Entry("strict JSON answer", []string{`{"answer":42}`}, "", true, `{"answer":42}`, "", false),
+		Entry("incomplete JSON fallback", []string{`{"arguments":`}, "", true, `{"arguments":`, "", false),
+		Entry("non-strict JSON answer", []string{`{"answer":42}`}, "", false, `{"answer":42}`, "", false),
+		Entry("non-strict text and reasoning", []string{"<think>checking</think>", "hello"}, "", false, "hello", "checking", false),
+	)
 })
