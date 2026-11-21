@@ -327,13 +327,19 @@ type HostGrantsInstallRequest struct {
 
 // HostGrantsQueueRequest is one install of the body of
 // POST /api/addons/host-grants/queue: what HostGrantsInstallRequest carries
-// for an install. It only takes an install from a library.
+// for an install or an upgrade. It only takes a release from a library, never
+// a local file.
 type HostGrantsQueueRequest struct {
-	OperationID string            `json:"operationId"`
-	SourceID    string            `json:"sourceId"`
-	AddonID     string            `json:"addonId"`
-	Version     string            `json:"version"`
-	Approve     HostGrantsApprove `json:"approve"`
+	OperationID string `json:"operationId"`
+	// Action is install (the default) or upgrade.
+	Action   string `json:"action,omitempty"`
+	SourceID string `json:"sourceId"`
+	AddonID  string `json:"addonId"`
+	Version  string `json:"version"`
+	// ExpectedDigest and CandidateDigest pin an upgrade; both or neither.
+	ExpectedDigest  string            `json:"expectedDigest,omitempty"`
+	CandidateDigest string            `json:"candidateDigest,omitempty"`
+	Approve         HostGrantsApprove `json:"approve"`
 }
 
 // HostGrantsQueuedRequest is the body of HostGrantsRunQueued and

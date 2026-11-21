@@ -342,6 +342,77 @@ var _ = Describe("the install queue of the add-on manager", func() {
 		Expect(e).NotTo(HaveOccurred())
 	})
 
+	It("records an approved upgrade for the queue, runs it later and drops it when it is cancelled", func() {
+		r := newUpdateRig(true)
+		installed := r.installChannel().Generations[0].Receipt
+		next := r.lib.publish("1.2.3-dev", "development", "build-2", catalog.Requirements{})
+		r.lib.refresh()
+		ap := &HostApproval{Digest: next.Digest, FromIndex: false}
+		approved := func(op string) LifecycleCommand {
+			c := upgrade(op, installed.Digest, next.Digest)
+			c.SourceID, c.Version, c.Approval = "test", "development", ap
+			return c
+		}
+		// One pin alone is refused, and an install takes no pin.
+		onePin := approved("qa-0")
+		onePin.CandidateDigest = ""
+		_, e := r.m.AcceptInstall(ctx, actor, onePin)
+		Expect(errors.Is(e, ErrConflict)).To(BeTrue())
+		pinnedInstall := approved("qa-0")
+		pinnedInstall.Action = "install"
+		_, e = r.m.AcceptInstall(ctx, actor, pinnedInstall)
+		Expect(errors.Is(e, ErrConflict)).To(BeTrue())
+		wrong := approved("qa-0")
+		wrong.ExpectedDigest = "sha256:not-installed"
+		_, e = r.m.AcceptInstall(ctx, actor, wrong)
+		Expect(e).To(MatchError(ErrStaleInstalled))
+
+		st, e := r.m.AcceptInstall(ctx, actor, approved("qa-1"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.Phase).To(Equal("accepted"))
+		s, _ := r.m.Status(ctx, "sample")
+		Expect(s.Generation).To(Equal(uint64(1)), "accepting changes nothing")
+		again, e := r.m.AcceptInstall(ctx, actor, approved("qa-1"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(again.OperationID).To(Equal("qa-1"))
+		_, e = r.m.AcceptInstall(ctx, actor, approved("qa-2"))
+		Expect(e).To(MatchError(ErrTransitionConflict), "the same transition under another ID")
+
+		// Cancelled before it ran: failed as cancelled, and the same upgrade can be approved again.
+		dropped, e := r.m.DropAccepted(ctx, actor, "qa-1")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(dropped.FailureCode).To(Equal(FailureCancelled))
+		_, e = r.m.AcceptInstall(ctx, actor, approved("qa-3"))
+		Expect(e).NotTo(HaveOccurred())
+
+		st, e = r.m.RunAccepted(ctx, actor, "qa-3")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.Phase).To(Equal("completed"))
+		s, _ = r.m.Status(ctx, "sample")
+		Expect(s.Generation).To(Equal(uint64(2)))
+		Expect(s.Generations[1].Receipt.Digest).To(Equal(next.Digest))
+	})
+
+	It("takes an approved upgrade without pins, as the install route of the approval does, and refuses it for an add-on that is not installed", func() {
+		r := newUpdateRig(true)
+		next := r.lib.publish("1.2.3-dev", "development", "build-2", catalog.Requirements{})
+		r.lib.refresh()
+		cmd := LifecycleCommand{OperationID: "qb-1", AddonID: "sample", Action: "upgrade", SourceID: "test", Version: "development", Approval: &HostApproval{Digest: next.Digest}}
+		_, e := r.m.AcceptInstall(ctx, actor, cmd)
+		Expect(errors.Is(e, ErrConflict)).To(BeTrue(), "nothing to upgrade yet")
+		r.installChannel()
+		next = r.lib.publish("1.2.3-dev", "development", "build-3", catalog.Requirements{})
+		r.lib.refresh()
+		cmd.Approval = &HostApproval{Digest: next.Digest}
+		_, e = r.m.AcceptInstall(ctx, actor, cmd)
+		Expect(e).NotTo(HaveOccurred())
+		st, e := r.m.RunAccepted(ctx, actor, "qb-1")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.Phase).To(Equal("completed"))
+		s, _ := r.m.Status(ctx, "sample")
+		Expect(s.Generation).To(Equal(uint64(2)))
+	})
+
 	// manyAddons installs n add-ons from one library and publishes a newer
 	// build of each. It returns the installed digest and the candidate digest
 	// of every add-on, by ID.

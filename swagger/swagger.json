@@ -1222,7 +1222,7 @@
         },
         "/api/addons/host-grants/queue": {
             "post": {
-                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to \"queue\"). API keys, bearer tokens, MCP sessions and tool calls are refused with 403 not_human_surface. Each item carries what host-grants/install carries for an install from a library: the release, and the approval of its preview (digest, ticked operations, grants revision and the preview nonce). The owner checks each approval now and records it; the install then runs in the background, in order, on the queue of backend operations and within its limit, as an operation of /api/operations (the owner installs one add-on at a time), with its phase and its downloaded bytes. Cancel it there (POST /api/operations/{jobID}/cancel) while it waits or downloads. The install never turns the add-on on. When the verified package asks for host access that the preview did not show, the install stops and asks for a new review (the operation fails and a notification says so); nothing is granted. Items are answered one by one: a refused item carries the error of host-grants/install and does not stop the others. Queued installs that have not finished when the owner restarts are failed with the code interrupted.",
+                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to \"queue\"). API keys, bearer tokens, MCP sessions and tool calls are refused with 403 not_human_surface. Each item carries what host-grants/install carries for an install from a library: the release, and the approval of its preview (digest, ticked operations, grants revision and the preview nonce). The owner checks each approval now and records it; the install (or, with action upgrade, the upgrade of an installed add-on; the pins of the plain upgrade are optional, both or neither) then runs in the background, in order, on the queue of backend operations and within its limit, as an operation of /api/operations (the owner installs one add-on at a time), with its phase and its downloaded bytes. Cancel it there (POST /api/operations/{jobID}/cancel) while it waits or downloads. The install never turns the add-on on. When the verified package asks for host access that the preview did not show, the install stops and asks for a new review (the operation fails and a notification says so); nothing is granted. Items are answered one by one: a refused item carries the error of host-grants/install and does not stop the others. Queued installs that have not finished when the owner restarts are failed with the code interrupted.",
                 "consumes": [
                     "application/json"
                 ],
@@ -24867,11 +24867,22 @@
         "gateway.HostGrantsQueueRequest": {
             "type": "object",
             "properties": {
+                "action": {
+                    "description": "Action is install (the default) or upgrade.",
+                    "type": "string"
+                },
                 "addonId": {
                     "type": "string"
                 },
                 "approve": {
                     "$ref": "#/definitions/gateway.HostGrantsApprove"
+                },
+                "candidateDigest": {
+                    "type": "string"
+                },
+                "expectedDigest": {
+                    "description": "ExpectedDigest and CandidateDigest pin an upgrade; both or neither.",
+                    "type": "string"
                 },
                 "operationId": {
                     "type": "string"

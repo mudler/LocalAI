@@ -50,7 +50,7 @@ type HostGrantsQueueResult struct {
 
 // QueueWithHostGrants queues approved installs.
 // @Summary Queue add-on installs with the host access the administrator approved (browser session)
-// @Description Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to "queue"). API keys, bearer tokens, MCP sessions and tool calls are refused with 403 not_human_surface. Each item carries what host-grants/install carries for an install from a library: the release, and the approval of its preview (digest, ticked operations, grants revision and the preview nonce). The owner checks each approval now and records it; the install then runs in the background, in order, on the queue of backend operations and within its limit, as an operation of /api/operations (the owner installs one add-on at a time), with its phase and its downloaded bytes. Cancel it there (POST /api/operations/{jobID}/cancel) while it waits or downloads. The install never turns the add-on on. When the verified package asks for host access that the preview did not show, the install stops and asks for a new review (the operation fails and a notification says so); nothing is granted. Items are answered one by one: a refused item carries the error of host-grants/install and does not stop the others. Queued installs that have not finished when the owner restarts are failed with the code interrupted.
+// @Description Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to "queue"). API keys, bearer tokens, MCP sessions and tool calls are refused with 403 not_human_surface. Each item carries what host-grants/install carries for an install from a library: the release, and the approval of its preview (digest, ticked operations, grants revision and the preview nonce). The owner checks each approval now and records it; the install (or, with action upgrade, the upgrade of an installed add-on; the pins of the plain upgrade are optional, both or neither) then runs in the background, in order, on the queue of backend operations and within its limit, as an operation of /api/operations (the owner installs one add-on at a time), with its phase and its downloaded bytes. Cancel it there (POST /api/operations/{jobID}/cancel) while it waits or downloads. The install never turns the add-on on. When the verified package asks for host access that the preview did not show, the install stops and asks for a new review (the operation fails and a notification says so); nothing is granted. Items are answered one by one: a refused item carries the error of host-grants/install and does not stop the others. Queued installs that have not finished when the owner restarts are failed with the code interrupted.
 // @Tags Addons
 // @Accept json
 // @Produce json
@@ -124,7 +124,7 @@ func queueOne(ctx context.Context, g *gateway.Gateway, s settings, a contract.Ac
 		s.opcache.Set(galleryop.AddonOpKey(item.AddonID), jobID)
 	}
 	s.queue.EnqueueAddonOp(galleryop.AddonOp{
-		ID: jobID, AddonID: item.AddonID,
+		ID: jobID, AddonID: item.AddonID, Upgrade: item.Action == "upgrade",
 		Run: func(ctx context.Context, progress func(*galleryop.OpStatus)) error {
 			ctx = managerpkg.WithInstallProgress(ctx, func(p managerpkg.InstallProgress) { progress(installStatus(p)) })
 			raw, err := g.HostGrants(ctx, a, call(gateway.HostGrantsRunQueued))

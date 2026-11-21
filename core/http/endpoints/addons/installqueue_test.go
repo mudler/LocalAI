@@ -174,6 +174,43 @@ var _ = Describe("the add-on install queue route", func() {
 		Expect(ran).To(HaveLen(1), "the cancelled install never ran")
 	})
 
+	It("queues an approved upgrade as an upgrade operation of the add-on and refuses a pin without the action or alone", func() {
+		p := preview("calendar")
+		up := func(extra map[string]any) string {
+			b, _ := json.Marshal(map[string]any{"sourceId": "official", "addonId": "calendar", "version": "1.0.0",
+				"approve": map[string]any{"digest": p["digest"], "ops": []string{"workspace.materialize"}, "revision": p["revision"], "nonce": p["nonce"]}})
+			var m map[string]any
+			_ = json.Unmarshal(b, &m)
+			for k, v := range extra {
+				m[k] = v
+			}
+			out, _ := json.Marshal(m)
+			return string(out)
+		}
+		code, out := post("/api/addons/host-grants/queue", `{"items":[`+up(map[string]any{"expectedDigest": "sha256:old"})+`,`+up(map[string]any{"action": "upgrade", "expectedDigest": "sha256:old"})+`,`+up(map[string]any{"action": "move"})+`]}`, "queue", true)
+		Expect(code).To(Equal(http.StatusOK))
+		for _, it := range out["items"].([]any) {
+			Expect(it.(map[string]any)["error"].(map[string]any)["type"]).To(Equal(gateway.HostGrantsInvalidRequest))
+		}
+		_, _, accepted := mgr.snapshot()
+		Expect(accepted).To(BeEmpty())
+
+		code, out = post("/api/addons/host-grants/queue", `{"items":[`+up(map[string]any{"action": "upgrade", "expectedDigest": "sha256:old", "candidateDigest": "sha256:new"})+`]}`, "queue", true)
+		Expect(code).To(Equal(http.StatusOK))
+		item := out["items"].([]any)[0].(map[string]any)
+		Expect(item["jobId"]).NotTo(BeEmpty())
+		mgr.mu.Lock()
+		cmd := mgr.cmds[0]
+		mgr.mu.Unlock()
+		Expect(cmd.Action).To(Equal("upgrade"))
+		Expect(cmd.ExpectedDigest).To(Equal("sha256:old"))
+		Expect(cmd.CandidateDigest).To(Equal("sha256:new"))
+		// The row of /api/operations is keyed by the add-on and is an upgrade.
+		Expect(oc.Get(galleryop.AddonOpKey("calendar"))).To(Equal(item["jobId"]))
+		Eventually(func() bool { st := gs.GetStatus(item["jobId"].(string)); return st != nil && st.Upgrade }).Should(BeTrue())
+		close(mgr.release)
+	})
+
 	It("answers a refused item without stopping the others", func() {
 		a := preview("calendar")
 		bad := `{"sourceId":"official","addonId":"notes","version":"1.0.0","approve":{"digest":"sha256:notes","ops":[],"revision":0,"nonce":"not-a-nonce"}}`

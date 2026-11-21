@@ -81,11 +81,15 @@ func stageProgress(report func(InstallProgress)) func(packages.Progress) {
 	}
 }
 
-// AcceptInstall records an install with the administrator's approval for a
-// later run. It checks what can be checked without the package: the caller is
-// an administrator, the add-on is not installed and has no operation in
-// flight, and the approval is present. Repeating the same command under the
-// same operation ID returns the recorded status.
+// AcceptInstall records an install, or an upgrade, with the
+// administrator's approval for a later run. It checks what can be checked
+// without the package: the caller is an administrator, the approval is present
+// and the add-on has no operation in flight. An install needs an add-on that
+// is not installed. An upgrade needs an installed one; it takes both pins or
+// none, as the install route of the approval does. Pins are checked now as the
+// plain upgrade checks them, and the same transition is not recorded twice.
+// Repeating the same command under the same operation ID returns the recorded
+// status.
 func (m *Manager) AcceptInstall(ctx context.Context, actor contract.Actor, cmd LifecycleCommand) (OperationStatus, error) {
 	if e := ctx.Err(); e != nil {
 		return OperationStatus{}, e
@@ -95,7 +99,10 @@ func (m *Manager) AcceptInstall(ctx context.Context, actor contract.Actor, cmd L
 	}
 	// A local file stays on the path that installs it at once: the staged
 	// file belongs to the browser session that uploaded it.
-	if cmd.Action != "install" || cmd.Approval == nil || cmd.SourceID == zipformat.SourceID || cmd.ExpectedDigest != "" || cmd.CandidateDigest != "" ||
+	upgrading := cmd.Action == "upgrade"
+	pinned := cmd.ExpectedDigest != "" && cmd.CandidateDigest != ""
+	if (cmd.Action != "install" && !upgrading) || cmd.Approval == nil || cmd.SourceID == zipformat.SourceID ||
+		(cmd.ExpectedDigest == "") != (cmd.CandidateDigest == "") || (!upgrading && pinned) ||
 		!addonID.MatchString(cmd.AddonID) || cmd.OperationID == "" || len(cmd.OperationID) > 256 {
 		return OperationStatus{}, ErrConflict
 	}
@@ -113,12 +120,20 @@ func (m *Manager) AcceptInstall(ctx context.Context, actor contract.Actor, cmd L
 		}
 		return old.Status, nil
 	}
-	if m.journal.Addons[cmd.AddonID].Installed {
+	if m.journal.Addons[cmd.AddonID].Installed != upgrading {
 		return OperationStatus{}, ErrConflict
 	}
 	for _, op := range m.journal.Operations {
+		if pinned && sameTransition(cmd, op.Command, op.Status) {
+			return OperationStatus{}, ErrTransitionConflict
+		}
 		if op.Command.AddonID == cmd.AddonID && isActive(op.Status.Phase) {
 			return OperationStatus{}, ErrConflict
+		}
+	}
+	if pinned {
+		if _, e := m.checkPins(ctx, cmd, m.journal.Addons[cmd.AddonID]); e != nil {
+			return OperationStatus{}, e
 		}
 	}
 	op := journalOperation{Command: cmd, Actor: actor, Async: true, StartedAt: time.Now().UTC().Format(time.RFC3339),

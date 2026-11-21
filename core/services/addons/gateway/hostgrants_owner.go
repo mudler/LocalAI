@@ -615,7 +615,9 @@ func (o *HostGrantsOwner) approval(ctx context.Context, a contract.Actor, addonI
 // verified manifest and the deny rules again instead.
 func (o *HostGrantsOwner) queue(ctx context.Context, a contract.Actor, r HostGrantsQueueRequest) (any, error) {
 	if !contract.ValidAddonID(r.AddonID) || r.SourceID == "" || r.SourceID == zipformat.SourceID || len(r.SourceID) > 64 || len(r.Version) > 128 ||
-		!validDigest(r.Approve.Digest) || r.Approve.Nonce == "" || len(r.Approve.Nonce) > 128 || len(r.Approve.Ops) > hostgrants.MaxOpsPerAddon {
+		!validDigest(r.Approve.Digest) || r.Approve.Nonce == "" || len(r.Approve.Nonce) > 128 || len(r.Approve.Ops) > hostgrants.MaxOpsPerAddon ||
+		(r.Action != "" && r.Action != "install" && r.Action != "upgrade") || (r.ExpectedDigest == "") != (r.CandidateDigest == "") ||
+		(r.Action != "upgrade" && r.ExpectedDigest != "") {
 		return nil, o.invalid()
 	}
 	for _, op := range r.Approve.Ops {
@@ -632,8 +634,21 @@ func (o *HostGrantsOwner) queue(ctx context.Context, a contract.Actor, r HostGra
 		return nil, err
 	}
 	approval.Revision = 0
-	cmd := addons.LifecycleCommand{OperationID: r.OperationID, AddonID: r.AddonID, Action: "install", SourceID: r.SourceID, Version: r.Version}
-	return q.AcceptWithApproval(ctx, a, cmd, approval)
+	action := r.Action
+	if action == "" {
+		action = "install"
+	}
+	cmd := addons.LifecycleCommand{OperationID: r.OperationID, AddonID: r.AddonID, Action: action, SourceID: r.SourceID, Version: r.Version,
+		ExpectedDigest: r.ExpectedDigest, CandidateDigest: r.CandidateDigest}
+	st, err := q.AcceptWithApproval(ctx, a, cmd, approval)
+	if err != nil && action == "upgrade" {
+		// The refusals of the plain upgrade keep their types, so the page
+		// words them the same way.
+		if f, ok := updateOutcome(err); ok {
+			return nil, hgErr(f.Status, f.Type, f.Message)
+		}
+	}
+	return st, err
 }
 
 // queued runs or drops an install that queue recorded.
