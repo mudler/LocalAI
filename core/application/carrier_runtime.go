@@ -58,16 +58,12 @@ type carrierRuntime struct {
 	clusterReg *cluster.Registry
 	tunnels    *tunnel.Registry
 	peerPool   *tunnel.PeerPool
-	// replies holds the handlers that the requests of the other replicas reach
-	// over the peer link.
-	replies *tunnel.Replies
 
 	// bus is the broadcaster holder. It is set before any set starts.
 	bus *carrier.Broadcaster
-	// active names the set of the cluster carrier row: its request and reply
-	// are those of the broadcaster holder (until step 5 of the hybrid carriers
-	// work) and its worker route is in the route table. The broadcasts do not
-	// follow it. It goes with the change of carrier (step 8).
+	// active names the set of the cluster carrier row: its worker route is in
+	// the route table. The broadcasts and request and reply do not follow it. It
+	// goes with the change of carrier (step 8).
 	active *atomic.Pointer[carrier.Set]
 	// busNATS is the connection of the NATS bus of the broadcaster holder, nil
 	// when no NATS server is configured, and busNATSURL the address it was
@@ -325,7 +321,7 @@ func (rt *carrierRuntime) buildNATS(ctx context.Context, row cluster.CarrierRow,
 	return set, nil
 }
 
-func (rt *carrierRuntime) buildTunnel(ctx context.Context, row cluster.CarrierRow) (*carrier.Set, error) {
+func (rt *carrierRuntime) buildTunnel(_ context.Context, row cluster.CarrierRow) (*carrier.Set, error) {
 	d := rt.cfg.Distributed
 	selector := nodes.NewAgentSelector(rt.registry, rt.clusterReg, rt.instanceID)
 	set, err := carrier.NewTunnelSet(carrier.TunnelOptions{
@@ -340,17 +336,27 @@ func (rt *carrierRuntime) buildTunnel(ctx context.Context, row cluster.CarrierRo
 		S3Staging:      d.StorageURL != "",
 		FileManager:    rt.fileMgr,
 		ExpectedSHA256: managedFileSHA256(rt.cfg),
-		Self:           rt.instanceID,
-		Peers:          rt.peerPool,
-		Replies:        rt.replies,
-		Queues: map[string]carrier.QueueMembers{
-			messaging.SubjectChatStart: chatWorkerInstances(rt.registry, rt.liveInstances),
-		},
 	})
 	if err != nil {
 		return nil, err
 	}
 	return set, nil
+}
+
+// peerReplies builds request and reply between the frontends and chat workers
+// over the peer link, the one transport for it on every deployment: the chat
+// start goes to a live chat worker that the node list names, and the replay and
+// the jobs go to the process that the caller names. local holds the handlers of
+// this process, which the relay of the peer link serves.
+func (rt *carrierRuntime) peerReplies(local *tunnel.Replies) (messaging.ProcessReplies, error) {
+	return carrier.NewPeerReplies(carrier.PeerRepliesOptions{
+		Self:  rt.instanceID,
+		Peers: rt.peerPool,
+		Local: local,
+		Queues: map[string]carrier.QueueMembers{
+			messaging.SubjectChatStart: chatWorkerInstances(rt.registry, rt.liveInstances),
+		},
+	})
 }
 
 // liveInstances lists the ids of the live replicas.

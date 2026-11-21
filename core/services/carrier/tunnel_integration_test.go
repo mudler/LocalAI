@@ -199,6 +199,8 @@ type replica struct {
 	clients  *carrier.Clients
 	agents   *carrier.Agents
 	bus      *carrier.Broadcaster
+	// rr is request and reply with the other replicas over the peer link.
+	rr messaging.ProcessReplies
 
 	// selector picks the agent workers, as the set does for the agent control.
 	selector *nodes.AgentSelector
@@ -256,9 +258,6 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 		InstallTimeout: 30 * time.Second,
 		UpgradeTimeout: 30 * time.Second,
 		Token:          registrationToken,
-		Self:           id,
-		Peers:          r.pool,
-		Replies:        r.replies,
 	}
 	for _, t := range tweak {
 		t(&options)
@@ -277,9 +276,19 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	r.files = carrier.NewFiles(r.routes)
 	r.clients = carrier.NewClients(r.routes)
 	r.agents = carrier.NewAgents(r.routes)
-	r.bus, err = carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: floor, Sets: r.active})
+	r.bus, err = carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: floor})
 	Expect(err).ToNot(HaveOccurred())
+	r.useQueues(nil)
 	return r
+}
+
+// useQueues builds the request and reply of the replica over its peer link,
+// with the members of each queue that queues lists.
+func (r *replica) useQueues(queues map[string]carrier.QueueMembers) {
+	GinkgoHelper()
+	rr, err := carrier.NewPeerReplies(carrier.PeerRepliesOptions{Self: r.id, Peers: r.pool, Local: r.replies, Queues: queues})
+	Expect(err).ToNot(HaveOccurred())
+	r.rr = rr
 }
 
 const (

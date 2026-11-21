@@ -1,38 +1,44 @@
 package studio_test
 
 import (
+	"fmt"
 	"slices"
-	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/carrier"
-	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
-	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
-// The carrier holder answers for a set that cannot carry the ask. That is a
-// fact about the carrier and not about the node that runs the job, so the job
-// stays live however many sweeps pass.
-var _ = Describe("a job ask over a carrier that cannot carry it", func() {
+// undeliverable is a peer link that reaches no other process: every ask
+// answers that it was not delivered, as for a peer that does not answer.
+type undeliverable struct{}
+
+func (undeliverable) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
+	return noSubscription{}, nil
+}
+
+func (undeliverable) RequestInstance(instance, subject string, _ []byte, _ time.Duration) ([]byte, error) {
+	return nil, fmt.Errorf("%w: the peer %s does not answer (%s)", messaging.ErrNotDelivered, instance, subject)
+}
+
+type noSubscription struct{}
+
+func (noSubscription) Unsubscribe() error { return nil }
+
+// The peer link answers that the ask reached no process. That is a fact about
+// the link and not about the node that runs the job, so the job stays live
+// however many sweeps pass.
+var _ = Describe("a job ask that the peer link cannot deliver", func() {
 	It("does not mark the job of a node that is still there lost", func() {
 		st, err := store.NewJSON("")
 		Expect(err).NotTo(HaveOccurred())
-		// A set with no request and reply between processes.
-		active := &atomic.Pointer[carrier.Set]{}
-		active.Store(&carrier.Set{Name: cluster.CarrierTunnel})
-		bus := testutil.NewFakeBus()
-		holder, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{
-			Floor: &carrier.Bus{Name: carrier.BusPostgres, Broadcaster: bus}, Sets: active,
-		})
-		Expect(err).NotTo(HaveOccurred())
-		jobs := studio.NewJobCarrier(holder, nil)
+		jobs := studio.NewJobCarrier(undeliverable{}, nil)
 		clk := &tclock{t: time.Now()}
 		files := newFiles()
 		mk := func(instance string) jobChat {

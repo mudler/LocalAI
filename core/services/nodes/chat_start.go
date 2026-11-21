@@ -15,7 +15,7 @@ import (
 // answers in well under a second; the budget covers a slow database.
 const DefaultChatStartTimeout = 30 * time.Second
 
-// ChatStartOption configures a NATSChatStarter or a NATSChatStartServer.
+// ChatStartOption configures a ChatStarter or a ChatStartServer.
 type ChatStartOption func(*chatStartOptions)
 
 type chatStartOptions struct{ timeout time.Duration }
@@ -41,16 +41,17 @@ func newChatStartOptions(opts []ChatStartOption) chatStartOptions {
 	return o
 }
 
-// NATSChatStarter sends the frontend's chat starts to the chat-workers queue
-// group as NATS request/reply. One worker of the group runs the turn.
-type NATSChatStarter struct {
-	bus     messaging.RequestReply
+// ChatStarter sends the frontend's chat starts to one chat worker, over the
+// peer link of the processes (messaging.ProcessReplies). The frontend picks the
+// worker from the node list (the queue of messaging.SubjectChatStart).
+type ChatStarter struct {
+	bus     messaging.QueueRequester
 	timeout time.Duration
 }
 
-// NewNATSChatStarter returns a NATSChatStarter on bus.
-func NewNATSChatStarter(bus messaging.RequestReply, opts ...ChatStartOption) *NATSChatStarter {
-	return &NATSChatStarter{bus: bus, timeout: newChatStartOptions(opts).timeout}
+// NewChatStarter returns a ChatStarter on bus.
+func NewChatStarter(bus messaging.QueueRequester, opts ...ChatStartOption) *ChatStarter {
+	return &ChatStarter{bus: bus, timeout: newChatStartOptions(opts).timeout}
 }
 
 // StartChat asks one chat worker to start the turn. It returns an error that
@@ -61,11 +62,10 @@ func NewNATSChatStarter(bus messaging.RequestReply, opts ...ChatStartOption) *NA
 // refusal. The deadline of ctx bounds the wait, as for the agent RPC; without
 // one the start's budget (WithChatStartTimeout) does.
 //
-// On a carrier where the frontend picks the worker, a worker that is full
-// (ChatStartReply.Full) has started nothing, and the start goes to another
-// one. On NATS the queue group picks the worker, and a full one fails the
-// start.
-func (c *NATSChatStarter) StartChat(ctx context.Context, req workerctl.ChatStartRequest) (*workerctl.ChatStartReply, error) {
+// A worker that is full (ChatStartReply.Full) has started nothing, and the
+// start goes to another one, up to three; the start fails as full only when
+// every worker tried is full.
+func (c *ChatStarter) StartChat(ctx context.Context, req workerctl.ChatStartRequest) (*workerctl.ChatStartReply, error) {
 	timeout, err := agentRequestTimeout(ctx, c.timeout)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func (c *NATSChatStarter) StartChat(ctx context.Context, req workerctl.ChatStart
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request: %w", err)
 	}
-	raw, err := messaging.RequestQueue(c.bus, messaging.SubjectChatStart, data, timeout, workerFull)
+	raw, err := c.bus.RequestQueue(messaging.SubjectChatStart, data, timeout, workerFull)
 	if err != nil {
 		return nil, mapRequestError(messaging.SubjectChatStart, err)
 	}
@@ -90,28 +90,28 @@ func workerFull(raw []byte) bool {
 	return json.Unmarshal(raw, &reply) == nil && reply.Full
 }
 
-// NATSChatStartServer is the chat worker's end of NATSChatStarter.
-type NATSChatStartServer struct {
-	bus     messaging.RequestReply
+// ChatStartServer is the chat worker's end of ChatStarter.
+type ChatStartServer struct {
+	bus     messaging.ReplyServer
 	timeout time.Duration
 }
 
-// NewNATSChatStartServer returns a server on bus.
-func NewNATSChatStartServer(bus messaging.RequestReply, opts ...ChatStartOption) *NATSChatStartServer {
-	return &NATSChatStartServer{bus: bus, timeout: newChatStartOptions(opts).timeout}
+// NewChatStartServer returns a server on bus.
+func NewChatStartServer(bus messaging.ReplyServer, opts ...ChatStartOption) *ChatStartServer {
+	return &ChatStartServer{bus: bus, timeout: newChatStartOptions(opts).timeout}
 }
 
 // ChatStartHandler runs one chat start on the worker.
 type ChatStartHandler func(ctx context.Context, req workerctl.ChatStartRequest) workerctl.ChatStartReply
 
-// Serve answers chat starts in the chat-workers queue group until the returned
-// subscription is unsubscribed. The handler runs inline on the delivery
+// Serve answers the chat starts that frontends send to this process until the
+// returned subscription is unsubscribed. The handler runs inline on the delivery
 // goroutine: a start returns once the turn is handed to the loop, and the turn
 // itself runs in the background. Its context carries the start's budget,
 // so a stuck store cannot hold the worker's queue forever. An undecodable body
 // is answered with an "unmarshal error: " refusal.
-func (s *NATSChatStartServer) Serve(h ChatStartHandler) (messaging.Subscription, error) {
-	sub, err := s.bus.QueueSubscribeReply(messaging.SubjectChatStart, messaging.QueueChatWorkers, func(data []byte, reply func([]byte)) {
+func (s *ChatStartServer) Serve(h ChatStartHandler) (messaging.Subscription, error) {
+	sub, err := s.bus.SubscribeReply(messaging.SubjectChatStart, func(data []byte, reply func([]byte)) {
 		var req workerctl.ChatStartRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			sendAgentReply(reply, workerctl.ChatStartReply{Error: fmt.Sprintf("unmarshal error: %v", err)})

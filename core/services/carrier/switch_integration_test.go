@@ -422,6 +422,9 @@ type switchReplica struct {
 	held      atomic.Pointer[chan struct{}]
 	cur       atomic.Pointer[carrier.Set]
 	bus       *carrier.Broadcaster
+	// rr is request and reply with the other replicas, over the peer link
+	// whatever the carrier row says.
+	rr messaging.ProcessReplies
 	commands  *carrier.Commands
 	clients   *carrier.Clients
 	agents    *carrier.Agents
@@ -508,7 +511,6 @@ func (r *switchReplica) build(ctx context.Context, row cluster.CarrierRow, targe
 			AgentSelector:  nodes.NewAgentSelector(rig.nodeReg, rig.clusterR, r.id),
 			Registry:       rig.nodeReg,
 			InstallTimeout: 30 * time.Second, UpgradeTimeout: 30 * time.Second, Token: registrationToken,
-			Self: r.id, Peers: r.pool, Replies: r.replies,
 		})
 		if err != nil {
 			return nil, err
@@ -582,8 +584,9 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	r.bus, err = carrier.NewBroadcaster(carrier.BroadcasterOptions{
 		Floor:   floor,
 		Primary: &carrier.Bus{Name: carrier.BusNATS, Broadcaster: natsClient, OnReconnect: natsClient.OnReconnect, Connected: natsClient.IsConnected},
-		Sets:    &r.cur,
 	})
+	Expect(err).ToNot(HaveOccurred())
+	r.rr, err = carrier.NewPeerReplies(carrier.PeerRepliesOptions{Self: id, Peers: r.pool, Local: r.replies})
 	Expect(err).ToNot(HaveOccurred())
 
 	workers := nodes.NewSwitchWorkers(rig.nodeReg, time.Hour)
@@ -614,7 +617,7 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	Expect(err2).ToNot(HaveOccurred())
 
 	r.swapper, err2 = carrier.NewSwapper(carrier.SwapperOptions{
-		Cur: &r.cur, Bus: r.bus, Routes: r.routes, Rows: rig.store, Ready: r.member, Build: r.build,
+		Cur: &r.cur, Routes: r.routes, Rows: rig.store, Ready: r.member, Build: r.build,
 		Interval: 200 * time.Millisecond, Settle: 300 * time.Millisecond,
 	})
 	Expect(err2).ToNot(HaveOccurred())
@@ -626,7 +629,7 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	Expect(err).ToNot(HaveOccurred())
 	_, err = r.bus.Subscribe(messaging.SubjectCarrierChanged, func([]byte) { r.swapper.Wake() })
 	Expect(err).ToNot(HaveOccurred())
-	_, err = r.bus.SubscribeReply(replaySubject(id), func(data []byte, reply func([]byte)) {
+	_, err = r.rr.SubscribeReply(replaySubject(id), func(data []byte, reply func([]byte)) {
 		if string(data) == "hold" {
 			<-*r.held.Load()
 		}
@@ -660,7 +663,7 @@ func (rig *switchRig) row() cluster.CarrierRow {
 // ask sends a request from one replica to the replay subject of another, as a
 // frontend asks the owner of a chat turn for the events it missed.
 func (rig *switchRig) ask(from, to *switchReplica) (string, error) {
-	out, err := from.bus.RequestInstance(to.id, replaySubject(to.id), []byte("ping"), 2*time.Second)
+	out, err := from.rr.RequestInstance(to.id, replaySubject(to.id), []byte("ping"), 2*time.Second)
 	return string(out), err
 }
 
@@ -669,7 +672,7 @@ func (rig *switchRig) ask(from, to *switchReplica) (string, error) {
 func (rig *switchRig) askHeld(from, to *switchReplica) <-chan string {
 	answer := make(chan string, 1)
 	go func() {
-		out, err := from.bus.RequestInstance(to.id, replaySubject(to.id), []byte("hold"), 30*time.Second)
+		out, err := from.rr.RequestInstance(to.id, replaySubject(to.id), []byte("hold"), 30*time.Second)
 		if err != nil {
 			answer <- "error: " + err.Error()
 			return
@@ -958,12 +961,12 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		}()
 		Eventually(w.backend.loading, "10s").Should(Receive(Equal("slow")))
 
-		By("holding a request between the replicas on NATS across the change")
-		onNATS := rig.askHeld(a, b)
+		By("holding a request between the replicas across the change: it goes over the peer link whatever the row says")
+		held := rig.askHeld(a, b)
 		change(cluster.CarrierTunnel, false)
 		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"), "a new request goes over the peer link")
 		b.release()
-		Eventually(onNATS, "10s").Should(Receive(Equal("replica-b:hold")), "the request in flight ends on NATS")
+		Eventually(held, "10s").Should(Receive(Equal("replica-b:hold")), "the request in flight is not touched by the change")
 		b.rehold()
 		close(w.backend.gate)
 		Eventually(loadDone, "20s").Should(Receive(BeNil()))
@@ -978,12 +981,12 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(reply.Success).To(BeTrue())
 		Expect(w.installsOn(cluster.CarrierTunnel)).To(Equal(1))
 
-		By("going back to NATS with a request between the replicas held on the tunnel")
-		onTunnel := rig.askHeld(a, b)
+		By("going back to NATS with a request between the replicas held")
+		held = rig.askHeld(a, b)
 		change(cluster.CarrierNATS, false)
-		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"), "a new request goes over NATS")
+		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"), "a new request still goes over the peer link")
 		b.release()
-		Eventually(onTunnel, "10s").Should(Receive(Equal("replica-b:hold")), "the request in flight ends on the tunnel")
+		Eventually(held, "10s").Should(Receive(Equal("replica-b:hold")), "the request in flight is not touched by the change")
 		drained()
 		Expect(rig.attachedOf(w.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel))
 		out, err = a.clients.NewClient(w.nodeID, w.grpcAddr, false).Predict(rig.ctx, &pb.PredictOptions{Prompt: "over NATS"})
@@ -1134,7 +1137,7 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		w2 := rig.startAgent("agent-1")
 		rig.reports(w2.nodeID)
 		Eventually(func() (string, error) { return rig.mcp(a) }, "20s", "100ms").Should(Equal("ran search"), "MCP calls still reach an agent worker on NATS")
-		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"), "request and reply between the replicas still runs on NATS")
+		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"), "request and reply between the replicas still runs over the peer link")
 		heardBefore := b.chatter.get("after-abort")
 		Expect(a.bus.Publish(chatterSubject, "after-abort")).To(Succeed())
 		Eventually(func() int { return b.chatter.get("after-abort") }, "10s").Should(Equal(heardBefore + 1))

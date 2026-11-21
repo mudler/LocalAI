@@ -51,16 +51,6 @@ var _ = Describe("NewNATSSet", func() {
 		Expect(set.Commands.InstallTimeout()).To(Equal(3 * time.Minute))
 	})
 
-	It("carries request and reply over the connection it was given", func() {
-		set, err := carrier.NewNATSSet(opts())
-		Expect(err).ToNot(HaveOccurred())
-		_, err = bus.SubscribeReply("chats.replay.r1", func(_ []byte, reply func([]byte)) { reply([]byte("ok")) })
-		Expect(err).ToNot(HaveOccurred())
-		out, err := set.Replies.Request("chats.replay.r1", nil, time.Second)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(string(out)).To(Equal("ok"))
-	})
-
 	It("stages files over HTTP unless shared storage is configured", func() {
 		set, err := carrier.NewNATSSet(opts())
 		Expect(err).ToNot(HaveOccurred())

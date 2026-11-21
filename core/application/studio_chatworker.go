@@ -38,11 +38,10 @@ func (a *Application) StartChatWorker() error {
 	if a.studioService == nil {
 		return errors.New("chat worker: the chats did not start (see the earlier log, or LOCALAI_DISABLE_CHATS)")
 	}
-	// The subscription follows the carrier of the cluster. On NATS the worker is
-	// a member of the chat-workers queue group; on the tunnel a frontend finds it
-	// by the labels of its node (chatWorkerInstances) and sends the start over
-	// the peer link.
-	sub, err := nodes.NewNATSChatStartServer(d.Replies, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout)).Serve(a.studioService.ServeStart)
+	// A frontend finds the worker by the labels of its node
+	// (chatWorkerInstances) and sends the start over the peer link, on every
+	// deployment.
+	sub, err := nodes.NewChatStartServer(d.Replies, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout)).Serve(a.studioService.ServeStart)
 	if err != nil {
 		return fmt.Errorf("chat worker: %w", err)
 	}
@@ -57,7 +56,7 @@ func (a *Application) StartChatWorker() error {
 			a.studioWorkerNode = node
 		}
 	}
-	xlog.Info("Chat worker ready", "subject", messaging.SubjectChatStart, "queue", messaging.QueueChatWorkers)
+	xlog.Info("Chat worker ready", "subject", messaging.SubjectChatStart, "peer_address", d.peerAddress)
 	return nil
 }
 
@@ -80,8 +79,7 @@ func (a *Application) stopChatWorker() {
 const ChatWorkerRole = "chat-worker"
 
 // chatWorkerInstanceLabel names the replica that a chat worker runs as. A
-// frontend on the tunnel carrier reads it to send a start to the worker over
-// the peer link.
+// frontend reads it to send a start to the worker over the peer link.
 const chatWorkerInstanceLabel = "node.instance"
 
 // chatWorkerInstances lists the replicas that run a chat worker and are live
@@ -156,7 +154,7 @@ func registerChatWorkerNode(ctx context.Context, reg *nodes.NodeRegistry, name, 
 		xlog.Warn("Chat worker: could not label its node", "node", name, "error", err)
 	}
 	if err := reg.SetNodeLabel(ctx, node.ID, chatWorkerInstanceLabel, instance); err != nil {
-		xlog.Warn("Chat worker: could not name its replica on its node; no frontend on the tunnel carrier can reach it", "node", name, "error", err)
+		xlog.Warn("Chat worker: could not name its replica on its node; no frontend can send it a start", "node", name, "error", err)
 	}
 	beatCtx, cancel := context.WithCancel(ctx)
 	n := &chatWorkerNode{reg: reg, id: node.ID, cancel: cancel}

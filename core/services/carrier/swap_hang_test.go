@@ -35,7 +35,7 @@ var _ = Describe("a swapper whose build hangs", func() {
 		row = cluster.CarrierRow{Active: cluster.CarrierTunnel, State: cluster.StateStable, Epoch: 2}
 		started = make(chan struct{}, 1)
 		s, err := carrier.NewSwapper(carrier.SwapperOptions{
-			Cur: &cur, Bus: holderOver(&cur), Rows: staticRows{row}, Ready: nopReady{},
+			Cur: &cur, Rows: staticRows{row}, Ready: nopReady{},
 			Build: func(ctx context.Context, _ cluster.CarrierRow, _ cluster.Carrier) (*carrier.Set, error) {
 				started <- struct{}{}
 				<-ctx.Done()

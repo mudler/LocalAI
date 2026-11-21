@@ -184,6 +184,10 @@ func (f *failingSubscribeBus) QueueSubscribeReply(string, string, func([]byte, f
 	return nil, f.err
 }
 
+func (f *failingSubscribeBus) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
+	return nil, f.err
+}
+
 // The worker half must answer exactly as the agent worker always has: the
 // frontend reads an undecodable request's reply text, the queue group decides
 // which workers compete, and the handler context must outlive a shutdown.

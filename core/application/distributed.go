@@ -44,16 +44,16 @@ import (
 // (control verbs, files, clients, dials, agent RPC) go through the route table,
 // which picks the routes of each node (nodes.RoutesOf). The broadcaster listens
 // on every bus of the replica (PostgreSQL, and NATS when configured) and
-// publishes on one. Request and reply go to the carrier set that the cluster
-// row names. Only Shutdown reaches the routes, the buses and the set themselves.
+// publishes on one. Request and reply between processes go over the peer link.
+// Only Shutdown reaches the routes, the buses and the set themselves.
 type DistributedServices struct {
 	// Broadcaster is the fan-out seam. Code that only publishes and subscribes
 	// takes this, never the connection of a carrier.
 	Broadcaster messaging.Broadcaster
-	// Replies is request and reply between the processes of the cluster, on the
-	// same holder as Broadcaster. On a carrier that has none, every request fails
-	// with messaging.ErrNotDelivered: nothing was sent, and it is not absence.
-	Replies      messaging.RequestReply
+	// Replies is request and reply between the frontends and chat workers over
+	// the peer link (the chat start, the replay of chat events, the background
+	// jobs of a turn), on every deployment.
+	Replies      messaging.ProcessReplies
 	AgentControl mcpTools.AgentControl
 	Store        storage.ObjectStore
 	Registry     *nodes.NodeRegistry
@@ -112,13 +112,16 @@ type DistributedServices struct {
 	// build.
 	Runtime *carrierRuntime
 
-	// active names the carrier set of the cluster carrier row: the request and
-	// reply of the holder, and a worker route of the route table. The change of
-	// carrier moves it; it is removed with the change (step 8 of the hybrid
-	// carriers work). No broadcast and no worker call reads it.
+	// active names the carrier set of the cluster carrier row: a worker route of
+	// the route table. The change of carrier moves it; it is removed with the
+	// change (step 8 of the hybrid carriers work). No broadcast, no request
+	// between processes and no worker call reads it.
 	active *atomic.Pointer[carrier.Set]
 	// bus is the broadcaster holder, which Broadcaster names as an interface.
 	bus *carrier.Broadcaster
+	// peerAddress is the address at which the other processes reach this one
+	// over the peer link, "" when none was found or configured.
+	peerAddress string
 	// routes is the route table of the worker calls.
 	routes *carrier.RouteTable
 	// tunnelRoutes is the tunnel route, pinned in the table for as long as the
@@ -134,12 +137,27 @@ type DistributedServices struct {
 // server of the cluster is configured and this replica does not reach it, so it
 // does not hear the broadcasts of the others. A load balancer that reads
 // /readyz drains it until NATS is back; it keeps listening on PostgreSQL.
+//
+// A process with no peer address is unready too: the chat start, the replay of
+// chat events and the background jobs of a turn reach it only over the peer
+// link.
 func (ds *DistributedServices) Unready() error {
-	if ds == nil || ds.bus == nil {
+	if ds == nil {
+		return nil
+	}
+	if ds.peerAddress == "" {
+		return ErrNoPeerAddress
+	}
+	if ds.bus == nil {
 		return nil
 	}
 	return ds.bus.Unready()
 }
+
+// ErrNoPeerAddress says that a frontend or chat worker publishes no address for
+// the peer link, so the other processes cannot send it a chat start, a replay
+// or a job request.
+var ErrNoPeerAddress = errors.New("this process has no peer address, so the other frontends and chat workers cannot reach it for chat starts, chat replay and background jobs: set LOCALAI_PEER_ADDRESS to a host:port of this process that they can reach")
 
 // Disconnect ends the tunnel that this replica holds for a node, and drops what
 // the routes cache for it. The node was removed or its credential was replaced.
@@ -385,7 +403,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	peerPool := tunnel.NewPeerPool(cfg.Distributed.InstanceID, peerCred, clusterReg, peerOpts...)
 	// The handlers of the requests that other replicas send to this one over the
-	// peer link. The tunnel set registers them; on NATS it stays empty.
+	// peer link: the chat start, the replay and the background jobs.
 	replies := tunnel.NewReplies(cfg.Distributed.InstanceID, messaging.MaxBroadcastBytes)
 	peerSessions := tunnel.NewPeerSessions(tunnel.NewRelay(tunnels, tunnel.WithReplies(replies)).Stream)
 
@@ -430,7 +448,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	runtime := &carrierRuntime{
 		cfg: cfg, db: authDB, settings: settingsStore, registry: registry, fileMgr: fileMgr,
 		instanceID: cfg.Distributed.InstanceID, clusterReg: clusterReg,
-		tunnels: tunnels, peerPool: peerPool, replies: replies, active: active,
+		tunnels: tunnels, peerPool: peerPool, active: active,
 		tunnelRoutes: tunnelRoutes,
 		probeWake:    make(chan struct{}, 1),
 	}
@@ -453,20 +471,23 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	buses = append(buses, natsBus)
 
-	// Build the set of the carrier that the row names. Its request and reply are
-	// behind the broadcaster holder, and its worker route goes in the route
-	// table. A NATS set shares the connection of the NATS bus.
+	// Build the set of the carrier that the row names. Its worker route goes in
+	// the route table. A NATS set shares the connection of the NATS bus.
 	startSet, err = runtime.build(context.Background(), carrierRow, carrierRow.Active, false)
 	if err != nil {
 		return nil, fmt.Errorf("building the %s carrier that the cluster uses: %w", carrierRow.Active, err)
 	}
 	active.Store(startSet)
 	routes.Attach(startSet.WorkerRoute)
-	broadcaster, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: floor, Primary: natsBus, Sets: active})
+	broadcaster, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: floor, Primary: natsBus})
 	if err != nil {
 		return nil, err
 	}
 	runtime.bus = broadcaster
+	peerReplies, err := runtime.peerReplies(replies)
+	if err != nil {
+		return nil, err
+	}
 
 	workers := nodes.NewSwitchWorkers(registry, cfg.Distributed.StaleNodeThresholdOrDefault())
 	clientFactory := carrier.NewClients(routes)
@@ -767,7 +788,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, err
 	}
 	swapper, err = carrier.NewSwapper(carrier.SwapperOptions{
-		Cur: active, Bus: broadcaster, Routes: routes,
+		Cur: active, Routes: routes,
 		Rows: carrierStore, Ready: membership, Build: runtime.Build,
 	})
 	if err != nil {
@@ -788,7 +809,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		PeerPool:     peerPool,
 		WorkerDialer: tunnel.NewWorkerDialer(tunnels, peerPool),
 		Broadcaster:  broadcaster,
-		Replies:      broadcaster,
+		Replies:      peerReplies,
 		AgentControl: agentControl,
 		Store:        store,
 		Registry:     registry,
@@ -807,6 +828,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 		active:       active,
 		bus:          broadcaster,
+		peerAddress:  advertised,
 		routes:       routes,
 		tunnelRoutes: tunnelRoutes,
 		workers:      workers,
@@ -1057,9 +1079,10 @@ func clearTextOnNetwork(addr string) bool {
 // address that the operator configured is checked and used as it is. Without
 // one, it comes from the route to the database, which all replicas share.
 //
-// A replica that has no usable address is not refused. It publishes none, and
-// the replicas that need to relay through it find it unreachable, which is
-// reported when they try. The log line says how to fix it.
+// A replica that has no usable address is not refused at start. It publishes
+// none, and it is not ready (DistributedServices.Unready): the chat start, the
+// replay and the jobs reach a process only over the peer link. The log line says
+// how to fix it.
 func peerAddress(cfg *config.ApplicationConfig) string {
 	if configured := cfg.Distributed.PeerAddress; configured != "" {
 		reason, err := cluster.CheckAdvertisedAddr(configured)

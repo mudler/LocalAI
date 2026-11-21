@@ -23,8 +23,8 @@ files to that spec.
 | Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer`, `httpControlServer` |
 | Agent RPC, frontend half | `AgentControl` (package `mcp`), and `nodes.NodeAgentControl` for a call that names the worker | `core/http/endpoints/mcp`, `core/services/nodes` | `nodes.NATSAgentControl`, `nodes.AgentControlClient` (tunnel) |
 | Agent RPC, worker half | `agentworker.ServeConfig`, which serves every route of the worker: `nodes.NATSAgentRPCServer` on NATS, `agentworker.Handler` on the tunnel | `core/services/agentworker`, `core/services/nodes` | `nodes.NATSAgentRPCServer`, `agentworker.Config` |
-| Chat start, frontend half | `studio.ChatWorkers` | `core/services/studio` | `nodes.NATSChatStarter`, over the queue request of the broadcaster holder (NATS queue group, or a pick by the frontend on the tunnel) |
-| Chat start, worker half | `studio.Service.ServeStart`, served by `nodes.ChatStartHandler` | `core/application/studio_chatworker.go` | `nodes.NATSChatStartServer` |
+| Chat start, frontend half | `studio.ChatWorkers` | `core/services/studio` | `nodes.ChatStarter`, over the queue request of the peer link (`messaging.ProcessReplies`): the frontend picks the chat worker |
+| Chat start, worker half | `studio.Service.ServeStart`, served by `nodes.ChatStartHandler` | `core/application/studio_chatworker.go` | `nodes.ChatStartServer` |
 | Dial to a worker | `nodes.BackendClientFactory`, `nodes.ModelProber`, `nodes.WorkerNetDialerFor` | `core/services/nodes` | direct dial |
 
 Request and reply payloads of the control verbs live in
@@ -46,8 +46,10 @@ The seams split in two:
   websocket or over P2P).
 - The broadcaster holder (`carrier.Broadcaster`) is what the frontends and chat
   workers broadcast on. It listens on the buses of the process and does not
-  follow the carrier row. Workers never use it. Request and reply between those
-  processes still go to the `Replies` of the set that the row names.
+  follow the carrier row. Workers never use it.
+- Request and reply between those processes go over the peer link
+  (`carrier.NewPeerReplies`, a `messaging.ProcessReplies`), on every
+  deployment, and do not follow the row either.
 
 `Commands`, `Files`, `Clients`, the dialer and `Agents` take a
 `carrier.RouteTable`. It holds one route of each kind and reads the routes of a
@@ -80,11 +82,10 @@ because the scoped verb does not say which node failed and how.
 The tunnel route is built once at start (`carrier.NewTunnelRoutes`) and pinned
 in the table (`RouteTable.Pin`). The direct route is the one of the NATS set.
 
-A `carrier.Set` is one carrier of the cluster carrier row: its `Replies` and the
-`WorkerRoute` it brings. The broadcaster holder loads an
-`atomic.Pointer[carrier.Set]` once per request and uses its `Replies`. No
-broadcast and no worker call reads that pointer. A NATS set built for the address
-of the NATS bus shares the connection of the bus (`NATSOptions.Shared`), and its
+A `carrier.Set` is one carrier of the cluster carrier row: the `WorkerRoute` it
+brings. No broadcast, no request between processes and no worker call reads the
+`atomic.Pointer[carrier.Set]` of the row. A NATS set built for the address of
+the NATS bus shares the connection of the bus (`NATSOptions.Shared`), and its
 `Close` leaves it open. Build a set completely and call `Validate` before you store
 it. `carrier.NewNATSSet` and `carrier.NewTunnelSet` are the places that build a
 set; a tunnel set brings the pinned tunnel route (`TunnelOptions.Routes`) and its
@@ -123,11 +124,6 @@ are not ordered, so `syncstate` and the failover sync read their tables again.
 The change is seen on the next publish. A process that stays connected and hears
 a peer move between the buses runs no hook; the periodic `Reconcile` of
 `syncstate` repairs that.
-
-`Listen(set)` and `Release(set)` move the reply subscriptions to the request and
-reply of a set, as the change of carrier asks. A set member of the registry
-carries no broadcast. They go with request and reply on the peer link (step 5)
-and the change of carrier (step 8).
 
 `carrier.NewPgbusFanout` opens the LISTEN connection of the floor, and
 `Fanout.Bus` returns it as a bus. Every frontend and chat worker opens it once at
@@ -182,8 +178,8 @@ The row has a state, and every move is a compare-and-set on the epoch:
 | State | Meaning | Who moves it on |
 |---|---|---|
 | `stable` | One carrier is active. A previous carrier may still be attached (`draining`, `draining_until`). | the admin starts a change |
-| `prepare` | Every replica builds the target and listens on it. Requests stay on the old carrier. | the leader, when every live replica reported ready for this epoch |
-| `commit` | The target is active. Every replica sends its requests and new calls on it and confirms with the epoch of the commit. | the leader, when every live replica confirmed |
+| `prepare` | Every replica builds the target. New calls stay on the old carrier. | the leader, when every live replica reported ready for this epoch |
+| `commit` | The target is active. Every replica sends its new calls on it and confirms with the epoch of the commit. | the leader, when every live replica confirmed |
 | `stable` | The old carrier drains for `max_drain`. | the leader, at `draining_until` |
 
 `cluster.Switch` holds the protocol and keeps no state outside the row and the
@@ -209,13 +205,12 @@ and names it in the note of the row.
 
 `carrier.Swapper` is what a replica does. It polls the row every two seconds with a
 jitter, and a hint on `state.carrier` makes it look at once; the poll decides. In
-`prepare` it builds the target, attaches every reply subscription to it
-(`Broadcaster.Listen`) and reports ready for the epoch. In `commit` it stores the
-set, so that requests and new calls use it, and confirms. In `stable` with a drain
-it does nothing: the old set stays attached. When the leader ends the drain it stops
-listening on the old set and closes the set after a settle time, so that a call
-that took the set just before the switch can end. The broadcasts never move, so it
-runs no reconnect hook. A
+`prepare` it builds the target and reports ready for the epoch. In `commit` it
+stores the set, so that new calls use it, and confirms. In `stable` with a drain
+it does nothing: the old set stays attached. When the leader ends the drain it
+detaches the route of the old set and closes the set after a settle time, so that
+a call that took the set just before the switch can end. The broadcasts and the
+requests between processes never move, so it runs no reconnect hook. A
 replica that polls late, restarts or joins during a change acts on the row alone.
 
 Worker calls do not follow the row. The swapper attaches the worker route of a
@@ -342,14 +337,18 @@ agents and jobs; chat runs and triggers use the database and advisory locks
 `core/services/messaging`, with its own subject root added to
 `broadcastRoots` in `subject_rules.go`.
 
-The chat start is not a queue: it is a request/reply in a queue group, like the
-agent RPC. Nothing is buffered, and the reply says whether the turn started.
+The chat start is not a queue either: it is a request to one chat worker that
+the frontend picks. Nothing is buffered, and the reply says whether the turn
+started.
 
 ## Chat start
 
 `studio.ChatWorkers.StartChat` hands the start of an unattended run (trigger,
-job, connector message) to one chat worker on `chats.start`, queue group
-`chat-workers`. The payloads are `workerctl.ChatStartRequest` and
+job, connector message) to one chat worker on `chats.start`, over the peer link
+(`nodes.ChatStarter` over `DistributedServices.Replies`). The frontend lists the
+live chat workers from the node list (`chatWorkerInstances`: healthy `agent`
+nodes with `node.role=chat-worker`, by `node.instance`, among the live
+replicas) and tries up to three, as described below. The payloads are `workerctl.ChatStartRequest` and
 `ChatStartReply`. Only the deadline of ctx bounds the wait, as for the agent
 RPC. Without one the start's budget does: `LOCALAI_CHAT_START_TIMEOUT`
 (`nodes.WithChatStartTimeout`, default `nodes.DefaultChatStartTimeout`). The
@@ -358,12 +357,13 @@ worker gives the handler the same budget.
 - `ErrNoRoute` (wrapped): no worker listens. `Service.SendBackground` runs the
   turn on the frontend.
 - `messaging.ErrNotDelivered` (wrapped): the start reached no worker (none
-  could be reached, or the carrier carries no starts). Nothing started, so the
-  frontend runs the turn too. It is not `ErrNoRoute`.
+  could be reached). Nothing started, so the frontend runs the turn too. It is
+  not `ErrNoRoute`.
 - A timeout or a transport error: the worker may have started the turn. The
   start fails and nothing runs on the frontend, so a message cannot run twice.
 - A reply with `Error` set: the worker's refusal. The start fails with
-  `studio.ErrWorkerRefused`.
+  `studio.ErrWorkerRefused`. A reply with `Full` set is a refusal that proves
+  that nothing started, so the frontend tries the next worker first.
 
 The worker half runs the handler inline on the delivery goroutine. A start
 only claims the turn and hands the message to the loop, so it is short; the
@@ -371,34 +371,41 @@ turn runs in the background. Events and stop of the turn use the existing
 `chats.events.*` and `chats.control.*` subjects.
 
 A client whose chat event stream reconnects to a frontend that does not run
-the turn gets the missed events from the process that does, by request/reply on
-`chats.replay.<instance>` (`studio.NewReplayCarrier`). The turn records its
+the turn gets the missed events from the process that does, by a request over
+the peer link to that instance (`studio.NewReplayCarrier`; each process serves
+the subject `chats.replay.<instance>`, which only picks the handler on the far
+process). The turn records its
 instance on the chat (`store.Store.SetTurnOwner`). No answer in 2 s, or an
 answer of `resync`, means the client reads the transcript; nothing else acts on
 it.
 
 ### Request and reply between processes
 
-The broadcaster holder also carries request and reply (`messaging.RequestReply`):
-the chat start, the chat replay and the background jobs of a turn. On NATS the
-subject routes a request (`Set.Replies` is the NATS client). On the tunnel there
-is no broker, so the asking process names the process that answers, and the
-holder has two more calls for it: `RequestInstance` (the replay and the job asks,
-which know the instance of the owner) and `RequestQueue` (the chat start). A
-carrier that routes by subject gets the plain request from both
-(`messaging.RequestInstance`, `messaging.RequestQueue`), so NATS is unchanged.
+The chat start, the chat replay and the background jobs of a turn are request
+and reply between the frontends and the chat workers. The peer link is the one
+transport for them on every deployment, NATS included:
+`DistributedServices.Replies` is a `messaging.ProcessReplies` built once at start
+by `carrier.NewPeerReplies` (`SubscribeReply`, `RequestInstance`,
+`RequestQueue`). It does not follow the carrier row and has no per-carrier
+branch. There is no broker, so the asking process names the process that
+answers: the replay and the job asks name the instance of the owner
+(`RequestInstance`), and the chat start names a queue (`RequestQueue`). A request
+goes over the peer link to the process it names (`tunnel.PeerPool.Request`), and
+the far process runs the handler that it registered for the subject
+(`tunnel.Replies`; the tunnel package names no subject). A request for this
+process runs in the process. A queue request lists the members
+(`PeerRepliesOptions.Queues`: for `chats.start`, the live replicas that a
+healthy `agent` node with `node.role=chat-worker` names in `node.instance`),
+tries them in a random order, at most three, and moves on only when the failure
+proves that the member ran nothing. Each try may spend only its share of what is
+left of the budget to open its stream (the dial of the peer link included), so
+one member that does not answer leaves time for the others; a member that took
+the request has the rest of the budget for its handler.
 
-On the tunnel (`carrier.tunnelReplies`) a request goes over the peer link to the
-replica it names (`tunnel.PeerPool.Request`), and the far replica runs the
-handler that it registered for the subject (`tunnel.Replies`; the tunnel package
-names no subject). A request for this replica runs in the process. A queue
-request lists the members (`TunnelOptions.Queues`: for `chats.start`, the live
-replicas that a healthy `agent` node with `node.role=chat-worker` names in
-`node.instance`), tries them in a random order, at most three, and moves on only
-when the failure proves that the member ran nothing. Each try may spend only its
-share of what is left of the budget to open its stream (the dial of the peer
-link included), so one member that does not answer leaves time for the others;
-a member that took the request has the rest of the budget for its handler.
+Every frontend and chat worker therefore needs a peer address that the others
+reach (`peerAddress` at start, `LOCALAI_PEER_ADDRESS` overrides). A process with
+none is unready (`application.ErrNoPeerAddress`, from
+`DistributedServices.Unready`). Model workers open no new port.
 
 - **Not started** (`tunnel.NotStarted`): the request was not written whole, the
   replica serves nothing for the subject, it is not the replica named, it
@@ -411,10 +418,7 @@ a member that took the request has the rest of the budget for its handler.
   handler ran. It is returned and never sent again, so a message is never run
   twice.
 
-`SubscribeReply` and `QueueSubscribeReply` are kept in the registry of the
-holder like a broadcast subscription, so a handler follows a change of carrier;
-a request in flight ends on the carrier where it began. The handler gets no
-context, as on NATS: the stream is closed when the caller gives up, and the
+The handler gets no context: the stream is closed when the caller gives up, and the
 reply is dropped. The budget of the caller crosses in the request frame and
 bounds the wait of the far replica. A request and a reply are bounded by
 `messaging.MaxBroadcastBytes`. A body is read into a buffer that grows with the
@@ -427,16 +431,15 @@ errors. Absence (`messaging.ErrNoResponders`) exists only for a queue request,
 when every member tried is not in the deployment or serves nothing for the
 subject. A request to a named replica (`RequestInstance`) is never absent: a
 replica with no row may be a live one whose heartbeats stalled past the reap
-window, and one that serves nothing may not have prepared a forced change of
-carrier, so both are `messaging.ErrNotDelivered`. So are a peer that does not
-answer, an older release, a busy replica and a replica that is not the one
-named. `ErrNotDelivered` is never absence: no caller may read it as a process
-that left. A request above the bound is `messaging.ErrPayloadTooLarge`; a reply
-above it is not. A set with no request and reply (`Set.Replies` nil) answers
-`ErrNotDelivered` too.
+window, and one that serves nothing may not have registered its handler yet, so
+both are `messaging.ErrNotDelivered`. So are a peer that does not answer, an
+older release, a busy replica and a replica that is not the one named.
+`ErrNotDelivered` is never absence: no caller may read it as a process that
+left. A request above the bound is `messaging.ErrPayloadTooLarge`; a reply above
+it is not. A subject that no queue lists answers `ErrNotDelivered` too.
 
-On the tunnel a background job is therefore never marked lost because its node
-did not answer: only a node that answers that it does not know the job makes it
+A background job is therefore never marked lost because its node did not
+answer: only a node that answers that it does not know the job makes it
 lost. A job whose node left for good stays running in the view, and an ask about
 it says that the node could not be reached.
 
@@ -777,13 +780,13 @@ same list (see "Holders and the carrier row").
   the node registry through the database (an approved `agent` node with
   `node.role=chat-worker`, see `registerChatWorkerNode`), so the node list
   shows it and the scheduler skips it. A drain does not reach it, and it gets
-  no minted JWT: that needs `chats.start` (sub, queue) and the
-  `chats.events.*` / `chats.control.*` subjects in `pkg/natsauth`.
+  no minted JWT: that needs the `chats.events.*` / `chats.control.*` subjects
+  in `pkg/natsauth`. Its chat starts come over the peer link, so it needs no
+  NATS subject for them.
 - A chat worker refuses a start that would take it past
   `LOCALAI_CHAT_WORKER_MAX_TURNS` running turns (`studio.ErrWorkerFull`,
-  `ChatStartReply.Full`). On the tunnel the frontend sends the start to another
-  worker. On NATS the run fails: the queue group picks the worker, not the
-  frontend.
+  `ChatStartReply.Full`). The frontend sends the start to another worker, on
+  every deployment.
 - The requests between replicas share the peer link with the bulk traffic that
   it relays to workers (one session with the windows of the bulk lane). A
   512 KiB replay page behind one model file transfer takes about 0.13 s at

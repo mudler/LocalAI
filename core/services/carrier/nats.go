@@ -56,8 +56,8 @@ type NATSOptions struct {
 	Shared bool
 }
 
-// NewNATSSet builds the set of seam implementations that run over NATS: request
-// and reply on the NATS connection, and the direct route (NewNATSRoutes).
+// NewNATSSet builds the set of the NATS carrier: the direct route
+// (NewNATSRoutes).
 func NewNATSSet(o NATSOptions) (*Set, error) {
 	route, err := NewNATSRoutes(o)
 	if err != nil {
@@ -66,7 +66,6 @@ func NewNATSSet(o NATSOptions) (*Set, error) {
 	set := &Set{
 		Name:        cluster.CarrierNATS,
 		Epoch:       o.Epoch,
-		Replies:     o.Client,
 		WorkerRoute: route,
 		Close:       route.Close,
 	}

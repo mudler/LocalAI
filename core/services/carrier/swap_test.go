@@ -10,7 +10,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	nodesvc "github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	. "github.com/onsi/ginkgo/v2"
@@ -24,50 +23,21 @@ import (
 // swapSubject is a broadcast subject that every carrier serves.
 const swapSubject = "state.swap-spec"
 
-// replySubject is a request and reply subject of the specs.
-const replySubject = "chats.replay.spec"
-
-// fakeNet is the network that the replicas of a spec share. There is one
-// request and reply bus for each carrier, and one floor for the broadcasts, so
-// a message that one replica publishes reaches the replicas that listen on it.
+// fakeNet is the network that the replicas of a spec share: one floor for the
+// broadcasts, so a message that one replica publishes reaches the replicas that
+// listen on it.
 type fakeNet struct {
-	bus   map[cluster.Carrier]*testutil.FakeBus
 	floor *testutil.FakeBus
 }
 
 func newFakeNet() *fakeNet {
-	return &fakeNet{
-		bus: map[cluster.Carrier]*testutil.FakeBus{
-			cluster.CarrierNATS:   testutil.NewFakeBus(),
-			cluster.CarrierTunnel: testutil.NewFakeBus(),
-		},
-		floor: testutil.NewFakeBus(),
-	}
-}
-
-// served says whether a reply handler on subject is attached to the request and
-// reply of carrier c.
-func (n *fakeNet) served(c cluster.Carrier, subject string) bool {
-	_, ok := n.bus[c].DeliverReply(subject, nil)
-	return ok
+	return &fakeNet{floor: testutil.NewFakeBus()}
 }
 
 // errUsedAfterClose is what a fake carrier answers once its set is closed. A real
 // carrier answers with an error or a panic then, and a spec about "never reaches
 // a closed set" must be able to see that.
 var errUsedAfterClose = errors.New("the carrier was used after it was closed")
-
-type closedAwareReplies struct {
-	messaging.RequestReply
-	closed *atomic.Bool
-}
-
-func (r closedAwareReplies) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
-	if r.closed.Load() {
-		return nil, errUsedAfterClose
-	}
-	return r.RequestReply.Request(subject, data, timeout)
-}
 
 // routeSpy records whether the swapper attached the route of a set before the
 // pointer named the set.
@@ -141,10 +111,8 @@ func (n *replicaNode) build(_ context.Context, row cluster.CarrierRow, target cl
 // n.mu.
 func (n *replicaNode) newSet(name cluster.Carrier, epoch int64) *carrier.Set {
 	f := newFakeCarrier(name, epoch)
-	bus := n.net.bus[name]
 	closed := &atomic.Bool{}
 	f.commands.closed = closed
-	f.set.Replies = closedAwareReplies{RequestReply: bus, closed: closed}
 	f.set.Close = func() { closed.Store(true); n.life.rec("close:" + string(name)) }
 	n.sets[name] = append(n.sets[name], f)
 	return f.set
@@ -201,7 +169,7 @@ var _ = Describe("The swap of a replica", func() {
 		n.mu.Lock()
 		n.cur.Store(n.newSet(row.Active, row.Epoch))
 		n.mu.Unlock()
-		n.bus, err = carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: fakeFloor(net.floor), Sets: &n.cur})
+		n.bus, err = carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: fakeFloor(net.floor)})
 		Expect(err).ToNot(HaveOccurred())
 		n.routes = carrier.NewRouteTable(func(_ context.Context, nodeID string) ([]nodesvc.Route, error) {
 			n.mu.Lock()
@@ -211,7 +179,7 @@ var _ = Describe("The swap of a replica", func() {
 		n.routes.Attach(n.cur.Load().WorkerRoute)
 		n.cmds = carrier.NewCommands(n.routes)
 		n.swapper, err = carrier.NewSwapper(carrier.SwapperOptions{
-			Cur: &n.cur, Bus: n.bus, Routes: routeSpy{n.routes, n}, Rows: store,
+			Cur: &n.cur, Routes: routeSpy{n.routes, n}, Rows: store,
 			Ready: readyReporter{reg: reg, id: id}, Build: n.build,
 			Interval: time.Hour, Settle: settleFor,
 		})
@@ -326,25 +294,19 @@ var _ = Describe("The swap of a replica", func() {
 			Expect(a.life.seen()).To(ContainElement("close:nats"), "the set built from the old address is closed")
 		})
 
-		It("builds the target while the old carrier still serves, listens on both, and reports ready", func() {
+		It("builds the target while the old carrier still serves, and reports ready", func() {
 			a, b := join("a"), join("b")
-			_, err := a.bus.SubscribeReply(replySubject, func(_ []byte, reply func([]byte)) { reply(nil) })
-			Expect(err).ToNot(HaveOccurred())
 
 			request(cluster.CarrierTunnel)
 			poll()
 
 			Expect(a.buildCount(cluster.CarrierTunnel)).To(Equal(1))
-			Expect(a.active()).To(Equal(cluster.CarrierNATS), "requests still go on the old carrier")
+			Expect(a.active()).To(Equal(cluster.CarrierNATS), "new calls still go on the old carrier")
 			in, err := reg.Get(ctx, "a")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(in.ReadyEpoch).To(Equal(row().Epoch))
 			Expect(in.ReadyReason).To(BeEmpty())
 
-			// A replica that swapped first sends its requests on the new carrier, and
-			// the reply handler of this one is there.
-			Expect(net.served(cluster.CarrierTunnel, replySubject)).To(BeTrue())
-			Expect(net.served(cluster.CarrierNATS, replySubject)).To(BeTrue())
 			_ = b
 		})
 
@@ -392,34 +354,23 @@ var _ = Describe("The swap of a replica", func() {
 
 		It("drops the prepared set when the change is aborted, and keeps the old carrier", func() {
 			a := join("a")
-			_, err := a.bus.SubscribeReply(replySubject, func(_ []byte, reply func([]byte)) { reply(nil) })
-			Expect(err).ToNot(HaveOccurred())
 			request(cluster.CarrierTunnel)
 			poll()
 			prepared := a.fake(cluster.CarrierTunnel)
 
-			_, err = sw.Abort(ctx, "admin")
+			_, err := sw.Abort(ctx, "admin")
 			Expect(err).ToNot(HaveOccurred())
 			poll()
 
 			Expect(a.life.seen()).To(ContainElement("close:tunnel"))
 			Expect(a.active()).To(Equal(cluster.CarrierNATS))
-			Expect(net.served(cluster.CarrierTunnel, replySubject)).To(BeFalse(), "the subscription is not attached to the prepared set any more")
-			Expect(net.served(cluster.CarrierNATS, replySubject)).To(BeTrue())
 			Expect(prepared).ToNot(BeNil())
 		})
 	})
 
 	Describe("commit", func() {
-		It("stores the new set, so that requests go to it, and keeps the old carrier attached", func() {
+		It("stores the new set, so that new calls go to it, and keeps the old carrier attached", func() {
 			a, b := join("a"), join("b")
-			_, err := net.bus[cluster.CarrierNATS].SubscribeReply("chats.replay.far", func(_ []byte, reply func([]byte)) { reply([]byte("nats")) })
-			Expect(err).ToNot(HaveOccurred())
-			_, err = net.bus[cluster.CarrierTunnel].SubscribeReply("chats.replay.far", func(_ []byte, reply func([]byte)) { reply([]byte("tunnel")) })
-			Expect(err).ToNot(HaveOccurred())
-			_, err = a.bus.SubscribeReply(replySubject, func(_ []byte, reply func([]byte)) { reply(nil) })
-			Expect(err).ToNot(HaveOccurred())
-
 			request(cluster.CarrierTunnel)
 			poll()
 			drive()
@@ -427,15 +378,8 @@ var _ = Describe("The swap of a replica", func() {
 			poll(a)
 			Expect(a.active()).To(Equal(cluster.CarrierTunnel))
 			Expect(b.active()).To(Equal(cluster.CarrierNATS), "b has not polled yet")
-
-			out, err := a.bus.Request("chats.replay.far", nil, time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(out)).To(Equal("tunnel"))
-			out, err = b.bus.Request("chats.replay.far", nil, time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(out)).To(Equal("nats"))
-			// b has not swapped and sends on the old carrier, where a still answers.
-			Expect(net.served(cluster.CarrierNATS, replySubject)).To(BeTrue())
+			Expect(a.routes.Route(nodesvc.RouteDirect)).ToNot(BeNil(), "the old carrier stays attached")
+			Expect(a.routes.Route(nodesvc.RouteTunnel)).ToNot(BeNil())
 		})
 
 		It("confirms the commit so the leader can settle", func() {
@@ -498,8 +442,6 @@ var _ = Describe("The swap of a replica", func() {
 				Expect(n).To(Equal(1), "message %s was delivered %d times", m, n)
 			}
 			Expect(net.floor.PublishCount(swapSubject)).To(Equal(sent), "the floor carried every broadcast")
-			Expect(net.bus[cluster.CarrierNATS].PublishCount(swapSubject)).To(BeZero(), "no broadcast follows the row")
-			Expect(net.bus[cluster.CarrierTunnel].PublishCount(swapSubject)).To(BeZero())
 			Expect(reconnects.Load()).To(BeZero(), "the broadcasts did not move, so the consumers need not read their tables")
 		})
 
@@ -550,25 +492,20 @@ var _ = Describe("The swap of a replica", func() {
 	Describe("the drain", func() {
 		It("keeps the old carrier attached until the leader ends the drain", func() {
 			a := join("a")
-			_, err := a.bus.SubscribeReply(replySubject, func(_ []byte, reply func([]byte)) { reply(nil) })
-			Expect(err).ToNot(HaveOccurred())
 			settle(cluster.CarrierTunnel)
 			poll()
 
-			Expect(net.served(cluster.CarrierNATS, replySubject)).To(BeTrue(), "a late requester on the old carrier is still answered")
+			Expect(a.routes.Route(nodesvc.RouteDirect)).ToNot(BeNil(), "a worker that is only on the old carrier is still reached")
 			Expect(a.life.seen()).ToNot(ContainElement(ContainSubstring("close:nats")))
 		})
 
-		It("releases the old carrier when the drain ends: unsubscribes and closes, and runs no reconnect hook", func() {
+		It("releases the old carrier when the drain ends: detaches and closes it, and runs no reconnect hook", func() {
 			a := join("a")
-			_, err := a.bus.SubscribeReply(replySubject, func(_ []byte, reply func([]byte)) { reply(nil) })
-			Expect(err).ToNot(HaveOccurred())
 			settle(cluster.CarrierTunnel)
 			expire()
 
 			Eventually(a.life.seen, "5s").Should(ContainElement("close:nats"))
-			Expect(net.served(cluster.CarrierNATS, replySubject)).To(BeFalse(), "the old carrier is no longer listened on")
-			Expect(net.served(cluster.CarrierTunnel, replySubject)).To(BeTrue())
+			Expect(a.routes.Route(nodesvc.RouteDirect)).To(BeNil(), "the old carrier is no longer attached")
 			Expect(a.reconnect.Load()).To(BeZero(), "the broadcasts never moved")
 		})
 
@@ -720,8 +657,6 @@ var _ = Describe("The swap of a replica", func() {
 						default:
 						}
 						Expect(a.bus.Publish(swapSubject, "x")).To(Succeed())
-						_, err := a.bus.Request(replySubject, nil, time.Second)
-						Expect(err).ToNot(MatchError(errUsedAfterClose))
 						// The fake carriers answer a call to a closed set with an error, as
 						// a real one does, so a call that reaches one fails this spec.
 						Expect(a.cmds.PingNode("on-nats")).To(Succeed())
@@ -747,7 +682,7 @@ var _ = Describe("The swap of a replica", func() {
 			meter := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)).Meter("spec")
 			a := join("a")
 			measured, err := carrier.NewSwapper(carrier.SwapperOptions{
-				Cur: &a.cur, Bus: a.bus, Routes: a.routes, Rows: store,
+				Cur: &a.cur, Routes: a.routes, Rows: store,
 				Ready: readyReporter{reg: reg, id: "a"}, Build: a.build,
 				Interval: time.Hour, Meter: meter,
 			})
@@ -810,7 +745,7 @@ var _ = Describe("The swap of a replica", func() {
 			loopCtx, cancel := context.WithCancel(ctx)
 			defer cancel()
 			fast, err := carrier.NewSwapper(carrier.SwapperOptions{
-				Cur: &a.cur, Bus: a.bus, Routes: a.routes, Rows: store,
+				Cur: &a.cur, Routes: a.routes, Rows: store,
 				Ready: readyReporter{reg: reg, id: "a"}, Build: a.build,
 				Interval: time.Hour, Settle: 50 * time.Millisecond,
 			})

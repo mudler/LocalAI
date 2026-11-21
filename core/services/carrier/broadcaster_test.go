@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/carrier"
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	. "github.com/onsi/ginkgo/v2"
@@ -319,63 +318,6 @@ var _ = Describe("Broadcaster holder", func() {
 			Expect(allocs).To(BeZero())
 			Expect(quiet.published.Load()).To(BeNumerically(">", 1000))
 		})
-	})
-})
-
-// Request and reply still follow the carrier set that the cluster row names,
-// until they move to the peer link.
-var _ = Describe("Broadcaster holder request and reply", func() {
-	var (
-		x, y *fakeCarrier
-		cur  atomic.Pointer[carrier.Set]
-		h    *carrier.Broadcaster
-	)
-
-	BeforeEach(func() {
-		x = newFakeCarrier(cluster.CarrierNATS, 1)
-		y = newFakeCarrier(cluster.CarrierTunnel, 2)
-		x.set.Replies = x.bus
-		y.set.Replies = y.bus
-		cur = atomic.Pointer[carrier.Set]{}
-		cur.Store(x.set)
-		h = holderOver(&cur)
-	})
-
-	It("serves a reply subscription on every attached set and drops it from a released one", func() {
-		_, err := h.SubscribeReply("chats.replay.r1", func(_ []byte, reply func([]byte)) { reply([]byte("ok")) })
-		Expect(err).ToNot(HaveOccurred())
-		Expect(h.Listen(y.set)).To(Succeed())
-		_, ok := x.bus.DeliverReply("chats.replay.r1", nil)
-		Expect(ok).To(BeTrue())
-		_, ok = y.bus.DeliverReply("chats.replay.r1", nil)
-		Expect(ok).To(BeTrue())
-
-		cur.Store(y.set)
-		Expect(h.Release(x.set)).To(Succeed())
-		_, ok = x.bus.DeliverReply("chats.replay.r1", nil)
-		Expect(ok).To(BeFalse())
-	})
-
-	It("refuses to release the set that is active", func() {
-		Expect(h.Release(x.set)).To(MatchError(carrier.ErrActiveSet))
-	})
-
-	It("never attaches a broadcast to a set", func() {
-		got := &received{}
-		_, err := h.Subscribe("staging.x", got.handler())
-		Expect(err).ToNot(HaveOccurred())
-		Expect(h.Listen(y.set)).To(Succeed())
-		Expect(x.bus.Publish("staging.x", "x")).To(Succeed())
-		Expect(y.bus.Publish("staging.x", "y")).To(Succeed())
-		Expect(got.all()).To(BeEmpty())
-		Expect(h.Publish("staging.x", "z")).To(Succeed())
-		Expect(x.bus.PublishCount("staging.x")+y.bus.PublishCount("staging.x")).To(Equal(2), "only the two direct publishes")
-	})
-
-	It("answers that nothing was delivered when no set is named", func() {
-		bare := holderOver(nil)
-		_, err := bare.Request("chats.start", nil, time.Second)
-		Expect(err).To(MatchError(messaging.ErrNotDelivered))
 	})
 })
 

@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/tunnel"
@@ -90,7 +91,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 
 		// Fan-out goes through the database, and one LISTEN session exists for it.
 		Expect(svc.bus.PublishBus()).To(Equal(carrier.BusPostgres))
-		Expect(svc.Unready()).To(Succeed(), "no NATS is configured, so none can be out of reach")
+		Expect(svc.bus.Unready()).To(Succeed(), "no NATS is configured, so none can be out of reach")
 		var sessions int64
 		Expect(pg.Raw("SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'").Scan(&sessions).Error).To(Succeed())
 		Expect(sessions).To(Equal(int64(1)))
@@ -116,7 +117,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
 		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierTunnel))
-		Expect(svc.Unready()).To(MatchError(carrier.ErrBusUnreachable))
+		Expect(svc.bus.Unready()).To(MatchError(carrier.ErrBusUnreachable))
 		Expect(svc.bus.PublishBus()).To(Equal(carrier.BusPostgres))
 		got := make(chan []byte, 1)
 		_, err = svc.Broadcaster.Subscribe("staging.carrier-spec", func(b []byte) { got <- b })
@@ -253,7 +254,8 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			DeferCleanup(svc.Shutdown)
 
 			Expect(carrierRow().Active).To(Equal(cluster.CarrierNATS))
-			Eventually(svc.Unready, "10s").Should(Succeed(), "ready once it reaches the server")
+			Eventually(svc.Unready, "10s").Should(Or(Succeed(), MatchError(ErrNoPeerAddress)), "the bus is ready once it reaches the server")
+			Eventually(svc.bus.Unready, "10s").Should(Succeed())
 			Expect(svc.bus.PublishBus()).To(Equal(carrier.BusNATS))
 			Expect(svc.Broadcaster).ToNot(BeNil())
 			Expect(svc.Replies).ToNot(BeNil())
@@ -271,15 +273,19 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Expect(svc.Broadcaster.Publish("staging.carrier-spec", "hello")).To(Succeed())
 			Eventually(got).Should(Receive(Equal([]byte(`"hello"`))))
 
-			// Request and reply go through the same holder, over the real server.
+			// Request and reply between processes go over the peer link, also on
+			// NATS. A request for this replica runs in the process.
 			rsub, err := svc.Replies.SubscribeReply("chats.replay.spec", func(data []byte, reply func([]byte)) {
 				reply(append([]byte("re:"), data...))
 			})
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(func() { _ = rsub.Unsubscribe() })
-			out, err := svc.Replies.Request("chats.replay.spec", []byte("x"), 5*time.Second)
+			out, err := svc.Replies.RequestInstance("replica-a", "chats.replay.spec", []byte("x"), 5*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(out)).To(Equal("re:x"))
+			// No chat worker is live, so a chat start reaches nobody.
+			_, err = svc.Replies.RequestQueue(messaging.SubjectChatStart, []byte("{}"), 5*time.Second, nil)
+			Expect(messaging.IsNoResponders(err)).To(BeTrue(), "got %v", err)
 		})
 
 		It("registers every replica in the instances table and removes it on shutdown", func() {
@@ -311,6 +317,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			svc, err := initDistributed(cfg, db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(svc.Shutdown)
+			Eventually(svc.Unready, "10s").Should(Succeed(), "a replica with a peer address that reaches NATS is ready")
 
 			inst, err := cluster.NewRegistry(db).Get(context.Background(), "replica-a")
 			Expect(err).ToNot(HaveOccurred())
@@ -321,7 +328,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Expect(svc.WorkerDialer).ToNot(BeNil())
 		})
 
-		It("starts without an address when the operator gave none and the database route cannot give one", func() {
+		It("starts without an address when the operator gave none and the database route cannot give one, and is not ready", func() {
 			svc, err := initDistributed(cfg, db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(svc.Shutdown)
@@ -329,6 +336,8 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(inst.AdvertisedAddr).To(BeEmpty())
 			Expect(inst.PeerTokenHash).ToNot(BeEmpty())
+			Expect(svc.Unready()).To(MatchError(ErrNoPeerAddress))
+			Expect(svc.Unready().Error()).To(ContainSubstring("LOCALAI_PEER_ADDRESS"))
 		})
 
 		It("ends the tunnel that it holds for a node that was removed, and says whether it held one", func() {

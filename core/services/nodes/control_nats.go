@@ -124,11 +124,11 @@ func mapRequestError(subject string, err error) error {
 	return err
 }
 
-// RequestInstance sends data on subject to the process instance (see
-// messaging.RequestInstance) and returns the raw reply. A subject that nobody
-// serves is ErrNoRoute; every other failure keeps its own identity.
-func RequestInstance(bus messaging.Requester, instance, subject string, data []byte, timeout time.Duration) ([]byte, error) {
-	out, err := messaging.RequestInstance(bus, instance, subject, data, timeout)
+// RequestInstance sends data on subject to the process instance and returns
+// the raw reply. A subject that nobody serves is ErrNoRoute; every other
+// failure keeps its own identity.
+func RequestInstance(bus messaging.InstanceRequester, instance, subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	out, err := bus.RequestInstance(instance, subject, data, timeout)
 	if err != nil {
 		return nil, mapRequestError(subject, err)
 	}

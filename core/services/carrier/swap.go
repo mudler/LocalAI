@@ -50,10 +50,6 @@ const DefaultSwapInterval = 2 * time.Second
 type SwapperOptions struct {
 	// Cur is the pointer the holders read. It names the set in use.
 	Cur *atomic.Pointer[Set]
-	// Bus is the broadcaster holder over Cur. The swapper moves the request and
-	// reply of the holder (Listen, Release); the broadcasts of the holder never
-	// follow the row.
-	Bus *Broadcaster
 	// Routes is the route table of the worker calls. It may be nil.
 	Routes RouteAttacher
 	Rows   RowSource
@@ -77,16 +73,17 @@ const DefaultBuildTimeout = 45 * time.Second
 
 // Swapper is what a replica does in a change of carrier. It follows the row:
 //
-//   - prepare: build the target set while the old one serves, attach every
-//     reply subscription to it, and report ready for the epoch of the row.
-//   - commit: store the target set, so that requests and new calls go to it;
-//     keep the old set attached; confirm.
+//   - prepare: build the target set while the old one serves, and report ready
+//     for the epoch of the row.
+//   - commit: store the target set, so that new calls go to it; keep the old
+//     set attached; confirm.
 //   - stable with a drain: nothing. The old set stays attached.
-//   - stable with no drain: release the old set. Detach it and close it after
-//     the settle time.
+//   - stable with no drain: release the old set. Detach its route and close it
+//     after the settle time.
 //
-// The broadcasts do not follow the row: the holder publishes on its buses
-// (see Broadcaster), whatever the row says.
+// The broadcasts and request and reply between processes do not follow the
+// row: the holder publishes on its buses (see Broadcaster), and requests go
+// over the peer link (NewPeerReplies), whatever the row says.
 //   - stable after an abort: drop the set that was built for nothing.
 //
 // The row is authoritative. A replica that polls late, restarts, or joins during a
@@ -134,8 +131,6 @@ func NewSwapper(o SwapperOptions) (*Swapper, error) {
 	switch {
 	case o.Cur == nil || o.Cur.Load() == nil:
 		return nil, errors.New("a swapper needs the pointer to the set in use, and it must name a set")
-	case o.Bus == nil:
-		return nil, errors.New("a swapper needs the broadcaster holder")
 	case o.Rows == nil || o.Ready == nil || o.Build == nil:
 		return nil, errors.New("a swapper needs a row source, a readiness reporter and a builder")
 	}
@@ -339,8 +334,7 @@ func (s *Swapper) report(ctx context.Context, epoch int64, reason string) error 
 	return nil
 }
 
-// attach builds a set for target, or reuses one that is attached already, and
-// makes every reply subscription listen on it.
+// attach builds a set for target, or reuses one that is built already.
 func (s *Swapper) attach(ctx context.Context, row cluster.CarrierRow, target cluster.Carrier) (*Set, error) {
 	switch {
 	case s.prepared != nil && s.prepared.Name == target && builtFrom(s.prepared, row):
@@ -354,7 +348,7 @@ func (s *Swapper) attach(ctx context.Context, row cluster.CarrierRow, target clu
 		stale := s.prepared
 		s.prepared = nil
 		if stale != s.draining {
-			closeSet(s.dropListening(stale))
+			closeSet(stale)
 		}
 	}
 	bctx, cancel := context.WithTimeout(ctx, s.o.BuildTimeout)
@@ -364,9 +358,6 @@ func (s *Swapper) attach(ctx context.Context, row cluster.CarrierRow, target clu
 		return nil, err
 	}
 	if err := set.Validate(); err != nil {
-		return nil, err
-	}
-	if err := s.o.Bus.Listen(set); err != nil {
 		closeSet(set)
 		return nil, err
 	}
@@ -397,11 +388,6 @@ func (s *Swapper) prepare(ctx context.Context, row cluster.CarrierRow) error {
 func (s *Swapper) swapTo(ctx context.Context, row cluster.CarrierRow) error {
 	next, err := s.attach(ctx, row, row.Active)
 	if err != nil {
-		return err
-	}
-	// Listening is idempotent. It matters for a set that was built for a change that
-	// this replica never saw in prepare.
-	if err := s.o.Bus.Listen(next); err != nil {
 		return err
 	}
 	old := s.o.Cur.Load()
@@ -449,7 +435,7 @@ func (s *Swapper) swapTo(ctx context.Context, row cluster.CarrierRow) error {
 func (s *Swapper) settle(ctx context.Context, row cluster.CarrierRow) {
 	if s.prepared != nil {
 		if s.prepared != s.draining {
-			closeSet(s.dropListening(s.prepared))
+			closeSet(s.prepared)
 		}
 		s.prepared = nil
 	}
@@ -483,22 +469,13 @@ func (s *Swapper) reattachDraining(ctx context.Context, row cluster.CarrierRow) 
 	xlog.Info("This replica attached the carrier that is draining", "carrier", row.Draining, "epoch", row.Epoch)
 }
 
-// dropListening detaches every reply subscription from set.
-func (s *Swapper) dropListening(set *Set) *Set {
-	if err := s.o.Bus.Release(set); err != nil {
-		xlog.Warn("Could not detach the subscriptions from a carrier", "carrier", set.Name, "error", err)
-	}
-	return set
-}
-
-// retire releases old after another set took over: stop listening on it and
-// close it after the settle time. The wait runs in the background, so that the
-// poll goes on. It runs no reconnect hook: the broadcasts did not move.
+// retire releases old after another set took over: detach its route and close
+// it after the settle time. The wait runs in the background, so that the poll
+// goes on. It runs no reconnect hook: the broadcasts did not move.
 func (s *Swapper) retire(old *Set) {
 	if s.o.Routes != nil {
 		s.o.Routes.Detach(old.WorkerRoute)
 	}
-	s.dropListening(old)
 	s.wg.Go(func() {
 		// The set stays open for the settle time. A call that took the old route
 		// from the table, or the old set from the pointer, just before they moved is
@@ -543,7 +520,6 @@ func (s *Swapper) Close() {
 		if s.o.Routes != nil {
 			s.o.Routes.Detach(set.WorkerRoute)
 		}
-		s.dropListening(set)
 		closeSet(set)
 	}
 	s.doneOnce.Do(func() { close(s.done) })

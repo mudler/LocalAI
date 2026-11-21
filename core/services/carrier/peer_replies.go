@@ -28,29 +28,51 @@ type QueueMembers func(ctx context.Context) ([]string, error)
 // maxQueueTries bounds the members that one queue request tries.
 const maxQueueTries = 3
 
-// tunnelReplies is request and reply between the replicas of the tunnel
-// carrier. There is no broker to route a subject, so the asking replica names
-// the replica that answers: the caller names it for a request to one process
-// (RequestInstance), and a queue request picks it from the members that the
-// queue lists. The request goes over the peer link, and the far replica runs
-// the handler that it registered for the subject in local.
-type tunnelReplies struct {
+// PeerRepliesOptions is what NewPeerReplies needs.
+type PeerRepliesOptions struct {
+	// Self is the id of this process in the instances table.
+	Self string
+	// Peers sends a request to another process over the peer link.
+	Peers PeerRequester
+	// Local holds the handlers of this process, which the relay of the peer link
+	// serves.
+	Local *tunnel.Replies
+	// Queues lists, for each subject that a queue serves, the processes that
+	// serve it now (the chat start).
+	Queues map[string]QueueMembers
+}
+
+// peerReplies is request and reply between the frontends and chat workers,
+// on every deployment: the chat start, the replay of chat events and the
+// background jobs of a turn. The peer link is the one transport for it. There is
+// no broker to route a subject, so the asking process names the process that
+// answers: the caller names it for a request to one process (RequestInstance),
+// and a queue request picks it from the members that the queue lists. The
+// request goes over the peer link, and the far process runs the handler that it
+// registered for the subject in Local.
+type peerReplies struct {
 	self   string
 	peers  PeerRequester
 	local  *tunnel.Replies
 	queues map[string]QueueMembers
 }
 
-var (
-	_ messaging.RequestReply      = (*tunnelReplies)(nil)
-	_ messaging.InstanceRequester = (*tunnelReplies)(nil)
-	_ messaging.QueueRequester    = (*tunnelReplies)(nil)
-)
+var _ messaging.ProcessReplies = (*peerReplies)(nil)
 
-// SubscribeReply serves subject on this replica. The handler gets no context, as
-// on NATS: a request that its caller abandons runs to its end, and the reply is
-// dropped.
-func (t *tunnelReplies) SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (messaging.Subscription, error) {
+// NewPeerReplies returns request and reply over the peer link.
+func NewPeerReplies(o PeerRepliesOptions) (messaging.ProcessReplies, error) {
+	switch {
+	case o.Self == "":
+		return nil, errors.New("request and reply over the peer link need the id of this process")
+	case o.Peers == nil || o.Local == nil:
+		return nil, errors.New("request and reply over the peer link need the peer pool and the local handlers")
+	}
+	return &peerReplies{self: o.Self, peers: o.Peers, local: o.Local, queues: o.Queues}, nil
+}
+
+// SubscribeReply serves subject on this process. The handler gets no context: a
+// request that its caller abandons runs to its end, and the reply is dropped.
+func (t *peerReplies) SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (messaging.Subscription, error) {
 	if err := messaging.ValidateSubject(subject); err != nil {
 		return nil, err
 	}
@@ -76,28 +98,16 @@ func (t *tunnelReplies) SubscribeReply(subject string, handler func(data []byte,
 	})), nil
 }
 
-// QueueSubscribeReply is SubscribeReply: the asking replica picks the member of
-// the queue, so a member serves the subject as any replica does.
-func (t *tunnelReplies) QueueSubscribeReply(subject, _ string, handler func(data []byte, reply func([]byte))) (messaging.Subscription, error) {
-	return t.SubscribeReply(subject, handler)
-}
-
-// Request serves the queue subjects. Any other subject names no replica on this
-// carrier, and nothing is sent.
-func (t *tunnelReplies) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
-	return t.RequestQueue(subject, data, timeout, nil)
-}
-
 // RequestInstance sends the request to the replica instance.
 //
 // A named replica is never absent here, and its failures are never
 // messaging.ErrNoResponders. A replica with no row may be a live one whose
 // heartbeats stalled past the reap window, and one that serves nothing for the
-// subject may be a live one that did not prepare a forced change of carrier.
+// subject may be a live one that has not registered its handler yet.
 // Both still run what they ran, and a caller that read either as a process
 // that left would give up work that is going on, such as a background job.
 // Both prove that nothing ran, so they are messaging.ErrNotDelivered.
-func (t *tunnelReplies) RequestInstance(instance, subject string, data []byte, timeout time.Duration) ([]byte, error) {
+func (t *peerReplies) RequestInstance(instance, subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	out, err := t.ask(ctx, instance, subject, data, 0)
@@ -112,10 +122,10 @@ func (t *tunnelReplies) RequestInstance(instance, subject string, data []byte, t
 // (tunnel.NotStarted), or when moveOn says that its reply is such a refusal.
 // After a request was written its outcome is unknown, and it is returned
 // without a retry, so that the work is never done twice.
-func (t *tunnelReplies) RequestQueue(subject string, data []byte, timeout time.Duration, moveOn func([]byte) bool) ([]byte, error) {
+func (t *peerReplies) RequestQueue(subject string, data []byte, timeout time.Duration, moveOn func([]byte) bool) ([]byte, error) {
 	members, ok := t.queues[subject]
 	if !ok {
-		return nil, fmt.Errorf("%w: the tunnel carrier routes %s to no replica", messaging.ErrNotDelivered, subject)
+		return nil, fmt.Errorf("%w: the peer link routes %s to no process", messaging.ErrNotDelivered, subject)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -170,7 +180,7 @@ func (t *tunnelReplies) RequestQueue(subject string, data []byte, timeout time.D
 	return nil, err
 }
 
-func (t *tunnelReplies) ask(ctx context.Context, instance, subject string, data []byte, openWithin time.Duration) ([]byte, error) {
+func (t *peerReplies) ask(ctx context.Context, instance, subject string, data []byte, openWithin time.Duration) ([]byte, error) {
 	// Refused before any member is tried: no member would take it.
 	if len(data) > messaging.MaxBroadcastBytes {
 		return nil, fmt.Errorf("%w: a request of %d bytes on %s", messaging.ErrPayloadTooLarge, len(data), subject)
@@ -190,7 +200,7 @@ func isAbsent(err error) bool {
 	return errors.Is(err, tunnel.ErrNoResponder) || errors.Is(err, cluster.ErrInstanceNotFound)
 }
 
-// mapReplyError is the one place where the errors of a request on the tunnel
+// mapReplyError is the one place where the errors of a request on the peer link
 // become the conditions of messaging. Only absence becomes
 // messaging.ErrNoResponders, and RequestInstance takes absence out before it
 // gets here. A request above the bound, which was not sent, is

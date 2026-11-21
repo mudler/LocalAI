@@ -45,9 +45,11 @@ A worker holds the **routes** that its operator gives it, and the frontends reac
 
 | Route | What it is | What you need |
 |-------|------------|---------------|
-| **NATS** (`nats`) | A NATS broker. Frontends send control requests to the worker through it. Frontends and [chat workers](#chat-workers) also use it for request and reply between each other (the chat start, the replay of chat events, the background jobs of a turn). | A NATS server, reachable from the frontends and the workers. |
-| **WebSocket** (`tunnel`) | The worker opens an outbound websocket tunnel to a frontend (`/api/cluster/connect`), and control requests and gRPC calls travel through it. Request and reply between frontends and [chat workers](#chat-workers) goes over the peer link between them: see [Chats over the WebSocket tunnel](#chats-over-the-websocket-tunnel). | Nothing beyond the frontend. Workers need no inbound port. |
+| **NATS** (`nats`) | A NATS broker. Frontends send control requests to the worker through it. | A NATS server, reachable from the frontends and the workers. |
+| **WebSocket** (`tunnel`) | The worker opens an outbound websocket tunnel to a frontend (`/api/cluster/connect`), and control requests and gRPC calls travel through it. | Nothing beyond the frontend. Workers need no inbound port. |
 | **P2P** | The same tunnel, over a libp2p stream. See [Workers over P2P](#workers-over-p2p). | A P2P invite. |
+
+Request and reply between the frontends and the [chat workers](#chat-workers) (the chat start, the replay of chat events, the background jobs of a turn) always go over the [peer link](#peer-link) between them, whatever route the workers use. See [Request and reply between frontends and chat workers](#request-and-reply-between-frontends-and-chat-workers).
 
 **Workers never connect to PostgreSQL.** A worker dials a frontend (or NATS) and nothing else. Only the frontends and the [chat workers](#chat-workers) use PostgreSQL, for the shared state and the node registry, and as a **broadcast bus**: the channel on which a frontend tells the other frontends about job progress, gallery updates and cache hints.
 
@@ -66,7 +68,7 @@ The bus does not depend on the cluster setting below. A change of the setting do
 
 ### The cluster setting
 
-The cluster setting has the values `nats` and `tunnel` (the API and the CLI keep these names). There is no flag that you pass at boot: the setting is a row in the database, and the first frontend writes it (see below). It decides how the frontends and the chat workers send requests to each other (see [Chat workers](#chat-workers)). It does not choose the routes of the workers: the flags of each worker do (see [Workers and routes](#workers-and-routes)).
+The cluster setting has the values `nats` and `tunnel` (the API and the CLI keep these names). There is no flag that you pass at boot: the setting is a row in the database, and the first frontend writes it (see below). It does not decide how the frontends and the chat workers broadcast or send requests to each other. It does not choose the routes of the workers: the flags of each worker do (see [Workers and routes](#workers-and-routes)).
 
 Changing the setting is an advanced operation of the admin API and the `local-ai cluster` command. The Nodes page of the WebUI shows the setting, the frontends and the workers, and it saves the NATS address, but it has no control to change the setting. See [Switching the carrier](#switching-the-carrier).
 
@@ -101,6 +103,7 @@ The Nodes page shows the route of each node: **NATS**, **WebSocket** (the tunnel
 - **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the cluster setting row, and the shared state. It is also a broadcast bus between the frontends, and the only one without NATS, so size it for that (see [Operational limits](#operational-limits)).
 - A **NATS** server, only if you want the `nats` setting or NATS for the broadcasts. A deployment can start without one and add it later.
 - All services must be reachable from each other, through the network or the configured URLs.
+- Every frontend and chat worker needs a **peer address** that the other frontends and chat workers can reach, on every setting, NATS included. It is found at start from the route to the database; set `LOCALAI_PEER_ADDRESS` when that one is wrong (see [Peer link](#peer-link)). A process without one answers `503` on `/readyz`.
 - A session-level `LISTEN` connection from every frontend and chat worker to PostgreSQL, on every setting. A connection pooler in *transaction* mode (for example PgBouncer in its default mode) breaks `LISTEN`, and a frontend then fails to start. Point the frontends directly at PostgreSQL, or use a session-mode pool.
 
 ## Quick Start with Docker Compose
@@ -113,7 +116,7 @@ docker compose -f docker-compose.distributed.yaml up
 
 This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. The frontend has a NATS URL, so the cluster starts on `nats`. When you send an inference request, the SmartRouter installs the needed backend on the worker and loads the model. See the file for GPU support, shared volumes, and more workers.
 
-To try PostgreSQL as the broadcast bus (the `tunnel` setting), remove the `nats` service, the `depends_on` entries that name it, and every `LOCALAI_NATS_URL` line from the file. The cluster then starts on `tunnel`, the worker holds only its WebSocket tunnel, and it needs only `LOCALAI_REGISTER_TO` and the registration token. The frontend sends chat starts to the chat worker over the peer link (see [Chats over the WebSocket tunnel](#chats-over-the-websocket-tunnel)).
+To try PostgreSQL as the broadcast bus (the `tunnel` setting), remove the `nats` service, the `depends_on` entries that name it, and every `LOCALAI_NATS_URL` line from the file. The cluster then starts on `tunnel`, the worker holds only its WebSocket tunnel, and it needs only `LOCALAI_REGISTER_TO` and the registration token. The frontend sends chat starts to the chat worker over the peer link, as it does with NATS (see [Request and reply between frontends and chat workers](#request-and-reply-between-frontends-and-chat-workers)).
 
 {{% callout style="tip" %}}
 The compose file starts PostgreSQL, NATS, [Garage](https://garagehq.deuxfleurs.fr/) as S3-compatible object storage (with a one-shot step that creates its bucket and access key), a frontend, a model worker, an agent worker and a [chat worker](#chat-workers). The frontend and the chat worker store the chat files in Garage, and the frontend sends unattended chat turns to the chat worker. Its credentials are examples: change them, and the `rpc_secret` in `examples/distributed/garage.toml`, for anything beyond a local test.
@@ -129,7 +132,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 |------|---------|---------|-------------|
 | `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode. Needs PostgreSQL. NATS is optional. |
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
-| `--peer-address` | `LOCALAI_PEER_ADDRESS` | *(found from the route to the database)* | `host:port` at which the other frontends dial this one. A frontend publishes it so that a replica that does not hold the connection of a worker can reach the replica that does. Set it when the address found from the route to the database is not the one the other frontends should use. The link carries the credential of the replica and every request that it relays, so by default it is clear text. Use `--peer-tls` when the replicas sit behind TLS. |
+| `--peer-address` | `LOCALAI_PEER_ADDRESS` | *(found from the route to the database)* | `host:port` at which the other frontends and chat workers dial this one. A frontend publishes it so that a replica that does not hold the connection of a worker can reach the replica that does, and so that chat starts, chat replay and background jobs reach it. A frontend or chat worker that has none is not ready (`/readyz` answers `503`). Set it when the address found from the route to the database is not the one the other frontends should use. The link carries the credential of the replica and every request that it relays, so by default it is clear text. Use `--peer-tls` when the replicas sit behind TLS. |
 | `--peer-tls` | `LOCALAI_PEER_TLS` | `false` | Dial the other frontends over `wss` and not `ws`. Every frontend must then be reachable over TLS at the address it publishes with `--peer-address`, for example behind a reverse proxy that terminates TLS. A frontend that serves the API over TLS itself (`--tls-cert`, `--tls-self-signed`) dials `wss` without this flag. LocalAI warns at start-up when it publishes an address that is not on the local host and the link is clear text. |
 | `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | *(system roots)* | PEM file with the certificate authority that signs the certificate of the other frontends. Use it with a private CA. See [Peer link](#peer-link). |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL (e.g., `nats://localhost:4222`). Optional. With a URL, a new cluster starts on `nats`. Without one, it starts on `tunnel` (PostgreSQL as the broadcast bus). The URL is copied into the `nats.url` cluster setting. See [How workers attach, and the broadcast bus](#how-workers-attach-and-the-broadcast-bus). |
@@ -1153,7 +1156,7 @@ agent-worker-1:
 
 A chat worker runs the turns of the chats that no person starts at the keyboard: [trigger]({{% relref "/features/chats-and-agents/chats-agents" %}}#triggers) runs, [agent jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) and connector messages. Use one to keep this work off the frontends that serve your users.
 
-A chat worker is a `local-ai run` instance with the same configuration as a frontend (database, NATS, models, storage and data path), plus `--chat-worker`. The `chat-worker-1` service in `docker-compose.distributed.yaml` is an example. It needs the same NATS credentials as a frontend. Turn on the routing on the frontends with `--distributed-chat-workers`:
+A chat worker is a `local-ai run` instance with the same configuration as a frontend (database, NATS, models, storage and data path), plus `--chat-worker`. The `chat-worker-1` service in `docker-compose.distributed.yaml` is an example. It needs the same NATS credentials as a frontend, and a [peer address](#peer-link) that the frontends can reach, because they send it the chat starts over the peer link. Turn on the routing on the frontends with `--distributed-chat-workers`:
 
 ```bash
 # frontends
@@ -1165,15 +1168,15 @@ LOCALAI_DISTRIBUTED=true LOCALAI_CHAT_WORKER=true local-ai run ...
 
 How it works:
 
-- The frontends keep the trigger runner, the connectors and the job host, each on the frontend that holds its leader lock. When one of them starts a turn, the frontend sends the start to one chat worker: on `nats` in the queue group `chat-workers` of `chats.start`, on `tunnel` to a live chat worker that the frontend picks. The chat worker takes it, claims the turn in the database and runs it. It replies whether the turn started or whether the message waits behind a running turn.
+- The frontends keep the trigger runner, the connectors and the job host, each on the frontend that holds its leader lock. When one of them starts a turn, the frontend sends the start over the peer link to a live chat worker that it picks from the node list, on every setting. The chat worker takes it, claims the turn in the database and runs it. It replies whether the turn started or whether the message waits behind a running turn.
 - The turn's live events and a stop travel on the same subjects as between two frontends, so a user who watches the chat sees it through any frontend, and a stop or a run limit reaches the worker.
 - The notification center runs in every process, a chat worker included, on the same store. A notification stored by one process reaches the streams of every frontend over the message bus. Its state is shared (rows in the database) and live-only on the bus; see [Storage and clusters]({{% relref "/features/chats-and-agents/chats-agents#storage-and-clusters" %}}).
 - A message that a person sends to the chat while the worker runs it waits in the database, and the worker gives it to the model at its next request.
 - When no chat worker listens, the frontend runs the turn itself. When a chat worker does not answer in time, or refuses the start, the run fails: the worker may have started the turn, and running it again could send the message twice. The time a start may take is `LOCALAI_CHAT_START_TIMEOUT` (default `30s`). Raise it when a slow database makes starts time out, and set the same value on the frontends and the chat workers.
 - The frontend that watches a job or a trigger run stops it at its limit (`LOCALAI_MCP_CI_JOB_TIMEOUT` for a job). If that frontend is gone, the chat worker stops the turn one minute after the same limit, so it cannot run on without a bound. The same bound applies to the next turn that the worker starts from messages that arrived after the last model request. Set `LOCALAI_MCP_CI_JOB_TIMEOUT` to the same value on the frontends and the chat workers.
-- A chat worker runs at most `LOCALAI_CHAT_WORKER_MAX_TURNS` turns at once (default `32`). Every turn on it counts, also the sub-agents of its turns. When it is full it refuses a start that would begin a turn. A message for a chat whose turn already runs is still taken, because it only waits. On `tunnel` the frontend then sends the start to another chat worker; the run fails, with an error that says the worker is full, only when every worker it tried is full. On `nats` the queue group gives each start to one worker, so a full worker fails the run: give the workers enough room for the runs you expect, or add workers. Nothing runs on the frontend in either case.
+- A chat worker runs at most `LOCALAI_CHAT_WORKER_MAX_TURNS` turns at once (default `32`). Every turn on it counts, also the sub-agents of its turns. When it is full it refuses a start that would begin a turn. A message for a chat whose turn already runs is still taken, because it only waits. The frontend then sends the start to another chat worker; the run fails, with an error that says the worker is full, only when every worker it tried (up to three) is full. Nothing runs on the frontend then.
 - A chat worker that dies leaves its turn claimed. The frontends' reaper ends it as interrupted, as for a frontend that dies, and nothing retries it.
-- A chat worker shows in the node list as an `agent` node with the labels `node.role=chat-worker` and `node.instance` (the instance ID that the frontends reach it by on `tunnel`), named `chat-` and its instance ID (`LOCALAI_INSTANCE_ID`), or its host name when the ID is generated. It registers itself through the database, is approved at once, sends a heartbeat every 10 seconds and goes offline when it stops. Models are never scheduled on it. Draining it from the node list does not stop it from taking starts: stop the process instead.
+- A chat worker shows in the node list as an `agent` node with the labels `node.role=chat-worker` and `node.instance` (the instance ID that the frontends reach it by over the peer link), named `chat-` and its instance ID (`LOCALAI_INSTANCE_ID`), or its host name when the ID is generated. It registers itself through the database, is approved at once, sends a heartbeat every 10 seconds and goes offline when it stops. Models are never scheduled on it. Draining it from the node list does not stop it from taking starts: stop the process instead.
 - A chat worker starts no triggers, connectors or jobs and runs no conversion of old data. It still serves the HTTP API: its turns reach the models through it, and the health probes use it. Do not put it behind the load balancer of your users.
 
 What stays on the frontends:
@@ -1183,14 +1186,14 @@ What stays on the frontends:
 - Sub-agents follow their parent: the sub-agents of a turn that runs on a chat worker run on that worker.
 
 
-### Chats over the WebSocket tunnel
+### Request and reply between frontends and chat workers
 
-A chat start, the replay of the events of a turn to a client that reconnected to another frontend, and the background jobs of a turn that runs on another node are request and reply between processes. On the `tunnel` setting they go over the peer link between the two processes (`/api/cluster/peer`), the link that already carries the requests for a worker whose tunnel another frontend holds. Every frontend and chat worker needs a peer address that the others can reach: it is found at start, and `LOCALAI_PEER_ADDRESS` sets it when the one found is wrong.
+A chat start, the replay of the events of a turn to a client that reconnected to another frontend, and the background jobs of a turn that runs on another node are request and reply between processes. On every setting, NATS included, they go over the peer link between the two processes (`/api/cluster/peer`), the link that also carries the requests for a worker whose tunnel another frontend holds. NATS never carries them. Every frontend and chat worker needs a peer address that the others can reach: it is found at start, and `LOCALAI_PEER_ADDRESS` sets it when the one found is wrong. A frontend or chat worker that has none is not ready: `/readyz` answers `503` with the status `unavailable` and a reason that names `LOCALAI_PEER_ADDRESS`. Workers that run models open no new port for this.
 
 - A chat start goes to a live chat worker that the frontend picks from the node list. When that worker cannot be reached, or is full, the frontend tries another one (up to three). Each try may spend only its share of `LOCALAI_CHAT_START_TIMEOUT` to reach its worker, so a worker that does not answer leaves time for the others. When the start has been sent and no answer comes back, the run fails and nothing is retried: the worker may have started the turn, and a second start could send the message twice. When no chat worker can be reached, the frontend runs the turn itself, as it does when none is live.
 - The replay asks the frontend that runs the turn and waits up to 2 seconds. On a slow link that also carries large model file transfers to a worker, the answer can take longer, and the client then reads the transcript instead of the missed events.
-- A turn reaches a background job on another node. When that node does not answer, the tool call says so and the job stays as it is. A job is marked lost only when its node does not know the job. On the `tunnel` setting a node that does not answer is never taken as a node that left the cluster, because a live frontend whose heartbeats stall for a while looks the same, so the job of a node that left stays listed as running.
-- Chat events, notifications and stops are broadcasts, and they work on both settings.
+- A turn reaches a background job on another node. When that node does not answer, the tool call says so and the job stays as it is. A job is marked lost only when its node does not know the job. A node that does not answer is never taken as a node that left the cluster, because a live frontend whose heartbeats stall for a while looks the same, so the job of a node that left stays listed as running.
+- Chat events, notifications and stops are broadcasts (see [The broadcast buses](#the-broadcast-buses)), and they work on both settings.
 
 ## MCP in Distributed Mode
 
@@ -1730,7 +1733,7 @@ No request is cut by the commit.
 | Model loads | Keep their lease. Each renewal is a new call, sent on whichever route reaches the worker. A load whose worker cannot be reached after the change is stopped by the worker watchdog after 90 s without a renewal, then retried. |
 | File transfers | Finish on their connection. New ones use the new carrier. |
 | MCP tool calls to agent workers | A call finishes on the carrier that carried it. New calls go to an agent worker on NATS while NATS is active or drains, else to one that holds a tunnel. |
-| Chat starts, chat replay and background jobs of a turn | A request finishes on the carrier that carried it. New requests use the new carrier. |
+| Chat starts, chat replay and background jobs of a turn | Not touched. They go over the peer link on both settings. |
 | Broadcasts (progress, cache hints, state deltas) | Not touched. They go over NATS while it is reachable and over PostgreSQL otherwise, before, during and after the change. |
 
 **After the drain** (`max_drain`, default 15 minutes) the old carrier is released. Work that still runs only on it is cut, for example a backend install that takes longer than the drain. Raise `max_drain` before you change the carrier if you run long installs.
@@ -1843,11 +1846,11 @@ A worker that joined over P2P never gets a NATS credential, whatever it asks for
 
 ## Peer link
 
-Several frontends can share the tunnels of the workers. A worker is connected to one frontend. A request that arrives at another frontend goes over a **peer link** to the frontend that holds the tunnel. The peer link is used on the `tunnel` carrier.
+Several frontends can share the tunnels of the workers. A worker is connected to one frontend. A request that arrives at another frontend goes over a **peer link** to the frontend that holds the tunnel. The same link carries the chat starts, the chat replay and the background jobs between the frontends and the chat workers, on every setting (see [Request and reply between frontends and chat workers](#request-and-reply-between-frontends-and-chat-workers)).
 
 | Flag | Env | Meaning |
 |------|-----|---------|
-| `--peer-address` | `LOCALAI_PEER_ADDRESS` | `host:port` at which the other frontends dial this one. By default LocalAI finds it from the route to the database. Set it when that address is wrong, for example in Kubernetes or behind NAT. A frontend that publishes none cannot be reached by the others, and logs a warning. |
+| `--peer-address` | `LOCALAI_PEER_ADDRESS` | `host:port` at which the other frontends and chat workers dial this one. By default LocalAI finds it from the route to the database. Set it when that address is wrong, for example in Kubernetes or behind NAT. A frontend or chat worker that publishes none cannot be reached by the others: it logs a warning and `/readyz` answers `503`. |
 | `--peer-tls` | `LOCALAI_PEER_TLS` | Dial the other frontends over `wss`. |
 | `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | PEM file with the CA that signs their certificate. By default the system roots are used. |
 

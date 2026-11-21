@@ -54,14 +54,11 @@ func SubjectNodeMCPDiscovery(nodeID string) string {
 	return subjectMCPPrefix + sanitizeSubjectToken(nodeID) + ".discovery"
 }
 
-// Chat starts (Request-Reply via NATS — load-balanced across chat workers).
-// A frontend sends the start of an unattended chat run here; one chat worker
-// runs the turn and replies whether it started or queued the message. The
-// turn's events and stop keep using the chats.events and chats.control subjects.
-const (
-	SubjectChatStart = "chats.start"
-	QueueChatWorkers = "chat-workers"
-)
+// SubjectChatStart is the chat start: a request over the peer link to one
+// chat worker that the frontend picks from the node list. The worker runs the
+// turn and replies whether it started or queued the message. The turn's events
+// and stop keep using the chats.events and chats.control subjects.
+const SubjectChatStart = "chats.start"
 
 // SubjectFineTuneProgress returns the NATS subject for fine-tune progress.
 func SubjectFineTuneProgress(jobID string) string {

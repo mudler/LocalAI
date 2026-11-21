@@ -279,10 +279,10 @@ func tableOf(routes map[string][]nodes.Route, carriers ...*fakeCarrier) *carrier
 	return t
 }
 
-// holderOver returns a broadcaster holder whose request and reply follow cur,
-// over a floor of its own and no primary bus.
-func holderOver(cur *atomic.Pointer[carrier.Set]) *carrier.Broadcaster {
-	h, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: fakeFloor(testutil.NewFakeBus()), Sets: cur})
+// holder returns a broadcaster holder over a floor of its own and no primary
+// bus.
+func holder() *carrier.Broadcaster {
+	h, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: fakeFloor(testutil.NewFakeBus())})
 	if err != nil {
 		panic(err)
 	}

@@ -12,6 +12,8 @@
 //   - The broadcaster holder (Broadcaster) is what the frontends and chat
 //     workers broadcast on: it listens on every bus they have (PostgreSQL, and
 //     NATS when configured) and publishes each message on one of them.
+//   - Request and reply between the frontends and chat workers go over the peer
+//     link (NewPeerReplies), on every deployment.
 //
 // The holders in this package implement the seam interfaces. The holders of the
 // worker-facing seams forward each call through the route table; the
@@ -27,7 +29,6 @@ import (
 
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/cluster"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 )
 
@@ -84,13 +85,12 @@ func (r *WorkerRoute) Validate() error {
 	return nil
 }
 
-// Set is one carrier of the cluster carrier row: the request and reply between
-// processes that it carries and the worker route that it brings. Request and
-// reply follow the set that the row names (the broadcaster holder reads it), and
-// the change of carrier (Swapper) moves it. Broadcasts never follow the row:
-// they go over the buses of the holder. Worker calls do not follow the row
-// either: the route table holds the worker route of a set while the set is in
-// use or drains (RouteTable.Attach).
+// Set is one carrier of the cluster carrier row: the worker route that it
+// brings. The change of carrier (Swapper) moves it. Broadcasts never follow the
+// row: they go over the buses of the holder. Request and reply between
+// processes never follow it either: they go over the peer link (NewPeerReplies).
+// Worker calls do not follow the row: the route table holds the worker route of
+// a set while the set is in use or drains (RouteTable.Attach).
 //
 // The Set, the carrier row and the change of carrier are removed with the
 // switch (step 8 of the hybrid carriers work). Build a set completely and call
@@ -104,13 +104,6 @@ type Set struct {
 	// as the row of the cluster named it. A set that was built from another
 	// address is not the set that the row asks for. Empty for the tunnel.
 	NATSURL string
-
-	// Replies carries request and reply between the processes of the cluster:
-	// the chat start, the replay of chat events and the background jobs of a
-	// turn. It is nil for a carrier that has none, and the holder then answers
-	// every request with messaging.ErrNotDelivered. That is not "nobody
-	// listens": the callers handle it as a request that reached no process.
-	Replies messaging.RequestReply
 
 	// WorkerRoute is the route to the workers that this carrier brings. A
 	// tunnel set may share the route that the table pins (TunnelOptions.Routes),

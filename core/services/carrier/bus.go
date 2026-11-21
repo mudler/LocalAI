@@ -36,12 +36,6 @@ type Bus struct {
 	Connected func() bool
 	// Close releases the connection of the bus. It may be nil.
 	Close func()
-
-	// replies is the request and reply of a carrier set, kept in the registry of
-	// the holder so that a reply handler follows the set that the cluster row
-	// names. Such a member carries no broadcast. Request and reply move to the
-	// peer link in step 5 of the hybrid carriers work, and this goes with it.
-	replies messaging.RequestReply
 }
 
 // Validate reports a bus that cannot carry broadcasts.

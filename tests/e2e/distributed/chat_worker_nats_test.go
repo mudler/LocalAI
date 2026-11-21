@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -11,22 +12,37 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	"github.com/mudler/LocalAI/core/services/tunnel"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-// A frontend and a chat worker on a real NATS server, each with its own
-// connection, sharing one chats store. The FakeBus tests next to the studio
-// service pin the behaviour; this checks the NATS carrier keeps it: the start
-// is a queue request/reply, and the events and the stop cross processes.
-var _ = Describe("Chat workers over NATS", Label("Distributed"), func() {
+// localPeers stands for the peer links between processes that run in this test
+// process: a request reaches the handlers of the process it names.
+type localPeers map[string]*tunnel.Replies
+
+func (p localPeers) Request(ctx context.Context, target, subject string, data []byte, _ int, _ time.Duration) ([]byte, error) {
+	r, ok := p[target]
+	if !ok {
+		return nil, tunnel.ErrNoResponder
+	}
+	return r.Dispatch(ctx, subject, data)
+}
+
+// A frontend and a chat worker that broadcast on a real NATS server, each with
+// its own connection, sharing one chats store. The FakeBus tests next to the
+// studio service pin the behaviour; this checks that it holds on a NATS
+// cluster: the start goes over the peer link to the worker that the frontend
+// picks, and the events and the stop cross processes on NATS.
+var _ = Describe("Chat workers on a NATS cluster", Label("Distributed"), func() {
 	var (
 		infra           *TestInfra
 		workerNC        *messaging.Client
 		st              store.Store
 		front, worker   *studio.Service
 		hFront, hWorker *studiotest.GateHarness
+		workerRR        messaging.ProcessReplies
 	)
 
 	newService := func(nc *messaging.Client, h *studiotest.GateHarness, workers studio.ChatWorkers) *studio.Service {
@@ -48,7 +64,20 @@ var _ = Describe("Chat workers over NATS", Label("Distributed"), func() {
 		st, err = store.NewJSON("")
 		Expect(err).ToNot(HaveOccurred())
 		hFront, hWorker = studiotest.NewGateHarness(), studiotest.NewGateHarness()
-		front = newService(infra.NC, hFront, nodes.NewNATSChatStarter(infra.NC))
+		peers := localPeers{
+			"frontend": tunnel.NewReplies("frontend", messaging.MaxBroadcastBytes),
+			"worker":   tunnel.NewReplies("worker", messaging.MaxBroadcastBytes),
+		}
+		frontRR, err := carrier.NewPeerReplies(carrier.PeerRepliesOptions{
+			Self: "frontend", Peers: peers, Local: peers["frontend"],
+			Queues: map[string]carrier.QueueMembers{
+				messaging.SubjectChatStart: func(context.Context) ([]string, error) { return []string{"worker"}, nil },
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		workerRR, err = carrier.NewPeerReplies(carrier.PeerRepliesOptions{Self: "worker", Peers: peers, Local: peers["worker"]})
+		Expect(err).ToNot(HaveOccurred())
+		front = newService(infra.NC, hFront, nodes.NewChatStarter(frontRR))
 		worker = newService(workerNC, hWorker, nil)
 	})
 
@@ -59,9 +88,8 @@ var _ = Describe("Chat workers over NATS", Label("Distributed"), func() {
 	}
 
 	serve := func() messaging.Subscription {
-		sub, err := nodes.NewNATSChatStartServer(workerNC).Serve(worker.ServeStart)
+		sub, err := nodes.NewChatStartServer(workerRR).Serve(worker.ServeStart)
 		Expect(err).ToNot(HaveOccurred())
-		FlushNATS(workerNC)
 		return sub
 	}
 
@@ -109,7 +137,6 @@ var _ = Describe("Chat workers over NATS", Label("Distributed"), func() {
 	It("runs the start on the frontend when no worker listens", func() {
 		sub := serve()
 		Expect(sub.Unsubscribe()).To(Succeed())
-		FlushNATS(workerNC)
 		rec, err := front.Create(context.Background(), "alice", studio.CreateInput{Model: "m"})
 		Expect(err).ToNot(HaveOccurred())
 		res, err := front.SendBackground(context.Background(), "alice", rec.ID, "go", nil)
