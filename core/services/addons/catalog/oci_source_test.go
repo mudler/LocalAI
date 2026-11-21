@@ -195,14 +195,44 @@ var _ = Describe("oci:// libraries", func() {
 	})
 
 	for _, code := range []int{http.StatusUnauthorized, http.StatusForbidden} {
-		It(fmt.Sprintf("reports a registry answer of %d as a credential failure", code), func() {
-			url := pushLibrary(srv.URL, "libs/private", LibraryArtifactType, libraryIndexBody())
-			saveOCI(url, VerificationPolicy{})
-			*status = code
-			_, err := s.Refresh(ctx, "lib")
-			Expect(err).To(MatchError(ErrCredential))
-		})
+		for _, signed := range []bool{false, true} {
+			It(fmt.Sprintf("reports a registry answer of %d as a credential failure and keeps the cache (signed: %v)", code, signed), func() {
+				policy := VerificationPolicy{}
+				if signed {
+					policy = signedPolicy
+					stubLibraryVerifier(func(context.Context, VerificationPolicy, string) error { return nil })
+				}
+				url := pushLibrary(srv.URL, "libs/private", LibraryArtifactType, libraryIndexBody())
+				src := saveOCI(url, policy)
+				_, err := s.Refresh(ctx, "lib")
+				Expect(err).NotTo(HaveOccurred())
+				index := filepath.Join(s.libraryCacheDir(src), "index.yaml")
+				before, err := os.ReadFile(index)
+				Expect(err).NotTo(HaveOccurred())
+
+				// The registry now refuses the credential. A copy that was
+				// good a moment ago must not answer for it.
+				expireLibraryCache(s, src)
+				*status = code
+				_, err = s.Refresh(ctx, "lib")
+				Expect(err).To(MatchError(ErrCredential))
+				Expect(s.cache["lib"].failed).To(BeTrue())
+				Expect(s.cache["lib"].releases).To(BeEmpty(), "a cached copy was served after a credential failure")
+				after, err := os.ReadFile(index)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(after).To(Equal(before), "the cache changed on a credential failure")
+			})
+		}
 	}
+
+	It("reports a credential failure on a first fetch and writes no cache", func() {
+		url := pushLibrary(srv.URL, "libs/first", LibraryArtifactType, libraryIndexBody())
+		src := saveOCI(url, VerificationPolicy{})
+		*status = http.StatusUnauthorized
+		_, err := s.Refresh(ctx, "lib")
+		Expect(err).To(MatchError(ErrCredential))
+		Expect(s.libraryCacheDir(src)).NotTo(BeADirectory())
+	})
 
 	It("does not reuse a copy admitted under another policy", func() {
 		url := pushLibrary(srv.URL, "libs/policy", LibraryArtifactType, libraryIndexBody())
