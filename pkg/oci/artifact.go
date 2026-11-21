@@ -3,8 +3,10 @@ package oci
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,6 +19,7 @@ import (
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
+	"oras.land/oras-go/v2/registry/remote/errcode"
 	"oras.land/oras-go/v2/registry/remote/retry"
 )
 
@@ -88,7 +91,7 @@ func PullArtifact(ctx context.Context, ref, dest string, opts ...ArtifactPullOpt
 
 	manifestDesc, rc, err := repo.FetchReference(ctx, repo.Reference.ReferenceOrDefault())
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve %q: %w", ref, err)
+		return "", wrapArtifactResolveError(ref, err)
 	}
 	defer func() { _ = rc.Close() }()
 
@@ -195,7 +198,7 @@ func ResolveArtifactDigestRef(ctx context.Context, ref string) (string, error) {
 	}
 	desc, err := repo.Resolve(ctx, repo.Reference.ReferenceOrDefault())
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve %q: %w", ref, err)
+		return "", wrapArtifactResolveError(ref, err)
 	}
 	return repo.Reference.Registry + "/" + repo.Reference.Repository + "@" + desc.Digest.String(), nil
 }
@@ -305,4 +308,20 @@ func writeArtifactLayer(ctx context.Context, repo *remote.Repository, layer ocis
 		return err
 	}
 	return nil
+}
+
+// wrapArtifactResolveError reports a registry 401 or 403 as a
+// credentials.AuthError, as the image paths do, so a caller can tell a refused
+// credential from an outage and the operator learns whether a rule was sent.
+func wrapArtifactResolveError(ref string, err error) error {
+	err = fmt.Errorf("failed to resolve %q: %w", ref, err)
+	var resp *errcode.ErrorResponse
+	if !errors.As(err, &resp) || (resp.StatusCode != http.StatusUnauthorized && resp.StatusCode != http.StatusForbidden) {
+		return err
+	}
+	matchURL := ""
+	if parsed, perr := name.ParseReference(ref); perr == nil {
+		matchURL = credentials.RegistryURL(parsed.Context())
+	}
+	return credentials.NewRegistryAuthError(matchURL, ref, resp.StatusCode, err)
 }
