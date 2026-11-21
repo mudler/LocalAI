@@ -121,7 +121,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--peer-tls` | `LOCALAI_PEER_TLS` | `false` | Dial the other frontends over `wss` and not `ws`. Every frontend must then be reachable over TLS at the address it publishes with `--peer-address`, for example behind a reverse proxy that terminates TLS. A frontend that serves the API over TLS itself (`--tls-cert`, `--tls-self-signed`) dials `wss` without this flag. LocalAI warns at start-up when it publishes an address that is not on the local host and the link is clear text. |
 | `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | *(system roots)* | PEM file with the certificate authority that signs the certificate of the other frontends. Use it with a private CA. See [Peer link](#peer-link). |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL (e.g., `nats://localhost:4222`). Optional. With a URL, the frontends broadcast over NATS while they reach it, and reach the workers that hold NATS. Without one, PostgreSQL is the only broadcast bus. The URL is copied into the `nats.url` cluster setting. See [How a deployment starts](#how-a-deployment-starts). |
-| `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
+| `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Optional shared token that a worker may use to register. It is used for **registration only**: after that a worker holds its own credential, and no other node route accepts the shared token. It also seeds the token that authenticates the data plane between the frontends and the workers (see [Join tokens](#join-tokens)). Workers can join with [join tokens](#join-tokens) instead, so you can leave it empty |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
@@ -390,7 +390,7 @@ during installation as well as the committed snapshot.
 {{% /callout %}}
 
 {{% callout style="warning" %}}
-The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
+The worker HTTP file transfer server is authenticated by a data plane token that the frontend derives from `LOCALAI_REGISTRATION_TOKEN` and hands to the worker at registration. If the frontend has no registration token, the token is **empty** and the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
 {{% /callout %}}
 
 ### Automatic backend updates
@@ -491,8 +491,9 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 | `--p2p-bootstrap` | `LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` | *(public bootstrap peers)* | Peers the P2P host connects to at start, addresses that end in `/p2p/<peer ID>` |
 | `--allow-open-relay` | `LOCALAI_ALLOW_OPEN_RELAY` | `false` | With `--join`: redeem an invite that names an open relay, which anyone can use |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
-| `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
-| `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
+| `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Shared registration token of the frontend, if it has one. Used to register only |
+| `--join-token` | `LOCALAI_JOIN_TOKEN` | *(empty)* | Single-use [join token](#join-tokens) that an admin minted. It replaces the registration token for registering. The worker keeps the own credential that it gets in its state directory (`<models path>/../data/node-credential.json`), so a restart needs no token |
+| `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when the worker has no data plane token, that is, when it has neither a registration token nor a frontend that hands one over (it would otherwise fail open) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
 | `--routes` | `LOCALAI_WORKER_ROUTES` | *(derived)* | Routes this worker holds, comma separated: `nats`, `tunnel`, or both. When empty: `nats` when `--nats-url` is set (never with `--join`), and always `tunnel`. See [Workers and routes](#workers-and-routes) |
@@ -512,6 +513,60 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /callout %}}
+
+### Join tokens
+
+A worker joins with a **join token** that an admin mints. It is the safe default: the token expires, it works once, and it does not stay on the worker.
+
+- **Single use and short.** A token is good for 10 minutes and one registration. For Kubernetes or Compose, where several replicas start together, an admin can ask for up to 100 uses (the default for that case is 5) and up to 24 hours.
+- **Stored as a hash.** The frontend keeps only a SHA-256 of the token, compares it in constant time, and spends a use with one atomic update, so two workers that race for the last use cannot both join. A caller that sends many tokens that are not valid is throttled by its address. A token is never written to a log or to the API trace.
+- **Revocable, and visible.** The list shows each token as `unused`, `partly_used`, `used_up`, `expired` or `revoked`, with the uses left, the connections it allows and who minted it.
+- **Connections.** A token can allow only `nats`, only `websocket`, or both. A worker that asks for another connection is refused, also when it registers again. Workers over P2P keep the [worker invite](#workers-over-p2p).
+- **Approval.** A node that joins with a token waits for an admin to approve it, as before. A token can carry `auto_approve`, and the cluster setting `join_auto_approve` sets its default. Both are **off** unless you turn them on.
+
+After it joined, the worker holds **its own credential**. The frontend returns it once, in the answer to the registration, and stores only its hash. The worker keeps it in its state directory (`<models path>/../data/node-credential.json`, mode `0600`) and presents it for the heartbeat, drain, deregister and models routes, and to register again after a restart. So a restart needs no join token, and a node cannot act on another node. A new registration with a join token or with the registration token replaces the credential, and the old one stops working at once; LocalAI also ends the tunnel session of the old one. A worker whose credential is lost (for example its state directory is deleted) joins again with a new join token.
+
+**Upgrade.** This is a hard break for old workers: a worker that predates join tokens sends the shared registration token for its heartbeat, and the frontend now refuses it. Upgrade the workers with the frontend. A worker that registers again gets its own credential.
+
+#### Add a worker
+
+Mint a token on the Nodes page (**Add worker**), or with the API:
+
+```bash
+curl -s -X POST http://frontend:8080/api/cluster/join-tokens \
+  -H "Authorization: Bearer $ADMIN_KEY" -H 'Content-Type: application/json' \
+  -d '{"ttl_seconds":600,"uses":1,"routes":["websocket"],"label":"rack 3"}'
+```
+
+The answer holds the plain token once, and a ready-to-copy command for each way to run a worker, built from the external URL of the frontend (`LOCALAI_BASE_URL`, or the request host when it is behind a trusted proxy set with `--trusted-proxies`):
+
+| Method | What it runs |
+|--------|--------------|
+| `install_script` | `curl -fsSL '<frontend>/join.sh?t=<token>' \| sudo sh`: installs the binary with the checksum check of `install.sh`, writes a systemd unit (Linux) or a launchd daemon (macOS), keeps the settings in a file that only root can read, and starts the service. It is safe to run again. |
+| `windows` | `irm '<frontend>/join.ps1?t=<token>' \| iex` from an elevated PowerShell: installs the binary and a Windows service. |
+| `docker` | `docker run` with `LOCALAI_REGISTER_TO` and `LOCALAI_JOIN_TOKEN`, and volumes for `/models`, `/backends` and `/data` |
+| `docker_compose` | A compose file with one worker service and the same volumes |
+| `kubernetes` | `kubectl apply -f '<frontend>/join.yaml?t=<token>'`: a Secret with the token and a StatefulSet named `localai-worker` with a volume for the state directory, and GPU limits as comments |
+| `manual` | `LOCALAI_REGISTER_TO=... LOCALAI_JOIN_TOKEN=... local-ai worker` |
+
+The three scripts are public, but each answers only for a token that exists and is not expired, revoked or used up (otherwise `404`, the same for every case). Serving a script does not spend the token. The query `routes=nats,websocket` limits the connections of the worker within what the token allows. A script holds the token: do not share it. The shell script never prints the token and never puts it on a command line.
+
+To remove a worker that the install script set up, see the note it prints at the end: `systemctl disable --now localai-worker`, remove `/etc/localai/worker.env`, the unit and the state directory, and delete the node on the Nodes page.
+
+The scripts use the installer at `https://localai.io/install.sh` and `https://localai.io/install.ps1`. For a host with no internet access, serve a copy and set `LOCALAI_INSTALL_URL` before you run the script.
+
+#### The join token API
+
+All routes are for an admin only and answer `503` when distributed mode is off. The schema is in the swagger UI.
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/cluster/join-tokens` | Mint a token. Body (all optional): `ttl_seconds` (up to 86400), `uses` (up to 100), `routes` (`nats`, `websocket`), `label`, `auto_approve`. Returns the plain `token` once and the `commands`. |
+| `GET /api/cluster/join-tokens` | List the tokens and their state. The secret is never in the list. |
+| `DELETE /api/cluster/join-tokens/{id}` | Revoke a token. A worker that already joined keeps its own credential; delete the node to end that. |
+| `PUT /api/cluster/settings` with `join_auto_approve` | The default of `auto_approve` for new tokens. |
+
+These routes are not exposed as tools of the LocalAI Assistant: a token is a credential and must not pass through a chat.
 
 ### Workers over P2P
 
@@ -750,7 +805,7 @@ The API is split into two prefixes with distinct auth:
 
 ### `/api/node/` - Node self-service
 
-Used by workers themselves (registration, heartbeat, etc.). Authenticated via the registration token, exempt from global auth.
+Used by workers themselves (registration, heartbeat, etc.), exempt from global auth. Registration takes a [join token](#join-tokens) (`join_token` in the body), the shared registration token (`token`, when the frontend has one), or the own credential of a node that registers again (`Authorization: Bearer`). It returns the credential of the node once (`node_token`). Every other route takes that credential, for its own node only.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -760,6 +815,8 @@ Used by workers themselves (registration, heartbeat, etc.). Authenticated via th
 | `GET` | `/api/node/:id/models` | Query own loaded models |
 | `POST` | `/api/node/:id/split` | Report the P2P host and the [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) of the node; the answer says whether the node is a split server and lists the workers attached to it and the relays that admit it. A node that registered with the token is bound to the first peer it reports; another peer gets `409` until the node registers again |
 | `DELETE` | `/api/node/:id` | Deregister self |
+
+The shared registration token is refused on every route of this table except `register`.
 
 ### `/api/nodes/` - Admin management
 
@@ -1781,11 +1838,11 @@ A frontend that serves the API over TLS itself (`--tls-cert` or `--tls-self-sign
 
 ## Security of the carriers
 
-- **Per-node credentials.** Each worker has its own tunnel token. It is stored as a hash (SHA-256) and compared in constant time, and it is rotated at each registration. Each frontend has its own peer credential. The shared **registration token never opens a tunnel or a peer link**. It only allows a worker to obtain its own credential.
-- **Open registration.** With no registration token and `--auto-approve-nodes`, anyone who can reach a frontend can register a node, get a tunnel, and receive the requests sent to workers. LocalAI logs a warning once (`Worker registration is open`) but does not refuse to start. Set a token, or turn off automatic approval. `--distributed-require-auth` makes the missing token a start-up error.
+- **Per-node credentials.** Each worker has its own credential for the node routes (heartbeat, drain, deregister, models, split report), minted at registration and stored as a hash. A worker can act on its own node only. Each worker also has its own tunnel token. It is stored as a hash (SHA-256) and compared in constant time, and it is rotated at each registration. Each frontend has its own peer credential. The shared **registration token never opens a tunnel or a peer link**. It only allows a worker to obtain its own credential, and it is optional when workers join with [join tokens](#join-tokens).
+- **Open registration.** With no registration token, a registration with no join token and no credential is accepted and waits for approval, as it always did; it cannot replace the credential of a node that already has one. With no registration token and `--auto-approve-nodes`, anyone who can reach a frontend can register a node, get a tunnel, and receive the requests sent to workers. LocalAI logs a warning once (`Worker registration is open`) but does not refuse to start. Set a token, or turn off automatic approval. `--distributed-require-auth` makes the missing token a start-up error.
 - **Admin only.** The cluster settings routes need an admin user, and each change is logged with the name of the admin (`Cluster settings changed`).
 - **Websocket.** The tunnel upgrade happens after bearer authentication. The tunnel reaches only the loopback ports of the worker that its backends use.
-- **Worker control plane.** A worker serves its control plane to callers on its own host only, unless it has a registration token. A frontend reaches it through the tunnel.
+- **Worker control plane.** A worker serves its control plane to callers on its own host only, unless it has a data plane token: the one that the frontend derives from the registration token and hands to the worker at registration (so a worker that joined with a join token never sees the registration token). A frontend with no registration token has no data plane token, and a worker then serves the file-transfer port with no token; set a registration token on the frontend, and `--distributed-require-auth` on both, to close it. A frontend reaches it through the tunnel.
 - **NATS secrets stay on the frontends.** Operator keys and TLS key files are files or environment values on each frontend. They never enter the database. The CA certificate (public) is handed to the workers.
 - **Cluster settings** are shared by all frontends, so they cannot hold credentials: an address with a user name, a password, or a query string is refused.
 
@@ -1847,7 +1904,7 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 
 **Worker not registering:**
 - Verify the frontend URL is reachable from the worker (`curl http://frontend:8080/api/node/register`)
-- Check that `--registration-token` matches on both frontend and worker
+- Check that `--registration-token` matches on both frontend and worker, or that the join token is valid (`GET /api/cluster/join-tokens` shows its state). A heartbeat refused with 401 means the worker has no credential for the node: register it again with a new join token
 - Ensure auth is enabled on the frontend (`LOCALAI_AUTH=true`)
 
 **A worker shows `follow_error`:**

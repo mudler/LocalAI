@@ -43,6 +43,26 @@ You can set these environment variables before the command:
 
 The script supports Linux on amd64 and arm64, and macOS on arm64 (Apple Silicon). There is no binary for Intel Macs. Use a container there. On Windows, use the PowerShell script in [Windows]({{% relref "/start/install/windows" %}}).
 
+### Install a worker
+
+The script has a worker mode that installs the binary and then a service that runs `local-ai worker` and joins a cluster. You normally do not type this yourself: an admin mints a join token on the Nodes page (**Add worker**), and the page gives you a command such as `curl -fsSL 'https://ai.example.com/join.sh?t=...' | sudo sh`, which runs this mode. See [Join tokens]({{% relref "/administration/distributed-mode" %}}#join-tokens).
+
+```bash
+LOCALAI_REGISTER_TO=https://ai.example.com LOCALAI_JOIN_TOKEN=ljt_... sudo -E sh install.sh --worker
+```
+
+Run it as root. It writes a systemd unit on Linux (a launchd daemon on macOS, not tested on every macOS version), keeps the settings in `/etc/localai/worker.env` (readable by root only), and starts the service. The join token is read from the environment, never from a command line, and the script never prints it. Running it again is safe: the worker keeps its own credential in its state directory and needs the token once.
+
+| Variable | Effect |
+|---|---|
+| `LOCALAI_REGISTER_TO` | The URL of the frontend. Required. |
+| `LOCALAI_JOIN_TOKEN` | The join token. Required the first time. |
+| `LOCALAI_WORKER_ROUTES` | `nats`, `websocket` or both. Optional. |
+| `LOCALAI_WORKER_NAME` | The node name. The default is the host name. |
+| `LOCALAI_WORKER_DIR` | The state directory (models, backends, credential). The default is `/var/lib/local-ai` on Linux. |
+
+To remove the worker: `sudo systemctl disable --now localai-worker`, then remove `/etc/localai/worker.env`, `/etc/systemd/system/localai-worker.service` and the state directory, and delete the node on the Nodes page.
+
 ## Container
 
 ```bash
