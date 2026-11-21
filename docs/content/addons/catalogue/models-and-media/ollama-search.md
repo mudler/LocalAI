@@ -36,6 +36,7 @@ Your choice of sources is saved with your account.
 Ollama has no public search API, so the add-on reads two pages of the site: the search page, `https://ollama.com/search`, and, when the `variants` argument is set, the tags page of one model, `https://ollama.com/library/<name>/tags`. It doesn't call the `/api` or `/v1` paths, which the `robots.txt` of the site disallows. It sends the user agent `LocalAI model search (+https://github.com/mudler/LocalAI)`, waits at most 20 seconds for a page, and reads at most 4 MiB of it. Its calls go out like the calls of any add-on, under the network rules of your server. It keeps no data.
 
 - The add-on asks the site for local models only, so models that run only in the cloud are not listed.
+- MLX and other non-GGUF builds are left out of the tags the add-on lists.
 - A search page shows the first results only. The add-on doesn't load the rest, so a search gives about a dozen results, fewer than the limit you set when the site shows fewer.
 - Because the add-on reads HTML, a change of the site layout can break it. When the layout is not the one it knows, the source shows a failed status that names the page, never an empty list. Update the add-on to fix it.
 

@@ -25,6 +25,22 @@ type Variant struct {
 	ContextTokens int64 `json:"context_tokens,omitempty"`
 }
 
+// nonGGUFMarkers are parts of a tag name that mark a build that is not a GGUF
+// file: MLX and the nvfp4 and mxfp8 formats keep their weights as safetensors
+// tensors, which llama.cpp cannot load. Tags such as bf16, fp16 or q4_K_M are
+// GGUF builds and are kept.
+var nonGGUFMarkers = []string{"mlx", "nvfp4", "mxfp8"}
+
+func isGGUFTag(tag string) bool {
+	t := strings.ToLower(tag)
+	for _, m := range nonGGUFMarkers {
+		if strings.Contains(t, m) {
+			return false
+		}
+	}
+	return true
+}
+
 // maxVariants is the most tags the add-on returns for one model.
 const maxVariants = 200
 
@@ -38,7 +54,8 @@ var (
 // ParseTags reads the tags page of the model name. The page lists each tag
 // twice, once for narrow screens and once for wide ones; the add-on reads the
 // first, which carries the digest, size and context window in one block. A tag
-// of a cloud-hosted build has no download and is left out. A page with no tag
+// of a cloud-hosted build has no download, and a tag of a build that is not
+// a GGUF file (MLX, nvfp4, mxfp8) cannot run with llama.cpp; both are left out. A page with no tag
 // is an error.
 func ParseTags(body, name string) ([]Variant, error) {
 	root, err := html.Parse(strings.NewReader(body))
@@ -55,6 +72,9 @@ func ParseTags(body, name string) ([]Variant, error) {
 		tag := strings.TrimPrefix(attr(a, "href"), prefix)
 		if tag == "" || len(tag) > 100 || strings.ContainsAny(tag, "/?# ") {
 			return nil, fmt.Errorf("the Ollama tags page of %s lists a tag with an unexpected link (the site markup may have changed): %w", name, ErrLayout)
+		}
+		if !isGGUFTag(tag) {
+			continue
 		}
 		m := tagDetail.FindStringSubmatch(text(a))
 		if m == nil {

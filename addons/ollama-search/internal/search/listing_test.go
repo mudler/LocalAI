@@ -156,6 +156,34 @@ var _ = Describe("the tags page", func() {
 		Expect(v[1].ContextTokens).To(BeZero())
 	})
 
+	It("leaves out the builds that are not GGUF files and keeps bf16 and quantized tags", func() {
+		v, err := search.ParseTags(page("tags-q38.html"), "qwen3.8")
+		Expect(err).NotTo(HaveOccurred())
+		var tags []string
+		for _, x := range v {
+			tags = append(tags, x.Tag)
+		}
+		Expect(tags).To(Equal([]string{"latest", "27b", "27b-mtp-q4_K_M", "27b-mtp-q8_0", "27b-mtp-bf16", "27b-q4_K_M", "27b-q8_0", "27b-bf16"}))
+	})
+
+	It("leaves out a tag by its name, whatever its case and place", func() {
+		tag := func(t string) string {
+			return `<a href="/library/m:` + t + `" class="md:hidden"><span class="font-mono">
+				aaaaaaaaaaaa</span> • 1GB • 4K context window</a>`
+		}
+		body := tag("latest") + tag("8b-MLX") + tag("mlx-8b") + tag("8b-nvfp4") + tag("8b-dflash2-mxfp8") + tag("8b-fp16")
+		v, err := search.ParseTags(body, "m")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v).To(HaveLen(2))
+		Expect(v[0].Tag).To(Equal("latest"))
+		Expect(v[1].Tag).To(Equal("8b-fp16"))
+	})
+
+	It("names the page when every tag is left out", func() {
+		_, err := search.ParseTags(`<a href="/library/m:8b-mlx" class="md:hidden">x</a>`, "m")
+		Expect(err).To(MatchError(search.ErrLayout))
+	})
+
 	It("names the page when it lists no tag", func() {
 		_, err := search.ParseTags("<html><body>nothing</body></html>", "qwen3")
 		Expect(err).To(MatchError(search.ErrLayout))
