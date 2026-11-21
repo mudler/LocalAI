@@ -5937,6 +5937,7 @@
       "unit: updates: the client sends check and upgrade as the administrator's own action and types the refusals",
       "unit: updates: every locale carries the same update keys as English, and words for every state, reason and refusal",
       "unit: updates: a release that needs a newer LocalAI is incompatible with the reason feature-level, and an install that fails for it says so",
+      "unit: updates: a queued backend update is updating with no progress, a running one keeps its progress",
       "go: offers a digest-only change of the branch-fix-cache channel with an identical version label",
       "go: offers a digest-only change of the development channel with an identical version label",
       "go: offers a digest-only change of the latest channel with an identical version label",
