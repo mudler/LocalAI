@@ -141,6 +141,55 @@ export type LoginItemView =
   | { status: 'unavailable'; reason: 'not-appimage' | 'platform' }
   | { status: 'failed'; reason: string }
 
+// ---- registry credentials ---------------------------------------------------
+
+export type RegistryCredentialKind = 'basic' | 'bearer'
+
+/** One rule: which registry it applies to and how to sign in. The secret is not part of it. */
+export interface RegistryCredentialRule {
+  id: string
+  /** Host with an optional port and path, optional http(s):// in front. */
+  match: string
+  kind: RegistryCredentialKind
+  /** Basic only. */
+  username?: string
+}
+
+/** What the renderer sees: the rule and whether a secret is stored. Never the secret. */
+export type RegistryCredentialView = RegistryCredentialRule & { secretSet: boolean }
+
+/** The list the Settings screen shows. `userOverride`: the user set the credentials file themselves, so the rules are not used. */
+export interface RegistryCredentialsView {
+  rules: RegistryCredentialView[]
+  userOverride: boolean
+  restartRequired: boolean
+}
+
+/** What the renderer sends to save a rule. Without `id` it is a new rule; without `secret` an edit keeps the stored one. */
+export interface RegistryCredentialInput {
+  id?: string
+  match: string
+  kind: RegistryCredentialKind
+  username?: string
+  secret?: string
+}
+
+export type RegistryCredentialSaveResult = { ok: true; id: string; restartRequired: boolean } | { ok: false; reason: string }
+
+export interface RegistryCredentialRemoveResult {
+  restartRequired: boolean
+}
+
+/**
+ * Outcome of the Test action. Never carries the secret, a header or an answer
+ * body. `token`: the registry signs in through a separate token service, which
+ * the Test action does not contact, so it cannot tell.
+ */
+export interface RegistryCredentialTestResult {
+  result: 'ok' | 'unauthorized' | 'token' | 'unreachable' | 'tls' | 'other'
+  status?: number
+}
+
 // ---- secrets, network exposure, environment variables -----------------------
 
 /**
@@ -688,6 +737,11 @@ export interface LauncherApi {
   setEnvVar(name: string, value: string): Promise<EnvVarResult>
   deleteEnvVar(name: string): Promise<EnvVarsView>
   getSecretStorageState(): Promise<SecretStorageView>
+  /** Rules and whether a secret is set; secrets never leave the main process. */
+  getRegistryCredentials(): Promise<RegistryCredentialsView>
+  saveRegistryCredential(input: RegistryCredentialInput): Promise<RegistryCredentialSaveResult>
+  removeRegistryCredential(id: string): Promise<RegistryCredentialRemoveResult>
+  testRegistryCredential(id: string): Promise<RegistryCredentialTestResult>
   /** Tells the main process the first React render happened (smoke test hook). */
   firstRender(shownState: string): void
 }

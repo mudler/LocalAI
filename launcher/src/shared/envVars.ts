@@ -35,12 +35,16 @@ export const STRIPPED_PREFIXES: readonly string[] = ['ELECTRON_', 'APPIMAGE_', '
  * LOCALAI_BASE_PATH: the launcher sets it to the data folder of its settings.
  * Change the folder in Settings instead.
  *
+ * LOCALAI_CREDENTIALS_FILE: the launcher sets it to the file it generates from
+ * the registry credentials. A value the user sets in the system environment is
+ * passed on unchanged and the launcher's file is not used.
+ *
  * PATH: the server gets the PATH of the system, unchanged. A user value would
  * replace the search path of the server and every backend it starts, which
  * breaks them in ways that are hard to see, so PATH is refused here. Change
  * the system PATH instead.
  */
-export const CONTROLLED_VARS: readonly string[] = ['LOCALAI_API_KEY', 'API_KEY', 'LOCALAI_ADDRESS', 'ADDRESS', 'PATH', 'LOCALAI_BASE_PATH']
+export const CONTROLLED_VARS: readonly string[] = ['LOCALAI_API_KEY', 'API_KEY', 'LOCALAI_ADDRESS', 'ADDRESS', 'PATH', 'LOCALAI_BASE_PATH', 'LOCALAI_CREDENTIALS_FILE']
 
 /** Names the server's API key may be under in an old config. */
 export const API_KEY_VARS: readonly string[] = ['LOCALAI_API_KEY', 'API_KEY']

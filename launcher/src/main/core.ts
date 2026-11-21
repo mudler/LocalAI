@@ -33,6 +33,11 @@ import type {
   CopyKeyFormat,
   EnvVarResult,
   EnvVarsView,
+  RegistryCredentialInput,
+  RegistryCredentialRemoveResult,
+  RegistryCredentialSaveResult,
+  RegistryCredentialTestResult,
+  RegistryCredentialsView,
   NetworkChangeResult,
   NetworkPlanView,
   NetworkView,
@@ -110,7 +115,10 @@ import { initialNotice, reduceNotice, type NoticeEvent, type NoticeState, type S
 import type { SandboxProbe } from './sandboxProbe'
 import { InvalidAttachPattern, validateAttachPattern, type SandboxPlan } from './sandboxProfile'
 import { prepareRemove, prepareSetup, runPlan, type Runner, type SetupResult } from './sandboxSetup'
-import { buildServerLaunch, needsRestart, type ServerLaunch } from './serverLaunch'
+import { buildServerLaunch, isCredentialsFileName, needsRestart, userCredentialsFile, type RegistryCredentialsLaunch, type ServerLaunch } from './serverLaunch'
+import { CREDENTIALS_FILE_NAME, prepareRegistryCredentials } from './credentialsFile'
+import { RegistryCredentials } from './registryCredentials'
+import { probeRegistry } from './registryProbe'
 import {
   execServerVersion,
   isActive,
@@ -318,6 +326,9 @@ export class LauncherCore {
   private secrets!: SecretStore
   /** Values to scrub from server output: every secret given to a server in this session. */
   private redactValues = new Set<string>()
+  private registryCredentials!: RegistryCredentials
+  /** The generated credentials file and secret variables of the last refresh. */
+  private registryLaunch?: RegistryCredentialsLaunch
   private plans = new Map<string, number>()
   private revealLimiter = new RevealLimiter()
   private monitor!: RemoteMonitor
@@ -336,7 +347,7 @@ export class LauncherCore {
   // ---- start ------------------------------------------------------------------
 
   async init(): Promise<void> {
-    const launcherLog = (m: string) => (this.hub ? this.hub.write('launcher', m) : this.early.push(m))
+    const launcherLog = (m: string) => this.launcherLog(m)
 
     this.d.trace?.('init-start')
     // 1. config
@@ -366,6 +377,8 @@ export class LauncherCore {
     this.d.trace?.('secrets-opened')
     await this.migrateSecrets(launcherLog)
     this.d.trace?.('secrets-migrated')
+    this.registryCredentials = new RegistryCredentials(this.store, this.secrets)
+    await this.refreshRegistryCredentials()
     config = this.store.get()
     // The server never listens on the network without a key. Without a keyring
     // the key lives only for a session while the address is saved, and an old
@@ -421,11 +434,17 @@ export class LauncherCore {
     // 6. installer
     const paths = this.installPaths()
     const core = this // the getter below must read the current supervisor, which a settings change replaces
+    // The installer restarts the server after an update or a rollback. That start
+    // goes through prepareStart too, so it never uses a launch whose credentials
+    // file was removed or rewritten while the server ran.
     const handle: SupervisorHandle = {
       get state() {
         return core.supervisor.state
       },
-      start: () => this.supervisor.start(),
+      start: async () => {
+        await this.prepareStart()
+        await this.supervisor.start()
+      },
       stop: () => this.supervisor.stop(),
     }
     this.installer = new ServerInstaller({
@@ -808,7 +827,7 @@ export class LauncherCore {
   private async openLocal(): Promise<void> {
     this.monitor.stop()
     this.webuiDispatch({ type: 'back-to-local' })
-    if (this.launchStale) this.buildSupervisor(this.store.get())
+    await this.prepareStart()
     await this.startServer()
   }
 
@@ -972,12 +991,95 @@ export class LauncherCore {
     return fs.existsSync(this.serverBinary())
   }
 
+  /**
+   * Writes the credentials file for the registry rules and keeps the secret
+   * variables for the next server launch. Returns true when the result differs
+   * from the last one. A failure to write leaves the server without registry
+   * credentials; it is logged with the error code only.
+   *
+   * The server reads the file once, at its start, so removing the file while
+   * a server runs does not affect it. A missing file named by the variable is
+   * a startup error. The launch of a running server can therefore name a file
+   * that is gone; every start goes through prepareStart, which refreshes the
+   * file and rebuilds such a launch first.
+   */
+  private async refreshRegistryCredentials(): Promise<boolean> {
+    const dir = path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home, this.layout()))
+    const override = userCredentialsFile(this.d.env, this.userEnv()) !== undefined
+    let next: RegistryCredentialsLaunch | undefined
+    try {
+      const p = await prepareRegistryCredentials(dir, this.registryCredentials, override)
+      next = p.file ? { file: p.file, env: p.env } : undefined
+    } catch (e) {
+      this.launcherLog(`registry credentials: could not write ${CREDENTIALS_FILE_NAME} (${(e as NodeJS.ErrnoException).code ?? 'error'})`, 'warn')
+    }
+    const changed = JSON.stringify(next ?? null) !== JSON.stringify(this.registryLaunch ?? null)
+    this.registryLaunch = next
+    return changed
+  }
+
+  /** The launcher log, or the early buffer before the log hub exists. */
+  private launcherLog(m: string, level: 'info' | 'warn' = 'info'): void {
+    if (this.hub) this.hub.write('launcher', m, level)
+    else this.early.push(m)
+  }
+
+  /**
+   * Call after a registry rule or its secret changed. Stopped server: the
+   * launch is rebuilt now. Running server: the launch is marked stale and the
+   * next start uses the new file. Returns true when a restart is needed.
+   */
+  async registryCredentialsChanged(): Promise<boolean> {
+    if (!(await this.refreshRegistryCredentials())) return this.restartRequired()
+    if (this.serverRunning()) {
+      this.launchStale = true
+      return true
+    }
+    this.buildSupervisor(this.store.get())
+    this.d.emit('launcher:server:event', this.snapshot())
+    return false
+  }
+
+  /** The rules and their secrets, for the Settings handlers. */
+  registryCredentialRules(): RegistryCredentials {
+    return this.registryCredentials
+  }
+
+  /** The rules for the Settings screen: no secrets, only whether one is set. */
+  registryCredentialsView(): RegistryCredentialsView {
+    return {
+      rules: this.registryCredentials.list(),
+      userOverride: userCredentialsFile(this.d.env, this.userEnv()) !== undefined,
+      restartRequired: this.restartRequired(),
+    }
+  }
+
+  async saveRegistryCredential(input: RegistryCredentialInput): Promise<RegistryCredentialSaveResult> {
+    const r = await this.registryCredentials.save(input)
+    if (!r.ok) return r
+    this.launcherLog('registry credential saved')
+    return { ok: true, id: r.id, restartRequired: await this.registryCredentialsChanged() }
+  }
+
+  async removeRegistryCredential(id: string): Promise<RegistryCredentialRemoveResult> {
+    await this.registryCredentials.remove(id)
+    this.launcherLog('registry credential removed')
+    return { restartRequired: await this.registryCredentialsChanged() }
+  }
+
+  /** Asks the registry of one rule whether its credential is accepted. The secret is read here and goes nowhere else. */
+  async testRegistryCredential(id: string): Promise<RegistryCredentialTestResult> {
+    const rule = this.registryCredentials.list().find((r) => r.id === id)
+    if (!rule) return { result: 'other' }
+    return probeRegistry(rule, await this.registryCredentials.secretFor(id))
+  }
+
   private buildSupervisor(config: LauncherConfig): void {
     this.supervisor?.removeAllListeners()
     const apiKey = this.secrets.get(API_KEY_SECRET)
     const env = this.userEnv()
-    for (const v of [apiKey, ...Object.values(env)]) if (v && v.length >= REDACT_MIN_LENGTH) this.redactValues.add(v)
-    this.launch = buildServerLaunch(config, dataPath(config, this.d.home, this.layout()), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config))
+    for (const v of [apiKey, ...Object.values(env), ...Object.values(this.registryLaunch?.env ?? {})]) if (v && v.length >= REDACT_MIN_LENGTH) this.redactValues.add(v)
+    this.launch = buildServerLaunch(config, dataPath(config, this.d.home, this.layout()), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config), this.registryLaunch)
     this.supervisor = new ServerSupervisor({
       command: this.serverBinary(),
       args: this.launch.args,
@@ -1068,7 +1170,8 @@ export class LauncherCore {
   /**
    * The server's launch values changed (API key, address, environment).
    * Stopped: rebuild now. Running: the next start uses them. Returns true
-   * when a restart is needed.
+   * when a restart is needed. The registry credentials are not part of this:
+   * startServer refreshes them before every start.
    */
   private launchChanged(): boolean {
     if (this.serverRunning()) {
@@ -1120,12 +1223,22 @@ export class LauncherCore {
     }
   }
 
+  /**
+   * Run before every start of the supervisor, and the only way to one: the
+   * rules may have changed since the launch was built, and a stale launch may
+   * name a credentials file that was removed.
+   */
+  private async prepareStart(): Promise<void> {
+    if (await this.refreshRegistryCredentials()) this.launchStale = true
+    if (this.launchStale) this.buildSupervisor(this.store.get())
+  }
+
   /** Starts the server and returns once it is starting; readiness comes as events. */
   async startServer(): Promise<void> {
     if (!this.localManaged()) return
     if (!this.binaryInstalled() || this.installActive()) return
     if (this.serverRunning()) return
-    if (this.launchStale) this.buildSupervisor(this.store.get())
+    await this.prepareStart()
     void this.supervisor.start()
   }
 
@@ -1358,6 +1471,7 @@ export class LauncherCore {
         this.launchStale = true
         restartRequired = true
       } else {
+        await this.refreshRegistryCredentials()
         this.buildSupervisor(after)
         this.d.emit('launcher:server:event', this.snapshot())
       }
@@ -1527,7 +1641,10 @@ export class LauncherCore {
     return {
       vars: this.secrets.list(ENV_PREFIX).map((n) => {
         const name = n.slice(ENV_PREFIX.length)
-        return { name, ignored: envNameProblem(name, this.envIgnoreCase()) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
+        // A LOCALAI_CREDENTIALS_FILE set by an older version is controlled, but it is
+        // passed on (see userCredentialsFile) and turns the registry rules off.
+        const passed = isCredentialsFileName(name, this.d.platform ?? process.platform)
+        return { name, ignored: !passed && envNameProblem(name, this.envIgnoreCase()) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
       }),
       restartRequired: this.restartRequired(),
       storage: this.secrets.state(),

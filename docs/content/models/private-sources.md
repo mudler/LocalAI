@@ -13,6 +13,8 @@ You give LocalAI a credentials file. Each entry matches a URL prefix and says ho
 
 Pass the file with `--credentials-file` or `LOCALAI_CREDENTIALS_FILE`. If neither is set, `local-ai run` reads `credentials.yaml` from the data path (`LOCALAI_DATA_PATH`) when that file exists.
 
+If you use the desktop app, you can set registry credentials in its settings instead. The app writes the file for you. See [Registry credentials]({{% relref "/start/install/desktop" %}}#registry-credentials).
+
 ```yaml
 # Basic auth for a private registry. The password comes from an env var.
 - match: ghcr.io/acme

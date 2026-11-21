@@ -8,6 +8,8 @@
 // Keys that only this launcher writes live in `extra`, beside the keys of the
 // Go launcher. An older launcher keeps them as unknown keys and ignores them.
 import { loadConfig, saveConfig, type ConfigOptions, type LauncherConfig, type LoadResult } from './config'
+import { CRED_ID } from './secretStore'
+import { matchProblem, usernameProblem } from '../shared/registryMatch'
 import { parsePermissionStore, validateRemoteOrigin, type PermissionStore } from './webuiPolicy'
 
 /** Show the slim status bar under the WebUI. Missing means true. */
@@ -111,6 +113,53 @@ export function withSecretsPlaintextFile(c: LauncherConfig, on: boolean): Launch
   const extra = { ...c.extra }
   if (on) extra[SECRETS_PLAINTEXT_FILE_KEY] = true
   else delete extra[SECRETS_PLAINTEXT_FILE_KEY]
+  return { ...c, extra }
+}
+
+/** The rules of the registry credentials. Secrets are not here: they live in the secret store as `cred:<id>`. */
+export const REGISTRY_CREDENTIALS_KEY = 'registry_credentials'
+
+/** What launcher.json holds for one rule: the shared rule plus the number behind its env name. */
+export interface StoredRegistryCredential {
+  id: string
+  match: string
+  kind: 'basic' | 'bearer'
+  username?: string
+  index: number
+}
+
+/** Read again on every load: a hand-edited file is not trusted, so bad entries are dropped. */
+export function registryCredentials(c: LauncherConfig): StoredRegistryCredential[] {
+  const raw = c.extra[REGISTRY_CREDENTIALS_KEY]
+  if (!Array.isArray(raw)) return []
+  const out: StoredRegistryCredential[] = []
+  const ids = new Set<string>()
+  const indexes = new Set<number>()
+  for (const r of raw) {
+    if (typeof r !== 'object' || r === null || Array.isArray(r)) continue
+    const o = r as Record<string, unknown>
+    if (typeof o.id !== 'string' || !CRED_ID.test(o.id) || ids.has(o.id)) continue
+    // The same checks as a save: a rule the server cannot use, or whose user
+    // name would stop the server at startup, is dropped.
+    if (typeof o.match !== 'string' || matchProblem(o.match) !== undefined) continue
+    if (o.kind !== 'basic' && o.kind !== 'bearer') continue
+    if (typeof o.index !== 'number' || !Number.isInteger(o.index) || o.index < 1 || indexes.has(o.index)) continue
+    ids.add(o.id)
+    indexes.add(o.index)
+    const rule: StoredRegistryCredential = { id: o.id, match: o.match, kind: o.kind, index: o.index }
+    if (o.kind === 'basic') {
+      if (usernameProblem(o.username) !== undefined) continue
+      rule.username = o.username as string
+    }
+    out.push(rule)
+  }
+  return out
+}
+
+export function withRegistryCredentials(c: LauncherConfig, rules: StoredRegistryCredential[]): LauncherConfig {
+  const extra = { ...c.extra }
+  if (rules.length === 0) delete extra[REGISTRY_CREDENTIALS_KEY]
+  else extra[REGISTRY_CREDENTIALS_KEY] = rules
   return { ...c, extra }
 }
 

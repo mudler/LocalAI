@@ -12,6 +12,11 @@ import type {
   CopyKeyFormat,
   CopyKeyResult,
   EnvVarResult,
+  RegistryCredentialInput,
+  RegistryCredentialRemoveResult,
+  RegistryCredentialSaveResult,
+  RegistryCredentialTestResult,
+  RegistryCredentialsView,
   EnvVarsView,
   ExportLogsResult,
   FolderKind,
@@ -148,6 +153,10 @@ export const IPC = {
   setEnvVar: 'launcher:env:set',
   deleteEnvVar: 'launcher:env:delete',
   getSecretStorageState: 'launcher:secrets:state',
+  getRegistryCredentials: 'launcher:registry-credentials:list',
+  saveRegistryCredential: 'launcher:registry-credentials:save',
+  removeRegistryCredential: 'launcher:registry-credentials:remove',
+  testRegistryCredential: 'launcher:registry-credentials:test',
   // smoke test hook
   firstRender: 'launcher:first-render',
 } as const
@@ -226,6 +235,10 @@ export interface InvokeContract {
   'launcher:env:set': { args: [name: string, value: string]; result: EnvVarResult }
   'launcher:env:delete': { args: [name: string]; result: EnvVarsView }
   'launcher:secrets:state': { args: []; result: SecretStorageView }
+  'launcher:registry-credentials:list': { args: []; result: RegistryCredentialsView }
+  'launcher:registry-credentials:save': { args: [input: RegistryCredentialInput]; result: RegistryCredentialSaveResult }
+  'launcher:registry-credentials:remove': { args: [id: string]; result: RegistryCredentialRemoveResult }
+  'launcher:registry-credentials:test': { args: [id: string]; result: RegistryCredentialTestResult }
 }
 
 /** Payload of each event channel (main to renderer). */
@@ -335,6 +348,10 @@ export const CHANNEL_KIND: { [C in Channel]: C extends InvokeChannel ? 'invoke' 
   'launcher:env:set': 'invoke',
   'launcher:env:delete': 'invoke',
   'launcher:secrets:state': 'invoke',
+  'launcher:registry-credentials:list': 'invoke',
+  'launcher:registry-credentials:save': 'invoke',
+  'launcher:registry-credentials:remove': 'invoke',
+  'launcher:registry-credentials:test': 'invoke',
   'launcher:first-render': 'send',
 }
 
