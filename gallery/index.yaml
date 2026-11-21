@@ -17279,6 +17279,242 @@
   variants:
     - model: inkling-small-iq2-m
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, in Unsloth's UD-Q4_K_XL GGUF quantization (17.6 GB).
+    It is a 26.2B-parameter mixture-of-experts model with 3.4B active parameters,
+    built as a looped transformer: the middle 12 of its 24 layers run three times
+    with shared weights. It accepts text and images (the F16 vision projector is
+    included) and generates text. It reasons before it answers and supports tool use.
+    A smaller build is available as a variant.
+
+    The entry uses the Mainline_Support build of the weights, the layout that
+    mainline llama.cpp reads, and pairs it with Unsloth's Q8_0 DSpark drafter
+    (0.4 GB) for speculative decoding with blocks of 3 draft tokens. The drafter
+    is meant to speed up generation on a GPU. In one CPU-only test it accepted
+    40 to 67 percent of the drafted tokens and gave no speed-up.
+
+    Limits from the model card: the model can get stuck in long reasoning loops,
+    so set limits on output tokens and on agent turns. Setting the reasoning effort
+    to its minimum does not turn reasoning off completely. It is less reliable than
+    larger models at following detailed tool instructions, so run agents in a
+    sandbox and confirm destructive actions. Output quality can be lower outside
+    English. Sampling follows the card: temperature 1.0 with no truncation.
+
+    Needs a LocalAI build whose llama.cpp backend supports the inkling2_loop
+    architecture and the DSpark drafter.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - moe
+    - dflash
+    - cpu
+    - gpu
+  files:
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q4_K_XL.gguf
+      sha256: e64276656f072e9b2197a61723667cbdb71da66a716ffd966e572c21088f3cd3
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/Mainline_Support/Inkling-2-Mini-UD-Q4_K_XL.gguf_file
+    - filename: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+      sha256: 3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F16.gguf
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    draft_model: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q4_K_XL.gguf
+      temperature: 1.0
+      top_k: 0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: inkling-2-mini-q3
+    - model: inkling-2-mini-q2
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-q3
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, in Unsloth's UD-Q3_K_XL GGUF quantization (13.6 GB).
+    It is a 26.2B-parameter mixture-of-experts model with 3.4B active parameters,
+    built as a looped transformer: the middle 12 of its 24 layers run three times
+    with shared weights. It accepts text and images (the F16 vision projector is
+    included) and generates text. It reasons before it answers and supports tool use.
+    This entry is the Q3_K_XL build (13.6 GB) for hosts with less memory; the Q4_K_XL build is the default.
+
+    The entry uses the Mainline_Support build of the weights, the layout that
+    mainline llama.cpp reads, and pairs it with Unsloth's Q8_0 DSpark drafter
+    (0.4 GB) for speculative decoding with blocks of 3 draft tokens. The drafter
+    is meant to speed up generation on a GPU. In one CPU-only test it accepted
+    40 to 67 percent of the drafted tokens and gave no speed-up.
+
+    Limits from the model card: the model can get stuck in long reasoning loops,
+    so set limits on output tokens and on agent turns. Setting the reasoning effort
+    to its minimum does not turn reasoning off completely. It is less reliable than
+    larger models at following detailed tool instructions, so run agents in a
+    sandbox and confirm destructive actions. Output quality can be lower outside
+    English. Sampling follows the card: temperature 1.0 with no truncation.
+
+    Needs a LocalAI build whose llama.cpp backend supports the inkling2_loop
+    architecture and the DSpark drafter.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - moe
+    - dflash
+    - cpu
+    - gpu
+  files:
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q3_K_XL.gguf
+      sha256: e2d03e8c92ac21cff0e3309b95f40dfd27d1825184f0d2bc09db249797273639
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/Mainline_Support/Inkling-2-Mini-UD-Q3_K_XL.gguf_file
+    - filename: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+      sha256: 3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F16.gguf
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    draft_model: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q3_K_XL.gguf
+      temperature: 1.0
+      top_k: 0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+  variants: []
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-q2
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, in Unsloth's UD-Q2_K_XL GGUF quantization (9.1 GB).
+    It is a 26.2B-parameter mixture-of-experts model with 3.4B active parameters,
+    built as a looped transformer: the middle 12 of its 24 layers run three times
+    with shared weights. It accepts text and images (the F16 vision projector is
+    included) and generates text. It reasons before it answers and supports tool use.
+    This entry is the Q2_K_XL build (9.1 GB) for hosts with less memory; the Q4_K_XL build is the default.
+
+    The entry uses the Mainline_Support build of the weights, the layout that
+    mainline llama.cpp reads, and pairs it with Unsloth's Q8_0 DSpark drafter
+    (0.4 GB) for speculative decoding with blocks of 3 draft tokens. The drafter
+    is meant to speed up generation on a GPU. In one CPU-only test it accepted
+    40 to 67 percent of the drafted tokens and gave no speed-up.
+
+    Limits from the model card: the model can get stuck in long reasoning loops,
+    so set limits on output tokens and on agent turns. Setting the reasoning effort
+    to its minimum does not turn reasoning off completely. It is less reliable than
+    larger models at following detailed tool instructions, so run agents in a
+    sandbox and confirm destructive actions. Output quality can be lower outside
+    English. Sampling follows the card: temperature 1.0 with no truncation.
+
+    Needs a LocalAI build whose llama.cpp backend supports the inkling2_loop
+    architecture and the DSpark drafter.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - moe
+    - dflash
+    - cpu
+    - gpu
+  files:
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q2_K_XL.gguf
+      sha256: b42841608ea380ddde5a3f1125081357128a3c71b80d006246de4e31292fc6c1
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/Mainline_Support/Inkling-2-Mini-UD-Q2_K_XL.gguf_file
+    - filename: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+      sha256: 3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F16.gguf
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    draft_model: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q2_K_XL.gguf
+      temperature: 1.0
+      top_k: 0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+  variants: []
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: inkling-small-iq2-m
   description: |
     Inkling Small is a 276B-parameter mixture-of-experts multimodal model with 12B active parameters for text, image, and audio understanding, instruction following, coding, and tool use. This entry uses the IQ2_M GGUF quantization, whose three language-model shards total approximately 82.4 GB.
