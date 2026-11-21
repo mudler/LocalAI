@@ -2,6 +2,9 @@ package nodes
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -44,8 +47,23 @@ type BackendNode struct {
 	// tunnel until it registers again. The column cannot be filled in, because
 	// the secret exists only in the response that minted it.
 	TunnelTokenHash string `gorm:"size:64" json:"-"`
-	TotalVRAM       uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM   uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	// NodeTokenHash is the SHA-256 of the own credential of this node for the
+	// self-service routes (heartbeat, drain, resume, deregister, its models, its
+	// split report) and for registering again. Registration with a join token or
+	// with the registration token mints it, returns the secret once and stores
+	// only this hash. The registration token itself opens none of those routes.
+	// Empty means that the node holds no credential yet: it registered before the
+	// column existed, and it must register again.
+	NodeTokenHash string `gorm:"size:64" json:"-"`
+	// JoinTokenID names the join token that the node registered with, or is empty
+	// for a node that registered another way. It is not a secret.
+	JoinTokenID string `gorm:"size:32" json:"join_token_id,omitempty"`
+	// JoinRoutes are the connections that the join token allowed (nats,
+	// websocket), comma separated. Empty means any. A registration of the node
+	// with its own credential may ask for those routes only.
+	JoinRoutes    string `gorm:"size:64" json:"join_routes,omitempty"`
+	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
@@ -1533,6 +1551,38 @@ func (r *NodeRegistry) SetTunnelTokenHash(ctx context.Context, nodeID, hash stri
 		return fmt.Errorf("storing the tunnel credential of node %s: %w", nodeID, gorm.ErrRecordNotFound)
 	}
 	return nil
+}
+
+// SetNodeCredential stores the hash of the own credential of a node, the join
+// token that it registered with (empty when none) and the connections that
+// token allowed. It replaces the previous
+// credential, which stops working at once.
+func (r *NodeRegistry) SetNodeCredential(ctx context.Context, nodeID, hash, joinTokenID, joinRoutes string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{"node_token_hash": hash, "join_token_id": joinTokenID, "join_routes": joinRoutes})
+	if res.Error != nil {
+		return fmt.Errorf("storing the credential of node %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("storing the credential of node %s: %w", nodeID, gorm.ErrRecordNotFound)
+	}
+	return nil
+}
+
+// HashNodeSecret is the hash that the database holds for the credential of a
+// node, or for any other secret that a worker presents.
+func HashNodeSecret(secret string) string {
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:])
+}
+
+// NodeCredentialMatches reports whether secret is the credential of the node, in
+// constant time. A node with no credential matches nothing.
+func NodeCredentialMatches(node *BackendNode, secret string) bool {
+	if node == nil || node.NodeTokenHash == "" || secret == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(HashNodeSecret(secret)), []byte(node.NodeTokenHash)) == 1
 }
 
 // ClearAddresses removes the addresses of a node. A worker that holds only a

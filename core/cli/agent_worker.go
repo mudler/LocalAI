@@ -18,6 +18,7 @@ import (
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/worker"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/LocalAI/pkg/signals"
@@ -45,7 +46,9 @@ type AgentWorkerCMD struct {
 	// Registration (required)
 	RegisterTo        string `env:"LOCALAI_REGISTER_TO" required:"" help:"Frontend URL for registration" group:"registration"`
 	NodeName          string `env:"LOCALAI_NODE_NAME" help:"Node name for registration (defaults to hostname)" group:"registration"`
-	RegistrationToken string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token for authenticating with the frontend" group:"registration"`
+	RegistrationToken string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Shared registration token of the frontend, if it has one. Used to register only; after that the agent worker holds its own credential" group:"registration"`
+	JoinToken         string `name:"join-token" env:"LOCALAI_JOIN_TOKEN" help:"Single-use join token that an admin minted on the frontend. It replaces the registration token for registering. The agent worker keeps the own credential that it gets in its state directory, so a restart needs no token" group:"registration"`
+	StateDir          string `name:"state-dir" env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Directory where the agent worker keeps its own credential" group:"registration"`
 	HeartbeatInterval string `env:"LOCALAI_HEARTBEAT_INTERVAL" default:"10s" help:"Interval between heartbeats" group:"registration"`
 
 	// Removed: the worker no longer runs agents or jobs. These are accepted and
@@ -71,6 +74,11 @@ func (cmd *AgentWorkerCMD) natsAuthRequired() bool {
 	return cmd.NatsRequireAuth || cmd.DistributedRequireAuth
 }
 
+// joins reports whether the agent worker has a token to register with.
+func (cmd *AgentWorkerCMD) joins() bool {
+	return cmd.RegistrationToken != "" || cmd.JoinToken != ""
+}
+
 // routes returns the routes of the agent worker, NATS first. The tunnel needs
 // the registration token, which guards the control server that the tunnel
 // reaches, so it is not a default without one. A worker with neither a NATS URL
@@ -81,7 +89,7 @@ func (cmd *AgentWorkerCMD) routes() ([]worker.Route, error) {
 		if cmd.NatsURL != "" {
 			out = append(out, worker.RouteNATS)
 		}
-		if cmd.RegistrationToken != "" {
+		if cmd.joins() {
 			out = append(out, worker.RouteTunnel)
 		}
 		if len(out) == 0 {
@@ -96,8 +104,8 @@ func (cmd *AgentWorkerCMD) routes() ([]worker.Route, error) {
 	if len(out) == 0 {
 		return nil, fmt.Errorf("--routes names no route: give nats, tunnel or both")
 	}
-	if slices.Contains(out, worker.RouteTunnel) && cmd.RegistrationToken == "" {
-		return nil, fmt.Errorf("the tunnel route of an agent worker needs LOCALAI_REGISTRATION_TOKEN: it guards the control server that the tunnel reaches")
+	if slices.Contains(out, worker.RouteTunnel) && !cmd.joins() {
+		return nil, fmt.Errorf("the tunnel route of an agent worker needs LOCALAI_JOIN_TOKEN or LOCALAI_REGISTRATION_TOKEN: the frontend gives the worker the token that guards the control server that the tunnel reaches")
 	}
 	return out, nil
 }
@@ -112,15 +120,18 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	// Register with frontend
-	regClient := &workerregistry.RegistrationClient{
-		FrontendURL:       cmd.RegisterTo,
-		RegistrationToken: cmd.RegistrationToken,
-	}
-
 	nodeName := cmd.NodeName
 	if nodeName == "" {
 		hostname, _ := os.Hostname()
 		nodeName = "agent-" + hostname
+	}
+	regClient := &workerregistry.RegistrationClient{
+		FrontendURL:       cmd.RegisterTo,
+		RegistrationToken: cmd.RegistrationToken,
+		JoinToken:         cmd.JoinToken,
+		// The own credential of the node lives in the state directory, so that a
+		// restart registers with it and needs no join token.
+		Credential: &workerregistry.FileCredential{Dir: cmd.StateDir, FrontendURL: cmd.RegisterTo, NodeName: nodeName},
 	}
 	// register asks for the credentials of the given routes. Each route gets its
 	// own credential from a registration that asks for that route only, so the
@@ -138,9 +149,6 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 				"commit":    internal.Commit,
 				"routes":    names,
 			}
-			if cmd.RegistrationToken != "" {
-				body["token"] = cmd.RegistrationToken
-			}
 			return regClient.RegisterFull(ctx, body)
 		}
 	}
@@ -157,6 +165,12 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 	nodeID := res.ID
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo, "routes", routes)
+	// The token that guards the control server of the tunnel: the frontend hands
+	// it over, or it is derived from the registration token.
+	controlToken := cmp.Or(regClient.WorkerToken(), workerctl.WorkerAuthToken(cmd.RegistrationToken))
+	if slices.Contains(routes, worker.RouteTunnel) && controlToken == "" {
+		return fmt.Errorf("the tunnel route of an agent worker needs a token for its control server: set a registration token on the frontend")
+	}
 
 	heartbeatInterval, err := time.ParseDuration(cmd.HeartbeatInterval)
 	if err != nil && cmd.HeartbeatInterval != "" {
@@ -184,7 +198,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		FallbackSeed: cmd.NatsServiceSeed,
 	}
 	serve := agentworker.ServeConfig{
-		NodeID: nodeID, FrontendURL: cmd.RegisterTo, ControlToken: cmd.RegistrationToken,
+		NodeID: nodeID, FrontendURL: cmd.RegisterTo, ControlToken: controlToken,
 		Local: local,
 		// Model-level MCP tool calls and discovery from the frontend. The worker
 		// creates and caches the MCP sessions from the serialized config.

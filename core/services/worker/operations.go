@@ -240,7 +240,7 @@ func (s *backendSupervisor) backendReady(bp *backendProcess) bool {
 	if s.readyFn != nil {
 		return s.readyFn(bp.addr)
 	}
-	client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+	client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.dataToken)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	st, err := client.Status(ctx)

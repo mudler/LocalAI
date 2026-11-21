@@ -38,14 +38,19 @@ const (
 var routeOrder = [...]Route{RouteNATS, RouteTunnel}
 
 // ParseRoutes reads the routes that an operator named, keeps each once, and
-// puts them in the order a worker attaches them. A name that is not a route is
-// an error.
+// puts them in the order a worker attaches them. "websocket" is another name of
+// the tunnel. A name that is not a route is an error.
 func ParseRoutes(names []string) ([]Route, error) {
 	var out []Route
 	for _, n := range names {
 		r := Route(strings.ToLower(strings.TrimSpace(n)))
 		if r == "" {
 			continue
+		}
+		// "websocket" is the name that the join token and the admin API use for
+		// the tunnel that a worker holds over a websocket.
+		if r == "websocket" {
+			r = RouteTunnel
 		}
 		if r != RouteNATS && r != RouteTunnel {
 			return nil, fmt.Errorf("unknown worker route %q: use %q or %q", n, RouteNATS, RouteTunnel)

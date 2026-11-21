@@ -32,7 +32,7 @@ var _ = Describe("The shutdown of a worker", func() {
 			}
 		}))
 		DeferCleanup(srv.Close)
-		c := &RegistrationClient{FrontendURL: srv.URL + "/", RegistrationToken: "tok"}
+		c := &RegistrationClient{FrontendURL: srv.URL + "/", credLoaded: true, nodeToken: "tok"}
 		c.GracefulDeregister("n1")
 		mu.Lock()
 		defer mu.Unlock()

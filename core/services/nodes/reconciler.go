@@ -218,8 +218,11 @@ type ReplicaReconcilerOptions struct {
 	// Adapter is the control carrier used to retry pending backend ops. When nil,
 	// the state-reconciler pending-drain pass is a no-op (single-node mode).
 	Adapter NodeControl
-	// RegistrationToken is used by the default gRPC prober when probing model
-	// addresses. Matches the worker's token so HealthCheck auth succeeds.
+	// RegistrationToken is the data plane token (workerctl.WorkerAuthToken). The
+	// default gRPC prober presents it when probing model addresses. It matches
+	// the token of the worker, so that the HealthCheck auth succeeds. The name is
+	// older than the split between the registration token and the data plane
+	// token.
 	RegistrationToken string
 	// Prober overrides the default gRPC health probe (used by tests).
 	Prober ModelProber

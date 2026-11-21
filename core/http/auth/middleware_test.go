@@ -3,6 +3,7 @@
 package auth_test
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -410,31 +411,38 @@ var _ = Describe("Auth Middleware", func() {
 			Expect(rec.Body.String()).To(BeEmpty())
 		})
 
-		It("delegates the full node self-service group to registration-token auth", func() {
+		It("delegates the full node self-service group to node auth", func() {
 			const registrationToken = "node-registration-secret"
 			app = newNodeSelfServiceTestApp(db, appConfig, registrationToken)
-			authHeader := withBearerToken(registrationToken)
 
+			// Registration takes the registration token in its body, and answers with
+			// the own credential of the node.
 			register := doRequestWithBody(
 				app,
 				http.MethodPost,
 				"/api/node/register",
 				`{"name":"worker-1","address":"127.0.0.1:50051","token":"node-registration-secret"}`,
-				authHeader,
 			)
 			Expect(register.Code).To(Equal(http.StatusCreated))
+			var registered struct {
+				ID        string `json:"id"`
+				NodeToken string `json:"node_token"`
+			}
+			Expect(json.Unmarshal(register.Body.Bytes(), &registered)).To(Succeed())
+			Expect(registered.NodeToken).ToNot(BeEmpty())
+			authHeader := withBearerToken(registered.NodeToken)
 
 			for _, route := range []struct {
 				method string
 				path   string
 				body   string
 			}{
-				{http.MethodPost, "/api/node/missing/heartbeat", `{}`},
-				{http.MethodPost, "/api/node/missing/drain", ""},
-				{http.MethodPost, "/api/node/missing/resume", ""},
-				{http.MethodPost, "/api/node/missing/deregister", ""},
-				{http.MethodGet, "/api/node/missing/models", ""},
-				{http.MethodDelete, "/api/node/missing", ""},
+				{http.MethodPost, "/api/node/" + registered.ID + "/heartbeat", `{}`},
+				{http.MethodPost, "/api/node/" + registered.ID + "/drain", ""},
+				{http.MethodPost, "/api/node/" + registered.ID + "/resume", ""},
+				{http.MethodPost, "/api/node/" + registered.ID + "/deregister", ""},
+				{http.MethodGet, "/api/node/" + registered.ID + "/models", ""},
+				{http.MethodDelete, "/api/node/" + registered.ID, ""},
 			} {
 				rec := doRequestWithBody(app, route.method, route.path, route.body, authHeader)
 				Expect(rec.Code).ToNot(Equal(http.StatusUnauthorized), route.method+" "+route.path)
@@ -472,7 +480,7 @@ var _ = Describe("Auth Middleware", func() {
 			Expect(anonymous.Code).To(Equal(http.StatusUnauthorized))
 		})
 
-		It("lets downstream node auth reject missing and invalid registration tokens", func() {
+		It("lets downstream node auth reject missing and invalid credentials, the registration token included", func() {
 			const registrationToken = "node-registration-secret"
 			app = newNodeSelfServiceTestApp(db, appConfig, registrationToken)
 
@@ -484,10 +492,10 @@ var _ = Describe("Auth Middleware", func() {
 				app,
 				http.MethodGet,
 				"/api/node/missing/models",
-				withBearerToken("wrong-registration-token"),
+				withBearerToken(registrationToken),
 			)
 			Expect(invalid.Code).To(Equal(http.StatusUnauthorized))
-			Expect(invalid.Body.String()).To(ContainSubstring("invalid registration token"))
+			Expect(invalid.Body.String()).To(ContainSubstring("invalid node credential"))
 		})
 
 		It("enforces disabled MCP and moderation permissions on every alias", func() {

@@ -389,7 +389,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Registry:       registry,
 		InstallTimeout: cfg.Distributed.BackendInstallTimeoutOrDefault(),
 		UpgradeTimeout: cfg.Distributed.BackendUpgradeTimeoutOrDefault(),
-		Token:          cfg.Distributed.RegistrationToken,
+		Token:          cfg.Distributed.WorkerAuthToken(),
 		S3Staging:      cfg.Distributed.StorageURL != "",
 		FileManager:    fileMgr,
 		ExpectedSHA256: managedFileSHA256(cfg),
@@ -467,10 +467,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	// Collect SmartRouter option values; the router itself is created after all
 	// dependencies (including FileStager and Unloader) are ready.
-	var routerAuthToken string
-	if cfg.Distributed.RegistrationToken != "" {
-		routerAuthToken = cfg.Distributed.RegistrationToken
-	}
+	// The data plane token is derived from the registration token, which stays a
+	// secret of the registration step.
+	routerAuthToken := cfg.Distributed.WorkerAuthToken()
 	var routerGalleriesJSON string
 	if galleriesJSON, err := json.Marshal(cfg.BackendGalleries); err == nil {
 		routerGalleriesJSON = string(galleriesJSON)
@@ -676,7 +675,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Unloader:          remoteUnloader,
 		Adapter:           remoteUnloader,
 		ClientFactory:     clientFactory,
-		RegistrationToken: cfg.Distributed.RegistrationToken,
+		RegistrationToken: cfg.Distributed.WorkerAuthToken(),
 		DB:                authDB,
 		Interval:          30 * time.Second,
 		ScaleDownDelay:    5 * time.Minute,

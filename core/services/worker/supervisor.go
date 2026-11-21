@@ -609,7 +609,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// 4s window made the worker reply Success on a not-yet-listening port,
 	// which manifested upstream as "connect: connection refused" on the
 	// frontend's first LoadModel dial.
-	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.RegistrationToken)
+	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.dataToken)
 	const (
 		readinessPollInterval = 200 * time.Millisecond
 		readinessTimeout      = 30 * time.Second
@@ -977,7 +977,7 @@ func (s *backendSupervisor) stopBackendExactBP(key string, bp *backendProcess, f
 
 func (s *backendSupervisor) finishStopping(key string, bp *backendProcess, force bool) error {
 	if !force {
-		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.dataToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		xlog.Debug("Calling bounded Free() before stopping backend", "backend", key, "timeout", workerBackendFreeTimeout)
 		if err := client.Free(freeCtx); err != nil {
@@ -1042,7 +1042,7 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	s.mu.Unlock()
 
 	if !req.Force {
-		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.dataToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		freeErr := client.Free(freeCtx)
 		cancel()

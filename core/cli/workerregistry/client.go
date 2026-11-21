@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"strings"
 	"sync"
@@ -22,9 +23,21 @@ import (
 )
 
 // RegistrationClient talks to the frontend's /api/node/* endpoints.
+//
+// Registration is the one call that takes a join token or the shared
+// registration token. It returns the own credential of the node, and every
+// other call, and every later registration, presents that credential.
 type RegistrationClient struct {
-	FrontendURL       string
+	FrontendURL string
+	// RegistrationToken is the shared registration token of the deployment. It
+	// is sent in registration only.
 	RegistrationToken string
+	// JoinToken is a single-use token that an admin minted. It is sent in
+	// registration only, and only until the node holds its own credential.
+	JoinToken string
+	// Credential keeps the own credential of the node between runs, so that a
+	// restart needs no join token. Nil keeps it in memory only.
+	Credential CredentialStore
 	HTTPTimeout       time.Duration // used for registration calls; defaults to 10s
 	// HTTPClient, when set, carries every call instead of a client built from
 	// HTTPTimeout: a worker that joined over P2P reaches the frontend through
@@ -32,6 +45,66 @@ type RegistrationClient struct {
 	HTTPClient *http.Client
 	client     *http.Client
 	clientOnce sync.Once
+
+	credMu      sync.Mutex
+	credLoaded  bool
+	nodeToken   string
+	workerToken string
+}
+
+// CredentialStore keeps the own credential of a node.
+type CredentialStore interface {
+	// Load returns the stored credential, or the empty string when there is none
+	// for this frontend and node name.
+	Load() (string, error)
+	// Save stores the credential.
+	Save(token string) error
+}
+
+// NodeToken returns the own credential of the node, loading it from the store on
+// first use. It is empty until the node has registered.
+func (c *RegistrationClient) NodeToken() string {
+	c.credMu.Lock()
+	defer c.credMu.Unlock()
+	if !c.credLoaded {
+		c.credLoaded = true
+		if c.Credential != nil {
+			tok, err := c.Credential.Load()
+			if err != nil {
+				xlog.Warn("Could not read the stored node credential", "error", err)
+			}
+			c.nodeToken = tok
+		}
+	}
+	return c.nodeToken
+}
+
+// WorkerToken returns the data plane token that the last registration handed
+// over, or empty. A worker that registered with the shared registration token
+// derives it from that token instead (workerctl.WorkerAuthToken).
+func (c *RegistrationClient) WorkerToken() string {
+	c.credMu.Lock()
+	defer c.credMu.Unlock()
+	return c.workerToken
+}
+
+func (c *RegistrationClient) adopt(res *RegisterResponse) {
+	c.credMu.Lock()
+	defer c.credMu.Unlock()
+	if res.WorkerToken != "" {
+		c.workerToken = res.WorkerToken
+	}
+	if res.NodeToken == "" {
+		return
+	}
+	c.credLoaded = true
+	c.nodeToken = res.NodeToken
+	if c.Credential != nil {
+		if err := c.Credential.Save(res.NodeToken); err != nil {
+			// The worker runs on, and needs a new join token after a restart.
+			xlog.Error("Could not store the node credential: a restart will need a new join token", "error", err)
+		}
+	}
 }
 
 // httpTimeout returns the configured timeout or a sensible default.
@@ -59,10 +132,11 @@ func (c *RegistrationClient) baseURL() string {
 	return strings.TrimRight(c.FrontendURL, "/")
 }
 
-// setAuth adds an Authorization header when a token is configured.
+// setAuth adds the own credential of the node as the Authorization header. The
+// registration token is not a credential for any call but registration.
 func (c *RegistrationClient) setAuth(req *http.Request) {
-	if c.RegistrationToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.RegistrationToken)
+	if tok := c.NodeToken(); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 }
 
@@ -91,6 +165,13 @@ type RegisterResponse struct {
 	APIToken     string `json:"api_token,omitempty"`
 	NatsJWT      string `json:"nats_jwt,omitempty"`
 	NatsUserSeed string `json:"nats_user_seed,omitempty"`
+	// NodeToken is the own credential of the node for the node routes
+	// (heartbeat, drain, deregister) and for registering again. It is sent once,
+	// to a registration that used a join token or the registration token.
+	NodeToken string `json:"node_token,omitempty"`
+	// WorkerToken is the bearer token between the frontends and this worker for
+	// the data plane. Empty when the deployment has none.
+	WorkerToken string `json:"worker_token,omitempty"`
 	// TunnelToken is the own credential of the node for the tunnel. It is sent
 	// once, and only to a registration that asks for the tunnel.
 	TunnelToken string `json:"tunnel_token,omitempty"`
@@ -107,6 +188,20 @@ type RegisterResponse struct {
 // Re-registration is idempotent: the frontend preserves the node row and mints
 // a fresh NATS JWT each call, so this doubles as the credential-refresh call.
 func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]any) (*RegisterResponse, error) {
+	// What the worker holds goes in the request. The frontend tries the own
+	// credential first, then the join token, then the registration token, so a
+	// worker that restarts never spends a join token.
+	body = maps.Clone(body)
+	if body == nil {
+		body = map[string]any{}
+	}
+	delete(body, "token")
+	if c.RegistrationToken != "" {
+		body["token"] = c.RegistrationToken
+	}
+	if c.JoinToken != "" {
+		body["join_token"] = c.JoinToken
+	}
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/register"
 
@@ -131,6 +226,7 @@ func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]a
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
+	c.adopt(&result)
 	return &result, nil
 }
 

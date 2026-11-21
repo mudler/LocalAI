@@ -667,6 +667,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 		tunnels = d.Tunnels
 		registerOpts = append(registerOpts, localai.WithTunnelDisconnector(d))
 		registerOpts = append(registerOpts, localai.WithNATSHandover(d.NATS))
+		// A worker may register with a join token, and gets the data plane
+		// token in the answer, so it never needs the registration token.
+		registerOpts = append(registerOpts, localai.WithJoinTokens(d.JoinTokens, d.JoinLimiter))
+		registerOpts = append(registerOpts, localai.WithWorkerToken(distCfg.WorkerAuthToken()))
 		// A worker that joined with a worker invite registers over P2P with
 		// its peer ID, and opens its tunnel there.
 		registerOpts = append(registerOpts, localai.WithWorkerPeers(application))
