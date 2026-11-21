@@ -29,6 +29,11 @@ export default function LanguageSwitcher() {
   }, [open])
 
   const select = (code) => {
+    try {
+      localStorage.setItem('localai-language', code)
+    } catch (_e) {
+      // ignore storage errors in restricted contexts
+    }
     i18n.changeLanguage(code)
     setOpen(false)
   }
