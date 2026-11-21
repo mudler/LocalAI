@@ -1,5 +1,5 @@
 {
-  "title": "P2P",
+  "title": "Condivisione",
   "supporting": "Dispositivi, remoti e nodi che raggiungono questo server via P2P, e gli inviti che li fanno entrare.",
   "loadStatusFailed": "Impossibile leggere lo stato di P2P.",
   "tabs": {

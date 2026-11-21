@@ -126,7 +126,8 @@
     }
   },
   "nodes": {
-    "retry": "重试"
+    "retry": "重试",
+    "title": "工作节点"
   },
   "add": {
     "connect": {
@@ -224,6 +225,15 @@
     "toast": {
       "set": "{{node}} 已是拆分服务器。当前挂载的工作节点：{{count}} 个，将用于它下次加载的模型。",
       "cleared": "{{node}} 已不再是拆分服务器。卸下的工作节点：{{count}} 个。"
+    }
+  },
+  "placement": {
+    "title": "部署",
+    "supporting": "模型在集群中的运行位置，以及目标停止响应时的处理方式。",
+    "views": {
+      "label": "部署视图",
+      "rules": "规则",
+      "failover": "故障转移"
     }
   }
 }

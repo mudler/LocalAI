@@ -47,8 +47,9 @@ function Sentence({ rule, t }) {
 // Rules say which model may run where. Each is written as a sentence, shows
 // where the model is loaded now, and opens in a side sheet to edit with a
 // preview of what the draft would do. Deleting waits a few seconds so it can be
-// taken back.
-export default function Scheduling() {
+// taken back. `embedded` is the Rules view of the Placement page, which draws
+// the title.
+export default function Scheduling({ embedded = false }) {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('swarm')
   const [params, setParams] = useSearchParams()
@@ -127,8 +128,8 @@ export default function Scheduling() {
   const matrixNodes = backendNodes.slice(0, MATRIX_NODES)
 
   return (
-    <div className="page page--wide sw-page" data-testid="placement-rules">
-      <h1 className="dk-sr-only">{t('rules.title')}</h1>
+    <div className={embedded ? 'sw-page' : 'page page--wide sw-page'} data-testid="placement-rules">
+      {!embedded && <h1 className="dk-sr-only">{t('rules.title')}</h1>}
 
       <div className="sw-bar sw-bar--lede">
         <p className="sw-note">{t('rules.lede')}</p>

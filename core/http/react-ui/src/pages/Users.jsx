@@ -64,7 +64,7 @@ export default function Users() {
       </div>
 
       <div className="dk-tabpanel" role="tabpanel" id={`us-panel-${tab}`} aria-labelledby={`us-tab-${tab}`}>
-        {tab === 'users' && <UsersPanel addToast={addToast} onInvite={() => select('invites')} registrationMode={registrationMode} />}
+        {tab === 'users' && <UsersPanel addToast={addToast} onInvite={() => select('invites')} registrationMode={registrationMode} initialQuery={params.get('q') || ''} />}
         {tab === 'invites' && <InvitesPanel addToast={addToast} registrationMode={registrationMode} />}
         {tab === 'keys' && <ApiKeysPanel addToast={addToast} intro={ta('keys.adminIntro')} />}
       </div>

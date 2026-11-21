@@ -1,5 +1,5 @@
 {
-  "title": "P2P",
+  "title": "Compartir",
   "supporting": "Dispositivos, remotos y nodos que llegan a este servidor por P2P, y las invitaciones que los dejan entrar.",
   "loadStatusFailed": "No se pudo leer el estado de P2P.",
   "tabs": {

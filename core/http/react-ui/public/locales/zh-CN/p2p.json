@@ -1,5 +1,5 @@
 {
-  "title": "P2P",
+  "title": "共享",
   "supporting": "通过 P2P 访问此服务器的设备、远程和节点，以及让它们加入的邀请。",
   "loadStatusFailed": "无法读取 P2P 的状态。",
   "tabs": {

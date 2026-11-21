@@ -126,7 +126,8 @@
     }
   },
   "nodes": {
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "title": "Workers"
   },
   "add": {
     "connect": {
@@ -224,6 +225,15 @@
     "toast": {
       "set": "{{node}} est un serveur de découpage. Workers rattachés : {{count}}. Ils servent au prochain modèle qu’il charge.",
       "cleared": "{{node}} n’est plus un serveur de découpage. Workers détachés : {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Placement",
+    "supporting": "Où les modèles tournent dans le cluster, et ce qui se passe quand une cible ne répond plus.",
+    "views": {
+      "label": "Vues du placement",
+      "rules": "Règles",
+      "failover": "Basculement"
     }
   }
 }

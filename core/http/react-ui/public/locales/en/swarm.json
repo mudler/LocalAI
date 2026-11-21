@@ -174,7 +174,7 @@
     "lowDiskFilter": "Low models disk"
   },
   "nodes": {
-    "title": "Nodes",
+    "title": "Workers",
     "filter": "Show",
     "all": "All",
     "needs": "Needs attention",
@@ -797,6 +797,15 @@
     "toast": {
       "set": "{{node}} is a split server. Workers attached now: {{count}}. They are used for the next model it loads.",
       "cleared": "{{node}} is no longer a split server. Workers detached: {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Placement",
+    "supporting": "Where models run in the cluster, and what happens when a target stops answering.",
+    "views": {
+      "label": "Placement views",
+      "rules": "Rules",
+      "failover": "Failover"
     }
   }
 }

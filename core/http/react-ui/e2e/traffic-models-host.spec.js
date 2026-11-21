@@ -1,11 +1,12 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem } from './admin-nav.js'
 import { mockTraffic, gpuHost } from './traffic-fixtures.js'
 
 test.describe('Traffic models', () => {
   test('lists every model with what the ledger, the buffer and the loader know', async ({ page }) => {
     await mockTraffic(page)
     await page.goto('/app/traffic/models')
-    await expect(page.locator('.hub-subnav').getByRole('link', { name: 'Models' })).toHaveAttribute('aria-current', 'page')
+    await expect(adminItem(page, '/app/traffic/models')).toHaveAttribute('aria-current', 'page')
     const rows = page.getByTestId('models-table').locator('tbody tr[data-row]')
     await expect(rows.first()).toContainText('qwen3-8b-instruct')
     await expect(rows.first()).toContainText('In memory')

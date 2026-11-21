@@ -23,7 +23,8 @@ const POLICY = ['notAnswering', 'requests', 'replicas', 'back']
 // replicas and the rules what would stop if it went, labelled as a preview.
 //
 // A single install has chains and no nodes, so it shows only the chains.
-export default function Failover() {
+// `embedded` is the Failover view of the Placement page, which draws the title.
+export default function Failover({ embedded = false }) {
   const { t, i18n } = useTranslation('models')
   const { t: ts } = useTranslation('swarm')
   const { chains, loading, error } = useFailoverChains()
@@ -50,8 +51,8 @@ export default function Failover() {
   const single = useMemo(() => (rows ? singleReplicaModels(rows, nodes) : []), [rows, nodes])
 
   return (
-    <div className="page page--wide sw-page" data-testid="failover-overview">
-      <h1 className="dk-sr-only">{t('failover.overview.title')}</h1>
+    <div className={embedded ? 'sw-page' : 'page page--wide sw-page'} data-testid="failover-overview">
+      {!embedded && <h1 className="dk-sr-only">{t('failover.overview.title')}</h1>}
       <p className="sw-note">{ts('failover.lede')}</p>
 
       {cluster && lost.length > 0 && (

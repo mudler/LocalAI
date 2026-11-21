@@ -1,5 +1,5 @@
 {
-  "title": "P2P",
+  "title": "공유",
   "supporting": "P2P로 이 서버에 접속하는 기기, 원격, 노드와 이들을 들여보내는 초대입니다.",
   "loadStatusFailed": "P2P 상태를 읽을 수 없습니다.",
   "tabs": {

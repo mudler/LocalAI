@@ -1,5 +1,5 @@
 {
-  "title": "P2P",
+  "title": "Partage",
   "supporting": "Les appareils, serveurs distants et nœuds qui joignent ce serveur en P2P, et les invitations qui les font entrer.",
   "loadStatusFailed": "Impossible de lire l'état du P2P.",
   "tabs": {

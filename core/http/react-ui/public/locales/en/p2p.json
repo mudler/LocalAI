@@ -1,5 +1,5 @@
 {
-  "title": "P2P",
+  "title": "Sharing",
   "supporting": "Devices, remotes and nodes that reach this server over P2P, and the invites that let them in.",
   "loadStatusFailed": "Could not read the state of P2P.",
   "tabs": {

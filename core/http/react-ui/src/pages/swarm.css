@@ -368,3 +368,9 @@
 .sw-invite__ready { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
 .sw-invite__warn { margin: 0; padding-left: var(--dk-space-4); font-size: var(--dk-text-13); color: var(--dk-warn-text); }
 .sw-note[data-level="error"] { color: var(--dk-error-text); }
+
+/* The view switch of the Placement page: links in the kit tab style. */
+.placement-tabs { margin-bottom: var(--sp-5); }
+.placement-tabs .dk-tab { text-decoration: none; }
+.placement-tabs .dk-tab[aria-current="page"] { color: var(--dk-text); }
+.placement-tabs .dk-tab[aria-current="page"]::after { transform: scaleX(1); }

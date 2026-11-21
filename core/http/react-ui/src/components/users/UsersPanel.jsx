@@ -55,12 +55,12 @@ function Avatar({ user }) {
 // The people who can sign in: filter, search, sort, approve or disable, and
 // open one person's access. Role, password reset and delete sit in the row's
 // menu. Every call is the one the page made before.
-export default function UsersPanel({ addToast, onInvite, registrationMode }) {
+export default function UsersPanel({ addToast, onInvite, registrationMode, initialQuery = '' }) {
   const { t } = useTranslation('auth')
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: null, dir: 'asc' })
   const [editingUser, setEditingUser] = useState(null)

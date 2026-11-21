@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem } from './admin-nav.js'
 import { mockSwarm, clusterNodes } from './swarm-fixtures.js'
 
 // Failover overview page (Operate -> Runtime -> Failover on a single install,
@@ -58,16 +59,16 @@ test.describe('Failover overview', () => {
     })
   })
 
-  test('admin reaches Failover from the Runtime tab', async ({ page }) => {
+  test('admin reaches Failover from the Models and runtime group', async ({ page }) => {
     await mockAuth(page)
     await mockFailover(page, [CHAIN_A])
     await page.goto('/app/backends')
 
-    const link = page.locator('.hub-subnav a[href="/app/failover"]')
+    const link = adminItem(page, '/app/failover')
     await expect(link).toBeVisible({ timeout: 10_000 })
     await expect(link).toContainText('Failover')
     await link.click()
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"]')).toHaveAttribute('aria-current', 'page')
+    await expect(link).toHaveAttribute('aria-current', 'page')
   })
 
   test('lists chains from GET /api/failover with their live health', async ({ page }) => {
@@ -154,14 +155,14 @@ test.describe('Failover on a cluster', () => {
     page.on('pageerror', (err) => { throw new Error(`uncaught page error: ${err.message}`) })
   })
 
-  test('is a Swarm page, and no longer a Runtime one', async ({ page }) => {
+  test('is the Failover view of Placement, and no longer a Models and runtime page', async ({ page }) => {
     await mockSwarm(page, { chains: [CHAIN_A] })
     await page.goto('/app/failover')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="swarm"]')).toHaveAttribute('aria-current', 'page', { timeout: 15_000 })
-    await expect(page.locator('.hub-subnav a[href="/app/failover"]')).toHaveAttribute('aria-current', 'page')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"]')).not.toHaveAttribute('aria-current', 'page')
+    await expect(page).toHaveURL(/\/app\/scheduling\/failover$/)
+    await expect(adminItem(page, '/app/scheduling')).toHaveAttribute('aria-current', 'page', { timeout: 15_000 })
+    await expect(page.getByTestId('placement-view-failover')).toHaveAttribute('aria-current', 'page')
     await page.goto('/app/backends')
-    await expect(page.locator('.hub-subnav a[href="/app/failover"]')).toHaveCount(0)
+    await expect(adminItem(page, '/app/failover')).toHaveCount(0)
   })
 
   test('says what happens when a node stops answering, in four lines', async ({ page }) => {

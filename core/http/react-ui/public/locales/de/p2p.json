@@ -1,5 +1,5 @@
 {
-  "title": "P2P",
+  "title": "Teilen",
   "supporting": "Geräte, Gegenstellen und Knoten, die diesen Server über P2P erreichen, und die Einladungen, die sie hereinlassen.",
   "loadStatusFailed": "Der Status von P2P konnte nicht gelesen werden.",
   "tabs": {

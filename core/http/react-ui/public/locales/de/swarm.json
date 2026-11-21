@@ -126,7 +126,8 @@
     }
   },
   "nodes": {
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "title": "Worker"
   },
   "add": {
     "connect": {
@@ -224,6 +225,15 @@
     "toast": {
       "set": "{{node}} ist ein Split-Server. Jetzt angehängte Worker: {{count}}. Sie werden für das nächste geladene Modell genutzt.",
       "cleared": "{{node}} ist kein Split-Server mehr. Abgehängte Worker: {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Platzierung",
+    "supporting": "Wo Modelle im Cluster laufen und was geschieht, wenn ein Ziel nicht mehr antwortet.",
+    "views": {
+      "label": "Ansichten der Platzierung",
+      "rules": "Regeln",
+      "failover": "Failover"
     }
   }
 }

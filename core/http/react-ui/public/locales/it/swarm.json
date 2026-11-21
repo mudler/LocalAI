@@ -126,7 +126,8 @@
     }
   },
   "nodes": {
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "title": "Worker"
   },
   "add": {
     "connect": {
@@ -224,6 +225,15 @@
     "toast": {
       "set": "{{node}} è un server di split. Worker collegati ora: {{count}}. Servono al prossimo modello che carica.",
       "cleared": "{{node}} non è più un server di split. Worker scollegati: {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Posizionamento",
+    "supporting": "Dove girano i modelli nel cluster e cosa succede quando una destinazione smette di rispondere.",
+    "views": {
+      "label": "Viste del posizionamento",
+      "rules": "Regole",
+      "failover": "Failover"
     }
   }
 }

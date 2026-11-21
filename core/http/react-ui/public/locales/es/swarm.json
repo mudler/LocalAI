@@ -126,7 +126,8 @@
     }
   },
   "nodes": {
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "title": "Workers"
   },
   "add": {
     "connect": {
@@ -224,6 +225,15 @@
     "toast": {
       "set": "{{node}} es un servidor de división. Workers asociados ahora: {{count}}. Se usan en el siguiente modelo que cargue.",
       "cleared": "{{node}} ya no es un servidor de división. Workers desasociados: {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Ubicación",
+    "supporting": "Dónde se ejecutan los modelos en el clúster y qué ocurre cuando un destino deja de responder.",
+    "views": {
+      "label": "Vistas de ubicación",
+      "rules": "Reglas",
+      "failover": "Conmutación por error"
     }
   }
 }

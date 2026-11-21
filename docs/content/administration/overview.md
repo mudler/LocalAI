@@ -25,7 +25,7 @@ Only things that want a decision:
 
 - a backend with an update available, with an **Update** button
 - an operation that failed, with **Retry** and **Dismiss**
-- a node that is not answering, with a link to the nodes
+- a node that is not answering, with a link to the workers
 
 **Update** starts the same update as the Backends page. **Retry** installs the
 failed model or backend again, after moving the failure into the Activity
@@ -122,8 +122,8 @@ readings come from the `cpu` and `disk` fields of `GET /api/resources`.
 
 **Add a machine** reveals the command to start LocalAI in distributed mode, and
 a link to the steps for adding a worker. Once distributed mode is on, the same
-route becomes the Nodes page and the **This machine** tab gives way to the
-**Swarm** tab.
+route becomes the Workers page and the **This machine** group gives way to the
+**Cluster** group.
 
 Models and backends no longer live under a nested Host page. Use **Models →
 Installed** for model runtime and configuration actions, and **Admin →
@@ -134,25 +134,42 @@ Old `/app/manage` bookmarks remain supported. They redirect with replace
 semantics to the matching Installed Models or Installed Backends view while
 preserving legacy search, filter, selection, variant, and development flags.
 
-## The tab bar
+## The Administration sidebar
 
-The Admin section has one row of tabs above the page: **Status** (this overview),
-**This machine**, **Swarm** (with distributed mode on, or with P2P on), **Runtime**,
-**Updates**, **Traffic** and **Settings**. A tab that holds several pages shows a second row
-of links under the bar: Runtime holds Backends, Activity, Logs and (on a single
-install) Failover; Traffic holds Overview, Usage, Models, GPU and host, Traces, Middleware and Prometheus; Settings holds
-Settings, Users and keys (with authentication on) and Chats of all users (with Chats on); Swarm holds Nodes, Placement rules,
-Failover and P2P (on a single install with P2P on, P2P alone; with P2P off, P2P
-sits under This machine). Adding a node opens from the Nodes page. Every page keeps its
-own URL, and a page such as a node detail keeps its tab highlighted. On a phone
-the bar scrolls sideways. The **API** link at the end of the bar opens the
-API documentation.
+Click **Administration** in the sidebar and the sidebar changes: a **LocalAI**
+link at the top leads back, and the pages of the Admin section are listed in
+groups. There is no tab bar over the pages. The group that holds the page you
+are on is always open, and a breadcrumb above the page title says where you are.
 
-Several tabs carry a live value: pending backend updates and running operations
-on Runtime, the healthy node count on Swarm, running models on This machine, the
-attention count on Status and the error count on Traffic. Host capacity lives on
-the overview instead of appearing as a separate destination.
+- **Overview**: this page.
+- **This machine** (single install): **This machine**, and **Sharing** while
+  P2P is off.
+- **Cluster** (with distributed mode on, or with P2P on): **Workers**,
+  **Placement** and **Sharing**. **Placement** is one page with two views,
+  **Rules** and **Failover**. An old `/app/failover` address opens the Failover
+  view on a cluster. On a single install Failover stays a page of its own.
+- **Models and runtime**: **Backends**, **Activity**, **Logs**, **Updates** and,
+  on a single install, **Failover**.
+- **Traffic** (folded until one of its pages is open): **Overview**, **Usage**,
+  **Models**, **GPU and host**, **Traces**, **Middleware** and **Prometheus**.
+- **Access**: **Users** and **API keys** (with authentication on) and **Chats of
+  all users** (with Chats on).
+- **Settings**, and an **API reference** link that opens the API documentation.
 
-Those values are **orientation, not an alarm**. The bar only exists on Admin
-routes, so anything urgent also appears in the Needs you row and on the
-operations badge attached to the sidebar entry, which is always visible.
+Every page keeps its own URL, and a page such as a worker's detail keeps its
+item highlighted. A few items carry a live value: the number of things that need
+you on **Overview**, pending backend updates on **Updates**, running operations
+on **Activity**, workers on **Workers**, running models on **This machine**,
+sign-ups waiting for approval on **Users**, and failed requests on the folded
+**Traffic** group. On a tablet the sidebar is an icon rail, and on a phone it
+is the menu drawer.
+
+Press **Ctrl K** (**Cmd K** on a Mac), or click **Search** at the top of the
+sidebar, to open the command palette on any Administration page. It finds
+pages and, once you type, settings, users (with authentication on) and
+workers (on a cluster). Use the arrow keys and **Enter**; **Escape** closes it.
+
+Those values are **orientation, not an alarm**. The sidebar only shows them
+while you are in the Admin section, so anything urgent also appears in the Needs
+you row and on the badge on the **Administration** entry of the main sidebar,
+which is always visible.

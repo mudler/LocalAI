@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminGroup } from './admin-nav.js'
 import { mockHome } from './home-fixtures.js'
 import { mockRecommended, recommendedAnswer } from './recommended-fixtures.js'
 import { mockRemotes, LOCALAI_MODELS, remote } from './remotes-fixtures.js'
@@ -72,13 +73,12 @@ test.describe('P2P devices and invites', () => {
     await expect(page.getByTestId('p2p-device-d-2')).toContainText('Revoked')
   })
 
-  test('sits under Swarm when P2P is on, on a single server too', async ({ page }) => {
+  test('sits under Cluster as Sharing when P2P is on, on a single server too', async ({ page }) => {
     await page.route('**/api/features', route => route.fulfill({ json: { distributed: false, p2p: true } }))
     await openP2P(page)
-    const bar = page.locator('.dk-hubtabs')
-    await expect(bar.locator('[data-hub-tab="swarm"]')).toHaveAttribute('aria-current', 'page')
-    await expect(bar.locator('[data-hub-tab="swarm"]')).toHaveAttribute('href', '/app/p2p')
-    await expect(bar.locator('[data-hub-tab="machine"]')).toBeVisible()
+    await expect(adminGroup(page, 'cluster').locator('a[data-admin-item="/app/p2p"]')).toHaveAttribute('aria-current', 'page')
+    await expect(adminGroup(page, 'cluster').locator('a[data-admin-item="/app/p2p"]')).toContainText('Sharing')
+    await expect(adminGroup(page, 'machine').locator('a[data-admin-item="/app/nodes"]')).toBeVisible()
     await expect(page.getByTestId('p2p-tabs').getByRole('link', { name: 'Devices and invites' })).toHaveAttribute('aria-current', 'page')
   })
 

@@ -9,7 +9,7 @@ import { useBranding } from './contexts/BrandingContext'
 import BrandName from './components/BrandName'
 import { useAuth } from './context/AuthContext'
 import RouteFallback from './components/RouteFallback'
-import { hubs, hubOwnsPath } from './components/hub/hubConfig'
+import { hubs, hubOwnsPath, operateHub } from './components/hub/hubConfig'
 import Icon from './components/Icon'
 // eslint-disable-next-line no-unused-vars
 import AppearanceSync from './components/wellknown/AppearanceSync'
@@ -18,6 +18,7 @@ import { displayVersion } from './utils/version'
 import { apiUrl } from './utils/basePath'
 import { InboxProvider } from './contexts/InboxContext'
 import { UpdatesProvider } from './contexts/UpdatesContext'
+import { OperateSummaryProvider } from './contexts/OperateSummaryContext'
 import { MobileInboxButton } from './components/inbox/InboxTriggers'
 import { readSidebarCollapsed } from './utils/sidebarState'
 
@@ -56,7 +57,7 @@ export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
-  const { authEnabled, user } = useAuth()
+  const { authEnabled, user, isAdmin } = useAuth()
   const branding = useBranding()
   const { t } = useTranslation('nav')
   const hamburgerRef = useRef(null)
@@ -122,6 +123,9 @@ export default function App() {
   return (
     <InboxProvider features={features}>
     <UpdatesProvider features={features}>
+    {/* The Administration sidebar draws its counts from the summary, so the
+        provider sits above it; it asks for nothing off an Administration page. */}
+    <OperateSummaryProvider enabled={isAdmin && hubOwnsPath(operateHub, location.pathname)}>
       <div className={layoutClasses}>
         <AppearanceSync />
         <SoundSync />
@@ -213,6 +217,7 @@ export default function App() {
         {/* On a chat page the stack rises above the composer. */}
         <ToastContainer toasts={toasts} removeToast={removeToast} dropToast={dropToast} lift={isChatRoute} />
       </div>
+    </OperateSummaryProvider>
     </UpdatesProvider>
     </InboxProvider>
   )

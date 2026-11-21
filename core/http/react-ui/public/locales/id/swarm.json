@@ -126,7 +126,8 @@
     }
   },
   "nodes": {
-    "retry": "Coba lagi"
+    "retry": "Coba lagi",
+    "title": "Worker"
   },
   "add": {
     "connect": {
@@ -224,6 +225,15 @@
     "toast": {
       "set": "{{node}} adalah server split. Worker terpasang sekarang: {{count}}. Mereka dipakai untuk model berikutnya yang dimuatnya.",
       "cleared": "{{node}} bukan lagi server split. Worker dilepas: {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Penempatan",
+    "supporting": "Di mana model berjalan di klaster, dan apa yang terjadi saat sebuah target berhenti merespons.",
+    "views": {
+      "label": "Tampilan penempatan",
+      "rules": "Aturan",
+      "failover": "Failover"
     }
   }
 }

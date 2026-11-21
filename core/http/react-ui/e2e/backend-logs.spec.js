@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem } from './admin-nav.js'
 import { LOG_LINES, mockOperate } from './operate-fixtures.js'
 
 // Runtime, Logs: what a backend process printed, read live over the log
@@ -115,14 +116,14 @@ test.describe('Backend Logs', () => {
     await expect(page).toHaveURL(/\/app\/backend-logs\/whisper-large-v3$/)
   })
 
-  test('the Logs tab lists the processes that have output', async ({ page }) => {
+  test('the Logs page lists the processes that have output', async ({ page }) => {
     await mockOperate(page)
     await page.goto('/app/backends')
-    await page.locator('.hub-subnav').getByRole('link', { name: 'Logs' }).click()
+    await adminItem(page, '/app/backend-logs').click()
     await expect(page).toHaveURL(/\/app\/backend-logs$/)
     const list = page.getByTestId('logs-processes')
     await expect(list.getByRole('link', { name: /qwen3-8b-instruct/ })).toHaveAttribute('href', '/app/backend-logs/qwen3-8b-instruct')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"]')).toHaveAttribute('aria-current', 'page')
+    await expect(adminItem(page, '/app/backend-logs')).toHaveAttribute('aria-current', 'page')
   })
 
   test('says so when no process has printed anything', async ({ page }) => {

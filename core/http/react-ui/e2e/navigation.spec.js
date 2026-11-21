@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem } from './admin-nav.js'
 import { stubAddonRoutes } from './addons-fixtures.js'
 
 test.describe('Navigation', () => {
@@ -41,11 +42,11 @@ test.describe('Navigation', () => {
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app/settings"]')).toHaveCount(0)
     await page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' }).click()
     await expect(page).toHaveURL(/\/app\/operate$/)
-    const settingsTab = page.locator('.dk-hubtabs [data-hub-tab="settings"]')
-    await expect(settingsTab).toBeVisible()
-    await settingsTab.click()
+    const settingsItem = adminItem(page, '/app/settings')
+    await expect(settingsItem).toBeVisible()
+    await settingsItem.click()
     await expect(page).toHaveURL(/\/app\/settings/)
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"]')).toHaveAttribute('aria-current', 'page')
+    await expect(adminItem(page, '/app/settings')).toHaveAttribute('aria-current', 'page')
     // Studio and Talk are add-ons: the sidebar does not list them; they are in the drawer while installed.
     for (const href of ['/app/addons/studio/studio', '/app/addons/talk/talk']) {
       await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toHaveCount(0)
@@ -114,13 +115,13 @@ test.describe('Navigation', () => {
     await expect(page.getByTestId('connections-tab-mcp')).toBeVisible()
   })
 
-  test('Operate is a single entry that opens the Operate hub', async ({ page }) => {
+  test('Administration is a single entry that swaps in the Administration sidebar', async ({ page }) => {
     await page.goto('/app')
     const operate = page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })
     await expect(operate).toBeVisible()
     await operate.click()
     await expect(page).toHaveURL(/\/app\/operate$/)
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="status"]')).toHaveAttribute('aria-current', 'page')
+    await expect(adminItem(page, '/app/operate')).toHaveAttribute('aria-current', 'page')
   })
 
 })

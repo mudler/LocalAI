@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminGroup } from './admin-nav.js'
 import { mockOperate, installedBackend } from './operate-fixtures.js'
 import { MEMBER, statusFixture } from './access-fixtures.js'
 import {
@@ -515,19 +516,18 @@ test.describe('Updates page: access and layout', () => {
     page.on('request', req => { if (/\/api\/(backends\/updates|addons\/host-grants)/.test(req.url())) seen.push(req.url()) })
     await page.goto('/app/updates')
     await expect(page).toHaveURL(/\/app$/)
-    await expect(page.locator('[data-hub-tab="updates"]')).toHaveCount(0)
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toHaveCount(0)
     await expect(page.getByTestId('operate-updates-badge')).toHaveCount(0)
     expect(seen).toEqual([])
   })
 
-  test('the tab sits between Runtime and Traffic and has no second accessible name', async ({ page }) => {
+  test('the item is the last of Models and runtime and has no second accessible name', async ({ page }) => {
     await mixed(page)
     await page.goto('/app/updates')
-    await expect(page.locator('[data-hub-tab="updates"]')).toBeVisible()
-    const tabs = await page.locator('.dk-hubtabs [data-hub-tab]').evaluateAll(els => els.map(el => el.getAttribute('data-hub-tab')))
-    expect(tabs.indexOf('updates')).toBe(tabs.indexOf('runtime') + 1)
-    expect(tabs.indexOf('traffic')).toBe(tabs.indexOf('updates') + 1)
-    await expect(page.locator('[data-hub-tab="updates"]')).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toBeVisible()
+    const items = await adminGroup(page, 'runtime').locator('a[data-admin-item]').evaluateAll(els => els.map(el => el.getAttribute('data-admin-item')))
+    expect(items.at(-1)).toBe('/app/updates')
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toHaveAttribute('aria-current', 'page')
   })
 
   test('keyboard: every action is a named button reached with Tab, and Enter starts it', async ({ page }) => {

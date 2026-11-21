@@ -1,28 +1,24 @@
 import { test, expect } from './coverage-fixtures.js'
 
-test.describe('Operate hub on a narrow screen', () => {
-  test('the tab bar scrolls sideways instead of widening the page', async ({ page }) => {
+test.describe('Administration on a narrow screen', () => {
+  test('the page does not widen the screen and the sidebar lives in the drawer', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
     await page.goto('/app/operate')
-
-    const bar = page.locator('.dk-hubtabs')
-    await expect(bar).toBeVisible()
-    const box = await bar.boundingBox()
-    expect(box.width).toBeLessThanOrEqual(390)
-    const scrolls = await bar.evaluate(el => el.scrollWidth > el.clientWidth)
-    expect(scrolls).toBe(true)
+    await expect(page.locator('.dk-hubtabs')).toHaveCount(0)
     const pageOverflows = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
     expect(pageOverflows).toBe(false)
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await expect(page.locator('[data-testid="admin-nav"]')).toBeVisible()
   })
 
-  test('the current tab can be scrolled into view and the overview stays on screen', async ({ page }) => {
+  test('a page of the last group opens from the drawer and the overview stays on screen', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
-    await page.goto('/app/settings')
-
-    const current = page.locator('.dk-hubtabs [data-hub-tab="settings"]')
-    await current.scrollIntoViewIfNeeded()
-    await expect(current).toBeInViewport()
-    await expect(current).toHaveAttribute('aria-current', 'page')
+    await page.goto('/app/operate')
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    const settings = page.locator('[data-testid="admin-nav"] a[data-admin-item="/app/settings"]')
+    await settings.scrollIntoViewIfNeeded()
+    await settings.click()
+    await expect(page).toHaveURL(/\/app\/settings$/)
 
     await page.goto('/app/operate')
     const heading = page.getByTestId('operate-headline')

@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem, ADMIN_NAV } from './admin-nav.js'
 
 // "This machine": the Nodes route on a single-node install, and the Operate
 // overview's "Running now" preview. Both read GET /system (loaded models and
@@ -153,9 +154,9 @@ test.describe('This machine (single node)', () => {
     // The preview is not a second search surface.
     await expect(preview.getByRole('searchbox')).toHaveCount(0)
 
-    const tab = page.locator('.dk-hubtabs a[href="/app/nodes"]')
+    const tab = adminItem(page, '/app/nodes')
     await expect(tab).toContainText('This machine')
-    await expect(tab.locator('.dk-hubtab-count')).toContainText('6')
+    await expect(tab.getByTestId('admin-signal-running')).toContainText('6')
 
     await preview.getByRole('link', { name: /Open this machine/ }).click()
     await expect(page).toHaveURL(/\/app\/nodes$/)
@@ -175,7 +176,7 @@ test.describe('This machine (distributed)', () => {
 
     await expect(page.getByRole('link', { name: /Running models/ })).toHaveAttribute('href', '/app/nodes', { timeout: 15_000 })
     await expect(page.getByTestId('local-running-models')).toHaveCount(0)
-    await expect(page.locator('.dk-hubtabs a', { hasText: 'This machine' })).toHaveCount(0)
+    await expect(page.locator(ADMIN_NAV).getByRole('link', { name: 'This machine' })).toHaveCount(0)
     expect(systemCalls).toEqual([])
   })
 })

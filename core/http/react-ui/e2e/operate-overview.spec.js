@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem, adminGroup, ADMIN_NAV } from './admin-nav.js'
 import { mockReadModel, mockOperate } from './operate-fixtures.js'
 import { addonRecord, galleryItem, mockUpdates, snapshotOf, updateAvailable } from './updates-fixtures.js'
 
@@ -93,36 +94,29 @@ test.describe('Administration overview', () => {
     await expect(page.locator(ITEM, { hasText: 'qwen3-8b' })).toBeVisible()
   })
 
-  test('the Updates tab reports the updates that need a person, and Runtime no longer does', async ({ page }) => {
+  test('the Updates item reports the updates that need a person, and Backends no longer does', async ({ page }) => {
     await mockQuiet(page, { upgrades: ONE_UPGRADE })
     await page.goto('/app/operate')
-    const updates = page.locator('.dk-hubtabs [data-hub-tab="updates"]')
+    const updates = adminItem(page, '/app/updates')
     await expect(updates).toBeVisible()
-    await expect(updates.getByTestId('updates-tab-count')).toHaveText('1')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"] .dk-hubtab-attn')).toHaveCount(0)
+    await expect(updates.getByTestId('admin-signal-updates')).toContainText('1')
+    await expect(adminItem(page, '/app/backends').locator('.nav-badge')).toHaveCount(0)
   })
 
-  test('the Status tab carries the attention count and nothing else claims one', async ({ page }) => {
+  test('the Overview item carries the attention count and nothing else claims one', async ({ page }) => {
     await mockQuiet(page, { upgrades: ONE_UPGRADE })
     await page.goto('/app/operate')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="status"] .dk-hubtab-attn')).toContainText('1')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"] .dk-hubtab-attn')).toHaveCount(0)
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"] .dk-hubtab-count')).toHaveCount(0)
+    await expect(adminItem(page, '/app/operate').getByTestId('admin-signal-attention')).toContainText('1')
+    await expect(adminItem(page, '/app/settings').locator('.nav-badge')).toHaveCount(0)
   })
 
-  test('the tab bar offers Status, Runtime, Traffic and Settings', async ({ page }) => {
+  test('the sidebar offers the groups and their pages', async ({ page }) => {
     await mockQuiet(page)
     await page.goto('/app/operate')
-    const bar = page.locator('.dk-hubtabs')
-    for (const id of ['status', 'machine', 'runtime', 'traffic', 'settings']) {
-      await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
+    for (const path of ['/app/operate', '/app/nodes', '/app/backends', '/app/activity', '/app/updates', '/app/failover', '/app/settings']) {
+      await expect(adminItem(page, path)).toBeVisible()
     }
-    // The second row names the routes inside a tab.
-    await page.goto('/app/backends')
-    const sub = page.locator('.hub-subnav')
-    for (const name of ['Backends', 'Activity', 'Failover']) {
-      await expect(sub.getByRole('link', { name })).toBeVisible()
-    }
+    await expect(adminGroup(page, 'traffic').getByRole('button', { name: /Traffic/ })).toBeVisible()
   })
 
   test('regrouping does not change what a non-distributed host can see', async ({ page }) => {
@@ -130,14 +124,14 @@ test.describe('Administration overview', () => {
       route.fulfill({ json: { distributed: false, agents: true, mcp: true } }))
     await mockQuiet(page)
     await page.goto('/app/operate')
-    const bar = page.locator('.dk-hubtabs')
+    const bar = page.locator(ADMIN_NAV)
     await expect(bar.locator('a[href="/app/backends"]')).toBeVisible()
     // Gating is the thing most likely to break silently when items move.
     // The Nodes route stays reachable, but as "This machine": a single host is
-    // not a cluster. Swarm only exists in distributed mode.
+    // not a cluster. The Cluster group only exists in distributed mode.
     await expect(bar.locator('a[href="/app/nodes"]')).toHaveCount(1)
     await expect(bar.locator('a[href="/app/nodes"]')).toContainText('This machine')
-    await expect(bar.locator('[data-hub-tab="swarm"]')).toHaveCount(0)
+    await expect(adminGroup(page, 'cluster')).toHaveCount(0)
     await expect(bar.locator('a[href="/app/scheduling"]')).toHaveCount(0)
   })
 

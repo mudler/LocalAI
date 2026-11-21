@@ -75,13 +75,13 @@ test.describe('Hub pages', () => {
   for (const [name, path, setup] of [
     ['Administration', '/app/settings', async () => {}],
   ]) {
-    test(`${name}: the page title starts at the same edge as the first tab`, async ({ page }) => {
+    test(`${name}: the page title starts at the same edge as the breadcrumb`, async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 })
       await setup(page)
       await page.goto(path)
-      const tab = page.locator('.dk-hubtab').first()
-      await expect(tab).toBeVisible({ timeout: 15_000 })
-      const bar = await page.locator('.dk-hubtabs').first().boundingBox()
+      const crumbs = page.getByTestId('admin-crumbs')
+      await expect(crumbs).toBeVisible({ timeout: 15_000 })
+      const bar = await crumbs.boundingBox()
       const title = await page.locator('.page .page-title, .page h1').first().boundingBox()
       expect(Math.abs(title.x - bar.x)).toBeLessThanOrEqual(2)
     })
