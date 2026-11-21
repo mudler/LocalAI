@@ -7,13 +7,20 @@ import type { LauncherConfig } from '../src/main/config'
 
 const SECRET = 'registry-secret-value-0123456789'
 
-function fakeSecrets(): SecretStoreLike & { map: Map<string, string> } {
+type Mode = 'ok' | 'session' | 'fails-late'
+
+/** `session`: no secure storage. `fails-late`: encryption fails on the write and the value is kept in memory. */
+function fakeSecrets(mode: Mode = 'ok'): SecretStoreLike & { map: Map<string, string> } {
   const map = new Map<string, string>()
   return {
     map,
     has: (n) => map.has(n),
     get: (n) => map.get(n),
-    set: async (n, v) => void map.set(n, v),
+    backend: () => (mode === 'session' ? 'session' : 'keychain'),
+    set: async (n, v) => {
+      map.set(n, v)
+      return mode === 'ok' ? { status: 'stored', backend: 'keychain' } : { status: 'unavailable', kept: 'session' }
+    },
     delete: async (n) => void map.delete(n),
   }
 }
@@ -30,9 +37,9 @@ function fakeConfig(): ConfigStoreLike & { current: () => LauncherConfig } {
   }
 }
 
-const setup = () => {
+const setup = (mode: Mode = 'ok') => {
   const config = fakeConfig()
-  const secrets = fakeSecrets()
+  const secrets = fakeSecrets(mode)
   return { config, secrets, rc: new RegistryCredentials(config, secrets) }
 }
 
@@ -80,11 +87,11 @@ describe('RegistryCredentials', () => {
 
   it('refuses a bad match and a duplicate match', async () => {
     const { rc } = setup()
-    expect((await rc.save({ match: 'a b', kind: 'bearer' })).ok).toBe(false)
+    expect((await rc.save({ match: 'a b', kind: 'bearer', secret: 'x' })).ok).toBe(false)
     expect((await rc.save({ match: 'registry.example', kind: 'bearer', secret: 'x' })).ok).toBe(true)
     const dup = await rc.save({ match: 'registry.example', kind: 'bearer', secret: 'y' })
     expect(dup.ok).toBe(false)
-    expect((await rc.save({ match: 'https://Registry.Example/', kind: 'bearer' })).ok).toBe(false)
+    expect((await rc.save({ match: 'https://Registry.Example/', kind: 'bearer', secret: 'x' })).ok).toBe(false)
     expect(rc.list()).toHaveLength(1)
   })
 
@@ -101,7 +108,7 @@ describe('RegistryCredentials', () => {
 
   it('refuses an edit of an unknown id', async () => {
     const { rc } = setup()
-    expect((await rc.save({ id: 'nope', match: 'registry.example', kind: 'bearer' })).ok).toBe(false)
+    expect((await rc.save({ id: 'nope', match: 'registry.example', kind: 'bearer', secret: 'x' })).ok).toBe(false)
   })
 
   it('removes the rule and its secret', async () => {
@@ -115,8 +122,8 @@ describe('RegistryCredentials', () => {
 
   it('gives each rule a stable env name that hides the registry', async () => {
     const { rc } = setup()
-    const a = await rc.save({ match: 'one.example', kind: 'bearer' })
-    const b = await rc.save({ match: 'two.example', kind: 'bearer' })
+    const a = await rc.save({ match: 'one.example', kind: 'bearer', secret: 'x' })
+    const b = await rc.save({ match: 'two.example', kind: 'bearer', secret: 'x' })
     if (!a.ok || !b.ok) throw new Error('save')
     const na = rc.secretEnvName(a.id)
     const nb = rc.secretEnvName(b.id)
@@ -125,6 +132,50 @@ describe('RegistryCredentials', () => {
     await rc.save({ id: a.id, match: 'one.example/x', kind: 'bearer' })
     expect(rc.secretEnvName(a.id)).toBe(na)
     expect(() => rc.secretEnvName('nope')).toThrow()
+  })
+
+  it('refuses a new rule without a secret', async () => {
+    const { rc, config } = setup()
+    for (const kind of ['basic', 'bearer'] as const) {
+      expect((await rc.save({ match: 'registry.example', kind, username: 'ann' })).ok).toBe(false)
+    }
+    expect(rc.list()).toEqual([])
+    expect(registryCredentials(config.current())).toEqual([])
+  })
+
+  it('refuses and keeps nothing when there is no secure storage', async () => {
+    const { rc, config, secrets } = setup('session')
+    const r = await rc.save({ match: 'registry.example', kind: 'bearer', secret: SECRET })
+    expect(r.ok).toBe(false)
+    expect(JSON.stringify(r)).not.toContain(SECRET)
+    expect(rc.list()).toEqual([])
+    expect(registryCredentials(config.current())).toEqual([])
+    expect(secrets.map.size).toBe(0)
+  })
+
+  it('refuses and keeps nothing when the store answers unavailable on the write', async () => {
+    const { rc, config, secrets } = setup('fails-late')
+    const r = await rc.save({ match: 'registry.example', kind: 'basic', username: 'ann', secret: SECRET })
+    expect(r.ok).toBe(false)
+    expect(registryCredentials(config.current())).toEqual([])
+    expect(secrets.map.size).toBe(0)
+  })
+
+  it('leaves no secret behind when the rule is refused', async () => {
+    const { rc, secrets } = setup()
+    await rc.save({ match: 'registry.example', kind: 'bearer', secret: 'x' })
+    await rc.save({ match: 'registry.example', kind: 'bearer', secret: 'y' })
+    expect([...secrets.map.values()]).toEqual(['x'])
+  })
+
+  it('keeps the rule when deleting its secret throws', async () => {
+    const { rc, secrets } = setup()
+    const r = await rc.save({ match: 'registry.example', kind: 'bearer', secret: 'x' })
+    secrets.delete = async () => {
+      throw new Error('disk')
+    }
+    await expect(rc.remove(r.ok ? r.id : '')).rejects.toThrow()
+    expect(rc.list()).toHaveLength(1)
   })
 
   it('refuses an invalid secret without echoing it', async () => {

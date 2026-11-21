@@ -3,11 +3,11 @@
 // the secret lives in the secret store under `cred:<id>` and never leaves it:
 // list() reports only whether one is set, and error text never quotes input.
 import crypto from 'node:crypto'
-import type { RegistryCredentialKind, RegistryCredentialRule, RegistryCredentialView } from '../shared/types'
+import type { SecretBackend, RegistryCredentialKind, RegistryCredentialRule, RegistryCredentialView } from '../shared/types'
 import { MAX_ENV_VALUE } from '../shared/envVars'
 import { registryCredentials, withRegistryCredentials, type StoredRegistryCredential } from './configStore'
 import type { LauncherConfig } from './config'
-import { credSecret } from './secretStore'
+import { credSecret, type SetResult } from './secretStore'
 
 export const MAX_MATCH = 255
 export const MAX_USERNAME = 256
@@ -43,9 +43,14 @@ export interface ConfigStoreLike {
 export interface SecretStoreLike {
   has(name: string): boolean
   get(name: string): string | undefined
-  set(name: string, value: string): Promise<unknown>
+  set(name: string, value: string): Promise<SetResult>
+  /** Where a new value goes: `session` means memory only. */
+  backend(): SecretBackend
   delete(name: string): Promise<void>
 }
+
+/** Same advice as the secret storage notice of the Settings screen. */
+const NO_STORAGE = 'Your system has no keyring, so this secret cannot be kept. To keep it, turn on "Keep secrets in a file" in Settings, Advanced.'
 
 export type SaveInput = Omit<RegistryCredentialRule, 'id'> & { id?: string; secret?: string }
 export type SaveResult = { ok: true; id: string } | { ok: false; reason: string }
@@ -83,44 +88,65 @@ export class RegistryCredentials {
     if (secret !== undefined && (typeof secret !== 'string' || secret === '' || secret.length > MAX_ENV_VALUE || secret.includes('\u0000'))) {
       return { ok: false, reason: 'The secret is not valid.' }
     }
-    if (input.id !== undefined && !this.rules().some((r) => r.id === input.id)) return { ok: false, reason: 'That rule does not exist.' }
+    const existing = input.id !== undefined ? this.rules().find((r) => r.id === input.id) : undefined
+    if (input.id !== undefined && !existing) return { ok: false, reason: 'That rule does not exist.' }
+    // A new rule needs a secret; an edit without one keeps the stored secret.
+    if (!existing && secret === undefined) return { ok: false, reason: 'Enter a secret.' }
+    const refusal = this.conflict(this.rules(), existing?.id, match)
+    if (refusal) return { ok: false, reason: refusal }
 
-    const out: { r: SaveResult } = { r: { ok: false, reason: 'not saved' } }
-    await this.config.update((c) => {
-      const rules = registryCredentials(c)
-      const existing = input.id !== undefined ? rules.find((r) => r.id === input.id) : undefined
-      if (!existing && rules.length >= MAX_RULES) {
-        out.r = { ok: false, reason: 'There are too many rules.' }
-        return c
-      }
-      if (rules.some((r) => r.id !== existing?.id && matchKey(r.match) === matchKey(match))) {
-        out.r = { ok: false, reason: 'A rule for this registry already exists.' }
-        return c
-      }
-      const id = existing?.id ?? crypto.randomBytes(8).toString('hex')
-      const index = existing?.index ?? rules.reduce((m, r) => Math.max(m, r.index), 0) + 1
-      const stored: StoredRegistryCredential = { id, match, kind, index }
-      if (kind === 'basic') stored.username = username
-      const next = existing ? rules.map((r) => (r.id === id ? stored : r)) : [...rules, stored]
-      out.r = { ok: true, id }
-      return withRegistryCredentials(c, next)
-    })
-    const result = out.r
-    if (!result.ok) return result
-    // No new secret on an edit: the stored one stays.
+    const id = existing?.id ?? crypto.randomBytes(8).toString('hex')
+    // The secret goes first, so a secret that cannot be kept leaves no rule behind.
     if (secret !== undefined) {
+      // Without secure storage the store would keep the value in memory only; a
+      // credential that is gone at the next start is refused, not half saved.
+      if (this.secrets.backend() === 'session') return { ok: false, reason: NO_STORAGE }
+      let stored: SetResult
       try {
-        await this.secrets.set(credSecret(result.id), secret)
+        stored = await this.secrets.set(credSecret(id), secret)
       } catch {
         return { ok: false, reason: 'The secret could not be stored.' }
       }
+      if (stored.status !== 'stored') {
+        // Encryption failed on this write; do not keep the in-memory copy.
+        if (!existing) await this.secrets.delete(credSecret(id)).catch(() => undefined)
+        return { ok: false, reason: NO_STORAGE }
+      }
     }
-    return result
+
+    const out: { r: SaveResult } = { r: { ok: true, id } }
+    try {
+      await this.config.update((c) => {
+        const rules = registryCredentials(c)
+        const current = rules.find((r) => r.id === id)
+        const again = this.conflict(rules, current?.id, match, !current)
+        if (again) {
+          out.r = { ok: false, reason: again }
+          return c
+        }
+        const index = current?.index ?? rules.reduce((m, r) => Math.max(m, r.index), 0) + 1
+        const rule: StoredRegistryCredential = { id, match, kind, index }
+        if (kind === 'basic') rule.username = username
+        return withRegistryCredentials(c, current ? rules.map((r) => (r.id === id ? rule : r)) : [...rules, rule])
+      })
+    } catch {
+      out.r = { ok: false, reason: 'The rule could not be saved.' }
+    }
+    if (!out.r.ok && !existing) await this.secrets.delete(credSecret(id)).catch(() => undefined)
+    return out.r
+  }
+
+  /** A plain message when `match` clashes with another rule or the list is full. */
+  private conflict(rules: StoredRegistryCredential[], selfId: string | undefined, match: string, isNew = selfId === undefined): string | undefined {
+    if (isNew && rules.length >= MAX_RULES) return 'There are too many rules.'
+    if (rules.some((r) => r.id !== selfId && matchKey(r.match) === matchKey(match))) return 'A rule for this registry already exists.'
+    return undefined
   }
 
   async remove(id: string): Promise<void> {
-    await this.config.update((c) => withRegistryCredentials(c, registryCredentials(c).filter((r) => r.id !== id)))
+    // The secret first: a failure here leaves the rule in place, so the caller can retry.
     await this.secrets.delete(credSecret(id))
+    await this.config.update((c) => withRegistryCredentials(c, registryCredentials(c).filter((r) => r.id !== id)))
   }
 
   /** The environment variable that carries the secret of rule `id`. Stable, and does not name the registry. */
