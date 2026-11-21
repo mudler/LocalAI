@@ -183,6 +183,7 @@
       "urlCredentials": "L'indirizzo non deve contenere nome utente o password.",
       "urlQuery": "L'indirizzo non deve contenere una stringa di query o un frammento.",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -196,6 +197,7 @@
       "requireSignature": "Richiedi una firma",
       "url": "URL del catalogo",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -205,6 +207,7 @@
       "reference": "Il nome di una credenziale configurata da un amministratore su questo server. Non incollare mai qui un token o una password.",
       "url": "Un indirizzo https senza credenziali né stringa di query.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
@@ -399,6 +402,7 @@
     "platform": "Piattaforma",
     "selection": "Selezionato come",
     "signatureRequired": "Firma richiesta",
+    "sourceRepository": "Source repository",
     "verification": "Verifica",
     "version": "Versione"
   },

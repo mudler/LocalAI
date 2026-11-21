@@ -183,6 +183,7 @@
       "urlCredentials": "주소에 사용자 이름이나 비밀번호를 넣을 수 없습니다.",
       "urlQuery": "주소에 쿼리 문자열이나 프래그먼트를 넣을 수 없습니다.",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -196,6 +197,7 @@
       "requireSignature": "서명 요구",
       "url": "카탈로그 URL",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -205,6 +207,7 @@
       "reference": "관리자가 이 서버에 구성한 자격 증명의 이름입니다. 여기에 토큰이나 비밀번호를 붙여 넣지 마세요.",
       "url": "자격 증명과 쿼리 문자열이 없는 https 주소.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
@@ -399,6 +402,7 @@
     "platform": "플랫폼",
     "selection": "선택 기준",
     "signatureRequired": "서명 필요",
+    "sourceRepository": "Source repository",
     "verification": "검증",
     "version": "버전"
   },

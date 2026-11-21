@@ -222,6 +222,7 @@ function EntryFacts({ entry: e, have }) {
         <dt>{t('trust.platform')}</dt><dd>{e.platform.os}/{e.platform.arch}</dd>
         <dt>{t('trust.verification')}</dt><dd>{e.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}</dd>
         {e.policy.requireSignature && (<><dt>{t('trust.issuer')}</dt><dd className="dk-mono ad-wrap">{e.policy.issuer}</dd><dt>{t('trust.identity')}</dt><dd className="dk-mono ad-wrap">{e.policy.identity || e.policy.identityRegex}</dd></>)}
+        {e.policy.requireSignature && e.policy.sourceRepository && (<><dt>{t('trust.sourceRepository')}</dt><dd className="dk-mono ad-wrap">{e.policy.sourceRepository}</dd></>)}
         <dt>{t('trust.digest')}</dt><dd className="dk-mono ad-wrap">{e.digest}</dd>
         {have && (<><dt>{t('browse.installedState')}</dt><dd>{t('browse.installedDetail', { version: have.version, generation: have.generation })}</dd></>)}
       </dl>
