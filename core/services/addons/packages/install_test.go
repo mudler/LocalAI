@@ -670,6 +670,29 @@ var _ = Describe("trusted signed staging", func() {
 	})
 })
 
+// signedOCI publishes the package data as an image in a local registry with a
+// Sigstore bundle that the authority made for the identity and the source
+// repository given. calls counts the registry requests made after that.
+func signedOCI(authority *signing.Authority, data []byte, identity, sourceRepository string) (string, string, *atomic.Int64) {
+	GinkgoHelper()
+	artifact, digest, calls := localOCI(data)
+	ref, e := name.ParseReference(strings.TrimPrefix(artifact, "oci://"))
+	Expect(e).NotTo(HaveOccurred())
+	blob, e := authority.BundleFor(digest[7:], identity, "https://issuer.invalid", sourceRepository)
+	Expect(e).NotTo(HaveOccurred())
+	img, e := mutate.AppendLayers(empty.Image, static.NewLayer(blob, types.MediaType("application/vnd.dev.sigstore.bundle.v0.3+json")))
+	Expect(e).NotTo(HaveOccurred())
+	hash, e := img.Digest()
+	Expect(e).NotTo(HaveOccurred())
+	size, e := img.Size()
+	Expect(e).NotTo(HaveOccurred())
+	Expect(remote.Write(ref.Context().Tag("signature"), img)).To(Succeed())
+	index := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{Add: img, Descriptor: v1.Descriptor{Digest: hash, Size: size, MediaType: types.DockerManifestSchema2, ArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json"}})
+	Expect(remote.WriteIndex(ref.Context().Tag(strings.Replace(digest, ":", "-", 1)), index)).To(Succeed())
+	calls.Store(0)
+	return artifact, digest, calls
+}
+
 var _ = Describe("signer identity pattern", func() {
 	const (
 		pattern  = `^builder@example\.invalid$`
@@ -677,55 +700,50 @@ var _ = Describe("signer identity pattern", func() {
 		elsewise = "https://github.com/example-org/other-repo"
 	)
 	pinned := catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", IdentityRegex: pattern, SourceRepository: repo}
-
-	It("refuses a pattern without a source repository before any download", func() {
-		var fetched atomic.Int64
-		i, r := fixture([]byte("x"))
-		original := r.Artifact
-		r.Artifact = "oci://registry.example/libs/fixture-addon:1"
-		// The source admits no such policy, so it can only come from a caller
-		// that edited the entry; the install refuses it before it resolves.
-		r.Policy = catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", IdentityRegex: pattern}
-		_, e := i.Stage(context.Background(), r, func(Progress) { fetched.Add(1) })
-		Expect(e).To(MatchError(ErrPackage))
-		Expect(fetched.Load()).To(BeZero())
-		entries, e := os.ReadDir(i.Root)
-		Expect(e).NotTo(HaveOccurred())
-		Expect(entries).To(BeEmpty())
-		Expect(original).NotTo(BeEmpty())
-	})
-
-	It("verifies a pattern and a source repository, and records the repository as the signer", func() {
+	var (
+		authority *signing.Authority
+		data      []byte
+	)
+	BeforeEach(func() {
 		original := http.DefaultTransport
-		var external atomic.Int64
 		http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			if r.URL.Hostname() != "127.0.0.1" {
-				external.Add(1)
 				return nil, fmt.Errorf("external network forbidden")
 			}
 			return original.RoundTrip(r)
 		})
 		DeferCleanup(func() { http.DefaultTransport = original })
-		authority, e := signing.New()
+		var e error
+		authority, e = signing.New()
 		Expect(e).NotTo(HaveOccurred())
 		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
 		Expect(e).NotTo(HaveOccurred())
-		data := archive(nil, m)
+		data = archive(nil, m)
+	})
+
+	It("refuses a library pattern without a source repository before any registry request", func() {
+		// An https add-on library may keep a pattern alone, because it can
+		// also list backends. The entry, its policy and its signature are all
+		// what the library serves, and the signature matches the pattern, so
+		// only the add-on rule for a pattern stands between it and an install.
+		artifact, digest, calls := signedOCI(authority, data, "builder@example.invalid", "")
+		i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) {
+			r.Artifact, r.Digest = artifact, digest
+			s.Policy = catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", IdentityRegex: pattern}
+		})
+		i.SignatureTrust = authority
+		Expect(r.Policy.IdentityRegex).To(Equal(pattern), "the library stamps its own policy on the entry")
+		_, e := i.Stage(context.Background(), r, nil)
+		Expect(e).To(MatchError(ErrPackage))
+		Expect(calls.Load()).To(BeZero(), "the registry was asked for the package")
+		entries, e := os.ReadDir(i.Root)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(entries).To(BeEmpty())
+	})
+
+	It("verifies a pattern and a source repository, and records the repository as the signer", func() {
 		for _, signedFor := range []string{repo, elsewise, ""} {
-			artifact, digest, _ := localOCI(data)
-			ref, e := name.ParseReference(strings.TrimPrefix(artifact, "oci://"))
-			Expect(e).NotTo(HaveOccurred())
-			blob, e := authority.BundleFor(digest[7:], "builder@example.invalid", "https://issuer.invalid", signedFor)
-			Expect(e).NotTo(HaveOccurred())
-			img, e := mutate.AppendLayers(empty.Image, static.NewLayer(blob, types.MediaType("application/vnd.dev.sigstore.bundle.v0.3+json")))
-			Expect(e).NotTo(HaveOccurred())
-			hash, e := img.Digest()
-			Expect(e).NotTo(HaveOccurred())
-			size, e := img.Size()
-			Expect(e).NotTo(HaveOccurred())
-			Expect(remote.Write(ref.Context().Tag("signature"), img)).To(Succeed())
-			index := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{Add: img, Descriptor: v1.Descriptor{Digest: hash, Size: size, MediaType: types.DockerManifestSchema2, ArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json"}})
-			Expect(remote.WriteIndex(ref.Context().Tag(strings.Replace(digest, ":", "-", 1)), index)).To(Succeed())
+			artifact, digest, _ := signedOCI(authority, data, "builder@example.invalid", signedFor)
 			i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) {
 				r.Artifact, r.Digest = artifact, digest
 				s.Policy = pinned
@@ -742,7 +760,6 @@ var _ = Describe("signer identity pattern", func() {
 			Expect(receipt.Verification).To(Equal("sha256+sigstore"))
 			Expect(receipt.Signer).To(Equal(repo))
 		}
-		Expect(external.Load()).To(BeZero())
 	})
 })
 
