@@ -360,7 +360,6 @@ export const S = {
       editLabel: (match: string) => `Edit the rule for ${match}`,
       test: 'Test',
       testLabel: (match: string) => `Test the rule for ${match}`,
-      remove: 'Remove',
       removeLabel: (match: string) => `Remove the rule for ${match}`,
       removeTitle: 'Remove this rule?',
       removeBody: (match: string) => `The rule and its secret for ${match} are deleted.`,
@@ -371,6 +370,7 @@ export const S = {
       needUsername: 'Enter a user name.',
       needSecret: 'Enter a secret.',
       failed: 'The rule could not be saved.',
+      savedNoRefresh: 'Saved, but the list could not be refreshed.',
       testing: 'Testing\u2026',
       results: {
         ok: 'Signed in',
@@ -378,6 +378,7 @@ export const S = {
         unreachable: 'Not reachable',
         tls: 'Certificate problem',
         other: 'Unexpected answer',
+        failed: 'Test failed',
       },
     },
     plainFile: 'Keep secrets in a file',

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, within } from '@testing-library/react'
+import { act, fireEvent, render, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { App } from '../../src/renderer/App'
 import { fakeBridge, type FakeBridge } from '../../src/renderer/dev/fakeBridge'
@@ -21,16 +21,25 @@ async function open(
     view?: Partial<RegistryCredentialsView>
     save?: RegistryCredentialSaveResult
     remove?: RegistryCredentialRemoveResult
-    test?: RegistryCredentialTestResult
+    test?: RegistryCredentialTestResult | 'throw' | 'none'
+    /** The list call fails after this many good answers. */
+    listFailsAfter?: number
+    saveDelay?: number
   } = {},
-): Promise<FakeBridge> {
+): Promise<FakeBridge & { unmount: () => void }> {
   const base = fakeBridge(fixture('settings', NOW))
   const view: RegistryCredentialsView = { rules: [rule, bearer], userOverride: false, restartRequired: false, ...over.view }
+  let lists = 0
   const bridge: FakeBridge = {
     ...base,
-    getRegistryCredentials: async () => view,
+    getRegistryCredentials: async () => {
+      lists++
+      if (over.listFailsAfter !== undefined && lists > over.listFailsAfter) throw new Error('list failed')
+      return view
+    },
     saveRegistryCredential: async (input) => {
       base.calls.push({ name: 'saveRegistryCredential', args: [input] })
+      if (over.saveDelay) await new Promise((r) => setTimeout(r, over.saveDelay))
       return over.save ?? { ok: true, id: 'aaaaaaaaaaaaaaaa', restartRequired: false }
     },
     removeRegistryCredential: async (id) => {
@@ -39,17 +48,19 @@ async function open(
     },
     testRegistryCredential: async (id) => {
       base.calls.push({ name: 'testRegistryCredential', args: [id] })
+      if (over.test === 'throw') throw new Error('boom')
+      if (over.test === 'none') return undefined as unknown as RegistryCredentialTestResult
       return over.test ?? { result: 'ok', status: 200 }
     },
   }
-  render(<App bridge={bridge} now={NOW} />)
+  const { unmount } = render(<App bridge={bridge} now={NOW} />)
   await settle()
   fireEvent.click(within(screen.getByRole('contentinfo', { name: 'LocalAI status bar' })).getByRole('button', { name: 'Menu' }))
   fireEvent.click(screen.getByRole('menuitem', { name: 'Settings' }))
   await settle()
   fireEvent.click(screen.getByRole('tab', { name: 'Advanced' }))
   await settle()
-  return bridge
+  return Object.assign(bridge, { unmount })
 }
 
 const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } })
@@ -140,19 +151,23 @@ describe('Settings, registry credentials', () => {
     expect(called(b, 'saveRegistryCredential')[0]?.args).toEqual([{ id: rule.id, match: rule.match, kind: 'basic', username: 'other' }])
   })
 
-  it('Test shows one result label and nothing else', async () => {
-    for (const [result, label] of [
-      ['ok', 'Signed in'],
-      ['unauthorized', 'Rejected'],
-      ['unreachable', 'Not reachable'],
-      ['tls', 'Certificate problem'],
-    ] as const) {
-      const b = await open({ test: { result } })
-      await click('Test the rule for registry.example/team')
-      expect(called(b, 'testRegistryCredential')[0]?.args).toEqual([rule.id])
-      expect(screen.getAllByTestId('registry-test-result')[0]!.textContent).toBe(label)
-      document.body.innerHTML = ''
-    }
+  it.each([
+    ['ok', 'Signed in'],
+    ['unauthorized', 'Rejected'],
+    ['unreachable', 'Not reachable'],
+    ['tls', 'Certificate problem'],
+    ['other', 'Unexpected answer'],
+  ] as const)('Test shows only the label for %s', async (result, label) => {
+    const b = await open({ test: { result, status: 503 } })
+    await click('Test the rule for registry.example/team')
+    expect(called(b, 'testRegistryCredential')[0]?.args).toEqual([rule.id])
+    expect(screen.getAllByTestId('registry-test-result')[0]!.textContent).toBe(label)
+  })
+
+  it.each([['throw'], ['none']] as const)('shows "Test failed" when the Test action gives %s', async (test) => {
+    await open({ test })
+    await click('Test the rule for registry.example/team')
+    expect(screen.getAllByTestId('registry-test-result')[0]!.textContent).toBe('Test failed')
   })
 
   it('removes a rule only after the confirm', async () => {
@@ -166,7 +181,7 @@ describe('Settings, registry credentials', () => {
     expect(called(b, 'removeRegistryCredential')[0]?.args).toEqual([rule.id])
   })
 
-  it('says a restart is needed after a save and after a remove', async () => {
+  it('says a restart is needed after a save', async () => {
     await open({ save: { ok: true, id: rule.id, restartRequired: true } })
     expect(screen.queryByTestId('registry-restart')).toBeNull()
     await click('Add rule')
@@ -175,11 +190,57 @@ describe('Settings, registry credentials', () => {
     type('Password', SECRET)
     await click('Save')
     expect(screen.getByTestId('registry-restart').textContent).toContain('Restart LocalAI')
-    document.body.innerHTML = ''
+  })
 
+  it('says a restart is needed after a remove', async () => {
     await open({ remove: { restartRequired: true } })
     await click('Remove the rule for tokens.example')
     await click('Remove rule')
     expect(screen.getByTestId('registry-restart').textContent).toContain('Restart LocalAI')
+  })
+
+  it('shows no restart note when a remove needs none', async () => {
+    const b = await open({ remove: { restartRequired: false } })
+    await click('Remove the rule for tokens.example')
+    await click('Remove rule')
+    expect(called(b, 'removeRegistryCredential')).toHaveLength(1)
+    expect(screen.queryByTestId('registry-restart')).toBeNull()
+  })
+
+  it('sends a new secret on an edit, and the form is emptied', async () => {
+    const b = await open()
+    await click('Edit the rule for registry.example/team')
+    type('Password', SECRET)
+    await click('Save')
+    expect(called(b, 'saveRegistryCredential')[0]?.args).toEqual([{ id: rule.id, match: rule.match, kind: 'basic', username: 'ci-user', secret: SECRET }])
+    expect(document.body.innerHTML).not.toContain(SECRET)
+  })
+
+  it('sends one save when Enter is pressed twice in a row', async () => {
+    const b = await open({ saveDelay: 30 })
+    await click('Add rule')
+    type('Registry', 'new.example')
+    type('User name', 'u')
+    type('Password', SECRET)
+    const input = screen.getByLabelText('Password')
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 60))
+    })
+    expect(called(b, 'saveRegistryCredential')).toHaveLength(1)
+  })
+
+  it('closes the form and does not say the save failed when only the refresh fails', async () => {
+    await open({ listFailsAfter: 1, save: { ok: true, id: 'aaaaaaaaaaaaaaaa', restartRequired: true } })
+    await click('Add rule')
+    type('Registry', 'new.example')
+    type('User name', 'u')
+    type('Password', SECRET)
+    await click('Save')
+    expect(screen.queryByLabelText('Password')).toBeNull()
+    expect(screen.getByTestId('registry-restart')).toBeTruthy()
+    expect(screen.getByRole('alert').textContent).toBe('Saved, but the list could not be refreshed.')
+    expect(screen.queryByText('The rule could not be saved.')).toBeNull()
   })
 })

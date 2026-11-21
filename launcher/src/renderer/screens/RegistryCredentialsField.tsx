@@ -2,7 +2,7 @@
 // the kind, the user name and whether a secret is set; the secret itself never
 // reaches the renderer. The secret input is a password field with no reveal
 // button and is cleared after every save. A change applies after a restart.
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Callout, StatusChip } from '@localai/ui-kit'
 import { matchProblem } from '../../shared/registryMatch'
 import type { RegistryCredentialKind, RegistryCredentialTestResult, RegistryCredentialView, RegistryCredentialsView } from '../../shared/types'
@@ -30,9 +30,11 @@ export function RegistryCredentialsField({ onRestartNeeded }: { onRestartNeeded?
   const [draft, setDraft] = useState<Draft>()
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
+  // Set at once, so two events in the same tick cannot both start a save.
+  const saving = useRef(false)
   const [restart, setRestart] = useState(false)
   const [confirmId, setConfirmId] = useState<string>()
-  const [results, setResults] = useState<Record<string, RegistryCredentialTestResult['result'] | 'testing'>>({})
+  const [results, setResults] = useState<Record<string, RegistryCredentialTestResult['result'] | 'testing' | 'failed'>>({})
 
   useEffect(() => {
     let live = true
@@ -59,13 +61,14 @@ export function RegistryCredentialsField({ onRestartNeeded }: { onRestartNeeded?
   const patch = (p: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...p } : d))
 
   const save = async () => {
-    if (!draft) return
+    if (!draft || saving.current) return
     setError(undefined)
     const match = draft.match.trim()
     const problem = matchProblem(match)
     if (problem) return setError(problem)
     if (draft.kind === 'basic' && draft.username.trim() === '') return setError(S.settings.cred.needUsername)
     if (draft.secret === '' && !draft.hadSecret) return setError(S.settings.cred.needSecret)
+    saving.current = true
     setBusy(true)
     try {
       const r = await b.saveRegistryCredential?.({
@@ -76,21 +79,28 @@ export function RegistryCredentialsField({ onRestartNeeded }: { onRestartNeeded?
         // An empty secret on an edit means: keep the stored one.
         ...(draft.secret !== '' ? { secret: draft.secret } : {}),
       })
-      if (!r) return
       // The secret is gone from the form whatever the answer was.
       patch({ secret: '' })
+      if (!r) return
       if (!r.ok) {
         setError(r.reason)
         return
       }
       if (r.restartRequired) needRestart()
       close()
-      await reload()
     } catch {
       patch({ secret: '' })
       setError(S.settings.cred.failed)
+      return
     } finally {
+      saving.current = false
       setBusy(false)
+    }
+    // The rule is saved; a list that cannot be refreshed is a separate, smaller problem.
+    try {
+      await reload()
+    } catch {
+      setError(S.settings.cred.savedNoRefresh)
     }
   }
 
@@ -98,9 +108,9 @@ export function RegistryCredentialsField({ onRestartNeeded }: { onRestartNeeded?
     setResults((r) => ({ ...r, [id]: 'testing' }))
     try {
       const r = await b.testRegistryCredential?.(id)
-      setResults((m) => ({ ...m, [id]: r?.result ?? 'other' }))
+      setResults((m) => ({ ...m, [id]: r?.result ?? 'failed' }))
     } catch {
-      setResults((m) => ({ ...m, [id]: 'other' }))
+      setResults((m) => ({ ...m, [id]: 'failed' }))
     }
   }
 
@@ -112,7 +122,11 @@ export function RegistryCredentialsField({ onRestartNeeded }: { onRestartNeeded?
     } catch {
       // The list below shows what is left.
     }
-    await reload()
+    try {
+      await reload()
+    } catch {
+      // Keep the list as it is.
+    }
   }
 
   const startEdit = (r: RegistryCredentialView) => {
