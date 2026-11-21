@@ -49,7 +49,7 @@ var libraryCacheTTL = time.Hour
 // A var so tests can drive the policy path without reaching the public
 // Sigstore TUF mirror, which a unit test must not depend on.
 var verifyLibraryArtifact = func(ctx context.Context, p VerificationPolicy, digestRef string) error {
-	verifier, err := cosignverify.NewVerifier(cosignverify.Policy{Issuer: p.Issuer, Identity: p.Identity}, nil, nil)
+	verifier, err := cosignverify.NewVerifier(p.CosignPolicy(), nil, nil)
 	if err != nil {
 		return err
 	}
@@ -75,9 +75,12 @@ func validOCISource(s Source) bool {
 	if s.Kind != "" && s.Kind != KindAddon {
 		return false
 	}
-	// An anchored pattern could let a signature for another workflow of the
-	// same publisher admit a library; an add-on source pins one identity.
-	if s.Policy.IdentityRegex != "" {
+	// The policy verifies the library artifact itself. A pattern alone could
+	// let a signature that a shared signing workflow made for another
+	// repository admit the library, so a pattern needs the source repository.
+	// An https add-on library may keep a pattern alone, because it can also
+	// list backends; the install of its add-ons refuses that policy.
+	if !s.Policy.ValidForAddon() {
 		return false
 	}
 	ref := ociReference(s.URL)
