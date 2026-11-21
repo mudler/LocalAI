@@ -90,6 +90,11 @@ export function inferBackendPath(item) {
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
     return `backend/cpp/bonsai/`;
   }
+  if (item.dockerfile.endsWith("olala")) {
+    // olala is a llama.cpp fork that reuses backend/cpp/llama-cpp sources
+    // via a thin wrapper Makefile. Changes to either dir should retrigger it.
+    return `backend/cpp/olala/`;
+  }
   if (item.dockerfile.endsWith("privacy-filter")) {
     return `backend/cpp/privacy-filter/`;
   }
@@ -181,7 +186,7 @@ export function backendChanged(backend, pathPrefix, changedFiles) {
 
   // Fork backends reuse backend/cpp/llama-cpp sources via thin wrappers;
   // changes to either directory must retrigger their pipelines.
-  return (backend === "turboquant" || backend === "bonsai") &&
+  return (backend === "turboquant" || backend === "bonsai" || backend === "olala") &&
     changedFiles.some(file => file.startsWith("backend/cpp/llama-cpp/"));
 }
 
