@@ -31255,6 +31255,150 @@ paths:
       summary: Serve a custom branding asset
       tags:
       - branding
+  /join.ps1:
+    get:
+      description: 'Returns the script that installs a worker and joins it to this
+        cluster: join.sh for Linux and macOS (installs the binary through install.sh
+        in worker mode, writes a systemd unit or a launchd daemon, keeps the settings
+        in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret
+        and a StatefulSet with a volume for the state directory). Public, but answers
+        only for a join token that exists and is not expired, revoked or used up;
+        the answer is the same 404 for every other token. Serving the script does
+        not spend the token.'
+      parameters:
+      - description: join token
+        in: query
+        name: t
+        required: true
+        type: string
+      - description: 'connections of the worker, comma separated: nats, websocket'
+        in: query
+        name: routes
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the script
+          schema:
+            type: string
+        "400":
+          description: A connection is unknown or the token does not allow it
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: The token is not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too many tokens that are not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Join script for a worker
+      tags:
+      - Nodes
+  /join.sh:
+    get:
+      description: 'Returns the script that installs a worker and joins it to this
+        cluster: join.sh for Linux and macOS (installs the binary through install.sh
+        in worker mode, writes a systemd unit or a launchd daemon, keeps the settings
+        in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret
+        and a StatefulSet with a volume for the state directory). Public, but answers
+        only for a join token that exists and is not expired, revoked or used up;
+        the answer is the same 404 for every other token. Serving the script does
+        not spend the token.'
+      parameters:
+      - description: join token
+        in: query
+        name: t
+        required: true
+        type: string
+      - description: 'connections of the worker, comma separated: nats, websocket'
+        in: query
+        name: routes
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the script
+          schema:
+            type: string
+        "400":
+          description: A connection is unknown or the token does not allow it
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: The token is not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too many tokens that are not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Join script for a worker
+      tags:
+      - Nodes
+  /join.yaml:
+    get:
+      description: 'Returns the script that installs a worker and joins it to this
+        cluster: join.sh for Linux and macOS (installs the binary through install.sh
+        in worker mode, writes a systemd unit or a launchd daemon, keeps the settings
+        in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret
+        and a StatefulSet with a volume for the state directory). Public, but answers
+        only for a join token that exists and is not expired, revoked or used up;
+        the answer is the same 404 for every other token. Serving the script does
+        not spend the token.'
+      parameters:
+      - description: join token
+        in: query
+        name: t
+        required: true
+        type: string
+      - description: 'connections of the worker, comma separated: nats, websocket'
+        in: query
+        name: routes
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the script
+          schema:
+            type: string
+        "400":
+          description: A connection is unknown or the token does not allow it
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: The token is not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too many tokens that are not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Join script for a worker
+      tags:
+      - Nodes
   /metrics:
     get:
       produces:

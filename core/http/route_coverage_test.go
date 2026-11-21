@@ -125,6 +125,13 @@ var _ = Describe("Route auth coverage", func() {
 			// every wrong code the same way.
 			{method: http.MethodPost, path: "/api/client/pair"}: {},
 
+			// The scripts that join a worker answer only for a valid join token in
+			// the query (the token is the credential, and serving does not spend
+			// it); every other request gets 404, never 401.
+			{method: http.MethodGet, path: "/join.sh"}:   {},
+			{method: http.MethodGet, path: "/join.ps1"}:  {},
+			{method: http.MethodGet, path: "/join.yaml"}: {},
+
 			// SPA shell and client-side navigation before login.
 			{method: http.MethodGet, path: "/"}:             {},
 			{method: http.MethodHead, path: "/"}:            {},

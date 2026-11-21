@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"net/http"
+
 	"github.com/labstack/echo/v4"
 	clusterapi "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
@@ -74,4 +76,24 @@ func RegisterClusterAdminRoutes(e *echo.Echo, adminMw echo.MiddlewareFunc, admin
 	e.DELETE(ClusterJoinTokensPath+"/:id", localai.RevokeJoinTokenEndpoint(admin.JoinTokens), adminMw)
 	e.GET(ClusterSettingsPath, localai.GetClusterSettingsEndpoint(admin.Settings, admin.State), adminMw)
 	e.PUT(ClusterSettingsPath, localai.PutClusterSettingsEndpoint(admin.Settings, admin.NATS), adminMw)
+}
+
+// RegisterJoinScriptRoutes registers the public scripts that join a worker:
+// /join.sh, /join.ps1 and /join.yaml. Each answers only for a join token that is
+// valid, and does not spend it (see localai.JoinScriptEndpoint). The routes exist
+// on every frontend; one that is not distributed has no tokens and answers 404.
+func RegisterJoinScriptRoutes(e *echo.Echo, tokens localai.JoinTokens, limiter *cluster.JoinFailureLimiter) {
+	for path, kind := range map[string]localai.JoinScriptKind{
+		localai.JoinShellPath:      localai.JoinScriptShell,
+		localai.JoinPowerShellPath: localai.JoinScriptPowerShell,
+		localai.JoinKubernetesPath: localai.JoinScriptKubernetes,
+	} {
+		if tokens == nil {
+			e.GET(path, func(c echo.Context) error {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
+			})
+			continue
+		}
+		e.GET(path, localai.JoinScriptEndpoint(tokens, limiter, kind))
+	}
 }

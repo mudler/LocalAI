@@ -51,6 +51,22 @@
   set) are not touched.
   Environment variable: LOCALAI_UNINSTALL=1.
 
+.PARAMETER Worker
+  Also set up a Windows service that runs "local-ai worker" and joins a
+  cluster. Run it from an elevated PowerShell. The settings are read from
+  the environment: LOCALAI_REGISTER_TO (the URL of the frontend),
+  LOCALAI_JOIN_TOKEN (a join token from the admin, needed the first time),
+  and optionally LOCALAI_WORKER_ROUTES (nats, websocket or both) and
+  LOCALAI_WORKER_NAME. The binary goes to %ProgramFiles%\LocalAI\bin, and
+  the worker keeps its models, backends and credential in
+  %ProgramData%\LocalAI. The join token is never printed and never put on a
+  command line. It is stored in the Environment value of the service, and the
+  key of the service is then closed to everyone except SYSTEM and
+  Administrators. This mode has not been tested on every Windows version.
+  Environment variable: LOCALAI_WORKER=1.
+  To remove the worker: sc.exe stop LocalAIWorker; sc.exe delete LocalAIWorker;
+  remove %ProgramData%\LocalAI; delete the node on the Nodes page.
+
 .NOTES
   Works in Windows PowerShell 5.1 and PowerShell 7 or later.
   GITHUB_TOKEN is optional and only used to avoid GitHub API rate limits.
@@ -62,7 +78,8 @@ param(
     [switch]$NoPath,
     [switch]$InstallBackend,
     [switch]$Force,
-    [switch]$Uninstall
+    [switch]$Uninstall,
+    [switch]$Worker
 )
 
 # Never call "exit" in this script: with "irm ... | iex" it would close the
@@ -456,11 +473,90 @@ function Install-LocalAI {
     Write-Host '  Documentation: https://localai.io/docs/'
 }
 
+# Sets up the Windows service of a worker. It follows the pattern of the
+# Windows install page: sc.exe create with the full path of the program. The
+# join token goes in the Environment value of the service key, which is closed
+# to everyone but SYSTEM and Administrators, so that it is not on a command line.
+function Install-LocalAIWorker {
+    [CmdletBinding()]
+    param([string]$Exe)
+
+    Set-StrictMode -Version 2.0
+    $ErrorActionPreference = 'Stop'
+
+    $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        throw 'Worker mode needs an elevated PowerShell (Run as administrator).'
+    }
+    if (-not $env:LOCALAI_REGISTER_TO) {
+        throw 'LOCALAI_REGISTER_TO is not set. Set it to the URL of the frontend.'
+    }
+    $base = Join-Path $env:ProgramData 'LocalAI'
+    $cred = Join-Path $base 'data\node-credential.json'
+    if (-not $env:LOCALAI_JOIN_TOKEN -and -not (Test-Path -LiteralPath $cred)) {
+        throw 'LOCALAI_JOIN_TOKEN is not set. Ask an admin for a join token (Nodes page, Add worker).'
+    }
+    foreach ($v in @($env:LOCALAI_REGISTER_TO, $env:LOCALAI_JOIN_TOKEN, $env:LOCALAI_WORKER_ROUTES, $env:LOCALAI_WORKER_NAME)) {
+        if ($v -and $v -match '[\r\n\0]') { throw 'A setting has a character that cannot go in the service settings.' }
+    }
+    foreach ($d in @('models', 'backends', 'data')) {
+        [void][IO.Directory]::CreateDirectory((Join-Path $base $d))
+    }
+
+    $name = 'LocalAIWorker'
+    $binPath = '"' + $Exe + '" worker'
+    if (Get-Service -Name $name -ErrorAction SilentlyContinue) {
+        Stop-Service -Name $name -Force -ErrorAction SilentlyContinue
+        & sc.exe config $name binPath= $binPath start= auto | Out-Null
+    } else {
+        & sc.exe create $name binPath= $binPath start= auto DisplayName= 'LocalAI worker' | Out-Null
+    }
+    if ($LASTEXITCODE -ne 0) { throw "sc.exe could not create the service (exit code $LASTEXITCODE)." }
+    & sc.exe failure $name reset= 86400 actions= restart/5000/restart/5000/restart/30000 | Out-Null
+
+    $envList = @(
+        "LOCALAI_REGISTER_TO=$($env:LOCALAI_REGISTER_TO)",
+        "LOCALAI_MODELS_PATH=$(Join-Path $base 'models')",
+        "LOCALAI_BACKENDS_PATH=$(Join-Path $base 'backends')"
+    )
+    if ($env:LOCALAI_JOIN_TOKEN) { $envList += "LOCALAI_JOIN_TOKEN=$($env:LOCALAI_JOIN_TOKEN)" }
+    if ($env:LOCALAI_WORKER_ROUTES) { $envList += "LOCALAI_WORKER_ROUTES=$($env:LOCALAI_WORKER_ROUTES)" }
+    if ($env:LOCALAI_WORKER_NAME) { $envList += "LOCALAI_NODE_NAME=$($env:LOCALAI_WORKER_NAME)" }
+    $keyPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$name"
+    New-ItemProperty -Path $keyPath -Name 'Environment' -PropertyType MultiString -Value $envList -Force | Out-Null
+
+    # Close the key to everyone but SYSTEM and Administrators: it holds the token.
+    $acl = Get-Acl -Path $keyPath
+    $acl.SetAccessRuleProtection($true, $false)
+    foreach ($id in @('NT AUTHORITY\SYSTEM', 'BUILTIN\Administrators')) {
+        $rule = New-Object Security.AccessControl.RegistryAccessRule($id, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+        $acl.AddAccessRule($rule)
+    }
+    Set-Acl -Path $keyPath -AclObject $acl
+
+    Start-Service -Name $name
+    Write-Host "  service       $name (started)"
+    Write-Host ''
+    Write-Host 'The worker is running and has asked the frontend to join. An admin approves it'
+    Write-Host 'on the Nodes page of the frontend, unless the token approves it by itself.'
+    Write-Host ''
+    Write-Host 'To remove this worker later, from an elevated PowerShell:'
+    Write-Host "  sc.exe stop $name; sc.exe delete $name"
+    Write-Host "  Remove-Item -Recurse '$base'    # also removes the credential, models and backends"
+    Write-Host '  and delete the node on the Nodes page of the frontend.'
+}
+
 if ($env:LOCALAI_NO_PATH -eq '1') { $NoPath = [switch]$true }
 if ($env:LOCALAI_INSTALL_BACKEND -eq '1') { $InstallBackend = [switch]$true }
 if ($env:LOCALAI_FORCE -eq '1') { $Force = [switch]$true }
 if ($env:LOCALAI_UNINSTALL -eq '1') { $Uninstall = [switch]$true }
+if ($env:LOCALAI_WORKER -eq '1') { $Worker = [switch]$true }
+if ($Worker -and -not $InstallDir) { $InstallDir = Join-Path $env:ProgramFiles 'LocalAI\bin' }
 
 Install-LocalAI -Version $Version -InstallDir $InstallDir `
     -NoPath ([bool]$NoPath) -InstallBackend ([bool]$InstallBackend) `
     -Force ([bool]$Force) -Uninstall ([bool]$Uninstall)
+
+if ($Worker -and -not $Uninstall) {
+    Install-LocalAIWorker -Exe (Join-Path $InstallDir 'local-ai.exe')
+}
