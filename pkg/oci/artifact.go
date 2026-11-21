@@ -20,7 +20,6 @@ import (
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
 	"oras.land/oras-go/v2/registry/remote/errcode"
-	"oras.land/oras-go/v2/registry/remote/retry"
 )
 
 const (
@@ -174,7 +173,7 @@ func artifactRepository(ref string) (*remote.Repository, error) {
 	repo.PlainHTTP = plainHTTP(repo.Reference.Registry)
 
 	client := &auth.Client{
-		Client: retry.DefaultClient,
+		Client: registryHTTPClient(),
 		Cache:  auth.NewCache(),
 	}
 	client.SetUserAgent(UserAgent())

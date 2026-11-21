@@ -5,10 +5,12 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -32,12 +34,24 @@ import (
 
 // e2eRegistry is a registry that wants basic auth and sends every blob read to
 // a second host, as a registry in front of an object store does. The second
-// host records the Authorization header it receives.
+// host has the registry's host name and another port: net/http ignores the
+// port when it decides to copy Authorization to a redirect target, so this is
+// the case a client leaks to unless it guards the redirect itself. The second
+// host records every Authorization header it receives.
 type e2eRegistry struct {
 	host         string // host:port of the registry
-	cdnHits      atomic.Int64
-	cdnAuth      atomic.Value // string: last Authorization header the second host saw
+	cdnHost      string // host:port of the redirect target
+	cdnMu        sync.Mutex
+	cdnAuth      []string     // Authorization header of every request the second host saw
 	unauthorized atomic.Int64 // requests answered 401
+}
+
+// cdnHeaders returns the Authorization header of every request the redirect
+// target received, in order.
+func (rr *e2eRegistry) cdnHeaders() []string {
+	rr.cdnMu.Lock()
+	defer rr.cdnMu.Unlock()
+	return append([]string(nil), rr.cdnAuth...)
 }
 
 const (
@@ -48,12 +62,12 @@ const (
 func newE2ERegistry() (*e2eRegistry, *atomic.Bool) {
 	GinkgoHelper()
 	rr := &e2eRegistry{}
-	rr.cdnAuth.Store("")
 	inner := registry.New()
 	var secured atomic.Bool
 	cdn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rr.cdnHits.Add(1)
-		rr.cdnAuth.Store(r.Header.Get("Authorization"))
+		rr.cdnMu.Lock()
+		rr.cdnAuth = append(rr.cdnAuth, r.Header.Get("Authorization"))
+		rr.cdnMu.Unlock()
 		r2 := r.Clone(r.Context())
 		r2.URL.Path = strings.TrimPrefix(r.URL.Path, "/cdn")
 		inner.ServeHTTP(w, r2)
@@ -77,6 +91,7 @@ func newE2ERegistry() (*e2eRegistry, *atomic.Bool) {
 	}))
 	DeferCleanup(reg.Close)
 	rr.host = strings.TrimPrefix(reg.URL, "http://")
+	rr.cdnHost = strings.TrimPrefix(cdn.URL, "http://")
 	return rr, &secured
 }
 
@@ -171,8 +186,8 @@ var _ = Describe("an oci:// add-on library behind registry credentials", func() 
 		Expect(rr.unauthorized.Load()).To(BeNumerically(">", 0))
 		c := catalogOf()
 		_, err = c.Resolve(context.Background(), "lib", "fixture-addon", "latest")
-		Expect(err).To(HaveOccurred())
-		Expect(rr.cdnHits.Load()).To(BeZero())
+		Expect(err).To(MatchError(catalog.ErrRefresh))
+		Expect(rr.cdnHeaders()).To(BeEmpty())
 	})
 
 	It("lists and installs with a rule, and sends no credential to the redirect target", func() {
@@ -198,7 +213,17 @@ var _ = Describe("an oci:// add-on library behind registry credentials", func() 
 		_, err = installer.Stage(context.Background(), resolved, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(rr.cdnHits.Load()).To(BeNumerically(">", 0), "the blob reads must have been redirected")
-		Expect(rr.cdnAuth.Load()).To(BeEmpty(), "the second host must not receive the registry credential")
+		regHost, _, err := net.SplitHostPort(rr.host)
+		Expect(err).NotTo(HaveOccurred())
+		cdnHost, _, err := net.SplitHostPort(rr.cdnHost)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cdnHost).To(Equal(regHost), "the redirect target must share the registry's host name")
+		Expect(rr.cdnHost).NotTo(Equal(rr.host))
+
+		seen := rr.cdnHeaders()
+		Expect(seen).NotTo(BeEmpty(), "the blob reads must have been redirected")
+		for i, h := range seen {
+			Expect(h).To(BeEmpty(), "request %d to the second host carried the registry credential", i)
+		}
 	})
 })
