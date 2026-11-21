@@ -1587,7 +1587,10 @@ select.input {
    — content is expected to provide its own header/body structure. */
 .popover {
   position: fixed;
-  z-index: 200;
+  /* Above the surfaces that open a menu from inside: the notification panel
+     (popover level), a dialog or a sheet. A portal on <body> that comes later
+     in the document wins a tie. */
+  z-index: var(--dk-z-popover);
   min-width: 260px;
   max-width: min(420px, 95vw);
   max-height: min(420px, 70vh);

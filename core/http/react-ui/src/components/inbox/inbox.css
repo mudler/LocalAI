@@ -23,7 +23,8 @@
   display: flex;
   flex-direction: column;
   width: min(400px, calc(100vw - var(--sp-8)));
-  max-height: min(600px, calc(100dvh - var(--sp-4)));
+  /* The panel grows up from its entry, so the room above the entry limits it. */
+  max-height: min(600px, calc(100dvh - var(--nx-bottom, var(--sp-2)) - var(--sp-2)));
   overflow: hidden;
   border: 1px solid var(--dk-edge);
   border-radius: var(--r-lg);
