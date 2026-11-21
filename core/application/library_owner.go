@@ -85,7 +85,7 @@ func (o *libraryOwner) run(ctx context.Context, c gateway.LibraryCall) (any, err
 	case gateway.LibraryList:
 		return o.admin.List(ctx, c.Known)
 	case gateway.LibraryAdd:
-		return o.admin.Add(ctx, library.AddRequest{Kind: c.Kind, URL: c.URL, ID: c.ID, Name: c.Name, Format: c.Format, Mirrors: c.Mirrors, Issuer: c.Issuer, Identity: c.Identity})
+		return o.admin.Add(ctx, library.AddRequest{Kind: c.Kind, URL: c.URL, ID: c.ID, Name: c.Name, Format: c.Format, Mirrors: c.Mirrors, Issuer: c.Issuer, Identity: c.Identity, IdentityRegex: c.IdentityRegex, SourceRepository: c.SourceRepository})
 	case gateway.LibraryUpdate:
 		return o.admin.SetMirrors(ctx, c.ID, c.Mirrors)
 	case gateway.LibraryEnable:

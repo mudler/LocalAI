@@ -534,6 +534,10 @@ var _ = Describe("mirrors and local add-on libraries", func() {
 var _ = Describe("a source that pins its signer", func() {
 	const ociURL = "oci://registry.example/fixture-addon/library:1"
 	pinned := catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", Identity: "signer@registry.example"}
+	const (
+		pinPattern = `^https://github\.com/example-org/shared/\.github/workflows/sign\.yml@refs/tags/v.+$`
+		pinRepo    = "https://github.com/example-org/example-repo"
+	)
 	admin := func() (LocalAdmin, *catalog.Sources) {
 		store := open(GinkgoT().TempDir())
 		return LocalAdmin{Store: func() (*catalog.Sources, error) { return store, nil }}, store
@@ -588,13 +592,50 @@ var _ = Describe("a source that pins its signer", func() {
 		}
 	})
 
-	It("refuses an identity pattern", func() {
-		// The request has no pattern field, so only a library caller can pass one.
+	It("refuses an identity pattern without a source repository", func() {
 		store := open(GinkgoT().TempDir())
 		_, err := AddWithPolicy(store, catalog.KindAddon, ociURL, "fixture", "", "", nil, catalog.VerificationPolicy{RequireSignature: true, Issuer: pinned.Issuer, IdentityRegex: "^signer@registry[.]example$"})
 		isBad(err)
 		_, err = AddWithPolicy(store, catalog.KindAddon, ociURL, "fixture", "", "", nil, catalog.VerificationPolicy{RequireSignature: true, Issuer: pinned.Issuer, Identity: pinned.Identity, IdentityRegex: "^a$"})
 		isBad(err)
+		Expect(store.Entries()).ToNot(ContainElement(HaveField("ID", "fixture")))
+	})
+
+	It("stores an identity pattern pinned to a source repository and reports it", func() {
+		a, store := admin()
+		want := catalog.VerificationPolicy{RequireSignature: true, Issuer: pinned.Issuer, IdentityRegex: pinPattern, SourceRepository: pinRepo}
+		in, err := a.Add(context.Background(), AddRequest{Kind: "addon", URL: ociURL, ID: "fixture", Issuer: pinned.Issuer, IdentityRegex: " " + pinPattern + " ", SourceRepository: " " + pinRepo})
+		Expect(err).ToNot(HaveOccurred())
+		e, ok := byID(store, "fixture")
+		Expect(ok).To(BeTrue())
+		Expect(e.Policy).To(Equal(want))
+		Expect(in.Policy).ToNot(BeNil())
+		Expect(*in.Policy).To(Equal(want))
+	})
+
+	It("stores an exact identity with a source repository", func() {
+		a, store := admin()
+		_, err := a.Add(context.Background(), AddRequest{Kind: "addon", URL: ociURL, ID: "fixture", Issuer: pinned.Issuer, Identity: pinned.Identity, SourceRepository: pinRepo})
+		Expect(err).ToNot(HaveOccurred())
+		e, _ := byID(store, "fixture")
+		Expect(e.Policy).To(Equal(catalog.VerificationPolicy{RequireSignature: true, Issuer: pinned.Issuer, Identity: pinned.Identity, SourceRepository: pinRepo}))
+	})
+
+	It("refuses a pattern without a pin, a bad pin and a pin without a signer, with a plain message", func() {
+		a, store := admin()
+		for req, says := range map[*AddRequest]string{
+			{Kind: "addon", URL: ociURL, Issuer: pinned.Issuer, IdentityRegex: pinPattern}:                                                       "source_repository",
+			{Kind: "addon", URL: ociURL, Issuer: pinned.Issuer, IdentityRegex: pinPattern, SourceRepository: "http://github.com/x/y"}:            "https URL",
+			{Kind: "addon", URL: ociURL, Issuer: pinned.Issuer, IdentityRegex: "^a|b$", SourceRepository: pinRepo}:                               "starts with ^",
+			{Kind: "addon", URL: ociURL, SourceRepository: pinRepo}:                                                                              "issuer",
+			{Kind: "addon", URL: ociURL, Issuer: pinned.Issuer, Identity: pinned.Identity, IdentityRegex: pinPattern, SourceRepository: pinRepo}: "not both",
+			{Kind: "backend", URL: ociURL, Issuer: pinned.Issuer, IdentityRegex: pinPattern, SourceRepository: pinRepo}:                          "oci:// add-on library",
+		} {
+			_, err := a.Add(context.Background(), *req)
+			isBad(err)
+			Expect(err.Error()).To(ContainSubstring(says), "%+v", *req)
+			Expect(err.Error()).NotTo(ContainSubstring("invalid catalog configuration"))
+		}
 		Expect(store.Entries()).ToNot(ContainElement(HaveField("ID", "fixture")))
 	})
 

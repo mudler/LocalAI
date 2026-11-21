@@ -58,9 +58,13 @@ type LibraryCall struct {
 	Name    string   `json:"name,omitempty"`
 	Format  string   `json:"format,omitempty"`
 	Mirrors []string `json:"mirrors,omitempty"`
-	// Issuer and Identity pin the signer of an oci:// add-on library (add only).
-	Issuer   string `json:"issuer,omitempty"`
-	Identity string `json:"identity,omitempty"`
+	// Issuer and Identity pin the signer of an oci:// add-on library (add
+	// only). IdentityRegex and SourceRepository are the pattern form of the
+	// signer; see library.AddRequest.
+	Issuer           string `json:"issuer,omitempty"`
+	Identity         string `json:"identity,omitempty"`
+	IdentityRegex    string `json:"identityRegex,omitempty"`
+	SourceRepository string `json:"sourceRepository,omitempty"`
 	// Known is the list version the caller holds (list only).
 	Known string `json:"known,omitempty"`
 	// SourceID, Backend and Version name the entry of backend-resolve.
