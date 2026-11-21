@@ -606,4 +606,13 @@ var _ = Describe("a source that pins its signer", func() {
 		_, err = AddWithPolicy(store, catalog.KindAddon, "oci://registry.example/other:1", "other", "", "", nil, catalog.VerificationPolicy{Issuer: "https://issuer.example"})
 		isBad(err)
 	})
+
+	It("matches the oci:// scheme of a pinned source without regard to case", func() {
+		// The reader takes OCI:// as an OCI artifact, so the policy check
+		// must too, or such a source could not pin its signer.
+		store := open(GinkgoT().TempDir())
+		src, err := AddWithPolicy(store, catalog.KindAddon, "OCI://registry.example/upper:1", "upper", "", "", nil, pinned)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(src.Policy).To(Equal(pinned))
+	})
 })

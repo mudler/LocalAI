@@ -269,7 +269,7 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 })
 
 var _ = Describe("oci:// add-on library without credentials", Serial, func() {
-	const warning = "a private registry needs a credentials file rule (set LOCALAI_CREDENTIALS_FILE) or a docker login"
+	const warning = "a private registry needs a credentials file rule (in <data-path>/credentials.yaml or the file LOCALAI_CREDENTIALS_FILE names) or a docker login"
 	var (
 		logs *bytes.Buffer
 		dir  string
@@ -292,6 +292,12 @@ var _ = Describe("oci:// add-on library without credentials", Serial, func() {
 	It("warns once when an enabled oci:// add-on source exists", func() {
 		add(catalog.Source{ID: "one", Name: "one", URL: "oci://registry.example/fixture-addon/library:1", Enabled: true})
 		add(catalog.Source{ID: "two", Name: "two", URL: "oci://registry.example/other/library:1", Enabled: true})
+		warnOCISourcesWithoutCredentials(dir, false, false)
+		Expect(bytes.Count(logs.Bytes(), []byte(warning))).To(Equal(1))
+	})
+
+	It("warns for an oci:// address written in upper case", func() {
+		add(catalog.Source{ID: "upper", Name: "upper", URL: "OCI://registry.example/fixture-addon/library:1", Enabled: true})
 		warnOCISourcesWithoutCredentials(dir, false, false)
 		Expect(bytes.Count(logs.Bytes(), []byte(warning))).To(Equal(1))
 	})

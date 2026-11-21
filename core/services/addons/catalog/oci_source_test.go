@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -265,6 +267,21 @@ var _ = Describe("oci:// libraries", func() {
 		_, err := s.Refresh(ctx, "lib")
 		Expect(err).To(MatchError(ErrCredential))
 		Expect(s.libraryCacheDir(src)).NotTo(BeADirectory())
+	})
+
+	It("logs why the registry refused the read, without a secret", func() {
+		logs := &bytes.Buffer{}
+		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, nil), "debug"))
+		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger("info", "text")) })
+
+		url := pushLibrary(srv.URL, "libs/logged", LibraryArtifactType, libraryIndexBody())
+		saveOCI(url, VerificationPolicy{})
+		*status = http.StatusUnauthorized
+		_, err := s.Refresh(ctx, "lib")
+		Expect(err).To(MatchError(ErrCredential))
+		Expect(logs.String()).To(ContainSubstring("authentication error"))
+		Expect(logs.String()).To(ContainSubstring("source=lib"))
+		Expect(logs.String()).To(ContainSubstring("401"))
 	})
 
 	It("does not reuse a copy admitted under another policy", func() {

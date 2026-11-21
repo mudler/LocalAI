@@ -58,7 +58,14 @@ var verifyLibraryArtifact = func(ctx context.Context, p VerificationPolicy, dige
 
 // isOCISource reports whether the source index is an OCI artifact.
 func isOCISource(src Source) bool {
-	return strings.HasPrefix(strings.ToLower(src.URL), ociScheme)
+	return IsOCIAddress(src.URL)
+}
+
+// IsOCIAddress reports whether a library address uses the oci:// scheme. The
+// scheme is matched without regard to case, as the reader does, so every
+// check of an address agrees on which sources are OCI artifacts.
+func IsOCIAddress(u string) bool {
+	return ociReference(u) != ""
 }
 
 // validOCISource checks the address of an oci:// library: a parseable
@@ -155,6 +162,10 @@ func (s *Sources) fetchOCI(ctx context.Context, src Source) ([]byte, error) {
 	}
 	var authErr *credentials.AuthError
 	if errors.As(err, &authErr) {
+		// The detail says whether a rule matched and was refused or no rule
+		// matched. It holds no secret, but the caller only gets
+		// ErrCredential, so the admin finds the detail in the log.
+		xlog.Warn("the registry answered an OCI library read with an authentication error", "source", src.ID, "error", authErr.Error())
 		return nil, fmt.Errorf("%w: %w", ErrRefresh, ErrCredential)
 	}
 

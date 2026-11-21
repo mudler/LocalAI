@@ -364,7 +364,9 @@ export function untrustedSource(entry, preview) {
 // pinned for its library, which the host stamps on the entry and on the
 // preview. It is shown as data next to the warning, never instead of it, and
 // the host sends it only for a signed, non-official source. The preview wins
-// because it comes from the verified package. An official entry names nobody.
+// because the host builds it for this install. It is not proof by itself: a
+// preview from an index hint is not verified yet, and the install enforces
+// the pinned signer it carries. An official entry names nobody.
 export function signedBy(entry, preview) {
   if (entry && entry.official === true) return ''
   const pick = (v) => (v && typeof v.signer === 'string' ? v.signer.trim() : '')

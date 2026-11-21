@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/url"
 	"path/filepath"
-	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -199,8 +198,8 @@ func warnOCISourcesWithoutCredentials(dataPath string, official, backendLibrary 
 	}
 	for _, e := range store.Entries() {
 		if e.Kind == catalog.KindAddon && e.Format != catalog.FormatGallery && e.Enabled && !e.Removed && !e.Suspended &&
-			strings.HasPrefix(e.URL, "oci://") {
-			xlog.Warn("An add-on library is read from an oci:// address and no credentials file is loaded: a private registry needs a credentials file rule (set LOCALAI_CREDENTIALS_FILE) or a docker login", "source", e.ID)
+			catalog.IsOCIAddress(e.URL) {
+			xlog.Warn("An add-on library is read from an oci:// address and no credentials file is loaded: a private registry needs a credentials file rule (in <data-path>/credentials.yaml or the file LOCALAI_CREDENTIALS_FILE names) or a docker login", "source", e.ID)
 			return
 		}
 	}

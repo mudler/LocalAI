@@ -207,7 +207,7 @@ func checkPolicy(kind catalog.Kind, url, format string, p catalog.VerificationPo
 	if issuer == "" || identity == "" {
 		return p, badRequest("issuer and identity must be set together")
 	}
-	if kind != catalog.KindAddon || format != "" || !strings.HasPrefix(url, "oci://") {
+	if kind != catalog.KindAddon || format != "" || !catalog.IsOCIAddress(url) {
 		return p, badRequest("issuer and identity apply to an oci:// add-on library only")
 	}
 	return catalog.VerificationPolicy{RequireSignature: true, Issuer: issuer, Identity: identity}, nil

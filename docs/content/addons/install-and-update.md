@@ -507,8 +507,10 @@ The artifact must have the type `application/vnd.localai.library.v1` and must ho
 file named `index.yaml`, the library index. An image or an artifact of another type is
 refused. LocalAI keeps an unpacked copy under the add-on data directory and reads the
 registry again only when that copy is older than one hour. If the registry cannot be
-reached, the last good copy answers. A copy is never used after the registry refuses the
-credentials or after the signature check fails.
+reached, the last good copy answers. A copy is never used after the signature check
+fails, or after the registry refuses the credentials when LocalAI resolves the address.
+A `401` or `403` on a later read of the artifact content counts as an outage, so the last
+good copy, which passed its checks when it was stored, can answer.
 
 The registry uses the same credentials as backend libraries. Write a rule for the
 registry host in the [credentials file]({{% relref "/models/private-sources" %}}), and
@@ -522,7 +524,8 @@ keep the secret in the environment:
 
 Without a matching rule or docker login, a private registry answers `401` or `403` and
 the source refresh fails with a credential error. At start, LocalAI logs one warning when
-an `oci://` add-on library is on and no credentials file was loaded. The warning also shows for a setup that relies on docker login alone; it is then only a reminder.
+an `oci://` add-on library is on and no credentials file was loaded: neither
+`<data-path>/credentials.yaml` nor the file that `LOCALAI_CREDENTIALS_FILE` names. The warning also shows for a setup that relies on docker login alone; it is then only a reminder.
 
 The add-on owner process reads the credentials file, not the browser and not a frontend.
 Put the file, and the variables it names, on the machine where the add-on owner runs.

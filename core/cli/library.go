@@ -113,7 +113,7 @@ func (c *LibraryAdd) Run(_ *cliContext.Context) error {
 	src, err := library.AddWithPolicy(store, catalog.Kind(c.Kind), c.URL, c.ID, c.Name, format, nil, catalog.VerificationPolicy{Issuer: c.Issuer, Identity: c.Identity})
 	if err != nil {
 		if errors.Is(err, catalog.ErrInvalid) {
-			return fmt.Errorf("cannot add %q as a %s source: the id must be lowercase letters, digits and dashes and start with a letter, and a library index URL must be http or https (use --format=gallery for a gallery index)", c.URL, c.Kind)
+			return fmt.Errorf("cannot add %q as a %s source: the id must be lowercase letters, digits and dashes and start with a letter, and the address must be an http or https index URL (use --format=gallery for a gallery index) or, for an add-on library, an oci://registry/repository:tag or @sha256 reference with no credentials in it", c.URL, c.Kind)
 		}
 		return err
 	}
