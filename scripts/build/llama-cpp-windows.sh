@@ -312,6 +312,21 @@ git submodule update --init --recursive --depth 1 --single-branch
 perl -0pi -e 's/(#include <windows\.globalization\.h>\R#include <windows\.h>\R)(#endif)/$1#include <winstring.h>\n$2/' \
   third_party/abseil-cpp/absl/time/internal/cctz/src/time_zone_lookup.cc
 
+# abseil's CountLeadingZeroes16 / CountTrailingZeroesNonzero16 use
+# __builtin_clzs / __builtin_ctzs when ABSL_HAVE_BUILTIN says they exist. GCC 16
+# declares both builtins, but on x86-64 they need the lzcnt / bmi instruction
+# sets, so the build stops with "'__builtin_ctzs' needs isa option -mbmi". Make
+# abseil take its portable 32-bit fallback for the 16-bit case instead, which
+# keeps the code valid for any x86-64 CPU. The installed headers carry the
+# change, so the grpc-server build sees it too.
+perl -pi -e 's/ABSL_HAVE_BUILTIN\(__builtin_(clzs|ctzs)\)/0/' \
+  third_party/abseil-cpp/absl/numeric/internal/bits.h
+if grep -q '__builtin_ctzs' third_party/abseil-cpp/absl/numeric/internal/bits.h &&
+   grep -q 'ABSL_HAVE_BUILTIN(__builtin_ctzs)' third_party/abseil-cpp/absl/numeric/internal/bits.h; then
+  echo "ERROR: could not patch abseil bits.h for GCC 16" >&2
+  exit 1
+fi
+
 # c-ares (bundled with gRPC) has a broken CMake build under mingw-w64
 # UCRT64 + CMake 4.x. Its CMakeLists uses CHECK_INCLUDE_FILES to detect
 # winsock2.h / ws2tcpip.h / windows.h on WIN32, but the probes run BEFORE
