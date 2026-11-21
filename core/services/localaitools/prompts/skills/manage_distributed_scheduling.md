@@ -1,5 +1,5 @@
 ---
-description: Inspect, set or remove per-model scheduling rules and the carrier weights of a distributed setup.
+description: Manage per-model scheduling rules and carrier weights of a distributed setup.
 ---
 # Skill: Manage distributed scheduling
 
