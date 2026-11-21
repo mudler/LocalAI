@@ -249,6 +249,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if err != nil {
 		return nil, err
 	}
+	// Tokens that ended more than a week ago are of no use to anyone.
+	if err := joinTokens.Purge(context.Background()); err != nil {
+		xlog.Warn("Could not remove the old join tokens", "error", err)
+	}
 	if err := adoptNATSURL(context.Background(), settingsStore, cfg.Distributed.NatsURL, cfg.Distributed.InstanceID); err != nil {
 		return nil, err
 	}
