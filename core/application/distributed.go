@@ -725,28 +725,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Create ModelRouterAdapter to wire into ModelLoader
 	modelAdapter := nodes.NewModelRouterAdapter(router)
 
-	// While the tunnel is the active carrier, a node that heartbeats and holds no
-	// tunnel is demoted once its departure is older than the grace. On NATS no
-	// node holds a tunnel, and the monitor reads nothing.
-	healthMon.UsePresence(clusterReg, cluster.DefaultReconnectGrace, func() bool {
-		set := active.Load()
-		return set != nil && set.Name == cluster.CarrierTunnel
-	})
-
-	// A worker that reports it is not attached to the active carrier is demoted
-	// once the cluster has settled: after a forced change it is the worker that
-	// could not follow. While two carriers are attached the route table reaches
-	// it, so nothing is demoted then. The check also runs when a carrier is
-	// released, so that the demotion does not wait for the next tick.
-	var swapper *carrier.Swapper
-	healthMon.UseTunnelRoutes()
-	healthMon.UseCarrier(func() (cluster.Carrier, bool) {
-		set := active.Load()
-		if set == nil || swapper == nil {
-			return "", false
-		}
-		return set.Name, swapper.Settled()
-	})
+	// The monitor judges each node by the routes it holds: the tunnel rows for
+	// a node that holds a tunnel, the report of the worker for NATS. It never
+	// reads the carrier row of the cluster.
+	healthMon.UsePresence(clusterReg, cluster.DefaultReconnectGrace)
 	broadcaster.OnReconnect(func() {
 		go healthMon.CheckNow(context.Background())
 	})
@@ -787,7 +769,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if err != nil {
 		return nil, err
 	}
-	swapper, err = carrier.NewSwapper(carrier.SwapperOptions{
+	swapper, err := carrier.NewSwapper(carrier.SwapperOptions{
 		Cur: active, Routes: routes,
 		Rows: carrierStore, Ready: membership, Build: runtime.Build,
 	})

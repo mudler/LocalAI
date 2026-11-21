@@ -114,9 +114,6 @@ type Swapper struct {
 	doneOnce sync.Once
 	wg       sync.WaitGroup
 
-	// drainingNow mirrors draining != nil for the readers that must not wait on
-	// mu (Settled).
-	drainingNow    atomic.Bool
 	row            atomic.Pointer[cluster.CarrierRow]
 	drainRemaining atomic.Int64
 	ready          atomic.Bool
@@ -204,13 +201,7 @@ func (s *Swapper) registerMetrics() {
 // setDraining records the set that drains. It is called under mu.
 func (s *Swapper) setDraining(set *Set) {
 	s.draining = set
-	s.drainingNow.Store(set != nil)
 }
-
-// Settled reports that no previous carrier drains on this replica. It takes no
-// lock, so a build that holds the swapper does not hold the caller. The change
-// of carrier, and this call, are removed in step 8 of the hybrid carriers work.
-func (s *Swapper) Settled() bool { return !s.drainingNow.Load() }
 
 // Wake asks the polling loop to look at the row now. It is the hint that the
 // leader sends; losing it costs one interval.

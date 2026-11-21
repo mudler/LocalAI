@@ -92,7 +92,7 @@ You can start on one and change to the other later with the admin API or the CLI
 
 ### How a frontend picks the route of a worker
 
-Every worker reports in its heartbeat the routes it was given, the routes it holds now, and why it does not hold the others. The frontends route by that report only. For each call to a worker, the frontend uses the route that last worked for that worker, else NATS when the worker holds NATS and has an address, else the tunnel, among the routes that the worker holds and that the frontend has. A call goes to the next route only when the first one shows that the worker received nothing (no responder on NATS, no tunnel). It never goes to another route after a timeout or an answer of the worker, so a call is never run twice. Unloading a model and deleting its files reach each worker on its own route. A worker holds at most one tunnel, over a websocket or over P2P. The health monitor does not demote a worker that holds the tunnel while NATS is active, because it is reachable.
+Every worker reports in its heartbeat the routes it was given, the routes it holds now, and why it does not hold the others. The frontends route by that report only. For each call to a worker, the frontend uses the route that last worked for that worker, else NATS when the worker holds NATS and has an address, else the tunnel, among the routes that the worker holds and that the frontend has. A call goes to the next route only when the first one shows that the worker received nothing (no responder on NATS, no tunnel). It never goes to another route after a timeout or an answer of the worker, so a call is never run twice. Unloading a model and deleting its files reach each worker on its own route. A worker holds at most one tunnel, over a websocket or over P2P. The health monitor judges each worker by the routes it holds, never by a setting of the cluster: see [Node health and routes](#node-health-and-routes).
 
 An MCP tool call that does not name an agent worker goes to an agent worker on NATS first (the queue group), and to an agent worker that holds a tunnel when no agent worker on NATS takes it. A call that names an agent worker goes on the routes of that worker: the NATS subject of the node (`mcp.<node>.tools.execute`, `mcp.<node>.discovery`), or its tunnel.
 
@@ -1006,9 +1006,31 @@ To skip manual approval and let nodes join immediately, set `--auto-approve-node
 |--------|---------|
 | `pending` | Node registered but waiting for admin approval (when `--auto-approve-nodes` is `false`) |
 | `healthy` | Node is active and responding to heartbeats |
-| `unhealthy` | Node has missed heartbeats beyond the threshold (detected by the HealthMonitor) |
+| `unhealthy` | The HealthMonitor found no live route to the node: it heartbeats, but neither NATS nor its tunnel is live (see [Node health and routes](#node-health-and-routes)), or it missed heartbeats while auto-offline is off. Status only: nothing of the node is deleted, and it becomes `healthy` again when a route is live |
 | `offline` | Node is temporarily offline (graceful shutdown or stale heartbeat). The node row is preserved so re-registration restores the previous approval status without requiring re-approval |
 | `draining` | Node is shutting down gracefully - no new requests are routed to it, existing in-flight requests are allowed to complete |
+
+### Node health and routes
+
+The HealthMonitor judges each node by the routes that node holds, whatever routes the other nodes use. It never reads the carrier setting of the cluster. For each node it looks at:
+
+| Route | Live when |
+|-------|-----------|
+| `heartbeat` | The last heartbeat is younger than `--stale-node-threshold`. It shows that the worker process runs and carries the route report, but it does not carry work. |
+| `nats` | The last route report of the worker lists NATS in `attached`, and the heartbeat that carried it is fresh. |
+| `tunnel` | A frontend holds the WebSocket or P2P tunnel of the worker. A tunnel that dropped less than the reconnect grace ago (one minute) is `reconnecting` and still counts while the heartbeat is fresh. When no frontend has a record of the tunnel, the route report of the worker decides. |
+
+A node is healthy while one of its `nats` or `tunnel` routes is live:
+
+- A node that loses one route and keeps another stays `healthy`. The lost route is shown as `down`, with the reason the worker gave, and the frontend logs it once.
+- A node whose heartbeat is stale while a frontend still holds its tunnel stays `healthy`. The heartbeat is shown as `down`.
+- A node that heartbeats and has no live route is marked `unhealthy` once it has been so for the reconnect grace (one minute). A tunnel that has been gone for longer than the grace already counts, so a tunnel-only node is marked at once. A route that comes back inside the grace changes nothing, so a reconnect does not make the node flap. The node is not probed while it is `unhealthy`, and nothing of it is deleted.
+- A node with a stale heartbeat and no live route follows the stale rules: it is marked `offline` (or `unhealthy` with auto-offline off), as described below.
+- A node that has not sent its first route report is judged by its heartbeat alone.
+
+A worker sends no heartbeat while it holds no route, so a worker that loses its only route goes stale and is marked `offline` after `--stale-node-threshold`. Each frontend that runs the health checks counts the grace on its own. A frontend that has not checked the node for three check intervals starts the grace again, which delays the mark.
+
+`GET /api/nodes` and `GET /api/nodes/{id}` return `route_state` for each node: a list of `{route, transport, state, reason}` entries, where `route` is `heartbeat`, `nats` or `tunnel`, `transport` is `websocket` or `p2p` for the tunnel, and `state` is `live`, `reconnecting` or `down`. The LocalAI Assistant tool `list_nodes` returns the same list as `routes`. On the Nodes page, the **Attached over** column of the worker table shows one chip per route with its state, and the reason when you point at it.
 
 ### Heartbeat writes and stale-node detection
 
@@ -1817,7 +1839,7 @@ A worker holds the routes that its operator gives it, and the frontend does not 
 
 Each route is attached on its own. A route that cannot be attached (a NATS server that is down, a frontend that refuses the tunnel) is tried again in the background, with a wait that grows from 1 to 30 seconds, and the worker serves on its other routes meanwhile. A route whose credential cannot be renewed is attached again. The **backend processes keep running** through all of it.
 
-Every heartbeat reports the routes (`routes`), the routes that the worker holds and is connected on (`attached`), why each other route is not held (`route_error`, for example `nats: connecting`), and, for a tunnel, its transport (`websocket` or `p2p`) and the P2P path. The Nodes page and `GET /api/nodes` show them as `attached`, `follow` (the routes the worker was given) and `follow_error`. A worker sends no heartbeat while it holds no route, so a worker that nobody can reach goes stale.
+Every heartbeat reports the routes (`routes`), the routes that the worker holds and is connected on (`attached`), why each other route is not held (`route_error`, for example `nats: connecting`), and, for a tunnel, its transport (`websocket` or `p2p`) and the P2P path. The Nodes page and `GET /api/nodes` show them as `attached`, `follow` (the routes the worker was given) and `follow_error`, and `route_state` says which routes are live (see [Node health and routes](#node-health-and-routes)). A worker sends no heartbeat while it holds no route, so a worker that nobody can reach goes stale.
 
 A change of carrier (see [Switching the carrier](#switching-the-carrier)) moves the frontends only. A worker keeps its routes. A worker that does not hold the route of the target becomes unroutable once the old carrier is released by the frontends.
 
@@ -1972,6 +1994,7 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 
 **Node shows as unhealthy or offline:**
 - The HealthMonitor marks nodes offline when heartbeats are missed. Check network connectivity between worker and frontend.
+- A node that is `unhealthy` with a fresh heartbeat has no live route. Look at its `route_state` (the **Attached over** column of the Nodes page, or `GET /api/nodes`): the reason of each `down` route is the one the worker reported, for example `nats: connecting` for a NATS server it cannot reach, or a tunnel that is gone. The node becomes `healthy` again as soon as one route is live.
 - Verify `--heartbeat-interval` is not set too high
 - Offline nodes automatically restore to healthy when they re-register (no re-approval needed)
 

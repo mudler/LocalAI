@@ -179,7 +179,15 @@
       "relayed": "经由中继"
     },
     "limited": "受限",
-    "limitedHint": "中继限制了此连接的数据量或时长。模型文件不会经由它传输。"
+    "limitedHint": "中继限制了此连接的数据量或时长。模型文件不会经由它传输。",
+    "heartbeat": "心跳",
+    "tunnel": "隧道",
+    "chip": "{{route}}：{{state}}",
+    "state": {
+      "live": "在线",
+      "reconnecting": "重连中",
+      "down": "断开"
+    }
   },
   "inspector": {
     "route": "路由",

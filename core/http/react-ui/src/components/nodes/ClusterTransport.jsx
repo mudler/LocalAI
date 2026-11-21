@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { clusterApi } from '../../utils/api'
-import { busLabel, formatCountdown, replicaReady, routeLabel, stateLabel } from '../../utils/clusterTransport'
-import { Button } from '../ui'
+import { busLabel, formatCountdown, replicaReady, routeChips, routeLabel, stateLabel } from '../../utils/clusterTransport'
+import { Button, StatusChip } from '../ui'
 import CarrierWeights from './CarrierWeights'
 
 const POLL_IDLE_MS = 5000
@@ -38,8 +39,32 @@ function ReplicaList({ replicas, report, label }) {
   )
 }
 
-function WorkerTable({ workers }) {
+// The routes of one worker and whether each is live, from the route state of
+// its node (GET /api/nodes). A worker whose node carries no route state shows
+// the routes it reported, as before.
+function WorkerRoutes({ worker, node }) {
+  const { t } = useTranslation('swarm')
+  const chips = routeChips(node?.route_state)
+  if (chips.length === 0) {
+    return (worker.attached || []).length ? worker.attached.map(routeLabel).join(' + ') : 'not reported'
+  }
+  return (
+    <span className="transport-routes">
+      {chips.map(chip => {
+        const state = t(`route.state.${chip.state}`)
+        return (
+          <StatusChip key={chip.key} tone={chip.tone} testId="transport-route" title={chip.reason ? `${state}: ${chip.reason}` : state}>
+            {t('route.chip', { route: t(`route.${chip.name}`), state })}
+          </StatusChip>
+        )
+      })}
+    </span>
+  )
+}
+
+function WorkerTable({ workers, nodes }) {
   if (!workers || workers.length === 0) return <p className="text-note">No worker is registered.</p>
+  const byId = new Map((nodes || []).map(node => [node.id, node]))
   return (
     <div className="transport-table-wrap">
       <table className="transport-table" aria-label="Workers by route">
@@ -48,7 +73,7 @@ function WorkerTable({ workers }) {
           {workers.map(worker => (
             <tr key={worker.id} data-testid="transport-worker">
               <td>{worker.name || worker.id}</td>
-              <td>{(worker.attached || []).length ? worker.attached.map(routeLabel).join(' + ') : 'not reported'}</td>
+              <td><WorkerRoutes worker={worker} node={byId.get(worker.id)} /></td>
             </tr>
           ))}
         </tbody>
@@ -117,8 +142,9 @@ function NatsSettings({ settings, onSaved }) {
 // ClusterTransport shows the carrier setting of the cluster, the frontends
 // and workers behind it, and the NATS address settings. It is read-only apart
 // from the NATS settings: changing the bus is an API and CLI operation. It
-// renders nothing when the cluster routes are not available.
-export default function ClusterTransport() {
+// renders nothing when the cluster routes are not available. `nodes` is the node
+// list of the page; it gives the live state of each route of a worker.
+export default function ClusterTransport({ nodes }) {
   const [report, setReport] = useState(null)
   const [available, setAvailable] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -185,7 +211,7 @@ export default function ClusterTransport() {
         </div>
         <div>
           <p className="form-label">Workers</p>
-          <WorkerTable workers={report.workers} />
+          <WorkerTable workers={report.workers} nodes={nodes} />
         </div>
       </div>
 

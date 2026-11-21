@@ -176,6 +176,20 @@ type Node struct {
 	PeerID string `json:"peer_id,omitempty"`
 	// SplitServer is true when the node may serve model-split workers.
 	SplitServer bool `json:"split_server,omitempty"`
+	// Routes says, for each route of the node, if it is live: what the health
+	// monitor judges the node by. A node stays healthy while one route that
+	// carries work (nats or tunnel) is live.
+	Routes []NodeRouteState `json:"routes,omitempty"`
+}
+
+// NodeRouteState is one route of a node: heartbeat, nats or tunnel, with the
+// transport of the tunnel (websocket or p2p), its state (live, reconnecting or
+// down) and why it is not live.
+type NodeRouteState struct {
+	Route     string `json:"route"`
+	Transport string `json:"transport,omitempty"`
+	State     string `json:"state"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 // NodeSplitServer is the result of set_node_split_server.

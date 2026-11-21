@@ -47,8 +47,30 @@ func nodeError(code int, message string) schema.ErrorResponse {
 	}
 }
 
+// NodeRouteStates says which routes of a node are live. nodes.RouteJudge is one.
+type NodeRouteStates interface {
+	States(ctx context.Context, n *nodes.BackendNode, now time.Time) []nodes.RouteState
+}
+
+// WithRouteStates makes the node list and the node detail carry route_state:
+// for each route of the node (heartbeat, nats, tunnel), whether it is live.
+func WithRouteStates(r NodeRouteStates) RegisterOption {
+	return func(o *registerOptions) { o.routes = r }
+}
+
+func (o registerOptions) fillRouteStates(ctx context.Context, list []nodes.NodeWithExtras) {
+	if o.routes == nil {
+		return
+	}
+	now := time.Now()
+	for i := range list {
+		list[i].RouteState = o.routes.States(ctx, &list[i].BackendNode, now)
+	}
+}
+
 // ListNodesEndpoint returns all registered backend nodes.
-func ListNodesEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+func ListNodesEndpoint(registry *nodes.NodeRegistry, options ...RegisterOption) echo.HandlerFunc {
+	opts := newRegisterOptions(options)
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		nodeList, err := registry.ListWithExtras(ctx)
@@ -56,12 +78,14 @@ func ListNodesEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 			xlog.Error("Failed to list nodes", "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to list nodes"))
 		}
+		opts.fillRouteStates(ctx, nodeList)
 		return c.JSON(http.StatusOK, nodeList)
 	}
 }
 
 // GetNodeEndpoint returns a single node by ID.
-func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+func GetNodeEndpoint(registry *nodes.NodeRegistry, options ...RegisterOption) echo.HandlerFunc {
+	opts := newRegisterOptions(options)
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
@@ -71,6 +95,9 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		node, err := registry.GetWithExtras(ctx, id)
 		if err != nil {
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		if node != nil && opts.routes != nil {
+			node.RouteState = opts.routes.States(ctx, &node.BackendNode, time.Now())
 		}
 		return c.JSON(http.StatusOK, node)
 	}
@@ -160,6 +187,7 @@ type registerOptions struct {
 	nats    NATSHandover
 	workers WorkerPeers
 	split   SplitNodes
+	routes  NodeRouteStates
 }
 
 // WorkerPeers says whether a peer of the P2P layer is a paired worker: a peer

@@ -46,3 +46,22 @@ export function stateLabel(report) {
   if (report.state === 'stable' && Number(report.drain_remaining_ns) > 0) return 'draining'
   return report.state
 }
+
+// The routes of a worker to show, from the route_state of its node in
+// GET /api/nodes: NATS and the tunnel always, the heartbeat only when it is
+// lost (a live heartbeat is what every worker has). `name` is the key of the
+// route's word under swarm:route, and `tone` the chip tone of its state.
+const STATE_TONES = { live: 'ok', reconnecting: 'warn', down: 'error' }
+
+export function routeChips(routeState) {
+  if (!Array.isArray(routeState)) return []
+  return routeState
+    .filter(r => r && (r.route !== 'heartbeat' || r.state !== 'live'))
+    .map(r => ({
+      key: r.route,
+      name: r.route === 'tunnel' && (r.transport === 'websocket' || r.transport === 'p2p') ? r.transport : r.route,
+      state: STATE_TONES[r.state] ? r.state : 'down',
+      tone: STATE_TONES[r.state] || 'error',
+      reason: r.reason || '',
+    }))
+}

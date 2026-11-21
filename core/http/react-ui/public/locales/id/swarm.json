@@ -179,7 +179,15 @@
       "relayed": "Lewat relay"
     },
     "limited": "Terbatas",
-    "limitedHint": "Relay membatasi data atau waktu koneksi ini. File model tidak melewatinya."
+    "limitedHint": "Relay membatasi data atau waktu koneksi ini. File model tidak melewatinya.",
+    "heartbeat": "Detak",
+    "tunnel": "Terowongan",
+    "chip": "{{route}}: {{state}}",
+    "state": {
+      "live": "aktif",
+      "reconnecting": "menyambung ulang",
+      "down": "terputus"
+    }
   },
   "inspector": {
     "route": "Rute",

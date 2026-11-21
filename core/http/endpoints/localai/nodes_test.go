@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/pkg/natsauth"
@@ -465,6 +466,50 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(list).To(HaveLen(2))
 			names := []string{list[0].Name, list[1].Name}
 			Expect(names).To(ConsistOf("alpha", "beta"))
+		})
+
+		It("carries the live state of each route of a node, in the list and in the detail", func() {
+			ctx := context.Background()
+			node := &nodes.BackendNode{Name: "gamma", Address: "10.0.0.3:50051"}
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetCarrierReport(ctx, node.ID, nodes.CarrierReport{
+				Follow:      []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel},
+				Attached:    []cluster.Carrier{cluster.CarrierTunnel},
+				FollowError: "nats: connecting",
+				Tunnel:      nodes.TunnelRoute{Transport: nodes.TunnelWebSocket},
+			})).To(Succeed())
+			judge := nodes.RouteJudge{StaleThreshold: time.Hour}
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)
+			Expect(ListNodesEndpoint(registry, WithRouteStates(judge))(c)).To(Succeed())
+			var list []nodes.NodeWithExtras
+			Expect(json.Unmarshal(rec.Body.Bytes(), &list)).To(Succeed())
+			Expect(list).To(HaveLen(1))
+			states := list[0].RouteState
+			Expect(states).To(HaveLen(3))
+			Expect(states[0].Route).To(Equal(nodes.RouteHeartbeat))
+			Expect(states[1].Route).To(Equal(nodes.RouteNATS))
+			Expect(states[1].State).To(Equal(nodes.RouteDown))
+			Expect(states[1].Reason).To(Equal("connecting"))
+			Expect(states[2].Transport).To(Equal(nodes.TunnelWebSocket))
+			Expect(states[2].State).To(Equal(nodes.RouteLive))
+
+			rec = httptest.NewRecorder()
+			c = e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)
+			c.SetParamNames("id")
+			c.SetParamValues(node.ID)
+			Expect(GetNodeEndpoint(registry, WithRouteStates(judge))(c)).To(Succeed())
+			var one nodes.NodeWithExtras
+			Expect(json.Unmarshal(rec.Body.Bytes(), &one)).To(Succeed())
+			Expect(one.RouteState).To(HaveLen(3))
+
+			// Without the option the list says nothing about routes.
+			rec = httptest.NewRecorder()
+			c = e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)
+			Expect(ListNodesEndpoint(registry)(c)).To(Succeed())
+			Expect(rec.Body.String()).ToNot(ContainSubstring("route_state"))
 		})
 	})
 

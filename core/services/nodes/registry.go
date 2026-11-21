@@ -386,6 +386,10 @@ type NodeWithExtras struct {
 	// first: VRAM use on a node with a GPU, CPU use otherwise. It lives in
 	// memory only and is absent for a worker that has not reported yet.
 	LoadHistory []float64 `json:"load_history,omitempty"`
+	// RouteState says, for each route of the node (the heartbeat, NATS, the
+	// tunnel), if it is live: what the health monitor judges the node by. The
+	// registry does not fill it; the node endpoints do, in distributed mode.
+	RouteState []RouteState `json:"route_state,omitempty"`
 }
 
 // PendingBackendOp is a durable intent for a backend lifecycle operation

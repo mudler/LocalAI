@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { busLabel, formatCountdown, replicaReady, routeLabel, stateLabel } from './clusterTransport.js'
+import { busLabel, formatCountdown, replicaReady, routeChips, routeLabel, stateLabel } from './clusterTransport.js'
 
 test('busLabel and routeLabel word the API values', () => {
   assert.equal(busLabel('nats'), 'NATS')
@@ -29,4 +29,31 @@ test('stateLabel reports draining after a commit', () => {
   assert.equal(stateLabel({ state: 'stable', drain_remaining_ns: 5e9 }), 'draining')
   assert.equal(stateLabel({ state: 'stable' }), 'stable')
   assert.equal(stateLabel({ state: 'prepare' }), 'prepare')
+})
+
+test('routeChips shows each route with the tone of its state and hides a live heartbeat', () => {
+  const chips = routeChips([
+    { route: 'heartbeat', state: 'live' },
+    { route: 'nats', state: 'down', reason: 'connecting' },
+    { route: 'tunnel', transport: 'p2p', state: 'reconnecting' },
+  ])
+  assert.deepEqual(chips.map(c => [c.key, c.name, c.state, c.tone]), [
+    ['nats', 'nats', 'down', 'error'],
+    ['tunnel', 'p2p', 'reconnecting', 'warn'],
+  ])
+  assert.equal(chips[0].reason, 'connecting')
+})
+
+test('routeChips shows a lost heartbeat, words an unknown tunnel as the tunnel, and reads no state as down', () => {
+  const chips = routeChips([
+    { route: 'heartbeat', state: 'down' },
+    { route: 'tunnel', state: 'live' },
+    { route: 'nats', state: 'weird' },
+  ])
+  assert.deepEqual(chips.map(c => [c.name, c.state, c.tone]), [
+    ['heartbeat', 'down', 'error'],
+    ['tunnel', 'live', 'ok'],
+    ['nats', 'down', 'error'],
+  ])
+  assert.deepEqual(routeChips(undefined), [])
 })

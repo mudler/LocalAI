@@ -78,6 +78,36 @@ test.describe('Cluster transport panel', () => {
     await expect(panel.getByLabel('NATS URL', { exact: true })).toHaveValue('nats://nats:4222')
   })
 
+  test('shows the live state of each route of a worker from the node list', async ({ page }) => {
+    const nodes = [
+      { ...node, id: 'w1', name: 'dual-worker', route_state: [
+        { route: 'heartbeat', state: 'live' },
+        { route: 'nats', state: 'down', reason: 'connecting' },
+        { route: 'tunnel', transport: 'websocket', state: 'live' },
+      ] },
+      { ...node, id: 'w2', name: 'tunnel-worker', route_state: [
+        { route: 'heartbeat', state: 'down', reason: 'the heartbeat is stale' },
+        { route: 'tunnel', transport: 'p2p', state: 'reconnecting' },
+      ] },
+    ]
+    await mockCluster(page, { nodes })
+    await page.goto('/app/nodes')
+    const panel = page.getByTestId('cluster-transport')
+    await expect(panel).toBeVisible({ timeout: 15_000 })
+    const workers = panel.getByTestId('transport-worker')
+    const dual = workers.nth(0).getByTestId('transport-route')
+    await expect(dual).toHaveCount(2)
+    await expect(dual.nth(0)).toHaveText('NATS: down')
+    await expect(dual.nth(0)).toHaveAttribute('title', 'down: connecting')
+    await expect(dual.nth(1)).toHaveText('WebSocket: live')
+    const tunnel = workers.nth(1).getByTestId('transport-route')
+    await expect(tunnel).toHaveCount(2)
+    await expect(tunnel.nth(0)).toHaveText('Heartbeat: down')
+    await expect(tunnel.nth(1)).toHaveText('P2P: reconnecting')
+    // A worker whose node has no route state shows what it reported.
+    await expect(workers.nth(2)).toContainText('not reported')
+  })
+
   test('shows replica readiness during a change started from the CLI, with no switch controls', async ({ page }) => {
     const prepare = {
       ...stableReport, state: 'prepare', epoch: 5, target: 'tunnel',

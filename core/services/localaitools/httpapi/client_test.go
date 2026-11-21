@@ -219,6 +219,26 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		})
 	})
 
+	Describe("ListNodes", func() {
+		It("carries the live state of each route of a node", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.Path).To(Equal("/api/nodes"))
+				_, _ = w.Write([]byte(`[{"id":"n1","status":"healthy","attached":"tunnel","route_state":[{"route":"heartbeat","state":"live"},{"route":"nats","state":"down","reason":"connecting"},{"route":"tunnel","transport":"websocket","state":"live"}]}]`))
+			}))
+			defer srv.Close()
+			list, err := New(srv.URL, "").ListNodes(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(list).To(HaveLen(1))
+			Expect(list[0].Healthy).To(BeTrue())
+			Expect(list[0].Route).To(Equal("websocket"))
+			Expect(list[0].Routes).To(Equal([]localaitools.NodeRouteState{
+				{Route: "heartbeat", State: "live"},
+				{Route: "nats", State: "down", Reason: "connecting"},
+				{Route: "tunnel", Transport: "websocket", State: "live"},
+			}))
+		})
+	})
+
 	Describe("SearchModels with no query", func() {
 		It("sends sort=latest and an empty q", func() {
 			var got url.Values

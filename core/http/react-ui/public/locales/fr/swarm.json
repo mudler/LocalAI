@@ -179,7 +179,15 @@
       "relayed": "Par un relais"
     },
     "limited": "Limité",
-    "limitedHint": "Le relais limite les données ou la durée de cette connexion. Les fichiers de modèle ne passent pas par lui."
+    "limitedHint": "Le relais limite les données ou la durée de cette connexion. Les fichiers de modèle ne passent pas par lui.",
+    "heartbeat": "Battement",
+    "tunnel": "Tunnel",
+    "chip": "{{route}} : {{state}}",
+    "state": {
+      "live": "active",
+      "reconnecting": "reconnexion",
+      "down": "coupée"
+    }
   },
   "inspector": {
     "route": "Route",

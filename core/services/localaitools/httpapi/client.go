@@ -690,13 +690,14 @@ func capabilityLabels(flags []string) []string {
 
 func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	var raw []struct {
-		ID          string `json:"id"`
-		Address     string `json:"address"`
-		HTTPAddress string `json:"http_address"`
-		Status      string `json:"status"`
-		Attached    string `json:"attached"`
-		PeerID      string `json:"peer_id"`
-		SplitServer bool   `json:"split_server"`
+		ID          string                        `json:"id"`
+		Address     string                        `json:"address"`
+		HTTPAddress string                        `json:"http_address"`
+		Status      string                        `json:"status"`
+		Attached    string                        `json:"attached"`
+		PeerID      string                        `json:"peer_id"`
+		SplitServer bool                          `json:"split_server"`
+		RouteState  []localaitools.NodeRouteState `json:"route_state"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeNodes, nil, &raw); err != nil {
 		// Treat 404/disabled as "no nodes" to keep parity with single-process.
@@ -715,6 +716,7 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 			Route:       localaitools.NodeRoute(strings.Split(n.Attached, ","), n.PeerID),
 			PeerID:      n.PeerID,
 			SplitServer: n.SplitServer,
+			Routes:      n.RouteState,
 		})
 	}
 	return out, nil

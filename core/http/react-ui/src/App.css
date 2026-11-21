@@ -8382,6 +8382,7 @@ button.lane:hover {
 .transport-table-wrap { overflow-x: auto; }
 .transport-table { border-collapse: collapse; font-size: var(--text-sm); width: 100%; }
 .transport-table th { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 600; padding: 4px 10px 4px 0; text-align: left; }
+.transport-routes { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .transport-table td { border-top: 1px solid var(--color-border-subtle); padding: 6px 10px 6px 0; vertical-align: top; }
 .transport-table td:first-child { white-space: nowrap; }
 .transport-error { color: var(--color-error); font-size: var(--text-sm); margin: 0; }

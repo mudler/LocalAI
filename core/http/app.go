@@ -672,6 +672,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 		registerOpts = append(registerOpts, localai.WithWorkerPeers(application))
 		// Backend nodes learn the model-split workers attached to them.
 		registerOpts = append(registerOpts, localai.WithSplitNodes(application))
+		// The node list shows the route state the health monitor judges by.
+		if d.Health != nil {
+			registerOpts = append(registerOpts, localai.WithRouteStates(d.Health.RouteJudge()))
+		}
 		p2pTunnels := clusterep.P2PTunnelServer{Registry: d.Registry, Tunnels: d.Tunnels}
 		application.ServeP2PTunnels(p2pTunnels.ServeConn)
 		if d.Router != nil {

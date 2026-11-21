@@ -219,8 +219,8 @@ detaches it when the set is released (`RouteTable.Detach`, which puts the
 pinned route of that kind back). While a NATS set is active or drains, the table
 holds the direct route, so a worker that holds NATS only is reached until the
 drain ends, and a worker that holds the tunnel is reached there. A call that is running is never moved, so an install, a stream or a load
-renewal ends on the route it began on. `Swapper.Settled` says that no carrier
-drains; the health monitor reads it.
+renewal ends on the route it began on. The health monitor does not read the
+swapper or the row (see "Health of a node").
 
 The model loads, installs and MCP calls that were started before the change finish
 where they began; whatever is still running
@@ -736,17 +736,17 @@ carrier.
 - The heartbeat answer carries nothing about a carrier. The change of carrier
   (`cluster.Switch`, `carrier.Swapper`) moves the frontends only. Its preflight
   reads the `follow` column as the routes a worker can be reached on; a worker
-  whose routes do not include the target is a blocker. That reading, the
-  `attached_epoch` column (always 0 now) and `HealthMonitor.UseCarrier` go with
-  the change of carrier (step 8 of the hybrid carriers work).
+  whose routes do not include the target is a blocker. That reading and the
+  `attached_epoch` column (always 0 now) go with the change of carrier (step 8
+  of the hybrid carriers work).
 
 ## Workers that hold only a tunnel
 
 The route table reaches a worker that holds the tunnel and not NATS through the
 tunnel route, whatever the carrier row says: the route is pinned on every
 replica. A worker holds one tunnel, over a websocket or over P2P, so the two
-kinds never compete. `HealthMonitor.UseTunnelRoutes` stops the demotion of such
-a worker. The router places a model on it by the routes of the node, see below.
+kinds never compete. The health monitor judges such a worker by its tunnel,
+see "Health of a node". The router places a model on it by the routes of the node, see below.
 A worker over P2P is tunnel-only. An agent worker over P2P is not supported.
 
 ## Routes of a node
@@ -764,17 +764,56 @@ no option for this. Ties between equally fit nodes are broken by the carrier
 weights (see the cluster settings above). The holders route each call by the
 same list (see "Holders and the carrier row").
 
+## Health of a node
+
+`nodes.RouteJudge` says, for each route of a node, if it is live
+(`nodes.RouteState`: `live`, `reconnecting` or `down`, with a reason). It reads
+the node row and, for the tunnel, `Registry.Presence`. It never reads the
+carrier row, and keeps no state, so every replica gives the same answer for the
+same rows. The node list (`GET /api/nodes`, `GET /api/nodes/:id`, option
+`localai.WithRouteStates`) and the MCP tool `list_nodes` show its answer as
+`route_state` (`routes` in the tool).
+
+- `heartbeat`: live while the last heartbeat is younger than the stale
+  threshold. It proves that the worker process runs and carries the route
+  report; it does not carry work.
+- `nats`: for a worker given or holding NATS. Live when the last report lists
+  it in `attached` and the heartbeat is fresh (the report rides on the
+  heartbeat). The reason comes from `route_error`.
+- `tunnel`: for a worker given or holding the tunnel, over a websocket or P2P.
+  `PresenceConnected` is live. `PresenceReconnecting` is `reconnecting`, which
+  counts as live while the heartbeat is fresh. `PresenceGone` is down, past the
+  grace already. With no presence answer (no row, or a failed read) the report
+  decides while the heartbeat is fresh.
+- A node that has not sent its route report yet has the heartbeat only.
+
+`HealthMonitor` (`UsePresence(reader, grace)`, grace
+`cluster.DefaultReconnectGrace`) acts on that answer at each tick:
+
+- A route that carries work (`nats` or `tunnel`) is live: the node is healthy,
+  and is promoted if it was not. A lost route next to a live one, or a lost
+  heartbeat next to a held tunnel, is logged once and shown in `route_state`;
+  the status does not change.
+- No such route is live and the heartbeat is stale: the stale rules apply as
+  before (`MarkOffline`, or `MarkUnhealthy` with auto-offline off).
+- No such route is live and the heartbeat is fresh: the node is demoted with
+  the status-only `MarkUnhealthy` once it has been without a live route for the
+  grace (at once when the only routes are tunnels presence reports gone). It is
+  neither promoted nor probed while it stays so. A route that comes back inside
+  the grace changes nothing, so a reconnect does not flap the node.
+
+The time a node has been without a live route (`noRouteSince`) is kept in each
+replica that runs the checks (the advisory lock gives each tick to one
+replica). A replica that has not seen the node for more than three check
+intervals starts the grace again, so a route that came back meanwhile is not
+missed; this only delays a demotion.
+
 ## Open items for a second carrier
 
 - A worker that registers an address and holds a tunnel (a worker that can use
   either carrier) is reached by the backend-logs proxy through the host that its
   address names, and the proxy of the environment is used for it. Only a worker
   without an address skips the proxy.
-- The health monitor reads the presence of each node (`HealthMonitor.UsePresence`)
-  only while the tunnel is the active carrier: a node that heartbeats and whose
-  tunnel has been gone longer than `cluster.DefaultReconnectGrace` is demoted with
-  a status-only change, and is neither promoted nor probed until its tunnel is
-  back.
 - A chat worker (`local-ai run` with `LOCALAI_CHAT_WORKER`) connects as a
   frontend does, with the frontend's NATS credentials. It registers itself in
   the node registry through the database (an approved `agent` node with
@@ -799,6 +838,4 @@ same list (see "Holders and the carrier row").
 - The P2P door of the tunnel. The invite names the frontend that made it, and a
   worker over P2P always dials that frontend: another replica reaches it only
   through the peer link. A worker cannot fall back to another frontend when that
-  one is gone. The presence read of the health monitor (`UsePresence`) runs only
-  while the tunnel is the active carrier, so on NATS a worker over P2P whose
-  tunnel is gone is seen through its heartbeat and the failed calls only.
+  one is gone.
