@@ -33,9 +33,8 @@ import (
 // token, and opens its tunnel as one P2P stream per lane. It needs no inbound
 // port and no address that the frontends can dial.
 //
-// Such a worker is tunnel-only: it never attaches to NATS. When the cluster
-// runs on NATS the frontends reach it through its tunnel, and when the cluster
-// changes to NATS it reports in follow_error why it stays on the tunnel.
+// Such a worker is tunnel-only: it holds the tunnel route and never attaches to
+// NATS (see Config.routes). The frontends reach it through its tunnel.
 
 // p2pJoinTimeout bounds the start of the host and the redeem of the invite.
 const p2pJoinTimeout = 2 * time.Minute

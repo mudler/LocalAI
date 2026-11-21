@@ -178,7 +178,27 @@ func (f *fakeClients) NewClient(nodeID, address string, parallel bool) grpc.Back
 	return nil
 }
 
-type fakeAgents struct{ recorder }
+type fakeAgents struct {
+	recorder
+	// absent are the nodes this route does not reach.
+	absent map[string]bool
+}
+
+func (f *fakeAgents) ExecuteMCPToolOn(_ context.Context, nodeID string, _ mcpRemote.MCPToolRequest) (*mcpRemote.MCPToolResponse, error) {
+	f.rec("ExecuteMCPToolOn:" + nodeID)
+	if f.absent[nodeID] {
+		return nil, nodes.ErrNoRoute
+	}
+	return &mcpRemote.MCPToolResponse{Result: "ran on " + nodeID}, nil
+}
+
+func (f *fakeAgents) DiscoverMCPToolsOn(_ context.Context, nodeID string, _ mcpRemote.MCPDiscoveryRequest) (*mcpRemote.MCPDiscoveryResponse, error) {
+	f.rec("DiscoverMCPToolsOn:" + nodeID)
+	if f.absent[nodeID] {
+		return nil, nodes.ErrNoRoute
+	}
+	return &mcpRemote.MCPDiscoveryResponse{}, nil
+}
 
 func (f *fakeAgents) ExecuteMCPTool(context.Context, mcpRemote.MCPToolRequest) (*mcpRemote.MCPToolResponse, error) {
 	f.rec("ExecuteMCPTool")

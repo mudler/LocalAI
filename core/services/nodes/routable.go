@@ -40,9 +40,9 @@ type Route struct {
 // cluster. The list is empty when the node cannot be reached at all.
 //
 //   - direct: the worker is attached to NATS and has an address that a frontend can
-//     dial. A worker that reports no carrier capabilities predates carrier
-//     switching and counts as attached to NATS. A worker that joined over P2P never
-//     has it.
+//     dial. An agent worker needs no address: it serves only the agent RPC, on
+//     the NATS subjects of its node. A node that has not reported its routes yet
+//     counts as attached to NATS. A worker that joined over P2P never has it.
 //   - tunnel: the worker is attached to the tunnel. Transport, path and limited
 //     come from its report.
 //
@@ -53,7 +53,7 @@ func RoutesOf(n *BackendNode) []Route {
 		attached = []cluster.Carrier{cluster.CarrierNATS}
 	}
 	var routes []Route
-	if slices.Contains(attached, cluster.CarrierNATS) && n.Address != "" && !isP2PNode(n) {
+	if slices.Contains(attached, cluster.CarrierNATS) && (n.Address != "" || n.NodeType == NodeTypeAgent) && !isP2PNode(n) {
 		routes = append(routes, Route{Kind: RouteDirect})
 	}
 	if slices.Contains(attached, cluster.CarrierTunnel) {

@@ -665,7 +665,6 @@ func API(application *application.Application) (*echo.Echo, error) {
 		registry = d.Registry
 		workerHTTPDial = d.WorkerHTTPDial
 		tunnels = d.Tunnels
-		registerOpts = append(registerOpts, localai.WithCarrierReader(d.Carriers))
 		registerOpts = append(registerOpts, localai.WithTunnelDisconnector(d))
 		registerOpts = append(registerOpts, localai.WithNATSHandover(d.Runtime))
 		// A worker that joined with a worker invite registers over P2P with

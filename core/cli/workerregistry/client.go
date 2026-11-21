@@ -66,46 +66,40 @@ func (c *RegistrationClient) setAuth(req *http.Request) {
 	}
 }
 
+// The routes a worker can ask a credential for, as the frontend names them.
+// They mirror the names of the route columns of a node (nodes.RoutesOf) and are
+// copied rather than imported, for the reason statusPending is.
+const (
+	// RouteNATS is NATS for the control verbs and a direct dial of the worker
+	// for the data. Its credential is the NATS user JWT and the handover of the
+	// NATS address.
+	RouteNATS = "nats"
+	// RouteTunnel is the tunnel that the worker holds open to a frontend, over a
+	// websocket or over P2P. Its credential is the tunnel token of the node.
+	RouteTunnel = "tunnel"
+)
+
 // RegisterResponse is the JSON body returned by /api/node/register.
+//
+// The frontend mints a credential only for the routes that the registration
+// asks for ("routes" in the body): the tunnel token for the tunnel, and the
+// NATS user JWT with the address of NATS for NATS. A registration that asks for
+// no route gets the node ID and the status, and no credential.
 type RegisterResponse struct {
 	ID           string `json:"id"`
 	Status       string `json:"status,omitempty"` // "pending" until an admin approves the node
 	APIToken     string `json:"api_token,omitempty"`
 	NatsJWT      string `json:"nats_jwt,omitempty"`
 	NatsUserSeed string `json:"nats_user_seed,omitempty"`
-	// Carrier is the carrier that is active in the cluster: "nats" or "tunnel".
-	// A frontend that predates carriers does not send it, and then the cluster
-	// runs on NATS. CarrierEpoch is the epoch of the carrier row at that time.
-	Carrier      string `json:"carrier,omitempty"`
-	CarrierEpoch int64  `json:"carrier_epoch,omitempty"`
 	// TunnelToken is the own credential of the node for the tunnel. It is sent
-	// once and only when the tunnel is the active carrier.
+	// once, and only to a registration that asks for the tunnel.
 	TunnelToken string `json:"tunnel_token,omitempty"`
-	// CarrierState, CarrierTarget and CarrierDraining say whether a change of
-	// carrier is under way. CredentialFor is the carrier that the credential in
-	// the answer is for: the one the worker asked for, when the frontend allowed
-	// it, else the active one.
-	CarrierState    string `json:"carrier_state,omitempty"`
-	CarrierTarget   string `json:"carrier_target,omitempty"`
-	CarrierDraining string `json:"carrier_draining,omitempty"`
-	CredentialFor   string `json:"credential_for,omitempty"`
 	// NatsURL is the address workers use for NATS, NatsCA the CA of the server as
 	// PEM, and NatsClientTLS says the server asks for a client certificate, which
-	// the frontend cannot hand over.
+	// the frontend cannot hand over. Sent to a registration that asks for NATS.
 	NatsURL       string `json:"nats_url,omitempty"`
 	NatsCA        string `json:"nats_ca,omitempty"`
 	NatsClientTLS bool   `json:"nats_client_tls,omitempty"`
-}
-
-// HeartbeatReply is the answer to a heartbeat. The carrier fields are empty when
-// the frontend predates carriers.
-type HeartbeatReply struct {
-	Carrier         string `json:"carrier,omitempty"`
-	CarrierEpoch    int64  `json:"carrier_epoch,omitempty"`
-	CarrierState    string `json:"carrier_state,omitempty"`
-	CarrierTarget   string `json:"carrier_target,omitempty"`
-	CarrierDraining string `json:"carrier_draining,omitempty"`
-	NatsClientTLS   bool   `json:"nats_client_tls,omitempty"`
 }
 
 // RegisterFull sends a single registration request and returns the full
@@ -188,23 +182,20 @@ func (c *RegistrationClient) Heartbeat(ctx context.Context, nodeID string, body 
 	return resp.Body.Close()
 }
 
-// HeartbeatFull sends a heartbeat and returns the answer, which tells the worker
-// which carrier the cluster uses. It fails when the frontend refuses the
-// heartbeat, for example for a node it does not know.
-func (c *RegistrationClient) HeartbeatFull(ctx context.Context, nodeID string, body map[string]any) (*HeartbeatReply, error) {
+// SendHeartbeat sends a heartbeat and fails when the frontend refuses it, for
+// example for a node that it does not know. Heartbeat, by contrast, fails only
+// when the request cannot be made.
+func (c *RegistrationClient) SendHeartbeat(ctx context.Context, nodeID string, body map[string]any) error {
 	resp, err := c.post(ctx, nodeID, body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("heartbeat refused with status %d", resp.StatusCode)
+		return fmt.Errorf("heartbeat refused with status %d", resp.StatusCode)
 	}
-	var reply HeartbeatReply
-	// An answer that is not JSON is the answer of a frontend that says nothing
-	// about carriers.
-	_ = json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&reply)
-	return &reply, nil
+	return nil
 }
 
 func (c *RegistrationClient) post(ctx context.Context, nodeID string, body map[string]any) (*http.Response, error) {

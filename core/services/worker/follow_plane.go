@@ -4,16 +4,15 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
-// VerbServer is a carrier on which a worker serves its control verbs. It is the
+// VerbServer is a route on which a worker serves its control verbs. It is the
 // exported face of the control server, for code that serves verbs of its own.
 type VerbServer interface {
-	// Carrier says which carrier this server is on.
-	Carrier() cluster.Carrier
+	// Route says which route this server is on.
+	Route() Route
 	// Handle serves a verb with one reply. A nil reply is a verb without one.
 	Handle(verb string, h func(ctx context.Context, body []byte) (reply any, err error)) error
 	// HandleWithProgress serves a verb that reports progress while it runs.
@@ -21,11 +20,11 @@ type VerbServer interface {
 }
 
 type verbServer struct {
-	carrier cluster.Carrier
-	cs      controlServer
+	route Route
+	cs    controlServer
 }
 
-func (v verbServer) Carrier() cluster.Carrier { return v.carrier }
+func (v verbServer) Route() Route { return v.route }
 
 func (v verbServer) Handle(verb string, h func(context.Context, []byte) (any, error)) error {
 	return v.cs.handle(controlVerb(verb), h)
@@ -37,10 +36,10 @@ func (v verbServer) HandleWithProgress(verb string, h func(context.Context, []by
 	})
 }
 
-// BackendPlane is what a backend worker holds to attach to either carrier: the
-// control plane on its HTTP server, the tunnel behind it, and the NATS
-// connection with the verbs on the subjects of the node. Run builds one, and so
-// can any code that runs a worker's carriers with verbs of its own.
+// BackendPlane is what a backend worker holds to attach its routes: the control
+// plane on its HTTP server, the tunnel behind it, and the NATS connection with
+// the verbs on the subjects of the node. Run builds one, and so can any code
+// that runs a worker's routes with verbs of its own.
 type BackendPlane struct {
 	cfg    *Config
 	nodeID string
@@ -74,15 +73,15 @@ func (p *BackendPlane) Control() http.Handler {
 // CanTunnel reports whether the worker can attach to a tunnel at all.
 func (p *BackendPlane) CanTunnel() bool { return p.tunnel.CanAttach() }
 
-// Serve sets the verbs of the worker. They are claimed on each carrier when the
-// worker attaches to it.
+// Serve sets the verbs of the worker. They are claimed on each route when the
+// worker attaches it.
 func (p *BackendPlane) Serve(verbs func(VerbServer) error) {
 	p.serve = func(cs controlServer) error {
-		c := cluster.CarrierNATS
+		r := RouteNATS
 		if _, ok := cs.(*httpControlServer); ok {
-			c = cluster.CarrierTunnel
+			r = RouteTunnel
 		}
-		return verbs(verbServer{carrier: c, cs: cs})
+		return verbs(verbServer{route: r, cs: cs})
 	}
 	p.tunnel.register = p.serve
 }
@@ -93,37 +92,12 @@ func (p *BackendPlane) setServe(serve func(controlServer) error) {
 	p.tunnel.register = serve
 }
 
-// Attachers returns the attacher of each carrier.
-func (p *BackendPlane) Attachers() map[cluster.Carrier]Attacher {
-	return map[cluster.Carrier]Attacher{
-		cluster.CarrierNATS: natsAttacher(p.local, p.nodeID, func(cs controlServer) error {
+// Attachers returns the attacher of each route.
+func (p *BackendPlane) Attachers() map[Route]Attacher {
+	return map[Route]Attacher{
+		RouteNATS: natsAttacher(p.local, p.nodeID, func(cs controlServer) error {
 			return p.serve(cs)
 		}),
-		cluster.CarrierTunnel: tunnelAttacher(p.tunnel),
+		RouteTunnel: tunnelAttacher(p.tunnel),
 	}
 }
-
-// Cannot says, for each carrier, why the worker cannot attach to it. routable is
-// true when the frontends can dial the worker.
-func (p *BackendPlane) Cannot(routable bool) map[cluster.Carrier]func(CarrierView) string {
-	nats := NATSReasons(routable, p.local)
-	if p.cfg != nil && p.cfg.join != nil {
-		nats = func(CarrierView) string { return joinedOverP2P }
-	}
-	return map[cluster.Carrier]func(CarrierView) string{
-		cluster.CarrierNATS: nats,
-		cluster.CarrierTunnel: func(CarrierView) string {
-			if !p.tunnel.CanAttach() {
-				return "this worker has no frontend URL that a tunnel can use"
-			}
-			return ""
-		},
-	}
-}
-
-// joinedOverP2P is why a worker that joined with an invite does not follow a
-// change to NATS. It is in follow_error of every heartbeat while the cluster
-// runs on NATS, and it is not a fault: the frontends route to such a worker
-// through its tunnel on either carrier.
-const joinedOverP2P = "this worker joined over P2P and reaches the cluster through its tunnel only; " +
-	"the frontends route to it there on either carrier. To attach it to NATS, restart it with --register-to, a registration token and --addr"

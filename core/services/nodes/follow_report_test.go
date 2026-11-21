@@ -93,8 +93,8 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 	It("takes the carriers a worker reports, and nothing else", func() {
 		n := register("both", NodeTypeBackend, "10.0.0.1:50051")
 		Expect(reg.SetCarrierReport(ctx, n.ID, CarrierReport{
-			Attached: []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel}, AttachedEpoch: 7,
-			Follow: []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel}, FollowError: "",
+			Attached: []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel},
+			Follow:   []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel}, FollowError: "",
 		})).To(Succeed())
 
 		list, err := workers.Workers(ctx)

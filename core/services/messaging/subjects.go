@@ -38,6 +38,22 @@ const (
 	QueueAgentWorkers     = "agent-workers"
 )
 
+// subjectMCPPrefix is the root of the agent RPC subjects.
+const subjectMCPPrefix = "mcp."
+
+// SubjectNodeMCPToolExecute is the MCP tool call of one agent worker. A call
+// that names a node goes here; a call that does not goes to the queue group on
+// SubjectMCPToolExecute.
+func SubjectNodeMCPToolExecute(nodeID string) string {
+	return subjectMCPPrefix + sanitizeSubjectToken(nodeID) + ".tools.execute"
+}
+
+// SubjectNodeMCPDiscovery is the MCP discovery of one agent worker, as
+// SubjectNodeMCPToolExecute is its tool call.
+func SubjectNodeMCPDiscovery(nodeID string) string {
+	return subjectMCPPrefix + sanitizeSubjectToken(nodeID) + ".discovery"
+}
+
 // Chat starts (Request-Reply via NATS — load-balanced across chat workers).
 // A frontend sends the start of an unattended chat run here; one chat worker
 // runs the turn and replies whether it started or queued the message. The

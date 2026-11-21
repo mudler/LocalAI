@@ -268,9 +268,9 @@ type switchWorker struct {
 	base int
 }
 
-// worker starts a worker. With dual set it has an address, so it can be
-// reached directly and can follow a change to NATS. Without one it is
-// tunnel-only: it dials out and nothing dials in.
+// worker starts a worker. With dual set it has an address and a NATS URL, so
+// it holds the NATS route and the tunnel. Without them it is tunnel-only: it
+// dials out and nothing dials in.
 func (s *switchStack) worker(name string, register string, dual bool) *switchWorker {
 	GinkgoHelper()
 	dir := filepath.Join(s.root, name)
@@ -283,7 +283,6 @@ func (s *switchStack) worker(name string, register string, dual bool) *switchWor
 
 	w := &switchWorker{name: name, dir: dir, base: workerBasePort()}
 	w.env = []string{
-		"LOCALAI_FOLLOW_MAX_DELAY=2s",
 		"LOCALAI_HEARTBEAT_INTERVAL=3s",
 	}
 	w.args = []string{"worker",
@@ -297,7 +296,7 @@ func (s *switchStack) worker(name string, register string, dual bool) *switchWor
 	}
 	if dual {
 		addr := fmt.Sprintf("127.0.0.1:%d", w.base)
-		w.args = append(w.args, "--addr", addr, "--advertise-addr", addr)
+		w.args = append(w.args, "--addr", addr, "--advertise-addr", addr, "--nats-url", s.natsURL)
 	} else {
 		w.args = append(w.args, "--serve-addr", fmt.Sprintf("127.0.0.1:%d", w.base))
 	}
@@ -404,7 +403,8 @@ type carrierReplica struct {
 // carrierReport is the part of the answer of the carrier API that the scenario reads.
 type carrierReport struct {
 	Row struct {
-		Note string `json:"note"`
+		Note     string `json:"note"`
+		Draining string `json:"draining"`
 	} `json:"row"`
 	Active   string           `json:"active"`
 	Target   string           `json:"target"`

@@ -4,14 +4,13 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"sync/atomic"
+	"slices"
 	"syscall"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -32,8 +30,9 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// Run starts the distributed agent worker: registers with the frontend,
-// subscribes to NATS lifecycle subjects, and blocks on signals.
+// Run starts the distributed backend worker: registers with the frontend,
+// holds the routes its operator gave it (NATS, the tunnel, or both), and blocks
+// on signals.
 func Run(ctx *cliContext.Context, cfg *Config) error {
 	xlog.Info("Starting worker", "advertise", cfg.advertiseAddr(), "basePort", cfg.effectiveBasePort())
 	if err := cfg.validateFrontend(); err != nil {
@@ -94,6 +93,14 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		cfg.RegisterTo = join.FrontendURL()
 	}
 
+	// The routes this worker holds: the choice of its operator, read from its
+	// flags. The frontend says nothing about them.
+	routes, err := cfg.routes()
+	if err != nil {
+		return err
+	}
+	holdsNATS := slices.Contains(routes, RouteNATS)
+
 	// Self-registration with frontend (with retry)
 	regClient := &workerregistry.RegistrationClient{
 		FrontendURL:       cfg.RegisterTo,
@@ -109,15 +116,16 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
 
-	// The body of a registration. A worker that follows a change registers again
-	// and names the carrier it wants the credential of.
+	// Backends of a worker on NATS listen on every interface, and the frontends
+	// dial the address it registered. Such a worker can be dialled whether or not
+	// the operator gave it an address. A worker that holds only a tunnel and has
+	// no address says that nothing can dial it, and the frontend drops its
+	// address.
 	baseBody := cfg.registrationBody()
-	var routable atomic.Bool
-	routable.Store(cfg.hasRoutableAddress())
+	baseBody["routable"] = cfg.hasRoutableAddress() || holdsNATS
 	registrationBody := func() map[string]any {
-		b := make(map[string]any, len(baseBody)+2)
+		b := make(map[string]any, len(baseBody)+1)
 		maps.Copy(b, baseBody)
-		b["routable"] = routable.Load()
 		return b
 	}
 	natsLocal := NATSLocal{
@@ -125,46 +133,18 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		TLS: messaging.TLSFiles{CA: cfg.NatsTLSCA, Cert: cfg.NatsTLSCert, Key: cfg.NatsTLSKey},
 	}
 
-	// Register, and learn from the answer which carrier the cluster runs on.
-	//
-	// Static NATS credentials from the environment cannot be minted again, so
-	// the worker does not wait for a minted one. Otherwise the credential manager
-	// registers, waits through admin approval, and for NATS it refreshes the
-	// credentials before the minted JWT expires, so that the connection survives
-	// the expiry through a reconnect that the client does by itself. For the
-	// tunnel it holds the token of the node.
-	staticNATS := cfg.NatsJWT != "" || cfg.NatsUserSeed != ""
-	credMgr := workerregistry.NewCredentialManager(
-		func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
-			return regClient.RegisterFull(ctx, registrationBody())
-		},
-		cfg.NatsAuthRequired() && !staticNATS,
-	)
-	res, regErr := credMgr.Acquire(shutdownCtx)
+	// Register once for the identity of the node, with no credential. Each route
+	// then gets its own credential from a registration that asks for that route
+	// only (see the route holder below), so that a route that waits, for an
+	// approval or for a frontend, holds back no other route, and so that the
+	// refresh of the NATS credential never mints a new tunnel token.
+	idMgr := workerregistry.NewCredentialManager(registerFor(regClient, registrationBody), false)
+	res, regErr := idMgr.Acquire(shutdownCtx)
 	if regErr != nil {
 		return fmt.Errorf("failed to register with frontend: %w", regErr)
 	}
 	nodeID := res.ID
-	// A worker over P2P is tunnel-only, whichever carrier the cluster runs on:
-	// the frontends route to it through its tunnel.
-	onTunnel := cfg.join != nil
-	if !onTunnel {
-		if onTunnel, err = carrierOf(res.Carrier, res.NatsURL, cfg); err != nil {
-			return err
-		}
-	}
-	bootCarrier := cluster.CarrierNATS
-	if onTunnel {
-		bootCarrier = cluster.CarrierTunnel
-	} else if res.NatsClientTLS && (cfg.NatsTLSCert == "" || cfg.NatsTLSKey == "") {
-		return errors.New("the NATS server asks for a client certificate, and this worker has none: set LOCALAI_NATS_TLS_CERT and LOCALAI_NATS_TLS_KEY")
-	}
-	// Backends of a worker that booted on NATS listen on every interface, and the
-	// frontends dial the address it registered. Such a worker can be dialled
-	// whether or not the operator gave it an address.
-	routable.Store(cfg.hasRoutableAddress() || !onTunnel)
-
-	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cfg.RegisterTo, "carrier", cmp.Or(res.Carrier, "nats"))
+	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cfg.RegisterTo, "routes", routes)
 	heartbeatInterval, err := time.ParseDuration(cfg.HeartbeatInterval)
 	if err != nil && cfg.HeartbeatInterval != "" {
 		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cfg.HeartbeatInterval, "error", err)
@@ -173,7 +153,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Start HTTP file transfer server. (Empty-token enforcement is handled at
 	// the top of Run so the worker fails before registering.)
-	bindHost := cfg.bindHost(onTunnel)
+	bindHost := cfg.bindHost(holdsNATS)
 	httpAddr := cfg.resolveHTTPAddr(bindHost)
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
 	cacheDir := filepath.Join(cfg.ModelsPath, "..", "cache")
@@ -196,21 +176,19 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 	xlog.Info("Ephemeral staging capacity configured", "roots", ephemeralRoots, "byteLimit", byteLimit, "minFreeBytes", minFreeBytes)
 	StartEphemeralRootsCleanup(shutdownCtx, ephemeralRoots, ephemeralCapacity, 0, 0)
-	// The readiness gate is created here but only armed once a carrier is up and
-	// the backend supervisor exists, below, because the gate probes both.
+	// The readiness gate is created here but only armed once the routes are held
+	// and the backend supervisor exists, below, because the gate probes both.
 	// Until then /readyz reports ready, which is correct: reaching this line
 	// means the worker has already registered with the frontend, so it is
 	// mid-startup rather than broken.
 	readiness := &nodes.WorkerReadiness{}
 	// The control verbs are served over HTTP on this server when the worker holds
 	// a tunnel, because the tunnel reaches it with the http stream tag. The
-	// control plane is a slot on the server, empty until the worker attaches to a
-	// tunnel and empty again when it releases it. While it is empty the path
-	// answers as a path that does not exist, which is what a worker on NATS has
-	// always answered. A worker that has no frontend URL a tunnel can use mounts
-	// no plane at all.
+	// control plane is a slot on the server, empty until the tunnel is attached.
+	// While it is empty the path answers as a path that does not exist. A worker
+	// that has no frontend URL a tunnel can use mounts no plane at all.
 	plane := NewBackendPlane(cfg, nodeID, httpAddr, natsLocal)
-	if onTunnel && !plane.CanTunnel() {
+	if slices.Contains(routes, RouteTunnel) && !plane.CanTunnel() {
 		_, terr := tunnelEndpoint(cfg.RegisterTo, nodeID)
 		return terr
 	}
@@ -252,38 +230,37 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 
 	// registerVerbs claims every verb of the worker on a control server: the
-	// NATS one, or the HTTP one behind the tunnel. It is called for each carrier
-	// the worker attaches to, at start and when the cluster changes.
+	// NATS one, or the HTTP one behind the tunnel. It is called for each route
+	// the worker attaches.
 	var registerVerbs func(control controlServer) error
 
-	// The carriers of the worker. It follows the one the frontend names, so the
-	// attachments are made by the same code at start and when the cluster changes.
-	carriers := NewFollower(FollowerOptions{
+	// The routes of the worker. Each is attached on its own and attached again
+	// when it fails, and the heartbeat reports which of them the worker holds.
+	staticNATS := cfg.NatsJWT != "" || cfg.NatsUserSeed != ""
+	held := NewRouteHolder(RouteHolderOptions{
+		Routes:    routes,
 		Attachers: plane.Attachers(),
-		Credentials: func(c cluster.Carrier) *workerregistry.CredentialManager {
+		Credentials: func(r Route) *workerregistry.CredentialManager {
 			return workerregistry.NewCredentialManagerFor(
-				registerFor(regClient, registrationBody, c), c == cluster.CarrierNATS && cfg.NatsAuthRequired() && !staticNATS, string(c))
+				registerFor(regClient, registrationBody, r), r == RouteNATS && cfg.NatsAuthRequired() && !staticNATS, string(r))
 		},
-		Heartbeat: func(ctx context.Context, body map[string]any) (*Beat, error) {
-			return regClient.HeartbeatFull(ctx, nodeID, body)
+		Heartbeat: func(ctx context.Context, body map[string]any) error {
+			return regClient.SendHeartbeat(ctx, nodeID, body)
 		},
 		Body:     cfg.heartbeatBody,
-		Cannot:   plane.Cannot(routable.Load()),
 		Interval: heartbeatInterval,
-		MaxDelay: cfg.followMaxDelay(),
 	})
-	defer carriers.Close()
+	defer held.Close()
 
-	// Arm the readiness gate now that the worker can actually receive work.
-	// The carrier is attached before the worker serves, so a worker that is up
-	// but cut off from every carrier reports 503 instead of a meaningless 200
-	// (#10987).
+	// Arm the readiness gate now that the worker can actually receive work. A
+	// worker that is up but cut off from every route reports 503 instead of a
+	// meaningless 200 (#10987).
 	//
 	// Readiness also covers the data path: a worker whose link is fine but whose
 	// backend processes have died is up and useless, and the scheduler cannot
 	// tell the difference from the link alone.
 	readiness.Set(nodes.CompositeReadiness(
-		carriers.Ready,
+		held.Ready,
 		nodes.BackendDataPathReadiness(supervisor, func(addr string) error {
 			conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
 			if err != nil {
@@ -304,7 +281,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	go supervisor.runOperationWatchdog(shutdownCtx)
 
 	// One prefetcher for every control server, so its requests run one at a
-	// time whichever carrier delivers them.
+	// time whichever route delivers them.
 	prefetcher := newModelPrefetcher(cfg)
 	registerVerbs = func(control controlServer) error {
 		if err := supervisor.registerLifecycleVerbs(control); err != nil {
@@ -323,13 +300,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 	plane.setServe(registerVerbs)
 
-	// Attach to the carrier that the frontend named, with the credential that the
-	// registration returned, and follow it from here on.
-	if _, err := carriers.Attach(shutdownCtx, bootCarrier, credMgr, res); err != nil {
-		nodes.ShutdownFileTransferServer(httpServer)
-		return fmt.Errorf("attaching to the %s carrier: %w", bootCarrier, err)
-	}
-	go carriers.Run(shutdownCtx)
+	// Hold every route from here on. A route that cannot be attached now is
+	// tried again in the background, and the worker serves on the others.
+	go held.Run(shutdownCtx)
 
 	// Model-split workers attached to this node: the backends it starts read
 	// their addresses from the environment, as on a standalone server.
@@ -367,33 +340,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
 	return nil
-}
-
-// carrierOf maps the carrier that the frontend named to the one this worker
-// attaches to, and reports whether it is the tunnel.
-//
-// A frontend that predates carriers names none, and the cluster runs on NATS.
-// Then the worker needs a NATS URL, and without one it stops with a message that
-// says so. The check is here and not in the flag, because the flag cannot know
-// the carrier: for a cluster on the tunnel the URL is not needed.
-func carrierOf(named, handedNATSURL string, cfg *Config) (onTunnel bool, err error) {
-	switch named {
-	case "tunnel":
-		if cfg.NatsURL != "" {
-			xlog.Info("The cluster runs on the tunnel; the NATS URL of this worker is kept for a change to NATS")
-		}
-		return true, nil
-	case "", "nats":
-		if cfg.NatsURL == "" && handedNATSURL == "" {
-			if named == "" {
-				return false, errors.New("the frontend does not name a carrier, so the cluster runs on NATS, and this worker has no NATS URL: set LOCALAI_NATS_URL")
-			}
-			return false, errors.New("the cluster runs on NATS, this worker has no NATS URL and the frontend handed over none: set LOCALAI_NATS_URL, or store the NATS address in the cluster settings")
-		}
-		return false, nil
-	default:
-		return false, fmt.Errorf("the frontend names the carrier %q, which this worker does not know: upgrade the worker", named)
-	}
 }
 
 func (cfg *Config) systemState() (*system.SystemState, error) {

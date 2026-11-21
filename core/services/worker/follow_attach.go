@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/xlog"
 )
 
@@ -22,7 +22,6 @@ type natsAttachment struct {
 }
 
 func (a *natsAttachment) Connected() bool { return a.client.IsConnected() }
-func (a *natsAttachment) InFlight() int   { return a.control.InFlight() }
 func (a *natsAttachment) Failed() bool    { return a.failed.Load() }
 func (a *natsAttachment) Close() error {
 	a.cancel()
@@ -62,6 +61,11 @@ func ConnectNATS(ctx context.Context, local NATSLocal, h Handover, onFatal func(
 	url := cmp.Or(local.URL, h.NATSURL)
 	if url == "" {
 		return nil, errors.New("no NATS URL: set LOCALAI_NATS_URL, or set the NATS address in the cluster settings")
+	}
+	// The frontend cannot hand over a client certificate, so a server that asks
+	// for one is reached only with the files of the operator.
+	if h.NATSClientTLS && (local.TLS.Cert == "" || local.TLS.Key == "") {
+		return nil, errors.New("the NATS server asks for a client certificate, and this worker has none: set LOCALAI_NATS_TLS_CERT and LOCALAI_NATS_TLS_KEY")
 	}
 	tls := natsTLSFor(local.TLS, h)
 	if local.JWT != "" || local.Seed != "" {
@@ -122,8 +126,17 @@ func (a tunnelAttachment) Connected() bool {
 	a.f.mu.Unlock()
 	return t.Connected()
 }
-func (a tunnelAttachment) InFlight() int { return a.f.control.InFlight() }
-func (a tunnelAttachment) Close() error  { return a.f.Detach() }
+func (a tunnelAttachment) Close() error { return a.f.Detach() }
+
+// TunnelRoute says how the tunnel travels: over P2P with the path that the P2P
+// layer found, for a worker that joined with an invite, and over a websocket
+// otherwise.
+func (a tunnelAttachment) TunnelRoute() nodes.TunnelRoute {
+	if a.f.cfg != nil && a.f.cfg.join != nil {
+		return a.f.cfg.join.Route()
+	}
+	return nodes.TunnelRoute{Transport: nodes.TunnelWebSocket}
+}
 
 // tunnelAttacher attaches a backend worker to a tunnel.
 func tunnelAttacher(f *tunnelFollower) Attacher {
@@ -139,35 +152,18 @@ func tunnelAttacher(f *tunnelFollower) Attacher {
 	}
 }
 
-// NATSReasons says why a worker cannot attach to NATS, or returns an empty
-// string. routable is true when the frontends can dial the worker, which is how
-// they reach it on NATS.
-func NATSReasons(routable bool, local NATSLocal) func(CarrierView) string {
-	return func(v CarrierView) string {
-		switch {
-		case !routable:
-			return "this worker has no address that the frontends can dial: start it with --addr to let it follow a change to NATS"
-		case v.NATSClientTLS && (local.TLS.Cert == "" || local.TLS.Key == ""):
-			return "the NATS server asks for a client certificate, and this worker has none: set LOCALAI_NATS_TLS_CERT and LOCALAI_NATS_TLS_KEY"
-		}
-		return ""
+// registerFor builds the function that registers a worker and asks for the
+// credentials of the given routes. The body is rebuilt for each registration,
+// because it carries the load of the host. A registration that names no route
+// gets the identity of the node and no credential.
+func registerFor(client *workerregistry.RegistrationClient, body func() map[string]any, routes ...Route) workerregistry.RegisterFunc {
+	names := make([]string, 0, len(routes))
+	for _, r := range routes {
+		names = append(names, string(r))
 	}
-}
-
-// registerFor builds the function that registers a worker for one carrier. The
-// body is rebuilt for each registration, because it carries the load of the host.
-func registerFor(client *workerregistry.RegistrationClient, body func() map[string]any, c cluster.Carrier) workerregistry.RegisterFunc {
 	return func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
 		b := body()
-		b["carrier"] = string(c)
+		b["routes"] = names
 		return client.RegisterFull(ctx, b)
-	}
-}
-
-// beatOf turns the answer to a registration into the news of a heartbeat.
-func beatOf(res *workerregistry.RegisterResponse) *Beat {
-	return &Beat{
-		Carrier: res.Carrier, CarrierEpoch: res.CarrierEpoch, CarrierState: res.CarrierState,
-		CarrierTarget: res.CarrierTarget, CarrierDraining: res.CarrierDraining, NatsClientTLS: res.NatsClientTLS,
 	}
 }

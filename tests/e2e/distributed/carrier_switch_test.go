@@ -190,7 +190,7 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		Expect(code).To(Equal(http.StatusBadRequest))
 	})
 
-	It("changes to the tunnel while both frontends serve chat, and the worker follows without a restart", func() {
+	It("changes to the tunnel while both frontends serve chat, and the worker keeps its routes without a restart", func() {
 		pid := dualBackendPID()
 		workerPID := dual.pid()
 		before, _ := stack.carrier(feA)
@@ -207,10 +207,17 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 			r, err := stack.carrier(feA)
 			return err == nil && r.Epoch > before.Epoch && contains(workerAttached(r, dualN), "tunnel")
 		}, settle, poll).Should(BeTrue())
+		Eventually(func() string {
+			r, err := stack.carrier(feA)
+			if err != nil {
+				return "error: " + err.Error()
+			}
+			return r.Row.Draining
+		}, settle, poll).Should(BeEmpty(), "the frontends release NATS after the drain")
 		Eventually(func() []string {
 			r, _ := stack.carrier(feA)
 			return workerAttached(r, dualN)
-		}, settle, poll).Should(Equal([]string{"tunnel"}), "the old carrier closes after the drain")
+		}, settle, poll).Should(ConsistOf("nats", "tunnel"), "the worker keeps the routes its operator gave it")
 
 		ok, errs := load.finish()
 		Expect(errs).To(BeEmpty(), "chat failed during the change")
@@ -293,7 +300,7 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		}, settle, poll).Should(Equal(2))
 	})
 
-	It("refuses a change back to NATS because the tunnel-only worker cannot follow", func() {
+	It("refuses a change back to NATS because the tunnel-only worker cannot use NATS", func() {
 		code, body := request(feA, map[string]any{"target": "nats", "dry_run": true})
 		Expect(code).To(Equal(http.StatusOK), string(body))
 		var r carrierReport
@@ -330,7 +337,7 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		Eventually(func() []string {
 			r, _ := stack.carrier(feA)
 			return workerAttached(r, dualN)
-		}, settle, poll).Should(Equal([]string{"nats"}))
+		}, settle, poll).Should(ConsistOf("nats", "tunnel"))
 
 		// The tunnel-only worker holds a replica of the model. Once the cluster is
 		// on NATS that worker has no route, and no request may be sent to it: a
@@ -341,12 +348,13 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		Expect(ok2).To(BeNumerically(">", 20))
 		Expect(backendPIDs(dual)).To(ContainElement(pid))
 
-		// The worker that could not follow reports why, and is still registered.
-		Eventually(func() string {
+		// The worker that holds only the tunnel names its one route, and is still
+		// registered.
+		Eventually(func() []string {
 			r, _ := stack.carrier(feA)
 			w, _ := r.worker(tunnelN)
-			return w.FollowError
-		}, settle, poll).ShouldNot(BeEmpty())
+			return w.Follow
+		}, settle, poll).Should(Equal([]string{"tunnel"}))
 		// It stays in the list for as long as it heartbeats.
 		Consistently(func() string {
 			n, ok := stack.node(feA, tunnelN)
@@ -398,7 +406,7 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		Expect(err).ToNot(HaveOccurred())
 		Expect(r.Epoch).To(BeNumerically(">", before.Epoch))
 		Expect(r.Row.Note).ToNot(ContainSubstring("aborted"), "the forced change committed")
-		// Both workers follow, and the one frontend that is left answers all along.
+		// Both workers hold the tunnel, and the one frontend that is left answers all along.
 		Eventually(func() bool {
 			return stack.workerAttached(feA, dualN, "tunnel") && stack.workerAttached(feA, tunnelN, "tunnel")
 		}, settle, poll).Should(BeTrue())
@@ -427,12 +435,10 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		stableOn(feB, "nats")
 	})
 
-	It("survives a worker that dies while it follows, and the restarted worker attaches to the active carrier", func() {
+	It("survives a worker that dies during a change, and the restarted worker holds its routes again", func() {
 		code, body := request(feA, map[string]any{"target": "tunnel", "force": true})
 		Expect(code).To(Equal(http.StatusAccepted), string(body))
-		// The commit makes the tunnel active. The worker learns it from its next
-		// heartbeat and then waits a random time of up to two seconds before it
-		// attaches, so it is killed in the middle of the follow.
+		// The worker is killed as soon as the commit makes the tunnel active.
 		Eventually(func() string {
 			r, _ := stack.carrier(feA)
 			return r.Active

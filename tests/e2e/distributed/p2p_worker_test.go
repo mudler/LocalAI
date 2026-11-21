@@ -54,6 +54,7 @@ var _ = Describe("A worker that joins over P2P, with real processes", Ordered, L
 		Address         string `json:"address"`
 		PeerID          string `json:"peer_id"`
 		Attached        string `json:"attached"`
+		Follow          string `json:"follow"`
 		FollowError     string `json:"follow_error"`
 		TunnelTransport string `json:"tunnel_transport"`
 		TunnelPath      string `json:"tunnel_path"`
@@ -166,7 +167,7 @@ var _ = Describe("A worker that joins over P2P, with real processes", Ordered, L
 			"--serve-addr", fmt.Sprintf("127.0.0.1:%d", workerBasePort()),
 			"--log-level", "debug",
 		}
-		worker = stack.start(name, dir, []string{"LOCALAI_HEARTBEAT_INTERVAL=3s", "LOCALAI_FOLLOW_MAX_DELAY=2s"}, args...)
+		worker = stack.start(name, dir, []string{"LOCALAI_HEARTBEAT_INTERVAL=3s"}, args...)
 
 		var n p2pNode
 		Eventually(func() bool {
@@ -196,14 +197,15 @@ var _ = Describe("A worker that joins over P2P, with real processes", Ordered, L
 		Eventually(func() error { return stack.chat(fe) }, settle, poll).Should(Succeed())
 
 		n, _ = node()
-		Expect(n.FollowError).To(ContainSubstring("joined over P2P"))
+		Expect(n.Follow).To(Equal("tunnel"), "a worker over P2P holds its tunnel and no other route")
+		Expect(n.FollowError).To(BeEmpty())
 		Expect(n.TunnelPath).To(Equal("direct"))
 	})
 
 	It("comes back after a restart with the same command, without redeeming the used invite again", func() {
 		worker.killGroup()
 		Eventually(worker.done, 20*time.Second).Should(BeClosed())
-		worker = stack.start(name, dir, []string{"LOCALAI_HEARTBEAT_INTERVAL=3s", "LOCALAI_FOLLOW_MAX_DELAY=2s"}, args...)
+		worker = stack.start(name, dir, []string{"LOCALAI_HEARTBEAT_INTERVAL=3s"}, args...)
 		Eventually(func() error { return stack.chat(fe) }, settle, poll).Should(Succeed())
 		n, _ := node()
 		Expect(n.Status).To(Equal("healthy"))

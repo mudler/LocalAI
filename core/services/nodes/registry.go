@@ -109,16 +109,15 @@ type BackendNode struct {
 	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
 	// Commit is the git commit hash the worker binary was built from.
 	Commit string `gorm:"column:commit;size:64" json:"commit,omitempty"`
-	// Attached lists the carriers that the worker reported it is connected to,
-	// separated by commas, and AttachedEpoch is the epoch of the cluster
-	// carrier row that the worker saw when it reported. During a change of
-	// carrier a worker is attached to both, and the frontends route by this.
-	// Both are empty for a worker that does not report them.
+	// Attached lists the routes ("nats", "tunnel") that the worker reported it
+	// holds and is connected on, separated by commas. nodes.RoutesOf reads it.
+	// AttachedEpoch is no longer reported and stays 0; the column goes with the
+	// change of carrier (step 8 of the hybrid carriers work).
 	Attached      string `gorm:"column:attached;size:64" json:"attached,omitempty"`
 	AttachedEpoch int64  `gorm:"column:attached_epoch;default:0" json:"attached_epoch,omitempty"`
-	// Follow lists the carriers the worker reported it can attach to, separated by
-	// commas, and FollowError is why it cannot attach to another one, in its own
-	// words. A worker that predates carrier switching reports neither.
+	// Follow lists the routes the operator gave the worker, separated by commas,
+	// and FollowError is why some of them are not held, in the words of the
+	// worker. A node that never sent a heartbeat has neither.
 	Follow      string `gorm:"column:follow;size:64" json:"follow,omitempty"`
 	FollowError string `gorm:"column:follow_error;size:255" json:"follow_error,omitempty"`
 	// SplitServer is set when the node is a split server: it may serve
@@ -1271,16 +1270,13 @@ type HeartbeatUpdate struct {
 	// WorkerIncarnation is the worker process identity. See BackendNode.
 	WorkerIncarnation string `json:"worker_incarnation,omitempty"`
 
-	// The carrier report. A worker that follows a change of carrier sends it in
-	// every heartbeat: the carriers it is attached to, the epoch of the cluster
-	// row it saw, the carriers it can attach to, and why it cannot attach to
-	// another. A worker that predates carrier switching sends none of them.
-	// FollowCapabilities is never empty in a report (a worker can follow the
-	// carrier it holds), so it tells a report from its absence.
-	Attached           []string `json:"attached,omitempty"`
-	AttachedEpoch      int64    `json:"attached_epoch,omitempty"`
-	FollowCapabilities []string `json:"follow_capabilities,omitempty"`
-	FollowError        string   `json:"follow_error,omitempty"`
+	// The route report. A worker sends it in every heartbeat: the routes its
+	// operator gave it (Routes, never empty in a report, so it tells a report
+	// from its absence), the routes it holds and is connected on (Attached), and
+	// why each of the others is not (RouteError).
+	Routes     []string `json:"routes,omitempty"`
+	Attached   []string `json:"attached,omitempty"`
+	RouteError string   `json:"route_error,omitempty"`
 	// The tunnel the worker holds: its transport ("websocket" or "p2p"), and
 	// for P2P the path and whether a relay limits it. See BackendNode.
 	TunnelTransport string `json:"tunnel_transport,omitempty"`
@@ -1288,18 +1284,18 @@ type HeartbeatUpdate struct {
 	TunnelLimited   bool   `json:"tunnel_limited,omitempty"`
 }
 
-// CarrierReport returns the carrier report of a heartbeat, and false when the
-// worker sent none.
+// CarrierReport returns the route report of a heartbeat, and false when the
+// worker sent none. The routes the worker was given are stored in the follow
+// column, and why some are not held in follow_error.
 func (u HeartbeatUpdate) CarrierReport() (CarrierReport, bool) {
-	if len(u.FollowCapabilities) == 0 {
+	if len(u.Routes) == 0 {
 		return CarrierReport{}, false
 	}
 	return CarrierReport{
-		Attached:      parseCarriers(u.Attached),
-		AttachedEpoch: u.AttachedEpoch,
-		Follow:        parseCarriers(u.FollowCapabilities),
-		FollowError:   utils.TruncateUTF8(u.FollowError, followErrorMax),
-		Tunnel:        parseTunnelRoute(u.TunnelTransport, u.TunnelPath, u.TunnelLimited),
+		Attached:    parseCarriers(u.Attached),
+		Follow:      parseCarriers(u.Routes),
+		FollowError: utils.TruncateUTF8(u.RouteError, followErrorMax),
+		Tunnel:      parseTunnelRoute(u.TunnelTransport, u.TunnelPath, u.TunnelLimited),
 	}, true
 }
 

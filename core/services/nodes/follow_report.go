@@ -16,14 +16,14 @@ import (
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
 
-// CarrierReport is what a worker says about itself in a heartbeat: the carriers
-// it is attached to, the epoch of the cluster row it saw, the carriers it can
-// attach to, and why it cannot attach to another one.
+// CarrierReport is what a worker says about its routes in a heartbeat: the
+// routes it holds and is connected on (Attached), the routes its operator gave
+// it (Follow), and why some of them are not held (FollowError). The route names
+// are the carrier names, "nats" and "tunnel".
 type CarrierReport struct {
-	Attached      []cluster.Carrier
-	AttachedEpoch int64
-	Follow        []cluster.Carrier
-	FollowError   string
+	Attached    []cluster.Carrier
+	Follow      []cluster.Carrier
+	FollowError string
 	// Tunnel is how the tunnel of the worker travels. It is zero when the
 	// worker holds none or does not say.
 	Tunnel TunnelRoute
@@ -100,11 +100,11 @@ func splitCarriers(s string) []cluster.Carrier {
 	return out
 }
 
-// SetCarrierReport stores what a worker reported about its carriers.
+// SetCarrierReport stores what a worker reported about its routes.
 func (r *NodeRegistry) SetCarrierReport(ctx context.Context, nodeID string, rep CarrierReport) error {
 	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Updates(map[string]any{
 		"attached":         joinCarriers(rep.Attached),
-		"attached_epoch":   rep.AttachedEpoch,
+		"attached_epoch":   0,
 		"follow":           joinCarriers(rep.Follow),
 		"follow_error":     rep.FollowError,
 		"tunnel_transport": rep.Tunnel.Transport,
@@ -122,9 +122,10 @@ func (r *NodeRegistry) SetCarrierReport(ctx context.Context, nodeID string, rep 
 
 // SwitchWorkers answers the questions that a change of carrier asks about the
 // workers: which are alive, which carriers each is attached to, and which it can
-// follow. What it says comes from what the worker reports in its heartbeat, and
-// from nothing else. A worker that reports nothing predates carrier switching: it
-// has only NATS, it cannot follow, and it is on NATS.
+// be on (the routes its operator gave it). What it says comes from what the
+// worker reports in its heartbeat, and from nothing else. A node that reports
+// nothing is taken to be on NATS. It goes with the change of carrier (step 8 of
+// the hybrid carriers work).
 type SwitchWorkers struct {
 	reg   *NodeRegistry
 	stale time.Duration

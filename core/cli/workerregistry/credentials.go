@@ -15,11 +15,6 @@ import (
 // package (and its gorm/DB dependencies).
 const statusPending = "pending"
 
-// carrierTunnel mirrors cluster.CarrierTunnel, for the reason statusPending is
-// copied: this package does not import the cluster package and its database
-// dependencies.
-const carrierTunnel = "tunnel"
-
 // defaultMaxAttempts bounds how many times Acquire registers (and how many
 // consecutive times RefreshLoop may fail) before giving up. It is high enough
 // to ride out a slow admin approval or a transient frontend outage, but finite
@@ -30,25 +25,27 @@ const defaultMaxAttempts = 100
 // RegisterFunc performs one idempotent registration round-trip.
 type RegisterFunc func(ctx context.Context) (*RegisterResponse, error)
 
-// CredentialManager acquires the credentials of the carrier at startup. For
-// NATS it waits through admin approval when required, and it refreshes the
-// credentials before the minted JWT expires, by registering again (which mints a
-// new JWT). The live NATS connection adopts a refreshed JWT on its next
+// CredentialManager acquires the credential of one route of a worker and keeps
+// it. For NATS it waits through admin approval when required, and it refreshes
+// the credential before the minted JWT expires, by registering again (which
+// mints a new JWT). The live NATS connection adopts a refreshed JWT on its next
 // reconnect via Provider. For the tunnel it keeps the token of the node that the
 // last registration returned. Safe for concurrent use.
 //
 // It addresses two failure modes: a worker that needs credentials but registers
 // while still pending approval (it would otherwise give up and never connect),
 // and a long-running worker whose 24h JWT expires with no way to renew it.
+//
+// Each route of a worker has its own manager, and its register function asks
+// the frontend for the credential of that route only. A tunnel token replaces
+// the previous one and ends the tunnel session of the node, so the refresh of the
+// NATS credential must not ask for a tunnel token.
 type CredentialManager struct {
 	register     RegisterFunc
 	requireCreds bool // block until credentials are present (frontend minting in use)
-	// carrier is the carrier whose credential this manager waits for. Empty
-	// means the one the frontend names as active, which is what a worker wants
-	// when it starts. A worker that follows a change asks for the carrier it
-	// attaches to, and that is not the active one yet while the change is
-	// prepared.
-	carrier string
+	// route is the route whose credential this manager waits for: RouteTunnel
+	// for the tunnel token. Any other value, the empty string included, is NATS.
+	route string
 
 	// Tunables; defaults set by NewCredentialManager, overridable in tests.
 	initialBackoff time.Duration
@@ -65,27 +62,13 @@ type CredentialManager struct {
 	tunnelToken string
 }
 
-// NewCredentialManagerFor is NewCredentialManager for a manager that waits for the
-// credential of one carrier, whichever the cluster has active. register must ask
-// the frontend for that carrier.
-func NewCredentialManagerFor(register RegisterFunc, requireCreds bool, carrier string) *CredentialManager {
+// NewCredentialManagerFor is NewCredentialManager for the credential of one
+// route (RouteNATS or RouteTunnel). register must ask the frontend for that
+// route.
+func NewCredentialManagerFor(register RegisterFunc, requireCreds bool, route string) *CredentialManager {
 	m := NewCredentialManager(register, requireCreds)
-	m.carrier = carrier
+	m.route = route
 	return m
-}
-
-// credentialFor is the carrier that an answer carries a credential for.
-func (m *CredentialManager) credentialFor(res *RegisterResponse) string {
-	if m.carrier != "" {
-		return m.carrier
-	}
-	return res.Carrier
-}
-
-// wrongCarrier is true when the manager asked for a carrier and the frontend
-// answered with the credential of another.
-func (m *CredentialManager) wrongCarrier(res *RegisterResponse) bool {
-	return m.carrier != "" && res.CredentialFor != "" && res.CredentialFor != m.carrier
 }
 
 // NewCredentialManager builds a manager over register. When requireCreds is
@@ -168,11 +151,10 @@ func (m *CredentialManager) HasCredentials() bool {
 // credentials are minted. Without requireCreds it returns the first successful
 // response (the historical one-shot behavior, preserved for anonymous NATS).
 //
-// When the frontend names the tunnel as the carrier, the token for the tunnel is
-// what Acquire waits for, and it does not matter whether the node is approved.
-// The frontend mints the token at registration and the connect route refuses a
-// node that waits for approval, so the tunnel client waits for the approval by
-// itself.
+// For the tunnel the token is what Acquire waits for, and it does not matter
+// whether the node is approved. The frontend mints the token at registration and
+// the connect route refuses a node that waits for approval, so the tunnel client
+// waits for the approval by itself.
 func (m *CredentialManager) Acquire(ctx context.Context) (*RegisterResponse, error) {
 	backoff := m.initialBackoff
 	var lastReason error
@@ -182,13 +164,10 @@ func (m *CredentialManager) Acquire(ctx context.Context) (*RegisterResponse, err
 		case err != nil:
 			lastReason = err
 			xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
-		case m.wrongCarrier(res):
-			lastReason = fmt.Errorf("asked for the credential of the %s carrier and got the one of the %s carrier", m.carrier, res.CredentialFor)
-			xlog.Info("The frontend does not hand out the credential of that carrier yet; waiting", "asked", m.carrier, "got", res.CredentialFor, "attempt", attempt, "next_retry", backoff)
-		case m.credentialFor(res) == carrierTunnel && res.TunnelToken == "":
+		case m.route == RouteTunnel && res.TunnelToken == "":
 			lastReason = fmt.Errorf("node %s registered but the tunnel credential was not minted", res.ID)
 			xlog.Info("Node registered but the tunnel credential is not minted yet; waiting", "node", res.ID, "attempt", attempt, "next_retry", backoff)
-		case m.credentialFor(res) == carrierTunnel:
+		case m.route == RouteTunnel:
 			m.store(res)
 			return res, nil
 		case !m.requireCreds:
@@ -211,7 +190,14 @@ func (m *CredentialManager) Acquire(ctx context.Context) (*RegisterResponse, err
 		}
 		backoff = min(backoff*2, m.maxBackoff)
 	}
-	return nil, fmt.Errorf("giving up acquiring NATS credentials after %d attempts: %w", m.maxAttempts, lastReason)
+	return nil, fmt.Errorf("giving up acquiring the %s credential after %d attempts: %w", m.routeName(), m.maxAttempts, lastReason)
+}
+
+func (m *CredentialManager) routeName() string {
+	if m.route == RouteTunnel {
+		return RouteTunnel
+	}
+	return RouteNATS
 }
 
 // Reregister registers once more and keeps the credentials of the answer. It
@@ -225,10 +211,7 @@ func (m *CredentialManager) Reregister(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if m.wrongCarrier(res) {
-		return fmt.Errorf("asked for the credential of the %s carrier and got the one of the %s carrier", m.carrier, res.CredentialFor)
-	}
-	if m.credentialFor(res) == carrierTunnel && res.TunnelToken == "" {
+	if m.route == RouteTunnel && res.TunnelToken == "" {
 		return fmt.Errorf("node %s registered but the tunnel credential was not minted", res.ID)
 	}
 	m.store(res)

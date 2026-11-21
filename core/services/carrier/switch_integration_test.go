@@ -1,7 +1,6 @@
 package carrier_test
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -138,9 +137,10 @@ func (r rigNATS) CAPEM() (string, error)                    { return "", nil }
 func (r rigNATS) ClientTLS() bool                           { return false }
 
 // switchRig is a cluster in one process: a database, a NATS server, workers that
-// run the code of a real worker to attach to either carrier, agent workers that
-// do the same, and frontend replicas that are built the way the application
-// builds them.
+// run the code of a real worker to hold their routes, agent workers that do the
+// same, and frontend replicas that are built the way the application builds
+// them. The change of carrier moves the frontends; a worker holds the routes it
+// was given all through it.
 type switchRig struct {
 	ctx      context.Context
 	db       *gorm.DB
@@ -159,9 +159,9 @@ type switchRig struct {
 	onMove atomic.Pointer[func(r *switchReplica, row cluster.CarrierRow)]
 }
 
-// workerProc is a backend worker: the follower and the planes of a real worker
-// around a fake backend that serves gRPC. The backend outlives the worker, as a
-// backend process does when its worker restarts.
+// workerProc is a backend worker: the route holder and the planes of a real
+// worker around a fake backend that serves gRPC. The backend outlives the
+// worker, as a backend process does when its worker restarts.
 type workerProc struct {
 	rig      *switchRig
 	name     string
@@ -171,7 +171,7 @@ type workerProc struct {
 	httpAddr string
 	dir      string
 	httpSrv  *http.Server
-	fol      *worker.Follower
+	held     *worker.RouteHolder
 	cancel   context.CancelFunc
 
 	mu          sync.Mutex
@@ -182,12 +182,11 @@ type workerProc struct {
 }
 
 type workerOpts struct {
-	// addr starts the worker with an address, which makes it dual-capable.
+	// addr starts the worker with an address and the NATS route besides the
+	// tunnel. Without it the worker holds the tunnel only.
 	addr bool
 	// reuse starts a worker around the backend and the ports of one that stopped.
 	reuse *workerProc
-	// maxDelay is the longest random wait before the worker attaches.
-	maxDelay time.Duration
 }
 
 func (w *workerProc) count(m map[cluster.Carrier]int, c cluster.Carrier) int {
@@ -198,9 +197,10 @@ func (w *workerProc) count(m map[cluster.Carrier]int, c cluster.Carrier) int {
 func (w *workerProc) installsOn(c cluster.Carrier) int { return w.count(w.installs, c) }
 func (w *workerProc) renewalsOn(c cluster.Carrier) int { return w.count(w.renewals, c) }
 
-// verbs serves the verbs of a load on the carrier it is given, and counts them.
+// verbs serves the verbs of a load on the route it is given, and counts them by
+// the carrier of that route.
 func (w *workerProc) verbs(v worker.VerbServer) error {
-	c := v.Carrier()
+	c := cluster.Carrier(v.Route())
 	if err := v.HandleWithProgress(workerctl.VerbBackendInstall, func(_ context.Context, body []byte, progress func(workerctl.BackendInstallProgressEvent)) (any, error) {
 		var req workerctl.BackendInstallRequest
 		_ = json.Unmarshal(body, &req)
@@ -240,11 +240,11 @@ func (w *workerProc) verbs(v worker.VerbServer) error {
 	})
 }
 
-// stop ends the worker process: its follower and its HTTP server. The backend
+// stop ends the worker process: its routes and its HTTP server. The backend
 // keeps serving.
 func (w *workerProc) stop() {
 	w.cancel()
-	w.fol.Close()
+	w.held.Close()
 	if w.httpSrv != nil {
 		nodes.ShutdownFileTransferServer(w.httpSrv)
 		w.httpSrv = nil
@@ -252,8 +252,7 @@ func (w *workerProc) stop() {
 }
 
 // startWorker registers a worker with a frontend and runs it the way Run does:
-// the plane, the verbs, the attachment to the carrier the frontend names, and the
-// follower.
+// the plane, the verbs, and the route holder over the routes of the worker.
 func (rig *switchRig) startWorker(name string, o workerOpts) *workerProc {
 	GinkgoHelper()
 	w := &workerProc{rig: rig, name: name, installs: map[cluster.Carrier]int{}, renewals: map[cluster.Carrier]int{},
@@ -281,27 +280,22 @@ func (rig *switchRig) startWorker(name string, o workerOpts) *workerProc {
 	front := rig.replicas[0].url
 	regClient := &workerregistry.RegistrationClient{FrontendURL: front, RegistrationToken: registrationToken}
 
-	var routable atomic.Bool
-	routable.Store(o.addr)
-	body := func() map[string]any {
-		b := map[string]any{"name": name, "token": registrationToken, "routable": routable.Load(), "version": "switch-spec"}
-		if routable.Load() || rig.row().Active == cluster.CarrierNATS {
+	routes := []worker.Route{worker.RouteTunnel}
+	if o.addr {
+		routes = []worker.Route{worker.RouteNATS, worker.RouteTunnel}
+	}
+	body := func(rs ...worker.Route) map[string]any {
+		b := map[string]any{"name": name, "token": registrationToken, "routable": o.addr, "version": "switch-spec", "routes": rs}
+		if o.addr {
 			b["address"], b["http_address"] = w.grpcAddr, w.httpAddr
 		}
 		return b
 	}
-	credMgr := workerregistry.NewCredentialManager(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+	res, err := workerregistry.NewCredentialManager(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
 		return regClient.RegisterFull(ctx, body())
-	}, false)
-	res, err := credMgr.Acquire(ctx)
+	}, false).Acquire(ctx)
 	Expect(err).ToNot(HaveOccurred())
 	w.nodeID = res.ID
-	boot := cluster.CarrierNATS
-	if res.Carrier == "tunnel" {
-		boot = cluster.CarrierTunnel
-	} else {
-		routable.Store(true)
-	}
 
 	cfg := &worker.Config{RegisterTo: front, RegistrationToken: registrationToken, ServeAddr: w.grpcAddr}
 	if o.addr {
@@ -312,64 +306,55 @@ func (rig *switchRig) startWorker(name string, o workerOpts) *workerProc {
 	w.httpSrv, err = nodes.StartFileTransferServerWithControl(w.httpAddr, w.dir, w.dir, w.dir, registrationToken, 1<<30, nil, nil, plane.Control())
 	Expect(err).ToNot(HaveOccurred())
 
-	delay := cmp.Or(o.maxDelay, 300*time.Millisecond)
-	w.fol = worker.NewFollower(worker.FollowerOptions{
+	w.held = worker.NewRouteHolder(worker.RouteHolderOptions{
+		Routes:    routes,
 		Attachers: plane.Attachers(),
-		Credentials: func(c cluster.Carrier) *workerregistry.CredentialManager {
+		Credentials: func(r worker.Route) *workerregistry.CredentialManager {
 			return workerregistry.NewCredentialManagerFor(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
-				b := body()
-				b["carrier"] = string(c)
-				return regClient.RegisterFull(ctx, b)
-			}, false, string(c))
+				return regClient.RegisterFull(ctx, body(r))
+			}, false, string(r))
 		},
-		Heartbeat: func(ctx context.Context, b map[string]any) (*workerregistry.HeartbeatReply, error) {
-			return regClient.HeartbeatFull(ctx, w.nodeID, b)
+		Heartbeat: func(ctx context.Context, b map[string]any) error {
+			return regClient.SendHeartbeat(ctx, w.nodeID, b)
 		},
-		Cannot:   plane.Cannot(routable.Load()),
 		Interval: 300 * time.Millisecond,
-		MaxDelay: delay,
 	})
-	_, err = w.fol.Attach(ctx, boot, credMgr, res)
-	Expect(err).ToNot(HaveOccurred())
-	go w.fol.Run(ctx)
+	go w.held.Run(ctx)
 	DeferCleanup(w.stop)
+	Eventually(w.held.Held, "20s", "20ms").Should(Equal(routes), "the worker holds every route it was given")
 	return w
 }
 
-// agentProc is an agent worker around the follower of a real one.
+// agentProc is an agent worker around the route holder of a real one.
 type agentProc struct {
 	nodeID string
-	fol    *worker.Follower
+	held   *worker.RouteHolder
 	cancel context.CancelFunc
 }
 
 func (a *agentProc) stop() {
 	a.cancel()
-	a.fol.Close()
+	a.held.Close()
 }
 
 // startAgent registers an agent worker and runs it the way the agent worker
-// command does. It answers every MCP tool call with the name of the tool.
+// command does, with NATS and the tunnel. It answers every MCP tool call with
+// the name of the tool.
 func (rig *switchRig) startAgent(name string) *agentProc {
 	GinkgoHelper()
 	ctx, cancel := context.WithCancel(rig.ctx)
 	a := &agentProc{cancel: cancel}
 	front := rig.replicas[0].url
 	regClient := &workerregistry.RegistrationClient{FrontendURL: front, RegistrationToken: registrationToken}
-	body := func() map[string]any {
-		return map[string]any{"name": name, "node_type": "agent", "token": registrationToken, "version": "switch-spec"}
+	body := func(rs ...worker.Route) map[string]any {
+		return map[string]any{"name": name, "node_type": "agent", "token": registrationToken, "version": "switch-spec", "routes": rs}
 	}
-	credMgr := workerregistry.NewCredentialManager(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+	res, err := workerregistry.NewCredentialManager(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
 		return regClient.RegisterFull(ctx, body())
-	}, false)
-	res, err := credMgr.Acquire(ctx)
+	}, false).Acquire(ctx)
 	Expect(err).ToNot(HaveOccurred())
 	a.nodeID = res.ID
-	boot := cluster.CarrierNATS
-	if res.Carrier == "tunnel" {
-		boot = cluster.CarrierTunnel
-	}
-	serve := agentworker.FollowConfig{
+	serve := agentworker.ServeConfig{
 		NodeID: a.nodeID, FrontendURL: front, ControlToken: registrationToken,
 		Tool: func(_ context.Context, req mcpRemote.MCPToolRequest) mcpRemote.MCPToolResponse {
 			return mcpRemote.MCPToolResponse{Result: "ran " + req.ToolName}
@@ -379,26 +364,23 @@ func (rig *switchRig) startAgent(name string) *agentProc {
 		},
 		BackendStop: func(string) {},
 	}
-	a.fol = worker.NewFollower(worker.FollowerOptions{
+	routes := []worker.Route{worker.RouteNATS, worker.RouteTunnel}
+	a.held = worker.NewRouteHolder(worker.RouteHolderOptions{
+		Routes:    routes,
 		Attachers: serve.Attachers(),
-		Credentials: func(c cluster.Carrier) *workerregistry.CredentialManager {
+		Credentials: func(r worker.Route) *workerregistry.CredentialManager {
 			return workerregistry.NewCredentialManagerFor(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
-				b := body()
-				b["carrier"] = string(c)
-				return regClient.RegisterFull(ctx, b)
-			}, false, string(c))
+				return regClient.RegisterFull(ctx, body(r))
+			}, false, string(r))
 		},
-		Heartbeat: func(ctx context.Context, b map[string]any) (*workerregistry.HeartbeatReply, error) {
-			return regClient.HeartbeatFull(ctx, a.nodeID, b)
+		Heartbeat: func(ctx context.Context, b map[string]any) error {
+			return regClient.SendHeartbeat(ctx, a.nodeID, b)
 		},
-		Cannot:   serve.Cannot(),
 		Interval: 300 * time.Millisecond,
-		MaxDelay: 300 * time.Millisecond,
 	})
-	_, err = a.fol.Attach(ctx, boot, credMgr, res)
-	Expect(err).ToNot(HaveOccurred())
-	go a.fol.Run(ctx)
+	go a.held.Run(ctx)
 	DeferCleanup(a.stop)
+	Eventually(a.held.Held, "20s", "20ms").Should(Equal(routes), "the agent worker holds both routes")
 	return a
 }
 
@@ -425,7 +407,7 @@ func (rig *switchRig) reports(nodeID string) {
 			return ""
 		}
 		return n.Follow
-	}, "20s", "50ms").ShouldNot(BeEmpty(), "the node reports what it can follow")
+	}, "20s", "50ms").ShouldNot(BeEmpty(), "the node reports its routes")
 }
 
 type switchReplica struct {
@@ -571,7 +553,7 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	// The routes a worker registers and heartbeats on, as the application mounts
 	// them.
 	nodeOpts := []localai.RegisterOption{
-		localai.WithCarrierReader(rig.store), localai.WithTunnelDisconnector(r.tunnels),
+		localai.WithTunnelDisconnector(r.tunnels),
 		localai.WithNATSHandover(rigNATS{url: rig.natsURL}),
 	}
 	e.POST("/api/node/register", localai.RegisterNodeEndpoint(rig.nodeReg, registrationToken, true, nil, "", natsauth.Config{}, nodeOpts...))
@@ -852,8 +834,8 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"))
 		Expect(rig.mcp(a)).To(Equal("ran search"))
 
-		// Nothing was attached by hand: the workers report what they can follow, and
-		// the preflight, which is a dry run, passes.
+		// Nothing was attached by hand: the workers report their routes, and the
+		// preflight, which is a dry run, passes.
 		rig.availability()
 		report, err := a.sw.Preflight(rig.ctx, cluster.CarrierTunnel)
 		Expect(err).ToNot(HaveOccurred())
@@ -870,15 +852,13 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		rig.eventually(func() bool { return a.active() == cluster.CarrierTunnel && b.active() == cluster.CarrierTunnel }, "both replicas use the tunnel")
 		Expect(rig.row().Draining).To(Equal(cluster.CarrierNATS))
 
-		By("watching the workers follow, with no restart")
-		followed := time.Now()
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(ContainElement(cluster.CarrierTunnel))
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(agent.nodeID) }, "20s", "50ms").Should(ContainElement(cluster.CarrierTunnel))
-		GinkgoWriter.Printf("both workers reported the tunnel %s after the commit was seen\n", time.Since(followed))
+		By("seeing the workers keep both of their routes, with no restart")
+		Expect(rig.attachedOf(w.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel))
+		Expect(rig.attachedOf(agent.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel))
 
-		// The agent worker followed by itself, and the MCP calls of either replica
-		// reach it over the tunnel. Request and reply between the replicas goes
-		// over the peer link.
+		// The agent worker holds its tunnel already, and the MCP calls of either
+		// replica reach it over the tunnel. Request and reply between the replicas
+		// goes over the peer link.
 		Eventually(func() (string, error) { return rig.mcp(b) }, "20s", "100ms").Should(Equal("ran search"))
 		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"))
 
@@ -902,14 +882,16 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 			}
 			return len(a.natsConns) > 0
 		}, "the old carrier is closed on a replica when the drain is over")
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierTunnel}), "the worker released NATS")
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(agent.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierTunnel}))
+		Expect(rig.attachedOf(w.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel), "a worker keeps the routes its operator gave it")
+		Expect(rig.attachedOf(agent.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel))
 
 		By("using the backend that never restarted, over the tunnel")
 		out, err := b.clients.NewClient(w.nodeID, w.grpcAddr, false).Predict(rig.ctx, &pb.PredictOptions{Prompt: "after"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(out.Message)).To(Equal("echo: after"))
 
+		Eventually(func() int { return w.renewalsOn(cluster.CarrierTunnel) }, "10s").Should(BeNumerically(">", 0),
+			"once NATS is released by the frontends, the renewals go to the worker over its tunnel")
 		close(renewStop)
 		renewing.Wait()
 		close(stop)
@@ -919,7 +901,6 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(maxGap).To(BeNumerically("<", 3*time.Second), "renewals were never missed for longer than the cadence of a lease")
 		renewMu.Unlock()
 		Expect(w.renewalsOn(cluster.CarrierNATS)).To(BeNumerically(">", 0))
-		Expect(w.renewalsOn(cluster.CarrierTunnel)).To(BeNumerically(">", 0), "renewals went to the worker over the tunnel once it was attached to it")
 
 		// Every message was heard once by every replica.
 		time.Sleep(500 * time.Millisecond)
@@ -963,7 +944,7 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(wrong).To(BeEmpty(), "of %d messages", total)
 	})
 
-	It("moves a worker to the tunnel and back with a model loading and a backend running, without a restart", func() {
+	It("moves the frontends to the tunnel and back with a model loading on a worker that holds both routes, without a restart", func() {
 		a, b := rig.startReplica("replica-a"), rig.startReplica("replica-b")
 		w := rig.startWorker("w1", workerOpts{addr: true})
 		rig.reports(w.nodeID)
@@ -979,19 +960,16 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 
 		By("holding a request between the replicas on NATS across the change")
 		onNATS := rig.askHeld(a, b)
-		followed := time.Now()
 		change(cluster.CarrierTunnel, false)
 		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"), "a new request goes over the peer link")
 		b.release()
 		Eventually(onNATS, "10s").Should(Receive(Equal("replica-b:hold")), "the request in flight ends on NATS")
 		b.rehold()
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "20ms").Should(ContainElement(cluster.CarrierTunnel))
-		GinkgoWriter.Printf("the worker reported the tunnel %s after the change was requested\n", time.Since(followed))
 		close(w.backend.gate)
 		Eventually(loadDone, "20s").Should(Receive(BeNil()))
 
 		drained()
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierTunnel}))
+		Expect(rig.attachedOf(w.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel))
 		out, err := b.clients.NewClient(w.nodeID, w.grpcAddr, false).Predict(rig.ctx, &pb.PredictOptions{Prompt: "over the tunnel"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(out.Message)).To(Equal("echo: over the tunnel"))
@@ -1006,9 +984,8 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(rig.ask(a, b)).To(Equal("replica-b:ping"), "a new request goes over NATS")
 		b.release()
 		Eventually(onTunnel, "10s").Should(Receive(Equal("replica-b:hold")), "the request in flight ends on the tunnel")
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "20ms").Should(ContainElement(cluster.CarrierNATS))
 		drained()
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierNATS}))
+		Expect(rig.attachedOf(w.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel))
 		out, err = a.clients.NewClient(w.nodeID, w.grpcAddr, false).Predict(rig.ctx, &pb.PredictOptions{Prompt: "over NATS"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(out.Message)).To(Equal("echo: over NATS"))
@@ -1018,7 +995,7 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(w.backend.cancelledModels()).To(BeEmpty(), "no load was cancelled by the changes")
 	})
 
-	It("moves two workers at once, and both serve on the new carrier", func() {
+	It("moves the frontends with two workers, and both serve on the route the frontends hold", func() {
 		a, b := rig.startReplica("replica-a"), rig.startReplica("replica-b")
 		w1 := rig.startWorker("w1", workerOpts{addr: true})
 		w2 := rig.startWorker("w2", workerOpts{addr: true})
@@ -1026,12 +1003,9 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		rig.reports(w2.nodeID)
 
 		change(cluster.CarrierTunnel, false)
-		for _, w := range []*workerProc{w1, w2} {
-			Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(ContainElement(cluster.CarrierTunnel), w.name)
-		}
 		drained()
 		for _, w := range []*workerProc{w1, w2} {
-			Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierTunnel}), w.name)
+			Expect(rig.attachedOf(w.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel), w.name)
 			_, err := b.commands.InstallBackendOp(w.nodeID, "llama-cpp", "m", "", 0, "op-"+w.name, "load-"+w.name, time.Minute, nil)
 			Expect(err).ToNot(HaveOccurred(), w.name)
 			Expect(w.installsOn(cluster.CarrierTunnel)).To(Equal(1), w.name)
@@ -1039,7 +1013,7 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		_ = a
 	})
 
-	It("starts a worker that restarts in the middle of a change on the carrier the cluster has then", func() {
+	It("starts a worker that restarts in the middle of a change with the routes it was given", func() {
 		a, b := rig.startReplica("replica-a"), rig.startReplica("replica-b")
 		hold := make(chan struct{})
 		b.mu.Lock()
@@ -1056,18 +1030,15 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		w.stop()
 		again := rig.startWorker("w1", workerOpts{addr: true, reuse: w})
 		Expect(again.nodeID).To(Equal(w.nodeID))
-		Expect(rig.attachedOf(again.nodeID)).To(Equal([]cluster.Carrier{cluster.CarrierNATS}), "the cluster is still on NATS")
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(again.nodeID) }, "20s", "50ms").Should(ContainElement(cluster.CarrierTunnel), "it follows the change that is being prepared")
+		Eventually(func() []cluster.Carrier { return rig.attachedOf(again.nodeID) }, "20s", "50ms").Should(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel), "it holds its routes whatever the change")
 
 		close(hold)
 		rig.eventually(settled(cluster.CarrierTunnel), "the change settles")
 		drained()
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(again.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierTunnel}))
 
 		By("restarting it once the cluster is on the tunnel")
 		again.stop()
 		third := rig.startWorker("w1", workerOpts{addr: true, reuse: again})
-		Expect(rig.attachedOf(third.nodeID)).To(Equal([]cluster.Carrier{cluster.CarrierTunnel}), "it starts on the carrier the cluster has, with no flag")
 		Eventually(func() error {
 			_, err := a.commands.InstallBackendOp(third.nodeID, "llama-cpp", "m", "", 0, "op-r", "load-r", time.Minute, nil)
 			return err
@@ -1143,7 +1114,6 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		// The buses do not follow a change: every replica holds one LISTEN session
 		// for its floor, before, during and after it.
 		Expect(rig.listeners()).To(Equal(int64(2)))
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(ContainElement(cluster.CarrierTunnel), "the worker attaches to the target while it is prepared")
 
 		row, err := a.sw.Abort(rig.ctx, "admin")
 		Expect(err).ToNot(HaveOccurred())
@@ -1156,7 +1126,7 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(rig.listeners()).To(Equal(int64(2)), "the floors stay")
 		Expect(a.active()).To(Equal(cluster.CarrierNATS))
 		Expect(b.active()).To(Equal(cluster.CarrierNATS))
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierNATS}), "the worker lets go of the target when the change is aborted")
+		Expect(rig.attachedOf(w.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel), "an abort changes nothing on a worker")
 
 		// The cluster works as it did.
 		_, err = a.commands.OperationControl(w.nodeID, workerctl.OperationRequest{Renew: []string{"op"}})
@@ -1195,7 +1165,7 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 			HaveField("ID", old.ID),
 			HaveField("Reason", ContainSubstring("predates carrier switching")),
 		)))
-		Expect(blocked.Report.Blockers).To(HaveLen(1), "the worker that follows is not a blocker")
+		Expect(blocked.Report.Blockers).To(HaveLen(1), "the worker that holds the tunnel is not a blocker")
 		Expect(rig.row().State).To(Equal(cluster.StateStable))
 		Expect(rig.row().Epoch).To(Equal(int64(1)))
 
@@ -1203,7 +1173,6 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		rig.eventually(settled(cluster.CarrierTunnel), "the forced change settles")
 		Expect(rig.row().Force).To(BeTrue())
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(ContainElement(cluster.CarrierTunnel))
 
 		// While NATS drains the old worker is still reached on it.
 		_, err = a.commands.OperationControl(old.ID, workerctl.OperationRequest{Renew: []string{"op"}})
@@ -1222,23 +1191,17 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(node.Status).To(Equal(nodes.StatusHealthy))
 	})
 
-	It("lists a worker that has no address as unable to follow to NATS, and leaves it on the tunnel, unroutable and unreaped, after a forced change", func() {
+	It("lists a worker that holds only the tunnel as unable to use NATS, and leaves it on the tunnel, unroutable and unreaped, after a forced change", func() {
 		a, _ := rig.startReplica("replica-a"), rig.startReplica("replica-b")
 		w := rig.startWorker("w1", workerOpts{addr: true})
 		rig.reports(w.nodeID)
 		change(cluster.CarrierTunnel, false)
 		drained()
 
-		// A worker that holds a tunnel and has no address of its own.
+		// A worker that holds a tunnel only and has no address of its own.
 		only := rig.startWorker("tunnel-only", workerOpts{})
 		rig.reports(only.nodeID)
-		Eventually(func() string {
-			n, err := rig.nodeReg.Get(rig.ctx, only.nodeID)
-			if err != nil {
-				return ""
-			}
-			return n.FollowError
-		}, "20s", "50ms").Should(ContainSubstring("--addr"))
+		Eventually(func() []cluster.Carrier { return rig.attachedOf(only.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierTunnel}))
 		Expect(rig.nodeReg.SetNodeModel(rig.ctx, only.nodeID, "keep-me", 0, "loaded", only.grpcAddr, 0)).To(Succeed())
 
 		_, _, err := rig.request(cluster.CarrierNATS, false)
@@ -1247,16 +1210,15 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(blocked.Report.Blockers).To(ConsistOf(SatisfyAll(
 			HaveField("Kind", cluster.BlockerWorker),
 			HaveField("ID", only.nodeID),
-			HaveField("Reason", ContainSubstring("--addr")),
+			HaveField("Reason", ContainSubstring("cannot use the nats carrier")),
 			HaveField("Forceable", true),
 		)))
 
 		By("forcing the change")
 		change(cluster.CarrierNATS, true)
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(ContainElement(cluster.CarrierNATS), "the worker that can follow does")
 		drained()
-		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierNATS}))
-		Expect(rig.attachedOf(only.nodeID)).To(Equal([]cluster.Carrier{cluster.CarrierTunnel}), "the worker that cannot follow stays where it is")
+		Expect(rig.attachedOf(w.nodeID)).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel))
+		Expect(rig.attachedOf(only.nodeID)).To(Equal([]cluster.Carrier{cluster.CarrierTunnel}), "the worker that holds only the tunnel stays where it is")
 
 		Eventually(func() bool {
 			_, err := a.commands.OperationControl(only.nodeID, workerctl.OperationRequest{Renew: []string{"op"}})
@@ -1271,7 +1233,6 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		node, err := rig.nodeReg.Get(rig.ctx, only.nodeID)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(node.Status).To(Equal(nodes.StatusHealthy))
-		Expect(node.FollowError).ToNot(BeEmpty(), "it says why")
-		Expect(only.fol.Attached()).To(Equal([]cluster.Carrier{cluster.CarrierTunnel}), "and it keeps its tunnel")
+		Expect(only.held.Held()).To(Equal([]worker.Route{worker.RouteTunnel}), "and it keeps its tunnel")
 	})
 })

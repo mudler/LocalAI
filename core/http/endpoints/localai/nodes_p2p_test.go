@@ -9,7 +9,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/pkg/natsauth"
@@ -31,14 +30,13 @@ var _ = Describe("Registration of a worker over P2P", func() {
 		registry *nodes.NodeRegistry
 		opts     []RegisterOption
 	)
-	natsRow := cluster.CarrierRow{Active: cluster.CarrierNATS, Epoch: 3, State: cluster.StateStable}
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		var err error
 		registry, err = nodes.NewNodeRegistry(testutil.SetupTestDB())
 		Expect(err).ToNot(HaveOccurred())
-		opts = []RegisterOption{WithCarrierReader(fixedCarrier{row: natsRow}), WithWorkerPeers(workerSet{"peer-a": true, "peer-b": true})}
+		opts = []RegisterOption{WithNATSHandover(fixedNATS{url: "nats://nats.example:4222"}), WithWorkerPeers(workerSet{"peer-a": true, "peer-b": true})}
 	})
 
 	// register sends a registration, over P2P from peer when peer is set.
@@ -57,13 +55,13 @@ var _ = Describe("Registration of a worker over P2P", func() {
 		return rec.Code, resp
 	}
 
-	It("registers a paired worker without the token, pinned to its peer, pending, with a tunnel credential on a NATS cluster", func() {
-		code, resp := register(`{"name":"w","address":"10.0.0.1:50051"}`, "peer-a", true)
+	It("registers a paired worker without the token, pinned to its peer, pending, with a tunnel credential and never a NATS one", func() {
+		code, resp := register(`{"name":"w","address":"10.0.0.1:50051","routes":["tunnel","nats"]}`, "peer-a", true)
 		Expect(code).To(Equal(http.StatusCreated))
 		Expect(resp["status"]).To(Equal(nodes.StatusPending))
-		Expect(resp["credential_for"]).To(Equal("tunnel"))
 		Expect(resp).To(HaveKey("tunnel_token"))
 		Expect(resp).ToNot(HaveKey("nats_jwt"))
+		Expect(resp).ToNot(HaveKey("nats_url"), "a worker over P2P never talks to NATS")
 
 		node, err := registry.GetByName(ctx, "w")
 		Expect(err).ToNot(HaveOccurred())
@@ -106,7 +104,7 @@ var _ = Describe("Registration of a worker over P2P", func() {
 	})
 
 	It("never trusts a peer when no worker set is configured", func() {
-		opts = []RegisterOption{WithCarrierReader(fixedCarrier{row: natsRow})}
+		opts = nil
 		code, _ := register(`{"name":"w"}`, "peer-a", true)
 		Expect(code).To(Equal(http.StatusUnauthorized))
 	})

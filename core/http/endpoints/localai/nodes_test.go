@@ -106,14 +106,14 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(resp["status"]).To(Equal(nodes.StatusHealthy))
 		})
 
-		It("returns nats_jwt when account seed is configured", func() {
+		It("returns nats_jwt for the NATS route when account seed is configured", func() {
 			akp, err := nkeys.CreateAccount()
 			Expect(err).ToNot(HaveOccurred())
 			seed, err := akp.Seed()
 			Expect(err).ToNot(HaveOccurred())
 
 			e := echo.New()
-			body := `{"name":"worker-nats","address":"10.0.0.2:50051"}`
+			body := `{"name":"worker-nats","address":"10.0.0.2:50051","routes":["nats"]}`
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()
@@ -168,9 +168,9 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(errObj["message"]).To(ContainSubstring("exceeds 255 characters"))
 		})
 
-		It("returns 400 when address is missing for backend node type", func() {
+		It("returns 400 when address is missing for a backend worker on the NATS route", func() {
 			e := echo.New()
-			body := `{"name":"worker-no-addr"}`
+			body := `{"name":"worker-no-addr","routes":["nats"]}`
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()

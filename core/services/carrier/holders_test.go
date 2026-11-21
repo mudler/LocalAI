@@ -228,6 +228,32 @@ var _ = Describe("Forwarding holders", func() {
 			Expect(a.agents.seen()).To(Equal([]string{"ExecuteMCPTool", "DiscoverMCPTools"}))
 			Expect(b.agents.seen()).To(Equal([]string{"ExecuteMCPTool"}))
 		})
+
+		It("sends a call that names an agent worker on the routes of that worker", func() {
+			nats := newFakeCarrier(cluster.CarrierNATS, 1)
+			tun := newFakeCarrier(cluster.CarrierTunnel, 1)
+			nats.agents.absent = map[string]bool{"both": true}
+			t := tableOf(map[string][]nodes.Route{
+				"on-nats":   {{Kind: nodes.RouteDirect}},
+				"on-tunnel": {{Kind: nodes.RouteTunnel}},
+				"both":      {{Kind: nodes.RouteDirect}, {Kind: nodes.RouteTunnel}},
+				"nowhere":   nil,
+			}, nats, tun)
+			h := carrier.NewAgents(t)
+
+			reply, err := h.ExecuteMCPToolOn(ctx, "on-nats", mcpRemote.MCPToolRequest{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reply.Result).To(Equal("ran on on-nats"))
+			_, err = h.DiscoverMCPToolsOn(ctx, "on-tunnel", mcpRemote.MCPDiscoveryRequest{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = h.ExecuteMCPToolOn(ctx, "both", mcpRemote.MCPToolRequest{})
+			Expect(err).ToNot(HaveOccurred(), "no responder on the subject of the node moves the call to its tunnel")
+			_, err = h.ExecuteMCPToolOn(ctx, "nowhere", mcpRemote.MCPToolRequest{})
+			Expect(err).To(MatchError(nodes.ErrNoRoute))
+
+			Expect(nats.agents.seen()).To(Equal([]string{"ExecuteMCPToolOn:on-nats", "ExecuteMCPToolOn:both"}))
+			Expect(tun.agents.seen()).To(Equal([]string{"DiscoverMCPToolsOn:on-tunnel", "ExecuteMCPToolOn:both"}))
+		})
 	})
 
 	Describe("a call in flight", func() {

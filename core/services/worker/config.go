@@ -2,7 +2,8 @@ package worker
 
 import (
 	"errors"
-	"time"
+	"fmt"
+	"slices"
 
 	"github.com/mudler/xlog"
 )
@@ -16,10 +17,9 @@ import (
 // Workers are backend-agnostic — they wait for backend.install NATS events
 // from the SmartRouter to install and start the required backend.
 //
-// The carrier is not a setting of the worker. The frontend names it in the answer
-// to the registration. With NATS the worker needs the URL of the server. With the
-// tunnel it needs nothing but the URL of the frontend. The worker acts as a
-// process supervisor:
+// The routes of the worker are the choice of its operator: NATS when it has a
+// NATS URL, the tunnel to the frontend it registers with, or both (see
+// routes). The worker acts as a process supervisor:
 // - Receives backend.install → installs backend from gallery, starts gRPC process, replies success
 // - Receives backend.stop → stops the gRPC process
 // - Receives stop → full shutdown (deregister + exit)
@@ -93,12 +93,12 @@ type Config struct {
 	// enforces it against the raw VRAM this worker reports. Empty = no cap.
 	VRAMBudget string `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this worker node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB)." group:"registration"`
 
-	// FollowMaxDelay bounds the random wait before the worker attaches to a carrier
-	// that the cluster changed to, so that a fleet does not connect at once.
-	FollowMaxDelay string `env:"LOCALAI_FOLLOW_MAX_DELAY" default:"10s" help:"Longest random wait before this worker attaches to the carrier that the cluster changed to" group:"registration" hidden:""`
+	// Routes are the ways this worker reaches the cluster. Empty derives them
+	// from the other flags (see routes).
+	Routes []string `env:"LOCALAI_WORKER_ROUTES" help:"Routes this worker holds to the cluster, comma separated: nats, tunnel or both. Default: nats when a NATS URL is set (never with --join), and the tunnel to the frontend (a websocket, or P2P with --join)" group:"registration"`
 
-	// NATS. The URL is needed only when the cluster runs on NATS.
-	NatsURL         string `env:"LOCALAI_NATS_URL" help:"NATS server URL. Optional: the frontend hands over the address when the cluster runs on NATS, and this overrides it" group:"distributed"`
+	// NATS. A URL gives the worker the NATS route.
+	NatsURL         string `env:"LOCALAI_NATS_URL" help:"NATS server URL. With it the worker holds the NATS route. With --routes nats and no URL, the worker uses the address that the frontend hands over" group:"distributed"`
 	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (normally from registration nats_jwt)" group:"distributed"`
 	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"NATS user signing seed override (normally from registration nats_user_seed)" group:"distributed"`
 	NatsRequireAuth bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT+seed from registration or env" group:"distributed"`
@@ -141,20 +141,34 @@ func (c Config) RegistrationAuthRequired() bool {
 	return c.RegistrationRequireAuth || c.DistributedRequireAuth
 }
 
-// followMaxDelay returns the longest random wait before the worker follows a
-// change of carrier. A value that is not a duration is the default.
-func (c Config) followMaxDelay() time.Duration {
-	if c.FollowMaxDelay == "" {
-		return DefaultFollowMaxDelay
+// routes returns the routes this worker holds, NATS first.
+//
+// With --routes the operator names them. Without it a NATS URL gives the NATS
+// route, and the frontend of the worker gives the tunnel: a websocket to
+// --register-to, or P2P to the frontend of the invite with --join. A worker that
+// joined over P2P reaches the cluster through its tunnel only and never talks to
+// NATS, so its NATS URL is ignored and --routes nats is refused.
+func (c Config) routes() ([]Route, error) {
+	p2p := c.Join != ""
+	if len(c.Routes) == 0 {
+		var out []Route
+		switch {
+		case c.NatsURL != "" && p2p:
+			xlog.Warn("This worker joins over P2P and reaches the cluster through its tunnel only; its NATS URL is ignored")
+		case c.NatsURL != "":
+			out = append(out, RouteNATS)
+		}
+		return append(out, RouteTunnel), nil
 	}
-	d, err := time.ParseDuration(c.FollowMaxDelay)
+	out, err := ParseRoutes(c.Routes)
 	if err != nil {
-		xlog.Warn("invalid follow delay, using the default", "input", c.FollowMaxDelay, "error", err)
-		return DefaultFollowMaxDelay
+		return nil, err
 	}
-	if d == 0 {
-		// Zero is "no wait" here, and a zero in the options means the default.
-		return -1
+	if len(out) == 0 {
+		return nil, errors.New("--routes names no route: give nats, tunnel or both")
 	}
-	return d
+	if p2p && slices.Contains(out, RouteNATS) {
+		return nil, fmt.Errorf("a worker that joins over P2P (--join) reaches the cluster through its tunnel only: drop %q from --routes", RouteNATS)
+	}
+	return out, nil
 }

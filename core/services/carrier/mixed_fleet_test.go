@@ -4,11 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"net/http/httptest"
+	"os"
+	"runtime"
+	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	ggrpc "google.golang.org/grpc"
 
+	"github.com/mudler/LocalAI/core/cli/workerregistry"
+	clusterapi "github.com/mudler/LocalAI/core/http/endpoints/cluster"
+	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -18,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/worker"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/natsauth"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -195,5 +205,212 @@ var _ = Describe("A mixed fleet through the route table", func() {
 		_, err := carrier.NewCommands(table).OperationControl(p2pID, workerctl.OperationRequest{Renew: []string{"op"}})
 		Expect(err).To(MatchError(nodes.ErrNoRoute))
 		Expect(natsOps.Load()).To(BeZero())
+	})
+})
+
+// The same fleet with workers that run the code of a real worker: the plane,
+// the route holder, the registration that asks for one route at a time, and the
+// heartbeat that reports the routes. Nothing is reported by hand. The NATS
+// route needs a NATS server, which testcontainers starts.
+var _ = Describe("A mixed fleet of real workers", func() {
+	var (
+		ctx      context.Context
+		cancel   context.CancelFunc
+		nodeReg  *nodes.NodeRegistry
+		a        *replica
+		front    string
+		natsURL  string
+		commands *carrier.Commands
+		clients  *carrier.Clients
+	)
+
+	type realWorker struct {
+		nodeID   string
+		grpcAddr string
+		held     *worker.RouteHolder
+		mu       sync.Mutex
+		ops      map[worker.Route]int
+	}
+	opsOn := func(w *realWorker, r worker.Route) int {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		return w.ops[r]
+	}
+
+	// start runs a worker the way worker.Run does, with the routes given and,
+	// for NATS, the server at nats.
+	start := func(name string, routes []worker.Route, nats string) *realWorker {
+		GinkgoHelper()
+		w := &realWorker{ops: map[worker.Route]int{}}
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).ToNot(HaveOccurred())
+		gs := ggrpc.NewServer()
+		pb.RegisterBackendServer(gs, &fakeBackend{loading: make(chan string, 1)})
+		go func() { _ = gs.Serve(lis) }()
+		DeferCleanup(gs.Stop)
+		w.grpcAddr = lis.Addr().String()
+		hl, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).ToNot(HaveOccurred())
+		httpAddr := hl.Addr().String()
+		Expect(hl.Close()).To(Succeed())
+
+		holdsNATS := slices.Contains(routes, worker.RouteNATS)
+		client := &workerregistry.RegistrationClient{FrontendURL: front, RegistrationToken: registrationToken}
+		body := func(rs ...worker.Route) map[string]any {
+			b := map[string]any{"name": name, "token": registrationToken, "routable": holdsNATS, "routes": rs}
+			if holdsNATS {
+				b["address"], b["http_address"] = w.grpcAddr, httpAddr
+			}
+			return b
+		}
+		res, err := workerregistry.NewCredentialManager(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+			return client.RegisterFull(ctx, body())
+		}, false).Acquire(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		w.nodeID = res.ID
+
+		cfg := &worker.Config{RegisterTo: front, RegistrationToken: registrationToken, ServeAddr: w.grpcAddr, NatsURL: nats}
+		plane := worker.NewBackendPlane(cfg, w.nodeID, httpAddr, worker.NATSLocal{URL: nats})
+		plane.Serve(func(v worker.VerbServer) error {
+			return v.Handle(workerctl.VerbModelOp, func(_ context.Context, raw []byte) (any, error) {
+				var req workerctl.OperationRequest
+				_ = json.Unmarshal(raw, &req)
+				w.mu.Lock()
+				w.ops[v.Route()]++
+				w.mu.Unlock()
+				return workerctl.OperationReply{Renewed: req.Renew}, nil
+			})
+		})
+		dir := GinkgoT().TempDir()
+		srv, err := nodes.StartFileTransferServerWithControl(httpAddr, dir, dir, dir, registrationToken, 1<<30, nil, nil, plane.Control())
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { nodes.ShutdownFileTransferServer(srv) })
+
+		w.held = worker.NewRouteHolder(worker.RouteHolderOptions{
+			Routes:    routes,
+			Attachers: plane.Attachers(),
+			Credentials: func(r worker.Route) *workerregistry.CredentialManager {
+				return workerregistry.NewCredentialManagerFor(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+					return client.RegisterFull(ctx, body(r))
+				}, false, string(r))
+			},
+			Heartbeat: func(ctx context.Context, b map[string]any) error { return client.SendHeartbeat(ctx, w.nodeID, b) },
+			Interval:  200 * time.Millisecond,
+		})
+		go w.held.Run(ctx)
+		DeferCleanup(w.held.Close)
+		return w
+	}
+
+	routesOf := func(nodeID string) []nodes.Route {
+		n, err := nodeReg.Get(ctx, nodeID)
+		if err != nil {
+			return nil
+		}
+		return nodes.RoutesOf(n)
+	}
+
+	BeforeEach(func() {
+		var err error
+		natsURL, err = startSwitchNATS()
+		if err != nil {
+			if os.Getenv("CI") != "" && runtime.GOOS != "darwin" {
+				Fail("testcontainers requires Docker and CI is set: " + err.Error())
+			}
+			Skip("testcontainers requires Docker: " + err.Error())
+		}
+		ctx, cancel = context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		db, dsn := testutil.SetupTestDBWithDSN()
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
+		clusterR := cluster.NewRegistry(db)
+		nodeReg, err = nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		a = startReplica(ctx, "replica-a", db, dsn, clusterR, nodeReg)
+
+		// The routes a worker registers, heartbeats and dials its tunnel on, as
+		// the application mounts them.
+		e := echo.New()
+		e.GET(tunnel.ConnectPath, clusterapi.ConnectHandler(nodeReg, a.tunnels))
+		opts := []localai.RegisterOption{localai.WithTunnelDisconnector(a.tunnels), localai.WithNATSHandover(rigNATS{url: natsURL})}
+		e.POST("/api/node/register", localai.RegisterNodeEndpoint(nodeReg, registrationToken, true, nil, "", natsauth.Config{}, opts...))
+		e.POST("/api/node/:id/heartbeat", localai.HeartbeatEndpoint(nodeReg, opts...))
+		srv := httptest.NewServer(e)
+		DeferCleanup(srv.Close)
+		front = srv.URL
+
+		bus, err := messaging.New(natsURL)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(bus.Close)
+		Eventually(bus.IsConnected, "10s").Should(BeTrue())
+		direct, err := carrier.NewNATSRoutes(carrier.NATSOptions{
+			Client: bus, Registry: nodeReg, Token: registrationToken,
+			InstallTimeout: time.Minute, UpgradeTimeout: time.Minute,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		table := carrier.NewRouteTable(func(ctx context.Context, nodeID string) ([]nodes.Route, error) {
+			n, err := nodeReg.Get(ctx, nodeID)
+			if err != nil {
+				return nil, err
+			}
+			return nodes.RoutesOf(n), nil
+		})
+		table.Pin(a.set.WorkerRoute)
+		table.Attach(direct)
+		commands, clients = carrier.NewCommands(table), carrier.NewClients(table)
+	})
+
+	It("reaches a NATS worker, a websocket worker and a worker that holds both, each on a route it holds", func() {
+		natsOnly := start("nats-only", []worker.Route{worker.RouteNATS}, natsURL)
+		wsOnly := start("ws-only", []worker.Route{worker.RouteTunnel}, "")
+		both := start("both", []worker.Route{worker.RouteNATS, worker.RouteTunnel}, natsURL)
+
+		Eventually(func() []nodes.Route { return routesOf(natsOnly.nodeID) }, "20s", "50ms").Should(Equal([]nodes.Route{{Kind: nodes.RouteDirect}}))
+		Eventually(func() []nodes.Route { return routesOf(wsOnly.nodeID) }, "20s", "50ms").Should(Equal([]nodes.Route{{Kind: nodes.RouteTunnel, Transport: nodes.TunnelWebSocket}}))
+		Eventually(func() []nodes.Route { return routesOf(both.nodeID) }, "20s", "50ms").Should(Equal([]nodes.Route{
+			{Kind: nodes.RouteDirect}, {Kind: nodes.RouteTunnel, Transport: nodes.TunnelWebSocket},
+		}))
+
+		n, err := nodeReg.Get(ctx, natsOnly.nodeID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(n.TunnelTokenHash).To(BeEmpty(), "a worker that holds no tunnel never asked for a tunnel token")
+		n, err = nodeReg.Get(ctx, wsOnly.nodeID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(n.Address).To(BeEmpty(), "a worker on the tunnel only registers no address")
+
+		for _, w := range []*realWorker{natsOnly, wsOnly, both} {
+			reply, err := commands.OperationControl(w.nodeID, workerctl.OperationRequest{Renew: []string{"load-" + w.nodeID}})
+			Expect(err).ToNot(HaveOccurred(), w.nodeID)
+			Expect(reply.Renewed).To(ConsistOf("load-" + w.nodeID))
+			out, err := clients.NewClient(w.nodeID, w.grpcAddr, false).Predict(ctx, &pb.PredictOptions{Prompt: "hi"})
+			Expect(err).ToNot(HaveOccurred(), w.nodeID)
+			Expect(string(out.Message)).To(Equal("echo: hi"))
+		}
+		Expect(opsOn(natsOnly, worker.RouteNATS)).To(Equal(1))
+		Expect(opsOn(wsOnly, worker.RouteTunnel)).To(Equal(1))
+		Expect(opsOn(wsOnly, worker.RouteNATS)).To(BeZero(), "a websocket worker never talks to NATS")
+		Expect(opsOn(both, worker.RouteNATS)).To(Equal(1), "the direct route comes first for a worker that holds both")
+	})
+
+	It("keeps serving on the tunnel while the NATS route of a worker cannot connect, and reports why", func() {
+		dead, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).ToNot(HaveOccurred())
+		deadURL := "nats://" + dead.Addr().String()
+		Expect(dead.Close()).To(Succeed())
+
+		w := start("nats-down", []worker.Route{worker.RouteNATS, worker.RouteTunnel}, deadURL)
+		Eventually(func() []nodes.Route { return routesOf(w.nodeID) }, "20s", "50ms").Should(Equal([]nodes.Route{{Kind: nodes.RouteTunnel, Transport: nodes.TunnelWebSocket}}))
+		Eventually(func() string {
+			n, err := nodeReg.Get(ctx, w.nodeID)
+			if err != nil {
+				return ""
+			}
+			return n.FollowError
+		}, "20s", "50ms").Should(HavePrefix("nats: "))
+		Expect(w.held.Held()).To(Equal([]worker.Route{worker.RouteTunnel}))
+
+		_, err = commands.OperationControl(w.nodeID, workerctl.OperationRequest{Renew: []string{"op"}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(opsOn(w, worker.RouteTunnel)).To(Equal(1))
 	})
 })
