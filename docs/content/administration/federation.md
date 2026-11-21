@@ -22,7 +22,7 @@ A federation **group** has:
 
 ## Before you start
 
-1. On each other LocalAI, make an invite of kind **Remote**: **Swarm**, **P2P**,
+1. On each other LocalAI, make an invite of kind **Remote**: **Cluster**, **Sharing**,
    **Share this instance** (the mode must be **Connect and share**). A server
    that has an address can also be added with its address and key.
 2. On this server, add each one as a remote: **Models**, **Remotes**, then
@@ -34,7 +34,7 @@ For a remote over P2P, P2P must be on here: mode **Connect only** is enough.
 
 ## Make a group
 
-Open **Swarm**, **P2P**, **Federation** (on a single server with P2P off, the
+Open **Cluster**, **Sharing**, **Federation** (on a single server with P2P off, the
 page is under **This machine**, **P2P**), then **New group**:
 
 1. Enter the model name of the group. It must not be the name of a model that

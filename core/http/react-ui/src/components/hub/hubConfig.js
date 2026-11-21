@@ -1,8 +1,11 @@
-// Hub configuration shared by HubLayout (renders the tab bar), the Sidebar
-// (renders the single entry for each hub and computes its active state), App
-// (page-transition key).
+// Hub configuration shared by HubLayout (renders the tab bar of the legacy
+// Add-ons hub), AdminSidebar (renders the groups of Administration), the
+// Sidebar (renders the single entry for each hub and computes its active
+// state) and App (page-transition key).
 //
-// A hub is a page-level tab bar. Each tab owns one or more existing routes
+// A hub is either a page-level tab bar (`tabs`) or, for Administration, the
+// groups of its own sidebar (`groups`, which have the same shape and the same
+// gates). Each tab owns one or more existing routes
 // (`items`). A tab with several routes shows a second, quieter row of links
 // under the bar. Routes stay flat (`/app/nodes/:id`); a tab is
 // highlighted when the current path is one of its item paths or sits under

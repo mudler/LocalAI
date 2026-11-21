@@ -169,6 +169,11 @@
         "worker": "워커",
         "person": "사용자"
       }
+    },
+    "filters": {
+      "label": "필터",
+      "active": "{{count}}개 설정됨",
+      "sort": "정렬"
     }
   }
 }

@@ -422,7 +422,7 @@ test('a filter matching nothing does not claim the instance is empty', async ({ 
   await page.goto('/app/activity')
   await expect(page.locator('.activity-row')).toHaveCount(3)
 
-  await page.locator('.activity-chip', { hasText: 'Backends' }).click()
+  await page.locator('.ui-seg__item', { hasText: 'Backends' }).click()
 
   await expect(page.locator('.activity-empty--filtered')).toBeVisible()
   await expect(page.locator('.activity-empty')).not.toContainText('No operations since startup')
@@ -567,7 +567,7 @@ test('filters the record down to backends', async ({ page }) => {
   await page.goto('/app/activity')
   await expect(page.locator('.activity-row')).toHaveCount(2)
 
-  await page.locator('.activity-chip', { hasText: 'Backends' }).click()
+  await page.locator('.ui-seg__item', { hasText: 'Backends' }).click()
 
   await expect(page.locator('.activity-row')).toHaveCount(1)
   await expect(page.locator('.activity-row')).toContainText('bark-cpp')

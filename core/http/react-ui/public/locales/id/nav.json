@@ -169,6 +169,11 @@
         "worker": "Worker",
         "person": "Orang"
       }
+    },
+    "filters": {
+      "label": "Filter",
+      "active": "{{count}} diatur",
+      "sort": "Urutkan"
     }
   }
 }

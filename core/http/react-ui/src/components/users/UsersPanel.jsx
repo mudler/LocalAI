@@ -10,6 +10,8 @@ import Dialog from '../Dialog'
 import HomeUndoToast from '../home/HomeUndoToast'
 import AccessSheet from './AccessSheet'
 import Icon from '../Icon'
+import AdminFilterBar from '../admin/AdminFilterBar'
+import { Button } from '../ui'
 
 const FILTER_LABELS = { all: 'All', pending: 'Pending', admins: 'Admins', disabled: 'Disabled' }
 const STATE_LABELS = { active: 'Active', pending: 'Pending', disabled: 'Disabled' }
@@ -46,6 +48,13 @@ const SORTERS = {
   created: (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
 }
 
+const SORT_OPTIONS = [
+  { id: 'name', label: 'Name' },
+  { id: 'role', label: 'Role' },
+  { id: 'status', label: 'Status' },
+  { id: 'provider', label: 'Sign-in' },
+]
+
 function Avatar({ user }) {
   return user.avatarUrl
     ? <img src={user.avatarUrl} alt="" className="us-avatar" />
@@ -55,7 +64,7 @@ function Avatar({ user }) {
 // The people who can sign in: filter, search, sort, approve or disable, and
 // open one person's access. Role, password reset and delete sit in the row's
 // menu. Every call is the one the page made before.
-export default function UsersPanel({ addToast, onInvite, registrationMode, initialQuery = '' }) {
+export default function UsersPanel({ addToast, registrationMode, initialQuery = '' }) {
   const { t } = useTranslation('auth')
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
@@ -218,23 +227,22 @@ export default function UsersPanel({ addToast, onInvite, registrationMode, initi
 
   return (
     <div className="us" data-testid="users-panel">
-      <div className="us-bar">
-        <div className="dk-input-icon us-search">
-          <Icon name="search" className="dk-icon" />
-          <input className="dk-input" type="search" aria-label="Search by name or email" placeholder="Search name or email" value={query} onChange={e => setQuery(e.target.value)} />
-        </div>
-        <div className="us-chips" role="group" aria-label="Filter users">
-          {USER_FILTERS.map(f => (
-            <button key={f} type="button" className="dk-chip" aria-pressed={filter === f} data-filter={f} onClick={() => setFilter(f)}>
-              {FILTER_LABELS[f]}{f !== 'all' || counts.all ? <span className="us-chip-count">{counts[f]}</span> : null}
-            </button>
-          ))}
-        </div>
-        <div className="us-bar__acts">
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon" aria-label="Refresh users" onClick={fetchUsers} disabled={loading}><Icon name="refresh" spin={loading} /></button>
-          <button type="button" className="dk-btn dk-btn--primary" onClick={onInvite}><Icon name="plus" /> Invite someone</button>
-        </div>
-      </div>
+      <AdminFilterBar
+        search={{ value: query, onChange: setQuery, label: 'Search by name or email', placeholder: 'Search name or email' }}
+        chips={{
+          label: 'Filter users',
+          value: filter,
+          onChange: setFilter,
+          options: USER_FILTERS.map(f => ({ id: f, label: FILTER_LABELS[f], count: f !== 'all' || counts.all ? counts[f] : undefined })),
+        }}
+        sort={{
+          label: 'Sort',
+          value: sort.key || 'name',
+          onChange: key => setSort({ key, dir: 'asc' }),
+          options: SORT_OPTIONS,
+        }}
+        extra={<Button variant="ghost" icon="refresh" aria-label="Refresh users" onClick={fetchUsers} disabled={loading} />}
+      />
 
       {loading && users.length === 0 ? (
         <div className="ak-loading"><LoadingSpinner size="lg" /></div>

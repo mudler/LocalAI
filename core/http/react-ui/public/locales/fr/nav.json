@@ -172,6 +172,11 @@
         "worker": "Workers",
         "person": "Personnes"
       }
+    },
+    "filters": {
+      "label": "Filtres",
+      "active": "{{count}} actif(s)",
+      "sort": "Trier"
     }
   }
 }

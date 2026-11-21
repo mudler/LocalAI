@@ -17,10 +17,9 @@
 .ac-page > .dk-tabpanel { padding-top: 0; }
 
 /* ---- Heads ---------------------------------------------------------------- */
-.us-head, .ac-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--dk-space-3); padding-top: var(--dk-space-3); }
-.us-head { flex-direction: column; align-items: flex-start; gap: var(--dk-space-1); }
-.us-title, .ac-title { margin: 0; font: var(--dk-weight-bold) 24px / 1.2 var(--dk-font-display); letter-spacing: -.02em; color: var(--dk-text); }
-.us-lede, .ac-lede { margin: 0; max-width: 64ch; font-size: var(--dk-text-15); line-height: 1.5; color: var(--dk-muted); }
+.ac-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--dk-space-3); padding-top: var(--dk-space-3); }
+.ac-title { margin: 0; font: var(--dk-weight-bold) 24px / 1.2 var(--dk-font-display); letter-spacing: -.02em; color: var(--dk-text); }
+.ac-lede { margin: 0; max-width: 64ch; font-size: var(--dk-text-15); line-height: 1.5; color: var(--dk-muted); }
 .ac-me { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
 .us-page .dk-tabs, .ac-page .dk-tabs { align-self: stretch; overflow-x: auto; scrollbar-width: none; }
 .us-page .dk-tabs::-webkit-scrollbar, .ac-page .dk-tabs::-webkit-scrollbar { display: none; }
@@ -35,12 +34,6 @@
 
 /* ---- Users: bar and table --------------------------------------------------- */
 .us { display: flex; flex-direction: column; gap: var(--dk-space-4); min-width: 0; }
-.us-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-3); }
-.us-search { flex: 1 1 220px; max-width: 280px; min-width: 180px; }
-.us-search .dk-input { width: 100%; }
-.us-chips { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
-.us-chip-count { margin-left: var(--dk-space-2); font: var(--dk-text-12) / 1 var(--dk-font-mono); color: var(--dk-muted); }
-.us-bar__acts { display: flex; align-items: center; gap: var(--dk-space-2); margin-left: auto; }
 
 .us-who { display: flex; align-items: center; gap: var(--dk-space-3); min-width: 0; }
 .us-who__text { display: flex; flex-direction: column; min-width: 0; }
@@ -168,8 +161,6 @@
   .us-state.us-state-phone { display: inline-flex; }
 }
 @media (max-width: 640px) {
-  .us-search { max-width: none; flex-basis: 100%; }
-  .us-bar__acts { margin-left: 0; width: 100%; justify-content: space-between; }
   .us-quota__fields { grid-template-columns: minmax(0, 1fr); }
   .ak-row { flex-wrap: wrap; }
   .ak-row__icon { display: none; }

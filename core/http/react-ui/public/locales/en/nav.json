@@ -168,6 +168,11 @@
         "worker": "Workers",
         "person": "People"
       }
+    },
+    "filters": {
+      "label": "Filters",
+      "active": "{{count}} set",
+      "sort": "Sort"
     }
   }
 }

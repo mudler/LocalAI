@@ -29,12 +29,15 @@ export default function AdminLayout() {
 
   const { current, owner } = resolveGroups(operateHub, auth, location)
   const crumbs = useMemo(() => {
+    // A person who is not an administrator can reach Usage: it is not part of
+    // an Administration they cannot see, so it has no trail.
+    if (!auth.isAdmin) return []
     const trail = [{ label: t('sections.operate'), to: operateHub.overviewPath }]
     const group = (current && current.group) || owner
     if (group && group.id !== 'landing' && group.id !== 'settings' && group.labelKey) trail.push({ label: t(group.labelKey) })
     if (current && current.item.path !== operateHub.overviewPath) trail.push({ label: t(current.item.labelKey), to: current.item.path })
     return trail
-  }, [current, owner, t])
+  }, [auth.isAdmin, current, owner, t])
   const shell = useMemo(() => ({ crumbs, claimCrumbs }), [crumbs, claimCrumbs])
 
   return (
@@ -57,7 +60,7 @@ export default function AdminLayout() {
               <Outlet context={outletContext} />
             </Suspense>
           </div>
-          <CommandPalette />
+          {auth.isAdmin && <CommandPalette />}
         </div>
       </HubHeaderContext.Provider>
     </AdminShellContext.Provider>

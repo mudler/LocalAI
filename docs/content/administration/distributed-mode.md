@@ -532,7 +532,7 @@ What the worker keeps and does:
 - It registers, heartbeats and drains over P2P HTTP. The frontend knows it by its peer ID, so it needs no registration token, and the node is pinned to that peer: a registration under its name from another peer or with the registration token is refused (409), and the tunnel accepts it only from its peer. A paired worker may act only on its own node.
 - Its tunnel is one P2P stream per lane (`/localai/tunnel/1/inference` and `/localai/tunnel/1/bulk`), with the same yamux sessions as the websocket tunnel. The bulk lane (model files) needs a path without a data limit, so a public relay never carries it; a relay that you run does.
 - It is **tunnel-only**: it holds the P2P tunnel and never attaches to NATS (see [How a frontend picks the route of a worker](#how-a-frontend-picks-the-route-of-a-worker)). A NATS URL on such a worker is ignored with a warning, and `--routes nats` is refused at start. To put it on NATS, restart it with `--register-to`, the registration token, `--nats-url` and `--addr`.
-- Revoking the device under **Swarm, P2P** closes its connections, and the node stops heartbeating.
+- Revoking the device under **Cluster, Sharing** closes its connections, and the node stops heartbeating.
 
 Several frontends: the invite names the frontend that made it, and the worker always reaches that one. The other frontends reach the worker through the peer link, as for a websocket tunnel.
 
@@ -728,7 +728,7 @@ When the SmartRouter needs to free capacity, it can unload models with zero in-f
 
 ### Managing nodes in the WebUI
 
-With distributed mode on, **Admin → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws the cluster pages. With P2P on, a single-node install also has **Swarm**, with **P2P** alone.
+With distributed mode on, the **Cluster** group of the Administration sidebar holds the cluster: **Workers**, **Placement** (with a **Rules** view and a **Failover** view) and **Sharing**. A single-node install shows **This machine** instead and never draws the cluster pages. With P2P on, a single-node install also has **Cluster**, with **Sharing** alone.
 
 **Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page asks first, then sends the update to the nodes that differ from the rest of the cluster, or to the nodes you selected.
 
@@ -1388,7 +1388,7 @@ local-ai worker \
 
 ## Model Scheduling
 
-Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Placement rules** page (**Admin → Swarm → Placement rules**, at `/app/scheduling`). Each rule is written as a sentence, shows the nodes the model is loaded on now, and opens in a side sheet that previews which nodes the draft rule could use. The preview is worked out in the browser from the node list and labels; the scheduler also checks free memory and disk when it loads a model. A deleted rule can be taken back for a few seconds. A rule combines two optional features:
+Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own page, **Placement** (**Admin → Cluster → Placement**, the **Rules** view, at `/app/scheduling`). Each rule is written as a sentence, shows the nodes the model is loaded on now, and opens in a side sheet that previews which nodes the draft rule could use. The preview is worked out in the browser from the node list and labels; the scheduler also checks free memory and disk when it loads a model. A deleted rule can be taken back for a few seconds. A rule combines two optional features:
 
 ### Node Selectors
 
@@ -1514,7 +1514,7 @@ curl -X POST http://frontend:8080/api/nodes/scheduling \
 
 This makes an alias a stable deployment slot: the placement policy belongs to
 the slot, and the model filling it can change without rewriting the rule. The
-WebUI lists aliases in the model picker on the **Placement rules** page, tagged with
+WebUI lists aliases in the model picker on the **Placement** page, tagged with
 the model each one resolves to.
 
 Each frontend resolves the alias from its own copy of the model configs, and a

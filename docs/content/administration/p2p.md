@@ -52,7 +52,7 @@ does not start when you run LocalAI with `--data-path -`, unless you name the ke
 file with `--p2p-identity`.
 
 1. Open **Administration**, then **This machine**, **P2P** (on a cluster, or
-   when P2P is already on: **Swarm**, **P2P**), and choose **Settings**.
+   when P2P is already on: **Cluster**, **Sharing**), and choose **Settings**.
 2. Under **Network**, choose **Connect only** or **Connect and share**. The
    change applies at once. Without authentication, **Connect and share** is
    shown but cannot be chosen, and the page says what to turn on.
@@ -84,7 +84,7 @@ of remotes over P2P. See [Moving from the old P2P network]({{% relref "/administ
 Sharing needs mode `share` (**Connect and share**). In another mode the
 **Devices and invites** page says which mode is on and links to the settings.
 
-1. Open **Swarm**, then **P2P**, then **Share this instance**.
+1. Open **Cluster**, then **Sharing**, then **Share this instance**.
 2. Choose what to share: a **device** (a launcher, a phone or a laptop) or a
    **remote** (another LocalAI server that will use your models). For a remote,
    choose the **Models** it may use: **All models** (the default) or **Choose
@@ -296,7 +296,7 @@ local-ai p2p pair --invite <link>
 ## Troubleshooting
 
 **The device cannot connect.**
-Open **Swarm**, **P2P** on the server and check that the server shows a peer ID
+Open **Cluster**, **Sharing** on the server and check that the server shows a peer ID
 and that the device is listed. If the invite was used or has expired, create a
 new one.
 

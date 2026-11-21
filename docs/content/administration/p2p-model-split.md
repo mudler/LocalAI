@@ -64,7 +64,7 @@ revoke each worker alone.
 
 6. The worker pairs, prints a four-word confirmation phrase, and connects. The
    page shows the worker when it arrives. Check that the phrase on the worker
-   is the same as the phrase of the used invite under **Swarm**, **P2P**.
+   is the same as the phrase of the used invite under **Cluster**, **Sharing**.
 
 The worker keeps its identity and its pairing in `--p2p-state-dir`
 (`./p2p/llama-cpp-rpc` or `./p2p/mlx-distributed` by default). The next start
@@ -133,7 +133,7 @@ at the next connection.
 ## Revoke a worker
 
 Choose **Revoke** next to the worker on the **Nodes** page, or revoke its device
-under **Swarm**, **P2P**. The connection closes at once and the worker leaves
+under **Cluster**, **Sharing**. The connection closes at once and the worker leaves
 the list that llama.cpp or MLX reads. A model that is loaded with the worker
 fails until you load it again. To join again, the worker needs a new invite.
 

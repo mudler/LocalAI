@@ -169,6 +169,11 @@
         "worker": "工作节点",
         "person": "用户"
       }
+    },
+    "filters": {
+      "label": "筛选",
+      "active": "已设置 {{count}} 项",
+      "sort": "排序"
     }
   }
 }

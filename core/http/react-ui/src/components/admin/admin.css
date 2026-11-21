@@ -178,26 +178,12 @@
 .admin-filters { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin: 0 0 var(--sp-4); }
 .admin-filters__search { flex: 1 1 220px; max-width: 320px; min-width: 0; }
 .admin-filters__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.admin-filters__more { position: relative; }
-.admin-filters__panel {
-  position: absolute;
-  z-index: var(--dk-z-popover, 60);
-  top: calc(100% + var(--sp-1));
-  left: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  min-width: 240px;
-  padding: var(--sp-4);
-  border: 1px solid var(--dk-edge);
-  border-radius: var(--r-lg);
-  background: var(--dk-card);
-  box-shadow: var(--shadow-md);
-}
-.admin-filters__sort { display: flex; align-items: center; gap: var(--sp-2); margin-left: auto; color: var(--dk-muted); font-size: var(--fs-small); }
+.admin-filters__panel { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 240px; padding: var(--sp-1); }
+.admin-filters__end { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); margin-left: auto; }
+.admin-filters__sort { display: flex; align-items: center; gap: var(--sp-2); color: var(--dk-muted); font-size: var(--fs-small); }
 @media (max-width: 639px) {
   .admin-filters__search { flex-basis: 100%; max-width: none; }
-  .admin-filters__sort { margin-left: 0; }
+  .admin-filters__end { margin-left: 0; width: 100%; }
 }
 
 /* ---- Command palette ----------------------------------------------------- */

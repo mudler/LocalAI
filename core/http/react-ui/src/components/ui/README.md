@@ -428,3 +428,19 @@ These are classes of the vendored kit, not React components. Put them in a
 - Never write `dk-sheet` markup in a page and never set a width on a sheet.
 - A form with more than about eight fields becomes steps or a disclosure, with
   the required fields first.
+
+## Administration pages
+
+The pages of Administration (components/admin) share a template and a filter
+bar, both built on `Page` and `PageHeader`:
+
+- `AdminPage` (`components/admin/AdminPage.jsx`): the breadcrumb, a title with
+  the page's one primary action, an optional `SummaryStrip`, the content and the
+  page's side sheet. The breadcrumb comes from the Administration layout; a page
+  never writes its own. Use it for every new Administration page.
+- `AdminFilterBar` (`components/admin/AdminFilterBar.jsx`): a search field,
+  filter chips (`Segmented`), a Filters popover for the rest, and a sort at the
+  right. Name only the parts the page has.
+
+The Administration sidebar lists the pages from `components/hub/hubConfig.js`
+(`operateHub.groups`); a new page is an item there, with the gates it needs.

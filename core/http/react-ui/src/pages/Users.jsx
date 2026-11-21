@@ -6,6 +6,8 @@ import { apiUrl } from '../utils/basePath'
 import UsersPanel from '../components/users/UsersPanel'
 import InvitesPanel from '../components/users/InvitesPanel'
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
+import AdminPage from '../components/admin/AdminPage'
+import { Button } from '../components/ui'
 import './access.css'
 
 const TABS = [
@@ -45,11 +47,14 @@ export default function Users() {
   }
 
   return (
-    <div className="page page--wide us-page" data-testid="users-page">
-      <header className="us-head">
-        <h1 className="us-title">{t('users.title')}</h1>
-        <p className="us-lede">{t('users.subtitle')}</p>
-      </header>
+    <AdminPage
+      width="full"
+      className="us-page"
+      data-testid="users-page"
+      title={t('users.title')}
+      supporting={t('users.subtitle')}
+      action={tab === 'users' ? <Button variant="primary" icon="plus" onClick={() => select('invites')}>Invite someone</Button> : null}
+    >
 
       <div className="dk-tabs" role="tablist" aria-label={t('users.title')} onKeyDown={onKey}>
         {TABS.map(x => (
@@ -64,10 +69,10 @@ export default function Users() {
       </div>
 
       <div className="dk-tabpanel" role="tabpanel" id={`us-panel-${tab}`} aria-labelledby={`us-tab-${tab}`}>
-        {tab === 'users' && <UsersPanel addToast={addToast} onInvite={() => select('invites')} registrationMode={registrationMode} initialQuery={params.get('q') || ''} />}
+        {tab === 'users' && <UsersPanel addToast={addToast} registrationMode={registrationMode} initialQuery={params.get('q') || ''} />}
         {tab === 'invites' && <InvitesPanel addToast={addToast} registrationMode={registrationMode} />}
         {tab === 'keys' && <ApiKeysPanel addToast={addToast} intro={ta('keys.adminIntro')} />}
       </div>
-    </div>
+    </AdminPage>
   )
 }

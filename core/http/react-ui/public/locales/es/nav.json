@@ -169,6 +169,11 @@
         "worker": "Workers",
         "person": "Personas"
       }
+    },
+    "filters": {
+      "label": "Filtros",
+      "active": "{{count}} activos",
+      "sort": "Ordenar"
     }
   }
 }
