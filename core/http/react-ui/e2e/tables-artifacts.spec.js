@@ -297,29 +297,55 @@ test.describe('Tables CSV exports', () => {
   })
 
   test('tables-artifacts: a person at the file quota is told so and no file is made', async ({ browser }) => {
+    // This account has no files from the earlier export/revocation cases.
+    const who = 'editor'
     const viewerGrant = await browserAs(browser, 'member')
     await viewerGrant.page.goto(ROUTE)
-    const grant = await pageFetch(viewerGrant.page, `/api/addons/resources/${state.db.id}/grants/${creds.users.viewer.id}`, { method: 'PUT', body: { role: 'viewer' }, headers: { 'X-LocalAI-Confirm': state.db.id } })
+    const grant = await pageFetch(viewerGrant.page, `/api/addons/resources/${state.db.id}/grants/${creds.users[who].id}`, { method: 'PUT', body: { role: 'viewer' }, headers: { 'X-LocalAI-Confirm': state.db.id } })
     expect(grant.status).toBe(200)
     await viewerGrant.context.close()
 
-    const viewer = await apiAs('viewer')
+    const viewer = await apiAs(who)
     let made = 0
     let denied = null
-    for (let i = 0; i < 140 && !denied; i++) {
+    for (let i = 0; i <= 100 && !denied; i++) {
       const r = await viewer.post('/api/addons/dispatch', {
         data: { operationId: `op-${randomUUID()}`, addonId: 'tables', resourceId: state.db.id, generation: state.db.generation, action: 'read', arguments: { tool: 'rows-export', table: 'Typed', columns: ['Name'] } },
       })
-      if (r.status() === 200) made++
-      else if (r.status() === 403) denied = await r.json()
-      else await new Promise(resolve => setTimeout(resolve, 100))
+      const body = await r.json()
+      if (r.status() === 403) {
+        denied = body
+        expect(body.outputs || []).toEqual([])
+        break
+      }
+      expect(r.status(), JSON.stringify(body)).toBe(200)
+      expect(body.payload.exported, JSON.stringify(body)).toBe(true)
+      expect(body.outputs).toHaveLength(1)
+      const id = body.outputs[0].handle
+      expect(id).toMatch(/^a[0-9a-f]{32}$/)
+      // Dispatch only starts ingestion. Wait for its file before the next
+      // export, or the transfer/staging bounds can fill before the file quota.
+      // In particular, HTTP 200 with payload.error="busy" is not a file.
+      let artifact
+      await expect.poll(async () => {
+        const status = await viewer.get(`/api/addons/artifacts/${id}`)
+        expect(status.status()).toBe(200)
+        artifact = await status.json()
+        return artifact.state
+      }, { timeout: 30_000 }).not.toBe('transferring')
+      expect(artifact.state, JSON.stringify(artifact)).toBe('complete')
+      // Complete bytes can be visible before the worker releases its slot.
+      // The fixture barrier preserves the file and waits for that cleanup.
+      const settled = await viewer.post(creds.artifactControl, { data: { user: who, id } })
+      expect(settled.status()).toBe(200)
+      expect(await settled.json()).toMatchObject({ id, state: 'complete' })
+      made++
     }
     expect(denied, `a refusal after ${made} files`).toBeTruthy()
-    expect(made).toBeGreaterThan(50)
-    expect(made).toBeLessThanOrEqual(100)
+    expect(made).toBe(100)
 
     // The page shows the refusal and no card.
-    const v = await browserAs(browser, 'viewer')
+    const v = await browserAs(browser, who)
     await openDb(v.page, state.db.id, 'Typed')
     await v.page.getByRole('button', { name: 'Export CSV' }).click()
     const dialog = v.page.getByTestId('tbl-export-dialog')
