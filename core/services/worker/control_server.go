@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
@@ -113,17 +112,3 @@ func refuseNever[Reply any](error) Reply {
 	var reply Reply
 	return reply
 }
-
-// inflight counts the requests that a control server is answering. A worker does
-// not close a carrier while one runs on it, because the answer goes back on the
-// carrier the request came on.
-type inflight struct{ n atomic.Int32 }
-
-// enter marks a request as running and returns the function that ends it.
-func (c *inflight) enter() func() {
-	c.n.Add(1)
-	return func() { c.n.Add(-1) }
-}
-
-// InFlight is the number of requests that run now.
-func (c *inflight) InFlight() int { return int(c.n.Load()) }

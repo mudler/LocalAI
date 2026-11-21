@@ -29,8 +29,8 @@ var _ = Describe("Registry", func() {
 		db = testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR = cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
-		Expect(clusterR.Register(ctx, "replica-b", "test", 0, "")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-a", "test")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-b", "test")).To(Succeed())
 		registry = tunnel.NewRegistry(clusterR, "replica-a")
 	})
 

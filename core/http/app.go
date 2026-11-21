@@ -665,14 +665,17 @@ func API(application *application.Application) (*echo.Echo, error) {
 		registry = d.Registry
 		workerHTTPDial = d.WorkerHTTPDial
 		tunnels = d.Tunnels
-		registerOpts = append(registerOpts, localai.WithCarrierReader(d.Carriers))
 		registerOpts = append(registerOpts, localai.WithTunnelDisconnector(d))
-		registerOpts = append(registerOpts, localai.WithNATSHandover(d.Runtime))
+		registerOpts = append(registerOpts, localai.WithNATSHandover(d.NATS))
 		// A worker that joined with a worker invite registers over P2P with
 		// its peer ID, and opens its tunnel there.
 		registerOpts = append(registerOpts, localai.WithWorkerPeers(application))
 		// Backend nodes learn the model-split workers attached to them.
 		registerOpts = append(registerOpts, localai.WithSplitNodes(application))
+		// The node list shows the route state the health monitor judges by.
+		if d.Health != nil {
+			registerOpts = append(registerOpts, localai.WithRouteStates(d.Health.RouteJudge()))
+		}
 		p2pTunnels := clusterep.P2PTunnelServer{Registry: d.Registry, Tunnels: d.Tunnels}
 		application.ServeP2PTunnels(p2pTunnels.ServeConn)
 		if d.Router != nil {
@@ -692,7 +695,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterClusterRoutes(e, registry, tunnels, instances, onPeer)
 	var clusterAdmin routes.ClusterAdmin
 	if d := application.Distributed(); d != nil {
-		clusterAdmin = routes.ClusterAdmin{Switch: d.Switch, Settings: d.Settings, Prober: d.Runtime, NATS: d.Runtime}
+		clusterAdmin = routes.ClusterAdmin{Settings: d.Settings, NATS: d.NATS, State: d.NATS}
 	}
 	routes.RegisterClusterAdminRoutes(e, adminMiddleware, clusterAdmin)
 	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial, registerOpts...)

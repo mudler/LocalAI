@@ -31,7 +31,7 @@ var _ = Describe("Routing by the routes of a node", func() {
 		dual = BackendNode{ID: "dual", Name: "dual", Address: "10.0.0.1:50051", Status: StatusHealthy,
 			Attached: "nats", Follow: "nats,tunnel"}
 		tunnel = BackendNode{ID: "tunnel", Name: "tunnel", Status: StatusHealthy,
-			Attached: "tunnel", Follow: "tunnel", FollowError: "no routable address: it cannot follow a change to NATS",
+			Attached: "tunnel", Follow: "tunnel", FollowError: "nats: connecting",
 			TunnelTransport: TunnelWebSocket}
 		legacy = BackendNode{ID: "legacy", Name: "legacy", Address: "10.0.0.3:50051", Status: StatusHealthy}
 		p2p = BackendNode{ID: "p2p", Name: "p2p", Status: StatusHealthy, PeerID: "peer-a",
@@ -56,6 +56,10 @@ var _ = Describe("Routing by the routes of a node", func() {
 			[]Route{{Kind: RouteDirect}}),
 		Entry("a worker that predates carrier switching", &BackendNode{Address: "h:1"}, []Route{{Kind: RouteDirect}}),
 		Entry("a worker on NATS with no address", &BackendNode{Attached: "nats", Follow: "nats"}, nil),
+		Entry("an agent worker on NATS, which needs no address", &BackendNode{NodeType: NodeTypeAgent, Attached: "nats", Follow: "nats"},
+			[]Route{{Kind: RouteDirect}}),
+		Entry("an agent worker on the tunnel", &BackendNode{NodeType: NodeTypeAgent, Attached: "tunnel", Follow: "tunnel", TunnelTransport: TunnelWebSocket},
+			[]Route{{Kind: RouteTunnel, Transport: TunnelWebSocket}}),
 		Entry("a worker that is attached to nothing", &BackendNode{Address: "h:1", Follow: "nats,tunnel"}, nil),
 		Entry("a websocket tunnel worker", &BackendNode{Attached: "tunnel", Follow: "tunnel", TunnelTransport: TunnelWebSocket},
 			[]Route{{Kind: RouteTunnel, Transport: TunnelWebSocket}}),

@@ -119,12 +119,12 @@ var _ = Describe("CredentialManager", func() {
 
 	Describe("Reregister", func() {
 		tunnelRes := func(token string) *RegisterResponse {
-			return &RegisterResponse{ID: "node-1", Status: "healthy", Carrier: "tunnel", TunnelToken: token}
+			return &RegisterResponse{ID: "node-1", Status: "healthy", TunnelToken: token}
 		}
 
 		It("replaces the tunnel token with the one that the new registration minted", func() {
 			f := &fakeRegister{steps: []step{{res: tunnelRes("token-1")}, {res: tunnelRes("token-2")}}}
-			m := NewCredentialManager(f.fn(), false)
+			m := NewCredentialManagerFor(f.fn(), false, RouteTunnel)
 			_, err := m.Acquire(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
@@ -135,7 +135,7 @@ var _ = Describe("CredentialManager", func() {
 
 		It("keeps the old token and returns the error when registration fails", func() {
 			f := &fakeRegister{steps: []step{{res: tunnelRes("token-1")}, {err: errors.New("frontend down")}}}
-			m := NewCredentialManager(f.fn(), false)
+			m := NewCredentialManagerFor(f.fn(), false, RouteTunnel)
 			_, err := m.Acquire(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
@@ -144,9 +144,9 @@ var _ = Describe("CredentialManager", func() {
 			Expect(f.count()).To(Equal(2))
 		})
 
-		It("keeps the old token when the answer names the tunnel and mints none", func() {
+		It("keeps the old token when the answer mints none", func() {
 			f := &fakeRegister{steps: []step{{res: tunnelRes("token-1")}, {res: tunnelRes("")}}}
-			m := NewCredentialManager(f.fn(), false)
+			m := NewCredentialManagerFor(f.fn(), false, RouteTunnel)
 			_, err := m.Acquire(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
@@ -155,29 +155,29 @@ var _ = Describe("CredentialManager", func() {
 		})
 	})
 
-	Describe("Acquire on the tunnel carrier", func() {
+	Describe("Acquire on the tunnel route", func() {
 		tunnelRes := func(status, token string) *RegisterResponse {
-			return &RegisterResponse{ID: "node-1", Status: status, Carrier: "tunnel", CarrierEpoch: 4, TunnelToken: token}
+			return &RegisterResponse{ID: "node-1", Status: status, TunnelToken: token}
 		}
 
 		It("returns at once with the token, also for a node that waits for approval", func() {
 			f := &fakeRegister{steps: []step{{res: tunnelRes("pending", "token-1")}}}
-			m := NewCredentialManager(f.fn(), true)
+			m := NewCredentialManagerFor(f.fn(), true, RouteTunnel)
 
 			res, err := m.Acquire(context.Background())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Carrier).To(Equal("tunnel"))
+			Expect(res.TunnelToken).To(Equal("token-1"))
 			Expect(f.count()).To(Equal(1))
 			Expect(m.TunnelToken()).To(Equal("token-1"))
 			Expect(m.HasCredentials()).To(BeFalse(), "a tunnel worker holds no NATS credentials")
 		})
 
-		It("waits when the frontend named the tunnel but did not mint a token", func() {
+		It("waits when the frontend did not mint a token", func() {
 			f := &fakeRegister{steps: []step{
 				{res: tunnelRes("healthy", "")},
 				{res: tunnelRes("healthy", "token-2")},
 			}}
-			m := NewCredentialManager(f.fn(), false)
+			m := NewCredentialManagerFor(f.fn(), false, RouteTunnel)
 			m.initialBackoff = time.Millisecond
 			m.maxBackoff = time.Millisecond
 
@@ -189,30 +189,28 @@ var _ = Describe("CredentialManager", func() {
 
 		It("gives the token of the latest registration, because every registration mints a new one", func() {
 			f := &fakeRegister{steps: []step{{res: tunnelRes("healthy", "token-1")}, {res: tunnelRes("healthy", "token-2")}}}
-			m := NewCredentialManager(f.fn(), true)
+			m := NewCredentialManagerFor(f.fn(), true, RouteTunnel)
 			_, err := m.Acquire(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(m.TunnelToken()).To(Equal("token-1"))
 
-			m.store(&RegisterResponse{ID: "node-1", Carrier: "tunnel", TunnelToken: "token-2"})
+			m.store(&RegisterResponse{ID: "node-1", TunnelToken: "token-2"})
 			Expect(m.TunnelToken()).To(Equal("token-2"))
 		})
 
-		It("does not touch the NATS path: a frontend that names NATS, or nothing, still waits for the JWT", func() {
-			for _, carrier := range []string{"", "nats"} {
-				f := &fakeRegister{steps: []step{
-					{res: &RegisterResponse{ID: "node-1", Status: "healthy", Carrier: carrier}},
-					{res: &RegisterResponse{ID: "node-1", Status: "healthy", Carrier: carrier, NatsJWT: "jwt", NatsUserSeed: "seed"}},
-				}}
-				m := NewCredentialManager(f.fn(), true)
-				m.initialBackoff = time.Millisecond
-				m.maxBackoff = time.Millisecond
+		It("does not touch the NATS route: it still waits for the JWT", func() {
+			f := &fakeRegister{steps: []step{
+				{res: &RegisterResponse{ID: "node-1", Status: "healthy"}},
+				{res: &RegisterResponse{ID: "node-1", Status: "healthy", NatsJWT: "jwt", NatsUserSeed: "seed"}},
+			}}
+			m := NewCredentialManagerFor(f.fn(), true, RouteNATS)
+			m.initialBackoff = time.Millisecond
+			m.maxBackoff = time.Millisecond
 
-				_, err := m.Acquire(context.Background())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(f.count()).To(Equal(2), "carrier %q", carrier)
-				Expect(m.TunnelToken()).To(BeEmpty())
-			}
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.count()).To(Equal(2))
+			Expect(m.TunnelToken()).To(BeEmpty())
 		})
 	})
 

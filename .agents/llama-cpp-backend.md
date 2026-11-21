@@ -65,6 +65,8 @@ Always check `llama.cpp` for new model configuration options that should be supp
 
 The `spec_type` option in `grpc-server.cpp` delegates to upstream's `common_speculative_types_from_names()`, so new speculative types added to the `common_speculative_type_from_name` map in `common/speculative.cpp` are picked up automatically with no code changes - only docs need an entry in `docs/content/models/model-configuration.md`. Current values: `none`, `draft-simple`, `draft-eagle3`, `draft-mtp`, `draft-dflash`, `draft-dspark`, `ngram-simple`, `ngram-map-k`, `ngram-map-k4v`, `ngram-mod`, `ngram-cache`.
 
+When `draft_model` is set and no `spec_type` is configured, `params_parse` asks `common_speculative_types_from_gguf()` (guarded by `LOCALAI_HAS_SPEC_TYPES_FROM_GGUF`, probed in `prepare.sh` for forks that lack it) to read the draft GGUF's `general.architecture`, and falls back to `draft-simple`. The importer (`core/gallery/importers/llama-cpp.go`) writes `draft_model` plus an explicit `spec_type` for `dspark-`, `dflash-`, `eagle3-` and `mtp-` sidecars, using the same keywords as llama.cpp's `common/download.cpp`.
+
 `draft-mtp` (Multi-Token Prediction, [ggml-org/llama.cpp#22673](https://github.com/ggml-org/llama.cpp/pull/22673)) does not need a separate draft GGUF: when `spec_type` includes `draft-mtp` and `draftmodel` is empty, the upstream server creates an MTP context off the target model itself. LocalAI's gRPC layer needs no changes for this — it works through the existing `params.speculative.types` plumbing and the derived `cparams.n_rs_seq = params.speculative.need_n_rs_seq()` in `common_context_params_to_llama`.
 
 ### Implementation Guidelines

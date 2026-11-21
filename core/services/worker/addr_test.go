@@ -67,16 +67,16 @@ var _ = Describe("Worker address resolution", func() {
 	})
 
 	Describe("the bind host", func() {
-		DescribeTable("is loopback only for a worker on the tunnel with no routable address",
-			func(tunnel bool, addr, advertise, want string) {
+		DescribeTable("is loopback only for a worker with no NATS route and no routable address",
+			func(holdsNATS bool, addr, advertise, want string) {
 				cfg := &Config{Addr: addr, AdvertiseAddr: advertise}
-				Expect(cfg.bindHost(tunnel)).To(Equal(want))
+				Expect(cfg.bindHost(holdsNATS)).To(Equal(want))
 			},
-			Entry("tunnel, no address", true, "", "", "127.0.0.1"),
-			Entry("tunnel, --addr", true, "worker1:50051", "", "0.0.0.0"),
-			Entry("tunnel, --advertise-addr", true, "", "worker1:50051", "0.0.0.0"),
-			Entry("NATS, no address: binds as it always did", false, "", "", "0.0.0.0"),
-			Entry("NATS, --addr", false, "worker1:50051", "", "0.0.0.0"),
+			Entry("tunnel only, no address", false, "", "", "127.0.0.1"),
+			Entry("tunnel only, --addr", false, "worker1:50051", "", "0.0.0.0"),
+			Entry("tunnel only, --advertise-addr", false, "", "worker1:50051", "0.0.0.0"),
+			Entry("NATS, no address: binds as it always did", true, "", "", "0.0.0.0"),
+			Entry("NATS, --addr", true, "worker1:50051", "", "0.0.0.0"),
 		)
 
 		It("puts the host in front of the port of the file-transfer server", func() {

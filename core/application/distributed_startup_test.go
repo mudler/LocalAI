@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/tunnel"
@@ -25,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("distributed startup and the cluster carrier", func() {
+var _ = Describe("distributed startup", func() {
 	var (
 		db  *gorm.DB
 		cfg *config.ApplicationConfig
@@ -49,29 +50,14 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		}
 	})
 
-	carrierRow := func() cluster.CarrierRow {
-		store, err := cluster.NewCarrierStore(db)
-		Expect(err).ToNot(HaveOccurred())
-		row, err := store.Get(context.Background())
-		Expect(err).ToNot(HaveOccurred())
-		return row
-	}
-
-	It("seeds NATS before it connects, and stops the start on a NATS URL it cannot use", func() {
+	It("stops the start on a NATS URL it cannot use", func() {
 		cfg.Distributed.NatsURL = "nats://[::1"
 		svc, err := initDistributed(cfg, db, nil, nil)
 		Expect(err).To(MatchError(ContainSubstring("connecting to NATS")))
 		Expect(svc).To(BeNil())
-
-		// The row was written with NATS, because this deployment has a NATS URL.
-		row := carrierRow()
-		Expect(row.Active).To(Equal(cluster.CarrierNATS))
-		Expect(row.Epoch).To(Equal(int64(1)))
-		Expect(row.State).To(Equal(cluster.StateStable))
-		Expect(row.ChangedBy).To(Equal("replica-a"))
 	})
 
-	It("starts a deployment with only PostgreSQL on the tunnel carrier, and opens no NATS connection", func() {
+	It("starts a deployment with only PostgreSQL on the tunnel route, broadcasts over PostgreSQL, and opens no NATS connection", func() {
 		pg, dsn := testutil.SetupTestDBWithDSN()
 		cfg.Auth.DatabaseURL = dsn
 		cfg.Distributed.NatsURL = ""
@@ -80,76 +66,63 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
 
-		store, err := cluster.NewCarrierStore(pg)
-		Expect(err).ToNot(HaveOccurred())
-		row, err := store.Get(context.Background())
-		Expect(err).ToNot(HaveOccurred())
-		Expect(row.Active).To(Equal(cluster.CarrierTunnel))
-		Expect(row.Epoch).To(Equal(int64(1)))
-		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierTunnel))
+		Expect(svc.routes.Route(nodes.RouteTunnel)).ToNot(BeNil())
+		Expect(svc.routes.Route(nodes.RouteDirect)).To(BeNil(), "no NATS server, no direct route")
+		Expect(svc.NATS.Bus()).To(Equal(carrier.BusState{Bus: carrier.BusPostgres}))
 
 		// Fan-out goes through the database, and one LISTEN session exists for it.
 		Expect(svc.bus.PublishBus()).To(Equal(carrier.BusPostgres))
-		Expect(svc.Unready()).To(Succeed(), "no NATS is configured, so none can be out of reach")
+		Expect(svc.bus.Unready()).To(Succeed(), "no NATS is configured, so none can be out of reach")
 		var sessions int64
 		Expect(pg.Raw("SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'").Scan(&sessions).Error).To(Succeed())
 		Expect(sessions).To(Equal(int64(1)))
 		got := make(chan []byte, 1)
-		_, err = svc.Broadcaster.Subscribe("staging.carrier-spec", func(b []byte) { got <- b })
+		_, err = svc.Broadcaster.Subscribe("staging.startup-spec", func(b []byte) { got <- b })
 		Expect(err).ToNot(HaveOccurred())
-		Expect(svc.Broadcaster.Publish("staging.carrier-spec", "hello")).To(Succeed())
+		Expect(svc.Broadcaster.Publish("staging.startup-spec", "hello")).To(Succeed())
 		Eventually(got, "10s").Should(Receive(Equal([]byte(`"hello"`))))
 	})
 
-	It("starts on the tunnel carrier that the row names, whatever the flags of this replica say", func() {
+	It("starts before its NATS server, holds both routes, stores the URL for the whole cluster, and broadcasts over PostgreSQL until it reaches NATS", func() {
 		pg, dsn := testutil.SetupTestDBWithDSN()
 		cfg.Auth.DatabaseURL = dsn
-		store, err := cluster.NewCarrierStore(pg)
-		Expect(err).ToNot(HaveOccurred())
-		_, _, err = store.Seed(context.Background(), cluster.CarrierTunnel, "replica-b")
-		Expect(err).ToNot(HaveOccurred())
 
-		// The NATS URL of the flag points at nothing. The worker routes follow the
-		// row; the broadcasts would use NATS, and the replica is not ready while it
-		// does not reach it. It still publishes and hears on PostgreSQL.
+		// The NATS URL of the flag points at nothing. A frontend may start before
+		// its broker: the start goes on, and the replica is not ready while it
+		// does not reach the server. It still publishes and hears on PostgreSQL.
 		svc, err := initDistributed(cfg, pg, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
-		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierTunnel))
-		Expect(svc.Unready()).To(MatchError(carrier.ErrBusUnreachable))
+		Expect(svc.routes.Route(nodes.RouteDirect)).ToNot(BeNil())
+		Expect(svc.routes.Route(nodes.RouteTunnel)).ToNot(BeNil())
+		Expect(svc.bus.Unready()).To(MatchError(carrier.ErrBusUnreachable))
 		Expect(svc.bus.PublishBus()).To(Equal(carrier.BusPostgres))
+		Expect(svc.NATS.Bus()).To(Equal(carrier.BusState{Bus: carrier.BusPostgres, NATSConfigured: true}))
 		got := make(chan []byte, 1)
-		_, err = svc.Broadcaster.Subscribe("staging.carrier-spec", func(b []byte) { got <- b })
+		_, err = svc.Broadcaster.Subscribe("staging.startup-spec", func(b []byte) { got <- b })
 		Expect(err).ToNot(HaveOccurred())
-		Expect(svc.Broadcaster.Publish("staging.carrier-spec", "floor")).To(Succeed())
+		Expect(svc.Broadcaster.Publish("staging.startup-spec", "floor")).To(Succeed())
 		Eventually(got, "10s").Should(Receive(Equal([]byte(`"floor"`))))
-		row, err := store.Get(context.Background())
-		Expect(err).ToNot(HaveOccurred())
-		Expect(row.Active).To(Equal(cluster.CarrierTunnel), "the row is left as it was")
-		Expect(row.ChangedBy).To(Equal("replica-b"))
 
 		url, ok, err := svc.Settings.Get(context.Background(), cluster.SettingNATSURL)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(ok).To(BeTrue())
-		Expect(url).To(Equal("nats://127.0.0.1:1"), "the URL of the flag is stored for a change back to NATS")
+		Expect(url).To(Equal("nats://127.0.0.1:1"))
 	})
 
-	It("seeds NATS for a deployment that has a NATS URL, and stores the URL for the whole cluster", func() {
-		// The server at that address is not there. A frontend may start before its
-		// broker, so the start goes on and the client keeps trying.
+	It("drops the carrier row and the readiness columns that an older release left", func() {
+		Expect(db.Exec(`CREATE TABLE cluster_carrier (id bigint PRIMARY KEY, active varchar(16), epoch bigint)`).Error).To(Succeed())
+		Expect(db.Exec(`INSERT INTO cluster_carrier VALUES (1, 'tunnel', 4)`).Error).To(Succeed())
+		Expect(db.Exec(`CREATE TABLE instances (id varchar(36) PRIMARY KEY, version varchar(255), last_seen timestamptz,
+			ready_epoch bigint NOT NULL DEFAULT 0, ready_reason varchar(512) NOT NULL DEFAULT '')`).Error).To(Succeed())
+
 		svc, err := initDistributed(cfg, db, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
-		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierNATS))
 
-		row := carrierRow()
-		Expect(row.Active).To(Equal(cluster.CarrierNATS))
-		store, err := cluster.NewSettingsStore(db)
-		Expect(err).ToNot(HaveOccurred())
-		url, ok, err := store.Get(context.Background(), cluster.SettingNATSURL)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(ok).To(BeTrue())
-		Expect(url).To(Equal("nats://127.0.0.1:1"))
+		Expect(db.Migrator().HasTable("cluster_carrier")).To(BeFalse())
+		Expect(db.Migrator().HasColumn(&cluster.Instance{}, "ready_epoch")).To(BeFalse())
+		Expect(svc.routes.Route(nodes.RouteDirect)).ToNot(BeNil(), "the routes follow the configuration, not a row")
 	})
 
 	It("stops the start when the NATS URL of the flag differs from the one stored for the cluster, and names both", func() {
@@ -181,7 +154,6 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(ok).To(BeTrue())
 		Expect(url).To(Equal("nats://127.0.0.1:1"))
-		Expect(carrierRow().NATSURL).To(Equal("nats://127.0.0.1:1"))
 
 		// A second start with the same flag is the same deployment.
 		cfg.Distributed.InstanceID = "replica-b"
@@ -190,47 +162,17 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		DeferCleanup(second.Shutdown)
 	})
 
-	It("does not seed the tunnel in a cluster that has workers, when the replica has no NATS URL", func() {
-		Expect(db.AutoMigrate(&nodes.BackendNode{})).To(Succeed())
-		Expect(db.Create(&nodes.BackendNode{ID: "w1", Name: "w1", NodeType: "backend", Address: "w1:50051"}).Error).To(Succeed())
-		cfg.Distributed.NatsURL = ""
-
-		svc, err := initDistributed(cfg, db, nil, nil)
-		Expect(err).To(MatchError(ContainSubstring("--nats-url")))
-		Expect(svc).To(BeNil())
-
-		store, err := cluster.NewCarrierStore(db)
-		Expect(err).ToNot(HaveOccurred())
-		_, err = store.Get(context.Background())
-		Expect(err).To(MatchError(cluster.ErrNotSeeded), "the row is not written, so the next start with the flag seeds NATS")
-	})
-
-	It("does not start without a NATS URL when the row says NATS", func() {
-		store, err := cluster.NewCarrierStore(db)
-		Expect(err).ToNot(HaveOccurred())
-		_, _, err = store.Seed(context.Background(), cluster.CarrierNATS, "replica-b")
-		Expect(err).ToNot(HaveOccurred())
-		cfg.Distributed.NatsURL = ""
-
-		svc, err := initDistributed(cfg, db, nil, nil)
-		Expect(err).To(MatchError(ContainSubstring("the cluster carrier row says NATS")))
-		Expect(svc).To(BeNil())
-	})
-
 	It("starts without a NATS flag on the URL that the cluster stored", func() {
 		settings, err := cluster.NewSettingsStore(db)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(settings.Set(context.Background(), cluster.SettingNATSURL, "nats://127.0.0.1:1", "admin")).To(Succeed())
-		store, err := cluster.NewCarrierStore(db)
-		Expect(err).ToNot(HaveOccurred())
-		_, _, err = store.Seed(context.Background(), cluster.CarrierNATS, "replica-b")
-		Expect(err).ToNot(HaveOccurred())
 		cfg.Distributed.NatsURL = ""
 
 		svc, err := initDistributed(cfg, db, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
-		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierNATS))
+		Expect(svc.NATS.Bus().NATSConfigured).To(BeTrue())
+		Expect(svc.routes.Route(nodes.RouteDirect)).ToNot(BeNil())
 	})
 
 	Context("with a NATS server", func() {
@@ -247,14 +189,16 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			cfg.Distributed.NatsURL = url
 		})
 
-		It("seeds NATS on first start and wires every seam to it", func() {
+		It("wires every seam, and broadcasts over NATS once it reaches the server", func() {
 			svc, err := initDistributed(cfg, db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(svc.Shutdown)
 
-			Expect(carrierRow().Active).To(Equal(cluster.CarrierNATS))
-			Eventually(svc.Unready, "10s").Should(Succeed(), "ready once it reaches the server")
+			Expect(svc.routes.Route(nodes.RouteDirect)).ToNot(BeNil())
+			Eventually(svc.Unready, "10s").Should(Or(Succeed(), MatchError(ErrNoPeerAddress)), "the bus is ready once it reaches the server")
+			Eventually(svc.bus.Unready, "10s").Should(Succeed())
 			Expect(svc.bus.PublishBus()).To(Equal(carrier.BusNATS))
+			Expect(svc.NATS.Bus()).To(Equal(carrier.BusState{Bus: carrier.BusNATS, NATSConfigured: true, NATSConnected: true}))
 			Expect(svc.Broadcaster).ToNot(BeNil())
 			Expect(svc.Replies).ToNot(BeNil())
 			Expect(svc.AgentControl).ToNot(BeNil())
@@ -265,21 +209,25 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			// A message published through the holder reaches a subscriber made
 			// through the same holder, over the real server.
 			got := make(chan []byte, 1)
-			sub, err := svc.Broadcaster.Subscribe("staging.carrier-spec", func(b []byte) { got <- b })
+			sub, err := svc.Broadcaster.Subscribe("staging.startup-spec", func(b []byte) { got <- b })
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(func() { _ = sub.Unsubscribe() })
-			Expect(svc.Broadcaster.Publish("staging.carrier-spec", "hello")).To(Succeed())
+			Expect(svc.Broadcaster.Publish("staging.startup-spec", "hello")).To(Succeed())
 			Eventually(got).Should(Receive(Equal([]byte(`"hello"`))))
 
-			// Request and reply go through the same holder, over the real server.
+			// Request and reply between processes go over the peer link, also on
+			// NATS. A request for this replica runs in the process.
 			rsub, err := svc.Replies.SubscribeReply("chats.replay.spec", func(data []byte, reply func([]byte)) {
 				reply(append([]byte("re:"), data...))
 			})
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(func() { _ = rsub.Unsubscribe() })
-			out, err := svc.Replies.Request("chats.replay.spec", []byte("x"), 5*time.Second)
+			out, err := svc.Replies.RequestInstance("replica-a", "chats.replay.spec", []byte("x"), 5*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(out)).To(Equal("re:x"))
+			// No chat worker is live, so a chat start reaches nobody.
+			_, err = svc.Replies.RequestQueue(messaging.SubjectChatStart, []byte("{}"), 5*time.Second, nil)
+			Expect(messaging.IsNoResponders(err)).To(BeTrue(), "got %v", err)
 		})
 
 		It("registers every replica in the instances table and removes it on shutdown", func() {
@@ -311,6 +259,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			svc, err := initDistributed(cfg, db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(svc.Shutdown)
+			Eventually(svc.Unready, "10s").Should(Succeed(), "a replica with a peer address that reaches NATS is ready")
 
 			inst, err := cluster.NewRegistry(db).Get(context.Background(), "replica-a")
 			Expect(err).ToNot(HaveOccurred())
@@ -321,7 +270,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Expect(svc.WorkerDialer).ToNot(BeNil())
 		})
 
-		It("starts without an address when the operator gave none and the database route cannot give one", func() {
+		It("starts without an address when the operator gave none and the database route cannot give one, and is not ready", func() {
 			svc, err := initDistributed(cfg, db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(svc.Shutdown)
@@ -329,6 +278,8 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(inst.AdvertisedAddr).To(BeEmpty())
 			Expect(inst.PeerTokenHash).ToNot(BeEmpty())
+			Expect(svc.Unready()).To(MatchError(ErrNoPeerAddress))
+			Expect(svc.Unready().Error()).To(ContainSubstring("LOCALAI_PEER_ADDRESS"))
 		})
 
 		It("ends the tunnel that it holds for a node that was removed, and says whether it held one", func() {
@@ -361,7 +312,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Expect(err).To(MatchError(cluster.ErrNoConnection))
 		})
 
-		It("starts a second replica on the same row without changing it", func() {
+		It("starts a second replica with the same NATS address, and both list the live replicas", func() {
 			first, err := initDistributed(cfg, db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(first.Shutdown)
@@ -370,9 +321,13 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(second.Shutdown)
 
-			row := carrierRow()
-			Expect(row.Epoch).To(Equal(int64(1)))
-			Expect(row.ChangedBy).To(Equal("replica-a"))
+			live, err := second.NATS.Replicas(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			ids := []string{}
+			for _, r := range live {
+				ids = append(ids, r.ID)
+			}
+			Expect(ids).To(ConsistOf("replica-a", "replica-b"))
 		})
 	})
 })

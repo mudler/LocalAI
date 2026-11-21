@@ -25,10 +25,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// The three callers of request and reply between processes, on the tunnel
-// carrier, through the holders of replicas that each run their own HTTP server
-// and peer link over one database.
-var _ = Describe("Request and reply between replicas on the tunnel carrier, end to end", func() {
+// The three callers of request and reply between processes, over the peer link
+// of replicas that each run their own HTTP server over one database.
+var _ = Describe("Request and reply between replicas over the peer link, end to end", func() {
 	var (
 		ctx      context.Context
 		db       *gorm.DB
@@ -51,20 +50,18 @@ var _ = Describe("Request and reply between replicas on the tunnel carrier, end 
 		nodeReg, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 
-		withChatWorkers := func(o *carrier.TunnelOptions) {
-			o.Queues = map[string]carrier.QueueMembers{
-				messaging.SubjectChatStart: func(context.Context) ([]string, error) {
-					mu.Lock()
-					defer mu.Unlock()
-					return slices.Clone(members), nil
-				},
-			}
-		}
-		front = startReplica(ctx, "frontend", db, dsn, clusterR, nodeReg, withChatWorkers)
+		front = startReplica(ctx, "frontend", db, dsn, clusterR, nodeReg)
+		front.useQueues(map[string]carrier.QueueMembers{
+			messaging.SubjectChatStart: func(context.Context) ([]string, error) {
+				mu.Lock()
+				defer mu.Unlock()
+				return slices.Clone(members), nil
+			},
+		})
 		b = startReplica(ctx, "replica-b", db, dsn, clusterR, nodeReg)
 		c = startReplica(ctx, "replica-c", db, dsn, clusterR, nodeReg)
 		// A replica that is in the deployment and does not answer.
-		Expect(clusterR.RegisterPeer(ctx, "replica-dead", "test", 0, "", "127.0.0.1:1", cluster.NewPeerCredential().Hash())).To(Succeed())
+		Expect(clusterR.RegisterPeer(ctx, "replica-dead", "test", "127.0.0.1:1", cluster.NewPeerCredential().Hash())).To(Succeed())
 	})
 
 	setMembers := func(ids ...string) {
@@ -80,7 +77,7 @@ var _ = Describe("Request and reply between replicas on the tunnel carrier, end 
 			GinkgoHelper()
 			n := &atomic.Int32{}
 			calls[r.id] = n
-			_, err := nodes.NewNATSChatStartServer(r.bus).Serve(func(context.Context, workerctl.ChatStartRequest) workerctl.ChatStartReply {
+			_, err := nodes.NewChatStartServer(r.rr).Serve(func(context.Context, workerctl.ChatStartRequest) workerctl.ChatStartReply {
 				n.Add(1)
 				return reply()
 			})
@@ -89,7 +86,7 @@ var _ = Describe("Request and reply between replicas on the tunnel carrier, end 
 		start := func(timeout time.Duration) (*workerctl.ChatStartReply, error) {
 			ctx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
-			return nodes.NewNATSChatStarter(front.bus).StartChat(ctx, workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1", Text: "go"})
+			return nodes.NewChatStarter(front.rr).StartChat(ctx, workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1", Text: "go"})
 		}
 
 		BeforeEach(func() { calls = map[string]*atomic.Int32{} })
@@ -149,45 +146,45 @@ var _ = Describe("Request and reply between replicas on the tunnel carrier, end 
 			for i := range 64 {
 				page = append(page, session.Event{ID: "run." + string(rune('a'+i%26)), Kind: session.KindText, Text: strings.Repeat("x", 7<<10)})
 			}
-			stop, err := studio.NewReplayCarrier(b.bus, nil).Serve("replica-b", func(req studio.ReplayRequest) studio.ReplayReply {
+			stop, err := studio.NewReplayCarrier(b.rr, nil).Serve("replica-b", func(req studio.ReplayRequest) studio.ReplayReply {
 				return studio.ReplayReply{Events: page, More: req.After == ""}
 			})
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(stop)
 
-			rep, err := studio.NewReplayCarrier(front.bus, nil).Ask("replica-b", studio.ReplayRequest{Key: "k"})
+			rep, err := studio.NewReplayCarrier(front.rr, nil).Ask("replica-b", studio.ReplayRequest{Key: "k"})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rep.Events).To(HaveLen(64))
 			Expect(rep.More).To(BeTrue())
 		})
 
 		It("fails an ask to a replica that does not answer, which the client reads as a resync", func() {
-			_, err := studio.NewReplayCarrier(front.bus, nil).Ask("replica-dead", studio.ReplayRequest{Key: "k"})
+			_, err := studio.NewReplayCarrier(front.rr, nil).Ask("replica-dead", studio.ReplayRequest{Key: "k"})
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	Describe("the background jobs of a turn", func() {
 		It("asks the replica that runs the job", func() {
-			stop, err := studio.NewJobCarrier(b.bus, nil).Serve("replica-b", func(q bgjob.Request) bgjob.Reply {
+			stop, err := studio.NewJobCarrier(b.rr, nil).Serve("replica-b", func(q bgjob.Request) bgjob.Reply {
 				return bgjob.Reply{List: []bgjob.Info{{ID: "job-1", Owner: q.Owner, Chat: q.Chat}}}
 			})
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(stop)
-			rep, err := studio.NewJobCarrier(front.bus, nil).Ask("replica-b", bgjob.Request{Action: bgjob.ActionList, Owner: "alice", Chat: "c1"})
+			rep, err := studio.NewJobCarrier(front.rr, nil).Ask("replica-b", bgjob.Request{Action: bgjob.ActionList, Owner: "alice", Chat: "c1"})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rep.List).To(HaveLen(1))
 		})
 
 		ask := func(instance string) error {
-			_, err := studio.NewJobCarrier(front.bus, nil).Ask(instance, bgjob.Request{Action: bgjob.ActionList, Owner: "alice", Chat: "c1"})
+			_, err := studio.NewJobCarrier(front.rr, nil).Ask(instance, bgjob.Request{Action: bgjob.ActionList, Owner: "alice", Chat: "c1"})
 			return err
 		}
 
 		It("reads no failure of an ask to a named replica as a node that left", func() {
 			for instance, why := range map[string]string{
 				"replica-gone": "a replica with no row may be a live one whose heartbeats stalled",
-				"replica-c":    "a replica that serves no jobs may not have prepared a forced change of carrier",
+				"replica-c":    "a replica that serves no jobs may not have registered its handler yet",
 				"replica-dead": "a replica that does not answer has not left",
 			} {
 				err := ask(instance)
@@ -199,7 +196,7 @@ var _ = Describe("Request and reply between replicas on the tunnel carrier, end 
 		})
 
 		It("does not count a live replica whose row was reaped toward a lost job, however many sweeps pass", func() {
-			stop, err := studio.NewJobCarrier(b.bus, nil).Serve("replica-b", func(q bgjob.Request) bgjob.Reply {
+			stop, err := studio.NewJobCarrier(b.rr, nil).Serve("replica-b", func(q bgjob.Request) bgjob.Reply {
 				return bgjob.Reply{List: []bgjob.Info{{ID: "job-1", Owner: q.Owner, Chat: q.Chat}}}
 			})
 			Expect(err).ToNot(HaveOccurred())

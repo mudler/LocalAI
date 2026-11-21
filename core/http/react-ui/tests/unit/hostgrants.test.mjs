@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizePreview, initialTicks, approvedOps, approvalBody, groupOps, installBlock, tickable,
-  normalizeOverview, editedOps, opEditable, blanketHolders, pendingApprovals, blanketBody, confirmMatches,
+  normalizeOverview, editedOps, opEditable, blanketHolders, pendingApprovals, approvalStage, awaitingApproval, blanketBody, confirmMatches,
   BLANKET_CONFIRM, withDenyRule, validateDenyDraft, denyRows, hostErrorKey, sourceOf, needsStep,
 } from '../../src/components/addons/hostGrantsState.js'
 import { createHostGrantsApi, classifyHostGrants } from '../../src/utils/hostGrantsApi.js'
@@ -208,4 +208,29 @@ test('hostgrants: a locked preview ticks nothing and approves no operation', () 
   assert.deepEqual(approvedOps(p, ['egress.check']), [])
   assert.equal(normalizeOverview({ locked: true, lockedReason: 'no_auth' }).lockedReason, 'no_auth')
   assert.equal(normalizePreview(PREVIEW).locked, false)
+})
+
+test('hostgrants: the stage of an approval follows the operation of the add-on', () => {
+  assert.equal(approvalStage(null), 'waiting')
+  assert.equal(approvalStage({ state: 'running', phase: 'queued' }), 'queued')
+  assert.equal(approvalStage({ state: 'running', phase: 'downloading' }), 'running')
+  assert.equal(approvalStage({ state: 'running', phase: 'submitting' }), 'running')
+  assert.equal(approvalStage({ state: 'cancelling', phase: 'queued' }), 'cancelling')
+  assert.equal(approvalStage({ state: 'failed', phase: 'queued' }), 'failed')
+})
+
+test('hostgrants: an approval that is queued, running or being canceled is not counted as waiting', () => {
+  const o = normalizeOverview({
+    addons: ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id, title: id, version: '1', ops: [], pendingUpgrade: { version: '2', delta: ['x'] } })),
+  })
+  const ops = {
+    a: null,
+    b: { state: 'running', phase: 'queued' },
+    c: { state: 'running', phase: 'downloading' },
+    d: { state: 'cancelling' },
+    e: { state: 'failed' },
+  }
+  const ids = awaitingApproval(o, (id) => ops[id] || null).map(a => a.id)
+  assert.deepEqual(ids, ['a', 'e', 'f'], 'only no operation and a failed one still ask the administrator')
+  assert.deepEqual(awaitingApproval(null, () => null), [])
 })

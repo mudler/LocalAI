@@ -106,14 +106,14 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(resp["status"]).To(Equal(nodes.StatusHealthy))
 		})
 
-		It("returns nats_jwt when account seed is configured", func() {
+		It("returns nats_jwt for the NATS route when account seed is configured", func() {
 			akp, err := nkeys.CreateAccount()
 			Expect(err).ToNot(HaveOccurred())
 			seed, err := akp.Seed()
 			Expect(err).ToNot(HaveOccurred())
 
 			e := echo.New()
-			body := `{"name":"worker-nats","address":"10.0.0.2:50051"}`
+			body := `{"name":"worker-nats","address":"10.0.0.2:50051","routes":["nats"]}`
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()
@@ -168,9 +168,9 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(errObj["message"]).To(ContainSubstring("exceeds 255 characters"))
 		})
 
-		It("returns 400 when address is missing for backend node type", func() {
+		It("returns 400 when address is missing for a backend worker on the NATS route", func() {
 			e := echo.New()
-			body := `{"name":"worker-no-addr"}`
+			body := `{"name":"worker-no-addr","routes":["nats"]}`
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()
@@ -465,6 +465,50 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(list).To(HaveLen(2))
 			names := []string{list[0].Name, list[1].Name}
 			Expect(names).To(ConsistOf("alpha", "beta"))
+		})
+
+		It("carries the live state of each route of a node, in the list and in the detail", func() {
+			ctx := context.Background()
+			node := &nodes.BackendNode{Name: "gamma", Address: "10.0.0.3:50051"}
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetRouteReport(ctx, node.ID, nodes.RouteReport{
+				Follow:      []string{nodes.RouteNATS, nodes.RouteTunnelID},
+				Attached:    []string{nodes.RouteTunnelID},
+				FollowError: "nats: connecting",
+				Tunnel:      nodes.TunnelRoute{Transport: nodes.TunnelWebSocket},
+			})).To(Succeed())
+			judge := nodes.RouteJudge{StaleThreshold: time.Hour}
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)
+			Expect(ListNodesEndpoint(registry, WithRouteStates(judge))(c)).To(Succeed())
+			var list []nodes.NodeWithExtras
+			Expect(json.Unmarshal(rec.Body.Bytes(), &list)).To(Succeed())
+			Expect(list).To(HaveLen(1))
+			states := list[0].RouteState
+			Expect(states).To(HaveLen(3))
+			Expect(states[0].Route).To(Equal(nodes.RouteHeartbeat))
+			Expect(states[1].Route).To(Equal(nodes.RouteNATS))
+			Expect(states[1].State).To(Equal(nodes.RouteDown))
+			Expect(states[1].Reason).To(Equal("connecting"))
+			Expect(states[2].Transport).To(Equal(nodes.TunnelWebSocket))
+			Expect(states[2].State).To(Equal(nodes.RouteLive))
+
+			rec = httptest.NewRecorder()
+			c = e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)
+			c.SetParamNames("id")
+			c.SetParamValues(node.ID)
+			Expect(GetNodeEndpoint(registry, WithRouteStates(judge))(c)).To(Succeed())
+			var one nodes.NodeWithExtras
+			Expect(json.Unmarshal(rec.Body.Bytes(), &one)).To(Succeed())
+			Expect(one.RouteState).To(HaveLen(3))
+
+			// Without the option the list says nothing about routes.
+			rec = httptest.NewRecorder()
+			c = e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)
+			Expect(ListNodesEndpoint(registry)(c)).To(Succeed())
+			Expect(rec.Body.String()).ToNot(ContainSubstring("route_state"))
 		})
 	})
 

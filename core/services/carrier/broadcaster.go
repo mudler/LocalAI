@@ -6,15 +6,11 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
-
-// ErrActiveSet is returned when a caller asks to release the active set.
-var ErrActiveSet = errors.New("the active carrier set cannot be released")
 
 // BroadcasterOptions are the inputs of NewBroadcaster.
 type BroadcasterOptions struct {
@@ -24,11 +20,6 @@ type BroadcasterOptions struct {
 	// Primary is the NATS bus, when a NATS server is configured for the
 	// cluster. It may be nil.
 	Primary *Bus
-	// Sets names the carrier set whose request and reply the holder uses. It may
-	// be nil, and every request then fails with messaging.ErrNotDelivered.
-	// Request and reply move to the peer link in step 5 of the hybrid carriers
-	// work, and this goes with it.
-	Sets *atomic.Pointer[Set]
 }
 
 // Broadcaster is the fan-out holder of the frontends and chat workers.
@@ -53,22 +44,14 @@ type Broadcaster struct {
 	// reconnect hooks, because messages across the change are not ordered.
 	last atomic.Pointer[Bus]
 
-	sets *atomic.Pointer[Set]
-
 	mu        sync.Mutex
-	listening []*Bus                // members the subscriptions are attached to
-	hooked    map[*Bus]*atomic.Bool // live flag of the reconnect hook of each member
-	setBus    map[*Set]*Bus         // the member that holds the request and reply of a set
+	listening []*Bus                // buses the subscriptions are attached to
+	hooked    map[*Bus]*atomic.Bool // live flag of the reconnect hook of each bus
 	subs      map[*subscription]struct{}
 	reconnect []func()
 }
 
-var (
-	_ messaging.Broadcaster       = (*Broadcaster)(nil)
-	_ messaging.RequestReply      = (*Broadcaster)(nil)
-	_ messaging.InstanceRequester = (*Broadcaster)(nil)
-	_ messaging.QueueRequester    = (*Broadcaster)(nil)
-)
+var _ messaging.Broadcaster = (*Broadcaster)(nil)
 
 // NewBroadcaster returns a holder that listens on the buses of o.
 func NewBroadcaster(o BroadcasterOptions) (*Broadcaster, error) {
@@ -83,21 +66,15 @@ func NewBroadcaster(o BroadcasterOptions) (*Broadcaster, error) {
 	b := &Broadcaster{
 		floor:   o.Floor,
 		primary: o.Primary,
-		sets:    o.Sets,
 		hooked:  map[*Bus]*atomic.Bool{},
-		setBus:  map[*Set]*Bus{},
 		subs:    map[*subscription]struct{}{},
 	}
 	for _, m := range []*Bus{o.Floor, o.Primary} {
 		if m != nil {
-			b.listening = append(b.listening, m)
-			b.hook(m)
-		}
-	}
-	if o.Sets != nil {
-		if first := o.Sets.Load(); first != nil {
-			m := b.memberOf(first)
-			b.listening = append(b.listening, m)
+			// Nothing is registered yet, so this attaches no subscription.
+			if err := b.listen(m); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return b, nil
@@ -163,96 +140,16 @@ func (b *Broadcaster) Subscribe(subject string, handler func([]byte)) (messaging
 		return nil, err
 	}
 	return b.register(subject, func(m *Bus) (messaging.Subscription, error) {
-		if m.Broadcaster == nil {
-			return nil, nil
-		}
 		return m.Broadcaster.Subscribe(subject, handler)
 	})
 }
 
-// Request sends a request on the active carrier set. A set that has no request
-// and reply between processes (Set.Replies is nil) answers with an error that
-// wraps messaging.ErrNotDelivered: nothing was sent, and that says nothing
-// about the process that would serve the subject.
-func (b *Broadcaster) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
-	rr, err := b.replies(subject)
-	if err != nil {
-		return nil, err
-	}
-	return rr.Request(subject, data, timeout)
-}
-
-// RequestInstance sends a request to the process instance on the active
-// carrier set. A carrier that routes by subject is sent the subject alone.
-func (b *Broadcaster) RequestInstance(instance, subject string, data []byte, timeout time.Duration) ([]byte, error) {
-	rr, err := b.replies(subject)
-	if err != nil {
-		return nil, err
-	}
-	return messaging.RequestInstance(rr, instance, subject, data, timeout)
-}
-
-// RequestQueue sends a request to one member of the queue group of subject on
-// the active carrier set (see messaging.QueueRequester).
-func (b *Broadcaster) RequestQueue(subject string, data []byte, timeout time.Duration, moveOn func([]byte) bool) ([]byte, error) {
-	rr, err := b.replies(subject)
-	if err != nil {
-		return nil, err
-	}
-	return messaging.RequestQueue(rr, subject, data, timeout, moveOn)
-}
-
-func (b *Broadcaster) replies(subject string) (messaging.RequestReply, error) {
-	var cur *Set
-	if b.sets != nil {
-		cur = b.sets.Load()
-	}
-	if cur == nil || cur.Replies == nil {
-		name := "no"
-		if cur != nil {
-			name = "the " + string(cur.Name)
-		}
-		return nil, fmt.Errorf("%w: %s carrier has no request and reply (%s)", messaging.ErrNotDelivered, name, subject)
-	}
-	return cur.Replies, nil
-}
-
-// SubscribeReply answers the requests on subject on every carrier set the holder
-// listens on that has request and reply, and keeps the subscription across a
-// change of carrier, as Subscribe does across buses.
-func (b *Broadcaster) SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (messaging.Subscription, error) {
-	if err := messaging.ValidateSubject(subject); err != nil {
-		return nil, err
-	}
-	return b.register(subject, func(m *Bus) (messaging.Subscription, error) {
-		if m.replies == nil {
-			return nil, nil
-		}
-		return m.replies.SubscribeReply(subject, handler)
-	})
-}
-
-// QueueSubscribeReply is SubscribeReply in the queue group queue: one member of
-// the group answers each request.
-func (b *Broadcaster) QueueSubscribeReply(subject, queue string, handler func(data []byte, reply func([]byte))) (messaging.Subscription, error) {
-	if err := messaging.ValidateSubject(subject); err != nil {
-		return nil, err
-	}
-	return b.register(subject, func(m *Bus) (messaging.Subscription, error) {
-		if m.replies == nil {
-			return nil, nil
-		}
-		return m.replies.QueueSubscribeReply(subject, queue, handler)
-	})
-}
-
-// register keeps open as a subscription of the holder and runs it on every
-// member that the holder listens on. open returns a nil subscription for a
-// member that does not serve it.
+// register keeps open as a subscription of the holder and runs it on every bus
+// that the holder listens on.
 func (b *Broadcaster) register(subject string, open func(*Bus) (messaging.Subscription, error)) (messaging.Subscription, error) {
 	sub := &subscription{owner: b, subject: subject, open: open, inner: map[*Bus]messaging.Subscription{}}
 
-	// Read the members and register in one step, so a concurrent Listen either
+	// Read the buses and register in one step, so a concurrent Listen either
 	// sees this subscription or is seen by it, never neither.
 	b.mu.Lock()
 	members := slices.Clone(b.listening)
@@ -266,35 +163,6 @@ func (b *Broadcaster) register(subject string, open func(*Bus) (messaging.Subscr
 		}
 	}
 	return sub, nil
-}
-
-// memberOf returns the member that holds the request and reply of set. The
-// caller holds b.mu or owns b exclusively.
-func (b *Broadcaster) memberOf(set *Set) *Bus {
-	if m, ok := b.setBus[set]; ok {
-		return m
-	}
-	m := &Bus{Name: string(set.Name), replies: set.Replies}
-	b.setBus[set] = m
-	return m
-}
-
-// Listen attaches every reply subscription to the request and reply of next. It
-// does nothing if next is already attached. On failure it detaches next again,
-// so the caller can report that the carrier is not ready. The broadcasts do not
-// follow the set: they go over the buses of the holder.
-//
-// It is the part of the change of carrier that moves request and reply, and is
-// removed with it in step 5 of the hybrid carriers work.
-func (b *Broadcaster) Listen(next *Set) error {
-	b.mu.Lock()
-	m := b.memberOf(next)
-	b.mu.Unlock()
-	if err := b.listen(m); err != nil {
-		_ = b.Release(next)
-		return fmt.Errorf("attaching subscriptions to carrier %q: %w", next.Name, err)
-	}
-	return nil
 }
 
 // listen attaches every registered subscription to m. It does nothing if m is
@@ -316,22 +184,6 @@ func (b *Broadcaster) listen(m *Bus) error {
 		}
 	}
 	return nil
-}
-
-// Release detaches every reply subscription from old. It refuses the active set.
-// Releasing a set that is not attached does nothing.
-func (b *Broadcaster) Release(old *Set) error {
-	if b.sets != nil && b.sets.Load() == old {
-		return ErrActiveSet
-	}
-	b.mu.Lock()
-	m, ok := b.setBus[old]
-	delete(b.setBus, old)
-	b.mu.Unlock()
-	if !ok {
-		return nil
-	}
-	return b.release(m)
 }
 
 // release detaches every subscription from m.
@@ -428,7 +280,7 @@ func (b *Broadcaster) attached(m *Bus) bool {
 }
 
 // subscription is one registered subscription and its attachment to each
-// member.
+// bus.
 type subscription struct {
 	owner   *Broadcaster
 	subject string
@@ -469,7 +321,7 @@ func (sub *subscription) detach(m *Bus) error {
 	return in.Unsubscribe()
 }
 
-// Unsubscribe removes the subscription from every member. It is safe to call
+// Unsubscribe removes the subscription from every bus. It is safe to call
 // twice.
 func (sub *subscription) Unsubscribe() error {
 	sub.mu.Lock()

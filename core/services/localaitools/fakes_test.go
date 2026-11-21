@@ -501,11 +501,6 @@ func (f *fakeClient) SetCarrierWeights(_ context.Context, req SetCarrierWeightsR
 	return &CarrierWeightsInfo{Distributed: true}, nil
 }
 
-func (f *fakeClient) GetClusterCarrier(_ context.Context) (*ClusterCarrierStatus, error) {
-	f.record("GetClusterCarrier", nil)
-	return &ClusterCarrierStatus{Distributed: true, Active: "tunnel", State: "stable", Epoch: 1}, nil
-}
-
 func (f *fakeClient) GetP2PStatus(_ context.Context) (*P2PStatusInfo, error) {
 	f.record("GetP2PStatus", nil)
 	return &P2PStatusInfo{Mode: "share"}, nil

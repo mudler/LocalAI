@@ -260,6 +260,24 @@ var _ = Describe("The agent control of the tunnel carrier", func() {
 			Expect(reply.Servers).To(HaveLen(1))
 		})
 
+		It("sends a call that names a node to that worker only, and to no other", func() {
+			connect("a1", true, replyWith(mcpremote.MCPToolResponse{Result: "from a1"}))
+			connect("a2", true, replyWith(mcpremote.MCPToolResponse{Result: "from a2"}))
+			reply, err := control.ExecuteMCPToolOn(ctx, ids["a2"], toolReq)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reply.Result).To(Equal("from a2"))
+			disc, err := control.DiscoverMCPToolsOn(ctx, ids["a2"], mcpremote.MCPDiscoveryRequest{ModelName: "m"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disc).ToNot(BeNil())
+			Expect(workers.callsTo(ids["a1"])).To(BeZero())
+
+			ids["gone"] = register("gone", NodeTypeAgent, true)
+			conns.held[ids["gone"]] = true
+			_, err = control.ExecuteMCPToolOn(ctx, ids["gone"], toolReq)
+			Expect(err).To(MatchError(ErrNoRoute), "a named worker with no tunnel is not replaced by another")
+			Expect(workers.callsTo(ids["a1"])).To(BeZero())
+		})
+
 		It("wraps ErrNoRoute when there is no agent worker to offer the call to", func() {
 			_, err := control.ExecuteMCPTool(ctx, toolReq)
 			Expect(err).To(MatchError(ErrNoRoute))

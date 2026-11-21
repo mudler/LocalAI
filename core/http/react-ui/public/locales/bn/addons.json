@@ -935,7 +935,11 @@
       "review": "পর্যালোচনা করুন এবং অনুমোদন করুন",
       "reviewNamed": "{{name}}-এর হোস্ট অ্যাক্সেস পর্যালোচনা করুন এবং অনুমোদন করুন।",
       "title": "{{name}} {{version}} waits for your approval",
-      "progress": "{{name}} আপডেট হচ্ছে। এটি ব্যাকগ্রাউন্ডে চলে।"
+      "updatingTitle": "{{name}} {{version}}-এ আপডেট হচ্ছে",
+      "queuedBody": "এটি সারিতে আছে এবং ব্যাকগ্রাউন্ডে চলবে।",
+      "cancellingTitle": "{{name}}-এর আপডেট বাতিল করা হচ্ছে",
+      "failedTitle": "{{name}} {{version}}-এ আপডেট ব্যর্থ হয়েছে",
+      "reviewAgain": "আবার পর্যালোচনা করুন"
     }
   },
   "oauthClient": {

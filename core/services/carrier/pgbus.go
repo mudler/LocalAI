@@ -45,15 +45,6 @@ func (f *Fanout) Bus() *Bus {
 	return &Bus{Name: BusPostgres, Broadcaster: f.Broadcaster, OnReconnect: f.OnReconnect, Close: f.Close}
 }
 
-// ProbeListen reports why a LISTEN connection to the database cannot be opened
-// from this process, or nil when it can. It opens and closes one session.
-func ProbeListen(ctx context.Context, dsn string) error {
-	if dsn == "" {
-		return errors.New("the connection string of the database is not known, so no LISTEN connection can be opened")
-	}
-	return pgbus.ProbeListen(ctx, dsn)
-}
-
 // NewPgbusFanout opens the LISTEN connection and returns the fan-out member.
 //
 // It is the one place that opens the connection. Every frontend and chat worker

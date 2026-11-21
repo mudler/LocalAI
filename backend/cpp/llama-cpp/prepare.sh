@@ -158,6 +158,12 @@ if grep -q '"--spec-draft-device"' llama.cpp/common/arg.cpp; then
 else
     HAS_SPEC_DRAFT_DEVICE=0
 fi
+# Draft type auto-detection from the draft GGUF (common_speculative_types_from_gguf).
+if grep -q "common_speculative_types_from_gguf" llama.cpp/common/speculative.h; then
+    HAS_SPEC_TYPES_FROM_GGUF=1
+else
+    HAS_SPEC_TYPES_FROM_GGUF=0
+fi
 # MoE expert GPU cache (--moe-cache-mib). Forks that branched earlier lack the field.
 if grep -q "moe_cache_size" llama.cpp/common/common.h; then
     HAS_MOE_CACHE=1
@@ -223,6 +229,7 @@ cat > llama.cpp/tools/grpc-server/llama_compat.h <<EOF
 #define LOCALAI_HAS_SPEC_DRAFT_N_UBATCH ${HAS_SPEC_DRAFT_N_UBATCH}
 #define LOCALAI_HAS_SPEC_DRAFT_SAMPLING ${HAS_SPEC_DRAFT_SAMPLING}
 #define LOCALAI_HAS_SPEC_DRAFT_DEVICE ${HAS_SPEC_DRAFT_DEVICE}
+#define LOCALAI_HAS_SPEC_TYPES_FROM_GGUF ${HAS_SPEC_TYPES_FROM_GGUF}
 #define LOCALAI_HAS_MOE_CACHE ${HAS_MOE_CACHE}
 #define LOCALAI_HAS_MOE_CACHE_CPU_SHARE ${HAS_MOE_CACHE_CPU_SHARE}
 #define LOCALAI_HAS_LAZY_MODE ${HAS_LAZY_MODE}

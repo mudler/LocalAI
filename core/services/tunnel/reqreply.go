@@ -154,8 +154,8 @@ func (r *Replies) release(peerID string) {
 }
 
 // Handle serves subject with h until remove is called. A subject can have more
-// than one handler while two carrier sets are attached; a request goes to the
-// newest.
+// than one handler, for example while a handler is replaced by a new one before
+// the old one is removed; a request goes to the newest.
 func (r *Replies) Handle(subject string, h ReplyHandler) (remove func()) {
 	entry := &h
 	r.mu.Lock()

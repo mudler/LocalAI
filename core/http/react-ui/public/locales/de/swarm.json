@@ -179,7 +179,15 @@
       "relayed": "Über ein Relay"
     },
     "limited": "Begrenzt",
-    "limitedHint": "Das Relay begrenzt die Daten oder die Dauer dieser Verbindung. Modelldateien laufen nicht darüber."
+    "limitedHint": "Das Relay begrenzt die Daten oder die Dauer dieser Verbindung. Modelldateien laufen nicht darüber.",
+    "heartbeat": "Heartbeat",
+    "tunnel": "Tunnel",
+    "chip": "{{route}}: {{state}}",
+    "state": {
+      "live": "aktiv",
+      "reconnecting": "verbindet neu",
+      "down": "getrennt"
+    }
   },
   "inspector": {
     "route": "Route",

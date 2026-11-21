@@ -19,15 +19,15 @@ import (
 // The frontend runs a start itself only on ErrNoRoute. A timeout or a worker's
 // refusal leaves it unknown whether a turn started, so they must never look
 // like one: running the turn here as well would send the message twice.
-var _ = Describe("NATS chat starter", func() {
+var _ = Describe("Chat starter", func() {
 	var (
 		mc *scriptedMessagingClient
-		cs *NATSChatStarter
+		cs *ChatStarter
 	)
 
 	BeforeEach(func() {
 		mc = newScriptedMessagingClient()
-		cs = NewNATSChatStarter(mc)
+		cs = NewChatStarter(subjectQueue{mc})
 	})
 
 	start := func(ctx context.Context) (*workerctl.ChatStartReply, error) {
@@ -57,13 +57,13 @@ var _ = Describe("NATS chat starter", func() {
 
 	It("lets a carrier that picks the worker move a start past a full worker, and keeps ErrNotDelivered as itself", func() {
 		q := &pickingRequester{replies: [][]byte{mustJSON(workerctl.ChatStartReply{Error: "full", Full: true}), mustJSON(workerctl.ChatStartReply{Started: true})}}
-		reply, err := NewNATSChatStarter(q).StartChat(context.Background(), workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1"})
+		reply, err := NewChatStarter(q).StartChat(context.Background(), workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reply.Started).To(BeTrue())
 		Expect(q.movedOn).To(Equal([]bool{true, false}))
 
 		q = &pickingRequester{err: fmt.Errorf("%w: no worker reached", messaging.ErrNotDelivered)}
-		_, err = NewNATSChatStarter(q).StartChat(context.Background(), workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1"})
+		_, err = NewChatStarter(q).StartChat(context.Background(), workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1"})
 		Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue())
 		Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "a start that reached no worker is not a route that does not exist")
 	})
@@ -98,7 +98,7 @@ var _ = Describe("NATS chat starter", func() {
 
 	It("waits for the configured budget when the context has no deadline", func() {
 		mc.scriptReply(messaging.SubjectChatStart, workerctl.ChatStartReply{Started: true})
-		cs = NewNATSChatStarter(mc, WithChatStartTimeout(90*time.Second))
+		cs = NewChatStarter(subjectQueue{mc}, WithChatStartTimeout(90*time.Second))
 		_, err := start(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		mc.mu.Lock()
@@ -109,7 +109,7 @@ var _ = Describe("NATS chat starter", func() {
 	It("keeps the default budget for a zero or negative timeout", func() {
 		mc.scriptReply(messaging.SubjectChatStart, workerctl.ChatStartReply{Started: true})
 		for _, d := range []time.Duration{0, -time.Second} {
-			cs = NewNATSChatStarter(mc, WithChatStartTimeout(d))
+			cs = NewChatStarter(subjectQueue{mc}, WithChatStartTimeout(d))
 			_, err := start(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -121,23 +121,25 @@ var _ = Describe("NATS chat starter", func() {
 	})
 })
 
-var _ = Describe("NATS chat start server", func() {
+var _ = Describe("Chat start server", func() {
 	var (
 		bus *testutil.FakeBus
-		srv *NATSChatStartServer
+		srv *ChatStartServer
 	)
 
 	BeforeEach(func() {
 		bus = testutil.NewFakeBus()
-		srv = NewNATSChatStartServer(bus)
+		srv = NewChatStartServer(bus)
 	})
 
-	It("serves in the chat-workers queue group", func() {
+	It("serves the chat start subject as itself, in no queue group: the frontend picks the worker", func() {
 		_, err := srv.Serve(func(context.Context, workerctl.ChatStartRequest) workerctl.ChatStartReply {
 			return workerctl.ChatStartReply{}
 		})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(bus.QueueGroups()).To(HaveKeyWithValue(messaging.SubjectChatStart, messaging.QueueChatWorkers))
+		Expect(bus.QueueGroups()).ToNot(HaveKey(messaging.SubjectChatStart))
+		_, ok := bus.DeliverReply(messaging.SubjectChatStart, []byte("{}"))
+		Expect(ok).To(BeTrue())
 	})
 
 	It("passes the request to the handler and replies with its answer", func() {
@@ -161,7 +163,7 @@ var _ = Describe("NATS chat start server", func() {
 
 	It("gives the handler the configured budget", func() {
 		var left time.Duration
-		_, err := NewNATSChatStartServer(bus, WithChatStartTimeout(2*time.Minute)).Serve(func(ctx context.Context, _ workerctl.ChatStartRequest) workerctl.ChatStartReply {
+		_, err := NewChatStartServer(bus, WithChatStartTimeout(2*time.Minute)).Serve(func(ctx context.Context, _ workerctl.ChatStartRequest) workerctl.ChatStartReply {
 			d, _ := ctx.Deadline()
 			left = time.Until(d)
 			return workerctl.ChatStartReply{}
@@ -191,7 +193,7 @@ var _ = Describe("NATS chat start server", func() {
 	})
 
 	It("names the subject when the bus refuses the subscription", func() {
-		failing := NewNATSChatStartServer(&failingSubscribeBus{FakeBus: bus, err: errors.New("boom")})
+		failing := NewChatStartServer(&failingSubscribeBus{FakeBus: bus, err: errors.New("boom")})
 		_, err := failing.Serve(func(context.Context, workerctl.ChatStartRequest) workerctl.ChatStartReply {
 			return workerctl.ChatStartReply{}
 		})
@@ -208,10 +210,6 @@ type pickingRequester struct {
 	movedOn []bool
 }
 
-func (p *pickingRequester) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, errors.New("a queue request must go through RequestQueue")
-}
-
 func (p *pickingRequester) RequestQueue(_ string, _ []byte, _ time.Duration, moveOn func([]byte) bool) ([]byte, error) {
 	if p.err != nil {
 		return nil, p.err
@@ -224,4 +222,12 @@ func (p *pickingRequester) RequestQueue(_ string, _ []byte, _ time.Duration, mov
 		}
 	}
 	return p.replies[len(p.replies)-1], nil
+}
+
+// subjectQueue is a queue of one member over a scripted client: the request
+// goes to the subject, and a refusal has no other member to move on to.
+type subjectQueue struct{ *scriptedMessagingClient }
+
+func (q subjectQueue) RequestQueue(subject string, data []byte, timeout time.Duration, _ func([]byte) bool) ([]byte, error) {
+	return q.Request(subject, data, timeout)
 }

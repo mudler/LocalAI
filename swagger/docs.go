@@ -13608,102 +13608,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/cluster/carrier": {
-            "get": {
-                "description": "Returns the active carrier (nats or tunnel), the epoch, the state of a change (stable, prepare or commit), the live replicas with their readiness, the workers and whether each could follow a change to the other carrier, the work in flight, and the cluster settings. Admin only. Answers 503 when distributed mode is off.",
-                "tags": [
-                    "Nodes"
-                ],
-                "summary": "Report the transport of a distributed cluster",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/localai.CarrierStatusResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Distributed mode is not enabled",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Takes a target (nats or tunnel) with dry_run and force, or abort. A dry run returns the preflight report and changes nothing. A request starts the change and returns 202 with the epoch to watch. A request that a blocker stops returns 422 with the blockers; force accepts the blockers that are forceable. A change already under way returns 409, and only abort is accepted then. Admin only.",
-                "tags": [
-                    "Nodes"
-                ],
-                "summary": "Dry-run, start or abort a change of carrier",
-                "parameters": [
-                    {
-                        "description": "target, dry_run, force or abort",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/localai.CarrierSwitchRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Dry run report, or the row after an abort",
-                        "schema": {
-                            "$ref": "#/definitions/cluster.Report"
-                        }
-                    },
-                    "202": {
-                        "description": "Change started: state, active, target, epoch, force, warnings, row",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad body or target",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "A change is under way, or there is nothing to abort",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Blocked: error, blockers, report",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "503": {
-                        "description": "Distributed mode is not enabled",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/cluster/settings": {
             "get": {
-                "description": "Returns the NATS address of the frontends and of the workers, the waits of a change, and the carrier weights (nats, websocket, p2p) that break a tie between equally fit nodes. A user name, password or query string in an address is dropped. Admin only.",
+                "description": "Returns the NATS address of the frontends and of the workers, the carrier weights (nats, websocket, p2p) that break a tie between equally fit nodes, the broadcast bus of the frontend that answers (nats while it reaches the NATS server, postgres otherwise), and the live frontend replicas. A user name, password or query string in an address is dropped. Admin only.",
                 "tags": [
                     "Nodes"
                 ],
@@ -13712,7 +13619,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/localai.ClusterSettingsView"
+                            "$ref": "#/definitions/localai.ClusterSettingsResponse"
                         }
                     },
                     "503": {
@@ -13727,7 +13634,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Stores the NATS address, the address workers use, the waits of a change, or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it and makes NATS available; it does not switch the cluster. Admin only.",
+                "description": "Stores the NATS address, the address workers use, or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it; the frontends use a new address after a restart. Admin only.",
                 "tags": [
                     "Nodes"
                 ],
@@ -13753,15 +13660,6 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Unknown setting, bad value, or a credential in an address",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "409": {
-                        "description": "A change of carrier is under way",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -22498,6 +22396,22 @@ const docTemplate = `{
                 "KindPage"
             ]
         },
+        "carrier.BusState": {
+            "type": "object",
+            "properties": {
+                "bus": {
+                    "description": "Bus is the bus that the process publishes on now: BusNATS or BusPostgres.",
+                    "type": "string"
+                },
+                "nats_configured": {
+                    "description": "NATSConfigured says that the cluster has a NATS server, and NATSConnected\nthat the process reaches it.",
+                    "type": "boolean"
+                },
+                "nats_connected": {
+                    "type": "boolean"
+                }
+            }
+        },
         "catalog.Kind": {
             "type": "string",
             "enum": [
@@ -22563,80 +22477,6 @@ const docTemplate = `{
                 }
             }
         },
-        "cluster.Blocker": {
-            "type": "object",
-            "properties": {
-                "forceable": {
-                    "description": "Forceable is true when a forced request goes ahead anyway.",
-                    "type": "boolean"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "kind": {
-                    "type": "string"
-                },
-                "reason": {
-                    "type": "string"
-                }
-            }
-        },
-        "cluster.Carrier": {
-            "type": "string",
-            "enum": [
-                "nats",
-                "tunnel"
-            ],
-            "x-enum-varnames": [
-                "CarrierNATS",
-                "CarrierTunnel"
-            ]
-        },
-        "cluster.CarrierRow": {
-            "type": "object",
-            "properties": {
-                "active": {
-                    "$ref": "#/definitions/cluster.Carrier"
-                },
-                "changed_at": {
-                    "description": "ChangedAt is stamped by the database on every change, and the age of a\nchange is read on that same clock (CarrierStore.DBNow), so that the\ntimeouts of a change need no clock that the replicas agree on.",
-                    "type": "string"
-                },
-                "changed_by": {
-                    "type": "string"
-                },
-                "draining": {
-                    "$ref": "#/definitions/cluster.Carrier"
-                },
-                "draining_until": {
-                    "type": "string"
-                },
-                "epoch": {
-                    "type": "integer"
-                },
-                "force": {
-                    "description": "Force records that the admin who started the change accepted that a\nreplica which is not ready, or a worker that cannot follow, is left\nbehind. It belongs to one change and is cleared by the next one.",
-                    "type": "boolean"
-                },
-                "nats_url": {
-                    "description": "NATSURL is the address of the NATS server that this change, or the last\nchange to NATS, builds from. The admin starts a change and the replicas\nbuild in it, and an edit of the setting in between must not give two\nreplicas two servers, so every replica builds from this copy while a change\nis under way. It never carries a credential. Empty when the cluster has no\nNATS address.",
-                    "type": "string"
-                },
-                "note": {
-                    "description": "Note says in a sentence how the last change ended, or why it did. It is\nfor operators.",
-                    "type": "string"
-                },
-                "prev_epoch": {
-                    "type": "integer"
-                },
-                "state": {
-                    "$ref": "#/definitions/cluster.State"
-                },
-                "target": {
-                    "$ref": "#/definitions/cluster.Carrier"
-                }
-            }
-        },
         "cluster.CarrierWeights": {
             "type": "object",
             "properties": {
@@ -22648,165 +22488,6 @@ const docTemplate = `{
                 },
                 "websocket": {
                     "type": "integer"
-                }
-            }
-        },
-        "cluster.InFlight": {
-            "type": "object",
-            "properties": {
-                "loads": {
-                    "description": "Loads is the number of models that are loading.",
-                    "type": "integer"
-                }
-            }
-        },
-        "cluster.ReplicaStatus": {
-            "type": "object",
-            "properties": {
-                "availability": {
-                    "description": "Availability maps each carrier to the reason the replica cannot build it,\nempty when it can. A carrier it never looked at is absent.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "availability_age_ns": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "ready_epoch": {
-                    "type": "integer"
-                },
-                "ready_reason": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
-        "cluster.Report": {
-            "type": "object",
-            "properties": {
-                "active": {
-                    "$ref": "#/definitions/cluster.Carrier"
-                },
-                "blockers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cluster.Blocker"
-                    }
-                },
-                "drain_remaining_ns": {
-                    "description": "DrainRemaining is how long the previous carrier stays attached, when one\nis draining.",
-                    "type": "integer"
-                },
-                "epoch": {
-                    "type": "integer"
-                },
-                "in_flight": {
-                    "$ref": "#/definitions/cluster.InFlight"
-                },
-                "ok": {
-                    "type": "boolean"
-                },
-                "replicas": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cluster.ReplicaStatus"
-                    }
-                },
-                "row": {
-                    "$ref": "#/definitions/cluster.CarrierRow"
-                },
-                "state": {
-                    "$ref": "#/definitions/cluster.State"
-                },
-                "target": {
-                    "$ref": "#/definitions/cluster.Carrier"
-                },
-                "timings": {
-                    "$ref": "#/definitions/cluster.Timings"
-                },
-                "warnings": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "workers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cluster.WorkerStatus"
-                    }
-                }
-            }
-        },
-        "cluster.State": {
-            "type": "string",
-            "enum": [
-                "stable",
-                "prepare",
-                "commit"
-            ],
-            "x-enum-varnames": [
-                "StateStable",
-                "StatePrepare",
-                "StateCommit"
-            ]
-        },
-        "cluster.Timings": {
-            "type": "object",
-            "properties": {
-                "maxDrain": {
-                    "description": "MaxDrain is how long the previous carrier stays attached after the commit.\nWork that is still running on it then is failed by the reaper.",
-                    "type": "integer"
-                },
-                "prepareTimeout": {
-                    "description": "PrepareTimeout is how long prepare waits for every live replica.",
-                    "type": "integer"
-                },
-                "transitionWindow": {
-                    "description": "TransitionWindow is how long commit waits for every live replica to\nconfirm.",
-                    "type": "integer"
-                }
-            }
-        },
-        "cluster.WorkerStatus": {
-            "type": "object",
-            "properties": {
-                "attached": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cluster.Carrier"
-                    }
-                },
-                "can_follow": {
-                    "description": "CanFollow and Reason are set when the report has a target.",
-                    "type": "boolean"
-                },
-                "follow": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cluster.Carrier"
-                    }
-                },
-                "follow_error": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "reason": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
                 }
             }
         },
@@ -25763,83 +25444,6 @@ const docTemplate = `{
                 }
             }
         },
-        "localai.CarrierStatusResponse": {
-            "type": "object",
-            "properties": {
-                "active": {
-                    "$ref": "#/definitions/cluster.Carrier"
-                },
-                "blockers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cluster.Blocker"
-                    }
-                },
-                "drain_remaining_ns": {
-                    "description": "DrainRemaining is how long the previous carrier stays attached, when one\nis draining.",
-                    "type": "integer"
-                },
-                "epoch": {
-                    "type": "integer"
-                },
-                "in_flight": {
-                    "$ref": "#/definitions/cluster.InFlight"
-                },
-                "ok": {
-                    "type": "boolean"
-                },
-                "replicas": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cluster.ReplicaStatus"
-                    }
-                },
-                "row": {
-                    "$ref": "#/definitions/cluster.CarrierRow"
-                },
-                "settings": {
-                    "$ref": "#/definitions/localai.ClusterSettingsView"
-                },
-                "state": {
-                    "$ref": "#/definitions/cluster.State"
-                },
-                "target": {
-                    "$ref": "#/definitions/cluster.Carrier"
-                },
-                "timings": {
-                    "$ref": "#/definitions/cluster.Timings"
-                },
-                "warnings": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "workers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cluster.WorkerStatus"
-                    }
-                }
-            }
-        },
-        "localai.CarrierSwitchRequest": {
-            "type": "object",
-            "properties": {
-                "abort": {
-                    "type": "boolean"
-                },
-                "dry_run": {
-                    "type": "boolean"
-                },
-                "force": {
-                    "type": "boolean"
-                },
-                "target": {
-                    "type": "string"
-                }
-            }
-        },
         "localai.ClusterSettingsRequest": {
             "type": "object",
             "properties": {
@@ -25850,26 +25454,25 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
-                "max_drain": {
-                    "type": "string"
-                },
                 "nats_url": {
                     "type": "string"
                 },
                 "nats_worker_url": {
                     "type": "string"
-                },
-                "prepare_timeout": {
-                    "type": "string"
-                },
-                "transition_window": {
-                    "type": "string"
                 }
             }
         },
-        "localai.ClusterSettingsView": {
+        "localai.ClusterSettingsResponse": {
             "type": "object",
             "properties": {
+                "bus": {
+                    "description": "Bus is the broadcast bus of the frontend that answers, read from its own\nconnection: NATS while it reaches the NATS server, PostgreSQL otherwise.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/carrier.BusState"
+                        }
+                    ]
+                },
                 "carrier_weights": {
                     "description": "CarrierWeights are the weights that break a tie between equally fit nodes\nreached over different carriers (nats, websocket, p2p). A weight that is not\nstored is the default, so these are always the values in force.",
                     "allOf": [
@@ -25886,10 +25489,6 @@ const docTemplate = `{
                         }
                     ]
                 },
-                "max_drain": {
-                    "description": "MaxDrain is how long the previous carrier stays attached after a commit (a Go duration).",
-                    "type": "string"
-                },
                 "nats_url": {
                     "description": "NATSURL is the NATS address that the frontends use.",
                     "type": "string"
@@ -25898,13 +25497,12 @@ const docTemplate = `{
                     "description": "NATSWorkerURL is the NATS address that workers are told to use. Empty means NATSURL.",
                     "type": "string"
                 },
-                "prepare_timeout": {
-                    "description": "PrepareTimeout is how long a change waits for every replica to be ready (a Go duration).",
-                    "type": "string"
-                },
-                "transition_window": {
-                    "description": "TransitionWindow is how long a replica may take to confirm a commit (a Go duration).",
-                    "type": "string"
+                "replicas": {
+                    "description": "Replicas are the live frontend replicas.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.ReplicaView"
+                    }
                 }
             }
         },
@@ -26386,6 +25984,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.ReplicaView": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "last_seen": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "string"
                 }
             }

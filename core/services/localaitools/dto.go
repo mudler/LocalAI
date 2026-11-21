@@ -176,6 +176,20 @@ type Node struct {
 	PeerID string `json:"peer_id,omitempty"`
 	// SplitServer is true when the node may serve model-split workers.
 	SplitServer bool `json:"split_server,omitempty"`
+	// Routes says, for each route of the node, if it is live: what the health
+	// monitor judges the node by. A node stays healthy while one route that
+	// carries work (nats or tunnel) is live.
+	Routes []NodeRouteState `json:"routes,omitempty"`
+}
+
+// NodeRouteState is one route of a node: heartbeat, nats or tunnel, with the
+// transport of the tunnel (websocket or p2p), its state (live, reconnecting or
+// down) and why it is not live.
+type NodeRouteState struct {
+	Route     string `json:"route"`
+	Transport string `json:"transport,omitempty"`
+	State     string `json:"state"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 // NodeSplitServer is the result of set_node_split_server.
@@ -511,25 +525,6 @@ type VRAMEstimateRequest struct {
 	KVQuantBits int    `json:"kv_quant_bits,omitempty" jsonschema:"KV cache quantization bits (e.g. 4, 8, 16)."`
 }
 
-// ClusterCarrierStatus is the LLM-facing view of the transport of a
-// distributed cluster. Distributed is false on a frontend that is not
-// distributed, and the other fields are then empty.
-type ClusterCarrierStatus struct {
-	Distributed bool `json:"distributed"`
-	// Active is "nats" or "tunnel".
-	Active string `json:"active,omitempty"`
-	// State is "stable", "prepare" or "commit". A stable cluster with
-	// DrainRemainingSeconds above zero is draining the previous carrier.
-	State                 string  `json:"state,omitempty"`
-	Target                string  `json:"target,omitempty"`
-	Epoch                 int64   `json:"epoch,omitempty"`
-	DrainRemainingSeconds float64 `json:"drain_remaining_seconds,omitempty"`
-	// Replicas are the live frontends.
-	Replicas []ClusterReplicaInfo `json:"replicas,omitempty"`
-	// Workers are the registered workers and the carriers they hold.
-	Workers []ClusterWorkerInfo `json:"workers,omitempty"`
-}
-
 // CarrierWeightsInfo is the LLM-facing view of routing.carrier_weights.
 // Distributed is false on a frontend that is not distributed, and the weights
 // are then empty. A weight only breaks a tie between nodes that fit a request
@@ -555,25 +550,6 @@ type SetCarrierWeightsRequest struct {
 	NATS      *int `json:"nats,omitempty"      jsonschema:"Weight of nodes reached over NATS, 0 to 1000. Default 100."`
 	WebSocket *int `json:"websocket,omitempty" jsonschema:"Weight of nodes reached over a WebSocket tunnel, 0 to 1000. Default 50."`
 	P2P       *int `json:"p2p,omitempty"       jsonschema:"Weight of nodes reached over P2P, 0 to 1000. Default 25."`
-}
-
-// ClusterReplicaInfo is one live frontend replica.
-type ClusterReplicaInfo struct {
-	ID          string `json:"id"`
-	Version     string `json:"version,omitempty"`
-	ReadyEpoch  int64  `json:"ready_epoch"`
-	ReadyReason string `json:"ready_reason,omitempty"`
-}
-
-// ClusterWorkerInfo is one worker. CanFollow is about a change to the other
-// carrier, and Reason says why it is false.
-type ClusterWorkerInfo struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name,omitempty"`
-	Attached    []string `json:"attached,omitempty"`
-	CanFollow   bool     `json:"can_follow"`
-	Reason      string   `json:"reason,omitempty"`
-	FollowError string   `json:"follow_error,omitempty"`
 }
 
 // FailoverTargetInfo is the LLM-facing view of one failover chain target's

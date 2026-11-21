@@ -10,20 +10,17 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// tunnelFollower attaches a worker to a tunnel, and detaches it, while the worker
-// runs.
+// tunnelFollower attaches a worker to its tunnel, and detaches it, while the
+// worker runs.
 //
-// A worker that booted on NATS has no tunnel and no control plane on its HTTP
-// server. When the cluster moves to the tunnel the worker has to gain both
-// without a restart, and this is the part that does it. What decides to attach is
-// not here: the worker follows the carrier that the frontend names, and that
-// logic is the caller's.
+// The route holder (RouteHolder) attaches the tunnel route through it, and
+// attaches it again after a failure, without a restart of the worker.
 //
 // The control plane is a slot on the HTTP server that the worker already runs.
 // While the follower is detached the slot is empty and the path answers as a path
-// that does not exist, which is what a worker on NATS has always answered. The
-// verbs are claimed on the plane once, on the first attach: a plane can claim a
-// verb only once, and a second attach must not fail on it.
+// that does not exist. The verbs are claimed on the plane once, on the first
+// attach: a plane can claim a verb only once, and a second attach must not fail
+// on it.
 type tunnelFollower struct {
 	cfg         *Config
 	nodeID      string
@@ -144,8 +141,7 @@ func (f *tunnelFollower) Detach() error {
 	return err
 }
 
-// tunnelConfig is the configuration of the tunnel of a worker. A worker that
-// boots on the tunnel and one that attaches later start it the same way.
+// tunnelConfig is the configuration of the tunnel of a worker.
 func tunnelConfig(cfg *Config, nodeID, httpAddr string, token func() string, reauthorize func(ctx context.Context) error) TunnelConfig {
 	return TunnelConfig{
 		FrontendURL: cfg.RegisterTo,

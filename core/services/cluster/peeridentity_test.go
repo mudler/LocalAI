@@ -60,7 +60,7 @@ var _ = Describe("Registering a replica that peers dial", func() {
 
 	It("stores the address and the hash with the rest of the row, and reads them back", func() {
 		cred := cluster.NewPeerCredential()
-		Expect(reg.RegisterPeer(ctx, "a", "v1", 0, "", "10.0.0.7:8080", cred.Hash())).To(Succeed())
+		Expect(reg.RegisterPeer(ctx, "a", "v1", "10.0.0.7:8080", cred.Hash())).To(Succeed())
 		got, err := reg.Get(ctx, "a")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.AdvertisedAddr).To(Equal("10.0.0.7:8080"))
@@ -68,9 +68,9 @@ var _ = Describe("Registering a replica that peers dial", func() {
 	})
 
 	It("replaces both when the replica registers again with new ones", func() {
-		Expect(reg.RegisterPeer(ctx, "a", "v1", 0, "", "10.0.0.7:8080", cluster.NewPeerCredential().Hash())).To(Succeed())
+		Expect(reg.RegisterPeer(ctx, "a", "v1", "10.0.0.7:8080", cluster.NewPeerCredential().Hash())).To(Succeed())
 		again := cluster.NewPeerCredential()
-		Expect(reg.RegisterPeer(ctx, "a", "v1", 0, "", "10.0.0.8:8080", again.Hash())).To(Succeed())
+		Expect(reg.RegisterPeer(ctx, "a", "v1", "10.0.0.8:8080", again.Hash())).To(Succeed())
 		got, err := reg.Get(ctx, "a")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.AdvertisedAddr).To(Equal("10.0.0.8:8080"))
@@ -79,8 +79,8 @@ var _ = Describe("Registering a replica that peers dial", func() {
 
 	It("does not wipe the address or the hash when a registration carries none", func() {
 		cred := cluster.NewPeerCredential()
-		Expect(reg.RegisterPeer(ctx, "a", "v1", 0, "", "10.0.0.7:8080", cred.Hash())).To(Succeed())
-		Expect(reg.Register(ctx, "a", "v2", 3, "reason")).To(Succeed())
+		Expect(reg.RegisterPeer(ctx, "a", "v1", "10.0.0.7:8080", cred.Hash())).To(Succeed())
+		Expect(reg.Register(ctx, "a", "v2")).To(Succeed())
 		got, err := reg.Get(ctx, "a")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.Version).To(Equal("v2"))

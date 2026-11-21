@@ -89,8 +89,8 @@ var _ = Describe("The worker dialer", func() {
 		db = testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR = cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
-		Expect(clusterR.Register(ctx, "replica-b", "test", 0, "")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-a", "test")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-b", "test")).To(Succeed())
 		tunnels = tunnel.NewRegistry(clusterR, "replica-a")
 		worker = &scriptedWorker{}
 	})
@@ -388,7 +388,7 @@ var _ = Describe("The worker dialer", func() {
 		It("looks the owner up again once when the owner says it no longer holds the tunnel", func() {
 			// The worker moved from replica-b to replica-c after the lookup of the
 			// dialer. The first owner refuses, and the second one serves.
-			Expect(clusterR.Register(ctx, "replica-c", "test", 0, "")).To(Succeed())
+			Expect(clusterR.Register(ctx, "replica-c", "test")).To(Succeed())
 			third := tunnel.NewRegistry(clusterR, "replica-c")
 			moving := &movingPeers{
 				relays: map[string]*tunnel.Relay{"replica-b": tunnel.NewRelay(other), "replica-c": tunnel.NewRelay(third)},
@@ -566,7 +566,7 @@ func tunnelUnreachable() error {
 	db := testutil.SetupTestDB()
 	Expect(cluster.Migrate(ctx, db)).To(Succeed())
 	reg := cluster.NewRegistry(db)
-	Expect(reg.RegisterPeer(ctx, "ghost", "test", 0, "", "127.0.0.1:1", cluster.NewPeerCredential().Hash())).To(Succeed())
+	Expect(reg.RegisterPeer(ctx, "ghost", "test", "127.0.0.1:1", cluster.NewPeerCredential().Hash())).To(Succeed())
 	pool := tunnel.NewPeerPool("replica-a", cluster.NewPeerCredential(), reg)
 	DeferCleanup(pool.Close)
 	_, err := pool.Open(ctx, "ghost")

@@ -6,8 +6,9 @@ import (
 )
 
 // MaxBroadcastBytes is the largest encoded payload that a carrier accepts for a
-// broadcast. Every carrier enforces the same bound, so a message that one
-// carrier carries is not refused by another after a change of carrier.
+// broadcast. Every carrier enforces the same bound, so a message that one bus
+// carries is not refused by another: a process publishes on NATS or on
+// PostgreSQL, depending on which it reaches.
 //
 // The bound is far above the payloads that the deployment sends. NATS refuses a
 // payload above the max_payload of its server, which is 1 MiB unless an operator

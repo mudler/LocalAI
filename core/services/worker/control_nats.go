@@ -10,7 +10,6 @@ import (
 
 // natsControlServer serves control verbs on this node's NATS subjects.
 type natsControlServer struct {
-	inflight
 	bus    messaging.MessagingClient
 	nodeID string
 }
@@ -70,8 +69,6 @@ func (n *natsControlServer) handle(v controlVerb, h controlHandler) error {
 		return fmt.Errorf("serving %s: %w", v, err)
 	}
 	if _, err := n.bus.SubscribeReply(subject, func(data []byte, reply func([]byte)) {
-		done := n.enter()
-		defer done()
 		if r, _ := h(context.Background(), data); r != nil {
 			replyJSON(reply, r)
 		}
@@ -94,9 +91,7 @@ func (n *natsControlServer) handleWithProgress(v controlVerb, h progressControlH
 		_ = n.bus.Publish(messaging.SubjectNodeBackendInstallProgress(n.nodeID, ev.OpID), ev)
 	}
 	if _, err := n.bus.SubscribeReply(subject, func(data []byte, reply func([]byte)) {
-		done := n.enter()
 		go func() {
-			defer done()
 			if r, _ := h(context.Background(), data, progress); r != nil {
 				replyJSON(reply, r)
 			}

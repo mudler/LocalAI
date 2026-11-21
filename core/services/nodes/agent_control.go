@@ -37,6 +37,18 @@ type AgentControlClient struct {
 	cc  *ControlClient
 }
 
+var _ NodeAgentControl = (*AgentControlClient)(nil)
+
+// NodeAgentControl carries the MCP requests of the frontend to one named agent
+// worker, where AgentControl lets the route pick the worker. The contract is
+// the one of AgentControl: a decoded reply comes back with a nil error, also when
+// its Error field is set; a worker that the route does not reach wraps
+// ErrNoRoute; only the deadline of ctx applies.
+type NodeAgentControl interface {
+	ExecuteMCPToolOn(ctx context.Context, nodeID string, req mcpremote.MCPToolRequest) (*mcpremote.MCPToolResponse, error)
+	DiscoverMCPToolsOn(ctx context.Context, nodeID string, req mcpremote.MCPDiscoveryRequest) (*mcpremote.MCPDiscoveryResponse, error)
+}
+
 // NewAgentControlClient returns the client that sends the agent requests that
 // sel picks a worker for over cc.
 func NewAgentControlClient(sel *AgentSelector, cc *ControlClient) *AgentControlClient {
@@ -102,6 +114,37 @@ func agentVerb[Req, Rep any](ctx context.Context, a *AgentControlClient, verb st
 		return &reply, nil
 	}
 	return nil, last
+}
+
+// ExecuteMCPToolOn runs one MCP tool on the agent worker nodeID, over its
+// tunnel. It goes to that worker only: a worker that holds no tunnel wraps
+// ErrNoRoute, and no other worker is asked.
+func (a *AgentControlClient) ExecuteMCPToolOn(ctx context.Context, nodeID string, req mcpremote.MCPToolRequest) (*mcpremote.MCPToolResponse, error) {
+	return agentVerbOn[mcpremote.MCPToolRequest, mcpremote.MCPToolResponse](ctx, a, nodeID, workerctl.VerbMCPToolExecute, config.DefaultMCPToolTimeout, req)
+}
+
+// DiscoverMCPToolsOn asks the agent worker nodeID for the MCP servers and tools
+// of a model, over its tunnel.
+func (a *AgentControlClient) DiscoverMCPToolsOn(ctx context.Context, nodeID string, req mcpremote.MCPDiscoveryRequest) (*mcpremote.MCPDiscoveryResponse, error) {
+	return agentVerbOn[mcpremote.MCPDiscoveryRequest, mcpremote.MCPDiscoveryResponse](ctx, a, nodeID, workerctl.VerbMCPDiscovery, config.DefaultMCPDiscoveryTimeout, req)
+}
+
+// agentVerbOn sends one request to the agent worker nodeID, with the contract of
+// agentVerb and no pick.
+func agentVerbOn[Req, Rep any](ctx context.Context, a *AgentControlClient, nodeID, verb string, fallback time.Duration, req Req) (*Rep, error) {
+	if a == nil || a.cc == nil {
+		return nil, fmt.Errorf("control request %s: %w", verb, ErrNoAgentControl)
+	}
+	callCtx, cancel, err := agentCallContext(ctx, fallback)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	var reply Rep
+	if err := a.cc.Call(callCtx, nodeID, verb, req, &reply); err != nil {
+		return nil, err
+	}
+	return &reply, nil
 }
 
 // requestNeverStarted reports whether the failure of a call proves that the

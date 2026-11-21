@@ -932,10 +932,14 @@
     "tabWaiting": "Approvals waiting: {{count}}",
     "waiting": {
       "body": "The new version asks for host access that the current one does not have. Version {{current}} keeps running until you approve. Operations it adds: {{count}}.",
-      "progress": "Updating {{name}}. It runs in the background.",
+      "cancellingTitle": "Canceling the update of {{name}}",
+      "failedTitle": "The update of {{name}} to {{version}} failed",
+      "queuedBody": "It is queued and runs in the background.",
       "review": "Review and approve",
+      "reviewAgain": "Review again",
       "reviewNamed": "Review and approve the host access of {{name}}",
-      "title": "{{name}} {{version}} waits for your approval"
+      "title": "{{name}} {{version}} waits for your approval",
+      "updatingTitle": "Updating {{name}} to {{version}}"
     }
   },
   "oauthClient": {

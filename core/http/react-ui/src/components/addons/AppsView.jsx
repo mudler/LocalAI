@@ -327,7 +327,7 @@ export default function AppsView({ api, adapter, onSummary, grants, queue, fileO
                   </ul>
                 </Callout>
               )}
-              {approvals.map(a => <WaitingBanner key={a.id} addon={a} busy={Boolean(actions.unknown[a.id])} op={upgrade.opOf(a.id)} onReview={() => setApproving(a)} />)}
+              {approvals.map(a => <WaitingBanner key={a.id} addon={a} busy={Boolean(actions.unknown[a.id])} op={upgrade.opOf(a.id)} upgrade={upgrade} onReview={() => setApproving(a)} />)}
             </section>
           )}
           {!firstRun && (

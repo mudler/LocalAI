@@ -12,18 +12,17 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
 
-// CarrierReport is what a worker says about itself in a heartbeat: the carriers
-// it is attached to, the epoch of the cluster row it saw, the carriers it can
-// attach to, and why it cannot attach to another one.
-type CarrierReport struct {
-	Attached      []cluster.Carrier
-	AttachedEpoch int64
-	Follow        []cluster.Carrier
-	FollowError   string
+// RouteReport is what a worker says about its routes in a heartbeat: the
+// routes it holds and is connected on (Attached), the routes its operator gave
+// it (Follow), and why some of them are not held (FollowError). The route names
+// are RouteNATS and RouteTunnelID.
+type RouteReport struct {
+	Attached    []string
+	Follow      []string
+	FollowError string
 	// Tunnel is how the tunnel of the worker travels. It is zero when the
 	// worker holds none or does not say.
 	Tunnel TunnelRoute
@@ -67,130 +66,59 @@ func parseTunnelRoute(transport, path string, limited bool) TunnelRoute {
 // followErrorMax is the size of the column that holds FollowError.
 const followErrorMax = 255
 
-// parseCarriers keeps the names of the carriers that the cluster knows, once each.
-func parseCarriers(names []string) []cluster.Carrier {
-	var out []cluster.Carrier
+// knownRoute says whether name is a route that a worker can hold.
+func knownRoute(name string) bool { return name == RouteNATS || name == RouteTunnelID }
+
+// parseRoutes keeps the names of the routes that the cluster knows, once each.
+func parseRoutes(names []string) []string {
+	var out []string
 	for _, n := range names {
-		c := cluster.Carrier(strings.TrimSpace(n))
-		if (c == cluster.CarrierNATS || c == cluster.CarrierTunnel) && !slices.Contains(out, c) {
-			out = append(out, c)
+		r := strings.TrimSpace(n)
+		if knownRoute(r) && !slices.Contains(out, r) {
+			out = append(out, r)
 		}
 	}
 	return out
 }
 
-func joinCarriers(cs []cluster.Carrier) string {
-	out := make([]string, len(cs))
-	for i, c := range cs {
-		out[i] = string(c)
-	}
-	return strings.Join(out, ",")
-}
-
-func splitCarriers(s string) []cluster.Carrier {
+// splitRoutes reads a column that holds route names separated by commas.
+func splitRoutes(s string) []string {
 	if s == "" {
 		return nil
 	}
-	var out []cluster.Carrier
+	var out []string
 	for part := range strings.SplitSeq(s, ",") {
-		if c := cluster.Carrier(strings.TrimSpace(part)); c == cluster.CarrierNATS || c == cluster.CarrierTunnel {
-			out = append(out, c)
+		if r := strings.TrimSpace(part); knownRoute(r) {
+			out = append(out, r)
 		}
 	}
 	return out
 }
 
-// SetCarrierReport stores what a worker reported about its carriers.
-func (r *NodeRegistry) SetCarrierReport(ctx context.Context, nodeID string, rep CarrierReport) error {
+// SetRouteReport stores what a worker reported about its routes.
+func (r *NodeRegistry) SetRouteReport(ctx context.Context, nodeID string, rep RouteReport) error {
 	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Updates(map[string]any{
-		"attached":         joinCarriers(rep.Attached),
-		"attached_epoch":   rep.AttachedEpoch,
-		"follow":           joinCarriers(rep.Follow),
+		"attached":         strings.Join(rep.Attached, ","),
+		"follow":           strings.Join(rep.Follow, ","),
 		"follow_error":     rep.FollowError,
 		"tunnel_transport": rep.Tunnel.Transport,
 		"tunnel_path":      rep.Tunnel.Path,
 		"tunnel_limited":   rep.Tunnel.Limited,
 	})
 	if res.Error != nil {
-		return fmt.Errorf("storing the carrier report of node %s: %w", nodeID, res.Error)
+		return fmt.Errorf("storing the route report of node %s: %w", nodeID, res.Error)
 	}
 	if res.RowsAffected == 0 {
-		return fmt.Errorf("storing the carrier report of node %s: %w", nodeID, gorm.ErrRecordNotFound)
+		return fmt.Errorf("storing the route report of node %s: %w", nodeID, gorm.ErrRecordNotFound)
 	}
 	return nil
-}
-
-// SwitchWorkers answers the questions that a change of carrier asks about the
-// workers: which are alive, which carriers each is attached to, and which it can
-// follow. What it says comes from what the worker reports in its heartbeat, and
-// from nothing else. A worker that reports nothing predates carrier switching: it
-// has only NATS, it cannot follow, and it is on NATS.
-type SwitchWorkers struct {
-	reg   *NodeRegistry
-	stale time.Duration
-	// now is the clock that the age of a heartbeat is read on. It is the clock of
-	// the database, which every replica shares. The clock of the replica that reads
-	// is not that of the replica that wrote the heartbeat, and a skew between the
-	// two would turn a live worker into a stale one, or the other way round.
-	now func(ctx context.Context) time.Time
-}
-
-// NewSwitchWorkers returns the reader. A worker whose heartbeat is older than
-// stale is not alive for this purpose.
-func NewSwitchWorkers(reg *NodeRegistry, stale time.Duration) *SwitchWorkers {
-	return &SwitchWorkers{reg: reg, stale: stale, now: reg.databaseTime}
-}
-
-// databaseTime returns the time of the database. If the database does not answer it
-// returns the local time, because a change of carrier must not fail on it.
-func (r *NodeRegistry) databaseTime(ctx context.Context) time.Time {
-	var now time.Time
-	if err := r.db.WithContext(ctx).Raw("SELECT now()").Scan(&now).Error; err != nil || now.IsZero() {
-		return time.Now()
-	}
-	return now
-}
-
-var _ cluster.WorkerSource = (*SwitchWorkers)(nil)
-
-// attached returns the carriers a worker reported. A worker that reports its
-// capabilities and an empty list is attached to none: it is between two
-// carriers, and it is not said to be on a carrier it may not hold.
-func (s *SwitchWorkers) attached(n *BackendNode) []cluster.Carrier {
-	if n.Follow == "" {
-		return []cluster.Carrier{cluster.CarrierNATS}
-	}
-	return splitCarriers(n.Attached)
-}
-
-// Workers lists the workers that are alive.
-func (s *SwitchWorkers) Workers(ctx context.Context) ([]cluster.WorkerInfo, error) {
-	list, err := s.reg.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-	now := s.now(ctx)
-	var out []cluster.WorkerInfo
-	for i := range list {
-		n := &list[i]
-		if n.Status == StatusPending || n.Status == StatusOffline || now.Sub(n.LastHeartbeat) > s.stale {
-			continue
-		}
-		attached := s.attached(n)
-		follow := splitCarriers(n.Follow)
-		out = append(out, cluster.WorkerInfo{
-			ID: n.ID, Name: n.Name, Type: n.NodeType,
-			Attached: attached, Reports: len(follow) > 0, Follow: follow, FollowError: n.FollowError,
-		})
-	}
-	return out, nil
 }
 
 // errTunnelWorkerLoopback is the failure of the dial that the guarded factory
 // puts in the place of a dial that cannot mean anything. It is not the answer of
 // a host about a backend, so nothing that decides whether a backend is dead may
 // act on it.
-var errTunnelWorkerLoopback = errors.New("the backend of this worker listens on its own loopback address and the worker holds no address that can be dialled, so it cannot be reached on this carrier")
+var errTunnelWorkerLoopback = errors.New("the backend of this worker listens on its own loopback address and the worker holds no address that can be dialled, so it cannot be reached on the direct route")
 
 // guardTTL is how long the guarded factory keeps its answer about a worker.
 const guardTTL = 10 * time.Second

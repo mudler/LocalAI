@@ -756,7 +756,15 @@
       "relayed": "Via a relay"
     },
     "limited": "Limited",
-    "limitedHint": "The relay limits the data or the time of this connection. Model files do not go through it."
+    "limitedHint": "The relay limits the data or the time of this connection. Model files do not go through it.",
+    "heartbeat": "Heartbeat",
+    "tunnel": "Tunnel",
+    "chip": "{{route}}: {{state}}",
+    "state": {
+      "live": "live",
+      "reconnecting": "reconnecting",
+      "down": "down"
+    }
   },
   "splitServer": {
     "label": "Split server",

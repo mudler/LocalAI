@@ -10,8 +10,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 )
 
-// NewJobCarrier returns a bgjob.Carrier on the cluster's message bus: one
-// request/reply subject per node, chats.jobs.<instance>, a copy of the carrier
+// NewJobCarrier returns a bgjob.Carrier on the request and reply between
+// processes: one subject per node, chats.jobs.<instance>, a copy of the carrier
 // of the event replay. It lives here, not in bgjob, so that the sandbox
 // packages (which the Sandbox add-on shares) do not pull the message bus in.
 func NewJobCarrier(mc ReplyRequester, log *slog.Logger) bgjob.Carrier {

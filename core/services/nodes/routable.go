@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/xlog"
 )
 
@@ -35,28 +34,27 @@ type Route struct {
 }
 
 // RoutesOf returns the usable routes of a node, from what the worker reported and
-// what is stored about it. The cluster has no active carrier: every worker
-// attaches the way its operator chose, so the router asks the node, not the
-// cluster. The list is empty when the node cannot be reached at all.
+// what is stored about it. Every worker attaches the way its operator chose,
+// so the router asks the node, not the cluster. The list is empty when the node cannot be reached at all.
 //
 //   - direct: the worker is attached to NATS and has an address that a frontend can
-//     dial. A worker that reports no carrier capabilities predates carrier
-//     switching and counts as attached to NATS. A worker that joined over P2P never
-//     has it.
+//     dial. An agent worker needs no address: it serves only the agent RPC, on
+//     the NATS subjects of its node. A node that has not reported its routes yet
+//     counts as attached to NATS. A worker that joined over P2P never has it.
 //   - tunnel: the worker is attached to the tunnel. Transport, path and limited
 //     come from its report.
 //
 // A worker that holds both has both routes, direct first.
 func RoutesOf(n *BackendNode) []Route {
-	attached := splitCarriers(n.Attached)
+	attached := splitRoutes(n.Attached)
 	if n.Follow == "" {
-		attached = []cluster.Carrier{cluster.CarrierNATS}
+		attached = []string{RouteNATS}
 	}
 	var routes []Route
-	if slices.Contains(attached, cluster.CarrierNATS) && n.Address != "" && !isP2PNode(n) {
+	if slices.Contains(attached, RouteNATS) && (n.Address != "" || n.NodeType == NodeTypeAgent) && !isP2PNode(n) {
 		routes = append(routes, Route{Kind: RouteDirect})
 	}
-	if slices.Contains(attached, cluster.CarrierTunnel) {
+	if slices.Contains(attached, RouteTunnelID) {
 		t := parseTunnelRoute(n.TunnelTransport, n.TunnelPath, n.TunnelLimited)
 		routes = append(routes, Route{Kind: RouteTunnel, Transport: t.Transport, Path: t.Path, Limited: t.Limited})
 	}

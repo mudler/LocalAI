@@ -135,7 +135,7 @@ export function addonRows({ installed = [], grants = null, live = [], auto = fal
     if (op && (op.state === 'running' || op.state === 'cancelling')) {
       rows.push({ ...base, state: 'updating', progress: op.progress || 0, queued: (op.stage || op.phase) === 'queued', phase: op.stage || op.phase || '', jobID: op.jobID, cancellable: Boolean(op.cancellable), startable: false })
     } else if (op && op.state === 'failed') {
-      rows.push({ ...base, state: 'failed', error: op.errorKey || 'unavailable', errorKey: op.errorKey || 'unavailable', jobID: op.jobID, startable: false })
+      rows.push({ ...base, state: 'failed', error: op.errorKey || 'unavailable', errorKey: op.errorKey || 'unavailable', jobID: op.jobID, startable: false, ...(op.kind === 'approval' && hold ? { approval: true, grant: hold } : {}) })
     } else if (hold) {
       rows.push({ ...base, state: 'held', to: versionLabel(hold.pendingUpgrade.version), heldCount: hold.pendingUpgrade.delta.length, grant: hold, startable: false })
     } else if (view.state === 'update-available') {

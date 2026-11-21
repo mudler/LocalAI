@@ -29,9 +29,9 @@ import (
 )
 
 // requestBus is the fake bus with request/reply: a request reaches the reply
-// handler of its subject, and with none it fails as NATS does when no one
-// listens. Gone stands for a worker whose process ended: its subscription is
-// gone with it.
+// handler of its subject, and with none it fails as the peer link does when no
+// chat worker serves the start. Gone stands for a worker whose process ended:
+// its subscription is gone with it.
 type requestBus struct {
 	*testutil.FakeBus
 	gone atomic.Bool
@@ -52,6 +52,12 @@ func (b *requestBus) Request(subject string, data []byte, _ time.Duration) ([]by
 		return nil, nats.ErrNoResponders
 	}
 	return reply, nil
+}
+
+// RequestQueue is the chat start: a queue of one member, the reply handler of
+// the subject.
+func (b *requestBus) RequestQueue(subject string, data []byte, timeout time.Duration, _ func([]byte) bool) ([]byte, error) {
+	return b.Request(subject, data, timeout)
 }
 
 // dyingStore is a store that a chat worker loses when its process dies: once
@@ -100,10 +106,10 @@ func newWorkerRig(serve bool, workerOpts ...func(*studio.Deps)) *workerRig {
 		DeferCleanup(func() { _ = svc.Close(context.Background()) })
 		return svc
 	}
-	r.front = mk(r.hFront, st, nodes.NewNATSChatStarter(r.bus))
+	r.front = mk(r.hFront, st, nodes.NewChatStarter(r.bus))
 	r.worker = mk(r.hWorker, r.workerStore, nil, workerOpts...)
 	if serve {
-		_, err := nodes.NewNATSChatStartServer(r.bus).Serve(r.worker.ServeStart)
+		_, err := nodes.NewChatStartServer(r.bus).Serve(r.worker.ServeStart)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	return r
@@ -349,7 +355,7 @@ var _ = Describe("chatworker", func() {
 		sh := newShared()
 		bus := &requestBus{FakeBus: testutil.NewFakeBus()}
 		sh.deps = func(d *studio.Deps) {
-			d.Bus, d.Workers = studio.NewBroadcastBus(bus, nil), nodes.NewNATSChatStarter(bus)
+			d.Bus, d.Workers = studio.NewBroadcastBus(bus, nil), nodes.NewChatStarter(bus)
 		}
 		r := sh.rig(func(workspace.Actor, string) []studiotest.ToolStep {
 			return []studiotest.ToolStep{{Say: "the frontend ran it"}}
@@ -357,7 +363,7 @@ var _ = Describe("chatworker", func() {
 		worker, wh := newToolService(saySummary, func(d *studio.Deps) {
 			d.Store, d.Files, d.Agents, d.Bus = sh.chats, sh.files, sh.agents, studio.NewBroadcastBus(bus, nil)
 		})
-		_, err := nodes.NewNATSChatStartServer(bus).Serve(worker.ServeStart)
+		_, err := nodes.NewChatStartServer(bus).Serve(worker.ServeStart)
 		Expect(err).NotTo(HaveOccurred())
 		tr := r.schedule(studio.TriggerInput{})
 		r.due()
@@ -391,10 +397,10 @@ var _ = Describe("chatworker", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = worker.Close(context.Background()) })
-		_, err = nodes.NewNATSChatStartServer(bus).Serve(worker.ServeStart)
+		_, err = nodes.NewChatStartServer(bus).Serve(worker.ServeStart)
 		Expect(err).NotTo(HaveOccurred())
 		front, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: studiotest.NewGateHarness(),
-			Bus: studio.NewBroadcastBus(bus, nil), Workers: nodes.NewNATSChatStarter(bus)})
+			Bus: studio.NewBroadcastBus(bus, nil), Workers: nodes.NewChatStarter(bus)})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = front.Close(context.Background()) })
 		job, err := front.CreateAs(context.Background(), alice, studio.CreateInput{Model: "m"}, studio.Origin{Kind: session.OriginJob, ID: "task"})
@@ -428,10 +434,10 @@ var _ = Describe("chatworker", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = worker.Close(context.Background()) })
-		_, err = nodes.NewNATSChatStartServer(bus).Serve(worker.ServeStart)
+		_, err = nodes.NewChatStartServer(bus).Serve(worker.ServeStart)
 		Expect(err).NotTo(HaveOccurred())
 		front, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: studiotest.NewGateHarness(),
-			Bus: studio.NewBroadcastBus(bus, nil), Workers: nodes.NewNATSChatStarter(bus)})
+			Bus: studio.NewBroadcastBus(bus, nil), Workers: nodes.NewChatStarter(bus)})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = front.Close(context.Background()) })
 		job, err := front.CreateAs(context.Background(), alice, studio.CreateInput{Model: "m"}, studio.Origin{Kind: session.OriginJob, ID: "task"})

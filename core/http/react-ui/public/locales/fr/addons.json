@@ -939,7 +939,11 @@
       "review": "Examiner et approuver",
       "reviewNamed": "Examiner et approuver l'accès à l'hôte de {{name}}",
       "title": "{{name}} {{version}} attend votre approbation",
-      "progress": "Mise à jour de {{name}}. Elle s'exécute en arrière-plan."
+      "updatingTitle": "Mise à jour de {{name}} vers {{version}}",
+      "queuedBody": "Elle est en file d'attente et s'exécute en arrière-plan.",
+      "cancellingTitle": "Annulation de la mise à jour de {{name}}",
+      "failedTitle": "La mise à jour de {{name}} vers {{version}} a échoué",
+      "reviewAgain": "Examiner à nouveau"
     }
   },
   "oauthClient": {

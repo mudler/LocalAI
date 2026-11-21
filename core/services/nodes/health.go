@@ -54,93 +54,56 @@ type HealthMonitor struct {
 	cancel              context.CancelFunc
 	cancelMu            sync.Mutex
 
-	// presence and tunnelActive are set by UsePresence. They are read by the
-	// loop and written before it starts.
-	presence       NodePresenceReader
-	reconnectGrace time.Duration
-	tunnelActive   func() bool
+	// judge says which routes of a node are live. UsePresence gives it the
+	// tunnel rows; without them it reads the report of the worker only.
+	judge RouteJudge
+	// now is the clock of the route grace; time.Now when nil.
+	now func() time.Time
 
-	// carrier is set by UseCarrier. It is written before the loop starts.
-	carrier func() (cluster.Carrier, bool)
-	// tunnelRoutes is set by UseTunnelRoutes. It is written before the loop
-	// starts.
-	tunnelRoutes bool
+	// routeMu guards noRouteSince and downLogged. Both live in this replica
+	// only: the advisory lock gives each tick to one frontend, and a frontend
+	// that has not looked at a node for a while starts its grace again, which
+	// only delays a demotion.
+	routeMu sync.Mutex
+	// noRouteSince is when a node with a fresh heartbeat was first seen with no
+	// live route that carries work, and when it was last seen so.
+	noRouteSince map[string]noRoute
+	// downLogged is the set of routes of each node last logged as down, so a
+	// lost route is logged once and not at every tick.
+	downLogged map[string]string
 }
 
-// UseTunnelRoutes tells the monitor that the frontends reach a worker attached
-// to the tunnel while NATS is active (the tunnel route of the route table), so
-// such a worker is not off the active carrier in any way that matters: it is
-// not demoted. Call it before Start.
-func (hm *HealthMonitor) UseTunnelRoutes() { hm.tunnelRoutes = true }
-
-// UseCarrier makes the monitor demote a worker that reports it is not attached to
-// the active carrier, once the cluster has settled. Such a worker heartbeats over
-// HTTP, which exists on both carriers, and it cannot be reached: it could not
-// follow a change, or it has not yet. During a change the route table still holds
-// the route of the previous carrier, so nothing is demoted while a change is under
-// way or a carrier drains.
-//
-// active returns the active carrier and whether the cluster is settled: stable,
-// with nothing draining. Call it before Start.
-func (hm *HealthMonitor) UseCarrier(active func() (cluster.Carrier, bool)) {
-	hm.carrier = active
+// UsePresence makes the monitor read the tunnel rows that every frontend shares
+// for each node that holds a tunnel, whatever routes the other workers of the
+// cluster use. A grace of zero or less takes cluster.DefaultReconnectGrace. The
+// same grace applies to a NATS route that a worker reports lost, so a route
+// that reconnects inside it does not flap. Call it before Start.
+func (hm *HealthMonitor) UsePresence(reader NodePresenceReader, grace time.Duration) {
+	hm.judge.Presence = reader
+	hm.judge.Grace = grace
 }
 
-// carrierDeparted reports whether a worker has told the deployment that it is not
-// attached to the active carrier. A worker that reports nothing predates carrier
-// switching and is not judged by this: the tunnel read covers it where it matters.
-func (hm *HealthMonitor) carrierDeparted(node *BackendNode) bool {
-	if hm.carrier == nil || node == nil || node.Follow == "" {
-		return false
+func (hm *HealthMonitor) grace() time.Duration {
+	if hm.judge.Grace > 0 {
+		return hm.judge.Grace
 	}
-	active, settled := hm.carrier()
-	if !settled {
-		return false
-	}
-	attached := splitCarriers(node.Attached)
-	if hm.tunnelRoutes && active == cluster.CarrierNATS && slices.Contains(attached, cluster.CarrierTunnel) {
-		return false
-	}
-	return !slices.Contains(attached, active)
+	return cluster.DefaultReconnectGrace
 }
 
-// UsePresence makes the monitor read the tunnel of each node while the tunnel is
-// the active carrier. A node that heartbeats over HTTP and holds no tunnel is up
-// and cannot be reached, and nothing else shows it: the heartbeat is fine, and
-// the verbs that fail with no route are a fact of one request. Without this
-// read, a scheduler that marks such a node unhealthy on a failed request sees
-// the monitor promote it again at the next tick, and the node flaps.
-//
-// tunnelActive is asked at each tick. When NATS is the active carrier no node
-// holds a tunnel and nothing is read. A grace of zero or less takes
-// cluster.DefaultReconnectGrace. Call it before Start.
-func (hm *HealthMonitor) UsePresence(reader NodePresenceReader, grace time.Duration, tunnelActive func() bool) {
-	hm.presence = reader
-	hm.reconnectGrace = cmp.Or(grace, cluster.DefaultReconnectGrace)
-	hm.tunnelActive = tunnelActive
+func (hm *HealthMonitor) clock() time.Time {
+	if hm.now != nil {
+		return hm.now()
+	}
+	return time.Now()
 }
 
-// tunnelDeparted reports whether this deployment has decided that the tunnel of a
-// node is gone: no live replica holds it, and the departure is older than the
-// reconnect grace.
-//
-// Only cluster.PresenceGone answers true. Reconnecting is a worker that is
-// dialling again, unknown is a worker that never dialled or whose departure aged
-// out, and a read that fails is no answer at all. Acting on any of them would
-// demote a fleet for a reason that has nothing to do with a worker. It applies to
-// every node type, because an agent worker is reached through its tunnel and
-// nothing else.
-func (hm *HealthMonitor) tunnelDeparted(ctx context.Context, node *BackendNode) bool {
-	if hm.presence == nil || hm.tunnelActive == nil || !hm.tunnelActive() || node == nil {
-		return false
-	}
-	p, err := hm.presence.Presence(ctx, node.ID, hm.reconnectGrace)
-	if err != nil {
-		xlog.Warn("Health monitor could not read node presence; leaving the node's status alone",
-			"node", node.Name, "nodeID", node.ID, "error", err)
-		return false
-	}
-	return p == cluster.PresenceGone
+// RouteJudge returns the judge the monitor uses, so that the node list shows
+// the route state that the monitor acts on.
+func (hm *HealthMonitor) RouteJudge() RouteJudge {
+	j := hm.judge
+	j.StaleThreshold = hm.staleThreshold
+	j.Grace = hm.grace()
+	return j
 }
 
 // NewHealthMonitor creates a new HealthMonitor.
@@ -194,9 +157,9 @@ func (hm *HealthMonitor) Stop() {
 	}
 }
 
-// CheckNow runs one round of checks at once. A replica calls it when a carrier is
-// released, because the workers that did not follow are unreachable from that
-// moment, and the next tick may be seconds away.
+// CheckNow runs one round of checks at once. A replica calls it when its
+// broadcast bus reconnects, so that route state that changed meanwhile is read
+// without waiting for the next tick.
 func (hm *HealthMonitor) CheckNow(ctx context.Context) { hm.checkAll(ctx) }
 
 func (hm *HealthMonitor) run(ctx context.Context) {
@@ -231,10 +194,11 @@ func (hm *HealthMonitor) checkAll(ctx context.Context) {
 }
 
 // doCheckAll performs the actual health check logic for all nodes.
-// Node liveness is determined by heartbeat freshness — both backend and agent
-// workers send periodic HTTP heartbeats to the frontend, so a stale heartbeat
-// means the worker supervisor is down. This is simpler and more reliable than
-// probing individual gRPC backend processes (which can crash independently).
+// Node liveness is judged per route (RouteJudge): the HTTP heartbeat that both
+// backend and agent workers send, NATS as the worker reports it, and the tunnel
+// as the connection rows show it. A node is reachable while NATS or its tunnel
+// is live. This is simpler and more reliable than probing individual gRPC
+// backend processes (which can crash independently).
 //
 // Per-model health checks (opt-in) separately probe each model's gRPC address
 // and remove stale model records without affecting the node's overall status.
@@ -245,6 +209,11 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		return
 	}
 
+	now := hm.clock()
+	judge := hm.RouteJudge()
+	seen := make(map[string]struct{}, len(nodes))
+	defer hm.forgetRouteState(seen)
+
 	for _, node := range nodes {
 		// Draining nodes are operator-managed; pending nodes have never been
 		// approved. Turning a pending node offline would let a later
@@ -253,13 +222,24 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 			continue
 		}
 
-		// Node liveness: heartbeat staleness check.
-		// Workers (both backend and agent) send HTTP heartbeats to the frontend.
-		// If the heartbeat is stale, the worker is presumed down.
-		if time.Since(node.LastHeartbeat) > hm.staleThreshold {
-			// Skip nodes already marked offline/unhealthy — re-marking them
-			// every cycle floods the log with the same WARN+INFO pair for
-			// nodes the operator has intentionally taken down.
+		// Node liveness is judged per route. The heartbeat says that the worker
+		// process runs and carries the report of its routes; NATS and the
+		// tunnel carry the work. A node is reachable while any route that
+		// carries work is live, whatever routes the other nodes hold.
+		states := judge.States(ctx, &node, now)
+		fresh := states[0].Live()
+		carrying := carryingRoutes(states)
+		judged := len(carrying) > 0
+		live := slices.ContainsFunc(carrying, RouteState.Live)
+		hm.logRouteChanges(&node, states)
+		seen[node.ID] = struct{}{}
+
+		if !live && !fresh {
+			hm.clearNoRoute(node.ID)
+			// No route at all: the stale rules apply as before. Skip nodes
+			// already marked offline/unhealthy — re-marking them every cycle
+			// floods the log with the same WARN+INFO pair for nodes the
+			// operator has intentionally taken down.
 			if node.Status == StatusOffline || node.Status == StatusUnhealthy {
 				continue
 			}
@@ -277,48 +257,33 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 			continue
 		}
 
-		// The heartbeat is fresh, so the supervisor of the worker is alive. That is
-		// not the same as the deployment being able to reach it: the heartbeat is
-		// an HTTP call that does not use the tunnel, and a worker can send it for
-		// ever with no tunnel (a proxy that stopped upgrading websockets, a
-		// credential that was rotated, a reconnect loop longer than the grace).
-		//
-		// The node is demoted and not marked offline. MarkUnhealthy is status
-		// only, and status is enough: routing selects on status=healthy, so the
-		// loaded rows stop being chosen and the model is placed somewhere that can
-		// be reached. MarkOffline deletes the rows of the node, and deleting rows
-		// on a presence read would give any defect in that read the largest blast
-		// radius in the system.
-		//
-		// No re-promotion and no per-model probes follow: the probes would dial a
-		// worker that has no route and count none of it, and the promotion below
-		// would undo the demotion at the next tick.
-		if hm.tunnelDeparted(ctx, &node) {
+		// The heartbeat is fresh and no route that carries work is live: the
+		// worker runs and cannot be reached (a proxy that stopped upgrading
+		// websockets, a rotated credential, a NATS server that is away). The
+		// node is demoted, not marked offline: MarkUnhealthy is status only,
+		// routing selects on status=healthy, and nothing of the node is
+		// deleted on a read of its routes. A route that is down for less than
+		// the reconnect grace is waited for, so a route that reconnects does
+		// not flap the node. No promotion and no per-model probes follow: the
+		// probes would dial a worker that has no route.
+		if judged && !live {
+			if !hm.noRouteFor(node.ID, carrying, now) {
+				continue
+			}
 			if node.Status != StatusUnhealthy && node.Status != StatusOffline {
-				xlog.Warn("Node is heartbeating but its tunnel has been gone longer than the reconnect grace; marking unhealthy",
-					"node", node.Name, "nodeID", node.ID, "type", node.NodeType, "grace", hm.reconnectGrace)
+				xlog.Warn("Node is heartbeating but none of its routes is live; marking unhealthy",
+					"node", node.Name, "nodeID", node.ID, "type", node.NodeType, "routes", node.Follow,
+					"routeError", node.FollowError, "grace", hm.grace())
 				if err := hm.registry.MarkUnhealthy(ctx, node.ID); err != nil {
-					xlog.Error("Failed to mark a departed node unhealthy", "node", node.Name, "error", err)
+					xlog.Error("Failed to mark a node with no live route unhealthy", "node", node.Name, "error", err)
 				}
 			}
 			continue
 		}
+		hm.clearNoRoute(node.ID)
 
-		// The same holds for a worker that says it is not on the active carrier. It
-		// stays registered and it heartbeats, it is not scheduled, and nothing of it
-		// is deleted. It is promoted again when it reports the active carrier.
-		if hm.carrierDeparted(&node) {
-			if node.Status != StatusUnhealthy && node.Status != StatusOffline {
-				xlog.Warn("Node is heartbeating but is not attached to the active carrier; marking unhealthy",
-					"node", node.Name, "nodeID", node.ID, "attached", node.Attached, "followError", node.FollowError)
-				if err := hm.registry.MarkUnhealthy(ctx, node.ID); err != nil {
-					xlog.Error("Failed to mark a node that is off the active carrier unhealthy", "node", node.Name, "error", err)
-				}
-			}
-			continue
-		}
-
-		// Heartbeat is fresh — node is alive
+		// A route is live: the node is reachable, even when another of its
+		// routes, or its heartbeat, is lost.
 		if node.Status == StatusUnhealthy || node.Status == StatusOffline {
 			xlog.Info("Node recovered", "node", node.Name)
 			if err := hm.registry.MarkHealthy(ctx, node.ID); err != nil {
@@ -385,6 +350,78 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				delete(hm.misses, key)
 				hm.missesMu.Unlock()
 			}
+		}
+	}
+}
+
+// noRoute is how long this replica has seen a node with no live route.
+type noRoute struct{ since, last time.Time }
+
+// noRouteFor reports whether a node with a fresh heartbeat has had no live route
+// that carries work for at least the reconnect grace. A route that is already
+// down for longer than the grace (a tunnel that presence reports gone) needs no
+// further wait.
+func (hm *HealthMonitor) noRouteFor(nodeID string, carrying []RouteState, now time.Time) bool {
+	if !slices.ContainsFunc(carrying, func(s RouteState) bool { return !s.settled }) {
+		return true
+	}
+	hm.routeMu.Lock()
+	defer hm.routeMu.Unlock()
+	if hm.noRouteSince == nil {
+		hm.noRouteSince = map[string]noRoute{}
+	}
+	nr, ok := hm.noRouteSince[nodeID]
+	// Another frontend ran the ticks in between, and a route may have come
+	// back and gone again meanwhile: the grace starts again.
+	if !ok || now.Sub(nr.last) > 3*hm.checkInterval {
+		hm.noRouteSince[nodeID] = noRoute{since: now, last: now}
+		return false
+	}
+	nr.last = now
+	hm.noRouteSince[nodeID] = nr
+	return now.Sub(nr.since) >= hm.grace()
+}
+
+func (hm *HealthMonitor) clearNoRoute(nodeID string) {
+	hm.routeMu.Lock()
+	defer hm.routeMu.Unlock()
+	delete(hm.noRouteSince, nodeID)
+}
+
+// logRouteChanges logs a route that a node lost, or got back, once per change.
+// The node list shows the same states at any time.
+func (hm *HealthMonitor) logRouteChanges(node *BackendNode, states []RouteState) {
+	down := downRoutes(states)
+	hm.routeMu.Lock()
+	if hm.downLogged == nil {
+		hm.downLogged = map[string]string{}
+	}
+	prev, seen := hm.downLogged[node.ID]
+	hm.downLogged[node.ID] = down
+	hm.routeMu.Unlock()
+	if down == prev || (!seen && down == "") {
+		return
+	}
+	if down == "" {
+		xlog.Info("Every route of the node is live again", "node", node.Name, "nodeID", node.ID)
+		return
+	}
+	xlog.Warn("A route of the node is not live", "node", node.Name, "nodeID", node.ID, "down", down, "routeError", node.FollowError)
+}
+
+// forgetRouteState drops what the monitor keeps about nodes that are no longer
+// listed or that it skipped.
+func (hm *HealthMonitor) forgetRouteState(seen map[string]struct{}) {
+	hm.routeMu.Lock()
+	defer hm.routeMu.Unlock()
+	for id := range hm.noRouteSince {
+		if _, ok := seen[id]; !ok {
+			delete(hm.noRouteSince, id)
+		}
+	}
+	for id := range hm.downLogged {
+		if _, ok := seen[id]; !ok {
+			delete(hm.downLogged, id)
 		}
 	}
 }

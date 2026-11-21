@@ -42,10 +42,8 @@ const routesTTL = time.Second
 type RouteTable struct {
 	of RouteSource
 
-	// slots holds the route in use for each kind, and pinned the route that a
-	// slot returns to when an attached route is detached.
-	slots  [len(routeKinds)]atomic.Pointer[WorkerRoute]
-	pinned [len(routeKinds)]atomic.Pointer[WorkerRoute]
+	// slots holds the route of each kind.
+	slots [len(routeKinds)]atomic.Pointer[WorkerRoute]
 
 	mu     sync.Mutex
 	cache  map[string]cachedRoutes
@@ -72,46 +70,15 @@ func kindIndex(k nodes.RouteKind) int {
 	return -1
 }
 
-// Pin makes r the route of its kind for as long as the table lives. An attached
-// route of the same kind (Attach) takes its place until it is detached.
+// Pin makes r the route of its kind for as long as the table lives. A frontend
+// pins the tunnel route on every deployment, and the direct route when it has
+// a NATS server.
 func (t *RouteTable) Pin(r *WorkerRoute) {
-	i := kindIndex(r.Kind)
-	if i < 0 {
-		return
-	}
-	t.pinned[i].Store(r)
-	t.slots[i].CompareAndSwap(nil, r)
-}
-
-// Attach makes r the route of its kind. The change of carrier attaches the route
-// of a set before the set is used and while it drains (step 8 of the hybrid
-// carriers work removes the change and this call).
-func (t *RouteTable) Attach(r *WorkerRoute) {
 	if r == nil {
 		return
 	}
 	if i := kindIndex(r.Kind); i >= 0 {
 		t.slots[i].Store(r)
-		t.dropCache()
-	}
-}
-
-// dropCache forgets the routes read for every node. A change of carrier moves
-// the workers between routes, so what was read before it is not kept.
-func (t *RouteTable) dropCache() {
-	t.mu.Lock()
-	clear(t.cache)
-	t.mu.Unlock()
-}
-
-// Detach removes r if it is the route of its kind, and puts back the pinned
-// route of that kind. Calls that already took r end on it.
-func (t *RouteTable) Detach(r *WorkerRoute) {
-	if r == nil {
-		return
-	}
-	if i := kindIndex(r.Kind); i >= 0 && t.slots[i].CompareAndSwap(r, t.pinned[i].Load()) {
-		t.dropCache()
 	}
 }
 
@@ -272,13 +239,9 @@ func (t *RouteTable) Forget(nodeID string) {
 	delete(t.cache, nodeID)
 	delete(t.sticky, nodeID)
 	t.mu.Unlock()
-	seen := map[*WorkerRoute]bool{}
-	for i := range routeKinds {
-		for _, r := range []*WorkerRoute{t.slots[i].Load(), t.pinned[i].Load()} {
-			if r != nil && !seen[r] && r.ForgetNode != nil {
-				seen[r] = true
-				r.ForgetNode(nodeID)
-			}
+	for _, r := range t.held() {
+		if r.ForgetNode != nil {
+			r.ForgetNode(nodeID)
 		}
 	}
 }

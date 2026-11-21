@@ -10,7 +10,7 @@ import AddonOpStatus from './AddonOpStatus'
 import HostAccessList from './HostAccessList'
 import HostDialog from './HostDialog'
 import { useHostPreview } from './useHostPreview'
-import { approvalBody, installBlock } from './hostGrantsState'
+import { approvalBody, approvalStage, installBlock } from './hostGrantsState'
 import { describeError } from './errors'
 import { upgradeFailureWords } from './updateReview'
 
@@ -77,27 +77,61 @@ export default function ApproveUpgradeDialog({ addon, sourceId, upgrade, onClose
   )
 }
 
-// The banner for an upgrade that waits: the old version keeps running. While
-// the approved upgrade runs it says so; `full` (a page with no row of the
-// add-on to show it) adds the state with its Cancel, and the note of a
-// canceled one.
+// The banner of an upgrade the host holds, in the state the approval is in:
+// waiting for the administrator (the old version keeps running, with the
+// button that opens the review), queued or running after the approval (no
+// button, the state and Cancel), being canceled, or failed (the failure and a
+// new review). `full` (a page with no row of the add-on to show it) adds the
+// note of a canceled one.
 export function WaitingBanner({ addon, onReview, busy = false, op = null, note = null, full = false, upgrade = null }) {
   const { t } = useTranslation('addons')
-  const active = op && op.state !== 'failed' ? op : null
-  const failed = op && op.state === 'failed' ? op : null
+  const stage = approvalStage(op)
+  const version = addon.pendingUpgrade.version
+  const names = { name: addon.title, version }
+  const review = (label) => (
+    <Button size="sm" disabled={busy} onClick={onReview} aria-label={t('hostAccess.waiting.reviewNamed', { name: addon.title })} data-testid="host-waiting-review">{label}</Button>
+  )
+  if (stage === 'queued' || stage === 'running') {
+    return (
+      <Callout tone="info" icon="refresh" title={t('hostAccess.waiting.updatingTitle', names)} testId="host-waiting" data-stage={stage} data-app={addon.id}>
+        {stage === 'queued' && <p className="ad-entry__note" role="status" data-testid="host-waiting-progress">{t('hostAccess.waiting.queuedBody')}</p>}
+        <AddonOpStatus op={op} name={addon.title} version={addon.version} onCancel={upgrade ? upgrade.cancel : undefined} />
+      </Callout>
+    )
+  }
+  if (stage === 'cancelling') {
+    return (
+      <Callout tone="info" icon="refresh" title={t('hostAccess.waiting.cancellingTitle', names)} testId="host-waiting" data-stage={stage} data-app={addon.id}>
+        <AddonOpStatus op={op} name={addon.title} version={addon.version} />
+      </Callout>
+    )
+  }
+  if (stage === 'failed') {
+    return (
+      <Callout
+        tone="error"
+        title={t('hostAccess.waiting.failedTitle', names)}
+        testId="host-waiting"
+        data-stage={stage}
+        data-app={addon.id}
+        actions={review(t('hostAccess.waiting.reviewAgain'))}
+      >
+        <p className="ad-entry__note" data-tone="error" role="alert" data-testid="host-waiting-failed">{upgradeFailureWords(op.errorKey, t)}</p>
+      </Callout>
+    )
+  }
   return (
     <Callout
       tone="warn"
       icon="shield"
-      title={t('hostAccess.waiting.title', { name: addon.title, version: addon.pendingUpgrade.version })}
+      title={t('hostAccess.waiting.title', names)}
       testId="host-waiting"
+      data-stage={stage}
       data-app={addon.id}
-      actions={<Button size="sm" disabled={busy} onClick={onReview} aria-label={t('hostAccess.waiting.reviewNamed', { name: addon.title })} data-testid="host-waiting-review">{t('hostAccess.waiting.review')}</Button>}
+      actions={review(t('hostAccess.waiting.review'))}
     >
       {t('hostAccess.waiting.body', { current: addon.version, count: addon.pendingUpgrade.delta.length })}
-      {active && <p className="ad-entry__note" role="status" data-testid="host-waiting-progress">{t('hostAccess.waiting.progress', { name: addon.title })}</p>}
-      {failed && <p className="ad-entry__note" data-tone="error" role="alert" data-testid="host-waiting-failed">{upgradeFailureWords(failed.errorKey, t)}</p>}
-      {full && upgrade && <AddonOpStatus op={active} note={active ? null : note} name={addon.title} version={addon.version} onCancel={upgrade.cancel} onDismissNote={upgrade.closeNote} />}
+      {full && upgrade && note && <AddonOpStatus note={note} name={addon.title} version={addon.version} onDismissNote={upgrade.closeNote} />}
     </Callout>
   )
 }

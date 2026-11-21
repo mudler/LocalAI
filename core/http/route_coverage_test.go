@@ -240,14 +240,12 @@ var _ = Describe("Route auth coverage", func() {
 		Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 	})
 
-	// The admin routes of the carrier sit under /api/cluster/, next to the two
+	// The admin routes of the cluster sit under /api/cluster/, next to the two
 	// routes that skip the global authentication. The prefix must not be public:
 	// an anonymous caller gets 401 on each of them, also on a frontend that is not
 	// distributed, and they exist whatever the mode.
-	It("registers the admin routes of the carrier and refuses an anonymous caller", func() {
+	It("registers the admin routes of the cluster and refuses an anonymous caller", func() {
 		want := map[string]bool{
-			http.MethodGet + " /api/cluster/carrier":  false,
-			http.MethodPost + " /api/cluster/carrier": false,
 			http.MethodGet + " /api/cluster/settings": false,
 			http.MethodPut + " /api/cluster/settings": false,
 		}

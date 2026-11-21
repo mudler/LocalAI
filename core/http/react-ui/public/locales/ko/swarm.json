@@ -179,7 +179,15 @@
       "relayed": "릴레이 경유"
     },
     "limited": "제한됨",
-    "limitedHint": "릴레이가 이 연결의 데이터나 시간을 제한합니다. 모델 파일은 이 경로로 전송되지 않습니다."
+    "limitedHint": "릴레이가 이 연결의 데이터나 시간을 제한합니다. 모델 파일은 이 경로로 전송되지 않습니다.",
+    "heartbeat": "하트비트",
+    "tunnel": "터널",
+    "chip": "{{route}}: {{state}}",
+    "state": {
+      "live": "연결됨",
+      "reconnecting": "재연결 중",
+      "down": "끊김"
+    }
   },
   "inspector": {
     "route": "경로",

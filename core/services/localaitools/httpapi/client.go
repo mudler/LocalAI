@@ -690,13 +690,14 @@ func capabilityLabels(flags []string) []string {
 
 func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	var raw []struct {
-		ID          string `json:"id"`
-		Address     string `json:"address"`
-		HTTPAddress string `json:"http_address"`
-		Status      string `json:"status"`
-		Attached    string `json:"attached"`
-		PeerID      string `json:"peer_id"`
-		SplitServer bool   `json:"split_server"`
+		ID          string                        `json:"id"`
+		Address     string                        `json:"address"`
+		HTTPAddress string                        `json:"http_address"`
+		Status      string                        `json:"status"`
+		Attached    string                        `json:"attached"`
+		PeerID      string                        `json:"peer_id"`
+		SplitServer bool                          `json:"split_server"`
+		RouteState  []localaitools.NodeRouteState `json:"route_state"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeNodes, nil, &raw); err != nil {
 		// Treat 404/disabled as "no nodes" to keep parity with single-process.
@@ -715,6 +716,7 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 			Route:       localaitools.NodeRoute(strings.Split(n.Attached, ","), n.PeerID),
 			PeerID:      n.PeerID,
 			SplitServer: n.SplitServer,
+			Routes:      n.RouteState,
 		})
 	}
 	return out, nil
@@ -1050,54 +1052,6 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 }
 
 // ---- Cluster carrier ----
-
-// GetClusterCarrier reads GET /api/cluster/carrier. A frontend that is not
-// distributed answers 503, which is reported as distributed=false.
-func (c *Client) GetClusterCarrier(ctx context.Context) (*localaitools.ClusterCarrierStatus, error) {
-	var raw struct {
-		Active         string `json:"active"`
-		State          string `json:"state"`
-		Target         string `json:"target"`
-		Epoch          int64  `json:"epoch"`
-		DrainRemaining int64  `json:"drain_remaining_ns"`
-		Replicas       []struct {
-			ID          string `json:"id"`
-			Version     string `json:"version"`
-			ReadyEpoch  int64  `json:"ready_epoch"`
-			ReadyReason string `json:"ready_reason"`
-		} `json:"replicas"`
-		Workers []struct {
-			ID          string   `json:"id"`
-			Name        string   `json:"name"`
-			Attached    []string `json:"attached"`
-			CanFollow   bool     `json:"can_follow"`
-			Reason      string   `json:"reason"`
-			FollowError string   `json:"follow_error"`
-		} `json:"workers"`
-	}
-	if err := c.do(ctx, http.MethodGet, routeClusterCarrier, nil, &raw); err != nil {
-		var he *HTTPError
-		if errors.As(err, &he) && he.StatusCode == http.StatusServiceUnavailable {
-			return &localaitools.ClusterCarrierStatus{Distributed: false}, nil
-		}
-		return nil, err
-	}
-	out := &localaitools.ClusterCarrierStatus{
-		Distributed:           true,
-		Active:                raw.Active,
-		State:                 raw.State,
-		Target:                raw.Target,
-		Epoch:                 raw.Epoch,
-		DrainRemainingSeconds: float64(raw.DrainRemaining) / 1e9,
-	}
-	for _, r := range raw.Replicas {
-		out.Replicas = append(out.Replicas, localaitools.ClusterReplicaInfo{ID: r.ID, Version: r.Version, ReadyEpoch: r.ReadyEpoch, ReadyReason: r.ReadyReason})
-	}
-	for _, w := range raw.Workers {
-		out.Workers = append(out.Workers, localaitools.ClusterWorkerInfo{ID: w.ID, Name: w.Name, Attached: w.Attached, CanFollow: w.CanFollow, Reason: w.Reason, FollowError: w.FollowError})
-	}
-	return out, nil
-}
 
 // ---- Carrier weights ----
 

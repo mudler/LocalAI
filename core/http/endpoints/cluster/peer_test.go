@@ -64,8 +64,8 @@ var _ = Describe("Peer link endpoint", func() {
 
 		ownerCred, callerCred = cluster.NewPeerCredential(), cluster.NewPeerCredential()
 		addr := strings.TrimPrefix(srv.URL, "http://")
-		Expect(reg.RegisterPeer(ctx, ownerID, "test", 0, "", addr, ownerCred.Hash())).To(Succeed())
-		Expect(reg.RegisterPeer(ctx, callerID, "test", 0, "", "127.0.0.1:9", callerCred.Hash())).To(Succeed())
+		Expect(reg.RegisterPeer(ctx, ownerID, "test", addr, ownerCred.Hash())).To(Succeed())
+		Expect(reg.RegisterPeer(ctx, callerID, "test", "127.0.0.1:9", callerCred.Hash())).To(Succeed())
 	})
 
 	// raw dials the route with the headers a spec chooses.
@@ -172,7 +172,7 @@ var _ = Describe("Peer link endpoint", func() {
 			e.GET(tunnel.PeerPath, clusterapi.PeerHandler(reg, sessions.Accept))
 			srv2 := httptest.NewServer(e)
 			DeferCleanup(srv2.Close)
-			Expect(reg.RegisterPeer(ctx, ownerID, "test", 0, "", strings.TrimPrefix(srv2.URL, "http://"), ownerCred.Hash())).To(Succeed())
+			Expect(reg.RegisterPeer(ctx, ownerID, "test", strings.TrimPrefix(srv2.URL, "http://"), ownerCred.Hash())).To(Succeed())
 
 			front, back := workerSessions()
 			worker.serve(back)
@@ -197,8 +197,8 @@ var _ = Describe("Peer link endpoint", func() {
 		})
 
 		It("reports a peer with no listener as unreachable, and a peer without an address as unreachable too", func() {
-			Expect(reg.RegisterPeer(ctx, "silent", "test", 0, "", "127.0.0.1:1", cluster.NewPeerCredential().Hash())).To(Succeed())
-			Expect(reg.Register(ctx, "addressless", "test", 0, "")).To(Succeed())
+			Expect(reg.RegisterPeer(ctx, "silent", "test", "127.0.0.1:1", cluster.NewPeerCredential().Hash())).To(Succeed())
+			Expect(reg.Register(ctx, "addressless", "test")).To(Succeed())
 			pool := tunnel.NewPeerPool(callerID, callerCred, reg)
 			DeferCleanup(pool.Close)
 			for _, peer := range []string{"silent", "addressless"} {
@@ -233,7 +233,7 @@ var _ = Describe("Peer link endpoint", func() {
 					DeferCleanup(func() { _ = c.Close() })
 				}
 			}()
-			Expect(reg.RegisterPeer(ctx, "slow", "test", 0, "", ln.Addr().String(), cluster.NewPeerCredential().Hash())).To(Succeed())
+			Expect(reg.RegisterPeer(ctx, "slow", "test", ln.Addr().String(), cluster.NewPeerCredential().Hash())).To(Succeed())
 			pool := tunnel.NewPeerPool(callerID, callerCred, reg)
 			DeferCleanup(pool.Close)
 			short, cancel := context.WithTimeout(ctx, 200*time.Millisecond)

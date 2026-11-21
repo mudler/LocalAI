@@ -4,24 +4,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
 )
 
-// NATSClient is the connection a NATS set is built over. *messaging.Client
+// NATSClient is the connection the direct route is built over. *messaging.Client
 // satisfies it.
 type NATSClient interface {
 	messaging.MessagingClient
 	OnReconnect(func())
 }
 
-// NATSOptions is what NewNATSSet needs besides the connection.
+// NATSOptions is what NewNATSRoutes needs besides the connection.
 type NATSOptions struct {
 	Client NATSClient
-	// Epoch is the epoch of the cluster row the set is built for.
-	Epoch int64
 
 	// Registry finds the nodes that hold a model, for the verbs that fan out.
 	Registry nodes.ModelLocator
@@ -56,32 +53,12 @@ type NATSOptions struct {
 	Shared bool
 }
 
-// NewNATSSet builds the set of seam implementations that run over NATS: request
-// and reply on the NATS connection, and the direct route (NewNATSRoutes).
-func NewNATSSet(o NATSOptions) (*Set, error) {
-	route, err := NewNATSRoutes(o)
-	if err != nil {
-		return nil, err
-	}
-	set := &Set{
-		Name:        cluster.CarrierNATS,
-		Epoch:       o.Epoch,
-		Replies:     o.Client,
-		WorkerRoute: route,
-		Close:       route.Close,
-	}
-	if err := set.Validate(); err != nil {
-		return nil, err
-	}
-	return set, nil
-}
-
 // NewNATSRoutes builds the direct route: the control verbs and the agent RPC
 // over NATS, and the gRPC and HTTP connections by a direct dial of the address
 // of the worker. Close closes the NATS connection, unless o.Shared.
 func NewNATSRoutes(o NATSOptions) (*WorkerRoute, error) {
 	if o.Client == nil {
-		return nil, fmt.Errorf("NATS set needs a connection")
+		return nil, fmt.Errorf("the direct route needs a NATS connection")
 	}
 	dial := nodes.DirectWorkerNetDialer()
 

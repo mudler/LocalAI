@@ -24,10 +24,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// A worker that booted on NATS can be told, while it runs, to attach to a
-// tunnel and serve its control verbs over it. These specs run the follower
-// against the real connect endpoint, the real registry of tunnels and a real
-// PostgreSQL. What decides to attach is not part of them.
+// A worker attaches its tunnel while it runs and serves its control verbs over
+// it. These specs run the follower against the real connect endpoint, the real
+// registry of tunnels and a real PostgreSQL. What decides to attach (the route
+// holder) is not part of them.
 var _ = Describe("A worker that attaches to a tunnel at run time", func() {
 	const (
 		nodeToken         = "own-tunnel-token"
@@ -60,7 +60,7 @@ var _ = Describe("A worker that attaches to a tunnel at run time", func() {
 		db := testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR := cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-a", "test")).To(Succeed())
 		nodeReg, err := nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 		registry = tunnel.NewRegistry(clusterR, "replica-a")

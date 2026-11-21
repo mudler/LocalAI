@@ -222,6 +222,19 @@ func (b *FakeBus) Request(subject string, data []byte, _ time.Duration) ([]byte,
 	return reply, nil
 }
 
+// RequestInstance is Request: the fake routes by subject, so a spec that runs
+// several processes on one bus names each by the subject it serves (as the
+// chat replay does), and the instance is not read.
+func (b *FakeBus) RequestInstance(_ string, subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	return b.Request(subject, data, timeout)
+}
+
+// RequestQueue is Request: a subject has one replier on the fake, so a queue
+// has one member and a refusal that moveOn reads has nowhere else to go.
+func (b *FakeBus) RequestQueue(subject string, data []byte, timeout time.Duration, _ func([]byte) bool) ([]byte, error) {
+	return b.Request(subject, data, timeout)
+}
+
 type fakeReplySubscription struct {
 	bus     *FakeBus
 	subject string

@@ -935,7 +935,11 @@
       "review": "Controlla e approva",
       "reviewNamed": "Controlla e approva l'accesso all'host di {{name}}",
       "title": "{{name}} {{version}} aspetta la tua approvazione",
-      "progress": "Aggiornamento di {{name}} in corso. Va avanti in background."
+      "updatingTitle": "Aggiornamento di {{name}} alla {{version}}",
+      "queuedBody": "È in coda e va avanti in background.",
+      "cancellingTitle": "Annullamento dell'aggiornamento di {{name}}",
+      "failedTitle": "L'aggiornamento di {{name}} alla {{version}} non è riuscito",
+      "reviewAgain": "Controlla di nuovo"
     }
   },
   "oauthClient": {

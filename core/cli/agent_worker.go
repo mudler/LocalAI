@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -14,7 +15,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agentworker"
-	"github.com/mudler/LocalAI/core/services/cluster"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/worker"
@@ -25,19 +25,22 @@ import (
 )
 
 // AgentWorkerCMD starts a dedicated worker process for distributed mode. It
-// registers with the frontend, attaches to the carrier that the frontend names,
-// and serves the MCP tool calls and discovery requests of the frontend, because
-// the frontend cannot start the stdio MCP servers of a model (for example, ones
-// that need docker). On NATS it subscribes to the MCP subjects. On the tunnel it
-// holds one outbound connection to the frontend and serves the requests that
-// arrive on it. It needs no database access.
+// registers with the frontend, holds the routes its operator gave it, and serves
+// the MCP tool calls and discovery requests of the frontend, because the
+// frontend cannot start the stdio MCP servers of a model (for example, ones that
+// need docker). On NATS it subscribes to the MCP subjects. On the tunnel it holds
+// one outbound connection to the frontend and serves the requests that arrive
+// on it. It needs no database access.
 //
 // Usage:
 //
 //	localai agent-worker --register-to http://localai:8080
 type AgentWorkerCMD struct {
-	// NATS (optional: the frontend hands over the address)
-	NatsURL string `env:"LOCALAI_NATS_URL" help:"NATS server URL. Optional: the frontend hands over the address when the cluster runs on NATS, and this overrides it" group:"distributed"`
+	// NATS. A URL gives the worker the NATS route.
+	NatsURL string `env:"LOCALAI_NATS_URL" help:"NATS server URL. With it the agent worker holds the NATS route. Without it, and with --routes nats, the agent worker uses the address that the frontend hands over" group:"distributed"`
+	// Routes are the ways this agent worker reaches the cluster. Empty derives
+	// them from the other flags (see routes).
+	Routes []string `env:"LOCALAI_WORKER_ROUTES" help:"Routes this agent worker holds to the cluster, comma separated: nats, tunnel or both. Default: nats when a NATS URL is set, and the websocket tunnel to the frontend when a registration token is set; with neither, nats with the address that the frontend hands over" group:"registration"`
 
 	// Registration (required)
 	RegisterTo        string `env:"LOCALAI_REGISTER_TO" required:"" help:"Frontend URL for registration" group:"registration"`
@@ -68,31 +71,45 @@ func (cmd *AgentWorkerCMD) natsAuthRequired() bool {
 	return cmd.NatsRequireAuth || cmd.DistributedRequireAuth
 }
 
-// agentCarrier maps the carrier that the frontend named onto the one this agent
-// worker attaches to, and reports whether it is the tunnel. A frontend that names
-// none predates carriers and runs on NATS. The flag of the NATS URL cannot be
-// required, because the carrier is known only after the registration, so the
-// check is here.
-func agentCarrier(named, natsURL, handedURL string) (onTunnel bool, err error) {
-	switch named {
-	case "tunnel":
-		if natsURL != "" {
-			xlog.Info("The cluster runs on the tunnel; the NATS URL of this agent worker is kept for a change to NATS")
+// routes returns the routes of the agent worker, NATS first. The tunnel needs
+// the registration token, which guards the control server that the tunnel
+// reaches, so it is not a default without one. A worker with neither a NATS URL
+// nor a token takes NATS from the address that the frontend hands over.
+func (cmd *AgentWorkerCMD) routes() ([]worker.Route, error) {
+	if len(cmd.Routes) == 0 {
+		var out []worker.Route
+		if cmd.NatsURL != "" {
+			out = append(out, worker.RouteNATS)
 		}
-		return true, nil
-	case "", "nats":
-		if natsURL == "" && handedURL == "" {
-			return false, fmt.Errorf("the cluster runs on NATS and this agent worker has no NATS URL, and the frontend handed over none: set LOCALAI_NATS_URL")
+		if cmd.RegistrationToken != "" {
+			out = append(out, worker.RouteTunnel)
 		}
-		return false, nil
-	default:
-		return false, fmt.Errorf("the frontend names the carrier %q, which this agent worker does not know: upgrade the agent worker", named)
+		if len(out) == 0 {
+			out = append(out, worker.RouteNATS)
+		}
+		return out, nil
 	}
+	out, err := worker.ParseRoutes(cmd.Routes)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("--routes names no route: give nats, tunnel or both")
+	}
+	if slices.Contains(out, worker.RouteTunnel) && cmd.RegistrationToken == "" {
+		return nil, fmt.Errorf("the tunnel route of an agent worker needs LOCALAI_REGISTRATION_TOKEN: it guards the control server that the tunnel reaches")
+	}
+	return out, nil
 }
 
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	cmd.RemovedAgentWorkerOptions.warn()
 	xlog.Info("Starting agent worker", "nats", sanitize.URL(cmd.NatsURL), "register_to", cmd.RegisterTo)
+
+	routes, err := cmd.routes()
+	if err != nil {
+		return err
+	}
 
 	// Register with frontend
 	regClient := &workerregistry.RegistrationClient{
@@ -105,17 +122,27 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		hostname, _ := os.Hostname()
 		nodeName = "agent-" + hostname
 	}
-	registrationBody := func() map[string]any {
-		body := map[string]any{
-			"name":      nodeName,
-			"node_type": "agent",
-			"version":   internal.Version,
-			"commit":    internal.Commit,
+	// register asks for the credentials of the given routes. Each route gets its
+	// own credential from a registration that asks for that route only, so the
+	// refresh of the NATS credential never mints a new tunnel token.
+	register := func(rs ...worker.Route) workerregistry.RegisterFunc {
+		names := make([]string, 0, len(rs))
+		for _, r := range rs {
+			names = append(names, string(r))
 		}
-		if cmd.RegistrationToken != "" {
-			body["token"] = cmd.RegistrationToken
+		return func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+			body := map[string]any{
+				"name":      nodeName,
+				"node_type": "agent",
+				"version":   internal.Version,
+				"commit":    internal.Commit,
+				"routes":    names,
+			}
+			if cmd.RegistrationToken != "" {
+				body["token"] = cmd.RegistrationToken
+			}
+			return regClient.RegisterFull(ctx, body)
 		}
-		return body
 	}
 
 	// Context cancelled on shutdown — used by registration waits, heartbeat, and
@@ -123,31 +150,13 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
 
-	// Acquire credentials via (re)registration. When the bus requires auth and no
-	// static fallback is configured, wait through admin approval until the
-	// frontend mints credentials rather than starting unauthenticated.
-	staticNATS := cmd.NatsJWT != "" || cmd.NatsServiceJWT != ""
-	credMgr := workerregistry.NewCredentialManager(
-		func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
-			return regClient.RegisterFull(ctx, registrationBody())
-		},
-		cmd.natsAuthRequired() && !staticNATS,
-	)
-	res, err := credMgr.Acquire(shutdownCtx)
+	// Register once for the identity of the node, with no credential.
+	res, err := workerregistry.NewCredentialManager(register(), false).Acquire(shutdownCtx)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
 	nodeID := res.ID
-	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo)
-
-	onTunnel, err := agentCarrier(res.Carrier, cmd.NatsURL, res.NatsURL)
-	if err != nil {
-		return err
-	}
-	bootCarrier := cluster.CarrierNATS
-	if onTunnel {
-		bootCarrier = cluster.CarrierTunnel
-	}
+	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo, "routes", routes)
 
 	heartbeatInterval, err := time.ParseDuration(cmd.HeartbeatInterval)
 	if err != nil && cmd.HeartbeatInterval != "" {
@@ -164,13 +173,17 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	if (cmd.NatsServiceJWT == "") != (cmd.NatsServiceSeed == "") {
 		return fmt.Errorf("LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED must be set together")
 	}
+	// When the bus requires auth and no static credential is configured, the
+	// NATS route waits through admin approval until the frontend mints its
+	// credential rather than connecting unauthenticated.
+	staticNATS := cmd.NatsJWT != "" || cmd.NatsServiceJWT != ""
 	local := worker.NATSLocal{
 		URL: cmd.NatsURL, JWT: cmd.NatsJWT, Seed: cmd.NatsUserSeed, Required: cmd.natsAuthRequired(),
 		TLS:          messaging.TLSFiles{CA: cmd.NatsTLSCA, Cert: cmd.NatsTLSCert, Key: cmd.NatsTLSKey},
 		FallbackJWT:  cmd.NatsServiceJWT,
 		FallbackSeed: cmd.NatsServiceSeed,
 	}
-	serve := agentworker.FollowConfig{
+	serve := agentworker.ServeConfig{
 		NodeID: nodeID, FrontendURL: cmd.RegisterTo, ControlToken: cmd.RegistrationToken,
 		Local: local,
 		// Model-level MCP tool calls and discovery from the frontend. The worker
@@ -186,30 +199,22 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		},
 	}
 
-	carriers := worker.NewFollower(worker.FollowerOptions{
+	held := worker.NewRouteHolder(worker.RouteHolderOptions{
+		Routes:    routes,
 		Attachers: serve.Attachers(),
-		Credentials: func(c cluster.Carrier) *workerregistry.CredentialManager {
-			return workerregistry.NewCredentialManagerFor(
-				func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
-					body := registrationBody()
-					body["carrier"] = string(c)
-					return regClient.RegisterFull(ctx, body)
-				}, c == cluster.CarrierNATS && cmd.natsAuthRequired() && !staticNATS, string(c))
+		Credentials: func(r worker.Route) *workerregistry.CredentialManager {
+			return workerregistry.NewCredentialManagerFor(register(r), r == worker.RouteNATS && cmd.natsAuthRequired() && !staticNATS, string(r))
 		},
-		Heartbeat: func(ctx context.Context, body map[string]any) (*workerregistry.HeartbeatReply, error) {
-			return regClient.HeartbeatFull(ctx, nodeID, body)
+		Heartbeat: func(ctx context.Context, body map[string]any) error {
+			return regClient.SendHeartbeat(ctx, nodeID, body)
 		},
-		Cannot:   serve.Cannot(),
 		Interval: heartbeatInterval,
 	})
-	defer carriers.Close()
-	if _, err := carriers.Attach(shutdownCtx, bootCarrier, credMgr, res); err != nil {
-		return fmt.Errorf("attaching to the %s carrier: %w", bootCarrier, err)
-	}
-	go carriers.Run(shutdownCtx)
-	xlog.Info("Agent worker ready", "carrier", bootCarrier)
+	defer held.Close()
+	go held.Run(shutdownCtx)
+	xlog.Info("Agent worker ready", "routes", routes)
 
-	runErr := awaitShutdown(shutdownCtx, "the carrier stopped")
+	runErr := awaitShutdown(shutdownCtx, "the routes of the worker stopped")
 	xlog.Info("Shutting down agent worker")
 	shutdownCancel() // stop heartbeat loop immediately
 	mcpTools.CloseAllMCPSessions()

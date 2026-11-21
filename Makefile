@@ -399,18 +399,6 @@ test-e2e-distributed: protogen-go
 	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
 
-# Carrier switch with real processes. Two frontends and two workers (one
-# dual-capable, one tunnel-only) run as child processes against PostgreSQL and
-# NATS containers, and the carrier is changed from NATS to the tunnel and back.
-# The spec carries the CarrierSwitch label and not Distributed, so
-# test-e2e-distributed above does not run it: it starts many processes and takes
-# a few minutes. It builds local-ai when LOCALAI_E2E_BIN is not set, and skips
-# when docker is missing.
-test-e2e-distributed-switch: protogen-go build-mock-backend
-	@echo 'Running the carrier switch e2e (label CarrierSwitch)'
-	LOCALAI_E2E_MOCK_BACKEND=$(abspath tests/e2e/mock-backend/mock-backend) \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='CarrierSwitch' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
-
 ## A worker that joins over P2P with a worker invite (`local-ai worker --join`),
 ## with real processes: PostgreSQL and NATS in containers, a frontend in P2P
 ## mode share, and the worker. The spec carries the P2PWorker label.

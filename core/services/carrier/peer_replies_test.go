@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/carrier"
@@ -85,19 +84,26 @@ var (
 	replyLost   = fmt.Errorf("%w: link closed", tunnel.ErrReplyLost)
 )
 
-var _ = Describe("Request and reply on the tunnel carrier", func() {
+var _ = Describe("Request and reply over the peer link", func() {
 	var (
 		peers   *peerNet
 		local   *tunnel.Replies
 		members []string
-		rr      messaging.RequestReply
+		rr      messaging.ProcessReplies
 	)
+
+	newReplies := func(queues map[string]carrier.QueueMembers) messaging.ProcessReplies {
+		GinkgoHelper()
+		r, err := carrier.NewPeerReplies(carrier.PeerRepliesOptions{Self: "self", Peers: peers, Local: local, Queues: queues})
+		Expect(err).ToNot(HaveOccurred())
+		return r
+	}
 
 	BeforeEach(func() {
 		peers = newPeerNet()
 		local = tunnel.NewReplies("self", messaging.MaxBroadcastBytes)
 		members = nil
-		rr = carrier.NewTunnelReplies("self", peers, local, map[string]carrier.QueueMembers{
+		rr = newReplies(map[string]carrier.QueueMembers{
 			messaging.SubjectChatStart: func(context.Context) ([]string, error) { return slices.Clone(members), nil },
 		})
 	})
@@ -108,10 +114,10 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 		})
 	}
 	addressed := func(instance, subject string) ([]byte, error) {
-		return rr.(messaging.InstanceRequester).RequestInstance(instance, subject, []byte("x"), time.Second)
+		return rr.RequestInstance(instance, subject, []byte("x"), time.Second)
 	}
 	queued := func(moveOn func([]byte) bool) ([]byte, error) {
-		return rr.(messaging.QueueRequester).RequestQueue(messaging.SubjectChatStart, []byte("x"), time.Second, moveOn)
+		return rr.RequestQueue(messaging.SubjectChatStart, []byte("x"), time.Second, moveOn)
 	}
 
 	Describe("a request to one replica", func() {
@@ -144,8 +150,8 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 				Expect(errors.Is(err, messaging.ErrNotDelivered)).To(Equal(notDelivered), "not delivered: %v", err)
 			},
 			// A live replica whose heartbeats stalled past the reap window has no
-			// row, and one that did not prepare a forced change of carrier serves
-			// nothing yet. Neither is a process that left.
+			// row, and one that is still starting serves nothing yet. Neither is a
+			// process that left.
 			Entry("a replica that is not part of the deployment: not delivered, not absence", func() {}, false, true),
 			Entry("a replica that serves no handler for the subject: not delivered, not absence", func() { peers.replica("r2") }, false, true),
 			Entry("a peer that does not answer: not delivered, not absence", func() { peers.failWith("r2", unreachable) }, false, true),
@@ -162,7 +168,7 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 		)
 
 		It("refuses a request above the bound before it sends anything", func() {
-			_, err := rr.(messaging.InstanceRequester).RequestInstance("r2", "chats.jobs.h", make([]byte, messaging.MaxBroadcastBytes+1), time.Second)
+			_, err := rr.RequestInstance("r2", "chats.jobs.h", make([]byte, messaging.MaxBroadcastBytes+1), time.Second)
 			Expect(errors.Is(err, messaging.ErrPayloadTooLarge)).To(BeTrue())
 			Expect(peers.askedOf()).To(BeEmpty())
 		})
@@ -189,12 +195,6 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 			Expect(messaging.IsNoResponders(err)).To(BeFalse())
 		})
 
-		It("sends nothing for a subject that names no replica and no queue", func() {
-			_, err := rr.Request("chats.replay.r2", []byte("x"), time.Second)
-			Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue())
-			Expect(messaging.IsNoResponders(err)).To(BeFalse())
-		})
-
 		It("reports a handler that sent no reply as a failure whose outcome is unknown", func() {
 			_, err := rr.SubscribeReply("chats.replay.self", func([]byte, func([]byte)) {})
 			Expect(err).ToNot(HaveOccurred())
@@ -211,7 +211,7 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 		})
 
 		It("answers that nothing was delivered when the members cannot be listed", func() {
-			rr = carrier.NewTunnelReplies("self", peers, local, map[string]carrier.QueueMembers{
+			rr = newReplies(map[string]carrier.QueueMembers{
 				messaging.SubjectChatStart: func(context.Context) ([]string, error) { return nil, errors.New("database down") },
 			})
 			_, err := queued(nil)
@@ -302,57 +302,30 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 		})
 	})
 
-	Describe("through the holder, across a change of carrier", func() {
-		It("follows the subscriptions of the holder, and ends a request on the carrier where it began", func() {
-			nats := newFakeCarrier(cluster.CarrierNATS, 1)
-			nats.set.Replies = nats.bus
-			tun := newFakeCarrier(cluster.CarrierTunnel, 2)
-			// The replica that answers is this one: its handler is reached through
-			// the same registry as a peer's would be.
-			tun.set.Replies = rr
-			var cur atomic.Pointer[carrier.Set]
-			cur.Store(nats.set)
-			h := holderOver(&cur)
-
-			release := make(chan struct{})
-			var calls atomic.Int32
-			sub, err := h.SubscribeReply("chats.replay.self", func(data []byte, reply func([]byte)) {
-				if calls.Add(1) == 2 {
-					<-release // the second request is in flight across the change
-				}
-				reply(append([]byte("ok:"), data...))
-			})
-			Expect(err).ToNot(HaveOccurred())
-
-			out, err := h.RequestInstance("self", "chats.replay.self", []byte("1"), time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(out)).To(Equal("ok:1"))
-
-			// NATS to the tunnel.
-			Expect(h.Listen(tun.set)).To(Succeed())
-			cur.Store(tun.set)
-			inflight := make(chan []byte, 1)
-			go func() {
-				defer GinkgoRecover()
-				out, err := h.RequestInstance("self", "chats.replay.self", []byte("2"), 5*time.Second)
-				Expect(err).ToNot(HaveOccurred())
-				inflight <- out
-			}()
-			Eventually(calls.Load).Should(BeEquivalentTo(2))
-
-			// And back, while the request on the tunnel runs.
-			Expect(h.Listen(nats.set)).To(Succeed())
-			cur.Store(nats.set)
-			Expect(h.Release(tun.set)).To(Succeed())
-			out, err = h.RequestInstance("self", "chats.replay.self", []byte("3"), time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(out)).To(Equal("ok:3"), "a new request goes to NATS")
-
-			close(release)
-			Eventually(inflight).Should(Receive(Equal([]byte("ok:2"))), "the request in flight ends on the tunnel")
-			_, err = local.Dispatch(context.Background(), "chats.replay.self", nil)
-			Expect(errors.Is(err, tunnel.ErrNoResponder)).To(BeTrue(), "the released tunnel serves the subject no more")
-			Expect(sub.Unsubscribe()).To(Succeed())
-		})
+	It("refuses to be built without the id of this process, the peers or the local handlers", func() {
+		_, err := carrier.NewPeerReplies(carrier.PeerRepliesOptions{Peers: peers, Local: local})
+		Expect(err).To(HaveOccurred())
+		_, err = carrier.NewPeerReplies(carrier.PeerRepliesOptions{Self: "self", Local: local})
+		Expect(err).To(HaveOccurred())
+		_, err = carrier.NewPeerReplies(carrier.PeerRepliesOptions{Self: "self", Peers: peers})
+		Expect(err).To(HaveOccurred())
 	})
+
+	It("answers that nothing was delivered for a subject that no queue routes", func() {
+		_, err := rr.RequestQueue("chats.unrouted", []byte("x"), time.Second, nil)
+		Expect(errors.Is(err, messaging.ErrNotDelivered)).To(BeTrue())
+		Expect(messaging.IsNoResponders(err)).To(BeFalse())
+	})
+
+	It("serves a subject on this process and stops when it is unsubscribed", func() {
+		sub, err := rr.SubscribeReply("chats.replay.self", func(data []byte, reply func([]byte)) { reply(append([]byte("me:"), data...)) })
+		Expect(err).ToNot(HaveOccurred())
+		out, err := rr.RequestInstance("self", "chats.replay.self", []byte("x"), time.Second)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(out)).To(Equal("me:x"))
+		Expect(sub.Unsubscribe()).To(Succeed())
+		_, err = local.Dispatch(context.Background(), "chats.replay.self", nil)
+		Expect(errors.Is(err, tunnel.ErrNoResponder)).To(BeTrue())
+	})
+
 })

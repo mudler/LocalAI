@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
@@ -94,11 +93,20 @@ var _ = Describe("A worker that joined over P2P", func() {
 		Expect(j.Route()).To(Equal(nodes.TunnelRoute{Transport: nodes.TunnelP2P, Path: "direct"}))
 	})
 
-	It("never follows a change to NATS, and says why", func() {
-		cfg := &Config{RegisterTo: j.FrontendURL(), join: j}
-		plane := NewBackendPlane(cfg, "node-1", "127.0.0.1:0", NATSLocal{URL: "nats://example:4222"})
-		Expect(plane.Cannot(true)[cluster.CarrierNATS](CarrierView{})).To(Equal(joinedOverP2P))
-		Expect(plane.Cannot(true)[cluster.CarrierTunnel](CarrierView{})).To(BeEmpty())
+	It("holds the tunnel only, over P2P, and reports its P2P path", func() {
+		cfg := &Config{Join: "localai://pair?x", NatsURL: "nats://example:4222", join: j}
+		routes, err := cfg.routes()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(routes).To(Equal([]Route{RouteTunnel}), "a P2P worker never talks to NATS, even with a NATS URL")
+
+		cfg.Routes = []string{"nats", "tunnel"}
+		_, err = cfg.routes()
+		Expect(err).To(MatchError(ContainSubstring("tunnel only")))
+
+		_, err = j.DialTunnel(context.Background(), tunnel.LaneInference, "node-1", "t")
+		Expect(err).ToNot(HaveOccurred())
+		plane := NewBackendPlane(&Config{RegisterTo: j.FrontendURL(), join: j}, "node-1", "127.0.0.1:0", NATSLocal{})
+		Expect(tunnelAttachment{plane.tunnel}.TunnelRoute()).To(Equal(nodes.TunnelRoute{Transport: nodes.TunnelP2P, Path: "direct"}))
 	})
 })
 

@@ -46,11 +46,12 @@ type ReplayCarrier interface {
 	Serve(instance string, h func(ReplayRequest) ReplayReply) (cancel func(), err error)
 }
 
-// ReplyRequester is the request/reply part of the message bus
-// (messaging.MessagingClient has it).
+// ReplyRequester is request and reply between the processes of the cluster
+// (messaging.ProcessReplies, the peer link, has it): it serves this process's
+// subjects and asks another process by its instance.
 type ReplyRequester interface {
-	SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (messaging.Subscription, error)
-	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
+	messaging.ReplyServer
+	messaging.InstanceRequester
 }
 
 // replayTimeout is how long a frontend waits for the owner. Past it the client
@@ -67,8 +68,11 @@ const replayMaxPages = 16
 
 func replaySubject(instance string) string { return "chats.replay." + token(instance) }
 
-// NewReplayCarrier returns a ReplayCarrier on the cluster's message bus, one
-// request/reply subject per instance under the chats root.
+// NewReplayCarrier returns a ReplayCarrier on the request and reply between
+// processes. Each process serves the subject of its own instance under the
+// chats root, so several processes can share one subject-routed fake in a
+// spec; on the peer link the request names the instance and the subject only
+// picks the handler.
 func NewReplayCarrier(mc ReplyRequester, log *slog.Logger) ReplayCarrier {
 	if log == nil {
 		log = slog.Default()
@@ -86,7 +90,7 @@ func (b *busReplay) Ask(instance string, req ReplayRequest) (ReplayReply, error)
 	if err != nil {
 		return ReplayReply{}, err
 	}
-	data, err := messaging.RequestInstance(b.mc, instance, replaySubject(instance), raw, replayTimeout)
+	data, err := b.mc.RequestInstance(instance, replaySubject(instance), raw, replayTimeout)
 	if err != nil {
 		return ReplayReply{}, err
 	}

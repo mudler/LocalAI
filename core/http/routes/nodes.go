@@ -71,7 +71,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	readyMw := nodeReadyMiddleware(registry)
 
 	admin := e.Group("/api/nodes", readyMw, adminMw)
-	admin.GET("", localai.ListNodesEndpoint(registry))
+	admin.GET("", localai.ListNodesEndpoint(registry, options...))
 
 	// Cluster-wide loaded models (registered before /:id to avoid route conflicts)
 	admin.GET("/models", localai.ListAllNodeModelsEndpoint(registry))
@@ -82,7 +82,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.POST("/scheduling", localai.SetSchedulingEndpoint(registry))
 	admin.DELETE("/scheduling/:model", localai.DeleteSchedulingEndpoint(registry))
 
-	admin.GET("/:id", localai.GetNodeEndpoint(registry))
+	admin.GET("/:id", localai.GetNodeEndpoint(registry, options...))
 	admin.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
 	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry, unloader, options...))
 	admin.POST("/:id/drain", localai.DrainNodeEndpoint(registry, unloader))

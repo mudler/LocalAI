@@ -109,14 +109,14 @@ func (cfg *Config) hasRoutableAddress() bool {
 // bindHost returns the host that this worker binds its backend processes and its
 // file-transfer server to.
 //
-// A worker that is reached through its tunnel and has no routable address binds
-// loopback. Nothing dials it, and an open port that nothing uses is surface. A
-// worker with a routable address binds all interfaces, as a worker on NATS
-// always did, because a frontend can dial it, and because it can follow a
-// change of the carrier to NATS. A worker on NATS binds all interfaces whatever
-// its address, so that a deployment on NATS behaves as before.
-func (cfg *Config) bindHost(tunnelCarrier bool) string {
-	if tunnelCarrier && !cfg.hasRoutableAddress() {
+// A worker that holds no NATS route and has no routable address is reached
+// through its tunnel only, and binds loopback. Nothing dials it, and an open port
+// that nothing uses is surface. A worker with a routable address binds all
+// interfaces, because a frontend can dial it. A worker on NATS binds all
+// interfaces whatever its address: the frontends reach its backends by dialling
+// the address it registers.
+func (cfg *Config) bindHost(holdsNATS bool) string {
+	if !holdsNATS && !cfg.hasRoutableAddress() {
 		return loopbackHost
 	}
 	return "0.0.0.0"
@@ -192,8 +192,8 @@ func (cfg *Config) registrationBody() map[string]any {
 		"name":         nodeName,
 		"address":      cfg.advertiseAddr(),
 		"http_address": cfg.advertiseHTTPAddr(),
-		// Says if the two addresses above can be reached. A frontend on the tunnel
-		// drops them when this is false. An older frontend ignores the key.
+		// Says if the two addresses above can be reached. The frontend drops them
+		// when this is false.
 		"routable":               cfg.hasRoutableAddress(),
 		"total_vram":             totalVRAM,
 		"available_vram":         totalVRAM, // initially all VRAM is available
@@ -308,16 +308,6 @@ func (cfg *Config) heartbeatBody() map[string]any {
 	} else {
 		body["cpu_usage_percent"] = clampCPUUsage(cpuInfo.UsagePercent)
 		body["cpu_load_1"] = cpuInfo.Load1
-	}
-	// A worker that joined over P2P says how its tunnel reaches the frontend,
-	// so that the nodes page shows the path and its limits.
-	if cfg.join != nil {
-		r := cfg.join.Route()
-		body["tunnel_transport"] = r.Transport
-		if r.Path != "" {
-			body["tunnel_path"] = r.Path
-			body["tunnel_limited"] = r.Limited
-		}
 	}
 	return body
 }

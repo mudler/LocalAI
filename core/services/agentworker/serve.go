@@ -4,17 +4,15 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/worker"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
-// FollowConfig is what an agent worker needs to serve its work on either carrier.
-// The handlers are the same on both: a worker follows a change of carrier by
-// attaching them to the other one.
-type FollowConfig struct {
+// ServeConfig is what an agent worker needs to serve its work on each of its
+// routes. The handlers are the same on every route.
+type ServeConfig struct {
 	NodeID string
 	// FrontendURL and ControlToken are for the tunnel. See Options.
 	FrontendURL  string
@@ -28,26 +26,12 @@ type FollowConfig struct {
 	BackendStop func(backend string)
 }
 
-// Attachers returns the attachers of an agent worker for each carrier. They are
-// what the follower of the worker calls at start and when the cluster changes.
-func (c FollowConfig) Attachers() map[cluster.Carrier]worker.Attacher {
-	return map[cluster.Carrier]worker.Attacher{
-		cluster.CarrierNATS:   c.natsAttacher,
-		cluster.CarrierTunnel: c.tunnelAttacher,
-	}
-}
-
-// Cannot says why an agent worker cannot attach to a carrier. It opens no port,
-// so the only thing it can lack for NATS is a certificate that cannot be handed
-// over.
-func (c FollowConfig) Cannot() map[cluster.Carrier]func(worker.CarrierView) string {
-	return map[cluster.Carrier]func(worker.CarrierView) string{
-		cluster.CarrierNATS: func(v worker.CarrierView) string {
-			if v.NATSClientTLS && (c.Local.TLS.Cert == "" || c.Local.TLS.Key == "") {
-				return "the NATS server asks for a client certificate, and this worker has none: set LOCALAI_NATS_TLS_CERT and LOCALAI_NATS_TLS_KEY"
-			}
-			return ""
-		},
+// Attachers returns the attachers of an agent worker for each route. The route
+// holder of the worker calls them for the routes the operator gave it.
+func (c ServeConfig) Attachers() map[worker.Route]worker.Attacher {
+	return map[worker.Route]worker.Attacher{
+		worker.RouteNATS:   c.natsAttacher,
+		worker.RouteTunnel: c.tunnelAttacher,
 	}
 }
 
@@ -55,17 +39,23 @@ type agentAttachment struct {
 	connected func() bool
 	failed    *atomic.Bool
 	close     func() error
+	tunnel    bool
 }
 
 func (a *agentAttachment) Connected() bool { return a.connected() }
+func (a *agentAttachment) Failed() bool    { return a.failed != nil && a.failed.Load() }
+func (a *agentAttachment) Close() error    { return a.close() }
 
-// InFlight is zero: an MCP request is short, and the frontend sends the next
-// one on the carrier that is active, so nothing holds an attachment open.
-func (a *agentAttachment) InFlight() int { return 0 }
-func (a *agentAttachment) Failed() bool  { return a.failed != nil && a.failed.Load() }
-func (a *agentAttachment) Close() error  { return a.close() }
+// TunnelRoute says how the tunnel of an agent worker travels: always over a
+// websocket, because an agent worker over P2P is not supported.
+func (a *agentAttachment) TunnelRoute() nodes.TunnelRoute {
+	if !a.tunnel {
+		return nodes.TunnelRoute{}
+	}
+	return nodes.TunnelRoute{Transport: nodes.TunnelWebSocket}
+}
 
-func (c FollowConfig) natsAttacher(ctx context.Context, h worker.Handover) (worker.Attachment, error) {
+func (c ServeConfig) natsAttacher(ctx context.Context, h worker.Handover) (worker.Attachment, error) {
 	actx, cancel := context.WithCancel(ctx)
 	failed := &atomic.Bool{}
 	client, err := worker.ConnectNATS(actx, c.Local, h, func() { failed.Store(true) })
@@ -104,7 +94,7 @@ func (c FollowConfig) natsAttacher(ctx context.Context, h worker.Handover) (work
 		close: func() error {
 			cancel()
 			client.Close()
-			// The carrier is already closed, so nothing waits for the
+			// The connection is already closed, so nothing waits for the
 			// subscriptions to end.
 			go func() {
 				for i := len(undo) - 1; i >= 0; i-- {
@@ -116,7 +106,7 @@ func (c FollowConfig) natsAttacher(ctx context.Context, h worker.Handover) (work
 	}, nil
 }
 
-func (c FollowConfig) tunnelAttacher(ctx context.Context, h worker.Handover) (worker.Attachment, error) {
+func (c ServeConfig) tunnelAttacher(ctx context.Context, h worker.Handover) (worker.Attachment, error) {
 	if h.Creds == nil {
 		return nil, worker.ErrNoCredentials
 	}
@@ -149,5 +139,5 @@ func (c FollowConfig) tunnelAttacher(ctx context.Context, h worker.Handover) (wo
 	if err != nil {
 		return nil, err
 	}
-	return &agentAttachment{connected: rt.Connected, close: rt.Close}, nil
+	return &agentAttachment{connected: rt.Connected, close: rt.Close, tunnel: true}, nil
 }

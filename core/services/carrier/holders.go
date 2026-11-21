@@ -296,9 +296,11 @@ func NewRoutedWorkerDialer(t *RouteTable) nodes.WorkerNetDialerFor {
 }
 
 // Agents forwards MCP requests to an agent worker on the routes that the table
-// holds: the direct route (the NATS queue group), then the tunnel (a worker
-// that the frontend picks). A request moves to the next route only when the
-// failure proves that no worker took it.
+// holds. A request that names no worker goes to the direct route (the NATS queue
+// group), then to the tunnel (a worker that the frontend picks). A request that
+// names a worker (ExecuteMCPToolOn, DiscoverMCPToolsOn) goes on the routes of
+// that worker. A request moves to the next route only when the failure proves
+// that no worker took it.
 type Agents struct {
 	t *RouteTable
 }
@@ -331,6 +333,42 @@ func (h *Agents) ExecuteMCPTool(ctx context.Context, req mcpRemote.MCPToolReques
 func (h *Agents) DiscoverMCPTools(ctx context.Context, req mcpRemote.MCPDiscoveryRequest) (*mcpRemote.MCPDiscoveryResponse, error) {
 	return agentCall(h.t, func(a mcpTools.AgentControl) (*mcpRemote.MCPDiscoveryResponse, error) {
 		return a.DiscoverMCPTools(ctx, req)
+	})
+}
+
+var _ nodes.NodeAgentControl = (*Agents)(nil)
+
+// nodeAgents returns the agent RPC of a route that can name a node, or a
+// not-started error that moves the call to the next route of the node.
+func nodeAgents(r *WorkerRoute) (nodes.NodeAgentControl, error) {
+	if na, ok := r.Agents.(nodes.NodeAgentControl); ok {
+		return na, nil
+	}
+	return nil, fmt.Errorf("%w: the %s route cannot name an agent worker", nodes.ErrNoRoute, r.Kind)
+}
+
+// ExecuteMCPToolOn runs one MCP tool on the agent worker nodeID, on the routes
+// of that node like any other call to a node: the NATS subject of the node on
+// the direct route, its tunnel on the tunnel route.
+func (h *Agents) ExecuteMCPToolOn(ctx context.Context, nodeID string, req mcpRemote.MCPToolRequest) (*mcpRemote.MCPToolResponse, error) {
+	return call(ctx, h.t, nodeID, func(r *WorkerRoute) (*mcpRemote.MCPToolResponse, error) {
+		na, err := nodeAgents(r)
+		if err != nil {
+			return nil, err
+		}
+		return na.ExecuteMCPToolOn(ctx, nodeID, req)
+	})
+}
+
+// DiscoverMCPToolsOn asks the agent worker nodeID for the MCP servers and tools
+// of a model, on the routes of that node.
+func (h *Agents) DiscoverMCPToolsOn(ctx context.Context, nodeID string, req mcpRemote.MCPDiscoveryRequest) (*mcpRemote.MCPDiscoveryResponse, error) {
+	return call(ctx, h.t, nodeID, func(r *WorkerRoute) (*mcpRemote.MCPDiscoveryResponse, error) {
+		na, err := nodeAgents(r)
+		if err != nil {
+			return nil, err
+		}
+		return na.DiscoverMCPToolsOn(ctx, nodeID, req)
 	})
 }
 

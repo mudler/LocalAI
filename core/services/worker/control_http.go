@@ -28,7 +28,6 @@ import (
 // not serve, 405 for a method other than POST. The frontend maps each of them
 // to a different condition, so a handler must not use them for its own result.
 type httpControlServer struct {
-	inflight
 	mux *http.ServeMux
 
 	mu     sync.Mutex
@@ -80,7 +79,6 @@ func (s *httpControlServer) handle(v controlVerb, h controlHandler) error {
 		return err
 	}
 	s.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-		defer s.enter()()
 		body, ok := workerctl.ReadRequestBody(w, r)
 		if !ok {
 			return
@@ -115,7 +113,6 @@ func (s *httpControlServer) handleWithProgress(v controlVerb, h progressControlH
 		return err
 	}
 	s.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-		defer s.enter()()
 		body, ok := workerctl.ReadRequestBody(w, r)
 		if !ok {
 			return

@@ -12,19 +12,6 @@ func sanitizeSubjectToken(s string) string {
 // NATS subject constants for the distributed architecture.
 // Following the notetaker pattern: <entity>.<action>
 
-// SubjectCarrierChanged is the hint that the cluster carrier row moved. The
-// leader and the admin publish it after each move, on the carrier in use, and
-// every replica listens on it. It carries the new row and is only a courtesy: a
-// replica that never hears it reads the row at its next poll, and what the row
-// says is what counts.
-const SubjectCarrierChanged = "state.carrier"
-
-// SubjectCarrierProbe asks every replica to look again at which carriers it could
-// build, and to write what it finds to the instances table. A dry run of a change
-// of carrier sends it before it reads the answers. Like the other hint it is at
-// most once, and a replica that does not hear it is reported as stale.
-const SubjectCarrierProbe = "state.carrier.probe"
-
 // Status Updates (Pub/Sub — all subscribers get every message, for SSE bridging)
 const (
 	subjectFineTunePrefix = "finetune."
@@ -38,14 +25,27 @@ const (
 	QueueAgentWorkers     = "agent-workers"
 )
 
-// Chat starts (Request-Reply via NATS — load-balanced across chat workers).
-// A frontend sends the start of an unattended chat run here; one chat worker
-// runs the turn and replies whether it started or queued the message. The
-// turn's events and stop keep using the chats.events and chats.control subjects.
-const (
-	SubjectChatStart = "chats.start"
-	QueueChatWorkers = "chat-workers"
-)
+// subjectMCPPrefix is the root of the agent RPC subjects.
+const subjectMCPPrefix = "mcp."
+
+// SubjectNodeMCPToolExecute is the MCP tool call of one agent worker. A call
+// that names a node goes here; a call that does not goes to the queue group on
+// SubjectMCPToolExecute.
+func SubjectNodeMCPToolExecute(nodeID string) string {
+	return subjectMCPPrefix + sanitizeSubjectToken(nodeID) + ".tools.execute"
+}
+
+// SubjectNodeMCPDiscovery is the MCP discovery of one agent worker, as
+// SubjectNodeMCPToolExecute is its tool call.
+func SubjectNodeMCPDiscovery(nodeID string) string {
+	return subjectMCPPrefix + sanitizeSubjectToken(nodeID) + ".discovery"
+}
+
+// SubjectChatStart is the chat start: a request over the peer link to one
+// chat worker that the frontend picks from the node list. The worker runs the
+// turn and replies whether it started or queued the message. The turn's events
+// and stop keep using the chats.events and chats.control subjects.
+const SubjectChatStart = "chats.start"
 
 // SubjectFineTuneProgress returns the NATS subject for fine-tune progress.
 func SubjectFineTuneProgress(jobID string) string {
