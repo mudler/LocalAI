@@ -150,6 +150,24 @@ func (w *Window) routeHybrid(ctx context.Context, cur *Set, nodeID string) *Set 
 	return routes
 }
 
+// tunnelOnly returns the routes of the tunnel and a test for the workers that
+// they serve, or nil when no worker is given to them now: outside the hybrid
+// routing of a cluster on NATS, and during a change of carrier, where the
+// previous carrier drains. It is the per-worker choice of routeHybrid, for a
+// verb that goes to every holder of a model and so has no worker to route by.
+func (w *Window) tunnelOnly(cur *Set) (*Set, func(ctx context.Context, nodeID string) bool) {
+	routes := w.tunnel.Load()
+	if routes == nil || w.attached == nil || cur.Name != cluster.CarrierNATS {
+		return nil, nil
+	}
+	if prev := w.prev.Load(); prev != nil && prev != cur {
+		return nil, nil
+	}
+	return routes, func(ctx context.Context, nodeID string) bool {
+		return w.routeHybrid(ctx, cur, nodeID) == routes
+	}
+}
+
 // routeAgents returns the set that a request for an agent worker uses: the active
 // one unless no agent worker is attached to it and one is attached to the
 // previous one.

@@ -153,11 +153,41 @@ func (h *Commands) ListRunningModels(nodeID string) (*workerctl.ModelsRunningRep
 // UnloadRemoteModelContext does.
 func (h *Commands) UnloadRemoteModel(modelName string) error {
 	cur := h.cur.Load()
+	if handled, err := h.splitFanout(cur, func(s nodes.ScopedFanout, include func(string) bool) error {
+		return s.UnloadRemoteModelScoped(context.Background(), modelName, false, include)
+	}); handled {
+		return err
+	}
 	err := cur.Commands.UnloadRemoteModel(modelName)
 	if prev := h.previous(cur); prev != nil && err != nil {
 		return prev.Commands.UnloadRemoteModel(modelName)
 	}
 	return err
+}
+
+// splitFanout runs a verb that goes to every holder of a model when the cluster
+// runs on NATS and has workers that hold only a tunnel. A fan-out has no worker
+// to route by, so each carrier is given the workers that it reaches, by the same
+// choice as a verb for one worker. A NATS fan-out over all holders would fail
+// for a tunnel-only worker with ErrNoRoute and leave its replica rows and its
+// files. It reports false when the routing does not apply, or when a set cannot
+// do a scoped fan-out, and the caller then does the fan-out on the active set.
+func (h *Commands) splitFanout(cur *Set, do func(s nodes.ScopedFanout, include func(string) bool) error) (bool, error) {
+	if h.win == nil {
+		return false, nil
+	}
+	routes, only := h.win.tunnelOnly(cur)
+	if routes == nil {
+		return false, nil
+	}
+	onCur, ok1 := cur.Commands.(nodes.ScopedFanout)
+	onTunnel, ok2 := routes.Commands.(nodes.ScopedFanout)
+	if !ok1 || !ok2 {
+		return false, nil
+	}
+	ctx := context.Background()
+	err := do(onCur, func(id string) bool { return !only(ctx, id) })
+	return true, errors.Join(err, do(onTunnel, func(id string) bool { return only(ctx, id) }))
 }
 
 // previous returns the set that is draining, or nil outside a change of carrier.
@@ -178,6 +208,11 @@ func (h *Commands) previous(cur *Set) *Set {
 // saw only the nodes that the first one could not do.
 func (h *Commands) UnloadRemoteModelContext(ctx context.Context, modelName string, force bool) error {
 	cur := h.cur.Load()
+	if handled, err := h.splitFanout(cur, func(s nodes.ScopedFanout, include func(string) bool) error {
+		return s.UnloadRemoteModelScoped(ctx, modelName, force, include)
+	}); handled {
+		return err
+	}
 	err := cur.Commands.UnloadRemoteModelContext(ctx, modelName, force)
 	if prev := h.previous(cur); prev != nil && err != nil {
 		return prev.Commands.UnloadRemoteModelContext(ctx, modelName, force)
@@ -196,6 +231,11 @@ func (h *Commands) InstallTimeout() time.Duration { return h.cur.Load().Commands
 // to it, and the verb is idempotent.
 func (h *Commands) DeleteModelFiles(modelName string) error {
 	cur := h.cur.Load()
+	if handled, err := h.splitFanout(cur, func(s nodes.ScopedFanout, include func(string) bool) error {
+		return s.DeleteModelFilesScoped(modelName, include)
+	}); handled {
+		return err
+	}
 	err := cur.Commands.DeleteModelFiles(modelName)
 	if prev := h.previous(cur); prev != nil {
 		err = errors.Join(err, prev.Commands.DeleteModelFiles(modelName))

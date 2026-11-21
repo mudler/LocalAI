@@ -138,6 +138,8 @@ var (
 	_ ExactModelStopper                = (*RemoteUnloaderAdapter)(nil)
 	_ NodeControl                      = (*RemoteUnloaderAdapter)(nil)
 	_ NodeControl                      = (*TunnelControl)(nil)
+	_ ScopedFanout                     = (*RemoteUnloaderAdapter)(nil)
+	_ ScopedFanout                     = (*TunnelControl)(nil)
 )
 
 const exactModelStopTimeout = 10 * time.Second
@@ -261,6 +263,12 @@ func (a *nodeControl) HasRemoteModel(ctx context.Context, modelName string) (boo
 // UnloadRemoteModelContext is the cancellation-aware extension used by the
 // model loader to preserve forced shutdown across the distributed boundary.
 func (a *nodeControl) UnloadRemoteModelContext(ctx context.Context, modelName string, force bool) error {
+	return a.UnloadRemoteModelScoped(ctx, modelName, force, nil)
+}
+
+// UnloadRemoteModelScoped is UnloadRemoteModelContext for the nodes that include
+// accepts. A nil include accepts every node.
+func (a *nodeControl) UnloadRemoteModelScoped(ctx context.Context, modelName string, force bool, include func(nodeID string) bool) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -284,6 +292,9 @@ func (a *nodeControl) UnloadRemoteModelContext(ctx context.Context, modelName st
 			continue
 		}
 		seenNodeIDs[node.ID] = struct{}{}
+		if include != nil && !include(node.ID) {
+			continue
+		}
 		xlog.Info("Sending "+a.link.label()+" backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID, "force", force)
 		if err := a.stopBackend(node.ID, modelName, force); err != nil {
 			xlog.Warn("Failed to send backend.stop", "node", node.Name, "error", err)
@@ -651,6 +662,12 @@ func (a *nodeControl) UnloadModelOnNode(nodeID, modelName string) error {
 // DeleteModelFiles sends model.delete to all nodes that have the model cached.
 // This removes model files from worker disks.
 func (a *nodeControl) DeleteModelFiles(modelName string) error {
+	return a.DeleteModelFilesScoped(modelName, nil)
+}
+
+// DeleteModelFilesScoped is DeleteModelFiles for the nodes that include accepts.
+// A nil include accepts every node.
+func (a *nodeControl) DeleteModelFilesScoped(modelName string, include func(nodeID string) bool) error {
 	nodes, err := a.registry.FindNodesWithModel(context.Background(), modelName)
 	if err != nil || len(nodes) == 0 {
 		xlog.Debug("No nodes with model for file deletion", "model", modelName)
@@ -658,6 +675,9 @@ func (a *nodeControl) DeleteModelFiles(modelName string) error {
 	}
 
 	for _, node := range nodes {
+		if include != nil && !include(node.ID) {
+			continue
+		}
 		xlog.Info("Sending "+a.link.label()+" model.delete", "nodeID", node.ID, "model", modelName)
 
 		reply, err := callVerb[workerctl.ModelDeleteRequest, workerctl.ModelDeleteReply](context.Background(), a.link, node.ID, workerctl.VerbModelDelete, workerctl.ModelDeleteRequest{ModelName: modelName}, 30*time.Second)
@@ -708,4 +728,13 @@ func installEnvSnapshot(env []map[string]string) map[string]string {
 		result[k] = v
 	}
 	return result
+}
+
+// ScopedFanout is the optional extension of NodeControl for a verb that goes to
+// every node that holds a model. include, when it is not nil, says which of
+// those nodes this sender serves. The holder of the carriers uses it to give each
+// node to the carrier that reaches it, because a fan-out has no node to route by.
+type ScopedFanout interface {
+	UnloadRemoteModelScoped(ctx context.Context, modelName string, force bool, include func(nodeID string) bool) error
+	DeleteModelFilesScoped(modelName string, include func(nodeID string) bool) error
 }
