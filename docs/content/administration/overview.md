@@ -2,73 +2,58 @@
 title = "Admin overview"
 weight = 20
 aliases = ["/operations/overview/"]
-description = "The Status page of the Admin section shows if anything is wrong with your LocalAI instance."
+description = "The Overview page of the Admin section shows if anything is wrong with your LocalAI instance."
 keywords = ["operate","admin","monitoring"]
 +++
 
-**Admin → Status** (`/app/operate`) is the front door to the Admin section. It answers one
-question, is anything wrong, without you having to open four other pages.
+**Admin → Overview** (`/app/operate`) is the front door to the Admin section. It
+answers one question, is anything wrong, without you having to open four other
+pages.
 
-The page opens with one sentence: **Everything is running.**, **2 things need
-you.** or, when nothing needs a decision but a row has something to read,
-**Running, with 1 thing to look at.** On a new installation, with no backend, no
-model and nothing loaded, it says **Nothing is running yet.** and offers
-**Install a backend** and **Browse models**.
-
-Under the sentence are four rows. A row with a problem opens by itself and holds
-the button that deals with it. A row with nothing to say stays one line. Click a
-row to open or close it.
+The page opens with its scope (**Single node** or **Cluster, 4 nodes**) and one
+sentence: **Everything is running.** or **2 things need you.** On a new
+installation, with no backend, no model and nothing loaded, it says **Nothing is
+running yet.** and offers **Install a backend** and **Browse models**.
 
 ## Needs you
 
-Only things that want a decision:
+The first card lists only things that want a decision, most urgent first. Each
+row has the button that deals with it:
 
-- a backend with an update available, with an **Update** button
+- a worker that is not answering, with **Open worker**
 - an operation that failed, with **Retry** and **Dismiss**
-- a node that is not answering, with a link to the workers
+- sign-ups waiting for approval (with sign-in on), with **Approve** (or
+  **Approve all** for several) and **Review**
+- backends and add-ons with an update available, with **Review**, which opens
+  the Updates page and starts nothing
 
-**Update** starts the same update as the Backends page. **Retry** installs the
-failed model or backend again, after moving the failure into the Activity
-record, and **Dismiss** moves it there without retrying. When nothing needs you
-the row says so in one line. There is no green panel: a status page that shouts
-when everything is fine teaches you to stop reading it.
+**Retry** installs the failed model or backend again, after moving the failure
+into the Activity record, and **Dismiss** moves it there without retrying.
+**Approve** activates the people who signed up, with the same call the Users
+page makes. When nothing needs you the card says so in one line. There is no
+green panel: a status page that shouts when everything is fine teaches you to
+stop reading it.
 
-The attention count on the **Status** tab is the number of items in this row.
+The count on the **Overview** item of the sidebar is the number of rows in this
+card.
 
-## Capacity
+## The cards
 
-One line says how full GPU memory is (system memory on a host without a GPU),
-and how much room the models disk has left. On a cluster it adds the memory of
-the nodes that are answering, and the row lists each node's memory when opened.
+Under **Needs you** are up to three cards. A card whose data the server does not
+report is left out.
 
-The row opens by itself when memory is 90% full or more, or when the models disk
-has less than a tenth free or less than 20 GB. It then lists the models loaded
-on this machine, each with an **Unload** button. Unloading asks first, stops the
-backend process of that model and frees its memory. The next request that uses
-the model loads it again.
+- **Cluster** (distributed mode) shows how many workers are online, how many
+  models are loaded, how many requests are in flight, and a memory meter for
+  each worker, with the free space of the models disk. On a single install the
+  card is **This machine**: the models loaded, how full GPU memory is (system
+  memory on a host without a GPU), and the free space of the models disk.
+- **Traffic** shows the requests, the share that failed and the p95 latency of
+  the last 24 hours, counted server-side by `GET /api/traces/summary`, with a
+  bar for each time bucket. It links to **Usage**.
+- **Access** (with sign-in on) shows how many people there are, how many wait
+  for approval and how many are administrators. It links to **Users**.
 
-Under the rows, a bar shows the memory in use now. **LocalAI keeps no memory
-history**, so the chart under the bar is drawn from readings the page took
-itself, one with each summary poll (every 15 seconds), while the Status page is
-open. It starts with the second reading, keeps at most 240 readings (about an
-hour), and is labelled "Since you opened Status". The axis starts at zero, the
-capacity is a labelled line, and a data table sits behind the chart. Leaving
-the Status page empties it. Temperature and power are not shown because the resources
-endpoint does not report them.
-
-## Running now
-
-Operations in progress, and the models loaded on this machine. On a single-node
-install the row lists the heaviest five models: backend, resident memory, CPU
-share and uptime, with **View logs** and **Stop model…** in the row menu. **Open
-this machine** leads to the full list. With distributed mode on, models run on
-workers rather than on the controller, so the row links to the Swarm page
-instead.
-
-## Recent failures
-
-Requests and failed requests over the last 24 hours, and p95 latency, counted
-server-side by `GET /api/traces/summary`:
+The traffic figures come from one call:
 
 ```bash
 curl http://localhost:8080/api/traces/summary?hours=24 \
@@ -86,13 +71,14 @@ curl http://localhost:8080/api/traces/summary?hours=24 \
 ```
 
 `hours` defaults to 24 and is capped at 168. Only 5xx responses and transport
-errors count as failures. A 4xx means the caller got the request wrong, so it says nothing about the installation. `p95_ms` is a nearest-rank percentile, not the
-slowest request. The endpoint exists so a dashboard wanting three numbers does
-not fetch the whole trace list to count it. An installation that has recorded
-nothing says so rather than showing zeroes dressed as telemetry. The row opens
-when at least one request failed, and links to Traces and Usage.
+errors count as failures. A 4xx means the caller got the request wrong, so it
+says nothing about the installation. `p95_ms` is a nearest-rank percentile, not
+the slowest request. The endpoint exists so a dashboard wanting three numbers
+does not fetch the whole trace list to count it. An installation that has
+recorded nothing says so rather than showing zeroes dressed as telemetry.
 
-The page does not report models that failed to load, because LocalAI records no
+The page polls every 15 seconds while it is open, and asks for nothing on other
+pages. It does not report models that failed to load, because LocalAI records no
 load failures to read.
 
 ## This machine

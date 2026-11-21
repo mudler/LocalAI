@@ -3,7 +3,9 @@ import { adminItem, adminGroup, ADMIN_NAV } from './admin-nav.js'
 import { mockReadModel, mockOperate } from './operate-fixtures.js'
 import { addonRecord, galleryItem, mockUpdates, snapshotOf, updateAvailable } from './updates-fixtures.js'
 
-// Operate overview (src/pages/OperateOverview.jsx).
+// Administration overview (src/pages/AdminOverview.jsx): the sidebar counts
+// and the items of "Needs you". The cards and the row actions are in
+// admin-overview.spec.js.
 //
 // The page exists to answer "is anything wrong" without visiting four other
 // pages, so the tests are written against that behaviour rather than against
@@ -159,94 +161,5 @@ test.describe('Administration overview', () => {
     // Nobody asked for this data outside Operate; a dashboard-shaped poll on
     // every page is exactly what OperationsContext exists to avoid.
     expect(summaryCalls).toBe(0)
-  })
-})
-
-test.describe('Operate overview ledger', () => {
-  const SUMMARY = {
-    total: 18402, errors: 37, p95_ms: 842, window_hours: 24,
-    buckets: Array.from({ length: 12 }, (_, i) => ({ count: 100 + i * 10, errors: i })),
-  }
-
-  test('reports counted totals rather than fetching the trace list', async ({ page }) => {
-    let listCalls = 0
-    await page.route('**/api/traces?**', route => { listCalls += 1; route.fulfill({ json: [] }) })
-    await page.route('**/api/traces/summary', route => route.fulfill({ json: SUMMARY }))
-    await mockQuiet(page)
-    await page.goto('/app/operate')
-    // Failed requests are a problem, so the row opens by itself.
-    const row = page.getByTestId('operate-row-failures')
-    await expect(row).toContainText('37 failed of 18,402 requests')
-    await expect(row.getByTestId('operate-traffic')).toContainText('842 ms')
-    // The whole point of the endpoint: three numbers, not the buffer.
-    expect(listCalls).toBe(0)
-  })
-
-  test('a quiet installation keeps the row and says why it is empty', async ({ page }) => {
-    // Hiding the row removed the page's structure exactly when someone was
-    // most likely to be looking at it, and "0 failed" is information.
-    await page.route('**/api/traces/summary', route =>
-      route.fulfill({ json: { total: 0, errors: 0, p95_ms: 0, window_hours: 24, buckets: [] } }))
-    await mockQuiet(page)
-    await page.goto('/app/operate')
-    const row = page.getByTestId('operate-row-failures')
-    await expect(row).toBeVisible()
-    await expect(row).toContainText('No requests recorded in the last 24 hours.')
-    await expect(row.locator('.op-row__head')).toHaveAttribute('aria-expanded', 'false')
-  })
-
-  test('the Running now row states counts rather than listing destinations', async ({ page }) => {
-    await mockQuiet(page, {
-      operations: [{ id: 'op-1', name: 'qwen3-8b', type: 'install', progress: 40 }],
-    })
-    // A single node: the cluster API is not mounted.
-    await page.route('**/api/features', route => route.fulfill({ json: { distributed: false, agents: true, mcp: true } }))
-    await page.route('**/api/nodes', route => route.fulfill({ status: 404, json: { message: 'Not Found' } }))
-    await page.route('**/system', route => route.fulfill({ json: { backends: [], loaded_models: [{ id: 'm1', backend: 'llama-cpp' }] } }))
-    await page.goto('/app/operate')
-    const row = page.getByTestId('operate-row-running')
-    await expect(row).toContainText('1 operation in progress')
-    await expect(row).toContainText('1 model loaded')
-  })
-
-  test('shows host capacity from the shared Operate summary', async ({ page }) => {
-    await page.route('**/api/resources', route => route.fulfill({
-      json: {
-        type: 'gpu',
-        gpus: [{ name: 'NVIDIA L40S', vendor: 'NVIDIA', usage_percent: 42, used_vram: 10_000, total_vram: 24_000 }],
-        aggregate: { gpu_count: 1 },
-        storage_size: 12_000,
-      },
-    }))
-    await mockQuiet(page)
-
-    await page.goto('/app/operate')
-
-    const capacity = page.getByTestId('operate-row-capacity')
-    await expect(capacity).toContainText('GPU memory')
-    await expect(capacity).toContainText('42%')
-    await expect(page.getByTestId('operate-capacity')).toContainText('GPU memory in use')
-  })
-
-  test('states when host capacity is unavailable', async ({ page }) => {
-    await page.route('**/api/resources', route => route.fulfill({
-      status: 503,
-      json: { error: 'resource monitor disabled' },
-    }))
-    await mockQuiet(page)
-
-    await page.goto('/app/operate')
-
-    await expect(page.getByTestId('operate-row-capacity')).toContainText('Capacity is not reported by this host.')
-    await expect(page.getByTestId('operate-capacity-unavailable')).toBeVisible()
-  })
-
-  test('states when the host reports no capacity fields', async ({ page }) => {
-    await page.route('**/api/resources', route => route.fulfill({ json: {} }))
-    await mockQuiet(page)
-
-    await page.goto('/app/operate')
-
-    await expect(page.getByTestId('operate-row-capacity')).toContainText('Capacity is not reported by this host.')
   })
 })

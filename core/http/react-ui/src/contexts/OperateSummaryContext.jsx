@@ -49,6 +49,8 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   const [running, setRunning] = useState(null)
   // The sign-ups that wait for an administrator, when sign-in is on.
   const [pendingUsers, setPendingUsers] = useState([])
+  // How many people there are and how many administer, for the Overview.
+  const [userCounts, setUserCounts] = useState(null)
   const { authEnabled, isAdmin } = useAuth()
   // The models this process holds in memory, for the Status page's capacity
   // row. Null until read, and on a cluster controller, whose models live on
@@ -86,6 +88,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
     ])
     const userList = Array.isArray(us) ? us : (us?.users || [])
     setPendingUsers(userList.filter(u => u.status === 'pending'))
+    setUserCounts(Array.isArray(us) || us?.users ? { total: userList.length, admins: userList.filter(u => u.role === 'admin').length } : null)
     setNodes(Array.isArray(n) ? n : (n?.nodes || []))
     setResources(r)
     setResourcesLoaded(true)
@@ -163,6 +166,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       distributed: distributedLoading ? null : distributed,
       attention,
       pendingUsers,
+      userCounts,
       signals: {
         attention: attention.length || null,
         updates: updates && updates.badge && updates.badge.count ? updates.badge.count : null,
@@ -176,7 +180,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
         pendingUsers: pendingUsers.length || null,
       },
     }
-  }, [upgrades, updateRows, updates, nodes, resources, resourcesLoaded, operations, traces, installed, running, loadedModels, samples, ready, refetch, distributed, distributedLoading, pendingUsers])
+  }, [upgrades, updateRows, updates, nodes, resources, resourcesLoaded, operations, traces, installed, running, loadedModels, samples, ready, refetch, distributed, distributedLoading, pendingUsers, userCounts])
 
   return (
     <OperateSummaryContext.Provider value={value}>

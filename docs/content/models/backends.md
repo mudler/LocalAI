@@ -148,7 +148,7 @@ On a single machine there is no **Nodes** action and **Update** starts at once.
 
 Other pages show that an update exists and send you here; none of them runs a bulk
 update of its own. The Backends page has **Review** in its rows and in the line above
-its list. The **Admin → Status** page lists the backends with an update as one row,
+its list. The **Admin → Overview** page lists the backends with an update as one row,
 "N updates available", with **Review**. The Apps page has **Open Updates**. The
 **Nodes** page keeps its **Update** button for the nodes you selected, which opens the same
 confirmation as this page, and a node's **Backends** tab has **Update** for a backend that
