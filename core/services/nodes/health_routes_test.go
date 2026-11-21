@@ -317,8 +317,8 @@ var _ = Describe("The route state of a node", func() {
 	})
 })
 
-var _ = Describe("The health monitor and the carrier row of a real cluster", func() {
-	It("judges each node by its routes whatever the carrier row says", func() {
+var _ = Describe("The health monitor in a real cluster", func() {
+	It("judges each node by its routes", func() {
 		if runtime.GOOS == "darwin" {
 			Skip("testcontainers requires Docker, not available on macOS CI")
 		}
@@ -328,22 +328,18 @@ var _ = Describe("The health monitor and the carrier row of a real cluster", fun
 		reg, err := NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 		clusterR := cluster.NewRegistry(db)
-		carriers, err := cluster.NewCarrierStore(db)
-		Expect(err).ToNot(HaveOccurred())
-		_, _, err = carriers.Seed(ctx, cluster.CarrierNATS, "test")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(clusterR.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-a", "test")).To(Succeed())
 
 		natsNode := &BackendNode{Name: "nats-worker", NodeType: NodeTypeBackend, Address: "10.0.0.1:50051"}
 		Expect(reg.Register(ctx, natsNode, true)).To(Succeed())
-		Expect(reg.SetCarrierReport(ctx, natsNode.ID, CarrierReport{
-			Attached: []cluster.Carrier{cluster.CarrierNATS}, Follow: []cluster.Carrier{cluster.CarrierNATS},
+		Expect(reg.SetRouteReport(ctx, natsNode.ID, RouteReport{
+			Attached: []string{RouteNATS}, Follow: []string{RouteNATS},
 		})).To(Succeed())
 
 		wsNode := &BackendNode{Name: "ws-worker", NodeType: NodeTypeBackend}
 		Expect(reg.Register(ctx, wsNode, true)).To(Succeed())
-		Expect(reg.SetCarrierReport(ctx, wsNode.ID, CarrierReport{
-			Attached: []cluster.Carrier{cluster.CarrierTunnel}, Follow: []cluster.Carrier{cluster.CarrierTunnel},
+		Expect(reg.SetRouteReport(ctx, wsNode.ID, RouteReport{
+			Attached: []string{RouteTunnelID}, Follow: []string{RouteTunnelID},
 			Tunnel: TunnelRoute{Transport: TunnelWebSocket},
 		})).To(Succeed())
 		epoch, err := clusterR.Claim(ctx, wsNode.ID, "replica-a")
@@ -354,16 +350,13 @@ var _ = Describe("The health monitor and the carrier row of a real cluster", fun
 		hm := NewHealthMonitor(reg, nil, 15*time.Second, time.Hour, "", false)
 		hm.UsePresence(clusterR, time.Minute)
 
-		for _, active := range []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel, cluster.CarrierNATS} {
-			Expect(db.Exec(`UPDATE cluster_carrier SET active = ?`, string(active)).Error).To(Succeed())
-			hm.doCheckAll(ctx)
-			got, err := reg.Get(ctx, natsNode.ID)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(got.Status).To(Equal(StatusHealthy), "a NATS worker on a cluster whose row says %s", active)
-			got, err = reg.Get(ctx, wsNode.ID)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(got.Status).To(Equal(StatusUnhealthy), "a gone tunnel on a cluster whose row says %s", active)
-		}
+		hm.doCheckAll(ctx)
+		got, err := reg.Get(ctx, natsNode.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.Status).To(Equal(StatusHealthy), "a NATS worker")
+		got, err = reg.Get(ctx, wsNode.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.Status).To(Equal(StatusUnhealthy), "a gone tunnel")
 	})
 })
 

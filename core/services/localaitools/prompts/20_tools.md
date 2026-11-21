@@ -35,7 +35,6 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `get_router_corpus_stats` — Inspect a KNN router corpus by count and label only; exemplar texts are never returned.
 - `list_aliases` — List configured model aliases and their targets.
 - `list_failover_chains` — List failover chains, their active target and target health.
-- `get_cluster_carrier` — Read the broadcast bus a distributed cluster uses between its frontends (`nats` for NATS, `tunnel` for PostgreSQL with WebSocket workers; workers never connect to PostgreSQL), the state of a change, the live frontends and the workers that cannot follow. Read-only. No tool changes the bus.
 - `get_carrier_weights` — Read the carrier weights of a distributed cluster (`nats`, `websocket`, `p2p`; 0 to 1000, higher wins, defaults 100, 50 and 25). A weight only breaks a tie between nodes that fit a request equally well. Returns `distributed=false` when the server is not distributed.
 - `get_p2p_status` — Show the P2P mode (off, connect, share), peer ID, reachability and counts.
 - `list_p2p_devices` — List the paired P2P devices and how each one is connected.

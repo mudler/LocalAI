@@ -2,80 +2,89 @@ import { test, expect } from './coverage-fixtures.js'
 
 const node = { id: 'n1', name: 'atlas', node_type: 'backend', address: '10.0.0.1:50051', status: 'healthy', labels: {}, total_vram: 100, available_vram: 40, total_ram: 200, available_ram: 100, total_disk: 1000, available_disk: 600, model_count: 0, in_flight_count: 0 }
 
-const stableReport = {
-  row: { active: 'nats', epoch: 4, state: 'stable', changed_by: 'admin', changed_at: '2026-10-08T10:00:00Z', prev_epoch: 3 },
-  active: 'nats', epoch: 4, state: 'stable', ok: true,
+const clusterSettings = {
+  nats_url: 'nats://nats:4222',
+  nats_worker_url: '',
+  bus: { bus: 'nats', nats_configured: true, nats_connected: true },
   replicas: [
-    { id: 'frontend-a', version: 'v4.12.0', ready_epoch: 4 },
-    { id: 'frontend-b', version: 'v4.12.0', ready_epoch: 4 },
+    { id: 'frontend-a', version: 'v4.12.0', last_seen: '2026-11-21T10:00:00Z' },
+    { id: 'frontend-b', version: 'v4.12.0', last_seen: '2026-11-21T10:00:00Z' },
   ],
-  workers: [
-    { id: 'w1', name: 'dual-worker', type: 'backend', attached: ['nats'], follow: ['nats', 'tunnel'], can_follow: true },
-    { id: 'w2', name: 'tunnel-worker', type: 'backend', attached: ['tunnel'], follow: ['tunnel'], follow_error: 'no routable address: it cannot follow a change to NATS', can_follow: false },
-    { id: 'w3', name: 'old-worker', type: 'backend', attached: [], can_follow: false },
-  ],
-  in_flight: { loads: 0 },
-  timings: {},
-  settings: { nats_url: 'nats://nats:4222', nats_worker_url: '', prepare_timeout: '', transition_window: '', max_drain: '' },
 }
 
-async function mockCluster(page, { carrier = stableReport, carrierStatus = 200, nodes = [node] } = {}) {
+async function mockCluster(page, { settings = clusterSettings, settingsStatus = 200, nodes = [node] } = {}) {
   await page.route('**/api/features', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ distributed: true }) }))
   await page.route('**/api/auth/status', route => route.fulfill({
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ authEnabled: true, staticApiKeyRequired: false, providers: ['local'], user: { id: 'admin', name: 'Admin', role: 'admin', provider: 'local' } }),
   }))
   await page.route('**/api/nodes', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nodes) }))
-  const calls = { posts: [], puts: [] }
-  const state = { carrier }
-  await page.route('**/api/cluster/carrier', async route => {
-    const request = route.request()
-    if (request.method() === 'POST') {
-      const body = request.postDataJSON()
-      calls.posts.push(body)
-      const handler = state.onPost || (() => ({ status: 202, body: { state: 'prepare', active: 'nats', target: 'tunnel', epoch: 5 } }))
-      const answer = handler(body)
-      return route.fulfill({ status: answer.status, contentType: 'application/json', body: JSON.stringify(answer.body) })
-    }
-    return route.fulfill({ status: carrierStatus, contentType: 'application/json', body: JSON.stringify(carrierStatus === 200 ? state.carrier : { error: 'distributed mode is not enabled on this frontend' }) })
+  const calls = { puts: [], carrier: 0 }
+  const state = { settings }
+  // The change of carrier is gone: the page must not call its route.
+  await page.route('**/api/cluster/carrier', route => {
+    calls.carrier++
+    return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
   await page.route('**/api/cluster/settings', async route => {
-    const body = route.request().postDataJSON()
-    calls.puts.push(body)
-    const answer = (state.onPut || (() => ({ status: 200, body: { saved: true, nats: { reachable: true } } })))(body)
-    return route.fulfill({ status: answer.status, contentType: 'application/json', body: JSON.stringify(answer.body) })
+    const request = route.request()
+    if (request.method() === 'PUT') {
+      const body = request.postDataJSON()
+      calls.puts.push(body)
+      const answer = (state.onPut || (() => ({ status: 200, body: { saved: true, nats: { reachable: true } } })))(body)
+      return route.fulfill({ status: answer.status, contentType: 'application/json', body: JSON.stringify(answer.body) })
+    }
+    return route.fulfill({ status: settingsStatus, contentType: 'application/json', body: JSON.stringify(settingsStatus === 200 ? state.settings : { error: 'distributed mode is not enabled on this frontend' }) })
   })
   return { calls, state }
 }
 
 test.describe('Cluster transport panel', () => {
   test('is hidden when the cluster routes answer 503', async ({ page }) => {
-    await mockCluster(page, { carrierStatus: 503 })
+    await mockCluster(page, { settingsStatus: 503 })
     await page.goto('/app/nodes')
     await expect(page.getByTestId('fleet-hero')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('cluster-transport')).toHaveCount(0)
   })
 
-  test('shows the broadcast bus, epoch, replicas and workers in the stable state', async ({ page }) => {
-    await mockCluster(page)
+  test('shows the bus of this frontend, the replicas and the workers, with no switch', async ({ page }) => {
+    const nodes = [
+      { ...node, id: 'w1', name: 'dual-worker', attached: 'nats,tunnel' },
+      { ...node, id: 'w2', name: 'tunnel-worker', attached: 'tunnel' },
+      { ...node, id: 'w3', name: 'old-worker' },
+    ]
+    const { calls } = await mockCluster(page, { nodes })
     await page.goto('/app/nodes')
     const panel = page.getByTestId('cluster-transport')
     await expect(panel).toBeVisible({ timeout: 15_000 })
-    await expect(panel.getByTestId('transport-active')).toHaveText('NATS')
-    await expect(panel.getByTestId('transport-state')).toHaveText('stable')
-    await expect(panel.getByTestId('transport-epoch')).toHaveText('epoch 4')
+    await expect(panel).toContainText('Broadcast bus between frontends')
+    await expect(panel.getByTestId('transport-bus')).toHaveText('NATS connected')
+    await expect(panel.getByTestId('transport-bus-note')).toHaveCount(0)
     await expect(panel.getByTestId('transport-replica')).toHaveCount(2)
-    await expect(panel.getByTestId('transport-replica').first()).toContainText('ready')
+    await expect(panel.getByTestId('transport-replica').first()).toContainText('frontend-a')
     const workers = panel.getByTestId('transport-worker')
     await expect(workers).toHaveCount(3)
-    await expect(workers.nth(0)).toContainText('NATS')
+    await expect(workers.nth(0)).toContainText('NATS + WebSocket')
     await expect(workers.nth(1)).toContainText('WebSocket')
     await expect(workers.nth(2)).toContainText('not reported')
-    // The switch is an API and CLI operation: the panel has no control for it.
     await expect(panel.getByRole('button', { name: /Switch|Abort|Dry run/ })).toHaveCount(0)
-    await expect(panel).not.toContainText(/database tunnel/i)
+    await expect(panel).not.toContainText(/epoch|draining|carrier setting|database tunnel/i)
     await expect(panel).toContainText('Workers never connect to PostgreSQL')
     await expect(panel.getByLabel('NATS URL', { exact: true })).toHaveValue('nats://nats:4222')
+    expect(calls.carrier).toBe(0)
+  })
+
+  test('shows PostgreSQL when this frontend broadcasts over PostgreSQL, and says why when NATS is out of reach', async ({ page }) => {
+    const { state } = await mockCluster(page, { settings: { ...clusterSettings, nats_url: '', bus: { bus: 'postgres', nats_configured: false, nats_connected: false } } })
+    await page.goto('/app/nodes')
+    const panel = page.getByTestId('cluster-transport')
+    await expect(panel.getByTestId('transport-bus')).toHaveText('PostgreSQL', { timeout: 15_000 })
+    await expect(panel.getByTestId('transport-bus-note')).toHaveCount(0)
+
+    state.settings = { ...clusterSettings, bus: { bus: 'postgres', nats_configured: true, nats_connected: false } }
+    await page.reload()
+    await expect(panel.getByTestId('transport-bus')).toHaveText('PostgreSQL', { timeout: 15_000 })
+    await expect(panel.getByTestId('transport-bus-note')).toContainText('does not reach it')
   })
 
   test('shows the live state of each route of a worker from the node list', async ({ page }) => {
@@ -89,6 +98,7 @@ test.describe('Cluster transport panel', () => {
         { route: 'heartbeat', state: 'down', reason: 'the heartbeat is stale' },
         { route: 'tunnel', transport: 'p2p', state: 'reconnecting' },
       ] },
+      { ...node, id: 'w3', name: 'old-worker' },
     ]
     await mockCluster(page, { nodes })
     await page.goto('/app/nodes')
@@ -104,46 +114,11 @@ test.describe('Cluster transport panel', () => {
     await expect(tunnel).toHaveCount(2)
     await expect(tunnel.nth(0)).toHaveText('Heartbeat: down')
     await expect(tunnel.nth(1)).toHaveText('P2P: reconnecting')
-    // A worker whose node has no route state shows what it reported.
+    // A worker whose node has no route state and no report.
     await expect(workers.nth(2)).toContainText('not reported')
   })
 
-  test('shows replica readiness during a change started from the CLI, with no switch controls', async ({ page }) => {
-    const prepare = {
-      ...stableReport, state: 'prepare', epoch: 5, target: 'tunnel',
-      row: { ...stableReport.row, epoch: 5, state: 'prepare', target: 'tunnel' },
-      replicas: [{ id: 'frontend-a', version: 'v4.12.0', ready_epoch: 5 }, { id: 'frontend-b', version: 'v4.12.0', ready_epoch: 4 }],
-    }
-    await mockCluster(page, { carrier: prepare })
-    await page.goto('/app/nodes')
-    const panel = page.getByTestId('cluster-transport')
-    await expect(panel.getByTestId('transport-state')).toHaveText('prepare')
-    await expect(panel).toContainText('A change to PostgreSQL is in progress')
-    const replicas = panel.getByTestId('transport-replica')
-    await expect(replicas.nth(0)).toContainText('ready')
-    await expect(replicas.nth(1)).toContainText('not ready')
-    await expect(panel.getByRole('button', { name: /Switch|Abort|Dry run/ })).toHaveCount(0)
-  })
-
-  test('counts down the drain after a commit', async ({ page }) => {
-    const draining = {
-      ...stableReport, active: 'tunnel', epoch: 6,
-      row: { ...stableReport.row, active: 'tunnel', epoch: 6, draining: 'nats' },
-      drain_remaining_ns: 125e9,
-    }
-    await mockCluster(page, { carrier: draining })
-    await page.goto('/app/nodes')
-    const panel = page.getByTestId('cluster-transport')
-    await expect(panel.getByTestId('transport-active')).toHaveText('PostgreSQL')
-    await expect(panel.getByTestId('transport-state')).toHaveText('draining')
-    const drain = panel.getByTestId('transport-drain')
-    await expect(drain).toContainText('Draining NATS')
-    await expect(drain).toContainText(/2:0\d left|2:1\d left|2:2\d left/)
-    const first = await drain.textContent()
-    await expect.poll(async () => drain.textContent(), { timeout: 5000 }).not.toBe(first)
-  })
-
-  test('saving the NATS settings reports reachability and does not change the bus', async ({ page }) => {
+  test('saving the NATS settings reports reachability and says when the address is used', async ({ page }) => {
     const { calls } = await mockCluster(page)
     await page.goto('/app/nodes')
     const panel = page.getByTestId('cluster-transport')
@@ -151,9 +126,8 @@ test.describe('Cluster transport panel', () => {
     await panel.getByLabel('Worker NATS URL').fill('nats://nats.public.example:4222')
     await panel.getByRole('button', { name: 'Save' }).click()
     await expect(panel.getByTestId('transport-settings-result')).toContainText('reaches the NATS server')
-    await expect(panel.getByTestId('transport-settings-result')).toContainText('did not change')
+    await expect(panel.getByTestId('transport-settings-result')).toContainText('Restart the frontends')
     expect(calls.puts[0]).toEqual({ nats_url: 'nats://nats.example:4222', nats_worker_url: 'nats://nats.public.example:4222' })
-    expect(calls.posts).toHaveLength(0)
   })
 
   test('shows the three carrier weights with their defaults when the server reports none', async ({ page }) => {
@@ -177,12 +151,11 @@ test.describe('Cluster transport panel', () => {
     await form.getByRole('button', { name: 'Apply weights' }).click()
     await expect(form.getByTestId('carrier-weights-result')).toContainText('within a few seconds')
     expect(calls.puts).toEqual([{ carrier_weights: { p2p: 300 } }])
-    expect(calls.posts).toHaveLength(0)
   })
 
   test('shows the weights in force from the server and puts the defaults back', async ({ page }) => {
-    const report = { ...stableReport, settings: { ...stableReport.settings, carrier_weights: { nats: 10, websocket: 50, p2p: 25 }, carrier_weights_default: { nats: 100, websocket: 50, p2p: 25 } } }
-    const { calls } = await mockCluster(page, { carrier: report })
+    const settings = { ...clusterSettings, carrier_weights: { nats: 10, websocket: 50, p2p: 25 }, carrier_weights_default: { nats: 100, websocket: 50, p2p: 25 } }
+    const { calls } = await mockCluster(page, { settings })
     await page.goto('/app/nodes')
     const form = page.getByTestId('carrier-weights')
     await expect(form.getByLabel('NATS weight')).toHaveValue('10')

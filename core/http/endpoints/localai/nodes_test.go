@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/pkg/natsauth"
@@ -472,9 +471,9 @@ var _ = Describe("Node HTTP handlers", func() {
 			ctx := context.Background()
 			node := &nodes.BackendNode{Name: "gamma", Address: "10.0.0.3:50051"}
 			Expect(registry.Register(ctx, node, true)).To(Succeed())
-			Expect(registry.SetCarrierReport(ctx, node.ID, nodes.CarrierReport{
-				Follow:      []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel},
-				Attached:    []cluster.Carrier{cluster.CarrierTunnel},
+			Expect(registry.SetRouteReport(ctx, node.ID, nodes.RouteReport{
+				Follow:      []string{nodes.RouteNATS, nodes.RouteTunnelID},
+				Attached:    []string{nodes.RouteTunnelID},
 				FollowError: "nats: connecting",
 				Tunnel:      nodes.TunnelRoute{Transport: nodes.TunnelWebSocket},
 			})).To(Succeed())

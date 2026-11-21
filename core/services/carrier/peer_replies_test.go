@@ -150,8 +150,8 @@ var _ = Describe("Request and reply over the peer link", func() {
 				Expect(errors.Is(err, messaging.ErrNotDelivered)).To(Equal(notDelivered), "not delivered: %v", err)
 			},
 			// A live replica whose heartbeats stalled past the reap window has no
-			// row, and one that did not prepare a forced change of carrier serves
-			// nothing yet. Neither is a process that left.
+			// row, and one that is still starting serves nothing yet. Neither is a
+			// process that left.
 			Entry("a replica that is not part of the deployment: not delivered, not absence", func() {}, false, true),
 			Entry("a replica that serves no handler for the subject: not delivered, not absence", func() { peers.replica("r2") }, false, true),
 			Entry("a peer that does not answer: not delivered, not absence", func() { peers.failWith("r2", unreachable) }, false, true),

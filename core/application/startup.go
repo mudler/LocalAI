@@ -360,10 +360,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 			go distSvc.Reconciler.Run(options.Context)
 		}
 		go distSvc.ModelCleanup.Run(options.Context)
-		// Follow the cluster carrier row, lead the protocol of a change of carrier when
-		// this replica holds the leadership, and report which carriers it could build.
-		// It starts after the services that use the carrier.
-		distSvc.StartCarrierSwitch(options.Context, application.authDB)
 		// Start ephemeral file cleanup
 		storage.StartEphemeralCleanup(options.Context, distSvc.FileMgr, 0, 0)
 		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel

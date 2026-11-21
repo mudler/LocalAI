@@ -95,16 +95,12 @@ type Membership struct {
 	// mu guards the fields below. started tells Stop whether there is a loop to
 	// join. retention is how long a departure is kept before the sweep deletes
 	// it, derived from the reconnect grace so that the sweep never outruns it.
-	// The ready fields are what this replica last reported, so that a
-	// registration after a sweep writes them back.
-	mu          sync.Mutex
-	started     bool
-	retention   time.Duration
-	readyEpoch  int64
-	readyReason string
-	reclaimer   Reclaimer
-	advertised  string
-	peerHash    string
+	mu         sync.Mutex
+	started    bool
+	retention  time.Duration
+	reclaimer  Reclaimer
+	advertised string
+	peerHash   string
 }
 
 // NewMembership returns the membership loop for one replica.
@@ -168,27 +164,12 @@ func (m *Membership) SetReclaimer(r Reclaimer) {
 	m.reclaimer = r
 }
 
-// ReportReady records in the instances table that this replica has built the
-// carrier for the cluster carrier row at epoch, or, with a reason, that it
-// could not. The loop writes the same values again whenever it has to register
-// the replica again. The replica must be started.
-func (m *Membership) ReportReady(ctx context.Context, epoch int64, reason string) error {
-	if err := m.reg.ReportReady(ctx, m.id, epoch, reason); err != nil {
-		return err
-	}
-	m.mu.Lock()
-	m.readyEpoch, m.readyReason = epoch, reason
-	m.mu.Unlock()
-	return nil
-}
-
-// register writes the row of this replica with what it last reported.
+// register writes the row of this replica.
 func (m *Membership) register(ctx context.Context) error {
 	m.mu.Lock()
-	epoch, reason := m.readyEpoch, m.readyReason
 	advertised, peerHash := m.advertised, m.peerHash
 	m.mu.Unlock()
-	return m.reg.RegisterPeer(ctx, m.id, m.version, epoch, reason, advertised, peerHash)
+	return m.reg.RegisterPeer(ctx, m.id, m.version, advertised, peerHash)
 }
 
 // Start registers this replica, then heartbeats and sweeps in the background.

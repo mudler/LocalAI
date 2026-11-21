@@ -143,7 +143,7 @@ var _ = Describe("The relay", func() {
 		db := testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR = cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, "replica-b", "test", 0, "")).To(Succeed())
+		Expect(clusterR.Register(ctx, "replica-b", "test")).To(Succeed())
 		tunnels = tunnel.NewRegistry(clusterR, "replica-b")
 		worker = &scriptedWorker{}
 		front, back := sessionPair(tunnel.LaneInference)
@@ -255,7 +255,7 @@ var _ = Describe("Route failures", func() {
 		db := testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg := cluster.NewRegistry(db)
-		Expect(reg.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
+		Expect(reg.Register(ctx, "replica-a", "test")).To(Succeed())
 		dialer := tunnel.NewWorkerDialer(tunnel.NewRegistry(reg, "replica-a"), &downPeers{err: cluster.ErrInstanceNotFound})
 		_, err := dialer.Dial(ctx, "nobody", tunnel.StreamTagGRPC, "x:1")
 		Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeTrue())

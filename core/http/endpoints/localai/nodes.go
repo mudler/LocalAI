@@ -721,8 +721,8 @@ func HeartbeatEndpoint(registry *nodes.NodeRegistry, _ ...RegisterOption) echo.H
 			xlog.Warn("Heartbeat failed for node", "id", id, "error", err)
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
-		if report, ok := update.CarrierReport(); ok {
-			if err := registry.SetCarrierReport(ctx, id, report); err != nil {
+		if report, ok := update.RouteReport(); ok {
+			if err := registry.SetRouteReport(ctx, id, report); err != nil {
 				xlog.Warn("Failed to store the route report of a node", "id", id, "error", err)
 			}
 		}

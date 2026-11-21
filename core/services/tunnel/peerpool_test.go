@@ -57,7 +57,7 @@ var _ = Describe("The peer pool", func() {
 		db := testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg := cluster.NewRegistry(db)
-		Expect(reg.RegisterPeer(ctx, "slow", "test", 0, "", silentListener(), cluster.NewPeerCredential().Hash())).To(Succeed())
+		Expect(reg.RegisterPeer(ctx, "slow", "test", silentListener(), cluster.NewPeerCredential().Hash())).To(Succeed())
 		pool := tunnel.NewPeerPool("replica-a", cluster.NewPeerCredential(), reg)
 		DeferCleanup(pool.Close)
 
@@ -113,7 +113,7 @@ var _ = Describe("The peer pool", func() {
 			db := testutil.SetupTestDB()
 			Expect(cluster.Migrate(ctx, db)).To(Succeed())
 			reg := cluster.NewRegistry(db)
-			Expect(reg.RegisterPeer(ctx, "tls-peer", "test", 0, "", srv.Listener.Addr().String(), cluster.NewPeerCredential().Hash())).To(Succeed())
+			Expect(reg.RegisterPeer(ctx, "tls-peer", "test", srv.Listener.Addr().String(), cluster.NewPeerCredential().Hash())).To(Succeed())
 			pool := tunnel.NewPeerPool("replica-a", cluster.NewPeerCredential(), reg, opts...)
 			DeferCleanup(pool.Close)
 			return pool

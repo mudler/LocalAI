@@ -10,7 +10,7 @@ var CLI struct {
 	cliContext.Context `embed:""`
 	Benchmark          benchmark.Command `cmd:"" help:"Benchmark configured text models against a running LocalAI server"`
 
-	Cluster         cluster.Command    `cmd:"" help:"Read or change the carrier and the settings of a distributed cluster through a running frontend"`
+	Cluster         cluster.Command    `cmd:"" help:"Read or store the settings of a distributed cluster through a running frontend"`
 	Run             RunCMD             `cmd:"" help:"Run LocalAI, this the default command if no other command is specified. Run 'local-ai run --help' for more information" default:"withargs"`
 	Chat            ChatCMD            `cmd:"" help:"Run the built-in terminal agent against a LocalAI server"`
 	Models          ModelsCMD          `cmd:"" help:"Manage LocalAI models and definitions"`

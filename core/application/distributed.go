@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,7 +44,7 @@ import (
 // which picks the routes of each node (nodes.RoutesOf). The broadcaster listens
 // on every bus of the replica (PostgreSQL, and NATS when configured) and
 // publishes on one. Request and reply between processes go over the peer link.
-// Only Shutdown reaches the routes, the buses and the set themselves.
+// Only Shutdown reaches the routes and the buses themselves.
 type DistributedServices struct {
 	// Broadcaster is the fan-out seam. Code that only publishes and subscribes
 	// takes this, never the connection of a carrier.
@@ -78,13 +77,9 @@ type DistributedServices struct {
 	// sweeps the rows of replicas that stopped answering.
 	Membership *cluster.Membership
 
-	// Carriers reads the row that names the active carrier. The registration
-	// of a worker answers from it.
-	Carriers *cluster.CarrierStore
-
-	// Tunnels holds the sessions that workers opened to this replica. It is
-	// empty while the cluster runs on NATS: the connect route is registered on
-	// every replica and refuses every worker that has no tunnel credential.
+	// Tunnels holds the sessions that workers opened to this replica. The
+	// connect route is registered on every replica and refuses every worker
+	// that has no tunnel credential.
 	Tunnels *tunnel.Registry
 
 	// Instances reads the instances table. The peer route checks the
@@ -96,27 +91,18 @@ type DistributedServices struct {
 	// PeerPool holds the links that this replica dialled to its peers.
 	PeerPool *tunnel.PeerPool
 	// WorkerDialer opens a stream to a worker through the replica that holds its
-	// tunnel: directly, or through a peer link. The tunnel carrier builds the
-	// dial seams on it; nothing calls it while the cluster runs on NATS.
+	// tunnel: directly, or through a peer link. The tunnel route builds the
+	// dial seams on it.
 	WorkerDialer *tunnel.WorkerDialer
 
 	// Settings holds the settings that decide what the whole cluster does: the
-	// NATS addresses and the waits of a change of carrier.
+	// NATS addresses and the carrier weights.
 	Settings *cluster.SettingsStore
-	// Switch is the protocol of a change of carrier. The admin API calls it, and
-	// the leader drives it.
-	Switch *cluster.Switch
-	// Swapper is what this replica does when the cluster changes its carrier.
-	Swapper *carrier.Swapper
-	// Runtime builds the carrier sets of this replica and reports what it could
-	// build.
-	Runtime *carrierRuntime
+	// NATS is the NATS server of the cluster as this replica uses it: what a
+	// worker is handed at registration, the check of a new address, and the
+	// bus that this replica publishes on.
+	NATS *natsRuntime
 
-	// active names the carrier set of the cluster carrier row: a worker route of
-	// the route table. The change of carrier moves it; it is removed with the
-	// change (step 8 of the hybrid carriers work). No broadcast, no request
-	// between processes and no worker call reads it.
-	active *atomic.Pointer[carrier.Set]
 	// bus is the broadcaster holder, which Broadcaster names as an interface.
 	bus *carrier.Broadcaster
 	// peerAddress is the address at which the other processes reach this one
@@ -127,8 +113,6 @@ type DistributedServices struct {
 	// tunnelRoutes is the tunnel route, pinned in the table for as long as the
 	// replica runs.
 	tunnelRoutes *carrier.WorkerRoute
-	// workers answers the questions about workers that a change asks.
-	workers *nodes.SwitchWorkers
 
 	shutdownOnce sync.Once
 }
@@ -177,12 +161,7 @@ func (ds *DistributedServices) Shutdown() {
 		return
 	}
 	ds.shutdownOnce.Do(func() {
-		// Stop following the cluster carrier and stop the work that a carrier started,
-		// such as the claims this replica drives, before anything is torn down.
-		if ds.Swapper != nil {
-			ds.Swapper.Close()
-		}
-		// The tunnels next: their claims name this replica, and a peer that
+		// The tunnels first: their claims name this replica, and a peer that
 		// asks who owns a worker must not be told a replica that is leaving.
 		if ds.Tunnels != nil {
 			ds.Tunnels.Close()
@@ -202,12 +181,7 @@ func (ds *DistributedServices) Shutdown() {
 		if closer, ok := ds.Store.(io.Closer); ok {
 			closer.Close()
 		}
-		if ds.active != nil {
-			if set := ds.active.Load(); set != nil && set.Close != nil {
-				set.Close()
-			}
-		}
-		// The buses last: a NATS set may share the connection of the NATS bus.
+		// The buses last: the direct route shares the connection of the NATS bus.
 		if ds.bus != nil {
 			ds.bus.Close()
 		}
@@ -256,37 +230,24 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, fmt.Errorf("distributed mode requires auth database to be initialized first")
 	}
 
-	// The cluster carrier row says which transport the whole cluster uses. The
-	// first replica to start writes it; later replicas, and every restart, follow
-	// it and never their own flags. A deployment that has a NATS URL (the flag, or
-	// a URL stored in the cluster settings) is seeded on NATS, so an existing
-	// deployment keeps what it has. One that has only PostgreSQL is seeded on the
-	// tunnel.
-	carrierStore, err := cluster.NewCarrierStore(authDB)
-	if err != nil {
-		return nil, fmt.Errorf("initializing cluster carrier state: %w", err)
-	}
+	// The NATS address of the cluster is a cluster setting, so that every
+	// replica uses the same server. A NATS server is optional: a deployment
+	// with only PostgreSQL broadcasts over PostgreSQL, and its workers hold
+	// the tunnel.
 	settingsStore, err := cluster.NewSettingsStore(authDB)
 	if err != nil {
 		return nil, fmt.Errorf("initializing cluster settings: %w", err)
 	}
-	carrierRow, err := seedCarrier(context.Background(), authDB, carrierStore, settingsStore, cfg.Distributed.NatsURL, cfg.Distributed.InstanceID)
-	if err != nil {
+	if err := adoptNATSURL(context.Background(), settingsStore, cfg.Distributed.NatsURL, cfg.Distributed.InstanceID); err != nil {
 		return nil, err
 	}
 
 	// Whatever fails from here on must give back what was built.
 	success := false
-	var (
-		startSet *carrier.Set
-		buses    []*carrier.Bus
-	)
+	var buses []*carrier.Bus
 	defer func() {
 		if success {
 			return
-		}
-		if startSet != nil && startSet.Close != nil {
-			startSet.Close()
 		}
 		for _, b := range buses {
 			if b != nil && b.Close != nil {
@@ -374,9 +335,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("File manager initialized", "cacheDir", cacheDir)
 
-	// The pieces of the tunnel carrier that do not depend on a set. They exist on
-	// every replica, whatever the carrier in use: a change of carrier needs them,
-	// and the routes of the tunnel are registered on every replica.
+	// The pieces of the tunnel. They exist on every replica, because a worker
+	// may hold a tunnel on every deployment, and the routes of the tunnel are
+	// registered on every replica.
 	//
 	// A replica proves who it is to its peers with a credential that it mints
 	// itself. Only the hash is published, in the same row as the address that
@@ -408,10 +369,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	peerSessions := tunnel.NewPeerSessions(tunnel.NewRelay(tunnels, tunnel.WithReplies(replies)).Stream)
 
 	// The tunnel route reaches every worker that holds a tunnel, over a websocket
-	// or over P2P, whatever the cluster carrier row says. It holds no connection
-	// until a call needs one, so a cluster with no such worker pays nothing for
-	// it. It is pinned in the route table for as long as the replica runs, and
-	// the tunnel set of a change of carrier brings this same route.
+	// or over P2P. It holds no connection until a call needs one, so a cluster
+	// with no such worker pays nothing for it. It is pinned in the route table
+	// for as long as the replica runs.
 	tunnelRoutes, err := carrier.NewTunnelRoutes(carrier.TunnelOptions{
 		Dialer:         tunnel.NewWorkerDialer(tunnels, peerPool),
 		AgentSelector:  nodes.NewAgentSelector(registry, clusterReg, cfg.Distributed.InstanceID),
@@ -433,8 +393,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}()
 
 	// The route table picks the routes of each node from what the worker
-	// reported (nodes.RoutesOf). The direct route is the one of a NATS set,
-	// attached while that set is in use or drains.
+	// reported (nodes.RoutesOf). The direct route is pinned below when the
+	// cluster has a NATS server.
 	routes := carrier.NewRouteTable(func(ctx context.Context, nodeID string) ([]nodes.Route, error) {
 		n, err := registry.Get(ctx, nodeID)
 		if err != nil {
@@ -444,13 +404,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	})
 	routes.Pin(tunnelRoutes)
 
-	active := &atomic.Pointer[carrier.Set]{}
-	runtime := &carrierRuntime{
-		cfg: cfg, db: authDB, settings: settingsStore, registry: registry, fileMgr: fileMgr,
-		instanceID: cfg.Distributed.InstanceID, clusterReg: clusterReg,
-		tunnels: tunnels, peerPool: peerPool, active: active,
-		tunnelRoutes: tunnelRoutes,
-		probeWake:    make(chan struct{}, 1),
+	natsRT := &natsRuntime{
+		cfg: cfg, settings: settingsStore, registry: registry,
+		instanceID: cfg.Distributed.InstanceID, clusterReg: clusterReg, peerPool: peerPool,
 	}
 
 	// The buses of the broadcasts. Every frontend and chat worker listens on
@@ -465,40 +421,37 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	floor := fanout.Bus()
 	buses = append(buses, floor)
-	natsBus, err := runtime.openBusNATS(context.Background())
+	natsBus, err := natsRT.openBusNATS(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("opening the NATS bus: %w", err)
 	}
 	buses = append(buses, natsBus)
 
-	// Build the set of the carrier that the row names. Its worker route goes in
-	// the route table. A NATS set shares the connection of the NATS bus.
-	startSet, err = runtime.build(context.Background(), carrierRow, carrierRow.Active, false)
+	// With a NATS server the direct route reaches the workers that hold NATS. It
+	// shares the connection of the NATS bus.
+	directRoutes, err := natsRT.directRoutes(fileMgr)
 	if err != nil {
-		return nil, fmt.Errorf("building the %s carrier that the cluster uses: %w", carrierRow.Active, err)
+		return nil, fmt.Errorf("building the direct route over NATS: %w", err)
 	}
-	active.Store(startSet)
-	routes.Attach(startSet.WorkerRoute)
+	routes.Pin(directRoutes)
 	broadcaster, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: floor, Primary: natsBus})
 	if err != nil {
 		return nil, err
 	}
-	runtime.bus = broadcaster
-	peerReplies, err := runtime.peerReplies(replies)
+	peerReplies, err := natsRT.peerReplies(replies)
 	if err != nil {
 		return nil, err
 	}
 
-	workers := nodes.NewSwitchWorkers(registry, cfg.Distributed.StaleNodeThresholdOrDefault())
 	clientFactory := carrier.NewClients(routes)
 	fileStager := carrier.NewFiles(routes)
 	remoteUnloader := carrier.NewCommands(routes)
 	workerHTTPDial := carrier.NewRoutedWorkerDialer(routes)
 	agentControl := carrier.NewAgents(routes)
 	if cfg.Distributed.StorageURL != "" {
-		xlog.Info("File stager initialized (S3)", "carrier", carrierRow.Active)
+		xlog.Info("File stager initialized (S3)", "nats", directRoutes != nil)
 	} else {
-		xlog.Info("File stager initialized (HTTP direct transfer)", "carrier", carrierRow.Active)
+		xlog.Info("File stager initialized (HTTP direct transfer)", "nats", directRoutes != nil)
 	}
 
 	// Collect SmartRouter option values; the router itself is created after all
@@ -726,65 +679,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	modelAdapter := nodes.NewModelRouterAdapter(router)
 
 	// The monitor judges each node by the routes it holds: the tunnel rows for
-	// a node that holds a tunnel, the report of the worker for NATS. It never
-	// reads the carrier row of the cluster.
+	// a node that holds a tunnel, the report of the worker for NATS.
 	healthMon.UsePresence(clusterReg, cluster.DefaultReconnectGrace)
 	broadcaster.OnReconnect(func() {
 		go healthMon.CheckNow(context.Background())
 	})
 
-	// The protocol of a change of carrier, and what this replica does in one. The
-	// switch tells the other replicas of each move with a hint, so that they look
-	// at the row at once. The hint is a courtesy; the poll is what counts.
-	fallbackTimings := cluster.Timings{
-		PrepareTimeout:   cfg.Distributed.CarrierPrepareTimeout,
-		TransitionWindow: cfg.Distributed.CarrierTransitionWindow,
-		MaxDrain:         cfg.Distributed.CarrierMaxDrain,
-	}
-	carrierSwitch, err := cluster.NewSwitch(cluster.SwitchOptions{
-		NATSURL:  runtime.natsURL,
-		Store:    carrierStore,
-		Registry: clusterReg,
-		Workers:  workers,
-		Work:     workCounts{db: authDB},
-		Timings: func() cluster.Timings {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			defer cancel()
-			t, err := settingsStore.Timings(ctx, fallbackTimings)
-			if err != nil {
-				xlog.Warn("Could not read the waits of a change of carrier from the cluster settings; using the ones of this replica", "error", err)
-				return fallbackTimings
-			}
-			return t
-		},
-		AvailabilityMaxAge: availabilityMaxAge,
-		OnChange: func(row cluster.CarrierRow) {
-			go func() {
-				if err := broadcaster.Publish(messaging.SubjectCarrierChanged, row); err != nil {
-					xlog.Debug("Could not send the hint that the cluster carrier row moved; the other replicas read it on their poll", "error", err)
-				}
-			}()
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	swapper, err := carrier.NewSwapper(carrier.SwapperOptions{
-		Cur: active, Routes: routes,
-		Rows: carrierStore, Ready: membership, Build: runtime.Build,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	success = true
 	return &DistributedServices{
 		Membership:   membership,
-		Carriers:     carrierStore,
 		Settings:     settingsStore,
-		Switch:       carrierSwitch,
-		Swapper:      swapper,
-		Runtime:      runtime,
+		NATS:         natsRT,
 		Tunnels:      tunnels,
 		Instances:    clusterReg,
 		PeerSessions: peerSessions,
@@ -808,43 +713,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 		WorkerHTTPDial: workerHTTPDial,
 
-		active:       active,
 		bus:          broadcaster,
 		peerAddress:  advertised,
 		routes:       routes,
 		tunnelRoutes: tunnelRoutes,
-		workers:      workers,
 	}, nil
 }
 
-// StartCarrierSwitch starts what this replica does about changes of carrier: it
-// follows the cluster carrier row, drives the protocol when it holds the
-// leadership, and reports which carriers it could build. Call it once, after the
-// services that use the carrier have started.
-func (ds *DistributedServices) StartCarrierSwitch(ctx context.Context, db *gorm.DB) {
-	// The hints. Both are a courtesy that shortens a wait.
-	if _, err := ds.Broadcaster.Subscribe(messaging.SubjectCarrierChanged, func([]byte) { ds.Swapper.Wake() }); err != nil {
-		xlog.Warn("Could not listen for the hint that the cluster carrier changed; the poll still follows the row", "error", err)
-	}
-	if _, err := ds.Broadcaster.Subscribe(messaging.SubjectCarrierProbe, func([]byte) { ds.Runtime.wakeProbe() }); err != nil {
-		xlog.Warn("Could not listen for the request to report which carriers this replica can build", "error", err)
-	}
-	go ds.Swapper.Run(ctx)
-	go ds.Runtime.RunAvailability(ctx)
-	// One replica leads the protocol at a time. If it dies, the next tick on
-	// another replica goes on from the row.
-	go advisorylock.RunLeaderLoop(ctx, db, advisorylock.KeyCarrierSwitch, leaderTick, func() {
-		if err := ds.Switch.Drive(ctx); err != nil && ctx.Err() == nil {
-			xlog.Warn("The change of carrier could not advance", "error", err)
-		}
-	})
-}
-
-// leaderTick is how often the replica that leads makes the move that is due.
-const leaderTick = 2 * time.Second
-
-// seedCarrier reads the cluster carrier row, and writes it when no replica has
-// yet. It returns the row as it is after the call.
+// adoptNATSURL makes the NATS address of this replica a setting of the cluster.
 //
 // The NATS address of the cluster is the setting that is stored without a
 // credential. The flag of this replica is copied there when none is stored. A
@@ -852,15 +728,7 @@ const leaderTick = 2 * time.Second
 // stored address is what every replica uses, so a replica that was given another
 // one by mistake, or an operator who moved the broker and edited only the flag,
 // would otherwise run on the old server and see a warning in a log.
-//
-// A deployment that had NATS before the row existed, and a cluster whose row says
-// NATS, need an address. A replica that has none of it, and that sees no address
-// stored, stops its start, because seeding the tunnel would move the whole
-// cluster off the broker that its workers use.
-//
-// The address is stored before the row, so that a replica which reads the row and
-// finds NATS also finds the address.
-func seedCarrier(ctx context.Context, db *gorm.DB, store *cluster.CarrierStore, settings *cluster.SettingsStore, flagURL, instanceID string) (cluster.CarrierRow, error) {
+func adoptNATSURL(ctx context.Context, settings *cluster.SettingsStore, flagURL, instanceID string) error {
 	// A flag that is not an address is not stored. The connection that is opened
 	// later says what is wrong with it.
 	flagPublic := ""
@@ -872,114 +740,35 @@ func seedCarrier(ctx context.Context, db *gorm.DB, store *cluster.CarrierStore, 
 	}
 	stored, _, err := settings.Get(ctx, cluster.SettingNATSURL)
 	if err != nil {
-		return cluster.CarrierRow{}, err
+		return err
 	}
 	if flagPublic != "" && stored != "" && cluster.PublicNATSURL(stored) != flagPublic {
-		return cluster.CarrierRow{}, fmt.Errorf(
+		return fmt.Errorf(
 			"the NATS address of this replica (--nats-url, %s) differs from the one stored for the cluster (%s). "+
 				"Every replica uses the stored address. To move the cluster to the new address, store it with PUT /api/cluster/settings "+
 				"({\"nats_url\": ...}) and restart; otherwise set --nats-url to the stored address or remove the flag",
 			flagPublic, cluster.PublicNATSURL(stored))
 	}
-
-	row, err := store.Get(ctx)
-	switch {
-	case err == nil:
-	case errors.Is(err, cluster.ErrNotSeeded):
-		seedWith := cluster.CarrierTunnel
-		known := stored
-		if known == "" {
-			known = flagPublic
-		}
-		switch {
-		case known != "" || flagURL != "":
-			seedWith = cluster.CarrierNATS
-		default:
-			era, err := natsEraDeployment(ctx, db)
-			if err != nil {
-				return cluster.CarrierRow{}, err
-			}
-			if era {
-				return cluster.CarrierRow{}, errNoNATSURL("this cluster already has registered workers or replicas, which use NATS")
-			}
-		}
-		if stored == "" && flagPublic != "" {
-			if _, err := settings.SetIfAbsent(ctx, cluster.SettingNATSURL, flagPublic, instanceID); err != nil {
-				return cluster.CarrierRow{}, err
-			}
-			stored = flagPublic
-		}
-		var created bool
-		row, created, err = store.SeedWith(ctx, seedWith, instanceID, stored)
-		if err != nil {
-			return cluster.CarrierRow{}, fmt.Errorf("reading cluster carrier state: %w", err)
-		}
-		if created {
-			xlog.Info("Cluster carrier seeded", "carrier", row.Active, "epoch", row.Epoch)
-		}
-	default:
-		return cluster.CarrierRow{}, fmt.Errorf("reading cluster carrier state: %w", err)
-	}
-
-	// The address may have been stored by the replica that won the seed.
-	if stored == "" {
-		if stored, _, err = settings.Get(ctx, cluster.SettingNATSURL); err != nil {
-			return cluster.CarrierRow{}, err
-		}
-	}
 	if stored == "" && flagPublic != "" {
-		// The URL of the flag is copied into the cluster settings when none is
-		// stored, so that every replica uses the same one.
 		made, err := settings.SetIfAbsent(ctx, cluster.SettingNATSURL, flagPublic, instanceID)
 		if err != nil {
-			return cluster.CarrierRow{}, err
+			return err
 		}
 		if made {
 			xlog.Info("The NATS URL of this replica is now a setting of the cluster", "url", flagPublic)
-			stored = flagPublic
 		}
-	}
-	if stored == "" && flagURL == "" && (row.Active == cluster.CarrierNATS || row.Draining == cluster.CarrierNATS || row.Target == cluster.CarrierNATS) {
-		return cluster.CarrierRow{}, errNoNATSURL("the cluster carrier row says NATS")
 	}
 	if flagURL != "" && flagPublic != flagURL {
 		xlog.Warn("The NATS URL of this replica carries a credential or a query string. This replica keeps it for its own connection; the cluster stores the address without it",
 			"url", cluster.PublicNATSURL(flagURL))
 	}
-	if row.Active == cluster.CarrierTunnel && flagURL != "" {
-		xlog.Info("The cluster carrier row names the tunnel. The NATS server still carries the broadcasts while this replica reaches it")
-	}
-	return row, nil
-}
-
-func errNoNATSURL(why string) error {
-	return fmt.Errorf("no NATS address is known: %s, so a replica without one would flip the cluster to the tunnel or sit disconnected. "+
-		"Start this replica with --nats-url (LOCALAI_NATS_URL), or store the address with PUT /api/cluster/settings", why)
-}
-
-// natsEraDeployment says whether the database shows a cluster that ran before it
-// had a carrier row: a worker or a replica is registered. Such a cluster used
-// NATS, because NATS was the only carrier.
-func natsEraDeployment(ctx context.Context, db *gorm.DB) (bool, error) {
-	for _, table := range []string{"backend_nodes", "instances"} {
-		if !db.Migrator().HasTable(table) {
-			continue
-		}
-		var n int64
-		if err := db.WithContext(ctx).Table(table).Limit(1).Count(&n).Error; err != nil {
-			return false, fmt.Errorf("looking for registered workers: %w", err)
-		}
-		if n > 0 {
-			return true, nil
-		}
-	}
-	return false, nil
+	return nil
 }
 
 // startMembership creates the cluster tables, then records this replica in the
 // instances table and keeps its row fresh until the Membership is stopped.
-// Every replica does this on every carrier, because the change of carrier needs
-// to know which replicas are alive and ready.
+// Every replica does this: the peer link, the tunnel claims and the queue of the
+// chat start read which replicas are alive.
 func startMembership(ctx context.Context, db *gorm.DB, instanceID, advertisedAddr string, peerCred cluster.PeerCredential) (*cluster.Membership, error) {
 	if ctx == nil {
 		ctx = context.Background()

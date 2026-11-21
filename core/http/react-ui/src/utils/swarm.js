@@ -257,7 +257,7 @@ export function joinCommand({ flavor, option, dev, link }) {
 
 // How the frontends reach a node, from what the node reported: 'nats', the
 // tunnel over a websocket ('websocket') or over P2P ('p2p'), or null when it
-// says nothing (a worker that predates carriers is on NATS, but the page does
+// says nothing (a worker that sent no route report yet; the page does
 // not guess). `path` and `limited` describe a P2P tunnel.
 export function nodeRoute(node) {
   const attached = String(node?.attached || '').split(',').map(c => c.trim()).filter(Boolean)

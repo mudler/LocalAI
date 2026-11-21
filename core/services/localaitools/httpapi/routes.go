@@ -47,7 +47,6 @@ const (
 	routeVersion                = "/version"
 	routeSystem                 = "/system"
 	routeFailover               = "/api/failover"
-	routeClusterCarrier         = "/api/cluster/carrier"
 	routeClusterSettings        = "/api/cluster/settings"
 	routeP2PStatus              = "/api/p2p/status"
 	routeP2PDevices             = "/api/p2p/devices"

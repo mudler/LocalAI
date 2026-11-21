@@ -7,29 +7,18 @@ import (
 	"net"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 )
 
-// TunnelOptions is what NewTunnelSet and NewTunnelRoutes need.
+// TunnelOptions is what NewTunnelRoutes needs.
 //
 // The tunnel route (NewTunnelRoutes) has the control verbs, the file stager,
 // the client factory, the dialer of the HTTP server of a worker and the agent
 // RPC, which picks an agent worker with the selector and sends the request over
 // the same control client as the other verbs.
 type TunnelOptions struct {
-	// Epoch is the epoch of the cluster row the set is built for.
-	Epoch int64
-
-	// Routes, when set, is the tunnel route that the set brings, built before
-	// by NewTunnelRoutes and pinned in the route table. The set does not build
-	// another one and its Close leaves this one open, because the table keeps
-	// using it. Dialer, Registry, the timeouts, Token and the staging options
-	// are then not read.
-	Routes *WorkerRoute
-
 	// Dialer opens streams to workers, through the replica that holds the tunnel
 	// of each one.
 	Dialer *tunnel.WorkerDialer
@@ -54,36 +43,6 @@ type TunnelOptions struct {
 	// ExpectedSHA256 gives the S3 stager the sha256 a staged file must have
 	// (nodes.S3FileStager.ExpectedSHA256). Nil sends none.
 	ExpectedSHA256 func(localPath string) string
-
-}
-
-// NewTunnelSet builds the set of seam implementations that reach workers through
-// their tunnels. The set is complete or it is an error, as for NATS.
-func NewTunnelSet(o TunnelOptions) (*Set, error) {
-	route := o.Routes
-	closeRoute := func() {}
-	if route == nil {
-		if o.AgentSelector == nil {
-			return nil, errors.New("tunnel set needs an agent selector")
-		}
-		var err error
-		if route, err = NewTunnelRoutes(o); err != nil {
-			return nil, err
-		}
-		if route.Close != nil {
-			closeRoute = route.Close
-		}
-	}
-	set := &Set{
-		Name:        cluster.CarrierTunnel,
-		Epoch:       o.Epoch,
-		WorkerRoute: route,
-		Close:       closeRoute,
-	}
-	if err := set.Validate(); err != nil {
-		return nil, err
-	}
-	return set, nil
 }
 
 // NewTunnelRoutes builds the tunnel route: the members that reach one worker
@@ -92,7 +51,7 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 // frontend with no tunnel worker pays nothing for it.
 func NewTunnelRoutes(o TunnelOptions) (*WorkerRoute, error) {
 	if o.Dialer == nil {
-		return nil, errors.New("tunnel set needs a dialer")
+		return nil, errors.New("the tunnel route needs a dialer")
 	}
 
 	// The control verbs, the logs and the health of a worker go over the
@@ -109,7 +68,7 @@ func NewTunnelRoutes(o TunnelOptions) (*WorkerRoute, error) {
 	)
 	if o.S3Staging {
 		if o.FileManager == nil {
-			return nil, errors.New("tunnel set needs a file manager for S3 staging")
+			return nil, errors.New("the tunnel route needs a file manager for S3 staging")
 		}
 		// The bytes go through the object store, and only the verbs go through
 		// the tunnel, so the lane of the files is not needed.

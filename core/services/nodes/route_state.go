@@ -30,8 +30,8 @@ const (
 // report of the other routes. NATS and the tunnel carry the work.
 const (
 	RouteHeartbeat = "heartbeat"
-	RouteNATS      = string(cluster.CarrierNATS)
-	RouteTunnelID  = string(cluster.CarrierTunnel)
+	RouteNATS      = "nats"
+	RouteTunnelID  = "tunnel"
 )
 
 // RouteState is the liveness of one route of a node, as the node list shows it.
@@ -54,8 +54,8 @@ func (s RouteState) Live() bool { return s.State == RouteLive || s.State == Rout
 
 // RouteJudge says, for each route of a node, if it is live. It reads what the
 // worker reported in its heartbeat and, for the tunnel, the connection rows that
-// every frontend shares. It never reads the carrier setting of the cluster: a
-// node is judged by the routes it holds, never by a carrier of the cluster.
+// every frontend shares. A node is judged by the routes it holds; the cluster
+// has no carrier of its own.
 //
 // It keeps no state, so every frontend gives the same answer for the same rows.
 type RouteJudge struct {
@@ -82,12 +82,12 @@ func (j RouteJudge) States(ctx context.Context, n *BackendNode, now time.Time) [
 	if n.Follow == "" {
 		return out
 	}
-	held := splitCarriers(n.Attached)
-	given := append(splitCarriers(n.Follow), held...)
-	if slices.Contains(given, cluster.CarrierNATS) {
+	held := splitRoutes(n.Attached)
+	given := append(splitRoutes(n.Follow), held...)
+	if slices.Contains(given, RouteNATS) {
 		out = append(out, natsState(n, held, fresh))
 	}
-	if slices.Contains(given, cluster.CarrierTunnel) {
+	if slices.Contains(given, RouteTunnelID) {
 		out = append(out, j.tunnelState(ctx, n, held, fresh))
 	}
 	return out
@@ -96,12 +96,12 @@ func (j RouteJudge) States(ctx context.Context, n *BackendNode, now time.Time) [
 // natsState is live when the last report says the worker holds NATS. The report
 // travels in the heartbeat, so a stale heartbeat is a report that is out of date,
 // and NATS is not counted then.
-func natsState(n *BackendNode, held []cluster.Carrier, fresh bool) RouteState {
+func natsState(n *BackendNode, held []string, fresh bool) RouteState {
 	s := RouteState{Route: RouteNATS, State: RouteLive}
 	switch {
 	case !fresh:
 		s.State, s.Reason = RouteDown, "no recent report from the worker"
-	case !slices.Contains(held, cluster.CarrierNATS):
+	case !slices.Contains(held, RouteNATS):
 		s.State = RouteDown
 		s.Reason = cmp.Or(routeReason(n.FollowError, RouteNATS), "not attached")
 	}
@@ -115,7 +115,7 @@ func natsState(n *BackendNode, held []cluster.Carrier, fresh bool) RouteState {
 // shows the worker is alive. A tunnel gone for longer than the grace is down.
 // When presence has no answer (no row, or a read that failed) the report of the
 // worker decides, if it is fresh.
-func (j RouteJudge) tunnelState(ctx context.Context, n *BackendNode, held []cluster.Carrier, fresh bool) RouteState {
+func (j RouteJudge) tunnelState(ctx context.Context, n *BackendNode, held []string, fresh bool) RouteState {
 	s := RouteState{Route: RouteTunnelID, Transport: tunnelTransportOf(n)}
 	p := cluster.PresenceUnknown
 	if j.Presence != nil {
@@ -136,7 +136,7 @@ func (j RouteJudge) tunnelState(ctx context.Context, n *BackendNode, held []clus
 		s.State, s.Reason = RouteDown, "the tunnel is dialling again and the heartbeat is stale"
 	case p == cluster.PresenceGone:
 		s.State, s.Reason, s.settled = RouteDown, "the tunnel has been gone longer than the reconnect grace", true
-	case fresh && slices.Contains(held, cluster.CarrierTunnel):
+	case fresh && slices.Contains(held, RouteTunnelID):
 		s.State = RouteLive
 	case fresh:
 		s.State = RouteDown

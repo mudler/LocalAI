@@ -17,6 +17,16 @@ const (
 	BusNATS = "nats"
 )
 
+// BusState is the broadcast bus of one process, as the Nodes page shows it.
+type BusState struct {
+	// Bus is the bus that the process publishes on now: BusNATS or BusPostgres.
+	Bus string `json:"bus"`
+	// NATSConfigured says that the cluster has a NATS server, and NATSConnected
+	// that the process reaches it.
+	NATSConfigured bool `json:"nats_configured"`
+	NATSConnected  bool `json:"nats_connected"`
+}
+
 // ErrBusUnreachable says that a bus which is configured for the cluster cannot
 // be reached from this process. The process still listens and publishes on the
 // floor, but it does not hear what the others publish on that bus, so it is not

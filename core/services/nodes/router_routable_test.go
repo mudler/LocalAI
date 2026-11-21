@@ -31,7 +31,7 @@ var _ = Describe("Routing by the routes of a node", func() {
 		dual = BackendNode{ID: "dual", Name: "dual", Address: "10.0.0.1:50051", Status: StatusHealthy,
 			Attached: "nats", Follow: "nats,tunnel"}
 		tunnel = BackendNode{ID: "tunnel", Name: "tunnel", Status: StatusHealthy,
-			Attached: "tunnel", Follow: "tunnel", FollowError: "no routable address: it cannot follow a change to NATS",
+			Attached: "tunnel", Follow: "tunnel", FollowError: "nats: connecting",
 			TunnelTransport: TunnelWebSocket}
 		legacy = BackendNode{ID: "legacy", Name: "legacy", Address: "10.0.0.3:50051", Status: StatusHealthy}
 		p2p = BackendNode{ID: "p2p", Name: "p2p", Status: StatusHealthy, PeerID: "peer-a",

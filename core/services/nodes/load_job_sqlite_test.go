@@ -137,3 +137,36 @@ var _ = Describe("Load jobs on SQLite", func() {
 		Expect(live.LeaseUntil.After(time.Now())).To(BeTrue())
 	})
 })
+
+// legacyNodeColumns is the column of backend_nodes that the old change of
+// carrier added, as gorm added it.
+type legacyNodeColumns struct {
+	AttachedEpoch int64 `gorm:"column:attached_epoch;default:0"`
+}
+
+func (legacyNodeColumns) TableName() string { return "backend_nodes" }
+
+// The column of the old change of carrier goes on SQLite as on PostgreSQL.
+var _ = Describe("Removed node columns on SQLite", func() {
+	It("drops attached_epoch from a database that has it and keeps the rows", func() {
+		db, err := gorm.Open(sqlite.Open(filepath.Join(GinkgoT().TempDir(), "nodes.db")), &gorm.Config{})
+		Expect(err).ToNot(HaveOccurred())
+		registry, err := NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(db.Migrator().AddColumn(&legacyNodeColumns{}, "AttachedEpoch")).To(Succeed())
+		Expect(db.Migrator().HasColumn(&BackendNode{}, "attached_epoch")).To(BeTrue())
+		node := &BackendNode{Name: "old", NodeType: NodeTypeBackend, Address: "10.0.0.5:50051", Attached: "tunnel"}
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+		_, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(db.Migrator().HasColumn(&BackendNode{}, "attached_epoch")).To(BeFalse())
+		var got BackendNode
+		Expect(db.First(&got, "id = ?", node.ID).Error).To(Succeed())
+		Expect(got.Attached).To(Equal("tunnel"))
+
+		// A second start finds nothing to drop.
+		_, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+	})
+})

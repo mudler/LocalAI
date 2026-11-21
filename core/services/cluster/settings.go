@@ -23,15 +23,6 @@ const (
 	// SettingNATSWorkerURL is the address that workers are told to use, when it
 	// differs from the one the frontends use. It defaults to SettingNATSURL.
 	SettingNATSWorkerURL = "nats.worker_url"
-	// SettingPrepareTimeout is how long a change of carrier waits for every
-	// replica to be ready.
-	SettingPrepareTimeout = "switch.prepare_timeout"
-	// SettingTransitionWindow is how long a change waits for every replica to
-	// confirm that it uses the new carrier.
-	SettingTransitionWindow = "switch.transition_window"
-	// SettingMaxDrain is how long the previous carrier stays attached after a
-	// change.
-	SettingMaxDrain = "switch.max_drain"
 
 	// SettingCarrierWeightNATS, SettingCarrierWeightWebSocket and
 	// SettingCarrierWeightP2P are the three parts of routing.carrier_weights: how
@@ -111,69 +102,17 @@ func (s *SettingsStore) CarrierWeights(ctx context.Context) (CarrierWeights, err
 var ErrUnknownSetting = errors.New("unknown cluster setting")
 
 var knownSettings = map[string]func(string) error{
-	SettingNATSURL:          CheckNATSURL,
-	SettingNATSWorkerURL:    CheckNATSURL,
-	SettingPrepareTimeout:   durationSetting,
-	SettingTransitionWindow: durationSetting,
-	SettingMaxDrain:         durationSetting,
+	SettingNATSURL:       CheckNATSURL,
+	SettingNATSWorkerURL: CheckNATSURL,
 
 	SettingCarrierWeightNATS:      carrierWeightSetting,
 	SettingCarrierWeightWebSocket: carrierWeightSetting,
 	SettingCarrierWeightP2P:       carrierWeightSetting,
 }
 
-// MinTiming is the shortest wait of a change that the cluster accepts. The
-// replicas read the row every two seconds, so a shorter wait would abort every
-// change before a replica could see it, and a value such as 1ns is a typo for
-// a value that is meant to be long.
-const MinTiming = 5 * time.Second
-
-func durationSetting(v string) error {
-	d, err := time.ParseDuration(v)
-	if err != nil {
-		return fmt.Errorf("not a duration: %w", err)
-	}
-	if d < MinTiming {
-		return fmt.Errorf("a wait must be at least %s, not %s", MinTiming, d)
-	}
-	return nil
-}
-
 // CheckSetting says whether value may be stored for key. It stores nothing, so a
 // caller with several settings can refuse all of them before it writes one.
 func CheckSetting(key, value string) error { return checkSetting(key, value) }
-
-// Timings are the waits of a change.
-type Timings struct {
-	// PrepareTimeout is how long prepare waits for every live replica.
-	PrepareTimeout time.Duration `swaggertype:"integer"`
-	// TransitionWindow is how long commit waits for every live replica to
-	// confirm.
-	TransitionWindow time.Duration `swaggertype:"integer"`
-	// MaxDrain is how long the previous carrier stays attached after the commit.
-	// Work that is still running on it then is failed by the reaper.
-	MaxDrain time.Duration `swaggertype:"integer"`
-}
-
-// DefaultTimings are used for a timing that nothing sets.
-var DefaultTimings = Timings{
-	PrepareTimeout:   time.Minute,
-	TransitionWindow: 2 * time.Minute,
-	MaxDrain:         15 * time.Minute,
-}
-
-func (t Timings) withDefaults() Timings {
-	if t.PrepareTimeout <= 0 {
-		t.PrepareTimeout = DefaultTimings.PrepareTimeout
-	}
-	if t.TransitionWindow <= 0 {
-		t.TransitionWindow = DefaultTimings.TransitionWindow
-	}
-	if t.MaxDrain <= 0 {
-		t.MaxDrain = DefaultTimings.MaxDrain
-	}
-	return t
-}
 
 // Setting is one row of table cluster_settings.
 type Setting struct {
@@ -192,6 +131,11 @@ type SettingsStore struct{ db *gorm.DB }
 func NewSettingsStore(db *gorm.DB) (*SettingsStore, error) {
 	if err := db.AutoMigrate(&Setting{}); err != nil {
 		return nil, fmt.Errorf("migrating cluster_settings: %w", err)
+	}
+	// The waits of the old change of carrier (switch.*) are no setting any
+	// more. A database that stored them keeps no row that nothing reads.
+	if err := db.Where("key LIKE ?", "switch.%").Delete(&Setting{}).Error; err != nil {
+		return nil, fmt.Errorf("removing the settings of the change of carrier: %w", err)
 	}
 	return &SettingsStore{db: db}, nil
 }
@@ -317,27 +261,4 @@ func (s *SettingsStore) All(ctx context.Context) (map[string]string, error) {
 		out[r.Key] = r.Value
 	}
 	return out, nil
-}
-
-// Timings returns the timings of a change. A timing that the cluster did not set
-// comes from fallback, and one that fallback leaves at zero comes from
-// DefaultTimings.
-func (s *SettingsStore) Timings(ctx context.Context, fallback Timings) (Timings, error) {
-	all, err := s.All(ctx)
-	if err != nil {
-		return Timings{}, err
-	}
-	t := fallback
-	for key, dst := range map[string]*time.Duration{
-		SettingPrepareTimeout:   &t.PrepareTimeout,
-		SettingTransitionWindow: &t.TransitionWindow,
-		SettingMaxDrain:         &t.MaxDrain,
-	} {
-		if v, ok := all[key]; ok {
-			if d, err := time.ParseDuration(v); err == nil && d >= MinTiming {
-				*dst = d
-			}
-		}
-	}
-	return t.withDefaults(), nil
 }

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/carrier"
-	"github.com/mudler/LocalAI/core/services/cluster"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/tunnel"
@@ -138,6 +137,7 @@ var _ = Describe("The route table", func() {
 		routesOf       map[string][]nodes.Route
 		reads          atomic.Int32
 		sourceErr      error
+		source         carrier.RouteSource
 		table          *carrier.RouteTable
 		commands       *carrier.Commands
 		directPingSeen func() []string
@@ -146,8 +146,8 @@ var _ = Describe("The route table", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		direct = newFakeCarrier(cluster.CarrierNATS, 1)
-		tun = newFakeCarrier(cluster.CarrierTunnel, 1)
+		direct = newFakeCarrier(nodes.RouteDirect)
+		tun = newFakeCarrier(nodes.RouteTunnel)
 		dCmds = &failingCommands{fakeCommands: direct.commands}
 		tCmds = &failingCommands{fakeCommands: tun.commands}
 		direct.set.Commands, tun.set.Commands = dCmds, tCmds
@@ -156,14 +156,15 @@ var _ = Describe("The route table", func() {
 		}
 		reads.Store(0)
 		sourceErr = nil
-		table = carrier.NewRouteTable(func(_ context.Context, nodeID string) ([]nodes.Route, error) {
+		source = func(_ context.Context, nodeID string) ([]nodes.Route, error) {
 			reads.Add(1)
 			if sourceErr != nil {
 				return nil, sourceErr
 			}
 			return routesOf[nodeID], nil
-		})
-		table.Attach(direct.route())
+		}
+		table = carrier.NewRouteTable(source)
+		table.Pin(direct.route())
 		table.Pin(tun.route())
 		commands = carrier.NewCommands(table)
 		directPingSeen, tunnelPingSeen = direct.commands.seen, tun.commands.seen
@@ -193,7 +194,10 @@ var _ = Describe("The route table", func() {
 		})
 
 		It("answers ErrNoRoute for a node whose only route this frontend does not hold", func() {
-			table.Detach(direct.route())
+			// A frontend with no NATS server holds the tunnel route only.
+			table = carrier.NewRouteTable(source)
+			table.Pin(tun.route())
+			commands = carrier.NewCommands(table)
 			err := commands.PingNode("nats-only")
 			Expect(err).To(MatchError(nodes.ErrNoRoute))
 			Expect(err.Error()).To(ContainSubstring("holds no route"))
@@ -215,12 +219,6 @@ var _ = Describe("The route table", func() {
 			Expect(reads.Load()).To(BeEquivalentTo(1))
 		})
 
-		It("reads them again after a route was attached or detached", func() {
-			Expect(commands.PingNode("ws-only")).To(Succeed())
-			table.Detach(direct.route())
-			Expect(commands.PingNode("ws-only")).To(Succeed())
-			Expect(reads.Load()).To(BeEquivalentTo(2))
-		})
 	})
 
 	Describe("moving to the next route", func() {
@@ -308,8 +306,7 @@ var _ = Describe("The route table", func() {
 			Expect(commands.PingNode("both")).To(Succeed())
 			dCmds.fail(nil)
 			routesOf["both"] = directOnly
-			table.Detach(direct.route()) // drops the cache
-			table.Attach(direct.route())
+			table.DropCache()
 
 			Expect(commands.PingNode("both")).To(Succeed())
 			Expect(directPingSeen()).To(Equal([]string{"PingNode:both", "PingNode:both"}))
@@ -317,8 +314,8 @@ var _ = Describe("The route table", func() {
 
 		It("is forgotten with the node, and the routes forget the node too", func() {
 			var forgotten []string
-			direct.set.WorkerRoute.ForgetNode = func(id string) { forgotten = append(forgotten, "direct:"+id) }
-			tun.set.WorkerRoute.ForgetNode = func(id string) { forgotten = append(forgotten, "tunnel:"+id) }
+			direct.set.ForgetNode = func(id string) { forgotten = append(forgotten, "direct:"+id) }
+			tun.set.ForgetNode = func(id string) { forgotten = append(forgotten, "tunnel:"+id) }
 			dCmds.fail(fmt.Errorf("%w: no responders", nodes.ErrNoRoute))
 			Expect(commands.PingNode("both")).To(Succeed())
 			dCmds.fail(nil)
@@ -330,26 +327,20 @@ var _ = Describe("The route table", func() {
 		})
 	})
 
-	Describe("pinned and attached routes", func() {
-		It("puts the pinned route back when an attached route of the same kind is detached", func() {
-			other := newFakeCarrier(cluster.CarrierTunnel, 2)
-			table.Attach(other.route())
-			Expect(table.Route(nodes.RouteTunnel)).To(BeIdenticalTo(other.route()))
-			table.Detach(tun.route()) // not the route in use: nothing moves
-			Expect(table.Route(nodes.RouteTunnel)).To(BeIdenticalTo(other.route()))
-			table.Detach(other.route())
+	Describe("pinned routes", func() {
+		It("holds the route pinned for each kind, and the last pin of a kind wins", func() {
+			Expect(table.Route(nodes.RouteDirect)).To(BeIdenticalTo(direct.route()))
 			Expect(table.Route(nodes.RouteTunnel)).To(BeIdenticalTo(tun.route()))
-			table.Detach(direct.route())
-			Expect(table.Route(nodes.RouteDirect)).To(BeNil(), "no route is pinned for the direct kind")
+			other := newFakeCarrier(nodes.RouteTunnel)
+			table.Pin(other.route())
+			Expect(table.Route(nodes.RouteTunnel)).To(BeIdenticalTo(other.route()))
 			Expect(table.Route("pigeon")).To(BeNil())
 		})
 
 		It("ignores a nil route and a route of a kind it does not know", func() {
-			table.Attach(nil)
-			table.Detach(nil)
-			odd := newFakeCarrier(cluster.CarrierNATS, 3).route()
+			table.Pin(nil)
+			odd := newFakeCarrier(nodes.RouteDirect).route()
 			odd.Kind = "pigeon"
-			table.Attach(odd)
 			table.Pin(odd)
 			Expect(table.Route(nodes.RouteDirect)).To(BeIdenticalTo(direct.route()))
 		})
@@ -452,8 +443,8 @@ var _ = Describe("The fan-out verbs through the route table", func() {
 	)
 
 	BeforeEach(func() {
-		direct = newFakeCarrier(cluster.CarrierNATS, 1)
-		tun = newFakeCarrier(cluster.CarrierTunnel, 1)
+		direct = newFakeCarrier(nodes.RouteDirect)
+		tun = newFakeCarrier(nodes.RouteTunnel)
 		routesOf = map[string][]nodes.Route{"on-nats": directOnly, "on-ws": tunnelOnly, "on-p2p": p2pOnly}
 		holders := []string{"on-nats", "on-ws", "on-p2p"}
 		direct.set.Commands = &holdersCommands{fakeCommands: direct.commands, holders: holders,
@@ -505,7 +496,8 @@ var _ = Describe("The fan-out verbs through the route table", func() {
 	})
 
 	It("runs the plain verb on the only route that the table holds", func() {
-		table.Detach(direct.route())
+		table = tableOf(routesOf, tun)
+		commands = carrier.NewCommands(table)
 		Expect(commands.DeleteModelFiles("m")).To(MatchError(nodes.ErrNoRoute), "the tunnel reaches no NATS-only node")
 		Expect(tun.commands.seen()).To(Equal([]string{"delete:on-nats", "delete:on-ws", "delete:on-p2p"}))
 	})

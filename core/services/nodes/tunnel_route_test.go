@@ -1,8 +1,6 @@
 package nodes
 
 import (
-	"github.com/mudler/LocalAI/core/services/cluster"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -17,27 +15,27 @@ var _ = Describe("The tunnel route a worker reports", func() {
 	})
 
 	It("is part of the route report of a heartbeat", func() {
-		rep, ok := HeartbeatUpdate{Routes: []string{"tunnel"}, Attached: []string{"tunnel"}, TunnelTransport: "p2p", TunnelPath: "direct"}.CarrierReport()
+		rep, ok := HeartbeatUpdate{Routes: []string{"tunnel"}, Attached: []string{"tunnel"}, TunnelTransport: "p2p", TunnelPath: "direct"}.RouteReport()
 		Expect(ok).To(BeTrue())
 		Expect(rep.Tunnel).To(Equal(TunnelRoute{Transport: TunnelP2P, Path: "direct"}))
-		Expect(rep.Attached).To(ConsistOf(cluster.CarrierTunnel))
-		Expect(rep.Follow).To(ConsistOf(cluster.CarrierTunnel))
+		Expect(rep.Attached).To(ConsistOf(RouteTunnelID))
+		Expect(rep.Follow).To(ConsistOf(RouteTunnelID))
 	})
 
 	It("reads the routes a worker was given, the ones it holds and why the others are not held", func() {
 		rep, ok := HeartbeatUpdate{
 			Routes: []string{"nats", "tunnel", "carrier-pigeon"}, Attached: []string{"tunnel"},
 			RouteError: "nats: connecting", TunnelTransport: "websocket",
-		}.CarrierReport()
+		}.RouteReport()
 		Expect(ok).To(BeTrue())
-		Expect(rep.Follow).To(Equal([]cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel}))
-		Expect(rep.Attached).To(Equal([]cluster.Carrier{cluster.CarrierTunnel}))
+		Expect(rep.Follow).To(Equal([]string{RouteNATS, RouteTunnelID}))
+		Expect(rep.Attached).To(Equal([]string{RouteTunnelID}))
 		Expect(rep.FollowError).To(Equal("nats: connecting"))
 		Expect(rep.Tunnel).To(Equal(TunnelRoute{Transport: TunnelWebSocket}))
 	})
 
 	It("is no report when the worker names no route", func() {
-		_, ok := HeartbeatUpdate{Attached: []string{"nats"}}.CarrierReport()
+		_, ok := HeartbeatUpdate{Attached: []string{"nats"}}.RouteReport()
 		Expect(ok).To(BeFalse())
 	})
 })

@@ -41,8 +41,8 @@ type tableHarness struct {
 
 func newTableHarness(on, off, direct, tun nodes.LoadOperationHarness, routes []nodes.Route, countOff bool) *tableHarness {
 	t := carrier.NewRouteTable(func(context.Context, string) ([]nodes.Route, error) { return routes, nil })
-	t.Attach(&carrier.WorkerRoute{Kind: nodes.RouteDirect, Commands: direct.Control().(nodes.NodeControl)})
-	t.Attach(&carrier.WorkerRoute{Kind: nodes.RouteTunnel, Commands: tun.Control().(nodes.NodeControl)})
+	t.Pin(&carrier.WorkerRoute{Kind: nodes.RouteDirect, Commands: direct.Control().(nodes.NodeControl)})
+	t.Pin(&carrier.WorkerRoute{Kind: nodes.RouteTunnel, Commands: tun.Control().(nodes.NodeControl)})
 	return &tableHarness{on: on, off: off, control: carrier.NewCommands(t), countOff: countOff}
 }
 

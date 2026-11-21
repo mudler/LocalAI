@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 // Package cluster is the "local-ai cluster" command. It calls the admin API of
-// a running distributed frontend to read or change the carrier of the cluster
-// and to read or store the cluster settings.
+// a running distributed frontend to read or store the cluster settings.
 package cluster
 
 import (
@@ -25,7 +24,6 @@ import (
 
 // Command is the "local-ai cluster" command group.
 type Command struct {
-	Carrier  CarrierCommand  `cmd:"" help:"Read the carrier of a distributed cluster, or change it"`
 	Settings SettingsCommand `cmd:"" help:"Read or store the settings of a distributed cluster"`
 }
 
@@ -33,7 +31,7 @@ type Command struct {
 type Remote struct {
 	Endpoint string        `default:"http://127.0.0.1:8080" env:"LOCALAI_ENDPOINT" help:"URL of a LocalAI frontend of the cluster."`
 	APIKey   string        `name:"api-key" env:"LOCALAI_API_KEY,API_KEY" help:"API key of an admin user."`
-	Timeout  time.Duration `default:"2m" help:"Timeout for each request. A dry run asks every replica, so it can take a few seconds."`
+	Timeout  time.Duration `default:"2m" help:"Timeout for each request."`
 	JSON     bool          `name:"json" help:"Write the answer of the server as JSON."`
 }
 

@@ -81,7 +81,9 @@ type RepoFile struct {
 	// Size is in bytes; zero when the provider did not say.
 	Size   int64  `json:"size"`
 	SHA256 string `json:"sha256,omitempty"`
-	// Kind is "gguf", "mmproj" or "weights" (safetensors, bin, pt).
+	// Kind is "gguf", "mmproj", "drafter" (a speculative-decoding sidecar such
+	// as dspark-*.gguf, never a variant of its own) or "weights" (safetensors,
+	// bin, pt).
 	Kind string `json:"kind"`
 }
 
@@ -568,8 +570,14 @@ func appendWeight(files []RepoFile, name string, size int64, sha string) []RepoF
 	switch {
 	case strings.HasSuffix(lower, ".gguf") && strings.Contains(lower, "mmproj"):
 		kind = "mmproj"
+	case strings.HasSuffix(lower, ".gguf") && hfapi.IsImatrix(name):
+		// llama.cpp does not load an importance matrix as a model.
+		return files
 	case strings.HasSuffix(lower, ".gguf"):
 		kind = "gguf"
+		if _, ok := hfapi.SidecarOf(name); ok {
+			kind = "drafter"
+		}
 	case strings.HasSuffix(lower, ".safetensors"), strings.HasSuffix(lower, ".bin"), strings.HasSuffix(lower, ".pt"):
 		kind = "weights"
 	default:

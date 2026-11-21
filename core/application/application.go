@@ -968,9 +968,6 @@ func (a *Application) start() (startErr error) {
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader
 	}
-	if a.distributed != nil && a.distributed.Switch != nil {
-		assistantClient.Carrier = a.distributed.Switch
-	}
 	if a.distributed != nil && a.distributed.Settings != nil {
 		assistantClient.CarrierWeights = a.distributed.Settings
 	}

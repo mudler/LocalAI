@@ -1958,16 +1958,28 @@ var _ = Describe("NodeRegistry carrier attachment", func() {
 		var got BackendNode
 		Expect(db.First(&got, "id = ?", node.ID).Error).To(Succeed())
 		Expect(got.Attached).To(BeEmpty())
-		Expect(got.AttachedEpoch).To(BeZero())
 	})
 
 	It("keeps the attachment a node reported", func() {
-		node := &BackendNode{Name: "dual", NodeType: NodeTypeBackend, Address: "10.0.0.4:50051", Attached: "nats,tunnel", AttachedEpoch: 3}
+		node := &BackendNode{Name: "dual", NodeType: NodeTypeBackend, Address: "10.0.0.4:50051", Attached: "nats,tunnel"}
 		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 		var got BackendNode
 		Expect(db.First(&got, "id = ?", node.ID).Error).To(Succeed())
 		Expect(got.Attached).To(Equal("nats,tunnel"))
-		Expect(got.AttachedEpoch).To(Equal(int64(3)))
+	})
+
+	It("drops the attached_epoch column of the old change of carrier and keeps the rows", func() {
+		Expect(db.Exec(`ALTER TABLE backend_nodes ADD COLUMN attached_epoch bigint DEFAULT 0`).Error).To(Succeed())
+		Expect(db.Migrator().HasColumn(&BackendNode{}, "attached_epoch")).To(BeTrue())
+		node := &BackendNode{Name: "old", NodeType: NodeTypeBackend, Address: "10.0.0.5:50051", Attached: "nats"}
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+		_, err := NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(db.Migrator().HasColumn(&BackendNode{}, "attached_epoch")).To(BeFalse())
+		var got BackendNode
+		Expect(db.First(&got, "id = ?", node.ID).Error).To(Succeed())
+		Expect(got.Attached).To(Equal("nats"))
 	})
 })
