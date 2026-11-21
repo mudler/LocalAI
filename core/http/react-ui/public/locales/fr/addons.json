@@ -900,6 +900,7 @@
     "newOptional": "La nouvelle version demande aussi {{ops}}. Elles sont facultatives et non autorisées.",
     "noLongerRequested": "Cette version ne le demande plus. Vous pouvez le désactiver.",
     "notOfficialWarning": "Ce module vient de {{library}}, pas de la bibliothèque officielle. Il s'exécute comme du code de confiance sur ce serveur et peut utiliser les identifiants qui lui sont confiés. Ne l'installez que si vous faites confiance à son auteur.",
+    "signedNotReviewed": "Signé par {{signer}}. Non vérifié par LocalAI. Il s'exécute comme du code de confiance sur ce serveur et peut utiliser les identifiants qu'on lui donne. Installez-le seulement si vous faites confiance au signataire.",
     "op": {
       "alreadyAllowed": "Déjà autorisé",
       "blocked": "Bloqué par la politique de l'administrateur",

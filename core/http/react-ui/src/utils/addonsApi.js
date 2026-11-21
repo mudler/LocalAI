@@ -287,6 +287,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     // True only when the host stamped the entry as coming from the official
     // library. A host that does not send it leaves the dialog warning.
     official: release.official === true,
+    // Who signed it, for a non-official library that pins a signer. The host
+    // stamps it; the page only shows it.
+    signer: typeof release.signer === 'string' ? release.signer : '',
     // The kind of the entry: addon when the library does not say.
     kind: release.kind || 'addon',
     alias: release.alias || '',

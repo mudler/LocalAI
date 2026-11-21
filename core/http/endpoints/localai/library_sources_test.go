@@ -117,6 +117,37 @@ var _ = Describe("Library source routes", func() {
 		Expect(kinds).To(HaveKey("model"))
 	})
 
+	It("adds an oci:// add-on source that pins its signer and shows only the issuer and the identity", func() {
+		body := `{"kind":"addon","id":"fixture","url":"oci://registry.example/fixture-addon/library:1","issuer":"https://issuer.example","identity":"signer@registry.example"}`
+		rec := call(auth.RoleAdmin, http.MethodPost, "/api/library/sources", body)
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		var created map[string]any
+		Expect(json.Unmarshal(rec.Body.Bytes(), &created)).To(Succeed())
+		Expect(created["policy"]).To(Equal(map[string]any{"requireSignature": true, "issuer": "https://issuer.example", "identity": "signer@registry.example"}))
+		Expect(created).ToNot(HaveKey("identityRegex"))
+		e, ok := store.Entries(), false
+		for _, s := range e {
+			if s.ID == "fixture" {
+				ok = true
+				Expect(s.Policy).To(Equal(catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", Identity: "signer@registry.example"}))
+			}
+		}
+		Expect(ok).To(BeTrue())
+	})
+
+	It("refuses a half policy and a policy on another kind of source", func() {
+		for _, body := range []string{
+			`{"kind":"addon","url":"oci://registry.example/a:1","issuer":"https://issuer.example"}`,
+			`{"kind":"addon","url":"oci://registry.example/a:1","identity":"signer@registry.example"}`,
+			`{"kind":"addon","url":"https://registry.example/index.yaml","issuer":"https://issuer.example","identity":"signer@registry.example"}`,
+			`{"kind":"backend","url":"oci://registry.example/a:1","issuer":"https://issuer.example","identity":"signer@registry.example"}`,
+		} {
+			rec := call(auth.RoleAdmin, http.MethodPost, "/api/library/sources", body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body+" "+rec.Body.String())
+		}
+		Expect(applied).To(BeZero())
+	})
+
 	It("adds a model source of the user and refuses the same URL twice", func() {
 		rec := call(auth.RoleAdmin, http.MethodPost, "/api/library/sources", `{"kind":"model","format":"gallery","name":"Team Models","url":"https://example.org/models.yaml"}`)
 		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())

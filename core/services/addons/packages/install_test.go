@@ -654,6 +654,7 @@ var _ = Describe("trusted signed staging", func() {
 				receipt, e := i.Commit(context.Background(), staged)
 				Expect(e).NotTo(HaveOccurred())
 				Expect(receipt.Verification).To(Equal("sha256+sigstore"))
+				Expect(receipt.Signer).To(Equal("builder@example.invalid"))
 				Expect(receipt.Digest).To(Equal(digest))
 			} else {
 				Expect(e).To(MatchError(ErrPackage))

@@ -83,6 +83,7 @@ export function normalizePreview(payload) {
     version: typeof p.version === 'string' ? p.version : '',
     revision: Number(p.revision) || 0,
     nonce: typeof p.nonce === 'string' ? p.nonce : '',
+    signer: typeof p.signer === 'string' ? p.signer : '',
     official: p.official === true ? true : (p.official === false ? false : null),
     // The owner keeps UI grants locked: the dialog shows what the add-on asks for and grants nothing.
     locked: p.locked === true,

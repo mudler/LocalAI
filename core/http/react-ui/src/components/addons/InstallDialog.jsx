@@ -6,7 +6,7 @@ import Icon from '../Icon'
 import Button from '../ui/Button'
 import { pushLayer } from '../../utils/modalLayers'
 import { EntryAdds, UnknownNotice, UntrustedNotice } from './AddonBits'
-import { shortDigest, skillShadowNotes, untrustedSource } from './addonState'
+import { shortDigest, signedBy, skillShadowNotes, untrustedSource } from './addonState'
 import { skillInstallNoticeKey } from '../../utils/chatSkills'
 import { describeOutcome } from './errors'
 import Callout from '../ui/Callout'
@@ -163,7 +163,7 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                 </Callout>
               )}
               {!local && <EntryAdds entry={entry} />}
-              {!local && untrustedSource(entry, host.preview) && <UntrustedNotice library={entry.sourceId} />}
+              {!local && untrustedSource(entry, host.preview) && <UntrustedNotice library={entry.sourceId} signer={signedBy(entry, host.preview)} />}
               {shadowConflicts(entry, installed).map(c => (
                 <Callout key={c.tool} tone="warn" testId="install-shadow-warning" data-tool={c.tool}>
                   {t('flow.shadowWarning', { tool: c.tool, name: c.name })}

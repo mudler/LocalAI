@@ -12,7 +12,7 @@ import {
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
   shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, addedByEntry, screenshotsOf, listState, featuredEntries,
-  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf, localizeEntry, localizeRecord, sortEntriesByTitle, untrustedSource,
+  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf, localizeEntry, localizeRecord, sortEntriesByTitle, untrustedSource, signedBy,
   operationOf, upgradingTitles, staleKind, saveLastKnown, loadLastKnown,
 } from '../../src/components/addons/addonState.js'
 import { buildTiles, filterTiles } from '../../src/utils/addonTiles.js'
@@ -747,6 +747,38 @@ test('addons: the dialog warns about the source unless the entry is official and
   assert.equal(untrustedSource({ official: true }, { official: false }), true)
   assert.equal(untrustedSource({ official: true }, { official: null }), false)
   assert.equal(untrustedSource({ official: false }, { official: true }), true)
+})
+
+test('addons: the dialog names the signer of a non-official entry and keeps the warning', () => {
+  // No signer: the plain warning, as before.
+  assert.equal(signedBy({ official: false }, null), '')
+  assert.equal(signedBy(null, null), '')
+  assert.equal(untrustedSource({ official: false }, null), true)
+  // A signer pinned by the library: named, and the entry is still not official.
+  assert.equal(signedBy({ official: false, signer: 'signer@registry.example' }, null), 'signer@registry.example')
+  assert.equal(untrustedSource({ official: false, signer: 'signer@registry.example' }, null), true)
+  // The verified preview wins over the entry.
+  assert.equal(signedBy({ signer: 'a@registry.example' }, { signer: 'b@registry.example' }), 'b@registry.example')
+  assert.equal(signedBy({}, { signer: 'b@registry.example' }), 'b@registry.example')
+  // The official library names nobody, and a value that is not text is ignored.
+  assert.equal(signedBy({ official: true, signer: 'signer@registry.example' }, null), '')
+  assert.equal(signedBy({ signer: 42 }, { signer: null }), '')
+})
+
+test('addons: the catalog entry carries the signer only as text', async () => {
+  const rel = (id, extra = {}) => ({ id, name: id, version: '1.0.0', sourceId: 'lib', os: 'linux', arch: 'amd64', digest: 'sha256:a', ...extra })
+  const adapterFor = (releases) => createAddonsCatalogAdapter({ dispatch: async () => ({ releases, total: releases.length }) })
+  const page = await adapterFor([rel('a', { signer: 'signer@registry.example' }), rel('b'), rel('c', { signer: 7 })]).search({ text: '', sourceId: '', page: 1 })
+  assert.deepEqual(page.entries.map(e => e.signer), ['signer@registry.example', '', ''])
+})
+
+test('addons: every locale words the signed-by notice with the signer and no markup', () => {
+  for (const lang of readdirSync(localesDir)) {
+    const text = JSON.parse(readFileSync(join(localesDir, lang, 'addons.json'), 'utf8')).hostAccess.signedNotReviewed
+    assert.equal(typeof text, 'string', lang)
+    assert.ok(text.includes('{{signer}}'), lang)
+    assert.ok(!/[<>]/.test(text), lang)
+  }
 })
 
 test('addons: every locale words the source warning with the library name and no markup', () => {

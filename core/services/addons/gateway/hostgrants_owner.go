@@ -492,7 +492,7 @@ func (o *HostGrantsOwner) preview(ctx context.Context, a contract.Actor, r HostG
 		digest = UnpinnedDigest
 	}
 	v := HostGrantsPreviewView{AddonID: rel.AddonID, Title: rel.Title, Digest: digest, Version: rel.Version, Installed: rel.Installed,
-		Official: rel.Official, Revision: doc.Revision, Ops: []HostOpView{}, BlockedReq: xslices.NonNil(plan.BlockedRequired), Added: []string{},
+		Official: rel.Official, Signer: rel.Signer, Revision: doc.Revision, Ops: []HostOpView{}, BlockedReq: xslices.NonNil(plan.BlockedRequired), Added: []string{},
 		Requested: HostRequested{Required: xslices.NonNil(sorted(rel.Required)), Optional: xslices.NonNil(sorted(rel.Optional))}}
 	v.Locked, v.LockedReason = o.cfg.Locked, o.lockedReason()
 	before := unique(installed.Required, installed.Optional)

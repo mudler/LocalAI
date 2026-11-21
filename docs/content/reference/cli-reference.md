@@ -345,7 +345,7 @@ The token-based P2P mode, federation and the Explorer were removed. A server tha
 | Command | What it does |
 |---------|--------------|
 | `local-ai library list` | List every source with its kind, id, URL, and whether it is enabled, a shipped default, or removed |
-| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery]` | Add a source of your own |
+| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery] [--issuer ISSUER --identity IDENTITY]` | Add a source of your own. `--issuer` and `--identity` go together and apply to an `oci://` add-on library: its artifact must be signed by that issuer and exact identity |
 | `local-ai library remove <id>` | Remove a source. A removed default leaves a tombstone, so it does not come back at the next start |
 | `local-ai library enable <id>` | Turn a source on. This also brings back a removed default |
 | `local-ai library disable <id>` | Turn a source off without removing it |

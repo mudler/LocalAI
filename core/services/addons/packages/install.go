@@ -303,7 +303,11 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		return out, e
 	}
 	report(Progress{Phase: "verified", Bytes: x.bytes})
-	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Manifest: m, Icon: icon, Skills: skillFiles}}}, nil
+	signer := ""
+	if verification == "sha256+sigstore" && !catalog.IsOfficialSource(r.SourceID, r.SourceURL) {
+		signer = r.Policy.Identity
+	}
+	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Signer: signer, Manifest: m, Icon: icon, Skills: skillFiles}}}, nil
 }
 
 // inspectStage reads and checks the staged tree: the manifest against the

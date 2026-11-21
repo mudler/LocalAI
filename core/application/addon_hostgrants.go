@@ -604,7 +604,7 @@ func (h hostAccessManager) PreviewHostAccess(ctx context.Context, sourceID, addo
 	if err != nil {
 		return gateway.ReleaseAccess{}, err
 	}
-	return gateway.ReleaseAccess{AddonID: r.AddonID, Title: r.Title, Version: r.Version, Digest: r.Digest, Official: r.Official,
+	return gateway.ReleaseAccess{AddonID: r.AddonID, Title: r.Title, Version: r.Version, Digest: r.Digest, Official: r.Official, Signer: r.Signer,
 		Required: r.Required, Optional: r.Optional, Installed: r.Installed, FromIndex: r.FromIndex, Unpinned: r.Unpinned}, nil
 }
 

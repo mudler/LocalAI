@@ -50,13 +50,17 @@ type LibraryCall struct {
 	Op string `json:"op"`
 	// ID names the source of update, enable, disable and remove.
 	ID string `json:"id,omitempty"`
-	// Kind, URL, Name, Format and Mirrors describe the source of add; update
+	// Kind, URL, Name, Format and Mirrors describe the source of add (with
+	// Issuer and Identity below); update
 	// takes Mirrors.
 	Kind    string   `json:"kind,omitempty"`
 	URL     string   `json:"url,omitempty"`
 	Name    string   `json:"name,omitempty"`
 	Format  string   `json:"format,omitempty"`
 	Mirrors []string `json:"mirrors,omitempty"`
+	// Issuer and Identity pin the signer of an oci:// add-on library (add only).
+	Issuer   string `json:"issuer,omitempty"`
+	Identity string `json:"identity,omitempty"`
 	// Known is the list version the caller holds (list only).
 	Known string `json:"known,omitempty"`
 	// SourceID, Backend and Version name the entry of backend-resolve.

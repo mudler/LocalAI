@@ -201,3 +201,25 @@ var _ = Describe("official flag of an entry", func() {
 		Expect(string(raw)).To(ContainSubstring(`"official":false`))
 	})
 })
+
+var _ = Describe("pinned signer of a source", func() {
+	pinned := VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", Identity: "signer@registry.example"}
+	It("names the pinned identity of a signed source that is not official", func() {
+		Expect(pinnedSigner(Source{ID: "mine", URL: "oci://registry.example/libs/x:latest", Policy: pinned})).To(Equal("signer@registry.example"))
+	})
+	It("names nobody for the official library, a source without a signature rule or a pattern", func() {
+		official := OfficialLibrary()
+		Expect(official.Policy.RequireSignature).To(BeTrue())
+		Expect(pinnedSigner(official)).To(BeEmpty())
+		Expect(pinnedSigner(Source{ID: "mine", URL: "https://example.org/i.yaml"})).To(BeEmpty())
+		Expect(pinnedSigner(Source{ID: "mine", Policy: VerificationPolicy{Issuer: "https://issuer.example", Identity: "signer@registry.example"}})).To(BeEmpty())
+		Expect(pinnedSigner(Source{ID: "mine", Policy: VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", IdentityRegex: "^a$"}})).To(BeEmpty())
+	})
+	It("is not carried by an encoded index", func() {
+		r := release()
+		r.Signer = "signer@registry.example"
+		raw, e := EncodeIndex([]Release{r})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring("signer"))
+	})
+})

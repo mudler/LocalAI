@@ -3,8 +3,10 @@ package oci
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,7 +19,7 @@ import (
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
-	"oras.land/oras-go/v2/registry/remote/retry"
+	"oras.land/oras-go/v2/registry/remote/errcode"
 )
 
 const (
@@ -88,7 +90,7 @@ func PullArtifact(ctx context.Context, ref, dest string, opts ...ArtifactPullOpt
 
 	manifestDesc, rc, err := repo.FetchReference(ctx, repo.Reference.ReferenceOrDefault())
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve %q: %w", ref, err)
+		return "", wrapArtifactResolveError(ref, err)
 	}
 	defer func() { _ = rc.Close() }()
 
@@ -171,7 +173,7 @@ func artifactRepository(ref string) (*remote.Repository, error) {
 	repo.PlainHTTP = plainHTTP(repo.Reference.Registry)
 
 	client := &auth.Client{
-		Client: retry.DefaultClient,
+		Client: registryHTTPClient(),
 		Cache:  auth.NewCache(),
 	}
 	client.SetUserAgent(UserAgent())
@@ -195,7 +197,7 @@ func ResolveArtifactDigestRef(ctx context.Context, ref string) (string, error) {
 	}
 	desc, err := repo.Resolve(ctx, repo.Reference.ReferenceOrDefault())
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve %q: %w", ref, err)
+		return "", wrapArtifactResolveError(ref, err)
 	}
 	return repo.Reference.Registry + "/" + repo.Reference.Repository + "@" + desc.Digest.String(), nil
 }
@@ -305,4 +307,28 @@ func writeArtifactLayer(ctx context.Context, repo *remote.Repository, layer ocis
 		return err
 	}
 	return nil
+}
+
+// wrapArtifactResolveError reports a registry 401 or 403 as a
+// credentials.AuthError, as the image paths do, so a caller can tell a refused
+// credential from an outage and the operator learns whether a rule was sent.
+func wrapArtifactResolveError(ref string, err error) error {
+	err = fmt.Errorf("failed to resolve %q: %w", ref, err)
+	status := 0
+	var resp *errcode.ErrorResponse
+	switch {
+	case errors.As(err, &resp) && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden):
+		status = resp.StatusCode
+	case errors.Is(err, auth.ErrBasicCredentialNotFound):
+		// The registry asked for basic auth and no rule or docker login
+		// matched, so the client gave up before it saw a response status.
+		status = http.StatusUnauthorized
+	default:
+		return err
+	}
+	matchURL := ""
+	if parsed, perr := name.ParseReference(ref); perr == nil {
+		matchURL = credentials.RegistryURL(parsed.Context())
+	}
+	return credentials.NewRegistryAuthError(matchURL, ref, status, err)
 }

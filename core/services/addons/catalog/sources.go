@@ -163,6 +163,9 @@ func validSource(s Source) bool {
 	}
 	switch s.Format {
 	case "":
+		if isOCISource(s) {
+			return validOCISource(s)
+		}
 		_, e := safeURL(s.URL)
 		return e == nil
 	case FormatGallery:
@@ -564,10 +567,11 @@ func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, 
 // redirect to an allowed host can be served in process. Nil in production.
 var indexTransport http.RoundTripper
 
-func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult, error) {
+// fetchHTTP reads the index of an http(s) library.
+func (s *Sources) fetchHTTP(ctx context.Context, src Source) ([]byte, error) {
 	req, e := http.NewRequestWithContext(ctx, http.MethodGet, src.URL, nil)
 	if e != nil {
-		return nil, IndexResult{}, fmt.Errorf("%w: the library address is not valid", ErrRefresh)
+		return nil, fmt.Errorf("%w: the library address is not valid", ErrRefresh)
 	}
 	if src.AuthReference != "" {
 		c, e := s.credentials.Resolve(ctx, src.AuthReference, src.URL)
@@ -577,7 +581,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		if e != nil {
 			// A refresh that failed for want of a credential is still a
 			// failed refresh; the class lets a caller say which one.
-			return nil, IndexResult{}, fmt.Errorf("%w: %w", ErrRefresh, ErrCredential)
+			return nil, fmt.Errorf("%w: %w", ErrRefresh, ErrCredential)
 		}
 	}
 	opts := []httpclient.Option{httpclient.WithRedirectHosts(ReleaseAssetHosts...)}
@@ -592,15 +596,31 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		if errors.As(e, &ue) {
 			e = ue.Err
 		}
-		return nil, IndexResult{}, fmt.Errorf("%w: %w", ErrRefresh, e)
+		return nil, fmt.Errorf("%w: %w", ErrRefresh, e)
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
-		return nil, IndexResult{}, fmt.Errorf("%w: the library answered HTTP %d", ErrRefresh, response.StatusCode)
+		return nil, fmt.Errorf("%w: the library answered HTTP %d", ErrRefresh, response.StatusCode)
 	}
 	data, e := io.ReadAll(io.LimitReader(response.Body, MaxIndexBytes+1))
 	if e != nil || len(data) > MaxIndexBytes {
-		return nil, IndexResult{}, fmt.Errorf("%w: the index could not be read in full or is too large", ErrRefresh)
+		return nil, fmt.Errorf("%w: the index could not be read in full or is too large", ErrRefresh)
+	}
+	return data, nil
+}
+
+func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult, error) {
+	// Only the way the bytes arrive differs by transport. Parsing, validation
+	// and stamping below are shared, so every source is held to the same rules.
+	var data []byte
+	var e error
+	if isOCISource(src) {
+		data, e = s.fetchOCI(ctx, src)
+	} else {
+		data, e = s.fetchHTTP(ctx, src)
+	}
+	if e != nil {
+		return nil, IndexResult{}, e
 	}
 	indexed, e := ReadIndex(data, ReadableKinds...)
 	releases := indexed.Releases
@@ -617,6 +637,8 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		r.SourceID = src.ID
 		r.SourceURL = src.URL
 		r.Official = IsOfficialSource(src.ID, src.URL)
+		// An index may carry any value here, so the stamp always overwrites it.
+		r.Signer = pinnedSigner(src)
 		r.AllowLoopbackHTTP = src.AllowLoopbackHTTP
 		r.Policy = src.Policy
 		key := releaseKey(*r)
@@ -626,6 +648,17 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 		seen[key] = true
 	}
 	return releases, indexed, nil
+}
+
+// pinnedSigner is the signer identity to show for the entries of a source: the
+// identity an administrator pinned, when the source requires a signature and
+// is not the official library. The official library has its own label, and a
+// source with no pinned identity (a pattern, or no policy) has nothing to name.
+func pinnedSigner(src Source) string {
+	if !src.Policy.RequireSignature || IsOfficialSource(src.ID, src.URL) {
+		return ""
+	}
+	return src.Policy.Identity
 }
 
 // backendNamePattern is a backend name: it is also a directory name, so it

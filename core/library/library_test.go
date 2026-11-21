@@ -530,3 +530,89 @@ var _ = Describe("mirrors and local add-on libraries", func() {
 		}
 	})
 })
+
+var _ = Describe("a source that pins its signer", func() {
+	const ociURL = "oci://registry.example/fixture-addon/library:1"
+	pinned := catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", Identity: "signer@registry.example"}
+	admin := func() (LocalAdmin, *catalog.Sources) {
+		store := open(GinkgoT().TempDir())
+		return LocalAdmin{Store: func() (*catalog.Sources, error) { return store, nil }}, store
+	}
+	isBad := func(err error) {
+		var bad *BadRequestError
+		ExpectWithOffset(1, errors.As(err, &bad)).To(BeTrue(), "err = %v, want a bad request", err)
+	}
+
+	It("stores the policy of an oci:// add-on source and reports it", func() {
+		a, store := admin()
+		in, err := a.Add(context.Background(), AddRequest{Kind: "addon", URL: ociURL, ID: "fixture", Issuer: pinned.Issuer, Identity: pinned.Identity})
+		Expect(err).ToNot(HaveOccurred())
+		e, ok := byID(store, "fixture")
+		Expect(ok).To(BeTrue())
+		Expect(e.Policy).To(Equal(pinned))
+		Expect(in.Policy).ToNot(BeNil())
+		Expect(*in.Policy).To(Equal(pinned), "the answer shows the issuer and the identity and no regex")
+	})
+
+	It("keeps an oci:// add-on source without a policy as it was", func() {
+		a, store := admin()
+		_, err := a.Add(context.Background(), AddRequest{Kind: "addon", URL: ociURL, ID: "fixture"})
+		Expect(err).ToNot(HaveOccurred())
+		e, _ := byID(store, "fixture")
+		Expect(e.Policy).To(Equal(catalog.VerificationPolicy{}))
+	})
+
+	It("refuses one of issuer and identity without the other", func() {
+		a, store := admin()
+		for _, req := range []AddRequest{
+			{Kind: "addon", URL: ociURL, Issuer: pinned.Issuer},
+			{Kind: "addon", URL: ociURL, Identity: pinned.Identity},
+			{Kind: "addon", URL: ociURL, Issuer: "  ", Identity: pinned.Identity},
+		} {
+			_, err := a.Add(context.Background(), req)
+			isBad(err)
+		}
+		Expect(store.Entries()).To(HaveLen(len(List(open(GinkgoT().TempDir())))), "nothing was stored")
+	})
+
+	It("refuses a policy on a source that is not an oci:// add-on library", func() {
+		a, _ := admin()
+		for _, req := range []AddRequest{
+			{Kind: "addon", URL: "https://registry.example/index.yaml", Issuer: pinned.Issuer, Identity: pinned.Identity},
+			{Kind: "backend", URL: ociURL, Issuer: pinned.Issuer, Identity: pinned.Identity},
+			{Kind: "model", URL: ociURL, Format: "gallery", Issuer: pinned.Issuer, Identity: pinned.Identity},
+			{Kind: "addon", URL: ociURL, Format: "gallery", Issuer: pinned.Issuer, Identity: pinned.Identity},
+		} {
+			_, err := a.Add(context.Background(), req)
+			isBad(err)
+		}
+	})
+
+	It("refuses an identity pattern", func() {
+		// The request has no pattern field, so only a library caller can pass one.
+		store := open(GinkgoT().TempDir())
+		_, err := AddWithPolicy(store, catalog.KindAddon, ociURL, "fixture", "", "", nil, catalog.VerificationPolicy{RequireSignature: true, Issuer: pinned.Issuer, IdentityRegex: "^signer@registry[.]example$"})
+		isBad(err)
+		_, err = AddWithPolicy(store, catalog.KindAddon, ociURL, "fixture", "", "", nil, catalog.VerificationPolicy{RequireSignature: true, Issuer: pinned.Issuer, Identity: pinned.Identity, IdentityRegex: "^a$"})
+		isBad(err)
+		Expect(store.Entries()).ToNot(ContainElement(HaveField("ID", "fixture")))
+	})
+
+	It("takes the policy through AddWithPolicy", func() {
+		store := open(GinkgoT().TempDir())
+		src, err := AddWithPolicy(store, catalog.KindAddon, ociURL, "fixture", "", "", nil, pinned)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(src.Policy).To(Equal(pinned))
+		_, err = AddWithPolicy(store, catalog.KindAddon, "oci://registry.example/other:1", "other", "", "", nil, catalog.VerificationPolicy{Issuer: "https://issuer.example"})
+		isBad(err)
+	})
+
+	It("matches the oci:// scheme of a pinned source without regard to case", func() {
+		// The reader takes OCI:// as an OCI artifact, so the policy check
+		// must too, or such a source could not pin its signer.
+		store := open(GinkgoT().TempDir())
+		src, err := AddWithPolicy(store, catalog.KindAddon, "OCI://registry.example/upper:1", "upper", "", "", nil, pinned)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(src.Policy).To(Equal(pinned))
+	})
+})

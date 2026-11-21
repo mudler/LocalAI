@@ -52,6 +52,10 @@ type AddRequest struct {
 	Name    string   `json:"name,omitempty"`
 	Format  string   `json:"format,omitempty"`
 	Mirrors []string `json:"mirrors,omitempty"`
+	// Issuer and Identity pin the signer of an oci:// add-on library. They are
+	// set together, and the signature is then required.
+	Issuer   string `json:"issuer,omitempty"`
+	Identity string `json:"identity,omitempty"`
 }
 
 // RemoveResult says what a removal did.
@@ -220,6 +224,9 @@ func (a LocalAdmin) Add(_ context.Context, req AddRequest) (Info, error) {
 	if req.URL == "" {
 		return Info{}, badRequest("url is required")
 	}
+	if _, err := checkPolicy(catalog.Kind(req.Kind), req.URL, format, catalog.VerificationPolicy{Issuer: req.Issuer, Identity: req.Identity}); err != nil {
+		return Info{}, err
+	}
 	if req.Kind == string(catalog.KindAddon) && format == "" && plainLoopbackHTTP(req.URL) {
 		// The owner drops every package that does not come over https, and a
 		// browser session cannot turn that off, so such a library would be
@@ -234,7 +241,7 @@ func (a LocalAdmin) Add(_ context.Context, req AddRequest) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	src, err := AddWithMirrors(store, catalog.Kind(req.Kind), req.URL, req.ID, req.Name, format, mirrors)
+	src, err := AddWithPolicy(store, catalog.Kind(req.Kind), req.URL, req.ID, req.Name, format, mirrors, catalog.VerificationPolicy{Issuer: req.Issuer, Identity: req.Identity})
 	if err != nil {
 		return Info{}, err
 	}

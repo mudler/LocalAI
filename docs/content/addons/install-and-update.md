@@ -482,7 +482,7 @@ routes, so they do not need the add-ons owner to run. On a frontend they go to t
 | Method and path | What it does |
 |---|---|
 | `GET /api/library/sources` | List every source of all kinds, tombstones included |
-| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery"}`. `id`, `name` and `format` are optional. The same kind and URL twice, or a taken id, is `409`. An add-on library at an `http` address of this machine is `400`: the owner refuses packages that do not come over `https`, so such a library would never list anything |
+| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery", "issuer": "...", "identity": "..."}`. `id`, `name`, `format`, `issuer` and `identity` are optional. `issuer` and `identity` go together and apply to an `oci://` add-on library only: its artifact must then be signed by that issuer and that exact identity, for example `{"kind": "addon", "url": "oci://registry.example/fixture-addon/library:1", "issuer": "https://issuer.example", "identity": "signer@registry.example"}`. One without the other, or either on another kind of source, is `400`. An identity pattern is not accepted. The same kind and URL twice, or a taken id, is `409`. An add-on library at an `http` address of this machine is `400`: the owner refuses packages that do not come over `https`, so such a library would never list anything |
 | `POST /api/library/sources/{id}/enable` | Turn a source on. This also brings back a removed default |
 | `POST /api/library/sources/{id}/disable` | Turn a source off without removing it |
 | `DELETE /api/library/sources/{id}` | Remove a source. A default leaves a tombstone |
@@ -493,6 +493,61 @@ The list answers `{"sources": [...], "officialLibraries": true}`. Each source ha
 source, `refresh` (the last fetch). A source that does not exist is `404`. Changes to
 model and backend sources apply to the running server. No MCP tool maps to these
 routes.
+
+### Add-on libraries in an OCI registry
+
+An add-on library can be an artifact in an OCI registry, not only a file at an `https`
+address. Give the source an `oci://` address:
+
+```bash
+local-ai library add oci://registry.example/libraries/fixture-addon:1 --kind addon
+```
+
+The artifact must have the type `application/vnd.localai.library.v1` and must hold one
+file named `index.yaml`, the library index. An image or an artifact of another type is
+refused. LocalAI keeps an unpacked copy under the add-on data directory and reads the
+registry again only when that copy is older than one hour. If the registry cannot be
+reached, the last good copy answers. A copy is never used after the signature check
+fails, or after the registry refuses the credentials when LocalAI resolves the address.
+A `401` or `403` on a later read of the artifact content counts as an outage, so the last
+good copy, which passed its checks when it was stored, can answer.
+
+The registry uses the same credentials as backend libraries. Write a rule for the
+registry host in the [credentials file]({{% relref "/models/private-sources" %}}), and
+keep the secret in the environment:
+
+```yaml
+- match: registry.example
+  username: reader
+  password_env: LIBRARY_REGISTRY_PASSWORD
+```
+
+Without a matching rule or docker login, a private registry answers `401` or `403` and
+the source refresh fails with a credential error. At start, LocalAI logs one warning when
+an `oci://` add-on library is on and no credentials file was loaded: neither
+`<data-path>/credentials.yaml` nor the file that `LOCALAI_CREDENTIALS_FILE` names. The warning also shows for a setup that relies on docker login alone; it is then only a reminder.
+
+The add-on owner process reads the credentials file, not the browser and not a frontend.
+Put the file, and the variables it names, on the machine where the add-on owner runs.
+
+To require a signature, add `--issuer` and `--identity` together:
+
+```bash
+local-ai library add oci://registry.example/libraries/fixture-addon:1 --kind addon \
+  --issuer https://issuer.example --identity signer@registry.example
+```
+
+LocalAI then resolves the artifact to a digest, checks that the artifact is signed by
+that issuer and that identity, and only then pulls it. A failed check lists nothing. The
+identity is an exact string. If you write a regular expression, LocalAI stores it as the
+literal text, and it will not match any signer, because patterns are not accepted for
+add-on libraries.
+
+The install dialog still warns about an add-on that is not from the official library.
+For an add-on of a library with a pinned signer, the notice reads "Signed by
+`<identity>`. Not reviewed by LocalAI." and names that identity. It is the identity you
+pinned. LocalAI records it when the package is verified, and the catalog never takes it
+from the library index. The install confirmation stays.
 
 ## Backends in the library
 

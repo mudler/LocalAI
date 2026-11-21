@@ -221,7 +221,10 @@ type ReleaseAccess struct {
 	Digest string
 	// Official is true only when the package comes from the built-in official
 	// library and its receipt shows the official signer.
-	Official           bool
+	Official bool
+	// Signer is the identity that signed the package, when its library is not
+	// official and pins one.
+	Signer             string
 	Required, Optional []string
 	// Installed is true when the add-on is installed already, so the release
 	// would be an upgrade.
@@ -483,6 +486,7 @@ type HostGrantsPreviewView struct {
 	Version   string `json:"version"`
 	Installed bool   `json:"installed"`
 	Official  bool   `json:"official"`
+	Signer    string `json:"signer,omitempty"`
 	// Added are the operations this version asks for that the installed
 	// version did not. Empty on an install.
 	Added        []string           `json:"added"`
