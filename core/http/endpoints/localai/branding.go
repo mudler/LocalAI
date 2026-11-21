@@ -58,6 +58,7 @@ type BrandingResponse struct {
 	LogoURL           string `json:"logo_url"`
 	LogoHorizontalURL string `json:"logo_horizontal_url"`
 	FaviconURL        string `json:"favicon_url"`
+	DefaultLanguage   string `json:"default_language"`
 }
 
 // brandingAssetURL returns the URL the UI should use for a given asset kind:
@@ -87,6 +88,7 @@ func GetBrandingEndpoint(appConfig *config.ApplicationConfig) echo.HandlerFunc {
 			LogoURL:           brandingAssetURL(appConfig, "logo", b.LogoFile),
 			LogoHorizontalURL: brandingAssetURL(appConfig, "logo_horizontal", b.LogoHorizontalFile),
 			FaviconURL:        brandingAssetURL(appConfig, "favicon", b.FaviconFile),
+			DefaultLanguage:   b.DefaultLanguage,
 		})
 	}
 }
@@ -250,6 +252,7 @@ func UploadBrandingAssetEndpoint(appConfig *config.ApplicationConfig) echo.Handl
 			LogoURL:           brandingAssetURL(appConfig, "logo", appConfig.Branding.LogoFile),
 			LogoHorizontalURL: brandingAssetURL(appConfig, "logo_horizontal", appConfig.Branding.LogoHorizontalFile),
 			FaviconURL:        brandingAssetURL(appConfig, "favicon", appConfig.Branding.FaviconFile),
+			DefaultLanguage:   appConfig.Branding.DefaultLanguage,
 		})
 	}
 }
@@ -293,6 +296,7 @@ func DeleteBrandingAssetEndpoint(appConfig *config.ApplicationConfig) echo.Handl
 			LogoURL:           brandingAssetURL(appConfig, "logo", appConfig.Branding.LogoFile),
 			LogoHorizontalURL: brandingAssetURL(appConfig, "logo_horizontal", appConfig.Branding.LogoHorizontalFile),
 			FaviconURL:        brandingAssetURL(appConfig, "favicon", appConfig.Branding.FaviconFile),
+			DefaultLanguage:   appConfig.Branding.DefaultLanguage,
 		})
 	}
 }

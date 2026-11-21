@@ -40,7 +40,6 @@ type RuntimeSettings struct {
 	ArtifactDownloadConcurrency *int `json:"artifact_download_concurrency,omitempty"`
 
 	MaxConcurrentBackendOperations *int `json:"max_concurrent_backend_operations,omitempty"`
-	MaxConcurrentModelOperations   *int `json:"max_concurrent_model_operations,omitempty"`
 
 	VRAMBudget           *string `json:"vram_budget,omitempty"` // Cap VRAM for allocation ("80%" or "12GB"; "" = no cap)
 	F16                  *bool   `json:"f16,omitempty"`
@@ -210,6 +209,7 @@ type RuntimeSettings struct {
 	LogoFile           *string `json:"logo_file,omitempty"`
 	LogoHorizontalFile *string `json:"logo_horizontal_file,omitempty"`
 	FaviconFile        *string `json:"favicon_file,omitempty"`
+	DefaultLanguage    *string `json:"default_language,omitempty"`
 
 	// Cloud-proxy MITM listener. MITMCADir is intentionally NOT
 	// exposed at runtime — the CA dir is a startup-only path and

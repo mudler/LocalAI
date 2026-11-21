@@ -63,9 +63,10 @@ i18n
       loadPath: apiUrl('/locales/{{lng}}/{{ns}}.json'),
     },
     detection: {
-      order: ['localStorage', 'navigator', 'htmlTag'],
+      order: ['querystring', 'localStorage', 'navigator', 'htmlTag'],
+      lookupQuerystring: 'lng',
       lookupLocalStorage: 'localai-language',
-      caches: ['localStorage'],
+      caches: [],
     },
     react: {
       useSuspense: true,
