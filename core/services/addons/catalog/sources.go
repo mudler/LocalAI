@@ -23,7 +23,9 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 	"github.com/mudler/xlog"
+	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
 // AdminCheck must revalidate current identity, credential and administrator role
@@ -148,6 +150,10 @@ type Sources struct {
 	// officialOff is the official-libraries switch: when set, every shipped
 	// default is suspended (see Source.Suspended).
 	officialOff bool
+	// signatureTrust replaces the public Sigstore trust root for the
+	// signature check of an oci:// library, as Installer.SignatureTrust does
+	// for packages. Nil, the only value outside tests, keeps the public root.
+	signatureTrust root.TrustedMaterial
 }
 
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
@@ -214,20 +220,34 @@ func validGalleryURL(u string) bool {
 }
 
 // validPolicy accepts a policy that asks for no signature, or one with an
-// issuer and exactly one identity: an exact string or an anchored pattern.
-// Without a signature requirement the identity fields must be empty, so a
-// policy never looks stricter than it is.
-func validPolicy(p VerificationPolicy) bool {
+// issuer and exactly one identity: an exact string or an anchored pattern,
+// and optionally a source repository. Without a signature requirement the
+// pattern and the source repository must be empty, so a policy never looks
+// stricter than it is. The add-on rule for a pattern is in ValidForAddon.
+func validPolicy(p VerificationPolicy) bool { return p.Check() == nil }
+
+// Check reports why p is not a valid policy, in words an administrator can
+// act on. Every error wraps ErrInvalid.
+func (p VerificationPolicy) Check() error {
 	if !p.RequireSignature {
-		return p.IdentityRegex == ""
+		if p.IdentityRegex != "" || p.SourceRepository != "" {
+			return fmt.Errorf("%w: an identity pattern or a source repository needs a required signature", ErrInvalid)
+		}
+		return nil
 	}
-	if p.Issuer == "" || (p.Identity == "") == (p.IdentityRegex == "") {
-		return false
+	if p.Issuer == "" {
+		return fmt.Errorf("%w: a required signature needs an issuer", ErrInvalid)
 	}
-	if p.IdentityRegex == "" {
-		return true
+	if (p.Identity == "") == (p.IdentityRegex == "") {
+		return fmt.Errorf("%w: set an exact identity or an identity pattern, one of the two", ErrInvalid)
 	}
-	return anchoredPattern(p.IdentityRegex)
+	if p.IdentityRegex != "" && !anchoredPattern(p.IdentityRegex) {
+		return fmt.Errorf("%w: the identity pattern must be one expression that starts with ^ and ends with $", ErrInvalid)
+	}
+	if p.SourceRepository != "" && cosignverify.CheckSourceRepository(p.SourceRepository) != nil {
+		return fmt.Errorf("%w: the source repository must be an https URL, such as https://github.com/<owner>/<repo>", ErrInvalid)
+	}
+	return nil
 }
 
 // anchoredPattern reports whether the pattern is one expression that must match
@@ -650,15 +670,15 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult
 	return releases, indexed, nil
 }
 
-// pinnedSigner is the signer identity to show for the entries of a source: the
-// identity an administrator pinned, when the source requires a signature and
-// is not the official library. The official library has its own label, and a
-// source with no pinned identity (a pattern, or no policy) has nothing to name.
+// pinnedSigner is the signer to show for the entries of a source: the label
+// of its policy (see VerificationPolicy.SignerLabel), when the source requires
+// a signature and is not the official library. The official library has its
+// own label.
 func pinnedSigner(src Source) string {
-	if !src.Policy.RequireSignature || IsOfficialSource(src.ID, src.URL) {
+	if IsOfficialSource(src.ID, src.URL) {
 		return ""
 	}
-	return src.Policy.Identity
+	return src.Policy.SignerLabel()
 }
 
 // backendNamePattern is a backend name: it is also a directory name, so it

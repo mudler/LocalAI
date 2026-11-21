@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	oras "oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/memory"
@@ -82,7 +83,9 @@ func expireLibraryCache(s *Sources, src Source) {
 func stubLibraryVerifier(f func(context.Context, VerificationPolicy, string) error) {
 	GinkgoHelper()
 	original := verifyLibraryArtifact
-	verifyLibraryArtifact = f
+	verifyLibraryArtifact = func(ctx context.Context, p VerificationPolicy, ref string, _ root.TrustedMaterial) error {
+		return f(ctx, p, ref)
+	}
 	DeferCleanup(func() { verifyLibraryArtifact = original })
 }
 
@@ -129,6 +132,37 @@ var _ = Describe("oci:// libraries", func() {
 		_, err := s.Refresh(ctx, "lib")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s.cache["lib"].releases[0].Policy).To(Equal(signedPolicy))
+	})
+
+	It("verifies a pattern and a source repository and labels the entries with the repository", func() {
+		url := pushLibrary(srv.URL, "libs/pattern", LibraryArtifactType, libraryIndexBody())
+		stubLibraryVerifier(func(_ context.Context, p VerificationPolicy, _ string) error {
+			c := p.CosignPolicy()
+			Expect(c.IdentityRegex).To(Equal(pinPattern))
+			Expect(c.SourceRepository).To(Equal(pinRepo))
+			Expect(c.Identity).To(BeEmpty())
+			return nil
+		})
+		saveOCI(url, patternPinned)
+		_, err := s.Refresh(ctx, "lib")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.cache["lib"].releases[0].Policy).To(Equal(patternPinned))
+		Expect(s.cache["lib"].releases[0].Signer).To(Equal(pinRepo))
+	})
+
+	It("refuses a pattern and a source repository that do not verify and serves no older copy", func() {
+		url := pushLibrary(srv.URL, "libs/pattern-bad", LibraryArtifactType, libraryIndexBody())
+		stubLibraryVerifier(func(context.Context, VerificationPolicy, string) error { return nil })
+		src := saveOCI(url, patternPinned)
+		_, err := s.Refresh(ctx, "lib")
+		Expect(err).NotTo(HaveOccurred())
+		stubLibraryVerifier(func(context.Context, VerificationPolicy, string) error {
+			return fmt.Errorf("another repository: %w", cosignverify.ErrPolicyRejected)
+		})
+		expireLibraryCache(s, src)
+		_, err = s.Refresh(ctx, "lib")
+		Expect(err).To(MatchError(ErrRefresh))
+		Expect(s.cache["lib"].releases).To(BeEmpty(), "an older copy was served after a refusal")
 	})
 
 	It("stamps the pinned signer on a signed source and on no other", func() {
@@ -337,6 +371,7 @@ var _ = DescribeTable("oci:// source addresses",
 	Entry("a digest reference", Source{URL: "oci://registry.example/libs/fixture-addon@sha256:" + strings.Repeat("a", 64)}, true),
 	Entry("an exact signer identity", Source{URL: "oci://registry.example/libs/x", Policy: signedPolicy}, true),
 	Entry("an identity pattern", Source{URL: "oci://registry.example/libs/x", Policy: VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", IdentityRegex: "^signer@.*$"}}, false),
+	Entry("an identity pattern with a source repository", Source{URL: "oci://registry.example/libs/x", Policy: patternPinned}, true),
 	Entry("credentials in the address", Source{URL: "oci://user:secret@registry.example/libs/x"}, false),
 	Entry("a space", Source{URL: "oci://registry.example/libs/x y"}, false),
 	Entry("no repository", Source{URL: "oci://"}, false),

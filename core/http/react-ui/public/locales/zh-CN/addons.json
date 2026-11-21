@@ -183,6 +183,7 @@
       "urlCredentials": "地址不能包含用户名或密码。",
       "urlQuery": "地址不能包含查询字符串或片段。",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -196,6 +197,7 @@
       "requireSignature": "要求签名",
       "url": "目录 URL",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -205,6 +207,7 @@
       "reference": "管理员在此服务器上配置的凭据名称。切勿在此粘贴令牌或密码。",
       "url": "不含凭据和查询字符串的 https 地址。",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
@@ -399,6 +402,7 @@
     "platform": "平台",
     "selection": "选定为",
     "signatureRequired": "需要签名",
+    "sourceRepository": "Source repository",
     "verification": "验证",
     "version": "版本"
   },

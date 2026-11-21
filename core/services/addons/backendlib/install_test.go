@@ -194,6 +194,22 @@ var _ = Describe("installing a backend from a library", func() {
 		Expect(got.Gallery.Verification.Identity).To(BeEmpty())
 		Expect(got.MaxBytes).To(Equal(int64(8 << 30)))
 		Expect(got.Library).To(Equal("pilot"))
+		Expect(got.Gallery.Verification.SourceRepository).To(BeEmpty())
+	})
+
+	It("passes the source repository the library pins to the verification", func() {
+		pattern := `^https://github\.com/example-org/shared/\.github/workflows/sign\.yml@refs/tags/v.+$`
+		policy := catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", IdentityRegex: pattern, SourceRepository: "https://github.com/example-org/example-repo"}
+		in.Catalog = serve(release, policy)
+		var got *gallery.GalleryBackend
+		in.install = func(_ context.Context, _ *system.SystemState, _ *model.ModelLoader, gb *gallery.GalleryBackend, _ func(string, string, string, float64), strict bool) error {
+			got = gb
+			return nil
+		}
+		Expect(in.Install(ctx, "pilot", "cpu-demo", release.Version, Progress{})).To(Succeed())
+		Expect(got.Gallery.Verification).NotTo(BeNil())
+		Expect(got.Gallery.Verification.IdentityRegex).To(Equal(pattern))
+		Expect(got.Gallery.Verification.SourceRepository).To(Equal("https://github.com/example-org/example-repo"))
 	})
 
 	It("reports the steps in order, with the bytes of the fetch", func() {

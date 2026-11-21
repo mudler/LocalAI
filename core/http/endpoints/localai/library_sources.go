@@ -39,6 +39,13 @@ type addLibrarySourceRequest struct {
 	// both or neither; the signature is then required.
 	Issuer   string `json:"issuer,omitempty"`
 	Identity string `json:"identity,omitempty"`
+	// IdentityRegex is an anchored signer pattern used instead of Identity.
+	// It needs SourceRepository: a shared signing workflow matches the
+	// pattern for every repository that calls it.
+	IdentityRegex string `json:"identity_regex,omitempty"`
+	// SourceRepository is the https URL of the repository the signature must
+	// be made for, compared exactly with the signing certificate.
+	SourceRepository string `json:"source_repository,omitempty"`
 }
 
 type updateLibrarySourceRequest struct {
@@ -123,7 +130,7 @@ func (e LibrarySourcesEndpoints) Update() echo.HandlerFunc {
 
 // Add godoc
 // @Summary Add a library source
-// @Description Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. issuer and identity, set together, pin the signer of an oci:// add-on library: its artifact must then be signed by that issuer and exact identity (400 otherwise, and on any other source). A source with the same kind and URL is refused (409), as is a taken id. Administrators only.
+// @Description Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. issuer and identity, set together, pin the signer of an oci:// add-on library: its artifact must then be signed by that issuer and exact identity (400 otherwise, and on any other source). identity_regex, an anchored pattern, can take the place of identity only together with source_repository, the https URL of the repository the signature must be made for (400 for a pattern alone). source_repository can also go with an exact identity. A source with the same kind and URL is refused (409), as is a taken id. Administrators only.
 // @Tags library
 // @Accept json
 // @Produce json
@@ -136,7 +143,7 @@ func (e LibrarySourcesEndpoints) Add() echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return librarySourceError(c, http.StatusBadRequest, "the request is not valid JSON")
 		}
-		in, err := e.Admin.Add(c.Request().Context(), library.AddRequest{Kind: req.Kind, URL: req.URL, ID: req.ID, Name: req.Name, Format: req.Format, Mirrors: req.Mirrors, Issuer: req.Issuer, Identity: req.Identity})
+		in, err := e.Admin.Add(c.Request().Context(), library.AddRequest{Kind: req.Kind, URL: req.URL, ID: req.ID, Name: req.Name, Format: req.Format, Mirrors: req.Mirrors, Issuer: req.Issuer, Identity: req.Identity, IdentityRegex: req.IdentityRegex, SourceRepository: req.SourceRepository})
 		if err != nil {
 			return storeError(c, err, req.ID)
 		}

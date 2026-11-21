@@ -1026,13 +1026,23 @@ definitions:
       identityRegex:
         description: |-
           IdentityRegex is an anchored pattern for the signer identity, used
-          instead of Identity so that master and tagged builds both verify. Only a
-          library that serves backends may use it; an add-on install refuses it.
+          instead of Identity so that master and tagged builds both verify. A
+          backend install accepts it alone. An add-on install and an oci:// add-on
+          library accept it only with SourceRepository: a shared signing workflow
+          signs for every repository that calls it, so the pattern alone would
+          admit a signature made for any of them.
         type: string
       issuer:
         type: string
       requireSignature:
         type: boolean
+      sourceRepository:
+        description: |-
+          SourceRepository pins the repository the signature was made for: an
+          https URL compared exactly with the source-repository extension of the
+          signing certificate, such as https://github.com/<owner>/<repo>. It is
+          valid only when a signature is required.
+        type: string
     type: object
   cluster.CarrierWeights:
     properties:
@@ -4016,7 +4026,10 @@ definitions:
   modelsearch.RepoFile:
     properties:
       kind:
-        description: Kind is "gguf", "mmproj" or "weights" (safetensors, bin, pt).
+        description: |-
+          Kind is "gguf", "mmproj", "drafter" (a speculative-decoding sidecar such
+          as dspark-*.gguf, never a variant of its own) or "weights" (safetensors,
+          bin, pt).
         type: string
       path:
         type: string
@@ -27604,8 +27617,12 @@ paths:
         is library (default) or gallery. The id is derived from the name or URL when
         it is empty. issuer and identity, set together, pin the signer of an oci://
         add-on library: its artifact must then be signed by that issuer and exact
-        identity (400 otherwise, and on any other source). A source with the same
-        kind and URL is refused (409), as is a taken id. Administrators only.'
+        identity (400 otherwise, and on any other source). identity_regex, an anchored
+        pattern, can take the place of identity only together with source_repository,
+        the https URL of the repository the signature must be made for (400 for a
+        pattern alone). source_repository can also go with an exact identity. A source
+        with the same kind and URL is refused (409), as is a taken id. Administrators
+        only.'
       produces:
       - application/json
       responses:
