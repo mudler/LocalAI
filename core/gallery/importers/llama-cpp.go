@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -122,10 +123,12 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	}
 
 	mmprojQuants, _ := preferencesMap["mmproj_quantizations"].(string)
-	mmprojQuantsList := []string{"fp16"}
+	var mmprojQuantsList []string
 	if mmprojQuants != "" {
 		mmprojQuantsList = strings.Split(mmprojQuants, ",")
 	}
+
+	drafterQuantsList, drafterEnabled := drafterPreferences(preferencesMap["drafter_quantizations"])
 
 	embeddings, _ := preferencesMap["embeddings"].(string)
 
@@ -181,6 +184,10 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 
 	uri := downloader.URI(details.URI)
 
+	// drafter is set when the HuggingFace branch pairs a speculative-decoding
+	// drafter with the model.
+	var drafter *importedDrafter
+
 	switch {
 	case uri.LooksLikeOCI():
 		ociName := uri.OCIReference()
@@ -230,13 +237,26 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		// models ended up with only the last part referenced in the gallery
 		// entry — useless to llama.cpp, which needs shard 1 and the whole
 		// set to load a split model.
+		//
+		// Files that llama.cpp does not treat as models are kept out of the
+		// model candidates: drafters (sidecars such as `dspark-*.gguf`, see
+		// hfapi.Sidecars) and imatrix files. Drafters are collected by kind so a
+		// repository's drafter can be paired with the model picked below.
 		var mmprojFiles, ggufFiles []hfapi.ModelFile
+		drafterFiles := map[string][]hfapi.ModelFile{}
 		for _, f := range details.HuggingFace.Files {
 			lowerPath := strings.ToLower(f.Path)
 			switch {
 			case strings.Contains(lowerPath, "mmproj"):
 				mmprojFiles = append(mmprojFiles, f)
 			case strings.HasSuffix(lowerPath, ".gguf"):
+				if hfapi.IsImatrix(f.Path) {
+					continue
+				}
+				if sc, ok := hfapi.SidecarOf(f.Path); ok {
+					drafterFiles[sc.Kind] = append(drafterFiles[sc.Kind], f)
+					continue
+				}
 				ggufFiles = append(ggufFiles, f)
 			}
 		}
@@ -244,7 +264,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		mmprojGroups := hfapi.GroupShards(mmprojFiles)
 		ggufGroups := hfapi.GroupShards(ggufFiles)
 
-		modelGroup := pickPreferredGroup(ggufGroups, quants)
+		modelGroup := pickModelGroup(ggufGroups, quants)
 
 		// A repo-root URI has no file component, so the URI-base fallback
 		// above produced the repo name. When the user left the name blank,
@@ -262,8 +282,22 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		if modelGroup != nil {
 			appendShardGroup(&cfg, *modelGroup, path.Join("llama-cpp", "models", name))
 		}
-		if group := pickPreferredGroup(mmprojGroups, mmprojQuantsList); group != nil {
+		if group := pickMMProjGroup(mmprojGroups, mmprojQuantsList); group != nil {
 			appendShardGroup(&cfg, *group, path.Join("llama-cpp", "mmproj", name))
+		}
+
+		// Pair the repository's drafter with the model. Only the llama.cpp
+		// engine reads draft_model and spec_type; the forks and vllm-cpp
+		// are left alone.
+		if modelGroup != nil && backend == "llama-cpp" {
+			if sc, group := pickDrafterGroup(drafterFiles, drafterQuantsList); group != nil && drafterEnabled {
+				appendShardGroup(&cfg, *group, path.Join("llama-cpp", "models", name))
+				drafter = &importedDrafter{sidecar: sc, file: path.Join("llama-cpp", "models", name, filepath.Base(group.Files[0].Path))}
+			} else if group != nil {
+				xlog.Debug("[drafter-importer] drafter found but disabled by preference", "kind", sc.Kind)
+			}
+		} else if len(drafterFiles) > 0 {
+			xlog.Debug("[drafter-importer] repository ships a drafter but no llama-cpp model to pair it with; skipping")
 		}
 
 		// Find first mmproj file and configure it in the config file
@@ -289,6 +323,10 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			}
 			break
 		}
+	}
+
+	if drafter != nil {
+		applyDrafter(&modelConfig, *drafter)
 	}
 
 	// Apply per-model-family inference parameter defaults
@@ -357,6 +395,124 @@ func pickPreferredGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardG
 		}
 	}
 	return &groups[len(groups)-1]
+}
+
+// importedDrafter is the drafter an import paired with the model.
+type importedDrafter struct {
+	sidecar hfapi.Sidecar
+	// file is the path of the first shard, relative to the models directory.
+	file string
+}
+
+// defaultMMProjQuants is the order an import tries for the projector when the
+// user did not ask for one: half precision first, then BF16. F32 comes last so
+// a repository that ships F16 or BF16 never gets the 2x larger F32 file by
+// accident. Tokens are matched whole (`f16` does not select `bf16`).
+var defaultMMProjQuants = []string{"f16", "fp16", "bf16", "q8_0", "f32"}
+
+// defaultDrafterQuants is the order for the drafter: Q8_0 keeps the draft close
+// to the reference at a small size, then the 16-bit builds.
+var defaultDrafterQuants = []string{"q8_0", "bf16", "f16", "fp16"}
+
+// defaultDrafterNMax is the draft window written for a DSpark drafter.
+const defaultDrafterNMax = 3
+
+// drafterPreferences reads the `drafter_quantizations` preference. It returns
+// the quantization order and whether a drafter is imported at all. An empty
+// preference gives the default order; `none`, `off`, `no`, `false` and
+// `disabled` (or a JSON false) turn the pairing off.
+func drafterPreferences(raw any) ([]string, bool) {
+	switch v := raw.(type) {
+	case bool:
+		if !v {
+			return nil, false
+		}
+	case string:
+		list := splitPrefs(v)
+		if len(list) == 1 {
+			switch strings.ToLower(list[0]) {
+			case "none", "off", "no", "false", "disabled":
+				return nil, false
+			}
+		}
+		return append(list, defaultDrafterQuants...), true
+	}
+	return defaultDrafterQuants, true
+}
+
+func splitPrefs(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// pickModelGroup picks the main model from the GGUF groups. Whatever the
+// preference says, a group that is not a model (a drafter, an imatrix file or a
+// projector) is never returned, including by the "nothing matched, take the
+// last one" fallback of pickPreferredGroup.
+func pickModelGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardGroup {
+	models := make([]hfapi.ShardGroup, 0, len(groups))
+	for _, g := range groups {
+		if len(g.Files) == 0 {
+			continue
+		}
+		p := g.Files[0].Path
+		if _, sidecar := hfapi.SidecarOf(p); sidecar || hfapi.IsImatrix(p) || strings.Contains(strings.ToLower(p), "mmproj") {
+			continue
+		}
+		models = append(models, g)
+	}
+	return pickPreferredGroup(models, prefs)
+}
+
+// pickMMProjGroup picks the projector: the user's preferences first, then the
+// default order (F16, BF16, ..., F32 last). Only when none of them matches does
+// it take the last group.
+func pickMMProjGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardGroup {
+	return pickPreferredGroup(groups, append(append([]string{}, prefs...), defaultMMProjQuants...))
+}
+
+// pickDrafterGroup picks the drafter of a repository: the first kind in
+// hfapi.Sidecars order that has files, and in it the best quantization.
+func pickDrafterGroup(byKind map[string][]hfapi.ModelFile, prefs []string) (hfapi.Sidecar, *hfapi.ShardGroup) {
+	for _, sc := range hfapi.Sidecars {
+		if files := byKind[sc.Kind]; len(files) > 0 {
+			return sc, pickPreferredGroup(hfapi.GroupShards(files), prefs)
+		}
+	}
+	return hfapi.Sidecar{}, nil
+}
+
+// applyDrafter writes the drafter into the config: draft_model plus the spec
+// options its kind needs. An explicit spec_type already in Options wins.
+func applyDrafter(modelConfig *config.ModelConfig, d importedDrafter) {
+	modelConfig.DraftModel = d.file
+	if hasSpecTypeOption(modelConfig.Options) {
+		return
+	}
+	switch d.sidecar.Kind {
+	case "mtp":
+		modelConfig.Options = append(modelConfig.Options, config.MTPSpecOptions()...)
+	case "dspark":
+		modelConfig.Options = append(modelConfig.Options,
+			"spec_type:"+d.sidecar.SpecType, "spec_n_max:"+strconv.Itoa(defaultDrafterNMax))
+	default:
+		modelConfig.Options = append(modelConfig.Options, "spec_type:"+d.sidecar.SpecType)
+	}
+	xlog.Info("[drafter-importer] speculative drafter paired with the model", "kind", d.sidecar.Kind, "draft_model", d.file)
+}
+
+func hasSpecTypeOption(opts []string) bool {
+	for _, o := range opts {
+		if strings.HasPrefix(o, "spec_type:") || strings.HasPrefix(o, "speculative_type:") {
+			return true
+		}
+	}
+	return false
 }
 
 // quantTokenMatches reports whether pref appears in base as a whole token

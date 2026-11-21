@@ -112,6 +112,31 @@ custom key-value preferences. The backend list can be narrowed by modality
 first. Fields that the selected backend cannot use are hidden, and anything you
 typed into them is kept in case you switch back.
 
+#### What a GGUF repository import picks
+
+When the source is a Hugging Face repository with GGUF files, the llama.cpp
+importer chooses the files from the listing. The same choices apply to
+`POST /models/import-uri`, where the preferences go in the `preferences` object.
+
+| Preference | Default | Effect |
+|------------|---------|--------|
+| `quantizations` | `q4_k_m` | Comma-separated quantizations of the main model, best first. A token must match whole: `f16` does not select `bf16`. When none matches, the last model in the listing is used. |
+| `mmproj_quantizations` | `f16`, then `bf16` | Comma-separated quantizations of the vision or audio projector, tried before the default order `f16`, `bf16`, `q8_0`, `f32`. `f32` is chosen only when no smaller build exists. |
+| `drafter_quantizations` | `q8_0`, then `bf16`, `f16` | Comma-separated quantizations of the speculative-decoding drafter, tried before the default order. Set `none` (or `off`, `no`, `false`) to import no drafter. |
+
+Files that llama.cpp ships next to a model are never imported as the model
+itself: drafters (a file name with `dspark-`, `dflash-`, `eagle3-` or `mtp-`, the
+sidecar keywords of llama.cpp) and `imatrix` files.
+
+When the repository ships a drafter, the import downloads one next to the
+model and writes `draft_model` and the matching `spec_type` into the model
+configuration: `draft-dspark` with `spec_n_max:3` for a `dspark-` file,
+`draft-dflash` for `dflash-`, `draft-eagle3` for `eagle3-` and `draft-mtp` for
+`mtp-`. If a repository has several kinds, the order of preference is DSpark,
+DFlash, EAGLE3, then MTP. A drafter is paired only with a model from the same
+repository, and only on the `llama-cpp` backend. The import form has no field
+for `drafter_quantizations`; add it with a custom preference.
+
 The source format check does not contact the source or validate it as a model.
 An HTTPS URL can point to a web page rather than model weights.
 

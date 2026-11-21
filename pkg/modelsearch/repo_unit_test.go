@@ -52,3 +52,30 @@ var _ = DescribeTable("modelsearch.ParseRepoURI",
 	Entry("empty", "", modelsearch.RepoRef{}, false),
 	Entry("one word", "justaname", modelsearch.RepoRef{}, false),
 )
+
+var _ = Describe("appendWeight", func() {
+	kinds := func(names ...string) map[string]string {
+		var files []modelsearch.RepoFile
+		for _, n := range names {
+			files = modelsearch.AppendWeight(files, n, 1, "")
+		}
+		out := map[string]string{}
+		for _, f := range files {
+			out[f.Path] = f.Kind
+		}
+		return out
+	}
+
+	It("keeps a speculative drafter out of the model variants", func() {
+		Expect(kinds("Model-Q4_K_M.gguf", "dspark-Model-Q8_0.gguf", "dspark/dspark-Model-BF16.gguf", "mmproj-F16.gguf")).To(Equal(map[string]string{
+			"Model-Q4_K_M.gguf":             "gguf",
+			"dspark-Model-Q8_0.gguf":        "drafter",
+			"dspark/dspark-Model-BF16.gguf": "drafter",
+			"mmproj-F16.gguf":               "mmproj",
+		}))
+	})
+
+	It("drops an imatrix file", func() {
+		Expect(kinds("imatrix_unsloth.gguf", "Model-Q4_K_M.gguf")).To(Equal(map[string]string{"Model-Q4_K_M.gguf": "gguf"}))
+	})
+})

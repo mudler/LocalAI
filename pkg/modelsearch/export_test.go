@@ -4,4 +4,5 @@ package modelsearch
 var (
 	QuantLabel    = quantLabel
 	ReadmeSummary = readmeSummary
+	AppendWeight  = appendWeight
 )
