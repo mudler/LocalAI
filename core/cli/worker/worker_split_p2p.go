@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -54,7 +55,10 @@ func (r *LLamaCPP) runP2P() error {
 		args = append(args, strings.Fields(r.ExtraLLamaCPPArgs)...)
 	}
 	go superviseProcess(ctx, "llama-cpp-rpc-server", func(ctx context.Context) *exec.Cmd {
-		return exec.CommandContext(ctx, rpcServer, args...) // #nosec G204 -- rpcServer is the installed backend binary and args are built from validated flags, with no shell
+		path, argv, env := llamaCPPRPCStart(runtime.GOOS, rpcServer, args, os.Environ())
+		cmd := exec.CommandContext(ctx, path, argv[1:]...) // #nosec G204 -- the path is the installed backend binary and args are built from validated flags, with no shell
+		cmd.Env = env
+		return cmd
 	})
 
 	agent, err := p2psplit.NewAgent(p2psplit.AgentConfig{

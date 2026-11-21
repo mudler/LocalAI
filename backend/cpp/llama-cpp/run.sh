@@ -26,6 +26,14 @@ if [ -n "$LLAMACPP_GRPC_SERVERS" ]; then
 		BINARY=llama-cpp-grpc
 	fi
 fi
+
+# LLAMACPP_BINARY overrides the choice above: the name of a binary in this
+# directory to run instead. LocalAI workers set it to llama-cpp-rpc-server to start the
+# RPC server with the same library path, GPU environment and bundled loader
+# as the gRPC server. It must name a file next to this script.
+if [ -n "${LLAMACPP_BINARY:-}" ]; then
+	BINARY="$LLAMACPP_BINARY"
+fi
  
 # Newer ROCm releases split the TensileLibrary data per GPU architecture
 # (library/gfx1151/...). rocBLAS and hipBLASLt look for their kernels directly in
