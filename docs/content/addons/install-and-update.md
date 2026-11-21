@@ -74,11 +74,26 @@ frontend and the add-on owner are the same process; otherwise the row shows the
 step only.
 
 An install from a file (see [Install from a file](#install-from-a-file)) does not
-use the queue. It runs while the dialog is open.
+use the queue. It runs at once, and you can close its dialog while it runs: the
+page then shows the install in progress, on the row of the add-on when it is an
+upgrade. If it fails after you closed the dialog, the page shows the reason in a
+notice that stays until you close it. **Try again** opens the dialog on the same
+file with a new review, because the first approval is used up.
+
+The approval of an upgrade that waits for host access (**Review and approve**) goes
+to the same queue. After you approve, the dialog can be closed. The row of the
+add-on shows the upgrade as queued ("Queued, waiting for a free slot"), then
+running with its progress, then the result, as for any other upgrade. **Cancel**
+on the row, or in the dialog when you open it again, stops it while it waits and
+while it can still stop. After a cancel the row returns to its state, the
+version that runs keeps running, and the approval is asked again.
 
 The API is `POST /api/addons/host-grants/queue`, which takes the same approval
 as `POST /api/addons/host-grants/install` for each add-on and answers with the
-job ID of each install. Like every change of host access, it accepts only the
+job ID of each install. An item with `"action": "upgrade"` queues the upgrade of
+an installed add-on (the pins `expectedDigest` and `candidateDigest` are optional,
+both or neither); without `action` the item is an install. A local file is never
+queued. Like every change of host access, it accepts only the
 administrator's own browser session. Read the progress with `GET /api/operations`
 (the rows with `isAddon`) and cancel with `POST /api/operations/{jobID}/cancel`.
 

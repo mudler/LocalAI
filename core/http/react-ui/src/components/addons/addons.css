@@ -545,3 +545,11 @@
 .ad-select { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-small); color: var(--dk-muted); cursor: pointer; }
 .ad-selbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-md); background: var(--dk-inset); }
 .ad-selbar__text { margin-right: auto; font-size: var(--fs-small); }
+
+/* The state of an add-on operation that runs in the background: a row, a
+   banner and a dialog show it the same way. */
+.ad-op { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ad-op .ad-entry__note { flex: 1 1 14rem; }
+.ad-op__bar { display: block; flex: 1 1 100%; max-width: 320px; height: 4px; }
+.ad-tile__op { grid-column: 1 / -1; padding: 0 var(--sp-4) 14px calc(var(--sp-4) + 44px + var(--sp-3)); }
+.ad-tile__op:empty { display: none; }

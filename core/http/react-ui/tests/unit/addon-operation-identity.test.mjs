@@ -16,7 +16,7 @@ test('request fingerprint ignores the operation id and the key order, and sees a
 })
 
 test('approve key differs for other ticks and stays for a retry of the same approval', async () => {
-  const src = await import('node:fs').then(fs => fs.readFileSync(new URL('../../src/components/addons/ApproveUpgradeDialog.jsx', import.meta.url), 'utf8'))
+  const src = await import('node:fs').then(fs => fs.readFileSync(new URL('../../src/components/addons/approvalRequest.js', import.meta.url), 'utf8'))
   assert.match(src, /approve:\$\{addon\.id\}:\$\{addon\.pendingUpgrade\.version\}:\$\{requestFingerprint\(body\)\}/)
   assert.doesNotMatch(src, /actions\.run\(`approve:\$\{addon\.id\}:\$\{addon\.pendingUpgrade\.version\}`/)
 })

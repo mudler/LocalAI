@@ -10,7 +10,7 @@
 // Disconnecting only detaches the observer; accepted work belongs to the owner.
 import { createActionBook, effectOutcome } from '../components/addons/actionBook.js'
 import { runLifecycle, settleOperation } from '../components/addons/lifecycleFlow.js'
-import { updateErrorKey, updateView, upgradeBody } from '../components/addons/updateState.js'
+import { HOST_FAILURES, updateErrorKey, updateView, upgradeBody } from '../components/addons/updateState.js'
 import { AddonsError } from './addonsApi.js'
 import { endedAsCancelled, upgradeStatusFields } from './addonUpgradeRows.js'
 
@@ -55,7 +55,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
 
   const emit = (next) => {
     snapshot = next
-    if (storage && scope) { try { storage.setItem(`addon-upgrades:${scope}`, JSON.stringify(next.live.map(({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration, galleryJobId }) => ({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration, galleryJobId })))) } catch { /* unavailable storage only loses observer recovery */ } }
+    if (storage && scope) { try { storage.setItem(`addon-upgrades:${scope}`, JSON.stringify(next.live.map(({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration, galleryJobId, kind, key }) => ({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration, galleryJobId, kind, key })))) } catch { /* unavailable storage only loses observer recovery */ } }
     for (const listener of listeners) listener()
   }
   const patch = (jobID, fields) => {
@@ -109,11 +109,13 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       if (!Array.isArray(pending)) return
       for (const op of pending.slice(0, 20)) {
         if (!op.operationId || !op.addonId) continue
-        book.restore(op.addonId, { key: `upgrade:${op.addonId}:${op.baseGeneration}`, operationId: op.operationId })
+        const key = typeof op.key === 'string' && op.key ? op.key : `upgrade:${op.addonId}:${op.baseGeneration}`
+        const kind = op.kind === 'approval' ? 'approval' : 'upgrade'
+        book.restore(op.addonId, { key, operationId: op.operationId })
         const controller = new AbortController()
         controllers.set(op.jobID, controller)
-        emit({ ...snapshot, live: [...snapshot.live, { ...op, isAddon: true, taskType: "upgrade", state: "running", progress: 0, cancellable: false }] })
-        void store.follow(api, { jobID: op.jobID, addon: { id: op.addonId, generation: op.baseGeneration }, operationId: op.operationId, key: `upgrade:${op.addonId}:${op.baseGeneration}`, controller, submit: false })
+        emit({ ...snapshot, live: [...snapshot.live, { ...op, key, kind, isAddon: true, taskType: "upgrade", state: "running", progress: 0, cancellable: false }] })
+        void store.follow(api, { jobID: op.jobID, addon: { id: op.addonId, generation: op.baseGeneration }, operationId: op.operationId, key, controller, submit: false, opKind: kind, toVersion: op.toVersion })
       }
     },
 
@@ -141,12 +143,25 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       const view = updateView(addon && addon.update)
       if (!view.canUpgrade || !addon.digest) return { ok: false, outcome: 'invalid', message: 'incompatible' }
       if (snapshot.live.some(op => op.addonId === addon.id && op.state !== 'failed')) return { ok: false, outcome: 'busy', message: 'operation_conflict' }
+      return store.launch(api, addon, { key: `upgrade:${addon.id}:${addon.generation}`, fingerprint: `${addon.digest}>${view.digest}`, toVersion: view.version, kind: 'upgrade', current })
+    },
 
-      const key = `upgrade:${addon.id}:${addon.generation}`
+    // An upgrade the administrator approved in the host access dialog. It is
+    // the same operation as the plain upgrade (one operation of the add-on on
+    // the shared queue, followed here), only the write is the approval's:
+    // `send(operationId, signal)` queues it and answers the accepted status
+    // with the job. `key` and `fingerprint` name the request, so another
+    // approval of the same add-on never reuses this identity.
+    async startApproved(api, addon, { key, fingerprint, version, send, current = () => true }) {
+      if (!current()) return null
+      if (snapshot.live.some(op => op.addonId === addon.id && op.state !== 'failed')) return { ok: false, outcome: 'busy', message: 'operation_conflict' }
+      return store.launch(api, addon, { key, fingerprint, toVersion: version, kind: 'approval', send, current })
+    },
+
+    async launch(api, addon, { key, fingerprint, toVersion, kind: opKind, send, current }) {
       // The identity belongs to one request. A held one that was asked for
       // another candidate (a newer check) is dropped: the owner would answer
       // the reused ID with an operation conflict.
-      const fingerprint = `${addon.digest}>${view.digest}`
       const held = book.pending(addon.id)
       if (held && held.key === key && !held.unknown && held.meta && held.meta.fingerprint !== fingerprint) book.resolve(addon.id, key)
       const begun = book.begin(addon.id, key, { fingerprint })
@@ -160,7 +175,9 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         taskType: 'upgrade',
         baseGeneration: addon.generation,
         fromVersion: addon.version || '',
-        toVersion: view.version,
+        toVersion,
+        kind: opKind,
+        key,
         startedAt: new Date(now()).toISOString(),
       }
       const withoutOld = snapshot.live.filter(op => op.addonId !== addon.id)
@@ -177,12 +194,12 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         ...snapshot,
         live: [...withoutOld, { ...base, jobID, operationId, state: 'running', phase: 'submitting', progress: 0, cancellable: false, error: '', errorKey: '' }],
       })
-      return store.follow(api, { jobID, addon, operationId, key, controller, submit: true, current })
+      return store.follow(api, { jobID, addon, operationId, key, controller, submit: true, current, send, opKind, toVersion })
     },
 
     // Runs the submit (or, with submit false, only reads the earlier operation)
     // and turns its end into the entry of a list.
-    async follow(api, { jobID, addon, operationId, key, controller, submit, current = () => true }) {
+    async follow(api, { jobID, addon, operationId, key, controller, submit, current = () => true, send, opKind = 'upgrade', toVersion = '' }) {
       const followingEpoch = epoch
       const signal = controller.signal
       const tracked = trackPhases({ ...api, operationStatus: async (...args) => {
@@ -204,6 +221,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
           const out = await runLifecycle(tracked, {
             operationId, addonId: addon.id, signal, waits: pollWaits, sleep: sleepOf(jobID), onWait,
             submit: () => {
+              if (send) return Promise.resolve(send(operationId, signal)).then((status) => { applyStatus(jobID, status); return status })
               const body = upgradeBody(addon, operationId)
               if (!body) return Promise.reject(new AddonsError({ kind: 'invalid' }))
               return api.updates.upgrade(addon.id, body, signal).then((status) => { applyStatus(jobID, status); return status })
@@ -218,7 +236,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         if (outcome === 'completed') {
           try {
             const now2 = (await api.installed(signal)).find(a => a.id === addon.id)
-            verified = Boolean(now2) && now2.generation > addon.generation
+            verified = Boolean(now2) && (opKind === 'approval' ? now2.version === toVersion : now2.generation > addon.generation)
           } catch (e) {
             if (e && e.name === 'AbortError') throw e
             verified = undefined
@@ -268,7 +286,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         settle(jobID, { ...failed, outcome: 'cancelled', state: undefined })
         return { ok: false, outcome: 'cancelled', message: 'canceled' }
       }
-      const errorKey = outcome === 'not_applied' ? 'operation_conflict' : 'upgrade_failed'
+      const errorKey = outcome === 'not_applied' ? 'operation_conflict' : (HOST_FAILURES.has(failed && failed.failureCode) ? failed.failureCode : 'upgrade_failed')
       patch(jobID, { state: 'failed', cancellable: false, unknown: false, error: errorKey, errorKey, operationId })
       return { ok: false, outcome, message: errorKey }
     },
@@ -344,8 +362,11 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         controllers.set(jobID, controller)
         patch(jobID, { state: 'running', cancellable: false, error: '', errorKey: '' })
         const addon = op.addonRecord || { id: op.addonId, generation: Number(held.key.split(':')[2]) || 0 }
-        return store.follow(api, { jobID, addon, operationId: held.operationId, key: held.key, controller, submit: false, current })
+        return store.follow(api, { jobID, addon, operationId: held.operationId, key: held.key, controller, submit: false, current, opKind: op.kind, toVersion: op.toVersion })
       }
+      // The approval of an approved upgrade is spent when it is accepted: a new
+      // try is a new review, never the old approval sent again.
+      if (op.kind === 'approval') return { ok: false, outcome: 'review', message: op.errorKey || 'approval_stale' }
       let fresh
       try {
         fresh = (await api.installed()).find(a => a.id === op.addonId)

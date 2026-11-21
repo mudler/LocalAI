@@ -649,7 +649,9 @@
     },
     "waitingService": "Il servizio dei componenti aggiuntivi si sta avviando. LocalAI chiede di nuovo dell'aggiornamento tra {{seconds}} s.",
     "checkAgain": "Controlla ora",
-    "open": "Apri Aggiornamenti"
+    "open": "Apri Aggiornamenti",
+    "cancelledNote": "L’aggiornamento di {{name}} è stato annullato. La versione {{version}} continua a funzionare.",
+    "cancelling": "Annullamento…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -794,7 +796,7 @@
       "body": "La versione {{current}} di {{name}} continua a funzionare. Se approvi, la nuova versione può eseguire queste azioni. Le nuove sono segnate.",
       "done": "{{name}} è stato aggiornato.",
       "title": "Approva l'accesso all'host per {{name}} {{version}}",
-      "running": "L'aggiornamento va avanti in background. Puoi chiudere questa finestra; chiuderla non lo ferma. Annullalo dall'elenco delle operazioni."
+      "running": "L'aggiornamento va avanti in background. Puoi chiudere questa finestra; chiuderla non lo ferma. Scegli Annulla per fermarlo."
     },
     "asksNothing": "Questo add-on non chiede accesso all'host.",
     "blanket": {
@@ -1017,7 +1019,10 @@
       "downgradeTitle": "Versione precedente",
       "downgrade": "Questo installa la versione {{version}}, più vecchia della versione installata {{installed}}. Una versione più vecchia può non leggere i dati scritti da una più nuova.",
       "downgradeConfirm": "Voglio installare la versione precedente"
-    }
+    },
+    "progress": "Installazione di {{name}} da un file. Va avanti in background.",
+    "failedTitle": "Installazione di {{name}} da un file non riuscita",
+    "failedHint": "Il file resta per un’ora. Scegli Riprova per usarlo di nuovo."
   },
   "notice": {
     "enableFailedTitle": "Impossibile attivare {{name}}",

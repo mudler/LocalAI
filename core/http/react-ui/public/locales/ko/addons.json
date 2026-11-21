@@ -649,7 +649,9 @@
     },
     "waitingService": "애드온 서비스가 시작되는 중입니다. LocalAI가 {{seconds}}초 후 업데이트 상태를 다시 확인합니다.",
     "checkAgain": "지금 확인",
-    "open": "업데이트 열기"
+    "open": "업데이트 열기",
+    "cancelledNote": "{{name}} 업데이트가 취소되었습니다. 버전 {{version}}은(는) 계속 실행됩니다.",
+    "cancelling": "취소하는 중…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -794,7 +796,7 @@
       "body": "{{name}} {{current}} 버전은 계속 실행됩니다. 승인하면 새 버전이 이 작업을 실행할 수 있습니다. 새 항목은 표시됩니다.",
       "done": "{{name}}을(를) 업데이트했습니다.",
       "title": "{{name}} {{version}}의 호스트 접근 승인",
-      "running": "업데이트는 백그라운드에서 실행됩니다. 이 창을 닫아도 중단되지 않습니다. 작업 목록에서 취소할 수 있습니다."
+      "running": "업데이트는 백그라운드에서 실행됩니다. 이 창을 닫아도 중단되지 않습니다. 중단하려면 취소를 누르세요."
     },
     "asksNothing": "이 애드온은 호스트 접근을 요청하지 않습니다.",
     "blanket": {
@@ -1017,7 +1019,10 @@
       "downgradeTitle": "이전 버전",
       "downgrade": "설치된 {{installed}} 버전보다 오래된 {{version}} 버전을 설치합니다. 이전 버전은 새 버전이 쓴 데이터를 읽지 못할 수 있습니다.",
       "downgradeConfirm": "이전 버전을 설치하겠습니다"
-    }
+    },
+    "progress": "파일에서 {{name}}을(를) 설치하는 중입니다. 백그라운드에서 실행됩니다.",
+    "failedTitle": "파일에서 {{name}}을(를) 설치하지 못했습니다",
+    "failedHint": "파일은 한 시간 동안 보관됩니다. 다시 시도를 눌러 같은 파일을 다시 사용하세요."
   },
   "notice": {
     "enableFailedTitle": "{{name}}을(를) 켤 수 없습니다",

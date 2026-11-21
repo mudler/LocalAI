@@ -1,5 +1,9 @@
-import { test, expect } from '@playwright/test'
+import { test, expect as baseExpect } from '@playwright/test'
 import { ADMIN, MEMBER, app, installedAddon, release, sessionFor, mockAddons } from './addons-fixtures.js'
+
+// A wait on the page is longer than the default 5 s: on a loaded machine the page and its
+// lazy chunks arrive late, and a spec that fails there says nothing about the page.
+const expect = baseExpect.configure({ timeout: 15_000 })
 
 // Host access of add-ons: the step of the install dialog, the approval of a
 // held upgrade, the Host access page, the deny rules and the blanket switch.
@@ -58,6 +62,47 @@ async function mockHostGrants(page, appsState, options = {}) {
   const state = { overview: options.overview || overview(), preview: options.preview || PREVIEW, log: [], affects: options.affects || [], failInstall: options.failInstall || null, previewDelayMs: options.previewDelayMs || 0, holdInstall: Boolean(options.holdInstall), dropInstalls: options.dropInstalls || 0 }
   state.release = null
   state.held = new Promise(r => { state.release = r })
+  // The approved upgrades the host queued: each one is a job of /api/operations
+  // that waits, runs and ends. `holdInstall` keeps a job queued until the spec
+  // moves it with `setPhase`; without it the job is done at once.
+  state.jobs = new Map()
+  state.cancels = []
+  const applyUpgrade = (job) => {
+    const a = state.overview.addons.find(x => x.id === job.addonId)
+    const rec = appsState.installed.find(x => x.id === job.addonId)
+    if (rec) { rec.version = job.version; rec.generation += 1 }
+    if (a) { a.version = job.version; delete a.pendingUpgrade }
+    state.overview.revision += 1
+  }
+  state.setPhase = (phase, failureCode = '') => {
+    for (const job of state.jobs.values()) {
+      if (job.phase === 'completed' || job.phase === 'failed') continue
+      job.phase = phase === 'cancelled' ? 'failed' : phase
+      job.failureCode = phase === 'cancelled' ? 'cancelled' : failureCode
+      if (phase === 'completed') applyUpgrade(job)
+    }
+  }
+  const jobRow = (job) => ({
+    id: `addon:${job.addonId}`, name: job.addonId, fullName: job.addonId, jobID: job.jobID, isAddon: true, taskType: 'upgrade', isBackend: false, isDeletion: false,
+    isQueued: job.phase === 'queued', progress: job.phase === 'running' ? 40 : 0, cancellable: true, message: job.phase === 'queued' ? 'queued' : 'downloading', phase: job.phase === 'queued' ? 'queued' : 'downloading',
+  })
+  await page.route('**/api/operations', route => route.fulfill({ json: { operations: [...state.jobs.values()].filter(j => j.phase === 'queued' || j.phase === 'running').map(jobRow) } }))
+  await page.route(/\/api\/operations\/[^/]+\/cancel$/, route => {
+    const jobID = new URL(route.request().url()).pathname.split('/').at(-2)
+    state.cancels.push(jobID)
+    for (const job of state.jobs.values()) if (job.jobID === jobID) { job.phase = 'failed'; job.failureCode = 'cancelled' }
+    return route.fulfill({ json: { success: true } })
+  })
+  await page.route('**/api/addons/dispatch', route => {
+    const body = route.request().postDataJSON() || {}
+    const job = body.action === 'operation-status' ? state.jobs.get(body.operationId) : null
+    if (!job) return route.fallback()
+    const status = job.phase === 'queued' ? { Phase: 'accepted', jobId: job.jobID }
+      : job.phase === 'running' ? { Phase: 'running', stage: 'downloading' }
+        : job.phase === 'failed' ? { Phase: 'failed', failureCode: job.failureCode }
+          : { Phase: 'completed', Generation: 2 }
+    return route.fulfill({ json: { payload: { OperationID: body.operationId, AddonID: body.addonId, ...status } } })
+  })
   await page.route(/\/api\/addons\/host-grants(\/.*)?(\?.*)?$/, async route => {
     const req = route.request()
     const url = new URL(req.url())
@@ -89,6 +134,20 @@ async function mockHostGrants(page, appsState, options = {}) {
       return json({ payload: { OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: 1 } })
     }
     if (path === '/queue') {
+      // A network failure for the first calls, then the owner answers.
+      if (state.dropInstalls > 0) { state.dropInstalls -= 1; return route.abort('failed') }
+      // An approved upgrade becomes a job of the operations list.
+      if (body.items.some(i => i.action === 'upgrade')) {
+        if (state.failInstall) return json({ items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, error: { type: state.failInstall, code: 409, message: state.failInstall } })) })
+        return json({
+          items: body.items.map(i => {
+            const job = { jobID: `job-${i.operationId}`, operationId: i.operationId, addonId: i.addonId, version: i.version, phase: state.holdInstall ? 'queued' : 'completed' }
+            state.jobs.set(i.operationId, job)
+            if (job.phase === 'completed') applyUpgrade(job)
+            return { addonId: i.addonId, operationId: i.operationId, jobId: job.jobID }
+          }),
+        })
+      }
       // A library install is queued and runs in the background. The stand-in
       // answers one job per item, or the refusal of the owner for each.
       if (state.failInstall) return json({ items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, error: { type: state.failInstall, code: 409, message: state.failInstall } })) })
@@ -277,6 +336,9 @@ test.describe('Host access: held upgrade', () => {
     await expect(dialog.getByTestId('approve-confirm')).toBeEnabled()
   })
 
+  const tileOf = (page) => page.locator('[data-testid="addon-tile"][data-app="notes"]')
+  const queuedWrites = (host) => host.log.filter(l => l.path === '/queue')
+
   test('shows a banner and a chip, keeps the old version, and approves with the upgrade action', async ({ page }) => {
     const { state, host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview } })
     await page.goto('/app/addons')
@@ -293,13 +355,17 @@ test.describe('Host access: held upgrade', () => {
     await expect(dialog.getByTestId('approve-untrusted-source')).toHaveCount(0)
     await shoot(page, 'upgrade-approve')
     await dialog.getByTestId('approve-confirm').click()
-    await expect.poll(() => host.log.filter(l => l.path === '/install').length).toBe(1)
-    const sent = host.log.find(l => l.path === '/install')
-    expect(sent.body).toMatchObject({ action: 'upgrade', addonId: 'notes', version: '1.3.0', approve: { ops: ['workspace.export'], digest: PREVIEW.digest } })
+    // The approval goes to the queue of the host as an upgrade of the add-on, not to the inline route.
+    await expect.poll(() => queuedWrites(host).length).toBe(1)
+    expect(host.log.filter(l => l.path === '/install')).toHaveLength(0)
+    const sent = queuedWrites(host)[0]
+    expect(sent.confirm).toBe('queue')
+    expect(sent.body.items[0]).toMatchObject({ action: 'upgrade', addonId: 'notes', version: '1.3.0', approve: { ops: ['workspace.export'], digest: PREVIEW.digest } })
     await expect(page.getByTestId('host-waiting')).toHaveCount(0)
     expect(state.installed.find(a => a.id === 'notes').version).toBe('1.3.0')
   })
-  test('the approval dialog closes at any moment and the approval keeps running', async ({ page }) => {
+
+  test('the approval dialog closes at any moment, and the row shows the queued then the running upgrade', async ({ page }) => {
     const { state, host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
     await page.goto('/app/addons')
     const banner = page.getByTestId('host-waiting')
@@ -307,15 +373,32 @@ test.describe('Host access: held upgrade', () => {
     let dialog = await open_()
     await dialog.getByTestId('approve-confirm').click()
     await expect(dialog.getByTestId('approve-running')).toBeVisible()
+    await expect(dialog.getByTestId('addon-op')).toHaveAttribute('data-state', 'queued')
     await shoot(page, 'approve-running-dialog', false)
-    // Escape closes it although the approval is still running.
+    // Escape closes it although the approval is still queued.
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('approve-dialog')).toHaveCount(0)
     await expect(banner.getByTestId('host-waiting-progress')).toContainText('Updating Notes')
-    await shoot(page, 'approve-running-page-after-escape', false)
-    // Open again: it shows the live state and cannot be sent twice. The close button closes it.
+    // The row says what the operations list says: queued, waiting for a free slot, with an empty bar.
+    const row = tileOf(page).getByTestId('addon-op')
+    await expect(row).toHaveAttribute('data-state', 'queued')
+    await expect(row).toContainText('Queued, waiting for a free slot')
+    await expect(row.getByRole('progressbar')).toHaveAttribute('data-queued', '')
+    await expect(tileOf(page).getByTestId('operation-chip')).toContainText('waiting')
+    await expect(tileOf(page).getByTestId('approval-chip')).toHaveCount(0)
+    await shoot(page, 'approve-queued-row', false)
+    // It runs: the row shows its phase and its progress.
+    host.setPhase('running')
+    await expect(row).toHaveAttribute('data-state', 'running')
+    await expect(row).toContainText('Updating: Downloading')
+    await expect(row).toContainText('40%')
+    await expect(row.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '40')
+    await shoot(page, 'approve-running-row', false)
+    // Open again: it shows the live state with Cancel, and cannot be sent twice. The close button closes it.
     dialog = await open_()
     await expect(dialog.getByTestId('approve-running')).toBeVisible()
+    await expect(dialog.getByTestId('addon-op')).toHaveAttribute('data-state', 'running')
+    await expect(dialog.getByTestId('addon-op-cancel')).toBeVisible()
     await expect(dialog.getByTestId('approve-confirm')).toBeDisabled()
     await dialog.getByTestId('dialog-close').click()
     await expect(page.getByTestId('approve-dialog')).toHaveCount(0)
@@ -323,12 +406,85 @@ test.describe('Host access: held upgrade', () => {
     dialog = await open_()
     await page.mouse.click(5, 5)
     await expect(page.getByTestId('approve-dialog')).toHaveCount(0)
-    // Nothing was cancelled or sent again: one install request, no other write.
-    expect(host.log.filter(l => l.path === '/install')).toHaveLength(1)
-    expect(host.log.filter(l => l.method !== 'GET' && l.path !== '/install' && l.path !== '/preview')).toHaveLength(0)
-    await expect(banner.getByTestId('host-waiting-progress')).toBeVisible()
-    host.release()
+    // Nothing was cancelled or sent again: one queue request, no other write.
+    expect(queuedWrites(host)).toHaveLength(1)
+    expect(host.log.filter(l => l.method !== 'GET' && l.path !== '/queue' && l.path !== '/preview')).toHaveLength(0)
+    expect(host.cancels).toEqual([])
+    // The result: the row and the banner go back to a plain row on the new version.
+    host.setPhase('completed')
     await expect(page.getByTestId('host-waiting')).toHaveCount(0)
+    await expect(tileOf(page).getByTestId('addon-op')).toHaveCount(0)
+    expect(state.installed.find(a => a.id === 'notes').version).toBe('1.3.0')
+  })
+
+  test('Cancel on the row stops the queued approval, the row returns to its state with a note, and the next approval is a new request', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
+    await page.goto('/app/addons')
+    const banner = page.getByTestId('host-waiting')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+    await page.keyboard.press('Escape')
+    const row = tileOf(page).getByTestId('addon-op')
+    await expect(row).toHaveAttribute('data-state', 'queued')
+    await row.getByTestId('addon-op-cancel').click()
+    await expect.poll(() => host.cancels).toEqual([`job-${queuedWrites(host)[0].body.items[0].operationId}`])
+    // The row is back to what it was: the approval chip, the banner, and a note that says it was canceled.
+    await expect(tileOf(page).getByTestId('addon-op')).toHaveCount(0)
+    await expect(tileOf(page).getByTestId('approval-chip')).toBeVisible()
+    await expect(tileOf(page).getByTestId('addon-op-note')).toContainText('The update of Notes was canceled. Version 1.2.0 keeps running.')
+    await shoot(page, 'approve-cancelled-row', false)
+    await expect(banner).toBeVisible()
+    await expect(banner.getByTestId('host-waiting-review')).toBeEnabled()
+    // The note goes away when it is closed.
+    await tileOf(page).getByTestId('addon-op-note-dismiss').click()
+    await expect(tileOf(page).getByTestId('addon-op-note')).toHaveCount(0)
+    // Approving again reads a fresh preview and sends a new request under a new operation id.
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    const dialog = page.getByTestId('approve-dialog')
+    await expect(dialog.getByTestId('approve-confirm')).toBeEnabled()
+    await dialog.getByTestId('approve-confirm').click()
+    await expect.poll(() => queuedWrites(host).length).toBe(2)
+    expect(host.log.filter(l => l.path === '/preview')).toHaveLength(2)
+    const ids = queuedWrites(host).map(l => l.body.items[0].operationId)
+    expect(ids[0]).not.toBe(ids[1])
+    host.setPhase('completed')
+    await expect(page.getByTestId('host-waiting')).toHaveCount(0)
+  })
+
+  test('Cancel in the reopened dialog stops a running approval', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
+    await page.goto('/app/addons')
+    const banner = page.getByTestId('host-waiting')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+    await page.keyboard.press('Escape')
+    host.setPhase('running')
+    await expect(tileOf(page).getByTestId('addon-op')).toHaveAttribute('data-state', 'running')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    const dialog = page.getByTestId('approve-dialog')
+    await dialog.getByTestId('addon-op-cancel').click()
+    await expect.poll(() => host.cancels.length).toBe(1)
+    // The dialog is open again for a new approval, with the note and no running state.
+    await expect(dialog.getByTestId('approve-running')).toHaveCount(0)
+    await expect(dialog.getByTestId('addon-op-note')).toContainText('was canceled')
+    await expect(dialog.getByTestId('approve-confirm')).toBeEnabled()
+    await expect(tileOf(page).getByTestId('approval-chip')).toBeVisible()
+  })
+
+  test('an approval the host refuses, or that fails when it runs, is a failure of the row in its own words, and a new try is a new review', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
+    await page.goto('/app/addons')
+    await page.getByTestId('host-waiting').getByRole('button', { name: /Review and approve/ }).click()
+    await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+    await page.keyboard.press('Escape')
+    host.setPhase('failed', 'approval_stale')
+    const row = tileOf(page).getByTestId('addon-op')
+    await expect(row).toHaveAttribute('data-state', 'failed')
+    await expect(row).toContainText('The package changed since you looked at it.')
+    await expect(page.getByTestId('host-waiting-failed')).toContainText('The package changed since you looked at it.')
+    await row.getByTestId('addon-op-dismiss').click()
+    await expect(tileOf(page).getByTestId('addon-op')).toHaveCount(0)
+    await expect(tileOf(page).getByTestId('approval-chip')).toBeVisible()
   })
 
   test('a retry of the same approval keeps its operation id', async ({ page }) => {
@@ -340,10 +496,63 @@ test.describe('Host access: held upgrade', () => {
     await expect(dialog.getByTestId('approve-failed')).toBeVisible()
     await dialog.getByTestId('approve-confirm').click()
     await expect(page.getByTestId('host-waiting')).toHaveCount(0)
-    const sent = host.log.filter(l => l.path === '/install')
+    const sent = queuedWrites(host)
     expect(sent).toHaveLength(2)
-    expect(sent[1].body.operationId).toBe(sent[0].body.operationId)
+    expect(sent[1].body.items[0].operationId).toBe(sent[0].body.items[0].operationId)
   })
+
+  test('the Host access page shows the queued approval with its Cancel when no row of the add-on is on screen', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
+    await page.goto('/app/addons?tab=access')
+    const banner = page.getByTestId('host-waiting')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+    await page.keyboard.press('Escape')
+    await expect(banner.getByTestId('addon-op')).toHaveAttribute('data-state', 'queued')
+    await banner.getByTestId('addon-op-cancel').click()
+    await expect.poll(() => host.cancels.length).toBe(1)
+    await expect(banner.getByTestId('addon-op-note')).toContainText('was canceled')
+    await expect(banner.getByTestId('host-waiting-review')).toBeEnabled()
+  })
+})
+
+// Screenshots of the row of an add-on whose approved upgrade is queued, running
+// and canceled, in the dark theme on a desktop and on a phone. Saved only when
+// UI_SHOTS_DIR is set.
+test.describe('Host access: upgrade row screenshots', () => {
+  for (const [name, size] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 800 }]]) {
+    test(`queued, running and canceled row, dark, ${name}`, async ({ page }) => {
+      test.skip(!shots, 'screenshots are saved only when UI_SHOTS_DIR is set')
+      await page.addInitScript(() => { try { localStorage.setItem('localai-theme', 'dark') } catch { /* private window */ } })
+      await page.setViewportSize(size)
+      const o = overview()
+      o.addons[0].pendingUpgrade = { version: '1.3.0', delta: ['workspace.export'] }
+      const { host } = await open(page, { hostgrants: { overview: o, preview: { ...PREVIEW, version: '1.3.0', added: ['workspace.export'] }, holdInstall: true } })
+      await page.goto('/app/addons')
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+      const banner = page.getByTestId('host-waiting')
+      await expect(page.getByTestId('approval-chip')).toBeVisible()
+      await shoot(page, `row-before-${name}-dark`, name === 'phone')
+      await banner.getByRole('button', { name: /Review and approve/ }).click()
+      await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+      await page.keyboard.press('Escape')
+      const row = page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('addon-op')
+      await expect(row).toHaveAttribute('data-state', 'queued')
+      await shoot(page, `row-queued-${name}-dark`, name === 'phone')
+      host.setPhase('running')
+      await expect(row).toHaveAttribute('data-state', 'running')
+      await expect(row).toContainText('40%')
+      await shoot(page, `row-running-${name}-dark`, name === 'phone')
+      await banner.getByRole('button', { name: /Review and approve/ }).click()
+      await expect(page.getByTestId('approve-dialog').getByTestId('addon-op-cancel')).toBeVisible()
+      await shoot(page, `dialog-reopened-running-${name}-dark`, name === 'phone')
+      await page.getByTestId('approve-dialog').getByTestId('addon-op-cancel').click()
+      await expect(page.getByTestId('approve-dialog').getByTestId('addon-op-note')).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('addon-op-note')).toBeVisible()
+      await shoot(page, `row-after-cancel-${name}-dark`, name === 'phone')
+    })
+  }
 })
 
 // Screenshots of the source warning, saved only when UI_SHOTS_DIR is set: the

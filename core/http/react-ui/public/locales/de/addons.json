@@ -649,7 +649,9 @@
     },
     "waitingService": "Der Add-on-Dienst startet. LocalAI fragt in {{seconds}} s erneut nach der Aktualisierung.",
     "checkAgain": "Jetzt prüfen",
-    "open": "Aktualisierungen öffnen"
+    "open": "Aktualisierungen öffnen",
+    "cancelledNote": "Das Update von {{name}} wurde abgebrochen. Version {{version}} läuft weiter.",
+    "cancelling": "Wird abgebrochen…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -794,7 +796,7 @@
       "body": "Version {{current}} von {{name}} läuft weiter. Gibst du frei, darf die neue Version diese Aktionen ausführen. Neue sind markiert.",
       "done": "{{name}} wurde aktualisiert.",
       "title": "Host-Zugriff für {{name}} {{version}} freigeben",
-      "running": "Das Update läuft im Hintergrund. Sie können dieses Fenster schließen; das Schließen stoppt es nicht. Brechen Sie es in der Liste der Vorgänge ab."
+      "running": "Das Update läuft im Hintergrund. Sie können dieses Fenster schließen; das Schließen stoppt es nicht. Mit „Abbrechen“ stoppen Sie es."
     },
     "asksNothing": "Dieses Add-on fordert keinen Host-Zugriff an.",
     "blanket": {
@@ -1017,7 +1019,10 @@
       "downgradeTitle": "Ältere Version",
       "downgrade": "Dies installiert Version {{version}}, die älter ist als die installierte Version {{installed}}. Eine ältere Version kann Daten, die eine neuere geschrieben hat, eventuell nicht lesen.",
       "downgradeConfirm": "Ich möchte die ältere Version installieren"
-    }
+    },
+    "progress": "{{name}} wird aus einer Datei installiert. Es läuft im Hintergrund.",
+    "failedTitle": "Die Installation von {{name}} aus einer Datei ist fehlgeschlagen",
+    "failedHint": "Die Datei bleibt eine Stunde erhalten. Wählen Sie „Erneut versuchen“, um sie noch einmal zu verwenden."
   },
   "notice": {
     "enableFailedTitle": "{{name}} konnte nicht eingeschaltet werden",

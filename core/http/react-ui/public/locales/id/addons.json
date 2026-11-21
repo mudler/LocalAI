@@ -649,7 +649,9 @@
     },
     "waitingService": "Layanan add-on sedang dimulai. LocalAI menanyakan pembaruan lagi dalam {{seconds}} dtk.",
     "checkAgain": "Periksa sekarang",
-    "open": "Buka Pembaruan"
+    "open": "Buka Pembaruan",
+    "cancelledNote": "Pembaruan {{name}} dibatalkan. Versi {{version}} tetap berjalan.",
+    "cancelling": "Membatalkan…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -794,7 +796,7 @@
       "body": "Versi {{current}} dari {{name}} tetap berjalan. Jika Anda setuju, versi baru dapat menjalankan aksi ini. Yang baru ditandai.",
       "done": "{{name}} telah diperbarui.",
       "title": "Setujui akses host untuk {{name}} {{version}}",
-      "running": "Pembaruan berjalan di latar belakang. Anda dapat menutup jendela ini; menutupnya tidak menghentikannya. Batalkan dari daftar operasi."
+      "running": "Pembaruan berjalan di latar belakang. Anda dapat menutup jendela ini; menutupnya tidak menghentikan pembaruan. Pilih Batal untuk menghentikannya."
     },
     "asksNothing": "Add-on ini tidak meminta akses host.",
     "blanket": {
@@ -1017,7 +1019,10 @@
       "downgradeTitle": "Versi lebih lama",
       "downgrade": "Ini memasang versi {{version}}, yang lebih lama daripada versi terpasang {{installed}}. Versi yang lebih lama mungkin tidak bisa membaca data yang ditulis versi yang lebih baru.",
       "downgradeConfirm": "Saya ingin memasang versi yang lebih lama"
-    }
+    },
+    "progress": "Memasang {{name}} dari berkas. Proses berjalan di latar belakang.",
+    "failedTitle": "Pemasangan {{name}} dari berkas gagal",
+    "failedHint": "Berkas disimpan satu jam. Pilih Coba lagi untuk memakainya sekali lagi."
   },
   "notice": {
     "enableFailedTitle": "{{name}} tidak dapat diaktifkan",

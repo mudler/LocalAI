@@ -406,3 +406,14 @@ export function groupTiles(tiles, opts) {
   for (const tile of tiles) out.find(g => g.id === groupOf(tile, opts)).tiles.push(tile)
   return out.filter(g => g.tiles.length > 0)
 }
+
+// The entry of the install from a file whose dialog was closed, as an
+// operation the row can show: it runs (no queue, no stop) or it failed, with
+// the words of the failure. The server runs a file install inline, so it has
+// no job to cancel.
+export function fileOperation(file, id) {
+  return {
+    jobID: `file:${id}`, addonId: id, isAddon: true, taskType: 'upgrade', state: file.state, phase: 'working', progress: 0, cancellable: false,
+    fileFailure: file.state === 'failed' ? { outcome: file.outcome, error: file.error } : null,
+  }
+}

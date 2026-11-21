@@ -649,7 +649,9 @@
     },
     "waitingService": "插件服务正在启动。LocalAI 将在 {{seconds}} 秒后再次查询更新状态。",
     "checkAgain": "立即检查",
-    "open": "打开更新"
+    "open": "打开更新",
+    "cancelledNote": "{{name}} 的更新已取消。版本 {{version}} 继续运行。",
+    "cancelling": "正在取消…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -794,7 +796,7 @@
       "body": "{{name}} 的 {{current}} 版本继续运行。批准后，新版本可以运行这些操作。新增项已标出。",
       "done": "{{name}} 已更新。",
       "title": "批准 {{name}} {{version}} 的主机访问",
-      "running": "更新在后台运行。您可以关闭此窗口，关闭不会停止它。可在操作列表中取消。"
+      "running": "更新在后台运行。您可以关闭此窗口，关闭不会停止它。选择“取消”可停止。"
     },
     "asksNothing": "此插件不请求主机访问。",
     "blanket": {
@@ -1017,7 +1019,10 @@
       "downgradeTitle": "较旧的版本",
       "downgrade": "这会安装 {{version}} 版本，它比已安装的 {{installed}} 版本更旧。较旧的版本可能无法读取较新版本写入的数据。",
       "downgradeConfirm": "我要安装较旧的版本"
-    }
+    },
+    "progress": "正在从文件安装 {{name}}。它在后台运行。",
+    "failedTitle": "从文件安装 {{name}} 失败",
+    "failedHint": "文件会保留一小时。选择“重试”即可再次使用它。"
   },
   "notice": {
     "enableFailedTitle": "无法打开 {{name}}",

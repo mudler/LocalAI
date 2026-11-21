@@ -53,11 +53,12 @@ export function busyAddonIds(operations) {
 }
 
 // The body of the queue request from the approvals of the dialog (the body that
-// approvalBody builds). The action is not sent: the queue only installs.
+// approvalBody builds). The action is sent only for an upgrade of an installed
+// add-on: the queue installs unless told otherwise.
 export function queueBody(approvals) {
   const items = (Array.isArray(approvals) ? approvals : []).slice(0, MAX_QUEUE_ITEMS).map(a => {
-    const { operationId, sourceId, addonId, version, approve } = a
-    return { operationId, sourceId, addonId, version, approve }
+    const { operationId, sourceId, addonId, version, approve, action } = a
+    return { operationId, ...(action === 'upgrade' ? { action } : {}), sourceId, addonId, version, approve }
   })
   return { items }
 }

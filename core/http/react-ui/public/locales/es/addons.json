@@ -649,7 +649,9 @@
     },
     "waitingService": "El servicio de complementos se está iniciando. LocalAI vuelve a preguntar por la actualización en {{seconds}} s.",
     "checkAgain": "Comprobar ahora",
-    "open": "Abrir Actualizaciones"
+    "open": "Abrir Actualizaciones",
+    "cancelledNote": "La actualización de {{name}} se canceló. La versión {{version}} sigue en ejecución.",
+    "cancelling": "Cancelando…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -794,7 +796,7 @@
       "body": "La versión {{current}} de {{name}} sigue funcionando. Si apruebas, la nueva versión puede ejecutar estas acciones. Las nuevas están marcadas.",
       "done": "{{name}} se actualizó.",
       "title": "Aprobar el acceso al host de {{name}} {{version}}",
-      "running": "La actualización se ejecuta en segundo plano. Puede cerrar esta ventana; cerrarla no la detiene. Cancélela desde la lista de operaciones."
+      "running": "La actualización se ejecuta en segundo plano. Puede cerrar esta ventana; cerrarla no la detiene. Elija Cancelar para detenerla."
     },
     "asksNothing": "Este complemento no pide acceso al host.",
     "blanket": {
@@ -1017,7 +1019,10 @@
       "downgradeTitle": "Versión anterior",
       "downgrade": "Esto instala la versión {{version}}, que es anterior a la versión instalada {{installed}}. Una versión anterior puede no leer los datos que escribió una más nueva.",
       "downgradeConfirm": "Quiero instalar la versión anterior"
-    }
+    },
+    "progress": "Instalando {{name}} desde un archivo. Se ejecuta en segundo plano.",
+    "failedTitle": "Falló la instalación de {{name}} desde un archivo",
+    "failedHint": "El archivo se conserva una hora. Elija Reintentar para usarlo de nuevo."
   },
   "notice": {
     "enableFailedTitle": "No se pudo activar {{name}}",

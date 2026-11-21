@@ -649,7 +649,9 @@
     },
     "waitingService": "O serviço de complementos está iniciando. O LocalAI pergunta de novo sobre a atualização em {{seconds}} s.",
     "checkAgain": "Verificar agora",
-    "open": "Abrir Atualizações"
+    "open": "Abrir Atualizações",
+    "cancelledNote": "A atualização de {{name}} foi cancelada. A versão {{version}} continua em execução.",
+    "cancelling": "Cancelando…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -794,7 +796,7 @@
       "body": "A versão {{current}} de {{name}} continua rodando. Se você aprovar, a nova versão pode executar estas ações. As novas estão marcadas.",
       "done": "{{name}} foi atualizado.",
       "title": "Aprovar o acesso ao host de {{name}} {{version}}",
-      "running": "A atualização roda em segundo plano. Você pode fechar esta janela; fechá-la não a interrompe. Cancele-a na lista de operações."
+      "running": "A atualização roda em segundo plano. Você pode fechar esta janela; fechá-la não a interrompe. Escolha Cancelar para interrompê-la."
     },
     "asksNothing": "Este add-on não pede acesso ao host.",
     "blanket": {
@@ -1017,7 +1019,10 @@
       "downgradeTitle": "Versão mais antiga",
       "downgrade": "Isto instala a versão {{version}}, que é mais antiga que a versão instalada {{installed}}. Uma versão mais antiga pode não ler dados escritos por uma mais nova.",
       "downgradeConfirm": "Quero instalar a versão mais antiga"
-    }
+    },
+    "progress": "Instalando {{name}} a partir de um arquivo. Ele roda em segundo plano.",
+    "failedTitle": "Falha ao instalar {{name}} a partir de um arquivo",
+    "failedHint": "O arquivo fica guardado por uma hora. Escolha Tentar de novo para usá-lo outra vez."
   },
   "notice": {
     "enableFailedTitle": "Não foi possível ativar {{name}}",

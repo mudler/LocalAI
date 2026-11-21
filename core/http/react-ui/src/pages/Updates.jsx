@@ -340,10 +340,9 @@ function UpdatesPage({ updates }) {
       {actions.review && (
         <ApproveUpgradeDialog
           addon={actions.review}
-          api={addonsApi}
-          actions={actions.addonActions}
+          upgrade={actions.confirmApi}
           onClose={() => actions.setReview(null)}
-          onDone={() => { actions.setReview(null); updates.readAddons() }}
+          onDone={(done) => { actions.setReview(cur => (cur && cur.id === done.id ? null : cur)); updates.readAddons() }}
         />
       )}
       <BulkUpgradeDialog bulk={bulk} />
