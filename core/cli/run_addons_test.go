@@ -269,7 +269,7 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 })
 
 var _ = Describe("oci:// add-on library without credentials", Serial, func() {
-	const warning = "private registries need a credentials file; set LOCALAI_CREDENTIALS_FILE"
+	const warning = "a private registry needs a credentials file rule (set LOCALAI_CREDENTIALS_FILE) or a docker login"
 	var (
 		logs *bytes.Buffer
 		dir  string

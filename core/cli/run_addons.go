@@ -200,7 +200,7 @@ func warnOCISourcesWithoutCredentials(dataPath string, official, backendLibrary 
 	for _, e := range store.Entries() {
 		if e.Kind == catalog.KindAddon && e.Format != catalog.FormatGallery && e.Enabled && !e.Removed && !e.Suspended &&
 			strings.HasPrefix(e.URL, "oci://") {
-			xlog.Warn("An add-on library is read from an oci:// address and no credentials file is loaded: private registries need a credentials file; set LOCALAI_CREDENTIALS_FILE", "source", e.ID)
+			xlog.Warn("An add-on library is read from an oci:// address and no credentials file is loaded: a private registry needs a credentials file rule (set LOCALAI_CREDENTIALS_FILE) or a docker login", "source", e.ID)
 			return
 		}
 	}

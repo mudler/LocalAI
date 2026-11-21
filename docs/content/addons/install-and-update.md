@@ -522,7 +522,7 @@ keep the secret in the environment:
 
 Without a matching rule or docker login, a private registry answers `401` or `403` and
 the source refresh fails with a credential error. At start, LocalAI logs one warning when
-an `oci://` add-on library is on and no credentials file was loaded.
+an `oci://` add-on library is on and no credentials file was loaded. The warning also shows for a setup that relies on docker login alone; it is then only a reminder.
 
 The add-on owner process reads the credentials file, not the browser and not a frontend.
 Put the file, and the variables it names, on the machine where the add-on owner runs.
