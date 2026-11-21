@@ -56,7 +56,7 @@ async function mockOnline(page, options = {}) {
   const {
     results = RESULTS, pf = [PF('acme/Peer'), PF('acme/Locked-P2P', { gated: true })],
     estimate = () => estimateFor({ Q4_K_M: 4 * GB, Q5_K_M: 5 * GB, Q8_0: 8 * GB }, 'Q4_K_M'),
-    estimateDelay = 0, searchDelay = {}, filesFor = (id) => FILES(id), searchStatus = {}, jobProgress = [40, 100],
+    estimateDelay = 0, estimateHold = null, searchDelay = {}, filesFor = (id) => FILES(id), searchStatus = {}, jobProgress = [40, 100],
   } = options
   const seen = { search: [], files: [], estimate: [], imports: [], jobs: 0 }
   // The installed sources and the enabled set: Hugging Face, and Pirate Face as
@@ -94,6 +94,9 @@ async function mockOnline(page, options = {}) {
     const q = new URL(route.request().url()).searchParams
     seen.estimate.push({ uri: q.get('uri'), contexts: q.get('contexts'), file: q.get('file') })
     if (estimateDelay) await new Promise(r => setTimeout(r, estimateDelay))
+    // A promise the spec settles when the estimate may arrive: no clock, so a
+    // slow runner cannot let the answer in before the spec looks for the wait.
+    if (estimateHold) await estimateHold
     const out = estimate(q.get('uri'))
     if (out === 'hang') return
     if (out === 429) return route.fulfill({ status: 429, headers: { 'retry-after': '60' }, json: { error: { message: 'rate limited' } } })
@@ -195,9 +198,12 @@ test.describe('Explore: online sources', () => {
   })
 
   test('a row says sizing until its estimate arrives, then shows size and fit', async ({ page }) => {
-    await openSource(page, 'huggingface', 'tiny', { estimateDelay: 1200 })
+    let release
+    const estimateHold = new Promise(resolve => { release = resolve })
+    await openSource(page, 'huggingface', 'tiny', { estimateHold })
     const r = row(page, 'huggingface:acme/Tiny-GGUF')
     await expect(r.locator('.ledger-fit')).toContainText(/sizing/i)
+    release()
     await expect(r.locator('.ledger-fit[data-fit="fits"]')).toBeVisible({ timeout: 10_000 })
     await expect(r.locator('.ledger-size')).toContainText('4.0')
   })

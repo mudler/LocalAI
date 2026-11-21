@@ -2116,7 +2116,8 @@
           "answers an unknown lifecycle operation with its own type, not as a denial",
           "carries the jobs tool of an app, which the public apps API leaves out",
           "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
-          "carries the credential-slot words and the translated resource nouns of an app"
+          "carries the credential-slot words and the translated resource nouns of an app",
+          "names the signer of a package from a signed source that is not official"
         ]
       },
       {
@@ -3676,7 +3677,8 @@
           "answers an unknown lifecycle operation with its own type, not as a denial",
           "carries the jobs tool of an app, which the public apps API leaves out",
           "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
-          "carries the credential-slot words and the translated resource nouns of an app"
+          "carries the credential-slot words and the translated resource nouns of an app",
+          "names the signer of a package from a signed source that is not official"
         ]
       },
       {
@@ -3953,7 +3955,8 @@
           "writes the field names setup, setups and localizedSetup",
           "names the scopes of an OAuth login, and nothing of a token slot",
           "tells an administrator whether an add-on comes from the official library, and nobody else",
-          "names the jobs tool of an execution provider, and none for an add-on without one"
+          "names the jobs tool of an execution provider, and none for an add-on without one",
+          "shows the signer of an add-on only when the receipt says the signature was checked"
         ]
       },
       {
