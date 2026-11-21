@@ -1121,6 +1121,7 @@
           "renders an empty declaration for a manifest that requests none, and sorts the names",
           "reads an index that predates the hint, with no hint rather than an empty one",
           "keeps the host operations out of the index by default, so a host that predates the field still reads it",
+          "carries the hint of its manifest on every entry of the committed development index",
           "adds the host operations to an existing index only when asked to, and removes them again",
           "translates the title and the description of mail in every main language",
           "gives every translated connector kind of mail the fields of its English kind, and no others",

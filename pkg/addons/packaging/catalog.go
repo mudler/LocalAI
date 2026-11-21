@@ -197,7 +197,7 @@ func cmdCatalogTools(args []string) error {
 	fs := flag.NewFlagSet("catalog-tools", flag.ContinueOnError)
 	index := fs.String("index", "gallery/addons/index.yaml", "library index to update")
 	addons := fs.String("addons", "addons", "directory that holds addons/<id>/manifest.json")
-	withHostOps := fs.Bool("host-operations-in-index", false, "write the hostOperations hint of each add-on. A host that predates the field refuses the whole index, so use it for a release index only")
+	withHostOps := fs.Bool("host-operations-in-index", false, "write the hostOperations hint of each add-on. A host that predates the field refuses the whole index")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -285,7 +285,7 @@ func cmdCatalog(args []string) error {
 	root := fs.String("root", ".", "with --from-manifest: repository root that the manifest path of the platform matrix is relative to")
 	fromManifest := fs.Bool("from-manifest", false, "development channel only: render from the manifest and the enabled platforms, without a built package")
 	featureLevelInIndex := fs.Bool("feature-level-in-index", false, "write requires.featureLevel for an add-on that needs more than level 1. A host that predates the field refuses the whole index, so leave it off while such hosts are in use")
-	hostOpsInIndex := fs.Bool("host-operations-in-index", false, "write the hostOperations hint of each add-on entry. A host that predates the field refuses the whole index, so use it for a release index only, which a host reads from its own release")
+	hostOpsInIndex := fs.Bool("host-operations-in-index", false, "write the hostOperations hint of each add-on entry. A host that predates the field refuses the whole index")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

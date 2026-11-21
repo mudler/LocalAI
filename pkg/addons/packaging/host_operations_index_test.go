@@ -97,6 +97,17 @@ var _ = Describe("host operations in the library index", func() {
 			}
 		}
 	})
+	It("carries the hint of its manifest on every entry of the committed development index", func() {
+		raw, err := os.ReadFile("../../../gallery/addons/index.yaml")
+		Expect(err).NotTo(HaveOccurred())
+		entries, err := readCatalogIndex(raw)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(entries).NotTo(BeEmpty())
+		for _, e := range entries {
+			Expect(e.HostOperations).NotTo(BeNil(), e.ID)
+			Expect(*e.HostOperations).To(Equal(*manifestOps(e.ID)), e.ID)
+		}
+	})
 	It("adds the host operations to an existing index only when asked to, and removes them again", func() {
 		raw, err := os.ReadFile("../../../gallery/addons/index.yaml")
 		Expect(err).NotTo(HaveOccurred())
@@ -119,6 +130,8 @@ var _ = Describe("host operations in the library index", func() {
 		_, err = run("catalog-tools", "--index", index, "--addons", "../../../addons")
 		Expect(err).NotTo(HaveOccurred())
 		without, _ := os.ReadFile(index)
-		Expect(string(without)).To(Equal(string(raw)))
+		stripped := regexp.MustCompile(`(?m)^  hostOperations:.*\n(    .*\n)*`).ReplaceAll(raw, nil)
+		Expect(string(stripped)).NotTo(ContainSubstring("hostOperations"))
+		Expect(string(without)).To(Equal(string(stripped)), "without the flag the hint is removed and nothing else changes")
 	})
 })
