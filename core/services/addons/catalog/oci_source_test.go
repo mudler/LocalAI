@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/sigstore/sigstore-go/pkg/root"
 	oras "oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/memory"
@@ -82,7 +83,9 @@ func expireLibraryCache(s *Sources, src Source) {
 func stubLibraryVerifier(f func(context.Context, VerificationPolicy, string) error) {
 	GinkgoHelper()
 	original := verifyLibraryArtifact
-	verifyLibraryArtifact = f
+	verifyLibraryArtifact = func(ctx context.Context, p VerificationPolicy, ref string, _ root.TrustedMaterial) error {
+		return f(ctx, p, ref)
+	}
 	DeferCleanup(func() { verifyLibraryArtifact = original })
 }
 

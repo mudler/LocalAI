@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 	"github.com/mudler/xlog"
+	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
 // AdminCheck must revalidate current identity, credential and administrator role
@@ -149,6 +150,10 @@ type Sources struct {
 	// officialOff is the official-libraries switch: when set, every shipped
 	// default is suspended (see Source.Suspended).
 	officialOff bool
+	// signatureTrust replaces the public Sigstore trust root for the
+	// signature check of an oci:// library, as Installer.SignatureTrust does
+	// for packages. Nil, the only value outside tests, keeps the public root.
+	signatureTrust root.TrustedMaterial
 }
 
 var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
