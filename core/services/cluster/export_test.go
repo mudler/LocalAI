@@ -14,3 +14,6 @@ func (m *Membership) SetInterval(d time.Duration) { m.interval = d }
 
 // Tick runs one pass of the loop on the calling goroutine.
 func (m *Membership) Tick(ctx context.Context) { m.tick(ctx) }
+
+// SetNow replaces the clock of the join token store.
+func (s *JoinTokenStore) SetNow(now func() time.Time) { s.now = now }

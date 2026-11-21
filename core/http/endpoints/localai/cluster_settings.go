@@ -64,6 +64,7 @@ func settingsView(all map[string]string) ClusterSettingsView {
 	view := ClusterSettingsView{
 		CarrierWeights:        cluster.CarrierWeightsFrom(all),
 		CarrierWeightsDefault: cluster.DefaultCarrierWeights,
+		JoinAutoApprove:       cluster.JoinAutoApproveFrom(all),
 	}
 	if v := all[cluster.SettingNATSURL]; v != "" {
 		view.NATSURL = cluster.PublicNATSURL(v)
@@ -87,6 +88,10 @@ type ClusterSettingsView struct {
 	CarrierWeights cluster.CarrierWeights `json:"carrier_weights"`
 	// CarrierWeightsDefault are the weights that apply when none is stored.
 	CarrierWeightsDefault cluster.CarrierWeights `json:"carrier_weights_default"`
+	// JoinAutoApprove is the default of the auto-approve choice of a new join
+	// token: when true, a worker that registers with such a token joins with no
+	// admin approval. Off unless set.
+	JoinAutoApprove bool `json:"join_auto_approve"`
 }
 
 // ReplicaView is one live frontend replica.
@@ -144,6 +149,9 @@ type ClusterSettingsRequest struct {
 	// number from 0 to 1000. A key that is absent stays as it is, null puts the
 	// default back, and a key that is not one of the three is refused.
 	CarrierWeights map[string]*int `json:"carrier_weights"`
+	// JoinAutoApprove sets the default of the auto-approve choice of a new join
+	// token. null puts the default (off) back.
+	JoinAutoApprove *bool `json:"join_auto_approve"`
 }
 
 // natsCheckTimeout bounds the reachability check of a saved URL.
@@ -161,7 +169,7 @@ const natsCheckTimeout = 8 * time.Second
 // are shared, and the credentials of NATS stay on each replica.
 //
 // @Summary Store settings of the cluster
-// @Description Stores the NATS address, the address workers use, or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it; the frontends use a new address after a restart. Admin only.
+// @Description Stores the NATS address, the address workers use, join_auto_approve (the default of the auto-approve choice of a new join token, off unless set), or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it; the frontends use a new address after a restart. Admin only.
 // @Tags Nodes
 // @Param request body localai.ClusterSettingsRequest true "settings to store"
 // @Success 200 {object} map[string]interface{} "saved, nats.reachable when a NATS address was checked, settings"
@@ -229,6 +237,9 @@ func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker) e
 				continue
 			}
 			batch = append(batch, cluster.SettingChange{Key: ch.key, Value: *ch.val, Clear: *ch.val == ""})
+		}
+		if req.JoinAutoApprove != nil {
+			batch = append(batch, cluster.SettingChange{Key: cluster.SettingJoinAutoApprove, Value: strconv.FormatBool(*req.JoinAutoApprove)})
 		}
 		// In name order, so that two requests that carry the same weights take the
 		// row locks in the same order.

@@ -695,10 +695,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterClusterRoutes(e, registry, tunnels, instances, onPeer)
 	var clusterAdmin routes.ClusterAdmin
 	if d := application.Distributed(); d != nil {
-		clusterAdmin = routes.ClusterAdmin{Settings: d.Settings, NATS: d.NATS, State: d.NATS}
+		clusterAdmin = routes.ClusterAdmin{Settings: d.Settings, NATS: d.NATS, State: d.NATS, JoinTokens: d.JoinTokens}
 	}
 	routes.RegisterClusterAdminRoutes(e, adminMiddleware, clusterAdmin)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial, registerOpts...)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.WorkerAuthToken(), natsCfg, workerHTTPDial, registerOpts...)
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)

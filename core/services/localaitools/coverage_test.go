@@ -146,6 +146,11 @@ var adminRoutesWithoutTool = map[string]string{
 	"DELETE /api/remotes/:id":       "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"POST /api/remotes/:id/refresh": "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"POST /api/remotes/:id/adopt":   "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	// A join token is a credential shown once: a person mints it on the Nodes
+	// page and passes it on, like a P2P invite. It must not pass through a chat.
+	"POST /api/cluster/join-tokens":       "the token is a credential shown once: a person mints it and passes it on",
+	"GET /api/cluster/join-tokens":        "the list of join tokens is read on the Nodes page; minting stays a person's act",
+	"DELETE /api/cluster/join-tokens/:id": "revoking a join token is done on the Nodes page next to the list",
 	// P2P: an invite link and a relay claim code are credentials that must
 	// not pass through a chat; a new identity unpairs every device; the
 	// relay admin and the mode are set on the Swarm, P2P page.

@@ -13608,6 +13608,126 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/cluster/join-tokens": {
+            "get": {
+                "description": "Lists the join tokens with their state (unused, partly_used, used_up, expired, revoked), the uses left, the connections they allow and who minted them. A token stays in the list for a day after it ends. The secret is never in the list. Admin only.",
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "List the join tokens",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/localai.JoinTokenView"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Distributed mode is not enabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Mints a random join token that lets a worker register with the cluster. It is good for 10 minutes and one use unless the request says otherwise (up to 24 hours and 100 uses, for Kubernetes or Compose), it can limit the connections of the worker (nats, websocket; P2P workers use their own invite), and a worker that uses it waits for an admin approval unless auto_approve is true (the default comes from the cluster setting join_auto_approve, off unless set). The server keeps only a hash of the token. The response carries the plain token and ready-to-copy commands for each way to run a worker (install script, Windows, docker, docker compose, kubernetes, manual), built from the external URL of this frontend; it is the only time the plain token is shown. Admin only.",
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Mint a join token for a worker",
+                "parameters": [
+                    {
+                        "description": "token options",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.MintJoinTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/localai.MintJoinTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "A limit is out of range or a connection is unknown",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Distributed mode is not enabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/cluster/join-tokens/{id}": {
+            "delete": {
+                "description": "Ends a join token at once. A worker that already registered with it keeps its own credential; revoke the node to end that. Admin only.",
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Revoke a join token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "join token id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Distributed mode is not enabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/cluster/settings": {
             "get": {
                 "description": "Returns the NATS address of the frontends and of the workers, the carrier weights (nats, websocket, p2p) that break a tie between equally fit nodes, the broadcast bus of the frontend that answers (nats while it reaches the NATS server, postgres otherwise), and the live frontend replicas. A user name, password or query string in an address is dropped. Admin only.",
@@ -13634,7 +13754,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Stores the NATS address, the address workers use, or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it; the frontends use a new address after a restart. Admin only.",
+                "description": "Stores the NATS address, the address workers use, join_auto_approve (the default of the auto-approve choice of a new join token, off unless set), or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it; the frontends use a new address after a restart. Admin only.",
                 "tags": [
                     "Nodes"
                 ],
@@ -25458,6 +25578,10 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "join_auto_approve": {
+                    "description": "JoinAutoApprove sets the default of the auto-approve choice of a new join\ntoken. null puts the default (off) back.",
+                    "type": "boolean"
+                },
                 "nats_url": {
                     "type": "string"
                 },
@@ -25492,6 +25616,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/cluster.CarrierWeights"
                         }
                     ]
+                },
+                "join_auto_approve": {
+                    "description": "JoinAutoApprove is the default of the auto-approve choice of a new join\ntoken: when true, a worker that registers with such a token joins with no\nadmin approval. Off unless set.",
+                    "type": "boolean"
                 },
                 "nats_url": {
                     "description": "NATSURL is the NATS address that the frontends use.",
@@ -25674,6 +25802,84 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.JoinCommands": {
+            "type": "object",
+            "properties": {
+                "docker": {
+                    "description": "Docker runs the worker as one container.",
+                    "type": "string"
+                },
+                "docker_compose": {
+                    "description": "DockerCompose is a compose file with one worker service.",
+                    "type": "string"
+                },
+                "install_script": {
+                    "description": "InstallScript installs the binary and a service on a Linux or macOS host.",
+                    "type": "string"
+                },
+                "kubernetes": {
+                    "description": "Kubernetes applies a Secret and a StatefulSet.",
+                    "type": "string"
+                },
+                "manual": {
+                    "description": "Manual starts a worker from a binary that is already installed.",
+                    "type": "string"
+                },
+                "windows": {
+                    "description": "Windows installs the binary and a service on a Windows host (PowerShell).",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.JoinTokenView": {
+            "type": "object",
+            "properties": {
+                "auto_approve": {
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "max_uses": {
+                    "type": "integer"
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "revoked_by": {
+                    "type": "string"
+                },
+                "routes": {
+                    "description": "nats, websocket; empty means any",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "description": "unused, partly_used, used_up, expired or revoked",
+                    "type": "string"
+                },
+                "uses": {
+                    "type": "integer"
+                }
+            }
+        },
         "localai.LibrarySourcesResponse": {
             "type": "object",
             "properties": {
@@ -25685,6 +25891,95 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/library.Info"
                     }
+                }
+            }
+        },
+        "localai.MintJoinTokenRequest": {
+            "type": "object",
+            "properties": {
+                "auto_approve": {
+                    "description": "AutoApprove makes the worker that uses the token join with no admin step.",
+                    "type": "boolean"
+                },
+                "label": {
+                    "description": "Label is a note for the list, for example the name of the machine.",
+                    "type": "string"
+                },
+                "routes": {
+                    "description": "Routes limits the connections of the worker: nats, websocket. Empty allows any.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ttl_seconds": {
+                    "description": "TTLSeconds is how long the token is good for, up to 86400 (24 hours).",
+                    "type": "integer"
+                },
+                "uses": {
+                    "description": "Uses is how many workers may register with it, up to 100. Use more than\none for Kubernetes and Compose, where several replicas start together.",
+                    "type": "integer"
+                }
+            }
+        },
+        "localai.MintJoinTokenResponse": {
+            "type": "object",
+            "properties": {
+                "auto_approve": {
+                    "type": "boolean"
+                },
+                "commands": {
+                    "description": "Commands are ready to copy, one for each way to run a worker.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/localai.JoinCommands"
+                        }
+                    ]
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "max_uses": {
+                    "type": "integer"
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "revoked_by": {
+                    "type": "string"
+                },
+                "routes": {
+                    "description": "nats, websocket; empty means any",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "description": "unused, partly_used, used_up, expired or revoked",
+                    "type": "string"
+                },
+                "token": {
+                    "description": "Token is the plain token. It is shown once.",
+                    "type": "string"
+                },
+                "uses": {
+                    "type": "integer"
                 }
             }
         },

@@ -98,6 +98,13 @@ type DistributedServices struct {
 	// Settings holds the settings that decide what the whole cluster does: the
 	// NATS addresses and the carrier weights.
 	Settings *cluster.SettingsStore
+	// JoinTokens holds the join tokens that admins mint for workers. It lives
+	// in the database, so every replica reads the same tokens and a token that
+	// one replica spends is spent on all of them.
+	JoinTokens *cluster.JoinTokenStore
+	// JoinLimiter throttles the callers of this replica that present a join
+	// token that is not valid.
+	JoinLimiter *cluster.JoinFailureLimiter
 	// NATS is the NATS server of the cluster as this replica uses it: what a
 	// worker is handed at registration, the check of a new address, and the
 	// bus that this replica publishes on.
@@ -237,6 +244,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	settingsStore, err := cluster.NewSettingsStore(authDB)
 	if err != nil {
 		return nil, fmt.Errorf("initializing cluster settings: %w", err)
+	}
+	joinTokens, err := cluster.NewJoinTokenStore(authDB)
+	if err != nil {
+		return nil, err
 	}
 	if err := adoptNATSURL(context.Background(), settingsStore, cfg.Distributed.NatsURL, cfg.Distributed.InstanceID); err != nil {
 		return nil, err
@@ -689,6 +700,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	return &DistributedServices{
 		Membership:   membership,
 		Settings:     settingsStore,
+		JoinTokens:   joinTokens,
+		JoinLimiter:  cluster.NewJoinFailureLimiter(10, time.Minute),
 		NATS:         natsRT,
 		Tunnels:      tunnels,
 		Instances:    clusterReg,

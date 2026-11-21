@@ -33,6 +33,11 @@ const (
 	SettingCarrierWeightNATS      = "routing.carrier_weights.nats"
 	SettingCarrierWeightWebSocket = "routing.carrier_weights.websocket"
 	SettingCarrierWeightP2P       = "routing.carrier_weights.p2p"
+
+	// SettingJoinAutoApprove is the default of the auto-approve choice when an
+	// admin mints a join token. "true" makes a new token approve the worker that
+	// uses it, with no admin step. It is off when it is not stored.
+	SettingJoinAutoApprove = "join.auto_approve"
 )
 
 // Carrier weights are whole numbers in this range. 0 means "use this carrier
@@ -108,6 +113,22 @@ var knownSettings = map[string]func(string) error{
 	SettingCarrierWeightNATS:      carrierWeightSetting,
 	SettingCarrierWeightWebSocket: carrierWeightSetting,
 	SettingCarrierWeightP2P:       carrierWeightSetting,
+
+	SettingJoinAutoApprove: boolSetting,
+}
+
+func boolSetting(v string) error {
+	if _, err := strconv.ParseBool(v); err != nil {
+		return fmt.Errorf("not true or false: %q", v)
+	}
+	return nil
+}
+
+// JoinAutoApproveFrom reads the default of the auto-approve choice of a new join
+// token from the stored settings. It is false unless the setting says true.
+func JoinAutoApproveFrom(all map[string]string) bool {
+	v, err := strconv.ParseBool(all[SettingJoinAutoApprove])
+	return err == nil && v
 }
 
 // CheckSetting says whether value may be stored for key. It stores nothing, so a

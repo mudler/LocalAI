@@ -40,23 +40,38 @@ type ClusterAdmin struct {
 	Settings localai.ClusterSettings
 	NATS     localai.NATSChecker
 	State    localai.ClusterState
+	// JoinTokens is the store of join tokens. Nil on a frontend that is not
+	// distributed.
+	JoinTokens localai.JoinTokens
 }
+
+// ClusterJoinTokensPath is the admin API of the join tokens of workers.
+const ClusterJoinTokensPath = "/api/cluster/join-tokens"
 
 // RegisterClusterAdminRoutes registers the admin API of the cluster:
 //
 //	GET  /api/cluster/settings  the settings, the broadcast bus of this frontend and the live frontends
 //	PUT  /api/cluster/settings  store a NATS address or the carrier weights
+//	POST   /api/cluster/join-tokens      mint a join token and the commands that carry it
+//	GET    /api/cluster/join-tokens      list the join tokens and their state
+//	DELETE /api/cluster/join-tokens/:id  revoke a join token
 //
 // The routes are registered on every frontend, as the connect route is, so that
 // the route coverage test walks them and a frontend that is not distributed
 // answers 503 and not 404. The admin middleware runs first.
 func RegisterClusterAdminRoutes(e *echo.Echo, adminMw echo.MiddlewareFunc, admin ClusterAdmin) {
-	if admin.Settings == nil || admin.NATS == nil || admin.State == nil {
+	if admin.Settings == nil || admin.NATS == nil || admin.State == nil || admin.JoinTokens == nil {
 		unavailable := localai.UnavailableClusterEndpoint()
 		e.GET(ClusterSettingsPath, unavailable, adminMw)
 		e.PUT(ClusterSettingsPath, unavailable, adminMw)
+		e.POST(ClusterJoinTokensPath, unavailable, adminMw)
+		e.GET(ClusterJoinTokensPath, unavailable, adminMw)
+		e.DELETE(ClusterJoinTokensPath+"/:id", unavailable, adminMw)
 		return
 	}
+	e.POST(ClusterJoinTokensPath, localai.MintJoinTokenEndpoint(admin.JoinTokens, admin.Settings), adminMw)
+	e.GET(ClusterJoinTokensPath, localai.ListJoinTokensEndpoint(admin.JoinTokens), adminMw)
+	e.DELETE(ClusterJoinTokensPath+"/:id", localai.RevokeJoinTokenEndpoint(admin.JoinTokens), adminMw)
 	e.GET(ClusterSettingsPath, localai.GetClusterSettingsEndpoint(admin.Settings, admin.State), adminMw)
 	e.PUT(ClusterSettingsPath, localai.PutClusterSettingsEndpoint(admin.Settings, admin.NATS), adminMw)
 }

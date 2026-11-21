@@ -246,8 +246,11 @@ var _ = Describe("Route auth coverage", func() {
 	// distributed, and they exist whatever the mode.
 	It("registers the admin routes of the cluster and refuses an anonymous caller", func() {
 		want := map[string]bool{
-			http.MethodGet + " /api/cluster/settings": false,
-			http.MethodPut + " /api/cluster/settings": false,
+			http.MethodGet + " /api/cluster/settings":           false,
+			http.MethodPut + " /api/cluster/settings":           false,
+			http.MethodPost + " /api/cluster/join-tokens":       false,
+			http.MethodGet + " /api/cluster/join-tokens":        false,
+			http.MethodDelete + " /api/cluster/join-tokens/:id": false,
 		}
 		for _, r := range app.Routes() {
 			if _, ok := want[r.Method+" "+r.Path]; ok {
