@@ -32,9 +32,9 @@ type VerificationPolicy struct {
 	// IdentityRegex is an anchored pattern for the signer identity, used
 	// instead of Identity so that master and tagged builds both verify. A
 	// backend install accepts it alone. An add-on install and an oci:// add-on
-	// library accept it only with SourceRepository (see ValidForAddon): a
-	// shared signing workflow signs for every repository that calls it, so
-	// the pattern alone would admit a signature made for any of them.
+	// library accept it only with SourceRepository: a shared signing workflow
+	// signs for every repository that calls it, so the pattern alone would
+	// admit a signature made for any of them.
 	IdentityRegex string `json:"identityRegex,omitempty" yaml:"identityRegex,omitempty"`
 	// SourceRepository pins the repository the signature was made for: an
 	// https URL compared exactly with the source-repository extension of the

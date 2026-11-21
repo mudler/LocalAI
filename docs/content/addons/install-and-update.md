@@ -497,7 +497,7 @@ routes, so they do not need the add-ons owner to run. On a frontend they go to t
 | Method and path | What it does |
 |---|---|
 | `GET /api/library/sources` | List every source of all kinds, tombstones included |
-| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery", "issuer": "...", "identity": "..."}`. `id`, `name`, `format`, `issuer` and `identity` are optional. `issuer` and `identity` go together and apply to an `oci://` add-on library only: its artifact must then be signed by that issuer and that exact identity, for example `{"kind": "addon", "url": "oci://registry.example/fixture-addon/library:1", "issuer": "https://issuer.example", "identity": "signer@registry.example"}`. One without the other, or either on another kind of source, is `400`. An identity pattern is not accepted. The same kind and URL twice, or a taken id, is `409`. An add-on library at an `http` address of this machine is `400`: the owner refuses packages that do not come over `https`, so such a library would never list anything |
+| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery", "issuer": "...", "identity": "...", "identity_regex": "...", "source_repository": "..."}`. `id`, `name`, `format`, `issuer`, `identity`, `identity_regex` and `source_repository` are optional. `issuer` and `identity` go together and apply to an `oci://` add-on library only: its artifact must then be signed by that issuer and that exact identity, for example `{"kind": "addon", "url": "oci://registry.example/fixture-addon/library:1", "issuer": "https://issuer.example", "identity": "signer@registry.example"}`. One without the other, or either on another kind of source, is `400`. `identity_regex` can take the place of `identity` only together with `source_repository` (see [Signer identity pattern for an add-on library](#signer-identity-pattern-for-an-add-on-library)); a pattern alone is `400`. The same kind and URL twice, or a taken id, is `409`. An add-on library at an `http` address of this machine is `400`: the owner refuses packages that do not come over `https`, so such a library would never list anything |
 | `POST /api/library/sources/{id}/enable` | Turn a source on. This also brings back a removed default |
 | `POST /api/library/sources/{id}/disable` | Turn a source off without removing it |
 | `DELETE /api/library/sources/{id}` | Remove a source. A default leaves a tombstone |
@@ -554,14 +554,44 @@ local-ai library add oci://registry.example/libraries/fixture-addon:1 --kind add
 
 LocalAI then resolves the artifact to a digest, checks that the artifact is signed by
 that issuer and that identity, and only then pulls it. A failed check lists nothing. The
-identity is an exact string. If you write a regular expression, LocalAI stores it as the
-literal text, and it will not match any signer, because patterns are not accepted for
-add-on libraries.
+identity is an exact string. If you write a regular expression in `--identity`, LocalAI
+stores it as the literal text, and it will not match any signer. To name the signer by a
+pattern, use `--identity-regex` with `--source-repository`, as the next section shows.
+
+### Signer identity pattern for an add-on library
+
+A publisher often signs with a shared, reusable signing workflow. The signer identity of
+such a signature names the shared workflow, not the repository that called it, so a
+pattern for that identity also matches a signature that the same workflow made for any
+other repository. For this reason an add-on library accepts a pattern only together with
+the source repository. The source repository is compared exactly with the
+source-repository extension of the signing certificate, so it pins the repository that
+the signature was made for:
+
+```bash
+local-ai library add oci://registry.example/libraries/fixture-addon:1 --kind addon \
+  --issuer https://token.actions.githubusercontent.com \
+  --identity-regex '^https://github\.com/example-org/signing-workflows/\.github/workflows/sign\.yml@refs/tags/v.+$' \
+  --source-repository https://github.com/example-org/example-repo
+```
+
+The REST request takes the same values as `identity_regex` and `source_repository`.
+The rules:
+
+- The pattern must be one expression that starts with `^` and ends with `$`. Set
+  `identity` or `identity_regex`, not both.
+- The source repository is an `https` URL, such as `https://github.com/<owner>/<repo>`,
+  with no spaces around it. It is valid only when a signature is required.
+- A pattern without a source repository is refused for an `oci://` add-on library and
+  for an add-on install. An exact identity is valid with or without a source repository.
+- The Sources editor of the Add-ons page has a Source repository field next to the
+  signer identity and the identity pattern.
 
 The install dialog still warns about an add-on that is not from the official library.
 For an add-on of a library with a pinned signer, the notice reads "Signed by
 `<identity>`. Not reviewed by LocalAI." and names that identity. It is the identity you
-pinned. LocalAI records it when the package is verified, and the catalog never takes it
+pinned. When the library names the signer by a pattern, the notice names the source
+repository instead, because that is the value the check compared exactly. LocalAI records it when the package is verified, and the catalog never takes it
 from the library index. The install confirmation stays.
 
 ## Backends in the library
@@ -670,9 +700,12 @@ workflow signed on master and on a tag both verify:
 
 Set `identity` or `identityRegex`, not both. The pattern must be one expression that
 starts with `^` and ends with `$`. A pattern with a top-level alternation, such as
-`^a|b$`, is refused, because one branch would match a part of the identity only. An
-add-on install refuses a library policy that has a pattern: add-on libraries name the
-signer exactly.
+`^a|b$`, is refused, because one branch would match a part of the identity only. A
+policy can also set `sourceRepository`, the `https` URL of the repository the signature
+must be made for. A backend install accepts a pattern alone. An add-on install accepts
+a pattern only together with `sourceRepository`, and refuses it before it downloads
+anything otherwise (see
+[Signer identity pattern for an add-on library](#signer-identity-pattern-for-an-add-on-library)).
 
 ### Install a backend from a library
 

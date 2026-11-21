@@ -14751,7 +14751,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. issuer and identity, set together, pin the signer of an oci:// add-on library: its artifact must then be signed by that issuer and exact identity (400 otherwise, and on any other source). A source with the same kind and URL is refused (409), as is a taken id. Administrators only.",
+                "description": "Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. issuer and identity, set together, pin the signer of an oci:// add-on library: its artifact must then be signed by that issuer and exact identity (400 otherwise, and on any other source). identity_regex, an anchored pattern, can take the place of identity only together with source_repository, the https URL of the repository the signature must be made for (400 for a pattern alone). source_repository can also go with an exact identity. A source with the same kind and URL is refused (409), as is a taken id. Administrators only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -22466,7 +22466,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "identityRegex": {
-                    "description": "IdentityRegex is an anchored pattern for the signer identity, used\ninstead of Identity so that master and tagged builds both verify. Only a\nlibrary that serves backends may use it; an add-on install refuses it.",
+                    "description": "IdentityRegex is an anchored pattern for the signer identity, used\ninstead of Identity so that master and tagged builds both verify. A\nbackend install accepts it alone. An add-on install and an oci:// add-on\nlibrary accept it only with SourceRepository: a shared signing workflow\nsigns for every repository that calls it, so the pattern alone would\nadmit a signature made for any of them.",
                     "type": "string"
                 },
                 "issuer": {
@@ -22474,6 +22474,10 @@ const docTemplate = `{
                 },
                 "requireSignature": {
                     "type": "boolean"
+                },
+                "sourceRepository": {
+                    "description": "SourceRepository pins the repository the signature was made for: an\nhttps URL compared exactly with the source-repository extension of the\nsigning certificate, such as https://github.com/\u003cowner\u003e/\u003crepo\u003e. It is\nvalid only when a signature is required.",
+                    "type": "string"
                 }
             }
         },
@@ -26320,7 +26324,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "kind": {
-                    "description": "Kind is \"gguf\", \"mmproj\" or \"weights\" (safetensors, bin, pt).",
+                    "description": "Kind is \"gguf\", \"mmproj\", \"drafter\" (a speculative-decoding sidecar such\nas dspark-*.gguf, never a variant of its own) or \"weights\" (safetensors,\nbin, pt).",
                     "type": "string"
                 },
                 "path": {
