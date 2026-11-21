@@ -181,6 +181,7 @@ settings bypasses this automatic default.
 | `--disable-gallery-endpoint` | `false` | Disable the gallery endpoints | `$LOCALAI_DISABLE_GALLERY_ENDPOINT`, `$DISABLE_GALLERY_ENDPOINT` |
 | `--disable-metrics-endpoint` | `false` | Disable the `/metrics` endpoint | `$LOCALAI_DISABLE_METRICS_ENDPOINT`, `$DISABLE_METRICS_ENDPOINT` |
 | `--machine-tag` | | If not empty, add that string to Machine-Tag header in each response. Useful to track responses from different machines, for example the members of a federation group | `$LOCALAI_MACHINE_TAG`, `$MACHINE_TAG` |
+| `--default-language` | | Default UI language code for the web interface (e.g., `bn`, `en`, `es`, `fr`, `de`, `it`, `zh-CN`, `id`, `ko`, `pt-BR`). Overridden by explicit `?lng=` URL parameters or saved browser preferences | `$LOCALAI_DEFAULT_LANGUAGE` |
 
 ## Collections Flags
 
