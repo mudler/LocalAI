@@ -182,7 +182,7 @@ func (r remoteLibrary) List(ctx context.Context, known string) (library.Listing,
 }
 
 func (r remoteLibrary) Add(ctx context.Context, req library.AddRequest) (library.Info, error) {
-	in, err := call[library.Info](r, ctx, gateway.LibraryCall{Op: gateway.LibraryAdd, Kind: req.Kind, URL: req.URL, ID: req.ID, Name: req.Name, Format: req.Format, Mirrors: req.Mirrors})
+	in, err := call[library.Info](r, ctx, gateway.LibraryCall{Op: gateway.LibraryAdd, Kind: req.Kind, URL: req.URL, ID: req.ID, Name: req.Name, Format: req.Format, Mirrors: req.Mirrors, Issuer: req.Issuer, Identity: req.Identity})
 	if err == nil {
 		r.changed(ctx)
 	}

@@ -164,3 +164,28 @@ func TestLibraryStateIsSharedThroughTheFile(t *testing.T) {
 	}
 	_ = library.Defaults
 }
+
+func TestLibraryAddPinsTheSigner(t *testing.T) {
+	f := libFlags(t, t.TempDir())
+	url := "oci://registry.example/fixture-addon/library:1"
+	c := LibraryAdd{URL: url, Kind: "addon", ID: "fixture", Format: "library", Issuer: "https://issuer.example", Identity: "signer@registry.example", LibraryFlags: f}
+	if err := c.Run(nil); err != nil {
+		t.Fatal(err)
+	}
+	e, ok := entry(t, f, "fixture")
+	want := catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", Identity: "signer@registry.example"}
+	if !ok || e.Policy != want {
+		t.Errorf("policy = %+v, %v, want %+v", e.Policy, ok, want)
+	}
+	// One flag alone, and a policy on a source that is not an oci:// add-on
+	// library, are refused.
+	for _, bad := range []LibraryAdd{
+		{URL: "oci://registry.example/b:1", Kind: "addon", ID: "b", Format: "library", Issuer: "https://issuer.example", LibraryFlags: f},
+		{URL: "oci://registry.example/c:1", Kind: "addon", ID: "c", Format: "library", Identity: "signer@registry.example", LibraryFlags: f},
+		{URL: "https://registry.example/index.yaml", Kind: "addon", ID: "d", Format: "library", Issuer: "https://issuer.example", Identity: "signer@registry.example", LibraryFlags: f},
+	} {
+		if err := bad.Run(nil); err == nil {
+			t.Errorf("%+v was accepted", bad.URL)
+		}
+	}
+}
