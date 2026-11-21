@@ -935,7 +935,11 @@
       "review": "查看并批准",
       "reviewNamed": "查看并批准 {{name}} 的主机访问",
       "title": "{{name}} {{version}} 等待你的批准",
-      "progress": "正在更新 {{name}}。它在后台运行。"
+      "updatingTitle": "正在将 {{name}} 更新到 {{version}}",
+      "queuedBody": "已在队列中，将在后台运行。",
+      "cancellingTitle": "正在取消 {{name}} 的更新",
+      "failedTitle": "将 {{name}} 更新到 {{version}} 失败",
+      "reviewAgain": "重新查看"
     }
   },
   "oauthClient": {

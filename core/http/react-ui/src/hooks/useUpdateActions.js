@@ -154,9 +154,11 @@ export function useUpdateActions({ updates }) {
   }), [addonUpgrade, rows, runRow])
 
   const retry = useCallback((row) => {
-    if (row.kind === 'addon' && row.jobID) addonUpgrades.retry(addonsApi, row.jobID)
+    // The approval of a held upgrade is spent when it is accepted: a new try is a new review.
+    if (row.approval && row.grant) setReview(row.grant)
+    else if (row.kind === 'addon' && row.jobID) addonUpgrades.retry(addonsApi, row.jobID)
     else runRow(row)
-  }, [runRow])
+  }, [runRow, setReview])
 
   const cancel = useCallback((row) => {
     // An add-on upgrade the store follows is cancelled on the server by its

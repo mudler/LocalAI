@@ -935,7 +935,11 @@
       "review": "Revisar e aprovar",
       "reviewNamed": "Revisar e aprovar o acesso ao host de {{name}}",
       "title": "{{name}} {{version}} aguarda sua aprovação",
-      "progress": "Atualizando {{name}}. Ela roda em segundo plano."
+      "updatingTitle": "Atualizando {{name}} para {{version}}",
+      "queuedBody": "Ela está na fila e roda em segundo plano.",
+      "cancellingTitle": "Cancelando a atualização de {{name}}",
+      "failedTitle": "A atualização de {{name}} para {{version}} falhou",
+      "reviewAgain": "Revisar de novo"
     }
   },
   "oauthClient": {

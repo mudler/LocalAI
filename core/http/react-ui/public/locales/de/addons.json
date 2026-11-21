@@ -935,7 +935,11 @@
       "review": "Prüfen und freigeben",
       "reviewNamed": "Den Host-Zugriff von {{name}} prüfen und freigeben",
       "title": "{{name}} {{version}} wartet auf deine Freigabe",
-      "progress": "{{name}} wird aktualisiert. Es läuft im Hintergrund."
+      "updatingTitle": "{{name}} wird auf {{version}} aktualisiert",
+      "queuedBody": "Es steht in der Warteschlange und läuft im Hintergrund.",
+      "cancellingTitle": "Die Aktualisierung von {{name}} wird abgebrochen",
+      "failedTitle": "Die Aktualisierung von {{name}} auf {{version}} ist fehlgeschlagen",
+      "reviewAgain": "Erneut prüfen"
     }
   },
   "oauthClient": {

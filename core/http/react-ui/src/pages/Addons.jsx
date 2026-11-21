@@ -15,7 +15,8 @@ import InstallDialog from '../components/addons/InstallDialog'
 import AddonQueue from '../components/addons/AddonQueue'
 import { useInstallQueue } from '../components/addons/useInstallQueue'
 import { useHostGrants } from '../components/addons/useHostGrants'
-import { pendingApprovals } from '../components/addons/hostGrantsState'
+import { useAddonUpgrades } from '../hooks/useAddonUpgrades'
+import { awaitingApproval } from '../components/addons/hostGrantsState'
 import { resolveManage, resolveTab, visibleTabs } from '../components/addons/addonState'
 import '../components/addons/addons.css'
 
@@ -42,7 +43,9 @@ export default function Addons() {
   // Host access is read once here: the tab shows how many approvals wait, and
   // the list of add-ons shows the same banners.
   const grants = useHostGrants({ enabled: Boolean(isAdmin) })
-  const waiting = grants.data ? pendingApprovals(grants.data).length : 0
+  // An approval whose upgrade is queued or running no longer waits for anyone.
+  const upgrades = useAddonUpgrades()
+  const waiting = awaitingApproval(grants.data, (id) => upgrades.live.find(op => op.addonId === id) || null).length
   // The installs of the background queue and the dialog that reviews them.
   // They live on the page, not on a tab: the rows stay in view while the
   // person moves between the tabs.

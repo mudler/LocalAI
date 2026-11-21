@@ -935,7 +935,11 @@
       "review": "검토 후 승인",
       "reviewNamed": "{{name}}의 호스트 접근 검토 후 승인",
       "title": "{{name}} {{version}}이(가) 승인을 기다립니다",
-      "progress": "{{name}}을(를) 업데이트하는 중입니다. 백그라운드에서 실행됩니다."
+      "updatingTitle": "{{name}}을(를) {{version}}(으)로 업데이트하는 중",
+      "queuedBody": "대기열에 있으며 백그라운드에서 실행됩니다.",
+      "cancellingTitle": "{{name}} 업데이트를 취소하는 중",
+      "failedTitle": "{{name}}을(를) {{version}}(으)로 업데이트하지 못했습니다",
+      "reviewAgain": "다시 검토"
     }
   },
   "oauthClient": {

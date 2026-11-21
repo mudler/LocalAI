@@ -935,7 +935,11 @@
       "review": "Tinjau dan setujui",
       "reviewNamed": "Tinjau dan setujui akses host {{name}}",
       "title": "{{name}} {{version}} menunggu persetujuan Anda",
-      "progress": "Memperbarui {{name}}. Berjalan di latar belakang."
+      "updatingTitle": "Memperbarui {{name}} ke {{version}}",
+      "queuedBody": "Pembaruan ada dalam antrean dan berjalan di latar belakang.",
+      "cancellingTitle": "Membatalkan pembaruan {{name}}",
+      "failedTitle": "Pembaruan {{name}} ke {{version}} gagal",
+      "reviewAgain": "Tinjau lagi"
     }
   },
   "oauthClient": {
