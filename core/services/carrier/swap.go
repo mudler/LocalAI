@@ -50,7 +50,9 @@ const DefaultSwapInterval = 2 * time.Second
 type SwapperOptions struct {
 	// Cur is the pointer the holders read. It names the set in use.
 	Cur *atomic.Pointer[Set]
-	// Bus is the broadcaster holder over Cur.
+	// Bus is the broadcaster holder over Cur. The swapper moves the request and
+	// reply of the holder (Listen, Release); the broadcasts of the holder never
+	// follow the row.
 	Bus *Broadcaster
 	// Routes is the route table of the worker calls. It may be nil.
 	Routes RouteAttacher
@@ -76,12 +78,15 @@ const DefaultBuildTimeout = 45 * time.Second
 // Swapper is what a replica does in a change of carrier. It follows the row:
 //
 //   - prepare: build the target set while the old one serves, attach every
-//     subscription to it, and report ready for the epoch of the row.
-//   - commit: store the target set, so that publishes and new calls go to it;
+//     reply subscription to it, and report ready for the epoch of the row.
+//   - commit: store the target set, so that requests and new calls go to it;
 //     keep the old set attached; confirm.
 //   - stable with a drain: nothing. The old set stays attached.
-//   - stable with no drain: release the old set. Detach it, run the reconnect
-//     hooks once, and close it after the settle time.
+//   - stable with no drain: release the old set. Detach it and close it after
+//     the settle time.
+//
+// The broadcasts do not follow the row: the holder publishes on its buses
+// (see Broadcaster), whatever the row says.
 //   - stable after an abort: drop the set that was built for nothing.
 //
 // The row is authoritative. A replica that polls late, restarts, or joins during a
@@ -167,7 +172,7 @@ func (s *Swapper) registerMetrics() {
 
 	epoch, _ := meter.Int64ObservableGauge("localai_carrier_epoch", metric.WithDescription("Epoch of the cluster carrier row as this replica last read it"))
 	state, _ := meter.Int64ObservableGauge("localai_carrier_state", metric.WithDescription("1 for the state the cluster is in (stable, prepare or commit), 0 for the others"))
-	active, _ := meter.Int64ObservableGauge("localai_carrier_active", metric.WithDescription("1 for the carrier this replica publishes on, 0 for the other"))
+	active, _ := meter.Int64ObservableGauge("localai_carrier_active", metric.WithDescription("1 for the carrier of the cluster row that this replica follows, 0 for the other"))
 	drain, _ := meter.Float64ObservableGauge("localai_carrier_drain_remaining_seconds", metric.WithDescription("Seconds until the previous carrier is released, 0 when none is draining"), metric.WithUnit("s"))
 	ready, _ := meter.Int64ObservableGauge("localai_carrier_replica_ready", metric.WithDescription("1 when this replica has reported ready for the epoch it last read"))
 	_, _ = meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
@@ -335,7 +340,7 @@ func (s *Swapper) report(ctx context.Context, epoch int64, reason string) error 
 }
 
 // attach builds a set for target, or reuses one that is attached already, and
-// makes every subscription listen on it.
+// makes every reply subscription listen on it.
 func (s *Swapper) attach(ctx context.Context, row cluster.CarrierRow, target cluster.Carrier) (*Set, error) {
 	switch {
 	case s.prepared != nil && s.prepared.Name == target && builtFrom(s.prepared, row):
@@ -478,7 +483,7 @@ func (s *Swapper) reattachDraining(ctx context.Context, row cluster.CarrierRow) 
 	xlog.Info("This replica attached the carrier that is draining", "carrier", row.Draining, "epoch", row.Epoch)
 }
 
-// dropListening detaches every subscription from set.
+// dropListening detaches every reply subscription from set.
 func (s *Swapper) dropListening(set *Set) *Set {
 	if err := s.o.Bus.Release(set); err != nil {
 		xlog.Warn("Could not detach the subscriptions from a carrier", "carrier", set.Name, "error", err)
@@ -486,18 +491,15 @@ func (s *Swapper) dropListening(set *Set) *Set {
 	return set
 }
 
-// retire releases old after another set took over: stop listening on it, run
-// the reconnect hooks once, and close it after the settle time. The wait runs in
-// the background, so that the poll goes on.
+// retire releases old after another set took over: stop listening on it and
+// close it after the settle time. The wait runs in the background, so that the
+// poll goes on. It runs no reconnect hook: the broadcasts did not move.
 func (s *Swapper) retire(old *Set) {
 	if s.o.Routes != nil {
 		s.o.Routes.Detach(old.WorkerRoute)
 	}
 	s.dropListening(old)
 	s.wg.Go(func() {
-		// Messages across the flip were not ordered, so the consumers read their
-		// tables once.
-		s.o.Bus.NotifyReconnect()
 		// The set stays open for the settle time. A call that took the old route
 		// from the table, or the old set from the pointer, just before they moved is
 		// still using it.

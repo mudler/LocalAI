@@ -51,11 +51,14 @@ var _ = Describe("NewNATSSet", func() {
 		Expect(set.Commands.InstallTimeout()).To(Equal(3 * time.Minute))
 	})
 
-	It("publishes over the connection it was given", func() {
+	It("carries request and reply over the connection it was given", func() {
 		set, err := carrier.NewNATSSet(opts())
 		Expect(err).ToNot(HaveOccurred())
-		Expect(set.Broadcaster.Publish("nodes.x", "hello")).To(Succeed())
-		Expect(bus.PublishCount("nodes.x")).To(Equal(1))
+		_, err = bus.SubscribeReply("chats.replay.r1", func(_ []byte, reply func([]byte)) { reply([]byte("ok")) })
+		Expect(err).ToNot(HaveOccurred())
+		out, err := set.Replies.Request("chats.replay.r1", nil, time.Second)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(out)).To(Equal("ok"))
 	})
 
 	It("stages files over HTTP unless shared storage is configured", func() {
@@ -70,20 +73,22 @@ var _ = Describe("NewNATSSet", func() {
 		Expect(set.Files).To(BeAssignableToTypeOf(&nodes.S3FileStager{}))
 	})
 
-	It("forwards the reconnect hook of the connection", func() {
-		set, err := carrier.NewNATSSet(opts())
-		Expect(err).ToNot(HaveOccurred())
-		var n atomic.Int32
-		set.OnReconnect(func() { n.Add(1) })
-		bus.TriggerReconnect()
-		Expect(n.Load()).To(Equal(int32(1)))
-	})
-
 	It("closes the connection when the set is closed", func() {
 		set, err := carrier.NewNATSSet(opts())
 		Expect(err).ToNot(HaveOccurred())
 		set.Close()
 		Expect(bus.closed.Load()).To(Equal(int32(1)))
+	})
+
+	It("leaves a connection it shares with the NATS bus open when the set is closed", func() {
+		o := opts()
+		o.Shared = true
+		set, err := carrier.NewNATSSet(o)
+		Expect(err).ToNot(HaveOccurred())
+		if set.Close != nil {
+			set.Close()
+		}
+		Expect(bus.closed.Load()).To(BeZero())
 	})
 
 	It("refuses to build without a connection", func() {

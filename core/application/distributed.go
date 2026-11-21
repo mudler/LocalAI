@@ -42,9 +42,10 @@ import (
 //
 // The seams that cross a process boundary are holders. The worker-facing ones
 // (control verbs, files, clients, dials, agent RPC) go through the route table,
-// which picks the routes of each node (nodes.RoutesOf). The broadcaster and
-// request/reply go to the Fabric of the carrier set that the cluster row names.
-// Only Shutdown reaches the routes and the set themselves.
+// which picks the routes of each node (nodes.RoutesOf). The broadcaster listens
+// on every bus of the replica (PostgreSQL, and NATS when configured) and
+// publishes on one. Request and reply go to the carrier set that the cluster
+// row names. Only Shutdown reaches the routes, the buses and the set themselves.
 type DistributedServices struct {
 	// Broadcaster is the fan-out seam. Code that only publishes and subscribes
 	// takes this, never the connection of a carrier.
@@ -111,11 +112,13 @@ type DistributedServices struct {
 	// build.
 	Runtime *carrierRuntime
 
-	// fabric names the carrier set whose Fabric the broadcaster holder uses. The
-	// cluster carrier row decides it, and the change of carrier moves it; it is
-	// removed with the change (step 8 of the hybrid carriers work). No worker
-	// call reads it.
-	fabric *atomic.Pointer[carrier.Set]
+	// active names the carrier set of the cluster carrier row: the request and
+	// reply of the holder, and a worker route of the route table. The change of
+	// carrier moves it; it is removed with the change (step 8 of the hybrid
+	// carriers work). No broadcast and no worker call reads it.
+	active *atomic.Pointer[carrier.Set]
+	// bus is the broadcaster holder, which Broadcaster names as an interface.
+	bus *carrier.Broadcaster
 	// routes is the route table of the worker calls.
 	routes *carrier.RouteTable
 	// tunnelRoutes is the tunnel route, pinned in the table for as long as the
@@ -125,6 +128,17 @@ type DistributedServices struct {
 	workers *nodes.SwitchWorkers
 
 	shutdownOnce sync.Once
+}
+
+// Unready reports why this replica must not take traffic now, or nil: the NATS
+// server of the cluster is configured and this replica does not reach it, so it
+// does not hear the broadcasts of the others. A load balancer that reads
+// /readyz drains it until NATS is back; it keeps listening on PostgreSQL.
+func (ds *DistributedServices) Unready() error {
+	if ds == nil || ds.bus == nil {
+		return nil
+	}
+	return ds.bus.Unready()
 }
 
 // Disconnect ends the tunnel that this replica holds for a node, and drops what
@@ -170,10 +184,14 @@ func (ds *DistributedServices) Shutdown() {
 		if closer, ok := ds.Store.(io.Closer); ok {
 			closer.Close()
 		}
-		if ds.fabric != nil {
-			if set := ds.fabric.Load(); set != nil && set.Close != nil {
+		if ds.active != nil {
+			if set := ds.active.Load(); set != nil && set.Close != nil {
 				set.Close()
 			}
+		}
+		// The buses last: a NATS set may share the connection of the NATS bus.
+		if ds.bus != nil {
+			ds.bus.Close()
 		}
 		if ds.tunnelRoutes != nil && ds.tunnelRoutes.Close != nil {
 			ds.tunnelRoutes.Close()
@@ -241,10 +259,21 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	// Whatever fails from here on must give back what was built.
 	success := false
-	var startSet *carrier.Set
+	var (
+		startSet *carrier.Set
+		buses    []*carrier.Bus
+	)
 	defer func() {
-		if !success && startSet != nil && startSet.Close != nil {
+		if success {
+			return
+		}
+		if startSet != nil && startSet.Close != nil {
 			startSet.Close()
+		}
+		for _, b := range buses {
+			if b != nil && b.Close != nil {
+				b.Close()
+			}
 		}
 	}()
 
@@ -397,25 +426,46 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	})
 	routes.Pin(tunnelRoutes)
 
-	// Build the set of the carrier that the row names. Its Fabric is behind the
-	// broadcaster holder, and its worker route goes in the route table. A NATS
-	// server that is not up yet does not stop the start; a URL or a credential
-	// that cannot be used does.
-	fabric := &atomic.Pointer[carrier.Set]{}
+	active := &atomic.Pointer[carrier.Set]{}
 	runtime := &carrierRuntime{
 		cfg: cfg, db: authDB, settings: settingsStore, registry: registry, fileMgr: fileMgr,
 		instanceID: cfg.Distributed.InstanceID, clusterReg: clusterReg,
-		tunnels: tunnels, peerPool: peerPool, replies: replies, active: fabric,
+		tunnels: tunnels, peerPool: peerPool, replies: replies, active: active,
 		tunnelRoutes: tunnelRoutes,
 		probeWake:    make(chan struct{}, 1),
 	}
+
+	// The buses of the broadcasts. Every frontend and chat worker listens on
+	// PostgreSQL (LISTEN and NOTIFY), and on NATS too when the cluster has a NATS
+	// server. Each broadcast goes on one of them: NATS while this replica
+	// reaches it, PostgreSQL otherwise. A NATS server that is not up yet does
+	// not stop the start (the replica is not ready until it reaches it); a URL
+	// or a credential that cannot be used does.
+	fanout, err := carrier.NewPgbusFanout(context.Background(), carrier.PgbusOptions{DB: authDB, DSN: cfg.Auth.DatabaseURL})
+	if err != nil {
+		return nil, fmt.Errorf("opening the PostgreSQL bus (LISTEN and NOTIFY needs a direct connection to the database, or a pooler in session mode): %w", err)
+	}
+	floor := fanout.Bus()
+	buses = append(buses, floor)
+	natsBus, err := runtime.openBusNATS(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("opening the NATS bus: %w", err)
+	}
+	buses = append(buses, natsBus)
+
+	// Build the set of the carrier that the row names. Its request and reply are
+	// behind the broadcaster holder, and its worker route goes in the route
+	// table. A NATS set shares the connection of the NATS bus.
 	startSet, err = runtime.build(context.Background(), carrierRow, carrierRow.Active, false)
 	if err != nil {
 		return nil, fmt.Errorf("building the %s carrier that the cluster uses: %w", carrierRow.Active, err)
 	}
-	fabric.Store(startSet)
+	active.Store(startSet)
 	routes.Attach(startSet.WorkerRoute)
-	broadcaster := carrier.NewBroadcaster(fabric)
+	broadcaster, err := carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: floor, Primary: natsBus, Sets: active})
+	if err != nil {
+		return nil, err
+	}
 	runtime.bus = broadcaster
 
 	workers := nodes.NewSwitchWorkers(registry, cfg.Distributed.StaleNodeThresholdOrDefault())
@@ -658,7 +708,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// tunnel is demoted once its departure is older than the grace. On NATS no
 	// node holds a tunnel, and the monitor reads nothing.
 	healthMon.UsePresence(clusterReg, cluster.DefaultReconnectGrace, func() bool {
-		set := fabric.Load()
+		set := active.Load()
 		return set != nil && set.Name == cluster.CarrierTunnel
 	})
 
@@ -670,7 +720,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	var swapper *carrier.Swapper
 	healthMon.UseTunnelRoutes()
 	healthMon.UseCarrier(func() (cluster.Carrier, bool) {
-		set := fabric.Load()
+		set := active.Load()
 		if set == nil || swapper == nil {
 			return "", false
 		}
@@ -717,7 +767,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, err
 	}
 	swapper, err = carrier.NewSwapper(carrier.SwapperOptions{
-		Cur: fabric, Bus: broadcaster, Routes: routes,
+		Cur: active, Bus: broadcaster, Routes: routes,
 		Rows: carrierStore, Ready: membership, Build: runtime.Build,
 	})
 	if err != nil {
@@ -755,7 +805,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 		WorkerHTTPDial: workerHTTPDial,
 
-		fabric:       fabric,
+		active:       active,
+		bus:          broadcaster,
 		routes:       routes,
 		tunnelRoutes: tunnelRoutes,
 		workers:      workers,
@@ -892,7 +943,7 @@ func seedCarrier(ctx context.Context, db *gorm.DB, store *cluster.CarrierStore, 
 			"url", cluster.PublicNATSURL(flagURL))
 	}
 	if row.Active == cluster.CarrierTunnel && flagURL != "" {
-		xlog.Info("The cluster runs on the tunnel carrier. The NATS URL of this replica is kept for a change back to NATS, and no NATS connection is opened")
+		xlog.Info("The cluster carrier row names the tunnel. The NATS server still carries the broadcasts while this replica reaches it")
 	}
 	return row, nil
 }

@@ -62,11 +62,19 @@ type carrierRuntime struct {
 	// over the peer link.
 	replies *tunnel.Replies
 
-	// bus is the broadcaster holder. The work that a set starts uses it, so that
-	// its subscriptions follow the sets. It is set before any set starts.
+	// bus is the broadcaster holder. It is set before any set starts.
 	bus *carrier.Broadcaster
-	// active names the set whose Fabric the broadcaster holder uses.
+	// active names the set of the cluster carrier row: its request and reply
+	// are those of the broadcaster holder (until step 5 of the hybrid carriers
+	// work) and its worker route is in the route table. The broadcasts do not
+	// follow it. It goes with the change of carrier (step 8).
 	active *atomic.Pointer[carrier.Set]
+	// busNATS is the connection of the NATS bus of the broadcaster holder, nil
+	// when no NATS server is configured, and busNATSURL the address it was
+	// opened for, without a credential. A NATS set built for the same address
+	// shares it, so that a replica holds one NATS connection.
+	busNATS    *messaging.Client
+	busNATSURL string
 	// tunnelRoutes is the tunnel route of the route table. A tunnel set brings
 	// it rather than a route of its own.
 	tunnelRoutes *carrier.WorkerRoute
@@ -175,6 +183,34 @@ func (rt *carrierRuntime) natsClient(ctx context.Context, wait time.Duration, ro
 	return client, target, err
 }
 
+// openBusNATS opens the connection of the NATS bus when a NATS server is
+// configured for the cluster (the setting nats.url, else the flag of this
+// replica), and returns the bus. It returns nil when none is configured. It
+// does not wait for the server: a frontend may start before its broker, and it
+// is not ready until it reaches it (Broadcaster.Unready).
+func (rt *carrierRuntime) openBusNATS(ctx context.Context) (*carrier.Bus, error) {
+	url, err := rt.natsURL(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if url == "" {
+		return nil, nil
+	}
+	client, err := rt.natsClientAt(ctx, rt.connectURL(cluster.PublicNATSURL(url)), 0)
+	if err != nil {
+		return nil, err
+	}
+	rt.busNATS, rt.busNATSURL = client, cluster.PublicNATSURL(url)
+	xlog.Info("Broadcasts use the NATS server of the cluster when it is reachable, and PostgreSQL otherwise", "url", rt.busNATSURL)
+	return &carrier.Bus{
+		Name:        carrier.BusNATS,
+		Broadcaster: client,
+		OnReconnect: client.OnReconnect,
+		Connected:   client.IsConnected,
+		Close:       client.Close,
+	}, nil
+}
+
 // natsClientAt connects to the NATS server at url with the credentials of this
 // replica. With a wait it returns only once the server has answered.
 func (rt *carrierRuntime) natsClientAt(ctx context.Context, url string, wait time.Duration) (*messaging.Client, error) {
@@ -190,19 +226,27 @@ func (rt *carrierRuntime) natsClientAt(ctx context.Context, url string, wait tim
 		return nil, fmt.Errorf("connecting to NATS: %w", err)
 	}
 	if wait > 0 {
-		deadline := time.Now().Add(wait)
-		for !client.IsConnected() {
-			if time.Now().After(deadline) || ctx.Err() != nil {
-				client.Close()
-				return nil, fmt.Errorf("the NATS server at %s did not answer within %s: check the address and the credentials", cluster.PublicNATSURL(url), wait)
-			}
-			select {
-			case <-ctx.Done():
-			case <-time.After(50 * time.Millisecond):
-			}
+		if err := waitNATS(ctx, client, url, wait); err != nil {
+			client.Close()
+			return nil, err
 		}
 	}
 	return client, nil
+}
+
+// waitNATS waits until client is connected, for at most wait.
+func waitNATS(ctx context.Context, client *messaging.Client, url string, wait time.Duration) error {
+	deadline := time.Now().Add(wait)
+	for !client.IsConnected() {
+		if time.Now().After(deadline) || ctx.Err() != nil {
+			return fmt.Errorf("the NATS server at %s did not answer within %s: check the address and the credentials", cluster.PublicNATSURL(url), wait)
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	return nil
 }
 
 // CheckNATS says whether this replica reaches the NATS server at url with its own
@@ -221,8 +265,23 @@ func (rt *carrierRuntime) buildNATS(ctx context.Context, row cluster.CarrierRow,
 	if wait {
 		waitFor = natsConnectWait
 	}
-	client, url, err := rt.natsClient(ctx, waitFor, &row)
+	url, err := rt.natsTarget(ctx, &row)
 	if err != nil {
+		return nil, err
+	}
+	var (
+		client *messaging.Client
+		shared bool
+	)
+	if rt.busNATS != nil && url != "" && cluster.PublicNATSURL(url) == rt.busNATSURL {
+		// The NATS bus of the broadcaster holder is connected to the same server.
+		client, shared = rt.busNATS, true
+		if waitFor > 0 {
+			if err := waitNATS(ctx, client, url, waitFor); err != nil {
+				return nil, err
+			}
+		}
+	} else if client, url, err = rt.natsClient(ctx, waitFor, &row); err != nil {
 		return nil, err
 	}
 	d := rt.cfg.Distributed
@@ -253,9 +312,12 @@ func (rt *carrierRuntime) buildNATS(ctx context.Context, row cluster.CarrierRow,
 			}
 			return node.Address != "", nil
 		},
+		Shared: shared,
 	})
 	if err != nil {
-		client.Close()
+		if !shared {
+			client.Close()
+		}
 		return nil, err
 	}
 	set.NATSURL = row.NATSURL
@@ -265,16 +327,11 @@ func (rt *carrierRuntime) buildNATS(ctx context.Context, row cluster.CarrierRow,
 
 func (rt *carrierRuntime) buildTunnel(ctx context.Context, row cluster.CarrierRow) (*carrier.Set, error) {
 	d := rt.cfg.Distributed
-	fanout, err := carrier.NewPgbusFanout(ctx, carrier.PgbusOptions{DB: rt.db, DSN: rt.cfg.Auth.DatabaseURL})
-	if err != nil {
-		return nil, err
-	}
 	selector := nodes.NewAgentSelector(rt.registry, rt.clusterReg, rt.instanceID)
 	set, err := carrier.NewTunnelSet(carrier.TunnelOptions{
 		Epoch:          row.Epoch,
 		Routes:         rt.tunnelRoutes,
 		Dialer:         tunnel.NewWorkerDialer(rt.tunnels, rt.peerPool),
-		Fanout:         fanout,
 		AgentSelector:  selector,
 		Registry:       rt.registry,
 		InstallTimeout: d.BackendInstallTimeoutOrDefault(),
@@ -291,10 +348,8 @@ func (rt *carrierRuntime) buildTunnel(ctx context.Context, row cluster.CarrierRo
 		},
 	})
 	if err != nil {
-		fanout.Close()
 		return nil, err
 	}
-
 	return set, nil
 }
 

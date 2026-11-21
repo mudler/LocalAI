@@ -246,14 +246,11 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 		}
 	}()
 
-	fan, err := carrier.NewPgbusFanout(ctx, carrier.PgbusOptions{DB: db, DSN: dsn})
-	Expect(err).ToNot(HaveOccurred())
-	DeferCleanup(fan.Close)
+	floor, _ := pgbusFloor(ctx, db, dsn)
 	r.selector = nodes.NewAgentSelector(nodeReg, clusterR, id)
 	options := carrier.TunnelOptions{
 		Epoch:          1,
 		Dialer:         tunnel.NewWorkerDialer(r.tunnels, r.pool),
-		Fanout:         fan,
 		AgentSelector:  r.selector,
 		Registry:       nodeReg,
 		InstallTimeout: 30 * time.Second,
@@ -280,7 +277,8 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	r.files = carrier.NewFiles(r.routes)
 	r.clients = carrier.NewClients(r.routes)
 	r.agents = carrier.NewAgents(r.routes)
-	r.bus = carrier.NewBroadcaster(r.active)
+	r.bus, err = carrier.NewBroadcaster(carrier.BroadcasterOptions{Floor: floor, Sets: r.active})
+	Expect(err).ToNot(HaveOccurred())
 	return r
 }
 
@@ -679,12 +677,11 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 
 	It("refuses to build a set that lacks a member of this carrier", func() {
 		whole := carrier.TunnelOptions{
-			Dialer: tunnel.NewWorkerDialer(a.tunnels, a.pool), Fanout: &carrier.Fanout{},
+			Dialer:        tunnel.NewWorkerDialer(a.tunnels, a.pool),
 			AgentSelector: a.selector,
 		}
 		for name, mutate := range map[string]func(*carrier.TunnelOptions){
 			"no dialer":                  func(o *carrier.TunnelOptions) { o.Dialer = nil },
-			"no fan-out":                 func(o *carrier.TunnelOptions) { o.Fanout = nil },
 			"no agent selector":          func(o *carrier.TunnelOptions) { o.AgentSelector = nil },
 			"S3 staging with no manager": func(o *carrier.TunnelOptions) { o.S3Staging = true },
 		} {
@@ -698,9 +695,9 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 	It("carries broadcasts between the replicas through the holders", func() {
 		subject := messagingtest.BroadcastRootSubjects["state"]
 		var got atomic.Int32
-		_, err := carrier.NewBroadcaster(b.active).Subscribe(subject, func([]byte) { got.Add(1) })
+		_, err := b.bus.Subscribe(subject, func([]byte) { got.Add(1) })
 		Expect(err).ToNot(HaveOccurred())
-		Expect(carrier.NewBroadcaster(a.active).Publish(subject, map[string]string{"k": "v"})).To(Succeed())
+		Expect(a.bus.Publish(subject, map[string]string{"k": "v"})).To(Succeed())
 		Eventually(got.Load, "10s").Should(Equal(int32(1)))
 	})
 })

@@ -29,7 +29,6 @@ var _ = Describe("Set", func() {
 
 	It("names the first member that is missing", func() {
 		for name, mutate := range map[string]func(*carrier.Set){
-			"Broadcaster":  func(s *carrier.Set) { s.Broadcaster = nil },
 			"worker route": func(s *carrier.Set) { s.WorkerRoute = nil },
 			"Commands":     func(s *carrier.Set) { s.Commands = nil },
 			"Files":        func(s *carrier.Set) { s.Files = nil },

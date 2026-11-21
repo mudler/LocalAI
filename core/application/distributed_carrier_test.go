@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
@@ -31,13 +32,15 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 	)
 
 	BeforeEach(func() {
-		db = testutil.SetupTestDB()
+		var dsn string
+		db, dsn = testutil.SetupTestDBWithDSN()
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
 		cfg = &config.ApplicationConfig{
 			Context:  ctx,
 			DataPath: GinkgoT().TempDir(),
-			Auth:     config.AuthConfig{Enabled: true, DatabaseURL: "postgres://unused/db"},
+			// Every replica opens a LISTEN connection for the PostgreSQL bus.
+			Auth: config.AuthConfig{Enabled: true, DatabaseURL: dsn},
 			Distributed: config.DistributedConfig{
 				Enabled:    true,
 				InstanceID: "replica-a",
@@ -83,9 +86,11 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(row.Active).To(Equal(cluster.CarrierTunnel))
 		Expect(row.Epoch).To(Equal(int64(1)))
-		Expect(svc.fabric.Load().Name).To(Equal(cluster.CarrierTunnel))
+		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierTunnel))
 
 		// Fan-out goes through the database, and one LISTEN session exists for it.
+		Expect(svc.bus.PublishBus()).To(Equal(carrier.BusPostgres))
+		Expect(svc.Unready()).To(Succeed(), "no NATS is configured, so none can be out of reach")
 		var sessions int64
 		Expect(pg.Raw("SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'").Scan(&sessions).Error).To(Succeed())
 		Expect(sessions).To(Equal(int64(1)))
@@ -96,7 +101,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		Eventually(got, "10s").Should(Receive(Equal([]byte(`"hello"`))))
 	})
 
-	It("starts on the tunnel carrier that the row names, whatever the flags of this replica say, and does not try NATS", func() {
+	It("starts on the tunnel carrier that the row names, whatever the flags of this replica say", func() {
 		pg, dsn := testutil.SetupTestDBWithDSN()
 		cfg.Auth.DatabaseURL = dsn
 		store, err := cluster.NewCarrierStore(pg)
@@ -104,12 +109,20 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		_, _, err = store.Seed(context.Background(), cluster.CarrierTunnel, "replica-b")
 		Expect(err).ToNot(HaveOccurred())
 
-		// The NATS URL of the flag points at nothing. It is kept for a change back to
-		// NATS, and it is not dialled.
+		// The NATS URL of the flag points at nothing. The worker routes follow the
+		// row; the broadcasts would use NATS, and the replica is not ready while it
+		// does not reach it. It still publishes and hears on PostgreSQL.
 		svc, err := initDistributed(cfg, pg, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
-		Expect(svc.fabric.Load().Name).To(Equal(cluster.CarrierTunnel))
+		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierTunnel))
+		Expect(svc.Unready()).To(MatchError(carrier.ErrBusUnreachable))
+		Expect(svc.bus.PublishBus()).To(Equal(carrier.BusPostgres))
+		got := make(chan []byte, 1)
+		_, err = svc.Broadcaster.Subscribe("staging.carrier-spec", func(b []byte) { got <- b })
+		Expect(err).ToNot(HaveOccurred())
+		Expect(svc.Broadcaster.Publish("staging.carrier-spec", "floor")).To(Succeed())
+		Eventually(got, "10s").Should(Receive(Equal([]byte(`"floor"`))))
 		row, err := store.Get(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(row.Active).To(Equal(cluster.CarrierTunnel), "the row is left as it was")
@@ -127,7 +140,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		svc, err := initDistributed(cfg, db, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
-		Expect(svc.fabric.Load().Name).To(Equal(cluster.CarrierNATS))
+		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierNATS))
 
 		row := carrierRow()
 		Expect(row.Active).To(Equal(cluster.CarrierNATS))
@@ -217,7 +230,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		svc, err := initDistributed(cfg, db, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
-		Expect(svc.fabric.Load().Name).To(Equal(cluster.CarrierNATS))
+		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierNATS))
 	})
 
 	Context("with a NATS server", func() {
@@ -240,6 +253,8 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			DeferCleanup(svc.Shutdown)
 
 			Expect(carrierRow().Active).To(Equal(cluster.CarrierNATS))
+			Eventually(svc.Unready, "10s").Should(Succeed(), "ready once it reaches the server")
+			Expect(svc.bus.PublishBus()).To(Equal(carrier.BusNATS))
 			Expect(svc.Broadcaster).ToNot(BeNil())
 			Expect(svc.Replies).ToNot(BeNil())
 			Expect(svc.AgentControl).ToNot(BeNil())

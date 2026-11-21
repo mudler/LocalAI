@@ -322,6 +322,19 @@ func (a *Application) Ready() bool {
 	return a.startupComplete.Load() && !a.collectionsPending.Load() && !a.draining.Load()
 }
 
+// Unavailable returns why this process must not take traffic although it has
+// started, or "" when it may. In distributed mode a frontend or a chat worker
+// that has a NATS server configured and does not reach it is unavailable: it
+// keeps listening and publishing on PostgreSQL, but it does not hear the
+// broadcasts that the others publish on NATS, so /readyz drains it until NATS
+// is back.
+func (a *Application) Unavailable() string {
+	if err := a.Distributed().Unready(); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
 // BeginDrain makes Ready report false for good. The process calls it when
 // shutdown starts, so /readyz tells a load balancer to stop sending new
 // requests while in-flight ones finish.

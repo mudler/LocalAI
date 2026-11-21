@@ -9,13 +9,13 @@
 //     worker and the agent RPC. A frontend may hold several, one for each kind
 //     of route (nodes.RouteKind), and the RouteTable picks one for each node
 //     from the routes that the node has (nodes.RoutesOf).
-//   - A Fabric is what the processes of the cluster use among themselves: the
-//     broadcaster, request and reply, and the reconnect event.
+//   - The broadcaster holder (Broadcaster) is what the frontends and chat
+//     workers broadcast on: it listens on every bus they have (PostgreSQL, and
+//     NATS when configured) and publishes each message on one of them.
 //
 // The holders in this package implement the seam interfaces. The holders of the
 // worker-facing seams forward each call through the route table; the
-// broadcaster holder forwards to the Fabric of the Set that an atomic pointer
-// names.
+// broadcaster holder picks a bus for each publish.
 //
 // This package names interfaces only. The code that builds the routes and the
 // sets is the one place that names a transport (see nats.go and tunnel.go).
@@ -24,7 +24,6 @@ package carrier
 import (
 	"errors"
 	"fmt"
-	"sync/atomic"
 
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -85,34 +84,17 @@ func (r *WorkerRoute) Validate() error {
 	return nil
 }
 
-// Fabric is what the processes of the cluster (frontends and chat workers) use
-// among themselves. Workers never use it.
-type Fabric struct {
-	// Broadcaster carries fan-out and nothing else. A subject outside the
-	// broadcast roots (see messaging.ValidateBroadcastSubject) is not served
-	// through it: control traffic uses the worker routes.
-	Broadcaster messaging.Broadcaster
-	// OnReconnect registers a callback the carrier runs after it recovers a
-	// lost connection. It is nil for a carrier with no such event.
-	OnReconnect func(func())
-	// Replies carries request and reply between the processes of the cluster:
-	// the chat start, the replay of chat events and the background jobs of a
-	// turn. It is nil for a carrier that has none, and the holder then answers
-	// every request with messaging.ErrNotDelivered. That is not "nobody
-	// listens": the callers handle it as a request that reached no process.
-	Replies messaging.RequestReply
-}
-
-// Set is one carrier of the cluster carrier row: its Fabric and the worker route
-// that it brings. The broadcaster holder publishes on the Fabric of the Set that
-// the row names, and the change of carrier (Swapper) moves it. Worker calls do
-// not follow the row: the route table holds the worker route of a set while
-// the set is in use or drains (RouteTable.Attach).
+// Set is one carrier of the cluster carrier row: the request and reply between
+// processes that it carries and the worker route that it brings. Request and
+// reply follow the set that the row names (the broadcaster holder reads it), and
+// the change of carrier (Swapper) moves it. Broadcasts never follow the row:
+// they go over the buses of the holder. Worker calls do not follow the row
+// either: the route table holds the worker route of a set while the set is in
+// use or drains (RouteTable.Attach).
 //
 // The Set, the carrier row and the change of carrier are removed with the
-// switch (step 8 of the hybrid carriers work); the Fabric then stands alone.
-// Build a set completely and call Validate before storing it where holders can
-// see it.
+// switch (step 8 of the hybrid carriers work). Build a set completely and call
+// Validate before storing it where holders can see it.
 type Set struct {
 	// Name is the carrier this set belongs to.
 	Name cluster.Carrier
@@ -123,7 +105,13 @@ type Set struct {
 	// address is not the set that the row asks for. Empty for the tunnel.
 	NATSURL string
 
-	Fabric
+	// Replies carries request and reply between the processes of the cluster:
+	// the chat start, the replay of chat events and the background jobs of a
+	// turn. It is nil for a carrier that has none, and the holder then answers
+	// every request with messaging.ErrNotDelivered. That is not "nobody
+	// listens": the callers handle it as a request that reached no process.
+	Replies messaging.RequestReply
+
 	// WorkerRoute is the route to the workers that this carrier brings. A
 	// tunnel set may share the route that the table pins (TunnelOptions.Routes),
 	// and its Close then leaves that route open.
@@ -131,14 +119,6 @@ type Set struct {
 
 	// Close releases the carrier's connections. It may be nil.
 	Close func()
-
-	// The fan-out holder (Broadcaster) keeps these. publishing counts the
-	// publishes that run on the set, and released says that the holder dropped
-	// the subscriptions of the set. Release waits for the count to reach zero, so
-	// a publish that started on the set reaches its subscribers. A set belongs to
-	// one holder.
-	publishing atomic.Int64
-	released   atomic.Bool
 }
 
 // Validate reports the first member that is missing.
@@ -148,9 +128,6 @@ func (s *Set) Validate() error {
 	}
 	if s.Name != cluster.CarrierNATS && s.Name != cluster.CarrierTunnel {
 		return fmt.Errorf("%w: %q", cluster.ErrInvalidCarrier, s.Name)
-	}
-	if s.Broadcaster == nil {
-		return fmt.Errorf("carrier set %q has no Broadcaster", s.Name)
 	}
 	if s.WorkerRoute == nil {
 		return fmt.Errorf("carrier set %q has no worker route", s.Name)

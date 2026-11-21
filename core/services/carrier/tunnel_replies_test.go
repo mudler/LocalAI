@@ -312,7 +312,7 @@ var _ = Describe("Request and reply on the tunnel carrier", func() {
 			tun.set.Replies = rr
 			var cur atomic.Pointer[carrier.Set]
 			cur.Store(nats.set)
-			h := carrier.NewBroadcaster(&cur)
+			h := holderOver(&cur)
 
 			release := make(chan struct{})
 			var calls atomic.Int32

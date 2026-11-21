@@ -454,6 +454,8 @@ type switchReplica struct {
 	natsConns []*messaging.Client
 	failBuild map[cluster.Carrier]error
 	holdBuild map[cluster.Carrier]chan struct{}
+	// closedTunnels counts the tunnel sets that the replica closed.
+	closedTunnels atomic.Int32
 }
 
 func (r *switchReplica) active() cluster.Carrier { return r.cur.Load().Name }
@@ -518,19 +520,25 @@ func (r *switchReplica) build(ctx context.Context, row cluster.CarrierRow, targe
 			},
 		})
 	case cluster.CarrierTunnel:
-		fan, err := carrier.NewPgbusFanout(ctx, carrier.PgbusOptions{DB: rig.db, DSN: rig.dsn})
-		if err != nil {
-			return nil, err
-		}
-		return carrier.NewTunnelSet(carrier.TunnelOptions{
+		set, err := carrier.NewTunnelSet(carrier.TunnelOptions{
 			Epoch:          row.Epoch,
 			Dialer:         tunnel.NewWorkerDialer(r.tunnels, r.pool),
-			Fanout:         fan,
 			AgentSelector:  nodes.NewAgentSelector(rig.nodeReg, rig.clusterR, r.id),
 			Registry:       rig.nodeReg,
 			InstallTimeout: 30 * time.Second, UpgradeTimeout: 30 * time.Second, Token: registrationToken,
 			Self: r.id, Peers: r.pool, Replies: r.replies,
 		})
+		if err != nil {
+			return nil, err
+		}
+		inner := set.Close
+		set.Close = func() {
+			r.closedTunnels.Add(1)
+			if inner != nil {
+				inner()
+			}
+		}
+		return set, nil
 	}
 	return nil, fmt.Errorf("unknown carrier %q", target)
 }
@@ -583,7 +591,18 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	first, err := r.build(ctx, row, row.Active)
 	Expect(err).ToNot(HaveOccurred())
 	r.cur.Store(first)
-	r.bus = carrier.NewBroadcaster(&r.cur)
+	// The buses of the broadcasts, as every replica has them: PostgreSQL always,
+	// and NATS because the rig has a server. They do not follow the row.
+	floor, _ := pgbusFloor(ctx, rig.db, rig.dsn)
+	natsClient, err := messaging.New(rig.natsURL)
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(natsClient.Close)
+	r.bus, err = carrier.NewBroadcaster(carrier.BroadcasterOptions{
+		Floor:   floor,
+		Primary: &carrier.Bus{Name: carrier.BusNATS, Broadcaster: natsClient, OnReconnect: natsClient.OnReconnect, Connected: natsClient.IsConnected},
+		Sets:    &r.cur,
+	})
+	Expect(err).ToNot(HaveOccurred())
 
 	workers := nodes.NewSwitchWorkers(rig.nodeReg, time.Hour)
 	r.routes = carrier.NewRouteTable(func(ctx context.Context, nodeID string) ([]nodes.Route, error) {
@@ -1121,7 +1140,9 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		_, _, err := rig.request(cluster.CarrierTunnel, false)
 		Expect(err).ToNot(HaveOccurred())
 		rig.eventually(func() bool { return a.buildCount(cluster.CarrierTunnel) == 1 }, "A built the target")
-		Eventually(rig.listeners, "10s", "50ms").Should(Equal(int64(1)), "A listens on the database for the target")
+		// The buses do not follow a change: every replica holds one LISTEN session
+		// for its floor, before, during and after it.
+		Expect(rig.listeners()).To(Equal(int64(2)))
 		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(ContainElement(cluster.CarrierTunnel), "the worker attaches to the target while it is prepared")
 
 		row, err := a.sw.Abort(rig.ctx, "admin")
@@ -1130,7 +1151,9 @@ var _ = Describe("A change of carrier, end to end", Ordered, func() {
 		Expect(row.Active).To(Equal(cluster.CarrierNATS))
 		close(hold)
 
-		Eventually(rig.listeners, "20s", "100ms").Should(BeZero(), "what was built for the change is dropped on both replicas")
+		Eventually(func() int { return b.buildCount(cluster.CarrierTunnel) }, "20s", "100ms").Should(Equal(1), "B finished the build it was held in")
+		Eventually(func() int32 { return a.closedTunnels.Load() + b.closedTunnels.Load() }, "20s", "100ms").Should(Equal(int32(2)), "what was built for the change is closed on both replicas")
+		Expect(rig.listeners()).To(Equal(int64(2)), "the floors stay")
 		Expect(a.active()).To(Equal(cluster.CarrierNATS))
 		Expect(b.active()).To(Equal(cluster.CarrierNATS))
 		Eventually(func() []cluster.Carrier { return rig.attachedOf(w.nodeID) }, "20s", "50ms").Should(Equal([]cluster.Carrier{cluster.CarrierNATS}), "the worker lets go of the target when the change is aborted")

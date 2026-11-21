@@ -81,8 +81,8 @@ function NatsSettings({ settings, onSaved }) {
       setResult({
         ok: true,
         text: answer?.nats?.reachable
-          ? 'Saved. This frontend reaches the NATS server. The broadcast bus did not change.'
-          : 'Saved. The broadcast bus did not change.',
+          ? 'Saved. This frontend reaches the NATS server. The carrier setting did not change; restart the frontends to broadcast over the new address.'
+          : 'Saved. The carrier setting did not change.',
       })
       onSaved()
     } catch (error) {
@@ -95,7 +95,7 @@ function NatsSettings({ settings, onSaved }) {
   return (
     <form className="transport-settings" onSubmit={save} aria-label="NATS settings">
       <p className="form-label">NATS settings</p>
-      <p className="text-note">Saving makes NATS available and checks that this frontend reaches it. It does not change the broadcast bus.</p>
+      <p className="text-note">Saving makes NATS available and checks that this frontend reaches it. It does not change the carrier setting.</p>
       <label className="transport-field">
         <span>NATS URL</span>
         <input className="input input-mono" aria-label="NATS URL" placeholder="nats://nats:4222" value={natsUrl}
@@ -114,7 +114,7 @@ function NatsSettings({ settings, onSaved }) {
   )
 }
 
-// ClusterTransport shows the broadcast bus the frontends share, the frontends
+// ClusterTransport shows the carrier setting of the cluster, the frontends
 // and workers behind it, and the NATS address settings. It is read-only apart
 // from the NATS settings: changing the bus is an API and CLI operation. It
 // renders nothing when the cluster routes are not available.
@@ -165,13 +165,13 @@ export default function ClusterTransport() {
     <section className="card pad-lg mb-lg transport-panel" aria-label="Cluster transport" data-testid="cluster-transport">
       <div className="transport-head">
         <div>
-          <span className="fleet-kicker">Broadcast bus between frontends</span>
+          <span className="fleet-kicker">Carrier setting of the cluster</span>
           <div className="transport-head__line">
             <strong className="transport-head__carrier" data-testid="transport-active">{busLabel(report.active)}</strong>
             <span className={`badge ${stateTone(label)}`} data-testid="transport-state">{label}</span>
             <span className="text-note" data-testid="transport-epoch">epoch {report.epoch}</span>
           </div>
-          <p className="text-note">Each worker attaches over NATS, WebSocket or P2P. Workers never connect to PostgreSQL; only the frontends use it as a bus.</p>
+          <p className="text-note">Each worker attaches over NATS, WebSocket or P2P. Frontends broadcast over NATS while they reach it, and over PostgreSQL otherwise. Workers never connect to PostgreSQL.</p>
           {busy && target && <p className="text-note" role="status">A change to {busLabel(target)} is in progress: {report.state === 'prepare' ? 'every frontend builds the new bus and reports ready' : 'the new bus is active, frontends are confirming'}.</p>}
           {draining && <p className="text-note" role="status" data-testid="transport-drain">Draining {busLabel(report.row?.draining)}: {formatCountdown(remainingNs)} left. Work that started there finishes there; what is left is cut afterwards.</p>}
           {loadError && <p className="transport-error" role="alert">{loadError}</p>}

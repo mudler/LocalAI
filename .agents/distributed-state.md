@@ -50,7 +50,7 @@ up. If your map has no durable backing, a leader (or another privileged
 writer) must republish its live state after a reconnect instead of relying on
 `Reconcile` to recover it.
 
-**Gotcha:** a hydrate (on `Start`, after a NATS reconnect, and on every
+**Gotcha:** a hydrate (on `Start`, after a bus reconnects or publishes move to another bus, and on every
 `Reconcile` tick) replaces the map's contents **without firing `OnApply`**.
 If `OnApply` feeds derived state (the failover manager's pins, a cache, a
 running process), that state stays stale after a reconnect or a repaired

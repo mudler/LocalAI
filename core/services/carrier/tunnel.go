@@ -18,8 +18,8 @@ import (
 // The tunnel route (NewTunnelRoutes) has the control verbs, the file stager,
 // the client factory, the dialer of the HTTP server of a worker and the agent
 // RPC, which picks an agent worker with the selector and sends the request over
-// the same control client as the other verbs. A tunnel set adds the Fabric: the
-// fan-out from NewPgbusFanout and request and reply over the peer link.
+// the same control client as the other verbs. A tunnel set adds request and
+// reply over the peer link.
 type TunnelOptions struct {
 	// Epoch is the epoch of the cluster row the set is built for.
 	Epoch int64
@@ -35,8 +35,6 @@ type TunnelOptions struct {
 	// of each one.
 	Dialer *tunnel.WorkerDialer
 
-	// Fanout carries the broadcasts.
-	Fanout *Fanout
 	// AgentSelector picks the agent worker that gets an MCP request.
 	AgentSelector *nodes.AgentSelector
 
@@ -74,9 +72,6 @@ type TunnelOptions struct {
 // NewTunnelSet builds the set of seam implementations that reach workers through
 // their tunnels. The set is complete or it is an error, as for NATS.
 func NewTunnelSet(o TunnelOptions) (*Set, error) {
-	if o.Fanout == nil {
-		return nil, errors.New("tunnel set needs a fan-out")
-	}
 	route := o.Routes
 	closeRoute := func() {}
 	if route == nil {
@@ -94,14 +89,8 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 	set := &Set{
 		Name:        cluster.CarrierTunnel,
 		Epoch:       o.Epoch,
-		Fabric:      Fabric{Broadcaster: o.Fanout.Broadcaster, OnReconnect: o.Fanout.OnReconnect},
 		WorkerRoute: route,
-		Close: func() {
-			closeRoute()
-			if o.Fanout.Close != nil {
-				o.Fanout.Close()
-			}
-		},
+		Close:       closeRoute,
 	}
 	if o.Peers != nil && o.Replies != nil {
 		if o.Self == "" {
@@ -117,8 +106,8 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 
 // NewTunnelRoutes builds the tunnel route: the members that reach one worker
 // through the tunnel it holds, over a websocket or over P2P. The agent RPC is
-// there only when o has an AgentSelector. Fanout, Self, Peers, Replies and
-// Queues of o are not read. It holds no connection until a call needs one, so a
+// there only when o has an AgentSelector. Self, Peers, Replies and Queues of o
+// are not read. It holds no connection until a call needs one, so a
 // frontend with no tunnel worker pays nothing for it.
 func NewTunnelRoutes(o TunnelOptions) (*WorkerRoute, error) {
 	if o.Dialer == nil {
