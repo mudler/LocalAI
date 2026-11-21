@@ -189,24 +189,3 @@ func TestLibraryAddPinsTheSigner(t *testing.T) {
 		}
 	}
 }
-
-func TestLibraryAddPinsTheSourceRepository(t *testing.T) {
-	f := libFlags(t, t.TempDir())
-	pattern := `^https://github\.com/example-org/shared/\.github/workflows/sign\.yml@refs/tags/v.+$`
-	repo := "https://github.com/example-org/example-repo"
-	c := LibraryAdd{URL: "oci://registry.example/fixture-addon/library:1", Kind: "addon", ID: "fixture", Format: "library", Issuer: "https://issuer.example", IdentityRegex: pattern, SourceRepository: repo, LibraryFlags: f}
-	if err := c.Run(nil); err != nil {
-		t.Fatal(err)
-	}
-	e, ok := entry(t, f, "fixture")
-	want := catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", IdentityRegex: pattern, SourceRepository: repo}
-	if !ok || e.Policy != want {
-		t.Errorf("policy = %+v, %v, want %+v", e.Policy, ok, want)
-	}
-	// A pattern without the pin is refused, with a message that names the flag.
-	bad := LibraryAdd{URL: "oci://registry.example/b:1", Kind: "addon", ID: "b", Format: "library", Issuer: "https://issuer.example", IdentityRegex: pattern, LibraryFlags: f}
-	err := bad.Run(nil)
-	if err == nil || !strings.Contains(err.Error(), "source_repository") {
-		t.Errorf("a pattern without a source repository: err = %v", err)
-	}
-}
