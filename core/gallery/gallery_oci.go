@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
+	"github.com/mudler/LocalAI/pkg/oci/ociindex"
 	"github.com/mudler/xlog"
 )
 
@@ -117,39 +116,13 @@ func ociGalleryCacheRoot(basePath string) string {
 	return filepath.Join(basePath, "..", "cache", "gallery", "oci")
 }
 
-// readCachedOCIGallery returns the cached index, if the cache holds one that
-// is fresh and usable.
-//
-// The directory only exists because a completed pull was renamed into place,
-// so its presence already means the content was verified before it landed.
-// The index is still probed: a directory truncated by a full disk or edited by
-// hand must not be served as if it were the gallery.
-func readCachedOCIGallery(cacheDir string) ([]byte, bool) {
-	info, err := os.Stat(cacheDir)
-	if err != nil || !info.IsDir() {
-		return nil, false
-	}
-	if time.Since(info.ModTime()) > ociGalleryCacheTTL {
-		return nil, false
-	}
-	// #nosec G304 -- cacheDir is ociGalleryCacheDir's own construction, a hex
-	// digest under a fixed directory, and the file name is a constant.
-	body, err := os.ReadFile(filepath.Join(cacheDir, galleryIndexFile))
-	if err != nil || !isUsableGalleryIndex(body) {
-		return nil, false
-	}
-	return body, true
-}
-
 // fetchOCIGalleryIndex pulls a gallery artifact from a registry and returns
 // its index.
 //
-// The pull lands in a staging directory and is renamed into place only once
-// the whole tree is on disk and the index reads back as an index. The puller
-// writes its layers with O_EXCL, so a directory holding partial files from an
-// interrupted attempt would fail every later pull; and a partial tree that a
-// later fetch served would hand the user a truncated gallery with no sign that
-// anything went wrong.
+// The resolve, verify, stage, validate and cache steps live in ociindex, shared
+// with every other catalog that can be an oci:// source. This keeps what is
+// specific to a gallery: the verification policy, the strict-integrity refusal
+// and the mapping of a verifier error to refusal versus outage.
 func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, basePath string, requireIntegrity bool) ([]byte, error) {
 	policy := galleryArtifactPolicy(g)
 	// Checked before the cache: a copy unpacked while strict integrity was
@@ -166,79 +139,39 @@ func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, base
 	if cacheDir == "" {
 		return nil, fmt.Errorf("gallery %q needs an absolute models directory to cache %q", g.Name, candidate)
 	}
-	if body, ok := readCachedOCIGallery(cacheDir); ok {
-		return body, nil
+
+	opts := ociindex.Options{
+		ArtifactType: galleryArtifactType,
+		IndexFile:    galleryIndexFile,
+		CacheDir:     cacheDir,
+		CacheTTL:     ociGalleryCacheTTL,
+		MaxLayers:    maxGalleryArtifactLayers,
+		MaxBytes:     maxGalleryArtifactBytes,
+		Usable:       isUsableGalleryIndex,
 	}
-
-	pullRef := downloader.URI(candidate).OCIReference()
-
 	if policy != nil {
-		// Resolve first, verify the digest, then pull that same digest.
-		// Nothing has been fetched at this point beyond the manifest, so a
-		// policy failure leaves no content anywhere.
-		digestRef, err := oci.ResolveArtifactDigestRef(ctx, pullRef)
-		if err != nil {
-			return nil, err
+		opts.Verify = func(ctx context.Context, digestRef string) error {
+			return verifyGalleryArtifact(ctx, policy, digestRef)
 		}
-		if err := verifyGalleryArtifact(ctx, policy, digestRef); err != nil {
-			// Only a decision about the artifact is a refusal. The
-			// verifier also reaches the Sigstore TUF mirror and the
-			// registry, and a timeout or a 5xx there says nothing about
-			// the gallery: it is an outage, and the caller may serve the
-			// copy this same policy verified before.
-			if errors.Is(err, cosignverify.ErrPolicyRejected) {
-				return nil, &galleryVerificationError{err: fmt.Errorf("signature verification of %q failed: %w", candidate, err)}
-			}
-			return nil, fmt.Errorf("could not verify the signature of %q: %w", candidate, err)
-		}
-		pullRef = digestRef
 	} else {
 		xlog.Warn("fetching an OCI gallery without signature verification",
 			"gallery", g.Name, "url", candidate)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(cacheDir), 0o750); err != nil {
-		return nil, fmt.Errorf("could not create the gallery cache directory: %w", err)
-	}
-	staging, err := os.MkdirTemp(filepath.Dir(cacheDir), ".staging-*")
-	if err != nil {
-		return nil, fmt.Errorf("could not stage the gallery artifact: %w", err)
-	}
-	// Removed on every path but the successful rename, which moves the
-	// directory out from under this call.
-	defer func() {
-		if rmErr := os.RemoveAll(staging); rmErr != nil && !os.IsNotExist(rmErr) {
-			xlog.Debug("could not clean up a gallery staging directory", "path", staging, "error", rmErr)
+	body, err := ociindex.Fetch(ctx, downloader.URI(candidate).OCIReference(), opts)
+	var verr *ociindex.VerifyError
+	if errors.As(err, &verr) {
+		// Only a decision about the artifact is a refusal. The verifier
+		// also reaches the Sigstore TUF mirror and the registry, and a
+		// timeout or a 5xx there says nothing about the gallery: it is an
+		// outage, and the caller may serve the copy this same policy
+		// verified before.
+		if errors.Is(verr.Err, cosignverify.ErrPolicyRejected) {
+			return nil, &galleryVerificationError{err: fmt.Errorf("signature verification of %q failed: %w", candidate, verr.Err)}
 		}
-	}()
-
-	if _, err := oci.PullArtifact(ctx, pullRef, staging,
-		oci.WithArtifactType(galleryArtifactType),
-		oci.WithMaxArtifactLayers(maxGalleryArtifactLayers),
-		oci.WithMaxArtifactBytes(maxGalleryArtifactBytes)); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not verify the signature of %q: %w", candidate, verr.Err)
 	}
-
-	// #nosec G304 -- staging is this function's own temporary directory and
-	// the file name is a constant.
-	body, err := os.ReadFile(filepath.Join(staging, galleryIndexFile))
-	if err != nil {
-		return nil, fmt.Errorf("gallery artifact %q carries no %s: %w", candidate, galleryIndexFile, err)
-	}
-	if !isUsableGalleryIndex(body) {
-		return nil, fmt.Errorf("gallery artifact %q has an %s that is not a gallery index", candidate, galleryIndexFile)
-	}
-
-	// The bytes are already in hand, so a rename that loses a race with
-	// another fetch, or fails on a read-only cache, costs nothing but the next
-	// fetch pulling again. The caller still gets this gallery.
-	if err := os.RemoveAll(cacheDir); err != nil {
-		xlog.Debug("could not clear a stale gallery cache entry", "path", cacheDir, "error", err)
-	} else if err := os.Rename(staging, cacheDir); err != nil {
-		xlog.Debug("could not install the gallery cache entry", "path", cacheDir, "error", err)
-	}
-
-	return body, nil
+	return body, err
 }
 
 func galleryArtifactPolicy(g config.Gallery) *config.GalleryVerification {
