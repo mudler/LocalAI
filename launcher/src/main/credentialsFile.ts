@@ -75,7 +75,11 @@ export interface PreparedCredentials {
  * work. A user-set LOCALAI_CREDENTIALS_FILE wins and nothing is written.
  */
 export async function prepareRegistryCredentials(dir: string, source: CredentialSource, userOverride: boolean): Promise<PreparedCredentials> {
-  if (userOverride) return { env: {}, userOverride: true }
+  if (userOverride) {
+    // The user's file is used; an older generated file would only confuse.
+    await writeCredentialsFile(dir, [], () => '')
+    return { env: {}, userOverride: true }
+  }
   const env: Record<string, string> = {}
   const usable: RegistryCredentialRule[] = []
   for (const r of source.list()) {

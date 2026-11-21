@@ -111,7 +111,7 @@ import type { SandboxProbe } from './sandboxProbe'
 import { InvalidAttachPattern, validateAttachPattern, type SandboxPlan } from './sandboxProfile'
 import { prepareRemove, prepareSetup, runPlan, type Runner, type SetupResult } from './sandboxSetup'
 import { buildServerLaunch, needsRestart, userCredentialsFile, type RegistryCredentialsLaunch, type ServerLaunch } from './serverLaunch'
-import { prepareRegistryCredentials } from './credentialsFile'
+import { CREDENTIALS_FILE_NAME, prepareRegistryCredentials } from './credentialsFile'
 import { RegistryCredentials } from './registryCredentials'
 import {
   execServerVersion,
@@ -341,7 +341,7 @@ export class LauncherCore {
   // ---- start ------------------------------------------------------------------
 
   async init(): Promise<void> {
-    const launcherLog = (m: string) => (this.hub ? this.hub.write('launcher', m) : this.early.push(m))
+    const launcherLog = (m: string) => this.launcherLog(m)
 
     this.d.trace?.('init-start')
     // 1. config
@@ -815,6 +815,7 @@ export class LauncherCore {
   private async openLocal(): Promise<void> {
     this.monitor.stop()
     this.webuiDispatch({ type: 'back-to-local' })
+    if (await this.refreshRegistryCredentials()) this.launchStale = true
     if (this.launchStale) this.buildSupervisor(this.store.get())
     await this.startServer()
   }
@@ -982,9 +983,12 @@ export class LauncherCore {
   /**
    * Writes the credentials file for the registry rules and keeps the secret
    * variables for the next server launch. Returns true when the result differs
-   * from the last one, so the caller knows the launch is stale. A failure to
-   * write leaves the server without registry credentials; it is logged
-   * without values.
+   * from the last one. A failure to write leaves the server without registry
+   * credentials; it is logged with the error code only.
+   *
+   * The server reads the file once, at its start, so removing the file while
+   * a server runs does not affect it. A missing file named by the variable is
+   * a startup error, which is why no start ever points at a removed file.
    */
   private async refreshRegistryCredentials(): Promise<boolean> {
     const dir = path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home, this.layout()))
@@ -993,12 +997,39 @@ export class LauncherCore {
     try {
       const p = await prepareRegistryCredentials(dir, this.registryCredentials, override)
       next = p.file ? { file: p.file, env: p.env } : undefined
-    } catch {
-      this.hub?.write('launcher', 'registry credentials: could not write the credentials file', 'warn')
+    } catch (e) {
+      this.launcherLog(`registry credentials: could not write ${CREDENTIALS_FILE_NAME} (${(e as NodeJS.ErrnoException).code ?? 'error'})`, 'warn')
     }
     const changed = JSON.stringify(next ?? null) !== JSON.stringify(this.registryLaunch ?? null)
     this.registryLaunch = next
     return changed
+  }
+
+  /** The launcher log, or the early buffer before the log hub exists. */
+  private launcherLog(m: string, level: 'info' | 'warn' = 'info'): void {
+    if (this.hub) this.hub.write('launcher', m, level)
+    else this.early.push(m)
+  }
+
+  /**
+   * Call after a registry rule or its secret changed. Stopped server: the
+   * launch is rebuilt now. Running server: the launch is marked stale and the
+   * next start uses the new file. Returns true when a restart is needed.
+   */
+  async registryCredentialsChanged(): Promise<boolean> {
+    if (!(await this.refreshRegistryCredentials())) return this.restartRequired()
+    if (this.serverRunning()) {
+      this.launchStale = true
+      return true
+    }
+    this.buildSupervisor(this.store.get())
+    this.d.emit('launcher:server:event', this.snapshot())
+    return false
+  }
+
+  /** The rules and their secrets, for the Settings handlers. */
+  registryCredentialRules(): RegistryCredentials {
+    return this.registryCredentials
   }
 
   private buildSupervisor(config: LauncherConfig): void {
@@ -1097,7 +1128,8 @@ export class LauncherCore {
   /**
    * The server's launch values changed (API key, address, environment).
    * Stopped: rebuild now. Running: the next start uses them. Returns true
-   * when a restart is needed.
+   * when a restart is needed. The registry credentials are not part of this:
+   * startServer refreshes them before every start.
    */
   private launchChanged(): boolean {
     if (this.serverRunning()) {
@@ -1389,6 +1421,7 @@ export class LauncherCore {
         this.launchStale = true
         restartRequired = true
       } else {
+        await this.refreshRegistryCredentials()
         this.buildSupervisor(after)
         this.d.emit('launcher:server:event', this.snapshot())
       }

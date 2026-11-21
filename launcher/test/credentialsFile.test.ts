@@ -117,10 +117,12 @@ describe('prepareRegistryCredentials', () => {
     expect(fs.readdirSync(dir)).toEqual([])
   })
 
-  it('does nothing when the user set their own file', async () => {
+  it('writes nothing and removes an earlier generated file when the user set their own', async () => {
+    await writeCredentialsFile(dir, [basic], envName)
+    fs.writeFileSync(path.join(dir, 'credentials.yaml'), 'hand edited')
     const p = await prepareRegistryCredentials(dir, source({ a1: 'pw-one' }), true)
     expect(p).toEqual({ env: {}, userOverride: true })
-    expect(fs.readdirSync(dir)).toEqual([])
+    expect(fs.readdirSync(dir)).toEqual(['credentials.yaml'])
   })
 })
 
@@ -147,6 +149,18 @@ describe('buildServerLaunch with registry credentials', () => {
     const l = buildServerLaunch(c, '/d', {}, undefined, {})
     expect(l.env.LOCALAI_CREDENTIALS_FILE).toBeUndefined()
     expect(l.credentialsUserOverride).toBe(false)
+  })
+
+  it('passes a file that comes from the Settings variables when the system has none', () => {
+    const l = buildServerLaunch(c, '/d', {}, undefined, { env: { LOCALAI_CREDENTIALS_FILE: '/from-settings.yaml' } }, 'stable', reg)
+    expect(l.env.LOCALAI_CREDENTIALS_FILE).toBe('/from-settings.yaml')
+    expect(l.env.LOCALAI_LAUNCHER_CRED_1).toBeUndefined()
+    expect(l.credentialsUserOverride).toBe(true)
+  })
+
+  it('prefers the Settings value over the system one, and skips an empty value', () => {
+    expect(userCredentialsFile({ LOCALAI_CREDENTIALS_FILE: '/sys.yaml' }, { LOCALAI_CREDENTIALS_FILE: '/settings.yaml' })).toBe('/settings.yaml')
+    expect(userCredentialsFile({ LOCALAI_CREDENTIALS_FILE: '/sys.yaml' }, { LOCALAI_CREDENTIALS_FILE: '' })).toBe('/sys.yaml')
   })
 
   it('finds a user value by name, case-blind on Windows', () => {
