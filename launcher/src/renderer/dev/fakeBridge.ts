@@ -454,6 +454,10 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
       return rec('deleteEnvVar', s.envVars, name)
     },
     getSecretStorageState: () => rec('getSecretStorageState', storage()),
+    getRegistryCredentials: () => rec('getRegistryCredentials', { rules: [], userOverride: false, restartRequired: false }),
+    saveRegistryCredential: (input) => rec('saveRegistryCredential', { ok: true as const, id: input.id ?? '0123456789abcdef', restartRequired: false }, input),
+    removeRegistryCredential: (id) => rec('removeRegistryCredential', { restartRequired: false }, id),
+    testRegistryCredential: (id) => rec('testRegistryCredential', { result: 'ok' as const, status: 200 }, id),
     getWorker: () => (s.worker ? rec('getWorker', s.worker) : Promise.reject(new Error('none'))),
     onWorker: () => () => undefined,
     setRunMode: (m) => rec('setRunMode', { ...(s.worker as WorkerView), mode: m }, m),

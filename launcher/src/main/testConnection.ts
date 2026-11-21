@@ -55,7 +55,7 @@ class Failed extends Error {
   }
 }
 
-const TLS_CODES: Record<string, TlsReason> = {
+export const TLS_CODES: Record<string, TlsReason> = {
   CERT_HAS_EXPIRED: 'expired',
   CERT_NOT_YET_VALID: 'not-yet-valid',
   DEPTH_ZERO_SELF_SIGNED_CERT: 'self-signed',

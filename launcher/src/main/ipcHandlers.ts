@@ -77,6 +77,10 @@ export type CoreApi = Pick<
   | 'setEnvVar'
   | 'deleteEnvVar'
   | 'secretStorageView'
+  | 'registryCredentialsView'
+  | 'saveRegistryCredential'
+  | 'removeRegistryCredential'
+  | 'testRegistryCredential'
 >
 
 export interface HandlerDeps {
@@ -210,6 +214,10 @@ export function createIpcHandlers(d: HandlerDeps): { invoke: InvokeHandlers; sen
     },
     'launcher:env:delete': (...a) => c.deleteEnvVar(v.envName(v.one(a))),
     'launcher:secrets:state': (...a) => (v.noArgs(a), c.secretStorageView()),
+    'launcher:registry-credentials:list': (...a) => (v.noArgs(a), c.registryCredentialsView()),
+    'launcher:registry-credentials:save': (...a) => c.saveRegistryCredential(v.registryCredentialInput(v.one(a))),
+    'launcher:registry-credentials:remove': (...a) => c.removeRegistryCredential(v.registryCredentialId(v.one(a))),
+    'launcher:registry-credentials:test': (...a) => c.testRegistryCredential(v.registryCredentialId(v.one(a))),
   }
   const send: SendHandlers = {
     // Only a label for the smoke test log: keep it short and on one line.

@@ -33,6 +33,11 @@ import type {
   CopyKeyFormat,
   EnvVarResult,
   EnvVarsView,
+  RegistryCredentialInput,
+  RegistryCredentialRemoveResult,
+  RegistryCredentialSaveResult,
+  RegistryCredentialTestResult,
+  RegistryCredentialsView,
   NetworkChangeResult,
   NetworkPlanView,
   NetworkView,
@@ -113,6 +118,7 @@ import { prepareRemove, prepareSetup, runPlan, type Runner, type SetupResult } f
 import { buildServerLaunch, needsRestart, userCredentialsFile, type RegistryCredentialsLaunch, type ServerLaunch } from './serverLaunch'
 import { CREDENTIALS_FILE_NAME, prepareRegistryCredentials } from './credentialsFile'
 import { RegistryCredentials } from './registryCredentials'
+import { probeRegistry } from './registryProbe'
 import {
   execServerVersion,
   isActive,
@@ -1030,6 +1036,35 @@ export class LauncherCore {
   /** The rules and their secrets, for the Settings handlers. */
   registryCredentialRules(): RegistryCredentials {
     return this.registryCredentials
+  }
+
+  /** The rules for the Settings screen: no secrets, only whether one is set. */
+  registryCredentialsView(): RegistryCredentialsView {
+    return {
+      rules: this.registryCredentials.list(),
+      userOverride: userCredentialsFile(this.d.env, this.userEnv()) !== undefined,
+      restartRequired: this.restartRequired(),
+    }
+  }
+
+  async saveRegistryCredential(input: RegistryCredentialInput): Promise<RegistryCredentialSaveResult> {
+    const r = await this.registryCredentials.save(input)
+    if (!r.ok) return r
+    this.launcherLog('registry credential saved')
+    return { ok: true, id: r.id, restartRequired: await this.registryCredentialsChanged() }
+  }
+
+  async removeRegistryCredential(id: string): Promise<RegistryCredentialRemoveResult> {
+    await this.registryCredentials.remove(id)
+    this.launcherLog('registry credential removed')
+    return { restartRequired: await this.registryCredentialsChanged() }
+  }
+
+  /** Asks the registry of one rule whether its credential is accepted. The secret is read here and goes nowhere else. */
+  async testRegistryCredential(id: string): Promise<RegistryCredentialTestResult> {
+    const rule = this.registryCredentials.list().find((r) => r.id === id)
+    if (!rule) return { result: 'other' }
+    return probeRegistry(rule, await this.registryCredentials.secretFor(id))
   }
 
   private buildSupervisor(config: LauncherConfig): void {

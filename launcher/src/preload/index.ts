@@ -113,6 +113,10 @@ const api: LauncherApi = {
   setEnvVar: (name, value) => invoke('launcher:env:set', name, value),
   deleteEnvVar: (name) => invoke('launcher:env:delete', name),
   getSecretStorageState: () => invoke('launcher:secrets:state'),
+  getRegistryCredentials: () => invoke('launcher:registry-credentials:list'),
+  saveRegistryCredential: (input) => invoke('launcher:registry-credentials:save', input),
+  removeRegistryCredential: (id) => invoke('launcher:registry-credentials:remove', id),
+  testRegistryCredential: (id) => invoke('launcher:registry-credentials:test', id),
   firstRender: (shownState) => send('launcher:first-render', shownState),
 }
 

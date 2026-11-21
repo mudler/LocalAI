@@ -158,6 +158,34 @@ export interface RegistryCredentialRule {
 /** What the renderer sees: the rule and whether a secret is stored. Never the secret. */
 export type RegistryCredentialView = RegistryCredentialRule & { secretSet: boolean }
 
+/** The list the Settings screen shows. `userOverride`: the user set the credentials file themselves, so the rules are not used. */
+export interface RegistryCredentialsView {
+  rules: RegistryCredentialView[]
+  userOverride: boolean
+  restartRequired: boolean
+}
+
+/** What the renderer sends to save a rule. Without `id` it is a new rule; without `secret` an edit keeps the stored one. */
+export interface RegistryCredentialInput {
+  id?: string
+  match: string
+  kind: RegistryCredentialKind
+  username?: string
+  secret?: string
+}
+
+export type RegistryCredentialSaveResult = { ok: true; id: string; restartRequired: boolean } | { ok: false; reason: string }
+
+export interface RegistryCredentialRemoveResult {
+  restartRequired: boolean
+}
+
+/** Outcome of the Test action. Never carries the secret, a header or an answer body. */
+export interface RegistryCredentialTestResult {
+  result: 'ok' | 'unauthorized' | 'unreachable' | 'tls' | 'other'
+  status?: number
+}
+
 // ---- secrets, network exposure, environment variables -----------------------
 
 /**
@@ -705,6 +733,11 @@ export interface LauncherApi {
   setEnvVar(name: string, value: string): Promise<EnvVarResult>
   deleteEnvVar(name: string): Promise<EnvVarsView>
   getSecretStorageState(): Promise<SecretStorageView>
+  /** Rules and whether a secret is set; secrets never leave the main process. */
+  getRegistryCredentials(): Promise<RegistryCredentialsView>
+  saveRegistryCredential(input: RegistryCredentialInput): Promise<RegistryCredentialSaveResult>
+  removeRegistryCredential(id: string): Promise<RegistryCredentialRemoveResult>
+  testRegistryCredential(id: string): Promise<RegistryCredentialTestResult>
   /** Tells the main process the first React render happened (smoke test hook). */
   firstRender(shownState: string): void
 }

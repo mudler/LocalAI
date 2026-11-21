@@ -54,6 +54,7 @@ export const OPTIONAL_API = [
   'findFreePort', 'showPortProcess', 'pickFolder', 'getHardwareSummary',
   'getNetwork', 'getNetworkPlan', 'setNetworkExposed', 'regenerateApiKey', 'dismissKeyNotice', 'revealApiKey', 'copyApiKey',
   'getEnvVars', 'setEnvVar', 'deleteEnvVar', 'getSecretStorageState',
+  'getRegistryCredentials', 'saveRegistryCredential', 'removeRegistryCredential', 'testRegistryCredential',
 ] as const satisfies readonly (keyof LauncherApi)[]
 export type OptionalApi = (typeof OPTIONAL_API)[number]
 

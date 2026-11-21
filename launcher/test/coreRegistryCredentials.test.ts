@@ -88,6 +88,33 @@ async function setup() {
   return { home, core, file, envFile, serverEnv }
 }
 
+describe('registry credential actions of the core', () => {
+  it('save and remove report whether a restart is needed and never return a secret', async () => {
+    const { core } = await setup()
+    const saved = await core.saveRegistryCredential({ match: 'registry.example', kind: 'bearer', secret: SECRET_ONE })
+    expect(saved).toEqual({ ok: true, id: expect.stringMatching(/^[0-9a-f]{16}$/), restartRequired: false })
+    const view = core.registryCredentialsView()
+    expect(view).toMatchObject({ userOverride: false, rules: [{ match: 'registry.example', kind: 'bearer', secretSet: true }] })
+    expect(JSON.stringify(view)).not.toContain(SECRET_ONE)
+
+    await core.startServer()
+    await until(() => core.snapshot().state === 'ready')
+    const id = (saved as { id: string }).id
+    expect(await core.removeRegistryCredential(id)).toEqual({ restartRequired: true })
+    expect(core.registryCredentialsView().rules).toEqual([])
+    expect(await core.saveRegistryCredential({ match: 'bad host name', kind: 'bearer', secret: SECRET_TWO })).toMatchObject({ ok: false })
+  })
+
+  it('reports a user credentials file and tests an unknown rule as other', async () => {
+    const { core } = await setup()
+    expect(await core.testRegistryCredential('0123456789abcdef')).toEqual({ result: 'other' })
+    expect(core.registryCredentialsView().userOverride).toBe(false)
+    const own = makeCore(tmpDir('core-reg-own-'), { env: { PATH: process.env.PATH, LOCALAI_CREDENTIALS_FILE: '/from-env.yaml' } })
+    await own.init()
+    expect(own.registryCredentialsView().userOverride).toBe(true)
+  })
+})
+
 describe('registry credentials in the core', () => {
   it('a stopped server gets the file and the secret variables, and its output is scrubbed', async () => {
     const { core, file, serverEnv } = await setup()
