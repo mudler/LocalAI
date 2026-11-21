@@ -1284,7 +1284,38 @@
       "does not send the library credential to the redirect host",
       "follows the redirect to an allowed https host and reads the index",
       "lists the object-store host GitHub redirects release downloads to",
-      "plain http to an allowed host"
+      "plain http to an allowed host",
+      "an add-on library",
+      "an explicit add-on kind",
+      "a digest reference",
+      "an exact signer identity",
+      "an identity pattern",
+      "credentials in the address",
+      "a space",
+      "no repository",
+      "a backend kind",
+      "a gallery-format add-on source",
+      "names the pinned identity of a signed source that is not official",
+      "names nobody for the official library, a source without a signature rule or a pattern",
+      "is not carried by an encoded index",
+      "lists the entries of the artifact and stamps the source on them",
+      "stamps the policy of a signed source on its entries",
+      "stamps the pinned signer on a signed source and on no other",
+      "ignores a signer that the index claims for itself",
+      "refuses a bad signature, caches nothing and serves no older copy afterwards",
+      "refuses a bad signature on a first fetch and leaves nothing on disk",
+      "serves the last verified copy when the registry is down",
+      "serves the last verified copy when the verifier cannot be reached",
+      "refuses an artifact of another type",
+      "reports a registry answer of 401 as a credential failure and keeps the cache (signed: false)",
+      "reports a registry answer of 401 as a credential failure and keeps the cache (signed: true)",
+      "reports a registry answer of 403 as a credential failure and keeps the cache (signed: false)",
+      "reports a registry answer of 403 as a credential failure and keeps the cache (signed: true)",
+      "reports a credential failure on a first fetch and writes no cache",
+      "logs why the registry refused the read, without a secret",
+      "does not reuse a copy admitted under another policy",
+      "keeps the previous good copy when a pull returns an empty or non-YAML index",
+      "fails a first fetch of a junk index"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -1550,7 +1581,9 @@
       "records an approved upgrade for the queue, runs it later and drops it when it is cancelled",
       "takes an approved upgrade without pins, as the install route of the approval does, and refuses it for an add-on that is not installed",
       "accepts the upgrades of many different add-ons at once and runs every one",
-      "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue"
+      "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue",
+      "fails with a credential error and installs nothing without a rule",
+      "lists and installs with a rule, and sends no credential to the redirect target"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -4071,7 +4104,9 @@
           "records an approved upgrade for the queue, runs it later and drops it when it is cancelled",
           "takes an approved upgrade without pins, as the install route of the approval does, and refuses it for an add-on that is not installed",
           "accepts the upgrades of many different add-ons at once and runs every one",
-          "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue"
+          "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue",
+          "fails with a credential error and installs nothing without a rule",
+          "lists and installs with a rule, and sends no credential to the redirect target"
         ]
       },
       {
@@ -4487,7 +4522,10 @@
       "installed list: tiles show the translated name and a search finds it by the translated or the English name",
       "unit: addons: the catalog entry carries the official flag only when the host sent true",
       "unit: addons: the dialog warns about the source unless the entry is official and the preview agrees",
-      "unit: addons: every locale words the source warning with the library name and no markup"
+      "unit: addons: every locale words the source warning with the library name and no markup",
+      "unit: addons: the dialog names the signer of a non-official entry and keeps the warning",
+      "unit: addons: the catalog entry carries the signer only as text",
+      "unit: addons: every locale words the signed-by notice with the signer and no markup"
     ]
   },
   "esm-ui": {
