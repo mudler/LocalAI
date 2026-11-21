@@ -82232,3 +82232,61 @@
       model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini
+  description: |
+    # Inkling 2 Mini
+
+    Playground |
+    Tinker Cookbook
+
+    ## 1. General Information
+
+    Inkling 2 Mini is a general-purpose multimodal model that accepts text and image inputs and generates text outputs. It is intended for use in English and other languages, and across multiple coding languages. The model is designed to be used by developers building AI-powered applications, including agentic and tool-use systems, coding assistants, chatbots, and retrieval-augmented generation systems, and is suitable for general-purpose conversational use, instruction-following, and other natural language and visual tasks. It is released with open weights to support research, fine-tuning and integration into third-party products by downstream developers.
+
+    **Languages:** English, general multilingual support
+
+    **Model provider:** Thinking Machines Lab, Inc.
+
+    **Date of release:** November 20, 2026
+
+    **License:** Apache 2.0
+
+    Model Acceptable Use Policy
+
+    ## 2. Getting Started
+
+    The weights are available for download through Hugging Face here.
+
+    Developers can also access the model using the Tinker fine-tuning platform, which provides API access.
+
+    ...
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - gguf
+  files:
+    - filename: llama-cpp/models/Inkling-2-Mini-UD-Q4_K_M/Inkling-2-Mini-UD-Q4_K_M.gguf
+      sha256: f90c5a4df44d335ac9f9eea2a15c31d6c5a377b1b3cd9ff7fc2cf123f3cdf7e1
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/Inkling-2-Mini-UD-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Inkling-2-Mini-UD-Q4_K_M/mmproj-F32.gguf
+      sha256: fa6f2478812f33876e279b6fe8e9f00ea5ff4e9db40868c98c0a39277a439e25
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F32.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Inkling-2-Mini-UD-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Inkling-2-Mini-UD-Q4_K_M/Inkling-2-Mini-UD-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
