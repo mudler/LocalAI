@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { migrate } from '../src/main/config'
 import { registryCredentials } from '../src/main/configStore'
-import { matchProblem, RegistryCredentials, type ConfigStoreLike, type SecretStoreLike } from '../src/main/registryCredentials'
+import { MAX_USERNAME, matchProblem, RegistryCredentials, usernameProblem, type ConfigStoreLike, type SecretStoreLike } from '../src/main/registryCredentials'
 import { isSecretName } from '../src/main/secretStore'
 import type { LauncherConfig } from '../src/main/config'
 
@@ -10,19 +10,33 @@ const SECRET = 'registry-secret-value-0123456789'
 type Mode = 'ok' | 'session' | 'fails-late'
 
 /** `session`: no secure storage. `fails-late`: encryption fails on the write and the value is kept in memory. */
-function fakeSecrets(mode: Mode = 'ok'): SecretStoreLike & { map: Map<string, string> } {
+/** `map` holds the stored values; `session` the in-memory ones, which win on read like the real store. */
+function fakeSecrets(start: Mode = 'ok'): SecretStoreLike & { map: Map<string, string>; session: Map<string, string>; mode: Mode } {
   const map = new Map<string, string>()
-  return {
+  const session = new Map<string, string>()
+  const fake = {
     map,
-    has: (n) => map.has(n),
-    get: (n) => map.get(n),
-    backend: () => (mode === 'session' ? 'session' : 'keychain'),
-    set: async (n, v) => {
-      map.set(n, v)
-      return mode === 'ok' ? { status: 'stored', backend: 'keychain' } : { status: 'unavailable', kept: 'session' }
+    session,
+    mode: start,
+    has: (n: string) => map.has(n) || session.has(n),
+    get: (n: string) => session.get(n) ?? map.get(n),
+    backend: () => (fake.mode === 'session' ? 'session' : 'keychain') as 'session' | 'keychain',
+    set: async (n: string, v: string) => {
+      if (fake.mode === 'ok') {
+        map.set(n, v)
+        session.delete(n)
+        return { status: 'stored', backend: 'keychain' } as const
+      }
+      session.set(n, v)
+      return { status: 'unavailable', kept: 'session' } as const
     },
-    delete: async (n) => void map.delete(n),
+    delete: async (n: string) => {
+      map.delete(n)
+      session.delete(n)
+    },
+    forgetSession: async (n: string) => void session.delete(n),
   }
+  return fake
 }
 
 function fakeConfig(): ConfigStoreLike & { current: () => LauncherConfig } {
@@ -44,8 +58,8 @@ const setup = (mode: Mode = 'ok') => {
 }
 
 describe('matchProblem', () => {
-  it('accepts a host, a port, a path and an http(s) scheme', () => {
-    for (const m of ['registry.example', 'https://registry.example/team', 'registry.example:5000/a/b', 'http://localhost:5000']) {
+  it('accepts a host, a port, a path and an https scheme', () => {
+    for (const m of ['registry.example', 'https://registry.example/team', 'HTTPS://registry.example', 'registry.example:5000/a/b', 'localhost:5000']) {
       expect(matchProblem(m), m).toBeUndefined()
     }
   })
@@ -54,8 +68,33 @@ describe('matchProblem', () => {
       expect(typeof matchProblem(m), m).toBe('string')
     }
   })
+  it('refuses plain http with a plain message, because the server would never use the rule', () => {
+    for (const m of ['http://registry.example', 'HTTP://localhost:5000/team']) {
+      expect(matchProblem(m), m).toBe('Use a registry address without http://; plain http is not supported.')
+    }
+  })
+  it('refuses a registry longer than 253 characters', () => {
+    expect(matchProblem(`${'a'.repeat(249)}.com`)).toBeUndefined()
+    expect(matchProblem(`${'a'.repeat(250)}.com`)).toBe('The registry is too long.')
+  })
   it('does not quote the input', () => {
     expect(matchProblem('user:pw-123@registry.example')).not.toContain('pw-123')
+  })
+})
+
+describe('usernameProblem', () => {
+  it('accepts plain and non-ASCII names', () => {
+    for (const u of ['ann', 'robot$team+ci', 'José', 'ユーザー', 'emoji\u{1f600}', '\u00a0nbsp', 'a'.repeat(MAX_USERNAME)]) {
+      expect(usernameProblem(u), u).toBeUndefined()
+    }
+  })
+  it('refuses what the server YAML reader refuses or changes', () => {
+    for (const u of ['', ' ', 42]) expect(usernameProblem(u), JSON.stringify(u)).toBe('Enter a user name.')
+    const bad = [
+      'a:b', 'a\u0000b', 'a\tb', 'a\u007fb', 'a\u0080b', 'a\u0085b', 'a\u009fb', 'a\ufffeb', 'a\uffffb',
+      'a\ud800b', 'a\udc00b', 'a\ud83d', '\ude00a', 'a'.repeat(MAX_USERNAME + 1),
+    ]
+    for (const u of bad) expect(usernameProblem(u), JSON.stringify(u)).toBe('The user name is not valid.')
   })
 })
 
@@ -104,6 +143,63 @@ describe('RegistryCredentials', () => {
     expect(rc.list()[0]).toMatchObject({ match: 'registry.example/team', username: 'bob', secretSet: true })
     await rc.save({ id: r.id, match: 'registry.example/team', kind: 'basic', username: 'bob', secret: 'new-one' })
     expect(secrets.map.get(`cred:${r.id}`)).toBe('new-one')
+  })
+
+  it('refuses a basic rule whose user name the server cannot read', async () => {
+    const { rc, config } = setup()
+    for (const username of ['a\u0085b', 'a\u0090b', 'a\uffffb', 'a\ud800b', 'a:b']) {
+      const r = await rc.save({ match: 'registry.example', kind: 'basic', username, secret: SECRET })
+      expect(r, JSON.stringify(username)).toEqual({ ok: false, reason: 'The user name is not valid.' })
+    }
+    expect(registryCredentials(config.current())).toEqual([])
+  })
+
+  it('refuses a plain http rule', async () => {
+    const { rc } = setup()
+    expect(await rc.save({ match: 'http://registry.example', kind: 'bearer', secret: SECRET })).toEqual({
+      ok: false,
+      reason: 'Use a registry address without http://; plain http is not supported.',
+    })
+  })
+
+  it('needs a new secret when an edit changes the kind or the host', async () => {
+    const { rc, secrets } = setup()
+    const r = await rc.save({ match: 'registry.example/team', kind: 'basic', username: 'ann', secret: SECRET })
+    if (!r.ok) throw new Error('save')
+    const again = { ok: false, reason: 'Enter the secret again: the kind or the registry changed.' }
+    expect(await rc.save({ id: r.id, match: 'registry.example/team', kind: 'bearer' })).toEqual(again)
+    expect(await rc.save({ id: r.id, match: 'other.example/team', kind: 'basic', username: 'ann' })).toEqual(again)
+    expect(await rc.save({ id: r.id, match: 'registry.example:5000/team', kind: 'basic', username: 'ann' })).toEqual(again)
+    expect(rc.list()[0]).toMatchObject({ match: 'registry.example/team', kind: 'basic' })
+    // Same host, another path or case: the secret still goes to the same place.
+    expect((await rc.save({ id: r.id, match: 'https://REGISTRY.example/other', kind: 'basic', username: 'ann' })).ok).toBe(true)
+    // With a new secret both changes are fine.
+    expect((await rc.save({ id: r.id, match: 'other.example', kind: 'bearer', secret: 'token-two' })).ok).toBe(true)
+    expect(secrets.map.get(`cred:${r.id}`)).toBe('token-two')
+  })
+
+  it('an edit whose new secret cannot be kept leaves the old stored secret in use', async () => {
+    const { rc, secrets } = setup()
+    const r = await rc.save({ match: 'registry.example', kind: 'bearer', secret: SECRET })
+    if (!r.ok) throw new Error('save')
+    secrets.mode = 'fails-late'
+    const edit = await rc.save({ id: r.id, match: 'registry.example', kind: 'bearer', secret: 'new-value-1234' })
+    expect(edit.ok).toBe(false)
+    expect(secrets.session.size).toBe(0)
+    expect(await rc.secretFor(r.id)).toBe(SECRET)
+  })
+
+  it('an edit whose rule cannot be saved gives the rule its old secret back', async () => {
+    const { rc, config, secrets } = setup()
+    const r = await rc.save({ match: 'registry.example', kind: 'basic', username: 'ann', secret: SECRET })
+    if (!r.ok) throw new Error('save')
+    config.update = async () => {
+      throw new Error('disk')
+    }
+    const edit = await rc.save({ id: r.id, match: 'registry.example', kind: 'bearer', secret: 'token-value-1234' })
+    expect(edit).toEqual({ ok: false, reason: 'The rule could not be saved.' })
+    expect(await rc.secretFor(r.id)).toBe(SECRET)
+    expect(rc.list()[0]).toMatchObject({ kind: 'basic', username: 'ann' })
   })
 
   it('refuses an edit of an unknown id', async () => {
@@ -193,10 +289,19 @@ describe('RegistryCredentials', () => {
         { id: 'b2', match: 'x.example', kind: 'other', index: 3 },
         { id: 'c3', match: 'y.example', kind: 'bearer', index: 1 },
         'junk',
+        // Hand-edited entries that a save would refuse.
+        { id: 'd4', match: 'http://plain.example', kind: 'bearer', index: 4 },
+        { id: 'e5', match: 'a b', kind: 'bearer', index: 5 },
+        { id: 'f6', match: 'c1.example', kind: 'basic', username: 'a\u0085b', index: 6 },
+        { id: 'f7', match: 'lone.example', kind: 'basic', username: 'a\ud800', index: 7 },
+        { id: 'f8', match: 'nouser.example', kind: 'basic', index: 8 },
+        { id: 'g9', match: 'tok.example', kind: 'bearer', username: 'ignored', index: 9 },
       ],
     }
     const c = migrate(raw, { home: '/h' }).config
-    expect(registryCredentials(c).map((r) => r.id)).toEqual(['a1'])
+    const rules = registryCredentials(c)
+    expect(rules.map((r) => r.id)).toEqual(['a1', 'g9'])
+    expect(rules[1].username).toBeUndefined()
   })
 })
 

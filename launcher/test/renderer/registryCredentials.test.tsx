@@ -94,6 +94,7 @@ describe('Settings, registry credentials', () => {
     ['query', 'registry.example/x?a=b'],
     ['spaces', 'registry .example'],
     ['empty', '   '],
+    ['plain http', 'http://registry.example'],
   ])('refuses a match with %s and does not call save', async (_n, match) => {
     const b = await open()
     await click('Add rule')
@@ -103,6 +104,55 @@ describe('Settings, registry credentials', () => {
     await click('Save')
     expect(screen.getByRole('alert').textContent).toMatch(/registry|user name/i)
     expect(called(b, 'saveRegistryCredential')).toHaveLength(0)
+  })
+
+  it('says plain http is not supported', async () => {
+    const b = await open()
+    await click('Add rule')
+    type('Registry', 'http://registry.example')
+    type('User name', 'u')
+    type('Password', SECRET)
+    await click('Save')
+    expect(screen.getByRole('alert').textContent).toBe('Use a registry address without http://; plain http is not supported.')
+    expect(called(b, 'saveRegistryCredential')).toHaveLength(0)
+  })
+
+  it.each([['a:b'], ['a\u0085b'], ['a\ud800b']])('refuses the user name %j and does not call save', async (username) => {
+    const b = await open()
+    await click('Add rule')
+    type('Registry', 'new.example')
+    type('User name', username)
+    type('Password', SECRET)
+    await click('Save')
+    expect(screen.getByRole('alert').textContent).toBe('The user name is not valid.')
+    expect(called(b, 'saveRegistryCredential')).toHaveLength(0)
+  })
+
+  it.each([
+    ['the kind', () => type('Type', 'bearer'), 'Token'],
+    ['the host', () => type('Registry', 'other.example/team'), 'Password'],
+    ['the port', () => type('Registry', 'registry.example:5000/team'), 'Password'],
+  ])('needs the secret again when an edit changes %s', async (_n, change, secretLabel) => {
+    const b = await open()
+    await click('Edit the rule for registry.example/team')
+    change()
+    expect((screen.getByLabelText(secretLabel) as HTMLInputElement).placeholder).toBe('')
+    await click('Save')
+    expect(screen.getByRole('alert').textContent).toBe('Enter the secret again: the kind or the registry changed.')
+    expect(called(b, 'saveRegistryCredential')).toHaveLength(0)
+    type(secretLabel, SECRET)
+    await click('Save')
+    expect(called(b, 'saveRegistryCredential')).toHaveLength(1)
+    expect(called(b, 'saveRegistryCredential')[0]?.args[0]).toMatchObject({ id: rule.id, secret: SECRET })
+  })
+
+  it('keeps the stored secret when an edit only changes the path', async () => {
+    const b = await open()
+    await click('Edit the rule for registry.example/team')
+    type('Registry', 'https://registry.example/other')
+    expect((screen.getByLabelText('Password') as HTMLInputElement).placeholder).toBe('Leave empty to keep the stored secret')
+    await click('Save')
+    expect(called(b, 'saveRegistryCredential')[0]?.args).toEqual([{ id: rule.id, match: 'https://registry.example/other', kind: 'basic', username: 'ci-user' }])
   })
 
   it('needs a secret for a new rule', async () => {

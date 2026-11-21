@@ -9,6 +9,7 @@
 // Go launcher. An older launcher keeps them as unknown keys and ignores them.
 import { loadConfig, saveConfig, type ConfigOptions, type LauncherConfig, type LoadResult } from './config'
 import { CRED_ID } from './secretStore'
+import { matchProblem, usernameProblem } from '../shared/registryMatch'
 import { parsePermissionStore, validateRemoteOrigin, type PermissionStore } from './webuiPolicy'
 
 /** Show the slim status bar under the WebUI. Missing means true. */
@@ -138,13 +139,18 @@ export function registryCredentials(c: LauncherConfig): StoredRegistryCredential
     if (typeof r !== 'object' || r === null || Array.isArray(r)) continue
     const o = r as Record<string, unknown>
     if (typeof o.id !== 'string' || !CRED_ID.test(o.id) || ids.has(o.id)) continue
-    if (typeof o.match !== 'string' || o.match === '') continue
+    // The same checks as a save: a rule the server cannot use, or whose user
+    // name would stop the server at startup, is dropped.
+    if (typeof o.match !== 'string' || matchProblem(o.match) !== undefined) continue
     if (o.kind !== 'basic' && o.kind !== 'bearer') continue
     if (typeof o.index !== 'number' || !Number.isInteger(o.index) || o.index < 1 || indexes.has(o.index)) continue
     ids.add(o.id)
     indexes.add(o.index)
     const rule: StoredRegistryCredential = { id: o.id, match: o.match, kind: o.kind, index: o.index }
-    if (typeof o.username === 'string' && o.username !== '') rule.username = o.username
+    if (o.kind === 'basic') {
+      if (usernameProblem(o.username) !== undefined) continue
+      rule.username = o.username as string
+    }
     out.push(rule)
   }
   return out

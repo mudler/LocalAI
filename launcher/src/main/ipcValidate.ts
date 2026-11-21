@@ -20,6 +20,7 @@ import type {
 } from '../shared/types'
 import { MAX_SHELL_INSET } from '../shared/types'
 import { ENV_NAME, MAX_ENV_NAME, MAX_ENV_VALUE } from '../shared/envVars'
+import { MAX_MATCH, MAX_USERNAME } from '../shared/registryMatch'
 
 export class IpcInputError extends Error {
   constructor(message: string) {
@@ -184,8 +185,6 @@ export function envValue(v: unknown): string {
 // ---- registry credentials -----------------------------------------------------
 
 const RULE_ID = /^[0-9a-f]{16}$/
-const MAX_RULE_MATCH = 253
-const MAX_RULE_USERNAME = 128
 const MAX_RULE_SECRET = 4096
 
 /** A rule id as the launcher creates it: 16 hex characters. */
@@ -204,11 +203,11 @@ export function registryCredentialInput(v: unknown): RegistryCredentialInput {
   const o = v as Record<string, unknown>
   onlyKeys(o, ['id', 'match', 'kind', 'username', 'secret'], 'rule')
   const out: RegistryCredentialInput = {
-    match: text(o.match, MAX_RULE_MATCH, 'match'),
+    match: text(o.match, MAX_MATCH, 'match'),
     kind: oneOf(o.kind, ['basic', 'bearer'] as const, 'kind'),
   }
   if (o.id !== undefined) out.id = registryCredentialId(o.id)
-  if (o.username !== undefined) out.username = text(o.username, MAX_RULE_USERNAME, 'username')
+  if (o.username !== undefined) out.username = text(o.username, MAX_USERNAME, 'username')
   if (o.secret !== undefined) {
     if (typeof o.secret !== 'string') fail('secret must be a string')
     const s = o.secret as string

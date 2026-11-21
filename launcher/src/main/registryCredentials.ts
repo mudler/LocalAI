@@ -5,16 +5,15 @@
 import crypto from 'node:crypto'
 import type { SecretBackend, RegistryCredentialKind, RegistryCredentialRule, RegistryCredentialView } from '../shared/types'
 import { MAX_ENV_VALUE } from '../shared/envVars'
-import { MAX_MATCH, matchProblem } from '../shared/registryMatch'
+import { MAX_MATCH, MAX_USERNAME, matchProblem, needsNewSecret, usernameProblem } from '../shared/registryMatch'
 import { registryCredentials, withRegistryCredentials, type StoredRegistryCredential } from './configStore'
 import type { LauncherConfig } from './config'
 import { credSecret, type SetResult } from './secretStore'
 
-export const MAX_USERNAME = 256
 export const MAX_RULES = 64
 export const CRED_ENV_PREFIX = 'LOCALAI_LAUNCHER_CRED_'
 
-export { MAX_MATCH, matchProblem }
+export { MAX_MATCH, MAX_USERNAME, matchProblem, usernameProblem }
 
 /** One form of a match for comparison: no scheme, lower case, no trailing slash. */
 function matchKey(match: string): string {
@@ -35,6 +34,8 @@ export interface SecretStoreLike {
   /** Where a new value goes: `session` means memory only. */
   backend(): SecretBackend
   delete(name: string): Promise<void>
+  /** Drops the in-memory copy of `name` only; a stored value stays. */
+  forgetSession(name: string): Promise<void>
 }
 
 /** Same advice as the secret storage notice of the Settings screen. */
@@ -69,8 +70,8 @@ export class RegistryCredentials {
     if (problem) return { ok: false, reason: problem }
     const username = kind === 'basic' ? (typeof input.username === 'string' ? input.username : '') : ''
     if (kind === 'basic') {
-      if (username.trim() === '') return { ok: false, reason: 'Enter a user name.' }
-      if (username.length > MAX_USERNAME || /[\u0000-\u001f\u007f:]/.test(username)) return { ok: false, reason: 'The user name is not valid.' }
+      const bad = usernameProblem(username)
+      if (bad) return { ok: false, reason: bad }
     }
     const secret = input.secret
     if (secret !== undefined && (typeof secret !== 'string' || secret === '' || secret.length > MAX_ENV_VALUE || secret.includes('\u0000'))) {
@@ -80,10 +81,17 @@ export class RegistryCredentials {
     if (input.id !== undefined && !existing) return { ok: false, reason: 'That rule does not exist.' }
     // A new rule needs a secret; an edit without one keeps the stored secret.
     if (!existing && secret === undefined) return { ok: false, reason: 'Enter a secret.' }
+    // The stored secret was given for one kind and one registry. A password must
+    // not turn into a token, and must not go to another host.
+    if (existing && secret === undefined && needsNewSecret(existing, { kind, match })) {
+      return { ok: false, reason: 'Enter the secret again: the kind or the registry changed.' }
+    }
     const refusal = this.conflict(this.rules(), existing?.id, match)
     if (refusal) return { ok: false, reason: refusal }
 
     const id = existing?.id ?? crypto.randomBytes(8).toString('hex')
+    // The value to put back if the rule cannot be saved after a new secret was stored.
+    const previous = existing && secret !== undefined ? this.secrets.get(credSecret(id)) : undefined
     // The secret goes first, so a secret that cannot be kept leaves no rule behind.
     if (secret !== undefined) {
       // Without secure storage the store would keep the value in memory only; a
@@ -96,8 +104,10 @@ export class RegistryCredentials {
         return { ok: false, reason: 'The secret could not be stored.' }
       }
       if (stored.status !== 'stored') {
-        // Encryption failed on this write; do not keep the in-memory copy.
+        // Encryption failed on this write; do not keep the in-memory copy. For an
+        // edit, that copy would hide the stored secret until the next start.
         if (!existing) await this.secrets.delete(credSecret(id)).catch(() => undefined)
+        else await this.secrets.forgetSession(credSecret(id)).catch(() => undefined)
         return { ok: false, reason: NO_STORAGE }
       }
     }
@@ -120,7 +130,11 @@ export class RegistryCredentials {
     } catch {
       out.r = { ok: false, reason: 'The rule could not be saved.' }
     }
-    if (!out.r.ok && !existing) await this.secrets.delete(credSecret(id)).catch(() => undefined)
+    if (!out.r.ok && secret !== undefined) {
+      if (!existing) await this.secrets.delete(credSecret(id)).catch(() => undefined)
+      // The rule was not changed, so it gets its old secret back.
+      else if (previous !== undefined) await this.secrets.set(credSecret(id), previous).catch(() => undefined)
+    }
     return out.r
   }
 

@@ -323,6 +323,16 @@ export class SecretStore {
   }
 
   /**
+   * Drops the in-memory copy of `name` and keeps a stored value. Used when a
+   * new value could not be stored and must not hide the old one.
+   */
+  forgetSession(name: string): Promise<void> {
+    return this.serial(async () => {
+      this.session.delete(name)
+    })
+  }
+
+  /**
    * Turns the plain-file opt-in on or off. On: values kept for this session
    * go to the file. Off: the file's plain values move to memory and the file
    * is removed. Has no effect on the keychain backend.

@@ -4,7 +4,7 @@
 // button and is cleared after every save. A change applies after a restart.
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Callout, StatusChip } from '@localai/ui-kit'
-import { matchProblem } from '../../shared/registryMatch'
+import { matchProblem, needsNewSecret, usernameProblem } from '../../shared/registryMatch'
 import type { RegistryCredentialKind, RegistryCredentialTestResult, RegistryCredentialView, RegistryCredentialsView } from '../../shared/types'
 import { useBridge } from '../bridge'
 import { Field } from '../parts'
@@ -19,7 +19,12 @@ interface Draft {
   secret: string
   /** The rule being edited already has a stored secret. */
   hadSecret: boolean
+  /** The kind and registry the stored secret was given for. */
+  saved?: { kind: RegistryCredentialKind; match: string }
 }
+
+/** The stored secret can stay: there is one, and the kind and host are the same. */
+const keepsSecret = (d: Draft): boolean => d.hadSecret && !!d.saved && !needsNewSecret(d.saved, d)
 
 const EMPTY: Draft = { match: '', kind: 'basic', username: '', secret: '', hadSecret: false }
 
@@ -66,8 +71,11 @@ export function RegistryCredentialsField({ onRestartNeeded }: { onRestartNeeded?
     const match = draft.match.trim()
     const problem = matchProblem(match)
     if (problem) return setError(problem)
-    if (draft.kind === 'basic' && draft.username.trim() === '') return setError(S.settings.cred.needUsername)
-    if (draft.secret === '' && !draft.hadSecret) return setError(S.settings.cred.needSecret)
+    if (draft.kind === 'basic') {
+      const bad = usernameProblem(draft.username)
+      if (bad) return setError(bad)
+    }
+    if (draft.secret === '' && !keepsSecret(draft)) return setError(draft.hadSecret ? S.settings.cred.secretAgain : S.settings.cred.needSecret)
     saving.current = true
     setBusy(true)
     try {
@@ -131,7 +139,7 @@ export function RegistryCredentialsField({ onRestartNeeded }: { onRestartNeeded?
 
   const startEdit = (r: RegistryCredentialView) => {
     setError(undefined)
-    setDraft({ id: r.id, match: r.match, kind: r.kind, username: r.username ?? '', secret: '', hadSecret: r.secretSet })
+    setDraft({ id: r.id, match: r.match, kind: r.kind, username: r.username ?? '', secret: '', hadSecret: r.secretSet, saved: { kind: r.kind, match: r.match } })
   }
 
   const cred = S.settings.cred
@@ -215,7 +223,7 @@ export function RegistryCredentialsField({ onRestartNeeded }: { onRestartNeeded?
               <input
                 className="dk-input dk-input--mono lnr-grow"
                 aria-label={draft.kind === 'basic' ? cred.secretBasic : cred.secretBearer}
-                placeholder={draft.hadSecret ? cred.secretKeep : undefined}
+                placeholder={keepsSecret(draft) ? cred.secretKeep : undefined}
                 type="password"
                 value={draft.secret}
                 spellCheck={false}
