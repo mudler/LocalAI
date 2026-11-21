@@ -110,7 +110,9 @@ import { initialNotice, reduceNotice, type NoticeEvent, type NoticeState, type S
 import type { SandboxProbe } from './sandboxProbe'
 import { InvalidAttachPattern, validateAttachPattern, type SandboxPlan } from './sandboxProfile'
 import { prepareRemove, prepareSetup, runPlan, type Runner, type SetupResult } from './sandboxSetup'
-import { buildServerLaunch, needsRestart, type ServerLaunch } from './serverLaunch'
+import { buildServerLaunch, needsRestart, userCredentialsFile, type RegistryCredentialsLaunch, type ServerLaunch } from './serverLaunch'
+import { prepareRegistryCredentials } from './credentialsFile'
+import { RegistryCredentials } from './registryCredentials'
 import {
   execServerVersion,
   isActive,
@@ -318,6 +320,9 @@ export class LauncherCore {
   private secrets!: SecretStore
   /** Values to scrub from server output: every secret given to a server in this session. */
   private redactValues = new Set<string>()
+  private registryCredentials!: RegistryCredentials
+  /** The generated credentials file and secret variables of the last refresh. */
+  private registryLaunch?: RegistryCredentialsLaunch
   private plans = new Map<string, number>()
   private revealLimiter = new RevealLimiter()
   private monitor!: RemoteMonitor
@@ -366,6 +371,8 @@ export class LauncherCore {
     this.d.trace?.('secrets-opened')
     await this.migrateSecrets(launcherLog)
     this.d.trace?.('secrets-migrated')
+    this.registryCredentials = new RegistryCredentials(this.store, this.secrets)
+    await this.refreshRegistryCredentials()
     config = this.store.get()
     // The server never listens on the network without a key. Without a keyring
     // the key lives only for a session while the address is saved, and an old
@@ -972,12 +979,34 @@ export class LauncherCore {
     return fs.existsSync(this.serverBinary())
   }
 
+  /**
+   * Writes the credentials file for the registry rules and keeps the secret
+   * variables for the next server launch. Returns true when the result differs
+   * from the last one, so the caller knows the launch is stale. A failure to
+   * write leaves the server without registry credentials; it is logged
+   * without values.
+   */
+  private async refreshRegistryCredentials(): Promise<boolean> {
+    const dir = path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home, this.layout()))
+    const override = userCredentialsFile(this.d.env, this.userEnv()) !== undefined
+    let next: RegistryCredentialsLaunch | undefined
+    try {
+      const p = await prepareRegistryCredentials(dir, this.registryCredentials, override)
+      next = p.file ? { file: p.file, env: p.env } : undefined
+    } catch {
+      this.hub?.write('launcher', 'registry credentials: could not write the credentials file', 'warn')
+    }
+    const changed = JSON.stringify(next ?? null) !== JSON.stringify(this.registryLaunch ?? null)
+    this.registryLaunch = next
+    return changed
+  }
+
   private buildSupervisor(config: LauncherConfig): void {
     this.supervisor?.removeAllListeners()
     const apiKey = this.secrets.get(API_KEY_SECRET)
     const env = this.userEnv()
-    for (const v of [apiKey, ...Object.values(env)]) if (v && v.length >= REDACT_MIN_LENGTH) this.redactValues.add(v)
-    this.launch = buildServerLaunch(config, dataPath(config, this.d.home, this.layout()), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config))
+    for (const v of [apiKey, ...Object.values(env), ...Object.values(this.registryLaunch?.env ?? {})]) if (v && v.length >= REDACT_MIN_LENGTH) this.redactValues.add(v)
+    this.launch = buildServerLaunch(config, dataPath(config, this.d.home, this.layout()), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config), this.registryLaunch)
     this.supervisor = new ServerSupervisor({
       command: this.serverBinary(),
       args: this.launch.args,
@@ -1125,6 +1154,8 @@ export class LauncherCore {
     if (!this.localManaged()) return
     if (!this.binaryInstalled() || this.installActive()) return
     if (this.serverRunning()) return
+    // The rules may have changed since the launch was built.
+    if (await this.refreshRegistryCredentials()) this.launchStale = true
     if (this.launchStale) this.buildSupervisor(this.store.get())
     void this.supervisor.start()
   }

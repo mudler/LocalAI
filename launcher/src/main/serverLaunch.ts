@@ -8,6 +8,7 @@ import type { LauncherConfig } from './config'
 import { buildChildEnv } from './childEnv'
 import { normalizeAddress } from './network'
 import { BASE_PATH_ENV } from './paths'
+import { CREDENTIALS_FILE_ENV } from './credentialsFile'
 import type { UpdateChannel } from './serversConfig'
 
 export interface ServerLaunch {
@@ -16,6 +17,29 @@ export interface ServerLaunch {
   /** Base URL for the API and the WebUI, for example http://127.0.0.1:8080. */
   endpoint: string
   healthUrl: string
+  /** The user set LOCALAI_CREDENTIALS_FILE: it is passed on unchanged and the launcher's own file is not used. */
+  credentialsUserOverride: boolean
+}
+
+/** The registry credentials the launcher passes: its generated file and the variables that hold the secrets. */
+export interface RegistryCredentialsLaunch {
+  file: string
+  env: Record<string, string>
+}
+
+/**
+ * The value of LOCALAI_CREDENTIALS_FILE the user set, in the system
+ * environment or in an old Settings variable, or undefined. The name is
+ * controlled, so buildChildEnv would drop it; the caller passes it on
+ * explicitly. Names have no case on Windows.
+ */
+export function userCredentialsFile(processEnv: NodeJS.ProcessEnv, userEnv: Record<string, string> = {}, platform: NodeJS.Platform = process.platform): string | undefined {
+  const same = (k: string) => (platform === 'win32' ? k.toUpperCase() === CREDENTIALS_FILE_ENV : k === CREDENTIALS_FILE_ENV)
+  let found: string | undefined
+  for (const src of [processEnv, userEnv]) {
+    for (const [k, v] of Object.entries(src)) if (same(k) && v !== undefined && v !== '') found = v
+  }
+  return found
 }
 
 /**
@@ -59,7 +83,15 @@ export function buildServerLaunch(
   endpointOverride?: string,
   secrets: LaunchSecrets = {},
   channel: UpdateChannel = 'stable',
+  registryCredentials?: RegistryCredentialsLaunch,
 ): ServerLaunch {
+  const userFile = userCredentialsFile(processEnv, secrets.env)
+  // The user's own file wins; the launcher's file and secret variables are not passed then.
+  const registry: Record<string, string> = userFile
+    ? { [CREDENTIALS_FILE_ENV]: userFile }
+    : registryCredentials
+      ? { ...registryCredentials.env, [CREDENTIALS_FILE_ENV]: registryCredentials.file }
+      : {}
   let address = normalizeAddress(config.address)
   let endpoint = endpointFor(address)
   if (endpointOverride) {
@@ -92,10 +124,12 @@ export function buildServerLaunch(
       // downloads there.
       [BASE_PATH_ENV]: dataFolder,
       // The update channel decides this one, so it is in the launcher's own layer.
+      ...registry,
       ...(channel === 'dev' ? { [PREFER_DEV_BACKENDS_ENV]: 'true' } : {}),
     }),
     endpoint,
     healthUrl: `${endpoint}/readyz`,
+    credentialsUserOverride: userFile !== undefined,
   }
 }
 
