@@ -100837,3 +100837,60 @@
         model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
       template:
         use_tokenizer_template: true
+- kind: model
+  id: qwen3.8-27b-pi-adapted
+  name: qwen3.8-27b-pi-adapted
+  version: 0.0.0-gallery.c651bd40e995
+  description: |
+    A LoRA adapter for Qwen/Qwen3.8-27B, trained with reinforcement learning to work as the model
+    behind the pi coding agent on software-engineering and terminal tasks.
+
+    > [!Tip]
+    > **Most of the gain of maximum-effort thinking, at a quarter of the tokens.** With thinking off, this adapter
+    > matches the base model thinking at its highest reasoning effort (`xhigh`) on Terminal-Bench 2.1 (56.6% vs 54.2%),
+    > and gets 25 of thinking's 35 points on SWE-bench Pro (64.7% vs 74.5%), while generating about 4.5× fewer tokens per
+    > task. See Thinking vs no thinking.
+
+      - **SWE-bench Pro (hard 51):** 39.2% → 64.7% (+25.5 points; 15 tasks newly solved, 2 lost).
+      - **Terminal-Bench 2.1:** 39.5% → 55.8% (+16.3 points; 16 newly solved, 2 lost).
+      - **Close to thinking-level accuracy, without thinking:** level with the base model at its highest reasoning effort
+    on Terminal-Bench 2.1, 10 points behind on SWE-bench Pro, with about 4.5× fewer generated tokens.
+      - **Less work per task:** under half the turns of the base model on the tasks both solve.
+
+    ...
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/harness-hub/Qwen3.8-27B-pi-adapted-GGUF
+  tags:
+    - llm
+    - gguf
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/Qwen3.8-27B-pi-lora-F16/Qwen3.8-27B-pi-lora-F16.gguf
+        sha256: a64f91844f19e67da500d8628bdf9383aa334e61b7ab687805802e7d272d7b67
+        uri: https://huggingface.co/harness-hub/Qwen3.8-27B-pi-adapted-GGUF/resolve/main/Qwen3.8-27B-pi-lora-F16.gguf
+    overrides:
+      backend: llama-cpp
+      function:
+        automatic_tool_parsing_fallback: true
+        grammar:
+          disable: true
+      known_usecases:
+        - chat
+      options:
+        - use_jinja:true
+      parameters:
+        min_p: 0
+        model: llama-cpp/models/Qwen3.8-27B-pi-lora-F16/Qwen3.8-27B-pi-lora-F16.gguf
+        presence_penalty: 1.5
+        repeat_penalty: 1
+        temperature: 0.7
+        top_k: 20
+        top_p: 0.8
+      template:
+        use_tokenizer_template: true
