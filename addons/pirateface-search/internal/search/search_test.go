@@ -38,7 +38,7 @@ func env(args map[string]any) contract.Envelope {
 
 var _ = Describe("the text listing", func() {
 	It("parses the lines it understands and skips the others", func() {
-		rows := search.ParseListing(fixture(), 0, 0)
+		rows := search.ParseListing(fixture(), 0, 0, false)
 		Expect(rows).To(HaveLen(4))
 		Expect(rows[0].ID).To(Equal("Qwen/Qwen3-0.6B"))
 		Expect(rows[0].SizeBytes).To(Equal(int64(1_500_000_000)))
@@ -52,11 +52,30 @@ var _ = Describe("the text listing", func() {
 	})
 
 	It("keeps the limit and drops the rows with too few seeders first", func() {
-		Expect(search.ParseListing(fixture(), 2, 0)).To(HaveLen(2))
-		rows := search.ParseListing(fixture(), 0, 2)
+		Expect(search.ParseListing(fixture(), 2, 0, false)).To(HaveLen(2))
+		rows := search.ParseListing(fixture(), 0, 2, false)
 		Expect(rows).To(HaveLen(2))
 		Expect(rows[1].ID).To(Equal("Qwen/Qwen3-14B"))
-		Expect(search.ParseListing(fixture(), 1, 2)[0].ID).To(Equal("Qwen/Qwen3-0.6B"))
+		Expect(search.ParseListing(fixture(), 1, 2, false)[0].ID).To(Equal("Qwen/Qwen3-0.6B"))
+	})
+})
+
+var _ = Describe("the GGUF only format", func() {
+	const magnet = "magnet:?xt=urn:btih:7158ba0f7158ba0f7158ba0f7158ba0f7158ba0f"
+	body := "acme/Tiny-GGUF 1.5 GB 6 seeds " + magnet + "\n" +
+		"acme/Tiny 3 GB 9 seeds " + magnet + "\n" +
+		"acme/other-gguf 2 GB 4 seeds " + magnet + "\n"
+
+	It("keeps only the repositories that name GGUF, before the limit is applied", func() {
+		rows := search.ParseListing(body, 0, 0, true)
+		Expect(rows).To(HaveLen(2))
+		Expect(rows[0].ID).To(Equal("acme/Tiny-GGUF"))
+		Expect(rows[1].ID).To(Equal("acme/other-gguf"))
+		Expect(search.ParseListing(body, 2, 0, true)).To(HaveLen(2))
+	})
+
+	It("keeps every repository when the format is off", func() {
+		Expect(search.ParseListing(body, 0, 0, false)).To(HaveLen(3))
 	})
 })
 
@@ -90,12 +109,23 @@ var _ = Describe("the search tool", func() {
 	})
 
 	It("reads the text page of the site and never an /api path", func() {
-		out, err := read(map[string]any{"tool": "search", "q": "qwen 3/x?", "limit": 20, "sort": "downloads", "format": "gguf"})
+		out, err := read(map[string]any{"tool": "search", "q": "qwen 3/x?", "limit": 20, "sort": "downloads", "format": "any"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.URL.EscapedPath()).To(Equal("/s/qwen%203%2Fx%3F"))
 		Expect(strings.HasPrefix(got.URL.Path, "/api")).To(BeFalse())
 		Expect(got.Header.Get("User-Agent")).To(ContainSubstring("LocalAI"))
 		Expect(out["results"]).To(HaveLen(4))
+	})
+
+	It("answers the format of the host: gguf keeps the GGUF repositories, any keeps all", func() {
+		body = "acme/Tiny-GGUF 1.5 GB 6 seeds magnet:?xt=urn:btih:7158ba0f7158ba0f7158ba0f7158ba0f7158ba0f\n" +
+			"acme/Tiny 3 GB 9 seeds magnet:?xt=urn:btih:7158ba0f7158ba0f7158ba0f7158ba0f7158ba0f\n"
+		out, err := read(map[string]any{"tool": "search", "q": "tiny", "limit": 20, "format": "gguf"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out["results"]).To(HaveLen(1))
+		out, err = read(map[string]any{"tool": "search", "q": "tiny", "limit": 20, "format": "any"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out["results"]).To(HaveLen(2))
 	})
 
 	It("applies the minimum seeders filter", func() {

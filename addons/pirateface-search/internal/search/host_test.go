@@ -65,7 +65,7 @@ var _ = Describe("the add-on behind the host search", func() {
 		ctx := context.Background()
 
 		Expect(h.SetEnabled(ctx, "ann", []string{"huggingface", "pirateface"})).To(Succeed())
-		r := h.Search(ctx, "ann", modelsearch.Query{Text: "qwen", Filters: map[string]map[string]string{"pirateface": {"min-seeders": "2"}}}, nil)
+		r := h.Search(ctx, "ann", modelsearch.Query{Text: "qwen", Format: modelsearch.FormatAny, Filters: map[string]map[string]string{"pirateface": {"min-seeders": "2"}}}, nil)
 		Expect(r.Providers).To(HaveLen(2))
 		Expect(r.Providers[1]).To(Equal(modelsearch.ProviderStatus{Name: "pirateface", Title: "Pirate Face", OK: true, Count: 2}))
 		Expect(r.Results).To(HaveLen(3))
@@ -73,6 +73,12 @@ var _ = Describe("the add-on behind the host search", func() {
 		Expect(r.Results[1].URI).To(Equal("pirateface://Qwen/Qwen3-0.6B"))
 		Expect(r.Results[1].Magnet).To(HavePrefix("magnet:?xt=urn:btih:"))
 		Expect(r.Sources[1].Filters[0].ID).To(Equal(search.FilterMinSeeders))
+
+		// The default format of the host is gguf: the recorded page lists no
+		// repository that names GGUF, so the source has nothing under it.
+		gguf := h.Search(ctx, "ann", modelsearch.Query{Text: "qwen"}, []string{"pirateface"})
+		Expect(gguf.Providers[0].OK).To(BeTrue())
+		Expect(gguf.Results).To(BeEmpty())
 
 		// A filter value outside the declared range never reaches the add-on.
 		bad := h.Search(ctx, "ann", modelsearch.Query{Text: "qwen", Filters: map[string]map[string]string{"pirateface": {"min-seeders": "900"}}}, []string{"pirateface"})
