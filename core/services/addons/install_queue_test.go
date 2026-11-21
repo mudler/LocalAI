@@ -6,6 +6,7 @@ package addons
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -339,5 +340,81 @@ var _ = Describe("the install queue of the add-on manager", func() {
 		Expect(s.Generation).To(Equal(uint64(1)))
 		_, e = r.m.AcceptUpgrade(ctx, actor, upgrade("qu-2", installed.Digest, next.Digest))
 		Expect(e).NotTo(HaveOccurred())
+	})
+
+	// manyAddons installs n add-ons from one library and publishes a newer
+	// build of each. It returns the installed digest and the candidate digest
+	// of every add-on, by ID.
+	manyAddons := func(r *updateRig, n int) (ids []string, installed, candidate map[string]string) {
+		installed, candidate = map[string]string{}, map[string]string{}
+		for i := range n {
+			id := fmt.Sprintf("sample-%d", i)
+			ids = append(ids, id)
+			rel := r.lib.publishAs(id, "1.2.3-dev", "development", "build-1", catalog.Requirements{})
+			installed[id] = rel.Digest
+		}
+		r.lib.refresh()
+		for _, id := range ids {
+			_, e := r.m.Submit(ctx, actor, LifecycleCommand{OperationID: "install-" + id, AddonID: id, Action: "install", SourceID: "test", Version: "development"})
+			Expect(e).NotTo(HaveOccurred())
+		}
+		for _, id := range ids {
+			candidate[id] = r.lib.publishAs(id, "1.2.3-dev", "development", "build-2", catalog.Requirements{}).Digest
+		}
+		r.lib.refresh()
+		return ids, installed, candidate
+	}
+	pinned := func(op, id, expected, candidate string) LifecycleCommand {
+		return LifecycleCommand{OperationID: op, AddonID: id, Action: "upgrade", ExpectedDigest: expected, CandidateDigest: candidate}
+	}
+
+	It("accepts the upgrades of many different add-ons at once and runs every one", func() {
+		r := newUpdateRig(true)
+		ids, installed, candidate := manyAddons(r, 8)
+		errs := make([]error, len(ids))
+		var wg sync.WaitGroup
+		for i, id := range ids {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				_, errs[i] = r.m.AcceptUpgrade(ctx, actor, pinned("up-"+id, id, installed[id], candidate[id]))
+			}()
+		}
+		wg.Wait()
+		for i, e := range errs {
+			Expect(e).NotTo(HaveOccurred(), ids[i])
+		}
+		// The queue runs them one after the other or in parallel; each ends.
+		for _, id := range ids {
+			st, e := r.m.RunAccepted(ctx, actor, "up-"+id)
+			Expect(e).NotTo(HaveOccurred(), id)
+			Expect(st.Phase).To(Equal("completed"), id)
+			s, _ := r.m.Status(ctx, id)
+			Expect(s.Generation).To(Equal(uint64(2)), id)
+		}
+	})
+
+	It("keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue", func() {
+		r := newUpdateRig(true)
+		ids, installed, candidate := manyAddons(r, 3)
+		a, b := ids[0], ids[1]
+		_, e := r.m.AcceptUpgrade(ctx, actor, pinned("op-a", a, installed[a], candidate[a]))
+		Expect(e).NotTo(HaveOccurred())
+		// Another add-on is not blocked by it.
+		_, e = r.m.AcceptUpgrade(ctx, actor, pinned("op-b", b, installed[b], candidate[b]))
+		Expect(e).NotTo(HaveOccurred())
+		// The same add-on again: the same transition under another ID, and
+		// another transition while the first one is in flight.
+		_, e = r.m.AcceptUpgrade(ctx, actor, pinned("op-a2", a, installed[a], candidate[a]))
+		Expect(e).To(MatchError(ErrTransitionConflict))
+		_, e = r.m.AcceptUpgrade(ctx, actor, pinned("op-a3", a, installed[a], installed[b]))
+		Expect(e).To(MatchError(ErrConflict))
+		// A reused operation ID with another body.
+		_, e = r.m.AcceptUpgrade(ctx, actor, pinned("op-b", ids[2], installed[ids[2]], candidate[ids[2]]))
+		Expect(e).To(MatchError(ErrConflict))
+		// A stale request: the pin is not the installed package.
+		_, e = r.m.AcceptUpgrade(ctx, actor, pinned("op-c", ids[2], candidate[ids[2]], candidate[ids[2]]))
+		Expect(e).To(MatchError(ErrStaleInstalled))
 	})
 })

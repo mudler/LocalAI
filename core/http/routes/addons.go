@@ -112,7 +112,10 @@ func registerAddonRoutes(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, ownersh
 	// them, and a status read may be exposed as a tool later.
 	group.GET("/:id/update", endpoints.GetUpdate(gw, db, mode))
 	group.POST("/:id/update/check", endpoints.CheckUpdate(gw, db, mode))
-	group.POST("/:id/upgrade", endpoints.UpgradeAddon(gw, db, mode))
+	// The upgrade takes the operation queue too: without it each upgrade
+	// runs inline and one at a time, and "upgrade all" is refused but for
+	// its first request.
+	group.POST("/:id/upgrade", endpoints.UpgradeAddon(gw, db, append([]endpoints.Option{mode}, queue...)...))
 	// Host access: what each add-on may ask the host to do, the deny rules and
 	// the blanket approval. Reads are administrator-only; every write accepts
 	// only the administrator's own browser session, and the frontend forwards

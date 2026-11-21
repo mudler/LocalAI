@@ -1545,7 +1545,9 @@
       "refuses what the queue cannot take: no approval, a local file, an installed add-on, another administrator's run",
       "records a pinned upgrade for the queue, runs it later and keeps the last good generation until then",
       "refuses at the run an upgrade whose candidate changed while it waited, and changes nothing",
-      "drops a queued upgrade cancelled before it runs, so the add-on can be upgraded again"
+      "drops a queued upgrade cancelled before it runs, so the add-on can be upgraded again",
+      "accepts the upgrades of many different add-ons at once and runs every one",
+      "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -4059,7 +4061,9 @@
           "refuses what the queue cannot take: no approval, a local file, an installed add-on, another administrator's run",
           "records a pinned upgrade for the queue, runs it later and keeps the last good generation until then",
           "refuses at the run an upgrade whose candidate changed while it waited, and changes nothing",
-          "drops a queued upgrade cancelled before it runs, so the add-on can be upgraded again"
+          "drops a queued upgrade cancelled before it runs, so the add-on can be upgraded again",
+          "accepts the upgrades of many different add-ons at once and runs every one",
+          "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue"
         ]
       },
       {
