@@ -102,7 +102,7 @@ var _ = Describe("runtime settings registry", func() {
 		src.Distributed.DiskHeadroomDisabled = true
 		src.Branding = BrandingConfig{
 			InstanceName: "n", InstanceTagline: "t",
-			LogoFile: "l.png", LogoHorizontalFile: "lh.png", FaviconFile: "f.ico",
+			LogoFile: "l.png", LogoHorizontalFile: "lh.png", FaviconFile: "f.ico", DefaultLanguage: "es",
 		}
 		src.MITMListen = ":8443"
 		src.PIIDefaultDetectors = []string{"d1"}

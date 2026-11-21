@@ -273,12 +273,6 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig, v int) {
 			o.SetMaxConcurrentBackendOperations(v)
 		}),
-	field("max_concurrent_model_operations",
-		func(s *RuntimeSettings) **int { return &s.MaxConcurrentModelOperations },
-		func(o *ApplicationConfig) int { return o.MaxConcurrentModelOperations },
-		func(o *ApplicationConfig, v int) {
-			o.SetMaxConcurrentModelOperations(v)
-		}),
 	// VRAM budget: the cap string ("80%"/"12GB"/"" = uncapped). The live
 	// side effect (xsysinfo.SetDefaultVRAMBudget) is post-processing in the
 	// apply loop, not here - the row only owns the config member, matching
@@ -919,6 +913,11 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **string { return &s.FaviconFile },
 		func(o *ApplicationConfig) string { return o.Branding.FaviconFile },
 		func(o *ApplicationConfig, v string) { o.Branding.FaviconFile = v },
+		fromFileAlways()),
+	field("default_language",
+		func(s *RuntimeSettings) **string { return &s.DefaultLanguage },
+		func(o *ApplicationConfig) string { return o.Branding.DefaultLanguage },
+		func(o *ApplicationConfig, v string) { o.Branding.DefaultLanguage = v },
 		fromFileAlways()),
 
 	field("mitm_listen",
