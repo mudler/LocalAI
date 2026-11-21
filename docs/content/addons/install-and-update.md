@@ -494,6 +494,52 @@ source, `refresh` (the last fetch). A source that does not exist is `404`. Chang
 model and backend sources apply to the running server. No MCP tool maps to these
 routes.
 
+### Add-on libraries in an OCI registry
+
+An add-on library can be an artifact in an OCI registry, not only a file at an `https`
+address. Give the source an `oci://` address:
+
+```bash
+local-ai library add oci://registry.example/libraries/fixture-addon:1 --kind addon
+```
+
+The artifact must have the type `application/vnd.localai.library.v1` and must hold one
+file named `index.yaml`, the library index. An image or an artifact of another type is
+refused. LocalAI keeps an unpacked copy under the add-on data directory and reads the
+registry again only when that copy is older than one hour. If the registry cannot be
+reached, the last good copy answers. A copy is never used after the registry refuses the
+credentials or after the signature check fails.
+
+The registry uses the same credentials as backend libraries. Write a rule for the
+registry host in the [credentials file]({{% relref "/models/private-sources" %}}), and
+keep the secret in the environment:
+
+```yaml
+- match: registry.example
+  username: reader
+  password_env: LIBRARY_REGISTRY_PASSWORD
+```
+
+Without a matching rule or docker login, a private registry answers `401` or `403` and
+the source refresh fails with a credential error. At start, LocalAI logs one warning when
+an `oci://` add-on library is on and no credentials file was loaded.
+
+The add-on owner process reads the credentials file, not the browser and not a frontend.
+Put the file, and the variables it names, on the machine where the add-on owner runs.
+
+To require a signature, add `--issuer` and `--identity` together:
+
+```bash
+local-ai library add oci://registry.example/libraries/fixture-addon:1 --kind addon \
+  --issuer https://issuer.example --identity signer@registry.example
+```
+
+LocalAI then resolves the artifact to a digest, checks that the artifact is signed by
+that issuer and that identity, and only then pulls it. A failed check lists nothing. The
+identity is an exact string. If you write a regular expression, LocalAI stores it as the
+literal text, and it will not match any signer, because patterns are not accepted for
+add-on libraries.
+
 ## Backends in the library
 
 A library lists more than add-ons. Every entry has one schema and an optional `kind`

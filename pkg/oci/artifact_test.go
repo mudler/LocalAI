@@ -252,6 +252,21 @@ var _ = Describe("ResolveArtifactDigestRef errors", func() {
 		})
 	}
 
+	It("reports a basic challenge with no credential as a credentials error", func() {
+		// A registry that answers 401 with a basic challenge makes the client
+		// stop before it sees a response: it has no credential to send. That
+		// is the same operator problem as a refused credential.
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("WWW-Authenticate", `Basic realm="registry.example"`)
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		DeferCleanup(srv.Close)
+		_, err := localoci.ResolveArtifactDigestRef(context.Background(), strings.TrimPrefix(srv.URL, "http://")+"/libs/private:latest")
+		var authErr *credentials.AuthError
+		Expect(errors.As(err, &authErr)).To(BeTrue(), "got %v", err)
+		Expect(authErr.Status).To(Equal(http.StatusUnauthorized))
+	})
+
 	It("leaves a 404 as a plain error", func() {
 		_, err := localoci.ResolveArtifactDigestRef(context.Background(), answering(http.StatusNotFound))
 		Expect(err).To(HaveOccurred())

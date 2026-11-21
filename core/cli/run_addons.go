@@ -6,11 +6,14 @@ import (
 	"net"
 	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/library"
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/pkg/credentials"
 	"github.com/mudler/xlog"
 )
 
@@ -173,5 +176,32 @@ func libraryOptionFor(r *RunCMD) config.AppOption {
 		xlog.Info("Add-on frontend: library sources are managed on the add-on owner; reading only --galleries and --backend-galleries")
 		return func(*config.ApplicationConfig) {}
 	}
-	return library.Option(r.DataPath, r.AddonsOfficialLibrary, r.AddonsBackendLibrary, r.OfficialLibraries)
+	apply := library.Option(r.DataPath, r.AddonsOfficialLibrary, r.AddonsBackendLibrary, r.OfficialLibraries)
+	return func(o *config.ApplicationConfig) {
+		apply(o)
+		warnOCISourcesWithoutCredentials(r.DataPath, r.AddonsOfficialLibrary, r.AddonsBackendLibrary)
+	}
+}
+
+// warnOCISourcesWithoutCredentials logs one warning when an enabled oci://
+// add-on library is configured and this process loaded no credentials file.
+// Such a library is read from a registry, and a private one answers 401
+// without a rule. Saying so at start is cheaper than a refresh error the
+// admin finds later. Only the add-on owner process reads sources, so the
+// frontend role never calls this.
+func warnOCISourcesWithoutCredentials(dataPath string, official, backendLibrary bool) {
+	if credentials.Default() != nil {
+		return
+	}
+	store, err := library.Open(dataPath, official, backendLibrary)
+	if err != nil {
+		return
+	}
+	for _, e := range store.Entries() {
+		if e.Kind == catalog.KindAddon && e.Format != catalog.FormatGallery && e.Enabled && !e.Removed && !e.Suspended &&
+			strings.HasPrefix(e.URL, "oci://") {
+			xlog.Warn("An add-on library is read from an oci:// address and no credentials file is loaded: private registries need a credentials file; set LOCALAI_CREDENTIALS_FILE", "source", e.ID)
+			return
+		}
+	}
 }

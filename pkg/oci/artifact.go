@@ -315,13 +315,21 @@ func writeArtifactLayer(ctx context.Context, repo *remote.Repository, layer ocis
 // credential from an outage and the operator learns whether a rule was sent.
 func wrapArtifactResolveError(ref string, err error) error {
 	err = fmt.Errorf("failed to resolve %q: %w", ref, err)
+	status := 0
 	var resp *errcode.ErrorResponse
-	if !errors.As(err, &resp) || (resp.StatusCode != http.StatusUnauthorized && resp.StatusCode != http.StatusForbidden) {
+	switch {
+	case errors.As(err, &resp) && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden):
+		status = resp.StatusCode
+	case errors.Is(err, auth.ErrBasicCredentialNotFound):
+		// The registry asked for basic auth and no rule or docker login
+		// matched, so the client gave up before it saw a response status.
+		status = http.StatusUnauthorized
+	default:
 		return err
 	}
 	matchURL := ""
 	if parsed, perr := name.ParseReference(ref); perr == nil {
 		matchURL = credentials.RegistryURL(parsed.Context())
 	}
-	return credentials.NewRegistryAuthError(matchURL, ref, resp.StatusCode, err)
+	return credentials.NewRegistryAuthError(matchURL, ref, status, err)
 }
