@@ -74,12 +74,26 @@ func (a *Authority) CTLogs() map[string]*root.TransparencyLog {
 // Bundle signs a manifest digest and embeds a real SCT and Rekor signed entry
 // timestamp (the inclusion promise supported by Sigstore bundle v0.1).
 func (a *Authority) Bundle(digest, identity, issuer string) ([]byte, error) {
+	return a.BundleFor(digest, identity, issuer, "")
+}
+
+// BundleFor is Bundle with a certificate that also carries the
+// source-repository extension, as a CI signing certificate does. An empty
+// repository leaves the extension out.
+func (a *Authority) BundleFor(digest, identity, issuer, sourceRepository string) ([]byte, error) {
 	key, e := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if e != nil {
 		return nil, e
 	}
 	now := time.Now().Add(-time.Second)
 	tmpl := &x509.Certificate{SerialNumber: big.NewInt(2), EmailAddresses: []string{identity}, NotBefore: now.Add(-time.Minute), NotAfter: now.Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning}, ExtraExtensions: []pkix.Extension{{Id: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}, Value: []byte(issuer)}}}
+	if sourceRepository != "" {
+		raw, e := asn1.MarshalWithParams(sourceRepository, "utf8")
+		if e != nil {
+			return nil, e
+		}
+		tmpl.ExtraExtensions = append(tmpl.ExtraExtensions, pkix.Extension{Id: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 12}, Value: raw})
+	}
 	der, e := x509.CreateCertificate(rand.Reader, tmpl, a.parent, key.Public(), a.key)
 	if e != nil {
 		return nil, e

@@ -295,6 +295,8 @@ func (i *Installer) plan(ctx context.Context, r catalog.Release) (*gallery.Galle
 			Issuer:        r.Policy.Issuer,
 			Identity:      r.Policy.Identity,
 			IdentityRegex: r.Policy.IdentityRegex,
+			// The pin of the caller repository, when the library sets one.
+			SourceRepository: r.Policy.SourceRepository,
 		}
 	}
 	return gb, nil

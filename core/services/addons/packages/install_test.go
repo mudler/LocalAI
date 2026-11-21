@@ -671,15 +671,78 @@ var _ = Describe("trusted signed staging", func() {
 })
 
 var _ = Describe("signer identity pattern", func() {
-	It("is for backend sources only: an add-on install refuses it", func() {
-		i, r := fixture([]byte("x"), func(_ *catalog.Release, s *catalog.Source) {
-			s.Policy = catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", IdentityRegex: `^builder@example\.invalid$`}
-		})
-		_, e := i.Stage(context.Background(), r, nil)
+	const (
+		pattern  = `^builder@example\.invalid$`
+		repo     = "https://github.com/example-org/example-repo"
+		elsewise = "https://github.com/example-org/other-repo"
+	)
+	pinned := catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", IdentityRegex: pattern, SourceRepository: repo}
+
+	It("refuses a pattern without a source repository before any download", func() {
+		var fetched atomic.Int64
+		i, r := fixture([]byte("x"))
+		original := r.Artifact
+		r.Artifact = "oci://registry.example/libs/fixture-addon:1"
+		// The source admits no such policy, so it can only come from a caller
+		// that edited the entry; the install refuses it before it resolves.
+		r.Policy = catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", IdentityRegex: pattern}
+		_, e := i.Stage(context.Background(), r, func(Progress) { fetched.Add(1) })
 		Expect(e).To(MatchError(ErrPackage))
+		Expect(fetched.Load()).To(BeZero())
 		entries, e := os.ReadDir(i.Root)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(entries).To(BeEmpty())
+		Expect(original).NotTo(BeEmpty())
+	})
+
+	It("verifies a pattern and a source repository, and records the repository as the signer", func() {
+		original := http.DefaultTransport
+		var external atomic.Int64
+		http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Hostname() != "127.0.0.1" {
+				external.Add(1)
+				return nil, fmt.Errorf("external network forbidden")
+			}
+			return original.RoundTrip(r)
+		})
+		DeferCleanup(func() { http.DefaultTransport = original })
+		authority, e := signing.New()
+		Expect(e).NotTo(HaveOccurred())
+		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		data := archive(nil, m)
+		for _, signedFor := range []string{repo, elsewise, ""} {
+			artifact, digest, _ := localOCI(data)
+			ref, e := name.ParseReference(strings.TrimPrefix(artifact, "oci://"))
+			Expect(e).NotTo(HaveOccurred())
+			blob, e := authority.BundleFor(digest[7:], "builder@example.invalid", "https://issuer.invalid", signedFor)
+			Expect(e).NotTo(HaveOccurred())
+			img, e := mutate.AppendLayers(empty.Image, static.NewLayer(blob, types.MediaType("application/vnd.dev.sigstore.bundle.v0.3+json")))
+			Expect(e).NotTo(HaveOccurred())
+			hash, e := img.Digest()
+			Expect(e).NotTo(HaveOccurred())
+			size, e := img.Size()
+			Expect(e).NotTo(HaveOccurred())
+			Expect(remote.Write(ref.Context().Tag("signature"), img)).To(Succeed())
+			index := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{Add: img, Descriptor: v1.Descriptor{Digest: hash, Size: size, MediaType: types.DockerManifestSchema2, ArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json"}})
+			Expect(remote.WriteIndex(ref.Context().Tag(strings.Replace(digest, ":", "-", 1)), index)).To(Succeed())
+			i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) {
+				r.Artifact, r.Digest = artifact, digest
+				s.Policy = pinned
+			})
+			i.SignatureTrust = authority
+			staged, e := i.Stage(context.Background(), r, nil)
+			if signedFor != repo {
+				Expect(e).To(MatchError(ErrPackage), "signed for %q", signedFor)
+				continue
+			}
+			Expect(e).NotTo(HaveOccurred())
+			receipt, e := i.Commit(context.Background(), staged)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(receipt.Verification).To(Equal("sha256+sigstore"))
+			Expect(receipt.Signer).To(Equal(repo))
+		}
+		Expect(external.Load()).To(BeZero())
 	})
 })
 
