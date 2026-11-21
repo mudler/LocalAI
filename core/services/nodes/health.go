@@ -68,7 +68,7 @@ type HealthMonitor struct {
 }
 
 // UseTunnelRoutes tells the monitor that the frontends reach a worker attached
-// to the tunnel while NATS is active (the hybrid routing of carrier.Window), so
+// to the tunnel while NATS is active (the tunnel route of the route table), so
 // such a worker is not off the active carrier in any way that matters: it is
 // not demoted. Call it before Start.
 func (hm *HealthMonitor) UseTunnelRoutes() { hm.tunnelRoutes = true }
@@ -76,9 +76,9 @@ func (hm *HealthMonitor) UseTunnelRoutes() { hm.tunnelRoutes = true }
 // UseCarrier makes the monitor demote a worker that reports it is not attached to
 // the active carrier, once the cluster has settled. Such a worker heartbeats over
 // HTTP, which exists on both carriers, and it cannot be reached: it could not
-// follow a change, or it has not yet. The window of a change routes it through the
-// previous carrier, so nothing is demoted while a change is under way or a carrier
-// drains.
+// follow a change, or it has not yet. During a change the route table still holds
+// the route of the previous carrier, so nothing is demoted while a change is under
+// way or a carrier drains.
 //
 // active returns the active carrier and whether the cluster is settled: stable,
 // with nothing draining. Call it before Start.

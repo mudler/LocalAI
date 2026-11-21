@@ -33,14 +33,56 @@ carrier share one wire format without importing each other.
 
 Code above the seams does not hold a carrier. It holds a forwarding holder from
 `core/services/carrier`, one per seam: `Broadcaster`, `Commands`
-(`nodes.NodeControl`), `Files`, `Clients`, `NewWorkerDialer` and `Agents`. Each
-call loads an `atomic.Pointer[carrier.Set]` once and calls the same method on
-that set. A `carrier.Set` is the implementation of every seam for one carrier.
-Build a set completely and call `Validate` before you store it. The holders take
-no lock and allocate nothing, and a call that is already running is never moved.
-`carrier.NewNATSSet` and `carrier.NewTunnelSet` are the places that build a set.
+(`nodes.NodeControl`), `Files`, `Clients`, `NewRoutedWorkerDialer` and `Agents`.
+The seams split in two:
 
-`NodeControl` is the whole control surface a carrier gives the frontend:
+- `carrier.WorkerRoute` is one way to reach a worker: `Commands`, `Files`,
+  `Clients`, `Dialer`, `Agents` (nil for a route with no agent RPC),
+  `ForgetNode` and `Close`. Its `Kind` is a `nodes.RouteKind`: `direct`
+  (`carrier.NewNATSRoutes`: NATS for the verbs, a direct dial for the data) or
+  `tunnel` (`carrier.NewTunnelRoutes`: the tunnel of the worker, over a
+  websocket or over P2P).
+- `carrier.Fabric` is what the processes of the cluster use among themselves:
+  `Broadcaster`, `Replies` (request and reply) and `OnReconnect`. Workers never
+  use it.
+
+`Commands`, `Files`, `Clients`, the dialer and `Agents` take a
+`carrier.RouteTable`. It holds one route of each kind and reads the routes of a
+node from `nodes.RoutesOf` (`of(node)`, cached for a second, and read again once
+before a call is refused). A call to a node tries, in order, the route that last
+worked for the node (its sticky route), then `direct`, then `tunnel`, among the
+routes that the node has and the frontend holds. None is `nodes.ErrNoRoute`. A
+call moves to the next route only on a not-started error: `nodes.ErrNoRoute`
+(NATS no responders, a tunnel the worker does not hold, a verb that the route
+cannot send) or `tunnel.NotStarted`. It never moves after a timeout, a broken
+stream or an answer of the worker, and a call that is already running is never
+moved. The sticky route matters because NATS runs the verbs of a worker one at a
+time and HTTP runs them in parallel. The sticky routes and the cache are hints
+of one replica; `RouteTable.Forget` drops them with the node. A gRPC client is
+built on the first route of the node and keeps it. The holders allocate nothing
+on a call that succeeds.
+
+`Agents` has no node to route by: it asks the `direct` route (the NATS queue
+group), then the `tunnel` route (a worker that the frontend picks), and moves on
+only on a not-started error. The fan-out verbs (`UnloadRemoteModel`,
+`UnloadRemoteModelContext`, `DeleteModelFiles`) give each route the nodes whose
+first route it is, through `nodes.ScopedFanout`; a node whose routes cannot be
+read goes to the first route. A fan-out does not move a node to its next route,
+because the scoped verb does not say which node failed and how.
+
+The tunnel route is built once at start (`carrier.NewTunnelRoutes`) and pinned
+in the table (`RouteTable.Pin`). The direct route is the one of the NATS set.
+
+A `carrier.Set` is one carrier of the cluster carrier row: a `Fabric` and the
+`WorkerRoute` it brings. The broadcaster holder loads an
+`atomic.Pointer[carrier.Set]` once per call and uses its `Fabric`. No worker call
+reads that pointer. Build a set completely and call `Validate` before you store
+it. `carrier.NewNATSSet` and `carrier.NewTunnelSet` are the places that build a
+set; a tunnel set brings the pinned tunnel route (`TunnelOptions.Routes`) and its
+`Close` leaves that route open. The set, the pointer and the carrier row go away
+with the change of carrier.
+
+`NodeControl` is the whole control surface a route gives the frontend:
 `NodeCommandSender`, the process lister, the three unload interfaces the model
 loader reads by type assertion, and the install timeout, model file deletion and
 forced install that the managers and the reconciler call. Take it, not a
@@ -148,14 +190,15 @@ listening on the old set, runs the reconnect hooks once, and closes the set afte
 settle time, so that a call that took the set just before the switch can end. A
 replica that polls late, restarts or joins during a change acts on the row alone.
 
-`carrier.Window` is the only per-worker routing, and it exists between the commit
-and the end of the drain. A control verb, a file transfer, a dial or a client for
-one worker goes to the active set when the worker is attached to it, else to the
-previous set when it is attached to that, else it fails with `nodes.ErrNoRoute`.
-The choice is read from the state of the worker (`BackendNode.Attached`, or a
-tunnel held when it reports nothing) and never from the error of an earlier
-attempt. A call that is running is never moved, so an install, a stream or a load
-renewal ends on the carrier it began on while the old carrier is attached.
+Worker calls do not follow the row. The swapper attaches the worker route of a
+set to the route table (`RouteTable.Attach`) before the set becomes active, and
+detaches it when the set is released (`RouteTable.Detach`, which puts the
+pinned route of that kind back). While a NATS set is active or drains, the table
+holds the direct route, so a worker that is still attached to NATS only is
+reached until the drain ends, and a worker that moved to the tunnel is reached
+there. A call that is running is never moved, so an install, a stream or a load
+renewal ends on the route it began on. `Swapper.Settled` says that no carrier
+drains; the health monitor reads it.
 
 The model loads, installs and MCP calls that were started before the change finish
 where they began; whatever is still running
@@ -663,18 +706,14 @@ that attaches later.
 
 ## Workers that hold only a tunnel
 
-`carrier.Window` routes outside a change too: with `UseTunnelRoutes` (a set from
-`carrier.NewTunnelRoutes`, which has the worker-facing members of a tunnel set
-and no fan-out), a call to a worker that is attached to the tunnel and not to
-NATS goes through the tunnel while NATS is active. The order is NATS, then the
-tunnel; a worker holds one tunnel, over a websocket or over P2P, so the two
-kinds never compete. The attachment comes from the heartbeat report, as in a
-change, and is cached for a second. `HealthMonitor.UseTunnelRoutes` stops the
-demotion of such a worker. The router places a model on it by the routes of the
-node, see below. A worker over P2P is tunnel-only: it never attaches
-to NATS, and its `follow_error` says so (`joinedOverP2P`) for as long as the
-cluster runs on NATS. The agent RPC is not routed this way: an agent worker
-over P2P is not supported.
+The route table reaches a worker that is attached to the tunnel and not to NATS
+through the tunnel route, whatever the carrier row says: the route is pinned on
+every replica. A worker holds one tunnel, over a websocket or over P2P, so the
+two kinds never compete. `HealthMonitor.UseTunnelRoutes` stops the demotion of
+such a worker. The router places a model on it by the routes of the node, see
+below. A worker over P2P is tunnel-only: it never attaches to NATS, and its
+`follow_error` says so (`joinedOverP2P`) for as long as the cluster runs on
+NATS. An agent worker over P2P is not supported.
 
 ## Routes of a node
 
@@ -686,8 +725,9 @@ capabilities, and has an address; never for a worker that joined over P2P) and
 attributes of the route). `SmartRouter.narrowByRoutable` keeps the nodes with at
 least one route, so a node is schedulable whatever the other nodes use. A node
 with no route is skipped, and no row changes. A limited relay is still a route.
-The router takes no option for this. Ties between equally fit nodes are not
-broken by route yet.
+The router takes no option for this. Ties between equally fit nodes are broken
+by the carrier weights (see the cluster settings above). The holders route each
+call by the same list (see "Holders and the carrier row").
 
 ## Open items for a second carrier
 

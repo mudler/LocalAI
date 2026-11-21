@@ -65,8 +65,11 @@ type carrierRuntime struct {
 	// bus is the broadcaster holder. The work that a set starts uses it, so that
 	// its subscriptions follow the sets. It is set before any set starts.
 	bus *carrier.Broadcaster
-	// active is the pointer the holders read.
+	// active names the set whose Fabric the broadcaster holder uses.
 	active *atomic.Pointer[carrier.Set]
+	// tunnelRoutes is the tunnel route of the route table. A tunnel set brings
+	// it rather than a route of its own.
+	tunnelRoutes *carrier.WorkerRoute
 
 	probeWake chan struct{}
 }
@@ -269,6 +272,7 @@ func (rt *carrierRuntime) buildTunnel(ctx context.Context, row cluster.CarrierRo
 	selector := nodes.NewAgentSelector(rt.registry, rt.clusterReg, rt.instanceID)
 	set, err := carrier.NewTunnelSet(carrier.TunnelOptions{
 		Epoch:          row.Epoch,
+		Routes:         rt.tunnelRoutes,
 		Dialer:         tunnel.NewWorkerDialer(rt.tunnels, rt.peerPool),
 		Fanout:         fanout,
 		AgentSelector:  selector,

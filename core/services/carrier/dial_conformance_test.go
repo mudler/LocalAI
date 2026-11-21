@@ -3,6 +3,7 @@ package carrier_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -69,6 +70,32 @@ var _ = Describe("WorkerNetDialerFor conformance", func() {
 				dial:     func(ctx context.Context) (net.Conn, error) { return dial(ctx, "tcp", lis.Addr().String()) },
 				unrouted: func(ctx context.Context) (net.Conn, error) { return dial(ctx, "tcp", "127.0.0.1:1") },
 			}
+		},
+		"the route table, for a node on the direct route": func() dialHarness {
+			lis := echoService()
+			route, err := carrier.NewNATSRoutes(carrier.NATSOptions{
+				Client: &closingBus{FakeBus: testutil.NewFakeBus()}, Registry: noModels{},
+				HTTPAddrFor: func(string) (string, error) { return lis.Addr().String(), nil },
+			})
+			Expect(err).ToNot(HaveOccurred())
+			dial := carrier.NewRoutedWorkerDialer(mixedTable(route, unusableRoute(nodes.RouteTunnel),
+				map[string][]nodes.Route{"n": directOnly}))("n")
+			return dialHarness{
+				dial:     func(ctx context.Context) (net.Conn, error) { return dial(ctx, "tcp", lis.Addr().String()) },
+				unrouted: func(ctx context.Context) (net.Conn, error) { return dial(ctx, "tcp", "127.0.0.1:1") },
+			}
+		},
+		"the route table, for a node on the tunnel through the replica that does not hold it": func() dialHarness {
+			fx := newDialFixture(echoService())
+			table := mixedTable(unusableRoute(nodes.RouteDirect), fx.other.set.WorkerRoute,
+				map[string][]nodes.Route{fx.nodeID: tunnelOnly, "a-node-that-no-worker-holds": tunnelOnly})
+			return dialHarness{dial: tableDialer(table, fx.nodeID), unrouted: tableDialer(table, "a-node-that-no-worker-holds"), routesMissing: true}
+		},
+		"the route table, for a node with both routes whose direct route finds no route": func() dialHarness {
+			fx := newDialFixture(echoService())
+			table := mixedTable(noRouteRoute(), fx.owner.set.WorkerRoute,
+				map[string][]nodes.Route{fx.nodeID: both, "a-node-that-no-worker-holds": both})
+			return dialHarness{dial: tableDialer(table, fx.nodeID), unrouted: tableDialer(table, "a-node-that-no-worker-holds"), routesMissing: true}
 		},
 		"the tunnel dialer on the replica that holds the tunnel": func() dialHarness {
 			fx := newDialFixture(echoService())
@@ -198,6 +225,47 @@ func (fx *dialFixture) dialVia(r *replica) func(context.Context) (net.Conn, erro
 func (fx *dialFixture) unroutedVia(r *replica) func(context.Context) (net.Conn, error) {
 	dial := r.set.Dialer("a-node-that-no-worker-holds")
 	return func(ctx context.Context) (net.Conn, error) { return dial(ctx, "tcp", "nowhere.worker.invalid:80") }
+}
+
+// mixedTable is a route table with a direct and a tunnel route, and the routes of
+// each node.
+func mixedTable(direct, tun *carrier.WorkerRoute, routes map[string][]nodes.Route) *carrier.RouteTable {
+	t := carrier.NewRouteTable(func(_ context.Context, nodeID string) ([]nodes.Route, error) {
+		return routes[nodeID], nil
+	})
+	t.Attach(direct)
+	t.Attach(tun)
+	return t
+}
+
+// tableDialer dials the HTTP server of nodeID through the table.
+func tableDialer(t *carrier.RouteTable, nodeID string) func(context.Context) (net.Conn, error) {
+	dial := carrier.NewRoutedWorkerDialer(t)(nodeID)
+	return func(ctx context.Context) (net.Conn, error) { return dial(ctx, "tcp", nodeID+".worker.invalid:80") }
+}
+
+// errRouteUsed is the answer of a route that a spec says the table must not use.
+var errRouteUsed = errors.New("the table used a route that the node does not have")
+
+// unusableRoute is a route of kind k whose every member fails the call that
+// reaches it.
+func unusableRoute(k nodes.RouteKind) *carrier.WorkerRoute {
+	return &carrier.WorkerRoute{Kind: k, Commands: &fakeCommands{}, Files: &fakeFiles{}, Clients: &fakeClients{},
+		Dialer: func(string) func(context.Context, string, string) (net.Conn, error) {
+			return func(context.Context, string, string) (net.Conn, error) { return nil, errRouteUsed }
+		}}
+}
+
+// noRouteRoute is a direct route that reaches no worker, as NATS answers for a
+// worker that is not attached to it.
+func noRouteRoute() *carrier.WorkerRoute {
+	r := unusableRoute(nodes.RouteDirect)
+	r.Dialer = func(string) func(context.Context, string, string) (net.Conn, error) {
+		return func(context.Context, string, string) (net.Conn, error) {
+			return nil, fmt.Errorf("%w: not attached to NATS", nodes.ErrNoRoute)
+		}
+	}
+	return r
 }
 
 var _ = Describe("Forgetting a node", func() {

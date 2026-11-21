@@ -3,7 +3,6 @@ package carrier_test
 import (
 	"context"
 	"net"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,17 +29,31 @@ var _ = Describe("Set", func() {
 
 	It("names the first member that is missing", func() {
 		for name, mutate := range map[string]func(*carrier.Set){
-			"Broadcaster": func(s *carrier.Set) { s.Broadcaster = nil },
-			"Commands":    func(s *carrier.Set) { s.Commands = nil },
-			"Files":       func(s *carrier.Set) { s.Files = nil },
-			"Clients":     func(s *carrier.Set) { s.Clients = nil },
-			"Dialer":      func(s *carrier.Set) { s.Dialer = nil },
-			"Agents":      func(s *carrier.Set) { s.Agents = nil },
+			"Broadcaster":  func(s *carrier.Set) { s.Broadcaster = nil },
+			"worker route": func(s *carrier.Set) { s.WorkerRoute = nil },
+			"Commands":     func(s *carrier.Set) { s.Commands = nil },
+			"Files":        func(s *carrier.Set) { s.Files = nil },
+			"Clients":      func(s *carrier.Set) { s.Clients = nil },
+			"Dialer":       func(s *carrier.Set) { s.Dialer = nil },
+			"Agents":       func(s *carrier.Set) { s.Agents = nil },
 		} {
 			s := newFakeCarrier(cluster.CarrierNATS, 1).set
 			mutate(s)
 			Expect(s.Validate()).To(MatchError(ContainSubstring(name)), name)
 		}
+	})
+
+	It("refuses a route of another kind than the carrier brings", func() {
+		s := newFakeCarrier(cluster.CarrierNATS, 1).set
+		s.Kind = nodes.RouteTunnel
+		Expect(s.Validate()).To(MatchError(ContainSubstring("brings a tunnel route")))
+	})
+
+	It("refuses a route of a kind the table does not know", func() {
+		r := newFakeCarrier(cluster.CarrierNATS, 1).route()
+		r.Kind = "pigeon"
+		Expect(r.Validate()).To(MatchError(ContainSubstring("unknown kind")))
+		Expect((*carrier.WorkerRoute)(nil).Validate()).To(HaveOccurred())
 	})
 
 	It("refuses a carrier name the cluster does not know", func() {
@@ -52,14 +65,16 @@ var _ = Describe("Set", func() {
 var _ = Describe("Forwarding holders", func() {
 	var (
 		a, b *fakeCarrier
-		cur  atomic.Pointer[carrier.Set]
+		cur  *carrier.RouteTable
 	)
+
+	// moveToB leaves b as the only route, as when a carrier is detached.
+	moveToB := func() { cur.Detach(a.route()) }
 
 	BeforeEach(func() {
 		a = newFakeCarrier(cluster.CarrierNATS, 1)
 		b = newFakeCarrier(cluster.CarrierTunnel, 2)
-		cur = atomic.Pointer[carrier.Set]{}
-		cur.Store(a.set)
+		cur = tableOf(nil, a, b)
 	})
 
 	ctx := context.Background()
@@ -70,7 +85,7 @@ var _ = Describe("Forwarding holders", func() {
 		It("passes the environment snapshot of an install on to the carrier", func() {
 			var got []map[string]string
 			a.set.Commands = &envCommands{fakeCommands: a.commands, got: &got}
-			h := carrier.NewCommands(&cur)
+			h := carrier.NewCommands(cur)
 			_, err := h.InstallBackend("n", "t", "m", "g", "", "", "", 0, "op", progress, map[string]string{"A": "1"})
 			Expect(err).ToNot(HaveOccurred())
 			_, err = h.InstallBackendOp("n", "t", "m", "g", 0, "op", "load-1", time.Minute, progress, map[string]string{})
@@ -118,13 +133,13 @@ var _ = Describe("Forwarding holders", func() {
 		})
 
 		for _, tc := range cases {
-			It("forwards "+tc.method+" to the carrier the pointer names", func() {
-				h := carrier.NewCommands(&cur)
+			It("forwards "+tc.method+" to the first route of the node", func() {
+				h := carrier.NewCommands(cur)
 				tc.call(h)
 				Expect(a.commands.seen()).To(Equal([]string{tc.method}))
 				Expect(b.commands.seen()).To(BeEmpty())
 
-				cur.Store(b.set)
+				moveToB()
 				tc.call(h)
 				Expect(a.commands.seen()).To(Equal([]string{tc.method}))
 				Expect(b.commands.seen()).To(Equal([]string{tc.method}))
@@ -135,7 +150,7 @@ var _ = Describe("Forwarding holders", func() {
 			var got []string
 			fake := &argCommands{fakeCommands: a.commands, got: &got}
 			a.set.Commands = fake
-			h := carrier.NewCommands(&cur)
+			h := carrier.NewCommands(cur)
 
 			reply, err := h.OperationControl("node-7", workerctl.OperationRequest{Renew: []string{"op-9"}})
 			Expect(err).ToNot(HaveOccurred())
@@ -157,11 +172,11 @@ var _ = Describe("Forwarding holders", func() {
 		}
 
 		for _, tc := range cases {
-			It("forwards "+tc.method+" to the carrier the pointer names", func() {
-				h := carrier.NewFiles(&cur)
+			It("forwards "+tc.method+" to the first route of the node", func() {
+				h := carrier.NewFiles(cur)
 				tc.call(h)
 				Expect(a.files.seen()).To(Equal([]string{tc.method}))
-				cur.Store(b.set)
+				moveToB()
 				tc.call(h)
 				Expect(b.files.seen()).To(Equal([]string{tc.method}))
 				Expect(a.files.seen()).To(HaveLen(1))
@@ -169,21 +184,21 @@ var _ = Describe("Forwarding holders", func() {
 		}
 
 		It("is the batch release the file staging client looks for", func() {
-			var stager nodes.FileStager = carrier.NewFiles(&cur)
+			var stager nodes.FileStager = carrier.NewFiles(cur)
 			_, ok := stager.(nodes.RequestFileReleaser)
 			Expect(ok).To(BeTrue(), "a holder that hid the extension would silently turn batch release into one call per key")
 		})
 	})
 
 	Describe("Clients", func() {
-		It("builds the client with the factory the pointer names", func() {
-			h := carrier.NewClients(&cur)
+		It("builds the client with the factory of the first route of the node", func() {
+			h := carrier.NewClients(cur)
 			_ = h.NewClient("node-1", "10.0.0.1:50051", true)
 			Expect(a.clients.gotNode).To(Equal("node-1"))
 			Expect(a.clients.gotAddr).To(Equal("10.0.0.1:50051"))
 			Expect(a.clients.gotParallel).To(BeTrue())
 
-			cur.Store(b.set)
+			moveToB()
 			_ = h.NewClient("node-2", "x", false)
 			Expect(a.clients.seen()).To(HaveLen(1))
 			Expect(b.clients.gotNode).To(Equal("node-2"))
@@ -191,12 +206,12 @@ var _ = Describe("Forwarding holders", func() {
 	})
 
 	Describe("WorkerDialer", func() {
-		It("dials with the carrier the pointer names at the moment of each dial", func() {
-			dialFor := carrier.NewRoutedWorkerDialer(&cur, nil)
+		It("dials on the route of the node at the moment of each dial", func() {
+			dialFor := carrier.NewRoutedWorkerDialer(cur)
 			dial := dialFor("node-1") // a client keeps this function for good
 
 			_, _ = dial(ctx, "tcp", "x:1")
-			cur.Store(b.set)
+			moveToB()
 			_, _ = dial(ctx, "tcp", "x:1")
 
 			Expect(a.dialed.seen()).To(Equal([]string{"dial:node-1"}))
@@ -205,11 +220,11 @@ var _ = Describe("Forwarding holders", func() {
 	})
 
 	Describe("Agents", func() {
-		It("forwards both verbs to the carrier the pointer names", func() {
-			h := carrier.NewAgents(&cur)
+		It("forwards both verbs to the first route that carries the agent RPC", func() {
+			h := carrier.NewAgents(cur)
 			_, _ = h.ExecuteMCPTool(ctx, mcpRemote.MCPToolRequest{})
 			_, _ = h.DiscoverMCPTools(ctx, mcpRemote.MCPDiscoveryRequest{})
-			cur.Store(b.set)
+			moveToB()
 			_, _ = h.ExecuteMCPTool(ctx, mcpRemote.MCPToolRequest{})
 			Expect(a.agents.seen()).To(Equal([]string{"ExecuteMCPTool", "DiscoverMCPTools"}))
 			Expect(b.agents.seen()).To(Equal([]string{"ExecuteMCPTool"}))
@@ -217,11 +232,11 @@ var _ = Describe("Forwarding holders", func() {
 	})
 
 	Describe("a call in flight", func() {
-		It("finishes on the carrier it started on, and a new call goes to the new one", func() {
+		It("finishes on the route it started on, and a new call goes to the next route", func() {
 			gate := make(chan struct{})
 			entered := make(chan struct{}, 1)
 			a.set.Commands = &gatedCommands{fakeCommands: a.commands, gate: gate, entered: entered}
-			h := carrier.NewCommands(&cur)
+			h := carrier.NewCommands(cur)
 
 			done := make(chan error, 1)
 			go func() {
@@ -230,7 +245,7 @@ var _ = Describe("Forwarding holders", func() {
 			}()
 			Eventually(entered).Should(Receive())
 
-			cur.Store(b.set)
+			moveToB()
 			Expect(h.PingNode("n")).To(Succeed())
 			Expect(b.commands.seen()).To(Equal([]string{"PingNode"}))
 
@@ -242,15 +257,24 @@ var _ = Describe("Forwarding holders", func() {
 
 	Describe("hot path", func() {
 		It("adds no allocation to a forwarded call", func() {
-			h := carrier.NewCommands(&cur)
-			cl := carrier.NewClients(&cur)
-			dial := carrier.NewRoutedWorkerDialer(&cur, nil)("node-1")
-
-			cur.Store(newQuietCarrier().set)
+			cur = carrier.NewRouteTable(nil)
+			cur.Attach(newQuietCarrier().route())
+			h := carrier.NewCommands(cur)
+			cl := carrier.NewClients(cur)
+			dial := carrier.NewRoutedWorkerDialer(cur)("node-1")
 
 			Expect(testing.AllocsPerRun(1000, func() { _ = h.PingNode("node-1") })).To(BeZero())
 			Expect(testing.AllocsPerRun(1000, func() { _ = cl.NewClient("node-1", "x:1", false) })).To(BeZero())
 			Expect(testing.AllocsPerRun(1000, func() { _, _ = dial(ctx, "tcp", "x:1") })).To(BeZero())
+		})
+
+		It("adds no allocation when the routes of the node come from the cache", func() {
+			routes := []nodes.Route{{Kind: nodes.RouteDirect}}
+			cur = carrier.NewRouteTable(func(context.Context, string) ([]nodes.Route, error) { return routes, nil })
+			cur.Attach(newQuietCarrier().route())
+			h := carrier.NewCommands(cur)
+			Expect(h.PingNode("node-1")).To(Succeed())
+			Expect(testing.AllocsPerRun(1000, func() { _ = h.PingNode("node-1") })).To(BeZero())
 		})
 	})
 })

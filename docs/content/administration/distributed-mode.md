@@ -75,7 +75,9 @@ You can start on one and change to the other later with the admin API or the CLI
 
 ### Workers that hold only a tunnel
 
-A worker that [joined over P2P](#workers-over-p2p) holds a tunnel and nothing else, whichever setting is active. A cluster on `nats` reaches such a worker through its tunnel: for each call the frontend takes NATS when the worker is attached to NATS, then the tunnel. A worker holds one tunnel, over a websocket or over P2P, so the order between the two kinds of tunnel never comes into play. The same rule reaches a worker that could not follow a change to NATS. The health monitor does not demote a worker that is attached to the tunnel while NATS is active, because it is reachable.
+A worker that [joined over P2P](#workers-over-p2p) holds a tunnel and nothing else, whichever setting is active. A cluster on `nats` reaches such a worker through its tunnel. For each call to a worker, the frontend uses the route that last worked for that worker, else NATS when the worker is attached to NATS and has an address, else the tunnel. A call goes to the next route only when the first one shows that the worker received nothing (no responder on NATS, no tunnel). It never goes to another route after a timeout or an answer of the worker, so a call is never run twice. Unloading a model and deleting its files reach each worker on its own route. A worker holds one tunnel, over a websocket or over P2P, so the order between the two kinds of tunnel never comes into play. The same rule reaches a worker that could not follow a change to NATS. The health monitor does not demote a worker that is attached to the tunnel while NATS is active, because it is reachable.
+
+An MCP tool call to an agent worker goes to an agent worker on NATS first, and to an agent worker that holds a tunnel when no agent worker on NATS takes it.
 
 The Nodes page shows the route of each node: **NATS**, **WebSocket** (the tunnel over a websocket) or **P2P**, and for P2P the path (direct, hole-punched or relayed, and *limited* when the relay limits the data or the time of a connection).
 
@@ -1709,7 +1711,7 @@ No request is cut by the commit.
 | Backend installs | Finish on the carrier that received them. A failed install is retried on the new one. |
 | Model loads | Keep their lease. Each renewal is a new call, sent on whichever carrier reaches the worker. A load whose worker never follows is stopped by the worker watchdog after 90 s without a renewal, then retried. |
 | File transfers | Finish on their connection. New ones use the new carrier. |
-| MCP tool calls to agent workers | A call finishes on the carrier that carried it. New calls go to the carrier that the agent worker is attached to. |
+| MCP tool calls to agent workers | A call finishes on the carrier that carried it. New calls go to an agent worker on NATS while NATS is active or drains, else to one that holds a tunnel. |
 | Chat starts, chat replay and background jobs of a turn | A request finishes on the carrier that carried it. New requests use the new carrier. |
 | Broadcasts (progress, cache hints, state deltas) | Frontends listen on both carriers from `prepare` and publish on one. Order can skew by about one poll interval (2 s) around the commit. Each frontend then reloads its shared state once, so a lost delta is repaired. |
 

@@ -345,7 +345,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		}
 		// A worker over P2P reaches the cluster through its tunnel and nothing
 		// else, whichever carrier is active: the frontends route to it through
-		// the tunnel (see carrier.Window). It is tunnel-only.
+		// the tunnel route (see carrier.RouteTable). It is tunnel-only.
 		if viaP2P {
 			credFor = cluster.CarrierTunnel
 		}

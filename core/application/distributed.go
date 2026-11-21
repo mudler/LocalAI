@@ -40,10 +40,11 @@ import (
 
 // DistributedServices holds all services initialized for distributed mode.
 //
-// The seams that cross a process boundary are holders over the active carrier
-// set: they take the carrier through an atomic pointer, so a later change of
-// carrier does not touch the code that holds them. Only Shutdown reaches the
-// set itself.
+// The seams that cross a process boundary are holders. The worker-facing ones
+// (control verbs, files, clients, dials, agent RPC) go through the route table,
+// which picks the routes of each node (nodes.RoutesOf). The broadcaster and
+// request/reply go to the Fabric of the carrier set that the cluster row names.
+// Only Shutdown reaches the routes and the set themselves.
 type DistributedServices struct {
 	// Broadcaster is the fan-out seam. Code that only publishes and subscribes
 	// takes this, never the connection of a carrier.
@@ -64,8 +65,8 @@ type DistributedServices struct {
 	ModelAdapter *nodes.ModelRouterAdapter
 	Unloader     nodes.NodeControl
 	ModelCleanup *nodes.ModelCleanupService
-	// Clients builds the gRPC client for a backend of a worker through the
-	// carrier that is active.
+	// Clients builds the gRPC client for a backend of a worker on the route of
+	// the worker.
 	Clients nodes.BackendClientFactory
 
 	// WorkerHTTPDial reaches a worker's own HTTP server for the admin
@@ -110,12 +111,16 @@ type DistributedServices struct {
 	// build.
 	Runtime *carrierRuntime
 
-	// active names the carrier set the holders forward to.
-	active *atomic.Pointer[carrier.Set]
-	// window routes the calls to workers while two carriers are attached.
-	window *carrier.Window
-	// tunnelRoutes are the hybrid routes of the window.
-	tunnelRoutes *carrier.Set
+	// fabric names the carrier set whose Fabric the broadcaster holder uses. The
+	// cluster carrier row decides it, and the change of carrier moves it; it is
+	// removed with the change (step 8 of the hybrid carriers work). No worker
+	// call reads it.
+	fabric *atomic.Pointer[carrier.Set]
+	// routes is the route table of the worker calls.
+	routes *carrier.RouteTable
+	// tunnelRoutes is the tunnel route, pinned in the table for as long as the
+	// replica runs.
+	tunnelRoutes *carrier.WorkerRoute
 	// workers answers the questions about workers that a change asks.
 	workers *nodes.SwitchWorkers
 
@@ -123,20 +128,12 @@ type DistributedServices struct {
 }
 
 // Disconnect ends the tunnel that this replica holds for a node, and drops what
-// the active carrier caches for it. The node was removed or its credential was
-// replaced. It reports whether this replica held a tunnel of the node.
+// the routes cache for it. The node was removed or its credential was replaced.
+// It reports whether this replica held a tunnel of the node.
 func (ds *DistributedServices) Disconnect(nodeID string) bool {
 	held := ds.Tunnels.Disconnect(nodeID)
-	if ds.active != nil {
-		if set := ds.active.Load(); set != nil && set.ForgetNode != nil {
-			set.ForgetNode(nodeID)
-		}
-	}
-	// The carrier that is draining caches the same per-node state.
-	if ds.window != nil {
-		if prev := ds.window.Previous(); prev != nil && prev.ForgetNode != nil {
-			prev.ForgetNode(nodeID)
-		}
+	if ds.routes != nil {
+		ds.routes.Forget(nodeID)
 	}
 	return held
 }
@@ -173,8 +170,8 @@ func (ds *DistributedServices) Shutdown() {
 		if closer, ok := ds.Store.(io.Closer); ok {
 			closer.Close()
 		}
-		if ds.active != nil {
-			if set := ds.active.Load(); set != nil && set.Close != nil {
+		if ds.fabric != nil {
+			if set := ds.fabric.Load(); set != nil && set.Close != nil {
 				set.Close()
 			}
 		}
@@ -363,45 +360,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	replies := tunnel.NewReplies(cfg.Distributed.InstanceID, messaging.MaxBroadcastBytes)
 	peerSessions := tunnel.NewPeerSessions(tunnel.NewRelay(tunnels, tunnel.WithReplies(replies)).Stream)
 
-	// Build the set of the carrier that the row names, and put it behind the
-	// holders. Everything below takes a holder, not a carrier. A NATS server that
-	// is not up yet does not stop the start; a URL or a credential that cannot be
-	// used does.
-	active := &atomic.Pointer[carrier.Set]{}
-	runtime := &carrierRuntime{
-		cfg: cfg, db: authDB, settings: settingsStore, registry: registry, fileMgr: fileMgr,
-		instanceID: cfg.Distributed.InstanceID, clusterReg: clusterReg,
-		tunnels: tunnels, peerPool: peerPool, replies: replies, active: active,
-		probeWake: make(chan struct{}, 1),
-	}
-	startSet, err = runtime.build(context.Background(), carrierRow, carrierRow.Active, false)
-	if err != nil {
-		return nil, fmt.Errorf("building the %s carrier that the cluster uses: %w", carrierRow.Active, err)
-	}
-	active.Store(startSet)
-	broadcaster := carrier.NewBroadcaster(active)
-	runtime.bus = broadcaster
-
-	// While two carriers are attached, a call to a worker goes to the carrier the
-	// worker is attached to.
-	workers := nodes.NewSwitchWorkers(registry, cfg.Distributed.StaleNodeThresholdOrDefault())
-	window := carrier.NewWindow(
-		func(ctx context.Context, nodeID string) (carrier.Attachment, error) {
-			attached, err := workers.AttachedCarriers(ctx, nodeID)
-			if err != nil {
-				return carrier.Attachment{}, err
-			}
-			return attachmentOf(attached), nil
-		},
-		workers.AgentsAttached,
-	)
-	// A worker that holds only a tunnel (one that joined over P2P, or one that
-	// could not follow a change to NATS) is reached through the routes of the
-	// tunnel while NATS is active. They hold no connection until a call needs
-	// one, so a cluster with no such worker pays nothing for them.
+	// The tunnel route reaches every worker that holds a tunnel, over a websocket
+	// or over P2P, whatever the cluster carrier row says. It holds no connection
+	// until a call needs one, so a cluster with no such worker pays nothing for
+	// it. It is pinned in the route table for as long as the replica runs, and
+	// the tunnel set of a change of carrier brings this same route.
 	tunnelRoutes, err := carrier.NewTunnelRoutes(carrier.TunnelOptions{
-		Epoch:          carrierRow.Epoch,
 		Dialer:         tunnel.NewWorkerDialer(tunnels, peerPool),
+		AgentSelector:  nodes.NewAgentSelector(registry, clusterReg, cfg.Distributed.InstanceID),
 		Registry:       registry,
 		InstallTimeout: cfg.Distributed.BackendInstallTimeoutOrDefault(),
 		UpgradeTimeout: cfg.Distributed.BackendUpgradeTimeoutOrDefault(),
@@ -413,16 +379,51 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if err != nil {
 		return nil, fmt.Errorf("building the routes of the tunnel: %w", err)
 	}
-	window.UseTunnelRoutes(tunnelRoutes)
-	clientFactory := carrier.NewClients(active)
-	clientFactory.UseWindow(window)
-	fileStager := carrier.NewFiles(active)
-	fileStager.UseWindow(window)
-	remoteUnloader := carrier.NewCommands(active)
-	remoteUnloader.UseWindow(window)
-	workerHTTPDial := carrier.NewRoutedWorkerDialer(active, window)
-	agentControl := carrier.NewAgents(active)
-	agentControl.UseWindow(window)
+	defer func() {
+		if !success && tunnelRoutes.Close != nil {
+			tunnelRoutes.Close()
+		}
+	}()
+
+	// The route table picks the routes of each node from what the worker
+	// reported (nodes.RoutesOf). The direct route is the one of a NATS set,
+	// attached while that set is in use or drains.
+	routes := carrier.NewRouteTable(func(ctx context.Context, nodeID string) ([]nodes.Route, error) {
+		n, err := registry.Get(ctx, nodeID)
+		if err != nil {
+			return nil, err
+		}
+		return nodes.RoutesOf(n), nil
+	})
+	routes.Pin(tunnelRoutes)
+
+	// Build the set of the carrier that the row names. Its Fabric is behind the
+	// broadcaster holder, and its worker route goes in the route table. A NATS
+	// server that is not up yet does not stop the start; a URL or a credential
+	// that cannot be used does.
+	fabric := &atomic.Pointer[carrier.Set]{}
+	runtime := &carrierRuntime{
+		cfg: cfg, db: authDB, settings: settingsStore, registry: registry, fileMgr: fileMgr,
+		instanceID: cfg.Distributed.InstanceID, clusterReg: clusterReg,
+		tunnels: tunnels, peerPool: peerPool, replies: replies, active: fabric,
+		tunnelRoutes: tunnelRoutes,
+		probeWake:    make(chan struct{}, 1),
+	}
+	startSet, err = runtime.build(context.Background(), carrierRow, carrierRow.Active, false)
+	if err != nil {
+		return nil, fmt.Errorf("building the %s carrier that the cluster uses: %w", carrierRow.Active, err)
+	}
+	fabric.Store(startSet)
+	routes.Attach(startSet.WorkerRoute)
+	broadcaster := carrier.NewBroadcaster(fabric)
+	runtime.bus = broadcaster
+
+	workers := nodes.NewSwitchWorkers(registry, cfg.Distributed.StaleNodeThresholdOrDefault())
+	clientFactory := carrier.NewClients(routes)
+	fileStager := carrier.NewFiles(routes)
+	remoteUnloader := carrier.NewCommands(routes)
+	workerHTTPDial := carrier.NewRoutedWorkerDialer(routes)
+	agentControl := carrier.NewAgents(routes)
 	if cfg.Distributed.StorageURL != "" {
 		xlog.Info("File stager initialized (S3)", "carrier", carrierRow.Active)
 	} else {
@@ -657,22 +658,23 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// tunnel is demoted once its departure is older than the grace. On NATS no
 	// node holds a tunnel, and the monitor reads nothing.
 	healthMon.UsePresence(clusterReg, cluster.DefaultReconnectGrace, func() bool {
-		set := active.Load()
+		set := fabric.Load()
 		return set != nil && set.Name == cluster.CarrierTunnel
 	})
 
 	// A worker that reports it is not attached to the active carrier is demoted
 	// once the cluster has settled: after a forced change it is the worker that
-	// could not follow. While two carriers are attached the window routes it, so
-	// nothing is demoted then. The check also runs when a carrier is released, so
-	// that the demotion does not wait for the next tick.
+	// could not follow. While two carriers are attached the route table reaches
+	// it, so nothing is demoted then. The check also runs when a carrier is
+	// released, so that the demotion does not wait for the next tick.
+	var swapper *carrier.Swapper
 	healthMon.UseTunnelRoutes()
 	healthMon.UseCarrier(func() (cluster.Carrier, bool) {
-		set := active.Load()
-		if set == nil {
+		set := fabric.Load()
+		if set == nil || swapper == nil {
 			return "", false
 		}
-		return set.Name, window.Previous() == nil
+		return set.Name, swapper.Settled()
 	})
 	broadcaster.OnReconnect(func() {
 		go healthMon.CheckNow(context.Background())
@@ -714,8 +716,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if err != nil {
 		return nil, err
 	}
-	swapper, err := carrier.NewSwapper(carrier.SwapperOptions{
-		Cur: active, Bus: broadcaster, Window: window,
+	swapper, err = carrier.NewSwapper(carrier.SwapperOptions{
+		Cur: fabric, Bus: broadcaster, Routes: routes,
 		Rows: carrierStore, Ready: membership, Build: runtime.Build,
 	})
 	if err != nil {
@@ -753,8 +755,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 		WorkerHTTPDial: workerHTTPDial,
 
-		active:       active,
-		window:       window,
+		fabric:       fabric,
+		routes:       routes,
 		tunnelRoutes: tunnelRoutes,
 		workers:      workers,
 	}, nil
@@ -917,20 +919,6 @@ func natsEraDeployment(ctx context.Context, db *gorm.DB) (bool, error) {
 		}
 	}
 	return false, nil
-}
-
-// attachmentOf turns the carriers a worker is attached to into the routing form.
-func attachmentOf(cs []cluster.Carrier) carrier.Attachment {
-	var a carrier.Attachment
-	for _, c := range cs {
-		switch c {
-		case cluster.CarrierNATS:
-			a.NATS = true
-		case cluster.CarrierTunnel:
-			a.Tunnel = true
-		}
-	}
-	return a
 }
 
 // startMembership creates the cluster tables, then records this replica in the

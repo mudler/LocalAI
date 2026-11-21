@@ -209,21 +209,50 @@ func newFakeCarrier(name cluster.Carrier, epoch int64) *fakeCarrier {
 		agents:   &fakeAgents{},
 		dialed:   &recorder{},
 	}
+	kind := nodes.RouteDirect
+	if name == cluster.CarrierTunnel {
+		kind = nodes.RouteTunnel
+	}
 	f.set = &carrier.Set{
-		Name:        name,
-		Epoch:       epoch,
-		Broadcaster: f.bus,
-		OnReconnect: f.bus.OnReconnect,
-		Commands:    f.commands,
-		Files:       f.files,
-		Clients:     f.clients,
-		Dialer: func(nodeID string) func(context.Context, string, string) (net.Conn, error) {
-			return func(context.Context, string, string) (net.Conn, error) {
-				f.dialed.rec("dial:" + nodeID)
-				return nil, nil
-			}
+		Name:   name,
+		Epoch:  epoch,
+		Fabric: carrier.Fabric{Broadcaster: f.bus, OnReconnect: f.bus.OnReconnect},
+		WorkerRoute: &carrier.WorkerRoute{
+			Kind:     kind,
+			Commands: f.commands,
+			Files:    f.files,
+			Clients:  f.clients,
+			Dialer: func(nodeID string) func(context.Context, string, string) (net.Conn, error) {
+				return func(context.Context, string, string) (net.Conn, error) {
+					f.dialed.rec("dial:" + nodeID)
+					return nil, nil
+				}
+			},
+			Agents: f.agents,
 		},
-		Agents: f.agents,
 	}
 	return f
+}
+
+// route returns the worker route of the fake carrier.
+func (f *fakeCarrier) route() *carrier.WorkerRoute { return f.set.WorkerRoute }
+
+// tableOf returns a route table over the routes of the fake carriers. routes
+// gives the routes of each node; a node that it does not name has every route.
+func tableOf(routes map[string][]nodes.Route, carriers ...*fakeCarrier) *carrier.RouteTable {
+	var of carrier.RouteSource
+	if routes != nil {
+		of = func(_ context.Context, nodeID string) ([]nodes.Route, error) {
+			r, ok := routes[nodeID]
+			if !ok {
+				return []nodes.Route{{Kind: nodes.RouteDirect}, {Kind: nodes.RouteTunnel}}, nil
+			}
+			return r, nil
+		}
+	}
+	t := carrier.NewRouteTable(of)
+	for _, c := range carriers {
+		t.Attach(c.route())
+	}
+	return t
 }

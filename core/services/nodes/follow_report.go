@@ -186,34 +186,6 @@ func (s *SwitchWorkers) Workers(ctx context.Context) ([]cluster.WorkerInfo, erro
 	return out, nil
 }
 
-// AttachedCarriers returns the carriers one worker is attached to.
-func (s *SwitchWorkers) AttachedCarriers(ctx context.Context, nodeID string) ([]cluster.Carrier, error) {
-	n, err := s.reg.Get(ctx, nodeID)
-	if err != nil {
-		return nil, err
-	}
-	return s.attached(n), nil
-}
-
-// AgentsAttached reports whether an agent worker that is alive is attached to c.
-func (s *SwitchWorkers) AgentsAttached(ctx context.Context, c cluster.Carrier) (bool, error) {
-	list, err := s.reg.List(ctx)
-	if err != nil {
-		return false, err
-	}
-	now := s.now(ctx)
-	for i := range list {
-		n := &list[i]
-		if n.NodeType != NodeTypeAgent || n.Status == StatusPending || n.Status == StatusOffline || now.Sub(n.LastHeartbeat) > s.stale {
-			continue
-		}
-		if slices.Contains(s.attached(n), c) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // errTunnelWorkerLoopback is the failure of the dial that the guarded factory
 // puts in the place of a dial that cannot mean anything. It is not the answer of
 // a host about a backend, so nothing that decides whether a backend is dead may

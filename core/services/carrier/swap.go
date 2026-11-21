@@ -34,10 +34,13 @@ type ReadyReporter interface {
 	ReportReady(ctx context.Context, epoch int64, reason string) error
 }
 
-// WindowControl is the part of Window that the swapper moves. *Window is one.
-type WindowControl interface {
-	Open(prev *Set)
-	Close()
+// RouteAttacher is the part of the route table that the swapper moves: the
+// worker route of a set is attached while the set is in use or drains, so that
+// the workers still attached to the carrier that drains are reached.
+// *RouteTable is one.
+type RouteAttacher interface {
+	Attach(r *WorkerRoute)
+	Detach(r *WorkerRoute)
 }
 
 // DefaultSwapInterval is how often a replica reads the cluster carrier row.
@@ -49,8 +52,8 @@ type SwapperOptions struct {
 	Cur *atomic.Pointer[Set]
 	// Bus is the broadcaster holder over Cur.
 	Bus *Broadcaster
-	// Window routes the calls to workers during a change. It may be nil.
-	Window WindowControl
+	// Routes is the route table of the worker calls. It may be nil.
+	Routes RouteAttacher
 	Rows   RowSource
 	Ready  ReadyReporter
 	Build  Builder
@@ -58,7 +61,7 @@ type SwapperOptions struct {
 	// up to a fifth so that replicas do not read the row at the same moment.
 	Interval time.Duration
 	// Settle is how long a released set stays open, for the calls that took it
-	// just before the pointer and the window moved. Twice the interval when zero.
+	// just before the pointer and the route table moved. Twice the interval when zero.
 	Settle time.Duration
 	// BuildTimeout bounds one call of Build, DefaultBuildTimeout when zero. A
 	// build that hangs, on a dial for example, holds the lock of the swapper
@@ -109,6 +112,9 @@ type Swapper struct {
 	doneOnce sync.Once
 	wg       sync.WaitGroup
 
+	// drainingNow mirrors draining != nil for the readers that must not wait on
+	// mu (Settled).
+	drainingNow    atomic.Bool
 	row            atomic.Pointer[cluster.CarrierRow]
 	drainRemaining atomic.Int64
 	ready          atomic.Bool
@@ -194,6 +200,17 @@ func (s *Swapper) registerMetrics() {
 		return nil
 	}, epoch, state, active, drain, ready)
 }
+
+// setDraining records the set that drains. It is called under mu.
+func (s *Swapper) setDraining(set *Set) {
+	s.draining = set
+	s.drainingNow.Store(set != nil)
+}
+
+// Settled reports that no previous carrier drains on this replica. It takes no
+// lock, so a build that holds the swapper does not hold the caller. The change
+// of carrier, and this call, are removed in step 8 of the hybrid carriers work.
+func (s *Swapper) Settled() bool { return !s.drainingNow.Load() }
 
 // Wake asks the polling loop to look at the row now. It is the hint that the
 // leader sends; losing it costs one interval.
@@ -383,13 +400,12 @@ func (s *Swapper) swapTo(ctx context.Context, row cluster.CarrierRow) error {
 		return err
 	}
 	old := s.o.Cur.Load()
-	// The window opens before the pointer moves. While it is open with the old set
-	// as both the current and the previous set, every call goes to the old set,
-	// which is where it went. Once the pointer moves, a call to a worker that is
-	// attached to the old carrier only finds the window already open. The other
-	// order leaves a gap in which such a call goes to the new carrier and fails.
-	if s.o.Window != nil {
-		s.o.Window.Open(old)
+	// The route of the new set is attached before the pointer moves, and the route
+	// of the old set stays attached while it drains. The worker calls never read
+	// the pointer: they go by the routes of each node, so a worker attached to
+	// either carrier is reached during the whole change.
+	if s.o.Routes != nil {
+		s.o.Routes.Attach(next.WorkerRoute)
 	}
 	s.o.Cur.Store(next)
 
@@ -400,7 +416,7 @@ func (s *Swapper) swapTo(ctx context.Context, row cluster.CarrierRow) error {
 	if next == s.prepared {
 		s.prepared = nil
 	}
-	s.draining = old
+	s.setDraining(old)
 	if third != nil && third != old {
 		// A set from a drain that was never closed. It is not in use and nothing
 		// routes to it any more.
@@ -437,16 +453,13 @@ func (s *Swapper) settle(ctx context.Context, row cluster.CarrierRow) {
 	}
 	if row.Draining == "" && s.draining != nil {
 		old := s.draining
-		s.draining = nil
-		if s.o.Window != nil {
-			s.o.Window.Close()
-		}
+		s.setDraining(nil)
 		s.retire(old)
 	}
 }
 
-// reattachDraining builds the carrier that the row says is draining and opens the
-// window for it. A replica that starts or restarts during a drain begins on the
+// reattachDraining builds the carrier that the row says is draining and attaches
+// its route. A replica that starts or restarts during a drain begins on the
 // active carrier only, and a worker that is attached to the draining carrier
 // only would not be reached until the drain ended. A failure is logged and tried
 // again at the next poll; it does not make the replica not ready, because the
@@ -458,9 +471,9 @@ func (s *Swapper) reattachDraining(ctx context.Context, row cluster.CarrierRow) 
 			"carrier", row.Draining, "epoch", row.Epoch, "error", err)
 		return
 	}
-	s.draining = set
-	if s.o.Window != nil {
-		s.o.Window.Open(set)
+	s.setDraining(set)
+	if s.o.Routes != nil {
+		s.o.Routes.Attach(set.WorkerRoute)
 	}
 	xlog.Info("This replica attached the carrier that is draining", "carrier", row.Draining, "epoch", row.Epoch)
 }
@@ -477,13 +490,17 @@ func (s *Swapper) dropListening(set *Set) *Set {
 // the reconnect hooks once, and close it after the settle time. The wait runs in
 // the background, so that the poll goes on.
 func (s *Swapper) retire(old *Set) {
+	if s.o.Routes != nil {
+		s.o.Routes.Detach(old.WorkerRoute)
+	}
 	s.dropListening(old)
 	s.wg.Go(func() {
 		// Messages across the flip were not ordered, so the consumers read their
 		// tables once.
 		s.o.Bus.NotifyReconnect()
-		// The set stays open for the settle time. A call that took the old set from
-		// the window or from the pointer just before they moved is still using it.
+		// The set stays open for the settle time. A call that took the old route
+		// from the table, or the old set from the pointer, just before they moved is
+		// still using it.
 		// Closing it first would fail those calls.
 		select {
 		case <-time.After(s.o.Settle):
@@ -517,12 +534,13 @@ func (s *Swapper) Close() {
 	if len(extra) == 2 && extra[0] == extra[1] {
 		extra = extra[:1]
 	}
-	s.prepared, s.draining = nil, nil
+	s.prepared = nil
+	s.setDraining(nil)
 	s.mu.Unlock()
-	if s.o.Window != nil {
-		s.o.Window.Close()
-	}
 	for _, set := range extra {
+		if s.o.Routes != nil {
+			s.o.Routes.Detach(set.WorkerRoute)
+		}
 		s.dropListening(set)
 		closeSet(set)
 	}

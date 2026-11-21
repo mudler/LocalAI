@@ -406,9 +406,14 @@ func (rig *switchRig) startAgent(name string) *agentProc {
 // the node reported in its last heartbeat.
 func (rig *switchRig) attachedOf(nodeID string) []cluster.Carrier {
 	GinkgoHelper()
-	got, err := nodes.NewSwitchWorkers(rig.nodeReg, time.Hour).AttachedCarriers(rig.ctx, nodeID)
+	list, err := nodes.NewSwitchWorkers(rig.nodeReg, time.Hour).Workers(rig.ctx)
 	Expect(err).ToNot(HaveOccurred())
-	return got
+	for _, w := range list {
+		if w.ID == nodeID {
+			return w.Attached
+		}
+	}
+	return nil
 }
 
 // reports waits until a node has reported what it can follow.
@@ -438,7 +443,7 @@ type switchReplica struct {
 	commands  *carrier.Commands
 	clients   *carrier.Clients
 	agents    *carrier.Agents
-	window    *carrier.Window
+	routes    *carrier.RouteTable
 	swapper   *carrier.Swapper
 	sw        *cluster.Switch
 	member    *cluster.Membership
@@ -581,24 +586,17 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	r.bus = carrier.NewBroadcaster(&r.cur)
 
 	workers := nodes.NewSwitchWorkers(rig.nodeReg, time.Hour)
-	r.window = carrier.NewWindow(func(ctx context.Context, nodeID string) (carrier.Attachment, error) {
-		cs, err := workers.AttachedCarriers(ctx, nodeID)
+	r.routes = carrier.NewRouteTable(func(ctx context.Context, nodeID string) ([]nodes.Route, error) {
+		n, err := rig.nodeReg.Get(ctx, nodeID)
 		if err != nil {
-			return carrier.Attachment{}, err
+			return nil, err
 		}
-		var a carrier.Attachment
-		for _, c := range cs {
-			a.NATS = a.NATS || c == cluster.CarrierNATS
-			a.Tunnel = a.Tunnel || c == cluster.CarrierTunnel
-		}
-		return a, nil
-	}, workers.AgentsAttached)
-	r.commands = carrier.NewCommands(&r.cur)
-	r.commands.UseWindow(r.window)
-	r.clients = carrier.NewClients(&r.cur)
-	r.clients.UseWindow(r.window)
-	r.agents = carrier.NewAgents(&r.cur)
-	r.agents.UseWindow(r.window)
+		return nodes.RoutesOf(n), nil
+	})
+	r.routes.Attach(first.WorkerRoute)
+	r.commands = carrier.NewCommands(r.routes)
+	r.clients = carrier.NewClients(r.routes)
+	r.agents = carrier.NewAgents(r.routes)
 
 	var err2 error
 	r.sw, err2 = cluster.NewSwitch(cluster.SwitchOptions{
@@ -615,7 +613,7 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	Expect(err2).ToNot(HaveOccurred())
 
 	r.swapper, err2 = carrier.NewSwapper(carrier.SwapperOptions{
-		Cur: &r.cur, Bus: r.bus, Window: r.window, Rows: rig.store, Ready: r.member, Build: r.build,
+		Cur: &r.cur, Bus: r.bus, Routes: r.routes, Rows: rig.store, Ready: r.member, Build: r.build,
 		Interval: 200 * time.Millisecond, Settle: 300 * time.Millisecond,
 	})
 	Expect(err2).ToNot(HaveOccurred())

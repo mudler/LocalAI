@@ -192,6 +192,7 @@ type replica struct {
 	replies  *tunnel.Replies
 	set      *carrier.Set
 	active   *atomic.Pointer[carrier.Set]
+	routes   *carrier.RouteTable
 
 	commands *carrier.Commands
 	files    *carrier.Files
@@ -270,10 +271,15 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	r.set = set
 	r.active = &atomic.Pointer[carrier.Set]{}
 	r.active.Store(set)
-	r.commands = carrier.NewCommands(r.active)
-	r.files = carrier.NewFiles(r.active)
-	r.clients = carrier.NewClients(r.active)
-	r.agents = carrier.NewAgents(r.active)
+	// The worker of these specs sends no heartbeat, so it reports no route: the
+	// table tries every route it holds, which is the tunnel alone. The mixed
+	// fleet spec reads the routes from the rows.
+	r.routes = carrier.NewRouteTable(nil)
+	r.routes.Pin(set.WorkerRoute)
+	r.commands = carrier.NewCommands(r.routes)
+	r.files = carrier.NewFiles(r.routes)
+	r.clients = carrier.NewClients(r.routes)
+	r.agents = carrier.NewAgents(r.routes)
 	r.bus = carrier.NewBroadcaster(r.active)
 	return r
 }

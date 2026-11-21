@@ -52,9 +52,30 @@ type NATSOptions struct {
 	NodeHasAddress func(nodeID string) (bool, error)
 }
 
-// NewNATSSet builds the set of seam implementations that run over NATS for
-// the control plane and over a direct dial to the worker for gRPC and HTTP.
+// NewNATSSet builds the set of seam implementations that run over NATS: the
+// Fabric on the NATS connection, and the direct route (NewNATSRoutes).
 func NewNATSSet(o NATSOptions) (*Set, error) {
+	route, err := NewNATSRoutes(o)
+	if err != nil {
+		return nil, err
+	}
+	set := &Set{
+		Name:        cluster.CarrierNATS,
+		Epoch:       o.Epoch,
+		Fabric:      Fabric{Broadcaster: o.Client, OnReconnect: o.Client.OnReconnect, Replies: o.Client},
+		WorkerRoute: route,
+		Close:       route.Close,
+	}
+	if err := set.Validate(); err != nil {
+		return nil, err
+	}
+	return set, nil
+}
+
+// NewNATSRoutes builds the direct route: the control verbs and the agent RPC
+// over NATS, and the gRPC and HTTP connections by a direct dial of the address
+// of the worker. Close closes the NATS connection.
+func NewNATSRoutes(o NATSOptions) (*WorkerRoute, error) {
 	if o.Client == nil {
 		return nil, fmt.Errorf("NATS set needs a connection")
 	}
@@ -74,26 +95,22 @@ func NewNATSSet(o NATSOptions) (*Set, error) {
 		clients = nodes.NewGuardedDirectClientFactory(o.Token, o.NodeHasAddress)
 	}
 
-	set := &Set{
-		Name:        cluster.CarrierNATS,
-		Epoch:       o.Epoch,
-		Broadcaster: o.Client,
-		OnReconnect: o.Client.OnReconnect,
-		Commands:    nodes.NewRemoteUnloaderAdapter(o.Registry, o.Client, o.InstallTimeout, o.UpgradeTimeout),
-		Files:       files,
-		Clients:     clients,
-		Dialer:      dial,
-		Agents:      nodes.NewNATSAgentControl(o.Client),
-		Replies:     o.Client,
-		Close:       o.Client.Close,
+	route := &WorkerRoute{
+		Kind:     nodes.RouteDirect,
+		Commands: nodes.NewRemoteUnloaderAdapter(o.Registry, o.Client, o.InstallTimeout, o.UpgradeTimeout),
+		Files:    files,
+		Clients:  clients,
+		Dialer:   dial,
+		Agents:   nodes.NewNATSAgentControl(o.Client),
+		Close:    o.Client.Close,
 	}
 	// The HTTP stager keeps one client for each node, and nothing else ever drops
 	// it.
 	if stager, ok := files.(*nodes.HTTPFileStager); ok {
-		set.ForgetNode = stager.ForgetNode
+		route.ForgetNode = stager.ForgetNode
 	}
-	if err := set.Validate(); err != nil {
+	if err := route.Validate(); err != nil {
 		return nil, err
 	}
-	return set, nil
+	return route, nil
 }

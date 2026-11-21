@@ -73,9 +73,6 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 		list, err := skewed.Workers(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(list).To(BeEmpty())
-		on, err := skewed.AgentsAttached(ctx, cluster.CarrierNATS)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(on).To(BeFalse())
 
 		// And the other way: a clock that is ahead here does not hide a live worker.
 		real := NewSwitchWorkers(reg, 5*time.Minute)
@@ -127,9 +124,6 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 		w := byName(list)["between"]
 		Expect(w.Reports).To(BeTrue())
 		Expect(w.Attached).To(BeEmpty())
-		a, err := workers.AttachedCarriers(ctx, n.ID)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(a).To(BeEmpty())
 	})
 
 	It("carries the reason a worker gives for not following", func() {
@@ -141,29 +135,6 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 		list, err := workers.Workers(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(byName(list)["tunnel-only"].FollowError).To(Equal("it has no address that the frontends can reach"))
-	})
-
-	It("answers where one worker is attached", func() {
-		n := register("w", NodeTypeBackend, "10.0.0.1:50051")
-		a, err := workers.AttachedCarriers(ctx, n.ID)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(a).To(Equal([]cluster.Carrier{cluster.CarrierNATS}))
-
-		_, err = workers.AttachedCarriers(ctx, "nobody")
-		Expect(err).To(HaveOccurred())
-	})
-
-	It("says whether an agent worker is attached to a carrier", func() {
-		register("backend", NodeTypeBackend, "10.0.0.1:50051")
-		agent := register("agent", NodeTypeAgent, "")
-		Expect(reg.SetCarrierReport(ctx, agent.ID, CarrierReport{Attached: []cluster.Carrier{cluster.CarrierTunnel}, Follow: []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel}})).To(Succeed())
-
-		onTunnel, err := workers.AgentsAttached(ctx, cluster.CarrierTunnel)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(onTunnel).To(BeTrue())
-		onNATS, err := workers.AgentsAttached(ctx, cluster.CarrierNATS)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(onNATS).To(BeFalse(), "the backend worker is on NATS, and it is not an agent worker")
 	})
 })
 

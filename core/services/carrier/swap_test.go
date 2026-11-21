@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	nodesvc "github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -54,18 +55,32 @@ func (b closedAwareBroadcaster) Publish(subject string, data any) error {
 	return b.Broadcaster.Publish(subject, data)
 }
 
-type windowSpy struct {
-	*carrier.Window
+// routeSpy records whether the swapper attached the route of a set before the
+// pointer named the set.
+type routeSpy struct {
+	*carrier.RouteTable
 	n *replicaNode
 }
 
-func (w windowSpy) Open(prev *carrier.Set) {
-	if w.n.cur.Load() == prev {
-		w.n.windowRec.rec("window-open:before-the-pointer-moved")
+func (w routeSpy) Attach(r *carrier.WorkerRoute) {
+	if cur := w.n.cur.Load(); cur != nil && cur.WorkerRoute != r {
+		w.n.windowRec.rec("attach:before-the-pointer-moved")
 	} else {
-		w.n.windowRec.rec("window-open:after-the-pointer-moved")
+		w.n.windowRec.rec("attach:after-the-pointer-moved")
 	}
-	w.Window.Open(prev)
+	w.RouteTable.Attach(r)
+}
+
+// att is the routes of a worker attached to NATS, to the tunnel, or to both.
+func att(nats, tun bool) []nodesvc.Route {
+	var r []nodesvc.Route
+	if nats {
+		r = append(r, nodesvc.Route{Kind: nodesvc.RouteDirect})
+	}
+	if tun {
+		r = append(r, nodesvc.Route{Kind: nodesvc.RouteTunnel})
+	}
+	return r
 }
 
 // life records what the replica did to the sets it built.
@@ -80,7 +95,7 @@ type replicaNode struct {
 	net     *fakeNet
 	cur     atomic.Pointer[carrier.Set]
 	bus     *carrier.Broadcaster
-	window  *carrier.Window
+	routes  *carrier.RouteTable
 	cmds    *carrier.Commands
 	swapper *carrier.Swapper
 	life    *life
@@ -89,7 +104,7 @@ type replicaNode struct {
 	builds    map[cluster.Carrier]int
 	buildErr  map[cluster.Carrier]error
 	sets      map[cluster.Carrier][]*fakeCarrier
-	attached  map[string]carrier.Attachment
+	attached  map[string][]nodesvc.Route
 	reconnect atomic.Int32
 	windowRec recorder
 }
@@ -165,7 +180,7 @@ var _ = Describe("The swap of a replica", func() {
 		n := &replicaNode{
 			id: id, net: net, life: &life{},
 			builds: map[cluster.Carrier]int{}, buildErr: map[cluster.Carrier]error{},
-			sets: map[cluster.Carrier][]*fakeCarrier{}, attached: map[string]carrier.Attachment{},
+			sets: map[cluster.Carrier][]*fakeCarrier{}, attached: map[string][]nodesvc.Route{},
 		}
 		row, err := store.Get(ctx)
 		Expect(err).ToNot(HaveOccurred())
@@ -174,15 +189,15 @@ var _ = Describe("The swap of a replica", func() {
 		n.cur.Store(n.newSet(row.Active, row.Epoch))
 		n.mu.Unlock()
 		n.bus = carrier.NewBroadcaster(&n.cur)
-		n.window = carrier.NewWindow(func(_ context.Context, nodeID string) (carrier.Attachment, error) {
+		n.routes = carrier.NewRouteTable(func(_ context.Context, nodeID string) ([]nodesvc.Route, error) {
 			n.mu.Lock()
 			defer n.mu.Unlock()
 			return n.attached[nodeID], nil
-		}, nil)
-		n.cmds = carrier.NewCommands(&n.cur)
-		n.cmds.UseWindow(n.window)
+		})
+		n.routes.Attach(n.cur.Load().WorkerRoute)
+		n.cmds = carrier.NewCommands(n.routes)
 		n.swapper, err = carrier.NewSwapper(carrier.SwapperOptions{
-			Cur: &n.cur, Bus: n.bus, Window: windowSpy{n.window, n}, Rows: store,
+			Cur: &n.cur, Bus: n.bus, Routes: routeSpy{n.routes, n}, Rows: store,
 			Ready: readyReporter{reg: reg, id: id}, Build: n.build,
 			Interval: time.Hour, Settle: settleFor,
 		})
@@ -570,19 +585,19 @@ var _ = Describe("The swap of a replica", func() {
 		})
 	})
 
-	Describe("the window", func() {
+	Describe("the routes of the workers during a change", func() {
 		It("sends a control request to the carrier that the worker is attached to", func() {
 			a := join("a")
-			a.attached["on-nats"] = carrier.Attachment{NATS: true}
-			a.attached["on-tunnel"] = carrier.Attachment{Tunnel: true}
-			a.attached["on-both"] = carrier.Attachment{NATS: true, Tunnel: true}
+			a.attached["on-nats"] = att(true, false)
+			a.attached["on-tunnel"] = att(false, true)
+			a.attached["on-both"] = att(true, true)
 			settle(cluster.CarrierTunnel)
 
 			Expect(a.cmds.PingNode("on-nats")).To(Succeed())
 			Expect(a.cmds.PingNode("on-tunnel")).To(Succeed())
 			Expect(a.cmds.PingNode("on-both")).To(Succeed())
-			Expect(a.fake(cluster.CarrierNATS).commands.seen()).To(HaveLen(1), "only the worker that stayed on NATS")
-			Expect(a.fake(cluster.CarrierTunnel).commands.seen()).To(HaveLen(2), "the worker on the tunnel and the one on both")
+			Expect(a.fake(cluster.CarrierNATS).commands.seen()).To(HaveLen(2), "the worker that stayed on NATS, and the one on both: the direct route comes first")
+			Expect(a.fake(cluster.CarrierTunnel).commands.seen()).To(HaveLen(1), "the worker on the tunnel")
 		})
 
 		It("reports a worker that is attached to neither carrier as ErrNoRoute, and calls nothing", func() {
@@ -594,33 +609,43 @@ var _ = Describe("The swap of a replica", func() {
 			Expect(a.fake(cluster.CarrierTunnel).commands.seen()).To(BeEmpty())
 		})
 
-		It("uses the active carrier only once the drain is over", func() {
+		It("drops the route of the carrier that drained once the drain is over", func() {
 			a := join("a")
-			a.attached["on-nats"] = carrier.Attachment{NATS: true}
+			a.attached["on-nats"] = att(true, false)
+			a.attached["on-tunnel"] = att(false, true)
 			settle(cluster.CarrierTunnel)
 			expire()
 			Eventually(a.life.seen, "5s").Should(ContainElement("close:nats"))
 
-			Expect(a.cmds.PingNode("on-nats")).To(Succeed())
+			Expect(a.cmds.PingNode("on-nats")).To(MatchError(nodesvc.ErrNoRoute), "no route of this frontend reaches a worker that is only on NATS")
+			Expect(a.cmds.PingNode("on-tunnel")).To(Succeed())
 			Expect(a.fake(cluster.CarrierNATS).commands.seen()).To(BeEmpty(), "the closed carrier gets no call")
-			Expect(a.fake(cluster.CarrierTunnel).commands.seen()).To(Equal([]string{"PingNode"}), "the active carrier answers for every worker, and its own error says that the worker is not there")
+			Expect(a.fake(cluster.CarrierTunnel).commands.seen()).To(Equal([]string{"PingNode"}))
 		})
 
-		It("unloads a model on the nodes that each carrier reaches, and reports only what neither could do", func() {
+		It("unloads a model on each node through the carrier that reaches it", func() {
 			a := join("a")
+			a.attached["on-nats"] = att(true, false)
+			a.attached["on-tunnel"] = att(false, true)
 			settle(cluster.CarrierTunnel)
+			holders := []string{"on-nats", "on-tunnel"}
+			natsSet, tunSet := a.fake(cluster.CarrierNATS), a.fake(cluster.CarrierTunnel)
+			natsSet.set.Commands = &holdersCommands{fakeCommands: natsSet.commands, holders: holders,
+				reaches: func(id string) bool { return id == "on-nats" }}
+			tunSet.set.Commands = &holdersCommands{fakeCommands: tunSet.commands, holders: holders,
+				reaches: func(id string) bool { return id == "on-tunnel" }}
 			Expect(a.cmds.UnloadRemoteModel("m")).To(Succeed())
-			Expect(a.fake(cluster.CarrierTunnel).commands.seen()).To(ContainElement("UnloadRemoteModel"))
-			Expect(a.fake(cluster.CarrierNATS).commands.seen()).To(BeEmpty(), "the active carrier did it all")
+			Expect(natsSet.commands.seen()).To(Equal([]string{"unload:on-nats"}))
+			Expect(tunSet.commands.seen()).To(Equal([]string{"unload:on-tunnel"}))
 		})
 	})
 
 	Describe("the robustness of a swap", func() {
-		It("opens the window before the pointer moves, so that no call meets a gap", func() {
+		It("attaches the route of the new set before the pointer moves, so that no call meets a gap", func() {
 			a := join("a")
 			settle(cluster.CarrierTunnel)
-			Expect(a.windowRec.seen()).To(ContainElement("window-open:before-the-pointer-moved"))
-			Expect(a.windowRec.seen()).ToNot(ContainElement("window-open:after-the-pointer-moved"))
+			Expect(a.windowRec.seen()).To(ContainElement("attach:before-the-pointer-moved"))
+			Expect(a.windowRec.seen()).ToNot(ContainElement("attach:after-the-pointer-moved"))
 		})
 
 		It("lets go of the reconnect hook of a set that was released", func() {
@@ -644,26 +669,26 @@ var _ = Describe("The swap of a replica", func() {
 			Expect(a.bus.HookedCount()).To(Equal(base))
 		})
 
-		It("attaches the draining carrier again when a replica starts during a drain, and opens the window", func() {
+		It("attaches the draining carrier again when a replica starts during a drain, and its route", func() {
 			a := join("a")
 			settle(cluster.CarrierTunnel)
 			Expect(row().Draining).To(Equal(cluster.CarrierNATS))
 
 			// A replica that starts now begins on the active carrier only.
 			b := join("b")
-			b.attached["on-nats"] = carrier.Attachment{NATS: true}
-			Expect(b.window.Previous()).To(BeNil())
+			b.attached["on-nats"] = att(true, false)
+			Expect(b.routes.Route(nodesvc.RouteDirect)).To(BeNil())
 			poll(b)
 
 			Expect(b.buildCount(cluster.CarrierNATS)).To(Equal(1))
-			Expect(b.window.Previous()).ToNot(BeNil())
+			Expect(b.routes.Route(nodesvc.RouteDirect)).ToNot(BeNil())
 			Expect(b.cmds.PingNode("on-nats")).To(Succeed())
 			Expect(b.fake(cluster.CarrierNATS).commands.seen()).To(Equal([]string{"PingNode"}), "a worker that is only on the draining carrier is reached")
 
 			// The drain ends: b lets the set go like a.
 			expire()
 			Eventually(b.life.seen, "5s").Should(ContainElement("close:nats"))
-			Expect(b.window.Previous()).To(BeNil())
+			Expect(b.routes.Route(nodesvc.RouteDirect)).To(BeNil())
 			_ = a
 		})
 
@@ -671,13 +696,13 @@ var _ = Describe("The swap of a replica", func() {
 
 	Describe("a call that runs while the set changes", func() {
 		It("never blocks and never reaches a closed set", func() {
-			// A call that took the draining set just before the window closed gets this
+			// A call that took the draining route just before it was detached gets this
 			// long to finish. It is long against the pause of a busy machine.
 			settleFor = 2 * time.Second
 			a, b := join("a"), join("b")
 			// A worker that is on the carrier that drains only: its calls go to the
-			// draining set through the window, until the drain ends.
-			a.attached["on-nats"] = carrier.Attachment{NATS: true}
+			// route of the draining set, until the drain ends.
+			a.attached["on-nats"] = att(true, false)
 			stop := make(chan struct{})
 			var wg sync.WaitGroup
 			var calls atomic.Int64
@@ -700,7 +725,7 @@ var _ = Describe("The swap of a replica", func() {
 			}
 			settle(cluster.CarrierTunnel)
 			time.Sleep(100 * time.Millisecond)
-			a.attached["on-nats"] = carrier.Attachment{Tunnel: true}
+			a.attached["on-nats"] = att(false, true)
 			expire()
 			settle(cluster.CarrierNATS)
 			close(stop)
@@ -716,7 +741,7 @@ var _ = Describe("The swap of a replica", func() {
 			meter := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)).Meter("spec")
 			a := join("a")
 			measured, err := carrier.NewSwapper(carrier.SwapperOptions{
-				Cur: &a.cur, Bus: a.bus, Window: a.window, Rows: store,
+				Cur: &a.cur, Bus: a.bus, Routes: a.routes, Rows: store,
 				Ready: readyReporter{reg: reg, id: "a"}, Build: a.build,
 				Interval: time.Hour, Meter: meter,
 			})
@@ -779,7 +804,7 @@ var _ = Describe("The swap of a replica", func() {
 			loopCtx, cancel := context.WithCancel(ctx)
 			defer cancel()
 			fast, err := carrier.NewSwapper(carrier.SwapperOptions{
-				Cur: &a.cur, Bus: a.bus, Window: a.window, Rows: store,
+				Cur: &a.cur, Bus: a.bus, Routes: a.routes, Rows: store,
 				Ready: readyReporter{reg: reg, id: "a"}, Build: a.build,
 				Interval: time.Hour, Settle: 50 * time.Millisecond,
 			})

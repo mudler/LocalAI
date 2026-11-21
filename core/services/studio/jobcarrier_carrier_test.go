@@ -26,7 +26,7 @@ var _ = Describe("a job ask over a carrier that cannot carry it", func() {
 		Expect(err).NotTo(HaveOccurred())
 		// A set with fan-out and no request and reply between processes.
 		active := &atomic.Pointer[carrier.Set]{}
-		active.Store(&carrier.Set{Name: cluster.CarrierTunnel, Broadcaster: testutil.NewFakeBus()})
+		active.Store(&carrier.Set{Name: cluster.CarrierTunnel, Fabric: carrier.Fabric{Broadcaster: testutil.NewFakeBus()}})
 		jobs := studio.NewJobCarrier(carrier.NewBroadcaster(active), nil)
 		clk := &tclock{t: time.Now()}
 		files := newFiles()

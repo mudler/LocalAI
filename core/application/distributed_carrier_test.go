@@ -83,7 +83,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(row.Active).To(Equal(cluster.CarrierTunnel))
 		Expect(row.Epoch).To(Equal(int64(1)))
-		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierTunnel))
+		Expect(svc.fabric.Load().Name).To(Equal(cluster.CarrierTunnel))
 
 		// Fan-out goes through the database, and one LISTEN session exists for it.
 		var sessions int64
@@ -109,7 +109,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		svc, err := initDistributed(cfg, pg, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
-		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierTunnel))
+		Expect(svc.fabric.Load().Name).To(Equal(cluster.CarrierTunnel))
 		row, err := store.Get(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(row.Active).To(Equal(cluster.CarrierTunnel), "the row is left as it was")
@@ -127,7 +127,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		svc, err := initDistributed(cfg, db, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
-		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierNATS))
+		Expect(svc.fabric.Load().Name).To(Equal(cluster.CarrierNATS))
 
 		row := carrierRow()
 		Expect(row.Active).To(Equal(cluster.CarrierNATS))
@@ -217,7 +217,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		svc, err := initDistributed(cfg, db, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(svc.Shutdown)
-		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierNATS))
+		Expect(svc.fabric.Load().Name).To(Equal(cluster.CarrierNATS))
 	})
 
 	Context("with a NATS server", func() {
