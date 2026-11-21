@@ -593,8 +593,17 @@ variables, never the secrets; the secrets reach the
 server only through those environment variables and set `LOCALAI_CREDENTIALS_FILE`
 to that file. While rules exist they replace the `credentials.yaml` of the data
 folder, and a `LOCALAI_CREDENTIALS_FILE` set by the user turns the rules off.
-The server reads the file once at start, so a change needs a restart. The
+The server reads the file once at start, so a change needs a restart. Every
+start, including the restart after an update, refreshes the file first. The
 renderer never receives a secret, and Test shows only a result label.
+
+Only https registries are accepted: the server sends a credential over plain
+http only to a rule with `allow_insecure`, which the launcher does not write.
+Test asks `https://<registry>/v2/` once, with one 8 s deadline, and follows a
+redirect only on the same origin. A 401 with a Bearer challenge means the
+registry uses a token service; Test does not send the credential there and
+reports that it cannot check. An edit that changes the kind or the host needs
+the secret again.
 
 ## Sandbox on Linux
 

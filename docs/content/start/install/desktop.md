@@ -168,6 +168,24 @@ The older launcher was a different program with the same purpose. It does not up
 
 The new app reads the same `~/.localai` folder. Your models, backends and settings stay. From now on the app updates itself from the releases page.
 
+## Registry credentials
+
+The server on this computer can pull backends, models and add-ons from private registries. To give it the credentials, open **Settings > Advanced** and use **Registry credentials**. Each rule has:
+
+- **Registry**: the registry host, with an optional port and path, for example `registry.example` or `registry.example:5000/team`. You can add `https://` in front. Plain `http://` registries are not supported here.
+- **Type**: **Basic** (a user name and a password) or **Bearer token**.
+- The secret: the password or the token.
+
+The app keeps the secret in its secret store, with the API key, and does not show it again. To change a rule, select **Edit**. Leave the secret empty to keep the stored one. If you change the type or the registry host, you must type the secret again.
+
+When the server starts, the app writes `registry-credentials.yaml` next to `launcher.json`. This file contains the rules and the names of environment variables, but not the secrets. The app gives the secrets to the server in those environment variables and sets `LOCALAI_CREDENTIALS_FILE` to the file. For the format of the file and how a rule matches a pull, see [Private Registries and Galleries]({{% relref "/models/private-sources" %}}).
+
+- While there is at least one rule, this file replaces the `credentials.yaml` of the data folder. The server does not read your `credentials.yaml` then.
+- If you set `LOCALAI_CREDENTIALS_FILE` yourself, the app does not use its rules. Settings shows a notice.
+- The server reads the file only when it starts. After you add, change or remove a rule, restart the server.
+
+**Test** sends a request with the credential to `https://<registry>/v2/` and shows the result. It sends the credential only to that registry, never follows a redirect to another address, and never skips certificate errors. Some registries, such as Docker Hub, GHCR and Quay, use a separate sign-in service that gives out tokens. For these, Test cannot check the credential and shows **Cannot check here: this registry uses token sign-in.** The server can still use the credential.
+
 ## Where your data is
 
 On Linux and macOS, the app keeps everything for the local server under `~/.localai`:
