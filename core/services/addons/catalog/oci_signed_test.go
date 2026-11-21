@@ -66,8 +66,8 @@ var _ = Describe("a signed oci:// library with a pattern and a source repository
 			Expect(s.cache["lib"].err).To(ContainSubstring("signature policy"))
 			Expect(s.cache["lib"].releases).To(BeEmpty())
 		},
-		Entry("the pinned repository", "libs/pinned", pinRepo, true),
-		Entry("another repository", "libs/other", "https://github.com/example-org/other-repo", false),
-		Entry("no repository in the certificate", "libs/none", "", false),
+		Entry("a library signed for the pinned repository", "libs/pinned", pinRepo, true),
+		Entry("a library signed for another repository", "libs/other", "https://github.com/example-org/other-repo", false),
+		Entry("a library signed with no repository in the certificate", "libs/none", "", false),
 	)
 })
