@@ -6,7 +6,7 @@ import { SwitchGroup, SwitchRow } from '../chat/SwitchList'
 import ConfirmDialog from '../ConfirmDialog'
 import { hostGrantsApi, addonsApi } from '../../utils/addonsClient'
 import { useAddonActions } from './useAddonActions'
-import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
+import ApproveUpgradeDialog, { WaitingBanner, approvalProgress } from './ApproveUpgradeDialog'
 import BlanketPanel from './BlanketPanel'
 import DenySection from './DenySection'
 import { opNote } from './HostAccessList'
@@ -72,7 +72,7 @@ export default function HostAccessView({ grants, api = hostGrantsApi }) {
       {grants.stale && <Callout tone="info" role="status" className="ad-callout">{t('apps.stale')}</Callout>}
       {locked && <Callout tone="info" testId="host-locked" className="ad-callout">{t(data.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>}
       {notice && <Callout tone={notice.tone} role={notice.tone === 'error' ? 'alert' : 'status'} testId="host-notice" className="ad-callout">{notice.text}</Callout>}
-      {pending.map(a => <WaitingBanner key={a.id} addon={a} onReview={() => setApproving(a)} />)}
+      {pending.map(a => <WaitingBanner key={a.id} addon={a} progress={approvalProgress(actions, a)} onReview={() => setApproving(a)} />)}
 
       <section className="ad-host__section" aria-labelledby="host-addons-title">
         <h2 id="host-addons-title" className="ad-host__heading">{t('hostAccess.addonsTitle')}</h2>

@@ -63,7 +63,9 @@ export default function InstallFromFile({ onInstalled, filesApi = addonFilesApi 
     if (linked) setParams(prev => { const out = new URLSearchParams(prev); out.delete('file'); return out }, { replace: true })
     // A file that was not installed is not kept for the next visit.
     const flow = done && actions.flows[`flow:${done.key}`]
-    if (done && !(flow && flow.step === 'done')) filesApi.remove(done.local.fileId).catch(() => {})
+    // A file still being installed is needed until that ends.
+    const running = flow && (flow.step === 'install' || flow.step === 'turn-on')
+    if (done && !running && !(flow && flow.step === 'done')) filesApi.remove(done.local.fileId).catch(() => {})
   }
 
   return (

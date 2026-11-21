@@ -55,7 +55,9 @@ function overview(over = {}) {
 // The stand-in for the host-grants routes. `state.overview` and `state.preview`
 // are what the owner answers; every request is logged.
 async function mockHostGrants(page, appsState, options = {}) {
-  const state = { overview: options.overview || overview(), preview: options.preview || PREVIEW, log: [], affects: options.affects || [], failInstall: options.failInstall || null, previewDelayMs: options.previewDelayMs || 0 }
+  const state = { overview: options.overview || overview(), preview: options.preview || PREVIEW, log: [], affects: options.affects || [], failInstall: options.failInstall || null, previewDelayMs: options.previewDelayMs || 0, holdInstall: Boolean(options.holdInstall), dropInstalls: options.dropInstalls || 0 }
+  state.release = null
+  state.held = new Promise(r => { state.release = r })
   await page.route(/\/api\/addons\/host-grants(\/.*)?(\?.*)?$/, async route => {
     const req = route.request()
     const url = new URL(req.url())
@@ -70,6 +72,10 @@ async function mockHostGrants(page, appsState, options = {}) {
       return json(state.preview)
     }
     if (path === '/install') {
+      // A network failure for the first calls, then the owner answers.
+      if (state.dropInstalls > 0) { state.dropInstalls -= 1; return route.abort('failed') }
+      // An approval that is still running: the owner answers when the test lets it.
+      if (state.holdInstall) await state.held
       if (state.failInstall) return json({ error: { type: state.failInstall, message: state.failInstall } }, 409)
       if (body.action === 'upgrade') {
         const a = state.overview.addons.find(x => x.id === body.addonId)
@@ -292,6 +298,51 @@ test.describe('Host access: held upgrade', () => {
     expect(sent.body).toMatchObject({ action: 'upgrade', addonId: 'notes', version: '1.3.0', approve: { ops: ['workspace.export'], digest: PREVIEW.digest } })
     await expect(page.getByTestId('host-waiting')).toHaveCount(0)
     expect(state.installed.find(a => a.id === 'notes').version).toBe('1.3.0')
+  })
+  test('the approval dialog closes at any moment and the approval keeps running', async ({ page }) => {
+    const { state, host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
+    await page.goto('/app/addons')
+    const banner = page.getByTestId('host-waiting')
+    const open_ = async () => { await banner.getByRole('button', { name: /Review and approve/ }).click(); return page.getByTestId('approve-dialog') }
+    let dialog = await open_()
+    await dialog.getByTestId('approve-confirm').click()
+    await expect(dialog.getByTestId('approve-running')).toBeVisible()
+    await shoot(page, 'approve-running-dialog', false)
+    // Escape closes it although the approval is still running.
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('approve-dialog')).toHaveCount(0)
+    await expect(banner.getByTestId('host-waiting-progress')).toContainText('Updating Notes')
+    await shoot(page, 'approve-running-page-after-escape', false)
+    // Open again: it shows the live state and cannot be sent twice. The close button closes it.
+    dialog = await open_()
+    await expect(dialog.getByTestId('approve-running')).toBeVisible()
+    await expect(dialog.getByTestId('approve-confirm')).toBeDisabled()
+    await dialog.getByTestId('dialog-close').click()
+    await expect(page.getByTestId('approve-dialog')).toHaveCount(0)
+    // A click on the veil closes it too.
+    dialog = await open_()
+    await page.mouse.click(5, 5)
+    await expect(page.getByTestId('approve-dialog')).toHaveCount(0)
+    // Nothing was cancelled or sent again: one install request, no other write.
+    expect(host.log.filter(l => l.path === '/install')).toHaveLength(1)
+    expect(host.log.filter(l => l.method !== 'GET' && l.path !== '/install' && l.path !== '/preview')).toHaveLength(0)
+    await expect(banner.getByTestId('host-waiting-progress')).toBeVisible()
+    host.release()
+    await expect(page.getByTestId('host-waiting')).toHaveCount(0)
+  })
+
+  test('a retry of the same approval keeps its operation id', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, dropInstalls: 1 } })
+    await page.goto('/app/addons')
+    await page.getByTestId('host-waiting').getByRole('button', { name: /Review and approve/ }).click()
+    const dialog = page.getByTestId('approve-dialog')
+    await dialog.getByTestId('approve-confirm').click()
+    await expect(dialog.getByTestId('approve-failed')).toBeVisible()
+    await dialog.getByTestId('approve-confirm').click()
+    await expect(page.getByTestId('host-waiting')).toHaveCount(0)
+    const sent = host.log.filter(l => l.path === '/install')
+    expect(sent).toHaveLength(2)
+    expect(sent[1].body.operationId).toBe(sent[0].body.operationId)
   })
 })
 

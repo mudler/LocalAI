@@ -73,7 +73,7 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
     const onKey = (e) => {
       if (!layer.isTop()) return
       if (e.key === 'Escape') {
-        if (dialog?.dataset.running === 'true') return
+        // A running install goes on in the page's actions: closing only hides it.
         e.preventDefault(); closeRef.current(); return
       }
       if (e.key !== 'Tab' || !dialog) return
@@ -124,7 +124,7 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
   const several = queued && place.total > 1
   const reason = step === 'failed' ? describeOutcome(flow.outcome, t, flow.error) : ''
   return (
-    <div className="confirm-dialog-backdrop" onClick={running ? undefined : onClose}>
+    <div className="confirm-dialog-backdrop" onClick={onClose}>
       <div ref={ref} className="confirm-dialog ad-dialog" role="alertdialog" aria-modal="true" aria-labelledby="install-dialog-title" tabIndex={-1} data-testid="install-dialog" data-running={running ? 'true' : 'false'} data-step={step} onClick={(e) => e.stopPropagation()}>
         <div className="confirm-dialog-header">
           <span id="install-dialog-title" className="confirm-dialog-title">{local ? t(local.installed ? 'file.upgradeTitle' : 'file.installTitle', { name: entry.title }) : queued ? t('browse.confirmTitle', { name: entry.title }) : t('flow.confirmTitle', { name: entry.title })}</span>
@@ -241,12 +241,14 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
               {reason ? ` ${reason}` : ''}
             </p>
           )}
+          {running && <p className="ad-quiet" role="status" data-testid="install-background">{t('flow.background')}</p>}
           {step === 'failed' && actions.unknown[entry.id] && <UnknownNotice addonId={entry.id} actions={actions} />}
         </div>
         <div className="confirm-dialog-actions">
           {step === 'ask' && <Button onClick={onClose}>{t('catalog.cancel')}</Button>}
           {step === 'ask' && several && <Button variant="ghost" onClick={onSkip} disabled={sending} data-testid="install-skip">{t('queue.skip')}</Button>}
           {step === 'ask' && <Button variant="primary" onClick={start} busy={sending} disabled={sending || host.status === 'loading' || ((Boolean(local) || queued) && host.status !== 'ready') || Boolean(block) || !gate.allowed} data-testid="install-confirm">{local && local.installed ? t('file.upgradeAction', { version: local.version }) : queued ? t(several && !place.last ? 'queue.acceptNext' : several ? 'queue.acceptLast' : 'queue.add') : t('flow.installAndTurnOn')}</Button>}
+          {running && <Button onClick={onClose} data-testid="install-dismiss">{t('catalog.close')}</Button>}
           {running && <Button variant="primary" icon="download" busy disabled>{step === 'install' ? t('flow.installing', { name: entry.title }) : t('flow.turningOn', { name: entry.title })}</Button>}
           {step === 'failed' && <Button onClick={onClose}>{t('catalog.close')}</Button>}
           {step === 'failed' && !actions.unknown[entry.id] && <Button variant="primary" icon="refresh" onClick={retry}>{t('catalog.retry')}</Button>}

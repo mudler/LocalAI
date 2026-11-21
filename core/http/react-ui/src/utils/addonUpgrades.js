@@ -143,7 +143,13 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       if (snapshot.live.some(op => op.addonId === addon.id && op.state !== 'failed')) return { ok: false, outcome: 'busy', message: 'operation_conflict' }
 
       const key = `upgrade:${addon.id}:${addon.generation}`
-      const begun = book.begin(addon.id, key)
+      // The identity belongs to one request. A held one that was asked for
+      // another candidate (a newer check) is dropped: the owner would answer
+      // the reused ID with an operation conflict.
+      const fingerprint = `${addon.digest}>${view.digest}`
+      const held = book.pending(addon.id)
+      if (held && held.key === key && !held.unknown && held.meta && held.meta.fingerprint !== fingerprint) book.resolve(addon.id, key)
+      const begun = book.begin(addon.id, key, { fingerprint })
       const name = addon.title || addon.id
       const base = {
         addonId: addon.id,

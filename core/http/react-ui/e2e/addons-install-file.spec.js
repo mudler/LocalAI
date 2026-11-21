@@ -38,10 +38,12 @@ const PREVIEW = {
   ],
 }
 
-async function open(page, { file = fileView(), installed = [], uploadStatus = 200, uploadBody, locked } = {}) {
+async function open(page, { file = fileView(), installed = [], uploadStatus = 200, uploadBody, locked, hold } = {}) {
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true }) }))
   const state = await mockAddons(page, { apps: [], installed })
   const seen = { uploads: [], described: [], removed: [], preview: [], install: [], dispatch: state.log.dispatch }
+  seen.release = () => {}
+  const gate = new Promise(r => { seen.release = r })
   await page.route(/\/api\/addons\/files(\/[0-9a-f]+)?$/, route => {
     const req = route.request()
     const json = (payload, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) })
@@ -54,7 +56,7 @@ async function open(page, { file = fileView(), installed = [], uploadStatus = 20
     seen.described.push(id)
     return id === ID ? json(file) : json({ error: { type: 'not_found', message: 'No such file' } }, 404)
   })
-  await page.route(/\/api\/addons\/host-grants(\/.*)?(\?.*)?$/, route => {
+  await page.route(/\/api\/addons\/host-grants(\/.*)?(\?.*)?$/, async route => {
     const req = route.request()
     const path = new URL(req.url()).pathname.replace('/api/addons/host-grants', '') || '/'
     const body = req.postData() ? JSON.parse(req.postData()) : null
@@ -63,6 +65,7 @@ async function open(page, { file = fileView(), installed = [], uploadStatus = 20
     if (path === '/preview') { seen.preview.push(body); return json({ ...PREVIEW, installed: file.installed, ...(locked ? { locked: true, lockedReason: locked } : {}) }) }
     if (path === '/install') {
       seen.install.push({ body, confirm: req.headers()['x-localai-confirm'] })
+      if (hold) await gate
       if (!file.installed) {
         state.installed.push(installedAddon({ id: 'memory', title: 'Short memory', version: file.version, sourceId: 'local-file', verification: 'sha256', enabled: false, state: 'stopped', generation: 1 }))
         state.apps.push(app({ id: 'memory', name: 'memory', title: 'Short memory', version: file.version, generation: 1, enabled: false, state: 'stopped', mainPage: undefined, hasUI: false }))
@@ -123,6 +126,28 @@ test.describe('Install from a file', () => {
     expect(seen.install[0].body.downgrade).toBeUndefined()
     await expect(dialog).toContainText('now runs version 0.2.0')
     expect(seen.dispatch.filter(d => d.action === 'enable')).toHaveLength(0)
+  })
+
+  test('the dialog of a running upgrade closes with Escape and with the close button, and the upgrade goes on', async ({ page }) => {
+    const { seen } = await open(page, { hold: true, file: fileView({ installed: true, installedVersion: '0.1.0', relation: 'upgrade' }), installed: [installedAddon({ id: 'memory', title: 'Short memory', version: '0.1.0', sourceId: 'local-file', verification: 'sha256', enabled: false, state: 'stopped' })] })
+    await page.goto('/app/addons')
+    await page.getByTestId('install-file-input').setInputFiles({ name: 'm.zip', mimeType: 'application/zip', buffer: Buffer.from('PK') })
+    const dialog = page.getByTestId('install-dialog')
+    await dialog.getByTestId('install-confirm').click()
+    await expect(dialog).toHaveAttribute('data-running', 'true')
+    await expect(dialog.getByTestId('install-background')).toBeVisible()
+    await shoot(page, 'install-running-dialog')
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await shoot(page, 'install-running-after-escape')
+    expect(seen.removed).toHaveLength(0)
+    // Opened again it shows the same running upgrade, and its Close button closes it.
+    await page.getByTestId('install-file-input').setInputFiles({ name: 'm.zip', mimeType: 'application/zip', buffer: Buffer.from('PK') })
+    await expect(page.getByTestId('install-dialog')).toHaveAttribute('data-running', 'true')
+    await page.getByTestId('install-dismiss').click()
+    await expect(page.getByTestId('install-dialog')).toHaveCount(0)
+    expect(seen.install).toHaveLength(1)
+    seen.release()
   })
 
   test('an older version needs a tick and sends the downgrade confirmation', async ({ page }) => {

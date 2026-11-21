@@ -29,7 +29,7 @@ import { updateView, upgradeAvailability } from './updateState'
 import FirstRun from './FirstRun'
 import { attentionOf, filterByState, groupTiles, listState, loadLastKnown, localizeRecord, saveLastKnown, sortByAttention, staleKind, STATE_FILTERS, upgradingTitles } from './addonState'
 import { describeError, describeOutcome } from './errors'
-import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
+import ApproveUpgradeDialog, { WaitingBanner, approvalProgress } from './ApproveUpgradeDialog'
 import { pendingApprovals } from './hostGrantsState'
 import { useAddonActions } from './useAddonActions'
 
@@ -322,7 +322,7 @@ export default function AppsView({ api, adapter, onSummary, grants, queue }) {
                   </ul>
                 </Callout>
               )}
-              {approvals.map(a => <WaitingBanner key={a.id} addon={a} busy={Boolean(actions.unknown[a.id])} onReview={() => setApproving(a)} />)}
+              {approvals.map(a => <WaitingBanner key={a.id} addon={a} busy={Boolean(actions.unknown[a.id])} progress={approvalProgress(actions, a)} onReview={() => setApproving(a)} />)}
             </section>
           )}
           {!firstRun && (

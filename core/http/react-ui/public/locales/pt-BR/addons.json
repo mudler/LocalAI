@@ -724,7 +724,8 @@
     "skillShadow": "Este complemento substitui a habilidade integrada {{skill}}.",
     "skillShadowWarning": "Este complemento substitui a habilidade integrada {{skill}}. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas. Até você escolher, o que foi instalado primeiro o fornece.",
     "skillProvides": "Este complemento fornece a habilidade {{skill}}.",
-    "skillProvidesWarning": "Este complemento fornece a habilidade {{skill}}. Outro complemento ({{name}}) também a fornece. Apenas um pode estar ativo; escolha em Configurações > Ferramentas. Sem uma escolha, o instalado primeiro será usado."
+    "skillProvidesWarning": "Este complemento fornece a habilidade {{skill}}. Outro complemento ({{name}}) também a fornece. Apenas um pode estar ativo; escolha em Configurações > Ferramentas. Sem uma escolha, o instalado primeiro será usado.",
+    "background": "Isto roda em segundo plano. Você pode fechar esta janela; fechá-la não o interrompe."
   },
   "family": {
     "pages": "Procurando páginas que você ou um agente criou? Elas estão em <go>Páginas</go>."
@@ -792,7 +793,8 @@
       "action": "Aprovar e atualizar",
       "body": "A versão {{current}} de {{name}} continua rodando. Se você aprovar, a nova versão pode executar estas ações. As novas estão marcadas.",
       "done": "{{name}} foi atualizado.",
-      "title": "Aprovar o acesso ao host de {{name}} {{version}}"
+      "title": "Aprovar o acesso ao host de {{name}} {{version}}",
+      "running": "A atualização roda em segundo plano. Você pode fechar esta janela; fechá-la não a interrompe. Cancele-a na lista de operações."
     },
     "asksNothing": "Este add-on não pede acesso ao host.",
     "blanket": {
@@ -930,7 +932,8 @@
       "body": "A nova versão pede um acesso ao host que a atual não tem. A versão {{current}} continua rodando até você aprovar. Operações adicionadas: {{count}}.",
       "review": "Revisar e aprovar",
       "reviewNamed": "Revisar e aprovar o acesso ao host de {{name}}",
-      "title": "{{name}} {{version}} aguarda sua aprovação"
+      "title": "{{name}} {{version}} aguarda sua aprovação",
+      "progress": "Atualizando {{name}}. Ela roda em segundo plano."
     }
   },
   "oauthClient": {

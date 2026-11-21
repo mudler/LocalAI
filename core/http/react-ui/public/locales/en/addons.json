@@ -706,6 +706,7 @@
     "updateTitle": "Update to {{version}}"
   },
   "flow": {
+    "background": "This runs in the background. You can close this window; closing does not stop it.",
     "installAndTurnOn": "Install and turn on",
     "installing": "Installing {{name}}...",
     "turningOn": "Turning on {{name}}...",
@@ -792,6 +793,7 @@
       "action": "Approve and update",
       "body": "Version {{current}} of {{name}} keeps running. If you approve, the new version can run these actions. New ones are marked.",
       "done": "{{name}} was updated.",
+      "running": "The update runs in the background. You can close this window; closing does not stop it. Cancel it from the operations list.",
       "title": "Approve host access for {{name}} {{version}}"
     },
     "asksNothing": "This add-on asks for no host access.",
@@ -928,6 +930,7 @@
     "tabWaiting": "Approvals waiting: {{count}}",
     "waiting": {
       "body": "The new version asks for host access that the current one does not have. Version {{current}} keeps running until you approve. Operations it adds: {{count}}.",
+      "progress": "Updating {{name}}. It runs in the background.",
       "review": "Review and approve",
       "reviewNamed": "Review and approve the host access of {{name}}",
       "title": "{{name}} {{version}} waits for your approval"

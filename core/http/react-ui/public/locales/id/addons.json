@@ -724,7 +724,8 @@
     "skillShadow": "Add-on ini menggantikan skill bawaan {{skill}}.",
     "skillShadowWarning": "Add-on ini menggantikan skill bawaan {{skill}}. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
     "skillProvides": "Add-on ini menyediakan keterampilan {{skill}}.",
-    "skillProvidesWarning": "Add-on ini menyediakan keterampilan {{skill}}. Add-on lain ({{name}}) juga menyediakannya. Hanya satu yang dapat aktif; pilih di Pengaturan > Alat. Tanpa pilihan, yang dipasang lebih dahulu akan digunakan."
+    "skillProvidesWarning": "Add-on ini menyediakan keterampilan {{skill}}. Add-on lain ({{name}}) juga menyediakannya. Hanya satu yang dapat aktif; pilih di Pengaturan > Alat. Tanpa pilihan, yang dipasang lebih dahulu akan digunakan.",
+    "background": "Ini berjalan di latar belakang. Anda dapat menutup jendela ini; menutupnya tidak menghentikannya."
   },
   "family": {
     "pages": "Mencari halaman yang Anda atau agen buat? Ada di <go>Halaman</go>."
@@ -792,7 +793,8 @@
       "action": "Setujui dan perbarui",
       "body": "Versi {{current}} dari {{name}} tetap berjalan. Jika Anda setuju, versi baru dapat menjalankan aksi ini. Yang baru ditandai.",
       "done": "{{name}} telah diperbarui.",
-      "title": "Setujui akses host untuk {{name}} {{version}}"
+      "title": "Setujui akses host untuk {{name}} {{version}}",
+      "running": "Pembaruan berjalan di latar belakang. Anda dapat menutup jendela ini; menutupnya tidak menghentikannya. Batalkan dari daftar operasi."
     },
     "asksNothing": "Add-on ini tidak meminta akses host.",
     "blanket": {
@@ -930,7 +932,8 @@
       "body": "Versi baru meminta akses host yang tidak dimiliki versi sekarang. Versi {{current}} tetap berjalan sampai Anda menyetujui. Operasi yang ditambahkan: {{count}}.",
       "review": "Tinjau dan setujui",
       "reviewNamed": "Tinjau dan setujui akses host {{name}}",
-      "title": "{{name}} {{version}} menunggu persetujuan Anda"
+      "title": "{{name}} {{version}} menunggu persetujuan Anda",
+      "progress": "Memperbarui {{name}}. Berjalan di latar belakang."
     }
   },
   "oauthClient": {

@@ -495,6 +495,7 @@
 .ad-dialog { max-width: 560px; width: min(560px, calc(100vw - 2 * var(--sp-4))); max-height: calc(100dvh - 2 * var(--sp-4)); display: flex; flex-direction: column; }
 .ad-dialog .confirm-dialog-body { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
 .ad-dialog .confirm-dialog-header, .ad-dialog .confirm-dialog-actions { flex: none; }
+.ad-dialog .confirm-dialog-header .ad-dialog-close { margin-inline-start: auto; }
 .ad-dialog:focus { outline: none; }
 .ad-hostaccess { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 .ad-hostaccess__title { margin: 0; font-size: var(--fs-body); font-weight: 600; color: var(--dk-text); }

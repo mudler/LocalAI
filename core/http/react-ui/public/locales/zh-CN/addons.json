@@ -724,7 +724,8 @@
     "skillShadow": "此插件会替换内置技能 {{skill}}。",
     "skillShadowWarning": "此插件会替换内置技能 {{skill}}。另一个插件（{{name}}）已经替换了它。只能有一个生效；你可以在 设置 > 工具 中选择。 在你选择之前，由最先安装的插件提供。",
     "skillProvides": "此插件提供 {{skill}} 技能。",
-    "skillProvidesWarning": "此插件提供 {{skill}} 技能。另一个插件（{{name}}）也提供此技能。只能启用一个；请在设置 > 工具中选择。如果未选择，则使用最先安装的插件。"
+    "skillProvidesWarning": "此插件提供 {{skill}} 技能。另一个插件（{{name}}）也提供此技能。只能启用一个；请在设置 > 工具中选择。如果未选择，则使用最先安装的插件。",
+    "background": "此操作在后台运行。您可以关闭此窗口，关闭不会停止它。"
   },
   "family": {
     "pages": "在找你或智能体创建的页面?它们在<go>页面</go>中。"
@@ -792,7 +793,8 @@
       "action": "批准并更新",
       "body": "{{name}} 的 {{current}} 版本继续运行。批准后，新版本可以运行这些操作。新增项已标出。",
       "done": "{{name}} 已更新。",
-      "title": "批准 {{name}} {{version}} 的主机访问"
+      "title": "批准 {{name}} {{version}} 的主机访问",
+      "running": "更新在后台运行。您可以关闭此窗口，关闭不会停止它。可在操作列表中取消。"
     },
     "asksNothing": "此插件不请求主机访问。",
     "blanket": {
@@ -930,7 +932,8 @@
       "body": "新版本请求当前版本没有的主机访问。批准之前，{{current}} 版本继续运行。新增的操作数：{{count}}。",
       "review": "查看并批准",
       "reviewNamed": "查看并批准 {{name}} 的主机访问",
-      "title": "{{name}} {{version}} 等待你的批准"
+      "title": "{{name}} {{version}} 等待你的批准",
+      "progress": "正在更新 {{name}}。它在后台运行。"
     }
   },
   "oauthClient": {

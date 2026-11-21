@@ -728,7 +728,8 @@
     "skillShadow": "Ce module remplace la compétence intégrée {{skill}}.",
     "skillShadowWarning": "Ce module remplace la compétence intégrée {{skill}}. Un autre module ({{name}}) le fait déjà. Un seul peut être actif ; vous choisissez lequel dans Paramètres > Outils. Tant que vous ne choisissez pas, c'est le premier installé qui le fournit.",
     "skillProvides": "Cette extension fournit la compétence {{skill}}.",
-    "skillProvidesWarning": "Cette extension fournit la compétence {{skill}}. Une autre extension ({{name}}) la fournit aussi. Une seule peut être active ; choisissez dans Paramètres > Outils. Sans choix, celle installée en premier est utilisée."
+    "skillProvidesWarning": "Cette extension fournit la compétence {{skill}}. Une autre extension ({{name}}) la fournit aussi. Une seule peut être active ; choisissez dans Paramètres > Outils. Sans choix, celle installée en premier est utilisée.",
+    "background": "Cela s'exécute en arrière-plan. Vous pouvez fermer cette fenêtre ; la fermer ne l'arrête pas."
   },
   "family": {
     "pages": "Vous cherchez des pages créées par vous ou par un agent ? Elles sont dans <go>Pages</go>."
@@ -796,7 +797,8 @@
       "action": "Approuver et mettre à jour",
       "body": "La version {{current}} de {{name}} continue de tourner. Si vous approuvez, la nouvelle version peut exécuter ces actions. Les nouvelles sont signalées.",
       "done": "{{name}} a été mis à jour.",
-      "title": "Approuver l'accès à l'hôte pour {{name}} {{version}}"
+      "title": "Approuver l'accès à l'hôte pour {{name}} {{version}}",
+      "running": "La mise à jour s'exécute en arrière-plan. Vous pouvez fermer cette fenêtre ; la fermer ne l'arrête pas. Annulez-la depuis la liste des opérations."
     },
     "asksNothing": "Ce module ne demande aucun accès à l'hôte.",
     "blanket": {
@@ -934,7 +936,8 @@
       "body": "La nouvelle version demande un accès à l'hôte que l'actuelle n'a pas. La version {{current}} continue de tourner jusqu'à votre approbation. Opérations ajoutées : {{count}}.",
       "review": "Examiner et approuver",
       "reviewNamed": "Examiner et approuver l'accès à l'hôte de {{name}}",
-      "title": "{{name}} {{version}} attend votre approbation"
+      "title": "{{name}} {{version}} attend votre approbation",
+      "progress": "Mise à jour de {{name}}. Elle s'exécute en arrière-plan."
     }
   },
   "oauthClient": {
