@@ -180,9 +180,13 @@ export interface RegistryCredentialRemoveResult {
   restartRequired: boolean
 }
 
-/** Outcome of the Test action. Never carries the secret, a header or an answer body. */
+/**
+ * Outcome of the Test action. Never carries the secret, a header or an answer
+ * body. `token`: the registry signs in through a separate token service, which
+ * the Test action does not contact, so it cannot tell.
+ */
 export interface RegistryCredentialTestResult {
-  result: 'ok' | 'unauthorized' | 'unreachable' | 'tls' | 'other'
+  result: 'ok' | 'unauthorized' | 'token' | 'unreachable' | 'tls' | 'other'
   status?: number
 }
 

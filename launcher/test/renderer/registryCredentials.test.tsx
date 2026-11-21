@@ -204,6 +204,7 @@ describe('Settings, registry credentials', () => {
   it.each([
     ['ok', 'Signed in'],
     ['unauthorized', 'Rejected'],
+    ['token', 'Cannot check here: this registry uses token sign-in.'],
     ['unreachable', 'Not reachable'],
     ['tls', 'Certificate problem'],
     ['other', 'Unexpected answer'],
