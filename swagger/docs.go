@@ -13703,7 +13703,7 @@ const docTemplate = `{
         },
         "/api/cluster/settings": {
             "get": {
-                "description": "Returns the NATS address of the frontends and of the workers and the waits of a change. A user name, password or query string in an address is dropped. Admin only.",
+                "description": "Returns the NATS address of the frontends and of the workers, the waits of a change, and the carrier weights (nats, websocket, p2p) that break a tie between equally fit nodes. A user name, password or query string in an address is dropped. Admin only.",
                 "tags": [
                     "Nodes"
                 ],
@@ -13727,7 +13727,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Stores the NATS address, the address workers use, or the waits of a change. Saving a NATS address checks that the serving replica reaches it and makes NATS available; it does not switch the cluster. Admin only.",
+                "description": "Stores the NATS address, the address workers use, the waits of a change, or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it and makes NATS available; it does not switch the cluster. Admin only.",
                 "tags": [
                     "Nodes"
                 ],
@@ -14853,7 +14853,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. A source with the same kind and URL is refused (409), as is a taken id. Administrators only.",
+                "description": "Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. issuer and identity, set together, pin the signer of an oci:// add-on library: its artifact must then be signed by that issuer and exact identity (400 otherwise, and on any other source). A source with the same kind and URL is refused (409), as is a taken id. Administrators only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -21738,6 +21738,10 @@ const docTemplate = `{
                 "official": {
                     "type": "boolean"
                 },
+                "signer": {
+                    "description": "Signer is the identity that signed the package, shown only when the\nreceipt says the signature was checked and the package is not official.",
+                    "type": "string"
+                },
                 "sourceId": {
                     "description": "SourceID is the library the package came from, and Official is true\nwhen that is the official library and the signature was checked. An\nadministrator who approves something for the add-on, such as its OAuth\nlogin, is warned when it is not.",
                     "type": "string",
@@ -22630,6 +22634,20 @@ const docTemplate = `{
                 },
                 "target": {
                     "$ref": "#/definitions/cluster.Carrier"
+                }
+            }
+        },
+        "cluster.CarrierWeights": {
+            "type": "object",
+            "properties": {
+                "nats": {
+                    "type": "integer"
+                },
+                "p2p": {
+                    "type": "integer"
+                },
+                "websocket": {
+                    "type": "integer"
                 }
             }
         },
@@ -24838,6 +24856,9 @@ const docTemplate = `{
                 "revision": {
                     "type": "integer"
                 },
+                "signer": {
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 },
@@ -25811,6 +25832,13 @@ const docTemplate = `{
         "localai.ClusterSettingsRequest": {
             "type": "object",
             "properties": {
+                "carrier_weights": {
+                    "description": "CarrierWeights sets some or all of nats, websocket and p2p, each a whole\nnumber from 0 to 1000. A key that is absent stays as it is, null puts the\ndefault back, and a key that is not one of the three is refused.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
                 "max_drain": {
                     "type": "string"
                 },
@@ -25831,6 +25859,22 @@ const docTemplate = `{
         "localai.ClusterSettingsView": {
             "type": "object",
             "properties": {
+                "carrier_weights": {
+                    "description": "CarrierWeights are the weights that break a tie between equally fit nodes\nreached over different carriers (nats, websocket, p2p). A weight that is not\nstored is the default, so these are always the values in force.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/cluster.CarrierWeights"
+                        }
+                    ]
+                },
+                "carrier_weights_default": {
+                    "description": "CarrierWeightsDefault are the weights that apply when none is stored.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/cluster.CarrierWeights"
+                        }
+                    ]
+                },
                 "max_drain": {
                     "description": "MaxDrain is how long the previous carrier stays attached after a commit (a Go duration).",
                     "type": "string"
@@ -38730,7 +38774,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "installed": {
-                    "description": "Installed is true when the backend is currently present on disk — i.e. it\nappears in gallery.ListSystemBackends(systemState). Importer-registered or\ncurated pref-only backends default to false unless they also show up on\ndisk. The import form uses this to warn users that submitting an import\nmay trigger an automatic backend download.",
+                    "description": "Installed is true when the backend is currently present on disk — i.e. it\nappears in gallery.ListSystemBackends(systemState) — or, in distributed\nmode, on any worker node. Importer-registered or curated pref-only\nbackends default to false unless they are installed somewhere. The import\nform uses this to warn users that submitting an import may trigger an\nautomatic backend download.",
                     "type": "boolean"
                 },
                 "modality": {

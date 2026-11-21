@@ -95,6 +95,17 @@ type SmartRouterOptions struct {
 	// the absolute model paths untouched so the worker loads them directly from
 	// the shared volume (#10556). See config.DistributedConfig.SharedModels.
 	SharedModels bool
+	// StagingThroughStore says the model files go through an object store (S3)
+	// that each worker reads itself, so staging sends no file bytes over the route
+	// to the worker. The router then may place a model that needs staging on a
+	// node that is reached only over a data-limited relay. See stagesOverRelay.
+	StagingThroughStore bool
+	// CarrierWeights reads the weights of the carriers (routing.carrier_weights in
+	// the cluster settings). They break ties between equally fit nodes: the weight
+	// of a node is the highest weight among its routes, and the higher weight wins.
+	// It never changes which node wins when fit differs. nil turns the tie-break
+	// off, and with it the last-resort rule for data-limited relays.
+	CarrierWeights CarrierWeightSource
 	// ModelLoadCeiling is the hard upper bound on how long a single cold-load
 	// attempt (node selection -> backend install -> file staging -> LoadModel)
 	// may run while holding the per-model advisory lock. It backstops every
@@ -213,6 +224,13 @@ type SmartRouter struct {
 	// sharedModels skips file staging when all nodes mount the same models
 	// directory at the same path (see SmartRouterOptions.SharedModels).
 	sharedModels bool
+	// stagingThroughStore is true when the model files go through an object
+	// store that the worker reads itself, so that no file bytes cross the route to
+	// the worker (see SmartRouterOptions.StagingThroughStore).
+	stagingThroughStore bool
+	// ranker ranks the nodes by carrier. nil when no CarrierWeights were given or
+	// the registry is not a *NodeRegistry.
+	ranker nodeRanker
 	// diskHeadroomEnabled is the live read of the operator's disk-headroom
 	// toggle (see SmartRouterOptions.DiskHeadroomEnabled). Never nil after
 	// NewSmartRouter.
@@ -274,7 +292,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if diskHeadroom == nil {
 		diskHeadroom = func() bool { return true }
 	}
-	return &SmartRouter{
+	router := &SmartRouter{
 		registry:            registry,
 		unloader:            opts.Unloader,
 		modelCleanup:        opts.ModelCleanup,
@@ -291,6 +309,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		prefixConfig:        opts.PrefixConfig,
 		pressure:            opts.Pressure,
 		sharedModels:        opts.SharedModels,
+		stagingThroughStore: opts.StagingThroughStore,
 		diskHeadroomEnabled: diskHeadroom,
 		modelLoadCeiling:    ceiling,
 		modelLoadTimeout:    loadTimeout,
@@ -303,6 +322,11 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		finalizeLoad:         opts.LoadOptionsFinalizer,
 		loadWaiters:          map[string]*loadWaiter{},
 	}
+	if reg, ok := registry.(*NodeRegistry); ok && opts.CarrierWeights != nil {
+		reg.SetCarrierWeights(opts.CarrierWeights)
+		router.ranker = reg
+	}
+	return router
 }
 
 // Unloader returns the remote unloader adapter for external use.
@@ -1249,7 +1273,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// no room: a control-plane database slow enough to time out these queries
 	// read as "everybody is full" and cost a healthy model its place.
 	var selectErr error
-	selectNode := func() *BackendNode {
+	selectNode := func(candidateNodeIDs []string) *BackendNode {
 		var candidate *BackendNode
 		var selErr error
 		selectErr = nil
@@ -1284,7 +1308,29 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		return candidate
 	}
 
-	node := r.pickReachableNode(ctx, selectNode)
+	// A node whose only route is a data-limited public relay is a last resort
+	// (see limitedOnlyNodes). The others are tried first. When the placement
+	// needs model files pushed to the node, such a node is not a candidate at all.
+	limited := r.limitedOnlyNodes(ctx)
+	var node *BackendNode
+	if len(limited) == 0 {
+		node = r.pickReachableNode(ctx, func() *BackendNode { return selectNode(candidateNodeIDs) })
+	} else {
+		stagesOverRelay := r.stagesOverRelay(modelID, modelOpts)
+		preferred := r.withoutNodes(ctx, candidateNodeIDs, limited)
+		if stagesOverRelay {
+			if len(preferred) == 0 {
+				return nil, "", 0, fmt.Errorf("every node that can serve %s is reached only over a data-limited relay, and this placement needs model files pushed to it: %w", modelID, ErrNoAvailableNodes)
+			}
+			candidateNodeIDs = preferred
+		}
+		if len(preferred) > 0 {
+			node = r.pickReachableNode(ctx, func() *BackendNode { return selectNode(preferred) })
+		}
+		if node == nil && !stagesOverRelay {
+			node = r.pickReachableNode(ctx, func() *BackendNode { return selectNode(candidateNodeIDs) })
+		}
+	}
 
 	// Same reasoning as the replica-slot guard further down: only
 	// gorm.ErrRecordNotFound is a verdict that the cluster has no node to give.

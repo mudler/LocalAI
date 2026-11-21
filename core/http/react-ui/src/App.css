@@ -8389,7 +8389,8 @@ button.lane:hover {
 .transport-settings { border-top: 1px solid var(--color-border-subtle); display: grid; gap: var(--spacing-sm); padding-top: var(--spacing-md); }
 .transport-field { display: grid; font-size: var(--text-sm); gap: 4px; }
 .transport-dialog__actions { display: flex; gap: var(--spacing-sm); }
-@media (max-width: 760px) { .transport-grid { grid-template-columns: minmax(0, 1fr); } }
+.transport-weights { align-items: start; display: grid; gap: var(--spacing-md); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) { .transport-grid, .transport-weights { grid-template-columns: minmax(0, 1fr); } }
 /* ---- Icons ------------------------------------------------------------
    The base icon rules are in the UI kit (packages/ui-kit/css/kit.css). The
    sprite holder is for the HTML strings of utils/iconHtml.js. */

@@ -220,6 +220,13 @@ type LocalAIClient interface {
 	// that cannot follow a change. It never changes anything.
 	GetClusterCarrier(ctx context.Context) (*ClusterCarrierStatus, error)
 
+	// GetCarrierWeights reads the weights that break a tie between equally fit
+	// nodes reached over NATS, WebSocket or P2P.
+	GetCarrierWeights(ctx context.Context) (*CarrierWeightsInfo, error)
+	// SetCarrierWeights changes some or all of the weights and returns the
+	// weights in force. A weight left out stays as it is.
+	SetCarrierWeights(ctx context.Context, req SetCarrierWeightsRequest) (*CarrierWeightsInfo, error)
+
 	// ---- P2P ----
 	// GetP2PStatus reports the mode and state of the P2P layer.
 	GetP2PStatus(ctx context.Context) (*P2PStatusInfo, error)

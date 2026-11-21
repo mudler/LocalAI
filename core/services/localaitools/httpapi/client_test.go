@@ -859,6 +859,53 @@ var _ = Describe("Cluster carrier", func() {
 	})
 })
 
+var _ = Describe("Carrier weights", func() {
+	It("reads the weights from GET /api/cluster/settings and writes them with PUT", func() {
+		var put map[string]map[string]int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.URL.Path).To(Equal("/api/cluster/settings"))
+			view := map[string]any{
+				"carrier_weights":         map[string]int{"nats": 100, "websocket": 7, "p2p": 25},
+				"carrier_weights_default": map[string]int{"nats": 100, "websocket": 50, "p2p": 25},
+			}
+			if r.Method == http.MethodPut {
+				Expect(json.NewDecoder(r.Body).Decode(&put)).To(Succeed())
+				_ = json.NewEncoder(w).Encode(map[string]any{"saved": true, "settings": view})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(view)
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+
+		got, err := c.GetCarrierWeights(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.Distributed).To(BeTrue())
+		Expect(got.Weights.WebSocket).To(Equal(7))
+		Expect(got.Defaults.WebSocket).To(Equal(50))
+
+		ws := 7
+		set, err := c.SetCarrierWeights(context.Background(), localaitools.SetCarrierWeightsRequest{WebSocket: &ws})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(put).To(Equal(map[string]map[string]int{"carrier_weights": {"websocket": 7}}))
+		Expect(set.Weights.WebSocket).To(Equal(7))
+
+		_, err = c.SetCarrierWeights(context.Background(), localaitools.SetCarrierWeightsRequest{})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("reports distributed=false when the server answers 503", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"distributed mode is not enabled on this frontend"}`))
+		}))
+		DeferCleanup(srv.Close)
+		out, err := New(srv.URL, "").GetCarrierWeights(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out.Distributed).To(BeFalse())
+	})
+})
+
 var _ = Describe("P2P", func() {
 	It("reads the status, devices, invites and relays from the REST routes", func() {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

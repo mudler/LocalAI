@@ -179,6 +179,16 @@ process and cannot carry them. Credentials are never stored there: an address
 with a user name, a password or a query string is refused on write, and every view
 and log line drops them.
 
+The carrier weights (`routing.carrier_weights.nats`, `.websocket`, `.p2p`, whole
+numbers 0 to 1000, defaults 100, 50 and 25) are in the same table, one row each so
+that a partial update never rewrites the others. The registry (`carrier_rank.go`)
+reads them through `SmartRouterOptions.CarrierWeights` and keeps them, with the
+rank of every node, for 2 seconds, so a change needs no restart. A weight is a
+tie-break only: it is added to the ORDER BY after the keys that decide fit, never
+before. The weight of a node is the highest weight among `RoutesOf`. A node whose
+only route is a data-limited relay tunnel is a last resort in the scheduler and is
+never chosen for a placement that pushes model files (`stagesOverRelay`).
+
 ## The worker tunnel
 
 A worker that has no address that others can reach holds one outbound websocket

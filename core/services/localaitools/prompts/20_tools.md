@@ -36,6 +36,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_aliases` — List configured model aliases and their targets.
 - `list_failover_chains` — List failover chains, their active target and target health.
 - `get_cluster_carrier` — Read the broadcast bus a distributed cluster uses between its frontends (`nats` for NATS, `tunnel` for PostgreSQL with WebSocket workers; workers never connect to PostgreSQL), the state of a change, the live frontends and the workers that cannot follow. Read-only. No tool changes the bus.
+- `get_carrier_weights` — Read the carrier weights of a distributed cluster (`nats`, `websocket`, `p2p`; 0 to 1000, higher wins, defaults 100, 50 and 25). A weight only breaks a tie between nodes that fit a request equally well. Returns `distributed=false` when the server is not distributed.
 - `get_p2p_status` — Show the P2P mode (off, connect, share), peer ID, reachability and counts.
 - `list_p2p_devices` — List the paired P2P devices and how each one is connected.
 - `list_p2p_invites` — List the P2P invites and their state, never the links.
@@ -81,4 +82,5 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `set_p2p_split_slow_path` — Use a model-split worker over a relay ("Use anyway"), or stop; a relay of the user with limits cuts each connection at them.
 - `set_p2p_split_node` — Attach a model-split worker to a backend node of the cluster, or to this server; pin the model to that node.
 - `set_node_split_server` — Declare a backend node a split server so model-split workers can be attached to it, or clear it (detaches its workers, stops its P2P host).
+- `set_carrier_weights` — Change one or more carrier weights (whole numbers 0 to 1000; a weight left out stays). 0 means: use that carrier only when no other fits. Applies to every frontend within seconds.
 - `set_p2p_relay_limits` — Change the data, time or bandwidth limit of one circuit on a P2P relay this server administers, up to the relay's ceiling (a value above it is refused); a new data or time limit restarts the relay's circuit service.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -31,7 +32,80 @@ const (
 	// SettingMaxDrain is how long the previous carrier stays attached after a
 	// change.
 	SettingMaxDrain = "switch.max_drain"
+
+	// SettingCarrierWeightNATS, SettingCarrierWeightWebSocket and
+	// SettingCarrierWeightP2P are the three parts of routing.carrier_weights: how
+	// much the router prefers a node that a frontend reaches over NATS, over a
+	// WebSocket tunnel or over P2P, when two nodes fit a request equally well.
+	// One row per carrier, so that a partial update never reads and rewrites the
+	// others.
+	SettingCarrierWeightNATS      = "routing.carrier_weights.nats"
+	SettingCarrierWeightWebSocket = "routing.carrier_weights.websocket"
+	SettingCarrierWeightP2P       = "routing.carrier_weights.p2p"
 )
+
+// Carrier weights are whole numbers in this range. 0 means "use this carrier
+// only when no other carrier fits".
+const (
+	MinCarrierWeight = 0
+	MaxCarrierWeight = 1000
+)
+
+// CarrierWeights is the tie-break between equally fit nodes that are reached
+// over different carriers. A higher weight wins. It never overrides fit.
+type CarrierWeights struct {
+	NATS      int `json:"nats"`
+	WebSocket int `json:"websocket"`
+	P2P       int `json:"p2p"`
+}
+
+// DefaultCarrierWeights prefers NATS, then a WebSocket tunnel, then P2P.
+var DefaultCarrierWeights = CarrierWeights{NATS: 100, WebSocket: 50, P2P: 25}
+
+// CarrierWeightKeys maps the name of a weight in the API (nats, websocket, p2p)
+// to the key of the setting that stores it.
+var CarrierWeightKeys = map[string]string{
+	"nats":      SettingCarrierWeightNATS,
+	"websocket": SettingCarrierWeightWebSocket,
+	"p2p":       SettingCarrierWeightP2P,
+}
+
+func carrierWeightSetting(v string) error {
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return fmt.Errorf("not a whole number: %q", v)
+	}
+	if n < MinCarrierWeight || n > MaxCarrierWeight {
+		return fmt.Errorf("a weight must be between %d and %d, not %d", MinCarrierWeight, MaxCarrierWeight, n)
+	}
+	return nil
+}
+
+// CarrierWeightsFrom reads the weights from the stored settings. A weight that
+// is not stored, or that no longer parses, is the default.
+func CarrierWeightsFrom(all map[string]string) CarrierWeights {
+	w := DefaultCarrierWeights
+	for key, dst := range map[string]*int{
+		SettingCarrierWeightNATS:      &w.NATS,
+		SettingCarrierWeightWebSocket: &w.WebSocket,
+		SettingCarrierWeightP2P:       &w.P2P,
+	} {
+		if v, ok := all[key]; ok && carrierWeightSetting(v) == nil {
+			*dst, _ = strconv.Atoi(v)
+		}
+	}
+	return w
+}
+
+// CarrierWeights reads the weights of the cluster. Every frontend reads the
+// same rows, so a change through one is seen by all.
+func (s *SettingsStore) CarrierWeights(ctx context.Context) (CarrierWeights, error) {
+	all, err := s.All(ctx)
+	if err != nil {
+		return DefaultCarrierWeights, err
+	}
+	return CarrierWeightsFrom(all), nil
+}
 
 // ErrUnknownSetting means a key is not one of the cluster settings.
 var ErrUnknownSetting = errors.New("unknown cluster setting")
@@ -42,6 +116,10 @@ var knownSettings = map[string]func(string) error{
 	SettingPrepareTimeout:   durationSetting,
 	SettingTransitionWindow: durationSetting,
 	SettingMaxDrain:         durationSetting,
+
+	SettingCarrierWeightNATS:      carrierWeightSetting,
+	SettingCarrierWeightWebSocket: carrierWeightSetting,
+	SettingCarrierWeightP2P:       carrierWeightSetting,
 }
 
 // MinTiming is the shortest wait of a change that the cluster accepts. The

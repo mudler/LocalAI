@@ -126,6 +126,64 @@ test.describe('Cluster transport panel', () => {
     expect(calls.posts).toHaveLength(0)
   })
 
+  test('shows the three carrier weights with their defaults when the server reports none', async ({ page }) => {
+    await mockCluster(page)
+    await page.goto('/app/nodes')
+    const form = page.getByTestId('carrier-weights')
+    await expect(form).toBeVisible({ timeout: 15_000 })
+    await expect(form.getByLabel('NATS weight')).toHaveValue('100')
+    await expect(form.getByLabel('WebSocket weight')).toHaveValue('50')
+    await expect(form.getByLabel('P2P weight')).toHaveValue('25')
+    await expect(form).toContainText('never overrides fit')
+    await expect(form.getByRole('button', { name: 'Apply weights' })).toBeDisabled()
+    await expect(form.getByRole('button', { name: 'Use defaults' })).toBeDisabled()
+  })
+
+  test('saving a weight sends only the weight that changed', async ({ page }) => {
+    const { calls } = await mockCluster(page)
+    await page.goto('/app/nodes')
+    const form = page.getByTestId('carrier-weights')
+    await form.getByLabel('P2P weight').fill('300')
+    await form.getByRole('button', { name: 'Apply weights' }).click()
+    await expect(form.getByTestId('carrier-weights-result')).toContainText('within a few seconds')
+    expect(calls.puts).toEqual([{ carrier_weights: { p2p: 300 } }])
+    expect(calls.posts).toHaveLength(0)
+  })
+
+  test('shows the weights in force from the server and puts the defaults back', async ({ page }) => {
+    const report = { ...stableReport, settings: { ...stableReport.settings, carrier_weights: { nats: 10, websocket: 50, p2p: 25 }, carrier_weights_default: { nats: 100, websocket: 50, p2p: 25 } } }
+    const { calls } = await mockCluster(page, { carrier: report })
+    await page.goto('/app/nodes')
+    const form = page.getByTestId('carrier-weights')
+    await expect(form.getByLabel('NATS weight')).toHaveValue('10')
+    await form.getByRole('button', { name: 'Use defaults' }).click()
+    await expect(form.getByTestId('carrier-weights-result')).toContainText('default weights are back')
+    expect(calls.puts).toEqual([{ carrier_weights: { nats: null } }])
+  })
+
+  test('refuses a weight outside 0 to 1000 before it calls the server', async ({ page }) => {
+    const { calls } = await mockCluster(page)
+    await page.goto('/app/nodes')
+    const form = page.getByTestId('carrier-weights')
+    await form.getByLabel('WebSocket weight').fill('1001')
+    await expect(form.getByTestId('carrier-weight-error-websocket')).toContainText('0 to 1000')
+    await expect(form.getByRole('button', { name: 'Apply weights' })).toBeDisabled()
+    await form.getByLabel('WebSocket weight').fill('0')
+    await expect(form.getByTestId('carrier-weight-error-websocket')).toHaveCount(0)
+    await expect(form.getByRole('button', { name: 'Apply weights' })).toBeEnabled()
+    expect(calls.puts).toHaveLength(0)
+  })
+
+  test('shows the error when the server refuses the weights', async ({ page }) => {
+    const { state } = await mockCluster(page)
+    state.onPut = () => ({ status: 400, body: { error: 'carrier_weights.nats: a weight must be between 0 and 1000, not 5000' } })
+    await page.goto('/app/nodes')
+    const form = page.getByTestId('carrier-weights')
+    await form.getByLabel('NATS weight').fill('5')
+    await form.getByRole('button', { name: 'Apply weights' }).click()
+    await expect(form.getByTestId('carrier-weights-result')).toContainText('between 0 and 1000')
+  })
+
   test('a NATS URL that cannot be reached shows the error', async ({ page }) => {
     const { state } = await mockCluster(page)
     state.onPut = () => ({ status: 422, body: { error: 'nats_url: this replica cannot reach the NATS server at nats://bad:4222: connection refused' } })

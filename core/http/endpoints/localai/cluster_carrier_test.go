@@ -397,6 +397,72 @@ var _ = Describe("The admin API of the carrier", func() {
 			Expect(code).To(Equal(http.StatusOK))
 		})
 
+		Describe("carrier weights", func() {
+			put := func(body string) (int, map[string]any) {
+				GinkgoHelper()
+				return call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut, body)
+			}
+
+			It("reads the defaults when nothing is stored", func() {
+				code, body := call(GetClusterSettingsEndpoint(settings), http.MethodGet, "")
+				Expect(code).To(Equal(http.StatusOK))
+				Expect(body["carrier_weights"]).To(Equal(map[string]any{"nats": 100.0, "websocket": 50.0, "p2p": 25.0}))
+				Expect(body["carrier_weights_default"]).To(Equal(map[string]any{"nats": 100.0, "websocket": 50.0, "p2p": 25.0}))
+			})
+
+			It("stores one weight and leaves the others as they are", func() {
+				code, resp := put(`{"carrier_weights":{"p2p":300}}`)
+				Expect(code).To(Equal(http.StatusOK))
+				Expect(settings.m).To(Equal(map[string]string{
+					cluster.SettingNATSURL:          "nats://user:secret@broker:4222?token=abc",
+					cluster.SettingCarrierWeightP2P: "300",
+				}))
+				Expect(resp["settings"].(map[string]any)["carrier_weights"]).To(Equal(map[string]any{"nats": 100.0, "websocket": 50.0, "p2p": 300.0}))
+			})
+
+			It("accepts 0 and 1000 and refuses a value outside the range, with a 400", func() {
+				code, _ := put(`{"carrier_weights":{"nats":0,"websocket":1000}}`)
+				Expect(code).To(Equal(http.StatusOK))
+				Expect(settings.m[cluster.SettingCarrierWeightNATS]).To(Equal("0"))
+				for _, bad := range []string{`1001`, `-1`} {
+					code, resp := put(`{"carrier_weights":{"p2p":` + bad + `}}`)
+					Expect(code).To(Equal(http.StatusBadRequest), bad)
+					Expect(resp["error"]).To(ContainSubstring("p2p"), bad)
+				}
+				Expect(settings.m).ToNot(HaveKey(cluster.SettingCarrierWeightP2P))
+			})
+
+			It("refuses a weight that is not a whole number", func() {
+				for _, bad := range []string{`1.5`, `"high"`, `true`} {
+					code, _ := put(`{"carrier_weights":{"nats":` + bad + `}}`)
+					Expect(code).To(Equal(http.StatusBadRequest), bad)
+				}
+			})
+
+			It("refuses a carrier that is not one of the three, and stores none of the request", func() {
+				code, resp := put(`{"max_drain":"20m","carrier_weights":{"nats":5,"carrier-pigeon":9}}`)
+				Expect(code).To(Equal(http.StatusBadRequest))
+				Expect(resp["error"]).To(ContainSubstring("carrier-pigeon"))
+				Expect(settings.m).ToNot(HaveKey(cluster.SettingMaxDrain))
+				Expect(settings.m).ToNot(HaveKey(cluster.SettingCarrierWeightNATS))
+			})
+
+			It("puts the default back for a weight sent as null", func() {
+				settings.m[cluster.SettingCarrierWeightWebSocket] = "7"
+				code, resp := put(`{"carrier_weights":{"websocket":null}}`)
+				Expect(code).To(Equal(http.StatusOK))
+				Expect(settings.m).ToNot(HaveKey(cluster.SettingCarrierWeightWebSocket))
+				Expect(resp["settings"].(map[string]any)["carrier_weights"].(map[string]any)["websocket"]).To(Equal(50.0))
+			})
+
+			It("keeps a weight when a request does not mention carrier_weights", func() {
+				settings.m[cluster.SettingCarrierWeightNATS] = "3"
+				code, _ := put(`{"max_drain":"20m"}`)
+				Expect(code).To(Equal(http.StatusOK))
+				Expect(settings.m[cluster.SettingCarrierWeightNATS]).To(Equal("3"))
+			})
+		})
+
 		It("reads the settings with the password of the URL masked", func() {
 			code, body := call(GetClusterSettingsEndpoint(settings), http.MethodGet, "")
 			Expect(code).To(Equal(http.StatusOK))

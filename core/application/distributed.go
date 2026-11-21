@@ -581,6 +581,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
 		SharedModels:     cfg.Distributed.SharedModels,
+		// Object storage means a worker reads the model files from it, so staging
+		// sends no file bytes over the route to the worker.
+		StagingThroughStore: cfg.Distributed.StorageURL != "",
+		// routing.carrier_weights, read from the shared cluster settings: every
+		// frontend ranks alike and a change needs no restart.
+		CarrierWeights: settingsStore.CarrierWeights,
 		// A closure over the live ApplicationConfig, NOT a snapshot: the
 		// runtime setting (distributed_disk_headroom_check) mutates this exact
 		// member, so a snapshot here would make the toggle a no-op until

@@ -69,6 +69,7 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	registerMiddlewareTools(srv, client, opts)
 	registerFailoverTools(srv, client, opts)
 	registerClusterTools(srv, client)
+	registerCarrierWeightTools(srv, client, opts)
 	registerP2PTools(srv, client, opts)
 	registerFederationTools(srv, client, opts)
 

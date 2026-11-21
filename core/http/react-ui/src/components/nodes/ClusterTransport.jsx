@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { clusterApi } from '../../utils/api'
 import { busLabel, formatCountdown, replicaReady, routeLabel, stateLabel } from '../../utils/clusterTransport'
 import { Button } from '../ui'
+import CarrierWeights from './CarrierWeights'
 
 const POLL_IDLE_MS = 5000
 const POLL_BUSY_MS = 2000
@@ -189,6 +190,7 @@ export default function ClusterTransport() {
       </div>
 
       <NatsSettings settings={report.settings} onSaved={load} />
+      <CarrierWeights settings={report.settings} onSaved={load} />
     </section>
   )
 }

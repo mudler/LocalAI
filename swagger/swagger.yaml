@@ -308,6 +308,11 @@ definitions:
         type: string
       official:
         type: boolean
+      signer:
+        description: |-
+          Signer is the identity that signed the package, shown only when the
+          receipt says the signature was checked and the package is not official.
+        type: string
       sourceId:
         description: |-
           SourceID is the library the package came from, and Official is true
@@ -1079,6 +1084,15 @@ definitions:
         $ref: '#/definitions/cluster.State'
       target:
         $ref: '#/definitions/cluster.Carrier'
+    type: object
+  cluster.CarrierWeights:
+    properties:
+      nats:
+        type: integer
+      p2p:
+        type: integer
+      websocket:
+        type: integer
     type: object
   cluster.InFlight:
     properties:
@@ -2799,6 +2813,8 @@ definitions:
         $ref: '#/definitions/gateway.HostRequested'
       revision:
         type: integer
+      signer:
+        type: string
       title:
         type: string
       version:
@@ -3542,6 +3558,14 @@ definitions:
     type: object
   localai.ClusterSettingsRequest:
     properties:
+      carrier_weights:
+        additionalProperties:
+          type: integer
+        description: |-
+          CarrierWeights sets some or all of nats, websocket and p2p, each a whole
+          number from 0 to 1000. A key that is absent stays as it is, null puts the
+          default back, and a key that is not one of the three is refused.
+        type: object
       max_drain:
         type: string
       nats_url:
@@ -3555,6 +3579,18 @@ definitions:
     type: object
   localai.ClusterSettingsView:
     properties:
+      carrier_weights:
+        allOf:
+        - $ref: '#/definitions/cluster.CarrierWeights'
+        description: |-
+          CarrierWeights are the weights that break a tie between equally fit nodes
+          reached over different carriers (nats, websocket, p2p). A weight that is not
+          stored is the default, so these are always the values in force.
+      carrier_weights_default:
+        allOf:
+        - $ref: '#/definitions/cluster.CarrierWeights'
+        description: CarrierWeightsDefault are the weights that apply when none is
+          stored.
       max_drain:
         description: MaxDrain is how long the previous carrier stays attached after
           a commit (a Go duration).
@@ -13654,10 +13690,11 @@ definitions:
       installed:
         description: |-
           Installed is true when the backend is currently present on disk — i.e. it
-          appears in gallery.ListSystemBackends(systemState). Importer-registered or
-          curated pref-only backends default to false unless they also show up on
-          disk. The import form uses this to warn users that submitting an import
-          may trigger an automatic backend download.
+          appears in gallery.ListSystemBackends(systemState) — or, in distributed
+          mode, on any worker node. Importer-registered or curated pref-only
+          backends default to false unless they are installed somewhere. The import
+          form uses this to warn users that submitting an import may trigger an
+          automatic backend download.
         type: boolean
       modality:
         type: string
@@ -27022,9 +27059,10 @@ paths:
       - Nodes
   /api/cluster/settings:
     get:
-      description: Returns the NATS address of the frontends and of the workers and
-        the waits of a change. A user name, password or query string in an address
-        is dropped. Admin only.
+      description: Returns the NATS address of the frontends and of the workers, the
+        waits of a change, and the carrier weights (nats, websocket, p2p) that break
+        a tie between equally fit nodes. A user name, password or query string in
+        an address is dropped. Admin only.
       responses:
         "200":
           description: OK
@@ -27040,9 +27078,13 @@ paths:
       tags:
       - Nodes
     put:
-      description: Stores the NATS address, the address workers use, or the waits
-        of a change. Saving a NATS address checks that the serving replica reaches
-        it and makes NATS available; it does not switch the cluster. Admin only.
+      description: 'Stores the NATS address, the address workers use, the waits of
+        a change, or the carrier weights (carrier_weights: nats, websocket and p2p,
+        each 0 to 1000; a weight is a tie-break between equally fit nodes and never
+        overrides fit; null puts the default back; the change applies to every frontend
+        within seconds, with no restart). Saving a NATS address checks that the serving
+        replica reaches it and makes NATS available; it does not switch the cluster.
+        Admin only.'
       parameters:
       - description: settings to store
         in: body
@@ -27845,10 +27887,12 @@ paths:
     post:
       consumes:
       - application/json
-      description: Adds a source of your own. kind is addon, backend or model; format
+      description: 'Adds a source of your own. kind is addon, backend or model; format
         is library (default) or gallery. The id is derived from the name or URL when
-        it is empty. A source with the same kind and URL is refused (409), as is a
-        taken id. Administrators only.
+        it is empty. issuer and identity, set together, pin the signer of an oci://
+        add-on library: its artifact must then be signed by that issuer and exact
+        identity (400 otherwise, and on any other source). A source with the same
+        kind and URL is refused (409), as is a taken id. Administrators only.'
       produces:
       - application/json
       responses:

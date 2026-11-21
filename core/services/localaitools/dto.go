@@ -530,6 +530,33 @@ type ClusterCarrierStatus struct {
 	Workers []ClusterWorkerInfo `json:"workers,omitempty"`
 }
 
+// CarrierWeightsInfo is the LLM-facing view of routing.carrier_weights.
+// Distributed is false on a frontend that is not distributed, and the weights
+// are then empty. A weight only breaks a tie between nodes that fit a request
+// equally well; it never overrides fit.
+type CarrierWeightsInfo struct {
+	Distributed bool `json:"distributed"`
+	// Weights are the values in force, 0 to 1000 each, higher wins.
+	Weights *CarrierWeightValues `json:"weights,omitempty"`
+	// Defaults apply to a weight that nobody set.
+	Defaults *CarrierWeightValues `json:"defaults,omitempty"`
+}
+
+// CarrierWeightValues holds one weight per carrier.
+type CarrierWeightValues struct {
+	NATS      int `json:"nats"`
+	WebSocket int `json:"websocket"`
+	P2P       int `json:"p2p"`
+}
+
+// SetCarrierWeightsRequest names the weights to change. A weight that is left
+// out stays as it is. 0 means: use this carrier only when no other carrier fits.
+type SetCarrierWeightsRequest struct {
+	NATS      *int `json:"nats,omitempty"      jsonschema:"Weight of nodes reached over NATS, 0 to 1000. Default 100."`
+	WebSocket *int `json:"websocket,omitempty" jsonschema:"Weight of nodes reached over a WebSocket tunnel, 0 to 1000. Default 50."`
+	P2P       *int `json:"p2p,omitempty"       jsonschema:"Weight of nodes reached over P2P, 0 to 1000. Default 25."`
+}
+
 // ClusterReplicaInfo is one live frontend replica.
 type ClusterReplicaInfo struct {
 	ID          string `json:"id"`

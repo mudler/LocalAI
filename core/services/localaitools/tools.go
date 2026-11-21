@@ -81,6 +81,8 @@ const (
 	ToolSetP2PSplitNode       = "set_p2p_split_node"
 	ToolSetNodeSplitServer    = "set_node_split_server"
 	ToolSetP2PRelayLimits     = "set_p2p_relay_limits"
+	// ToolSetCarrierWeights changes the carrier weights of a distributed cluster.
+	ToolSetCarrierWeights = "set_carrier_weights"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
@@ -94,6 +96,10 @@ const (
 	// carrier: a change moves every frontend and worker of the cluster, so an
 	// admin makes it in the dashboard or with the `local-ai cluster` command.
 	ToolGetClusterCarrier = "get_cluster_carrier"
+
+	// ToolGetCarrierWeights is read-only; set_carrier_weights is in the
+	// mutating block above.
+	ToolGetCarrierWeights = "get_carrier_weights"
 
 	// The read-only P2P tools; revoke_p2p_device and cancel_p2p_invite are
 	// in the mutating block above.
@@ -157,4 +163,5 @@ var mutatingToolNames = []string{
 	ToolSetP2PSplitNode,
 	ToolSetNodeSplitServer,
 	ToolSetP2PRelayLimits,
+	ToolSetCarrierWeights,
 }

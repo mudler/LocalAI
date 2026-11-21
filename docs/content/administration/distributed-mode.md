@@ -33,8 +33,9 @@ The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 4. Fall back to idle nodes (zero models), then least-loaded nodes.
 5. If no node has capacity, **evict the least-recently-used model with zero in-flight requests** to free a node.
 6. If all models are busy, wait (with a timeout) for a model to become idle, then evict.
-7. Send the `backend.install` request, with the backend name and the model ID, to the worker. The worker starts a new gRPC process on a dynamic port.
-8. The SmartRouter calls gRPC `LoadModel` on the model-specific port and records the result in the database.
+7. When two nodes fit equally well, the **carrier weight** breaks the tie (see [Carrier weights](#carrier-weights)). A node that a frontend reaches only over a data-limited public relay is a last resort.
+8. Send the `backend.install` request, with the backend name and the model ID, to the worker. The worker starts a new gRPC process on a dynamic port.
+9. The SmartRouter calls gRPC `LoadModel` on the model-specific port and records the result in the database.
 
 Each model gets its own gRPC backend process, so one worker can serve several models at once (for example a chat model and an embedding model).
 
@@ -1732,10 +1733,52 @@ All four routes are for an admin only. They answer `503` when distributed mode i
 |-------|---------|
 | `GET /api/cluster/carrier` | The active carrier, the epoch, the state, the replicas and their readiness, the workers, the work in flight, and the settings. A report of a replica that is only old is shown with its age and is not listed as a blocker. The call also asks the replicas to look again, at most once in 15 seconds. A dry run (`POST` with `dry_run`) always asks and waits up to 5 seconds for the answers. |
 | `POST /api/cluster/carrier` | `{"target":"nats"\|"tunnel","dry_run":true}` for a dry run (`200`). `{"target":"tunnel"}` starts a change (`202`). Add `"force":true` to pass forceable blockers. `{"abort":true}` aborts. A blocked request is `422` with the blockers. A change already under way is `409`. |
-| `GET /api/cluster/settings` | `nats_url`, `nats_worker_url`, `prepare_timeout`, `transition_window`, `max_drain`. |
-| `PUT /api/cluster/settings` | Store the fields that you send. An empty string clears a setting. A `nats_url` that the serving frontend cannot reach is `422`. A `nats_url` during a change is `409`. |
+| `GET /api/cluster/settings` | `nats_url`, `nats_worker_url`, `prepare_timeout`, `transition_window`, `max_drain`, `carrier_weights` (the weights in force) and `carrier_weights_default`. |
+| `PUT /api/cluster/settings` | Store the fields that you send. An empty string clears a setting. A `nats_url` that the serving frontend cannot reach is `422`. A `nats_url` during a change is `409`. `carrier_weights` is an object with some or all of `nats`, `websocket` and `p2p`: a key that is left out stays, `null` puts the default back, an unknown key or a value that is not a whole number from 0 to 1000 is `400`. |
 
-The LocalAI Assistant has a read-only `get_cluster_carrier` tool. It has no tool that changes the carrier, because a change needs a dry run and a check of the frontend list by an admin.
+The LocalAI Assistant has a read-only `get_cluster_carrier` tool. It has no tool that changes the carrier, because a change needs a dry run and a check of the frontend list by an admin. It does have `get_carrier_weights` and `set_carrier_weights` for the [carrier weights](#carrier-weights); the second asks for your confirmation first.
+
+## Carrier weights
+
+A hybrid cluster attaches NATS, WebSocket and P2P workers at the same time, and the SmartRouter sends requests across all of them as one pool. A **carrier weight** decides between two nodes that fit a request equally well but that a frontend reaches over different carriers.
+
+| Carrier | Default weight |
+|---------|----------------|
+| `nats` | 100 |
+| `websocket` | 50 |
+| `p2p` | 25 |
+
+A weight is a whole number from 0 to 1000. A higher weight wins. `0` means: use that carrier only when nothing else fits. The weight of a node is the highest weight among its routes, so a worker that holds both NATS and a WebSocket tunnel counts as NATS by default.
+
+**The weight is a tie-break and nothing more.** It never changes which node wins when fit differs. The router ranks the candidates as it always did, and the weight is read only after the earlier keys leave nodes equal:
+
+- For a model that is already loaded: fewer requests in flight first, then the weight, then the least recently used replica (so equal-weight replicas still rotate), then free VRAM.
+- For a new load: free VRAM (or an idle node, or the least loaded node) first, then the weight, then the node id. The last key keeps the order stable, so the same state gives the same node.
+
+So a node with more free VRAM, or less load, wins over a node with a higher weight. Nodes that report exactly the same free VRAM, such as identical machines, are where the weight shows.
+
+### Set the weights
+
+Every frontend reads the weights from the shared cluster settings, so a change through one frontend reaches all of them within a few seconds. No restart is needed.
+
+```bash
+local-ai cluster settings set --carrier-weight nats=100 --carrier-weight websocket=80 --carrier-weight p2p=10
+local-ai cluster settings set --carrier-weight p2p=default   # put the default back
+local-ai cluster settings                                      # show the weights in force
+```
+
+The same fields are in `PUT /api/cluster/settings` (`carrier_weights`), in the **Carrier weights** form of the NATS settings on the Nodes page, and in the Assistant tools `get_carrier_weights` and `set_carrier_weights`.
+
+State mode (see the distributed state rules): the weights are shared cluster settings in the database. Each frontend keeps what it read for up to 2 seconds, so two frontends can disagree for that long after a change. Nothing else is held in memory.
+
+### Data-limited relays are a last resort
+
+A P2P worker can be reached over a public relay that limits the data it carries. The worker reports this, and the router treats such a node (one whose only route is a limited relay) as a last resort:
+
+- It is used only when no other candidate fits. For a model that is loaded on several nodes, the replica behind the relay comes last. For a new load, the other nodes are tried first, and the relay node only when none of them can take the model without evicting another.
+- It is never chosen for a placement that needs model files pushed to it, because that would send the whole model through the relay. A placement needs no push when every node mounts the same models directory (`LOCALAI_DISTRIBUTED_SHARED_MODELS`), when the files go through S3 object storage that the worker reads itself, or when the model has no local file. If the relay node is the only candidate and the placement needs a push, the request fails with a `503` and a message that says why.
+
+The weight of a node does not change this rule. A relay node with the top weight is still a last resort.
 
 ## Workers and carriers
 

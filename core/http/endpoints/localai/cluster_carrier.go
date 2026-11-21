@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"slices"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -80,9 +82,11 @@ func carrierError(c echo.Context, status int, msg string, extra map[string]any) 
 // query string in the address of a server is dropped.
 func settingsView(all map[string]string) ClusterSettingsView {
 	view := ClusterSettingsView{
-		PrepareTimeout:   all[cluster.SettingPrepareTimeout],
-		TransitionWindow: all[cluster.SettingTransitionWindow],
-		MaxDrain:         all[cluster.SettingMaxDrain],
+		PrepareTimeout:        all[cluster.SettingPrepareTimeout],
+		TransitionWindow:      all[cluster.SettingTransitionWindow],
+		MaxDrain:              all[cluster.SettingMaxDrain],
+		CarrierWeights:        cluster.CarrierWeightsFrom(all),
+		CarrierWeightsDefault: cluster.DefaultCarrierWeights,
 	}
 	if v := all[cluster.SettingNATSURL]; v != "" {
 		view.NATSURL = cluster.PublicNATSURL(v)
@@ -106,6 +110,12 @@ type ClusterSettingsView struct {
 	TransitionWindow string `json:"transition_window"`
 	// MaxDrain is how long the previous carrier stays attached after a commit (a Go duration).
 	MaxDrain string `json:"max_drain"`
+	// CarrierWeights are the weights that break a tie between equally fit nodes
+	// reached over different carriers (nats, websocket, p2p). A weight that is not
+	// stored is the default, so these are always the values in force.
+	CarrierWeights cluster.CarrierWeights `json:"carrier_weights"`
+	// CarrierWeightsDefault are the weights that apply when none is stored.
+	CarrierWeightsDefault cluster.CarrierWeights `json:"carrier_weights_default"`
 }
 
 // carrierView is the report with the settings next to it.
@@ -248,7 +258,7 @@ func SwitchCarrierEndpoint(sw CarrierSwitchAdmin, prober ReplicaProber) echo.Han
 // GetClusterSettingsEndpoint reads the settings of the cluster.
 //
 // @Summary Read the settings of the cluster
-// @Description Returns the NATS address of the frontends and of the workers and the waits of a change. A user name, password or query string in an address is dropped. Admin only.
+// @Description Returns the NATS address of the frontends and of the workers, the waits of a change, and the carrier weights (nats, websocket, p2p) that break a tie between equally fit nodes. A user name, password or query string in an address is dropped. Admin only.
 // @Tags Nodes
 // @Success 200 {object} localai.ClusterSettingsView
 // @Failure 503 {object} map[string]string "Distributed mode is not enabled"
@@ -271,6 +281,10 @@ type ClusterSettingsRequest struct {
 	PrepareTimeout   *string `json:"prepare_timeout"`
 	TransitionWindow *string `json:"transition_window"`
 	MaxDrain         *string `json:"max_drain"`
+	// CarrierWeights sets some or all of nats, websocket and p2p, each a whole
+	// number from 0 to 1000. A key that is absent stays as it is, null puts the
+	// default back, and a key that is not one of the three is refused.
+	CarrierWeights map[string]*int `json:"carrier_weights"`
 }
 
 // natsCheckTimeout bounds the reachability check of a saved URL.
@@ -297,7 +311,7 @@ type CarrierStatus interface {
 // are shared, and the credentials of NATS stay on each replica.
 //
 // @Summary Store settings of the cluster
-// @Description Stores the NATS address, the address workers use, or the waits of a change. Saving a NATS address checks that the serving replica reaches it and makes NATS available; it does not switch the cluster. Admin only.
+// @Description Stores the NATS address, the address workers use, the waits of a change, or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it and makes NATS available; it does not switch the cluster. Admin only.
 // @Tags Nodes
 // @Param request body localai.ClusterSettingsRequest true "settings to store"
 // @Success 200 {object} map[string]interface{} "saved, nats.reachable when a NATS address was checked, settings"
@@ -325,6 +339,18 @@ func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, p
 			{cluster.SettingPrepareTimeout, req.PrepareTimeout},
 			{cluster.SettingTransitionWindow, req.TransitionWindow},
 			{cluster.SettingMaxDrain, req.MaxDrain},
+		}
+		for name, v := range req.CarrierWeights {
+			key, ok := cluster.CarrierWeightKeys[name]
+			if !ok {
+				return carrierError(c, http.StatusBadRequest, fmt.Sprintf("carrier_weights: unknown carrier %q: use nats, websocket or p2p", name), nil)
+			}
+			if v == nil {
+				continue
+			}
+			if err := cluster.CheckSetting(key, strconv.Itoa(*v)); err != nil {
+				return carrierError(c, http.StatusBadRequest, fmt.Sprintf("carrier_weights.%s: %v", name, err), nil)
+			}
 		}
 		// Validate everything before storing anything. The store checks again, and a
 		// request that it would refuse half way must not be accepted here.
@@ -368,6 +394,18 @@ func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, p
 				continue
 			}
 			batch = append(batch, cluster.SettingChange{Key: ch.key, Value: *ch.val, Clear: *ch.val == ""})
+		}
+		// In name order, so that two requests that carry the same weights take the
+		// row locks in the same order.
+		names := slices.Sorted(maps.Keys(req.CarrierWeights))
+		for _, name := range names {
+			v := req.CarrierWeights[name]
+			key := cluster.CarrierWeightKeys[name]
+			if v == nil {
+				batch = append(batch, cluster.SettingChange{Key: key, Clear: true})
+				continue
+			}
+			batch = append(batch, cluster.SettingChange{Key: key, Value: strconv.Itoa(*v)})
 		}
 		if err := settings.Apply(ctx, batch, by); err != nil {
 			switch {

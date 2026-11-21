@@ -58,6 +58,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListEgressEvents:          "GET /api/chats/admin/egress/events",
 	ToolListFailoverChains:        "GET /api/failover",
 	ToolGetClusterCarrier:         "GET /api/cluster/carrier",
+	ToolGetCarrierWeights:         "GET /api/cluster/settings (carrier_weights)",
 	ToolGetP2PStatus:              "GET /api/p2p/status",
 	ToolListP2PDevices:            "GET /api/p2p/devices",
 	ToolListP2PInvites:            "GET /api/p2p/invites",
@@ -102,6 +103,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolSetP2PSplitNode:          "PATCH /api/p2p/split-workers/:id (node_id)",
 	ToolSetNodeSplitServer:       "PUT /api/nodes/:id/split-server",
 	ToolSetP2PRelayLimits:        "PUT /api/p2p/relays/:id/limits",
+	ToolSetCarrierWeights:        "PUT /api/cluster/settings (carrier_weights)",
 	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
 	// adminRoutesWithoutTool.
 	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",

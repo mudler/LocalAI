@@ -1099,6 +1099,56 @@ func (c *Client) GetClusterCarrier(ctx context.Context) (*localaitools.ClusterCa
 	return out, nil
 }
 
+// ---- Carrier weights ----
+
+type carrierWeightsWire struct {
+	CarrierWeights        localaitools.CarrierWeightValues `json:"carrier_weights"`
+	CarrierWeightsDefault localaitools.CarrierWeightValues `json:"carrier_weights_default"`
+}
+
+func carrierWeightsFromWire(w carrierWeightsWire) *localaitools.CarrierWeightsInfo {
+	cur, def := w.CarrierWeights, w.CarrierWeightsDefault
+	return &localaitools.CarrierWeightsInfo{Distributed: true, Weights: &cur, Defaults: &def}
+}
+
+// GetCarrierWeights reads GET /api/cluster/settings. A frontend that is not
+// distributed answers 503, which is reported as distributed=false.
+func (c *Client) GetCarrierWeights(ctx context.Context) (*localaitools.CarrierWeightsInfo, error) {
+	var raw carrierWeightsWire
+	if err := c.do(ctx, http.MethodGet, routeClusterSettings, nil, &raw); err != nil {
+		var he *HTTPError
+		if errors.As(err, &he) && he.StatusCode == http.StatusServiceUnavailable {
+			return &localaitools.CarrierWeightsInfo{Distributed: false}, nil
+		}
+		return nil, err
+	}
+	return carrierWeightsFromWire(raw), nil
+}
+
+// SetCarrierWeights sends PUT /api/cluster/settings with carrier_weights.
+func (c *Client) SetCarrierWeights(ctx context.Context, req localaitools.SetCarrierWeightsRequest) (*localaitools.CarrierWeightsInfo, error) {
+	weights := map[string]int{}
+	if req.NATS != nil {
+		weights["nats"] = *req.NATS
+	}
+	if req.WebSocket != nil {
+		weights["websocket"] = *req.WebSocket
+	}
+	if req.P2P != nil {
+		weights["p2p"] = *req.P2P
+	}
+	if len(weights) == 0 {
+		return nil, errors.New("give at least one of nats, websocket or p2p")
+	}
+	var raw struct {
+		Settings carrierWeightsWire `json:"settings"`
+	}
+	if err := c.do(ctx, http.MethodPut, routeClusterSettings, map[string]any{"carrier_weights": weights}, &raw); err != nil {
+		return nil, err
+	}
+	return carrierWeightsFromWire(raw.Settings), nil
+}
+
 // ---- Failover chains ----
 
 func (c *Client) ListFailoverChains(ctx context.Context) ([]localaitools.FailoverChainInfo, error) {

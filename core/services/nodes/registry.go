@@ -484,6 +484,11 @@ const (
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
+	// weightSource and ranks break ties between equally fit nodes by the carrier
+	// that reaches them (see carrier_rank.go). weightSource is nil until
+	// SetCarrierWeights.
+	weightSource atomic.Pointer[CarrierWeightSource]
+	ranks        rankCache
 	// clock stamps display fields of load jobs. Tests replace it to prove that
 	// the lease never depends on it. nil means time.Now.
 	clock func() time.Time
@@ -1003,7 +1008,7 @@ func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*
 	var node BackendNode
 	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND id NOT IN (?)",
 		StatusHealthy, NodeTypeBackend, minBytes, loadedModels).
-		Order("(available_vram - reserved_vram) DESC").
+		Scopes(r.weightTail(ctx, "(available_vram - reserved_vram) DESC")).
 		First(&node).Error
 	if err == nil {
 		return &node, nil
@@ -1013,7 +1018,7 @@ func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*
 	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ?",
 		StatusHealthy, NodeTypeBackend, minBytes).
 		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC").
+		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("no healthy nodes with %d bytes available VRAM: %w", minBytes, err)
@@ -2020,6 +2025,11 @@ type RoutePreference struct {
 // spec ("agrees with PickBestReplica on a seeded dataset") fails fast if they
 // drift.
 //
+// One deliberate difference: when a carrier weight source is set (distributed
+// mode), the ORDER BY adds the carrier weight after in_flight, and puts a
+// replica behind a data-limited relay last (see warmOrder). PickBestReplica has
+// no such key. With no source the two agree exactly.
+//
 // When candidateNodeIDs is non-empty, only nodes in that set are considered.
 // Pass nil (or empty) to consider any node. This lets callers pre-filter by
 // NodeSelector so a cached replica on a now-excluded node isn't picked over a
@@ -2090,7 +2100,7 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 		}
 		if !picked {
 			if err := base.
-				Order("node_models.in_flight ASC, node_models.last_used ASC, backend_nodes.available_vram DESC").
+				Scopes(func(q *gorm.DB) *gorm.DB { return q.Clauses(r.warmOrder(ctx)) }).
 				First(&nm).Error; err != nil {
 				return err
 			}
@@ -2238,7 +2248,7 @@ func (r *NodeRegistry) FindLeastLoadedNode(ctx context.Context) (*BackendNode, e
 		Group("node_id")
 
 	err := query.Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC").
+		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("finding least loaded node: %w", err)
@@ -2257,7 +2267,7 @@ func (r *NodeRegistry) FindIdleNode(ctx context.Context) (*BackendNode, error) {
 		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 	err := db.Where("status = ? AND node_type = ? AND id NOT IN (?)", StatusHealthy, NodeTypeBackend, loadedModels).
-		Order("available_vram DESC").
+		Scopes(r.weightTail(ctx, "available_vram DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, err
@@ -2498,7 +2508,7 @@ func (r *NodeRegistry) FindNodeWithVRAMFromSet(ctx context.Context, minBytes uin
 	var node BackendNode
 	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND id NOT IN (?) AND id IN ?",
 		StatusHealthy, NodeTypeBackend, minBytes, loadedModels, nodeIDs).
-		Order("(available_vram - reserved_vram) DESC").
+		Scopes(r.weightTail(ctx, "(available_vram - reserved_vram) DESC")).
 		First(&node).Error
 	if err == nil {
 		return &node, nil
@@ -2508,7 +2518,7 @@ func (r *NodeRegistry) FindNodeWithVRAMFromSet(ctx context.Context, minBytes uin
 	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND backend_nodes.id IN ?",
 		StatusHealthy, NodeTypeBackend, minBytes, nodeIDs).
 		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC").
+		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("no healthy nodes in set with %d bytes available VRAM: %w", minBytes, err)
@@ -2526,7 +2536,7 @@ func (r *NodeRegistry) FindIdleNodeFromSet(ctx context.Context, nodeIDs []string
 		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 	err := db.Where("status = ? AND node_type = ? AND id NOT IN (?) AND id IN ?", StatusHealthy, NodeTypeBackend, loadedModels, nodeIDs).
-		Order("available_vram DESC").
+		Scopes(r.weightTail(ctx, "available_vram DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, err
@@ -2547,7 +2557,7 @@ func (r *NodeRegistry) FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs [
 		Group("node_id")
 
 	err := query.Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC").
+		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("finding least loaded node in set: %w", err)

@@ -402,6 +402,43 @@ var _ = Describe("local-ai cluster", func() {
 			Expect(f.last().Body).To(Equal(map[string]any{"nats_worker_url": ""}))
 		})
 
+		It("parses --carrier-weight name=value pairs, more than once", func() {
+			var c struct {
+				Cluster Command `cmd:""`
+			}
+			parser, err := kong.New(&c)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = parser.Parse([]string{"cluster", "settings", "set", "--carrier-weight", "nats=10", "--carrier-weight", "p2p=default"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(c.Cluster.Settings.Set.CarrierWeight).To(Equal(map[string]string{"nats": "10", "p2p": "default"}))
+		})
+
+		It("sends the weights as a partial update, and null for default", func() {
+			f := newFakeServer(func(*http.Request, map[string]any) (int, any) {
+				return 200, map[string]any{"saved": true, "settings": map[string]any{
+					"carrier_weights": map[string]any{"nats": 10, "websocket": 50, "p2p": 25}}}
+			})
+			defer f.srv.Close()
+			c := &SetSettingsCommand{CarrierWeight: map[string]string{"nats": "10", "p2p": "default"}, Remote: remote(f)}
+			Expect(c.run(context.Background(), &out)).To(Succeed())
+			Expect(f.last().Body).To(Equal(map[string]any{"carrier_weights": map[string]any{"nats": 10.0, "p2p": nil}}))
+			Expect(out.String()).To(ContainSubstring("carrier_weights:   nats=10 websocket=50 p2p=25"))
+		})
+
+		It("refuses a weight that is not a number before it calls the server", func() {
+			err := (&SetSettingsCommand{CarrierWeight: map[string]string{"nats": "high"}}).run(context.Background(), io.Discard)
+			Expect(err).To(MatchError(ContainSubstring("whole number")))
+		})
+
+		It("shows the weights in the settings", func() {
+			f := newFakeServer(func(*http.Request, map[string]any) (int, any) {
+				return 200, map[string]any{"carrier_weights": map[string]any{"nats": 100, "websocket": 50, "p2p": 25}}
+			})
+			defer f.srv.Close()
+			Expect((&GetSettingsCommand{Remote: remote(f)}).run(context.Background(), &out)).To(Succeed())
+			Expect(out.String()).To(ContainSubstring("carrier_weights:   nats=100 websocket=50 p2p=25"))
+		})
+
 		It("refuses a call with nothing to store, and shows a refused address", func() {
 			Expect((&SetSettingsCommand{}).run(context.Background(), io.Discard)).To(MatchError(ContainSubstring("at least one setting")))
 

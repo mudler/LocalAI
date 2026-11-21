@@ -491,6 +491,16 @@ func (f *fakeClient) ClearRouterCorpus(_ context.Context, routerModel string) (*
 	return &RouterCorpusClearResult{Router: routerModel}, nil
 }
 
+func (f *fakeClient) GetCarrierWeights(_ context.Context) (*CarrierWeightsInfo, error) {
+	f.record("GetCarrierWeights", nil)
+	return &CarrierWeightsInfo{Distributed: true}, nil
+}
+
+func (f *fakeClient) SetCarrierWeights(_ context.Context, req SetCarrierWeightsRequest) (*CarrierWeightsInfo, error) {
+	f.record("SetCarrierWeights", req)
+	return &CarrierWeightsInfo{Distributed: true}, nil
+}
+
 func (f *fakeClient) GetClusterCarrier(_ context.Context) (*ClusterCarrierStatus, error) {
 	f.record("GetClusterCarrier", nil)
 	return &ClusterCarrierStatus{Distributed: true, Active: "tunnel", State: "stable", Epoch: 1}, nil
