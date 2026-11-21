@@ -15,6 +15,7 @@ func SchedulingConfigFromNode(config nodes.ModelSchedulingConfig) ModelSchedulin
 		MinPrefixMatch:      config.MinPrefixMatch,
 		TargetModel:         config.Target(),
 		Shadowed:            config.Shadowed,
+		UpgradeStrategy:     config.EffectiveUpgradeStrategy(),
 	}
 }
 

@@ -360,3 +360,11 @@
    numbers. */
 .sw-page .dk-table thead th { text-transform: none; letter-spacing: 0; }
 .sw-page .dk-table td.dk-num { font-family: var(--font-sans); }
+
+/* The worker invite of a compute node that joins over P2P. */
+.sw-invite { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--dk-space-3); }
+.sw-invite__field { display: flex; flex-direction: column; gap: var(--dk-space-1); flex: 1 1 16rem; min-width: 0; }
+.sw-invite__label { font-size: var(--dk-text-12); font-weight: var(--dk-weight-semibold); color: var(--dk-text); }
+.sw-invite__ready { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
+.sw-invite__warn { margin: 0; padding-left: var(--dk-space-4); font-size: var(--dk-text-13); color: var(--dk-warn-text); }
+.sw-note[data-level="error"] { color: var(--dk-error-text); }

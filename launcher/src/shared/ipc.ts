@@ -12,6 +12,11 @@ import type {
   CopyKeyFormat,
   CopyKeyResult,
   EnvVarResult,
+  RegistryCredentialInput,
+  RegistryCredentialRemoveResult,
+  RegistryCredentialSaveResult,
+  RegistryCredentialTestResult,
+  RegistryCredentialsView,
   EnvVarsView,
   ExportLogsResult,
   FolderKind,
@@ -37,6 +42,8 @@ import type {
   ServerSnapshot,
   ShellInsets,
   ShellScreen,
+  AddServerByInviteInput,
+  AddServerByInviteResult,
   AddServerInput,
   ServerChangeResult,
   ServersView,
@@ -118,6 +125,7 @@ export const IPC = {
   openSwitcher: 'launcher:servers:open-switcher',
   testServer: 'launcher:servers:test',
   addServer: 'launcher:servers:add',
+  addServerByInvite: 'launcher:servers:add-by-invite',
   updateServer: 'launcher:servers:update',
   removeServer: 'launcher:servers:remove',
   setDefaultServer: 'launcher:servers:set-default',
@@ -145,6 +153,10 @@ export const IPC = {
   setEnvVar: 'launcher:env:set',
   deleteEnvVar: 'launcher:env:delete',
   getSecretStorageState: 'launcher:secrets:state',
+  getRegistryCredentials: 'launcher:registry-credentials:list',
+  saveRegistryCredential: 'launcher:registry-credentials:save',
+  removeRegistryCredential: 'launcher:registry-credentials:remove',
+  testRegistryCredential: 'launcher:registry-credentials:test',
   // smoke test hook
   firstRender: 'launcher:first-render',
 } as const
@@ -197,6 +209,7 @@ export interface InvokeContract {
   'launcher:servers:get': { args: []; result: ServersView }
   'launcher:servers:test': { args: [input: TestInput]; result: TestOutcome }
   'launcher:servers:add': { args: [input: AddServerInput]; result: ServerChangeResult }
+  'launcher:servers:add-by-invite': { args: [input: AddServerByInviteInput]; result: AddServerByInviteResult }
   'launcher:servers:update': { args: [input: UpdateServerInput]; result: ServerChangeResult }
   'launcher:servers:remove': { args: [id: string]; result: ServerChangeResult }
   'launcher:servers:set-default': { args: [target: string]; result: SwitchResult }
@@ -222,6 +235,10 @@ export interface InvokeContract {
   'launcher:env:set': { args: [name: string, value: string]; result: EnvVarResult }
   'launcher:env:delete': { args: [name: string]; result: EnvVarsView }
   'launcher:secrets:state': { args: []; result: SecretStorageView }
+  'launcher:registry-credentials:list': { args: []; result: RegistryCredentialsView }
+  'launcher:registry-credentials:save': { args: [input: RegistryCredentialInput]; result: RegistryCredentialSaveResult }
+  'launcher:registry-credentials:remove': { args: [id: string]; result: RegistryCredentialRemoveResult }
+  'launcher:registry-credentials:test': { args: [id: string]; result: RegistryCredentialTestResult }
 }
 
 /** Payload of each event channel (main to renderer). */
@@ -305,6 +322,7 @@ export const CHANNEL_KIND: { [C in Channel]: C extends InvokeChannel ? 'invoke' 
   'launcher:servers:open-switcher': 'event',
   'launcher:servers:test': 'invoke',
   'launcher:servers:add': 'invoke',
+  'launcher:servers:add-by-invite': 'invoke',
   'launcher:servers:update': 'invoke',
   'launcher:servers:remove': 'invoke',
   'launcher:servers:set-default': 'invoke',
@@ -330,6 +348,10 @@ export const CHANNEL_KIND: { [C in Channel]: C extends InvokeChannel ? 'invoke' 
   'launcher:env:set': 'invoke',
   'launcher:env:delete': 'invoke',
   'launcher:secrets:state': 'invoke',
+  'launcher:registry-credentials:list': 'invoke',
+  'launcher:registry-credentials:save': 'invoke',
+  'launcher:registry-credentials:remove': 'invoke',
+  'launcher:registry-credentials:test': 'invoke',
   'launcher:first-render': 'send',
 }
 

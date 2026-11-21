@@ -22,6 +22,7 @@
 package httpclient
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -126,6 +127,7 @@ type options struct {
 	transport             http.RoundTripper
 	followRedirects       bool
 	externalOnly          bool
+	redirectHosts         map[string]bool
 }
 
 // Option configures a client built by New.
@@ -159,6 +161,76 @@ func WithResponseHeaderTimeout(d time.Duration) Option {
 // credential headers on any cross-host hop. Use only when an endpoint legitimately
 // redirects (e.g. some download CDNs) and the request carries a secret.
 func WithFollowRedirects() Option { return func(o *options) { o.followRedirects = true } }
+
+// WithRedirectHosts follows a redirect only when the target is an https URL on
+// the default port whose host is one of hosts (compared case-insensitively).
+// Use it for a fixed upstream that hands its content out through a known CDN,
+// such as a GitHub release asset, which github.com answers with a 302 to a
+// signed URL on an object-store host. Every hop is checked again: the scheme,
+// the host, the external URL policy (no loopback, link-local or private
+// address after resolution) and a bound of maxAllowListRedirects hops. On a
+// hop to a different origin every request header except a few content
+// negotiation headers is dropped, because a credential of the first host can
+// have any header name. Unless WithTransport is given, connections to the
+// allow-listed hosts dial only validated public addresses; other hosts (the
+// URL the caller asked for) keep the default dial, so a library on the local
+// network still works.
+//
+// It takes precedence over WithFollowRedirects.
+func WithRedirectHosts(hosts ...string) Option {
+	return func(o *options) {
+		o.redirectHosts = map[string]bool{}
+		for _, h := range hosts {
+			o.redirectHosts[strings.ToLower(h)] = true
+		}
+	}
+}
+
+// maxAllowListRedirects bounds WithRedirectHosts chains. A release asset takes
+// one hop; a few more leave room for a CDN that moves.
+const maxAllowListRedirects = 5
+
+// keptOnCrossOriginRedirect are the request headers WithRedirectHosts keeps
+// when a hop changes origin.
+var keptOnCrossOriginRedirect = []string{"Accept", "Accept-Language", "User-Agent"}
+
+// allowListRedirect is the CheckRedirect policy of WithRedirectHosts.
+func allowListRedirect(hosts map[string]bool) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if len(via) >= maxAllowListRedirects {
+			return fmt.Errorf("%w: stopped after %d redirects", ErrRedirectBlocked, maxAllowListRedirects)
+		}
+		host := strings.ToLower(req.URL.Hostname())
+		if !strings.EqualFold(req.URL.Scheme, "https") || (req.URL.Port() != "" && req.URL.Port() != "443") || !hosts[host] {
+			return fmt.Errorf("%w: refusing to follow redirect to %s://%s, which is not an allowed https host", ErrRedirectBlocked, req.URL.Scheme, req.URL.Host)
+		}
+		if err := validateRedirectTarget(req); err != nil {
+			return fmt.Errorf("%w: %w", ErrRedirectBlocked, err)
+		}
+		if !sameOrigin(via[len(via)-1].URL, req.URL) {
+			kept := http.Header{}
+			for _, h := range keptOnCrossOriginRedirect {
+				if v := req.Header.Values(h); len(v) > 0 {
+					kept[h] = v
+				}
+			}
+			req.Header = kept
+		}
+		return nil
+	}
+}
+
+// allowListDialContext dials the hosts of a WithRedirectHosts allow-list
+// through the validated dial, and every other host through d.
+func allowListDialContext(d *net.Dialer, hosts map[string]bool) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	validated := validatedDialContext(d)
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		if host, _, err := net.SplitHostPort(addr); err == nil && hosts[strings.ToLower(host)] {
+			return validated(ctx, network, addr)
+		}
+		return d.DialContext(ctx, network, addr)
+	}
+}
 
 // WithExternalOnly restricts a client to hosts that pass the external URL
 // policy (see IsPublicIP). Use it for every client that fetches a URL supplied
@@ -195,6 +267,11 @@ func New(opts ...Option) *http.Client {
 				Timeout:   dialTimeout,
 				KeepAlive: dialKeepAlive,
 			})
+		} else if len(o.redirectHosts) > 0 {
+			t.DialContext = allowListDialContext(&net.Dialer{
+				Timeout:   dialTimeout,
+				KeepAlive: dialKeepAlive,
+			}, o.redirectHosts)
 		}
 		rt = t
 	}
@@ -218,6 +295,9 @@ func New(opts ...Option) *http.Client {
 				return stripAuthOnRedirect(req, via)
 			}
 		}
+	}
+	if len(o.redirectHosts) > 0 {
+		check = allowListRedirect(o.redirectHosts)
 	}
 
 	return &http.Client{

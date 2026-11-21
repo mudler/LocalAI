@@ -17,10 +17,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/safefile"
@@ -57,17 +59,27 @@ func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string,
 // StartFileTransferServerWithCapacity starts the file transfer server with a
 // worker-local guard for per-request ephemeral inputs.
 func StartFileTransferServerWithCapacity(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return StartFileTransferServerWithControl(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
+}
+
+// StartFileTransferServerWithControl is StartFileTransferServerWithCapacity plus
+// the control plane of the worker. A non-nil control handler serves every path
+// under workerctl.Prefix, behind the same bearer check as the file routes. The
+// handler may gain its routes after the server started, as http.ServeMux does,
+// so a worker can start the server before the supervisor that owns the verbs
+// exists.
+func StartFileTransferServerWithControl(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, control http.Handler, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return startFileTransferServer(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, logStore...)
+	return startFileTransferServer(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, control, logStore...)
 }
 
 // StartFileTransferServerWithListener starts the server on an existing listener.
 // This avoids the TOCTOU race of closing a listener and re-binding to the same port.
 func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, nil, nil, logStore...)
+	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, nil, nil, nil, logStore...)
 }
 
 // StartFileTransferServerWithReadiness is StartFileTransferServerWithListener
@@ -75,10 +87,10 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 // the probe keeps its historical always-200 behaviour for callers that have no
 // meaningful readiness signal to report.
 func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, nil, logStore...)
 }
 
-func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, control http.Handler, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
@@ -92,6 +104,11 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 	// to fail closed) to protect it.
 	if token == "" {
 		xlog.Warn("HTTP file transfer server starting WITHOUT a registration token — read/write to models/staging/data is unauthenticated for anyone who can reach this port; set LOCALAI_REGISTRATION_TOKEN")
+	}
+
+	if control != nil && token == "" {
+		xlog.Warn("The control plane of this worker has no registration token, so it serves only callers on this host. " +
+			"A frontend reaches it through the tunnel; set LOCALAI_REGISTRATION_TOKEN to serve it to a caller on the network")
 	}
 
 	mux := http.NewServeMux()
@@ -157,6 +174,17 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+
+	// The control plane of the worker, for a worker that a frontend reaches over
+	// a tunnel. The bearer check is the one of the file routes: a verb can stop a
+	// node, so it is never served without it.
+	if control != nil {
+		if slot, ok := control.(*ControlSlot); ok {
+			mux.Handle(workerctl.Prefix, slot.gated(token))
+		} else {
+			mux.Handle(workerctl.Prefix, controlGate(token, control))
+		}
+	}
 
 	// Backend log endpoints (only registered when a log store is provided)
 	var ls *model.BackendLogStore
@@ -407,7 +435,7 @@ func handleHead(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, d
 	// X-Target-SHA256 and skip emitting X-Content-SHA256 (which would otherwise
 	// be the hash of just the bytes received so far — misleading for clients
 	// trying to decide whether the file is "the right one").
-	if target, err := os.ReadFile(filePath + targetSidecarSuffix); err == nil {
+	if target, err := os.ReadFile(filePath + targetSidecarSuffix); err == nil { // #nosec G304 -- filePath is validated by validatePathInDir against the target directory in the handler
 		t := strings.TrimSpace(string(target))
 		if len(t) == 64 {
 			w.Header().Set(HeaderTargetSHA256, t)
@@ -665,7 +693,7 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 	// Reset any in-progress resumable state.
 	_ = os.Remove(dstPath + targetSidecarSuffix)
 
-	f, err := os.Create(dstPath)
+	f, err := os.Create(dstPath) // #nosec G304 -- dstPath is validated by validatePathInDir against the target directory in the handler
 	if err != nil {
 		http.Error(w, fmt.Sprintf("creating file: %v", err), http.StatusInternalServerError)
 		return
@@ -694,8 +722,8 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 		}
 	}
 	if err != nil {
-		os.Remove(dstPath)
-		os.Remove(dstPath + hashSidecarSuffix)
+		_ = os.Remove(dstPath)                     // best-effort cleanup of the failed upload
+		_ = os.Remove(dstPath + hashSidecarSuffix) // the upload error is what gets reported
 		xlog.Error("File upload failed", "key", key, "bytesReceived", n, "contentLength", r.ContentLength, "remote", r.RemoteAddr, "error", err)
 		http.Error(w, fmt.Sprintf("writing file: %v", err), uploadWriteStatus(err))
 		return
@@ -710,7 +738,7 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 		return
 	}
 
-	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(hashHex), 0640); err != nil {
+	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(hashHex), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 		xlog.Warn("Failed to write hash sidecar", "path", dstPath+hashSidecarSuffix, "error", err)
 	}
 
@@ -751,11 +779,11 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 		if expectedFinalHash != "" {
 			// Compare the client's declared target hash against either an
 			// in-progress target sidecar OR the completed-file sidecar.
-			if t, err := os.ReadFile(targetSidecar); err == nil {
+			if t, err := os.ReadFile(targetSidecar); err == nil { // #nosec G304 -- targetSidecar is dstPath plus a fixed suffix; dstPath is validated by validatePathInDir against the target directory in the handler
 				if strings.EqualFold(strings.TrimSpace(string(t)), expectedFinalHash) {
 					sameFile = true
 				}
-			} else if h, err := os.ReadFile(dstPath + hashSidecarSuffix); err == nil {
+			} else if h, err := os.ReadFile(dstPath + hashSidecarSuffix); err == nil { // #nosec G304 -- dstPath is validated by validatePathInDir against the target directory in the handler
 				if strings.EqualFold(strings.TrimSpace(string(h)), expectedFinalHash) {
 					sameFile = true
 				}
@@ -782,7 +810,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	// Cross-attempt consistency: if there's an in-progress target sidecar with
 	// a different hash than what's now being claimed, force a restart.
 	if expectedFinalHash != "" && cr.start > 0 {
-		prev, _ := os.ReadFile(targetSidecar)
+		prev, _ := os.ReadFile(targetSidecar) // #nosec G304 -- targetSidecar is dstPath plus a fixed suffix; dstPath is validated by validatePathInDir against the target directory in the handler
 		prevHash := strings.TrimSpace(string(prev))
 		if prevHash != "" && !strings.EqualFold(prevHash, expectedFinalHash) {
 			_ = os.Remove(dstPath)
@@ -804,7 +832,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	}
 
 	// Open the file in append mode (create if missing).
-	f, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
+	f, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640) // #nosec G302 G304 -- dstPath is validated by validatePathInDir against the target directory in the handler; group-readable so the backend can load the staged file
 	if err != nil {
 		http.Error(w, fmt.Sprintf("opening dst: %v", err), http.StatusInternalServerError)
 		return
@@ -826,7 +854,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	// Persist the declared expected hash so subsequent chunks can be
 	// cross-checked.
 	if expectedFinalHash != "" {
-		if err := os.WriteFile(targetSidecar, []byte(expectedFinalHash), 0640); err != nil {
+		if err := os.WriteFile(targetSidecar, []byte(expectedFinalHash), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 			xlog.Warn("Failed to write target hash sidecar", "path", targetSidecar, "error", err)
 		}
 	}
@@ -886,7 +914,7 @@ func finalizeRangeUpload(w http.ResponseWriter, dstPath, key string, size int64,
 		return
 	}
 
-	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(finalHash), 0640); err != nil {
+	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(finalHash), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 		xlog.Warn("Failed to write hash sidecar", "path", dstPath+hashSidecarSuffix, "error", err)
 	}
 	// Clear the in-progress sidecar — upload is committed.
@@ -912,7 +940,7 @@ func computeAndCacheHash(filePath string) (string, error) {
 	}
 
 	if sidecarStat, err := os.Stat(sidecar); err == nil && !sidecarStat.ModTime().Before(fileStat.ModTime()) {
-		if data, err := os.ReadFile(sidecar); err == nil {
+		if data, err := os.ReadFile(sidecar); err == nil { // #nosec G304 -- sidecar is filePath plus a fixed suffix; filePath comes from the staging key handlers, which validate it
 			h := strings.TrimSpace(string(data))
 			if len(h) == 64 { // valid hex-encoded SHA-256
 				return h, nil
@@ -925,7 +953,7 @@ func computeAndCacheHash(filePath string) (string, error) {
 		return "", err
 	}
 
-	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil {
+	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 		xlog.Warn("Failed to write hash sidecar", "path", sidecar, "error", err)
 	}
 	return hashHex, nil
@@ -947,7 +975,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDi
 		return
 	}
 
-	f, err := os.Open(srcPath)
+	f, err := os.Open(srcPath) // #nosec G304 -- srcPath is validated by validatePathInDir against the target directory just above
 	if err != nil {
 		if os.IsNotExist(err) {
 			http.Error(w, "file not found", http.StatusNotFound)
@@ -987,7 +1015,9 @@ func handleAllocTemp(w http.ResponseWriter, r *http.Request, stagingDir string) 
 		return
 	}
 	localPath := f.Name()
-	f.Close()
+	if err := f.Close(); err != nil {
+		xlog.Warn("Failed to close temp file", "path", localPath, "error", err)
+	}
 
 	xlog.Debug("HTTP allocated temp file", "path", localPath)
 
@@ -1019,7 +1049,9 @@ func handleListDir(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir
 	}
 
 	var files []string
-	filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
+	// The callback skips unreadable entries and never returns an error, so
+	// the walk result carries nothing to handle.
+	_ = filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -1053,6 +1085,88 @@ func resolveKeyToDir(key, stagingDir, modelsDir, dataDir string) (targetDir, rel
 	return
 }
 
+// ControlSlot is a control plane that a worker can attach after its HTTP server
+// started, and detach again. A worker that booted on NATS has none, and a later
+// switch to the tunnel needs one without a restart.
+//
+// While nothing is attached, the path answers as a path that does not exist, so a
+// worker that never attaches behaves as it did before the slot existed. The
+// bearer check applies to what is attached, as for any control plane.
+type ControlSlot struct {
+	handler atomic.Pointer[http.Handler]
+}
+
+// Set attaches the control plane. A nil handler detaches it.
+func (s *ControlSlot) Set(h http.Handler) {
+	if h == nil {
+		s.handler.Store(nil)
+		return
+	}
+	s.handler.Store(&h)
+}
+
+// ServeHTTP serves the attached control plane, and 404 when there is none.
+func (s *ControlSlot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h := s.handler.Load(); h != nil {
+		(*h).ServeHTTP(w, r)
+		return
+	}
+	http.NotFound(w, r)
+}
+
+// gated is the slot behind controlGate. The check of the token comes after the
+// test for an attached plane, so that a path with nothing behind it does not
+// answer 401 to a caller who could not know that it exists.
+func (s *ControlSlot) gated(token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := s.handler.Load()
+		if h == nil {
+			http.NotFound(w, r)
+			return
+		}
+		controlGate(token, *h).ServeHTTP(w, r)
+	})
+}
+
+// controlGate puts the check of the control plane in front of next.
+//
+// The file routes have always fail open on an empty token, and a worker on NATS
+// keeps that. The control verbs are worse: they install a backend from any URI,
+// stop the node and delete models. A worker on the tunnel carrier that was given
+// an address binds every interface, so a control plane that failed open would be
+// open to the network. With a token, the bearer check decides, as for the file
+// routes. Without one, only a caller on the loopback address is served, which is
+// the stream that the tunnel opens on the worker, and any other caller is
+// refused for every verb.
+func controlGate(token string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token == "" {
+			if !fromLoopback(r) {
+				http.Error(w, "the control plane needs a registration token for a caller that is not on this host", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !checkBearerToken(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// fromLoopback reports whether the peer of the request is on the loopback
+// interface of this host.
+func fromLoopback(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 // checkBearerToken validates a Bearer token from the Authorization header
 // using constant-time comparison. Returns true if valid or if expectedToken is empty.
 func checkBearerToken(r *http.Request, expectedToken string) bool {
@@ -1065,6 +1179,19 @@ func checkBearerToken(r *http.Request, expectedToken string) bool {
 	}
 	provided := auth[7:]
 	return subtle.ConstantTimeCompare([]byte(provided), []byte(expectedToken)) == 1
+}
+
+// RequireBearer puts the bearer check of the worker in front of next. A request
+// without the token is answered 401. An empty token lets everything through, as
+// it does for the file routes.
+func RequireBearer(token string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !checkBearerToken(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // validatePathInDir checks that targetPath is within the given base directory.
@@ -1155,7 +1282,9 @@ func registerBackendLogHandlers(mux *http.ServeMux, token string, logStore *mode
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(logStore.ListModels())
+		if err := json.NewEncoder(w).Encode(logStore.ListModels()); err != nil {
+			xlog.Warn("Failed to encode backend-logs model list", "error", err)
+		}
 	})
 
 	mux.HandleFunc("/v1/backend-logs/", func(w http.ResponseWriter, r *http.Request) {
@@ -1186,7 +1315,9 @@ func registerBackendLogHandlers(mux *http.ServeMux, token string, logStore *mode
 		// REST: return buffered lines
 		modelID, _ := url.PathUnescape(rest)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(logStore.GetLines(modelID))
+		if err := json.NewEncoder(w).Encode(logStore.GetLines(modelID)); err != nil {
+			xlog.Warn("Failed to encode backend-logs lines", "model", modelID, "error", err)
+		}
 	})
 }
 
@@ -1202,10 +1333,12 @@ func handleBackendLogsWS(w http.ResponseWriter, r *http.Request, logStore *model
 	defer ws.Close()
 
 	ws.SetReadLimit(4096)
-	ws.SetReadDeadline(time.Now().Add(90 * time.Second))
+	if err := ws.SetReadDeadline(time.Now().Add(90 * time.Second)); err != nil {
+		xlog.Debug("Failed to set backend-logs read deadline", "error", err)
+		return
+	}
 	ws.SetPongHandler(func(string) error {
-		ws.SetReadDeadline(time.Now().Add(90 * time.Second))
-		return nil
+		return ws.SetReadDeadline(time.Now().Add(90 * time.Second))
 	})
 
 	conn := &backendLogsWSConn{Conn: ws}
@@ -1274,7 +1407,9 @@ type backendLogsWSConn struct {
 func (c *backendLogsWSConn) writeJSON(v any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	if err := c.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		return fmt.Errorf("set write deadline: %w", err)
+	}
 	data, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("marshal error: %w", err)
@@ -1285,6 +1420,8 @@ func (c *backendLogsWSConn) writeJSON(v any) error {
 func (c *backendLogsWSConn) writePing() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	if err := c.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		return fmt.Errorf("set write deadline: %w", err)
+	}
 	return c.Conn.WriteMessage(websocket.PingMessage, nil)
 }

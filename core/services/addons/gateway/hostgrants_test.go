@@ -213,6 +213,12 @@ var _ = Describe("The host access owner service", func() {
 				}
 			}
 		})
+		It("names the signer of a package from a signed source that is not official", func() {
+			f := newHGFixture()
+			Expect(preview(f).Signer).To(BeEmpty())
+			f.mgr.release.Official, f.mgr.release.Signer = false, "signer@registry.example"
+			Expect(preview(f).Signer).To(Equal("signer@registry.example"))
+		})
 		It("says when the blanket switch would grant on install", func() {
 			f := newHGFixture()
 			_, err := f.svc.Serve(human, admin, call(HostGrantsBlanket, "b1", "", HostGrantsBlanketRequest{OperationID: "b1", Mode: "official", Confirm: BlanketConfirmOfficial}))

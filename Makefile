@@ -171,7 +171,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-e2e-distributed-p2p-worker test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -398,6 +398,14 @@ run-e2e-aio: protogen-go
 test-e2e-distributed: protogen-go
 	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+
+## A worker that joins over P2P with a worker invite (`local-ai worker --join`),
+## with real processes: PostgreSQL and NATS in containers, a frontend in P2P
+## mode share, and the worker. The spec carries the P2PWorker label.
+test-e2e-distributed-p2p-worker: protogen-go build-mock-backend
+	@echo 'Running the P2P worker e2e (label P2PWorker)'
+	LOCALAI_E2E_MOCK_BACKEND=$(abspath tests/e2e/mock-backend/mock-backend) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='P2PWorker' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
 
 # Platform e2e: MCP connectors and apps, collections, the process flags and the
 # permission of the new routes, against the real local-ai binary. The suite builds
@@ -981,7 +989,7 @@ test-extra-backend-vllm: docker-build-vllm
 	$(MAKE) test-extra-backend
 
 ## vllm multi-node data-parallel smoke test. Runs LocalAI head + a
-## `local-ai p2p-worker vllm` follower in docker compose against
+## `local-ai worker vllm` follower in docker compose against
 ## Qwen2.5-0.5B with data_parallel_size=2. Requires 2 NVIDIA GPUs and
 ## nvidia-container-runtime on the host — vLLM v1's DP coordinator is
 ## not viable on CPU so this cannot run in CI without GPU.
@@ -1878,7 +1886,7 @@ test-i18n:
 ## "PostgreSQL"; the focus selects them. The packages are listed one by one
 ## because -ginkgo.focus is an error for a test binary that has no Ginkgo.
 POSTGRES_STORE_PKGS = ./core/services/studio/agents ./core/services/studio/connectors \
-	./core/services/studio/notify ./core/services/studio/store ./core/services/studio/triggers \
+	./core/services/notify ./core/services/studio/store ./core/services/studio/triggers \
 	./core/services/studio/workspace/gormstore ./core/services/studio/jobs ./core/services/studio/projects ./core/http/auth
 test-postgres:
 	@test -n "$$LOCALAI_TEST_POSTGRES_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL is not set; point it at a database the tests may wipe' >&2; exit 1; }
@@ -1901,6 +1909,46 @@ test-distributed-fakebus:
 		./core/services/testutil/... ./core/services/messaging/... ./core/services/studio/... \
 		./core/services/collections/... ./core/services/syncstate/... \
 		./core/services/modeladmin/... ./core/services/failover/...
+
+## Unit and race tests of the P2P packages (the lean libp2p host, the gated
+## relay and the pairing service). Packages that do not exist yet are skipped,
+## so the target stays green while the layer is built up.
+P2P_PACKAGES=p2pnet p2prelay p2ppair
+P2P_TEST_DIRS=$(foreach p,$(P2P_PACKAGES),$(if $(wildcard core/services/$(p)),./core/services/$(p)/...))
+
+test-p2p:
+ifeq ($(strip $(P2P_TEST_DIRS)),)
+	@echo 'test-p2p: none of the P2P packages ($(P2P_PACKAGES)) exists under core/services yet, nothing to test'
+else
+	@echo 'Running P2P unit tests under the race detector: $(P2P_TEST_DIRS)'
+	$(GOTEST) -race -count=1 -timeout 15m $(P2P_TEST_DIRS)
+endif
+
+## P2P NAT lab (needs Docker and a Linux kernel with iptables NAT). Builds the
+## real relay (cmd/localai-relay) and the lab binary (tests/e2e/p2p/labbin) as
+## static linux binaries and runs the cases in tests/e2e/p2p/lab in Docker
+## containers behind two NAT routers. Logs go to P2P_LAB_LOGS. P2P_LAB_BIN and
+## P2P_LAB_RELAY_BIN use binaries you built, P2P_LAB_ARGS picks cases (see
+## tests/e2e/p2p/README.md).
+P2P_LAB_DIR=tests/e2e/p2p/lab
+P2P_LAB_BIN?=
+P2P_LAB_RELAY_BIN?=
+P2P_LAB_LOGS?=$(abspath $(P2P_LAB_DIR)/logs)
+P2P_LAB_ARGS?=
+
+test-e2e-p2p:
+	@mkdir -p $(P2P_LAB_DIR)/bin
+	@if [ -z "$(strip $(P2P_LAB_BIN))" ]; then \
+		echo 'Building the P2P lab binary'; \
+		CGO_ENABLED=0 GOOS=linux $(GOCMD) build -trimpath -o $(P2P_LAB_DIR)/bin/p2plab ./tests/e2e/p2p/labbin || exit 1; \
+	fi
+	@if [ -z "$(strip $(P2P_LAB_RELAY_BIN))" ]; then \
+		echo 'Building the relay'; \
+		CGO_ENABLED=0 GOOS=linux $(GOCMD) build -trimpath -tags nosqlite,purego_utp -o $(P2P_LAB_DIR)/bin/localai-relay ./cmd/localai-relay || exit 1; \
+	fi
+	LAB_BIN=$(abspath $(or $(P2P_LAB_BIN),$(P2P_LAB_DIR)/bin/p2plab)) \
+	LAB_RELAY_BIN=$(abspath $(or $(P2P_LAB_RELAY_BIN),$(P2P_LAB_DIR)/bin/localai-relay)) \
+	LAB_LOGS=$(P2P_LAB_LOGS) $(P2P_LAB_DIR)/run.sh $(P2P_LAB_ARGS)
 
 ## The add-on suites of scripts/addons/suites.json that need the integration
 ## build (UI server, mock backend, browser). ADDON_SUITES picks the ones to run;
@@ -1964,11 +2012,6 @@ clean-ui-test-server:
 .PHONY: swagger
 swagger:
 	swag init -g core/http/app.go --output swagger
-
-# DEPRECATED: gen-assets is for the Explorer page (Alpine.js). Remove when the Explorer page moves to the React UI.
-.PHONY: gen-assets
-gen-assets:
-	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets
 
 ## Documentation and website
 # The published site is two Hugo sites: website/ owns the root, docs/ is nested

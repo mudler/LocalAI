@@ -1,5 +1,7 @@
 // Servers, the default target and the update channel, as the core runs them.
+import { EventEmitter } from 'node:events'
 import fs from 'node:fs'
+import { PassThrough } from 'node:stream'
 import path from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { EventContract } from '../src/shared/ipc'
@@ -447,6 +449,52 @@ describe('the update channel', () => {
     expect(fs.readFileSync(r.binary + '.previous').equals(devBin)).toBe(true)
     expect(await r.core.updateInfo()).toMatchObject({ channel: 'stable', previousVersion: 'abc1234' })
     expect(cfg(r).update_channel).toBe('stable')
+  })
+})
+
+describe('a server added by invite link', () => {
+  const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
+  const invite = (kind = 'device') => `localai://pair?v=1&k=${kind}&p=${PEER}&c=ABCDEFGHJK&e=${Math.floor(Date.now() / 1000) + 600}&n=studio`
+
+  it('pairs through local-ai, saves the forwarder origin and starts the forwarder', async () => {
+    const runs: string[][] = []
+    const spawns: string[][] = []
+    const r = await rig({}, {
+      runCommand: async (_cmd, args) => {
+        runs.push(args)
+        return { code: 0, stdout: JSON.stringify({ kind: 'device', phrase: 'apple river stone cloud', server: { peer_id: PEER, name: 'Studio' } }), stderr: '' }
+      },
+      spawnTunnel: (_cmd, args) => {
+        spawns.push(args)
+        const child = Object.assign(new EventEmitter(), { stderr: new PassThrough(), kill: () => true })
+        return child as never
+      },
+      freePort: async () => 41231,
+    })
+    await r.core.init()
+    const link = invite()
+    const res = await r.core.addServerByInvite({ link })
+    expect(res).toMatchObject({ ok: true, phrase: 'apple river stone cloud', opened: false })
+    expect(runs[0].slice(0, 4)).toEqual(['p2p', 'pair', '--invite', link])
+    expect(runs[0]).toContain(path.join(r.home, '.localai', 'launcher-p2p', 'identity.key'))
+    expect(cfg(r).remotes).toEqual([{ id: expect.any(String), name: 'Studio', url: 'http://127.0.0.1:41231', p2p: { peer: PEER, port: 41231, addrs: [], relays: [] } }])
+    expect(spawns[0].slice(0, 6)).toEqual(['p2p', 'forward', '--peer', PEER, '--listen', '127.0.0.1:41231'])
+    const row = r.core.serversView().rows.find((x) => x.origin === 'http://127.0.0.1:41231')
+    expect(row?.p2p?.state).toBe('starting')
+    expect(row?.insecure).toBe(false)
+
+    expect(await r.core.addServerByInvite({ link: invite() })).toEqual({ ok: false, reason: 'duplicate' })
+    expect(await r.core.removeServer(row!.id)).toMatchObject({ ok: true })
+    expect(r.core.serversView().rows.some((x) => x.p2p)).toBe(false)
+  })
+
+  it('refuses a bad link, an open relay without consent and a failed pairing', async () => {
+    const r = await rig({}, { runCommand: async () => ({ code: 1, stdout: '', stderr: 'cannot reach the server named in the invite\n' }) })
+    await r.core.init()
+    expect(await r.core.addServerByInvite({ link: 'https://studio.example.com' })).toEqual({ ok: false, reason: 'invite-invalid' })
+    expect(await r.core.addServerByInvite({ link: `${invite()}&o=0` })).toEqual({ ok: false, reason: 'open-relay' })
+    expect(await r.core.addServerByInvite({ link: invite() })).toEqual({ ok: false, reason: 'pair-failed', detail: 'cannot reach the server named in the invite' })
+    expect(r.core.serversView().rows.filter((x) => x.kind === 'remote')).toEqual([])
   })
 })
 

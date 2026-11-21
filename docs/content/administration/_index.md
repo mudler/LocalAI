@@ -33,7 +33,8 @@ Set up users and API keys, change settings without a restart, watch traffic, and
 ## More than one machine
 
 - [Distributed mode]({{% relref "/administration/distributed-mode" %}})
-- [P2P and federated inference]({{% relref "/administration/p2p-federated-inference" %}}) and its [API]({{% relref "/administration/p2p-api" %}})
+- [P2P]({{% relref "/administration/p2p" %}}), [Federation]({{% relref "/administration/federation" %}}) and [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}})
+- [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}})
 - [MLX distributed]({{% relref "/administration/mlx-distributed" %}})
 
 ## When something fails

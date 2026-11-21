@@ -3,7 +3,6 @@ package testutil
 import (
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync"
 	"time"
 
@@ -74,16 +73,31 @@ func (b *FakeBus) Publish(subject string, data any) error {
 	if err != nil {
 		return err
 	}
+	if err := messaging.CheckBroadcastSize(subject, len(payload)); err != nil {
+		return err
+	}
 	b.mu.Lock()
 	b.publishCounts[subject]++
 	subs := append([]fakeBusSub(nil), b.subs...)
 	b.mu.Unlock()
 	for _, s := range subs {
-		if subjectMatches(s.subject, subject) {
+		if messaging.SubjectMatches(s.subject, subject) {
 			s.handler(payload)
 		}
 	}
 	return nil
+}
+
+// SubscribedSubjects returns the subject of each live subscription, so a spec
+// can pin that a component listens to nothing on a subject.
+func (b *FakeBus) SubscribedSubjects() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([]string, 0, len(b.subs))
+	for _, s := range b.subs {
+		out = append(out, s.subject)
+	}
+	return out
 }
 
 // PublishCount returns how many messages were published on the exact subject.
@@ -208,6 +222,19 @@ func (b *FakeBus) Request(subject string, data []byte, _ time.Duration) ([]byte,
 	return reply, nil
 }
 
+// RequestInstance is Request: the fake routes by subject, so a spec that runs
+// several processes on one bus names each by the subject it serves (as the
+// chat replay does), and the instance is not read.
+func (b *FakeBus) RequestInstance(_ string, subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	return b.Request(subject, data, timeout)
+}
+
+// RequestQueue is Request: a subject has one replier on the fake, so a queue
+// has one member and a refusal that moveOn reads has nowhere else to go.
+func (b *FakeBus) RequestQueue(subject string, data []byte, timeout time.Duration, _ func([]byte) bool) ([]byte, error) {
+	return b.Request(subject, data, timeout)
+}
+
 type fakeReplySubscription struct {
 	bus     *FakeBus
 	subject string
@@ -250,27 +277,4 @@ func (b *FakeBus) TriggerReconnect() {
 	for _, cb := range cbs {
 		cb()
 	}
-}
-
-// subjectMatches reports whether a subscription filter matches a concrete
-// subject, honouring the single-token `*` wildcard the way NATS does, so the
-// fake delivers to the same subscribers the real carrier would.
-func subjectMatches(filter, subject string) bool {
-	if filter == subject {
-		return true
-	}
-	fp := strings.Split(filter, ".")
-	sp := strings.Split(subject, ".")
-	if len(fp) != len(sp) {
-		return false
-	}
-	for i := range fp {
-		if fp[i] == "*" {
-			continue
-		}
-		if fp[i] != sp[i] {
-			return false
-		}
-	}
-	return true
 }

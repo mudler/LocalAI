@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
 
@@ -1209,6 +1210,11 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		if admin == nil {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
 		}
+		// An invite records its creator, and the static API key has no account
+		// row to record: the insert would fail on the creator foreign key.
+		if admin.ID == "legacy-api-key" {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "a named account is required to create invites; sign in with a user account instead of the static API key"})
+		}
 
 		var body struct {
 			ExpiresInHours int `json:"expiresInHours"`
@@ -1233,6 +1239,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 			ExpiresAt:  time.Now().Add(time.Duration(body.ExpiresInHours) * time.Hour),
 		}
 		if err := db.Create(invite).Error; err != nil {
+			xlog.Error("failed to create invite", "creator", admin.ID, "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create invite"})
 		}
 

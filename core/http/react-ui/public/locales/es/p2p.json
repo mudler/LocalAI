@@ -1,0 +1,424 @@
+{
+  "title": "P2P",
+  "supporting": "Dispositivos, remotos y nodos que llegan a este servidor por P2P, y las invitaciones que los dejan entrar.",
+  "loadStatusFailed": "No se pudo leer el estado de P2P.",
+  "tabs": {
+    "label": "P2P",
+    "devices": "Dispositivos e invitaciones",
+    "federation": "Federación",
+    "settings": "Ajustes"
+  },
+  "mode": {
+    "off": {
+      "title": "P2P está desactivado",
+      "reason": "Cambia el modo P2P a Conectar y compartir para invitar dispositivos, remotos y nodos. Ese modo necesita que la autenticación esté activada."
+    },
+    "connect": {
+      "title": "P2P está en modo Solo conectar",
+      "reason": "Este servidor usa remotos por P2P y no acepta a nadie. Para invitar dispositivos, cambia el modo a Conectar y compartir. Ese modo necesita que la autenticación esté activada."
+    },
+    "fix": "Abrir los ajustes de P2P"
+  },
+  "kinds": {
+    "device": {
+      "title": "Dispositivo",
+      "body": "Un launcher u otro navegador. La persona inicia sesión como hasta ahora."
+    },
+    "remote": {
+      "title": "Remoto",
+      "body": "Otro LocalAI usa los modelos de esta instancia, todos o los que elijas."
+    },
+    "worker": {
+      "title": "Worker",
+      "body": "Un nodo de cómputo de este clúster. Se une por P2P y espera tu aprobación."
+    },
+    "split": {
+      "title": "Worker con modelo dividido"
+    }
+  },
+  "ttl": {
+    "600": "10 min",
+    "3600": "1 hora",
+    "86400": "1 día"
+  },
+  "share": {
+    "open": "Compartir esta instancia…",
+    "title": "Compartir esta instancia",
+    "intro": "Crea un enlace de invitación de un solo uso. El otro lado lo pega o escanea su código QR.",
+    "kind": "Tipo",
+    "qrNote": "Las invitaciones de dispositivo y de remoto muestran un código QR, para un teléfono o una tableta.",
+    "kindNote": {
+      "device": {
+        "title": "Solo admisión P2P.",
+        "body": "Una invitación de dispositivo permite que el dispositivo llegue a esta instancia. La persona sigue iniciando sesión en la interfaz web con su propia cuenta."
+      },
+      "remote": {
+        "title": "Solo modelos, nada más.",
+        "body": "El otro LocalAI recibe una clave API para los modelos que elijas abajo: todos, también los que añadas más tarde, o una lista. Los modelos con herramientas adjuntas quedan fuera. La clave no llega a nada más: ni ajustes, ni archivos, ni otra parte de la API."
+      },
+      "worker": {
+        "title": "Un nodo para este clúster.",
+        "body": "La máquina ejecuta local-ai worker --join con el enlace. Se registra por P2P, sin puerto abierto ni token de registro, y espera en la página de nodos hasta que la apruebes."
+      }
+    },
+    "label": "Etiqueta",
+    "labelPlaceholder": {
+      "device": "Portátil de Alex",
+      "remote": "Sucursal",
+      "worker": "gpu-box-5"
+    },
+    "labelHint": "Se muestra en Dispositivos e invitaciones.",
+    "models": {
+      "label": "Modelos",
+      "all": "Todos los modelos",
+      "specific": "Elegir modelos",
+      "allHint": "La clave puede usar cada modelo de esta instancia, también los modelos que añadas más tarde.",
+      "specificHint": "La clave solo puede usar los modelos que marques. Un modelo con herramientas adjuntas no se puede compartir.",
+      "loading": "Cargando modelos…",
+      "loadFailed": "No se pudieron cargar los modelos.",
+      "retry": "Reintentar",
+      "empty": "Esta instancia aún no tiene ningún modelo para compartir.",
+      "search": "Buscar modelos",
+      "noMatch": "Ningún modelo coincide.",
+      "selected_one": "{{count}} modelo elegido",
+      "selected_other": "{{count}} modelos elegidos",
+      "reason": {
+        "noModels": "Elige al menos un modelo, o elige Todos los modelos."
+      }
+    },
+    "expires": "Caduca después de",
+    "singleUseHint": "Cada invitación funciona una vez.",
+    "nothingYet": "No se crea nada hasta que pulses Crear invitación.",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "mint": "Crear invitación",
+    "mintFailed": "No se creó la invitación.",
+    "needsAccount": {
+      "title": "Inicia sesión con una cuenta de usuario para compartir con un remoto",
+      "body": "El otro LocalAI recibe una clave API que pertenece a tu cuenta de usuario. Has iniciado sesión con la clave API definida en LOCALAI_API_KEY, que no tiene cuenta. Inicia sesión con una cuenta de usuario y vuelve a crear la invitación. Las invitaciones de dispositivo funcionan como antes."
+    },
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "copyFailed": "No se copió el enlace. Selecciónalo y cópialo a mano.",
+    "canceled": "Invitación cancelada.",
+    "revoked": "{{label}} revocado.",
+    "result": {
+      "title": "Invitación para {{label}}",
+      "sub": "{{kind}} · un solo uso · {{ttl}}",
+      "link": "Enlace de invitación",
+      "qrLabel": "Código QR del enlace de invitación",
+      "qrCaption": "Para un teléfono o una tableta",
+      "how": {
+        "device": "En el launcher: Añadir servidor y luego Enlace de invitación. El enlace contiene el ID de peer de este servidor y el pase del relay, así que un código corto no basta.",
+        "remote": "En el otro LocalAI: Inicio o Conexiones, Conectar un remoto y luego Enlace de invitación. Pega el enlace completo.",
+        "worker": "En la máquina nueva ejecuta local-ai worker --join con el enlace completo entre comillas. Luego el nodo espera tu aprobación en la página de nodos."
+      },
+      "waiting": "Esperando al dispositivo… Cancelar la invitación también cancela su pase del relay.",
+      "waitingWorker": "Esperando al worker… Cancelar la invitación también cancela su pase del relay.",
+      "expired": "La invitación caducó.",
+      "expiredTitle": "Esta invitación caducó.",
+      "expiredBody": "Nadie la usó a tiempo. Crea una nueva cuando el otro lado esté listo.",
+      "again": "Crearla de nuevo",
+      "cancel": "Cancelar invitación",
+      "done": "Hecho"
+    },
+    "facts": {
+      "expires": "Caduca",
+      "singleUse": "un solo uso",
+      "serverPeer": "ID de peer del servidor",
+      "devicePeer": "ID de peer del dispositivo",
+      "relay": "Pista de relay",
+      "relayGated": "{{relay}} (tu relay, con acceso controlado)",
+      "relayOpen": "{{relay}} (relay abierto)",
+      "none": "Ninguno",
+      "pass": "Pase del relay",
+      "passOn": "Registrado en {{relay}}, válido {{ttl}}, un solo uso",
+      "passUnreachable": "Ninguno: {{relay}} no respondió",
+      "passNone": "Ninguno",
+      "public": "Dirección pública",
+      "publicYes": "Sí",
+      "publicNo": "Ninguna (detrás de NAT)",
+      "models": "Modelos",
+      "modelsAll": "Todos los modelos",
+      "modelsSome_one": "{{count}} modelo",
+      "modelsSome_other": "{{count}} modelos"
+    },
+    "admission": {
+      "title": "Solo admisión P2P.",
+      "result": "La invitación permite que el dispositivo llegue a esta instancia. La persona sigue iniciando sesión en la interfaz web."
+    },
+    "warn": {
+      "unreachable": {
+        "title": "Esta invitación no tiene pase del relay. Solo puede emparejarse con una conexión directa.",
+        "body": "{{relay}} no respondió cuando se creó la invitación, así que no hay ningún pase registrado en él. Crea la invitación de nuevo cuando el relay vuelva.",
+        "again": "Crearla de nuevo",
+        "check": "Revisar el relay"
+      },
+      "noRelay": {
+        "title": "Los dispositivos detrás de un NAT estricto no pueden conectarse sin un relay.",
+        "body": "Este servidor no tiene relay. Alrededor de 3 de cada 10 redes bloquean las conexiones directas. Añade un relay o ejecuta uno.",
+        "add": "Añadir un relay"
+      },
+      "openRelay": {
+        "title": "Esta invitación indica un relay abierto.",
+        "body": "Cualquiera puede usar {{relay}}, y puede limitar la velocidad de cada conexión."
+      },
+      "noPublic": {
+        "title": "Este servidor no tiene dirección pública.",
+        "body": "El dispositivo se conecta por hole punching, o a través de un relay si eso falla."
+      }
+    },
+    "connected": {
+      "title": "{{label}} conectado",
+      "sub": "{{kind}} · emparejado ahora mismo",
+      "confirm": "Confirma que el otro lado muestra",
+      "hint": "{{label}} ahora muestra las mismas palabras. Si no coinciden, otra persona usó la invitación.",
+      "signIn": "La persona sigue iniciando sesión en la interfaz web.",
+      "keyNote": "Revócalo cuando quieras en Dispositivos e invitaciones.",
+      "mismatch": "No coinciden: revocar",
+      "match": "Coinciden",
+      "approve": "El nodo se registra a continuación y espera tu aprobación en la página de nodos."
+    }
+  },
+  "invites": {
+    "title": "Invitaciones pendientes",
+    "note": "Una invitación funciona una vez y caduca. Cancelar una invitación también cancela su pase del relay.",
+    "loadFailed": "No se pudieron cargar las invitaciones.",
+    "empty": {
+      "title": "No hay invitaciones pendientes",
+      "body": "Crea una invitación para que un dispositivo o un remoto llegue a este servidor."
+    },
+    "col": {
+      "label": "Etiqueta",
+      "kind": "Tipo",
+      "created": "Creada",
+      "expires": "Caduca en",
+      "pass": "Pase del relay",
+      "actions": "Acciones"
+    },
+    "passOn": "En {{relay}}",
+    "passNone": "Ninguno: solo se empareja con una conexión directa",
+    "cancel": "Cancelar",
+    "canceled": "Invitación para {{label}} cancelada.",
+    "cancelFailed": "No se canceló la invitación: {{message}}"
+  },
+  "devices": {
+    "title": "Dispositivos",
+    "active_one": "{{count}} activo",
+    "active_other": "{{count}} activos",
+    "note": "Cada dispositivo tiene su propia clave. Revoca uno y los demás siguen funcionando.",
+    "loadFailed": "No se pudieron cargar los dispositivos.",
+    "empty": {
+      "title": "Aún no hay dispositivos emparejados",
+      "body": "Un dispositivo aparece aquí cuando canjea una invitación."
+    },
+    "col": {
+      "label": "Etiqueta",
+      "kind": "Tipo",
+      "peer": "ID de peer",
+      "seen": "Visto por última vez",
+      "path": "Ruta",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "never": "Nunca",
+    "status": {
+      "active": "Activo",
+      "revoked": "Revocado"
+    },
+    "path": {
+      "direct": "Directa",
+      "holePunched": "Hole punching",
+      "relayed": "Por {{relay}}",
+      "relayedUnknown": "Por un relay",
+      "none": "No conectado",
+      "offline": "No conectado",
+      "limited": "Limitada",
+      "limitedHint": "El relay limita los datos o el tiempo de cada conexión. Las transferencias grandes necesitan una ruta directa.",
+      "rtt": "{{ms}} ms"
+    },
+    "revoke": "Revocar…",
+    "revokeTitle": "¿Revocar {{label}}?",
+    "revokeConfirm": "Revocar",
+    "revokeBody": {
+      "device": "El dispositivo pierde su clave P2P ahora y sus conexiones abiertas se cierran. La persona conserva su cuenta. Los demás dispositivos no se ven afectados. Para conectarlo de nuevo, crea una nueva invitación.",
+      "remote": "El remoto pierde ahora su clave P2P y su clave API, y sus conexiones abiertas se cierran. Sus modelos dejan de funcionar en el otro lado. Los demás dispositivos no se ven afectados. Para conectarlo de nuevo, crea una nueva invitación.",
+      "other": "El nodo pierde su clave P2P ahora y sus conexiones abiertas se cierran. Los demás dispositivos no se ven afectados. Para conectarlo de nuevo, crea una nueva invitación."
+    },
+    "revoked": "{{label}} revocado."
+  },
+  "invite": {
+    "connectWith": "Conectar con",
+    "withAddress": "Dirección",
+    "withInvite": "Enlace de invitación",
+    "link": "Enlace de invitación",
+    "linkHint": "Pide al administrador del otro LocalAI una invitación de remoto y pega el enlace completo.",
+    "problem": {
+      "malformed": "Este no es un enlace de invitación de LocalAI. Empieza por localai://pair.",
+      "wrongKind": "Esta es una invitación de tipo {{kind}}. Pide al administrador del otro LocalAI una invitación de remoto.",
+      "expired": "Esta invitación caducó. Pide al administrador del otro LocalAI una nueva."
+    },
+    "preview": {
+      "server": "Servidor",
+      "kind": "Tipo",
+      "pass": "Pase del relay",
+      "passIncluded": "Incluido · {{relay}}",
+      "passNone": "Ninguno: el enlace se empareja con una conexión directa o por hole punching",
+      "path": "Ruta",
+      "pathRelay": "Primero directa, luego hole punching, luego {{relay}}",
+      "pathDirect": "Primero directa, luego hole punching",
+      "expires": "Caduca",
+      "expiresAt": "{{when}} · un solo uso"
+    },
+    "openRelay": "El enlace indica un relay abierto. Cualquiera puede usarlo, y puede limitar la velocidad de cada conexión.",
+    "connect": "Conectar",
+    "connecting": "Conectando…",
+    "connected": "Conectado",
+    "ok_one": "Conectado a {{name}} por P2P. Se encontró {{count}} modelo.",
+    "ok_other": "Conectado a {{name}} por P2P. Se encontraron {{count}} modelos.",
+    "switched": {
+      "title": "P2P está activado en modo Solo conectar. Este servidor no acepta a nadie.",
+      "body": "P2P estaba desactivado. Al conectar se activó para que este servidor pueda llegar al otro LocalAI. Cambia el modo en Swarm, P2P, Ajustes."
+    },
+    "fail": {
+      "title": "No se pudo conectar",
+      "invalid": "La invitación no es válida: se usó, se canceló o caducó. Pide una nueva.",
+      "rateLimited": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+      "malformed": "El otro LocalAI no pudo leer esta invitación.",
+      "unsupported": "Este servidor no puede conectar un remoto con un enlace de invitación.",
+      "conflict": "Este servidor ya está emparejado con ese LocalAI, o ya existe un remoto con ese nombre."
+    },
+    "blocked": {
+      "title": "Ambas redes bloquean las conexiones directas.",
+      "body": "El hole punching falló. Alrededor de 3 de cada 10 pares de redes necesitan un relay que funcione.",
+      "bodyRelay": "El hole punching falló y {{relay}} no respondió. Alrededor de 3 de cada 10 pares de redes necesitan un relay que funcione.",
+      "relayTitle": "Ejecuta un relay.",
+      "relayBody": "El administrador del otro LocalAI ejecuta uno en una máquina con dirección pública y luego envía una nueva invitación.",
+      "portTitle": "Abre un puerto.",
+      "portBody": "Redirige UDP y TCP 4001 a este servidor o al otro.",
+      "networkTitle": "Usa otra red.",
+      "networkBody": "Pon este servidor en otra red, por ejemplo un punto de acceso del teléfono, e inténtalo de nuevo.",
+      "retry": "Reintentar",
+      "copy": "Copiar detalles para el administrador"
+    }
+  },
+  "home": {
+    "title": "Conectar otras máquinas",
+    "optional": "Opcional",
+    "body": "Usa este servidor desde tu portátil o añade más máquinas. Necesita que la autenticación esté activada.",
+    "open": "Abrir Swarm, P2P",
+    "openNote": "Allí, cambia el modo P2P a Conectar y compartir. Puedes hacerlo más tarde.",
+    "auth": "Activa primero la autenticación",
+    "authNote": "La autenticación está desactivada. Para usar en su lugar los modelos de otra instancia, elige En otro servidor o servicio arriba: eso no necesita autenticación."
+  },
+  "federation": {
+    "title": "Federación",
+    "loadFailed": "No se pudo leer la federación.",
+    "routing": {
+      "label": "Enrutamiento",
+      "least_busy": {
+        "title": "Menos ocupada",
+        "body": "Una solicitud va a la instancia con menos solicitudes en curso de este servidor. Si falla, la siguiente instancia atiende la solicitud."
+      },
+      "round_robin": {
+        "title": "Por turnos",
+        "body": "Las solicitudes van a cada instancia por turnos. Si una falla, la siguiente instancia atiende la solicitud."
+      }
+    },
+    "groups": {
+      "title": "Grupos",
+      "note": "Un grupo es un nombre de modelo que sirven varias instancias. Los clientes llaman al nombre del grupo como a cualquier modelo.",
+      "new": "Nuevo grupo",
+      "delete": "Eliminar",
+      "serving": "{{count}} en servicio",
+      "degraded": "Ninguna instancia responde",
+      "created": "Grupo {{name}} guardado.",
+      "deleted": "Grupo {{name}} eliminado.",
+      "changeFailed": "El cambio no se guardó: {{message}}",
+      "deleteTitle": "¿Eliminar el grupo {{name}}?",
+      "deleteBody": "Los clientes que llamen a este nombre reciben un error. Los modelos de las instancias quedan como están.",
+      "deleteConfirm": "Eliminar grupo",
+      "empty": {
+        "title": "Aún no hay grupos",
+        "body": "Sirve un nombre de modelo desde este servidor y otras instancias de LocalAI. Las solicitudes se reparten entre ellas y, cuando una falla, responde la siguiente.",
+        "factInstances_one": "{{count}} instancia más",
+        "factInstances_other": "{{count}} instancias más",
+        "factFailover": "Incluye failover"
+      }
+    },
+    "members": {
+      "caption": "Las instancias de {{name}}",
+      "col": {
+        "instance": "Instancia",
+        "model": "Modelo allí",
+        "status": "Estado",
+        "inFlight": "En curso",
+        "actions": "Acciones"
+      },
+      "state": {
+        "healthy": "En uso",
+        "recovering": "Recuperándose",
+        "down": "No responde",
+        "missing": "Falta el modelo",
+        "unknown": "Aún sin comprobar",
+        "drained": "Drenada"
+      },
+      "constrained": "Solo solicitudes pequeñas",
+      "constrainedHint": "Un relay limita esta conexión, así que la instancia recibe una solicitud solo cuando ninguna otra puede.",
+      "drain": "Drenar",
+      "undrain": "Volver a poner",
+      "drained": "{{model}} no recibe solicitudes nuevas.",
+      "undrained": "{{model}} vuelve a recibir solicitudes.",
+      "lastServing": "La última instancia en servicio no se puede drenar."
+    },
+    "instances": {
+      "title": "Instancias",
+      "note": "Este servidor y los remotos de LocalAI que usa. Cada remoto también aparece en Modelos, Remotos.",
+      "add": "Añadir una instancia federada",
+      "local": "Esta instancia",
+      "otherProxy": "Otro servidor",
+      "http": "HTTP",
+      "inFlightNote": "Las solicitudes en curso son las de este servidor. Cada servidor de un clúster cuenta las suyas.",
+      "col": {
+        "instance": "Instancia",
+        "peer": "Peer ID",
+        "path": "Ruta",
+        "inFlight": "En curso",
+        "models": "Modelos"
+      },
+      "status": {
+        "ok": "Responde",
+        "never": "Aún sin contactar",
+        "auth_failed": "Clave rechazada",
+        "unreachable": "No accesible"
+      }
+    },
+    "path": {
+      "local": "Esta instancia",
+      "http": "HTTP",
+      "off": "P2P está apagado",
+      "down": "Sin conexión",
+      "waiting": "Esperando una solicitud",
+      "direct": "Directa",
+      "holePunched": "Hole punching",
+      "relayed": "Mediante un relay",
+      "limited": "Limitada",
+      "limitedHint": "El relay limita los datos o la duración de cada conexión."
+    },
+    "sheet": {
+      "title": "Nuevo grupo",
+      "description": "Un nombre de modelo que sirven varias instancias.",
+      "name": "Nombre del modelo",
+      "nameHint": "Los clientes llaman a este nombre. No puede ser el nombre de un modelo que ya existe.",
+      "members": "Instancias ({{count}} elegidas)",
+      "membersHint": "Elige el mismo modelo en dos o más instancias.",
+      "noModels": "Ninguna instancia tiene aún un modelo. Añade primero un remoto en Modelos, Remotos.",
+      "save": "Guardar"
+    }
+  },
+  "grant": {
+    "all": "Todos los modelos",
+    "some_one": "{{count}} modelo",
+    "some_other": "{{count}} modelos"
+  }
+}

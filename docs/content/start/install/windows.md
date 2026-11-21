@@ -114,7 +114,7 @@ $env:LOCALAI_BASE_PATH = 'D:\LocalAI'
 ## What is not available on Windows yet
 
 - The Sandbox add-on in the library. On Windows it runs in WSL 2 (see [Sandbox add-on](#sandbox-add-on)), but its Windows package is not published yet. Until it is, chat commands that need the Sandbox add-on are not available.
-- The worker commands for backends without a Windows build: `local-ai worker mlx-distributed`, `p2p-mlx`, `vllm` and `ds4-distributed` stop at once with an error. See [Distributed mode and workers on Windows](#distributed-mode-and-workers-on-windows) for what works.
+- The worker commands for backends without a Windows build: `local-ai worker mlx-distributed`, `vllm` and `ds4-distributed` stop at once with an error. See [Distributed mode and workers on Windows](#distributed-mode-and-workers-on-windows) for what works.
 - Backends other than llama.cpp.
 - The built-in bash tool of the chat. It needs a POSIX shell and process groups. It is not a fallback for the Sandbox add-on: without the Sandbox add-on, the chat has no tool that runs commands on Windows.
 
@@ -123,7 +123,7 @@ $env:LOCALAI_BASE_PATH = 'D:\LocalAI'
 A Windows host can be a node of a LocalAI cluster:
 
 - `local-ai worker` (distributed mode with NATS) registers the host as a worker. The frontend can schedule llama.cpp models on it. A model that needs another backend fails to start on this node with the message "this backend has no Windows build".
-- `local-ai worker llama-cpp-rpc` and `local-ai worker p2p-llama-cpp-rpc` run the llama.cpp RPC server. The RPC server is in the `rpc` variant of the Windows backend image, which the published image includes.
+- `local-ai worker llama-cpp-rpc` runs the llama.cpp RPC server. The RPC server is in the `rpc` variant of the Windows backend image, which the published image includes.
 - The worker reports the GPU and its VRAM. For NVIDIA GPUs it uses `nvidia-smi`, which the NVIDIA driver installs. For other GPUs it reads the adapter list from DirectX (DXGI) and the memory in use from the "GPU Adapter Memory" performance counters (Windows 10 version 1709 or later). An integrated GPU reports the shared system memory it can use. If the counters are not available, the free VRAM is unknown: the worker reports the total VRAM, and its heartbeats do not report free VRAM. The frontend then keeps the free VRAM from the registration, which is the total.
 - The frontend and the workers can run on different operating systems. A path on a worker keeps the separator of the worker's operating system.
 

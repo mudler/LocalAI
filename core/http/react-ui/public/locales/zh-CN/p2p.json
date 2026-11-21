@@ -1,0 +1,424 @@
+{
+  "title": "P2P",
+  "supporting": "通过 P2P 访问此服务器的设备、远程和节点，以及让它们加入的邀请。",
+  "loadStatusFailed": "无法读取 P2P 的状态。",
+  "tabs": {
+    "label": "P2P",
+    "devices": "设备和邀请",
+    "federation": "联邦",
+    "settings": "设置"
+  },
+  "mode": {
+    "off": {
+      "title": "P2P 已关闭",
+      "reason": "将 P2P 模式设为“连接并共享”，才能邀请设备、远程和节点。该模式需要开启身份验证。"
+    },
+    "connect": {
+      "title": "P2P 处于“仅连接”模式",
+      "reason": "此服务器通过 P2P 使用远程，不接受任何人。要邀请设备，请将模式设为“连接并共享”。该模式需要开启身份验证。"
+    },
+    "fix": "打开 P2P 设置"
+  },
+  "kinds": {
+    "device": {
+      "title": "设备",
+      "body": "启动器或另一个浏览器。用户照常登录。"
+    },
+    "remote": {
+      "title": "远程",
+      "body": "另一台 LocalAI 使用此实例的模型，可以是全部，也可以是你选择的模型。"
+    },
+    "worker": {
+      "title": "Worker",
+      "body": "此集群的计算节点。它通过 P2P 加入并等待你的批准。"
+    },
+    "split": {
+      "title": "模型拆分 Worker"
+    }
+  },
+  "ttl": {
+    "600": "10 分钟",
+    "3600": "1 小时",
+    "86400": "1 天"
+  },
+  "share": {
+    "open": "共享此实例…",
+    "title": "共享此实例",
+    "intro": "生成一次性邀请链接。对方粘贴链接或扫描其二维码即可。",
+    "kind": "类型",
+    "qrNote": "设备和远程邀请会显示二维码，可用于手机或平板。",
+    "kindNote": {
+      "device": {
+        "title": "仅 P2P 准入。",
+        "body": "设备邀请让设备可以访问此实例。用户仍需用自己的账号登录网页界面。"
+      },
+      "remote": {
+        "title": "只有模型，别无其他。",
+        "body": "另一台 LocalAI 会得到一个 API 密钥，用于你在下面选择的模型：全部模型（包括你以后添加的模型），或一个列表。附带工具的模型除外。该密钥不能访问其他任何内容：没有设置，没有文件，也没有 API 的其他部分。"
+      },
+      "worker": {
+        "title": "用于此集群的节点。",
+        "body": "该机器使用此链接运行 local-ai worker --join。它通过 P2P 注册，无需开放端口和注册令牌，并在节点页面等待你批准。"
+      }
+    },
+    "label": "标签",
+    "labelPlaceholder": {
+      "device": "Alex 的笔记本电脑",
+      "remote": "分公司",
+      "worker": "gpu-box-5"
+    },
+    "labelHint": "显示在“设备和邀请”中。",
+    "models": {
+      "label": "模型",
+      "all": "所有模型",
+      "specific": "选择模型",
+      "allHint": "该密钥可以使用此实例的每个模型，包括你以后添加的模型。",
+      "specificHint": "该密钥只能使用你勾选的模型。附带工具的模型不能共享。",
+      "loading": "正在加载模型…",
+      "loadFailed": "无法加载模型。",
+      "retry": "重试",
+      "empty": "此实例还没有可共享的模型。",
+      "search": "搜索模型",
+      "noMatch": "没有匹配的模型。",
+      "selected_one": "已选择 {{count}} 个模型",
+      "selected_other": "已选择 {{count}} 个模型",
+      "reason": {
+        "noModels": "请至少选择一个模型，或选择所有模型。"
+      }
+    },
+    "expires": "有效期",
+    "singleUseHint": "每个邀请只能使用一次。",
+    "nothingYet": "点击“生成邀请”之前不会创建任何内容。",
+    "cancel": "取消",
+    "close": "关闭",
+    "mint": "生成邀请",
+    "mintFailed": "邀请未生成。",
+    "needsAccount": {
+      "title": "请使用用户账户登录后再与远程共享",
+      "body": "另一台 LocalAI 会得到一个属于你用户账户的 API 密钥。你当前使用 LOCALAI_API_KEY 设置的 API 密钥登录，它没有账户。请使用用户账户登录，然后重新创建邀请。设备邀请仍像以前一样可用。"
+    },
+    "copy": "复制",
+    "copied": "已复制",
+    "copyFailed": "链接未能复制。请选中后手动复制。",
+    "canceled": "邀请已取消。",
+    "revoked": "{{label}} 已撤销。",
+    "result": {
+      "title": "给 {{label}} 的邀请",
+      "sub": "{{kind}} · 一次性 · {{ttl}}",
+      "link": "邀请链接",
+      "qrLabel": "邀请链接的二维码",
+      "qrCaption": "用于手机或平板",
+      "how": {
+        "device": "在启动器中：添加服务器，然后选择“邀请链接”。链接包含此服务器的对等节点 ID 和中继通行证，只有短代码是不够的。",
+        "remote": "在另一台 LocalAI 上：主页或“连接”，连接远程，然后选择“邀请链接”。粘贴完整链接。",
+        "worker": "在新机器上运行 local-ai worker --join，并用引号括起完整链接。之后节点会在节点页面等待你的批准。"
+      },
+      "waiting": "正在等待设备… 取消邀请也会取消其中继通行证。",
+      "waitingWorker": "正在等待工作节点… 取消邀请也会取消其中继通行证。",
+      "expired": "邀请已过期。",
+      "expiredTitle": "此邀请已过期。",
+      "expiredBody": "没有人在有效期内使用它。等对方准备好后再生成新的。",
+      "again": "重新生成",
+      "cancel": "取消邀请",
+      "done": "完成"
+    },
+    "facts": {
+      "expires": "过期时间",
+      "singleUse": "一次性",
+      "serverPeer": "服务器对等节点 ID",
+      "devicePeer": "设备对等节点 ID",
+      "relay": "中继提示",
+      "relayGated": "{{relay}}（你的中继，受访问控制）",
+      "relayOpen": "{{relay}}（开放中继）",
+      "none": "无",
+      "pass": "中继通行证",
+      "passOn": "已在 {{relay}} 上注册，有效期 {{ttl}}，一次性",
+      "passUnreachable": "无：{{relay}} 没有响应",
+      "passNone": "无",
+      "public": "公网地址",
+      "publicYes": "有",
+      "publicNo": "无（位于 NAT 之后）",
+      "models": "模型",
+      "modelsAll": "所有模型",
+      "modelsSome_one": "{{count}} 个模型",
+      "modelsSome_other": "{{count}} 个模型"
+    },
+    "admission": {
+      "title": "仅 P2P 准入。",
+      "result": "邀请让设备可以访问此实例。用户仍需登录网页界面。"
+    },
+    "warn": {
+      "unreachable": {
+        "title": "此邀请没有中继通行证，只能通过直连配对。",
+        "body": "生成邀请时 {{relay}} 没有响应，所以其上没有注册通行证。等中继恢复后再重新生成邀请。",
+        "again": "重新生成",
+        "check": "检查中继"
+      },
+      "noRelay": {
+        "title": "位于严格 NAT 之后的设备没有中继就无法连接。",
+        "body": "此服务器没有中继。大约每 10 个网络中有 3 个会阻止直连。请添加或自建一个中继。",
+        "add": "添加中继"
+      },
+      "openRelay": {
+        "title": "此邀请指向一个开放中继。",
+        "body": "任何人都可以使用 {{relay}}，它可能会限制每个连接的速度。"
+      },
+      "noPublic": {
+        "title": "此服务器没有公网地址。",
+        "body": "设备会通过打洞连接，打洞失败时则通过中继连接。"
+      }
+    },
+    "connected": {
+      "title": "{{label}} 已连接",
+      "sub": "{{kind}} · 刚刚配对",
+      "confirm": "请确认对方显示的是",
+      "hint": "{{label}} 现在显示相同的词。如果不一致，说明有其他人用了这个邀请。",
+      "signIn": "用户仍需登录网页界面。",
+      "keyNote": "可随时在“设备和邀请”中撤销。",
+      "mismatch": "不一致：撤销",
+      "match": "一致",
+      "approve": "节点接下来会注册，并在节点页面等待你的批准。"
+    }
+  },
+  "invites": {
+    "title": "待处理的邀请",
+    "note": "邀请只能使用一次，并会过期。取消邀请也会取消其中继通行证。",
+    "loadFailed": "无法加载邀请。",
+    "empty": {
+      "title": "没有待处理的邀请",
+      "body": "生成邀请，让设备或远程访问此服务器。"
+    },
+    "col": {
+      "label": "标签",
+      "kind": "类型",
+      "created": "创建时间",
+      "expires": "剩余有效期",
+      "pass": "中继通行证",
+      "actions": "操作"
+    },
+    "passOn": "在 {{relay}} 上",
+    "passNone": "无：只能通过直连配对",
+    "cancel": "取消",
+    "canceled": "给 {{label}} 的邀请已取消。",
+    "cancelFailed": "邀请未能取消：{{message}}"
+  },
+  "devices": {
+    "title": "设备",
+    "active_one": "{{count}} 个活跃",
+    "active_other": "{{count}} 个活跃",
+    "note": "每个设备都有自己的密钥。撤销其中一个，其他设备仍可正常使用。",
+    "loadFailed": "无法加载设备。",
+    "empty": {
+      "title": "还没有已配对的设备",
+      "body": "设备使用邀请后会显示在这里。"
+    },
+    "col": {
+      "label": "标签",
+      "kind": "类型",
+      "peer": "对等节点 ID",
+      "seen": "最后在线",
+      "path": "路径",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "never": "从未",
+    "status": {
+      "active": "活跃",
+      "revoked": "已撤销"
+    },
+    "path": {
+      "direct": "直连",
+      "holePunched": "打洞",
+      "relayed": "经由 {{relay}}",
+      "relayedUnknown": "经由中继",
+      "none": "未连接",
+      "offline": "未连接",
+      "limited": "受限",
+      "limitedHint": "中继会限制每个连接的数据量或时长。大文件传输需要直连路径。",
+      "rtt": "{{ms}} ms"
+    },
+    "revoke": "撤销…",
+    "revokeTitle": "要撤销 {{label}} 吗？",
+    "revokeConfirm": "撤销",
+    "revokeBody": {
+      "device": "该设备会立即失去 P2P 密钥，已打开的连接会关闭。用户保留自己的账号。其他设备不受影响。要再次连接，请生成新的邀请。",
+      "remote": "该远程会立即失去 P2P 密钥和 API 密钥，已打开的连接会关闭。它的模型在另一端将无法使用。其他设备不受影响。要再次连接，请生成新的邀请。",
+      "other": "该节点会立即失去 P2P 密钥，已打开的连接会关闭。其他设备不受影响。要再次连接，请生成新的邀请。"
+    },
+    "revoked": "{{label}} 已撤销。"
+  },
+  "invite": {
+    "connectWith": "连接方式",
+    "withAddress": "地址",
+    "withInvite": "邀请链接",
+    "link": "邀请链接",
+    "linkHint": "向另一台 LocalAI 的管理员索取远程邀请，并粘贴完整链接。",
+    "problem": {
+      "malformed": "这不是 LocalAI 邀请链接。它应以 localai://pair 开头。",
+      "wrongKind": "这是{{kind}}邀请。请向另一台 LocalAI 的管理员索取远程邀请。",
+      "expired": "此邀请已过期。请向另一台 LocalAI 的管理员索取新的邀请。"
+    },
+    "preview": {
+      "server": "服务器",
+      "kind": "类型",
+      "pass": "中继通行证",
+      "passIncluded": "已包含 · {{relay}}",
+      "passNone": "无：该链接通过直连或打洞配对",
+      "path": "路径",
+      "pathRelay": "先直连，再打洞，最后经由 {{relay}}",
+      "pathDirect": "先直连，再打洞",
+      "expires": "过期时间",
+      "expiresAt": "{{when}} · 一次性"
+    },
+    "openRelay": "该链接指向一个开放中继。任何人都可以使用它，它可能会限制每个连接的速度。",
+    "connect": "连接",
+    "connecting": "正在连接…",
+    "connected": "已连接",
+    "ok_one": "已通过 P2P 连接到 {{name}}。找到 {{count}} 个模型。",
+    "ok_other": "已通过 P2P 连接到 {{name}}。找到 {{count}} 个模型。",
+    "switched": {
+      "title": "P2P 已在“仅连接”模式下开启。此服务器不接受任何人。",
+      "body": "P2P 原先是关闭的。连接时将其打开，这样此服务器才能访问另一台 LocalAI。可在 Swarm、P2P、设置中更改模式。"
+    },
+    "fail": {
+      "title": "无法连接",
+      "invalid": "邀请无效：已被使用、已取消或已过期。请索取新的邀请。",
+      "rateLimited": "尝试次数过多。请等几分钟后再试。",
+      "malformed": "另一台 LocalAI 无法读取此邀请。",
+      "unsupported": "此服务器无法通过邀请链接连接远程。",
+      "conflict": "此服务器已与该 LocalAI 配对，或已存在同名的远程。"
+    },
+    "blocked": {
+      "title": "两个网络都阻止直连。",
+      "body": "打洞失败。大约每 10 对网络中有 3 对需要可用的中继。",
+      "bodyRelay": "打洞失败，且 {{relay}} 没有响应。大约每 10 对网络中有 3 对需要可用的中继。",
+      "relayTitle": "运行一个中继。",
+      "relayBody": "另一台 LocalAI 的管理员在有公网地址的机器上运行一个中继，然后发送新的邀请。",
+      "portTitle": "开放一个端口。",
+      "portBody": "将 UDP 和 TCP 4001 转发到此服务器或另一台服务器。",
+      "networkTitle": "换一个网络。",
+      "networkBody": "把此服务器接入另一个网络，例如手机热点，然后重试。",
+      "retry": "重试",
+      "copy": "复制详情给管理员"
+    }
+  },
+  "home": {
+    "title": "连接其他机器",
+    "optional": "可选",
+    "body": "在你的笔记本电脑上使用此服务器，或添加更多机器。需要开启身份验证。",
+    "open": "打开 Swarm、P2P",
+    "openNote": "在那里将 P2P 模式设为“连接并共享”。你也可以稍后再做。",
+    "auth": "请先开启身份验证",
+    "authNote": "身份验证已关闭。若要改用其他实例的模型，请在上方选择“在另一台服务器或服务上”：这不需要身份验证。"
+  },
+  "federation": {
+    "title": "联邦",
+    "loadFailed": "无法读取联邦信息。",
+    "routing": {
+      "label": "路由",
+      "least_busy": {
+        "title": "最空闲",
+        "body": "请求发往本服务器进行中请求最少的实例。如果失败，由下一个实例接手。"
+      },
+      "round_robin": {
+        "title": "轮流",
+        "body": "请求依次发往每个实例。如果某个实例失败，由下一个实例接手。"
+      }
+    },
+    "groups": {
+      "title": "组",
+      "note": "组是由多个实例共同提供的一个模型名称。客户端像调用任何模型一样调用组名。",
+      "new": "新建组",
+      "delete": "删除",
+      "serving": "{{count}} 个在服务",
+      "degraded": "没有实例响应",
+      "created": "已保存组 {{name}}。",
+      "deleted": "已删除组 {{name}}。",
+      "changeFailed": "更改未保存：{{message}}",
+      "deleteTitle": "删除组 {{name}}？",
+      "deleteBody": "调用此名称的客户端会收到错误。各实例上的模型保持不变。",
+      "deleteConfirm": "删除组",
+      "empty": {
+        "title": "还没有组",
+        "body": "由本服务器和其他 LocalAI 实例共同提供一个模型名称。请求会分配到这些实例上，一个失败时由下一个响应。",
+        "factInstances_one": "另外 {{count}} 个实例",
+        "factInstances_other": "另外 {{count}} 个实例",
+        "factFailover": "包含故障转移"
+      }
+    },
+    "members": {
+      "caption": "{{name}} 的实例",
+      "col": {
+        "instance": "实例",
+        "model": "对端模型",
+        "status": "状态",
+        "inFlight": "进行中",
+        "actions": "操作"
+      },
+      "state": {
+        "healthy": "使用中",
+        "recovering": "恢复中",
+        "down": "无响应",
+        "missing": "缺少模型",
+        "unknown": "尚未检查",
+        "drained": "已排空"
+      },
+      "constrained": "仅限小请求",
+      "constrainedHint": "中继限制了此连接，因此只有在其他实例都无法处理时，此实例才会收到请求。",
+      "drain": "排空",
+      "undrain": "恢复服务",
+      "drained": "{{model}} 不再接收新请求。",
+      "undrained": "{{model}} 重新接收请求。",
+      "lastServing": "最后一个在服务的实例不能排空。"
+    },
+    "instances": {
+      "title": "实例",
+      "note": "本服务器及其使用的 LocalAI 远程。每个远程也会列在“模型 > 远程”中。",
+      "add": "添加联邦实例",
+      "local": "本实例",
+      "otherProxy": "其他服务器",
+      "http": "HTTP",
+      "inFlightNote": "进行中的请求是本服务器的请求。集群中的每台服务器各自计数。",
+      "col": {
+        "instance": "实例",
+        "peer": "Peer ID",
+        "path": "路径",
+        "inFlight": "进行中",
+        "models": "模型"
+      },
+      "status": {
+        "ok": "正常响应",
+        "never": "尚未联系",
+        "auth_failed": "密钥被拒绝",
+        "unreachable": "无法访问"
+      }
+    },
+    "path": {
+      "local": "本实例",
+      "http": "HTTP",
+      "off": "P2P 已关闭",
+      "down": "未连接",
+      "waiting": "等待请求",
+      "direct": "直连",
+      "holePunched": "打洞",
+      "relayed": "经由中继",
+      "limited": "受限",
+      "limitedHint": "中继限制了每个连接的数据量或时长。"
+    },
+    "sheet": {
+      "title": "新建组",
+      "description": "由多个实例共同提供的一个模型名称。",
+      "name": "模型名称",
+      "nameHint": "客户端调用此名称。不能与已有模型同名。",
+      "members": "实例（已选 {{count}} 个）",
+      "membersHint": "在两个或更多实例上选择同一个模型。",
+      "noModels": "还没有实例拥有模型。请先在“模型 > 远程”中添加远程。",
+      "save": "保存"
+    }
+  },
+  "grant": {
+    "all": "所有模型",
+    "some_one": "{{count}} 个模型",
+    "some_other": "{{count}} 个模型"
+  }
+}

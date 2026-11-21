@@ -18,7 +18,9 @@ import (
 
 // stubClient is the minimum LocalAIClient impl needed to exercise the holder.
 // It returns deterministic, non-zero values so we can assert tool dispatch.
-type stubClient struct{}
+// The embedded interface covers the methods these specs never call (a call
+// to one panics), so a new client method does not break the build here.
+type stubClient struct{ localaitools.LocalAIClient }
 
 func (stubClient) GallerySearch(_ context.Context, _ localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
 	return []gallery.Metadata{{Name: "stub", Gallery: config.Gallery{Name: "stub-gallery"}}}, nil
@@ -299,6 +301,46 @@ func (stubClient) ListFailoverChains(_ context.Context) ([]localaitools.Failover
 func (stubClient) PinFailoverTarget(_ context.Context, _, _ string) error { return nil }
 
 func (stubClient) UnpinFailoverTarget(_ context.Context, _ string) error { return nil }
+
+func (stubClient) GetFederation(_ context.Context) (*localaitools.FederationInfo, error) {
+	return &localaitools.FederationInfo{}, nil
+}
+func (stubClient) ManageFederationGroup(_ context.Context, _ localaitools.FederationGroupAction) (*localaitools.FederationGroupInfo, error) {
+	return nil, nil
+}
+
+func (stubClient) GetP2PStatus(_ context.Context) (*localaitools.P2PStatusInfo, error) {
+	return &localaitools.P2PStatusInfo{}, nil
+}
+func (stubClient) ListP2PDevices(_ context.Context) ([]localaitools.P2PDeviceInfo, error) {
+	return nil, nil
+}
+func (stubClient) ListP2PInvites(_ context.Context) ([]localaitools.P2PInviteInfo, error) {
+	return nil, nil
+}
+func (stubClient) ListP2PRelays(_ context.Context) ([]localaitools.P2PRelayInfo, error) {
+	return nil, nil
+}
+func (stubClient) GetP2PRelayLimits(_ context.Context, _ string) (*localaitools.P2PRelayLimitsInfo, error) {
+	return nil, nil
+}
+func (stubClient) SetP2PRelayLimits(_ context.Context, _ string, _ localaitools.SetP2PRelayLimitsRequest) (*localaitools.P2PRelayLimitsInfo, error) {
+	return nil, nil
+}
+func (stubClient) RevokeP2PDevice(_ context.Context, _ string) error { return nil }
+func (stubClient) CancelP2PInvite(_ context.Context, _ string) error { return nil }
+func (stubClient) ListP2PSplitWorkers(_ context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {
+	return nil, nil
+}
+func (stubClient) SetP2PSplitSlowPath(_ context.Context, _ string, _ bool) (*localaitools.P2PSplitWorkerInfo, error) {
+	return &localaitools.P2PSplitWorkerInfo{}, nil
+}
+func (stubClient) SetNodeSplitServer(_ context.Context, _ string, _ bool) (*localaitools.NodeSplitServer, error) {
+	return nil, nil
+}
+func (stubClient) SetP2PSplitNode(_ context.Context, _, _ string) (*localaitools.P2PSplitWorkerInfo, error) {
+	return &localaitools.P2PSplitWorkerInfo{}, nil
+}
 
 func (stubClient) ListSharedFolders(_ context.Context) ([]localaitools.SharedFolder, error) {
 	return nil, nil

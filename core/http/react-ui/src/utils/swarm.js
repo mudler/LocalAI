@@ -235,27 +235,47 @@ function dockerPrefix(option) {
 const image = (option, dev) => `localai/localai:${dev ? option.devTag : option.tag}`
 
 // The command that starts a registered worker. The token is never read by the
-// page: the command names a variable and the person fills it in.
-export function workerCommand({ flavor, nodeType, option, dev, frontend, natsUrl = 'nats://nats:4222' }) {
+// page: the command names a variable and the person fills it in. The worker
+// learns the cluster transport from the frontend, and the NATS address too when
+// the cluster uses NATS, so the command names none.
+export function workerCommand({ flavor, nodeType, option, dev, frontend }) {
   const sub = nodeType === 'agent' ? 'agent-worker' : 'worker'
   if (flavor === 'cli') {
-    return `local-ai ${sub} \\\n  --register-to "${frontend}" \\\n  --nats-url "${natsUrl}" \\\n  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`
+    return `local-ai ${sub} \\\n  --register-to "${frontend}" \\\n  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`
   }
-  return `${dockerPrefix(option)}-e LOCALAI_REGISTER_TO="${frontend}" \\\n  -e LOCALAI_NATS_URL="${natsUrl}" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${image(option, dev)} ${sub}`
+  return `${dockerPrefix(option)}-e LOCALAI_REGISTER_TO="${frontend}" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${image(option, dev)} ${sub}`
 }
 
-// Peer instances and memory shards join with the P2P network token. The
-// federated server is the entry point they balance behind.
-export function p2pCommand({ method, option, dev, token, flavor }) {
-  const suffix = method === 'peer' ? 'run --federated --p2p'
-    : method === 'server' ? 'federated'
-      : method === 'mlx' ? 'p2p-worker p2p-mlx'
-        : 'p2p-worker p2p-llama-cpp-rpc'
-  const name = method === 'peer' ? 'local-ai' : method === 'server' ? 'local-ai-federated' : method === 'mlx' ? 'local-ai-mlx-worker' : 'local-ai-worker'
-  const tokenValue = token || 'your-token-here'
-  if (flavor === 'cli') return `TOKEN="${tokenValue}" local-ai ${suffix}`
-  const opt = method === 'mlx' ? { dockerFlags: '', tag: 'latest-metal-darwin-arm64', devTag: 'latest-metal-darwin-arm64' } : option
-  return `${dockerPrefix(opt)}-e TOKEN="${tokenValue}" \\\n  --name ${name} \\\n  ${image(opt, dev)} ${suffix}`
+// The command that starts a worker with a worker invite. The link is single
+// use and names this server by its peer ID, so the worker needs no address of
+// this server and no registration token.
+export function joinCommand({ flavor, option, dev, link }) {
+  const value = link || 'localai://pair?...'
+  if (flavor === 'cli') return `local-ai worker \\\n  --join "${value}"`
+  return `${dockerPrefix(option)}-v localai-worker-data:/data \\\n  -e LOCALAI_JOIN="${value}" \\\n  -e LOCALAI_P2P_IDENTITY=/data/p2p/identity.key \\\n  ${image(option, dev)} worker`
 }
 
-export const DISTRIBUTED_COMMAND = 'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db" \\\n  --distributed-nats "nats://host:4222"'
+// How the frontends reach a node, from what the node reported: 'nats', the
+// tunnel over a websocket ('websocket') or over P2P ('p2p'), or null when it
+// says nothing (a worker that sent no route report yet; the page does
+// not guess). `path` and `limited` describe a P2P tunnel.
+export function nodeRoute(node) {
+  const attached = String(node?.attached || '').split(',').map(c => c.trim()).filter(Boolean)
+  if (attached.includes('nats')) return { kind: 'nats' }
+  if (node?.peer_id || node?.tunnel_transport === 'p2p') {
+    return { kind: 'p2p', path: node?.tunnel_path || null, limited: !!node?.tunnel_limited }
+  }
+  if (attached.includes('tunnel')) return { kind: 'websocket' }
+  return null
+}
+
+// A peer ID cut to its first and last characters, for a narrow column. The
+// whole ID stays in the title.
+export function shortPeer(id) {
+  const s = String(id || '')
+  return s.length > 16 ? `${s.slice(0, 10)}…${s.slice(-4)}` : s
+}
+
+// NATS is optional: a cluster with only PostgreSQL uses PostgreSQL as the
+// broadcast bus between frontends. Workers never connect to PostgreSQL.
+export const DISTRIBUTED_COMMAND = 'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db"'

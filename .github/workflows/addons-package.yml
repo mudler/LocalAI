@@ -354,23 +354,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-      - name: Set up a C compiler for the Windows Tables build
-        # Tables links SQLite through cgo, and the Windows runner has no C
-        # compiler. The Windows backend build uses the same MSYS2 UCRT64 gcc.
-        # package.sh links the C runtime statically, so the executable needs
-        # no DLL from this toolchain.
-        id: msys2
-        if: runner.os == 'Windows' && matrix.addon == 'tables'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: false
-          install: mingw-w64-ucrt-x86_64-gcc
-      - name: Put the C compiler on the PATH
-        if: runner.os == 'Windows' && matrix.addon == 'tables'
-        env:
-          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
-        run: printf '%s\\ucrt64\\bin\n' "$MSYS2_LOCATION" >> "$GITHUB_PATH"
       - name: Build the UI
         # A data-only add-on has no ui directory and nothing to build.
         if: hashFiles(format('addons/{0}/ui/build.mjs', matrix.addon)) != ''

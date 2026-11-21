@@ -70,6 +70,27 @@ export async function stubAddonRoutes(page) {
   await page.context().route('**/api/addons/host-grants', route => route.fulfill({ json: { revision: 1, addons: [] } }))
 }
 
+// The preview and queue routes a library install goes through: the preview
+// answers from the index with no host operation, and a queue request installs
+// the add-ons it names without turning them on, as the owner does. Returns the
+// queue requests the page sent.
+export async function stubInstallQueue(page, state) {
+  const sent = []
+  await page.route('**/api/addons/host-grants/preview', route => {
+    const body = JSON.parse(route.request().postData() || '{}')
+    return route.fulfill({ json: { digest: `sha256:${'c'.repeat(64)}`, version: body.version, revision: 1, nonce: `nonce-${body.addonId}`, official: true, fromIndex: true, requested: { required: [], optional: [] }, ops: [] } })
+  })
+  await page.route('**/api/addons/host-grants/queue', route => {
+    const body = JSON.parse(route.request().postData() || '{}')
+    sent.push({ body, confirm: route.request().headers()['x-localai-confirm'] })
+    for (const item of body.items) {
+      state.installed.push(installedAddon({ id: item.addonId, title: item.addonId, enabled: false, state: 'stopped', generation: 1, version: item.version }))
+    }
+    return route.fulfill({ json: { items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, jobId: `job-${i.operationId}` })) } })
+  })
+  return sent
+}
+
 // The owner's host settings policy (core/services/addons/hostsettings.Policy),
 // in the exact shape host-settings-read answers. Keys of `over` that are not
 // policy fields (other runtime settings) are ignored.
@@ -215,10 +236,16 @@ export async function mockAddons(page, options = {}) {
     const args = body.arguments || {}
     switch (body.action) {
       case 'catalog-search': {
-        let list = state.releases.filter(r => (!args.sourceId || r.sourceId === args.sourceId) && (!args.text || (r.name + r.addonId + r.description).toLowerCase().includes(args.text.toLowerCase())))
+        // Like the owner: a source whose last fetch failed is reported on its
+        // own and left out of the list; only a request that names it fails.
+        const broken = state.sources.filter(src => src.enabled && src.refresh?.failed)
+        if (args.sourceId && broken.some(src => src.id === args.sourceId)) return route.fulfill(fail(503, 'library_unavailable'))
+        const skipped = new Set(broken.map(src => src.id))
+        let list = state.releases.filter(r => !skipped.has(r.sourceId) && (!args.sourceId || r.sourceId === args.sourceId) && (!args.text || (r.name + r.addonId + r.description).toLowerCase().includes(args.text.toLowerCase())))
         const total = list.length
         list = list.slice(args.offset || 0, (args.offset || 0) + (args.limit || 50))
-        return route.fulfill(ok({ releases: list, total }))
+        const failed = args.sourceId ? [] : broken.map(src => ({ sourceId: src.id, name: src.name, error: src.refresh.error || '', lastSuccess: src.refresh.lastSuccess }))
+        return route.fulfill(ok({ releases: list, total, ...(failed.length ? { failed } : {}) }))
       }
       case 'catalog-details': {
         const r = state.releases.find(x => x.addonId === body.addonId && x.version === args.version && x.sourceId === args.sourceId)

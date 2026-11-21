@@ -44,7 +44,7 @@ var _ = Describe("conversion of the old data at start", func() {
 	}
 
 	inbox := func(app *Application, user string) int {
-		list, err := app.StudioService().Notifications(context.Background(), user, false, 50)
+		list, err := app.Notifier().List(context.Background(), user, false, 50)
 		Expect(err).NotTo(HaveOccurred())
 		return len(list)
 	}

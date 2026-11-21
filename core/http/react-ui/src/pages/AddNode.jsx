@@ -26,7 +26,7 @@ export default function AddNode() {
       </header>
       {status === 'loading'
         ? <div className="sw-loading"><LoadingSpinner size="lg" /></div>
-        : <AddNodeFlow nodes={single ? null : nodes} single={single} addToast={addToast} onApproved={refetch} initialMethod={params.get('join') === 'peer' ? 'peer' : params.get('join') === 'shard' ? 'shard' : 'worker'} />}
+        : <AddNodeFlow nodes={single ? null : nodes} single={single} addToast={addToast} onApproved={refetch} initialMethod={params.get('join') === 'shard' ? 'shard' : 'worker'} />}
     </div>
   )
 }

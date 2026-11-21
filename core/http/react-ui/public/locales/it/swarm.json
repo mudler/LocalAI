@@ -1,5 +1,229 @@
 {
+  "split": {
+    "title": "Worker per modelli suddivisi",
+    "online": "{{online}} di {{total}} online",
+    "note": "Non sono nodi del cluster: niente backend e niente regole di posizionamento. Prestano memoria ai modelli che girano su questa istanza.",
+    "slowTitle": "La suddivisione di un modello funziona meglio su un percorso diretto o con hole punching.",
+    "slowBody": "Solo un relay raggiunge {{names}}. Funziona, ma ogni token aspetta il relay. Scegli Usa comunque oppure lascia fuori il worker. Aprire la porta 4001 UDP e TCP sulla sua rete dà un percorso diretto.",
+    "limitedTitle": "Un relay pubblico non può trasportare i layer del modello.",
+    "limitedBody": "L'unico percorso verso questo worker è un relay pubblico, i cui limiti non puoi cambiare. Dai al worker un percorso diretto, o un tuo relay su entrambi i lati.",
+    "cutTitle": "Un tuo relay interrompe ogni connessione ai suoi limiti.",
+    "cutBody": "{{names}} passa da un tuo relay che chiude ogni connessione dopo il suo limite di dati o di tempo. Usa comunque funziona, lentamente, finché il relay non interrompe la connessione; poi ricarica il modello. Alza o togli i limiti del relay per sessioni più lunghe.",
+    "cutHint": "Interrotto dopo {{limits}}",
+    "relayLimits": "Limiti del relay",
+    "memoryInUse": "Memoria aggiunta dai worker in uso: {{memory}}.",
+    "add": {
+      "p2pTitle": "Prima condividi questa istanza via P2P",
+      "p2pBody": "Un worker per modelli suddivisi si abbina con un invito, e gli inviti richiedono la modalità P2P Connetti e condividi.",
+      "p2pOpen": "Apri le impostazioni P2P",
+      "engineTitle": "Motore",
+      "engineSub": {
+        "llama": "Il modello gira su questa istanza. Il worker tiene alcuni dei suoi layer nella propria memoria.",
+        "mlx": "Il modello gira su questa istanza e sul worker, come rank di un unico anello MLX. Solo Apple Silicon."
+      },
+      "inviteTitle": "Crea un invito",
+      "name": "Nome del worker (facoltativo)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Crea invito",
+      "inviteReady": "Invito pronto",
+      "inviteExpired": "Invito scaduto",
+      "inviteUsed": "Invito usato",
+      "inviteMeta": "Uso singolo · scade tra {{time}}",
+      "noPass": "Il relay non era raggiungibile, quindi il link non contiene un pass per il relay.",
+      "pathTitle": "La suddivisione di un modello funziona meglio su un percorso diretto o con hole punching.",
+      "pathBody": "I layer si parlano a ogni token. Tramite un relay funziona, ma ogni token aspetta il relay. Se esiste solo un percorso via relay, scegli tu se aggiungere il worker.",
+      "runTitle": "Esegui questo sul worker",
+      "runFirst": "Prima crea l'invito: il comando contiene il suo link.",
+      "runNote": "Il volume conserva l'identità e l'abbinamento del worker, così lo stesso comando funziona dopo un riavvio. Il vecchio nome p2p-worker funziona ancora.",
+      "runNoteMlx": "Il worker conserva identità e abbinamento in ./p2p/mlx-distributed, così lo stesso comando funziona dopo un riavvio.",
+      "waitTitle": "In attesa del worker",
+      "waiting": "In attesa che il worker si colleghi…",
+      "pairedTitle": "Il worker si è abbinato",
+      "pairedWaiting": "Il worker ha usato l'invito. In attesa della sua connessione.",
+      "foundTitle": "Il worker è in uso",
+      "foundBody": "Compare nella pagina Nodi sotto Worker per modelli suddivisi, con la memoria che aggiunge. Ricarica il modello per usarlo.",
+      "openNodes": "Apri Nodi",
+      "relayTitle": "Il worker si è collegato solo tramite un relay",
+      "slowTitle": "Lento: tramite un relay.",
+      "slowBody": "{{name}} non ha un percorso diretto o con hole punching verso questa istanza. La suddivisione funziona tramite il tuo relay, ma ogni token lo aspetta. Aprire la porta 4001 UDP e TCP su uno dei due lati può dare più avanti un percorso diretto.",
+      "slowCut": "Il relay chiude ogni connessione dopo {{limits}}: il modello poi si ferma finché non viene ricaricato. Alza o togli i limiti per andare più a lungo.",
+      "addAnyway": "Aggiungi comunque",
+      "notNow": "Non ora",
+      "engineSubNode": {
+        "llama": "Il modello gira sul nodo che scegli al passo successivo. Il worker tiene alcuni dei suoi layer nella propria memoria.",
+        "mlx": "Il modello gira sul nodo che scegli al passo successivo e sul worker, come rank di un unico anello MLX. Solo Apple Silicon."
+      },
+      "nodeTitle": "Nodo",
+      "nodeLabel": "Assegna il worker a",
+      "nodeSub": "I modelli che questo nodo carica usano il worker. Fissa il modello su questo nodo con una regola di posizionamento, così viene caricato lì. Puoi cambiare nodo più tardi nella pagina Nodi.",
+      "nodeServer": "Questa istanza (in un cluster non esegue modelli)",
+      "nodePick": "Scegli un server di split",
+      "nodeOffline": "{{name}} (offline)"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Motore",
+      "path": "Percorso",
+      "memory": "Memoria aggiunta",
+      "status": "Stato",
+      "actions": "Azioni",
+      "node": "Assegnato a"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Diretto",
+      "holePunched": "Hole punching",
+      "relayed": "Tramite {{relay}}",
+      "relayedUnknown": "Tramite un relay",
+      "none": "Nessun percorso",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "Online",
+      "offline": "Offline",
+      "slow": "Lento: tramite un relay",
+      "limited": "Relay pubblico: non usato",
+      "refused": "Rifiutato"
+    },
+    "useAnyway": "Usa comunque",
+    "stopUsing": "Smetti di usarlo",
+    "revoke": "Revoca…",
+    "revokeTitle": "Revocare {{name}}?",
+    "revokeBody": "Il worker viene escluso subito e deve abbinarsi di nuovo con un nuovo invito. Un modello caricato con esso non funziona finché non viene ricaricato.",
+    "revokeConfirm": "Revoca",
+    "revoking": "Revoca in corso…",
+    "addWorker": "Aggiungi un worker per modelli suddivisi",
+    "toast": {
+      "used": "{{name}} viene usato tramite il relay.",
+      "stopped": "{{name}} non viene più usato tramite il relay.",
+      "revoked": "{{name}} è stato revocato.",
+      "attached": "{{name}} è assegnato a {{node}}. I modelli che {{node}} carica da ora in poi lo usano.",
+      "detached": "{{name}} è assegnato a questa istanza."
+    },
+    "noteCluster": "Non sono nodi del cluster: niente backend e niente regole di posizionamento. Ognuno presta memoria ai modelli del nodo a cui è assegnato.",
+    "thisServer": "Questa istanza",
+    "nodeLabel": "Nodo di {{name}}",
+    "unattachedTitle": "Questi worker non sono usati: assegnali a un nodo.",
+    "unattachedBody": "Assegnati a questa istanza: {{names}}. In un cluster i modelli girano sui nodi backend, non su questa istanza. Scegli un nodo per ciascuno.",
+    "noServerTitle": "Nessun worker è ancora un server di split.",
+    "noServerBody": "Un worker di split del modello si può collegare solo a un worker che è un server di split. Creane uno qui, oppure avvia il worker con --split-server.",
+    "offlineTitle": "Il nodo di un worker di split del modello è offline.",
+    "offlineBody": "{{names}} resta collegato e aspetta che il suo nodo torni. Nessuno lo sposta su un altro nodo.",
+    "relayRefusedTitle": "I tuoi relay non ammettono un nodo.",
+    "relayRefusedBody": "I worker raggiungono {{names}} solo in modo diretto o con hole punching: {{reason}}.",
+    "nextLoad": "Le modifiche ai worker di un nodo valgono dal prossimo modello che carica.",
+    "nodeOffline": "Nodo offline",
+    "relay": {
+      "admitted": "Relay: ammesso",
+      "refused": "Relay: rifiutato",
+      "pending": "Relay: in attesa",
+      "notNeeded": "Relay: non serve"
+    }
+  },
   "nodes": {
     "retry": "Riprova"
+  },
+  "add": {
+    "connect": {
+      "title": "Come deve collegarsi?",
+      "url": "Indirizzo del server",
+      "p2p": "Invito P2P",
+      "urlSub": "Il nodo chiama l’indirizzo di questo server con il token di registrazione. Usa il trasporto del cluster: NATS o il tunnel WebSocket.",
+      "p2pSub": "Il nodo entra da qualsiasi rete con un invito monouso. Trova questo server dal suo peer ID e si collega in diretta, con l’hole punching o tramite il tuo relay. Non servono porte aperte né token di registrazione.",
+      "order": "Ordine in questo cluster: NATS, poi WebSocket, poi P2P. Un nodo che entra via P2P usa sempre il suo tunnel."
+    },
+    "invite": {
+      "title": "Crea un invito",
+      "needsShare": "Gli inviti per i worker richiedono P2P in modalità Collega e condividi.",
+      "settings": "Apri le impostazioni P2P",
+      "name": "Nome del nodo (facoltativo)",
+      "namePlaceholder": "gpu-box-5",
+      "make": "Crea invito",
+      "ready": "Invito pronto",
+      "single": "Monouso",
+      "expires": "scade tra",
+      "pass": "pass del relay su {{relay}}",
+      "again": "Nuovo invito",
+      "warn": {
+        "no_relay": "Questo server non ha un relay. Un nodo dietro un NAT rigido non può collegarsi.",
+        "open_relay": "L’invito indica un relay aperto, che chiunque può usare.",
+        "relay_unreachable": "Il relay non ha risposto, quindi l’invito non ha un pass del relay.",
+        "no_public_addr": "Questo server non ha un indirizzo pubblico. Il nodo si collega con l’hole punching o tramite un relay."
+      }
+    },
+    "run": {
+      "inviteFirst": "Crea prima un invito. Il comando contiene il link dell’invito.",
+      "joinNote": "Il link funziona una volta. Il worker conserva la sua identità, quindi un riavvio con lo stesso comando non richiede un nuovo invito."
+    },
+    "wait": {
+      "checkPeer": "Verifica il peer ID con chi gestisce la macchina prima di approvare.",
+      "joinStuck": "Non arriva niente? Dietro un NAT rigido il nodo può impiegare un minuto a trovare un percorso. Controlla che l’invito non sia scaduto."
+    },
+    "join": {
+      "instanceNote": "Un'altra istanza LocalAI che deve servire una parte delle richieste non è un nodo: aggiungila come remoto, poi raggruppala in",
+      "instanceLink": "Federazione"
+    }
+  },
+  "route": {
+    "nats": "NATS",
+    "websocket": "WebSocket",
+    "p2p": "P2P",
+    "path": {
+      "direct": "Diretto",
+      "hole_punched": "Hole punching",
+      "relayed": "Tramite relay"
+    },
+    "limited": "Limitato",
+    "limitedHint": "Il relay limita i dati o la durata di questa connessione. I file dei modelli non passano da lì.",
+    "heartbeat": "Heartbeat",
+    "tunnel": "Tunnel",
+    "chip": "{{route}}: {{state}}",
+    "state": {
+      "live": "attiva",
+      "reconnecting": "in riconnessione",
+      "down": "interrotta"
+    }
+  },
+  "inspector": {
+    "route": "Percorso",
+    "peer": "Peer ID"
+  },
+  "splitServer": {
+    "label": "Server di split",
+    "make": "Rendi server di split…",
+    "clear": "Non essere più server di split…",
+    "open": "Configura un server di split",
+    "title": "Configura un server di split",
+    "desc": "Un server di split è un worker che esegue i modelli con la memoria dei worker di split collegati a lui.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (server di split)",
+    "changesTitle": "Quando confermi, {{node}} diventa un server di split:",
+    "changes": {
+      "ports": "Apre porte P2P e avvia un host P2P per i suoi worker di split.",
+      "relay": "Questa istanza lo ammette sui relay protetti che gestisci, così i worker lo raggiungono attraverso di essi.",
+      "load": "I worker collegati servono al prossimo modello llama.cpp o MLX che carica. Un modello già caricato tiene i suoi worker finché non viene caricato di nuovo.",
+      "undo": "Puoi disattivarlo nella pagina Nodi. I suoi worker vengono allora scollegati."
+    },
+    "offline": "{{node}} è offline. I suoi worker aspettano che torni.",
+    "helpers": "Collega questi worker di split",
+    "noHelpers": "Nessun altro worker di split è ancora associato. Puoi collegare i worker più tardi.",
+    "moveFrom": "ora su {{node}}",
+    "noNodes": "Il cluster non ha ancora un worker di backend. Aggiungine uno prima.",
+    "cancel": "Annulla",
+    "confirm": "Rendi server di split e collega",
+    "confirmAttach": "Collega",
+    "clearTitle": "{{node}} non deve più essere un server di split?",
+    "clearBody": "Il suo host P2P si ferma, i tuoi relay smettono di ammetterlo e i suoi worker di split ({{count}}) vengono scollegati. Aspettano, senza nodo, finché non li colleghi di nuovo.",
+    "clearConfirm": "Non essere più server di split",
+    "clearing": "Arresto…",
+    "toast": {
+      "set": "{{node}} è un server di split. Worker collegati ora: {{count}}. Servono al prossimo modello che carica.",
+      "cleared": "{{node}} non è più un server di split. Worker scollegati: {{count}}."
+    }
   }
 }

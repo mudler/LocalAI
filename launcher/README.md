@@ -43,6 +43,9 @@ removed from the repository. It uses the same data folder (`~/.localai`) and the
   starts a grandchild so group signals are exercised.
 - `scripts/smoke-packaged.sh`: runs a packaged AppImage under `xvfb-run`, a
   macOS `.app`, or the installed Windows `local-ai-launcher.exe` (Git Bash).
+- `scripts/portable-linux/`: what makes the x64 AppImage start on hosts
+  without glibc (see "Portable Linux AppImage" below): the builder hook, the
+  start script, the interpreter patch, the pins, the image check.
 - `scripts/webui-security.sh`: runs the built app under `xvfb-run` with a
   hostile server page and reports how the WebUI view handled each attempt.
 
@@ -115,7 +118,7 @@ unknown keys are kept; writes go through the one config queue):
 
 | Key | Meaning |
 |---|---|
-| `remotes` | A list of `{id, name, url}`: the saved servers. The url is an origin (no path, no credentials, no secret). At most 20, names of 1 to 60 characters, unique addresses. The ids are made by the main process. |
+| `remotes` | A list of `{id, name, url}`: the saved servers. The url is an origin (no path, no credentials, no secret). At most 20, names of 1 to 60 characters, unique addresses. The ids are made by the main process. A server over P2P also has `p2p: {peer, port, addrs, relays}` and its url must be `http://127.0.0.1:<port>`; an entry where they differ is dropped on read. |
 | `default_target` | `local` or the id of a saved server. Missing, or an id that is not in the list, means `local`. Written only when it changes. |
 | `keep_local_running` | Opt-in, missing means false. See below. |
 | `update_channel` | `stable`, `rc` or `dev`. Missing means `stable`; an old `include_prereleases: true` reads as `rc`. |
@@ -138,7 +141,16 @@ every 30 s (`remoteMonitor.ts`); it never starts the local server by itself.
 Plain http to any host is accepted, with a warning in the form and an amber
 "Remote, not encrypted" chip in the bar.
 
-The IPC channels are `launcher:servers:{get,event,test,add,update,remove,
+A server over P2P (`src/main/p2pRemote.ts`) is added with an invite link.
+The launcher runs `local-ai p2p pair --invite <link> --identity <file> --json`
+once, with the identity file `~/.localai/launcher-p2p/identity.key`, picks a
+free loopback port, saves the server at `http://127.0.0.1:<port>` and keeps
+one `local-ai p2p forward` per server running (JSON status lines on stderr,
+restart with a delay from 1 s doubling to 60 s). The port never changes, so
+the origin, the cookies and the session partition stay the same across
+restarts. Pairing needs the local-ai binary; without it the add form says so.
+
+The IPC channels are `launcher:servers:{get,event,test,add,add-by-invite,update,remove,
 set-default,cancel-switch,retry,set-keep-local,open-switcher}`. They take a
 saved server id or a typed address, never an origin. The switcher shortcut is
 Ctrl+Shift+S (Cmd+Shift+S on macOS), a View menu accelerator, so it works
@@ -201,7 +213,67 @@ The Windows build runs on Windows. On Linux, electron-builder makes the
 zip without Wine, but the NSIS installer needs Wine, and signing needs
 Windows or osslsigncode.
 
-A packaged x64 AppImage is about 120 MB (126 MB for 4.12.1; 276 MB unpacked).
+A packaged x64 AppImage is about 137 MB (126 MB for the build before the portable
+step; 118 MB with the static runtime alone; about 330 MB unpacked).
+The portable step adds the glibc loader and about 50 MB of libraries
+(roughly 19 MB compressed).
+
+### Portable Linux AppImage
+
+The x64 AppImage is one file that starts on hosts with glibc and on hosts
+without it (musl: Alpine, Hadron, Void-musl). Two things stopped it before:
+the AppImage runtime, which needed FUSE 2 libraries and a glibc loader before
+the image could even be mounted, and the Electron binaries, whose ELF
+interpreter is `/lib64/ld-linux-x86-64.so.2`.
+
+- **Runtime.** `toolsets.appimage: 1.0.3` in `electron-builder.yml` selects the
+  builder's static `type2-runtime` toolset (AppImage/type2-runtime release
+  20251108, the checksum of the toolset is pinned inside the builder). It
+  also makes the image zstd-compressed.
+- **Bundle.** The `afterPack` hook (`scripts/portable-linux/after-pack.cjs`,
+  Linux x64 only; every other target returns at once) runs
+  `collect-libs.sh` in a Debian trixie container, pinned by image digest and by
+  a `snapshot.debian.org` date (`pins.json`), and adds `glibc/` (loader and
+  libc family), `lib/` (every library the binaries need, and the ones
+  Chromium loads at run time) and `etc/` (a CA bundle, a fontconfig fallback
+  and the list of the packages that were bundled). It needs Docker and the
+  network. `LAUNCHER_PORTABLE=off npm run dist:appimage` skips the step for a
+  local build without Docker; that build is a normal glibc-only AppImage.
+- **Interpreter.** The hook changes the interpreter of `local-ai-launcher` and
+  `chrome_crashpad_handler` in place to the relative path `ld`, padded with
+  NUL bytes (`patch-interp.cjs`). Running `ld.so program` instead does not
+  work: Chromium starts its children from `/proc/self/exe`.
+- **Start script.** `AppRun` (POSIX sh, so it runs on a host that has no bash
+  yet) makes a private directory with an executable `ld` and starts the app
+  from there, because the kernel resolves a relative interpreter against the
+  working directory, and every Chromium child inherits it. On a glibc host `ld`
+  is a link to the system loader and the host libraries and GPU drivers are
+  used. Elsewhere it is a copy of the bundled loader, verified by hash at every
+  start, the bundled libraries are used, and `--disable-gpu` is added (host
+  GPU drivers for musl cannot load into a glibc process). The security
+  reasoning and the trade-offs are in the comment block of `AppRun`.
+  `LOCALAI_LAUNCHER_BUNDLED_GLIBC=1` forces the bundled glibc on a glibc
+  host. electron-builder's own start script stays in the image as
+  `AppRun.electron-builder` and is started last.
+- **Requirements on the host.** bash and a POSIX `sh` with `stat`,
+  `sha256sum`, `readlink`, `cp`, `mv` (busybox is enough), and a directory
+  that can run programs: `$XDG_RUNTIME_DIR`, `~/.cache`, `/tmp`, `/var/tmp`
+  or `/dev/shm`, not all mounted noexec. A host without glibc gets software
+  rendering and the bundled libraries; its display server must be there.
+- **Working directory.** The launcher runs with the loader directory as its
+  working directory; the original is in `$OWD`. It takes no relative file
+  arguments, and the server it starts gets an explicit directory.
+- **Self-update.** Unchanged: the update feed (`latest-linux.yml`, with the
+  embedded block map) is written by the builder after the image is packed, so
+  its hash and size are right. The image is still an ELF file with the AppImage
+  type 2 marker, which is what `appImageUpdate.ts` checks.
+- **Checks.** `scripts/portable-linux/check-image.sh <AppImage>` verifies the
+  layout of a built image. The CI job for amd64 runs it, then runs the smoke a
+  second time inside Alpine (`SMOKE_CONTAINER_IMAGE`, see
+  `scripts/portable-linux/musl-smoke.Dockerfile`): a real musl userland on the
+  runner's kernel. It is not a test on a musl machine with its own kernel,
+  libraries and GPU; do that before a release. The sandbox-on path (user
+  namespaces) is not covered by either smoke.
 
 `scripts/version.mjs` gives the version: `tag v4.2.1` gives `4.2.1`,
 `tag v4.2.1-rc.1` (or `-rc1`) gives `4.2.1-rc.1`, `-beta.N` and `-alpha.N` are
@@ -214,7 +286,7 @@ gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped. A
 
 | Workflow | Trigger | Permissions | What it does |
 |---|---|---|---|
-| `launcher-electron-build.yaml` | `workflow_call` | `contents: read` | npm ci, type check, unit tests, build with `--publish never`, `.sha256` files, packaged smoke (AppImage under Xvfb with `--appimage-extract-and-run`; on macOS the DMG is signed, notarized and stapled, then checked with `codesign`, `spctl` and `stapler`, and the app from the mounted DMG is checked the same way before the smoke), then workflow artifacts. amd64 on `ubuntu-22.04`, arm64 on `ubuntu-24.04-arm`, macOS on `macos-latest`, Windows on `windows-latest` (type check, `test/windows.test.ts`, `test/windowsHost.test.ts` and the builder config test; the rest of the unit suite is POSIX-specific and runs in the other jobs; then a silent per-user install of the NSIS installer and the smoke on the installed app). |
+| `launcher-electron-build.yaml` | `workflow_call` | `contents: read` | npm ci, type check, unit tests, build with `--publish never`, `.sha256` files, packaged smoke (AppImage under Xvfb with `--appimage-extract-and-run`; on macOS the DMG is signed, notarized and stapled, then checked with `codesign`, `spctl` and `stapler`, and the app from the mounted DMG is checked the same way before the smoke), then workflow artifacts. amd64 also checks the portable layout and runs the smoke again inside Alpine (musl); amd64 on `ubuntu-22.04`, arm64 on `ubuntu-24.04-arm`, macOS on `macos-latest`, Windows on `windows-latest` (type check, `test/windows.test.ts`, `test/windowsHost.test.ts` and the builder config test; the rest of the unit suite is POSIX-specific and runs in the other jobs; then a silent per-user install of the NSIS installer and the smoke on the installed app). |
 | `launcher-electron-release.yaml` | `workflow_call` from `release.yaml`, every `v*` tag, after GoReleaser | build: read; upload: `contents: write`; check: read | Version from the tag, build with required macOS signing (Windows signing when its secrets exist), feed files, upload to the existing release (no checkout, files first, feed files last, `--clobber`), then a check of the attached feed. |
 | `launcher-electron-dev.yaml` | push to `master` and pull requests (path filter), manual run | build: read; publish: `contents: write` | Development builds as artifacts `localai-launcher-dev-linux-amd64`, `-linux-arm64`, `-macos-arm64`, `-windows-amd64` (14 days; pull requests: amd64 AppImage only, no secrets, 7 days). Master builds are not cancelled by a newer push (a waiting run is replaced). After they pass, the `publish` job (master pushes only, never pull requests or manual runs) attaches the AppImages, the DMG, the Windows installer and zip, and their `.sha256` files to the `dev-master` pre-release with `--clobber`, next to the server binaries. It waits for that release (made by `master-dev-binary.yml`) and never creates it. Manual run: build and smoke only. |
 
@@ -503,11 +575,35 @@ in an old config is listed as "Not passed".
 
 Channels: `launcher:network:get`, `:plan`, `:set-exposed`,
 `launcher:api-key:regenerate`, `:reveal`, `:copy`, `:dismiss-notice`, `launcher:env:get`, `:set`,
-`:delete` and `launcher:secrets:state`, each behind the sender check and the
+`:delete`, `launcher:secrets:state` and `launcher:registry-credentials:{list,save,remove,test}`, each behind the sender check and the
 input checks. `test/coreSecrets.test.ts` proves with the fake server that a
 value reaches the server by its environment and not by its arguments, its
 `/proc` command line, the logs, the config file, the secrets file as plain
 text, or anything the renderer gets without asking.
+
+### Registry credentials
+
+Settings, Advanced, "Registry credentials" keeps rules (a registry, Basic or
+Bearer token, and a user name for Basic) used when the server pulls add-ons,
+backends and models from private registries. The launcher keeps the rule
+metadata in `launcher.json` and each secret only in the secret store. Before
+the server starts it writes a generated `registry-credentials.yaml` next to
+`launcher.json` (mode 0600) that holds the rules and the names of environment
+variables, never the secrets; the secrets reach the
+server only through those environment variables and set `LOCALAI_CREDENTIALS_FILE`
+to that file. While rules exist they replace the `credentials.yaml` of the data
+folder, and a `LOCALAI_CREDENTIALS_FILE` set by the user turns the rules off.
+The server reads the file once at start, so a change needs a restart. Every
+start, including the restart after an update, refreshes the file first. The
+renderer never receives a secret, and Test shows only a result label.
+
+Only https registries are accepted: the server sends a credential over plain
+http only to a rule with `allow_insecure`, which the launcher does not write.
+Test asks `https://<registry>/v2/` once, with one 8 s deadline, and follows a
+redirect only on the same origin. A 401 with a Bearer challenge means the
+registry uses a token service; Test does not send the credential there and
+reports that it cannot check. An edit that changes the kind or the host needs
+the secret again.
 
 ## Sandbox on Linux
 

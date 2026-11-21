@@ -31,20 +31,37 @@ export function toneOf(n) {
 const SOURCE_ICON = { trigger: 'bolt', connector: 'plug', system: 'info' }
 
 export function iconOf(n) {
+  if (n?.code === 'models.upgradeDone') return 'check-circle'
+  if (n?.code === 'models.upgradeFailed') return 'alert-circle'
+  if (n?.code === 'models.removedOld') return 'trash'
+  if (n?.code === 'models.updateAvailable') return 'arrow-up'
+  if (n?.code === 'updates.opDone' || n?.code === 'updates.opFailed') return failed(n) ? 'alert-circle' : n.params?.outcome === 'cancelled' ? 'info' : 'check-circle'
   if (typeof n?.code === 'string' && n.code.startsWith('updates.')) return 'arrow-up'
   const source = sourceOf(n)
   if (source === 'connector' && failed(n)) return 'plug-off'
   return SOURCE_ICON[source]
 }
 
+// Whether a path is a page of the chats: a chat, an agent, the connectors.
+// With the chats off these pages are not there.
+const CHATS_PATH = /^\/app\/chats(?:[/?#]|$)/
+
 // Where a click on the item goes: its own link, or for a connector with none
 // the page of the connectors, where it can be switched on again. Only paths
-// inside the app are followed.
-export function targetOf(n) {
+// inside the app are followed. With the chats off a link into the chats goes
+// nowhere (chatsOn false): the row stays in the list, read-only.
+export function targetOf(n, chatsOn = true) {
   const link = n?.link || ''
-  if (link.startsWith('/app/')) return link
-  if (sourceOf(n) === 'connector') return '/app/chats/connectors'
-  return ''
+  const target = link.startsWith('/app/') ? link : sourceOf(n) === 'connector' ? '/app/chats/connectors' : ''
+  if (!chatsOn && CHATS_PATH.test(target)) return ''
+  return target
+}
+
+// True when the item points into the chats and the chats are off, so the row
+// says why it opens nothing.
+export function linkDisabled(n, chatsOn = true) {
+  if (chatsOn) return false
+  return targetOf(n, true) !== '' && targetOf(n, false) === ''
 }
 
 // ---- Items that the UI words itself -----------------------------------------
@@ -88,6 +105,70 @@ function resultText(t, p, n) {
   }
 }
 
+// The end of an install, removal or upgrade of a model or backend. The reason
+// of a failure stays the server's own words (the body).
+const OP_KINDS = ['model', 'backend', 'addon']
+const OP_ACTIONS = ['install', 'delete', 'upgrade']
+
+function opText(t, n, p) {
+  const name = typeof p.name === 'string' ? p.name : ''
+  if (!name || !OP_KINDS.includes(p.kind) || !OP_ACTIONS.includes(p.action)) return null
+  const state = n.code === 'updates.opDone' ? 'done' : p.outcome === 'cancelled' ? 'cancelled' : 'failed'
+  // An add-on whose package asked for more host access than was reviewed did
+  // not fail in a way a retry fixes: it waits for a new review.
+  if (state === 'failed' && p.kind === 'addon' && p.action === 'install' && p.needsApproval === true) {
+    return { title: t('inbox.codes.op.needsReview.install', { name }), body: n.body }
+  }
+  return { title: t(`inbox.codes.op.${state}.${p.action}`, { kind: t(`inbox.codes.op.kind.${p.kind}`), name }), body: n.body }
+}
+
+// A digest of a model entry as the list shows it: "sha256:0123456789ab".
+function shortRef(v) {
+  const s = typeof v === 'string' ? v.trim() : ''
+  if (!s) return ''
+  const [algo, hex] = s.includes(':') ? s.split(':') : ['', s]
+  return hex ? `${algo ? `${algo}:` : ''}${hex.slice(0, 12)}` : ''
+}
+
+// The model update codes: the digest of the models with an update, the end of
+// one upgrade (done or failed, and whether it was rolled back) and the removal
+// of the old version an upgrade kept. A failure keeps the server's reason.
+function modelText(t, n, p) {
+  const name = typeof p.name === 'string' ? p.name : ''
+  switch (n.code) {
+    case 'models.updateAvailable': {
+      if (p.family !== 'models' || !count(p.count)) return null
+      const names = strings(p.names)
+      return {
+        title: t('inbox.codes.models.available.title', { count: p.count }),
+        body: names.length ? listWithMore(t, 'inbox.codes.digest', names, p.count) : n.body,
+      }
+    }
+    case 'models.upgradeDone': {
+      if (!name) return null
+      const from = shortRef(p.from)
+      const to = shortRef(p.to)
+      return { title: t('inbox.codes.models.done.title', { name }), body: from && to ? t('inbox.codes.models.done.body', { from, to }) : n.body }
+    }
+    case 'models.upgradeFailed': {
+      if (!name) return null
+      const reason = typeof p.error === 'string' && p.error ? p.error : (n.body || '')
+      const key = p.rolledBack === true ? 'rolledBack' : 'kept'
+      return {
+        title: t('inbox.codes.models.failed.title', { name }),
+        body: reason ? t(`inbox.codes.models.failed.${key}`, { error: reason }) : t(`inbox.codes.models.failed.${key}Plain`),
+      }
+    }
+    case 'models.removedOld': {
+      if (!name) return null
+      const files = Number.isInteger(p.files) && p.files >= 0 ? p.files : -1
+      return { title: t('inbox.codes.models.removed.title', { name }), body: files >= 0 ? t('inbox.codes.models.removed.body', { count: files }) : n.body }
+    }
+    default:
+      return null
+  }
+}
+
 // The title and body of a notification as the list shows them. Items without a
 // code, and codes or params that are not understood, show what the server stored.
 export function textOf(n, t) {
@@ -103,6 +184,10 @@ export function textOf(n, t) {
     }
   } else if (n.code === 'updates.result') {
     out = resultText(t, p, n)
+  } else if (n.code === 'updates.opDone' || n.code === 'updates.opFailed') {
+    out = opText(t, n, p)
+  } else if (typeof n.code === 'string' && n.code.startsWith('models.')) {
+    out = modelText(t, n, p)
   } else if (n.code === 'updates.checkFailed') {
     const sources = strings(p.sources).filter(x => ['gallery', 'library', 'addons'].includes(x))
     if (sources.length) {
@@ -171,8 +256,8 @@ export function hasUnreadFailure(items) {
 // go. Anyone else sees it once the inbox holds something, and keeps it for the
 // rest of the session (everHad) and while the panel is open, so clearing the
 // list does not take the button from under the person's hand. Nobody sees it
-// when the inbox is off (chats off, no chats feature, or the server says
-// there is none) or before the first answer.
+// when the inbox is off (the server says there is none, or the notification
+// center did not start) or before the first answer. The chats do not matter.
 export function entryVisible({ enabled, off, loaded, isAdmin, total, everHad, open }) {
   if (!enabled || off || !loaded) return false
   if (isAdmin) return true
@@ -180,8 +265,8 @@ export function entryVisible({ enabled, off, loaded, isAdmin, total, everHad, op
 }
 
 // The answers that say "no inbox here": 404 and 409 (the server keeps none) and
-// 403 (this person lacks the chats feature). The hook stops asking at once,
-// where any other failure is retried.
+// 403 (the server refuses this person). The hook stops asking at once, where
+// any other failure is retried.
 export function inboxOff(status) {
   return status === 403 || status === 404 || status === 409
 }

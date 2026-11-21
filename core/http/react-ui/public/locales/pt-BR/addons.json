@@ -118,6 +118,9 @@
     "emptyBody": "Esta lista está vazia.",
     "emptyFiltered": "Nada corresponde à pesquisa. Mude as palavras ou a biblioteca.",
     "emptyTitle": "Nada para mostrar",
+    "failedBody": "As bibliotecas que foram carregadas estão listadas abaixo.",
+    "failedTitle_one": "Não foi possível ler uma biblioteca.",
+    "failedTitle_other": "Não foi possível ler {{count}} bibliotecas.",
     "libraries": "Bibliotecas",
     "loading": "Carregando resultados",
     "next": "Próxima página",
@@ -205,10 +208,12 @@
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
+    "lastGood": "Último carregamento {{when}}",
     "lastRefresh": "Atualizada {{when}}, {{count}} entradas",
     "lead": "Uma biblioteca é um índice que lista complementos, backends ou modelos. Credenciais nunca são digitadas aqui: uma biblioteca privada de complementos indica uma credencial que um administrador configurou neste servidor.",
     "listLabel": "Bibliotecas",
     "loading": "Carregando bibliotecas",
+    "neverLoaded": "Nunca carregada",
     "notRefreshed": "Ainda não atualizada",
     "reference": "Referência de credencial: {{name}}",
     "refresh": "Atualizar",
@@ -644,7 +649,9 @@
     },
     "waitingService": "O serviço de complementos está iniciando. O LocalAI pergunta de novo sobre a atualização em {{seconds}} s.",
     "checkAgain": "Verificar agora",
-    "open": "Abrir Atualizações"
+    "open": "Abrir Atualizações",
+    "cancelledNote": "A atualização de {{name}} foi cancelada. A versão {{version}} continua em execução.",
+    "cancelling": "Cancelando…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -719,7 +726,8 @@
     "skillShadow": "Este complemento substitui a habilidade integrada {{skill}}.",
     "skillShadowWarning": "Este complemento substitui a habilidade integrada {{skill}}. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas. Até você escolher, o que foi instalado primeiro o fornece.",
     "skillProvides": "Este complemento fornece a habilidade {{skill}}.",
-    "skillProvidesWarning": "Este complemento fornece a habilidade {{skill}}. Outro complemento ({{name}}) também a fornece. Apenas um pode estar ativo; escolha em Configurações > Ferramentas. Sem uma escolha, o instalado primeiro será usado."
+    "skillProvidesWarning": "Este complemento fornece a habilidade {{skill}}. Outro complemento ({{name}}) também a fornece. Apenas um pode estar ativo; escolha em Configurações > Ferramentas. Sem uma escolha, o instalado primeiro será usado.",
+    "background": "Isto roda em segundo plano. Você pode fechar esta janela; fechá-la não o interrompe."
   },
   "family": {
     "pages": "Procurando páginas que você ou um agente criou? Elas estão em <go>Páginas</go>."
@@ -787,7 +795,8 @@
       "action": "Aprovar e atualizar",
       "body": "A versão {{current}} de {{name}} continua rodando. Se você aprovar, a nova versão pode executar estas ações. As novas estão marcadas.",
       "done": "{{name}} foi atualizado.",
-      "title": "Aprovar o acesso ao host de {{name}} {{version}}"
+      "title": "Aprovar o acesso ao host de {{name}} {{version}}",
+      "running": "A atualização roda em segundo plano. Você pode fechar esta janela; fechá-la não a interrompe. Escolha Cancelar para interrompê-la."
     },
     "asksNothing": "Este add-on não pede acesso ao host.",
     "blanket": {
@@ -891,6 +900,7 @@
     "newOptional": "A nova versão também pede {{ops}}. São opcionais e não permitidas.",
     "noLongerRequested": "Esta versão não pede mais. Você pode desligar.",
     "notOfficialWarning": "Este add-on vem de {{library}}, não da biblioteca oficial. Ele roda como código confiável neste servidor e pode usar as credenciais que recebe. Instale-o só se você confiar no autor.",
+    "signedNotReviewed": "Assinado por {{signer}}. Não revisado pelo LocalAI. Ele roda como código confiável neste servidor e pode usar as credenciais que receber. Instale somente se você confiar em quem assinou.",
     "op": {
       "alreadyAllowed": "Já permitido",
       "blocked": "Bloqueado pela política do administrador",
@@ -924,7 +934,12 @@
       "body": "A nova versão pede um acesso ao host que a atual não tem. A versão {{current}} continua rodando até você aprovar. Operações adicionadas: {{count}}.",
       "review": "Revisar e aprovar",
       "reviewNamed": "Revisar e aprovar o acesso ao host de {{name}}",
-      "title": "{{name}} {{version}} aguarda sua aprovação"
+      "title": "{{name}} {{version}} aguarda sua aprovação",
+      "updatingTitle": "Atualizando {{name}} para {{version}}",
+      "queuedBody": "Ela está na fila e roda em segundo plano.",
+      "cancellingTitle": "Cancelando a atualização de {{name}}",
+      "failedTitle": "A atualização de {{name}} para {{version}} falhou",
+      "reviewAgain": "Revisar de novo"
     }
   },
   "oauthClient": {
@@ -1008,7 +1023,10 @@
       "downgradeTitle": "Versão mais antiga",
       "downgrade": "Isto instala a versão {{version}}, que é mais antiga que a versão instalada {{installed}}. Uma versão mais antiga pode não ler dados escritos por uma mais nova.",
       "downgradeConfirm": "Quero instalar a versão mais antiga"
-    }
+    },
+    "progress": "Instalando {{name}} a partir de um arquivo. Ele roda em segundo plano.",
+    "failedTitle": "Falha ao instalar {{name}} a partir de um arquivo",
+    "failedHint": "O arquivo fica guardado por uma hora. Escolha Tentar de novo para usá-lo outra vez."
   },
   "notice": {
     "enableFailedTitle": "Não foi possível ativar {{name}}",
@@ -1058,5 +1076,28 @@
       "off": "Desligada",
       "attention": "Precisa de configuração"
     }
+  },
+  "queue": {
+    "title": "Fila de instalação",
+    "select": "Adicionar à fila",
+    "selectNamed": "Adicionar {{name}} à fila de instalação",
+    "inQueue": "Na fila",
+    "selectionLabel": "Complementos selecionados para instalar",
+    "selected": "Selecionados: {{count}}",
+    "reviewPicked": "Revisar e enfileirar",
+    "clear": "Limpar",
+    "position": "Complemento {{number}} de {{total}}.",
+    "batchNote": "Nada entra na fila até você terminar o último.",
+    "confirmBody": "A versão {{version}} da fonte {{library}} é adicionada à fila de instalação. Ela é baixada em segundo plano e verificada antes de ser instalada. Ela não é ativada.",
+    "add": "Adicionar à fila",
+    "acceptNext": "Aceitar e seguir",
+    "acceptLast": "Aceitar e enfileirar tudo",
+    "skip": "Pular",
+    "unpinned": "Esta entrada de desenvolvimento não está presa a um pacote. Ela instala o que a fonte serve agora.",
+    "reviewTitle": "Revisão necessária.",
+    "reviewBody": "O pacote pede mais acesso ao host do que você aprovou. Confira a lista de novo antes da instalação.",
+    "refused": "{{name}} não entrou na fila. {{reason}}",
+    "noAnswer": "O servidor não respondeu sobre este complemento.",
+    "notInLibrary": "Este complemento não está mais nas suas bibliotecas."
   }
 }

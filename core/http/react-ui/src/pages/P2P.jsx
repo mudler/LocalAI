@@ -1,220 +1,311 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useState } from 'react'
-import { Link, useOutletContext } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { p2pApi } from '../utils/api'
-import { usePolling } from '../hooks/usePolling'
-import { copyToClipboard } from '../utils/clipboard'
-import { useImageSelector } from '../components/ImageSelector'
-import { p2pCommand } from '../utils/swarm'
-import CommandBlock from '../components/swarm/CommandBlock'
-import LoadingSpinner from '../components/LoadingSpinner'
-import Icon from '../components/Icon'
-import './swarm.css'
+import Dialog from '../components/Dialog'
+import { HubHeader } from '../components/hub/HubHeader'
+import P2PTabs, { P2P_SETTINGS_PATH } from '../components/p2p/P2PTabs'
+import ShareInstanceDialog from '../components/p2p/ShareInstanceDialog'
+import { Button, Callout, EmptyState, LoadError, Notice, SkeletonRows, StatusChip, useLoad } from '../components/ui'
+import { p2pNetApi } from '../utils/api'
+import {
+  clock, modelGrant, pathKey, pathTone, pendingInvites, relativeTime, secondsLeft, shortPeer, sortedDevices,
+} from '../utils/p2p'
+import '../components/p2p/p2p.css'
 
-const EMPTY_STATS = { llama_cpp_workers: { online: 0, total: 0 }, federated: { online: 0, total: 0 }, mlx_workers: { online: 0, total: 0 } }
+// How often the page reads the invites and devices again: an invite counts
+// down and a device's path changes while the page is open.
+const REFRESH_MS = 10_000
 
-// A list of peers, one row each with the word Online or Offline.
-function PeerTable({ rows, label, empty }) {
-  const { t } = useTranslation('swarm')
-  if (rows.length === 0) return <p className="sw-empty" data-testid="peer-empty">{empty}</p>
-  return (
-    <div className="dk-table-wrap sw-wrap">
-      <table className="dk-table dk-table--compact sw-table">
-        <caption className="dk-sr-only">{label}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{t('p2p.peer')}</th>
-            <th scope="col">{t('table.state')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((peer, index) => (
-            <tr key={peer.id || index} data-row>
-              <td><span className="dk-table-name dk-mono">{peer.id || t('p2p.unnamed', { n: index + 1 })}</span></td>
-              <td>
-                <span className="sw-state" data-level={peer.isOnline ? 'ok' : 'idle'}>
-                  <Icon name={peer.isOnline ? 'check-circle' : 'circle'} />
-                  {peer.isOnline ? t('p2p.online') : t('p2p.offline')}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function Hardware({ hardware }) {
-  const { t } = useTranslation('swarm')
-  return (
-    <div className="dk-segmented sw-hardware" role="radiogroup" aria-label={t('add.run.hardware')}>
-      {hardware.options.map(option => (
-        <button key={option.key} type="button" role="radio" aria-checked={hardware.selected === option.key} className="dk-seg" onClick={() => hardware.setSelected(option.key)}>{option.label}</button>
-      ))}
-    </div>
-  )
-}
-
-// Peer-to-peer networking: other LocalAI instances and machines join this one
-// over a shared network token, with no message bus or database. Two things
-// share it: federation (whole requests balanced across instances) and model
-// sharding (one model split across machines). This page shows the token and
-// who is online; adding a machine is the Add a node flow.
+// Swarm, P2P, "Devices and invites": the invites that wait for a device and
+// the devices paired with this server, each with how it reaches the server
+// now. "Share this instance" makes an invite. All of it needs P2P mode
+// "Connect and share"; in another mode the page says so and links to the
+// settings.
 export default function P2P() {
-  const { addToast } = useOutletContext()
-  const { t } = useTranslation('swarm')
-  const [workers, setWorkers] = useState([])
-  const [mlxWorkers, setMlxWorkers] = useState([])
-  const [federation, setFederation] = useState([])
-  const [stats, setStats] = useState(EMPTY_STATS)
-  const [loading, setLoading] = useState(true)
-  const [enabled, setEnabled] = useState(false)
-  const [token, setToken] = useState('')
-  const [tab, setTab] = useState('federation')
-  const hardware = useImageSelector('cpu')
+  const { t } = useTranslation('p2p')
+  const { addToast } = useOutletContext() || {}
+  const status = useLoad(() => p2pNetApi.status(), [])
+  const sharing = status.status === 'ready' && status.data?.mode === 'share'
+  const [sharingOpen, setSharingOpen] = useState(false)
 
-  const read = useCallback(async () => {
-    try {
-      const [workersResult, federationResult, statsResult, tokenResult] = await Promise.allSettled([
-        p2pApi.getWorkers(), p2pApi.getFederation(), p2pApi.getStats(), p2pApi.getToken(),
-      ])
-      let value = ''
-      if (tokenResult.status === 'fulfilled') {
-        value = (typeof tokenResult.value === 'string' ? tokenResult.value : (tokenResult.value?.token || '')).trim()
-      }
-      setToken(value)
-      setEnabled(!!value)
-      if (!value) return
-      if (workersResult.status === 'fulfilled') {
-        const data = workersResult.value
-        // The grouped answer carries llama.cpp and MLX apart; the older one is a flat list.
-        if (data?.llama_cpp) {
-          setWorkers(data.llama_cpp.nodes || [])
-          setMlxWorkers(data.mlx?.nodes || [])
-        } else {
-          setWorkers(data?.nodes || (Array.isArray(data) ? data : []))
-        }
-      }
-      if (federationResult.status === 'fulfilled') {
-        const data = federationResult.value
-        setFederation(data?.nodes || (Array.isArray(data) ? data : []))
-      }
-      if (statsResult.status === 'fulfilled') setStats(statsResult.value)
-    } catch {
-      setEnabled(false)
-    } finally {
-      setLoading(false)
-    }
+  return (
+    <div className="page page--wide p2p-page" data-testid="p2p-page">
+      <h1 className="dk-sr-only">{t('title')}</h1>
+      <HubHeader
+        supporting={t('supporting')}
+        actions={sharing && (
+          <Button variant="primary" icon="share" onClick={() => setSharingOpen(true)} data-testid="p2p-share-open">{t('share.open')}</Button>
+        )}
+      />
+      <P2PTabs />
+      {status.status === 'loading' && <SkeletonRows count={3} />}
+      {status.status === 'error' && <LoadError title={t('loadStatusFailed')} error={status.error} onRetry={status.retry} />}
+      {status.status === 'ready' && !sharing && <ModeNotice status={status.data} />}
+      {sharing && <SharingLists status={status.data} addToast={addToast} sharingOpen={sharingOpen} setSharingOpen={setSharingOpen} />}
+    </div>
+  )
+}
+
+// Why the lists are not shown: P2P is off, or it only dials out.
+function ModeNotice({ status }) {
+  const { t } = useTranslation('p2p')
+  const mode = status?.mode === 'connect' ? 'connect' : 'off'
+  return (
+    <Notice
+      severity="info"
+      title={t(`mode.${mode}.title`)}
+      reason={t(`mode.${mode}.reason`)}
+      fix={{ label: t('mode.fix'), to: P2P_SETTINGS_PATH, testId: 'p2p-mode-fix' }}
+      testId="p2p-mode-notice"
+    />
+  )
+}
+
+function SharingLists({ status, addToast, sharingOpen, setSharingOpen }) {
+  const { t } = useTranslation('p2p')
+  const invites = useLoad(() => p2pNetApi.invites(), [])
+  const devices = useLoad(() => p2pNetApi.devices(), [])
+  const [now, setNow] = useState(Date.now())
+  const [revoking, setRevoking] = useState(null)
+
+  const reloadInvites = invites.reload
+  const reloadDevices = devices.reload
+  const reload = useCallback(() => { reloadInvites(); reloadDevices() }, [reloadInvites, reloadDevices])
+  useEffect(() => {
+    const id = setInterval(reload, REFRESH_MS)
+    return () => clearInterval(id)
+  }, [reload])
+  // The countdowns tick each second; the rows come from the last read.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
   }, [])
 
-  usePolling(read, 3000)
-
-  const copyToken = async () => {
-    if (!token) return
-    const ok = await copyToClipboard(token)
-    addToast(ok ? t('p2p.tokenCopied') : t('command.copyFailed'), ok ? 'success' : 'error', 2000)
+  const cancel = async (inv) => {
+    try {
+      await p2pNetApi.cancelInvite(inv.id)
+      addToast?.(t('invites.canceled', { label: inv.label || t(`kinds.${inv.kind}.title`) }), 'success')
+    } catch (err) {
+      addToast?.(t('invites.cancelFailed', { message: err?.message || '' }), 'error')
+    }
+    reloadInvites()
   }
-
-  if (loading) return <div className="page page--wide sw-loading"><LoadingSpinner size="lg" /></div>
-
-  if (!enabled) {
-    return (
-      <div className="page page--wide sw-page sw-page--narrow" data-testid="p2p-off">
-        <header className="sw-head">
-          <h1 className="sw-title">{t('p2p.offTitle')}</h1>
-          <p className="sw-note">{t('p2p.offSub')}</p>
-        </header>
-        <dl className="sw-policy">
-          {['federation', 'sharding', 'sharing'].map(key => (
-            <div key={key} className="sw-policy__row">
-              <dt><h2 className="sw-dt">{t(`p2p.features.${key}.title`)}</h2></dt>
-              <dd>{t(`p2p.features.${key}.text`)}</dd>
-            </div>
-          ))}
-        </dl>
-        <section className="sw-section" aria-labelledby="sw-p2p-enable">
-          <h2 className="sw-h2" id="sw-p2p-enable">{t('p2p.enableTitle')}</h2>
-          <Hardware hardware={hardware} />
-          <p className="sw-note">{t('p2p.enableStart')}</p>
-          <CommandBlock
-            command={`docker run -ti --net host${hardware.option.dockerFlags ? ` ${hardware.option.dockerFlags}` : ''} \\\n  --name local-ai \\\n  localai/localai:${hardware.dev ? hardware.option.devTag : hardware.option.tag} run --p2p`}
-            label={t('p2p.enableTitle')}
-            addToast={addToast}
-          />
-          <p className="sw-note sw-note--quiet">{t('p2p.enableToken')}</p>
-          <CommandBlock
-            command={`docker run -ti --net host${hardware.option.dockerFlags ? ` ${hardware.option.dockerFlags}` : ''} \\\n  -e TOKEN="your-token-here" \\\n  --name local-ai \\\n  localai/localai:${hardware.dev ? hardware.option.devTag : hardware.option.tag} run --p2p`}
-            label={t('p2p.enableToken')}
-            addToast={addToast}
-          />
-          <p className="sw-note sw-note--quiet">{t('p2p.enableThen')}</p>
-          <p className="sw-note sw-note--quiet">
-            <a className="dk-link" href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer">{t('p2p.docs')}</a>
-          </p>
-        </section>
-      </div>
-    )
-  }
-
-  const fed = stats.federated || { online: 0, total: 0 }
-  const llama = stats.llama_cpp_workers || { online: 0, total: 0 }
-  const mlx = stats.mlx_workers || { online: 0, total: 0 }
 
   return (
-    <div className="page page--wide sw-page" data-testid="p2p-on">
-      <h1 className="dk-sr-only">{t('p2p.title')}</h1>
-      <div className="sw-bar sw-bar--lede">
-        <p className="sw-note">{t('p2p.lede')}</p>
-        <div className="sw-bar__acts">
-          <Link className="dk-btn dk-btn--primary" to={`/app/nodes/add?join=${tab === 'federation' ? 'peer' : 'shard'}`}><Icon name="plus" /> {tab === 'federation' ? t('p2p.addPeer') : t('p2p.addShard')}</Link>
-        </div>
+    <>
+      <InvitesSection invites={invites} now={now} onCancel={cancel} onShare={() => setSharingOpen(true)} />
+      <DevicesSection devices={devices} onRevoke={setRevoking} />
+      {sharingOpen && (
+        <ShareInstanceDialog status={status} addToast={addToast} onChanged={reload} onClose={() => setSharingOpen(false)} />
+      )}
+      {revoking && (
+        <RevokeDialog
+          device={revoking}
+          onClose={() => setRevoking(null)}
+          onDone={() => {
+            addToast?.(t('devices.revoked', { label: revoking.label || shortPeer(revoking.peer_id) }), 'success')
+            setRevoking(null)
+            reloadDevices()
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+function InvitesSection({ invites, now, onCancel, onShare }) {
+  const { t, i18n } = useTranslation('p2p')
+  const rows = invites.status === 'ready' ? pendingInvites(invites.data?.invites, now) : []
+  return (
+    <section className="p2p-section" aria-labelledby="p2p-invites-title" data-testid="p2p-invites">
+      <div className="p2p-section__head">
+        <h2 className="p2p-h2" id="p2p-invites-title">{t('invites.title')} <span className="p2p-count dk-mono">{rows.length}</span></h2>
+        <p className="p2p-section__note">{t('invites.note')}</p>
       </div>
-
-      <section className="sw-section" aria-labelledby="sw-p2p-token">
-        <h2 className="sw-h2" id="sw-p2p-token">{t('p2p.token')}</h2>
-        <div className="sw-cmd" data-testid="p2p-token">
-          <pre className="sw-cmd__text" tabIndex={0} aria-label={t('p2p.token')}><code>{token}</code></pre>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm sw-cmd__copy" onClick={copyToken} aria-label={t('p2p.copyToken')}><Icon name="copy" /> {t('command.copy')}</button>
-        </div>
-        <p className="sw-note sw-note--quiet">{t('p2p.tokenNote')}</p>
-      </section>
-
-      <div className="dk-tabs sw-tabs" role="tablist" aria-label={t('p2p.sections')}>
-        <button type="button" role="tab" id="sw-p2p-tab-federation" aria-controls="sw-p2p-federation" aria-selected={tab === 'federation'} tabIndex={tab === 'federation' ? 0 : -1} className="dk-tab" onClick={() => setTab('federation')}>
-          {t('p2p.federation')} <span className="sw-tab__n">{t('p2p.count', { online: fed.online, total: fed.total })}</span>
-        </button>
-        <button type="button" role="tab" id="sw-p2p-tab-sharding" aria-controls="sw-p2p-sharding" aria-selected={tab === 'sharding'} tabIndex={tab === 'sharding' ? 0 : -1} className="dk-tab" onClick={() => setTab('sharding')}>
-          {t('p2p.sharding')} <span className="sw-tab__n">{t('p2p.count', { online: llama.online + mlx.online, total: llama.total + mlx.total })}</span>
-        </button>
-      </div>
-
-      {tab === 'federation' && (
-        <div className="dk-tabpanel sw-panel" role="tabpanel" id="sw-p2p-federation" aria-labelledby="sw-p2p-tab-federation" tabIndex={0}>
-          <p className="sw-note">{t('p2p.federationSub')}</p>
-          <h2 className="sw-h2">{t('p2p.instances')} <span className="sw-count dk-mono">{t('p2p.count', { online: fed.online, total: fed.total })}</span></h2>
-          <PeerTable rows={federation} label={t('p2p.instances')} empty={t('p2p.noInstances')} />
-          <h2 className="sw-h2">{t('p2p.serverTitle')}</h2>
-          <p className="sw-note">{t('p2p.serverSub')}</p>
-          <Hardware hardware={hardware} />
-          <CommandBlock command={p2pCommand({ method: 'server', option: hardware.option, dev: hardware.dev, token, flavor: 'docker' })} label={t('p2p.serverTitle')} addToast={addToast} />
-          <p className="sw-note sw-note--quiet">{t('p2p.port')}</p>
+      {invites.status === 'loading' && <SkeletonRows count={2} />}
+      {invites.status === 'error' && <LoadError title={t('invites.loadFailed')} error={invites.error} onRetry={invites.retry} />}
+      {invites.status === 'ready' && rows.length === 0 && (
+        <EmptyState
+          variant="first-run" icon="share" level={3} testId="p2p-invites-empty"
+          title={t('invites.empty.title')} body={t('invites.empty.body')}
+          actions={<Button icon="share" onClick={onShare}>{t('share.open')}</Button>}
+        />
+      )}
+      {rows.length > 0 && (
+        <div className="dk-table-wrap">
+          <table className="dk-table p2p-table">
+            <caption className="dk-sr-only">{t('invites.title')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('invites.col.label')}</th>
+                <th scope="col" className="dk-hide-phone">{t('invites.col.kind')}</th>
+                <th scope="col" className="dk-hide-phone">{t('invites.col.created')}</th>
+                <th scope="col">{t('invites.col.expires')}</th>
+                <th scope="col" className="dk-hide-phone">{t('invites.col.pass')}</th>
+                <th scope="col"><span className="dk-sr-only">{t('invites.col.actions')}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(inv => (
+                <tr key={inv.id} data-testid={`p2p-invite-${inv.id}`}>
+                  <td>
+                    <span className="p2p-cell-title">{inv.label || t(`kinds.${inv.kind}.title`, inv.kind)}</span>
+                    <span className="p2p-cell-sub">{t(`kinds.${inv.kind}.title`, inv.kind)}</span>
+                    <ModelGrant row={inv} />
+                    <span className="p2p-cell-sub dk-only-phone">{inv.relay_pass ? t('invites.passOn', { relay: inv.relay_pass }) : t('invites.passNone')}</span>
+                  </td>
+                  <td className="dk-hide-phone">{t(`kinds.${inv.kind}.title`, inv.kind)}</td>
+                  <td className="dk-hide-phone">
+                    {relativeTime(inv.created_at, i18n.language, now)}
+                  </td>
+                  <td className="dk-mono">{clock(secondsLeft(inv.expires_at, now))}</td>
+                  <td className="dk-hide-phone">
+                    {inv.relay_pass
+                      ? <StatusChip tone="ok" dot>{t('invites.passOn', { relay: inv.relay_pass })}</StatusChip>
+                      : <span className="p2p-cell-sub">{t('invites.passNone')}</span>}
+                  </td>
+                  <td className="p2p-cell-actions">
+                    <Button size="sm" variant="danger-ghost" onClick={() => onCancel(inv)} data-testid={`p2p-invite-cancel-${inv.id}`}>
+                      {t('invites.cancel')}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+    </section>
+  )
+}
 
-      {tab === 'sharding' && (
-        <div className="dk-tabpanel sw-panel" role="tabpanel" id="sw-p2p-sharding" aria-labelledby="sw-p2p-tab-sharding" tabIndex={0}>
-          <p className="sw-note">{t('p2p.shardingSub')}</p>
-          <h2 className="sw-h2">{t('p2p.llama')} <span className="sw-count dk-mono">{t('p2p.count', { online: llama.online, total: llama.total })}</span></h2>
-          <p className="sw-note sw-note--quiet">{t('p2p.llamaSub')}</p>
-          <PeerTable rows={workers} label={t('p2p.llama')} empty={t('p2p.noLlama')} />
-          <h2 className="sw-h2">{t('p2p.mlx')} <span className="sw-count dk-mono">{t('p2p.count', { online: mlx.online, total: mlx.total })}</span></h2>
-          <p className="sw-note sw-note--quiet">{t('p2p.mlxSub')} <a className="dk-link" href="https://localai.io/features/mlx-distributed/" target="_blank" rel="noopener noreferrer">{t('p2p.mlxDocs')}</a></p>
-          <PeerTable rows={mlxWorkers} label={t('p2p.mlx')} empty={t('p2p.noMlx')} />
-          <p className="sw-note">{t('p2p.shardCommands')} <Link className="dk-link" to="/app/nodes/add?join=shard">{t('p2p.addShard')}</Link></p>
+function DevicesSection({ devices, onRevoke }) {
+  const { t, i18n } = useTranslation('p2p')
+  const rows = devices.status === 'ready' ? sortedDevices(devices.data?.devices) : []
+  const active = rows.filter(d => d.status !== 'revoked').length
+  return (
+    <section className="p2p-section" aria-labelledby="p2p-devices-title" data-testid="p2p-devices">
+      <div className="p2p-section__head">
+        <h2 className="p2p-h2" id="p2p-devices-title">{t('devices.title')} <span className="p2p-count">{t('devices.active', { count: active })}</span></h2>
+        <p className="p2p-section__note">{t('devices.note')}</p>
+      </div>
+      {devices.status === 'loading' && <SkeletonRows count={3} />}
+      {devices.status === 'error' && <LoadError title={t('devices.loadFailed')} error={devices.error} onRetry={devices.retry} />}
+      {devices.status === 'ready' && rows.length === 0 && (
+        <EmptyState variant="first-run" icon="monitor" level={3} testId="p2p-devices-empty" title={t('devices.empty.title')} body={t('devices.empty.body')} />
+      )}
+      {rows.length > 0 && (
+        <div className="dk-table-wrap">
+          <table className="dk-table p2p-table">
+            <caption className="dk-sr-only">{t('devices.title')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('devices.col.label')}</th>
+                <th scope="col" className="dk-hide-phone">{t('devices.col.kind')}</th>
+                <th scope="col" className="dk-hide-phone">{t('devices.col.peer')}</th>
+                <th scope="col" className="dk-hide-phone">{t('devices.col.seen')}</th>
+                <th scope="col">{t('devices.col.path')}</th>
+                <th scope="col" className="dk-hide-phone">{t('devices.col.status')}</th>
+                <th scope="col"><span className="dk-sr-only">{t('devices.col.actions')}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(d => {
+                const revoked = d.status === 'revoked'
+                return (
+                  <tr key={d.id} data-testid={`p2p-device-${d.id}`} data-revoked={revoked || undefined}>
+                    <td>
+                      <span className="p2p-cell-title">{d.label || shortPeer(d.peer_id)}</span>
+                      <span className="p2p-cell-sub">{t(`kinds.${d.kind}.title`, d.kind)}</span>
+                      <ModelGrant row={d} />
+                    </td>
+                    <td className="dk-hide-phone">{t(`kinds.${d.kind}.title`, d.kind)}</td>
+                    <td className="dk-hide-phone dk-mono" title={d.peer_id}>{shortPeer(d.peer_id)}</td>
+                    <td className="dk-hide-phone">{d.last_seen_at ? relativeTime(d.last_seen_at, i18n.language) : t('devices.never')}</td>
+                    <td><DevicePath device={d} /></td>
+                    <td className="dk-hide-phone">
+                      <StatusChip tone={revoked ? 'idle' : 'ok'} dot>{t(revoked ? 'devices.status.revoked' : 'devices.status.active')}</StatusChip>
+                    </td>
+                    <td className="p2p-cell-actions">
+                      {!revoked && (
+                        <Button size="sm" variant="danger-ghost" onClick={() => onRevoke(d)} data-testid={`p2p-device-revoke-${d.id}`}>
+                          {t('devices.revoke')}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
+    </section>
+  )
+}
+
+// What a remote invite or device may use: "All models" or the number of
+// models, with the names in the title. Other kinds show nothing.
+function ModelGrant({ row }) {
+  const { t } = useTranslation('p2p')
+  const grant = modelGrant(row)
+  if (!grant) return null
+  return (
+    <span className="p2p-cell-sub" data-testid={`p2p-grant-${row.id}`} title={grant.all ? undefined : grant.names.join(', ')}>
+      {grant.all ? t('grant.all') : t('grant.some', { count: grant.names.length })}
+    </span>
+  )
+}
+
+// How a device reaches the server now. A relay that limits the data or the
+// time of a connection gets a "Limited" chip: bulk transfers and model splits
+// need a direct path or a relay without a small limit.
+function DevicePath({ device }) {
+  const { t } = useTranslation('p2p')
+  if (device.status === 'revoked') return <span className="p2p-cell-sub">-</span>
+  if (!device.online) return <StatusChip tone="idle" dot>{t('devices.path.offline')}</StatusChip>
+  const path = device.path || {}
+  const { key, relay } = pathKey(path)
+  const rtt = path.rtt_ms > 0 ? t('devices.path.rtt', { ms: path.rtt_ms }) : ''
+  return (
+    <span className="p2p-path">
+      <StatusChip tone={pathTone(path)} dot>{t(`devices.path.${key}`, { relay })}</StatusChip>
+      {path.limited && <span className="dk-badge" title={t('devices.path.limitedHint')}>{t('devices.path.limited')}</span>}
+      {rtt && <span className="p2p-cell-sub">{rtt}</span>}
+    </span>
+  )
+}
+
+// The confirmation of a revoke: what stops at once and what does not.
+function RevokeDialog({ device, onClose, onDone }) {
+  const { t } = useTranslation('p2p')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const name = device.label || shortPeer(device.peer_id)
+  const revoke = async () => {
+    setBusy(true); setError('')
+    try {
+      await p2pNetApi.revokeDevice(device.id)
+      onDone()
+    } catch (err) {
+      setError(err?.message || '')
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog
+      role="alertdialog" title={t('devices.revokeTitle', { label: name })} onClose={onClose} pending={busy}
+      closeLabel={t('share.close')} labelId="p2p-revoke-title" testId="p2p-revoke-dialog"
+      foot={(
+        <>
+          <Button onClick={onClose} disabled={busy} data-autofocus>{t('share.cancel')}</Button>
+          <Button variant="danger" busy={busy} onClick={revoke} data-testid="p2p-revoke-confirm">{t('devices.revokeConfirm')}</Button>
+        </>
+      )}
+    >
+      <p className="p2p-revoke__text">{t(`devices.revokeBody.${device.kind === 'remote' ? 'remote' : device.kind === 'device' ? 'device' : 'other'}`)}</p>
+      {error && <Callout tone="error" role="alert" testId="p2p-revoke-error">{error}</Callout>}
+    </Dialog>
   )
 }

@@ -5,7 +5,6 @@ import "os"
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -25,7 +24,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -198,6 +196,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				message = "Operation queued"
 			}
 
+			// An add-on install of the install queue: its key names the add-on.
+			addonID, isAddon := galleryop.ParseAddonOpKey(galleryID)
+
 			// Determine if it's a model or backend
 			// First check if it was explicitly marked as a backend operation
 			isBackend := opcache.IsBackendOp(galleryID)
@@ -206,7 +207,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// backend-vs-model, and a GPU-only backend installed on a worker is
 			// still a backend op even when this host cannot run it. The
 			// capability-filtered listing misclassified those as model ops.
-			if !isBackend {
+			if !isBackend && !isAddon {
 				backends, _ := gallery.AvailableBackendsUnfiltered(appConfig.BackendGalleries, appConfig.SystemState)
 				for _, b := range backends {
 					backendID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
@@ -230,7 +231,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 			// Extract display name (remove repo prefix if exists)
 			displayName := galleryID
-			if strings.Contains(galleryID, "@") {
+			if isAddon {
+				displayName = addonID
+			} else if strings.Contains(galleryID, "@") {
 				parts := strings.Split(galleryID, "@")
 				if len(parts) > 1 {
 					displayName = parts[1]
@@ -251,6 +254,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"taskType":    taskType,
 				"isDeletion":  isDeletion,
 				"isBackend":   isBackend,
+				"isAddon":     isAddon,
 				"isQueued":    isQueued,
 				"cancellable": isCancellable,
 				"message":     message,
@@ -272,6 +276,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			}
 			if status != nil && status.Error != nil {
 				opData["error"] = status.Error.Error()
+				if isAddon && galleryop.IsAddonAttention(status.Error) {
+					// The install waits for a new review of its host access.
+					opData["needsApproval"] = true
+				}
 			}
 			// Expose the per-node breakdown when the Phase 4 progress sink
 			// has populated OpStatus.Nodes (distributed backend installs).
@@ -1248,57 +1256,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 
-	app.POST("/api/models/config/:id", func(c echo.Context) error {
-		galleryID := c.Param("id")
-		// URL decode the gallery ID
-		galleryID, err := url.QueryUnescape(galleryID)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]any{
-				"error": "invalid model ID",
-			})
-		}
-		xlog.Debug("API job submitted to get config", "galleryID", galleryID)
-
-		models, err := gallery.AvailableGalleryModelsCached(appConfig.Galleries, appConfig.SystemState)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"error": err.Error(),
-			})
-		}
-
-		model := gallery.FindGalleryElement(models, galleryID)
-		if model == nil {
-			return c.JSON(http.StatusNotFound, map[string]any{
-				"error": "model not found",
-			})
-		}
-
-		config, err := gallery.GetGalleryConfigFromURL[gallery.ModelConfig](model.URL, appConfig.SystemState.Model.ModelsPath)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"error": err.Error(),
-			})
-		}
-
-		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false,
-			gallery.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer),
-			gallery.WithBackendAvailability(galleryService.BackendManager().BackendAvailable))
-		if err != nil {
-			if errors.Is(err, gallery.ErrBackendInstallDisabled) {
-				return c.JSON(http.StatusConflict, map[string]any{
-					"error": err.Error(),
-					"code":  "backend_not_installed",
-				})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"error": err.Error(),
-			})
-		}
-
-		return c.JSON(200, map[string]any{
-			"message": "Configuration file saved",
-		})
-	}, adminMiddleware)
+	// Removed: it rewrote a config synchronously, outside the queue. It
+	// answers 410 Gone for one release, pointing at the upgrade route.
+	app.POST("/api/models/config/:id", localai.RemovedModelConfigEndpoint(), adminMiddleware)
 
 	// Get installed model config as JSON (used by frontend for MCP detection, etc.)
 	app.GET("/api/models/config-json/:name", func(c echo.Context) error {
@@ -1360,7 +1320,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		configData, err := os.ReadFile(modelConfigFile)
+		configData, err := os.ReadFile(modelConfigFile) // #nosec G304 -- modelConfigFile is resolved under the models directory by the loader
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": "failed to read configuration file: " + err.Error(),
@@ -1905,109 +1865,6 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"message":   "Backend upgrade started",
 		})
 	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
-
-	// P2P APIs
-	app.GET("/api/p2p/workers", func(c echo.Context) error {
-		llamaNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.LlamaCPPWorkerID))
-		mlxNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.MLXWorkerID))
-
-		llamaJSON := make([]map[string]any, 0, len(llamaNodes))
-		for _, n := range llamaNodes {
-			llamaJSON = append(llamaJSON, map[string]any{
-				"name":          n.Name,
-				"id":            n.ID,
-				"tunnelAddress": n.TunnelAddress,
-				"serviceID":     n.ServiceID,
-				"lastSeen":      n.LastSeen,
-				"isOnline":      n.IsOnline(),
-			})
-		}
-
-		mlxJSON := make([]map[string]any, 0, len(mlxNodes))
-		for _, n := range mlxNodes {
-			mlxJSON = append(mlxJSON, map[string]any{
-				"name":          n.Name,
-				"id":            n.ID,
-				"tunnelAddress": n.TunnelAddress,
-				"serviceID":     n.ServiceID,
-				"lastSeen":      n.LastSeen,
-				"isOnline":      n.IsOnline(),
-			})
-		}
-
-		return c.JSON(200, map[string]any{
-			"llama_cpp": map[string]any{
-				"nodes": llamaJSON,
-			},
-			"mlx": map[string]any{
-				"nodes": mlxJSON,
-			},
-			// Keep backward-compatible "nodes" key with llama.cpp workers
-			"nodes": llamaJSON,
-		})
-	}, adminMiddleware)
-
-	app.GET("/api/p2p/federation", func(c echo.Context) error {
-		nodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))
-
-		nodesJSON := make([]map[string]any, 0, len(nodes))
-		for _, n := range nodes {
-			nodesJSON = append(nodesJSON, map[string]any{
-				"name":          n.Name,
-				"id":            n.ID,
-				"tunnelAddress": n.TunnelAddress,
-				"serviceID":     n.ServiceID,
-				"lastSeen":      n.LastSeen,
-				"isOnline":      n.IsOnline(),
-			})
-		}
-
-		return c.JSON(200, map[string]any{
-			"nodes": nodesJSON,
-		})
-	}, adminMiddleware)
-
-	app.GET("/api/p2p/stats", func(c echo.Context) error {
-		llamaCPPNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.LlamaCPPWorkerID))
-		federatedNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))
-		mlxWorkerNodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.MLXWorkerID))
-
-		llamaCPPOnline := 0
-		for _, n := range llamaCPPNodes {
-			if n.IsOnline() {
-				llamaCPPOnline++
-			}
-		}
-
-		federatedOnline := 0
-		for _, n := range federatedNodes {
-			if n.IsOnline() {
-				federatedOnline++
-			}
-		}
-
-		mlxWorkersOnline := 0
-		for _, n := range mlxWorkerNodes {
-			if n.IsOnline() {
-				mlxWorkersOnline++
-			}
-		}
-
-		return c.JSON(200, map[string]any{
-			"llama_cpp_workers": map[string]any{
-				"online": llamaCPPOnline,
-				"total":  len(llamaCPPNodes),
-			},
-			"federated": map[string]any{
-				"online": federatedOnline,
-				"total":  len(federatedNodes),
-			},
-			"mlx_workers": map[string]any{
-				"online": mlxWorkersOnline,
-				"total":  len(mlxWorkerNodes),
-			},
-		})
-	}, adminMiddleware)
 
 	// Resources API endpoint - unified memory info (GPU if available, otherwise RAM)
 	app.GET("/api/resources", func(c echo.Context) error {

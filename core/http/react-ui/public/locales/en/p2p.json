@@ -1,0 +1,424 @@
+{
+  "title": "P2P",
+  "supporting": "Devices, remotes and nodes that reach this server over P2P, and the invites that let them in.",
+  "loadStatusFailed": "Could not read the state of P2P.",
+  "tabs": {
+    "label": "P2P",
+    "devices": "Devices and invites",
+    "federation": "Federation",
+    "settings": "Settings"
+  },
+  "mode": {
+    "off": {
+      "title": "P2P is off",
+      "reason": "Set the P2P mode to Connect and share to invite devices, remotes and nodes. That mode needs authentication to be on."
+    },
+    "connect": {
+      "title": "P2P is in Connect only mode",
+      "reason": "This server uses remotes over P2P and accepts nobody. To invite devices, set the mode to Connect and share. That mode needs authentication to be on."
+    },
+    "fix": "Open P2P settings"
+  },
+  "kinds": {
+    "device": {
+      "title": "Device",
+      "body": "A launcher or another browser. The person signs in as today."
+    },
+    "remote": {
+      "title": "Remote",
+      "body": "Another LocalAI uses the models of this instance, all or the ones you choose."
+    },
+    "worker": {
+      "title": "Worker",
+      "body": "A compute node of this cluster. It joins over P2P and waits for your approval."
+    },
+    "split": {
+      "title": "Model-split worker"
+    }
+  },
+  "ttl": {
+    "600": "10 min",
+    "3600": "1 hour",
+    "86400": "1 day"
+  },
+  "share": {
+    "open": "Share this instance…",
+    "title": "Share this instance",
+    "intro": "Make a one-time invite link. The other side pastes it or scans its QR code.",
+    "kind": "Kind",
+    "qrNote": "Device and remote invites show a QR code, for a phone or a tablet.",
+    "kindNote": {
+      "device": {
+        "title": "P2P admission only.",
+        "body": "A device invite lets the device reach this instance. The person still signs in to the web UI with their own account."
+      },
+      "remote": {
+        "title": "Models only, nothing else.",
+        "body": "The other LocalAI gets an API key for the models you choose below: all of them, also the models you add later, or a list. Models with tools attached are left out. The key reaches nothing else: no settings, no files, no other part of the API."
+      },
+      "worker": {
+        "title": "A node for this cluster.",
+        "body": "The machine runs local-ai worker --join with the link. It registers over P2P, with no open port and no registration token, and waits on the Nodes page until you approve it."
+      }
+    },
+    "label": "Label",
+    "labelPlaceholder": {
+      "device": "Alex's laptop",
+      "remote": "Branch office",
+      "worker": "gpu-box-5"
+    },
+    "labelHint": "Shown in Devices and invites.",
+    "models": {
+      "label": "Models",
+      "all": "All models",
+      "specific": "Choose models",
+      "allHint": "The key can use every model of this instance, also the models you add later.",
+      "specificHint": "The key can use only the models you tick. A model with tools attached cannot be shared.",
+      "loading": "Loading models…",
+      "loadFailed": "The models could not be loaded.",
+      "retry": "Try again",
+      "empty": "This instance has no model to share yet.",
+      "search": "Search models",
+      "noMatch": "No model matches.",
+      "selected_one": "{{count}} model chosen",
+      "selected_other": "{{count}} models chosen",
+      "reason": {
+        "noModels": "Choose at least one model, or choose All models."
+      }
+    },
+    "expires": "Expires after",
+    "singleUseHint": "Each invite works once.",
+    "nothingYet": "Nothing is made until you press Make invite.",
+    "cancel": "Cancel",
+    "close": "Close",
+    "mint": "Make invite",
+    "mintFailed": "The invite was not made.",
+    "needsAccount": {
+      "title": "Sign in with a user account to share with a remote",
+      "body": "The other LocalAI gets an API key that belongs to your user account. You are signed in with the API key set with LOCALAI_API_KEY, which has no account. Sign in with a user account and make the invite again. Device invites work as before."
+    },
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "The link was not copied. Select it and copy it by hand.",
+    "canceled": "Invite canceled.",
+    "revoked": "{{label}} revoked.",
+    "result": {
+      "title": "Invite for {{label}}",
+      "sub": "{{kind}} · single use · {{ttl}}",
+      "link": "Invite link",
+      "qrLabel": "QR code of the invite link",
+      "qrCaption": "For a phone or a tablet",
+      "how": {
+        "device": "In the launcher: Add server, then Invite link. The link holds this server's peer ID and the relay pass, so a short code alone is not enough.",
+        "remote": "On the other LocalAI: Home or Connections, Connect a remote, then Invite link. Paste the whole link.",
+        "worker": "On the new machine run local-ai worker --join with the whole link in quotes. The node then waits for your approval on the Nodes page."
+      },
+      "waiting": "Waiting for the device… Cancel invite also cancels its relay pass.",
+      "waitingWorker": "Waiting for the worker… Cancel invite also cancels its relay pass.",
+      "expired": "The invite expired.",
+      "expiredTitle": "This invite expired.",
+      "expiredBody": "Nobody used it in time. Make a new one when the other side is ready.",
+      "again": "Make it again",
+      "cancel": "Cancel invite",
+      "done": "Done"
+    },
+    "facts": {
+      "expires": "Expires",
+      "singleUse": "single use",
+      "serverPeer": "Server peer ID",
+      "devicePeer": "Device peer ID",
+      "relay": "Relay hint",
+      "relayGated": "{{relay}} (your relay, gated)",
+      "relayOpen": "{{relay}} (open relay)",
+      "none": "None",
+      "pass": "Relay pass",
+      "passOn": "Registered on {{relay}}, valid {{ttl}}, single use",
+      "passUnreachable": "None: {{relay}} did not answer",
+      "passNone": "None",
+      "public": "Public address",
+      "publicYes": "Yes",
+      "publicNo": "None (behind NAT)",
+      "models": "Models",
+      "modelsAll": "All models",
+      "modelsSome_one": "{{count}} model",
+      "modelsSome_other": "{{count}} models"
+    },
+    "admission": {
+      "title": "P2P admission only.",
+      "result": "The invite lets the device reach this instance. The person still signs in to the web UI."
+    },
+    "warn": {
+      "unreachable": {
+        "title": "This invite has no relay pass. It can pair only over a direct connection.",
+        "body": "{{relay}} did not answer when the invite was made, so no pass is registered on it. Make the invite again when the relay is back.",
+        "again": "Make it again",
+        "check": "Check the relay"
+      },
+      "noRelay": {
+        "title": "Devices behind strict NAT cannot connect without a relay.",
+        "body": "This server has no relay. About 3 in 10 networks block direct connections. Add a relay, or run one.",
+        "add": "Add a relay"
+      },
+      "openRelay": {
+        "title": "This invite names an open relay.",
+        "body": "Anyone can use {{relay}}, and it may limit the speed of each connection."
+      },
+      "noPublic": {
+        "title": "This server has no public address.",
+        "body": "The device connects by hole punching, or through a relay when that fails."
+      }
+    },
+    "connected": {
+      "title": "{{label}} connected",
+      "sub": "{{kind}} · paired just now",
+      "confirm": "Confirm the other side shows",
+      "hint": "{{label}} shows the same words now. If they do not match, someone else used the invite.",
+      "signIn": "The person still signs in to the web UI.",
+      "keyNote": "Revoke it any time in Devices and invites.",
+      "mismatch": "It does not match: revoke",
+      "match": "It matches",
+      "approve": "The node registers next and waits for your approval on the Nodes page."
+    }
+  },
+  "invites": {
+    "title": "Pending invites",
+    "note": "An invite works once and expires. Canceling an invite also cancels its relay pass.",
+    "loadFailed": "Could not load the invites.",
+    "empty": {
+      "title": "No pending invites",
+      "body": "Make an invite to let a device or a remote reach this server."
+    },
+    "col": {
+      "label": "Label",
+      "kind": "Kind",
+      "created": "Created",
+      "expires": "Expires in",
+      "pass": "Relay pass",
+      "actions": "Actions"
+    },
+    "passOn": "On {{relay}}",
+    "passNone": "None: pairs only over a direct connection",
+    "cancel": "Cancel",
+    "canceled": "Invite for {{label}} canceled.",
+    "cancelFailed": "The invite was not canceled: {{message}}"
+  },
+  "devices": {
+    "title": "Devices",
+    "active_one": "{{count}} active",
+    "active_other": "{{count}} active",
+    "note": "Each device has its own key. Revoke one and the others keep working.",
+    "loadFailed": "Could not load the devices.",
+    "empty": {
+      "title": "No paired devices yet",
+      "body": "A device appears here once it redeems an invite."
+    },
+    "col": {
+      "label": "Label",
+      "kind": "Kind",
+      "peer": "Peer ID",
+      "seen": "Last seen",
+      "path": "Path",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "never": "Never",
+    "status": {
+      "active": "Active",
+      "revoked": "Revoked"
+    },
+    "path": {
+      "direct": "Direct",
+      "holePunched": "Hole-punched",
+      "relayed": "Via {{relay}}",
+      "relayedUnknown": "Via a relay",
+      "none": "Not connected",
+      "offline": "Not connected",
+      "limited": "Limited",
+      "limitedHint": "The relay limits the data or the time of each connection. Large transfers need a direct path.",
+      "rtt": "{{ms}} ms"
+    },
+    "revoke": "Revoke…",
+    "revokeTitle": "Revoke {{label}}?",
+    "revokeConfirm": "Revoke",
+    "revokeBody": {
+      "device": "The device loses its P2P key now and its open connections close. The person keeps their account. Other devices are not affected. To connect it again, make a new invite.",
+      "remote": "The remote loses its P2P key and its API key now, and its open connections close. Its models stop working on the other side. Other devices are not affected. To connect it again, make a new invite.",
+      "other": "The node loses its P2P key now and its open connections close. Other devices are not affected. To connect it again, make a new invite."
+    },
+    "revoked": "{{label}} revoked."
+  },
+  "invite": {
+    "connectWith": "Connect with",
+    "withAddress": "Address",
+    "withInvite": "Invite link",
+    "link": "Invite link",
+    "linkHint": "Ask the admin of the other LocalAI for a Remote invite and paste the whole link.",
+    "problem": {
+      "malformed": "This is not a LocalAI invite link. It starts with localai://pair.",
+      "wrongKind": "This is a {{kind}} invite. Ask the admin of the other LocalAI for a Remote invite.",
+      "expired": "This invite expired. Ask the admin of the other LocalAI for a new one."
+    },
+    "preview": {
+      "server": "Server",
+      "kind": "Kind",
+      "pass": "Relay pass",
+      "passIncluded": "Included · {{relay}}",
+      "passNone": "None: the link pairs over a direct connection or hole punching",
+      "path": "Path",
+      "pathRelay": "Direct first, then hole punching, then {{relay}}",
+      "pathDirect": "Direct first, then hole punching",
+      "expires": "Expires",
+      "expiresAt": "{{when}} · single use"
+    },
+    "openRelay": "The link names an open relay. Anyone can use it, and it may limit the speed of each connection.",
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "connected": "Connected",
+    "ok_one": "Connected to {{name}} over P2P. Found {{count}} model.",
+    "ok_other": "Connected to {{name}} over P2P. Found {{count}} models.",
+    "switched": {
+      "title": "P2P is on in Connect only mode. This server accepts nobody.",
+      "body": "P2P was off. Connecting turned it on so this server can reach the other LocalAI. Change the mode under Swarm, P2P, Settings."
+    },
+    "fail": {
+      "title": "Could not connect",
+      "invalid": "The invite is not valid: it was used, canceled or expired. Ask for a new one.",
+      "rateLimited": "Too many tries. Wait a few minutes, then try again.",
+      "malformed": "The other LocalAI could not read this invite.",
+      "unsupported": "This server cannot connect a remote with an invite link.",
+      "conflict": "This server is already paired with that LocalAI, or a remote of that name exists."
+    },
+    "blocked": {
+      "title": "Both networks block direct connections.",
+      "body": "Hole punching failed. About 3 in 10 pairs of networks need a relay that works.",
+      "bodyRelay": "Hole punching failed, and {{relay}} did not answer. About 3 in 10 pairs of networks need a relay that works.",
+      "relayTitle": "Run a relay.",
+      "relayBody": "The admin of the other LocalAI runs one on a machine with a public address, then sends a new invite.",
+      "portTitle": "Open a port.",
+      "portBody": "Forward UDP and TCP 4001 to this server or to the other one.",
+      "networkTitle": "Use another network.",
+      "networkBody": "Put this server on another network, for example a phone hotspot, and try again.",
+      "retry": "Try again",
+      "copy": "Copy details for the admin"
+    }
+  },
+  "home": {
+    "title": "Connect other machines",
+    "optional": "Optional",
+    "body": "Use this server from your laptop, or add more machines. Needs authentication to be on.",
+    "open": "Open Swarm, P2P",
+    "openNote": "There, set the P2P mode to Connect and share. You can do this later.",
+    "auth": "Turn on authentication first",
+    "authNote": "Authentication is off. To use another instance's models instead, pick On another server or service above: that needs no authentication."
+  },
+  "federation": {
+    "title": "Federation",
+    "loadFailed": "Could not read the federation.",
+    "routing": {
+      "label": "Routing",
+      "least_busy": {
+        "title": "Least busy",
+        "body": "A request goes to the instance with the fewest requests in flight from this server. If it fails, the next instance takes the request."
+      },
+      "round_robin": {
+        "title": "Round robin",
+        "body": "Requests go to each instance in turn. If one fails, the next instance takes the request."
+      }
+    },
+    "groups": {
+      "title": "Groups",
+      "note": "A group is one model name that several instances serve. Clients call the group's name like any model.",
+      "new": "New group",
+      "delete": "Delete",
+      "serving": "{{count}} in service",
+      "degraded": "No instance answers",
+      "created": "Group {{name}} saved.",
+      "deleted": "Group {{name}} deleted.",
+      "changeFailed": "The change was not saved: {{message}}",
+      "deleteTitle": "Delete the group {{name}}?",
+      "deleteBody": "Clients that call this name get an error. The models of the instances stay as they are.",
+      "deleteConfirm": "Delete group",
+      "empty": {
+        "title": "No groups yet",
+        "body": "Serve one model name from this server and other LocalAI instances. Requests are spread over them, and when one fails the next one answers.",
+        "factInstances_one": "{{count}} other instance",
+        "factInstances_other": "{{count}} other instances",
+        "factFailover": "Failover is included"
+      }
+    },
+    "members": {
+      "caption": "The instances of {{name}}",
+      "col": {
+        "instance": "Instance",
+        "model": "Model there",
+        "status": "Status",
+        "inFlight": "In flight",
+        "actions": "Actions"
+      },
+      "state": {
+        "healthy": "In use",
+        "recovering": "Recovering",
+        "down": "Not answering",
+        "missing": "Model missing",
+        "unknown": "Not checked yet",
+        "drained": "Drained"
+      },
+      "constrained": "Small requests only",
+      "constrainedHint": "A relay limits this connection, so the instance takes a request only when no other instance can.",
+      "drain": "Drain",
+      "undrain": "Put back",
+      "drained": "{{model}} takes no new requests.",
+      "undrained": "{{model}} takes requests again.",
+      "lastServing": "The last instance in service cannot be drained."
+    },
+    "instances": {
+      "title": "Instances",
+      "note": "This server and the LocalAI remotes it uses. Each remote is also listed under Models, Remotes.",
+      "add": "Add a federated instance",
+      "local": "This instance",
+      "otherProxy": "Another server",
+      "http": "HTTP",
+      "inFlightNote": "Requests in flight are the requests of this server. Each server of a cluster counts its own.",
+      "col": {
+        "instance": "Instance",
+        "peer": "Peer ID",
+        "path": "Path",
+        "inFlight": "In flight",
+        "models": "Models"
+      },
+      "status": {
+        "ok": "Answering",
+        "never": "Not contacted yet",
+        "auth_failed": "Key refused",
+        "unreachable": "Not reachable"
+      }
+    },
+    "path": {
+      "local": "This instance",
+      "http": "HTTP",
+      "off": "P2P is off",
+      "down": "Not connected",
+      "waiting": "Waiting for a request",
+      "direct": "Direct",
+      "holePunched": "Hole-punched",
+      "relayed": "Via a relay",
+      "limited": "Limited",
+      "limitedHint": "The relay limits the data or the time of each connection."
+    },
+    "sheet": {
+      "title": "New group",
+      "description": "One model name that several instances serve.",
+      "name": "Model name",
+      "nameHint": "Clients call this name. It must not be the name of a model that exists.",
+      "members": "Instances ({{count}} picked)",
+      "membersHint": "Pick the same model on two or more instances.",
+      "noModels": "No instance has a model yet. Add a remote under Models, Remotes first.",
+      "save": "Save"
+    }
+  },
+  "grant": {
+    "all": "All models",
+    "some_one": "{{count}} model",
+    "some_other": "{{count}} models"
+  }
+}

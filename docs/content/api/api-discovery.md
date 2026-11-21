@@ -75,7 +75,7 @@ Returns the instance version, all available endpoint URLs (flat and categorized)
 }
 ```
 
-The `capabilities` object reflects the current runtime configuration - for example, `mcp` is only `true` if MCP is enabled, `chats` and `agent_jobs` are `false` with `--disable-chats`, `collections` is `false` with `--disable-collections`, and `backend_install` is `false` when the server runs with `--disable-backend-install` (backend install and upgrade endpoints then answer 403).
+The `capabilities` object reflects the current runtime configuration - for example, `mcp` is only `true` if MCP is enabled, `chats` and `agent_jobs` are `false` with `--disable-chats`, `collections` is `false` with `--disable-collections`, `backend_install` is `false` when the server runs with `--disable-backend-install` (backend install and upgrade endpoints then answer 403), and `p2p` is `true` while the P2P mode in effect is `connect` or `share` (see [P2P]({{% relref "/administration/p2p" %}})). `GET /api/features`, which the web interface reads, has the same `p2p` key.
 
 ## Instructions API
 

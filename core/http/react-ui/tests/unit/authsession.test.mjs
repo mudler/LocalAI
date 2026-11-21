@@ -92,6 +92,14 @@ test('session: a 401 when nobody is signed in or auth is off changes nothing', (
   }
 })
 
+test('session: a 401 ends a static API key session too', () => {
+  const key = run([{ type: 'status-ok', data: { authEnabled: false, staticApiKeyRequired: true, user: { id: 'legacy-api-key', role: 'admin' } } }])
+  assert.equal(key.status, 'signed-in')
+  const expired = sessionStep(key, { type: 'unauthorized', url: API })
+  assert.equal(expired.status, 'expired')
+  assert.equal(expired.user, null)
+})
+
 test('session: after expiry a new status read signs in again', () => {
   const expired = run([SIGNED_IN, { type: 'unauthorized', url: API }])
   assert.equal(sessionStep(expired, SIGNED_IN).status, 'signed-in')

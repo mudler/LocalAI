@@ -514,6 +514,26 @@ options:
   - draft_gpu_layers:99
 ```
 
+When `draft_model` is set and no `spec_type` is configured, the llama.cpp backend reads the draft GGUF
+(`general.architecture` and the tensors, as llama.cpp does without `--spec-type`) and picks the type
+itself: a DFlash-family draft (including DSpark) or an MTP draft gets its own type, any other draft
+model gets `draft-simple`. Backends built on a llama.cpp that cannot read the draft GGUF keep
+`draft-simple`. An explicit `spec_type` always wins.
+
+A DSpark drafter (a GGUF whose `general.architecture` is `dflash` with a Markov head) is configured like this:
+
+```yaml
+parameters:
+  model: Model-UD-Q4_K_M.gguf
+draft_model: dspark-Model-Q8_0.gguf
+options:
+  - spec_type:draft-dspark
+  - spec_n_max:3
+```
+
+The importer writes this configuration when a repository ships a `dspark-` file (see
+[what a GGUF repository import picks]({{% relref "/models/setting-up-models" %}})).
+
 #### N-gram Self-Speculative Decoding
 
 Uses patterns from the token history to predict future tokens - no extra model required. Works well for repetitive or structured output (code, JSON, lists).

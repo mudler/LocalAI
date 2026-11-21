@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
 
@@ -86,6 +87,28 @@ type LocalAIClient interface {
 	// returns when the install is done.
 	InstallLibraryBackend(ctx context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error)
 	UpgradeBackend(ctx context.Context, name string) (jobID string, err error)
+
+	// ---- Model updates ----
+	// ModelUpdates returns the installed gallery models with their update
+	// state, as of the last check. It contacts no gallery.
+	ModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error)
+	// CheckModelUpdates reads the galleries now, waits for the check and
+	// returns the new data. It installs nothing.
+	CheckModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error)
+	// UpgradeModel queues the upgrade of an installed gallery model. With
+	// configOnly it applies the config and templates only. choices give mine
+	// or gallery for each edited key the update changes.
+	UpgradeModel(ctx context.Context, name string, configOnly bool, choices map[string]string) (jobID string, err error)
+	// RetryModelUpgrade queues the last, failed upgrade of a model again.
+	RetryModelUpgrade(ctx context.Context, name string) (jobID string, err error)
+	// RemoveOldModelVersion deletes the files the last confirmed upgrade kept.
+	RemoveOldModelVersion(ctx context.Context, name string) (*ModelRemoveOldResult, error)
+	// SetModelHold holds a model at its version, or releases it.
+	SetModelHold(ctx context.Context, name string, hold bool) (*ModelHoldResult, error)
+	// AdoptModel records the gallery origin of a model installed by an
+	// earlier release (state unknown, reason legacy). galleryName and entry
+	// are optional; a refusal lists the candidates.
+	AdoptModel(ctx context.Context, name, galleryName, entry string) (*ModelAdoptResult, error)
 
 	// ---- System ----
 	SystemInfo(ctx context.Context) (*SystemInfo, error)
@@ -191,6 +214,45 @@ type LocalAIClient interface {
 	// index.
 	ClearRouterCorpus(ctx context.Context, routerModel string) (*RouterCorpusClearResult, error)
 
+	// ---- Distributed carrier weights ----
+	// GetCarrierWeights reads the weights that break a tie between equally fit
+	// nodes reached over NATS, WebSocket or P2P.
+	GetCarrierWeights(ctx context.Context) (*CarrierWeightsInfo, error)
+	// SetCarrierWeights changes some or all of the weights and returns the
+	// weights in force. A weight left out stays as it is.
+	SetCarrierWeights(ctx context.Context, req SetCarrierWeightsRequest) (*CarrierWeightsInfo, error)
+
+	// ---- P2P ----
+	// GetP2PStatus reports the mode and state of the P2P layer.
+	GetP2PStatus(ctx context.Context) (*P2PStatusInfo, error)
+	// ListP2PDevices lists the paired devices with how each one is
+	// connected. Needs P2P mode share.
+	ListP2PDevices(ctx context.Context) ([]P2PDeviceInfo, error)
+	// ListP2PInvites lists the invites and their state, never the links.
+	ListP2PInvites(ctx context.Context) ([]P2PInviteInfo, error)
+	// ListP2PRelays lists the relays the server knows.
+	ListP2PRelays(ctx context.Context) ([]P2PRelayInfo, error)
+	// GetP2PRelayLimits reads the limits of one relay.
+	GetP2PRelayLimits(ctx context.Context, id string) (*P2PRelayLimitsInfo, error)
+	// SetP2PRelayLimits changes the limits of a relay this server administers.
+	SetP2PRelayLimits(ctx context.Context, id string, req SetP2PRelayLimitsRequest) (*P2PRelayLimitsInfo, error)
+	// RevokeP2PDevice revokes a paired device: it is cut off at once.
+	RevokeP2PDevice(ctx context.Context, id string) error
+	// CancelP2PInvite cancels a pending invite.
+	CancelP2PInvite(ctx context.Context, id string) error
+	// ListP2PSplitWorkers lists the llama.cpp RPC and MLX workers that lend
+	// their memory to this server. Needs P2P mode share.
+	ListP2PSplitWorkers(ctx context.Context) ([]P2PSplitWorkerInfo, error)
+	// SetP2PSplitSlowPath uses a split worker over a relayed path ("Use
+	// anyway") or stops using it there.
+	SetP2PSplitSlowPath(ctx context.Context, id string, allow bool) (*P2PSplitWorkerInfo, error)
+	// SetP2PSplitNode attaches a split worker to a backend node of the
+	// cluster, or to this server with an empty node ID.
+	SetP2PSplitNode(ctx context.Context, id, nodeID string) (*P2PSplitWorkerInfo, error)
+	// SetNodeSplitServer declares a backend node a split server, or clears
+	// the declaration, which detaches its split workers.
+	SetNodeSplitServer(ctx context.Context, nodeID string, on bool) (*NodeSplitServer, error)
+
 	// ---- Failover chains ----
 	// ListFailoverChains reports every configured failover chain, its
 	// currently active target, and the health of each target.
@@ -201,6 +263,16 @@ type LocalAIClient interface {
 	// UnpinFailoverTarget removes chain's pin so health decides the
 	// active target again.
 	UnpinFailoverTarget(ctx context.Context, chain string) error
+
+	// ---- Federation ----
+	// GetFederation lists the LocalAI instances that can serve a group
+	// (this server and the remotes of kind localai) and the groups: model
+	// names served by several instances.
+	GetFederation(ctx context.Context) (*FederationInfo, error)
+	// ManageFederationGroup creates, updates, deletes, drains or undrains a
+	// group. It returns the group as it is after the change, nil after a
+	// delete.
+	ManageFederationGroup(ctx context.Context, req FederationGroupAction) (*FederationGroupInfo, error)
 
 	// ---- Client (inference) ----
 	// These run inference through the LocalAI API as the acting user, so the

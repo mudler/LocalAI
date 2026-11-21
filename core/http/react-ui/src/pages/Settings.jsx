@@ -232,17 +232,7 @@ export default function Settings() {
       const body = payloadFor(changes, settings)
       await settingsApi.save(body)
       const before = initial
-      let applied = settings
-      // The server makes the real token when it is sent 0; read it back so the
-      // field does not keep showing the placeholder.
-      if (body.p2p_token === '0') {
-        try {
-          const fresh = await settingsApi.get()
-          applied = { ...settings, p2p_token: fresh.p2p_token || '' }
-          setSettings(prev => ({ ...prev, p2p_token: fresh.p2p_token || '' }))
-        } catch { /* the field keeps what was typed; a reload shows the token */ }
-      }
-      setInitial(structuredClone(applied))
+      setInitial(structuredClone(settings))
       setHistory(appendHistory(historyEntries(changes)))
       // Name and tagline reach the sidebar, footer and tab title without a reload.
       branding.refresh()

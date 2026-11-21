@@ -166,6 +166,12 @@ type ApplicationConfig struct {
 	// other goroutines, since a runtime settings change can land at any time.
 	liveMaxBackendOps atomic.Int64
 
+	// MaxConcurrentModelOperations bounds how many model install, upgrade and
+	// delete operations run at once. Always >= 1. Operations on the same
+	// model never overlap.
+	MaxConcurrentModelOperations int
+	liveMaxModelOps              atomic.Int64
+
 	F16                          bool
 	Debug                        bool
 	LogClient                    bool
@@ -195,10 +201,8 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath    string
 	CORSAllowOrigins         string
 	ApiKeys                  []string
-	P2PEnableLimits          bool
-	P2PToken                 string
-	P2PNetworkID             string
-	Federated                bool
+	// P2P configures the P2P layer (p2pnet): mode, discovery, relays.
+	P2P P2PSettings
 
 	// ExternalBaseURL is the externally visible base URL of this instance
 	// (scheme+host[:port]), set via LOCALAI_BASE_URL. When non-empty it is
@@ -639,7 +643,8 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		VRAMPersistentCache:         true,
 		ArtifactDownloadConcurrency: modelartifacts.DefaultDownloadConcurrency,
 
-		MaxConcurrentBackendOperations: 1,
+		MaxConcurrentBackendOperations: 2,
+		MaxConcurrentModelOperations:   DefaultMaxConcurrentModelOperations,
 
 		LRUEvictionMaxRetries:    30,               // Default: 30 retries
 		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
@@ -667,6 +672,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		oo(opt)
 	}
 	opt.SetMaxConcurrentBackendOperations(opt.MaxConcurrentBackendOperations)
+	opt.SetMaxConcurrentModelOperations(opt.MaxConcurrentModelOperations)
 	opt.selectionState()
 	return opt
 }
@@ -719,12 +725,6 @@ func WithCors(b bool) AppOption {
 	}
 }
 
-func WithP2PNetworkID(s string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.P2PNetworkID = s
-	}
-}
-
 func WithDisableCSRF(b bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableCSRF = b
@@ -740,12 +740,6 @@ func WithDisableHTTPCompression(b bool) AppOption {
 func WithHTTPCompressionMinLength(n int) AppOption {
 	return func(o *ApplicationConfig) {
 		o.HTTPCompressionMinLength = n
-	}
-}
-
-func WithP2PToken(s string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.P2PToken = s
 	}
 }
 
@@ -975,10 +969,6 @@ func WithPreferDevelopmentBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.PreferDevelopmentBackends = v }
 }
 
-var EnableFederated = func(o *ApplicationConfig) {
-	o.Federated = true
-}
-
 func WithExternalBackend(name string, uri string) AppOption {
 	return func(o *ApplicationConfig) {
 		if o.ExternalGRPCBackends == nil {
@@ -1041,6 +1031,38 @@ func WithModelArtifactMaterializer(materializer ArtifactMaterializer) AppOption 
 			o.ModelArtifactMaterializer = materializer
 		}
 	}
+}
+
+// DefaultMaxConcurrentModelOperations is how many model operations run at
+// once unless the setting says otherwise. Two lets an upgrade or install run
+// beside a long download without a burst of parallel downloads.
+const DefaultMaxConcurrentModelOperations = 2
+
+// WithMaxConcurrentModelOperations sets how many model operations run at
+// once. Values below 1 fall back to 1.
+func WithMaxConcurrentModelOperations(n int) AppOption {
+	return func(o *ApplicationConfig) { o.SetMaxConcurrentModelOperations(n) }
+}
+
+// SetMaxConcurrentModelOperations stores the limit, clamped to at least 1.
+func (o *ApplicationConfig) SetMaxConcurrentModelOperations(n int) {
+	if n < 1 {
+		n = 1
+	}
+	o.MaxConcurrentModelOperations = n
+	o.liveMaxModelOps.Store(int64(n))
+}
+
+// ModelOperationLimit returns how many model operations may run at once.
+// It is safe to call while a runtime settings change is applied.
+func (o *ApplicationConfig) ModelOperationLimit() int {
+	if n := o.liveMaxModelOps.Load(); n >= 1 {
+		return int(n)
+	}
+	if o.MaxConcurrentModelOperations >= 1 {
+		return o.MaxConcurrentModelOperations
+	}
+	return 1
 }
 
 // WithMaxConcurrentBackendOperations sets how many backend operations run at
@@ -1912,10 +1934,6 @@ func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
 		return DefaultChatsMaxIterations
 	}
 	return o.ChatsMaxIterations
-}
-
-func WithP2PEnableLimits(enabled bool) AppOption {
-	return func(o *ApplicationConfig) { o.P2PEnableLimits = enabled }
 }
 
 // BrandingAssetURL returns the URL clients should use for an uploaded

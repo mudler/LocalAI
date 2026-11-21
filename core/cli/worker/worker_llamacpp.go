@@ -1,12 +1,14 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -18,11 +20,17 @@ import (
 )
 
 type LLamaCPP struct {
-	WorkerFlags `embed:""`
+	WorkerFlags  `embed:""`
+	P2PJoinFlags `embed:""`
+	P2PStateDir  string `name:"p2p-state-dir" env:"LOCALAI_P2P_STATE_DIR" type:"path" default:"${basepath}/p2p/llama-cpp-rpc" help:"Directory of the P2P identity and pairing of this worker (with --join). Keep it across restarts: the server knows the worker by this identity" group:"p2p"`
 }
 
 const (
 	llamaCPPRPCBinaryName = "llama-cpp-rpc-server"
+	// llamaCPPBinaryEnv is the variable the backend's run.sh reads to run a
+	// different binary than the one it would pick. A run.sh without it
+	// ignores the request and starts the gRPC server.
+	llamaCPPBinaryEnv = "LLAMACPP_BINARY"
 	llamaCPPGalleryName   = "llama-cpp"
 )
 
@@ -57,7 +65,12 @@ func findLLamaCPPBackend(galleries string, systemState *system.SystemState, requ
 			return "", errors.New("llama-cpp backend not found after install")
 		}
 	}
-	return llamaCPPRPCServerPath(backend.RunFile)
+	// Fail early when the RPC server is not part of the install, then hand
+	// back the run file: llamaCPPRPCStart decides how to start it.
+	if _, err := llamaCPPRPCServerPath(backend.RunFile); err != nil {
+		return "", err
+	}
+	return backend.RunFile, nil
 }
 
 // llamaCPPRPCServerPath returns the RPC server executable next to the run
@@ -73,7 +86,86 @@ func llamaCPPRPCServerPath(runFile string) (string, error) {
 	return rpcServer, nil
 }
 
+// llamaCPPRPCCommand returns the program, argv and environment that start
+// the RPC server the way the backend's run.sh starts its other binaries: on
+// Linux, with the backend's lib/ first on LD_LIBRARY_PATH and through the
+// bundled lib/ld.so when there is one. GPU builds keep their runtime
+// libraries there (libcudart for CUDA), so started directly they fail to load.
+func llamaCPPRPCCommand(goos, rpcServer string, args, env []string) (string, []string, []string) {
+	direct := append([]string{rpcServer}, args...)
+	if goos != "linux" {
+		return rpcServer, direct, env
+	}
+	libDir := filepath.Join(filepath.Dir(rpcServer), "lib")
+	if info, err := os.Stat(libDir); err != nil || !info.IsDir() {
+		return rpcServer, direct, env
+	}
+
+	const key = "LD_LIBRARY_PATH="
+	paths := []string{libDir}
+	merged := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if value, ok := strings.CutPrefix(entry, key); ok {
+			if value != "" {
+				paths = append(paths, value)
+			}
+		} else {
+			merged = append(merged, entry)
+		}
+	}
+	merged = append(merged, key+strings.Join(paths, ":"))
+
+	loader := filepath.Join(libDir, "ld.so")
+	if _, err := os.Stat(loader); err == nil {
+		return loader, append([]string{loader}, direct...), merged
+	}
+	return rpcServer, direct, merged
+}
+
+// llamaCPPRunShSelectsBinary reports whether the run.sh at path lets the
+// caller choose the binary through LLAMACPP_BINARY. Backends installed before
+// that option existed do not, and would start the gRPC server with RPC
+// arguments.
+func llamaCPPRunShSelectsBinary(path string) bool {
+	if filepath.Base(path) != "run.sh" {
+		return false
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return bytes.Contains(content, []byte(llamaCPPBinaryEnv))
+}
+
+// llamaCPPRPCStart returns the program, argv and environment that start the
+// RPC server of the llama-cpp backend whose run file is runFile.
+//
+// On Linux, when the backend's run.sh can run another binary, the server is
+// started through it: run.sh then sets up the library path, the GPU runtime
+// variables and the bundled loader, so nothing of that is repeated here.
+// Otherwise (an older backend, Windows, macOS) the server is started with
+// llamaCPPRPCCommand. macOS is left on the direct start because it has never
+// gone through run.sh and nothing here tests it.
+func llamaCPPRPCStart(goos, runFile string, args, env []string) (string, []string, []string) {
+	rpcServer := filepath.Join(filepath.Dir(runFile), executableName(goos, llamaCPPRPCBinaryName))
+	if goos != "linux" || !llamaCPPRunShSelectsBinary(runFile) {
+		return llamaCPPRPCCommand(goos, rpcServer, args, env)
+	}
+
+	merged := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if !strings.HasPrefix(entry, llamaCPPBinaryEnv+"=") {
+			merged = append(merged, entry)
+		}
+	}
+	merged = append(merged, llamaCPPBinaryEnv+"="+llamaCPPRPCBinaryName)
+	return runFile, append([]string{runFile}, args...), merged
+}
+
 func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
+	if r.Join != "" {
+		return r.runP2P()
+	}
 
 	if len(os.Args) < 4 {
 		return fmt.Errorf("usage: local-ai worker llama-cpp-rpc -- <llama-rpc-server-args>")
@@ -92,7 +184,6 @@ func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	args := append([]string{grpcProcess}, strings.Fields(r.ExtraLLamaCPPArgs)...)
-
-	return execBackend(grpcProcess, args, os.Environ())
+	path, argv, env := llamaCPPRPCStart(runtime.GOOS, grpcProcess, strings.Fields(r.ExtraLLamaCPPArgs), os.Environ())
+	return execBackend(path, argv, env)
 }

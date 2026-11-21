@@ -2,13 +2,19 @@
 package cli
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/library"
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/pkg/credentials"
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -259,5 +265,56 @@ var _ = Describe("Add-on owner flags", Serial, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(c).To(Equal(config.AddonConfig{}))
 		})
+	})
+})
+
+var _ = Describe("oci:// add-on library without credentials", Serial, func() {
+	const warning = "a private registry needs a credentials file rule (in <data-path>/credentials.yaml or the file LOCALAI_CREDENTIALS_FILE names) or a docker login"
+	var (
+		logs *bytes.Buffer
+		dir  string
+	)
+	add := func(src catalog.Source) {
+		GinkgoHelper()
+		store, err := library.Open(dir, false, false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(store.AddUser(src)).To(Succeed())
+	}
+	BeforeEach(func() {
+		dir = GinkgoT().TempDir()
+		logs = &bytes.Buffer{}
+		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, nil), "debug"))
+		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger("info", "text")) })
+		previous := credentials.SetDefault(nil)
+		DeferCleanup(func() { credentials.SetDefault(previous) })
+	})
+
+	It("warns once when an enabled oci:// add-on source exists", func() {
+		add(catalog.Source{ID: "one", Name: "one", URL: "oci://registry.example/fixture-addon/library:1", Enabled: true})
+		add(catalog.Source{ID: "two", Name: "two", URL: "oci://registry.example/other/library:1", Enabled: true})
+		warnOCISourcesWithoutCredentials(dir, false, false)
+		Expect(bytes.Count(logs.Bytes(), []byte(warning))).To(Equal(1))
+	})
+
+	It("warns for an oci:// address written in upper case", func() {
+		add(catalog.Source{ID: "upper", Name: "upper", URL: "OCI://registry.example/fixture-addon/library:1", Enabled: true})
+		warnOCISourcesWithoutCredentials(dir, false, false)
+		Expect(bytes.Count(logs.Bytes(), []byte(warning))).To(Equal(1))
+	})
+
+	It("stays quiet when a credentials file was loaded", func() {
+		add(catalog.Source{ID: "one", Name: "one", URL: "oci://registry.example/fixture-addon/library:1", Enabled: true})
+		store, err := credentials.Parse([]byte("[]\n"), os.LookupEnv)
+		Expect(err).NotTo(HaveOccurred())
+		credentials.SetDefault(store)
+		warnOCISourcesWithoutCredentials(dir, false, false)
+		Expect(logs.String()).NotTo(ContainSubstring(warning))
+	})
+
+	It("stays quiet for a disabled source and for an https source", func() {
+		add(catalog.Source{ID: "off", Name: "off", URL: "oci://registry.example/fixture-addon/library:1", Enabled: false})
+		add(catalog.Source{ID: "web", Name: "web", URL: "https://registry.example/index.yaml", Enabled: true})
+		warnOCISourcesWithoutCredentials(dir, false, false)
+		Expect(logs.String()).NotTo(ContainSubstring(warning))
 	})
 })

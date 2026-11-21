@@ -44,8 +44,8 @@ it:
   first, at most five, each with how long ago it finished (`Installed qwen3-4b`,
   `Updated llama-cpp`, `Removed whisper`). A fast install shows here, so it does
   not vanish before you see it. A cancelled operation, and a failure you
-  dismissed, are not listed. The Activity page keeps them in its record. Nothing
-  is written to the notification list for a finished operation.
+  dismissed, are not listed. The Activity page keeps them in its record. The
+  end of an operation is also one item in the **Notifications** tab (see below).
 
 **See all activity** at the bottom opens the Activity page. The tab scrolls
 inside the panel when it is long.
@@ -62,12 +62,22 @@ wait of 8 seconds applies here too, with the same **Undo** toast. Closing the
 panel sends a cancel that is still waiting, as leaving the page does; changing
 tab does not.
 
-Where the chats feature is off there is no notification inbox. An administrator
-still gets the entry, named **Activity**, while an operation runs or failed,
-shortly after one finished, and for the rest of the visit once one has been
-seen. It opens the Activity tab alone, with no notification list, filters or
-browser-notification switch, and it asks the chats for nothing. Anyone else,
-and an administrator with nothing to show, sees no entry; use the Activity page.
+When an install, removal or upgrade of a model or backend that you started
+reaches its end (completed, failed or cancelled), every administrator also gets
+one item in the **Notifications** tab, for example `Model qwen3-4b installed` or
+`Backend whisper: install failed` with the reason. The item is written once for
+each operation, by the frontend that ran it, and it is also pushed to a
+subscribed browser. It is not sent to a Telegram or Slack chat. The automatic
+update passes are not operations in this sense: they write their own result item
+(see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})). A model upgrade writes its own end item (see [Model updates]({{% relref "/models/model-updates#where-you-see-it" %}})).
+
+The notification list does not depend on the chats: it works with the chats on
+or off. Only when the server has no notification center at all (its store could
+not start) does an administrator get the entry named **Activity** instead, while
+an operation runs or failed, shortly after one finished, and for the rest of the
+visit once one has been seen. It opens the Activity tab alone, with no
+notification list, filters or browser-notification switch. Anyone else, and an
+administrator with nothing to show, sees no entry; use the Activity page.
 
 ## The Activity page
 

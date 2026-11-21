@@ -21,10 +21,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -750,8 +750,8 @@ var _ = Describe("connectors", func() {
 		off := r.bind(studio.ConnectorInput{Name: "Off", NotifyChat: "999"})
 		_, err := r.conns.SetConnectorEnabled(context.Background(), alice, off.ID, false)
 		Expect(err).NotTo(HaveOccurred())
-		r.conns.Forward(context.Background(), notify.Notification{Principal: alice, Title: "Nightly failed", Body: "took longer than 15m", Link: "/app/chats/c1"})
-		r.conns.Forward(context.Background(), notify.Notification{Principal: "bob", Title: "Bob's", Body: "x"})
+		r.conns.Forward(context.Background(), notify.Notification{Principal: alice, Source: notify.SourceTrigger, Title: "Nightly failed", Body: "took longer than 15m", Link: "/app/chats/c1"})
+		r.conns.Forward(context.Background(), notify.Notification{Principal: "bob", Source: notify.SourceTrigger, Title: "Bob's", Body: "x"})
 		waitFor("the message", func() bool { return len(bot.answers()) == 1 })
 		time.Sleep(60 * time.Millisecond)
 		bot.mu.Lock()
@@ -763,6 +763,24 @@ var _ = Describe("connectors", func() {
 		Expect(bot.sentTo[0]).To(BeNumerically("==", 314), "sent %q to %v", bot.sent, bot.sentTo)
 	})
 
+	It("forwards what a trigger or a connector sent, and never what the system sent", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		r.bind(studio.ConnectorInput{NotifyChat: "314"})
+		ctx := context.Background()
+		// The system's news: updates, a finished install, the conversion, an item with no source.
+		for _, n := range []notify.Notification{
+			{Principal: alice, Source: notify.SourceSystem, Kind: notify.KindNeedsAttention, Title: "2 backend updates available", Body: "llama-cpp, whisper"},
+			{Principal: alice, Source: notify.SourceSystem, Kind: notify.KindRunEnded, Title: "Model installed", Body: "qwen3-8b"},
+			{Principal: alice, Title: "No source", Body: "x"},
+		} {
+			r.conns.Forward(ctx, n)
+		}
+		Consistently(func() int { return len(bot.answers()) }, "300ms").Should(BeZero(), "a system notification reached the chat")
+		r.conns.Forward(ctx, notify.Notification{Principal: alice, Source: notify.SourceConnector, Kind: notify.KindNeedsAttention, Title: "A connector stopped", Body: "bad token"})
+		waitFor("the connector notice", func() bool { return len(bot.answers()) == 1 })
+	})
+
 	It("a failed send does not fail the notification", func() {
 		sh, bot := newShared(), newScriptedBot()
 		bot.fail["sendMessage"] = func() (int, string) { return 400, `{"ok":false,"error_code":400,"description":"chat not found"}` }
@@ -770,7 +788,7 @@ var _ = Describe("connectors", func() {
 		r.bind(studio.ConnectorInput{NotifyChat: "314"})
 		// The inbox hook runs after the notification is stored.
 		r.inbox.OnAdd(func(n notify.Notification) { r.conns.Forward(context.Background(), n) })
-		n, err := r.inbox.Add(context.Background(), notify.Notification{Principal: alice, Title: "T", Body: "B"})
+		n, err := r.inbox.Add(context.Background(), notify.Notification{Principal: alice, Source: notify.SourceTrigger, Title: "T", Body: "B"})
 		Expect(err).NotTo(HaveOccurred(), "the notification was not stored")
 		Expect(n.ID).NotTo(BeNumerically("==", 0), "the notification was not stored: %v", err)
 		got, _ := r.inbox.Count(context.Background(), alice)
@@ -794,7 +812,7 @@ var _ = Describe("connectors", func() {
 					case <-stop:
 						return
 					default:
-						r.conns.Forward(ctx, notify.Notification{Principal: alice, Title: "T", Body: "B"})
+						r.conns.Forward(ctx, notify.Notification{Principal: alice, Source: notify.SourceTrigger, Title: "T", Body: "B"})
 					}
 				}
 			})

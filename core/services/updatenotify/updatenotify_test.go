@@ -9,7 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/backendupdates"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	. "github.com/mudler/LocalAI/core/services/updatenotify"
 )
@@ -382,5 +383,76 @@ var _ = Describe("two frontends", func() {
 		Expect(leader.pushed).To(HaveLen(2))
 		Expect(other.pushed).To(BeEmpty(), "a second runner by mistake pushes nothing")
 		Expect(list(other, "a")).To(HaveLen(2))
+	})
+})
+
+var _ = Describe("the end of an operation", func() {
+	ctx := context.Background()
+	done := galleryop.OpResult{ID: "op-1", Name: "qwen3-8b", Outcome: galleryop.OpCompleted}
+
+	It("tells each admin once that an install finished, and stays silent for a replay", func() {
+		f := newFrontend(memStore(), nil, "a", "b")
+		Expect(f.em.Operation(ctx, done)).To(Succeed())
+		Expect(f.em.Operation(ctx, done)).To(Succeed())
+		for _, who := range []string{"a", "b"} {
+			got := list(f, who)
+			Expect(got).To(HaveLen(1), who)
+			Expect(got[0].Code).To(Equal(CodeOpDone))
+			Expect(got[0].Source).To(Equal(notify.SourceSystem))
+			Expect(got[0].Title).To(Equal("Model qwen3-8b installed"))
+			Expect(got[0].Link).To(Equal(LinkModels))
+			Expect(got[0].Status).To(Equal(notify.StatusOK))
+			Expect(got[0].Params).To(And(HaveKeyWithValue("kind", "model"), HaveKeyWithValue("action", "install"), HaveKeyWithValue("name", "qwen3-8b")))
+		}
+		Expect(f.pushed).To(HaveLen(2), "one push for each admin, once")
+	})
+
+	It("does not post again when the person deleted the item", func() {
+		f := newFrontend(memStore(), nil, "a")
+		Expect(f.em.Operation(ctx, done)).To(Succeed())
+		_, err := f.svc.DeleteAll(ctx, "a", false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.em.Operation(ctx, done)).To(Succeed())
+		Expect(list(f, "a")).To(BeEmpty())
+	})
+
+	It("words a removal and a backend upgrade", func() {
+		f := newFrontend(memStore(), nil, "a")
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-2", Name: "old-model", Deletion: true, Outcome: galleryop.OpCompleted})).To(Succeed())
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-3", Name: "llama-cpp", Backend: true, Upgrade: true, Outcome: galleryop.OpCompleted})).To(Succeed())
+		titles := []string{}
+		for _, n := range list(f, "a") {
+			titles = append(titles, n.Title)
+		}
+		Expect(titles).To(ConsistOf("Model old-model removed", "Backend llama-cpp upgraded"))
+	})
+
+	It("posts a failure as a failed item with the reason", func() {
+		f := newFrontend(memStore(), nil, "a")
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-4", Name: "whisper", Backend: true, Outcome: galleryop.OpFailed, Err: "download\ninterrupted"})).To(Succeed())
+		got := list(f, "a")[0]
+		Expect(got.Code).To(Equal(CodeOpFailed))
+		Expect(got.Status).To(Equal(notify.StatusFailed))
+		Expect(got.Kind).To(Equal(notify.KindNeedsAttention))
+		Expect(got.Title).To(Equal("Backend whisper: the install failed"))
+		Expect(got.Body).To(Equal("download interrupted"))
+		Expect(got.Params).To(HaveKeyWithValue("outcome", "failed"))
+	})
+
+	It("posts a cancel as a quiet item, not a failure", func() {
+		f := newFrontend(memStore(), nil, "a")
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-5", Name: "big-model", Outcome: galleryop.OpCancelled})).To(Succeed())
+		got := list(f, "a")[0]
+		Expect(got.Code).To(Equal(CodeOpFailed))
+		Expect(got.Status).To(Equal(notify.StatusOK))
+		Expect(got.Params).To(HaveKeyWithValue("outcome", "cancelled"))
+	})
+
+	It("posts nothing for an automatic pass with no operation ID, and nothing without a notifier", func() {
+		f := newFrontend(memStore(), nil, "a")
+		Expect(f.em.Operation(ctx, galleryop.OpResult{Name: "llama-cpp", Backend: true, Outcome: galleryop.OpCompleted})).To(Succeed())
+		Expect(list(f, "a")).To(BeEmpty())
+		off := &Emitter{Inbox: func() *notify.Service { return nil }, Admins: func(context.Context) ([]string, error) { return []string{"a"}, nil }}
+		Expect(off.Operation(ctx, done)).To(Succeed())
 	})
 })

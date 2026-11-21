@@ -1116,6 +1116,13 @@
           "keeps the level out of the index by default, so a host that predates the field still reads it",
           "keeps the level of Tables out of the committed index shape, and writes it on request",
           "writes the level the manifest needs when asked to",
+          "records the sorted host operations of every manifest on its entries when asked to",
+          "reads the rendered hint through the library reader of the host",
+          "renders an empty declaration for a manifest that requests none, and sorts the names",
+          "reads an index that predates the hint, with no hint rather than an empty one",
+          "keeps the host operations out of the index by default, so a host that predates the field still reads it",
+          "carries the hint of its manifest on every entry of the committed development index",
+          "adds the host operations to an existing index only when asked to, and removes them again",
           "translates the title and the description of mail in every main language",
           "gives every translated connector kind of mail the fields of its English kind, and no others",
           "audits actual host calls and strict package contract for gdrive",
@@ -1168,6 +1175,15 @@
       "fetches private bearer and basic catalogs without OCI credentials",
       "blocks redirects without leaking credentials or error details",
       "reports refresh failures rather than serving stale success",
+      "does not hide the entries of the libraries that loaded",
+      "reports when a library last loaded",
+      "does not block the others while its first refresh is pending",
+      "answers a request that names it with the refresh error",
+      "answers with the refresh error when every library failed",
+      "answers as unavailable when nothing has been read yet",
+      "says why in the status of the library, and clears it after a good refresh",
+      "names the cause of an index it cannot read",
+      "refreshes the libraries after a failing one at startup",
       "resolves the host platform from a multi platform catalog",
       "selects exact configured owner targets and rejects absent or ambiguous targets",
       "requires authoritative administration for all source edits",
@@ -1259,8 +1275,47 @@
       "keeps a plain entry free of translation fields on the wire",
       "rejects translations that the manifest would refuse",
       "reads the feature level an entry requires, and an entry without it needs none",
+      "tells an absent hint from a manifest that requests nothing",
+      "reads the required and optional host operations of an entry",
       "is true only for the official ID at an address the shipped library has used",
-      "is false for an entry of another library, even when the index claims otherwise"
+      "is false for an entry of another library, even when the index claims otherwise",
+      "a host not on the list",
+      "a loopback address",
+      "does not send the library credential to the redirect host",
+      "follows the redirect to an allowed https host and reads the index",
+      "lists the object-store host GitHub redirects release downloads to",
+      "plain http to an allowed host",
+      "an add-on library",
+      "an explicit add-on kind",
+      "a digest reference",
+      "an exact signer identity",
+      "an identity pattern",
+      "credentials in the address",
+      "a space",
+      "no repository",
+      "a backend kind",
+      "a gallery-format add-on source",
+      "names the pinned identity of a signed source that is not official",
+      "names nobody for the official library, a source without a signature rule or a pattern",
+      "is not carried by an encoded index",
+      "lists the entries of the artifact and stamps the source on them",
+      "stamps the policy of a signed source on its entries",
+      "stamps the pinned signer on a signed source and on no other",
+      "ignores a signer that the index claims for itself",
+      "refuses a bad signature, caches nothing and serves no older copy afterwards",
+      "refuses a bad signature on a first fetch and leaves nothing on disk",
+      "serves the last verified copy when the registry is down",
+      "serves the last verified copy when the verifier cannot be reached",
+      "refuses an artifact of another type",
+      "reports a registry answer of 401 as a credential failure and keeps the cache (signed: false)",
+      "reports a registry answer of 401 as a credential failure and keeps the cache (signed: true)",
+      "reports a registry answer of 403 as a credential failure and keeps the cache (signed: false)",
+      "reports a registry answer of 403 as a credential failure and keeps the cache (signed: true)",
+      "reports a credential failure on a first fetch and writes no cache",
+      "logs why the registry refused the read, without a secret",
+      "does not reuse a copy admitted under another policy",
+      "keeps the previous good copy when a pull returns an empty or non-YAML index",
+      "fails a first fetch of a junk index"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -1359,7 +1414,9 @@
       "refuses a package that needs a newer feature level, from the entry and from the manifest",
       "needs the owner execute bit on Linux and macOS",
       "takes the Linux program of a package that runs in WSL 2 on Windows, without .exe",
-      "needs the .exe extension on Windows, which has no execute bit"
+      "needs the .exe extension on Windows, which has no execute bit",
+      "follows the redirect to an allowed https host",
+      "still checks the pinned digest of the redirected bytes"
     ],
     "report": ".cache/addons/logs/packages.json"
   },
@@ -1507,7 +1564,26 @@
       "is a recent check once the owner has refreshed in the background, not unknown",
       "refuses a candidate that needs a newer feature level, and offers one the host has",
       "installs a manifest that requests the client job operations once they are approved",
-      "gives the reason for people of a refused launch, and nothing for any other failure"
+      "gives the reason for people of a refused launch, and nothing for any other failure",
+      "answers the host access of a release from its index hint without a download",
+      "stages the package for the host access of a release without an index hint",
+      "records an approved install, runs it later through the lifecycle path and leaves the add-on off",
+      "holds a queued install whose verified manifest asks for more than the reviewed index hint",
+      "holds the plain install of an approval reviewed from the index hint the same way",
+      "binds an unpinned approval to the reviewed operations only",
+      "drops a queued install that is cancelled before it runs and frees the add-on",
+      "stops a running install when its context is cancelled and leaves no stage behind",
+      "fails a queued install as interrupted after a restart, so it never runs unasked",
+      "refuses what the queue cannot take: no approval, a local file, an installed add-on, another administrator's run",
+      "records a pinned upgrade for the queue, runs it later and keeps the last good generation until then",
+      "refuses at the run an upgrade whose candidate changed while it waited, and changes nothing",
+      "drops a queued upgrade cancelled before it runs, so the add-on can be upgraded again",
+      "records an approved upgrade for the queue, runs it later and drops it when it is cancelled",
+      "takes an approved upgrade without pins, as the install route of the approval does, and refuses it for an add-on that is not installed",
+      "accepts the upgrades of many different add-ons at once and runs every one",
+      "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue",
+      "fails with a credential error and installs nothing without a rule",
+      "lists and installs with a rule, and sends no credential to the redirect target"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -2222,7 +2298,14 @@
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
           "keeps the add-on resource routes behind the add-ons feature",
           "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature",
-          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate"
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate",
+          "refuses a queue request that is not the administrator's own browser session",
+          "queues several approved installs, runs them one at a time and lets a queued one be cancelled",
+          "queues an approved upgrade as an upgrade operation of the add-on and refuses a pin without the action or alone",
+          "answers a refused item without stopping the others",
+          "turns an approval the package outgrew into an install that needs a new review",
+          "reports the download in bytes and percent",
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
         ]
       },
       {
@@ -3232,7 +3315,14 @@
           "lets people who may not use add-ons share a kind, find each other and be granted",
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
           "keeps the add-on resource routes behind the add-ons feature",
-          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate"
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate",
+          "refuses a queue request that is not the administrator's own browser session",
+          "queues several approved installs, runs them one at a time and lets a queued one be cancelled",
+          "queues an approved upgrade as an upgrade operation of the add-on and refuses a pin without the action or alone",
+          "answers a refused item without stopping the others",
+          "turns an approval the package outgrew into an install that needs a new review",
+          "reports the download in bytes and percent",
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
         ]
       }
     ]
@@ -3768,7 +3858,14 @@
           "lets people who may not use add-ons share a kind, find each other and be granted",
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
           "keeps the add-on resource routes behind the add-ons feature",
-          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate"
+          "finds people for a kind by three characters of the display name, never by an address, at a bounded rate",
+          "refuses a queue request that is not the administrator's own browser session",
+          "queues several approved installs, runs them one at a time and lets a queued one be cancelled",
+          "queues an approved upgrade as an upgrade operation of the add-on and refuses a pin without the action or alone",
+          "answers a refused item without stopping the others",
+          "turns an approval the package outgrew into an install that needs a new review",
+          "reports the download in bytes and percent",
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
         ]
       }
     ]
@@ -3990,7 +4087,26 @@
           "is a recent check once the owner has refreshed in the background, not unknown",
           "refuses a candidate that needs a newer feature level, and offers one the host has",
           "installs a manifest that requests the client job operations once they are approved",
-          "gives the reason for people of a refused launch, and nothing for any other failure"
+          "gives the reason for people of a refused launch, and nothing for any other failure",
+          "answers the host access of a release from its index hint without a download",
+          "stages the package for the host access of a release without an index hint",
+          "records an approved install, runs it later through the lifecycle path and leaves the add-on off",
+          "holds a queued install whose verified manifest asks for more than the reviewed index hint",
+          "holds the plain install of an approval reviewed from the index hint the same way",
+          "binds an unpinned approval to the reviewed operations only",
+          "drops a queued install that is cancelled before it runs and frees the add-on",
+          "stops a running install when its context is cancelled and leaves no stage behind",
+          "fails a queued install as interrupted after a restart, so it never runs unasked",
+          "refuses what the queue cannot take: no approval, a local file, an installed add-on, another administrator's run",
+          "records a pinned upgrade for the queue, runs it later and keeps the last good generation until then",
+          "refuses at the run an upgrade whose candidate changed while it waited, and changes nothing",
+          "drops a queued upgrade cancelled before it runs, so the add-on can be upgraded again",
+          "records an approved upgrade for the queue, runs it later and drops it when it is cancelled",
+          "takes an approved upgrade without pins, as the install route of the approval does, and refuses it for an add-on that is not installed",
+          "accepts the upgrades of many different add-ons at once and runs every one",
+          "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue",
+          "fails with a credential error and installs nothing without a rule",
+          "lists and installs with a rule, and sends no credential to the redirect target"
         ]
       },
       {
@@ -4296,7 +4412,14 @@
           "lets people who may not use add-ons share a kind, find each other and be granted",
           "answers an unknown resource and a resource of someone else the same for a caller without add-ons",
           "keeps the add-on resource routes behind the add-ons feature",
-          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature"
+          "keeps the sharing routes out of the feature registry and open to accounts without the add-ons feature",
+          "refuses a queue request that is not the administrator's own browser session",
+          "queues several approved installs, runs them one at a time and lets a queued one be cancelled",
+          "queues an approved upgrade as an upgrade operation of the add-on and refuses a pin without the action or alone",
+          "answers a refused item without stopping the others",
+          "turns an approval the package outgrew into an install that needs a new review",
+          "reports the download in bytes and percent",
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
         ]
       }
     ]
@@ -4341,8 +4464,8 @@
       "apps: an add-on that contributes UI keeps the list current off the page and its disable stops the reads",
       "apps: a viewer without the add-ons feature never requests the list",
       "browse: searches the libraries, pages and shows trust and platform facts",
-      "browse: Install and turn on asks once, installs and turns the add-on on",
-      "browse: a failed turn on keeps the install, says why in the dialog and can be tried again",
+      "browse: a failing library is named in a notice and does not hide the others",
+      "browse: Install asks once and queues the add-on, which is installed but not turned on",
       "browse: an add-on that is installed but off offers Turn on and nothing else",
       "installed: health is separate from enabled and the details show trust, compatibility and storage",
       "installed: an update is shown only from the owner update field and upgrade sends that version",
@@ -4354,6 +4477,7 @@
       "libraries: a private library is saved by credential reference and never carries a secret",
       "libraries: removing a library says installed add-ons stay and leaves them installed",
       "libraries: a refresh reports its result and a failed fetch is shown as failed",
+      "libraries: a failed library shows its error and the last good refresh on its own row",
       "keyboard: the tab list moves with the arrow keys and actions are reachable",
       "narrow: at 400 px the apps page is one column without sideways scrolling",
       "theme: the apps page follows the light and dark tokens",
@@ -4398,7 +4522,10 @@
       "installed list: tiles show the translated name and a search finds it by the translated or the English name",
       "unit: addons: the catalog entry carries the official flag only when the host sent true",
       "unit: addons: the dialog warns about the source unless the entry is official and the preview agrees",
-      "unit: addons: every locale words the source warning with the library name and no markup"
+      "unit: addons: every locale words the source warning with the library name and no markup",
+      "unit: addons: the dialog names the signer of a non-official entry and keeps the warning",
+      "unit: addons: the catalog entry carries the signer only as text",
+      "unit: addons: every locale words the signed-by notice with the signer and no markup"
     ]
   },
   "esm-ui": {
@@ -5725,6 +5852,12 @@
       "go: lists the add-ons in the validate matrix",
       "go: lists the built-in skills an add-on replaces",
       "go: lists the built-in tools an add-on replaces after its tools",
+      "go: records the sorted host operations of every manifest on its entries when asked to",
+      "go: reads the rendered hint through the library reader of the host",
+      "go: renders an empty declaration for a manifest that requests none, and sorts the names",
+      "go: reads an index that predates the hint, with no hint rather than an empty one",
+      "go: keeps the host operations out of the index by default, so a host that predates the field still reads it",
+      "go: adds the host operations to an existing index only when asked to, and removes them again",
       "go: loops the plan over the same list",
       "go: publishes every add-on to the one documented repository, with its id as the tag prefix",
       "go: refuses --from-manifest for a pinned channel or together with a merged layout",
@@ -5855,6 +5988,7 @@
       "unit: updates: the client sends check and upgrade as the administrator's own action and types the refusals",
       "unit: updates: every locale carries the same update keys as English, and words for every state, reason and refusal",
       "unit: updates: a release that needs a newer LocalAI is incompatible with the reason feature-level, and an install that fails for it says so",
+      "unit: updates: a queued backend update is updating with no progress, a running one keeps its progress",
       "go: offers a digest-only change of the branch-fix-cache channel with an identical version label",
       "go: offers a digest-only change of the development channel with an identical version label",
       "go: offers a digest-only change of the latest channel with an identical version label",
@@ -5932,7 +6066,8 @@
       "updates: on a narrow screen the check is reachable and runs from the keyboard",
       "go: ends the checks in flight when it is closed and refuses new ones",
       "go: always names the candidate digest of an update, so the upgrade has something to pin",
-      "go: keeps a stale cached notice readable while a plain check says the update is gone"
+      "go: keeps a stale cached notice readable while a plain check says the update is gone",
+      "go: queues the upgrade on the operation queue, answers its job at once and runs it in the background"
     ]
   },
   "tables-acceptance": {

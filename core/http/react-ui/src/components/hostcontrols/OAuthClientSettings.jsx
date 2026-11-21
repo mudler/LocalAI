@@ -6,7 +6,7 @@ import { chatOAuthClientsApi } from '../../utils/api'
 import { canSaveClient, clientBody, clientStatus, formatWhen, needsSecret, oauthErrorText, staleDigest } from '../../utils/connectorOAuth'
 import { copyToClipboard } from '../../utils/clipboard'
 import { UntrustedNotice } from '../addons/AddonBits'
-import { untrustedSource } from '../addons/addonState'
+import { signedBy, untrustedSource } from '../addons/addonState'
 
 // The OAuth client of an add-on whose credential slot logs people in with
 // OAuth, on the add-on's Settings tab (administrators only). It shows the
@@ -95,7 +95,7 @@ export default function OAuthClientSettings({ app, api = chatOAuthClientsApi }) 
       </div>
 
       {untrustedSource({ official: app.admin?.official }) && (
-        <UntrustedNotice library={app.admin?.sourceId || t('oauthClient.unknownLibrary')} testId="oauth-client-untrusted" />
+        <UntrustedNotice library={app.admin?.sourceId || t('oauthClient.unknownLibrary')} signer={signedBy({ official: app.admin?.official, signer: app.admin?.signer })} testId="oauth-client-untrusted" />
       )}
       {status === 'unconfigured' && <Callout tone="info" testId="oauth-client-status" data-status={status}>{t('oauthClient.status.unconfigured')}</Callout>}
       {status === 'changed' && <Callout tone="warn" testId="oauth-client-status" data-status={status}>{t('oauthClient.status.changed')}</Callout>}

@@ -1,85 +1,64 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Callout } from '../ui'
 import InstallDialog from './InstallDialog'
-import { useAddonActions } from './useAddonActions'
-import { describeError } from './errors'
-import { addonsApi, addonsCatalog, addonFilesApi } from '../../utils/addonsClient'
-import { fileEntry, fileIdFromParams, normalizeFile } from './fileInstall'
+import { describeError, describeOutcome } from './errors'
 
 // Install from a file. The button takes the add-on zip that `make addons-zip`
 // writes; the owner checks it and the person sees the same dialog as for a
-// library entry, with the host access step and the notice that nothing signs a
-// local file. A link from `local-ai addons install` carries ?file=<id> of a
-// file the command line staged, and opens the dialog straight away.
-export default function InstallFromFile({ onInstalled, filesApi = addonFilesApi }) {
+// library entry. The state lives in useFileInstall, which the page keeps above
+// its tabs.
+export default function InstallFromFile({ install }) {
   const { t } = useTranslation('addons')
-  const [params, setParams] = useSearchParams()
   const input = useRef(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  const [entry, setEntry] = useState(null)
-  const actions = useAddonActions(addonsApi, { onSettled: () => onInstalled && onInstalled(), adapter: addonsCatalog })
-  const linked = fileIdFromParams(params)
-  const asked = useRef('')
-
-  const show = useCallback((raw) => {
-    const file = normalizeFile(raw)
-    if (!file.fileId || !file.addonId) throw new Error('unexpected answer')
-    setEntry(fileEntry(file))
-  }, [])
-
-  const fail = useCallback((e) => {
-    setError(e && e.type === 'not_found' ? t('file.gone') : describeError(e, t))
-  }, [t])
-
-  const pick = async (e) => {
-    const file = e.target.files && e.target.files[0]
-    e.target.value = ''
-    if (!file) return
-    setError(null)
-    setBusy(true)
-    try { show(await filesApi.upload(file)) } catch (err) { fail(err) } finally { setBusy(false) }
-  }
-
-  // A staged file the link names. Read once per id.
-  useEffect(() => {
-    if (!linked || asked.current === linked) return undefined
-    asked.current = linked
-    const ctl = new AbortController()
-    setBusy(true)
-    filesApi.describe(linked, ctl.signal)
-      .then(show)
-      .catch(err => { if (!err || err.name !== 'AbortError') fail(err) })
-      .finally(() => setBusy(false))
-    return () => ctl.abort()
-  }, [linked, filesApi, show, fail])
-
-  const close = () => {
-    const done = entry
-    setEntry(null)
-    if (linked) setParams(prev => { const out = new URLSearchParams(prev); out.delete('file'); return out }, { replace: true })
-    // A file that was not installed is not kept for the next visit.
-    const flow = done && actions.flows[`flow:${done.key}`]
-    if (done && !(flow && flow.step === 'done')) filesApi.remove(done.local.fileId).catch(() => {})
-  }
-
+  const { busy, error, entry, actions } = install
+  const words = error ? (error.type === 'not_found' ? t('file.gone') : describeError(error, t)) : ''
   return (
     <>
-      <input ref={input} type="file" accept=".zip,application/zip" hidden onChange={pick} aria-label={t('file.pick')} data-testid="install-file-input" />
+      <input ref={input} type="file" accept=".zip,application/zip" hidden onChange={(e) => { const file = e.target.files && e.target.files[0]; e.target.value = ''; install.pick(file) }} aria-label={t('file.pick')} data-testid="install-file-input" />
       <Button icon="upload" busy={busy} disabled={busy} onClick={() => input.current && input.current.click()} data-testid="addons-install-file">
         {busy ? t('file.checking') : t('file.button')}
       </Button>
       {error && (
         <div className="ad-file-error" role="alert" data-testid="install-file-error">
-          <Callout tone="error" actions={<Button size="sm" onClick={() => setError(null)}>{t('catalog.close')}</Button>}>
-            {t('file.rejected')} {error}
+          <Callout tone="error" actions={<Button size="sm" onClick={install.clearError}>{t('catalog.close')}</Button>}>
+            {t('file.rejected')} {words}
           </Callout>
         </div>
       )}
-      <InstallDialog entry={entry} installed={{}} flow={entry ? actions.flows[`flow:${entry.key}`] : undefined} actions={actions} onClose={close} />
+      <InstallDialog entry={entry} installed={{}} flow={install.flow} actions={actions} onClose={install.close} />
     </>
   )
+}
+
+// What the install of a closed dialog is doing, on the page: a note while it
+// runs, and a failure that stays until it is dismissed. The failure says why
+// and how to try again.
+export function FileInstallBanner({ install, onRetry }) {
+  const { t } = useTranslation('addons')
+  const { kept, keptFlow } = install
+  if (!kept || !keptFlow) return null
+  if (keptFlow.step === 'failed') {
+    const reason = describeOutcome(keptFlow.outcome, t, keptFlow.error)
+    return (
+      <Callout
+        tone="error"
+        role="alert"
+        className="ad-callout"
+        testId="file-install-failed"
+        data-app={kept.id}
+        title={t('file.failedTitle', { name: kept.title })}
+        actions={(
+          <>
+            <Button size="sm" icon="refresh" onClick={() => { onRetry?.(); install.retryKept() }} data-testid="file-install-retry">{t('catalog.retry')}</Button>
+            <Button size="sm" variant="ghost" onClick={install.dismissKept} data-testid="file-install-dismiss">{t('catalog.close')}</Button>
+          </>
+        )}
+      >
+        {reason} {t('file.failedHint')}
+      </Callout>
+    )
+  }
+  return <Callout tone="info" role="status" className="ad-callout" testId="file-install-running" data-app={kept.id}>{t('file.progress', { name: kept.title })}</Callout>
 }

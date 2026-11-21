@@ -38,7 +38,8 @@
     },
     "verb": {
       "upgrading": "Mise à jour du {{kind}}",
-      "failedUpgrade": "Impossible de mettre à jour le {{kind}}"
+      "failedUpgrade": "Impossible de mettre à jour le {{kind}}",
+      "needsReview": "À vérifier"
     },
     "filter": {
       "addons": "Modules"
@@ -61,7 +62,14 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "En file",
+      "starting": "Démarrage",
+      "resolving": "Résolution du paquet",
+      "verifying": "Vérification de la signature et du digest",
+      "downloading": "Téléchargement",
+      "checking": "Contrôle du paquet",
+      "committing": "Finalisation"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
@@ -87,6 +95,9 @@
       "committing": "Finalisation",
       "persisting": "Enregistrement de la configuration"
     },
-    "retryFailed": "Échec de la nouvelle tentative : {{message}}"
+    "retryFailed": "Échec de la nouvelle tentative : {{message}}",
+    "addonNeedsReview": "Le paquet demande plus d'accès à l'hôte que vous n'en avez approuvé.",
+    "review": "Vérifier",
+    "reviewLabel": "Vérifier {{name}}"
   }
 }

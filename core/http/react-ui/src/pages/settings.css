@@ -114,8 +114,6 @@
 .st-model { width: 280px; max-width: 100%; }
 .st-area { width: 100%; min-height: 96px; resize: vertical; font-size: var(--dk-text-13); }
 .st-range { width: 220px; max-width: 100%; }
-.st-token { display: flex; align-items: center; gap: var(--dk-space-2); }
-.st-token .dk-input { width: 220px; min-width: 0; }
 .st-asset { display: flex; align-items: center; gap: var(--dk-space-2); }
 .st-asset__preview { display: grid; place-content: center; width: 40px; height: 40px; border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-inset); color: var(--dk-muted); overflow: hidden; }
 .st-asset__preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
@@ -179,9 +177,7 @@
   .st-row__control { justify-content: flex-start; }
   .st-row[data-bool] .st-row__control { justify-content: flex-end; }
   .st-diff { max-height: 34vh; }
-  .st-num, .st-short, .st-text, .st-model, .st-range, .st-token .dk-input { width: 100%; }
-  .st-token { flex-wrap: wrap; }
-  .st-token .dk-input { flex: 1 1 100%; }
+  .st-num, .st-short, .st-text, .st-model, .st-range { width: 100%; }
   .st-search { max-width: none; flex-basis: 100%; }
   .st-bar__history { margin-left: 0; }
   .st-pending { bottom: var(--dk-space-2); }

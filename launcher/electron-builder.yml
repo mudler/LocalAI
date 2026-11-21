@@ -22,6 +22,15 @@ files:
   - package.json
   - "!**/*.map"
 asar: true
+# Linux x64 only (the hook returns at once for every other target): bundle
+# what the AppImage needs to start on hosts without glibc. See
+# scripts/portable-linux/after-pack.cjs and README.md.
+afterPack: scripts/portable-linux/after-pack.cjs
+# The static AppImage runtime (AppImage/type2-runtime), from the builder's
+# pinned and checksummed toolset. The default toolset's runtime needs FUSE 2
+# libraries of the host and a glibc loader before the app can even be mounted.
+toolsets:
+  appimage: 1.0.3
 # The feed is always `latest`, also for a release candidate. The GitHub
 # release of a release candidate is the newest release, so it must carry the
 # same feed file names as a stable release.

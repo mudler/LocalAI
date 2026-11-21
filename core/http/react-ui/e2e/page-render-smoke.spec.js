@@ -32,7 +32,6 @@ const PAGES = [
   ['/app/scheduling', 'Placement rules'],
   ['/app/failover', 'Failover'],
   ['/app/nodes/add', 'Add a node'],
-  ['/app/p2p', 'P2P'],
 ]
 
 test.describe('Page render smoke', () => {

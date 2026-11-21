@@ -758,6 +758,53 @@
           "library": "pustaka backend",
           "addons": "add-on"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Model",
+          "backend": "Backend",
+          "addon": "Add-on"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} terinstal",
+          "delete": "{{kind}} {{name}} dihapus",
+          "upgrade": "{{kind}} {{name}} diperbarui"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: instalasi gagal",
+          "delete": "{{kind}} {{name}}: penghapusan gagal",
+          "upgrade": "{{kind}} {{name}}: pembaruan gagal"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: instalasi dibatalkan",
+          "delete": "{{kind}} {{name}}: penghapusan dibatalkan",
+          "upgrade": "{{kind}} {{name}}: pembaruan dibatalkan"
+        },
+        "needsReview": {
+          "install": "Add-on {{name}} perlu ditinjau agar bisa dipasang"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} pembaruan model tersedia",
+          "title_other": "{{count}} pembaruan model tersedia"
+        },
+        "done": {
+          "title": "Model {{name}} diperbarui",
+          "body": "Dari {{from}} ke {{to}}."
+        },
+        "failed": {
+          "title": "Model {{name}}: pembaruan gagal",
+          "rolledBack": "Versi lama dikembalikan dan tetap melayani. Alasan: {{error}}",
+          "rolledBackPlain": "Versi lama dikembalikan dan tetap melayani.",
+          "kept": "Versi lama tetap melayani. Alasan: {{error}}",
+          "keptPlain": "Versi lama tetap melayani."
+        },
+        "removed": {
+          "title": "Model {{name}}: versi lama dihapus",
+          "body_one": "{{count}} berkas lama dihapus.",
+          "body_other": "{{count}} berkas lama dihapus."
+        }
       }
     },
     "tabs": {
@@ -792,7 +839,9 @@
         "removed": "{{name}} dihapus",
         "staged": "{{name}} ditransfer"
       }
-    }
+    },
+    "chatsOff": "Chats nonaktif",
+    "emptyBodyNoChats": "Pembaruan dan operasi yang selesai muncul di sini."
   },
   "change": {
     "loading": "Membaca perubahan pemicu...",

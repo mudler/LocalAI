@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
-	"strings"
 	"sync"
 	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/pkg/dbdialect"
 )
 
 // advisoryLockWaitBackstop bounds, server-side, how long we will wait to
@@ -61,13 +62,6 @@ func localLockChan(key int64) chan struct{} {
 	return ch
 }
 
-// isPostgres reports whether the gorm dialect is PostgreSQL. Anything else
-// (SQLite and any non-postgres dialect) uses the in-process fallback, because
-// the pg_* advisory lock functions only exist on PostgreSQL.
-func isPostgres(db *gorm.DB) bool {
-	return strings.Contains(db.Dialector.Name(), "postgres")
-}
-
 // TryWithLockCtx attempts to acquire a lock and run fn without blocking.
 // Returns (true, nil) if the lock was acquired and fn executed, (false, nil) if
 // the lock was already held, or (false, error) on failure.
@@ -75,7 +69,7 @@ func isPostgres(db *gorm.DB) bool {
 // On PostgreSQL it uses pg_try_advisory_lock (cross-process). On other dialects
 // (SQLite) it uses a non-blocking in-process lock keyed by key.
 func TryWithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error) (bool, error) {
-	if !isPostgres(db) {
+	if !dbdialect.IsPostgres(db) {
 		ch := localLockChan(key)
 		select {
 		case ch <- struct{}{}:
@@ -113,14 +107,14 @@ func TryWithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error
 // KeyFromUUID converts a UUID (as [16]byte) to a lock key via FNV-1a hashing.
 func KeyFromUUID(b [16]byte) int64 {
 	h := fnv.New64a()
-	h.Write(b[:])
+	_, _ = h.Write(b[:]) // hash.Hash.Write never returns an error
 	return int64(h.Sum64()>>1) | 0x100000000
 }
 
 // KeyFromString converts an arbitrary string to an advisory lock key via FNV-1a hashing.
 func KeyFromString(s string) int64 {
 	h := fnv.New64a()
-	h.Write([]byte(s))
+	_, _ = h.Write([]byte(s)) // hash.Hash.Write never returns an error
 	return int64(h.Sum64()>>1) | 0x100000000
 }
 
@@ -132,7 +126,7 @@ func KeyFromString(s string) int64 {
 // (SQLite) it falls back to a blocking in-process lock keyed by key, which is
 // sufficient because a SQLite auth DB is effectively single-process.
 func WithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error) error {
-	if !isPostgres(db) {
+	if !dbdialect.IsPostgres(db) {
 		// Honor an already-cancelled context before attempting acquisition:
 		// select picks a ready case at random, so without this an already-free
 		// lock could be taken despite a cancelled ctx.

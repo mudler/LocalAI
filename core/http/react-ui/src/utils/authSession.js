@@ -47,6 +47,12 @@ export function isSessionExempt(url) {
   return EXEMPT.test(path)
 }
 
+// A static API key signs a person in as much as an account does: the key can
+// be rotated or its cookie can lapse while the tab is open.
+export function signInRequired(s) {
+  return !!(s && (s.authEnabled || s.staticApiKeyRequired))
+}
+
 export function sessionStep(state, event) {
   switch (event.type) {
     case 'status-ok': {
@@ -87,7 +93,7 @@ export function sessionStep(state, event) {
       if (state.status !== 'unreachable' || state.retrying) return state
       return { ...state, retrying: true }
     case 'unauthorized':
-      if (state.status !== 'signed-in' || !state.authEnabled || isSessionExempt(event.url)) return state
+      if (state.status !== 'signed-in' || !signInRequired(state) || isSessionExempt(event.url)) return state
       return { ...state, status: 'expired', sessionEpoch: state.sessionEpoch + 1, user: null, permissions: {} }
     case 'logout':
       return { ...state, status: 'anonymous', sessionEpoch: state.sessionEpoch + 1, user: null, permissions: {}, failures: 0, retrying: false, ended: true }

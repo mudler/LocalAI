@@ -189,6 +189,38 @@ func Add(store *catalog.Sources, kind catalog.Kind, url, id, name, format string
 
 // AddWithMirrors is Add for a source that also lists mirrors.
 func AddWithMirrors(store *catalog.Sources, kind catalog.Kind, url, id, name, format string, mirrors []string) (catalog.Source, error) {
+	return AddWithPolicy(store, kind, url, id, name, format, mirrors, catalog.VerificationPolicy{})
+}
+
+// checkPolicy accepts the policy a caller may set when it adds a source: none,
+// or an issuer with an exact identity on an oci:// add-on library. The
+// signature is then required. A pattern is not accepted: an add-on install
+// refuses one, so the source would store a policy that never verifies.
+func checkPolicy(kind catalog.Kind, url, format string, p catalog.VerificationPolicy) (catalog.VerificationPolicy, error) {
+	issuer, identity := strings.TrimSpace(p.Issuer), strings.TrimSpace(p.Identity)
+	if issuer == "" && identity == "" && p.IdentityRegex == "" && !p.RequireSignature {
+		return catalog.VerificationPolicy{}, nil
+	}
+	if p.IdentityRegex != "" {
+		return p, badRequest("an add-on library is verified against an exact identity, not a pattern")
+	}
+	if issuer == "" || identity == "" {
+		return p, badRequest("issuer and identity must be set together")
+	}
+	if kind != catalog.KindAddon || format != "" || !catalog.IsOCIAddress(url) {
+		return p, badRequest("issuer and identity apply to an oci:// add-on library only")
+	}
+	return catalog.VerificationPolicy{RequireSignature: true, Issuer: issuer, Identity: identity}, nil
+}
+
+// AddWithPolicy is AddWithMirrors for a source that pins its signer: an
+// oci:// add-on library whose artifact must be signed by the given issuer and
+// identity. An empty policy adds the source as AddWithMirrors does.
+func AddWithPolicy(store *catalog.Sources, kind catalog.Kind, url, id, name, format string, mirrors []string, p catalog.VerificationPolicy) (catalog.Source, error) {
+	p, err := checkPolicy(kind, url, format, p)
+	if err != nil {
+		return catalog.Source{}, err
+	}
 	for _, e := range store.Entries() {
 		if e.Kind == kind && e.URL == url && !e.IsTombstone() {
 			return catalog.Source{}, fmt.Errorf("%w: %s is already a %s source (%s)", ErrDuplicate, url, kind, e.ID)
@@ -204,7 +236,7 @@ func AddWithMirrors(store *catalog.Sources, kind catalog.Kind, url, id, name, fo
 	if name == "" {
 		name = id
 	}
-	src := catalog.Source{ID: id, Name: name, URL: url, Enabled: true, Kind: kind, Format: format, Mirrors: mirrors}
+	src := catalog.Source{ID: id, Name: name, URL: url, Enabled: true, Kind: kind, Format: format, Mirrors: mirrors, Policy: p}
 	if err := store.AddUser(src); err != nil {
 		return catalog.Source{}, err
 	}

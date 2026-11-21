@@ -17,6 +17,8 @@ a normal model config. You use it like any other model:
 
 - Clients call it by name in the chat APIs.
 - It can be a target of a [failover chain]({{% relref "/models/model-failover" %}}).
+- It can be a member of a [federation group]({{% relref "/administration/federation" %}}),
+  which spreads the requests of one model name over several LocalAI servers.
 - API keys, per-user access and usage statistics apply to it.
 
 The key of the other server is stored once, on the remote. The entries
@@ -269,6 +271,63 @@ the remote also stays. Remove it again.
   [Middleware]({{% relref "/administration/middleware" %}}) and
   [PII filtering]({{% relref "/models/model-configuration#pii-filtering" %}}).
 
+## Remotes over P2P
+
+A LocalAI that is not reachable at an address (behind a home router, on a
+laptop) can still be a remote. Its administrator creates an invite of kind
+**remote** in **Swarm**, **P2P**, **Share** (see
+[P2P]({{% relref "/administration/p2p" %}})). There it chooses which models
+this server may use: **All models** or a list. On this server you paste the
+invite link instead of an address.
+
+P2P must be on here: set the P2P mode to **Connect only** (or **Connect and
+share**). Connect only needs no authentication on this server, because it
+accepts no one.
+
+What LocalAI does with the link:
+
+1. It redeems the invite over P2P with the identity of this server. The other
+   server admits this server from now on, and issues a key that reaches only
+   the models it chose. Both servers show the same four-word
+   **confirmation phrase**. Check that they match.
+2. It stores the key sealed, as for any remote. The address of the remote is
+   `p2p://<peer ID>`.
+3. It opens a **tunnel**: a port on `127.0.0.1` of this server whose
+   connections go over P2P to the other server. LocalAI picks a free port
+   once and keeps it. The entries use `http://127.0.0.1:<port>` as their
+   `proxy.upstream_url`, so they stay valid across restarts.
+
+The tunnel runs while P2P is on. It starts again with P2P, on the same port.
+The card of the remote shows **P2P** and how the last request reached the
+other server: **Direct**, **Hole punched** or **Through a relay**. A relayed
+path whose relay limits the connection also shows **limited**.
+
+Model traffic does not use public libp2p relays, because their limits are
+too small. It needs a direct path, hole punching, or a relay that you run with
+a large enough limit (the defaults of `local-ai p2p relay` are enough).
+
+Security notes:
+
+- The key goes to the tunnel port only while this server's tunnel holds it.
+  When P2P is off, the key is not sent, the remote shows **P2P is off**, and
+  its models fail to load until P2P is on again.
+- Other programs on this machine can connect to the tunnel port. They reach
+  the other server as this server, but they still need the key: the other
+  server has authentication on.
+- To stop using the remote, remove it here and revoke this server in
+  **Swarm**, **P2P**, **Devices** on the other server.
+
+Limits:
+
+- The address of a remote over P2P cannot change. Remove it and add it again
+  with a new invite.
+- Distributed mode does not support remotes over P2P: a model may load on a
+  worker, which cannot use the tunnel of a frontend. The create call answers
+  `400`.
+- An invite that names an open relay is refused unless you allow open relays
+  (`allow_open_relay` in the API). The web UI warns about the open relay
+  before **Connect**, and **Connect** allows it.
+
 ## Distributed mode
 
 Remotes follow the rules of [distributed mode]({{% relref "/administration/distributed-mode" %}}).
@@ -417,6 +476,53 @@ The answer is `201`:
   "skipped": []
 }
 ```
+
+To add a LocalAI over P2P, send the invite link instead of `url` and
+`api_key`. `name` is optional: without it, LocalAI uses the name of the other
+server. `kind` is optional and can only be `localai`.
+
+```bash
+curl -s https://localai.example.com/api/remotes \
+  -H "Authorization: Bearer <admin-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"invite": "localai://pair?v=1&k=remote&p=<peer ID>&c=<code>&e=<expiry>&n=<label>"}'
+```
+
+The answer has the same shape, with `transport: "p2p"`, a `p2p` object and
+the confirmation `phrase`:
+
+```json
+{
+  "remote": {
+    "id": "<id>",
+    "name": "Studio",
+    "kind": "localai",
+    "url": "p2p://<peer ID>",
+    "transport": "p2p",
+    "p2p": {"peer_id": "<peer ID>", "local_port": 41231, "state": "up", "path": "direct"},
+    "status": "ok"
+  },
+  "created": [],
+  "skipped": [],
+  "phrase": "apple river stone cloud"
+}
+```
+
+`p2p.state` is `off` (P2P is off on this server), `listening` (no request
+yet), `up`, `down` (the last connection failed; `error` says why) or `error`
+(the port could not be opened). `path` is `direct`, `hole_punched` or
+`relayed`, and `limited` is `true` when a relay limits the connection. The
+state belongs to the server that answers.
+
+A redeem that fails answers with a message:
+
+| Status | When |
+|---|---|
+| `400` | The link is not valid, it is not an invite of kind remote, it names an open relay that is not allowed, or P2P is off on this server. |
+| `409` | The name is taken (checked before the invite is used). |
+| `410` | The invite was used, cancelled or has expired. Ask for a new one. |
+| `429` | The other server saw too many wrong codes from this server. Wait and try again. |
+| `504` | The other server cannot be reached over P2P: direct dialing, hole punching and the relays of the link all failed. |
 
 A skipped model has an `id` and a `reason`. The reasons are:
 

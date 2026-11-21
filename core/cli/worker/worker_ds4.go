@@ -97,8 +97,9 @@ func (r *DS4Distributed) Run(ctx *cliContext.Context) error {
 
 	// ds4 bundles its own dynamic loader (lib/ld.so) for glibc compatibility,
 	// like backend/cpp/ds4/run.sh does for grpc-server. Launch ds4-worker via
-	// that loader when present; otherwise exec it directly. (This is a
-	// deliberate divergence from worker_llamacpp.go, which has no bundled loader.)
+	// that loader when present; otherwise exec it directly. (The llama-cpp worker
+	// takes a different route: it starts the RPC server through the backend's
+	// run.sh, see llamaCPPRPCStart. ds4 has no such run.sh option.)
 	backendPath := filepath.Dir(worker)
 	env := os.Environ()
 	loader := filepath.Join(backendPath, "lib", "ld.so")

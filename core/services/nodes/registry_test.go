@@ -764,6 +764,32 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 
+	Describe("LabelValuesOfHealthy", func() {
+		It("returns the distinct values of a label on the healthy nodes of one type that match the selector", func() {
+			ctx := context.Background()
+			add := func(name, nodeType string, labels map[string]string) *BackendNode {
+				GinkgoHelper()
+				n := makeNode(name, "", 0)
+				n.NodeType = nodeType
+				Expect(registry.Register(ctx, n, true)).To(Succeed())
+				Expect(registry.SetNodeLabels(ctx, n.ID, labels)).To(Succeed())
+				return n
+			}
+			add("lv-a", NodeTypeAgent, map[string]string{"role": "w", "inst": "r1"})
+			add("lv-b", NodeTypeAgent, map[string]string{"role": "w", "inst": "r1"})
+			add("lv-c", NodeTypeAgent, map[string]string{"role": "w", "inst": "r2"})
+			add("lv-d", NodeTypeAgent, map[string]string{"role": "other", "inst": "r3"})
+			add("lv-e", NodeTypeBackend, map[string]string{"role": "w", "inst": "r4"})
+			add("lv-f", NodeTypeAgent, map[string]string{"role": "w", "inst": ""})
+			off := add("lv-g", NodeTypeAgent, map[string]string{"role": "w", "inst": "r5"})
+			Expect(registry.MarkOffline(ctx, off.ID)).To(Succeed())
+
+			values, err := registry.LabelValuesOfHealthy(ctx, NodeTypeAgent, map[string]string{"role": "w"}, "inst")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(values).To(ConsistOf("r1", "r2"))
+		})
+	})
+
 	Describe("FindNodesBySelector", func() {
 		It("returns nodes matching all labels in selector", func() {
 			n1 := makeNode("sel-match", "10.0.0.80:50051", 8_000_000_000)
@@ -1909,5 +1935,51 @@ var _ = Describe("ModelScheduling spread + seeding", func() {
 
 		n, _ := registry.GetModelScheduling(context.Background(), "n")
 		Expect(n.SpreadAll).To(BeTrue())
+	})
+})
+
+var _ = Describe("NodeRegistry carrier attachment", func() {
+	var (
+		db       *gorm.DB
+		registry *NodeRegistry
+	)
+
+	BeforeEach(func() {
+		db = testutil.SetupTestDB()
+		var err error
+		registry, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("stores no attachment for a node that reports none", func() {
+		node := &BackendNode{Name: "plain", NodeType: NodeTypeBackend, Address: "10.0.0.3:50051"}
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+		var got BackendNode
+		Expect(db.First(&got, "id = ?", node.ID).Error).To(Succeed())
+		Expect(got.Attached).To(BeEmpty())
+	})
+
+	It("keeps the attachment a node reported", func() {
+		node := &BackendNode{Name: "dual", NodeType: NodeTypeBackend, Address: "10.0.0.4:50051", Attached: "nats,tunnel"}
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+		var got BackendNode
+		Expect(db.First(&got, "id = ?", node.ID).Error).To(Succeed())
+		Expect(got.Attached).To(Equal("nats,tunnel"))
+	})
+
+	It("drops the attached_epoch column of the old change of carrier and keeps the rows", func() {
+		Expect(db.Exec(`ALTER TABLE backend_nodes ADD COLUMN attached_epoch bigint DEFAULT 0`).Error).To(Succeed())
+		Expect(db.Migrator().HasColumn(&BackendNode{}, "attached_epoch")).To(BeTrue())
+		node := &BackendNode{Name: "old", NodeType: NodeTypeBackend, Address: "10.0.0.5:50051", Attached: "nats"}
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+		_, err := NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(db.Migrator().HasColumn(&BackendNode{}, "attached_epoch")).To(BeFalse())
+		var got BackendNode
+		Expect(db.First(&got, "id = ?", node.ID).Error).To(Succeed())
+		Expect(got.Attached).To(Equal("nats"))
 	})
 })

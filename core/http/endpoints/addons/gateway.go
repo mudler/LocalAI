@@ -11,6 +11,7 @@ import (
 	managerpkg "github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -70,6 +71,9 @@ type settings struct {
 	// account checks the caller with the account check of the kinds that are
 	// not add-ons instead of the add-on check: the sharing routes.
 	account bool
+	// queue and opcache run the queued installs; see WithOperationQueue.
+	queue   *galleryop.GalleryService
+	opcache *galleryop.OpCache
 }
 
 // SelectionGuard says whether the person may select a resource for a

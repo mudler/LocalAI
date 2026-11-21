@@ -15,14 +15,17 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 
 	switch nodeType {
 	case "agent":
-		// Agent workers serve the MCP tool and discovery RPC; they must not
-		// handle backend.install. Keep this list in sync with the subscriptions
-		// in core/cli/agent_worker.go.
+		// Agent workers serve the MCP tool and discovery RPC, in the queue group
+		// and on the subjects of their own node; they must not handle
+		// backend.install. Keep this list in sync with the subscriptions of
+		// nodes.NATSAgentRPCServer.
 		subAllow = []string{
 			"gallery.*.cancel",
 			"gallery.*.progress",
 			"mcp.tools.execute",
 			"mcp.discovery",
+			"mcp." + tok + ".tools.execute",
+			"mcp." + tok + ".discovery",
 			prefix + ".backend.stop", // stop events drive MCP session cleanup
 			"staging.*.progress",
 			"_INBOX.>",

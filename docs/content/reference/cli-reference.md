@@ -81,7 +81,8 @@ Application shutdown has no context parameter; work that ignores cancellation ca
 | `--addons-backend-library` | `true` | Register the backend library on the first start | `$LOCALAI_ADDONS_BACKEND_LIBRARY` |
 | `--addons-backend-max-bytes` | `8589934592` | Largest compressed size, in bytes, of a backend image installed from a library | `$LOCALAI_ADDONS_BACKEND_MAX_BYTES` |
 | `--addons-wsl-distro` | | Windows only: the WSL 2 distribution that runs the add-ons whose package runs in WSL 2 (osSettings.windows.execution wsl2). Empty uses the default distribution of WSL | `$LOCALAI_ADDONS_WSL_DISTRO` |
-| `--max-concurrent-backend-operations` | `1` | How many backend install, upgrade and delete operations run at once. `1` runs them one after the other. Operations on the same backend always run one at a time. In distributed mode it also bounds how many nodes one operation is sent to at the same time | `$LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS` |
+| `--max-concurrent-model-operations` | `2` | How many model install, upgrade and delete operations run at once. `1` runs them one after the other. Operations on the same model never overlap. See [Runtime Settings]({{% relref "/administration/runtime-settings" %}}) | `$LOCALAI_MAX_CONCURRENT_MODEL_OPERATIONS` |
+| `--max-concurrent-backend-operations` | `2` | How many backend install, upgrade and delete operations run at once. `1` runs them one after the other. Operations on the same backend never overlap. In distributed mode it also bounds how many nodes one operation is sent to at the same time. See [Runtime Settings]({{% relref "/administration/runtime-settings" %}}) | `$LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS` |
 | `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only: a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
 
 Backend processes receive a private scratch directory through `TMPDIR`, `TMP`,
@@ -173,7 +174,7 @@ settings bypasses this automatic default.
 | `--disable-runtime-settings` | `false` | Disables the runtime settings feature. When set to true, the server will not load runtime settings from the `runtime_settings.json` file and the settings web interface will be disabled | `$LOCALAI_DISABLE_RUNTIME_SETTINGS`, `$DISABLE_RUNTIME_SETTINGS` |
 | `--disable-gallery-endpoint` | `false` | Disable the gallery endpoints | `$LOCALAI_DISABLE_GALLERY_ENDPOINT`, `$DISABLE_GALLERY_ENDPOINT` |
 | `--disable-metrics-endpoint` | `false` | Disable the `/metrics` endpoint | `$LOCALAI_DISABLE_METRICS_ENDPOINT`, `$DISABLE_METRICS_ENDPOINT` |
-| `--machine-tag` | | If not empty, add that string to Machine-Tag header in each response. Useful to track response from different machines using multiple P2P federated nodes | `$LOCALAI_MACHINE_TAG`, `$MACHINE_TAG` |
+| `--machine-tag` | | If not empty, add that string to Machine-Tag header in each response. Useful to track responses from different machines, for example the members of a federation group | `$LOCALAI_MACHINE_TAG`, `$MACHINE_TAG` |
 
 ## Collections Flags
 
@@ -206,7 +207,7 @@ The collections service is the knowledge base that the chats search. The old
 | `--opaque-errors` | `false` | If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended | `$LOCALAI_OPAQUE_ERRORS` |
 | `--use-subtle-key-comparison` | `false` | If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resilience against timing attacks | `$LOCALAI_SUBTLE_KEY_COMPARISON` |
 | `--disable-api-key-requirement-for-http-get` | `false` | If true, a valid API key is not required to issue GET requests to portions of the web UI. This should only be enabled in secure testing environments | `$LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET` |
-| `--http-get-exempted-endpoints` | `^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/explorer/?$,^/assets/.*$,^/static/.*$,^/swagger.*$` | If `--disable-api-key-requirement-for-http-get` is overridden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review | `$LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS` |
+| `--http-get-exempted-endpoints` | `^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/assets/.*$,^/static/.*$,^/swagger.*$` | If `--disable-api-key-requirement-for-http-get` is overridden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review | `$LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS` |
 
 ## Authentication Flags
 
@@ -311,16 +312,31 @@ Read-only tools still run in a piped session. A tool call that is not read-only 
 nobody to approve it, so it is denied and the session exits `3`, a code chosen to be
 distinct from the `1` a failure reports.
 
-## P2P Flags
+## P2P flags
 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
-| `--p2p` | `false` | Enable P2P mode | `$LOCALAI_P2P`, `$P2P` |
-| `--p2p-dht-interval` | `360` | Interval for DHT refresh (used during token generation) | `$LOCALAI_P2P_DHT_INTERVAL`, `$P2P_DHT_INTERVAL` |
-| `--p2p-otp-interval` | `9000` | Interval for OTP refresh (used during token generation) | `$LOCALAI_P2P_OTP_INTERVAL`, `$P2P_OTP_INTERVAL` |
-| `--p2ptoken` | | Token for P2P mode (optional) | `$LOCALAI_P2P_TOKEN`, `$P2P_TOKEN`, `$TOKEN` |
-| `--peer-2-peer-network-id` | | Network ID for P2P mode, can be set arbitrarily by the user for grouping a set of instances | `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID` |
-| `--federated` | `false` | Enable federated instance | `$LOCALAI_FEDERATED`, `$FEDERATED` |
+| `--p2p-mode` | `off` | `off`: no P2P layer. `connect`: this server dials out to remotes over P2P and accepts nobody (no invites, no sharing); it needs no authentication. `share`: connect, and accept paired devices; it requires authentication to be on, and the server refuses to start with `share` while authentication is off | `$LOCALAI_P2P_MODE` |
+| `--p2p-listen` | TCP and QUIC on every interface, random ports | Addresses the P2P host listens on in mode `share` (multiaddrs, repeatable) | `$LOCALAI_P2P_LISTEN_MADDRS` |
+| `--p2p-bootstrap` | the public bootstrap peers | Bootstrap peers, multiaddrs that end in `/p2p/<peer ID>`; also the runtime setting `p2p_bootstrap_peers` | `$LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` |
+| `--p2p-identity` | `<data path>/p2p/identity.key` | The key file of the peer identity. Without a data path (`--data-path -`) and without this flag, P2P does not start: the identity must survive a restart | `$LOCALAI_P2P_IDENTITY` |
+
+The mode is also the runtime setting `p2p_mode`. The setting rejects `share` with the same message while authentication is off.
+The other P2P runtime settings (`p2p_public_dht`, `p2p_relays`, `p2p_relay_paired`, `p2p_relay_mode`, `p2p_relay_rate_limit`, `p2p_mdns`) are described in [P2P]({{%relref "/administration/p2p#settings" %}}).
+
+### Removed P2P options
+
+The token-based P2P mode, federation and the Explorer were removed. A server that still sets one of the old options does not start: it exits with status 1 and prints one line per option, with its replacement. The check reads the command line, the environment (including `.env` files) and the stored runtime settings. The full list of removed options and their replacements is in [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}}).
+
+### `local-ai p2p`
+
+| Command | What it does |
+|---------|--------------|
+| `local-ai p2p relay` | Run a gated relay. Flags: `--admin` (repeatable, `$LOCALAI_RELAY_ADMINS`), `--data`, `--port`, `--listen`, `--public-ip`, `--announce`, `--open`, `--circuit-max-bytes`, `--circuit-max-duration`, `--rate-limit`, `--max-circuit-bytes`, `--max-circuit-duration`, `--max-rate-limit` (ceilings for the limits an admin may set at runtime), `--total-rate-limit`, `--max-circuits`, `--max-circuits-per-peer`, `--max-reservations`, `--max-reservations-per-ip`, `--max-conns-per-ip`, `--conn-rate-per-ip`, `--conn-burst-per-ip`, `--conn-rate-total`, `--conn-burst-total`, `--max-peers-per-admin`, `--allow-private-addrs`, `--reset-admins` |
+| `local-ai p2p relays add\|remove\|list\|check` | Manage the relays of a running server (`--target`, `--api-key`, `--json`) |
+| `local-ai p2p id` and `local-ai p2p status` | Show the peer ID, addresses, reachability and paths of a running server |
+| `local-ai p2p pair --invite <link>` | Redeem an invite on this machine |
+| `local-ai p2p forward --peer <id> --listen <addr>` | Forward a local port to a paired peer |
 
 ## Library sources
 
@@ -329,7 +345,7 @@ distinct from the `1` a failure reports.
 | Command | What it does |
 |---------|--------------|
 | `local-ai library list` | List every source with its kind, id, URL, and whether it is enabled, a shipped default, or removed |
-| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery]` | Add a source of your own |
+| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery] [--issuer ISSUER --identity IDENTITY]` | Add a source of your own. `--issuer` and `--identity` go together and apply to an `oci://` add-on library: its artifact must be signed by that issuer and exact identity |
 | `local-ai library remove <id>` | Remove a source. A removed default leaves a tombstone, so it does not come back at the next start |
 | `local-ai library enable <id>` | Turn a source on. This also brings back a removed default |
 | `local-ai library disable <id>` | Turn a source off without removing it |
@@ -352,12 +368,11 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text
 - `local-ai mcp-server` - Run the LocalAI admin and client tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP). `--files-dir` (`LOCALAI_MCP_FILES_DIR`) is the folder where the client tools read and write files; it has no default, and without it the client tools that read or write files are not registered. `--read-only` also leaves out the client tools that write files or make content (`generate_*`, `speak`, `embed`, `voice_profile` create and delete)
-- `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic)
-- `local-ai p2p-worker` - Run workers to distribute workload via p2p (llama.cpp-only)
+- `local-ai worker` - Start a worker. With no subcommand it is the worker for distributed mode (generic, backend-agnostic). The subcommands `llama-cpp-rpc`, `mlx-distributed`, `vllm` and `ds4-distributed` run the standalone workers; `llama-cpp-rpc` and `mlx-distributed` also join a server over P2P with `--join <invite link>` (see [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}})). `p2p-worker` is the old name of this command and still works
+- `local-ai cluster` - Read or change the broadcast bus between the frontends (`nats` for NATS, `tunnel` for PostgreSQL with WebSocket workers) and the settings of a distributed cluster through a running frontend. Workers never connect to PostgreSQL. Changing the bus is an advanced operation. See [Distributed Mode]({{% relref "/administration/distributed-mode" %}})
+- `local-ai p2p` - Run a relay, manage relays and pair devices over P2P
 - `local-ai agent-worker` - Start a worker for distributed mode (serves MCP tool calls via NATS)
 - `local-ai util` - Utility commands
-- `local-ai explorer` - Run P2P explorer
-- `local-ai federated` - Run LocalAI in federated mode
 - `local-ai completion` - Generate shell completion scripts for bash, zsh, or fish
 
 Use `local-ai <command> --help` for more information on each command.
@@ -405,7 +420,8 @@ export LOCALAI_F16=true
   --models-path /path/to/models \
   --address :9090 \
   --enable-watchdog-idle \
-  --watchdog-idle-timeout=10m
+  --watchdog-idle-timeout=10m \
+  --p2p-mode connect
 ```
 
 ## Related Documentation

@@ -73,7 +73,7 @@
 .remotes-card__name { margin: 0; font-size: var(--fs-lead); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
 .remotes-card__host { color: var(--dk-muted); font-size: var(--fs-small); overflow-wrap: anywhere; }
 .remotes-card__actions { display: inline-flex; gap: var(--sp-2); }
-.remotes-card__status { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-small); color: var(--dk-text); }
+.remotes-card__status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-small); color: var(--dk-text); }
 .remotes-card__foot {
   display: flex;
   flex-wrap: wrap;

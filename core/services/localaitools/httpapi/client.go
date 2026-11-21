@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -555,6 +556,80 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 	return resp.ID, nil
 }
 
+// ---- Model updates ----
+
+func (c *Client) ModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error) {
+	var out modelupdates.Snapshot
+	if err := c.do(ctx, http.MethodGet, routeModelsUpdates, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) CheckModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error) {
+	var out modelupdates.Snapshot
+	if err := c.do(ctx, http.MethodPost, routeModelsUpdatesCheck, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) UpgradeModel(ctx context.Context, name string, configOnly bool, choices map[string]string) (string, error) {
+	if name == "" {
+		return "", errors.New("name is required")
+	}
+	var resp schema.ModelUpgradeResponse
+	body := schema.ModelUpgradeRequest{ConfigOnly: configOnly, Choices: choices}
+	if err := c.do(ctx, http.MethodPost, routeModelUpgrade(name), body, &resp); err != nil {
+		return "", err
+	}
+	return resp.JobID, nil
+}
+
+func (c *Client) RetryModelUpgrade(ctx context.Context, name string) (string, error) {
+	if name == "" {
+		return "", errors.New("name is required")
+	}
+	var resp schema.ModelUpgradeResponse
+	if err := c.do(ctx, http.MethodPost, routeModelPath(name, "upgrade/retry"), nil, &resp); err != nil {
+		return "", err
+	}
+	return resp.JobID, nil
+}
+
+func (c *Client) RemoveOldModelVersion(ctx context.Context, name string) (*localaitools.ModelRemoveOldResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	var resp schema.ModelRemoveOldResponse
+	if err := c.do(ctx, http.MethodPost, routeModelPath(name, "remove-old"), nil, &resp); err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelRemoveOldResult{Name: resp.Name, Removed: resp.Removed, Kept: resp.Kept, Errors: resp.Errors}, nil
+}
+
+func (c *Client) SetModelHold(ctx context.Context, name string, hold bool) (*localaitools.ModelHoldResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	var resp schema.ModelHoldResponse
+	if err := c.do(ctx, http.MethodPut, routeModelPath(name, "hold"), schema.ModelHoldRequest{Hold: hold}, &resp); err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelHoldResult{Name: resp.Name, Hold: resp.Hold}, nil
+}
+
+func (c *Client) AdoptModel(ctx context.Context, name, galleryName, entry string) (*localaitools.ModelAdoptResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	var resp schema.ModelAdoptResponse
+	if err := c.do(ctx, http.MethodPost, routeModelPath(name, "adopt"), schema.ModelAdoptRequest{Gallery: galleryName, Entry: entry}, &resp); err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelAdoptResult{Name: resp.Name, Gallery: resp.Gallery, Entry: resp.Entry, FilesMatch: resp.FilesMatch}, nil
+}
+
 // ---- System ----
 
 func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, error) {
@@ -615,10 +690,14 @@ func capabilityLabels(flags []string) []string {
 
 func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	var raw []struct {
-		ID          string `json:"id"`
-		Address     string `json:"address"`
-		HTTPAddress string `json:"http_address"`
-		Status      string `json:"status"`
+		ID          string                        `json:"id"`
+		Address     string                        `json:"address"`
+		HTTPAddress string                        `json:"http_address"`
+		Status      string                        `json:"status"`
+		Attached    string                        `json:"attached"`
+		PeerID      string                        `json:"peer_id"`
+		SplitServer bool                          `json:"split_server"`
+		RouteState  []localaitools.NodeRouteState `json:"route_state"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeNodes, nil, &raw); err != nil {
 		// Treat 404/disabled as "no nodes" to keep parity with single-process.
@@ -634,6 +713,10 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 			Address:     n.Address,
 			HTTPAddress: n.HTTPAddress,
 			Healthy:     n.Status == "healthy",
+			Route:       localaitools.NodeRoute(strings.Split(n.Attached, ","), n.PeerID),
+			PeerID:      n.PeerID,
+			SplitServer: n.SplitServer,
+			Routes:      n.RouteState,
 		})
 	}
 	return out, nil
@@ -680,6 +763,15 @@ func (c *Client) DeleteScheduling(ctx context.Context, modelName string) error {
 		return errors.New("model_name is required")
 	}
 	return c.do(ctx, http.MethodDelete, routeModelScheduling(modelName), nil, nil)
+}
+
+func (c *Client) SetNodeSplitServer(ctx context.Context, nodeID string, on bool) (*localaitools.NodeSplitServer, error) {
+	var out localaitools.NodeSplitServer
+	if err := c.do(ctx, http.MethodPut, routeNodeSplitServer(nodeID), map[string]bool{"split_server": on}, &out); err != nil {
+		return nil, err
+	}
+	out.NodeID = nodeID
+	return &out, nil
 }
 
 func (c *Client) SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error {
@@ -959,6 +1051,58 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 	return &out, nil
 }
 
+// ---- Cluster carrier ----
+
+// ---- Carrier weights ----
+
+type carrierWeightsWire struct {
+	CarrierWeights        localaitools.CarrierWeightValues `json:"carrier_weights"`
+	CarrierWeightsDefault localaitools.CarrierWeightValues `json:"carrier_weights_default"`
+}
+
+func carrierWeightsFromWire(w carrierWeightsWire) *localaitools.CarrierWeightsInfo {
+	cur, def := w.CarrierWeights, w.CarrierWeightsDefault
+	return &localaitools.CarrierWeightsInfo{Distributed: true, Weights: &cur, Defaults: &def}
+}
+
+// GetCarrierWeights reads GET /api/cluster/settings. A frontend that is not
+// distributed answers 503, which is reported as distributed=false.
+func (c *Client) GetCarrierWeights(ctx context.Context) (*localaitools.CarrierWeightsInfo, error) {
+	var raw carrierWeightsWire
+	if err := c.do(ctx, http.MethodGet, routeClusterSettings, nil, &raw); err != nil {
+		var he *HTTPError
+		if errors.As(err, &he) && he.StatusCode == http.StatusServiceUnavailable {
+			return &localaitools.CarrierWeightsInfo{Distributed: false}, nil
+		}
+		return nil, err
+	}
+	return carrierWeightsFromWire(raw), nil
+}
+
+// SetCarrierWeights sends PUT /api/cluster/settings with carrier_weights.
+func (c *Client) SetCarrierWeights(ctx context.Context, req localaitools.SetCarrierWeightsRequest) (*localaitools.CarrierWeightsInfo, error) {
+	weights := map[string]int{}
+	if req.NATS != nil {
+		weights["nats"] = *req.NATS
+	}
+	if req.WebSocket != nil {
+		weights["websocket"] = *req.WebSocket
+	}
+	if req.P2P != nil {
+		weights["p2p"] = *req.P2P
+	}
+	if len(weights) == 0 {
+		return nil, errors.New("give at least one of nats, websocket or p2p")
+	}
+	var raw struct {
+		Settings carrierWeightsWire `json:"settings"`
+	}
+	if err := c.do(ctx, http.MethodPut, routeClusterSettings, map[string]any{"carrier_weights": weights}, &raw); err != nil {
+		return nil, err
+	}
+	return carrierWeightsFromWire(raw.Settings), nil
+}
+
 // ---- Failover chains ----
 
 func (c *Client) ListFailoverChains(ctx context.Context) ([]localaitools.FailoverChainInfo, error) {
@@ -983,6 +1127,177 @@ func (c *Client) CancelModelLoad(ctx context.Context, model, jobID string) (loca
 
 func (c *Client) UnpinFailoverTarget(ctx context.Context, chain string) error {
 	return c.do(ctx, http.MethodDelete, routeFailover+"/"+url.PathEscape(chain)+"/pin", nil, nil)
+}
+
+// ---- P2P ----
+
+// p2pStatusWire, p2pDeviceWire and p2pRelayWire are the parts of the REST
+// answers the tools show.
+type p2pStatusWire struct {
+	Mode           string   `json:"mode"`
+	Running        bool     `json:"running"`
+	Error          string   `json:"error"`
+	PeerID         string   `json:"peer_id"`
+	Addrs          []string `json:"addrs"`
+	Reachability   string   `json:"reachability"`
+	PendingInvites int      `json:"pending_invites"`
+	Devices        int      `json:"devices"`
+	RelayService   struct {
+		Running bool `json:"running"`
+	} `json:"relay_service"`
+}
+
+type p2pDeviceWire struct {
+	localaitools.P2PDeviceInfo
+	Path struct {
+		Kind       string `json:"kind"`
+		RelayLabel string `json:"relay_label"`
+	} `json:"path"`
+}
+
+func (c *Client) GetP2PStatus(ctx context.Context) (*localaitools.P2PStatusInfo, error) {
+	var w p2pStatusWire
+	if err := c.do(ctx, http.MethodGet, routeP2PStatus, nil, &w); err != nil {
+		return nil, err
+	}
+	return &localaitools.P2PStatusInfo{
+		Mode: w.Mode, Running: w.Running, Error: w.Error, PeerID: w.PeerID, Addrs: w.Addrs,
+		Reachability: w.Reachability, RelayService: w.RelayService.Running,
+		PendingInvites: w.PendingInvites, Devices: w.Devices,
+	}, nil
+}
+
+func (c *Client) ListP2PDevices(ctx context.Context) ([]localaitools.P2PDeviceInfo, error) {
+	var out struct {
+		Devices []p2pDeviceWire `json:"devices"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PDevices, nil, &out); err != nil {
+		return nil, err
+	}
+	devs := make([]localaitools.P2PDeviceInfo, 0, len(out.Devices))
+	for _, d := range out.Devices {
+		info := d.P2PDeviceInfo
+		info.Path, info.RelayLabel = d.Path.Kind, d.Path.RelayLabel
+		devs = append(devs, info)
+	}
+	return devs, nil
+}
+
+func (c *Client) ListP2PInvites(ctx context.Context) ([]localaitools.P2PInviteInfo, error) {
+	var out struct {
+		Invites []localaitools.P2PInviteInfo `json:"invites"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PInvites, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Invites, nil
+}
+
+func (c *Client) ListP2PRelays(ctx context.Context) ([]localaitools.P2PRelayInfo, error) {
+	var out struct {
+		Relays []localaitools.P2PRelayInfo `json:"relays"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PRelays, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Relays, nil
+}
+
+func (c *Client) GetP2PRelayLimits(ctx context.Context, id string) (*localaitools.P2PRelayLimitsInfo, error) {
+	var out struct {
+		Limits    localaitools.P2PRelayLimitsInfo `json:"limits"`
+		Ceiling   localaitools.P2PRelayCeiling    `json:"ceiling"`
+		CanChange bool                            `json:"can_change"`
+		Restarted bool                            `json:"restarted"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PRelays+"/"+url.PathEscape(id)+"/limits", nil, &out); err != nil {
+		return nil, err
+	}
+	info := out.Limits
+	info.Ceiling, info.CanChange, info.Restarted = out.Ceiling, out.CanChange, out.Restarted
+	return &info, nil
+}
+
+func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaitools.SetP2PRelayLimitsRequest) (*localaitools.P2PRelayLimitsInfo, error) {
+	var out struct {
+		Limits    localaitools.P2PRelayLimitsInfo `json:"limits"`
+		Ceiling   localaitools.P2PRelayCeiling    `json:"ceiling"`
+		CanChange bool                            `json:"can_change"`
+		Restarted bool                            `json:"restarted"`
+	}
+	body := struct {
+		CircuitBytes   *int64 `json:"circuit_bytes,omitempty"`
+		CircuitSeconds *int64 `json:"circuit_seconds,omitempty"`
+		RateBPS        *int64 `json:"rate_bps,omitempty"`
+	}{req.CircuitBytes, req.CircuitSeconds, req.RateBPS}
+	if err := c.do(ctx, http.MethodPut, routeP2PRelays+"/"+url.PathEscape(id)+"/limits", body, &out); err != nil {
+		return nil, err
+	}
+	info := out.Limits
+	info.Ceiling, info.CanChange, info.Restarted = out.Ceiling, out.CanChange, out.Restarted
+	return &info, nil
+}
+
+func (c *Client) RevokeP2PDevice(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, routeP2PDevices+"/"+url.PathEscape(id), nil, nil)
+}
+
+func (c *Client) CancelP2PInvite(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, routeP2PInvites+"/"+url.PathEscape(id), nil, nil)
+}
+
+// p2pSplitWire is the part of a model-split worker the tools show.
+type p2pSplitWire struct {
+	localaitools.P2PSplitWorkerInfo
+	Path struct {
+		Kind       string `json:"kind"`
+		RelayLabel string `json:"relay_label"`
+	} `json:"path"`
+	NodeRelayWire *struct {
+		State  string `json:"state"`
+		Reason string `json:"reason"`
+	} `json:"node_relay"`
+}
+
+func (w p2pSplitWire) info() localaitools.P2PSplitWorkerInfo {
+	info := w.P2PSplitWorkerInfo
+	info.Path, info.RelayLabel = w.Path.Kind, w.Path.RelayLabel
+	if w.NodeRelayWire != nil {
+		info.NodeRelay, info.NodeRelayReason = w.NodeRelayWire.State, w.NodeRelayWire.Reason
+	}
+	return info
+}
+
+func (c *Client) ListP2PSplitWorkers(ctx context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {
+	var out struct {
+		Workers []p2pSplitWire `json:"workers"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeP2PSplitWorkers, nil, &out); err != nil {
+		return nil, err
+	}
+	ws := make([]localaitools.P2PSplitWorkerInfo, 0, len(out.Workers))
+	for _, w := range out.Workers {
+		ws = append(ws, w.info())
+	}
+	return ws, nil
+}
+
+func (c *Client) SetP2PSplitSlowPath(ctx context.Context, id string, allow bool) (*localaitools.P2PSplitWorkerInfo, error) {
+	var w p2pSplitWire
+	if err := c.do(ctx, http.MethodPatch, routeP2PSplitWorkers+"/"+url.PathEscape(id), map[string]bool{"allow_slow_path": allow}, &w); err != nil {
+		return nil, err
+	}
+	info := w.info()
+	return &info, nil
+}
+
+func (c *Client) SetP2PSplitNode(ctx context.Context, id, nodeID string) (*localaitools.P2PSplitWorkerInfo, error) {
+	var w p2pSplitWire
+	if err := c.do(ctx, http.MethodPatch, routeP2PSplitWorkers+"/"+url.PathEscape(id), map[string]string{"node_id": nodeID}, &w); err != nil {
+		return nil, err
+	}
+	info := w.info()
+	return &info, nil
 }
 
 // ---- Shared folders ----
@@ -1103,4 +1418,51 @@ func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*loc
 		return nil, err
 	}
 	return c.GetChatEgress(ctx)
+}
+
+// ---- Federation ----
+
+// The REST answers of the federation routes have the field names of the
+// DTOs, so they decode into them directly.
+
+func (c *Client) GetFederation(ctx context.Context) (*localaitools.FederationInfo, error) {
+	var out localaitools.FederationInfo
+	if err := c.do(ctx, http.MethodGet, routeFederation, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ManageFederationGroup(ctx context.Context, req localaitools.FederationGroupAction) (*localaitools.FederationGroupInfo, error) {
+	group := routeFederationGroups + "/" + url.PathEscape(req.Name)
+	var (
+		method, path string
+		body         any
+	)
+	switch req.Action {
+	case localaitools.FederationActionCreate:
+		method, path = http.MethodPost, routeFederationGroups
+		body = map[string]any{"name": req.Name, "policy": req.Policy, "members": req.Members}
+	case localaitools.FederationActionUpdate:
+		patch := map[string]any{}
+		if req.Policy != "" {
+			patch["policy"] = req.Policy
+		}
+		if req.Members != nil {
+			patch["members"] = req.Members
+		}
+		method, path, body = http.MethodPatch, group, patch
+	case localaitools.FederationActionDelete:
+		return nil, c.do(ctx, http.MethodDelete, group, nil, nil)
+	case localaitools.FederationActionDrain, localaitools.FederationActionUndrain:
+		method, path = http.MethodPost, group+"/drain"
+		body = map[string]any{"model": req.Model, "drain": req.Action == localaitools.FederationActionDrain}
+	default:
+		return nil, fmt.Errorf("unknown federation action %q", req.Action)
+	}
+	var out localaitools.FederationGroupInfo
+	if err := c.do(ctx, method, path, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }

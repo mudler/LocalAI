@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "update": {"update": "Update available", "edited": "Update available, needs your choices", "updating": "Upgrading", "failed": "Upgrade failed", "held": "Held at this version"},
     "supporting": "Find a model that fits this machine, install it, and look after the ones you have.",
     "title": "Models",
     "navLabel": "Model lifecycle",
@@ -19,17 +20,17 @@
     },
     "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
     "actions": {
-      "load": "Load", "loading": "Loading…", "stop": "Stop", "update": "Update", "updating": "Updating…",
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "reload": "Reload", "reloading": "Reloading…",
       "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
       "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
       "delete": "Delete model", "forModel": "Actions for {{model}}",
       "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
     },
-    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "update": "update" },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "reload": "reload" },
     "toasts": {
       "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
       "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
-      "deleted": "Deleted {{model}}", "updated": "Models updated"
+      "deleted": "Deleted {{model}}", "reloaded": "Model configs reloaded"
     },
     "confirm": {
       "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",

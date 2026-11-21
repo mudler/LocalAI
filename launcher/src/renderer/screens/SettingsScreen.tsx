@@ -4,6 +4,7 @@ import type { FolderKind, LauncherSettings, LoginItemView, ServerLogLevel } from
 import { useBridge, type NetworkView } from '../bridge'
 import { Card, Field, fieldIds } from '../parts'
 import { EnvVarsField } from './EnvVarsField'
+import { RegistryCredentialsField } from './RegistryCredentialsField'
 import { ServersTab } from './ServersTab'
 import { UpdatesTab } from './UpdatesTab'
 import { S } from '../strings'
@@ -263,6 +264,7 @@ export function SettingsScreen({
         onPlainFile={(on) => saveNow({ secretsPlaintextFile: on })}
         onRestartNeeded={() => setRestartNote(true)}
       />
+      <RegistryCredentialsField onRestartNeeded={() => setRestartNote(true)} />
       {b.getWorker && (
         <Field name={S.settings.runMode} note={data.worker?.mode === 'worker' ? S.settings.runModeWorker : S.settings.runModeLocal}>
           <span className="lnr-grow" />

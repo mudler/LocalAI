@@ -53,8 +53,8 @@ export async function mockConnectorThread(page, { chats = [CHAT, OLD_CHAT], mess
   await page.route(/\/api\/chats\/connectors(\?.*)?$/, route => route.fulfill({ json: { connectors: CONNECTORS } }))
   await page.route('**/api/chats/connectors/kinds', route => route.fulfill({ json: { kinds: KINDS } }))
   await page.route(/\/api\/chats\/triggers(\?.*)?$/, route => route.fulfill({ json: { triggers: [] } }))
-  await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0, total: 0 } }))
-  await page.route('**/api/chats/notifications/events', route => route.abort())
+  await page.route(/\/api\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0, total: 0 } }))
+  await page.route('**/api/notifications/events', route => route.abort())
   for (const c of chats) {
     await page.route(`**/api/chats/${c.id}/events`, route => route.abort())
     await page.route(new RegExp(`/api/chats/${c.id}/messages(\\?.*)?$`), route => route.fulfill({ json: { messages: messages[c.id] || [] } }))

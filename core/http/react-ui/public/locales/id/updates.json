@@ -1,6 +1,6 @@
 {
   "title": "Pembaruan",
-  "supporting": "Backend, backend pustaka, dan add-on yang punya versi lebih baru.",
+  "supporting": "Backend, backend pustaka, add-on, dan model galeri yang punya versi lebih baru.",
   "loading": "Memuat pembaruan",
   "adminOnly": {
     "title": "Pembaruan untuk administrator",
@@ -40,7 +40,8 @@
     "name": {
       "gallery": "Galeri backend",
       "library": "Pustaka backend",
-      "addons": "Add-on"
+      "addons": "Add-on",
+      "models": "Galeri model"
     },
     "checked": "diperiksa {{when}}",
     "ok": "diperiksa",
@@ -66,7 +67,8 @@
     "title": {
       "gallery": "Pemeriksaan galeri backend gagal, jadi mungkin ada pembaruan backend yang tidak ditampilkan.",
       "library": "Pemeriksaan pustaka gagal, jadi mungkin ada pembaruan backend pustaka yang tidak ditampilkan.",
-      "addons": "Pemeriksaan add-on gagal, jadi mungkin ada pembaruan add-on yang tidak ditampilkan."
+      "addons": "Pemeriksaan add-on gagal, jadi mungkin ada pembaruan add-on yang tidak ditampilkan.",
+      "models": "Pemeriksaan galeri model gagal, jadi pembaruan model mungkin tidak tampil."
     },
     "lastGood": "Daftar di bawah berasal dari pemeriksaan berhasil terakhir, {{when}}. Alasan: {{error}}.",
     "noGood": "Belum ada pemeriksaan yang berhasil. Alasan: {{error}}.",
@@ -90,18 +92,22 @@
     "selectAll": "Pilih semua yang siap",
     "selectNone": "Jangan pilih apa pun",
     "show": "Tampilkan",
-    "hide": "Sembunyikan"
+    "hide": "Sembunyikan",
+    "other": "Model lain"
   },
   "row": {
     "tag": {
       "gallery": "Backend",
       "library": "Backend pustaka",
-      "addon": "Add-on"
+      "addon": "Add-on",
+      "model": "Model"
     },
     "origin": {
       "gallery": "Galeri backend",
       "library": "Pustaka: {{id}}",
-      "libraryUnnamed": "Pustaka"
+      "libraryUnnamed": "Pustaka",
+      "model": "Galeri {{gallery}}",
+      "modelUnnamed": "Galeri model"
     },
     "signed": "bertanda tangan",
     "versions": "{{from}} ke {{to}}",
@@ -136,6 +142,7 @@
     },
     "updatingPhase": "Memperbarui: {{phase}}",
     "updatingPlain": "Memperbarui",
+    "queued": "Dalam antrean, menunggu slot kosong",
     "addonConfirm": "Perlu konfirmasi Anda di peramban ini",
     "nodesAction": "Node",
     "nodesNamed": "Tampilkan node {{name}}",
@@ -146,6 +153,7 @@
     "running": "Memperbarui {{current}} dari {{total}}",
     "summary": "{{done}} diperbarui, {{failed}} gagal, {{skipped}} dilewati",
     "details": "Detail",
+    "cancelAll": "Batalkan semua",
     "retryFailed": "Coba lagi yang gagal ({{count}})",
     "dismiss": "Tutup"
   },
@@ -266,5 +274,138 @@
     "otherOrigin": "Pustaka {{library}}",
     "otherOriginChannel": "Pustaka {{library}}, kanal {{channel}}",
     "runningNote": "Berhenti mencegah node yang belum mulai agar tidak dimulai."
+  },
+  "model": {
+    "chip": {
+      "edited": "Diubah",
+      "held": "Ditahan",
+      "unknown": "Tidak diketahui",
+      "gone": "Tidak ada di galeri",
+      "cleanup": "Versi lama disimpan"
+    },
+    "phase": {
+      "queued": "menunggu mulai",
+      "starting": "memulai",
+      "preflight": "memeriksa disk, backend, dan berkas",
+      "staging": "mengunduh berkas baru",
+      "unloading": "menghentikan model",
+      "committing": "beralih ke versi baru",
+      "loading": "menjalankan versi baru",
+      "confirmed": "selesai",
+      "rolling-back": "mengembalikan versi lama",
+      "rolled-back": "versi lama dikembalikan",
+      "failed": "gagal",
+      "resolving": "mencari berkas",
+      "downloading": "mengunduh",
+      "verifying": "memeriksa berkas",
+      "persisting": "menyimpan"
+    },
+    "detail": {
+      "failed": "Pembaruan gagal: {{message}}. Versi lama tetap melayani.",
+      "rolledBack": "Pembaruan gagal dan versi lama dikembalikan: {{message}}. Versi lama tetap melayani.",
+      "updating": "Memperbarui: {{phase}}",
+      "edited_one": "Anda mengubah {{count}} kunci yang juga diubah pembaruan ini. Pilih nilai yang dipertahankan.",
+      "edited_other": "Anda mengubah {{count}} kunci yang juga diubah pembaruan ini. Pilih nilai yang dipertahankan.",
+      "configOnly": "Hanya konfigurasi atau template prompt yang berubah. Tidak ada yang diunduh.",
+      "files_one": "{{count}} berkas berubah.",
+      "files_other": "{{count}} berkas berubah.",
+      "held": "Ditahan di versi ini.",
+      "heldNewer": "Ditahan di versi ini. Galeri punya versi yang lebih baru.",
+      "legacy": "LocalAI tidak mencatat asal model ini. Adopsi model ini untuk mendapat pembaruan. Konfigurasi Anda tidak berubah.",
+      "notChecked": "Belum diperiksa.",
+      "checkFailed": "Pemeriksaan tidak bisa membaca entri galeri: {{message}}",
+      "unreadable": "Berkas model tidak bisa dibaca: {{message}}",
+      "gone": "Tidak ada galeri yang mencantumkan {{entry}} lagi. Versi yang terpasang tetap berjalan.",
+      "cleanup_one": "Diperbarui. Versi lama tetap di disk ({{count}} berkas) sampai Anda menghapusnya.",
+      "cleanup_other": "Diperbarui. Versi lama tetap di disk ({{count}} berkas) sampai Anda menghapusnya."
+    },
+    "action": {
+      "upgrade": "Perbarui",
+      "upgradeNamed": "Perbarui {{name}}",
+      "removeOld": "Hapus versi lama",
+      "removeOldNamed": "Hapus versi lama {{name}}",
+      "hold": "Tahan versi ini",
+      "release": "Lepas penahanan",
+      "releaseNamed": "Lepas penahanan {{name}}",
+      "more": "Tindakan lain untuk {{name}}",
+      "adopt": "Adopsi",
+      "adoptNamed": "Adopsi {{name}}"
+    },
+    "dialog": {
+      "title": "Perbarui {{name}}?",
+      "intro": "Dari {{from}} ke {{to}}. Tidak ada yang berubah sampai Anda mengonfirmasi.",
+      "loadedTitle": "{{name}} sedang dimuat.",
+      "loadedBody": "Pembaruan menghentikannya, mengganti berkas dan konfigurasi, lalu menjalankannya lagi. Permintaan ke model ini menunggu atau gagal sampai model kembali. Jika versi baru tidak bisa berjalan, versi lama dikembalikan.",
+      "notLoaded": "{{name}} tidak sedang dimuat. Pembaruan menjalankan versi baru sekali untuk memeriksa bahwa versi itu bekerja, dan mengembalikan versi lama jika tidak.",
+      "loadUnknown": "Tidak bisa dipastikan apakah {{name}} sedang dimuat. Jika ya, pembaruan menghentikannya lalu menjalankannya lagi.",
+      "filesTitle": "Berkas",
+      "noFiles": "Tidak ada berkas yang berubah.",
+      "disk": "Berkas baru diunduh di samping berkas lama, jadi disk perlu ruang untuk keduanya. Galeri tidak menyebut ukuran berkas, jadi ruang yang dibutuhkan tidak diketahui sebelum unduhan.",
+      "diskNone": "Tidak ada yang diunduh.",
+      "uncheckedTitle_one": "{{count}} berkas tidak punya checksum di galeri.",
+      "uncheckedTitle_other": "{{count}} berkas tidak punya checksum di galeri.",
+      "uncheckedBody": "Pembaruan tidak mengunduh bobot tanpa checksum, jadi berhenti di pemeriksaan pertama.",
+      "configOnly": "Terapkan hanya konfigurasi dan template prompt",
+      "configOnlyHint": "Pembaruan ini tidak mengubah berkas model, jadi tidak ada yang diunduh.",
+      "keysTitle": "Kunci yang Anda ubah dan juga diubah pembaruan",
+      "keysIntro": "Pilih nilai yang dipertahankan untuk setiap kunci. Pembaruan baru bisa mulai setelah setiap kunci punya pilihan.",
+      "keepMine": "Pertahankan milik saya",
+      "takeGallery": "Ambil milik galeri",
+      "notSet": "tidak diatur",
+      "kept_one": "Tetap seperti yang Anda atur: {{keys}}. Pembaruan tidak mengubahnya.",
+      "kept_other": "Tetap seperti yang Anda atur: {{keys}}. Pembaruan tidak mengubahnya.",
+      "after": "Versi lama tetap di disk setelah pembaruan. Hapus dengan \"Hapus versi lama\".",
+      "missing_one": "Pilih nilai untuk {{count}} kunci",
+      "missing_other": "Pilih nilai untuk {{count}} kunci",
+      "confirm": "Perbarui",
+      "confirmStop": "Hentikan dan perbarui",
+      "needChoices": "Server meminta pilihan untuk kunci lain. Pilih nilai untuk masing-masing, lalu konfirmasi lagi.",
+      "startFailed": "Pembaruan tidak bisa dimulai: {{message}}"
+    },
+    "change": {
+      "added": "baru",
+      "changed": "berubah",
+      "removed": "dihapus"
+    },
+    "role": {
+      "weights": "bobot",
+      "mmproj": "proyektor visi",
+      "template": "template prompt",
+      "artifact": "artefak",
+      "config": "konfigurasi"
+    },
+    "remove": {
+      "title": "Hapus versi lama {{name}}?",
+      "body_one": "Ini menghapus {{count}} berkas lama yang disimpan pembaruan. Model tetap berjalan dengan versi baru. Ini tidak bisa dibatalkan.",
+      "body_other": "Ini menghapus {{count}} berkas lama yang disimpan pembaruan. Model tetap berjalan dengan versi baru. Ini tidak bisa dibatalkan.",
+      "confirm": "Hapus versi lama",
+      "pending": "Menghapus…"
+    },
+    "live": {
+      "started": "Pembaruan {{name}} dimulai.",
+      "failed": "{{name}}: {{message}}",
+      "removed_one": "{{name}}: {{count}} berkas lama dihapus.",
+      "removed_other": "{{name}}: {{count}} berkas lama dihapus.",
+      "held": "{{name}} ditahan di versi ini.",
+      "released": "{{name}} tidak lagi ditahan.",
+      "adopted": "{{name}} diadopsi dari galeri {{gallery}}. LocalAI kini memeriksa pembaruannya.",
+      "adoptedDiffers": "{{name}} diadopsi dari galeri {{gallery}}. Filenya berbeda dari entri galeri, jadi pembaruan ditawarkan.",
+      "adoptedNoCheck": "{{name}} diadopsi, tetapi pemeriksaan pembaruan gagal: {{message}}",
+      "adoptFailed": "{{name}} tidak dapat diadopsi: {{message}}"
+    },
+    "card": {
+      "title": "Pembaruan",
+      "current": "Terbaru",
+      "open": "Buka Pembaruan",
+      "holdHint": "Jangan tawarkan pembaruan untuk model ini sampai Anda mematikan ini."
+    },
+    "adopt": {
+      "title": "Adopsi {{name}}",
+      "intro": "Lebih dari satu galeri memuat model ini. Pilih entri asalnya.",
+      "legend": "Entri galeri",
+      "gallery": "Galeri {{gallery}}",
+      "after": "LocalAI mencatat entri itu dan memeriksa pembaruannya. Konfigurasi Anda tidak berubah.",
+      "failed": "Tidak dapat mengadopsi: {{message}}"
+    }
   }
 }

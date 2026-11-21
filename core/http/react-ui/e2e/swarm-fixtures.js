@@ -98,7 +98,7 @@ const json = body => ({ status: 200, contentType: 'application/json', body: JSON
 //   log        an array that receives { method, path, body } for every write
 export async function mockSwarm(page, {
   nodes = clusterNodes(), replicas = clusterReplicas(), rules = clusterRules(), features = { distributed: true },
-  nodeModels = {}, nodeBackends = {}, chains = CHAINS, aliases = [], p2p = null, log = [], onNodes,
+  nodeModels = {}, nodeBackends = {}, chains = CHAINS, aliases = [], log = [], onNodes,
 } = {}) {
   // The rules behave like the server's: a save adds or replaces, a delete removes.
   let current = [...rules]
@@ -164,6 +164,12 @@ export async function mockSwarm(page, {
         return route.fulfill(json({ message: 'ok' }))
       }
       if (rest?.startsWith('labels') || rest === 'max-replicas-per-model' || rest === 'vram-budget') { record(); return route.fulfill(json({})) }
+      if (rest === 'split-server' && method === 'PUT') {
+        record()
+        const on = request.postDataJSON().split_server
+        found && (found.split_server = on)
+        return route.fulfill(json({ split_server: on, detached: on ? 0 : 1 }))
+      }
     }
 
     if (path === '/api/aliases') return route.fulfill(json(aliases))
@@ -174,12 +180,6 @@ export async function mockSwarm(page, {
     if (path === '/api/failover/events') {
       return route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' }, body: `event: snapshot\ndata: ${JSON.stringify({ chains })}\n\n` })
     }
-    if (path === '/api/p2p/token') {
-      return p2p ? route.fulfill({ status: 200, contentType: 'text/plain', body: p2p.token }) : route.fulfill({ status: 404, body: '' })
-    }
-    if (path === '/api/p2p/stats' && p2p) return route.fulfill(json(p2p.stats))
-    if (path === '/api/p2p/workers' && p2p) return route.fulfill(json(p2p.workers || { nodes: [] }))
-    if (path === '/api/p2p/federation' && p2p) return route.fulfill(json(p2p.federation || { nodes: [] }))
     return route.fallback()
   })
   return log

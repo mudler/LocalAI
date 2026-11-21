@@ -758,6 +758,53 @@
           "library": "后端资源库",
           "addons": "附加组件"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "模型",
+          "backend": "后端",
+          "addon": "附加组件"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} 已安装",
+          "delete": "{{kind}} {{name}} 已移除",
+          "upgrade": "{{kind}} {{name}} 已升级"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: 安装失败",
+          "delete": "{{kind}} {{name}}: 移除失败",
+          "upgrade": "{{kind}} {{name}}: 升级失败"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: 安装已取消",
+          "delete": "{{kind}} {{name}}: 移除已取消",
+          "upgrade": "{{kind}} {{name}}: 升级已取消"
+        },
+        "needsReview": {
+          "install": "附加组件 {{name}} 需要你检查后才能安装"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} 个模型更新可用",
+          "title_other": "{{count}} 个模型更新可用"
+        },
+        "done": {
+          "title": "模型 {{name}} 已升级",
+          "body": "从 {{from}} 到 {{to}}。"
+        },
+        "failed": {
+          "title": "模型 {{name}}：升级失败",
+          "rolledBack": "已恢复旧版本，并继续提供服务。原因：{{error}}",
+          "rolledBackPlain": "已恢复旧版本，并继续提供服务。",
+          "kept": "旧版本继续提供服务。原因：{{error}}",
+          "keptPlain": "旧版本继续提供服务。"
+        },
+        "removed": {
+          "title": "模型 {{name}}：已删除旧版本",
+          "body_one": "已删除 {{count}} 个旧文件。",
+          "body_other": "已删除 {{count}} 个旧文件。"
+        }
       }
     },
     "tabs": {
@@ -792,7 +839,9 @@
         "removed": "已移除 {{name}}",
         "staged": "已传输 {{name}}"
       }
-    }
+    },
+    "chatsOff": "聊天会话已关闭",
+    "emptyBodyNoChats": "更新和已完成的操作会显示在这里。"
   },
   "change": {
     "loading": "正在读取触发器更改...",

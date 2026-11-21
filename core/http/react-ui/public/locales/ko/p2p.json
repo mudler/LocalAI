@@ -1,0 +1,424 @@
+{
+  "title": "P2P",
+  "supporting": "P2P로 이 서버에 접속하는 기기, 원격, 노드와 이들을 들여보내는 초대입니다.",
+  "loadStatusFailed": "P2P 상태를 읽을 수 없습니다.",
+  "tabs": {
+    "label": "P2P",
+    "devices": "기기 및 초대",
+    "federation": "연합",
+    "settings": "설정"
+  },
+  "mode": {
+    "off": {
+      "title": "P2P가 꺼져 있습니다",
+      "reason": "기기, 원격, 노드를 초대하려면 P2P 모드를 연결 및 공유로 설정하세요. 이 모드는 인증이 켜져 있어야 합니다."
+    },
+    "connect": {
+      "title": "P2P가 연결만 모드입니다",
+      "reason": "이 서버는 P2P로 원격을 사용하며 누구도 받아들이지 않습니다. 기기를 초대하려면 모드를 연결 및 공유로 설정하세요. 이 모드는 인증이 켜져 있어야 합니다."
+    },
+    "fix": "P2P 설정 열기"
+  },
+  "kinds": {
+    "device": {
+      "title": "기기",
+      "body": "런처 또는 다른 브라우저입니다. 사용자는 지금처럼 로그인합니다."
+    },
+    "remote": {
+      "title": "원격",
+      "body": "다른 LocalAI가 이 인스턴스의 모델을 사용합니다. 모든 모델이거나 직접 고른 모델입니다."
+    },
+    "worker": {
+      "title": "Worker",
+      "body": "이 클러스터의 컴퓨트 노드입니다. P2P로 참여하고 승인을 기다립니다."
+    },
+    "split": {
+      "title": "모델 분할 Worker"
+    }
+  },
+  "ttl": {
+    "600": "10분",
+    "3600": "1시간",
+    "86400": "1일"
+  },
+  "share": {
+    "open": "이 인스턴스 공유…",
+    "title": "이 인스턴스 공유",
+    "intro": "일회용 초대 링크를 만드세요. 상대방은 링크를 붙여넣거나 QR 코드를 스캔합니다.",
+    "kind": "종류",
+    "qrNote": "기기 및 원격 초대는 휴대폰이나 태블릿용 QR 코드를 보여 줍니다.",
+    "kindNote": {
+      "device": {
+        "title": "P2P 접속 허용만 해당됩니다.",
+        "body": "기기 초대는 기기가 이 인스턴스에 접속하도록 허용합니다. 사용자는 여전히 자신의 계정으로 웹 UI에 로그인합니다."
+      },
+      "remote": {
+        "title": "모델만, 그 외에는 없음.",
+        "body": "다른 LocalAI는 아래에서 고른 모델을 위한 API 키를 받습니다. 모든 모델(나중에 추가하는 모델 포함) 또는 목록 중에서 고를 수 있습니다. 도구가 연결된 모델은 제외됩니다. 이 키는 다른 것에는 접근할 수 없습니다. 설정, 파일, API의 다른 부분 모두 접근할 수 없습니다."
+      },
+      "worker": {
+        "title": "이 클러스터용 노드입니다.",
+        "body": "머신에서 링크와 함께 local-ai worker --join을 실행합니다. 열린 포트나 등록 토큰 없이 P2P로 등록하고, 승인할 때까지 노드 페이지에서 기다립니다."
+      }
+    },
+    "label": "레이블",
+    "labelPlaceholder": {
+      "device": "Alex의 노트북",
+      "remote": "지사",
+      "worker": "gpu-box-5"
+    },
+    "labelHint": "기기 및 초대에 표시됩니다.",
+    "models": {
+      "label": "모델",
+      "all": "모든 모델",
+      "specific": "모델 선택",
+      "allHint": "이 키는 이 인스턴스의 모든 모델을 사용할 수 있으며, 나중에 추가하는 모델도 포함됩니다.",
+      "specificHint": "이 키는 체크한 모델만 사용할 수 있습니다. 도구가 연결된 모델은 공유할 수 없습니다.",
+      "loading": "모델을 불러오는 중…",
+      "loadFailed": "모델을 불러오지 못했습니다.",
+      "retry": "다시 시도",
+      "empty": "이 인스턴스에는 아직 공유할 모델이 없습니다.",
+      "search": "모델 검색",
+      "noMatch": "일치하는 모델이 없습니다.",
+      "selected_one": "모델 {{count}}개 선택됨",
+      "selected_other": "모델 {{count}}개 선택됨",
+      "reason": {
+        "noModels": "모델을 하나 이상 선택하거나 모든 모델을 선택하세요."
+      }
+    },
+    "expires": "만료 시간",
+    "singleUseHint": "초대는 한 번만 사용할 수 있습니다.",
+    "nothingYet": "초대 만들기를 누르기 전에는 아무것도 만들어지지 않습니다.",
+    "cancel": "취소",
+    "close": "닫기",
+    "mint": "초대 만들기",
+    "mintFailed": "초대를 만들지 못했습니다.",
+    "needsAccount": {
+      "title": "원격과 공유하려면 사용자 계정으로 로그인하세요",
+      "body": "다른 LocalAI는 사용자 계정에 속한 API 키를 받습니다. 지금은 LOCALAI_API_KEY로 설정된 API 키로 로그인했으며, 이 키에는 계정이 없습니다. 사용자 계정으로 로그인한 뒤 초대를 다시 만드세요. 기기 초대는 이전과 같이 동작합니다."
+    },
+    "copy": "복사",
+    "copied": "복사됨",
+    "copyFailed": "링크를 복사하지 못했습니다. 선택해서 직접 복사하세요.",
+    "canceled": "초대를 취소했습니다.",
+    "revoked": "{{label}}을(를) 철회했습니다.",
+    "result": {
+      "title": "{{label}} 초대",
+      "sub": "{{kind}} · 일회용 · {{ttl}}",
+      "link": "초대 링크",
+      "qrLabel": "초대 링크의 QR 코드",
+      "qrCaption": "휴대폰이나 태블릿용",
+      "how": {
+        "device": "런처에서: 서버 추가, 그다음 초대 링크를 선택하세요. 링크에는 이 서버의 피어 ID와 릴레이 패스가 들어 있으므로 짧은 코드만으로는 부족합니다.",
+        "remote": "다른 LocalAI에서: 홈 또는 연결, 원격 연결, 그다음 초대 링크를 선택하세요. 링크 전체를 붙여넣으세요.",
+        "worker": "새 머신에서 링크 전체를 따옴표로 감싸 local-ai worker --join을 실행하세요. 그러면 노드가 노드 페이지에서 승인을 기다립니다."
+      },
+      "waiting": "기기를 기다리는 중… 초대를 취소하면 릴레이 패스도 취소됩니다.",
+      "waitingWorker": "워커를 기다리는 중… 초대를 취소하면 릴레이 패스도 취소됩니다.",
+      "expired": "초대가 만료되었습니다.",
+      "expiredTitle": "이 초대는 만료되었습니다.",
+      "expiredBody": "제때 사용한 사람이 없습니다. 상대방이 준비되면 새로 만드세요.",
+      "again": "다시 만들기",
+      "cancel": "초대 취소",
+      "done": "완료"
+    },
+    "facts": {
+      "expires": "만료",
+      "singleUse": "일회용",
+      "serverPeer": "서버 피어 ID",
+      "devicePeer": "기기 피어 ID",
+      "relay": "릴레이 힌트",
+      "relayGated": "{{relay}} (내 릴레이, 접근 제어됨)",
+      "relayOpen": "{{relay}} (공개 릴레이)",
+      "none": "없음",
+      "pass": "릴레이 패스",
+      "passOn": "{{relay}}에 등록됨, {{ttl}} 동안 유효, 일회용",
+      "passUnreachable": "없음: {{relay}}이(가) 응답하지 않았습니다",
+      "passNone": "없음",
+      "public": "공개 주소",
+      "publicYes": "예",
+      "publicNo": "없음 (NAT 뒤)",
+      "models": "모델",
+      "modelsAll": "모든 모델",
+      "modelsSome_one": "모델 {{count}}개",
+      "modelsSome_other": "모델 {{count}}개"
+    },
+    "admission": {
+      "title": "P2P 접속 허용만 해당됩니다.",
+      "result": "초대는 기기가 이 인스턴스에 접속하도록 허용합니다. 사용자는 여전히 웹 UI에 로그인합니다."
+    },
+    "warn": {
+      "unreachable": {
+        "title": "이 초대에는 릴레이 패스가 없습니다. 직접 연결로만 페어링할 수 있습니다.",
+        "body": "초대를 만들 때 {{relay}}이(가) 응답하지 않아 패스가 등록되지 않았습니다. 릴레이가 복구되면 초대를 다시 만드세요.",
+        "again": "다시 만들기",
+        "check": "릴레이 확인"
+      },
+      "noRelay": {
+        "title": "엄격한 NAT 뒤에 있는 기기는 릴레이 없이 연결할 수 없습니다.",
+        "body": "이 서버에는 릴레이가 없습니다. 네트워크 10개 중 약 3개는 직접 연결을 차단합니다. 릴레이를 추가하거나 직접 운영하세요.",
+        "add": "릴레이 추가"
+      },
+      "openRelay": {
+        "title": "이 초대는 공개 릴레이를 지정합니다.",
+        "body": "{{relay}}은(는) 누구나 사용할 수 있으며 각 연결의 속도를 제한할 수 있습니다."
+      },
+      "noPublic": {
+        "title": "이 서버에는 공개 주소가 없습니다.",
+        "body": "기기는 홀 펀칭으로 연결하며, 실패하면 릴레이를 통해 연결합니다."
+      }
+    },
+    "connected": {
+      "title": "{{label}} 연결됨",
+      "sub": "{{kind}} · 방금 페어링됨",
+      "confirm": "상대방에게 다음이 표시되는지 확인하세요",
+      "hint": "{{label}}에 이제 같은 단어가 표시됩니다. 일치하지 않으면 다른 사람이 초대를 사용한 것입니다.",
+      "signIn": "사용자는 여전히 웹 UI에 로그인합니다.",
+      "keyNote": "기기 및 초대에서 언제든지 철회할 수 있습니다.",
+      "mismatch": "일치하지 않음: 철회",
+      "match": "일치함",
+      "approve": "노드가 곧 등록되고 노드 페이지에서 승인을 기다립니다."
+    }
+  },
+  "invites": {
+    "title": "대기 중인 초대",
+    "note": "초대는 한 번만 사용할 수 있으며 만료됩니다. 초대를 취소하면 릴레이 패스도 취소됩니다.",
+    "loadFailed": "초대를 불러올 수 없습니다.",
+    "empty": {
+      "title": "대기 중인 초대 없음",
+      "body": "초대를 만들어 기기나 원격이 이 서버에 접속하도록 하세요."
+    },
+    "col": {
+      "label": "레이블",
+      "kind": "종류",
+      "created": "생성",
+      "expires": "만료까지",
+      "pass": "릴레이 패스",
+      "actions": "작업"
+    },
+    "passOn": "{{relay}}에",
+    "passNone": "없음: 직접 연결로만 페어링됨",
+    "cancel": "취소",
+    "canceled": "{{label}} 초대를 취소했습니다.",
+    "cancelFailed": "초대를 취소하지 못했습니다: {{message}}"
+  },
+  "devices": {
+    "title": "기기",
+    "active_one": "활성 {{count}}개",
+    "active_other": "활성 {{count}}개",
+    "note": "각 기기에는 고유한 키가 있습니다. 하나를 철회해도 나머지는 계속 작동합니다.",
+    "loadFailed": "기기를 불러올 수 없습니다.",
+    "empty": {
+      "title": "페어링된 기기 없음",
+      "body": "기기가 초대를 사용하면 여기에 나타납니다."
+    },
+    "col": {
+      "label": "레이블",
+      "kind": "종류",
+      "peer": "피어 ID",
+      "seen": "마지막 접속",
+      "path": "경로",
+      "status": "상태",
+      "actions": "작업"
+    },
+    "never": "없음",
+    "status": {
+      "active": "활성",
+      "revoked": "철회됨"
+    },
+    "path": {
+      "direct": "직접",
+      "holePunched": "홀 펀칭",
+      "relayed": "{{relay}} 경유",
+      "relayedUnknown": "릴레이 경유",
+      "none": "연결 안 됨",
+      "offline": "연결 안 됨",
+      "limited": "제한됨",
+      "limitedHint": "릴레이는 각 연결의 데이터량이나 시간을 제한합니다. 큰 전송에는 직접 경로가 필요합니다.",
+      "rtt": "{{ms}} ms"
+    },
+    "revoke": "철회…",
+    "revokeTitle": "{{label}}을(를) 철회할까요?",
+    "revokeConfirm": "철회",
+    "revokeBody": {
+      "device": "기기는 즉시 P2P 키를 잃고 열려 있던 연결이 닫힙니다. 사용자는 계정을 유지합니다. 다른 기기는 영향을 받지 않습니다. 다시 연결하려면 새 초대를 만드세요.",
+      "remote": "원격은 즉시 P2P 키와 API 키를 잃고 열려 있던 연결이 닫힙니다. 상대편에서 이 원격의 모델이 작동하지 않게 됩니다. 다른 기기는 영향을 받지 않습니다. 다시 연결하려면 새 초대를 만드세요.",
+      "other": "노드는 즉시 P2P 키를 잃고 열려 있던 연결이 닫힙니다. 다른 기기는 영향을 받지 않습니다. 다시 연결하려면 새 초대를 만드세요."
+    },
+    "revoked": "{{label}}을(를) 철회했습니다."
+  },
+  "invite": {
+    "connectWith": "연결 방법",
+    "withAddress": "주소",
+    "withInvite": "초대 링크",
+    "link": "초대 링크",
+    "linkHint": "다른 LocalAI의 관리자에게 원격 초대를 요청하고 링크 전체를 붙여넣으세요.",
+    "problem": {
+      "malformed": "LocalAI 초대 링크가 아닙니다. 링크는 localai://pair로 시작합니다.",
+      "wrongKind": "{{kind}} 초대입니다. 다른 LocalAI의 관리자에게 원격 초대를 요청하세요.",
+      "expired": "이 초대는 만료되었습니다. 다른 LocalAI의 관리자에게 새 초대를 요청하세요."
+    },
+    "preview": {
+      "server": "서버",
+      "kind": "종류",
+      "pass": "릴레이 패스",
+      "passIncluded": "포함됨 · {{relay}}",
+      "passNone": "없음: 이 링크는 직접 연결 또는 홀 펀칭으로 페어링됩니다",
+      "path": "경로",
+      "pathRelay": "직접 연결 먼저, 그다음 홀 펀칭, 그다음 {{relay}}",
+      "pathDirect": "직접 연결 먼저, 그다음 홀 펀칭",
+      "expires": "만료",
+      "expiresAt": "{{when}} · 일회용"
+    },
+    "openRelay": "이 링크는 공개 릴레이를 지정합니다. 누구나 사용할 수 있으며 각 연결의 속도를 제한할 수 있습니다.",
+    "connect": "연결",
+    "connecting": "연결 중…",
+    "connected": "연결됨",
+    "ok_one": "P2P로 {{name}}에 연결했습니다. 모델 {{count}}개를 찾았습니다.",
+    "ok_other": "P2P로 {{name}}에 연결했습니다. 모델 {{count}}개를 찾았습니다.",
+    "switched": {
+      "title": "P2P가 연결만 모드로 켜져 있습니다. 이 서버는 누구도 받아들이지 않습니다.",
+      "body": "P2P가 꺼져 있었습니다. 이 서버가 다른 LocalAI에 접속할 수 있도록 연결하면서 켰습니다. 모드는 Swarm, P2P, 설정에서 바꿀 수 있습니다."
+    },
+    "fail": {
+      "title": "연결할 수 없습니다",
+      "invalid": "초대가 유효하지 않습니다. 이미 사용되었거나, 취소되었거나, 만료되었습니다. 새 초대를 요청하세요.",
+      "rateLimited": "시도가 너무 많습니다. 몇 분 기다린 후 다시 시도하세요.",
+      "malformed": "다른 LocalAI가 이 초대를 읽을 수 없습니다.",
+      "unsupported": "이 서버는 초대 링크로 원격을 연결할 수 없습니다.",
+      "conflict": "이 서버는 이미 해당 LocalAI와 페어링되어 있거나, 같은 이름의 원격이 있습니다."
+    },
+    "blocked": {
+      "title": "두 네트워크 모두 직접 연결을 차단합니다.",
+      "body": "홀 펀칭에 실패했습니다. 네트워크 쌍 10개 중 약 3개는 작동하는 릴레이가 필요합니다.",
+      "bodyRelay": "홀 펀칭에 실패했고 {{relay}}이(가) 응답하지 않았습니다. 네트워크 쌍 10개 중 약 3개는 작동하는 릴레이가 필요합니다.",
+      "relayTitle": "릴레이를 운영하세요.",
+      "relayBody": "다른 LocalAI의 관리자가 공개 주소가 있는 머신에서 릴레이를 운영한 뒤 새 초대를 보냅니다.",
+      "portTitle": "포트를 여세요.",
+      "portBody": "UDP와 TCP 4001을 이 서버 또는 상대 서버로 포워딩하세요.",
+      "networkTitle": "다른 네트워크를 사용하세요.",
+      "networkBody": "이 서버를 휴대폰 핫스팟 같은 다른 네트워크에 연결한 뒤 다시 시도하세요.",
+      "retry": "다시 시도",
+      "copy": "관리자용 세부 정보 복사"
+    }
+  },
+  "home": {
+    "title": "다른 머신 연결",
+    "optional": "선택 사항",
+    "body": "노트북에서 이 서버를 사용하거나 머신을 더 추가하세요. 인증이 켜져 있어야 합니다.",
+    "open": "Swarm, P2P 열기",
+    "openNote": "그곳에서 P2P 모드를 연결 및 공유로 설정하세요. 나중에 해도 됩니다.",
+    "auth": "먼저 인증을 켜세요",
+    "authNote": "인증이 꺼져 있습니다. 대신 다른 인스턴스의 모델을 사용하려면 위에서 다른 서버 또는 서비스를 선택하세요. 그 경우에는 인증이 필요하지 않습니다."
+  },
+  "federation": {
+    "title": "연합",
+    "loadFailed": "연합 정보를 읽을 수 없습니다.",
+    "routing": {
+      "label": "라우팅",
+      "least_busy": {
+        "title": "가장 한가한 곳",
+        "body": "요청은 이 서버에서 처리 중인 요청이 가장 적은 인스턴스로 갑니다. 실패하면 다음 인스턴스가 요청을 받습니다."
+      },
+      "round_robin": {
+        "title": "차례대로",
+        "body": "요청은 각 인스턴스로 차례대로 갑니다. 하나가 실패하면 다음 인스턴스가 요청을 받습니다."
+      }
+    },
+    "groups": {
+      "title": "그룹",
+      "note": "그룹은 여러 인스턴스가 함께 제공하는 하나의 모델 이름입니다. 클라이언트는 다른 모델처럼 그룹 이름을 호출합니다.",
+      "new": "새 그룹",
+      "delete": "삭제",
+      "serving": "{{count}}개 제공 중",
+      "degraded": "응답하는 인스턴스가 없습니다",
+      "created": "{{name}} 그룹을 저장했습니다.",
+      "deleted": "{{name}} 그룹을 삭제했습니다.",
+      "changeFailed": "변경 사항을 저장하지 못했습니다: {{message}}",
+      "deleteTitle": "{{name}} 그룹을 삭제할까요?",
+      "deleteBody": "이 이름을 호출하는 클라이언트는 오류를 받습니다. 각 인스턴스의 모델은 그대로 남습니다.",
+      "deleteConfirm": "그룹 삭제",
+      "empty": {
+        "title": "아직 그룹이 없습니다",
+        "body": "이 서버와 다른 LocalAI 인스턴스에서 하나의 모델 이름을 제공하세요. 요청이 인스턴스들에 나뉘고, 하나가 실패하면 다음 인스턴스가 응답합니다.",
+        "factInstances_one": "다른 인스턴스 {{count}}개",
+        "factInstances_other": "다른 인스턴스 {{count}}개",
+        "factFailover": "장애 조치 포함"
+      }
+    },
+    "members": {
+      "caption": "{{name}}의 인스턴스",
+      "col": {
+        "instance": "인스턴스",
+        "model": "그쪽 모델",
+        "status": "상태",
+        "inFlight": "처리 중",
+        "actions": "작업"
+      },
+      "state": {
+        "healthy": "사용 중",
+        "recovering": "복구 중",
+        "down": "응답 없음",
+        "missing": "모델 없음",
+        "unknown": "아직 확인 안 됨",
+        "drained": "비움"
+      },
+      "constrained": "작은 요청만",
+      "constrainedHint": "릴레이가 이 연결을 제한하므로, 다른 인스턴스가 받을 수 없을 때만 이 인스턴스가 요청을 받습니다.",
+      "drain": "비우기",
+      "undrain": "다시 사용",
+      "drained": "{{model}}은(는) 새 요청을 받지 않습니다.",
+      "undrained": "{{model}}이(가) 다시 요청을 받습니다.",
+      "lastServing": "마지막으로 제공 중인 인스턴스는 비울 수 없습니다."
+    },
+    "instances": {
+      "title": "인스턴스",
+      "note": "이 서버와 이 서버가 사용하는 LocalAI 원격입니다. 각 원격은 모델, 원격에도 표시됩니다.",
+      "add": "연합 인스턴스 추가",
+      "local": "이 인스턴스",
+      "otherProxy": "다른 서버",
+      "http": "HTTP",
+      "inFlightNote": "처리 중인 요청은 이 서버의 요청입니다. 클러스터의 각 서버는 자신의 요청을 셉니다.",
+      "col": {
+        "instance": "인스턴스",
+        "peer": "피어 ID",
+        "path": "경로",
+        "inFlight": "처리 중",
+        "models": "모델"
+      },
+      "status": {
+        "ok": "응답함",
+        "never": "아직 연결 안 함",
+        "auth_failed": "키 거부됨",
+        "unreachable": "연결할 수 없음"
+      }
+    },
+    "path": {
+      "local": "이 인스턴스",
+      "http": "HTTP",
+      "off": "P2P 꺼짐",
+      "down": "연결 안 됨",
+      "waiting": "요청 대기 중",
+      "direct": "직접",
+      "holePunched": "홀 펀칭",
+      "relayed": "릴레이 경유",
+      "limited": "제한됨",
+      "limitedHint": "릴레이가 각 연결의 데이터 양이나 시간을 제한합니다."
+    },
+    "sheet": {
+      "title": "새 그룹",
+      "description": "여러 인스턴스가 함께 제공하는 하나의 모델 이름입니다.",
+      "name": "모델 이름",
+      "nameHint": "클라이언트가 이 이름을 호출합니다. 이미 있는 모델 이름은 쓸 수 없습니다.",
+      "members": "인스턴스 ({{count}}개 선택)",
+      "membersHint": "두 개 이상의 인스턴스에서 같은 모델을 고르세요.",
+      "noModels": "아직 모델이 있는 인스턴스가 없습니다. 먼저 모델, 원격에서 원격을 추가하세요.",
+      "save": "저장"
+    }
+  },
+  "grant": {
+    "all": "모든 모델",
+    "some_one": "모델 {{count}}개",
+    "some_other": "모델 {{count}}개"
+  }
+}

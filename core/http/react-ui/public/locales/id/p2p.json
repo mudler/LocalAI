@@ -1,0 +1,424 @@
+{
+  "title": "P2P",
+  "supporting": "Perangkat, remote, dan node yang menjangkau server ini lewat P2P, serta undangan yang mengizinkan mereka masuk.",
+  "loadStatusFailed": "Tidak dapat membaca status P2P.",
+  "tabs": {
+    "label": "P2P",
+    "devices": "Perangkat dan undangan",
+    "federation": "Federasi",
+    "settings": "Pengaturan"
+  },
+  "mode": {
+    "off": {
+      "title": "P2P nonaktif",
+      "reason": "Setel mode P2P ke Terhubung dan berbagi untuk mengundang perangkat, remote, dan node. Mode itu memerlukan autentikasi yang aktif."
+    },
+    "connect": {
+      "title": "P2P dalam mode Hanya terhubung",
+      "reason": "Server ini memakai remote lewat P2P dan tidak menerima siapa pun. Untuk mengundang perangkat, setel mode ke Terhubung dan berbagi. Mode itu memerlukan autentikasi yang aktif."
+    },
+    "fix": "Buka pengaturan P2P"
+  },
+  "kinds": {
+    "device": {
+      "title": "Perangkat",
+      "body": "Peluncur atau peramban lain. Pengguna masuk seperti biasa."
+    },
+    "remote": {
+      "title": "Remote",
+      "body": "LocalAI lain memakai model dari instans ini, semuanya atau yang Anda pilih."
+    },
+    "worker": {
+      "title": "Worker",
+      "body": "Node komputasi klaster ini. Node bergabung lewat P2P dan menunggu persetujuan Anda."
+    },
+    "split": {
+      "title": "Worker model terpisah"
+    }
+  },
+  "ttl": {
+    "600": "10 mnt",
+    "3600": "1 jam",
+    "86400": "1 hari"
+  },
+  "share": {
+    "open": "Bagikan instans ini…",
+    "title": "Bagikan instans ini",
+    "intro": "Buat tautan undangan sekali pakai. Pihak lain menempelkannya atau memindai kode QR-nya.",
+    "kind": "Jenis",
+    "qrNote": "Undangan perangkat dan remote menampilkan kode QR, untuk ponsel atau tablet.",
+    "kindNote": {
+      "device": {
+        "title": "Hanya izin masuk P2P.",
+        "body": "Undangan perangkat memungkinkan perangkat menjangkau instans ini. Pengguna tetap masuk ke antarmuka web dengan akunnya sendiri."
+      },
+      "remote": {
+        "title": "Hanya model, tidak lebih.",
+        "body": "LocalAI lain mendapat kunci API untuk model yang Anda pilih di bawah: semuanya, juga model yang Anda tambahkan nanti, atau sebuah daftar. Model yang memiliki tools terpasang tidak termasuk. Kunci itu tidak menjangkau hal lain: tidak ada pengaturan, tidak ada berkas, tidak ada bagian lain dari API."
+      },
+      "worker": {
+        "title": "Node untuk klaster ini.",
+        "body": "Mesin menjalankan local-ai worker --join dengan tautan ini. Mesin mendaftar lewat P2P, tanpa port terbuka dan tanpa token registrasi, lalu menunggu di halaman Node sampai Anda menyetujuinya."
+      }
+    },
+    "label": "Label",
+    "labelPlaceholder": {
+      "device": "Laptop Alex",
+      "remote": "Kantor cabang",
+      "worker": "gpu-box-5"
+    },
+    "labelHint": "Ditampilkan di Perangkat dan undangan.",
+    "models": {
+      "label": "Model",
+      "all": "Semua model",
+      "specific": "Pilih model",
+      "allHint": "Kunci dapat memakai setiap model dari instans ini, juga model yang Anda tambahkan nanti.",
+      "specificHint": "Kunci hanya dapat memakai model yang Anda centang. Model yang memiliki tools terpasang tidak dapat dibagikan.",
+      "loading": "Memuat model…",
+      "loadFailed": "Model tidak dapat dimuat.",
+      "retry": "Coba lagi",
+      "empty": "Instans ini belum punya model untuk dibagikan.",
+      "search": "Cari model",
+      "noMatch": "Tidak ada model yang cocok.",
+      "selected_one": "{{count}} model dipilih",
+      "selected_other": "{{count}} model dipilih",
+      "reason": {
+        "noModels": "Pilih setidaknya satu model, atau pilih Semua model."
+      }
+    },
+    "expires": "Kedaluwarsa setelah",
+    "singleUseHint": "Setiap undangan hanya berlaku sekali.",
+    "nothingYet": "Tidak ada yang dibuat sampai Anda menekan Buat undangan.",
+    "cancel": "Batal",
+    "close": "Tutup",
+    "mint": "Buat undangan",
+    "mintFailed": "Undangan tidak dibuat.",
+    "needsAccount": {
+      "title": "Masuk dengan akun pengguna untuk berbagi dengan remote",
+      "body": "LocalAI lain mendapat kunci API milik akun pengguna Anda. Anda masuk dengan kunci API dari LOCALAI_API_KEY, yang tidak memiliki akun. Masuk dengan akun pengguna lalu buat undangan lagi. Undangan perangkat tetap berfungsi seperti sebelumnya."
+    },
+    "copy": "Salin",
+    "copied": "Tersalin",
+    "copyFailed": "Tautan tidak tersalin. Pilih lalu salin secara manual.",
+    "canceled": "Undangan dibatalkan.",
+    "revoked": "{{label}} dicabut.",
+    "result": {
+      "title": "Undangan untuk {{label}}",
+      "sub": "{{kind}} · sekali pakai · {{ttl}}",
+      "link": "Tautan undangan",
+      "qrLabel": "Kode QR tautan undangan",
+      "qrCaption": "Untuk ponsel atau tablet",
+      "how": {
+        "device": "Di peluncur: Tambah server, lalu Tautan undangan. Tautan itu berisi ID peer server ini dan pass relay, jadi kode pendek saja tidak cukup.",
+        "remote": "Di LocalAI lain: Beranda atau Koneksi, Hubungkan remote, lalu Tautan undangan. Tempelkan seluruh tautan.",
+        "worker": "Di mesin baru jalankan local-ai worker --join dengan seluruh tautan dalam tanda kutip. Node lalu menunggu persetujuan Anda di halaman Node."
+      },
+      "waiting": "Menunggu perangkat… Membatalkan undangan juga membatalkan pass relay-nya.",
+      "waitingWorker": "Menunggu worker… Membatalkan undangan juga membatalkan pass relay-nya.",
+      "expired": "Undangan kedaluwarsa.",
+      "expiredTitle": "Undangan ini kedaluwarsa.",
+      "expiredBody": "Tidak ada yang memakainya tepat waktu. Buat yang baru saat pihak lain siap.",
+      "again": "Buat lagi",
+      "cancel": "Batalkan undangan",
+      "done": "Selesai"
+    },
+    "facts": {
+      "expires": "Kedaluwarsa",
+      "singleUse": "sekali pakai",
+      "serverPeer": "ID peer server",
+      "devicePeer": "ID peer perangkat",
+      "relay": "Petunjuk relay",
+      "relayGated": "{{relay}} (relay Anda, dengan kontrol akses)",
+      "relayOpen": "{{relay}} (relay terbuka)",
+      "none": "Tidak ada",
+      "pass": "Pass relay",
+      "passOn": "Terdaftar di {{relay}}, berlaku {{ttl}}, sekali pakai",
+      "passUnreachable": "Tidak ada: {{relay}} tidak menjawab",
+      "passNone": "Tidak ada",
+      "public": "Alamat publik",
+      "publicYes": "Ya",
+      "publicNo": "Tidak ada (di belakang NAT)",
+      "models": "Model",
+      "modelsAll": "Semua model",
+      "modelsSome_one": "{{count}} model",
+      "modelsSome_other": "{{count}} model"
+    },
+    "admission": {
+      "title": "Hanya izin masuk P2P.",
+      "result": "Undangan memungkinkan perangkat menjangkau instans ini. Pengguna tetap masuk ke antarmuka web."
+    },
+    "warn": {
+      "unreachable": {
+        "title": "Undangan ini tidak punya pass relay. Undangan ini hanya dapat dipasangkan lewat koneksi langsung.",
+        "body": "{{relay}} tidak menjawab saat undangan dibuat, jadi tidak ada pass yang terdaftar di sana. Buat undangan lagi setelah relay kembali.",
+        "again": "Buat lagi",
+        "check": "Periksa relay"
+      },
+      "noRelay": {
+        "title": "Perangkat di belakang NAT ketat tidak dapat terhubung tanpa relay.",
+        "body": "Server ini tidak punya relay. Sekitar 3 dari 10 jaringan memblokir koneksi langsung. Tambahkan relay atau jalankan sendiri.",
+        "add": "Tambah relay"
+      },
+      "openRelay": {
+        "title": "Undangan ini menyebut relay terbuka.",
+        "body": "Siapa pun dapat memakai {{relay}}, dan relay itu mungkin membatasi kecepatan setiap koneksi."
+      },
+      "noPublic": {
+        "title": "Server ini tidak punya alamat publik.",
+        "body": "Perangkat terhubung dengan hole punching, atau lewat relay jika itu gagal."
+      }
+    },
+    "connected": {
+      "title": "{{label}} terhubung",
+      "sub": "{{kind}} · baru saja dipasangkan",
+      "confirm": "Pastikan pihak lain menampilkan",
+      "hint": "{{label}} sekarang menampilkan kata yang sama. Jika tidak cocok, orang lain memakai undangan itu.",
+      "signIn": "Pengguna tetap masuk ke antarmuka web.",
+      "keyNote": "Cabut kapan saja di Perangkat dan undangan.",
+      "mismatch": "Tidak cocok: cabut",
+      "match": "Cocok",
+      "approve": "Node akan mendaftar dan menunggu persetujuan Anda di halaman Node."
+    }
+  },
+  "invites": {
+    "title": "Undangan tertunda",
+    "note": "Undangan hanya berlaku sekali dan kedaluwarsa. Membatalkan undangan juga membatalkan pass relay-nya.",
+    "loadFailed": "Tidak dapat memuat undangan.",
+    "empty": {
+      "title": "Tidak ada undangan tertunda",
+      "body": "Buat undangan agar perangkat atau remote dapat menjangkau server ini."
+    },
+    "col": {
+      "label": "Label",
+      "kind": "Jenis",
+      "created": "Dibuat",
+      "expires": "Kedaluwarsa dalam",
+      "pass": "Pass relay",
+      "actions": "Tindakan"
+    },
+    "passOn": "Di {{relay}}",
+    "passNone": "Tidak ada: hanya dipasangkan lewat koneksi langsung",
+    "cancel": "Batal",
+    "canceled": "Undangan untuk {{label}} dibatalkan.",
+    "cancelFailed": "Undangan tidak dibatalkan: {{message}}"
+  },
+  "devices": {
+    "title": "Perangkat",
+    "active_one": "{{count}} aktif",
+    "active_other": "{{count}} aktif",
+    "note": "Setiap perangkat punya kunci sendiri. Cabut satu perangkat dan yang lain tetap berfungsi.",
+    "loadFailed": "Tidak dapat memuat perangkat.",
+    "empty": {
+      "title": "Belum ada perangkat yang dipasangkan",
+      "body": "Perangkat muncul di sini setelah menukarkan undangan."
+    },
+    "col": {
+      "label": "Label",
+      "kind": "Jenis",
+      "peer": "ID peer",
+      "seen": "Terakhir terlihat",
+      "path": "Jalur",
+      "status": "Status",
+      "actions": "Tindakan"
+    },
+    "never": "Tidak pernah",
+    "status": {
+      "active": "Aktif",
+      "revoked": "Dicabut"
+    },
+    "path": {
+      "direct": "Langsung",
+      "holePunched": "Hole punching",
+      "relayed": "Lewat {{relay}}",
+      "relayedUnknown": "Lewat relay",
+      "none": "Tidak terhubung",
+      "offline": "Tidak terhubung",
+      "limited": "Terbatas",
+      "limitedHint": "Relay membatasi data atau waktu setiap koneksi. Transfer besar memerlukan jalur langsung.",
+      "rtt": "{{ms}} ms"
+    },
+    "revoke": "Cabut…",
+    "revokeTitle": "Cabut {{label}}?",
+    "revokeConfirm": "Cabut",
+    "revokeBody": {
+      "device": "Perangkat langsung kehilangan kunci P2P-nya dan koneksinya yang terbuka ditutup. Pengguna tetap memiliki akunnya. Perangkat lain tidak terpengaruh. Untuk menghubungkannya lagi, buat undangan baru.",
+      "remote": "Remote langsung kehilangan kunci P2P dan kunci API-nya, dan koneksinya yang terbuka ditutup. Modelnya berhenti berfungsi di sisi lain. Perangkat lain tidak terpengaruh. Untuk menghubungkannya lagi, buat undangan baru.",
+      "other": "Node langsung kehilangan kunci P2P-nya dan koneksinya yang terbuka ditutup. Perangkat lain tidak terpengaruh. Untuk menghubungkannya lagi, buat undangan baru."
+    },
+    "revoked": "{{label}} dicabut."
+  },
+  "invite": {
+    "connectWith": "Hubungkan dengan",
+    "withAddress": "Alamat",
+    "withInvite": "Tautan undangan",
+    "link": "Tautan undangan",
+    "linkHint": "Minta admin LocalAI lain untuk undangan Remote dan tempelkan seluruh tautan.",
+    "problem": {
+      "malformed": "Ini bukan tautan undangan LocalAI. Tautan itu diawali dengan localai://pair.",
+      "wrongKind": "Ini undangan {{kind}}. Minta admin LocalAI lain untuk undangan Remote.",
+      "expired": "Undangan ini kedaluwarsa. Minta yang baru kepada admin LocalAI lain."
+    },
+    "preview": {
+      "server": "Server",
+      "kind": "Jenis",
+      "pass": "Pass relay",
+      "passIncluded": "Disertakan · {{relay}}",
+      "passNone": "Tidak ada: tautan ini dipasangkan lewat koneksi langsung atau hole punching",
+      "path": "Jalur",
+      "pathRelay": "Langsung dulu, lalu hole punching, lalu {{relay}}",
+      "pathDirect": "Langsung dulu, lalu hole punching",
+      "expires": "Kedaluwarsa",
+      "expiresAt": "{{when}} · sekali pakai"
+    },
+    "openRelay": "Tautan ini menyebut relay terbuka. Siapa pun dapat memakainya, dan relay itu mungkin membatasi kecepatan setiap koneksi.",
+    "connect": "Hubungkan",
+    "connecting": "Menghubungkan…",
+    "connected": "Terhubung",
+    "ok_one": "Terhubung ke {{name}} lewat P2P. Ditemukan {{count}} model.",
+    "ok_other": "Terhubung ke {{name}} lewat P2P. Ditemukan {{count}} model.",
+    "switched": {
+      "title": "P2P aktif dalam mode Hanya terhubung. Server ini tidak menerima siapa pun.",
+      "body": "P2P sebelumnya nonaktif. Proses menghubungkan mengaktifkannya agar server ini dapat menjangkau LocalAI lain. Ubah mode di Swarm, P2P, Pengaturan."
+    },
+    "fail": {
+      "title": "Tidak dapat terhubung",
+      "invalid": "Undangan tidak valid: sudah dipakai, dibatalkan, atau kedaluwarsa. Minta yang baru.",
+      "rateLimited": "Terlalu banyak percobaan. Tunggu beberapa menit, lalu coba lagi.",
+      "malformed": "LocalAI lain tidak dapat membaca undangan ini.",
+      "unsupported": "Server ini tidak dapat menghubungkan remote dengan tautan undangan.",
+      "conflict": "Server ini sudah dipasangkan dengan LocalAI itu, atau remote dengan nama itu sudah ada."
+    },
+    "blocked": {
+      "title": "Kedua jaringan memblokir koneksi langsung.",
+      "body": "Hole punching gagal. Sekitar 3 dari 10 pasang jaringan memerlukan relay yang berfungsi.",
+      "bodyRelay": "Hole punching gagal, dan {{relay}} tidak menjawab. Sekitar 3 dari 10 pasang jaringan memerlukan relay yang berfungsi.",
+      "relayTitle": "Jalankan relay.",
+      "relayBody": "Admin LocalAI lain menjalankannya di mesin dengan alamat publik, lalu mengirim undangan baru.",
+      "portTitle": "Buka port.",
+      "portBody": "Teruskan UDP dan TCP 4001 ke server ini atau ke server lain.",
+      "networkTitle": "Pakai jaringan lain.",
+      "networkBody": "Pindahkan server ini ke jaringan lain, misalnya hotspot ponsel, lalu coba lagi.",
+      "retry": "Coba lagi",
+      "copy": "Salin detail untuk admin"
+    }
+  },
+  "home": {
+    "title": "Hubungkan mesin lain",
+    "optional": "Opsional",
+    "body": "Pakai server ini dari laptop Anda, atau tambahkan mesin lain. Memerlukan autentikasi yang aktif.",
+    "open": "Buka Swarm, P2P",
+    "openNote": "Di sana, setel mode P2P ke Terhubung dan berbagi. Anda dapat melakukannya nanti.",
+    "auth": "Aktifkan autentikasi dulu",
+    "authNote": "Autentikasi nonaktif. Untuk memakai model dari instans lain, pilih Di server atau layanan lain di atas: itu tidak memerlukan autentikasi."
+  },
+  "federation": {
+    "title": "Federasi",
+    "loadFailed": "Federasi tidak dapat dibaca.",
+    "routing": {
+      "label": "Perutean",
+      "least_busy": {
+        "title": "Paling senggang",
+        "body": "Permintaan dikirim ke instans dengan permintaan berjalan paling sedikit dari server ini. Jika gagal, instans berikutnya mengambil permintaan itu."
+      },
+      "round_robin": {
+        "title": "Bergiliran",
+        "body": "Permintaan dikirim ke setiap instans secara bergiliran. Jika satu gagal, instans berikutnya mengambil permintaan itu."
+      }
+    },
+    "groups": {
+      "title": "Grup",
+      "note": "Grup adalah satu nama model yang dilayani beberapa instans. Klien memanggil nama grup seperti model lainnya.",
+      "new": "Grup baru",
+      "delete": "Hapus",
+      "serving": "{{count}} melayani",
+      "degraded": "Tidak ada instans yang menjawab",
+      "created": "Grup {{name}} disimpan.",
+      "deleted": "Grup {{name}} dihapus.",
+      "changeFailed": "Perubahan tidak disimpan: {{message}}",
+      "deleteTitle": "Hapus grup {{name}}?",
+      "deleteBody": "Klien yang memanggil nama ini akan mendapat galat. Model di setiap instans tetap seperti semula.",
+      "deleteConfirm": "Hapus grup",
+      "empty": {
+        "title": "Belum ada grup",
+        "body": "Layani satu nama model dari server ini dan instans LocalAI lain. Permintaan dibagi ke semuanya, dan jika satu gagal, instans berikutnya menjawab.",
+        "factInstances_one": "{{count}} instans lain",
+        "factInstances_other": "{{count}} instans lain",
+        "factFailover": "Failover sudah termasuk"
+      }
+    },
+    "members": {
+      "caption": "Instans dari {{name}}",
+      "col": {
+        "instance": "Instans",
+        "model": "Model di sana",
+        "status": "Status",
+        "inFlight": "Berjalan",
+        "actions": "Tindakan"
+      },
+      "state": {
+        "healthy": "Dipakai",
+        "recovering": "Memulihkan",
+        "down": "Tidak menjawab",
+        "missing": "Model tidak ada",
+        "unknown": "Belum diperiksa",
+        "drained": "Dikosongkan"
+      },
+      "constrained": "Hanya permintaan kecil",
+      "constrainedHint": "Relay membatasi koneksi ini, jadi instans hanya menerima permintaan jika tidak ada instans lain yang bisa.",
+      "drain": "Kosongkan",
+      "undrain": "Aktifkan lagi",
+      "drained": "{{model}} tidak menerima permintaan baru.",
+      "undrained": "{{model}} menerima permintaan lagi.",
+      "lastServing": "Instans terakhir yang melayani tidak dapat dikosongkan."
+    },
+    "instances": {
+      "title": "Instans",
+      "note": "Server ini dan remote LocalAI yang dipakainya. Setiap remote juga tercantum di Model, Remote.",
+      "add": "Tambah instans federasi",
+      "local": "Instans ini",
+      "otherProxy": "Server lain",
+      "http": "HTTP",
+      "inFlightNote": "Permintaan berjalan adalah permintaan server ini. Setiap server dalam klaster menghitung miliknya sendiri.",
+      "col": {
+        "instance": "Instans",
+        "peer": "Peer ID",
+        "path": "Jalur",
+        "inFlight": "Berjalan",
+        "models": "Model"
+      },
+      "status": {
+        "ok": "Menjawab",
+        "never": "Belum dihubungi",
+        "auth_failed": "Kunci ditolak",
+        "unreachable": "Tidak terjangkau"
+      }
+    },
+    "path": {
+      "local": "Instans ini",
+      "http": "HTTP",
+      "off": "P2P mati",
+      "down": "Tidak terhubung",
+      "waiting": "Menunggu permintaan",
+      "direct": "Langsung",
+      "holePunched": "Hole punching",
+      "relayed": "Lewat relay",
+      "limited": "Terbatas",
+      "limitedHint": "Relay membatasi data atau durasi setiap koneksi."
+    },
+    "sheet": {
+      "title": "Grup baru",
+      "description": "Satu nama model yang dilayani beberapa instans.",
+      "name": "Nama model",
+      "nameHint": "Klien memanggil nama ini. Nama ini tidak boleh sama dengan model yang sudah ada.",
+      "members": "Instans ({{count}} dipilih)",
+      "membersHint": "Pilih model yang sama di dua instans atau lebih.",
+      "noModels": "Belum ada instans yang punya model. Tambahkan remote dulu di Model, Remote.",
+      "save": "Simpan"
+    }
+  },
+  "grant": {
+    "all": "Semua model",
+    "some_one": "{{count}} model",
+    "some_other": "{{count}} model"
+  }
+}

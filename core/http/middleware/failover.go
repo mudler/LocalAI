@@ -3,6 +3,7 @@ package middleware
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -44,6 +45,10 @@ func (re *RequestExtractor) resolveFailover(c echo.Context, requested string, ch
 		if err != nil {
 			return nil, err
 		}
+		// The request holds a place in the target's in-flight count, which
+		// least busy reads, until the server is done with it: streaming
+		// included, and whichever target the retries end on.
+		context.AfterFunc(c.Request().Context(), att.Release)
 		st = &failoverState{attempt: att}
 		c.Set(ContextKeyFailoverAttempt, st)
 	}

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  attentionOf, eligibleNodes, leavePreview, matchesSelector, memoryOf, nodeState, p2pCommand,
-  ruleKind, rulePlan, selectorOf, singleReplicaModels, updateTargets, workerCommand,
+  attentionOf, eligibleNodes, leavePreview, matchesSelector, memoryOf, nodeState,
+  ruleKind, rulePlan, selectorOf, singleReplicaModels, updateTargets, workerCommand, DISTRIBUTED_COMMAND,
 } from './swarm.js'
 
 const GB = 1024 ** 3
@@ -137,9 +137,9 @@ test('builds join commands that carry no secret', () => {
   const cli = workerCommand({ flavor: 'cli', nodeType: 'agent', option, dev: false, frontend: 'https://x.test' })
   assert.match(cli, /^local-ai agent-worker/)
   assert.match(cli, /\$LOCALAI_REGISTRATION_TOKEN/)
-  assert.match(p2pCommand({ method: 'peer', option, dev: false, token: 'abc', flavor: 'docker' }), /run --federated --p2p$/)
-  assert.match(p2pCommand({ method: 'mlx', option, dev: true, token: '', flavor: 'docker' }), /your-token-here/)
-  assert.match(p2pCommand({ method: 'server', option, dev: false, token: 't', flavor: 'docker' }), /--name local-ai-federated[\s\S]*federated$/)
-  assert.match(p2pCommand({ method: 'shard', option, dev: false, token: 't', flavor: 'cli' }), /^TOKEN="t" local-ai p2p-worker p2p-llama-cpp-rpc$/)
-  assert.match(p2pCommand({ method: 'mlx', option, dev: false, token: 't', flavor: 'cli' }), /^TOKEN="t" local-ai p2p-worker p2p-mlx$/)
+  // The worker learns the cluster transport, and the NATS address when the
+  // cluster uses NATS, from the frontend it registers with.
+  assert.doesNotMatch(docker, /NATS/i)
+  assert.doesNotMatch(cli, /nats/i)
+  assert.doesNotMatch(DISTRIBUTED_COMMAND, /nats/i)
 })

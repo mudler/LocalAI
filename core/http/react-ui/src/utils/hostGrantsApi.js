@@ -5,6 +5,7 @@
 // API key, a tool or an agent cannot make these calls; the owner refuses them
 // whatever this module sends.
 import { classifyResponse } from '../components/catalog/catalogState.js'
+import { QUEUE_CONFIRM } from './addonQueue.js'
 
 const BASE = '/api/addons/host-grants'
 
@@ -42,6 +43,11 @@ export function createHostGrantsApi(addonsApi) {
     // operation status; the caller follows it as it follows any lifecycle.
     install(body, signal) {
       return write('/install', 'POST', body, confirmValue(body.addonId, body.approve && body.approve.digest), signal)
+    },
+    // The installs of the background queue. Each item carries the approval of
+    // its own preview; the answer has one entry per item, a job or a refusal.
+    queue(body, signal) {
+      return write('/queue', 'POST', body, QUEUE_CONFIRM, signal)
     },
     setOps(addonId, { revision, ops }, signal) {
       return write(`/${id(addonId)}`, 'PUT', { revision, ops }, confirmValue(addonId), signal)

@@ -31,7 +31,7 @@ export const GROUPS = [
   { id: 'debug', label: 'Debugging and traces', hint: 'Verbose logs, request traces, backend output', icon: 'bug' },
   { id: 'agents', label: 'Chats and collections', hint: 'Chat media models, collections, stored responses', icon: 'robot' },
   { id: 'tools', label: 'Tools', hint: 'Built-in chat tools, commands on this machine, add-ons that replace them', icon: 'wrench' },
-  { id: 'swarm', label: 'Swarm and sharing', hint: 'Peer-to-peer network, scheduling checks', icon: 'network' },
+  { id: 'swarm', label: 'Swarm and sharing', hint: 'Scheduling checks of distributed mode', icon: 'network' },
   { id: 'look', label: 'Look and feel', hint: 'Instance name, tagline, logos', icon: 'palette' },
 ]
 
@@ -45,7 +45,6 @@ export const OLD_SECTIONS = {
   performance: 'Performance',
   tracing: 'Tracing',
   api: 'API & CORS',
-  p2p: 'P2P Network',
   galleries: 'Galleries',
   apikeys: 'API Keys',
   chats: 'Chats',
@@ -113,7 +112,9 @@ export const FIELDS = [
   { key: 'artifact_download_concurrency', group: 'speed', was: 'performance', kind: 'int', label: 'Artifact Download Concurrency',
     desc: 'Maximum artifact files downloaded at once. 1 downloads one after the other.', default: 1, min: 1 },
   { key: 'max_concurrent_backend_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent backend operations',
-    desc: 'Backend installs, updates and deletes that run at once. 1 runs them one after the other. Operations on the same backend never overlap.', default: 1, min: 1 },
+    desc: 'How many backend installs, upgrades and deletes run at once. The default is 2; 1 runs them one after the other. Operations on the same backend never overlap.', default: 2, min: 1 },
+  { key: 'max_concurrent_model_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent model operations',
+    desc: 'How many model installs, upgrades and deletes run at once. The default is 2; 1 runs them one after the other. Operations on the same model never overlap.', default: 2, min: 1 },
   { key: 'f16', group: 'speed', was: 'performance', kind: 'bool', label: 'F16 precision',
     desc: 'Use 16-bit floating point for reduced memory use.', default: false },
 
@@ -347,15 +348,6 @@ export const FIELDS = [
     desc: 'How long stored responses are kept, for example 1h or 30m. 0 means they never expire.', placeholder: '1h', default: '0', apply: 'live' },
 
   // ---- Swarm and sharing ---------------------------------------------------
-  { key: 'p2p_token', group: 'swarm', was: 'p2p', kind: 'token', label: 'P2P Token', sensitive: true, apply: 'live', default: '',
-    desc: 'Generate a new token or paste an existing one to join a network. An empty token stops P2P.',
-    note: 'The peer-to-peer stack restarts.' },
-  { key: 'p2p_network_id', group: 'swarm', was: 'p2p', kind: 'text', label: 'P2P Network ID',
-    desc: 'Network identifier for grouping instances.', placeholder: 'Network ID', default: '', apply: 'live',
-    note: 'The peer-to-peer stack restarts.' },
-  { key: 'federated', group: 'swarm', was: 'p2p', kind: 'bool', label: 'Federated Mode',
-    desc: 'Enable federated instance mode for load balancing.', default: false, apply: 'live',
-    note: 'The peer-to-peer stack restarts.' },
   { key: 'distributed_disk_headroom_check', group: 'swarm', was: 'distributed', kind: 'bool', label: 'Disk headroom check',
     desc: 'Reject worker nodes that lack free space for the model, at scheduling time instead of partway through staging. Free space is measured on each worker and compared with the model size plus a small margin. Off restores selection that ignores free disk; the check still runs and warns when it would have rejected every node.',
     default: true, fallback: true, apply: 'live' },

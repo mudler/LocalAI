@@ -30,6 +30,8 @@ const (
 	routeBackendsLibraryUpdates = "/backends/library/updates"
 	routeBackendsUpdates        = "/backends/updates"
 	routeBackendsUpdatesCheck   = "/backends/updates/check"
+	routeModelsUpdates          = "/api/models/updates"
+	routeModelsUpdatesCheck     = "/api/models/updates/check"
 	routeNodes                  = "/api/nodes"
 	routeScheduling             = "/api/nodes/scheduling"
 	routeVRAMEstimate           = "/api/models/vram-estimate"
@@ -45,6 +47,14 @@ const (
 	routeVersion                = "/version"
 	routeSystem                 = "/system"
 	routeFailover               = "/api/failover"
+	routeClusterSettings        = "/api/cluster/settings"
+	routeP2PStatus              = "/api/p2p/status"
+	routeP2PDevices             = "/api/p2p/devices"
+	routeP2PInvites             = "/api/p2p/invites"
+	routeP2PRelays              = "/api/p2p/relays"
+	routeFederation             = "/api/federation"
+	routeFederationGroups       = "/api/federation/groups"
+	routeP2PSplitWorkers        = "/api/p2p/split-workers"
 	routeSharedFolders          = "/api/chats/admin/shared-folders"
 	routeSharedFolderRestore    = "/api/chats/admin/shared-folders/restore"
 	routeSharedFolderEvents     = "/api/chats/admin/shared-folders/events"
@@ -78,12 +88,25 @@ func routeBackendUpgrade(name string) string {
 	return "/backends/upgrade/" + url.PathEscape(name)
 }
 
+func routeModelUpgrade(name string) string {
+	return "/api/models/upgrade/" + url.PathEscape(name)
+}
+
+// routeModelPath is /api/models/{name}/{rest} (retry, remove-old, hold, adopt).
+func routeModelPath(name, rest string) string {
+	return "/api/models/" + url.PathEscape(name) + "/" + rest
+}
+
 func routeToggleModelState(name, action string) string {
 	return fmt.Sprintf("/models/toggle-state/%s/%s", url.PathEscape(name), url.PathEscape(action))
 }
 
 func routeToggleModelPinned(name, action string) string {
 	return fmt.Sprintf("/models/toggle-pinned/%s/%s", url.PathEscape(name), url.PathEscape(action))
+}
+
+func routeNodeSplitServer(id string) string {
+	return "/api/nodes/" + url.PathEscape(id) + "/split-server"
 }
 
 func routeNodeVRAMBudget(id string) string {

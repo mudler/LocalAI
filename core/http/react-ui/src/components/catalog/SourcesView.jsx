@@ -176,7 +176,13 @@ export default function SourcesView({ adapter, describeError, onChanged, kind: f
                       <span className="ad-fact" data-tone="warn" data-testid="skipped-kinds">{t('libraries.skipped', { count: source.refresh.skipped, kinds: (source.refresh.skippedKinds || []).join(', ') })}</span>
                     )}
                     {last && !source.refresh.failed && <span className="ad-fact">{t('libraries.lastRefresh', { when: last.toLocaleString(i18n.language), count: source.refresh.count })}</span>}
+                    {source.refresh?.failed && (last
+                      ? <span className="ad-fact" data-testid="source-last-good">{t('libraries.lastGood', { when: last.toLocaleString(i18n.language) })}</span>
+                      : <span className="ad-fact" data-testid="source-last-good">{t('libraries.neverLoaded')}</span>)}
                   </div>
+                  {source.refresh?.failed && source.refresh.error && (
+                    <p className="cat-source__conflict cat-source__conflict--error" role="note" data-testid="source-error"><Icon name="alert-circle" aria-hidden="true" /> {source.refresh.error}</p>
+                  )}
                   {source.conflict && (
                     <p className="cat-source__conflict" role="note" data-testid="source-conflict"><Icon name="alert-circle" aria-hidden="true" /> {source.conflict}</p>
                   )}

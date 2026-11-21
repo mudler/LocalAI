@@ -14,6 +14,7 @@ import { Button, Callout, SkeletonRows } from '../components/ui'
 import ConfirmDialog from '../components/ConfirmDialog'
 import SideSheet from '../components/SideSheet'
 import LocalMachineView from '../components/nodes/LocalMachineView'
+import ClusterTransport from '../components/nodes/ClusterTransport'
 import AddNodeFlow from '../components/swarm/AddNodeFlow'
 import CommandBlock from '../components/swarm/CommandBlock'
 import NodeMap from '../components/swarm/NodeMap'
@@ -21,6 +22,7 @@ import FleetHero from '../components/swarm/FleetHero'
 import NodeInspector from '../components/swarm/NodeInspector'
 import NodeList from '../components/swarm/NodeList'
 import RunningModels from '../components/swarm/RunningModels'
+import SplitWorkers from '../components/swarm/SplitWorkers'
 import Icon from '../components/Icon'
 import './swarm.css'
 import './swarm-nodes.css'
@@ -190,7 +192,7 @@ export default function Nodes() {
   }
   if (loadStatus === 'loading') return <div className="page page--wide sw-page"><SkeletonRows /></div>
   if (loadStatus === 'single') {
-    return <LocalMachineView addToast={addToast} scaleOut={<ScaleOut addToast={addToast} />} />
+    return <LocalMachineView addToast={addToast} scaleOut={<ScaleOut addToast={addToast} />} extra={<SplitWorkers addToast={addToast} />} />
   }
   if (loadStatus === 'ready' && nodes.length === 0) {
     return (
@@ -200,6 +202,8 @@ export default function Nodes() {
           <p className="sw-note">{t('first.sub')}</p>
         </header>
         <AddNodeFlow nodes={nodes} single={false} addToast={addToast} onApproved={refetch} />
+        <ClusterTransport nodes={nodes} />
+        <SplitWorkers addToast={addToast} />
       </div>
     )
   }
@@ -211,6 +215,9 @@ export default function Nodes() {
   const inspector = inspected && (
     <NodeInspector
       node={inspected}
+      nodes={nodes}
+      onChanged={refetch}
+      addToast={addToast}
       rows={replicas.rows.filter(row => row.node_id === inspected.id)}
       reasons={reasons.get(inspected.id)}
       busy={oneBusy}
@@ -230,6 +237,7 @@ export default function Nodes() {
       )}
 
       <FleetHero summary={fleet} running={runningCount} attention={attentionCount} />
+      <ClusterTransport nodes={nodes} />
 
       <div className="sw-bar">
         <div className="dk-segmented" role="radiogroup" aria-label={t('nodes.view')}>
@@ -351,6 +359,8 @@ export default function Nodes() {
       )}
 
       {shownView === 'models' && <RunningModels nodes={nodes} replicas={replicas} addToast={addToast} />}
+
+      <SplitWorkers addToast={addToast} />
 
       <ConfirmDialog
         open={confirmRemove}

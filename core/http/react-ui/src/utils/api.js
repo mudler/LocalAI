@@ -116,7 +116,6 @@ export const modelsApi = {
   // Companion to estimate: the listing reports only has_variants, so the
   // description is fetched per entry, on demand.
   variants: (id) => fetchJSON(API_CONFIG.endpoints.modelVariants(id)),
-  getConfig: (id) => postJSON(API_CONFIG.endpoints.modelConfig(id), {}),
   getConfigJson: (name) => fetchJSON(API_CONFIG.endpoints.modelConfigJson(name)),
   getJob: (uid) => fetchJSON(API_CONFIG.endpoints.modelJob(uid)),
   apply: (body) => postJSON(API_CONFIG.endpoints.modelsApply, body),
@@ -148,6 +147,19 @@ export const modelsApi = {
     body: JSON.stringify(patch),
   }),
   backendUsecases: () => fetchJSON('/api/backends/usecases'),
+  // The model read model of the Updates page. checkUpdatesNow reads the
+  // galleries again and waits for the check (at most 60 s).
+  updates: () => fetchJSON(API_CONFIG.endpoints.modelUpdates),
+  checkUpdatesNow: () => postJSON(API_CONFIG.endpoints.modelUpdatesCheck, {}),
+  // body: { config_only, choices: { key: 'mine' | 'gallery' } }. A 409 with
+  // `keys` in err.body names the edited keys that still need a choice.
+  upgrade: (name, body = {}) => postJSON(API_CONFIG.endpoints.modelUpgrade(name), body),
+  retryUpgrade: (name) => postJSON(API_CONFIG.endpoints.modelUpgradeRetry(name), {}),
+  removeOld: (name) => postJSON(API_CONFIG.endpoints.modelRemoveOld(name), {}),
+  // body: {} or { gallery, entry }. A 409 with `candidates` ("gallery@entry")
+  // in err.body means more than one gallery lists the model. It runs no check.
+  adopt: (name, body = {}) => postJSON(API_CONFIG.endpoints.modelAdopt(name), body),
+  setHold: (name, hold) => fetchJSON(API_CONFIG.endpoints.modelHold(name), { method: 'PUT', body: JSON.stringify({ hold: Boolean(hold) }) }),
 }
 
 // Remotes API (admin). A remote is another LocalAI, an
@@ -764,14 +776,15 @@ export const chatProvidersApi = {
   set: (slot, provider) => fetchJSON(`/api/chats/providers/${encodeURIComponent(slot)}`, { method: 'PUT', body: JSON.stringify({ provider }) }),
 }
 
-// The inbox: what ended while the user was elsewhere.
+// The notification center: updates, finished operations and what ended while the
+// user was elsewhere. It does not depend on the chats, so the paths are its own.
 export const chatNotificationsApi = {
-  list: (unread, limit = 50) => fetchJSON(`/api/chats/notifications${q({ unread: unread ? 1 : undefined, limit })}`),
-  read: (body) => postJSON('/api/chats/notifications/read', body),
-  remove: (ids) => fetchJSON('/api/chats/notifications', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+  list: (unread, limit = 50) => fetchJSON(`/api/notifications${q({ unread: unread ? 1 : undefined, limit })}`),
+  read: (body) => postJSON('/api/notifications/read', body),
+  remove: (ids) => fetchJSON('/api/notifications', { method: 'DELETE', body: JSON.stringify({ ids }) }),
   // Every notification of the user, or with readOnly only the read ones.
-  clear: (readOnly) => fetchJSON('/api/chats/notifications', { method: 'DELETE', body: JSON.stringify({ all: true, read_only: readOnly || undefined }) }),
-  eventsUrl: () => apiUrl('/api/chats/notifications/events'),
+  clear: (readOnly) => fetchJSON('/api/notifications', { method: 'DELETE', body: JSON.stringify({ all: true, read_only: readOnly || undefined }) }),
+  eventsUrl: () => apiUrl('/api/notifications/events'),
 }
 
 // What the conversion of the old chat, agents and skills did, for the viewer.
@@ -781,9 +794,9 @@ export const chatConversionApi = {
 
 // Browser push for the inbox.
 export const chatPushApi = {
-  key: () => fetchJSON('/api/chats/push/key'),
-  subscribe: (subscription) => postJSON('/api/chats/push/subscribe', subscription),
-  unsubscribe: (endpoint) => fetchJSON('/api/chats/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
+  key: () => fetchJSON('/api/notifications/push/key'),
+  subscribe: (subscription) => postJSON('/api/notifications/push/subscribe', subscription),
+  unsubscribe: (endpoint) => fetchJSON('/api/notifications/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
 }
 
 // Resources API
@@ -805,6 +818,21 @@ export const operationsApi = {
 export const settingsApi = {
   get: () => fetchJSON(API_CONFIG.endpoints.settings),
   save: (body) => postJSON(API_CONFIG.endpoints.settings, body),
+}
+
+// P2P relays and identity (the P2P settings page). Status, invites and devices
+// are in their own block.
+export const p2pRelaysApi = {
+  status: () => fetchJSON(API_CONFIG.endpoints.p2pStatus),
+  list: () => fetchJSON(API_CONFIG.endpoints.p2pRelays),
+  add: (addr, label = '', claimCode = '') => postJSON(API_CONFIG.endpoints.p2pRelays, { addr, label, ...(claimCode ? { claim_code: claimCode } : {}) }),
+  remove: (id) => fetchJSON(API_CONFIG.endpoints.p2pRelay(id), { method: 'DELETE' }),
+  check: (id) => postJSON(API_CONFIG.endpoints.p2pRelayCheck(id), {}),
+  sync: (id) => postJSON(API_CONFIG.endpoints.p2pRelaySync(id), {}),
+  claim: (id, code) => postJSON(API_CONFIG.endpoints.p2pRelayClaim(id), { code }),
+  limits: (id) => fetchJSON(API_CONFIG.endpoints.p2pRelayLimits(id)),
+  setLimits: (id, body) => fetchJSON(API_CONFIG.endpoints.p2pRelayLimits(id), { method: 'PUT', body: JSON.stringify(body) }),
+  regenerateIdentity: () => postJSON(API_CONFIG.endpoints.p2pIdentityRegenerate, { confirm: true }),
 }
 
 // Branding / whitelabeling
@@ -878,16 +906,35 @@ export const metricsApi = {
   },
 }
 
-// P2P API
-export const p2pApi = {
-  getWorkers: () => fetchJSON(API_CONFIG.endpoints.p2pWorkers),
-  getFederation: () => fetchJSON(API_CONFIG.endpoints.p2pFederation),
-  getStats: () => fetchJSON(API_CONFIG.endpoints.p2pStats),
-  getToken: async () => {
-    const response = await fetch(apiUrl(API_CONFIG.endpoints.p2pToken))
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    return response.text()
-  },
+// P2P layer: status, invites and paired devices (admin). Invites and devices
+// answer 409 outside mode "share". The invite link is in the mint answer only.
+export const p2pNetApi = {
+  status: () => fetchJSON(API_CONFIG.endpoints.p2pStatus),
+  mintInvite: (body) => postJSON(API_CONFIG.endpoints.p2pInvites, body),
+  invites: () => fetchJSON(API_CONFIG.endpoints.p2pInvites),
+  cancelInvite: (id) => fetchJSON(API_CONFIG.endpoints.p2pInvite(id), { method: 'DELETE' }),
+  devices: () => fetchJSON(API_CONFIG.endpoints.p2pDevices),
+  revokeDevice: (id) => fetchJSON(API_CONFIG.endpoints.p2pDevice(id), { method: 'DELETE' }),
+}
+
+// Federation (admin): the instances that can serve a group and the groups,
+// each one model name served by several instances.
+export const federationApi = {
+  get: () => fetchJSON(API_CONFIG.endpoints.federation),
+  create: (body) => postJSON(API_CONFIG.endpoints.federationGroups, body),
+  update: (name, body) => fetchJSON(API_CONFIG.endpoints.federationGroup(name), { method: 'PATCH', body: JSON.stringify(body) }),
+  remove: (name) => fetchJSON(API_CONFIG.endpoints.federationGroup(name), { method: 'DELETE' }),
+  drain: (name, model, drain) => postJSON(API_CONFIG.endpoints.federationDrain(name), { model, drain }),
+}
+
+// Model-split workers: llama.cpp RPC and MLX workers that lend their memory to
+// models on this server, or on the cluster node each is attached to. Answers
+// 409 outside mode "share".
+export const p2pSplitApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.p2pSplitWorkers),
+  setSlowPath: (id, allow) => fetchJSON(API_CONFIG.endpoints.p2pSplitWorker(id), { method: 'PATCH', body: JSON.stringify({ allow_slow_path: allow }) }),
+  // nodeId '' attaches the worker to this instance.
+  setNode: (id, nodeId) => fetchJSON(API_CONFIG.endpoints.p2pSplitWorker(id), { method: 'PATCH', body: JSON.stringify({ node_id: nodeId }) }),
 }
 
 // Image generation
@@ -1221,6 +1268,16 @@ export const failoverApi = {
 }
 
 // Nodes API (distributed)
+// Admin API of the cluster settings. A read also carries the broadcast bus of
+// the frontend that answers and the live frontends.
+export const clusterApi = {
+  settings: () => fetchJSON(API_CONFIG.endpoints.clusterSettings),
+  saveSettings: (settings) => fetchJSON(API_CONFIG.endpoints.clusterSettings, {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  }),
+}
+
 export const nodesApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.nodes),
   get: (id) => fetchJSON(API_CONFIG.endpoints.node(id)),
@@ -1263,6 +1320,13 @@ export const nodesApi = {
   }),
   resetMaxReplicasPerModel: (id) => fetchJSON(API_CONFIG.endpoints.nodeMaxReplicasPerModel(id), {
     method: 'DELETE',
+  }),
+  // Declare a node a split server (it may serve model-split workers), or
+  // clear it, which detaches its workers. An explicit admin action only.
+  setSplitServer: (id, on) => fetchJSON(API_CONFIG.endpoints.nodeSplitServer(id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ split_server: on }),
   }),
   // Set a sticky admin override for the per-node VRAM allocation budget. The
   // value is a string ("80%" or "12GB"); resolution to a byte ceiling happens

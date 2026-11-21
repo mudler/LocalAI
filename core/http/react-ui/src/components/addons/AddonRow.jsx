@@ -16,19 +16,19 @@ import { isLocalFile } from './fileInstall'
 // reordering, Details and Remove. The state is one chip: a running operation,
 // a decision waiting for an administrator, an update, a connection that needs
 // setup, else the process state.
-export default function AddonRow({ tile, pinned, selected = false, attention = '', needsSetup = false, updateVersion = '', waitingApproval = false, sourceId = '', onPin, onMove, onOpenDetail, onRemove, upgrade, upgradeInline = false }) {
+export default function AddonRow({ tile, pinned, selected = false, attention = '', needsSetup = false, updateVersion = '', waitingApproval = false, sourceId = '', onPin, onMove, onOpenDetail, onRemove, upgrade, upgradeInline = false, upgrading = null, operation = null }) {
   const { t } = useTranslation('addons')
   const { t: tn } = useTranslation('nav')
   const title = tile.titleKey ? tn(tile.titleKey) : tile.title
   const app = tile.app
   const added = app ? addedByAddon(app) : { page: tile.source === 'builtin', tools: 0 }
-  const updating = Boolean(app && !app.operation && !waitingApproval && (app.update === 'update-pending' || updateVersion))
-  const setup = Boolean(app && needsSetup && !app.operation && !waitingApproval && attention !== 'failed')
+  const updating = Boolean(app && !app.operation && !upgrading && !waitingApproval && (app.update === 'update-pending' || updateVersion))
+  const setup = Boolean(app && needsSetup && !app.operation && !upgrading && !waitingApproval && attention !== 'failed')
   const stateText = !app ? t('meta.builtin') : setup ? t('state.needsSetup') : t(`state.${stateChip(app).key}`)
 
   let chip = null
   if (app) {
-    if (app.operation) chip = <OperationChip app={app} className="ad-tile__state" />
+    if (app.operation || upgrading) chip = <OperationChip app={app} upgrading={upgrading} className="ad-tile__state" />
     else if (waitingApproval) chip = <ApprovalChip />
     else if (attention === 'failed') chip = <StateChip app={app} className="ad-tile__state" />
     else if (setup) chip = <span className="ad-state ad-tile__state" data-state="needs-setup" data-testid="needs-setup-chip"><StatusChip tone="warn" label={t("state.needsSetup")} /></span>
@@ -91,6 +91,7 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
         />
       </div>
       {upgrade && !upgradeInline && <div className="ad-tile__upgrade" data-testid="tile-upgrade">{upgrade}</div>}
+      {operation && <div className="ad-tile__op">{operation}</div>}
     </li>
   )
 }

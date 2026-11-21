@@ -33,13 +33,15 @@ chmod +x LocalAI-Launcher-x86_64.AppImage
 ./LocalAI-Launcher-x86_64.AppImage
 ```
 
-You can also start the file from your file manager. The file is large (about 120 MB), because it contains Electron and Chromium. It needs the libraries of a normal desktop (X11 or Wayland).
+You can also start the file from your file manager. The file is large (about 140 MB), because it contains Electron and Chromium. It needs the libraries of a normal desktop (X11 or Wayland).
 
-An AppImage needs FUSE 2 to mount itself. Ubuntu 24.04 and later do not install it by default. Install it with `sudo apt install libfuse2t64` (Ubuntu 24.04 and later) or `sudo apt install libfuse2` (Ubuntu 22.04). If you cannot install FUSE 2, start the AppImage with this option. It extracts the image to a temporary folder and runs it from there:
+An AppImage mounts itself with FUSE. The x86_64 file carries its own FUSE support, so it does not need the `libfuse2` package. It does need the FUSE kernel module and the `fusermount` (or `fusermount3`) program of your distribution. If FUSE is not available, start the AppImage with this option. It extracts the image to a temporary folder and runs it from there:
 
 ```bash
 ./LocalAI-Launcher-x86_64.AppImage --appimage-extract-and-run
 ```
+
+The x86_64 AppImage also starts on Linux systems that do not use glibc, such as Alpine and other musl-based distributions. It carries its own glibc and libraries for that case. The system needs `bash`, and the app uses software rendering there. The launcher keeps a small private folder (the loader) in `$XDG_RUNTIME_DIR`, in `~/.cache` or in `/tmp`, and runs from it.
 
 ### Sandbox on Ubuntu 24.04 and later
 
@@ -114,6 +116,8 @@ Open **Settings > Servers** to keep several LocalAI servers. One of them is the 
 - **This computer** is the server that the app manages for you.
 - A remote server is a server you reach by address. Add it with its address, for example `https://localai.example.com`. The app tests it before it saves it. A server that asks you to sign in counts as reachable. You sign in in the web interface.
 
+- A server **over P2P** is a server you reach with an invite link, also when it is behind a home router. Select **Have an invite link? Paste it instead** in the add form, and paste the link that the server owner made in **Swarm**, **P2P**, **Share** (a device invite). The app pairs this computer with the server and shows a four-word **confirmation phrase**. The server shows the same words: check that they match. Pairing needs LocalAI on this computer, because the app uses its `local-ai p2p pair` and `local-ai p2p forward` commands. The server then opens at a fixed local address, `http://127.0.0.1:<port>`, and you sign in as usual. The list shows **P2P** and how the app reaches the server: direct, hole punched or through a relay. See [P2P]({{% relref "/administration/p2p" %}}).
+
 If a remote server is the default, the app opens it at once. It does not install, start or update the local server. To keep the local server running in the background anyway, turn on **Keep this computer's server running too**.
 
 To change the server, use the switcher in the status bar. The shortcut is Ctrl+Shift+S, or Cmd+Shift+S on macOS. If you pick a server in the switcher, it becomes the default. If you pick This computer, the app starts it, and installs it first when it is missing.
@@ -164,6 +168,24 @@ The older launcher was a different program with the same purpose. It does not up
 
 The new app reads the same `~/.localai` folder. Your models, backends and settings stay. From now on the app updates itself from the releases page.
 
+## Registry credentials
+
+The server on this computer can pull backends, models and add-ons from private registries. To give it the credentials, open **Settings > Advanced** and use **Registry credentials**. Each rule has:
+
+- **Registry**: the registry host, with an optional port and path, for example `registry.example` or `registry.example:5000/team`. You can add `https://` in front. Plain `http://` registries are not supported here.
+- **Type**: **Basic** (a user name and a password) or **Bearer token**.
+- The secret: the password or the token.
+
+The app keeps the secret in its secret store, with the API key, and does not show it again. To change a rule, select **Edit**. Leave the secret empty to keep the stored one. If you change the type or the registry host, you must type the secret again.
+
+When the server starts, the app writes `registry-credentials.yaml` next to `launcher.json`. This file contains the rules and the names of environment variables, but not the secrets. The app gives the secrets to the server in those environment variables and sets `LOCALAI_CREDENTIALS_FILE` to the file. For the format of the file and how a rule matches a pull, see [Private Registries and Galleries]({{% relref "/models/private-sources" %}}).
+
+- While there is at least one rule, this file replaces the `credentials.yaml` of the data folder. The server does not read your `credentials.yaml` then.
+- If you set `LOCALAI_CREDENTIALS_FILE` yourself, the app does not use its rules. Settings shows a notice.
+- The server reads the file only when it starts. After you add, change or remove a rule, restart the server.
+
+**Test** sends a request with the credential to `https://<registry>/v2/` and shows the result. It sends the credential only to that registry, never follows a redirect to another address, and never skips certificate errors. Some registries, such as Docker Hub, GHCR and Quay, use a separate sign-in service that gives out tokens. For these, Test cannot check the credential and shows **Cannot check here: this registry uses token sign-in.** The server can still use the credential.
+
 ## Where your data is
 
 On Linux and macOS, the app keeps everything for the local server under `~/.localai`:
@@ -192,7 +214,7 @@ To remove the app, delete the AppImage file on Linux, or drag LocalAI Launcher f
 
 ### The AppImage does not start
 
-If you see an error about FUSE or `libfuse.so.2`, install `libfuse2` (`libfuse2t64` on Ubuntu 24.04 and later), or run the file with `--appimage-extract-and-run` as shown above. Check that the file is executable: `chmod +x LocalAI-Launcher-x86_64.AppImage`.
+If you see an error about FUSE, install `fuse3` (or `fuse`) so that `fusermount` is available, or run the file with `--appimage-extract-and-run` as shown above. An AppImage from an earlier release needs `libfuse2` (`libfuse2t64` on Ubuntu 24.04 and later). Check that the file is executable: `chmod +x LocalAI-Launcher-x86_64.AppImage`.
 
 ### Windows asks about the firewall
 

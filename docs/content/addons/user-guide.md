@@ -25,8 +25,9 @@ An add-on runs as the operating system user that runs LocalAI. Nothing confines 
 
 1. Sign in as an administrator and open **Add-ons**.
 2. Choose **Find add-ons**. The list is the library for this operating system and architecture. Which add-ons you see depends on your build (see [The library, sources and channels](#the-library-sources-and-channels)).
-3. Pick an add-on and choose **Install and turn on**.
-4. The dialog lists what the add-on may do on the host. Confirm it there.
+3. Pick an add-on and choose **Install**. To install several, tick **Add to queue** on each card, then choose **Review and queue**.
+4. The dialog lists what the add-on may do on the host. Accept it there. The add-on goes to the install queue, which downloads and installs it in the background and shows its progress.
+5. When the install ends, turn the add-on on in **My add-ons**. The install never turns it on.
 
 The install checks the package digest and the signature against the policy of the library before anything runs. The add-on then shows in **My add-ons**. Use **Show in sidebar** to pin it.
 
@@ -42,6 +43,8 @@ LocalAI registers one library, `official`, on the first start. Which index it re
 - Any other build, such as a source build or a development build, reads the index on the master branch. Those add-ons are in the `development` channel, and they change over time.
 
 The **Sources** tab shows all libraries. An administrator can add another library, turn one off or remove it. When two libraries list the same add-on, a library that you added wins over a default. Two that you added conflict, and LocalAI refuses to install that add-on until you resolve it.
+
+A library that cannot be read does not hide the others. **Find add-ons** lists the add-ons of every library that loaded and shows a notice with the name and the reason of each library that failed. The **Sources** tab shows the same reason on the row of that library, and the time of its last good refresh. Fix the address or the credential, then choose **Refresh** on the row. The add-ons of a library that failed are not listed until it loads again.
 
 ## Install from a file
 
@@ -66,6 +69,7 @@ When a newer version is in the library, the row shows **Update**. An upgrade sta
 | A strip at the top says an add-on failed to start | Choose **Set up** or open **Details**. The reason is there. Other add-ons keep running. |
 | "This add-on needs a newer LocalAI" | The add-on needs a feature that your version does not have. Update LocalAI. |
 | Install from file is refused with `locked_by_deployment` | Sign-in is off or the grants are locked. Turn on sign-in, or set `--addon-host-ui-grants-without-auth` knowingly. |
+| A notice says a library could not be read | The reason is on its row in the **Sources** tab. Check the address and the credential, then choose **Refresh**. The other libraries keep working. |
 | No add-ons in the list | Check that the official library is on, that `--addons-enabled` is not false, and that the server can reach the network. |
 
 For the full specification, see the [contract reference]({{% relref "/addons/contract-reference" %}}).

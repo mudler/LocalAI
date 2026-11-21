@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/xlog"
 )
@@ -41,7 +43,7 @@ func (o *OpStatus) IsQueued() bool {
 // handler for the entire duration of the in-flight install (observed as a
 // request that never gets a response while /readyz stays green).
 func (g *GalleryService) EnqueueModelOp(op ManagementOp[gallery.GalleryModel, gallery.ModelConfig]) {
-	g.markQueued(op.ID, op.GalleryElementName, op.Delete, false)
+	g.markQueued(op.ID, op.GalleryElementName, op.Delete, op.Upgrade)
 	go func() {
 		select {
 		case g.ModelGalleryChannel <- op:
@@ -126,4 +128,23 @@ func (g *GalleryService) abandonQueued(id, elementName string) {
 		Message:            "error: operation was cancelled before the gallery worker could start it",
 		GalleryElementName: elementName,
 	})
+}
+
+// EnqueueModelUpgrade queues the upgrade of an installed model and returns its
+// operation id. Like an install, the operation can be cancelled from
+// /api/operations while it can still leave the old version untouched. The
+// REST route and the assistant both queue upgrades here.
+func (g *GalleryService) EnqueueModelUpgrade(name string, opts ModelUpgradeOptions) (string, error) {
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return "", err
+	}
+	uid := id.String()
+	ctx, cancel, pause := NewUserCancellableContext(context.Background())
+	g.StoreCancellationActions(uid, cancel, pause)
+	g.EnqueueModelOp(ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+		ID: uid, GalleryElementName: name, Upgrade: true, Context: ctx, CancelFunc: cancel, PauseFunc: pause,
+		ModelUpgrade: &opts,
+	})
+	return uid, nil
 }

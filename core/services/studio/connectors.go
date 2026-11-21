@@ -17,10 +17,10 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/media"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/oauthtoken"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -1466,7 +1466,16 @@ func isAgentMissing(err error) bool {
 // that user that has one. The title and the text go, never the link. The inbox
 // calls it on the frontend that stored the notification, so a notification is
 // sent once. It does not wait, and a failure is only logged.
+//
+// Only what a trigger or a connector sent goes to a chat: the person set those
+// up and wants to hear when a run ends or a connector stops. The news of the
+// system itself (a backend update, a finished install, the conversion of old
+// data) stays in the inbox and in browser push, so an administrator's phone is
+// not filled with it. A notification with no source is the system's.
 func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
+	if n.Source != notify.SourceTrigger && n.Source != notify.SourceConnector {
+		return
+	}
 	if c.closed() {
 		return
 	}

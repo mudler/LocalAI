@@ -227,7 +227,7 @@ Start a worker on each remote machine the same way you would for llama.cpp:
 local-ai worker llama-cpp-rpc --llama-cpp-args="--host 0.0.0.0 --port 50052"
 ```
 
-**Automatic (peer-to-peer):** when LocalAI runs in [p2p worker mode]({{%relref "/administration/p2p-federated-inference" %}}), discovered workers are published in the `LLAMACPP_GRPC_SERVERS` environment variable. The image-generation backend reads that variable automatically (when `rpc_servers` is not set), so the same `local-ai worker p2p-llama-cpp-rpc` workers used for text generation also accelerate image generation - no per-model configuration needed.
+**Automatic (peer-to-peer):** [model-split workers]({{%relref "/administration/p2p-model-split" %}}) that joined with an invite (`local-ai worker llama-cpp-rpc --join <invite link>`) are published in the `LLAMACPP_GRPC_SERVERS` environment variable. The image-generation backend reads that variable automatically (when `rpc_servers` is not set), so the same workers used for text generation also accelerate image generation - no per-model configuration needed.
 
 By default the RPC devices join the pool and participate in placement; combine with the `backend` / `params_backend` options above to pin specific components to them (e.g. `backend:diffusion=rpc0`).
 

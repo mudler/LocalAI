@@ -129,6 +129,11 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
       <p className="remotes-card__status" data-testid="remote-status">
         <span className={`dk-dot${dot}`} aria-hidden="true" />
         <span>{statusText}</span>
+        {remote.p2p && (
+          <span className="dk-badge" data-testid="remote-p2p-path" data-state={remote.p2p.state} title={remote.p2p.error || undefined}>
+            {t('card.p2p.badge')} · {p2pPathText(t, remote.p2p)}
+          </span>
+        )}
       </p>
 
       {attention && (
@@ -169,6 +174,16 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
       </footer>
     </article>
   )
+}
+
+// p2pPathText names how a remote over P2P is reached: the path of the last
+// request while the tunnel is up, otherwise the state of the tunnel.
+function p2pPathText(t, p2p) {
+  if (p2p.state === 'up' && p2p.path) {
+    const path = t(`card.p2p.path.${p2p.path}`, { defaultValue: p2p.path })
+    return p2p.limited ? `${path} (${t('card.p2p.limited')})` : path
+  }
+  return t(`card.p2p.state.${p2p.state}`, { defaultValue: p2p.state })
 }
 
 // The Remotes tab of the Models page: one card for each remote.

@@ -15,11 +15,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/backendupdates"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/xlog"
 )
 
@@ -28,6 +30,11 @@ const (
 	CodeDigest      = "updates.digest"
 	CodeResult      = "updates.result"
 	CodeCheckFailed = "updates.checkFailed"
+	// CodeOpDone and CodeOpFailed tell the end of an install, removal or
+	// upgrade that an administrator started. A cancelled one is CodeOpFailed
+	// with the outcome "cancelled".
+	CodeOpDone   = "updates.opDone"
+	CodeOpFailed = "updates.opFailed"
 )
 
 // Keys of the rows. One digest and one failed-check row for each admin; one
@@ -36,6 +43,7 @@ const (
 	KeyDigest      = "updates.digest"
 	KeyCheckFailed = "updates.checkFailed"
 	keyResult      = "updates.result."
+	keyOp          = "updates.op."
 )
 
 // Links of the items: the Updates page on the list that shows what the item is
@@ -45,6 +53,8 @@ const (
 	LinkReady    = "/app/updates?filter=ready"
 	LinkNeedsYou = "/app/updates?filter=needs-you"
 	LinkPage     = "/app/updates"
+	LinkModels   = "/app/models"
+	LinkAddons   = "/app/addons"
 )
 
 // Families of the automatic update.
@@ -65,8 +75,9 @@ const maxItems = 3
 
 // Emitter writes the items for every administrator.
 type Emitter struct {
-	// Inbox returns the inbox, or nil when the chats are off. It is read at each
-	// call because the inbox starts after the update checker.
+	// Inbox returns the inbox, or nil when the notification center could not
+	// start. It is read at each call because the inbox starts after the update
+	// checker is built. The chats do not matter: the inbox runs without them.
 	Inbox func() *notify.Service
 	// Admins returns the principals to tell: the active administrators, or the
 	// anonymous principal when authentication is off.
@@ -79,7 +90,7 @@ func (e *Emitter) targets(ctx context.Context) (*notify.Service, []string) {
 	}
 	svc := e.Inbox()
 	if svc == nil {
-		xlog.Debug("Update notifications skipped: the chats are off")
+		xlog.Debug("Update notifications skipped: there is no notification center")
 		return nil, nil
 	}
 	admins, err := e.Admins(ctx)
@@ -241,7 +252,7 @@ func (e *Emitter) Result(ctx context.Context, r Result) error {
 		if o.Err == "" {
 			return o.Name
 		}
-		return o.Name + " (" + oneLine(o.Err, 100) + ")"
+		return o.Name + " (" + oneLine(withoutPaths(o.Err), 100) + ")"
 	})
 	add(held, "held", "waiting for approval", "Waiting for your approval: ", func(o Outcome) string { return versions(o) })
 
@@ -259,6 +270,72 @@ func (e *Emitter) Result(ctx context.Context, r Result) error {
 	return e.upsertAll(ctx, n, notify.ModeOnce)
 }
 
+// Operation tells the administrators that an install, removal or upgrade of a
+// model or backend reached its end: completed, failed or cancelled. The item
+// is keyed by the operation ID and posted once for each administrator, so a
+// replayed report of the same operation is silent. An operation with no ID is
+// an automatic pass, which Result reports; it posts nothing here.
+//
+// A model upgrade that completed or failed is not written here: the upgrader
+// tells it through ModelUpgradeResult, the only producer of that row, with
+// the detail the operation does not have (whether the old version was put
+// back, the versions). A cancelled upgrade is told here, as the upgrader does
+// not tell a cancel.
+func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
+	if op.ID == "" || op.Name == "" {
+		return nil
+	}
+	if op.Upgrade && !op.Backend && !op.Addon && op.Outcome != galleryop.OpCancelled {
+		return nil
+	}
+	kind, link := "model", LinkModels
+	switch {
+	case op.Addon:
+		kind, link = "addon", LinkAddons
+	case op.Backend:
+		kind, link = "backend", LinkPage
+	}
+	action := "install"
+	switch {
+	case op.Deletion:
+		action = "delete"
+	case op.Upgrade:
+		action = "upgrade"
+	}
+	label := strings.ToUpper(kind[:1]) + kind[1:]
+	if op.Addon {
+		label = "Add-on"
+	}
+	n := notify.Notification{
+		Key: keyOp + op.ID, Source: notify.SourceSystem, Kind: notify.KindRunEnded, Status: notify.StatusOK, Link: link,
+		Params: map[string]any{"kind": kind, "action": action, "name": op.Name},
+	}
+	switch op.Outcome {
+	case galleryop.OpCompleted:
+		n.Code = CodeOpDone
+		n.Title = label + " " + op.Name + " " + map[string]string{"install": "installed", "delete": "removed", "upgrade": "upgraded"}[action]
+	case galleryop.OpCancelled:
+		n.Code, n.Kind = CodeOpFailed, notify.KindNeedsAttention
+		n.Title = label + " " + op.Name + ": the " + action + " was cancelled"
+		n.Params["outcome"] = "cancelled"
+	case galleryop.OpFailed:
+		n.Code, n.Kind, n.Status = CodeOpFailed, notify.KindNeedsAttention, notify.StatusFailed
+		n.Title = label + " " + op.Name + ": the " + action + " failed"
+		n.Body = errorLine(op.Err)
+		n.Params["outcome"] = "failed"
+		if op.NeedsApproval {
+			// The install waits for a new review of its host access.
+			n.Params["needsApproval"] = true
+		}
+		if n.Body != "" {
+			n.Params["error"] = n.Body
+		}
+	default:
+		return nil
+	}
+	return e.upsertAll(ctx, n, notify.ModeOnce)
+}
+
 // versions is "name from to to", "name to" or "name".
 func versions(o Outcome) string {
 	switch {
@@ -269,6 +346,38 @@ func versions(o Outcome) string {
 	}
 	return o.Name
 }
+
+// absPath matches an absolute path (POSIX, or Windows with a drive letter)
+// and keeps its last element.
+var absPath = regexp.MustCompile(`(?:[A-Za-z]:)?(?:[\\/][^\s\\/:"'()]+)+[\\/]([^\s\\/:"'()]+)`)
+
+// withoutPaths replaces each absolute path in s by its file name. An error
+// text reaches the inbox and a browser push service, which must not learn
+// the layout of the server. A path counts only at the start of the text or
+// after a space, a tab, a quote, a parenthesis or an equals sign, so a URL, a
+// scheme-less URL and a relative path are left alone.
+func withoutPaths(s string) string {
+	var b strings.Builder
+	last := 0
+	for _, m := range absPath.FindAllStringSubmatchIndex(s, -1) {
+		start := m[0]
+		if start > 0 && !strings.ContainsRune(" \t\"'(=", rune(s[start-1])) {
+			// The tail of a longer token: the path of a URL, a relative path
+			// ("models/sub/x.gguf") or a scheme-less URL. Only a path that
+			// starts a word is absolute.
+			continue
+		}
+		b.WriteString(s[last:start])
+		b.WriteString(s[m[2]:m[3]])
+		last = m[1]
+	}
+	b.WriteString(s[last:])
+	return b.String()
+}
+
+// errorLine is the body of an item that tells a failure: one line, no
+// server paths.
+func errorLine(s string) string { return oneLine(withoutPaths(s), 200) }
 
 func oneLine(s string, max int) string {
 	s = strings.Join(strings.Fields(s), " ")

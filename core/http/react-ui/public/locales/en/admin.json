@@ -138,10 +138,6 @@
       "truncatedWarning": "Showing top 200 keys. Apply a filter to narrow further."
     }
   },
-  "explorer": {
-    "title": "Explorer",
-    "subtitle": "Browse files and configuration"
-  },
   "tabs": {
     "users": "Users",
     "invites": "Invites",

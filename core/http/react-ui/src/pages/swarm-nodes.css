@@ -41,6 +41,7 @@
 .sw-pill[data-level="ok"] { background: var(--dk-ok-wash); color: var(--dk-ok-text); }
 .sw-pill[data-level="warn"] { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .sw-pill[data-level="error"] { background: var(--dk-error-wash); color: var(--dk-error-text); }
+.sw-pill[data-level="info"] { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
 
 /* ---- Roster and inspector ------------------------------------------------------ */
 
@@ -148,3 +149,8 @@
   .sw-hero { grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-4); }
   .sw-hero__ring { grid-column: auto; }
 }
+
+/* The route of a node: NATS, WebSocket or P2P, and the path of a P2P tunnel. */
+.sw-route { display: inline-flex; flex: none; align-items: baseline; gap: var(--dk-space-1); white-space: nowrap; font-size: var(--dk-text-12); }
+.sw-route__path { color: var(--dk-muted); }
+.sw-insp__peer { overflow: hidden; text-overflow: ellipsis; }

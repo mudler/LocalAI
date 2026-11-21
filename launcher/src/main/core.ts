@@ -27,10 +27,17 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type {
+  AddServerByInviteInput,
+  AddServerByInviteResult,
   AddServerInput,
   CopyKeyFormat,
   EnvVarResult,
   EnvVarsView,
+  RegistryCredentialInput,
+  RegistryCredentialRemoveResult,
+  RegistryCredentialSaveResult,
+  RegistryCredentialTestResult,
+  RegistryCredentialsView,
   NetworkChangeResult,
   NetworkPlanView,
   NetworkView,
@@ -108,7 +115,10 @@ import { initialNotice, reduceNotice, type NoticeEvent, type NoticeState, type S
 import type { SandboxProbe } from './sandboxProbe'
 import { InvalidAttachPattern, validateAttachPattern, type SandboxPlan } from './sandboxProfile'
 import { prepareRemove, prepareSetup, runPlan, type Runner, type SetupResult } from './sandboxSetup'
-import { buildServerLaunch, needsRestart, type ServerLaunch } from './serverLaunch'
+import { buildServerLaunch, isCredentialsFileName, needsRestart, userCredentialsFile, type RegistryCredentialsLaunch, type ServerLaunch } from './serverLaunch'
+import { CREDENTIALS_FILE_NAME, prepareRegistryCredentials } from './credentialsFile'
+import { RegistryCredentials } from './registryCredentials'
+import { probeRegistry } from './registryProbe'
 import {
   execServerVersion,
   isActive,
@@ -125,7 +135,9 @@ import { resolveLink, type NotifyTarget } from './notifications'
 import type { LoginItemResult } from './loginItem'
 import { WebuiModel, type WebuiEffect, type WebuiEvent, type WebuiInputs } from './webuiState'
 import { RemoteMonitor, REMOTE_RETRY_MS } from './remoteMonitor'
+import { freePort, linkRoutes, pair, readInvite, runCommand, TunnelSupervisor, type RunCommand, type SpawnFn, type TunnelStatus } from './p2pRemote'
 import {
+  addP2PRemote,
   addRemote,
   defaultTarget,
   devChannelConfirmed,
@@ -201,6 +213,12 @@ export interface CoreDeps {
   testServer?: (origin: string, o: { signal?: AbortSignal }) => Promise<TestResult>
   /** Test hook: the wait between tries while the remote default does not answer. */
   remoteRetryMs?: number
+  /** Test hook: runs `local-ai p2p pair`. */
+  runCommand?: RunCommand
+  /** Test hook: spawns `local-ai p2p forward`. */
+  spawnTunnel?: SpawnFn
+  /** Test hook: picks the loopback port of a server over P2P. */
+  freePort?: () => Promise<number>
   /** Turns "Launch at login" on or off (loginItem.ts). Without it the setting is only saved. */
   loginItem?: (enabled: boolean) => LoginItemResult
   /** Electron's safeStorage. Missing means no secure storage: secrets stay in memory unless the user opts in. */
@@ -308,6 +326,9 @@ export class LauncherCore {
   private secrets!: SecretStore
   /** Values to scrub from server output: every secret given to a server in this session. */
   private redactValues = new Set<string>()
+  private registryCredentials!: RegistryCredentials
+  /** The generated credentials file and secret variables of the last refresh. */
+  private registryLaunch?: RegistryCredentialsLaunch
   private plans = new Map<string, number>()
   private revealLimiter = new RevealLimiter()
   private monitor!: RemoteMonitor
@@ -318,13 +339,15 @@ export class LauncherCore {
   private localVersion: string | undefined
   private startAfterInstall = false
   private openTests = new Set<AbortController>()
+  /** One forwarder per saved server over P2P, by server id. */
+  private tunnels = new Map<string, TunnelSupervisor>()
 
   constructor(private readonly d: CoreDeps) {}
 
   // ---- start ------------------------------------------------------------------
 
   async init(): Promise<void> {
-    const launcherLog = (m: string) => (this.hub ? this.hub.write('launcher', m) : this.early.push(m))
+    const launcherLog = (m: string) => this.launcherLog(m)
 
     this.d.trace?.('init-start')
     // 1. config
@@ -354,6 +377,8 @@ export class LauncherCore {
     this.d.trace?.('secrets-opened')
     await this.migrateSecrets(launcherLog)
     this.d.trace?.('secrets-migrated')
+    this.registryCredentials = new RegistryCredentials(this.store, this.secrets)
+    await this.refreshRegistryCredentials()
     config = this.store.get()
     // The server never listens on the network without a key. Without a keyring
     // the key lives only for a session while the address is saved, and an old
@@ -409,11 +434,17 @@ export class LauncherCore {
     // 6. installer
     const paths = this.installPaths()
     const core = this // the getter below must read the current supervisor, which a settings change replaces
+    // The installer restarts the server after an update or a rollback. That start
+    // goes through prepareStart too, so it never uses a launch whose credentials
+    // file was removed or rewritten while the server ran.
     const handle: SupervisorHandle = {
       get state() {
         return core.supervisor.state
       },
-      start: () => this.supervisor.start(),
+      start: async () => {
+        await this.prepareStart()
+        await this.supervisor.start()
+      },
       stop: () => this.supervisor.stop(),
     }
     this.installer = new ServerInstaller({
@@ -454,7 +485,9 @@ export class LauncherCore {
     void this.installer.installedVersion().then((v) => (this.localVersion = v)).catch(() => undefined)
 
     this.d.trace?.('step-default-server')
-    // 8. the default server: a remote opens at once, and the local server is not touched
+    // 8. the forwarders of the servers over P2P, so their origins answer, then
+    // the default server: a remote opens at once, and the local server is not touched
+    this.startTunnels()
     this.monitor = new RemoteMonitor({
       probe: (origin) => this.checkOrigin(origin),
       onStatus: (st) => {
@@ -541,6 +574,7 @@ export class LauncherCore {
           insecure: isInsecureRemote(r.url),
           status: k?.status ?? (current ? 'connected' : 'not-tested'),
           checkedAt: k?.at,
+          p2p: r.p2p ? (this.tunnels.get(r.id)?.status ?? { state: 'stopped' }) : undefined,
         }
       }),
     ]
@@ -672,12 +706,117 @@ export class LauncherCore {
     return { ok: true, view: this.serversView(), id: after.id, test }
   }
 
+  /** The identity of this computer on P2P. Servers admit its peer ID once paired. */
+  private p2pIdentity(): string {
+    return path.join(this.d.home, '.localai', 'launcher-p2p', 'identity.key')
+  }
+
+  /** Starts the forwarders of every saved server over P2P. */
+  private startTunnels(): void {
+    if (!this.binaryInstalled()) return
+    for (const r of remotes(this.store.get())) if (r.p2p) this.startTunnel(r)
+  }
+
+  private startTunnel(r: RemoteServer): TunnelSupervisor | undefined {
+    if (!r.p2p) return undefined
+    this.stopTunnel(r.id)
+    const t = new TunnelSupervisor(this.serverBinary(), this.p2pIdentity(), r.p2p, this.d.spawnTunnel)
+    t.on('status', (st: TunnelStatus) => {
+      this.hub?.write('launcher', `servers: P2P tunnel of ${r.name}: ${st.state}${st.path ? ` (${st.path})` : ''}${st.error ? `: ${st.error}` : ''}`, st.state === 'failed' ? 'warn' : 'info')
+      this.emitServers()
+    })
+    this.tunnels.set(r.id, t)
+    t.start()
+    return t
+  }
+
+  /** Resolves true once the forwarder listens, false after timeoutMs or a failure. */
+  private tunnelReady(t: TunnelSupervisor, timeoutMs: number): Promise<boolean> {
+    const done = (st: TunnelStatus) => st.state === 'ready' || st.state === 'up' || st.state === 'down'
+    if (done(t.status)) return Promise.resolve(true)
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => finish(false), timeoutMs)
+      const on = (st: TunnelStatus) => {
+        if (done(st)) finish(true)
+        else if (st.state === 'failed' || st.state === 'stopped') finish(false)
+      }
+      const finish = (ok: boolean) => {
+        clearTimeout(timer)
+        t.off('status', on)
+        resolve(ok)
+      }
+      t.on('status', on)
+    })
+  }
+
+  private stopTunnel(id: string): void {
+    const t = this.tunnels.get(id)
+    if (!t) return
+    t.removeAllListeners()
+    t.stop()
+    this.tunnels.delete(id)
+  }
+
+  /**
+   * Adds a server from an invite link: pairs this computer with it through
+   * `local-ai p2p pair`, picks a loopback port, saves the server and starts its
+   * forwarder. The answer carries the confirmation phrase, which the other
+   * server shows too.
+   */
+  async addServerByInvite(input: AddServerByInviteInput): Promise<AddServerByInviteResult> {
+    const inv = readInvite(input.link, this.nowMs())
+    if (!inv.ok) return { ok: false, reason: inv.reason }
+    if (inv.info.openRelay && !input.allowOpenRelay) return { ok: false, reason: 'open-relay' }
+    if (remotes(this.store.get()).some((r) => r.p2p?.peer === inv.info.peer)) return { ok: false, reason: 'duplicate' }
+    if (!this.binaryInstalled()) return { ok: false, reason: 'no-binary' }
+    const identity = this.p2pIdentity()
+    await fs.promises.mkdir(path.dirname(identity), { recursive: true, mode: 0o700 })
+    this.hub.write('launcher', 'servers: pairing with a server over P2P')
+    const paired = await pair(this.d.runCommand ?? runCommand, this.serverBinary(), {
+      link: input.link.trim(),
+      identity,
+      name: os.hostname() || 'LocalAI Launcher',
+      allowOpenRelay: input.allowOpenRelay === true,
+    })
+    if (!paired.ok) {
+      this.hub.write('launcher', `servers: pairing failed: ${paired.detail}`, 'warn')
+      return { ok: false, reason: paired.reason, detail: paired.detail }
+    }
+    const port = await (this.d.freePort ?? freePort)()
+    const name = [input.name, paired.result.serverName, inv.info.label, 'LocalAI'].map((x) => (x ?? '').trim()).find((x) => x !== '') ?? 'LocalAI'
+    const target = { peer: paired.result.peer, port, ...linkRoutes(input.link) }
+    const idGen = () => newRemoteId((n) => this.random(n))
+    let added: RemoteServer | undefined
+    let failure: AddServerByInviteResult | undefined
+    await this.store.update((c) => {
+      const r = addP2PRemote(c, { name: name.slice(0, 60), target }, idGen)
+      if (!r.ok) {
+        failure = { ok: false, reason: r.reason }
+        return c
+      }
+      added = r.remote
+      return r.config
+    })
+    if (failure || !added) return failure ?? { ok: false, reason: 'limit' }
+    this.hub.write('launcher', 'servers: server over P2P saved')
+    const tunnel = this.startTunnel(added)
+    const phrase = paired.result.phrase
+    if (input.makeDefault && tunnel && (await this.tunnelReady(tunnel, 20_000))) {
+      const r = await this.switchTo(added.id, false)
+      if (!r.ok) return { ok: true, view: this.serversView(), id: added.id, phrase, opened: false }
+      return { ok: true, view: r.view, id: added.id, phrase, opened: true }
+    }
+    this.emitServers()
+    return { ok: true, view: this.serversView(), id: added.id, phrase, opened: false }
+  }
+
   async removeServer(id: string): Promise<ServerChangeResult> {
     const c = this.store.get()
     if (!remotes(c).some((r) => r.id === id)) return { ok: false, reason: 'not-found' }
     const wasDefault = defaultTarget(c) === id
     await this.store.update((x) => removeRemote(x, id))
     this.checks.delete(id)
+    this.stopTunnel(id)
     this.hub.write('launcher', 'servers: server removed')
     if (wasDefault) await this.openLocal()
     this.emitServers()
@@ -688,7 +827,7 @@ export class LauncherCore {
   private async openLocal(): Promise<void> {
     this.monitor.stop()
     this.webuiDispatch({ type: 'back-to-local' })
-    if (this.launchStale) this.buildSupervisor(this.store.get())
+    await this.prepareStart()
     await this.startServer()
   }
 
@@ -852,12 +991,95 @@ export class LauncherCore {
     return fs.existsSync(this.serverBinary())
   }
 
+  /**
+   * Writes the credentials file for the registry rules and keeps the secret
+   * variables for the next server launch. Returns true when the result differs
+   * from the last one. A failure to write leaves the server without registry
+   * credentials; it is logged with the error code only.
+   *
+   * The server reads the file once, at its start, so removing the file while
+   * a server runs does not affect it. A missing file named by the variable is
+   * a startup error. The launch of a running server can therefore name a file
+   * that is gone; every start goes through prepareStart, which refreshes the
+   * file and rebuilds such a launch first.
+   */
+  private async refreshRegistryCredentials(): Promise<boolean> {
+    const dir = path.dirname(this.d.configPath ?? defaultConfigPath(this.d.home, this.layout()))
+    const override = userCredentialsFile(this.d.env, this.userEnv()) !== undefined
+    let next: RegistryCredentialsLaunch | undefined
+    try {
+      const p = await prepareRegistryCredentials(dir, this.registryCredentials, override)
+      next = p.file ? { file: p.file, env: p.env } : undefined
+    } catch (e) {
+      this.launcherLog(`registry credentials: could not write ${CREDENTIALS_FILE_NAME} (${(e as NodeJS.ErrnoException).code ?? 'error'})`, 'warn')
+    }
+    const changed = JSON.stringify(next ?? null) !== JSON.stringify(this.registryLaunch ?? null)
+    this.registryLaunch = next
+    return changed
+  }
+
+  /** The launcher log, or the early buffer before the log hub exists. */
+  private launcherLog(m: string, level: 'info' | 'warn' = 'info'): void {
+    if (this.hub) this.hub.write('launcher', m, level)
+    else this.early.push(m)
+  }
+
+  /**
+   * Call after a registry rule or its secret changed. Stopped server: the
+   * launch is rebuilt now. Running server: the launch is marked stale and the
+   * next start uses the new file. Returns true when a restart is needed.
+   */
+  async registryCredentialsChanged(): Promise<boolean> {
+    if (!(await this.refreshRegistryCredentials())) return this.restartRequired()
+    if (this.serverRunning()) {
+      this.launchStale = true
+      return true
+    }
+    this.buildSupervisor(this.store.get())
+    this.d.emit('launcher:server:event', this.snapshot())
+    return false
+  }
+
+  /** The rules and their secrets, for the Settings handlers. */
+  registryCredentialRules(): RegistryCredentials {
+    return this.registryCredentials
+  }
+
+  /** The rules for the Settings screen: no secrets, only whether one is set. */
+  registryCredentialsView(): RegistryCredentialsView {
+    return {
+      rules: this.registryCredentials.list(),
+      userOverride: userCredentialsFile(this.d.env, this.userEnv()) !== undefined,
+      restartRequired: this.restartRequired(),
+    }
+  }
+
+  async saveRegistryCredential(input: RegistryCredentialInput): Promise<RegistryCredentialSaveResult> {
+    const r = await this.registryCredentials.save(input)
+    if (!r.ok) return r
+    this.launcherLog('registry credential saved')
+    return { ok: true, id: r.id, restartRequired: await this.registryCredentialsChanged() }
+  }
+
+  async removeRegistryCredential(id: string): Promise<RegistryCredentialRemoveResult> {
+    await this.registryCredentials.remove(id)
+    this.launcherLog('registry credential removed')
+    return { restartRequired: await this.registryCredentialsChanged() }
+  }
+
+  /** Asks the registry of one rule whether its credential is accepted. The secret is read here and goes nowhere else. */
+  async testRegistryCredential(id: string): Promise<RegistryCredentialTestResult> {
+    const rule = this.registryCredentials.list().find((r) => r.id === id)
+    if (!rule) return { result: 'other' }
+    return probeRegistry(rule, await this.registryCredentials.secretFor(id))
+  }
+
   private buildSupervisor(config: LauncherConfig): void {
     this.supervisor?.removeAllListeners()
     const apiKey = this.secrets.get(API_KEY_SECRET)
     const env = this.userEnv()
-    for (const v of [apiKey, ...Object.values(env)]) if (v && v.length >= REDACT_MIN_LENGTH) this.redactValues.add(v)
-    this.launch = buildServerLaunch(config, dataPath(config, this.d.home, this.layout()), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config))
+    for (const v of [apiKey, ...Object.values(env), ...Object.values(this.registryLaunch?.env ?? {})]) if (v && v.length >= REDACT_MIN_LENGTH) this.redactValues.add(v)
+    this.launch = buildServerLaunch(config, dataPath(config, this.d.home, this.layout()), this.d.env, this.d.endpointOverride, { env, apiKey }, updateChannel(config), this.registryLaunch)
     this.supervisor = new ServerSupervisor({
       command: this.serverBinary(),
       args: this.launch.args,
@@ -948,7 +1170,8 @@ export class LauncherCore {
   /**
    * The server's launch values changed (API key, address, environment).
    * Stopped: rebuild now. Running: the next start uses them. Returns true
-   * when a restart is needed.
+   * when a restart is needed. The registry credentials are not part of this:
+   * startServer refreshes them before every start.
    */
   private launchChanged(): boolean {
     if (this.serverRunning()) {
@@ -1000,12 +1223,22 @@ export class LauncherCore {
     }
   }
 
+  /**
+   * Run before every start of the supervisor, and the only way to one: the
+   * rules may have changed since the launch was built, and a stale launch may
+   * name a credentials file that was removed.
+   */
+  private async prepareStart(): Promise<void> {
+    if (await this.refreshRegistryCredentials()) this.launchStale = true
+    if (this.launchStale) this.buildSupervisor(this.store.get())
+  }
+
   /** Starts the server and returns once it is starting; readiness comes as events. */
   async startServer(): Promise<void> {
     if (!this.localManaged()) return
     if (!this.binaryInstalled() || this.installActive()) return
     if (this.serverRunning()) return
-    if (this.launchStale) this.buildSupervisor(this.store.get())
+    await this.prepareStart()
     void this.supervisor.start()
   }
 
@@ -1238,6 +1471,7 @@ export class LauncherCore {
         this.launchStale = true
         restartRequired = true
       } else {
+        await this.refreshRegistryCredentials()
         this.buildSupervisor(after)
         this.d.emit('launcher:server:event', this.snapshot())
       }
@@ -1407,7 +1641,10 @@ export class LauncherCore {
     return {
       vars: this.secrets.list(ENV_PREFIX).map((n) => {
         const name = n.slice(ENV_PREFIX.length)
-        return { name, ignored: envNameProblem(name, this.envIgnoreCase()) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
+        // A LOCALAI_CREDENTIALS_FILE set by an older version is controlled, but it is
+        // passed on (see userCredentialsFile) and turns the registry rules off.
+        const passed = isCredentialsFileName(name, this.d.platform ?? process.platform)
+        return { name, ignored: !passed && envNameProblem(name, this.envIgnoreCase()) !== undefined, sessionOnly: this.secrets.isSessionOnly(n) }
       }),
       restartRequired: this.restartRequired(),
       storage: this.secrets.state(),
@@ -1749,6 +1986,7 @@ export class LauncherCore {
 
   async shutdown(): Promise<void> {
     this.monitor?.stop()
+    for (const id of [...this.tunnels.keys()]) this.stopTunnel(id)
     for (const ac of this.openTests) ac.abort()
     this.installer?.cancel()
     try {

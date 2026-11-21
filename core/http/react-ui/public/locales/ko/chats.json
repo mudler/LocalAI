@@ -758,6 +758,53 @@
           "library": "백엔드 라이브러리",
           "addons": "애드온"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "모델",
+          "backend": "백엔드",
+          "addon": "애드온"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} 설치됨",
+          "delete": "{{kind}} {{name}} 제거됨",
+          "upgrade": "{{kind}} {{name}} 업데이트됨"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: 설치 실패",
+          "delete": "{{kind}} {{name}}: 제거 실패",
+          "upgrade": "{{kind}} {{name}}: 업데이트 실패"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: 설치 취소됨",
+          "delete": "{{kind}} {{name}}: 제거 취소됨",
+          "upgrade": "{{kind}} {{name}}: 업데이트 취소됨"
+        },
+        "needsReview": {
+          "install": "애드온 {{name}} 설치에 검토가 필요합니다"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "모델 업데이트 {{count}}개",
+          "title_other": "모델 업데이트 {{count}}개"
+        },
+        "done": {
+          "title": "모델 {{name}} 업그레이드 완료",
+          "body": "{{from}}에서 {{to}}(으)로."
+        },
+        "failed": {
+          "title": "모델 {{name}}: 업그레이드 실패",
+          "rolledBack": "이전 버전을 복원했고 계속 서비스합니다. 이유: {{error}}",
+          "rolledBackPlain": "이전 버전을 복원했고 계속 서비스합니다.",
+          "kept": "이전 버전이 계속 서비스합니다. 이유: {{error}}",
+          "keptPlain": "이전 버전이 계속 서비스합니다."
+        },
+        "removed": {
+          "title": "모델 {{name}}: 이전 버전 제거됨",
+          "body_one": "이전 파일 {{count}}개를 삭제했습니다.",
+          "body_other": "이전 파일 {{count}}개를 삭제했습니다."
+        }
       }
     },
     "tabs": {
@@ -792,7 +839,9 @@
         "removed": "{{name}} 제거됨",
         "staged": "{{name}} 전송됨"
       }
-    }
+    },
+    "chatsOff": "채팅 세션이 꺼져 있음",
+    "emptyBodyNoChats": "업데이트와 완료된 작업이 여기에 표시됩니다."
   },
   "change": {
     "loading": "트리거 변경 사항을 읽는 중...",

@@ -73,8 +73,13 @@ port_of() {
 # command called "gemma-4". Unrecognised words must therefore fall through to
 # the frontend; treating them as an unknown mode would silently stop probing the
 # single most common invocation in the docs.
+#
+# `worker` and its old name `p2p-worker` are a command group. With no subcommand
+# it is the distributed-mode worker, which serves /readyz. The standalone
+# children (llama-cpp-rpc, mlx-distributed, vllm, ds4-distributed) serve no HTTP
+# surface, so they report as `standalone-worker`.
 detect_mode() {
-    local seen_binary=0 word
+    local seen_binary=0 first="" word
     for word in $1; do
         if [ "$seen_binary" = 0 ]; then
             case "$word" in
@@ -84,10 +89,19 @@ detect_mode() {
         fi
         case "$word" in
             -*) continue ;;
-            *) printf '%s' "$word"; return ;;
         esac
+        if [ -z "$first" ]; then
+            case "$word" in
+                worker|p2p-worker) first=worker; continue ;;
+            esac
+            printf '%s' "$word"; return
+        fi
+        case "$word" in
+            llama-cpp-rpc|mlx-distributed|vllm|ds4-distributed) printf 'standalone-worker'; return ;;
+        esac
+        printf '%s' "$first"; return
     done
-    printf 'run'
+    printf '%s' "${first:-run}"
 }
 
 # The API serves TLS only when it has a certificate (--tls-cert, or
@@ -129,16 +143,16 @@ if [ -z "$endpoint" ]; then
             fi
             endpoint="http://localhost:${port}/readyz"
             ;;
-        agent-worker|p2p-worker|chat|models|backends|tts|sound-generation|transcript|util|agent|mcp-server|completion)
+        agent-worker|standalone-worker|p2p|chat|models|backends|tts|sound-generation|transcript|util|agent|mcp-server|completion)
             # Modes with no HTTP surface of their own — agent-worker and
-            # p2p-worker are message-bus only, and the rest are one-shot
+            # the standalone workers are message-bus only, and the rest are one-shot
             # commands that exit on their own. Claiming `unhealthy` for a
             # process that was never going to bind a port is the same false
             # signal as #10987, one mode over.
             exit 0
             ;;
         *)
-            # run / federated / explorer, and anything unrecognised: kong's
+            # run, and anything unrecognised: kong's
             # default command is `run`, so a bare `local-ai`, `local-ai --flag`
             # and `local-ai <model-name>` are all frontends on the API port.
             port=$(port_of "${LOCALAI_ADDRESS:-${ADDRESS:-}}")

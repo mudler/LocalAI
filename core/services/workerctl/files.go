@@ -6,9 +6,12 @@ package workerctl
 // which matches the single-key replies that workers already send.
 
 // FileEnsureRequest asks a worker to download an object storage key into its
-// local cache.
+// local cache. SHA256, when set, is the sha256 the file must have: a cached
+// copy with another one (a model upgrade replaced the file under the same key)
+// is downloaded again. An older worker ignores it and uses its cached copy.
 type FileEnsureRequest struct {
-	Key string `json:"key"`
+	Key    string `json:"key"`
+	SHA256 string `json:"sha256,omitempty"`
 }
 
 // FileEnsureReply carries the local path of the cached file, or an error.

@@ -53,6 +53,11 @@ type ManagementOp[T any, E any] struct {
 	// on workers.
 	BackendAvailability gallery.BackendAvailability
 
+	// ModelLock is the cluster-wide lock of the model, taken around the commit
+	// of an install; set by the gallery service when it dispatches a model op.
+	// Nil takes none.
+	ModelLock gallery.ModelLock
+
 	// Variant pins a model install to one of the gallery entry's declared
 	// variants, by that variant's model name. Empty means auto-select: LocalAI
 	// picks the largest variant this host's backend support and memory can
@@ -62,8 +67,15 @@ type ManagementOp[T any, E any] struct {
 	// than quietly auto-selecting, so a typo cannot masquerade as a choice.
 	Variant string
 
-	// Upgrade is true if this is an upgrade operation (not a fresh install)
+	// Upgrade is true if this is an upgrade operation (not a fresh install).
+	// For a model, GalleryElementName is the installed model name and
+	// ModelUpgrade holds the options; the gallery service hands the op to
+	// its ModelUpgrader.
 	Upgrade bool
+
+	// ModelUpgrade are the options of a model upgrade. Nil means the
+	// defaults.
+	ModelUpgrade *ModelUpgradeOptions
 
 	// Force reinstalls a backend even when it is already installed and
 	// runnable. Without it a backend install op is idempotent — API clients
@@ -72,6 +84,21 @@ type ManagementOp[T any, E any] struct {
 	// action sets it.
 	Force bool
 }
+
+// ModelUpgradeOptions are the options of a model upgrade operation.
+type ModelUpgradeOptions struct {
+	// ConfigOnly applies the model config and the prompt templates only.
+	ConfigOnly bool `json:"config_only,omitempty"`
+	// Choices are mine or gallery for each edited key the update changes.
+	Choices map[string]string `json:"choices,omitempty"`
+	// Retry runs a failed upgrade again.
+	Retry bool `json:"retry,omitempty"`
+}
+
+// MessageCompleted is the Message of the final status of an operation that
+// succeeded. The completion checks (the end-of-operation report, the eviction
+// of finished operations) compare with it, so every writer must use it.
+const MessageCompleted = "completed"
 
 type OpStatus struct {
 	Deletion bool `json:"deletion"` // Deletion is true if the operation is a deletion
@@ -694,7 +721,7 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 		//     and the reconciler confirms the real outcome later — evicting it
 		//     would hide an install that may still fail.
 		if status != nil && status.Processed &&
-			((status.Progress == 100 && status.Message == "completed") || status.Cancelled) {
+			((status.Progress == 100 && status.Message == MessageCompleted) || status.Cancelled) {
 			evict = append(evict, v)
 			continue
 		}
@@ -723,6 +750,9 @@ func (m *OpCache) GetStatus() (map[string]string, map[string]string) {
 // source answered.
 func operationDisplayName(key string) (name, nodeID string) {
 	name = key
+	if id, ok := ParseAddonOpKey(key); ok {
+		return id, ""
+	}
 	if id, backend, ok := ParseNodeScopedKey(key); ok {
 		nodeID = id
 		name = backend

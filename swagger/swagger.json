@@ -1220,6 +1220,64 @@
                 }
             }
         },
+        "/api/addons/host-grants/queue": {
+            "post": {
+                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to \"queue\"). API keys, bearer tokens, MCP sessions and tool calls are refused with 403 not_human_surface. Each item carries what host-grants/install carries for an install from a library: the release, and the approval of its preview (digest, ticked operations, grants revision and the preview nonce). The owner checks each approval now and records it; the install (or, with action upgrade, the upgrade of an installed add-on; the pins of the plain upgrade are optional, both or neither) then runs in the background, in order, on the queue of backend operations and within its limit, as an operation of /api/operations (the owner installs one add-on at a time), with its phase and its downloaded bytes. Cancel it there (POST /api/operations/{jobID}/cancel) while it waits or downloads. The install never turns the add-on on. When the verified package asks for host access that the preview did not show, the install stops and asks for a new review (the operation fails and a notification says so); nothing is granted. Items are answered one by one: a refused item carries the error of host-grants/install and does not stop the others. Queued installs that have not finished when the owner restarts are failed with the code interrupted.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Queue add-on installs with the host access the administrator approved (browser session)",
+                "parameters": [
+                    {
+                        "description": "Installs to queue",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.HostGrantsQueueBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "One answer per item",
+                        "schema": {
+                            "$ref": "#/definitions/addons.HostGrantsQueueResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface (not_human_surface) or administration denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the operation queue are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/host-grants/{addonId}": {
             "put": {
                 "description": "Administrators only, from their own browser session (X-LocalAI-Confirm equal to the add-on ID). operationId is optional (the host makes one); send your own to make a retry the same change. ops is the full set the add-on keeps: operations left out are revoked, new ones must be declared by the installed manifest, registered by the host and not denied (403 blocked_by_policy). Grants made by the policy file or flags are not editable here. keep names held blanket grants to relabel as the administrator's own. revision is the revision the caller read; a stale one is 409 revision_conflict. Takes effect for the next call of the add-on with no restart.",
@@ -3395,7 +3453,7 @@
         },
         "/api/addons/{id}/upgrade": {
             "post": {
-                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to the operationId). The only action that applies an update. It carries the digest of the installed package the caller saw (expectedDigest) and the digest of the candidate the check resolved (candidateDigest). The owner re-resolves the library the add-on came from and refuses, before it records anything, an installed package that is not the expected one (409 stale_installed), a candidate that is not the one it resolves now (409 candidate_changed), an incompatible candidate (409 incompatible), a rewritten immutable version (409 integrity_error) and the same transition under another operation ID (409 upgrade_conflict). It never changes the library or the channel. The upgrade then follows the lifecycle of an add-on: the candidate is staged and verified, the data is backed up and migrated when the add-on has any, and the new generation is published only when it starts. A failure or cancellation keeps the last good generation or leaves an explicit recovery state; the previous installation is never deleted. Repeating the operationId returns the recorded result and never runs again; after outcome_unknown read operation-status with the same operationId. No MCP tool maps to this route.",
+                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to the operationId). The only action that applies an update. With the operation queue (the normal server) the upgrade is recorded and answered at once in the accepted phase, with jobId, the operation of /api/operations that runs it in the background on the queue of backend operations; cancel it there while it waits or downloads. It carries the digest of the installed package the caller saw (expectedDigest) and the digest of the candidate the check resolved (candidateDigest). The owner re-resolves the library the add-on came from and refuses, before it records anything, an installed package that is not the expected one (409 stale_installed), a candidate that is not the one it resolves now (409 candidate_changed), an incompatible candidate (409 incompatible), a rewritten immutable version (409 integrity_error) and the same transition under another operation ID (409 upgrade_conflict). It never changes the library or the channel. The upgrade then follows the lifecycle of an add-on: the candidate is staged and verified, the data is backed up and migrated when the add-on has any, and the new generation is published only when it starts. A failure or cancellation keeps the last good generation or leaves an explicit recovery state; the previous installation is never deleted. Repeating the operationId returns the recorded result and never runs again; after outcome_unknown read operation-status with the same operationId. No MCP tool maps to this route.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8099,9 +8157,9 @@
         },
         "/api/chats/notifications": {
             "get": {
-                "description": "The inbox: one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread and the total kept.",
+                "description": "The inbox: backend updates, finished operations, and one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread and the total kept. Works with the chats on or off; the same routes also answer under /api/chats/notifications while the chats are on.",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "List your notifications.",
                 "parameters": [
@@ -8130,7 +8188,7 @@
             "delete": {
                 "description": "Name the ids, or pass all to empty your inbox; with all, read_only keeps the unread ones. Only your own notifications are touched.",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Delete notifications.",
                 "parameters": [
@@ -8163,7 +8221,7 @@
         "/api/chats/notifications/count": {
             "get": {
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Count unread notifications.",
                 "responses": {
@@ -8178,12 +8236,12 @@
         },
         "/api/chats/notifications/events": {
             "get": {
-                "description": "Server-sent events: one notification event for each new inbox item, with the same fields as the list, and a notifications_changed event when notifications were read or deleted, so a client reads the list again. Live only; list the inbox for what came before.",
+                "description": "Server-sent events: one notification event for each new inbox item, with the same fields as the list, and a notifications_changed event when notifications were read or deleted, so a client reads the list again. Live only; list the inbox for what came before. In a cluster the events of every frontend reach every stream.",
                 "produces": [
                     "text/event-stream"
                 ],
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Stream your notifications.",
                 "responses": {
@@ -8200,7 +8258,7 @@
             "post": {
                 "description": "Name the ids, or pass all. Opening a chat marks its notifications read by itself.",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Mark notifications read.",
                 "parameters": [
@@ -9614,7 +9672,7 @@
             "get": {
                 "description": "The VAPID public key a browser needs to subscribe to push for your notifications. 409 when the server cannot keep subscriptions (no database and no data path).",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Get the browser push key.",
                 "responses": {
@@ -9631,7 +9689,7 @@
             "post": {
                 "description": "Pass the endpoint and keys of a browser PushSubscription. A notification is then pushed to that browser with its title and link only. The endpoint must be an https address on the public internet. At most 10 browsers per user; the oldest go first.",
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Subscribe a browser to push.",
                 "parameters": [
@@ -9659,7 +9717,7 @@
             },
             "delete": {
                 "tags": [
-                    "chats"
+                    "notifications"
                 ],
                 "summary": "Unsubscribe a browser from push.",
                 "parameters": [
@@ -13547,6 +13605,86 @@
                 }
             }
         },
+        "/api/cluster/settings": {
+            "get": {
+                "description": "Returns the NATS address of the frontends and of the workers, the carrier weights (nats, websocket, p2p) that break a tie between equally fit nodes, the broadcast bus of the frontend that answers (nats while it reaches the NATS server, postgres otherwise), and the live frontend replicas. A user name, password or query string in an address is dropped. Admin only.",
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Read the settings of the cluster",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ClusterSettingsResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Distributed mode is not enabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Stores the NATS address, the address workers use, or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it; the frontends use a new address after a restart. Admin only.",
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Store settings of the cluster",
+                "parameters": [
+                    {
+                        "description": "settings to store",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.ClusterSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "saved, nats.reachable when a NATS address was checked, settings",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Unknown setting, bad value, or a credential in an address",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "This replica cannot reach the NATS server",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Distributed mode is not enabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/collections": {
             "get": {
                 "description": "The knowledge-base collections of the caller. shared lists the collections other people shared with the caller: name is the name to use in the other calls (the collection's own name, or shared:\u003cid\u003e when the caller has a collection of that name or two people share one under it), title its own name, owner the display name of the person who shared it and role viewer (search and read) or editor (also add and remove entries). shares gives, for each of the caller's own collections that was made shareable, its resource_id in /api/shares/collection and shared_with, the number of grants. sharing is false when this server cannot share collections (no named accounts). An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. search_mode says how a search finds passages: semantic (by meaning only) or hybrid (by meaning and by keyword). max_chunk_size and chunk_overlap are the chunking of a text in characters: a text of N characters becomes about N / (max_chunk_size - chunk_overlap) passages, and each passage is embedded once. Needs the collections feature.",
@@ -14205,6 +14343,291 @@
                 }
             }
         },
+        "/api/federation": {
+            "get": {
+                "description": "Lists the instances that can serve a group (this server, id \"local\", and every remote of kind localai with its P2P tunnel state and its entries) and the groups. A group is a model name served by several of them with the policy least_busy or round_robin; each member has its health, whether it is drained, whether it is constrained (reached through a relay that limits the connection, so it takes a request only when no other member can) and the requests of this server in flight. Requests in flight are counted by each frontend for itself. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Show the federation",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.FederationView"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/federation/groups": {
+            "post": {
+                "description": "Makes a model named \"name\" whose requests go to one of \"members\" (at least two existing models: models of this server or entries of remotes) by \"policy\": least_busy (default; the member with the fewest requests of this server in flight) or round_robin. A member that fails is marked down and the request moves to the next member. The group is a model config with a balanced failover chain, so it shows under /api/failover too. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Create a federation group",
+                "parameters": [
+                    {
+                        "description": "The group",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FederationGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Group"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/federation/groups/{name}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Get a federation group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Group"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the group's model config. The members stay as they are. Admin only.",
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Delete a federation group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "An absent field is left as it is. A new member list keeps the drain flag of the members that stay; the probe, trip and recovery settings of the group file are kept. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Update a federation group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FederationGroupUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Group"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/federation/groups/{name}/drain": {
+            "post": {
+                "description": "With drain true the member takes no new request; requests in flight finish and its health checks go on. With drain false it takes requests again. The last member that takes requests cannot be drained. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remotes"
+                ],
+                "summary": "Drain a member of a federation group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Member and drain flag",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FederationDrainRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/remotes.Group"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/fine-tuning/status": {
             "get": {
                 "description": "Returns model_exports=false when this instance does not share the models path of the add-on owner. The value is the same as the model_exports key of GET /api/features.",
@@ -14325,7 +14748,7 @@
                 }
             },
             "post": {
-                "description": "Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. A source with the same kind and URL is refused (409), as is a taken id. Administrators only.",
+                "description": "Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. issuer and identity, set together, pin the signer of an oci:// add-on library: its artifact must then be signed by that issuer and exact identity (400 otherwise, and on any other source). A source with the same kind and URL is refused (409), as is a taken id. Administrators only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -14581,6 +15004,33 @@
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/config/{id}": {
+            "post": {
+                "description": "Removed. Always answers 410 Gone with a Link header to POST /api/models/upgrade/{name}; use that route with config_only true to apply the gallery config of an installed model. This answer stays for one release, then the route goes away.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Removed: rewrite a model config from the gallery",
+                "deprecated": true,
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Gallery model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "410": {
+                        "description": "Removed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RemovedRouteResponse"
                         }
                     }
                 }
@@ -14911,6 +15361,92 @@
                 }
             }
         },
+        "/api/models/updates": {
+            "get": {
+                "description": "Every model installed from a gallery, with its state: up-to-date, update-available, edited (the update would overwrite keys a person changed; editedKeys lists them), unknown (reason says why), gone (no gallery lists the entry), held (the owner holds this version) or failed (the last upgrade was rolled back; upgrade has the error). needsPerson marks what the Updates page counts: models never update automatically. What the galleries offer is as of the last check; the hold flag, an edit and an upgrade show at once. Every frontend of a cluster gives the same answer.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "List the model updates",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/modelupdates.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/updates/check": {
+            "post": {
+                "description": "Reads every gallery index again (not the copies of the last hour), compares each installed gallery model with its entry, waits for the check (at most 60 seconds) and returns the new data. One frontend of a cluster checks at a time; a request that arrives while another check runs waits for that check. A call within 15 seconds of the last check is answered from it with throttled set. A failed check shows as an error in the state of the gallery source and keeps the previous list. Installs nothing.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Check for model updates now",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/modelupdates.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/upgrade/{name}": {
+            "post": {
+                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Upgrade a model to what its gallery entry installs now",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Installed model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Options",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not installed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "409": {
+                        "description": "Running, held, or edited keys need a choice",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "422": {
+                        "description": "Not installed from a gallery with a recorded origin",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/vram-estimate": {
             "post": {
                 "description": "Estimates VRAM based on model weight files at multiple context sizes",
@@ -15058,6 +15594,187 @@
                         "description": "The job table could not be read",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/{name}/adopt": {
+            "post": {
+                "description": "A model installed before LocalAI recorded the origin of gallery installs shows as unknown in GET /api/models/updates. Adopt records the gallery entry it came from, the files it has and what the gallery would write as its config, so the next check compares it like any other model. The model config on disk is not changed: a key changed by hand reads as an edit. Without a body the entry is found by the model's names, and only when exactly one gallery lists it; otherwise the answer lists the candidates (gallery@entry) and the request must name the gallery (and the entry). Refused with 409 when the model already records its origin, an upgrade runs, or more than one gallery matches; with 422 when the model has no record of a gallery install or no gallery entry matches.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Track the updates of a model installed by an earlier release",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Installed model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Gallery and entry",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelAdoptRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Adopted",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelAdoptResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not installed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "409": {
+                        "description": "Already adopted, busy, or more than one candidate",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "422": {
+                        "description": "No record of a gallery install, or no candidate",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/{name}/hold": {
+            "put": {
+                "description": "With hold true the model is reported as held and offered no update until the hold is cleared. Only the gallery file changes: the model config, its revision and the loaded model stay as they are, and a reinstall keeps the hold. Refused with 409 while an upgrade of the model runs.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Hold a model at its installed version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Installed model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Hold or release",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelHoldRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The hold",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelHoldResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not installed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "409": {
+                        "description": "An upgrade runs",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "422": {
+                        "description": "Not installed from a gallery with a recorded origin",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/{name}/remove-old": {
+            "post": {
+                "description": "Deletes the old files that the last upgrade of the model kept (retainedFiles of GET /api/models/updates). Only after a confirmed upgrade; refused with 409 while an upgrade runs or when there is nothing to remove. A kept file that another model now uses is not deleted. The model config does not change.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Remove the old version of an upgraded model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Installed model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Removed files",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelRemoveOldResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not installed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "409": {
+                        "description": "Nothing to remove, an upgrade runs, or a file is shared",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/models/{name}/upgrade/retry": {
+            "post": {
+                "description": "Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail or the model is held.",
+                "tags": [
+                    "models"
+                ],
+                "summary": "Retry a failed model upgrade",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Installed model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not installed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
+                        }
+                    },
+                    "409": {
+                        "description": "Nothing to retry, held, or an upgrade runs",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelUpgradeError"
                         }
                     }
                 }
@@ -15357,6 +16074,98 @@
                 }
             }
         },
+        "/api/nodes/{id}/split-server": {
+            "put": {
+                "description": "A split server is a backend node that serves model-split workers (llama.cpp RPC and MLX helpers): it runs a P2P host with open ports, the frontends admit it on the gated relays they administer, and the helpers attached to it join the next model it loads. A node becomes one only by this admin action or by the --split-server flag of the worker; the admin's choice wins over the flag until DELETE. Clearing it detaches the split workers of the node (they wait, attached to no node, with a warning), removes its relay admission and stops its P2P host at its next exchange. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Declare a node a split server, or clear it",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Declaration",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.SetSplitServerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.SetSplitServerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "agent node, or no split_server field",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Clears the admin's choice: the next registration of the worker sets the declaration from its --split-server flag. The current value stays until then. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Hand the split server declaration back to the worker flag",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "node not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/{id}/vram-budget": {
             "put": {
                 "tags": [
@@ -15441,36 +16250,1050 @@
                 }
             }
         },
-        "/api/p2p": {
+        "/api/notifications": {
             "get": {
+                "description": "The inbox: backend updates, finished operations, and one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread and the total kept. Works with the chats on or off; the same routes also answer under /api/chats/notifications while the chats are on.",
                 "tags": [
-                    "p2p"
+                    "notifications"
                 ],
-                "summary": "Returns available P2P nodes",
+                "summary": "List your notifications.",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "only the unread ones",
+                        "name": "unread",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most items to return (default 50, at most 500)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Response",
+                        "description": "The notifications",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/schema.P2PNodesResponse"
-                            }
+                            "$ref": "#/definitions/schema.ChatsNotificationList"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Name the ids, or pass all to empty your inbox; with all, read_only keeps the unread ones. Only your own notifications are touched.",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Delete notifications.",
+                "parameters": [
+                    {
+                        "description": "ids, or all",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationsDelete"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The number still unread and how many were deleted",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationCount"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/api/p2p/token": {
+        "/api/notifications/count": {
             "get": {
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Count unread notifications.",
+                "responses": {
+                    "200": {
+                        "description": "The number unread",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationCount"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/events": {
+            "get": {
+                "description": "Server-sent events: one notification event for each new inbox item, with the same fields as the list, and a notifications_changed event when notifications were read or deleted, so a client reads the list again. Live only; list the inbox for what came before. In a cluster the events of every frontend reach every stream.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Stream your notifications.",
+                "responses": {
+                    "200": {
+                        "description": "An event stream",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotification"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/push/key": {
+            "get": {
+                "description": "The VAPID public key a browser needs to subscribe to push for your notifications. 409 when the server cannot keep subscriptions (no database and no data path).",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Get the browser push key.",
+                "responses": {
+                    "200": {
+                        "description": "The key",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPushKey"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/push/subscribe": {
+            "post": {
+                "description": "Pass the endpoint and keys of a browser PushSubscription. A notification is then pushed to that browser with its title and link only. The endpoint must be an https address on the public internet. At most 10 browsers per user; the oldest go first.",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Subscribe a browser to push.",
+                "parameters": [
+                    {
+                        "description": "the browser's subscription",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPushSubscription"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Subscribed"
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Unsubscribe a browser from push.",
+                "parameters": [
+                    {
+                        "description": "the endpoint",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsPushUnsubscribe"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Unsubscribed"
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/notifications/read": {
+            "post": {
+                "description": "Name the ids, or pass all. Opening a chat marks its notifications read by itself.",
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Mark notifications read.",
+                "parameters": [
+                    {
+                        "description": "ids or all",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationsRead"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The number still unread",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsNotificationCount"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/devices": {
+            "get": {
+                "description": "Lists the paired devices, revoked ones included, with how each one reaches the server now (path kind direct, hole_punched or relayed, the relay and its limits). Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "p2p"
                 ],
-                "summary": "Show the P2P token",
+                "summary": "List P2P devices",
                 "responses": {
                     "200": {
-                        "description": "Response",
+                        "description": "OK",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/p2p.DeviceList"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/devices/{id}": {
+            "delete": {
+                "description": "Revokes a device: it is removed from the allowlist, its connections are closed, every relay is told to drop it, and the API key of a remote device is revoked. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Revoke a P2P device",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RevokeResult"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Rename a P2P device",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New label",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RenameDeviceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.OKResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/identity/regenerate": {
+            "post": {
+                "description": "Makes a new peer identity for this server and restarts P2P with it. The old key is kept next to the new one as a backup. Every paired device and remote knows the old peer ID, so each must pair again. The body must be {\"confirm\": true}. Needs P2P mode connect or share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Regenerate the P2P identity",
+                "parameters": [
+                    {
+                        "description": "Confirmation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RegenerateIdentityRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Status"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/invites": {
+            "get": {
+                "description": "Lists the invites with their state: pending, used, expired or canceled. The links are not part of the answer. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "List P2P invites",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.InviteList"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a one-time invite link. kind is device (P2P admission only; the person signs in as usual), remote (also issues an API key for the other server: limited to \"models\" when given, else every model this server lets a client key use, models added later too; \"all_models\": true asks for every model explicitly and is refused with a non-empty \"models\"), worker or split. A remote invite needs a signed-in user account: the API key set with LOCALAI_API_KEY gets 409. relays is \"auto\", \"none\" or a list of relay IDs. When a gated relay is named, a single-use relay pass is registered on it; \"relay.reason\" says why there is none. The link is shown once. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Create a P2P invite",
+                "parameters": [
+                    {
+                        "description": "Invite to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.MintRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.MintResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/invites/{id}": {
+            "delete": {
+                "description": "Cancels a pending invite and drops its relay pass. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Cancel a P2P invite",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Invite ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.OKResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/redeem": {
+            "post": {
+                "description": "Served only on the P2P protocol /localai/http/1; the normal HTTP listener answers 404. The caller's peer ID comes from the connection. A wrong, used, canceled or expired code all get the same 410 answer. After 5 wrong codes from one peer in an hour, or too many from all peers, the answer is 429. The answer carries the confirmation phrase to compare on both sides, and for a remote invite the API key (shown once).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Redeem a P2P invite (over P2P only)",
+                "parameters": [
+                    {
+                        "description": "Code and device name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RedeemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RedeemResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "410": {
+                        "description": "Gone",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays": {
+            "get": {
+                "description": "Lists the relays this server knows, with their mode (gated, open, unclaimed) and state (in_sync, out_of_sync, open, unclaimed, not_admin, denied, unreachable, checking). Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "List P2P relays",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RelayList"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Adds a relay by its address, which must end in /p2p/\u003crelay peer ID\u003e, and checks it. claim_code claims a relay that has no admin yet, with the code it printed at start. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Add a P2P relay",
+                "parameters": [
+                    {
+                        "description": "Relay to add",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.AddRelayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Relay"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays/{id}": {
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Remove a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.OKResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays/{id}/check": {
+            "post": {
+                "description": "Connects to the relay, reserves a slot, reads whether this server is an admin, tests a circuit and compares the paired set. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Check a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RelayCheck"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays/{id}/claim": {
+            "post": {
+                "description": "Makes this server an admin of a relay that has none, with the one-time code the relay printed at start. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Claim a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Claim code",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.ClaimRelayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Relay"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays/{id}/limits": {
+            "get": {
+                "description": "Reads the limits the relay runs with now: the data, the time and the bandwidth of one circuit (zero means no limit). ceiling is the most a change may set for each limit (zero means no ceiling); the operator of the relay sets it with the relay's flags. can_change says whether this server is an admin of the relay and may change them. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Read the limits of a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RelayLimitsInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Changes the data, time and bandwidth limits of one circuit on a relay this server administers; a field left out stays as it is and zero removes that limit. The relay saves the new limits, so they stay over a restart of the relay. A new bandwidth limit applies to the next circuit at once. A new data or time limit makes the relay restart its circuit service: its reservations are dropped, running circuits keep their old limits until they end, and the paired devices reserve again within moments (\"restarted\" is true). A value above the ceiling of the relay, or zero for a limit that has a ceiling, is refused with 400 and an error that names the ceiling; nothing is clamped. Answers 409 when this server is not an admin of the relay or the relay is open. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Change the limits of a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Limits to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SetRelayLimitsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.RelayLimitsInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/relays/{id}/sync": {
+            "post": {
+                "description": "Pushes the full set of paired devices to the relay now. Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Sync a P2P relay",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Relay ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Relay"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/split-workers": {
+            "get": {
+                "description": "Lists the paired llama.cpp RPC and MLX workers that lend their memory to models that run on this server or, in a cluster, on the backend node each is attached to (node_id), with their state (online, offline, slow, limited, refused), the path that reaches them and the memory they add. A worker reached only through a relay is \"slow\" until allow_slow_path is set. A relay of the user (own_relay: a gated relay this server administers) may carry it even with a data or time limit, and then ends each connection at the limit; its limits change with PUT /api/p2p/relays/{relay_id}/limits. A public relay never carries model layers (\"limited\"). Needs P2P mode share. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "List model-split workers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SplitWorkerList"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/split-workers/{id}": {
+            "patch": {
+                "description": "Sets node_id and/or allow_slow_path of a model-split worker. node_id attaches the worker to a backend node of the cluster (\"\" attaches it to this server): the worker moves to the node at its next session, the node forwards its port and the backends that the node starts use it. Pin the model to that node with a node selector. With allow_slow_path true the server or the node uses the worker over a relay (\"Use anyway\"): it works, but every token waits for the relay, and a relay of the user that limits each connection ends it at the limit. A public relay is never used. With false it uses the worker only over a direct or hole-punched path. A model that is loaded keeps its workers until it is loaded again. Needs P2P mode share. Admin only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "Use a model-split worker over a slow path, or attach it to a node",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device ID of the worker",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SplitWorkerUpdate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.SplitWorkerView"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/p2p/status": {
+            "get": {
+                "description": "The mode in effect (off, connect or share), the peer ID and addresses of this server, its reachability, the relays that hold a reservation for it, whether it relays for its paired devices, and the number of pending invites and paired devices. Admin only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "p2p"
+                ],
+                "summary": "P2P status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/p2p.Status"
                         }
                     }
                 }
@@ -15586,7 +17409,7 @@
                 }
             },
             "post": {
-                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with \"warning\" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.",
+                "description": "Saves a remote and turns each chosen model into a model config (an entry) that carries only the remote id. The key is stored sealed and is never returned. With \"invite\" (an invite link of kind remote from another LocalAI) the server redeems the invite over P2P, keeps the key the other server issues, and reaches it through a forwarder on a loopback port; P2P must be on (mode connect or share), url and api_key must be empty, and the answer carries the confirmation \"phrase\". Models that cannot be adopted are listed in \"skipped\" with a reason. At most 500 models per call. When the remote is saved but some models could not be added, the answer is still 201 with \"warning\" set; read the lists and add the missing models with the adopt route, not with a second create. Admin only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15627,14 +17450,32 @@
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "410": {
+                        "description": "Gone",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "413": {
                         "description": "Request Entity Too Large",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "503": {
                         "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "504": {
+                        "description": "Gateway Timeout",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -19767,6 +21608,45 @@
                 }
             }
         },
+        "addons.HostGrantsQueueBody": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.HostGrantsQueueRequest"
+                    }
+                }
+            }
+        },
+        "addons.HostGrantsQueueItem": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string"
+                },
+                "error": {
+                    "$ref": "#/definitions/addons.AddonError"
+                },
+                "jobId": {
+                    "type": "string"
+                },
+                "operationId": {
+                    "type": "string"
+                }
+            }
+        },
+        "addons.HostGrantsQueueResult": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/addons.HostGrantsQueueItem"
+                    }
+                }
+            }
+        },
         "addons.OperationStatus": {
             "type": "object",
             "properties": {
@@ -20016,6 +21896,10 @@
                 },
                 "official": {
                     "type": "boolean"
+                },
+                "signer": {
+                    "description": "Signer is the identity that signed the package, shown only when the\nreceipt says the signature was checked and the package is not official.",
+                    "type": "string"
                 },
                 "sourceId": {
                     "description": "SourceID is the library the package came from, and Official is true\nwhen that is the official library and the signature was checked. An\nadministrator who approves something for the add-on, such as its OAuth\nlogin, is warned when it is not.",
@@ -20773,6 +22657,22 @@
                 "KindPage"
             ]
         },
+        "carrier.BusState": {
+            "type": "object",
+            "properties": {
+                "bus": {
+                    "description": "Bus is the bus that the process publishes on now: BusNATS or BusPostgres.",
+                    "type": "string"
+                },
+                "nats_configured": {
+                    "description": "NATSConfigured says that the cluster has a NATS server, and NATSConnected\nthat the process reaches it.",
+                    "type": "boolean"
+                },
+                "nats_connected": {
+                    "type": "boolean"
+                }
+            }
+        },
         "catalog.Kind": {
             "type": "string",
             "enum": [
@@ -20797,8 +22697,12 @@
                 "count": {
                     "type": "integer"
                 },
+                "error": {
+                    "description": "Error is why the latest fetch failed, as the owner log says it. It is\nempty when the fetch worked. LastSuccess says when the library last\nloaded, if it ever did.",
+                    "type": "string"
+                },
                 "failed": {
-                    "description": "Failed is true when the latest fetch failed; the previous releases are\nnot served in that case.",
+                    "description": "Failed is true when the latest fetch failed; the previous releases are\nnot served in that case. Other libraries are not affected: a listing\nstill answers with what they loaded and names this one in Page.Failed.",
                     "type": "boolean"
                 },
                 "lastSuccess": {
@@ -20833,6 +22737,33 @@
                     "type": "boolean"
                 }
             }
+        },
+        "cluster.CarrierWeights": {
+            "type": "object",
+            "properties": {
+                "nats": {
+                    "type": "integer"
+                },
+                "p2p": {
+                    "type": "integer"
+                },
+                "websocket": {
+                    "type": "integer"
+                }
+            }
+        },
+        "config.FailoverPolicy": {
+            "type": "string",
+            "enum": [
+                "priority",
+                "least_busy",
+                "round_robin"
+            ],
+            "x-enum-varnames": [
+                "FailoverPolicyPriority",
+                "FailoverPolicyLeastBusy",
+                "FailoverPolicyRoundRobin"
+            ]
         },
         "config.Gallery": {
             "type": "object",
@@ -21579,6 +23510,9 @@
                 "pinned": {
                     "type": "string"
                 },
+                "policy": {
+                    "$ref": "#/definitions/config.FailoverPolicy"
+                },
                 "state": {
                     "$ref": "#/definitions/failover.ChainState"
                 },
@@ -21620,6 +23554,18 @@
             "type": "object",
             "properties": {
                 "consecutive_ok": {
+                    "type": "integer"
+                },
+                "constrained": {
+                    "description": "Constrained targets are tried last by a balanced chain.",
+                    "type": "boolean"
+                },
+                "drained": {
+                    "description": "Drained targets take no new request.",
+                    "type": "boolean"
+                },
+                "in_flight": {
+                    "description": "InFlight is the number of requests of this server that the target\nserves now. It is not shared between frontends.",
                     "type": "integer"
                 },
                 "kind": {
@@ -22818,6 +24764,10 @@
                 "digest": {
                     "type": "string"
                 },
+                "fromIndex": {
+                    "description": "FromIndex is true when the requested operations come from the library\nindex, with no download. The install then holds the add-on, and asks\nagain, when its verified manifest requests anything not listed here.",
+                    "type": "boolean"
+                },
                 "installed": {
                     "type": "boolean"
                 },
@@ -22848,7 +24798,41 @@
                 "revision": {
                     "type": "integer"
                 },
+                "signer": {
+                    "type": "string"
+                },
                 "title": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "gateway.HostGrantsQueueRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Action is install (the default) or upgrade.",
+                    "type": "string"
+                },
+                "addonId": {
+                    "type": "string"
+                },
+                "approve": {
+                    "$ref": "#/definitions/gateway.HostGrantsApprove"
+                },
+                "candidateDigest": {
+                    "type": "string"
+                },
+                "expectedDigest": {
+                    "description": "ExpectedDigest and CandidateDigest pin an upgrade; both or neither.",
+                    "type": "string"
+                },
+                "operationId": {
+                    "type": "string"
+                },
+                "sourceId": {
                     "type": "string"
                 },
                 "version": {
@@ -23721,6 +25705,68 @@
                 }
             }
         },
+        "localai.ClusterSettingsRequest": {
+            "type": "object",
+            "properties": {
+                "carrier_weights": {
+                    "description": "CarrierWeights sets some or all of nats, websocket and p2p, each a whole\nnumber from 0 to 1000. A key that is absent stays as it is, null puts the\ndefault back, and a key that is not one of the three is refused.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "nats_url": {
+                    "type": "string"
+                },
+                "nats_worker_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.ClusterSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "bus": {
+                    "description": "Bus is the broadcast bus of the frontend that answers, read from its own\nconnection: NATS while it reaches the NATS server, PostgreSQL otherwise.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/carrier.BusState"
+                        }
+                    ]
+                },
+                "carrier_weights": {
+                    "description": "CarrierWeights are the weights that break a tie between equally fit nodes\nreached over different carriers (nats, websocket, p2p). A weight that is not\nstored is the default, so these are always the values in force.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/cluster.CarrierWeights"
+                        }
+                    ]
+                },
+                "carrier_weights_default": {
+                    "description": "CarrierWeightsDefault are the weights that apply when none is stored.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/cluster.CarrierWeights"
+                        }
+                    ]
+                },
+                "nats_url": {
+                    "description": "NATSURL is the NATS address that the frontends use.",
+                    "type": "string"
+                },
+                "nats_worker_url": {
+                    "description": "NATSWorkerURL is the NATS address that workers are told to use. Empty means NATSURL.",
+                    "type": "string"
+                },
+                "replicas": {
+                    "description": "Replicas are the live frontend replicas.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.ReplicaView"
+                    }
+                }
+            }
+        },
         "localai.FailoverChainsResponse": {
             "type": "object",
             "properties": {
@@ -23737,6 +25783,56 @@
             "properties": {
                 "target": {
                     "type": "string"
+                }
+            }
+        },
+        "localai.FederationDrainRequest": {
+            "type": "object",
+            "properties": {
+                "drain": {
+                    "description": "Drain true stops new requests to the model; false starts them again.",
+                    "type": "boolean"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.FederationGroupRequest": {
+            "type": "object",
+            "properties": {
+                "members": {
+                    "description": "Members are the model names that serve the group: a model of this\nserver or an entry of a remote. At least two.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "description": "Name is the model name clients use for the group.",
+                    "type": "string"
+                },
+                "policy": {
+                    "description": "Policy is least_busy (default) or round_robin.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.FailoverPolicy"
+                        }
+                    ]
+                }
+            }
+        },
+        "localai.FederationGroupUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "policy": {
+                    "$ref": "#/definitions/config.FailoverPolicy"
                 }
             }
         },
@@ -24056,8 +26152,16 @@
         "localai.RemoteCreateRequest": {
             "type": "object",
             "properties": {
+                "allow_open_relay": {
+                    "description": "AllowOpenRelay accepts an invite that names an open relay.",
+                    "type": "boolean"
+                },
                 "api_key": {
                     "description": "write-only",
+                    "type": "string"
+                },
+                "invite": {
+                    "description": "Invite is an invite link of kind remote (localai://pair?...).\nWrite-only: it is a one-time credential.",
                     "type": "string"
                 },
                 "kind": {
@@ -24096,6 +26200,10 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "phrase": {
+                    "description": "Phrase is the confirmation phrase of a remote added by invite: the\nother server shows the same words in its device list.",
+                    "type": "string"
                 },
                 "remote": {
                     "$ref": "#/definitions/remotes.Remote"
@@ -24141,6 +26249,20 @@
                 }
             }
         },
+        "localai.ReplicaView": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "last_seen": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.SearchSourcesRequest": {
             "type": "object",
             "properties": {
@@ -24150,6 +26272,27 @@
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "localai.SetSplitServerRequest": {
+            "type": "object",
+            "properties": {
+                "split_server": {
+                    "description": "SplitServer declares the node a split server, or clears it.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "localai.SetSplitServerResponse": {
+            "type": "object",
+            "properties": {
+                "detached": {
+                    "description": "Detached is the number of split workers that were attached to the node\nand are now attached to no node.",
+                    "type": "integer"
+                },
+                "split_server": {
+                    "type": "boolean"
                 }
             }
         },
@@ -24742,6 +26885,183 @@
                 }
             }
         },
+        "modelupdates.FileChange": {
+            "type": "object",
+            "properties": {
+                "change": {
+                    "description": "Change is added, changed or removed.",
+                    "type": "string"
+                },
+                "checksum": {
+                    "description": "Checksum is false for a file the gallery lists without a sha256. The\nupgrade refuses to download weights without one.",
+                    "type": "boolean"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "modelupdates.Item": {
+            "type": "object",
+            "properties": {
+                "availableDigest": {
+                    "type": "string"
+                },
+                "changedFiles": {
+                    "description": "ChangedFiles are the files the update adds, replaces or retires.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelupdates.FileChange"
+                    }
+                },
+                "configOnly": {
+                    "description": "ConfigOnly is true when the update changes no file the upgrade must\ndownload: only the model config or the prompt templates.",
+                    "type": "boolean"
+                },
+                "editedKeys": {
+                    "description": "EditedKeys are the keys of the model config a person changed since the\ninstall, by dotted path. Conflict marks the ones the update also\nchanges.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelupdates.KeyEdit"
+                    }
+                },
+                "entryName": {
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error is the error behind a check-failed reason.",
+                    "type": "string"
+                },
+                "gallery": {
+                    "type": "string"
+                },
+                "held": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is \"model:\u003cname\u003e\".",
+                    "type": "string"
+                },
+                "installedDigest": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the installed model name.",
+                    "type": "string"
+                },
+                "needsPerson": {
+                    "description": "NeedsPerson is true for an update, an edited update and a failed\nupgrade. Models have no automatic update, so every update needs a\nperson; this is not the backend rule, where the automatic update\nremoves items from the digest.",
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "Reason says why the state is unknown.",
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "upgrade": {
+                    "description": "Upgrade is the last or the running upgrade of this model.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/modelupdates.UpgradeStatus"
+                        }
+                    ]
+                }
+            }
+        },
+        "modelupdates.KeyEdit": {
+            "type": "object",
+            "properties": {
+                "conflict": {
+                    "type": "boolean"
+                },
+                "gallery": {},
+                "installed": {
+                    "description": "Installed is the value the install wrote, Mine the value on disk, and\nGallery the value the update would write. A nil value means the key is\nabsent."
+                },
+                "key": {
+                    "type": "string"
+                },
+                "mine": {}
+            }
+        },
+        "modelupdates.Snapshot": {
+            "type": "object",
+            "properties": {
+                "checkedAt": {
+                    "description": "CheckedAt is the end of the last check; zero (omitted) before the\nfirst one.",
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/modelupdates.Item"
+                    }
+                },
+                "sources": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/backendupdates.Source"
+                    }
+                },
+                "throttled": {
+                    "description": "Throttled is set when a check-now call was answered from a check that\nended a few seconds before.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "modelupdates.UpgradeStatus": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "integer"
+                },
+                "configOnly": {
+                    "type": "boolean"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "fromDigest": {
+                    "type": "string"
+                },
+                "note": {
+                    "description": "Note says how the upgrade ran when that differs from what was asked\n(a canary strategy runs as stop and start until canary is available).",
+                    "type": "string"
+                },
+                "opId": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "removableOld": {
+                    "type": "boolean"
+                },
+                "retainedFiles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "running": {
+                    "type": "boolean"
+                },
+                "toDigest": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
         "nodes.NodeModel": {
             "type": "object",
             "properties": {
@@ -24800,6 +27120,758 @@
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "p2p.AddRelayRequest": {
+            "type": "object",
+            "properties": {
+                "addr": {
+                    "description": "Addr must end in /p2p/\u003crelay peer ID\u003e.",
+                    "type": "string"
+                },
+                "claim_code": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.ClaimRelayRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.ClientKey": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.DeviceList": {
+            "type": "object",
+            "properties": {
+                "devices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.DeviceView"
+                    }
+                }
+            }
+        },
+        "p2p.DeviceView": {
+            "type": "object",
+            "properties": {
+                "all_models": {
+                    "description": "AllModels is true for a remote device that may use every model.",
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_seen_at": {
+                    "type": "string"
+                },
+                "models": {
+                    "description": "Models are the models a remote device is limited to.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "online": {
+                    "description": "Online is true while the device is connected.",
+                    "type": "boolean"
+                },
+                "path": {
+                    "$ref": "#/definitions/p2p.PathView"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is active or revoked.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.InviteList": {
+            "type": "object",
+            "properties": {
+                "invites": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.InviteView"
+                    }
+                }
+            }
+        },
+        "p2p.InviteView": {
+            "type": "object",
+            "properties": {
+                "all_models": {
+                    "description": "AllModels is true for a remote invite that grants every model, also\nfor one made without a list.",
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "device_id": {
+                    "type": "string"
+                },
+                "device_peer_id": {
+                    "description": "DevicePeerID is the peer that redeemed a used invite.",
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "models": {
+                    "description": "Models are the models a remote invite is limited to. Device and worker\ninvites carry none.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "phrase": {
+                    "description": "Phrase is the confirmation phrase of a used invite: the words the\ndevice was shown when it redeemed. The admin compares them.",
+                    "type": "string"
+                },
+                "relay_pass": {
+                    "description": "RelayPass is the label of the relay that holds the pass of the invite;\nempty when the link carries no pass.",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is pending, used, expired or canceled.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.MintRequest": {
+            "type": "object",
+            "properties": {
+                "all_models": {
+                    "description": "AllModels grants a remote invite every model this server lets a client\nkey use, models added later too. It is refused with a non-empty models.",
+                    "type": "boolean"
+                },
+                "allow_open_relay": {
+                    "description": "AllowOpenRelay lets the invite name an open relay.",
+                    "type": "boolean"
+                },
+                "features": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "kind": {
+                    "description": "Kind is device, remote, worker or split.",
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "models": {
+                    "description": "Models limits a remote invite to these models. An empty list means\nevery model, as before all_models existed.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "relays": {
+                    "description": "Relays is \"auto\", \"none\" or a list of relay IDs.",
+                    "type": "string",
+                    "example": "auto"
+                },
+                "ttl_seconds": {
+                    "description": "TTLSeconds is the life of the invite: 600 when zero, at most 86400.",
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.MintResult": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "link": {
+                    "type": "string"
+                },
+                "qr": {
+                    "description": "QR says whether the interface may show the link as a QR code (device\nand remote invites only).",
+                    "type": "boolean"
+                },
+                "relay": {
+                    "$ref": "#/definitions/p2p.RelayPass"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "p2p.OKResponse": {
+            "type": "object",
+            "properties": {
+                "ok": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.PathView": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is none, direct, hole_punched or relayed.",
+                    "type": "string"
+                },
+                "limit_bytes": {
+                    "type": "integer"
+                },
+                "limit_seconds": {
+                    "type": "integer"
+                },
+                "limited": {
+                    "type": "boolean"
+                },
+                "relay_label": {
+                    "type": "string"
+                },
+                "rtt_ms": {
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.PublicDHTInfo": {
+            "type": "object",
+            "properties": {
+                "on": {
+                    "type": "boolean"
+                },
+                "peers": {
+                    "description": "Peers is the number of peers the host is connected to.",
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.RedeemRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "v": {
+                    "description": "V is the protocol version, 1.",
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.RedeemResult": {
+            "type": "object",
+            "properties": {
+                "client_key": {
+                    "description": "ClientKey is the API key of a remote invite; it is shown once.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/p2p.ClientKey"
+                        }
+                    ]
+                },
+                "device_id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "phrase": {
+                    "description": "Phrase is shown on both sides; the person compares them.",
+                    "type": "string"
+                },
+                "server": {
+                    "$ref": "#/definitions/p2p.ServerInfo"
+                }
+            }
+        },
+        "p2p.RegenerateIdentityRequest": {
+            "type": "object",
+            "properties": {
+                "confirm": {
+                    "description": "Confirm must be true: a new identity unpairs every device and remote.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.Relay": {
+            "type": "object",
+            "properties": {
+                "addr": {
+                    "description": "Addr is a multiaddr that ends in /p2p/\u003crelay peer ID\u003e.",
+                    "type": "string"
+                },
+                "admins": {
+                    "type": "integer"
+                },
+                "checked_at": {
+                    "type": "string"
+                },
+                "health": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "integer"
+                },
+                "limits": {
+                    "$ref": "#/definitions/p2p.RelayLimits"
+                },
+                "members": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "description": "Mode is gated, open, unclaimed or unknown.",
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is in_sync, out_of_sync, open, unclaimed, not_admin, denied,\nunreachable or checking.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.RelayCheck": {
+            "type": "object",
+            "properties": {
+                "admin_ok": {
+                    "type": "boolean"
+                },
+                "circuit_ok": {
+                    "type": "boolean"
+                },
+                "connected": {
+                    "type": "boolean"
+                },
+                "detail": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "in_sync": {
+                    "type": "boolean"
+                },
+                "relay": {
+                    "$ref": "#/definitions/p2p.Relay"
+                },
+                "reserved": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.RelayLimits": {
+            "type": "object",
+            "properties": {
+                "circuit_bytes": {
+                    "type": "integer"
+                },
+                "circuit_seconds": {
+                    "type": "integer"
+                },
+                "rate_bps": {
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.RelayLimitsInfo": {
+            "type": "object",
+            "properties": {
+                "can_change": {
+                    "description": "CanChange is true when this server is an admin of a gated relay and\nmay change the limits.",
+                    "type": "boolean"
+                },
+                "ceiling": {
+                    "description": "Ceiling is the most a change may set for each limit; the operator of\nthe relay sets it. Zero means no ceiling. With a ceiling a limit\ncannot be removed either: a value above it, or zero, is refused with\nan error that names the ceiling.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/p2p.RelayLimits"
+                        }
+                    ]
+                },
+                "limits": {
+                    "$ref": "#/definitions/p2p.RelayLimits"
+                },
+                "restarted": {
+                    "description": "Restarted is true when the relay restarted its circuit service to\napply the change: it dropped its reservations and the paired devices\nreserve again within moments. A change of the bandwidth limit alone\nnever restarts it.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.RelayList": {
+            "type": "object",
+            "properties": {
+                "relays": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.Relay"
+                    }
+                }
+            }
+        },
+        "p2p.RelayPass": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "open": {
+                    "type": "boolean"
+                },
+                "pass": {
+                    "description": "Pass is true when the link carries a relay pass.",
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "Reason is no_relay or relay_unreachable when there is no pass.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.RelayServiceInfo": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "description": "Reason says why it does not run: off, not_share, not_public.",
+                    "type": "string"
+                },
+                "running": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.RenameDeviceRequest": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.RevokeResult": {
+            "type": "object",
+            "properties": {
+                "revoked": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "p2p.ServerInfo": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.SetRelayLimitsRequest": {
+            "type": "object",
+            "properties": {
+                "circuit_bytes": {
+                    "description": "CircuitBytes is the data one circuit may carry in each direction.",
+                    "type": "integer"
+                },
+                "circuit_seconds": {
+                    "description": "CircuitSeconds is the time one circuit may stay open.",
+                    "type": "integer"
+                },
+                "rate_bps": {
+                    "description": "RateBPS is the bandwidth of one circuit in each direction, in bytes\nper second.",
+                    "type": "integer"
+                }
+            }
+        },
+        "p2p.SplitNodeRelay": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "relays": {
+                    "description": "Relays is the state on each gated relay that this server administers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.SplitRelayAdmission"
+                    }
+                },
+                "state": {
+                    "description": "State is admitted, refused, pending or not_needed.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.SplitRelayAdmission": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "relay_id": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is admitted, refused or pending.",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.SplitWorkerList": {
+            "type": "object",
+            "properties": {
+                "distributed": {
+                    "description": "Distributed is true in a cluster: models run on the backend nodes, so\na worker is used only when it is attached to one (node_id).",
+                    "type": "boolean"
+                },
+                "memory_in_use": {
+                    "description": "MemoryInUse is the memory of the workers in use, in bytes.",
+                    "type": "integer"
+                },
+                "workers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/p2p.SplitWorkerView"
+                    }
+                }
+            }
+        },
+        "p2p.SplitWorkerUpdate": {
+            "type": "object",
+            "properties": {
+                "allow_slow_path": {
+                    "description": "AllowSlowPath uses the worker over a relayed path (\"Use anyway\"), or\nstops using it there.",
+                    "type": "boolean"
+                },
+                "node_id": {
+                    "description": "NodeID attaches the worker to a backend node of the cluster, or to\nthis server with \"\".",
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.SplitWorkerView": {
+            "type": "object",
+            "properties": {
+                "addr": {
+                    "description": "Addr is the loopback address that reaches the worker, on this server\nor on the node of NodeID: an entry of LLAMACPP_GRPC_SERVERS, or of the\nMLX hostfile.",
+                    "type": "string"
+                },
+                "allow_slow_path": {
+                    "description": "AllowSlowPath is the \"Use anyway\" choice for a relayed path.",
+                    "type": "boolean"
+                },
+                "connected_since": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "engine": {
+                    "description": "Engine is llama (llama.cpp RPC) or mlx.",
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error says why a refused worker was refused.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_seen_at": {
+                    "type": "string"
+                },
+                "memory_bytes": {
+                    "description": "MemoryBytes is the memory the worker reported: its VRAM, or its RAM\nwhen it has no GPU (unified memory on Apple Silicon).",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "Name and Version are what the worker reported.",
+                    "type": "string"
+                },
+                "node_id": {
+                    "description": "NodeID is the backend node the worker is attached to; empty means\nthis server. NodeName is its name. The state, path and address of an\nattached worker are what the node last reported.",
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "node_note": {
+                    "description": "NodeNote says why a worker attached to no node was detached, for\nexample because its node stopped being a split server.",
+                    "type": "string"
+                },
+                "node_offline": {
+                    "description": "NodeOffline is true when the node of NodeID is offline: the worker\nstays attached and waits for it; nothing moves it.",
+                    "type": "boolean"
+                },
+                "node_relay": {
+                    "description": "NodeRelay says whether the gated relays of this server admit the node\nof NodeID, so that the worker can reach it through them when no direct\nor hole-punched path works. Set only for a worker attached to a node.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/p2p.SplitNodeRelay"
+                        }
+                    ]
+                },
+                "own_relay": {
+                    "description": "OwnRelay is true when that relay is a gated relay this server\nadministers: its limits can change. With a data or time limit the\nrelay ends each connection at the limit, also after allow_slow_path.",
+                    "type": "boolean"
+                },
+                "path": {
+                    "$ref": "#/definitions/p2p.PathView"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "rank": {
+                    "description": "Rank is the MLX rank of the worker; zero when not in the ring.",
+                    "type": "integer"
+                },
+                "relay_id": {
+                    "description": "RelayID is the server's ID of the relay of a relayed path, when the\nrelay is one the server knows (see /api/p2p/relays/{id}/limits).",
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is online (in use), offline, slow (only a relay reaches it: it\nwaits for allow_slow_path), limited (only a public relay reaches it,\nwhose limits cannot carry model layers) or refused.",
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "p2p.Status": {
+            "type": "object",
+            "properties": {
+                "addrs": {
+                    "description": "Addrs are the addresses of the host, each with /p2p/\u003cpeer ID\u003e.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "devices": {
+                    "description": "Devices is the number of active paired devices.",
+                    "type": "integer"
+                },
+                "enabled": {
+                    "description": "Enabled is true when the mode is not off.",
+                    "type": "boolean"
+                },
+                "error": {
+                    "description": "Error says why the host does not run although the mode asks for it.",
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "Mode is the mode in effect: off, connect or share.",
+                    "type": "string"
+                },
+                "peer_id": {
+                    "description": "PeerID is the peer ID of this server; empty when the host does not run.",
+                    "type": "string"
+                },
+                "pending_invites": {
+                    "description": "PendingInvites is the number of invites that can still be redeemed.",
+                    "type": "integer"
+                },
+                "public_dht": {
+                    "$ref": "#/definitions/p2p.PublicDHTInfo"
+                },
+                "reachability": {
+                    "description": "Reachability is unknown, public or private.",
+                    "type": "string"
+                },
+                "relay_service": {
+                    "description": "RelayService says whether this server relays for its paired devices.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/p2p.RelayServiceInfo"
+                        }
+                    ]
+                },
+                "reservations": {
+                    "description": "Reservations are the peer IDs of the relays that hold a reservation for\nthis server.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "running": {
+                    "description": "Running is true when the host runs.",
+                    "type": "boolean"
                 }
             }
         },
@@ -25192,6 +28264,135 @@
                 }
             }
         },
+        "remotes.FederationView": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.Group"
+                    }
+                },
+                "instances": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.Instance"
+                    }
+                }
+            }
+        },
+        "remotes.Group": {
+            "type": "object",
+            "properties": {
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.GroupMember"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "policy": {
+                    "$ref": "#/definitions/config.FailoverPolicy"
+                },
+                "state": {
+                    "description": "State is the state of the chain: primary, fallback or degraded. Empty\nwhen the failover manager does not know it yet.",
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.GroupMember": {
+            "type": "object",
+            "properties": {
+                "constrained": {
+                    "description": "Constrained is true when the target is reached through a relay that\nlimits the connection: it takes a request only when no other can.",
+                    "type": "boolean"
+                },
+                "drained": {
+                    "type": "boolean"
+                },
+                "in_flight": {
+                    "description": "InFlight counts the requests of this server that the target serves.",
+                    "type": "integer"
+                },
+                "instance": {
+                    "description": "Instance is the id of the instance that serves the model: LocalInstance,\na remote id, or empty for a model of another proxy.",
+                    "type": "string"
+                },
+                "instance_name": {
+                    "type": "string"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is the health of the target: healthy, down, recovering or\nmissing. Empty when the failover manager does not know it yet.",
+                    "type": "string"
+                },
+                "upstream_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.Instance": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is LocalInstance or the id of the remote.",
+                    "type": "string"
+                },
+                "in_flight": {
+                    "description": "InFlight counts the requests of this server that the instance serves\nnow through a group.",
+                    "type": "integer"
+                },
+                "local": {
+                    "type": "boolean"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/remotes.InstanceModel"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "p2p": {
+                    "description": "P2P is the tunnel of a remote over P2P.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.P2PInfo"
+                        }
+                    ]
+                },
+                "status": {
+                    "$ref": "#/definitions/remotes.Status"
+                },
+                "transport": {
+                    "$ref": "#/definitions/remotes.Transport"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "remotes.InstanceModel": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "description": "Model is the name of the model config on this server.",
+                    "type": "string"
+                },
+                "upstream_id": {
+                    "description": "UpstreamID is the model id at the instance. For this server it is\nthe model name.",
+                    "type": "string"
+                }
+            }
+        },
         "remotes.Kind": {
             "type": "string",
             "enum": [
@@ -25204,6 +28405,38 @@
                 "KindOpenAI",
                 "KindAnthropic"
             ]
+        },
+        "remotes.P2PInfo": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error is the last dial or listen error, for a person to read.",
+                    "type": "string"
+                },
+                "limited": {
+                    "description": "Limited is true when the relay of a relayed path limits the data or\nthe time of the connection.",
+                    "type": "boolean"
+                },
+                "local_port": {
+                    "description": "LocalPort is the loopback port of the forwarder. The entries of the\nremote use http://127.0.0.1:\u003cLocalPort\u003e as their upstream address.",
+                    "type": "integer"
+                },
+                "path": {
+                    "description": "Path is how the last request reached the server: direct,\nhole_punched or relayed. Empty before the first request.",
+                    "type": "string"
+                },
+                "peer_id": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is off (P2P is off on this server), listening (no request went\nthrough yet), up, down or error (the port could not be opened).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.TunnelState"
+                        }
+                    ]
+                }
+            }
         },
         "remotes.Remote": {
             "type": "object",
@@ -25240,8 +28473,24 @@
                         "$ref": "#/definitions/remotes.UpstreamModel"
                     }
                 },
+                "p2p": {
+                    "description": "P2P is the tunnel of a remote over P2P. It is the state of this\nserver's forwarder, not of the shared store.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.P2PInfo"
+                        }
+                    ]
+                },
                 "status": {
                     "$ref": "#/definitions/remotes.Status"
+                },
+                "transport": {
+                    "description": "Transport is \"p2p\" for a remote over P2P and absent otherwise.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/remotes.Transport"
+                        }
+                    ]
                 },
                 "unavailable": {
                     "description": "subset of Entries the upstream no longer lists",
@@ -25302,6 +28551,32 @@
                     "type": "string"
                 }
             }
+        },
+        "remotes.Transport": {
+            "type": "string",
+            "enum": [
+                "p2p"
+            ],
+            "x-enum-varnames": [
+                "TransportP2P"
+            ]
+        },
+        "remotes.TunnelState": {
+            "type": "string",
+            "enum": [
+                "off",
+                "listening",
+                "up",
+                "down",
+                "error"
+            ],
+            "x-enum-varnames": [
+                "TunnelOff",
+                "TunnelListening",
+                "TunnelUp",
+                "TunnelDown",
+                "TunnelError"
+            ]
         },
         "remotes.UpstreamModel": {
             "type": "object",
@@ -33078,6 +36353,26 @@
                 "channel_label": {
                     "type": "string"
                 },
+                "channel_ref": {
+                    "description": "ChannelRef and ChatRef are the channel ID (target channel) or the chat\n(target origin), shortened: never a whole ID.",
+                    "type": "string"
+                },
+                "chat_ref": {
+                    "type": "string"
+                },
+                "connection_addon": {
+                    "type": "string"
+                },
+                "connection_id": {
+                    "description": "ConnectionID, ConnectionKind, ConnectionKindTitle and ConnectionAddon\nsay which connection the channel or chat belongs to and which service it\nis. ConnectionID is empty when the connection is gone.",
+                    "type": "string"
+                },
+                "connection_kind": {
+                    "type": "string"
+                },
+                "connection_kind_title": {
+                    "type": "string"
+                },
                 "connection_name": {
                     "description": "ConnectionName is the name the owner gave the connection of the channel,\nfor a trigger that was proposed in Studio and reports there.",
                     "type": "string"
@@ -33087,6 +36382,10 @@
                 },
                 "mode": {
                     "description": "Mode is when a run reports: always (the default), on_change (only when\nthe answer differs from the run before) or on_problem (only when a run\nfails).",
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State says whether the destination can receive a report now: ok, off\n(the connection is switched off), gone (deleted), unavailable (its\nadd-on does not run or it cannot receive reports), no_channel (the\nchannel is not listed and approved any more) or blocked (the owner does\nnot let the connection write there). Empty for the inbox.",
                     "type": "string"
                 },
                 "target": {
@@ -35359,7 +38658,7 @@
                     "type": "string"
                 },
                 "installed": {
-                    "description": "Installed is true when the backend is currently present on disk — i.e. it\nappears in gallery.ListSystemBackends(systemState). Importer-registered or\ncurated pref-only backends default to false unless they also show up on\ndisk. The import form uses this to warn users that submitting an import\nmay trigger an automatic backend download.",
+                    "description": "Installed is true when the backend is currently present on disk — i.e. it\nappears in gallery.ListSystemBackends(systemState) — or, in distributed\nmode, on any worker node. Importer-registered or curated pref-only\nbackends default to false unless they are installed somewhere. The import\nform uses this to warn users that submitting an import may trigger an\nautomatic backend download.",
                     "type": "boolean"
                 },
                 "modality": {
@@ -35519,6 +38818,37 @@
                 }
             }
         },
+        "schema.ModelAdoptRequest": {
+            "type": "object",
+            "properties": {
+                "entry": {
+                    "description": "Entry names the gallery entry, when it differs from the model's name.",
+                    "type": "string"
+                },
+                "gallery": {
+                    "description": "Gallery names the gallery the model came from.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelAdoptResponse": {
+            "type": "object",
+            "properties": {
+                "entry": {
+                    "type": "string"
+                },
+                "filesMatch": {
+                    "description": "FilesMatch is true when the model has the files the entry lists now;\nfalse means the next check offers an update.",
+                    "type": "boolean"
+                },
+                "gallery": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ModelCapabilities": {
             "type": "object",
             "properties": {
@@ -35578,6 +38908,25 @@
                     }
                 },
                 "object": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelHoldRequest": {
+            "type": "object",
+            "properties": {
+                "hold": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ModelHoldResponse": {
+            "type": "object",
+            "properties": {
+                "hold": {
+                    "type": "boolean"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -35694,6 +39043,88 @@
                 }
             }
         },
+        "schema.ModelRemoveOldResponse": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "description": "Errors say why files stayed. Set when only some files could be removed.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "kept": {
+                    "description": "Kept are the old files that stayed, listed for a later removal. Set\nwhen only some files could be removed.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "removed": {
+                    "description": "Removed are the old files that were deleted, relative to the models\ndirectory.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ModelUpgradeError": {
+            "type": "object",
+            "properties": {
+                "candidates": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "error": {
+                    "type": "string"
+                },
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ModelUpgradeRequest": {
+            "type": "object",
+            "properties": {
+                "choices": {
+                    "description": "Choices give, for each key a person edited that the update also\nchanges (the conflicts of GET /api/models/updates), \"mine\" to keep the\nedit or \"gallery\" to take the new value, by dotted key. The upgrade is\nrefused while a conflict has no choice.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "config_only": {
+                    "description": "ConfigOnly applies the new model config and prompt templates and\ndownloads nothing. It fails when the update needs new files.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ModelUpgradeResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "jobID": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status_url": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ModelsDataResponse": {
             "type": "object",
             "properties": {
@@ -35785,26 +39216,6 @@
                 },
                 "url": {
                     "description": "URL to fetch from",
-                    "type": "string"
-                }
-            }
-        },
-        "schema.NodeData": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "lastSeen": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "serviceID": {
-                    "type": "string"
-                },
-                "tunnelAddress": {
                     "type": "string"
                 }
             }
@@ -36677,29 +40088,6 @@
                 }
             }
         },
-        "schema.P2PNodesResponse": {
-            "type": "object",
-            "properties": {
-                "federated_nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.NodeData"
-                    }
-                },
-                "llama_cpp_nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.NodeData"
-                    }
-                },
-                "mlx_nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.NodeData"
-                    }
-                }
-            }
-        },
         "schema.PIIAnalyzeRequest": {
             "type": "object",
             "properties": {
@@ -37277,6 +40665,17 @@
                     "type": "string"
                 },
                 "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.RemovedRouteResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "replacement": {
                     "type": "string"
                 }
             }

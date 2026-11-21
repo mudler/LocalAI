@@ -55,6 +55,26 @@ var _ = Describe("GalleryService.CancelOperation persistence", func() {
 			"a cancelled op must not hydrate back as active after a restart")
 	})
 
+	It("refuses a cancel or a pause that the running status does not allow", func() {
+		svc := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		var cancelled, paused bool
+		svc.StoreCancellationActions("op-stopped", func() { cancelled = true }, func() { paused = true })
+		svc.UpdateStatus("op-stopped", &galleryop.OpStatus{Phase: "unloading", Message: "stopping the model", Cancellable: false})
+
+		Expect(svc.CancelOperation("op-stopped")).To(MatchError(galleryop.ErrNotCancellable))
+		Expect(svc.PauseOperation("op-stopped")).To(MatchError(galleryop.ErrNotCancellable))
+		Expect(cancelled).To(BeFalse())
+		Expect(paused).To(BeFalse())
+		status := svc.GetStatus("op-stopped")
+		Expect(status.Cancelled).To(BeFalse())
+		Expect(status.Processed).To(BeFalse(), "the operation still runs")
+
+		By("allowing it again while the status says so")
+		svc.UpdateStatus("op-stopped", &galleryop.OpStatus{Phase: "staging", Cancellable: true})
+		Expect(svc.CancelOperation("op-stopped")).To(Succeed())
+		Expect(cancelled).To(BeTrue())
+	})
+
 	It("pauses with the resume-safe callback instead of the destructive cancel callback", func() {
 		svc := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
 		var cancelled, paused bool

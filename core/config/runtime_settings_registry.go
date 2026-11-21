@@ -273,6 +273,12 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig, v int) {
 			o.SetMaxConcurrentBackendOperations(v)
 		}),
+	field("max_concurrent_model_operations",
+		func(s *RuntimeSettings) **int { return &s.MaxConcurrentModelOperations },
+		func(o *ApplicationConfig) int { return o.MaxConcurrentModelOperations },
+		func(o *ApplicationConfig, v int) {
+			o.SetMaxConcurrentModelOperations(v)
+		}),
 	// VRAM budget: the cap string ("80%"/"12GB"/"" = uncapped). The live
 	// side effect (xsysinfo.SetDefaultVRAMBudget) is post-processing in the
 	// apply loop, not here - the row only owns the config member, matching
@@ -328,19 +334,82 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) string { return o.CORSAllowOrigins },
 		func(o *ApplicationConfig, v string) { o.CORSAllowOrigins = v }),
 
-	// P2P.
-	field("p2p_token",
-		func(s *RuntimeSettings) **string { return &s.P2PToken },
-		func(o *ApplicationConfig) string { return o.P2PToken },
-		func(o *ApplicationConfig, v string) { o.P2PToken = v }),
-	field("p2p_network_id",
-		func(s *RuntimeSettings) **string { return &s.P2PNetworkID },
-		func(o *ApplicationConfig) string { return o.P2PNetworkID },
-		func(o *ApplicationConfig, v string) { o.P2PNetworkID = v }),
-	field("federated",
-		func(s *RuntimeSettings) **bool { return &s.Federated },
-		func(o *ApplicationConfig) bool { return o.Federated },
-		func(o *ApplicationConfig, v bool) { o.Federated = v }),
+	// The P2P layer. Values are checked by the settings endpoint before they
+	// are stored; a bad value in the file is refused here.
+	withApply(field("p2p_mode",
+		func(s *RuntimeSettings) **string { return &s.P2PMode },
+		func(o *ApplicationConfig) string { return string(o.P2P.EffectiveMode()) },
+		func(o *ApplicationConfig, v string) { o.P2P.Mode = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if err := ValidateP2PMode(*s.P2PMode); err != nil {
+				xlog.Warn("invalid p2p_mode in runtime settings", "error", err)
+				return false
+			}
+			o.P2P.Mode = strings.ToLower(strings.TrimSpace(*s.P2PMode))
+			return true
+		}),
+	field("p2p_public_dht",
+		func(s *RuntimeSettings) **bool { return &s.P2PPublicDHT },
+		func(o *ApplicationConfig) bool { return !o.P2P.DisablePublicDHT },
+		func(o *ApplicationConfig, v bool) { o.P2P.DisablePublicDHT = !v }),
+	withApply(fieldEq("p2p_bootstrap_peers",
+		func(s *RuntimeSettings) **[]string { return &s.P2PBootstrapPeers },
+		func(o *ApplicationConfig) []string { return slices.Clone(o.P2P.BootstrapPeers) },
+		func(o *ApplicationConfig, v []string) { o.P2P.BootstrapPeers = slices.Clone(v) },
+		slices.Equal[[]string]),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if err := ValidateP2PPeerAddrs(*s.P2PBootstrapPeers); err != nil {
+				xlog.Warn("invalid p2p_bootstrap_peers in runtime settings", "error", err)
+				return false
+			}
+			o.P2P.BootstrapPeers = slices.Clone(*s.P2PBootstrapPeers)
+			return true
+		}),
+	withApply(fieldEq("p2p_relays",
+		func(s *RuntimeSettings) **[]P2PRelay { return &s.P2PRelays },
+		func(o *ApplicationConfig) []P2PRelay { return slices.Clone(o.P2P.Relays) },
+		func(o *ApplicationConfig, v []P2PRelay) { o.P2P.Relays = slices.Clone(v) },
+		P2PRelaysEqual),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if err := ValidateP2PRelays(*s.P2PRelays); err != nil {
+				xlog.Warn("invalid p2p_relays in runtime settings", "error", err)
+				return false
+			}
+			o.P2P.Relays = slices.Clone(*s.P2PRelays)
+			return true
+		}),
+	field("p2p_relay_paired",
+		func(s *RuntimeSettings) **bool { return &s.P2PRelayPaired },
+		func(o *ApplicationConfig) bool { return !o.P2P.NoRelayPaired },
+		func(o *ApplicationConfig, v bool) { o.P2P.NoRelayPaired = !v }),
+	withApply(field("p2p_relay_mode",
+		func(s *RuntimeSettings) **string { return &s.P2PRelayMode },
+		func(o *ApplicationConfig) string { return string(o.P2P.EffectiveRelayMode()) },
+		func(o *ApplicationConfig, v string) { o.P2P.RelayMode = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if err := ValidateP2PRelayMode(*s.P2PRelayMode); err != nil {
+				xlog.Warn("invalid p2p_relay_mode in runtime settings", "error", err)
+				return false
+			}
+			o.P2P.RelayMode = strings.ToLower(strings.TrimSpace(*s.P2PRelayMode))
+			return true
+		}),
+	withApply(field("p2p_relay_rate_limit",
+		func(s *RuntimeSettings) **int64 { return &s.P2PRelayRateLimit },
+		func(o *ApplicationConfig) int64 { return o.P2P.RelayRateLimit },
+		func(o *ApplicationConfig, v int64) { o.P2P.RelayRateLimit = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if *s.P2PRelayRateLimit < 0 {
+				xlog.Warn("invalid p2p_relay_rate_limit in runtime settings", "value", *s.P2PRelayRateLimit)
+				return false
+			}
+			o.P2P.RelayRateLimit = *s.P2PRelayRateLimit
+			return true
+		}),
+	field("p2p_mdns",
+		func(s *RuntimeSettings) **bool { return &s.P2PMDNS },
+		func(o *ApplicationConfig) bool { return !o.P2P.DisableMDNS },
+		func(o *ApplicationConfig, v bool) { o.P2P.DisableMDNS = !v }),
 
 	// Galleries. Gallery holds a Mirrors slice, so it is not comparable with
 	// == and slices.Equal does not apply; GalleriesEqual walks the list

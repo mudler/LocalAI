@@ -46,11 +46,13 @@ type LibraryList struct {
 }
 
 type LibraryAdd struct {
-	URL    string `arg:"" name:"url" help:"URL of the library index"`
-	Kind   string `required:"" enum:"addon,backend,model" help:"What the source provides: addon, backend or model"`
-	ID     string `help:"Source id: lowercase letters, digits and dashes. Default: derived from the name or URL"`
-	Name   string `help:"Display name. Default: the id"`
-	Format string `default:"library" enum:"library,gallery" help:"library: an index in the shared library entry shape. gallery: a model or backend gallery index, as --galleries names"`
+	URL      string `arg:"" name:"url" help:"URL of the library index"`
+	Kind     string `required:"" enum:"addon,backend,model" help:"What the source provides: addon, backend or model"`
+	ID       string `help:"Source id: lowercase letters, digits and dashes. Default: derived from the name or URL"`
+	Name     string `help:"Display name. Default: the id"`
+	Format   string `default:"library" enum:"library,gallery" help:"library: an index in the shared library entry shape. gallery: a model or backend gallery index, as --galleries names"`
+	Issuer   string `help:"Signer issuer an oci:// add-on library must be signed by. Set together with --identity"`
+	Identity string `help:"Exact signer identity an oci:// add-on library must be signed by. Set together with --issuer"`
 
 	LibraryFlags `embed:""`
 }
@@ -108,10 +110,10 @@ func (c *LibraryAdd) Run(_ *cliContext.Context) error {
 	if c.Format == "gallery" {
 		format = catalog.FormatGallery
 	}
-	src, err := library.Add(store, catalog.Kind(c.Kind), c.URL, c.ID, c.Name, format)
+	src, err := library.AddWithPolicy(store, catalog.Kind(c.Kind), c.URL, c.ID, c.Name, format, nil, catalog.VerificationPolicy{Issuer: c.Issuer, Identity: c.Identity})
 	if err != nil {
 		if errors.Is(err, catalog.ErrInvalid) {
-			return fmt.Errorf("cannot add %q as a %s source: the id must be lowercase letters, digits and dashes and start with a letter, and a library index URL must be http or https (use --format=gallery for a gallery index)", c.URL, c.Kind)
+			return fmt.Errorf("cannot add %q as a %s source: the id must be lowercase letters, digits and dashes and start with a letter, and the address must be an http or https index URL (use --format=gallery for a gallery index) or, for an add-on library, an oci://registry/repository:tag or @sha256 reference with no credentials in it", c.URL, c.Kind)
 		}
 		return err
 	}

@@ -58,7 +58,7 @@ LocalAI also permits the requests needed for health checks, credential acquisiti
 - GitHub OAuth: `GET /api/auth/github/login` and `GET /api/auth/github/callback`.
 - OIDC: `GET /api/auth/oidc/login` and `GET /api/auth/oidc/callback`.
 - CORS preflight requests: `OPTIONS` on every path. A cross-origin preflight cannot carry credentials by HTTP spec, so these requests are never gated on auth; the CORS middleware answers them, which grants no API access.
-- SPA shell routes: `GET /`, `HEAD /`, and `GET` requests at `/app`, `/browse`, `/login`, `/invite/*`, and `/explorer`. Subpaths under `/app/` and `/browse/` are also available through `GET`.
+- SPA shell routes: `GET /`, `HEAD /`, and `GET` requests at `/app`, `/browse`, `/login`, and `/invite/*`. Subpaths under `/app/` and `/browse/` are also available through `GET`.
 - SPA assets: `GET /favicon.svg` and `GET` requests under `/assets/`, `/locales/`, and `/static/`.
 - Branding reads: `GET /api/branding` and `GET` requests under `/branding/asset/`. Branding mutations still require admin credentials.
 
@@ -282,6 +282,8 @@ curl http://localhost:8080/api/auth/admin/invites \
 curl -X DELETE http://localhost:8080/api/auth/admin/invites/<invite-id> \
   -H "Authorization: Bearer <admin-key>"
 ```
+
+An invite records the account that created it, so creating one needs an admin account's session or API key. A legacy `LOCALAI_API_KEY` has no account and gets `403`; it can still list and revoke invites.
 
 Share the invite URL (`/invite/<code>`) with the user. The link is shown once, when you create it: the invite list keeps only the first characters of the code, so a link you did not copy can only be revoked and made again. When the user opens it, the registration form is pre-filled with the invite code. LocalAI validates the code only when the user submits registration. Invite codes are single-use - once consumed, they cannot be reused. Expired or used invites are rejected.
 

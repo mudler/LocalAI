@@ -91,54 +91,26 @@ test.describe('Add a node', () => {
     await page.goto('/app/nodes/add')
     await expect(page.getByRole('heading', { name: 'Turn on distributed mode first' })).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('command-block').first()).toContainText('local-ai run --distributed')
-    await expect(page.getByTestId('command-block').first()).toContainText('--distributed-nats')
+    await expect(page.getByTestId('command-block').first()).not.toContainText('--distributed-nats')
     await expect(page.getByRole('link', { name: 'distributed mode documentation' })).toHaveAttribute('href', 'https://localai.io/features/distributed-mode/')
     await expect(page.getByRole('heading', { name: 'Run this on the new machine' })).toBeVisible()
   })
 
-  test.describe('over P2P', () => {
-    const p2p = { token: 'net-token-1', stats: { federated: { online: 1, total: 1 }, llama_cpp_workers: { online: 0, total: 0 }, mlx_workers: { online: 0, total: 0 } } }
+  test('a model-split worker pairs with an invite and has no network token', async ({ page }) => {
+    await mockSwarm(page)
+    await page.goto('/app/nodes/add?join=shard')
+    await expect(page.getByRole('radio', { name: 'Model-split worker' })).toHaveAttribute('aria-checked', 'true', { timeout: 15_000 })
+    await expect(page.getByText('p2p-worker p2p-llama-cpp-rpc')).toHaveCount(0)
+    await expect(page.getByText(/TOKEN=/)).toHaveCount(0)
+  })
 
-    test('a peer instance joins with the network token', async ({ page }) => {
-      await mockSwarm(page, { p2p })
-      await page.goto('/app/nodes/add?join=peer')
-      await expect(page.getByRole('radio', { name: 'Peer instance' })).toHaveAttribute('aria-checked', 'true', { timeout: 15_000 })
-      await expect(command(page)).toContainText('-e TOKEN="net-token-1"')
-      await expect(command(page)).toContainText('run --federated --p2p')
-      await expect(page.getByText('1 peers online')).toBeVisible()
-    })
-
-    test('a memory shard offers llama.cpp RPC and MLX', async ({ page }) => {
-      await mockSwarm(page, { p2p })
-      await page.goto('/app/nodes/add?join=shard')
-      await expect(command(page)).toContainText('p2p-worker p2p-llama-cpp-rpc', { timeout: 15_000 })
-      await page.getByRole('radio', { name: 'MLX (Apple Silicon)' }).click()
-      await expect(command(page)).toContainText('p2p-worker p2p-mlx')
-      await expect(command(page)).toContainText('latest-metal-darwin-arm64')
-      // MLX runs on a Mac: GPU build targets do not apply.
-      await expect(page.getByRole('radio', { name: 'CUDA 12', exact: true })).toHaveCount(0)
-    })
-
-    test('says to turn P2P on first when it is off', async ({ page }) => {
-      await mockSwarm(page)
-      await page.goto('/app/nodes/add?join=peer')
-      await expect(page.getByRole('heading', { name: 'Turn on P2P first' })).toBeVisible({ timeout: 15_000 })
-      await expect(page.getByTestId('command-block').first()).toContainText('run --p2p')
-      await expect(page.getByTestId('command-block').last()).toContainText('your-token-here')
-    })
-
-    test('shows a new peer when the online count goes up', async ({ page }) => {
-      let calls = 0
-      await mockSwarm(page)
-      await page.route('**/api/p2p/token', route => route.fulfill({ status: 200, contentType: 'text/plain', body: 'net-token-1' }))
-      await page.route('**/api/p2p/stats', route => {
-        calls += 1
-        const online = calls < 3 ? 1 : 2
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ federated: { online, total: 2 }, llama_cpp_workers: { online: 0, total: 0 }, mlx_workers: { online: 0, total: 0 } }) })
-      })
-      await page.goto('/app/nodes/add?join=peer')
-      await expect(page.getByTestId('found-peer')).toContainText('A new peer joined: 2 online', { timeout: 20_000 })
-    })
+  test('another LocalAI instance is not a node: the page points to Federation', async ({ page }) => {
+    await mockSwarm(page)
+    await page.goto('/app/nodes/add')
+    await expect(page.getByRole('radio', { name: 'Peer instance' })).toHaveCount(0, { timeout: 15_000 })
+    await expect(page.getByRole('radio', { name: 'Model-split worker' })).toBeVisible()
+    await expect(page.getByTestId('add-node').getByRole('link', { name: 'Federation' })).toHaveAttribute('href', '/app/p2p/federation')
+    await expect(page.getByText('run --federated')).toHaveCount(0)
   })
 
   test('first run of a cluster carries the same steps in place', async ({ page }) => {
@@ -161,7 +133,7 @@ test.describe('Add a node', () => {
     const copy = await page.getByRole('button', { name: 'Copy command' }).last().boundingBox()
     expect(copy.x + copy.width).toBeLessThanOrEqual(390)
     // The method switch scrolls too; none of its choices is cut off for good.
-    await page.getByRole('radio', { name: 'Memory shard' }).scrollIntoViewIfNeeded()
-    await expect(page.getByRole('radio', { name: 'Memory shard' })).toBeInViewport()
+    await page.getByRole('radio', { name: 'Model-split worker' }).scrollIntoViewIfNeeded()
+    await expect(page.getByRole('radio', { name: 'Model-split worker' })).toBeInViewport()
   })
 })

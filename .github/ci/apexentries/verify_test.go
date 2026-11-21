@@ -124,6 +124,39 @@ var _ = Describe("Verify", func() {
 `))).To(ContainElement(ContainSubstring("not tagged mtp")))
 	})
 
+	// DSpark is DFlash-family (llama.cpp docs/speculative.md), so an entry that
+	// runs a DSpark drafter is a dflash build.
+	It("accepts a draft-dspark entry tagged dflash", func() {
+		Expect(Verify(write(`
+- name: dspark-honest
+  tags:
+    - dflash
+  overrides:
+    backend: llama-cpp
+    options:
+      - spec_type:draft-dspark
+      - spec_n_max:3
+  files:
+    - filename: a.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+`))).To(BeEmpty())
+	})
+
+	It("reports a draft-dspark entry without the dflash tag", func() {
+		Expect(Verify(write(`
+- name: dspark-shy
+  overrides:
+    backend: llama-cpp
+    options:
+      - spec_type:draft-dspark
+  files:
+    - filename: a.gguf
+      sha256: aa
+      uri: https://example.com/a.gguf
+`))).To(ContainElement(ContainSubstring("not tagged dflash")))
+	})
+
 	// ds4 carries the MTP heads in the weights and names them with mtp_path, so
 	// the rule holds there in a different vocabulary rather than not at all.
 	It("reports a ds4 entry configuring mtp_path without the tag", func() {

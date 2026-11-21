@@ -119,7 +119,13 @@ func (m *Manager) HostAccessInstalled(ctx context.Context) ([]HostAccessInstalle
 type HostAccessRelease struct {
 	AddonID, Title, Version, Digest string
 	Official, Installed             bool
-	Required, Optional              []string
+	// Signer is who signed the package, for a source that is not official.
+	Signer             string
+	Required, Optional []string
+	// FromIndex says the answer comes from the host operations the library
+	// index lists, with no download. Unpinned says the index gives no digest
+	// (a mutable entry), so Digest is empty. See HostApproval.FromIndex.
+	FromIndex, Unpinned bool
 }
 
 // previewKeep is how long the verified answer for one release is reused. The
@@ -175,7 +181,11 @@ func (m *Manager) PreviewRelease(ctx context.Context, sourceID, addonID, version
 		return HostAccessRelease{}, e
 	}
 	var out HostAccessRelease
-	if r.Mutable || r.Digest == "" {
+	if hint, ok := indexHint(r); ok {
+		// The index lists what the package requests: no download. The
+		// install checks the verified manifest against this answer.
+		out = hint
+	} else if r.Mutable || r.Digest == "" {
 		// A moving tag names no fixed bytes: always read it.
 		out, e = m.stagePreview(ctx, r)
 	} else {
@@ -264,12 +274,36 @@ func (c *previewCache) prune() {
 	}
 }
 
+// indexHint is the answer of a release whose index entry lists the host
+// operations of its package. It is a hint: approvalMatches holds the install
+// to it. A release without the field, or with a digest missing on an entry
+// that is not mutable, has none and is staged instead.
+func indexHint(r catalog.Release) (HostAccessRelease, bool) {
+	if r.HostOperations == nil || (r.Digest == "" && !r.Mutable) {
+		return HostAccessRelease{}, false
+	}
+	out := HostAccessRelease{AddonID: r.ID, Title: r.ID, Version: r.Version, FromIndex: true,
+		Official: r.Official && r.Policy.RequireSignature, Signer: r.Signer,
+		Required: slices.Clone(r.HostOperations.Required), Optional: slices.Clone(r.HostOperations.Optional)}
+	if r.Mutable {
+		out.Unpinned = true
+	} else {
+		out.Digest = r.Digest
+	}
+	if r.UI.Title != "" {
+		out.Title = r.UI.Title
+	}
+	slices.Sort(out.Required)
+	slices.Sort(out.Optional)
+	return out, true
+}
+
 // stagePreview downloads and verifies the package of a release, reads its
-// manifest and discards the stage. It holds the operation lock for the stage
-// only, so the stage folder is not cleaned under it.
+// manifest and discards the stage. It holds stageMu for the stage only, so
+// the stage folder is not cleaned under it, and an install runs meanwhile.
 func (m *Manager) stagePreview(ctx context.Context, r catalog.Release) (HostAccessRelease, error) {
-	m.opMu.Lock()
-	defer m.opMu.Unlock()
+	m.stageMu.RLock()
+	defer m.stageMu.RUnlock()
 	staged, e := m.installer.Stage(ctx, r, nil)
 	if e != nil {
 		return HostAccessRelease{}, e
@@ -279,7 +313,7 @@ func (m *Manager) stagePreview(ctx context.Context, r catalog.Release) (HostAcce
 		return HostAccessRelease{}, e
 	}
 	out := HostAccessRelease{AddonID: rc.Manifest.ID, Title: rc.Manifest.ID, Version: rc.Manifest.Version, Digest: rc.Digest,
-		Official: OfficialReceipt(rc)}
+		Official: OfficialReceipt(rc), Signer: rc.Signer}
 	if u := rc.Manifest.Capabilities.UI; u != nil && u.Title != nil && u.Title.Default() != "" {
 		out.Title = u.Title.Default()
 	}

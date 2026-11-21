@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { backendRows } from '../../src/utils/updates.js'
 import {
   classifyUpdate, entryUpdateNote, updateView, upgradeBody, updateErrorKey, formatWhen, UPDATE_TYPES, UPDATE_STATES,
 } from '../../src/components/addons/updateState.js'
@@ -96,7 +97,7 @@ test('updates: the client sends check and upgrade as the administrator\'s own ac
   assert.equal(calls[1].init.headers['X-LocalAI-Confirm'], 'chk-1')
   assert.equal(calls[1].init.credentials, 'same-origin')
   const done = await api.updates.upgrade('notes', { operationId: 'up-9', expectedDigest: 'sha256:a', candidateDigest: 'sha256:b', generation: 1 })
-  assert.deepEqual(done, { operationId: 'op-9', addonId: 'notes', phase: 'completed', generation: 2, runtimeState: '', stage: '', failureCode: '' })
+  assert.deepEqual(done, { operationId: 'op-9', addonId: 'notes', phase: 'completed', generation: 2, runtimeState: '', stage: '', failureCode: '', jobId: '' })
   assert.equal(calls[2].init.headers['X-LocalAI-Confirm'], 'up-9')
   assert.deepEqual(JSON.parse(calls[2].init.body), { operationId: 'up-9', expectedDigest: 'sha256:a', candidateDigest: 'sha256:b', generation: 1 })
   await assert.rejects(api.updates.upgrade('notes', { operationId: 'stale-1', expectedDigest: 'stale', candidateDigest: 'x' }), (e) => e instanceof AddonsError && e.kind === 'invalid' && e.type === 'stale_installed' && e.status === 409)
@@ -129,4 +130,16 @@ test('updates: a release that needs a newer LocalAI is incompatible with the rea
       assert.ok(text && text === d.errors.needsNewerHost, `${lang} says ${outcome} for needs_newer_host with its own words`)
     }
   }
+})
+
+test('updates: a queued backend update is updating with no progress, a running one keeps its progress', () => {
+  const snapshot = { sources: { gallery: { state: 'ok' } }, items: [{ id: 'gallery:whisper', kind: 'gallery', name: 'whisper', installedVersion: '1', availableVersion: '2' }] }
+  const op = (extra) => ({ id: 'whisper', name: 'whisper', fullName: 'whisper', jobID: 'j', isBackend: true, isDeletion: false, taskType: 'upgrade', cancellable: true, ...extra })
+  const queued = backendRows(snapshot, { operations: [op({ isQueued: true, progress: 40 })] })[0]
+  assert.equal(queued.state, 'updating')
+  assert.equal(queued.queued, true)
+  assert.equal(queued.progress, 0)
+  const running = backendRows(snapshot, { operations: [op({ isQueued: false, progress: 40 })] })[0]
+  assert.equal(running.queued, false)
+  assert.equal(running.progress, 40)
 })

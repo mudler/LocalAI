@@ -91,6 +91,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// every request: the service is built after the routes exist and is nil
 	// when its store could not be opened.
 	registerRemoteRoutes(router, app.Remotes, adminMiddleware)
+	registerFederationRoutes(router, app.Federation, adminMiddleware)
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
@@ -130,7 +131,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint(), adminMiddleware)
 		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(), adminMiddleware)
 		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState, ClusterCapabilityProviderFor(app), ClusterInstalledProviderFor(app)), adminMiddleware)
-		router.GET("/backends/known", backendGalleryEndpointService.ListKnownBackendsEndpoint(appConfig.SystemState), adminMiddleware)
+		router.GET("/backends/known", backendGalleryEndpointService.ListKnownBackendsEndpoint(appConfig.SystemState, ClusterInstalledProviderFor(app)), adminMiddleware)
 		router.GET("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint(), adminMiddleware)
 		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint(), adminMiddleware)
 		router.GET("/backends/upgrades", backendGalleryEndpointService.GetUpgradesEndpoint(), adminMiddleware)
@@ -140,6 +141,22 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/backends/updates", localai.BackendUpdatesEndpoint(app.UpgradeChecker()), adminMiddleware)
 		router.POST("/backends/updates/check", localai.CheckBackendUpdatesEndpoint(app.UpgradeChecker()), adminMiddleware)
 		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
+		// Model updates: the read model and a check that waits. Models never
+		// update automatically; the check installs nothing.
+		modelUpdates := func() localai.ModelUpdatesProvider {
+			if svc := app.ModelUpdates(); svc != nil {
+				return svc
+			}
+			return nil
+		}
+		router.GET("/api/models/updates", localai.ModelUpdatesEndpoint(modelUpdates), adminMiddleware)
+		router.POST("/api/models/updates/check", localai.CheckModelUpdatesEndpoint(modelUpdates), adminMiddleware)
+		upgradeDeps := localai.ModelUpgradeDeps{Gallery: galleryService, Upgrader: app.ModelUpgrader, Updates: app.ModelUpdates}
+		router.POST("/api/models/upgrade/:name", localai.UpgradeModelEndpoint(upgradeDeps), adminMiddleware)
+		router.POST("/api/models/:name/upgrade/retry", localai.RetryModelUpgradeEndpoint(upgradeDeps), adminMiddleware)
+		router.POST("/api/models/:name/remove-old", localai.RemoveOldModelVersionEndpoint(upgradeDeps), adminMiddleware)
+		router.PUT("/api/models/:name/hold", localai.SetModelHoldEndpoint(upgradeDeps), adminMiddleware)
+		router.POST("/api/models/:name/adopt", localai.AdoptModelEndpoint(upgradeDeps), adminMiddleware)
 		// Custom model import endpoint
 		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig, opcache), adminMiddleware)
 
@@ -383,10 +400,6 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/ws/backend-logs/:modelId", localai.BackendLogsWebSocketEndpoint(ml), adminMiddleware)
 	}
 
-	// p2p
-	router.GET("/api/p2p", localai.ShowP2PNodes(appConfig), adminMiddleware)
-	router.GET("/api/p2p/token", localai.ShowP2PToken(appConfig), adminMiddleware)
-
 	// Score (logprob over candidate continuations) — admin-only smoke-test
 	// surface for the gRPC Score primitive. Production consumers should
 	// use application.ScorerFactory() directly rather than HTTP.
@@ -504,10 +517,12 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"prompts":          "/v1/mcp/prompts/:model",
 					"resources":        "/v1/mcp/resources/:model",
 				},
-				// #nosec G101 -- route paths, not credentials.
 				"p2p": map[string]string{
-					"nodes": "/api/p2p",
-					"token": "/api/p2p/token",
+					"status":        "/api/p2p/status",
+					"invites":       "/api/p2p/invites",
+					"devices":       "/api/p2p/devices",
+					"relays":        "/api/p2p/relays",
+					"split_workers": "/api/p2p/split-workers",
 				},
 				"settings": map[string]string{
 					"get":    "/api/settings",
@@ -545,7 +560,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"model_storage":   true,
 				"backend_install": !appConfig.DisableBackendInstall,
 				"mcp":             !appConfig.DisableMCP,
-				"p2p":             appConfig.P2PToken != "",
+				"p2p":             app != nil && app.P2PEnabled(),
 				"tracing":         true,
 				"chats":           app != nil && app.StudioService() != nil,
 				"agent_jobs":      app != nil && app.StudioJobs() != nil,
@@ -665,4 +680,15 @@ func registerRemoteRoutes(router *echo.Echo, get localai.RemotesProvider, adminM
 	router.DELETE("/api/remotes/:id", localai.DeleteRemoteEndpoint(get), adminMiddleware)
 	router.POST("/api/remotes/:id/refresh", localai.RefreshRemoteEndpoint(get), adminMiddleware)
 	router.POST("/api/remotes/:id/adopt", localai.AdoptRemoteModelsEndpoint(get), adminMiddleware)
+}
+
+// registerFederationRoutes mounts the six federation routes, each behind
+// adminMiddleware.
+func registerFederationRoutes(router *echo.Echo, get localai.FederationProvider, adminMiddleware echo.MiddlewareFunc) {
+	router.GET("/api/federation", localai.GetFederationEndpoint(get), adminMiddleware)
+	router.POST("/api/federation/groups", localai.CreateFederationGroupEndpoint(get), adminMiddleware)
+	router.GET("/api/federation/groups/:name", localai.GetFederationGroupEndpoint(get), adminMiddleware)
+	router.PATCH("/api/federation/groups/:name", localai.UpdateFederationGroupEndpoint(get), adminMiddleware)
+	router.DELETE("/api/federation/groups/:name", localai.DeleteFederationGroupEndpoint(get), adminMiddleware)
+	router.POST("/api/federation/groups/:name/drain", localai.DrainFederationMemberEndpoint(get), adminMiddleware)
 }

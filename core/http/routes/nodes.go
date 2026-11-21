@@ -37,21 +37,22 @@ func nodeReadyMiddleware(registry *nodes.NodeRegistry) echo.MiddlewareFunc {
 // token but do not verify per-node identity. A compromised worker can heartbeat/drain/
 // deregister other nodes. Future: issue per-node JWT at registration, validate node
 // identity on subsequent requests (compare :id param with token subject).
-func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, registrationToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) {
+func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, registrationToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config, options ...localai.RegisterOption) {
 	if registry == nil {
 		return
 	}
 
 	readyMw := nodeReadyMiddleware(registry)
-	tokenAuthMw := nodeTokenAuth(registrationToken)
+	tokenAuthMw := nodeTokenAuth(registrationToken, registry, options...)
 
 	node := e.Group("/api/node", readyMw, tokenAuthMw)
-	node.POST("/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret, natsCfg))
-	node.POST("/:id/heartbeat", localai.HeartbeatEndpoint(registry))
+	node.POST("/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret, natsCfg, options...))
+	node.POST("/:id/heartbeat", localai.HeartbeatEndpoint(registry, options...))
 	node.POST("/:id/drain", localai.DrainNodeEndpoint(registry, nil))
 	node.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
 	node.POST("/:id/deregister", localai.DeactivateNodeEndpoint(registry))
 	node.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
+	node.POST("/:id/split", localai.NodeSplitEndpoint(registry, options...))
 	node.DELETE("/:id", localai.DeactivateNodeEndpoint(registry))
 }
 
@@ -62,7 +63,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 // backend install path (POST /:id/backends/install). That handler enqueues a
 // ManagementOp on the gallery channel rather than blocking on a NATS reply, so
 // the browser gets HTTP 202 + jobID immediately instead of waiting up to 3 minutes.
-func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, natsCfg natsauth.Config, workerHTTPDial nodes.WorkerNetDialerFor) {
+func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, natsCfg natsauth.Config, workerHTTPDial nodes.WorkerNetDialerFor, options ...localai.RegisterOption) {
 	if registry == nil {
 		return
 	}
@@ -70,7 +71,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	readyMw := nodeReadyMiddleware(registry)
 
 	admin := e.Group("/api/nodes", readyMw, adminMw)
-	admin.GET("", localai.ListNodesEndpoint(registry))
+	admin.GET("", localai.ListNodesEndpoint(registry, options...))
 
 	// Cluster-wide loaded models (registered before /:id to avoid route conflicts)
 	admin.GET("/models", localai.ListAllNodeModelsEndpoint(registry))
@@ -81,12 +82,12 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.POST("/scheduling", localai.SetSchedulingEndpoint(registry))
 	admin.DELETE("/scheduling/:model", localai.DeleteSchedulingEndpoint(registry))
 
-	admin.GET("/:id", localai.GetNodeEndpoint(registry))
+	admin.GET("/:id", localai.GetNodeEndpoint(registry, options...))
 	admin.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
-	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry, unloader))
+	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry, unloader, options...))
 	admin.POST("/:id/drain", localai.DrainNodeEndpoint(registry, unloader))
 	admin.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
-	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret, natsCfg))
+	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret, natsCfg, options...))
 
 	// Backend management on workers
 	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader, registry))
@@ -117,6 +118,10 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.PUT("/:id/max-replicas-per-model", localai.UpdateMaxReplicasPerModelEndpoint(registry))
 	admin.DELETE("/:id/max-replicas-per-model", localai.ResetMaxReplicasPerModelEndpoint(registry))
 
+	// Split server declaration: the node may serve model-split workers.
+	admin.PUT("/:id/split-server", localai.SetSplitServerEndpoint(registry, options...))
+	admin.DELETE("/:id/split-server", localai.ResetSplitServerEndpoint(registry))
+
 	// Per-node VRAM allocation budget. PUT sets a sticky admin override that
 	// survives worker restarts; DELETE clears it so the worker's reported
 	// budget takes over again at the next re-registration.
@@ -135,9 +140,27 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 //
 // It validates the token from an Authorization: Bearer <token> header using
 // constant-time comparison.
-func nodeTokenAuth(registrationToken string) echo.MiddlewareFunc {
+//
+// A paired worker that calls over P2P needs no token: the P2P layer has
+// authenticated its peer ID. It may act only on the node that is pinned to
+// that peer, so a route with a node ID answers 403 for any other node. The
+// registration route pins the node (see localai.RegisterNodeEndpoint).
+func nodeTokenAuth(registrationToken string, registry *nodes.NodeRegistry, options ...localai.RegisterOption) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			if peer, ok := localai.P2PWorkerPeer(c.Request().Context(), options...); ok {
+				id := c.Param("id")
+				if id == "" {
+					return next(c)
+				}
+				node, err := registry.Get(c.Request().Context(), id)
+				if err != nil || node.PeerID != peer {
+					return c.JSON(http.StatusForbidden, map[string]string{
+						"error": "this worker may act on its own node only",
+					})
+				}
+				return next(c)
+			}
 			if registrationToken == "" {
 				return next(c)
 			}

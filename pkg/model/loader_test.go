@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	grpcPkg "github.com/mudler/LocalAI/pkg/grpc"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -207,6 +209,34 @@ var _ = Describe("ModelLoader", func() {
 			// Within TTL, should return the model without health check
 			result := modelLoader.CheckIsLoaded("healthy-remote")
 			Expect(result).To(Equal(loaded), "recently-healthy model should be returned from cache")
+		})
+	})
+
+	Context("Remote model whose transport failed", func() {
+		// A client with its own dialer, as a tunnel gives. Its dial fails in the
+		// transport and says nothing about the backend.
+		failing := func(dialErr error) grpcPkg.Backend {
+			return grpcPkg.NewClientWithDialer("10.0.0.5:50051", false, nil, false, "", func(context.Context, string) (net.Conn, error) {
+				return nil, dialErr
+			})
+		}
+
+		load := func(id string, client grpcPkg.Backend) {
+			GinkgoHelper()
+			remote := model.NewModelWithClient(id, "10.0.0.5:50051", client)
+			_, err := modelLoader.LoadModel(id, "test.model", func(string, string, string) (*model.Model, error) { return remote, nil })
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		It("keeps the model cached when the transport could not reach the worker", func() {
+			load("unreachable", failing(errors.New("no tunnel is held for that node")))
+			Expect(modelLoader.CheckIsLoaded("unreachable")).ToNot(BeNil(),
+				"a worker that cannot be reached from here has not been shown to have lost the model")
+		})
+
+		It("evicts the model when the worker answered that the backend is gone", func() {
+			load("gone", failing(backendGone{errors.New("the worker could not reach the backend")}))
+			Expect(modelLoader.CheckIsLoaded("gone")).To(BeNil())
 		})
 	})
 
@@ -539,6 +569,77 @@ var _ = Describe("ModelLoader", func() {
 		})
 	})
 
+	Context("Blocked loads", func() {
+		It("refuses every load of a blocked model until it is unblocked", func() {
+			var loads int32
+			loader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				atomic.AddInt32(&loads, 1)
+				return model.NewModel(modelID, modelName, nil), nil
+			}
+			modelLoader.BlockLoads("upgrading")
+			_, err := modelLoader.LoadModel("upgrading", "test.model", loader)
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+			Expect(blocked.ModelID).To(Equal("upgrading"))
+			Expect(atomic.LoadInt32(&loads)).To(BeZero())
+
+			By("leaving the other models alone")
+			_, err = modelLoader.LoadModel("other", "test.model", loader)
+			Expect(err).ToNot(HaveOccurred())
+
+			modelLoader.UnblockLoads("upgrading")
+			_, err = modelLoader.LoadModel("upgrading", "test.model", loader)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(atomic.LoadInt32(&loads)).To(Equal(int32(2)))
+		})
+
+		It("waits for a load in flight, so the stop that follows sees its model", func() {
+			started := make(chan struct{})
+			release := make(chan struct{})
+			loaded := make(chan error, 1)
+			go func() {
+				_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+					close(started)
+					<-release
+					return model.NewModel(modelID, modelName, nil), nil
+				})
+				loaded <- err
+			}()
+			Eventually(started).Should(BeClosed())
+
+			blockReturned := make(chan struct{})
+			go func() {
+				modelLoader.BlockLoads("upgrading")
+				close(blockReturned)
+			}()
+			Consistently(blockReturned, 100*time.Millisecond).ShouldNot(BeClosed())
+
+			close(release)
+			Eventually(blockReturned).Should(BeClosed())
+			Expect(<-loaded).ToNot(HaveOccurred())
+			By("having the model registered when BlockLoads returns")
+			Expect(modelLoader.ListLoadedModels()).To(HaveLen(1))
+
+			_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("must not load")
+			})
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+		})
+
+		It("refuses a blocked model in distributed mode too", func() {
+			modelLoader.SetModelRouter(func(context.Context, string, string, string, string, string, *pb.ModelOptions, bool) (*model.Model, error) {
+				return nil, errors.New("must not route")
+			})
+			modelLoader.BlockLoads("upgrading")
+			_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("must not load")
+			})
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+		})
+	})
+
 	Context("Load failure cooldown", func() {
 		It("records a missing backend as the cause of the cooldown", func() {
 			modelLoader.SetLoadFailureCooldown(time.Minute, time.Minute)
@@ -639,3 +740,9 @@ var _ = Describe("ModelLoader", func() {
 		})
 	})
 })
+
+// backendGone is the error of a dialer whose host answered that the backend is
+// gone: evidence about the backend, like a refused connection.
+type backendGone struct{ error }
+
+func (backendGone) IsBackendAnswer() bool { return true }

@@ -13,7 +13,6 @@ import (
 	oras "oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
-	"oras.land/oras-go/v2/registry/remote/retry"
 )
 
 func FetchImageBlob(ctx context.Context, r, reference, dst string, statusReader func(ocispec.Descriptor) io.Writer) error {
@@ -33,9 +32,9 @@ func FetchImageBlob(ctx context.Context, r, reference, dst string, statusReader 
 
 	// Identify LocalAI to the registry. This mirrors oras' auth.DefaultClient
 	// (same retry policy) but advertises a LocalAI User-Agent instead of the
-	// library default.
+	// library default, and keeps the credential off cross-origin redirects.
 	client := &auth.Client{
-		Client: retry.DefaultClient,
+		Client: registryHTTPClient(),
 		Cache:  auth.NewCache(),
 	}
 	client.SetUserAgent(UserAgent())

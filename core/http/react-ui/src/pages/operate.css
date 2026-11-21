@@ -263,6 +263,7 @@
 .operation-card__main { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: var(--dk-space-3); padding: var(--dk-space-3) var(--dk-space-2); }
 .operation-card__icon { color: var(--dk-muted); font-size: 18px; }
 .operation-card__icon--error { color: var(--dk-error-text); }
+.operation-card__icon--warn { color: var(--dk-warn-text); }
 .operation-card__spinner {
   width: 16px; height: 16px; border-radius: 50%;
   border: 2px solid var(--dk-edge); border-top-color: var(--dk-accent);
@@ -276,6 +277,7 @@
 .operation-card__sub { display: flex; align-items: center; flex-wrap: wrap; gap: 2px var(--dk-space-3); font-size: var(--dk-text-12); color: var(--dk-muted); }
 .operation-card__bytes { font-variant-numeric: tabular-nums; }
 .operation-card__message { max-width: 60ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.operation-card__review { max-width: 70ch; color: var(--dk-warn-text); overflow-wrap: anywhere; }
 .operation-card__error { max-width: 70ch; color: var(--dk-error-text); overflow-wrap: anywhere; }
 .operation-card__track { height: 6px; max-width: 420px; border-radius: var(--dk-radius-pill); background: var(--dk-inset); box-shadow: inset 0 0 0 1px var(--dk-edge); overflow: hidden; }
 .operation-card__fill { display: block; height: 100%; width: var(--op-w, 0%); border-radius: inherit; background: var(--dk-accent); transition: width var(--dk-dur-3) var(--dk-ease-out); }

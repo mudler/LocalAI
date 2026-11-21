@@ -376,6 +376,9 @@ type AdminView struct {
 	// login, is warned when it is not.
 	SourceID string `json:"sourceId,omitempty" example:"official"`
 	Official bool   `json:"official"`
+	// Signer is the identity that signed the package, shown only when the
+	// receipt says the signature was checked and the package is not official.
+	Signer string `json:"signer,omitempty"`
 }
 
 // Build returns the apps a caller may see, sorted by identifier. An uninstalled
@@ -472,6 +475,9 @@ func build(s Snapshot, admin bool) App {
 	if admin {
 		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id),
 			SourceID: s.Receipt.SourceID, Official: catalog.IsOfficialPackage(s.Receipt.SourceID, s.Receipt.SourceURL, s.Receipt.Verification)}
+		if s.Receipt.Verification == "sha256+sigstore" && !a.Admin.Official {
+			a.Admin.Signer = s.Receipt.Signer
+		}
 	}
 	return a
 }

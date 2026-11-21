@@ -85,6 +85,7 @@ const api: LauncherApi = {
   onOpenSwitcher: (cb) => listen('launcher:servers:open-switcher', () => cb()),
   testServer: (input) => invoke('launcher:servers:test', input),
   addServer: (input) => invoke('launcher:servers:add', input),
+  addServerByInvite: (input) => invoke('launcher:servers:add-by-invite', input),
   updateServer: (input) => invoke('launcher:servers:update', input),
   removeServer: (id) => invoke('launcher:servers:remove', id),
   setDefaultServer: (target) => invoke('launcher:servers:set-default', target),
@@ -112,6 +113,10 @@ const api: LauncherApi = {
   setEnvVar: (name, value) => invoke('launcher:env:set', name, value),
   deleteEnvVar: (name) => invoke('launcher:env:delete', name),
   getSecretStorageState: () => invoke('launcher:secrets:state'),
+  getRegistryCredentials: () => invoke('launcher:registry-credentials:list'),
+  saveRegistryCredential: (input) => invoke('launcher:registry-credentials:save', input),
+  removeRegistryCredential: (id) => invoke('launcher:registry-credentials:remove', id),
+  testRegistryCredential: (id) => invoke('launcher:registry-credentials:test', id),
   firstRender: (shownState) => send('launcher:first-render', shownState),
 }
 

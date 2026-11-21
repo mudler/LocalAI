@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nats-io/nats.go"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -187,13 +187,14 @@ func (c jobChat) stubs(user, id string) []session.JobStub {
 	return rec.Jobs
 }
 
-// natsReplier makes the fake bus answer a missing subscriber as NATS does.
-type natsReplier struct{ *testutil.FakeBus }
+// absentReplier makes the fake bus answer a missing subscriber as a process
+// that serves nothing for the subject: no responders.
+type absentReplier struct{ *testutil.FakeBus }
 
-func (b natsReplier) Request(subject string, data []byte, d time.Duration) ([]byte, error) {
+func (b absentReplier) RequestInstance(_ string, subject string, data []byte, d time.Duration) ([]byte, error) {
 	out, err := b.FakeBus.Request(subject, data, d)
 	if errors.Is(err, testutil.ErrNoResponders) {
-		return nil, nats.ErrNoResponders
+		return nil, messaging.ErrNoResponders
 	}
 	return out, err
 }
@@ -490,7 +491,7 @@ var _ = Describe("the job tool", func() {
 			var err error
 			st, err = store.NewJSON("")
 			Expect(err).NotTo(HaveOccurred())
-			net := natsReplier{testutil.NewFakeBus()}
+			net := absentReplier{testutil.NewFakeBus()}
 			carrier := studio.NewJobCarrier(net, nil)
 			files := newFiles()
 			clk = &tclock{t: time.Now()}

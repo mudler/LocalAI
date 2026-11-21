@@ -16,6 +16,7 @@ import type {
   PortProcessView,
   SecretStorageView,
   ServerChangeResult,
+  AddServerByInviteResult,
   ServerRowView,
   ServersView,
   SwitchResult,
@@ -353,6 +354,18 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
       pushServers()
       return rec('addServer', { ok: true as const, view: servers(), id, test: input.skipTest ? undefined : result } as ServerChangeResult, input)
     },
+    addServerByInvite: async (input) => {
+      const link = input.link.trim()
+      if (!link.startsWith('localai://pair?')) return rec('addServerByInvite', { ok: false as const, reason: 'invite-invalid' as const } as AddServerByInviteResult, input)
+      const port = 41231 + servers().rows.length
+      const origin = `http://127.0.0.1:${port}`
+      const id = `srv_${String(servers().rows.length).padStart(8, '0')}`
+      const row = { ...remoteRow(id, input.name || 'Studio', origin, { status: 'connected' }), p2p: { state: 'up' as const, path: 'direct' } }
+      s.servers = { ...servers(), rows: [...servers().rows, row] }
+      if (input.makeDefault) s.servers = withDefault(servers(), id)
+      pushServers()
+      return rec('addServerByInvite', { ok: true as const, view: servers(), id, phrase: 'apple river stone cloud', opened: !!input.makeDefault } as AddServerByInviteResult, input)
+    },
     updateServer: (input) => {
       const v = servers()
       if (!v.rows.some((r) => r.id === input.id)) return rec('updateServer', { ok: false as const, reason: 'not-found' as const } as ServerChangeResult, input)
@@ -441,6 +454,10 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
       return rec('deleteEnvVar', s.envVars, name)
     },
     getSecretStorageState: () => rec('getSecretStorageState', storage()),
+    getRegistryCredentials: () => rec('getRegistryCredentials', { rules: [], userOverride: false, restartRequired: false }),
+    saveRegistryCredential: (input) => rec('saveRegistryCredential', { ok: true as const, id: input.id ?? '0123456789abcdef', restartRequired: false }, input),
+    removeRegistryCredential: (id) => rec('removeRegistryCredential', { restartRequired: false }, id),
+    testRegistryCredential: (id) => rec('testRegistryCredential', { result: 'ok' as const, status: 200 }, id),
     getWorker: () => (s.worker ? rec('getWorker', s.worker) : Promise.reject(new Error('none'))),
     onWorker: () => () => undefined,
     setRunMode: (m) => rec('setRunMode', { ...(s.worker as WorkerView), mode: m }, m),

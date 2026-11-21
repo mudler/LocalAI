@@ -660,6 +660,33 @@ page that saves after each change it sees, from starting runs in a loop: at
 most one run a minute and 24 a day by default. An `AGENTS.md` file in a folder, or above it, is added to the first
 message as rules for the run. Treat it as text from whoever can write there.
 
+### Where a trigger reports
+
+The answer of a run goes to the Inbox by default. A trigger that a messaging
+app proposed, or that you set to report to a connection, can send the answer to
+a chat or a channel of that connection instead. The Triggers page and the page
+of each trigger say where the runs report, under **Reports to**:
+
+| Shown | Meaning |
+|---|---|
+| Inbox | The default. The answer goes to your Inbox. |
+| Channel *name*, with the connection and its service | The answer is posted at the top of a channel you approved for that connection. |
+| Chat *id*, with the connection and its service | The answer goes to the chat (or thread) of the messaging app where the trigger was proposed. The chat is shortened. |
+
+The page also says when a run reports if that is not every run: only when the
+answer changes, or only when a run fails. It never shows a token or a whole
+chat address.
+
+A warning, with words and not only a colour, appears when the destination
+cannot receive a report now: the connection is off, deleted or unavailable (its
+add-on does not run), the channel is no longer approved, or the connection may
+not write there. Until you fix it, the report goes to the Inbox. The page links
+to the connections page. The same fields are in `delivery` of the trigger in
+`GET /api/chats/triggers`: `target`, `channel_label`, `channel_ref`,
+`chat_ref`, `connection_name`, `connection_kind`, `connection_kind_title`,
+`state` (`ok`, `off`, `gone`, `unavailable`, `no_channel`, `blocked`) and
+`mode`.
+
 ### What a run gets
 
 - **Its message.** The first message is the prompt of the trigger, the folder
@@ -1049,11 +1076,15 @@ administration tools.
 
 ## Inbox
 
-The inbox lists what ended while you were elsewhere: a trigger run that
-finished or failed, or something that needs you. Each item has a kind
+The inbox is the notification center. It lists what ended while you were
+elsewhere: backend updates, a finished install or removal, a trigger run that
+finished or failed, or something that needs you. It does not need the chats:
+with the chats off (`LOCALAI_DISABLE_CHATS`) the bell, the update notices and
+browser push still work, and an item that points into a chat stays in the list,
+says **Chats are off** and opens nothing. Each item has a kind
 (`run_ended`, `run_failed` or `needs_attention`), a status (`ok` or `failed`),
 a source (`trigger`, `connector` or `system`; empty on items stored before
-sources existed), a short title and text, and a link to the chat it is about.
+sources existed), a short title and text, and a link to what it is about (a chat, the Updates page or the Models page).
 A chat that a run started is unread until you open it: opening the chat marks
 its notifications read.
 
@@ -1063,8 +1094,9 @@ narrow screen it is an icon of the rail; on a phone it is a bell in the header
 (and an entry in the menu). It shows the unread count (99+ above 99), in red
 when an unread item is a failure, and opens one panel (a sheet over the bottom
 of the screen on a phone). An administrator always sees the entry. Anyone else
-sees it once they have items. Nobody sees it when the chats are off or the
-account lacks the `chats` feature. A change that waits for you is listed in the
+sees it once they have items. Nobody sees it when the server has no notification
+center (its store could not start). The `chats` feature does not matter: a
+person whose `chats` feature is off keeps their inbox. A change that waits for you is listed in the
 panel but is not in the count. An administrator also sees an **Activity** tab in the panel, with installs, updates and removals (see [Activity]({{% relref "/administration/activity" %}})); operations are never in the count. In the panel:
 
 - **All**, **Unread** and **Failed** filter the list. **Failed** shows every
@@ -1072,7 +1104,7 @@ panel but is not in the count. An administrator also sees an **Activity** tab in
 - Items are grouped under **Today**, **Yesterday** and **Earlier**. Each one
   shows what sent it, when (the exact time on hover) and, for a failure, the
   reason.
-- A click on an item marks it read and opens its chat. A connector that was
+- A click on an item marks it read and opens what it is about. A connector that was
   switched off opens the connectors page.
 - Hover an item (or focus it) to mark it read or delete it. With the keyboard,
   the arrow keys, Home and End move between items, Enter opens one, Delete
@@ -1090,19 +1122,25 @@ Most items are written once. LocalAI itself writes a few kinds that it keeps up 
 
 - A **set item** shows a set of things, each with an id. When the set gets an id it did not show before, the item comes back as a new, unread item at the top. It reaches the browser push and the Telegram chat once, like any new item. When the set only gets smaller, or its text changes, the item is edited in place: it keeps its place, its read state and its hidden state, and nothing is pushed. An empty set removes the item.
 - Delete, **Clear read** and **Clear all** do not forget a keyed item: they hide it. It stays hidden while the set is the same or smaller, and it comes back, unread, only for a new id. Marking it read keeps it in the list, and later edits do not make it unread again.
-- A **once item** is posted when its key is new and never again, also after you deleted it. LocalAI uses one for each result of an automatic update, so a failure that repeats at the next pass does not fill the inbox.
+- A **once item** is posted when its key is new and never again, also after you deleted it. LocalAI uses one for each result of an automatic update, so a failure that repeats at the next pass does not fill the inbox, and one for the end of each install, removal or upgrade, keyed by the operation.
 
-Some items have a `code` and `params` in the API (`updates.digest`, `updates.result`, `updates.checkFailed`). The app words them in your language from the params. `title` and `body` stay in English: they are the fallback for a client that does not know the code, and the text of browser push and Telegram. The update items are described in [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}}).
+Some items have a `code` and `params` in the API (`updates.digest`, `updates.result`, `updates.checkFailed`, `updates.opDone`, `updates.opFailed`, and for gallery models `models.updateAvailable`, `models.upgradeDone`, `models.upgradeFailed`, `models.removedOld`). The app words them in your language from the params. `title` and `body` stay in English: they are the fallback for a client that does not know the code, and the text of browser push and Telegram. The update items are described in [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}}), and the model items in [Model updates]({{% relref "/models/model-updates#where-you-see-it" %}}).
 
 ```
-curl ".../api/chats/notifications?unread=1"          # the unread ones, and the unread count
-curl .../api/chats/notifications/count
-curl -X POST .../api/chats/notifications/read -H 'Content-Type: application/json' -d '{"all": true}'
-curl -X DELETE .../api/chats/notifications -H 'Content-Type: application/json' -d '{"ids": [12, 13]}'
-curl -X DELETE .../api/chats/notifications -H 'Content-Type: application/json' -d '{"all": true}'                    # empty the inbox
-curl -X DELETE .../api/chats/notifications -H 'Content-Type: application/json' -d '{"all": true, "read_only": true}' # remove only the read ones
-curl -N .../api/chats/notifications/events            # new ones as server-sent events
+curl ".../api/notifications?unread=1"          # the unread ones, and the unread count
+curl .../api/notifications/count
+curl -X POST .../api/notifications/read -H 'Content-Type: application/json' -d '{"all": true}'
+curl -X DELETE .../api/notifications -H 'Content-Type: application/json' -d '{"ids": [12, 13]}'
+curl -X DELETE .../api/notifications -H 'Content-Type: application/json' -d '{"all": true}'                    # empty the inbox
+curl -X DELETE .../api/notifications -H 'Content-Type: application/json' -d '{"all": true, "read_only": true}' # remove only the read ones
+curl -N .../api/notifications/events            # new ones as server-sent events
 ```
+
+These routes carry no feature gate and work with the chats on or off. The older
+paths `/api/chats/notifications...` and `/api/chats/push/...` answer the same
+handlers while the chats are on (they stay behind the `chats` feature), so a
+client written for them keeps working; with the chats off they answer `404`.
+`GET /api/features` has `notifications: true` when the notification center runs.
 
 **Clear all** asks first, in the
 panel, and says how many notifications it removes. **Clear read** keeps the
@@ -1119,7 +1157,10 @@ When notifications are read or deleted, the stream sends a
 their unread badge follows. The notifications are rows in the shared database,
 so clearing the inbox on one frontend clears it for all of them. The frontend
 that stores a new or revived item runs the push and the Telegram forward, so
-each happens once in a cluster. An item that LocalAI writes on its own (see
+each happens once in a cluster. Only an item that a trigger or a connector sent
+is forwarded to a Telegram or Slack chat; the news of the system (updates,
+finished operations, the conversion of old data) stays in the inbox and in
+browser push. An item that LocalAI writes on its own (see
 above) is written by one frontend only: the one that holds the lock of the
 work that produces it.
 
@@ -1127,12 +1168,12 @@ work that produces it.
 
 The inbox page can ask the browser for permission and subscribe it to push. A
 notification is then pushed to that browser, with its title and link and nothing
-else, also when no LocalAI tab is open. Clicking it opens the chat.
+else, also when no LocalAI tab is open. Clicking it opens what it is about.
 
 ```
-curl .../api/chats/push/key                       # the server's VAPID public key
-curl -X POST .../api/chats/push/subscribe -H 'Content-Type: application/json' -d '{"endpoint": "https://...", "keys": {"p256dh": "...", "auth": "..."}}'
-curl -X DELETE .../api/chats/push/subscribe -H 'Content-Type: application/json' -d '{"endpoint": "https://..."}'
+curl .../api/notifications/push/key                       # the server's VAPID public key
+curl -X POST .../api/notifications/push/subscribe -H 'Content-Type: application/json' -d '{"endpoint": "https://...", "keys": {"p256dh": "...", "auth": "..."}}'
+curl -X DELETE .../api/notifications/push/subscribe -H 'Content-Type: application/json' -d '{"endpoint": "https://..."}'
 ```
 
 - The server makes its VAPID key pair the first time it is needed and keeps it
@@ -1148,11 +1189,15 @@ curl -X DELETE .../api/chats/push/subscribe -H 'Content-Type: application/json' 
 
 ## Storage and clusters
 
-Saved agents, triggers, runs, notifications and push subscriptions are stored
-beside your chats: in the database when there is one, in JSON files under the
-data path otherwise, and in memory when there is no data path (the page then says
-persistent features are off, and push is off). The JSON stores are for a single
-process.
+Saved agents, triggers and runs are stored beside your chats: in the database
+when there is one, in JSON files under the data path otherwise, and in memory
+when there is no data path (the page then says persistent features are off). The
+notifications and the push subscriptions are kept by the notification center,
+which the server starts by itself, also with the chats off. It picks the same
+kind of store (the database table `studio_notifications`, JSON files under
+`<data path>/chats/notifications` and `<data path>/chats/push`, or memory with
+push off), so an upgrade moves no data, and a failing chats store no longer takes
+the notifications with it. The JSON stores are for a single process.
 
 A cluster needs PostgreSQL, as the chats do. This is how each part of the state
 behaves with several frontends:
@@ -1165,7 +1210,7 @@ behaves with several frontends:
 | A due time or a file version | Shared | One unique row for each trigger and due key. Two frontends cannot start the same run. |
 | Trigger proposals and changes asked for in a chat | Stateless | Rows in the trigger table. Each request reads and writes them in the database, so any frontend can show, apply or undo them. The answer to a change (apply, dismiss, undo) is a conditional update of its row: when two frontends answer the same change at once, one wins and the other answers `409`, so a change is applied or undone once. |
 | Quiet periods of waiting files, the memory of a run's own writes | Per leader | Kept by the Runner of the current leader. A new leader reads the change feed again from its saved position, which stays below the oldest waiting file, so a file that was waiting is found again. |
-| Live notifications | Shared, live only | Sent over the message bus to every frontend, with the "read or deleted" signal. A client that missed one lists the inbox, which is the record. |
+| Live notifications | Shared, live only | Sent over the message bus (subject `chats.notify.<hash>`, unchanged) to every frontend, with the "read or deleted" signal. A client that missed one lists the inbox, which is the record. |
 | The supervisor of a running run | Per instance | The frontend that started the run watches it. The leader also ends any run that nobody watches whose chat is over, so a run is not lost when its frontend dies. |
 | Where the turn of a run runs | Stateless | On the frontend that started it, or on a chat worker when the frontends send unattended turns there. The turn claim, its heartbeat and the waiting messages are in the database, so either one can run it and only one does. |
 

@@ -21,17 +21,23 @@ const NO_OPS = { active: false, value: null, failed: false, failedCount: 0, coun
 
 // The notification inbox of the whole app: one list, one stream, one panel.
 // App mounts it under the sign-in gate, so it never runs for a signed-out
-// visitor. It runs the inbox hook only for a person who may have an inbox: the
-// chats feature on for the server and for the person. Anyone else makes no
-// request at all, so a 403 cannot loop. The entry (sidebar) and the bell (phone
-// header) read the badge and open the panel from here; the panel is a sibling
-// of the layout, outside the transformed sidebar and the inert main area.
+// visitor. The notification center runs with the chats on or off, so the inbox
+// hook runs whenever the server says it has one (features.notifications). A
+// server that does not send that key is read as before: the inbox follows the
+// chats. When there is no inbox nothing is requested, so a 403 cannot loop. The
+// entry (sidebar) and the bell (phone header) read the badge and open the panel
+// from here; the panel is a sibling of the layout, outside the transformed
+// sidebar and the inert main area.
 //
 // features is the answer of /api/features, or null until it arrived.
 export function InboxProvider({ features, children }) {
   const { t } = useTranslation('nav')
   const { isAdmin, hasFeature } = useAuth()
-  const enabled = features !== null && hasFeature('chats') && features.chats !== false
+  // The chats are a separate part: their pages exist only when the server runs
+  // them and the person may use them. Items that point there are read-only
+  // without them.
+  const chatsOn = features !== null && hasFeature('chats') && features.chats !== false
+  const enabled = features !== null && (features.notifications ?? chatsOn) !== false
   const inbox = useInbox({ enabled })
   // Operations are a part of the inbox for an administrator: a ring on the
   // entry while they run, a red one with a dot after a failure. They never
@@ -54,8 +60,8 @@ export function InboxProvider({ features, children }) {
     if (!everRef.current && inbox.total > 0) { everRef.current = true; setEverHad(true) }
   }, [inbox.total])
 
-  // No inbox here: the chats are off for the server or the person, or the
-  // server keeps none. Messages have nowhere to live then, but an administrator
+  // No inbox here: the server keeps none (the notification center did not
+  // start). Messages have nowhere to live then, but an administrator
   // still needs the operations, so the entry stays for them while there is
   // something to show: work that runs or failed, work that finished a moment
   // ago, or any work seen since the page opened. It opens on the Activity tab
@@ -131,9 +137,10 @@ export function InboxProvider({ features, children }) {
     failed: hasUnreadFailure(inbox.items),
     ops,
     opsOnly: inboxGone,
+    chatsOn,
     toggle,
     refresh: inbox.refresh,
-  }), [visible, open, unread, ops, inboxGone, inbox.items, toggle, inbox.refresh])
+  }), [visible, open, unread, ops, inboxGone, chatsOn, inbox.items, toggle, inbox.refresh])
 
   return (
     <InboxContext.Provider value={value}>
@@ -141,7 +148,7 @@ export function InboxProvider({ features, children }) {
       {visible && <div className="sr-only" role="status" aria-live="polite" data-testid="inbox-live">{announce}</div>}
       {open && visible && (
         <Suspense fallback={null}>
-          <InboxPanel inbox={inbox} anchorEl={anchorEl} onClose={close} opsOnly={inboxGone} />
+          <InboxPanel inbox={inbox} anchorEl={anchorEl} onClose={close} opsOnly={inboxGone} chatsOn={chatsOn} />
         </Suspense>
       )}
     </InboxContext.Provider>
@@ -150,7 +157,7 @@ export function InboxProvider({ features, children }) {
 
 // The inbox state for a trigger or a page. Outside the provider (a test of one
 // component) the entry is simply not there.
-const NONE = { visible: false, open: false, unread: 0, badge: '', failed: false, ops: NO_OPS, opsOnly: false, toggle: () => {}, refresh: () => {} }
+const NONE = { visible: false, open: false, unread: 0, badge: '', failed: false, ops: NO_OPS, opsOnly: false, chatsOn: false, toggle: () => {}, refresh: () => {} }
 export function useInboxEntry() {
   return useContext(InboxContext) || NONE
 }

@@ -93,6 +93,7 @@ func clientKeyJSON(k auth.UserAPIKey) map[string]any {
 		"features":    featureNames(k.Features),
 		"addons":      addonsOrEmpty(k.Addons),
 		"models":      modelsOrEmpty(k.Models),
+		"allModels":   k.AllModels,
 		"readFolders": foldersOrEmpty(k.ReadFolders),
 		"writeFolder": k.WriteFolder,
 		"createdAt":   k.CreatedAt,
@@ -238,6 +239,7 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 			Features         []string `json:"features"`
 			Addons           []string `json:"addons"`      // ids of the add-ons the client may reach
 			Models           []string `json:"models"`      // names of the models the client may use (client_inference)
+			AllModels        bool     `json:"allModels"`   // every model that passes the model check, instead of a list (client_inference)
 			ReadFolders      []string `json:"readFolders"` // folders of the owner's workspace the client may read (client_folders)
 			WriteFolder      string   `json:"writeFolder"` // the one folder it may write (client_folders)
 			ExpiresInMinutes int      `json:"expiresInMinutes"`
@@ -245,6 +247,11 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		}
 		if err := c.Bind(&body); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		}
+		// A grant of every model stands for the list; both together do not say
+		// which one is meant.
+		if body.AllModels && len(body.Models) > 0 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "allModels grants every model and cannot be combined with a list in models"})
 		}
 		var keyTTL time.Duration
 		if body.KeyExpiresIn != "" {
@@ -254,9 +261,12 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 			}
 			keyTTL = d
 		}
+		opts := []auth.PairingOption{auth.WithModels(body.Models), auth.WithModelCheck(modelCheck), auth.WithFolders(body.ReadFolders, body.WriteFolder)}
+		if body.AllModels {
+			opts = append(opts, auth.WithAllModels())
+		}
 		code, rec, err := auth.CreatePairingCode(db, u.ID, strings.TrimSpace(body.Name), body.Features, body.Addons,
-			time.Duration(body.ExpiresInMinutes)*time.Minute, keyTTL, secret,
-			auth.WithModels(body.Models), auth.WithModelCheck(modelCheck), auth.WithFolders(body.ReadFolders, body.WriteFolder))
+			time.Duration(body.ExpiresInMinutes)*time.Minute, keyTTL, secret, opts...)
 		switch {
 		case errors.Is(err, auth.ErrTooManyPairingCodes):
 			return c.JSON(http.StatusTooManyRequests, map[string]string{"error": err.Error()})
@@ -269,7 +279,7 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		return c.JSON(http.StatusCreated, ro.addTLS(map[string]any{
 			"id": rec.ID, "code": code, "name": rec.Name,
 			"features": featureNames(rec.Features), "addons": addonsOrEmpty(rec.Addons), "models": modelsOrEmpty(rec.Models),
-			"readFolders": foldersOrEmpty(rec.ReadFolders), "writeFolder": rec.WriteFolder,
+			"allModels": rec.AllModels, "readFolders": foldersOrEmpty(rec.ReadFolders), "writeFolder": rec.WriteFolder,
 			"expiresAt": rec.ExpiresAt,
 		}))
 	}, adminMw)
@@ -287,7 +297,7 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		for _, r := range codes {
 			out = append(out, ro.addTLS(map[string]any{
 				"id": r.ID, "name": r.Name, "features": featureNames(r.Features), "addons": addonsOrEmpty(r.Addons), "models": modelsOrEmpty(r.Models),
-				"readFolders": foldersOrEmpty(r.ReadFolders), "writeFolder": r.WriteFolder,
+				"allModels": r.AllModels, "readFolders": foldersOrEmpty(r.ReadFolders), "writeFolder": r.WriteFolder,
 				"expiresAt": r.ExpiresAt, "createdAt": r.CreatedAt,
 			}))
 		}
@@ -393,6 +403,7 @@ func registerClientRoutes(ctx context.Context, e *echo.Echo, db *gorm.DB, secret
 		}
 		if body.Models != nil {
 			resp["models"] = modelsOrEmpty(models)
+			resp["allModels"] = false
 		}
 		if folders {
 			resp["readFolders"] = foldersOrEmpty(readFolders)

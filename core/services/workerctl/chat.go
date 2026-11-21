@@ -76,4 +76,8 @@ type ChatStartReply struct {
 	Started   bool   `json:"started,omitempty"`
 	PendingID string `json:"pending_id,omitempty"`
 	Error     string `json:"error,omitempty"`
+	// Full is set with Error when the worker refused because it runs as many
+	// turns as it may. A frontend that picks the worker sends the start to
+	// another one.
+	Full bool `json:"full,omitempty"`
 }

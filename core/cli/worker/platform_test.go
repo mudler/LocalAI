@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("worker platform checks", func() {
 	It("refuses the backends without a Windows build on Windows", func() {
-		for _, command := range []string{"mlx-distributed", "p2p-mlx", "vllm", "ds4-distributed"} {
+		for _, command := range []string{"mlx-distributed", "vllm", "ds4-distributed"} {
 			err := requireBackendBuild("windows", command, "x")
 			Expect(err).To(HaveOccurred(), command)
 			Expect(err.Error()).To(ContainSubstring("not available on Windows"))
@@ -20,7 +20,6 @@ var _ = Describe("worker platform checks", func() {
 
 	It("allows the llama.cpp workers on Windows", func() {
 		Expect(requireBackendBuild("windows", "llama-cpp-rpc", "llama-cpp")).To(Succeed())
-		Expect(requireBackendBuild("windows", "p2p-llama-cpp-rpc", "llama-cpp")).To(Succeed())
 	})
 
 	It("allows every worker on Linux and macOS", func() {

@@ -18,7 +18,14 @@ export const API_CONFIG = {
     modelsRecommended: '/api/models/recommended',
     modelEstimate: (id) => `/api/models/estimate/${id}`,
     modelVariants: (id) => `/api/models/variants/${id}`,
-    modelConfig: (id) => `/api/models/config/${id}`,
+    // Model updates: the read model, a check, the upgrade and its actions.
+    modelUpdates: '/api/models/updates',
+    modelUpdatesCheck: '/api/models/updates/check',
+    modelUpgrade: (name) => `/api/models/upgrade/${encodeURIComponent(name)}`,
+    modelUpgradeRetry: (name) => `/api/models/${encodeURIComponent(name)}/upgrade/retry`,
+    modelRemoveOld: (name) => `/api/models/${encodeURIComponent(name)}/remove-old`,
+    modelAdopt: (name) => `/api/models/${encodeURIComponent(name)}/adopt`,
+    modelHold: (name) => `/api/models/${encodeURIComponent(name)}/hold`,
     modelConfigJson: (name) => `/api/models/config-json/${name}`,
     configMetadata: '/api/models/config-metadata',
     configAutocomplete: (provider) => `/api/models/config-metadata/autocomplete/${encodeURIComponent(provider)}`,
@@ -56,11 +63,27 @@ export const API_CONFIG = {
     backendLogsModel: (modelId) => `/api/backend-logs/${encodeURIComponent(modelId)}`,
     clearBackendLogs: (modelId) => `/api/backend-logs/${encodeURIComponent(modelId)}/clear`,
 
-    // P2P
-    p2pWorkers: '/api/p2p/workers',
-    p2pFederation: '/api/p2p/federation',
-    p2pStats: '/api/p2p/stats',
-    p2pToken: '/api/p2p/token',
+    // P2P layer (p2pnet): status, invites, devices, relays, identity
+    p2pStatus: '/api/p2p/status',
+    p2pInvites: '/api/p2p/invites',
+    p2pInvite: (id) => `/api/p2p/invites/${encodeURIComponent(id)}`,
+    p2pDevices: '/api/p2p/devices',
+    p2pDevice: (id) => `/api/p2p/devices/${encodeURIComponent(id)}`,
+    p2pRelays: '/api/p2p/relays',
+    p2pRelay: (id) => `/api/p2p/relays/${encodeURIComponent(id)}`,
+    p2pRelayCheck: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/check`,
+    p2pRelaySync: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/sync`,
+    p2pRelayLimits: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/limits`,
+    p2pRelayClaim: (id) => `/api/p2p/relays/${encodeURIComponent(id)}/claim`,
+    p2pIdentityRegenerate: '/api/p2p/identity/regenerate',
+    // Federation: groups of instances behind one model name
+    federation: '/api/federation',
+    federationGroups: '/api/federation/groups',
+    federationGroup: (name) => `/api/federation/groups/${encodeURIComponent(name)}`,
+    federationDrain: (name) => `/api/federation/groups/${encodeURIComponent(name)}/drain`,
+    // Model-split workers (llama.cpp RPC and MLX over P2P)
+    p2pSplitWorkers: '/api/p2p/split-workers',
+    p2pSplitWorker: (id) => `/api/p2p/split-workers/${encodeURIComponent(id)}`,
 
     // Chats the server keeps: steering, sub-agents and live events
     chats: '/api/chats',
@@ -183,6 +206,8 @@ export const API_CONFIG = {
     nodeLabelKey: (id, key) => `/api/nodes/${id}/labels/${key}`,
     nodeMaxReplicasPerModel: (id) => `/api/nodes/${id}/max-replicas-per-model`,
     nodeVramBudget: (id) => `/api/nodes/${id}/vram-budget`,
+    nodeSplitServer: (id) => `/api/nodes/${id}/split-server`,
+    clusterSettings: '/api/cluster/settings',
     nodesScheduling: '/api/nodes/scheduling',
     nodesModels: '/api/nodes/models',
     nodesSchedulingModel: (model) => `/api/nodes/scheduling/${encodeURIComponent(model)}`,

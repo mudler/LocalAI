@@ -758,6 +758,53 @@
           "library": "biblioteca de backends",
           "addons": "complementos"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Modelo",
+          "backend": "Backend",
+          "addon": "Complemento"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} instalado",
+          "delete": "{{kind}} {{name}} eliminado",
+          "upgrade": "{{kind}} {{name}} actualizado"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: falló la instalación",
+          "delete": "{{kind}} {{name}}: falló la eliminación",
+          "upgrade": "{{kind}} {{name}}: falló la actualización"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: instalación cancelada",
+          "delete": "{{kind}} {{name}}: eliminación cancelada",
+          "upgrade": "{{kind}} {{name}}: actualización cancelada"
+        },
+        "needsReview": {
+          "install": "El complemento {{name}} necesita tu revisión para instalarse"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} actualización de modelo disponible",
+          "title_other": "{{count}} actualizaciones de modelos disponibles"
+        },
+        "done": {
+          "title": "Modelo {{name}} actualizado",
+          "body": "De {{from}} a {{to}}."
+        },
+        "failed": {
+          "title": "Modelo {{name}}: la actualización falló",
+          "rolledBack": "Se restauró la versión anterior y sigue en servicio. Motivo: {{error}}",
+          "rolledBackPlain": "Se restauró la versión anterior y sigue en servicio.",
+          "kept": "La versión anterior sigue en servicio. Motivo: {{error}}",
+          "keptPlain": "La versión anterior sigue en servicio."
+        },
+        "removed": {
+          "title": "Modelo {{name}}: versión anterior quitada",
+          "body_one": "Se borró {{count}} archivo anterior.",
+          "body_other": "Se borraron {{count}} archivos anteriores."
+        }
       }
     },
     "tabs": {
@@ -792,7 +839,9 @@
         "removed": "{{name}} eliminado",
         "staged": "{{name}} transferido"
       }
-    }
+    },
+    "chatsOff": "Los chats están desactivados",
+    "emptyBodyNoChats": "Aquí aparecen las actualizaciones y las operaciones terminadas."
   },
   "change": {
     "loading": "Leyendo el cambio del disparador...",

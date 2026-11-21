@@ -610,6 +610,27 @@
       "all": "Semua proyek",
       "none": "Tanpa proyek",
       "empty": "Tidak ada pemicu untuk pilihan ini."
+    },
+    "reports": {
+      "label": "Melapor ke",
+      "inbox": "Kotak masuk",
+      "channel": "Kanal {{channel}}",
+      "chat": "Obrolan {{chat}}",
+      "thread": "Utas di obrolan {{chat}}",
+      "problem": {
+        "off": "Koneksi nonaktif",
+        "gone": "Koneksi dihapus",
+        "unavailable": "Koneksi tidak tersedia",
+        "no_channel": "Kanal belum disetujui",
+        "blocked": "Pengiriman tidak diizinkan"
+      },
+      "fallback": "Sampai diperbaiki, laporan masuk ke Kotak masuk.",
+      "manage": "Kelola koneksi",
+      "connections": "Buka koneksi",
+      "mode": {
+        "on_change": "Hanya saat jawaban berubah",
+        "on_problem": "Hanya saat sebuah proses gagal"
+      }
     }
   },
   "views": {

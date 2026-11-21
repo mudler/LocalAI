@@ -173,8 +173,8 @@ func (s *ConfigService) patchConfig(ctx context.Context, name string, patch map[
 		return nil, fmt.Errorf("%w: %v", ErrInvalidConfig, err)
 	}
 	var result *PatchResult
-	err = s.withMutationRollback([]string{configPath}, func() error {
-		if err := writeFileAtomic(configPath, yamlData, 0644); err != nil {
+	err = s.withMutationRollback([]string{configPath, sidecarPathFor(s.modelsPath(), name)}, func() error {
+		if err := writeModelConfig(configPath, name, yamlData); err != nil {
 			return fmt.Errorf("write config file: %w", err)
 		}
 		if err := s.Loader.LoadModelConfigsFromPath(s.modelsPath(), s.AppConfig.ToConfigLoaderOptions()...); err != nil {
@@ -300,7 +300,7 @@ func (s *ConfigService) editYAML(ctx context.Context, name string, body []byte) 
 	}
 
 	renamed := req.Name != name
-	paths := []string{configPath}
+	paths := []string{configPath, sidecarPathFor(modelsPath, name)}
 	if renamed {
 		if strings.ContainsRune(req.Name, os.PathSeparator) || strings.Contains(req.Name, "/") || strings.Contains(req.Name, "\\") {
 			return nil, ErrPathSeparator
@@ -324,15 +324,8 @@ func (s *ConfigService) editYAML(ctx context.Context, name string, body []byte) 
 	err := s.withMutationRollback(paths, func() error {
 		if renamed {
 			newConfigPath := filepath.Join(modelsPath, req.Name+".yaml")
-			if err := writeFileAtomic(newConfigPath, body, 0644); err != nil {
-				return fmt.Errorf("write new config: %w", err)
-			}
-			if configPath != newConfigPath {
-				if err := os.Remove(configPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-					return fmt.Errorf("remove old config: %w", err)
-				}
-			}
-			// Move the gallery metadata file so the delete flow can still find it.
+			// Move the gallery metadata file first so the delete flow can still
+			// find it and the write below records the new config's hash in it.
 			oldGalleryPath := filepath.Join(modelsPath, gallery.GalleryFileName(name))
 			newGalleryPath := filepath.Join(modelsPath, gallery.GalleryFileName(req.Name))
 			if _, err := os.Stat(oldGalleryPath); err == nil {
@@ -340,12 +333,20 @@ func (s *ConfigService) editYAML(ctx context.Context, name string, body []byte) 
 					return fmt.Errorf("rename gallery metadata: %w", err)
 				}
 			}
+			if err := writeModelConfig(newConfigPath, req.Name, body); err != nil {
+				return fmt.Errorf("write new config: %w", err)
+			}
+			if configPath != newConfigPath {
+				if err := os.Remove(configPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("remove old config: %w", err)
+				}
+			}
 			// Drop the stale in-memory entry before reload so we don't surface
 			// both names between scan steps.
 			s.Loader.RemoveModelConfig(name)
 			configPath = newConfigPath
 		} else {
-			if err := writeFileAtomic(configPath, body, 0644); err != nil {
+			if err := writeModelConfig(configPath, name, body); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
 		}

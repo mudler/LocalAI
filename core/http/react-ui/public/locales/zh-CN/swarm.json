@@ -1,5 +1,229 @@
 {
+  "split": {
+    "title": "模型拆分工作节点",
+    "online": "{{online}} / {{total}} 在线",
+    "note": "它们不是集群节点：没有后端，也没有放置规则。它们把内存借给在本实例上运行的模型。",
+    "slowTitle": "模型拆分在直连或打洞路径上效果最好。",
+    "slowBody": "只有中继能连到 {{names}}。可以工作，但每个 token 都要等中继。请选择“仍然使用”，或不使用该工作节点。在它的网络上开放 UDP 和 TCP 4001 端口即可获得直连路径。",
+    "limitedTitle": "公共中继无法传输模型层。",
+    "limitedBody": "到该工作节点的唯一路径是公共中继，你无法更改它的上限。请给工作节点一条直连路径，或在两端使用你自己的中继。",
+    "cutTitle": "你自己的中继会在达到上限时切断每个连接。",
+    "cutBody": "{{names}} 经由你自己的中继，该中继会在达到数据或时间上限后结束每个连接。“仍然使用”可以工作，但较慢，直到中继切断连接；之后需要重新加载模型。若要运行更久，请提高或取消中继的上限。",
+    "cutHint": "{{limits}} 后切断",
+    "relayLimits": "中继上限",
+    "memoryInUse": "正在使用的工作节点提供的内存：{{memory}}。",
+    "add": {
+      "p2pTitle": "请先通过 P2P 共享本实例",
+      "p2pBody": "模型拆分工作节点通过邀请配对，而邀请需要 P2P 模式“连接并共享”。",
+      "p2pOpen": "打开 P2P 设置",
+      "engineTitle": "引擎",
+      "engineSub": {
+        "llama": "模型在本实例上运行。工作节点在自己的内存中保存部分模型层。",
+        "mlx": "模型作为同一个 MLX 环的各个 rank，在本实例和工作节点上运行。仅限 Apple Silicon。"
+      },
+      "inviteTitle": "创建邀请",
+      "name": "工作节点名称（可选）",
+      "namePlaceholder": "attic-3090",
+      "mint": "创建邀请",
+      "inviteReady": "邀请已就绪",
+      "inviteExpired": "邀请已过期",
+      "inviteUsed": "邀请已使用",
+      "inviteMeta": "仅限一次 · {{time}} 后过期",
+      "noPass": "中继无法连接，因此链接中没有中继通行证。",
+      "pathTitle": "模型拆分在直连或打洞路径上效果最好。",
+      "pathBody": "每个 token 都需要各层之间通信。经由中继可以工作，但每个 token 都要等中继。如果只有中继路径，由你决定是否添加该工作节点。",
+      "runTitle": "在工作节点上运行",
+      "runFirst": "请先创建邀请：命令中包含邀请链接。",
+      "runNote": "卷会保存工作节点的身份和配对，因此重启后同一条命令仍可使用。旧名称 p2p-worker 仍然可用。",
+      "runNoteMlx": "工作节点把身份和配对保存在 ./p2p/mlx-distributed 中，因此重启后同一条命令仍可使用。",
+      "waitTitle": "正在等待工作节点",
+      "waiting": "正在等待工作节点连接…",
+      "pairedTitle": "工作节点已配对",
+      "pairedWaiting": "工作节点已使用邀请。正在等待它连接。",
+      "foundTitle": "工作节点正在使用",
+      "foundBody": "它显示在“节点”页面的“模型拆分工作节点”下，并标出它提供的内存。重新加载模型即可使用它。",
+      "openNodes": "打开节点",
+      "relayTitle": "工作节点只通过中继连接",
+      "slowTitle": "较慢：经由中继。",
+      "slowBody": "{{name}} 没有到本实例的直连或打洞路径。模型拆分可以通过你的中继工作，但每个 token 都要等它。在任意一端开放 UDP 和 TCP 4001 端口，之后可能获得直连路径。",
+      "slowCut": "中继会在 {{limits}} 后结束每个连接：模型随后会停止，直到重新加载。若要运行更久，请提高或取消上限。",
+      "addAnyway": "仍然添加",
+      "notNow": "暂不",
+      "engineSubNode": {
+        "llama": "模型运行在你接下来选择的节点上。工作节点在自己的内存中保存部分模型层。",
+        "mlx": "模型运行在你接下来选择的节点和工作节点上，作为同一个 MLX 环中的各个 rank。仅限 Apple Silicon。"
+      },
+      "nodeTitle": "节点",
+      "nodeLabel": "把工作节点关联到",
+      "nodeSub": "该节点加载的模型会使用这个工作节点。请用放置规则把模型固定到该节点，让它在那里加载。之后可以在“节点”页面更换节点。",
+      "nodeServer": "本实例（在集群中不运行模型）",
+      "nodePick": "选择拆分服务器",
+      "nodeOffline": "{{name}}（离线）"
+    },
+    "col": {
+      "worker": "工作节点",
+      "engine": "引擎",
+      "path": "路径",
+      "memory": "提供的内存",
+      "status": "状态",
+      "actions": "操作",
+      "node": "关联到"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX（Apple Silicon）"
+    },
+    "path": {
+      "direct": "直连",
+      "holePunched": "打洞",
+      "relayed": "经由 {{relay}}",
+      "relayedUnknown": "经由中继",
+      "none": "无路径",
+      "rtt": "{{ms}} 毫秒"
+    },
+    "state": {
+      "online": "在线",
+      "offline": "离线",
+      "slow": "较慢：经由中继",
+      "limited": "公共中继：不使用",
+      "refused": "已拒绝"
+    },
+    "useAnyway": "仍然使用",
+    "stopUsing": "停止使用",
+    "revoke": "撤销…",
+    "revokeTitle": "撤销 {{name}}？",
+    "revokeBody": "工作节点会立即断开，必须用新的邀请重新配对。使用它加载的模型在重新加载前会失败。",
+    "revokeConfirm": "撤销",
+    "revoking": "正在撤销…",
+    "addWorker": "添加模型拆分工作节点",
+    "toast": {
+      "used": "{{name}} 正经由中继使用。",
+      "stopped": "{{name}} 不再经由中继使用。",
+      "revoked": "{{name}} 已撤销。",
+      "attached": "{{name}} 已关联到 {{node}}。从现在起，{{node}} 加载的模型会使用它。",
+      "detached": "{{name}} 已关联到本实例。"
+    },
+    "noteCluster": "它们不是集群节点：没有后端，也没有放置规则。每个工作节点把内存借给它所关联节点上的模型。",
+    "thisServer": "本实例",
+    "nodeLabel": "{{name}} 的节点",
+    "unattachedTitle": "这些工作节点未被使用：请把它们关联到一个节点。",
+    "unattachedBody": "关联在本实例上：{{names}}。在集群中，模型运行在后端节点上，而不是本实例上。请为每个工作节点选择一个节点。",
+    "noServerTitle": "还没有工作节点被设为拆分服务器。",
+    "noServerBody": "模型拆分工作节点只能挂到拆分服务器上。可以在这里设置一个，或用 --split-server 启动工作节点。",
+    "offlineTitle": "某个模型拆分工作节点所在的节点已离线。",
+    "offlineBody": "{{names}} 保持挂载，等待其节点恢复。不会自动转到其他节点。",
+    "relayRefusedTitle": "你的中继未接纳某个节点。",
+    "relayRefusedBody": "工作节点只能直连或通过打洞到达 {{names}}：{{reason}}。",
+    "nextLoad": "对节点工作节点的更改从它下次加载的模型开始生效。",
+    "nodeOffline": "节点离线",
+    "relay": {
+      "admitted": "中继：已接纳",
+      "refused": "中继：被拒绝",
+      "pending": "中继：等待中",
+      "notNeeded": "中继：不需要"
+    }
+  },
   "nodes": {
     "retry": "重试"
+  },
+  "add": {
+    "connect": {
+      "title": "它应如何连接？",
+      "url": "服务器地址",
+      "p2p": "P2P 邀请",
+      "urlSub": "节点使用注册令牌连接此服务器的地址。它使用集群的载体：NATS 或 WebSocket 隧道。",
+      "p2pSub": "节点可从任何网络通过一次性邀请加入。它通过对等节点 ID 找到此服务器，并直接连接、通过打洞连接或经由你的中继连接。无需开放端口，也无需注册令牌。",
+      "order": "此集群中的顺序：NATS，然后 WebSocket，然后 P2P。通过 P2P 加入的节点始终使用自己的隧道。"
+    },
+    "invite": {
+      "title": "创建邀请",
+      "needsShare": "工作节点邀请需要 P2P 处于“连接并共享”模式。",
+      "settings": "打开 P2P 设置",
+      "name": "节点名称（可选）",
+      "namePlaceholder": "gpu-box-5",
+      "make": "创建邀请",
+      "ready": "邀请已就绪",
+      "single": "一次性",
+      "expires": "剩余",
+      "pass": "{{relay}} 上的中继通行证",
+      "again": "新邀请",
+      "warn": {
+        "no_relay": "此服务器没有中继。位于严格 NAT 之后的节点无法连接。",
+        "open_relay": "该邀请指定了一个任何人都能使用的开放中继。",
+        "relay_unreachable": "中继没有响应，因此该邀请没有中继通行证。",
+        "no_public_addr": "此服务器没有公网地址。节点将通过打洞或中继连接。"
+      }
+    },
+    "run": {
+      "inviteFirst": "请先创建邀请。命令中包含邀请链接。",
+      "joinNote": "该链接只能使用一次。工作节点会保留自己的身份，因此用相同命令重启时无需新邀请。"
+    },
+    "wait": {
+      "checkPeer": "批准之前，请与运行该机器的人核对对等节点 ID。",
+      "joinStuck": "没有节点到达？在严格 NAT 之后，节点可能需要一分钟才能找到路径。请检查邀请是否已过期。"
+    },
+    "join": {
+      "instanceNote": "需要分担部分请求的另一个 LocalAI 实例不是节点：请将其添加为远程，然后在此处分组：",
+      "instanceLink": "联邦"
+    }
+  },
+  "route": {
+    "nats": "NATS",
+    "websocket": "WebSocket",
+    "p2p": "P2P",
+    "path": {
+      "direct": "直连",
+      "hole_punched": "打洞",
+      "relayed": "经由中继"
+    },
+    "limited": "受限",
+    "limitedHint": "中继限制了此连接的数据量或时长。模型文件不会经由它传输。",
+    "heartbeat": "心跳",
+    "tunnel": "隧道",
+    "chip": "{{route}}：{{state}}",
+    "state": {
+      "live": "在线",
+      "reconnecting": "重连中",
+      "down": "断开"
+    }
+  },
+  "inspector": {
+    "route": "路由",
+    "peer": "对等节点 ID"
+  },
+  "splitServer": {
+    "label": "拆分服务器",
+    "make": "设为拆分服务器…",
+    "clear": "取消拆分服务器…",
+    "open": "设置拆分服务器",
+    "title": "设置拆分服务器",
+    "desc": "拆分服务器是借助挂在它上面的模型拆分工作节点的内存来运行模型的工作节点。",
+    "node": "工作节点",
+    "nodeDeclared": "{{name}}（拆分服务器）",
+    "changesTitle": "确认后，{{node}} 将成为拆分服务器：",
+    "changes": {
+      "ports": "它会打开 P2P 端口，并为其模型拆分工作节点启动 P2P 主机。",
+      "relay": "本实例会在你运行的受控中继上接纳它，让工作节点可以经由中继到达它。",
+      "load": "挂载的工作节点用于它下次加载的 llama.cpp 或 MLX 模型。当前已加载的模型在重新加载前保留原有工作节点。",
+      "undo": "可以在“节点”页面关闭它，届时其工作节点会被卸下。"
+    },
+    "offline": "{{node}} 已离线。其工作节点会等待它恢复。",
+    "helpers": "挂载这些模型拆分工作节点",
+    "noHelpers": "还没有其他已配对的模型拆分工作节点。可以稍后再挂载。",
+    "moveFrom": "当前在 {{node}}",
+    "noNodes": "集群还没有后端工作节点。请先添加一个。",
+    "cancel": "取消",
+    "confirm": "设为拆分服务器并挂载",
+    "confirmAttach": "挂载",
+    "clearTitle": "取消 {{node}} 的拆分服务器身份？",
+    "clearBody": "它的 P2P 主机会停止，你的中继不再接纳它，它的模型拆分工作节点（{{count}} 个）会被卸下，在你重新挂载前不属于任何节点。",
+    "clearConfirm": "取消拆分服务器",
+    "clearing": "正在停止…",
+    "toast": {
+      "set": "{{node}} 已是拆分服务器。当前挂载的工作节点：{{count}} 个，将用于它下次加载的模型。",
+      "cleared": "{{node}} 已不再是拆分服务器。卸下的工作节点：{{count}} 个。"
+    }
   }
 }

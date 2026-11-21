@@ -35,6 +35,10 @@ type addLibrarySourceRequest struct {
 	Format string `json:"format"`
 	// Mirrors are fallback addresses of a model or backend source.
 	Mirrors []string `json:"mirrors,omitempty"`
+	// Issuer and Identity pin the signer of an oci:// add-on library. Set
+	// both or neither; the signature is then required.
+	Issuer   string `json:"issuer,omitempty"`
+	Identity string `json:"identity,omitempty"`
 }
 
 type updateLibrarySourceRequest struct {
@@ -119,7 +123,7 @@ func (e LibrarySourcesEndpoints) Update() echo.HandlerFunc {
 
 // Add godoc
 // @Summary Add a library source
-// @Description Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. A source with the same kind and URL is refused (409), as is a taken id. Administrators only.
+// @Description Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. issuer and identity, set together, pin the signer of an oci:// add-on library: its artifact must then be signed by that issuer and exact identity (400 otherwise, and on any other source). A source with the same kind and URL is refused (409), as is a taken id. Administrators only.
 // @Tags library
 // @Accept json
 // @Produce json
@@ -132,7 +136,7 @@ func (e LibrarySourcesEndpoints) Add() echo.HandlerFunc {
 		if err := c.Bind(&req); err != nil {
 			return librarySourceError(c, http.StatusBadRequest, "the request is not valid JSON")
 		}
-		in, err := e.Admin.Add(c.Request().Context(), library.AddRequest{Kind: req.Kind, URL: req.URL, ID: req.ID, Name: req.Name, Format: req.Format, Mirrors: req.Mirrors})
+		in, err := e.Admin.Add(c.Request().Context(), library.AddRequest{Kind: req.Kind, URL: req.URL, ID: req.ID, Name: req.Name, Format: req.Format, Mirrors: req.Mirrors, Issuer: req.Issuer, Identity: req.Identity})
 		if err != nil {
 			return storeError(c, err, req.ID)
 		}

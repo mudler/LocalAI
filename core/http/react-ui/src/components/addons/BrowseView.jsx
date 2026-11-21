@@ -11,25 +11,32 @@ import { apiUrl } from '../../utils/basePath'
 import { useAuth } from '../../context/AuthContext'
 import { useAddonConnections } from '../../hooks/useAddonConnections'
 import FlowStatus from './InstallFlow'
-import InstallDialog from './InstallDialog'
 import { CATEGORIES, addedByEntry, categoryOf, localizeEntry, localizeRecord, sortEntriesByTitle } from './addonState'
 import { updateView, entryUpdateNote, updateNoticeSeverity, upgradeAvailability } from './updateState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 import { useAddonUpgrade } from './useAddonUpgrade'
+import { useOperations } from '../../hooks/useOperations'
+import { busyAddonIds } from '../../utils/addonQueue'
 import { AddonUpgradeAction, UpgradeConfirm } from './UpgradeControls'
 import { UpdateBadge } from '../upgrade/UpgradeBits'
 
-// Library entries for this host. An add-on entry has one button, Install and
-// turn on: one confirmation, then the install and the turn on run one after
-// the other. An add-on that is installed but off offers Turn on. Backends are
-// not listed here: they belong to the Backends page.
-export default function BrowseView({ api, adapter }) {
+// Library entries for this host. An add-on entry has an Install button and a
+// checkbox to add it to a batch: the person reviews the host access of each one
+// in the dialog, and the installs then run in the background queue (see
+// useInstallQueue). An install does not turn the add-on on; an add-on that is
+// installed but off offers Turn on. Backends are not listed here: they belong
+// to the Backends page.
+export default function BrowseView({ api, adapter, queue }) {
   const { t, i18n } = useTranslation('addons')
   const [params, setParams] = useSearchParams()
   const [installed, setInstalled] = useState({})
   const [reload, setReload] = useState(0)
-  const [dialog, setDialog] = useState(null)
+  // The entries ticked for the batch, by key. Kept as entries so a tick on one
+  // page of results survives a move to the next.
+  const [selected, setSelected] = useState({})
+  const { operations } = useOperations()
+  const busy = busyAddonIds(operations)
   const [category, setCategory] = useState('all')
   const { hasFeature, isAdmin } = useAuth()
   // The connector kinds the host serves make an installed add-on a chat app.
@@ -52,7 +59,7 @@ export default function BrowseView({ api, adapter }) {
       .then(list => setInstalled(Object.fromEntries(list.map(a => [a.id, a]))))
       .catch(() => { if (!ctl.signal.aborted) setInstalled({}) })
     return () => ctl.abort()
-  }, [api, reload])
+  }, [api, reload, queue.tick])
 
   const actions = useAddonActions(api, { onSettled: () => setReload(n => n + 1), adapter })
 
@@ -70,7 +77,15 @@ export default function BrowseView({ api, adapter }) {
     }
   }
 
-  const openInstall = (entry) => setDialog(entry)
+  const openInstall = (entry) => queue.start([entry])
+  const toggle = (entry, on) => setSelected(s => {
+    const next = { ...s }
+    if (on) next[entry.key] = entry
+    else delete next[entry.key]
+    return next
+  })
+  const picked = Object.values(selected)
+  const reviewPicked = () => { queue.start(picked); setSelected({}) }
 
   const renderEntry = (raw) => {
     const entry = localizeEntry(raw, i18n.language)
@@ -78,6 +93,7 @@ export default function BrowseView({ api, adapter }) {
     const flow = actions.flows[`flow:${entry.key}`]
     const pending = Boolean(actions.unknown[entry.id])
     const working = ['install', 'turn-on'].includes(flow?.step)
+    const waiting = busy.has(entry.id)
     const adds = addedByEntry(entry)
     const off = have && have.enabled === false
     const updatable = have && updateView(have.update).state === 'update-available'
@@ -107,13 +123,20 @@ export default function BrowseView({ api, adapter }) {
           ? <p className="ad-entry__note" data-testid="entry-update-note" data-state={note.state} data-tone={note.tone}>{t(`updates.state.${note.state}`, { version: note.version })}</p>
           : <Notice className="ad-entry__notice" severity={note.severity} title={t(`updates.state.${note.state}`, { version: note.version })} testId="entry-update-note" data-state={note.state} data-tone={note.tone} />)}
         {pending && <UnknownNotice addonId={entry.id} actions={actions} />}
-        {!pending && !(dialog && dialog.key === entry.key) && <FlowStatus flow={flow} name={entry.title} onRetry={flow?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flow.failedStep === 'turn-on' }) : undefined} />}
-        {flow && flow.step === 'done' && !(dialog && dialog.key === entry.key) && <p className="ad-entry__note" data-tone="ok" role="status"><Icon name="check-circle" aria-hidden="true" /> {t('browse.installedOn', { name: entry.title })}</p>}
+        {!pending && <FlowStatus flow={flow} name={entry.title} onRetry={flow?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flow.failedStep === 'turn-on' }) : undefined} />}
+        {flow && flow.step === 'done' && <p className="ad-entry__note" data-tone="ok" role="status"><Icon name="check-circle" aria-hidden="true" /> {t('browse.installedOn', { name: entry.title })}</p>}
         <div className="ad-card__foot">
           <div className="ad-entry__acts" data-testid="entry-control">
-            {!have && (
-              <Button size="sm" icon="download" busy={working} disabled={working || pending} onClick={() => openInstall(entry)} aria-label={t('flow.installNamed', { name: entry.title })}>{t('flow.install')}</Button>
+            {!have && !waiting && (
+              <>
+                <Button size="sm" icon="download" busy={working} disabled={working || pending} onClick={() => openInstall(entry)} aria-label={t('flow.installNamed', { name: entry.title })}>{t('flow.install')}</Button>
+                <label className="ad-select">
+                  <input type="checkbox" className="dk-check" checked={Boolean(selected[entry.key])} disabled={working || pending} onChange={(e) => toggle(entry, e.target.checked)} aria-label={t('queue.selectNamed', { name: entry.title })} data-testid="entry-select" />
+                  {' '}{t('queue.select')}
+                </label>
+              </>
             )}
+            {!have && waiting && <StatusChip tone="accent" label={t('queue.inQueue')} testId="entry-queued" />}
             {updatable && (
               <span data-testid="entry-upgrade">
                 {availability.startable
@@ -154,6 +177,13 @@ export default function BrowseView({ api, adapter }) {
           testId="browse-unchecked"
         />
       )}
+      {picked.length > 0 && (
+        <div className="ad-selbar" role="region" aria-label={t('queue.selectionLabel')} data-testid="queue-selection">
+          <span className="ad-selbar__text">{t('queue.selected', { count: picked.length })}</span>
+          <Button variant="primary" size="sm" icon="download" onClick={reviewPicked} data-testid="queue-review">{t('queue.reviewPicked')}</Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected({})} data-testid="queue-clear">{t('queue.clear')}</Button>
+        </div>
+      )}
       <CatalogView
         adapter={adapter}
         query={query}
@@ -170,7 +200,6 @@ export default function BrowseView({ api, adapter }) {
         emptyText={t('browse.emptyBody')}
       />
       <UpgradeConfirm upgrade={upgrade} />
-      <InstallDialog entry={dialog} installed={installed} flow={dialog ? actions.flows[`flow:${dialog.key}`] : undefined} actions={actions} onClose={() => setDialog(null)} />
     </>
   )
 }

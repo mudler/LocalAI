@@ -21,13 +21,13 @@ import (
 // for model deletion so worker nodes clean up stale files.
 type DistributedModelManager struct {
 	local   galleryop.ModelManager
-	adapter *RemoteUnloaderAdapter
+	adapter NodeControl
 }
 
 // NewDistributedModelManager creates a DistributedModelManager.
 // Backend auto-install is disabled because the frontend node delegates
 // inference to workers and never runs backends locally.
-func NewDistributedModelManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter *RemoteUnloaderAdapter) *DistributedModelManager {
+func NewDistributedModelManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter NodeControl) *DistributedModelManager {
 	local := galleryop.NewLocalModelManager(appConfig, ml)
 	local.SetAutoInstallBackend(false)
 	return &DistributedModelManager{
@@ -60,7 +60,7 @@ type nodeProgressSink interface {
 // for backend deletion so worker nodes clean up stale files.
 type DistributedBackendManager struct {
 	local            galleryop.BackendManager
-	adapter          *RemoteUnloaderAdapter
+	adapter          NodeControl
 	registry         *NodeRegistry
 	backendGalleries []config.Gallery
 	systemState      *system.SystemState
@@ -72,7 +72,7 @@ type DistributedBackendManager struct {
 // NewDistributedBackendManager creates a DistributedBackendManager.
 // progressSink may be nil to disable per-node OpStatus writes (single-node
 // tests don't need it).
-func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter *RemoteUnloaderAdapter, registry *NodeRegistry, progressSink nodeProgressSink) *DistributedBackendManager {
+func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter NodeControl, registry *NodeRegistry, progressSink nodeProgressSink) *DistributedBackendManager {
 	return &DistributedBackendManager{
 		local:            galleryop.NewLocalBackendManager(appConfig, ml),
 		adapter:          adapter,
@@ -186,8 +186,8 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 	}
 
 	// Nodes are independent, so they are served in parallel, up to the
-	// max_concurrent_backend_operations setting. With the default of 1 they are
-	// visited one after the other, as before. Each result goes to its own slot.
+	// max_concurrent_backend_operations setting. With a limit of 1 they are
+	// visited one after the other. Each result goes to its own slot.
 	statuses := make([]NodeOpStatus, len(targets))
 	limit := d.fanOutLimit()
 	sem := make(chan struct{}, limit)
@@ -272,7 +272,9 @@ func (d *DistributedBackendManager) applyToNode(ctx context.Context, node Backen
 
 	if errors.Is(applyErr, ErrNoRoute) {
 		xlog.Warn("No route to node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
-		d.registry.MarkUnhealthy(ctx, node.ID)
+		if err := d.registry.MarkUnhealthy(ctx, node.ID); err != nil {
+			xlog.Warn("Failed to mark node unhealthy", "node", node.Name, "nodeID", node.ID, "error", err)
+		}
 	}
 	if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
 		_ = d.registry.RecordPendingBackendOpFailure(ctx, id, errMsg)
@@ -388,7 +390,9 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 		if err != nil {
 			if errors.Is(err, ErrNoRoute) {
 				xlog.Warn("No route to node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
-				d.registry.MarkUnhealthy(context.Background(), node.ID)
+				if err := d.registry.MarkUnhealthy(context.Background(), node.ID); err != nil {
+					xlog.Warn("Failed to mark node unhealthy", "node", node.Name, "nodeID", node.ID, "error", err)
+				}
 				continue
 			}
 			xlog.Warn("Failed to list backends on worker", "node", node.Name, "error", err)
@@ -640,7 +644,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 			// Rolling-update fallback: an older worker doesn't know
 			// backend.upgrade. Try the legacy install-with-force path.
 			if errors.Is(err, ErrNoRoute) {
-				instReply, instErr := d.adapter.installWithForceFallback(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
+				instReply, instErr := d.adapter.InstallBackendForce(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
 				if instErr != nil {
 					return instErr
 				}

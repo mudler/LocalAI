@@ -341,3 +341,15 @@ test('needsPersonRows: backends and add-ons are in one list, and its length is t
   assert.equal(list.length, badgeOf(rows).count)
   assert.deepEqual(needsPersonRows(null), [])
 })
+
+test('updates: a failed approved upgrade keeps the held grant, so its retry reopens the review', () => {
+  const grants = { addons: [{ id: 'tables', title: 'Tables', version: '2.3.0', pendingUpgrade: { version: '2.4.0', delta: ['read_files'] } }] }
+  const rows = addonRows({
+    installed: [addon('tables', available)],
+    grants,
+    live: [{ addonId: 'tables', kind: 'approval', state: 'failed', errorKey: 'approval_stale', jobID: 'j9' }],
+  })
+  assert.deepEqual([rows[0].state, rows[0].approval, rows[0].grant.id], ['failed', true, 'tables'])
+  const plain = addonRows({ installed: [addon('tables', available)], grants: null, live: [{ addonId: 'tables', kind: 'upgrade', state: 'failed', errorKey: 'upgrade_failed', jobID: 'j9' }] })
+  assert.equal(plain[0].approval, undefined, 'a plain failed upgrade retries as before')
+})

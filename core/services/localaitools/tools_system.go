@@ -20,7 +20,7 @@ func registerSystemTools(s *mcp.Server, client LocalAIClient, opts Options) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolListNodes,
-		Description: "List federated worker nodes (only meaningful in distributed mode; returns an empty list otherwise).",
+		Description: "List federated worker nodes with the live state of each route (heartbeat, nats, tunnel); a node stays healthy while one nats or tunnel route is live. Only meaningful in distributed mode; returns an empty list otherwise.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		nodes, err := client.ListNodes(ctx)
 		if err != nil {

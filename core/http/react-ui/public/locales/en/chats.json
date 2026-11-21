@@ -342,6 +342,53 @@
           "library": "backend library",
           "addons": "add-ons"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Model",
+          "backend": "Backend",
+          "addon": "Add-on"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} installed",
+          "delete": "{{kind}} {{name}} removed",
+          "upgrade": "{{kind}} {{name}} upgraded"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: install failed",
+          "delete": "{{kind}} {{name}}: removal failed",
+          "upgrade": "{{kind}} {{name}}: upgrade failed"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: install cancelled",
+          "delete": "{{kind}} {{name}}: removal cancelled",
+          "upgrade": "{{kind}} {{name}}: upgrade cancelled"
+        },
+        "needsReview": {
+          "install": "Add-on {{name}} needs your review to install"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} model update available",
+          "title_other": "{{count}} model updates available"
+        },
+        "done": {
+          "title": "Model {{name}} upgraded",
+          "body": "From {{from}} to {{to}}."
+        },
+        "failed": {
+          "title": "Model {{name}}: the upgrade failed",
+          "rolledBack": "The old version was put back and keeps serving. Reason: {{error}}",
+          "rolledBackPlain": "The old version was put back and keeps serving.",
+          "kept": "The old version keeps serving. Reason: {{error}}",
+          "keptPlain": "The old version keeps serving."
+        },
+        "removed": {
+          "title": "Model {{name}}: old version removed",
+          "body_one": "{{count}} old file deleted.",
+          "body_other": "{{count}} old files deleted."
+        }
       }
     },
     "tabs": {
@@ -376,7 +423,9 @@
         "removed": "Removed {{name}}",
         "staged": "Staged {{name}}"
       }
-    }
+    },
+    "chatsOff": "Chats are off",
+    "emptyBodyNoChats": "Updates and finished operations appear here."
   },
   "connectorsPage": {
     "title": "Connections",

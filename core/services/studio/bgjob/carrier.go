@@ -20,6 +20,9 @@ import (
 //   - the node answers "unknown": it does not know the job (it restarted, or
 //     the job was dropped). A caller that holds a live stub marks it lost.
 //   - nobody listens (ErrNoRoute): the node left the cluster. Same reading.
+//     The tunnel carrier never reports this for a named node, because a live
+//     node whose heartbeats stalled looks the same there; it reports that the
+//     ask was not delivered, which is a doubt.
 //   - the ask times out: the caller changes nothing and may try again.
 
 // AskTimeout is how long a caller waits for the node that runs a job.
