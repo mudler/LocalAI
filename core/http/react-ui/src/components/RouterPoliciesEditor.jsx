@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import Icon from './Icon'
+import { Button } from './ui'
 
 // RouterPoliciesEditor renders the label vocabulary the score
 // classifier ranks for each request. The shape mirrors
@@ -54,13 +54,9 @@ export default function RouterPoliciesEditor({ value, onChange }) {
         />
       ))}
 
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm self-start"
-        onClick={add}
-      >
-        <Icon name="plus" /> Add policy
-      </button>
+      <Button size="sm" icon="plus" className="self-start" onClick={add}>
+        Add policy
+      </Button>
     </div>
   )
 }
@@ -93,14 +89,7 @@ function PolicyRow({ row, duplicate, onChange, onRemove }) {
         value={row?.description || ''}
         onChange={(e) => onChange((r) => ({ ...r, description: e.target.value }))}
       />
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm"
-        onClick={onRemove}
-        title="Remove policy"
-      >
-        <Icon name="trash" />
-      </button>
+      <Button icon="trash" size="sm" onClick={onRemove} title="Remove policy" />
     </div>
   )
 }

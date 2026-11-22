@@ -3,11 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
-import Button from '../components/ui/Button'
 import Callout from '../components/ui/Callout'
 import EmptyState from '../components/ui/EmptyState'
 import LoadError from '../components/ui/LoadError'
-import { TabPanel, Tabs } from '../components/ui'
+import { Button, TabPanel, Tabs } from '../components/ui'
 import { SkeletonRows } from '../components/Skeleton'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -123,12 +122,9 @@ function TrashList({ ws, t, onPurge }) {
         <p className="ws-trash__summary" data-testid="ws-trash-summary">
           {empty ? t('trash.empty') : t('trash.summary', { what: whatText(ws.trashTotals, t) })}
         </p>
-        <button
-          type="button" className="btn btn-danger btn-sm" data-testid="ws-empty-trash"
-          disabled={empty || ws.busy} onClick={() => onPurge({ all: true })}
-        >
-          <Icon name="trash" /> {t('trash.emptyAll')}
-        </button>
+        <Button variant="danger" size="sm" icon="trash" data-testid="ws-empty-trash" disabled={empty || ws.busy} onClick={() => onPurge({ all: true })}>
+          {t('trash.emptyAll')}
+        </Button>
       </div>
       {ws.purged && (
         <div className="ws-notice ws-trash__done" role="status" data-testid="ws-trash-done">
@@ -145,15 +141,12 @@ function TrashList({ ws, t, onPurge }) {
               <span className="ws-row__size" data-testid="ws-trash-size">{whatText(e, t)}</span>
               <span className="ws-row__size">{new Date(e.at).toLocaleString()}</span>
               <span className="ws-row__actions">
-                <button type="button" className="btn btn-secondary btn-sm" disabled={ws.busy} onClick={() => ws.restore(e.rev)}>
-                  <Icon name="undo" /> {t('trash.restore')}
-                </button>
-                <button
-                  type="button" className="btn btn-danger-ghost btn-sm" data-testid="ws-purge" disabled={ws.busy}
-                  aria-label={t('trash.purgeNamed', { name: e.paths.join(', ') })} onClick={() => onPurge({ entry: e })}
-                >
-                  <Icon name="trash" /> {t('trash.purge')}
-                </button>
+                <Button size="sm" icon="undo" disabled={ws.busy} onClick={() => ws.restore(e.rev)}>
+                  {t('trash.restore')}
+                </Button>
+                <Button variant="danger-ghost" size="sm" icon="trash" data-testid="ws-purge" disabled={ws.busy} aria-label={t('trash.purgeNamed', { name: e.paths.join(', ') })} onClick={() => onPurge({ entry: e })}>
+                  {t('trash.purge')}
+                </Button>
               </span>
             </li>
           ))}
@@ -178,9 +171,9 @@ function HistoryList({ ws, t }) {
           <span className="ws-row__size">{new Date(h.at).toLocaleString()}</span>
           <span className="ws-row__actions">
             {h.kind !== 'undo' && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => ws.restore(h.rev)}>
-                <Icon name="undo" /> {t('history.undo')}
-              </button>
+              <Button size="sm" icon="undo" onClick={() => ws.restore(h.rev)}>
+                {t('history.undo')}
+              </Button>
             )}
           </span>
         </li>

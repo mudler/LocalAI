@@ -6516,7 +6516,6 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .fte-row { padding: var(--spacing-sm); display: flex; flex-direction: column; gap: var(--spacing-xs); }
 .fte-row--error { border-color: var(--color-error); }
 .fte-row__head { font-size: var(--text-xs); color: var(--color-text-muted); }
-.pill-tiny { padding: 2px 6px; font-size: var(--text-xs); }
 
 /* ===========================================================================
    Section rail

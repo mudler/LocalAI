@@ -13,6 +13,7 @@ import RouterCandidatesEditor from './RouterCandidatesEditor'
 import RouterPoliciesEditor from './RouterPoliciesEditor'
 import FailoverTargetsEditor from './FailoverTargetsEditor'
 import Icon from './Icon'
+import { Button } from './ui'
 
 // Map autocomplete provider to SearchableModelSelect capability
 const PROVIDER_TO_CAPABILITY = {
@@ -68,15 +69,13 @@ function StringListEditor({ value, onChange, options }) {
           ) : (
             <input className="input cfr-input" value={item} onChange={e => update(i, e.target.value)} />
           )}
-          <button type="button" className="btn btn-secondary btn-sm pill-tiny" onClick={() => remove(i)}>
-            <Icon name="close" />
-          </button>
+          <Button icon="close" size="sm" onClick={() => remove(i)} />
         </div>
       ))}
       {(!options || availableOptions.length > 0) && (
-        <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
-          <Icon name="plus" /> Add
-        </button>
+        <Button size="sm" icon="plus" className="self-start text-xs" onClick={add}>
+          Add
+        </Button>
       )}
     </div>
   )
@@ -103,14 +102,12 @@ function MapEditor({ value, onChange }) {
         <div key={i} className="cfr-row">
           <input className="input cfr-input" value={k} placeholder="key" onChange={e => update(i, e.target.value, v)} />
           <input className="input cfr-input" value={typeof v === 'string' ? v : JSON.stringify(v)} placeholder="value" onChange={e => update(i, k, e.target.value)} />
-          <button type="button" className="btn btn-secondary btn-sm pill-tiny" onClick={() => remove(i)}>
-            <Icon name="close" />
-          </button>
+          <Button icon="close" size="sm" onClick={() => remove(i)} />
         </div>
       ))}
-      <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
-        <Icon name="plus" /> Add
-      </button>
+      <Button size="sm" icon="plus" className="self-start text-xs" onClick={add}>
+        Add
+      </Button>
     </div>
   )
 }

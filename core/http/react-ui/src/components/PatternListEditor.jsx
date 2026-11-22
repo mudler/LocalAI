@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import SearchableSelect from './SearchableSelect'
-import Icon from './Icon'
+import { Button } from './ui'
 
 // Editor for a pattern detector's pii_detection.patterns: a list of
 // operator-defined secret patterns. Value is an array of
@@ -90,18 +90,13 @@ export default function PatternListEditor({ value, onChange }) {
             style={{ width: 80, fontSize: '0.8125rem' }}
             aria-label="Minimum length"
           />
-          <button type="button" className="btn btn-secondary btn-sm"
-            onClick={() => remove(i)}
-            style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-            aria-label="Remove pattern">
-            <Icon name="close" />
-          </button>
+          <Button icon="close" size="sm" onClick={() => remove(i)} aria-label="Remove pattern" />
         </div>
       ))}
 
-      <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
-        <Icon name="plus" /> Add pattern
-      </button>
+      <Button size="sm" icon="plus" className="self-start text-xs" onClick={add}>
+        Add pattern
+      </Button>
     </div>
   )
 }

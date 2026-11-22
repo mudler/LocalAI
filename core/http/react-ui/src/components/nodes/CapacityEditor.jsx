@@ -3,6 +3,7 @@ import { nodesApi } from '../../utils/api'
 import LoadingSpinner from '../LoadingSpinner'
 import { formatVRAM } from './nodeStatus'
 import Icon from '../Icon'
+import { Button } from '../ui'
 
 /**
  * Inline editor for a node's per-model replica capacity.
@@ -177,22 +178,12 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                   color: 'var(--color-text-primary)',
                 }}
               />
-              <button
-                className="btn btn-primary btn-sm min-h-control"
-                onClick={save}
-                disabled={saving}
-                aria-label="Save replica capacity"
-              >
+              <Button variant="primary" size="sm" className="min-h-control" onClick={save} disabled={saving} aria-label="Save replica capacity">
                 {saving ? <LoadingSpinner size="xs" /> : <><Icon name="check" /> Save</>}
-              </button>
-              <button
-                className="btn btn-secondary btn-sm min-h-control"
-                onClick={cancel}
-                disabled={saving}
-                aria-label="Cancel"
-              >
+              </Button>
+              <Button size="sm" className="min-h-control" onClick={cancel} disabled={saving} aria-label="Cancel">
                 Cancel
-              </button>
+              </Button>
             </>
           ) : (
             <>
@@ -229,15 +220,9 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                 <Icon name="pencil" />
               </button>
               {isOverride && (
-                <button
-                  onClick={reset}
-                  disabled={resetting}
-                  aria-label="Clear admin override and let the worker flag apply"
-                  title="Clear override; the worker's --max-replicas-per-model flag will apply on the next re-registration"
-                  className="btn btn-secondary btn-sm min-h-control"
-                >
+                <Button size="sm" className="min-h-control" onClick={reset} disabled={resetting} aria-label="Clear admin override and let the worker flag apply" title="Clear override; the worker's --max-replicas-per-model flag will apply on the next re-registration">
                   {resetting ? <LoadingSpinner size="xs" /> : <><Icon name="undo" /> Reset</>}
-                </button>
+                </Button>
               )}
             </>
           )}
@@ -284,22 +269,12 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                   color: 'var(--color-text-primary)',
                 }}
               />
-              <button
-                className="btn btn-primary btn-sm min-h-control"
-                onClick={saveBudget}
-                disabled={budgetSaving}
-                aria-label="Save VRAM budget"
-              >
+              <Button variant="primary" size="sm" className="min-h-control" onClick={saveBudget} disabled={budgetSaving} aria-label="Save VRAM budget">
                 {budgetSaving ? <LoadingSpinner size="xs" /> : <><Icon name="check" /> Save</>}
-              </button>
-              <button
-                className="btn btn-secondary btn-sm min-h-control"
-                onClick={cancelBudget}
-                disabled={budgetSaving}
-                aria-label="Cancel"
-              >
+              </Button>
+              <Button size="sm" className="min-h-control" onClick={cancelBudget} disabled={budgetSaving} aria-label="Cancel">
                 Cancel
-              </button>
+              </Button>
             </>
           ) : (
             <>
@@ -330,15 +305,9 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                 <Icon name="pencil" />
               </button>
               {hasBudget && (
-                <button
-                  onClick={clearBudget}
-                  disabled={budgetClearing}
-                  aria-label="Clear the VRAM budget for this node"
-                  title="Clear the VRAM budget; this node's full VRAM becomes available again"
-                  className="btn btn-secondary btn-sm min-h-control"
-                >
+                <Button size="sm" className="min-h-control" onClick={clearBudget} disabled={budgetClearing} aria-label="Clear the VRAM budget for this node" title="Clear the VRAM budget; this node's full VRAM becomes available again">
                   {budgetClearing ? <LoadingSpinner size="xs" /> : <><Icon name="undo" /> Clear</>}
-                </button>
+                </Button>
               )}
             </>
           )}

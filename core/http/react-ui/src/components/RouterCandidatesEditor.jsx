@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useFormContext } from '../contexts/FormContext'
 import ModelPicker from './ModelPicker'
-import Icon from './Icon'
+import { Button } from './ui'
 
 // RouterCandidatesEditor renders the routing table for a router model.
 // Each row binds a downstream model to a SET of policy labels it can
@@ -59,13 +59,9 @@ export default function RouterCandidatesEditor({ value, onChange }) {
         />
       ))}
 
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm self-start"
-        onClick={add}
-      >
-        <Icon name="plus" /> Add candidate
-      </button>
+      <Button size="sm" icon="plus" className="self-start" onClick={add}>
+        Add candidate
+      </Button>
     </div>
   )
 }
@@ -96,26 +92,8 @@ function CandidateRow({ index, total, row, knownLabels, knownLabelSet, onChange,
     >
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
         <span className="fw-semibold">#{index + 1}</span>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={() => onMove(-1)}
-          disabled={index === 0}
-          title="Move up (smaller priority)"
-          style={{ padding: '0 6px' }}
-        >
-          <Icon name="arrow-up" />
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={() => onMove(1)}
-          disabled={index === total - 1}
-          title="Move down"
-          style={{ padding: '0 6px' }}
-        >
-          <Icon name="arrow-down" />
-        </button>
+        <Button icon="arrow-up" size="sm" onClick={() => onMove(-1)} disabled={index === 0} title="Move up (smaller priority)" />
+        <Button icon="arrow-down" size="sm" onClick={() => onMove(1)} disabled={index === total - 1} title="Move down" />
         <span style={{ marginLeft: 'auto' }}>
           {index === 0 ? 'tried first' : index === total - 1 ? 'tried last (fallback-class)' : ''}
         </span>
@@ -128,14 +106,7 @@ function CandidateRow({ index, total, row, knownLabels, knownLabelSet, onChange,
           onChange={(v) => onChange((r) => ({ ...r, model: v }))}
           placeholder="downstream model..."
         />
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={onRemove}
-          title="Remove candidate"
-        >
-          <Icon name="trash" />
-        </button>
+        <Button icon="trash" size="sm" onClick={onRemove} title="Remove candidate" />
       </div>
 
       <div>

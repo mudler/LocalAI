@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect, useState } from 'react'
 import Icon from '../Icon'
+import { Button } from '../ui'
 
 // EmbeddingInspector — compact visualization of a raw vector returned by /v1/face|voice/embed.
 // embedding: number[] (can be large). dim: int. model: string.
@@ -79,10 +80,10 @@ export default function EmbeddingInspector({ embedding, dim, model, elapsedMs })
             {elapsedMs != null && <span>{elapsedMs.toFixed(0)} ms</span>}
           </div>
         </div>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={copy}>
+        <Button size="sm" onClick={copy}>
           <Icon name={copied ? 'check' : 'copy'} />
           {copied ? ' Copied' : ' Copy JSON'}
-        </button>
+        </Button>
       </div>
       <canvas ref={canvasRef} style={{ width: '100%', height: 60 }} aria-label="Embedding sparkline (first 128 dimensions)" />
     </div>

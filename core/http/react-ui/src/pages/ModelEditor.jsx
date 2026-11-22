@@ -20,6 +20,7 @@ import PlacementSection from '../components/models/placement/PlacementSection'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
+import { Button } from '../components/ui'
 
 const SECTION_ICONS = {
   general: 'settings', llm: 'cpu', parameters: 'sliders',
@@ -524,29 +525,29 @@ export default function ModelEditor() {
           </p>
         </div>
         <div className="hstack">
-          <button className="btn btn-secondary" onClick={() => {
+          <Button icon="arrow-left" onClick={() => {
             if (isCreateMode && selectedTemplate) { setSelectedTemplate(null); setValues({}); setActiveFieldPaths(new Set()) }
             else if (backState) navigate(backState.from)
             else navigate(isCreateMode ? '/app/models' : '/app/models?view=installed')
           }}>
-            <Icon name="arrow-left" /> {t('actions.backTo', {page: backPage})}
-          </button>
+            {t('actions.backTo', {page: backPage})}
+          </Button>
           {/* Adding a model from a file or a Hugging Face repository is the
               import flow; it starts here as well as from the models list. */}
           {showTemplateSelector && (
-            <button className="btn btn-secondary" data-testid="add-model-import" onClick={() => navigate('/app/import-model')}>
-              <Icon name="upload" /> {tModels('actions.importModel')}
-            </button>
+            <Button icon="upload" data-testid="add-model-import" onClick={() => navigate('/app/import-model')}>
+              {tModels('actions.importModel')}
+            </Button>
           )}
           {!showTemplateSelector && tab === 'interactive' && (
-            <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><Icon name="save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
-            </button>
+            <Button variant={isDirty ? 'primary' : 'secondary'} icon="save" busy={saving} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
+              {saving ? t('actions.saving') : (isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved')))}
+            </Button>
           )}
           {!showTemplateSelector && tab === 'yaml' && (
-            <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleYamlSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><Icon name="save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
-            </button>
+            <Button variant={isDirty ? 'primary' : 'secondary'} icon="save" busy={saving} onClick={handleYamlSave} disabled={saving || !isDirty}>
+              {saving ? t('actions.saving') : (isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved')))}
+            </Button>
           )}
         </div>
       </div>
@@ -585,9 +586,7 @@ export default function ModelEditor() {
             <div className="me-warn">
               <Icon name="warning" />
               <span>{t('actions.switchWarning')}</span>
-              <button
-                className="btn btn-secondary ml-auto pill-tiny"
-                onClick={() => {
+              <Button className="ml-auto" onClick={() => {
                   if (tab === 'yaml') {
                     setYamlText(savedYamlText)
                   } else {
@@ -597,10 +596,9 @@ export default function ModelEditor() {
                   }
                   setTabSwitchWarning(false)
                   setTab(tab === 'yaml' ? 'interactive' : 'yaml')
-                }}
-              >
+                }}>
                 {t('actions.discardAndSwitch')}
-              </button>
+              </Button>
             </div>
           )}
         </div>

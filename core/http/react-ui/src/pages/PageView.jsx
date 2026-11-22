@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import PageFrame from '../components/PageFrame'
@@ -34,8 +34,8 @@ export function SendAsk({ ask, chats, onSend, onDismiss, t }) {
         <Icon name="check-circle" className="pg-ask__icon" />
         <span className="pg-ask__label">{t('send.sent', { title: ask.result.title })}</span>
         <span className="pg-ask__actions">
-          <Link className="btn btn-secondary btn-sm" to={`/app/chats/${encodeURIComponent(ask.result.chat_id)}`}>{t('send.openChat')}</Link>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onDismiss}>{t('send.dismiss')}</button>
+          <Button size="sm" to={`/app/chats/${encodeURIComponent(ask.result.chat_id)}`}>{t('send.openChat')}</Button>
+          <Button variant="ghost" size="sm" onClick={onDismiss}>{t('send.dismiss')}</Button>
         </span>
       </div>
     )
@@ -52,10 +52,10 @@ export function SendAsk({ ask, chats, onSend, onDismiss, t }) {
             {chats.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
           </select>
         </label>
-        <button type="button" className="btn btn-primary btn-sm" disabled={ask.status === 'sending'} onClick={() => onSend(target)}>
+        <Button variant="primary" size="sm" disabled={ask.status === 'sending'} onClick={() => onSend(target)}>
           {ask.status === 'sending' ? t('send.sending') : t('send.send')}
-        </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onDismiss}>{t('send.dismiss')}</button>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onDismiss}>{t('send.dismiss')}</Button>
       </span>
       {ask.error && <span className="pg-ask__error" role="alert">{t('send.failed', { message: ask.error })}</span>}
     </div>
@@ -292,8 +292,8 @@ export default function PageView() {
         <div className="empty-state" data-testid={status === 'notfound' ? 'page-not-found' : 'page-error'}>
           <h1 className="empty-state-title">{status === 'notfound' ? t('view.notFound', { name }) : t('view.failed', { message: error })}</h1>
           <div className="empty-state__actions">
-            <Link className="btn btn-secondary" to="/app/pages"><Icon name="arrow-left" /> {t('view.back')}</Link>
-            {status === 'error' && <button type="button" className="btn btn-primary" onClick={() => load()}>{t('retry')}</button>}
+            <Button icon="arrow-left" to="/app/pages">{t('view.back')}</Button>
+            {status === 'error' && <Button variant="primary" onClick={() => load()}>{t('retry')}</Button>}
           </div>
         </div>
       </div>
@@ -355,12 +355,12 @@ export default function PageView() {
           {page && (
             <Button size="sm" icon="users" onClick={() => setSharing(true)} data-testid="page-share">{t('card.share')}</Button>
           )}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={reload} data-testid="page-reload">
-            <Icon name="refresh" /> {t('view.reload')}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={ask} data-testid="page-ask">
-            <Icon name="sparkles" /> {t('view.ask')}
-          </button>
+          <Button variant="ghost" size="sm" icon="refresh" onClick={reload} data-testid="page-reload">
+            {t('view.reload')}
+          </Button>
+          <Button size="sm" icon="sparkles" onClick={ask} data-testid="page-ask">
+            {t('view.ask')}
+          </Button>
           {guarded && run && (
             <span className="pg-menu">
               <Button variant="ghost" size="sm" icon="more-vertical" aria-haspopup="menu" aria-expanded={menu} aria-label={t('shared.menu')} onClick={() => setMenu((m) => !m)} data-testid="page-menu" />
@@ -429,7 +429,7 @@ export default function PageView() {
         ) : navigated ? (
           <div className="pg-stage__state" role="alert" data-testid="page-navigated">
             <span>{t('view.navigated')}</span>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={reload}>{t('view.reload')}</button>
+            <Button size="sm" onClick={reload}>{t('view.reload')}</Button>
           </div>
         ) : (
           <PageFrame

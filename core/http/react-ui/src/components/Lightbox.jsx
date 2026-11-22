@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react'
 import Icon from './Icon'
+import { Button } from './ui'
 
 // Fullscreen image viewer with prev/next, download, and keyboard control
 // (Esc to close, Left/Right to navigate). `images` is [{ url, alt }]; `index`
@@ -36,12 +37,8 @@ export default function Lightbox({ images, index, onClose, onIndex }) {
     <div className="lightbox" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="lightbox__toolbar" onClick={(e) => e.stopPropagation()}>
         {count > 1 && <span className="lightbox__count">{index + 1} / {count}</span>}
-        <a className="btn btn-secondary btn-sm" href={img.url} download target="_blank" rel="noopener noreferrer" aria-label="Download">
-          <Icon name="download" />
-        </a>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={onClose} aria-label="Close">
-          <Icon name="close" />
-        </button>
+        <Button icon="download" size="sm" href={img.url} download target="_blank" rel="noopener noreferrer" aria-label="Download" />
+        <Button icon="close" size="sm" onClick={onClose} aria-label="Close" />
       </div>
 
       {count > 1 && (
