@@ -6,6 +6,7 @@ import { startPick } from '../utils/defaults'
 import Icon from './Icon'
 // eslint-disable-next-line no-unused-vars
 import ListPicker from './ui/ListPicker'
+import Tag from './ui/Tag'
 import { FILTER_FROM } from './ui/listPickerModel'
 
 // The one model picker: ListPicker with model rows. A model is "warm" when the
@@ -131,10 +132,10 @@ const ModelPicker = forwardRef(function ModelPicker(
     if (!m) return null
     return (
       <>
-        {m.alias_of && !m.alias_error && <span className="home-menu__tag" data-kind="alias">{t('picker.aliasOf', { target: m.alias_of })}</span>}
-        {m.alias_error && <span className="home-menu__tag" data-kind="broken" title={m.alias_error}>{t('picker.aliasBroken')}</span>}
-        {m.disabled && <span className="home-menu__tag" data-kind="disabled">{t('picker.disabled')}</span>}
-        {m.pinned && <span className="home-menu__tag" data-kind="pinned">{t('picker.pinned')}</span>}
+        {m.alias_of && !m.alias_error && <Tag tone="accent">{t('picker.aliasOf', { target: m.alias_of })}</Tag>}
+        {m.alias_error && <Tag tone="error" title={m.alias_error}>{t('picker.aliasBroken')}</Tag>}
+        {m.disabled && <Tag>{t('picker.disabled')}</Tag>}
+        {m.pinned && <Tag>{t('picker.pinned')}</Tag>}
       </>
     )
   }
@@ -156,7 +157,7 @@ const ModelPicker = forwardRef(function ModelPicker(
                 <small className="home-menu__caps">
                   {info.size && <span>{info.size}</span>}
                   {info.vision && <Icon name="eye" title={t('picker.vision')} />}
-                  {(info.caps || []).map(c => <span key={c} className="home-menu__tag" data-kind="cap">{c}</span>)}
+                  {(info.caps || []).map(c => <Tag key={c}>{c}</Tag>)}
                 </small>
               )}
             </span>

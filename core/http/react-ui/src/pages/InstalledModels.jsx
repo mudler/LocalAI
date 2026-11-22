@@ -807,7 +807,7 @@ function InstalledModelDetail({ model, enriched, disk, sharing, onSelectModel, d
         </dd>
 
         <dt>{t('lifecycle.detail.backend')}</dt>
-        <dd><span className="dk-badge">{model.backend || t('lifecycle.detail.auto')}</span></dd>
+        <dd><Tag>{model.backend || t('lifecycle.detail.auto')}</Tag></dd>
 
         {license && (<>
           <dt>{t('lifecycle.detail.license')}</dt>
@@ -816,7 +816,7 @@ function InstalledModelDetail({ model, enriched, disk, sharing, onSelectModel, d
 
         {tags.length > 0 && (<>
           <dt>{t('lifecycle.detail.tags')}</dt>
-          <dd><div className="hstack">{tags.map(tag => <span key={tag} className="dk-badge">{tag}</span>)}</div></dd>
+          <dd><div className="hstack">{tags.map(tag => <Tag key={tag}>{tag}</Tag>)}</div></dd>
         </>)}
 
         {urls.length > 0 && (<>

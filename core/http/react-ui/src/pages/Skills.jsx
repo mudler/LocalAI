@@ -8,7 +8,7 @@ import { saveBlob } from '../utils/download'
 import { useLibraryFacts } from '../hooks/useLibraryFacts'
 import { useWideLayout } from '../hooks/useWideLayout'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SearchField, Segmented, Tabs } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SearchField, Segmented, Tabs, Tag } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 // eslint-disable-next-line no-unused-vars
@@ -373,8 +373,8 @@ export default function Skills() {
                           metaTestId={`skill-used-${s.name}`}
                           end={(
                             <>
-                              {s.new && <span className="dk-badge" data-testid={`skill-new-${s.name}`} title={t('card.newTitle')}>{t('card.new')}</span>}
-                              <span className="dk-badge" data-testid={`skill-badge-${s.name}`}>{badgeOf(t, s)}</span>
+                              {s.new && <Tag testId={`skill-new-${s.name}`} title={t('card.newTitle')}>{t('card.new')}</Tag>}
+                              <Tag testId={`skill-badge-${s.name}`}>{badgeOf(t, s)}</Tag>
                             </>
                           )}
                           menu={menuFor(s)}

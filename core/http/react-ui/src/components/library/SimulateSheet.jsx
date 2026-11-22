@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout } from '../ui'
+import { Button, Callout, Tag } from '../ui'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import SideSheet from '../SideSheet'
@@ -254,7 +254,7 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
                     {budget.loaded.map(s => (
                       <li key={s.name} className="lib-sim-item" data-testid={`simulate-skill-${s.name}`}>
                         <span className="lib-mono">{s.name}</span>
-                        {s.test && <span className="dk-badge dk-badge--accent">{t('simulate.onlyForTest')}</span>}
+                        {s.test && <Tag tone="accent">{t('simulate.onlyForTest')}</Tag>}
                         <span className="lib-sim-item__end">
                           {s.missing ? t('simulate.skillMissing', { name: s.name }) : (skillsMode() === 'tools' ? t('simulate.skillTokensTools') : t('simulate.skillTokens', { count: s.tokens }))}
                         </span>

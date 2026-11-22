@@ -97,7 +97,7 @@
 .p2p-connect-with { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-3); }
 .p2p-connect-with > fieldset { justify-self: start; min-width: 0; max-width: 100%; margin: 0; padding: 0; border: 0; }
 .home-step__num--optional { box-shadow: none; border: 1.5px dashed var(--dk-control-edge); }
-.home-step--optional .home-step__main > b .dk-badge { margin-left: var(--sp-1); vertical-align: middle; }
+.home-step--optional .home-step__main > b .ui-tag { margin-left: var(--sp-1); vertical-align: middle; }
 .home-step--optional .home-step__extra > .home-step__desc { flex: 1 1 240px; margin-top: 0; }
 
 @media (max-width: 640px) {

@@ -12,6 +12,7 @@ import DictateButton from './DictateButton'
 // eslint-disable-next-line no-unused-vars
 import { StagedAttachment } from '../chat/Attachments'
 import { useFileDrop } from '../../hooks/useFileDrop'
+import { Tag } from '../ui'
 
 // The Enter glyph is not in the kit sprite. A return arrow in a darker cell
 // teaches the shortcut next to the label.
@@ -291,7 +292,7 @@ export default function HomeComposer({
                       {(v.badge || v.note) && (
                         <span className="home-slash__tags">
                           {v.note && <span className="home-slash__note">{slash?.noteLabel?.(v.note) || v.note}</span>}
-                          {v.badge && <span className="dk-badge home-slash__badge">{slash?.badgeLabel?.(v.badge) || v.badge}</span>}
+                          {v.badge && <Tag className="home-slash__badge">{slash?.badgeLabel?.(v.badge) || v.badge}</Tag>}
                         </span>
                       )}
                       <span className="dk-cmd-keys"><kbd className="dk-kbd">↵</kbd></span>

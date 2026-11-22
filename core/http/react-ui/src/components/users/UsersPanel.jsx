@@ -12,7 +12,7 @@ import AccessSheet from './AccessSheet'
 import Icon from '../Icon'
 import AdminFilterBar from '../admin/AdminFilterBar'
 import { SummaryStrip } from '../admin/AdminPage'
-import { Button, EmptyState, LoadError, SkeletonRows } from '../ui'
+import { Button, EmptyState, LoadError, SkeletonRows, Tag } from '../ui'
 
 const FALLBACK_FEATURES = {
   api_features: [
@@ -354,13 +354,13 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
                       <div className="us-who">
                         <Avatar user={u} />
                         <div className="us-who__text">
-                          <span className="dk-table-name">{u.name || t('users.noName')}{self && <span className="us-you">{t('users.you')}</span>}<span className={`dk-badge us-role-phone${u.role === 'admin' ? ' dk-badge--accent' : ''}`}>{t(`users.role.${u.role === 'admin' ? 'admin' : 'user'}`)}</span></span>
+                          <span className="dk-table-name">{u.name || t('users.noName')}{self && <span className="us-you">{t('users.you')}</span>}<Tag tone={u.role === 'admin' ? 'accent' : 'neutral'} className="us-role-phone">{t(`users.role.${u.role === 'admin' ? 'admin' : 'user'}`)}</Tag></span>
                           <span className="dk-table-sub">{u.email} {'\u00b7'} {u.provider || 'local'}</span>
                           <span className="us-state us-state-phone" data-state={stateTone(state)}>{stateLabel(state)}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="dk-hide-phone"><span className={`dk-badge${u.role === 'admin' ? ' dk-badge--accent' : ''}`}>{t(`users.role.${u.role === 'admin' ? 'admin' : 'user'}`)}</span></td>
+                    <td className="dk-hide-phone"><Tag tone={u.role === 'admin' ? 'accent' : 'neutral'}>{t(`users.role.${u.role === 'admin' ? 'admin' : 'user'}`)}</Tag></td>
                     <td className="dk-hide-phone">
                       {u.role === 'admin' ? (
                         <span className="us-access">{accessLabel}</span>

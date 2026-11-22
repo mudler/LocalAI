@@ -146,9 +146,6 @@
 .home-menu__item small { margin-left: auto; font-size: var(--fs-meta); color: var(--dk-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .home-menu__check { flex: none; margin-left: auto; color: var(--dk-accent-text); }
 .home-menu__item small + .home-menu__check { margin-left: var(--sp-2); }
-.home-menu__tag { flex: none; padding: 0 6px; border-radius: var(--r-sm); background: var(--dk-hover); color: var(--dk-muted); font-size: var(--fs-meta); white-space: nowrap; }
-.home-menu__tag[data-kind="alias"] { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
-.home-menu__tag[data-kind="broken"] { color: var(--color-error); }
 /* A row with a second line: the label on top, a description under it. */
 .home-menu__item--rich { align-items: flex-start; padding-top: 8px; padding-bottom: 8px; }
 .home-menu__item--rich .home-dot { margin-top: 6px; }

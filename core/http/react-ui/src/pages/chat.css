@@ -1937,15 +1937,6 @@ html[data-handoff='fade']::view-transition-new(root) {
 .ac-group__main { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ac-group__title { margin: 0; min-width: 0; overflow: hidden; font-size: var(--fs-body); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .ac-group__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--dk-muted); font-size: var(--fs-small); }
-.ac-badge {
-  flex: none;
-  padding: 1px 7px;
-  border-radius: var(--radius-full);
-  background: var(--dk-accent-wash);
-  color: var(--dk-accent-text);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-}
 .ac-link { color: var(--dk-accent-text); font-weight: 600; }
 .ac-list { margin: 8px 0 0; padding: 0; list-style: none; }
 .ac-row { display: flex; align-items: center; gap: 8px; border-radius: var(--dk-radius-2); }

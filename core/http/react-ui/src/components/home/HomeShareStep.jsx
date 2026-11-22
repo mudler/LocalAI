@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import Button from '../ui/Button'
 import { P2P_PATH } from '../p2p/P2PTabs'
 import '../p2p/p2p.css'
+import { Tag } from '../ui'
 
 const AUTH_DOCS_URL = 'https://localai.io/features/authentication/'
 
@@ -16,7 +17,7 @@ export default function HomeShareStep({ authEnabled }) {
     <li className="home-step home-step--optional" data-state="todo" data-testid="home-step-share">
       <span className="home-step__num home-step__num--optional" aria-hidden="true" />
       <div className="home-step__main">
-        <b>{t('home.title')} <span className="dk-badge">{t('home.optional')}</span></b>
+        <b>{t('home.title')} <Tag>{t('home.optional')}</Tag></b>
         <span className="home-step__desc">{t('home.body')}</span>
         <div className="home-step__extra">
           {authEnabled ? (

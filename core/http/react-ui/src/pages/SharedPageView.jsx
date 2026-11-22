@@ -15,7 +15,7 @@ import { authorOf, isPageName } from '../utils/pages'
 import { folderLabel, refreshSharedPages } from '../hooks/useSharedPages'
 import { SendAsk } from './PageView'
 import './pages.css'
-import { Button, EmptyState } from '../components/ui'
+import { Button, EmptyState, Tag } from '../components/ui'
 
 const MAX_ASKS = 3
 const POLL = 30_000
@@ -249,17 +249,17 @@ export default function SharedPageView() {
         </div>
         {page && (
           <div className="pg-strip__pills">
-            <span className={`pg-pill pg-pill--${PILL[pill].tone}`} data-testid="shared-pill" data-state={pill}>
-              <Icon name={PILL[pill].icon} /> {pillText}
-            </span>
-            <span className="pg-pill pg-pill--plain" data-testid="shared-author"><Icon name="user" /> {t('trust.from', { author })}</span>
+            <Tag tone={PILL[pill].tone} icon={PILL[pill].icon} testId="shared-pill" data-state={pill}>
+              {pillText}
+            </Tag>
+            <Tag icon="user" testId="shared-author">{t('trust.from', { author })}</Tag>
             {page.user_shared === true && ['view', 'use', 'edit'].includes(page.role) && (
-              <span className="pg-pill" data-testid="shared-role">{t(`share.role.${page.role}`)}</span>
+              <Tag testId="shared-role">{t(`share.role.${page.role}`)}</Tag>
             )}
             {page.user_shared === true && page.role === 'view' && (
-              <span className="pg-pill pg-pill--plain" data-testid="shared-view-only"><Icon name="eye" /> {t('share.viewOnly')}</span>
+              <Tag icon="eye" testId="shared-view-only">{t('share.viewOnly')}</Tag>
             )}
-            {run && <span className="pg-pill" title={t('view.runsAsYouHint')}><Icon name="user" /> {t('view.runsAsYou')}</span>}
+            {run && <Tag icon="user" title={t('view.runsAsYouHint')}>{t('view.runsAsYou')}</Tag>}
           </div>
         )}
         <div className="pg-strip__actions">

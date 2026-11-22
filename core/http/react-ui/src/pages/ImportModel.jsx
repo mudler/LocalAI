@@ -11,7 +11,7 @@ import { useResources } from '../hooks/useResources'
 import { detectSource, fitFor, importChecks, importRequest, machineFacts, requestText } from '../utils/tools'
 import { createTransferRateSampler } from '../utils/transferRate'
 import PageHeader from '../components/PageHeader'
-import { Tabs } from '../components/ui'
+import { Tabs, Tag } from '../components/ui'
 import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
@@ -757,7 +757,7 @@ export default function ImportModel() {
               </div>
               <p className="import-source__kind" data-testid="import-source-kind" data-kind={source?.kind || ''}>
                 {source
-                  ? <><span className={`dk-badge${source.ok ? ' dk-badge--accent' : ' dk-badge--warn'}`}>{t(`found.kind.${source.kind}`)}</span> <span className="dk-hint">{t('found.untouched')}</span></>
+                  ? <><Tag tone={source.ok ? 'accent' : 'warn'}>{t(`found.kind.${source.kind}`)}</Tag> <span className="dk-hint">{t('found.untouched')}</span></>
                   : <span className="dk-hint">{t('form.uriHint')}</span>}
               </p>
               {!source && (

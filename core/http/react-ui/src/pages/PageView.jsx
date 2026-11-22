@@ -11,7 +11,7 @@ import { refreshPages, usePages } from '../hooks/usePages'
 import { usePageLinks } from '../hooks/usePageLinks'
 import { usePinnedPages } from '../hooks/usePinnedPages'
 import Switch from '../components/ui/Switch'
-import { Button, EmptyState } from '../components/ui'
+import { Button, EmptyState, Tag } from '../components/ui'
 import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, pagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -317,30 +317,30 @@ export default function PageView() {
         </div>
         {page && (
           <div className="pg-strip__pills">
-            <span className="pg-pill" title={t('view.runsAsYouHint')} data-testid="page-runs-as-you">
-              <Icon name="user" /> {t('view.runsAsYou')}
-            </span>
+            <Tag icon="user" title={t('view.runsAsYouHint')} testId="page-runs-as-you">
+              {t('view.runsAsYou')}
+            </Tag>
             {guarded && (
-              <span className="pg-pill pg-pill--warn" data-testid="page-others-edit"><Icon name="pencil" /> {t('card.othersEdit')}</span>
+              <Tag tone="warn" icon="pencil" testId="page-others-edit">{t('card.othersEdit')}</Tag>
             )}
             {guarded && (
-              <span className={`pg-pill pg-pill--${run ? 'ok' : 'warn'}`} data-testid="page-consent-pill" data-state={run ? 'allowed' : 'not'}>
-                <Icon name={run ? 'check-circle' : 'warning'} /> {t(run ? (run.token ? 'trust.pill.once' : 'trust.pill.allowed') : (stopped === 'stale' ? 'trust.pill.changed' : 'trust.pill.notYet'))}
-              </span>
+              <Tag tone={run ? 'ok' : 'warn'} icon={run ? 'check-circle' : 'warning'} testId="page-consent-pill" data-state={run ? 'allowed' : 'not'}>
+                {t(run ? (run.token ? 'trust.pill.once' : 'trust.pill.allowed') : (stopped === 'stale' ? 'trust.pill.changed' : 'trust.pill.notYet'))}
+              </Tag>
             )}
             {shared.total > 0 && (
-              <span className="pg-pill" data-testid="page-shared-pill">
-                <Icon name="users" /> {shared.onlyEveryone ? t('card.sharedEveryone') : t('card.sharedWith', { count: shared.total })}
-              </span>
+              <Tag icon="users" testId="page-shared-pill">
+                {shared.onlyEveryone ? t('card.sharedEveryone') : t('card.sharedWith', { count: shared.total })}
+              </Tag>
             )}
             {isStart && (
-              <span className="pg-pill pg-pill--start" data-testid="page-start-badge">
-                <Icon name="pin" /> {t('view.startPage')}
-              </span>
+              <Tag tone="accent" icon="pin" testId="page-start-badge">
+                {t('view.startPage')}
+              </Tag>
             )}
-            <span className="pg-pill pg-pill--live" data-testid="page-updated">
-              <Icon name="check-circle" /> {t(`view.updated.${by}`, { when })}
-            </span>
+            <Tag tone="ok" icon="check-circle" testId="page-updated">
+              {t(`view.updated.${by}`, { when })}
+            </Tag>
           </div>
         )}
         <div className="pg-strip__actions">

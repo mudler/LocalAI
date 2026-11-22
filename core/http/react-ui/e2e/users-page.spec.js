@@ -90,7 +90,7 @@ test.describe('Users', () => {
   test('the row menu changes the role, resets a password and deletes after typing the name', async ({ page }) => {
     await page.getByLabel('Actions for carol').click()
     await page.getByRole('menuitem', { name: 'Make admin' }).click()
-    await expect(row(page, 'carol@lab.example').locator('td').nth(1).locator('.dk-badge', { hasText: 'admin' })).toBeVisible()
+    await expect(row(page, 'carol@lab.example').locator('td').nth(1).locator('.ui-tag', { hasText: 'admin' })).toBeVisible()
     expect(writes(state, 'PUT', '/role')[0].body).toEqual({ role: 'admin' })
 
     // OAuth people have no password to reset.

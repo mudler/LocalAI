@@ -7,7 +7,7 @@ import PageHeader from '../components/PageHeader'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PageShareDialog from '../components/pages/PageShareDialog'
-import { Button, SearchField } from '../components/ui'
+import { Button, SearchField, Tag } from '../components/ui'
 import { filesApi, pagesApi, sharedPagesApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { authorOf, pageIndexPath } from '../utils/pages'
@@ -68,12 +68,12 @@ function PageRow({ page, shares, pinned, onPin, onShare, onDelete, onRename, age
           <span className="pg-row__titleline">
             <Link className="pg-row__title" to={open}>{page.title}</Link>
             {page.others_can_edit === true && (
-              <span className="pg-badge pg-badge--warn" data-testid="page-others-edit-badge"><Icon name="pencil" /> {t('card.othersEdit')}</span>
+              <Tag tone="warn" icon="pencil" testId="page-others-edit-badge">{t('card.othersEdit')}</Tag>
             )}
             {shared > 0 && (
-              <span className="pg-badge pg-badge--plain" data-testid="page-shared-badge" title={t('card.sharedWith', { count: shared })}>
-                <Icon name="users" /> {t('card.shared')}<b data-testid="page-shared-count">{shared}</b>
-              </span>
+              <Tag icon="users" testId="page-shared-badge" title={t('card.sharedWith', { count: shared })}>
+                {t('card.shared')}<b data-testid="page-shared-count">{shared}</b>
+              </Tag>
             )}
           </span>
         )}
@@ -133,7 +133,7 @@ function SharedRow({ page, enabled, userSharesOn, onStop, age, t }) {
           {open
             ? <Link className="pg-row__title" to={sharedPagePath(page)}>{page.title}</Link>
             : <span className="pg-row__title">{page.title}</span>}
-          <span className={`pg-badge pg-badge--${b.tone}`} data-testid="shared-badge"><Icon name={b.icon} /> {t(`shared.badge.${b.key}`)}</span>
+          <Tag tone={b.tone} icon={b.icon} testId="shared-badge">{t(`shared.badge.${b.key}`)}</Tag>
         </span>
         {page.description && <p className="pg-row__desc">{page.description}</p>}
         <span className="pg-row__meta">

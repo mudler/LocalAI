@@ -2,6 +2,7 @@
 import { Fragment, forwardRef, useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
+import Tag from './Tag'
 import {
   FILTER_FROM, NONE_KEY, filterRows, groupHeading, initialActive, isRowSelected,
   moveActive, rowKey, showFilterBox, toggleValue,
@@ -248,7 +249,8 @@ function Row({ row, selected }) {
   const name = row.mono ? <code>{row.label}</code> : <span className="home-menu__label">{row.label}</span>
   const tags = (row.tags || []).map((tag, i) => {
     const t = typeof tag === 'string' ? { label: tag } : tag
-    return <span key={`${t.label}-${i}`} className="home-menu__tag" data-kind={t.kind} title={t.title}>{t.label}</span>
+    const tone = t.kind === 'alias' ? 'accent' : t.kind === 'broken' ? 'error' : 'neutral'
+    return <Tag key={`${t.label}-${i}`} tone={tone} title={t.title}>{t.label}</Tag>
   })
   return (
     <>

@@ -47,7 +47,6 @@
 .aed-conn__check { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; overflow-wrap: anywhere; }
 
 .aed-caps { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: var(--sp-2) 0 0; padding: 0; list-style: none; }
-.aed-caps__chip { padding: 0 8px; border-radius: var(--r-sm); background: var(--dk-hover); color: var(--dk-muted); font-size: var(--fs-meta); }
 .aed-caps__lead { margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--dk-muted); }
 
 .aed-tools .ui-callout { margin-bottom: var(--sp-3); }

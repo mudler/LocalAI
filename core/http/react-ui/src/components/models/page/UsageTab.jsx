@@ -7,7 +7,7 @@ import { diskEntry, filesOf } from '../../../utils/modelStorage'
 // eslint-disable-next-line no-unused-vars
 import NodeDistributionChip from '../../NodeDistributionChip'
 import Icon from '../../Icon'
-import { EmptyState } from '../../ui'
+import { EmptyState, Tag } from '../../ui'
 
 const MISSING = ['requests', 'ttft', 'loads', 'changes']
 
@@ -56,7 +56,7 @@ function FilesOnDisk({ view }) {
                     <td className="dk-table-id dk-mono modelpage-files__path">{f.path}</td>
                     <td className="dk-num">{f.missing ? '\u2014' : formatBytes(f.size)}</td>
                     <td>
-                      {f.missing && <span className="dk-badge dk-badge--warn">{t('storage.status.missing')}</span>}
+                      {f.missing && <Tag tone="warn">{t('storage.status.missing')}</Tag>}
                       {!f.missing && f.others.length > 0 && (
                         <span className="modelpage-files__shared">
                           {t('page.files.sharedWith')}{' '}
@@ -113,7 +113,7 @@ export default function UsageTab({ view }) {
                 <strong>{t(`page.usage.missing.${key}.name`)}</strong>
                 <span className="dk-hint">{t(`page.usage.missing.${key}.why`)}</span>
               </span>
-              <span className="dk-badge">{t('page.usage.notRecorded')}</span>
+              <Tag>{t('page.usage.notRecorded')}</Tag>
             </li>
           ))}
         </ul>

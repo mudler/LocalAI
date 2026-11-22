@@ -29,7 +29,7 @@ import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT } from '../utils/capabilities'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, LoadError, Page, Segmented, SkeletonRows, Tabs } from '../components/ui'
+import { Button, Callout, LoadError, Page, Segmented, SkeletonRows, Tabs, Tag } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import AgentFolderDialog from '../components/agents/AgentFolderDialog'
 // eslint-disable-next-line no-unused-vars
@@ -537,9 +537,9 @@ function AgentEditor() {
               <>
                 <p className="aed-caps__lead">{t('create.modelCaps')}</p>
                 <ul className="aed-caps" data-testid="agent-model-caps">
-                  <li className="aed-caps__chip">{t('create.modelChat')}</li>
+                  <Tag as="li">{t('create.modelChat')}</Tag>
                   {modelCaps(chosenModel).filter(c => c !== 'chat').map(c => (
-                    <li key={c} className="aed-caps__chip">{c === 'vision' ? t('home:picker.vision') : t(`home:picker.cap.${c}`, { defaultValue: c })}</li>
+                    <Tag as="li" key={c}>{c === 'vision' ? t('home:picker.vision') : t(`home:picker.cap.${c}`, { defaultValue: c })}</Tag>
                   ))}
                 </ul>
               </>

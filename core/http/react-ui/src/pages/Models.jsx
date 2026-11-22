@@ -1816,16 +1816,16 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
         <tbody>
           <DetailRow label={t('detail.gallery')}>
             {model.gallery && (
-              <span className="dk-badge">
+              <Tag>
                 {typeof model.gallery === 'string' ? model.gallery : model.gallery.name || '—'}
-              </span>
+              </Tag>
             )}
           </DetailRow>
           <DetailRow label={t('detail.backend')}>
             {model.backend && (
-              <span className="dk-badge">
+              <Tag>
                 {model.backend}
-              </span>
+              </Tag>
             )}
           </DetailRow>
           <DetailRow label={t('detail.size')}>
@@ -1979,7 +1979,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
             {model.tags?.length > 0 && (
               <div className="ledger-detail__tags">
                 {model.tags.map(tag => (
-                  <span key={tag} className="dk-badge">{tag}</span>
+                  <Tag key={tag}>{tag}</Tag>
                 ))}
               </div>
             )}
@@ -1997,9 +1997,9 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           </DetailRow>
           {model.trustRemoteCode && (
             <DetailRow label={t('detail.warning')}>
-              <span className="dk-badge dk-badge--error">
-                <Icon name="alert-circle" /> {t('detail.requiresTrustRemoteCode')}
-              </span>
+              <Tag tone="error" icon="alert-circle">
+                {t('detail.requiresTrustRemoteCode')}
+              </Tag>
             </DetailRow>
           )}
           {files.length > 0 && (

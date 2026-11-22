@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import { Button } from '../ui'
+import { Button, Tag } from '../ui'
 import { PULLED_MAX, composerProjects, withPulled } from '../../utils/projects'
 import { composerShared } from '../../utils/sharedProjects'
 import './projectchat.css'
@@ -131,7 +131,7 @@ export default function ProjectPicker({ list, value, onChange, pulled, onPulled 
                     <span className="pjc-item__text">
                       <b className="pjc-item__title">
                         {none ? t('composer.none') : isShared ? row.shared.name : row.name}
-                        {isShared && <span className="pjc-badge">{t('share.badge')}</span>}
+                        {isShared && <Tag tone="accent">{t('share.badge')}</Tag>}
                       </b>
                       <small>{none ? t('composer.noneNote') : isShared ? t('share.byAccess', { owner: row.shared.owner_name, access: t(row.shared.mode === 'write' ? 'share.canEdit' : 'share.readOnly') }) : t('row.chats', { count: row.chat_count || 0 })}</small>
                     </span>

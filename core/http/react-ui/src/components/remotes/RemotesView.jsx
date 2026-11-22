@@ -10,6 +10,7 @@ import { remotesApi } from '../../utils/api'
 import SkippedList from './SkippedList'
 import NoUsable from './NoUsable'
 import { ageParts, hostOf, idsText, initialTicked, needsAttention, noUsableModels, resultParts, statusOf, usecasesOf } from '../../utils/remotes'
+import { Tag } from '../ui'
 
 // New models the person said "not now" to, for as long as this page is open.
 // The key holds the ids too, so a model that arrives later shows the banner
@@ -67,7 +68,7 @@ function NewModels({ remote, onAdded, addToast }) {
             <label className="remotes-model">
               <input type="checkbox" className="dk-check" checked={ticked.includes(m.id)} onChange={() => toggle(m.id)} />
               <span className="remotes-model__id">{m.id}</span>
-              <span className="remotes-model__uses">{usecasesOf(remote.kind, m).map(u => <span key={u} className="dk-badge">{label(u)}</span>)}</span>
+              <span className="remotes-model__uses">{usecasesOf(remote.kind, m).map(u => <Tag key={u}>{label(u)}</Tag>)}</span>
             </label>
           </li>
         ))}
@@ -118,7 +119,7 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
       <header className="remotes-card__head">
         <div className="remotes-card__title">
           <h2 className="remotes-card__name">{remote.name}</h2>
-          <span className="dk-badge">{t(`kinds.${remote.kind}`, { defaultValue: remote.kind })}</span>
+          <Tag>{t(`kinds.${remote.kind}`, { defaultValue: remote.kind })}</Tag>
           <span className="remotes-card__host" title={hostOf(remote.url)}>{hostOf(remote.url)}</span>
         </div>
         <div className="remotes-card__actions">
@@ -130,9 +131,9 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
         <span className={`dk-dot${dot}`} aria-hidden="true" />
         <span>{statusText}</span>
         {remote.p2p && (
-          <span className="dk-badge" data-testid="remote-p2p-path" data-state={remote.p2p.state} title={remote.p2p.error || undefined}>
+          <Tag testId="remote-p2p-path" data-state={remote.p2p.state} title={remote.p2p.error || undefined}>
             {t('card.p2p.badge')} · {p2pPathText(t, remote.p2p)}
-          </span>
+          </Tag>
         )}
       </p>
 

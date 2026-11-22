@@ -15,7 +15,7 @@ import { systemApi } from '../../utils/api'
 import { buildCleanupPlan, totalSize, UNDO_MS } from '../../utils/cleanupPlan'
 import { diskEntry } from '../../utils/modelStorage'
 import { gbLabel } from '../../utils/modelLedger'
-import { Button, EmptyState } from '../ui'
+import { Button, EmptyState, Tag } from '../ui'
 
 const TIERS = ['safe', 'probably', 'call']
 
@@ -433,7 +433,7 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
                     <span className="ledger-cr__main">
                       <span className="ledger-cr__name">
                         {item.id}
-                        {item.backend && <span className="dk-badge">{item.backend}</span>}
+                        {item.backend && <Tag>{item.backend}</Tag>}
                       </span>
                       <span className="ledger-cr__why">{reasonText(t, item.reason)}</span>
                       <FactLines t={t} item={item} />
