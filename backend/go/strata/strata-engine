@@ -8,13 +8,25 @@
 #                                kernel driver reports
 # STRATA_ENGINE_VARIANT=<name> forces one.
 #
+# STRATA_ENGINE_FAMILY=hy4 (set by the backend for Tencent Hy4-Flash) selects the Hy4 packages in engines-hy4/
+# and their program, strata-hy4, in place of engines/ and strata. The package names and the choice among them
+# are the same.
+#
 # STRATA_ENGINES_DIR and STRATA_ENGINE_BIN select another folder and program. Unsupported hardware stops here with
 # a one-line reason on stderr, which the backend shows in its load error.
 set -eu
 
 HERE=$(dirname "$(realpath "$0")")
-ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines}"
-BIN="${STRATA_ENGINE_BIN:-strata}"
+case "${STRATA_ENGINE_FAMILY:-}" in
+hy4)
+	ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines-hy4}"
+	BIN="${STRATA_ENGINE_BIN:-strata-hy4}"
+	;;
+*)
+	ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines}"
+	BIN="${STRATA_ENGINE_BIN:-strata}"
+	;;
+esac
 
 die() {
 	echo "strata: $*" >&2

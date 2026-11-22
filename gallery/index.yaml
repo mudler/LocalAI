@@ -1766,6 +1766,228 @@
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: hy4-flash-sq-64-strata
+  description: |
+    Tencent Hy4-Flash, a 220B-parameter mixture-of-experts model with 12B active
+    parameters, 1M tokens of context, reasoning, tool calling and image input, in
+    Strata's SQ-64 quantization, the smallest build (about 130 GB to download: the model file
+    plus the 68 GB Engram file every build shares and the 1 GB vision file).
+    The SQ-64 build is made for 64 GiB of RAM and a GPU with 8 GiB of memory or
+    more. The vendor's own figures: about 59.4 GiB of RAM and GPU memory together
+    in use, and a fast SSD for the Engram file, which is read while the model
+    answers. The three builds of this model share one directory and one copy of
+    the Engram and vision files. Speculative decoding (DFly2) is built in and on
+    by default. Runs only on the experimental strata backend, on the Hy4-Flash
+    engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs.
+    The model reasons by default; ask for a lower effort or none with the
+    reasoning effort of the request. Tencent recommends temperature 0.9, top_p 1.0
+    and no top_k.
+    Licensed under the Tencent Hy License, Version 1.0 (inherited from
+    tencent/Hy4-flash): derived from the Apache License 2.0, with extra commercial
+    terms for very large Model-as-a-Service businesses. Read the LICENSE file in
+    the repository first. The quantization is by Strata; Strata is by Niko1221.
+  license: tencent-hy-license
+  urls:
+    - https://huggingface.co/tencent/Hy4-flash
+    - https://huggingface.co/strata-engine/Hy4-Flash-Strata
+    - https://github.com/Niko1221/Strata
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - strata
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/hy4-flash/Hy4-Flash-SQ-64.strata
+      sha256: b2cc38fe4bded35df82a701f9e868ea09c6fcd9be52c8446289e394f804417b2
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-SQ-64.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Engram-Q8.strata
+      sha256: ab0cf9b3f9c64bd25f6212d4508e7443ab8b9bc133fbccc7bdfb83510a20c2c1
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Engram-Q8.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Vision.strata
+      sha256: ef09bceff8f01b8d226d2dc56aef09cec719b21b45783ee9b5d64e7241b72a09
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Vision.strata
+  overrides:
+    backend: strata
+    context_size: 131072
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:hy4
+      - native:Hy4-Flash-SQ-64.strata
+      - engram:Hy4-Flash-Engram-Q8.strata
+      - vision:Hy4-Flash-Vision.strata
+    parameters:
+      model: strata/models/hy4-flash
+      temperature: 0.9
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: hy4-flash-sq-96-strata
+  description: |
+    Tencent Hy4-Flash, a 220B-parameter mixture-of-experts model with 12B active
+    parameters, 1M tokens of context, reasoning, tool calling and image input, in
+    Strata's SQ-96 quantization, a build close to the full model (about 157 GB to download: the model file
+    plus the 68 GB Engram file every build shares and the 1 GB vision file).
+    The SQ-96 build is made for 96 GiB of RAM and a GPU with 8 GiB of memory or
+    more. The vendor's own figures: about 85.1 GiB of RAM and GPU memory together
+    in use, and a fast SSD for the Engram file, which is read while the model
+    answers. The three builds of this model share one directory and one copy of
+    the Engram and vision files. Speculative decoding (DFly2) is built in and on
+    by default. Runs only on the experimental strata backend, on the Hy4-Flash
+    engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs.
+    The model reasons by default; ask for a lower effort or none with the
+    reasoning effort of the request. Tencent recommends temperature 0.9, top_p 1.0
+    and no top_k.
+    Licensed under the Tencent Hy License, Version 1.0 (inherited from
+    tencent/Hy4-flash): derived from the Apache License 2.0, with extra commercial
+    terms for very large Model-as-a-Service businesses. Read the LICENSE file in
+    the repository first. The quantization is by Strata; Strata is by Niko1221.
+  license: tencent-hy-license
+  urls:
+    - https://huggingface.co/tencent/Hy4-flash
+    - https://huggingface.co/strata-engine/Hy4-Flash-Strata
+    - https://github.com/Niko1221/Strata
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - strata
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/hy4-flash/Hy4-Flash-SQ-96.strata
+      sha256: 3b1c5755a220c69892b3d2dbad506b8593a30be24b17a390ecbd1642c0c1e14c
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-SQ-96.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Engram-Q8.strata
+      sha256: ab0cf9b3f9c64bd25f6212d4508e7443ab8b9bc133fbccc7bdfb83510a20c2c1
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Engram-Q8.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Vision.strata
+      sha256: ef09bceff8f01b8d226d2dc56aef09cec719b21b45783ee9b5d64e7241b72a09
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Vision.strata
+  overrides:
+    backend: strata
+    context_size: 131072
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:hy4
+      - native:Hy4-Flash-SQ-96.strata
+      - engram:Hy4-Flash-Engram-Q8.strata
+      - vision:Hy4-Flash-Vision.strata
+    parameters:
+      model: strata/models/hy4-flash
+      temperature: 0.9
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: hy4-flash-sq-128-strata
+  description: |
+    Tencent Hy4-Flash, a 220B-parameter mixture-of-experts model with 12B active
+    parameters, 1M tokens of context, reasoning, tool calling and image input, in
+    Strata's SQ-128 quantization, the build closest to the full model (about 181 GB to download: the model file
+    plus the 68 GB Engram file every build shares and the 1 GB vision file).
+    The SQ-128 build is made for 128 GiB of RAM and a GPU with 8 GiB of memory or
+    more. The vendor's own figures: about 107.5 GiB of RAM and GPU memory together
+    in use, and a fast SSD for the Engram file, which is read while the model
+    answers. The three builds of this model share one directory and one copy of
+    the Engram and vision files. Speculative decoding (DFly2) is built in and on
+    by default. Runs only on the experimental strata backend, on the Hy4-Flash
+    engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs.
+    The model reasons by default; ask for a lower effort or none with the
+    reasoning effort of the request. Tencent recommends temperature 0.9, top_p 1.0
+    and no top_k.
+    Licensed under the Tencent Hy License, Version 1.0 (inherited from
+    tencent/Hy4-flash): derived from the Apache License 2.0, with extra commercial
+    terms for very large Model-as-a-Service businesses. Read the LICENSE file in
+    the repository first. The quantization is by Strata; Strata is by Niko1221.
+  license: tencent-hy-license
+  urls:
+    - https://huggingface.co/tencent/Hy4-flash
+    - https://huggingface.co/strata-engine/Hy4-Flash-Strata
+    - https://github.com/Niko1221/Strata
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - strata
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/hy4-flash/Hy4-Flash-SQ-128.strata
+      sha256: 6e8ba2729465f38ed42b5bfa7db02c92beddc25ca0413b7f0c24ab9f1e8b51f4
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-SQ-128.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Engram-Q8.strata
+      sha256: ab0cf9b3f9c64bd25f6212d4508e7443ab8b9bc133fbccc7bdfb83510a20c2c1
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Engram-Q8.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Vision.strata
+      sha256: ef09bceff8f01b8d226d2dc56aef09cec719b21b45783ee9b5d64e7241b72a09
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Vision.strata
+  overrides:
+    backend: strata
+    context_size: 131072
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:hy4
+      - native:Hy4-Flash-SQ-128.strata
+      - engram:Hy4-Flash-Engram-Q8.strata
+      - vision:Hy4-Flash-Vision.strata
+    parameters:
+      model: strata/models/hy4-flash
+      temperature: 0.9
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: qwen3.5-4b-3d-coder-q8
   description: |
     CCORE's early preview fine-tune of Qwen3.5-4B for coding and Three.js
