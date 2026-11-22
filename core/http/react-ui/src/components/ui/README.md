@@ -4,7 +4,7 @@ The shared components every page uses for buttons, page frames, empty and error
 states, status, toasts, loading and detail panes. Import them from one place:
 
 ```jsx
-import { Button, EmptyState, LoadError, Page, PageHeader, StatusChip } from '../components/ui'
+import { Button, EmptyState, LoadError, Page, PageHeader, StatusChip, Tabs, Tag } from '../components/ui'
 ```
 
 Most of them live in the UI kit package, `packages/ui-kit` (see its
@@ -40,7 +40,9 @@ in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
 | A choice that applies on Save | `dk-check` | A yes or no inside a form. |
 | One choice of a few that filters | `Segmented` | A list filter with counts. |
 | One choice of 2-4 that sets a value | `Segmented mode="radio"` | A value, such as where models run or a kind. Not a filter and not a view switch. |
+| Views of one region | `Tabs` + `TabPanel` | One view shown at a time: Overview, Files, Settings. Not a filter. |
 | A state | `StatusChip` | The state of one item. |
+| A label that is not a state | `Tag` | A kind, a format, a capability, "alias", "Built-in". |
 | Something that needs attention | `Callout` | A warning, news or a result on this page. |
 | The detail of an item beside a list | `SidePane` | Read, act, close. |
 | A create or edit form | `SideSheet` | Blocks the page until saved or closed. |
@@ -239,6 +241,61 @@ colours for decoration.
 `StatusPill` is the old name. It draws a `StatusChip` and keeps its classes
 (`status-pill status-pill--success|warning|error|info|muted`) for existing
 selectors. Use `StatusChip` in new code.
+
+## Tag
+
+`<Tag tone icon mono title as>` children `</Tag>`
+
+A short label on an item that is not a state: a kind ("Meta", "Dev"), a
+format ("GGUF"), a capability, a version, "alias". The look of the tags in the
+home model picker: 20 px, `--r-sm`, `--fs-meta`, muted text on `--dk-hover`.
+
+| Prop | Values | Notes |
+|---|---|---|
+| `tone` | `neutral` (default), `accent`, `ok`, `warn`, `error` | The words still say what the tag means; colour is never the only signal. |
+| `icon` | a kit icon id | 12 px, before the words |
+| `mono` | boolean | the mono font, for ids and versions a person copies |
+| `as` | `span` (default), `button`, a link component | a tag that opens something |
+
+Put several in a `ui-tags` row. Do: use `StatusChip` for a state ("Running",
+"Failed", "Update available") and `Tag` for everything else. Don't: colour a
+`span` to look like a tag. The legacy `badge` and `badge-*` classes are gone;
+new code never writes a badge class.
+
+## Tabs and TabPanel
+
+```jsx
+<Tabs label="Model" idPrefix="model" value={tab} onChange={setTab}
+  items={[{ id: 'overview', label: 'Overview' }, { id: 'files', label: 'Files', count: 4 }]} />
+<TabPanel idPrefix="model" value={tab}>…</TabPanel>
+```
+
+Views of one region, one shown at a time. The kit's underline tabs
+(`dk-tabs`, `dk-tab`); the panel is `dk-tabpanel`.
+
+- `items`: `{ id, label, icon, count, countTone, countLabel, countHidden,
+  countTestId, after, disabled, testId, keyshortcuts }`. `count` draws a count
+  badge after the label (leave it out for none); `countTone` is `accent`,
+  `warn` or `error`; `countLabel` is what a screen reader says for it, and
+  `countHidden` hides it when the label already says it. `after` is a node
+  drawn after the count, for a second badge.
+- Ids: tab `<idPrefix>-tab-<id>`, panel `<idPrefix>-panel-<id>`. A list with
+  one panel for every tab passes `panelId` to both.
+- Keyboard: the list is one tab stop (the selected tab). ArrowLeft and
+  ArrowRight (ArrowUp and ArrowDown with `orientation="vertical"`) move the
+  focus and the selection, skip disabled tabs and wrap; Home and End go to the
+  ends.
+- `variant="pill"` draws the segmented tray: for a view switch in a header or
+  a small card ("Upload" / "Record", "Source" / "YAML"). The default underline
+  is for the views of a page or a pane.
+- `label` (or `labelledBy`) names the list. `listRef`, `onScroll` and `data-*`
+  go to the tablist element; `testId` and `itemTestId` set test ids.
+- `TabPanel` takes `idPrefix`, `value` (the selected id) or `panelId`. Give it
+  `tabIndex={0}` when it starts with text and no control.
+
+Do: use tabs to switch views. Don't: use tabs to filter a list (that is
+`Segmented`) or to set a value (`Segmented mode="radio"`), and do not write
+`role="tab"` markup in a page.
 
 ## Switch
 

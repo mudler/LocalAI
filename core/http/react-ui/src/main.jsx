@@ -20,6 +20,8 @@ import './theme.css'
 // The kit's rules sit between the tokens and the app's own rules: a page's
 // class on the same element still wins over a kit component's base rule.
 import '../packages/ui-kit/css/kit.css'
+import '../packages/ui-kit/css/tabs.css'
+import '../packages/ui-kit/css/tag.css'
 import './App.css'
 import './components/remotes/remotes.css'
 import { ShellFallback } from './components/RouteFallback'

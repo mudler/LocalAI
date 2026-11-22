@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
   Button, Callout, EmptyState, Notice, LoadError, Page, PageHeader, PaneLayout, Segmented, SidePane,
-  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, Slider, StatusChip, STATUS, Switch,
+  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, Slider, StatusChip, STATUS, Switch, TabPanel, Tabs, Tag,
 } from '../components/ui'
 import { useToastAnchor } from '../components/Toast'
 import SideSheet from '../components/SideSheet'
@@ -102,6 +102,58 @@ function Chips() {
         <StatusChip tone="accent">New</StatusChip>
         <StatusChip status="healthy" label="healthy (alias)" />
         <span data-testid="legacy-pill"><StatusPill status="degraded" /></span>
+      </div>
+    </Section>
+  )
+}
+
+function Tags() {
+  return (
+    <Section id="tags" title="Tag" note="A label on an item that is not a state: a kind, a format, a capability. A state is a status chip.">
+      <div className="ui-cat__cell ui-tags" data-testid="tags">
+        <Tag>GGUF</Tag>
+        <Tag tone="accent">alias</Tag>
+        <Tag tone="ok" icon="check">Fits</Tag>
+        <Tag tone="warn">Dev</Tag>
+        <Tag tone="error">Broken</Tag>
+        <Tag mono>v1.4.2</Tag>
+      </div>
+    </Section>
+  )
+}
+
+function TabsDemo() {
+  const [tab, setTab] = useState('overview')
+  const [source, setSource] = useState('file')
+  return (
+    <Section id="tabs" title="Tabs" note="Views of one region, one at a time. One tab stop; arrow keys, Home and End move the selection. The pill variant is a view switch in a header or a small card.">
+      <Tabs
+        label="Sample views"
+        idPrefix="cat-tabs"
+        value={tab}
+        onChange={setTab}
+        testId="cat-tabs"
+        itemTestId="cat-tab-"
+        items={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'files', label: 'Files', icon: 'folder', count: 4 },
+          { id: 'locked', label: 'Locked', disabled: true },
+          { id: 'access', label: 'Access', count: 2, countTone: 'warn', countLabel: '2 waiting' },
+        ]}
+      />
+      <TabPanel idPrefix="cat-tabs" value={tab} tabIndex={0} testId="cat-tabpanel">Panel: {tab}</TabPanel>
+      <div className="ui-cat__stack">
+        <Tabs
+          variant="pill"
+          label="Source"
+          idPrefix="cat-pill"
+          panelId="cat-pill-panel"
+          value={source}
+          onChange={setSource}
+          testId="cat-tabs-pill"
+          items={[{ id: 'file', label: 'Upload', icon: 'upload' }, { id: 'live', label: 'Record', icon: 'mic' }]}
+        />
+        <TabPanel idPrefix="cat-pill" panelId="cat-pill-panel" value={source}>Source: {source}</TabPanel>
       </div>
     </Section>
   )
@@ -452,9 +504,11 @@ export default function UiCatalog() {
       <Buttons />
       <Header />
       <Chips />
+      <Tags />
       <Switches />
       <FormControls />
       <Segments />
+      <TabsDemo />
       <Sliders />
       <Callouts />
       <Notices />

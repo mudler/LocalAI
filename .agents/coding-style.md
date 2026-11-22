@@ -135,9 +135,10 @@ rules.
 
 - Use the kit for every button (`Button`), text input (`dk-input`), select
   (`dk-select`), switch (`Switch`), checkbox (`<input type="checkbox"
-  className="dk-check">`), segmented control (`Segmented`), pill
-  (`StatusChip`), callout (`Callout`), pane (`SidePane`) and sheet
-  (`SideSheet`). Do not write a new one. Do not restyle one with a page class:
+  className="dk-check">`), segmented control (`Segmented`), tabs (`Tabs`
+  and `TabPanel`), state pill (`StatusChip`), label tag (`Tag`), callout
+  (`Callout`), pane (`SidePane`) and sheet (`SideSheet`). Do not write
+  `role="tab"` markup or a `badge` class in a page. Do not write a new one. Do not restyle one with a page class:
   no size, colour, radius or width override.
 - A switch applies at once. A checkbox applies when the person presses Save.
   Do not pair a switch with a Save button.
