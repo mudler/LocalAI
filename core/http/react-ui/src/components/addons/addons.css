@@ -490,13 +490,10 @@
 /* ---- Host access: the install step, the approval and the page ------------- */
 
 .ad-tab__count--warn { background: var(--dk-warn-wash); color: var(--dk-warn-text, var(--dk-warn)); }
-/* Dialogs that carry a list or a field: wider than a confirmation, and the
-   body scrolls so the actions stay in view on a phone. */
-.ad-dialog { max-width: 560px; width: min(560px, calc(100vw - 2 * var(--sp-4))); max-height: calc(100dvh - 2 * var(--sp-4)); display: flex; flex-direction: column; }
-.ad-dialog .confirm-dialog-body { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
-.ad-dialog .confirm-dialog-header, .ad-dialog .confirm-dialog-actions { flex: none; }
-.ad-dialog .confirm-dialog-header .ad-dialog-close { margin-inline-start: auto; }
-.ad-dialog:focus { outline: none; }
+/* Dialogs that carry a list or a field: wider than a confirmation. The body
+   of the shared dialog scrolls, so the actions stay in view on a phone. */
+.ad-dialog { width: min(560px, 100%); }
+.dk-veil:has(> .ad-dialog) { z-index: 1050; }
 .ad-hostaccess { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 .ad-hostaccess__title { margin: 0; font-size: var(--fs-body); font-weight: 600; color: var(--dk-text); }
 .ad-hostlist { display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -535,7 +532,6 @@
 /* Operation names are short sentences: let them wrap instead of cutting them. */
 .ad-hostlist .swl-row__name, .ad-host-card .swl-row__name { white-space: normal; overflow: visible; text-overflow: clip; }
 .ad-host-card .swl-row__src, .ad-hostlist .swl-row__src { white-space: normal; text-align: right; max-width: 40%; }
-.ad-dialog .confirm-dialog-body { padding: 2px; margin-inline: -2px; }
 
 /* The install queue: rows of the background installs above the tabs, and the
    bar of the add-ons ticked for one review. */

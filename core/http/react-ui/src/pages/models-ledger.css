@@ -605,9 +605,6 @@ tr[data-selected="true"] .ledger-mark {
 
 /* --- Cleanup sheet --------------------------------------------------------- */
 
-.ledger-sheet { width: min(560px, 100%); }
-.ledger-sheet .dk-sheet-head { border-bottom: 1px solid var(--dk-edge); padding-bottom: var(--dk-space-3); }
-
 .ledger-sheet__body { display: flex; flex-direction: column; gap: var(--dk-space-3); padding-top: 0; }
 
 .ledger-space { padding: var(--dk-space-2) 0 0; }
@@ -698,7 +695,7 @@ tr[data-selected="true"] .ledger-mark {
 
 .ledger-confirm { display: grid; gap: var(--dk-space-3); font-size: var(--dk-text-13); }
 .ledger-confirm p { margin: 0; }
-.confirm-dialog:has(.ledger-confirm) { max-width: 520px; }
+.dk-dialog:has(.ledger-confirm) { width: min(520px, 100%); }
 .ledger-confirm__table, .ledger-confirm__table tbody { display: block; width: 100%; }
 .ledger-confirm__table { max-height: 36vh; overflow-y: auto; }
 /* One row per model: the name and its size on a line, the reason under it. */
@@ -896,9 +893,9 @@ tr[data-selected="true"] .ledger-mark {
 
 /* The undo toast sits in the open part of the page, beside a side sheet and
    above a bottom sheet, never on top of the effect bar. */
-.ledger-veil ~ .dk-toast-region { left: calc((100% - min(560px, 100%)) / 2); }
+body:has(.ledger-veil) .dk-toast-region { left: calc((100% - min(480px, 100%)) / 2); }
 @media (max-width: 640px) {
-  .ledger-veil ~ .dk-toast-region { left: 50%; bottom: auto; top: var(--dk-space-3); }
+  body:has(.ledger-veil) .dk-toast-region { left: 50%; bottom: auto; top: var(--dk-space-3); }
 }
 
 /* The arrow at the end of a row: opens the model's own page. */

@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
+import SideSheet from '../SideSheet'
 import { folderLabel } from '../../hooks/useSharedPages'
 import { authorOf } from '../../utils/pages'
 
@@ -192,33 +193,23 @@ export default function TrustSheet({ src, changed, embed: embedAsked = false, bu
 // sheet that asked for it. The text is shown as text, never run.
 export function SourceSheet({ src, onClose }) {
   const { t } = useTranslation('pages')
-  const ref = useRef(null)
-  const closeRef = useRef(onClose)
-  closeRef.current = onClose
-  useEffect(() => {
-    const opener = document.activeElement
-    ref.current?.querySelector('button')?.focus()
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeRef.current() } }
-    document.addEventListener('keydown', onKey, true)
-    return () => {
-      document.removeEventListener('keydown', onKey, true)
-      if (opener && document.contains(opener)) opener.focus?.()
-    }
-  }, [])
-  return createPortal(
-    <div className="dk-sheet-veil pg-source-veil" onMouseDown={onClose}>
-      <aside ref={ref} className="dk-sheet dk-sheet--wide pg-source" role="dialog" aria-modal="true" aria-labelledby="pg-source-title" data-testid="trust-source-sheet" onMouseDown={e => e.stopPropagation()}>
-        <div className="dk-sheet-head">
-          <div>
-            <h2 className="dk-dialog-title" id="pg-source-title">{t('trust.sourceTitle', { title: src.page.title })}</h2>
-            <p className="dk-dialog-desc">{src.page.user_shared === true ? <code>index.html</code> : <code>{src.page.folder ? `${folderLabel(src.page.folder)}/` : ''}pages/{src.page.name}/index.html</code>} · {t('trust.sourceLines', { count: src.lines })}</p>
-          </div>
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('trust.close')} onClick={onClose}><Icon name="close" /></button>
-        </div>
-        <pre className="pg-source__code" tabIndex={0}>{src.html}</pre>
-        <p className="pg-source__foot">{t('trust.sourceNote')}</p>
-      </aside>
-    </div>,
-    document.body,
+  const where = src.page.user_shared === true
+    ? <code>index.html</code>
+    : <code>{src.page.folder ? `${folderLabel(src.page.folder)}/` : ''}pages/{src.page.name}/index.html</code>
+  return (
+    <SideSheet
+      wide
+      title={t('trust.sourceTitle', { title: src.page.title })}
+      description={<>{where} · {t('trust.sourceLines', { count: src.lines })}</>}
+      closeLabel={t('trust.close')}
+      labelId="pg-source-title"
+      testId="trust-source-sheet"
+      veilClass="pg-source-veil"
+      bodyClass="pg-source__body"
+      onClose={onClose}
+    >
+      <pre className="pg-source__code" tabIndex={0}>{src.html}</pre>
+      <p className="pg-source__foot">{t('trust.sourceNote')}</p>
+    </SideSheet>
   )
 }
