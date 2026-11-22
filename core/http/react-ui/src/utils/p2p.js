@@ -150,6 +150,18 @@ export function sortedDevices(devices) {
   })
 }
 
+// A compute node of the cluster that joined over P2P (a worker, or a
+// model-split worker) is a worker, not somebody else's device: it belongs to
+// the Workers page, and Sharing lists only what other people hold.
+const WORKER_KINDS = ['worker', 'split']
+export const isWorkerKind = (kind) => WORKER_KINDS.includes(kind)
+
+// Splits invite or device rows into the ones Sharing lists and the workers.
+export function splitWorkers(rows) {
+  const list = Array.isArray(rows) ? rows : []
+  return { shared: list.filter(r => !isWorkerKind(r?.kind)), workers: list.filter(r => isWorkerKind(r?.kind)) }
+}
+
 // The phrase words, for the large chips the confirmation shows.
 export function phraseWords(phrase) {
   return String(phrase || '').split(/\s+/).filter(Boolean)

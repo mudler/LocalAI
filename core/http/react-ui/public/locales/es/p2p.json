@@ -1,6 +1,6 @@
 {
   "title": "Compartir",
-  "supporting": "Dispositivos, remotos y nodos que llegan a este servidor por P2P, y las invitaciones que los dejan entrar.",
+  "supporting": "Dispositivos y equipos remotos que llegan a este servidor por P2P, y las invitaciones que les permiten entrar.",
   "loadStatusFailed": "No se pudo leer el estado de P2P.",
   "tabs": {
     "label": "P2P",
@@ -420,5 +420,15 @@
     "all": "Todos los modelos",
     "some_one": "{{count}} modelo",
     "some_other": "{{count}} modelos"
+  },
+  "sharing": {
+    "on": "Compartir está activado",
+    "address": "Tu dirección para compartir",
+    "copy": "Copiar",
+    "addressCopied": "Dirección para compartir copiada",
+    "addressCopyFailed": "No se pudo copiar la dirección para compartir",
+    "settings": "Modo y relés en la configuración de P2P",
+    "workersNote": "Los workers que se unieron por P2P están en Workers.",
+    "workersLink": "Ir a Workers"
   }
 }
