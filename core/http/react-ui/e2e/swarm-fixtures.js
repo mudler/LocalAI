@@ -10,6 +10,7 @@ export const GB = 1024 ** 3
 const wave = (base, swing, count = 24) => Array.from({ length: count }, (_, i) => Math.round(Math.min(100, Math.max(0, base + Math.sin(i * 1.3) * swing + (i % 5)))))
 
 const ago = ms => new Date(Date.now() - ms).toISOString()
+const live = route => ({ route, state: 'live' })
 
 // A small cluster with one of everything the pages tell apart: a healthy GPU
 // box, an agent worker, a CPU node, a node that stopped answering and a node
@@ -20,29 +21,34 @@ export function clusterNodes() {
       id: 'n-agent', name: 'agent-host', node_type: 'agent', address: '10.0.4.31:50051', status: 'healthy', version: 'v3.9.0',
       total_ram: 16 * GB, available_ram: 10 * GB, cpu_logical_cores: 8, cpu_usage_percent: 14, cpu_load_1: 0.8,
       total_disk: 500 * GB, available_disk: 410 * GB, model_count: 0, in_flight_count: 0, last_heartbeat: ago(8_000), labels: { 'node.role': 'agents' }, load_history: wave(14, 6),
+      attached: 'tunnel', route_state: [live('heartbeat'), { route: 'tunnel', transport: 'websocket', state: 'live' }],
     },
     {
       id: 'n-edge', name: 'edge-cpu', node_type: 'backend', address: '10.0.4.20:50051', status: 'healthy', version: 'v3.8.4',
       total_ram: 32 * GB, available_ram: 20 * GB, cpu_logical_cores: 12, cpu_usage_percent: 33, cpu_load_1: 2.1,
       total_disk: 800 * GB, available_disk: 520 * GB, model_count: 2, in_flight_count: 0, last_heartbeat: ago(6_000), labels: { role: 'edge' }, load_history: wave(33, 12),
       max_replicas_per_model: 1,
+      attached: 'nats,tunnel', route_state: [live('heartbeat'), live('nats'), { route: 'tunnel', transport: 'websocket', state: 'live' }],
     },
     {
       id: 'n-gpu1', name: 'gpu-box-1', node_type: 'backend', address: '10.0.4.11:50051', status: 'healthy', version: 'v3.9.0', gpu_vendor: 'nvidia',
       total_vram: 48 * GB, available_vram: 19 * GB, total_ram: 128 * GB, available_ram: 68 * GB, cpu_logical_cores: 32, cpu_usage_percent: 52, cpu_load_1: 6.4,
       total_disk: 2000 * GB, available_disk: 1360 * GB, model_count: 2, in_flight_count: 3, last_heartbeat: ago(3_000), labels: { gpu: '4090', zone: 'a' }, load_history: wave(55, 14),
       max_replicas_per_model: 1,
+      attached: 'nats', route_state: [live('heartbeat'), live('nats')],
     },
     {
       id: 'n-gpu2', name: 'gpu-box-2', node_type: 'backend', address: '10.0.4.12:50051', status: 'unhealthy', version: 'v3.9.0', gpu_vendor: 'nvidia',
       total_vram: 24 * GB, available_vram: 5.8 * GB, total_ram: 64 * GB, available_ram: 30 * GB, cpu_logical_cores: 16, cpu_usage_percent: 0, cpu_load_1: 0,
       total_disk: 1000 * GB, available_disk: 790 * GB, model_count: 2, in_flight_count: 0, last_heartbeat: ago(252_000), labels: { gpu: '4090', zone: 'b' },
       max_replicas_per_model: 1,
+      route_state: [{ route: 'heartbeat', state: 'down', reason: 'the heartbeat is stale' }, { route: 'nats', state: 'down', reason: 'no recent report from the worker' }],
     },
     {
       id: 'n-gpu3', name: 'gpu-box-3', node_type: 'backend', address: '10.0.4.13:50051', status: 'pending', version: 'v3.9.0', gpu_vendor: 'nvidia',
       total_vram: 24 * GB, available_vram: 24 * GB, total_ram: 64 * GB, available_ram: 56 * GB, cpu_logical_cores: 16, cpu_usage_percent: 4, cpu_load_1: 0.3,
       total_disk: 1000 * GB, available_disk: 900 * GB, model_count: 0, in_flight_count: 0, last_heartbeat: ago(9_000), labels: {}, load_history: [4],
+      route_state: [live('heartbeat'), { route: 'tunnel', transport: 'websocket', state: 'down', reason: 'not attached' }],
     },
   ]
 }
@@ -83,6 +89,48 @@ export const CHAINS = [
   },
 ]
 
+// The cluster settings, as GET /api/cluster/settings answers.
+export function clusterSettingsFixture(overrides = {}) {
+  return {
+    nats_url: 'nats://nats.example.org:4222',
+    nats_worker_url: '',
+    carrier_weights: { nats: 100, websocket: 50, p2p: 25 },
+    carrier_weights_default: { nats: 100, websocket: 50, p2p: 25 },
+    join_auto_approve: false,
+    bus: { bus: 'nats', nats_configured: true, nats_connected: true },
+    replicas: [
+      { id: 'frontend-1', version: 'v5.0.1', last_seen: new Date().toISOString() },
+      { id: 'frontend-2', version: 'v5.0.1', last_seen: new Date().toISOString() },
+    ],
+    ...overrides,
+  }
+}
+
+// The answer of POST /api/cluster/join-tokens: the plain token once, and the
+// commands that carry it, built as the server builds them from the routes.
+export function mintedToken(body = {}, index = 1) {
+  const token = `lai_join_${String(index).padStart(2, '0')}SECRETSECRETSECRET`
+  const routes = body.routes || []
+  const wr = routes.map(r => (r === 'websocket' ? 'tunnel' : r)).join(',')
+  const base = 'https://localai.example.org'
+  const q = `?t=${token}${routes.length ? `&routes=${routes.join(',')}` : ''}`
+  const ttl = body.ttl_seconds || 600
+  const uses = body.uses || 1
+  return {
+    id: `jt-${index}`, label: body.label || '', state: 'unused', uses: 0, max_uses: uses, routes, auto_approve: body.auto_approve ?? false,
+    created_by: 'admin', created_at: new Date().toISOString(), expires_at: new Date(Date.now() + ttl * 1000).toISOString(),
+    token,
+    commands: {
+      install_script: `curl -fsSL '${base}/join.sh${q}' | sudo sh`,
+      windows: `irm '${base}/join.ps1${q}' | iex`,
+      docker: `docker run -d --name localai-worker \\\n  -e LOCALAI_REGISTER_TO='${base}' \\\n  -e LOCALAI_JOIN_TOKEN='${token}' \\\n${wr ? `  -e LOCALAI_WORKER_ROUTES='${wr}' \\\n` : ''}  localai/localai:latest worker`,
+      docker_compose: `services:\n  localai-worker:\n    environment:\n      LOCALAI_JOIN_TOKEN: "${token}"${wr ? `\n      LOCALAI_WORKER_ROUTES: "${wr}"` : ''}`,
+      kubernetes: `kubectl apply -f '${base}/join.yaml${q}'`,
+      manual: `LOCALAI_REGISTER_TO='${base}' LOCALAI_JOIN_TOKEN='${token}'${wr ? ` LOCALAI_WORKER_ROUTES='${wr}'` : ''} local-ai worker`,
+    },
+  }
+}
+
 const json = body => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 
 // Routes every call the Swarm pages make. Anything it does not know goes on to
@@ -99,7 +147,11 @@ const json = body => ({ status: 200, contentType: 'application/json', body: JSON
 export async function mockSwarm(page, {
   nodes = clusterNodes(), replicas = clusterReplicas(), rules = clusterRules(), features = { distributed: true },
   nodeModels = {}, nodeBackends = {}, chains = CHAINS, aliases = [], log = [], onNodes,
+  cluster = clusterSettingsFixture(), clusterStatus = 200, onMint,
 } = {}) {
+  let settings = { ...cluster }
+  let minted = 0
+  const tokens = new Map()
   // The rules behave like the server's: a save adds or replaces, a delete removes.
   let current = [...rules]
   await page.route('**/api/auth/status', route => route.fulfill(json({
@@ -121,6 +173,41 @@ export async function mockSwarm(page, {
     if (path === '/api/nodes' && method === 'GET') {
       if (nodes === null) return route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"not found"}' })
       return route.fulfill(json(onNodes ? onNodes() : nodes))
+    }
+    if (path === '/api/cluster/settings') {
+      if (clusterStatus !== 200) return route.fulfill({ status: clusterStatus, contentType: 'application/json', body: '{"error":"distributed mode is not enabled on this frontend"}' })
+      if (method === 'PUT') {
+        record()
+        const body = request.postDataJSON()
+        const next = { ...settings }
+        if ('nats_url' in body) next.nats_url = body.nats_url
+        if ('nats_worker_url' in body) next.nats_worker_url = body.nats_worker_url
+        if ('join_auto_approve' in body) next.join_auto_approve = body.join_auto_approve
+        if (body.carrier_weights) {
+          next.carrier_weights = { ...settings.carrier_weights }
+          for (const [k, v] of Object.entries(body.carrier_weights)) next.carrier_weights[k] = v === null ? settings.carrier_weights_default[k] : v
+        }
+        settings = next
+        return route.fulfill(json({ saved: true, ...(body.nats_url ? { nats: { reachable: true } } : {}), settings }))
+      }
+      return route.fulfill(json(settings))
+    }
+    if (path === '/api/cluster/join-tokens' && method === 'POST') {
+      record()
+      minted += 1
+      const body = request.postDataJSON()
+      const answer = onMint ? onMint(body, minted) : null
+      if (answer?.error) return route.fulfill({ status: answer.status || 400, contentType: 'application/json', body: JSON.stringify({ error: answer.error }) })
+      const token = answer || mintedToken(body, minted)
+      tokens.set(token.id, { id: token.id, state: 'unused', uses: 0, max_uses: token.max_uses, routes: token.routes, expires_at: token.expires_at })
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(token) })
+    }
+    if (path === '/api/cluster/join-tokens' && method === 'GET') return route.fulfill(json([...tokens.values()]))
+    const revoked = path.match(/^\/api\/cluster\/join-tokens\/([^/]+)$/)
+    if (revoked && method === 'DELETE') {
+      record()
+      tokens.delete(decodeURIComponent(revoked[1]))
+      return route.fulfill(json({ message: 'join token revoked', id: revoked[1] }))
     }
     if (path === '/api/nodes/models') {
       return replicas === null ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"controller unavailable"}' }) : route.fulfill(json(replicas))

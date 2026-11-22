@@ -7,32 +7,51 @@ import { LINK, PEER, mockSplit, ownRelayWorker, splitServerNodes, splitWorkers }
 // a group of their own; "Add a node" makes their invite. A worker that only a
 // relay reaches waits for "Use anyway".
 
-test.describe('Model-split workers on the Nodes page', () => {
-  test('lists the workers with engine, path, memory and state, and warns about the slow one', async ({ page }) => {
+// A model-split worker is a row of the Workers roster, marked as such. Its
+// actions are in the inspector, which a click on the row opens.
+const pick = async (page, id) => {
+  await page.getByTestId(`split-worker-${id}`).getByRole('button').first().click()
+  await expect(page.getByTestId('split-inspector')).toBeVisible()
+}
+
+test.describe('Model-split workers in the Workers roster', () => {
+  test('lists the workers in the roster with engine, path, memory and state, and warns about the slow one', async ({ page }) => {
     await mockSwarm(page)
     await mockSplit(page)
     await page.goto('/app/nodes')
-    const group = page.getByTestId('split-workers')
-    await expect(group.getByRole('heading', { name: /Model-split workers/ })).toBeVisible({ timeout: 15_000 })
-    await expect(group.getByText('2 of 3 online')).toBeVisible()
-    await expect(group.getByTestId('split-slow-callout')).toContainText('old-rig')
-    const attic = group.getByTestId('split-worker-w-attic')
+    const attic = page.getByTestId('split-worker-w-attic')
+    await expect(attic).toBeVisible({ timeout: 15_000 })
+    // No panel of their own: the workers are rows of the one roster.
+    await expect(page.getByTestId('split-workers')).toHaveCount(0)
+    await expect(page.getByTestId('nodes-table').getByTestId('split-worker-w-mac')).toBeVisible()
+    await expect(attic.getByTestId('split-mark')).toHaveText('Model-split')
+    await expect(page.getByTestId('split-slow-callout')).toContainText('old-rig')
     await expect(attic).toContainText('attic-3090')
     await expect(attic).toContainText('llama.cpp RPC')
-    await expect(attic).toContainText('Direct')
     await expect(attic).toContainText('24 GB')
-    await expect(group.getByTestId('split-worker-w-mac')).toContainText('Hole-punched')
-    const old = group.getByTestId('split-worker-w-old')
-    await expect(old).toContainText('Via home relay')
+    await expect(attic.getByTestId('conn-chip')).toContainText('P2P direct')
+    await expect(page.getByTestId('split-worker-w-mac').getByTestId('conn-chip')).toContainText('hole-punched')
+    const old = page.getByTestId('split-worker-w-old')
+    await expect(old.getByTestId('conn-chip')).toContainText('relayed via home relay')
     await expect(old).toContainText('Slow: through a relay')
-    await expect(group.getByText('Memory added by workers in use: 120 GB.')).toBeVisible()
-    await expect(group.getByRole('link', { name: 'Add a model-split worker' })).toHaveAttribute('href', /\/app\/nodes\/add\?join=shard$/)
+  })
+
+  test('filters the roster to the model-split workers by type', async ({ page }) => {
+    await mockSwarm(page)
+    await mockSplit(page)
+    await page.goto('/app/nodes')
+    await expect(page.getByTestId('split-worker-w-attic')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('admin-filters-button').click()
+    await page.getByLabel('Filter type').selectOption('model-split')
+    await expect(page.locator('[data-row]')).toHaveCount(3)
+    await expect(page.locator('[data-row][data-split]')).toHaveCount(3)
   })
 
   test('uses a slow worker after Use anyway, and stops using it again', async ({ page }) => {
     await mockSwarm(page)
     const log = await mockSplit(page)
     await page.goto('/app/nodes')
+    await pick(page, 'w-old')
     await page.getByTestId('split-use-w-old').click()
     await expect.poll(() => log.find(e => e.method === 'PATCH')?.body).toEqual({ allow_slow_path: true })
     await expect(page.getByTestId('split-worker-w-old')).toContainText('Online')
@@ -44,6 +63,7 @@ test.describe('Model-split workers on the Nodes page', () => {
     await mockSwarm(page)
     const log = await mockSplit(page)
     await page.goto('/app/nodes')
+    await pick(page, 'w-attic')
     await page.getByTestId('split-revoke-w-attic').click()
     const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'))
     await expect(dialog).toContainText('Revoke attic-3090?')
@@ -57,8 +77,9 @@ test.describe('Model-split workers on the Nodes page', () => {
     await page.goto('/app/nodes')
     const row = page.getByTestId('split-worker-w-home')
     await expect(row).toContainText('Slow: through a relay', { timeout: 15_000 })
-    await expect(row).toContainText('Cut after 1 GiB, 30 min')
     await expect(page.getByTestId('split-cut-callout')).toContainText('home-box goes through a relay of yours')
+    await pick(page, 'w-home')
+    await expect(page.getByTestId('split-inspector')).toContainText('Cut after 1 GiB, 30 min')
     await expect(page.getByTestId('split-use-w-home')).toBeVisible()
     await page.getByTestId('split-limits-w-home').click()
     await expect(page.getByTestId('relay-limits-dialog')).toContainText('Limits for home relay')
@@ -72,6 +93,7 @@ test.describe('Model-split workers on the Nodes page', () => {
     await page.goto('/app/nodes')
     await expect(page.getByTestId('split-worker-w-pub')).toContainText('Public relay: not used', { timeout: 15_000 })
     await expect(page.getByTestId('split-limited-callout')).toContainText('A public relay cannot carry model layers.')
+    await pick(page, 'w-pub')
     await expect(page.getByTestId('split-use-w-pub')).toHaveCount(0)
     await expect(page.getByTestId('split-limits-w-pub')).toHaveCount(0)
   })
@@ -81,17 +103,18 @@ test.describe('Model-split workers on the Nodes page', () => {
     await mockSwarm(page, { nodes: splitServerNodes() })
     const log = await mockSplit(page, { workers, distributed: true })
     await page.goto('/app/nodes')
-    const group = page.getByTestId('split-workers')
-    await expect(group.getByText('Each one lends memory to the models of the node it is attached to.')).toBeVisible({ timeout: 15_000 })
-    await expect(group.getByRole('columnheader', { name: 'Attached to' })).toBeVisible()
+    await expect(page.getByTestId('split-worker-w-attic')).toContainText('attached to gpu-box-1', { timeout: 15_000 })
+    await pick(page, 'w-attic')
     await expect(page.getByTestId('split-node-w-attic')).toHaveValue('n-gpu1')
     await expect(page.getByTestId('split-unattached-callout')).toContainText('mac-studio-2, old-rig')
     // Only split servers are offered: not an agent node, not a worker that
     // was not declared.
+    await pick(page, 'w-mac')
     await expect(page.getByTestId('split-node-w-mac').locator('option')).toHaveText(['This instance', 'gpu-box-1', 'gpu-box-2'])
     await page.getByTestId('split-node-w-mac').selectOption('n-gpu2')
     await expect.poll(() => log.find(e => e.method === 'PATCH')?.body).toEqual({ node_id: 'n-gpu2' })
     await expect(page.getByTestId('split-unattached-callout')).not.toContainText('mac-studio-2')
+    await pick(page, 'w-attic')
     await page.getByTestId('split-node-w-attic').selectOption('')
     await expect.poll(() => log.filter(e => e.method === 'PATCH').at(-1)?.body).toEqual({ node_id: '' })
   })
@@ -105,16 +128,19 @@ test.describe('Model-split workers on the Nodes page', () => {
     await mockSwarm(page, { nodes: splitServerNodes() })
     await mockSplit(page, { workers, distributed: true })
     await page.goto('/app/nodes')
-    await expect(page.getByTestId('split-relay-w-attic')).toContainText('Relay: admitted', { timeout: 15_000 })
+    await expect(page.getByTestId('split-worker-w-attic')).toBeVisible({ timeout: 15_000 })
+    await pick(page, 'w-attic')
+    await expect(page.getByTestId('split-relay-w-attic')).toContainText('Relay: admitted')
+    await pick(page, 'w-mac')
     await expect(page.getByTestId('split-relay-w-mac')).toContainText('Relay: refused')
     await expect(page.getByTestId('split-relay-w-mac')).toContainText('Node offline')
-    // Two warnings apply (a node that is offline, a relay that refuses): the group shows the more important one.
+    // Two warnings apply (a node that is offline, a relay that refuses): the roster shows the more important one.
     await expect(page.getByTestId('split-relay-refused-callout')).toContainText('gpu-box-2')
     await expect(page.getByTestId('split-offline-callout')).toHaveCount(0)
-    await expect(page.getByTestId('split-workers').locator('.ui-callout')).toHaveCount(1)
+    await expect(page.locator('[data-testid^="split-"][data-testid$="-callout"]')).toHaveCount(1)
     await expect(page.getByTestId('split-relay-refused-callout')).toContainText('at most 4 devices')
+    await pick(page, 'w-old')
     await expect(page.getByTestId('split-note-w-old')).toContainText('no longer a split server')
-    await expect(page.getByText('Changes to the workers of a node apply to the next model it loads.', { exact: false })).toBeVisible()
   })
 
   test('with no split server, says so and sets one up only after the confirm click', async ({ page }) => {
@@ -166,21 +192,32 @@ test.describe('Model-split workers on the Nodes page', () => {
     await expect(page.getByTestId('split-server-node')).toHaveValue('n-edge')
   })
 
-  test('shows no node column on a single instance', async ({ page }) => {
+  test('shows no node choice on a single instance', async ({ page }) => {
     await mockSwarm(page)
     await mockSplit(page)
     await page.goto('/app/nodes')
     await expect(page.getByTestId('split-worker-w-attic')).toBeVisible({ timeout: 15_000 })
+    await pick(page, 'w-attic')
     await expect(page.getByTestId('split-node-w-attic')).toHaveCount(0)
     await expect(page.getByTestId('split-unattached-callout')).toHaveCount(0)
   })
 
-  test('shows no group when the server does not share over P2P', async ({ page }) => {
+  test('shows no model-split rows when the server does not share over P2P', async ({ page }) => {
     await mockSwarm(page)
     await mockSplit(page, { mode: 'connect' })
     await page.goto('/app/nodes')
     await expect(page.getByTestId('swarm-nodes')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('split-workers')).toHaveCount(0)
+    await expect(page.locator('[data-row][data-split]')).toHaveCount(0)
+  })
+
+  test('on a single install, keeps the panel of the workers under the machine', async ({ page }) => {
+    await mockSwarm(page, { nodes: null })
+    await mockSplit(page)
+    await page.goto('/app/nodes')
+    const group = page.getByTestId('split-workers')
+    await expect(group.getByRole('heading', { name: /Model-split workers/ })).toBeVisible({ timeout: 15_000 })
+    await expect(group.getByTestId('split-worker-w-attic')).toContainText('Direct')
+    await expect(group.getByRole('link', { name: 'Add a model-split worker' })).toHaveAttribute('href', /\/app\/nodes\/add\?join=shard$/)
   })
 })
 
@@ -189,7 +226,7 @@ test.describe('Add a node: model-split worker', () => {
     await mockSwarm(page, { nodes: splitServerNodes() })
     const log = await mockSplit(page)
     await page.goto('/app/nodes/add?join=shard')
-    await expect(page.getByRole('radio', { name: 'Model-split worker' })).toHaveAttribute('aria-checked', 'true', { timeout: 15_000 })
+    await expect(page.getByTestId('add-back-to-worker')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText('Make the invite first: the command carries its link.')).toBeVisible()
     await page.getByTestId('split-engine-mlx').click()
     await page.getByTestId('split-name').fill('mac-studio-3')

@@ -223,6 +223,20 @@ export function updateTargets({ upgrades, nodes, selectedIds }) {
   }
 }
 
+// The (backend, node) pairs of the update of one worker. When the cluster
+// reports which nodes drifted from the majority, a node that did not drift has
+// nothing to update, so the pairs of a backend that names other nodes are left
+// out.
+export function updateTargetsForNode({ upgrades, nodes, nodeId }) {
+  const targets = updateTargets({ upgrades, nodes, selectedIds: new Set([nodeId]) })
+  const drift = new Map(Object.values(upgrades || {}).filter(u => u?.backend_name).map(u => [u.backend_name, (u.node_drift || []).map(d => d.node_id)]))
+  const pairs = targets.pairs.filter(pair => {
+    const named = drift.get(pair.backend) || []
+    return named.length === 0 || named.includes(nodeId)
+  })
+  return { ...targets, pairs, backends: [...new Set(pairs.map(p => p.backend))], nodeIds: [...new Set(pairs.map(p => p.nodeId))] }
+}
+
 // ---- Adding a node -------------------------------------------------------------
 
 // `option` is one of useImageSelector().options: the Docker flags and image tag

@@ -19,7 +19,9 @@ test.describe('Nodes fleet roster', () => {
     // An agent worker runs jobs, not models, so its row names none.
     await expect(page.locator('[data-row][data-entity="agent-1"]')).toContainText('Agent worker')
     await expect(page.locator('[data-row][data-entity="agent-1"]')).not.toContainText('No models loaded')
-    await expect(page.getByTestId('fleet-hero')).toContainText('1 of 2')
+    const strip = page.getByRole('list', { name: 'Fleet summary' }).or(page.locator('dl[aria-label="Fleet summary"]'))
+    await expect(strip).toContainText('1')
+    await expect(strip).toContainText('of 2')
     expect(requests.some(url => /\/api\/nodes\/[^/]+\/backends/.test(url))).toBe(false)
   })
 
@@ -27,7 +29,8 @@ test.describe('Nodes fleet roster', () => {
     await mockCluster(page, [])
     await page.goto('/app/nodes')
     await expect(page.getByText('No workers registered yet')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('add-node')).toBeVisible()
+    await expect(page.getByTestId('swarm-first-run').getByRole('link', { name: 'Add worker' }).first()).toHaveAttribute('href', '/app/nodes/add')
+    await expect(page.getByRole('button', { name: 'Cluster settings' })).toBeVisible()
   })
 
   // A single-node server does not register the cluster routes at all, so the
