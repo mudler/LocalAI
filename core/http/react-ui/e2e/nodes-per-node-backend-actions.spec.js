@@ -183,7 +183,7 @@ test.describe('Node detail — per-node backend actions', () => {
     // ConfirmDialog uses role="alertdialog" and a danger confirm button.
     const dialog = page.getByRole('alertdialog')
     await expect(dialog).toBeVisible()
-    const confirmBtn = dialog.locator('button.btn-danger')
+    const confirmBtn = dialog.locator('button.dk-btn--danger')
     await expect(confirmBtn).toBeVisible()
     await confirmBtn.click()
 

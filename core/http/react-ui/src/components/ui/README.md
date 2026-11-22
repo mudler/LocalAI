@@ -45,6 +45,9 @@ in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
 | Something that needs attention | `Callout` | A warning, news or a result on this page. |
 | The detail of an item beside a list | `SidePane` | Read, act, close. |
 | A create or edit form | `SideSheet` | Blocks the page until saved or closed. |
+| A question that blocks the page | `Dialog` | A short choice or a small form, centred. |
+| A yes or no before an action | `ConfirmDialog` | Destructive or hard to undo. Prefer an Undo toast when it can be undone. |
+| Actions of a row | `ActionMenu` | A kebab that opens a menu. |
 
 `npm run lint:ui-kit` (`scripts/ui-kit-gate.mjs`) fails on a new raw checkbox,
 an import of the legacy `Toggle`, `dk-sheet` markup in JSX, a CSS width on a
@@ -521,6 +524,52 @@ not use the component yet draw the same classes.
 - Never write `dk-sheet` markup in a page and never set a width on a sheet.
 - A form with more than about eight fields becomes steps or a disclosure, with
   the required fields first.
+- Props for a page that lays out its own content: `className`, `veilClass`,
+  `bodyClass`, `footClass` (never a width), `bodyProps` and `footProps`
+  (`aria-busy`, `data-*`), `initialFocus` (`'close'` to start on the close
+  button, or a selector), `pending` (cannot be closed while an action runs)
+  and `describedBy`.
+- It is a modal layer (`utils/modalLayers.js`): a dialog opened over it takes
+  Escape and Tab, and the sheet stays open under it.
+
+## Dialog and ConfirmDialog
+
+```jsx
+<Dialog title="Move 2 files" description="To a folder of this workspace." onClose={close}
+  foot={<><Button variant="ghost" onClick={close}>Cancel</Button><Button variant="primary" onClick={move}>Move here</Button></>}>
+  …the body…
+</Dialog>
+
+<ConfirmDialog open={!!target} danger title={`Delete ${target?.name}?`} message="The files stay on disk."
+  confirmLabel="Delete" pending={busy} onConfirm={remove} onCancel={() => setTarget(null)} />
+```
+
+- `import Dialog from '../components/Dialog'` and
+  `import ConfirmDialog from '../components/ConfirmDialog'` (not exported from
+  `components/ui`). 480 px, or 720 px with `wide`.
+- `Dialog` draws the portal, the veil, the head (title, description, close),
+  the scrolling body and the foot. It moves focus in (to an element with
+  `data-autofocus`, else the first field, else the primary button), keeps Tab
+  inside, closes on Escape or a click on the veil, and gives focus back. While
+  `pending` it cannot be closed. Like `SideSheet` it is a modal layer.
+- `ConfirmDialog` is a `Dialog` with `role="alertdialog"`, no close button,
+  Cancel and one confirm button (`danger` for a destructive action, with a
+  warning icon in the title). Focus starts on the confirm button, or on the
+  first field of the message while `confirmDisabled` is set.
+- `Modal` (`components/Modal.jsx`) is a `Dialog` with no head. It stays only
+  for add-ons (`sdk.ui.Modal`); core pages use `Dialog`.
+
+## ActionMenu and Popover
+
+- `ActionMenu` is a kebab button and a `role="menu"` list in a `Popover`:
+  arrow keys, Home, End, Enter and Escape, and focus back on the kebab.
+- `Popover` is a panel under `<body>` placed by its trigger. It closes on a
+  click outside and on Escape.
+- Both draw the kit's floating surface (`.popover` and `.action-menu*` in
+  `packages/ui-kit/css/kit.css`): the 12 px radius, the float shadow and the
+  6 px rise of the home model menu, with rows of a 6 px radius and the hover
+  wash. A page may place or size the kebab (`.action-menu__trigger`), never
+  restyle the surface.
 
 ## Administration pages
 
