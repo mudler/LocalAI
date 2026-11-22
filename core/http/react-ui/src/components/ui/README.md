@@ -114,7 +114,7 @@ with no edit. Move to `<Button>` when you edit the file.
 | `btn-sm` | `size="sm"` / `dk-btn--sm` |
 | `dk-btn` with no variant | `<Button>` (secondary) |
 
-`btn-full`, `btn--warning` and `btn-help` are unchanged.
+`btn-full` is unchanged.
 
 ## Page and PageHeader
 
