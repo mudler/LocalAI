@@ -435,18 +435,18 @@
     "heading": "Rules",
     "emptyTitle": "No placement rules yet",
     "empty": "Add a rule to keep a model on certain nodes, to keep replicas running, or to run it on every node.",
-    "byPrefix": "It is routed by prefix cache.",
-    "byRound": "It is routed round robin.",
+    "byPrefix": "Its policy is prefix cache.",
+    "byRound": "Its policy is round robin.",
     "kind": {
       "placement": "Placement",
       "autoscale": "Auto-scaling",
       "spread": "Spread",
-      "inactive": "Routing only"
+      "inactive": "Policy only"
     },
     "route": {
-      "default": "Default routing",
-      "prefix_cache": "Prefix cache routing",
-      "round_robin": "Round robin routing"
+      "default": "Default policy",
+      "prefix_cache": "Prefix cache policy",
+      "round_robin": "Round robin policy"
     },
     "placedOn": "Now placed on",
     "notLoaded": "Not loaded now",
@@ -587,7 +587,8 @@
     "single_other": "{{count}} models run on a single replica.",
     "singleSub": "If its node goes away, it stops until that node returns or a load lands elsewhere.",
     "addRule": "Run 2 replicas",
-    "singleMore": "and {{count}} more."
+    "singleMore": "and {{count}} more.",
+    "lostConnection": "Connection:"
   },
   "add": {
     "distributed": {

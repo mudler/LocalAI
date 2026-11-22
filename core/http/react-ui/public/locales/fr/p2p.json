@@ -1,6 +1,6 @@
 {
   "title": "Partage",
-  "supporting": "Les appareils, serveurs distants et nœuds qui joignent ce serveur en P2P, et les invitations qui les font entrer.",
+  "supporting": "Appareils et accès distants qui atteignent ce serveur via P2P, et les invitations qui leur donnent accès.",
   "loadStatusFailed": "Impossible de lire l'état du P2P.",
   "tabs": {
     "label": "P2P",
@@ -420,5 +420,15 @@
     "all": "Tous les modèles",
     "some_one": "{{count}} modèle",
     "some_other": "{{count}} modèles"
+  },
+  "sharing": {
+    "on": "Le partage est activé",
+    "address": "Votre adresse de partage",
+    "copy": "Copier",
+    "addressCopied": "Adresse de partage copiée",
+    "addressCopyFailed": "Impossible de copier l'adresse de partage",
+    "settings": "Mode et relais dans les paramètres P2P",
+    "workersNote": "Les workers arrivés via P2P sont dans Workers.",
+    "workersLink": "Aller à Workers"
   }
 }

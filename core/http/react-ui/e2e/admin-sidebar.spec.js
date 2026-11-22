@@ -154,7 +154,7 @@ test.describe('Administration sidebar: groups and gating', () => {
     await expect(page.locator(`${NAV} [data-group="settings"]`)).toBeVisible()
     const ids = await groups(page).evaluateAll(els => els.map(el => el.getAttribute('data-group')).filter(Boolean))
     expect(ids).toEqual(['landing', 'cluster', 'runtime', 'traffic', 'access', 'settings'])
-    expect(await paths(page, 'access')).toEqual(['/app/users', '/app/users?tab=keys', '/app/chats-admin'])
+    expect(await paths(page, 'access')).toEqual(['/app/users', '/app/api-keys', '/app/chats-admin'])
     await expect(page.getByRole('link', { name: 'API reference' })).toHaveAttribute('href', /swagger/)
   })
 
@@ -166,15 +166,15 @@ test.describe('Administration sidebar: groups and gating', () => {
     await expect(item(page, '/app/users')).toHaveCount(0)
   })
 
-  test('API keys and Users are two items of the users route', async ({ page }) => {
+  test('API keys and Users are two pages of the Access group', async ({ page }) => {
     await mockAuth(page, { id: 'a', name: 'Admin', role: 'admin', provider: 'local' })
     await quiet(page)
     await page.goto('/app/users')
-    const users = item(page, '/app/users').first()
-    const keys = item(page, '/app/users').nth(1)
+    const users = item(page, '/app/users')
+    const keys = item(page, '/app/api-keys')
     await expect(users).toHaveAttribute('aria-current', 'page')
     await keys.click()
-    await expect(page).toHaveURL(/\/app\/users\?tab=keys$/)
+    await expect(page).toHaveURL(/\/app\/api-keys$/)
     await expect(keys).toHaveAttribute('aria-current', 'page')
     await expect(users).not.toHaveAttribute('aria-current', 'page')
   })

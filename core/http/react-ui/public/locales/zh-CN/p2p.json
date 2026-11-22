@@ -1,6 +1,6 @@
 {
   "title": "共享",
-  "supporting": "通过 P2P 访问此服务器的设备、远程和节点，以及让它们加入的邀请。",
+  "supporting": "通过 P2P 连接到本服务器的设备和远程端，以及允许它们加入的邀请。",
   "loadStatusFailed": "无法读取 P2P 的状态。",
   "tabs": {
     "label": "P2P",
@@ -420,5 +420,15 @@
     "all": "所有模型",
     "some_one": "{{count}} 个模型",
     "some_other": "{{count}} 个模型"
+  },
+  "sharing": {
+    "on": "共享已开启",
+    "address": "你的共享地址",
+    "copy": "复制",
+    "addressCopied": "共享地址已复制",
+    "addressCopyFailed": "无法复制共享地址",
+    "settings": "模式和中继在 P2P 设置中",
+    "workersNote": "通过 P2P 加入的工作节点位于 Workers 页面。",
+    "workersLink": "前往 Workers"
   }
 }

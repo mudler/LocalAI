@@ -176,5 +176,20 @@
       "rules": "Regeln",
       "failover": "Failover"
     }
+  },
+  "rules": {
+    "byPrefix": "Die Richtlinie ist Prefix-Cache.",
+    "byRound": "Die Richtlinie ist Round Robin.",
+    "kind": {
+      "inactive": "Nur Richtlinie"
+    },
+    "route": {
+      "default": "Standardrichtlinie",
+      "prefix_cache": "Prefix-Cache-Richtlinie",
+      "round_robin": "Round-Robin-Richtlinie"
+    }
+  },
+  "failover": {
+    "lostConnection": "Verbindung:"
   }
 }

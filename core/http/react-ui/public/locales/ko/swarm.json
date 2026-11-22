@@ -176,5 +176,20 @@
       "rules": "규칙",
       "failover": "페일오버"
     }
+  },
+  "rules": {
+    "byPrefix": "정책은 프리픽스 캐시입니다.",
+    "byRound": "정책은 라운드 로빈입니다.",
+    "kind": {
+      "inactive": "정책만"
+    },
+    "route": {
+      "default": "기본 정책",
+      "prefix_cache": "프리픽스 캐시 정책",
+      "round_robin": "라운드 로빈 정책"
+    }
+  },
+  "failover": {
+    "lostConnection": "연결:"
   }
 }

@@ -176,5 +176,20 @@
       "rules": "Regras",
       "failover": "Failover"
     }
+  },
+  "rules": {
+    "byPrefix": "A política dele é prefix cache.",
+    "byRound": "A política dele é round robin.",
+    "kind": {
+      "inactive": "Só política"
+    },
+    "route": {
+      "default": "Política padrão",
+      "prefix_cache": "Política de prefix cache",
+      "round_robin": "Política de round robin"
+    }
+  },
+  "failover": {
+    "lostConnection": "Conexão:"
   }
 }

@@ -176,5 +176,20 @@
       "rules": "规则",
       "failover": "故障转移"
     }
+  },
+  "rules": {
+    "byPrefix": "其策略为前缀缓存。",
+    "byRound": "其策略为轮询。",
+    "kind": {
+      "inactive": "仅策略"
+    },
+    "route": {
+      "default": "默认策略",
+      "prefix_cache": "前缀缓存策略",
+      "round_robin": "轮询策略"
+    }
+  },
+  "failover": {
+    "lostConnection": "连接："
   }
 }

@@ -29,6 +29,10 @@ type User struct {
 	Status       string `gorm:"size:20;default:active"` // "active", "pending"
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	// LastActiveAt is when the person last made an authenticated request, to
+	// the minute-scale of LastActiveThrottle. Only admins can read it. Nil
+	// means no activity was recorded yet.
+	LastActiveAt *time.Time `gorm:"index"`
 }
 
 // Session represents a user login session.

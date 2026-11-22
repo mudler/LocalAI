@@ -182,7 +182,152 @@
   },
   "users": {
     "title": "用户",
-    "subtitle": "管理注册用户、角色和邀请"
+    "subtitle": "可以登录的人员，以及每个人可以使用的功能。",
+    "invite": "邀请用户",
+    "summary": {
+      "label": "用户概览",
+      "total": "用户",
+      "totalUnit": "总计",
+      "active": "活跃",
+      "activeUnit": "可以登录",
+      "waiting": "待审批",
+      "waitingUnit": "注册",
+      "admins": "管理员",
+      "adminsUnit": "共 {{count}} 位"
+    },
+    "filters": {
+      "label": "筛选用户",
+      "all": "全部",
+      "pending": "待审批",
+      "admins": "管理员",
+      "disabled": "已禁用",
+      "inactive": "30 天以上未活跃"
+    },
+    "popover": {
+      "signIn": "登录方式",
+      "access": "访问权限",
+      "any": "任意",
+      "custom": "自定义访问权限"
+    },
+    "search": {
+      "label": "按名称或邮箱搜索",
+      "placeholder": "搜索名称或邮箱"
+    },
+    "sort": {
+      "label": "排序",
+      "name": "名称",
+      "role": "角色",
+      "status": "状态",
+      "provider": "登录方式",
+      "lastActive": "最近活跃",
+      "keys": "API 密钥"
+    },
+    "refresh": "刷新用户",
+    "loading": "正在加载用户",
+    "region": "用户",
+    "caption": "包含角色、访问权限、状态、最近活跃时间和 API 密钥的用户列表",
+    "columns": {
+      "user": "用户",
+      "role": "角色",
+      "access": "访问权限",
+      "status": "状态",
+      "lastActive": "最近活跃",
+      "keys": "密钥",
+      "actions": "操作"
+    },
+    "role": {
+      "admin": "管理员",
+      "user": "用户"
+    },
+    "state": {
+      "active": "活跃",
+      "pending": "待审批",
+      "disabled": "已禁用"
+    },
+    "access": {
+      "all": "全部访问权限",
+      "default": "默认访问权限",
+      "models_one": "仅 {{count}} 个模型",
+      "models_other": "仅 {{count}} 个模型",
+      "more_one": "多 {{count}} 项功能",
+      "more_other": "多 {{count}} 项功能",
+      "fewer_one": "少 {{count}} 项功能",
+      "fewer_other": "少 {{count}} 项功能",
+      "limits_one": "{{count}} 项限制",
+      "limits_other": "{{count}} 项限制"
+    },
+    "noName": "（无名称）",
+    "you": "你",
+    "created": "创建于 {{date}}",
+    "never": "从未",
+    "approve": "批准用户",
+    "approveShort": "批准",
+    "enable": "启用",
+    "disable": "禁用用户",
+    "disableFor": "禁用 {{name}}",
+    "editAccessFor": "编辑 {{name}} 的访问权限",
+    "actionsFor": "{{name}} 的操作",
+    "showing": "显示 {{total}} 个中的 {{shown}} 个。",
+    "cancel": "取消",
+    "undo": "撤销",
+    "dismiss": "关闭",
+    "menu": {
+      "editAccess": "编辑访问权限",
+      "makeAdmin": "设为管理员",
+      "makeUser": "设为普通用户",
+      "resetPassword": "重置密码",
+      "delete": "删除…"
+    },
+    "sheet": {
+      "account": "账户",
+      "activity": "活动",
+      "apiKeys": "API 密钥"
+    },
+    "empty": {
+      "title": "还没有用户",
+      "body": "用户注册或接受邀请后会显示在这里。"
+    },
+    "noMatch": {
+      "title": "没有匹配的用户",
+      "body": "请尝试其他搜索或筛选条件。",
+      "clear": "清除筛选"
+    },
+    "error": {
+      "title": "无法加载用户。",
+      "stale": "无法连接服务器。",
+      "staleNote": "下方列表的数据来自 {{when}}。"
+    },
+    "toast": {
+      "approved": "已批准 {{name}}",
+      "disabled": "已禁用 {{name}}",
+      "approveFailed": "批准用户失败：{{message}}",
+      "disableFailed": "禁用用户失败：{{message}}",
+      "disabledUndo": "已禁用 {{name}}。撤销后将恢复为活跃状态。",
+      "restored": "{{name}} 已重新激活",
+      "restoreFailed": "恢复用户失败：{{message}}",
+      "roleChanged": "{{name}} 现在的角色是 {{role}}",
+      "roleFailed": "更新角色失败：{{message}}",
+      "deleted": "用户已删除",
+      "deleteFailed": "删除用户失败：{{message}}",
+      "passwordReset": "已重置 {{name}} 的密码",
+      "resetFailed": "重置密码失败：{{message}}"
+    },
+    "reset": {
+      "title": "重置密码",
+      "description": "为 {{name}} 设置新密码。所有现有会话都将失效。",
+      "label": "新密码",
+      "placeholder": "新密码（至少 12 个字符）",
+      "confirm": "重置密码",
+      "busy": "正在重置…",
+      "anyway": "仍然使用此密码"
+    },
+    "delete": {
+      "title": "删除用户",
+      "description": "这也会删除其会话和 API 密钥。此操作无法撤销。",
+      "type": "输入 <n>{{name}}</n> 以确认",
+      "confirm": "删除",
+      "busy": "正在删除…"
+    }
   },
   "usage": {
     "title": "使用情况",
@@ -316,5 +461,56 @@
       }
     },
     "addonSettings": "{{name}} 的设置"
+  },
+  "invites": {
+    "title": "邀请用户",
+    "description": "生成一个允许他人注册的链接。链接在过期前有效。",
+    "close": "关闭",
+    "lifetime": "新邀请链接有效期",
+    "life": {
+      "24": "1 天",
+      "168": "7 天",
+      "720": "30 天"
+    },
+    "generate": "生成邀请链接",
+    "created": "邀请链接已创建",
+    "createFailed": "创建邀请失败：{{message}}",
+    "copiedToast": "邀请链接已复制到剪贴板",
+    "copyFailed": "复制链接失败",
+    "copyUrl": "复制邀请链接",
+    "copy": "复制",
+    "revoked": "邀请已撤销",
+    "revokeFailed": "撤销邀请失败：{{message}}",
+    "loading": "正在加载邀请",
+    "loadFailed": "无法加载邀请。",
+    "region": "邀请",
+    "caption": "邀请链接，以及创建者和使用者",
+    "empty": {
+      "title": "没有邀请链接。",
+      "body": "生成一个链接，让他人注册。"
+    },
+    "columns": {
+      "link": "邀请链接",
+      "createdBy": "创建者",
+      "usedBy": "使用者",
+      "expires": "过期时间",
+      "actions": "操作"
+    },
+    "state": {
+      "open": "可用",
+      "used": "已使用",
+      "expired": "已过期"
+    },
+    "revoke": "撤销",
+    "revokeTitle": "撤销邀请",
+    "revokeDialog": {
+      "title": "撤销邀请",
+      "description": "链接将立即失效。已通过此链接注册的用户账户保持不变。",
+      "body": "撤销以 {{prefix}} 开头的邀请链接？"
+    }
+  },
+  "apiKeys": {
+    "title": "API 密钥",
+    "subtitle": "供调用本服务器的程序使用的个人密钥。"
   }
 }

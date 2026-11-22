@@ -182,7 +182,152 @@
   },
   "users": {
     "title": "Usuários",
-    "subtitle": "Gerenciar usuários registrados, funções e convites"
+    "subtitle": "Pessoas que podem entrar e o que cada uma pode usar.",
+    "invite": "Convidar alguém",
+    "summary": {
+      "label": "Usuários em resumo",
+      "total": "Usuários",
+      "totalUnit": "no total",
+      "active": "Ativos",
+      "activeUnit": "podem entrar",
+      "waiting": "Aguardando aprovação",
+      "waitingUnit": "cadastros",
+      "admins": "Admins",
+      "adminsUnit": "de {{count}}"
+    },
+    "filters": {
+      "label": "Filtrar usuários",
+      "all": "Todos",
+      "pending": "Pendentes",
+      "admins": "Admins",
+      "disabled": "Desativados",
+      "inactive": "Inativos há 30+ dias"
+    },
+    "popover": {
+      "signIn": "Método de login",
+      "access": "Acesso",
+      "any": "Qualquer",
+      "custom": "Acesso personalizado"
+    },
+    "search": {
+      "label": "Buscar por nome ou e-mail",
+      "placeholder": "Buscar nome ou e-mail"
+    },
+    "sort": {
+      "label": "Ordenar",
+      "name": "Nome",
+      "role": "Função",
+      "status": "Status",
+      "provider": "Login",
+      "lastActive": "Último acesso",
+      "keys": "Chaves de API"
+    },
+    "refresh": "Atualizar usuários",
+    "loading": "Carregando usuários",
+    "region": "Usuários",
+    "caption": "Usuários com função, acesso, status, última atividade e chaves de API",
+    "columns": {
+      "user": "Usuário",
+      "role": "Função",
+      "access": "Acesso",
+      "status": "Status",
+      "lastActive": "Último acesso",
+      "keys": "Chaves",
+      "actions": "Ações"
+    },
+    "role": {
+      "admin": "admin",
+      "user": "usuário"
+    },
+    "state": {
+      "active": "Ativo",
+      "pending": "Pendente",
+      "disabled": "Desativado"
+    },
+    "access": {
+      "all": "Acesso total",
+      "default": "Acesso padrão",
+      "models_one": "somente {{count}} modelo",
+      "models_other": "somente {{count}} modelos",
+      "more_one": "{{count}} recurso a mais",
+      "more_other": "{{count}} recursos a mais",
+      "fewer_one": "{{count}} recurso a menos",
+      "fewer_other": "{{count}} recursos a menos",
+      "limits_one": "{{count}} limite",
+      "limits_other": "{{count}} limites"
+    },
+    "noName": "(sem nome)",
+    "you": "você",
+    "created": "Criado em {{date}}",
+    "never": "Nunca",
+    "approve": "Aprovar usuário",
+    "approveShort": "Aprovar",
+    "enable": "Ativar",
+    "disable": "Desativar usuário",
+    "disableFor": "Desativar {{name}}",
+    "editAccessFor": "Editar acesso de {{name}}",
+    "actionsFor": "Ações de {{name}}",
+    "showing": "Mostrando {{shown}} de {{total}}.",
+    "cancel": "Cancelar",
+    "undo": "Desfazer",
+    "dismiss": "Dispensar",
+    "menu": {
+      "editAccess": "Editar acesso",
+      "makeAdmin": "Tornar admin",
+      "makeUser": "Tornar usuário",
+      "resetPassword": "Redefinir senha",
+      "delete": "Excluir…"
+    },
+    "sheet": {
+      "account": "Conta",
+      "activity": "Atividade",
+      "apiKeys": "Chaves de API"
+    },
+    "empty": {
+      "title": "Nenhum usuário ainda",
+      "body": "As pessoas aparecem aqui quando se cadastram ou aceitam um convite."
+    },
+    "noMatch": {
+      "title": "Nenhum usuário encontrado",
+      "body": "Tente outra busca ou filtro.",
+      "clear": "Limpar filtros"
+    },
+    "error": {
+      "title": "Não foi possível carregar os usuários.",
+      "stale": "Não foi possível acessar o servidor.",
+      "staleNote": "A lista abaixo é de {{when}}."
+    },
+    "toast": {
+      "approved": "{{name}} aprovado",
+      "disabled": "{{name}} desativado",
+      "approveFailed": "Falha ao aprovar o usuário: {{message}}",
+      "disableFailed": "Falha ao desativar o usuário: {{message}}",
+      "disabledUndo": "{{name}} desativado. Desfazer o reativa.",
+      "restored": "{{name}} está ativo novamente",
+      "restoreFailed": "Falha ao restaurar o usuário: {{message}}",
+      "roleChanged": "{{name}} agora é {{role}}",
+      "roleFailed": "Falha ao atualizar a função: {{message}}",
+      "deleted": "Usuário excluído",
+      "deleteFailed": "Falha ao excluir o usuário: {{message}}",
+      "passwordReset": "Senha redefinida para {{name}}",
+      "resetFailed": "Falha ao redefinir a senha: {{message}}"
+    },
+    "reset": {
+      "title": "Redefinir senha",
+      "description": "Defina uma nova senha para {{name}}. Todas as sessões existentes serão invalidadas.",
+      "label": "Nova senha",
+      "placeholder": "Nova senha (mín. 12 caracteres)",
+      "confirm": "Redefinir senha",
+      "busy": "Redefinindo…",
+      "anyway": "Usar esta senha mesmo assim"
+    },
+    "delete": {
+      "title": "Excluir usuário",
+      "description": "As sessões e as chaves de API dele também serão removidas. Não é possível desfazer.",
+      "type": "Digite <n>{{name}}</n> para confirmar",
+      "confirm": "Excluir",
+      "busy": "Excluindo…"
+    }
   },
   "usage": {
     "title": "Uso",
@@ -339,5 +484,56 @@
       }
     },
     "addonSettings": "Configurações de {{name}}"
+  },
+  "invites": {
+    "title": "Convidar alguém",
+    "description": "Crie um link que permite a uma pessoa se cadastrar. O link funciona até expirar.",
+    "close": "Fechar",
+    "lifetime": "Novo link de convite válido por",
+    "life": {
+      "24": "1 dia",
+      "168": "7 dias",
+      "720": "30 dias"
+    },
+    "generate": "Gerar link de convite",
+    "created": "Link de convite criado",
+    "createFailed": "Falha ao criar o convite: {{message}}",
+    "copiedToast": "URL do convite copiada para a área de transferência",
+    "copyFailed": "Falha ao copiar a URL",
+    "copyUrl": "Copiar URL do convite",
+    "copy": "Copiar",
+    "revoked": "Convite revogado",
+    "revokeFailed": "Falha ao revogar o convite: {{message}}",
+    "loading": "Carregando convites",
+    "loadFailed": "Não foi possível carregar os convites.",
+    "region": "Convites",
+    "caption": "Links de convite com quem criou e quem usou",
+    "empty": {
+      "title": "Nenhum link de convite.",
+      "body": "Gere um para que alguém se cadastre."
+    },
+    "columns": {
+      "link": "Link de convite",
+      "createdBy": "Criado por",
+      "usedBy": "Usado por",
+      "expires": "Expira em",
+      "actions": "Ações"
+    },
+    "state": {
+      "open": "Disponível",
+      "used": "Usado",
+      "expired": "Expirado"
+    },
+    "revoke": "Revogar",
+    "revokeTitle": "Revogar convite",
+    "revokeDialog": {
+      "title": "Revogar convite",
+      "description": "O link deixa de funcionar imediatamente. Quem já se cadastrou com ele mantém a conta.",
+      "body": "Revogar o link de convite que começa com {{prefix}}?"
+    }
+  },
+  "apiKeys": {
+    "title": "Chaves de API",
+    "subtitle": "Suas próprias chaves para programas que chamam este servidor."
   }
 }

@@ -3,13 +3,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Dialog from '../components/Dialog'
-import { HubHeader } from '../components/hub/HubHeader'
+import AdminPage from '../components/admin/AdminPage'
+import { useHubAuth } from '../components/hub/useHubAuth'
 import P2PTabs, { P2P_SETTINGS_PATH } from '../components/p2p/P2PTabs'
 import ShareInstanceDialog from '../components/p2p/ShareInstanceDialog'
 import { Button, Callout, EmptyState, LoadError, Notice, SkeletonRows, StatusChip, useLoad } from '../components/ui'
+import { copyToClipboard } from '../utils/clipboard'
 import { p2pNetApi } from '../utils/api'
 import {
-  clock, modelGrant, pathKey, pathTone, pendingInvites, relativeTime, secondsLeft, shortPeer, sortedDevices,
+  clock, modelGrant, pathKey, pathTone, pendingInvites, relativeTime, secondsLeft, shortPeer, sortedDevices, splitWorkers,
 } from '../utils/p2p'
 import '../components/p2p/p2p.css'
 
@@ -17,11 +19,12 @@ import '../components/p2p/p2p.css'
 // down and a device's path changes while the page is open.
 const REFRESH_MS = 10_000
 
-// Swarm, P2P, "Devices and invites": the invites that wait for a device and
-// the devices paired with this server, each with how it reaches the server
-// now. "Share this instance" makes an invite. All of it needs P2P mode
-// "Connect and share"; in another mode the page says so and links to the
-// settings.
+// Sharing: what other people hold on this server. The invites that wait for a
+// device or a remote, and the devices and remotes paired with it, each with how
+// it reaches the server now and which models a remote may use. "Create invite"
+// makes an invite. A worker that joined over P2P is a worker of the cluster and
+// is on Workers, so it is not listed here. All of it needs P2P mode "Connect
+// and share"; in another mode the page says so and links to the settings.
 export default function P2P() {
   const { t } = useTranslation('p2p')
   const { addToast } = useOutletContext() || {}
@@ -30,20 +33,57 @@ export default function P2P() {
   const [sharingOpen, setSharingOpen] = useState(false)
 
   return (
-    <div className="page page--wide p2p-page" data-testid="p2p-page">
-      <h1 className="dk-sr-only">{t('title')}</h1>
-      <HubHeader
-        supporting={t('supporting')}
-        actions={sharing && (
-          <Button variant="primary" icon="share" onClick={() => setSharingOpen(true)} data-testid="p2p-share-open">{t('share.open')}</Button>
-        )}
-      />
+    <AdminPage
+      width="full"
+      className="p2p-page"
+      data-testid="p2p-page"
+      title={t('title')}
+      supporting={t('supporting')}
+      action={sharing ? <Button variant="primary" icon="share" onClick={() => setSharingOpen(true)} data-testid="p2p-share-open">{t('share.open')}</Button> : null}
+    >
       <P2PTabs />
       {status.status === 'loading' && <SkeletonRows count={3} />}
       {status.status === 'error' && <LoadError title={t('loadStatusFailed')} error={status.error} onRetry={status.retry} />}
       {status.status === 'ready' && !sharing && <ModeNotice status={status.data} />}
       {sharing && <SharingLists status={status.data} addToast={addToast} sharingOpen={sharingOpen} setSharingOpen={setSharingOpen} />}
+    </AdminPage>
+  )
+}
+
+// "Sharing is on", the share address of this server, and the link to where the
+// mode and the relays are set.
+function ShareState({ status, addToast }) {
+  const { t } = useTranslation('p2p')
+  const peer = status?.peer_id
+  const copy = async () => {
+    const ok = await copyToClipboard(peer)
+    addToast?.(t(ok ? 'sharing.addressCopied' : 'sharing.addressCopyFailed'), ok ? 'success' : 'error')
+  }
+  return (
+    <div className="p2p-state" data-testid="p2p-share-state">
+      <StatusChip tone="ok" dot>{t('sharing.on')}</StatusChip>
+      {peer && (
+        <>
+          <span className="p2p-state__label">{t('sharing.address')}</span>
+          <span className="dk-mono" title={peer} data-testid="p2p-share-address">{shortPeer(peer)}</span>
+          <Button size="sm" variant="ghost" icon="copy" onClick={copy}>{t('sharing.copy')}</Button>
+        </>
+      )}
+      <Button size="sm" variant="ghost" to={P2P_SETTINGS_PATH} data-testid="p2p-settings-link">{t('sharing.settings')}</Button>
     </div>
+  )
+}
+
+// Workers that joined over P2P are on Workers: say so, with the link, on a
+// cluster and wherever the page hid some.
+function WorkersNote({ hidden }) {
+  const { t } = useTranslation('p2p')
+  const { features } = useHubAuth()
+  if (!features.distributed && hidden === 0) return null
+  return (
+    <Callout tone="info" testId="p2p-workers-note" actions={<Button size="sm" to="/app/nodes" data-testid="p2p-workers-link">{t('sharing.workersLink')}</Button>}>
+      {t('sharing.workersNote')}
+    </Callout>
   )
 }
 
@@ -92,8 +132,13 @@ function SharingLists({ status, addToast, sharingOpen, setSharingOpen }) {
     reloadInvites()
   }
 
+  const hiddenWorkers = (invites.status === 'ready' ? splitWorkers(invites.data?.invites).workers.length : 0)
+    + (devices.status === 'ready' ? splitWorkers(devices.data?.devices).workers.length : 0)
+
   return (
     <>
+      <ShareState status={status} addToast={addToast} />
+      <WorkersNote hidden={hiddenWorkers} />
       <InvitesSection invites={invites} now={now} onCancel={cancel} onShare={() => setSharingOpen(true)} />
       <DevicesSection devices={devices} onRevoke={setRevoking} />
       {sharingOpen && (
@@ -116,7 +161,7 @@ function SharingLists({ status, addToast, sharingOpen, setSharingOpen }) {
 
 function InvitesSection({ invites, now, onCancel, onShare }) {
   const { t, i18n } = useTranslation('p2p')
-  const rows = invites.status === 'ready' ? pendingInvites(invites.data?.invites, now) : []
+  const rows = invites.status === 'ready' ? pendingInvites(splitWorkers(invites.data?.invites).shared, now) : []
   return (
     <section className="p2p-section" aria-labelledby="p2p-invites-title" data-testid="p2p-invites">
       <div className="p2p-section__head">
@@ -182,7 +227,7 @@ function InvitesSection({ invites, now, onCancel, onShare }) {
 
 function DevicesSection({ devices, onRevoke }) {
   const { t, i18n } = useTranslation('p2p')
-  const rows = devices.status === 'ready' ? sortedDevices(devices.data?.devices) : []
+  const rows = devices.status === 'ready' ? sortedDevices(splitWorkers(devices.data?.devices).shared) : []
   const active = rows.filter(d => d.status !== 'revoked').length
   return (
     <section className="p2p-section" aria-labelledby="p2p-devices-title" data-testid="p2p-devices">

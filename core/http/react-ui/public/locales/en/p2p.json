@@ -1,6 +1,6 @@
 {
   "title": "Sharing",
-  "supporting": "Devices, remotes and nodes that reach this server over P2P, and the invites that let them in.",
+  "supporting": "Devices and remotes that reach this server over P2P, and the invites that let them in.",
   "loadStatusFailed": "Could not read the state of P2P.",
   "tabs": {
     "label": "P2P",
@@ -420,5 +420,15 @@
     "all": "All models",
     "some_one": "{{count}} model",
     "some_other": "{{count}} models"
+  },
+  "sharing": {
+    "on": "Sharing is on",
+    "address": "Your share address",
+    "copy": "Copy",
+    "addressCopied": "Share address copied",
+    "addressCopyFailed": "Could not copy the share address",
+    "settings": "Mode and relays in P2P settings",
+    "workersNote": "Workers that joined over P2P are on Workers.",
+    "workersLink": "Go to Workers"
   }
 }

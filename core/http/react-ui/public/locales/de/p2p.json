@@ -1,6 +1,6 @@
 {
   "title": "Teilen",
-  "supporting": "Geräte, Gegenstellen und Knoten, die diesen Server über P2P erreichen, und die Einladungen, die sie hereinlassen.",
+  "supporting": "Geräte und Remote-Zugänge, die über P2P auf diesen Server zugreifen, und die Einladungen, mit denen sie hineinkommen.",
   "loadStatusFailed": "Der Status von P2P konnte nicht gelesen werden.",
   "tabs": {
     "label": "P2P",
@@ -420,5 +420,15 @@
     "all": "Alle Modelle",
     "some_one": "{{count}} Modell",
     "some_other": "{{count}} Modelle"
+  },
+  "sharing": {
+    "on": "Teilen ist aktiv",
+    "address": "Deine Freigabeadresse",
+    "copy": "Kopieren",
+    "addressCopied": "Freigabeadresse kopiert",
+    "addressCopyFailed": "Die Freigabeadresse konnte nicht kopiert werden",
+    "settings": "Modus und Relays in den P2P-Einstellungen",
+    "workersNote": "Worker, die über P2P beigetreten sind, findest du unter Workers.",
+    "workersLink": "Zu Workers"
   }
 }
