@@ -407,7 +407,7 @@ test.describe('Projects in chats', () => {
     await page.getByTestId('project-picker-button').click()
     await page.getByRole('option', { name: /Client site redesign/ }).click()
     await page.getByTestId('chat-agent-picker').getByRole('button').click()
-    await page.getByRole('radio', { name: 'Scoped' }).click()
+    await page.getByRole('option', { name: /^Scoped/ }).click()
     await expect(page.getByTestId('project-picker-button')).toHaveCount(0)
     const chip = page.getByTestId('project-picker-fenced')
     await expect(chip).toHaveAttribute('aria-disabled', 'true')

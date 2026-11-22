@@ -1,8 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import Icon from '../Icon'
-import { Button } from '../ui'
+import { Button, SearchField } from '../ui'
 import { SwitchRow } from '../chat/SwitchList'
 import { SEARCH_MIN } from '../../utils/chatSkills'
 import { filterMcp } from '../../utils/agentUses'
@@ -21,11 +20,7 @@ export default function AgentMcpPicker({ rows, onSet }) {
   return (
     <div className="au-mcp" data-testid="agent-mcp-picker">
       {searchable && (
-        <div className="swl-search">
-          <Icon name="search" className="swl-search__icon" />
-          <input type="search" className="dk-input swl-search__input" value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('create.uses.mcp.search')} aria-label={t('create.uses.mcp.search')} data-testid="agent-mcp-search" />
-        </div>
+        <div><SearchField value={query} onChange={setQuery} label={t('create.uses.mcp.search')} testId="agent-mcp-search" /></div>
       )}
       {rows.length === 0 && <p className="ag-note" data-testid="agent-mcp-empty">{t('create.uses.mcp.none')}</p>}
       <div className="au-list">
