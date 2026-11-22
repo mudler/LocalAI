@@ -8,7 +8,8 @@ the target accelerator, the Strata Python files the backend uses, and a Python r
 
 Status: experimental. The unit tests run against a stub engine that speaks the same line protocol,
 including `LP` lines and `GENI`. The backend has not yet been run against a real engine and model;
-that check is still open.
+that check is still open. The Hy4-Flash family has the same status: its unit tests use the stub engine, and its tokenizer and
+chat-template path was checked against the real Section 0 of an SQ-64 build file, but no Hy4 engine has loaded a model through this backend.
 
 `make test-extra-backend-strata` runs the shared gRPC suite (`tests/e2e-backends`) against the built backend with a stub engine
 (`e2e/stub_engine.py`) and a synthetic tokenizer pack (`e2e/make_pack.py`). It needs Python 3 with `regex` and `jinja2`.

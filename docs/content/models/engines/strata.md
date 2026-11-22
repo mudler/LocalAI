@@ -9,7 +9,7 @@ aliases = ["/features/strata/"]
 [Strata](https://github.com/Niko1221/Strata) runs very large mixture-of-experts models, such as a 125B Qwen, on one machine with a GPU, a lot of RAM and a lot of disk. Strata is a separate project. LocalAI wraps it in the experimental `strata` backend, which starts the Strata engine as a child process and talks to it over the engine's line protocol.
 
 {{% callout style="warning" %}}
-This backend is experimental. LocalAI's tests have not run the Qwen gallery entries against a real Strata engine and model, and the pack build has not been run on a real model file. The speed, memory and quality figures on this page are Strata's own.
+This backend is experimental. LocalAI's tests have not run the Qwen gallery entries against a real Strata engine and model, and the pack build has not been run on a real model file. The Hy4-Flash entries have not been run on real hardware either: the backend was tested against a stub engine and against the real tokenizer data of the model file. The speed, memory and quality figures on this page are Strata's own.
 {{% /callout %}}
 
 Qwen entries and Tencent Hy4-Flash take text and images.
