@@ -6,7 +6,7 @@ btn src/components/EntityActionListEditor.jsx 2
 btn src/components/FailoverChainStatus.jsx 2
 btn src/components/FailoverTargetsEditor.jsx 4
 btn src/components/Lightbox.jsx 2
-btn src/components/NodeInstallPicker.jsx 12
+btn src/components/NodeInstallPicker.jsx 11
 btn src/components/PageLinkAsk.jsx 2
 btn src/components/PatternListEditor.jsx 2
 btn src/components/RecommendedModels.jsx 1
@@ -44,7 +44,6 @@ sheet-jsx src/pages/AgentCreate.jsx 1
 sheet-jsx src/pages/AgentTaskDetails.jsx 1
 toggle src/components/ConfigFieldRenderer.jsx 1
 toggle src/components/FailoverTargetsEditor.jsx 1
-toggle src/components/FilterBar.jsx 1
 toggle src/components/ProxyVisionSwitch.jsx 1
 toggle src/pages/Models.jsx 1
 width src/pages/library.css 1
